@@ -37,17 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free  free
-
-#define output_formatted_integer(BUFFER, FORMAT, INTEGER)	\
-  do								\
-    {								\
-      sprintf ((BUFFER)->digit_buffer, FORMAT, INTEGER);	\
-      output_add_string (BUFFER, (BUFFER)->digit_buffer);	\
-    }								\
-  while (0)
-
 #define output_text_length(BUFFER) (BUFFER)->line_length
 #define is_starting_newline(BUFFER) (output_text_length (BUFFER) == 0)
 #define line_wrap_cutoff(BUFFER) (BUFFER)->state.maximum_length
@@ -1407,6 +1396,20 @@ default_diagnostic_finalizer (context, diagnostic)
      diagnostic_info *diagnostic __attribute__((unused));
 {
   output_destroy_prefix (&context->buffer);
+}
+
+void
+inform VPARAMS ((const char *msgid, ...))
+{
+  diagnostic_info diagnostic;
+
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
+
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_filename, lineno,
+                       DK_NOTE);
+  report_diagnostic (&diagnostic);
+  VA_CLOSE (ap);
 }
 
 void

@@ -280,9 +280,6 @@ char *reload_firstobj;
    Used to quickly free all memory after processing one insn.  */
 static char *reload_insn_firstobj;
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* List of insn_chain instructions, one for every insn that reload needs to
    examine.  */
 struct insn_chain *reload_insn_chain;
@@ -3842,7 +3839,7 @@ reload_as_needed (live_known)
 
       else if (INSN_P (insn))
 	{
-	  rtx oldpat = PATTERN (insn);
+	  rtx oldpat = copy_rtx (PATTERN (insn));
 
 	  /* If this is a USE and CLOBBER of a MEM, ensure that any
 	     references to eliminable registers have been removed.  */
@@ -4324,7 +4321,7 @@ clear_reload_reg_in_use (regno, opnum, type, mode)
       abort ();
     }
   /* We resolve conflicts with remaining reloads of the same type by
-     excluding the intervals of of reload registers by them from the
+     excluding the intervals of reload registers by them from the
      interval of freed reload registers.  Since we only keep track of
      one set of interval bounds, we might have to exclude somewhat
      more than what would be necessary if we used a HARD_REG_SET here.
@@ -9475,12 +9472,20 @@ fixup_abnormal_edges ()
 		{
 	          delete_insn (insn);
 
-		  /* We're not deleting it, we're moving it.  */
-		  INSN_DELETED_P (insn) = 0;
-		  PREV_INSN (insn) = NULL_RTX;
-		  NEXT_INSN (insn) = NULL_RTX;
+		  /* Sometimes there's still the return value USE.
+		     If it's placed after a trapping call (i.e. that
+		     call is the last insn anyway), we have no fallthru
+		     edge.  Simply delete this use and don't try to insert
+		     on the non-existant edge.  */
+		  if (GET_CODE (PATTERN (insn)) != USE)
+		    {
+		      /* We're not deleting it, we're moving it.  */
+		      INSN_DELETED_P (insn) = 0;
+		      PREV_INSN (insn) = NULL_RTX;
+		      NEXT_INSN (insn) = NULL_RTX;
 
-	          insert_insn_on_edge (insn, e);
+		      insert_insn_on_edge (insn, e);
+		    }
 		}
 	      insn = next;
 	    }

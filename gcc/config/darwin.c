@@ -38,13 +38,11 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-
 #include "darwin-protos.h"
 
 extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 
 static int machopic_data_defined_p PARAMS ((const char *));
-static int func_name_maybe_scoped PARAMS ((const char *));
 static void update_non_lazy_ptrs PARAMS ((const char *));
 static void update_stubs PARAMS ((const char *));
 
@@ -227,7 +225,7 @@ static char function_base[32];
 
 static int current_pic_label_num;
 
-char *
+const char *
 machopic_function_base_name ()
 {
   static const char *name = NULL;
@@ -263,7 +261,7 @@ static GTY(()) tree machopic_non_lazy_pointers;
    either by finding it in our list of pointer names, or by generating
    a new one.  */
 
-char * 
+const char * 
 machopic_non_lazy_ptr_name (name)
      const char *name;
 {
@@ -326,7 +324,7 @@ static GTY(()) tree machopic_stubs;
 /* Return the name of the stub corresponding to the given name,
    generating a new stub name if necessary.  */
 
-char * 
+const char * 
 machopic_stub_name (name)
      const char *name;
 {
@@ -492,9 +490,6 @@ machopic_indirect_data_reference (orig, reg)
 	result = plus_constant (base, INTVAL (orig));
       else
 	result = gen_rtx (PLUS, Pmode, base, orig);
-
-      if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
-	RTX_UNCHANGING_P (result) = 1;
 
       if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
 	{
@@ -667,10 +662,10 @@ machopic_legitimize_pic_address (orig, mode, reg)
 	    }
 	  
 #if !defined (TARGET_TOC)
-	  RTX_UNCHANGING_P (pic_ref) = 1;
 	  emit_move_insn (reg, pic_ref);
 	  pic_ref = gen_rtx (MEM, GET_MODE (orig), reg);
 #endif
+	  RTX_UNCHANGING_P (pic_ref) = 1;
 	}
       else
 	{
@@ -702,6 +697,7 @@ machopic_legitimize_pic_address (orig, mode, reg)
 				  gen_rtx (LO_SUM, Pmode,
 					   hi_sum_reg, offset)));
 	      pic_ref = reg;
+	      RTX_UNCHANGING_P (pic_ref) = 1;
 #else
 	      emit_insn (gen_rtx (SET, VOIDmode, reg,
 				  gen_rtx (HIGH, Pmode, offset)));
@@ -709,6 +705,7 @@ machopic_legitimize_pic_address (orig, mode, reg)
 				  gen_rtx (LO_SUM, Pmode, reg, offset)));
 	      pic_ref = gen_rtx (PLUS, Pmode,
 				 pic_offset_table_rtx, reg);
+	      RTX_UNCHANGING_P (pic_ref) = 1;
 #endif
 	    }
 	  else
@@ -738,8 +735,6 @@ machopic_legitimize_pic_address (orig, mode, reg)
 		}
 	    }
 	}
-
-      RTX_UNCHANGING_P (pic_ref) = 1;
 
       if (GET_CODE (pic_ref) != REG)
         {

@@ -27,11 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    nodes of that code.
 
    It is intended to be language-independent, but occasionally
-   calls language-dependent routines defined (for C) in typecheck.c.
-
-   The low-level allocation routines oballoc and permalloc
-   are used also for allocating many other kinds of objects
-   by all passes of the compiler.  */
+   calls language-dependent routines defined (for C) in typecheck.c.  */
 
 #include "config.h"
 #include "system.h"
@@ -48,14 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
-
-/* Objects allocated on this obstack last forever.  */
-
-struct obstack permanent_obstack;
 
 #ifdef GATHER_STATISTICS
 /* Statistics-gathering stuff.  */
@@ -138,43 +128,17 @@ static int type_hash_marked_p PARAMS ((const void *));
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
-/* Init the principal obstacks.  */
+/* Init tree.c.  */
 
 void
-init_obstacks ()
+init_ttree ()
 {
-  gcc_obstack_init (&permanent_obstack);
-
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
 }
 
 
-/* Allocate SIZE bytes in the permanent obstack
-   and return a pointer to them.  */
-
-char *
-permalloc (size)
-     int size;
-{
-  return (char *) obstack_alloc (&permanent_obstack, size);
-}
-
-/* Allocate NELEM items of SIZE bytes in the permanent obstack
-   and return a pointer to them.  The storage is cleared before
-   returning the value.  */
-
-char *
-perm_calloc (nelem, size)
-     int nelem;
-     long size;
-{
-  char *rval = (char *) obstack_alloc (&permanent_obstack, nelem * size);
-  memset (rval, 0, nelem * size);
-  return rval;
-}
-
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
@@ -4361,13 +4325,10 @@ dump_tree_statistics ()
 #else
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
-  print_obstack_statistics ("permanent_obstack", &permanent_obstack);
   print_type_hash_statistics ();
   (*lang_hooks.print_statistics) ();
 }
 
-#define FILE_FUNCTION_PREFIX_LEN 9
-
 #define FILE_FUNCTION_FORMAT "_GLOBAL__%s_%s"
 
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name

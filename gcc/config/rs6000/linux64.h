@@ -39,6 +39,12 @@ Boston, MA 02111-1307, USA.  */
 #undef  ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC "-mppc64"
 
+#undef	ASM_SPEC
+#define	ASM_SPEC "%{.s: %{mregnames} %{mno-regnames}} \
+%{.S: %{mregnames} %{mno-regnames}} \
+%{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
+%{v:-V} %{Qy:} %{!Qn:-Qy} -a64 %(asm_cpu) %{Wa,*:%*}"
+
 /* 64-bit PowerPC Linux always has a TOC.  */
 #undef  TARGET_NO_TOC
 #define TARGET_NO_TOC		0
@@ -65,13 +71,6 @@ Boston, MA 02111-1307, USA.  */
 #undef RELOCATABLE_NEEDS_FIXUP
 
 #define USER_LABEL_PREFIX  ""
-
-/* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED))
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
@@ -323,3 +322,30 @@ do									\
     sym_lineno += 1;							\
   }									\
 while (0)
+
+/* Similarly, we want the function code label here.  */
+#define DBX_OUTPUT_BRAC(FILE, NAME, BRAC) \
+  do									\
+    {									\
+      const char *flab;							\
+      fprintf (FILE, "%s%d,0,0,", ASM_STABN_OP, BRAC);			\
+      assemble_name (FILE, NAME);					\
+      putc ('-', FILE);							\
+      if (current_function_func_begin_label != NULL_TREE)		\
+	flab = IDENTIFIER_POINTER (current_function_func_begin_label);	\
+      else								\
+	{								\
+	  putc ('.', FILE);						\
+	  flab = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);	\
+	}								\
+      assemble_name (FILE, flab);					\
+      putc ('\n', FILE);						\
+    }									\
+  while (0)
+
+#define DBX_OUTPUT_LBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_LBRAC)
+#define DBX_OUTPUT_RBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_RBRAC)
+
+/* Override sysv4.h as these are ABI_V4 only.  */
+#undef	ASM_OUTPUT_REG_PUSH
+#undef	ASM_OUTPUT_REG_POP

@@ -218,6 +218,14 @@ two syntaxes it accepts to indicate a root:
 @verb{|static GTY (([options])) [type] ID;|}
 @end enumerate
 
+These are the only syntaxes that are accepted.  In particular, if you
+want to mark a variable that is only declared as
+@verbatim
+int ID;
+@end verbatim
+or similar, you should either make it @code{static} or you should create
+a @code{extern} declaration in a header file somewhere.
+
 @node Files
 @section Source Files Containing Type Information
 @cindex generated files
@@ -228,25 +236,54 @@ things you need to do:
 
 @enumerate
 @item
-You need to add the file to the list of source files the type machinery
-scans.  For a back-end file, this is usually done automatically; if not,
-you should add it to @code{config_gtfiles} in the appropriate port's
-entries in @file{config.gcc}.  For a front-end file, this is done by
-adding the filename to the @code{gtfiles} variable defined in
-@file{config-lang.in}.  For other files, this is done by adding the
+You need to add the file to the list of source files the type
+machinery scans.  There are three cases: 
+
+@enumerate a
+@item
+For a back-end file, this is usually done
+automatically; if not, you should add it to @code{target_gtfiles} in
+the appropriate port's entries in @file{config.gcc}. 
+
+@item
+For files shared by all front ends, this is done by adding the
 filename to the @code{GTFILES} variable in @file{Makefile.in}.
 
-@item
-You need to include the file that the type machinery will generate in
-the source file you just changed.  The file will be called
-@file{gt-@var{path}.h} where @var{path} is the pathname from the
-@file{gcc} directory with slashes replaced by @verb{|-|}.  Don't forget
-to mention this file as a dependency in the @file{Makefile}!
+@item 
+For any other file used by a front end, this is done by adding the
+filename to the @code{gtfiles} variable defined in
+@file{config-lang.in}.  For C, the file is @file{c-config-lang.in}.
+This list should include all files that have GTY macros in them that
+are used in that front end, other than those defined in the previous
+list items.  For example, it is common for front end writers to use
+@file{c-common.c} and other files from the C front end, and these
+should be included in the @file{gtfiles} variable for such front ends.
+
+@end enumerate
 
 @item
-Finally, you need to arrange to add a @file{Makefile} rule that will
-ensure this file can be built.  This is done by making it a dependency
-of @code{s-gtype}, like this:
+If the file was a header file, you'll need to check that it's included
+in the right place to be visible to the generated files.  For a back-end
+header file, this should be done automatically.  For a front-end header
+file, it needs to be included by the same file that includes
+@file{gtype-@var{lang}.h}.  For other header files, it needs to be
+included in @file{gtype-desc.c}, which is a generated file, so add it to
+@code{ifiles} in @code{open_base_file} in @file{gengtype.c}.  
+
+For source files that aren't header files, the machinery will generate a
+header file that should be included in the source file you just changed.
+The file will be called @file{gt-@var{path}.h} where @var{path} is the
+pathname relative to the @file{gcc} directory with slashes replaced by
+@verb{|-|}, so for example the header file to be included in
+@file{objc/objc-parse.c} is called @file{gt-objc-objc-parse.c}.  The
+generated header file should be included after everything else in the
+source file.  Don't forget to mention this file as a dependency in the
+@file{Makefile}!
+
+@item
+If a new @file{gt-@var{path}.h} file is needed, you need to arrange to
+add a @file{Makefile} rule that will ensure this file can be built.
+This is done by making it a dependency of @code{s-gtype}, like this:
 @verbatim
 gt-path.h : s-gtype ; @true
 @end verbatim

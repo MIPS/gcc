@@ -2283,8 +2283,19 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	  /* If *SPLIT is a paradoxical SUBREG, when we split it, it should
 	     be written as a ZERO_EXTEND.  */
 	  if (split_code == SUBREG && GET_CODE (SUBREG_REG (*split)) == MEM)
-	    SUBST (*split, gen_rtx_ZERO_EXTEND  (split_mode,
-						 SUBREG_REG (*split)));
+	    {
+#ifdef LOAD_EXTEND_OP
+	      /* Or as a SIGN_EXTEND if LOAD_EXTEND_OP says that that's
+		 what it really is.  */
+	      if (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (*split)))
+		  == SIGN_EXTEND)
+		SUBST (*split, gen_rtx_SIGN_EXTEND (split_mode,
+						    SUBREG_REG (*split)));
+	      else
+#endif
+		SUBST (*split, gen_rtx_ZERO_EXTEND (split_mode,
+						    SUBREG_REG (*split)));
+	    }
 #endif
 
 	  newi2pat = gen_rtx_SET (VOIDmode, newdest, *split);
@@ -4764,12 +4775,12 @@ simplify_if_then_else (x)
 
   /* Convert a == b ? b : a to "a".  */
   if (true_code == EQ && ! side_effects_p (cond)
-      && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations)
+      && !HONOR_NANS (mode)
       && rtx_equal_p (XEXP (cond, 0), false_rtx)
       && rtx_equal_p (XEXP (cond, 1), true_rtx))
     return false_rtx;
   else if (true_code == NE && ! side_effects_p (cond)
-	   && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations)
+	   && !HONOR_NANS (mode)
 	   && rtx_equal_p (XEXP (cond, 0), true_rtx)
 	   && rtx_equal_p (XEXP (cond, 1), false_rtx))
     return true_rtx;
@@ -8344,12 +8355,13 @@ nonzero_bits (x, mode)
 #if defined (WORD_REGISTER_OPERATIONS) && defined (LOAD_EXTEND_OP)
 	  /* If this is a typical RISC machine, we only have to worry
 	     about the way loads are extended.  */
-	  if (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
-	      ? (((nonzero
-		   & (((unsigned HOST_WIDE_INT) 1
-		       << (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1))))
-		  != 0))
-	      : LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) != ZERO_EXTEND)
+	  if ((LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
+	       ? (((nonzero
+		    & (((unsigned HOST_WIDE_INT) 1
+			<< (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1))))
+		   != 0))
+	       : LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) != ZERO_EXTEND)
+	      || GET_CODE (SUBREG_REG (x)) != MEM)
 #endif
 	    {
 	      /* On many CISC machines, accessing an object in a wider mode
@@ -8572,7 +8584,8 @@ num_sign_bit_copies (x, mode)
 
       if ((GET_MODE_SIZE (GET_MODE (x))
 	   > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND)
+	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
+	  && GET_CODE (SUBREG_REG (x)) == MEM)
 	return num_sign_bit_copies (SUBREG_REG (x), mode);
 #endif
 #endif

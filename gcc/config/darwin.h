@@ -103,10 +103,6 @@ Boston, MA 02111-1307, USA.  */
 #undef	DOLLARS_IN_IDENTIFIERS
 #define DOLLARS_IN_IDENTIFIERS 2
 
-/* Allow #sccs (but don't do anything). */
-
-#define SCCS_DIRECTIVE
-
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO
@@ -165,7 +161,10 @@ do { text_section ();							\
       }								\
   } while (0)
 
-/* Give ObjcC methods pretty symbol names. */
+#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
+  fprintf (FILE, "\t.space %d\n", SIZE)
+
+/* Give ObjC methods pretty symbol names. */
 
 #undef	OBJC_GEN_METHOD_LABEL
 #define OBJC_GEN_METHOD_LABEL(BUF,IS_INST,CLASS_NAME,CAT_NAME,SEL_NAME,NUM) \
@@ -246,6 +245,15 @@ do { text_section ();							\
        else								     \
          fprintf (FILE, "_%s", xname);					     \
   } while (0)
+
+/* Output before executable code.  */
+#undef TEXT_SECTION_ASM_OP
+#define TEXT_SECTION_ASM_OP ".text"
+
+/* Output before writable data.  */
+
+#undef DATA_SECTION_ASM_OP
+#define DATA_SECTION_ASM_OP ".data"
 
 #undef	ALIGN_ASM_OP
 #define ALIGN_ASM_OP		".align"
@@ -540,7 +548,9 @@ enum machopic_addr_class {
 #define MACHOPIC_JUST_INDIRECT (flag_pic == 1)
 #define MACHOPIC_PURE          (flag_pic == 2)
 
+#undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  darwin_strip_name_encoding
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
@@ -603,6 +613,7 @@ enum machopic_addr_class {
 
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
   
+#undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
@@ -613,3 +624,8 @@ enum machopic_addr_class {
     cpp_register_pragma (PFILE, 0, "segment", darwin_pragma_ignore);	\
     cpp_register_pragma (PFILE, 0, "unused", darwin_pragma_unused);	\
   } while (0)
+
+#undef ASM_APP_ON
+#define ASM_APP_ON ""
+#undef ASM_APP_OFF
+#define ASM_APP_OFF ""

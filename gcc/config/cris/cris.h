@@ -211,7 +211,7 @@ extern const char *cris_elinux_stacksize_str;
 #define CRIS_LINK_SUBTARGET_SPEC \
  "-mcriself\
   %{sim2:%{!T*:-Tdata 0x4000000 -Tbss 0x8000000}}\
-  %{O2|O3: --gc-sections}"
+  %{!r:%{O2|O3: --gc-sections}}"
 
 /* Which library to get.  The only difference from the default is to get
    libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
@@ -1044,8 +1044,7 @@ struct cum_args {int regs;};
       if (TARGET_PDEBUG)						\
 	{								\
 	  fprintf (asm_out_file,					\
-		   "\n; VA:: %s: %d args before, anon @ #%d, %dtime\n",	\
-		   current_function_varargs ? "OLD" : "ANSI",		\
+		   "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n", \
 		   (ARGSSF).regs, PRETEND, SECOND);			\
 	}								\
     }									\
@@ -1575,22 +1574,8 @@ call_ ## FUNC (void)						\
 
 /* Node: Label Output */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      assemble_name (FILE, NAME);		\
-      fputs (":\n", FILE);			\
-    }						\
-  while (0)
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      fputs ("\t.global ", FILE);		\
-      assemble_name (FILE, NAME);		\
-      fputs ("\n", FILE);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 #define SUPPORTS_WEAK 1
 

@@ -43,26 +43,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    virtual regs here because the simplify_*_operation routines are called
    by integrate.c, which is called before virtual register instantiation.
 
-   ?!? FIXED_BASE_PLUS_P and NONZERO_BASE_PLUS_P need to move into
+   ?!? NONZERO_BASE_PLUS_P needs to move into
    a header file so that their definitions can be shared with the
    simplification routines in simplify-rtx.c.  Until then, do not
-   change these macros without also changing the copy in simplify-rtx.c.  */
+   change this macro without also changing the copy in simplify-rtx.c.  */
 
-#define FIXED_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || ((X) == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
-/* Similar, but also allows reference to the stack pointer.
+/* Allows reference to the stack pointer.
 
    This used to include FIXED_BASE_PLUS_P, however, we can't assume that
    arg_pointer_rtx by itself is nonzero, because on at least one machine,
@@ -1183,10 +1169,10 @@ simplify_binary_operation (code, mode, op0, op1)
 	      && ! side_effects_p (op0))
 	    return op1;
 
-	  /* In IEEE floating point, x*1 is not equivalent to x for nans.
-	     However, ANSI says we can drop signals,
-	     so we can do this anyway.  */
-	  if (trueop1 == CONST1_RTX (mode))
+	  /* In IEEE floating point, x*1 is not equivalent to x for
+	     signalling NaNs.  */
+	  if (!HONOR_SNANS (mode)
+	      && trueop1 == CONST1_RTX (mode))
 	    return op0;
 
 	  /* Convert multiply by constant power of two into shift unless
@@ -2075,6 +2061,28 @@ simplify_relational_operation (code, mode, op0, op1)
 	    return const0_rtx;
 	  break;
 
+	case LT:
+	  /* Optimize abs(x) < 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode) && !HONOR_SNANS (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const0_rtx;
+	    }
+	  break;
+
+	case GE:
+	  /* Optimize abs(x) >= 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode) && !HONOR_NANS (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const1_rtx;
+	    }
+	  break;
+
 	default:
 	  break;
 	}
@@ -2185,12 +2193,12 @@ simplify_ternary_operation (code, mode, op0_mode, op0, op1, op2)
 
       /* Convert a == b ? b : a to "a".  */
       if (GET_CODE (op0) == NE && ! side_effects_p (op0)
-	  && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations)
+	  && !HONOR_NANS (mode)
 	  && rtx_equal_p (XEXP (op0, 0), op1)
 	  && rtx_equal_p (XEXP (op0, 1), op2))
 	return op1;
       else if (GET_CODE (op0) == EQ && ! side_effects_p (op0)
-	  && (! FLOAT_MODE_P (mode) || flag_unsafe_math_optimizations)
+	  && !HONOR_NANS (mode)
 	  && rtx_equal_p (XEXP (op0, 1), op1)
 	  && rtx_equal_p (XEXP (op0, 0), op2))
 	return op2;
@@ -2272,7 +2280,7 @@ simplify_subreg (outermode, op, innermode, byte)
   if (GET_CODE (op) == CONST_VECTOR)
     {
       int elt_size = GET_MODE_SIZE (GET_MODE_INNER (innermode));
-      int offset = byte / elt_size;
+      const unsigned int offset = byte / elt_size;
       rtx elt;
 
       if (GET_MODE_INNER (innermode) == outermode)
@@ -2307,6 +2315,14 @@ simplify_subreg (outermode, op, innermode, byte)
 	  for (; n_elts--; i += step)
 	    {
 	      elt = CONST_VECTOR_ELT (op, i);
+	      if (GET_CODE (elt) == CONST_DOUBLE
+		  && GET_MODE_CLASS (GET_MODE (elt)) == MODE_FLOAT)
+		{
+		  elt = gen_lowpart_common (int_mode_for_mode (GET_MODE (elt)),
+					    elt);
+		  if (! elt)
+		    return NULL_RTX;
+		}
 	      if (GET_CODE (elt) != CONST_INT)
 		return NULL_RTX;
 	      high = high << shift | sum >> (HOST_BITS_PER_WIDE_INT - shift);
@@ -2319,8 +2335,19 @@ simplify_subreg (outermode, op, innermode, byte)
 	  else
 	    return NULL_RTX;
 	}
-      else if (GET_MODE_CLASS (outermode) != MODE_VECTOR_INT
-	       && GET_MODE_CLASS (outermode) != MODE_VECTOR_FLOAT)
+      else if (GET_MODE_CLASS (outermode) == MODE_INT
+	       && (elt_size % GET_MODE_SIZE (outermode) == 0))
+	{
+	  enum machine_mode new_mode
+	    = int_mode_for_mode (GET_MODE_INNER (innermode));
+	  int subbyte = byte % elt_size;
+
+	  op = simplify_subreg (new_mode, op, innermode, byte - subbyte);
+	    if (! op)
+	      return NULL_RTX;
+	  return simplify_subreg (outermode, op, new_mode, subbyte);
+	}
+      else if (GET_MODE_CLASS (outermode) == MODE_INT)
         /* This shouldn't happen, but let's not do anything stupid.  */
 	return NULL_RTX;
     }
@@ -2339,10 +2366,17 @@ simplify_subreg (outermode, op, innermode, byte)
 	  int subsize = GET_MODE_UNIT_SIZE (outermode);
 	  int i, elts = GET_MODE_NUNITS (outermode);
 	  rtvec v = rtvec_alloc (elts);
+	  rtx elt;
 
 	  for (i = 0; i < elts; i++, byte += subsize)
 	    {
-	      RTVEC_ELT (v, i) = simplify_subreg (submode, op, innermode, byte);
+	      /* This might fail, e.g. if taking a subreg from a SYMBOL_REF.  */
+	      /* ??? It would be nice if we could actually make such subregs
+		 on targets that allow such relocations.  */
+	      elt = simplify_subreg (submode, op, innermode, byte);
+	      if (! elt)
+		return NULL_RTX;
+	      RTVEC_ELT (v, i) = elt;
 	    }
 	  return gen_rtx_CONST_VECTOR (outermode, v);
 	}
@@ -2352,7 +2386,8 @@ simplify_subreg (outermode, op, innermode, byte)
 	 Later it we should move all simplification code here and rewrite
 	 GEN_LOWPART_IF_POSSIBLE, GEN_HIGHPART, OPERAND_SUBWORD and friends
 	 using SIMPLIFY_SUBREG.  */
-      if (subreg_lowpart_offset (outermode, innermode) == byte)
+      if (subreg_lowpart_offset (outermode, innermode) == byte
+	  && GET_CODE (op) != CONST_VECTOR)
 	{
 	  rtx new = gen_lowpart_if_possible (outermode, op);
 	  if (new)
@@ -2369,6 +2404,20 @@ simplify_subreg (outermode, op, innermode, byte)
 				      innermode);
 	  if (new)
 	    return new;
+	}
+
+      if (GET_MODE_CLASS (outermode) != MODE_INT
+	  && GET_MODE_CLASS (outermode) != MODE_CC)
+	{
+	  enum machine_mode new_mode = int_mode_for_mode (outermode);
+
+	  if (new_mode != innermode || byte != 0)
+	    {
+	      op = simplify_subreg (new_mode, op, innermode, byte);
+	      if (! op)
+		return NULL_RTX;
+	      return simplify_subreg (outermode, op, new_mode, 0);
+	    }
 	}
 
       offset = byte * BITS_PER_UNIT;

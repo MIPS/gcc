@@ -1729,8 +1729,8 @@ enum reg_class
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
    implementation will be defined that works for arguments passed on the stack.  */
-#define EXPAND_BUILTIN_VA_START(STDARG_P, VALIST, NEXTARG) \
-  xstormy16_expand_builtin_va_start (STDARG_P, VALIST, NEXTARG)
+#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
+  xstormy16_expand_builtin_va_start (VALIST, NEXTARG)
 
 /* Implement the stdarg/varargs va_arg macro.  VALIST is the variable of type
    va_list as a tree, TYPE is the type passed to va_arg.  */
@@ -2435,7 +2435,7 @@ do {							\
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP ".bss"
+#define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -2782,27 +2782,12 @@ do {							\
 
 /* Output and Generation of Labels.  */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM the
-   assembler definition of a label named NAME.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before and after
-   that, output the additional assembler syntax for defining the name, and a
-   newline.  */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-do {									\
-  assemble_name (STREAM, NAME);						\
-  fputs (":\n", STREAM);						\
-} while (0)
-
 /* A C statement to output to the stdio stream STREAM the assembler
    definition of a symbol named SYMBOL.  */
 #define ASM_OUTPUT_SYMBOL_REF(STREAM, SYMBOL)				\
   do {									\
     if (SYMBOL_REF_FLAG (SYMBOL))					\
-      {									\
-        fputs ("@fptr(", STREAM);					\
-	assemble_name (STREAM, XSTR (SYMBOL, 0));			\
-	fputc (')', STREAM);						\
-      }									\
+      ASM_OUTPUT_LABEL_REF ((STREAM), XSTR (SYMBOL, 0));		\
     else								\
       assemble_name (STREAM, XSTR (SYMBOL, 0));				\
   } while (0)
@@ -2863,17 +2848,8 @@ do  {						\
    Defined in svr4.h.  */
 /* #define ASM_FINISH_DECLARE_OBJECT(STREAM, DECL, TOPLEVEL, ATEND) */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)				\
-do {									\
-  fputs ("\t.globl ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM some
    commands that will make the label NAME weak; that is, available for
@@ -3922,12 +3898,6 @@ do {									\
    arguments that the function accepts.  Some people think a larger threshold
    should be used on RISC machines.  */
 /* #define INTEGRATE_THRESHOLD(DECL) */
-
-/* Define this if the preprocessor should ignore `#sccs' directives and print
-   no error message.
-
-   Defined in svr4.h.  */
-/* #define SCCS_DIRECTIVE */
 
 /* Define this macro if the system header files support C++ as well as C.  This
    macro inhibits the usual method of using system header files in C++, which

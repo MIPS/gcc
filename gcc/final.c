@@ -222,6 +222,7 @@ static void profile_after_prologue PARAMS ((FILE *));
 static void notice_source_line	PARAMS ((rtx));
 static rtx walk_alter_subreg	PARAMS ((rtx *));
 static void output_asm_name	PARAMS ((void));
+static void output_alternate_entry_point PARAMS ((FILE *, rtx));
 static tree get_mem_expr_from_op	PARAMS ((rtx, int *));
 static void output_asm_operand_names PARAMS ((rtx *, int *, int));
 static void output_operand	PARAMS ((rtx, int));
@@ -310,7 +311,6 @@ end_final (filename)
 	strcpy (da_filename, cwd);
 	strcat (da_filename, "/");
 	strcat (da_filename, filename);
-	strip_off_ending (da_filename, da_filename_len - 3);
 	strcat (da_filename, ".da");
 	da_filename_len = strlen (da_filename);
 	string_cst = build_string (da_filename_len + 1, da_filename);
@@ -1952,6 +1952,39 @@ get_insn_template (code, insn)
     }
 }
 
+/* Emit the appropriate declaration for an alternate-entry-point
+   symbol represented by INSN, to FILE.  INSN is a CODE_LABEL with
+   LABEL_KIND != LABEL_NORMAL.
+
+   The case fall-through in this function is intentional.  */
+static void
+output_alternate_entry_point (file, insn)
+     FILE *file;
+     rtx insn;
+{
+  const char *name = LABEL_NAME (insn);
+
+  switch (LABEL_KIND (insn))
+    {
+    case LABEL_WEAK_ENTRY:
+#ifdef ASM_WEAKEN_LABEL
+      ASM_WEAKEN_LABEL (file, name);
+#endif
+    case LABEL_GLOBAL_ENTRY:
+      ASM_GLOBALIZE_LABEL (file, name);
+    case LABEL_STATIC_ENTRY:
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+      ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+#endif
+      ASM_OUTPUT_LABEL (file, name);
+      break;
+
+    case LABEL_NORMAL:
+    default:
+      abort ();
+    }
+}
+
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -2242,17 +2275,14 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      if (LABEL_ALTERNATE_NAME (insn))
-		ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
-	      else
-		ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
 	    }
 	}
-      if (LABEL_ALTERNATE_NAME (insn))
-	ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+      if (LABEL_ALT_ENTRY_P (insn))
+	output_alternate_entry_point (file, insn);
       else
 	ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
       break;

@@ -1219,7 +1219,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
     {
       unsigned int i;
       optab otheroptab = binoptab == add_optab ? sub_optab : add_optab;
-      int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
+      const unsigned int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
       rtx carry_in = NULL_RTX, carry_out = NULL_RTX;
       rtx xop0, xop1, xtarget;
 
@@ -2049,7 +2049,10 @@ expand_vector_unop (mode, unoptab, op0, target, unsignedp)
 	submode = tmode;
     }
   /* If there is no negate operation, try doing a subtract from zero.  */
-  if (unoptab == neg_optab && GET_MODE_CLASS (submode) == MODE_INT)
+  if (unoptab == neg_optab && GET_MODE_CLASS (submode) == MODE_INT
+      /* Avoid infinite recursion when an
+	 error has left us with the wrong mode.  */
+      && GET_MODE (op0) == mode)
     {    
       rtx temp;
       temp = expand_binop (mode, sub_optab, CONST0_RTX (mode), op0,
@@ -5190,6 +5193,8 @@ init_optabs ()
   sqrt_optab = init_optab (SQRT);
   sin_optab = init_optab (UNKNOWN);
   cos_optab = init_optab (UNKNOWN);
+  exp_optab = init_optab (UNKNOWN);
+  log_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);
   cbranch_optab = init_optab (UNKNOWN);
   cmov_optab = init_optab (UNKNOWN);

@@ -1001,14 +1001,16 @@ associate_trees (t1, t2, code, type)
   if (TREE_CODE (t1) == code || TREE_CODE (t2) == code
       || TREE_CODE (t1) == MINUS_EXPR || TREE_CODE (t2) == MINUS_EXPR)
     {
-      if (TREE_CODE (t1) == NEGATE_EXPR)
-	return build (MINUS_EXPR, type, convert (type, t2),
-		      convert (type, TREE_OPERAND (t1, 0)));
-      else if (TREE_CODE (t2) == NEGATE_EXPR)
-	return build (MINUS_EXPR, type, convert (type, t1),
-		      convert (type, TREE_OPERAND (t2, 0)));
-      else
-	return build (code, type, convert (type, t1), convert (type, t2));
+      if (code == PLUS_EXPR)
+	{
+	  if (TREE_CODE (t1) == NEGATE_EXPR)
+	    return build (MINUS_EXPR, type, convert (type, t2),
+			  convert (type, TREE_OPERAND (t1, 0)));
+	  else if (TREE_CODE (t2) == NEGATE_EXPR)
+	    return build (MINUS_EXPR, type, convert (type, t1),
+			  convert (type, TREE_OPERAND (t2, 0)));
+	}
+      return build (code, type, convert (type, t1), convert (type, t2));
     }
 
   return fold (build (code, type, convert (type, t1), convert (type, t2)));
@@ -2716,7 +2718,7 @@ sign_bit_p (exp, val)
   int width;
   tree t;
 
-  /* Tree EXP must have a integral type.  */
+  /* Tree EXP must have an integral type.  */
   t = TREE_TYPE (exp);
   if (! INTEGRAL_TYPE_P (t))
     return NULL_TREE;
@@ -5476,16 +5478,13 @@ fold (expr)
 	      && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg0)))
 	      && real_zerop (arg1))
 	    return omit_one_operand (type, arg1, arg0);
-	  /* In IEEE floating point, x*1 is not equivalent to x for snans.
-	     However, ANSI says we can drop signals,
-	     so we can do this anyway.  */
-	  if (real_onep (arg1))
+	  /* In IEEE floating point, x*1 is not equivalent to x for snans.  */
+	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	      && real_onep (arg1))
 	    return non_lvalue (convert (type, arg0));
 
-	  /* Transform x * -1.0 into -x.  This should be safe for NaNs,
-	     signed zeros and signed infinities, but is currently
-	     restricted to "unsafe math optimizations" just in case.  */
-	  if (flag_unsafe_math_optimizations
+	  /* Transform x * -1.0 into -x.  */
+	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
 	      && real_minus_onep (arg1))
 	    return fold (build1 (NEGATE_EXPR, type, arg0));
 
@@ -5620,9 +5619,9 @@ fold (expr)
 	return fold (build (RDIV_EXPR, type, TREE_OPERAND (arg0, 0),
 			    TREE_OPERAND (arg1, 0)));
 
-      /* In IEEE floating point, x/1 is not equivalent to x for snans.
-	 However, ANSI says we can drop signals, so we can do this anyway.  */
-      if (real_onep (arg1))
+      /* In IEEE floating point, x/1 is not equivalent to x for snans.  */
+      if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	  && real_onep (arg1))
 	return non_lvalue (convert (type, arg0));
 
       /* If ARG1 is a constant, we can convert this to a multiply by the

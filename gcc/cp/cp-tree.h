@@ -57,7 +57,6 @@ struct diagnostic_context;
       (TREE_CALLS_NEW) (in _EXPR or _REF) (commented-out).
       TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (in _TYPE).
       INHERITED_VALUE_BINDING_P (in CPLUS_BINDING)
-      BASELINK_P (in TREE_LIST)
       ICS_ELLIPSIS_FLAG (in _CONV)
       BINFO_ACCESS (in BINFO)
    2: IDENTIFIER_OPNAME_P.
@@ -214,23 +213,6 @@ struct diagnostic_context;
 #endif
 
 
-/* ABI control.  */
-
-/* Nonzero to use __cxa_atexit, rather than atexit, to register
-   destructors for local statics and global objects.  */
-
-extern int flag_use_cxa_atexit;
-
-/* Nonzero means generate 'rtti' that give run-time type information.  */
-
-extern int flag_rtti;
-
-/* Nonzero if we want to support huge (> 2^(sizeof(short)*8-1) bytes)
-   objects.  */
-
-extern int flag_huge_objects;
-
-
 /* Language-dependent contents of an identifier.  */
 
 struct lang_identifier GTY(())
@@ -378,32 +360,28 @@ struct tree_overload GTY(())
   tree function;
 };
 
-/* A `baselink' is a TREE_LIST whose TREE_PURPOSE is a BINFO
-   indicating a particular base class, and whose TREE_VALUE is a
-   (possibly overloaded) function from that base class.  */
+/* Returns true iff NODE is a BASELINK.  */
 #define BASELINK_P(NODE) \
-  (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
-#define SET_BASELINK_P(NODE) \
-  (TREE_LANG_FLAG_1 (NODE) = 1)
-/* The BINFO indicated the base from which the BASELINK_FUNCTIONS came.  */
+  (TREE_CODE (NODE) == BASELINK)
+/* The BINFO indicating the base from which the BASELINK_FUNCTIONS came.  */
 #define BASELINK_BINFO(NODE) \
-  (TREE_PURPOSE (NODE))
-/* The functions referred to by the BASELINK; either a FUNCTION_DECL
-   or an OVERLOAD.  */
+  (TREE_OPERAND (BASELINK_CHECK (NODE), 0))
+/* The functions referred to by the BASELINK; either a FUNCTION_DECL,
+   a TEMPLATE_DECL, an OVERLOAD, or a TEMPLATE_ID_EXPR.  */
 #define BASELINK_FUNCTIONS(NODE) \
-  (TREE_VALUE (NODE))
+  (TREE_OPERAND (BASELINK_CHECK (NODE), 1))
 /* The BINFO in which the search for the functions indicated by this baselink 
    began.  This base is used to determine the accessibility of functions 
    selected by overload resolution.  */
 #define BASELINK_ACCESS_BINFO(NODE) \
-  (TREE_TYPE (NODE))
+  (TREE_OPERAND (BASELINK_CHECK (NODE), 2))
 /* For a type-conversion operator, the BASELINK_OPTYPE indicates the type
    to which the conversion should occur.  This value is important if
    the BASELINK_FUNCTIONS include a template conversion operator --
    the BASELINK_OPTYPE can be used to determine what type the user
    requested.  */
 #define BASELINK_OPTYPE(NODE) \
-  (TREE_CHAIN (NODE))
+  (TREE_CHAIN (BASELINK_CHECK (NODE)))
 
 #define WRAPPER_ZC(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->z_c)
 
@@ -958,143 +936,12 @@ extern GTY(()) tree global_namespace;
 #define ansi_assopname(CODE) \
   (assignment_operator_name_info[(int) (CODE)].identifier)
 
-/* Nonzero means `$' can be in an identifier.  */
-
-extern int dollars_in_ident;
-
-/* Nonzero means don't recognize the keyword `asm'.  */
-
-extern int flag_no_asm;
-
-/* Nonzero means don't recognize any extended keywords.  */
-
-extern int flag_no_gnu_keywords;
-
-/* For environments where you can use GNU binutils (as, ld in particular).  */
-
-extern int flag_gnu_binutils;
-
-/* Nonzero means warn about implicit declarations.  */
-
-extern int warn_implicit;
-
-/* Nonzero means warn when all ctors or dtors are private, and the class
-   has no friends.  */
-
-extern int warn_ctor_dtor_privacy;
-
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-extern int warn_write_strings;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-extern int warn_redundant_decls;
-
-/* Warn if initializer is not completely bracketed.  */
-
-extern int warn_missing_braces;
-
-/* Warn about comparison of signed and unsigned values.  */
-
-extern int warn_sign_compare;
-
-/* Warn about testing equality of floating point numbers. */
-
-extern int warn_float_equal;
-
-/* Warn about a subscript that has type char.  */
-
-extern int warn_char_subscripts;
-
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-extern int warn_cast_qual;
-
-/* Nonzero means warn about non virtual destructors in classes that have
-   virtual functions.  */
-
-extern int warn_nonvdtor;
-
-/* Non-zero means warn when we convert a pointer to member function
-   into a pointer to (void or function).  */
-
-extern int warn_pmf2ptr;
-
-/* Nonzero means warn about violation of some Effective C++ style rules.  */
-
-extern int warn_ecpp;
-
-/* Nonzero means warn where overload resolution chooses a promotion from
-   unsigned to signed over a conversion to an unsigned of the same size.  */
-
-extern int warn_sign_promo;
-
-/* Non-zero means warn when an old-style cast is used.  */
-
-extern int warn_old_style_cast;
-
-/* Non-zero means warn when the compiler will reorder code.  */
-
-extern int warn_reorder;
-
-/* Non-zero means warn about deprecated features.  */
-
-extern int warn_deprecated;
-
-/* Nonzero means to treat bitfields as unsigned unless they say `signed'.  */
-
-extern int flag_signed_bitfields;
-
 /* INTERFACE_ONLY nonzero means that we are in an "interface"
    section of the compiler.  INTERFACE_UNKNOWN nonzero means
    we cannot trust the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN
    is zero and INTERFACE_ONLY is zero, it means that we are responsible
    for exporting definitions that others might need.  */
 extern int interface_only, interface_unknown;
-
-/* Nonzero means we should attempt to elide constructors when possible.  */
-
-extern int flag_elide_constructors;
-
-/* Nonzero means that member functions defined in class scope are
-   inline by default.  */
-
-extern int flag_default_inline;
-
-/* Nonzero means generate separate instantiation control files and juggle
-   them at link time.  */
-extern int flag_use_repository;
-
-/* Nonzero if we want to issue diagnostics that the standard says are not
-   required.  */
-extern int flag_optional_diags;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-extern int flag_vtable_gc;
-
-/* Nonzero means make the default pedwarns warnings instead of errors.
-   The value of this flag is ignored if -pedantic is specified.  */
-extern int flag_permissive;
-
-/* Nonzero means to implement standard semantics for exception
-   specifications, calling unexpected if an exception is thrown that
-   doesn't match the specification.  Zero means to treat them as
-   assertions and optimize accordingly, but not check them.  */
-extern int flag_enforce_eh_specs;
-
-/* Nonzero if we want to obey access control semantics.  */
-
-extern int flag_access_control;
-
-/* Nonzero if we want to check the return value of new and avoid calling
-   constructors if it is a null pointer.  */
-
-extern int flag_check_new;
-
 
 /* C++ language-specific tree codes.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
@@ -1778,8 +1625,6 @@ struct lang_type GTY(())
 #define VF_BASETYPE_VALUE(NODE) TREE_VALUE (NODE)
 
 /* Accessor macros for the BINFO_VIRTUALS list. */
-#define VF_DERIVED_VALUE(NODE) \
-   (VF_BINFO_VALUE (NODE) ? BINFO_TYPE (VF_BINFO_VALUE (NODE)) : NULL_TREE)
 
 /* The number of bytes by which to adjust the `this' pointer when
    calling this virtual function.  Subtract this value from the this
@@ -1795,8 +1640,7 @@ struct lang_type GTY(())
 #define BV_FN(NODE) (TREE_VALUE (NODE))
 
 /* Nonzero if we should use a virtual thunk for this entry.  */
-#define BV_USE_VCALL_INDEX_P(NODE) \
-   (TREE_LANG_FLAG_0 (NODE))
+#define BV_USE_VCALL_INDEX_P(NODE) (TREE_LANG_FLAG_0 (NODE))
 
 /* Nonzero for TREE_LIST node means that this list of things
    is a list of parameters, as opposed to a list of expressions.  */
@@ -2525,8 +2369,6 @@ struct lang_decl GTY(())
   (TYPE_POLYMORPHIC_P (NODE)			\
    || TYPE_USES_VIRTUAL_BASECLASSES (NODE))
 
-extern int flag_new_for_scope;
-
 /* This flag is true of a local VAR_DECL if it was declared in a for
    statement, but we are no longer in the scope of the for.  */
 #define DECL_DEAD_FOR_LOCAL(NODE) DECL_LANG_FLAG_7 (VAR_DECL_CHECK (NODE))
@@ -3250,20 +3092,10 @@ typedef enum base_kind {
 			     binfo. */
 } base_kind;
 
-/* Non-zero means warn in function declared in derived class has the
-   same name as a virtual in the base class, but fails to match the
-   type signature of any virtual function in the base class.  */
-extern int warn_overloaded_virtual;
-
 /* Set by add_implicitly_declared_members() to keep those members from
    being flagged as deprecated or reported as using deprecated
    types.  */
 extern int adding_implicit_members;
-
-/* Non-zero means warn if a non-templatized friend function is
-   declared in a templatized class. This behavior is warned about with
-   flag_guiding_decls in do_friend. */
-extern int warn_nontemplate_friend;
 
 /* in decl{2}.c */
 /* A node that is a list (length 1) of error_mark_nodes.  */
@@ -3439,31 +3271,6 @@ extern GTY(()) varray_type local_classes;
     && MAIN_NAME_P (DECL_NAME (NODE)))
 
 
-/* Things for handling inline functions.  */
-
-/* Nonzero means do emit exported implementations of functions even if
-   they can be inlined.  */
-
-extern int flag_implement_inlines;
-
-/* Nonzero means templates obey #pragma interface and implementation.  */
-
-extern int flag_external_templates;
-
-/* Nonzero means templates are emitted where they are instantiated.  */
-
-extern int flag_alt_external_templates;
-
-/* Nonzero means implicit template instantiations are emitted.  */
-
-extern int flag_implicit_templates;
-
-/* Nonzero if we want to emit defined symbols with common-like linkage as
-   weak symbols where possible, in order to conform to C++ semantics.
-   Otherwise, emit them as local symbols.  */
-
-extern int flag_weak;
-
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 extern int at_eof;
@@ -3728,6 +3535,7 @@ extern tree perform_implicit_conversion         PARAMS ((tree, tree));
 
 /* in class.c */
 extern tree build_base_path			PARAMS ((enum tree_code, tree, tree, int));
+extern tree convert_to_base                     (tree, tree, bool);
 extern tree build_vbase_path			PARAMS ((enum tree_code, tree, tree, tree, int));
 extern tree build_vtbl_ref			PARAMS ((tree, tree));
 extern tree build_vfn_ref			PARAMS ((tree, tree));
@@ -3949,7 +3757,6 @@ extern bool have_extern_spec;
 
 /* in decl2.c */
 extern int check_java_method			PARAMS ((tree));
-extern int cxx_decode_option			PARAMS ((int, char **));
 extern int grok_method_quals			PARAMS ((tree, tree, tree));
 extern void warn_if_unknown_interface		PARAMS ((tree));
 extern void grok_x_components			PARAMS ((tree));
@@ -4431,6 +4238,7 @@ extern tree cp_build_qualified_type_real        PARAMS ((tree, int, tsubst_flags
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
 extern tree build_shared_int_cst                PARAMS ((int));
 extern special_function_kind special_function_p PARAMS ((tree));
+extern bool name_p                              (tree);
 extern int count_trees                          PARAMS ((tree));
 extern int char_type_p                          PARAMS ((tree));
 extern void verify_stmt_tree                    PARAMS ((tree));
@@ -4470,10 +4278,8 @@ extern tree cxx_sizeof_or_alignof_type    PARAMS ((tree, enum tree_code, int));
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			PARAMS ((tree));
 extern tree decay_conversion			PARAMS ((tree));
-extern tree build_object_ref			PARAMS ((tree, tree, tree));
-extern tree build_component_ref_1		PARAMS ((tree, tree, int));
-extern tree build_component_ref			PARAMS ((tree, tree, tree, int));
-extern tree build_x_component_ref		PARAMS ((tree, tree, tree));
+extern tree build_class_member_access_expr      (tree, tree, tree, bool);
+extern tree finish_class_member_access_expr     (tree, tree);
 extern tree build_x_indirect_ref		PARAMS ((tree, const char *));
 extern tree build_indirect_ref			PARAMS ((tree, const char *));
 extern tree build_array_ref			PARAMS ((tree, tree));
@@ -4514,6 +4320,7 @@ extern tree check_return_expr                   PARAMS ((tree));
   build_binary_op(code, arg1, arg2, 1)
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
 #define cxx_alignof(T) cxx_sizeof_or_alignof_type (T, ALIGNOF_EXPR, true)
+extern tree build_ptrmemfunc_access_expr       (tree, tree);
 
 /* in typeck2.c */
 extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));

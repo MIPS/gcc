@@ -306,17 +306,17 @@ toc_section ()						\
 /* This says how to output an external.  */
 
 #undef ASM_OUTPUT_EXTERNAL
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-{ rtx _symref = XEXP (DECL_RTL (DECL), 0);	\
-  if ((TREE_CODE (DECL) == VAR_DECL		\
-       || TREE_CODE (DECL) == FUNCTION_DECL)	\
-      && (NAME)[strlen (NAME) - 1] != ']')	\
-    {						\
-      char *_name = (char *) permalloc (strlen (XSTR (_symref, 0)) + 5); \
-      strcpy (_name, XSTR (_symref, 0));	\
-      strcat (_name, TREE_CODE (DECL) == FUNCTION_DECL ? "[DS]" : "[RW]"); \
-      XSTR (_symref, 0) = _name;		\
-    }						\
+#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)				\
+{ rtx _symref = XEXP (DECL_RTL (DECL), 0);				\
+  if ((TREE_CODE (DECL) == VAR_DECL					\
+       || TREE_CODE (DECL) == FUNCTION_DECL)				\
+      && (NAME)[strlen (NAME) - 1] != ']')				\
+    {									\
+      XSTR (_symref, 0) = concat (XSTR (_symref, 0),			\
+				  (TREE_CODE (DECL) == FUNCTION_DECL	\
+				   ? "[DS]" : "[RW]"),			\
+				  NULL);				\
+    }									\
 }
 
 /* This is how to output an internal numbered label where
@@ -353,19 +353,26 @@ toc_section ()						\
 
 /* This is how to advance the location counter by SIZE bytes.  */
 
+#define SKIP_ASM_OP "\t.space "
+
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", (SIZE))
+  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
 
-#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNMENT)	\
-  do { fputs ("\t.comm ", (FILE));			\
+#define COMMON_ASM_OP "\t.comm "
+
+#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)	\
+  do { fputs (COMMON_ASM_OP, (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       if ( (SIZE) > 4)					\
-         fprintf ((FILE), ",%d,3\n", (SIZE));		\
+       if ((ALIGN) > 32)				\
+	 fprintf ((FILE), ",%u,%u\n", (SIZE),		\
+		  exact_log2 ((ALIGN) / BITS_PER_UNIT)); \
+       else if ((SIZE) > 4)				\
+         fprintf ((FILE), ",%u,3\n", (SIZE));		\
        else						\
-	 fprintf ((FILE), ",%d\n", (SIZE));		\
+	 fprintf ((FILE), ",%u\n", (SIZE));		\
   } while (0)
 
 /* This says how to output an assembler line
@@ -374,10 +381,12 @@ toc_section ()						\
    alignment after preceding TOC section if it was aligned
    for 64-bit mode.  */
 
+#define LOCAL_COMMON_ASM_OP "\t.lcomm "
+
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs ("\t.lcomm ", (FILE));			\
+  do { fputs (LOCAL_COMMON_ASM_OP, (FILE));		\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
+       fprintf ((FILE), ",%u,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
 		xcoff_bss_section_name);		\
      } while (0)
 

@@ -346,7 +346,8 @@ print_operand (stream, x, code)
     {
     case '.':
       if (final_sequence
-	  && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0)))
+	  && ! INSN_ANNULLED_BRANCH_P (XVECEXP (final_sequence, 0, 0))
+	  && get_attr_length (XVECEXP (final_sequence, 0, 1)))
 	fprintf (stream, ASSEMBLER_DIALECT ? "/s" : ".s");
       break;
     case ',':
@@ -449,8 +450,7 @@ print_operand (stream, x, code)
       break;
 
     case 'N':
-      if (x == const0_rtx
-	  || (GET_CODE (x) == CONST_VECTOR && zero_vec_operand (x, VOIDmode)))
+      if (x == CONST0_RTX (GET_MODE (x)))
 	{
 	  fprintf ((stream), "r63");
 	  break;
@@ -3213,6 +3213,11 @@ gen_far_branch (bp)
   JUMP_LABEL (jump) = bp->far_label;
   if (! invert_jump (insn, label, 1))
     abort ();
+  (emit_insn_after
+   (gen_stuff_delay_slot
+    (GEN_INT (INSN_UID (XEXP (SET_SRC (PATTERN (jump)), 0))),
+     GEN_INT (recog_memoized (insn) == CODE_FOR_branch_false)),
+    insn));
   /* Prevent reorg from undoing our splits.  */
   gen_block_redirect (jump, bp->address += 2, 2);
 }
@@ -3289,7 +3294,7 @@ barrier_align (barrier_or_label)
       /* If this is a very small table, we want to keep the alignment after
 	 the table to the minimum for proper code alignment.  */
       return ((TARGET_SMALLCODE
-	       || (XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
+	       || ((unsigned) XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
 		   <= (unsigned)1 << (CACHE_LOG - 2)))
 	      ? 1 << TARGET_SHMEDIA : CACHE_LOG);
     }
@@ -3829,7 +3834,7 @@ machine_dependent_reorg (first)
 		    {
 		      lab = add_constant (XVECEXP (src, 0, 0), mode, 0);
 		      newsrc = gen_rtx_LABEL_REF (VOIDmode, lab);
-		      newsrc = gen_rtx_UNSPEC (VOIDmode,
+		      newsrc = gen_rtx_UNSPEC (SImode,
 					       gen_rtvec (1, newsrc),
 					       UNSPEC_MOVA);
 		    }
@@ -4310,7 +4315,7 @@ push (rn)
 	   && FP_OR_XD_REGISTER_P (rn))
     {
       if (FP_REGISTER_P (rn) && (rn - FIRST_FP_REG) & 1)
-	return;
+	return NULL_RTX;
       x = gen_push_4 (gen_rtx_REG (DFmode, rn));
     }
   else if (TARGET_SH3E && FP_REGISTER_P (rn))
@@ -4567,7 +4572,7 @@ sh_expand_prologue ()
     }
 
   /* Emit the code for SETUP_VARARGS.  */
-  if (current_function_varargs || current_function_stdarg)
+  if (current_function_stdarg)
     {
       /* This is not used by the SH3E calling convention  */
       if (TARGET_SH1 && ! TARGET_SH3E && ! TARGET_SH5 && ! TARGET_HITACHI)
@@ -5260,8 +5265,7 @@ sh_build_va_list ()
 /* Implement `va_start' for varargs and stdarg.  */
 
 void
-sh_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+sh_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -5273,20 +5277,13 @@ sh_va_start (stdarg_p, valist, nextarg)
   if (TARGET_SH5)
     {
       expand_builtin_saveregs ();
-      /* When the varargs dummy argument is ``passed'' on a register,
-	 we don't want std_expand_builtin_va_start() to apply any
-	 correction for it, so set stdarg_p so as to pretend there's
-	 no such dummy argument.  */
-      if (current_function_args_info.arg_count[(int) SH_ARG_INT]
-	  < NPARM_REGS (SImode))
-	stdarg_p = 1;
-      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      std_expand_builtin_va_start (valist, nextarg);
       return;
     }
 
   if ((! TARGET_SH3E && ! TARGET_SH4) || TARGET_HITACHI)
     {
-      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      std_expand_builtin_va_start (valist, nextarg);
       return;
     }
 
@@ -5338,11 +5335,6 @@ sh_va_start (stdarg_p, valist, nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   u = make_tree (ptr_type_node, nextarg);
-  if (! stdarg_p && (nint == 0 || nfp == 0))
-    {
-      u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		       build_int_2 (-UNITS_PER_WORD, -1)));
-    }
   t = build (MODIFY_EXPR, ptr_type_node, next_stack, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5543,6 +5535,7 @@ initial_elimination_offset (from, to)
 
   if (from == RETURN_ADDRESS_POINTER_REGNUM
       && (to == FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
+    {
       if (TARGET_SH5)
 	{
 	  int i, n = total_saved_regs_space;
@@ -5595,7 +5588,8 @@ initial_elimination_offset (from, to)
 	  abort ();
 	}
       else
-    return total_auto_space;
+	return total_auto_space;
+    }
 
   abort ();
 }
@@ -5841,20 +5835,6 @@ general_movdst_operand (op, mode)
   return general_operand (op, mode);
 }
 
-/* Accept a register, but not a subreg of any kind.  This allows us to
-   avoid pathological cases in reload wrt data movement common in 
-   int->fp conversion.  */
-
-int
-reg_no_subreg_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
-{
-  if (GET_CODE (op) == SUBREG)
-    return 0;
-  return register_operand (op, mode);
-}
-
 /* Returns 1 if OP is a normal arithmetic register.  */
 
 int
@@ -5893,6 +5873,21 @@ arith_reg_dest (op, mode)
       && GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))) < 8)
     return 0;
   return arith_reg_operand (op, mode);
+}
+
+int
+int_gpr_dest (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum machine_mode op_mode = GET_MODE (op);
+
+  if (GET_MODE_CLASS (op_mode) != MODE_INT
+      || GET_MODE_SIZE (op_mode) >= UNITS_PER_WORD)
+    return 0;
+  if (! reload_completed)
+    return 0;
+  return true_regnum (op) <= LAST_GENERAL_REG;
 }
 
 int
@@ -6135,6 +6130,25 @@ noncommutative_float_operator (op, mode)
 }
 
 int
+unary_float_operator (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_MODE (op) != mode)
+    return 0;
+  switch (GET_CODE (op))
+    {
+    case ABS:
+    case NEG:
+    case SQRT:
+      return 1;
+    default:
+      break;
+    }
+  return 0;
+}
+
+int
 binary_float_operator (op, mode)
      rtx op;
      enum machine_mode mode;
@@ -6266,6 +6280,19 @@ extend_reg_operand (op, mode)
 }
 
 int
+trunc_hi_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  enum machine_mode op_mode = GET_MODE (op);
+
+  if (op_mode != SImode && op_mode != DImode
+      && op_mode != V4HImode && op_mode != V2SImode)
+    return 0;
+  return extend_reg_operand (op, mode);
+}
+
+int
 extend_reg_or_0_operand (op, mode)
      rtx op;
      enum machine_mode mode;
@@ -6296,23 +6323,6 @@ inqhi_operand (op, mode)
   /* Can't use true_regnum here because copy_cost wants to know about
      SECONDARY_INPUT_RELOAD_CLASS.  */
   return GET_CODE (op) == REG && FP_REGISTER_P (REGNO (op));
-}
-
-/* Return nonzero if V is a zero vector matching MODE.  */
-int
-zero_vec_operand (v, mode)
-     rtx v;
-     enum machine_mode mode;
-{
-  int i;
-
-  if (GET_CODE (v) != CONST_VECTOR
-      || (GET_MODE (v) != mode && mode != VOIDmode))
-    return 0;
-  for (i = XVECLEN (v, 0) - 1; i >= 0; i--)
-    if (XVECEXP (v, 0, i) != const0_rtx)
-      return 0;
-  return 1;
 }
 
 int
@@ -7126,6 +7136,177 @@ sh_strip_name_encoding (str)
 }
 
 
+/* 
+   On the SH1..SH4, the trampoline looks like
+   2 0002 D202     	   	mov.l	l2,r2
+   1 0000 D301     		mov.l	l1,r3
+   3 0004 422B     		jmp	@r2
+   4 0006 0009     		nop
+   5 0008 00000000 	l1:  	.long   area
+   6 000c 00000000 	l2:	.long   function
+
+   SH5 (compact) uses r1 instead of r3 for the static chain.  */
+
+
+/* Emit RTL insns to initialize the variable parts of a trampoline.
+   FNADDR is an RTX for the address of the function's pure code.
+   CXT is an RTX for the static chain value for the function.  */
+
+void
+sh_initialize_trampoline (tramp, fnaddr, cxt)
+     rtx tramp, fnaddr, cxt;
+{
+  if (TARGET_SHMEDIA64)
+    {
+      rtx tramp_templ;
+      int fixed_len;
+
+      rtx movi1 = GEN_INT (0xcc000010);
+      rtx shori1 = GEN_INT (0xc8000010);
+      rtx src, dst;
+
+      /* The following trampoline works within a +- 128 KB range for cxt:
+	 ptb/u cxt,tr1; movi fnaddr >> 48,r0; shori fnaddr >> 32,r0;
+         shori fnaddr >> 16,r0; shori fnaddr,r0; ptabs/l r0,tr0
+         gettr tr1,r1; blink tr0,r63  */
+      /* Address rounding makes it hard to compute the exact bounds of the
+	 offset for this trampoline, but we have a rather generous offset
+	 range, so frame_offset should do fine as an upper bound.  */
+      if (cxt == virtual_stack_vars_rtx && frame_offset < 0x20000)
+	{
+	  /* ??? could optimize this trampoline initialization
+	     by writing DImode words with two insns each.  */
+	  rtx mask = force_reg (DImode, GEN_INT (0x3fffc00));
+	  rtx insn = gen_rtx_MINUS (DImode, cxt, tramp);
+	  insn = gen_rtx_ASHIFT (DImode, insn, GEN_INT (10-2));
+	  insn = gen_rtx_AND (DImode, insn, mask);
+	  /* Or in ptb/u .,tr1 pattern */
+	  insn = gen_rtx_IOR (DImode, insn, gen_int_mode (0xec000010, SImode));
+	  insn = force_operand (insn, NULL_RTX);
+	  insn = gen_lowpart (SImode, insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, tramp), insn);
+	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (38));
+	  insn = gen_rtx_AND (DImode, insn, mask);
+	  insn = force_operand (gen_rtx_IOR (DImode, movi1, insn), NULL_RTX);
+	  insn = gen_lowpart (SImode, insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)), insn);
+	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (22));
+	  insn = gen_rtx_AND (DImode, insn, mask);
+	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
+	  insn = gen_lowpart (SImode, insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)), insn);
+	  insn = gen_rtx_LSHIFTRT (DImode, fnaddr, GEN_INT (6));
+	  insn = gen_rtx_AND (DImode, insn, mask);
+	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
+	  insn = gen_lowpart (SImode, insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
+			  insn);
+	  insn = gen_rtx_ASHIFT (DImode, fnaddr, GEN_INT (10));
+	  insn = gen_rtx_AND (DImode, insn, mask);
+	  insn = force_operand (gen_rtx_IOR (DImode, shori1, insn), NULL_RTX);
+	  insn = gen_lowpart (SImode, insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 16)),
+			  insn);
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 20)),
+			  GEN_INT (0x6bf10600));
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 24)),
+			  GEN_INT (0x4415fc10));
+	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 28)),
+			  GEN_INT (0x4401fff0));
+	  emit_insn (gen_ic_invalidate_line (tramp));
+	  return;
+	}
+      tramp_templ = gen_rtx_SYMBOL_REF (Pmode,"__GCC_nested_trampoline");
+      fixed_len = TRAMPOLINE_SIZE - 2 * GET_MODE_SIZE (Pmode);
+
+      tramp_templ = gen_datalabel_ref (tramp_templ);
+      dst = gen_rtx_MEM (BLKmode, tramp);
+      src = gen_rtx_MEM (BLKmode, tramp_templ);
+      set_mem_align (dst, 256);
+      set_mem_align (src, 64);
+      emit_block_move (dst, src, GEN_INT (fixed_len));
+
+      emit_move_insn (gen_rtx_MEM (Pmode, plus_constant (tramp,	fixed_len)),
+		      fnaddr);
+      emit_move_insn (gen_rtx_MEM (Pmode,
+				   plus_constant (tramp,
+						  fixed_len
+						  + GET_MODE_SIZE (Pmode))), 
+		      cxt);
+      emit_insn (gen_ic_invalidate_line (tramp));
+      return;
+    }
+  else if (TARGET_SHMEDIA)
+    {
+      /* movi fnaddr >> 16,r1; shori fnaddr,r1; ptabs/l r1,tr0
+         movi cxt >> 16,r1; shori cxt,r1; blink tr0,r63  */
+      rtx quad0 = gen_reg_rtx (DImode), cxtload = gen_reg_rtx (DImode);
+      rtx quad1 = gen_reg_rtx (DImode), quad2 = gen_reg_rtx (DImode);
+      /* movi 0,r1: 0xcc000010 shori 0,r1: c8000010  concatenated,
+	 rotated 10 right, and higer 16 bit of every 32 selected.  */
+      rtx movishori
+	= force_reg (V2HImode, (simplify_gen_subreg
+				(V2HImode, GEN_INT (0x4330432), SImode, 0)));
+      rtx ptabs = force_reg (DImode, GEN_INT (0x6bf10600));
+      rtx blink = force_reg (DImode, GEN_INT (0x4401fff0));
+
+      tramp = force_reg (Pmode, tramp);
+      fnaddr = force_reg (SImode, fnaddr);
+      cxt = force_reg (SImode, cxt);
+      emit_insn (gen_mshflo_w_x (gen_rtx_SUBREG (V4HImode, quad0, 0),
+				 gen_rtx_SUBREG (V2HImode, fnaddr, 0),
+				 movishori));
+      emit_insn (gen_rotldi3_mextr (quad0, quad0,
+				    GEN_INT (TARGET_LITTLE_ENDIAN ? 24 : 56)));
+      emit_insn (gen_ashldi3_media (quad0, quad0, GEN_INT (2)));
+      emit_move_insn (gen_rtx_MEM (DImode, tramp), quad0);
+      emit_insn (gen_mshflo_w_x (gen_rtx_SUBREG (V4HImode, cxtload, 0),
+				 gen_rtx_SUBREG (V2HImode, cxt, 0),
+				 movishori));
+      emit_insn (gen_rotldi3_mextr (cxtload, cxtload,
+				    GEN_INT (TARGET_LITTLE_ENDIAN ? 24 : 56)));
+      emit_insn (gen_ashldi3_media (cxtload, cxtload, GEN_INT (2)));
+      if (TARGET_LITTLE_ENDIAN)
+	{
+	  emit_insn (gen_mshflo_l_di (quad1, ptabs, cxtload));
+	  emit_insn (gen_mextr4 (quad2, cxtload, blink));
+	}
+      else
+	{
+	  emit_insn (gen_mextr4 (quad1, cxtload, ptabs));
+	  emit_insn (gen_mshflo_l_di (quad2, blink, cxtload));
+	}
+      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 8)), quad1);
+      emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 16)), quad2);
+      emit_insn (gen_ic_invalidate_line (tramp));
+      return;
+    }
+  else if (TARGET_SHCOMPACT)
+    {
+      emit_insn (gen_initialize_trampoline (tramp, cxt, fnaddr));
+      return;
+    }
+  emit_move_insn (gen_rtx_MEM (SImode, tramp),
+		  gen_int_mode (TARGET_LITTLE_ENDIAN ? 0xd301d202 : 0xd202d301,
+				SImode));
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 4)),
+		  gen_int_mode (TARGET_LITTLE_ENDIAN ? 0x0009422b : 0x422b0009,
+				SImode));
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 8)),
+		  cxt);
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 12)),
+		  fnaddr);
+  if (TARGET_HARVARD)
+    {
+      if (TARGET_USERMODE)
+	emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__ic_invalidate"),
+			   0, VOIDmode, 1, tramp, SImode);
+      else
+	emit_insn (gen_ic_invalidate_line (tramp));
+    }
+}
+
+
 /* Machine specific built-in functions.  */
 
 struct builtin_description
@@ -7169,19 +7350,21 @@ static const char signature_args[][4] =
   { 0, 8, 2 },
 #define SH_BLTIN_STUA_Q 14
   { 0, 8, 1 },
-#define SH_BLTIN_NUM_SHARED_SIGNATURES 15
-#define SH_BLTIN_2 15
-#define SH_BLTIN_SU 15
+#define SH_BLTIN_UDI 15
+  { 0, 8, 1 },
+#define SH_BLTIN_NUM_SHARED_SIGNATURES 16
+#define SH_BLTIN_2 16
+#define SH_BLTIN_SU 16
   { 1, 2 },
-#define SH_BLTIN_3 16
-#define SH_BLTIN_SUS 16
+#define SH_BLTIN_3 17
+#define SH_BLTIN_SUS 17
   { 2, 2, 1 },
-#define SH_BLTIN_PSSV 17
+#define SH_BLTIN_PSSV 18
   { 0, 8, 2, 2 },
-#define SH_BLTIN_XXUU 18
-#define SH_BLTIN_UUUU 18
+#define SH_BLTIN_XXUU 19
+#define SH_BLTIN_UUUU 19
   { 1, 1, 1, 1 },
-#define SH_BLTIN_PV 19
+#define SH_BLTIN_PV 20
   { 0, 8 },
 };
 /* mcmv: operands considered unsigned. */
@@ -7213,13 +7396,13 @@ static const struct builtin_description bdesc[] =
   { CODE_FOR_mcnvs_lw,	"__builtin_sh_media_MCNVS_LW", SH_BLTIN_3 },
   { CODE_FOR_mcnvs_wb,	"__builtin_sh_media_MCNVS_WB", SH_BLTIN_V4HI2V8QI },
   { CODE_FOR_mcnvs_wub,	"__builtin_sh_media_MCNVS_WUB", SH_BLTIN_V4HI2V8QI },
-  { CODE_FOR_mextr1,	"__builtin_sh_media_MEXTR1", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr2,	"__builtin_sh_media_MEXTR2", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr3,	"__builtin_sh_media_MEXTR3", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr4,	"__builtin_sh_media_MEXTR4", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr5,	"__builtin_sh_media_MEXTR5", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr6,	"__builtin_sh_media_MEXTR6", SH_BLTIN_V8QI3 },
-  { CODE_FOR_mextr7,	"__builtin_sh_media_MEXTR7", SH_BLTIN_V8QI3 },
+  { CODE_FOR_mextr1,	"__builtin_sh_media_MEXTR1", SH_BLTIN_UDI },
+  { CODE_FOR_mextr2,	"__builtin_sh_media_MEXTR2", SH_BLTIN_UDI },
+  { CODE_FOR_mextr3,	"__builtin_sh_media_MEXTR3", SH_BLTIN_UDI },
+  { CODE_FOR_mextr4,	"__builtin_sh_media_MEXTR4", SH_BLTIN_UDI },
+  { CODE_FOR_mextr5,	"__builtin_sh_media_MEXTR5", SH_BLTIN_UDI },
+  { CODE_FOR_mextr6,	"__builtin_sh_media_MEXTR6", SH_BLTIN_UDI },
+  { CODE_FOR_mextr7,	"__builtin_sh_media_MEXTR7", SH_BLTIN_UDI },
   { CODE_FOR_mmacfx_wl,	"__builtin_sh_media_MMACFX_WL", SH_BLTIN_MAC_HISI },
   { CODE_FOR_mmacnfx_wl,"__builtin_sh_media_MMACNFX_WL", SH_BLTIN_MAC_HISI },
   { CODE_FOR_mulv2si3,	"__builtin_mulv2si3", SH_BLTIN_V2SI3, },
@@ -7274,8 +7457,10 @@ static const struct builtin_description bdesc[] =
   { CODE_FOR_sthi_q64,	"__builtin_sh_media_STHI_Q", SH_BLTIN_STUA_Q },
   { CODE_FOR_stlo_l64,	"__builtin_sh_media_STLO_L", SH_BLTIN_STUA_L },
   { CODE_FOR_stlo_q64,	"__builtin_sh_media_STLO_Q", SH_BLTIN_STUA_Q },
+#endif
   { CODE_FOR_nsb,	"__builtin_sh_media_NSB", SH_BLTIN_SU },
   { CODE_FOR_byterev,	"__builtin_sh_media_BYTEREV", SH_BLTIN_2 },
+#if 0
   { CODE_FOR_prefetch32,"__builtin_sh_media_PREFO", SH_BLTIN_PSSV },
   { CODE_FOR_prefetch64,"__builtin_sh_media_PREFO", SH_BLTIN_PSSV }
 #endif
@@ -7288,7 +7473,7 @@ sh_media_init_builtins ()
   const struct builtin_description *d;
 
   memset (shared, 0, sizeof shared);
-  for (d = bdesc; d - bdesc < sizeof bdesc / sizeof bdesc[0]; d++)
+  for (d = bdesc; d - bdesc < (int) (sizeof bdesc / sizeof bdesc[0]); d++)
     {
       tree type, arg_type;
       int signature = d->signature;
@@ -7421,4 +7606,33 @@ sh_expand_builtin (exp, target, subtarget, mode, ignore)
   emit_insn (pat);
   return target;
 }
+
+void
+sh_expand_unop_v2sf (code, op0, op1)
+     enum rtx_code code;
+     rtx op0, op1;
+{
+  rtx sel0 = const0_rtx;
+  rtx sel1 = const1_rtx;
+  rtx (*fn) (rtx, rtx, rtx, rtx, rtx) = gen_unary_sf_op;
+  rtx op = gen_rtx_fmt_e (code, SFmode, op1);
+
+  emit_insn ((*fn) (op0, op1, op, sel0, sel0));
+  emit_insn ((*fn) (op0, op1, op, sel1, sel1));
+}
+
+void
+sh_expand_binop_v2sf (code, op0, op1, op2)
+     enum rtx_code code;
+     rtx op0, op1, op2;
+{
+  rtx sel0 = const0_rtx;
+  rtx sel1 = const1_rtx;
+  rtx (*fn) (rtx, rtx, rtx, rtx, rtx, rtx, rtx) = gen_binary_sf_op;
+  rtx op = gen_rtx_fmt_ee (code, SFmode, op1, op2);
+
+  emit_insn ((*fn) (op0, op1, op2, op, sel0, sel0, sel0));
+  emit_insn ((*fn) (op0, op1, op2, op, sel1, sel1, sel1));
+}
+
 #include "gt-sh.h"

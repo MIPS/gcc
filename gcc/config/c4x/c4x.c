@@ -702,19 +702,6 @@ c4x_function_arg (cum, mode, type, named)
     return NULL_RTX;
 }
 
-
-void
-c4x_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
-     tree valist;
-     rtx nextarg;
-{
-  nextarg = plus_constant (nextarg, stdarg_p ? 0 : UNITS_PER_WORD * 2);
-
-  std_expand_builtin_va_start (stdarg_p, valist, nextarg);
-}
-
-
 /* C[34]x arguments grow in weird ways (downwards) that the standard
    varargs stuff can't handle..  */
 rtx
@@ -4510,7 +4497,7 @@ c4x_global_label (name)
 	return;
       p = p->next;
     }
-  p = (struct name_list *) permalloc (sizeof *p);
+  p = (struct name_list *) xmalloc (sizeof *p);
   p->next = global_head;
   p->name = name;
   global_head = p;
@@ -4559,7 +4546,7 @@ c4x_external_ref (name)
 	return;
       p = p->next;
     }
-  p = (struct name_list *) permalloc (sizeof *p);
+  p = (struct name_list *) xmalloc (sizeof *p);
   p->next = extern_head;
   p->name = name;
   extern_head = p;

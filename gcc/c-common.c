@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "expr.h"
 #include "c-common.h"
-#include "tree-inline.h"
 #include "diagnostic.h"
 #include "tm_p.h"
 #include "obstack.h"
@@ -192,6 +191,8 @@ enum c_language_kind c_language;
 
 tree c_global_trees[CTI_MAX];
 
+/* Switches common to the C front ends.  */
+
 /* Nonzero if prepreprocessing only.  */
 int flag_preprocess_only;
 
@@ -223,9 +224,180 @@ int flag_short_wchar;
 /* Nonzero means allow Microsoft extensions without warnings or errors.  */
 int flag_ms_extensions;
 
+/* Nonzero means don't recognize the keyword `asm'.  */
+
+int flag_no_asm;
+
+/* Nonzero means give string constants the type `const char *', as mandated
+   by the standard.  */
+
+int flag_const_strings;
+
+/* Nonzero means `$' can be in an identifier.  */
+
+#ifndef DOLLARS_IN_IDENTIFIERS
+#define DOLLARS_IN_IDENTIFIERS 1
+#endif
+int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
+
+/* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
+
+int flag_signed_bitfields = 1;
+int explicit_flag_signed_bitfields;
+
+/* Nonzero means warn about pointer casts that can drop a type qualifier
+   from the pointer target type.  */
+
+int warn_cast_qual;
+
+/* Warn about functions which might be candidates for format attributes.  */
+
+int warn_missing_format_attribute;
+
+/* Nonzero means warn about sizeof(function) or addition/subtraction
+   of function pointers.  */
+
+int warn_pointer_arith;
+
+/* Nonzero means warn for any global function def
+   without separate previous prototype decl.  */
+
+int warn_missing_prototypes;
+
+/* Warn if adding () is suggested.  */
+
+int warn_parentheses;
+
+/* Warn if initializer is not completely bracketed.  */
+
+int warn_missing_braces;
+
+/* Warn about comparison of signed and unsigned values.
+   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
+
+int warn_sign_compare;
+
+/* Nonzero means warn about usage of long long when `-pedantic'.  */
+
+int warn_long_long = 1;
+
+/* Nonzero means warn about deprecated conversion from string constant to
+   `char *'.  */
+
+int warn_write_strings;
+
+/* Nonzero means warn about multiple (redundant) decls for the same single
+   variable or function.  */
+
+int warn_redundant_decls;
+
+/* Warn about testing equality of floating point numbers. */
+
+int warn_float_equal;
+
+/* Warn about a subscript that has type char.  */
+
+int warn_char_subscripts;
+
+/* Warn if a type conversion is done that might have confusing results.  */
+
+int warn_conversion;
+
+/* Warn about #pragma directives that are not recognised.  */      
+
+int warn_unknown_pragmas; /* Tri state variable.  */  
+
 /* Nonzero means warn about use of multicharacter literals.  */
 
 int warn_multichar = 1;
+
+/* Warn about format/argument anomalies in calls to formatted I/O functions
+   (*printf, *scanf, strftime, strfmon, etc.).  */
+
+int warn_format;
+
+/* Warn about Y2K problems with strftime formats.  */
+
+int warn_format_y2k;
+
+/* Warn about excess arguments to formats.  */
+
+int warn_format_extra_args;
+
+/* Warn about zero-length formats.  */
+
+int warn_format_zero_length;
+
+/* Warn about non-literal format arguments.  */
+
+int warn_format_nonliteral;
+
+/* Warn about possible security problems with calls to format functions.  */
+
+int warn_format_security;
+
+
+/* C/ObjC language option variables.  */
+
+
+/* Nonzero means message about use of implicit function declarations;
+ 1 means warning; 2 means error.  */
+
+int mesg_implicit_function_declaration = -1;
+
+/* Nonzero means allow type mismatches in conditional expressions;
+   just make their values `void'.  */
+
+int flag_cond_mismatch;
+
+/* Nonzero means enable C89 Amendment 1 features.  */
+
+int flag_isoc94;
+
+/* Nonzero means use the ISO C99 dialect of C.  */
+
+int flag_isoc99;
+
+/* Nonzero means that we have builtin functions, and main is an int */
+
+int flag_hosted = 1;
+
+/* Nonzero means add default format_arg attributes for functions not
+   in ISO C.  */
+
+int flag_noniso_default_format_attributes = 1;
+
+/* Nonzero means warn when casting a function call to a type that does
+   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
+   when there is no previous declaration of sqrt or malloc.  */
+
+int warn_bad_function_cast;
+
+/* Warn about traditional constructs whose meanings changed in ANSI C.  */
+
+int warn_traditional;
+
+/* Nonzero means warn for non-prototype function decls
+   or non-prototyped defs without previous prototype.  */
+
+int warn_strict_prototypes;
+
+/* Nonzero means warn for any global function def
+   without separate previous decl.  */
+
+int warn_missing_declarations;
+
+/* Nonzero means warn about declarations of objects not at
+   file-scope level and about *all* declarations of functions (whether
+   or static) not at file-scope level.  Note that we exclude
+   implicit function declarations.  To get warnings about those, use
+   -Wimplicit.  */
+
+int warn_nested_externs;
+
+/* Warn if main is suspicious.  */
+
+int warn_main;
 
 /* Nonzero means warn about possible violations of sequence point rules.  */
 
@@ -234,10 +406,225 @@ int warn_sequence_point;
 /* Nonzero means to warn about compile-time division by zero.  */
 int warn_div_by_zero = 1;
 
+/* Nonzero means warn about use of implicit int.  */
+
+int warn_implicit_int;
+
 /* Warn about NULL being passed to argument slots marked as requiring
    non-NULL.  */ 
       
 int warn_nonnull;
+
+
+/* ObjC language option variables.  */
+
+
+/* Open and close the file for outputting class declarations, if
+   requested (ObjC).  */
+
+int flag_gen_declaration;
+
+/* Generate code for GNU or NeXT runtime environment.  */
+
+#ifdef NEXT_OBJC_RUNTIME
+int flag_next_runtime = 1;
+#else
+int flag_next_runtime = 0;
+#endif
+
+/* Tells the compiler that this is a special run.  Do not perform any
+   compiling, instead we are to test some platform dependent features
+   and output a C header file with appropriate definitions.  */
+
+int print_struct_values;
+
+/* ???.  Undocumented.  */
+
+const char *constant_string_class_name;
+
+/* Warn if multiple methods are seen for the same selector, but with
+   different argument types.  */
+
+int warn_selector;
+
+/* Warn if methods required by a protocol are not implemented in the 
+   class adopting it.  When turned off, methods inherited to that
+   class are also considered implemented.  */
+
+int warn_protocol = 1;
+
+
+/* C++ language option variables.  */
+
+
+/* Nonzero means don't recognize any extension keywords.  */
+
+int flag_no_gnu_keywords;
+
+/* Nonzero means do emit exported implementations of functions even if
+   they can be inlined.  */
+
+int flag_implement_inlines = 1;
+
+/* Nonzero means do emit exported implementations of templates, instead of
+   multiple static copies in each file that needs a definition.  */
+
+int flag_external_templates;
+
+/* Nonzero means that the decision to emit or not emit the implementation of a
+   template depends on where the template is instantiated, rather than where
+   it is defined.  */
+
+int flag_alt_external_templates;
+
+/* Nonzero means that implicit instantiations will be emitted if needed.  */
+
+int flag_implicit_templates = 1;
+
+/* Nonzero means that implicit instantiations of inline templates will be
+   emitted if needed, even if instantiations of non-inline templates
+   aren't.  */
+
+int flag_implicit_inline_templates = 1;
+
+/* Nonzero means generate separate instantiation control files and
+   juggle them at link time.  */
+
+int flag_use_repository;
+
+/* Nonzero if we want to issue diagnostics that the standard says are not
+   required.  */
+
+int flag_optional_diags = 1;
+
+/* Nonzero means we should attempt to elide constructors when possible.  */
+
+int flag_elide_constructors = 1;
+
+/* Nonzero means that member functions defined in class scope are
+   inline by default.  */
+
+int flag_default_inline = 1;
+
+/* Controls whether compiler generates 'type descriptor' that give
+   run-time type information.  */
+
+int flag_rtti = 1;
+
+/* Nonzero if we want to conserve space in the .o files.  We do this
+   by putting uninitialized data and runtime initialized data into
+   .common instead of .data at the expense of not flagging multiple
+   definitions.  */
+
+int flag_conserve_space;
+
+/* Nonzero if we want to obey access control semantics.  */
+
+int flag_access_control = 1;
+
+/* Nonzero if we want to check the return value of new and avoid calling
+   constructors if it is a null pointer.  */
+
+int flag_check_new;
+
+/* Nonzero if we want the new ISO rules for pushing a new scope for `for'
+   initialization variables.
+   0: Old rules, set by -fno-for-scope.
+   2: New ISO rules, set by -ffor-scope.
+   1: Try to implement new ISO rules, but with backup compatibility
+   (and warnings).  This is the default, for now.  */
+
+int flag_new_for_scope = 1;
+
+/* Nonzero if we want to emit defined symbols with common-like linkage as
+   weak symbols where possible, in order to conform to C++ semantics.
+   Otherwise, emit them as local symbols.  */
+
+int flag_weak = 1;
+
+/* Nonzero to use __cxa_atexit, rather than atexit, to register
+   destructors for local statics and global objects.  */
+
+int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
+
+/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
+
+int flag_vtable_gc;
+
+/* Nonzero means make the default pedwarns warnings instead of errors.
+   The value of this flag is ignored if -pedantic is specified.  */
+
+int flag_permissive;
+
+/* Nonzero means to implement standard semantics for exception
+   specifications, calling unexpected if an exception is thrown that
+   doesn't match the specification.  Zero means to treat them as
+   assertions and optimize accordingly, but not check them.  */
+
+int flag_enforce_eh_specs = 1;
+
+/* Nonzero means warn about implicit declarations.  */
+
+int warn_implicit = 1;
+
+/* Nonzero means warn when all ctors or dtors are private, and the class
+   has no friends.  */
+
+int warn_ctor_dtor_privacy = 1;
+
+/* Non-zero means warn in function declared in derived class has the
+   same name as a virtual in the base class, but fails to match the
+   type signature of any virtual function in the base class.  */
+
+int warn_overloaded_virtual;
+
+/* Non-zero means warn when declaring a class that has a non virtual
+   destructor, when it really ought to have a virtual one.  */
+
+int warn_nonvdtor;
+
+/* Non-zero means warn when the compiler will reorder code.  */
+
+int warn_reorder;
+
+/* Non-zero means warn when synthesis behavior differs from Cfront's.  */
+
+int warn_synth;
+
+/* Non-zero means warn when we convert a pointer to member function
+   into a pointer to (void or function).  */
+
+int warn_pmf2ptr = 1;
+
+/* Nonzero means warn about violation of some Effective C++ style rules.  */
+
+int warn_ecpp;
+
+/* Nonzero means warn where overload resolution chooses a promotion from
+   unsigned to signed over a conversion to an unsigned of the same size.  */
+
+int warn_sign_promo;
+
+/* Nonzero means warn when an old-style cast is used.  */
+
+int warn_old_style_cast;
+
+/* Nonzero means warn when non-templatized friend functions are
+   declared within a template */
+
+int warn_nontemplate_friend = 1;
+
+/* Nonzero means complain about deprecated features.  */
+
+int warn_deprecated = 1;
+
+/* Maximum template instantiation depth.  This limit is rather
+   arbitrary, but it exists to limit the time it takes to notice
+   infinite template instantiations.  */
+
+int max_tinst_depth = 500;
+
+
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -714,6 +1101,13 @@ fname_decl (rid, id)
   if (!decl)
     {
       tree saved_last_tree = last_tree;
+      /* If a tree is built here, it would normally have the lineno of
+	 the current statement.  Later this tree will be moved to the
+	 beginning of the function and this line number will be wrong.
+	 To avoid this problem set the lineno to 0 here; that prevents
+	 it from appearing in the RTL. */
+      int saved_lineno = lineno;
+      lineno = 0;
       
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       if (last_tree != saved_last_tree)
@@ -729,6 +1123,7 @@ fname_decl (rid, id)
 						 saved_function_name_decls);
 	}
       *fname_vars[ix].decl = decl;
+      lineno = saved_lineno;
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
@@ -2601,36 +2996,66 @@ c_common_get_alias_set (t)
   return -1;
 }
 
-/* Implement the __alignof keyword: Return the minimum required
-   alignment of TYPE, measured in bytes.  */
-
+/* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where the
+   second parameter indicates which OPERATOR is being applied.  The COMPLAIN
+   flag controls whether we should diagnose possibly ill-formed
+   constructs or not.  */
 tree
-c_alignof (type)
+c_sizeof_or_alignof_type (type, op, complain)
      tree type;
+     enum tree_code op;
+     int complain;
 {
-  enum tree_code code = TREE_CODE (type);
-  tree t;
-
-  /* In C++, sizeof applies to the referent.  Handle alignof the same way.  */
-  if (code == REFERENCE_TYPE)
+  const char *op_name;
+  tree value = NULL;
+  enum tree_code type_code = TREE_CODE (type);
+  
+  my_friendly_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR, 20020720);
+  op_name = op == SIZEOF_EXPR ? "sizeof" : "__alignof__";
+  
+  if (type_code == FUNCTION_TYPE)
     {
-      type = TREE_TYPE (type);
-      code = TREE_CODE (type);
+      if (op == SIZEOF_EXPR)
+	{
+	  if (complain && (pedantic || warn_pointer_arith))
+	    pedwarn ("invalid application of `sizeof' to a function type");
+	  value = size_one_node;
+	}
+      else
+	value = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
     }
-
-  if (code == FUNCTION_TYPE)
-    t = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  else if (code == VOID_TYPE || code == ERROR_MARK)
-    t = size_one_node;
+  else if (type_code == VOID_TYPE || type_code == ERROR_MARK)
+    {
+      if (type_code == VOID_TYPE 
+	  && complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of `%s' to a void type", op_name);
+      value = size_one_node;
+    }
   else if (!COMPLETE_TYPE_P (type))
     {
-      error ("__alignof__ applied to an incomplete type");
-      t = size_zero_node;
+      if (complain)
+	error ("invalid application of `%s' to an incomplete type", op_name);
+      value = size_zero_node;
     }
   else
-    t = size_int (TYPE_ALIGN (type) / BITS_PER_UNIT);
+    {
+      if (op == SIZEOF_EXPR)
+	/* Convert in case a char is more than one unit.  */
+	value = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
+			    size_int (TYPE_PRECISION (char_type_node)
+				      / BITS_PER_UNIT));
+      else
+	value = size_int (TYPE_ALIGN (type) / BITS_PER_UNIT);
+    }
 
-  return fold (build1 (NOP_EXPR, c_size_type_node, t));
+  /* VALUE will have an integer type with TYPE_IS_SIZETYPE set.
+     TYPE_IS_SIZETYPE means that certain things (like overflow) will
+     never happen.  However, this node should really have type
+     `size_t', which is just a typedef for an ordinary integer type.  */
+  value = fold (build1 (NOP_EXPR, c_size_type_node, value));
+  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (value)), 20001021);
+  
+  return value;
 }
 
 /* Implement the __alignof keyword: Return the minimum required
@@ -3759,6 +4184,7 @@ c_expand_expr (exp, target, tmode, modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
+	bool return_target = false;
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -3786,8 +4212,20 @@ c_expand_expr (exp, target, tmode, modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-	        TREE_ADDRESSABLE (expr) = 1;
-		preserve_result = true;
+		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
+		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
+		  /* If the last expression is a variable whose RTL is the
+		     same as our target, just return the target; if it
+		     isn't valid expanding the decl would produce different
+		     RTL, and store_expr would try to do a copy.  */
+		  return_target = true;
+		else
+		  {
+		    /* Otherwise, note that we want the value from the last
+		       expression.  */
+		    TREE_ADDRESSABLE (expr) = 1;
+		    preserve_result = true;
+		  }
 	      }
 	  }
 
@@ -3795,7 +4233,9 @@ c_expand_expr (exp, target, tmode, modifier)
 	expand_end_stmt_expr (rtl_expr);
 
 	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (preserve_result && GET_CODE (result) == MEM)
+	if (return_target)
+	  result = target;
+	else if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -4228,68 +4668,6 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Common initialization before parsing options.  */
-void
-c_common_init_options (lang)
-     enum c_language_kind lang;
-{
-  c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c || lang == clk_objective_c
-				? CLK_GNUC89 : CLK_GNUCXX);
-  if (lang == clk_objective_c)
-    cpp_get_options (parse_in)->objc = 1;
-
-  /* Mark as "unspecified" (see c_common_post_options).  */
-  flag_bounds_check = -1;
-}
-
-/* Post-switch processing.  */
-bool
-c_common_post_options ()
-{
-  cpp_post_options (parse_in);
-
-  flag_inline_trees = 1;
-
-  /* Use tree inlining if possible.  Function instrumentation is only
-     done in the RTL level, so we disable tree inlining.  */
-  if (! flag_instrument_function_entry_exit)
-    {
-      if (!flag_no_inline)
-	flag_no_inline = 1;
-      if (flag_inline_functions)
-	{
-	  flag_inline_trees = 2;
-	  flag_inline_functions = 0;
-	}
-    }
-
-  /* If still "unspecified", make it match -fbounded-pointers.  */
-  if (flag_bounds_check == -1)
-    flag_bounds_check = flag_bounded_pointers;
-
-  /* Special format checking options don't work without -Wformat; warn if
-     they are used.  */
-  if (warn_format_y2k && !warn_format)
-    warning ("-Wformat-y2k ignored without -Wformat");
-  if (warn_format_extra_args && !warn_format)
-    warning ("-Wformat-extra-args ignored without -Wformat");
-  if (warn_format_zero_length && !warn_format)
-    warning ("-Wformat-zero-length ignored without -Wformat");
-  if (warn_format_nonliteral && !warn_format)
-    warning ("-Wformat-nonliteral ignored without -Wformat");
-  if (warn_format_security && !warn_format)
-    warning ("-Wformat-security ignored without -Wformat");
-  if (warn_missing_format_attribute && !warn_format)
-    warning ("-Wmissing-format-attribute ignored without -Wformat");
-
-  /* If an error has occurred in cpplib, note it so we fail
-     immediately.  */
-  errorcount += cpp_errors (parse_in);
-
-  return flag_preprocess_only;
-}
-
 /* Hook that registers front end and target-specific built-ins.  */
 static void
 cb_register_builtins (pfile)
@@ -4305,7 +4683,15 @@ cb_register_builtins (pfile)
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
+      if (flag_exceptions)
+	cpp_define (pfile, "__EXCEPTIONS");
+      if (warn_deprecated)
+	cpp_define (pfile, "__DEPRECATED");
     }
+
+  /* represents the C++ ABI version, always defined so it can be used while
+     preprocessing C and assembler.  */
+  cpp_define (pfile, "__GXX_ABI_VERSION=102");
 
   /* libgcc needs to know this.  */
   if (USING_SJLJ_EXCEPTIONS)
@@ -4353,6 +4739,12 @@ cb_register_builtins (pfile)
     cpp_define (pfile, "__FAST_MATH__");
   if (flag_no_inline)
     cpp_define (pfile, "__NO_INLINE__");
+  if (flag_signaling_nans)
+    cpp_define (pfile, "__SUPPORT_SNAN__");
+  if (flag_finite_math_only)
+    cpp_define (pfile, "__FINITE_MATH_ONLY__=1");
+  else
+    cpp_define (pfile, "__FINITE_MATH_ONLY__=0");
 
   if (flag_iso)
     cpp_define (pfile, "__STRICT_ANSI__");
@@ -4508,8 +4900,9 @@ c_common_init (filename)
   options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
 
   /* We want -Wno-long-long to override -pedantic -std=non-c99
-     whatever the ordering.  */
-  options->warn_long_long = warn_long_long && !flag_isoc99 && pedantic;
+     and/or -Wtraditional, whatever the ordering.  */
+  options->warn_long_long
+    = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
 
   /* Register preprocessor built-ins before calls to
      cpp_main_file.  */

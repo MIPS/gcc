@@ -78,7 +78,7 @@ extern int		mips16_constant_after_function_p PARAMS ((tree));
 extern int		mips_output_external PARAMS ((FILE *, tree,
 						      const char *));
 extern tree		mips_build_va_list PARAMS ((void));
-extern void		mips_va_start PARAMS ((int, tree, rtx));
+extern void		mips_va_start PARAMS ((tree, rtx));
 extern struct rtx_def  *mips_va_arg PARAMS ((tree, tree));
 
 extern void		expand_block_move PARAMS ((rtx *));
@@ -98,11 +98,13 @@ extern const char      *mips_fill_delay_slot PARAMS ((const char *,
 						      rtx));
 extern const char      *mips_move_1word PARAMS ((rtx *, rtx, int));
 extern const char      *mips_move_2words PARAMS ((rtx *, rtx));
+extern const char      *mips_sign_extend PARAMS ((rtx, rtx, rtx));
 extern const char      *mips_emit_prefetch PARAMS ((rtx *));
 extern const char      *mips_restore_gp PARAMS ((rtx *, rtx));
 extern const char      *output_block_move PARAMS ((rtx, rtx *, int,
 						   enum block_move_type));
 extern void		override_options PARAMS ((void));
+extern void		mips_conditional_register_usage PARAMS ((void));
 extern void		print_operand_address PARAMS ((FILE *, rtx));
 extern void		print_operand PARAMS ((FILE *, rtx, int));
 extern int		double_memory_operand PARAMS ((rtx,enum machine_mode));

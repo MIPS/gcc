@@ -1,3 +1,369 @@
+2002-08-07  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* libsupc++/Makefile.am (LTCOMPILE): Add LIBSUPCXX_PICFLAGS.
+	* libsupc++/Makefile.in: Regenerate.
+
+2002-08-05  Gabriel Dos Reis  <gdr@nerim.net>
+
+	PR/7491
+	* include/bits/slice_array.h(_DEFINE_VALARRAY_OPERATOR):
+	Instantiate with new function objects. 
+	* include/bits/mask_array.h (_DEFINE_VALARRAY_OPERATOR): Likewise.
+	Reformat.  Uglify.
+	* include/bits/gslice_array.h: Likewise.
+	* include/bits/indirect_array.h: Likewise.
+
+2002-08-03  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* testsuite/26_numerics/valarray_name_lookup.cc: Rename from
+	testsuite/26_numerics/valarray_name_lookup.C
+
+	* include/bits/valarray_array.h (_DEFINE_ARRAY_FUNCTION): Use our
+	object function surrogates.
+	* include/bits/valarray_meta.h (__shift_left): Fix typo.
+	(_BinFunClos<>): Remove.
+	(_BinFunBase<>): Likewise.
+	(_BinFunBase1<>):Likewise.
+	(_BinFunBase2<>): Likewise.
+	(_DEFINE_EXPR_RELATIONAL_OPERATOR): Likewise.
+	(_DEFINE_EXPR_UNARY_OPERATOR): Adjust definition.
+	(_DEFINE_EXPR_BINARY_OPERATOR): Likewise.
+	(_DEFINE_EXPR_BINARY_FUNCTION): Likewise.
+	* include/std/std_valarray.h: Dont #include <functional> anymore.
+	(_Bitwise_or<>, _Bitwise_and<>, _Bitwise_xor<>, _Shift_left<>,
+	_Shift_right<>): Remove.
+	(_DEFINE_VALARRAY_AUGMENTED_ASSIGNMENT): Adjust instantiation.
+	(_DEFINE_BINARY_OPERATOR): Tweak definition.
+	(_DEFINE_LOGICAL_OPERATOR): Remove.
+	* testsuite/26_numerics/valarray_name_lookup.C (main): Add more tests.
+
+2002-08-02  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* include/bits/valarray_meta.h (_UnFunBase<>): Remove.
+	(_UnFunClos<>): Same.
+	(_UnBase<>): Reformat.  Make first template-parameter non
+	template. 
+	(_UnClos<>): Likewise.
+	(_Expr<>): Reformate.  Adjust unary member operator return types. 
+	(_DEFINE_EXPR_UNARY_OPERATOR): Adjust definition.
+	(_DEFINE_EXPR_UNARY_FUNCTION): Likewise.
+	* include/std/std_valarray.h (_UnClos<>): Adjust declaration.
+	(valarray<>::_UnaryOp<>):  New nested traits. Adjust unary member
+	operator return types.  Reformat.
+	(_Bitwise_not): Remove.
+	(_DEFINE_VALARRAY_UNARY_OPERATOR): Adjust definition.
+	* testsuite/26_numerics/valarray_name_lookup.C: New test.
+
+2002-08-02  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/newlib/ctype_inline.h (is): Don't offset _M_table.
+	(scan_is): Use this->is.
+	(scan_not): Likewise.
+
+2002-08-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Revert PR libstdc++/6594
+	* src/strstream.cc (strstreambuf): Revert.
+	(strstreambuf::overflow): Same.
+	(strstreambuf::~strstreambuf): Same.	
+	* testsuite/backward/strstream_members.cc (test02): Add.
+	
+	* docs/html/abi.txt: Update. Spell check.
+
+	* testsuite/19_diagnostics/stdexceptions.cc (test04): Add bool test.
+
+	* testsuite/Makefile.am (INCLUDES): Add LIBSUPCXX_INCLUDES.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/testsuite_hooks.h: Use __throw_exception_again,
+	include functexcept.h so that -fno-exceptions will build.
+	
+2002-08-02  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* include/bits/valarray_meta.h (__unary_plus, __negate,
+	__bitwise_not, __plus, __minus, __multiplies, __divides,
+	__modulus, __bitwise_xor, __bitwise_or, __bitwise_and,
+	__shift_left, __shift_right, __logical_and, __logical_or,
+	__logical_not, __equal_to, __not_equal_to, __less, __less_equal,
+	__greater_equal, __greater, __atan2, __pow): New function object
+	classes. 
+	(__fun<>):  New function traits class.
+
+2002-08-01  Rick Danos  <rdanos@hotmail.com>
+
+	PR libstdc++/7461
+	* config/os/newlib/ctype_noninline.h (classic_table): Add offset.
+	* config/os/newlib/ctype_inline.h (is): Use static_cast.
+
+2002-08-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* libsupc++/Makefile.am (LT_COMPILE): Remove C++ flags.
+	* libsupc++/Makefile.in: Regenerate.
+	
+2002-08-01  Benjamin Kosnik  <bkoz@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	
+	* config/linker-map.gnu: Change CXXABI_1 to CXXABI_1.2,
+	GLIBCPP_3.1 to GLIBCPP_3.2.
+
+2002-07-31  Benjamin Kosnik  <bkoz@redhat.com>
+            Mark Mitchell  <mark@codesourcery.com>
+
+	PR libstdc++/7442
+	* libsupc++/cxxabi.h (class __base_class_type_info::hwm_bit):
+	Change to __hwm_bit.
+	(__class_type_info): And here.
+
+2002-07-31  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7442
+	* libsupc++/cxxabi.h 
+	(__base_class_info): Change to __base_class_type_info. 2.9.5p6c
+	(__base_class_info::__base): Change to __base_type. 2.9.5p6c
+	(__base_class_info::offset_shift): Change to __offset_shift. 2.9.5p6c
+	(__vmi_class_type_info::__base_info): Don't make const, of type
+	__base_class_type_info, as per 2.9.5p6c
+	(__pbase_type_info::__qualifier_flags): Change to __flags, as per
+	2.9.5p7.
+	(__pbase_type_info::__qualifier_masks): Change to __masks, as per
+	2.9.5p7.
+	(__pointer_to_member_type_info::__context_class): Change member to
+	__context, as per 2.9.5p9.
+	* libsupc++/tinfo2.cc (__pointer_catch): Change __context_class to
+	__context.
+	* libsupc++/tinfo2.cc (__do_catch): Change __qualifier_flags to
+	__flags.
+	* libsupc++/tinfo.cc (__do_find_public_src): Change __base to
+	__base_type.
+	* libsupc++/tinfo.cc (__do_dyncast): Same.
+	* libsupc++/tinfo.cc (__do_upcast): Same.
+
+2002-07-31  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/fstream.cc: Add _GLIBCPP_USE_WCHAR_T guards.
+
+2002-07-31  Simon Whomsley  <whomsley@avacadcam.com>
+
+	* docs/html/22_locale/howto.html: Fix.
+
+2002-07-31  Alex Kompel  <shurik@sequoiap.com>
+
+	PR libstdc++/7445
+	* src/locale.cc (locale::classic): Move locks inside !_S_classic
+	block.
+
+2002-07-31  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/abi.txt: Update.
+
+2002-07-30  Benjamin Kosnik  <bkoz@redhat.com>
+            Gabriel Dos Reis  <gdr@nerim.net>
+
+	* include/bits/char_traits.h: Remove generic definitions.
+	* include/bits/streambuf_iterator.h (istreambuf_iterator): Use
+	eof, not -2.
+	* include/bits/istream.tcc (istream::readsome): Don't check
+	against eof, instead use constants.
+	(istream::sync): Same.
+	(istream::sentry::sentry): Use eq_int_type.
+	(istream::get): Same.
+	* include/bits/ostream.tcc: Change __pad to 
+	__pad<_CharT, _Traits>::_S_pad. 
+	* include/bits/locale_facets.h: Add __pad_traits generic and
+	ostreambuf_iterator specialization.
+	* include/bits/locale_facets.tcc: Change __pad into struct __pad
+	with a _CharT and _Traits template parameter and _S_pad static
+	member function.
+	* src/locale-inst.cc: Update __pad instantiations.
+	
+	* include/std/std_fstream.h: Declare _M_underflow_common
+	specializations.
+	* src/fstream.cc: New. Add _M_underflow_common specializations.
+	* include/bits/fstream.tcc (filebuf::close): Use traits_type.
+	(filebuf::_M_underflow_common(bool)): Remove generic version, as
+	sys_ungetc and custom int_types don't get along.
+	* include/std/std_streambuf.h: Add _M_pos.
+	* src/Makefile.am (sources): Add fstream.cc.
+	* src/Makefile.in: Regenerate.
+
+	* testsuite/21_strings/capacity.cc: Add char_traits specializations.
+	* testsuite/22_locale/codecvt_members_unicode_char.cc: Same.
+	* testsuite/22_locale/codecvt_members_unicode_wchar_t.cc: Same.
+	* testsuite/22_locale/ctor_copy_dtor.cc: Same.
+	* testsuite/27_io/filebuf_virtuals.cc (test07): Move to...
+	* testsuite/27_io/filebuf.cc: ...here.
+	* testsuite/testsuite_hooks.h: Add gnu_char, gnu_int, char_traits
+	specialization for both.
+	* testsuite/27_io/streambuf.cc: Add instantiation test,
+	testsuite_hooks include.
+	* testsuite/27_io/istream.cc: Same.
+	* testsuite/27_io/ostream.cc: Same.	
+	* testsuite/27_io/fstream.cc: Same.
+	* testsuite/27_io/stringstream.cc: Same.
+	* testsuite/27_io/filebuf.cc: Same.
+	* testsuite/27_io/stringbuf.cc: Same.
+	
+2002-07-29  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/cpu/powerpc/cpu_limits.h (__glibcpp_long_bits): Define.
+	* configure.target (cpu_include_dir): Use cpu/powerpc for powerpc64.
+	* config/cpu/powerpc/atomicity.h (__always_swap): Remove.
+	(__test_and_set): Remove.
+	(_STWCX): Define and use.
+
+2002-07-26  Phil Edwards  <pme@gcc.gnu.org>
+
+	* libsupc++/new (placement delete):  Remove unused parameter names.
+
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7216
+	* include/std/std_istream.h (basic_iostream): Add typedefs for
+	char_type, int_type, pos_type, off_type, and traits_type.
+	* testsuite/27_io/iostream.cc (test01): Add typedef tests.
+	* testsuite/27_io/istream.cc: Same.
+	* testsuite/27_io/ostream.cc: Same.
+	* testsuite/27_io/filebuf.cc: Same.
+	* testsuite/27_io/stringbuf.cc: Replace content, move to...
+	* testsuite/27_io/stringbuf_members.cc: ...here.	
+	* testsuite/27_io/streambuf.cc: Replace content, move to...
+	* testsuite/27_io/streambuf_members.cc: ...here.	
+	* testsuite/27_io/stringstream.cc: Replace content, move to...
+	* testsuite/27_io/stringstream_members.cc: ...here.
+	* testsuite/27_io/ios.cc: New file.
+	* testsuite/27_io/fstream.cc: New file.
+	* testsuite/27_io/ifstream.cc: New file.	
+	* testsuite/27_io/ofstream.cc: New file.		
+	* testsuite/27_io/istringstream.cc: New file.	
+	* testsuite/27_io/ostringstream.cc: New file.	
+	
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7220
+	* include/bits/istream.tcc (istream::ignore): Don't extract on
+	zero.
+	* testsuite/27_io/istream_unformatted.cc (test10): Add.
+	
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base_type.cc: Move to...
+	* testsuite/27_io/ios_base_types.cc: ...here.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7222
+	* src/locale.cc (locale::locale(const char*)): Use setlocale NULL.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test02): New.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7230
+	* config/linker-map.gnu: Revert strstream patch from 2002-07-01.
+	* include/Makefile.am (backward_headers): Use strstream, not
+	strstream.h.
+	* include/Makefile.in: Regenerate.
+	* include/backward/strstream: Revert.
+	* include/backward/strstream.h: Remove.
+	* src/strstream.cc: Revert.
+	* testsuite/backward/strstream_members.cc: Change include.	
+
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7219
+	* include/bits/ios_base.h (ios_base::streampos): Add.
+	(ios_base::streamoff): Add.
+	* testsuite/27_io/ios_base_type.cc: New.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7286
+	* libsupc++/new: Add placement delete.
+	* testsuite/18_support/new_delete_placement.cc: New.
+
+	* docs/html/abi.txt: Fix typos.
+	
+2002-07-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/documentation.html: Remove libstdc++-v3.0.86 links,
+	confusing usage of "latest."
+	De-tangle contributor information from introductory notes.
+	Move abi.txt link placement, activate.
+	Re-organize.
+	Move chapter info into old FAQ format. 
+	* docs/html/organization.html: Removed, obsoleted by doxygen work.
+	* docs/html/abi.txt: Add notes on testing ABI changes.
+	
+2002-07-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/abi.txt:  New file.
+	* docs/html/23_containers/howto.html:  Tweak vector-overhead text.
+	* docs/html/ext/lwg-active.html, docs/html/ext/lwg-defects.html:
+	Import from upstream, R22.
+
+	* include/bits/char_traits.h, include/bits/stl_iterator.h,
+	include/bits/stl_iterator_base_types.h, libsupc++/exception,
+	libsupc++/new, libsupc++/typeinfo:  Use @brief markup.
+
+	* include/bits/deque.tcc, include/bits/stl_alloc.h,
+	include/bits/stl_deque.h, include/bits/stl_list.h:  Postpone removal
+	of deprecated functions until 3.4.  (Same timeframe, different text.)
+	* include/bits/stl_vector.h:  Ditto.  Also do the same cleanups that
+	the other sequence classes received.
+
+2002-07-18  Brendan Kehoe  <brendan@zen.org>
+
+	* bits/slice_array.h (_DEFINE_VALARRAY_OPERATOR): Fix typo of
+	_Nname to _Name.
+	
+2002-07-19  Gabriel Dos Reis  <gdr@nerim.net>
+
+	DR/123
+	* include/bits/slice_array.h 
+	(slice_array<T>::operator=(const T&)): Constify.
+	* include/bits/gslice_array.h 
+	(gslice_array<T>::operator=(const T&)):  Likewise.
+	* include/bits/mask_array.h 
+	(mask_array<T>::operator=(const T&)): Likewise.
+	* include/bits/indirect_array.h
+	(indirect_array<T>::operator=(const T&): Likewise.
+
+2002-07-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/run_doxygen:  Remove template parameter names from
+	"Compound List" summary page.  Reformat.
+	* docs/html/documentation.html:  XHTML fixes.
+
+2002-07-16  Andreas Schwab  <schwab@suse.de>
+
+	* libsupc++/new (set_new_handler): Declare to not throw any
+	exceptions.
+	* libsupc++/new_handler.cc (set_new_handler): Likewise.
+
+2002-07-16  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* include/Makefile.am (bits_headers): Remove slice.h
+	* include/Makefile.in: Regenerate.
+	* include/bits/slice.h (slice): move to include/bits/slice_array.h
+	* include/bits/slice.h Remove.
+	* include/std/std_valarray.h: Don't #include bits/slice.h anymore.
+	* include/bits/slice_array.h: Comply to official coding styles.
+	* testsuite/26_numerics/slice.cc: New test.
+
+2002-07-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/os/solaris/solaris2.5/ctype_base.h (ctype_base): Fix
+	print to match vendor <ctype.h>.
+
+2002-07-15  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Fix download links.
+	* docs/html/faq/index.txt:  Regenerate.
+	* docs/html/17_intro/porting.html:  Regenerate from earlier changes.
+
+2002-07-11  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.target (target_os switch): Allow for irix6*o32
+	configurations.
+
 2002-07-10  Gabriel Dos Reis  <gdr@nerim.net>
 
 	* include/bits/valarray_meta.h (_UnFunBase): Take a second

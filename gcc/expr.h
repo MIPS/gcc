@@ -341,7 +341,7 @@ extern rtx gen_cond_trap PARAMS ((enum rtx_code, rtx, rtx, rtx));
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
-extern void std_expand_builtin_va_start PARAMS ((int, tree, rtx));
+extern void std_expand_builtin_va_start PARAMS ((tree, rtx));
 extern rtx std_expand_builtin_va_arg PARAMS ((tree, tree));
 extern rtx expand_builtin_va_arg PARAMS ((tree, tree));
 extern void default_init_builtins PARAMS ((void));
@@ -544,6 +544,10 @@ extern unsigned int case_values_threshold PARAMS ((void));
 /* Return an rtx for the size in bytes of the value of an expr.  */
 extern rtx expr_size PARAMS ((tree));
 
+/* Return a wide integer for the size in bytes of the value of EXP, or -1
+   if the size can vary or is larger than an integer.  */
+extern HOST_WIDE_INT int_expr_size PARAMS ((tree));
+
 extern rtx lookup_static_chain PARAMS ((tree));
 
 /* Convert a stack slot address ADDR valid in function FNDECL
@@ -666,6 +670,12 @@ extern void maybe_set_unchanging PARAMS ((rtx, tree));
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
    if we are making a new object of this type.  */
 extern void set_mem_attributes PARAMS ((rtx, tree, int));
+
+/* Similar, except that BITPOS has not yet been applied to REF, so if
+   we alter MEM_OFFSET according to T then we should subtract BITPOS
+   expecting that it'll be added back in later.  */
+extern void set_mem_attributes_minus_bitpos PARAMS ((rtx, tree, int,
+						     HOST_WIDE_INT));
 #endif
 
 /* Assemble the static constant template for function entry trampolines.  */

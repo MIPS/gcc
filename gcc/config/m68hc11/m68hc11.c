@@ -288,21 +288,6 @@ m68hc11_override_options ()
 }
 
 
-int
-m68hc11_optimization_options (level, size)
-     int level ATTRIBUTE_UNUSED;
-     int size;
-{
-  /* When optimizing for size, do not reorder basic blocks because
-     it duplicates some insns for speed and this results in larder code.
-     This reordering can still be enabled but explicitly.  */
-  if (size)
-    {
-      flag_reorder_blocks = 0;
-    }
-  return 0;
-}
-
 void
 m68hc11_conditional_register_usage ()
 {
@@ -660,7 +645,7 @@ go_if_legitimate_address_internal (operand, mode, strict)
      enum machine_mode mode;
      int strict;
 {
-  if (CONSTANT_ADDRESS_P (operand))
+  if (CONSTANT_ADDRESS_P (operand) && TARGET_M6812)
     {
       /* Reject the global variables if they are too wide.  This forces
          a load of their address in a register and generates smaller code.  */
@@ -1453,29 +1438,6 @@ m68hc11_function_arg (cum, mode, type, named)
       return gen_rtx (REG, mode, HARD_D_REGNUM);
     }
   return NULL_RTX;
-}
-
-/* The "standard" implementation of va_start: just assign `nextarg' to
-   the variable.  */
-void
-m68hc11_expand_builtin_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
-     tree valist;
-     rtx nextarg;
-{
-  tree t;
-
-  /* SCz: the default implementation in builtins.c adjust the
-     nextarg using UNITS_PER_WORD.  This works only with -mshort
-     and fails when integers are 32-bit.  Here is the correct way.  */
-  if (!stdarg_p)
-    nextarg = plus_constant (nextarg, -INT_TYPE_SIZE / 8);
-
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     make_tree (ptr_type_node, nextarg));
-  TREE_SIDE_EFFECTS (t) = 1;
-
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
 
 rtx
@@ -4900,6 +4862,7 @@ m68hc11_z_replacement (insn)
 
       body = PATTERN (insn);
       if (GET_CODE (body) == SET || GET_CODE (body) == PARALLEL
+          || GET_CODE (body) == ASM_OPERANDS
 	  || GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN)
 	{
           rtx note;
@@ -5099,11 +5062,13 @@ m68hc11_reorg (first)
   z_replacement_completed = 1;
   m68hc11_reassign_regs (first);
 
+  if (optimize)
+    compute_bb_for_insn ();
+
   /* After some splitting, there are some oportunities for CSE pass.
      This happens quite often when 32-bit or above patterns are split.  */
   if (optimize > 0 && split_done)
     {
-      find_basic_blocks (first, max_reg_num (), 0);
       reload_cse_regs (first);
     }
 
@@ -5133,7 +5098,6 @@ m68hc11_reorg (first)
             }
         }
 
-      find_basic_blocks (first, max_reg_num (), 0);
       life_analysis (first, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
     }
 

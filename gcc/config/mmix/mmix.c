@@ -546,14 +546,6 @@ mmix_function_arg (argsp, mode, type, named, incoming)
      int named ATTRIBUTE_UNUSED;
      int incoming;
 {
-  /* Handling of the positional dummy parameter for varargs gets nasty.
-     Check execute/991216-3 and function.c:assign_params.  We have to say
-     that the dummy parameter goes on stack in order to get the correct
-     offset when va_start and va_arg is applied.  FIXME: Should do TRT by
-     itself in the gcc core.  */
-  if ((! named && incoming && current_function_varargs) || argsp->now_varargs)
-    return NULL_RTX;
-
   /* Last-argument marker.  */
   if (type == void_type_node)
     return (argsp->regs < MMIX_MAX_ARGS_IN_REGS)
@@ -828,31 +820,10 @@ mmix_setup_incoming_varargs (args_so_farp, mode, vartype, pretend_sizep,
      int * pretend_sizep;
      int second_time ATTRIBUTE_UNUSED;
 {
-  /* For stdarg, the last named variable has been handled, but
-     args_so_farp has not been advanced for it.  For varargs, the current
-     argument is to be counted to the anonymous ones.  */
-  if (current_function_stdarg)
-    {
-      if (args_so_farp->regs + 1 < MMIX_MAX_ARGS_IN_REGS)
-	*pretend_sizep
-	  = (MMIX_MAX_ARGS_IN_REGS - (args_so_farp->regs + 1)) * 8;
-    }
-  else if (current_function_varargs)
-    {
-      if (args_so_farp->regs < MMIX_MAX_ARGS_IN_REGS)
-	*pretend_sizep
-	  = (MMIX_MAX_ARGS_IN_REGS - args_so_farp->regs) * 8;
-
-      /* For varargs, we get here when we see the last named parameter,
-	 which will actually be passed on stack.  So make the next call
-	 (there will be one) to FUNCTION_ARG return 0, to count it on
-	 stack, so va_arg for it will get right.  FIXME: The GCC core
-	 should provide TRT.  */
-      args_so_farp->now_varargs = 1;
-    }
-  else
-    internal_error ("neither varargs or stdarg in mmix_setup_incoming_varargs");
-
+  /* The last named variable has been handled, but
+     args_so_farp has not been advanced for it.  */
+  if (args_so_farp->regs + 1 < MMIX_MAX_ARGS_IN_REGS)
+    *pretend_sizep = (MMIX_MAX_ARGS_IN_REGS - (args_so_farp->regs + 1)) * 8;
 
   /* We assume that one argument takes up one register here.  That should
      be true until we start messing with multi-reg parameters.   */
@@ -1624,23 +1595,6 @@ mmix_asm_output_def (stream, name, value)
   fprintf (stream, "\tIS ");
   assemble_name (stream, value);
   fputc ('\n', stream);
-}
-
-/* ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL.  */
-
-void
-mmix_asm_output_define_label_difference_symbol (stream, symbol, hi, lo)
-     FILE *stream;
-     const char *symbol;
-     const char *hi;
-     const char *lo;
-{
-  assemble_name (stream, symbol);
-  fprintf (stream, "\tIS\t");
-  assemble_name (stream, hi);
-  fputc ('-', stream);
-  assemble_name (stream, lo);
-  fprintf (stream, "\n");
 }
 
 /* PRINT_OPERAND.  */

@@ -1166,9 +1166,6 @@ CUMULATIVE_ARGS;
 
 /* Varargs handling.  */
 
-#define	EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  c4x_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
@@ -1707,9 +1704,6 @@ fini_section ()							\
 
 #define NO_DOT_IN_LABEL		/* Only required for TI format.  */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0);
-
 #define ASM_GLOBALIZE_LABEL(FILE, NAME) \
   do {                                  \
     fprintf (FILE, "\t.global\t");	\
@@ -1795,10 +1789,6 @@ do {						\
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	64 /* Actually only 40.  */
-
-/* Allow #sccs in preprocessor.  */
-
-#define SCCS_DIRECTIVE
 
 /* Output #ident as a .ident.  */
 

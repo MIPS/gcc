@@ -45,7 +45,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "timevar.h"
-#include "obstack.h"
 
 static int count_basic_blocks		PARAMS ((rtx));
 static void find_basic_blocks_1		PARAMS ((rtx));
@@ -321,7 +320,7 @@ make_edges (label_value_list, min, max, update_p)
       enum rtx_code code;
       int force_fallthru = 0;
 
-      if (GET_CODE (bb->head) == CODE_LABEL && LABEL_ALTERNATE_NAME (bb->head))
+      if (GET_CODE (bb->head) == CODE_LABEL && LABEL_ALT_ENTRY_P (bb->head))
 	cached_make_edge (NULL, ENTRY_BLOCK_PTR, bb, 0);
 
       /* Examine the last instruction of the block, and discover the
@@ -699,7 +698,7 @@ find_bb_boundaries (bb)
 	  bb = fallthru->dest;
 	  remove_edge (fallthru);
 	  flow_transfer_insn = NULL_RTX;
-	  if (LABEL_ALTERNATE_NAME (insn))
+	  if (LABEL_ALT_ENTRY_P (insn))
 	    make_edge (ENTRY_BLOCK_PTR, bb, 0);
 	}
 

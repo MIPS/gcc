@@ -152,7 +152,7 @@ unsigned int total_code_bytes;
 struct deferred_plabel GTY(())
 {
   rtx internal_label;
-  char *name;
+  const char *name;
 };
 static GTY((length ("n_deferred_plabels"))) struct deferred_plabel *
   deferred_plabels;
@@ -442,7 +442,7 @@ reg_before_reload_operand (op, mode)
   return 0;
 }
 
-/* Accept any constant that can be moved in one instructions into a
+/* Accept any constant that can be moved in one instruction into a
    general register.  */
 int
 cint_ok_for_move (intval)
@@ -576,6 +576,18 @@ arith11_operand (op, mode)
 {
   return (register_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT && INT_11_BITS (op)));
+}
+
+/* Return truth value of whether OP can be used as an operand in a
+   adddi3 insn.  */
+int
+adddi3_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return (register_operand (op, mode)
+	  || (GET_CODE (op) == CONST_INT
+	      && (TARGET_64BIT ? INT_14_BITS (op) : INT_11_BITS (op))));
 }
 
 /* A constant integer suitable for use in a PRE_MODIFY memory
@@ -1744,9 +1756,13 @@ emit_move_sequence (operands, mode, scratch_reg)
 	  else
 	    temp = gen_reg_rtx (mode);
 
-	  if (GET_CODE (operand1) == CONST_INT)
+	  /* We don't directly split DImode constants on 32-bit targets
+	     because PLUS uses an 11-bit immediate and the insn sequence
+	     generated is not as efficient as the one using HIGH/LO_SUM.  */
+	  if (GET_CODE (operand1) == CONST_INT
+	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
 	    {
-	      /* Directly break constant into low and high parts.  This
+	      /* Directly break constant into high and low parts.  This
 		 provides better optimization opportunities because various
 		 passes recognize constants split with PLUS but not LO_SUM.
 		 We use a 14-bit signed low part except when the addition
@@ -4725,10 +4741,10 @@ output_deferred_plabels (file)
 /* HP's millicode routines mean something special to the assembler.
    Keep track of which ones we have used.  */
 
-enum millicodes { remI, remU, divI, divU, mulI, mulU, end1000 };
+enum millicodes { remI, remU, divI, divU, mulI, end1000 };
 static void import_milli			PARAMS ((enum millicodes));
 static char imported[(int) end1000];
-static const char * const milli_names[] = {"remI", "remU", "divI", "divU", "mulI", "mulU"};
+static const char * const milli_names[] = {"remI", "remU", "divI", "divU", "mulI"};
 static const char import_string[] = ".IMPORT $$....,MILLICODE";
 #define MILLI_START 10
 
@@ -5166,13 +5182,12 @@ hppa_builtin_saveregs ()
 }
 
 void
-hppa_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+hppa_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
   nextarg = expand_builtin_saveregs ();
-  std_expand_builtin_va_start (1, valist, nextarg);
+  std_expand_builtin_va_start (valist, nextarg);
 }
 
 rtx
@@ -6153,8 +6168,6 @@ output_millicode_call (insn, call_dest)
   return "";
 }
 
-extern struct obstack permanent_obstack;
-
 /* INSN is either a function call.  It may have an unconditional jump
    in its delay slot.
 
@@ -6283,9 +6296,7 @@ output_call (insn, call_dest, sibcall)
 
 	      i = n_deferred_plabels++;
 	      deferred_plabels[i].internal_label = gen_label_rtx ();
-	      deferred_plabels[i].name = obstack_alloc (&permanent_obstack,
-							strlen (name) + 1);
-	      strcpy (deferred_plabels[i].name, name);
+	      deferred_plabels[i].name = ggc_strdup (name);
 
 	      /* Gross.  We have just implicitly taken the address of this
 		 function, mark it as such.  */

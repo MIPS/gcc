@@ -1,3 +1,167 @@
+2002-08-07  Mark Mitchell  <mark@codesourcery.com>
+
+	Rework build_component_ref.
+	* call.c (build_vfield_ref): Do not go through build_component_ref.
+	(build_field_call): Use build_class_member_access_expr.
+	(build_user_type_conversion_1): Use BASELINK_FUNCTIONS.
+	(build_object_call): Likewise.
+	* class.c (convert_to_base): New function.
+	(type_requires_array_cookie): Use BASELINK_FUNCTIONS.
+	(instantiate_type): Handle BASELINKs.
+	* cp-tree.def (BASELINK): New tree code.
+	* cp-tree.h (BASELINK_P): Reimplement.
+	(SET_BASELINK_P): Remove.
+	(BASELINK_BINFO): Reimplement.
+	(BASELINK_FUNCTIONS): Likewise.
+	(BASELINK_ACCESS_BINFO): Likewise.
+	(BASELINK_OPTYPE): Likewise.
+	(convert_to_base): New function.
+	(name_p): Likewise.
+	(build_object_ref): Remove.
+	(build_component_ref_1): Likewise.
+	(build_component_ref): Likewise.
+	(build_x_component_ref): Likewise.
+	(build_class_member_access_expr): New function.
+	(finish_class_member_access_expr): Likewise.
+	(build_ptrmemfunc_access_expr): Likewise.
+	* decl.c (grokdeclarator): Handle BASELINKs.
+	* decl2. (build_expr_from_tree): Handle COMPONENT_REFs by using
+	finish_class_member_access_expr.
+	(arg_assoc): Handle BASELINKs.
+	(do_class_using_decl): Likewise.
+	* error.c (dump_decl): Likewise.
+	(dump_expr): Use build_ptrmemfunc_access_expr.
+	* except.c (dtor_nothrow): Use CLASSTYPE_DESTRUCTORS to find
+	destructors.
+	(build_throw): Use BASELINK_FUNCTIONS.
+	* init.c (perform_member_init): Use
+	build_class_member_access_expr.
+	(build_offset_ref): Handle BASELINKs.  Use
+	build_class_member_access_expr.
+	* method.c (hack_identifier): Likewise.
+	* parse.y (do_id): Use BASELINK, not TREE_LIST.
+	(primary): Remove uses of build_object_ref.
+	* pt.c (lookup_template_function): Handle BASELINKs.
+	(resolve_overloaded_unification): Likewise.
+	* search.c (build_baselink): Build a BASELINK, not a TREE_LIST.
+	(lookup_field): Use BASELINK, not TREE_LIST.
+	(lookup_fnfiels): Likewise.
+	(setup_class_bindings): Likewise.
+	* semantics.c (finish_object_call_expr): Do not use
+	build_method_call when we already know what function is being
+	called.
+	* spew.c (identifier_type): Use BASELINK, not TREE_LIST.
+	* tree.c (really_overloaded_fn): Use OVL_CHAIN for OVERLOADs, not
+	TREE_CHAIN.
+	(name_p): New function.
+	* typeck.c (build_object_ref): Remove.
+	(build_component_ref_1): Likewise.
+	(build_x_component_ref): Likewise.
+	(build_class_member_access_expr): New function.
+	(finish_class_member_access_expr): Likewise.
+	(build_ptrmemfunc_access_expr): Likewise.
+	(get_member_function_from_ptrfunc): Use
+	build_ptrmemfunc_access_expr.
+	(build_binary_op): Likewise.
+	(build_unary_op): Likewise.
+	(build_ptrmemfunc): Likewise.
+	(pfn_from_ptrmemfunc): Likewise.
+	* typeck2.c (build_m_component_ref): Adjust comment.
+	
+2002-08-07  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (CXX_C_OBJS): Update.
+	* cp-lang.c (LANG_HOOKS_DECODE_OPTION): Use c_common_decode_option.
+	* cp-tree.h (cxx_decode_option): Remove.
+	* decl2.c (compare_options, lang_f_options, unsupported_options,
+	cxx_decode_option): Remove.
+
+2002-08-06  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* typeck.c (build_x_unary_op): Handle pointer-to-member.
+
+2002-08-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* class.c: Don't include obstack.h.
+	(popclass): 
+	* decl2.c: Delete bogus comment.
+	* error.c: Don't include obstack.h.
+	* except.c: Likewise.
+	(dump_type): Correct comment.
+	* method.c: Don't include obstack.h.
+	* tree.c: Likewise.
+
+2002-08-04  Gabriel Dos Reis  <gdr@nerim.net>
+
+	Fix PR/2213
+	* cvt.c (cp_convert_to_pointer): Reject conversions from integral
+	expressions to pointer-to-data-member of pointer-to-member-functions.
+
+2002-08-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* cvt.c (ocp_convert): Delete obsolete code.
+	* parse.y (permanent_obstack): Delete declaration.
+	* pt.c (permanent_obstack): Delete declaration.
+	* repo.c (permanent_obstack): Delete declaration.
+	(open_repo_file): Use xmalloc instead of permanent_obstack.
+	(init_repo): Use xstrdup instead of permanent_obstack.
+
+2002-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (VF_DERIVED_VALUE): Remove.
+	* class.c (finish_struct_1): Use VF_BINFO_VALUE not VF_DERIVED_VALUE.
+
+2002-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 7470.
+	C++ ABI change - vfunc ordering.
+	* class.c (add_virtual_function): Remove.
+	(dfs_modify_all_vtables): Take list of all declared
+	virtuals. Assign all that are not in primary base.
+	(check_for_override): Adjust comments.
+	(create_vtable_ptr): Take single list of virtuals. Build chain
+	of declared virtuals here.
+	(layout_class_type): Take single list of virtuals. Adjust.
+	(finish_struct_1): Keep virtuals on single list. Adjust.
+
+2002-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* init.c (build_member_call): Use build_new_method_call, not
+	build_method_call.
+
+2002-08-02  Krister Walfridsson  <cato@df.lth.se>
+
+	* Make-lang.in (spew.o, lex.o, pt.o): Add path to parse.h dependencies.
+
+2002-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_method_call): Issue a more helpful error message
+	about ambiguous method names.
+
+2002-08-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.c (build_shared_int_cst): Make cache file scope, and
+	GTY it.
+
+2002-08-02  Jason Merrill  <jason@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_EXPR_SIZE): Define.
+	(cp_expr_size): New fn.
+	* call.c (build_over_call): Lose empty class hackery.
+	(convert_arg_to_ellipsis): Promote non-POD warning to error.
+	* typeck.c (build_modify_expr): Don't use save_expr on an lvalue.
+
+	* semantics.c (expand_body): Do tree optimization in the function
+	context, too.
+
+2002-08-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cp-tree.h: Move all warning and flag declarations to c-common.h.
+	* decl.c: Move all warning and flag variables to c-common.c.
+	* decl2.c: Move all warning and flag variables to c-common.c.
+	* lex.c (flag_digraphs): Remove.
+	(warn_traditional): Now in c-common.c.
+
 2002-07-31  Mark Mitchell  <mark@codesourcery.com>
 
 	* call.c (build_field_call): Do not look up the field by name.

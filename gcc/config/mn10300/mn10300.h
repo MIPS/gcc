@@ -648,8 +648,8 @@ struct cum_arg {int nbytes; };
 #define EXPAND_BUILTIN_SAVEREGS() mn10300_builtin_saveregs ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  mn10300_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  mn10300_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -895,17 +895,8 @@ struct cum_arg {int nbytes; };
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)	\
-  do { fputs ("\t.global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */

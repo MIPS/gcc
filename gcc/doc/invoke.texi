@@ -270,17 +270,17 @@ in the following sections.
 -fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmove-all-movables  -fno-default-inline  -fno-defer-pop @gol
+-fmove-all-movables  -fnew-ra -fno-default-inline  -fno-defer-pop @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
--funsafe-math-optimizations -fno-trapping-math @gol
+-funsafe-math-optimizations -ffinite-math-only -fno-trapping-math @gol
 -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -freduce-all-givs -fregmove  -frename-registers @gol
 -freorder-blocks -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--fschedule-insns  -fschedule-insns2 @gol
+-fschedule-insns  -fschedule-insns2 -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps  -ftrapv @gol
 -funroll-all-loops  -funroll-loops  @gol
@@ -449,6 +449,8 @@ in the following sections.
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
 -maix-struct-return -msvr4-struct-return
 -mabi=altivec -mabi=no-altivec @gol
+-mabi=spe -mabi=no-spe @gol
+-misel=yes -misel=no @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
 -msdata=@var{opt}  -mvxworks -mwindiss -G @var{num} -pthread}
@@ -475,7 +477,8 @@ in the following sections.
 -m4650  -msingle-float  -mmad @gol
 -mstats  -EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi @gol
--mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func}
+-mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func
+-mbranch-likely -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{
@@ -967,11 +970,11 @@ from C, such as C++ and Objective-C) that the compiler accepts:
 @cindex ISO support
 @item -ansi
 @opindex ansi
-In C mode, support all ISO C89 programs.  In C++ mode,
+In C mode, support all ISO C90 programs.  In C++ mode,
 remove GNU extensions that conflict with ISO C++.
 
 This turns off certain features of GCC that are incompatible with ISO
-C89 (when compiling C code), or of standard C++ (when compiling C++ code),
+C90 (when compiling C code), or of standard C++ (when compiling C++ code),
 such as the @code{asm} and @code{typeof} keywords, and
 predefined macros such as @code{unix} and @code{vax} that identify the
 type of system you are using.  It also enables the undesirable and
@@ -1012,10 +1015,10 @@ possible values are
 @table @samp
 @item c89
 @itemx iso9899:1990
-ISO C89 (same as @option{-ansi}).
+ISO C90 (same as @option{-ansi}).
 
 @item iso9899:199409
-ISO C89 as modified in amendment 1.
+ISO C90 as modified in amendment 1.
 
 @item c99
 @itemx c9x
@@ -1026,7 +1029,7 @@ ISO C99.  Note that this standard is not yet fully supported; see
 names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 
 @item gnu89
-Default, ISO C89 plus GNU extensions (including some C99 features).
+Default, ISO C90 plus GNU extensions (including some C99 features).
 
 @item gnu99
 @item gnu9x
@@ -1041,7 +1044,7 @@ previous C standards.  For example, you may use @code{__restrict__} even
 when @option{-std=c99} is not specified.
 
 The @option{-std} options specifying some version of ISO C have the same
-effects as @option{-ansi}, except that features that were not in ISO C89
+effects as @option{-ansi}, except that features that were not in ISO C90
 but are in the specified version (for example, @samp{//} comments and
 the @code{inline} keyword in ISO C99) are not disabled.
 
@@ -1079,7 +1082,7 @@ switch only affects the @code{asm} and @code{typeof} keywords, since
 @code{inline} is a standard keyword in ISO C99.
 
 @item -fno-builtin
-@itemx -fno-builtin-@var{function} @r{(C and Objective-C only)}
+@itemx -fno-builtin-@var{function}
 @opindex fno-builtin
 @cindex built-in functions
 Don't recognize built-in functions that do not begin with
@@ -1097,15 +1100,8 @@ and faster, but since the function calls no longer appear as such, you
 cannot set a breakpoint on those calls, nor can you change the behavior
 of the functions by linking with a different library.
 
-In C++, @option{-fno-builtin} is always in effect.  The @option{-fbuiltin}
-option has no effect.  Therefore, in C++, the only way to get the
-optimization benefits of built-in functions is to call the function
-using the @samp{__builtin_} prefix.  The GNU C++ Standard Library uses
-built-in functions to implement many functions (like
-@code{std::strchr}), so that you automatically get efficient code.
-
-With the @option{-fno-builtin-@var{function}} option, not available
-when compiling C++, only the built-in function @var{function} is
+With the @option{-fno-builtin-@var{function}} option
+only the built-in function @var{function} is
 disabled.  @var{function} must not begin with @samp{__builtin_}.  If a
 function is named this is not built-in in this version of GCC, this
 option is ignored.  There is no corresponding
@@ -1837,7 +1833,7 @@ attributes (@pxref{Function Attributes}), in the @code{printf},
 not in the C standard) families.
 
 The formats are checked against the format features supported by GNU
-libc version 2.2.  These include all ISO C89 and C99 features, as well
+libc version 2.2.  These include all ISO C90 and C99 features, as well
 as features from the Single Unix Specification and some BSD and GNU
 extensions.  Other library implementations may not support all these
 features; GCC does not support warning about features that go beyond a
@@ -2823,11 +2819,16 @@ allocation when it finishes.
 
 @item -fprofile-arcs
 @opindex fprofile-arcs
-Instrument @dfn{arcs} during compilation to generate coverage data
-or for profile-directed block ordering.  During execution the program
+Instrument @dfn{arcs} during compilation to generate coverage data or
+for profile-directed block ordering.  During execution the program
 records how many times each branch is executed and how many times it is
 taken.  When the compiled program exits it saves this data to a file
-called @file{@var{sourcename}.da} for each source file.
+called @file{@var{auxname}.da} for each source file.  @var{auxname} is
+generated from the name of the output file, if explicitly specified and
+it is not the final executable, otherwise it is the basename of the
+source file. In both cases any suffix is removed (e.g.  @file{foo.da}
+for input file @file{dir/foo.c}, or @file{dir/foo.da} for output file
+specified as @option{-o dir/foo.o}).
 
 For profile-directed block ordering, compile the program with
 @option{-fprofile-arcs} plus optimization and code generation options,
@@ -2868,19 +2869,19 @@ information to estimate all branch probabilities.
 @item -ftest-coverage
 @opindex ftest-coverage
 Create data files for the @code{gcov} code-coverage utility
-(@pxref{Gcov,, @code{gcov}: a GCC Test Coverage Program}).
-The data file names begin with the name of your source file:
+(@pxref{Gcov,, @code{gcov}: a GCC Test Coverage Program}).  See
+@option{-fprofile-arcs} option above for a description of @var{auxname}.
 
 @table @gcctabopt
-@item @var{sourcename}.bb
+@item @var{auxname}.bb
 A mapping from basic blocks to line numbers, which @code{gcov} uses to
 associate basic block execution counts with line numbers.
 
-@item @var{sourcename}.bbg
+@item @var{auxname}.bbg
 A list of all arcs in the program flow graph.  This allows @code{gcov}
 to reconstruct the program flow graph, so that it can compute all basic
 block and arc execution counts from the information in the
-@code{@var{sourcename}.da} file.
+@file{@var{auxname}.da} file.
 @end table
 
 Use @option{-ftest-coverage} with @option{-fprofile-arcs}; the latter
@@ -2888,9 +2889,9 @@ option adds instrumentation to the program, which then writes
 execution counts to another data file:
 
 @table @gcctabopt
-@item @var{sourcename}.da
+@item @var{auxname}.da
 Runtime arc execution counts, used in conjunction with the arc
-information in the file @code{@var{sourcename}.bbg}.
+information in the file @file{@var{auxname}.bbg}.
 @end table
 
 Coverage data will map better to the source files if
@@ -2901,8 +2902,12 @@ Coverage data will map better to the source files if
 Says to make debugging dumps during compilation at times specified by
 @var{letters}.  This is used for debugging the compiler.  The file names
 for most of the dumps are made by appending a pass number and a word to
-the source file name (e.g.  @file{foo.c.00.rtl} or @file{foo.c.01.sibling}).
-Here are the possible letters for use in @var{letters}, and their meanings:
+the @var{dumpname}. @var{dumpname} is generated from the name of the
+output file, if explicitly specified and it is not an executable,
+otherwise it is the basename of the source file. In both cases any
+suffix is removed (e.g.  @file{foo.00.rtl} or @file{foo.01.sibling}).
+Here are the possible letters for use in @var{letters}, and their
+meanings:
 
 @table @samp
 @item A
@@ -3395,6 +3400,12 @@ types.  Languages like C or C++ require each non-automatic variable to
 have distinct location, so using this option will result in non-conforming
 behavior.
 
+@item -fnew-ra
+@opindex fnew-ra
+Use a graph coloring register allocator.  Currently this option is meant
+for testing, so we are interested to hear about miscompilations with
+@option{-fnew-ra}.
+
 @item -fno-function-cse
 @opindex fno-function-cse
 Do not put function addresses in registers; make each instruction that
@@ -3406,8 +3417,9 @@ performed when this option is not used.
 
 @item -ffast-math
 @opindex ffast-math
-Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations}, and @*
-@option{-fno-trapping-math}.
+Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations}, @*
+@option{-fno-trapping-math}, @option{-ffinite-math-only} and @*
+@option{-fno-signaling-nans}.
 
 This option causes the preprocessor macro @code{__FAST_MATH__} to be defined.
 
@@ -3445,11 +3457,24 @@ math functions.
 
 The default is @option{-fno-unsafe-math-optimizations}.
 
+@item -ffinite-math-only
+@opindex ffinite-math-only
+Allow optimizations for floating-point arithmetic that assume
+that arguments and results are not NaNs or +-Infs.
+
+This option should never be turned on by any @option{-O} option since
+it can result in incorrect output for programs which depend on
+an exact implementation of IEEE or ISO rules/specifications.
+
+The default is @option{-fno-finite-math-only}.
+
 @item -fno-trapping-math
 @opindex fno-trapping-math
 Compile code assuming that floating-point operations cannot generate
-user-visible traps.  Setting this option may allow faster code
-if one relies on ``non-stop'' IEEE arithmetic, for example.
+user-visible traps.  These traps include division by zero, overflow,
+underflow, inexact result and invalid operation.  This option implies
+@option{-fno-signaling-nans}.  Setting this option may allow faster
+code if one relies on ``non-stop'' IEEE arithmetic, for example.
 
 This option should never be turned on by any @option{-O} option since
 it can result in incorrect output for programs which depend on
@@ -3457,6 +3482,21 @@ an exact implementation of IEEE or ISO rules/specifications for
 math functions.
 
 The default is @option{-ftrapping-math}.
+
+@item -fsignaling-nans
+@opindex fsignaling-nans
+Compile code assuming that IEEE signaling NaNs may generate user-visible
+traps during floating-point operations.  Setting this option disables
+optimizations that may change the number of exceptions visible with
+signaling NaNs.  This option implies @option{-ftrapping-math}.
+
+This option causes the preprocessor macro @code{__SUPPORT_SNAN__} to
+be defined.
+
+The default is @option{-fno-signaling-nans}.
+
+This option is experimental and does not currently guarantee to
+disable all GCC optimizations that affect signaling NaN behavior.
 
 @item -fno-zero-initialized-in-bss
 @opindex fno-zero-initialized-in-bss
@@ -6487,6 +6527,21 @@ allow access to the AltiVec instruction set.  You may also need to set
 @option{-mabi=altivec} to adjust the current ABI with AltiVec ABI
 enhancements.
 
+@item -mabi=spe
+@opindex mabi=spe
+Extend the current ABI with SPE ABI extensions.  This does not change
+the default ABI, instead it adds the SPE ABI extensions to the current
+ABI@.
+
+@item -mabi=no-spe
+@opindex mabi=no-spe
+Disable Booke SPE ABI extensions for the current ABI.
+
+@item -misel=@var{yes/no}
+@itemx -misel
+@opindex misel
+This switch enables or disables the generation of ISEL instructions.
+
 @item -mfull-toc
 @itemx -mno-fp-in-toc
 @itemx -mno-sum-in-toc
@@ -6917,14 +6972,13 @@ Do not include extra scratch space in floating point data blocks.  This
 results in smaller code, but slower execution, since scratch space must
 be allocated dynamically.
 
-@cindex @file{varargs.h} and RT PC
 @cindex @file{stdarg.h} and RT PC
 @item -mfp-arg-in-fpregs
 @opindex mfp-arg-in-fpregs
 Use a calling sequence incompatible with the IBM calling convention in
 which floating point arguments are passed in floating point registers.
-Note that @code{varargs.h} and @code{stdarg.h} will not work with
-floating point operands if this option is specified.
+Note that @code{stdarg.h} will not work with floating point operands
+if this option is specified.
 
 @item -mfp-arg-in-gregs
 @opindex mfp-arg-in-gregs
@@ -6954,65 +7008,77 @@ These @samp{-m} options are defined for the MIPS family of computers:
 
 @table @gcctabopt
 
-@item -march=@var{cpu-type}
+@item -march=@var{arch}
 @opindex march
-Assume the defaults for the machine type @var{cpu-type} when generating
-instructions.  The choices for @var{cpu-type} are  @samp{r2000}, @samp{r3000},
-@samp{r3900}, @samp{r4000}, @samp{r4100}, @samp{r4300}, @samp{r4400},
-@samp{r4600}, @samp{r4650}, @samp{r5000}, @samp{r6000}, @samp{r8000},
-and @samp{orion}.  Additionally, the @samp{r2000}, @samp{r3000},
-@samp{r4000}, @samp{r5000}, and @samp{r6000} can be abbreviated as
-@samp{r2k} (or @samp{r2K}), @samp{r3k}, etc.
+Generate code that will run on @var{arch}, which can be the name of a
+generic MIPS ISA, or the name of a particular processor.  The ISA names
+are: @samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4}, @samp{mips32}
+and @samp{mips64}.  The processor names are: @samp{r2000},
+@samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{vr4100}, @samp{vr4300},
+@samp{r4400}, @samp{r4600}, @samp{r4650}, @samp{vr5000}, @samp{r6000},
+@samp{r8000}, @samp{4kc}, @samp{4kp}, @samp{5kc}, @samp{20kc},
+@samp{orion}, and @samp{sb1}.  The special value @samp{from-abi} selects the
+most compatible architecture for the selected ABI (that is,
+@samp{mips1} for 32-bit ABIs and @samp{mips3} for 64-bit ABIs)@.
 
-@item -mtune=@var{cpu-type}
+In processor names, a final @samp{000} can be abbreviated as @samp{k}
+(for example, @samp{-march=r2k}).  Prefixes are optional, and
+@samp{vr} may be written @samp{r}.
+
+GCC defines two macros based on the value of this option.  The first
+is @samp{_MIPS_ARCH}, which gives the name of target architecture, as
+a string.  The second has the form @samp{_MIPS_ARCH_@var{foo}},
+where @var{foo} is the capitialized value of @samp{_MIPS_ARCH}@.
+For example, @samp{-march=r2000} will set @samp{_MIPS_ARCH}
+to @samp{"r2000"} and define the macro @samp{_MIPS_ARCH_R2000}.
+
+Note that the @samp{_MIPS_ARCH} macro uses the processor names given
+above.  In other words, it will have the full prefix and will not
+abbreviate @samp{000} as @samp{k}.  In the case of @samp{from-abi},
+the macro names the resolved architecture (either @samp{"mips1"} or
+@samp{"mips3"}).  It names the default architecture when no
+@option{-march} option is given.
+
+@item -mtune=@var{arch}
 @opindex mtune
-Assume the defaults for the machine type @var{cpu-type} when scheduling
-instructions.  The choices for @var{cpu-type} are @samp{r2000}, @samp{r3000},
-@samp{r3900}, @samp{r4000}, @samp{r4100}, @samp{r4300}, @samp{r4400},
-@samp{r4600}, @samp{r4650}, @samp{r5000}, @samp{r6000}, @samp{r8000},
-and @samp{orion}.  Additionally, the @samp{r2000}, @samp{r3000},
-@samp{r4000}, @samp{r5000}, and @samp{r6000} can be abbreviated as
-@samp{r2k} (or @samp{r2K}), @samp{r3k}, etc.  While picking a specific
-@var{cpu-type} will schedule things appropriately for that particular
-chip, the compiler will not generate any code that does not meet level 1
-of the MIPS ISA (instruction set architecture) without a @option{-mipsX}
-or @option{-mabi} switch being used.
+Optimize for @var{arch}.  Among other things, this option controls
+the way instructions are scheduled, and the perceived cost of arithmetic
+operations.  The list of @var{arch} values is the same as for
+@option{-march}.
 
-@item -mcpu=@var{cpu-type}
-@opindex mcpu
-This is identical to specifying both @option{-march} and @option{-mtune}.
+When this option is not used, GCC will optimize for the processor
+specified by @option{-march}.  By using @option{-march} and
+@option{-mtune} together, it is possible to generate code that will
+run on a family of processors, but optimize the code for one
+particular member of that family.
+
+@samp{-mtune} defines the macros @samp{_MIPS_TUNE} and
+@samp{_MIPS_TUNE_@var{foo}}, which work in the same way as the
+@samp{-march} ones described above.
 
 @item -mips1
 @opindex mips1
-Issue instructions from level 1 of the MIPS ISA@.  This is the default.
-@samp{r3000} is the default @var{cpu-type} at this ISA level.
+Equivalent to @samp{-march=mips1}.
 
 @item -mips2
 @opindex mips2
-Issue instructions from level 2 of the MIPS ISA (branch likely, square
-root instructions).  @samp{r6000} is the default @var{cpu-type} at this
-ISA level.
+Equivalent to @samp{-march=mips2}.
 
 @item -mips3
 @opindex mips3
-Issue instructions from level 3 of the MIPS ISA (64-bit instructions).
-@samp{r4000} is the default @var{cpu-type} at this ISA level.
+Equivalent to @samp{-march=mips3}.
 
 @item -mips4
 @opindex mips4
-Issue instructions from level 4 of the MIPS ISA (conditional move,
-prefetch, enhanced FPU instructions).  @samp{r8000} is the default
-@var{cpu-type} at this ISA level.
+Equivalent to @samp{-march=mips4}.
 
-@item -mfp32
-@opindex mfp32
-Assume that 32 32-bit floating point registers are available.  This is
-the default.
+@item -mips32
+@opindex mips32
+Equivalent to @samp{-march=mips32}.
 
-@item -mfp64
-@opindex mfp64
-Assume that 32 64-bit floating point registers are available.  This is
-the default when the @option{-mips3} option is used.
+@item -mips64
+@opindex mips64
+Equivalent to @samp{-march=mips64}.
 
 @item -mfused-madd
 @itemx -mno-fused-madd
@@ -7026,15 +7092,21 @@ in the mode where denormals are rounded to zero where denormals
 generated by multiply and accumulate instructions cause exceptions
 anyway.
 
+@item -mfp32
+@opindex mfp32
+Assume that floating point registers are 32 bits wide.
+
+@item -mfp64
+@opindex mfp64
+Assume that floating point registers are 64 bits wide.
+
 @item -mgp32
 @opindex mgp32
-Assume that 32 32-bit general purpose registers are available.  This is
-the default.
+Assume that general purpose registers are 32 bits wide.
 
 @item -mgp64
 @opindex mgp64
-Assume that 32 64-bit general purpose registers are available.  This is
-the default when the @option{-mips3} option is used.
+Assume that general purpose registers are 64 bits wide.
 
 @item -mint64
 @opindex mint64
@@ -7050,31 +7122,32 @@ explanation of the default, and the width of pointers.
 @opindex mlong32
 Force long, int, and pointer types to be 32 bits wide.
 
-If none of @option{-mlong32}, @option{-mlong64}, or @option{-mint64} are set,
-the size of ints, longs, and pointers depends on the ABI and ISA chosen.
-For @option{-mabi=32}, and @option{-mabi=n32}, ints and longs are 32 bits
-wide.  For @option{-mabi=64}, ints are 32 bits, and longs are 64 bits wide.
-For @option{-mabi=eabi} and either @option{-mips1} or @option{-mips2}, ints
-and longs are 32 bits wide.  For @option{-mabi=eabi} and higher ISAs, ints
-are 32 bits, and longs are 64 bits wide.  The width of pointer types is
-the smaller of the width of longs or the width of general purpose
-registers (which in turn depends on the ISA)@.
+The default size of ints, longs and pointers depends on the ABI@.  All
+the supported ABIs use 32-bit ints.  The n64 ABI uses 64-bit longs, as
+does the 64-bit Cygnus EABI; the others use 32-bit longs.  Pointers
+are the same size as longs, or the same size as integer registers,
+whichever is smaller.
 
 @item -mabi=32
 @itemx -mabi=o64
 @itemx -mabi=n32
 @itemx -mabi=64
 @itemx -mabi=eabi
+@itemx -mabi=meabi
 @opindex mabi=32
 @opindex mabi=o64
 @opindex mabi=n32
 @opindex mabi=64
 @opindex mabi=eabi
-Generate code for the indicated ABI@.  The default instruction level is
-@option{-mips1} for @samp{32}, @option{-mips3} for @samp{n32}, and
-@option{-mips4} otherwise.  Conversely, with @option{-mips1} or
-@option{-mips2}, the default ABI is @samp{32}; otherwise, the default ABI
-is @samp{64}.
+@opindex mabi=meabi
+Generate code for the given ABI@.
+
+Note that there are two embedded ABIs: @option{-mabi=eabi}
+selects the one defined by Cygnus while @option{-meabi=meabi}
+selects the one defined by MIPS@.  Both these ABIs have
+32-bit and 64-bit variants.  Normally, GCC will generate
+64-bit code when you select a 64-bit architecture, but you
+can use @option{-mgp32} to get 32-bit code instead.
 
 @item -mmips-as
 @opindex mmips-as
@@ -7297,12 +7370,19 @@ memory range for which the cache is being flushed, the size of the
 memory range, and the number 3 (to flush both caches).  The default
 depends on the target gcc was configured for, but commonly is either
 @samp{_flush_func} or @samp{__cpu_flush}.
-@end table
 
-These options are defined by the macro
-@code{TARGET_SWITCHES} in the machine description.  The default for the
-options is also defined by that macro, which enables you to change the
-defaults.
+@item -mbranch-likely
+@itemx -mno-branch-likely
+@opindex mbranch-likely
+@opindex mno-branch-likely
+Enable or disable use of Branch Likely instructions, regardless of the
+default for the selected architecture.  By default, Branch Likely
+instructions may be generated if they are supported by the selected
+architecture.  An exception is for the MIPS32 and MIPS64 architectures
+and processors which implement those architectures; for those, Branch
+Likely instructions will not be generated by default because the MIPS32
+and MIPS64 architectures specifically deprecate their use.
+@end table
 
 @node i386 and x86-64 Options
 @subsection Intel 386 and AMD x86-64 Options
@@ -8692,6 +8772,15 @@ Do not try and generate multiply-add floating point instructions
 @opindex msoft-float
 Generate output containing library calls for floating point.
 @strong{Warning:} the requisite libraries may not be available.
+
+@item -mieee-compare
+@itemx -mno-ieee-compare
+@opindex mieee-compare
+@opindex mno-ieee-compare
+Control whether or not the compiler uses IEEE floating point
+comparisons.  These handle correctly the case where the result of a
+comparison is unordered.
+@strong{Warning:} the requisite kernel support may not be available.
 
 @item -mnobitfield
 @opindex mnobitfield

@@ -173,6 +173,10 @@ typedef struct cp_lexer GTY (())
      consumed token will be gone forever.  */
   varray_type saved_tokens;
 
+  /* The STRING_CST tokens encountered while processing the current
+     string literal.  */
+  varray_type string_tokens;
+
   /* True if we should obtain more tokens from the preprocessor; false
      if we are processing a saved token cache.  */
   bool main_lexer_p;
@@ -190,8 +194,6 @@ static cp_lexer *cp_lexer_new
   PARAMS ((bool));
 static cp_lexer *cp_lexer_new_from_tokens
   PARAMS ((struct cp_token_block *));
-static void cp_lexer_delete
-  PARAMS ((cp_lexer *));
 static int cp_lexer_saving_tokens
   PARAMS ((const cp_lexer *));
 static cp_token *cp_lexer_next_token
@@ -278,6 +280,9 @@ cp_lexer_new (bool main_lexer_p)
   VARRAY_GENERIC_PTR_INIT (lexer->saved_tokens,
 			   CP_SAVED_TOKENS_SIZE,
 			   "saved_tokens");
+  
+  /* Create the STRINGS array.  */
+  VARRAY_TREE_INIT (lexer->string_tokens, 32, "strings");
 
   /* Assume we are not debugging.  */
   lexer->debugging_p = false;
@@ -323,15 +328,6 @@ cp_lexer_new_from_tokens (cp_token_block *tokens)
   lexer->last_token = lexer->first_token;
 
   return lexer;
-}
-
-/* Destroy the LEXER.  */
-
-static void
-cp_lexer_delete (lexer)
-     cp_lexer *lexer;
-{
-  VARRAY_FREE (lexer->saved_tokens);
 }
 
 /* Non-zero if we are presently saving tokens.  */
@@ -407,7 +403,6 @@ cp_lexer_read_token (lexer)
   if (token->type == CPP_STRING || token->type == CPP_WSTRING)
     {
       ptrdiff_t delta;
-      varray_type strings;
       int i;
 
       /* When we grow the buffer, we may invalidate TOKEN.  So, save
@@ -421,9 +416,7 @@ cp_lexer_read_token (lexer)
       for (i = 0; i < delta; ++i)
 	token = cp_lexer_next_token (lexer, token);
 
-      VARRAY_TREE_INIT (strings, 32, "strings");
-      VARRAY_PUSH_TREE (strings, token->value);
-      
+      VARRAY_PUSH_TREE (lexer->string_tokens, token->value);
       while (true)
 	{
 	  /* Read the token after TOKEN.  */
@@ -438,14 +431,15 @@ cp_lexer_read_token (lexer)
 	    }
 
 	  /* Chain the strings together.  */
-	  VARRAY_PUSH_TREE (strings, lexer->last_token->value);
+	  VARRAY_PUSH_TREE (lexer->string_tokens, 
+			    lexer->last_token->value);
 	}
 
       /* Create a single STRING_CST.  Curiously we have to call
 	 combine_strings even if there is only a single string in
 	 order to get the type set correctly.  */
-      token->value = combine_strings (strings);
-      VARRAY_FREE (strings);
+      token->value = combine_strings (lexer->string_tokens);
+      VARRAY_CLEAR (lexer->string_tokens);
       /* Strings should have type `const char []'.  Right now, we will
 	 have an ARRAY_TYPE that is constant rather than an array of
 	 constant elements.  */
@@ -550,8 +544,6 @@ cp_lexer_get_preprocessor_token (lexer, token)
      cp_lexer *lexer ATTRIBUTE_UNUSED;
      cp_token *token;
 {
-  const char *saved_filename;
-  int saved_lineno;
   bool done;
 
   /* If this not the main lexer, return a terminating CPP_EOF token.  */
@@ -565,12 +557,6 @@ cp_lexer_get_preprocessor_token (lexer, token)
 
       return;
     }
-
-  /* Save the current source position.  Simply reading another token
-     should not change it; only consuming the token should have that
-     effect.  */
-  saved_lineno = lineno;
-  saved_filename = input_filename;
 
   done = false;
   /* Keep going until we get a token we like.  */
@@ -612,10 +598,6 @@ cp_lexer_get_preprocessor_token (lexer, token)
   /* Now we've got our token.  */
   token->line_number = lineno;
   token->file_name = input_filename;
-
-  /* Restore the saved source position.  */
-  lineno = saved_lineno;
-  input_filename = saved_filename;
 
   /* Check to see if this token is a keyword.  */
   if (token->type == CPP_NAME 
@@ -775,11 +757,6 @@ cp_lexer_consume_token (lexer)
       fprintf (cp_lexer_debug_stream, "\n");
     }
 
-  /* Now that we've consumed this token, we've moved on to a new
-     source position.  */
-  if (token->type != CPP_EOF)
-    cp_lexer_set_source_position_from_token (lexer, token);
-
   return token;
 }
 
@@ -841,11 +818,6 @@ cp_lexer_rollback_tokens (lexer)
 
   /* Stop saving tokens.  */
   VARRAY_POP (lexer->saved_tokens);
-
-  /* Set the source position back to the location where we started
-     storing up tokens.  */
-  if (cp_lexer_next_token_is_not (lexer, CPP_EOF))
-    cp_lexer_set_source_position_from_token (lexer, token);
 }
 
 /* Set the current source position from the information stored in
@@ -2094,13 +2066,6 @@ cp_parser_translation_unit (parser)
 
    Returns a representation of the expression.  
 
-   For an id-expression which is a qualified-id, the representation
-   returned is either a SCOPE_REF (if the qualifying name is a
-   namespace) or an OFFSET_ERF (if the qualifying name is a type).
-   The first operand gives the qualifying class or namespace.  The
-   second operand is the declaration (or set of overloaded functions)
-   to which the qualified name resolved.
-
    *IDK indicates what kind of id-expression (if any) was present.  */
 
 static tree
@@ -2463,22 +2428,11 @@ cp_parser_primary_expression (parser, idk)
 		return build_min_nt (LOOKUP_EXPR, id_expression);
 	      }
 
-	    if (parser->scope && TREE_CODE (decl) != SCOPE_REF)
-	      {
-		if (TYPE_P (parser->scope))
-		  {
-		    /* Create an OFFSET_REF to refer to a non-static member.
-		       (If the DECL is actually a static member,
-		       build_offset_ref will just return it.)  In a
-		       template, a qualified name lookup will result in a
-		       SCOPE_REF being returned from cp_parser_lookup_name,
-		       so there's no reason to form another one here.  */
-		    return build_offset_ref (parser->scope, decl);
-		  }
-		else
-		  return build_nt (SCOPE_REF, parser->scope, decl);
-	      }
+	    if (parser->scope)
+	      return decl;
 	    else
+	      /* Transform references to non-static data members into
+		 COMPONENT_REFs.  */
 	      return hack_identifier (decl, id_expression);
 	  }
 
@@ -3252,42 +3206,46 @@ cp_parser_postfix_expression (parser)
 	    /* Look for the closing `)'.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-	    if (idk == CP_PARSER_ID_KIND_QUALIFIED)
-	      /* If the function name was explicitly qualified, no
-		 dynamic binding takes place.  */
-	      postfix_expression
-		= finish_call_expr (postfix_expression, args,
-				    /*disallow_virtual=*/true);
-	    else if (idk == CP_PARSER_ID_KIND_UNQUALIFIED)
+	    if (idk == CP_PARSER_ID_KIND_UNQUALIFIED
+		&& is_overloaded_fn (postfix_expression)
+		&& args)
 	      {
+		/* A call to a namespace-scope function using an
+		   unqualified name.  Do Koenig lookup.  */
 		tree identifier;
-
-		/* Since we are going to do Koenig lookup, get back
-		   the original unqualified name.  */
-		if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
-		  identifier = postfix_expression;
-		else
-		  {
-		    if (is_overloaded_fn (postfix_expression))
-		      postfix_expression = get_first_fn (postfix_expression);
-		    identifier = (DECL_P (postfix_expression)
-				  ? DECL_NAME (postfix_expression)
-				  : postfix_expression);
-		  }
 		
-		/* Do Koenig lookup.  */
-		postfix_expression = do_identifier (identifier, 2, args);
+		identifier = DECL_NAME (get_first_fn (postfix_expression));
+		postfix_expression = lookup_arg_dependent(identifier, 
+							  postfix_expression,
+							  args);
 		postfix_expression
 		  = finish_call_expr (postfix_expression, args, 
 				      /*diallow_virtual=*/false);
 	      }
-	    else if (idk == CP_PARSER_ID_KIND_TEMPLATE_ID
-		     || idk == CP_PARSER_ID_KIND_NONE)
-	      postfix_expression 
-		= finish_call_expr (postfix_expression, args, 
-				    /*disallow_virtual=*/false);
+	    else if (TREE_CODE (postfix_expression) == COMPONENT_REF)
+	      {
+		/* A call to a non-static member function.  */
+		postfix_expression 
+		  = (finish_object_call_expr 
+		     (TREE_OPERAND (postfix_expression, 1),
+		      TREE_OPERAND (postfix_expression, 0),
+		      args));
+	      }
+	    else if (idk == CP_PARSER_ID_KIND_QUALIFIED)
+	      {
+		/* A call to a static class member, or a
+		   namespace-scope function.  */
+		postfix_expression
+		  = finish_call_expr (postfix_expression, args,
+				      /*disallow_virtual=*/true);
+	      }
 	    else
-	      abort ();
+	      {
+		/* All other function calls.  */
+		postfix_expression 
+		  = finish_call_expr (postfix_expression, args, 
+				      /*disallow_virtual=*/false);
+	      }
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_PARSER_ID_KIND_NONE;
@@ -3301,7 +3259,6 @@ cp_parser_postfix_expression (parser)
 	     postfix-expression -> template [opt] id-expression
 	     postfix-expression -> pseudo-destructor-name */
 	  {
-	    tree id_expression;
 	    tree name;
 	    bool dependent_p;
 	    bool template_p;
@@ -3376,39 +3333,11 @@ cp_parser_postfix_expression (parser)
 		else
 		  template_p = false;
 		/* Parse the id-expression.  */
-		name
-		  = cp_parser_id_expression (parser,
-					     template_p,
-					     /*check_dependency_p=*/true);
-		id_expression = name;
-		/* Resolve the name, if we know the type of the
-		   postfix-expression.  */
-		if (!dependent_p)
-		  id_expression 
-		    = cp_parser_lookup_name_simple (parser, 
-						    id_expression);
-		/* If the SCOPE was erroneous, we are certainly not
-		   going to be able to find the member.  */
-		if (scope == error_mark_node)
-		  postfix_expression = error_mark_node;
-		else if (id_expression == error_mark_node)
-		  {
-		    error ("no member `%D' in `%T'",
-			   name,
-			   TREE_TYPE (postfix_expression));
-		    postfix_expression = error_mark_node;
-		  }
-		/* Build a representation of the member.  */
-		else if (parser->scope && !dependent_p)
-		  postfix_expression
-		    = build_object_ref (postfix_expression,
-					parser->scope,
-					id_expression);
-		else
-		  postfix_expression
-		    = build_x_component_ref (postfix_expression,
-					     id_expression,
-					     /*basetype_path=*/NULL_TREE);
+		name = cp_parser_id_expression (parser,
+						template_p,
+						/*check_dependency_p=*/true);
+		postfix_expression 
+		  = finish_class_member_access_expr (postfix_expression, name);
 	      }
 	    /* Otherwise, try the pseudo-destructor-name production.  */
 	    else
@@ -10398,10 +10327,6 @@ cp_parser_class_specifier (parser)
 
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
-	  /* The inline member functions may have changed the source
-	     position.  Restore it.  */
-	  cp_lexer_set_source_position_from_token
-	    (parser->lexer, cp_lexer_peek_token (parser->lexer));
 
 	  queue_entry = TREE_CHAIN (queue_entry);
 	}
@@ -11025,10 +10950,7 @@ cp_parser_member_declaration (parser)
 				    decl_specifiers, 
 				    initializer,
 				    asm_specification,
-				    (attributes
-				     ? build_tree_list (attributes,
-							NULL_TREE)
-				     : NULL_TREE));
+				    attributes);
 
 		  /* Reset PREFIX_ATTRIBUTES.  */
 		  while (attributes 
@@ -12956,8 +12878,6 @@ cp_parser_late_parsing_for_member (parser, member_function)
       /* Leave the scope of the containing function.  */
       if (function_scope)
 	pop_function_context_from (function_scope);
-      /* Destroy the lexer we created to handle the body of the function.  */
-      cp_lexer_delete (parser->lexer);
       /* Restore the lexer.  */
       parser->lexer = saved_lexer;
     }
@@ -13009,8 +12929,6 @@ cp_parser_late_parsing_default_args (parser, type)
        /* Parse the assignment-expression.  */
       TREE_PURPOSE (parameters) = cp_parser_assignment_expression (parser);
 
-       /* Destroy the lexer we created.  */
-      cp_lexer_delete (parser->lexer);
        /* Restore saved state.  */
       parser->lexer = saved_lexer;
       parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;

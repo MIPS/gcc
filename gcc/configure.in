@@ -731,7 +731,7 @@ objext='.o'
 AC_SUBST(manext)
 AC_SUBST(objext)
 
-config_gtfiles=
+target_gtfiles=
 build_xm_file=
 build_xm_defines=
 build_install_headers_dir=install-headers-tar
@@ -915,7 +915,7 @@ else
 	cd ..
 	rm -rf $tempdir
 	build_auto=auto-build.h
-	FORBUILD=../$build
+	FORBUILD=../$build_alias
 fi
 AC_SUBST(FORBUILD)
 
@@ -1592,6 +1592,15 @@ if test x"$gcc_cv_as_hidden" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_as_hidden)
 libgcc_visibility=$gcc_cv_as_hidden
+case "$target" in
+  mips-sgi-irix6*o32)
+    if test x"$gnu_ld_flag" = x"no"; then
+      # Even if using gas with .hidden support, the resulting object files
+      # cannot be linked with the IRIX 6 O32 linker.
+      libgcc_visibility=no
+    fi
+    ;;
+esac
 AC_SUBST(libgcc_visibility)
 
 AC_MSG_CHECKING(assembler leb128 support)
@@ -2163,7 +2172,37 @@ if test x"$gcc_cv_ld_eh_frame_hdr" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_eh_frame_hdr)
 
-if test "$prefix" != "/usr" && test "$prefix" != "/usr/local" ; then
+# Miscellaneous target-specific checks.
+case "$target" in
+  mips*-*-*)
+    AC_MSG_CHECKING(whether libgloss uses STARTUP directives consistently)
+    gcc_cv_mips_libgloss_startup=no
+    gcc_cv_libgloss_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/libgloss
+    if test "x$exec_prefix" = xNONE; then
+      if test "x$prefix" = xNONE; then
+        test_prefix=/usr/local
+      else
+        test_prefix=$prefix
+      fi
+    else
+      test_prefix=$exec_prefix
+    fi
+    for f in $gcc_cv_libgloss_srcdir/mips/idt.ld $test_prefix/$target_alias/lib/idt.ld
+    do
+      if grep '^STARTUP' $f > /dev/null 2>&1; then
+        gcc_cv_mips_libgloss_startup=yes
+        break
+      fi
+    done
+    if test x"$gcc_cv_mips_libgloss_startup" = xyes; then
+      AC_DEFINE(HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES, 1,
+        [Define if your MIPS libgloss linker scripts consistently include STARTUP directives.])
+    fi
+    AC_MSG_RESULT($gcc_cv_mips_libgloss_startup)
+    ;;
+esac
+
+if test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include")
 fi
 
@@ -2398,7 +2437,10 @@ all_outputs='Makefile intl/Makefile fixinc/Makefile gccbug mklibgcc mkheaders'
 # List of language makefile fragments.
 all_lang_makefiles=
 # Files for gengtype
-all_gtfiles="$config_gtfiles"
+all_gtfiles="$target_gtfiles"
+# Files for gengtype with language
+all_gtfiles_files_langs=
+all_gtfiles_files_files=
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2439,7 +2481,29 @@ do
 		all_stagestuff="$all_stagestuff $stagestuff"
 		all_outputs="$all_outputs $outputs"
 		all_gtfiles="$all_gtfiles $gtfiles"
+                for f in .. $gtfiles
+                do
+          	     if test $f != ".."
+                     then
+                         all_gtfiles_files_langs="$all_gtfiles_files_langs ${s} "
+                         all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
+                     fi
+                done
 	fi
+done
+
+# Pick up gtfiles for c
+gtfiles=
+s="c"
+. ${srcdir}/c-config-lang.in
+all_gtfiles="$all_gtfiles $gtfiles"
+for f in .. $gtfiles
+do
+     if test $f != ".."
+     then
+        all_gtfiles_files_langs="$all_gtfiles_files_langs ${s} "
+        all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
+     fi
 done
 
 check_languages=
@@ -2569,9 +2633,12 @@ ${CONFIG_SHELL-/bin/sh} $srcdir/configure.frag $srcdir "$subdirs" "$dep_host_xma
 
 # Substitute configuration variables
 AC_SUBST(subdirs)
+AC_SUBST(srcdir)
 AC_SUBST(all_boot_languages)
 AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
+AC_SUBST(all_gtfiles_files_langs)
+AC_SUBST(all_gtfiles_files_files)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)
 AC_SUBST(all_stagestuff)

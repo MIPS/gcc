@@ -232,8 +232,9 @@ perform_member_init (member, init, explicit)
   tree decl;
   tree type = TREE_TYPE (member);
 
-  decl = build_component_ref (current_class_ref, member, NULL_TREE, explicit);
-
+  decl = build_class_member_access_expr (current_class_ref, member,
+					 /*access_path=*/NULL_TREE,
+					 /*preserve_reference=*/true);
   if (decl == error_mark_node)
     return;
 
@@ -305,8 +306,9 @@ perform_member_init (member, init, explicit)
     {
       tree expr;
 
-      expr = build_component_ref (current_class_ref, member, NULL_TREE,
-				  explicit);
+      expr = build_class_member_access_expr (current_class_ref, member,
+					     /*access_path=*/NULL_TREE,
+					     /*preserve_reference=*/false);
       expr = build_delete (type, expr, sfk_complete_destructor,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
 
@@ -1434,6 +1436,7 @@ build_member_call (type, name, parmlist)
 {
   tree t;
   tree method_name;
+  tree fns;
   int dtor = 0;
   tree basetype_path, decl;
 
@@ -1511,6 +1514,18 @@ build_member_call (type, name, parmlist)
 
   decl = maybe_dummy_object (type, &basetype_path);
 
+  fns = lookup_fnfields (basetype_path, method_name, 0);
+  if (fns)
+    {
+      if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	BASELINK_FUNCTIONS (fns) = build_nt (TEMPLATE_ID_EXPR,
+					     BASELINK_FUNCTIONS (fns),
+					     TREE_OPERAND (name, 1));
+      return build_new_method_call (decl, fns, parmlist,
+				    /*conversion_path=*/NULL_TREE,
+				    LOOKUP_NORMAL|LOOKUP_NONVIRTUAL);
+    }
+
   /* Convert 'this' to the specified type to disambiguate conversion
      to the function's context.  */
   if (decl == current_class_ref
@@ -1527,12 +1542,6 @@ build_member_call (type, name, parmlist)
 
   if (constructor_name_p (method_name, type))
     return build_functional_cast (type, parmlist);
-  if (lookup_fnfields (basetype_path, method_name, 0))
-    return build_method_call (decl, 
-			      TREE_CODE (name) == TEMPLATE_ID_EXPR
-			      ? name : method_name,
-			      parmlist, basetype_path,
-			      LOOKUP_NORMAL|LOOKUP_NONVIRTUAL);
   if (TREE_CODE (name) == IDENTIFIER_NODE
       && ((t = lookup_field (TYPE_BINFO (type), name, 1, 0))))
     {
@@ -1661,10 +1670,15 @@ build_offset_ref (type, name)
 
   decl = maybe_dummy_object (type, &basebinfo);
 
-  member = lookup_member (basebinfo, name, 1, 0);
-
-  if (member == error_mark_node)
-    return error_mark_node;
+  if (BASELINK_P (name))
+    member = name;
+  else
+    {
+      member = lookup_member (basebinfo, name, 1, 0);
+      
+      if (member == error_mark_node)
+	return error_mark_node;
+    }
 
   /* A lot of this logic is now handled in lookup_member.  */
   if (member && BASELINK_P (member))
@@ -1696,7 +1710,7 @@ build_offset_ref (type, name)
 	  return t;
 	}
 
-      if (!really_overloaded_fn (t))
+      if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
 	  /* Get rid of a potential OVERLOAD around it */
 	  t = OVL_CURRENT (t);
@@ -1841,7 +1855,9 @@ resolve_offset_ref (exp)
       if (TREE_CODE (exp) == OFFSET_REF && TREE_CODE (type) == OFFSET_TYPE)
 	base = build_scoped_ref (base, TYPE_OFFSET_BASETYPE (type), &binfo);
 
-      return build_component_ref (base, member, binfo, 1);
+      return build_class_member_access_expr (base, member,
+					     /*access_path=*/NULL_TREE,
+					     /*preserve_reference=*/false);
     }
 
   /* Ensure that we have an object.  */
@@ -3325,9 +3341,10 @@ push_base_cleanups ()
 	continue;
       if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (member)))
 	{
-	  tree this_member = (build_component_ref
-			      (current_class_ref, DECL_NAME (member),
-			       NULL_TREE, 0));
+	  tree this_member = (build_class_member_access_expr 
+			      (current_class_ref, member, 
+			       /*access_path=*/NULL_TREE,
+			       /*preserve_reference=*/false));
 	  tree this_type = TREE_TYPE (member);
 	  expr = build_delete (this_type, this_member,
 			       sfk_complete_destructor,

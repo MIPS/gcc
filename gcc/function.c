@@ -53,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "output.h"
 #include "basic-block.h"
-#include "obstack.h"
 #include "toplev.h"
 #include "hashtab.h"
 #include "ggc.h"
@@ -75,7 +74,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    must define both, or neither.  */
 #ifndef NAME__MAIN
 #define NAME__MAIN "__main"
-#define SYMBOL__MAIN __main
 #endif
 
 /* Round a value to the lowest integer less than it that is a multiple of
@@ -4290,17 +4288,6 @@ assign_parms (fndecl)
   rtx conversion_insns = 0;
   struct args_size alignment_pad;
 
-  /* Nonzero if the last arg is named `__builtin_va_alist',
-     which is used on some machines for old-fashioned non-ANSI varargs.h;
-     this should be stuck onto the stack as if it had arrived there.  */
-  int hide_last_arg
-    = (current_function_varargs
-       && fnargs
-       && (parm = tree_last (fnargs)) != 0
-       && DECL_NAME (parm)
-       && (! strcmp (IDENTIFIER_POINTER (DECL_NAME (parm)),
-		     "__builtin_va_alist")));
-
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
@@ -4369,7 +4356,7 @@ assign_parms (fndecl)
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
-      if (stdarg || current_function_varargs)
+      if (stdarg)
 	{
 	  tree tem;
 
@@ -4396,11 +4383,6 @@ assign_parms (fndecl)
 	  TREE_USED (parm) = 1;
 	  continue;
 	}
-
-      /* For varargs.h function, save info about regs and stack space
-	 used by the individual args, not including the va_alist arg.  */
-      if (hide_last_arg && last_named)
-	current_function_args_info = args_so_far;
 
       /* Find mode of arg as it is passed, and mode of arg
 	 as it should be during execution of this function.  */
@@ -4439,6 +4421,15 @@ assign_parms (fndecl)
 	  )
 	{
 	  passed_type = nominal_type = build_pointer_type (passed_type);
+	  passed_pointer = 1;
+	  passed_mode = nominal_mode = Pmode;
+	}
+      /* See if the frontend wants to pass this by invisible reference.  */
+      else if (passed_type != nominal_type
+	       && POINTER_TYPE_P (passed_type)
+	       && TREE_TYPE (passed_type) == nominal_type)
+	{
+	  nominal_type = passed_type;
 	  passed_pointer = 1;
 	  passed_mode = nominal_mode = Pmode;
 	}
@@ -5125,8 +5116,7 @@ assign_parms (fndecl)
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */
 
-  if (!hide_last_arg)
-    current_function_args_info = args_so_far;
+  current_function_args_info = args_so_far;
 
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
@@ -5707,12 +5697,8 @@ trampoline_address (function)
 #else
   /* If rounding needed, allocate extra space
      to ensure we have TRAMPOLINE_SIZE bytes left after rounding up.  */
-#ifdef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_REAL_SIZE \
   (TRAMPOLINE_SIZE + (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT) - 1)
-#else
-#define TRAMPOLINE_REAL_SIZE (TRAMPOLINE_SIZE)
-#endif
   tramp = assign_stack_local_1 (BLKmode, TRAMPOLINE_REAL_SIZE, 0,
 				fp ? fp : cfun);
 #endif
@@ -5747,7 +5733,6 @@ static rtx
 round_trampoline_addr (tramp)
      rtx tramp;
 {
-#ifdef TRAMPOLINE_ALIGNMENT
   /* Round address up to desired boundary.  */
   rtx temp = gen_reg_rtx (Pmode);
   rtx addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
@@ -5757,7 +5742,7 @@ round_trampoline_addr (tramp)
 			       temp, 0, OPTAB_LIB_WIDEN);
   tramp = expand_simple_binop (Pmode, AND, temp, mask,
 			       temp, 0, OPTAB_LIB_WIDEN);
-#endif
+
   return tramp;
 }
 
@@ -6278,8 +6263,7 @@ prepare_function_start ()
   /* Indicate we have no need of a frame pointer yet.  */
   frame_pointer_needed = 0;
 
-  /* By default assume not varargs or stdarg.  */
-  current_function_varargs = 0;
+  /* By default assume not stdarg.  */
   current_function_stdarg = 0;
 
   /* We haven't made any trampolines for this function yet.  */
@@ -6379,15 +6363,6 @@ init_function_for_compilation ()
   VARRAY_GROW (sibcall_epilogue, 0);
 }
 
-/* Indicate that the current function uses extra args
-   not explicitly mentioned in the argument list in any fashion.  */
-
-void
-mark_varargs ()
-{
-  current_function_varargs = 1;
-}
-
 /* Expand a call to __main at the beginning of a possible main function.  */
 
 #if defined(INIT_SECTION_ASM_OP) && !defined(INVOKE__main)
@@ -6440,8 +6415,6 @@ expand_main_function ()
 #endif
 }
 
-extern struct obstack permanent_obstack;
-
 /* The PENDING_SIZES represent the sizes of variable-sized types.
    Create RTL for the various sizes now (using temporary variables),
    so that we can refer to the sizes from the RTL we are generating

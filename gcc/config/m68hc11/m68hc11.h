@@ -214,10 +214,6 @@ extern const char *m68hc11_soft_reg_count;
 
 #define OVERRIDE_OPTIONS	m68hc11_override_options ();
 
-/* Define this to change the optimizations performed by default.  */
-#define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
-m68hc11_optimization_options(LEVEL, SIZE)
-
 
 /* Define cost parameters for a given processor variant.  */
 struct processor_costs {
@@ -1074,9 +1070,6 @@ typedef struct m68hc11_args
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
 /* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  m68hc11_expand_builtin_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m68hc11_va_arg (valist, type)
 
@@ -1558,21 +1551,6 @@ do {                                                                    \
 
 /* Output #ident as a .ident.  */
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fprintf (FILE, "%s", GLOBAL_ASM_OP);		\
-       assemble_name (FILE, NAME);			\
-       fputs ("\n", FILE);} while (0)
-
 /* output external reference */
 #define ASM_OUTPUT_EXTERNAL(FILE,DECL,NAME) \
   {fputs ("\t; extern\t", FILE); \
@@ -1708,9 +1686,6 @@ do {                                                                    \
 /* A function address in a call instruction is a byte address (for indexing
    purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE		QImode
-
-/* define SCCS_DIRECTIVE if SCCS directives should be ignored */
-#define SCCS_DIRECTIVE		1
 
 /* Allow $ in identifiers */
 #define DOLLARS_IN_IDENTIFIERS	1

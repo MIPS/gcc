@@ -1676,16 +1676,8 @@ extern struct dsp16xx_frame_info current_frame_info;
 
 /* OUTPUT AND GENERATION OF LABELS */
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs (".global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".global "
 
 /* A C statement to output to the stdio stream any text necessary
    for declaring the name of an external symbol named name which

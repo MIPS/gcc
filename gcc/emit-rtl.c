@@ -50,7 +50,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "real.h"
-#include "obstack.h"
 #include "bitmap.h"
 #include "basic-block.h"
 #include "ggc.h"
@@ -1679,19 +1678,22 @@ component_ref_for_mem_expr (ref)
 
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
-   if we are making a new object of this type.  */
+   if we are making a new object of this type.  BITPOS is nonzero if
+   there is an offset outstanding on T that will be applied later.  */
 
 void
-set_mem_attributes (ref, t, objectp)
+set_mem_attributes_minus_bitpos (ref, t, objectp, bitpos)
      rtx ref;
      tree t;
      int objectp;
+     HOST_WIDE_INT bitpos;
 {
   HOST_WIDE_INT alias = MEM_ALIAS_SET (ref);
   tree expr = MEM_EXPR (ref);
   rtx offset = MEM_OFFSET (ref);
   rtx size = MEM_SIZE (ref);
   unsigned int align = MEM_ALIGN (ref);
+  HOST_WIDE_INT apply_bitpos = 0;
   tree type;
 
   /* It can happen that type_for_mode was given a mode for which there
@@ -1760,6 +1762,7 @@ set_mem_attributes (ref, t, objectp)
 	{
 	  expr = t;
 	  offset = const0_rtx;
+	  apply_bitpos = bitpos;
 	  size = (DECL_SIZE_UNIT (t)
 		  && host_integerp (DECL_SIZE_UNIT (t), 1)
 		  ? GEN_INT (tree_low_cst (DECL_SIZE_UNIT (t), 1)) : 0);
@@ -1784,6 +1787,7 @@ set_mem_attributes (ref, t, objectp)
 	{
 	  expr = component_ref_for_mem_expr (t);
 	  offset = const0_rtx;
+	  apply_bitpos = bitpos;
 	  /* ??? Any reason the field size would be different than
 	     the size we got from the type?  */
 	}
@@ -1805,16 +1809,56 @@ set_mem_attributes (ref, t, objectp)
 	    }
 	  while (TREE_CODE (t) == ARRAY_REF);
 
-	  if (TREE_CODE (t) == COMPONENT_REF)
+	  if (DECL_P (t))
+	    {
+	      expr = t;
+	      offset = NULL;
+	      if (host_integerp (off_tree, 1))
+		{
+		  HOST_WIDE_INT ioff = tree_low_cst (off_tree, 1);
+		  HOST_WIDE_INT aoff = (ioff & -ioff) * BITS_PER_UNIT;
+		  align = DECL_ALIGN (t);
+		  if (aoff && aoff < align)
+	            align = aoff;
+		  offset = GEN_INT (ioff);
+		  apply_bitpos = bitpos;
+		}
+	    }
+	  else if (TREE_CODE (t) == COMPONENT_REF)
 	    {
 	      expr = component_ref_for_mem_expr (t);
 	      if (host_integerp (off_tree, 1))
-		offset = GEN_INT (tree_low_cst (off_tree, 1));
+		{
+		  offset = GEN_INT (tree_low_cst (off_tree, 1));
+		  apply_bitpos = bitpos;
+		}
 	      /* ??? Any reason the field size would be different than
 		 the size we got from the type?  */
 	    }
+	  else if (flag_argument_noalias > 1
+		   && TREE_CODE (t) == INDIRECT_REF
+		   && TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL)
+	    {
+	      expr = t;
+	      offset = NULL;
+	    }
+	}
+
+      /* If this is a Fortran indirect argument reference, record the
+	 parameter decl.  */
+      else if (flag_argument_noalias > 1
+	       && TREE_CODE (t) == INDIRECT_REF
+	       && TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL)
+	{
+	  expr = t;
+	  offset = NULL;
 	}
     }
+
+  /* If we modified OFFSET based on T, then subtract the outstanding 
+     bit position offset.  */
+  if (apply_bitpos)
+    offset = plus_constant (offset, -(apply_bitpos / BITS_PER_UNIT));
 
   /* Now set the attributes we computed above.  */
   MEM_ATTRS (ref)
@@ -1830,6 +1874,15 @@ set_mem_attributes (ref, t, objectp)
 	   || TREE_CODE (t) == ARRAY_RANGE_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
     MEM_IN_STRUCT_P (ref) = 1;
+}
+
+void
+set_mem_attributes (ref, t, objectp)
+     rtx ref;
+     tree t;
+     int objectp;
+{
+  set_mem_attributes_minus_bitpos (ref, t, objectp, 0);
 }
 
 /* Set the alias set of MEM to SET.  */
@@ -2185,14 +2238,8 @@ widen_memory_access (memref, mode, offset)
 rtx
 gen_label_rtx ()
 {
-  rtx label;
-
-  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
-		  	      NULL, label_num++, NULL, NULL);
-
-  LABEL_NUSES (label) = 0;
-  LABEL_ALTERNATE_NAME (label) = NULL;
-  return label;
+  return gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
+		  	     NULL, label_num++, NULL);
 }
 
 /* For procedure integration.  */
@@ -5188,8 +5235,24 @@ gen_const_vector_0 (mode)
   for (i = 0; i < units; ++i)
     RTVEC_ELT (v, i) = CONST0_RTX (inner);
 
-  tem = gen_rtx_CONST_VECTOR (mode, v);
+  tem = gen_rtx_raw_CONST_VECTOR (mode, v);
   return tem;
+}
+
+/* Generate a vector like gen_rtx_raw_CONST_VEC, but use the zero vector when
+   all elements are zero.  */
+rtx
+gen_rtx_CONST_VECTOR (mode, v)
+     enum machine_mode mode;
+     rtvec v;
+{
+  rtx inner_zero = CONST0_RTX (GET_MODE_INNER (mode));
+  int i;
+
+  for (i = GET_MODE_NUNITS (mode) - 1; i >= 0; i--)
+    if (RTVEC_ELT (v, i) != inner_zero)
+      return gen_rtx_raw_CONST_VECTOR (mode, v);
+  return CONST0_RTX (mode);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.

@@ -191,25 +191,22 @@ extern unsigned xtensa_current_frame_size;
 
 
 #define OVERRIDE_OPTIONS override_options ()
-
-#if XCHAL_HAVE_BE
-#define CPP_ENDIAN_SPEC "\
-  %{mlittle-endian:-D__XTENSA_EL__} \
-  %{!mlittle-endian:-D__XTENSA_EB__} "
-#else /* !XCHAL_HAVE_BE */
-#define CPP_ENDIAN_SPEC "\
-  %{mbig-endian:-D__XTENSA_EB__} \
-  %{!mbig-endian:-D__XTENSA_EL__} "
-#endif /* !XCHAL_HAVE_BE */
-
-#if XCHAL_HAVE_FP
-#define CPP_FLOAT_SPEC "%{msoft-float:-D__XTENSA_SOFT_FLOAT__}"
-#else
-#define CPP_FLOAT_SPEC "%{!mhard-float:-D__XTENSA_SOFT_FLOAT__}"
-#endif
-
-#undef CPP_SPEC
-#define CPP_SPEC CPP_ENDIAN_SPEC CPP_FLOAT_SPEC
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()					\
+  do {									\
+    builtin_assert ("cpu=xtensa");					\
+    builtin_assert ("machine=xtensa");					\
+    builtin_define ("__XTENSA__");					\
+    builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
+    if (!TARGET_HARD_FLOAT)						\
+      builtin_define ("__XTENSA_SOFT_FLOAT__");				\
+    if (flag_pic)							\
+      {									\
+        builtin_define ("__PIC__");					\
+        builtin_define ("__pic__");					\
+      }									\
+  } while (0)
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -1035,8 +1032,8 @@ typedef struct xtensa_args {
   xtensa_builtin_saveregs
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  xtensa_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  xtensa_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1545,23 +1542,8 @@ typedef struct xtensa_args {
       goto FAIL;							\
   } while (0)
 
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME. */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-  do {									\
-    assemble_name (STREAM, NAME);					\
-    fputs (":\n", STREAM);						\
-  } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)				\
-  do {									\
-    fputs ("\t.global\t", STREAM);					\
-    assemble_name (STREAM, NAME);					\
-    fputs ("\n", STREAM);						\
-  } while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* This says how to define a global common symbol.  */
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			\

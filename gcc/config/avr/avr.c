@@ -57,7 +57,6 @@ static int    out_set_stack_ptr    PARAMS ((FILE *, int, int));
 static RTX_CODE compare_condition  PARAMS ((rtx insn));
 static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
-void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec avr_attribute_table[];
@@ -256,16 +255,6 @@ avr_override_options ()
 
   if (optimize && !TARGET_NO_TABLEJUMP)
     avr_case_values_threshold = (!AVR_MEGA || TARGET_CALL_PROLOGUES) ? 8 : 17;
-}
-
-
-void
-avr_optimization_options (level, size)
-     int level ATTRIBUTE_UNUSED;
-     int size;
-{
-  if (size)
-    flag_reorder_blocks = 0;
 }
 
 
@@ -2787,7 +2776,6 @@ frame_pointer_required_p ()
 {
   return (current_function_calls_alloca
 	  || current_function_args_info.nregs == 0
-	  || current_function_varargs
   	  || get_frame_size () > 0);
 }
 
@@ -5305,23 +5293,13 @@ test_hard_reg_class (class, x)
   int regno = true_regnum (x);
   if (regno < 0)
     return 0;
-  return TEST_HARD_REG_CLASS (class, regno);
+
+  if (TEST_HARD_REG_CLASS (class, regno))
+    return 1;
+
+  return 0;
 }
 
-void
-debug_hard_reg_set (set)
-     HARD_REG_SET set;
-{
-  int i;
-  for (i=0; i < FIRST_PSEUDO_REGISTER; ++i)
-    {
-      if (TEST_HARD_REG_BIT (set, i))
-	{
-	  fprintf (stderr, "r%-2d ", i);
-	}
-    }
-  fprintf (stderr, "\n");
-}
 
 int
 jump_over_one_insn_p (insn, dest)

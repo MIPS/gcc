@@ -187,9 +187,6 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static struct obstack minipool_obstack;
 static char *         minipool_startobj;
 
-#define obstack_chunk_alloc   xmalloc
-#define obstack_chunk_free    free
-
 /* The maximum number of insns skipped which
    will be conditionalised if possible.  */
 static int max_insns_skipped = 5;
@@ -4449,7 +4446,7 @@ arm_gen_movstrqi (operands)
   fin_dst = dst = copy_to_mode_reg (SImode, st_dst);
   fin_src = src = copy_to_mode_reg (SImode, st_src);
 
-  in_words_to_go = NUM_INTS (INTVAL (operands[2]));
+  in_words_to_go = ARM_NUM_INTS (INTVAL (operands[2]));
   out_words_to_go = INTVAL (operands[2]) / 4;
   last_bytes = INTVAL (operands[2]) & 3;
 
@@ -7922,7 +7919,6 @@ emit_sfm (base_reg, count)
 
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
   dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
-  RTX_FRAME_RELATED_P (dwarf) = 1;
 
   reg = gen_rtx_REG (XFmode, base_reg++);
 
@@ -8387,15 +8383,8 @@ arm_expand_prologue ()
 	 will prevent the scheduler from moving stores to the frame
 	 before the stack adjustment.  */
       if (frame_pointer_needed)
-	{
-	  rtx unspec = gen_rtx_UNSPEC (SImode,
-				       gen_rtvec (2, stack_pointer_rtx,
-						  hard_frame_pointer_rtx),
-				       UNSPEC_PRLG_STK);
-
-	  insn = emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				      gen_rtx_MEM (BLKmode, unspec)));
-	}
+	insn = emit_insn (gen_stack_tie (stack_pointer_rtx,
+					 hard_frame_pointer_rtx));
     }
 
   /* If we are profiling, make sure no instructions are scheduled before
@@ -8571,7 +8560,7 @@ arm_print_operand (stream, x, code)
     case 'M':
       asm_fprintf (stream, "{%r-%r}",
 		   REGNO (x),
-		   REGNO (x) + NUM_REGS (GET_MODE (x)) - 1);
+		   REGNO (x) + ARM_NUM_REGS (GET_MODE (x)) - 1);
       return;
 
     case 'd':
@@ -9172,7 +9161,7 @@ arm_hard_regno_mode_ok (regno, mode)
        register available to hold the upper part of the value.
        We probably we ought to ensure that the register is the
        start of an even numbered register pair.  */
-    return (NUM_REGS (mode) < 2) || (regno < LAST_LO_REGNUM);
+    return (ARM_NUM_REGS (mode) < 2) || (regno < LAST_LO_REGNUM);
 
   if (regno <= LAST_ARM_REGNUM)
     /* We allow any value to be stored in the general regisetrs.  */
@@ -10317,7 +10306,7 @@ thumb_output_function_prologue (f, size)
 	  
 	  asm_fprintf (f, "\tpush\t{");
 
-	  num_pushes = NUM_INTS (current_function_pretend_args_size);
+	  num_pushes = ARM_NUM_INTS (current_function_pretend_args_size);
 	  
 	  for (regno = LAST_ARG_REGNUM + 1 - num_pushes;
 	       regno <= LAST_ARG_REGNUM;

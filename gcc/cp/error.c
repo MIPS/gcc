@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "real.h"
-#include "obstack.h"
 #include "toplev.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -316,8 +315,8 @@ dump_template_bindings (parms, args)
     }
 }
 
-/* Dump into the obstack a human-readable equivalent of TYPE.  FLAGS
-   controls the format.  */
+/* Dump a human-readable equivalent of TYPE.  FLAGS controls the
+   format.  */
 
 static void
 dump_type (t, flags)
@@ -989,6 +988,10 @@ dump_decl (t, flags)
       dump_type (DECL_INITIAL (t), flags);
       print_scope_operator (scratch_buffer);
       print_tree_identifier (scratch_buffer, DECL_NAME (t));
+      break;
+
+    case BASELINK:
+      dump_decl (BASELINK_FUNCTIONS (t), flags);
       break;
 
     default:
@@ -1827,7 +1830,7 @@ dump_expr (t, flags)
     case CONSTRUCTOR:
       if (TREE_TYPE (t) && TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
 	{
-	  tree idx = build_component_ref (t, pfn_identifier, NULL_TREE, 0);
+	  tree idx = build_ptrmemfunc_access_expr (t, pfn_identifier);
 
 	  if (integer_zerop (idx))
 	    {

@@ -43,10 +43,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "libgcc2.h"
 
-#if defined (L_negdi2) || defined (L_divdi3) || defined (L_moddi3)
-#if defined (L_divdi3) || defined (L_moddi3)
-static inline
+#ifdef DECLARE_LIBRARY_RENAMES
+  DECLARE_LIBRARY_RENAMES
 #endif
+
+#if defined (L_negdi2)
 DWtype
 __negdi2 (DWtype u)
 {
@@ -732,14 +733,14 @@ __divdi3 (DWtype u, DWtype v)
 
   if (uu.s.high < 0)
     c = ~c,
-    uu.ll = __negdi2 (uu.ll);
+    uu.ll = -uu.ll;
   if (vv.s.high < 0)
     c = ~c,
-    vv.ll = __negdi2 (vv.ll);
+    vv.ll = -vv.ll;
 
   w = __udivmoddi4 (uu.ll, vv.ll, (UDWtype *) 0);
   if (c)
-    w = __negdi2 (w);
+    w = -w;
 
   return w;
 }
@@ -758,13 +759,13 @@ __moddi3 (DWtype u, DWtype v)
 
   if (uu.s.high < 0)
     c = ~c,
-    uu.ll = __negdi2 (uu.ll);
+    uu.ll = -uu.ll;
   if (vv.s.high < 0)
-    vv.ll = __negdi2 (vv.ll);
+    vv.ll = -vv.ll;
 
   (void) __udivmoddi4 (uu.ll, vv.ll, &w);
   if (c)
-    w = __negdi2 (w);
+    w = -w;
 
   return w;
 }

@@ -162,14 +162,7 @@ D(ident,	T_IDENT,	EXTENSION, IN_I)	   /*     11 */ \
 D(import,	T_IMPORT,	EXTENSION, INCL | EXPAND)  /* 0 ObjC */	\
 D(assert,	T_ASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
 D(unassert,	T_UNASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
-SCCS_ENTRY						   /* 0 SVR4? */
-
-/* #sccs is not always recognized.  */
-#ifdef SCCS_DIRECTIVE
-# define SCCS_ENTRY D(sccs, T_SCCS, EXTENSION, 0)
-#else
-# define SCCS_ENTRY /* nothing */
-#endif
+D(sccs,		T_SCCS,		EXTENSION, 0)		   /* 0 SVR4? */
 
 /* Use the table to generate a series of prototypes, an enum for the
    directive names, and an array of directive handlers.  */
@@ -551,6 +544,9 @@ do_undef (pfile)
 
       if (node->flags & NODE_WARN)
 	cpp_error (pfile, DL_WARNING, "undefining \"%s\"", NODE_NAME (node));
+
+      if (CPP_OPTION (pfile, warn_unused_macros))
+	_cpp_warn_if_unused_macro (pfile, node, NULL);
 
       _cpp_free_definition (node);
     }
@@ -1319,14 +1315,12 @@ _cpp_do__Pragma (pfile)
     }
 }
 
-/* Just ignore #sccs, on systems where we define it at all.  */
-#ifdef SCCS_DIRECTIVE
+/* Just ignore #sccs on all systems.  */
 static void
 do_sccs (pfile)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
 }
-#endif
 
 /* Handle #ifdef.  */
 static void
@@ -1340,10 +1334,11 @@ do_ifdef (pfile)
       const cpp_hashnode *node = lex_macro_node (pfile);
 
       if (node)
-	skip = node->type != NT_MACRO;
-
-      if (node)
-	check_eol (pfile);
+	{
+	  skip = node->type != NT_MACRO;
+	  _cpp_mark_macro_used (node);
+	  check_eol (pfile);
+	}
     }
 
   push_conditional (pfile, skip, T_IFDEF, 0);
@@ -1360,11 +1355,13 @@ do_ifndef (pfile)
   if (! pfile->state.skipping)
     {
       node = lex_macro_node (pfile);
-      if (node)
-	skip = node->type == NT_MACRO;
 
       if (node)
-	check_eol (pfile);
+	{
+	  skip = node->type == NT_MACRO;
+	  _cpp_mark_macro_used (node);
+	  check_eol (pfile);
+	}
     }
 
   push_conditional (pfile, skip, T_IFNDEF, node);

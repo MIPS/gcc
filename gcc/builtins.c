@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
-#include "obstack.h"
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -98,7 +97,7 @@ static rtx expand_builtin_mathfn	PARAMS ((tree, rtx, rtx));
 static rtx expand_builtin_constant_p	PARAMS ((tree));
 static rtx expand_builtin_args_info	PARAMS ((tree));
 static rtx expand_builtin_next_arg	PARAMS ((tree));
-static rtx expand_builtin_va_start	PARAMS ((int, tree));
+static rtx expand_builtin_va_start	PARAMS ((tree));
 static rtx expand_builtin_va_end	PARAMS ((tree));
 static rtx expand_builtin_va_copy	PARAMS ((tree));
 static rtx expand_builtin_memcmp	PARAMS ((tree, tree, rtx,
@@ -1525,7 +1524,15 @@ expand_builtin_mathfn (exp, target, subtarget)
     case BUILT_IN_SQRTF:
     case BUILT_IN_SQRTL:
       builtin_optab = sqrt_optab; break;
-     default:
+    case BUILT_IN_EXP:
+    case BUILT_IN_EXPF:
+    case BUILT_IN_EXPL:
+      builtin_optab = exp_optab; break;
+    case BUILT_IN_LOG:
+    case BUILT_IN_LOGF:
+    case BUILT_IN_LOGL:
+      builtin_optab = log_optab; break;
+    default:
       abort ();
     }
 
@@ -1981,7 +1988,12 @@ expand_builtin_memcpy (arglist, target, mode)
 	  store_by_pieces (dest_mem, INTVAL (len_rtx),
 			   builtin_memcpy_read_str,
 			   (PTR) src_str, dest_align);
-	  return force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_mem) != ptr_mode)
+	    dest_mem = convert_memory_address (ptr_mode, dest_mem);
+#endif
+	  return dest_mem;
 	}
 
       src_mem = get_memory_rtx (src);
@@ -1991,7 +2003,13 @@ expand_builtin_memcpy (arglist, target, mode)
       dest_addr = emit_block_move (dest_mem, src_mem, len_rtx);
 
       if (dest_addr == 0)
-	dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	{
+	  dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_addr) != ptr_mode)
+	    dest_addr = convert_memory_address (ptr_mode, dest_addr);
+#endif
+	}
 
       return dest_addr;
     }
@@ -2107,7 +2125,12 @@ expand_builtin_strncpy (arglist, target, mode)
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_strncpy_read_str,
 			   (PTR) p, dest_align);
-	  return force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_mem) != ptr_mode)
+	    dest_mem = convert_memory_address (ptr_mode, dest_mem);
+#endif
+	  return dest_mem;
 	}
 
       /* OK transform into builtin memcpy.  */
@@ -2232,7 +2255,12 @@ expand_builtin_memset (exp, target, mode)
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_memset_gen_str,
 			   (PTR)val_rtx, dest_align);
-	  return force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_mem) != ptr_mode)
+	    dest_mem = convert_memory_address (ptr_mode, dest_mem);
+#endif
+	  return dest_mem;
 	}
 
       if (target_char_cast (val, &c))
@@ -2251,7 +2279,12 @@ expand_builtin_memset (exp, target, mode)
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_memset_read_str,
 			   (PTR) &c, dest_align);
-	  return force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_mem) != ptr_mode)
+	    dest_mem = convert_memory_address (ptr_mode, dest_mem);
+#endif
+	  return dest_mem;
 	}
 
       len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
@@ -2261,7 +2294,13 @@ expand_builtin_memset (exp, target, mode)
       dest_addr = clear_storage (dest_mem, len_rtx);
 
       if (dest_addr == 0)
-	dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+	{
+	  dest_addr = force_operand (XEXP (dest_mem, 0), NULL_RTX);
+#ifdef POINTERS_EXTEND_UNSIGNED
+	  if (GET_MODE (dest_addr) != ptr_mode)
+	    dest_addr = convert_memory_address (ptr_mode, dest_addr);
+#endif
+	}
 
       return dest_addr;
     }
@@ -2900,10 +2939,9 @@ expand_builtin_next_arg (arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
 
-  if ((TYPE_ARG_TYPES (fntype) == 0
-       || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   == void_type_node))
-      && ! current_function_varargs)
+  if (TYPE_ARG_TYPES (fntype) == 0
+      || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	  == void_type_node))
     {
       error ("`va_start' used in function with fixed args");
       return const0_rtx;
@@ -2926,7 +2964,7 @@ expand_builtin_next_arg (arglist)
       if (arg != last_parm)
 	warning ("second parameter of `va_start' not last named argument");
     }
-  else if (! current_function_varargs)
+  else
     /* Evidently an out of date version of <stdarg.h>; can't validate
        va_start's second argument, but can still work as intended.  */
     warning ("`__builtin_next_arg' called without an argument");
@@ -2990,24 +3028,11 @@ stabilize_va_list (valist, needs_lvalue)
    the variable.  */
 
 void
-std_expand_builtin_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+std_expand_builtin_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
   tree t;
-
-  if (! stdarg_p)
-    {
-      /* The dummy named parameter is declared as a 'word' sized
-	 object, but if a 'word' is smaller than an 'int', it would
-	 have been promoted to int when it was added to the arglist.  */
-      int align = PARM_BOUNDARY / BITS_PER_UNIT;
-      int size = MAX (UNITS_PER_WORD,
-		      GET_MODE_SIZE (TYPE_MODE (integer_type_node)));
-      int offset = ((size + align - 1) / align) * align;
-      nextarg = plus_constant (nextarg, -offset);
-    }
 
   t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
 	     make_tree (ptr_type_node, nextarg));
@@ -3016,31 +3041,27 @@ std_expand_builtin_va_start (stdarg_p, valist, nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
 
-/* Expand ARGLIST, which from a call to __builtin_stdarg_va_start or
-   __builtin_varargs_va_start, depending on STDARG_P.  */
+/* Expand ARGLIST, from a call to __builtin_va_start.  */
 
 static rtx
-expand_builtin_va_start (stdarg_p, arglist)
-     int stdarg_p;
+expand_builtin_va_start (arglist)
      tree arglist;
 {
   rtx nextarg;
-  tree chain = arglist, valist;
+  tree chain, valist;
 
-  if (stdarg_p)
-    nextarg = expand_builtin_next_arg (chain = TREE_CHAIN (arglist));
-  else
-    nextarg = expand_builtin_next_arg (NULL_TREE);
+  chain = TREE_CHAIN (arglist);
 
   if (TREE_CHAIN (chain))
     error ("too many arguments to function `va_start'");
 
+  nextarg = expand_builtin_next_arg (chain);
   valist = stabilize_va_list (TREE_VALUE (arglist), 1);
 
 #ifdef EXPAND_BUILTIN_VA_START
-  EXPAND_BUILTIN_VA_START (stdarg_p, valist, nextarg);
+  EXPAND_BUILTIN_VA_START (valist, nextarg);
 #else
-  std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+  std_expand_builtin_va_start (valist, nextarg);
 #endif
 
   return const0_rtx;
@@ -3675,11 +3696,18 @@ expand_builtin (exp, target, subtarget, mode, ignore)
   if (!optimize && !CALLED_AS_BUILT_IN (fndecl))
     switch (fcode)
       {
-      case BUILT_IN_SIN:
-      case BUILT_IN_COS:
       case BUILT_IN_SQRT:
       case BUILT_IN_SQRTF:
       case BUILT_IN_SQRTL:
+      case BUILT_IN_SIN:
+      case BUILT_IN_SINF:
+      case BUILT_IN_SINL:
+      case BUILT_IN_COS:
+      case BUILT_IN_COSF:
+      case BUILT_IN_COSL:
+      case BUILT_IN_EXP:
+      case BUILT_IN_EXPF:
+      case BUILT_IN_EXPL:
       case BUILT_IN_MEMSET:
       case BUILT_IN_MEMCPY:
       case BUILT_IN_MEMCMP:
@@ -3750,6 +3778,12 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_COS:
     case BUILT_IN_COSF:
     case BUILT_IN_COSL:
+    case BUILT_IN_EXP:
+    case BUILT_IN_EXPF:
+    case BUILT_IN_EXPL:
+    case BUILT_IN_LOG:
+    case BUILT_IN_LOGF:
+    case BUILT_IN_LOGL:
       /* Treat these like sqrt only if unsafe math optimizations are allowed,
 	 because of possible accuracy problems.  */
       if (! flag_unsafe_math_optimizations)
@@ -3760,9 +3794,6 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;
-      break;
-
-    case BUILT_IN_FMOD:
       break;
 
     case BUILT_IN_APPLY_ARGS:
@@ -3985,15 +4016,6 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       expand_builtin_trap ();
       return const0_rtx;
 
-    case BUILT_IN_PUTCHAR:
-    case BUILT_IN_PUTS:
-    case BUILT_IN_FPUTC:
-    case BUILT_IN_FWRITE:
-    case BUILT_IN_PUTCHAR_UNLOCKED:
-    case BUILT_IN_PUTS_UNLOCKED:
-    case BUILT_IN_FPUTC_UNLOCKED:
-    case BUILT_IN_FWRITE_UNLOCKED:
-      break;
     case BUILT_IN_FPUTS:
       target = expand_builtin_fputs (arglist, ignore,/*unlocked=*/ 0);
       if (target)
@@ -4030,10 +4052,9 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_EH_RETURN_DATA_REGNO:
       return expand_builtin_eh_return_data_regno (arglist);
 #endif
-    case BUILT_IN_VARARGS_START:
-      return expand_builtin_va_start (0, arglist);
+    case BUILT_IN_VA_START:
     case BUILT_IN_STDARG_START:
-      return expand_builtin_va_start (1, arglist);
+      return expand_builtin_va_start (arglist);
     case BUILT_IN_VA_END:
       return expand_builtin_va_end (arglist);
     case BUILT_IN_VA_COPY:
@@ -4045,9 +4066,10 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       return const0_rtx;
 
 
-    default:			/* just do library call, if unknown builtin */
-      error ("built-in function `%s' not currently supported",
-	     IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+    default:	/* just do library call, if unknown builtin */
+      if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))
+	error ("built-in function `%s' not currently supported",
+	       IDENTIFIER_POINTER (DECL_NAME (fndecl)));
     }
 
   /* The switch statement above can drop through to cause the function

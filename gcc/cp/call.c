@@ -106,21 +106,18 @@ tree
 build_vfield_ref (datum, type)
      tree datum, type;
 {
-  tree rval;
-
   if (datum == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
     datum = convert_from_reference (datum);
 
-  if (! TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type))
-    rval = build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
-		  datum, TYPE_VFIELD (type));
-  else
-    rval = build_component_ref (datum, DECL_NAME (TYPE_VFIELD (type)), NULL_TREE, 0);
+  if (TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (type)
+      && !same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
+    datum = convert_to_base (datum, type, /*check_access=*/false);
 
-  return rval;
+  return build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
+		datum, TYPE_VFIELD (type));
 }
 
 /* Build a call to a member of an object.  I.e., one that overloads
@@ -139,7 +136,9 @@ build_field_call (tree instance_ptr, tree decl, tree parms)
       /* If it's a field, try overloading operator (),
 	 or calling if the field is a pointer-to-function.  */
       instance = build_indirect_ref (instance_ptr, NULL);
-      instance = build_component_ref_1 (instance, decl, 0);
+      instance = build_class_member_access_expr (instance, decl, 
+						 /*access_path=*/NULL_TREE,
+						 /*preserve_reference=*/false);
 
       if (instance == error_mark_node)
 	return error_mark_node;
@@ -545,11 +544,17 @@ build_method_call (instance, name, parms, basetype_path, flags)
   else if (DECL_P (name))
     name = DECL_NAME (name);
   if (has_template_args)
-    fn = lookup_fnfields (object_type, name, /*protect=*/0);
+    fn = lookup_fnfields (object_type, name, /*protect=*/2);
   else
-    fn = lookup_member (object_type, name, /*protect=*/0, 
-			/*want_type=*/0);
+    fn = lookup_member (object_type, name, /*protect=*/2, /*want_type=*/0);
   
+  if (fn && TREE_CODE (fn) == TREE_LIST && !BASELINK_P (fn))
+    {
+      error ("request for member `%D' is ambiguous", name);
+      print_candidates (fn);
+      return error_mark_node;
+    }
+
   /* If the name could not be found, issue an error.  */
   if (!fn)
     {
@@ -2494,7 +2499,7 @@ build_user_type_conversion_1 (totype, expr, flags)
     {
       tree t;
 
-      ctors = TREE_VALUE (ctors);
+      ctors = BASELINK_FUNCTIONS (ctors);
 
       t = build_int_2 (0, 0);
       TREE_TYPE (t) = build_pointer_type (totype);
@@ -2790,10 +2795,10 @@ build_object_call (obj, args)
 
   if (fns)
     {
-      tree base = BINFO_TYPE (TREE_PURPOSE (fns));
+      tree base = BINFO_TYPE (BASELINK_BINFO (fns));
       mem_args = tree_cons (NULL_TREE, build_this (obj), args);
 
-      for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+      for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
@@ -4111,9 +4116,12 @@ convert_arg_to_ellipsis (arg)
   
   if (arg != error_mark_node && ! pod_type_p (TREE_TYPE (arg)))
     {
-      /* Undefined behaviour [expr.call] 5.2.2/7.  */
-      warning ("cannot pass objects of non-POD type `%#T' through `...'",
-		  TREE_TYPE (arg));
+      /* Undefined behaviour [expr.call] 5.2.2/7.  We used to just warn
+	 here and do a bitwise copy, but now cp_expr_size will abort if we
+	 try to do that.  */
+      error ("cannot pass objects of non-POD type `%#T' through `...'",
+	     TREE_TYPE (arg));
+      arg = error_mark_node;
     }
 
   return arg;
@@ -4422,15 +4430,8 @@ build_over_call (cand, args, flags)
 	  else if (TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	    return build_target_expr_with_type (arg, DECL_CONTEXT (fn));
 	}
-      else if ((!real_lvalue_p (arg)
-		|| TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
-	       /* Empty classes have padding which can be hidden
-	          inside an (empty) base of the class. This must not
-	          be touched as it might overlay things. When the
-	          gcc core learns about empty classes, we can treat it
-	          like other classes. */
-	       && !(is_empty_class (DECL_CONTEXT (fn))
-		    && TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn))))
+      else if (!real_lvalue_p (arg)
+	       || TYPE_HAS_TRIVIAL_INIT_REF (DECL_CONTEXT (fn)))
 	{
 	  tree address;
 	  tree to = stabilize_reference
@@ -4452,24 +4453,7 @@ build_over_call (cand, args, flags)
 	(build_indirect_ref (TREE_VALUE (converted_args), 0));
 
       arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
-      if (is_empty_class (TREE_TYPE (to)))
-	{
-	  TREE_USED (arg) = 1;
-
-	  val = build (COMPOUND_EXPR, DECL_CONTEXT (fn), arg, to);
-	  /* Even though the assignment may not actually result in any
-	     code being generated, we do not want to warn about the
-	     assignment having no effect.  That would be confusing to
-	     users who may be performing the assignment as part of a
-	     generic algorithm, for example.
-	     
-	     Ideally, the notions of having side-effects and of being
-	     useless would be orthogonal.  */
-	  TREE_SIDE_EFFECTS (val) = 1;
-	  TREE_NO_UNUSED_WARNING (val) = 1;
-	}
-      else
-	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+      val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
       return val;
     }
 

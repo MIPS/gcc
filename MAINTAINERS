@@ -44,7 +44,7 @@ avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@linux.org.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
-fr30 port		Nick Clifton		niclc@redhat.com
+fr30 port		Nick Clifton		nickc@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@hxi.com
 hppa port		Jeff Law		law@redhat.com
@@ -99,7 +99,7 @@ c++                     Mark Mitchell		mark@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
-cpplib			Neil Booth		neil@daikokuya.demon.co.uk
+cpplib			Neil Booth		neil@daikokuya.co.uk
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
 libgcj			Tom Tromey		tromey@redhat.com
@@ -145,6 +145,7 @@ RTEMS Ports		Joel Sherrill
 predict.def		Jan Hubicka		jh@suse.cz
 contrib/regression	Geoff Keating		geoffk@redhat.com
 treelang                Tim Josling             tej@melbpc.org.au
+new regalloc (ra*)	Michael Matz		matz@suse.de
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -237,12 +238,13 @@ Danny Smith					dannysmith@users.sourceforge.net
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com
-Mike Stump					mrs@windriver.com
+Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
 Ian Taylor					ian@zembu.com
 Michael Tiemann					tiemann@redhat.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org

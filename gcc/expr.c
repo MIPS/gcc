@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
-#include "obstack.h"
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -118,8 +117,6 @@ struct store_by_pieces
   int reverse;
 };
 
-extern struct obstack permanent_obstack;
-
 static rtx enqueue_insn		PARAMS ((rtx, rtx));
 static unsigned HOST_WIDE_INT move_by_pieces_ninsns
 				PARAMS ((unsigned HOST_WIDE_INT,
@@ -190,6 +187,25 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 #ifndef MOVE_BY_PIECES_P
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
   (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) MOVE_RATIO)
+#endif
+
+/* If a clear memory operation would take CLEAR_RATIO or more simple
+   move-instruction sequences, we will do a clrstr or libcall instead.  */
+
+#ifndef CLEAR_RATIO
+#if defined (HAVE_clrstrqi) || defined (HAVE_clrstrhi) || defined (HAVE_clrstrsi) || defined (HAVE_clrstrdi) || defined (HAVE_clrstrti)
+#define CLEAR_RATIO 2
+#else
+/* If we are optimizing for space, cut down the default clear ratio.  */
+#define CLEAR_RATIO (optimize_size ? 3 : 15)
+#endif
+#endif
+
+/* This macro is used to determine whether clear_by_pieces should be
+   called to clear storage.  */
+#ifndef CLEAR_BY_PIECES_P
+#define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) CLEAR_RATIO)
 #endif
 
 /* This array records the insn_code of insns to perform block moves.  */
@@ -2633,7 +2649,7 @@ clear_storage (object, size)
       size = protect_from_queue (size, 0);
 
       if (GET_CODE (size) == CONST_INT
-	  && MOVE_BY_PIECES_P (INTVAL (size), align))
+	  && CLEAR_BY_PIECES_P (INTVAL (size), align))
 	clear_by_pieces (object, INTVAL (size), align);
       else
 	{
@@ -3039,10 +3055,10 @@ emit_move_insn_1 (x, y)
       return get_last_insn ();
     }
 
-  /* This will handle any multi-word mode that lacks a move_insn pattern.
-     However, you will get better code if you define such patterns,
+  /* This will handle any multi-word or full-word mode that lacks a move_insn
+     pattern.  However, you will get better code if you define such patterns,
      even if they must turn into multiple assembler instructions.  */
-  else if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+  else if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
     {
       rtx last_insn = 0;
       rtx seq, inner;
@@ -3821,23 +3837,11 @@ expand_assignment (to, from, want_value, suggest_reg)
 
       if (GET_CODE (to_rtx) == MEM)
 	{
-	  tree old_expr = MEM_EXPR (to_rtx);
-
 	  /* If the field is at offset zero, we could have been given the
 	     DECL_RTX of the parent struct.  Don't munge it.  */
 	  to_rtx = shallow_copy_rtx (to_rtx);
 
-	  set_mem_attributes (to_rtx, to, 0);
-
-	  /* If we changed MEM_EXPR, that means we're now referencing
-	     the COMPONENT_REF, which means that MEM_OFFSET must be
-	     relative to that field.  But we've not yet reflected BITPOS
-	     in TO_RTX.  This will be done in store_field.  Adjust for
-	     that by biasing MEM_OFFSET by -bitpos.  */
-	  if (MEM_EXPR (to_rtx) != old_expr && MEM_OFFSET (to_rtx)
-	      && (bitpos / BITS_PER_UNIT) != 0)
-	    set_mem_offset (to_rtx, GEN_INT (INTVAL (MEM_OFFSET (to_rtx))
-					     - (bitpos / BITS_PER_UNIT)));
+	  set_mem_attributes_minus_bitpos (to_rtx, to, 0, bitpos);
 	}
 
       /* Deal with volatile and readonly fields.  The former is only done
@@ -4234,6 +4238,8 @@ store_expr (exp, target, want_value)
        || (temp != target && (side_effects_p (temp)
 			      || side_effects_p (target))))
       && TREE_CODE (exp) != ERROR_MARK
+      /* If there's nothing to copy, don't bother.  */
+      && expr_size (exp) != const0_rtx
       && ! dont_store_target
 	 /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
 	    but TARGET is not valid memory reference, TEMP will differ
@@ -6803,8 +6809,7 @@ expand_expr (exp, target, tmode, modifier)
 						       * TYPE_QUAL_CONST))),
 			     0, TREE_ADDRESSABLE (exp), 1);
 
-	  store_constructor (exp, target, 0,
-			     int_size_in_bytes (TREE_TYPE (exp)));
+	  store_constructor (exp, target, 0, int_expr_size (exp));
 	  return target;
 	}
 
@@ -8946,29 +8951,55 @@ expand_expr (exp, target, tmode, modifier)
       {
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally_block = TREE_OPERAND (exp, 1);
-	rtx finally_label = gen_label_rtx ();
-	rtx done_label = gen_label_rtx ();
-	rtx return_link = gen_reg_rtx (Pmode);
-	tree cleanup = build (GOTO_SUBROUTINE_EXPR, void_type_node,
-			      (tree) finally_label, (tree) return_link);
-	TREE_SIDE_EFFECTS (cleanup) = 1;
 
-	/* Start a new binding layer that will keep track of all cleanup
-	   actions to be performed.  */
-	expand_start_bindings (2);
+        if (!optimize || unsafe_for_reeval (finally_block) > 1)
+	  {
+	    /* In this case, wrapping FINALLY_BLOCK in an UNSAVE_EXPR
+	       is not sufficient, so we cannot expand the block twice.
+	       So we play games with GOTO_SUBROUTINE_EXPR to let us
+	       expand the thing only once.  */
+	    /* When not optimizing, we go ahead with this form since
+	       (1) user breakpoints operate more predictably without
+		   code duplication, and
+	       (2) we're not running any of the global optimizers
+	           that would explode in time/space with the highly
+		   connected CFG created by the indirect branching.  */
 
-	target_temp_slot_level = temp_slot_level;
+	    rtx finally_label = gen_label_rtx ();
+	    rtx done_label = gen_label_rtx ();
+	    rtx return_link = gen_reg_rtx (Pmode);
+	    tree cleanup = build (GOTO_SUBROUTINE_EXPR, void_type_node,
+			          (tree) finally_label, (tree) return_link);
+	    TREE_SIDE_EFFECTS (cleanup) = 1;
 
-	expand_decl_cleanup (NULL_TREE, cleanup);
-	op0 = expand_expr (try_block, target, tmode, modifier);
+	    /* Start a new binding layer that will keep track of all cleanup
+	       actions to be performed.  */
+	    expand_start_bindings (2);
+	    target_temp_slot_level = temp_slot_level;
 
-	preserve_temp_slots (op0);
-	expand_end_bindings (NULL_TREE, 0, 0);
-	emit_jump (done_label);
-	emit_label (finally_label);
-	expand_expr (finally_block, const0_rtx, VOIDmode, 0);
-	emit_indirect_jump (return_link);
-	emit_label (done_label);
+	    expand_decl_cleanup (NULL_TREE, cleanup);
+	    op0 = expand_expr (try_block, target, tmode, modifier);
+
+	    preserve_temp_slots (op0);
+	    expand_end_bindings (NULL_TREE, 0, 0);
+	    emit_jump (done_label);
+	    emit_label (finally_label);
+	    expand_expr (finally_block, const0_rtx, VOIDmode, 0);
+	    emit_indirect_jump (return_link);
+	    emit_label (done_label);
+	  }
+	else
+	  {
+	    expand_start_bindings (2);
+	    target_temp_slot_level = temp_slot_level;
+
+	    expand_decl_cleanup (NULL_TREE, finally_block);
+	    op0 = expand_expr (try_block, target, tmode, modifier);
+
+	    preserve_temp_slots (op0);
+	    expand_end_bindings (NULL_TREE, 0, 0);
+	  }
+
 	return op0;
       }
 

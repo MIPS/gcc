@@ -729,7 +729,7 @@ public:
    *  @param  first  An input iterator.
    *  @param  last  An input iterator.
    * 
-   *  Creats a %deque consisting of copies of the elements from [first,last).
+   *  Create a %deque consisting of copies of the elements from [first,last).
    *
    *  If the iterators are forward, bidirectional, or random-access, then
    *  this will call the elements' copy constructor N times (where N is
@@ -1034,7 +1034,7 @@ public:
    *  of a %deque this operation can be done in constant time.  You should
    *  consider using push_front(value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */
@@ -1078,7 +1078,7 @@ public:
    *  of a %deque this operation can be done in constant time.  You should
    *  consider using push_back(value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */
@@ -1154,7 +1154,7 @@ public:
    *  specified location.  You should consider using
    *  insert(position,value_type()) instead.
    *
-   *  @note This was deprecated in 3.2 and will be removed in 3.3.  You must
+   *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
    *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
    *        c++config.h.
   */

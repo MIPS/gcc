@@ -103,13 +103,6 @@ Boston, MA 02111-1307, USA.  */
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME);
 
-/* Output before instructions.  */
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
@@ -126,14 +119,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   fprintf (FILE, "%s", PREFIX)
 
-#undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP ".text"
-
-/* Output before writable data.  */
-
-#undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP ".data"
-
 /* This says how to output an assembler line to define a global common
    symbol.  */
 /* ? */
@@ -142,9 +127,6 @@ Boston, MA 02111-1307, USA.  */
   do { fputs (".comm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
        fprintf ((FILE), ",%d\n", (SIZE)); } while (0)
-
-#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", SIZE)
 
 /* Override the standard rs6000 definition.  */
 
@@ -213,13 +195,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Fix for emit_group_load (): force large constants to be pushed via regs.  */
 #define ALWAYS_PUSH_CONSTS_USING_REGS_P		1
-
-/* Darwin word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED))
 
 /* Darwin increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */

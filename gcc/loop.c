@@ -38,7 +38,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "rtl.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "function.h"
 #include "expr.h"
 #include "hard-reg-set.h"
@@ -79,9 +78,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* For very tiny loops it is not worthwhile to prefetch even before the loop,
    since it is likely that the data are already in the cache.  */
 #define PREFETCH_BLOCKS_BEFORE_LOOP_MIN  2
-/* The minimal number of prefetch blocks that a loop must consume to make
-   the emitting of prefetch instruction in the body of loop worthwhile.  */
-#define PREFETCH_BLOCKS_IN_LOOP_MIN  6
 
 /* Parameterize some prefetch heuristics so they can be turned on and off
    easily for performance testing on new architecures.  These can be
@@ -146,12 +142,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define PREFETCH_CONDITIONAL 1
 #endif
 
-/* If the loop requires more prefetches than the target can process in
-   parallel then don't prefetch anything in that loop.  */
-#ifndef PREFETCH_LIMIT_TO_SIMULTANEOUS
-#define PREFETCH_LIMIT_TO_SIMULTANEOUS 1
-#endif
-
 #define LOOP_REG_LIFETIME(LOOP, REGNO) \
 ((REGNO_LAST_LUID (REGNO) - REGNO_FIRST_LUID (REGNO)))
 
@@ -194,9 +184,6 @@ unsigned int max_reg_before_loop;
 
 /* The value to pass to the next call of reg_scan_update.  */
 static int loop_max_reg;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* During the analysis of a loop, a chain of `struct movable's
    is made to record all the movable insns found.
@@ -4874,10 +4861,22 @@ loop_givs_rescan (loop, bl, reg_map)
 	}
       else
 	{
+	  rtx original_insn = v->insn;
+	  rtx note;
+
 	  /* Not replaceable; emit an insn to set the original giv reg from
 	     the reduced giv, same as above.  */
-	  loop_insn_emit_after (loop, 0, v->insn,
-				gen_move_insn (v->dest_reg, v->new_reg));
+	  v->insn = loop_insn_emit_after (loop, 0, original_insn,
+					  gen_move_insn (v->dest_reg,
+							 v->new_reg));
+
+ 	  /* The original insn may have a REG_EQUAL note.  This note is
+ 	     now incorrect and may result in invalid substitutions later.
+ 	     The original insn is dead, but may be part of a libcall
+ 	     sequence, which doesn't seem worth the bother of handling.  */
+ 	  note = find_reg_note (original_insn, REG_EQUAL, NULL_RTX);
+ 	  if (note)
+ 	    remove_note (original_insn, note);
 	}
 
       /* When a loop is reversed, givs which depend on the reversed
@@ -5308,7 +5307,7 @@ strength_reduce (loop, flags)
      collected.  Always unroll loops that would be as small or smaller
      unrolled than when rolled.  */
   if ((flags & LOOP_UNROLL)
-      || (!(flags & LOOP_FIRST_PASS)
+      || ((flags & LOOP_AUTO_UNROLL)
 	  && loop_info->n_iterations > 0
 	  && unrolled_insn_copies <= insn_count))
     unroll_loop (loop, insn_count, 1);

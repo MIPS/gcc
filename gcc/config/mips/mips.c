@@ -119,7 +119,15 @@ static int symbolic_expression_p                PARAMS ((rtx));
 static bool mips_assemble_integer	  PARAMS ((rtx, unsigned int, int));
 static void mips_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void mips_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-static enum processor_type mips_parse_cpu       PARAMS ((const char *));
+static void mips_set_architecture    PARAMS ((const struct mips_cpu_info *));
+static void mips_set_tune	     PARAMS ((const struct mips_cpu_info *));
+static bool mips_strict_matching_cpu_name_p	PARAMS ((const char *,
+							 const char *));
+static bool mips_matching_cpu_name_p		PARAMS ((const char *,
+							 const char *));
+static const struct mips_cpu_info *mips_parse_cpu   PARAMS ((const char *,
+							      const char *));
+static const struct mips_cpu_info *mips_cpu_info_from_isa PARAMS ((int));
 static void copy_file_data			PARAMS ((FILE *, FILE *));
 #ifdef TARGET_IRIX6
 static void iris6_asm_named_section_1		PARAMS ((const char *,
@@ -294,9 +302,11 @@ enum cmp_type branch_type;
 
 /* The target cpu for code generation.  */
 enum processor_type mips_arch;
+const struct mips_cpu_info *mips_arch_info;
 
 /* The target cpu for optimization and scheduling.  */
 enum processor_type mips_tune;
+const struct mips_cpu_info *mips_tune_info;
 
 /* which instruction set architecture to use.  */
 int mips_isa;
@@ -305,7 +315,6 @@ int mips_isa;
 int mips_abi;
 
 /* Strings to hold which cpu and instruction set architecture to use.  */
-const char *mips_cpu_string;	/* for -mcpu=<xxx> */
 const char *mips_arch_string;   /* for -march=<xxx> */
 const char *mips_tune_string;   /* for -mtune=<xxx> */
 const char *mips_isa_string;	/* for -mips{1,2,3,4} */
@@ -319,11 +328,6 @@ int mips16;
    -mno-mips16 appears or not, and using a string in this fashion is
    just a way to avoid using up another bit in target_flags.  */
 const char *mips_no_mips16_string;
-
-/* This is only used to determine if an type size setting option was
-   explicitly specified (-mlong64, -mint64, -mlong32).  The specs
-   set this option if such an option is used.  */
-const char *mips_explicit_type_size_string;
 
 /* Whether we are generating mips16 hard float code.  In mips16 mode
    we always set TARGET_SOFT_FLOAT; this variable is nonzero if
@@ -562,6 +566,57 @@ enum reg_class mips_char_to_class[256] =
   NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
 };
 
+/* A table describing all the processors gcc knows about.  Names are
+   matched in the order listed.  The first mention of an ISA level is
+   taken as the canonical name for that ISA.
+
+   To ease comparison, please keep this table in the same order as
+   gas's mips_cpu_info_table[].  */
+const struct mips_cpu_info mips_cpu_info_table[] = {
+  /* Entries for generic ISAs */
+  { "mips1", PROCESSOR_R3000, 1 },
+  { "mips2", PROCESSOR_R6000, 2 },
+  { "mips3", PROCESSOR_R4000, 3 },
+  { "mips4", PROCESSOR_R8000, 4 },
+  { "mips32", PROCESSOR_R4KC, 32 },
+  { "mips64", PROCESSOR_R5KC, 64 },
+
+  /* MIPS I */
+  { "r3000", PROCESSOR_R3000, 1 },
+  { "r2000", PROCESSOR_R3000, 1 }, /* = r3000 */
+  { "r3900", PROCESSOR_R3900, 1 },
+
+  /* MIPS II */
+  { "r6000", PROCESSOR_R6000, 2 },
+
+  /* MIPS III */
+  { "r4000", PROCESSOR_R4000, 3 },
+  { "vr4100", PROCESSOR_R4100, 3 },
+  { "vr4300", PROCESSOR_R4300, 3 },
+  { "r4400", PROCESSOR_R4000, 3 }, /* = r4000 */
+  { "r4600", PROCESSOR_R4600, 3 },
+  { "orion", PROCESSOR_R4600, 3 }, /* = r4600 */
+  { "r4650", PROCESSOR_R4650, 3 },
+
+  /* MIPS IV */
+  { "r8000", PROCESSOR_R8000, 4 },
+  { "vr5000", PROCESSOR_R5000, 4 },
+
+  /* MIPS 32 */
+  { "4kc", PROCESSOR_R4KC, 32 },
+  { "4kp", PROCESSOR_R4KC, 32 }, /* = 4kc */
+
+  /* MIPS 64 */
+  { "5kc", PROCESSOR_R5KC, 64 },
+  { "20kc", PROCESSOR_R20KC, 64 },
+
+  /* Broadcom SB-1 CPU core */
+  { "sb1", PROCESSOR_SB1, 64 },
+
+  /* End marker */
+  { 0, 0, 0 }
+};
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"
@@ -575,6 +630,8 @@ enum reg_class mips_char_to_class[256] =
 #define TARGET_ASM_UNALIGNED_HI_OP "\t.align 0\n\t.half\t"
 #undef TARGET_ASM_UNALIGNED_SI_OP
 #define TARGET_ASM_UNALIGNED_SI_OP "\t.align 0\n\t.word\t"
+#undef TARGET_ASM_UNALIGNED_DI_OP
+#define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.dword\t"
 #endif
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
@@ -1198,9 +1255,11 @@ move_operand (op, mode)
 
 /* Return nonzero if OPERAND is valid as a source operand for movdi.
    This accepts not only general_operand, but also sign extended
-   constants and registers.  We need to accept sign extended constants
+   move_operands.  Note that we need to accept sign extended constants
    in case a sign extended register which is used in an expression,
-   and is equivalent to a constant, is spilled.  */
+   and is equivalent to a constant, is spilled.  We need to accept
+   sign-extended memory in order to reload registers from stack slots,
+   and so that we generate efficient code for extendsidi2.  */
 
 int
 movdi_operand (op, mode)
@@ -1211,11 +1270,7 @@ movdi_operand (op, mode)
       && mode == DImode
       && GET_CODE (op) == SIGN_EXTEND
       && GET_MODE (op) == DImode
-      && (GET_MODE (XEXP (op, 0)) == SImode
-	  || (GET_CODE (XEXP (op, 0)) == CONST_INT
-	      && GET_MODE (XEXP (op, 0)) == VOIDmode))
-      && (register_operand (XEXP (op, 0), SImode)
-	  || immediate_operand (XEXP (op, 0), SImode)))
+      && move_operand (XEXP (op, 0), SImode))
     return 1;
 
   return (general_operand (op, mode)
@@ -1322,26 +1377,6 @@ se_nonmemory_operand (op, mode)
     return 1;
 
   return nonmemory_operand (op, mode);
-}
-
-/* Like nonimmediate_operand, but when in 64 bit mode also accept a
-   sign extend of a 32 bit register, since the value is known to be
-   already sign extended.  */
-
-int
-se_nonimmediate_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (TARGET_64BIT
-      && mode == DImode
-      && GET_CODE (op) == SIGN_EXTEND
-      && GET_MODE (op) == DImode
-      && GET_MODE (XEXP (op, 0)) == SImode
-      && register_operand (XEXP (op, 0), SImode))
-    return 1;
-
-  return nonimmediate_operand (op, mode);
 }
 
 /* Accept any operand that can appear in a mips16 constant table
@@ -2462,6 +2497,33 @@ mips_restore_gp (operands, insn)
   return mips_move_1word (operands, insn, 0);
 }
 
+/* Return an instruction to sign-extend SImode value SRC and store it
+   in DImode value DEST.  INSN is the original extendsidi2-type insn.  */
+
+const char *
+mips_sign_extend (insn, dest, src)
+     rtx insn, dest, src;
+{
+  rtx operands[MAX_RECOG_OPERANDS];
+
+  if ((register_operand (src, SImode) && FP_REG_P (true_regnum (src)))
+      || memory_operand (src, SImode))
+    {
+      /* If the source is a floating-point register, we need to use a
+	 32-bit move, since the float register is not kept sign-extended.
+	 If the source is in memory, we need a 32-bit load.  */
+      operands[0] = gen_lowpart_SUBREG (SImode, dest);
+      operands[1] = src;
+      return mips_move_1word (operands, insn, false);
+    }
+  else
+    {
+      operands[0] = dest;
+      operands[1] = src;
+      return mips_move_2words (operands, insn);
+    }
+}
+
 /* Return the appropriate instructions to move 2 words */
 
 const char *
@@ -2478,6 +2540,9 @@ mips_move_2words (operands, insn)
   int subreg_offset1 = 0;
   enum delay_type delay = DELAY_NONE;
 
+  if (code1 == SIGN_EXTEND)
+    return mips_sign_extend (insn, op0, XEXP (op1, 0));
+
   while (code0 == SUBREG)
     {
       subreg_offset0 += subreg_regno_offset (REGNO (SUBREG_REG (op0)),
@@ -2486,12 +2551,6 @@ mips_move_2words (operands, insn)
 					     GET_MODE (op0));
       op0 = SUBREG_REG (op0);
       code0 = GET_CODE (op0);
-    }
-
-  if (code1 == SIGN_EXTEND)
-    {
-      op1 = XEXP (op1, 0);
-      code1 = GET_CODE (op1);
     }
 
   while (code1 == SUBREG)
@@ -2503,17 +2562,6 @@ mips_move_2words (operands, insn)
       op1 = SUBREG_REG (op1);
       code1 = GET_CODE (op1);
     }
-
-  /* Sanity check.  */
-  if (GET_CODE (operands[1]) == SIGN_EXTEND
-      && code1 != REG
-      && code1 != CONST_INT
-      /* The following three can happen as the result of a questionable
-	 cast.  */
-      && code1 != LABEL_REF
-      && code1 != SYMBOL_REF
-      && code1 != CONST)
-    abort ();
 
   if (code0 == REG)
     {
@@ -4483,15 +4531,10 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
 
   /* The caller has advanced CUM up to, but not beyond, the last named
      argument.  Advance a local copy of CUM past the last "real" named
-     argument, to find out how many registers are left over.
+     argument, to find out how many registers are left over.  */
 
-     For K&R varargs, the last named argument is a dummy word-sized one,
-     so CUM already contains the information we need.  For stdarg, it is
-     a real argument (such as the format in printf()) and we need to
-     step over it.  */
   local_cum = *cum;
-  if (!current_function_varargs)
-    FUNCTION_ARG_ADVANCE (local_cum, mode, type, 1);
+  FUNCTION_ARG_ADVANCE (local_cum, mode, type, 1);
 
   /* Found out how many registers we need to save.  */
   gp_saved = MAX_ARGS_IN_REGISTERS - local_cum.num_gprs;
@@ -4609,14 +4652,10 @@ mips_build_va_list ()
     return ptr_type_node;
 }
 
-/* Implement va_start.   stdarg_p is 0 if implementing
-   __builtin_varargs_va_start, 1 if implementing __builtin_stdarg_va_start.
-   Note that this routine isn't called when compiling e.g. "_vfprintf_r".
-     (It doesn't have "...", so it inherits the pointers of its caller.) */
+/* Implement va_start.   stdarg_p is always 1.  */
 
 void
-mips_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+mips_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -4694,39 +4733,12 @@ mips_va_start (stdarg_p, valist, nextarg)
 	{
 	  /* Everything is in the GPR save area, or in the overflow
 	     area which is contiguous with it.  */
-
-	  int offset = -gpr_save_area_size;
-	  if (gpr_save_area_size == 0)
-	    offset = (stdarg_p ? 0 : -UNITS_PER_WORD);
-	  nextarg = plus_constant (nextarg, offset);
-	  std_expand_builtin_va_start (1, valist, nextarg);
+	  nextarg = plus_constant (nextarg, -gpr_save_area_size);
+	  std_expand_builtin_va_start (valist, nextarg);
 	}
     }
   else
-    {
-      /* not EABI */
-      int ofs;
-
-      if (stdarg_p)
-	ofs = 0;
-      else
-	{
-	  /* ??? This had been conditional on
-	       _MIPS_SIM == _MIPS_SIM_ABI64 || _MIPS_SIM == _MIPS_SIM_NABI32
-	     and both iris5.h and iris6.h define _MIPS_SIM.  */
-	  if (mips_abi == ABI_N32
-	      || mips_abi == ABI_64
-	      || mips_abi == ABI_MEABI)
- 	    ofs = (cum->num_gprs < MAX_ARGS_IN_REGISTERS
-		   ? 0
-		   : -UNITS_PER_WORD);
-	  else
-	    ofs = -UNITS_PER_WORD;
-	}
-
-      nextarg = plus_constant (nextarg, ofs);
-      std_expand_builtin_va_start (1, valist, nextarg);
-    }
+    std_expand_builtin_va_start (valist, nextarg);
 }
 
 /* Implement va_arg.  */
@@ -4974,16 +4986,44 @@ abort_with_insn (insn, reason)
   abort ();
 }
 
+/* Set up globals to generate code for the ISA or processor
+   described by INFO.  */
+
+static void
+mips_set_architecture (info)
+     const struct mips_cpu_info *info;
+{
+  if (info != 0)
+    {
+      mips_arch_info = info;
+      mips_arch = info->cpu;
+      mips_isa = info->isa;
+    }
+}
+
+
+/* Likewise for tuning.  */
+
+static void
+mips_set_tune (info)
+     const struct mips_cpu_info *info;
+{
+  if (info != 0)
+    {
+      mips_tune_info = info;
+      mips_tune = info->cpu;
+    }
+}
+
+
 /* Set up the threshold for data to go into the small data area, instead
    of the normal data area, and detect any conflicts in the switches.  */
 
 void
 override_options ()
 {
-  register int i, start;
-  register int regno;
-  register enum machine_mode mode;
-  register enum processor_type mips_cpu;
+  int i, start, regno;
+  enum machine_mode mode;
 
   mips_section_threshold = g_switch_set ? g_switch_value : MIPS_DEFAULT_GVALUE;
 
@@ -5001,254 +5041,166 @@ override_options ()
     target_flags &= ~((TARGET_DEFAULT) & (MASK_SOFT_FLOAT | MASK_SINGLE_FLOAT));
 #endif
 
-  /* Get the architectural level.  */
-  if (mips_isa_string == 0)
-    mips_isa = MIPS_ISA_DEFAULT;
-
-  else if (mips_isa_string != 0
-	   && mips_arch_string != 0)
-      warning ("The -march option is incompatible to -mipsN and therefore ignored.");
-
-  else if (ISDIGIT (*mips_isa_string))
+  /* Interpret -mabi.  */
+  mips_abi = MIPS_ABI_DEFAULT;
+  if (mips_abi_string != 0)
     {
-      mips_isa = atoi (mips_isa_string);
-      if (mips_isa == 16)
-	{
-	  /* -mno-mips16 overrides -mips16.  */
-	  if (mips_no_mips16_string == NULL)
-	    {
-	      target_flags |= MASK_MIPS16;
-	      if (TARGET_64BIT)
-		mips_isa = 3;
-	      else
-		mips_isa = MIPS_ISA_DEFAULT;
-	    }
-	  else
-	    {
-	      mips_isa = MIPS_ISA_DEFAULT;
-	    }
-	}
-      else if (mips_isa < 1
-	       || (mips_isa > 4
-		   && mips_isa != 32
-		   && mips_isa != 64))
-	{
-	  error ("-mips%d not supported", mips_isa);
-	  mips_isa = 1;
-	}
-    }
-
-  else
-    {
-      error ("bad value (%s) for -mips switch", mips_isa_string);
-      mips_isa = 1;
-    }
-
-#ifdef MIPS_ABI_DEFAULT
-  /* Get the ABI to use.  */
-  if (mips_abi_string == (char *) 0)
-    mips_abi = MIPS_ABI_DEFAULT;
-  else if (! strcmp (mips_abi_string, "32"))
-    mips_abi = ABI_32;
-  else if (! strcmp (mips_abi_string, "o64"))
-    mips_abi = ABI_O64;
-  else if (! strcmp (mips_abi_string, "n32"))
-    mips_abi = ABI_N32;
-  else if (! strcmp (mips_abi_string, "64"))
-    mips_abi = ABI_64;
-  else if (! strcmp (mips_abi_string, "eabi"))
-    mips_abi = ABI_EABI;
-  else if (! strcmp (mips_abi_string, "meabi"))
-    mips_abi = ABI_MEABI;
-  else
-    error ("bad value (%s) for -mabi= switch", mips_abi_string);
-
-  /* A specified ISA defaults the ABI if it was not specified.  */
-  if (mips_abi_string == 0 && mips_isa_string
-      && mips_abi != ABI_EABI
-      && mips_abi != ABI_O64
-      && mips_abi != ABI_MEABI)
-    {
-      if (mips_isa == 64)
+      if (strcmp (mips_abi_string, "32") == 0)
+	mips_abi = ABI_32;
+      else if (strcmp (mips_abi_string, "o64") == 0)
 	mips_abi = ABI_O64;
+      else if (strcmp (mips_abi_string, "n32") == 0)
+	mips_abi = ABI_N32;
+      else if (strcmp (mips_abi_string, "64") == 0)
+	mips_abi = ABI_64;
+      else if (strcmp (mips_abi_string, "eabi") == 0)
+	mips_abi = ABI_EABI;
+      else if (strcmp (mips_abi_string, "meabi") == 0)
+	mips_abi = ABI_MEABI;
+      else
+	fatal_error ("bad value (%s) for -mabi= switch", mips_abi_string);
+    }
+
+  /* The following code determines the architecture and register size.
+     Similar code was added to GAS 2.14 (see tc-mips.c:md_after_parse_args()).
+     The GAS and GCC code should be kept in sync as much as possible.  */
+
+  if (mips_arch_string != 0)
+    mips_set_architecture (mips_parse_cpu ("-march", mips_arch_string));
+
+  if (mips_tune_string != 0)
+    mips_set_tune (mips_parse_cpu ("-mtune", mips_tune_string));
+
+  if (mips_isa_string != 0)
+    {
+      /* Handle -mipsN.  */
+      int level = atoi (mips_isa_string);
+      if (level == 16)
+	{
+	  /* -mips16 specifies an ASE rather than a processor, so don't
+	     change mips_arch here.  -mno-mips16 overrides -mips16.  */
+	  if (mips_no_mips16_string == NULL)
+	    target_flags |= MASK_MIPS16;
+	}
+      else if (mips_arch_info != 0)
+	{
+	  /* -march takes precedence over -mipsN, since it is more descriptive.
+	     There's no harm in specifying both as long as the ISA levels
+	     are the same.  */
+	  if (mips_isa != level)
+	    error ("-mips%d conflicts with the other architecture options, which specify a MIPS%d processor",
+		   level, mips_isa);
+	}
       else
 	{
-	  if (! ISA_HAS_64BIT_REGS)
-	    mips_abi = ABI_32;
-	  else if (mips_abi != ABI_N32)
-	    mips_abi = ABI_64;
+	  mips_set_architecture (mips_cpu_info_from_isa (level));
+	  if (mips_arch_info == 0)
+	    error ("bad value (%s) for -mips switch", mips_isa_string);
 	}
     }
 
+  if (mips_arch_info == 0)
+    {
 #ifdef MIPS_CPU_STRING_DEFAULT
-  /* A specified ABI defaults the ISA if it was not specified.  */
-  else if (mips_isa_string == 0 && mips_abi_string
-	   && mips_abi != ABI_EABI && mips_abi != ABI_O64)
-    {
-      if (mips_abi == ABI_32)
-	mips_isa = 1;
-      else if (mips_abi == ABI_N32)
-	mips_isa = 3;
-      else
-	mips_isa = 4;
-    }
-#endif
-
-  /* If both ABI and ISA were specified, check for conflicts.  */
-  else if (mips_isa_string && mips_abi_string)
-    {
-      if (! ISA_HAS_64BIT_REGS && (mips_abi == ABI_N32 || mips_abi == ABI_64
-			     || mips_abi == ABI_O64))
-	error ("-mabi=%s does not support -mips%d", mips_abi_string, mips_isa);
-    }
-
-  /* Override TARGET_DEFAULT if necessary.  */
-  if (mips_abi == ABI_32)
-    target_flags &= ~ (MASK_FLOAT64|MASK_64BIT);
-
-  /* If no type size setting options (-mlong64,-mint64,-mlong32) were used
-     then set the type sizes.  In the EABI in 64 bit mode, longs and
-     pointers are 64 bits.  Likewise for the SGI Irix6 N64 ABI.  */
-  if (mips_explicit_type_size_string == NULL
-      && ((mips_abi == ABI_EABI && TARGET_64BIT)
-	  || mips_abi == ABI_64))
-    target_flags |= MASK_LONG64;
-
+      mips_set_architecture (mips_parse_cpu ("default CPU",
+					     MIPS_CPU_STRING_DEFAULT));
 #else
-  if (mips_abi_string)
-    error ("this target does not support the -mabi switch");
+      mips_set_architecture (mips_cpu_info_from_isa (MIPS_ISA_DEFAULT));
 #endif
-
-#ifdef MIPS_CPU_STRING_DEFAULT
-  /* ??? There is a minor inconsistency here.  If the user specifies an ISA
-     greater than that supported by the default processor, then the user gets
-     an error.  Normally, the compiler will just default to the base level cpu
-     for the indicated isa.  */
-  if (mips_arch_string == 0)
-    mips_arch_string = MIPS_CPU_STRING_DEFAULT;
-  if (mips_tune_string == 0)
-    mips_tune_string = MIPS_CPU_STRING_DEFAULT;
-#endif
-
-  /* Identify the processor type.  */
-
-  if (mips_cpu_string != 0)
-    {
-      mips_cpu = mips_parse_cpu (mips_cpu_string);
-      if (mips_cpu == PROCESSOR_DEFAULT)
-	{
-	  error ("bad value (%s) for -mcpu= switch", mips_cpu_string);
-	  mips_cpu_string = "default";
-	}
-      mips_arch = mips_cpu;
-      mips_tune = mips_cpu;
     }
 
-  if (mips_arch_string == 0
-      || ! strcmp (mips_arch_string, "default")
-      || ! strcmp (mips_arch_string, "DEFAULT"))
+  if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
+    error ("-march=%s is not compatible with the selected ABI",
+	   mips_arch_info->name);
+
+  /* Optimize for mips_arch, unless -mtune selects a different processor.  */
+  if (mips_tune_info == 0)
+    mips_set_tune (mips_arch_info);
+
+  if ((target_flags_explicit & MASK_64BIT) != 0)
     {
-      switch (mips_isa)
-	{
-	default:
-	  mips_arch_string = "3000";
-	  mips_arch = PROCESSOR_R3000;
-	  break;
-	case 2:
-	  mips_arch_string = "6000";
-	  mips_arch = PROCESSOR_R6000;
-	  break;
-	case 3:
-	  mips_arch_string = "4000";
-	  mips_arch = PROCESSOR_R4000;
-	  break;
-	case 4:
-	  mips_arch_string = "8000";
-	  mips_arch = PROCESSOR_R8000;
-	  break;
-	case 32:
-          mips_arch_string = "4kc";
-          mips_arch = PROCESSOR_R4KC;
-          break;
-        case 64:
-          mips_arch_string = "5kc";
-          mips_arch = PROCESSOR_R5KC;
-          break;
-	}
+      /* The user specified the size of the integer registers.  Make sure
+	 it agrees with the ABI and ISA.  */
+      if (TARGET_64BIT && !ISA_HAS_64BIT_REGS)
+	error ("-mgp64 used with a 32-bit processor");
+      else if (!TARGET_64BIT && ABI_NEEDS_64BIT_REGS)
+	error ("-mgp32 used with a 64-bit ABI");
+      else if (TARGET_64BIT && ABI_NEEDS_32BIT_REGS)
+	error ("-mgp64 used with a 32-bit ABI");
     }
   else
     {
-      mips_arch = mips_parse_cpu (mips_arch_string);
-      if (mips_arch == PROCESSOR_DEFAULT)
-	{
-	  error ("bad value (%s) for -march= switch", mips_arch_string);
-	  mips_arch_string = "default";
-	}
-    }
-  if (mips_tune_string == 0
-      || ! strcmp (mips_tune_string, "default")
-      || ! strcmp (mips_tune_string, "DEFAULT"))
-    {
-      if (mips_arch != PROCESSOR_DEFAULT)
-	mips_tune = mips_arch;
+      /* Infer the integer register size from the ABI and processor.
+	 Restrict ourselves to 32-bit registers if that's all the
+	 processor has, or if the ABI cannot handle 64-bit registers.  */
+      if (ABI_NEEDS_32BIT_REGS || !ISA_HAS_64BIT_REGS)
+	target_flags &= ~MASK_64BIT;
       else
-      switch (mips_isa)
-	{
-	default:
-	  mips_tune_string = "3000";
-	  mips_tune = PROCESSOR_R3000;
-	  break;
-	case 2:
-	  mips_tune_string = "6000";
-	  mips_tune = PROCESSOR_R6000;
-	  break;
-	case 3:
-	  mips_tune_string = "4000";
-	  mips_tune = PROCESSOR_R4000;
-	  break;
-	case 4:
-	  mips_tune_string = "8000";
-	  mips_tune = PROCESSOR_R8000;
-	  break;
-	case 32:
-	  mips_tune_string = "4kc";
-	  mips_tune = PROCESSOR_R4KC;
-	  break;
-	case 64:
-	  mips_tune_string = "5kc";
-	  mips_tune = PROCESSOR_R5KC;
-	  break;
-	}
+	target_flags |= MASK_64BIT;
+    }
 
+  if ((target_flags_explicit & MASK_FLOAT64) != 0)
+    {
+      /* Really, -mfp32 and -mfp64 are ornamental options.  There's
+	 only one right answer here.  */
+      if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
+	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
+      else if (!TARGET_64BIT && TARGET_FLOAT64)
+	error ("unsupported combination: %s", "-mgp32 -mfp64");
+      else if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
+	error ("unsupported combination: %s", "-mfp64 -msingle-float");
     }
   else
     {
-       mips_tune = mips_parse_cpu (mips_tune_string);
-      if (mips_tune == PROCESSOR_DEFAULT)
-	{
-	  error ("bad value (%s) for -mtune= switch", mips_tune_string);
-	  mips_tune_string = "default";
-	}
+      /* -msingle-float selects 32-bit float registers.  Otherwise the
+	 float registers should be the same size as the integer ones.  */
+      if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
+	target_flags |= MASK_FLOAT64;
+      else
+	target_flags &= ~MASK_FLOAT64;
     }
 
-  /* make sure sizes of ints/longs/etc. are ok */
-  if (! ISA_HAS_64BIT_REGS)
-    {
-      if (TARGET_FLOAT64)
-	{
-	  error ("-mips%d does not support 64 bit fp registers", mips_isa);
-	  target_flags &= ~ MASK_FLOAT64;
-	}
+  /* End of code shared with GAS.  */
 
-      else if (TARGET_64BIT)
-	{
-	  error ("-mips%d does not support 64 bit gp registers", mips_isa);
-	  target_flags &= ~MASK_64BIT;
-	}
+  if ((target_flags_explicit & MASK_LONG64) == 0)
+    {
+      /* If no type size setting options (-mlong64,-mint64,-mlong32)
+	 were used, then set the type sizes.  In the EABI in 64 bit mode,
+	 longs and pointers are 64 bits.  Likewise for the SGI Irix6 N64
+	 ABI.  */
+      if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
+	target_flags |= MASK_LONG64;
+      else
+	target_flags &= ~MASK_LONG64;
     }
 
   if (mips_abi != ABI_32 && mips_abi != ABI_O64)
     flag_pcc_struct_return = 0;
+
+  if ((target_flags_explicit & MASK_BRANCHLIKELY) == 0)
+    {
+      /* If neither -mbranch-likely nor -mno-branch-likely was given
+	 on the command line, set MASK_BRANCHLIKELY based on the target
+	 architecture.
+
+	 By default, we enable use of Branch Likely instructions on
+	 all architectures which support them except for MIPS32 and MIPS64
+	 (i.e., the generic MIPS32 and MIPS64 ISAs, and processors which
+	 implement them).
+
+	 The MIPS32 and MIPS64 architecture specifications say "Software
+	 is strongly encouraged to avoid use of Branch Likely
+	 instructions, as they will be removed from a future revision
+	 of the [MIPS32 and MIPS64] architecture."  Therefore, we do not
+	 issue those instructions unless instructed to do so by
+	 -mbranch-likely.  */
+      if (ISA_HAS_BRANCHLIKELY && !(ISA_MIPS32 || ISA_MIPS64))
+	target_flags |= MASK_BRANCHLIKELY;
+      else
+	target_flags &= ~MASK_BRANCHLIKELY;
+    }
+  if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
+    warning ("generation of Branch Likely instructions enabled, but not supported by architecture");
 
   /* -fpic (-KPIC) is the default when TARGET_ABICALLS is defined.  We need
      to set flag_pic so that the LEGITIMATE_PIC_OPERAND_P macro will work.  */
@@ -5433,17 +5385,19 @@ override_options ()
 
 	  else if (FP_REG_P (regno))
 	    temp = (((regno % FP_INC) == 0
-		      /* I think this change is OK regardless of abi, but
+		     /* I think this change is OK regardless of abi, but
                         I'm being cautions untill I can test this more.
                         HARD_REGNO_MODE_OK is about whether or not you
                         can move to and from a register without changing
                         the value, not about whether math works on the
-                        register.  */
-                     || (mips_abi == ABI_MEABI && size <= 4))
-		    && (class == MODE_FLOAT
-			|| class == MODE_COMPLEX_FLOAT
-			|| (TARGET_DEBUG_H_MODE && class == MODE_INT))
-		    && size <= UNITS_PER_FPVALUE);
+                        register. */
+		     || (mips_abi == ABI_MEABI && size <= 4))
+		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
+			 && size <= UNITS_PER_FPVALUE)
+			/* Allow integer modes that fit into a single
+			   register.  We need to put integers into FPRs
+			   when using instructions like cvt and trunc.  */
+			|| (class == MODE_INT && size <= UNITS_PER_FPREG)));
 
 	  else if (MD_REG_P (regno))
 	    temp = (class == MODE_INT
@@ -5477,6 +5431,62 @@ override_options ()
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
+}
+
+/* Implement CONDITIONAL_REGISTER_USAGE.  */
+
+void
+mips_conditional_register_usage ()
+{
+  if (!TARGET_HARD_FLOAT)
+    {
+      int regno;
+
+      for (regno = FP_REG_FIRST; regno <= FP_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+      for (regno = ST_REG_FIRST; regno <= ST_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+    }
+  else if (! ISA_HAS_8CC)
+    {
+      int regno;
+
+      /* We only have a single condition code register.  We
+	 implement this by hiding all the condition code registers,
+	 and generating RTL that refers directly to ST_REG_FIRST.  */
+      for (regno = ST_REG_FIRST; regno <= ST_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* In mips16 mode, we permit the $t temporary registers to be used
+     for reload.  We prohibit the unused $s registers, since they
+     are caller saved, and saving them via a mips16 register would
+     probably waste more time than just reloading the value.  */
+  if (TARGET_MIPS16)
+    {
+      fixed_regs[18] = call_used_regs[18] = 1;
+      fixed_regs[19] = call_used_regs[19] = 1;
+      fixed_regs[20] = call_used_regs[20] = 1;
+      fixed_regs[21] = call_used_regs[21] = 1;
+      fixed_regs[22] = call_used_regs[22] = 1;
+      fixed_regs[23] = call_used_regs[23] = 1;
+      fixed_regs[26] = call_used_regs[26] = 1;
+      fixed_regs[27] = call_used_regs[27] = 1;
+      fixed_regs[30] = call_used_regs[30] = 1;
+    }
+  /* fp20-23 are now caller saved.  */
+  if (mips_abi == ABI_64)
+    {
+      int regno;
+      for (regno = FP_REG_FIRST + 20; regno < FP_REG_FIRST + 24; regno++)
+	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* odd registers from fp21 to fp31 are now caller saved.  */
+  if (mips_abi == ABI_N32 || mips_abi == ABI_MEABI)
+    {
+      int regno;
+      for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
+	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -6059,7 +6069,7 @@ mips_output_external (file, decl, name)
 	  || strcmp (TREE_STRING_POINTER (section_name), ".sbss") == 0
 	  || strcmp (TREE_STRING_POINTER (section_name), ".sdata") == 0))
     {
-      p = (struct extern_list *) permalloc (sizeof (struct extern_list));
+      p = (struct extern_list *) xmalloc (sizeof (struct extern_list));
       p->next = extern_head;
       p->name = name;
       p->size = len;
@@ -6075,7 +6085,7 @@ mips_output_external (file, decl, name)
 	 bootstrap under Irix 5.1.  */
       && strcmp (name, "__builtin_next_arg"))
     {
-      p = (struct extern_list *) permalloc (sizeof (struct extern_list));
+      p = (struct extern_list *) xmalloc (sizeof (struct extern_list));
       p->next = extern_head;
       p->name = name;
       p->size = -1;
@@ -6094,7 +6104,7 @@ mips_output_external_libcall (file, name)
 {
   register struct extern_list *p;
 
-  p = (struct extern_list *) permalloc (sizeof (struct extern_list));
+  p = (struct extern_list *) xmalloc (sizeof (struct extern_list));
   p->next = extern_head;
   p->name = name;
   p->size = -1;
@@ -6343,13 +6353,14 @@ mips_asm_file_start (stream)
 
   if (TARGET_GAS)
     {
-#if defined(OBJECT_FORMAT_ELF)
+#if defined(OBJECT_FORMAT_ELF) && !(TARGET_IRIX5 || TARGET_IRIX6)
       /* Generate a special section to describe the ABI switches used to
 	 produce the resultant binary.  This used to be done by the assembler
 	 setting bits in the ELF header's flags field, but we have run out of
 	 bits.  GDB needs this information in order to be able to correctly
-	 debug these binaries. See the function mips_gdbarch_init() in
-	 gdb/mips-tdep.c.  */
+	 debug these binaries.  See the function mips_gdbarch_init() in
+	 gdb/mips-tdep.c.  This is unnecessary for the IRIX 5/6 ABIs and
+	 causes unnecessary IRIX 6 ld warnings.  */
       const char * abi_string = NULL;
 
       switch (mips_abi)
@@ -6401,7 +6412,7 @@ mips_asm_file_start (stream)
   if (flag_verbose_asm)
     fprintf (stream, "\n%s -G value = %d, Arch = %s, ISA = %d\n",
 	     ASM_COMMENT_START,
-	     mips_section_threshold, mips_arch_string, mips_isa);
+	     mips_section_threshold, mips_arch_info->name, mips_isa);
 }
 
 /* If we are optimizing the global pointer, emit the text section now and any
@@ -7238,7 +7249,7 @@ mips_output_function_prologue (file, size)
 
       /* If this is a varargs function, we need to save all the
          registers onto the stack anyhow.  */
-      if (current_function_stdarg || current_function_varargs)
+      if (current_function_stdarg)
 	savearg = GP_REG_FIRST + 7;
 
       fprintf (file, "\tentry\t");
@@ -8352,6 +8363,18 @@ mips_secondary_reload_class (class, mode, x, in_p)
 	  if (GET_CODE (x) == REG)
 	    regno = REGNO (x) + off;
 	}
+
+      /* 64-bit floating-point registers don't store 32-bit values
+	 in sign-extended form.  The only way we can reload
+	 (sign_extend:DI (reg:SI $f0)) is by moving $f0 into
+	 an integer register using a 32-bit move.  */
+      if (FP_REG_P (regno))
+	return (class == GR_REGS ? NO_REGS : GR_REGS);
+
+      /* For the same reason, we can only reload (sign_extend:DI FOO) into
+	 a floating-point register when FOO is an integer register. */
+      if (class == FP_REGS)
+	return (GP_REG_P (regno) ? NO_REGS : GR_REGS);
     }
 
   else if (GET_CODE (x) == REG || GET_CODE (x) == SUBREG)
@@ -8409,6 +8432,37 @@ mips_secondary_reload_class (class, mode, x, in_p)
       if (! in_p)
 	return FP_REGS;
       return class == GR_REGS ? NO_REGS : GR_REGS;
+    }
+
+  if (class == FP_REGS)
+    {
+      if (GET_CODE (x) == MEM)
+	{
+	  /* In this case we can use lwc1, swc1, ldc1 or sdc1. */
+	  return NO_REGS;
+	}
+      else if (CONSTANT_P (x) && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  /* We can use the l.s and l.d macros to load floating-point
+	     constants.  ??? For l.s, we could probably get better
+	     code by returning GR_REGS here.  */
+	  return NO_REGS;
+	}
+      else if (GP_REG_P (regno) || x == CONST0_RTX (mode))
+	{
+	  /* In this case we can use mtc1, mfc1, dmtc1 or dmfc1.  */
+	  return NO_REGS;
+	}
+      else if (FP_REG_P (regno))
+	{
+	  /* In this case we can use mov.s or mov.d.  */
+	  return NO_REGS;
+	}
+      else
+	{
+	  /* Otherwise, we need to reload through an integer register.  */
+	  return GR_REGS;
+	}
     }
 
   /* In mips16 mode, going between memory and anything but M16_REGS
@@ -10163,115 +10217,120 @@ mips_output_conditional_branch (insn,
   /* NOTREACHED */
   return 0;
 }
+
+/* Return true if GIVEN is the same as CANONICAL, or if it is CANONICAL
+   with a final "000" replaced by "k".  Ignore case.
 
-static enum processor_type
-mips_parse_cpu (cpu_string)
-     const char *cpu_string;
+   Note: this function is shared between GCC and GAS.  */
+
+static bool
+mips_strict_matching_cpu_name_p (canonical, given)
+     const char *canonical, *given;
 {
-  const char *p = cpu_string;
-  int seen_v = 0;
-  enum processor_type cpu;
-  int warn_upper_case = 0;
+  while (*given != 0 && TOLOWER (*given) == TOLOWER (*canonical))
+    given++, canonical++;
 
-  /* We need to cope with the various "vr" prefixes for the NEC 4300
-     and 4100 processors.  */
-  if (*p == 'v' || *p == 'V')
-    {
-      if (*p == 'V')
-	warn_upper_case = 1;
-      seen_v = 1, p++;
-    }
-
-  if (*p == 'r' || *p == 'R')
-    {
-      if (*p == 'R')
-	warn_upper_case = 1;
-      p++;
-    }
-
-  if (warn_upper_case)
-    warning ("the cpu name must be lower case");
-
-  /* Since there is no difference between a R2000 and R3000 in
-     terms of the scheduler, we collapse them into just an R3000.  */
-
-  cpu = PROCESSOR_DEFAULT;
-  switch (*p)
-    {
-    case '2':
-      if (!strcmp (p, "2000") || !strcmp (p, "2k") || !strcmp (p, "2K"))
-	cpu = PROCESSOR_R3000;
-      else if (!strcmp (p, "20kc") || !strcmp (p, "20Kc") )
-        cpu = PROCESSOR_R20KC;
-      break;
-
-    case '3':
-      if (!strcmp (p, "3000") || !strcmp (p, "3k") || !strcmp (p, "3K"))
-	cpu = PROCESSOR_R3000;
-      else if (!strcmp (p, "3900"))
-	cpu = PROCESSOR_R3900;
-      break;
-
-    case '4':
-      if (!strcmp (p, "4000") || !strcmp (p, "4k") || !strcmp (p, "4K"))
-	cpu = PROCESSOR_R4000;
-      /* The vr4100 is a non-FP ISA III processor with some extra
-	 instructions.  */
-      else if (!strcmp (p, "4100"))
-	  cpu = PROCESSOR_R4100;
-      /* The vr4300 is a standard ISA III processor, but with a different
-	 pipeline.  */
-      else if (!strcmp (p, "4300"))
-	cpu = PROCESSOR_R4300;
-      /* The r4400 is exactly the same as the r4000 from the compiler's
-	 viewpoint.  */
-      else if (!strcmp (p, "4400"))
-	cpu = PROCESSOR_R4000;
-      else if (!strcmp (p, "4600"))
-	cpu = PROCESSOR_R4600;
-      else if (!strcmp (p, "4650"))
-	cpu = PROCESSOR_R4650;
-      /* The 4kc and 4kp processor cores are the same for
-	 scheduling purposes; they both implement the MIPS32
-	 ISA and only differ in their memory management
-	 methods.  */
-      else if (!strcmp (p, "4kc") || !strcmp (p, "4Kc")
-               || !strcmp (p, "4kp") || !strcmp (p, "4Kp") )
-	cpu = PROCESSOR_R4KC;
-      break;
-
-    case '5':
-      if (!strcmp (p, "5000") || !strcmp (p, "5k") || !strcmp (p, "5K"))
-	cpu = PROCESSOR_R5000;
-      else if (!strcmp (p, "5kc") || !strcmp (p, "5Kc") )
-          cpu = PROCESSOR_R5KC;
-      break;
-
-    case '6':
-      if (!strcmp (p, "6000") || !strcmp (p, "6k") || !strcmp (p, "6K"))
-	cpu = PROCESSOR_R6000;
-      break;
-
-    case '8':
-      if (!strcmp (p, "8000"))
-	cpu = PROCESSOR_R8000;
-      break;
-
-    case 'o':
-      if (!strcmp (p, "orion"))
-	cpu = PROCESSOR_R4600;
-      break;
-    }
-
-  if (seen_v
-      && cpu != PROCESSOR_R4300
-      && cpu != PROCESSOR_R4100
-      && cpu != PROCESSOR_R5000)
-    cpu = PROCESSOR_DEFAULT;
-
-  return cpu;
+  return ((*given == 0 && *canonical == 0)
+	  || (strcmp (canonical, "000") == 0 && strcasecmp (given, "k") == 0));
 }
 
+
+/* Return true if GIVEN matches CANONICAL, where GIVEN is a user-supplied
+   CPU name.  We've traditionally allowed a lot of variation here.
+
+   Note: this function is shared between GCC and GAS.  */
+
+static bool
+mips_matching_cpu_name_p (canonical, given)
+     const char *canonical, *given;
+{
+  /* First see if the name matches exactly, or with a final "000"
+     turned into "k".  */
+  if (mips_strict_matching_cpu_name_p (canonical, given))
+    return true;
+
+  /* If not, try comparing based on numerical designation alone.
+     See if GIVEN is an unadorned number, or 'r' followed by a number.  */
+  if (TOLOWER (*given) == 'r')
+    given++;
+  if (!ISDIGIT (*given))
+    return false;
+
+  /* Skip over some well-known prefixes in the canonical name,
+     hoping to find a number there too.  */
+  if (TOLOWER (canonical[0]) == 'v' && TOLOWER (canonical[1]) == 'r')
+    canonical += 2;
+  else if (TOLOWER (canonical[0]) == 'r' && TOLOWER (canonical[1]) == 'm')
+    canonical += 2;
+  else if (TOLOWER (canonical[0]) == 'r')
+    canonical += 1;
+
+  return mips_strict_matching_cpu_name_p (canonical, given);
+}
+
+
+/* Parse an option that takes the name of a processor as its argument.
+   OPTION is the name of the option and CPU_STRING is the argument.
+   Return the corresponding processor enumeration if the CPU_STRING is
+   recognized, otherwise report an error and return null.
+
+   A similar function exists in GAS.  */
+
+static const struct mips_cpu_info *
+mips_parse_cpu (option, cpu_string)
+     const char *option, *cpu_string;
+{
+  const struct mips_cpu_info *p;
+  const char *s;
+
+  /* In the past, we allowed upper-case CPU names, but it doesn't
+     work well with the multilib machinery.  */
+  for (s = cpu_string; *s != 0; s++)
+    if (ISUPPER (*s))
+      {
+	warning ("the cpu name must be lower case");
+	break;
+      }
+
+  /* 'from-abi' selects the most compatible architecture for the given
+     ABI: MIPS I for 32-bit ABIs and MIPS III for 64-bit ABIs.  For the
+     EABIs, we have to decide whether we're using the 32-bit or 64-bit
+     version.  Look first at the -mgp options, if given, otherwise base
+     the choice on MASK_64BIT in TARGET_DEFAULT.  */
+  if (strcasecmp (cpu_string, "from-abi") == 0)
+    return mips_cpu_info_from_isa (ABI_NEEDS_32BIT_REGS ? 1
+				   : ABI_NEEDS_64BIT_REGS ? 3
+				   : (TARGET_64BIT ? 3 : 1));
+
+  /* 'default' has traditionally been a no-op.  Probably not very useful.  */
+  if (strcasecmp (cpu_string, "default") == 0)
+    return 0;
+
+  for (p = mips_cpu_info_table; p->name != 0; p++)
+    if (mips_matching_cpu_name_p (p->name, cpu_string))
+      return p;
+
+  error ("bad value (%s) for %s", cpu_string, option);
+  return 0;
+}
+
+
+/* Return the processor associated with the given ISA level, or null
+   if the ISA isn't valid.  */
+
+static const struct mips_cpu_info *
+mips_cpu_info_from_isa (isa)
+     int isa;
+{
+  const struct mips_cpu_info *p;
+
+  for (p = mips_cpu_info_table; p->name != 0; p++)
+    if (p->isa == isa)
+      return p;
+
+  return 0;
+}
+
 /* Adjust the cost of INSN based on the relationship between INSN that
    is dependent on DEP_INSN through the dependence LINK.  The default
    is to make no adjustment to COST.
@@ -10335,7 +10394,7 @@ mips_unique_section (decl, reloc)
 	 read-only data if possible, in order to reduce RAM
 	 usage.  */
 
-      if (DECL_READONLY_SECTION (decl, reloc))
+      if (decl_readonly_section (decl, reloc))
 	sec = 1;
       else if (size > 0 && size <= mips_section_threshold)
 	sec = 3;
@@ -10350,7 +10409,7 @@ mips_unique_section (decl, reloc)
 
       if (size > 0 && size <= mips_section_threshold)
 	sec = 3;
-      else if (DECL_READONLY_SECTION (decl, reloc))
+      else if (decl_readonly_section (decl, reloc))
 	sec = 1;
       else
 	sec = 2;
@@ -10394,20 +10453,17 @@ mips_return_in_memory (type)
 static int
 mips_issue_rate ()
 {
-  int rate;
-
   switch (mips_tune)
     {
     case PROCESSOR_R3000:
-      rate = 1;
-      break;
+      return 1;
 
     default:
-      rate = 1;
-      break;
+      return 1;
     }
 
-  return rate;
+  abort ();
+
 }
 
 const char *

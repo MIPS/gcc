@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "obstack.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -965,7 +964,7 @@ really_overloaded_fn (x)
   if (BASELINK_P (x))
     x = BASELINK_FUNCTIONS (x);
   return (TREE_CODE (x) == OVERLOAD 
-	  && (TREE_CHAIN (x) != NULL_TREE
+	  && (OVL_CHAIN (x)
 	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
 }
 
@@ -1505,19 +1504,19 @@ build_min VPARAMS ((enum tree_code code, tree tt, ...))
    same node; therefore, callers should never modify the node
    returned.  */
 
+static GTY(()) tree shared_int_cache[256];
+
 tree
 build_shared_int_cst (i)
      int i;
 {
-  static tree cache[256];
-
   if (i >= 256)
     return build_int_2 (i, 0);
   
-  if (!cache[i])
-    cache[i] = build_int_2 (i, 0);
+  if (!shared_int_cache[i])
+    shared_int_cache[i] = build_int_2 (i, 0);
   
-  return cache[i];
+  return shared_int_cache[i];
 }
 
 tree
@@ -2447,8 +2446,8 @@ cxx_unsave_expr_now (tp)
 }
 
 /* Returns the kind of special function that DECL (a FUNCTION_DECL)
-   is.  Note that this sfk_none is zero, so this function can be used
-   as a predicate to test whether or not DECL is a special function.  */
+   is.  Note that sfk_none is zero, so this function can be used as a
+   predicate to test whether or not DECL is a special function.  */
 
 special_function_kind
 special_function_p (decl)
@@ -2475,6 +2474,22 @@ special_function_p (decl)
     return sfk_conversion;
 
   return sfk_none;
+}
+
+/* Returns true if and only if NODE is a name, i.e., a node created
+   by the parser when processing an id-expression.  */
+
+bool
+name_p (tree node)
+{
+  if (TREE_CODE (node) == TEMPLATE_ID_EXPR)
+    node = TREE_OPERAND (node, 0);
+  return (/* An ordinary unqualified name.  */
+	  TREE_CODE (node) == IDENTIFIER_NODE
+	  /* A destructor name.  */
+	  || TREE_CODE (node) == BIT_NOT_EXPR
+	  /* A qualified name.  */
+	  || TREE_CODE (node) == SCOPE_REF);
 }
 
 /* Returns non-zero if TYPE is a character type, including wchar_t.  */

@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "vmsdbg.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "function.h"
 
 /* Difference in seconds between the VMS Epoch and the Unix Epoch */
 static const long long vms_epoch_offset = 3506716800ll;
@@ -229,11 +230,6 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
   (NUMBYTES(OFFSET) == 4 \
    ? UNALIGNED_LONG_ASM_OP \
    : (NUMBYTES(OFFSET) == 2 ? UNALIGNED_SHORT_ASM_OP : ASM_BYTE_OP))
-#endif
-
-/* Pseudo-op for defining a new section.  */
-#ifndef SECTION_ASM_OP
-#define SECTION_ASM_OP	".section"
 #endif
 
 /* Definitions of defaults for formats and names of various special
@@ -797,7 +793,7 @@ write_rtnbeg (rtnnum, dosizeonly)
      int dosizeonly;
 {
   char *rtnname;
-  int rtnnamelen, rtnentrynamelen;
+  int rtnnamelen;
   char *rtnentryname;
   int totsize = 0;
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -806,10 +802,7 @@ write_rtnbeg (rtnnum, dosizeonly)
 
   rtnname = func_table[rtnnum];
   rtnnamelen = strlen (rtnname);
-  rtnentrynamelen = rtnnamelen + 4; /* "..en" */
-  rtnentryname = (char *) xmalloc (rtnentrynamelen + 1);
-  strcpy (rtnentryname, rtnname);
-  strcat (rtnentryname, "..en");
+  rtnentryname = concat (rtnname, "..en", NULL);
 
   if (!strcmp (rtnname, "main"))
     {
@@ -1637,10 +1630,7 @@ vmsdbgout_init (main_input_filename)
   else
     module_language = DST_K_UNKNOWN;
 
-  module_producer
-    = (char *) xmalloc (strlen (language_string) + 1
-			+ strlen (version_string) + 1);
-  sprintf (module_producer, "%s %s", language_string, version_string);
+  module_producer = concat (language_string, " ", version_string, NULL);
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
 

@@ -172,7 +172,7 @@ static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
 #endif /* BSS_SECTION_ASM_OP */
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
-static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
+static bool asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
 static void resolve_unique_section	PARAMS ((tree, int, int));
 static void mark_weak                   PARAMS ((tree));
 
@@ -1205,8 +1205,7 @@ assemble_start_function (decl, fnname)
 	  char *name;
 
 	  p = (* targetm.strip_name_encoding) (fnname);
-	  name = permalloc (strlen (p) + 1);
-	  strcpy (name, p);
+	  name = xstrdup (p);
 
 	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
 	    first_global_object_name = name;
@@ -1350,7 +1349,7 @@ assemble_string (p, size)
 #endif
 #endif
 
-static void
+static bool
 asm_emit_uninitialised (decl, name, size, rounded)
      tree decl;
      const char *name;
@@ -1365,13 +1364,17 @@ asm_emit_uninitialised (decl, name, size, rounded)
   }
   destination = asm_dest_local;
 
+  /* ??? We should handle .bss via select_section mechanisms rather than
+     via special target hooks.  That would eliminate this special case.  */
   if (TREE_PUBLIC (decl))
     {
-#if defined ASM_EMIT_BSS
-      if (! DECL_COMMON (decl))
+      if (!DECL_COMMON (decl))
+#ifdef ASM_EMIT_BSS
 	destination = asm_dest_bss;
-      else
+#else
+	return false;
 #endif
+      else
 	destination = asm_dest_common;
     }
 
@@ -1420,7 +1423,7 @@ asm_emit_uninitialised (decl, name, size, rounded)
       abort ();
     }
 
-  return;
+  return true;
 }
 
 /* Assemble everything that is needed for a variable or function declaration.
@@ -1525,8 +1528,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       char *xname;
 
       p = (* targetm.strip_name_encoding) (name);
-      xname = permalloc (strlen (p) + 1);
-      strcpy (xname, p);
+      xname = xstrdup (p);
       first_global_object_name = xname;
     }
 
@@ -1593,14 +1595,6 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       if (DECL_COMMON (decl))
 	sorry ("thread-local COMMON data not implemented");
     }
-#ifndef ASM_EMIT_BSS
-  /* If the target can't output uninitialized but not common global data
-     in .bss, then we have to use .data.  */
-  /* ??? We should handle .bss via select_section mechanisms rather than
-     via special target hooks.  That would eliminate this special case.  */
-  else if (!DECL_COMMON (decl))
-    ;
-#endif
   else if (DECL_INITIAL (decl) == 0
 	   || DECL_INITIAL (decl) == error_mark_node
 	   || (flag_zero_initialized_in_bss
@@ -1627,9 +1621,10 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 	  (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
 #endif
 
-      asm_emit_uninitialised (decl, name, size, rounded);
-
-      return;
+      /* If the target cannot output uninitialized but not common global data
+	 in .bss, then we have to use .data, so fall through.  */
+      if (asm_emit_uninitialised (decl, name, size, rounded))
+	return;
     }
 
   /* Handle initialized definitions.
@@ -4616,7 +4611,8 @@ assemble_visibility (decl, visibility_type)
 {
   const char *name;
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (* targetm.strip_name_encoding)
+	 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
 #ifdef HAVE_GAS_HIDDEN
   fprintf (asm_out_file, "\t.%s\t%s\n", visibility_type, name);
@@ -4709,7 +4705,7 @@ default_section_type_flags (decl, name, reloc)
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+  else if (decl && decl_readonly_section (decl, reloc))
     flags = 0;
   else
     flags = SECTION_WRITE;
@@ -4869,7 +4865,7 @@ default_select_section (decl, reloc, align)
 
   if (DECL_P (decl))
     {
-      if (DECL_READONLY_SECTION (decl, reloc))
+      if (decl_readonly_section (decl, reloc))
 	readonly = true;
     }
   else if (TREE_CODE (decl) == CONSTRUCTOR)
@@ -5006,6 +5002,25 @@ categorize_decl_for_section (decl, reloc)
     }
 
   return ret;
+}
+
+bool
+decl_readonly_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  switch (categorize_decl_for_section (decl, reloc))
+    {
+    case SECCAT_RODATA:
+    case SECCAT_RODATA_MERGE_STR:
+    case SECCAT_RODATA_MERGE_STR_INIT:
+    case SECCAT_RODATA_MERGE_CONST:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
 }
 
 /* Select a section based on the above categorization.  */
