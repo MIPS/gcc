@@ -1,3 +1,44 @@
+2004-05-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	Replace several arrays with a struct of arrays.
+        * combine.c (struct reg_stat): New.
+        (init_reg_last_arrays): Renamed to...
+        (init_reg_last): ...this.  Callers adjusted.
+        (reg_stat): New.
+        (combine_instructions): Allocate it and use it.
+        (reg_last_death, reg_last_set, reg_last_set_value,
+        reg_last_set_label, reg_last_set_table_tick,
+        reg_last_set_invalid, reg_nonzero_bits, reg_sign_bit_copies,
+        reg_last_set_mode, reg_last_set_nonzero_bits,
+        reg_last_set_sign_bit_copies): Replace throughout
+        with items of reg_stat.
+
+2004-05-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR optimization/15100
+	* combine.c (distribute_notes): Don't create a dangling
+	REG_LIBCALL/REG_RETVAL note.
+
+2004-05-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.md (spe_evneg): Rename to negv2si2.
+
+	* config/rs6000/rs6000.c (bdesc_1arg): Change spe_evneg to
+	negv2si2.
+
+2004-05-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/md.texi (Standard Names): Fix typo in vec_init description.
+
+2004-05-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/gty.texi (GTY Options): Clarify example.
+
+2004-05-11  Fariborz Jahanian  <fjahanian@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute):
+	Add const qualifier to altivec vector type if one is needed.
+
 2004-05-11  Paul Brook  <paul@codesourcery.com>
 
 	* flags.h (flag_short_enums): Update comment.
