@@ -1,3 +1,8 @@
+2004-01-05  Andrew Pinski  <apinski@apple.com>
+
+	* configure.in: Check for csin in -lmx also.
+	* configure: Regenerate.
+
 2004-01-01  Paul Brook  <paul@codesourcery.com>
 
 	* io/list_read.c (find_nml_node): Make static.
