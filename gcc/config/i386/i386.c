@@ -1175,6 +1175,33 @@ memory_displacement_operand (op, mode)
 
   return parts.disp != NULL_RTX;
 }
+
+/* To avoid problems when jump re-emits comparisons like testqi_ext_0,
+   re-recognize the operand to avoid a copy_to_mode_reg that will fail.
+
+   ??? It seems likely that this will only work because cmpsi is an
+   expander, and no actual insns use this.  */
+
+int
+cmpsi_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  if (general_operand (op, mode))
+    return 1;
+
+  if (GET_CODE (op) == AND
+      && GET_MODE (op) == SImode
+      && GET_CODE (XEXP (op, 0)) == ZERO_EXTRACT
+      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT
+      && GET_CODE (XEXP (XEXP (op, 0), 2)) == CONST_INT
+      && INTVAL (XEXP (XEXP (op, 0), 1)) == 8
+      && INTVAL (XEXP (XEXP (op, 0), 2)) == 8
+      && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    return 1;
+
+  return 0;
+}
 
 /* Return true if the constant is something that can be loaded with
    a special instruction.  Only handle 0.0 and 1.0; others are less

@@ -1,3 +1,9 @@
+1999-07-19  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (cmpsi_operand): New predicate.
+	* i386.h (PREDICATE_CODES): Add it.
+	* i386.md (cmpsi): Use it.
+
 1999-07-08  Jan Hubicka <hubicka@freesoft.cz>
 
 	* flow.c (new_insn_dead_notes): Handle dead stores nicely.

@@ -2387,7 +2387,9 @@ do { long l;						\
 				 UMIN, UMAX, COMPARE, MINUS, DIV, MOD,	\
 				 UDIV, UMOD, ASHIFT, ROTATE, ASHIFTRT,	\
 				 LSHIFTRT, ROTATERT}},			\
-  {"memory_displacement_operand", {MEM}},
+  {"memory_displacement_operand", {MEM}},				\
+  {"cmpsi_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+		     LABEL_REF, SUBREG, REG, MEM, AND}},
 
 /* Functions in i386.c */
 
@@ -2434,6 +2436,7 @@ extern int mult_operator XPARAMS((xrtx, xmode));
 extern int div_operator XPARAMS((xrtx, xmode));
 extern int arith_or_logical_operator XPARAMS((xrtx, xmode));
 extern int memory_displacement_operand XPARAMS((xrtx, xmode));
+extern int cmpsi_operand XPARAMS((xrtx, xmode));
 
 extern int standard_80387_constant_p XPARAMS((xrtx));
 extern int symbolic_reference_mentioned_p XPARAMS((xrtx));
