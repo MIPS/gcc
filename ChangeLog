@@ -1,3 +1,8 @@
+2003-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* libtool.m4 (libtool_flags): Handle powerpc64-*linux*
+	the same way as ppc64-*linux*.
+
 2003-04-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.in (powerpc64*-*-linux*): Remove.
