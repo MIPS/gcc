@@ -1,3 +1,13 @@
+2003-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* heap.c: New.
+	* heap.h: New.
+	* Makefile.in (heap.o): New.
+	(df.c): Add heap.h dependency, remove fibheap.h dependency.
+	* df.c: Include heap.h instead of fibheap.h.
+	(iterative_dataflow_sbitmap, iterative_dataflow_bitmap): Use ordinary
+	heaps for worklist.
+
 2003-04-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* df.c (hybrid_search_bitmap, hybrid_search_sbitmap,

@@ -186,7 +186,7 @@ and again mark them read/write.
 #include "sbitmap.h"
 #include "bitmap.h"
 #include "df.h"
-#include "fibheap.h"
+#include "heap.h"
 
 #define FOR_EACH_BB_IN_BITMAP(BITMAP, MIN, BB, CODE)	\
   do							\
@@ -3926,7 +3926,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
      void *data;
 {
   int i;
-  fibheap_t worklist;
+  struct heap *worklist;
   basic_block bb;
   sbitmap visited, pending;
   edge *stack = xmalloc (n_basic_blocks * sizeof (edge));
@@ -3935,11 +3935,11 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
   visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (pending);
   sbitmap_zero (visited);
-  worklist = fibheap_new ();
+  worklist = heap_alloc (n_basic_blocks);
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
   {
-    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+    heap_insert (worklist, order[i], (void *) (size_t) i);
     SET_BIT (pending, i);
     if (dir == DF_FORWARD)
       sbitmap_copy (out[i], gen[i]);
@@ -3949,9 +3949,9 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
 
   while (sbitmap_first_set_bit (pending) != -1)
     {
-      while (!fibheap_empty (worklist))
+      while (heap_size (worklist) > 0)
 	{
-	  i = (size_t) fibheap_extract_min (worklist);
+	  i = (size_t) heap_extract_min (worklist);
 	  bb = BASIC_BLOCK (i);
 	  if (!TEST_BIT (visited, bb->index))
 	    hybrid_search_sbitmap (bb, in, out, gen, kill, dir,
@@ -3963,7 +3963,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
 	  {
-	    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+	    heap_insert (worklist, order[i], (void *) (size_t) i);
 	  });
 	  sbitmap_zero (visited);
 	}
@@ -3975,7 +3975,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
 
   sbitmap_free (pending);
   sbitmap_free (visited);
-  fibheap_delete (worklist);
+  free (worklist);
   free (stack);
 }
 
@@ -3994,7 +3994,7 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
      void *data;
 {
   int i;
-  fibheap_t worklist;
+  struct heap *worklist;
   basic_block bb;
   sbitmap visited, pending;
   edge *stack = xmalloc (n_basic_blocks * sizeof (edge));
@@ -4003,11 +4003,11 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
   visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (pending);
   sbitmap_zero (visited);
-  worklist = fibheap_new ();
+  worklist = heap_alloc (n_basic_blocks);
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
   {
-    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+    heap_insert (worklist, order[i], (void *) (size_t) i);
     SET_BIT (pending, i);
     if (dir == DF_FORWARD)
       bitmap_copy (out[i], gen[i]);
@@ -4017,9 +4017,9 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
 
   while (sbitmap_first_set_bit (pending) != -1)
     {
-      while (!fibheap_empty (worklist))
+      while (heap_size (worklist) > 0)
 	{
-	  i = (size_t) fibheap_extract_min (worklist);
+	  i = (size_t) heap_extract_min (worklist);
 	  bb = BASIC_BLOCK (i);
 	  if (!TEST_BIT (visited, bb->index))
 	    hybrid_search_bitmap (bb, in, out, gen, kill, dir,
@@ -4031,7 +4031,7 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
 	  {
-	    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+	    heap_insert (worklist, order[i], (void *) (size_t) i);
 	  });
 	  sbitmap_zero (visited);
 	}
@@ -4042,6 +4042,6 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
     }
   sbitmap_free (pending);
   sbitmap_free (visited);
-  fibheap_delete (worklist);
+  free (worklist);
   free (stack);
 }

@@ -806,7 +806,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  expr.o final.o flow.o fold-const.o function.o gcse.o gcse-utils.o	   \
  gcse-classic.o gcse-hoist.o gcse-cprop.o gcse-pre.o gcse-store.o	   \
  gcse-null.o gcse.o  gcse-utils.o					   \
- genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
+ genrtl.o ggc-common.o global.o graph.o gtype-desc.o heap.o		   \
  haifa-sched.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
@@ -1636,7 +1636,7 @@ ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h coretypes.h $(TM_H) $(RTL_H) hard-reg
     errors.h $(GGC_H) df.h function.h
 df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
-   $(BASIC_BLOCK_H) df.h $(FIBHEAP_H)
+   $(BASIC_BLOCK_H) df.h heap.h
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(RTL_H) $(TREE_H) $(BASIC_BLOCK_H) output.h insn-config.h reload.h \
     sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H)
@@ -1750,6 +1750,7 @@ alias.o : alias.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
 regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) insn-config.h \
    $(RECOG_H) output.h $(REGS_H) hard-reg-set.h flags.h function.h \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
+heap.o: heap.c heap.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 haifa-sched.o : haifa-sched.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    sched-int.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H) $(TARGET_H)
