@@ -46,15 +46,19 @@ make_temp (tree type)
 static tree
 gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
 {
-  tree t, x;
+  tree t, new_stmt, orig_stmt;
 
   if (is_gimple_val (exp))
     return exp;
 
   t = make_temp (type);
-  x = build (MODIFY_EXPR, type, t, exp);
-  SET_EXPR_LOCUS (x, EXPR_LOCUS (bsi_stmt (*bsi)));
-  bsi_insert_before (bsi, x, BSI_SAME_STMT);
+  new_stmt = build (MODIFY_EXPR, type, t, exp);
+
+  orig_stmt = bsi_stmt (*bsi);
+  SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));
+  TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
+
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
 
   return t;
 }
