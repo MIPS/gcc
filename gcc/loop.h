@@ -435,6 +435,24 @@ void unswitch_loops PARAMS ((struct loops *));
 
 /* Other exported functions.  */
 
+/* Description of loop for simple loop unrolling.  */
+struct loop_desc
+{
+  int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
+  rtx stride;		/* Value added to VAR in each iteration.  */
+  rtx var;		/* Loop control variable.  */
+  rtx var_alts;		/* List of definitions of its initial value.  */
+  rtx lim;		/* Expression var is compared with.  */
+  rtx lim_alts;		/* List of definitions of its initial value.  */
+  bool const_iter;      /* True if it iterates constant number of times.  */
+  unsigned HOST_WIDE_INT niter;
+			/* Number of iterations if it is constant.  */
+  bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
+  enum rtx_code cond;	/* Exit condition.  */
+  int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
+  edge out_edge;	/* The exit edge.  */
+  edge in_edge;		/* And the other one.  */
+};
 bool can_duplicate_loop_p PARAMS ((struct loop *loop));
 bool simple_loop_p PARAMS ((struct loops *, struct loop *,
 			   struct loop_desc *));
