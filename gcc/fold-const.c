@@ -3632,7 +3632,8 @@ fold_truthop (code, truth_type, lhs, rhs)
 			     ll_arg, rl_arg),
 		      integer_zero_node);
 
-      return build (code, truth_type, lhs, rhs);
+      if (code != TRUTH_AND_EXPR || TREE_CODE (lhs) != NE_EXPR || TREE_CODE (rhs) != NE_EXPR)
+        return build (code, truth_type, lhs, rhs);
     }
 
   /* See if the comparisons can be merged.  Then get all the parameters for
