@@ -1,3 +1,12 @@
+2004-01-03  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (add_uses): Mark USEs or registers which are not
+	associated with a variable.
+	(add_stores): Likewise for SETs.
+	(compute_bb_dataflow): Do not compute precomputed information.
+	(emit_notes_in_bb): Likewise.
+	(vt_initialize): Order USEs before CLOBBERs.
+
 2003-12-31  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_movstr, ix86_expand_clrstr): Use libcal

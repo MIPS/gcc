@@ -1,5 +1,5 @@
 /* Variable tracking routines for the GNU compiler.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -107,7 +107,8 @@ enum micro_operation_type
 {
   MO_USE,	/* Use location (REG or MEM).  */
   MO_SET,	/* Set location.  */
-  MO_CLOBBER,	/* Clobber location.  */
+  MO_CLOBBER,	/* Clobber location or
+		   use register with no variable or untrackable variable.  */
   MO_CALL,	/* Call insn.  */
   MO_ADJUST	/* Adjust stack pointer. */
 };
@@ -1487,10 +1488,19 @@ add_uses (loc, insn)
      rtx loc;
      void *insn;
 {
-  if (GET_CODE (loc) == REG
-      || (GET_CODE (loc) == MEM
-	  && MEM_EXPR (loc)
-	  && track_expr_p (MEM_EXPR (loc))))
+  if (GET_CODE (loc) == REG)
+    {
+      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+      micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
+
+      mo->type = ((REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
+		  ? MO_USE : MO_CLOBBER);
+      mo->u.loc = loc;
+      mo->insn = (rtx) insn;
+    }
+  else if (GET_CODE (loc) == MEM
+	   && MEM_EXPR (loc)
+	   && track_expr_p (MEM_EXPR (loc)))
     {
       basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
@@ -1511,10 +1521,20 @@ add_stores (loc, expr, insn)
      rtx expr;
      void *insn;
 {
-  if (GET_CODE (loc) == REG
-      || (GET_CODE (loc) == MEM
-	  && MEM_EXPR (loc)
-	  && track_expr_p (MEM_EXPR (loc))))
+  if (GET_CODE (loc) == REG)
+    {
+      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+      micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
+
+      mo->type = ((GET_CODE (expr) != CLOBBER && REG_EXPR (loc)
+		   && track_expr_p (REG_EXPR (loc)))
+		  ? MO_SET : MO_CLOBBER);
+      mo->u.loc = loc;
+      mo->insn = (rtx) insn;
+    }
+  else if (GET_CODE (loc) == MEM
+	   && MEM_EXPR (loc)
+	   && track_expr_p (MEM_EXPR (loc)))
     {
       basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
@@ -1560,15 +1580,12 @@ compute_bb_dataflow (bb)
 
 	      if (GET_CODE (loc) == REG)
 		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER
-		      && REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
+		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
 		    var_reg_delete_and_set (out, loc);
 		  else
 		    var_reg_delete (out, loc);
 		}
-	      else if (GET_CODE (loc) == MEM
-		       && MEM_EXPR (loc)
-		       && track_expr_p (MEM_EXPR (loc)))
+	      else if (GET_CODE (loc) == MEM)
 		{
 		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
 		    var_mem_delete_and_set (out, loc);
@@ -2274,15 +2291,12 @@ emit_notes_in_bb (bb)
 
 	      if (GET_CODE (loc) == REG)
 		{
-		  if (VTI (bb)->mos[i].type != MO_CLOBBER
-		      && REG_EXPR (loc) && track_expr_p (REG_EXPR (loc)))
+		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
 		    var_reg_delete_and_set (&set, loc);
 		  else
 		    var_reg_delete (&set, loc);
 		}
-	      else if (GET_CODE (loc) == MEM
-		       && MEM_EXPR (loc)
-		       && track_expr_p (MEM_EXPR (loc)))
+	      else if (GET_CODE (loc) == MEM)
 		{
 		  if (VTI (bb)->mos[i].type != MO_CLOBBER)
 		    var_mem_delete_and_set (&set, loc);
@@ -2508,7 +2522,26 @@ vt_initialize ()
 		    }
 		}
 
+	      n1 = VTI (bb)->n_mos;
 	      note_all_uses (PATTERN (insn), add_uses, insn);
+	      n2 = VTI (bb)->n_mos - 1;
+
+	      /* Order the MO_USEs to be before MO_CLOBBERs.  */
+	      while (n1 < n2)
+		{
+		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_USE)
+		    n1++;
+		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_CLOBBER)
+		    n2--;
+		  if (n1 < n2)
+		    {
+		      micro_operation sw;
+
+		      sw = VTI (bb)->mos[n1];
+		      VTI (bb)->mos[n1] = VTI (bb)->mos[n2];
+		      VTI (bb)->mos[n2] = sw;
+		    }
+		}
 
 	      if (GET_CODE (insn) == CALL_INSN)
 		{
@@ -2523,7 +2556,6 @@ vt_initialize ()
 	      n2 = VTI (bb)->n_mos - 1;
 
 	      /* Order the MO_SETs to be before MO_CLOBBERs.  */
-	      n2 = VTI (bb)->n_mos - 1;
 	      while (n1 < n2)
 		{
 		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_SET)
