@@ -1,3 +1,7 @@
+2003-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcse-pre.c (compute_pre_data): Add debug dump.
+
 2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (insert_function_parameters): Do not track

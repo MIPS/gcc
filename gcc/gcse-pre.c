@@ -122,7 +122,14 @@ compute_pre_data (pre_data)
   basic_block bb;
   unsigned int ui;
 
-  compute_local_properties (pre_data->transp, pre_data->comp, pre_data->antloc, &pre_data->expr_hash_table);
+  compute_local_properties (pre_data->transp, pre_data->comp,
+			    pre_data->antloc, &pre_data->expr_hash_table);
+  if (gcse_file)
+    {
+      dump_sbitmap_vector (gcse_file, "antloc", "", pre_data->antloc, last_basic_block);
+      dump_sbitmap_vector (gcse_file, "comp", "", pre_data->comp, last_basic_block);
+      dump_sbitmap_vector (gcse_file, "transp", "", pre_data->transp, last_basic_block);
+    }
   sbitmap_vector_zero (pre_data->ae.kill, last_basic_block);
 
   /* Collect expressions which might trap.  */
@@ -164,11 +171,14 @@ compute_pre_data (pre_data)
 		      pre_data->comp[bb->index]);
       sbitmap_not (pre_data->ae.kill[bb->index], pre_data->ae.kill[bb->index]);
     }
+  if (gcse_file)
+    dump_sbitmap_vector (gcse_file, "kill", "", pre_data->ae.kill, last_basic_block);
 
-  pre_data->edge_list = pre_edge_lcm (gcse_file, pre_data->expr_hash_table.n_elems,
-				pre_data->transp, pre_data->comp, pre_data->antloc,
-				pre_data->ae.kill,
-				&pre_data->insert_map, &pre_data->delete_map);
+  pre_data->edge_list =
+	  pre_edge_lcm (gcse_file, pre_data->expr_hash_table.n_elems,
+			pre_data->transp, pre_data->comp, pre_data->antloc,
+			pre_data->ae.kill,
+			&pre_data->insert_map, &pre_data->delete_map);
   sbitmap_vector_free (pre_data->antloc);
   pre_data->antloc = NULL;
   sbitmap_vector_free (pre_data->ae.kill);
