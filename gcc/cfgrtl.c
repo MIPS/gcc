@@ -1604,6 +1604,19 @@ print_rtl_with_bb (outf, rtx_first)
     }
 }
 
+void
+update_br_prob_note (bb)
+     basic_block bb;
+{
+  rtx note;
+  if (GET_CODE (bb->end) != JUMP_INSN)
+    return;
+  note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX);
+  if (!note || INTVAL (XEXP (note, 0)) == BRANCH_EDGE (bb)->probability)
+    return;
+  XEXP (note, 0) = GEN_INT (BRANCH_EDGE (bb)->probability);
+}
+
 /* Verify the CFG consistency.  This function check some CFG invariants and
    aborts when something is wrong.  Hope that this function will help to
    convert many optimization passes to preserve CFG consistent.
@@ -1693,7 +1706,25 @@ verify_flow_info ()
       basic_block bb = BASIC_BLOCK (i);
       int has_fallthru = 0;
       edge e;
+      rtx note;
 
+      if (INSN_P (bb->end)
+	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX)))
+	{
+	  if (!bb->succ || !bb->succ->succ_next
+	      || bb->succ->succ_next->succ_next)
+	    {
+	      error ("verify_flow_info: REG_BR_PROB on non-condjump",
+		     bb->index);
+	      err = 1;
+	    }
+	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
+	    {
+	      error ("verify_flow_info: REG_BR_PROB does not match cfg %i %i",
+		     INTVAL (XEXP (note, 0)), BRANCH_EDGE (bb)->probability);
+	      err = 1;
+	    }
+	}
       if (bb->count < 0)
         {
           error ("verify_flow_info: Wrong count of block %i %i",

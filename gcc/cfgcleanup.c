@@ -370,13 +370,13 @@ try_forward_edges (mode, b)
 {
   bool changed = false;
   edge e, next, *threaded_edges = NULL;
-  int nthreaded_edges = 0;
 
   for (e = b->succ; e; e = next)
     {
       basic_block target, first;
       int counter;
       bool threaded = false;
+      int nthreaded_edges = 0;
 
       next = e->succ_next;
 
@@ -412,7 +412,7 @@ try_forward_edges (mode, b)
 	      edge t = thread_jump (mode, e, target);
 	      if (t)
 		{
-		  if (!nthreaded_edges)
+		  if (!threaded_edges)
 		    threaded_edges = xmalloc (sizeof (*threaded_edges)
 					      * n_basic_blocks);
 		  else
@@ -523,21 +523,49 @@ try_forward_edges (mode, b)
 	      first->count -= edge_count;
 	      if (first->count < 0)
 		first->count = 0;
-	      first->succ->count -= edge_count;
-	      if (first->succ->count < 0)
-		first->succ->count = 0;
 	      first->frequency -= edge_frequency;
 	      if (first->frequency < 0)
 		first->frequency = 0;
 	      if (first->succ->succ_next)
 		{
+		  edge e;
+		  int prob;
 		  if (n >= nthreaded_edges)
 		    abort ();
 		  t = threaded_edges [n++];
+		  if (t->src != first)
+		    abort ();
+		  if (first->frequency)
+		    prob = edge_frequency * REG_BR_PROB_BASE / first->frequency;
+		  else
+		    prob = 0;
+		  t->probability -= prob;
+		  prob = REG_BR_PROB_BASE - prob;
+		  if (prob == 0)
+		    {
+		      first->succ->probability = REG_BR_PROB_BASE;
+		      first->succ->succ_next->probability = 0;
+		    }
+		  else
+		    for (e = first->succ; e; e = e->succ_next)
+		      e->probability = ((e->probability * REG_BR_PROB_BASE)
+					/ (double) prob);
 		}
 	      else
-		t = first->succ;
+		{
+		  /* It is possible that as the result of
+		     threading we've removed edge as it is
+		     threaded to the fallthru edge.  Avoid
+		     getting out of sync.  */
+		  if (n < nthreaded_edges
+		      && first == threaded_edges [n]->src)
+		    n++;
+		  t = first->succ;
+		 }
 
+	      t->count -= edge_count;
+	      if (t->count < 0)
+		t->count = 0;
 	      first = t->dest;
 	    }
 	  while (first != target);
@@ -1244,7 +1272,6 @@ try_crossjump_to_edge (mode, e1, e2)
   edge s;
   rtx last;
   rtx label;
-  rtx note;
 
   /* Search backward through forwarder blocks.  We don't need to worry
      about multiple entry or chained forwarders, as they will be optimized
@@ -1360,9 +1387,7 @@ try_crossjump_to_edge (mode, e1, e2)
 	     / (redirect_to->frequency + src1->frequency));
     }
 
-  note = find_reg_note (redirect_to->end, REG_BR_PROB, 0);
-  if (note)
-    XEXP (note, 0) = GEN_INT (BRANCH_EDGE (redirect_to)->probability);
+  update_br_prob_note (redirect_to);
 
   /* Edit SRC1 to go to REDIRECT_TO at NEWPOS1.  */
 

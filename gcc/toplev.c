@@ -2741,6 +2741,7 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
+      open_dump_file (DFI_web, decl);
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       if (rtl_dump_file)
         dump_flow_info (rtl_dump_file);
@@ -2749,15 +2750,13 @@ rest_of_compilation (decl)
       if (flag_web)
 	{
 	  timevar_push (TV_WEB);
-	  open_dump_file (DFI_web, decl);
-
 	  web_main ();
 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-	  close_dump_file (DFI_web, print_rtl_with_bb, insns);
 	  timevar_pop (TV_WEB);
 	}
+      close_dump_file (DFI_web, print_rtl_with_bb, insns);
 
       /* ??? Run if-conversion before delete_null_pointer_checks,
          since the later does not preserve the CFG.  This should
@@ -2977,7 +2976,8 @@ rest_of_compilation (decl)
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
      eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
@@ -3031,8 +3031,9 @@ rest_of_compilation (decl)
 	{
 	  web_main ();
 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	}
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
       close_dump_file (DFI_tracer, print_rtl_with_bb, insns);
       timevar_pop (TV_TRACER);
 #ifdef ENABLE_CHECKING
@@ -3102,9 +3103,12 @@ rest_of_compilation (decl)
 
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
   check_function_return_warnings ();
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
+
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
+	       | CLEANUP_UPDATE_LIFE);
+
   timevar_pop (TV_FLOW);
 
   no_new_pseudos = 1;

@@ -2092,6 +2092,7 @@ process_double_test_block (test_bb, test2_bb, then_bb, else_bb,
       if (branch_edge->count < 0)
 	branch_edge->count = 0;
     }
+  update_br_prob_note (test_bb);
 
   /* The test basic block may define some pseudos used by test2.  We do not
      want to make them appear alive anymore.  */
