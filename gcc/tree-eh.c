@@ -641,6 +641,23 @@ frob_into_branch_around (tree *tp, tree lab, tree over)
     }
 }
 
+/* A subroutine of lower_try_finally.  Duplicate the tree rooted at T.
+   Make sure to record all new labels found.  */
+
+static tree
+lower_try_finally_dup_block (tree t, struct leh_state *outer_state)
+{
+  tree region = NULL;
+
+  t = lhd_unsave_expr_now (t);
+
+  if (outer_state->tf)
+    region = outer_state->tf->try_finally_expr;
+  collect_finally_tree (t, region);
+
+  return t;
+}
+
 /* A subroutine of lower_try_finally.  If lang_protect_cleanup_actions
    returns non-null, then the language requires that the exception path out
    of a try_finally be treated specially.  To wit: the code within the
@@ -703,8 +720,10 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
   if (!finally_may_fallthru && !protect_cleanup_actions)
     return;
 
-  /* Duplicate the FINALLY block.  */
-  finally = lhd_unsave_expr_now (finally);
+  /* Duplicate the FINALLY block.  Only need to do this for try-finally,
+     and not for cleanups.  */
+  if (this_state)
+    finally = lower_try_finally_dup_block (finally, outer_state);
 
   /* Resume execution after the exception.  Adding this now lets
      lower_eh_filter not add unnecessary gotos, as it is clear that
@@ -918,7 +937,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 
   if (tf->may_fallthru)
     {
-      x = lhd_unsave_expr_now (finally);
+      x = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, &x);
       tsi_link_chain_after (&i, x, TSI_CHAIN_END);
 
@@ -933,7 +952,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
       x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
       tsi_link_after (&i, x, TSI_NEW_STMT);
 
-      x = lhd_unsave_expr_now (finally);
+      x = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, &x);
       tsi_link_chain_after (&i, x, TSI_CHAIN_END);
 
@@ -979,7 +998,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	      x = build1 (LABEL_EXPR, void_type_node, lab);
 	      tsi_link_after (&i, x, TSI_NEW_STMT);
 
-	      x = lhd_unsave_expr_now (finally);
+	      x = lower_try_finally_dup_block (finally, state);
 	      lower_eh_constructs_1 (state, &x);
 	      tsi_link_chain_after (&i, x, TSI_CHAIN_END);
 

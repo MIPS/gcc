@@ -1,5 +1,10 @@
 2003-09-18  Richard Henderson  <rth@redhat.com>
 
+	* tree-eh.c (lower_try_finally_dup_block): New.
+	(honor_protect_cleanup_actions, lower_try_finally_copy): Use it.
+
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-cfg (remove_useless_stmts_and_vars_cond,
 	remove_useless_stmts_and_vars_tf,
 	remove_useless_stmts_and_vars_tc,
