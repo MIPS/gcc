@@ -1,3 +1,8 @@
+2003-06-09  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (handle_switch_split): Update PHI nodes when splitting.
+	(tree_split_edge): Update PHI nodes in destination block.
+  
 2003-06-09  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* basic-block.h, tree-dfa.c, tree-ssa.c, tree-cfg.c,

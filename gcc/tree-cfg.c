@@ -3600,8 +3600,10 @@ handle_switch_split (basic_block src, basic_block dest)
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
   tree stmt, label, parent;
+  tree phi;
   basic_block new_bb;
-  edge e;
+  edge e, new_edge;
+  int num_elems, i;
   bb_ann_t ann;
 
 
@@ -3635,16 +3637,67 @@ handle_switch_split (basic_block src, basic_block dest)
   /* 3. Redirect all the edges except the one from src to point to this
 	block.  */
     
-  for (e = dest->pred; e ; e = e->pred_next)
+  for (e = dest->pred; e ; )
     {
-      if (e->src == src)
+      new_edge = e;
+      e = e->pred_next;
+      if (new_edge->src == src)
 	continue;
-      redirect_edge_succ (e, new_bb);
+      redirect_edge_succ (new_edge, new_bb);
     }
 
-  /* 4. Now make dest the target of the new block.  */
+  /* 4. Now make dest the target of the new block.  Examine the PHI's and
+	decide what to do.  */
 
-  make_edge (new_bb, dest, 0);
+  new_edge = make_edge (new_bb, dest, 0);
+  phi = phi_nodes (dest);
+  if (phi)
+    {
+      /* All PHI nodes should have the same number of elements.  */
+      num_elems = PHI_NUM_ARGS (phi);
+
+      /* The easy case is if there are only 2 arguments. One edge has been 
+	 updated already by the original edge split, so now update the 
+	 other argument to come from this new edge.  */
+      if (num_elems == 2)
+	{
+	  for (; phi; phi = TREE_CHAIN (phi))
+	    for (i = 0; i < num_elems; i++)
+	      if (PHI_ARG_EDGE (phi, i)->src != src)
+		PHI_ARG_EDGE (phi, i) = new_edge;
+	}
+      else
+	{
+	  /* There is more than one edge coming into the new basic block,
+	     so a new PHI node must be created for this block (BB_c), and 
+	     then it must feed into another PHI node at the orginal 
+	     block (BB_a).  This will require the creation of new PHI 
+	     result variables for one of the 2 PHI nodes.  */
+
+	  for (; phi; phi = TREE_CHAIN (phi))
+	    {
+	      tree new_phi;
+	      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (phi)),
+					 new_bb);
+	      /* Add elements to the new PHI node.  */
+	      for (i = 0; i < num_elems; i++)
+	        {
+		  e = PHI_ARG_EDGE (phi, i);
+		  if (e->src != src)
+		    add_phi_arg (new_phi, PHI_ARG_DEF (phi, i), e);
+		}
+
+	      /* Remove the redirected edges from the old PHI node.  */
+	      for (e = new_bb->pred; e ; e = e->pred_next)
+		remove_phi_arg (phi, e->src);
+	      
+	      /* The original PHI node in BB_a should now contain only an
+	         argument from src.  Add an argument from the new PHI node to
+		 this PHI node.  */
+	      add_phi_arg (phi, PHI_RESULT (new_phi), new_edge);
+	    }
+	}
+    }
 
   /* 5. Find the last case label.  That will be where the code seperation
      between bb_c and bb_a will be formed.  Upon exit of the loop, bsi will
@@ -4374,7 +4427,10 @@ basic_block
 tree_split_edge (edge edge_in)
 {
   basic_block new_bb, dest;
-  
+  edge new_edge;
+  tree phi;
+  int i, num_elem;
+
   /* Abnormal edges cannot be split.  */
   if (edge_in->flags & EDGE_ABNORMAL)
     abort ();
@@ -4383,7 +4439,21 @@ tree_split_edge (edge edge_in)
   new_bb = create_bb ();
   alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
   redirect_edge_succ  (edge_in, new_bb);
-  make_edge (new_bb, dest, 0);
+  new_edge = make_edge (new_bb, dest, 0);
+
+  /* Find all the PHI arguments on the original edge, and change them to 
+     the new edge.  */
+  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+    {
+      num_elem = PHI_NUM_ARGS (phi);
+      for (i = 0; i < num_elem; i++)
+	if (PHI_ARG_EDGE (phi, i) == edge_in)
+	  {
+	    PHI_ARG_EDGE (phi, i) = new_edge;
+	    break;
+	  }
+    }
+
   return new_bb;
 }
 
