@@ -1,3 +1,8 @@
+2005-02-28  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dfp.exp: Rename from this ..
+	* gcc.misc-tests/dectest.exp: .. to this.
+
 2005-02-22  Ben Elliston  <bje@au.ibm.com>
 
 	* gcc.misc-tests/dfp.exp: New test driver.

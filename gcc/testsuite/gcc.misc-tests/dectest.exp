@@ -15,7 +15,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # DejaGnu test driver around Mike Cowlishaw's testsuite for decimal
-# decimal arithmetic.  See:
+# decimal arithmetic ("dectest").  See:
 #    <http://www2.hursley.ibm.com/decimal/dectest.html>.
 #
 # Contributed by Ben Elliston <bje@au.ibm.com>.
