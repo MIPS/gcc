@@ -1,5 +1,17 @@
 2003-02-06  Josef Zlomek  <zlomekj@suse.cz>
 
+	* Makefile.in (var-tracking.o): Add dependency to insn-config.h
+	and reload.h, remove dependency on hard-reg-set.h.
+	* var-tracking.c (get_decl_and_offset): New function.
+	(insert_function_parameters): New function.
+	(hybrid_search): Make union with OUT set of ENTRY_BLOCK too.
+	(var_tracking_initialize): Initialize the IN and OUT sets of
+	ENTRY_BLOCK too, insert function parameters to IN and OUT set of
+	ENTRY_BLOCK.
+	(var_tracking_finalize): Destroy the IN and OUT sets of ENTRY_BLOCK.
+
+2003-02-06  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (var_tracking_emit_notes): Add variables from
 	mem_in set for basic block bb in front of bb.
 

@@ -97,6 +97,8 @@
 #include "tree.h"
 #include "basic-block.h"
 #include "output.h"
+#include "insn-config.h"
+#include "reload.h"
 #include "sbitmap.h"
 #include "alloc-pool.h"
 #include "fibheap.h"
@@ -296,6 +298,9 @@ static int mark_variables_for_deletion	PARAMS ((void **, void *));
 static int add_and_unmark_variables	PARAMS ((void **, void *));
 static void var_tracking_emit_notes	PARAMS ((void));
 
+static bool get_decl_and_offset		PARAMS ((rtx, tree *,
+						 HOST_WIDE_INT *));
+static void insert_function_parameters	PARAMS ((void));
 static void var_tracking_initialize	PARAMS ((void));
 static void var_tracking_finalize	PARAMS ((void));
 
@@ -957,9 +962,6 @@ hybrid_search (bb, visited, pending)
 	  attrs *bb_in = VTI (bb)->in;
 	  attrs *pred_out = VTI (e->src)->out;
 
-	  if (e->src == ENTRY_BLOCK_PTR)
-	    continue;
-
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    attrs_list_union (&bb_in[i], pred_out[i]);
 	  attrs_htab_union (VTI (bb)->mem_in, VTI (e->src)->mem_out);
@@ -1536,6 +1538,87 @@ var_tracking_emit_notes ()
   htab_delete (last_htab);
 }
 
+/* If there is a declaration and offset associated with register/memory RTL
+   assign declaration to *DECLP and offset to *OFFSETP, and return true.  */
+
+static bool
+get_decl_and_offset (rtl, declp, offsetp)
+     rtx rtl;
+     tree *declp;
+     HOST_WIDE_INT *offsetp;
+{
+  if (GET_CODE (rtl) == REG)
+    {
+      if (REG_ATTRS (rtl))
+	{
+	  *declp = REG_EXPR (rtl);
+	  *offsetp = REG_OFFSET (rtl);
+	  return true;
+	}
+    }
+  else if (GET_CODE (rtl) == MEM)
+    {
+      if (MEM_ATTRS (rtl))
+	{
+	  *declp = MEM_EXPR (rtl);
+	  *offsetp = MEM_OFFSET (rtl) ? INTVAL (MEM_OFFSET (rtl)) : 0;
+	  return true;
+	}
+    }
+  else
+    abort ();
+  return false;
+}
+
+/* Insert function parameters to IN and OUT sets of ENTRY_BLOCK.  */
+
+static void
+insert_function_parameters ()
+{
+  tree parm;
+
+  for (parm = DECL_ARGUMENTS (current_function_decl);
+       parm; parm = TREE_CHAIN (parm))
+    {
+      rtx decl_rtl = DECL_RTL (parm);
+      rtx incoming = DECL_INCOMING_RTL (parm);
+      tree decl;
+      HOST_WIDE_INT offset;
+
+      if (!decl_rtl || !incoming)
+	abort ();
+
+      if (!get_decl_and_offset (incoming, &decl, &offset))
+	if (!get_decl_and_offset (decl_rtl, &decl, &offset))
+	  abort ();
+
+      if (parm != decl)
+	abort ();
+
+      incoming = eliminate_regs (incoming, 0, NULL_RTX);
+      if (GET_CODE (incoming) == REG)
+	{
+	  attrs *in = VTI (ENTRY_BLOCK_PTR)->in;
+	  attrs *out = VTI (ENTRY_BLOCK_PTR)->out;
+
+	  if (REGNO (incoming) >= FIRST_PSEUDO_REGISTER)
+	    abort ();
+	  attrs_list_insert (&in[REGNO (incoming)], parm, offset, incoming);
+	  attrs_list_insert (&out[REGNO (incoming)], parm, offset, incoming);
+	}
+      else if (GET_CODE (incoming) == MEM)
+	{
+	  htab_t mem_in = VTI (ENTRY_BLOCK_PTR)->mem_in;
+	  htab_t mem_out = VTI (ENTRY_BLOCK_PTR)->mem_out;
+
+	  attrs_htab_insert (mem_in, parm, offset, incoming);
+	  attrs_htab_insert (mem_out, parm, offset, incoming);
+	}
+      else
+	abort ();
+    }
+}
+
 /* Allocate and initialize the data structures for variable tracking
    and parse the RTL to get the REG and MEM references.  */
 
@@ -1616,8 +1699,11 @@ var_tracking_initialize ()
 		}
 	    }
 	}
+    }
 
-      /* Init the IN and OUT arrays.  */
+  /* Init the IN and OUT sets.  */
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    {
       init_attrs_list_set (VTI (bb)->in);
       init_attrs_list_set (VTI (bb)->out);
       VTI (bb)->mem_in = htab_create (7, mem_htab_hash, mem_htab_eq,
@@ -1632,7 +1718,7 @@ var_tracking_initialize ()
 				sizeof (struct variable_def), 64);
   variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq,
 			       variable_htab_free);
-
+  insert_function_parameters ();
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -1646,7 +1732,10 @@ var_tracking_finalize ()
   FOR_EACH_BB (bb)
     {
       free (VTI (bb)->locs);
+    }
 
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
 	  attrs_list_clear (&VTI (bb)->in[i]);
