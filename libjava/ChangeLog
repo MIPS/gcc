@@ -5,7 +5,6 @@
 	(JarURLLoader.getClass): New method.
 	(JarURLLoader.toString):  New method.
 	(FileResource.toString):  New method.
-	* java/lang/natSystem.cc (getenv0): New method.
 	* java/lang/natClassLoader.cc (_Jv_RegisterClassHookDefault):
 	Remove "Duplicate class registration: " bug.
 	(_registerClass): New method.
@@ -27,6 +26,9 @@
 	-findirect-dispatch.
 
 	* java/security/BasicPermission.java: Remove bogus checks.
+
+	* java/lang/System.java (getenv0): New method.
+	* java/lang/natSystem.cc (getenv0): New method.
 
 2004-05-24  Andrew Haley  <aph@redhat.com>
 

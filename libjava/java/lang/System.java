@@ -601,4 +601,11 @@ public final class System
    * @see #setErr(PrintStream)
    */
   private static native void setErr0(PrintStream err);
+
+  /**
+   * Gets the value of an environment variable.
+   *
+   * @see #getenv(String)
+   */
+  static native String getenv0(String name);
 } // class System

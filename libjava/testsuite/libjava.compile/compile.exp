@@ -11,8 +11,8 @@ foreach x $srcfiles {
     }
     lappend args no-exec
 
-    test_libjava "" "$x" "" "" "" $args
-    test_libjava "" "$x" "-O3" "" "" $args
+    test_libjava "" "$x" "-findirect-dispatch " "" "" $args
+    test_libjava "" "$x" "-findirect-dispatch -O3" "" "" $args
 }
 
 # Local Variables:

@@ -342,6 +342,10 @@ _Jv_RegisterClassHookDefault (jclass klass)
 
   jclass check_class = loaded_classes[hash];
 
+  // The BC ABI makes this check unnecessary: we always resolve all
+  // data references via the appropriate class loader, so the kludge
+  // that required this check has gone.
+#if 0
   // If the class is already registered, don't re-register it.
   while (check_class != NULL)
     {
@@ -367,6 +371,7 @@ _Jv_RegisterClassHookDefault (jclass klass)
 
       check_class = check_class->next;
     }
+#endif
 
   klass->next = loaded_classes[hash];
   loaded_classes[hash] = klass;
@@ -582,6 +587,12 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
 ::java::lang::ClassLoader::getClassLoader0 (::java::lang::Class *c)
 {
   return c->loader;
+}
+
+void
+::java::lang::ClassLoader::_registerClass (::java::lang::Class *c)
+{
+  _Jv_RegisterClass (c);
 }
 
 static jclass stack_head;
