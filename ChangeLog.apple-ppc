@@ -1,3 +1,7 @@
+2004-11-12  Matt Austern  <austern@apple.com>
+
+	* build_gcc: don't install more_hdrs/assert.h on Tiger systems.
+	
 2004-11-09  Geoffrey Keating  <geoffk@apple.com>
 
 	* build_gcc: lipo the libexec/.../install-tools files together.
