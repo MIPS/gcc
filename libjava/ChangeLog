@@ -1,5 +1,36 @@
 2004-10-21  Andreas Tobler  <a.tobler@schweiz.ch>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_create): Use the
+	GTK_TEXT_VIEW macro.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(connect_awt_hook_cb): Mark unused variable unused.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.c (selection_get):
+	Do the cast right.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkChoicePeer_create): According to
+	the gtk API gtk_combo_box_new_text actually returns a GtkWidget.
+	Remove unused var menu.
+	(selection_changed): Remove unused value.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkButtonPeer_setNativeBounds): Fix pointer
+	warning with using an intermediate variable.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c
+	(area_updated): Fix unused var warning for BE archs.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics_connectSignals): Remove unused
+	var.
+	(realize_cb): Mark unused variable unused.
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c
+	(seek_glyphstring_idx): Fix a C90 warning.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c
 	(Java_gnu_java_awt_peer_gtk_GThreadNativeMethodRunner_nativeRun):
 	Mark unused arguments unused.

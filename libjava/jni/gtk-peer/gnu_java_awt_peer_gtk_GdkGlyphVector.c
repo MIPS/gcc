@@ -114,12 +114,13 @@ static void seek_glyphstring_idx (GList *list, int idx,
 {
   GList *i = NULL;
   PangoGlyphItem *gi = NULL;
+  int begin = 0;
 
   g_assert (list != NULL);
   g_assert (gs != NULL);
   g_assert (nidx != NULL);
 
-  int begin = 0;
+ 
   for (i = g_list_first (list); i != NULL; i = g_list_next (i))
     {
       g_assert (i->data != NULL);

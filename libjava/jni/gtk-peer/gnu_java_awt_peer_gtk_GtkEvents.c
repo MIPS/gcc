@@ -1128,7 +1128,8 @@ connect_awt_hook (JNIEnv *env, jobject peer_obj, int nwindows, ...)
  * can be sure that widget->window is non-NULL, and so can have data
  * connected to it.
  */
-void connect_awt_hook_cb (GtkWidget *widget, jobject peer)
+void connect_awt_hook_cb (GtkWidget *widget __attribute__((unused)),
+			  jobject peer)
 {
   void *ptr;
 

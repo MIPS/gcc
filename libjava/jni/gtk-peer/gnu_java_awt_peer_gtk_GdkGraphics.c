@@ -130,7 +130,6 @@ Java_gnu_java_awt_peer_gtk_GdkGraphics_connectSignals
   (JNIEnv *env, jobject obj, jobject peer)
 {
   void *ptr;
-  jobject *gref;
 
   ptr = NSA_GET_PTR (env, peer);
 
@@ -642,7 +641,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GdkGraphics_setClipRectangle
   gdk_threads_leave ();
 }
 
-static void realize_cb (GtkWidget *widget, jobject peer)
+static void realize_cb (GtkWidget *widget __attribute__ ((unused)), 
+			jobject peer)
 {
   gdk_threads_leave ();
 
