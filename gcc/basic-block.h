@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
+
 /* A pointer to a regset_head.  */
 typedef bitmap regset;
 
@@ -121,27 +122,32 @@ do {									\
 typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
-typedef struct edge_def {
+struct edge_def GTY((chain_next ("%h.pred_next")))
+{
   /* Links through the predecessor and successor lists.  */
-  struct edge_def *pred_next, *succ_next;
+  struct edge_def *pred_next;
+  struct edge_def *succ_next;
 
   /* The two blocks at the ends of the edge.  */
-  struct basic_block_def *src, *dest;
+  struct basic_block_def *src;
+  struct basic_block_def *dest;
 
   /* Instructions queued on the edge.  */
-  union {
-    rtx r;
-    tree t;
-  } insns;
+  union edge_def_insns {
+    rtx GTY ((tag ("0"))) r;
+    tree GTY ((tag ("1"))) t;
+  } GTY ((desc ("cfg_hooks == &tree_cfg_hooks ? 1 : 0"))) insns;
 
   /* Auxiliary info specific to a pass.  */
-  void *aux;
+  PTR GTY ((skip (""))) aux;
 
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-} *edge;
+};
+
+typedef struct edge_def *edge;
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -203,47 +209,51 @@ struct bb_ann_d;
    basic blocks.  */
 
 /* Basic block information indexed by block number.  */
-typedef struct basic_block_def {
+struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")))
+{
   /* The first and last insns of the block.  */
-  rtx head, end;
+  rtx head;
+  rtx end;
 
   /* Pointers to the first and last trees of the block.  */
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  edge pred, succ;
+  edge pred;
+  edge succ;
 
   /* Liveness info.  */
 
   /* The registers that are modified within this in block.  */
-  regset local_set;
+  bitmap GTY ((skip (""))) local_set;
   /* The registers that are conditionally modified within this block.
      In other words, registers that are set only as part of a
      COND_EXEC.  */
-  regset cond_local_set;
+  bitmap GTY ((skip (""))) cond_local_set;
   /* The registers that are live on entry to this block.
 
      Note that in SSA form, global_live_at_start does not reflect the
      use of regs in phi functions, since the liveness of these regs
      may depend on which edge was taken into the block.  */
-  regset global_live_at_start;
+  bitmap GTY ((skip (""))) global_live_at_start;
   /* The registers that are live on exit from this block.  */
-  regset global_live_at_end;
+  bitmap GTY ((skip (""))) global_live_at_end;
 
   /* Auxiliary info specific to a pass.  */
-  void *aux;
+  PTR GTY ((skip (""))) aux;
 
   /* The index of this block.  */
   int index;
 
   /* Previous and next blocks in the chain.  */
-  struct basic_block_def *prev_bb, *next_bb;
+  struct basic_block_def *prev_bb;
+  struct basic_block_def *next_bb;
 
   /* The loop depth of this block.  */
   int loop_depth;
 
   /* Innermost loop containing the block.  */
-  struct loop *loop_father;
+  struct loop * GTY ((skip (""))) loop_father;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -255,11 +265,13 @@ typedef struct basic_block_def {
   int flags;
 
   /* Additional data maintained by cfg_layout routines.  */
-  struct reorder_block_def *rbi;
+  struct reorder_block_def * GTY ((skip (""))) rbi;
 
   /* Annotations used at the tree level.  */
   struct bb_ann_d *tree_annotations;
-} *basic_block;
+};
+
+typedef struct basic_block_def *basic_block;
 
 #define BB_FREQ_MAX 10000
 
@@ -288,11 +300,6 @@ extern int n_edges;
 extern varray_type basic_block_info;
 
 #define BASIC_BLOCK(N)  (VARRAY_BB (basic_block_info, (N)))
-
-/* The root of statement_lists of basic blocks for the garbage collector.
-   This is a hack; we really should GC the entire CFG structure.  */
-extern GTY(()) varray_type tree_bb_root;
-extern GTY(()) varray_type tree_phi_root;
 
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
@@ -346,9 +353,8 @@ extern struct obstack flow_obstack;
 #define INVALID_BLOCK (-3)
 
 /* Similarly, block pointers for the edge list.  */
-extern struct basic_block_def entry_exit_blocks[2];
-#define ENTRY_BLOCK_PTR	(&entry_exit_blocks[0])
-#define EXIT_BLOCK_PTR	(&entry_exit_blocks[1])
+extern GTY(()) basic_block ENTRY_BLOCK_PTR;
+extern GTY(()) basic_block EXIT_BLOCK_PTR;
 
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)

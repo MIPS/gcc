@@ -19,6 +19,8 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_REGS_H
+#define GCC_REGS_H
 
 #include "varray.h"
 #include "hard-reg-set.h"
@@ -221,3 +223,5 @@ extern int caller_save_needed;
 
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info (size_t, int, int);
+
+#endif /* GCC_REGS_H */

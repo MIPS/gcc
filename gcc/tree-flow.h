@@ -303,8 +303,11 @@ static inline tree default_def (tree);
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.tree_annotations
 ---------------------------------------------------------------------------*/
-struct bb_ann_d
+struct bb_ann_d GTY(())
 {
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
+
   /* Chain of EPHI nodes created in this block.  */
   tree ephi_nodes;
   

@@ -1682,7 +1682,7 @@ varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h function.h $(EXPR_H) $(OPTABS_H) libfuncs.h $(REGS_H) hard-reg-set.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h $(HASHTAB_H) $(GGC_H) \
-   $(TM_P_H) langhooks.h gt-function.h $(TARGET_H)
+   $(TM_P_H) langhooks.h gt-function.h $(TARGET_H) basic-block.h
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
    $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
@@ -1942,7 +1942,7 @@ recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) function.
    $(INSN_ATTR_H) real.h toplev.h output.h reload.h $(TM_P_H)
 reg-stack.o : reg-stack.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(RECOG_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h toplev.h reload.h \
-   varray.h function.h $(TM_P_H) $(GGC_H) gt-reg-stack.h
+   varray.h function.h $(TM_P_H) $(GGC_H) gt-reg-stack.h basic-block.h
 sreal.o: sreal.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) sreal.h
 predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
@@ -2193,9 +2193,9 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(host_xm_file_list) $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) \
   $(srcdir)/bitmap.h $(srcdir)/coverage.c $(srcdir)/function.h  $(srcdir)/rtl.h \
   $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h \
-  $(srcdir)/real.h $(srcdir)/varray.h $(srcdir)/insn-addr.h \
+  $(srcdir)/real.h $(srcdir)/varray.h $(srcdir)/insn-addr.h $(srcdir)/hwint.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
-  $(srcdir)/c-common.h $(srcdir)/c-tree.h \
+  $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/basic-block.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/dependence.c  \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \

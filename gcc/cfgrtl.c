@@ -623,11 +623,12 @@ rtl_merge_blocks (basic_block a, basic_block b)
   else if (GET_CODE (NEXT_INSN (a_end)) == BARRIER)
     del_first = NEXT_INSN (a_end);
 
-  update_cfg_after_block_merging (a, b);
-
   /* Delete everything marked above as well as crap that might be
      hanging out between the two blocks.  */
+  b->head = NULL;
   delete_insn_chain (del_first, del_last);
+
+  update_cfg_after_block_merging (a, b);
 
   /* Reassociate the insns of B with A.  */
   if (!b_empty)

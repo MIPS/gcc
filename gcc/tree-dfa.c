@@ -45,9 +45,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "convert.h"
 
-/* The root of statement_lists of basic blocks for the garbage collector.
-   This is a hack; we really should GC the entire CFG structure.  */
-varray_type tree_phi_root;
 /* Build and maintain data flow information for trees.  */
 
 /* Counters used to display DFA and SSA statistics.  */

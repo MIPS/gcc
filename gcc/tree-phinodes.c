@@ -298,7 +298,7 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   TREE_CHAIN (phi) = phi_nodes (bb);
-  VARRAY_TREE (tree_phi_root, bb->index) = phi;
+  bb_ann (bb)->phi_nodes = phi;
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -335,7 +335,7 @@ add_phi_arg (tree *phi, tree def, edge e)
 
 	  /* Update the list head if replacing the first listed phi.  */
 	  if (phi_nodes (e->dest) == old_phi)
-	    VARRAY_TREE (tree_phi_root, e->dest->index) = *phi;
+	    bb_ann (e->dest)->phi_nodes = *phi;
 	  else
 	    {
 	      /* Traverse the list looking for the phi node to chain to.  */
@@ -438,7 +438,7 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
   else if (phi == phi_nodes (bb))
     {
       /* Update the list head if removing the first element.  */
-      VARRAY_TREE (tree_phi_root, bb->index) = TREE_CHAIN (phi);
+      bb_ann (bb)->phi_nodes = TREE_CHAIN (phi);
 
       /* If we are deleting the PHI node, then we should release the
 	 SSA_NAME node so that it can be reused.  */
@@ -504,7 +504,7 @@ remove_all_phi_nodes_for (bitmap vars)
       /* Make sure the last node in the new list has no successors.  */
       if (last_phi)
 	TREE_CHAIN (last_phi) = NULL_TREE;
-      VARRAY_TREE (tree_phi_root, bb->index) = new_phi_list;
+      bb_ann (bb)->phi_nodes = new_phi_list;
 
 #if defined ENABLE_CHECKING
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))

@@ -2647,10 +2647,7 @@ code_motion (struct expr_info *ei)
 	{
 	  bb = bb_for_stmt (use);
 	  /* Add the new PHI node to the list of PHI nodes for block BB.  */
-	  if (phi_nodes (bb) == NULL)
-	    VARRAY_TREE (tree_phi_root, bb->index) = EREF_TEMP (use);
-	  else
-	    chainon (phi_nodes (bb), EREF_TEMP (use));
+	  bb_ann (bb)->phi_nodes = chainon (phi_nodes (bb), EREF_TEMP (use));
 	  VARRAY_PUSH_TREE (added_phis, EREF_TEMP (use));
 	}
       else if (EPHI_IDENTITY (use))

@@ -275,7 +275,7 @@ phi_nodes (basic_block bb)
 {
   if (bb->index < 0)
     return NULL;
-  return VARRAY_TREE (tree_phi_root, bb->index);
+  return bb_ann (bb)->phi_nodes;
 }
 
 /* Set list of phi nodes of a basic block BB to L.  */
@@ -285,7 +285,7 @@ set_phi_nodes (basic_block bb, tree l)
 {
   tree phi;
 
-  VARRAY_TREE (tree_phi_root, bb->index) = l;
+  bb_ann (bb)->phi_nodes = l;
   for (phi = l; phi; phi = TREE_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
 }
@@ -326,7 +326,7 @@ add_dom_child (basic_block bb, basic_block child_bb)
 {
   bb_ann_t ann = bb_ann (bb);
   if (ann->dom_children == NULL)
-    ann->dom_children = BITMAP_XMALLOC ();
+    ann->dom_children = BITMAP_GGC_ALLOC ();
   bitmap_set_bit (ann->dom_children, child_bb->index);
 }
 
@@ -346,8 +346,6 @@ remove_dom_child (basic_block bb, basic_block child_bb)
 static inline void
 clear_dom_children (basic_block bb)
 {
-  if (bb_ann (bb)->dom_children)
-    BITMAP_XFREE (bb_ann (bb)->dom_children);
   bb_ann (bb)->dom_children = NULL;
 }
 

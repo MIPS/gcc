@@ -62,19 +62,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "obstack.h"
 #include "alloc-pool.h"
+#include "ggc.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
 struct obstack flow_obstack;
 static char *flow_firstobj;
-
-/* Basic block object pool.  */
-
-static alloc_pool bb_pool;
-
-/* Edge object pool.  */
-
-static alloc_pool edge_pool;
 
 /* Number of basic blocks in the current function.  */
 
@@ -93,52 +86,7 @@ int n_edges;
 varray_type basic_block_info;
 
 /* The special entry and exit blocks.  */
-
-struct basic_block_def entry_exit_blocks[2]
-= {{NULL,			/* head */
-    NULL,			/* end */
-    NULL,			/* stmt_list*/
-    NULL,			/* pred */
-    NULL,			/* succ */
-    NULL,			/* local_set */
-    NULL,			/* cond_local_set */
-    NULL,			/* global_live_at_start */
-    NULL,			/* global_live_at_end */
-    NULL,			/* aux */
-    ENTRY_BLOCK,		/* index */
-    NULL,			/* prev_bb */
-    EXIT_BLOCK_PTR,		/* next_bb */
-    0,				/* loop_depth */
-    NULL,                       /* loop_father */
-    0,				/* count */
-    0,				/* frequency */
-    0,				/* flags */
-    NULL,			/* rbi */
-    NULL                        /* tree_annotations */
-  },
-  {
-    NULL,			/* head */
-    NULL,			/* end */
-    NULL,			/* stmt_list */
-    NULL,			/* pred */
-    NULL,			/* succ */
-    NULL,			/* local_set */
-    NULL,			/* cond_local_set */
-    NULL,			/* global_live_at_start */
-    NULL,			/* global_live_at_end */
-    NULL,			/* aux */
-    EXIT_BLOCK,			/* index */
-    ENTRY_BLOCK_PTR,		/* prev_bb */
-    NULL,			/* next_bb */
-    0,				/* loop_depth */
-    NULL,                       /* loop_father */
-    0,				/* count */
-    0,				/* frequency */
-    0,				/* flags */
-    NULL,			/* rbi */
-    NULL                        /* tree_annotations */
-  }
-};
+basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
 
 void debug_flow_info (void);
 static void free_edge (edge);
@@ -160,25 +108,26 @@ init_flow (void)
     }
   else
     {
-      free_alloc_pool (bb_pool);
-      free_alloc_pool (edge_pool);
       obstack_free (&flow_obstack, flow_firstobj);
       flow_firstobj = obstack_alloc (&flow_obstack, 0);
     }
-  bb_pool = create_alloc_pool ("Basic block pool",
-			       sizeof (struct basic_block_def), 100);
-  edge_pool = create_alloc_pool ("Edge pool",
-			       sizeof (struct edge_def), 100);
+
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure
    without actually unlinking it from the pred/succ lists.  */
 
 static void
-free_edge (edge e)
+free_edge (edge e ATTRIBUTE_UNUSED)
 {
   n_edges--;
-  pool_free (edge_pool, e);
+  /* ggc_free (e);  */
 }
 
 /* Free the memory associated with the edge structures.  */
@@ -227,8 +176,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = pool_alloc (bb_pool);
-  memset (bb, 0, sizeof (*bb));
+  bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
 }
 
@@ -258,36 +206,18 @@ compact_blocks (void)
   basic_block bb;
 
   i = 0;
-  if (tree_phi_root)
-    FOR_EACH_BB (bb)
-      bb->aux = VARRAY_TREE (tree_phi_root, bb->index);
   FOR_EACH_BB (bb)
     {
       BASIC_BLOCK (i) = bb;
-      if (tree_bb_root)
-        {
-	  VARRAY_TREE (tree_bb_root, i) = bb->stmt_list;
-	  VARRAY_TREE (tree_phi_root, i) = bb->aux;
-        }
       bb->index = i;
       i++;
     }
-  if (tree_phi_root)
-    FOR_EACH_BB (bb)
-      bb->aux = NULL;
 
   if (i != n_basic_blocks)
     abort ();
 
   for (; i < last_basic_block; i++)
-    {
-      BASIC_BLOCK (i) = NULL;
-      if (tree_bb_root)
-        {
-	  VARRAY_TREE (tree_bb_root, i) = NULL_TREE;
-	  VARRAY_TREE (tree_phi_root, i) = NULL_TREE;
-        }
-    }
+    BASIC_BLOCK (i) = NULL;
 
   last_basic_block = n_basic_blocks;
 }
@@ -300,7 +230,7 @@ expunge_block (basic_block b)
   unlink_block (b);
   BASIC_BLOCK (b->index) = NULL;
   n_basic_blocks--;
-  pool_free (bb_pool, b);
+  /* ggc_free (b); */
 }
 
 /* Create an edge connecting SRC and DEST with flags FLAGS.  Return newly
@@ -311,8 +241,7 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = pool_alloc (edge_pool);
-  memset (e, 0, sizeof (*e));
+  e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
   e->succ_next = src->succ;

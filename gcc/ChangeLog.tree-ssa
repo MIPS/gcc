@@ -1,3 +1,44 @@
+2003-12-08  Steven Bosscher  <stevenb@suse.de>
+	    Jan Hubicka  <jh@suse.de>
+
+	* gengtype-lex.l (IWOrD): Add HOST_WIDEST_INT
+	* Makefile.in (function.o, reg-stack.o): Add missing dependency on
+	basic-block.h.
+	(GTFILES): Add basic-block.h and hwint.h.
+	* basic-block.h (struct edge_def): Add GTY markers, make garbage
+	collectable.  Make `insns' field GC safe depending on the setting
+	of cfg_hooks.
+	(struct basic_block_def): Add GTY markers, make garbage collectable.
+	(tree_bb_root, tree_phi_root): Kill extern decls.
+	(ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR): Change from macro to variable
+	(entry_exit_blocks): Kill.
+	* cfg.c: Include ggc.h
+	(bb_pool, edge_pool, entry_exit_blocks): Kill.
+	(ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR): Define.
+	(init_flow): Do not create ppols; allocate entry/exit block.
+	(free_edge, alloc_block, expunge_block, unchecked_make_edge): Use GGC.
+	(compact_blocks): Don't update tree_bb_root and tree_phi_root.
+	* cfgrtl.c (rtl_merge_blocks): Clear head pointer.
+	* regs.h: Protect against multiple inclusion.
+	* tree-cfg.c (obstack_tree_ann_obstack, first_block_tree_and_obj,
+	tree_bb_root): Kill.
+	(build_tree_cfg, create_bb, remove_bb, delete_tree_cfg): Don't
+	touch tree_bb_root and tree_phi_root.
+	(create_block_annotations): Do not initialize obstack.
+	(free_block_annotations): Do not free obstack.
+	(create_block_annotation): Use GGC.
+	* tree-dfa.c (tree_phi_root): Kill.
+	* tree-flow.h (bb_ann, bb_ann_d): Declare.  Add `phi_nodes' field.
+	* tree-phinodes.c (create_phi_node, add_phi_arg, remove_phi_node,
+	remove_all_phi_nodes_for): Use `phi_nodes' field in the bb
+	annotation instead of tree_phi_root.
+	* tree-flow-inline.h (phi_nodes, set_phi_nodes): Likewise.
+	(add_dom_child, clear_dom_children): Use GGC.
+	* tree-ssa-pre.c (code_motion): Use `phi_nodes' field in the bb
+	annotation instead of tree_phi_root.
+	* varray.h (union varray_data): Make basic_block_def and edge_def
+	varrays garbage collectable.
+
 2003-12-07  Richard Henderson  <rth@redhat.com>
 
 	* c-common.c (c_address_looks_like_offsetof): New.

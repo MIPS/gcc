@@ -69,9 +69,6 @@ static dominance_info pdom_info = NULL;
 
 static struct cfg_stats_d cfg_stats;
 
-static struct obstack block_tree_ann_obstack;
-static void *first_block_tree_ann_obj = 0;
-
 /* Nonzero if we found a computed goto while building basic blocks.  */
 static bool found_computed_goto;
 
@@ -83,10 +80,6 @@ static tree factored_computed_goto_label;
 /* The factored computed goto.  We cache this so we can easily recover
    the destination of computed gotos when unfactoring them.  */
 static tree factored_computed_goto;
-
-/* The root of statement_lists of basic blocks for the garbage collector.
-   This is a hack; we really should GC the entire CFG structure.  */
-varray_type tree_bb_root;
 
 /* Basic blocks and flowgraphs.  */
 static basic_block create_bb (tree, basic_block);
@@ -151,9 +144,6 @@ build_tree_cfg (tree *fnbody)
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
   memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
-  VARRAY_TREE_INIT (tree_bb_root, initial_cfg_capacity, "tree_bb_root");
-  VARRAY_TREE_INIT (tree_phi_root, initial_cfg_capacity, "tree_phi_root");
-
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
@@ -176,8 +166,6 @@ build_tree_cfg (tree *fnbody)
     {
       /* Adjust the size of the array.  */
       VARRAY_GROW (basic_block_info, n_basic_blocks);
-      VARRAY_GROW (tree_bb_root, n_basic_blocks);
-      VARRAY_GROW (tree_phi_root, n_basic_blocks);
 
       /* Create block annotations.  */
       create_blocks_annotations ();
@@ -288,18 +276,6 @@ factor_computed_gotos (void)
 static void create_blocks_annotations (void)
 {
   basic_block bb;
-  static int initialized;
-
-  if (!initialized)
-    {
-      gcc_obstack_init (&block_tree_ann_obstack);
-      initialized = 1;
-    }
-  /* Check whether TREE_ANNOTATIONS data are still allocated.  */
-  else if (first_block_tree_ann_obj)
-    abort ();
-  
-  first_block_tree_ann_obj = obstack_alloc (&block_tree_ann_obstack, 0);
   
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     create_block_annotation (bb);
@@ -310,22 +286,15 @@ static void create_blocks_annotations (void)
 static void create_block_annotation (basic_block bb)
 {
   /* Verify that the tree_annotations field is clear.  */
-  if (bb->tree_annotations || !first_block_tree_ann_obj)
+  if (bb->tree_annotations)
     abort ();
-  bb->tree_annotations = obstack_alloc (&block_tree_ann_obstack, 
-					sizeof (struct bb_ann_d));
-  memset (bb->tree_annotations, 0, sizeof (struct bb_ann_d));
+  bb->tree_annotations = ggc_alloc_cleared (sizeof (struct bb_ann_d));
 }
 
 /* Free the annotations for all the basic blocks.  */
 
 static void free_blocks_annotations (void)
 {
-  if (!first_block_tree_ann_obj)
-    abort ();
-  obstack_free (&block_tree_ann_obstack, first_block_tree_ann_obj);
-  first_block_tree_ann_obj = NULL;
-
   clear_blocks_annotations ();  
 }
 
@@ -411,13 +380,10 @@ create_bb (tree stmt_list, basic_block after)
     {
       size_t new_size = n_basic_blocks + (n_basic_blocks + 3) / 4;
       VARRAY_GROW (basic_block_info, new_size);
-      VARRAY_GROW (tree_bb_root, new_size);
-      VARRAY_GROW (tree_phi_root, new_size);
     }
 
   /* Add the newly created block to the array.  */
   BASIC_BLOCK (n_basic_blocks) = bb;
-  VARRAY_TREE (tree_bb_root, bb->index) = bb->stmt_list;
 
   n_basic_blocks++;
   last_basic_block++;
@@ -1488,9 +1454,6 @@ remove_bb (basic_block bb)
   if (pdom_info)
     delete_from_dominance_info (pdom_info, bb);
 
-  VARRAY_TREE (tree_bb_root, bb->index) = NULL_TREE;
-  VARRAY_TREE (tree_phi_root, bb->index) = NULL_TREE;
-
   /* Remove the basic block from the array.  */
   expunge_block (bb);
 }
@@ -2369,8 +2332,6 @@ delete_tree_cfg (void)
     free_blocks_annotations ();
 
   free_basic_block_vars (0);
-  tree_bb_root = NULL;
-  tree_phi_root = NULL;
   label_to_block_map = NULL;
 }
 
