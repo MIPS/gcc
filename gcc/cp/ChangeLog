@@ -1,3 +1,77 @@
+2004-04-09  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* method.c (make_alias_for_thunk): Remove preprocessor guard on
+	declaration and definition.
+
+2004-04-08  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/14808
+	* method.c (use_thunk): Test TARGET_USE_LOCAL_THUNK_ALIAS_P rather
+	than ASM_OUTPUT_DEF.
+
+2004-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl2.c (mark_used): Don't segfault if cfun != NULL but
+	current_function_decl == NULL.
+
+2004-04-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3518
+	* pt.c (check_cv_quals_for_unify): Ignore bogus CV quals at outer
+	level.
+
+2004-04-05  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* init.c (decl_constant_value): Don't look at DECL_INITIAL
+	of PARM_DECL.
+	* tree.c (bot_manip, build_min): Don't look at TREE_CONSTANT
+	or TREE_SIDE_EFFECTS of a type.
+
+2004-04-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14007
+	* pt.c (check_cv_quals_for_unify): Correct logic for disallowed
+	cv-qualifier unification.
+	* tree.c (cp_build_qualified_type_real): Renable DR295 logic.
+
+2004-04-02  Jan Hubicka  <jh@suse.cz>
+
+	* cp-lang. (LANG_HOOKS_UPDATE_DECL_AFTER_SAVING): Define.
+	* cp-tree.h (cp_update_decl_after_saving): Declare.
+	* tree.c (cp_update_decl_after_saving): Define.
+
+2004-04-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14803
+	* typeck.c (get_delta_difference): Call fold before returning the
+	value.
+
+2004-04-01  Richard Henderson  <rth@redhat.com>
+
+	PR c++/14804
+	* decl.c (cp_finish_decl): Preserve TREE_READONLY more often.
+	* typeck2.c (split_nonconstant_init): Clear TREE_READONLY.
+
+2004-04-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14810
+	* name-lookup.c (maybe_push_cleanup_level): Robustify.
+
+2004-04-01  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* class.c (VTT_TOP_LEVEL_P): Use unsigned_flag directly.
+
+2004-03-31  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* call.c (joust): Use TYPE_UNSIGNED, not TREE_UNSIGNED.
+	* class.c (check_bitfield_decl): Likewise.
+	* cvt.c (type_promotes_to): Likewise.
+	* decl.c (finish_enum): Likewise.
+	* mangle.c (write_builtin_type): Likewise.
+	* semantics.c (finish_switch_cond, finish_unary_op_expr): Likewise.
+	* typeck.c (type_after_usual_arithmetic_conversions): Likewise.
+	(build_binary_op): Likewise.
+
 2004-03-31  Jan Hubicka  <jh@suse.cz>
 
 	* tree.h (optimize_function): Kill prototype.

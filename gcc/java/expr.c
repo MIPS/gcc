@@ -3506,7 +3506,8 @@ build_expr_wfl (tree node, const char *file, int line, int col)
   EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
   if (node)
     {
-      TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
+      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
       TREE_TYPE (wfl) = TREE_TYPE (node);
     }
 

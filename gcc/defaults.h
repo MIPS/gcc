@@ -484,6 +484,16 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define TARGET_VTABLE_DATA_ENTRY_DISTANCE 1
 #endif
 
+/* Decide whether it is safe to use a local alias for a virtual function
+   when constructing thunks.  */
+#ifndef TARGET_USE_LOCAL_THUNK_ALIAS_P
+#ifdef ASM_OUTPUT_DEF
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 1
+#else
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 0
+#endif
+#endif
+
 /* Select a format to encode pointers in exception handling data.  We
    prefer those that result in fewer dynamic relocations.  Assume no
    special support here and encode direct references.  */
@@ -613,8 +623,24 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define HOT_TEXT_SECTION_NAME "text.hot"
 #endif
 
+#ifndef NORMAL_TEXT_SECTION_NAME
+#define NORMAL_TEXT_SECTION_NAME ".text"
+#endif
+
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#endif
+
+#ifndef SECTION_FORMAT_STRING
+#define SECTION_FORMAT_STRING "\t.section\t%s\n\t.align 2\n"
+#endif
+
+#ifndef HAS_LONG_COND_BRANCH
+#define HAS_LONG_COND_BRANCH 0
+#endif
+
+#ifndef HAS_LONG_UNCOND_BRANCH
+#define HAS_LONG_UNCOND_BRANCH 0
 #endif
 
 #ifndef VECTOR_MODE_SUPPORTED_P

@@ -249,6 +249,7 @@ TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDI
 FLAGS_FOR_TARGET = @FLAGS_FOR_TARGET@
 
 AR_FOR_TARGET=@AR_FOR_TARGET@
+CONFIGURED_AR_FOR_TARGET=@CONFIGURED_AR_FOR_TARGET@
 USUAL_AR_FOR_TARGET = ` \
   if [ -f $$r/binutils/ar ] ; then \
     echo $$r/binutils/ar ; \
@@ -256,11 +257,12 @@ USUAL_AR_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(AR); \
     else \
-       echo ar | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_AR_FOR_TARGET) ; \
     fi; \
   fi`
 
 AS_FOR_TARGET=@AS_FOR_TARGET@
+CONFIGURED_AS_FOR_TARGET=@CONFIGURED_AS_FOR_TARGET@
 USUAL_AS_FOR_TARGET = ` \
   if [ -f $$r/gas/as-new ] ; then \
     echo $$r/gas/as-new ; \
@@ -270,7 +272,7 @@ USUAL_AS_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(AS); \
     else \
-       echo as | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_AS_FOR_TARGET) ; \
     fi; \
   fi`
 
@@ -296,6 +298,7 @@ CXXFLAGS_FOR_TARGET = $(CXXFLAGS)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 
 DLLTOOL_FOR_TARGET=@DLLTOOL_FOR_TARGET@
+CONFIGURED_DLLTOOL_FOR_TARGET=@CONFIGURED_DLLTOOL_FOR_TARGET@
 USUAL_DLLTOOL_FOR_TARGET = ` \
   if [ -f $$r/binutils/dlltool ] ; then \
     echo $$r/binutils/dlltool ; \
@@ -303,7 +306,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(DLLTOOL); \
     else \
-       echo dlltool | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_DLLTOOL_FOR_TARGET) ; \
     fi; \
   fi`
 
@@ -311,6 +314,7 @@ GCJ_FOR_TARGET = @GCJ_FOR_TARGET@
 GFORTRAN_FOR_TARGET = @GFORTRAN_FOR_TARGET@
 
 LD_FOR_TARGET=@LD_FOR_TARGET@
+CONFIGURED_LD_FOR_TARGET=@CONFIGURED_LD_FOR_TARGET@
 USUAL_LD_FOR_TARGET = ` \
   if [ -f $$r/ld/ld-new ] ; then \
     echo $$r/ld/ld-new ; \
@@ -320,13 +324,14 @@ USUAL_LD_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(LD); \
     else \
-       echo ld | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_LD_FOR_TARGET) ; \
     fi; \
   fi`
 
 LDFLAGS_FOR_TARGET = 
 
 NM_FOR_TARGET=@NM_FOR_TARGET@
+CONFIGURED_NM_FOR_TARGET=@CONFIGURED_NM_FOR_TARGET@
 USUAL_NM_FOR_TARGET = ` \
   if [ -f $$r/binutils/nm-new ] ; then \
     echo $$r/binutils/nm-new ; \
@@ -336,11 +341,12 @@ USUAL_NM_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(NM); \
     else \
-       echo nm | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_NM_FOR_TARGET) ; \
     fi; \
   fi`
 
 RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
+CONFIGURED_RANLIB_FOR_TARGET=@CONFIGURED_RANLIB_FOR_TARGET@
 USUAL_RANLIB_FOR_TARGET = ` \
   if [ -f $$r/binutils/ranlib ] ; then \
     echo $$r/binutils/ranlib ; \
@@ -352,11 +358,12 @@ USUAL_RANLIB_FOR_TARGET = ` \
          echo ranlib; \
       fi; \
     else \
-       echo ranlib | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_RANLIB_FOR_TARGET) ; \
     fi; \
   fi`
 
 WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
+CONFIGURED_WINDRES_FOR_TARGET=@CONFIGURED_WINDRES_FOR_TARGET@
 USUAL_WINDRES_FOR_TARGET = ` \
   if [ -f $$r/binutils/windres ] ; then \
     echo $$r/binutils/windres ; \
@@ -364,7 +371,7 @@ USUAL_WINDRES_FOR_TARGET = ` \
     if [ '$(host)' = '$(target)' ] ; then \
       echo $(WINDRES); \
     else \
-       echo windres | sed '$(program_transform_name)' ; \
+      echo $(CONFIGURED_WINDRES_FOR_TARGET) ; \
     fi; \
   fi`
 

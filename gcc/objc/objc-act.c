@@ -7344,16 +7344,16 @@ encode_type (tree type, int curtype, int format)
     {
       switch (GET_MODE_BITSIZE (TYPE_MODE (type)))
 	{
-	case 8:  c = TREE_UNSIGNED (type) ? 'C' : 'c'; break;
-	case 16: c = TREE_UNSIGNED (type) ? 'S' : 's'; break;
+	case 8:  c = TYPE_UNSIGNED (type) ? 'C' : 'c'; break;
+	case 16: c = TYPE_UNSIGNED (type) ? 'S' : 's'; break;
 	case 32: 
 	  if (type == long_unsigned_type_node
 	      || type == long_integer_type_node)
-	         c = TREE_UNSIGNED (type) ? 'L' : 'l';
+	         c = TYPE_UNSIGNED (type) ? 'L' : 'l';
 	  else
-	         c = TREE_UNSIGNED (type) ? 'I' : 'i';
+	         c = TYPE_UNSIGNED (type) ? 'I' : 'i';
 	  break;
-	case 64: c = TREE_UNSIGNED (type) ? 'Q' : 'q'; break;
+	case 64: c = TYPE_UNSIGNED (type) ? 'Q' : 'q'; break;
 	default: abort ();
 	}
       obstack_1grow (&util_obstack, c);
@@ -8101,9 +8101,9 @@ adorn_decl (tree decl, char *str)
   else if (code == POINTER_TYPE)
     {
       strcpy (tmpbuf, "*");
-      if (TREE_READONLY (decl) || TYPE_VOLATILE (decl))
+      if (TYPE_READONLY (decl) || TYPE_VOLATILE (decl))
 	{
-	  if (TREE_READONLY (decl))
+	  if (TYPE_READONLY (decl))
 	    strcat (tmpbuf, " const");
 	  if (TYPE_VOLATILE (decl))
 	    strcat (tmpbuf, " volatile");
@@ -8307,7 +8307,7 @@ gen_declspecs (tree declspecs, char *buf, int raw)
   else
     {
       /* Type qualifiers.  */
-      if (TREE_READONLY (declspecs))
+      if (TYPE_READONLY (declspecs))
 	strcat (buf, "const ");
       if (TYPE_VOLATILE (declspecs))
 	strcat (buf, "volatile ");

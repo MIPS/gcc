@@ -1023,7 +1023,7 @@ widen_bitfield (tree val, tree field, tree var)
   /* If the sign bit of the value is not set, or the field's type is
      unsigned, then just mask off the high order bits of the value.  */
   if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0
-      || TREE_UNSIGNED (field))
+      || DECL_UNSIGNED (field))
     {
       /* Zero extension.  Build a mask with the lower 'field_size' bits
 	 set and a BIT_AND_EXPR node to clear the high order bits of
@@ -1761,7 +1761,7 @@ maybe_fold_stmt_addition (tree expr)
 	 values can produce incorrect results.  Particularly if the type
 	 is smaller than the width of the pointer.  */
       if (subtract
-	  && TREE_UNSIGNED (TREE_TYPE (op1))
+	  && TYPE_UNSIGNED (TREE_TYPE (op1))
 	  && tree_int_cst_lt (array_idx, op1))
 	return NULL;
       op1 = int_const_binop (subtract ? MINUS_EXPR : PLUS_EXPR,
@@ -1775,7 +1775,7 @@ maybe_fold_stmt_addition (tree expr)
      simplification functions.  */
   if (subtract)
     {
-      if (TREE_UNSIGNED (TREE_TYPE (op1)))
+      if (TYPE_UNSIGNED (TREE_TYPE (op1)))
 	return NULL;
       op1 = fold (build1 (NEGATE_EXPR, TREE_TYPE (op1), op1));
       /* ??? In theory fold should always produce another integer.  */

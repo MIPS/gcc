@@ -255,6 +255,11 @@ int flag_branch_probabilities = 0;
 
 int flag_reorder_blocks = 0;
 
+/* Nonzero if blocks should be partitioned into hot and cold sections in
+   addition to being reordered. */
+
+int flag_reorder_blocks_and_partition = 0;
+
 /* Nonzero if functions should be reordered.  */
 
 int flag_reorder_functions = 0;
@@ -1005,6 +1010,7 @@ static const lang_independent_options f_options[] =
   {"profile", &profile_flag, 1 },
   {"tree-based-profiling", &flag_tree_based_profiling, 1 },
   {"reorder-blocks", &flag_reorder_blocks, 1 },
+  {"reorder-blocks-and-partition", &flag_reorder_blocks_and_partition, 1},
   {"reorder-functions", &flag_reorder_functions, 1 },
   {"rename-registers", &flag_rename_registers, 1 },
   {"cprop-registers", &flag_cprop_registers, 1 },
@@ -1116,7 +1122,12 @@ bool
 set_src_pwd (const char *pwd)
 {
   if (src_pwd)
-    return false;
+    {
+      if (strcmp (src_pwd, pwd) == 0)
+	return true;
+      else
+	return false;
+    }
 
   src_pwd = xstrdup (pwd);
   return true;
@@ -2503,7 +2514,6 @@ backend_init (void)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expmed ();
-  init_optimization_passes ();
   if (flag_caller_saves)
     init_caller_save ();
   expand_dummy_function_end ();
@@ -2526,6 +2536,7 @@ lang_dependent_init (const char *name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+  init_optimization_passes ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

@@ -4979,73 +4979,52 @@ package body Sem_Util is
    --------------------------------
 
    procedure Note_Possible_Modification (N : Node_Id) is
+      Modification_Comes_From_Source : constant Boolean :=
+                                         Comes_From_Source (Parent (N));
+
       Ent : Entity_Id;
       Exp : Node_Id;
-
-      procedure Set_Ref (E : Entity_Id; N : Node_Id);
-      --  Internal routine to note modification on entity E by node N
-      --  Has no effect if entity E does not represent an object.
-
-      -------------
-      -- Set_Ref --
-      -------------
-
-      procedure Set_Ref (E : Entity_Id; N : Node_Id) is
-      begin
-         if Is_Object (E) then
-            if Comes_From_Source (N) then
-               Set_Never_Set_In_Source (E, False);
-            end if;
-
-            Set_Is_True_Constant    (E, False);
-            Set_Current_Value       (E, Empty);
-            Generate_Reference      (E, N, 'm');
-            Kill_Checks             (E);
-
-            if not Can_Never_Be_Null (E) then
-               Set_Is_Known_Non_Null (E, False);
-            end if;
-         end if;
-      end Set_Ref;
-
-   --  Start of processing for Note_Possible_Modification
 
    begin
       --  Loop to find referenced entity, if there is one
 
       Exp := N;
       loop
-         --  Test for node rewritten as dereference (e.g. accept parameter)
-
-         if Nkind (Exp) = N_Explicit_Dereference
-           and then not Comes_From_Source (Exp)
-         then
-            Exp := Original_Node (Exp);
-         end if;
-
-         --  Now look for entity being referenced
+         <<Continue>>
+         Ent := Empty;
 
          if Is_Entity_Name (Exp) then
             Ent := Entity (Exp);
 
-            if (Ekind (Ent) = E_Variable or else Ekind (Ent) = E_Constant)
-              and then Present (Renamed_Object (Ent))
-            then
-               Set_Never_Set_In_Source (Ent, False);
-               Set_Is_True_Constant    (Ent, False);
-               Set_Current_Value       (Ent, Empty);
+         elsif Nkind (Exp) = N_Explicit_Dereference then
+            declare
+               P : constant Node_Id := Prefix (Exp);
 
-               if not Can_Never_Be_Null (Ent) then
-                  Set_Is_Known_Non_Null (Ent, False);
+            begin
+               if Nkind (P) = N_Selected_Component
+                 and then Present (
+                   Entry_Formal (Entity (Selector_Name (P))))
+               then
+                  --  Case of a reference to an entry formal
+
+                  Ent := Entry_Formal (Entity (Selector_Name (P)));
+
+               elsif Nkind (P) = N_Identifier
+                 and then Nkind (Parent (Entity (P))) = N_Object_Declaration
+                 and then Present (Expression (Parent (Entity (P))))
+                 and then Nkind (Expression (Parent (Entity (P))))
+                   = N_Reference
+               then
+                  --  Case of a reference to a value on which
+                  --  side effects have been removed.
+
+                  Exp := Prefix (Expression (Parent (Entity (P))));
+
+               else
+                  return;
+
                end if;
-
-               Exp := Renamed_Object (Ent);
-
-            else
-               Set_Ref (Ent, Exp);
-               Kill_Checks (Ent);
-               return;
-            end if;
+            end;
 
          elsif     Nkind (Exp) = N_Type_Conversion
            or else Nkind (Exp) = N_Unchecked_Type_Conversion
@@ -5059,6 +5038,39 @@ package body Sem_Util is
             Exp := Prefix (Exp);
 
          else
+            return;
+
+         end if;
+
+         --  Now look for entity being referenced
+
+         if Present (Ent) then
+
+            if Is_Object (Ent) then
+               if Comes_From_Source (Exp)
+                 or else Modification_Comes_From_Source
+               then
+                  Set_Never_Set_In_Source (Ent, False);
+               end if;
+
+               Set_Is_True_Constant    (Ent, False);
+               Set_Current_Value       (Ent, Empty);
+
+               if not Can_Never_Be_Null (Ent) then
+                  Set_Is_Known_Non_Null (Ent, False);
+               end if;
+
+               if (Ekind (Ent) = E_Variable or else Ekind (Ent) = E_Constant)
+                 and then Present (Renamed_Object (Ent))
+               then
+                  Exp := Renamed_Object (Ent);
+                  goto Continue;
+               end if;
+
+               Generate_Reference (Ent, Exp, 'm');
+            end if;
+
+            Kill_Checks (Ent);
             return;
          end if;
       end loop;

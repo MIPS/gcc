@@ -828,9 +828,8 @@ package body Make is
       else
          while Last_Argument + Args'Length > Arguments'Last loop
             declare
-               New_Arguments : Argument_List_Access :=
-                 new Argument_List (1 .. Arguments'Last * 2);
-
+               New_Arguments : constant Argument_List_Access :=
+                                 new Argument_List (1 .. Arguments'Last * 2);
             begin
                New_Arguments (1 .. Last_Argument) :=
                  Arguments (1 .. Last_Argument);
@@ -2553,8 +2552,13 @@ package body Make is
       Check_Source_Files := True;
       All_Sources        := False;
 
-      Insert_Q (Main_Source);
-      Mark (Main_Source);
+      --  Only insert in the Q if it is not already done, to avoid simultaneous
+      --  compilations if -jnnn is used.
+
+      if not Is_Marked (Main_Source) then
+         Insert_Q (Main_Source);
+         Mark (Main_Source);
+      end if;
 
       First_Compiled_File   := No_File;
       Most_Recent_Obj_File  := No_File;
@@ -4305,18 +4309,6 @@ package body Make is
 
       Multiple_Main_Loop : for N_File in 1 .. Osint.Number_Of_Files loop
 
-         --  Increase the marking label to be sure to check sources
-         --  for all executables.
-
-         Marking_Label := Marking_Label + 1;
-
-         --  Make sure it is not 0, which is the default value for
-         --  a file that has never been marked.
-
-         if Marking_Label = 0 then
-            Marking_Label := 1;
-         end if;
-
          --  First, find the executable name and path
 
          Executable          := No_File;
@@ -5442,6 +5434,18 @@ package body Make is
                   end loop;
                end;
             end if;
+         end if;
+
+         --  Increase the marking label to be sure to check sources
+         --  for all executables.
+
+         Marking_Label := Marking_Label + 1;
+
+         --  Make sure it is not 0, which is the default value for
+         --  a file that has never been marked.
+
+         if Marking_Label = 0 then
+            Marking_Label := 1;
          end if;
       end loop Multiple_Main_Loop;
 
@@ -6774,14 +6778,19 @@ package body Make is
          elsif Argv (2) = 'L' then
             Add_Switch (Argv, Linker, And_Save => And_Save);
 
-         --  For -gxxxxx,-pg,-mxxx: give the switch to both the compiler and
-         --  the linker (except for -gnatxxx which is only for the compiler)
+         --  For -gxxxxx, -pg, -mxxx, -fxxx: give the switch to both the
+         --  compiler and the linker (except for -gnatxxx which is only for
+         --  the compiler). Some of the -mxxx (for example -m64) and -fxxx
+         --  (for example -ftest-coverage for gcov) need to be used when
+         --  compiling the binder generated files, and using all these gcc
+         --  switches for the binder generated files should not be a problem.
 
          elsif
            (Argv (2) = 'g' and then (Argv'Last < 5
                                        or else Argv (2 .. 5) /= "gnat"))
              or else Argv (2 .. Argv'Last) = "pg"
              or else (Argv (2) = 'm' and then Argv'Last > 2)
+             or else (Argv (2) = 'f' and then Argv'Last > 2)
          then
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Linker, And_Save => And_Save);
@@ -7214,7 +7223,8 @@ package body Make is
    end Verbose_Msg;
 
 begin
+   --  Make sure that in case of failure, the temp files will be deleted
+
    Prj.Com.Fail := Make_Failed'Access;
    MLib.Fail    := Make_Failed'Access;
-   --  Make sure that in case of failure, the temp files will be deleted
 end Make;

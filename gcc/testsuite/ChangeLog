@@ -1,3 +1,149 @@
+2004-04-09  Chris Demetriou  <cgd@broadcom.com>
+
+	* g++.dg/other/packed1.C: Mark xfail for mips*- not mips-.
+
+2004-04-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* lib/target-supports.exp (check_named_sections_available): New.
+	* lib/gcc-dg.exp (dg-require-named-sections): New.
+	* lib/prune.exp (prune_gcc_output): Incorporate prunes from
+	old-deja.exp.  Also prune error-count message from HP linker.
+	* g++.old-deja/old-deja.exp (g++-dg-prune): Delete.
+
+	* g++.dg/init/init-ref4.C: Use dg-require-weak.
+	* g++.old-deja/g++.pt/static3.C: Likewise.
+	* g++.dg/parse/attr-ctor1.C: Use dg-require-named-sections.
+
+2004-04-09  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20040409-1.c: New test case.
+	* gcc.c-torture/execute/20040409-2.c: New test case.
+	* gcc.c-torture/execute/20040409-3.c: New test case.
+
+2004-04-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/20040409-1.c: New test.
+
+2004-04-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/14888
+	* g++.dg/opt/pr14888.C: New test case.
+
+2004-04-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/valid-1.c, gcc.dg/pch/valid-2.c, gcc.dg/pch/valid-3.c,
+	gcc.dg/pch/valid-4.c, gcc.dg/pch/valid-5.c, gcc.dg/pch/valid-6.c,
+	gcc.dg/pch/valid-1.hs, gcc.dg/pch/valid-2.hs, gcc.dg/pch/valid-3.hs,
+	gcc.dg/pch/valid-4.hs, gcc.dg/pch/valid-5.hs, gcc.dg/pch/valid-6.hs:
+	New tests.
+
+2004-04-08  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/spill-1.c: New test.
+
+2004-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-ctype-2.c: New test.
+
+2004-04-07  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/pch/pch.exp: Add largefile test.
+
+2004-04-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/pch/externc-1.Hs: New.
+	* g++.dg/pch/externc-1.C: New.
+
+2004-04-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/compat/struct-by-value-5a_main.c,
+	gcc.dg/compat/struct-by-value-5b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-5_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-5a_x.c,
+	gcc.dg/compat/struct-by-value-5b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_x.c.
+	* gcc.dg/compat/struct-by-value-5a_y.c,
+	gcc.dg/compat/struct-by-value-5b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-5_y.c.
+
+	* gcc.dg/compat/struct-by-value-6a_main.c,
+	gcc.dg/compat/struct-by-value-6b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-6_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-6a_x.c,
+	gcc.dg/compat/struct-by-value-6b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_x.c.
+	* gcc.dg/compat/struct-by-value-6a_y.c,
+	gcc.dg/compat/struct-by-value-6b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-6_y.c.
+
+	* gcc.dg/compat/struct-by-value-7a_main.c,
+	gcc.dg/compat/struct-by-value-7b_main.c: New files.
+	* gcc.dg/compat/struct-by-value-7_main.c: Delete.
+	* gcc.dg/compat/struct-by-value-7a_x.c,
+	gcc.dg/compat/struct-by-value-7b_x.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_x.c.
+	* gcc.dg/compat/struct-by-value-7a_y.c,
+	gcc.dg/compat/struct-by-value-7b_y.c: New, split out from
+	gcc.dg/compat/struct-by-value-7_y.c.
+
+2004-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/i386-sse-8.c: Don't use -march=pentium3 on x86_64.
+	* gcc.dg/i386-local.c: Expect %edi, not %eax register on x86_64.
+	* gcc.dg/20020103-1.c: Add -fno-asynchronous-unwind-tables to
+	options.
+
+2004-04-06  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-36.c: New test.
+
+2004-04-06  Paul Brook  <paul@codesourcery.com>
+
+	* README.gcc: Remove obsolete contraint on testcases.
+
+2004-04-05  Paul Brook  <paul@codesourcery.com>
+
+	PR2123
+	* g++.dg/expr/anew1.C: XFAIL and make reproducible.  Call abort on
+	failure and exit(0) on success.
+	* g++.dg/expr/anew2.C: Ditto.
+	* g++.dg/expr/anew3.C: Ditto.
+	* g++.dg/expr/anew4.C: Ditto.
+
+2004-04-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3518
+	* g++.dg/template/unify7.C: New.
+
+2004-04-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g++.dg/README: Bring up to date with new subdirectories; remove
+	duplicate subdirectory lines.
+
+2004-04-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14007
+	* g++.dg/template/unify5.C: New.
+	* g++.dg/template/unify6.C: New.
+	* g++.dg/template/qualttp20.C: Adjust.
+	* g++.old-deja/g++.jason/report.C: Adjust.
+	* g++.old-deja/g++.other/qual1.C: Adjust.
+
+2004-04-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14803
+	* g++.dg/inherit/ptrmem1.C: New test.
+
+2004-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/14755
+	* gcc.c-torture/execute/20040331-1.c: New test.
+	* gcc.dg/20040331-1.c: New test.
+
+2004-04-01  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/arm-mmx-1.c: Add -mabi=iwmmxt to dg-options.
+
 2004-03-30  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14724

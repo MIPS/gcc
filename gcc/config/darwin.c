@@ -1004,7 +1004,7 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
       && (!TREE_PUBLIC (decl) || (!DECL_ONE_ONLY (decl) && !DECL_WEAK (decl)))
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
-	  || (DECL_INITIAL (decl)
+	  || (!DECL_COMMON (decl) && DECL_INITIAL (decl)
 	      && DECL_INITIAL (decl) != error_mark_node)))
     defined = 1;
 
@@ -1304,7 +1304,10 @@ darwin_globalize_label (FILE *stream, const char *name)
 void
 darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)
 {
-  fprintf (asm_out_file, ".section %s\n", name);
+  if (flag_reorder_blocks_and_partition)
+    fprintf (asm_out_file, SECTION_FORMAT_STRING, name);
+  else
+    fprintf (asm_out_file, ".section %s\n", name);
 }
 
 unsigned int

@@ -438,7 +438,7 @@ suppose that there were a 24-bit integer type, but that alignment
 requirements for the ABI required 32-bit alignment.  Then,
 @code{TYPE_SIZE} would be an @code{INTEGER_CST} for 32, while
 @code{TYPE_PRECISION} would be 24.)  The integer type is unsigned if
-@code{TREE_UNSIGNED} holds; otherwise, it is signed.
+@code{TYPE_UNSIGNED} holds; otherwise, it is signed.
 
 The @code{TYPE_MIN_VALUE} is an @code{INTEGER_CST} for the smallest
 integer that may be represented by this type.  Similarly, the
@@ -457,7 +457,7 @@ Used to represent GCC built-in @code{__complex__} data types.  The
 @item ENUMERAL_TYPE
 Used to represent an enumeration type.  The @code{TYPE_PRECISION} gives
 (as an @code{int}), the number of bits used to represent the type.  If
-there are no negative enumeration constants, @code{TREE_UNSIGNED} will
+there are no negative enumeration constants, @code{TYPE_UNSIGNED} will
 hold.  The minimum and maximum enumeration constants may be obtained
 with @code{TYPE_MIN_VALUE} and @code{TYPE_MAX_VALUE}, respectively; each
 of these macros returns an @code{INTEGER_CST}.

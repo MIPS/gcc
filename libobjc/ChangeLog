@@ -1,3 +1,67 @@
+2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.ac: Remove (unused) glibcpp_prefixdir.
+	* configure: Regenerate.
+
+	* configure.in: Rename to configure.ac.
+	* Makefile.in: Update to match.
+
+	* Makefile.in: Remove toolexecdir, glibcpp_toolexecdir (unused).
+	Replace glibcpp_toolexeclibdir with toolexeclibdir.
+	* configure.in: Remove glibcpp_toolexecdir (unused).
+	Replace glibcpp_toolexeclibdir with toolexeclibdir.  Don't generate
+	config.h or stamp-h (unused).  Move one comment to the right place.
+	* configure: Regenerate.
+	* config.h.in: Remove (unused).
+
+	* config.h.in: Regenerate with autoheader.
+
+	* Makefile.in: Remove (unused) gcc_version_trigger.
+	* configure.in: Remove (unused) glibcpp_builddir.  Don't AC_SUBST
+	gcc_version_trigger.
+	* configure: Regenerate.
+
+	* configure.in: Switch to modern style for AC_INIT, AC_OUTPUT.
+	Sort file into sections.  Remove dnl where appropriate.  Fix
+	other style issues.
+	* configure: Regenerate.
+
+	* configure.in: Replace old AC_PROG_CC hack with new one.
+	Define toplevel_srcdir in terms of srcdir, not top_srcdir (there
+	are no subdirectory output files, so this is fine).  Change prereq
+	to autoconf 2.59.
+	* aclocal.m4: Include ../config/no-executables.m4.
+	* configure: Regenerate with autoconf 2.59.
+
+	* configure.in: Improve comments on gthread_cflags.  Improve m4
+	quotation, and replace 'if test' with 'case', for --enable-objc-gc.
+	* configure: Regenerate.
+
+	* configure.in: Move PACKAGE and VERSION settings up top.  Remove
+	unused call to AC_PROG_LN_S.  Default RANLIB to ':'.  Remove
+	redundant checks for values of RANLIB, AR, INSTALL.
+	* configure: Regenerate.
+
+	* configure.in: Clean up handling of
+	--enable-version-specific-runtime-libs and related variables;
+	replace 'if test' with 'case' where reasonable.  Fix comments.
+	Remove useless libstdcxx_interface.
+	* configure: Regenerate.
+
+	* configure.in: Use _GCC_TOPLEV_NONCANONICAL_TARGET.
+	Replace uses of target_alias with target_noncanonical.
+	* aclocal.m4: Include ../config/acx.m4.
+	* configure: Regenerate.
+	* Makefile.in: Replace uses of target_alias with target_noncanonical.
+	Fix copyright statement.
+
+	* configure.in: Hand-inline bulky, confusing macros from
+	aclocal.m4.  Replace references to "GNU Objective C" with "GCC".
+	Update copyright notice.  Remove stuff for automake, which isn't
+	used in this directory.  Remove emacs local variables.
+	* aclocal.m4: Remove hand-inlined macros.  Update copyright notice.
+	* configure: Regenerate.
+
 2004-03-16  Manfred Hollstein  <mh@suse.com>
 
 	* Makefile.in, configure.in, configure: Update copyright years.

@@ -391,6 +391,9 @@ struct lang_hooks
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
 
+  /* Update lang specific fields after duplicating function body.  */
+  void (*update_decl_after_saving) (tree, void *);
+
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
      table of attributes specific to the language, a table of

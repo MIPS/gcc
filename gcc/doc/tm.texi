@@ -1071,26 +1071,28 @@ sign-extend the result to 64 bits.  On such machines, set
 Do not define this macro if it would never modify @var{m}.
 @end defmac
 
+@defmac PROMOTE_FUNCTION_MODE
+Like @code{PROMOTE_MODE}, but is applied to outgoing function arguments or
+function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
+and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
+
+The default is @code{PROMOTE_MODE}.
+@end defmac
+
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_ARGS (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for outgoing function arguments.
+@code{PROMOTE_FUNCTION_MODE} should be done for outgoing function
+arguments.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_PROMOTE_FUNCTION_RETURN (tree @var{fntype})
 This target hook should return @code{true} if the promotion described by
-@code{PROMOTE_MODE} should also be done for the return value of
+@code{PROMOTE_FUNCTION_MODE} should be done for the return value of
 functions.
 
 If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_MODE}.
+perform the same promotions done by @code{PROMOTE_FUNCTON_MODE}.
 @end deftypefn
-
-@defmac PROMOTE_FOR_CALL_ONLY
-Define this macro if the promotion described by @code{PROMOTE_MODE}
-should @emph{only} be performed for outgoing function arguments or
-function return values, as specified by @code{TARGET_PROMOTE_FUNCTION_ARGS}
-and @code{TARGET_PROMOTE_FUNCTION_RETURN}, respectively.
-@end defmac
 
 @defmac PARM_BOUNDARY
 Normal alignment required for function parameters on the stack, in
@@ -5800,6 +5802,13 @@ frequently executed functions of the program.  If not defined, GCC will provide
 a default definition if the target supports named sections.
 @end defmac
 
+@defmac NORMAL_TEXT_SECTION_NAME
+If defined, a C string constant for the name of the section containing code 
+that does not go into the ``unlikely executed text'' partition.  This is used
+as part of the optimization that partitions hot and cold basic blocks into
+separate sections in the .o and executable files.
+@end defmac
+
 @defmac UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 If defined, a C string constant for the name of the section containing unlikely
 executed functions in the program.
@@ -5849,6 +5858,12 @@ If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
 finalization code.  If not defined, GCC will assume such a section does
 not exist.
+@end defmac
+
+@defmac SECTION_FORMAT_STRING
+If defined, format string used by fprintf to write out the
+text section headers for the hot and cold sections of the
+assembly file, when hot and cold partitioning is being performed.
 @end defmac
 
 @defmac CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})
@@ -8452,6 +8467,24 @@ For each predicate function named in @code{PREDICATE_CODES}, a
 declaration will be generated in @file{insn-codes.h}.
 @end defmac
 
+@defmac HAS_LONG_COND_BRANCH
+Define this boolean macro to indicate whether or not your architecture
+has conditional branches that can span all of memory.  It is used in
+conjunction with an optimization that partitions hot and cold basic
+blocks into separate sections of the executable.  If this macro is
+set to false, gcc will convert any conditional branches that attempt
+to cross between sections into unconditional branches or indirect jumps.
+@end defmac
+
+@defmac HAS_LONG_UNCOND_BRANCH
+Define this boolean macro to indicate whether or not your architecture
+has unconditional branches that can span all of memory.  It is used in
+conjunction with an optimization that partitions hot and cold basic
+blocks into separate sections of the executable.  If this macro is
+set to false, gcc will convert any unconditional branches that attempt
+to cross between sections into indirect jumps.
+@end defmac
+
 @defmac SPECIAL_MODE_PREDICATES
 Define this if you have special predicates that know special things
 about modes.  Genrecog will warn about certain forms of
@@ -9196,4 +9229,12 @@ This target hook should register special include paths for the target.
 The parameter @var{path} is the include to register.  On Darwin
 systems, this is used for Framework includes, which have semantics
 that are different from @option{-I}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_USE_LOCAL_THUNK_ALIAS_P (tree @var{fndecl})
+This target hook returns @code{true} if it is safe to use a local alias
+for a virtual function @var{fndecl} when constructing thunks,
+@code{false} otherwise. By default, the hook returns @code{true} for all
+functions, if a target supports aliases (ie. defines
+@code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn

@@ -717,9 +717,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power3", PROCESSOR_PPC630,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"power4", PROCESSOR_POWER4,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"power5", PROCESSOR_POWER5,
-	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_MFCRF | MASK_POWERPC64},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_POWERPC64},
@@ -9694,6 +9694,7 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (TARGET_RELOCATABLE
 	  && !in_toc_section ()
 	  && !in_text_section ()
+	  && !in_text_unlikely_section ()
 	  && !recurse
 	  && GET_CODE (x) != CONST_INT
 	  && GET_CODE (x) != CONST_DOUBLE
@@ -13325,6 +13326,7 @@ toc_hash_eq (const void *h1, const void *h2)
   (strncmp ("_vt.", name, strlen("_vt.")) == 0		\
   || strncmp ("_ZTV", name, strlen ("_ZTV")) == 0	\
   || strncmp ("_ZTT", name, strlen ("_ZTT")) == 0	\
+  || strncmp ("_ZTI", name, strlen ("_ZTI")) == 0	\
   || strncmp ("_ZTC", name, strlen ("_ZTC")) == 0) 
 
 void
@@ -14909,7 +14911,7 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
   switch (altivec_type)
     {
     case 'v':
-      unsigned_p = TREE_UNSIGNED (type);
+      unsigned_p = TYPE_UNSIGNED (type);
       switch (mode)
 	{
 	  case SImode:

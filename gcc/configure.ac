@@ -579,9 +579,7 @@ AC_ARG_ENABLE(__cxa_atexit,
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable thread usage for target GCC
   --enable-threads=LIB    use LIB thread package for target GCC],,
-enable_threads='')
-# Save in case it gets overwritten in config.gcc
-enable_threads_flag=$enable_threads
+[enable_threads=''])
 
 AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc	  enable the use of Boehm's garbage collector with
@@ -1220,7 +1218,7 @@ fi
 # ---------
 
 # Check if a valid thread package
-case ${enable_threads_flag} in
+case ${enable_threads} in
   "" | no)
     # No threads
     target_thread_file='single'
@@ -1231,10 +1229,10 @@ case ${enable_threads_flag} in
     ;;
   aix | dce | gnat | irix | posix | rtems | \
   single | solaris | vxworks | win32 )
-    target_thread_file=${enable_threads_flag}
+    target_thread_file=${enable_threads}
     ;;
   *)
-    echo "${enable_threads_flag} is an unknown thread package" 1>&2
+    echo "${enable_threads} is an unknown thread package" 1>&2
     exit 1
     ;;
 esac
@@ -1664,6 +1662,13 @@ for file in ${extra_headers} ; do
   extra_headers_list="${extra_headers_list} \$(srcdir)/config/${cpu_type}/${file}"
 done
 
+# Define collect2 in Makefile.
+case $host_can_use_collect2 in
+  no) collect2= ;;
+  *) collect2='collect2$(exeext)' ;;
+esac
+AC_SUBST([collect2])
+
 # Add a definition of USE_COLLECT2 if system wants one.
 case $use_collect2 in
   no) use_collect2= ;;
@@ -1671,6 +1676,11 @@ case $use_collect2 in
   *) 
     host_xm_defines="${host_xm_defines} USE_COLLECT2"
     xm_defines="${xm_defines} USE_COLLECT2"
+    case $host_can_use_collect2 in
+      no)
+        AC_MSG_ERROR([collect2 is required but cannot be built on this system])
+        ;;
+    esac
     ;;
 esac
 
@@ -2751,6 +2761,25 @@ AC_MSG_RESULT($gcc_cv_ld_pie)
 # --------
 # UNSORTED
 # --------
+
+AC_MSG_CHECKING(linker --as-needed support)
+gcc_cv_ld_as_needed=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_as_needed=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports --as-needed and --no-as-needed options
+	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+		gcc_cv_ld_as_needed=yes
+	fi
+fi
+if test x"$gcc_cv_ld_as_needed" = xyes; then
+	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
+[Define if your linker supports --as-needed and --no-as-needed options.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_as_needed)
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then

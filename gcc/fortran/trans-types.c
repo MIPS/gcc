@@ -1447,7 +1447,7 @@ gfc_signed_type (tree type)
 tree
 gfc_signed_or_unsigned_type (int unsignedp, tree type)
 {
-  if (!INTEGRAL_TYPE_P (type) || TREE_UNSIGNED (type) == unsignedp)
+  if (!INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
     return type;
 
   if (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node))

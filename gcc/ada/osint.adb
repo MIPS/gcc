@@ -1008,12 +1008,37 @@ package body Osint is
          end if;
       end loop;
 
-      for J in reverse Cindex1 .. Cindex2 loop
-         if Command_Name (J) = '.' then
-            Cindex2 := J - 1;
-            exit;
+      --  Command_Name(Cindex1 .. Cindex2) is now the equivalent of the
+      --  POSIX command "basename argv[0]"
+
+      --  Strip off any versioning information such as found on VMS.
+      --  This would take the form of TOOL.exe followed by a ";" or "."
+      --  and a sequence of one or more numbers.
+
+      if Command_Name (Cindex2) in '0' .. '9' then
+         for J in reverse Cindex1 .. Cindex2 loop
+
+            exit when Command_Name (J) not in '0' .. '9';
+
+            if Command_Name (J) = '.' or Command_Name (J) = ';' then
+               Cindex2 := J - 1;
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      --  Strip off any executable extension (usually nothing or .exe)
+      --  but formally reported by autoconf in the variable EXEEXT
+
+      if Cindex2 - Cindex1 >= 4 then
+         if To_Lower (Command_Name (Cindex2 - 3)) = '.'
+            and then To_Lower (Command_Name (Cindex2 - 2)) = 'e'
+            and then To_Lower (Command_Name (Cindex2 - 1)) = 'x'
+            and then To_Lower (Command_Name (Cindex2)) = 'e'
+         then
+            Cindex2 := Cindex2 - 4;
          end if;
-      end loop;
+      end if;
 
       Name_Len := Cindex2 - Cindex1 + 1;
       Name_Buffer (1 .. Name_Len) := Command_Name (Cindex1 .. Cindex2);
@@ -1406,7 +1431,7 @@ package body Osint is
       end loop;
 
       if Munit_Index /= 0 then
-         Add_Char_To_Name_Buffer ('~');
+         Add_Char_To_Name_Buffer (Multi_Unit_Index_Character);
          Add_Nat_To_Name_Buffer (Munit_Index);
       end if;
 
@@ -1794,7 +1819,17 @@ package body Osint is
       --  "alpha-dec-vxworks-"
 
       while Name_Len > 0  loop
+
+         --  All done if we find the last hyphen
+
          if Name_Buffer (Name_Len) = '-' then
+            exit;
+
+         --  If directory separator found, we don't want to look further
+         --  since in this case, no prefix has been found.
+
+         elsif Is_Directory_Separator (Name_Buffer (Name_Len)) then
+            Name_Len := 0;
             exit;
          end if;
 
@@ -2132,7 +2167,7 @@ package body Osint is
          type Actual_Source_Ptr is access Actual_Source_Buffer;
          --  This is the pointer type for the physical buffer allocated
 
-         Actual_Ptr : Actual_Source_Ptr := new Actual_Source_Buffer;
+         Actual_Ptr : constant Actual_Source_Ptr := new Actual_Source_Buffer;
          --  And this is the actual physical buffer
 
       begin
@@ -2753,6 +2788,13 @@ begin
    begin
       Identifier_Character_Set := Get_Default_Identifier_Character_Set;
       Maximum_File_Name_Length := Get_Maximum_File_Name_Length;
+
+      --  On VMS, '~' is not allowed in file names. Change the multi unit
+      --  index character to '$'.
+
+      if Hostparm.OpenVMS then
+         Multi_Unit_Index_Character := '$';
+      end if;
 
       --  Following should be removed by having above function return
       --  Integer'Last as indication of no maximum instead of -1 ???

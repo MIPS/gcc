@@ -3090,7 +3090,7 @@ build_compound_literal (tree type, tree init)
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
-  TREE_READONLY (decl) = TREE_READONLY (type);
+  TREE_READONLY (decl) = TYPE_READONLY (type);
   store_init_value (decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
@@ -3299,8 +3299,8 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
       if (!lt 
-          || w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
-	  || w < min_precision (lt->enum_max, TREE_UNSIGNED (*type)))
+          || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
+	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning ("`%s' is narrower than values of its type", name);
     }
 }
@@ -4920,7 +4920,7 @@ xref_tag (enum tree_code code, tree name)
       TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
       TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
       TYPE_USER_ALIGN (ref) = 0;
-      TREE_UNSIGNED (ref) = 1;
+      TYPE_UNSIGNED (ref) = 1;
       TYPE_PRECISION (ref) = TYPE_PRECISION (unsigned_type_node);
       TYPE_MIN_VALUE (ref) = TYPE_MIN_VALUE (unsigned_type_node);
       TYPE_MAX_VALUE (ref) = TYPE_MAX_VALUE (unsigned_type_node);
@@ -5431,7 +5431,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
   TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
-  TREE_UNSIGNED (enumtype) = TREE_UNSIGNED (tem);
+  TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
   TYPE_SIZE (enumtype) = 0;
   layout_type (enumtype);
 
@@ -5493,7 +5493,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
-      TREE_UNSIGNED (tem) = TREE_UNSIGNED (enumtype);
+      TYPE_UNSIGNED (tem) = TYPE_UNSIGNED (enumtype);
       TYPE_LANG_SPECIFIC (tem) = TYPE_LANG_SPECIFIC (enumtype);
     }
 
@@ -5566,7 +5566,7 @@ build_enumerator (tree name, tree value)
 				      TYPE_PRECISION (integer_type_node)),
 				 (TYPE_PRECISION (type)
 				  >= TYPE_PRECISION (integer_type_node)
-				  && TREE_UNSIGNED (type)));
+				  && TYPE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
   DECL_INITIAL (decl) = convert (type, value);
@@ -5785,7 +5785,7 @@ start_function (tree declspecs, tree declarator, tree attributes)
   if (c_promoting_integer_type_p (restype))
     {
       /* It retains unsignedness if not really getting wider.  */
-      if (TREE_UNSIGNED (restype)
+      if (TYPE_UNSIGNED (restype)
 	  && (TYPE_PRECISION (restype)
 		  == TYPE_PRECISION (integer_type_node)))
 	restype = unsigned_type_node;

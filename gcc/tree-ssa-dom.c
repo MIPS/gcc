@@ -1772,7 +1772,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree val;
       tree op = TREE_OPERAND (rhs, 0);
 
-      if (TREE_UNSIGNED (TREE_TYPE (op)))
+      if (TYPE_UNSIGNED (TREE_TYPE (op)))
 	{
 	  val = integer_one_node;
 	}
@@ -1828,7 +1828,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree op = TREE_OPERAND (rhs, 0);
       tree type = TREE_TYPE (op);
 
-      if (TREE_UNSIGNED (type))
+      if (TYPE_UNSIGNED (type))
 	{
 	  val = integer_zero_node;
 	}
@@ -2207,7 +2207,7 @@ simplify_switch_and_lookup_avail_expr (tree stmt,
 
 	      /* If we have an extension that preserves sign, then we
 		 can copy the source value into the switch.  */
-	      if (TREE_UNSIGNED (to) == TREE_UNSIGNED (ti)
+	      if (TYPE_UNSIGNED (to) == TYPE_UNSIGNED (ti)
 		  && TYPE_PRECISION (to) >= TYPE_PRECISION (ti)
 	          && is_gimple_val (def))
 		{

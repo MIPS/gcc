@@ -568,7 +568,7 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
-	   && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type)
+	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     return true;
 

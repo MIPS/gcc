@@ -1,3 +1,171 @@
+2004-04-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/messages/members/char/1.cc: Remove junk.
+	* testsuite/22_locale/messages/members/char/2.cc: Ditto.
+	* testsuite/22_locale/messages/members/char/3.cc: Ditto.
+	* testsuite/22_locale/num_get/get/char/1.cc: Ditto.
+	* testsuite/22_locale/num_get/get/char/2.cc: Ditto.
+	* testsuite/22_locale/num_get/get/char/3.cc: Ditto.
+	* testsuite/22_locale/num_get/get/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/num_get/get/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/num_get/get/wchar_t/3.cc: Ditto.
+	* testsuite/22_locale/num_put/put/char/1.cc: Ditto.
+	* testsuite/22_locale/num_put/put/char/2.cc: Ditto.
+	* testsuite/22_locale/num_put/put/char/3.cc: Ditto.
+	* testsuite/22_locale/num_put/put/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/num_put/put/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/num_put/put/wchar_t/3.cc: Ditto.
+	* testsuite/22_locale/numpunct/members/char/1.cc: Ditto.
+	* testsuite/22_locale/numpunct/members/wchar_t/1.cc: Ditto.
+
+2004-04-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct,
+	__timepunct<wchar_t>::_M_initialize_timepunct): the correct
+	_M_amonth07 in the "C" locale is "Jul" and L"Jul", respectively.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<char>::_M_initialize_timepunct,
+	__timepunct<wchar_t>::_M_initialize_timepunct): Ditto.
+	* testsuite/22_locale/time_get/get_monthname/char/4.cc: New.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/4.cc: New.
+
+	* testsuite/22_locale/time_get/date_order/char/1.cc: Remove junk.
+	* testsuite/22_locale/time_get/date_order/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Ditto.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/1.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/2.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/3.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/4.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/5.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/6.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/7.cc: Ditto.
+	* testsuite/22_locale/time_put/put/char/8.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Ditto.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Ditto.
+
+	* testsuite/22_locale/time_put/put/char/9780-1.cc: Fix typos.
+
+2004-04-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/monetary_members.cc
+	(moneypunct<wchar_t>::_M_initialize_moneypunct): Prefer
+	_NL_MONETARY_DECIMAL_POINT_WC, _NL_MONETARY_THOUSANDS_SEP_WC,
+	and __MON_GROUPING to _NL_NUMERIC_DECIMAL_POINT_WC,
+	_NL_NUMERIC_THOUSANDS_SEP_WC, and GROUPING.
+	* config/locale/gnu/numeric_members.cc
+	(numpunct<char>::_M_initialize_numpunct): Prefer DECIMAL_POINT
+	and THOUSANDS_SEP to the deprecated RADIXCHAR and THOUSEP.
+
+2004-04-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Fixups for EDG front end.
+	* include/ext/rope: Instead of non-existent function
+	_Data_allocate, use allocator's allocate. Use this.
+	(namespace _Rope_constants): Move _S_max_rope_depth, and _Tag
+	enumerations from _Rope_RopeRep here.
+	* include/ext/ropeimpl.h: Same.
+	* src/ext-inst.cc (_S_min_len): Fix up definition.
+	
+	* config/locale/gnu/ctype_members.cc: Qualify base class members
+	with this.
+	* config/locale/generic/ctype_members.cc: Same.
+	* config/locale/gnu/messages_members.h: Same.
+	* config/locale/generic/messages_members.h: Same.
+	* src/ctype.cc: Same.
+	* include/bits/codecvt.h: Same.
+	
+	* include/bits/boost_concept_check.h: Declare.
+	(__error_type_must_be_an_unsigned_integer_type): Remove this.
+	(__error_type_must_be_an_integer_type): Remove this.
+	(__error_type_must_be_a_signed_integer_type): Remove this.	
+
+	* config/io/basic_file_stdio.cc (__basic_file::sys_open): Remove cast.
+
+	* libsupc++/eh_alloc.cc (__cxa_free_exception): Add exception
+	specification to definition.
+	(__cxa_allocate_exception): Same.
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Same.
+	* libsupc++/eh_globals.cc (__cxa_get_globals_fast): Same.
+	(__cxa_get_globals): Same.	
+	
+	* libsupc++/del_op.cc: Add comment about freestanding.
+
+2004-04-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::deallocate):
+	The critical section is actually very small, only two assignments.
+
+2004-04-04  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	* testsuite/performance/27_io/filebuf_sputn_unbuf.cc: New,
+	adapted from libstdc++/11378.
+
+2004-04-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::allocate): Factor out
+	some duplicated code.
+	(__mt_alloc<>::_Bin_record): Spare the space of _M_free and _M_used
+	in the single threaded case.
+	* testsuite/performance/20_util/allocator/list_sort_search.cc:
+	Reorder and renumber the tests consistently with the other testfiles.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Ditto.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Ditto.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc: Ditto.
+
+2004-04-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::deallocate):
+	Rearrange arithmetic to avoid computing two divisions at
+	each deallocation.
+
+2004-04-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::_S_initialize):
+	Streamline the second half, wrapping it in a single
+	'#ifdef __GTHREADS if (__gthread_active_p())' and avoiding
+	conditionals inside loops.
+
+2004-04-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14775
+	* acconfig.h: Rename _GLIBCXX_MEM_LIMITS to _GLIBCXX_RES_LIMITS.
+	* acinclude.m4 (GLIBCXX_CHECK_SETRLIMIT): Call
+	GLIBCXX_CHECK_SETRLIMIT_ancilliary for FSIZE too, adjust define
+	to _GLIBCXX_RES_LIMITS.
+	(GLIBCXX_CHECK_SETRLIMIT_ancilliary): Rename HAVE_MEMLIMIT_* to
+	HAVE_LIMIT_*.
+	* testsuite/testsuite_hooks.h: Declare set_file_limit.
+	* testsuite/testsuite_hooks.cc: Define it, using getrlimit
+	and setrlimit(RLIMIT_FSIZE).
+	* testsuite/27_io/fpos/14775.cc: New.
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+
 2004-03-31  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/locale/generic/c_locale.cc (__convert_to_v(long double&)):

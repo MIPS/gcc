@@ -183,7 +183,7 @@ build_stmt (enum tree_code code, ...)
   for (i = 0; i < length; i++)
     {
       tree t = va_arg (p, tree);
-      if (t)
+      if (t && IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
         side_effects |= TREE_SIDE_EFFECTS (t);
       TREE_OPERAND (ret, i) = t;
     }

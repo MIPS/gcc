@@ -712,23 +712,15 @@ extern struct sparc_cpu_select sparc_select[];
    if ptr_mode and Pmode are the same.  */
 #define POINTERS_EXTEND_UNSIGNED 1
 
-/* A macro to update MODE and UNSIGNEDP when an object whose type
-   is TYPE and which has the specified mode and signedness is to be
-   stored in a register.  This macro is only called when TYPE is a
-   scalar type.  */
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE) \
+/* For TARGET_ARCH64 we need this, as we don't have instructions
+   for arithmetic operations which do zero/sign extension at the same time,
+   so without this we end up with a srl/sra after every assignment to an
+   user variable,  which means very very bad code.  */
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE) \
 if (TARGET_ARCH64				\
     && GET_MODE_CLASS (MODE) == MODE_INT	\
     && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)	\
   (MODE) = word_mode;
-
-/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  For TARGET_ARCH64 we need it, as we don't have instructions
-   for arithmetic operations which do zero/sign extension at the same time,
-   so without this we end up with a srl/sra after every assignment to an
-   user variable,  which means very very bad code.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_ARCH64 ? 64 : 32)
@@ -2255,8 +2247,9 @@ do {                                                                    \
 /* Assume by default that we do not have the Solaris-specific conversion
    routines nor 64-bit integer multiply and divide routines.  */
 
-#define SUN_CONVERSION_LIBFUNCS 0
-#define SUN_INTEGER_MULTIPLY_64 0
+#define SUN_CONVERSION_LIBFUNCS 	0
+#define DITF_CONVERSION_LIBFUNCS	0
+#define SUN_INTEGER_MULTIPLY_64 	0
 
 /* Compute extra cost of moving data between one register class
    and another.  */
