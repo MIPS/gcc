@@ -1,6 +1,6 @@
 // Read a class and put it in the model.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -202,11 +202,11 @@ ref_annotation
 class_reader::parse_annotation ()
 {
   uint16 index = read_u2 ();
-  std::string anno_type_name = pool->get_class (index);
+  std::string anno_type_name = pool->get_utf8 (index);
 
-  uint8 count = read_u1 ();
+  uint16 count = read_u2 ();
   std::list<ref_annotation_value> values;
-  for (uint8 i = 0; i < count; ++i)
+  for (uint16 i = 0; i < count; ++i)
     {
       index = read_u2 ();
       std::string name = pool->get_utf8 (index);
@@ -233,7 +233,7 @@ class_reader::parse_parameter_annotations ()
   assert (current_method);
 
   std::list<ref_variable_decl> params = current_method->get_parameters ();
-  uint8 count = read_u2 ();
+  uint8 count = read_u1 ();
   if (count != params.size ())
     throw error ("expected %1 parameter annotations, but found %2")
       % params.size () % count;
@@ -600,8 +600,6 @@ class_reader::parse_attributes (int mask)
   int count = read_u2 ();
   int seen = 0;
 
-  assert (current_annotations.empty ());
-
   for (int i = 0; i < count; ++i)
     {
       uint16 name_index = read_u2 ();
@@ -640,11 +638,15 @@ class_reader::parse_attributes (int mask)
 
 	    case ATTR_RUNTIMEVISIBLEPARAMETERANNOTATIONS:
 	    case ATTR_RUNTIMEINVISIBLEPARAMETERANNOTATIONS:
+	      // Note: can't be called for Code attribute.
+	      assert (current_annotations.empty ());
 	      parse_parameter_annotations ();
 	      break;
 
 	    case ATTR_RUNTIMEVISIBLEANNOTATIONS:
 	    case ATTR_RUNTIMEINVISIBLEANNOTATIONS:
+	      // Note: can't be called for Code attribute.
+	      assert (current_annotations.empty ());
 	      parse_annotations ();
 	      break;
 

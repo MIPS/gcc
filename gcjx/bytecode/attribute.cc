@@ -26,6 +26,13 @@
 #include "bytecode/attribute.hh"
 #include "bytecode/generate.hh"
 
+static int emit_annotation_value (bytecode_stream *writer,
+				  output_constant_pool *pool,
+				  model_expression *expr);
+static int emit_annotation (bytecode_stream *writer,
+			    output_constant_pool *pool,
+			    model_annotation *anno);
+
 bytecode_attribute::bytecode_attribute (output_constant_pool *p,
 					const std::string &n)
   : pool (p),
@@ -248,7 +255,7 @@ emit_annotation_value (bytecode_stream *writer, output_constant_pool *pool,
   else if (type == global->get_compiler ()->java_lang_Class ())
     {
       model_class_ref *ref = assert_cast<model_class_ref *> (expr);
-      int index = pool->add (ref->get_class ());
+      int index = pool->add_utf (ref->get_class ()->get_descriptor ());
       if (writer)
 	{
 	  writer->put ('c');
@@ -263,17 +270,30 @@ emit_annotation_value (bytecode_stream *writer, output_constant_pool *pool,
       std::list<ref_expression> array = init->get_initializers ();
 
       if (writer)
-	writer->put2 (array.size ());
-      result += 2;
+	{
+	  writer->put ('[');
+	  writer->put2 (array.size ());
+	}
+      result += 3;
 
       for (std::list<ref_expression>::const_iterator i = array.begin ();
 	   i != array.end ();
 	   ++i)
 	result += emit_annotation_value (writer, pool, (*i).get ());
     }
+  else if (type->annotation_p ())
+    {
+      model_annotation *annot = assert_cast<model_annotation *> (expr);
+      if (writer)
+	writer->put ('@');
+      ++result;
+
+      result += emit_annotation (writer, pool, annot);
+    }
   else
     {
-      // FIXME: handle enum constant or attribute.
+      // The only remaining case is an enum constant.
+      // FIXME: unwrap the member ref and write it.
       abort ();
     }
 
@@ -288,15 +308,15 @@ emit_annotation (bytecode_stream *writer, output_constant_pool *pool,
 {
   int result = 0;
 
-  int val = pool->add (anno->type ());
+  int val = pool->add_utf (anno->type ()->get_descriptor ());
   if (writer)
     writer->put2 (val);
   result += 2;
 
   std::list<ref_annotation_value> vals = anno->get_arguments ();
   if (writer)
-    writer->put (vals.size ());
-  ++result;
+    writer->put2 (vals.size ());
+  result += 2;
 
   for (std::list<ref_annotation_value>::const_iterator i = vals.begin ();
        i != vals.end ();

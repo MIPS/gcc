@@ -1,3 +1,17 @@
+2005-01-18  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/attribute.cc (emit_annotation_value): Put annotation
+	class as utf8.
+	(emit_annotation): Likewise.  Number of pairs takes two bytes.
+	(emit_annotation_value): Correctly write arrays.  Handle nested
+	annotations.
+	* bytecode/classreader.cc (parse_annotation): Class is stored as
+	a Utf8Const.
+	(parse_parameter_annotations): Only one byte for number of
+	parameters.
+	(parse_annotation): Read two bytes for number of elements.
+	(parse_attributes): Fixed assertions.
+
 2005-01-16  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/classwriter.cc (write): Check number of words required
