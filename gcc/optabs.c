@@ -3579,6 +3579,40 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
 
       if (size == 0)
 	abort ();
+#ifdef HAVE_cmpmemqi
+      if (HAVE_cmpmemqi
+	  && GET_CODE (size) == CONST_INT
+	  && INTVAL (size) < (1 << GET_MODE_BITSIZE (QImode)))
+	{
+	  result_mode = insn_data[(int) CODE_FOR_cmpmemqi].operand[0].mode;
+	  result = gen_reg_rtx (result_mode);
+	  emit_insn (gen_cmpmemqi (result, x, y, size, opalign));
+	}
+      else
+#endif
+#ifdef HAVE_cmpmemhi
+      if (HAVE_cmpmemhi
+	  && GET_CODE (size) == CONST_INT
+	  && INTVAL (size) < (1 << GET_MODE_BITSIZE (HImode)))
+	{
+	  result_mode = insn_data[(int) CODE_FOR_cmpmemhi].operand[0].mode;
+	  result = gen_reg_rtx (result_mode);
+	  emit_insn (gen_cmpmemhi (result, x, y, size, opalign));
+	}
+      else
+#endif
+#ifdef HAVE_cmpmemsi
+      if (HAVE_cmpmemsi)
+	{
+	  result_mode = insn_data[(int) CODE_FOR_cmpmemsi].operand[0].mode;
+	  result = gen_reg_rtx (result_mode);
+	  size = protect_from_queue (size, 0);
+	  emit_insn (gen_cmpmemsi (result, x, y,
+				   convert_to_mode (SImode, size, 1),
+				   opalign));
+	}
+      else
+#endif
 #ifdef HAVE_cmpstrqi
       if (HAVE_cmpstrqi
 	  && GET_CODE (size) == CONST_INT
@@ -3691,7 +3725,12 @@ prepare_operand (int icode, rtx x, int opnum, enum machine_mode mode,
 
   if (! (*insn_data[icode].operand[opnum].predicate)
       (x, insn_data[icode].operand[opnum].mode))
-    x = copy_to_mode_reg (insn_data[icode].operand[opnum].mode, x);
+    {
+      if (no_new_pseudos)
+	return NULL_RTX;
+      x = copy_to_mode_reg (insn_data[icode].operand[opnum].mode, x);
+    }
+
   return x;
 }
 
@@ -4220,9 +4259,9 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
   /* get_condition will prefer to generate LT and GT even if the old
      comparison was against zero, so undo that canonicalization here since
      comparisons against zero are cheaper.  */
-  if (code == LT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == 1)
+  if (code == LT && op1 == const1_rtx)
     code = LE, op1 = const0_rtx;
-  else if (code == GT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == -1)
+  else if (code == GT && op1 == constm1_rtx)
     code = GE, op1 = const0_rtx;
 
   if (cmode == VOIDmode)
@@ -4361,9 +4400,9 @@ emit_conditional_add (rtx target, enum rtx_code code, rtx op0, rtx op1,
   /* get_condition will prefer to generate LT and GT even if the old
      comparison was against zero, so undo that canonicalization here since
      comparisons against zero are cheaper.  */
-  if (code == LT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == 1)
+  if (code == LT && op1 == const1_rtx)
     code = LE, op1 = const0_rtx;
-  else if (code == GT && GET_CODE (op1) == CONST_INT && INTVAL (op1) == -1)
+  else if (code == GT && op1 == constm1_rtx)
     code = GE, op1 = const0_rtx;
 
   if (cmode == VOIDmode)
@@ -5162,7 +5201,7 @@ static optab
 new_optab (void)
 {
   int i;
-  optab op = (optab) ggc_alloc (sizeof (struct optab));
+  optab op = ggc_alloc (sizeof (struct optab));
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       op->handlers[i].insn_code = CODE_FOR_nothing;
@@ -5702,6 +5741,11 @@ gen_cond_trap (enum rtx_code code ATTRIBUTE_UNUSED, rtx op1,
   start_sequence ();
   op1 = prepare_operand (icode, op1, 0, mode, mode, 0);
   op2 = prepare_operand (icode, op2, 1, mode, mode, 0);
+  if (!op1 || !op2)
+    {
+      end_sequence ();
+      return 0;
+    }
   emit_insn (GEN_FCN (icode) (op1, op2));
 
   PUT_CODE (trap_rtx, code);

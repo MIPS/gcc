@@ -114,11 +114,6 @@ struct varasm_status GTY(())
 
 static GTY(()) int const_labelno;
 
-/* Number for making the label on the next
-   static variable internal to a function.  */
-
-static GTY(()) int var_labelno;
-
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
 
@@ -377,7 +372,7 @@ set_named_section_flags (const char *section, unsigned int flags)
 
   if (!entry)
     {
-      entry = (struct in_named_entry *) ggc_alloc (sizeof (*entry));
+      entry = ggc_alloc (sizeof (*entry));
       *slot = entry;
       entry->name = ggc_strdup (section);
       entry->flags = flags;
@@ -750,9 +745,7 @@ decode_reg_name (const char *asmspec)
 void
 make_decl_rtl (tree decl, const char *asmspec)
 {
-  int top_level = (DECL_CONTEXT (decl) == NULL_TREE);
   const char *name = 0;
-  const char *new_name = 0;
   int reg_number;
   rtx x;
 
@@ -792,8 +785,6 @@ make_decl_rtl (tree decl, const char *asmspec)
       return;
     }
 
-  new_name = name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-
   reg_number = decode_reg_name (asmspec);
   if (reg_number == -2)
     {
@@ -802,8 +793,10 @@ make_decl_rtl (tree decl, const char *asmspec)
       char *starred = alloca (strlen (asmspec) + 2);
       starred[0] = '*';
       strcpy (starred + 1, asmspec);
-      new_name = starred;
+      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (starred));
     }
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
   if (TREE_CODE (decl) != FUNCTION_DECL && DECL_REGISTER (decl))
     {
@@ -875,28 +868,6 @@ make_decl_rtl (tree decl, const char *asmspec)
   /* Variables can't be both common and weak.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl))
     DECL_COMMON (decl) = 0;
-
-  /* Can't use just the variable's own name for a variable
-     whose scope is less than the whole file, unless it's a member
-     of a local class (which will already be unambiguous).
-     Concatenate a distinguishing number.  */
-  if (!top_level && !TREE_PUBLIC (decl)
-      && ! (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-      && asmspec == 0
-      && name == IDENTIFIER_POINTER (DECL_NAME (decl)))
-    {
-      char *label;
-
-      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
-      var_labelno++;
-      new_name = label;
-    }
-
-  if (name != new_name)
-    {
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (new_name));
-      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-    }
 
   x = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
@@ -2157,7 +2128,7 @@ const_hash_1 (const tree exp)
 	  char *tmp;
 
 	  len = int_size_in_bytes (TREE_TYPE (exp));
-	  tmp = (char *) alloca (len);
+	  tmp = alloca (len);
 	  get_set_constructor_bytes (exp, (unsigned char *) tmp, len);
 	  p = tmp;
 	  break;
@@ -2287,8 +2258,8 @@ compare_constant (const tree t1, const tree t2)
 	  if (int_size_in_bytes (TREE_TYPE (t1)) != len)
 	    return 0;
 
-	  tmp1 = (unsigned char *) alloca (len);
-	  tmp2 = (unsigned char *) alloca (len);
+	  tmp1 = alloca (len);
+	  tmp2 = alloca (len);
 
 	  if (get_set_constructor_bytes (t1, tmp1, len) != NULL_TREE)
 	    return 0;
@@ -2663,16 +2634,14 @@ void
 init_varasm_status (struct function *f)
 {
   struct varasm_status *p;
-  p = (struct varasm_status *) ggc_alloc (sizeof (struct varasm_status));
+  p = ggc_alloc (sizeof (struct varasm_status));
   f->varasm = p;
   p->x_const_rtx_hash_table
-    = ((struct constant_descriptor_rtx **)
-       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
-			  * sizeof (struct constant_descriptor_rtx *)));
+    = ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			 * sizeof (struct constant_descriptor_rtx *));
   p->x_const_rtx_sym_hash_table
-    = ((struct pool_constant **)
-       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
-			  * sizeof (struct pool_constant *)));
+    = ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			 * sizeof (struct pool_constant *));
 
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
@@ -2925,7 +2894,7 @@ record_constant_rtx (enum machine_mode mode, rtx x)
 {
   struct constant_descriptor_rtx *ptr;
 
-  ptr = (struct constant_descriptor_rtx *) ggc_alloc (sizeof (*ptr));
+  ptr = ggc_alloc (sizeof (*ptr));
   decode_rtx_const (mode, x, &ptr->value);
 
   return ptr;
@@ -2979,7 +2948,7 @@ force_const_mem (enum machine_mode mode, rtx x)
     LABEL_PRESERVE_P (XEXP (x, 0)) = 1;
 
   /* Allocate a pool constant descriptor, fill it in, and chain it in.  */
-  pool = (struct pool_constant *) ggc_alloc (sizeof (struct pool_constant));
+  pool = ggc_alloc (sizeof (struct pool_constant));
   pool->desc = desc;
   pool->constant = x;
   pool->mode = mode;
@@ -3796,7 +3765,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 			  thissize, align, 1);
       else if (TREE_CODE (exp) == CONSTRUCTOR)
 	{
-	  unsigned char *buffer = (unsigned char *) alloca (thissize);
+	  unsigned char *buffer = alloca (thissize);
 	  if (get_set_constructor_bytes (exp, buffer, thissize))
 	    abort ();
 	  assemble_string ((char *) buffer, thissize);

@@ -398,9 +398,9 @@ build_control_flow (struct edge_list *edge_list)
     }
 
   /* ??? We can kill these soon.  */
-  in_edges = (int *) xcalloc (last_basic_block, sizeof (int));
-  out_edges = (int *) xcalloc (last_basic_block, sizeof (int));
-  edge_table = (haifa_edge *) xcalloc (num_edges, sizeof (haifa_edge));
+  in_edges = xcalloc (last_basic_block, sizeof (int));
+  out_edges = xcalloc (last_basic_block, sizeof (int));
+  edge_table = xcalloc (num_edges, sizeof (haifa_edge));
 
   nr_edges = 0;
   for (i = 0; i < num_edges; i++)
@@ -618,7 +618,8 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
   int *max_hdr, *dfs_nr, *stack, *degree;
   char no_loops = 1;
   int node, child, loop_head, i, head, tail;
-  int count = 0, sp, idx = 0, current_edge = out_edges[0];
+  int count = 0, sp, idx = 0;
+  int current_edge = out_edges[ENTRY_BLOCK_PTR->succ->dest->index];
   int num_bbs, num_insns, unreachable;
   int too_large_failure;
   basic_block bb;
@@ -650,9 +651,9 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
      STACK, SP and DFS_NR are only used during the first traversal.  */
 
   /* Allocate and initialize variables for the first traversal.  */
-  max_hdr = (int *) xmalloc (last_basic_block * sizeof (int));
-  dfs_nr = (int *) xcalloc (last_basic_block, sizeof (int));
-  stack = (int *) xmalloc (nr_edges * sizeof (int));
+  max_hdr = xmalloc (last_basic_block * sizeof (int));
+  dfs_nr = xcalloc (last_basic_block, sizeof (int));
+  stack = xmalloc (nr_edges * sizeof (int));
 
   inner = sbitmap_alloc (last_basic_block);
   sbitmap_ones (inner);
@@ -796,7 +797,7 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
       /* Second traversal:find reducible inner loops and topologically sort
 	 block of each region.  */
 
-      queue = (int *) xmalloc (n_basic_blocks * sizeof (int));
+      queue = xmalloc (n_basic_blocks * sizeof (int));
 
       /* Find blocks which are inner loop headers.  We still have non-reducible
 	 loops to consider at this point.  */
@@ -1117,7 +1118,7 @@ compute_dom_prob_ps (int bb)
 static void
 split_edges (int bb_src, int bb_trg, edgelst *bl)
 {
-  sbitmap src = (edgeset) sbitmap_alloc (pot_split[bb_src]->n_bits);
+  sbitmap src = sbitmap_alloc (pot_split[bb_src]->n_bits);
   sbitmap_copy (src, pot_split[bb_src]);
 
   sbitmap_difference (src, src, pot_split[bb_trg]);
@@ -1181,7 +1182,7 @@ compute_trg_info (int trg)
 	     add the TO block to the update block list.  This list can end
 	     up with a lot of duplicates.  We need to weed them out to avoid
 	     overrunning the end of the bblst_table.  */
-	  update_blocks = (char *) alloca (last_basic_block);
+	  update_blocks = alloca (last_basic_block);
 	  memset (update_blocks, 0, last_basic_block);
 
 	  update_idx = 0;
@@ -1701,7 +1702,7 @@ static int schedule_more_p (void);
 static const char *rgn_print_insn (rtx, int);
 static int rgn_rank (rtx, rtx);
 static int contributes_to_priority (rtx, rtx);
-static void compute_jump_reg_dependencies (rtx, regset);
+static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -1734,8 +1735,7 @@ init_ready_list (struct ready_list *ready)
   /* Prepare current target block info.  */
   if (current_nr_blocks > 1)
     {
-      candidate_table = (candidate *) xmalloc (current_nr_blocks
-					       * sizeof (candidate));
+      candidate_table = xmalloc (current_nr_blocks * sizeof (candidate));
 
       bblst_last = 0;
       /* bblst_table holds split blocks and update blocks for each block after
@@ -1743,10 +1743,10 @@ init_ready_list (struct ready_list *ready)
 	 the TO blocks of region edges, so there can be at most rgn_nr_edges
 	 of them.  */
       bblst_size = (current_nr_blocks - target_bb) * rgn_nr_edges;
-      bblst_table = (int *) xmalloc (bblst_size * sizeof (int));
+      bblst_table = xmalloc (bblst_size * sizeof (int));
 
       bitlst_table_last = 0;
-      bitlst_table = (int *) xmalloc (rgn_nr_edges * sizeof (int));
+      bitlst_table = xmalloc (rgn_nr_edges * sizeof (int));
 
       compute_trg_info (target_bb);
     }
@@ -1951,11 +1951,15 @@ contributes_to_priority (rtx next, rtx insn)
   return BLOCK_NUM (next) == BLOCK_NUM (insn);
 }
 
-/* INSN is a JUMP_INSN.  Store the set of registers that must be considered
-   to be set by this jump in SET.  */
+/* INSN is a JUMP_INSN, COND_SET is the set of registers that are
+   conditionally set before INSN.  Store the set of registers that
+   must be considered as used by this jump in USED and that of
+   registers that must be considered as set in SET.  */
 
 static void
 compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
+			       regset cond_exec ATTRIBUTE_UNUSED,
+			       regset used ATTRIBUTE_UNUSED,
 			       regset set ATTRIBUTE_UNUSED)
 {
   /* Nothing to do here, since we postprocess jumps in
@@ -2384,7 +2388,7 @@ schedule_region (int rgn)
   init_deps_global ();
 
   /* Initializations for region data dependence analysis.  */
-  bb_deps = (struct deps *) xmalloc (sizeof (struct deps) * current_nr_blocks);
+  bb_deps = xmalloc (sizeof (struct deps) * current_nr_blocks);
   for (bb = 0; bb < current_nr_blocks; bb++)
     init_deps (bb_deps + bb);
 
@@ -2419,17 +2423,17 @@ schedule_region (int rgn)
     {
       int i;
 
-      prob = (float *) xmalloc ((current_nr_blocks) * sizeof (float));
+      prob = xmalloc ((current_nr_blocks) * sizeof (float));
 
       dom = sbitmap_vector_alloc (current_nr_blocks, current_nr_blocks);
       sbitmap_vector_zero (dom, current_nr_blocks);
       /* Edge to bit.  */
       rgn_nr_edges = 0;
-      edge_to_bit = (int *) xmalloc (nr_edges * sizeof (int));
+      edge_to_bit = xmalloc (nr_edges * sizeof (int));
       for (i = 1; i < nr_edges; i++)
 	if (CONTAINING_RGN (FROM_BLOCK (i)) == rgn)
 	  EDGE_TO_BIT (i) = rgn_nr_edges++;
-      rgn_edges = (int *) xmalloc (rgn_nr_edges * sizeof (int));
+      rgn_edges = xmalloc (rgn_nr_edges * sizeof (int));
 
       rgn_nr_edges = 0;
       for (i = 1; i < nr_edges; i++)
@@ -2560,10 +2564,10 @@ init_regions (void)
   int rgn;
 
   nr_regions = 0;
-  rgn_table = (region *) xmalloc ((n_basic_blocks) * sizeof (region));
-  rgn_bb_table = (int *) xmalloc ((n_basic_blocks) * sizeof (int));
-  block_to_bb = (int *) xmalloc ((last_basic_block) * sizeof (int));
-  containing_rgn = (int *) xmalloc ((last_basic_block) * sizeof (int));
+  rgn_table = xmalloc ((n_basic_blocks) * sizeof (region));
+  rgn_bb_table = xmalloc ((n_basic_blocks) * sizeof (int));
+  block_to_bb = xmalloc ((last_basic_block) * sizeof (int));
+  containing_rgn = xmalloc ((last_basic_block) * sizeof (int));
 
   /* Compute regions for scheduling.  */
   if (reload_completed
@@ -2617,7 +2621,7 @@ init_regions (void)
   if (CHECK_DEAD_NOTES)
     {
       blocks = sbitmap_alloc (last_basic_block);
-      deaths_in_region = (int *) xmalloc (sizeof (int) * nr_regions);
+      deaths_in_region = xmalloc (sizeof (int) * nr_regions);
       /* Remove all death notes from the subroutine.  */
       for (rgn = 0; rgn < nr_regions; rgn++)
 	{

@@ -21,8 +21,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "hashtable.h"
 
 /* The code below is a specialization of Vladimir Makarov's expandable
@@ -34,6 +32,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 static unsigned int calc_hash (const unsigned char *, unsigned int);
 static void ht_expand (hash_table *);
+static double approx_sqrt (double);
 
 /* Calculate the hash of the string STR of length LEN.  */
 
@@ -59,14 +58,17 @@ ht_create (unsigned int order)
   unsigned int nslots = 1 << order;
   hash_table *table;
 
-  table = (hash_table *) xmalloc (sizeof (hash_table));
+  table = xmalloc (sizeof (hash_table));
   memset (table, 0, sizeof (hash_table));
 
   /* Strings need no alignment.  */
-  gcc_obstack_init (&table->stack);
+  _obstack_begin (&table->stack, 0, 0,
+		  (void *(*) (long)) xmalloc,
+		  (void (*) (void *)) free);
+
   obstack_alignment_mask (&table->stack) = 0;
 
-  table->entries = (hashnode *) xcalloc (nslots, sizeof (hashnode));
+  table->entries = xcalloc (nslots, sizeof (hashnode));
   table->nslots = nslots;
   return table;
 }
@@ -157,7 +159,7 @@ ht_expand (hash_table *table)
   unsigned int size, sizemask;
 
   size = table->nslots * 2;
-  nentries = (hashnode *) xcalloc (size, sizeof (hashnode));
+  nentries = xcalloc (size, sizeof (hashnode));
   sizemask = size - 1;
 
   p = table->entries;
@@ -274,7 +276,7 @@ ht_dump_statistics (hash_table *table)
 
 /* Return the approximate positive square root of a number N.  This is for
    statistical reports, not code generation.  */
-double
+static double
 approx_sqrt (double x)
 {
   double s, d;

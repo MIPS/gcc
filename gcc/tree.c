@@ -51,28 +51,11 @@ extern int _obstack_allocated_p (struct obstack *h, void *obj);
 
 #ifdef GATHER_STATISTICS
 /* Statistics-gathering stuff.  */
-typedef enum
-{
-  d_kind,
-  t_kind,
-  b_kind,
-  s_kind,
-  r_kind,
-  e_kind,
-  c_kind,
-  id_kind,
-  perm_list_kind,
-  temp_list_kind,
-  vec_kind,
-  x_kind,
-  lang_decl,
-  lang_type,
-  all_kinds
-} tree_node_kind;
 
 int tree_node_counts[(int) all_kinds];
 int tree_node_sizes[(int) all_kinds];
 
+/* Keep in sync with tree.h:enum tree_node_kind. */
 static const char * const tree_node_kind_names[] = {
   "decls",
   "types",
@@ -511,7 +494,7 @@ real_value_from_int_cst (tree type ATTRIBUTE_UNUSED, tree i)
 
   /* Clear all bits of the real value type so that we can later do
      bitwise comparisons to see if two values are the same.  */
-  memset ((char *) &d, 0, sizeof d);
+  memset (&d, 0, sizeof d);
 
   if (! TREE_UNSIGNED (TREE_TYPE (i)))
     REAL_VALUE_FROM_INT (d, TREE_INT_CST_LOW (i), TREE_INT_CST_HIGH (i),
@@ -1478,8 +1461,6 @@ first_rtl_op (enum tree_code code)
       return 0;
     case WITH_CLEANUP_EXPR:
       return 2;
-    case METHOD_CALL_EXPR:
-      return 3;
     default:
       return TREE_CODE_LENGTH (code);
     }
@@ -3004,7 +2985,7 @@ type_hash_add (unsigned int hashcode, tree type)
   struct type_hash *h;
   void **loc;
 
-  h = (struct type_hash *) ggc_alloc (sizeof (struct type_hash));
+  h = ggc_alloc (sizeof (struct type_hash));
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);
@@ -4370,26 +4351,30 @@ decl_type_context (tree decl)
   tree context = DECL_CONTEXT (decl);
 
   while (context)
-    {
-      if (TREE_CODE (context) == NAMESPACE_DECL)
+    switch (TREE_CODE (context))
+      {
+      case NAMESPACE_DECL:
+      case TRANSLATION_UNIT_DECL:
 	return NULL_TREE;
 
-      if (TREE_CODE (context) == RECORD_TYPE
-	  || TREE_CODE (context) == UNION_TYPE
-	  || TREE_CODE (context) == QUAL_UNION_TYPE)
+      case RECORD_TYPE:
+      case UNION_TYPE:
+      case QUAL_UNION_TYPE:
 	return context;
-
-      if (TREE_CODE (context) == TYPE_DECL
-	  || TREE_CODE (context) == FUNCTION_DECL)
+	
+      case TYPE_DECL:
+      case FUNCTION_DECL:
 	context = DECL_CONTEXT (context);
-
-      else if (TREE_CODE (context) == BLOCK)
+	break;
+	
+      case BLOCK:
 	context = BLOCK_SUPERCONTEXT (context);
-
-      else
-	/* Unhandled CONTEXT!?  */
+	break;
+	
+      default:
 	abort ();
-    }
+      }
+
   return NULL_TREE;
 }
 
@@ -4442,19 +4427,19 @@ dump_tree_statistics (void)
 
   fprintf (stderr, "\n??? tree nodes created\n\n");
 #ifdef GATHER_STATISTICS
-  fprintf (stderr, "Kind                  Nodes     Bytes\n");
-  fprintf (stderr, "-------------------------------------\n");
+  fprintf (stderr, "Kind                   Nodes      Bytes\n");
+  fprintf (stderr, "---------------------------------------\n");
   total_nodes = total_bytes = 0;
   for (i = 0; i < (int) all_kinds; i++)
     {
-      fprintf (stderr, "%-20s %6d %9d\n", tree_node_kind_names[i],
+      fprintf (stderr, "%-20s %7d %10d\n", tree_node_kind_names[i],
 	       tree_node_counts[i], tree_node_sizes[i]);
       total_nodes += tree_node_counts[i];
       total_bytes += tree_node_sizes[i];
     }
-  fprintf (stderr, "-------------------------------------\n");
-  fprintf (stderr, "%-20s %6d %9d\n", "Total", total_nodes, total_bytes);
-  fprintf (stderr, "-------------------------------------\n");
+  fprintf (stderr, "---------------------------------------\n");
+  fprintf (stderr, "%-20s %7d %10d\n", "Total", total_nodes, total_bytes);
+  fprintf (stderr, "---------------------------------------\n");
 #else
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
@@ -4532,7 +4517,7 @@ get_file_function_name_long (const char *type)
 	file = input_filename;
 
       len = strlen (file);
-      q = (char *) alloca (9 * 2 + len);
+      q = alloca (9 * 2 + len);
       memcpy (q, file, len + 1);
       clean_symbol_name (q);
 
@@ -4542,8 +4527,7 @@ get_file_function_name_long (const char *type)
       p = q;
     }
 
-  buf = (char *) alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p)
-			 + strlen (type));
+  buf = alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p) + strlen (type));
 
   /* Set up the name of the file-level functions we may need.
      Use a global object (which is already required to be unique over
@@ -4638,7 +4622,7 @@ get_set_constructor_bytes (tree init, unsigned char *buffer, int wd_size)
   int bit_size = wd_size * set_word_size;
   int bit_pos = 0;
   unsigned char *bytep = buffer;
-  char *bit_buffer = (char *) alloca (bit_size);
+  char *bit_buffer = alloca (bit_size);
   tree non_const_bits = get_set_constructor_bits (init, bit_buffer, bit_size);
 
   for (i = 0; i < wd_size; i++)
@@ -4894,6 +4878,7 @@ build_common_tree_nodes_2 (int short_double)
   V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
   V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
   V1DI_type_node = make_vector (V1DImode, intDI_type_node, 0);
+  V4DF_type_node = make_vector (V4DFmode, double_type_node, 0);
 }
 
 /* Returns a vector tree node given a vector mode, the inner type, and

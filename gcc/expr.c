@@ -339,7 +339,7 @@ init_expr_once (void)
 void
 init_expr (void)
 {
-  cfun->expr = (struct expr_status *) ggc_alloc (sizeof (struct expr_status));
+  cfun->expr = ggc_alloc (sizeof (struct expr_status));
 
   pending_chain = 0;
   pending_stack_adjust = 0;
@@ -1766,6 +1766,9 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
      can be incorrect is coming from __builtin_memcpy.  */
   if (GET_CODE (size) == CONST_INT)
     {
+      if (INTVAL (size) == 0)
+	return 0;
+
       x = shallow_copy_rtx (x);
       y = shallow_copy_rtx (y);
       set_mem_size (x, size);
@@ -2221,7 +2224,7 @@ gen_group_rtx (rtx orig)
     abort ();
 
   length = XVECLEN (orig, 0);
-  tmps = (rtx *) alloca (sizeof (rtx) * length);
+  tmps = alloca (sizeof (rtx) * length);
 
   /* Skip a NULL entry in first slot.  */
   i = XEXP (XVECEXP (orig, 0, 0), 0) ? 0 : 1;
@@ -2240,18 +2243,13 @@ gen_group_rtx (rtx orig)
   return gen_rtx_PARALLEL (GET_MODE (orig), gen_rtvec_v (length, tmps));
 }
 
-/* Emit code to move a block SRC to a block DST, where DST is non-consecutive
-   registers represented by a PARALLEL.  SSIZE represents the total size of
-   block SRC in bytes, or -1 if not known.  */
-/* ??? If SSIZE % UNITS_PER_WORD != 0, we make the blatant assumption that
-   the balance will be in what would be the low-order memory addresses, i.e.
-   left justified for big endian, right justified for little endian.  This
-   happens to be true for the targets currently using this support.  If this
-   ever changes, a new target macro along the lines of FUNCTION_ARG_PADDING
-   would be needed.  */
+/* Emit code to move a block ORIG_SRC of type TYPE to a block DST,
+   where DST is non-consecutive registers represented by a PARALLEL.
+   SSIZE represents the total size of block ORIG_SRC in bytes, or -1
+   if not known.  */ 
 
 void
-emit_group_load (rtx dst, rtx orig_src, int ssize)
+emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, src;
   int start, i;
@@ -2266,7 +2264,7 @@ emit_group_load (rtx dst, rtx orig_src, int ssize)
   else
     start = 1;
 
-  tmps = (rtx *) alloca (sizeof (rtx) * XVECLEN (dst, 0));
+  tmps = alloca (sizeof (rtx) * XVECLEN (dst, 0));
 
   /* Process the pieces.  */
   for (i = start; i < XVECLEN (dst, 0); i++)
@@ -2279,7 +2277,17 @@ emit_group_load (rtx dst, rtx orig_src, int ssize)
       /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
 	{
-	  shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
+	  /* Arrange to shift the fragment to where it belongs.
+	     extract_bit_field loads to the lsb of the reg.  */
+	  if (
+#ifdef BLOCK_REG_PADDING
+	      BLOCK_REG_PADDING (GET_MODE (orig_src), type, i == start)
+	      == (BYTES_BIG_ENDIAN ? upward : downward)
+#else
+	      BYTES_BIG_ENDIAN
+#endif
+	      )
+	    shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	  bytelen = ssize - bytepos;
 	  if (bytelen <= 0)
 	    abort ();
@@ -2304,7 +2312,8 @@ emit_group_load (rtx dst, rtx orig_src, int ssize)
 
       /* Optimize the access just a bit.  */
       if (GET_CODE (src) == MEM
-	  && MEM_ALIGN (src) >= GET_MODE_ALIGNMENT (mode)
+	  && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (src))
+	      || MEM_ALIGN (src) >= GET_MODE_ALIGNMENT (mode))
 	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
 	  && bytelen == GET_MODE_SIZE (mode))
 	{
@@ -2360,7 +2369,7 @@ emit_group_load (rtx dst, rtx orig_src, int ssize)
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
 				     mode, mode, ssize);
 
-      if (BYTES_BIG_ENDIAN && shift)
+      if (shift)
 	expand_binop (mode, ashl_optab, tmps[i], GEN_INT (shift),
 		      tmps[i], 0, OPTAB_WIDEN);
     }
@@ -2391,12 +2400,13 @@ emit_group_move (rtx dst, rtx src)
 		    XEXP (XVECEXP (src, 0, i), 0));
 }
 
-/* Emit code to move a block SRC to a block DST, where SRC is non-consecutive
-   registers represented by a PARALLEL.  SSIZE represents the total size of
-   block DST, or -1 if not known.  */
+/* Emit code to move a block SRC to a block ORIG_DST of type TYPE,
+   where SRC is non-consecutive registers represented by a PARALLEL.
+   SSIZE represents the total size of block ORIG_DST, or -1 if not
+   known.  */
 
 void
-emit_group_store (rtx orig_dst, rtx src, int ssize)
+emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, dst;
   int start, i;
@@ -2411,7 +2421,7 @@ emit_group_store (rtx orig_dst, rtx src, int ssize)
   else
     start = 1;
 
-  tmps = (rtx *) alloca (sizeof (rtx) * XVECLEN (src, 0));
+  tmps = alloca (sizeof (rtx) * XVECLEN (src, 0));
 
   /* Copy the (probable) hard regs into pseudos.  */
   for (i = start; i < XVECLEN (src, 0); i++)
@@ -2440,8 +2450,8 @@ emit_group_store (rtx orig_dst, rtx src, int ssize)
 	 the temporary.  */
 
       temp = assign_stack_temp (GET_MODE (dst), ssize, 0);
-      emit_group_store (temp, src, ssize);
-      emit_group_load (dst, temp, ssize);
+      emit_group_store (temp, src, type, ssize);
+      emit_group_load (dst, temp, type, ssize);
       return;
     }
   else if (GET_CODE (dst) != MEM && GET_CODE (dst) != CONCAT)
@@ -2462,7 +2472,16 @@ emit_group_store (rtx orig_dst, rtx src, int ssize)
       /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
 	{
-	  if (BYTES_BIG_ENDIAN)
+	  /* store_bit_field always takes its value from the lsb.
+	     Move the fragment to the lsb if it's not already there.  */
+	  if (
+#ifdef BLOCK_REG_PADDING
+	      BLOCK_REG_PADDING (GET_MODE (orig_dst), type, i == start)
+	      == (BYTES_BIG_ENDIAN ? upward : downward)
+#else
+	      BYTES_BIG_ENDIAN
+#endif
+	      )
 	    {
 	      int shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	      expand_binop (mode, ashr_optab, tmps[i], GEN_INT (shift),
@@ -2495,7 +2514,8 @@ emit_group_store (rtx orig_dst, rtx src, int ssize)
 
       /* Optimize the access just a bit.  */
       if (GET_CODE (dest) == MEM
-	  && MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode)
+	  && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (dest))
+	      || MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode))
 	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
 	  && bytelen == GET_MODE_SIZE (mode))
 	emit_move_insn (adjust_address (dest, mode, bytepos), tmps[i]);
@@ -2958,7 +2978,7 @@ clear_storage (rtx object, rtx size)
       object = protect_from_queue (object, 1);
       size = protect_from_queue (size, 0);
 
-      if (GET_CODE (size) == CONST_INT && INTVAL (size) == 0)
+      if (size == const0_rtx)
 	;
       else if (GET_CODE (size) == CONST_INT
 	  && CLEAR_BY_PIECES_P (INTVAL (size), align))
@@ -4076,7 +4096,7 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       /* Handle calls that pass values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (reg) == PARALLEL)
-	emit_group_load (reg, x, -1);  /* ??? size? */
+	emit_group_load (reg, x, type, -1);
       else
 	move_block_to_reg (REGNO (reg), x, partial, mode);
     }
@@ -4111,16 +4131,10 @@ get_subtarget (rtx x)
    If WANT_VALUE is nonzero, return an rtx for the value of TO.
    (This may contain a QUEUED rtx;
    if the value is constant, this rtx is a constant.)
-   Otherwise, the returned value is NULL_RTX.
-
-   SUGGEST_REG is no longer actually used.
-   It used to mean, copy the value through a register
-   and return that register, if that is possible.
-   We now use WANT_VALUE to decide whether to do this.  */
+   Otherwise, the returned value is NULL_RTX.  */
 
 rtx
-expand_assignment (tree to, tree from, int want_value,
-		   int suggest_reg ATTRIBUTE_UNUSED)
+expand_assignment (tree to, tree from, int want_value)
 {
   rtx to_rtx = 0;
   rtx result;
@@ -4276,7 +4290,8 @@ expand_assignment (tree to, tree from, int want_value,
       /* Handle calls that return values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (to_rtx) == PARALLEL)
-	emit_group_load (to_rtx, value, int_size_in_bytes (TREE_TYPE (from)));
+	emit_group_load (to_rtx, value, TREE_TYPE (from),
+			 int_size_in_bytes (TREE_TYPE (from)));
       else if (GET_MODE (to_rtx) == BLKmode)
 	emit_block_move (to_rtx, value, expr_size (from), BLOCK_OP_NORMAL);
       else
@@ -4310,7 +4325,8 @@ expand_assignment (tree to, tree from, int want_value,
       temp = expand_expr (from, 0, GET_MODE (to_rtx), 0);
 
       if (GET_CODE (to_rtx) == PARALLEL)
-	emit_group_load (to_rtx, temp, int_size_in_bytes (TREE_TYPE (from)));
+	emit_group_load (to_rtx, temp, TREE_TYPE (from),
+			 int_size_in_bytes (TREE_TYPE (from)));
       else
 	emit_move_insn (to_rtx, temp);
 
@@ -4720,7 +4736,8 @@ store_expr (tree exp, rtx target, int want_value)
       /* Handle calls that return values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */
       else if (GET_CODE (target) == PARALLEL)
-	emit_group_load (target, temp, int_size_in_bytes (TREE_TYPE (exp)));
+	emit_group_load (target, temp, TREE_TYPE (exp),
+			 int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
 	emit_block_move (target, temp, expr_size (exp),
 			 (want_value & 2
@@ -5371,7 +5388,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	{
 	  unsigned int set_word_size = TYPE_ALIGN (TREE_TYPE (exp));
 	  enum machine_mode mode = mode_for_size (set_word_size, MODE_INT, 1);
-	  char *bit_buffer = (char *) alloca (nbits);
+	  char *bit_buffer = alloca (nbits);
 	  HOST_WIDE_INT word = 0;
 	  unsigned int bit_pos = 0;
 	  unsigned int ibit = 0;
@@ -6245,10 +6262,6 @@ safe_from_p (rtx x, tree exp, int top_p)
 	  /* The only operand we look at is operand 1.  The rest aren't
 	     part of the expression.  */
 	  return safe_from_p (x, TREE_OPERAND (exp, 1), 0);
-
-	case METHOD_CALL_EXPR:
-	  /* This takes an rtx argument, but shouldn't appear here.  */
-	  abort ();
 
 	default:
 	  break;
@@ -7440,38 +7453,40 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	      op0 = validize_mem (force_const_mem (mode, op0));
 	  }
 
+ 	/* Otherwise, if this object not in memory and we either have an
+ 	   offset or a BLKmode result, put it there.  This case can't occur in
+ 	   C, but can in Ada if we have unchecked conversion of an expression
+ 	   from a scalar type to an array or record type or for an
+ 	   ARRAY_RANGE_REF whose type is BLKmode.  */
+	else if (GET_CODE (op0) != MEM
+		 && (offset != 0
+		     || (code == ARRAY_RANGE_REF && mode == BLKmode)))
+	  {
+	    /* If the operand is a SAVE_EXPR, we can deal with this by
+	       forcing the SAVE_EXPR into memory.  */
+	    if (TREE_CODE (TREE_OPERAND (exp, 0)) == SAVE_EXPR)
+	      {
+		put_var_into_stack (TREE_OPERAND (exp, 0),
+				    /*rescan=*/true);
+		op0 = SAVE_EXPR_RTL (TREE_OPERAND (exp, 0));
+	      }
+	    else
+	      {
+		tree nt
+		  = build_qualified_type (TREE_TYPE (tem),
+					  (TYPE_QUALS (TREE_TYPE (tem))
+					   | TYPE_QUAL_CONST));
+		rtx memloc = assign_temp (nt, 1, 1, 1);
+		
+		emit_move_insn (memloc, op0);
+		op0 = memloc;
+	      }
+	  }
+
 	if (offset != 0)
 	  {
 	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode,
 					  EXPAND_SUM);
-
-	    /* If this object is in a register, put it into memory.
-	       This case can't occur in C, but can in Ada if we have
-	       unchecked conversion of an expression from a scalar type to
-	       an array or record type.  */
-	    if (GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG
-		|| GET_CODE (op0) == CONCAT || GET_CODE (op0) == ADDRESSOF)
-	      {
-		/* If the operand is a SAVE_EXPR, we can deal with this by
-		   forcing the SAVE_EXPR into memory.  */
-		if (TREE_CODE (TREE_OPERAND (exp, 0)) == SAVE_EXPR)
-		  {
-		    put_var_into_stack (TREE_OPERAND (exp, 0),
-					/*rescan=*/true);
-		    op0 = SAVE_EXPR_RTL (TREE_OPERAND (exp, 0));
-		  }
-		else
-		  {
-		    tree nt
-		      = build_qualified_type (TREE_TYPE (tem),
-					      (TYPE_QUALS (TREE_TYPE (tem))
-					       | TYPE_QUAL_CONST));
-		    rtx memloc = assign_temp (nt, 1, 1, 1);
-
-		    emit_move_insn (memloc, op0);
-		    op0 = memloc;
-		  }
-	      }
 
 	    if (GET_CODE (op0) != MEM)
 	      abort ();
@@ -9122,7 +9137,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 	tree lhs = TREE_OPERAND (exp, 0);
 	tree rhs = TREE_OPERAND (exp, 1);
 
-	temp = expand_assignment (lhs, rhs, ! ignore, original_target != 0);
+	temp = expand_assignment (lhs, rhs, ! ignore);
 	return temp;
       }
 
@@ -9167,13 +9182,13 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 					     (TREE_CODE (rhs) == BIT_IOR_EXPR
 					      ? integer_one_node
 					      : integer_zero_node)),
-			       0, 0);
+			       0);
 	    do_pending_stack_adjust ();
 	    emit_label (label);
 	    return const0_rtx;
 	  }
 
-	temp = expand_assignment (lhs, rhs, ! ignore, original_target != 0);
+	temp = expand_assignment (lhs, rhs, ! ignore);
 
 	return temp;
       }
@@ -9266,7 +9281,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 		    /* Handle calls that pass values in multiple
 		       non-contiguous locations.  The Irix 6 ABI has examples
 		       of this.  */
-		    emit_group_store (memloc, op0,
+		    emit_group_store (memloc, op0, inner_type,
 				      int_size_in_bytes (inner_type));
 		  else
 		    emit_move_insn (memloc, op0);
@@ -9776,7 +9791,7 @@ expand_increment (tree exp, int post, int ignore)
 	  incremented = TREE_OPERAND (incremented, 0);
 	}
 
-      temp = expand_assignment (incremented, newexp, ! post && ! ignore , 0);
+      temp = expand_assignment (incremented, newexp, ! post && ! ignore);
       return post ? op0 : temp;
     }
 

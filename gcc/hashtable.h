@@ -19,6 +19,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define GCC_HASHTABLE_H
 
 #include "obstack.h"
+#define GTY(x) /* nothing */
 
 /* This is what each hash table entry points to.  It may be embedded
    deeply within another object.  */
@@ -76,9 +77,5 @@ extern void ht_forall (hash_table *, ht_cb, const void *);
 
 /* Dump allocation statistics to stderr.  */
 extern void ht_dump_statistics (hash_table *);
-
-/* Approximate positive square root of a host double.  This is for
-   statistical reports, not code generation.  */
-extern double approx_sqrt (double);
 
 #endif /* GCC_HASHTABLE_H */

@@ -692,7 +692,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 
 	  if (best_p->size - rounded_size >= alignment)
 	    {
-	      p = (struct temp_slot *) ggc_alloc (sizeof (struct temp_slot));
+	      p = ggc_alloc (sizeof (struct temp_slot));
 	      p->in_use = p->addr_taken = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
@@ -723,7 +723,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
-      p = (struct temp_slot *) ggc_alloc (sizeof (struct temp_slot));
+      p = ggc_alloc (sizeof (struct temp_slot));
 
       /* We are passing an explicit alignment request to assign_stack_local.
 	 One side effect of that is assign_stack_local will not round SIZE
@@ -1477,8 +1477,7 @@ schedule_fixup_var_refs (struct function *function, rtx reg, tree type,
     {
       struct var_refs_queue *temp;
 
-      temp
-	= (struct var_refs_queue *) ggc_alloc (sizeof (struct var_refs_queue));
+      temp = ggc_alloc (sizeof (struct var_refs_queue));
       temp->modified = reg;
       temp->promoted_mode = promoted_mode;
       temp->unsignedp = unsigned_p;
@@ -1553,7 +1552,7 @@ find_fixup_replacement (struct fixup_replacement **replacements, rtx x)
 
   if (p == 0)
     {
-      p = (struct fixup_replacement *) xmalloc (sizeof (struct fixup_replacement));
+      p = xmalloc (sizeof (struct fixup_replacement));
       p->old = x;
       p->new = 0;
       p->next = *replacements;
@@ -1627,7 +1626,7 @@ fixup_var_refs_insns_with_hash (htab_t ht, rtx var, enum machine_mode promoted_m
   rtx insn_list;
 
   tmp.key = var;
-  ime = (struct insns_for_mem_entry *) htab_find (ht, &tmp);
+  ime = htab_find (ht, &tmp);
   for (insn_list = ime->insns; insn_list != 0; insn_list = XEXP (insn_list, 1))
     if (INSN_P (XEXP (insn_list, 0)))
       fixup_var_refs_insn (XEXP (insn_list, 0), var, promoted_mode,
@@ -3295,7 +3294,7 @@ insns_for_mem_walk (rtx *r, void *data)
     {
       struct insns_for_mem_entry *ifme;
       tmp.key = *r;
-      ifme = (struct insns_for_mem_entry *) htab_find (ifmwi->ht, &tmp);
+      ifme = htab_find (ifmwi->ht, &tmp);
 
       /* If we have not already recorded this INSN, do so now.  Since
 	 we process the INSNs in order, we know that if we have
@@ -4281,7 +4280,7 @@ assign_parms (tree fndecl)
   orig_fnargs = fnargs;
 
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
-  parm_reg_stack_loc = (rtx *) ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
+  parm_reg_stack_loc = ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
 
   if (SPLIT_COMPLEX_ARGS)
     fnargs = split_complex_args (fnargs);
@@ -4507,6 +4506,8 @@ assign_parms (tree fndecl)
 						  offset_rtx));
 
 	set_mem_attributes (stack_parm, parm, 1);
+	if (entry_parm && MEM_ATTRS (stack_parm)->align < PARM_BOUNDARY)
+	  set_mem_align (stack_parm, PARM_BOUNDARY);
 
 	/* Set also REG_ATTRS if parameter was passed in a register.  */
 	if (entry_parm)
@@ -4538,6 +4539,7 @@ assign_parms (tree fndecl)
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (GET_CODE (entry_parm) == PARALLEL)
 	    emit_group_store (validize_mem (stack_parm), entry_parm,
+			      TREE_TYPE (parm),
 			      int_size_in_bytes (TREE_TYPE (parm)));
 
 	  else
@@ -4644,7 +4646,12 @@ assign_parms (tree fndecl)
 
 	 Set DECL_RTL to that place.  */
 
-      if (nominal_mode == BLKmode || GET_CODE (entry_parm) == PARALLEL)
+      if (nominal_mode == BLKmode
+#ifdef BLOCK_REG_PADDING
+	  || (locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
+	      && GET_MODE_SIZE (promoted_mode) < UNITS_PER_WORD)
+#endif
+	  || GET_CODE (entry_parm) == PARALLEL)
 	{
 	  /* If a BLKmode arrives in registers, copy it to a stack slot.
 	     Handle calls that pass values in multiple non-contiguous
@@ -4680,7 +4687,7 @@ assign_parms (tree fndecl)
 	      /* Handle calls that pass values in multiple non-contiguous
 		 locations.  The Irix 6 ABI has examples of this.  */
 	      if (GET_CODE (entry_parm) == PARALLEL)
-		emit_group_store (mem, entry_parm, size);
+		emit_group_store (mem, entry_parm, TREE_TYPE (parm), size);
 
 	      else if (size == 0)
 		;
@@ -4692,7 +4699,13 @@ assign_parms (tree fndecl)
 		  enum machine_mode mode
 		    = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 
-		  if (mode != BLKmode)
+		  if (mode != BLKmode
+#ifdef BLOCK_REG_PADDING
+		      && (size == UNITS_PER_WORD
+			  || (BLOCK_REG_PADDING (mode, TREE_TYPE (parm), 1)
+			      != (BYTES_BIG_ENDIAN ? upward : downward)))
+#endif
+		      )
 		    {
 		      rtx reg = gen_rtx_REG (mode, REGNO (entry_parm));
 		      emit_move_insn (change_address (mem, mode, 0), reg);
@@ -4703,7 +4716,13 @@ assign_parms (tree fndecl)
 		     to memory.  Note that the previous test doesn't
 		     handle all cases (e.g. SIZE == 3).  */
 		  else if (size != UNITS_PER_WORD
-			   && BYTES_BIG_ENDIAN)
+#ifdef BLOCK_REG_PADDING
+			   && (BLOCK_REG_PADDING (mode, TREE_TYPE (parm), 1)
+			       == downward)
+#else
+			   && BYTES_BIG_ENDIAN
+#endif
+			   )
 		    {
 		      rtx tem, x;
 		      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
@@ -4812,7 +4831,7 @@ assign_parms (tree fndecl)
 	      /* TREE_USED gets set erroneously during expand_assignment.  */
 	      save_tree_used = TREE_USED (parm);
 	      expand_assignment (parm,
-				 make_tree (nominal_type, tempreg), 0, 0);
+				 make_tree (nominal_type, tempreg), 0);
 	      TREE_USED (parm) = save_tree_used;
 	      conversion_insns = get_insns ();
 	      did_conversion = 1;
@@ -4924,10 +4943,10 @@ assign_parms (tree fndecl)
 		 but it's also rare and we need max_parm_reg to be
 		 precisely correct.  */
 	      max_parm_reg = regno + 1;
-	      new = (rtx *) ggc_realloc (parm_reg_stack_loc,
-				      max_parm_reg * sizeof (rtx));
-	      memset ((char *) (new + old_max_parm_reg), 0,
-		     (max_parm_reg - old_max_parm_reg) * sizeof (rtx));
+	      new = ggc_realloc (parm_reg_stack_loc,
+				 max_parm_reg * sizeof (rtx));
+	      memset (new + old_max_parm_reg, 0,
+		      (max_parm_reg - old_max_parm_reg) * sizeof (rtx));
 	      parm_reg_stack_loc = new;
 	    }
 
@@ -5072,15 +5091,11 @@ assign_parms (tree fndecl)
 	}
     }
 
-  if (SPLIT_COMPLEX_ARGS)
+  if (SPLIT_COMPLEX_ARGS && fnargs != orig_fnargs)
     {
-      parm = orig_fnargs;
-
-      for (; parm; parm = TREE_CHAIN (parm))
+      for (parm = orig_fnargs; parm; parm = TREE_CHAIN (parm))
 	{
-	  tree type = TREE_TYPE (parm);
-
-	  if (TREE_CODE (type) == COMPLEX_TYPE)
+	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
 	    {
 	      SET_DECL_RTL (parm,
 			    gen_rtx_CONCAT (DECL_MODE (parm),
@@ -5205,30 +5220,49 @@ assign_parms (tree fndecl)
     }
 }
 
+/* If ARGS contains entries with complex types, split the entry into two
+   entries of the component type.  Return a new list of substitutions are
+   needed, else the old list.  */
+
 static tree
 split_complex_args (tree args)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = args; p; p = TREE_CHAIN (p))
+    if (TREE_CODE (TREE_TYPE (p)) == COMPLEX_TYPE)
+      goto found;
+  return args;
+
+ found:
   args = copy_list (args);
 
   for (p = args; p; p = TREE_CHAIN (p))
     {
-      tree complex_type = TREE_TYPE (p);
-
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      tree type = TREE_TYPE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE)
 	{
 	  tree decl;
-	  tree subtype = TREE_TYPE (complex_type);
+	  tree subtype = TREE_TYPE (type);
 
 	  /* Rewrite the PARM_DECL's type with its component.  */
 	  TREE_TYPE (p) = subtype;
 	  DECL_ARG_TYPE (p) = TREE_TYPE (DECL_ARG_TYPE (p));
+	  DECL_MODE (p) = VOIDmode;
+	  DECL_SIZE (p) = NULL;
+	  DECL_SIZE_UNIT (p) = NULL;
+	  layout_decl (p, 0);
 
+	  /* Build a second synthetic decl.  */
 	  decl = build_decl (PARM_DECL, NULL_TREE, subtype);
 	  DECL_ARG_TYPE (decl) = DECL_ARG_TYPE (p);
+	  layout_decl (decl, 0);
+
+	  /* Splice it in; skip the new decl.  */
 	  TREE_CHAIN (decl) = TREE_CHAIN (p);
 	  TREE_CHAIN (p) = decl;
+	  p = decl;
 	}
     }
 
@@ -5352,6 +5386,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
+  locate->where_pad = where_pad;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -5849,7 +5884,7 @@ identify_blocks (void)
   /* Fill the BLOCK_VECTOR with all of the BLOCKs in this function, in
      depth-first order.  */
   block_vector = get_block_vector (block, &n_blocks);
-  block_stack = (tree *) xmalloc (n_blocks * sizeof (tree));
+  block_stack = xmalloc (n_blocks * sizeof (tree));
 
   last_block_vector = identify_blocks_1 (get_insns (),
 					 block_vector + 1,
@@ -6153,7 +6188,7 @@ get_block_vector (tree block, int *n_blocks_p)
   tree *block_vector;
 
   *n_blocks_p = all_blocks (block, NULL);
-  block_vector = (tree *) xmalloc (*n_blocks_p * sizeof (tree));
+  block_vector = xmalloc (*n_blocks_p * sizeof (tree));
   all_blocks (block, block_vector);
 
   return block_vector;
@@ -6216,7 +6251,7 @@ debug_find_var_in_block_tree (tree var, tree block)
 static void
 prepare_function_start (void)
 {
-  cfun = (struct function *) ggc_alloc_cleared (sizeof (struct function));
+  cfun = ggc_alloc_cleared (sizeof (struct function));
 
   init_stmt_for_function ();
   init_eh_for_function ();
@@ -7021,6 +7056,7 @@ expand_function_end (void)
 		emit_group_move (real_decl_rtl, decl_rtl);
 	      else
 		emit_group_load (real_decl_rtl, decl_rtl,
+				 TREE_TYPE (decl_result),
 				 int_size_in_bytes (TREE_TYPE (decl_result)));
 	    }
 	  else

@@ -751,6 +751,8 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/EmbeddedWindow.java \
+gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
 gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/image/ImageDecoder.java \
@@ -2107,7 +2109,6 @@ gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
 gnu/java/nio/DatagramChannelImpl.java \
-gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
@@ -2268,6 +2269,7 @@ java/nio/channels/ClosedSelectorException.java \
 java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
 java/nio/channels/FileChannel.java \
+java/nio/channels/FileChannelImpl.java \
 java/nio/channels/FileLock.java \
 java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
@@ -2573,7 +2575,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
-gnu/java/nio/natFileChannelImpl.cc \
+gnu/java/awt/natEmbeddedWindow.cc \
 gnu/java/nio/natFileLockImpl.cc \
 gnu/java/nio/natSelectorImpl.cc \
 java/io/natFile.cc \
@@ -2605,6 +2607,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/nio/natDirectByteBufferImpl.cc \
+java/nio/channels/natFileChannelImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natTimeZone.cc \
@@ -2737,6 +2740,7 @@ AM_MAKEFLAGS = \
 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
 	"CFLAGS=$(CFLAGS)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
+	"CPPFLAGS=$(CPPFLAGS)" \
 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \

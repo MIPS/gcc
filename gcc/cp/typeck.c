@@ -1805,7 +1805,10 @@ build_class_member_access_expr (tree object, tree member,
     member_scope = TYPE_CONTEXT (member_scope);
   if (!member_scope || !DERIVED_FROM_P (member_scope, object_type))
     {
-      error ("`%D' is not a member of `%T'", member, object_type);
+      if (TREE_CODE (member) == FIELD_DECL)
+        error ("invalid use of nonstatic data member '%E'", member);
+      else
+        error ("`%D' is not a member of `%T'", member, object_type);
       return error_mark_node;
     }
 
@@ -3443,7 +3446,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
 
       if ((short_compare || code == MIN_EXPR || code == MAX_EXPR)
-	  && warn_sign_compare)
+	  && warn_sign_compare
+	  /* Do not warn until the template is instantiated; we cannot
+	     bound the ranges of the arguments until that point.  */
+	  && !processing_template_decl)
 	{
 	  int op0_signed = ! TREE_UNSIGNED (TREE_TYPE (orig_op0));
 	  int op1_signed = ! TREE_UNSIGNED (TREE_TYPE (orig_op1));
@@ -3756,7 +3762,7 @@ build_x_unary_op (enum tree_code code, tree xarg)
     }
 
   if (processing_template_decl && exp != error_mark_node)
-    return build_min (code, TREE_TYPE (exp), orig_expr);
+    return build_min (code, TREE_TYPE (exp), orig_expr, NULL_TREE);
   return exp;
 }
 
@@ -5399,44 +5405,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (newrhs == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (newrhs) == COND_EXPR)
-    {
-      tree lhs1;
-      tree cond = TREE_OPERAND (newrhs, 0);
-
-      if (TREE_SIDE_EFFECTS (lhs))
-	cond = build_compound_expr (tree_cons
-				    (NULL_TREE, lhs,
-				     build_tree_list (NULL_TREE, cond)));
-
-      /* Cannot have two identical lhs on this one tree (result) as preexpand
-	 calls will rip them out and fill in RTL for them, but when the
-	 rtl is generated, the calls will only be in the first side of the
-	 condition, not on both, or before the conditional jump! (mrs) */
-      lhs1 = break_out_calls (lhs);
-
-      if (lhs == lhs1)
-	/* If there's no change, the COND_EXPR behaves like any other rhs.  */
-	result = build (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
-			lhstype, lhs, newrhs);
-      else
-	{
-	  tree result_type = TREE_TYPE (newrhs);
-	  /* We have to convert each arm to the proper type because the
-	     types may have been munged by constant folding.  */
-	  result
-	    = build (COND_EXPR, result_type, cond,
-		     build_modify_expr (lhs, modifycode,
-					cp_convert (result_type,
-						    TREE_OPERAND (newrhs, 1))),
-		     build_modify_expr (lhs1, modifycode,
-					cp_convert (result_type,
-						    TREE_OPERAND (newrhs, 2))));
-	}
-    }
-  else
-    result = build (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
-		    lhstype, lhs, newrhs);
+  result = build (modifycode == NOP_EXPR ? MODIFY_EXPR : INIT_EXPR,
+		  lhstype, lhs, newrhs);
 
   TREE_SIDE_EFFECTS (result) = 1;
 
@@ -5999,7 +5969,7 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
   int noutputs = list_length (outputs);
   register int i;
   /* o[I] is the place that output number I should be written.  */
-  register tree *o = (tree *) alloca (noutputs * sizeof (tree));
+  register tree *o = alloca (noutputs * sizeof (tree));
   register tree tail;
 
   /* Record the contents of OUTPUTS before it is modified.  */
@@ -6156,7 +6126,7 @@ check_return_expr (tree retval)
      that's supposed to return a value.  */
   if (!retval && fn_returns_value_p)
     {
-      pedwarn ("return-statement with no value, in function returning `%D'",
+      pedwarn ("return-statement with no value, in function returning '%T'",
 	       valtype);
       /* Clear this, so finish_function won't say that we reach the
 	 end of a non-void function (which we don't, we gave a
@@ -6173,8 +6143,8 @@ check_return_expr (tree retval)
 	   its side-effects.  */
 	  finish_expr_stmt (retval);
       else
-	pedwarn ("return-statement with a value, in function returning `%D'",
-		 retval);
+	pedwarn ("return-statement with a value, in function "
+                 "returning 'void'");
 
       current_function_returns_null = 1;
 

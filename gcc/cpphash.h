@@ -35,6 +35,15 @@ typedef int iconv_t;  /* dummy */
 struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
+struct strbuf;
+
+typedef bool (*convert_f) (iconv_t, const unsigned char *, size_t,
+			   struct strbuf *);
+struct cset_converter
+{
+  convert_f func;
+  iconv_t cd;
+};
 
 #ifndef HAVE_UCHAR
 typedef unsigned char uchar;
@@ -369,14 +378,13 @@ struct cpp_reader
   unsigned char *macro_buffer;
   unsigned int macro_buffer_len;
 
-  /* Iconv descriptor for converting from the source character set
-     to the execution character set.  (iconv_t)-1 for no conversion.  */
-  iconv_t narrow_cset_desc;
+  /* Descriptor for converting from the source character set to the
+     execution character set.  */
+  struct cset_converter narrow_cset_desc;
 
-  /* Iconv descriptor for converting from the execution character set
-     to the wide execution character set.  (iconv_t)-1 for no conversion
-     other than zero-extending each character to the width of wchar_t.  */
-  iconv_t wide_cset_desc;
+  /* Descriptor for converting from the source character set to the
+     wide execution character set.  */
+  struct cset_converter wide_cset_desc;
 
   /* Tree of other included files.  See cppfiles.c.  */
   struct splay_tree_s *all_include_files;
@@ -544,7 +552,7 @@ extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 extern void _cpp_pop_buffer (cpp_reader *);
 
 /* In cpptrad.c.  */
-extern bool scan_out_logical_line (cpp_reader *, cpp_macro *);
+extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);
 extern bool _cpp_read_logical_line_trad (cpp_reader *);
 extern void _cpp_overlay_buffer (cpp_reader *pfile, const uchar *, size_t);
 extern void _cpp_remove_overlay (cpp_reader *);
@@ -555,8 +563,11 @@ extern uchar *_cpp_copy_replacement_text (const cpp_macro *, uchar *);
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
 /* In cppcharset.c.  */
-cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **, const uchar *, int);
-void _cpp_destroy_iconv (cpp_reader *);
+extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
+				 const uchar *, int);
+extern void _cpp_destroy_iconv (cpp_reader *);
+extern bool _cpp_interpret_string_notranslate (cpp_reader *, const cpp_string *,
+					       cpp_string *);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

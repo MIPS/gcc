@@ -1,3 +1,27 @@
+2003-07-20  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.mauve/mauve.exp (mauve_find_harness_files): New proc.
+	(test_mauve): Use it.
+	(test_mauve_sim): Likewise.
+
+2003-07-19  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.verify/verify.exp (gcj_verify_list_tests): Only change
+	directory if new directory exists.
+
+2003-07-13  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.verify/verify.exp: Fixed variable init.
+
+2003-07-10  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.verify/verify.exp: New file.
+	* libjava.verify/README.verify: New file.
+
+2003-07-09  Jeff Sturm  <jsturm@one-point.com>
+
+	* libjava.lang/SyncTest.java (run): Cache .class value.
+
 2003-06-08  Roger Sayle  <roger@eyesopen.com>
 
 	* libjava.lang/MathBuiltin.java: New test case.

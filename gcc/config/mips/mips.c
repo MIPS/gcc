@@ -465,10 +465,6 @@ int sdb_label_count = 0;
 /* Next label # for each statement for Silicon Graphics IRIS systems.  */
 int sym_lineno = 0;
 
-/* Nonzero if inside of a function, because the stupid MIPS asm can't
-   handle .files inside of functions.  */
-int inside_function = 0;
-
 /* Linked list of all externals that are to be emitted when optimizing
    for the global pointer if they haven't been declared by the end of
    the program with an appropriate .comm or initialization.  */
@@ -484,14 +480,6 @@ static GTY (()) struct extern_list *extern_head = 0;
 
 /* Name of the file containing the current function.  */
 const char *current_function_file = "";
-
-/* Warning given that Mips ECOFF can't support changing files
-   within a function.  */
-int file_in_function_warning = FALSE;
-
-/* Whether to suppress issuing .loc's because the user attempted
-   to change the filename within a function.  */
-int ignore_line_number = FALSE;
 
 /* Number of nested .set noreorder, noat, nomacro, and volatile requests.  */
 int set_noreorder;
@@ -819,6 +807,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "vr5000", PROCESSOR_R5000, 4 },
   { "vr5400", PROCESSOR_R5400, 4 },
   { "vr5500", PROCESSOR_R5500, 4 },
+  { "rm7000", PROCESSOR_R7000, 4 },
+  { "rm9000", PROCESSOR_R9000, 4 },
 
   /* MIPS32 */
   { "4kc", PROCESSOR_4KC, 32 },
@@ -2673,6 +2663,10 @@ mips_rtx_costs (x, code, outer_code, total)
         *total = COSTS_N_INSNS (2);
       else if (TUNE_MIPS5400 || TUNE_MIPS5500)
         *total = COSTS_N_INSNS ((mode == DImode) ? 4 : 3);
+      else if (TUNE_MIPS7000)
+        *total = COSTS_N_INSNS (mode == DImode ? 9 : 5);
+      else if (TUNE_MIPS9000)
+        *total = COSTS_N_INSNS (mode == DImode ? 8 : 3);
       else if (TUNE_MIPS6000)
         *total = COSTS_N_INSNS (17);
       else if (TUNE_MIPS5000)
@@ -5972,8 +5966,7 @@ mips_output_external_libcall (file, name)
 }
 #endif
 
-/* Emit a new filename to a stream.  If this is MIPS ECOFF, watch out
-   for .file's that start within a function.  If we are smuggling stabs, try to
+/* Emit a new filename to a stream.  If we are smuggling stabs, try to
    put out a MIPS ECOFF file and a stab.  */
 
 void
@@ -6007,23 +6000,11 @@ mips_output_filename (stream, name)
     }
 
   else if (name != current_function_file
-      && strcmp (name, current_function_file) != 0)
+	   && strcmp (name, current_function_file) != 0)
     {
-      if (inside_function && !TARGET_GAS)
-	{
-	  if (!file_in_function_warning)
-	    {
-	      file_in_function_warning = 1;
-	      ignore_line_number = 1;
-	      warning ("MIPS ECOFF format does not allow changing filenames within functions with #line");
-	    }
-	}
-      else
-	{
-	  SET_FILE_NUMBER ();
-	  current_function_file = name;
-	  ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
-	}
+      SET_FILE_NUMBER ();
+      current_function_file = name;
+      ASM_OUTPUT_FILENAME (stream, num_source_filenames, name);
     }
 }
 
@@ -6046,10 +6027,7 @@ mips_output_lineno (stream, line)
     }
   else
     {
-      fprintf (stream, "\n\t%s.loc\t%d %d\n",
-	       (ignore_line_number) ? "#" : "",
-	       num_source_filenames, line);
-
+      fprintf (stream, "\n\t.loc\t%d %d\n", num_source_filenames, line);
       LABEL_AFTER_LOC (stream);
     }
 }
@@ -6203,6 +6181,31 @@ mips_file_start ()
 	     ASM_COMMENT_START,
 	     mips_section_threshold, mips_arch_info->name, mips_isa);
 }
+
+#ifdef BSS_SECTION_ASM_OP
+/* Implement ASM_OUTPUT_ALIGNED_BSS.  This differs from the default only
+   in the use of sbss.  */
+
+void
+mips_output_aligned_bss (stream, decl, name, size, align)
+     FILE *stream;
+     tree decl;
+     const char *name;
+     unsigned HOST_WIDE_INT size;
+     int align;
+{
+  extern tree last_assemble_variable_decl;
+
+  if (mips_in_small_data_p (decl))
+    named_section (0, ".sbss", 0);
+  else
+    bss_section ();
+  ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
+  last_assemble_variable_decl = decl;
+  ASM_DECLARE_OBJECT_NAME (stream, name, decl);
+  ASM_OUTPUT_SKIP (stream, size != 0 ? size : 1);
+}
+#endif
 
 /* If we are optimizing the global pointer, emit the text section now and any
    small externs which did not have .comm, etc that are needed.  Also, give a
@@ -6264,6 +6267,61 @@ mips_declare_object (stream, name, init_string, final_string, size)
       TREE_ASM_WRITTEN (name_tree) = 1;
     }
 }
+
+#ifdef ASM_OUTPUT_SIZE_DIRECTIVE
+extern int size_directive_output;
+
+/* Implement ASM_DECLARE_OBJECT_NAME.  This is like most of the standard ELF
+   definitions except that it uses mips_declare_object() to emit the label.  */
+
+void
+mips_declare_object_name (stream, name, decl)
+     FILE *stream;
+     const char *name;
+     tree decl ATTRIBUTE_UNUSED;
+{
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+  ASM_OUTPUT_TYPE_DIRECTIVE (stream, name, "object");
+#endif
+
+  size_directive_output = 0;
+  if (!flag_inhibit_size_directive && DECL_SIZE (decl))
+    {
+      HOST_WIDE_INT size;
+
+      size_directive_output = 1;
+      size = int_size_in_bytes (TREE_TYPE (decl));
+      ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
+    }
+
+  mips_declare_object (stream, name, "", ":\n", 0);
+}
+
+/* Implement ASM_FINISH_DECLARE_OBJECT.  This is generic ELF stuff.  */
+
+void
+mips_finish_declare_object (stream, decl, top_level, at_end)
+     FILE *stream;
+     tree decl;
+     int top_level, at_end;
+{
+  const char *name;
+
+  name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  if (!flag_inhibit_size_directive
+      && DECL_SIZE (decl) != 0
+      && !at_end && top_level
+      && DECL_INITIAL (decl) == error_mark_node
+      && !size_directive_output)
+    {
+      HOST_WIDE_INT size;
+
+      size_directive_output = 1;
+      size = int_size_in_bytes (TREE_TYPE (decl));
+      ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
+    }
+}
+#endif
 
 /* Return the register that should be used as the global pointer
    within this function.  Return 0 if the function doesn't need
@@ -6935,8 +6993,6 @@ mips_output_function_prologue (file, size)
       && current_function_args_info.fp_code != 0)
     build_mips16_function_stub (file);
 
-  inside_function = 1;
-
 #ifndef FUNCTION_NAME_ALREADY_DECLARED
   /* Get the function name the same way that toplev.c does before calling
      assemble_start_function.  This is needed so that the name used here
@@ -7374,27 +7430,24 @@ mips_expand_prologue ()
     {
       rtx tsize_rtx = GEN_INT (tsize);
 
-      /* If we are doing svr4-abi, sp move is done by
-         function_prologue.  In mips16 mode with a large frame, we
-         save the registers before adjusting the stack.  */
-      if (!TARGET_MIPS16 || tsize <= 32767)
+      /* In mips16 mode with a large frame, we save the registers before
+         adjusting the stack.  */
+      if (!TARGET_MIPS16 || tsize <= 32768)
 	{
-	  rtx adjustment_rtx;
-
-	  if (tsize > 32767)
+	  if (tsize > 32768)
 	    {
+	      rtx adjustment_rtx;
+
 	      adjustment_rtx = gen_rtx (REG, Pmode, MIPS_TEMP1_REGNUM);
 	      emit_move_insn (adjustment_rtx, tsize_rtx);
+	      emit_insn (gen_sub3_insn (stack_pointer_rtx,
+					stack_pointer_rtx,
+					adjustment_rtx));
 	    }
 	  else
-	    adjustment_rtx = tsize_rtx;
-
-	  if (Pmode == DImode)
-	    emit_insn (gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx,
-				   adjustment_rtx));
-	  else
-	    emit_insn (gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx,
-				   adjustment_rtx));
+	    emit_insn (gen_add3_insn (stack_pointer_rtx,
+				      stack_pointer_rtx,
+				      GEN_INT (-tsize)));
 
 	  mips_set_frame_expr
 	    (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
@@ -7410,7 +7463,7 @@ mips_expand_prologue ()
 	emit_insn (gen_cprestore
 		   (GEN_INT (current_function_outgoing_args_size)));
 
-      if (TARGET_MIPS16 && tsize > 32767)
+      if (TARGET_MIPS16 && tsize > 32768)
 	{
 	  rtx reg_rtx;
 
@@ -7420,14 +7473,9 @@ mips_expand_prologue ()
 	  reg_rtx = gen_rtx (REG, Pmode, 3);
   	  emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
   	  emit_move_insn (reg_rtx, tsize_rtx);
-  	  if (Pmode == DImode)
-	    emit_insn (gen_subdi3 (hard_frame_pointer_rtx,
-				   hard_frame_pointer_rtx,
-				   reg_rtx));
-	  else
-	    emit_insn (gen_subsi3 (hard_frame_pointer_rtx,
-				   hard_frame_pointer_rtx,
-				   reg_rtx));
+	  emit_insn (gen_sub3_insn (hard_frame_pointer_rtx,
+				    hard_frame_pointer_rtx,
+				    reg_rtx));
 	  emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
 	}
 
@@ -7541,10 +7589,6 @@ mips_output_function_epilogue (file, size)
       fputs ("\n", file);
     }
 #endif
-
-  /* Reset state info for each function.  */
-  inside_function = 0;
-  ignore_line_number = 0;
 
   while (string_constants != NULL)
     {
@@ -7876,16 +7920,6 @@ mips_in_small_data_p (decl)
       if (TREE_READONLY (decl)
 	  && !TREE_SIDE_EFFECTS (decl)
 	  && (!DECL_INITIAL (decl) || TREE_CONSTANT (DECL_INITIAL (decl))))
-	return false;
-    }
-  else if (TARGET_MIPS16)
-    {
-      /* Alhough it seems strange to have separate rules for -mips16,
-	 this behaviour is long-standing.  */
-      if (TREE_PUBLIC (decl)
-	  && (DECL_COMMON (decl)
-	      || DECL_ONE_ONLY (decl)
-	      || DECL_WEAK (decl)))
 	return false;
     }
 
@@ -10233,6 +10267,8 @@ mips_issue_rate ()
     case PROCESSOR_R3000: return 1;
     case PROCESSOR_R5400: return 2;
     case PROCESSOR_R5500: return 2;
+    case PROCESSOR_R7000: return 2;
+    case PROCESSOR_R9000: return 2;
 
     default:
       return 1;
@@ -10252,6 +10288,8 @@ mips_use_dfa_pipeline_interface ()
     {
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
+    case PROCESSOR_R7000:
+    case PROCESSOR_R9000:
     case PROCESSOR_SR71000:
       return true;
 

@@ -311,7 +311,7 @@ init_reg_sets_1 (void)
 
   /* Compute number of hard regs in each class.  */
 
-  memset ((char *) reg_class_size, 0, sizeof reg_class_size);
+  memset (reg_class_size, 0, sizeof reg_class_size);
   for (i = 0; i < N_REG_CLASSES; i++)
     for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
       if (TEST_HARD_REG_BIT (reg_class_contents[i], j))
@@ -553,7 +553,7 @@ init_reg_modes (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
-      reg_raw_mode[i] = choose_hard_reg_mode (i, 1);
+      reg_raw_mode[i] = choose_hard_reg_mode (i, 1, false);
 
       /* If we couldn't find a valid mode, just use the previous mode.
          ??? One situation in which we need to do this is on the mips where
@@ -653,11 +653,12 @@ memory_move_secondary_cost (enum machine_mode mode, enum reg_class class, int in
 #endif
 
 /* Return a machine mode that is legitimate for hard reg REGNO and large
-   enough to save nregs.  If we can't find one, return VOIDmode.  */
+   enough to save nregs.  If we can't find one, return VOIDmode.
+   If CALL_SAVED is true, only consider modes that are call saved.  */
 
 enum machine_mode
 choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
-		      unsigned int nregs)
+		      unsigned int nregs, bool call_saved)
 {
   unsigned int /* enum machine_mode */ m;
   enum machine_mode found_mode = VOIDmode, mode;
@@ -670,7 +671,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
-	&& HARD_REGNO_MODE_OK (regno, mode))
+	&& HARD_REGNO_MODE_OK (regno, mode)
+	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
 
   if (found_mode != VOIDmode)
@@ -680,7 +682,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
-	&& HARD_REGNO_MODE_OK (regno, mode))
+	&& HARD_REGNO_MODE_OK (regno, mode)
+	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
 
   if (found_mode != VOIDmode)
@@ -690,7 +693,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
-	&& HARD_REGNO_MODE_OK (regno, mode))
+	&& HARD_REGNO_MODE_OK (regno, mode)
+	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
 
   if (found_mode != VOIDmode)
@@ -700,7 +704,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
-	&& HARD_REGNO_MODE_OK (regno, mode))
+	&& HARD_REGNO_MODE_OK (regno, mode)
+	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
 
   if (found_mode != VOIDmode)
@@ -711,7 +716,8 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
     {
       mode = (enum machine_mode) m;
       if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
-	  && HARD_REGNO_MODE_OK (regno, mode))
+	  && HARD_REGNO_MODE_OK (regno, mode)
+	  && (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	return mode;
     }
 
@@ -1196,11 +1202,11 @@ regclass (rtx f, int nregs, FILE *dump)
 
   init_recog ();
 
-  costs = (struct costs *) xmalloc (nregs * sizeof (struct costs));
+  costs = xmalloc (nregs * sizeof (struct costs));
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 
-  in_inc_dec = (char *) xmalloc (nregs);
+  in_inc_dec = xmalloc (nregs);
 
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
 
@@ -1217,7 +1223,7 @@ regclass (rtx f, int nregs, FILE *dump)
 	fprintf (dump, "\n\nPass %i\n\n",pass);
       /* Zero out our accumulation of the cost of each class for each reg.  */
 
-      memset ((char *) costs, 0, nregs * sizeof (struct costs));
+      memset (costs, 0, nregs * sizeof (struct costs));
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
       memset (in_inc_dec, 0, nregs);
@@ -1417,7 +1423,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  if (*p == 0)
 	    {
 	      if (GET_CODE (op) == REG && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-		memset ((char *) &this_op_costs[i], 0, sizeof this_op_costs[i]);
+		memset (&this_op_costs[i], 0, sizeof this_op_costs[i]);
 
 	      continue;
 	    }
@@ -2156,9 +2162,9 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
       if (!reg_n_info)
 	{
 	  VARRAY_REG_INIT (reg_n_info, regno_allocated, "reg_n_info");
-	  renumber = (short *) xmalloc (size_renumber);
-	  reg_pref_buffer = (struct reg_pref *) xmalloc (regno_allocated
-					      * sizeof (struct reg_pref));
+	  renumber = xmalloc (size_renumber);
+	  reg_pref_buffer = xmalloc (regno_allocated
+				     * sizeof (struct reg_pref));
 	}
 
       else
@@ -2169,23 +2175,23 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	    {
 	      free ((char *) renumber);
 	      free ((char *) reg_pref);
-	      renumber = (short *) xmalloc (size_renumber);
-	      reg_pref_buffer = (struct reg_pref *) xmalloc (regno_allocated
-						  * sizeof (struct reg_pref));
+	      renumber = xmalloc (size_renumber);
+	      reg_pref_buffer = xmalloc (regno_allocated
+					 * sizeof (struct reg_pref));
 	    }
 
 	  else
 	    {
-	      renumber = (short *) xrealloc ((char *) renumber, size_renumber);
-	      reg_pref_buffer = (struct reg_pref *) xrealloc ((char *) reg_pref_buffer,
-						   regno_allocated
-						   * sizeof (struct reg_pref));
+	      renumber = xrealloc (renumber, size_renumber);
+	      reg_pref_buffer = xrealloc (reg_pref_buffer,
+					  regno_allocated
+					  * sizeof (struct reg_pref));
 	    }
 	}
 
       size_info = (regno_allocated - old_allocated) * sizeof (reg_info)
 	+ sizeof (struct reg_info_data) - sizeof (reg_info);
-      reg_data = (struct reg_info_data *) xcalloc (size_info, 1);
+      reg_data = xcalloc (size_info, 1);
       reg_data->min_index = old_allocated;
       reg_data->max_index = regno_allocated - 1;
       reg_data->next = reg_info_head;
@@ -2215,8 +2221,8 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	  if (!reg_data->used_p)	/* page just allocated with calloc */
 	    reg_data->used_p = 1;	/* no need to zero */
 	  else
-	    memset ((char *) &reg_data->data[local_min], 0,
-		   sizeof (reg_info) * (max - min_index - local_min + 1));
+	    memset (&reg_data->data[local_min], 0,
+		    sizeof (reg_info) * (max - min_index - local_min + 1));
 
 	  for (i = min_index+local_min; i <= max; i++)
 	    {

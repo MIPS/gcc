@@ -1253,12 +1253,13 @@ struct tree_type GTY(())
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
 #define DECL_SECTION_NAME(NODE) (DECL_CHECK (NODE)->decl.section_name)
 
-/*  For FIELD_DECLs, this is the
-    RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE node that the field is
-    a member of.  For VAR_DECL, PARM_DECL, FUNCTION_DECL, LABEL_DECL,
-    and CONST_DECL nodes, this points to either the FUNCTION_DECL for the
-    containing function, the RECORD_TYPE or UNION_TYPE for the containing
-    type, or NULL_TREE if the given decl has "file scope".  */
+/*  For FIELD_DECLs, this is the RECORD_TYPE, UNION_TYPE, or
+    QUAL_UNION_TYPE node that the field is a member of.  For VAR_DECL,
+    PARM_DECL, FUNCTION_DECL, LABEL_DECL, and CONST_DECL nodes, this
+    points to either the FUNCTION_DECL for the containing function,
+    the RECORD_TYPE or UNION_TYPE for the containing type, or
+    NULL_TREE or a TRANSLATION_UNIT_DECL if the given decl has "file
+    scope".  */
 #define DECL_CONTEXT(NODE) (DECL_CHECK (NODE)->decl.context)
 #define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.context)
 /* In a DECL this is the field where attributes are stored.  */
@@ -1287,6 +1288,7 @@ struct tree_type GTY(())
 /* In PARM_DECL, holds the type as written (perhaps a function or array).  */
 #define DECL_ARG_TYPE_AS_WRITTEN(NODE) (PARM_DECL_CHECK (NODE)->decl.result)
 /* For a FUNCTION_DECL, holds the tree of BINDINGs.
+   For a TRANSLATION_UNIT_DECL, holds the namespace's BLOCK.
    For a VAR_DECL, holds the initial value.
    For a PARM_DECL, not used--default
    values for parameters are encoded in the type of the function,
@@ -1820,6 +1822,7 @@ enum tree_index
   TI_V2DI_TYPE,
   TI_V1DI_TYPE,
   TI_V16QI_TYPE,
+  TI_V4DF_TYPE,
 
   TI_MAIN_IDENTIFIER,
 
@@ -1910,6 +1913,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define V2DF_type_node			global_trees[TI_V2DF_TYPE]
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 #define V1DI_type_node			global_trees[TI_V1DI_TYPE]
+#define V4DF_type_node			global_trees[TI_V4DF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
@@ -2711,6 +2715,7 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_initializer (tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 
 extern int force_fit_type (tree, int);
@@ -3015,4 +3020,28 @@ extern void fancy_abort (const char *, int, const char *)
     ATTRIBUTE_NORETURN;
 #define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
 
+/* Enum and arrays used for tree allocation stats. 
+   Keep in sync with tree.c:tree_node_kind_names. */
+typedef enum
+{
+  d_kind,
+  t_kind,
+  b_kind,
+  s_kind,
+  r_kind,
+  e_kind,
+  c_kind,
+  id_kind,
+  perm_list_kind,
+  temp_list_kind,
+  vec_kind,
+  x_kind,
+  lang_decl,
+  lang_type,
+  all_kinds
+} tree_node_kind;
+
+extern int tree_node_counts[];
+extern int tree_node_sizes[];
+    
 #endif  /* GCC_TREE_H  */

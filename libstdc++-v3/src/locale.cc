@@ -28,6 +28,7 @@
 
 #include <clocale>
 #include <cstring>
+#include <cstdlib>     // For getenv, free.
 #include <cctype>
 #include <cwctype>     // For towupper, etc.
 #include <locale>
@@ -183,7 +184,7 @@ namespace std
 	else
 	  {
 	    // Get it from the environment.
-	    char* __env = getenv("LC_ALL");
+	    char* __env = std::getenv("LC_ALL");
 	    // If LC_ALL is set we are done.
 	    if (__env && std::strcmp(__env, "") != 0)
 	      {
@@ -197,7 +198,7 @@ namespace std
 	      {
 		char* __res;
 		// LANG may set a default different from "C".
-		char* __env = getenv("LANG");
+		char* __env = std::getenv("LANG");
 		if (!__env || std::strcmp(__env, "") == 0 
 		    || std::strcmp(__env, "C") == 0 
 		    || std::strcmp(__env, "POSIX") == 0)
@@ -211,7 +212,7 @@ namespace std
 		if (std::strcmp(__res, "C") == 0)
 		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
+		      __env = std::getenv(_S_categories[__i]);
 		      if (__env && std::strcmp(__env, "") != 0 
 			  && std::strcmp(__env, "C") != 0 
 			  && std::strcmp(__env, "POSIX") != 0) 
@@ -220,7 +221,7 @@ namespace std
 		else
 		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
+		      __env = std::getenv(_S_categories[__i]);
 		      if (__env && std::strcmp(__env, "") != 0 
 			  && std::strcmp(__env, __res) != 0) 
 			break;
@@ -245,7 +246,7 @@ namespace std
 		    __i++;
 		    for (; __i < _S_categories_size; ++__i)
 		      {
-			__env = getenv(_S_categories[__i]);
+			__env = std::getenv(_S_categories[__i]);
 			if (!__env || std::strcmp(__env, "") == 0)
 			  {
 			    __str += _S_categories[__i];
@@ -276,7 +277,7 @@ namespace std
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
 		  _M_impl = new _Impl(__res, 1);
-		free(__res);
+		std::free(__res);
 	      }
 	  }
       }
@@ -451,42 +452,10 @@ namespace std
   locale::facet::
   ~facet() { }
 
-  template<>
-    const __numpunct_cache<char>&
-    __use_cache(const locale& __loc)
-    {
-      size_t __i = numpunct<char>::id._M_id();
-      const locale::facet** __caches = __loc._M_impl->_M_caches;
-      if (!__caches[__i])
-	{
-	  __numpunct_cache<char>* __tmp = new __numpunct_cache<char>;
-	  __tmp->_M_cache(__loc);
-	  __loc._M_impl->_M_install_cache(__tmp, __i);
-	}
-      return static_cast<const __numpunct_cache<char>&>(*__caches[__i]);
-    }
-
-#ifdef _GLIBCXX_USE_WCHAR_T
-  template<>
-    const __numpunct_cache<wchar_t>&
-    __use_cache(const locale& __loc)
-    {
-      size_t __i = numpunct<wchar_t>::id._M_id();
-      const locale::facet** __caches = __loc._M_impl->_M_caches;
-      if (!__caches[__i])
-	{
-	  __numpunct_cache<wchar_t>* __tmp = new __numpunct_cache<wchar_t>;
-	  __tmp->_M_cache(__loc);
-	  __loc._M_impl->_M_install_cache(__tmp, __i);
-	}
-      return static_cast<const __numpunct_cache<wchar_t>&>(*__caches[__i]);
-    }
-#endif
-
   // Definitions for static const data members of time_base.
   template<> 
     const char*
-    __timepunct<char>::_S_timezones[14] =
+    __timepunct_cache<char>::_S_timezones[14] =
     { 
       "GMT", "HST", "AKST", "PST", "MST", "CST", "EST", "AST", "NST", "CET", 
       "IST", "EET", "CST", "JST"  
@@ -495,7 +464,7 @@ namespace std
 #ifdef _GLIBCXX_USE_WCHAR_T
   template<> 
     const wchar_t*
-    __timepunct<wchar_t>::_S_timezones[14] =
+    __timepunct_cache<wchar_t>::_S_timezones[14] =
     { 
       L"GMT", L"HST", L"AKST", L"PST", L"MST", L"CST", L"EST", L"AST", 
       L"NST", L"CET", L"IST", L"EET", L"CST", L"JST"  
@@ -506,7 +475,7 @@ namespace std
   const money_base::pattern 
   money_base::_S_default_pattern =  { {symbol, sign, none, value} };
 
-  const char* __num_base::_S_atoms_in = "0123456789eEabcdfABCDF";
+  const char* __num_base::_S_atoms_in = "-+xX0123456789eEabcdfABCDF";
   const char* __num_base::_S_atoms_out ="-+xX0123456789abcdef0123456789ABCDEF";
 
   // _GLIBCXX_RESOLVE_LIB_DEFECTS

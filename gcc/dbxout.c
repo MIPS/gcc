@@ -459,7 +459,7 @@ dbxout_init (const char *input_file_name)
   asmfile = asm_out_file;
 
   typevec_len = 100;
-  typevec = (struct typeinfo *) ggc_calloc (typevec_len, sizeof typevec[0]);
+  typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
 
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
@@ -513,7 +513,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = (struct dbx_file *) ggc_alloc (sizeof *current_file);
+  current_file = ggc_alloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -562,7 +562,7 @@ dbxout_typedefs (tree syms)
 }
 
 #ifdef DBX_USE_BINCL
-/* Emit BINCL stab using given name.   */
+/* Emit BINCL stab using given name.  */
 static void
 emit_bincl_stab (const char *name)
 {
@@ -626,7 +626,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = (struct dbx_file *) ggc_alloc (sizeof *n);
+  struct dbx_file *n = ggc_alloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -1262,11 +1262,8 @@ dbxout_type (tree type, int full)
       if (next_type_number == typevec_len)
 	{
 	  typevec
-	    = (struct typeinfo *) ggc_realloc (typevec,
-					       (typevec_len * 2
-						* sizeof typevec[0]));
-	  memset ((char *) (typevec + typevec_len), 0,
-		 typevec_len * sizeof typevec[0]);
+	    = ggc_realloc (typevec, (typevec_len * 2 * sizeof typevec[0]));
+	  memset (typevec + typevec_len, 0, typevec_len * sizeof typevec[0]);
 	  typevec_len *= 2;
 	}
 
@@ -1756,9 +1753,7 @@ dbxout_type (tree type, int full)
 				* BITS_PER_UNIT);
 		putc (',', asmfile);
 		CHARS (1);
-		print_wide_int (tree_low_cst (DECL_SIZE
-					      (TYPE_NAME
-					       (BINFO_TYPE (child))),
+		print_wide_int (tree_low_cst (TYPE_SIZE (BINFO_TYPE (child)),
 					      0)
 				* BITS_PER_UNIT);
 		putc (';', asmfile);

@@ -423,10 +423,7 @@ build_method_call (tree instance, tree name, tree parms,
 
   /* If the name could not be found, issue an error.  */
   if (!fn)
-    {
-      unqualified_name_lookup_error (name);
-      return error_mark_node;
-    }
+    return unqualified_name_lookup_error (name);
 
   if (BASELINK_P (fn) && has_template_args)
     BASELINK_FUNCTIONS (fn)
@@ -1057,10 +1054,10 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
 	 lvalue.  */
       conv = build1 (IDENTITY_CONV, from, expr);
       conv = direct_reference_binding (rto, conv);
-      if ((lvalue_p & clk_bitfield) != 0 
-	  && CP_TYPE_CONST_NON_VOLATILE_P (to))
+      if ((lvalue_p & clk_bitfield) != 0
+	  || ((lvalue_p & clk_packed) != 0 && !TYPE_PACKED (to)))
 	/* For the purposes of overload resolution, we ignore the fact
-	   this expression is a bitfield. (In particular,
+	   this expression is a bitfield or packed field. (In particular,
 	   [over.ics.ref] says specifically that a function with a
 	   non-const reference parameter is viable even if the
 	   argument is a bitfield.)
@@ -1071,6 +1068,7 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
 	   a temporary, so we just issue an error when the conversion
 	   actually occurs.  */
 	NEED_TEMPORARY_P (conv) = 1;
+					
       return conv;
     }
   else if (CLASS_TYPE_P (from) && !(flags & LOOKUP_NO_CONVERSION))
@@ -1210,8 +1208,7 @@ add_candidate (struct z_candidate **candidates,
 	       tree fn, tree args, tree convs, tree access_path, 
 	       tree conversion_path, int viable)
 {
-  struct z_candidate *cand
-    = (struct z_candidate *) ggc_alloc_cleared (sizeof (struct z_candidate));
+  struct z_candidate *cand = ggc_alloc_cleared (sizeof (struct z_candidate));
 
   cand->fn = fn;
   cand->args = args;
@@ -2610,7 +2607,7 @@ build_user_type_conversion (tree totype, tree expr, int flags)
 
 /* Find the possibly overloaded set of functions corresponding to a
    call of the form SCOPE::NAME (...). NAME might be a
-   TEMPLATE_ID_EXPR, OVERLOAD, _DECL, IDENTIFIER_NODE or LOOKUP_EXPR.  */
+   TEMPLATE_ID_EXPR, OVERLOAD, _DECL, or IDENTIFIER_NODE.  */
 
 tree
 resolve_scoped_fn_name (tree scope, tree name)
@@ -2626,8 +2623,6 @@ resolve_scoped_fn_name (tree scope, tree name)
     }
   if (TREE_CODE (name) == OVERLOAD)
     name = DECL_NAME (get_first_fn (name));
-  else if (TREE_CODE (name) == LOOKUP_EXPR)
-    name = TREE_OPERAND (name, 0);
   
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     fn = lookup_namespace_name (scope, name);
@@ -2656,7 +2651,7 @@ resolve_scoped_fn_name (tree scope, tree name)
 
       /* It might be the name of a function pointer member.  */
       if (fn && TREE_CODE (fn) == FIELD_DECL)
-	fn = finish_non_static_data_member (fn, scope);
+	fn = finish_non_static_data_member (fn, current_class_ref, scope);
     }
   
   if (!fn)
@@ -3012,6 +3007,11 @@ op_error (enum tree_code code, enum tree_code code2,
       
     case ARRAY_REF:
       error ("%s for 'operator[]' in '%E[%E]'", problem, arg1, arg2);
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      error ("%s for '%s' in '%s %E'", problem, opname, opname, arg1);
       break;
       
     default:
@@ -4173,6 +4173,23 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 	if (NEED_TEMPORARY_P (convs) || !non_cast_lvalue_p (expr))
 	  {
 	    tree type = TREE_TYPE (TREE_OPERAND (convs, 0));
+
+	    if (!CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (ref_type)))
+	      {
+		/* If the reference is volatile or non-const, we
+		   cannot create a temporary.  */
+		cp_lvalue_kind lvalue = real_lvalue_p (expr);
+		
+		if (lvalue & clk_bitfield)
+		  error ("cannot bind bitfield `%E' to `%T'",
+			 expr, ref_type);
+		else if (lvalue & clk_packed)
+		  error ("cannot bind packed field `%E' to `%T'",
+			 expr, ref_type);
+		else
+		  my_friendly_assert (0, 20030715);
+		return error_mark_node;
+	      }
 	    expr = build_target_expr_with_type (expr, type);
 	  }
 
@@ -6038,7 +6055,13 @@ initialize_reference (tree type, tree expr, tree decl)
   conv = reference_binding (type, TREE_TYPE (expr), expr, LOOKUP_NORMAL);
   if (!conv || ICS_BAD_FLAG (conv))
     {
-      error ("could not convert `%E' to `%T'", expr, type);
+      if (!(TYPE_QUALS (TREE_TYPE (type)) & TYPE_QUAL_CONST)
+          && !real_lvalue_p (expr))
+        error ("invalid initialization of non-const reference of "
+               "type '%T' from a temporary of type '%T'",
+               type, TREE_TYPE (expr));
+      else
+        error ("could not convert `%E' to `%T'", expr, type);
       return error_mark_node;
     }
 

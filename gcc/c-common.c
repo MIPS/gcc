@@ -41,10 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "c-tree.h"
-/* In order to ensure we use a common subset of valid specifiers
-   (between the various C family frontends) in this file, we restrict
-   ourselves to the generic specifier set.  */
-#undef GCC_DIAG_STYLE
 #include "toplev.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
@@ -354,7 +350,25 @@ int warn_format_nonliteral;
 
 int warn_format_security;
 
+/* Zero means that faster, ...NonNil variants of objc_msgSend...
+   calls will be used in ObjC; passing nil receivers to such calls
+   will most likely result in crashes.  */
+int flag_nil_receivers = 1;
 
+/* Nonzero means that we will allow new ObjC exception syntax (@throw,
+   @try, etc.) in source code.  */
+int flag_objc_exceptions = 0;
+
+/* Nonzero means that code generation will be altered to support
+   "zero-link" execution.  This currently affects ObjC only, but may
+   affect other languages in the future.  */
+int flag_zero_link = 0;
+
+/* Nonzero means emit an '__OBJC, __image_info' for the current translation
+   unit.  It will inform the ObjC runtime that class definition(s) herein
+   contained are to replace one(s) previously loaded.  */
+int flag_replace_objc_classes = 0;
+   
 /* C/ObjC language option variables.  */
 
 
@@ -776,6 +790,7 @@ static void check_function_nonnull (tree, tree);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
 static bool nonnull_check_p (tree, unsigned HOST_WIDE_INT);
 static bool get_nonnull_operand (tree, unsigned HOST_WIDE_INT *);
+static int resort_field_decl_cmp (const void *, const void *);
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -878,12 +893,12 @@ c_expand_start_cond (tree cond, int compstmt_count, tree if_stmt)
   if (if_stack_space == 0)
     {
       if_stack_space = 10;
-      if_stack = (if_elt *) xmalloc (10 * sizeof (if_elt));
+      if_stack = xmalloc (10 * sizeof (if_elt));
     }
   else if (if_stack_space == if_stack_pointer)
     {
       if_stack_space += 10;
-      if_stack = (if_elt *) xrealloc (if_stack, if_stack_space * sizeof (if_elt));
+      if_stack = xrealloc (if_stack, if_stack_space * sizeof (if_elt));
     }
 
   IF_COND (if_stmt) = cond;
@@ -1130,7 +1145,8 @@ fname_decl (unsigned int rid, tree id)
       input_line = saved_lineno;
     }
   if (!ix && !current_function_decl)
-    pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
+    pedwarn ("%H'%D' is not defined outside of function scope",
+             &DECL_SOURCE_LOCATION (decl), decl);
 
   return decl;
 }
@@ -1356,7 +1372,7 @@ static struct tlist *
 new_tlist (struct tlist *next, tree t, tree writer)
 {
   struct tlist *l;
-  l = (struct tlist *) obstack_alloc (&tlist_obstack, sizeof *l);
+  l = obstack_alloc (&tlist_obstack, sizeof *l);
   l->next = next;
   l->expr = t;
   l->writer = writer;
@@ -1626,8 +1642,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 
 	if (! t)
 	  {
-	    t = (struct tlist_cache *) obstack_alloc (&tlist_obstack,
-						      sizeof *t);
+	    t = obstack_alloc (&tlist_obstack, sizeof *t);
 	    t->next = save_expr_cache;
 	    t->expr = x;
 	    save_expr_cache = t;
@@ -1862,10 +1877,10 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
     return long_double_type_node;
 
   if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return build_pointer_type (char_type_node);
+    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
 
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return build_pointer_type (integer_type_node);
+    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
 
   switch (mode)
     {
@@ -1895,6 +1910,8 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
       return V2SF_type_node;
     case V2DFmode:
       return V2DF_type_node;
+    case V4DFmode:
+      return V4DF_type_node;
     default:
       break;
     }
@@ -3913,18 +3930,19 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
       if (high_value)
 	{
 	  error ("duplicate (or overlapping) case value");
-	  error_with_decl (duplicate,
-			   "this is the first entry overlapping that value");
+	  error ("%Hthis is the first entry overlapping that value",
+                 &DECL_SOURCE_LOCATION (duplicate));
 	}
       else if (low_value)
 	{
 	  error ("duplicate case value") ;
-	  error_with_decl (duplicate, "previously used here");
+	  error ("%Hpreviously used here", &DECL_SOURCE_LOCATION (duplicate));
 	}
       else
 	{
 	  error ("multiple default labels in one switch");
-	  error_with_decl (duplicate, "this is the first default label");
+	  error ("%Hthis is the first default label",
+                 &DECL_SOURCE_LOCATION (duplicate));
 	}
       if (!cases->root)
 	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
@@ -4312,7 +4330,7 @@ c_expand_builtin_printf (tree arglist, rtx target, enum machine_mode tmode,
 	  /* Create a NULL-terminated string that's one char shorter
 	     than the original, stripping off the trailing '\n'.  */
 	  const int newlen = TREE_STRING_LENGTH (stripped_string) - 1;
-	  char *newstr = (char *) alloca (newlen);
+	  char *newstr = alloca (newlen);
 	  memcpy (newstr, TREE_STRING_POINTER (stripped_string), newlen - 1);
 	  newstr[newlen - 1] = 0;
 
@@ -4534,25 +4552,33 @@ static tree
 handle_packed_attribute (tree *node, tree name, tree args  ATTRIBUTE_UNUSED,
 			 int flags, bool *no_add_attrs)
 {
-  tree *type = NULL;
-  if (DECL_P (*node))
-    {
-      if (TREE_CODE (*node) == TYPE_DECL)
-	type = &TREE_TYPE (*node);
-    }
-  else
-    type = node;
-
-  if (type)
+  if (TYPE_P (*node))
     {
       if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*type = build_type_copy (*type);
-      TYPE_PACKED (*type) = 1;
+	*node = build_type_copy (*node);
+      TYPE_PACKED (*node) = 1;
+      if (TYPE_MAIN_VARIANT (*node) == *node)
+	{
+	  /* If it is the main variant, then pack the other variants
+   	     too. This happens in,
+	     
+	     struct Foo {
+	       struct Foo const *ptr; // creates a variant w/o packed flag
+	       } __ attribute__((packed)); // packs it now.
+	  */
+	  tree probe;
+	  
+	  for (probe = *node; probe; probe = TYPE_NEXT_VARIANT (probe))
+	    TYPE_PACKED (probe) = 1;
+	}
+      
     }
   else if (TREE_CODE (*node) == FIELD_DECL)
     DECL_PACKED (*node) = 1;
   /* We can't set DECL_PACKED for a VAR_DECL, because the bit is
-     used for DECL_REGISTER.  It wouldn't mean anything anyway.  */
+     used for DECL_REGISTER.  It wouldn't mean anything anyway.
+     We can't set DECL_PACKED on the type of a TYPE_DECL, because
+     that changes what the typedef is typing.  */
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -4680,7 +4706,6 @@ handle_used_attribute (tree *pnode, tree name, tree args ATTRIBUTE_UNUSED,
   if (TREE_CODE (node) == FUNCTION_DECL
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
     {
-      mark_referenced (DECL_ASSEMBLER_NAME (node));
       TREE_USED (node) = 1;
     }
   else
@@ -4877,7 +4902,7 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
       if (len > 4 && p[0] == '_' && p[1] == '_'
 	  && p[len - 1] == '_' && p[len - 2] == '_')
 	{
-	  char *newp = (char *) alloca (len - 1);
+	  char *newp = alloca (len - 1);
 
 	  strcpy (newp, &p[2]);
 	  newp[len - 4] = '\0';
@@ -4956,8 +4981,8 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 	      && current_function_decl != NULL_TREE
 	      && ! TREE_STATIC (decl))
 	    {
-	      error_with_decl (decl,
-			       "section attribute cannot be specified for local variables");
+	      error ("%Hsection attribute cannot be specified for "
+                     "local variables", &DECL_SOURCE_LOCATION (decl));
 	      *no_add_attrs = true;
 	    }
 
@@ -4967,8 +4992,8 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 		   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
-	      error_with_decl (*node,
-			       "section of `%s' conflicts with previous declaration");
+	      error ("%Hsection of '%D' conflicts with previous declaration",
+                     &DECL_SOURCE_LOCATION (*node), *node);
 	      *no_add_attrs = true;
 	    }
 	  else
@@ -4976,15 +5001,15 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 	}
       else
 	{
-	  error_with_decl (*node,
-			   "section attribute not allowed for `%s'");
+	  error ("%Hsection attribute not allowed for '%D'",
+                 &DECL_SOURCE_LOCATION (*node), *node);
 	  *no_add_attrs = true;
 	}
     }
   else
     {
-      error_with_decl (*node,
-		       "section attributes are not supported for this target");
+      error ("%Hsection attributes are not supported for this target",
+             &DECL_SOURCE_LOCATION (*node));
       *no_add_attrs = true;
     }
 
@@ -5058,8 +5083,8 @@ handle_aligned_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
   else if (TREE_CODE (decl) != VAR_DECL
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
-      error_with_decl (decl,
-		       "alignment may not be specified for `%s'");
+      error ("%Halignment may not be specified for '%D'",
+             &DECL_SOURCE_LOCATION (decl), decl);
       *no_add_attrs = true;
     }
   else
@@ -5097,8 +5122,8 @@ handle_alias_attribute (tree *node, tree name, tree args,
   if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL && ! DECL_EXTERNAL (decl)))
     {
-      error_with_decl (decl,
-		       "`%s' defined both normally and as an alias");
+      error ("%H'%D' defined both normally and as an alias",
+             &DECL_SOURCE_LOCATION (decl), decl);
       *no_add_attrs = true;
     }
   else if (decl_function_context (decl) == 0)
@@ -5222,16 +5247,14 @@ handle_no_instrument_function_attribute (tree *node, tree name,
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
-      error_with_decl (decl,
-		       "`%s' attribute applies only to functions",
-		       IDENTIFIER_POINTER (name));
+      error ("%H'%E' attribute applies only to functions",
+             &DECL_SOURCE_LOCATION (decl), name);
       *no_add_attrs = true;
     }
   else if (DECL_INITIAL (decl))
     {
-      error_with_decl (decl,
-		       "can't set `%s' attribute after definition",
-		       IDENTIFIER_POINTER (name));
+      error ("%Hcan't set '%E' attribute after definition",
+             &DECL_SOURCE_LOCATION (decl), name);
       *no_add_attrs = true;
     }
   else
@@ -5272,16 +5295,14 @@ handle_no_limit_stack_attribute (tree *node, tree name,
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
-      error_with_decl (decl,
-		       "`%s' attribute applies only to functions",
-		       IDENTIFIER_POINTER (name));
+      error ("%H'%E' attribute applies only to functions",
+             &DECL_SOURCE_LOCATION (decl), name);
       *no_add_attrs = true;
     }
   else if (DECL_INITIAL (decl))
     {
-      error_with_decl (decl,
-		       "can't set `%s' attribute after definition",
-		       IDENTIFIER_POINTER (name));
+      error ("%Hcan't set '%E' attribute after definition",
+             &DECL_SOURCE_LOCATION (decl), name);
       *no_add_attrs = true;
     }
   else
@@ -5881,6 +5902,72 @@ check_function_arguments_recurse (void (*callback)
   (*callback) (ctx, param, param_num);
 }
 
+/* Function to help qsort sort FIELD_DECLs by name order.  */
+
+int
+field_decl_cmp (const void *x_p, const void *y_p)
+{
+  const tree *const x = x_p;
+  const tree *const y = y_p;
+  if (DECL_NAME (*x) == DECL_NAME (*y))
+    /* A nontype is "greater" than a type.  */
+    return (TREE_CODE (*y) == TYPE_DECL) - (TREE_CODE (*x) == TYPE_DECL);
+  if (DECL_NAME (*x) == NULL_TREE)
+    return -1;
+  if (DECL_NAME (*y) == NULL_TREE)
+    return 1;
+  if (DECL_NAME (*x) < DECL_NAME (*y))
+    return -1;
+  return 1;
+}
+
+static struct {
+  gt_pointer_operator new_value;
+  void *cookie;
+} resort_data;
+
+/* This routine compares two fields like field_decl_cmp but using the
+pointer operator in resort_data.  */
+
+static int
+resort_field_decl_cmp (const void *x_p, const void *y_p)
+{
+  const tree *const x = x_p;
+  const tree *const y = y_p;
+
+  if (DECL_NAME (*x) == DECL_NAME (*y))
+    /* A nontype is "greater" than a type.  */
+    return (TREE_CODE (*y) == TYPE_DECL) - (TREE_CODE (*x) == TYPE_DECL);
+  if (DECL_NAME (*x) == NULL_TREE)
+    return -1;
+  if (DECL_NAME (*y) == NULL_TREE)
+    return 1;
+  {
+    tree d1 = DECL_NAME (*x);
+    tree d2 = DECL_NAME (*y);
+    resort_data.new_value (&d1, resort_data.cookie);
+    resort_data.new_value (&d2, resort_data.cookie);
+    if (d1 < d2)
+      return -1;
+  }
+  return 1;
+}
+
+/* Resort DECL_SORTED_FIELDS because pointers have been reordered.  */
+
+void
+resort_sorted_fields (void *obj,
+                      void *orig_obj ATTRIBUTE_UNUSED ,
+                      gt_pointer_operator new_value,
+                      void *cookie)
+{
+  struct sorted_fields_type *sf = obj;
+  resort_data.new_value = new_value;
+  resort_data.cookie = cookie;
+  qsort (&sf->elts[0], sf->len, sizeof (tree),
+         resort_field_decl_cmp);
+}
+
 /* Used by estimate_num_insns.  Estimate number of instructions seen
    by given statement.  */
 static tree
@@ -5928,7 +6015,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
     case CALL_EXPR:
-    case METHOD_CALL_EXPR:
       *count += 10;
       break;
     /* Various containers that will produce no code themselves.  */

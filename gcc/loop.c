@@ -293,7 +293,7 @@ static void record_giv (const struct loop *, struct induction *, rtx, rtx,
 			rtx, rtx, rtx, rtx, int, enum g_types, int, int,
 			rtx *);
 static void update_giv_derive (const struct loop *, rtx);
-static void check_ext_dependent_givs (struct iv_class *, struct loop_info *);
+static void check_ext_dependent_givs (const struct loop *, struct iv_class *);
 static int basic_induction_var (const struct loop *, rtx, enum machine_mode,
 				rtx, rtx, rtx *, rtx *, rtx **);
 static rtx simplify_giv_expr (const struct loop *, rtx, rtx *, int *);
@@ -460,13 +460,11 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
      Leave some space for labels allocated by find_and_verify_loops.  */
   max_uid_for_loop = get_max_uid () + 1 + max_loop_num * 32;
 
-  uid_luid = (int *) xcalloc (max_uid_for_loop, sizeof (int));
-  uid_loop = (struct loop **) xcalloc (max_uid_for_loop,
-				       sizeof (struct loop *));
+  uid_luid = xcalloc (max_uid_for_loop, sizeof (int));
+  uid_loop = xcalloc (max_uid_for_loop, sizeof (struct loop *));
 
   /* Allocate storage for array of loops.  */
-  loops->array = (struct loop *)
-    xcalloc (loops->num, sizeof (struct loop));
+  loops->array = xcalloc (loops->num, sizeof (struct loop));
 
   /* Find and process each loop.
      First, find them, and record them in order of their beginnings.  */
@@ -908,7 +906,7 @@ scan_loop (struct loop *loop, int flags)
 		      continue;
 		    }
 
-		  m = (struct movable *) xmalloc (sizeof (struct movable));
+		  m = xmalloc (sizeof (struct movable));
 		  m->next = 0;
 		  m->insn = p;
 		  m->set_src = src;
@@ -996,7 +994,7 @@ scan_loop (struct loop *loop, int flags)
 		  if (regs->array[regno].set_in_loop == 2)
 		    {
 		      struct movable *m;
-		      m = (struct movable *) xmalloc (sizeof (struct movable));
+		      m = xmalloc (sizeof (struct movable));
 		      m->next = 0;
 		      m->insn = p;
 		      m->set_dest = SET_DEST (set);
@@ -1440,7 +1438,7 @@ static void
 combine_movables (struct loop_movables *movables, struct loop_regs *regs)
 {
   struct movable *m;
-  char *matched_regs = (char *) xmalloc (regs->num);
+  char *matched_regs = xmalloc (regs->num);
   enum machine_mode mode;
 
   /* Regs that are set more than once are not allowed to match
@@ -1775,8 +1773,8 @@ move_movables (struct loop *loop, struct loop_movables *movables,
   /* Map of pseudo-register replacements to handle combining
      when we move several insns that load the same value
      into different pseudo-registers.  */
-  rtx *reg_map = (rtx *) xcalloc (nregs, sizeof (rtx));
-  char *already_moved = (char *) xcalloc (nregs, sizeof (char));
+  rtx *reg_map = xcalloc (nregs, sizeof (rtx));
+  char *already_moved = xcalloc (nregs, sizeof (char));
 
   for (m = movables->head; m; m = m->next)
     {
@@ -2120,8 +2118,8 @@ move_movables (struct loop *loop, struct loop_movables *movables,
 			}
 		      else if (m->insert_temp)
 			{
-			  rtx *reg_map2 = (rtx *) xcalloc (REGNO (newreg),
-				sizeof(rtx));
+			  rtx *reg_map2 = xcalloc (REGNO (newreg),
+						   sizeof(rtx));
 			  reg_map2 [m->regno] = newreg;
 
 			  i1 = loop_insn_hoist (loop, copy_rtx (PATTERN (p)));
@@ -5068,7 +5066,7 @@ strength_reduce (struct loop *loop, int flags)
   addr_placeholder = gen_reg_rtx (Pmode);
 
   ivs->n_regs = max_reg_before_loop;
-  ivs->regs = (struct iv *) xcalloc (ivs->n_regs, sizeof (struct iv));
+  ivs->regs = xcalloc (ivs->n_regs, sizeof (struct iv));
 
   /* Find all BIVs in loop.  */
   loop_bivs_find (loop);
@@ -5122,7 +5120,7 @@ strength_reduce (struct loop *loop, int flags)
      Some givs might have been made from biv increments, so look at
      ivs->reg_iv_type for a suitable size.  */
   reg_map_size = ivs->n_regs;
-  reg_map = (rtx *) xcalloc (reg_map_size, sizeof (rtx));
+  reg_map = xcalloc (reg_map_size, sizeof (rtx));
 
   /* Examine each iv class for feasibility of strength reduction/induction
      variable elimination.  */
@@ -5143,7 +5141,7 @@ strength_reduce (struct loop *loop, int flags)
 
       /* Check each extension dependent giv in this class to see if its
 	 root biv is safe from wrapping in the interior mode.  */
-      check_ext_dependent_givs (bl, loop_info);
+      check_ext_dependent_givs (loop, bl);
 
       /* Combine all giv's for this iv_class.  */
       combine_givs (regs, bl);
@@ -5385,8 +5383,7 @@ check_insn_for_bivs (struct loop *loop, rtx p, int not_every_iteration,
 	      /* It is a possible basic induction variable.
 	         Create and initialize an induction structure for it.  */
 
-	      struct induction *v
-		= (struct induction *) xmalloc (sizeof (struct induction));
+	      struct induction *v = xmalloc (sizeof (struct induction));
 
 	      record_biv (loop, v, p, dest_reg, inc_val, mult_val, location,
 			  not_every_iteration, maybe_multiple);
@@ -5449,8 +5446,7 @@ check_insn_for_givs (struct loop *loop, rtx p, int not_every_iteration,
 					     &add_val, &mult_val, &ext_val,
 					     &last_consec_insn))))
 	{
-	  struct induction *v
-	    = (struct induction *) xmalloc (sizeof (struct induction));
+	  struct induction *v = xmalloc (sizeof (struct induction));
 
 	  /* If this is a library call, increase benefit.  */
 	  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
@@ -5567,8 +5563,7 @@ find_mem_givs (const struct loop *loop, rtx x, rtx insn,
 				   GET_MODE (x)))
 	  {
 	    /* Found one; record it.  */
-	    struct induction *v
-	      = (struct induction *) xmalloc (sizeof (struct induction));
+	    struct induction *v = xmalloc (sizeof (struct induction));
 
 	    record_giv (loop, v, insn, src_reg, addr_placeholder, mult_val,
 			add_val, ext_val, benefit, DEST_ADDR,
@@ -5641,7 +5636,7 @@ record_biv (struct loop *loop, struct induction *v, rtx insn, rtx dest_reg,
     {
       /* Create and initialize new iv_class.  */
 
-      bl = (struct iv_class *) xmalloc (sizeof (struct iv_class));
+      bl = xmalloc (sizeof (struct iv_class));
 
       bl->regno = REGNO (dest_reg);
       bl->biv = 0;
@@ -6197,7 +6192,7 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
 {
   enum rtx_code code;
   rtx *argp, arg;
-  rtx insn, set = 0;
+  rtx insn, set = 0, last, inc;
 
   code = GET_CODE (x);
   *location = NULL;
@@ -6225,7 +6220,26 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
       if (loop_invariant_p (loop, arg) != 1)
 	return 0;
 
-      *inc_val = convert_modes (GET_MODE (dest_reg), GET_MODE (x), arg, 0);
+      /* convert_modes can emit new instructions, e.g. when arg is a loop
+	 invariant MEM and dest_reg has a different mode.
+	 These instructions would be emitted after the end of the function
+	 and then *inc_val would be an unitialized pseudo.
+	 Detect this and bail in this case.
+	 Other alternatives to solve this can be introducing a convert_modes
+	 variant which is allowed to fail but not allowed to emit new
+	 instructions, emit these instructions before loop start and let
+	 it be garbage collected if *inc_val is never used or saving the
+	 *inc_val initialization sequence generated here and when *inc_val
+	 is going to be actually used, emit it at some suitable place.  */
+      last = get_last_insn ();
+      inc = convert_modes (GET_MODE (dest_reg), GET_MODE (x), arg, 0);
+      if (get_last_insn () != last)
+	{
+	  delete_insns_since (last);
+	  return 0;
+	}
+
+      *inc_val = inc;
       *mult_val = const1_rtx;
       *location = argp;
       return 1;
@@ -6306,7 +6320,15 @@ basic_induction_var (const struct loop *loop, rtx x, enum machine_mode mode,
 	  && GET_MODE_CLASS (mode) != MODE_CC)
 	{
 	  /* Possible bug here?  Perhaps we don't know the mode of X.  */
-	  *inc_val = convert_modes (GET_MODE (dest_reg), mode, x, 0);
+	  last = get_last_insn ();
+	  inc = convert_modes (GET_MODE (dest_reg), mode, x, 0);
+	  if (get_last_insn () != last)
+	    {
+	      delete_insns_since (last);
+	      return 0;
+	    }
+
+	  *inc_val = inc;
 	  *mult_val = const0_rtx;
 	  return 1;
 	}
@@ -6981,7 +7003,7 @@ consec_sets_giv (const struct loop *loop, int first_benefit, rtx p,
   if (REG_IV_TYPE (ivs, REGNO (dest_reg)) != UNKNOWN_INDUCT)
     return 0;
 
-  v = (struct induction *) alloca (sizeof (struct induction));
+  v = alloca (sizeof (struct induction));
   v->src_reg = src_reg;
   v->mult_val = *mult_val;
   v->add_val = *add_val;
@@ -7286,8 +7308,9 @@ combine_givs_p (struct induction *g1, struct induction *g2)
    make the giv illegal.  */
 
 static void
-check_ext_dependent_givs (struct iv_class *bl, struct loop_info *loop_info)
+check_ext_dependent_givs (const struct loop *loop, struct iv_class *bl)
 {
+  struct loop_info *loop_info = LOOP_INFO (loop);
   int ze_ok = 0, se_ok = 0, info_ok = 0;
   enum machine_mode biv_mode = GET_MODE (bl->biv->src_reg);
   HOST_WIDE_INT start_val;
@@ -7298,9 +7321,6 @@ check_ext_dependent_givs (struct iv_class *bl, struct loop_info *loop_info)
 
   /* Make sure the iteration data is available.  We must have
      constants in order to be certain of no overflow.  */
-  /* ??? An unknown iteration count with an increment of +-1
-     combined with friendly exit tests of against an invariant
-     value is also amenable to optimization.  Not implemented.  */
   if (loop_info->n_iterations > 0
       && bl->initial_value
       && GET_CODE (bl->initial_value) == CONST_INT
@@ -7367,6 +7387,37 @@ check_ext_dependent_givs (struct iv_class *bl, struct loop_info *loop_info)
 	}
     }
 
+  /* If we know the BIV is compared at run-time against an 
+     invariant value, and the increment is +/- 1, we may also 
+     be able to prove that the BIV cannot overflow.  */
+  else if (bl->biv->src_reg == loop_info->iteration_var
+           && loop_info->comparison_value
+           && loop_invariant_p (loop, loop_info->comparison_value)
+           && (incr = biv_total_increment (bl))
+           && GET_CODE (incr) == CONST_INT)
+    {
+      /* If the increment is +1, and the exit test is a <,
+         the BIV cannot overflow.  (For <=, we have the 
+         problematic case that the comparison value might
+         be the maximum value of the range.)  */
+       if (INTVAL (incr) == 1)
+         {
+           if (loop_info->comparison_code == LT)
+             se_ok = ze_ok = 1;
+           else if (loop_info->comparison_code == LTU)
+             ze_ok = 1;
+         }
+
+       /* Likewise for increment -1 and exit test >.  */
+       if (INTVAL (incr) == -1)
+         {
+           if (loop_info->comparison_code == GT)
+             se_ok = ze_ok = 1;
+           else if (loop_info->comparison_code == GTU)
+             ze_ok = 1;
+         }
+    }
+
   /* Invalidate givs that fail the tests.  */
   for (v = bl->giv; v; v = v->next_iv)
     if (v->ext_dependent)
@@ -7388,8 +7439,9 @@ check_ext_dependent_givs (struct iv_class *bl, struct loop_info *loop_info)
 	       signed or unsigned, so to safely truncate we must satisfy
 	       both.  The initial check here verifies the BIV itself;
 	       once that is successful we may check its range wrt the
-	       derived GIV.  */
-	    if (se_ok && ze_ok)
+	       derived GIV.  This works only if we were able to determine
+	       constant start and end values above.  */
+	    if (se_ok && ze_ok && info_ok)
 	      {
 		enum machine_mode outer_mode = GET_MODE (v->ext_dependent);
 		unsigned HOST_WIDE_INT max = GET_MODE_MASK (outer_mode) >> 1;
@@ -7507,15 +7559,14 @@ combine_givs (struct loop_regs *regs, struct iv_class *bl)
     if (!g1->ignore)
       giv_count++;
 
-  giv_array
-    = (struct induction **) alloca (giv_count * sizeof (struct induction *));
+  giv_array = alloca (giv_count * sizeof (struct induction *));
   i = 0;
   for (g1 = bl->giv; g1; g1 = g1->next_iv)
     if (!g1->ignore)
       giv_array[i++] = g1;
 
-  stats = (struct combine_givs_stats *) xcalloc (giv_count, sizeof (*stats));
-  can_combine = (rtx *) xcalloc (giv_count, giv_count * sizeof (rtx));
+  stats = xcalloc (giv_count, sizeof (*stats));
+  can_combine = xcalloc (giv_count, giv_count * sizeof (rtx));
 
   for (i = 0; i < giv_count; i++)
     {
@@ -7737,11 +7788,12 @@ loop_iv_add_mult_emit_before (const struct loop *loop, rtx b, rtx m, rtx a,
   update_reg_last_use (b, before_insn);
   update_reg_last_use (m, before_insn);
 
-  loop_insn_emit_before (loop, before_bb, before_insn, seq);
-
   /* It is possible that the expansion created lots of new registers.
-     Iterate over the sequence we just created and record them all.  */
+     Iterate over the sequence we just created and record them all.  We
+     must do this before inserting the sequence.  */
   loop_regs_update (loop, seq);
+
+  loop_insn_emit_before (loop, before_bb, before_insn, seq);
 }
 
 
@@ -7764,11 +7816,12 @@ loop_iv_add_mult_sink (const struct loop *loop, rtx b, rtx m, rtx a, rtx reg)
   update_reg_last_use (b, loop->sink);
   update_reg_last_use (m, loop->sink);
 
-  loop_insn_sink (loop, seq);
-
   /* It is possible that the expansion created lots of new registers.
-     Iterate over the sequence we just created and record them all.  */
+     Iterate over the sequence we just created and record them all.  We
+     must do this before inserting the sequence.  */
   loop_regs_update (loop, seq);
+
+  loop_insn_sink (loop, seq);
 }
 
 
@@ -7784,11 +7837,12 @@ loop_iv_add_mult_hoist (const struct loop *loop, rtx b, rtx m, rtx a, rtx reg)
   /* Use copy_rtx to prevent unexpected sharing of these rtx.  */
   seq = gen_add_mult (copy_rtx (b), copy_rtx (m), copy_rtx (a), reg);
 
-  loop_insn_hoist (loop, seq);
-
   /* It is possible that the expansion created lots of new registers.
-     Iterate over the sequence we just created and record them all.  */
+     Iterate over the sequence we just created and record them all.  We
+     must do this before inserting the sequence.  */
   loop_regs_update (loop, seq);
+
+  loop_insn_hoist (loop, seq);
 }
 
 
@@ -7980,9 +8034,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
      In this case, add a reg_note REG_NONNEG, which allows the
      m68k DBRA instruction to be used.  */
 
-  if (((GET_CODE (comparison) == GT
-	&& GET_CODE (XEXP (comparison, 1)) == CONST_INT
-	&& INTVAL (XEXP (comparison, 1)) == -1)
+  if (((GET_CODE (comparison) == GT && XEXP (comparison, 1) == constm1_rtx)
        || (GET_CODE (comparison) == NE && XEXP (comparison, 1) == const0_rtx))
       && GET_CODE (bl->biv->add_val) == CONST_INT
       && INTVAL (bl->biv->add_val) < 0)
@@ -9460,9 +9512,8 @@ insert_loop_mem (rtx *mem, void *data ATTRIBUTE_UNUSED)
       else
 	loop_info->mems_allocated = 32;
 
-      loop_info->mems = (loop_mem_info *)
-	xrealloc (loop_info->mems,
-		  loop_info->mems_allocated * sizeof (loop_mem_info));
+      loop_info->mems = xrealloc (loop_info->mems,
+				  loop_info->mems_allocated * sizeof (loop_mem_info));
     }
 
   /* Actually insert the MEM.  */
@@ -9513,8 +9564,7 @@ loop_regs_scan (const struct loop *loop, int extra_size)
     {
       regs->size = regs->num + extra_size;
 
-      regs->array = (struct loop_reg *)
-	xrealloc (regs->array, regs->size * sizeof (*regs->array));
+      regs->array = xrealloc (regs->array, regs->size * sizeof (*regs->array));
 
       /* Zero the new elements.  */
       memset (regs->array + old_nregs, 0,
@@ -9529,7 +9579,7 @@ loop_regs_scan (const struct loop *loop, int extra_size)
       regs->array[i].single_usage = NULL_RTX;
     }
 
-  last_set = (rtx *) xcalloc (regs->num, sizeof (rtx));
+  last_set = xcalloc (regs->num, sizeof (rtx));
 
   /* Scan the loop, recording register usage.  */
   for (insn = loop->top ? loop->top : loop->start; insn != loop->end;

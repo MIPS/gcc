@@ -956,10 +956,6 @@ dump_decl (tree t, int flags)
       }
       break;
 
-    case LOOKUP_EXPR:
-      dump_decl (TREE_OPERAND (t, 0), flags);
-      break;
-
     case LABEL_DECL:
       print_tree_identifier (scratch_buffer, DECL_NAME (t));
       break;
@@ -1957,10 +1953,6 @@ dump_expr (tree t, int flags)
       print_right_paren (scratch_buffer);
       break;
 
-    case LOOKUP_EXPR:
-      print_tree_identifier (scratch_buffer, TREE_OPERAND (t, 0));
-      break;
-
     case ARROW_EXPR:
       dump_expr (TREE_OPERAND (t, 0), flags);
       output_add_string (scratch_buffer, "->");
@@ -1980,6 +1972,14 @@ dump_expr (tree t, int flags)
       else
         dump_expr (TREE_OPERAND (t, 0), flags);
       print_right_paren (scratch_buffer);
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      print_identifier (scratch_buffer,
+                        operator_name_info[TREE_CODE (t)].name);
+      output_add_space (scratch_buffer);
+      dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
     case DEFAULT_ARG:
@@ -2030,6 +2030,12 @@ dump_expr (tree t, int flags)
 
     case BASELINK:
       dump_expr (get_first_fn (t), flags & ~TFF_EXPR_IN_PARENS);
+      break;
+
+    case EMPTY_CLASS_EXPR:
+      dump_type (TREE_TYPE (t), flags);
+      print_left_paren (scratch_buffer);
+      print_right_paren (scratch_buffer);
       break;
 
     case NON_DEPENDENT_EXPR:
@@ -2169,7 +2175,7 @@ decl_to_string (tree decl, int verbose)
       || TREE_CODE (decl) == UNION_TYPE || TREE_CODE (decl) == ENUMERAL_TYPE)
     flags = TFF_CLASS_KEY_OR_ENUM;
   if (verbose)
-    flags |= TFF_DECL_SPECIFIERS | TFF_FUNCTION_DEFAULT_ARGUMENTS;
+    flags |= TFF_DECL_SPECIFIERS;
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE;
   flags |= TFF_TEMPLATE_HEADER;

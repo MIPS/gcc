@@ -1544,6 +1544,8 @@ extern rtx prev_cc0_setter (rtx);
 extern tree choose_inner_scope (tree, tree);
 extern int insn_line (rtx);
 extern const char * insn_file (rtx);
+extern int locator_line (int);
+extern const char * locator_file (int);
 extern int prologue_locator, epilogue_locator;
 
 /* In jump.c */
@@ -1602,7 +1604,8 @@ extern rtx avoid_constant_pool_reference (rtx);
 extern rtx gen_mem_addressof (rtx, tree, int);
 
 /* In regclass.c  */
-extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int);
+extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
+					       bool);
 
 /* In emit-rtl.c  */
 extern rtx set_unique_reg_note (rtx, enum reg_note, rtx);

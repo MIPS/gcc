@@ -2220,7 +2220,7 @@ maybe_push_to_top_level (int pseudo)
   int need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
-  s = (struct saved_scope *) ggc_alloc_cleared (sizeof (struct saved_scope));
+  s = ggc_alloc_cleared (sizeof (struct saved_scope));
 
   b = scope_chain ? current_binding_level : 0;
 
@@ -3306,6 +3306,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
 	  DECL_INITIALIZED_P (newdecl) |= DECL_INITIALIZED_P (olddecl);
+	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (newdecl)
+	    |= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (olddecl);
 	}
 
       /* Do this after calling `merge_types' so that default
@@ -3558,36 +3560,30 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      function_size - sizeof (struct tree_common));
 
       if (DECL_TEMPLATE_INSTANTIATION (newdecl))
-	{
-	  /* If newdecl is a template instantiation, it is possible that
-	     the following sequence of events has occurred:
+	/* If newdecl is a template instantiation, it is possible that
+	   the following sequence of events has occurred:
 
-	     o A friend function was declared in a class template.  The
-	     class template was instantiated.
+	   o A friend function was declared in a class template.  The
+	   class template was instantiated.
 
-	     o The instantiation of the friend declaration was
-	     recorded on the instantiation list, and is newdecl.
+	   o The instantiation of the friend declaration was
+	   recorded on the instantiation list, and is newdecl.
 
-	     o Later, however, instantiate_class_template called pushdecl
-	     on the newdecl to perform name injection.  But, pushdecl in
-	     turn called duplicate_decls when it discovered that another
-	     declaration of a global function with the same name already
-	     existed.
+	   o Later, however, instantiate_class_template called pushdecl
+	   on the newdecl to perform name injection.  But, pushdecl in
+	   turn called duplicate_decls when it discovered that another
+	   declaration of a global function with the same name already
+	   existed.
 
-	     o Here, in duplicate_decls, we decided to clobber newdecl.
+	   o Here, in duplicate_decls, we decided to clobber newdecl.
 
-	     If we're going to do that, we'd better make sure that
-	     olddecl, and not newdecl, is on the list of
-	     instantiations so that if we try to do the instantiation
-	     again we won't get the clobbered declaration.  */
-
-	  tree tmpl = DECL_TI_TEMPLATE (newdecl);
-	  tree decls = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
-
-	  for (; decls; decls = TREE_CHAIN (decls))
-	    if (TREE_VALUE (decls) == newdecl)
-	      TREE_VALUE (decls) = olddecl;
-	}
+	   If we're going to do that, we'd better make sure that
+	   olddecl, and not newdecl, is on the list of
+	   instantiations so that if we try to do the instantiation
+	   again we won't get the clobbered declaration.  */
+	reregister_specialization (newdecl, 
+				   DECL_TI_TEMPLATE (newdecl), 
+				   olddecl);
     }
   else
     {
@@ -4673,8 +4669,7 @@ use_label (tree decl)
       || named_label_uses->label_decl != decl)
     {
       struct named_label_use_list *new_ent;
-      new_ent = ((struct named_label_use_list *)
-		 ggc_alloc (sizeof (struct named_label_use_list)));
+      new_ent = ggc_alloc (sizeof (struct named_label_use_list));
       new_ent->label_decl = decl;
       new_ent->names_in_scope = current_binding_level->names;
       new_ent->binding_level = current_binding_level;
@@ -4711,8 +4706,7 @@ lookup_label (tree id)
   /* Record this label on the list of labels used in this function.
      We do this before calling make_label_decl so that we get the
      IDENTIFIER_LABEL_VALUE before the new label is declared.  */
-  ent = ((struct named_label_list *)
-	 ggc_alloc_cleared (sizeof (struct named_label_list)));
+  ent = ggc_alloc_cleared (sizeof (struct named_label_list));
   ent->old_value = IDENTIFIER_LABEL_VALUE (id);
   ent->next = named_labels;
   named_labels = ent;
@@ -5007,8 +5001,7 @@ static struct cp_switch *switch_stack;
 void
 push_switch (tree switch_stmt)
 {
-  struct cp_switch *p
-    = (struct cp_switch *) xmalloc (sizeof (struct cp_switch));
+  struct cp_switch *p = xmalloc (sizeof (struct cp_switch));
   p->level = current_binding_level;
   p->next = switch_stack;
   p->switch_stmt = switch_stmt;
@@ -5767,10 +5760,12 @@ qualify_lookup (tree val, int flags)
    bindings.  
 
    Returns a DECL (or OVERLOAD, or BASELINK) representing the
-   declaration found.  */
+   declaration found.  If no suitable declaration can be found,
+   ERROR_MARK_NODE is returned.  Iif COMPLAIN is true and SCOPE is
+   neither a class-type nor a namespace a diagnostic is issued.  */
 
 tree
-lookup_qualified_name (tree scope, tree name, bool is_type_p)
+lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
 {
   int flags = 0;
 
@@ -5782,15 +5777,19 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p)
       flags |= LOOKUP_COMPLAIN;
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
-      if (!qualified_lookup_using_namespace (name, scope, &binding, 
-					     flags))
-	return NULL_TREE;
-      return select_decl (&binding, flags);
+      if (qualified_lookup_using_namespace (name, scope, &binding, 
+					    flags))
+	return select_decl (&binding, flags);
     }
-  else if (is_aggr_type (scope, /*or_else=*/1))
-    return lookup_member (scope, name, 0, is_type_p);
-  else
-    return error_mark_node;
+  else if (is_aggr_type (scope, complain))
+    {
+      tree t;
+      t = lookup_member (scope, name, 0, is_type_p);
+      if (t)
+	return t;
+    }
+
+  return error_mark_node;
 }
 
 /* Check to see whether or not DECL is a variable that would have been
@@ -6213,7 +6212,7 @@ cxx_init_decl_processing (void)
   current_lang_name = NULL_TREE;
 
   /* Adjust various flags based on command-line settings.  */
-  if (! flag_permissive && ! pedantic)
+  if (!flag_permissive)
     flag_pedantic_errors = 1;
   if (!flag_no_inline)
     {
@@ -8259,6 +8258,10 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
   if (was_readonly)
     TREE_READONLY (decl) = 1;
+
+  /* If this was marked 'used', be sure it will be output.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    mark_referenced (DECL_ASSEMBLER_NAME (decl));
 }
 
 /* This is here for a midend callback from c-common.c */
@@ -8978,7 +8981,6 @@ grokfndecl (tree ctype,
               fns = TREE_OPERAND (fns, 1);
             }
 	  my_friendly_assert (TREE_CODE (fns) == IDENTIFIER_NODE
-	                      || TREE_CODE (fns) == LOOKUP_EXPR
 	                      || TREE_CODE (fns) == OVERLOAD, 20001120);
 	  DECL_TEMPLATE_INFO (decl) = tree_cons (fns, args, NULL_TREE);
 
@@ -9800,9 +9802,6 @@ grokdeclarator (tree declarator,
 	      {
 		tree fns = TREE_OPERAND (decl, 0);
 
-		if (TREE_CODE (fns) == LOOKUP_EXPR)
-		  fns = TREE_OPERAND (fns, 0);
-
 		dname = fns;
 		if (TREE_CODE (dname) == COMPONENT_REF)
 		  dname = TREE_OPERAND (dname, 1);
@@ -9911,16 +9910,19 @@ grokdeclarator (tree declarator,
 	      decl = *next;
 	      if (ctype)
 		{
-		  if (TREE_CODE (decl) == IDENTIFIER_NODE
-		      && constructor_name_p (decl, ctype))
+		  tree name = decl;
+
+		  if (TREE_CODE (name) == BIT_NOT_EXPR)
+		    name = TREE_OPERAND (name, 0);
+
+		  if (!constructor_name_p (decl, ctype))
+		    ;
+		  else if (decl == name)
 		    {
 		      sfk = sfk_constructor;
 		      ctor_return_type = ctype;
 		    }
-		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
-			   && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
-			   && constructor_name_p (TREE_OPERAND (decl, 0),
-						  ctype))
+		  else
 		    {
 		      sfk = sfk_destructor;
 		      ctor_return_type = ctype;
@@ -10613,13 +10615,17 @@ grokdeclarator (tree declarator,
 	    register tree size;
 
 	    size = TREE_OPERAND (declarator, 1);
-
-	    /* VC++ spells a zero-sized array with [].  */
-	    if (size == NULL_TREE && decl_context == FIELD && !	staticp
-		&& ! RIDBIT_SETP (RID_TYPEDEF, specbits))
-	      size = integer_zero_node;
-
 	    declarator = TREE_OPERAND (declarator, 0);
+
+	    /* C99 spells a flexible array member [].  */
+	    if (size == NULL_TREE && decl_context == FIELD && !	staticp
+		&& ! RIDBIT_SETP (RID_TYPEDEF, specbits)
+		&& !(declarator &&
+		    (TREE_CODE (declarator) == CALL_EXPR
+		      || TREE_CODE (declarator) == INDIRECT_REF
+		      || TREE_CODE (declarator) == ADDR_EXPR
+		      || TREE_CODE (declarator) == ARRAY_REF)))
+	      size = integer_zero_node;
 
 	    type = create_array_type_for_decl (dname, type, size);
 
@@ -11485,7 +11491,10 @@ grokdeclarator (tree declarator,
 	       members of other classes.  */
 	    /* All method decls are public, so tell grokfndecl to set
 	       TREE_PUBLIC, also.  */
-	    decl = grokfndecl (ctype, type, declarator, declarator,
+	    decl = grokfndecl (ctype, type,
+			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
+			       ? declarator : dname,
+			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
 			       template_count, in_namespace);
@@ -12826,6 +12835,9 @@ xref_basetypes (tree ref, tree base_list)
   int i;
   enum tag_types tag_code;
 
+  if (ref == error_mark_node)
+    return;
+
   if (TREE_CODE (ref) == UNION_TYPE)
     {
       error ("derived union `%T' invalid", ref);
@@ -13764,8 +13776,7 @@ save_function_data (tree decl)
 		      19990908);
 
   /* Make a copy.  */
-  f = ((struct language_function *)
-       ggc_alloc (sizeof (struct language_function)));
+  f = ggc_alloc (sizeof (struct language_function));
   memcpy (f, cp_function_chain, sizeof (struct language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
@@ -14434,8 +14445,7 @@ void
 cxx_push_function_context (struct function * f)
 {
   struct language_function *p
-    = ((struct language_function *)
-       ggc_alloc_cleared (sizeof (struct language_function)));
+    = ggc_alloc_cleared (sizeof (struct language_function));
   f->language = p;
 
   /* It takes an explicit call to expand_body to generate RTL for a

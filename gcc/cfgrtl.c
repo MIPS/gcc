@@ -1036,18 +1036,15 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
     {
       /* Create the new structures.  */
 
-      /* Position the new block correctly relative to loop notes.  */
-      note = last_loop_beg_note (e->src->end);
-      note = NEXT_INSN (note);
+      /* If the old block ended with a tablejump, skip its table
+	 by searching forward from there.  Otherwise start searching
+	 forward from the last instruction of the old block.  */
+      if (!tablejump_p (e->src->end, NULL, &note))
+	note = e->src->end;
 
-      /* ... and ADDR_VECs.  */
-      if (note != NULL
-	  && GET_CODE (note) == CODE_LABEL
-	  && NEXT_INSN (note)
-	  && GET_CODE (NEXT_INSN (note)) == JUMP_INSN
-	  && (GET_CODE (PATTERN (NEXT_INSN (note))) == ADDR_DIFF_VEC
-	      || GET_CODE (PATTERN (NEXT_INSN (note))) == ADDR_VEC))
-	note = NEXT_INSN (NEXT_INSN (note));
+      /* Position the new block correctly relative to loop notes.  */
+      note = last_loop_beg_note (note);
+      note = NEXT_INSN (note);
 
       jump_block = create_basic_block (note, NULL, e->src);
       jump_block->count = e->count;
@@ -1724,12 +1721,9 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
     {
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
-      basic_block *start
-	= (basic_block *) xcalloc (max_uid, sizeof (basic_block));
-      basic_block *end
-	= (basic_block *) xcalloc (max_uid, sizeof (basic_block));
-      enum bb_state *in_bb_p
-	= (enum bb_state *) xcalloc (max_uid, sizeof (enum bb_state));
+      basic_block *start = xcalloc (max_uid, sizeof (basic_block));
+      basic_block *end = xcalloc (max_uid, sizeof (basic_block));
+      enum bb_state *in_bb_p = xcalloc (max_uid, sizeof (enum bb_state));
 
       basic_block bb;
 
@@ -1835,7 +1829,7 @@ rtl_verify_flow_info_1 (void)
   int err = 0;
   basic_block bb, last_bb_seen;
 
-  bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
+  bb_info = xcalloc (max_uid, sizeof (basic_block));
 
   /* Check bb chain & numbers.  */
   last_bb_seen = ENTRY_BLOCK_PTR;
@@ -1910,7 +1904,10 @@ rtl_verify_flow_info_1 (void)
 	  if (e->flags & EDGE_FALLTHRU)
 	    n_fallthru++, fallthru = e;
 
-	  if ((e->flags & ~(EDGE_DFS_BACK | EDGE_CAN_FALLTHRU | EDGE_IRREDUCIBLE_LOOP)) == 0)
+	  if ((e->flags & ~(EDGE_DFS_BACK
+			    | EDGE_CAN_FALLTHRU
+			    | EDGE_IRREDUCIBLE_LOOP
+			    | EDGE_LOOP_EXIT)) == 0)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)

@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern void optimization_options PARAMS ((int, int));
 extern void override_options PARAMS ((void));
 extern int s390_arg_frame_offset PARAMS ((void));
+extern void s390_load_got PARAMS ((int));
 extern void s390_emit_prologue PARAMS ((void));
 extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
@@ -68,7 +69,7 @@ extern void emit_symbolic_move PARAMS ((rtx *));
 extern void s390_load_address PARAMS ((rtx, rtx));
 extern void s390_expand_movstr PARAMS ((rtx, rtx, rtx));
 extern void s390_expand_clrstr PARAMS ((rtx, rtx));
-extern void s390_expand_cmpstr PARAMS ((rtx, rtx, rtx, rtx));
+extern void s390_expand_cmpmem PARAMS ((rtx, rtx, rtx, rtx));
 extern rtx s390_return_addr_rtx PARAMS ((int, rtx));
 
 extern void s390_output_symbolic_const PARAMS ((FILE *, rtx));

@@ -305,9 +305,7 @@ lookup_base (tree t, tree base, base_access access, base_kind *kind_ptr)
 	    /* Rather than inventing a public member, we use the implicit
 	       public typedef created in the scope of every class.  */
 	    decl = TYPE_FIELDS (base);
-	    while (TREE_CODE (decl) != TYPE_DECL
-		   || !DECL_ARTIFICIAL (decl)
-		   || DECL_NAME (decl) != constructor_name (base))
+	    while (!DECL_SELF_REFERENCE_P (decl))
 	      decl = TREE_CHAIN (decl);
 	    while (ANON_AGGR_TYPE_P (t))
 	      t = TYPE_CONTEXT (t);
@@ -434,8 +432,8 @@ lookup_field_1 (tree type, tree name, bool want_type)
       && DECL_LANG_SPECIFIC (TYPE_NAME (type))
       && DECL_SORTED_FIELDS (TYPE_NAME (type)))
     {
-      tree *fields = &TREE_VEC_ELT (DECL_SORTED_FIELDS (TYPE_NAME (type)), 0);
-      int lo = 0, hi = TREE_VEC_LENGTH (DECL_SORTED_FIELDS (TYPE_NAME (type)));
+      tree *fields = &DECL_SORTED_FIELDS (TYPE_NAME (type))->elts[0];
+      int lo = 0, hi = DECL_SORTED_FIELDS (TYPE_NAME (type))->len;
       int i;
 
       while (lo < hi)
@@ -901,6 +899,13 @@ accessible_p (tree type, tree decl)
   /* If this declaration is in a block or namespace scope, there's no
      access control.  */
   if (!TYPE_P (context_for_name_lookup (decl)))
+    return 1;
+
+  /* In a template declaration, we cannot be sure whether the
+     particular specialization that is instantiated will be a friend
+     or not.  Therefore, all access checks are deferred until
+     instantiation.  */
+  if (processing_template_decl)
     return 1;
 
   if (!TYPE_P (type))

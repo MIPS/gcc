@@ -170,6 +170,9 @@ add_friend (tree type, tree decl)
       list = TREE_CHAIN (list);
     }
 
+  if (DECL_CLASS_SCOPE_P (decl))
+    perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (decl)), decl);
+
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
   DECL_FRIENDLIST (typedecl)
@@ -333,8 +336,6 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
-      if (TREE_CODE (declarator) == LOOKUP_EXPR)
-	declarator = TREE_OPERAND (declarator, 0);
       if (is_overloaded_fn (declarator))
 	declarator = DECL_NAME (get_first_fn (declarator));
     }
@@ -359,6 +360,8 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
 
       if (is_friend_template)
 	decl = DECL_TI_TEMPLATE (push_template_decl (decl));
+      else if (DECL_TEMPLATE_INFO (decl))
+	;
       else if (template_class_depth (current_class_type))
 	decl = push_template_decl_real (decl, /*is_friend=*/1);
 

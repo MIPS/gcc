@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "splay-tree.h"
 #include "cpplib.h"
+#include "ggc.h"
 
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
@@ -97,7 +98,10 @@ enum rid
   RID_ID,          RID_AT_ENCODE,    RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
-  RID_AT_PROTOCOL, RID_AT_SELECTOR,  RID_AT_INTERFACE,
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,  
+  RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
+  RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
+  RID_AT_INTERFACE,
   RID_AT_IMPLEMENTATION,
 
   RID_MAX,
@@ -223,6 +227,13 @@ struct c_common_identifier GTY(())
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
+/* In a RECORD_TYPE, a sorted array of the fields of the type, not a tree for size reasons.  */
+struct sorted_fields_type GTY(())
+{
+  int len;
+  tree GTY((length ("%h.len"))) elts[1];
+};
+
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
@@ -343,6 +354,9 @@ extern void c_finish_while_stmt_cond (tree, tree);
 
 enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
 extern void shadow_warning (enum sw_kind, const char *, tree);
+extern int field_decl_cmp (const void *, const void *);
+extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
+                                  void *);
 
 /* Extra information associated with a DECL.  Other C dialects extend
    this structure in various ways.  The C front-end only uses this
@@ -369,6 +383,25 @@ extern int allow_pch;
 /* Nonzero if prepreprocessing only.  */
 
 extern int flag_preprocess_only;
+
+/* Zero means that faster, ...NonNil variants of objc_msgSend...
+   calls will be used in ObjC; passing nil receivers to such calls
+   will most likely result in crashes.  */
+extern int flag_nil_receivers;
+
+/* Nonzero means that we will allow new ObjC exception syntax (@throw,
+   @try, etc.) in source code.  */
+extern int flag_objc_exceptions;
+
+/* Nonzero means that code generation will be altered to support
+   "zero-link" execution.  This currently affects ObjC only, but may
+   affect other languages in the future.  */
+extern int flag_zero_link;
+
+/* Nonzero means emit an '__OBJC, __image_info' for the current translation
+   unit.  It will inform the ObjC runtime that class definition(s) herein
+   contained are to replace one(s) previously loaded.  */
+extern int flag_replace_objc_classes;
 
 /* Nonzero means don't output line number information.  */
 
@@ -845,6 +878,11 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
+/* The count of input filenames.  Only really valid for comparisons
+   against 1.  */
+
+extern unsigned num_in_fnames;
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -962,6 +1000,14 @@ extern HOST_WIDE_INT c_common_get_alias_set (tree);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+
+/* This function resets the parsers' state in preparation for parsing
+   a new file.  */
+extern void c_reset_state (void);
+/* This is the basic parsing function.  */
+extern void c_parse_file (void);
+/* This is misnamed, it actually performs end-of-compilation processing.  */
+extern void finish_file	(void);
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -1297,6 +1343,18 @@ extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
+
+/* The following have been moved here from c-tree.h, since they're needed
+   in the ObjC++ world, too.  What is more, stub-objc.c could use a few
+   prototypes.  */
+extern tree lookup_interface (tree);
+extern tree is_class_name (tree);
+extern tree objc_is_id (tree);
+extern void objc_check_decl (tree);
+extern int objc_comptypes (tree, tree, int);
+extern tree objc_message_selector (void);
+extern tree lookup_objc_ivar (tree);
+extern void objc_mark_locals_volatile (void *);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

@@ -549,9 +549,9 @@ struct null_pointer_info
 };
 
 static void compute_can_copy (void);
-static char *gmalloc (unsigned int);
-static char *grealloc (char *, unsigned int);
-static char *gcse_alloc (unsigned long);
+static void *gmalloc (unsigned int);
+static void *grealloc (void *, unsigned int);
+static void *gcse_alloc (unsigned long);
 static void alloc_gcse_mem (rtx);
 static void free_gcse_mem (void);
 static void alloc_reg_set_mem (int);
@@ -682,9 +682,9 @@ static rtx extract_mentioned_regs (rtx);
 static rtx extract_mentioned_regs_helper (rtx, rtx);
 static void find_moveable_store (rtx, int *, int *);
 static int compute_store_table (void);
-static bool load_kills_store (rtx, rtx);
-static bool find_loads (rtx, rtx);
-static bool store_killed_in_insn (rtx, rtx, rtx);
+static bool load_kills_store (rtx, rtx, int);
+static bool find_loads (rtx, rtx, int);
+static bool store_killed_in_insn (rtx, rtx, rtx, int);
 static bool store_killed_after (rtx, rtx, rtx, basic_block, int *, rtx *);
 static bool store_killed_before (rtx, rtx, rtx, basic_block, int *);
 static void build_store_vectors (void);
@@ -821,12 +821,11 @@ gcse_main (rtx f, FILE *file)
 	  if (changed)
 	    {
 	      free_modify_mem_tables ();
-	      modify_mem_list
-		= (rtx *) gmalloc (last_basic_block * sizeof (rtx));
+	      modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
 	      canon_modify_mem_list
-		= (rtx *) gmalloc (last_basic_block * sizeof (rtx));
-	      memset ((char *) modify_mem_list, 0, last_basic_block * sizeof (rtx));
-	      memset ((char *) canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
+		= gmalloc (last_basic_block * sizeof (rtx));
+	      memset (modify_mem_list, 0, last_basic_block * sizeof (rtx));
+	      memset (canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
 	    }
 	  free_reg_set_mem ();
 	  alloc_reg_set_mem (max_reg_num ());
@@ -954,7 +953,7 @@ can_copy_p (enum machine_mode mode)
 
 /* Cover function to xmalloc to record bytes allocated.  */
 
-static char *
+static void *
 gmalloc (unsigned int size)
 {
   bytes_used += size;
@@ -965,19 +964,19 @@ gmalloc (unsigned int size)
    We don't record the additional size since we don't know it.
    It won't affect memory usage stats much anyway.  */
 
-static char *
-grealloc (char *ptr, unsigned int size)
+static void *
+grealloc (void *ptr, unsigned int size)
 {
   return xrealloc (ptr, size);
 }
 
 /* Cover function to obstack_alloc.  */
 
-static char *
+static void *
 gcse_alloc (unsigned long size)
 {
   bytes_used += size;
-  return (char *) obstack_alloc (&gcse_obstack, size);
+  return obstack_alloc (&gcse_obstack, size);
 }
 
 /* Allocate memory for the cuid mapping array,
@@ -997,8 +996,8 @@ alloc_gcse_mem (rtx f)
 
   max_uid = get_max_uid ();
   n = (max_uid + 1) * sizeof (int);
-  uid_cuid = (int *) gmalloc (n);
-  memset ((char *) uid_cuid, 0, n);
+  uid_cuid = gmalloc (n);
+  memset (uid_cuid, 0, n);
   for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
@@ -1011,8 +1010,8 @@ alloc_gcse_mem (rtx f)
 
   max_cuid = i;
   n = (max_cuid + 1) * sizeof (rtx);
-  cuid_insn = (rtx *) gmalloc (n);
-  memset ((char *) cuid_insn, 0, n);
+  cuid_insn = gmalloc (n);
+  memset (cuid_insn, 0, n);
   for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       CUID_INSN (i++) = insn;
@@ -1021,14 +1020,13 @@ alloc_gcse_mem (rtx f)
   reg_set_bitmap = BITMAP_XMALLOC ();
 
   /* Allocate vars to track sets of regs, memory per block.  */
-  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (last_basic_block,
-						       max_gcse_regno);
+  reg_set_in_block = sbitmap_vector_alloc (last_basic_block, max_gcse_regno);
   /* Allocate array to keep a list of insns which modify memory in each
      basic block.  */
-  modify_mem_list = (rtx *) gmalloc (last_basic_block * sizeof (rtx));
-  canon_modify_mem_list = (rtx *) gmalloc (last_basic_block * sizeof (rtx));
-  memset ((char *) modify_mem_list, 0, last_basic_block * sizeof (rtx));
-  memset ((char *) canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
+  modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
+  canon_modify_mem_list = gmalloc (last_basic_block * sizeof (rtx));
+  memset (modify_mem_list, 0, last_basic_block * sizeof (rtx));
+  memset (canon_modify_mem_list, 0, last_basic_block * sizeof (rtx));
   modify_mem_list_set = BITMAP_XMALLOC ();
   canon_modify_mem_list_set = BITMAP_XMALLOC ();
 }
@@ -1195,8 +1193,8 @@ alloc_reg_set_mem (int n_regs)
 
   reg_set_table_size = n_regs + REG_SET_TABLE_SLOP;
   n = reg_set_table_size * sizeof (struct reg_set *);
-  reg_set_table = (struct reg_set **) gmalloc (n);
-  memset ((char *) reg_set_table, 0, n);
+  reg_set_table = gmalloc (n);
+  memset (reg_set_table, 0, n);
 
   gcc_obstack_init (&reg_set_obstack);
 }
@@ -1221,16 +1219,14 @@ record_one_set (int regno, rtx insn)
     {
       int new_size = regno + REG_SET_TABLE_SLOP;
 
-      reg_set_table
-	= (struct reg_set **) grealloc ((char *) reg_set_table,
-					new_size * sizeof (struct reg_set *));
-      memset ((char *) (reg_set_table + reg_set_table_size), 0,
+      reg_set_table = grealloc (reg_set_table,
+				new_size * sizeof (struct reg_set *));
+      memset (reg_set_table + reg_set_table_size, 0,
 	      (new_size - reg_set_table_size) * sizeof (struct reg_set *));
       reg_set_table_size = new_size;
     }
 
-  new_reg_info = (struct reg_set *) obstack_alloc (&reg_set_obstack,
-						   sizeof (struct reg_set));
+  new_reg_info = obstack_alloc (&reg_set_obstack, sizeof (struct reg_set));
   bytes_used += sizeof (struct reg_set);
   new_reg_info->insn = insn;
   new_reg_info->next = reg_set_table[regno];
@@ -1937,7 +1933,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
 
   if (! found)
     {
-      cur_expr = (struct expr *) gcse_alloc (sizeof (struct expr));
+      cur_expr = gcse_alloc (sizeof (struct expr));
       bytes_used += sizeof (struct expr);
       if (table->table[hash] == NULL)
 	/* This is the first pattern that hashed to this index.  */
@@ -1976,7 +1972,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
       else
 	{
 	  /* First occurrence of this expression in this basic block.  */
-	  antic_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
+	  antic_occr = gcse_alloc (sizeof (struct occr));
 	  bytes_used += sizeof (struct occr);
 	  /* First occurrence of this expression in any block?  */
 	  if (cur_expr->antic_occr == NULL)
@@ -2011,7 +2007,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
       else
 	{
 	  /* First occurrence of this expression in this basic block.  */
-	  avail_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
+	  avail_occr = gcse_alloc (sizeof (struct occr));
 	  bytes_used += sizeof (struct occr);
 
 	  /* First occurrence of this expression in any block?  */
@@ -2058,7 +2054,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
 
   if (! found)
     {
-      cur_expr = (struct expr *) gcse_alloc (sizeof (struct expr));
+      cur_expr = gcse_alloc (sizeof (struct expr));
       bytes_used += sizeof (struct expr);
       if (table->table[hash] == NULL)
 	/* This is the first pattern that hashed to this index.  */
@@ -2097,7 +2093,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
   else
     {
       /* First occurrence of this expression in this basic block.  */
-      cur_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
+      cur_occr = gcse_alloc (sizeof (struct occr));
       bytes_used += sizeof (struct occr);
 
       /* First occurrence of this expression in any block?  */
@@ -2121,6 +2117,17 @@ gcse_constant_p (rtx x)
   if (GET_CODE (x) == COMPARE
       && GET_CODE (XEXP (x, 0)) == CONST_INT
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    return true;
+
+
+  /* Consider a COMPARE of the same registers is a constant
+    if they are not floating point registers. */
+  if (GET_CODE(x) == COMPARE
+      && GET_CODE (XEXP (x, 0)) == REG
+      && GET_CODE (XEXP (x, 1)) == REG
+      && REGNO (XEXP (x, 0)) == REGNO (XEXP (x, 1))
+      && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 0)))
+      && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 1))))
     return true;
 
   if (GET_CODE (x) == CONSTANT_P_RTX)
@@ -2275,9 +2282,8 @@ dump_hash_table (FILE *file, const char *name, struct hash_table *table)
   unsigned int *hash_val;
   struct expr *expr;
 
-  flat_table
-    = (struct expr **) xcalloc (table->n_elems, sizeof (struct expr *));
-  hash_val = (unsigned int *) xmalloc (table->n_elems * sizeof (unsigned int));
+  flat_table = xcalloc (table->n_elems, sizeof (struct expr *));
+  hash_val = xmalloc (table->n_elems * sizeof (unsigned int));
 
   for (i = 0; i < (int) table->size; i++)
     for (expr = table->table[i]; expr != NULL; expr = expr->next_same_hash)
@@ -2448,8 +2454,7 @@ compute_hash_table_work (struct hash_table *table)
   /* re-Cache any INSN_LIST nodes we have allocated.  */
   clear_modify_mem_tables ();
   /* Some working arrays used to track first and last set in each block.  */
-  reg_avail_info = (struct reg_avail_info*)
-    gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
+  reg_avail_info = gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
 
   for (i = 0; i < max_gcse_regno; ++i)
     reg_avail_info[i].last_bb = NULL;
@@ -2539,7 +2544,7 @@ alloc_hash_table (int n_insns, struct hash_table *table, int set_p)
      ??? Later take some measurements.  */
   table->size |= 1;
   n = table->size * sizeof (struct expr *);
-  table->table = (struct expr **) gmalloc (n);
+  table->table = gmalloc (n);
   table->set_p = set_p;
 }
 
@@ -2559,8 +2564,7 @@ compute_hash_table (struct hash_table *table)
 {
   /* Initialize count of number of entries in hash table.  */
   table->n_elems = 0;
-  memset ((char *) table->table, 0,
-	  table->size * sizeof (struct expr *));
+  memset (table->table, 0, table->size * sizeof (struct expr *));
 
   compute_hash_table_work (table);
 }
@@ -2831,16 +2835,16 @@ mark_oprs_set (rtx insn)
 static void
 alloc_rd_mem (int n_blocks, int n_insns)
 {
-  rd_kill = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
+  rd_kill = sbitmap_vector_alloc (n_blocks, n_insns);
   sbitmap_vector_zero (rd_kill, n_blocks);
 
-  rd_gen = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
+  rd_gen = sbitmap_vector_alloc (n_blocks, n_insns);
   sbitmap_vector_zero (rd_gen, n_blocks);
 
-  reaching_defs = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
+  reaching_defs = sbitmap_vector_alloc (n_blocks, n_insns);
   sbitmap_vector_zero (reaching_defs, n_blocks);
 
-  rd_out = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_insns);
+  rd_out = sbitmap_vector_alloc (n_blocks, n_insns);
   sbitmap_vector_zero (rd_out, n_blocks);
 }
 
@@ -2958,16 +2962,16 @@ compute_rd (void)
 static void
 alloc_avail_expr_mem (int n_blocks, int n_exprs)
 {
-  ae_kill = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
+  ae_kill = sbitmap_vector_alloc (n_blocks, n_exprs);
   sbitmap_vector_zero (ae_kill, n_blocks);
 
-  ae_gen = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
+  ae_gen = sbitmap_vector_alloc (n_blocks, n_exprs);
   sbitmap_vector_zero (ae_gen, n_blocks);
 
-  ae_in = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
+  ae_in = sbitmap_vector_alloc (n_blocks, n_exprs);
   sbitmap_vector_zero (ae_in, n_blocks);
 
-  ae_out = (sbitmap *) sbitmap_vector_alloc (n_blocks, n_exprs);
+  ae_out = sbitmap_vector_alloc (n_blocks, n_exprs);
   sbitmap_vector_zero (ae_out, n_blocks);
 }
 
@@ -3164,7 +3168,7 @@ expr_reaches_here_p (struct occr *occr, struct expr *expr, basic_block bb,
 		     int check_self_loop)
 {
   int rval;
-  char *visited = (char *) xcalloc (last_basic_block, 1);
+  char *visited = xcalloc (last_basic_block, 1);
 
   rval = expr_reaches_here_p_work (occr, expr, bb, check_self_loop, visited);
 
@@ -3856,9 +3860,12 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	  && validate_change (insn, &SET_SRC (set), src, 0))
 	success = 1;
 
-      /* If we've failed to do replacement, have a single SET, and don't already
-	 have a note, add a REG_EQUAL note to not lose information.  */
-      if (!success && note == 0 && set != 0)
+      /* If we've failed to do replacement, have a single SET, don't already
+	 have a note, and have no special SET, add a REG_EQUAL note to not
+	 lose information.  */
+      if (!success && note == 0 && set != 0
+	  && GET_CODE (XEXP (set, 0)) != ZERO_EXTRACT
+	  && GET_CODE (XEXP (set, 0)) != SIGN_EXTRACT)
 	note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
     }
 
@@ -4577,7 +4584,7 @@ one_cprop_pass (int pass, int cprop_jumps, int bypass_jumps)
   local_cprop_pass (cprop_jumps);
 
   /* Determine implicit sets.  */
-  implicit_sets = (rtx *) xcalloc (last_basic_block, sizeof (rtx));
+  implicit_sets = xcalloc (last_basic_block, sizeof (rtx));
   find_implicit_sets ();
 
   alloc_hash_table (max_cuid, &set_hash_table, 1);
@@ -5094,7 +5101,7 @@ static int
 pre_expr_reaches_here_p (basic_block occr_bb, struct expr *expr, basic_block bb)
 {
   int rval;
-  char *visited = (char *) xcalloc (last_basic_block, 1);
+  char *visited = xcalloc (last_basic_block, 1);
 
   rval = pre_expr_reaches_here_p_work (occr_bb, expr, bb, visited);
 
@@ -5563,7 +5570,7 @@ pre_gcse (void)
   /* Compute a mapping from expression number (`bitmap_index') to
      hash table entry.  */
 
-  index_map = (struct expr **) xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
+  index_map = xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
   for (i = 0; i < expr_hash_table.size; i++)
     for (expr = expr_hash_table.table[i]; expr != NULL; expr = expr->next_same_hash)
       index_map[expr->bitmap_index] = expr;
@@ -5974,7 +5981,7 @@ delete_null_pointer_checks (rtx f ATTRIBUTE_UNUSED)
   /* Go through the basic blocks, seeing whether or not each block
      ends with a conditional branch whose condition is a comparison
      against zero.  Record the register compared in BLOCK_REG.  */
-  block_reg = (unsigned int *) xcalloc (last_basic_block, sizeof (int));
+  block_reg = xcalloc (last_basic_block, sizeof (int));
   FOR_EACH_BB (bb)
     {
       rtx last_insn = bb->end;
@@ -6206,7 +6213,7 @@ hoist_code (void)
   /* Compute a mapping from expression number (`bitmap_index') to
      hash table entry.  */
 
-  index_map = (struct expr **) xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
+  index_map = xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
   for (i = 0; i < expr_hash_table.size; i++)
     for (expr = expr_hash_table.table[i]; expr != NULL; expr = expr->next_same_hash)
       index_map[expr->bitmap_index] = expr;
@@ -6419,7 +6426,7 @@ ldst_entry (rtx x)
 
   if (!ptr)
     {
-      ptr = (struct ls_expr *) xmalloc (sizeof (struct ls_expr));
+      ptr = xmalloc (sizeof (struct ls_expr));
 
       ptr->next         = pre_ldst_mems;
       ptr->expr         = NULL;
@@ -7065,7 +7072,7 @@ compute_store_table (void)
 
   max_gcse_regno = max_reg_num ();
 
-  reg_set_in_block = (sbitmap *) sbitmap_vector_alloc (last_basic_block,
+  reg_set_in_block = sbitmap_vector_alloc (last_basic_block,
 						       max_gcse_regno);
   sbitmap_vector_zero (reg_set_in_block, last_basic_block);
   pre_ldst_mems = 0;
@@ -7186,21 +7193,27 @@ compute_store_table (void)
   return ret;
 }
 
-/* Check to see if the load X is aliased with STORE_PATTERN.  */
+/* Check to see if the load X is aliased with STORE_PATTERN.
+   AFTER is true if we are checking the case when STORE_PATTERN occurs
+   after the X.  */
 
 static bool
-load_kills_store (rtx x, rtx store_pattern)
+load_kills_store (rtx x, rtx store_pattern, int after)
 {
-  if (true_dependence (x, GET_MODE (x), store_pattern, rtx_addr_varies_p))
-    return true;
-  return false;
+  if (after)
+    return anti_dependence (x, store_pattern);
+  else
+    return true_dependence (store_pattern, GET_MODE (store_pattern), x,
+			    rtx_addr_varies_p);
 }
 
 /* Go through the entire insn X, looking for any loads which might alias
-   STORE_PATTERN.  Return true if found.  */
+   STORE_PATTERN.  Return true if found.
+   AFTER is true if we are checking the case when STORE_PATTERN occurs
+   after the insn X.  */
 
 static bool
-find_loads (rtx x, rtx store_pattern)
+find_loads (rtx x, rtx store_pattern, int after)
 {
   const char * fmt;
   int i, j;
@@ -7214,7 +7227,7 @@ find_loads (rtx x, rtx store_pattern)
 
   if (GET_CODE (x) == MEM)
     {
-      if (load_kills_store (x, store_pattern))
+      if (load_kills_store (x, store_pattern, after))
 	return true;
     }
 
@@ -7224,19 +7237,20 @@ find_loads (rtx x, rtx store_pattern)
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0 && !ret; i--)
     {
       if (fmt[i] == 'e')
-	ret |= find_loads (XEXP (x, i), store_pattern);
+	ret |= find_loads (XEXP (x, i), store_pattern, after);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  ret |= find_loads (XVECEXP (x, i, j), store_pattern);
+	  ret |= find_loads (XVECEXP (x, i, j), store_pattern, after);
     }
   return ret;
 }
 
 /* Check if INSN kills the store pattern X (is aliased with it).
-   Return true if it it does.  */
+   AFTER is true if we are checking the case when store X occurs
+   after the insn.  Return true if it it does.  */
 
 static bool
-store_killed_in_insn (rtx x, rtx x_regs, rtx insn)
+store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)
 {
   rtx reg, base;
 
@@ -7268,15 +7282,31 @@ store_killed_in_insn (rtx x, rtx x_regs, rtx insn)
   if (GET_CODE (PATTERN (insn)) == SET)
     {
       rtx pat = PATTERN (insn);
+      rtx dest = SET_DEST (pat);
+
+      if (GET_CODE (dest) == SIGN_EXTRACT
+	  || GET_CODE (dest) == ZERO_EXTRACT)
+	dest = XEXP (dest, 0);
+
       /* Check for memory stores to aliased objects.  */
-      if (GET_CODE (SET_DEST (pat)) == MEM && !expr_equiv_p (SET_DEST (pat), x))
-	/* pretend its a load and check for aliasing.  */
-	if (find_loads (SET_DEST (pat), x))
-	  return true;
-      return find_loads (SET_SRC (pat), x);
+      if (GET_CODE (dest) == MEM
+	  && !expr_equiv_p (dest, x))
+	{
+	  if (after)
+	    {
+	      if (output_dependence (dest, x))
+		return true;
+	    }
+	  else
+	    {
+	      if (output_dependence (x, dest))
+		return true;
+	    }
+	}
+      return find_loads (SET_SRC (pat), x, after);
     }
   else
-    return find_loads (PATTERN (insn), x);
+    return find_loads (PATTERN (insn), x, after);
 }
 
 /* Returns true if the expression X is loaded or clobbered on or after INSN
@@ -7300,7 +7330,7 @@ store_killed_after (rtx x, rtx x_regs, rtx insn, basic_block bb,
 
   /* Scan from the end, so that fail_insn is determined correctly.  */
   for (act = last; act != PREV_INSN (insn); act = PREV_INSN (act))
-    if (store_killed_in_insn (x, x_regs, act))
+    if (store_killed_in_insn (x, x_regs, act, false))
       {
 	if (fail_insn)
 	  *fail_insn = act;
@@ -7323,7 +7353,7 @@ store_killed_before (rtx x, rtx x_regs, rtx insn, basic_block bb,
     return true;
 
   for ( ; insn != PREV_INSN (first); insn = PREV_INSN (insn))
-    if (store_killed_in_insn (x, x_regs, insn))
+    if (store_killed_in_insn (x, x_regs, insn, true))
       return true;
 
   return false;
@@ -7342,10 +7372,10 @@ build_store_vectors (void)
 
   /* Build the gen_vector. This is any store in the table which is not killed
      by aliasing later in its block.  */
-  ae_gen = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  ae_gen = sbitmap_vector_alloc (last_basic_block, num_stores);
   sbitmap_vector_zero (ae_gen, last_basic_block);
 
-  st_antloc = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  st_antloc = sbitmap_vector_alloc (last_basic_block, num_stores);
   sbitmap_vector_zero (st_antloc, last_basic_block);
 
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
@@ -7378,10 +7408,10 @@ build_store_vectors (void)
 	}
     }
 
-  ae_kill = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  ae_kill = sbitmap_vector_alloc (last_basic_block, num_stores);
   sbitmap_vector_zero (ae_kill, last_basic_block);
 
-  transp = (sbitmap *) sbitmap_vector_alloc (last_basic_block, num_stores);
+  transp = sbitmap_vector_alloc (last_basic_block, num_stores);
   sbitmap_vector_zero (transp, last_basic_block);
   regs_set_in_block = xmalloc (sizeof (int) * max_gcse_regno);
 

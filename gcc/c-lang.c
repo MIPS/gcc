@@ -71,6 +71,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
+#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
+#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME c_static_assembler_name
 #undef LANG_HOOKS_NO_BODY_BLOCKS
 #define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -125,6 +127,9 @@ enum c_language_kind c_language = clk_c;
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
+#undef LANG_HOOKS_WRITE_GLOBALS
+#define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
+
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
 /* Each front end provides its own.  */
@@ -164,52 +169,6 @@ const char *const tree_code_name[] = {
 #include "c-common.def"
 };
 #undef DEFTREECODE
-
-/* Used by c-lex.c, but only for objc.  */
-
-tree
-lookup_interface (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-tree
-is_class_name (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-tree
-objc_is_id (tree arg ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
-
-void
-objc_check_decl (tree decl ATTRIBUTE_UNUSED)
-{
-}
-
-int
-objc_comptypes (tree lhs ATTRIBUTE_UNUSED, tree rhs ATTRIBUTE_UNUSED,
-		int reflexive ATTRIBUTE_UNUSED)
-{
-  return -1;
-}
-
-tree
-objc_message_selector (void)
-{
-  return 0;
-}
-
-/* Used by c-typeck.c (build_external_ref), but only for objc.  */
-
-tree
-lookup_objc_ivar (tree id ATTRIBUTE_UNUSED)
-{
-  return 0;
-}
 
 void
 finish_file (void)

@@ -579,6 +579,7 @@ fix = {
 
 /*
  *  Fix return value of sbrk in unistd.h on Alpha OSF/1 V2.0
+ *  And OpenBSD.
  */
 fix = {
     hackname = alpha_sbrk;
@@ -603,7 +604,7 @@ fix = {
     files     = tinfo.h;
 
     select    = "#[ \t]*define[ \t]+bool[ \t]";
-    bypass    = "we must use the C\\+\\+ compiler's type";
+    bypass    = "__cplusplus";
 
     c_fix     = format;
     c_fix_arg = "#ifndef __cplusplus\n%0\n#endif";
@@ -621,7 +622,7 @@ fix = {
     files    = tinfo.h;
 
     select    = "^[ \t]*typedef[ \t].*[ \t]bool[ \t]*;";
-    bypass    = "we must use the C\\+\\+ compiler's type";
+    bypass    = "__cplusplus";
 
     c_fix     = format;
     c_fix_arg = "#ifndef __cplusplus\n%0\n#endif";
@@ -643,7 +644,7 @@ fix = {
     hackname = avoid_wchar_t_type;
 
     select    = "^[ \t]*typedef[ \t].*[ \t]wchar_t[ \t]*;";
-    bypass    = "we must use the C\\+\\+ compiler's type";
+    bypass    = "__cplusplus";
     bypass    = "_LINUX_NLS_H";
     bypass    = "XFree86: xc/lib/X11/Xlib\\.h";
 
@@ -938,7 +939,12 @@ fix = {
 
 
 /*
- * Fix these files to use the same types that we think they should.
+ * Fix these files to use the types we think they should for
+ * ptrdiff_t, size_t, and wchar_t.
+ *
+ * This defines the types in terms of macros predefined by our 'cpp'.
+ * This is supposedly necessary for glibc's handling of these types.
+ * It's probably not necessary for anyone else, but it doesn't hurt.
  */
 fix = {
     hackname  = gnu_types;
@@ -1609,12 +1615,13 @@ fix = {
     hackname = limits_ifndefs;
     files  = "sys/limits.h";
     files  = "limits.h";
+    select = "^[ \t]*#[ \t]*define[ \t]+"
+             "((FLT|DBL)_(MIN|MAX|DIG))[ \t].*";
     bypass = "ifndef[ \t]+FLT_(MIN|MAX)";
 
     c_fix     = format;
     c_fix_arg = "#ifndef %1\n%0\n#endif";
-    c_fix_arg = "^[ \t]*#[ \t]*define[ \t]+"
-                "((FLT|DBL)_(MIN|MAX|DIG))[ \t].*";
+    /* Second arg is select expression */
     test_text = " #\tdefine\tDBL_DIG \t 0  /* somthin' */";
 };
 
@@ -1680,7 +1687,8 @@ fix = {
 
 
 /*
- *  Some math.h files define struct exception, which conflicts with
+ *  Some math.h files define struct exception (it's in the System V
+ *  Interface Definition), which conflicts with
  *  the class exception defined in the C++ file std/stdexcept.h.  We
  *  redefine it to __math_exception.  This is not a great fix, but I
  *  haven't been able to think of anything better.
@@ -1692,7 +1700,7 @@ fix = {
     hackname  = math_exception;
     files     = math.h;
     select    = "struct exception";
-    bypass    = 'We have a problem when using C\+\+';
+    bypass    = '__cplusplus';
     c_fix     = wrap;
 
     c_fix_arg = "#ifdef __cplusplus\n"
@@ -2190,8 +2198,8 @@ fix = {
                 "#else\n"
                 "%1, {0}}%3\n"
                 "#endif";
-    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+{.*)"
-                ",[ \t]*0}" "(|[ \t].*)$";
+    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+\\{.*)"
+                ",[ \t]*0\\}" "(|[ \t].*)$";
     test_text =
     '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
     "#define PTHREAD_MUTEX_INITIALIZER\t{{{0},0}, {{{0}}}, 0}\n"
@@ -2470,12 +2478,16 @@ fix = {
 /*
  *  IRIX 4.0.5 <rpc/auth.h> uses struct sockaddr
  *  in prototype without previous definition.
+ *
+ *  Don't fix OpenBSD, which uses struct sockaddr_in prototyping the same
+ *  function, and does define it.
  */
 fix = {
     hackname  = struct_sockaddr;
     files     = rpc/auth.h;
-    select    = "^.*authdes_create.*struct sockaddr";
+    select    = "^.*authdes_create.*struct sockaddr[^_]";
     bypass    = "<sys/socket\.h>";
+    bypass    = "struct sockaddr;\n";
     c_fix     = format;
     c_fix_arg = "struct sockaddr;\n%0";
     test_text = "extern AUTH* authdes_create( struct sockaddr* );";
@@ -3350,7 +3362,7 @@ fix = {
 
 
 /*
- *  AIX headers define NULL to be cast to a void pointer,
+ *  AIX and Interix headers define NULL to be cast to a void pointer,
  *  which is illegal in ANSI C++.
  */
 fix = {

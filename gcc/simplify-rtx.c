@@ -269,15 +269,24 @@ simplify_replace_rtx (rtx x, rtx old, rtx new)
 				     : GET_MODE (XEXP (x, 1)));
 	rtx op0 = simplify_replace_rtx (XEXP (x, 0), old, new);
 	rtx op1 = simplify_replace_rtx (XEXP (x, 1), old, new);
-
-	return
-	  simplify_gen_relational (code, mode,
-				   (op_mode != VOIDmode
-				    ? op_mode
-				    : GET_MODE (op0) != VOIDmode
-				    ? GET_MODE (op0)
-				    : GET_MODE (op1)),
-				   op0, op1);
+	rtx temp = simplify_gen_relational (code, mode,
+					    (op_mode != VOIDmode
+					     ? op_mode
+					     : GET_MODE (op0) != VOIDmode
+					       ? GET_MODE (op0)
+					       : GET_MODE (op1)),
+					    op0, op1);
+#ifdef FLOAT_STORE_FLAG_VALUE
+	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (temp == const0_rtx)
+	    temp = CONST0_RTX (mode);
+	  else if (temp == const_true_rtx)
+	    temp = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE (mode),
+						 mode);
+	}
+#endif
+	return temp;
       }
 
     case '3':
@@ -920,9 +929,13 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
       f0 = real_value_truncate (mode, f0);
       f1 = real_value_truncate (mode, f1);
 
+      if (HONOR_SNANS (mode)
+	  && (REAL_VALUE_ISNAN (f0) || REAL_VALUE_ISNAN (f1)))
+	return 0;
+
       if (code == DIV
-	  && !MODE_HAS_INFINITIES (mode)
-	  && REAL_VALUES_EQUAL (f1, dconst0))
+	  && REAL_VALUES_EQUAL (f1, dconst0)
+	  && (flag_trapping_math || ! MODE_HAS_INFINITIES (mode)))
 	return 0;
 
       REAL_ARITHMETIC (value, rtx_to_tree_code (code), f0, f1);
@@ -1894,7 +1907,7 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
   int first, negate, changed;
   int i, j;
 
-  memset ((char *) ops, 0, sizeof ops);
+  memset (ops, 0, sizeof ops);
 
   /* Set up the two operands and then expand them until nothing has been
      changed.  If we run out of room in our array, give up; this should
@@ -3030,6 +3043,7 @@ simplify_rtx (rtx x)
 {
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
+  rtx temp;
 
   switch (GET_RTX_CLASS (code))
     {
@@ -3038,15 +3052,9 @@ simplify_rtx (rtx x)
 				       XEXP (x, 0), GET_MODE (XEXP (x, 0)));
     case 'c':
       if (swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
-	{
-	  rtx tem;
+	return simplify_gen_binary (code, mode, XEXP (x, 1), XEXP (x, 0));
 
-	  tem = XEXP (x, 0);
-	  XEXP (x, 0) = XEXP (x, 1);
-	  XEXP (x, 1) = tem;
-	  return simplify_binary_operation (code, mode,
-					    XEXP (x, 0), XEXP (x, 1));
-	}
+      /* ... fall through ... */
 
     case '2':
       return simplify_binary_operation (code, mode, XEXP (x, 0), XEXP (x, 1));
@@ -3058,12 +3066,24 @@ simplify_rtx (rtx x)
 					 XEXP (x, 2));
 
     case '<':
-      return simplify_relational_operation (code,
+      temp = simplify_relational_operation (code,
 					    ((GET_MODE (XEXP (x, 0))
 					      != VOIDmode)
 					     ? GET_MODE (XEXP (x, 0))
 					     : GET_MODE (XEXP (x, 1))),
 					    XEXP (x, 0), XEXP (x, 1));
+#ifdef FLOAT_STORE_FLAG_VALUE
+      if (temp != 0 && GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  if (temp == const0_rtx)
+	    temp = CONST0_RTX (mode);
+	  else
+	    temp = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE (mode),
+						 mode);
+	}
+#endif
+      return temp;
+
     case 'x':
       if (code == SUBREG)
 	return simplify_gen_subreg (mode, SUBREG_REG (x),
@@ -3074,8 +3094,20 @@ simplify_rtx (rtx x)
 	  if (CONSTANT_P (XEXP (x, 0)))
 	    return const1_rtx;
 	}
-      return NULL;
+      break;
+
+    case 'o':
+      if (code == LO_SUM)
+	{
+	  /* Convert (lo_sum (high FOO) FOO) to FOO.  */
+	  if (GET_CODE (XEXP (x, 0)) == HIGH
+	      && rtx_equal_p (XEXP (XEXP (x, 0), 0), XEXP (x, 1)))
+	  return XEXP (x, 1);
+	}
+      break;
+
     default:
-      return NULL;
+      break;
     }
+  return NULL;
 }

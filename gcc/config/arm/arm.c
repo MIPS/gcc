@@ -452,7 +452,7 @@ static const struct processors all_architectures[] =
   { NULL, 0 }
 };
 
-/* This is a magic stucture.  The 'string' field is magically filled in
+/* This is a magic structure.  The 'string' field is magically filled in
    with a pointer to the value specified by the user on the command line
    assuming that the user has specified such a value.  */
 
@@ -10248,7 +10248,7 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
     return VALID_IWMMXT_REG_MODE (mode);
 
   if (regno <= LAST_ARM_REGNUM)
-    /* We allow any value to be stored in the general regisetrs.  */
+    /* We allow any value to be stored in the general registers.  */
     return 1;
 
   if (   regno == FRAME_POINTER_REGNUM
@@ -10715,7 +10715,7 @@ arm_init_iwmmxt_builtins (void)
 
   /* Add all builtins that are more or less simple operations on two
      operands.  */
-  for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     {
       /* Use one of the operands; the target can have a different mode for
 	 mask-generating compares.  */
@@ -11155,11 +11155,11 @@ arm_expand_builtin (tree exp,
       break;
     }
 
-  for (i = 0, d = bdesc_2arg; i < sizeof (bdesc_2arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
       return arm_expand_binop_builtin (d->icode, arglist, target);
 
-  for (i = 0, d = bdesc_1arg; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
+  for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == (const enum arm_builtins) fcode)
       return arm_expand_unop_builtin (d->icode, arglist, target, 0);
 
@@ -11648,7 +11648,7 @@ thumb_far_jump_used_p (int in_prologue)
 	  && get_attr_far_jump (insn) == FAR_JUMP_YES
 	  )
 	{
-	  /* Record the fact that we have decied that
+	  /* Record the fact that we have decided that
 	     the function does use far jumps.  */
 	  cfun->machine->far_jump_used = 1;
 	  return 1;

@@ -134,7 +134,7 @@ static void rest_of_handle_loop2 (tree, rtx);
 static void rest_of_handle_jump_bypass (tree, rtx);
 static void rest_of_handle_sibling_calls (rtx);
 static void rest_of_handle_null_pointer (tree, rtx);
-static void rest_of_handle_addresof (tree, rtx);
+static void rest_of_handle_addressof (tree, rtx);
 static void rest_of_handle_cfg (tree, rtx);
 static void rest_of_handle_branch_prob (tree, rtx);
 static void rest_of_handle_if_conversion (tree, rtx);
@@ -465,7 +465,7 @@ int mem_report = 0;
    and to print them when we are done.  */
 int flag_detailed_statistics = 0;
 
-/* A random sequence of characters, unless overridden by user. */
+/* A random sequence of characters, unless overridden by user.  */
 const char *flag_random_seed;
 
 /* A local time stamp derived from the time of compilation. It will be
@@ -1029,7 +1029,6 @@ typedef struct
   const char *const string;
   int *const variable;
   const int on_value;
-  const char *const description;
 }
 lang_independent_options;
 
@@ -1061,419 +1060,123 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
-  {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
-   N_("Perform DWARF2 duplicate elimination") },
-  {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1,
-   N_("Perform unused type elimination in debug info") },
-  {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1,
-   N_("Perform unused type elimination in debug info") },
-  {"float-store", &flag_float_store, 1,
-   N_("Do not store floats in registers") },
-  {"defer-pop", &flag_defer_pop, 1,
-   N_("Defer popping functions args from stack until later") },
-  {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
-   N_("When possible do not generate stack frames") },
-  {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
-   N_("Optimize sibling and tail recursive calls") },
-  {"tracer", &flag_tracer, 1,
-   N_("Perform superblock formation via tail duplication") },
-  {"unit-at-a-time", &flag_unit_at_a_time, 1,
-   N_("Compile whole compilation unit at a time") },
-  {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
-   N_("When running CSE, follow jumps to their targets") },
-  {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
-   N_("When running CSE, follow conditional jumps") },
-  {"expensive-optimizations", &flag_expensive_optimizations, 1,
-   N_("Perform a number of minor, expensive optimizations") },
-  {"thread-jumps", &flag_thread_jumps, 1,
-   N_("Perform jump threading optimizations") },
-  {"strength-reduce", &flag_strength_reduce, 1,
-   N_("Perform strength reduction optimizations") },
-  {"unroll-loops", &flag_unroll_loops, 1,
-   N_("Perform loop unrolling when iteration count is known") },
-  {"unroll-all-loops", &flag_unroll_all_loops, 1,
-   N_("Perform loop unrolling for all loops") },
-  {"old-unroll-loops", &flag_old_unroll_loops, 1,
-   N_("Perform loop unrolling when iteration count is known") },
-  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1,
-   N_("Perform loop unrolling for all loops") },
-  {"peel-loops", &flag_peel_loops, 1,
-   N_("Perform loop peeling") },
-  {"unswitch-loops", &flag_unswitch_loops, 1,
-   N_("Perform loop unswitching") },
-  {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1,
-   N_("Generate prefetch instructions, if available, for arrays in loops") },
-  {"move-all-movables", &flag_move_all_movables, 1,
-   N_("Force all loop invariant computations out of loops") },
-  {"reduce-all-givs", &flag_reduce_all_givs, 1,
-   N_("Strength reduce all loop general induction variables") },
-  {"writable-strings", &flag_writable_strings, 1,
-   N_("Store strings in writable data section") },
-  {"peephole", &flag_no_peephole, 0,
-   N_("Enable machine specific peephole optimizations") },
-  {"force-mem", &flag_force_mem, 1,
-   N_("Copy memory operands into registers before using") },
-  {"force-addr", &flag_force_addr, 1,
-   N_("Copy memory address constants into regs before using") },
-  {"function-cse", &flag_no_function_cse, 0,
-   N_("Allow function addresses to be held in registers") },
-  {"inline-functions", &flag_inline_functions, 1,
-   N_("Integrate simple functions into their callers") },
-  {"keep-inline-functions", &flag_keep_inline_functions, 1,
-   N_("Generate code for funcs even if they are fully inlined") },
-  {"inline", &flag_no_inline, 0,
-   N_("Pay attention to the 'inline' keyword") },
-  {"keep-static-consts", &flag_keep_static_consts, 1,
-   N_("Emit static const variables even if they are not used") },
-  {"syntax-only", &flag_syntax_only, 1,
-   N_("Check for syntax errors, then stop") },
-  {"shared-data", &flag_shared_data, 1,
-   N_("Mark data as shared rather than private") },
-  {"caller-saves", &flag_caller_saves, 1,
-   N_("Enable saving registers around function calls") },
-  {"pcc-struct-return", &flag_pcc_struct_return, 1,
-   N_("Return 'short' aggregates in memory, not registers") },
-  {"reg-struct-return", &flag_pcc_struct_return, 0,
-   N_("Return 'short' aggregates in registers") },
-  {"delayed-branch", &flag_delayed_branch, 1,
-   N_("Attempt to fill delay slots of branch instructions") },
-  {"gcse", &flag_gcse, 1,
-   N_("Perform the global common subexpression elimination") },
-  {"gcse-lm", &flag_gcse_lm, 1,
-   N_("Perform enhanced load motion during global subexpression elimination") },
-  {"gcse-sm", &flag_gcse_sm, 1,
-   N_("Perform store motion after global subexpression elimination") },
-  {"branch-target-load-optimize", &flag_branch_target_load_optimize, 1,
-   N_("Perform branch target load optimization before prologue / epilogue threading") },
-  {"branch-target-load-optimize2", &flag_branch_target_load_optimize2, 1,
-   N_("Perform branch target load optimization after prologue / epilogue threading") },
-  {"loop-optimize", &flag_loop_optimize, 1,
-   N_("Perform the loop optimizations") },
-  {"crossjumping", &flag_crossjumping, 1,
-   N_("Perform cross-jumping optimization") },
-  {"if-conversion", &flag_if_conversion, 1,
-   N_("Perform conversion of conditional jumps to branchless equivalents") },
-  {"if-conversion2", &flag_if_conversion2, 1,
-   N_("Perform conversion of conditional jumps to conditional execution") },
-  {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
-   N_("Run CSE pass after loop optimizations") },
-  {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
-   N_("Run the loop optimizer twice") },
-  {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1,
-   N_("Delete useless null pointer checks") },
-  {"schedule-insns", &flag_schedule_insns, 1,
-   N_("Reschedule instructions before register allocation") },
-  {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
-   N_("Reschedule instructions after register allocation") },
-  {"sched-interblock",&flag_schedule_interblock, 1,
-   N_("Enable scheduling across basic blocks") },
-  {"sched-spec",&flag_schedule_speculative, 1,
-   N_("Allow speculative motion of non-loads") },
-  {"sched-spec-load",&flag_schedule_speculative_load, 1,
-   N_("Allow speculative motion of some loads") },
-  {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
-   N_("Allow speculative motion of more loads") },
-  {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1,
-   N_("If scheduling post reload, do superblock scheduling") },
-  {"sched2-use-traces", &flag_sched2_use_traces, 1,
-   N_("If scheduling post reload, do trace scheduling") },
-  {"branch-count-reg",&flag_branch_on_count_reg, 1,
-   N_("Replace add,compare,branch with branch on count reg") },
-  {"pic", &flag_pic, 1,
-   N_("Generate position independent code, if possible") },
-  {"PIC", &flag_pic, 2, ""},
-  {"pie", &flag_pie, 1,
-   N_("Generate position independent code for executables, if possible") },
-  {"PIE", &flag_pie, 2, ""},
-  {"exceptions", &flag_exceptions, 1,
-   N_("Enable exception handling") },
-  {"unwind-tables", &flag_unwind_tables, 1,
-   N_("Just generate unwind tables for exception handling") },
-  {"asynchronous-unwind-tables", &flag_asynchronous_unwind_tables, 1,
-   N_("Generate unwind tables exact at each instruction boundary") },
-  {"non-call-exceptions", &flag_non_call_exceptions, 1,
-   N_("Support synchronous non-call exceptions") },
-  {"profile-arcs", &profile_arc_flag, 1,
-   N_("Insert arc based program profiling code") },
-  {"test-coverage", &flag_test_coverage, 1,
-   N_("Create data files needed by gcov") },
-  {"branch-probabilities", &flag_branch_probabilities, 1,
-   N_("Use profiling information for branch probabilities") },
-  {"profile", &profile_flag, 1,
-   N_("Enable basic program profiling code") },
-  {"reorder-blocks", &flag_reorder_blocks, 1,
-   N_("Reorder basic blocks to improve code placement") },
-  {"reorder-functions", &flag_reorder_functions, 1,
-   N_("Reorder functions to improve code placement") },
-  {"rename-registers", &flag_rename_registers, 1,
-   N_("Do the register renaming optimization pass") },
-  {"cprop-registers", &flag_cprop_registers, 1,
-   N_("Do the register copy-propagation optimization pass") },
-  {"common", &flag_no_common, 0,
-   N_("Do not put uninitialized globals in the common section") },
-  {"inhibit-size-directive", &flag_inhibit_size_directive, 1,
-   N_("Do not generate .size directives") },
-  {"function-sections", &flag_function_sections, 1,
-   N_("place each function into its own section") },
-  {"data-sections", &flag_data_sections, 1,
-   N_("place data items into their own section") },
-  {"verbose-asm", &flag_verbose_asm, 1,
-   N_("Add extra commentary to assembler output") },
-  {"gnu-linker", &flag_gnu_linker, 1,
-   N_("Output GNU ld formatted global initializers") },
-  {"regmove", &flag_regmove, 1,
-   N_("Enables a register move optimization") },
-  {"optimize-register-move", &flag_regmove, 1,
-   N_("Do the full regmove optimization pass") },
-  {"pack-struct", &flag_pack_struct, 1,
-   N_("Pack structure members together without holes") },
-  {"stack-check", &flag_stack_check, 1,
-   N_("Insert stack checking code into the program") },
-  {"argument-alias", &flag_argument_noalias, 0,
-   N_("Specify that arguments may alias each other & globals") },
-  {"argument-noalias", &flag_argument_noalias, 1,
-   N_("Assume arguments may alias globals but not each other") },
-  {"argument-noalias-global", &flag_argument_noalias, 2,
-   N_("Assume arguments do not alias each other or globals") },
-  {"strict-aliasing", &flag_strict_aliasing, 1,
-   N_("Assume strict aliasing rules apply") },
-  {"align-loops", &align_loops, 0,
-   N_("Align the start of loops") },
-  {"align-jumps", &align_jumps, 0,
-   N_("Align labels which are only reached by jumping") },
-  {"align-labels", &align_labels, 0,
-   N_("Align all labels") },
-  {"align-functions", &align_functions, 0,
-   N_("Align the start of functions") },
-  {"merge-constants", &flag_merge_constants, 1,
-   N_("Attempt to merge identical constants across compilation units") },
-  {"merge-all-constants", &flag_merge_constants, 2,
-   N_("Attempt to merge identical constants and constant variables") },
-  {"dump-unnumbered", &flag_dump_unnumbered, 1,
-   N_("Suppress output of instruction numbers and line number notes in debugging dumps") },
-  {"instrument-functions", &flag_instrument_function_entry_exit, 1,
-   N_("Instrument function entry/exit with profiling calls") },
-  {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1,
-   N_("Put zero initialized data in the bss section") },
-  {"ssa", &flag_ssa, 1,
-   N_("Enable SSA optimizations") },
-  {"ssa-ccp", &flag_ssa_ccp, 1,
-   N_("Enable SSA conditional constant propagation") },
-  {"ssa-dce", &flag_ssa_dce, 1,
-   N_("Enable aggressive SSA dead code elimination") },
-  {"leading-underscore", &flag_leading_underscore, 1,
-   N_("External symbols have a leading underscore") },
-  {"ident", &flag_no_ident, 0,
-   N_("Process #ident directives") },
-  { "peephole2", &flag_peephole2, 1,
-   N_("Enables an rtl peephole pass run before sched2") },
-  {"finite-math-only", &flag_finite_math_only, 1,
-   N_("Assume no NaNs or +-Infs are generated") },
-  { "guess-branch-probability", &flag_guess_branch_prob, 1,
-   N_("Enables guessing of branch probabilities") },
-  {"math-errno", &flag_errno_math, 1,
-   N_("Set errno after built-in math functions") },
-  {"trapping-math", &flag_trapping_math, 1,
-   N_("Floating-point operations can trap") },
-  {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1,
-   N_("Allow math optimizations that may violate IEEE or ANSI standards") },
-  {"signaling-nans", &flag_signaling_nans, 1,
-   N_("Disable optimizations observable by IEEE signaling NaNs") },
-  {"bounds-check", &flag_bounds_check, 1,
-   N_("Generate code to check bounds before indexing arrays") },
-  {"single-precision-constant", &flag_single_precision_constant, 1,
-   N_("Convert floating point constant to single precision constant") },
-  {"time-report", &time_report, 1,
-   N_("Report time taken by each compiler pass at end of run") },
-  {"mem-report", &mem_report, 1,
-   N_("Report on permanent memory allocation at end of run") },
-  { "trapv", &flag_trapv, 1,
-   N_("Trap for signed overflow in addition / subtraction / multiplication") },
-  { "wrapv", &flag_wrapv, 1,
-   N_("Assume signed arithmetic overflow wraps around") },
-  { "new-ra", &flag_new_regalloc, 1,
-   N_("Use graph coloring register allocation.") },
-};
-
-/* Table of language-specific options.  */
-
-static const struct lang_opt
-{
-  const char *const option;
-  const char *const description;
-}
-documented_lang_options[] =
-{
-  /* In order not to overload the --help output, the convention
-     used here is to only describe those options which are not
-     enabled by default.  */
-
-  { "-ansi",
-    N_("Compile just for ISO C90") },
-  { "-std= ",
-    N_("Determine language standard") },
-
-  { "-fsigned-bitfields", "" },
-  { "-funsigned-bitfields",
-    N_("Make bit-fields by unsigned by default") },
-  { "-fno-signed-bitfields", "" },
-  { "-fno-unsigned-bitfields","" },
-  { "-fsigned-char",
-    N_("Make 'char' be signed by default") },
-  { "-funsigned-char",
-    N_("Make 'char' be unsigned by default") },
-  { "-fno-signed-char", "" },
-  { "-fno-unsigned-char", "" },
-
-  { "-fasm", "" },
-  { "-fno-asm",
-    N_("Do not recognize the 'asm' keyword") },
-  { "-fbuiltin", "" },
-  { "-fno-builtin",
-    N_("Do not recognize any built in functions") },
-  { "-fhosted",
-    N_("Assume normal C execution environment") },
-  { "-fno-hosted", "" },
-  { "-ffreestanding",
-    N_("Assume that standard libraries & main might not exist") },
-  { "-fno-freestanding", "" },
-  { "-fcond-mismatch",
-    N_("Allow different types as args of ? operator") },
-  { "-fno-cond-mismatch", "" },
-  { "-fdollars-in-identifiers",
-    N_("Allow the use of $ inside identifiers") },
-  { "-fno-dollars-in-identifiers", "" },
-  { "-fpreprocessed", "" },
-  { "-fno-preprocessed", "" },
-  { "-fshort-double",
-    N_("Use the same size for double as for float") },
-  { "-fno-short-double", "" },
-  { "-fshort-enums",
-    N_("Use the smallest fitting integer to hold enums") },
-  { "-fno-short-enums", "" },
-  { "-fshort-wchar",
-    N_("Override the underlying type for wchar_t to `unsigned short'") },
-  { "-fno-short-wchar", "" },
-
-  { "-Wall",
-    N_("Enable most warning messages") },
-  { "-Wbad-function-cast",
-    N_("Warn about casting functions to incompatible types") },
-  { "-Wno-bad-function-cast", "" },
-  { "-Wmissing-format-attribute",
-    N_("Warn about functions which might be candidates for format attributes") },
-  { "-Wno-missing-format-attribute", "" },
-  { "-Wcast-qual",
-    N_("Warn about casts which discard qualifiers") },
-  { "-Wno-cast-qual", "" },
-  { "-Wchar-subscripts",
-    N_("Warn about subscripts whose type is 'char'") },
-  { "-Wno-char-subscripts", "" },
-  { "-Wcomment",
-    N_("Warn if nested comments are detected") },
-  { "-Wno-comment", "" },
-  { "-Wcomments",
-    N_("Warn if nested comments are detected") },
-  { "-Wno-comments", "" },
-  { "-Wconversion",
-    N_("Warn about possibly confusing type conversions") },
-  { "-Wno-conversion", "" },
-  { "-Wdiv-by-zero", "" },
-  { "-Wno-div-by-zero",
-    N_("Do not warn about compile-time integer division by zero") },
-  { "-Wfloat-equal",
-    N_("Warn about testing equality of floating point numbers") },
-  { "-Wno-float-equal", "" },
-  { "-Wformat",
-    N_("Warn about printf/scanf/strftime/strfmon format anomalies") },
-  { "-Wno-format", "" },
-  { "-Wformat-extra-args", "" },
-  { "-Wno-format-extra-args",
-    N_("Don't warn about too many arguments to format functions") },
-  { "-Wformat-nonliteral",
-    N_("Warn about non-string-literal format strings") },
-  { "-Wno-format-nonliteral", "" },
-  { "-Wformat-security",
-    N_("Warn about possible security problems with format functions") },
-  { "-Wno-format-security", "" },
-  { "-Wformat-y2k", "" },
-  { "-Wno-format-y2k",
-    N_("Don't warn about strftime formats yielding 2 digit years") },
-  { "-Wimplicit-function-declaration",
-    N_("Warn about implicit function declarations") },
-  { "-Wno-implicit-function-declaration", "" },
-  { "-Werror-implicit-function-declaration", "" },
-  { "-Wimplicit-int",
-    N_("Warn when a declaration does not specify a type") },
-  { "-Wno-implicit-int", "" },
-  { "-Wimplicit", "" },
-  { "-Wno-implicit", "" },
-  { "-Wimport",
-    N_("Warn about the use of the #import directive") },
-  { "-Wno-import", "" },
-  { "-Winvalid-pch",
-    N_("Warn about PCH files that are found but not used") },
-  { "-Wlong-long","" },
-  { "-Wno-long-long",
-    N_("Do not warn about using 'long long' when -pedantic") },
-  { "-Wmain",
-    N_("Warn about suspicious declarations of main") },
-  { "-Wno-main", "" },
-  { "-Wmissing-braces",
-    N_("Warn about possibly missing braces around initializers") },
-  { "-Wno-missing-braces", "" },
-  { "-Wmissing-declarations",
-    N_("Warn about global funcs without previous declarations") },
-  { "-Wno-missing-declarations", "" },
-  { "-Wmissing-prototypes",
-    N_("Warn about global funcs without prototypes") },
-  { "-Wno-missing-prototypes", "" },
-  { "-Wmultichar",
-    N_("Warn about use of multicharacter literals") },
-  { "-Wno-multichar", "" },
-  { "-Wnested-externs",
-    N_("Warn about externs not at file scope level") },
-  { "-Wno-nested-externs", "" },
-  { "-Wparentheses",
-    N_("Warn about possible missing parentheses") },
-  { "-Wno-parentheses", "" },
-  { "-Wpointer-arith",
-    N_("Warn about function pointer arithmetic") },
-  { "-Wno-pointer-arith", "" },
-  { "-Wredundant-decls",
-    N_("Warn about multiple declarations of the same object") },
-  { "-Wno-redundant-decls", "" },
-  { "-Wreturn-type",
-    N_("Warn whenever a function's return-type defaults to int") },
-  { "-Wno-return-type", "" },
-  { "-Wsequence-point",
-    N_("Warn about possible violations of sequence point rules") },
-  { "-Wno-sequence-point", "" },
-  { "-Wsign-compare",
-    N_("Warn about signed/unsigned comparisons") },
-  { "-Wno-sign-compare", "" },
-  { "-Wstrict-prototypes",
-    N_("Warn about non-prototyped function decls") },
-  { "-Wno-strict-prototypes", "" },
-  { "-Wtraditional",
-    N_("Warn about constructs whose meanings change in ISO C") },
-  { "-Wno-traditional", "" },
-  { "-Wtrigraphs",
-    N_("Warn when trigraphs are encountered") },
-  { "-Wno-trigraphs", "" },
-  { "-Wundef", "" },
-  { "-Wno-undef", "" },
-  { "-Wunknown-pragmas",
-    N_("Warn about unrecognized pragmas") },
-  { "-Wno-unknown-pragmas", "" },
-  { "-Wwrite-strings",
-    N_("Mark strings as 'const char *'") },
-  { "-Wno-write-strings", "" },
-
-#define DEFINE_LANG_NAME(NAME) { NULL, NAME },
-
-#include "options_.h"
-
+  {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1 },
+  {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1 },
+  {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1 },
+  {"float-store", &flag_float_store, 1 },
+  {"defer-pop", &flag_defer_pop, 1 },
+  {"omit-frame-pointer", &flag_omit_frame_pointer, 1 },
+  {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1 },
+  {"tracer", &flag_tracer, 1 },
+  {"unit-at-a-time", &flag_unit_at_a_time, 1 },
+  {"cse-follow-jumps", &flag_cse_follow_jumps, 1 },
+  {"cse-skip-blocks", &flag_cse_skip_blocks, 1 },
+  {"expensive-optimizations", &flag_expensive_optimizations, 1 },
+  {"thread-jumps", &flag_thread_jumps, 1 },
+  {"strength-reduce", &flag_strength_reduce, 1 },
+  {"unroll-loops", &flag_unroll_loops, 1 },
+  {"unroll-all-loops", &flag_unroll_all_loops, 1 },
+  {"old-unroll-loops", &flag_old_unroll_loops, 1 },
+  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1 },
+  {"peel-loops", &flag_peel_loops, 1 },
+  {"unswitch-loops", &flag_unswitch_loops, 1 },
+  {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1 },
+  {"move-all-movables", &flag_move_all_movables, 1 },
+  {"reduce-all-givs", &flag_reduce_all_givs, 1 },
+  {"writable-strings", &flag_writable_strings, 1 },
+  {"peephole", &flag_no_peephole, 0 },
+  {"force-mem", &flag_force_mem, 1 },
+  {"force-addr", &flag_force_addr, 1 },
+  {"function-cse", &flag_no_function_cse, 0 },
+  {"inline-functions", &flag_inline_functions, 1 },
+  {"keep-inline-functions", &flag_keep_inline_functions, 1 },
+  {"inline", &flag_no_inline, 0 },
+  {"keep-static-consts", &flag_keep_static_consts, 1 },
+  {"syntax-only", &flag_syntax_only, 1 },
+  {"shared-data", &flag_shared_data, 1 },
+  {"caller-saves", &flag_caller_saves, 1 },
+  {"pcc-struct-return", &flag_pcc_struct_return, 1 },
+  {"reg-struct-return", &flag_pcc_struct_return, 0 },
+  {"delayed-branch", &flag_delayed_branch, 1 },
+  {"gcse", &flag_gcse, 1 },
+  {"gcse-lm", &flag_gcse_lm, 1 },
+  {"gcse-sm", &flag_gcse_sm, 1 },
+  {"branch-target-load-optimize", &flag_branch_target_load_optimize, 1 },
+  {"branch-target-load-optimize2", &flag_branch_target_load_optimize2, 1 },
+  {"loop-optimize", &flag_loop_optimize, 1 },
+  {"crossjumping", &flag_crossjumping, 1 },
+  {"if-conversion", &flag_if_conversion, 1 },
+  {"if-conversion2", &flag_if_conversion2, 1 },
+  {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1 },
+  {"rerun-loop-opt", &flag_rerun_loop_opt, 1 },
+  {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1 },
+  {"schedule-insns", &flag_schedule_insns, 1 },
+  {"schedule-insns2", &flag_schedule_insns_after_reload, 1 },
+  {"sched-interblock",&flag_schedule_interblock, 1 },
+  {"sched-spec",&flag_schedule_speculative, 1 },
+  {"sched-spec-load",&flag_schedule_speculative_load, 1 },
+  {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1 },
+  {"sched2-use-superblocks", &flag_sched2_use_superblocks, 1 },
+  {"sched2-use-traces", &flag_sched2_use_traces, 1 },
+  {"branch-count-reg",&flag_branch_on_count_reg, 1 },
+  {"pic", &flag_pic, 1 },
+  {"PIC", &flag_pic, 2 },
+  {"pie", &flag_pie, 1 },
+  {"PIE", &flag_pie, 2 },
+  {"exceptions", &flag_exceptions, 1 },
+  {"unwind-tables", &flag_unwind_tables, 1 },
+  {"asynchronous-unwind-tables", &flag_asynchronous_unwind_tables, 1 },
+  {"non-call-exceptions", &flag_non_call_exceptions, 1 },
+  {"profile-arcs", &profile_arc_flag, 1 },
+  {"test-coverage", &flag_test_coverage, 1 },
+  {"branch-probabilities", &flag_branch_probabilities, 1 },
+  {"profile", &profile_flag, 1 },
+  {"reorder-blocks", &flag_reorder_blocks, 1 },
+  {"reorder-functions", &flag_reorder_functions, 1 },
+  {"rename-registers", &flag_rename_registers, 1 },
+  {"cprop-registers", &flag_cprop_registers, 1 },
+  {"common", &flag_no_common, 0 },
+  {"inhibit-size-directive", &flag_inhibit_size_directive, 1 },
+  {"function-sections", &flag_function_sections, 1 },
+  {"data-sections", &flag_data_sections, 1 },
+  {"verbose-asm", &flag_verbose_asm, 1 },
+  {"gnu-linker", &flag_gnu_linker, 1 },
+  {"regmove", &flag_regmove, 1 },
+  {"optimize-register-move", &flag_regmove, 1 },
+  {"pack-struct", &flag_pack_struct, 1 },
+  {"stack-check", &flag_stack_check, 1 },
+  {"argument-alias", &flag_argument_noalias, 0 },
+  {"argument-noalias", &flag_argument_noalias, 1 },
+  {"argument-noalias-global", &flag_argument_noalias, 2 },
+  {"strict-aliasing", &flag_strict_aliasing, 1 },
+  {"align-loops", &align_loops, 0 },
+  {"align-jumps", &align_jumps, 0 },
+  {"align-labels", &align_labels, 0 },
+  {"align-functions", &align_functions, 0 },
+  {"merge-constants", &flag_merge_constants, 1 },
+  {"merge-all-constants", &flag_merge_constants, 2 },
+  {"dump-unnumbered", &flag_dump_unnumbered, 1 },
+  {"instrument-functions", &flag_instrument_function_entry_exit, 1 },
+  {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1 },
+  {"ssa", &flag_ssa, 1 },
+  {"ssa-ccp", &flag_ssa_ccp, 1 },
+  {"ssa-dce", &flag_ssa_dce, 1 },
+  {"leading-underscore", &flag_leading_underscore, 1 },
+  {"ident", &flag_no_ident, 0 },
+  { "peephole2", &flag_peephole2, 1 },
+  {"finite-math-only", &flag_finite_math_only, 1 },
+  { "guess-branch-probability", &flag_guess_branch_prob, 1 },
+  {"math-errno", &flag_errno_math, 1 },
+  {"trapping-math", &flag_trapping_math, 1 },
+  {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1 },
+  {"signaling-nans", &flag_signaling_nans, 1 },
+  {"bounds-check", &flag_bounds_check, 1 },
+  {"single-precision-constant", &flag_single_precision_constant, 1 },
+  {"time-report", &time_report, 1 },
+  {"mem-report", &mem_report, 1 },
+  { "trapv", &flag_trapv, 1 },
+  { "wrapv", &flag_wrapv, 1 },
+  { "new-ra", &flag_new_regalloc, 1 }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -2003,7 +1706,7 @@ push_srcloc (const char *file, int line)
 {
   struct file_stack *fs;
 
-  fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
+  fs = xmalloc (sizeof (struct file_stack));
   fs->location = input_location;
   fs->next = input_file_stack;
   input_filename = file;
@@ -2432,7 +2135,7 @@ rest_of_handle_old_regalloc (tree decl, rtx insns, int *rebuild_notes)
   allocate_reg_info (max_regno, FALSE, TRUE);
 
   /* And the reg_equiv_memory_loc array.  */
-  reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
+  reg_equiv_memory_loc = xcalloc (max_regno, sizeof (rtx));
 
   allocate_initial_values (reg_equiv_memory_loc);
 
@@ -2702,13 +2405,13 @@ rest_of_handle_cfg (tree decl, rtx insns)
 
 /* Purge addressofs.  */
 static void
-rest_of_handle_addresof (tree decl, rtx insns)
+rest_of_handle_addressof (tree decl, rtx insns)
 {
   open_dump_file (DFI_addressof, decl);
 
   purge_addressof (insns);
-  if (optimize)
-    purge_all_dead_edges (0);
+  if (optimize && purge_all_dead_edges (0))
+    delete_unreachable_blocks ();
   reg_scan (insns, max_reg_num (), 1);
 
   close_dump_file (DFI_addressof, print_rtl, insns);
@@ -3516,7 +3219,7 @@ rest_of_compilation (tree decl)
   if (optimize > 0)
     rest_of_handle_cse (decl, insns);
 
-  rest_of_handle_addresof (decl, insns);
+  rest_of_handle_addressof (decl, insns);
 
   ggc_collect ();
 
@@ -3886,30 +3589,7 @@ rest_of_compilation (tree decl)
 void
 display_help (void)
 {
-  int undoc;
   unsigned long i;
-  const char *lang;
-
-  for (i = ARRAY_SIZE (f_options); i--;)
-    {
-      const char *description = f_options[i].description;
-
-      if (description != NULL && *description != 0)
-	printf ("  -f%-21s %s\n",
-		f_options[i].string, _(description));
-    }
-
-  for (i = LAST_PARAM; i--;)
-    {
-      const char *description = compiler_params[i].help;
-      const int length = 21 - strlen (compiler_params[i].option);
-
-      if (description != NULL && *description != 0)
-	printf ("  --param %s=<value>%.*s%s\n",
-		compiler_params[i].option,
-		length > 0 ? length : 1, "                     ",
-		_(description));
-    }
 
   for (i = ARRAY_SIZE (debug_args); i--;)
     {
@@ -3917,56 +3597,6 @@ display_help (void)
 	printf ("  -g%-21s %s\n",
 		debug_args[i].arg, _(debug_args[i].description));
     }
-
-  undoc = 0;
-  lang  = "language";
-
-  /* Display descriptions of language specific options.
-     If there is no description, note that there is an undocumented option.
-     If the description is empty, do not display anything.  (This allows
-     options to be deliberately undocumented, for whatever reason).
-     If the option string is missing, then this is a marker, indicating
-     that the description string is in fact the name of a language, whose
-     language specific options are to follow.  */
-
-  if (ARRAY_SIZE (documented_lang_options) > 1)
-    {
-      printf (_("\nLanguage specific options:\n"));
-
-      for (i = 0; i < ARRAY_SIZE (documented_lang_options); i++)
-	{
-	  const char *description = documented_lang_options[i].description;
-	  const char *option      = documented_lang_options[i].option;
-
-	  if (description == NULL)
-	    {
-	      undoc = 1;
-
-	      if (extra_warnings)
-		printf (_("  %-23.23s [undocumented]\n"), option);
-	    }
-	  else if (*description == 0)
-	    continue;
-	  else if (option == NULL)
-	    {
-	      if (undoc)
-		printf
-		  (_("\nThere are undocumented %s specific options as well.\n"),
-			lang);
-	      undoc = 0;
-
-	      printf (_("\n Options for %s:\n"), description);
-
-	      lang = description;
-	    }
-	  else
-	    printf ("  %-23.23s %s\n", option, _(description));
-	}
-    }
-
-  if (undoc)
-    printf (_("\nThere are undocumented %s specific options as well.\n"),
-	    lang);
 
   display_target_options ();
 }
@@ -4008,10 +3638,10 @@ display_target_options (void)
 	      undoc = 1;
 
 	      if (extra_warnings)
-		printf (_("  -m%-23.23s [undocumented]\n"), option);
+		printf (_("  -m%-23s [undocumented]\n"), option);
 	    }
 	  else if (*description != 0)
-	    doc += printf ("  -m%-23.23s %s\n", option, _(description));
+	    doc += printf ("  -m%-23s %s\n", option, _(description));
 	}
 
 #ifdef TARGET_OPTIONS
@@ -4027,10 +3657,10 @@ display_target_options (void)
 	      undoc = 1;
 
 	      if (extra_warnings)
-		printf (_("  -m%-23.23s [undocumented]\n"), option);
+		printf (_("  -m%-23s [undocumented]\n"), option);
 	    }
 	  else if (*description != 0)
-	    doc += printf ("  -m%-23.23s %s\n", option, _(description));
+	    doc += printf ("  -m%-23s %s\n", option, _(description));
 	}
 #endif
       if (undoc)
@@ -4423,7 +4053,7 @@ init_asm_output (const char *name)
       if (asm_file_name == 0)
 	{
 	  int len = strlen (dump_base_name);
-	  char *dumpname = (char *) xmalloc (len + 6);
+	  char *dumpname = xmalloc (len + 6);
 	  memcpy (dumpname, dump_base_name, len + 1);
 	  strip_off_ending (dumpname, len);
 	  strcat (dumpname, ".s");
@@ -4438,7 +4068,7 @@ init_asm_output (const char *name)
     }
 
 #ifdef IO_BUFFER_SIZE
-  setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
+  setvbuf (asm_out_file, xmalloc (IO_BUFFER_SIZE),
 	   _IOFBF, IO_BUFFER_SIZE);
 #endif
 
@@ -4883,21 +4513,24 @@ do_compile (void)
       if (!no_backend)
 	backend_init ();
 
-      if (flag_unit_at_a_time)
-	{
-          open_dump_file (DFI_cgraph, NULL);
-	  cgraph_dump_file = rtl_dump_file;
-	  rtl_dump_file = NULL;
-	}
       /* Language-dependent initialization.  Returns true on success.  */
       if (lang_dependent_init (main_input_filename))
-	compile_file ();
-
-      if (flag_unit_at_a_time)
 	{
-	  rtl_dump_file = cgraph_dump_file;
-	  cgraph_dump_file = NULL;
-          close_dump_file (DFI_cgraph, NULL, NULL_RTX);
+	  if (flag_unit_at_a_time)
+	    {
+	      open_dump_file (DFI_cgraph, NULL);
+	      cgraph_dump_file = rtl_dump_file;
+	      rtl_dump_file = NULL;
+	    }
+
+	  compile_file ();
+
+	  if (flag_unit_at_a_time)
+	    {
+	      rtl_dump_file = cgraph_dump_file;
+	      cgraph_dump_file = NULL;
+              close_dump_file (DFI_cgraph, NULL, NULL_RTX);
+	    }
 	}
 
       finalize ();

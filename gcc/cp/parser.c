@@ -127,7 +127,7 @@ static void cp_token_cache_push_token
 static cp_token_cache *
 cp_token_cache_new ()
 {
-  return (cp_token_cache *) ggc_alloc_cleared (sizeof (cp_token_cache));
+  return ggc_alloc_cleared (sizeof (cp_token_cache));
 }
 
 /* Add *TOKEN to *CACHE.  */
@@ -141,7 +141,7 @@ cp_token_cache_push_token (cp_token_cache *cache,
   /* See if we need to allocate a new token block.  */
   if (!b || b->num_tokens == CP_TOKEN_BLOCK_NUM_TOKENS)
     {
-      b = ((cp_token_block *) ggc_alloc_cleared (sizeof (cp_token_block)));
+      b = ggc_alloc_cleared (sizeof (cp_token_block));
       b->prev = cache->last;
       if (cache->last)
 	{
@@ -305,11 +305,10 @@ cp_lexer_new_main (void)
   cpp_get_callbacks (parse_in)->valid_pch = NULL;
 
   /* Allocate the memory.  */
-  lexer = (cp_lexer *) ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
 
   /* Create the circular buffer.  */
-  lexer->buffer = ((cp_token *) 
-		   ggc_calloc (CP_TOKEN_BUFFER_SIZE, sizeof (cp_token)));
+  lexer->buffer = ggc_calloc (CP_TOKEN_BUFFER_SIZE, sizeof (cp_token));
   lexer->buffer_end = lexer->buffer + CP_TOKEN_BUFFER_SIZE;
 
   /* There is one token in the buffer.  */
@@ -345,13 +344,13 @@ cp_lexer_new_from_tokens (cp_token_cache *tokens)
   ptrdiff_t num_tokens;
 
   /* Allocate the memory.  */
-  lexer = (cp_lexer *) ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
 
   /* Create a new buffer, appropriately sized.  */
   num_tokens = 0;
   for (block = tokens->first; block != NULL; block = block->next)
     num_tokens += block->num_tokens;
-  lexer->buffer = ((cp_token *) ggc_alloc (num_tokens * sizeof (cp_token)));
+  lexer->buffer = ggc_alloc (num_tokens * sizeof (cp_token));
   lexer->buffer_end = lexer->buffer + num_tokens;
   
   /* Install the tokens.  */
@@ -521,9 +520,8 @@ cp_lexer_maybe_grow_buffer (cp_lexer* lexer)
       /* Compute the current buffer size.  */
       buffer_length = lexer->buffer_end - lexer->buffer;
       /* Allocate a buffer twice as big.  */
-      new_buffer = ((cp_token *)
-		    ggc_realloc (lexer->buffer, 
-				 2 * buffer_length * sizeof (cp_token)));
+      new_buffer = ggc_realloc (lexer->buffer, 
+				2 * buffer_length * sizeof (cp_token));
       
       /* Because the buffer is circular, logically consecutive tokens
 	 are not necessarily placed consecutively in memory.
@@ -1047,20 +1045,6 @@ typedef enum cp_parser_flags
   CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES = 0x2
 } cp_parser_flags;
 
-/* The different kinds of ids that we ecounter.  */
-
-typedef enum cp_parser_id_kind
-{
-  /* Not an id at all.  */
-  CP_PARSER_ID_KIND_NONE,
-  /* An unqualified-id that is not a template-id.  */
-  CP_PARSER_ID_KIND_UNQUALIFIED,
-  /* An unqualified template-id.  */
-  CP_PARSER_ID_KIND_TEMPLATE_ID,
-  /* A qualified-id.  */
-  CP_PARSER_ID_KIND_QUALIFIED
-} cp_parser_id_kind;
-
 /* The different kinds of declarators we want to parse.  */
 
 typedef enum cp_parser_declarator_kind
@@ -1144,11 +1128,10 @@ cp_parser_context_new (cp_parser_context* next)
       /* Pull the first entry from the free list.  */
       context = cp_parser_context_free_list;
       cp_parser_context_free_list = context->next;
-      memset ((char *)context, 0, sizeof (*context));
+      memset (context, 0, sizeof (*context));
     }
   else
-    context = ((cp_parser_context *) 
-	       ggc_alloc_cleared (sizeof (cp_parser_context)));
+    context = ggc_alloc_cleared (sizeof (cp_parser_context));
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
   /* If this is not the bottomost context, copy information that we
@@ -1311,7 +1294,7 @@ static bool cp_parser_translation_unit
 /* Expressions [gram.expr]  */
 
 static tree cp_parser_primary_expression
-  (cp_parser *, cp_parser_id_kind *, tree *);
+  (cp_parser *, cp_id_kind *, tree *);
 static tree cp_parser_id_expression
   (cp_parser *, bool, bool, bool *);
 static tree cp_parser_unqualified_id
@@ -1324,8 +1307,8 @@ static tree cp_parser_class_or_namespace_name
   (cp_parser *, bool, bool, bool, bool);
 static tree cp_parser_postfix_expression
   (cp_parser *, bool);
-static tree cp_parser_expression_list
-  (cp_parser *);
+static tree cp_parser_parenthesized_expression_list
+  (cp_parser *, bool, bool *);
 static void cp_parser_pseudo_destructor_name
   (cp_parser *, tree *, tree *);
 static tree cp_parser_unary_expression
@@ -1369,8 +1352,6 @@ static tree cp_parser_inclusive_or_expression
 static tree cp_parser_logical_and_expression
   (cp_parser *);
 static tree cp_parser_logical_or_expression 
-  (cp_parser *);
-static tree cp_parser_conditional_expression
   (cp_parser *);
 static tree cp_parser_question_colon_clause
   (cp_parser *, tree);
@@ -1467,9 +1448,9 @@ static void cp_parser_linkage_specification
 static tree cp_parser_init_declarator
   (cp_parser *, tree, tree, bool, bool, bool *);
 static tree cp_parser_declarator
-  (cp_parser *, cp_parser_declarator_kind, bool *);
+  (cp_parser *, cp_parser_declarator_kind, int *);
 static tree cp_parser_direct_declarator
-  (cp_parser *, cp_parser_declarator_kind, bool *);
+  (cp_parser *, cp_parser_declarator_kind, int *);
 static enum tree_code cp_parser_ptr_operator
   (cp_parser *, tree *, tree *);
 static tree cp_parser_cv_qualifier_seq_opt
@@ -1493,11 +1474,11 @@ static tree cp_parser_function_definition
 static void cp_parser_function_body
   (cp_parser *);
 static tree cp_parser_initializer
-  (cp_parser *, bool *);
+  (cp_parser *, bool *, bool *);
 static tree cp_parser_initializer_clause
-  (cp_parser *);
+  (cp_parser *, bool *);
 static tree cp_parser_initializer_list
-  (cp_parser *);
+  (cp_parser *, bool *);
 
 static bool cp_parser_ctor_initializer_opt_and_function_body
   (cp_parser *);
@@ -1695,14 +1676,10 @@ static void cp_parser_check_type_definition
   (cp_parser *);
 static tree cp_parser_non_constant_expression
   (const char *);
-static tree cp_parser_non_constant_id_expression
-  (tree);
 static bool cp_parser_diagnose_invalid_type_name
   (cp_parser *);
-static bool cp_parser_skip_to_closing_parenthesis
-  (cp_parser *);
-static bool cp_parser_skip_to_closing_parenthesis_or_comma
-  (cp_parser *);
+static int cp_parser_skip_to_closing_parenthesis
+  (cp_parser *, bool, bool);
 static void cp_parser_skip_to_end_of_statement
   (cp_parser *);
 static void cp_parser_consume_semicolon_at_end_of_statement
@@ -1796,16 +1773,6 @@ cp_parser_non_constant_expression (const char *thing)
   return error_mark_node;
 }
 
-/* Issue an eror message about the fact that DECL appeared in a
-   constant-expression.  Returns ERROR_MARK_NODE.  */
-
-static tree
-cp_parser_non_constant_id_expression (tree decl)
-{
-  error ("`%D' cannot appear in a constant-expression", decl);
-  return error_mark_node;
-}
-
 /* Check for a common situation where a type-name should be present,
    but is not, and issue a sensible error message.  Returns true if an
    invalid type-name was detected.  */
@@ -1880,57 +1847,60 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser)
 }
 
 /* Consume tokens up to, and including, the next non-nested closing `)'. 
-   Returns TRUE iff we found a closing `)'.  */
+   Returns 1 iff we found a closing `)'.  RECOVERING is true, if we
+   are doing error recovery. Returns -1 if OR_COMMA is true and we
+   found an unnested comma.  */
 
-static bool
-cp_parser_skip_to_closing_parenthesis (cp_parser *parser)
+static int
+cp_parser_skip_to_closing_parenthesis (cp_parser *parser,
+				       bool recovering, bool or_comma)
 {
-  unsigned nesting_depth = 0;
+  unsigned paren_depth = 0;
+  unsigned brace_depth = 0;
 
+  if (recovering && !or_comma && cp_parser_parsing_tentatively (parser)
+      && !cp_parser_committed_to_tentative_parse (parser))
+    return 0;
+  
   while (true)
     {
       cp_token *token;
-
+      
       /* If we've run out of tokens, then there is no closing `)'.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_EOF))
-	return false;
+	return 0;
+
+      if (recovering)
+	{
+	  token = cp_lexer_peek_token (parser->lexer);
+
+	  /* This matches the processing in skip_to_end_of_statement */
+	  if (token->type == CPP_SEMICOLON && !brace_depth)
+	    return 0;
+	  if (token->type == CPP_OPEN_BRACE)
+	    ++brace_depth;
+	  if (token->type == CPP_CLOSE_BRACE)
+	    {
+	      if (!brace_depth--)
+		return 0;
+	    }
+	  if (or_comma && token->type == CPP_COMMA
+	      && !brace_depth && !paren_depth)
+	    return -1;
+	}
+      
       /* Consume the token.  */
       token = cp_lexer_consume_token (parser->lexer);
-      /* If it is an `(', we have entered another level of nesting.  */
-      if (token->type == CPP_OPEN_PAREN)
-	++nesting_depth;
-      /* If it is a `)', then we might be done.  */
-      else if (token->type == CPP_CLOSE_PAREN && nesting_depth-- == 0)
-	return true;
-    }
-}
 
-/* Consume tokens until the next token is a `)', or a `,'.  Returns
-   TRUE if the next token is a `,'.  */
-
-static bool
-cp_parser_skip_to_closing_parenthesis_or_comma (cp_parser *parser)
-{
-  unsigned nesting_depth = 0;
-
-  while (true)
-    {
-      cp_token *token = cp_lexer_peek_token (parser->lexer);
-
-      /* If we've run out of tokens, then there is no closing `)'.  */
-      if (token->type == CPP_EOF)
-	return false;
-      /* If it is a `,' stop.  */
-      else if (token->type == CPP_COMMA && nesting_depth-- == 0)
-	return true;
-      /* If it is a `)', stop.  */
-      else if (token->type == CPP_CLOSE_PAREN && nesting_depth-- == 0)
-	return false;
-      /* If it is an `(', we have entered another level of nesting.  */
-      else if (token->type == CPP_OPEN_PAREN)
-	++nesting_depth;
-      /* Consume the token.  */
-      token = cp_lexer_consume_token (parser->lexer);
+      if (!brace_depth)
+	{
+	  /* If it is an `(', we have entered another level of nesting.  */
+	  if (token->type == CPP_OPEN_PAREN)
+	    ++paren_depth;
+	  /* If it is a `)', then we might be done.  */
+	  else if (token->type == CPP_CLOSE_PAREN && !paren_depth--)
+	    return 1;
+	}
     }
 }
 
@@ -2094,7 +2064,7 @@ cp_parser_new (void)
      cp_lexer_new_main might load a PCH file.  */
   lexer = cp_lexer_new_main ();
 
-  parser = (cp_parser *) ggc_alloc_cleared (sizeof (cp_parser));
+  parser = ggc_alloc_cleared (sizeof (cp_parser));
   parser->lexer = lexer;
   parser->context = cp_parser_context_new (NULL);
 
@@ -2214,13 +2184,13 @@ cp_parser_translation_unit (cp_parser* parser)
 
 static tree
 cp_parser_primary_expression (cp_parser *parser, 
-			      cp_parser_id_kind *idk,
+			      cp_id_kind *idk,
 			      tree *qualifying_class)
 {
   cp_token *token;
 
   /* Assume the primary expression is not an id-expression.  */
-  *idk = CP_PARSER_ID_KIND_NONE;
+  *idk = CP_ID_KIND_NONE;
   /* And that it cannot be used as pointer-to-member.  */
   *qualifying_class = NULL_TREE;
 
@@ -2396,6 +2366,7 @@ cp_parser_primary_expression (cp_parser *parser,
       {
 	tree id_expression;
 	tree decl;
+	const char *error_msg;
 
       id_expression:
 	/* Parse the id-expression.  */
@@ -2456,270 +2427,16 @@ cp_parser_primary_expression (cp_parser *parser,
 		    return error_mark_node;
 		  }
 	      }
-
-	    if (decl == error_mark_node)
-	      {
-		/* Name lookup failed.  */
-		if (!parser->scope 
-		    && processing_template_decl)
-		  {
-		    /* Unqualified name lookup failed while processing a
-		       template.  */
-		    *idk = CP_PARSER_ID_KIND_UNQUALIFIED;
-		    /* If the next token is a parenthesis, assume that
-		       Koenig lookup will succeed when instantiating the
-		       template.  */
-		    if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
-		      return build_min_nt (LOOKUP_EXPR, id_expression);
-		    /* If we're not doing Koenig lookup, issue an error.  */
-		    error ("`%D' has not been declared", id_expression);
-		    return error_mark_node;
-		  }
-		else if (parser->scope
-			 && (!TYPE_P (parser->scope)
-			     || !dependent_type_p (parser->scope)))
-		  {
-		    /* Qualified name lookup failed, and the
-		       qualifying name was not a dependent type.  That
-		       is always an error.  */
-		    if (TYPE_P (parser->scope)
-			&& !COMPLETE_TYPE_P (parser->scope))
-		      error ("incomplete type `%T' used in nested name "
-			     "specifier",
-			     parser->scope);
-		    else if (parser->scope != global_namespace)
-		      error ("`%D' is not a member of `%D'",
-			     id_expression, parser->scope);
-		    else
-		      error ("`::%D' has not been declared", id_expression);
-		    return error_mark_node;
-		  }
-		else if (!parser->scope && !processing_template_decl)
-		  {
-		    /* It may be resolvable as a koenig lookup function
-		       call.  */
-		    *idk = CP_PARSER_ID_KIND_UNQUALIFIED;
-		    return id_expression;
-		  }
-	      }
-	    /* If DECL is a variable that would be out of scope under
-	       ANSI/ISO rules, but in scope in the ARM, name lookup
-	       will succeed.  Issue a diagnostic here.  */
-	    else
-	      decl = check_for_out_of_scope_variable (decl);
-
-	    /* Remember that the name was used in the definition of
-	       the current class so that we can check later to see if
-	       the meaning would have been different after the class
-	       was entirely defined.  */
-	    if (!parser->scope && decl != error_mark_node)
-	      maybe_note_name_used_in_class (id_expression, decl);
 	  }
-
-	/* If we didn't find anything, or what we found was a type,
-	   then this wasn't really an id-expression.  */
-	if (TREE_CODE (decl) == TEMPLATE_DECL
-	    && !DECL_FUNCTION_TEMPLATE_P (decl))
-	  {
-	    cp_parser_error (parser, "missing template arguments");
-	    return error_mark_node;
-	  }
-	else if (TREE_CODE (decl) == TYPE_DECL
-		 || TREE_CODE (decl) == NAMESPACE_DECL)
-	  {
-	    cp_parser_error (parser, 
-			     "expected primary-expression");
-	    return error_mark_node;
-	  }
-
-	/* If the name resolved to a template parameter, there is no
-	   need to look it up again later.  Similarly, we resolve
-	   enumeration constants to their underlying values.  */
-	if (TREE_CODE (decl) == CONST_DECL)
-	  {
-	    *idk = CP_PARSER_ID_KIND_NONE;
-	    if (DECL_TEMPLATE_PARM_P (decl) || !processing_template_decl)
-	      return DECL_INITIAL (decl);
-	    return decl;
-	  }
-	else
-	  {
-	    bool dependent_p;
-
-	    /* If the declaration was explicitly qualified indicate
-	       that.  The semantics of `A::f(3)' are different than
-	       `f(3)' if `f' is virtual.  */
-	    *idk = (parser->scope 
-		    ? CP_PARSER_ID_KIND_QUALIFIED
-		    : (TREE_CODE (decl) == TEMPLATE_ID_EXPR
-		       ? CP_PARSER_ID_KIND_TEMPLATE_ID
-		       : CP_PARSER_ID_KIND_UNQUALIFIED));
-
-
-	    /* [temp.dep.expr]
-	       
-	       An id-expression is type-dependent if it contains an
-	       identifier that was declared with a dependent type.
-	       
-	       As an optimization, we could choose not to create a
-	       LOOKUP_EXPR for a name that resolved to a local
-	       variable in the template function that we are currently
-	       declaring; such a name cannot ever resolve to anything
-	       else.  If we did that we would not have to look up
-	       these names at instantiation time.
-	       
-	       The standard is not very specific about an
-	       id-expression that names a set of overloaded functions.
-	       What if some of them have dependent types and some of
-	       them do not?  Presumably, such a name should be treated
-	       as a dependent name.  */
-	    /* Assume the name is not dependent.  */
-	    dependent_p = false;
-	    if (!processing_template_decl)
-	      /* No names are dependent outside a template.  */
-	      ;
-	    /* A template-id where the name of the template was not
-	       resolved is definitely dependent.  */
-	    else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
-		     && (TREE_CODE (TREE_OPERAND (decl, 0)) 
-			 == IDENTIFIER_NODE))
-	      dependent_p = true;
-	    /* For anything except an overloaded function, just check
-	       its type.  */
-	    else if (!is_overloaded_fn (decl))
-	      dependent_p 
-		= dependent_type_p (TREE_TYPE (decl));
-	    /* For a set of overloaded functions, check each of the
-	       functions.  */
-	    else
-	      {
-		tree fns = decl;
-
-		if (BASELINK_P (fns))
-		  fns = BASELINK_FUNCTIONS (fns);
-		  
-		/* For a template-id, check to see if the template
-		   arguments are dependent.  */
-		if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
-		  {
-		    tree args = TREE_OPERAND (fns, 1);
-		    dependent_p = any_dependent_template_arguments_p (args);
-		    /* The functions are those referred to by the
-		       template-id.  */
-		    fns = TREE_OPERAND (fns, 0);
-		  }
-
-		/* If there are no dependent template arguments, go
-		   through the overlaoded functions.  */
-		while (fns && !dependent_p)
-		  {
-		    tree fn = OVL_CURRENT (fns);
-		    
-		    /* Member functions of dependent classes are
-		       dependent.  */
-		    if (TREE_CODE (fn) == FUNCTION_DECL
-			&& type_dependent_expression_p (fn))
-		      dependent_p = true;
-		    else if (TREE_CODE (fn) == TEMPLATE_DECL
-			     && dependent_template_p (fn))
-		      dependent_p = true;
-		    
-		    fns = OVL_NEXT (fns);
-		  }
-	      }
-
-	    /* If the name was dependent on a template parameter,
-	       we will resolve the name at instantiation time.  */
-	    if (dependent_p)
-	      {
-		/* Create a SCOPE_REF for qualified names, if the
-		   scope is dependent.  */
-		if (parser->scope)
-		  {
-		    if (TYPE_P (parser->scope))
-		      *qualifying_class = parser->scope;
-		    /* Since this name was dependent, the expression isn't
-		       constant -- yet.  No error is issued because it
-		       might be constant when things are instantiated.  */
-		    if (parser->constant_expression_p)
-		      parser->non_constant_expression_p = true;
-		    if (TYPE_P (parser->scope)
-			&& dependent_type_p (parser->scope))
-		      return build_nt (SCOPE_REF, 
-				       parser->scope, 
-				       id_expression);
-		    else
-		      return decl;
-		  }
-		/* A TEMPLATE_ID already contains all the information
-		   we need.  */
-		if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR)
-		  return id_expression;
-		/* Since this name was dependent, the expression isn't
-		   constant -- yet.  No error is issued because it
-		   might be constant when things are instantiated.  */
-		if (parser->constant_expression_p)
-		  parser->non_constant_expression_p = true;
-		/* Create a LOOKUP_EXPR for other unqualified names.  */
-		return build_min_nt (LOOKUP_EXPR, id_expression);
-	      }
-
-	    /* Only certain kinds of names are allowed in constant
-	       expression.  Enumerators have already been handled
-	       above.  */
-	    if (parser->constant_expression_p)
-	      {
-		/* Non-type template parameters of integral or
-		   enumeration type are OK.  */
-		if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX
-		    && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-		  ;
-		/* Const variables or static data members of integral
-		   or enumeration types initialized with constant
-                   expressions are OK.  We also accept dependent
-		   initializers; they may turn out to be constant at
-		   instantiation-time.  */
-		else if (TREE_CODE (decl) == VAR_DECL
-			 && CP_TYPE_CONST_P (TREE_TYPE (decl))
-			 && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-			 && DECL_INITIAL (decl)
-			 && (TREE_CONSTANT (DECL_INITIAL (decl))
-			     || type_dependent_expression_p (DECL_INITIAL 
-							     (decl))
-			     || value_dependent_expression_p (DECL_INITIAL 
-							      (decl))))
-		  ;
-		else
-		  {
-		    if (!parser->allow_non_constant_expression_p)
-		      return cp_parser_non_constant_id_expression (decl);
-		    parser->non_constant_expression_p = true;
-		  }
-	      }
-
-	    if (parser->scope)
-	      {
-		decl = (adjust_result_of_qualified_name_lookup 
-			(decl, parser->scope, current_class_type));
-		if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
-		  *qualifying_class = parser->scope;
-		else if (!processing_template_decl)
-		  decl = convert_from_reference (decl);
-	      }
-	    else
-	      /* Transform references to non-static data members into
-		 COMPONENT_REFs.  */
-	      decl = hack_identifier (decl, id_expression);
-
-	    /* Resolve references to variables of anonymous unions
-	       into COMPONENT_REFs.  */
-	    if (TREE_CODE (decl) == ALIAS_DECL)
-	      decl = DECL_INITIAL (decl);
-	  }
-
-	if (TREE_DEPRECATED (decl))
-	  warn_deprecated_use (decl);
-
+	
+	decl = finish_id_expression (id_expression, decl, parser->scope, 
+				     idk, qualifying_class,
+				     parser->constant_expression_p,
+				     parser->allow_non_constant_expression_p,
+				     &parser->non_constant_expression_p,
+				     &error_msg);
+	if (error_msg)
+	  cp_parser_error (parser, error_msg);
 	return decl;
       }
 
@@ -3451,7 +3168,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 {
   cp_token *token;
   enum rid keyword;
-  cp_parser_id_kind idk = CP_PARSER_ID_KIND_NONE;
+  cp_id_kind idk = CP_ID_KIND_NONE;
   tree postfix_expression = NULL_TREE;
   /* Non-NULL only if the current postfix-expression can be used to
      form a pointer-to-member.  In that case, QUALIFYING_CLASS is the
@@ -3653,9 +3370,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	       keep going.  */
 	    if (!cp_parser_error_occurred (parser))
 	      {
+		bool non_constant_p;
 		/* Parse the initializer-list.  */
 		initializer_list 
-		  = cp_parser_initializer_list (parser);
+		  = cp_parser_initializer_list (parser, &non_constant_p);
 		/* Allow a trailing `,'.  */
 		if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 		  cp_lexer_consume_token (parser->lexer);
@@ -3716,13 +3434,12 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
   /* Keep looping until the postfix-expression is complete.  */
   while (true)
     {
-      if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE
+      if (idk == CP_ID_KIND_UNQUALIFIED
+	  && TREE_CODE (postfix_expression) == IDENTIFIER_NODE
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
-	{
-	  /* It is not a Koenig lookup function call.  */
-	  unqualified_name_lookup_error (postfix_expression);
-	  postfix_expression = error_mark_node;
-	}
+	/* It is not a Koenig lookup function call.  */
+	postfix_expression 
+	  = unqualified_name_lookup_error (postfix_expression);
       
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -3744,26 +3461,22 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    /* Build the ARRAY_REF.  */
 	    postfix_expression 
 	      = grok_array_decl (postfix_expression, index);
-	    idk = CP_PARSER_ID_KIND_NONE;
+	    idk = CP_ID_KIND_NONE;
 	  }
 	  break;
 
 	case CPP_OPEN_PAREN:
 	  /* postfix-expression ( expression-list [opt] ) */
 	  {
-	    tree args;
+	    tree args = (cp_parser_parenthesized_expression_list 
+			 (parser, false, /*non_constant_p=*/NULL));
 
-	    /* Consume the `(' token.  */
-	    cp_lexer_consume_token (parser->lexer);
-	    /* If the next token is not a `)', then there are some
-               arguments.  */
-	    if (cp_lexer_next_token_is_not (parser->lexer, 
-					    CPP_CLOSE_PAREN))
-	      args = cp_parser_expression_list (parser);
-	    else
-	      args = NULL_TREE;
-	    /* Look for the closing `)'.  */
-	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	    if (args == error_mark_node)
+	      {
+		postfix_expression = error_mark_node;
+		break;
+	      }
+	    
 	    /* Function calls are not permitted in
 	       constant-expressions.  */
 	    if (parser->constant_expression_p)
@@ -3773,58 +3486,17 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		parser->non_constant_expression_p = true;
 	      }
 
-	    if (idk == CP_PARSER_ID_KIND_UNQUALIFIED
+	    if (idk == CP_ID_KIND_UNQUALIFIED
 		&& (is_overloaded_fn (postfix_expression)
 		    || DECL_P (postfix_expression)
 		    || TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
 		&& args)
-	      {
-		tree identifier = NULL_TREE;
-		tree functions = NULL_TREE;
-
-		/* Find the name of the overloaded function.  */
-		if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
-		  identifier = postfix_expression;
-		else if (is_overloaded_fn (postfix_expression))
-		  {
-		    functions = postfix_expression;
-		    identifier = DECL_NAME (get_first_fn (functions));
-		  }
-		else if (DECL_P (postfix_expression))
-		  {
-		    functions = postfix_expression;
-		    identifier = DECL_NAME (postfix_expression);
-		  }
-
-		/* A call to a namespace-scope function using an
-		   unqualified name.
-
-		   Do Koenig lookup -- unless any of the arguments are
-		   type-dependent.  */
-		if (!any_type_dependent_arguments_p (args))
-		  {
-		    postfix_expression 
-		      = lookup_arg_dependent (identifier, functions, args);
-		    if (!postfix_expression)
-		      {
-			/* The unqualified name could not be resolved.  */
-			unqualified_name_lookup_error (identifier);
-			postfix_expression = error_mark_node;
-			break;
-		      }
-		  }
-		else
-		  postfix_expression = build_min_nt (LOOKUP_EXPR,
-						     identifier);
-	      }
-	    else if (idk == CP_PARSER_ID_KIND_UNQUALIFIED 
+	      postfix_expression 
+		= perform_koenig_lookup (postfix_expression, args);
+	    else if (idk == CP_ID_KIND_UNQUALIFIED 
 		     && TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
-	      {
-		/* The unqualified name could not be resolved.  */
-		unqualified_name_lookup_error (postfix_expression);
-		postfix_expression = error_mark_node;
-		break;
-	      }
+	      postfix_expression
+		= unqualified_fn_lookup_error (postfix_expression);
 
 	    if (TREE_CODE (postfix_expression) == COMPONENT_REF)
 	      {
@@ -3835,6 +3507,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		    && (type_dependent_expression_p (instance)
 			|| (!BASELINK_P (fn)
 			    && TREE_CODE (fn) != FIELD_DECL)
+			|| type_dependent_expression_p (fn)
 			|| any_type_dependent_arguments_p (args)))
 		  {
 		    postfix_expression
@@ -3845,7 +3518,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		postfix_expression
 		  = (build_new_method_call 
 		     (instance, fn, args, NULL_TREE, 
-		      (idk == CP_PARSER_ID_KIND_QUALIFIED 
+		      (idk == CP_ID_KIND_QUALIFIED 
 		       ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL)));
 	      }
 	    else if (TREE_CODE (postfix_expression) == OFFSET_REF
@@ -3853,7 +3526,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		     || TREE_CODE (postfix_expression) == DOTSTAR_EXPR)
 	      postfix_expression = (build_offset_ref_call_from_tree
 				    (postfix_expression, args));
-	    else if (idk == CP_PARSER_ID_KIND_QUALIFIED)
+	    else if (idk == CP_ID_KIND_QUALIFIED)
 	      /* A call to a static class member, or a namespace-scope
 		 function.  */
 	      postfix_expression
@@ -3866,7 +3539,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 				    /*disallow_virtual=*/false);
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
-	    idk = CP_PARSER_ID_KIND_NONE;
+	    idk = CP_ID_KIND_NONE;
 	  }
 	  break;
 	  
@@ -3893,7 +3566,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	    parser->scope = NULL_TREE;
 	    parser->qualifying_scope = NULL_TREE;
 	    parser->object_scope = NULL_TREE;
-	    idk = CP_PARSER_ID_KIND_NONE;
+	    idk = CP_ID_KIND_NONE;
 	    /* Enter the scope corresponding to the type of the object
 	       given by the POSTFIX_EXPRESSION.  */
 	    if (!dependent_p 
@@ -3961,7 +3634,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		/* But we do need to remember that there was an explicit
 		   scope for virtual function calls.  */
 		if (parser->scope)
-		  idk = CP_PARSER_ID_KIND_QUALIFIED;
+		  idk = CP_ID_KIND_QUALIFIED;
 
 		if (name != error_mark_node 
 		    && !BASELINK_P (name)
@@ -4011,7 +3684,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	  postfix_expression 
 	    = finish_increment_expr (postfix_expression, 
 				     POSTINCREMENT_EXPR);
-	  idk = CP_PARSER_ID_KIND_NONE;
+	  idk = CP_ID_KIND_NONE;
 	  break;
 
 	case CPP_MINUS_MINUS:
@@ -4029,7 +3702,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	  postfix_expression 
 	    = finish_increment_expr (postfix_expression, 
 				     POSTDECREMENT_EXPR);
-	  idk = CP_PARSER_ID_KIND_NONE;
+	  idk = CP_ID_KIND_NONE;
 	  break;
 
 	default:
@@ -4042,51 +3715,118 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
   return error_mark_node;
 }
 
-/* Parse an expression-list.
+/* Parse a parenthesized expression-list.
 
    expression-list:
      assignment-expression
      expression-list, assignment-expression
 
+   attribute-list:
+     expression-list
+     identifier
+     identifier, expression-list
+
    Returns a TREE_LIST.  The TREE_VALUE of each node is a
    representation of an assignment-expression.  Note that a TREE_LIST
-   is returned even if there is only a single expression in the list.  */
+   is returned even if there is only a single expression in the list.
+   error_mark_node is returned if the ( and or ) are
+   missing. NULL_TREE is returned on no expressions. The parentheses
+   are eaten. IS_ATTRIBUTE_LIST is true if this is really an attribute
+   list being parsed.  If NON_CONSTANT_P is non-NULL, *NON_CONSTANT_P
+   indicates whether or not all of the expressions in the list were
+   constant.  */
 
 static tree
-cp_parser_expression_list (cp_parser* parser)
+cp_parser_parenthesized_expression_list (cp_parser* parser, 
+					 bool is_attribute_list,
+					 bool *non_constant_p)
 {
   tree expression_list = NULL_TREE;
+  tree identifier = NULL_TREE;
 
+  /* Assume all the expressions will be constant.  */
+  if (non_constant_p)
+    *non_constant_p = false;
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+    return error_mark_node;
+  
   /* Consume expressions until there are no more.  */
-  while (true)
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
+    while (true)
+      {
+	tree expr;
+	
+	/* At the beginning of attribute lists, check to see if the
+	   next token is an identifier.  */
+	if (is_attribute_list
+	    && cp_lexer_peek_token (parser->lexer)->type == CPP_NAME)
+	  {
+	    cp_token *token;
+	    
+	    /* Consume the identifier.  */
+	    token = cp_lexer_consume_token (parser->lexer);
+	    /* Save the identifier.  */
+	    identifier = token->value;
+	  }
+	else
+	  {
+	    /* Parse the next assignment-expression.  */
+	    if (non_constant_p)
+	      {
+		bool expr_non_constant_p;
+		expr = (cp_parser_constant_expression 
+			(parser, /*allow_non_constant_p=*/true,
+			 &expr_non_constant_p));
+		if (expr_non_constant_p)
+		  *non_constant_p = true;
+	      }
+	    else
+	      expr = cp_parser_assignment_expression (parser);
+
+	     /* Add it to the list.  We add error_mark_node
+		expressions to the list, so that we can still tell if
+		the correct form for a parenthesized expression-list
+		is found. That gives better errors.  */
+	    expression_list = tree_cons (NULL_TREE, expr, expression_list);
+
+	    if (expr == error_mark_node)
+	      goto skip_comma;
+	  }
+
+	/* After the first item, attribute lists look the same as
+	   expression lists.  */
+	is_attribute_list = false;
+	
+      get_comma:;
+	/* If the next token isn't a `,', then we are done.  */
+	if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
+	  break;
+
+	/* Otherwise, consume the `,' and keep going.  */
+	cp_lexer_consume_token (parser->lexer);
+      }
+  
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
     {
-      tree expr;
-
-      /* Parse the next assignment-expression.  */
-      expr = cp_parser_assignment_expression (parser);
-      /* Add it to the list.  */
-      expression_list = tree_cons (NULL_TREE, expr, expression_list);
-
-      /* If the next token isn't a `,', then we are done.  */
-      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
-	{
-	  /* All uses of expression-list in the grammar are followed
-	     by a `)'.  Therefore, if the next token is not a `)' an
-	     error will be issued, unless we are parsing tentatively.
-	     Skip ahead to see if there is another `,' before the `)';
-	     if so, we can go there and recover.  */
-	  if (cp_parser_parsing_tentatively (parser)
-	      || cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN)
-	      || !cp_parser_skip_to_closing_parenthesis_or_comma (parser))
-	    break;
-	}
-
-      /* Otherwise, consume the `,' and keep going.  */
-      cp_lexer_consume_token (parser->lexer);
+      int ending;
+      
+    skip_comma:;
+      /* We try and resync to an unnested comma, as that will give the
+	 user better diagnostics.  */
+      ending = cp_parser_skip_to_closing_parenthesis (parser, true, true);
+      if (ending < 0)
+	goto get_comma;
+      if (!ending)
+	return error_mark_node;
     }
 
   /* We built up the list in reverse order so we must reverse it now.  */
-  return nreverse (expression_list);
+  expression_list = nreverse (expression_list);
+  if (identifier)
+    expression_list = tree_cons (NULL_TREE, identifier, expression_list);
+  
+  return expression_list;
 }
 
 /* Parse a pseudo-destructor-name.
@@ -4451,13 +4191,9 @@ cp_parser_new_placement (cp_parser* parser)
 {
   tree expression_list;
 
-  /* Look for the opening `('.  */
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
-    return error_mark_node;
   /* Parse the expression-list.  */
-  expression_list = cp_parser_expression_list (parser);
-  /* Look for the closing `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  expression_list = (cp_parser_parenthesized_expression_list 
+		     (parser, false, /*non_constant_p=*/NULL));
 
   return expression_list;
 }
@@ -4621,16 +4357,10 @@ cp_parser_new_initializer (cp_parser* parser)
 {
   tree expression_list;
 
-  /* Look for the opening parenthesis.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
-  /* If the next token is not a `)', then there is an
-     expression-list.  */
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
-    expression_list = cp_parser_expression_list (parser);
-  else
+  expression_list = (cp_parser_parenthesized_expression_list 
+		     (parser, false, /*non_constant_p=*/NULL));
+  if (!expression_list)
     expression_list = void_zero_node;
-  /* Look for the closing parenthesis.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
   return expression_list;
 }
@@ -4726,7 +4456,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p)
 	 If we find the closing `)', and the next token is a `{', then
 	 we are looking at a compound-literal.  */
       compound_literal_p 
-	= (cp_parser_skip_to_closing_parenthesis (parser)
+	= (cp_parser_skip_to_closing_parenthesis (parser, false, false)
 	   && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE));
       /* Roll back the tokens we skipped.  */
       cp_lexer_rollback_tokens (parser->lexer);
@@ -5042,43 +4772,12 @@ cp_parser_logical_or_expression (cp_parser* parser)
 				      cp_parser_logical_and_expression);
 }
 
-/* Parse a conditional-expression.
-
-   conditional-expression:
-     logical-or-expression
-     logical-or-expression ? expression : assignment-expression
-     
-   GNU Extensions:
-   
-   conditional-expression:
-     logical-or-expression ?  : assignment-expression
-
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_conditional_expression (cp_parser* parser)
-{
-  tree logical_or_expr;
-
-  /* Parse the logical-or-expression.  */
-  logical_or_expr = cp_parser_logical_or_expression (parser);
-  /* If the next token is a `?', then we have a real conditional
-     expression.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_QUERY))
-    return cp_parser_question_colon_clause (parser, logical_or_expr);
-  /* Otherwise, the value is simply the logical-or-expression.  */
-  else
-    return logical_or_expr;
-}
-
 /* Parse the `? expression : assignment-expression' part of a
    conditional-expression.  The LOGICAL_OR_EXPR is the
    logical-or-expression that started the conditional-expression.
    Returns a representation of the entire conditional-expression.
 
-   This routine exists only so that it can be shared between
-   cp_parser_conditional_expression and
-   cp_parser_assignment_expression.
+   This routine is used by cp_parser_assignment_expression.
 
      ? expression : assignment-expression
    
@@ -5358,8 +5057,16 @@ cp_parser_constant_expression (cp_parser* parser,
   parser->constant_expression_p = true;
   parser->allow_non_constant_expression_p = allow_non_constant_p;
   parser->non_constant_expression_p = false;
-  /* Parse the conditional-expression.  */
-  expression = cp_parser_conditional_expression (parser);
+  /* Although the grammar says "conditional-expression", we parse an
+     "assignment-expression", which also permits "throw-expression"
+     and the use of assignment operators.  In the case that
+     ALLOW_NON_CONSTANT_P is false, we get better errors than we would
+     otherwise.  In the case that ALLOW_NON_CONSTANT_P is true, it is
+     actually essential that we look for an assignment-expression.
+     For example, cp_parser_initializer_clauses uses this function to
+     determine whether a particular assignment-expression is in fact
+     constant.  */
+  expression = cp_parser_assignment_expression (parser);
   /* Restore the old settings.  */
   parser->constant_expression_p = saved_constant_expression_p;
   parser->allow_non_constant_expression_p 
@@ -5661,7 +5368,7 @@ cp_parser_selection_statement (cp_parser* parser)
 	condition = cp_parser_condition (parser);
 	/* Look for the `)'.  */
 	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-	  cp_parser_skip_to_closing_parenthesis (parser);
+	  cp_parser_skip_to_closing_parenthesis (parser, true, false);
 
 	if (keyword == RID_IF)
 	  {
@@ -6368,6 +6075,15 @@ cp_parser_simple_declaration (cp_parser* parser,
   /* We no longer need to defer access checks.  */
   stop_deferring_access_checks ();
 
+  /* In a block scope, a valid declaration must always have a
+     decl-specifier-seq.  By not trying to parse declarators, we can
+     resolve the declaration/expression ambiguity more quickly.  */
+  if (!function_definition_allowed_p && !decl_specifiers)
+    {
+      cp_parser_error (parser, "expected declaration");
+      goto done;
+    }
+
   /* If the next two tokens are both identifiers, the code is
      erroneous. The usual cause of this situation is code like:
 
@@ -6380,7 +6096,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 	 looking at a declaration.  */
       cp_parser_commit_to_tentative_parse (parser);
       /* Give up.  */
-      return;
+      goto done;
     }
 
   /* Keep going until we hit the `;' at the end of the simple
@@ -6403,10 +6119,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 	 statement is treated as a declaration-statement until proven
 	 otherwise.)  */
       if (cp_parser_error_occurred (parser))
-	{
-	  pop_deferring_access_checks ();
-	  return;
-	}
+	goto done;
       /* Handle function definitions specially.  */
       if (function_definition_p)
 	{
@@ -6439,8 +6152,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 	  cp_parser_error (parser, "expected `,' or `;'");
 	  /* Skip tokens until we reach the end of the statement.  */
 	  cp_parser_skip_to_end_of_statement (parser);
-	  pop_deferring_access_checks ();
-	  return;
+	  goto done;
 	}
       /* After the first time around, a function-definition is not
 	 allowed -- even if it was OK at first.  For example:
@@ -6462,14 +6174,15 @@ cp_parser_simple_declaration (cp_parser* parser,
       perform_deferred_access_checks ();
     }
 
-  pop_deferring_access_checks ();
-
   /* Consume the `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   /* Mark all the classes that appeared in the decl-specifier-seq as
      having received a `;'.  */
   note_list_got_semicolon (decl_specifiers);
+
+ done:
+  pop_deferring_access_checks ();
 }
 
 /* Parse a decl-specifier-seq.
@@ -7060,17 +6773,12 @@ cp_parser_mem_initializer (cp_parser* parser)
   member = expand_member_init (mem_initializer_id);
   if (member && !DECL_P (member))
     in_base_initializer = 1;
-  
-  /* Look for the opening `('.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
-  /* Parse the expression-list.  */
-  if (cp_lexer_next_token_is_not (parser->lexer,
-				  CPP_CLOSE_PAREN))
-    expression_list = cp_parser_expression_list (parser);
-  else
+
+  expression_list 
+    = cp_parser_parenthesized_expression_list (parser, false,
+					       /*non_constant_p=*/NULL);
+  if (!expression_list)
     expression_list = void_type_node;
-  /* Look for the closing `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
   in_base_initializer = 0;
   
@@ -8027,7 +7735,7 @@ cp_parser_template_argument (cp_parser* parser)
   bool template_p;
   bool address_p;
   cp_token *token;
-  cp_parser_id_kind idk;
+  cp_id_kind idk;
   tree qualifying_class;
 
   /* There's really no way to know what we're looking at, so we just
@@ -9389,7 +9097,7 @@ cp_parser_asm_definition (cp_parser* parser)
     }
   /* Look for the closing `)'.  */
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-    cp_parser_skip_to_closing_parenthesis (parser);
+    cp_parser_skip_to_closing_parenthesis (parser, true, false);
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   /* Create the ASM_STMT.  */
@@ -9450,7 +9158,8 @@ cp_parser_init_declarator (cp_parser* parser,
   tree scope;
   bool is_initialized;
   bool is_parenthesized_init;
-  bool ctor_dtor_or_conv_p;
+  bool is_non_constant_init;
+  int ctor_dtor_or_conv_p;
   bool friend_p;
 
   /* Assume that this is not the declarator for a function
@@ -9536,7 +9245,7 @@ cp_parser_init_declarator (cp_parser* parser,
      We explicitly postpone this check past the point where we handle
      function-definitions because we tolerate function-definitions
      that are missing their return types in some modes.  */
-  if (!decl_specifiers && !ctor_dtor_or_conv_p)
+  if (!decl_specifiers && ctor_dtor_or_conv_p <= 0)
     {
       cp_parser_error (parser, 
 		       "expected constructor, destructor, or type conversion");
@@ -9619,11 +9328,14 @@ cp_parser_init_declarator (cp_parser* parser,
 
   /* Parse the initializer.  */
   if (is_initialized)
-    initializer = cp_parser_initializer (parser, &is_parenthesized_init);
+    initializer = cp_parser_initializer (parser, 
+					 &is_parenthesized_init,
+					 &is_non_constant_init);
   else
     {
       initializer = NULL_TREE;
       is_parenthesized_init = false;
+      is_non_constant_init = true;
     }
 
   /* The old parser allows attributes to appear after a parenthesized
@@ -9664,6 +9376,12 @@ cp_parser_init_declarator (cp_parser* parser,
 		       `explicit' constructor cannot be used.  */
 		    ((is_parenthesized_init || !is_initialized)
 		     ? 0 : LOOKUP_ONLYCONVERTING));
+
+  /* Remember whether or not variables were initialized by
+     constant-expressions.  */
+  if (decl && TREE_CODE (decl) == VAR_DECL 
+      && is_initialized && !is_non_constant_init)
+    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = true;
 
   return decl;
 }
@@ -9708,10 +9426,12 @@ cp_parser_init_declarator (cp_parser* parser,
    cv-qualifiers will be stored in the TREE_TYPE of the INDIRECT_REF
    node.
 
-   If CTOR_DTOR_OR_CONV_P is not NULL, *CTOR_DTOR_OR_CONV_P is set to
-   true if this declarator represents a constructor, destructor, or
-   type conversion operator.  Otherwise, it is set to false.  
-
+   If CTOR_DTOR_OR_CONV_P is not NULL, *CTOR_DTOR_OR_CONV_P is used to
+   detect constructor, destructor or conversion operators. It is set
+   to -1 if the declarator is a name, and +1 if it is a
+   function. Otherwise it is set to zero. Usually you just want to
+   test for >0, but internally the negative value is used.
+   
    (The reason for CTOR_DTOR_OR_CONV_P is that a declaration must have
    a decl-specifier-seq unless it declares a constructor, destructor,
    or conversion.  It might seem that we could check this condition in
@@ -9723,7 +9443,7 @@ cp_parser_init_declarator (cp_parser* parser,
 static tree
 cp_parser_declarator (cp_parser* parser, 
                       cp_parser_declarator_kind dcl_kind, 
-                      bool* ctor_dtor_or_conv_p)
+                      int* ctor_dtor_or_conv_p)
 {
   cp_token *token;
   tree declarator;
@@ -9735,7 +9455,7 @@ cp_parser_declarator (cp_parser* parser,
   /* Assume this is not a constructor, destructor, or type-conversion
      operator.  */
   if (ctor_dtor_or_conv_p)
-    *ctor_dtor_or_conv_p = false;
+    *ctor_dtor_or_conv_p = 0;
 
   if (cp_parser_allow_gnu_extensions_p (parser))
     attributes = cp_parser_attributes_opt (parser);
@@ -9780,8 +9500,7 @@ cp_parser_declarator (cp_parser* parser,
     }
   /* Everything else is a direct-declarator.  */
   else
-    declarator = cp_parser_direct_declarator (parser, 
-					      dcl_kind,
+    declarator = cp_parser_direct_declarator (parser, dcl_kind,
 					      ctor_dtor_or_conv_p);
 
   if (attributes && declarator != error_mark_node)
@@ -9829,7 +9548,7 @@ cp_parser_declarator (cp_parser* parser,
 static tree
 cp_parser_direct_declarator (cp_parser* parser,
                              cp_parser_declarator_kind dcl_kind,
-                             bool* ctor_dtor_or_conv_p)
+                             int* ctor_dtor_or_conv_p)
 {
   cp_token *token;
   tree declarator = NULL_TREE;
@@ -9907,7 +9626,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 		{
 		  tree cv_qualifiers;
 		  tree exception_specification;
-		  
+
+		  if (ctor_dtor_or_conv_p)
+		    *ctor_dtor_or_conv_p = *ctor_dtor_or_conv_p < 0;
 		  first = false;
 		  /* Consume the `)'.  */
 		  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
@@ -9964,6 +9685,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 	  /* Parse an array-declarator.  */
 	  tree bounds;
 
+	  if (ctor_dtor_or_conv_p)
+	    *ctor_dtor_or_conv_p = 0;
+	  
 	  first = false;
 	  parser->default_arg_ok_p = false;
 	  parser->in_declarator_p = true;
@@ -10079,7 +9803,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR
 		  || IDENTIFIER_TYPENAME_P (unqualified_name)
 		  || constructor_name_p (unqualified_name, class_type))
-		*ctor_dtor_or_conv_p = true;
+		*ctor_dtor_or_conv_p = -1;
 	    }
 
 	handle_declarator:;
@@ -11017,10 +10741,13 @@ cp_parser_ctor_initializer_opt_and_function_body (cp_parser *parser)
 
    *IS_PARENTHESIZED_INIT is set to TRUE if the `( expression-list )'
    production is used, and zero otherwise.  *IS_PARENTHESIZED_INIT is
-   set to FALSE if there is no initializer present.  */
+   set to FALSE if there is no initializer present.  If there is an
+   initializer, and it is not a constant-expression, *NON_CONSTANT_P
+   is set to true; otherwise it is set to false.  */
 
 static tree
-cp_parser_initializer (cp_parser* parser, bool* is_parenthesized_init)
+cp_parser_initializer (cp_parser* parser, bool* is_parenthesized_init,
+		       bool* non_constant_p)
 {
   cp_token *token;
   tree init;
@@ -11031,24 +10758,19 @@ cp_parser_initializer (cp_parser* parser, bool* is_parenthesized_init)
   /* Let our caller know whether or not this initializer was
      parenthesized.  */
   *is_parenthesized_init = (token->type == CPP_OPEN_PAREN);
+  /* Assume that the initializer is constant.  */
+  *non_constant_p = false;
 
   if (token->type == CPP_EQ)
     {
       /* Consume the `='.  */
       cp_lexer_consume_token (parser->lexer);
       /* Parse the initializer-clause.  */
-      init = cp_parser_initializer_clause (parser);
+      init = cp_parser_initializer_clause (parser, non_constant_p);
     }
   else if (token->type == CPP_OPEN_PAREN)
-    {
-      /* Consume the `('.  */
-      cp_lexer_consume_token (parser->lexer);
-      /* Parse the expression-list.  */
-      init = cp_parser_expression_list (parser);
-      /* Consume the `)' token.  */
-      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-	cp_parser_skip_to_closing_parenthesis (parser);
-    }
+    init = cp_parser_parenthesized_expression_list (parser, false,
+						    non_constant_p);
   else
     {
       /* Anything else is an error.  */
@@ -11075,17 +10797,21 @@ cp_parser_initializer (cp_parser* parser, bool* is_parenthesized_init)
    the elements of the initializer-list (or NULL_TREE, if the last
    production is used).  The TREE_TYPE for the CONSTRUCTOR will be
    NULL_TREE.  There is no way to detect whether or not the optional
-   trailing `,' was provided.  */
+   trailing `,' was provided.  NON_CONSTANT_P is as for
+   cp_parser_initializer.  */
 
 static tree
-cp_parser_initializer_clause (cp_parser* parser)
+cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
 {
   tree initializer;
 
   /* If it is not a `{', then we are looking at an
      assignment-expression.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
-    initializer = cp_parser_assignment_expression (parser);
+    initializer 
+      = cp_parser_constant_expression (parser,
+				       /*allow_non_constant_p=*/true,
+				       non_constant_p);
   else
     {
       /* Consume the `{' token.  */
@@ -11101,12 +10827,11 @@ cp_parser_initializer_clause (cp_parser* parser)
 	{
 	  /* Parse the initializer list.  */
 	  CONSTRUCTOR_ELTS (initializer)
-	    = cp_parser_initializer_list (parser);
+	    = cp_parser_initializer_list (parser, non_constant_p);
 	  /* A trailing `,' token is allowed.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 	    cp_lexer_consume_token (parser->lexer);
 	}
-
       /* Now, there should be a trailing `}'.  */
       cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
     }
@@ -11128,12 +10853,16 @@ cp_parser_initializer_clause (cp_parser* parser)
 
    Returns a TREE_LIST.  The TREE_VALUE of each node is an expression
    for the initializer.  If the TREE_PURPOSE is non-NULL, it is the
-   IDENTIFIER_NODE naming the field to initialize.  */
+   IDENTIFIER_NODE naming the field to initialize.  NON_CONSTANT_P is
+   as for cp_parser_initializer.  */
 
 static tree
-cp_parser_initializer_list (cp_parser* parser)
+cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
 {
   tree initializers = NULL_TREE;
+
+  /* Assume all of the expressions are constant.  */
+  *non_constant_p = false;
 
   /* Parse the rest of the list.  */
   while (true)
@@ -11141,7 +10870,8 @@ cp_parser_initializer_list (cp_parser* parser)
       cp_token *token;
       tree identifier;
       tree initializer;
-      
+      bool clause_non_constant_p;
+
       /* If the next token is an identifier and the following one is a
 	 colon, we are looking at the GNU designated-initializer
 	 syntax.  */
@@ -11158,8 +10888,11 @@ cp_parser_initializer_list (cp_parser* parser)
 	identifier = NULL_TREE;
 
       /* Parse the initializer.  */
-      initializer = cp_parser_initializer_clause (parser);
-
+      initializer = cp_parser_initializer_clause (parser, 
+						  &clause_non_constant_p);
+      /* If any clause is non-constant, so is the entire initializer.  */
+      if (clause_non_constant_p)
+	*non_constant_p = true;
       /* Add it to the list.  */
       initializers = tree_cons (identifier, initializer, initializers);
 
@@ -12045,7 +11778,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	      tree declarator;
 	      tree initializer;
 	      tree asm_specification;
-	      bool ctor_dtor_or_conv_p;
+	      int ctor_dtor_or_conv_p;
 
 	      /* Parse the declarator.  */
 	      declarator 
@@ -12117,12 +11850,18 @@ cp_parser_member_declaration (cp_parser* parser)
 		  (cp_lexer_peek_token (parser->lexer)))
 		decl = error_mark_node;
 	      else
-		/* Create the declaration.  */
-		decl = grokfield (declarator, 
-				  decl_specifiers, 
-				  initializer,
-				  asm_specification,
-				  attributes);
+		{
+		  /* Create the declaration.  */
+		  decl = grokfield (declarator, 
+				    decl_specifiers, 
+				    initializer,
+				    asm_specification,
+				    attributes);
+		  /* Any initialization must have been from a
+		     constant-expression.  */
+		  if (decl && TREE_CODE (decl) == VAR_DECL && initializer)
+		    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
+		}
 	    }
 
 	  /* Reset PREFIX_ATTRIBUTES.  */
@@ -12911,47 +12650,11 @@ cp_parser_attribute_list (cp_parser* parser)
       if (token->type == CPP_OPEN_PAREN)
 	{
 	  tree arguments;
-	  int arguments_allowed_p = 1;
 
-	  /* Consume the `('.  */
-	  cp_lexer_consume_token (parser->lexer);
-	  /* Peek at the next token.  */
-	  token = cp_lexer_peek_token (parser->lexer);
-	  /* Check to see if the next token is an identifier.  */
-	  if (token->type == CPP_NAME)
-	    {
-	      /* Save the identifier.  */
-	      identifier = token->value;
-	      /* Consume the identifier.  */
-	      cp_lexer_consume_token (parser->lexer);
-	      /* Peek at the next token.  */
-	      token = cp_lexer_peek_token (parser->lexer);
-	      /* If the next token is a `,', then there are some other
-		 expressions as well.  */
-	      if (token->type == CPP_COMMA)
-		/* Consume the comma.  */
-		cp_lexer_consume_token (parser->lexer);
-	      else
-		arguments_allowed_p = 0;
-	    }
-	  else
-	    identifier = NULL_TREE;
-
-	  /* If there are arguments, parse them too.  */
-	  if (arguments_allowed_p)
-	    arguments = cp_parser_expression_list (parser);
-	  else
-	    arguments = NULL_TREE;
-
-	  /* Combine the identifier and the arguments.  */
-	  if (identifier)
-	    arguments = tree_cons (NULL_TREE, identifier, arguments);
-
+	  arguments = (cp_parser_parenthesized_expression_list 
+		       (parser, true, /*non_constant_p=*/NULL));
 	  /* Save the identifier and arguments away.  */
 	  TREE_VALUE (attribute) = arguments;
-
-	  /* Look for the closing `)'.  */
-	  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	}
 
       /* Add this attribute to the list.  */
@@ -13158,7 +12861,8 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	     may be instantiated during name lookup.  In that case,
 	     errors may be issued.  Even if we rollback the current
 	     tentative parse, those errors are valid.  */
-	  decl = lookup_qualified_name (parser->scope, name, is_type);
+	  decl = lookup_qualified_name (parser->scope, name, is_type,
+					/*complain=*/true);
 	  if (dependent_p)
 	    pop_scope (parser->scope);
 	}
@@ -13914,17 +13618,9 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
 {
   tree expression_list;
 
-  /* Look for the opening `('.  */
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
-    return error_mark_node;
-  /* If the next token is not an `)', there are arguments to the
-     cast.  */
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
-    expression_list = cp_parser_expression_list (parser);
-  else
-    expression_list = NULL_TREE;
-  /* Look for the closing `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  expression_list 
+    = cp_parser_parenthesized_expression_list (parser, false,
+					       /*non_constant_p=*/NULL);
 
   return build_functional_cast (type, expression_list);
 }
@@ -14097,10 +13793,9 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   saved_message = parser->type_definition_forbidden_message;
   /* And create the new one.  */
   parser->type_definition_forbidden_message 
-    = ((const char *) 
-       xmalloc (strlen (format) 
-		+ strlen (IDENTIFIER_POINTER (ridpointers[keyword]))
-		+ 1 /* `\0' */));
+    = xmalloc (strlen (format) 
+	       + strlen (IDENTIFIER_POINTER (ridpointers[keyword]))
+	       + 1 /* `\0' */);
   sprintf ((char *) parser->type_definition_forbidden_message,
 	   format, IDENTIFIER_POINTER (ridpointers[keyword]));
 
@@ -14194,7 +13889,8 @@ cp_parser_fold_non_dependent_expr (tree expr)
       expr = tsubst_copy_and_build (expr,
 				    /*args=*/NULL_TREE,
 				    tf_error,
-				    /*in_decl=*/NULL_TREE);
+				    /*in_decl=*/NULL_TREE,
+				    /*function_p=*/false);
       processing_template_decl = saved_processing_template_decl;
     }
   return expr;
@@ -14605,10 +14301,10 @@ static GTY (()) cp_parser *the_parser;
 
 /* External interface.  */
 
-/* Parse the entire translation unit.  */
+/* Parse one entire translation unit.  */
 
-int
-yyparse (void)
+void
+c_parse_file (void)
 {
   bool error_occurred;
 
@@ -14617,10 +14313,6 @@ yyparse (void)
 				? dk_no_deferred : dk_no_check);
   error_occurred = cp_parser_translation_unit (the_parser);
   the_parser = NULL;
-  
-  finish_file ();
-
-  return error_occurred;
 }
 
 /* Clean up after parsing the entire translation unit.  */
