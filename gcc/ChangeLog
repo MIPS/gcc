@@ -1,3 +1,8 @@
+Mon Jul 26 18:51:34 1999  Richard Henderson  <rth@cygnus.com>
+
+	* except.c (start_dynamic_cleanup): Use force_operand on the
+	buffer's address.
+
 Mon Jul 19 09:36:27 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	* final.c (output_asm_insn): When searching for the matching string
