@@ -1,5 +1,14 @@
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
+	* target-def.h (TARGET_VECT_SUPPORT_MISALIGNED_LOADS,  
+	TARGET_VECT_PERMUTE_MISALIGNED_LOADS, TARGET_VECT_BUILD_BUILTIN_LVSL,
+	TARGET_VECT_BUILD_BUILTIN_LVSR, TARGET_VECT_BUILD_BUILTIN_VPERM,
+	TARGET_VECT_SUPPORT_VMUL_UCH_P, TARGET_VECT_BUILD_VMUL_UCH, 
+	TARGET_VECT_SUPPORT_VECTOR_INIT_P, TARGET_VECT_BUILD_VECTOR_INIT): Remove 
+	redundant macros.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
 	Radar 4025991
         * tree-vectorizer.c (vect_is_simple_cond): Now second parameter is
         loop_vec_info instead of loop *.

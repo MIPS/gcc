@@ -278,22 +278,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
-/* APPLE LOCAL begin AV misaligned --haifa  */
-/* MERGE FIXME - how many of these are now dead given TARGET_VECTORIZE and friends?  */
 /* Vectorizer hooks.  All of these default to null pointers, which
    tree-vectorizer.c looks for and handles.  */
-#define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
-#define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
-#define TARGET_VECT_BUILD_BUILTIN_LVSL 0
-#define TARGET_VECT_BUILD_BUILTIN_LVSR 0
-#define TARGET_VECT_BUILD_BUILTIN_VPERM 0
-/* APPLE LOCAL begin AV vmul_uch --haifa  */
-/* APPLE LOCAL begin AV vector_init --haifa  */
-#define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
-#define TARGET_VECT_BUILD_VMUL_UCH 0
-#define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
-#define TARGET_VECT_BUILD_VECTOR_INIT 0
-
 #define TARGET_VECT                                       \
   {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
    TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
@@ -304,10 +290,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_VECT_BUILD_VMUL_UCH,				  \
    TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
    TARGET_VECT_BUILD_VECTOR_INIT}
-
-/* APPLE LOCAL end AV vmul_uch --haifa  */
-/* APPLE LOCAL end AV vector_init --haifa  */
-/* APPLE LOCAL end AV misaligned --haifa  */
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
