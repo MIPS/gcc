@@ -39,15 +39,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 
 /* Initializes the loop structures.  DUMP is the file to that the details
-   about the analysis should be dumped.  */
+   about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
+   closed ssa form is enforced and redundant phi nodes created by creating
+   preheaders are cleaned up.  */
 
 struct loops *
-tree_loop_optimizer_init (FILE *dump)
+tree_loop_optimizer_init (FILE *dump, bool canonicalize_ssa)
 {
   struct loops *loops = loop_optimizer_init (dump);
 
   if (!loops)
     return NULL;
+
+  if (!canonicalize_ssa)
+    return loops;
 
   /* Creation of preheaders may create redundant phi nodes (if the loop is
      entered by more than one edge, but the initial value of the induction
@@ -55,6 +60,12 @@ tree_loop_optimizer_init (FILE *dump)
   kill_redundant_phi_nodes ();
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
+
+  rewrite_into_loop_closed_ssa ();
+
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
 
   return loops;
 }
@@ -68,7 +79,7 @@ tree_ssa_loop_opt (void)
 {
   struct loops *loops;
 
-  loops = tree_loop_optimizer_init (dump_file);
+  loops = tree_loop_optimizer_init (dump_file, true);
 
   if (loops)
     {
@@ -343,7 +354,7 @@ copy_loop_headers (void)
   edge preheader_edge;
   varray_type bbs_to_duplicate = NULL;
 
-  loops = tree_loop_optimizer_init (dump_file);
+  loops = tree_loop_optimizer_init (dump_file, false);
   if (!loops)
     return;
   

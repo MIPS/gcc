@@ -801,6 +801,8 @@ tree_dce_done (bool aggressive)
    In aggressive mode, control dependences are taken into account, which
    results in more dead code elimination, but at the cost of some time.
 
+   If NO_CFG_CHANGES is true, avoid changing cfg.
+
    FIXME: Aggressive mode before PRE doesn't work currently because
 	  the dominance info is not invalidated after DCE1.  This is
 	  not an issue right now because we only run aggressive DCE
@@ -808,9 +810,12 @@ tree_dce_done (bool aggressive)
 	  start experimenting with pass ordering.  */
 
 static void
-perform_tree_ssa_dce (bool aggressive)
+perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
 {
   struct edge_list *el = NULL;
+
+  if (no_cfg_changes && aggressive)
+    abort ();
 
   tree_dce_init (aggressive);
 
@@ -833,7 +838,8 @@ perform_tree_ssa_dce (bool aggressive)
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
-  cleanup_tree_cfg ();
+  if (!no_cfg_changes)
+    cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -845,17 +851,25 @@ perform_tree_ssa_dce (bool aggressive)
   tree_dce_done (aggressive);
 }
 
+/* Cleanup the dead code, but avoid cfg changes.  */
+
+void
+tree_ssa_dce_no_cfg_changes (void)
+{
+  perform_tree_ssa_dce (false, true);
+}
+
 /* Pass entry points.  */
 static void
 tree_ssa_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/false);
+  perform_tree_ssa_dce (/*aggressive=*/false, false);
 }
 
 static void
 tree_ssa_cd_dce (void)
 {
-  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
+  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2, false);
 }
 
 static bool

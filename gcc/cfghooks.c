@@ -398,6 +398,7 @@ split_edge (edge e)
   gcov_type count = e->count;
   int freq = EDGE_FREQUENCY (e);
   edge f;
+  bool irr = (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
 
   if (!cfg_hooks->split_edge)
     internal_error ("%s does not support split_edge.", cfg_hooks->name);
@@ -439,6 +440,13 @@ split_edge (edge e)
 	    set_immediate_dominator (CDI_DOMINATORS, ret->succ->dest, ret);
 	}
     };
+
+  if (irr)
+    {
+      ret->flags |= BB_IRREDUCIBLE_LOOP;
+      ret->pred->flags |= EDGE_IRREDUCIBLE_LOOP;
+      ret->succ->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
 
   return ret;
 }

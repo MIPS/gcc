@@ -116,8 +116,6 @@ struct version_info
 			   an expression that is not an induction variable.  */
   unsigned inv_id;	/* Id of an invariant.  */
   bool preserve_biv;	/* For the original biv, whether to preserve it.  */
-  struct loop *outermost_usage;
-			/* The outermost loop in that the variable is used.  */
 };
 
 /* Description of number of iterations of a loop.  */
@@ -845,70 +843,6 @@ find_exit_edges (void)
     }
 }
 
-/* Update usage information about OP using the fact that it is used in
-   the LOOP.  */
-
-static void
-update_outermost_usage (struct ivopts_data *data, tree op, struct loop *loop)
-{
-  struct version_info *info;
-
-  if (TREE_CODE (op) != SSA_NAME)
-    return;
-  info = name_info (data, op);
-
-  if (!info->outermost_usage)
-    info->outermost_usage = loop;
-  else
-    info->outermost_usage = find_common_loop (loop, info->outermost_usage);
-}
-
-/* Finds the outermost loop in that each ssa name is used.  */
-
-static void
-find_outermost_usage (struct ivopts_data *data)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-  unsigned i;
-  use_optype uses;
-  tree use, stmt, phi;
-  struct loop *loop, *aloop;
-
-  FOR_EACH_BB (bb)
-    {
-      loop = bb->loop_father;
-
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  {
-	    use = PHI_ARG_DEF (phi, i);
-
-	    /* Use on the entry edge of a loop counts as use in the
-	       superloop.  */
-	    if (loop->header == bb
-		&& PHI_ARG_EDGE (phi, i) == loop_preheader_edge (loop))
-	      aloop = loop->outer;
-	    else
-	      aloop = loop;
-	    update_outermost_usage (data, use, aloop);
-	  }
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
-
-	  uses = STMT_USE_OPS (stmt);
-	  for (i = 0; i < NUM_USES (uses); i++)
-	    {
-	      use = USE_OP (uses, i);
-	      update_outermost_usage (data, use, loop);
-	    }
-	}
-    }
-}
-
 /* Returns the basic block in that statements should be emitted for IP_END
    position in LOOP.  */
 
@@ -926,6 +860,7 @@ ip_normal_pos (struct loop *loop)
 {
   tree last;
   basic_block bb;
+  edge exit;
 
   if (loop->latch->pred->pred_next)
     return NULL;
@@ -933,6 +868,13 @@ ip_normal_pos (struct loop *loop)
   bb = loop->latch->pred->src;
   last = last_stmt (bb);
   if (TREE_CODE (last) != COND_EXPR)
+    return NULL;
+
+  exit = bb->succ;
+  if (exit->dest == loop->latch)
+    exit = exit->succ_next;
+
+  if (flow_bb_inside_loop_p (loop, exit->dest))
     return NULL;
 
   return bb;
@@ -1026,7 +968,6 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
       loops->parray[i]->aux = xcalloc (1, sizeof (struct loop_data));
 
   find_exit_edges ();
-  find_outermost_usage (data);
 
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_uses, 20, "iv_uses");
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_candidates, 20, "iv_candidates");
@@ -2164,7 +2105,6 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
   tree *op_p, lhs, rhs;
   use_optype uses = NULL;
   unsigned i, n;
-  struct loop *loop;
 
   find_invariants_stmt (data, stmt);
 
@@ -2181,23 +2121,13 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
-	  /* If the statement defines an induction variable, uses of the induction
-	     variables of the loop are not interesting.  */
+	  /* If the statement defines an induction variable, the uses are not
+	     interesting by themselves.  */
 
 	  iv = get_iv (data, lhs);
 
 	  if (iv && !zero_p (iv->step))
-	    {
-	      /* If the variable is used outside of the loop, we must either
-		 preserve it or express the final value in other way.  */
-	      loop = name_info (data, lhs)->outermost_usage;
-	      if (loop
-		  && loop != data->current_loop
-		  && !flow_loop_nested_p (data->current_loop, loop))
-		find_interesting_uses_outer (data, lhs);
-
-	      return;
-	    }
+	    return;
 	}
 
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
@@ -2230,18 +2160,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       iv = get_iv (data, lhs);
 
       if (iv && !zero_p (iv->step))
-	{
-	  /* If the variable is used outside of the loop, we must preserve it
-	     or express the final value in other way.  */
-	      
-	  loop = name_info (data, lhs)->outermost_usage;
-	  if (loop
-	      && loop != data->current_loop
-	      && !flow_loop_nested_p (data->current_loop, loop))
-	    find_interesting_uses_outer (data, lhs);
-
-	  return;
-	}
+	return;
     }
 
   if (TREE_CODE (stmt) == PHI_NODE)
@@ -2270,6 +2189,21 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
     }
 }
 
+/* Finds interesting uses of induction variables outside of loops
+   on loop exit edge EXIT.  */
+
+static void
+find_interesting_uses_outside (struct ivopts_data *data, edge exit)
+{
+  tree phi, def;
+
+  for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+    {
+      def = phi_element_for_edge (phi, exit)->def;
+      find_interesting_uses_outer (data, def);
+    }
+}
+
 /* Finds uses of the induction variables that are interesting.  */
 
 static void
@@ -2281,6 +2215,7 @@ find_interesting_uses (struct ivopts_data *data)
   basic_block *body = get_loop_body (data->current_loop);
   unsigned i;
   struct version_info *info;
+  edge e;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Uses:\n\n");
@@ -2289,11 +2224,17 @@ find_interesting_uses (struct ivopts_data *data)
     {
       bb = body[i];
 
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->dest != EXIT_BLOCK_PTR
+	    && !flow_bb_inside_loop_p (data->current_loop, e->dest))
+	  find_interesting_uses_outside (data, e);
+
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	find_interesting_uses_stmt (data, phi);
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_interesting_uses_stmt (data, bsi_stmt (bsi));
     }
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\n");
@@ -3950,7 +3891,8 @@ static void
 determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
 {
   unsigned cost_base, cost_step;
-  tree base;
+  tree base, last;
+  basic_block bb;
 
   if (!cand->iv)
     {
@@ -3971,6 +3913,18 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
   /* Prefer the original iv unless we may gain something by replacing it.  */
   if (cand->pos == IP_ORIGINAL)
     cand->cost--;
+  
+  /* Prefer not to insert statements into latch unless there are some
+     already (so that we do not create unnecesary jumps).  */
+  if (cand->pos == IP_END)
+    {
+      bb = ip_end_pos (data->current_loop);
+      last = last_stmt (bb);
+
+      if (!last
+	  || TREE_CODE (last) == LABEL_EXPR)
+	cand->cost++;
+    }
 }
 
 /* Determines costs of computation of the candidates.  */
@@ -4690,6 +4644,140 @@ rewrite_use_compare (struct ivopts_data *data,
   *op_p = op;
 }
 
+/* Split loop exit edge EXIT.  The things are a bit complicated by a need to
+   preserve the loop closed ssa form.  */
+
+static void
+split_loop_exit_edge (edge exit)
+{
+  basic_block dest = exit->dest;
+  basic_block bb = loop_split_edge_with (exit, NULL);
+  tree phi, *def_p, new_phi, new_name;
+
+  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+    {
+      def_p = &phi_element_for_edge (phi, bb->succ)->def;
+
+      new_name = duplicate_ssa_name (*def_p, NULL);
+      new_phi = create_phi_node (new_name, bb);
+      SSA_NAME_DEF_STMT (new_name) = new_phi;
+      add_phi_arg (&new_phi, *def_p, exit);
+      *def_p = new_name;
+    }
+}
+
+/* Ensure that operand *OP_P may be used at the end of EXIT without
+   violating loop closed ssa form.  */
+
+static void
+protect_loop_closed_ssa_form_use (edge exit, tree *op_p)
+{
+  basic_block def_bb;
+  struct loop *def_loop;
+  tree phi;
+
+  if (TREE_CODE (*op_p) != SSA_NAME)
+    return;
+
+  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (*op_p));
+  if (!def_bb)
+    return;
+
+  def_loop = def_bb->loop_father;
+  if (flow_bb_inside_loop_p (def_loop, exit->dest))
+    return;
+
+  /* Try finding a phi node that copies the value out of the loop.  */
+  for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+    if (phi_element_for_edge (phi, exit)->def == *op_p)
+      break;
+
+  if (!phi)
+    {
+      /* Create such a phi node.  */
+      tree new_name = duplicate_ssa_name (*op_p, NULL);
+
+      phi = create_phi_node (new_name, exit->dest);
+      SSA_NAME_DEF_STMT (new_name) = phi;
+      add_phi_arg (&phi, *op_p, exit);
+    }
+
+  *op_p = PHI_RESULT (phi);
+}
+
+/* Ensure that operands of STMT may be used at the end of EXIT without
+   violating loop closed ssa form.  */
+
+static void
+protect_loop_closed_ssa_form (edge exit, tree stmt)
+{
+  use_optype uses;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  unsigned i;
+
+  get_stmt_operands (stmt);
+
+  uses = STMT_USE_OPS (stmt);
+  for (i = 0; i < NUM_USES (uses); i++)
+    protect_loop_closed_ssa_form_use (exit, USE_OP_PTR (uses, i));
+
+  vuses = STMT_VUSE_OPS (stmt);
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    protect_loop_closed_ssa_form_use (exit, VUSE_OP_PTR (vuses, i));
+
+  vdefs = STMT_VDEF_OPS (stmt);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    protect_loop_closed_ssa_form_use (exit, VDEF_OP_PTR (vdefs, i));
+}
+
+/* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
+   so that they are emitted on the correct place, and so that the loop closed
+   ssa form is preserved.  */
+
+void
+compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
+{
+  tree_stmt_iterator tsi;
+  block_stmt_iterator bsi;
+  tree phi, stmt, def, next;
+
+  if (exit->dest->pred->pred_next)
+    split_loop_exit_edge (exit);
+
+  if (TREE_CODE (stmts) == STATEMENT_LIST)
+    {
+      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+	protect_loop_closed_ssa_form (exit, tsi_stmt (tsi));
+    }
+  else
+    protect_loop_closed_ssa_form (exit, stmts);
+
+  /* Ensure there is label in exit->dest, so that we can
+     insert after it.  */
+  tree_block_label (exit->dest);
+  bsi = bsi_after_labels (exit->dest);
+  bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
+
+  if (!op)
+    return;
+
+  for (phi = phi_nodes (exit->dest); phi; phi = next)
+    {
+      next = TREE_CHAIN (phi);
+
+      if (phi_element_for_edge (phi, exit)->def == op)
+	{
+	  def = PHI_RESULT (phi);
+	  remove_statement (phi, false);
+	  stmt = build (MODIFY_EXPR, TREE_TYPE (op),
+			def, op);
+	  SSA_NAME_DEF_STMT (def) = stmt;
+	  bsi_insert_after (&bsi, stmt, BSI_CONTINUE_LINKING);
+	}
+    }
+}
+
 /* Rewrites the final value of USE (that is only needed outside of the loop)
    using candidate CAND.  */
 
@@ -4698,15 +4786,10 @@ rewrite_use_outer (struct ivopts_data *data,
 		   struct iv_use *use, struct iv_cand *cand)
 {
   edge exit;
-  tree value, op, stmts, tgt = *use->op_p, type = TREE_TYPE (tgt), ass;
+  tree value, op, stmts, tgt = *use->op_p;
+  tree phi;
 
   exit = loop_data (data->current_loop)->single_exit;
-
-  /* If the variable is going to be preserved anyway, there is nothing to
-     do.  TODO except if the final value is a constant or something similarly
-     simple to compute.  */
-  if (name_info (data, tgt)->preserve_biv)
-    return;
 
   if (exit)
     {
@@ -4719,16 +4802,32 @@ rewrite_use_outer (struct ivopts_data *data,
 	value = get_computation_at (data->current_loop,
 				    use, cand, last_stmt (exit->src));
 
-      op = force_gimple_operand (value, &stmts, SSA_NAME_VAR (tgt), false);
+      op = force_gimple_operand (value, &stmts, SSA_NAME_VAR (tgt), true);
+	  
+      /* If we will preserve the iv anyway and we would need to perform
+	 some computation to replace the final value, do nothing.  */
+      if (stmts && name_info (data, tgt)->preserve_biv)
+	return;
+
+      for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
+	{
+	  tree *def_p = &phi_element_for_edge (phi, exit)->def;
+
+	  if (*def_p == tgt)
+	    *def_p = op;
+	}
 
       if (stmts)
-	bsi_insert_on_edge (exit, stmts);
-      ass = build (MODIFY_EXPR, type, tgt, op);
-      bsi_insert_on_edge (exit, ass);
-      remove_statement (use->stmt, false);
-      SSA_NAME_DEF_STMT (tgt) = ass;
+	compute_phi_arg_on_exit (exit, stmts, op);
+
+      remove_statement (use->stmt, true);
       return;
     }
+
+  /* If the variable is going to be preserved anyway, there is nothing to
+     do.  */
+  if (name_info (data, tgt)->preserve_biv)
+    return;
 
   /* Otherwise we just need to compute the iv.  */
   rewrite_use_nonlinear_expr (data, use, cand);
@@ -4975,13 +5074,17 @@ tree_ssa_iv_optimize (struct loops *loops)
   while (loop->inner)
     loop = loop->inner;
 
+#ifdef ENABLE_CHECKING
+  verify_loop_closed_ssa ();
+#endif
+
   /* Scan the loops, inner ones first.  */
   while (loop != loops->tree_root)
     {
       if (tree_ssa_iv_optimize_loop (&data, loop))
 	{
 #ifdef ENABLE_CHECKING
-	  verify_ssa ();
+	  verify_loop_closed_ssa ();
 #endif
 	}
 

@@ -3152,7 +3152,7 @@ scev_initialize (struct loops *loops)
 static void
 scev_init (void)
 {
-  current_loops = tree_loop_optimizer_init (NULL);
+  current_loops = tree_loop_optimizer_init (NULL, true);
   if (!current_loops)
     return;
   scev_initialize (current_loops);

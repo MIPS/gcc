@@ -1,3 +1,56 @@
+2004-03-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfghooks.c (split_edge): Update IRREDUCIBLE_LOOP flags.
+	* tree-flow-inline.h (bsi_after_labels): New.
+	* tree-flow.h (struct ssa_name_ann_d): Add need_phi_state field.
+	(bsi_after_labels, rewrite_ssa_into_ssa, duplicate_ssa_name,
+	tree_ssa_dce_no_cfg_changes, rewrite_into_loop_closed_ssa,
+	verify_loop_closed_ssa, compute_phi_arg_on_exit): Declare.
+	(tree_loop_optimizer_init): Declaration changed.
+	* tree-into-ssa.c (struct mark_def_sites_global_data): Add
+	names_to_rename and ssa_names fields.
+	(insert_phi_nodes, get_value_for, set_value_for, set_def_block,
+	set_livein_block, insert_phi_nodes_1, insert_phi_nodes_for,
+	register_new_def, get_reaching_def, rewrite_into_ssa): Handle
+	rewriting of ssa names.
+	(get_phi_state, set_phi_state, ssa_mark_def_sites_initialize_block,
+	ssa_mark_phi_uses, ssa_mark_def_sites, duplicate_ssa_name,
+	ssa_rewrite_initialize_block, ssa_rewrite_phi_arguments,
+	ssa_rewrite_finalize_block, ssa_rewrite_stmt, rewrite_ssa_into_ssa):
+	New functions.
+	* tree-scalar-evolution.c (scev_initialize): Changed due to
+	tree_loop_optimizer_init change.
+	* tree-ssa-dce.c (perform_tree_ssa_dce, perform_tree_ssa_dce,
+	tree_ssa_cd_dce): Handle no cfg changes mode.
+	(tree_ssa_dce_no_cfg_changes): Resurrect.
+	* tree-ssa-loop-im.c (move_computations): Preserve loop closed ssa.
+	* tree-ssa-loop-ivopts.c (struct version_info): Field outermost_usage
+	removed.
+	(update_outermost_usage, find_outermost_usage): Removed.
+	(ip_normal_pos): Fix.
+	(tree_ssa_iv_optimize_init): Do not call find_outermost_usage.
+	(find_interesting_uses_stmt): Use loop closed ssa form.
+	(find_interesting_uses_outside): New.
+	(find_interesting_uses): Use it.
+	(determine_iv_cost): Prefer IP_NORMAL to IP_END.
+	(split_loop_exit_edge, protect_loop_closed_ssa_form_use,
+	protect_loop_closed_ssa_form, compute_phi_arg_on_exit): New functions.
+	(rewrite_use_outer): Preserve loop closed ssa form.
+	(tree_ssa_iv_optimize): Verify loop closed ssa form.
+	* tree-ssa-loop-manip.c (mfb_redirect_exit_edges): Removed.
+	(free_new_names): Free old ssa names.
+	(extend_exit_phi_nodes, add_exit_phis_edge,
+	add_exit_phis_use, add_exit_phis_stmt, add_exit_phis,
+	get_loops_exits, rewrite_into_loop_closed_ssa,
+	check_loop_closed_ssa_use, check_loop_closed_ssa_stmt,
+	verify_loop_closed_ssa): New functions.
+	(tree_duplicate_loop_to_header_edge): Use loop closed ssa form.
+	(tree_ssa_loop_version): Handle irreducible loops correctly.
+	* tree-ssa-loop.c (tree_loop_optimizer_init): Create loop closed ssa
+	form.
+	(tree_ssa_loop_opt, copy_loop_headers): Changed due to
+	tree_loop_optimizer_init change.
+
 2004-03-25  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-data-ref.c (subscript_dependence_tester): Removed.

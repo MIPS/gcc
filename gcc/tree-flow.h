@@ -271,6 +271,11 @@ struct ssa_name_ann_d GTY(())
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
 
+  /* This field indicates whether or not the variable may need PHI nodes.
+     See the enum's definition for more detailed information about the
+     states.  */
+  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -411,6 +416,7 @@ typedef struct {
 
 static inline block_stmt_iterator bsi_start (basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
+static inline block_stmt_iterator bsi_after_labels (basic_block);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
@@ -571,6 +577,9 @@ extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
+extern void rewrite_ssa_into_ssa (bitmap);
+
+tree duplicate_ssa_name (tree, tree);
 
 extern unsigned int highest_ssa_version;
 
@@ -591,8 +600,11 @@ extern void replace_exp (tree *, tree);
 extern bool cprop_into_stmt (tree, varray_type);
 extern void cprop_into_successor_phis (basic_block, varray_type);
 
+/* In tree-ssa-dce.c.  */
+void tree_ssa_dce_no_cfg_changes (void);
+
 /* In tree-ssa-loop*.c  */
-struct loops *tree_loop_optimizer_init (FILE *);
+struct loops *tree_loop_optimizer_init (FILE *, bool);
 void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
 void canonicalize_induction_variables (struct loops *loops);
@@ -610,6 +622,9 @@ void linear_transform_loops (struct loops *, varray_type);
 void loop_commit_inserts (void);
 void tree_ssa_unswitch_loops (struct loops *loops);
 unsigned estimate_loop_size (struct loop *loop);
+void rewrite_into_loop_closed_ssa (void);
+void verify_loop_closed_ssa (void);
+void compute_phi_arg_on_exit (edge, tree, tree);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
