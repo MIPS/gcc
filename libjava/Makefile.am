@@ -1333,6 +1333,7 @@ javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
+javax/swing/plaf/basic/BasicToolTipUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
@@ -1450,6 +1451,7 @@ javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
+javax/swing/ToolTipManager.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -1609,7 +1611,6 @@ javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
 javax/swing/ScrollPaneLayout.java \
-javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
 accessibility_java_source_files = \

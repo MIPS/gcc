@@ -1011,6 +1011,7 @@ javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
 javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.java \
+javax/swing/plaf/basic/BasicToolTipUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
@@ -1128,6 +1129,7 @@ javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
+javax/swing/ToolTipManager.java \
 javax/swing/UIDefaults.java \
 javax/swing/UIManager.java \
 javax/swing/UnsupportedLookAndFeelException.java \
@@ -1287,7 +1289,6 @@ javax/swing/ProgressMonitor.java \
 javax/swing/ProgressMonitorInputStream.java \
 javax/swing/RepaintManager.java \
 javax/swing/ScrollPaneLayout.java \
-javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
 
@@ -3145,6 +3146,7 @@ javax/swing/plaf/basic/BasicTextUI.lo \
 javax/swing/plaf/basic/BasicToggleButtonUI.lo \
 javax/swing/plaf/basic/BasicToolBarUI.lo \
 javax/swing/plaf/basic/BasicToolBarSeparatorUI.lo \
+javax/swing/plaf/basic/BasicToolTipUI.lo \
 javax/swing/plaf/basic/BasicTreeUI.lo \
 javax/swing/plaf/basic/BasicViewportUI.lo \
 javax/swing/plaf/basic/BasicLookAndFeel.lo \
@@ -3214,7 +3216,8 @@ javax/swing/ListModel.lo javax/swing/ListSelectionModel.lo \
 javax/swing/LookAndFeel.lo javax/swing/Scrollable.lo \
 javax/swing/Spring.lo javax/swing/SpringLayout.lo \
 javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
-javax/swing/Timer.lo javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
+javax/swing/Timer.lo javax/swing/ToolTipManager.lo \
+javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
 javax/swing/UnsupportedLookAndFeelException.lo \
 javax/swing/event/AncestorEvent.lo \
 javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
@@ -3319,8 +3322,7 @@ javax/swing/JTextPane.lo javax/swing/JToolBar.lo \
 javax/swing/OverlayLayout.lo javax/swing/Popup.lo \
 javax/swing/PopupFactory.lo javax/swing/ProgressMonitor.lo \
 javax/swing/ProgressMonitorInputStream.lo javax/swing/RepaintManager.lo \
-javax/swing/ScrollPaneLayout.lo javax/swing/ToolTipManager.lo \
-javax/swing/ViewportLayout.lo
+javax/swing/ScrollPaneLayout.lo javax/swing/ViewportLayout.lo
 lib_java_beans_la_LDFLAGS = 
 lib_java_beans_la_LIBADD = 
 lib_java_beans_la_OBJECTS =  gnu/java/beans/editors/ColorEditor.lo \
@@ -3687,7 +3689,7 @@ libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -5321,6 +5323,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicToolBarSeparatorUI.P \
 .deps/javax/swing/plaf/basic/BasicToolBarUI.P \
+.deps/javax/swing/plaf/basic/BasicToolTipUI.P \
 .deps/javax/swing/plaf/basic/BasicTreeUI.P \
 .deps/javax/swing/plaf/basic/BasicViewportUI.P \
 .deps/javax/swing/plaf/metal/MetalLookAndFeel.P \
