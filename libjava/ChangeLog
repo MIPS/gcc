@@ -1,5 +1,26 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTree.java
+	(treeModel): New field.
+	(JTree): New constructors, one existing one made public.
+	(createTreeModel): New method.
+	(addTreeExpansionListener): Likewise.
+	(removeTreeExpansionListener): Likewise.
+	(getTreeExpansionListeners): Likewise.
+	(fireTreeCollapsed): Likewise.
+	(fireTreeExpanded): Likewise.
+	(addTreeSelectionListener): Likewise.
+	(removeTreeSelectionListener): Likewise.
+	(getTreeSelectionListeners): Likewise.
+	(fireValueChanged): Likewise.
+	(addTreeWillExpandListener): Likewise.
+	(removeTreeWillExpandListener): Likewise.
+	(getTreeWillExpandListeners): Likewise.
+	(fireTreeWillCollapse): Likewise.
+	(fireTreeWillExpand): Likewise.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTree.java: Reformatted.
 
 2004-06-16  Michael Koch  <konqueror@gmx.de>
