@@ -110,7 +110,8 @@ bytecode_block::optimize ()
 	     && count < 10)
 	{
 	  // The first relocation in the target must be a 'goto'.
-	  ref_relocation targ_reloc = iter->get_target ()->relocations.back ();
+	  ref_relocation targ_reloc
+	    = iter->get_target ()->relocations.front ();
 	  if (targ_reloc->get_kind () != reloc_goto)
 	    break;
 	  ++count;
@@ -118,11 +119,12 @@ bytecode_block::optimize ()
 	}
       if (iter != *i)
 	{
-#if 0 // FIXME this causes crashes
 	  // ITER is the new target.
 	  (*i)->set_target (iter->get_target ());
+	  // Update here so that we don't have a chance to point to a
+	  // dead block.
+	  (*i)->update ();
 	  changed = true;
-#endif
 	}
     }
 
