@@ -3990,7 +3990,7 @@ fix = {
     files     = sys/dir.h;
     files     = sys/param.h;
     files     = sys/types.h;
-    /* APPLE LOCAL fixincludes avoid changing C++ friendly NULL */
+    /* APPLE LOCAL fixincludes avoid changing C++ friendly NULL 3838408 */
     bypass    = __cplusplus;
     select    = "^#[ \t]*define[ \t]+NULL[ \t]+\\(\\(void[ \t]*\\*\\)0\\)";
     c_fix     = format;
