@@ -63,6 +63,9 @@
 #include <cstddef>
 #include <locale>
 #include <ext/pod_char_traits.h>
+#ifdef _GLIBCXX_HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
 
 #ifdef _GLIBCXX_ASSERT
 # include <cassert>
@@ -141,12 +144,18 @@ namespace __gnu_test
   std::locale
   try_named_locale(const char* name);
 
+  int
+  try_mkfifo (const char* filename, mode_t mode);
 
   // Test data types.
   struct pod_char
   {
     unsigned char c;
   };
+
+  inline bool
+  operator==(const pod_char& lhs, const pod_char& rhs)
+  { return lhs.c == rhs.c; }
   
   struct pod_int
   {

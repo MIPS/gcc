@@ -1,6 +1,6 @@
 // 2001-08-27 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,25 +28,14 @@
 void test01()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef ostreambuf_iterator<char> iterator_type;
 
   bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
   locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
   VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
-
-  // cache the moneypunct facets
-  typedef moneypunct<char, true> __money_true;
-  typedef moneypunct<char, false> __money_false;
 
   // sanity check the data is correct.
   const string empty;
@@ -54,14 +43,8 @@ void test01()
   // total EPA budget FY 2002
   const string digits1("720000000000");
 
-  // est. cost, national missile "defense", expressed as a loss in USD 2001
-  const string digits2("-10000000000000");  
-
-  // not valid input
-  const string digits3("-A"); 
-
   // input less than frac_digits
-  const string digits4("-1");
+  const string digits2("-1");
   
   // cache the money_put facet
   ostringstream oss;
@@ -104,14 +87,14 @@ void test01()
   // test various fill strategies
   oss.str(empty);
   oss.width(20);
-  iterator_type os_it10 = mon_put.put(oss.rdbuf(), true, oss, '*', digits4);
+  iterator_type os_it10 = mon_put.put(oss.rdbuf(), true, oss, '*', digits2);
   string result10 = oss.str();
   VERIFY( result10 == "***************-,01*");
 
   oss.str(empty);
   oss.width(20);
   oss.setf(ios_base::internal);
-  iterator_type os_it11 = mon_put.put(oss.rdbuf(), true, oss, '*', digits4);
+  iterator_type os_it11 = mon_put.put(oss.rdbuf(), true, oss, '*', digits2);
   string result11 = oss.str();
   VERIFY( result11 == "-,01****************");
 }

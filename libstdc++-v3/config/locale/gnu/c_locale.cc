@@ -33,6 +33,7 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
+#include <cerrno>  // For errno
 #include <locale>
 #include <stdexcept>
 #include <langinfo.h>
@@ -42,88 +43,15 @@ namespace std
 {
   template<>
     void
-    __convert_to_v(const char* __s, long& __v, ios_base::iostate& __err, 
-		   const __c_locale& __cloc, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-      {
-	char* __sanity;
-	errno = 0;
-	long __l = __strtol_l(__s, &__sanity, __base, __cloc);
-	if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	  __v = __l;
-	else
-	  __err |= ios_base::failbit;
-      }
-    }
-
-  template<>
-    void
-    __convert_to_v(const char* __s, unsigned long& __v, 
-		   ios_base::iostate& __err, const __c_locale& __cloc, 
-		   int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{
-	  char* __sanity;
-	  errno = 0;
-	  unsigned long __ul = __strtoul_l(__s, &__sanity, __base, __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ul;
-	  else
-	    __err |= ios_base::failbit;
-	}
-    }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<>
-    void
-    __convert_to_v(const char* __s, long long& __v, ios_base::iostate& __err, 
-		   const __c_locale& __cloc, int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{
-	  char* __sanity;
-	  errno = 0;
-	  long long __ll = __strtoll_l(__s, &__sanity, __base, __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ll;
-	  else
-	    __err |= ios_base::failbit;
-	}
-    }
-
-  template<>
-    void
-    __convert_to_v(const char* __s, unsigned long long& __v, 
-		   ios_base::iostate& __err, const __c_locale& __cloc, 
-		   int __base)
-    {
-      if (!(__err & ios_base::failbit))
-	{      
-	  char* __sanity;
-	  errno = 0;
-	  unsigned long long __ull = __strtoull_l(__s, &__sanity, __base, 
-						  __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
-	    __v = __ull;
-	  else
-	    __err |= ios_base::failbit;
-	}  
-    }
-#endif
-
-  template<>
-    void
     __convert_to_v(const char* __s, float& __v, ios_base::iostate& __err, 
-		   const __c_locale& __cloc, int)
+		   const __c_locale& __cloc)
     {
       if (!(__err & ios_base::failbit))
 	{
 	  char* __sanity;
 	  errno = 0;
 	  float __f = __strtof_l(__s, &__sanity, __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __f;
 	  else
 	    __err |= ios_base::failbit;
@@ -133,14 +61,14 @@ namespace std
   template<>
     void
     __convert_to_v(const char* __s, double& __v, ios_base::iostate& __err, 
-		   const __c_locale& __cloc, int)
+		   const __c_locale& __cloc)
     {
       if (!(__err & ios_base::failbit))
 	{
 	  char* __sanity;
 	  errno = 0;
 	  double __d = __strtod_l(__s, &__sanity, __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __d;
 	  else
 	    __err |= ios_base::failbit;
@@ -150,14 +78,14 @@ namespace std
   template<>
     void
     __convert_to_v(const char* __s, long double& __v, ios_base::iostate& __err,
-		   const __c_locale& __cloc, int)
+		   const __c_locale& __cloc)
     {
       if (!(__err & ios_base::failbit))
 	{
 	  char* __sanity;
 	  errno = 0;
 	  long double __ld = __strtold_l(__s, &__sanity, __cloc);
-          if (__sanity != __s && *__sanity == '\0' && errno != ERANGE)
+          if (__sanity != __s && errno != ERANGE)
 	    __v = __ld;
 	  else
 	    __err |= ios_base::failbit;
@@ -172,8 +100,8 @@ namespace std
     if (!__cloc)
       {
 	// This named locale is not supported by the underlying OS.
-	__throw_runtime_error("locale::facet::_S_create_c_locale "
-			      "name not valid");
+	__throw_runtime_error(__N("locale::facet::_S_create_c_locale "
+			      "name not valid"));
       }
   }
   

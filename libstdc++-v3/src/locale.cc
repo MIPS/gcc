@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -141,8 +141,8 @@ namespace std
 	    __ret = all;
 	    break;
 	  default:
-	    __throw_runtime_error("locale::_S_normalize_category "
-				  "category not found");
+	    __throw_runtime_error(__N("locale::_S_normalize_category "
+				  "category not found"));
 	  }
       }
     return __ret;
@@ -211,7 +211,7 @@ namespace std
   // Clone existing _Impl object.
   locale::_Impl::
   _Impl(const _Impl& __imp, size_t __refs)
-  : _M_references(__refs), _M_facets_size(__imp._M_facets_size)
+  : _M_refcount(__refs), _M_facets_size(__imp._M_facets_size)
   {
     _M_facets = _M_caches = 0;
     _M_names = 0;
@@ -264,7 +264,7 @@ namespace std
   {
     size_t __index = __idp->_M_id();
     if ((__index > (__imp->_M_facets_size - 1)) || !__imp->_M_facets[__index])
-      __throw_runtime_error("locale::_Impl::_M_replace_facet");
+      __throw_runtime_error(__N("locale::_Impl::_M_replace_facet"));
     _M_install_facet(__idp, __imp->_M_facets[__index]); 
   }
 
@@ -350,13 +350,13 @@ namespace std
 
   // locale::id
   // Definitions for static const data members of locale::id
-  _Atomic_word locale::id::_S_highwater;  // init'd to 0 by linker
+  _Atomic_word locale::id::_S_refcount;  // init'd to 0 by linker
 
   size_t
   locale::id::_M_id() const
   {
     if (!_M_index)
-      _M_index = 1 + __exchange_and_add(&_S_highwater, 1);
+      _M_index = 1 + __gnu_cxx::__exchange_and_add(&_S_refcount, 1);
     return _M_index - 1;
   }
 } // namespace std

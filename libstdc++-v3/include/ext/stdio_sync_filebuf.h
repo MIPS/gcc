@@ -1,6 +1,6 @@
 // Iostreams wrapper for stdio FILE* -*- C++ -*-
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,16 +38,6 @@
 
 #include <streambuf>
 #include <unistd.h>
-
-#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
-# include <sys/stat.h>
-# ifdef _GLIBCXX_HAVE_S_ISREG
-#  define _GLIBCXX_ISREG(x) S_ISREG(x)
-# else
-#  define _GLIBCXX_ISREG(x) (((x) & S_IFMT) == S_IFREG)
-# endif
-#endif
-
 #include <cstdio>
 
 #ifdef _GLIBCXX_USE_WCHAR_T
@@ -61,28 +51,27 @@ namespace __gnu_cxx
     {
     public:
       // Types:
-      typedef _CharT                  	        	char_type;
-      typedef _Traits		                    	traits_type;
-      typedef typename traits_type::int_type 		int_type;
-      typedef typename traits_type::pos_type 		pos_type;
-      typedef typename traits_type::off_type 		off_type;
+      typedef _CharT					char_type;
+      typedef _Traits					traits_type;
+      typedef typename traits_type::int_type		int_type;
+      typedef typename traits_type::pos_type		pos_type;
+      typedef typename traits_type::off_type		off_type;
 
     private:
       // Underlying stdio FILE
       std::__c_file* const _M_file;
-      
+
       // Last character gotten. This is used when pbackfail is
       // called from basic_streambuf::sungetc()
       int_type _M_unget_buf;
 
     public:
-      explicit 
+      explicit
       stdio_sync_filebuf(std::__c_file* __f)
       : _M_file(__f), _M_unget_buf(traits_type::eof())
       { }
 
     protected:
-
       int_type
       syncgetc();
 
@@ -131,19 +120,6 @@ namespace __gnu_cxx
 
       virtual std::streamsize
       xsgetn(char_type* __s, std::streamsize __n);
-      
-      virtual std::streamsize
-      showmanyc()
-      { 
-#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
-	// Regular files.
-	struct stat __buffer;
-	int __ret = fstat(fileno(_M_file), &__buffer);
-	if (!__ret && _GLIBCXX_ISREG(__buffer.st_mode))
-	  return __buffer.st_size - ftell(_M_file);
-#endif
-	return 0; 
-      }
 
       virtual int_type
       overflow(int_type __c = traits_type::eof())
@@ -180,9 +156,13 @@ namespace __gnu_cxx
 	  __whence = SEEK_CUR;
 	else
 	  __whence = SEEK_END;
-	
+#ifdef _GLIBCXX_USE_LFS
+	if (!fseeko64(_M_file, __off, __whence))
+	  __ret = std::streampos(ftello64(_M_file));
+#else
 	if (!fseek(_M_file, __off, __whence))
 	  __ret = std::streampos(std::ftell(_M_file));
+#endif
 	return __ret;
       }
 
@@ -244,7 +224,7 @@ namespace __gnu_cxx
   template<>
     inline std::streamsize
     stdio_sync_filebuf<wchar_t>::xsgetn(wchar_t* __s, std::streamsize __n)
-    {  
+    {
       std::streamsize __ret = 0;
       const int_type __eof = traits_type::eof();
       while (__n--)
@@ -262,10 +242,10 @@ namespace __gnu_cxx
 	_M_unget_buf = traits_type::eof();
       return __ret;
     }
-      
+
   template<>
     inline std::streamsize
-    stdio_sync_filebuf<wchar_t>::xsputn(const wchar_t* __s, 
+    stdio_sync_filebuf<wchar_t>::xsputn(const wchar_t* __s,
 					std::streamsize __n)
     {
       std::streamsize __ret = 0;
@@ -288,4 +268,4 @@ namespace __gnu_cxx
 #endif
 } // namespace __gnu_cxx
 
-#endif 
+#endif

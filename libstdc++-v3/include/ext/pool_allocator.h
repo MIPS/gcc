@@ -1,6 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,19 +40,18 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file ext/debug_allocator.h
- *  This file is a GNU extension to the Standard C++ Library. 
+/** @file ext/pool_allocator.h
+ *  This file is a GNU extension to the Standard C++ Library.
  *  You should only include this header if you are using GCC 3 or later.
  */
-
 #ifndef _POOL_ALLOCATOR_H
 #define _POOL_ALLOCATOR_H 1
 
-#include <bits/functexcept.h> 
+#include <bits/c++config.h>
+#include <new>
+#include <bits/functexcept.h>
 #include <bits/stl_threads.h>
 #include <bits/atomicity.h>
-#include <bits/allocator_traits.h>
-#include <ext/new_allocator.h>
 
 namespace __gnu_cxx
 {
@@ -60,38 +59,71 @@ namespace __gnu_cxx
 
   /**
    *  @if maint
-   *  Default node allocator.  "SGI" style.  Uses various allocators to
-   *  fulfill underlying requests (and makes as few requests as possible
-   *  when in default high-speed pool mode).
+   *  Uses various allocators to fulfill underlying requests (and makes as
+   *  few requests as possible when in default high-speed pool mode).
    *
    *  Important implementation properties:
-   *  0. If globally mandated, then allocate objects from __new_alloc
+   *  0. If globally mandated, then allocate objects from new
    *  1. If the clients request an object of size > _S_max_bytes, the resulting
-   *     object will be obtained directly from __new_alloc
+   *     object will be obtained directly from new
    *  2. In all other cases, we allocate an object of size exactly
    *     _S_round_up(requested_size).  Thus the client has enough size
    *     information that we can return the object to the proper free list
    *     without permanently losing part of the object.
    *
-   *  The first template parameter specifies whether more than one thread may
-   *  use this allocator.  It is safe to allocate an object from one instance
-   *  of a default_alloc and deallocate it with another one.  This effectively
-   *  transfers its ownership to the second one.  This may have undesirable
-   *  effects on reference locality.
-   *
-   *  The second parameter is unused and serves only to allow the
-   *  creation of multiple default_alloc instances.  Note that
-   *  containers built on different allocator instances have different
-   *  types, limiting the utility of this approach.  If you do not
-   *  wish to share the free lists with the main default_alloc
-   *  instance, instantiate this with a non-zero __inst.
-   *
    *  @endif
    *  (See @link Allocators allocators info @endlink for more.)
    */
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     class __pool_alloc
     {
+    public:
+      typedef size_t     size_type;
+      typedef ptrdiff_t  difference_type;
+      typedef _Tp*       pointer;
+      typedef const _Tp* const_pointer;
+      typedef _Tp&       reference;
+      typedef const _Tp& const_reference;
+      typedef _Tp        value_type;
+
+      template<typename _Tp1>
+        struct rebind
+        { typedef __pool_alloc<_Tp1> other; };
+
+      __pool_alloc() throw() { }
+
+      __pool_alloc(const __pool_alloc&) throw() { }
+
+      template<typename _Tp1>
+        __pool_alloc(const __pool_alloc<_Tp1>&) throw() { }
+
+      ~__pool_alloc() throw() { }
+
+      pointer
+      address(reference __x) const { return &__x; }
+
+      const_pointer
+      address(const_reference __x) const { return &__x; }
+
+      size_type
+      max_size() const throw() 
+      { return size_t(-1) / sizeof(_Tp); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 402. wrong new expression in [some_] allocator::construct
+      void 
+      construct(pointer __p, const _Tp& __val) 
+      { ::new(__p) _Tp(__val); }
+
+      void 
+      destroy(pointer __p) { __p->~_Tp(); }
+
+      pointer
+      allocate(size_type __n, const void* = 0);
+
+      void
+      deallocate(pointer __p, size_type __n);      
+
     private:
       enum {_S_align = 8};
       enum {_S_max_bytes = 128};
@@ -111,7 +143,7 @@ namespace __gnu_cxx
       static size_t                 _S_heap_size;
 
       static _STL_mutex_lock        _S_lock;
-      static _Atomic_word 	    _S_force_new;
+      static _Atomic_word	    _S_force_new;
 
       static size_t
       _S_round_up(size_t __bytes)
@@ -135,40 +167,28 @@ namespace __gnu_cxx
       // test whether threads are in use.
       struct _Lock
       {
-        _Lock() { if (__threads) _S_lock._M_acquire_lock(); }
-        ~_Lock() { if (__threads) _S_lock._M_release_lock(); }
+        _Lock() { _S_lock._M_acquire_lock(); }
+        ~_Lock() { _S_lock._M_release_lock(); }
       } __attribute__ ((__unused__));
       friend struct _Lock;
-
-    public:
-      // __n must be > 0
-      static void*
-      allocate(size_t __n);
-
-      // __p may not be 0
-      static void
-      deallocate(void* __p, size_t __n);
     };
 
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     inline bool
-    operator==(const __pool_alloc<__threads,__inst>&, 
-	       const __pool_alloc<__threads,__inst>&)
+    operator==(const __pool_alloc<_Tp>&, const __pool_alloc<_Tp>&)
     { return true; }
 
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     inline bool
-    operator!=(const __pool_alloc<__threads,__inst>&,
-               const __pool_alloc<__threads,__inst>&)
+    operator!=(const __pool_alloc<_Tp>&, const __pool_alloc<_Tp>&)
     { return false; }
-
 
   // Allocate memory in large chunks in order to avoid fragmenting the
   // heap too much.  Assume that __n is properly aligned.  We hold
   // the allocation lock.
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     char*
-    __pool_alloc<__threads, __inst>::_S_chunk_alloc(size_t __n, int& __nobjs)
+    __pool_alloc<_Tp>::_S_chunk_alloc(size_t __n, int& __nobjs)
     {
       char* __result;
       size_t __total_bytes = __n * __nobjs;
@@ -201,7 +221,7 @@ namespace __gnu_cxx
               ((_Obj*)(void*)_S_start_free)->_M_free_list_link = *__free_list;
               *__free_list = (_Obj*)(void*)_S_start_free;
             }
-          _S_start_free = (char*) __new_alloc::allocate(__bytes_to_get);
+          _S_start_free = static_cast<char*>(::operator new(__bytes_to_get));
           if (_S_start_free == 0)
             {
               size_t __i;
@@ -226,7 +246,7 @@ namespace __gnu_cxx
                     }
                 }
               _S_end_free = 0;        // In case of exception.
-              _S_start_free = (char*)__new_alloc::allocate(__bytes_to_get);
+              _S_start_free = static_cast<char*>(::operator new(__bytes_to_get));
               // This should either throw an exception or remedy the situation.
               // Thus we assume it succeeded.
             }
@@ -239,9 +259,9 @@ namespace __gnu_cxx
   // Returns an object of size __n, and optionally adds to "size
   // __n"'s free list.  We assume that __n is properly aligned.  We
   // hold the allocation lock.
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     void*
-    __pool_alloc<__threads, __inst>::_S_refill(size_t __n)
+    __pool_alloc<_Tp>::_S_refill(size_t __n)
     {
       int __nobjs = 20;
       char* __chunk = _S_chunk_alloc(__n, __nobjs);
@@ -273,121 +293,99 @@ namespace __gnu_cxx
       return __result;
     }
 
-  template<bool __threads, int __inst>
-    void*
-    __pool_alloc<__threads, __inst>::allocate(size_t __n)
+  template<typename _Tp>
+    _Tp*
+    __pool_alloc<_Tp>::allocate(size_type __n, const void*)
     {
-      void* __ret = 0;
-
-      // If there is a race through here, assume answer from getenv
-      // will resolve in same direction.  Inspired by techniques
-      // to efficiently support threading found in basic_string.h.
-      if (_S_force_new == 0)
+      pointer __ret = 0;
+      if (__n)
 	{
-	  if (getenv("GLIBCXX_FORCE_NEW"))
-	    __atomic_add(&_S_force_new, 1);
-	  else
-	    __atomic_add(&_S_force_new, -1);
-	}
-      
-      if ((__n > (size_t) _S_max_bytes) || (_S_force_new > 0))
-	__ret = __new_alloc::allocate(__n);
-      else
-	{
-	  _Obj* volatile* __free_list = _S_free_list + _S_freelist_index(__n);
-	  // Acquire the lock here with a constructor call.  This
-	  // ensures that it is released in exit or during stack
-	  // unwinding.
-	  _Lock __lock_instance;
-	  _Obj* __restrict__ __result = *__free_list;
-	  if (__builtin_expect(__result == 0, 0))
-	    __ret = _S_refill(_S_round_up(__n));
-	  else
+	  if (__n <= max_size())
 	    {
-	      *__free_list = __result -> _M_free_list_link;
-	      __ret = __result;
-	    }	    
-	  if (__builtin_expect(__ret == 0, 0))
+	      const size_t __bytes = __n * sizeof(_Tp);
+	      // If there is a race through here, assume answer from getenv
+	      // will resolve in same direction.  Inspired by techniques
+	      // to efficiently support threading found in basic_string.h.
+	      if (_S_force_new == 0)
+		{
+		  if (getenv("GLIBCXX_FORCE_NEW"))
+		    __atomic_add(&_S_force_new, 1);
+		  else
+		    __atomic_add(&_S_force_new, -1);
+		}
+	      
+	      if ((__bytes > (size_t) _S_max_bytes) || (_S_force_new > 0))
+		__ret = static_cast<_Tp*>(::operator new(__bytes));
+	      else
+		{
+		  _Obj* volatile* __free_list = (_S_free_list
+						 + _S_freelist_index(__bytes));
+		  // Acquire the lock here with a constructor call.  This
+		  // ensures that it is released in exit or during stack
+		  // unwinding.
+		  _Lock __lock_instance;
+		  _Obj* __restrict__ __result = *__free_list;
+		  if (__builtin_expect(__result == 0, 0))
+		    __ret = static_cast<_Tp*>(_S_refill(_S_round_up(__bytes)));
+		  else
+		    {
+		      *__free_list = __result -> _M_free_list_link;
+		      __ret = reinterpret_cast<_Tp*>(__result);
+		    }
+		  if (__builtin_expect(__ret == 0, 0))
+		    __throw_bad_alloc();
+		}
+	    }
+	  else
 	    __throw_bad_alloc();
 	}
       return __ret;
     }
-  
-  template<bool __threads, int __inst>
+
+  template<typename _Tp>
     void
-    __pool_alloc<__threads, __inst>::deallocate(void* __p, size_t __n)
+    __pool_alloc<_Tp>::deallocate(pointer __p, size_type __n)
     {
-      if ((__n > (size_t) _S_max_bytes) || (_S_force_new > 0))
-	__new_alloc::deallocate(__p, __n);
-      else
+      if (__n)
 	{
-	  _Obj* volatile* __free_list = _S_free_list + _S_freelist_index(__n);
-	  _Obj* __q = (_Obj*)__p;
-	  
-	  // Acquire the lock here with a constructor call.  This
-	  // ensures that it is released in exit or during stack
-	  // unwinding.
-	  _Lock __lock_instance;
-	  __q -> _M_free_list_link = *__free_list;
-	  *__free_list = __q;
+	  const size_t __bytes = __n * sizeof(_Tp);
+	  if ((__bytes > (size_t) _S_max_bytes) || (_S_force_new > 0))
+	    ::operator delete(__p);
+	  else
+	    {
+	      _Obj* volatile* __free_list = (_S_free_list
+					     + _S_freelist_index(__bytes));
+	      _Obj* __q = (_Obj*)__p;
+
+	      // Acquire the lock here with a constructor call.  This
+	      // ensures that it is released in exit or during stack
+	      // unwinding.
+	      _Lock __lock_instance;
+	      __q -> _M_free_list_link = *__free_list;
+	      *__free_list = __q;
+	    }
 	}
     }
 
-  template<bool __threads, int __inst>
-    typename __pool_alloc<__threads, __inst>::_Obj* volatile
-    __pool_alloc<__threads, __inst>::_S_free_list[_S_freelists];
+  template<typename _Tp>
+    typename __pool_alloc<_Tp>::_Obj* volatile
+    __pool_alloc<_Tp>::_S_free_list[_S_freelists];
 
-  template<bool __threads, int __inst>
-    char* __pool_alloc<__threads, __inst>::_S_start_free = 0;
+  template<typename _Tp>
+    char* __pool_alloc<_Tp>::_S_start_free = 0;
 
-  template<bool __threads, int __inst>
-    char* __pool_alloc<__threads, __inst>::_S_end_free = 0;
+  template<typename _Tp>
+    char* __pool_alloc<_Tp>::_S_end_free = 0;
 
-  template<bool __threads, int __inst>
-    size_t __pool_alloc<__threads, __inst>::_S_heap_size = 0;
+  template<typename _Tp>
+    size_t __pool_alloc<_Tp>::_S_heap_size = 0;
 
-  template<bool __threads, int __inst>
+  template<typename _Tp>
     _STL_mutex_lock
-    __pool_alloc<__threads, __inst>::_S_lock __STL_MUTEX_INITIALIZER;
+    __pool_alloc<_Tp>::_S_lock __STL_MUTEX_INITIALIZER;
 
-  template<bool __threads, int __inst> _Atomic_word
-  __pool_alloc<__threads, __inst>::_S_force_new = 0;
-
-  // Inhibit implicit instantiations for required instantiations,
-  // which are defined via explicit instantiations elsewhere.
-  // NB: This syntax is a GNU extension.
-#if _GLIBCXX_EXTERN_TEMPLATE
-  extern template class __pool_alloc<true, 0>;
-#endif
+  template<typename _Tp> _Atomic_word
+  __pool_alloc<_Tp>::_S_force_new = 0;
 } // namespace __gnu_cxx
-
-namespace std
-{
-  //@{
-  /// Versions for the predefined "SGI" style allocators.
-  template<typename _Tp, bool __thr, int __inst>
-    struct _Alloc_traits<_Tp, __gnu_cxx::__pool_alloc<__thr, __inst> >
-    {
-      static const bool _S_instanceless = true;      
-      typedef __gnu_cxx::__pool_alloc<__thr, __inst> 	base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>  	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-
-  //@{
-  /// Versions for the __allocator adaptor used with the predefined
-  /// "SGI" style allocators.
-  template<typename _Tp, typename _Tp1, bool __thr, int __inst>
-    struct _Alloc_traits<_Tp, __allocator<_Tp1, 
-				     __gnu_cxx::__pool_alloc<__thr, __inst> > >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx::__pool_alloc<__thr, __inst> 	base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-  //@}
-} // namespace std
 
 #endif
