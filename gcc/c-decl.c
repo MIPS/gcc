@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 #include "tm.h"
 #include "intl.h"
 #include "tree.h"
@@ -896,6 +897,8 @@ pop_file_scope (void)
   /* Pop off the file scope and close this translation unit.  */
   pop_scope ();
   file_scope = 0;
+
+  maybe_apply_pending_pragma_weaks ();
   cgraph_finalize_compilation_unit ();
 }
 
@@ -1113,6 +1116,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   tree newtype, oldtype;
   bool pedwarned = false;
   bool warned = false;
+  bool retval = true;
 
   /* If we have error_mark_node for either decl or type, just discard
      the previous decl - we're in an error cascade already.  */
@@ -1263,17 +1267,47 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 
       if (DECL_INITIAL (newdecl))
 	{
-	  if (DECL_INITIAL (olddecl)
-	      && !(DECL_DECLARED_INLINE_P (olddecl)
-		   && DECL_EXTERNAL (olddecl)
-		   && !(DECL_DECLARED_INLINE_P (newdecl)
-			&& DECL_EXTERNAL (newdecl)
-	    		&& same_translation_unit_p (olddecl, newdecl))))
+	  if (DECL_INITIAL (olddecl))
 	    {
-	      error ("%Jredefinition of %qD", newdecl, newdecl);
-	      locate_old_decl (olddecl, error);
-	      return false;
-	    }
+	      /* If both decls have extern inline and are in the same TU,
+	         reject the new decl.  */
+	      if (DECL_DECLARED_INLINE_P (olddecl)
+		  && DECL_EXTERNAL (olddecl)
+		  && DECL_DECLARED_INLINE_P (newdecl)
+		  && DECL_EXTERNAL (newdecl)
+		  && same_translation_unit_p (newdecl, olddecl))
+		{
+		  error ("%Jredefinition of %qD", newdecl, newdecl);
+		  locate_old_decl (olddecl, error);
+		  return false;
+		}
+	      /* If both decls have not extern inline, reject the new decl.  */
+	      if (!DECL_DECLARED_INLINE_P (olddecl)
+		  && !DECL_EXTERNAL (olddecl)
+		  && !DECL_DECLARED_INLINE_P (newdecl)
+		  && !DECL_EXTERNAL (newdecl))
+		{
+		  error ("%Jredefinition of %qD", newdecl, newdecl);
+		  locate_old_decl (olddecl, error);
+		  return false;
+		}
+	      /* If the new decl is declared as extern inline, error if they are
+	         in the same TU, otherwise retain the old decl.  */
+	      if (!DECL_DECLARED_INLINE_P (olddecl)
+		  && !DECL_EXTERNAL (olddecl)
+		  && DECL_DECLARED_INLINE_P (newdecl)
+		  && DECL_EXTERNAL (newdecl))
+		{
+		  if (same_translation_unit_p (newdecl, olddecl))
+		    {
+		      error ("%Jredefinition of %qD", newdecl, newdecl);
+		      locate_old_decl (olddecl, error);
+		      return false;
+		    }
+		  else
+		    retval = false;
+		}
+	   }
 	}
       /* If we have a prototype after an old-style function definition,
 	 the argument types must be checked specially.  */
@@ -1515,7 +1549,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (warned || pedwarned)
     locate_old_decl (olddecl, pedwarned ? pedwarn : warning);
 
-  return true;
+  return retval;
 }
 
 /* Subroutine of duplicate_decls.  NEWDECL has been found to be
@@ -2067,30 +2101,6 @@ pushdecl (tree x)
 		    /*nested=*/false);
 	      nested = true;
 	    }
-	}
-    }
-  /* Similarly, a declaration of a function with static linkage at
-     block scope must be checked against any existing declaration
-     of that function at file scope.  */
-  else if (TREE_CODE (x) == FUNCTION_DECL && scope != file_scope
-	   && !TREE_PUBLIC (x) && !DECL_INITIAL (x))
-    {
-      if (warn_nested_externs && !DECL_IN_SYSTEM_HEADER (x))
-	warning ("nested static declaration of %qD", x);
-
-      while (b && !B_IN_FILE_SCOPE (b))
-	b = b->shadowed;
-
-      if (b && same_translation_unit_p (x, b->decl)
-	  && duplicate_decls (x, b->decl))
-	{
-	  bind (name, b->decl, scope, /*invisible=*/false, /*nested=*/true);
-	  return b->decl;
-	}
-      else
-	{
-	  bind (name, x, file_scope, /*invisible=*/true, /*nested=*/false);
-	  nested = true;
 	}
     }
 
@@ -2964,6 +2974,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   decl = grokdeclarator (declarator, declspecs,
 			 NORMAL, initialized, NULL);
+  if (!decl)
+    return 0;
 
   deprecated_state = DEPRECATED_NORMAL;
 
@@ -3233,14 +3245,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   if (TREE_CODE (decl) == FUNCTION_DECL && asmspec)
     {
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	{
-	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
-	  set_user_assembler_name (builtin, asmspec);
-	   if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
-	     init_block_move_fn (asmspec);
-	   else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
-	     init_block_clear_fn (asmspec);
-	 }
+	set_builtin_user_assembler_name (decl, asmspec);
       set_user_assembler_name (decl, asmspec);
     }
 
@@ -3508,6 +3513,7 @@ build_compound_literal (tree type, tree init)
       DECL_DEFER_OUTPUT (decl) = 1;
       DECL_COMDAT (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
       pushdecl (decl);
       rest_of_decl_compilation (decl, 1, 0);
     }
@@ -4444,14 +4450,9 @@ grokdeclarator (const struct c_declarator *declarator,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
-	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
-	decl = build_decl_attribute_variant (decl, decl_attr);
-
 	if (storage_class == csc_register || threadp)
 	  {
 	    error ("invalid storage class for function %qs", name);
-	    if (DECL_INITIAL (decl) != NULL_TREE)
-	      DECL_INITIAL (decl) = error_mark_node;
 	   }
 	else if (current_scope != file_scope)
 	  {
@@ -4465,13 +4466,18 @@ grokdeclarator (const struct c_declarator *declarator,
 		if (pedantic)
 		  pedwarn ("invalid storage class for function %qs", name);
 	      }
-	    if (storage_class == csc_static)
+	    else if (storage_class == csc_static)
 	      {
 	        error ("invalid storage class for function %qs", name);
-		if (DECL_INITIAL (decl) != NULL_TREE)
-		  DECL_INITIAL (decl) = error_mark_node;
+	        if (funcdef_flag)
+		  storage_class = declspecs->storage_class = csc_none;
+		else
+		  return 0;
 	      }
 	  }
+
+	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
+	decl = build_decl_attribute_variant (decl, decl_attr);
 
 	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
 
@@ -6315,7 +6321,13 @@ finish_function (void)
       else
 	{
 	  if (flag_isoc99)
-	    c_finish_return (integer_zero_node);
+	    {
+	      tree stmt = c_finish_return (integer_zero_node);
+	      /* Hack.  We don't want the middle-end to warn that this
+		 return is unreachable, so put the statement on the
+		 special line 0.  */
+	      annotate_with_file_line (stmt, input_filename, 0);
+	    }
 	}
     }
 

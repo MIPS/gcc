@@ -6734,7 +6734,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 	      rtx dest = SET_DEST (pat);
 	      while (GET_CODE (dest) == SUBREG
 		     || GET_CODE (dest) == ZERO_EXTRACT
-		     || GET_CODE (dest) == SIGN_EXTRACT
 		     || GET_CODE (dest) == STRICT_LOW_PART)
 		dest = XEXP (dest, 0);
 	      if (REG_P (dest))
@@ -6778,7 +6777,6 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
 		      rtx dest = SET_DEST (v1);
 		      while (GET_CODE (dest) == SUBREG
 			     || GET_CODE (dest) == ZERO_EXTRACT
-			     || GET_CODE (dest) == SIGN_EXTRACT
 			     || GET_CODE (dest) == STRICT_LOW_PART)
 			dest = XEXP (dest, 0);
 		      if (REG_P (dest))
@@ -6940,14 +6938,20 @@ find_inc_amount (rtx x, rtx inced)
 }
 
 /* Return 1 if register REGNO is the subject of a clobber in insn INSN.
-   If SETS is nonzero, also consider SETs.  */
+   If SETS is nonzero, also consider SETs.  REGNO must refer to a hard
+   register.  */
 
 int
 regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
 		   int sets)
 {
-  unsigned int nregs = hard_regno_nregs[regno][mode];
-  unsigned int endregno = regno + nregs;
+  unsigned int nregs, endregno;
+
+  /* regno must be a hard register.  */
+  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+
+  nregs = hard_regno_nregs[regno][mode];
+  endregno = regno + nregs;
 
   if ((GET_CODE (PATTERN (insn)) == CLOBBER
        || (sets && GET_CODE (PATTERN (insn)) == SET))

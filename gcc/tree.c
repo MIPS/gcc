@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4130,12 +4130,24 @@ iterative_hash_expr (tree t, hashval_t val)
       for (; t; t = TREE_CHAIN (t))
 	val = iterative_hash_expr (TREE_VALUE (t), val);
       return val;
+    case FUNCTION_DECL:
+      /* When referring to a built-in FUNCTION_DECL, use the
+	 __builtin__ form.  Otherwise nodes that compare equal
+	 according to operand_equal_p might get different
+	 hash codes.  */
+      if (DECL_BUILT_IN (t))
+	{
+	  val = iterative_hash_pointer (built_in_decls[DECL_FUNCTION_CODE (t)], 
+				      val);
+	  return val;
+	}
+      /* else FALL THROUGH */
     default:
       class = TREE_CODE_CLASS (code);
 
       if (class == tcc_declaration)
 	{
-	  /* Decls we can just compare by pointer.  */
+	  /* Otherwise, we can just compare decls by pointer.  */
 	  val = iterative_hash_pointer (t, val);
 	}
       else
@@ -4867,10 +4879,17 @@ int_fits_type_p (tree c, tree type)
   /* Perform some generic filtering first, which may allow making a decision
      even if the bounds are not constant.  First, negative integers never fit
      in unsigned types, */
-  if ((TYPE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
-      /* Also, unsigned integers with top bit set never fit signed types.  */
-      || (! TYPE_UNSIGNED (type)
-	  && TYPE_UNSIGNED (TREE_TYPE (c)) && tree_int_cst_msb (c)))
+  if (TYPE_UNSIGNED (type) && tree_int_cst_sgn (c) < 0)
+    return 0;
+
+  /* Second, narrower types always fit in wider ones.  */
+  if (TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (c)))
+    return 1;
+
+  /* Third, unsigned integers with top bit set never fit signed types.  */
+  if (! TYPE_UNSIGNED (type)
+      && TYPE_UNSIGNED (TREE_TYPE (c))
+      && tree_int_cst_msb (c))
     return 0;
 
   /* If at least one bound of the type is a constant integer, we can check
@@ -4914,10 +4933,11 @@ int_fits_type_p (tree c, tree type)
   /* Or to force_fit_type, if nothing else.  */
   else
     {
-      c = copy_node (c);
-      TREE_TYPE (c) = type;
-      c = force_fit_type (c, -1, false, false);
-      return !TREE_OVERFLOW (c);
+      tree n = copy_node (c);
+      TREE_TYPE (n) = type;
+      n = force_fit_type (n, -1, false, false);
+      return TREE_INT_CST_HIGH (n) == TREE_INT_CST_HIGH (c)
+             && TREE_INT_CST_LOW (n) == TREE_INT_CST_LOW (c);
     }
 }
 

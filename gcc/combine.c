@@ -3983,10 +3983,14 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
       }
 
       /* Don't change the mode of the MEM if that would change the meaning
-	 of the address.  */
+	 of the address.  Similarly, don't allow widening, as that may
+	 access memory outside the defined object or using an address
+	 that is invalid for a wider mode.  */
       if (MEM_P (SUBREG_REG (x))
 	  && (MEM_VOLATILE_P (SUBREG_REG (x))
-	      || mode_dependent_address_p (XEXP (SUBREG_REG (x), 0))))
+	      || mode_dependent_address_p (XEXP (SUBREG_REG (x), 0))
+	      || (GET_MODE_SIZE (mode)
+		  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))))
 	return gen_rtx_CLOBBER (mode, const0_rtx);
 
       /* Note that we cannot do any narrowing for non-constants since
@@ -5789,6 +5793,9 @@ expand_compound_operation (rtx x)
 
     case ZERO_EXTRACT:
       unsignedp = 1;
+
+      /* ... fall through ...  */
+
     case SIGN_EXTRACT:
       /* If the operand is a CLOBBER, just return it.  */
       if (GET_CODE (XEXP (x, 0)) == CLOBBER)
@@ -9355,8 +9362,16 @@ gen_lowpart_for_combine (enum machine_mode omode, rtx x)
   if (GET_CODE (x) == SUBREG && MEM_P (SUBREG_REG (x)))
     {
       x = SUBREG_REG (x);
-      if (GET_MODE (x) == omode)
+
+      /* For use in case we fall down into the address adjustments
+	 further below, we need to adjust the known mode and size of
+	 x; imode and isize, since we just adjusted x.  */
+      imode = GET_MODE (x);
+
+      if (imode == omode)
 	return x;
+
+      isize = GET_MODE_SIZE (imode);
     }
 
   result = gen_lowpart_common (omode, x);
@@ -11417,7 +11432,6 @@ mark_used_regs_combine (rtx x)
 
 	while (GET_CODE (testreg) == SUBREG
 	       || GET_CODE (testreg) == ZERO_EXTRACT
-	       || GET_CODE (testreg) == SIGN_EXTRACT
 	       || GET_CODE (testreg) == STRICT_LOW_PART)
 	  testreg = XEXP (testreg, 0);
 
@@ -12290,7 +12304,6 @@ distribute_links (rtx links)
 
       reg = SET_DEST (set);
       while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
-	     || GET_CODE (reg) == SIGN_EXTRACT
 	     || GET_CODE (reg) == STRICT_LOW_PART)
 	reg = XEXP (reg, 0);
 

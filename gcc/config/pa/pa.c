@@ -141,8 +141,10 @@ static void output_deferred_plabels (void);
 static void pa_hpux_init_libfuncs (void);
 #endif
 static rtx pa_struct_value_rtx (tree, int);
-static bool pa_pass_by_reference (CUMULATIVE_ARGS *ca, enum machine_mode,
+static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
 
 
@@ -282,6 +284,8 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_PASS_BY_REFERENCE pa_pass_by_reference
 #undef TARGET_CALLEE_COPIES
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES pa_arg_partial_bytes
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS hppa_builtin_saveregs
@@ -8091,6 +8095,9 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 static bool
 pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
+  if (TARGET_PORTABLE_RUNTIME)
+    return false;
+
   /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
      single subspace mode and the call is not indirect.  As far as I know,
      there is no operating system support for the multiple subspace mode.
@@ -8108,9 +8115,8 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_64BIT)
     return false;
 
-  return (decl
-	  && !TARGET_PORTABLE_RUNTIME
-	  && !TREE_PUBLIC (decl));
+  /* Sibcalls are only ok within a translation unit.  */
+  return (decl && !TREE_PUBLIC (decl));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -9067,7 +9073,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   arg_size = FUNCTION_ARG_SIZE (mode, type);
 
   /* If this arg would be passed partially or totally on the stack, then
-     this routine should return zero.  FUNCTION_ARG_PARTIAL_NREGS will
+     this routine should return zero.  pa_arg_partial_bytes will
      handle arguments which are split between regs and stack slots if
      the ABI mandates split arguments.  */
   if (! TARGET_64BIT)
@@ -9236,14 +9242,17 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 
 
 /* If this arg would be passed totally in registers or totally on the stack,
-   then this routine should return zero. It is currently called only for
-   the 64-bit target.  */
-int
-function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-			    tree type, int named ATTRIBUTE_UNUSED)
+   then this routine should return zero.  */
+
+static int
+pa_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		      tree type, bool named ATTRIBUTE_UNUSED)
 {
   unsigned int max_arg_words = 8;
   unsigned int offset = 0;
+
+  if (!TARGET_64BIT)
+    return 0;
 
   if (FUNCTION_ARG_SIZE (mode, type) > 1 && (cum->words & 1))
     offset = 1;
@@ -9256,7 +9265,7 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     return 0;
   else
     /* Arg is split.  */
-    return max_arg_words - cum->words - offset;
+    return (max_arg_words - cum->words - offset) * UNITS_PER_WORD;
 }
 
 

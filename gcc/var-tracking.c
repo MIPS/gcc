@@ -245,7 +245,7 @@ typedef struct variable_def
 } *variable;
 
 /* Hash function for DECL for VARIABLE_HTAB.  */
-#define VARIABLE_HASH_VAL(decl) ((size_t) (decl))
+#define VARIABLE_HASH_VAL(decl) (DECL_UID (decl))
 
 /* Pointer to the BB's information specific to variable tracking pass.  */
 #define VTI(BB) ((variable_tracking_info) (BB)->aux)
@@ -1442,6 +1442,7 @@ static bool
 track_expr_p (tree expr)
 {
   rtx decl_rtl;
+  tree realdecl;
 
   /* If EXPR is not a parameter or a variable do not track it.  */
   if (TREE_CODE (expr) != VAR_DECL && TREE_CODE (expr) != PARM_DECL)
@@ -1455,14 +1456,22 @@ track_expr_p (tree expr)
   decl_rtl = DECL_RTL_IF_SET (expr);
   if (!decl_rtl)
     return 0;
+  
+  /* If this expression is really a debug alias of some other declaration, we 
+     don't need to track this expression if the ultimate declaration is
+     ignored.  */
+  realdecl = expr;
+  if (DECL_DEBUG_ALIAS_OF (realdecl))
+    realdecl = DECL_DEBUG_ALIAS_OF  (realdecl);
 
-  /* Do not track EXPR if it should be ignored for debugging purposes.  */
-  if (DECL_IGNORED_P (expr))
+  /* Do not track EXPR if REALDECL it should be ignored for debugging
+     purposes.  */ 
+  if (DECL_IGNORED_P (realdecl))
     return 0;
 
   /* Do not track global variables until we are able to emit correct location
      list for them.  */
-  if (TREE_STATIC (expr))
+  if (TREE_STATIC (realdecl))
     return 0;
 
   /* When the EXPR is a DECL for alias of some variable (see example)
@@ -2697,6 +2706,7 @@ vt_initialize (void)
       DECL_NAME (frame_base_decl) = get_identifier ("___frame_base_decl");
       TREE_TYPE (frame_base_decl) = char_type_node;
       DECL_ARTIFICIAL (frame_base_decl) = 1;
+      DECL_IGNORED_P (frame_base_decl) = 1;
 
       /* Set its initial "location".  */
       frame_stack_adjust = -prologue_stack_adjust ();

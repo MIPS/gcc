@@ -1,6 +1,6 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -176,7 +176,9 @@ push_access_scope (tree t)
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL
 	      || TREE_CODE (t) == VAR_DECL);
 
-  if (DECL_CLASS_SCOPE_P (t))
+  if (DECL_FRIEND_CONTEXT (t))
+    push_nested_class (DECL_FRIEND_CONTEXT (t));
+  else if (DECL_CLASS_SCOPE_P (t))
     push_nested_class (DECL_CONTEXT (t));
   else
     push_to_top_level ();
@@ -201,7 +203,7 @@ pop_access_scope (tree t)
       saved_access_scope = TREE_CHAIN (saved_access_scope);
     }
 
-  if (DECL_CLASS_SCOPE_P (t))
+  if (DECL_FRIEND_CONTEXT (t) || DECL_CLASS_SCOPE_P (t))
     pop_nested_class ();
   else
     pop_from_top_level ();
@@ -1738,7 +1740,15 @@ check_explicit_specialization (tree declarator,
   tree dname = DECL_NAME (decl);
   tmpl_spec_kind tsk;
 
-  tsk = current_tmpl_spec_kind (template_count);
+  if (is_friend)
+    {
+      if (!processing_specialization)
+	tsk = tsk_none;
+      else
+	tsk = tsk_excessive_parms;
+    }
+  else
+    tsk = current_tmpl_spec_kind (template_count);
 
   switch (tsk)
     {
@@ -2051,6 +2061,10 @@ check_explicit_specialization (tree declarator,
 		  DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
 		  DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (tmpl))
 		    = DECL_SOURCE_LOCATION (decl);
+		  /* We want to use the argument list specified in the
+		     definition, not in the original declaration.  */
+		  DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (tmpl))
+		    = DECL_ARGUMENTS (decl);
 		}
 	      return tmpl;
 	    }
@@ -5566,13 +5580,13 @@ instantiate_class_template (tree type)
     {
       tree pbase_binfo;
       tree context = TYPE_CONTEXT (type);
-      bool pop_p;
+      tree pushed_scope;
       int i;
 
       /* We must enter the scope containing the type, as that is where
 	 the accessibility of types named in dependent bases are
 	 looked up from.  */
-      pop_p = push_scope (context ? context : global_namespace);
+      pushed_scope = push_scope (context ? context : global_namespace);
   
       /* Substitute into each of the bases to determine the actual
 	 basetypes.  */
@@ -5594,8 +5608,8 @@ instantiate_class_template (tree type)
       /* The list is now in reverse order; correct that.  */
       base_list = nreverse (base_list);
 
-      if (pop_p)
-	pop_scope (context ? context : global_namespace);
+      if (pushed_scope)
+	pop_scope (pushed_scope);
     }
   /* Now call xref_basetypes to set up all the base-class
      information.  */
@@ -7857,7 +7871,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case GE_EXPR:
     case LT_EXPR:
     case GT_EXPR:
-    case ARRAY_REF:
     case COMPOUND_EXPR:
     case SCOPE_REF:
     case DOTSTAR_EXPR:
@@ -7869,6 +7882,13 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return build_nt
 	(code, tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl));
+
+    case ARRAY_REF:
+      return build_nt
+	(ARRAY_REF,
+	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl),
+	 NULL_TREE, NULL_TREE);
 
     case CALL_EXPR:
       return build_nt (code, 
@@ -8514,21 +8534,12 @@ tsubst_copy_and_build (tree t,
     case SCOPE_REF:
       return tsubst_qualified_id (t, args, complain, in_decl, /*done=*/true,
 				  /*address_p=*/false);
-
     case ARRAY_REF:
-      if (tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl)
-	  == NULL_TREE)
-	/* new-type-id */
-	return build_nt (ARRAY_REF, NULL_TREE, RECUR (TREE_OPERAND (t, 1)),
-			 NULL_TREE, NULL_TREE);
-
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
-      /* Remember that there was a reference to this entity.  */
-      if (DECL_P (op1))
-	mark_used (op1);
-      return grok_array_decl (op1, RECUR (TREE_OPERAND (t, 1)));
-
+      return build_x_binary_op (ARRAY_REF, op1, RECUR (TREE_OPERAND (t, 1)),
+				/*overloaded_p=*/NULL);
+      
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
       op1 = TREE_OPERAND (t, 0);
@@ -8914,9 +8925,7 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 
 	  if (nt)
 	    {
-	      if (!(complain & tf_error))
-		/*OK*/;
-	      else if (TYPE_ANONYMOUS_P (nt))
+	      if (TYPE_ANONYMOUS_P (nt))
 		error ("%qT uses anonymous type", t);
 	      else
 		error ("%qT uses local type %qT", t, nt);
@@ -12276,7 +12285,7 @@ resolve_typename_type (tree type, bool only_current_p)
   tree name;
   tree decl;
   int quals;
-  bool pop_p;
+  tree pushed_scope;
 
   gcc_assert (TREE_CODE (type) == TYPENAME_TYPE);
 
@@ -12305,7 +12314,7 @@ resolve_typename_type (tree type, bool only_current_p)
   /* Enter the SCOPE so that name lookup will be resolved as if we
      were in the class definition.  In particular, SCOPE will no
      longer be considered a dependent type.  */
-  pop_p = push_scope (scope);
+  pushed_scope = push_scope (scope);
   /* Look up the declaration.  */
   decl = lookup_member (scope, name, /*protect=*/0, /*want_type=*/true);
   /* Obtain the set of qualifiers applied to the TYPE.  */
@@ -12335,8 +12344,8 @@ resolve_typename_type (tree type, bool only_current_p)
   if (type != error_mark_node && quals)
     type = cp_build_qualified_type (type, quals);
   /* Leave the SCOPE.  */
-  if (pop_p)
-    pop_scope (scope);
+  if (pushed_scope)
+    pop_scope (pushed_scope);
 
   return type;
 }

@@ -550,3 +550,59 @@ struct tree_opt_pass pass_remove_useless_vars =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
+
+/* Mark BLOCK used if it has a used variable in it, then recurse over its
+   subblocks.  */
+
+static void
+mark_blocks_with_used_vars (tree block)
+{
+  tree var;
+  tree subblock;
+
+  if (!TREE_USED (block))
+    {
+      for (var = BLOCK_VARS (block);
+	   var;
+	   var = TREE_CHAIN (var))
+	{
+	  if (TREE_USED (var))
+	    {
+	      TREE_USED (block) = true;
+	      break;
+	    }
+	}
+    }
+  for (subblock = BLOCK_SUBBLOCKS (block);
+       subblock;
+       subblock = BLOCK_CHAIN (subblock))
+    mark_blocks_with_used_vars (subblock);
+}
+
+/* Mark the used attribute on blocks correctly.  */
+  
+static void
+mark_used_blocks (void)
+{  
+  mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
+}
+
+
+struct tree_opt_pass pass_mark_used_blocks = 
+{
+  "blocks",				/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  mark_used_blocks,			/* execute */
+  NULL, NULL,				/* IPA analysis */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};

@@ -1,3 +1,24 @@
+2005-01-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert 2004-12-28 Makefile changes, a better fix will be
+	applied to mainline and src after GCC 4.0 branches.
+
+2004-12-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/17383
+
+	* Makefile.def (target_modules): Remove stage parameter,
+	it is always true now.
+	* Makefile.tpl (configure-build-[+module+],
+	configure-target-[+module+]): Always build symlink tree
+	for the directory and for include.  BUILD_SUBDIR and
+	TARGET_SUBDIR cannot be . anymore.
+	* Makefile.in: Regenerate.
+
+2004-12-25  David Edelsohn  <edelsohn@gnu.org>
+
+	Revert 2004-12-08 Makefile changes.
+
 2004-12-17  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* MAINTAINERS: Move myself to OS Port Maintainers for windows,

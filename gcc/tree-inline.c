@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "diagnostic.h"
 #include "except.h"
+#include "debug.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -2164,6 +2165,27 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   arg_inits = initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2),
 					     fn, id->bind_expr);
+#if 0
+  if (arg_inits)
+    {
+      /* Expand any inlined calls in the initializers.  Do this before we
+	 push FN on the stack of functions we are inlining; we want to
+	 inline calls to FN that appear in the initializers for the
+	 parameters.
+
+	 Note we need to save and restore the saved tree statement iterator
+	 to avoid having it clobbered by expand_calls_inline.  */
+      tree_stmt_iterator save_tsi;
+
+      save_tsi = id->tsi;
+      expand_calls_inline (&arg_inits, id);
+      id->tsi = save_tsi;
+
+      /* And add them to the tree.  */
+      append_to_statement_list (arg_inits, &BIND_EXPR_BODY (expr));
+    }
+#endif
+
   /* Record the function we are about to inline.  */
   id->callee = fn;
 
@@ -2171,6 +2193,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_ARTIFICIAL (id->ret_label) = 1;
+  DECL_IGNORED_P (id->ret_label) = 1;
   DECL_CONTEXT (id->ret_label) = id->caller;
   insert_decl_map (id, id->ret_label, id->ret_label);
 
@@ -2393,6 +2416,12 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
      the equivalent inlined version either.  */
   TREE_USED (*tp) = 1;
+  
+  /* Output the inlining info for this abstract function, since it has been
+     inlined.  If we don't do this now, we can lose the information about the
+     variables in the function when the blocks get blown away as soon as we
+     remove the cgraph node.  */
+  (*debug_hooks->outlining_inline_function) (cg_edge->callee->decl);
 
   /* Update callgraph if needed.  */
   cgraph_remove_node (cg_edge->callee);

@@ -546,6 +546,22 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 255")))
 
+;; Match exactly one bit in 4-bit mask.
+(define_predicate "const_pow2_1_to_8_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 3;
+})
+
+;; Match exactly one bit in 8-bit mask.
+(define_predicate "const_pow2_1_to_128_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 7;
+})
+
 ;; True if this is a constant appropriate for an increment or decrement.
 (define_predicate "incdec_operand"
   (match_code "const_int")
@@ -717,7 +733,7 @@
 (define_special_predicate "sse_comparison_operator"
   (ior (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered")
        (and (match_code "uneq,unlt,unle,ltgt,ge,gt")
-	    (match_code "!TARGET_IEEE_FP"))))
+	    (match_test "!TARGET_IEEE_FP"))))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"
@@ -805,8 +821,8 @@
 
 ;; Return true for ARITHMETIC_P.
 (define_predicate "arith_or_logical_operator"
-  (match_code "PLUS,MULT,AND,IOR,XOR,SMIN,SMAX,UMIN,UMAX,COMPARE,MINUS,DIV,
-	       MOD,UDIV,UMOD,ASHIFT,ROTATE,ASHIFTRT,LSHIFTRT,ROTATERT"))
+  (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax,compare,minus,div,
+	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
 ;; Modern CPUs have same latency for HImode and SImode multiply,

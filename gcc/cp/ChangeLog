@@ -1,3 +1,232 @@
+2005-01-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19244
+	* class.c (add_implicitly_declared_members): Remove dead code.
+	* decl.c (grokfndecl): Add sfk parameter.  Use it do set
+	DECL_CONSTRUCTOR_P.
+	(grokdeclarator): Adjust calls to grokfndecl.
+	* method.c (implicitly_declare_fn): Improve documentation.
+	* parser.c (cp_parser_direct_declarator): Do not consider a
+	function to be a constructor if the containing class was
+	originally anonymous.
+
+2005-01-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17154
+	* search.c (lookup_field_1): Handle using declaration in
+	class template partial specialization.
+
+2005-01-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19258
+	* pt.c (push_access_scope): Handle friend defined in class.
+	(pop_access_scope): Likewise.
+
+2005-01-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19270
+	* pt.c (tsubst_copy) <ARRAY_REF case>: Handle separately.
+	(tsubst_copy_and_build) <ARRAY_REF case>: Remove obsolete
+	array-new handling code.  Use build_x_binary_op.
+
+2005-01-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19030
+	* cp-tree.h (start_decl): Take pointer to pushed scope, not bool.
+	* name-lookup.h (push_scope): Return pushed scope, not flag.
+	* name-lookup.c (push_scope): Return scope that should be popped,
+	not a flag.
+	* decl.c (start_decl): Adjust.
+	(grokfndecl): Adjust scope push and pop.
+	* decl2.c (check_classfn): Likewise.
+	* parser.c (cp_parser_condition, cp_parser_conversion_function_id,
+	cp_parser_init_declarator, cp_parser_direct_declarator,
+	cp_parser_class_specifier, cp_parser_class_head,
+	cp_parser_lookup_name,
+	cp_parser_constructor_declarator_p): Likewise.
+	* pt.c (instantiate_class_template,
+	resolve_typename_type): Likewise.
+
+2005-01-03  Volker Reichelt  <reichelt@igpm.rwth-aaachen.de>
+
+	PR c++/14136
+	* parser.c (cp_parser_unqualified_id): Do not issue error message
+	for typedef-name as destructor declarator when performing an
+	uncommitted tentative parse.
+
+2005-01-01  Steven Bosscher  <stevenb@suse.de>
+
+	PR middle-end/17544
+	* decl.c (finish_function): Fix comment.  Annotate the compiler
+	generated return with the current file name and line 0.
+
+2004-12-31  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/17799
+	* call.c (make_temporary_var_for_ref_to_temp): Set DECL_IGNORED_P.
+	* class.c (build_vtable): Don't conditionallize setting it
+	based on DWARF2_DEBUG.
+	(layout_class_type): Set DECL_IGNORED_P.
+	* decl2.c (get_guard): Likewise.
+	* rtti.c (get_tinfo_decl, build_lang_decl): Likewise.
+	* tree.c (build_local_temp): Likewise.
+
+2004-12-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (cp_declarator): Split "name" field into
+	qualifying_scope and unqualified_name.
+	* decl.c (get_scope_of_declarator): Adjust accordingly.
+	(grokdeclarator): Likewise.
+	* decl2.c (grokfield): Likewise, and adjust call to
+	do_class_using_decl.
+	* name-lookup.c (do_class_using_decl): Split "decl" into
+	"scope" and "name".  Remove unnecessary code.
+	* name-lookup.h (do_class_using_decl): Adjust declaration.
+	* parser.c (make_id_declarator): Split "id" into qualifying_scope
+	and unqualified_name.
+	(cp_parser_using_declaration): Adjust call to do_class_using_decl.
+	(cp_parser_direct_declarator): Adjust to handle the fact that
+	cp_parser_declarator_id no longer returns a SCOPE_REF.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_declarator_id): Do not create a SCOPE_REF for qualified
+	names.
+	(cp_parser_member_declaration): Adjust call to make_id_declarator.
+	(cp_parser_check_declarator_template_parameters): Do not expect a
+	SCOPE_REF. 
+	
+	* decl.c (duplicate_decls): Call ggc_free on declarations we will
+	not be needing any longer.
+
+	PR c++/19190
+	* cvt.c (convert_to_void): Do not use STRIP_NOPs.
+
+2004-12-28  Richard Henderson  <rth@redhat.com>
+
+	PR inline-asm/15740
+	* semantics.c (finish_asm_stmt): Resolve asm names.  Validate input
+	constraints.  Mark memory inputs addressable.
+
+2004-12-27  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (expand_static_init): Don't use shortcut if
+	targetm.relaxed_ordering.
+
+2004-12-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19149
+	* decl.c (check_tag_decl): Robustify.
+
+2004-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17595
+	* parser.c (cp_parser_error): Issue better messages about
+	#pragma in locations where it is not permitted.
+
+	PR c++/17413
+	* pt.c (check_instantiated_args): Remove bogus SFINAE code.
+
+	* cvt.c (convert_to_void): Fix typo in comment.
+
+2004-12-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/18962
+	* pt.c (check_explicit_specialization): Use the argument list from
+	the definition in a template function specialization definition.
+
+2004-12-23  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18733
+	* pt.c (check_explicit_specialization): Use special logic to validate
+	befriended specializations.
+
+2004-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtti.c (emit_support_tinfos): Avoid using C99 semantics.
+
+	PR c++/18464
+	* call.c (build_this): In templates, do not bother with
+	build_unary_op.
+	* typeck.c (unary_complex_lvalue): In a template, always refuse
+	simplifications. 
+
+	PR c++/18492
+	* cp-gimplify.c (cp_genericize): Relax assertion.
+
+	PR c++/11224
+	* cvt.c (convert_to_void): Warn about unused values.
+
+	PR c++/18257
+	* rtti.c (emit_support_tinfos): On systems without weak symbols,
+	emit the runtime library type-info objects as non-COMDAT. 
+
+2004-12-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18378
+	* call.c (convert_like_real): Do not permit the use of a copy
+	constructor to copy a packed field.
+
+	PR c++/19063
+	* decl.c (grokdeclarator): Return error_mark_node, not
+	void_type_node, to indicate errors.
+	* parser.c (cp_parser_template_parameter_list): Robustify.
+	(cp_parser_template_parameter): Likewise.
+
+	PR c++/19034
+	* tree.c (cp_tree_equal): Handle OVERLOAD.
+
+2004-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (define_label): Use POP_TIMEVAR_AND_RETURN.
+	* name-lookup.c (pushdecl_class_level): Likewise.
+
+2004-12-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* name-lookup.c (pushtag): Add missing POP_TIMEVAR_AND_RETURN.
+
+2004-12-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18984
+	* cp-gimplify.c (cp_genericize_r): Don't insert first but instead
+	check to see if contains the pointer.  Insert the statement before
+	returning.
+
+2004-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/14075
+	* decl.c (check_initializer): Check string initializer of array is
+	not parenthesized.
+	* cp-tree.h (PAREN_STRING_LITERAL_P): New.
+	* semantics.c (finish_parenthesized_expr): Mark a STRING_CST.
+	* error.c (dump_expr): <STRING_CST case> Add parens, if needed.
+
+	* cp-tree.def (TEMPLATE_TYPE_PARM,
+	BOUND_TEMPLATE_TEMPLATE_PARM, TYPE_OF_TYPE, TYPENAME_TYPE): Reorder 
+	for better code efficiency.
+	* cp-tree.h (CLASS_TYPE_P): Short circuit IS_AGGR_TYPE check.
+	(CAN_HAVE_FULL_LANG_DECL_P): Reorder for better optimization.
+	(INTEGRAL_CODE_P, CP_INTEGRAL_TYPE_P,
+	INTEGRAL_OR_ENUMERATION_TYPE_P, SCALAR_TYPE_P,
+	CP_AGGREGATE_TYPE_P, TYPE_PTROB_P, TYPE_REF_OBJ_P,
+	TYPE_PTROBV_P): Likewise. 
+
+	PR c++/18975
+	* method.c (do_build_copy_constructor): Refactor. Don't const
+	qualify a mutable field.
+	(do_build_assign_ref): Likewise.
+
+2004-12-20  Matt Austern <austern@apple.com>
+
+	PR c++/19044
+	* decl.c (make_rtl_for_nonlocal_decl): Use
+	set_builtin_user_assembler_name.
+	
+2004-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (note_decl_for_pch): New function.
+	* class.c (build_clone): Call note_decl_for_pch.
+	* semantics.c (finish_member_declaration): Likewise.
+	(note_decl_for_pch): New function.
+
 2004-12-17  Steven Bosscher  <stevenb@suse.de>
 
 	* init.c (build_zero_init): max_index is the number of

@@ -2,7 +2,7 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com> */
 
 /* { dg-do compile } */
-/* { dg-skip-if "No stabs" { mmix-*-* *-*-aix* } { "*" } { "" } } */
+/* { dg-skip-if "No stabs" { mmix-*-* *-*-aix* alpha*-*-* ia64-*-* } { "*" } { "" } } */
 /* { dg-options "-gstabs" } */
 
 @interface MyClass
@@ -15,4 +15,4 @@
 }
 @end
 
-/* { dg-final { scan-assembler ".text\n\t.stabs.*100,0,0,(\\.)?Letext\[0-9\]*\n(\\.)?Letext" } } */
+/* { dg-final { scan-assembler ".text\"?\n\t.stabs.*100,0,0,(\\.)?L?Letext\[0-9\]*\n(\\.)?L?Letext" } } */

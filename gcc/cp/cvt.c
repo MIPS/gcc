@@ -909,9 +909,46 @@ convert_to_void (tree expr, const char *implicit)
   
   if (expr != error_mark_node && !VOID_TYPE_P (TREE_TYPE (expr)))
     {
-      if (implicit && warn_unused_value
-	  && !TREE_SIDE_EFFECTS (expr) && !TREE_NO_WARNING (expr))
-	warning ("%s has no effect", implicit);
+      if (implicit && warn_unused_value && !TREE_NO_WARNING (expr))
+	{
+	  /* The middle end does not warn about expressions that have
+	     been explicitly cast to void, so we must do so here.  */
+	  if (!TREE_SIDE_EFFECTS (expr))
+	    warning ("%s has no effect", implicit);
+	  else 
+	    { 
+	      tree e;
+	      enum tree_code code;
+	      enum tree_code_class class;
+	      
+	      e = expr;
+	      /* We might like to warn about (say) "(int) f()", as the
+		 cast has no effect, but the compiler itself will
+		 generate implicit conversions under some
+		 circumstances.  (For example a block copy will be
+		 turned into a call to "__builtin_memcpy", with a
+		 conversion of the return value to an appropriate
+		 type.)  So, to avoid false positives, we strip
+		 conversions.  Do not use STRIP_NOPs because it will
+		 not strip conversions to "void", as that is not a
+		 mode-preserving conversion.  */
+	      while (TREE_CODE (e) == NOP_EXPR)
+		e = TREE_OPERAND (e, 0);
+
+	      code = TREE_CODE (e);
+	      class = TREE_CODE_CLASS (code);
+	      if (class == tcc_comparison
+		   || class == tcc_unary
+		   || (class == tcc_binary 
+		       && !(code == MODIFY_EXPR
+			    || code == INIT_EXPR
+			    || code == PREDECREMENT_EXPR
+			    || code == PREINCREMENT_EXPR
+			    || code == POSTDECREMENT_EXPR
+			    || code == POSTINCREMENT_EXPR)))
+		warning ("value computed is not used");
+	    }
+	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);
     }
   return expr;

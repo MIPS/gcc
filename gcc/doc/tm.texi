@@ -3748,25 +3748,24 @@ If @code{FUNCTION_INCOMING_ARG} is not defined, @code{FUNCTION_ARG}
 serves both purposes.
 @end defmac
 
-@defmac FUNCTION_ARG_PARTIAL_NREGS (@var{cum}, @var{mode}, @var{type}, @var{named})
-A C expression for the number of words, at the beginning of an
-argument, that must be put in registers.  The value must be zero for
+@deftypefn {Target Hook} int TARGET_ARG_PARTIAL_BYTES (CUMULATIVE_ARGS *@var{cum}, enum machine_mode @var{mode}, tree @var{type}, bool @var{named})
+This target hook returns the number of bytes at the beginning of an
+argument that must be put in registers.  The value must be zero for
 arguments that are passed entirely in registers or that are entirely
 pushed on the stack.
 
 On some machines, certain arguments must be passed partially in
 registers and partially in memory.  On these machines, typically the
-first @var{n} words of arguments are passed in registers, and the rest
+first few words of arguments are passed in registers, and the rest
 on the stack.  If a multi-word argument (a @code{double} or a
 structure) crosses that boundary, its first few words must be passed
 in registers and the rest must be pushed.  This macro tells the
-compiler when this occurs, and how many of the words should go in
-registers.
+compiler when this occurs, and how many bytes should go in registers.
 
 @code{FUNCTION_ARG} for these arguments should return the first
 register to be used by the caller for this argument; likewise
 @code{FUNCTION_INCOMING_ARG}, for the called function.
-@end defmac
+@end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_PASS_BY_REFERENCE (CUMULATIVE_ARGS *@var{cum}, enum machine_mode @var{mode}, tree @var{type}, bool @var{named})
 This target hook should return @code{true} if an argument at the
@@ -5182,16 +5181,6 @@ deciding that a non-legitimate constant would be better reloaded
 from the constant pool instead of spilling and reloading a register
 holding the constant.  This restriction is often true of addresses
 of TLS symbols for various targets.
-@end deftypefn
-
-@deftypefn {Target Hook} bool TARGET_VECTORIZE_MISALIGNED_MEM_OK (@var{mode})
-This hook should return true if a move* pattern to/from memory
-can be generated for machine_mode @var{mode} even if the memory location 
-is unaligned.
-If a move* of data to/from unaligned memory locations is not supported for
-machine_mode @var{mode}, the hook should return false.  
-This hook is used by the autovectorizer, and when expanding a 
-@code{MISALIGNED_INDIRECT_REF} expression.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD (void)
@@ -6667,6 +6656,14 @@ Use the expression @code{assemble_name (@var{stream}, @var{name})} to
 output the name itself; before and after that, output the additional
 assembler syntax for defining the name, and a newline.  A default
 definition of this macro is provided which is correct for most systems.
+@end defmac
+
+@findex assemble_name_raw
+@defmac ASM_OUTPUT_INTERNAL_LABEL (@var{stream}, @var{name})
+Identical to @code{ASM_OUTPUT_lABEL}, except that @var{name} is known
+to refer to a compiler-generated label.  The default definition uses
+@code{assemble_name_raw}, which is like @code{assemble_name} except
+that it is more efficient.
 @end defmac
 
 @defmac SIZE_ASM_OP
@@ -9575,6 +9572,16 @@ option.  The default is to have no target-specific format checks.
 If defined, this macro is the number of entries in
 @code{TARGET_FORMAT_TYPES}.
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_RELAXED_ORDERING
+If set to @code{true}, means that the target's memory model does not
+guarantee that loads which do not depend on one another will access
+main memory in the order of the instruction stream; if ordering is
+important, an explicit memory barrier must be used.  This is true of
+many recent processors which implement a policy of ``relaxed,''
+``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,
+and ia64.  The default is @code{false}.
+@end deftypefn
 
 @defmac TARGET_USE_JCR_SECTION
 This macro determines whether to use the JCR section to register Java

@@ -425,16 +425,16 @@ formatted_transfer (bt type, void *p, int len)
   if (type == BT_COMPLEX)
     type = BT_REAL;
 
-  /* If reversion has occurred and there is another real data item,
-     then we have to move to the next record.  */
-
-  if (g.reversion_flag && n > 0)
-    {
-      g.reversion_flag = 0;
-      next_record (0);
-    }
   for (;;)
     {
+      /* If reversion has occurred and there is another real data item,
+         then we have to move to the next record.  */
+      if (g.reversion_flag && n > 0)
+        {
+          g.reversion_flag = 0;
+          next_record (0);
+        }
+
       consume_data_flag = 1 ;
       if (ioparm.library_return != LIBRARY_OK)
 	break;
@@ -1209,7 +1209,8 @@ next_record_r (int done)
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
-      if (sf_seen_eor && done)
+      /* sf_read has already terminated input because of an '\n'  */
+      if (sf_seen_eor) 
          break;
 
       do

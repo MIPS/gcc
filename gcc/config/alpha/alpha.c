@@ -1982,35 +1982,10 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 bool
 alpha_expand_mov (enum machine_mode mode, rtx *operands)
 {
-  /* Honor misaligned loads, for those we promised to do so.  */
-  if (GET_CODE (operands[1]) == MEM
-      && alpha_vector_mode_supported_p (mode)
-      && MEM_ALIGN (operands[1]) < GET_MODE_ALIGNMENT (mode))
-    {
-      rtx tmp;
-      if (register_operand (operands[0], mode))
-	tmp = operands[0];
-      else
-	tmp = gen_reg_rtx (mode);
-      alpha_expand_unaligned_load (tmp, operands[1], 8, 0, 0);
-      if (tmp == operands[0])
-	return true;
-      operands[1] = tmp;
-    }
-
   /* If the output is not a register, the input must be.  */
   if (GET_CODE (operands[0]) == MEM
       && ! reg_or_0_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
-
-  /* Honor misaligned stores, for those we promised to do so.  */
-  if (GET_CODE (operands[0]) == MEM
-      && alpha_vector_mode_supported_p (mode)
-      && MEM_ALIGN (operands[0]) < GET_MODE_ALIGNMENT (mode))
-    {
-      alpha_expand_unaligned_store (operands[0], operands[1], 8, 0);
-      return true;
-    }
 
   /* Allow legitimize_address to perform some simplifications.  */
   if (mode == Pmode && symbolic_operand (operands[1], mode))
@@ -2209,6 +2184,36 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
     }
 
   return false;
+}
+
+/* Implement the movmisalign patterns.  One of the operands is a memory
+   that is not natually aligned.  Emit instructions to load it.  */
+
+void
+alpha_expand_movmisalign (enum machine_mode mode, rtx *operands)
+{
+  /* Honor misaligned loads, for those we promised to do so.  */
+  if (MEM_P (operands[1]))
+    {
+      rtx tmp;
+
+      if (register_operand (operands[0], mode))
+	tmp = operands[0];
+      else
+	tmp = gen_reg_rtx (mode);
+
+      alpha_expand_unaligned_load (tmp, operands[1], 8, 0, 0);
+      if (tmp != operands[0])
+	emit_move_insn (operands[0], tmp);
+    }
+  else if (MEM_P (operands[0]))
+    {
+      if (!reg_or_0_operand (operands[1], mode))
+	operands[1] = force_reg (mode, operands[1]);
+      alpha_expand_unaligned_store (operands[0], operands[1], 8, 0);
+    }
+  else
+    gcc_unreachable ();
 }
 
 /* Generate an unsigned DImode to FP conversion.  This is the same code
@@ -5184,6 +5189,31 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
 
   return gen_rtx_REG (mode, num_args + basereg);
 }
+
+static int
+alpha_arg_partial_bytes (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+			 enum machine_mode mode ATTRIBUTE_UNUSED,
+			 tree type ATTRIBUTE_UNUSED,
+			 bool named ATTRIBUTE_UNUSED)
+{
+  int words = 0;
+
+#if TARGET_ABI_OPEN_VMS
+  if (cum->num_args < 6
+      && 6 < cum->num_args + ALPHA_ARG_SIZE (mode, type, named))
+    words = 6 - (CUM).num_args;
+#elif TARGET_ABI_UNICOSMK
+  /* Never any split arguments.  */
+#elif TARGET_ABI_OSF
+  if (*cum < 6 && 6 < *cum + ALPHA_ARG_SIZE (mode, type, named))
+    words = 6 - *cum;
+#else
+#error Unhandled ABI
+#endif
+
+  return words * UNITS_PER_WORD;
+}
+
 
 /* Return true if TYPE must be returned in memory, instead of in registers.  */
 
@@ -9448,6 +9478,8 @@ alpha_init_libfuncs (void)
 #define TARGET_SPLIT_COMPLEX_ARG alpha_split_complex_arg
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR alpha_gimplify_va_arg
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES alpha_arg_partial_bytes
 
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P alpha_scalar_mode_supported_p
@@ -9457,8 +9489,11 @@ alpha_init_libfuncs (void)
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
 
-#undef TARGET_VECTORIZE_MISALIGNED_MEM_OK
-#define TARGET_VECTORIZE_MISALIGNED_MEM_OK alpha_vector_mode_supported_p
+/* The Alpha architecture does not require sequential consistency.  See
+   http://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html
+   for an example of how it can be violated in practice.  */
+#undef TARGET_RELAXED_ORDERING
+#define TARGET_RELAXED_ORDERING true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

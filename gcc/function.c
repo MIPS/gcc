@@ -286,7 +286,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   outer_function_chain = p->outer;
 
   current_function_decl = p->decl;
-  reg_renumber = 0;
 
   lang_hooks.function.leave_nested (p);
 
@@ -1924,8 +1923,9 @@ use_register_for_decl (tree decl)
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (decl)))
     return false;
 
-  /* Compiler-generated temporaries can always go in registers.  */
-  if (DECL_ARTIFICIAL (decl))
+  /* If we're not interested in tracking debugging information for
+     this decl, then we can certainly put it in a register.  */
+  if (DECL_IGNORED_P (decl))
     return true;
 
   return (optimize || DECL_REGISTER (decl));
@@ -2051,6 +2051,7 @@ split_complex_args (tree args)
 	{
 	  tree decl;
 	  tree subtype = TREE_TYPE (type);
+	  bool addressable = TREE_ADDRESSABLE (p);
 
 	  /* Rewrite the PARM_DECL's type with its component.  */
 	  TREE_TYPE (p) = subtype;
@@ -2058,11 +2059,20 @@ split_complex_args (tree args)
 	  DECL_MODE (p) = VOIDmode;
 	  DECL_SIZE (p) = NULL;
 	  DECL_SIZE_UNIT (p) = NULL;
+	  /* If this arg must go in memory, put it in a pseudo here.
+	     We can't allow it to go in memory as per normal parms,
+	     because the usual place might not have the imag part
+	     adjacent to the real part.  */
+	  DECL_ARTIFICIAL (p) = addressable;
+	  DECL_IGNORED_P (p) = addressable;
+	  TREE_ADDRESSABLE (p) = 0;
 	  layout_decl (p, 0);
 
 	  /* Build a second synthetic decl.  */
 	  decl = build_decl (PARM_DECL, NULL_TREE, subtype);
 	  DECL_ARG_TYPE (decl) = DECL_ARG_TYPE (p);
+	  DECL_ARTIFICIAL (decl) = addressable;
+	  DECL_IGNORED_P (decl) = addressable;
 	  layout_decl (decl, 0);
 
 	  /* Splice it in; skip the new decl.  */
@@ -2097,6 +2107,7 @@ assign_parms_augmented_arg_list (struct assign_parm_data_all *all)
       decl = build_decl (PARM_DECL, NULL_TREE, type);
       DECL_ARG_TYPE (decl) = type;
       DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
 
       TREE_CHAIN (decl) = fnargs;
       fnargs = decl;
@@ -2288,10 +2299,10 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
     {
       int partial;
 
-      partial = FUNCTION_ARG_PARTIAL_NREGS (all->args_so_far,
-					    data->promoted_mode,
-					    data->passed_type,
-					    data->named_arg);
+      partial = targetm.calls.arg_partial_bytes (&all->args_so_far,
+						 data->promoted_mode,
+						 data->passed_type,
+						 data->named_arg);
       data->partial = partial;
 
       /* The caller might already have allocated stack space for the
@@ -2317,7 +2328,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 	     argument on the stack.  */
 	  gcc_assert (!all->extra_pretend_bytes && !all->pretend_args_size);
 
-	  pretend_bytes = partial * UNITS_PER_WORD;
+	  pretend_bytes = partial;
 	  all->pretend_args_size = CEIL_ROUND (pretend_bytes, STACK_BYTES);
 
 	  /* We want to align relative to the actual stack pointer, so
@@ -2441,8 +2452,11 @@ assign_parm_adjust_entry_rtl (struct assign_parm_data_one *data)
 			  data->passed_type, 
 			  int_size_in_bytes (data->passed_type));
       else
-	move_block_from_reg (REGNO (entry_parm), validize_mem (stack_parm),
-			     data->partial);
+	{
+	  gcc_assert (data->partial % UNITS_PER_WORD == 0);
+	  move_block_from_reg (REGNO (entry_parm), validize_mem (stack_parm),
+			       data->partial / UNITS_PER_WORD);
+	}
 
       entry_parm = stack_parm;
     }
@@ -2926,9 +2940,10 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
    undo the frobbing that we did in assign_parms_augmented_arg_list.  */
 
 static void
-assign_parms_unsplit_complex (tree orig_fnargs, tree fnargs)
+assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 {
   tree parm;
+  tree orig_fnargs = all->orig_fnargs;
 
   for (parm = orig_fnargs; parm; parm = TREE_CHAIN (parm))
     {
@@ -2945,7 +2960,26 @@ assign_parms_unsplit_complex (tree orig_fnargs, tree fnargs)
 	      real = gen_lowpart_SUBREG (inner, real);
 	      imag = gen_lowpart_SUBREG (inner, imag);
 	    }
-	  tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
+
+	  if (TREE_ADDRESSABLE (parm))
+	    {
+	      rtx rmem, imem;
+	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (parm));
+
+	      /* split_complex_arg put the real and imag parts in
+		 pseudos.  Move them to memory.  */
+	      tmp = assign_stack_local (DECL_MODE (parm), size, 0);
+	      set_mem_attributes (tmp, parm, 1);
+	      rmem = adjust_address_nv (tmp, inner, 0);
+	      imem = adjust_address_nv (tmp, inner, GET_MODE_SIZE (inner));
+	      push_to_sequence (all->conversion_insns);
+	      emit_move_insn (rmem, real);
+	      emit_move_insn (imem, imag);
+	      all->conversion_insns = get_insns ();
+	      end_sequence ();
+	    }
+	  else
+	    tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
 	  SET_DECL_RTL (parm, tmp);
 
 	  real = DECL_INCOMING_RTL (fnargs);
@@ -3057,7 +3091,7 @@ assign_parms (tree fndecl)
     }
 
   if (targetm.calls.split_complex_arg && fnargs != all.orig_fnargs)
-    assign_parms_unsplit_complex (all.orig_fnargs, fnargs);
+    assign_parms_unsplit_complex (&all, fnargs);
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
@@ -3174,7 +3208,8 @@ gimplify_parm_type (tree *tp, int *walk_subtrees, void *data)
     {
       if (POINTER_TYPE_P (t))
 	*walk_subtrees = 1;
-      else if (TYPE_SIZE (t) && !TREE_CONSTANT (TYPE_SIZE (t)))
+      else if (TYPE_SIZE (t) && !TREE_CONSTANT (TYPE_SIZE (t))
+	       && !TYPE_SIZES_GIMPLIFIED (t))
 	{
 	  gimplify_type_sizes (t, (tree *) data);
 	  *walk_subtrees = 1;
@@ -3370,11 +3405,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     }
 #endif /* REG_PARM_STACK_SPACE */
 
-  part_size_in_regs = 0;
-  if (reg_parm_stack_space == 0)
-    part_size_in_regs = ((partial * UNITS_PER_WORD)
-			 / (PARM_BOUNDARY / BITS_PER_UNIT)
-			 * (PARM_BOUNDARY / BITS_PER_UNIT));
+  part_size_in_regs = (reg_parm_stack_space == 0 ? partial : 0);
 
   sizetree
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
@@ -4563,7 +4594,7 @@ get_arg_pointer_save_area (struct function *f)
       end_sequence ();
 
       push_topmost_sequence ();
-      emit_insn_after (seq, get_insns ());
+      emit_insn_after (seq, entry_of_function ());
       pop_topmost_sequence ();
     }
 

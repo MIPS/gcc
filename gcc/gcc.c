@@ -1,6 +1,7 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -3411,7 +3412,7 @@ process_command (int argc, const char **argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2005 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -5459,6 +5460,22 @@ handle_spec_function (const char *p)
 static inline bool
 input_suffix_matches (const char *atom, const char *end_atom)
 {
+  /* We special case the semantics of {.s:...} and {.S:...} and their
+     negative variants.  Instead of testing the input filename suffix,
+     we test whether the input source file is an assembler file or an
+     assembler-with-cpp file respectively.  This allows us to correctly
+     handle the -x command line option.  */
+
+  if (atom + 1 == end_atom
+      && input_file_compiler
+      && input_file_compiler->suffix)
+    {
+      if (*atom == 's')
+	return !strcmp (input_file_compiler->suffix, "@assembler");
+      if (*atom == 'S')
+	return !strcmp (input_file_compiler->suffix, "@assembler-with-cpp");
+    }
+
   return (input_suffix
 	  && !strncmp (input_suffix, atom, end_atom - atom)
 	  && input_suffix[end_atom - atom] == '\0');

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
-   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4454,9 +4454,6 @@ static struct init_node *constructor_pending_elts;
 /* The SPELLING_DEPTH of this constructor.  */
 static int constructor_depth;
 
-/* 0 if implicitly pushing constructor levels is allowed.  */
-int constructor_no_implicit = 0; /* 0 for C; 1 for some other languages.  */
-
 /* DECL node for which an initializer is being read.
    0 means we are reading a constructor expression
    such as (struct foo) {...}.  */
@@ -4571,7 +4568,7 @@ start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
   constructor_designated = 0;
   constructor_top_level = top_level;
 
-  if (decl != 0)
+  if (decl != 0 && decl != error_mark_node)
     {
       require_constant_value = TREE_STATIC (decl);
       require_constant_elements
@@ -5125,12 +5122,6 @@ set_designator (int array)
 	process_init_element (pop_init_level (1));
       constructor_designated = 1;
       return 0;
-    }
-
-  if (constructor_no_implicit)
-    {
-      error_init ("initialization designators may not nest");
-      return 1;
     }
 
   switch (TREE_CODE (constructor_type))
@@ -6103,7 +6094,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != fieldtype
 		   && (fieldcode == RECORD_TYPE || fieldcode == ARRAY_TYPE
@@ -6191,7 +6182,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != fieldtype
 		   && (fieldcode == RECORD_TYPE || fieldcode == ARRAY_TYPE
@@ -6231,7 +6222,7 @@ process_init_element (struct c_expr value)
 	    value.value = orig_value;
 	  /* Otherwise, if we have come to a subaggregate,
 	     and we don't have an element of its type, push into it.  */
-	  else if (value.value != 0 && !constructor_no_implicit
+	  else if (value.value != 0
 		   && value.value != error_mark_node
 		   && TYPE_MAIN_VARIANT (TREE_TYPE (value.value)) != elttype
 		   && (eltcode == RECORD_TYPE || eltcode == ARRAY_TYPE
@@ -6388,47 +6379,74 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
   tree args;
   int i;
   const char *constraint;
+  const char **oconstraints;
   bool allows_mem, allows_reg, is_inout;
-  int ninputs;
-  int noutputs;
+  int ninputs, noutputs;
 
   ninputs = list_length (inputs);
   noutputs = list_length (outputs);
+  oconstraints = (const char **) alloca (noutputs * sizeof (const char *));
+
+  string = resolve_asm_operand_names (string, outputs, inputs);
 
   /* Remove output conversions that change the type but not the mode.  */
   for (i = 0, tail = outputs; tail; ++i, tail = TREE_CHAIN (tail))
     {
       tree output = TREE_VALUE (tail);
+
+      /* ??? Really, this should not be here.  Users should be using a
+	 proper lvalue, dammit.  But there's a long history of using casts
+	 in the output operands.  In cases like longlong.h, this becomes a
+	 primitive form of typechecking -- if the cast can be removed, then
+	 the output operand had a type of the proper width; otherwise we'll
+	 get an error.  Gross, but ...  */
       STRIP_NOPS (output);
-      TREE_VALUE (tail) = output;
-      lvalue_or_else (output, lv_asm);
+
+      if (!lvalue_or_else (output, lv_asm))
+	output = error_mark_node;
 
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
+      oconstraints[i] = constraint;
 
-      if (!parse_output_constraint (&constraint, i, ninputs, noutputs,
-                                    &allows_mem, &allows_reg, &is_inout))
-        {
-          /* By marking this operand as erroneous, we will not try
-          to process this operand again in expand_asm_operands.  */
-          TREE_VALUE (tail) = error_mark_node;
-          continue;
-        }
+      if (parse_output_constraint (&constraint, i, ninputs, noutputs,
+				   &allows_mem, &allows_reg, &is_inout))
+	{
+	  /* If the operand is going to end up in memory,
+	     mark it addressable.  */
+	  if (!allows_reg && !c_mark_addressable (output))
+	    output = error_mark_node;
+	}
+      else
+        output = error_mark_node;
 
-      /* If the operand is a DECL that is going to end up in
-        memory, assume it is addressable.  This is a bit more
-        conservative than it would ideally be; the exact test is
-        buried deep in expand_asm_operands and depends on the
-        DECL_RTL for the OPERAND -- which we don't have at this
-        point.  */
-      if (!allows_reg && DECL_P (output))
-        c_mark_addressable (output);
+      TREE_VALUE (tail) = output;
     }
 
   /* Perform default conversions on array and function inputs.
      Don't do this for other types as it would screw up operands
      expected to be in memory.  */
-  for (tail = inputs; tail; tail = TREE_CHAIN (tail))
-    TREE_VALUE (tail) = default_function_array_conversion (TREE_VALUE (tail));
+  for (i = 0, tail = inputs; tail; ++i, tail = TREE_CHAIN (tail))
+    {
+      tree input;
+
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
+      input = TREE_VALUE (tail);
+
+      input = default_function_array_conversion (input);
+
+      if (parse_input_constraint (&constraint, i, ninputs, noutputs, 0,
+				  oconstraints, &allows_mem, &allows_reg))
+	{
+	  /* If the operand is going to end up in memory,
+	     mark it addressable.  */
+	  if (!allows_reg && allows_mem && !c_mark_addressable (input))
+	    input = error_mark_node;
+	}
+      else
+	input = error_mark_node;
+
+      TREE_VALUE (tail) = input;
+    }
 
   args = build_stmt (ASM_EXPR, string, outputs, inputs, clobbers);
 
@@ -6438,6 +6456,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
       ASM_VOLATILE_P (args) = 1;
       ASM_INPUT_P (args) = 1;
     }
+
   return args;
 }
 

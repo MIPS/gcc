@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "tree-mudflap.h"
 #include "opts.h"
+#include "real.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -2326,17 +2327,24 @@ c_common_truthvalue_conversion (tree expr)
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
     case TRUTH_NOT_EXPR:
-      TREE_TYPE (expr) = truthvalue_type_node;
+      if (TREE_TYPE (expr) != truthvalue_type_node)
+	return build2 (TREE_CODE (expr), truthvalue_type_node,
+		       TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
       return expr;
 
     case ERROR_MARK:
       return expr;
 
     case INTEGER_CST:
-      return integer_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      /* Avoid integer_zerop to ignore TREE_CONSTANT_OVERFLOW.  */
+      return (TREE_INT_CST_LOW (expr) != 0 || TREE_INT_CST_HIGH (expr) != 0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case REAL_CST:
-      return real_zerop (expr) ? truthvalue_false_node : truthvalue_true_node;
+      return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
 
     case ADDR_EXPR:
       {
@@ -3221,6 +3229,26 @@ c_common_nodes_and_builtins (void)
     mudflap_init ();
 
   main_identifier_node = get_identifier ("main");
+}
+
+/* Look up the function in built_in_decls that corresponds to DECL
+   and set ASMSPEC as its user assembler name.  DECL must be a
+   function decl that declares a builtin. */
+
+void
+set_builtin_user_assembler_name (tree decl, const char *asmspec)
+{
+  tree builtin;
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	      && asmspec != 0);
+
+  builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
+  set_user_assembler_name (builtin, asmspec);
+  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMCPY)
+    init_block_move_fn (asmspec);
+  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
+    init_block_clear_fn (asmspec);
 }
 
 tree

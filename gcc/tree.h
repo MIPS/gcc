@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,6 +51,7 @@ enum tree_code {
 enum tree_code_class {
   tcc_exceptional, /* An exceptional code (fits no category).  */
   tcc_constant,    /* A constant.  */
+  /* Order of tcc_type and tcc_declaration is important.  */
   tcc_type,        /* A type object code.  */
   tcc_declaration, /* A declaration (also serving as variable refs).  */
   tcc_reference,   /* A reference to storage.  */
@@ -96,11 +97,12 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
-/* Nonzero if CODE represents a INDIRECT_REF.  */
+/* Nonzero if CODE represents a INDIRECT_REF.  Keep these checks in
+   ascending code order.  */
 #define INDIRECT_REF_P(CODE)\
   (TREE_CODE (CODE) == INDIRECT_REF \
-   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
-   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF)
 
 /* Nonzero if CODE represents a reference.  */
 
@@ -145,7 +147,7 @@ extern const enum tree_code_class tree_code_type[];
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS)\
-	(((CLASS) >= tcc_reference) && ((CLASS) <= tcc_expression))
+	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -366,6 +368,8 @@ struct tree_common GTY(())
            all expressions
 	   all decls
 	   all constants
+       TYPE_SIZES_GIMPLIFIED
+           ..._TYPE
 
    unsigned_flag:
 
@@ -737,11 +741,14 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	EXP = TREE_OPERAND (EXP, 0)
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
-   include COMPLEX types here.  */
+   include COMPLEX types here.  Keep these checks in ascending code
+   order. */
 
 #define INTEGRAL_TYPE_P(TYPE)  \
-  (TREE_CODE (TYPE) == INTEGER_TYPE || TREE_CODE (TYPE) == ENUMERAL_TYPE  \
-   || TREE_CODE (TYPE) == BOOLEAN_TYPE || TREE_CODE (TYPE) == CHAR_TYPE)
+  (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
+   || TREE_CODE (TYPE) == BOOLEAN_TYPE \
+   || TREE_CODE (TYPE) == CHAR_TYPE \
+   || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
 
@@ -760,20 +767,25 @@ extern void tree_operand_check_failed (int, enum tree_code,
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
 /* Nonzero if TYPE represents a floating-point type, including complex
-   and vector floating-point types.  */
+   and vector floating-point types.  The vector and complex check does
+   not use the previous two macros to enable early folding.  */
 
-#define FLOAT_TYPE_P(TYPE)		\
-  (SCALAR_FLOAT_TYPE_P (TYPE) || COMPLEX_FLOAT_TYPE_P (TYPE)	\
-   || VECTOR_FLOAT_TYPE_P (TYPE))
+#define FLOAT_TYPE_P(TYPE)			\
+  (SCALAR_FLOAT_TYPE_P (TYPE)			\
+   || ((TREE_CODE (TYPE) == COMPLEX_TYPE 	\
+        || TREE_CODE (TYPE) == VECTOR_TYPE)	\
+       && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
-/* Nonzero if TYPE represents an aggregate (multi-component) type.  */
+/* Nonzero if TYPE represents an aggregate (multi-component) type.
+   Keep these checks in ascending code order.  */
 
 #define AGGREGATE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == ARRAY_TYPE || TREE_CODE (TYPE) == RECORD_TYPE \
    || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
 /* Nonzero if TYPE represents a pointer or reference type.
-   (It should be renamed to INDIRECT_TYPE_P.)  */
+   (It should be renamed to INDIRECT_TYPE_P.)  Keep these checks in
+   ascending code order.  */
 
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
@@ -924,6 +936,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    also appear in an expression or decl where the value is constant.  */
 #define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->common.constant_flag)
 
+/* Nonzero if NODE, a type, has had its sizes gimplified.  */
+#define TYPE_SIZES_GIMPLIFIED(NODE) (TYPE_CHECK (NODE)->common.constant_flag)
+
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
 #define DECL_UNSIGNED(NODE) (DECL_CHECK (NODE)->common.unsigned_flag)
 
@@ -951,7 +966,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
-   was used.  */
+   was used.  
+   In a BLOCK, this means that the block contains variables that are used.  */
 #define TREE_USED(NODE) ((NODE)->common.used_flag)
 
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
@@ -2006,6 +2022,10 @@ struct tree_binfo GTY (())
    writing debugging information about vfield and vbase decls for C++.  */
 #define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.vindex)
 
+/* For VAR_DECL, this is set to the variable we were split from, due to
+   optimization. */
+#define DECL_DEBUG_ALIAS_OF(NODE) (DECL_CHECK (NODE)->decl.vindex)
+
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_CHECK (NODE)->decl.uid)
 
@@ -2140,9 +2160,6 @@ struct tree_binfo GTY (())
 #define DECL_VALUE_EXPR(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.saved_tree)
 
-/* List of FUNCTION_DECLs inlined into this function's body.  */
-#define DECL_INLINED_FNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inlined_fns)
-
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
    not an alias.  */
@@ -2248,9 +2265,6 @@ struct tree_binfo GTY (())
 #define DECL_POINTER_ALIAS_SET(NODE) \
   (DECL_CHECK (NODE)->decl.pointer_alias_set)
 
-/* Used to store the alias_var for a DECL node.  */
-#define DECL_PTA_ALIASVAR(NODE) \
-  (DECL_CHECK (NODE)->decl.alias_var)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
@@ -2296,7 +2310,6 @@ enum symbol_visibility
 #endif
 
 struct function;
-union alias_var_def;
 struct tree_decl GTY(())
 {
   struct tree_common common;
@@ -2396,14 +2409,8 @@ struct tree_decl GTY(())
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.
      In a VAR_DECL or PARM_DECL, this is DECL_VALUE_EXPR.  */
   tree saved_tree;
-
-  /* In a FUNCTION_DECL, these are function data which is to be kept
-     as long as FUNCTION_DECL is kept.  */
-  tree inlined_fns;
-
   tree vindex;
   HOST_WIDE_INT pointer_alias_set;
-  union alias_var_def *GTY ((skip(""))) alias_var;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
@@ -3234,7 +3241,8 @@ extern int fields_length (tree);
 
 extern bool initializer_zerop (tree);
 
-extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern void categorize_ctor_elements (tree, HOST_WIDE_INT *,
+				      HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern HOST_WIDE_INT count_type_elements (tree);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
@@ -3371,7 +3379,8 @@ extern tree get_narrower (tree, int *);
    and find the ultimate containing object, which is returned.  */
 
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, enum machine_mode *, int *, int *);
+				 tree *, enum machine_mode *, int *, int *,
+				 bool);
 
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 

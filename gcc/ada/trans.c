@@ -165,9 +165,6 @@ static tree maybe_implicit_deref (tree);
 static tree gnat_stabilize_reference_1 (tree, bool);
 static void annotate_with_node (tree, Node_Id);
 
-/* Constants for +0.5 and -0.5 for float-to-integer rounding.  */
-static REAL_VALUE_TYPE dconstp5;
-static REAL_VALUE_TYPE dconstmp5;
 
 /* This is the main program of the back-end.  It sets up all the table
    structures and then generates code.  */
@@ -253,7 +250,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
       /* Set the current function to be the elaboration procedure and gimplify
 	 what we have.  */
       current_function_decl = info->elab_proc;
-      gimplify_body (&gnu_body, info->elab_proc);
+      gimplify_body (&gnu_body, info->elab_proc, false);
 
       /* We should have a BIND_EXPR, but it may or may not have any statements
 	 in it.  If it doesn't have any, we have nothing to do.  */
@@ -288,9 +285,6 @@ gnat_init_stmt_group ()
     set_stack_check_libfunc (gen_rtx_SYMBOL_REF (Pmode, "_gnat_stack_check"));
 
   gcc_assert (Exception_Mechanism != Front_End_ZCX);
-
-  REAL_ARITHMETIC (dconstp5, RDIV_EXPR, dconst1, dconst2);
-  REAL_ARITHMETIC (dconstmp5, RDIV_EXPR, dconstm1, dconst2);
 }
 
 /* Subroutine of gnat_to_gnu to translate gnat_node, an N_Identifier,
@@ -932,7 +926,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 			  && TREE_CODE (gnu_prefix) == FIELD_DECL));
 
 	get_inner_reference (gnu_prefix, &bitsize, &bitpos, &gnu_offset,
-			     &mode, &unsignedp, &volatilep);
+			     &mode, &unsignedp, &volatilep, false);
 
 	if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	  {
@@ -3546,8 +3540,8 @@ gnat_to_gnu (Node_Id gnat_node)
 	       are doing a call, pass that target to the call.  */
 	    if (TYPE_RETURNS_BY_TARGET_PTR_P (gnu_subprog_type)
 		&& Nkind (Expression (gnat_node)) == N_Function_Call)
-	      gnu_result = call_to_gnu (Expression (gnat_node),
-					&gnu_result_type, gnu_lhs);
+	      gnu_ret_val = call_to_gnu (Expression (gnat_node),
+					 &gnu_result_type, gnu_lhs);
 
 	    else
 	      {
@@ -4283,9 +4277,10 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
     }
 }
 
-/* Utility function to mark nodes with TREE_VISITED.  Called from walk_tree.
-   We use this to indicate all variable sizes and positions in global types
-   may not be shared by any subprogram.  */
+/* Utility function to mark nodes with TREE_VISITED and types as having their
+   sized gimplified.  Called from walk_tree.  We use this to indicate all
+   variable sizes and positions in global types may not be shared by any
+   subprogram.  */
 
 static tree
 mark_visited (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
@@ -4297,6 +4292,9 @@ mark_visited (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
      and fields once it's filled in.  */
   else if (!TYPE_IS_DUMMY_P (*tp))
     TREE_VISITED (*tp) = 1;
+
+  if (TYPE_P (*tp))
+    TYPE_SIZES_GIMPLIFIED (*tp) = 1;
 
   return NULL_TREE;
 }
@@ -5191,17 +5189,60 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
   if (INTEGRAL_TYPE_P (gnu_ada_base_type) && FLOAT_TYPE_P (gnu_in_basetype)
       && !truncatep)
     {
-      tree gnu_point_5 = build_real (gnu_in_basetype, dconstp5);
-      tree gnu_minus_point_5 = build_real (gnu_in_basetype, dconstmp5);
-      tree gnu_zero = convert (gnu_in_basetype, integer_zero_node);
-      tree gnu_saved_result = save_expr (gnu_result);
-      tree gnu_comp = build2 (GE_EXPR, integer_type_node,
-			      gnu_saved_result, gnu_zero);
-      tree gnu_adjust = build3 (COND_EXPR, gnu_in_basetype, gnu_comp,
-				gnu_point_5, gnu_minus_point_5);
+      REAL_VALUE_TYPE half_minus_pred_half, pred_half;
+      tree gnu_conv, gnu_zero, gnu_comp, gnu_saved_result, calc_type;
+      tree gnu_pred_half, gnu_add_pred_half, gnu_subtract_pred_half;
+      const struct real_format *fmt;
 
-      gnu_result
-	= build2 (PLUS_EXPR, gnu_in_basetype, gnu_saved_result, gnu_adjust);
+      /* The following calculations depend on proper rounding to even
+         of each arithmetic operation. In order to prevent excess
+         precision from spoiling this property, use the widest hardware
+         floating-point type.
+
+         FIXME: For maximum efficiency, this should only be done for machines
+         and types where intermediates may have extra precision.  */
+
+      calc_type = longest_float_type_node;
+      /* FIXME: Should not have padding in the first place */
+      if (TREE_CODE (calc_type) == RECORD_TYPE
+              && TYPE_IS_PADDING_P (calc_type))
+        calc_type = TREE_TYPE (TYPE_FIELDS (calc_type));
+
+      /* Compute the exact value calc_type'Pred (0.5) at compile time. */
+      fmt = REAL_MODE_FORMAT (TYPE_MODE (calc_type));
+      real_2expN (&half_minus_pred_half, -(fmt->p) - 1);
+      REAL_ARITHMETIC (pred_half, MINUS_EXPR, dconsthalf,
+                       half_minus_pred_half);
+      gnu_pred_half = build_real (calc_type, pred_half);
+
+      /* If the input is strictly negative, subtract this value
+         and otherwise add it from the input. For 0.5, the result
+         is exactly between 1.0 and the machine number preceding 1.0
+         (for calc_type). Since the last bit of 1.0 is even, this 0.5
+         will round to 1.0, while all other number with an absolute
+         value less than 0.5 round to 0.0. For larger numbers exactly
+         halfway between integers, rounding will always be correct as
+         the true mathematical result will be closer to the higher
+         integer compared to the lower one. So, this constant works
+         for all floating-point numbers.
+
+         The reason to use the same constant with subtract/add instead
+         of a positive and negative constant is to allow the comparison
+         to be scheduled in parallel with retrieval of the constant and
+         conversion of the input to the calc_type (if necessary).
+      */
+
+      gnu_zero = convert (gnu_in_basetype, integer_zero_node);
+      gnu_saved_result = save_expr (gnu_result);
+      gnu_conv = convert (calc_type, gnu_saved_result);
+      gnu_comp = build2 (GE_EXPR, integer_type_node,
+	                gnu_saved_result, gnu_zero);
+      gnu_add_pred_half
+        = build2 (PLUS_EXPR, calc_type, gnu_conv, gnu_pred_half);
+      gnu_subtract_pred_half
+        = build2 (MINUS_EXPR, calc_type, gnu_conv, gnu_pred_half);
+      gnu_result = build3 (COND_EXPR, calc_type, gnu_comp,
+			   gnu_add_pred_half, gnu_subtract_pred_half);
     }
 
   if (TREE_CODE (gnu_ada_base_type) == INTEGER_TYPE

@@ -384,6 +384,10 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_CPU_CPP_BUILTINS()				\
   do								\
     {								\
+      /* Everyone but IRIX defines this to mips.  */            \
+      if (!TARGET_IRIX)                                         \
+        builtin_assert ("machine=mips");                        \
+                                                                \
       builtin_assert ("cpu=mips");				\
       builtin_define ("__mips__");     				\
       builtin_define ("_mips");					\
@@ -2274,13 +2278,6 @@ typedef struct mips_args {
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg( &CUM, MODE, TYPE, NAMED)
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
 #define FUNCTION_ARG_BOUNDARY function_arg_boundary
 

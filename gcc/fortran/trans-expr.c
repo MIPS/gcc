@@ -27,13 +27,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "convert.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
 #include "tree-gimple.h"
 #include "flags.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
@@ -542,7 +540,8 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   n = abs (TREE_INT_CST_LOW (rhs));
   sgn = tree_int_cst_sgn (rhs);
 
-  if ((!flag_unsafe_math_optimizations || optimize_size) && (n > 2 || n < -1))
+  if (((FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations) || optimize_size)
+      && (n > 2 || n < -1))
     return 0;
 
   /* rhs == 0  */
