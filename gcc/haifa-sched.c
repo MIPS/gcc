@@ -2064,6 +2064,7 @@ schedule_block (b, rgn_n_insns)
 	      /* Select and remove the insn from the ready list.  */
 	      insn = choose_ready (&ready);
 	      
+	      memcpy (temp_state, curr_state, dfa_state_size);
 	      if (recog_memoized (insn) < 0)
 		{
 		  if (!first_cycle_insn_p
@@ -2081,7 +2082,7 @@ schedule_block (b, rgn_n_insns)
 		}
 	      else
 		{
-		  cost = state_transition (curr_state, insn);
+		  cost = state_transition (temp_state, insn);
 
 		  if (targetm.sched.first_cycle_multipass_dfa_lookahead
 		      && targetm.sched.dfa_bubble)
@@ -2105,8 +2106,6 @@ schedule_block (b, rgn_n_insns)
 			  
 			  if (bubble != NULL_RTX)
 			    {
-			      memcpy (curr_state, temp_state, dfa_state_size);
-			      
 			      if (insert_schedule_bubbles_p)
 				{
 				  rtx copy;
@@ -2162,6 +2161,10 @@ schedule_block (b, rgn_n_insns)
 	  last_scheduled_insn = insn;
 	  last = move_insn (insn, last);
 
+	  if (targetm.sched.use_dfa_pipeline_interface
+	      && (*targetm.sched.use_dfa_pipeline_interface) ())
+	    memcpy (curr_state, temp_state, dfa_state_size);
+	    
 	  if (targetm.sched.variable_issue)
 	    can_issue_more =
 	      (*targetm.sched.variable_issue) (sched_dump, sched_verbose,

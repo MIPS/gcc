@@ -1,3 +1,8 @@
+2002-04-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (schedule_block): Change the DFA state only after
+	issuing insn.
+
 Wed Apr 17 15:38:36 2002  Jeffrey A Law  (law@cygnus.com)
 
 	* pa.c (hppa_use_dfa_pipeline_interface): New function.
