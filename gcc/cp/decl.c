@@ -7476,9 +7476,6 @@ grok_reference_init (decl, type, init)
       return NULL_TREE;
     }
 
-  if (init == error_mark_node)
-    return NULL_TREE;
-
   if (TREE_CODE (init) == CONSTRUCTOR)
     {
       error ("ISO C++ forbids use of initializer list to initialize reference `%D'", decl);

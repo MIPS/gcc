@@ -265,6 +265,8 @@ static cp_token *cp_lexer_consume_token
   PARAMS ((cp_lexer *));
 static void cp_lexer_purge_token
   (cp_lexer *);
+static void cp_lexer_purge_tokens_after
+  (cp_lexer *, cp_token *);
 static void cp_lexer_save_tokens
   PARAMS ((cp_lexer *));
 static void cp_lexer_commit_tokens
@@ -290,9 +292,15 @@ static void cp_lexer_stop_debugging
 /* A token type for keywords, as opposed to ordinary identifiers.  */
 #define CPP_KEYWORD ((enum cpp_ttype) (N_TTYPES + 1))
 
+/* A token type for template-ids.  If a template-id is processed while
+   parsing tentatively, it is replaced with a CPP_TEMPLATE_ID token;
+   the value of th CPP_TEMPLATE_ID is whatever was returned by
+   cp_parser_template_id.  */
+#define CPP_TEMPLATE_ID ((enum cpp_ttype) (CPP_KEYWORD + 1))
+
 /* A token type for tokens that are not tokens at all; these are used
    to mark the end of a token block.  */
-#define CPP_NONE (CPP_KEYWORD + 1)
+#define CPP_NONE (CPP_TEMPLATE_ID + 1)
 
 /* Variables.  */
 
@@ -395,6 +403,18 @@ cp_lexer_next_token (lexer, token)
   token++;
   if (token == lexer->buffer_end)
     token = lexer->buffer;
+  return token;
+}
+
+/* Return a pointer to the token that is N tokens beyond TOKEN in the
+   buffer.  */
+
+static cp_token *
+cp_lexer_advance_token (cp_lexer *lexer, cp_token *token, ptrdiff_t n)
+{
+  token += n;
+  if (token >= lexer->buffer_end)
+    token = lexer->buffer + (token - lexer->buffer_end);
   return token;
 }
 
@@ -810,6 +830,43 @@ cp_lexer_purge_token (cp_lexer *lexer)
     lexer->next_token = NULL;
 }
 
+/* Permanently remove all tokens after TOKEN, up to, but not
+   including, the token that will be returned next by
+   cp_lexer_peek_token.  */
+
+static void
+cp_lexer_purge_tokens_after (cp_lexer *lexer, cp_token *token)
+{
+  cp_token *peek;
+  cp_token *t1;
+  cp_token *t2;
+
+  if (lexer->next_token)
+    {
+      /* Copy the tokens that have not yet been read to the location
+	 immediately following TOKEN.  */
+      t1 = cp_lexer_next_token (lexer, token);
+      t2 = peek = cp_lexer_peek_token (lexer);
+      /* Move tokens into the vacant area between TOKEN and PEEK.  */
+      while (t2 != lexer->last_token)
+	{
+	  *t1 = *t2;
+	  t1 = cp_lexer_next_token (lexer, t1);
+	  t2 = cp_lexer_next_token (lexer, t2);
+	}
+      /* Now, the next available token is right after TOKEN.  */
+      lexer->next_token = cp_lexer_next_token (lexer, token);
+      /* And the last token is wherever we ended up.  */
+      lexer->last_token = t1;
+    }
+  else
+    {
+      /* There are no tokens in the buffer, so there is nothing to
+	 copy.  The last token in the buffer is TOKEN itself.  */
+      lexer->last_token = cp_lexer_next_token (lexer, token);
+    }
+}
+
 /* Begin saving tokens.  All tokens consumed after this point will be
    preserved.  */
 
@@ -862,10 +919,9 @@ cp_lexer_rollback_tokens (lexer)
      tokens.  */
   delta = VARRAY_TOP_INT(lexer->saved_tokens);
   /* Make it the next token again now.  */
-  lexer->next_token = lexer->first_token + delta;
-  if (lexer->next_token >= lexer->buffer_end)
-    lexer->next_token 
-      = lexer->buffer + (lexer->next_token - lexer->buffer_end);
+  lexer->next_token = cp_lexer_advance_token (lexer,
+					      lexer->first_token, 
+					      delta);
   /* It might be the case that there wer no tokens when we started
      saving tokens, but that there are some tokens now.  */
   if (!lexer->next_token && lexer->first_token)
@@ -1414,7 +1470,7 @@ static void cp_parser_for_init_statement
   PARAMS ((cp_parser *));
 static tree cp_parser_jump_statement
   PARAMS ((cp_parser *));
-static tree cp_parser_declaration_statement
+static void cp_parser_declaration_statement
   PARAMS ((cp_parser *));
 
 static tree cp_parser_implicitly_scoped_statement
@@ -1676,6 +1732,8 @@ static void cp_parser_check_class_key
   (enum tag_types, tree type);
 static bool cp_parser_optional_template_keyword
   (cp_parser *);
+static void cp_parser_cache_group
+  (cp_parser *, cp_token_cache *, enum cpp_ttype, unsigned);
 static void cp_parser_parse_tentatively 
   PARAMS ((cp_parser *));
 static void cp_parser_commit_to_tentative_parse
@@ -1702,6 +1760,8 @@ static void cp_parser_skip_to_end_of_statement
   PARAMS ((cp_parser *));
 static void cp_parser_skip_to_end_of_block_or_statement
   PARAMS ((cp_parser *));
+static void cp_parser_skip_to_closing_brace
+  (cp_parser *);
 static void cp_parser_skip_until_found
   PARAMS ((cp_parser *, enum cpp_ttype, const char *));
 static bool cp_parser_error_occurred
@@ -1772,6 +1832,10 @@ cp_parser_dependent_type_p (type)
      in question; in that case, the type is dependent.  */
   if (!type)
     return true;
+
+  /* Erroneous types can be considered non-dependent.  */
+  if (type == error_mark_node)
+    return false;
 
   /* [temp.dep.type]
 
@@ -2351,6 +2415,36 @@ cp_parser_skip_to_end_of_block_or_statement (parser)
     }
 }
 
+/* Skip tokens until a non-nested closing curly brace is the next
+   token.  */
+
+static void
+cp_parser_skip_to_closing_brace (cp_parser *parser)
+{
+  unsigned nesting_depth = 0;
+
+  while (true)
+    {
+      cp_token *token;
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      /* If we've run out of tokens, stop.  */
+      if (token->type == CPP_EOF)
+	break;
+      /* If the next token is a non-nested `}', then we have reached
+	 the end of the current block.  */
+      if (token->type == CPP_CLOSE_BRACE && nesting_depth-- == 0)
+	break;
+      /* If it the next token is a `{', then we are entering a new
+	 block.  Consume the entire block.  */
+      else if (token->type == CPP_OPEN_BRACE)
+	++nesting_depth;
+      /* Consume the token.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+}
+
 /* Create a new C++ parser.  */
 
 static cp_parser *
@@ -2561,7 +2655,8 @@ cp_parser_primary_expression (cp_parser *parser,
 	parser->greater_than_is_operator_p 
 	  = saved_greater_than_is_operator_p;
 	/* Consume the `)'.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	  cp_parser_skip_to_end_of_statement (parser);
 
 	return expr;
       }
@@ -2644,6 +2739,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	 keyword.  */
     case CPP_NAME:
     case CPP_SCOPE:
+    case CPP_TEMPLATE_ID:
       {
 	tree id_expression;
 	tree decl;
@@ -2655,10 +2751,12 @@ cp_parser_primary_expression (cp_parser *parser,
 				     /*template_keyword_p=*/false,
 				     /*check_dependency_p=*/true,
 				     /*template_p=*/NULL);
+	if (id_expression == error_mark_node)
+	  return error_mark_node;
 	/* If we have a template-id, then no further lookup is
 	   required.  If the template-id was for a template-class, we
 	   will sometimes have a TYPE_DECL at this point.  */
-	if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR
+	else if (TREE_CODE (id_expression) == TEMPLATE_ID_EXPR
 	    || TREE_CODE (id_expression) == TYPE_DECL)
 	  decl = id_expression;
 	/* Look up the name.  */
@@ -3019,9 +3117,6 @@ cp_parser_id_expression (cp_parser *parser,
       cp_token *token;
       tree id;
 
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-
       /* We don't know yet whether or not this will be a 
 	 template-id.  */
       cp_parser_parse_tentatively (parser);
@@ -3032,6 +3127,9 @@ cp_parser_id_expression (cp_parser *parser,
       /* If that worked, we're done.  */
       if (cp_parser_parse_definitely (parser))
 	return id;
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
 
       switch (token->type)
 	{
@@ -3103,6 +3201,10 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 	/* Otherwise, it's an ordinary identifier.  */
 	return cp_parser_identifier (parser);
       }
+
+    case CPP_TEMPLATE_ID:
+      return cp_parser_template_id (parser, template_keyword_p,
+				    check_dependency_p);
 
     case CPP_COMPL:
       {
@@ -3265,6 +3367,9 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
       if (success 
 	  && cp_lexer_next_token_is_keyword (parser->lexer,
 					     RID_TEMPLATE))
+	;
+      /* A template-id can start a nested-name-specifier.  */
+      else if (cp_lexer_next_token_is (parser->lexer, CPP_TEMPLATE_ID))
 	;
       else
 	{
@@ -6055,7 +6160,7 @@ cp_parser_jump_statement (parser)
    declaration-statement:
      block-declaration  */
 
-static tree
+static void
 cp_parser_declaration_statement (parser)
      cp_parser *parser;
 {
@@ -6064,8 +6169,6 @@ cp_parser_declaration_statement (parser)
 
   /* Finish off the statement.  */
   finish_stmt ();
-
-  return NULL_TREE;
 }
 
 /* Some dependent statements (like `if (cond) statement'), are
@@ -7660,7 +7763,25 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   tree template;
   tree arguments;
   tree saved_scope;
+  tree template_id;
   bool saved_greater_than_is_operator_p;
+  ptrdiff_t start_of_id;
+
+  /* If the next token corresponds to a template-id, all parsing has
+     already been done.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_TEMPLATE_ID))
+    return cp_lexer_consume_token (parser->lexer)->value;
+
+  /* Remember where the template-id starts.  */
+  if (cp_parser_parsing_tentatively (parser))
+    {
+      cp_token *next_token = cp_lexer_peek_token (parser->lexer);
+      start_of_id = cp_lexer_token_difference (parser->lexer,
+					       parser->lexer->first_token,
+					       next_token);
+    }
+  else
+    start_of_id = -1;
 
   /* Parse the template-name.  */
   template = cp_parser_template_name (parser, template_keyword_p,
@@ -7698,20 +7819,50 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
 
   /* Build a representation of the specialization.  */
   if (TREE_CODE (template) == IDENTIFIER_NODE)
-    return build_min_nt (TEMPLATE_ID_EXPR, template, arguments);
-  if (DECL_CLASS_TEMPLATE_P (template)
-      || DECL_TEMPLATE_TEMPLATE_PARM_P (template))
-    return finish_template_type (template, arguments, 
-				 cp_lexer_next_token_is (parser->lexer, 
-							 CPP_SCOPE));
-  /* If it's not a class-template or a template-template, it should be
-     a function-template.  */
-  my_friendly_assert ((DECL_FUNCTION_TEMPLATE_P (template)
-		       || TREE_CODE (template) == OVERLOAD
-		       || BASELINK_P (template)),
-		      20010716);
+    template_id = build_min_nt (TEMPLATE_ID_EXPR, template, arguments);
+  else if (DECL_CLASS_TEMPLATE_P (template)
+	   || DECL_TEMPLATE_TEMPLATE_PARM_P (template))
+    template_id 
+      = finish_template_type (template, arguments, 
+			      cp_lexer_next_token_is (parser->lexer, 
+						      CPP_SCOPE));
+  else
+    {
+      /* If it's not a class-template or a template-template, it should be
+	 a function-template.  */
+      my_friendly_assert ((DECL_FUNCTION_TEMPLATE_P (template)
+			   || TREE_CODE (template) == OVERLOAD
+			   || BASELINK_P (template)),
+			  20010716);
+      
+      template_id = lookup_template_function (template, arguments);
+    }
+  
+  /* If parsing tentatively, replace the sequence of tokens that makes
+     up the template-id with a CPP_TEMPLATE_ID token.  That way,
+     should we re-parse the token stream, we will not have to repeat
+     the effort required to do the parse, nor will we issue duplicate
+     error messages about problems during instantiation of the
+     template.  */
+  if (start_of_id >= 0)
+    {
+      cp_token *token;
 
-  return lookup_template_function (template, arguments);
+      /* Find the token that corresponds to the start of the
+	 template-id.  */
+      token = cp_lexer_advance_token (parser->lexer, 
+				      parser->lexer->first_token,
+				      start_of_id);
+
+      /* Reset the contents of the START_OF_ID token.  */
+      token->type = CPP_TEMPLATE_ID;
+      token->value = template_id;
+      token->keyword = RID_MAX;
+      /* Purge all subsequent tokens.  */
+      cp_lexer_purge_tokens_after (parser->lexer, token);
+    }
+
+  return template_id;
 }
 
 /* Parse a template-name.
@@ -10606,8 +10757,7 @@ cp_parser_function_definition (parser, friend_p)
      the declaration of `i'.  */
   if (member_p)
     {
-      int depth;
-      cp_token_cache *cache = cp_token_cache_new ();
+      cp_token_cache *cache;
 
       /* Create the function-declaration.  */
       fn = start_method (decl_specifiers, declarator, attributes);
@@ -10621,44 +10771,14 @@ cp_parser_function_definition (parser, friend_p)
 	  return error_mark_node;
 	}
 
+      /* Create a token cache.  */
+      cache = cp_token_cache_new ();
       /* Save away the tokens that make up the body of the 
 	 function.  */
-      depth = 0;
-      while (true)
-	{
-	  /* Consume the next token.  */
-	  token = cp_lexer_consume_token (parser->lexer);
-	  /* If it is a `{', then we are entering a new scope, so we
-	     increase the nesting depth.  */
-	  if (token->type == CPP_OPEN_BRACE)
-	    ++depth;
-	  /* On the other hand, if it is a `}', then we decrease the
-	     nesting depth.  We are guaranteed never to get here
-	     without having seen the opening `{', so we need not worry
-	     about underflow.  */
-	  else if (token->type == CPP_CLOSE_BRACE)
-	    --depth;
-	  /* If we run completely out of tokens, issue an error
-	     message.  */
-	  else if (token->type == CPP_EOF)
-	    {
-	      error ("file ends inside function definition");
-	      break;
-	    }
-
-	  /* Add this token to the tokens we are saving.  */
-	  cp_token_cache_push_token (cache, token);
-
-	  /* If this token was the closing `}' of the function
-	     definition, then we are done -- unless the next token is
-	     `catch' in which case we are probably dealing with a
-	     function-try-block.  */
-	  if (!depth 
-	      && token->type == CPP_CLOSE_BRACE
-	      && !cp_lexer_next_token_is_keyword (parser->lexer,
-						  RID_CATCH))
-	    break;
-	}
+      cp_parser_cache_group (parser, cache, CPP_CLOSE_BRACE, /*depth=*/0);
+      /* Handle function try blocks.  */
+      while (cp_lexer_next_token_is_keyword (parser->lexer, RID_CATCH))
+	cp_parser_cache_group (parser, cache, CPP_CLOSE_BRACE, /*depth=*/0);
 
       /* Save away the inline definition; we will process it when the
 	 class is complete.  */
@@ -11066,8 +11186,12 @@ cp_parser_class_specifier (parser)
   parser->num_template_parameter_lists = 0;
   /* Start the class.  */
   type = begin_class_definition (type);
-  /* Parse the member-specification.  */
-  cp_parser_member_specification_opt (parser);
+  if (type == error_mark_node)
+    /* If the type is erroneous, skip the entire body of the class. */
+    cp_parser_skip_to_closing_brace (parser);
+  else
+    /* Parse the member-specification.  */
+    cp_parser_member_specification_opt (parser);
   /* Look for the trailing `}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
   /* We get better error messages by noticing a common problem: a
@@ -11859,17 +11983,20 @@ cp_parser_member_declaration (parser)
 	      break;
 	    }
 
-	  /* Add DECL to the list of members.  */
-	  if (!friend_p)
-	    finish_member_declaration (decl);
+	  if (decl)
+	    {
+	      /* Add DECL to the list of members.  */
+	      if (!friend_p)
+		finish_member_declaration (decl);
 
-	  /* If DECL is a function, we must return
-	     to parse it later.  (Even though there is no definition,
-	     there might be default arguments that need handling.)  */
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    TREE_VALUE (parser->unparsed_functions_queues)
-	      = tree_cons (current_class_type, decl, 
-			   TREE_VALUE (parser->unparsed_functions_queues));
+	      /* If DECL is a function, we must return
+		 to parse it later.  (Even though there is no definition,
+		 there might be default arguments that need handling.)  */
+	      if (TREE_CODE (decl) == FUNCTION_DECL)
+		TREE_VALUE (parser->unparsed_functions_queues)
+		  = tree_cons (current_class_type, decl, 
+			       TREE_VALUE (parser->unparsed_functions_queues));
+	    }
 	}
     }
 
@@ -14204,6 +14331,43 @@ cp_parser_optional_template_keyword (cp_parser *parser)
     }
 
   return false;
+}
+
+/* Add tokens to CACHE until an non-nested END token appears.  */
+
+static void
+cp_parser_cache_group (cp_parser *parser, 
+		       cp_token_cache *cache,
+		       enum cpp_ttype end,
+		       unsigned depth)
+{
+  while (true)
+    {
+      cp_token *token;
+
+      /* Abort a parenthesized expression if we encounter a brace.  */
+      if ((end == CPP_CLOSE_PAREN || depth == 0)
+	  && cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	return;
+      /* Consume the next token.  */
+      token = cp_lexer_consume_token (parser->lexer);
+      /* If we've reached the end of the file, stop.  */
+      if (token->type == CPP_EOF)
+	return;
+      /* Add this token to the tokens we are saving.  */
+      cp_token_cache_push_token (cache, token);
+      /* See if it starts a new group.  */
+      if (token->type == CPP_OPEN_BRACE)
+	{
+	  cp_parser_cache_group (parser, cache, CPP_CLOSE_BRACE, depth + 1);
+	  if (depth == 0)
+	    return;
+	}
+      else if (token->type == CPP_OPEN_PAREN)
+	cp_parser_cache_group (parser, cache, CPP_CLOSE_PAREN, depth + 1);
+      else if (token->type == end)
+	return;
+    }
 }
 
 /* Begin parsing tentatively.  We always save tokens while parsing

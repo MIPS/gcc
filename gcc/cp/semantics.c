@@ -943,9 +943,9 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 					&allows_reg,
 					&is_inout))
 	    {
-	      /* By marking the type as erroneous, we will not try to
-		 process this operand again in expand_asm_operands.  */
-	      TREE_TYPE (operand) = error_mark_node;
+	      /* By marking this operand as erroneous, we will not try
+		 to process this operand again in expand_asm_operands.  */
+	      TREE_VALUE (t) = error_mark_node;
 	      continue;
 	    }
 

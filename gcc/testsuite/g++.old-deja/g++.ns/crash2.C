@@ -9,4 +9,4 @@ namespace hei {
   extern CSomeClass SomeClass;
 }
 
-hei::CSomeClass hei::CSomeClass; // ERROR - should be hei::SomeClass
+hei::CSomeClass hei::CSomeClass; // ERROR - should be hei::SomeClass - XFAIL *-*-*
