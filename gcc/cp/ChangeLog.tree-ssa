@@ -12,6 +12,11 @@
 	* decl.c (finish_function): Call set_has_hidden_use when
 	nullifying returns for named value return optimization.
 
+2003-04-02  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c (cp_simplify_expr) <case EMPTY_CLASS_EXPR>:
+	Change type of constant to RECORD_TYPE.
+
 2003-03-10  Jeff Law  <law@redhat.com>
 
 	* optimize.c (optimize_function): Avoid unnecessary
