@@ -1,3 +1,47 @@
+2004-01-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>,
+	    Devang Patel <dpatel@apple.com>
+
+	* basic-block.h (struct reorder_block_def): Moved from cfglayout.h.
+	(alloc_rbi_pool, initialize_bb_rbi, free_rbi_pool): Declare.
+	* bb-reorder.c (copy_bb, copy_bb_p): Use duplicate_block hooks.
+	* loop-unswitch.c (unswitch_loop): Ditto.
+	* tracer.c (tail_duplicate): Ditto.
+	* tree-ssa-loop.c (copy_loop_headers): Ditto.
+	* cfg.c (rbi_pool): New.
+	(alloc_rbi_pool, free_rbi_pool, initialize_bb_rbi): New functions.
+	* cfghooks.c (can_duplicate_block_p, duplicate_block): New functions.
+	* cfghooks.h (struct cfg_hooks): Add can_duplicate_block_p and
+	duplicate_block hooks.
+	(can_duplicate_block_p, duplicate_block): Declare.
+	* cfglayout.c (cfg_layout_pool): Removed.
+	(cfg_layout_initialize_rbi): Removed.
+	(fixup_reorder_chain): Use initialize_bb_rbi.
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb):
+	Ir-independent parts moved to cfghooks.c.
+	(cfg_layout_initialize): Use alloc_rbi_pool and initialize_bb_rbi.
+	(cfg_layout_finalize): Use free_rbi_pool.
+	(can_copy_bbs_p): Use can_duplicate_block_p.
+	(copy_bbs): Use duplicate_block.
+	* cfglayout.h (struct reorder_block_def): Moved to basic-block.h
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb,
+	cfg_layout_initialize_rbi): Declaration removed.
+	* cfgrtl.c (cfg_layout_create_basic_block): Use initialize_bb_rbi.
+	(cfg_layout_rtl_cfg_hooks): Add cfg_layout_can_duplicate_bb_p and
+	cfg_layout_duplicate_bb.
+	* tree-cfg.c (build_tree_cfg): Call alloc_rbi_pool.
+	(create_bb): Call initialize_bb_rbi.
+	(delete_tree_cfg): Call free_rbi_pool.
+	(tree_duplicate_bb): Ir independent parts moved to cfghooks.c.
+	(tree_cfg_hooks): Add tree_can_duplicate_bb_p and tree_duplicate_bb.
+	* tree-flow.h (tree_duplicate_bb): Declaration removed.
+
+2004-01-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-alias-common.c (create_alias_vars): Don't use
+	andersen_alias_ops when we don't HAVE_BANSHEE.
+
+	* tree-ssa-loop.c (pass_ch): Remove TODO_verify_ssa.
+
 2004-01-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from tree-ssa branch (lno-merge-20040120).

@@ -179,7 +179,7 @@ copy_loop_headers (void)
 	    new_header = loop_split_edge_with (succ_in_loop, NULL);
 
 	  /* Copy the condition and update the loop structures.  */
-	  header_copy = tree_duplicate_bb (loop->header, preheader_edge);
+	  header_copy = duplicate_block (loop->header, preheader_edge);
 	  add_bb_to_loop (header_copy, preheader->loop_father);
 	  loop->latch = loop->header;
 	  loop->header = new_header;
@@ -238,5 +238,5 @@ struct tree_opt_pass pass_ch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func			/* todo_flags_finish */
 };

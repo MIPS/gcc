@@ -975,9 +975,11 @@ static void
 create_alias_vars (void)
 {
   basic_block bb;
+#if HAVE_BANSHEE
   if (HAVE_BANSHEE && flag_tree_points_to == PTA_ANDERSEN)
     current_alias_ops = andersen_alias_ops;
   else
+#endif
    {
      current_alias_ops = NULL;
      flag_tree_points_to = PTA_NONE;
