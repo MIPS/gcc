@@ -10314,7 +10314,7 @@ grokdeclarator (declarator, declspecs, decl_context,
 	ignore_attrs = 0;
       else if (inner_attrs)
 	{
-	  decl_attributes (&type, inner_attrs, 0);
+	  decl_attributes (&type, inner_attrs, ATTR_FLAG_COPY_TYPE);
 	  inner_attrs = NULL_TREE;
 	}
 
@@ -10774,7 +10774,7 @@ grokdeclarator (declarator, declspecs, decl_context,
   if (inner_attrs)
     {
       if (! ignore_attrs)
-	decl_attributes (&type, inner_attrs, 0);
+	decl_attributes (&type, inner_attrs, ATTR_FLAG_COPY_TYPE);
       else if (attrlist)
 	TREE_VALUE (attrlist) = chainon (inner_attrs, TREE_VALUE (attrlist));
       else

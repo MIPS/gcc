@@ -1,10 +1,16 @@
-// Test for interpretation of attribute immediately before function name.
-// Origin: Joseph Myers <jsm28@cam.ac.uk>
 // { dg-do compile }
 
-// An attribute immediately before the function name should in this
-// case properly apply to the return type, but compatibility with
-// existing code using this form requires it to apply to the function
-// type instead in the case of attributes applying to function types,
-// and to the declaration in the case of attributes applying to declarations.
-int ****__attribute__((format(printf, 1, 2))) foo(const char *, ...);
+// Copyright (C) 2001 Free Software Foundation, Inc.
+// Contributed by Nathan Sidwell 24 Sept 2001 <nathan@codesourcery.com>
+
+// Applying attributes could clobber existing nodes in the type system
+
+struct A
+{
+  static void (*Ptr1) (int);
+  static void (__attribute__ ((__stdcall__)) *Ptr) (int);
+};
+
+void (*A::Ptr1) (int) = 0;
+
+void (__attribute__ ((__stdcall__)) *A::Ptr) (int) = 0;

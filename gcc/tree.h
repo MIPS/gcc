@@ -2090,7 +2090,9 @@ extern void split_specs_attrs		PARAMS ((tree, tree *, tree *));
 
 extern tree strip_attrs			PARAMS ((tree));
 
-/* Return 1 if an attribute and its arguments are valid for a decl or type.  */
+/* Return 1 and apply the attribute, if an attribute and its arguments
+   are valid for a decl or type.  The type is a copied type which can
+   be safely modified in place as it will later be recanonized.  */
 
 extern int valid_machine_attribute	PARAMS ((tree, tree, tree, tree));
 
@@ -2193,6 +2195,9 @@ extern void normalize_rli		PARAMS ((record_layout_info));
 extern void place_field			PARAMS ((record_layout_info, tree));
 extern void compute_record_mode		PARAMS ((tree));
 extern void finish_record_layout	PARAMS ((record_layout_info));
+
+extern void set_type_quals		PARAMS ((tree, int));
+extern int type_hash_code		PARAMS ((tree));
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
