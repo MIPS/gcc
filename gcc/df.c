@@ -1,5 +1,5 @@
 /* Dataflow support routines.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz,
                                     mhayes@redhat.com)
 
@@ -165,8 +165,8 @@ Perhaps there should be a bitmap argument to df_analyse to specify
 #include "obstack.h" 
 #include "hard-reg-set.h"
 #include "basic-block.h"
-#include "df.h"
 #include "bitmap.h"
+#include "df.h"
 
 
 #define FOR_ALL_BBS(BB, CODE)					\
@@ -200,6 +200,9 @@ static struct obstack df_ref_obstack;
 static struct df *ddf;
 
 static void df_reg_table_realloc PARAMS((struct df *, int));
+#if 0
+static void df_def_table_realloc PARAMS((struct df *, int));
+#endif
 static void df_insn_table_realloc PARAMS((struct df *, int));
 static void df_bitmaps_alloc PARAMS((struct df *, int));
 static void df_bitmaps_free PARAMS((struct df *, int));
@@ -215,8 +218,10 @@ static struct df_link *df_ref_unlink PARAMS((struct df_link **, struct ref *));
 static void df_def_unlink PARAMS((struct df *, struct ref *));
 static void df_use_unlink PARAMS((struct df *, struct ref *));
 static void df_insn_refs_unlink PARAMS ((struct df *, basic_block, rtx));
+#if 0
 static void df_bb_refs_unlink PARAMS ((struct df *, basic_block));
 static void df_refs_unlink PARAMS ((struct df *, bitmap));
+#endif
 
 static struct ref *df_ref_create PARAMS((struct df *, 
 					 rtx, rtx *, basic_block, rtx,
@@ -345,7 +350,9 @@ df_reg_table_realloc (df, size)
 }
 
 
-void
+#if 0
+/* Not currently used.  */
+static void
 df_def_table_realloc (df, size)
      struct df *df;
      int size;
@@ -371,6 +378,7 @@ df_def_table_realloc (df, size)
       refs[i].chain = (struct df_link *)(refs + i + 1);
   refs[size - 1].chain = 0;
 }
+#endif
 
 
 
@@ -1260,14 +1268,9 @@ df_insn_refs_record (df, bb, insn)
 
 	  if (df->flags & DF_HARD_REGS)
 	    {
-	      /* Each call clobbers all call-clobbered regs that are not
-		 global or fixed and have not been explicitly defined
-		 in the call pattern.  */
+	      /* Kill all registers invalidated by a call.  */
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-		if (call_used_regs[i] 
-		    && ! global_regs[i]
-		    && ! fixed_regs[i]
-		    && ! df_insn_regno_def_p (df, bb, insn, i))
+		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 		  {
 		    rtx reg_clob = df_reg_clobber_gen (i);
 		    df_defs_record (df, reg_clob, bb, insn);
@@ -1681,7 +1684,7 @@ df_rd_global_compute (df, blocks)
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
 	      
-	      SET_BIT (worklist, i);
+	      SET_BIT (worklist, e->dest->index);
 	    }
 	}
     }
@@ -1758,7 +1761,7 @@ df_ru_global_compute (df, blocks)
 	      if (e->src == ENTRY_BLOCK_PTR)
 		continue;
 
-	      SET_BIT (worklist, i);	      
+	      SET_BIT (worklist, e->src->index);	      
 	    }
 	}
     }
@@ -2176,7 +2179,9 @@ df_analyse_1 (df, blocks, flags, update)
       /* More fine grained incremental dataflow analysis would be
 	 nice.  For now recompute the whole shebang for the
 	 modified blocks.  */
-      // df_refs_unlink (df, blocks);
+#if 0
+      df_refs_unlink (df, blocks);
+#endif
       /* All the def-use, use-def chains can be potentially
 	 modified by changes in one block.  The size of the
 	 bitmaps can also change.  */
@@ -2503,6 +2508,7 @@ df_insn_refs_unlink (df, bb, insn)
 }
 
 
+#if 0
 /* Unlink all the insns within BB from their reference information.  */
 static void
 df_bb_refs_unlink (df, bb)
@@ -2525,7 +2531,8 @@ df_bb_refs_unlink (df, bb)
 }
 
 
-/* Unlink all the refs in the basic blocks specified by BLOCKS.  */
+/* Unlink all the refs in the basic blocks specified by BLOCKS.
+   Not currently used.  */
 static void
 df_refs_unlink (df, blocks)
      struct df *df;
@@ -2548,6 +2555,7 @@ df_refs_unlink (df, blocks)
       });
     }
 }
+#endif
 
 /* Functions to modify insns.  */
 

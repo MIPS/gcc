@@ -1,6 +1,6 @@
 /* Form lists of pseudo register references for autoinc optimization
    for GNU compiler.  This is part of flow optimization.  
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GNU CC.
@@ -215,7 +215,6 @@ extern int df_analyse PARAMS ((struct df *, bitmap, int));
 extern void df_finish PARAMS ((struct df *));
 
 extern void df_dump PARAMS ((struct df *, int, FILE *));
-
 
 /* Functions to modify insns.  */
 

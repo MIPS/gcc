@@ -1,3 +1,12 @@
+2001-07-29  Daniel Berlin  <dan@cgsoftware.com>
+
+	* df.c (df_rd_global_compute): Add successors to worklist, not
+	current item.
+	(df_ru_global_compute): Ditto.
+	
+	* df.[ch]: Update to mainline, which contains fixes for register 
+	liveness over calls.
+
 2001-07-26  Daniel Berlin  <dan@cgsoftware.com>
 
 	* gcse.c: Use rtl_dump_file instead of gcse_file, remove gcse_file, 
