@@ -62,7 +62,7 @@ unsigned int highest_ssa_version;
                                                                                 
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
-static GTY ((deletable (""))) tree free_ssanames;
+static GTY (()) tree free_ssanames;
 
 /* Version numbers with special meanings.  We start allocating new version
    numbers after the special ones.  */

@@ -1,3 +1,7 @@
+2003-12-01  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssanames.c (free_ssanames): Do not use deleteable GTY flag.
+
 2003-11-30  Jan Hubicka  <jh@suse.cz>
 
 	* tree-optimize.c (tree_rest_of_compilation): Move ggc_collect call to
