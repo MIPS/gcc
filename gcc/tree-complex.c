@@ -372,13 +372,34 @@ expand_complex_conjugate (block_stmt_iterator *bsi, tree inner_type,
   update_complex_assignment (bsi, ar, ri);
 }
 
+/* Expand complex comparison (EQ or NE only).  */
+
+static void
+expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
+			   tree br, tree bi, enum tree_code code)
+{
+  tree cr, ci, cc, stmt;
+
+  cr = do_binop (bsi, code, boolean_type_node, ar, br);
+  ci = do_binop (bsi, code, boolean_type_node, ai, bi);
+  cc = do_binop (bsi, (code == EQ_EXPR ? TRUTH_AND_EXPR : TRUTH_OR_EXPR),
+		 boolean_type_node, cr, ci);
+
+  stmt = bsi_stmt (*bsi);
+  modify_stmt (stmt);
+  if (TREE_CODE (stmt) == RETURN_EXPR)
+    stmt = TREE_OPERAND (stmt, 0);
+  TREE_OPERAND (stmt, 1) = convert (TREE_TYPE (TREE_OPERAND (stmt, 1)), cc);
+}
+
 /* Process one statement.  If we identify a complex operation, expand it.  */
 
 static void
 expand_complex_operations_1 (block_stmt_iterator *bsi)
 {
   tree stmt = bsi_stmt (*bsi);
-  tree rhs, type, inner_type, ac, ar, ai, bc, br, bi;
+  tree rhs, type, inner_type;
+  tree ac, ar, ai, bc, br, bi;
   enum tree_code code;
 
   /* All complex operations are in MODIFY_EXPR statements.  */
@@ -393,10 +414,6 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
   rhs = TREE_OPERAND (stmt, 1);
   type = TREE_TYPE (rhs);
-  if (TREE_CODE (type) != COMPLEX_TYPE)
-    return;
-
-  inner_type = TREE_TYPE (type);
   code = TREE_CODE (rhs);
 
   /* Initial filter for operations we handle.  */
@@ -412,7 +429,18 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     case RDIV_EXPR:
     case NEGATE_EXPR:
     case CONJ_EXPR:
+      if (TREE_CODE (type) != COMPLEX_TYPE)
+	return;
+      inner_type = TREE_TYPE (type);
       break;
+
+    case EQ_EXPR:
+    case NE_EXPR:
+      inner_type = TREE_TYPE (TREE_OPERAND (rhs, 1));
+      if (TREE_CODE (inner_type) != COMPLEX_TYPE)
+	return;
+      break;
+
     default:
       return;
     }
@@ -462,6 +490,11 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     case CONJ_EXPR:
       expand_complex_conjugate (bsi, inner_type, ar, ai);
+      break;
+
+    case EQ_EXPR:
+    case NE_EXPR:
+      expand_complex_comparison (bsi, ar, ai, br, bi, code);
       break;
 
     default:
