@@ -1,3 +1,21 @@
+2002-05-30  Geoffrey Keating  <geoffk@redhat.com>
+
+	* config-lang.in (gtfiles): Add ada-tree.h.
+	* ada-tree.h (SET_TYPE_CI_CO_LIST): New.
+	(SET_TYPE_MODULUS): New.
+	(SET_TYPE_INDEX): New.
+	(SET_TYPE_DIGITS_VALUE): New.
+	(SET_TYPE_RM_SIZE): New.
+	(SET_TYPE_UNCONSTRAINED_ARRAY): New.
+	(SET_TYPE_ADA_SIZE): New.
+	(SET_TYPE_ACTUAL_BOUNDS): New.
+	(SET_DECL_CONST_CORRESPONDING_VAR): New.
+	(SET_DECL_ORIGINAL_FIELD): New.
+	(TREE_LOOP_ID): Correct typo.
+	* decl.c: Use new macros.
+	* utils.c: Include debug.h, use new macros.
+	* utils2.c: Use new macros.	
+
 2002-05-08  Geoffrey Keating  <geoffk@redhat.com>
 
 	* ada-tree.h: Update all macros for new tree description.

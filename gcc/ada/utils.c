@@ -33,6 +33,7 @@
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "debug.h"
 #include "convert.h"
 
 #include "ada.h"
@@ -843,7 +844,7 @@ finish_record_type (record_type, fieldlist, has_rep, defer_debug)
   /* Now set any of the values we've just computed that apply.  */
   if (! TYPE_IS_FAT_POINTER_P (record_type)
       && ! TYPE_CONTAINS_TEMPLATE_P (record_type))
-    TYPE_ADA_SIZE (record_type) = ada_size;
+    SET_TYPE_ADA_SIZE (record_type, ada_size);
 
 #ifdef ROUND_TYPE_SIZE
   size = ROUND_TYPE_SIZE (record_type, size, TYPE_ALIGN (record_type));
@@ -1153,7 +1154,7 @@ create_subprog_type (return_type, param_decl_list, cico_list,
       || TYPE_RETURNS_BY_REF_P (type) != returns_by_ref)
     type = copy_type (type);
 
-  TYPE_CI_CO_LIST (type) = cico_list;
+  SET_TYPE_CI_CO_LIST (type, cico_list);
   TYPE_RETURNS_UNCONSTRAINED_P (type) = returns_unconstrained;
   TYPE_RETURNS_STACK_DEPRESSED (type) = returns_with_dsp;
   TYPE_RETURNS_BY_REF_P (type) = returns_by_ref;
@@ -1201,7 +1202,7 @@ create_index_type (min, max, index)
   else if (TYPE_INDEX_TYPE (type) != 0)
     type = copy_type (type);
 
-  TYPE_INDEX_TYPE (type) = index;
+  SET_TYPE_INDEX_TYPE (type, index);
   return type;
 }
 
@@ -2628,7 +2629,7 @@ update_pointer_to (old_type, new_type)
 				  TREE_CHAIN (TYPE_FIELDS (ptr)), new_ref));
 
       for (var = TYPE_MAIN_VARIANT (ptr); var; var = TYPE_NEXT_VARIANT (var))
-	TYPE_UNCONSTRAINED_ARRAY (var) = new_type;
+	SET_TYPE_UNCONSTRAINED_ARRAY (var, new_type);
 
       TYPE_POINTER_TO (new_type) = TYPE_REFERENCE_TO (new_type)
 	= TREE_TYPE (new_type) = ptr;
