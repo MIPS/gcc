@@ -81,7 +81,7 @@ static void merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
 							  basic_block));
 static void merge_blocks_move_successor_nojumps PARAMS ((basic_block,
 							basic_block));
-static bool merge_blocks		PARAMS ((edge,basic_block,basic_block,
+static basic_block merge_blocks		PARAMS ((edge,basic_block,basic_block,
 						 int));
 static bool try_optimize_cfg		PARAMS ((int));
 static bool try_simplify_condjump	PARAMS ((basic_block));
@@ -805,14 +805,25 @@ merge_blocks_move_successor_nojumps (a, b)
 }
 
 /* Attempt to merge basic blocks that are potentially non-adjacent.
-   Return true iff the attempt succeeded.  */
+   Return NULL iff the attempt failed, otherwise return basic block
+   where cleanup_cfg should continue.  Because the merging commonly
+   moves basic block away or introduces another optimization
+   possiblity, return basic block just before B so cleanup_cfg don't
+   need to iterate.
 
-static bool
+   It may be good idea to return basic block before C in the case
+   C has been moved after B and originally appeared earlier in the
+   insn seqeunce, but we have no infromation available about the
+   relative ordering of these two.  Hopefully it is not too common.  */
+
+static basic_block
 merge_blocks (e, b, c, mode)
      edge e;
      basic_block b, c;
      int mode;
 {
+  basic_block next;
+
   /* Forbid creation of shared headers in case we have loop histograms attached.  */
   if (e->loop_histogram
       && (!e->src->pred || e->src->pred->pred_next || e->src->pred->loop_histogram))
@@ -825,7 +836,7 @@ merge_blocks (e, b, c, mode)
   if ((mode & CLEANUP_PRE_SIBCALL)
       && GET_CODE (c->head) == CODE_LABEL
       && tail_recursion_label_p (c->head))
-    return false;
+    return NULL;
 
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
@@ -838,7 +849,7 @@ merge_blocks (e, b, c, mode)
 	fprintf (rtl_dump_file, "Merged %d and %d without moving.\n",
 		 b_index, c_index);
 
-      return true;
+      return b->prev_bb == ENTRY_BLOCK_PTR ? b : b->prev_bb;
     }
 
   /* Otherwise we will need to move code around.  Do that only if expensive
@@ -854,7 +865,7 @@ merge_blocks (e, b, c, mode)
 	 been if B is a forwarder block and C has no fallthru edge, but
 	 that should be cleaned up by bb-reorder instead.  */
       if (FORWARDER_BLOCK_P (b) || FORWARDER_BLOCK_P (c))
-	return false;
+	return NULL;
 
       /* We must make sure to not munge nesting of lexical blocks,
 	 and loop notes.  This is done by squeezing out all the notes
@@ -872,6 +883,9 @@ merge_blocks (e, b, c, mode)
 
       b_has_incoming_fallthru = (tmp_edge != NULL);
       b_fallthru_edge = tmp_edge;
+      next = b->prev_bb;
+      if (next == c)
+	next = next->prev_bb;
 
       /* Otherwise, we're going to try to move C after B.  If C does
 	 not have an outgoing fallthru, then it can be moved
@@ -879,7 +893,7 @@ merge_blocks (e, b, c, mode)
       if (! c_has_outgoing_fallthru)
 	{
 	  merge_blocks_move_successor_nojumps (b, c);
-	  return true;
+          return next == ENTRY_BLOCK_PTR ? next->next_bb : next;
 	}
 
       /* If B does not have an incoming fallthru, then it can be moved
@@ -892,14 +906,14 @@ merge_blocks (e, b, c, mode)
 	  basic_block bb;
 
 	  if (b_fallthru_edge->src == ENTRY_BLOCK_PTR)
-	    return false;
+	    return NULL;
 	  bb = force_nonfallthru (b_fallthru_edge);
 	  if (bb)
 	    notice_new_block (bb);
 	}
 
       merge_blocks_move_predecessor_nojumps (b, c);
-      return true;
+      return next == ENTRY_BLOCK_PTR ? next->next_bb : next;
     }
 
   return false;
@@ -1265,10 +1279,84 @@ outgoing_edges_match (mode, bb1, bb2)
   /* Generic case - we are seeing a computed jump, table jump or trapping
      instruction.  */
 
+#ifndef CASE_DROPS_THROUGH
+  /* Check whether there are tablejumps in the end of BB1 and BB2.
+     Return true if they are identical.  */
+    {
+      rtx label1, label2;
+      rtx table1, table2;
+
+      if (tablejump_p (bb1->end, &label1, &table1)
+	  && tablejump_p (bb2->end, &label2, &table2)
+	  && GET_CODE (PATTERN (table1)) == GET_CODE (PATTERN (table2)))
+	{
+	  /* The labels should never be the same rtx.  If they really are same
+	     the jump tables are same too. So disable crossjumping of blocks BB1
+	     and BB2 because when deleting the common insns in the end of BB1
+	     by flow_delete_block () the jump table would be deleted too.  */
+	  /* If LABEL2 is referenced in BB1->END do not do anything
+	     because we would loose information when replacing
+	     LABEL1 by LABEL2 and then LABEL2 by LABEL1 in BB1->END.  */
+	  if (label1 != label2 && !rtx_referenced_p (label2, bb1->end))
+	    {
+	      /* Set IDENTICAL to true when the tables are identical.  */
+	      bool identical = false;
+	      rtx p1, p2;
+
+	      p1 = PATTERN (table1);
+	      p2 = PATTERN (table2);
+	      if (GET_CODE (p1) == ADDR_VEC && rtx_equal_p (p1, p2))
+		{
+		  identical = true;
+		}
+	      else if (GET_CODE (p1) == ADDR_DIFF_VEC
+		       && (XVECLEN (p1, 1) == XVECLEN (p2, 1))
+		       && rtx_equal_p (XEXP (p1, 2), XEXP (p2, 2))
+		       && rtx_equal_p (XEXP (p1, 3), XEXP (p2, 3)))
+		{
+		  int i;
+
+		  identical = true;
+		  for (i = XVECLEN (p1, 1) - 1; i >= 0 && identical; i--)
+		    if (!rtx_equal_p (XVECEXP (p1, 1, i), XVECEXP (p2, 1, i)))
+		      identical = false;
+		}
+
+	      if (identical)
+		{
+		  replace_label_data rr;
+		  bool match;
+
+		  /* Temporarily replace references to LABEL1 with LABEL2
+		     in BB1->END so that we could compare the instructions.  */
+		  rr.r1 = label1;
+		  rr.r2 = label2;
+		  rr.update_label_nuses = false;
+		  for_each_rtx (&bb1->end, replace_label, &rr);
+
+		  match = insns_match_p (mode, bb1->end, bb2->end);
+		  if (rtl_dump_file && match)
+		    fprintf (rtl_dump_file,
+			     "Tablejumps in bb %i and %i match.\n",
+			     bb1->index, bb2->index);
+
+		  /* Set the original label in BB1->END because when deleting
+		     a block whose end is a tablejump, the tablejump referenced
+		     from the instruction is deleted too.  */
+		  rr.r1 = label2;
+		  rr.r2 = label1;
+		  for_each_rtx (&bb1->end, replace_label, &rr);
+
+		  return match;
+		}
+	    }
+	  return false;
+	}
+    }
+#endif
+
   /* First ensure that the instructions match.  There may be many outgoing
-     edges so this test is generally cheaper.
-     ??? Currently the tablejumps will never match, as they do have
-     different tables.  */
+     edges so this test is generally cheaper.  */
   if (!insns_match_p (mode, bb1->end, bb2->end))
     return false;
 
@@ -1382,6 +1470,39 @@ try_crossjump_to_edge (mode, e1, e2)
   if (!nmatch)
     return false;
 
+#ifndef CASE_DROPS_THROUGH
+  /* Here we know that the insns in the end of SRC1 which are common with SRC2
+     will be deleted.
+     If we have tablejumps in the end of SRC1 and SRC2
+     they have been already compared for equivalence in outgoing_edges_match ()
+     so replace the references to TABLE1 by references to TABLE2.  */
+    {
+      rtx label1, label2;
+      rtx table1, table2;
+
+      if (tablejump_p (src1->end, &label1, &table1)
+	  && tablejump_p (src2->end, &label2, &table2)
+	  && label1 != label2)
+	{
+	  replace_label_data rr;
+	  rtx insn;
+
+	  /* Replace references to LABEL1 with LABEL2.  */
+	  rr.r1 = label1;
+	  rr.r2 = label2;
+	  rr.update_label_nuses = true;
+	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	    {
+	      /* Do not replace the label in SRC1->END because when deleting
+		 a block whose end is a tablejump, the tablejump referenced
+		 from the instruction is deleted too.  */
+	      if (insn != src1->end)
+		for_each_rtx (&insn, replace_label, &rr);
+	    }
+	}
+    }
+#endif
+  
   /* Avoid splitting if possible.  */
   if (newpos2 == src2->head)
     redirect_to = src2;
@@ -1609,7 +1730,7 @@ try_optimize_cfg (mode)
   bool changed_overall = false;
   bool changed;
   int iterations = 0;
-  basic_block bb, b;
+  basic_block bb, b, next;
 
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
@@ -1705,20 +1826,21 @@ try_optimize_cfg (mode)
 		  b = c;
 		}
 
-	      /* Merge blocks.  Loop because chains of blocks might be
-		 combineable.  */
-	      while ((s = b->succ) != NULL
-		     && s->succ_next == NULL
-		     && !(s->flags & EDGE_COMPLEX)
-		     && (c = s->dest) != EXIT_BLOCK_PTR
-		     && c->pred->pred_next == NULL
-		     && b != c
-		     /* If the jump insn has side effects,
-			we can't kill the edge.  */
-		     && (GET_CODE (b->end) != JUMP_INSN
-			 || simplejump_p (b->end))
-		     && merge_blocks (s, b, c, mode))
-		changed_here = true;
+	      if ((s = b->succ) != NULL
+		  && s->succ_next == NULL
+		  && !(s->flags & EDGE_COMPLEX)
+		  && (c = s->dest) != EXIT_BLOCK_PTR
+		  && c->pred->pred_next == NULL
+		  && b != c
+		  /* If the jump insn has side effects,
+		     we can't kill the edge.  */
+		  && (GET_CODE (b->end) != JUMP_INSN
+		      || simplejump_p (b->end))
+		  && (next = merge_blocks (s, b, c, mode)))
+	        {
+		  b = next;
+		  changed_here = true;
+		}
 
 	      /* Simplify branch over branch.  */
 	      if ((mode & CLEANUP_EXPENSIVE) && try_simplify_condjump (b))

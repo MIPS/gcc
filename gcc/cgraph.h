@@ -30,7 +30,11 @@ struct cgraph_local_info
   /* Set when function function is visiable in current compilation unit only
      and it's address is never taken.  */
   bool local;
+  /* Set when function is small enought to be inlinable many times.  */
   bool inline_many;
+  /* Set when function can be inlined once (false only for functions calling
+     alloca, using varargs and so on).  */
+  bool can_inline_once;
 };
 
 /* Information about the function that needs to be computed globally
@@ -38,8 +42,17 @@ struct cgraph_local_info
 
 struct cgraph_global_info
 {
-  /* Empty for the moment.  */
-  int dummy;
+  /* Set when the function will be inlined exactly once.  */
+  bool inline_once;
+};
+
+/* Information about the function that is propagated by the RTL backend.
+   Available only for functions that has been already assembled.  */
+
+struct cgraph_rtl_info
+{
+   bool const_function, pure_function;
+   int preferred_incoming_stack_boundary;
 };
 
 
@@ -51,7 +64,7 @@ struct cgraph_node
   tree decl;
   struct cgraph_edge *callees;
   struct cgraph_edge *callers;
-  struct cgraph_node *next;
+  struct cgraph_node *next, *previous;
   /* For nested functions points to function the node is nested in.  */
   struct cgraph_node *origin;
   /* Points to first nested function, if any.  */
@@ -74,6 +87,7 @@ struct cgraph_node
   bool output;
   struct cgraph_local_info local;
   struct cgraph_global_info global;
+  struct cgraph_rtl_info rtl;
 };
 
 struct cgraph_edge
@@ -90,11 +104,13 @@ extern bool cgraph_global_info_ready;
 /* In cgraph.c  */
 void dump_cgraph			PARAMS ((FILE *));
 void cgraph_remove_call			PARAMS ((tree, tree));
+void cgraph_remove_node			PARAMS ((struct cgraph_node *));
 struct cgraph_edge *cgraph_record_call	PARAMS ((tree, tree));
 struct cgraph_node *cgraph_node		PARAMS ((tree decl));
 bool cgraph_calls_p			PARAMS ((tree, tree));
 struct cgraph_local_info *cgraph_local_info PARAMS ((tree));
 struct cgraph_global_info *cgraph_global_info PARAMS ((tree));
+struct cgraph_rtl_info *cgraph_rtl_info PARAMS ((tree));
 
 /* In cgraphunit.c  */
 void cgraph_finalize_function		PARAMS ((tree, tree));

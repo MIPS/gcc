@@ -225,7 +225,7 @@ struct movable
   unsigned int is_equiv : 1;	/* 1 means a REG_EQUIV is present on INSN.  */
   unsigned int insert_temp : 1;  /* 1 means we copy to a new pseudo and replace
 				    the original insn with a copy from that
-				    pseudo, rather than deleting it. */
+				    pseudo, rather than deleting it.  */
   struct movable *match;	/* First entry for same value */
   struct movable *forces;	/* An insn that must be moved if this is */
   struct movable *next;
@@ -338,7 +338,6 @@ static void note_reg_stored PARAMS ((rtx, rtx, void *));
 static void try_copy_prop PARAMS ((const struct loop *, rtx, unsigned int));
 static void try_swap_copy_prop PARAMS ((const struct loop *, rtx,
 					 unsigned int));
-static int replace_label PARAMS ((rtx *, void *));
 static rtx check_insn_for_givs PARAMS((struct loop *, rtx, int, int));
 static rtx check_insn_for_bivs PARAMS((struct loop *, rtx, int, int));
 static rtx gen_add_mult PARAMS ((rtx, rtx, rtx, rtx));
@@ -362,12 +361,6 @@ void debug_biv PARAMS ((const struct induction *));
 void debug_giv PARAMS ((const struct induction *));
 void debug_loop PARAMS ((const struct loop *));
 void debug_loops PARAMS ((const struct loops *));
-
-typedef struct rtx_pair
-{
-  rtx r1;
-  rtx r2;
-} rtx_pair;
 
 typedef struct loop_replace_args
 {
@@ -846,7 +839,7 @@ scan_loop (loop, flags)
 		;
 	      /* Don't move the source and add a reg-to-reg copy with -Os
 		 (this certainly increases size) or if the source is
-		 already a reg (the motion will gain nothing). */
+		 already a reg (the motion will gain nothing).  */
 	      else if (insert_temp 
 		       && (optimize_size || GET_CODE (SET_SRC (set)) == REG
 			   || (CONSTANT_P (SET_SRC (set))
@@ -1977,7 +1970,7 @@ move_movables (loop, movables, threshold, insn_count)
 		      if (m->insert_temp)
 			{
 			  /* Replace the original insn with a move from
-			     our newly created temp. */
+			     our newly created temp.  */
 			  start_sequence ();
     			  emit_move_insn (m->set_dest, newreg);
 			  seq = get_insns ();
@@ -2221,7 +2214,7 @@ move_movables (loop, movables, threshold, insn_count)
 			{
 			  rtx seq;
 			  /* Replace the original insn with a move from
-			     our newly created temp. */
+			     our newly created temp.  */
 			  start_sequence ();
     			  emit_move_insn (m->set_dest, newreg);
 			  seq = get_insns ();
@@ -10127,22 +10120,14 @@ load_mems (loop)
     {
       /* Now, we need to replace all references to the previous exit
 	 label with the new one.  */
-      rtx_pair rr;
+      replace_label_data rr;
       rr.r1 = end_label;
       rr.r2 = label;
+      rr.update_label_nuses = true;
 
       for (p = loop->start; p != loop->end; p = NEXT_INSN (p))
 	{
 	  for_each_rtx (&p, replace_label, &rr);
-
-	  /* If this is a JUMP_INSN, then we also need to fix the JUMP_LABEL
-	     field.  This is not handled by for_each_rtx because it doesn't
-	     handle unprinted ('0') fields.  We need to update JUMP_LABEL
-	     because the immediately following unroll pass will use it.
-	     replace_label would not work anyways, because that only handles
-	     LABEL_REFs.  */
-	  if (GET_CODE (p) == JUMP_INSN && JUMP_LABEL (p) == end_label)
-	    JUMP_LABEL (p) = label;
 	}
     }
 
@@ -10471,35 +10456,6 @@ replace_loop_regs (insn, reg, replacement)
   args.replacement = replacement;
 
   for_each_rtx (&insn, replace_loop_reg, &args);
-}
-
-/* Replace occurrences of the old exit label for the loop with the new
-   one.  DATA is an rtx_pair containing the old and new labels,
-   respectively.  */
-
-static int
-replace_label (x, data)
-     rtx *x;
-     void *data;
-{
-  rtx l = *x;
-  rtx old_label = ((rtx_pair *) data)->r1;
-  rtx new_label = ((rtx_pair *) data)->r2;
-
-  if (l == NULL_RTX)
-    return 0;
-
-  if (GET_CODE (l) != LABEL_REF)
-    return 0;
-
-  if (XEXP (l, 0) != old_label)
-    return 0;
-
-  XEXP (l, 0) = new_label;
-  ++LABEL_NUSES (new_label);
-  --LABEL_NUSES (old_label);
-
-  return 0;
 }
 
 /* Emit insn for PATTERN after WHERE_INSN in basic block WHERE_BB

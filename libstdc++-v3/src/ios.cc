@@ -38,9 +38,6 @@
 #include <fstream>
 #include <bits/atomicity.h>
 #include <ext/stdio_filebuf.h>
-#ifdef _GLIBCPP_HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 
 namespace __gnu_cxx
 {
@@ -160,12 +157,7 @@ namespace std
   ios_base::Init::_S_ios_create(bool __sync)
   {
     size_t __out_size = __sync ? 0 : static_cast<size_t>(BUFSIZ);
-#ifdef _GLIBCPP_HAVE_ISATTY
-    size_t __in_size =
-      (__sync || isatty (0)) ? 1 : static_cast<size_t>(BUFSIZ);
-#else
-    size_t __in_size = 1;
-#endif
+    size_t __in_size = __sync ? 1 : static_cast<size_t>(BUFSIZ);
 
     // NB: The file globals.cc creates the four standard files
     // with NULL buffers. At this point, we swap out the dummy NULL
@@ -288,7 +280,6 @@ namespace std
     _M_width = 0;
     _M_flags = skipws | dec;
     _M_callbacks = 0;
-    _M_word_size = 0;
     _M_ios_locale = locale();
   }  
   
@@ -302,7 +293,8 @@ namespace std
     return __old;
   }
 
-  ios_base::ios_base() : _M_callbacks(0), _M_word(0), _M_locale_cache(0)
+  ios_base::ios_base() : _M_callbacks(0), _M_word_size(_S_local_word_size),
+			 _M_word(_M_local_word), _M_locale_cache(0)
   {
     // Do nothing: basic_ios::init() does it.  
     // NB: _M_callbacks and _M_word must be zero for non-initialized
@@ -314,7 +306,7 @@ namespace std
   {
     _M_call_callbacks(erase_event);
     _M_dispose_callbacks();
-    if (_M_word && _M_word != _M_local_word) 
+    if (_M_word != _M_local_word) 
       {
 	delete [] _M_word;
 	_M_word = 0;

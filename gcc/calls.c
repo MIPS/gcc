@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "langhooks.h"
 #include "target.h"
+#include "cgraph.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -795,17 +796,26 @@ flags_from_decl_or_type (exp)
 {
   int flags = 0;
   tree type = exp;
-  /* ??? We can't set IS_MALLOC for function types?  */
+
   if (DECL_P (exp))
     {
+      struct cgraph_rtl_info *i = cgraph_rtl_info (exp);
       type = TREE_TYPE (exp);
 
+      if (i)
+	{
+	  if (i->pure_function)
+	    flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
+	  if (i->const_function)
+	    flags |= ECF_CONST | ECF_LIBCALL_BLOCK;
+	}
+
       /* The function exp may have the `malloc' attribute.  */
-      if (DECL_P (exp) && DECL_IS_MALLOC (exp))
+      if (DECL_IS_MALLOC (exp))
 	flags |= ECF_MALLOC;
 
       /* The function exp may have the `pure' attribute.  */
-      if (DECL_P (exp) && DECL_IS_PURE (exp))
+      if (DECL_IS_PURE (exp))
 	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
 
       if (TREE_NOTHROW (exp))
@@ -2344,6 +2354,12 @@ expand_call (exp, target, ignore)
 
   /* Figure out the amount to which the stack should be aligned.  */
   preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  if (fndecl)
+    {
+      struct cgraph_rtl_info *i = cgraph_rtl_info (fndecl);
+      if (i && i->preferred_incoming_stack_boundary)
+	preferred_stack_boundary = i->preferred_incoming_stack_boundary;
+    }
 
   /* Operand 0 is a pointer-to-function; get the type of the function.  */
   funtype = TREE_TYPE (addr);
@@ -2559,7 +2575,7 @@ expand_call (exp, target, ignore)
 	  if (try_tail_recursion)
 	    actparms = tree_cons (NULL_TREE, args[i].tree_value, actparms);
 	}
-      /* Do the same for the function address if it is an expression. */
+      /* Do the same for the function address if it is an expression.  */
       if (!fndecl)
         addr = fix_unsafe_tree (addr);
       /* Expanding one of those dangerous arguments could have added
@@ -2630,6 +2646,8 @@ expand_call (exp, target, ignore)
   if (cfun->preferred_stack_boundary < preferred_stack_boundary
       && fndecl != current_function_decl)
     cfun->preferred_stack_boundary = preferred_stack_boundary;
+  if (fndecl == current_function_decl)
+    cfun->recursive_call_emit = true;
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 

@@ -1152,7 +1152,7 @@ build_component_ref (datum, component)
 	 end does it - by giving the anonymous entities each a
 	 separate name and type, and then have build_component_ref
 	 recursively call itself.  We can't do that here.  */
-      for (; field; field = TREE_CHAIN (field))
+      do
 	{
 	  tree subdatum = TREE_VALUE (field);
 
@@ -1169,7 +1169,10 @@ build_component_ref (datum, component)
 	    warn_deprecated_use (subdatum);
 
 	  datum = ref;
+
+	  field = TREE_CHAIN (field);
 	}
+      while (field);
 
       return ref;
     }
@@ -1409,6 +1412,11 @@ build_external_ref (id, fun)
 	}
       else
 	{
+	  /* Don't complain about something that's already been
+	     complained about.  */
+	  if (decl == error_mark_node)
+	    return error_mark_node;
+
 	  /* Reference to undeclared variable, including reference to
 	     builtin outside of function-call context.  */
 	  if (current_function_decl == 0)
@@ -1416,21 +1424,22 @@ build_external_ref (id, fun)
 		   IDENTIFIER_POINTER (id));
 	  else
 	    {
-	      if (IDENTIFIER_GLOBAL_VALUE (id) != error_mark_node
-		  || IDENTIFIER_ERROR_LOCUS (id) != current_function_decl)
-		{
-		  error ("`%s' undeclared (first use in this function)",
-			 IDENTIFIER_POINTER (id));
+	      error ("`%s' undeclared (first use in this function)",
+		     IDENTIFIER_POINTER (id));
 
-		  if (! undeclared_variable_notice)
-		    {
-		      error ("(Each undeclared identifier is reported only once");
-		      error ("for each function it appears in.)");
-		      undeclared_variable_notice = 1;
-		    }
+	      if (! undeclared_variable_notice)
+		{
+		  error ("(Each undeclared identifier is reported only once");
+		  error ("for each function it appears in.)");
+		  undeclared_variable_notice = 1;
 		}
-	      IDENTIFIER_GLOBAL_VALUE (id) = error_mark_node;
-	      IDENTIFIER_ERROR_LOCUS (id) = current_function_decl;
+
+	      /* Set IDENTIFIER_LOCAL_VALUE (id) to error_mark_node and
+		 add a function-scope shadow entry which will undo that.
+		 This suppresses further warnings about this undeclared
+		 identifier in this function.  */
+	      record_function_scope_shadow (id);
+	      IDENTIFIER_LOCAL_VALUE (id) = error_mark_node;
 	    }
 	  return error_mark_node;
 	}
@@ -2599,13 +2608,13 @@ c_tree_expr_nonnegative_p (t)
 {
   if (TREE_CODE (t) == STMT_EXPR)
     {
-      t=COMPOUND_BODY (STMT_EXPR_STMT (t));
+      t = COMPOUND_BODY (STMT_EXPR_STMT (t));
 
       /* Find the last statement in the chain, ignoring the final
 	     * scope statement */
       while (TREE_CHAIN (t) != NULL_TREE 
              && TREE_CODE (TREE_CHAIN (t)) != SCOPE_STMT)
-        t=TREE_CHAIN (t);
+        t = TREE_CHAIN (t);
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
     }
   return tree_expr_nonnegative_p (t);

@@ -31,31 +31,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    assume the user knows what they're doing.  If no explicit input is
    mentioned, it will read stdin.  */
 
-/* Snarfed from gcc.c: */
-
-/* This defines which switch letters take arguments.  */
-
-#define DEFAULT_SWITCH_TAKES_ARG(CHAR) \
-  ((CHAR) == 'D' || (CHAR) == 'U' || (CHAR) == 'o' \
-   || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u' \
-   || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x' \
-   || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V' \
-   || (CHAR) == 'B' || (CHAR) == 'b')
-
 #ifndef SWITCH_TAKES_ARG
 #define SWITCH_TAKES_ARG(CHAR) DEFAULT_SWITCH_TAKES_ARG(CHAR)
 #endif
-
-/* This defines which multi-letter switches take arguments.  */
-
-#define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		\
- (!strcmp (STR, "Tdata") || !strcmp (STR, "Ttext")	\
-  || !strcmp (STR, "Tbss") || !strcmp (STR, "include")	\
-  || !strcmp (STR, "imacros") || !strcmp (STR, "aux-info") \
-  || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
-  || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
-  || !strcmp (STR, "isystem") || !strcmp (STR, "specs") \
-  || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
 
 #ifndef WORD_SWITCH_TAKES_ARG
 #define WORD_SWITCH_TAKES_ARG(STR) DEFAULT_WORD_SWITCH_TAKES_ARG (STR)
@@ -86,9 +64,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
   /* Do we need to insert -E? */
   int need_E = 1;
-
-  /* Do we need to insert -no-gcc? */
-  int need_no_gcc = 1;
 
   /* Have we seen an input file? */
   int seen_input = 0;
@@ -144,8 +119,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    }
 	  else if (argv[i][1] == 'x')
 	    need_fixups = 0;
-	  else if (argv[i][1] == 'g' && !strcmp(&argv[i][2], "cc"))
-	    need_no_gcc = 0;
 	  else if (WORD_SWITCH_TAKES_ARG (&argv[i][1]))
 	    quote = 1;
 	}
@@ -194,7 +167,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
   /* If we don't need to edit the command line, we can bail early.  */
 
-  new_argc = argc + need_E + need_no_gcc + read_stdin
+  new_argc = argc + need_E + read_stdin
     + !!o_here + !!lang_c_here + !!lang_S_here;
 
   if (new_argc == argc)
@@ -208,9 +181,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 
   if (need_E)
     new_argv[j++] = "-E";
-
-  if (need_no_gcc)
-    new_argv[j++] = "-no-gcc";
 
   for (i = 1; i < argc; i++, j++)
     {

@@ -40,6 +40,7 @@ void test01()
 
 void test02(std::stringbuf& in, bool pass)
 {
+  bool test = true;
   using namespace std;
   typedef streambuf::pos_type pos_type;
   typedef streambuf::off_type off_type;
@@ -160,7 +161,7 @@ int main()
   test02(in2, false);
   test02(in3, false);
 
-  test08();
+  __gnu_cxx_test::run_test_wrapped_generic_locale_exception_catcher(test08);
   test09();
   return 0;
 }

@@ -5629,7 +5629,9 @@
   [(return)
    (clobber (reg:SI 1))
    (use (reg:SI 2))]
-  "!TARGET_NO_SPACE_REGS && flag_pic && current_function_calls_eh_return"
+  "!TARGET_NO_SPACE_REGS
+   && !TARGET_PA_20
+   && flag_pic && current_function_calls_eh_return"
   "ldsid (%%sr0,%%r2),%%r1\;mtsp %%r1,%%sr0\;be%* 0(%%sr0,%%r2)"
   [(set_attr "type" "branch")
    (set_attr "length" "12")])
@@ -5668,6 +5670,7 @@
 	 This is only a problem for returns from shared code on ports
 	 using space registers.  */
       if (!TARGET_NO_SPACE_REGS
+	  && !TARGET_PA_20
 	  && flag_pic && current_function_calls_eh_return)
 	x = gen_return_external_pic ();
       else
@@ -5886,9 +5889,26 @@
     op = XEXP (operands[0], 0);
 
   if (TARGET_64BIT)
-    emit_move_insn (arg_pointer_rtx,
-		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
-				  GEN_INT (64)));
+    {
+      if (!virtuals_instantiated)
+	emit_move_insn (arg_pointer_rtx,
+			gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				      GEN_INT (64)));
+      else
+	{
+	  /* The loop pass can generate new libcalls after the virtual
+	     registers are instantiated when fpregs are disabled because
+	     the only method that we have for doing DImode multiplication
+	     is with a libcall.  This could be trouble if we haven't
+	     allocated enough space for the outgoing arguments.  */
+	  if (INTVAL (nb) > current_function_outgoing_args_size)
+	    abort ();
+
+	  emit_move_insn (arg_pointer_rtx,
+			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+					GEN_INT (STACK_POINTER_OFFSET + 64)));
+	}
+    }
 
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
@@ -6369,9 +6389,26 @@
     op = XEXP (operands[1], 0);
 
   if (TARGET_64BIT)
-    emit_move_insn (arg_pointer_rtx,
-		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
-				  GEN_INT (64)));
+    {
+      if (!virtuals_instantiated)
+	emit_move_insn (arg_pointer_rtx,
+			gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				      GEN_INT (64)));
+      else
+	{
+	  /* The loop pass can generate new libcalls after the virtual
+	     registers are instantiated when fpregs are disabled because
+	     the only method that we have for doing DImode multiplication
+	     is with a libcall.  This could be trouble if we haven't
+	     allocated enough space for the outgoing arguments.  */
+	  if (INTVAL (nb) > current_function_outgoing_args_size)
+	    abort ();
+
+	  emit_move_insn (arg_pointer_rtx,
+			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+					GEN_INT (STACK_POINTER_OFFSET + 64)));
+	}
+    }
 
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
@@ -6865,15 +6902,32 @@
   "!TARGET_PORTABLE_RUNTIME"
   "
 {
-  rtx op;
-  rtx call_insn;
+  rtx op, call_insn;
+  rtx nb = operands[1];
 
   op = XEXP (operands[0], 0);
 
   if (TARGET_64BIT)
-    emit_move_insn (arg_pointer_rtx,
-		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
-				  GEN_INT (64)));
+    {
+      if (!virtuals_instantiated)
+	emit_move_insn (arg_pointer_rtx,
+			gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				      GEN_INT (64)));
+      else
+	{
+	  /* The loop pass can generate new libcalls after the virtual
+	     registers are instantiated when fpregs are disabled because
+	     the only method that we have for doing DImode multiplication
+	     is with a libcall.  This could be trouble if we haven't
+	     allocated enough space for the outgoing arguments.  */
+	  if (INTVAL (nb) > current_function_outgoing_args_size)
+	    abort ();
+
+	  emit_move_insn (arg_pointer_rtx,
+			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+					GEN_INT (STACK_POINTER_OFFSET + 64)));
+	}
+    }
 
   /* Indirect sibling calls are not allowed.  */
   if (TARGET_64BIT)
@@ -6930,15 +6984,32 @@
   "!TARGET_PORTABLE_RUNTIME"
   "
 {
-  rtx op;
-  rtx call_insn;
+  rtx op, call_insn;
+  rtx nb = operands[1];
 
   op = XEXP (operands[1], 0);
 
   if (TARGET_64BIT)
-    emit_move_insn (arg_pointer_rtx,
-		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
-				  GEN_INT (64)));
+    {
+      if (!virtuals_instantiated)
+	emit_move_insn (arg_pointer_rtx,
+			gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
+				      GEN_INT (64)));
+      else
+	{
+	  /* The loop pass can generate new libcalls after the virtual
+	     registers are instantiated when fpregs are disabled because
+	     the only method that we have for doing DImode multiplication
+	     is with a libcall.  This could be trouble if we haven't
+	     allocated enough space for the outgoing arguments.  */
+	  if (INTVAL (nb) > current_function_outgoing_args_size)
+	    abort ();
+
+	  emit_move_insn (arg_pointer_rtx,
+			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+					GEN_INT (STACK_POINTER_OFFSET + 64)));
+	}
+    }
 
   /* Indirect sibling calls are not allowed.  */
   if (TARGET_64BIT)

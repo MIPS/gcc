@@ -1297,6 +1297,35 @@ regclass (f, nregs, dump)
 	  if (optimize && !REG_N_REFS (i) && !REG_N_SETS (i))
 	    continue;
 
+	  /* Try the common case (that is, all cheapest classes are
+	     allowed) first.  */
+
+	  for (class = 1; class < (int) ALL_REGS; class++)
+	    {
+	      if (p->cost[class] < best_cost)
+		{
+		  best_cost = p->cost[class];
+		  best = (enum reg_class) class;
+		}
+	      else if (p->cost[class] == best_cost)
+		best = reg_class_subunion[(int) best][class];
+	    }
+	  if (!contains_reg_of_mode[(int) best][PSEUDO_REGNO_MODE (i)]
+#ifdef FORBIDDEN_INC_DEC_CLASSES
+	      || (in_inc_dec[i] && forbidden_inc_dec_class[(int) best])
+#endif
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	      || invalid_mode_change_p (i, best, PSEUDO_REGNO_MODE (i))
+#endif
+		  )
+		;
+	  else
+	    goto found_best;
+
+	  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
+	  best = ALL_REGS;
+
+
 	  for (class = (int) ALL_REGS - 1; class > 0; class--)
 	    {
 	      /* Ignore classes that are too small for this operand or
@@ -1319,6 +1348,8 @@ regclass (f, nregs, dump)
 	      else if (p->cost[class] == best_cost)
 		best = reg_class_subunion[(int) best][class];
 	    }
+
+found_best:
 
 	  /* Record the alternate register class; i.e., a class for which
 	     every register in it is better than using memory.  If adding a

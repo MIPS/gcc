@@ -45,7 +45,7 @@ static void copy_bbs			PARAMS ((basic_block *, int, edge,
 static void remove_bbs			PARAMS ((dominance_info, basic_block *,
 						int));
 static bool rpe_enum_p			PARAMS ((basic_block, void *));
-static int find_branch			PARAMS ((edge, dominance_info,
+static int find_path			PARAMS ((edge, dominance_info,
 						basic_block **));
 static bool alp_enum_p			PARAMS ((basic_block, void *));
 static void add_loop			PARAMS ((struct loops *, struct loop *));
@@ -133,9 +133,14 @@ remove_bbs (dom, bbs, nbbs)
     }
 }
 
-/* Find branch beginning at Edge and put it into BBS.  */
+/* Find path -- i.e. the basic blocks dominated by edge E and put them
+   into array BBS, that will be allocated large enough to contain them.
+   E->dest must have exactly one predecessor for this to work (it is
+   easy to achieve and we do not put it here because we do not want to
+   alter anything by this function).  The number of basic blocks in the
+   path is returned.  */
 static int
-find_branch (e, doms, bbs)
+find_path (e, doms, bbs)
      edge e;
      dominance_info doms;
      basic_block **bbs;
@@ -145,7 +150,7 @@ find_branch (e, doms, bbs)
   if (e->dest->pred->pred_next)
     abort ();
 
-  /* Find bbs we are interested in.  */
+  /* Find bbs in the path.  */
   rpe.dom = e->dest;
   rpe.doms = doms;
   *bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -277,7 +282,7 @@ fix_bb_placements (loops, from)
 }
 
 /* Basic block from has lost one or more of its predecessors, so it might
-   no longer be part irreducible loop.  Fix it and proceed recursively
+   mo longer be part irreducible loop.  Fix it and proceed recursively
    for its successors if needed.  */
 static void
 fix_irreducible_loops (from)
@@ -345,7 +350,10 @@ fix_irreducible_loops (from)
   free (stack);
 }
 
-/* Removes path beginning at E.  */
+/* Removes path beginning at edge E, i.e. remove basic blocks dominated by E
+   and update loop structure stored in LOOPS and dominators.  Return true if
+   we were able to remove the path, false otherwise (and nothing is affected
+   then).  */
 bool
 remove_path (loops, e)
      struct loops *loops;
@@ -375,8 +383,8 @@ remove_path (loops, e)
 			    e->src->loop_father->latch, e->dest))
     unloop (loops, e->src->loop_father);
   
-  /* Identify the branch.  */
-  nrem = find_branch (e, loops->cfg.dom, &rem_bbs);
+  /* Identify the path.  */
+  nrem = find_path (e, loops->cfg.dom, &rem_bbs);
 
   /* Find blocks whose immediate dominators may be affected.  */
   n_dom_bbs = 0;
@@ -413,7 +421,8 @@ remove_path (loops, e)
   remove_bbs (loops->cfg.dom, rem_bbs, nrem);
   free (rem_bbs);
 
-  /* Find blocks with affected dominators.  */
+  /* Find blocks whose dominators may be affected.  */
+  n_dom_bbs = 0;
   sbitmap_zero (seen);
   for (i = 0; i < n_bord_bbs; i++)
     {
@@ -444,7 +453,8 @@ remove_path (loops, e)
     fix_irreducible_loops (bord_bbs[i]);
   free (bord_bbs);
 
-  /* Fix placements of basic blocks inside loops.  */
+  /* Fix placements of basic blocks inside loops and the placement of
+     loops in the loop tree.  */
   fix_bb_placements (loops, from);
 
   /* Fix loop placements.  */
@@ -675,8 +685,10 @@ unloop (loops, loop)
   free (edges);
 }
 
-/* Move LOOP up the hierarchy while it is not backward reachable from the
-   latch of the outer loop.  */
+/* Fix placement of LOOP inside loop tree, i.e. find the innermost superloop
+   FATHER of LOOP such that all of the edges comming out of LOOP belong to
+   FATHER, and set it as outer loop of LOOP.  Return 1 if placement of
+   LOOP changed.  */
 int
 fix_loop_placement (loop)
      struct loop *loop;
@@ -870,7 +882,8 @@ loop_delete_branch_edge (e, really_delete)
     }
   else
     {
-      /* Cannot happen -- we are duplicating loop! */
+      /* Cannot happen -- we are using this only to remove an edge
+	 from branch.  */
       abort ();
     }
 
@@ -1428,7 +1441,7 @@ create_preheader (loop, dom, flags)
 
   add_to_dominance_info (dom, fallthru->dest);
   
-  /* Redirect edges. */
+  /* Redirect edges.  */
   for (e = dummy->pred; e; e = e->pred_next)
     {
       src = e->src;

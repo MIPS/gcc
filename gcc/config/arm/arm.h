@@ -550,32 +550,38 @@ extern enum prog_mode_type arm_prgmode;
 
 /* What sort of floating point unit do we have? Hardware or software.
    If software, is it issue 2 or issue 3?  */
-enum floating_point_type
+enum fputype
 {
-  FP_HARD,
-  FP_SOFT2,
-  FP_SOFT3,
-  FP_CIRRUS
+  /* Software floating point, FPA style double fmt.  */
+  FPUTYPE_SOFT_FPA,
+  /* Full FPA support.  */
+  FPUTYPE_FPA,
+  /* Emulated FPA hardware, Issue 2 emulator (no LFM/SFM).  */
+  FPUTYPE_FPA_EMU2,
+  /* Emulated FPA hardware, Issue 3 emulator.  */
+  FPUTYPE_FPA_EMU3,
+  /* Cirrus Maverick floating point co-processor.  */
+  FPUTYPE_MAVERICK
 };
 
 /* Recast the floating point class to be the floating point attribute.  */
-#define arm_fpu_attr ((enum attr_fpu) arm_fpu)
+#define arm_fpu_attr ((enum attr_fpu) arm_fpu_tune)
 
 /* What type of floating point to tune for */
-extern enum floating_point_type arm_fpu;
+extern enum fputype arm_fpu_tune;
 
 /* What type of floating point instructions are available */
-extern enum floating_point_type arm_fpu_arch;
+extern enum fputype arm_fpu_arch;
 
 /* Default floating point architecture.  Override in sub-target if
    necessary.  */
-#ifndef FP_DEFAULT
-#define FP_DEFAULT FP_SOFT2
+#ifndef FPUTYPE_DEFAULT
+#define FPUTYPE_DEFAULT FPUTYPE_FPA_EMU2
 #endif
 
 #if TARGET_CPU_DEFAULT == TARGET_CPU_ep9312
-#undef  FP_DEFAULT
-#define FP_DEFAULT FP_CIRRUS
+#undef  FPUTYPE_DEFAULT
+#define FPUTYPE_DEFAULT FPUTYPE_MAVERICK
 #endif
 
 /* Nonzero if the processor has a fast multiply insn, and one that does
@@ -1002,8 +1008,8 @@ extern const char * structure_size_string;
 #define IS_CIRRUS_REGNUM(REGNUM) \
   (((REGNUM) >= FIRST_CIRRUS_FP_REGNUM) && ((REGNUM) <= LAST_CIRRUS_FP_REGNUM))
 
-/* The number of hard registers is 16 ARM + 8 FPU + 1 CC + 1 SFP.  */
-/* Cirrus registers take us up to 43... */
+/* The number of hard registers is 16 ARM + 8 FPA + 1 CC + 1 SFP + 1 AFP.  */
+/* + 16 Cirrus registers take us up to 43.  */
 #define FIRST_PSEUDO_REGISTER	43
 
 /* Value should be nonzero if functions must have frame pointers.
@@ -1021,7 +1027,7 @@ extern const char * structure_size_string;
    This is ordinarily the length in words of a value of mode MODE
    but can be less for certain modes in special long registers.
 
-   On the ARM regs are UNITS_PER_WORD bits wide; FPU regs can hold any FP
+   On the ARM regs are UNITS_PER_WORD bits wide; FPA regs can hold any FP
    mode.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)  	\
   ((TARGET_ARM 				\
@@ -1066,12 +1072,12 @@ extern const char * structure_size_string;
 
 /* Register and constant classes.  */
 
-/* Register classes: used to be simple, just all ARM regs or all FPU regs
+/* Register classes: used to be simple, just all ARM regs or all FPA regs
    Now that the Thumb is involved it has become more complicated.  */
 enum reg_class
 {
   NO_REGS,
-  FPU_REGS,
+  FPA_REGS,
   CIRRUS_REGS,
   LO_REGS,
   STACK_REG,
@@ -1089,7 +1095,7 @@ enum reg_class
 #define REG_CLASS_NAMES  \
 {			\
   "NO_REGS",		\
-  "FPU_REGS",		\
+  "FPA_REGS",		\
   "CIRRUS_REGS",	\
   "LO_REGS",		\
   "STACK_REG",		\
@@ -1106,7 +1112,7 @@ enum reg_class
 #define REG_CLASS_CONTENTS  		\
 {					\
   { 0x00000000, 0x0 },        /* NO_REGS  */	\
-  { 0x00FF0000, 0x0 },        /* FPU_REGS */	\
+  { 0x00FF0000, 0x0 },        /* FPA_REGS */	\
   { 0xF8000000, 0x000007FF }, /* CIRRUS_REGS */	\
   { 0x000000FF, 0x0 },        /* LO_REGS */	\
   { 0x00002000, 0x0 },        /* STACK_REG */	\
@@ -1143,10 +1149,10 @@ enum reg_class
 #define SMALL_REGISTER_CLASSES   TARGET_THUMB
 
 /* Get reg_class from a letter such as appears in the machine description.
-   We only need constraint `f' for FPU_REGS (`r' == GENERAL_REGS) for the
+   We only need constraint `f' for FPA_REGS (`r' == GENERAL_REGS) for the
    ARM, but several more letters for the Thumb.  */
 #define REG_CLASS_FROM_LETTER(C)  	\
-  (  (C) == 'f' ? FPU_REGS		\
+  (  (C) == 'f' ? FPA_REGS		\
    : (C) == 'v' ? CIRRUS_REGS		\
    : (C) == 'l' ? (TARGET_ARM ? GENERAL_REGS : LO_REGS)	\
    : TARGET_ARM ? NO_REGS		\
@@ -1190,11 +1196,11 @@ enum reg_class
   (TARGET_ARM ?								\
    CONST_OK_FOR_ARM_LETTER (VALUE, C) : CONST_OK_FOR_THUMB_LETTER (VALUE, C))
      
-/* Constant letter 'G' for the FPU immediate constants. 
+/* Constant letter 'G' for the FPA immediate constants. 
    'H' means the same constant negated.  */
 #define CONST_DOUBLE_OK_FOR_ARM_LETTER(X, C)			\
-    ((C) == 'G' ? const_double_rtx_ok_for_fpu (X) :		\
-     (C) == 'H' ? neg_const_double_rtx_ok_for_fpu (X) : 0)
+    ((C) == 'G' ? const_double_rtx_ok_for_fpa (X) :		\
+     (C) == 'H' ? neg_const_double_rtx_ok_for_fpa (X) : 0)
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(X, C)			\
   (TARGET_ARM ?							\
@@ -1364,18 +1370,18 @@ enum reg_class
   
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
-   ARM regs are UNITS_PER_WORD bits while FPU regs can hold any FP mode */
+   ARM regs are UNITS_PER_WORD bits while FPA regs can hold any FP mode */
 #define CLASS_MAX_NREGS(CLASS, MODE)  \
-  (((CLASS) == FPU_REGS || (CLASS) == CIRRUS_REGS) ? 1 : ARM_NUM_REGS (MODE))
+  (((CLASS) == FPA_REGS || (CLASS) == CIRRUS_REGS) ? 1 : ARM_NUM_REGS (MODE))
 
 /* If defined, gives a class of registers that cannot be used as the
    operand of a SUBREG that changes the mode of the object illegally.  */
 
-/* Moves between FPU_REGS and GENERAL_REGS are two memory insns.  */
+/* Moves between FPA_REGS and GENERAL_REGS are two memory insns.  */
 #define REGISTER_MOVE_COST(MODE, FROM, TO)		\
   (TARGET_ARM ?						\
-   ((FROM) == FPU_REGS && (TO) != FPU_REGS ? 20 :	\
-    (FROM) != FPU_REGS && (TO) == FPU_REGS ? 20 :	\
+   ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :	\
+    (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :	\
     (FROM) == CIRRUS_REGS && (TO) != CIRRUS_REGS ? 20 :	\
     (FROM) != CIRRUS_REGS && (TO) == CIRRUS_REGS ? 20 :	\
    2)							\
@@ -2508,8 +2514,8 @@ extern int making_const_table;
   {"arm_hard_register_operand", {REG}},					\
   {"f_register_operand", {SUBREG, REG}},				\
   {"arm_add_operand",    {SUBREG, REG, CONST_INT}},			\
-  {"fpu_add_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
-  {"fpu_rhs_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
+  {"fpa_add_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
+  {"fpa_rhs_operand",    {SUBREG, REG, CONST_DOUBLE}},			\
   {"arm_rhs_operand",    {SUBREG, REG, CONST_INT}},			\
   {"arm_not_operand",    {SUBREG, REG, CONST_INT}},			\
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\

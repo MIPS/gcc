@@ -302,8 +302,25 @@ build_base_path (enum tree_code code,
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
          V_BINFO.  That offset is an entry in D_BINFO's vtable.  */
-      tree v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
-					TREE_TYPE (TREE_TYPE (expr)));
+      tree v_offset;
+
+      if (fixed_type_p < 0 && in_base_initializer)
+	{
+	  /* In a base member initializer, we cannot rely on
+	     the vtable being set up. We have to use the vtt_parm.  */
+	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
+	  
+	  v_offset = build (PLUS_EXPR, TREE_TYPE (current_vtt_parm),
+			    current_vtt_parm, BINFO_VPTR_INDEX (derived));
+	  
+	  v_offset = build1 (INDIRECT_REF,
+			     TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived))),
+			     v_offset);
+	  
+	}
+      else
+	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
+				     TREE_TYPE (TREE_TYPE (expr)));
       
       v_offset = build (PLUS_EXPR, TREE_TYPE (v_offset),
 			v_offset,  BINFO_VPTR_FIELD (v_binfo));
@@ -2524,11 +2541,19 @@ get_basefndecls (tree name, tree t)
   int n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
   int i;
 
-  for (methods = TYPE_METHODS (t); methods; methods = TREE_CHAIN (methods))
-    if (TREE_CODE (methods) == FUNCTION_DECL
-	&& DECL_VINDEX (methods) != NULL_TREE
-	&& DECL_NAME (methods) == name)
-      base_fndecls = tree_cons (NULL_TREE, methods, base_fndecls);
+  /* Find virtual functions in T with the indicated NAME.  */
+  i = lookup_fnfields_1 (t, name);
+  if (i != -1)
+    for (methods = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), i);
+	 methods;
+	 methods = OVL_NEXT (methods))
+      {
+	tree method = OVL_CURRENT (methods);
+
+	if (TREE_CODE (method) == FUNCTION_DECL
+	    && DECL_VINDEX (method))
+	  base_fndecls = tree_cons (NULL_TREE, method, base_fndecls);
+      }
 
   if (base_fndecls)
     return base_fndecls;

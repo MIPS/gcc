@@ -1,3 +1,388 @@
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedOutputStream.java,
+	java/io/DataInput.java,
+	java/io/DataInputStream.java,
+	java/io/DataOutput.java,
+	java/io/Externalizable.java:
+	More merges from classpath.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Fixed links to platform dependant java.net files.
+	* configure: Regenerated.
+	* java/net/natInetAddress.cc,
+	java/net/natNetworkInterface.cc,
+	java/net/natPlainDatagramSocketImpl.cc,
+	java/net/natPlainSocketImpl.cc:
+	Removed.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Create links to architecture dependent files,
+	introduced PLATFORMNET variable (set to NoNet for newlib usage).
+	* configure: Regenerated.
+	* java/net/natInetAddressNoNet.cc,
+	java/net/natInetAddressPosix.cc,
+	java/net/natInetAddressWin32.cc,
+	java/net/natNetworkInterfaceNoNet.cc,
+	java/net/natNetworkInterfacePosix.cc,
+	java/net/natNetworkInterfaceWin32.cc,
+	java/net/natPlainDatagramSocketImplNoNet.cc,
+	java/net/natPlainDatagramSocketImplPosix.cc,
+	java/net/natPlainDatagramSocketImplWin32.cc,
+	java/net/natPlainSocketImplNoNet.cc,
+	java/net/natPlainSocketImplPosix.cc,
+	java/net/natPlainSocketImplWin32.cc: New files.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedReader.java,
+	java/io/BufferedWriter.java,
+	java/io/ByteArrayOutputStream.java,
+	java/io/FileFilter.java,
+	java/io/FilePermission.java,
+	java/io/FileReader.java,
+	java/io/FileWriter.java,
+	java/io/FilenameFilter.java,
+	java/io/FilterInputStream.java,
+	java/io/FilterOutputStream.java,
+	java/io/FilterReader.java,
+	java/io/FilterWriter.java,
+	java/io/ObjectInput.java,
+	java/io/ObjectInputValidation.java,
+	java/io/ObjectOutput.java,
+	java/io/ObjectStreamField.java,
+	java/io/PipedInputStream.java,
+	java/io/PipedReader.java,
+	java/io/PrintWriter.java,
+	java/io/PushbackReader.java,
+	java/io/Reader.java,
+	java/io/SerializablePermission.java,
+	java/io/StringReader.java,
+	java/io/Writer.java:
+	Merged from classpath.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/ScrollPaneAdjustable.java:
+	Compile fixes.
+	
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(connect): Fixed comment.
+	* java/nio/ByteBuffer.java
+	(hasArray): Fixed comment.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java:
+	Explicitely import classes not packages.
+	* java/beans/FeatureDescriptor.java
+	(preferred): New member variable.
+	(isPreferred): New method.
+	(setPreferred): New method.
+	* java/beans/PropertyEditorManager.java:
+	Explicitely import used classes.
+	* java/beans/beancontext/BeanContextChild.java:
+	Added line wrapping.
+	* java/beans/beancontext/BeanContextChildSupport.java:
+	Reindented.
+	* java/beans/beancontext/BeanContextEvent.java:
+	Reindented.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Dialog.java
+	(Dialog): New constructor, changed implementations, added
+	documentation.
+	* java/awt/ScrollPaneAdjustable.java
+	(ScrollPaneAdjustable): Extends Object, implements Adjustable and
+	Serializable.
+	(serialVersionUID): New member variable.
+	(sp): New member variable.
+	(orientation): New member variable.
+	(value): New member variable.
+	(minimum): New member variable.
+	(maximum): New member variable.
+	(visibleAmount): New member variable.
+	(unitIncrement): New member variable.
+	(blockIncrement): New member variable.
+	(AdjustmentListener): New member variable.
+	(ScrollPaneAdjustable): New implementation.
+	(addAdjustmentListener): New method.
+	(removeAdjustmentListener): New method.
+	(getAdjustmentListeners): New method.
+	(getBlockIncrement): New method.
+	(getMaximum): New method.
+	(getMinimum): New method.
+	(getOrientation): New method.
+	(getUnitIncrement): New method.
+	(getValue): New method.
+	(getVisibleAmount): New method.
+	(setBlockIncrement): New method.
+	(setMaximum): Implemented.
+	(setMinimum): Implemented.
+	(setUnitIncrement): New method.
+	(setValue): New method.
+	(setVisibleAmount): Implemented. 
+	(paramString): New stubbed method.
+	* java/awt/Window.java
+	(show): Call setVisible().
+	(hide): Call setVisible().
+	(processEvent): Add cases for WINDOW_GAINED_FOCUS, WINDOW_LOST_FOCUS
+	and WINDOW_STATE_CHANGED.
+	(processWindowFocusEvent): New method.
+	(processWindowStateEvent): New method.
+	(postEvent): Deprecated.
+	(applyResourceBundle): Deprecated.
+	* java/awt/datatransfer/DataFlavor.java
+	(DataFlavor): Doesn't thow ClassNotFoundException.
+
+2003-03-17  Michael Koch
+
+	* javax/print/attribute/Attribute.java,
+	javax/print/attribute/AttributeSet.java,
+	javax/print/attribute/PrintRequestAttributeSet.java:
+	New files.
+	* Makefile.am
+	(javax_source_files): Added new files:
+	javax/print/attribute/Attribute.java
+	javax/print/attribute/AttributeSet.java
+	javax/print/attribute/PrintRequestAttributeSet.java
+	* Makefile.in: Regenerated.
+
+2003-03-17  Michael Koch
+
+	* javax/print/attribute/Attribute.java,
+	javax/print/attribute/AttributeSet.java,
+	javax/print/attribute/PrintRequestAttributeSet.java:
+	New files.
+	* Makefile.am
+	(awt_java_source_files): Added new files:
+	javax/print/attribute/Attribute.java
+	javax/print/attribute/AttributeSet.java
+	javax/print/attribute/PrintRequestAttributeSet.java
+	* Makefile.in: Regenerated.
+
+2003-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* resolve.cc (ncode): Use _Jv_platform_ffi_abi.
+	Include platform.h.
+	* java/lang/natRuntime.cc (insertSystemProperties): Use
+	_Jv_platform_path_separator.
+	(nativeGetLibname): Use _Jv_platform_file_separator.
+	(_load): Use _Jv_platform_onload_names.
+	(onload_names): New global.
+	* include/win32.h (_Jv_platform_file_separator): New define.
+	(_Jv_platform_path_separator): Likewise.
+	(_Jv_platform_onload_names): Likewise.
+	(_Jv_platform_ffi_abi): Likewise.
+	* include/posix.h (_Jv_platform_file_separator): New define.
+	(_Jv_platform_path_separator): Likewise.
+	(_Jv_platform_onload_names): Likewise.
+	(_Jv_platform_ffi_abi): Likewise.
+
+2003-03-14  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* java/lang/natObject.cc (JV_SYNC_HASH): replace signed % by &.
+
+2003-02-14  Jeroen Frijters  <jeroen@sumatra.nl>
+
+	* java/io/ObjectInputStream.java (readObject): Cleaned up the class
+	hierarchy loop.
+	(readFields(Object,ObjectStreamField[],boolean)): Changed argument
+	list to Object,ObjectStreamClass, moved callReadMethod code up into
+	readObject and added Class argument to all setXxxField calls.
+	(callReadMethod): Changed Class argument to ObjectStreamClass to be
+	consistent with ObjectOutputStream and to facilitate caching the
+	Method in the future.
+	(setBooleanField): Added Class argument.
+	(setByteField): Likewise.
+	(setCharField): Likewise.
+	(setDoubleField): Likewise.
+	(setFloatField): Likewise.
+	(setIntField): Likewise.
+	(setLongField): Likewise.
+	(setShortField): Likewise.
+	(setObjectField): Likewise.
+	* java/io/ObjectOutputStream.java (writeObject): Cleaned up the
+	class hierarchy loop.
+	(defaultWriteObject): Call writeFields with new argument list.
+	(writeFields(Object,ObjectStreamField[],boolean): Changed argument
+	list to Object,ObjectStreamClass, moved callWriteMethod up into
+	writeObject and added Class argument to all getXxxField calls.
+	(callWriteMethod): Added ObjectStreamClass argument to be able to
+	get the proper class to call getMethod on (each class can have (or
+	not have) its own writeObject method).
+	(getBooleanField): Added Class argument.
+	(getByteField): Likewise.
+	(getCharField): Likewise.
+	(getDoubleField): Likewise.
+	(getFloatField): Likewise.
+	(getIntField): Likewise.
+	(getLongField): Likewise.
+	(getShortField): Likewise.
+	(getObjectField): Likewise.
+	* java/io/ObjectStreamClass.java (hasReadMethod): Added method to
+	facilitate caching the Method object in the future.
+
+2003-03-12  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: Avoid trailing /. in toolexeclibdir.
+	* configure: Rebuilt.
+
+2003-03-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(putInt): Use limit() instead of limit.
+	* gnu/java/nio/CharBufferImpl.java
+	(slice): Fixed implementation.
+	(subSequence): Better bounds checking.
+	* gnu/java/nio/MappedByteFileBuffer.java:
+	Import all needed classes directly.
+	* java/nio/ByteBuffer.java
+	(hashCode): New dummy method.
+	* java/nio/CharBuffer.java
+	(array_offset): New member variable.
+	(hasArray): Fixed documentation.
+	(arrayOffset): Return array_offset.
+
+2003-03-10  2003-02-27  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/jvm.h: removed declaration of _Jv_ThisExecutable()
+	setter; made return value of getter const char* instead of char*
+	* prims.cc: removed all references to _Jv_ThisExecutable().
+	These are in the platform-specific sections now.
+	* posix.cc: define platform-specific _Jv_ThisExecutable().
+	Handle DISABLE_MAIN_ARGS and HAVE_PROC_SELF_EXE cases
+	* win32.cc: define platform-specific _Jv_ThisExecutable()
+	using GetModuleFilename()
+	* java/lang/natRuntime.cc: set gnu.gcj.progname property
+	to argv[0] instead of _Jv_ThisExecutable()
+
+2003-03-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* gnu/gcj/runtime/NameFinder.java (usingAddr2name): New flag
+	that is set if we are using addr2name.awk instead of addr2line.
+	(NameFinder): Set usingAddr2name if using addr2name.awk.
+	(getExternalLabel): New native method to convert a method 
+	name to an external label.
+	(lookup): Convert name given by addr2line to an external label
+	before demangling.
+
+	* gnu/gcj/runtime/natNameFinder.cc (LABEL_PREFIX): New string
+	constant representing the prefix attached to method names to
+	convert them to an external label.
+	(gnu::gcj::runtime::NameFinder::getExternalLabel): Define 
+	using LABEL_PREFIX.
+
+2003-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (GCJ_WITH_FLAGS): Added -Wno-deprecated.
+	(JC1FLAGS): Removed -Wno-deprecated.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteOrder.java
+	(nativeOrder): Working implementation, added documentation.
+	(toString): Added documentation.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java,
+	java/net/MulticastSocket.java,
+	java/net/Socket.java,
+	java/net/URL.java,
+	java/net/URLConnection.java:
+	Fixed some documentation tags to make javadoc and friends happy.
+
+2003-03-10  Michael Koch  <koqnueror@gmx.de>
+
+	* java/beans/beancontext/BeanContextServicesSupport.java,
+	java/beans/beancontext/BeanContextSupport.java: New files.
+	* Makefile.am
+	(awt_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/FocusTraversalPolicy.java
+	(FocusTraversalPolicy): Documentation added.
+	(getComponentAfter): Documentation added.
+	(getComponentBefore): Documentation added.
+	(getFirstComponent): Documentation added.
+	(getLastComponent): Documentation added.
+	(getDefaultComponent): Documentation added.
+	(getInitialComponent): Documentation added.
+	* java/awt/ScrollPaneAdjustable.java
+	(sp): New member variable.
+	(orientation): New member variable.
+	(value): New member variable.
+	(minimum): New member variable.
+	(maximum): New member variable.
+	(visibleAmount): New member variable.
+	(unitIncrement): New member variable.
+	(blockIncrement): New member variable.
+	(adjustmentListener): New member variable.
+	(ScrollPaneAdjustable): Rewrote.
+	(addAdjustmentListener): New method.
+	(removeAdjustmentListener): New method.
+	(getAdjustmentListeners): New method.
+	(getBlockIncrement): New method.
+	(getMaximum): New method.
+	(getMinimum): New method.
+	(getOrientation): New method.
+	(getUnitIncrement): New method.
+	(getValue): New method.
+	(getVisibleAmount): New method.
+	(setBlockIncrement): New method.
+	(setUnitIncrement): New method.
+	(setMaximum): Implemented.
+	(setMinimum): Implemented.
+	(setValue): New method.
+	(setVisibleAmount): Implemented.
+	(paramString): New method.
+	* java/awt/Window.java
+	(show): Use setVisible(true) instead of super.show().
+	(hide): Use sevVisible(false) instead of super.hide().
+	(processWindowEvent): Added cases for WINDOW_GAINED_FOCUS,
+	WINDOW_LOST_FOCUS and WINDOW_STATE_CHANGED.
+	(postEvent): Deprecated.
+	(applyResourceBundle): Deprecated.
+	(processWindowFocusEvent): New method.
+	(processWindowStateEvent): New method.
+	* java/awt/datatransfer/DataFlavor.java: Reindented.
+	* java/awt/font/TextHitInfo.java
+	(charIndex): New member variable.
+	(leadingEdge): New member variable.
+	(TextHitInfo): New constructor.
+	(getCharIndex): Implemented.
+	(isLeadingEdge): Implemented.
+	(getInsertionIndex): Implemented.
+	(hashCode): Access charIndex directly.
+	(equals): Reformated.
+	(leading): Implemented.
+	(trailing): Implemented.
+	(beforeOffset): Implemented.
+	(afterOffset): Implemented.
+	(getOtherHit): Implemented.
+	(getOffsetHit): Implemented.
+	(toString): Implemented.
+	* java/awt/image/BufferedImage.java
+	(BufferedImage): Implements WritableRenderedImage.
+	(observers): New member variable.
+	(addTileObserver): New method.
+	(removeTileObserver): New method.
+
+2003-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/9934:
+	* java/io/natFileDescriptorPosix.cc (available): Fixed arguments
+	to lseek.  Return 0 if we can't compute the value.
+
 2003-03-03  Michael Koch  <konqueror@gmx.de>
 
 	* java/net/NetworkInterface.java: Merged with classpath.

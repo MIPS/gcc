@@ -1,20 +1,20 @@
 /* The lang_hooks data structure.
    Copyright 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -207,25 +207,20 @@ struct lang_hooks
      done for this option.  */
   int (*decode_option) PARAMS ((int, char **));
 
-  /* Called when all command line options have been parsed.  Should do
-     any required consistency checks, modifications etc.  Complex
-     initialization should be left to the "init" callback, since GC
-     and the identifier hashes are set up between now and then.
+  /* Called when all command line options have been parsed to allow
+     further processing and initialization
 
-     Should return zero unless the compiler back-end does not need to
-     be initialized, such as with the -E option.
+     Should return true to indicate that a compiler back-end is
+     not required, such as with the -E option.
      
      If errorcount is nonzero after this call the compiler exits
      immediately and the finish hook is not called.  */
-  bool (*post_options) PARAMS ((void));
+  bool (*post_options) PARAMS ((const char **));
 
-  /* Called after post_options, to initialize the front end.  The main
-     input filename is passed, which may be NULL; the front end should
-     return the original filename (e.g. foo.i -> foo.c).  Return NULL
-     to indicate a serious error of some sort; in that case no
-     compilation is performed, and the finish hook is called
-     immediately.  */
-  const char * (*init) PARAMS ((const char *));
+  /* Called after post_options to initialize the front end.  Return
+     false to indicate that no further compilation be performed, in
+     which case the finish hook is called immediately.  */
+  bool (*init) PARAMS ((void));
 
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) PARAMS ((void));

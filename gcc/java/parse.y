@@ -3527,9 +3527,16 @@ resolve_inner_class (htab_t circularity_hash, tree cl, tree *enclosing,
 	    return decl;
 	}
 
-      /* Now go to the upper classes, bail out if necessary. We will
+      /* Now go to the upper classes, bail out if necessary.  We will
 	 analyze the returned SUPER and act accordingly (see
-	 do_resolve_class.) */
+	 do_resolve_class).  */
+      if (JPRIMITIVE_TYPE_P (TREE_TYPE (local_enclosing))
+	  || TREE_TYPE (local_enclosing) == void_type_node)
+	{
+	  parse_error_context (cl, "Qualifier must be a reference");
+	  local_enclosing = NULL_TREE;
+	  break;
+	}
       local_super = CLASSTYPE_SUPER (TREE_TYPE (local_enclosing));
       if (!local_super || local_super == object_type_node)
         break;
@@ -9301,6 +9308,19 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
 	return error_mark_node;
       if (is_static)
 	field_ref = maybe_build_class_init_for_field (decl, field_ref);
+
+      /* If we're looking at a static field, we may need to generate a
+	 class initialization for it.  This can happen when the access
+	 looks like `field.ref', where `field' is a static field in an
+	 interface we implement.  */
+      if (!flag_emit_class_files
+	  && !flag_emit_xref
+	  && TREE_CODE (where_found) == VAR_DECL
+	  && FIELD_STATIC (where_found))
+	{
+	  build_static_field_ref (where_found);
+	  field_ref = build_class_init (DECL_CONTEXT (where_found), field_ref);
+	}
     }
   else
     field_ref = decl;

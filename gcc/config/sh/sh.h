@@ -507,8 +507,8 @@ do {									\
     align_loops =  1 << (TARGET_SH5 ? 3 : 2);				\
   if (align_jumps == 0)							\
     align_jumps = 1 << CACHE_LOG;					\
-  else if (align_jumps <= 1)						\
-    align_jumps = 2;							\
+  else if (align_jumps < (TARGET_SHMEDIA ? 4 : 2))			\
+    align_jumps = TARGET_SHMEDIA ? 4 : 2;				\
 									\
   /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
@@ -937,10 +937,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 #define HARD_REGNO_NREGS(REGNO, MODE) \
    (XD_REGISTER_P (REGNO) \
-    ? (GET_MODE_SIZE (MODE) / (2 * UNITS_PER_WORD)) \
+    ? ((GET_MODE_SIZE (MODE) + (2*UNITS_PER_WORD - 1)) / (2*UNITS_PER_WORD)) \
     : (TARGET_SHMEDIA && FP_REGISTER_P (REGNO)) \
     ? ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD/2 - 1) / (UNITS_PER_WORD/2)) \
-    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)) \
+    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    We can allow any mode in any general register.  The special registers
@@ -1395,8 +1395,9 @@ extern enum reg_class reg_class_from_letter[];
    ? R0_REGS								\
    : (CLASS == FPUL_REGS						\
       && ((GET_CODE (X) == REG						\
-          && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
-	      || REGNO (X) == T_REG))))					\
+	   && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
+	       || REGNO (X) == T_REG))					\
+	  || GET_CODE (X) == PLUS))					\
    ? GENERAL_REGS							\
    : CLASS == FPUL_REGS && immediate_operand ((X), (MODE))		\
    ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I (INTVAL (X))		\

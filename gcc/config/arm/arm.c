@@ -239,10 +239,10 @@ int making_const_table;
 rtx arm_compare_op0, arm_compare_op1;
 
 /* What type of floating point are we tuning for?  */
-enum floating_point_type arm_fpu;
+enum fputype arm_fpu_tune;
 
 /* What type of floating point instructions are available?  */
-enum floating_point_type arm_fpu_arch;
+enum fputype arm_fpu_arch;
 
 /* What program mode is the cpu running in? 26-bit mode or 32-bit mode.  */
 enum prog_mode_type arm_prgmode;
@@ -387,7 +387,7 @@ static const struct processors all_cores[] =
   {"arm710c",	             FL_MODE26 | FL_MODE32 },
   {"arm7100",	             FL_MODE26 | FL_MODE32 },
   {"arm7500",	             FL_MODE26 | FL_MODE32 },
-  /* Doesn't have an external co-proc, but does have embedded fpu.  */
+  /* Doesn't have an external co-proc, but does have embedded fpa.  */
   {"arm7500fe",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm7tdmi",	FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
   {"arm8",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
@@ -726,7 +726,7 @@ arm_override_options ()
 
   if (arm_is_cirrus)
     {
-      arm_fpu = FP_CIRRUS;
+      arm_fpu_tune = FPUTYPE_MAVERICK;
 
       /* Ignore -mhard-float if -mcpu=ep9312.  */
       if (TARGET_HARD_FLOAT)
@@ -738,34 +738,34 @@ arm_override_options ()
        assume the user has an FPA.
        Note: this does not prevent use of floating point instructions,
        -msoft-float does that.  */
-    arm_fpu = (tune_flags & FL_CO_PROC) ? FP_HARD : FP_SOFT3;
+    arm_fpu_tune = (tune_flags & FL_CO_PROC) ? FPUTYPE_FPA : FPUTYPE_FPA_EMU3;
   
   if (target_fp_name)
     {
       if (streq (target_fp_name, "2"))
-	arm_fpu_arch = FP_SOFT2;
+	arm_fpu_arch = FPUTYPE_FPA_EMU2;
       else if (streq (target_fp_name, "3"))
-	arm_fpu_arch = FP_SOFT3;
+	arm_fpu_arch = FPUTYPE_FPA_EMU3;
       else
 	error ("invalid floating point emulation option: -mfpe-%s",
 	       target_fp_name);
     }
   else
-    arm_fpu_arch = FP_DEFAULT;
+    arm_fpu_arch = FPUTYPE_DEFAULT;
   
   if (TARGET_FPE)
     {
-      if (arm_fpu == FP_SOFT3)
-	arm_fpu = FP_SOFT2;
-      else if (arm_fpu == FP_CIRRUS)
-	warning ("-mpfpe switch not supported by ep9312 target cpu - ignored.");
-      else if (arm_fpu != FP_HARD)
-    arm_fpu = FP_SOFT2;
+      if (arm_fpu_tune == FPUTYPE_FPA_EMU3)
+	arm_fpu_tune = FPUTYPE_FPA_EMU2;
+      else if (arm_fpu_tune == FPUTYPE_MAVERICK)
+	warning ("-mfpe switch not supported by ep9312 target cpu - ignored.");
+      else if (arm_fpu_tune != FPUTYPE_FPA)
+	arm_fpu_tune = FPUTYPE_FPA_EMU2;
     }
   
   /* For arm2/3 there is no need to do any scheduling if there is only
      a floating point emulator, or we are doing software floating-point.  */
-  if ((TARGET_SOFT_FLOAT || arm_fpu != FP_HARD)
+  if ((TARGET_SOFT_FLOAT || arm_fpu_tune != FPUTYPE_FPA)
       && (tune_flags & FL_MODE32) == 0)
     flag_schedule_insns = flag_schedule_insns_after_reload = 0;
   
@@ -1008,7 +1008,7 @@ use_return_insn (iscond)
   if (saved_int_regs && !(saved_int_regs & (1 << LR_REGNUM)))
     return 0;
 
-  /* Can't be done if any of the FPU regs are pushed,
+  /* Can't be done if any of the FPA regs are pushed,
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT)
     for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; regno++)
@@ -3216,11 +3216,11 @@ arm_rtx_costs_1 (x, code, outer)
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	return (2 + ((REG_OR_SUBREG_REG (XEXP (x, 1))
 		      || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			  && const_double_rtx_ok_for_fpu (XEXP (x, 1))))
+			  && const_double_rtx_ok_for_fpa (XEXP (x, 1))))
 		     ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 0))
 		    || (GET_CODE (XEXP (x, 0)) == CONST_DOUBLE
-			&& const_double_rtx_ok_for_fpu (XEXP (x, 0))))
+			&& const_double_rtx_ok_for_fpa (XEXP (x, 0))))
 		   ? 0 : 8));
 
       if (((GET_CODE (XEXP (x, 0)) == CONST_INT
@@ -3245,7 +3245,7 @@ arm_rtx_costs_1 (x, code, outer)
 	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
 		    || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			&& const_double_rtx_ok_for_fpu (XEXP (x, 1))))
+			&& const_double_rtx_ok_for_fpa (XEXP (x, 1))))
 		   ? 0 : 8));
 
       /* Fall through */
@@ -3405,10 +3405,10 @@ arm_rtx_costs_1 (x, code, outer)
       return 6;
       
     case CONST_DOUBLE:						
-      if (const_double_rtx_ok_for_fpu (x))			
+      if (const_double_rtx_ok_for_fpa (x))			
 	return outer == SET ? 2 : -1;			
       else if ((outer == COMPARE || outer == PLUS)	
-	       && neg_const_double_rtx_ok_for_fpu (x))		
+	       && neg_const_double_rtx_ok_for_fpa (x))		
 	return -1;						
       return 7;
       
@@ -3569,10 +3569,10 @@ init_fpa_table ()
   fpa_consts_inited = 1;
 }
 
-/* Return TRUE if rtx X is a valid immediate FPU constant.  */
+/* Return TRUE if rtx X is a valid immediate FPA constant.  */
 
 int
-const_double_rtx_ok_for_fpu (x)
+const_double_rtx_ok_for_fpa (x)
      rtx x;
 {
   REAL_VALUE_TYPE r;
@@ -3592,10 +3592,10 @@ const_double_rtx_ok_for_fpu (x)
   return 0;
 }
 
-/* Return TRUE if rtx X is a valid immediate FPU constant.  */
+/* Return TRUE if rtx X is a valid immediate FPA constant.  */
 
 int
-neg_const_double_rtx_ok_for_fpu (x)
+neg_const_double_rtx_ok_for_fpa (x)
      rtx x;
 {
   REAL_VALUE_TYPE r;
@@ -3851,13 +3851,13 @@ f_register_operand (op, mode)
      to be a register operand.  */
   return (GET_CODE (op) == REG
 	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	      || REGNO_REG_CLASS (REGNO (op)) == FPU_REGS));
+	      || REGNO_REG_CLASS (REGNO (op)) == FPA_REGS));
 }
 
-/* Return TRUE for valid operands for the rhs of an FPU instruction.  */
+/* Return TRUE for valid operands for the rhs of an FPA instruction.  */
 
 int
-fpu_rhs_operand (op, mode)
+fpa_rhs_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
@@ -3868,13 +3868,13 @@ fpu_rhs_operand (op, mode)
     return FALSE;
 
   if (GET_CODE (op) == CONST_DOUBLE)
-    return const_double_rtx_ok_for_fpu (op);
+    return const_double_rtx_ok_for_fpa (op);
 
   return FALSE;
 }
 
 int
-fpu_add_operand (op, mode)
+fpa_add_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
@@ -3885,8 +3885,8 @@ fpu_add_operand (op, mode)
     return FALSE;
 
   if (GET_CODE (op) == CONST_DOUBLE)
-    return (const_double_rtx_ok_for_fpu (op) 
-	    || neg_const_double_rtx_ok_for_fpu (op));
+    return (const_double_rtx_ok_for_fpa (op) 
+	    || neg_const_double_rtx_ok_for_fpa (op));
 
   return FALSE;
 }
@@ -7204,7 +7204,20 @@ print_multi_reg (stream, instr, reg, mask)
 	not_first = TRUE;
       }
 
-  fprintf (stream, "}%s\n", TARGET_APCS_32 ? "" : "^");
+  fprintf (stream, "}");
+
+  /* Add a ^ character for the 26-bit ABI, but only if we were loading
+     the PC.  Otherwise we would generate an UNPREDICTABLE instruction.
+     Strictly speaking the instruction would be unpredicatble only if
+     we were writing back the base register as well, but since we never
+     want to generate an LDM type 2 instruction (register bank switching)
+     which is what you get if the PC is not being loaded, we do not need
+     to check for writeback.  */
+  if (! TARGET_APCS_32
+      && ((mask & (1 << PC_REGNUM)) != 0))
+    fprintf (stream, "^");
+  
+  fprintf (stream, "\n");
 }
 
 /* Output a 'call' insn.  */
@@ -7292,12 +7305,12 @@ output_call_mem (operands)
 }
 
 
-/* Output a move from arm registers to an fpu registers.
-   OPERANDS[0] is an fpu register.
+/* Output a move from arm registers to an fpa registers.
+   OPERANDS[0] is an fpa register.
    OPERANDS[1] is the first registers of an arm register pair.  */
 
 const char *
-output_mov_long_double_fpu_from_arm (operands)
+output_mov_long_double_fpa_from_arm (operands)
      rtx * operands;
 {
   int arm_reg0 = REGNO (operands[1]);
@@ -7316,12 +7329,12 @@ output_mov_long_double_fpu_from_arm (operands)
   return "";
 }
 
-/* Output a move from an fpu register to arm registers.
+/* Output a move from an fpa register to arm registers.
    OPERANDS[0] is the first registers of an arm register pair.
-   OPERANDS[1] is an fpu register.  */
+   OPERANDS[1] is an fpa register.  */
 
 const char *
-output_mov_long_double_arm_from_fpu (operands)
+output_mov_long_double_arm_from_fpa (operands)
      rtx * operands;
 {
   int arm_reg0 = REGNO (operands[0]);
@@ -7376,12 +7389,12 @@ output_mov_long_double_arm_from_arm (operands)
 }
 
 
-/* Output a move from arm registers to an fpu registers.
-   OPERANDS[0] is an fpu register.
+/* Output a move from arm registers to an fpa registers.
+   OPERANDS[0] is an fpa register.
    OPERANDS[1] is the first registers of an arm register pair.  */
 
 const char *
-output_mov_double_fpu_from_arm (operands)
+output_mov_double_fpa_from_arm (operands)
      rtx * operands;
 {
   int arm_reg0 = REGNO (operands[1]);
@@ -7397,12 +7410,12 @@ output_mov_double_fpu_from_arm (operands)
   return "";
 }
 
-/* Output a move from an fpu register to arm registers.
+/* Output a move from an fpa register to arm registers.
    OPERANDS[0] is the first registers of an arm register pair.
-   OPERANDS[1] is an fpu register.  */
+   OPERANDS[1] is an fpa register.  */
 
 const char *
-output_mov_double_arm_from_fpu (operands)
+output_mov_double_arm_from_fpa (operands)
      rtx * operands;
 {
   int arm_reg0 = REGNO (operands[0]);
@@ -8210,20 +8223,22 @@ output_return_instruction (operand, really_return, reverse)
 	  
 	  if (live_regs_mask & (1 << LR_REGNUM))
 	    {
-	      int l = strlen (return_reg);
-
-	      if (! first)
-		{
-		  memcpy (p, ", ", 2);
-		  p += 2;
-		}
-
-	      memcpy (p, "%|", 2);
-	      memcpy (p + 2, return_reg, l);
-	      strcpy (p + 2 + l, ((TARGET_APCS_32 
-				   && !IS_INTERRUPT (func_type)) 
-				  || !really_return) 
-		      ? "}" : "}^");
+	      sprintf (p, "%s%%|%s}", first ? "" : ", ", return_reg);
+	      /* Decide if we need to add the ^ symbol to the end of the
+		 register list.	 This causes the saved condition codes
+		 register to be copied into the current condition codes
+		 register.  We do the copy if we are conforming to the 32-bit
+		 ABI and this is an interrupt function, or if we are
+		 conforming to the 26-bit ABI.  There is a special case for
+		 the 26-bit ABI however, which is if we are writing back the
+		 stack pointer but not loading the PC.  In this case adding
+		 the ^ symbol would create a type 2 LDM instruction, where
+		 writeback is UNPREDICTABLE.  We are safe in leaving the ^
+		 character off in this case however, since the actual return
+		 instruction will be a MOVS which will restore the CPSR.  */
+	      if ((TARGET_APCS_32 && IS_INTERRUPT (func_type))
+		  || (! TARGET_APCS_32 && really_return))
+		strcat (p, "^");
 	    }
 	  else
 	    strcpy (p, "}");
@@ -8452,7 +8467,7 @@ arm_output_epilogue (really_return)
     {
       int vfp_offset = 4;
 
-      if (arm_fpu_arch == FP_SOFT2)
+      if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
@@ -8535,7 +8550,7 @@ arm_output_epilogue (really_return)
 	  output_add_immediate (operands);
 	}
 
-      if (arm_fpu_arch == FP_SOFT2)
+      if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
 	  for (reg = FIRST_ARM_FP_REGNUM; reg <= LAST_ARM_FP_REGNUM; reg++)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
@@ -9294,10 +9309,11 @@ arm_expand_prologue ()
 
   if (! IS_VOLATILE (func_type))
     {
-      /* Save any floating point call-saved registers used by this function.  */
-      if (arm_fpu_arch == FP_SOFT2)
+      /* Save any floating point call-saved registers used by this
+	 function.  */
+      if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg --)
+	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
 	    if (regs_ever_live[reg] && !call_used_regs[reg])
 	      {
 		insn = gen_rtx_PRE_DEC (XFmode, stack_pointer_rtx);
@@ -9311,7 +9327,7 @@ arm_expand_prologue ()
 	{
 	  int start_reg = LAST_ARM_FP_REGNUM;
 
-	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg --)
+	  for (reg = LAST_ARM_FP_REGNUM; reg >= FIRST_ARM_FP_REGNUM; reg--)
 	    {
 	      if (regs_ever_live[reg] && !call_used_regs[reg])
 		{
@@ -9356,7 +9372,8 @@ arm_expand_prologue ()
 	    insn = gen_rtx_REG (SImode, 3);
 	  else /* if (current_function_pretend_args_size == 0) */
 	    {
-	      insn = gen_rtx_PLUS (SImode, hard_frame_pointer_rtx, GEN_INT (4));
+	      insn = gen_rtx_PLUS (SImode, hard_frame_pointer_rtx,
+				   GEN_INT (4));
 	      insn = gen_rtx_MEM (SImode, insn);
 	    }
 
@@ -10243,7 +10260,7 @@ arm_hard_regno_mode_ok (regno, mode)
     /* We only allow integers in the fake hard registers.  */
     return GET_MODE_CLASS (mode) == MODE_INT;
 
-  /* The only registers left are the FPU registers
+  /* The only registers left are the FPA registers
      which we only allow to hold FP values.  */
   return GET_MODE_CLASS (mode) == MODE_FLOAT
     && regno >= FIRST_ARM_FP_REGNUM
@@ -10276,7 +10293,7 @@ arm_regno_class (regno)
   if (IS_CIRRUS_REGNUM (regno))
     return CIRRUS_REGS;
 
-  return FPU_REGS;
+  return FPA_REGS;
 }
 
 /* Handle a special case when computing the offset

@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -961,8 +961,8 @@ extern void disable_builtin_function		PARAMS ((const char *));
 extern tree build_va_arg			PARAMS ((tree, tree));
 
 extern void c_common_init_options		PARAMS ((enum c_language_kind));
-extern bool c_common_post_options		PARAMS ((void));
-extern const char *c_common_init		PARAMS ((const char *));
+extern bool c_common_post_options		PARAMS ((const char **));
+extern bool c_common_init			PARAMS ((void));
 extern void c_common_finish			PARAMS ((void));
 extern void c_common_parse_file			PARAMS ((int));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
@@ -1263,7 +1263,7 @@ extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
 extern void init_c_lex				PARAMS ((void));
 
-extern void cb_register_builtins		PARAMS ((cpp_reader *));
+extern void c_cpp_builtins			PARAMS ((cpp_reader *));
 
 /* Positive if an implicit `extern "C"' scope has just been entered;
    negative if such a scope has just been exited.  */
@@ -1292,8 +1292,14 @@ extern void c_common_read_pch			PARAMS ((cpp_reader *pfile,
 							 int fd,
 							 const char *orig));
 extern void c_common_write_pch			PARAMS ((void));
-extern void preprocess_file			PARAMS ((cpp_reader *,
-							 const char *,
-							 FILE *));
+extern void builtin_define_with_value		PARAMS ((const char *,
+							 const char *, int));
+extern void c_stddef_cpp_builtins		PARAMS ((void));
+extern void fe_file_change		PARAMS ((const struct line_map *));
+
+/* In c-ppoutput.c  */
+extern void init_pp_output			PARAMS ((FILE *));
+extern void preprocess_file			PARAMS ((cpp_reader *));
+extern void pp_file_change		PARAMS ((const struct line_map *));
 
 #endif /* ! GCC_C_COMMON_H */

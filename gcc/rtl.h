@@ -1609,6 +1609,14 @@ extern rtx set_unique_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 		       : NULL_RTX)
 #define single_set_1(I) single_set_2 (I, PATTERN (I))
 
+/* Structure used for passing data to REPLACE_LABEL.  */
+typedef struct replace_label_data
+{
+  rtx r1;
+  rtx r2;
+  bool update_label_nuses;
+} replace_label_data;
+
 extern int rtx_addr_can_trap_p		PARAMS ((rtx));
 extern bool nonzero_address_p		PARAMS ((rtx));
 extern int rtx_unstable_p		PARAMS ((rtx));
@@ -1671,6 +1679,9 @@ extern int inequality_comparisons_p	PARAMS ((rtx));
 extern rtx replace_rtx			PARAMS ((rtx, rtx, rtx));
 extern rtx replace_regs			PARAMS ((rtx, rtx *, unsigned int,
 						 int));
+extern int replace_label		PARAMS ((rtx *, void *));
+extern int rtx_referenced_p		PARAMS ((rtx, rtx));
+extern bool tablejump_p			PARAMS ((rtx, rtx *, rtx *));
 extern int computed_jump_p		PARAMS ((rtx));
 typedef int (*rtx_function)             PARAMS ((rtx *, void *));
 extern int for_each_rtx                 PARAMS ((rtx *, rtx_function, void *));

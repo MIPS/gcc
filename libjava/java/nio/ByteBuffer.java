@@ -199,7 +199,7 @@ public abstract class ByteBuffer extends Buffer implements Comparable
   }
 
   /**
-   * Tells whether or not this buffer is backed by an accessible byte array.
+   * Tells whether or not this buffer is backed by an accessible array.
    */
   public final boolean hasArray ()
   {
@@ -246,6 +246,15 @@ public abstract class ByteBuffer extends Buffer implements Comparable
     return offset;
   }
   
+  /**
+   * Returns the current hash code of this buffer.
+   */
+  public int hashCode()
+  {
+    // FIXME: Check what SUN calcs here
+    return super.hashCode();
+  }
+
   /**
    * Tells whether or not this buffer is equal to another object.
    */

@@ -5009,29 +5009,31 @@ assign_parms (fndecl)
 
 	  SET_DECL_RTL (parm, stack_parm);
 	}
-
-      /* If this "parameter" was the place where we are receiving the
-	 function's incoming structure pointer, set up the result.  */
-      if (parm == function_result_decl)
-	{
-	  tree result = DECL_RESULT (fndecl);
-	  rtx addr = DECL_RTL (parm);
-	  rtx x;
-
-#ifdef POINTERS_EXTEND_UNSIGNED
-	  if (GET_MODE (addr) != Pmode)
-	    addr = convert_memory_address (Pmode, addr);
-#endif
-
-	  x = gen_rtx_MEM (DECL_MODE (result), addr);
-	  set_mem_attributes (x, result, 1);
-	  SET_DECL_RTL (result, x);
-	}
     }
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
   emit_insn (conversion_insns);
+
+  /* If we are receiving a struct value address as the first argument, set up
+     the RTL for the function result. As this might require code to convert
+     the transmitted address to Pmode, we do this here to ensure that possible
+     preliminary conversions of the address have been emitted already.  */
+  if (function_result_decl)
+    {
+      tree result = DECL_RESULT (fndecl);
+      rtx addr = DECL_RTL (function_result_decl);
+      rtx x;
+      
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (addr) != Pmode)
+	addr = convert_memory_address (Pmode, addr);
+#endif
+      
+      x = gen_rtx_MEM (DECL_MODE (result), addr);
+      set_mem_attributes (x, result, 1);
+      SET_DECL_RTL (result, x);
+    }
 
   last_parm_insn = get_last_insn ();
 
@@ -7601,19 +7603,8 @@ thread_prologue_and_epilogue_insns (f)
 		 that with a conditional return instruction.  */
 	      else if (condjump_p (jump))
 		{
-		  rtx ret, *loc;
-
-		  ret = SET_SRC (PATTERN (jump));
-		  if (GET_CODE (XEXP (ret, 1)) == LABEL_REF)
-		    loc = &XEXP (ret, 1);
-		  else
-		    loc = &XEXP (ret, 2);
-		  ret = gen_rtx_RETURN (VOIDmode);
-
-		  if (! validate_change (jump, loc, ret, 0))
+		  if (! redirect_jump (jump, 0, 0))
 		    continue;
-		  if (JUMP_LABEL (jump))
-		    LABEL_NUSES (JUMP_LABEL (jump))--;
 
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -45,27 +45,74 @@ Boston, MA 02111-1307, USA.  */
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} -a64 %(asm_cpu) %{Wa,*:%*}"
 
+/* This is always a 64 bit compiler.  */
+#undef	TARGET_64BIT
+#define	TARGET_64BIT		1
+
 /* 64-bit PowerPC Linux always has a TOC.  */
 #undef  TARGET_NO_TOC
 #define TARGET_NO_TOC		0
 #undef  TARGET_TOC
 #define	TARGET_TOC		1
 
-/* We use glibc _mcount for profiling.  */
-#define NO_PROFILE_COUNTERS 1
-#undef  PROFILE_BEFORE_PROLOGUE
+/* Some things from sysv4.h we don't do.  */
+#undef	TARGET_RELOCATABLE
+#define	TARGET_RELOCATABLE	0
+#undef	TARGET_EABI
+#define	TARGET_EABI		0
+#undef	TARGET_PROTOTYPE
+#define	TARGET_PROTOTYPE	0
 
-/* Define this for kernel profiling, which just saves LR then calls
+/* Reuse sysv4 mask bits we made available above.  */
+#define	MASK_PROFILE_KERNEL	0x08000000
+
+/* Non-standard profiling for kernels, which just saves LR then calls
    _mcount without worrying about arg saves.  The idea is to change
    the function prologue as little as possible as it isn't easy to
    account for arg save/restore code added just for _mcount.  */
-/* #define PROFILE_KERNEL 1 */
-#if PROFILE_KERNEL
-#define PROFILE_BEFORE_PROLOGUE 1
-#undef  PROFILE_HOOK
-#else
+#define TARGET_PROFILE_KERNEL	(target_flags & MASK_PROFILE_KERNEL)
+
+/* Override sysv4.h.  */
+#undef	SUBTARGET_SWITCHES
+#define SUBTARGET_SWITCHES						\
+  {"bit-align",	-MASK_NO_BITFIELD_TYPE,					\
+    N_("Align to the base type of the bit-field") },			\
+  {"no-bit-align",	 MASK_NO_BITFIELD_TYPE,				\
+    N_("Don't align to the base type of the bit-field") },		\
+  {"strict-align",	 MASK_STRICT_ALIGN,				\
+    N_("Don't assume that unaligned accesses are handled by the system") }, \
+  {"no-strict-align",	-MASK_STRICT_ALIGN,				\
+    N_("Assume that unaligned accesses are handled by the system") },	\
+  {"little-endian",	 MASK_LITTLE_ENDIAN,				\
+    N_("Produce little endian code") },					\
+  {"little",		 MASK_LITTLE_ENDIAN,				\
+    N_("Produce little endian code") },					\
+  {"big-endian",	-MASK_LITTLE_ENDIAN,				\
+    N_("Produce big endian code") },					\
+  {"big",		-MASK_LITTLE_ENDIAN,				\
+    N_("Produce big endian code") },					\
+  {"bit-word",		-MASK_NO_BITFIELD_WORD,				\
+    N_("Allow bit-fields to cross word boundaries") },			\
+  {"no-bit-word",	 MASK_NO_BITFIELD_WORD,				\
+    N_("Do not allow bit-fields to cross word boundaries") },		\
+  {"regnames",		 MASK_REGNAMES,					\
+    N_("Use alternate register names") },				\
+  {"no-regnames",	-MASK_REGNAMES,					\
+    N_("Don't use alternate register names") },				\
+  {"profile-kernel",	 MASK_PROFILE_KERNEL,				\
+   N_("Call mcount for profiling before a function prologue") },	\
+  {"no-profile-kernel",	-MASK_PROFILE_KERNEL,				\
+   N_("Call mcount for profiling after a function prologue") },
+
+#undef	SUBTARGET_OPTIONS
+#define	SUBTARGET_OPTIONS
+
+#undef	SUBTARGET_OVERRIDE_OPTIONS
+#define	SUBTARGET_OVERRIDE_OPTIONS {}
+
+/* We use glibc _mcount for profiling.  */
+#define NO_PROFILE_COUNTERS 1
 #define PROFILE_HOOK(LABEL) output_profile_hook (LABEL)
-#endif
 
 /* We don't need to generate entries in .fixup.  */
 #undef RELOCATABLE_NEEDS_FIXUP
@@ -109,6 +156,10 @@ Boston, MA 02111-1307, USA.  */
 /* Override svr4.h  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
+
+/* Override sysv4.h  */
+#undef	CPP_SYSV_SPEC
+#define	CPP_SYSV_SPEC ""
 
 #undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()            \
@@ -220,9 +271,6 @@ Boston, MA 02111-1307, USA.  */
 /* Dwarf2 debugging.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-#undef  TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO  rs6000_xcoff_encode_section_info
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */

@@ -174,7 +174,7 @@ bin_SCRIPTS = addr2name.awk
 @CANADIAN_TRUE@GCJH = @CANADIAN_TRUE@gcjh
 @CANADIAN_FALSE@GCJH = @CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh
 
-GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
+GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
@@ -197,7 +197,7 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 @USING_GCC_FALSE@AM_CFLAGS = @USING_GCC_FALSE@@LIBGCJ_CFLAGS@
 
 JCFLAGS = -g
-JC1FLAGS = @LIBGCJ_JAVAFLAGS@ -Wno-deprecated $(GCJFLAGS)
+JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
@@ -761,6 +761,7 @@ java/awt/peer/MenuItemPeer.java \
 java/awt/peer/MenuPeer.java \
 java/awt/peer/PanelPeer.java \
 java/awt/peer/PopupMenuPeer.java \
+java/awt/peer/RobotPeer.java \
 java/awt/peer/ScrollPanePeer.java \
 java/awt/peer/ScrollbarPeer.java \
 java/awt/peer/TextAreaPeer.java \
@@ -861,6 +862,8 @@ java/beans/beancontext/BeanContextServiceRevokedEvent.java \
 java/beans/beancontext/BeanContextServiceRevokedListener.java \
 java/beans/beancontext/BeanContextServices.java \
 java/beans/beancontext/BeanContextServicesListener.java \
+java/beans/beancontext/BeanContextServicesSupport.java \
+java/beans/beancontext/BeanContextSupport.java \
 java/beans/BeanDescriptor.java \
 java/beans/BeanInfo.java \
 java/beans/Beans.java \
@@ -998,6 +1001,7 @@ javax/swing/JCheckBox.java \
 javax/swing/JComponent.java \
 javax/swing/JDialog.java \
 javax/swing/JEditorPane.java \
+javax/swing/JFormattedTextField.java \
 javax/swing/JFrame.java \
 javax/swing/JLabel.java \
 javax/swing/JLayeredPane.java \
@@ -1082,6 +1086,7 @@ javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
 javax/swing/text/Document.java \
+javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
 javax/swing/text/GapContent.java \
@@ -1095,6 +1100,7 @@ javax/swing/text/Style.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \
+javax/swing/text/NavigationFilter.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
 javax/swing/text/TextAction.java \
@@ -1387,6 +1393,9 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/print/attribute/Attribute.java \
+javax/print/attribute/AttributeSet.java \
+javax/print/attribute/PrintRequestAttributeSet.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
 javax/sql/ConnectionPoolDataSource.java \
@@ -3183,7 +3192,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/peer/MenuComponentPeer.P \
 .deps/java/awt/peer/MenuItemPeer.P .deps/java/awt/peer/MenuPeer.P \
 .deps/java/awt/peer/PanelPeer.P .deps/java/awt/peer/PopupMenuPeer.P \
-.deps/java/awt/peer/ScrollPanePeer.P \
+.deps/java/awt/peer/RobotPeer.P .deps/java/awt/peer/ScrollPanePeer.P \
 .deps/java/awt/peer/ScrollbarPeer.P .deps/java/awt/peer/TextAreaPeer.P \
 .deps/java/awt/peer/TextComponentPeer.P \
 .deps/java/awt/peer/TextFieldPeer.P .deps/java/awt/peer/WindowPeer.P \
@@ -3232,6 +3241,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/beans/beancontext/BeanContextServiceRevokedListener.P \
 .deps/java/beans/beancontext/BeanContextServices.P \
 .deps/java/beans/beancontext/BeanContextServicesListener.P \
+.deps/java/beans/beancontext/BeanContextServicesSupport.P \
+.deps/java/beans/beancontext/BeanContextSupport.P \
 .deps/java/io/BufferedInputStream.P \
 .deps/java/io/BufferedOutputStream.P .deps/java/io/BufferedReader.P \
 .deps/java/io/BufferedWriter.P .deps/java/io/ByteArrayInputStream.P \
@@ -3810,6 +3821,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/naming/spi/ObjectFactoryBuilder.P \
 .deps/javax/naming/spi/ResolveResult.P \
 .deps/javax/naming/spi/Resolver.P .deps/javax/naming/spi/StateFactory.P \
+.deps/javax/print/attribute/Attribute.P \
+.deps/javax/print/attribute/AttributeSet.P \
+.deps/javax/print/attribute/PrintRequestAttributeSet.P \
 .deps/javax/sql/ConnectionEvent.P \
 .deps/javax/sql/ConnectionEventListener.P \
 .deps/javax/sql/ConnectionPoolDataSource.P .deps/javax/sql/DataSource.P \
@@ -3848,13 +3862,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/JComboBox.P .deps/javax/swing/JComponent.P \
 .deps/javax/swing/JDesktopPane.P .deps/javax/swing/JDialog.P \
 .deps/javax/swing/JEditorPane.P .deps/javax/swing/JFileChooser.P \
-.deps/javax/swing/JFrame.P .deps/javax/swing/JInternalFrame.P \
-.deps/javax/swing/JLabel.P .deps/javax/swing/JLayeredPane.P \
-.deps/javax/swing/JList.P .deps/javax/swing/JMenu.P \
-.deps/javax/swing/JMenuBar.P .deps/javax/swing/JMenuItem.P \
-.deps/javax/swing/JOptionPane.P .deps/javax/swing/JPanel.P \
-.deps/javax/swing/JPasswordField.P .deps/javax/swing/JPopupMenu.P \
-.deps/javax/swing/JProgressBar.P .deps/javax/swing/JRadioButton.P \
+.deps/javax/swing/JFormattedTextField.P .deps/javax/swing/JFrame.P \
+.deps/javax/swing/JInternalFrame.P .deps/javax/swing/JLabel.P \
+.deps/javax/swing/JLayeredPane.P .deps/javax/swing/JList.P \
+.deps/javax/swing/JMenu.P .deps/javax/swing/JMenuBar.P \
+.deps/javax/swing/JMenuItem.P .deps/javax/swing/JOptionPane.P \
+.deps/javax/swing/JPanel.P .deps/javax/swing/JPasswordField.P \
+.deps/javax/swing/JPopupMenu.P .deps/javax/swing/JProgressBar.P \
+.deps/javax/swing/JRadioButton.P \
 .deps/javax/swing/JRadioButtonMenuItem.P .deps/javax/swing/JRootPane.P \
 .deps/javax/swing/JScrollBar.P .deps/javax/swing/JScrollPane.P \
 .deps/javax/swing/JSeparator.P .deps/javax/swing/JSlider.P \
@@ -4010,10 +4025,13 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/ComponentView.P \
 .deps/javax/swing/text/DefaultCaret.P \
 .deps/javax/swing/text/DefaultEditorKit.P \
-.deps/javax/swing/text/Document.P .deps/javax/swing/text/EditorKit.P \
-.deps/javax/swing/text/Element.P .deps/javax/swing/text/GapContent.P \
+.deps/javax/swing/text/Document.P \
+.deps/javax/swing/text/DocumentFilter.P \
+.deps/javax/swing/text/EditorKit.P .deps/javax/swing/text/Element.P \
+.deps/javax/swing/text/GapContent.P \
 .deps/javax/swing/text/JTextComponent.P .deps/javax/swing/text/Keymap.P \
 .deps/javax/swing/text/MutableAttributeSet.P \
+.deps/javax/swing/text/NavigationFilter.P \
 .deps/javax/swing/text/PlainDocument.P \
 .deps/javax/swing/text/PlainEditorKit.P \
 .deps/javax/swing/text/Position.P .deps/javax/swing/text/Segment.P \

@@ -19,16 +19,18 @@
 
 <h1 class="centered">libstdc++ Frequently Asked Questions</h1>
 
-<p>The latest version of this document is always available at
+<p class="fineprint"><em>
+   The latest version of this document is always available at
    <a href="http://gcc.gnu.org/onlinedocs/libstdc++/faq/">
    http://gcc.gnu.org/onlinedocs/libstdc++/faq/</a>.  The main documentation
    page is at
    <a href="http://gcc.gnu.org/onlinedocs/libstdc++/documentation.html">
    http://gcc.gnu.org/onlinedocs/libstdc++/documentation.html</a>.
-</p>
+</em></p>
 
-<p>To the <a href="http://gcc.gnu.org/libstdc++/">libstdc++-v3 homepage</a>.
-</p>
+<p><em>
+   To the <a href="http://gcc.gnu.org/libstdc++/">libstdc++-v3 homepage</a>.
+</em></p>
 
 <!-- ####################################################### -->
 <hr />
@@ -94,6 +96,7 @@
                                <em>constraints</em> in the STL...</a> </li>
            <li><a href="#4_4_dlsym">program crashes when using library code
                                in a dynamically-loaded library</a> </li>
+           <li><a href="#4_4_leak">"memory leaks" in containers</a> </li>
          </ul>
          </li>
          <li><a href="#4_5">Aw, that's easy to fix!</a> </li>
@@ -740,11 +743,11 @@ New:
          and unmaintained.  Do not report problems with -v2 to the -v3
          mailing list.
       </p>
-      <p>Currently our header files are installed in
-         <code>${prefix}/include/g++-v3</code> (see the 'v'?).  This may
-         change with the next release of GCC, as it may be too confusing,
-         but <a href="http://gcc.gnu.org/ml/gcc/2000-10/msg00732.html">the
-         question has not yet been decided</a>.
+      <p>For GCC versions 3.0 and 3.1 the libstdc++-v3 header files are
+        installed in <code>${prefix}/include/g++-v3</code> (see the 'v'?). 
+        Starting with version 3.2 the headers are installed in
+        <code>${prefix}/include/c++/${version}</code> as this prevents
+        headers from previous versions being found by mistake.
       </p>
       <p><a name="4_4_glibc"><strong>glibc</strong></a>
          If you're on a GNU/Linux system and have just upgraded to
@@ -795,6 +798,18 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
 
     // link the executable
     g++ -fPIC -rdynamic -o foo ... -L. -lfoo -ldl</pre>
+      <p><a name="4_4_leak"><strong>"memory leaks" in containers</strong></a>
+         A few people have reported that the standard containers appear
+         to leak memory when tested with memory checkers such as
+         <a href="http://developer.kde.org/~sewardj/">valgrind</a>.
+         The library's default allocators keep free memory in a pool
+         for later reuse, rather than returning it to the OS.  Although
+         this memory is always reachable by the library and is never
+         lost, memory debugging tools can report it as a leak.  If you
+         want to test the library for memory leaks please read
+         <a href="../debug.html#mem">Tips for memory leak hunting</a>
+         first.
+      </p>
 
 <hr />
    <h2><a name="4_5">4.5 Aw, that's easy to fix!</a></h2>

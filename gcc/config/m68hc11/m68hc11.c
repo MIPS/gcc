@@ -394,6 +394,23 @@ hard_regno_mode_ok (regno, mode)
     }
 }
 
+int
+m68hc11_hard_regno_rename_ok (reg1, reg2)
+     int reg1, reg2;
+{
+  /* Don't accept renaming to Z register.  We will replace it to
+     X,Y or D during machine reorg pass.  */
+  if (reg2 == HARD_Z_REGNUM)
+    return 0;
+
+  /* Don't accept renaming D,X to Y register as the code will be bigger.  */
+  if (TARGET_M6811 && reg2 == HARD_Y_REGNUM
+      && (D_REGNO_P (reg1) || X_REGNO_P (reg1)))
+    return 0;
+
+  return 1;
+}
+
 enum reg_class
 preferred_reload_class (operand, class)
      rtx operand;
@@ -1471,51 +1488,6 @@ m68hc11_function_arg (cum, mode, type, named)
   return NULL_RTX;
 }
 
-rtx
-m68hc11_va_arg (valist, type)
-     tree valist;
-     tree type;
-{
-  tree addr_tree, t;
-  HOST_WIDE_INT align;
-  HOST_WIDE_INT rounded_size;
-  rtx addr;
-  int pad_direction;
-
-  /* Compute the rounded size of the type.  */
-  align = PARM_BOUNDARY / BITS_PER_UNIT;
-  rounded_size = (((int_size_in_bytes (type) + align - 1) / align) * align);
-
-  /* Get AP.  */
-  addr_tree = valist;
-  pad_direction = m68hc11_function_arg_padding (TYPE_MODE (type), type);
-
-  if (pad_direction == downward)
-    {
-      /* Small args are padded downward.  */
-
-      HOST_WIDE_INT adj;
-      adj = TREE_INT_CST_LOW (TYPE_SIZE (type)) / BITS_PER_UNIT;
-      if (rounded_size > align)
-	adj = rounded_size;
-
-      addr_tree = build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			 build_int_2 (rounded_size - adj, 0));
-    }
-
-  addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-  addr = copy_to_reg (addr);
-
-  /* Compute new value for AP.  */
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		    build_int_2 (rounded_size, 0)));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  return addr;
-}
-
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
    `enum direction': either `upward' to pad above the argument,
@@ -2181,6 +2153,10 @@ print_operand (file, op, letter)
 	{
 	  asm_print_register (file, REGNO (op));
 	  fprintf (file, "+1");
+	}
+      else if (letter == 'b' && D_REG_P (op))
+	{
+	  asm_print_register (file, HARD_B_REGNUM);
 	}
       else
 	{
@@ -3233,6 +3209,16 @@ m68hc11_gen_movhi (insn, operands)
 	{
 	  if (SP_REG_P (operands[0]))
 	    output_asm_insn ("lds\t%1", operands);
+	  else if (!D_REG_P (operands[0])
+                   && GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
 	  else
 	    output_asm_insn ("ld%0\t%1", operands);
 	}
@@ -3398,10 +3384,16 @@ m68hc11_gen_movhi (insn, operands)
                   output_asm_insn ("xgdx", operands);
                   CC_STATUS_INIT;
                 }
-              else
+              else if (!optimize_size)
                 {
                   output_asm_insn ("sty\t%t1", operands);
                   output_asm_insn ("ldx\t%t1", operands);
+                }
+              else
+                {
+                  CC_STATUS_INIT;
+                  output_asm_insn ("pshy", operands);
+                  output_asm_insn ("pulx", operands);
                 }
 	    }
 	  else if (SP_REG_P (operands[1]))
@@ -3410,6 +3402,15 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsx", operands);
 	    }
+	  else if (GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
 	  else
 	    {
 	      output_asm_insn ("ldx\t%1", operands);
@@ -3440,10 +3441,16 @@ m68hc11_gen_movhi (insn, operands)
                   output_asm_insn ("xgdy", operands);
                   CC_STATUS_INIT;
                 }
-              else
+              else if (!optimize_size)
                 {
                   output_asm_insn ("stx\t%t1", operands);
                   output_asm_insn ("ldy\t%t1", operands);
+                }
+              else
+                {
+                  CC_STATUS_INIT;
+                  output_asm_insn ("pshx", operands);
+                  output_asm_insn ("puly", operands);
                 }
 	    }
 	  else if (SP_REG_P (operands[1]))
@@ -3452,7 +3459,16 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsy", operands);
 	    }
-	  else
+	  else if (GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
+          else
 	    {
 	      output_asm_insn ("ldy\t%1", operands);
 	    }
@@ -3692,6 +3708,15 @@ m68hc11_gen_movqi (insn, operands)
 		  output_asm_insn ("ldab\t%T0", operands);
 		}
 	    }
+	  else if (GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("inc%b0", operands);
+              else
+                output_asm_insn ("dec%b0", operands);
+            }          
 	  else if (!DB_REG_P (operands[1]) && !D_REG_P (operands[1])
 		   && !DA_REG_P (operands[1]))
 	    {
@@ -3900,15 +3925,15 @@ m68hc11_gen_rotate (code, insn, operands)
 
   if (val > 0)
     {
-      /* Set the carry to bit-15, but don't change D yet.  */
-      if (GET_MODE (operands[0]) != QImode)
-        {
-          output_asm_insn ("asra", operands);
-          output_asm_insn ("rola", operands);
-        }
-
       while (--val >= 0)
         {
+          /* Set the carry to bit-15, but don't change D yet.  */
+          if (GET_MODE (operands[0]) != QImode)
+            {
+              output_asm_insn ("asra", operands);
+              output_asm_insn ("rola", operands);
+            }
+
           /* Rotate B first to move the carry to bit-0.  */
           if (D_REG_P (operands[0]))
             output_asm_insn ("rolb", operands);
@@ -3919,14 +3944,12 @@ m68hc11_gen_rotate (code, insn, operands)
     }
   else
     {
-      /* Set the carry to bit-8 of D.  */
-      if (val != 0 && GET_MODE (operands[0]) != QImode)
-        {
-          output_asm_insn ("tap", operands);
-        }
-      
       while (++val <= 0)
         {
+          /* Set the carry to bit-8 of D.  */
+          if (GET_MODE (operands[0]) != QImode)
+            output_asm_insn ("tap", operands);
+
           /* Rotate B first to move the carry to bit-7.  */
           if (D_REG_P (operands[0]))
             output_asm_insn ("rorb", operands);
@@ -4221,7 +4244,7 @@ m68hc11_check_z_replacement (insn, info)
 		  info->need_save_z = 0;
 		  info->found_call = 1;
 		  info->regno = SOFT_Z_REGNUM;
-		  info->last = insn;
+		  info->last = NEXT_INSN (insn);
 		}
 	      return 0;
 	    }

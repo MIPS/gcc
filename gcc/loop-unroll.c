@@ -260,7 +260,7 @@ decide_peel_once_rolling (loops, loop, flags)
   loop->has_desc = 1;
 
   /* Check number of iterations.  */
-  if (!loop->simple || !loop->desc.const_iter || loop->desc.niter !=0)
+  if (!loop->simple || !loop->desc.const_iter || loop->desc.niter != 0)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Unable to prove that the loop rolls exactly once\n");
@@ -310,7 +310,7 @@ decide_peel_completely (loops, loop, flags)
       return;
     }
 
-  /* npeel = number of iterations to peel. */
+  /* npeel = number of iterations to peel.  */
   npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS) / loop->ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
@@ -325,7 +325,10 @@ decide_peel_completely (loops, loop, flags)
 
   /* Check for simple loops.  */
   if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+    {
+      loop->simple = simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
+    }
 
   /* Check number of iterations.  */
   if (!loop->simple || !loop->desc.const_iter)
@@ -341,7 +344,7 @@ decide_peel_completely (loops, loop, flags)
       	{
 	  fprintf (rtl_dump_file, ";; Not peeling loop completely, rolls too much (");
 	  fprintf (rtl_dump_file, HOST_WIDEST_INT_PRINT_DEC,(HOST_WIDEST_INT) loop->desc.niter);
-	  fprintf (rtl_dump_file, "iterations > %d [maximum peelings])\n", npeel);
+	  fprintf (rtl_dump_file, " iterations > %d [maximum peelings])\n", npeel);
 	}
       return;
     }
@@ -440,7 +443,10 @@ decide_unroll_constant_iterations (loops, loop, flags)
 
   /* Check for simple loops.  */
   if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+    {
+      loop->simple = simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
+    }
 
   /* Check number of iterations.  */
   if (!loop->simple || !loop->desc.const_iter)
@@ -635,7 +641,10 @@ decide_unroll_runtime_iterations (loops, loop, flags)
 
   /* Check for simple loops.  */
   if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+    {
+      loop->simple = simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
+    }
 
   /* Check simpleness.  */
   if (!loop->simple)
@@ -891,7 +900,7 @@ decide_peel_simple (loops, loop, flags)
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Considering simply peeling loop\n");
 
-  /* npeel = number of iterations to peel. */
+  /* npeel = number of iterations to peel.  */
   npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / loop->ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
@@ -906,7 +915,10 @@ decide_peel_simple (loops, loop, flags)
 
   /* Check for simple loops.  */
   if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+    {
+      loop->simple = simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
+    }
 
   /* Check number of iterations.  */
   if (loop->simple && loop->desc.const_iter)
@@ -1047,7 +1059,10 @@ decide_unroll_stupid (loops, loop, flags)
 
   /* Check for simple loops.  */
   if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+    {
+      loop->simple = simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
+    }
 
   /* Check simpleness.  */
   if (loop->simple)

@@ -311,8 +311,11 @@ namespace std
       virtual int
       sync()
       {
+	int __ret = 0;
 	bool __testput = this->_M_out_cur
 	  && this->_M_out_beg < this->_M_out_lim;
+	// Sync with stdio.
+	bool __sync = this->_M_buf_size == 1;
 
 	// Make sure that the internal buffer resyncs its idea of
 	// the file position with the external file.
@@ -320,14 +323,19 @@ namespace std
 	  {
 	    // Need to restore current position after the write.
 	    off_type __off = this->_M_out_cur - this->_M_out_lim;
-	    _M_really_overflow(); // _M_file.sync() will be called within
-	    if (__off)
-	      _M_file.seekoff(__off, ios_base::cur);
+
+	    // _M_file.sync() will be called within
+	    if (traits_type::eq_int_type(_M_really_overflow(),
+					 traits_type::eof()))
+	      __ret = -1;
+	    else if (__off)
+	      _M_file.seekoff(__off, ios_base::cur, __sync);
 	  }
 	else
 	  _M_file.sync();
+
 	_M_last_overflowed = false;
-	return 0;
+	return __ret;
       }
 
       // [documentation is inherited]

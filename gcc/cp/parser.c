@@ -3809,13 +3809,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
   /* Otherwise, if we were avoiding committing until we knew
      whether or not we had a pointer-to-member, we now know that
      the expression is an ordinary reference to a qualified name.  */
-  if (qualifying_class && !processing_template_decl)
+  if (qualifying_class)
     {
       if (TREE_CODE (postfix_expression) == FIELD_DECL)
 	postfix_expression 
 	  = finish_non_static_data_member (postfix_expression,
 					   qualifying_class);
-      else if (BASELINK_P (postfix_expression))
+      else if (BASELINK_P (postfix_expression) 
+	       && !processing_template_decl)
 	{
 	  tree fn;
 	  tree fns;
@@ -7188,7 +7189,8 @@ cp_parser_mem_initializer_list (cp_parser* parser)
 
   /* Let the semantic analysis code know that we are starting the
      mem-initializer-list.  */
-  begin_mem_initializers ();
+  if (!DECL_CONSTRUCTOR_P (current_function_decl))
+    error ("only constructors take base initializers");
 
   /* Loop through the list.  */
   while (true)
@@ -7211,7 +7213,8 @@ cp_parser_mem_initializer_list (cp_parser* parser)
     }
 
   /* Perform semantic analysis.  */
-  finish_mem_initializers (mem_initializer_list);
+  if (DECL_CONSTRUCTOR_P (current_function_decl))
+    finish_mem_initializers (mem_initializer_list);
 }
 
 /* Parse a mem-initializer.
@@ -7233,7 +7236,8 @@ cp_parser_mem_initializer (cp_parser* parser)
 {
   tree mem_initializer_id;
   tree expression_list;
-
+  tree member;
+  
   /* Find out what is being initialized.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
     {
@@ -7242,6 +7246,10 @@ cp_parser_mem_initializer (cp_parser* parser)
     }
   else
     mem_initializer_id = cp_parser_mem_initializer_id (parser);
+  member = expand_member_init (mem_initializer_id);
+  if (member && !DECL_P (member))
+    in_base_initializer = 1;
+  
   /* Look for the opening `('.  */
   cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
   /* Parse the expression-list.  */
@@ -7253,8 +7261,9 @@ cp_parser_mem_initializer (cp_parser* parser)
   /* Look for the closing `)'.  */
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  return expand_member_init (mem_initializer_id,
-			     expression_list);
+  in_base_initializer = 0;
+  
+  return member ? build_tree_list (member, expression_list) : NULL_TREE;
 }
 
 /* Parse a mem-initializer-id.
@@ -7754,7 +7763,7 @@ cp_parser_type_parameter (cp_parser* parser)
 
   /* Look for a keyword to tell us what kind of parameter this is.  */
   token = cp_parser_require (parser, CPP_KEYWORD, 
-			     "expected `class', `typename', or `template'");
+			     "`class', `typename', or `template'");
   if (!token)
     return error_mark_node;
 
@@ -10415,7 +10424,10 @@ cp_parser_declarator_id (cp_parser* parser)
   /* If the name was qualified, create a SCOPE_REF to represent 
      that.  */
   if (parser->scope)
-    id_expression = build_nt (SCOPE_REF, parser->scope, id_expression);
+    {
+      id_expression = build_nt (SCOPE_REF, parser->scope, id_expression);
+      parser->scope = NULL_TREE;
+    }
 
   return id_expression;
 }
@@ -11756,8 +11768,8 @@ cp_parser_class_head (cp_parser* parser,
     }
   else
     {
-      bool new_type_p;
       tree class_type;
+      tree scope;
 
       /* Given:
 
@@ -11780,14 +11792,25 @@ cp_parser_class_head (cp_parser* parser,
 	    }
 	}
 
+      /* Figure out in what scope the declaration is being placed.  */
+      scope = current_scope ();
+      if (!scope)
+	scope = current_namespace;
+      /* If that scope does not contain the scope in which the
+	 class was originally declared, the program is invalid.  */
+      if (scope && !is_ancestor (scope, CP_DECL_CONTEXT (type)))
+	{
+	  error ("declaration of `%D' in `%D' which does not "
+		 "enclose `%D'", type, scope, nested_name_specifier);
+	  return NULL_TREE;
+	}
+
       maybe_process_partial_specialization (TREE_TYPE (type));
       class_type = current_class_type;
       type = TREE_TYPE (handle_class_head (class_key, 
 					   nested_name_specifier,
 					   type,
-					   attributes,
-					   /*defn_p=*/true,
-					   &new_type_p));
+					   attributes));
       if (type != error_mark_node)
 	{
 	  if (!class_type && TYPE_CONTEXT (type))
@@ -13992,7 +14015,7 @@ cp_parser_single_declaration (cp_parser* parser,
   parser->qualifying_scope = NULL_TREE;
   parser->object_scope = NULL_TREE;
   /* Look for a trailing `;' after the declaration.  */
-  if (!cp_parser_require (parser, CPP_SEMICOLON, "expected `;'")
+  if (!cp_parser_require (parser, CPP_SEMICOLON, "`;'")
       && cp_parser_committed_to_tentative_parse (parser))
     cp_parser_skip_to_end_of_block_or_statement (parser);
   /* If it worked, set *FRIEND_P based on the DECL_SPECIFIERS.  */

@@ -77,6 +77,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gcse-globals.h"
 #include "vpt.h"
 #include "hosthooks.h"
+#include "cgraph.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -105,7 +106,7 @@ extern void reg_alloc PARAMS ((void));
 
 static void general_init PARAMS ((char *));
 static void parse_options_and_default_flags PARAMS ((int, char **));
-static void do_compile PARAMS ((int));
+static void do_compile PARAMS ((void));
 static void process_options PARAMS ((void));
 static void backend_init PARAMS ((void));
 static int lang_dependent_init PARAMS ((const char *));
@@ -136,6 +137,9 @@ static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
+
+/* True if we don't need a backend (e.g. preprocessing only).  */
+static bool no_backend;
 
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
@@ -2031,7 +2035,7 @@ wrapup_global_declarations (vec, len)
       decl = vec[i];
 
       /* We're not deferring this any longer.  Assignment is
-	 conditional to avoid needlessly dirtying PCH pages. */
+	 conditional to avoid needlessly dirtying PCH pages.  */
       if (DECL_DEFER_OUTPUT (decl) != 0)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
@@ -2695,6 +2699,10 @@ rest_of_compilation (decl)
 
   delete_unreachable_blocks ();
 
+  /* We have to issue these warnings now already, because CFG cleanups
+     further down may destroy the required information.  */
+  check_function_return_warnings ();
+
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   if (flag_guess_branch_prob)
     {
@@ -3315,8 +3323,6 @@ rest_of_compilation (decl)
   open_dump_file (DFI_life, decl);
   regclass_init ();
 
-  check_function_return_warnings ();
-
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
@@ -3686,7 +3692,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_bbro, decl);
 
       /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-	 splitting possibly introduced more crossjumping opportunities. */
+	 splitting possibly introduced more crossjumping opportunities.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3930,6 +3936,16 @@ rest_of_compilation (decl)
   free_bb_for_insn ();
 
   timevar_pop (TV_FINAL);
+
+  if ((*targetm.binds_local_p) (current_function_decl))
+    {
+      int pref = cfun->preferred_stack_boundary;
+      if (cfun->recursive_call_emit
+          && cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+	pref = cfun->stack_alignment_needed;
+      cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
+        = pref;
+    }
 
   /* Make sure volatile mem refs aren't considered valid operands for
      arithmetic insns.  We must call this here if this is a nested inline
@@ -4551,18 +4567,21 @@ independent_decode_option (argc, argv)
     {
       display_help ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-target-help"))
     {
       display_target_options ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-version"))
     {
       print_version (stderr, "");
       exit_after_options = 1;
+      return 1;
     }
 
   /* Handle '--param <name>=<value>'.  */
@@ -5326,6 +5345,13 @@ parse_options_and_default_flags (argc, argv)
 static void
 process_options ()
 {
+  /* Allow the front end to perform consistency checks and do further
+     initialization based on the command line options.  This hook also
+     sets the original filename if appropriate (e.g. foo.i -> foo.c)
+     so we can correctly initialize debug output.  */
+  no_backend = (*lang_hooks.post_options) (&filename);
+  main_input_filename = input_filename = filename;
+
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
@@ -5582,15 +5608,10 @@ lang_dependent_init (name)
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
 
-  /* Front-end initialization.  This hook can assume that GC,
-     identifier hashes etc. are set up, but debug initialization is
-     not done yet.  This routine must return the original filename
-     (e.g. foo.i -> foo.c) so can correctly initialize debug output.  */
-  name = (*lang_hooks.init) (name);
-  if (name == NULL)
+  /* Other front-end initialization.  */
+  if ((*lang_hooks.init) () == 0)
     return 0;
 
-  main_input_filename = input_filename = name;
   init_asm_output (name);
 
   /* These create various _DECL nodes, so need to be called after the
@@ -5706,8 +5727,7 @@ print_structure_statistics ()
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile (no_backend)
-     int no_backend;
+do_compile ()
 {
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */
@@ -5751,16 +5771,11 @@ toplev_main (argc, argv)
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     {
-      /* All command line options have been parsed; allow the front
-	 end to perform consistency checks, etc.  */
-      bool no_backend = (*lang_hooks.post_options) ();
-
-      /* The bulk of command line switch processing.  */
       process_options ();
 
       /* Don't do any more if an error has already occurred.  */
       if (!errorcount)
-	do_compile (no_backend);
+	do_compile ();
     }
 
   if (errorcount || sorrycount)

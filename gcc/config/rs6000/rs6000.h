@@ -704,6 +704,20 @@ extern int rs6000_default_long_calls;
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
 
+/* Add 32 dwarf columns for synthetic SPE registers.  The SPE
+   synthetic registers are 113 through 145.  */
+#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 32)
+
+/* The SPE has an additional 32 synthetic registers starting at 1200.
+   We must map them here to sane values in the unwinder to avoid a
+   huge hole in the unwind tables.
+
+   FIXME: the AltiVec ABI has AltiVec registers being 1124-1155, and
+   the VRSAVE SPR (SPR256) assigned to register 356.  When AltiVec EH
+   is verified to be working, this macro should be changed
+   accordingly.  */
+#define DWARF_REG_TO_UNWIND_COLUMN(r) ((r) > 1200 ? ((r) - 1200 + 113) : (r))
+
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
 
@@ -1395,6 +1409,7 @@ typedef struct rs6000_stack {
   int spe_padding_size;
   int toc_size;			/* size to hold TOC if not in save_size */
   int total_size;		/* total bytes allocated for stack */
+  int spe_64bit_regs_used;
 } rs6000_stack_t;
 
 /* Define this if pushing a word on the stack
@@ -1634,6 +1649,8 @@ typedef struct machine_function GTY(())
   int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* Whether the instruction chain has been scanned already.  */
+  int insn_chain_scanned_p;
 } machine_function;
 
 /* Define a data type for recording info about an argument list
@@ -2086,7 +2103,8 @@ typedef struct rs6000_args
 
 #define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X, STRICT)	\
   (TARGET_ELF						\
-   && ! flag_pic && ! TARGET_TOC			\
+   && (DEFAULT_ABI == ABI_AIX || ! flag_pic)		\
+   && ! TARGET_TOC					\
    && GET_MODE_NUNITS (MODE) == 1			\
    && (GET_MODE_BITSIZE (MODE) <= 32 			\
        || (TARGET_HARD_FLOAT && TARGET_FPRS && (MODE) == DFmode))	\

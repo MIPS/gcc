@@ -349,6 +349,8 @@ extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
 extern void connect_infinite_loops_to_exit	PARAMS ((void));
 extern int flow_call_edges_add		PARAMS ((sbitmap));
+extern edge unchecked_make_edge		PARAMS ((basic_block,
+						 basic_block, int));
 extern edge cached_make_edge		PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern edge make_edge			PARAMS ((basic_block,
@@ -545,7 +547,7 @@ extern void init_flow                   PARAMS ((void));
 extern void reorder_basic_blocks	PARAMS ((void));
 extern void dump_bb			PARAMS ((basic_block, FILE *));
 extern void debug_bb			PARAMS ((basic_block));
-extern void debug_bb_n			PARAMS ((int));
+extern basic_block debug_bb_n		PARAMS ((int));
 extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));
