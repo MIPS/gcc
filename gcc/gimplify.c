@@ -531,15 +531,30 @@ foreach_stmt (tree *stmt_p, foreach_stmt_fn *fn)
 
 static location_t wfl_locus;
 
-static void
-annotate_all_with_locus_1 (tree *stmt_p)
+/* Determines whether to assign a locus to the statement STMT.  */
+
+static bool
+should_carry_locus_p (tree stmt)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
-     to the beginning of the loop/switch.  */;
+     to the beginning of the loop/switch.  */
+  if (TREE_CODE (stmt) == LABEL_EXPR)
+    return false;
+
+  /* Do not annotate empty statements, since it confuses gcov.  */
+  if (!TREE_SIDE_EFFECTS (stmt))
+    return false;
+
+  return true;
+}
+
+static void
+annotate_all_with_locus_1 (tree *stmt_p)
+{
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*stmt_p)))
-      && TREE_CODE (*stmt_p) != LABEL_EXPR
-      && ! EXPR_LOCUS (*stmt_p))
+      && ! EXPR_LOCUS (*stmt_p)
+      && should_carry_locus_p (*stmt_p))
     annotate_with_locus (*stmt_p, wfl_locus);
 }
 
