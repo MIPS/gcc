@@ -1,3 +1,52 @@
+2004-05-11  Michael Matz  <matz@suse.de>
+
+	Backport of various C++ stuff regarding ppc ABI with vector
+	args (#39623)
+
+	2003-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+		PR c++/8795
+		* g++.dg/ext/altivec-1.C: New test.
+
+	2004-02-21  Ziemowit Laski  <zlaski@apple.com>
+
+		* g++.dg/ext/altivec-1.C: Generalize target triple.
+		* g++.dg/ext/altivec-2.C: New test case.
+		* g++.dg/ext/altivec_check.h: New file.
+		* gcc.dg/altivec-1.c: Generalize target triple;
+		include altivec_check.h and call altivec_check().
+		* gcc.dg/altivec-[2-5].c: Generalize target triple.
+		* gcc.dg/altivec-6.c: New test case.
+		* gcc.dg/altivec-[7-8].c: Generalize target triple; add
+		type casts as needed.
+		[* gcc.dg/altivec-9.c: Generalize target triple; add
+		type casts as needed. skipped, doesn't exist yet]
+		* gcc.dg/altivec-10.c: Include altivec_check.h and call
+		altivec_check().
+		* gcc.dg/altivec-12.c: New test case.
+		[* gcc.dg/altivec-varargs-1.c: Generalize target triple;
+		include altivec_check.h and call altivec_check().
+		skipped, doesn't exist yet]
+		* gcc.dg/altivec_check.h: New file.
+
+	2004-02-27  Ziemowit Laski  <zlaski@apple.com>
+
+		* g++.dg/ext/altivec-3.C: New.
+
+	2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+		PR c++/14425, c++/14426
+		* g++.dg/ext/altivec-4.C: New test.
+		* g++.dg/ext/altivec-5.C: New test.
+
+	2004-03-19  Ziemowit Laski  <zlaski@apple.com>
+
+		* g++.dg/ext/altivec-6.C: New test.
+
+	2004-03-23  Ziemowit Laski  <zlaski@apple.com>
+
+		* g++.dg/ext/altivec-7.C: New test.
+
 2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
 
 	Backport from the mainline:
