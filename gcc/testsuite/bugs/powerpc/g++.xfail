@@ -13,7 +13,7 @@
 3220997: g++.dg/align-test-1.C execution test
 #3665086: g++.dg/apple-altivec-1.C (test for excess errors)
 #3665086: g++.dg/altivec-3.C (test for excess errors)
-3665127: g++.dg/altivec-5.C (test for excess errors)
+#3665127: g++.dg/altivec-5.C (test for excess errors)
 #3665098: g++.dg/eh/simd-2.C (test for excess errors)
 #3665086: g++.dg/ext/altivec-2.C (test for excess errors)
 #3665086: g++.dg/ext/altivec-4.C (test for excess errors)
@@ -185,5 +185,28 @@
 3845961: 102:is -:should be 1
 3845961: g++.dg/gcov/gcov-1.C gcov: 1 failures in line counts, 0 in branch percentages, 0 in return percentages
 3878577: g++.dg/expr/cast2.C  (test for errors, line 4)
-3878578: g++.old-deja/g++.other/comdat4.C (test for excess errors)
-3878580: g++.dg/parse/parse3.C (test for excess errors)
+#3878578: g++.old-deja/g++.other/comdat4.C (test for excess errors)
+#3878580: g++.dg/parse/parse3.C (test for excess errors)
+# The following tests fail only when the c++ suite is run through Obj-C++.
+3904139: g++.dg/ext/fnname3.C execution test
+3904139: g++.old-deja/g++.ext/pretty2.C execution test
+3904139: g++.old-deja/g++.ext/pretty3.C execution test
+3904139: g++.old-deja/g++.pt/memtemp77.C execution test
+3904139: g++.dg/ext/pretty1.C scan-assembler int bar\\(T\\).*with T = int
+3904139: g++.dg/ext/pretty1.C scan-assembler int main\\(\\)
+3904173: g++.old-deja/g++.jason/cleanup2.C (test for excess errors)
+3904173: g++.old-deja/g++.jason/hmc1.C (test for excess errors)
+3904173: g++.old-deja/g++.law/ctors10.C  (test for errors, line 21)
+3904173: g++.old-deja/g++.law/ctors10.C (test for excess errors)
+3904173: g++.old-deja/g++.law/shadow1.C (test for excess errors)
+3904178: g++.dg/opt/devirt1.C scan-assembler xyzzy
+3904184: g++.old-deja/g++.mike/p11144.C (test for excess errors)
+3904186: g++.dg/pch/system-1.C -g assembly comparison
+3904186: g++.dg/pch/system-1.C -O2 -g assembly comparison
+3904186: g++.dg/pch/system-1.C -O2 assembly comparison
+3904186: g++.dg/pch/system-2.C -g assembly comparison
+3904186: g++.dg/pch/system-2.C -O2 -g assembly comparison
+3904186: g++.dg/pch/system-2.C -O2 assembly comparison
+3904186: g++.dg/pch/uninst.C -g assembly comparison
+3904186: g++.dg/pch/uninst.C -O2 -g assembly comparison
+3904186: g++.dg/pch/uninst.C -O2 assembly comparison
