@@ -5642,23 +5642,18 @@ choose_reload_regs (struct insn_chain *chain)
 		 and of the desired class.  */
 	      if (equiv != 0)
 		{
-		  int regs_used = 0;
 		  int bad_for_class = 0;
 		  int max_regno = regno + rld[r].nregs;
 
 		  for (i = regno; i < max_regno; i++)
-		    {
-		      regs_used |= TEST_HARD_REG_BIT (reload_reg_used_at_all,
-						      i);
 		      bad_for_class |= ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
 							   i);
-		    }
-
-		  if ((regs_used
-		       && ! free_for_value_p (regno, rld[r].mode,
-					      rld[r].opnum, rld[r].when_needed,
-					      rld[r].in, rld[r].out, r, 1))
-		      || bad_for_class)
+                  if (bad_for_class
+		  /* APPLE LOCAL begin don't reload unavailable hard regs. */
+                      || ! free_for_value_p (regno, rld[r].mode,
+                                             rld[r].opnum, rld[r].when_needed,
+                                             rld[r].in, rld[r].out, r, 1))
+		  /* APPLE LOCAL end don't reload unavailable hard regs. */
 		    equiv = 0;
 		}
 
