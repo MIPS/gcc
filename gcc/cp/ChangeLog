@@ -1,3 +1,31 @@
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/16174
+	* call.c (build_temp): Declare.
+	(check_constructor_callable): New.
+	(reference_binding): Only set CHECK_COPY_CONSTRUCTOR if not for
+	CONSTRUCTOR_CALLABLE.
+	(convert_like_real, initialize_reference): Use
+	check_constructor_callable.
+	* cp-tree.h (LOOKUP_CONSTRUCTOR_CALLABLE): New.
+	(LOOKUP_*): Renumber.
+
+2004-06-25  Jan Hubicka  <jh@suse.cz>
+
+	PR C++/14865
+	* decl2.c (maybe_emit_vtables):  Always import_export_vtable for the
+	reachability analysis.
+
+2004-06-22  Jan Hubicka  <jh@suse.cz>
+
+	PR C++/14950
+	* pt.c (instantiate_decl): Clean TI_PENDING_TEMPLATE_FLAG before
+	expanding the function.
+
 2004-06-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/3518

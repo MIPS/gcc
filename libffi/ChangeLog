@@ -1,3 +1,7 @@
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
 2004-03-11  Andreas Schwab  <schwab@suse.de>
 
 	* src/ia64/ffi.c (ffi_prep_incoming_args_UNIX): Get floating point
