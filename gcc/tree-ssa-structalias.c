@@ -1100,9 +1100,10 @@ typedef struct fieldoff
   unsigned HOST_WIDE_INT offset;
 } *fieldoff_t;
 
+DEF_VEC_MALLOC_P(fieldoff_t);
 
 static void
-push_fields_onto_fieldstack (tree type, varray_type *fieldstack, 
+push_fields_onto_fieldstack (tree type, VEC (fieldoff_t) **fieldstack, 
 			     unsigned HOST_WIDE_INT offset)
 {
   fieldoff_t pair;
@@ -1112,27 +1113,27 @@ push_fields_onto_fieldstack (tree type, varray_type *fieldstack,
       && TREE_CODE (TREE_TYPE (field)) != ARRAY_TYPE
       && TREE_CODE (field) == FIELD_DECL)
     {
-      size_t before = VARRAY_ACTIVE_SIZE (*fieldstack);
+      size_t before = VEC_length (fieldoff_t, *fieldstack);
       /* Empty structures may have actual size, like in C++. So see if we
 	 actually end up pushing a field, and if not, if the size is non-zero,
 	 push the field onto the stack */
       push_fields_onto_fieldstack (TREE_TYPE (field), fieldstack, offset);
-      if (before == VARRAY_ACTIVE_SIZE (*fieldstack)
+      if (before == VEC_length (fieldoff_t, *fieldstack)
 	  && DECL_SIZE (field)
 	  && !integer_zerop (DECL_SIZE (field)))
 	{
-	  pair = ggc_alloc (sizeof (struct fieldoff));
+	  pair = xmalloc (sizeof (struct fieldoff));
 	  pair->field = field;
 	  pair->offset = offset;
-	  VARRAY_PUSH_GENERIC_PTR (*fieldstack, pair);
+	  VEC_safe_push (fieldoff_t, *fieldstack, pair);
 	}
     }
   if (TREE_CODE (field) == FIELD_DECL)
     {
-      pair = ggc_alloc (sizeof (struct fieldoff));
+      pair = xmalloc (sizeof (struct fieldoff));
       pair->field = field;
       pair->offset = offset;
-      VARRAY_PUSH_GENERIC_PTR (*fieldstack, pair);
+      VEC_safe_push (fieldoff_t, *fieldstack, pair);
     }
   for (field = TREE_CHAIN (field); field; field = TREE_CHAIN (field))
     {
@@ -1146,12 +1147,25 @@ push_fields_onto_fieldstack (tree type, varray_type *fieldstack,
 	}
       else
 	{
-	  pair = ggc_alloc (sizeof (struct fieldoff));
+	  pair = xmalloc (sizeof (struct fieldoff));
 	  pair->field = field;
 	  pair->offset = offset + bitpos_of_field (field);
-	  VARRAY_PUSH_GENERIC_PTR (*fieldstack, pair);
+	  VEC_safe_push (fieldoff_t, *fieldstack, pair);
 	}
     }
+}
+
+/* Free the pairs still on the FIELDSTACK, and then free the FIELDSTACK.  */
+
+static void
+cleanup_fieldstack (VEC (fieldoff_t) *fieldstack)
+{
+  while (VEC_length (fieldoff_t, fieldstack) != 0)
+    {
+      fieldoff_t pair = VEC_pop (fieldoff_t, fieldstack);
+      free (pair);
+    }
+  VEC_free (fieldoff_t, fieldstack);
 }
 
 /* Create a varinfo structure for NAME and DECL, and add it to the varmap.
@@ -1161,14 +1175,14 @@ static unsigned int
 create_variable_info_for (tree decl, const char *name)
 {
   unsigned int index = VEC_length (varinfo_t, varmap);
-  varray_type fieldstack;
   varinfo_t vi;
   tree decltype = TREE_TYPE (decl);
   vi = new_var_info (decl, index, name, index);
   vi->decl = decl;
   vi->base = vi;
   vi->offset = 0;
-  if (!TYPE_SIZE (decltype) || TREE_CODE (TYPE_SIZE  (decltype)) != INTEGER_CST
+  if (!TYPE_SIZE (decltype) 
+      || TREE_CODE (TYPE_SIZE  (decltype)) != INTEGER_CST
       || TREE_CODE (decltype) == ARRAY_TYPE)
     {
       vi->is_unknown_size_var = true;
@@ -1190,32 +1204,31 @@ create_variable_info_for (tree decl, const char *name)
       unsigned int newindex = VEC_length (varinfo_t, varmap);
       fieldoff_t pair;
       tree field;
+      VEC (fieldoff_t) *fieldstack = NULL;
 
-      VARRAY_GENERIC_PTR_INIT (fieldstack, 1, "field stack");
       push_fields_onto_fieldstack (decltype, &fieldstack, 0);
       /* FIXME: We really want to find the field that would normally go first in
 	 the list here, not just the "first" field.  That way, the sorting
 	 always comes out right.  */
-      pair = VARRAY_GENERIC_PTR (fieldstack, 0);
-      VARRAY_GENERIC_PTR (fieldstack, 0) = NULL_TREE;
+      pair = VEC_index (fieldoff_t, fieldstack, 0);
+      VEC_replace (fieldoff_t, fieldstack, 0, NULL);
       if (pair == NULL)
 	{
 	  vi->is_unknown_size_var = 1;
 	  vi->fullsize = ~0;
 	  vi->size = ~0;
+	  cleanup_fieldstack (fieldstack);
 	  return index;
 	}
-      
-      
+            
       field = pair->field;
       gcc_assert (bitpos_of_field (field) == 0);
       vi->size = TREE_INT_CST_LOW (DECL_SIZE (field));
-      while (VARRAY_ACTIVE_SIZE (fieldstack) != 0)
+      while (VEC_length (fieldoff_t, fieldstack) != 0)
 	{
 	  varinfo_t newvi;
 	  char *newname;
-	  pair = VARRAY_TOP_GENERIC_PTR (fieldstack);
-	  VARRAY_POP (fieldstack); 
+	  pair = VEC_pop (fieldoff_t, fieldstack);
 	  if (pair == NULL)
 	    continue;
 	  field = pair->field;
@@ -1232,8 +1245,10 @@ create_variable_info_for (tree decl, const char *name)
 	  newvi->fullsize = vi->fullsize;
 	  insert_into_field_list (vi, newvi);
 	  VEC_safe_push (varinfo_t, varmap, newvi);
+	  free (pair);
 	  stats.total_vars++;	  
 	}
+      VEC_free (fieldoff_t, fieldstack);
     }
   return index;
 }
