@@ -3,7 +3,7 @@
 
 int ssize[sizeof (_Decimal32) == 4 ? 1 : -1];
 int dsize[sizeof (_Decimal64) == 8 ? 1 : -1];
-int tsize[sizeof (_Dcimal128) == 16 ? 1 : -1];
+int tsize[sizeof (_Decimal128) == 16 ? 1 : -1];
 
 int salign = __alignof (_Decimal32);
 int dalign = __alignof (_Decimal64);

@@ -1,3 +1,19 @@
+2005-03-09  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* builtin-types.def: Add new type_nodes for decimal float.
+	* c-common.c (c_common_type_for_mode): Return type from DFP mode.
+	(c_common_nodes_and_builtins): Record builtin dfp types.
+	* c-common.h: Add RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128.
+	* c-decl.c (declspecs_add_type): Verify combos on qualifiers.
+	(finish_declspecs): Return type from DFP typespec_word.
+	* c-format.h: Add macros for dfp type format processing.
+	* c-parser.c (c_token_starts_typename, c_token_starts_declspecs,
+	c_parser_declspecs, c_parser_attributes): Add _Decimal reserved
+	words.
+	* c-tree.h: Add enums for DFP typespec_words.
+	* tree.c (build_common_tree_nodes_2): Make type nodes.
+	* tree.h: Allocate storage for DFP type nodes.
+
 2005-03-07  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* genmodes.c (make_complex_modes): For now, don't create complex

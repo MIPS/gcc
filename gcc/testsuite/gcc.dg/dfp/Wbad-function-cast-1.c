@@ -38,6 +38,6 @@ foo(void)
   (_Decimal128)if3(); /* { dg-warning "cast from function call of type 'long int' to non-matching type '_Decimal128'" } */
   (int)rf3(); /* { dg-warning "cast from function call of type '_Decimal32' to non-matching type 'int'" } */
   (long)rf4(); /* { dg-warning "cast from function call of type '_Decimal64' to non-matching type 'long int'" } */
-  (long int)rf5(); /* { dg-warning "cast from function call of type 'Decimal128' to non-matching type 'long int'" } */
+  (long int)rf5(); /* { dg-warning "cast from function call of type '_Decimal128' to non-matching type 'long int'" } */
   (_Decimal32)cf(); /* { dg-warning "cast from function call of type 'complex double' to non-matching type '_Decimal32'" } */
 }

@@ -112,7 +112,7 @@ signed int _Decimal128*x104; /* { dg-error "error" "signed int _Decimal128" } */
 signed long _Decimal32 *105x; /* { dg-error "error" "signed long _Decimal32" } */
 signed long _Decimal64 *x107; /* { dg-error "error" "signed long _Decimal64" } \*/
 signed long _Decimal128 *x107; /* { dg-error "error" "signed long _Decimal128" } \*/
-unsigned char _Decimal32 *x108; /* { dg-error "error" "unsigned char _Decimal32\" } */
+unsigned char _Decimal32 *x108; /* { dg-error "error" "unsigned char _Decimal32" } */
 unsigned char _Decimal64 *x109; /* { dg-error "error" "unsigned char _Decimal64" } */
 unsigned char _Decimal128 *x110; /* { dg-error "error" "unsigned char _Decimal128" } */
 unsigned short _Decimal32 *x111; /* { dg-error "error" "unsigned short _Decimal32" } */

@@ -130,6 +130,10 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 	tree complex_double_type_node;
 	tree complex_long_double_type_node;
 
+	tree dfloat32_type_node;
+	tree dfloat64_type_node;
+	tree_dfloat128_type_node;
+
 	tree intQI_type_node;
 	tree intHI_type_node;
 	tree intSI_type_node;
@@ -1643,6 +1647,13 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
 	return build_vector_type_for_mode (inner_type, mode);
     }
 
+  if (mode == TYPE_MODE (dfloat32_type_node))
+    return dfloat32_type_node;
+  if (mode == TYPE_MODE (dfloat64_type_node))
+    return dfloat64_type_node;
+  if (mode == TYPE_MODE (dfloat128_type_node))
+    return dfloat128_type_node;
+
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
       return TREE_VALUE (t);
@@ -3029,6 +3040,10 @@ c_common_nodes_and_builtins (void)
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
   record_builtin_type (RID_MAX, "long double", long_double_type_node);
+
+  record_builtin_type (RID_DFLOAT32, NULL, dfloat32_type_node);
+  record_builtin_type (RID_DFLOAT64, NULL, dfloat64_type_node);
+  record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
 
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 					 get_identifier ("complex int"),
