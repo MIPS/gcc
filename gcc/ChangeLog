@@ -1,63 +1,68 @@
 
+Tue Dec  1 12:40:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* fixinc/fixincl.c (main): added retry count limit (10).
+	Also reduced BOGUS_LIMIT to 128.
+
 1998-11-25  Manfred Hollstein  <manfred@s-direktnet.de>
 
-       * fixinc/mkfixinc.sh (SHELL): Pass SHELL on the command line
-       when invoking $MAKE; this fixes a bug with SunOS' /bin/sh
-       not handling I/O redirection properly.
+	* fixinc/mkfixinc.sh (SHELL): Pass SHELL on the command line
+	when invoking $MAKE; this fixes a bug with SunOS' /bin/sh
+	not handling I/O redirection properly.
 
-       * fixinc/Makefile.in (LIBERTY): New macro where to find
-       libiberty.a.
-       (fixincl): Pass $(LIBERTY).
+	* fixinc/Makefile.in (LIBERTY): New macro where to find
+	libiberty.a.
+	(fixincl): Pass $(LIBERTY).
 
 Mon Nov 23 08:04:00 1998  Bruce Korb <korb@datadesign.com>
 
-       * Makefile.in (fixinc.sh): corrected "srcdir" that gets passed
-       to fixinc/mkfixinc.sh;  dropped unnecessary "mkdir" code.
+	* Makefile.in (fixinc.sh): corrected "srcdir" that gets passed
+	to fixinc/mkfixinc.sh;  dropped unnecessary "mkdir" code.
 
-       * configure.in & configure & Makefile.in & fixinc/*: restored
-       clobbered updates.
+	* configure.in & configure & Makefile.in & fixinc/*: restored
+	clobbered updates.
 
-       * fixinc/fixincl.c (main): added test to ensure the program can
-       talk to a server shell before exiting successfully on a
-       "-v"ersion option invocation.
+	* fixinc/fixincl.c (main): added test to ensure the program can
+	talk to a server shell before exiting successfully on a
+	"-v"ersion option invocation.
 
 1998-11-20  Manfred Hollstein  <manfred@s-direktnet.de>
 
-       * Makefile.in (fixinc.sh): Add dependency upon $(srcdir)/fixinc/mkfixinc.sh;
-       add appropriate code to use the fixinc/* files in gcc instead
-       of the old ones in contrib.
-       (stmp-fixinc): Comment non fast-fixinc version and provide
-       a suitable one for using fast-fixinc.
+	* Makefile.in (fixinc.sh): Add dependency upon $(srcdir)/fixinc/mkfixinc.sh;
+	add appropriate code to use the fixinc/* files in gcc instead
+	of the old ones in contrib.
+	(stmp-fixinc): Comment non fast-fixinc version and provide
+	a suitable one for using fast-fixinc.
 
-       * fixinc/fixinc.dgux (INSTALL_ASSERT_H): Remove trailing ';'; add error
-       exit if copying assert.h fails.
-       * fixinc/fixinc.irix (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixinc.ptx (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixinc.sco (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixinc.svr4 (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixinc.winnt (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixinc.wrap (INSTALL_ASSERT_H): Likewise.
-       * fixinc/fixincl.sh (INSTALL_ASSERT_H): Likewise.
-       * fixinc/inclhack.tpl (INSTALL_ASSERT_H): Likewise.
-       * fixinc/inclhack.sh: Regenerate using autogen.
+	* fixinc/fixinc.dgux (INSTALL_ASSERT_H): Remove trailing ';'; add error
+	exit if copying assert.h fails.
+	* fixinc/fixinc.irix (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.ptx (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.sco (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.svr4 (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.winnt (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixinc.wrap (INSTALL_ASSERT_H): Likewise.
+	* fixinc/fixincl.sh (INSTALL_ASSERT_H): Likewise.
+	* fixinc/inclhack.tpl (INSTALL_ASSERT_H): Likewise.
+	* fixinc/inclhack.sh: Regenerate using autogen.
 
 1998-11-20  Bruce Korb <korb@datadesign.com>
 
-       * fixinc/mkfixinc.sh (srcdir): Look for source files in ${srcdir}
-       only; prefer "inclhack.sh" in the builddir over the srcdir
-       version.
+	* fixinc/mkfixinc.sh (srcdir): Look for source files in ${srcdir}
+	only; prefer "inclhack.sh" in the builddir over the srcdir
+	version.
 
-       * fixinc/fixincl.c (MINIMUM_MAXIMUM_LINES): Add definition.
-       (MAXPATHLEN): Add fallback definition for those systems that
-       don't define it.
-       (NAME_TABLE_SIZE): Add definition.
-       (pzFileNameBuf): Renamed from zFileNameBuf change it to
-       be a dynamically allocated pointer instead of a static array;
-       change all occurences of zFileNameBuf accordingly.
-       (main): Use BOGUS_LIMIT as an alias for MINIMUM_MAXIMUM_LINES.
-       * server.c (MAXPATHLEN): Add fallback definition for those systems
-       that don't define it.
-       (defArgs): Remove "-p" flag.
+	* fixinc/fixincl.c (MINIMUM_MAXIMUM_LINES): Add definition.
+	(MAXPATHLEN): Add fallback definition for those systems that
+	don't define it.
+	(NAME_TABLE_SIZE): Add definition.
+	(pzFileNameBuf): Renamed from zFileNameBuf change it to
+	be a dynamically allocated pointer instead of a static array;
+	change all occurences of zFileNameBuf accordingly.
+	(main): Use BOGUS_LIMIT as an alias for MINIMUM_MAXIMUM_LINES.
+	* server.c (MAXPATHLEN): Add fallback definition for those systems
+	that don't define it.
+	(defArgs): Remove "-p" flag.
 
 Wed Nov 18 16:31:28 1998  Jim Wilson  <wilson@cygnus.com>
 
