@@ -190,11 +190,6 @@ tree_ssa_phiopt (void)
 	{
 	  cond = invert_truthvalue (cond);
 
-	  /* Inversion of the condition may result in non-gimple code,
-	     if so, then we can not optimize this PHI.  */
-	  if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
-	    continue;
-
 	  new = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
 		       PHI_RESULT (phi), cond);
 	}
