@@ -1,3 +1,8 @@
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Don't use POST_P when
+	gimplifying CALL_EXPR arguments.
+
 2004-04-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c: Update comments and reformat for legibility.

@@ -1939,8 +1939,14 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
        arglist = TREE_CHAIN (arglist))
     {
       enum gimplify_status t;
-      t = gimplify_expr (&TREE_VALUE (arglist), pre_p, post_p,
-			 is_gimple_val, fb_rvalue);
+
+      /* There is a sequence point before a function call.  Side effects in
+	 the argument list must occur before the actual call. So, when
+	 gimplifying arguments, force gimplify_expr to use an internal
+	 post queue which is then appended to the end of PRE_P.  */
+      t = gimplify_expr (&TREE_VALUE (arglist), pre_p, NULL, is_gimple_val,
+			 fb_rvalue);
+
       if (t == GS_ERROR)
 	ret = GS_ERROR;
     }

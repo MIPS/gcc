@@ -1,3 +1,7 @@
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c: New test.
+
 2003-04-04  Paul Brook  <paul@codesourcery.com>
 
 	PR 13252
