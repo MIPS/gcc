@@ -1,4 +1,4 @@
-static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19990503\n";
+static char junk[] = "\n@(#) LIBI77 VERSION pjw,dmg-mods 19990618\n";
 
 /*
 2.01	$ format added
@@ -296,3 +296,4 @@ wrtfmt.c:
 		 rdfmt.c: omit fixed-length buffer that could be overwritten
 		 by formats Inn or Lnn with nn > 83. */
 /* 3 May 1999:	open.c: insert two casts for machines with 64-bit longs. */
+/* 18 June 1999: backspace.c: allow for b->ufd changing in t_runc */
