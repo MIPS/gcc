@@ -157,7 +157,7 @@ instrument_edges (struct edge_list *el)
 			 EDGE_CRITICAL_P (e) ? " (and split)" : "");
 	      edge_profile = gen_edge_profiler (num_instr_edges++);
 	      insert_insn_on_edge (edge_profile, e);
-	      rebuild_jump_labels (e->insns);
+	      rebuild_jump_labels (e->insns.r);
 	    }
 	}
     }

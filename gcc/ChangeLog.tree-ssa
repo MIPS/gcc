@@ -1,3 +1,16 @@
+2003-11-09  Richard Henderson  <rth@redhat.com>
+
+	* basic-block.h (struct edge_def): Turn insns into a union.
+	* cfgrtl.c (insert_insn_on_edge): Update to match.
+	(commit_one_edge_insertion, commit_edge_insertions): Likewise.
+	(commit_edge_insertions_watch_calls): Likewise.
+	* gcse.c (reg_killed_on_edge, bypass_block): Likewise.
+	* profile.c (instrument_edges): Likewise.
+	* rtlanal.c (hoist_insn_to_edge): Likewise.
+	* tree-cfg.c (PENDING_STMT): Likewise.
+	(SET_PENDING_STMT): Remove.
+	(bsi_commit_edge_inserts): Update to match.
+
 2003-11-08  Jan Hubicka  <jh@suse.cz>
 
 	* fold.c (nondestructive_fold_binary_to_constant): Fix typo.

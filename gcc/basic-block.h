@@ -129,7 +129,10 @@ typedef struct edge_def {
   struct basic_block_def *src, *dest;
 
   /* Instructions queued on the edge.  */
-  rtx insns;
+  union {
+    rtx r;
+    tree t;
+  } insns;
 
   /* Auxiliary info specific to a pass.  */
   void *aux;

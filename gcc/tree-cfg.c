@@ -134,10 +134,7 @@ static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
 					  basic_block);
 
 /* Location to track pending stmt for edge insertion.  */
-#define PENDING_STMT(e)	((tree)(e->insns))
-
-/* Set the pending stmt field.  */
-#define SET_PENDING_STMT(e, t)	((e->insns) = (rtx)t)
+#define PENDING_STMT(e)	((e)->insns.t)
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -3314,7 +3311,7 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
         if (PENDING_STMT (e))
 	  {
 	    stmt = PENDING_STMT (e);
-	    SET_PENDING_STMT (e, NULL_TREE);
+	    PENDING_STMT (e) = NULL_TREE;
 	    next_stmt = TREE_CHAIN (stmt);
 	    /* The first insert will create a new basic block if needed.  */
 	    bsi = bsi_insert_on_edge_immediate (e, stmt, NULL, NULL);
@@ -3353,7 +3350,7 @@ bsi_insert_on_edge (edge e, tree stmt)
 
   t = PENDING_STMT (e);
   if (!t)
-    SET_PENDING_STMT (e, stmt);
+    PENDING_STMT (e) = stmt;
   else
     {
       for ( ; TREE_CHAIN (t); t = TREE_CHAIN (t))
@@ -3361,7 +3358,6 @@ bsi_insert_on_edge (edge e, tree stmt)
       TREE_CHAIN (t) = stmt;
       TREE_CHAIN (stmt) = NULL_TREE;
     }
-
 }
 
 /* These 2 routines are used to process BSI's in reverse within a block.

@@ -1361,14 +1361,14 @@ insert_insn_on_edge (rtx pattern, edge e)
   if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
     abort ();
 
-  if (e->insns == NULL_RTX)
+  if (e->insns.r == NULL_RTX)
     start_sequence ();
   else
-    push_to_sequence (e->insns);
+    push_to_sequence (e->insns.r);
 
   emit_insn (pattern);
 
-  e->insns = get_insns ();
+  e->insns.r = get_insns ();
   end_sequence ();
 }
 
@@ -1476,8 +1476,8 @@ commit_one_edge_insertion (edge e, int watch_calls)
   basic_block bb = NULL;
 
   /* Pull the insns off the edge now since the edge might go away.  */
-  insns = e->insns;
-  e->insns = NULL_RTX;
+  insns = e->insns.r;
+  e->insns.r = NULL_RTX;
 
   /* Special case -- avoid inserting code between call and storing
      its return value.  */
@@ -1612,10 +1612,10 @@ commit_edge_insertions (void)
       for (e = bb->succ; e; e = next)
 	{
 	  next = e->succ_next;
-	  if (e->insns)
+	  if (e->insns.r)
 	    {
-	       changed = true;
-	       commit_one_edge_insertion (e, false);
+	      changed = true;
+	      commit_one_edge_insertion (e, false);
 	    }
 	}
     }
@@ -1660,7 +1660,7 @@ commit_edge_insertions_watch_calls (void)
       for (e = bb->succ; e; e = next)
 	{
 	  next = e->succ_next;
-	  if (e->insns)
+	  if (e->insns.r)
 	    {
 	      changed = true;
 	      commit_one_edge_insertion (e, true);

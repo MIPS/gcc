@@ -3695,17 +3695,17 @@ hoist_insn_to_edge (rtx insn, edge e, rtx val, rtx new)
 
   /* Do not use emit_insn_on_edge as we want to preserve notes and similar
      stuff.  We also emit CALL_INSNS and firends.  */
-  if (e->insns == NULL_RTX)
+  if (e->insns.r == NULL_RTX)
     {
       start_sequence ();
       emit_note (NOTE_INSN_DELETED);
     }
   else
-    push_to_sequence (e->insns);
+    push_to_sequence (e->insns.r);
 
   new_insn = hoist_insn_after (insn, get_last_insn (), val, new);
 
-  e->insns = get_insns ();
+  e->insns.r = get_insns ();
   end_sequence ();
   return new_insn;
 }
