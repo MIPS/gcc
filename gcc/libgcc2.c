@@ -1300,12 +1300,13 @@ gcov_exit (void)
 {
   struct gcov_info *ptr;
   unsigned ix, jx;
-  struct gcov_summary program;
   gcov_type program_max_one = 0;
   gcov_type program_max_sum = 0;
   gcov_type program_sum = 0;
+  int program_runs = 0;
   unsigned program_arcs = 0;
   merger_function merger;
+  struct gcov_summary last_prg;
   
 #if defined (TARGET_HAS_F_SETLKW)
   struct flock s_flock;
@@ -1317,8 +1318,33 @@ gcov_exit (void)
   s_flock.l_pid = getpid ();
 #endif
 
-  memset (&program, 0, sizeof (program));
-  program.checksum = gcov_crc32;
+  last_prg.runs = 0;
+
+  for (ptr = gcov_list; ptr; ptr = ptr->next)
+    {
+      unsigned arc_data_index;
+      gcov_type *count_ptr;
+
+      if (!ptr->filename)
+	continue;
+
+      for (arc_data_index = 0;
+	   arc_data_index < ptr->n_counter_sections
+	   && ptr->counter_sections[arc_data_index].tag != GCOV_TAG_ARC_COUNTS;
+	   arc_data_index++)
+	continue;
+
+      for (ix = ptr->counter_sections[arc_data_index].n_counters,
+	   count_ptr = ptr->counter_sections[arc_data_index].counters; ix--;)
+	{
+	  gcov_type count = *count_ptr++;
+
+	  if (count > program_max_one)
+	    program_max_one = count;
+	  program_sum += count;
+	}
+      program_arcs += ptr->counter_sections[arc_data_index].n_counters;
+    }
   
   for (ptr = gcov_list; ptr; ptr = ptr->next)
     {
@@ -1363,8 +1389,6 @@ gcov_exit (void)
 	  if (count > object_max_one)
 	    object_max_one = count;
 	}
-      if (object_max_one > program_max_one)
-	program_max_one = object_max_one;
       
       memset (&local_prg, 0, sizeof (local_prg));
       memset (&object, 0, sizeof (object));
@@ -1505,8 +1529,11 @@ gcov_exit (void)
 		goto read_mismatch;
 	      if (gcov_read_summary (da_file, &local_prg))
 		goto read_error;
-	      if (local_prg.checksum != program.checksum)
-		continue;
+	      if (local_prg.checksum != gcov_crc32)
+		{
+		  memset (&local_prg, 0, sizeof (local_prg));
+		  continue;
+		}
 	      if (tag == GCOV_TAG_PLACEHOLDER_SUMMARY)
 		{
 		  fprintf (stderr,
@@ -1518,15 +1545,17 @@ gcov_exit (void)
 	      if (tag != GCOV_TAG_PROGRAM_SUMMARY)
 		break;
 	      
-	      if (program.runs
-		  && memcmp (&program, &local_prg, sizeof (program)))
+	      /* If everything done correctly, the summaries should be
+	         computed equal for each module.  */
+	      if (last_prg.runs
+		  && memcmp (&last_prg, &local_prg, sizeof (last_prg)))
 		{
 		  fprintf (stderr, "profiling:%s:Invocation mismatch\n",
 			   ptr->filename);
 		  local_prg.runs = 0;
 		}
 	      else
-		memcpy (&program, &local_prg, sizeof (program));
+		memcpy (&last_prg, &local_prg, sizeof (last_prg));
 	      ptr->wkspc = base;
 	      break;
 	    }
@@ -1609,26 +1638,35 @@ gcov_exit (void)
       if (gcov_write_summary (da_file, GCOV_TAG_OBJECT_SUMMARY, &object))
 	goto write_error;
 
+      /* Generate whole program statistics.  */
+      local_prg.runs++;
+      local_prg.checksum = gcov_crc32;
+      local_prg.arcs = program_arcs;
+      local_prg.arc_sum += program_sum;
+      if (local_prg.arc_max_one < program_max_one)
+	local_prg.arc_max_one = program_max_one;
+      local_prg.arc_max_sum += program_max_one;
+      local_prg.arc_sum_max += program_max_one;
+
       if (merging >= 0)
 	{
 	  if (fseek (da_file, 0, SEEK_END))
 	    goto write_error;
 	  ptr->wkspc = ftell (da_file);
-	  if (gcov_write_summary (da_file, GCOV_TAG_PLACEHOLDER_SUMMARY,
-				  &program))
+	  if (gcov_write_summary (da_file, GCOV_TAG_PROGRAM_SUMMARY,
+				  &local_prg))
+	    goto write_error;
+	  ptr->wkspc = ftell (da_file);
+	  if (fseek (da_file, 0, SEEK_END))
 	    goto write_error;
 	}
       else if (ptr->wkspc)
 	{
-	  /* Zap trailing program summary */
-	  if (fseek (da_file, ptr->wkspc, SEEK_SET))
-	    goto write_error;
-	  if (!local_prg.runs)
-	    ptr->wkspc = 0;
-	  if (gcov_write_unsigned (da_file,
-			     local_prg.runs ? GCOV_TAG_PLACEHOLDER_SUMMARY
-			     : GCOV_TAG_INCORRECT_SUMMARY))
-	    goto write_error;
+	  if (fseek (da_file, ptr->wkspc, SEEK_SET)
+	      || gcov_write_summary (da_file, GCOV_TAG_PROGRAM_SUMMARY,
+				     &local_prg)
+	      || fflush (da_file))
+	    fprintf (stderr, "profiling:%s:Error writing\n", ptr->filename);
 	}
       if (fflush (da_file))
 	goto write_error;
@@ -1638,51 +1676,8 @@ gcov_exit (void)
 	  fprintf (stderr, "profiling:%s:Error closing\n", ptr->filename);
 	  ptr->filename = 0;
 	}
-      else
-	{
-	  program_arcs += ptr->counter_sections[arc_data_index].n_counters;
-	  program_sum += object.arc_sum;
-	  if (program_max_sum < object.arc_max_sum)
-	    program_max_sum = object.arc_max_sum;
-	}
       free(counters);
     }
-
-  /* Generate whole program statistics.  */
-  program.runs++;
-  program.arcs = program_arcs;
-  program.arc_sum = program_sum;
-  if (program.arc_max_one < program_max_one)
-    program.arc_max_one = program_max_one;
-  if (program.arc_max_sum < program_max_sum)
-    program.arc_max_sum = program_max_sum;
-  program.arc_sum_max += program_max_one;
-  
-  /* Upate whole program statistics.  */
-  for (ptr = gcov_list; ptr; ptr = ptr->next)
-    if (ptr->filename && ptr->wkspc)
-      {
-	FILE *da_file;
-	
-	da_file = fopen (ptr->filename, "r+b");
-	if (!da_file)
-	  {
-	    fprintf (stderr, "profiling:%s:Cannot open\n", ptr->filename);
-	    continue;
-	  }
-	
-#if defined (TARGET_HAS_F_SETLKW)
-	while (fcntl (fileno (da_file), F_SETLKW, &s_flock)
-	       && errno == EINTR)
-	  continue;
-#endif
-	if (fseek (da_file, ptr->wkspc, SEEK_SET)
- 	    || gcov_write_summary (da_file, GCOV_TAG_PROGRAM_SUMMARY, &program)
- 	    || fflush (da_file))
- 	  fprintf (stderr, "profiling:%s:Error writing\n", ptr->filename);
-	if (fclose (da_file))
-	  fprintf (stderr, "profiling:%s:Error closing\n", ptr->filename);
-      }
 }
 
 /* Add a new object file onto the bb chain.  Invoked automatically
