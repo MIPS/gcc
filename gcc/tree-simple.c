@@ -29,127 +29,124 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "expr.h"
 
-/*  SIMPLE C Grammar
-  
-    Original grammar available at:
+/* GCC SIMPLE (GIMPLE) structure
 
-	      http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
+   Inspired by the SIMPLE C grammar at
 
+   	http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
 
-      Statements
+   function:
+     FUNCTION_DECL
+       DECL_SAVED_TREE -> block
+   block:
+     BIND_EXPR
+       BIND_EXPR_VARS -> DECL chain
+       BIND_EXPR_BLOCK -> BLOCK
+       BIND_EXPR_BODY -> compound-stmt
+   compound-stmt:
+     COMPOUND_EXPR
+       op0 -> non-compound-stmt
+       op1 -> stmt
+     | EXPR_VEC
+       (or other alternate solution)
+   stmt: compound-stmt | non-compound-stmt
+   non-compound-stmt:
+     block
+     | loop-stmt
+     | if-stmt
+     | switch-stmt
+     | jump-stmt
+     | label-stmt
+     | try-stmt
+     | modify-stmt
+     | call-stmt
+   loop-stmt:
+     LOOP_EXPR
+       LOOP_EXPR_BODY -> stmt | NULL_TREE
+     | DO_LOOP_EXPR
+       (to be defined later)
+   if-stmt:
+     COND_EXPR
+       op0 -> condition
+       op1 -> stmt
+       op2 -> stmt
+   switch-stmt:
+     SWITCH_EXPR
+       op0 -> val
+       op1 -> stmt
+       Do we also want to support op1 -> TREE_LIST, for more structured
+        selection a la McCAT SIMPLE?
+       op2 -> array of case labels (as LABEL_DECLs?)
+   jump-stmt:
+       GOTO_EXPR
+         op0 -> LABEL_DECL | '*' ID
+     | RETURN_EXPR
+         op0 -> modify-stmt | NULL_TREE
+	 (maybe -> RESULT_DECL | NULL_TREE? seems like some of expand_return
+	  depends on getting a MODIFY_EXPR.)
+     | THROW_EXPR?  do we need/want such a thing for opts, perhaps
+         to generate an ERT_THROW region?  I think so.
+	 Hmm...this would only work at the GIMPLE level, where we know that
+	   the call args don't have any EH impact.  Perhaps
+	   annotation of the CALL_EXPR would work better.
+     | RESX_EXPR
+   label-stmt:
+     LABEL_EXPR
+         op0 -> LABEL_DECL
+     | CASE_LABEL_EXPR
+         CASE_LOW -> val | NULL_TREE
+         CASE_HIGH -> val | NULL_TREE
+	 CASE_LABEL -> LABEL_DECL  FIXME
+   try-stmt:
+     TRY_CATCH_EXPR
+       op0 -> stmt
+       op1 -> handler
+     | TRY_FINALLY_EXPR
+       op0 -> stmt
+       op1 -> stmt
+   handler:
+     catch-seq
+     | EH_FILTER_EXPR
+     | stmt
+   modify-stmt:
+     MODIFY_EXPR
+       op0 -> lhs
+       op1 -> rhs
+   call-stmt: CALL_EXPR
+     op0 -> ID | '&' ID
+     op1 -> arglist
 
-      all_stmts
-	      : stmtlist stop_stmt
-	      | stmtlist
+   varname : compref | ID (rvalue)
+   lhs: varname | '*' ID  (lvalue)
+   pseudo-lval: ID | '*' ID  (either)
+   compref :
+     COMPONENT_REF
+       op0 -> compref | pseudo-lval
+     | ARRAY_REF
+       op0 -> compref | pseudo-lval
+       op1 -> val
 
-      stmtlist
-	      : stmtlist stmt
-	      | stmt
+   condition : val | val relop val
+   val : ID | CONST
 
-      stmt
-	      : compstmt
-	      | expr ';'
-	      | IF '(' condexpr ')' stmt
-	      | IF '(' condexpr ')' stmt ELSE stmt
-	      | WHILE '(' condexpr ')' stmt
-	      | DO stmt WHILE '(' condexpr ')'
-	      | FOR '(' expr ';' condexpr ';' expr ')' stmt
-	      		|
-			+-> Original SIMPLE grammar allows exprseq here,
-			    but this makes life more difficult to some
-			    optimizers that need to learn to deal with
-			    expression sequences instead of SIMPLE
-			    assignments (e.g., CCP when examining
-			    variable definitions)
-	      	
-	      | SWITCH '(' val ')' casestmts
-	      | GOTO val		-> Not present in the original
-					   grammar.
-	      | ';'
-
-      compsmt
-	      : '{' all_stmts '}'
-	      | '{' '}'
-	      | '{' decls all_stmts '}'
-	      | '{' decls '}'
-
-      Declarations
-
-      All the possible C declarations. The only difference is that in
-      SIMPLE the declarations are not allowed to have initializations in
-      them.
-
-      NOTE: This is not possible for static variables, so we allow
-	    initializers there.
-
-      Expressions
-
-      exprseq
-	      : exprseq ',' expr
-	      | expr
-
-      stop_stmt
-	      : BREAK ';'
-	      | CONTINUE ';'
-	      | RETURN ';'
-	      | RETURN rhs ';'
-	      | RETURN '(' rhs ')' ';'
-
-      casestmts
-	      : '{' cases default'}'
-	      | ';'
-	      | '{' '}'
-
-      cases
-	      : cases case
-	      | case
-
-      case
-	      : CASE CONST ':' stmtlist stop_stmt
-
-      default
-	      : DEFAULT ':' stmtlist stop_stmt
-
-      expr
-	      : rhs
-	      | modify_expr
-
-      call_expr
-	      : ID '(' arglist ')'
-
-      arglist
-	      : arglist ',' val
-	      | val
-
-      modify_expr
-	      : varname '=' rhs
-	      | '*' ID '=' rhs
-
-      rhs
-	      : binary_expr
-	      | unary_expr
-
-      unary_expr
-	      : simp_expr
+   rhs        : varname | CONST
 	      | '*' ID
-	      | '&' varname
+	      | '&' varname_or_temp
 	      | call_expr
 	      | unop val
+	      | val binop val
 	      | '(' cast ')' varname
 
 	      (cast here stands for all valid C typecasts)
 
-      binary_expr
-	      : val binop val
-
       unop
 	      : '+'
 	      | '-'
+	      | '!'
 	      | '~'
 
       binop
-	      : relop
-	      | '-'
+	      : relop | '-'
 	      | '+'
 	      | '/'
 	      | '*'
@@ -167,45 +164,8 @@ Boston, MA 02111-1307, USA.  */
 	      | '>='
 	      | '=='
 	      | '!='
-	      | TRUTH_AND_EXPR
-	      | TRUTH_OR_EXPR
-	      | TRUTH_XOR_EXPR
 
-      condexpr
-	      : val
-	      | val relop val
-
-      simp_expr
-	      : varname
-	      | CONST
-
-      val
-	      : ID
-	      | CONST
-
-      varname
-	      : arrayref
-	      | compref
-	      | ID
-
-      arrayref
-	      : ID reflist
-	      | '(' '*' ID ')' reflist  => extension because ARRAY_REF
-	      				   requires an ARRAY_TYPE argument.
-
-      reflist
-	      : '[' val ']'
-	      | reflist '[' val ']'
-
-      idlist
-	      : idlist '.' ID
-	      | ID
-
-      compref
-	      : '(' '*' ID ')' '.' idlist
-	      | idlist
-
-     ----------------------------------------------------------------------  */
+*/
 
 /* FIXME all of the is_simple_* predicates should be changed to only test
    for appropriate top-level structures; we can safely assume that after
