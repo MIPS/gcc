@@ -220,21 +220,22 @@ rewrite_into_ssa (fndecl)
   /* Debugging dumps.  */
   tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
 
-  /* Compute immediate dominators and dominance frontiers.  */
-  idom = calculate_dominance_info (CDI_DOMINATORS);
-  dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
-  for (i = 0; i < n_basic_blocks; i++)
-    dfs[i] = BITMAP_XMALLOC ();
-  compute_dominance_frontiers (dfs, idom);
-
   /* Compute aliasing information.  */
   compute_may_aliases ();
 
   globals = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (globals);
 
+  /* Compute immediate dominators and dominance frontiers.  */
+  idom = calculate_dominance_info (CDI_DOMINATORS);
+
   /* Find variable references and mark definition sites.  */
   mark_def_sites (idom, globals);
+
+  dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
+  for (i = 0; i < n_basic_blocks; i++)
+    dfs[i] = BITMAP_XMALLOC ();
+  compute_dominance_frontiers (dfs, idom);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs, globals);

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 
+#include "tree.h"
 #include "rtl.h"
 #include "expr.h"
 #include "varray.h"
@@ -51,6 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "ssa.h"
 #include "timevar.h"
+#include "tree-flow.h"
 
 /* TODO:
 
@@ -528,27 +530,47 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
   basic_block b = BASIC_BLOCK (bb);
   edge e;
   basic_block c;
-  int n_dominated, i;
-  basic_block *dominated;
+  unsigned int i;
+  bitmap dominated;
 
-  /* Get a list of all the blocks dominated by B so that we do not
-     have to iterate over all the blocks in the function.  */
-  n_dominated = get_dominated_by (idom, b, &dominated);
+  /* Ugh.  This could be called via the tree SSA code or via the
+     RTL SSA code.  The former has bb annotations, the latter does
+     not.  */
+  if (bb_ann (b))
+    dominated = dom_children (b);
+  else
+    {
+      basic_block *dominated_array;
+      unsigned int n_dominated;
+
+      /* Build a sparse bitmap.  This can be expensive as 
+         get_domianted_by allocates an array large enough to
+	 hold every basic block.  We should probably either
+	 make the RTL SSA code use bb annotations or rip it
+	 out.  */
+      dominated = BITMAP_XMALLOC ();
+      n_dominated = get_dominated_by (idom, b, &dominated_array);
+  
+      for (i = 0; i < n_dominated; i++)
+	bitmap_set_bit (dominated, dominated_array[i]->index);
+
+      free (dominated_array);
+    }
 
   SET_BIT (done, bb);
 
   /* Do the frontier of the children first.  Not all children in the
      dominator tree (blocks dominated by this one) are children in the
      CFG, so check all blocks.  */
-  for (i = 0; i < n_dominated; i++)
-    {
-      c = dominated[i];
-      if (! TEST_BIT (done, c->index))
-        compute_dominance_frontiers_1 (frontiers, idom, c->index,
-				       done, cached_idoms);
-	
-    }
-
+  if (dominated)
+    EXECUTE_IF_SET_IN_BITMAP (dominated, 0, i,
+      {
+        c = BASIC_BLOCK (i);
+        if (! TEST_BIT (done, c->index))
+          compute_dominance_frontiers_1 (frontiers, idom, c->index,
+				         done, cached_idoms);
+      });
+      
   /* Find blocks conforming to rule (1) above.  */
   for (e = b->succ; e; e = e->succ_next)
     {
@@ -559,21 +581,23 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
     }
 
   /* Find blocks conforming to rule (2).  */
-  for (i = 0; i < n_dominated; i++)
-    {
-      c = dominated[i];
+  if (dominated)
+    EXECUTE_IF_SET_IN_BITMAP (dominated, 0, i,
       {
-	int x;
-	EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
+        int x;
+        c = BASIC_BLOCK (i);
+
+        EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
 	  {
 	    if (cached_idoms[BASIC_BLOCK (x)->index]->index != bb)
 	      bitmap_set_bit (frontiers[bb], x);
 	  });
-      }
-    }
+      });
 
-  /* Release the array of blocks B dominates.  */
-  free (dominated);
+  /* If we built the dominated bitmap rather than using the
+     one in the bb's annotation, then make sure we free it.  */
+  if (! bb_ann (b))
+    BITMAP_XFREE (dominated);
 }
 
 void

@@ -1,3 +1,15 @@
+2003-02-12  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (ssa.o): Depends on $(TREE_H) and tree-flow.h
+	* ssa.c: Include tree.h and tree-flow.h.
+	(compute_dominance_frontiers_1): Use the sparse bitmap
+	of dominator children from the basic block's annotation
+	if it's available.  Otherwise build the sparse bitmap
+        using the result of get_dominated_by.
+	* tree-ssa.c (rewrite_into_ssa): Reorder things slightly so
+	that we can use the cached dominator children computed
+	by mark_def_sites in compute_dominance_frontiers.
+
 2003-02-12  Andreas Jaeger  <aj@suse.de>
 
 	* tree-dfa.c (dump_alias_info): Cast variable of size_t properly.
