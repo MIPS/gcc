@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX version 4.1.
-   Copyright (C) 1994, 95-8, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1994, 95-8, 1999, 2000 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
 This file is part of GNU CC.
@@ -21,17 +21,13 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-/* Enable AIX XL compiler calling convention breakage compatibility.  */
-#define MASK_XL_CALL		0x40000000
-#define	TARGET_XL_CALL		(target_flags & MASK_XL_CALL)
-#undef  SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES		\
-  {"xl-call", 		MASK_XL_CALL},	\
-  {"no-xl-call",	- MASK_XL_CALL}, \
+#include "rs6000/rs6000.h"
+#include "rs6000/aix.h"
+
+#undef  SUBSUBTARGET_SWITCHES
+#define SUBSUBTARGET_SWITCHES		\
   {"threads",		0},		\
   {"pe",		0},
-
-#include "rs6000/rs6000.h"
 
 #undef ASM_SPEC
 #define ASM_SPEC "-u %(asm_cpu)"
@@ -128,24 +124,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	MULTILIB_DEFAULTS
 #define	MULTILIB_DEFAULTS { "mcpu=common" }
-
-/* These are not necessary when we pass -u to the assembler, and undefining
-   them saves a great deal of space in object files.  */
-
-#undef ASM_OUTPUT_EXTERNAL
-#undef ASM_OUTPUT_EXTERNAL_LIBCALL
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-{ rtx _symref = XEXP (DECL_RTL (DECL), 0);	\
-  if ((TREE_CODE (DECL) == VAR_DECL		\
-       || TREE_CODE (DECL) == FUNCTION_DECL)	\
-      && (NAME)[strlen (NAME) - 1] != ']')	\
-    {						\
-      char *_name = (char *) permalloc (strlen (XSTR (_symref, 0)) + 5); \
-      strcpy (_name, XSTR (_symref, 0));	\
-      strcat (_name, TREE_CODE (DECL) == FUNCTION_DECL ? "[DS]" : "[RW]"); \
-      XSTR (_symref, 0) = _name;		\
-    }						\
-}
 
 #undef LIB_SPEC
 #define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\

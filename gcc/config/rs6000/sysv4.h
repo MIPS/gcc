@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for PowerPC running System V.4
-   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GNU CC.
@@ -18,6 +18,23 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
+
+#include "rs6000/rs6000.h"
+
+/* Yes!  We are ELF.  */
+#define	TARGET_OBJECT_FORMAT OBJECT_ELF
+
+/* Default ABI to compile code for */
+#define DEFAULT_ABI rs6000_current_abi
+
+/* Default ABI to use */
+#define RS6000_ABI_NAME "sysv"
+
+#undef ASM_DEFAULT_SPEC
+#define ASM_DEFAULT_SPEC "-mppc"
+
+#undef CPP_DEFAULT_SPEC
+#define CPP_DEFAULT_SPEC "-D_ARCH_PPC"
 
 /* Small data support types */
 enum rs6000_sdata_type {
@@ -58,9 +75,23 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define	TARGET_NO_TOC		(! TARGET_TOC)
 #define TARGET_NO_EABI		(! TARGET_EABI)
 
-/* Pseudo target to indicate whether the object format is ELF
-   (to get around not having conditional compilation in the md file)  */
-#define	TARGET_ELF		1
+/* Strings provided by SUBTARGET_OPTIONS */
+extern const char *rs6000_abi_name;
+extern const char *rs6000_sdata_name;
+
+#undef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS						\
+  { "call-",  &rs6000_abi_name},					\
+  { "sdata=", &rs6000_sdata_name}
+
+/* Max # of bytes for variables to automatically be put into the .sdata
+   or .sdata2 sections.  */
+extern int g_switch_value;		/* value of the -G xx switch */
+extern int g_switch_set;		/* whether -G xx was passed.  */
+
+#ifndef SDATA_DEFAULT_SIZE
+#define SDATA_DEFAULT_SIZE 8
+#endif
 
 /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be just
    the same as -mminimal-toc.  */
@@ -102,26 +133,6 @@ extern enum rs6000_sdata_type rs6000_sdata;
 
 /* This is meant to be redefined in the host dependent files */
 #define EXTRA_SUBTARGET_SWITCHES
-
-/* Default ABI to use */
-#define RS6000_ABI_NAME "sysv"
-
-/* Strings provided by SUBTARGET_OPTIONS */
-extern const char *rs6000_abi_name;
-extern const char *rs6000_sdata_name;
-
-#define SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name},					\
-  { "sdata=", &rs6000_sdata_name}
-
-/* Max # of bytes for variables to automatically be put into the .sdata
-   or .sdata2 sections.  */
-extern int g_switch_value;		/* value of the -G xx switch */
-extern int g_switch_set;		/* whether -G xx was passed.  */
-
-#ifndef SDATA_DEFAULT_SIZE
-#define SDATA_DEFAULT_SIZE 8
-#endif
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -263,15 +274,6 @@ do {									\
 									\
 } while (0)
 
-/* Default ABI to compile code for */
-#define DEFAULT_ABI rs6000_current_abi
-
-#define CPP_DEFAULT_SPEC "-D_ARCH_PPC"
-
-#define ASM_DEFAULT_SPEC "-mppc"
-
-#include "rs6000/rs6000.h"
-
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
 
@@ -334,11 +336,6 @@ do {									\
 
 #undef OBJECT_FORMAT_COFF
 
-/* Don't bother to output .extern pseudo-ops.  They are not needed by
-   ELF assemblers.  */
-
-#undef ASM_OUTPUT_EXTERNAL
-
 /* Put jump tables in read-only memory, rather than in .text.  */
 #undef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
@@ -363,14 +360,10 @@ do {									\
 #include "svr4.h"
 
 /* Prefix and suffix to use to saving floating point */
-#undef	SAVE_FP_PREFIX
-#undef	SAVE_FP_SUFFIX
 #define	SAVE_FP_PREFIX "_savefpr_"
 #define SAVE_FP_SUFFIX "_l"
 
 /* Prefix and suffix to use to restoring floating point */
-#undef	RESTORE_FP_PREFIX
-#undef	RESTORE_FP_SUFFIX
 #define	RESTORE_FP_PREFIX "_restfpr_"
 #define RESTORE_FP_SUFFIX "_l"
 
@@ -1108,7 +1101,6 @@ do {									\
 #define LINK_OS_DEFAULT_SPEC ""
 #endif
 
-#undef	CPP_SYSV_SPEC
 #define CPP_SYSV_SPEC \
 "%{mrelocatable*: -D_RELOCATABLE} \
 %{fpic: -D__PIC__=1 -D__pic__=1} \
@@ -1118,23 +1110,15 @@ do {									\
 %{!mcall-sysv: %{!mcall-aix: %{!mcall-aixdesc: %{!mcall-nt: %(cpp_sysv_default) }}}} \
 %{msoft-float: -D_SOFT_FLOAT} %{mcpu=403: -D_SOFT_FLOAT}"
 
-#undef	CPP_SYSV_DEFAULT_SPEC
 #define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
 
-#ifndef CPP_ENDIAN_BIG_SPEC
 #define CPP_ENDIAN_BIG_SPEC "-D_BIG_ENDIAN -D__BIG_ENDIAN__ -Amachine(bigendian)"
-#endif
 
-#ifndef CPP_ENDIAN_LITTLE_SPEC
 #define CPP_ENDIAN_LITTLE_SPEC "-D_LITTLE_ENDIAN -D__LITTLE_ENDIAN__ -Amachine(littleendian)"
-#endif
 
-#ifndef CPP_ENDIAN_SOLARIS_SPEC
 #define CPP_ENDIAN_SOLARIS_SPEC "-D__LITTLE_ENDIAN__ -Amachine(littleendian)"
-#endif
 
 /* For solaris, don't define _LITTLE_ENDIAN, it conflicts with a header file.  */
-#undef	CPP_ENDIAN_SPEC
 #define	CPP_ENDIAN_SPEC \
 "%{mlittle: %(cpp_endian_little) } \
 %{mlittle-endian: %(cpp_endian_little) } \
@@ -1147,7 +1131,6 @@ do {									\
     %{mcall-aixdesc:  %(cpp_endian_big) } \
     %{!mcall-solaris: %{!mcall-linux: %{!mcall-nt: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}}"
 
-#undef	CPP_ENDIAN_DEFAULT_SPEC
 #define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
 
 #undef CPP_SPEC
@@ -1411,6 +1394,10 @@ do {									\
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef	SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS						\
+  { "cpp_sysv",			CPP_SYSV_SPEC },			\
+  { "cpp_sysv_default",		CPP_SYSV_DEFAULT_SPEC },		\
+  { "cpp_endian_default",	CPP_ENDIAN_DEFAULT_SPEC },		\
+  { "cpp_endian",		CPP_ENDIAN_SPEC },			\
   { "lib_ads",			LIB_ADS_SPEC },				\
   { "lib_yellowknife",		LIB_YELLOWKNIFE_SPEC },			\
   { "lib_mvme",			LIB_MVME_SPEC },			\
@@ -1483,5 +1470,7 @@ do {									\
 #define PROFILE_BEFORE_PROLOGUE 1
 
 /* Function name to call to do profiling.  */
-#undef	RS6000_MCOUNT
 #define RS6000_MCOUNT "_mcount"
+
+/* r13 is used for the small data pointer under SVR4.  */
+#define FIXED_R13 1

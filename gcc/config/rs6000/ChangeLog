@@ -1,5 +1,28 @@
 2000-01-04  Geoff Keating  <geoffk@cygnus.com>
 
+	Lots of changes to rs6000.h, sysv4.h, aix.h,
+	aix31.h, aix3newas.h, aix41.h, aix43.h, beos.h,
+	with the aim that rs6000.h is the first header
+	included and the others override it.
+	* aix.h: New file.
+
+	* x-aix41-gld: Remove.  
+	* x-aix43: Remove.
+	* x-aix41: Remove target-specific switches, and don't specify
+	-Wl,-bbigtoc as we don't need it any more.
+	* ../../configure.in: Use x-aix41 for ppc AIX 4.1 and above.
+	Use t-aix43 for AIX 4.3 and above.
+	* ../../configure: Regenerated.
+
+	* rs6000.h (TARGET_SWITCHES): Add some initial prolog-scheduling
+	options, that don't do anything yet.
+	(MASK_SCHED_PROLOG): New macro.
+	(MASK_SCHED_EPILOG): New macro.
+	(TARGET_SCHED_PROLOG): New macro.
+	(TARGET_SCHED_EPILOG): New macro.
+
+2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
 	* rs6000.c: Correct comment, the `minimal' TOCs are actually
 	one per translation unit, not one per function.
 	(output_toc): Also do duplicate constant elimination

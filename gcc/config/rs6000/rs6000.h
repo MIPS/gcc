@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992, 93-8, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-8, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -21,8 +21,20 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Note that some other tm.h files include this one and then override
-   many of the definitions that relate to assembler syntax.  */
+   many of the definitions.  */
 
+/* Definitions for the object file format.  These are set at
+   compile-time.  */
+
+#define OBJECT_XCOFF 1
+#define OBJECT_ELF 2
+#define OBJECT_WINDOWS_NT 3
+#define OBJECT_PEF 4
+
+#define TARGET_ELF (TARGET_OBJECT_FORMAT == OBJECT_ELF)
+#define TARGET_AIX (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
+#define TARGET_WINDOWS_NT (TARGET_OBJECT_FORMAT == OBJECT_WINDOWS_NT)
+#define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -88,25 +100,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=823: -D_ARCH_PPC} \
 %{mcpu=860: -D_ARCH_PPC}"
 
-#ifndef CPP_DEFAULT_SPEC
 #define CPP_DEFAULT_SPEC "-D_ARCH_PWR"
-#endif
-
-#ifndef CPP_SYSV_SPEC
-#define CPP_SYSV_SPEC ""
-#endif
-
-#ifndef CPP_ENDIAN_SPEC
-#define CPP_ENDIAN_SPEC ""
-#endif
-
-#ifndef CPP_ENDIAN_DEFAULT_SPEC
-#define CPP_ENDIAN_DEFAULT_SPEC ""
-#endif
-
-#ifndef CPP_SYSV_DEFAULT_SPEC
-#define CPP_SYSV_DEFAULT_SPEC ""
-#endif
 
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
@@ -144,9 +138,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc}"
 
-#ifndef ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC ""
-#endif
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -158,17 +150,11 @@ Boston, MA 02111-1307, USA.  */
 
    Do not define this macro if it does not need to do anything.  */
 
-#ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS
-#endif
 
 #define EXTRA_SPECS							\
   { "cpp_cpu",			CPP_CPU_SPEC },				\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
-  { "cpp_sysv",			CPP_SYSV_SPEC },			\
-  { "cpp_sysv_default",		CPP_SYSV_DEFAULT_SPEC },		\
-  { "cpp_endian_default",	CPP_ENDIAN_DEFAULT_SPEC },		\
-  { "cpp_endian",		CPP_ENDIAN_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "link_syscalls",		LINK_SYSCALLS_SPEC },			\
@@ -279,6 +265,11 @@ extern int target_flags;
 /* Disable fused multiply/add operations */
 #define MASK_NO_FUSED_MADD	0x00020000
 
+/* Nonzero if we need to make scheduling prolog  */
+#define MASK_SCHED_PROLOG	(0x40000)
+/* Nonzero if we need to make scheduling epilog */
+#define MASK_SCHED_EPILOG	(0x80000)
+
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
 #define TARGET_POWERPC		(target_flags & MASK_POWERPC)
@@ -297,46 +288,15 @@ extern int target_flags;
 #define TARGET_STRING_SET	(target_flags & MASK_STRING_SET)
 #define TARGET_NO_UPDATE	(target_flags & MASK_NO_UPDATE)
 #define TARGET_NO_FUSED_MADD	(target_flags & MASK_NO_FUSED_MADD)
+#define TARGET_SCHED_PROLOG	(target_flags & MASK_SCHED_PROLOG)
+#define TARGET_SCHED_EPILOG	(target_flags & MASK_SCHED_EPILOG)
 
 #define TARGET_32BIT		(! TARGET_64BIT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
 #define TARGET_UPDATE		(! TARGET_NO_UPDATE)
 #define TARGET_FUSED_MADD	(! TARGET_NO_FUSED_MADD)
 
-/* Pseudo target to indicate whether the object format is ELF
-   (to get around not having conditional compilation in the md file)  */
-#ifndef	TARGET_ELF
-#define	TARGET_ELF		0
-#endif
-
-/* If this isn't V.4, don't support -mno-toc.  */
-#ifndef TARGET_NO_TOC
-#define TARGET_NO_TOC		0
-#define	TARGET_TOC		1
-#endif
-
-/* Pseudo target to say whether this is Windows NT */
-#ifndef	TARGET_WINDOWS_NT
-#define	TARGET_WINDOWS_NT 0
-#endif
-
-/* Pseudo target to say whether this is MAC */
-#ifndef	TARGET_MACOS
-#define	TARGET_MACOS 0
-#endif
-
-/* Pseudo target to say whether this is AIX */
-#ifndef TARGET_AIX
-#if (TARGET_ELF || TARGET_WINDOWS_NT || TARGET_MACOS)
-#define TARGET_AIX 0
-#else
-#define TARGET_AIX 1
-#endif
-#endif
-
-#ifndef TARGET_XL_CALL
 #define TARGET_XL_CALL 0
-#endif
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -345,11 +305,6 @@ extern int target_flags;
    each pair being { "NAME", VALUE }
    where VALUE is the bits to set or minus the bits to clear.
    An empty string NAME is used to identify the default VALUE.  */
-
-/* This is meant to be redefined in the host dependent files */
-#ifndef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES
-#endif
 
 #define TARGET_SWITCHES							\
  {{"power",		MASK_POWER  | MASK_MULTIPLE | MASK_STRING},	\
@@ -390,10 +345,17 @@ extern int target_flags;
   {"no-update",		MASK_NO_UPDATE},				\
   {"fused-madd",	- MASK_NO_FUSED_MADD},				\
   {"no-fused-madd",	MASK_NO_FUSED_MADD},				\
+  {"sched-prolog",      MASK_SCHED_PROLOG},                             \
+  {"no-sched-prolog",   -MASK_SCHED_PROLOG},                            \
+  {"sched-epilog",      MASK_SCHED_EPILOG},                             \
+  {"no-sched-epilog",   -MASK_SCHED_EPILOG},                            \
   SUBTARGET_SWITCHES							\
   {"",			TARGET_DEFAULT}}
 
 #define TARGET_DEFAULT (MASK_POWER | MASK_MULTIPLE | MASK_STRING)
+
+/* This is meant to be redefined in the host dependent files */
+#define SUBTARGET_SWITCHES
 
 /* Processor type.  Order must match cpu attribute in MD file.  */
 enum processor_type
@@ -449,9 +411,7 @@ extern enum processor_type rs6000_cpu;
 	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
 /* This is meant to be overridden in target specific files.  */
-#ifndef SUBTARGET_OPTIONS
 #define	SUBTARGET_OPTIONS
-#endif
 
 #define TARGET_OPTIONS				\
 {						\
@@ -699,10 +659,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    cr5 is not supposed to be used.
 
    On System V implementations, r13 is fixed and not available for use.  */
-
-#ifndef FIXED_R13
-#define FIXED_R13 0
-#endif
 
 #define FIXED_REGISTERS  \
   {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FIXED_R13, 0, 0, \
@@ -1196,13 +1152,6 @@ enum rs6000_abi {
 };
 
 extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
-
-/* Default ABI to compile code for */
-#ifndef DEFAULT_ABI
-#define DEFAULT_ABI ABI_AIX
-/* The prefix to add to user-visible assembler symbols. */
-#define USER_LABEL_PREFIX "."
-#endif
 
 /* Structure used to define the rs6000 stack */
 typedef struct rs6000_stack {
@@ -2445,21 +2394,6 @@ extern int rs6000_trunc_used;
 #define RS6000_ITRUNC "__itrunc"
 #define RS6000_UITRUNC "__uitrunc"
 
-/* Prefix and suffix to use to saving floating point */
-#ifndef SAVE_FP_PREFIX
-#define	SAVE_FP_PREFIX "._savef"
-#define SAVE_FP_SUFFIX ""
-#endif
-
-/* Prefix and suffix to use to restoring floating point */
-#ifndef RESTORE_FP_PREFIX
-#define	RESTORE_FP_PREFIX "._restf"
-#define RESTORE_FP_SUFFIX ""
-#endif
-
-/* Function name to call to do profiling.  */
-#define RS6000_MCOUNT ".__mcount"
-
 
 /* Control the assembler format that we output.  */
 
@@ -2781,43 +2715,6 @@ extern int toc_initialized;
 	}								\
     }									\
   while (0)
-
-/* Output something to declare an external symbol to the assembler.  Most
-   assemblers don't need this.
-
-   If we haven't already, add "[RW]" (or "[DS]" for a function) to the
-   name.  Normally we write this out along with the name.  In the few cases
-   where we can't, it gets stripped off.  */
-
-#define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
-{ rtx _symref = XEXP (DECL_RTL (DECL), 0);	\
-  if ((TREE_CODE (DECL) == VAR_DECL		\
-       || TREE_CODE (DECL) == FUNCTION_DECL)	\
-      && (NAME)[strlen (NAME) - 1] != ']')	\
-    {						\
-      char *_name = (char *) permalloc (strlen (XSTR (_symref, 0)) + 5); \
-      strcpy (_name, XSTR (_symref, 0));	\
-      strcat (_name, TREE_CODE (DECL) == FUNCTION_DECL ? "[DS]" : "[RW]"); \
-      XSTR (_symref, 0) = _name;		\
-    }						\
-  fputs ("\t.extern ", FILE);			\
-  assemble_name (FILE, XSTR (_symref, 0));	\
-  if (TREE_CODE (DECL) == FUNCTION_DECL)	\
-    {						\
-      fputs ("\n\t.extern .", FILE);		\
-      RS6000_OUTPUT_BASENAME (FILE, XSTR (_symref, 0));	\
-    }						\
-  putc ('\n', FILE);				\
-}
-
-/* Similar, but for libcall.  We only have to worry about the function name,
-   not that of the descriptor. */
-
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)	\
-{ fputs ("\t.extern .", FILE);			\
-  assemble_name (FILE, XSTR (FUN, 0));		\
-  putc ('\n', FILE);				\
-}
 
 /* This is how we tell the assembler that two symbols have the same value.  */
 
