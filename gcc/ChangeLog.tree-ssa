@@ -1,5 +1,14 @@
 2002-12-23  Frank Ch. Eigler  <fche@redhat.com>
 
+	* tree-mudflap.c (mf_decl_cache_locals, mf_decl_clear_locals): New
+	functions.
+	(mudflap_c_function): Call them before/after basic transforms.
+	(mf_cache_shift_decl_l, ..._mask_l): New variables to track local
+	VAR_DECL shadows of cache parameters.
+	(mf_build_check_statement_for): Use and update them.
+
+2002-12-23  Frank Ch. Eigler  <fche@redhat.com>
+
 	* tree-mudflap.c (mx_register_decls): Trust incoming TREE_ADDRESSABLE
 	instead of own timetaking analysis.
 	(mf_find_addrof, mx_xfn_find_addrof): Removed functions.

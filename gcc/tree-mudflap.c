@@ -50,6 +50,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void mf_xform_derefs PARAMS ((tree));
 static void mf_xform_decls PARAMS ((tree, tree));
 static void mf_init_extern_trees PARAMS ((void));
+static void mf_decl_cache_locals PARAMS ((tree *));
+static void mf_decl_clear_locals PARAMS ((void));
 static tree mf_varname_tree PARAMS ((tree));
 static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
@@ -79,9 +81,6 @@ void
 mudflap_c_function (t)
      tree t;
 {
-  tree fnbody = DECL_SAVED_TREE (t);
-  tree fnparams = DECL_ARGUMENTS (t);
-
   if (getenv ("UNPARSE"))  /* XXX */
     {
       print_generic_expr (stderr, DECL_RESULT (t), 0);
@@ -95,14 +94,18 @@ mudflap_c_function (t)
 
   mf_init_extern_trees ();
 
-  mf_xform_decls (fnbody, fnparams);
-  mf_xform_derefs (fnbody);
+  mf_decl_cache_locals (& DECL_SAVED_TREE (t));
+
+  mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
+  mf_xform_derefs (DECL_SAVED_TREE (t));
 
   if (getenv ("UNPARSE"))  /* XXX */
     {
       fprintf (stderr, "/* after -fmudflap: */\n");
       print_generic_stmt (stderr, DECL_SAVED_TREE (t), 0);
     }
+
+  mf_decl_clear_locals ();
 }
 
 
@@ -246,9 +249,15 @@ mudflap_finish_file ()
 static GTY (()) tree mf_uintptr_type;      /* uintptr_t (usually "unsigned long") */
 static GTY (()) tree mf_cache_struct_type; /* struct __mf_cache { uintptr_t low; uintptr_t high; }; */
 static GTY (()) tree mf_cache_structptr_type; /* struct __mf_cache * const */
+
 static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
 static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
 static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
+
+/* Their function-scope local shadows */
+static GTY (()) tree mf_cache_shift_decl_l; /* auto const unsigned char __mf_lc_shift_l; */
+static GTY (()) tree mf_cache_mask_decl_l;  /* auto const uintptr_t __mf_lc_mask_l; */
+
 static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, const char *); */
 static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
 static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
@@ -270,10 +279,8 @@ mf_init_extern_trees ()
    (tmp ? tmp : (internal_error ("mudflap: cannot find declarations from mf-runtime.h"), tmp)))
 
   mf_uintptr_type = TREE_TYPE (mf_lookup_name (get_identifier ("uintptr_t")));
-
   mf_cache_struct_type = xref_tag (RECORD_TYPE, get_identifier ("__mf_cache"));
   mf_cache_structptr_type = build_pointer_type (mf_cache_struct_type);
-
   mf_cache_array_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lookup_cache")));
   mf_cache_shift_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lc_shift")));
   mf_cache_mask_decl = mx_flag (mf_lookup_name (get_identifier ("__mf_lc_mask")));
@@ -282,6 +289,56 @@ mf_init_extern_trees ()
   mf_unregister_fndecl = mf_lookup_name (get_identifier ("__mf_unregister"));
 
   done = 1;
+}
+
+
+
+/* Create and initialize local shadow variables for the lookup cache
+   globals.  Put their decls in the *_l globals for use by
+   mf_build_check_statement_for. */
+static void 
+mf_decl_cache_locals (body)
+     tree* body;
+{
+  tree init_exprs = NULL_TREE;
+
+  /* Create the chain of VAR_DECL nodes.  */
+  mf_cache_shift_decl_l = mx_flag (build_decl (VAR_DECL,
+					       get_identifier ("__mf_lookup_shift_l"),
+					       TREE_TYPE (mf_cache_shift_decl)));
+  DECL_ARTIFICIAL (mf_cache_shift_decl_l) = 1;
+
+  mf_cache_mask_decl_l = mx_flag (build_decl (VAR_DECL,
+					      get_identifier ("__mf_lookup_mask_l"),
+					      TREE_TYPE (mf_cache_mask_decl)));
+  DECL_ARTIFICIAL (mf_cache_mask_decl_l) = 1;
+  TREE_CHAIN (mf_cache_shift_decl_l) = mf_cache_mask_decl_l;
+
+  /* Build initialization nodes for them.  */
+  add_tree (build (INIT_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
+		   mf_cache_shift_decl_l, mf_cache_shift_decl),
+	    & init_exprs);
+  add_tree (build (INIT_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
+		   mf_cache_mask_decl_l, mf_cache_mask_decl),
+	    & init_exprs);
+
+  /* Add the function body to the end. */
+  add_tree (*body, & init_exprs);
+  init_exprs = rationalize_compound_expr (init_exprs);
+
+  *body = build (BIND_EXPR, TREE_TYPE (init_exprs),
+		 mf_cache_shift_decl_l, init_exprs,
+		 NULL_TREE); /* XXX: BLOCK == NULL */
+  TREE_SIDE_EFFECTS (*body) = 1;
+}
+
+
+static void
+mf_decl_clear_locals ()
+{
+  /* Unset local shadows. */
+  mf_cache_shift_decl_l = NULL_TREE;
+  mf_cache_mask_decl_l = NULL_TREE;
 }
 
 
@@ -624,12 +681,12 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
 						    build (BIT_AND_EXPR, mf_uintptr_type,
 							   build (RSHIFT_EXPR, mf_uintptr_type,
 								  convert (mf_uintptr_type, t1_2a_1),
-								  mf_cache_shift_decl),
-							   mf_cache_mask_decl)))))),
+								  mf_cache_shift_decl_l),
+							   mf_cache_mask_decl_l)))))),
 	    & bind_exprs);
   
   /* Quick validity check.  */
-  t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
+  t1_4_1 = build (BIT_IOR_EXPR /* is faster than TRUTH_OR_EXPR */, integer_type_node,
 		  build (GT_EXPR, integer_type_node,
 			 mx_flag (build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
 					 mx_flag (build1 (INDIRECT_REF, 
@@ -654,15 +711,25 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
 					   tree_cons (NULL_TREE,
 						      integer_zero_node,
 						      NULL_TREE)));
-  
-  t1_4_2 = build_function_call (mf_check_fndecl,
-				tree_cons (NULL_TREE,
-					   t1_2a_1,
-					   tree_cons (NULL_TREE, 
-						      t1_2b_1,
-						      tree_cons (NULL_TREE,
-								 location_string,
-								 NULL_TREE))));
+
+  /* Build up the body of the cache-miss handling: __mf_check(); refresh *_l vars.  */
+  t1_4_2 = NULL_TREE;
+  add_tree (build_function_call (mf_check_fndecl,
+				 tree_cons (NULL_TREE,
+					    t1_2a_1,
+					    tree_cons (NULL_TREE, 
+						       t1_2b_1,
+						       tree_cons (NULL_TREE,
+								  location_string,
+								  NULL_TREE)))),
+	    & t1_4_2);
+  add_tree (build (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
+		   mf_cache_shift_decl_l, mf_cache_shift_decl),
+	    & t1_4_2);
+  add_tree (build (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
+		   mf_cache_mask_decl_l, mf_cache_mask_decl),
+	    & t1_4_2);
+  t1_4_2 = rationalize_compound_expr (t1_4_2);
 
   add_tree (build (COND_EXPR, void_type_node,
 		   t1_4_1,
@@ -901,7 +968,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 
 	  *pointer = 
 	    mf_build_check_statement_for (*pointer,
-					  *pointer,
+					  *pointer, /* XXX: should be struct base addr instead */
 					  check_size,
 					  NULL_TREE,
 					  last_filename, last_lineno);
