@@ -3880,7 +3880,7 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 		   abnormal edges.  In that case, we simple create a new block
 		   right after this one, and then fall through to the 
 		   destination  block.  */
-		ret = handle_switch_split (new_block, dest);
+		ret = src->end_tree_p;
 		*location = EDGE_INSERT_LOCATION_AFTER;
 		break;
 	      }

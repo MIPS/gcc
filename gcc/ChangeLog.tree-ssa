@@ -1,3 +1,8 @@
+2003-06-23  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (find_insert_location): Default case should insert after 
+	the last stmt in the block.
+
 2003-06-22  Jeff Sturm  <jsturm@one-point.com>
 
 	* Makefile.in (old-tree-inline.o): Remove rule.
