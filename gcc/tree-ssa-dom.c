@@ -722,16 +722,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	}
     }
 
-  /* If this is an assignment statement, look at both sides for pointer
-     dereferences.
-
-     If a pointer is dereferenced, then we know that the pointer must be
-     nonnull.  In which case we can enter some equivalences into the
-     hash tables.  */
+  /* Now a few special cases.  Odds are this code will be factored out
+     into several subroutines in the near future.  I'm waiting to see
+     what other cases arise before factoring the code out.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       int i;
 
+      /* Look at both sides for pointer dereferences.  If we find one, then
+         the pointer must be nonnull and we can enter that equivalence into
+	 the hash tables.  */
       for (i = 0; i < 2; i++)
 	{
 	  tree t = TREE_OPERAND (stmt, i);
@@ -764,6 +764,74 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 		}
 	    }
 	}
+
+      /* IOR of any value with a nonzero value will result in a nonzero
+         value.  Even if we do not know the exact result recording that
+	 the result is nonzero is worth the effort.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == BIT_IOR_EXPR
+	  && integer_zerop (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
+	{
+	  tree cond;
+	  tree op = TREE_OPERAND (stmt, 0);
+
+	  cond = build (EQ_EXPR, boolean_type_node, op, null_pointer_node);
+	  record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
+
+	  cond = build (NE_EXPR, boolean_type_node, op, null_pointer_node);
+	  record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
+			  	
+	}
+
+      /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR and
+         BIT_AND_EXPR respectively if the first operand is greater than
+	 zero and the second operand is an exact power of two.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR
+	      || TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_MOD_EXPR)
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0)))
+	  && integer_pow2p (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
+        {
+	  tree cond, val;
+	  tree op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+
+	  cond = build (GT_EXPR, boolean_type_node, op, integer_zero_node);
+	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+	  val = lookup_avail_expr (cond, block_avail_exprs_p, const_and_copies);
+
+	  if (val && integer_onep (val))
+	    {
+	      tree t;
+	      tree op0 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
+	      tree op1 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
+
+	      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR)
+		t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0,
+			   build_int_2 (tree_log2 (op1), 0));
+	      else
+		t = build (BIT_AND_EXPR, TREE_TYPE (op0), op0,
+			   fold (build (MINUS_EXPR, TREE_TYPE (op1),
+					op1, integer_one_node)));
+
+	      /* Remove the old entry from the hash table.  */
+	      htab_remove_elt (avail_exprs, stmt);
+
+	      /* Now update the RHS of the assignment to use the new node.  */
+	      TREE_OPERAND (stmt, 1) = t;
+
+	      /* Now force the updated statement into the hash table.  */
+	      lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+
+	      /* Annoyingly we now have two entries for this statement in
+	         BLOCK_AVAIL_EXPRs.  Luckily we can just pop off the newest
+		 entry.  */
+	      VARRAY_POP (*block_avail_exprs_p);
+
+	      /* And make sure we record the fact that we modified this
+	         statement.  */
+	      ann->modified = 1;
+	    }
+        }
     }
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
