@@ -1,3 +1,8 @@
+2003-01-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/i386.md (*movsi_1): Use movdqa to move one xmm
+	register to another one.
+
 2003-01-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* expr.h (const_mult_add_overflow_p): New prototype.
