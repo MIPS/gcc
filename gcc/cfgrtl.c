@@ -493,12 +493,9 @@ split_block (bb, insn)
   edge new_edge;
   edge e;
 
-  /* There is no point splitting the block after its end.  */
-  if (bb->end == insn)
-    return 0;
-
   /* Create the new basic block.  */
-  new_bb = create_basic_block (bb->index + 1, NEXT_INSN (insn), bb->end);
+  new_bb = create_basic_block (bb->index + 1, NEXT_INSN (insn), insn == bb->end
+			       ? NULL_RTX : bb->end);
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
   new_bb->loop_depth = bb->loop_depth;

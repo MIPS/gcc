@@ -536,8 +536,10 @@ flow_loop_scan (loops, loop, flags)
    In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
    between created entry part and BB as latch one.  Return created entry
    part.  */
+
 static basic_block
-make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except, conn_latch)
+make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
+		      conn_latch)
      basic_block bb;
      bool redirect_latch;
      bool redirect_nonlatch;
@@ -553,7 +555,7 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except, conn_latch)
   fallthru = split_block (bb, insn);
   dummy = fallthru->src;
   bb = fallthru->dest;
-  
+
   bb->aux = xmalloc (sizeof (int));
   HEADER_BLOCK (dummy) = 0;
   HEADER_BLOCK (bb) = 1;
@@ -563,24 +565,31 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except, conn_latch)
     {
       basic_block jump;
       next_e = e->pred_next;
-      if (e == except ||
-	  !((redirect_latch && LATCH_EDGE (e)) ||
-	    (redirect_nonlatch && !LATCH_EDGE (e))))
+      if (e == except
+	  || !((redirect_latch && LATCH_EDGE (e))
+	       || (redirect_nonlatch && !LATCH_EDGE (e))))
 	{
+	  /* ??? Hack - we can not redirect these edges so just don't do that.
+	     The structure is invalid then and before we will use it to actually
+	     modify CFG, we must resolve this issue.  */
+
+	  if (e->src == ENTRY_BLOCK_PTR
+	      || (e->flags & EDGE_ABNORMAL))
+	    continue;
 	  dummy->frequency -= EDGE_FREQUENCY (e);
 	  jump = redirect_edge_and_branch_force (e, bb);
 	  if (jump)
 	    {
-	      jump->aux = xmalloc (sizeof (int));
+	      alloc_aux_for_block (jump, sizeof (int));
 	      HEADER_BLOCK (jump) = 0;
-	      jump->pred->aux = xmalloc (sizeof (int));
+	      alloc_aux_for_edge (jump->pred, sizeof (int));
 	      LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
 	      LATCH_EDGE (jump->pred) = 0;
 	    }
 	}
     }
 
-  fallthru->aux = xmalloc (sizeof (int));
+  alloc_aux_for_edge (fallthru, sizeof (int));
   LATCH_EDGE (fallthru) = conn_latch;
 
   return dummy;
