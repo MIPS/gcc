@@ -4964,7 +4964,7 @@ gcse_emit_move_after (src, dest, insn)
   new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
 
   /* Note the equivalence for local CSE pass.  */
-  if ((note == find_reg_equal_equiv_note (insn)))
+  if ((note = find_reg_equal_equiv_note (insn)))
     eqv = XEXP (note, 0);
   else
     eqv = SET_SRC (set);
