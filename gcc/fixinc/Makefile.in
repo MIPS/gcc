@@ -43,7 +43,7 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $<
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(srcdir)/$<
 
 # The only suffixes we want for implicit rules are .c and .o.
 .SUFFIXES:
@@ -81,7 +81,7 @@ fixincl: $(OBJ)
 	chmod 777 $@ ; fi
 
 regex.o: regex.c
-	-$(CC) $(CFLAGS) -DSTDC_HEADERS=1 -c regex.c
+	-$(CC) $(CFLAGS) -DSTDC_HEADERS=1 -c $(srcdir)/regex.c
 
 fixincl.o : fixincl.x fixincl.c
 server.o : server.c server.h
@@ -99,7 +99,7 @@ fixincl.x: fixincl.tpl inclhack.def
 inclhack.sh: inclhack.def inclhack.tpl hackshell.tpl
 	@if ( autogen --help > /dev/null 2>&1 ) ; then \
 		echo autogen inclhack.def ; \
-		autogen -L$(srcdir) inclhack.def ; \
+		autogen -L$(srcdir) $(srcdir)/inclhack.def ; \
 	else echo You need to install autogen ; \
 		if [ `pwd` != `cd $(srcdir) ; pwd` ] ; then \
 			$(CP) $(srcdir)/$@ . ; \
@@ -108,7 +108,8 @@ inclhack.sh: inclhack.def inclhack.tpl hackshell.tpl
 fixincl.sh: inclhack.def inclhack.tpl
 	@if ( autogen --help > /dev/null 2>&1 ) ; then \
 		echo autogen -DPROGRAM=1 -b fixincl inclhack.def ; \
-		autogen -DPROGRAM=1 -b fixincl -L$(srcdir) inclhack.def ; touch $@ ; \
+		autogen -DPROGRAM=1 -b fixincl -L$(srcdir) \
+			$(srcdir)/inclhack.def ; touch $@ ; \
 	else echo You need to install autogen ; \
 		if [ `pwd` != `cd $(srcdir) ; pwd` ] ; then \
 			$(CP) $(srcdir)/$@ . ; \
@@ -126,7 +127,9 @@ install: $(TARGETS)
 	@rm -f ../fixinc.sh ; \
 	if ( ./fixincl -v > /dev/null 2>&1 ) ; then \
 		echo cp fixincl.sh ../fixinc.sh ; \
-		cp fixincl.sh ../fixinc.sh ; \
+		if [ -f ./fixincl.sh ] ; \
+		then cp fixincl.sh ../fixinc.sh ; \
+		else cp $(srcdir)/fixincl.sh ../fixinc.sh ; fi ; \
 		chmod 555 ../fixinc.sh ; \
 		rm -f ../fixincl ; \
 		echo cp fixincl .. ; \
@@ -134,5 +137,7 @@ install: $(TARGETS)
 		chmod 555 ../fixincl ; \
 	else \
 		echo cp inclhack.sh ../fixinc.sh ; \
-		cp inclhack.sh ../fixinc.sh ; \
+		if [ -f ./inclhack.sh ] ; \
+		then cp inclhack.sh ../fixinc.sh ; \
+		else cp $(srcdir)/inclhack.sh ../fixinc.sh ; fi ; \
 	fi
