@@ -1,3 +1,7 @@
+Wed Oct 23 22:48:44 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (abs splitters): Do not produce nested subregs.
+
 Wed Oct 23 12:42:32 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (movti_rex64): Fix constraints.
