@@ -2882,11 +2882,12 @@ rest_of_compilation (decl)
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
+      reg_scan (insns, max_reg_num (), 1);
+      coalesce ();
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
-      rebuild_jump_labels (insns);
 
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
