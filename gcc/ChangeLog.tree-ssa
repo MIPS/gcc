@@ -1,3 +1,9 @@
+2004-02-04  Brian Booth  <bbooth@redhat.com>
+
+	PR opt/13755
+	* tree-dfa.c (compute_alias_sets): set rename flag for variables
+	aliased by GLOBAL_VAR.
+
 2004-02-04  Richard Henderson  <rth@redhat.com>
 
         * tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr): New.

@@ -1180,7 +1180,10 @@ compute_alias_sets (void)
       {
 	tree var = call_clobbered_var (i);
 	if (var != global_var)
-	  add_may_alias (var, global_var);
+	  {
+	     add_may_alias (var, global_var);
+	     bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	  }
       }
 }
 
