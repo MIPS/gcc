@@ -4402,7 +4402,9 @@ do {									\
     fprintf (STREAM, "\t%s\t%sL%d-%sLS%d\n",				\
 	     Pmode == DImode ? ".dword" : ".word",			\
 	     LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
-  else if (mips_abi == ABI_32 || mips_abi == ABI_O64)			\
+  else if (mips_abi == ABI_32 || mips_abi == ABI_O64			\
+	   || mips_abi == ABI_N32					\
+	   || (TARGET_GAS && mips_abi == ABI_64))			\
     fprintf (STREAM, "\t%s\t%sL%d\n",					\
 	     Pmode == DImode ? ".gpdword" : ".gpword",			\
 	     LOCAL_LABEL_PREFIX, VALUE);				\

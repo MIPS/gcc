@@ -1,3 +1,13 @@
+Wed Nov  6 18:54:47 2002  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.h (ASM_OUTPUT_ADDR_DIFF_ELT): Output
+	.gpword/.gpdword for ABI_N32 and ABI_64 too, if using the GNU
+	assembler.
+	* config/mips/mips.md (tablejump_internal3): Output .cpadd
+	before jump on ABI_N32 too.
+	(tablejump_internal4): Ditto on ABI_64.  Increase maximum
+	length to match.
+
 Wed Nov  6 17:16:48 CET 2002  Jan Hubicka  <jh@.suse.cz>
 
 	* i386.md (negsf splitter): Accept memory operand in second register.
