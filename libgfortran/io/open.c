@@ -170,7 +170,7 @@ edit_modes (unit_t * u, unit_flags * flags)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change FORM parameter in OPEN statement");
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in != u->recl)
+  if (ioparm.recl_in != 0 && ioparm.recl_in != u->recl)
     generate_error (ERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
@@ -306,32 +306,31 @@ new_unit (unit_flags * flags)
 	}
     }
 
-  if (flags->position == POSITION_UNSPECIFIED)
-    flags->position = POSITION_ASIS;
+  if (flags->position != POSITION_ASIS && flags->access == ACCESS_DIRECT)
+   {
+     generate_error (ERROR_OPTION_CONFLICT,
+                     "ACCESS parameter conflicts with SEQUENTIAL access in "
+                     "OPEN statement");
+     goto cleanup;
+   }
   else
-    {
-      if (flags->access == ACCESS_DIRECT)
-	{
-	  generate_error (ERROR_OPTION_CONFLICT,
-			  "ACCESS parameter conflicts with SEQUENTIAL access in "
-			  "OPEN statement");
-	  goto cleanup;
-	}
-    }
+   if (flags->position == POSITION_UNSPECIFIED)
+     flags->position = POSITION_ASIS;
+
 
   if (flags->status == STATUS_UNSPECIFIED)
     flags->status = STATUS_UNKNOWN;
 
   /* Checks */
 
-  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == NULL)
+  if (flags->access == ACCESS_DIRECT && ioparm.recl_in == 0)
     {
       generate_error (ERROR_MISSING_OPTION,
 		      "Missing RECL parameter in OPEN statement");
       goto cleanup;
     }
 
-  if (ioparm.recl_in != NULL && *ioparm.recl_in <= 0)
+  if (ioparm.recl_in != 0 && ioparm.recl_in <= 0)
     {
       generate_error (ERROR_BAD_OPTION,
 		      "RECL parameter is non-positive in OPEN statement");
@@ -393,7 +392,7 @@ new_unit (unit_flags * flags)
 
   /* Unspecified recl ends up with a processor dependent value */
 
-  u->recl = (ioparm.recl_in != NULL) ? *ioparm.recl_in : DEFAULT_RECL;
+  u->recl = (ioparm.recl_in != 0) ? ioparm.recl_in : DEFAULT_RECL;
   u->last_record = 0;
   u->current_record = 0;
 

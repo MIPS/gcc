@@ -1,3 +1,10 @@
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 12921
+	* io.h, transfer.c, open.c : recl_in changed from ptr to variable.
+	* open.c (new_unit): Moved test for positioned direct access error.
+	(init_units): Corrected calculation of max records.
+
 2004-02-06  Feng Wang  <fengwang@nudt.edu.cn>
 
 	* Makefile.am: Add m4/dotprodc.m4. And fix spelling.

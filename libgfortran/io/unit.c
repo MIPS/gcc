@@ -291,6 +291,7 @@ init_units (void)
 {
   offset_t m, n;
   unit_t *u;
+  int i;
 
   if (options.stdin_unit >= 0)
     {				/* STDIN */
@@ -334,20 +335,15 @@ init_units (void)
       insert_unit (u);
     }
 
-  /* Calculate the maximum file offset in a portable manner.  It is
-   * assumed to be a power of two minus 1. */
+  /* Calculate the maximum file offset in a portable manner.
+   * max will be the largest signed number for the type offset_t.
+   *
+   * set a 1 in the LSB and keep a running sum, stopping at MSB-1 bit. */
 
-  /* TODO: this looks really broken. glibc info pages say 2^31 or 2^63.  */
-  m = 1;
-  n = 3;
+  g.max_offset = 0;
+  for (i=0; i < sizeof(g.max_offset) * 8 - 1; i++)
+    g.max_offset = g.max_offset + ((offset_t) 1 << i);
 
-  while (n > m)
-    {
-      m = (m << 1) | 1;
-      n = (n << 1) | 1;
-    }
-
-  g.max_offset = (m - 1) + m;
 }
 
 

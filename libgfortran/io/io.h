@@ -172,9 +172,9 @@ typedef struct
   }
   library_return;
 
-  int *iostat, *exist, *opened, *number, *named, *rec, *nextrec, *size;
+  int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
 
-  off_t *recl_in, *recl_out;
+  offset_t recl_in, *recl_out;
 
   char *file;
   int file_len;
