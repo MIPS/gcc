@@ -1,5 +1,9 @@
 2004-09-02  Paul Brook  <paul@codesourcery.com>
 
+	* config/arm/bpabi.c (__aeabi_ul2d, __aeabi_ul2f): Remove.
+
+2004-09-02  Paul Brook  <paul@codesourcery.com>
+
 	* decl2.c (determine_visibility): Only check data visibility
 	for VAR_DECLS.
 
