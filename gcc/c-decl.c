@@ -6979,6 +6979,31 @@ lang_unpickle_tree (t)
       i->error_locus = read_tree (i->error_locus);
       i->limbo_value = read_tree (i->limbo_value);
     }
+  else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
+    {
+      datum key, data;
+      key.dptr = (char *) &TYPE_LANG_SPECIFIC (t);
+      key.dsize = sizeof (&TYPE_LANG_SPECIFIC (t));
+      data = dbm_fetch (datafile, key);
+      if (!data.dptr)
+	abort();
+      memcpy (TYPE_LANG_SPECIFIC (t), data.dptr, data.dsize);
+    }
+  else if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
+    {
+      struct lang_decl *ld;
+      datum key, data;
+      key.dptr = (char *) &DECL_LANG_SPECIFIC (t);
+      key.dsize = sizeof (&DECL_LANG_SPECIFIC (t));
+      data = dbm_fetch (datafile, key);
+      if (!data.dptr)
+	abort();
+      ld = (struct lang_decl *)ggc_alloc_cleared (sizeof (struct lang_decl));
+      memcpy (ld, data.dptr, data.dsize);
+      DECL_LANG_SPECIFIC (t) = ld;
+      ld->base.saved_tree = read_tree (ld->base.saved_tree);
+      ld->pending_sizes = read_tree (ld->pending_sizes);
+    }
 }
 
 void

@@ -5150,6 +5150,12 @@ unpickle_tree (id)
       DECL_VINDEX (buffer) = read_tree (DECL_VINDEX (buffer));
       if (TREE_CODE (buffer) == FIELD_DECL)
 	buffer->decl.u2.t = read_tree (buffer->decl.u2.t);
+      if (TREE_CODE (buffer) == FUNCTION_DECL
+      || (TREE_CODE (buffer) == VAR_DECL 
+	  && (TREE_STATIC (buffer) 
+	      || DECL_EXTERNAL (buffer) 
+	      || TREE_PUBLIC (buffer))))
+	DECL_ASSEMBLER_NAME (buffer);
       /*FIXME: if it's PARM_DECL, u2 is  an RTL */
       /*FIXME: Handle lang specific */
       break;
@@ -5275,8 +5281,10 @@ pickle_tree (t)
       DECL_MACHINE_ATTRIBUTES (buffer) = 
 	(tree) write_tree (&DECL_MACHINE_ATTRIBUTES (buffer));
       DECL_VINDEX (buffer) = (tree) write_tree (&DECL_VINDEX (buffer));
+#if 0
       if (DECL_ASSEMBLER_NAME_SET_P (t))
 	DECL_ASSEMBLER_NAME (buffer) = (tree) write_tree (&DECL_ASSEMBLER_NAME (buffer));
+#endif
       if (TREE_CODE (buffer) == FIELD_DECL)
 	buffer->decl.u2.t = (tree) write_tree (&buffer->decl.u2.t);
       lang_pickle_tree (buffer, t);
