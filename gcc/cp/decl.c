@@ -8240,7 +8240,8 @@ reshape_init (tree type, tree *initp)
   /* If the initializer is brace-enclosed, pull initializers from the
      enclosed elements.  Advance past the brace-enclosed initializer
      now.  */
-  if (TREE_CODE (old_init_value) == CONSTRUCTOR 
+  if (TREE_CODE (old_init_value) == CONSTRUCTOR
+      && TREE_TYPE (old_init_value) == NULL_TREE
       && TREE_HAS_CONSTRUCTOR (old_init_value))
     {
       *initp = TREE_CHAIN (old_init);
@@ -8285,8 +8286,7 @@ reshape_init (tree type, tree *initp)
      non-empty subaggregate, brace elision is assumed and the
      initializer is considered for the initialization of the first
      member of the subaggregate.  */
-  if (CLASS_TYPE_P (type) 
-      && !brace_enclosed_p
+  if (!brace_enclosed_p
       && can_convert_arg (type, TREE_TYPE (old_init_value), old_init_value))
     {
       *initp = TREE_CHAIN (old_init);
@@ -8373,14 +8373,14 @@ reshape_init (tree type, tree *initp)
 		}
 	    }
 	}
-      else if (TREE_CODE (type) == ARRAY_TYPE)
+      else if ((TREE_CODE (type) == ARRAY_TYPE)|| (TREE_CODE (type) == VECTOR_TYPE))
 	{
 	  tree index;
 	  tree max_index;
 
 	  /* If the bound of the array is known, take no more initializers
 	     than are allowed.  */
-	  max_index = (TYPE_DOMAIN (type) 
+	  max_index = ((TYPE_DOMAIN (type) && (TREE_CODE (type) == ARRAY_TYPE))
 		       ? array_type_nelts (type) : NULL_TREE);
 	  /* Loop through the array elements, gathering initializers.  */
 	  for (index = size_zero_node;
