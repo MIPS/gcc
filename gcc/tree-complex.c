@@ -421,7 +421,9 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
       stmt = TREE_OPERAND (stmt, 0);
       if (!stmt)
 	return;
-      break;
+      if (TREE_CODE (stmt) != MODIFY_EXPR)
+	return;
+      /* FALLTHRU */
 
     case MODIFY_EXPR:
       rhs = TREE_OPERAND (stmt, 1);
