@@ -1,3 +1,25 @@
+2002-09-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* test/fail18-frag.c: New test file for NOACCESS regions.
+	* Makefile.am (TESTS): Add new test.
+	* Makefile.in: Regenerated.
+
+	* mf-heuristics.c (__mf_heuristics_check): Correct deja_vu logic.
+	* mf-impl.h (tree_aging): Add new mudflap_option, default 1000000.
+	(optimize_object_tree): Remove unused mudflap_option.
+	* mf-runtime.h (__MF_TYPE_NOACCESS): New region type.  Add printing
+	support throughout.  Use .._MAX_CEM for cemetary upper bound.
+	* mf-runtime.c (__mf_init): Register __mf_* globals as NOACCESS
+	regions.
+	(__mf_object): Add new liveness field for use by tree aging.
+	(__mf_check): Trigger tree aging when needed.
+	(__mf_age_tree): New function to decay liveness field.
+	(__mf_find_objects_rec): Use liveness field to rotate tree.
+	(__mf_insert_new_object): Only provide backtrace for HEAP objects.
+	(__mf_unregister): Ditto.
+	(__mf_register): Tweak duplicate-static message.
+	(__mf_violation: Tweak nearby-object counter printing.
+
 2002-09-16  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/pass20-frag.c: New test file.

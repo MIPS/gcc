@@ -55,8 +55,11 @@ struct __mf_options
   /* Collect and emit statistics. */
   unsigned collect_stats;
 
-  /* Execute internal checking code */
+  /* Execute internal checking code. */
   unsigned internal_checking;
+
+  /* Age object liveness periodically. */
+  unsigned tree_aging;
 
   /* Print list of leaked heap objects on shutdown. */
   unsigned print_leaks;       
@@ -66,9 +69,6 @@ struct __mf_options
 
   /* Emit internal tracing message. */
   unsigned verbose_trace;
-
-  /* Perform occasional tree-rotations to optimize lookups. */
-  unsigned optimize_object_tree;
 
   /* Support multiple threads. */
   unsigned multi_threaded;

@@ -84,12 +84,12 @@ __mf_set_default_options ()
   __mf_opts.verbose_trace = 0;
   __mf_opts.collect_stats = 0;
   __mf_opts.internal_checking = 0;
+  __mf_opts.tree_aging = 1000000;
   __mf_opts.print_leaks = 0;
   __mf_opts.verbose_violations = 0;
-  __mf_opts.optimize_object_tree = 0;
   __mf_opts.multi_threaded = 0;
-  __mf_opts.free_queue_length = 0;
-  __mf_opts.persistent_count = 0;
+  __mf_opts.free_queue_length = 4;
+  __mf_opts.persistent_count = 100;
   __mf_opts.crumple_zone = 32;
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
@@ -125,7 +125,7 @@ options [] =
     {"mode-violate", 
      "mudflaps always cause violations (diagnostic)",
      set_option, (int)mode_violate, (int *)&__mf_opts.mudflap_mode},
-    
+   
     {"viol-nop", 
      "violations do not change program execution",
      set_option, (int)viol_nop, (int *)&__mf_opts.violation_mode},
@@ -138,29 +138,27 @@ options [] =
     {"viol-gdb", 
      "violations fork a gdb process attached to current program",
      set_option, (int)viol_gdb, (int *)&__mf_opts.violation_mode},
-
     {"trace-calls", 
      "trace calls to mudflap runtime library",
      set_option, 1, &__mf_opts.trace_mf_calls},
     {"verbose-trace", 
      "trace internal events within mudflap runtime library",
      set_option, 1, &__mf_opts.verbose_trace},
-
     {"collect-stats", 
      "collect statistics on mudflap's operation",
      set_option, 1, &__mf_opts.collect_stats},
     {"internal-checking", 
      "perform more expensive internal checking",
      set_option, 1, &__mf_opts.internal_checking},
+    {"age-tree", 
+     "age the object tree after N accesses for working set",
+     read_integer_option, 1000000, &__mf_opts.tree_aging},
     {"print-leaks", 
      "print any memory leaks at program shutdown",
      set_option, 1, &__mf_opts.print_leaks},
     {"verbose-violations", 
      "print verbose messages when memory violations occur",
      set_option, 1, &__mf_opts.verbose_violations},
-    {"optimize-object-tree", 
-     "periodically optimize memory object tracking tree",
-     set_option, 1, &__mf_opts.optimize_object_tree},
     /* XXX: this should be sensitive to gcc --enable-threading= setting */
     {"multi-threaded", 
      "support multiple threads",
@@ -425,6 +423,13 @@ void __mf_init ()
     }
 
   __mf_state = active;
+#define REG_RESERVED(obj) \
+  __mf_register ((uintptr_t) & obj, (uintptr_t) sizeof(obj), __MF_TYPE_NOACCESS, # obj)
+
+  REG_RESERVED (__mf_lookup_cache);
+  REG_RESERVED (__mf_lc_mask);
+  REG_RESERVED (__mf_lc_shift);
+  /* XXX: others of our statics?  */
 }
 
 
@@ -452,10 +457,11 @@ static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
 
 typedef struct __mf_object
 {
-  uintptr_t low, high;
+  uintptr_t low, high; /* __mf_register parameters */
   int type;
   const char *name;
-  unsigned check_count; /* Number of times __mf_check was called.  */
+  unsigned check_count; /* Number of times __mf_check was called on this object.  */
+  unsigned liveness; /* A measure of recent checking activity.  */
 
   uintptr_t alloc_pc;
   struct timeval alloc_time;
@@ -479,9 +485,9 @@ typedef struct __mf_object_tree
 
 /* Live objects: binary tree on __mf_object_t.low */
 __mf_object_tree_t *__mf_object_root;
-/* Dead objects: circular arrays; exclude __MF_TYPE_GUESS. */
-unsigned __mf_object_dead_head[__MF_TYPE_GUESS+1]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_GUESS][__MF_PERSIST_MAX];
+/* Dead objects: circular arrays; _MIN_CEM .. _MAX_CEM only */
+unsigned __mf_object_dead_head[__MF_TYPE_MAX_CEM]; /* next empty spot */
+__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_MAX_CEM][__MF_PERSIST_MAX];
 
 static __mf_object_tree_t *__mf_find_object (uintptr_t low, uintptr_t high);
 static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
@@ -489,6 +495,7 @@ static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high,
 static unsigned __mf_find_dead_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
 					__mf_object_tree_t **objs, unsigned max_objs);
 static void __mf_link_object (__mf_object_tree_t *obj);
+static void __mf_age_tree (__mf_object_tree_t *obj);
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
 
@@ -523,14 +530,38 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 	/* Looping only occurs if heuristics were triggered.  */
 	while (1) 
 	  {
+	    /* XXX: This search embodied by __mf_find_object prevents
+	       an access that spans contiguous objects.  Spanning two
+	       GUESS regions should be accepted, but can that happen?
+	       Maybe a heuristic that glues them together is
+	       needed.  */
 	    __mf_object_tree_t *node = __mf_find_object (ptr, ptr_high);
 	    __mf_object_t *obj = (node != NULL ? (& node->data) : NULL);
 	    
 	    if (LIKELY (obj && ptr >= obj->low && ptr_high <= obj->high))
 	      {
-		entry->low = obj->low;
-		entry->high = obj->high;
+		/* Handle tree liveness aging.  */
+		static unsigned cache_miss_count;
+		cache_miss_count ++;
+		if (UNLIKELY (__mf_opts.tree_aging > 0 &&
+			      cache_miss_count > __mf_opts.tree_aging))
+		  {
+		    cache_miss_count = 0;
+		    __mf_age_tree (__mf_object_root);
+		  }
+		obj->liveness ++;
+
 		obj->check_count ++;  /* XXX: what about overflow?  */
+
+		if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
+		  {
+		    violation_p = 1;
+		  }
+		else
+		  {
+		    entry->low = obj->low;
+		    entry->high = obj->high;
+		  }
 		break;
 	      }
 	    else if (heuristics++ < 2) /* XXX parametrize this number? */
@@ -601,7 +632,7 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   new_obj->data.alloc_pc = pc;
   gettimeofday (& new_obj->data.alloc_time, NULL);
   
-  if (__mf_opts.backtrace > 0)
+  if (__mf_opts.backtrace > 0 && type == __MF_TYPE_HEAP)
     new_obj->data.alloc_backtrace_size = 
       __mf_backtrace (& new_obj->data.alloc_backtrace,
 		      (void *) pc, 2);
@@ -698,7 +729,9 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx\n", low, high);
+		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx `%s'\n", 
+			       low, high, 
+			       (ovr_obj->data.name ? ovr_obj->data.name : ""));
 		END_RECURSION_PROTECT;
 		return;
 	      }
@@ -881,7 +914,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    old_obj->data.dealloc_pc = (uintptr_t) __builtin_return_address (0);
 	    gettimeofday (& old_obj->data.dealloc_time, NULL);
 	    
-	    if (__mf_opts.backtrace > 0)
+	    if (__mf_opts.backtrace > 0 && old_obj->data.type == __MF_TYPE_HEAP)
 	      old_obj->data.dealloc_backtrace_size = 
 		__mf_backtrace (& old_obj->data.dealloc_backtrace,
 				NULL, 2);
@@ -889,8 +922,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    /* Put this object into the cemetary.  This may require this plot to
 	       be recycled, and the previous resident to be designated del_obj.  */
 	    
-	    assert (old_obj->data.type >= __MF_TYPE_UNKNOWN && 
-		    old_obj->data.type < __MF_TYPE_GUESS);
+	    assert (old_obj->data.type >= 0 && 
+		    old_obj->data.type <= __MF_TYPE_MAX_CEM);
 	    {
 	      unsigned row = old_obj->data.type;
 	      unsigned plot = __mf_object_dead_head [row];
@@ -975,7 +1008,7 @@ __mf_validate_object_cemetary ()
   unsigned cls;
   unsigned i;
 
-  for (cls = __MF_TYPE_UNKNOWN; cls < __MF_TYPE_GUESS; cls++)
+  for (cls = 0; cls <= __MF_TYPE_MAX_CEM; cls++)
     {
       assert (__mf_object_dead_head [cls] >= 0 &&
 	      __mf_object_dead_head [cls] < __mf_opts.persistent_count);
@@ -1001,6 +1034,22 @@ __mf_validate_objects ()
   if (__mf_opts.persistent_count > 0)
     __mf_validate_object_cemetary ();
 }
+
+
+static void
+__mf_age_tree (__mf_object_tree_t *obj)
+{
+  assert (obj != NULL);
+  obj->data.liveness = obj->data.liveness >> 1;
+
+  if (obj->left)
+    __mf_age_tree (obj->left);
+  if (obj->right)
+    __mf_age_tree (obj->right);
+}
+
+
+
 
 /* __mf_find_object[s] */
 
@@ -1057,12 +1106,10 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
 
 
   /* Rotate a child node up if its access count is higher. */
-  /* XXX: Should there be a minimum check_count delta that triggers this?  */
-  /* XXX: Should age (scale down) system-wide check_counts periodically.  */
-  if (UNLIKELY ((node->left && node->left->data.check_count > node->data.check_count) &&
+  if (UNLIKELY ((node->left && node->left->data.liveness > node->data.liveness) &&
 		((!node->right || (node->right && 
-				   node->left->data.check_count > 
-				   node->right->data.check_count)))))
+				   node->left->data.liveness > 
+				   node->right->data.liveness)))))
     {
       __mf_object_tree_t *l = node->left;
       __mf_object_tree_t *l_r = l->right;
@@ -1072,10 +1119,10 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
       node->left = l_r;
       __mf_treerot_left ++;
     }
-  else if (UNLIKELY ((node->right && node->right->data.check_count > node->data.check_count) &&
+  else if (UNLIKELY ((node->right && node->right->data.liveness > node->data.liveness) &&
 		     ((!node->left || (node->left && 
-				       node->right->data.check_count > 
-				       node->left->data.check_count)))))
+				       node->right->data.liveness > 
+				       node->left->data.liveness)))))
     {
       __mf_object_tree_t *r = node->right;
       __mf_object_tree_t *r_l = r->left;
@@ -1085,7 +1132,6 @@ __mf_find_objects_rec (uintptr_t low, uintptr_t high, __mf_object_tree_t **nodep
       node->right = r_l;
       __mf_treerot_right ++;
     }
-
 
   return count;
 }
@@ -1220,7 +1266,7 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 	{
 	  count = 0;
 	  
-	  for (row = __MF_TYPE_UNKNOWN; row < __MF_TYPE_GUESS; row ++)
+	  for (row = 0; row <= __MF_TYPE_MAX_CEM; row ++)
 	    {
 	      unsigned plot;
 	      unsigned i;
@@ -1267,7 +1313,7 @@ __mf_describe_object (__mf_object_t *obj)
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] size=%lu area=%s access-count=%u\n"
+	   "bounds=[%08lx,%08lx] size=%lu area=%s checked=%u liveness=%u\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
@@ -1275,8 +1321,8 @@ __mf_describe_object (__mf_object_t *obj)
 	    obj->type == __MF_TYPE_STACK ? "stack" :
 	    obj->type == __MF_TYPE_STATIC ? "static" :
 	    obj->type == __MF_TYPE_GUESS ? "guess" :
-	    "unknown"),
-	   obj->check_count,
+	    "no-access"),
+	   obj->check_count, obj->liveness,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
 
   if (__mf_opts.backtrace > 0)
@@ -1380,11 +1426,11 @@ __mf_report ()
 	{
 	  unsigned dead_count = 0;
 	  unsigned row, plot;
-	  for (row = __MF_TYPE_UNKNOWN; row < __MF_TYPE_GUESS; row ++)
+	  for (row = 0; row <= __MF_TYPE_MAX_CEM; row ++)
 	    for (plot = 0 ; plot < __mf_opts.persistent_count; plot ++)
 	      if (__mf_object_cemetary [row][plot] != 0)
 		dead_count ++;
-	  fprintf (stderr, "          persistent dead objects: %u\n", dead_count);
+	  fprintf (stderr, "          zombie objects: %u\n", dead_count);
 	}
     }
   if (__mf_opts.print_leaks && (__mf_opts.mudflap_mode == mode_check))
@@ -1548,7 +1594,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	    unsigned into2 = (high >= obj->low && low <= obj->high) ? high - obj->low : 0;
 
 	    fprintf (stderr, "Nearby object %u: checked region begins %uB %s and ends %uB %s\n",
-		     i + 1,
+		     num_helpful + i + 1,
 		     (before1 ? before1 : after1 ? after1 : into1),
 		     (before1 ? "before" : after1 ? "after" : "into"),
 		     (before2 ? before2 : after2 ? after2 : into2),

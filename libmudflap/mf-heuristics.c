@@ -85,15 +85,16 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
       for (i=0; i<max_entries; i++)
 	{
 	  if (entry_used[i] &&
-	      (entry[i].low >= ptr) &&
-	      (entry[i].high <= ptr_high))
+	      (entry[i].low <= ptr) &&
+	      (entry[i].high >= ptr_high))
 	    deja_vu = 1;
 	}
 
       if (! deja_vu)
 	{
 	  /* Time to run the heuristic.  Rescan /proc/self/maps; update the
-	     entry[] array; remove expired entries, add new ones.  */
+	     entry[] array; XXX: remove expired entries, add new ones.  
+	     XXX: Consider entries that have grown (e.g., stack).  */
 	  char buf[512];
 	  char flags[4];
 	  void *low, *high;
@@ -115,6 +116,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 				{
 				  entry[i].low = (uintptr_t) low;
 				  entry[i].high = (uintptr_t) high;
+				  entry_used[i] = 1;
 				  break;
 				}
 			    }

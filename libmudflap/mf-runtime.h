@@ -39,10 +39,12 @@ extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
 
 /* Codes to describe a region of memory being registered. */
   
-#define __MF_TYPE_UNKNOWN 0
+#define __MF_TYPE_NOACCESS 0
 #define __MF_TYPE_HEAP 1
 #define __MF_TYPE_STACK 2
 #define __MF_TYPE_STATIC 3
+#define __MF_TYPE_MAX_CEM 3
+
 #define __MF_TYPE_GUESS 4
 #define __MF_TYPE_MAX __MF_TYPE_GUESS
 
