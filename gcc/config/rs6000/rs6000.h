@@ -2449,6 +2449,36 @@ do {						\
   fputc('\n', FILE);				\
 } while (0)
 
+/* This implementes the `alias' attribute.  */
+
+#define ASM_OUTPUT_DEF_FROM_DECLS(FILE,decl,target)	\
+do {							\
+  char * alias = XSTR (XEXP (DECL_RTL (decl), 0), 0);	\
+  char * name = IDENTIFIER_POINTER (target);		\
+  if (TREE_CODE (decl) == FUNCTION_DECL			\
+      && DEFAULT_ABI == ABI_AIX)			\
+    {							\
+      if (TREE_PUBLIC (decl))				\
+	{						\
+	  fputs ("\t.globl .", FILE);			\
+	  RS6000_OUTPUT_BASENAME (FILE, alias);		\
+	  putc ('\n', FILE);				\
+	}						\
+      else						\
+	{						\
+	  fputs ("\t.lglobl .", FILE);			\
+	  RS6000_OUTPUT_BASENAME (FILE, alias);		\
+	  putc ('\n', FILE);				\
+	}						\
+      fputs ("\t.set .", FILE);				\
+      RS6000_OUTPUT_BASENAME (FILE, alias);		\
+      fputs (",.", FILE);				\
+      RS6000_OUTPUT_BASENAME (FILE, name);		\
+      fputc ('\n', FILE);				\
+    }							\
+  ASM_OUTPUT_DEF (FILE, alias, name);			\
+} while (0)
+
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 

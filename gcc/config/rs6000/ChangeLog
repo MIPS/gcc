@@ -1,3 +1,10 @@
+2000-01-31  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (ASM_OUTPUT_DEF_FROM_DECLS): New macro.
+
+	* rs6000.md (stmw): Use the right POWER opcode.
+	(lmw): Likewise.
+
 2000-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* rs6000-protos.h: New file.
