@@ -1,3 +1,1133 @@
+2004-07-31  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/redecl-2.c: New test.
+
+2004-07-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-longdouble.c: New file.
+
+2004-07-30  Richard Henderson  <rth@redhat.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_rrspacing.f90: Fix
+	write to constant argument.
+	* gfortran.fortran-torture/execute/intrinsic_scale.f90: Likewise.
+
+2004-07-30  Richard Henderson  <rth@redhat.com>
+
+        * gfortran.fortran-torture/execute/intrinsic_nearest.f90: Disable
+        tests of nearest around zero.
+
+2004-07-30  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.c-torture/compile/20040730-1.c: New test.
+
+2004-07-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/vmx.exp: Explain why we skip tests for
+	powerpc-eabispe.
+
+2004-07-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/vmx/vmx.exp: Disable tests for eabispe.
+
+2004-07-30  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lib/g++.exp (g++_link_flags): Check whether LD_LIBRARY_PATH already
+	contains $ld_library_path.
+	* lib/gfortran.exp (gfortran_link_flags): Likewise.
+
+2004-07-29  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/template/sizeof8.C: Don't assume 32bit pointers.
+
+	* g++.dg/ext/stmtexpr2.C (alt1): Rename from expected.
+	(alt2, which): New.
+	(Check): Accept either alternative.
+
+2004-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/inline1.C: New test.
+	* g++.dg/abi/local1-a.cc: Likewise.
+	* g++.dg/abi/local1.C: Likewise.
+	* g++.dg/abi/mangle11.C: Tweak location of warnings.
+	* g++.dg/abi/mangle12.C: Likewise.
+	* g++.dg/abi/mangle17.C: Likewise.
+	* g++.dg/abi/mangle20-2.C: Likewise.
+	* g++.dg/opt/interface1.C: Likewise.
+	* g++.dg/opt/interface1.h: Likewise.
+	* g++.dg/opt/interface1-a.cc: New test.
+	* g++.dg/parse/repo1.C: New test.
+	* g++.dg/template/repo1.C: Likewise.
+	* g++.dg/warn/Winline-1.C: Likewise.
+	* lib/gcc-dg.exp (gcc-dg-test-1): Fix -frepo handling.
+
+2004-07-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040729-1.c: New test.
+
+2004-07-27  Matt Austern <austern@apple.com>
+
+	* gcc.dg/darwin-bool-1.c: New test.
+	* gcc.dg/darwin-bool-2.c: New test.
+	
+2004-07-28  Richard Henderson  <rth@redhat.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_spacing.f90: Pass
+	arguments in the correct type.  Don't write to constant arguments.
+
+2004-07-28  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/16688
+	PR tree-optimization/16689
+	* g++.dg/tree-ssa/pr16688.C: New test.
+
+2004-07-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20031022-1.c: Adjust number of expected
+	loads.  Not only in the comment, this time.
+
+2004-07-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	2003-07-06  Alexandre Oliva  <aoliva@redhat.com>
+	* gcc.dg/sh4a-memmovua.c: Tweak regular expression.
+	2003-07-01  Alexandre Oliva  <aoliva@redhat.com>
+	* gcc.dg/sh4a-bitmovua.c: New.
+	* gcc.dg/sh4a-cos.c: New.
+	* gcc.dg/sh4a-cosf.c: New.
+	* gcc.dg/sh4a-fprun.c: New.
+	* gcc.dg/sh4a-fsrra.c: New.
+	* gcc.dg/sh4a-memmovua.c: New.
+	* gcc.dg/sh4a-sin.c: New.
+	* gcc.dg/sh4a-sincos.c: New.
+	* gcc.dg/sh4a-sincosf.c: New.
+	* gcc.dg/sh4a-sinf.c: New.
+
+2004-07-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030714-2.c: Adjust number of expected
+	conditionals.
+	* gcc.dg/tree-ssa/20031022-1.c: Adjust number of expected
+	loads.
+	* gcc.dg/tree-ssa/ssa-dom-cse-1.c: Expect optimization in
+	DOM1.
+
+2004-07-27  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Correct the xfail.
+
+2004-07-27  Nitin Yewale <nitiny@kpitcummins.com>
+
+	* gcc.dg/pragma-isr.c: New test.
+
+2004-07-27  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14429
+	* g++.dg/template/ttp11.C: New test.
+
+2004-07-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20040727-1.c: New test.
+
+2004-07-26  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.c-torture/compile/20040726-2.c: New test.
+
+2004-07-26  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/rtti/tinfo1.C: Xfail.
+
+2004-07-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040726-1.c: New test.
+
+2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+	    Brian Ryner  <bryner@brianryner.com>
+
+	PR c++/9283
+	PR c++/15000
+	* gcc.dg/visibility-9.c, gcc.dg/visibility-a.c: New tests.
+	* g++.dg/ext/visibility/: New directory.
+	* g++.dg/ext/visibility-1.C, g++.dg/ext/visibility-2.C
+	g++.dg/ext/visibility-3.C, g++.dg/ext/visibility-4.C,
+	g++.dg/ext/visibility-5.C, g++.dg/ext/visibility-6.C,
+	g++.dg/ext/visibility-7.C: Move to g++.dg/ext/visibility/.
+	* g++.dg/ext/visibility/fvisibility.C,
+	g++.dg/ext/visibility/fvisibility-inlines-hidden.C,
+	g++.dg/ext/visibility/fvisibility-override1.C
+	g++.dg/ext/visibility/fvisibility-override2.C
+	g++.dg/ext/visibility/memfuncts.C
+	g++.dg/ext/visibility/noPLT.C
+	g++.dg/ext/visibility/pragma.C
+	g++.dg/ext/visibility/pragma-override1.C
+	g++.dg/ext/visibility/pragma-override2.C
+	g++.dg/ext/visibility/staticmemfuncts.C
+	g++.dg/ext/visibility/virtual.C: New tests.
+
+2004-07-25  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15360
+	* gcc.dg/pr15360-1.c: New test.
+
+2004-07-25  Daniel Jacobowitz  <dan@debian.org>
+
+	* gcc.dg/pragma-align-2.c: New test.
+	* gcc.dg/pragma-init-fini.c: New test.
+	* gcc.dg/pragma-align.c: Change from compile to run.  Run on Solaris
+	targets.
+
+2004-07-25  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/init-string-2.c: New test.
+
+2004-07-24  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 16684
+	* gcc.dg/Wredundant-decls-1.c: New test case.
+
+2004-07-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* README.compat: Add RUN_ALL_COMPAT_TESTS documentation.
+	* lib/compat.exp: Replace ^$tmpdir/? in testcase names with tmpdir-.
+	* gcc.dg/compat/struct-layout-1.exp: New testsuite driver.
+	* gcc.dg/compat/struct-layout-1_generate.c: New testcase generator.
+	* gcc.dg/compat/generate-random.c: New file.
+	* gcc.dg/compat/generate-random.h: Likewise.
+	* gcc.dg/compat/generate-random_r.c: Likewise.
+	* gcc.dg/compat/struct-layout-1.h: Likewise.
+	* gcc.dg/compat/struct-layout-1_x1.h: Likewise.
+	* gcc.dg/compat/struct-layout-1_x2.h: Likewise.
+	* gcc.dg/compat/struct-layout-1_y1.h: Likewise.
+	* gcc.dg/compat/struct-layout-1_y2.h: Likewise.
+	* gcc.dg/compat/struct-layout-1_main.c: New test.
+	* gcc.dg/compat/struct-layout-1_x.c: New file.
+	* gcc.dg/compat/struct-layout-1_y.c: New file.
+	* gcc.dg/compat/struct-layout-1_test.h: New file.
+
+2004-07-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/comp-return-1.c: New test
+
+2004-07-23  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/8-02a.c: Fix typo.
+
+	* gcc.dg/vmx/varargs-4.c: Remove a Darwin-specific check.
+	* gcc.dg/darwin-abi-3.c: New test.
+
+	* gcc.dg/vmx/debug-1.c: Use int, not long, in union with vector.
+	* gcc.dg/vmx/varargs-1.c: Use int, not long, in union with vector.
+
+	* gcc.dg/vmx/ops.c: Remove checks using pointers to long.
+	* gcc.dg/vmx/ops-long-1.c: New test.
+	* gcc.dg/vmx/ops-long-2.c: New test.
+
+2004-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/lookup/conv-[1234].C: New.
+
+2004-07-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/attr2.C: Simplify.
+
+2004-07-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/7284
+	* gcc.c-torture/execute/pr7284-1.c: New test.
+
+2004-07-22  Brian Booth  <bbooth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040721-1.c: New test.
+
+2004-07-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/crash20.c: New.
+
+2004-07-22  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	* gfortran.dg/g77/970625-2.f Copy from g77.f-torture/execute.
+	Add dg-run directive.  Declare variables as required.
+	* gfortran.dg/g77/README: Update
+
+2004-07-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/cris-peep2-xsrand.c, gcc.dg/cris-peep2-andu1.c,
+	gcc.dg/cris-peep2-andu2.c: New tests.
+
+2004-07-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/15052
+	* gcc.dg/noreturn-5.c: Test qualifiers on function type instead of
+	on return type.
+	* gcc.dg/qual-return-1.c: Use -Wreturn-type.  Update expected
+	messages.
+	* gcc.dg/qual-return-2.c: Update expected messages.
+	* gcc.dg/qual-return-3.c, gcc.dg/qual-return-4.c: New tests.
+
+2004-07-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c99-init-3.c, gcc.dg/gnu99-init-2.c: New tests.
+	* gcc.dg/noncompile/921102-1.c: Update expected error message.
+
+2004-07-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/11250
+	* gcc.dg/init-string-1.c: New test.
+
+2004-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/15345
+	PR c/16450
+	* gcc.dg/torture/nested-fn-1.c: New test.
+
+2004-07-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/16559
+	* gcc.dg/ia64-fptr-1.c: New file.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14497
+	* g++.dg/template/spec16.C: New test.
+	* g++.old-deja/g++.robertl/eb118.C: Remove.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/509
+	* g++.dg/template/spec15.C: New test.
+
+2004-07-21  David Billinghurst (David.Billinghurst@riotinto.com)
+
+	Copy cases from g77.f-torture/execute and add dg-run
+	directive.  Other changes as noted.
+	* gfortran.dg/g77/13037.f
+	* gfortran.dg/g77/1832.f
+	* gfortran.dg/g77/19981119-0.f
+	* gfortran.dg/g77/19990313-0.f
+	* gfortran.dg/g77/19990313-1.f
+	* gfortran.dg/g77/19990313-2.f
+	* gfortran.dg/g77/19990313-3.f
+	* gfortran.dg/g77/19990419-1.f
+	* gfortran.dg/g77/19990826-0.f
+	* gfortran.dg/g77/19990826-2.f
+	* gfortran.dg/g77/20000503-1.f
+	* gfortran.dg/g77/20001111.f
+	* gfortran.dg/g77/20010116.f
+	* gfortran.dg/g77/20010426-1.f: Renamed from 20010426-1.f
+	* gfortran.dg/g77/20010430.f
+	* gfortran.dg/g77/6177.f
+	* gfortran.dg/g77/947.f
+	* gfortran.dg/g77/970816-3.f
+	* gfortran.dg/g77/971102-1.f
+	* gfortran.dg/g77/980520-1.f
+	* gfortran.dg/g77/980628-0.f
+	* gfortran.dg/g77/980628-1.f
+	* gfortran.dg/g77/980628-10.f
+	* gfortran.dg/g77/980628-2.f
+	* gfortran.dg/g77/980628-3.f
+	* gfortran.dg/g77/980628-7.f
+	* gfortran.dg/g77/980628-8.f
+	* gfortran.dg/g77/980628-9.f
+	* gfortran.dg/g77/980701-0.f
+	* gfortran.dg/g77/980701-1.f
+	* gfortran.dg/g77/cabs.f
+	* gfortran.dg/g77/claus.f
+	* gfortran.dg/g77/complex_1.f
+	* gfortran.dg/g77/cpp3.F: Renamed from cpp3.F
+	* gfortran.dg/g77/dcomplex.f
+	* gfortran.dg/g77/dnrm2.f: Add dg-warnings as required.
+	* gfortran.dg/g77/f90-intrinsic-mathematical.f
+	* gfortran.dg/g77/f90-intrinsic-numeric.f
+	* gfortran.dg/g77/int8421.f
+	* gfortran.dg/g77/labug1.f
+	* gfortran.dg/g77/large_vec.f
+	* gfortran.dg/g77/le.f
+	* gfortran.dg/g77/short.f
+	* gfortran.dg/g77/README: Update
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16637
+	* g++.dg/parse/lookup4.C: New test.
+
+2004-07-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* g++.dg/template/ttp10.C: New test.
+
+2004-07-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/pr12625-1.c: New test.
+
+2004-07-20  Steven Bosscher  <stevenb@suse.de>
+
+	* testsuite/gcc.dg/switch-warn-1.c: New test.
+	* testsuite/gcc.dg/switch-warn-2.c: New test.
+	* gcc.c-torture/compile/pr14730.c: Update.
+
+2004-07-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* g++.dg/lookup/java1.C, g++.dg/lookup/java2.C, g++.dg/other/crash-2.C,
+	g++.dg/parse/casting-operator2.C, g++.dg/parse/dtor3.C,
+	g++.dg/parse/typename6.C, g++.dg/template/dependent-expr4.C,
+	g++.dg/template/nontype3.C: Remove trailing CR from tests.
+
+2004-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16623
+	* g++.dg/template/assign1.C: New test.
+
+2004-07-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12170
+	* g++.dg/template/ttp9.C: New test.
+
+2004-07-19  Daniel Jacobowitz  <dan@debian.org>
+
+	* gcc.dg/format/cmn-err-1.c: New test.
+
+2004-07-19  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g++.dg/warn/Wparentheses-1.C, g++.dg/warn/Wparentheses-2.C,
+	gcc.dg/Wparentheses-10.c: New tests.
+	* gcc.dg/Wparentheses-5.c: Remove XFAILs.
+
+2004-07-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16465
+	* gfortran.dg/g77//ffixed-line-length-0.f,
+	gfortran.dg/g77/ffixed-line-length-132.f,
+	gfortran.dg/g77/ffixed-line-length-72.f,
+	gfortran.dg/g77/ffixed-line-length-none.f: Copy from g77.dg.
+	gfortran.dg/g77/README: Update.
+
+2004-07-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13092
+	* g++.dg/template/non-dependent7.C: New test.
+	* g++.dg/template/non-dependent8.C: Likewise.
+	* g++.dg/template/non-dependent9.C: Likewise.
+	* g++.dg/template/non-dependent10.C: Likewise.
+
+2004-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16337
+	* g++.dg/parse/attr2.C: New test.
+
+2004-07-17  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.dg: Removed.
+	* g77.f-torture: Ditto.
+
+2004-07-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/Wparentheses-2.c, gcc.dg/Wparentheses-3.c,
+	gcc.dg/Wparentheses-4.c, Wparentheses-5.c, Wparentheses-6.c,
+	Wparentheses-7.c, Wparentheses-8.c, Wparentheses-9.c: New tests.
+
+2004-07-16  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/compile/20020210-1.c: Remove XFAIL.
+
+2004-07-16  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* lib/fortran-torture.exp (fortran-torture): Don't test compile
+	tests with full	list of options.
+	* lib/gfortran-dg.exp (gfortran-dg-runtest): Only test with all
+	of TORTURE_OPTIONS if test contains 'dg-do run'.
+
+	PR fortran/16404
+	* gfortran.dg/do_iterator.f90: New test.
+
+2004-07-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR rtl-optimization/16536
+	* gcc.c-torture/execute/restrict-1.c: New test.
+
+2004-07-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15324
+	* gfortran.dg/pr15324.f90: New test.
+
+	PR fortran/15129
+	* gfortran.dg/pr15129.f90: New test.
+
+	PR fortran/15140
+	* gfortran.dg/pr15140.f90: New test.
+
+	PR fortran/13792
+	* gfortran.fortran-torture/execute/bounds.f90: Add check for
+	compile-time simplification.
+
+2004-07-14  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/20020426-2.c: Improve type safety wrt unsignedness.
+
+2004-07-14  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/16325
+	* gcc.dg/profile-generate-1.c: New.
+
+2004-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20040709-1.c: New test.
+	* gcc.c-torture/execute/20040709-2.c: New test.
+
+2004-07-14  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/wint_t-1.c: Expect to pass on darwin 10.3.x and later.
+
+2004-07-14  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/wchar_t-1.c: Expect to pass on darwin 10.3.x and later.
+
+2004-07-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16518
+	* g++.dg/parse/mutable1.C: New test.
+
+2004-07-13  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/16443
+	* gcc.dg/tree-ssa/20040713-1.c: New test.
+
+2004-07-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* g++.dg/lookup/new2.C: Use first operand of type __SIZE_TYPE__
+	for operator new.
+
+2004-07-13  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/README: New file
+	* gfortran.dg/g77/19981216-0.f:  Copy from
+	g77.f-torture/noncompile.  Add "dg-do compile" and
+	dg-error as required.
+	* gfortran.dg/g77/19990218-1.f: Likewise
+	* gfortran.dg/g77/19990905-1.f: Likewise
+	* gfortran.dg/g77/9263.f: Likewise
+	* gfortran.dg/g77/980615-0.f: Likewise
+	* gfortran.dg/g77/980616-0.f: Likewise
+	* gfortran.dg/g77/check0.f: Likewise
+	* gfortran.dg/g77/select_no_compile.f: Likewise
+
+2004-07-13  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	Copy files from g77.f-torture/compile.
+	Add "{ dg-do compile}".  Other changes as noted
+	* gfortran.dg/g77/19990905-0.f: XFAIL PR 16511
+	* gfortran.dg/g77/20010519-1.f: Add dg-warning as required
+	* gfortran.dg/g77/20030115-1.f: Add dg-warning as required
+	* gfortran.dg/g77/20030326-1.f: XFAIL PR 16511
+	* gfortran.dg/g77/970125-0.f: Add dg-excess-errors.
+	* gfortran.dg/g77/980519-2.f: Declare hd_S,hd_Z,hd_T
+	* gfortran.dg/g77/990115-1.f: Declare RANK as INTEGER
+	* gfortran.dg/g77/alpha1.f: Separate declaration and DATA
+	statement to conform to standard.  Append alpha1.x for reference.
+	* gfortran.dg/g77/xformat.f: Add dg-warning
+
+2004-07-13  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/cpp.F: Copy from g77.f-torture/compile.
+	Add {dg-do compile} directive.
+	* gfortran.dg/g77/cpp2.F: Likewise
+
+2004-07-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/5402
+	* g++.dg/lookup/name-clash1.C: New test.
+
+	PR c++/9777
+	* g++.dg/lookup/name-clash2.C: New test.
+
+	PR c++/12102
+	* g++.dg/lookup/name-clash3.C: New test.
+
+2004-07-12  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/lookup/new2.C: New test.
+	* g++.old-deja/g++.ns/new1.C: Remove (ill-formed).
+
+2004-07-12  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/12002.f: Copy from g77.f-torture/compile.
+	Add {dg-do compile} directive.
+	* gfortran.dg/g77/13060.f: Likewise
+	* gfortran.dg/g77/19990218-0.f: Likewise
+	* gfortran.dg/g77/19990305-0.f: Likewise
+	* gfortran.dg/g77/19990419-0.f: Likewise
+	* gfortran.dg/g77/19990502-0.f: Likewise
+	* gfortran.dg/g77/19990502-1.f: Likewise
+	* gfortran.dg/g77/19990525-0.f: Likewise
+	* gfortran.dg/g77/19990826-1.f: Likewise
+	* gfortran.dg/g77/19990826-3.f: Likewise
+	* gfortran.dg/g77/19990905-2.f: Likewise
+	* gfortran.dg/g77/20000412-1.f: Likewise
+	* gfortran.dg/g77/20000511-1.f: Likewise
+	* gfortran.dg/g77/20000511-2.f: Likewise
+	* gfortran.dg/g77/20000518.f: Likewise
+	* gfortran.dg/g77/20000601-1.f: Likewise
+	* gfortran.dg/g77/20000601-2.f: Likewise
+	* gfortran.dg/g77/20000629-1.f: Likewise
+	* gfortran.dg/g77/20000630-2.f: Likewise
+	* gfortran.dg/g77/20010115.f: Likewise
+	* gfortran.dg/g77/20010321-1.f: Likewise
+	* gfortran.dg/g77/20010426.f: Likewise
+	* gfortran.dg/g77/20020307-1.f: Likewise
+	* gfortran.dg/g77/8485.f: Likewise
+	* gfortran.dg/g77/960317-1.f: Likewise
+	* gfortran.dg/g77/970915-0.f: Likewise
+	* gfortran.dg/g77/980310-1.f: Likewise
+	* gfortran.dg/g77/980310-2.f: Likewise
+	* gfortran.dg/g77/980310-3.f: Likewise
+	* gfortran.dg/g77/980310-4.f: Likewise
+	* gfortran.dg/g77/980310-6.f: Likewise
+	* gfortran.dg/g77/980310-7.f: Likewise
+	* gfortran.dg/g77/980310-8.f: Likewise
+	* gfortran.dg/g77/980419-2.f: Likewise
+	* gfortran.dg/g77/980424-0.f: Likewise
+	* gfortran.dg/g77/980427-0.f: Likewise
+	* gfortran.dg/g77/980729-0.f: Likewise
+	* gfortran.dg/g77/981117-1.f: Likewise
+	* gfortran.dg/g77/toon_1.f: Likewise
+
+2004-07-12  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/2204
+	* g++.dg/other/abstract2.C: New test.
+
+2004-07-12  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/pointer_init_1.f90: New test.
+
+2004-07-11  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15986
+	* gfortran.dg/contained_1.f90: New test.
+
+2004-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/defarg8.C: New test.
+
+2004-07-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16433
+	* gfortran.dg/pr16433.f: New test.
+
+	PR fortran/17574
+	* gfortran.dg/pr15754.f90: New test.
+
+2004-07-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR tree-optimization/16437
+	* gcc.c-torture/execute/bitfld-4.c: New test.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/common_2.f90: Add check for
+	access to common var from module.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16336
+	* gfortran.fortran-torture/execute/common_2.f90: New test.
+
+2004-07-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/der_init_5.f90: Enable more tests.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15969
+	* gfortran.fortran-torture/execute/der_init_5.f90: New test.
+
+2004-07-10  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/ffixed-form-1.f: Copy from g77.dg
+	* gfortran.dg/g77/ffixed-form-2.f: Likewise
+	* gfortran.dg/g77/ffree-form-1.f: Likewise
+	* gfortran.dg/g77/ffree-form-2.f: Likewise
+	* gfortran.dg/g77/ffree-form-3.f: Likewise
+	* gfortran.dg/g77/fno-underscoring.f: Likewise
+	* gfortran.dg/g77/funderscoring.f: Likewise
+	* gfortran.dg/g77/pr9258.f: Likewise.  Add dg-warning lines.
+
+2004-07-10  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/module_init_1.f90: Fix test.
+
+2004-07-10 Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13415
+	* gfortran.dg/common_pointer_1.f90: New test.
+
+2004-07-10  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/lookup/new1.C: Fix dg-excess-error syntax.
+
+2004-07-09  James E Wilson  <wilson@specifixinc.com>
+
+	PR target/16364
+	* gcc.c-torture/compile/20040709-1.c: New.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14077
+	* gfortran.fortran-torture/execute/module_init_1.f90: New test.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13201
+	* gfortran.dg/shape_1.f90: New test.
+
+2004-07-09  Zack Weinberg  <zack@codesourcery.com>
+	    Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/noncompile/init-4.c: Remove bogus dg-error marker.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/compile/name_clash2.f90: Remove outdated
+	comment.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.dg/dg.exp: Use revised wilcard for suffixes, also allow
+	'.f95' and '.F95'.
+
+2004-07-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20031015-1.c: Adjust expected dump file name.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/dg.exp: Don't use wildcard for suffixes, also check
+	testcases with capital suffix.
+
+2004-07-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15481
+	PR fortran/13372
+	PR fortran/13575
+	PR fortran/15978
+	* gfortran.fortran-torture/compile/implicit_2.f90: New test.
+
+	* gfortran.dg/implicit_1.f90: New test.
+
+2004-07-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* lib/gfortran-dg.exp (gfortran-dg-test):  Adapt regular
+	expression to match gfortran warning/error messages
+	* gfortran.dg/g77/12632.f: Copy from g77.dg and fix
+	dg-error text.
+
+2004-07-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* lib/fortran-torture.exp: Rename proc search_for to
+	search_for_re.
+
+2004-07-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/simd-5.x: New file.
+	XFAIL on SPARC 64-bit at -O0.
+
+2004-07-09  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/8211
+	PR c++/16165
+	* g++.dg/warn/effc3.C: New test.
+
+2004-07-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/f77-edit-i-in.f: Copy from g77.dg and
+	change X to 1X in format.
+	* gfortran.dg/g77/20010216-1.f:  Copy from g77.dg and
+	add data statements to conform to standard.
+
+2004-07-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/f77-edit-s-out.f: Copy from g77.dg. XFAIL
+	* gfortran.dg/g77/f77-edit-t-in.f: Likewise
+	* gfortran.dg/g77/f77-edit-x-out.f: Likewise
+
+2004-07-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gfortran.dg/g77/7388.f: Copy from g77.dg
+	* gfortran.dg/g77/f77-edit-i-out.f: Likewise
+	* gfortran.dg/g77/f77-edit-apostrophe-out.f: Likewise
+	* gfortran.dg/g77/f77-edit-slash-out.f: Likewise
+	* gfortran.dg/g77/f77-edit-colon-out.f: Likewise
+	* gfortran.dg/g77/f77-edit-t-out.f: Likewise
+	* gfortran.dg/g77/f77-edit-h-out.f: Likewise
+	* gfortran.dg/g77/strlen0.f: Likewise
+
+2004-07-09   David Billinghurst <David.Billinghurst@riotinto.com>
+
+ 	* lib/gfortran-dg.exp: New file (adapted from lib/g77-dg.exp)
+ 	* gfortran.dg/dg.exp: New file (adapted from g77.dg/dg.exp)
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/920428-2.x: Delete.
+	* gcc.c-torture/execute/920501-7.x: Likewise.
+
+2004-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all
+	-march=i386 into -march=i686.  Add -march=i686 -mtune=x and
+	-march=x for pentium3, pentium3m, pentium-m, pentium4m,
+	prescott and c3-2.
+	(PREFETCH_3DNOW): Add -march=c3.
+
+2004-07-08  Diego Novillo  <dnovillo@redhat.com>
+
+	PR c/16437
+	* gcc.c-torture/execute/991118-1.x: XFAIL for x86_64.
+	* gcc.c-torture/execute/bf64-1.x: Likewise.
+
+2004-07-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040708-1.c: New test.
+
+2004-07-08  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/16169
+	* g++.dg/warn/effc2.C: New test.
+
+2004-07-08  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/execute/bitfld-1.x: Remove.
+	* gcc.c-torture/execute/bitfld-3.c: New test.
+	* gcc.dg/bitfld-2.c: Remove XFAILs.
+
+2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/16276
+	* g++.dg/rtti/tinfo1.C: New file.
+
+2004-07-07  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.c-torture/compile/20020210-1.c: xfail with optimization.
+
+2004-07-07  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.c-torture/execute/931004-12.x: Xfail on powerpc-*-darwin*.
+
+2004-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/call1.C: XFAIL.
+
+2004-07-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/builtins/mempcpy-2.c: Rename movstr*,
+	except for movstrict*, to movmem* and clrstr* to clrmem*.
+
+2004-07-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040707-1.c: New test.
+
+2004-07-06  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040706-1.c: New test.
+
+2004-07-06  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/3671
+	* g++.dg/template/spec14.C: New test.
+
+2004-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20040629-1.c (FIELDS1, FIELDS2): Define to
+	nothing if not yet defined.  Use it in b, c and d type definitions.
+	* gcc.c-torture/execute/20040705-1.c: New test.
+	* gcc.c-torture/execute/20040705-2.c: New test.
+
+2004-07-05  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/2518
+	* g++.dg/lookup/new1.C: New test.
+
+2004-07-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/11406
+	* g++.dg/template/sizeof8.C: New test.
+
+2004-07-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040705-1.c: New test.
+
+2004-07-04  Bud Davis  <bdavis9659@comcast.net>
+
+	* gfortran.fortran-torture/execute/seq_io.f90: New test.
+
+2004-07-04  Neil Booth  <neil@duron.akihabara.co.uk>
+
+	* gcc.dg/cpp/if-mop.c: Two new testcases.
+	* gcc.dg/cpp/trad/comment-3.c: New.
+
+2004-07-04  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/compile/implicit_1.f90: New test.
+
+2004-07-03  Scott Brumbaugh  <scottb.lists@verizon.net>
+
+	PR c++/3761
+	* g++.dg/lookup/crash4.C: New test.
+
+2004-07-02  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/execute/builtin-abs-1.c
+	* gcc.c-torture/execute/builtin-abs-2.c
+	* gcc.c-torture/execute/builtin-complex-1.c
+	* gcc.c-torture/execute/builtins/string-1-lib.c
+	* gcc.c-torture/execute/builtins/string-1.c
+	* gcc.c-torture/execute/builtins/string-2-lib.c
+	* gcc.c-torture/execute/builtins/string-2.c
+	* gcc.c-torture/execute/builtins/string-3-lib.c
+	* gcc.c-torture/execute/builtins/string-3.c
+	* gcc.c-torture/execute/builtins/string-4-lib.c
+	* gcc.c-torture/execute/builtins/string-4.c
+	* gcc.c-torture/execute/builtins/string-5-lib.c
+	* gcc.c-torture/execute/builtins/string-5.c
+	* gcc.c-torture/execute/builtins/string-6-lib.c
+	* gcc.c-torture/execute/builtins/string-6.c
+	* gcc.c-torture/execute/builtins/string-7-lib.c
+	* gcc.c-torture/execute/builtins/string-7.c
+	* gcc.c-torture/execute/builtins/string-8-lib.c
+	* gcc.c-torture/execute/builtins/string-8.c
+	* gcc.c-torture/execute/builtins/string-9-lib.c
+	* gcc.c-torture/execute/builtins/string-9.c
+	* gcc.c-torture/execute/builtins/string-asm-1-lib.c
+	* gcc.c-torture/execute/builtins/string-asm-1.c
+	* gcc.c-torture/execute/builtins/string-asm-2-lib.c
+	* gcc.c-torture/execute/builtins/string-asm-2.c
+	* gcc.c-torture/execute/stdio-opt-1.c
+	* gcc.c-torture/execute/stdio-opt-2.c
+	* gcc.c-torture/execute/stdio-opt-3.c
+	* gcc.c-torture/execute/string-opt-1.c
+	* gcc.c-torture/execute/string-opt-10.c
+	* gcc.c-torture/execute/string-opt-11.c
+	* gcc.c-torture/execute/string-opt-12.c
+	* gcc.c-torture/execute/string-opt-13.c
+	* gcc.c-torture/execute/string-opt-14.c
+	* gcc.c-torture/execute/string-opt-15.c
+	* gcc.c-torture/execute/string-opt-16.c
+	* gcc.c-torture/execute/string-opt-2.c
+	* gcc.c-torture/execute/string-opt-6.c
+	* gcc.c-torture/execute/string-opt-7.c
+	* gcc.c-torture/execute/string-opt-8.c:
+	Replace with ...
+
+	* gcc.c-torture/execute/builtins/abs-2.c
+	* gcc.c-torture/execute/builtins/abs-3.c
+	* gcc.c-torture/execute/builtins/complex-1.c
+	* gcc.c-torture/execute/builtins/fprintf.c
+	* gcc.c-torture/execute/builtins/fputs.c
+	* gcc.c-torture/execute/builtins/memcmp.c
+	* gcc.c-torture/execute/builtins/memmove.c
+	* gcc.c-torture/execute/builtins/memops-asm.c
+	* gcc.c-torture/execute/builtins/mempcpy-2.c
+	* gcc.c-torture/execute/builtins/mempcpy.c
+	* gcc.c-torture/execute/builtins/memset.c
+	* gcc.c-torture/execute/builtins/printf.c
+	* gcc.c-torture/execute/builtins/sprintf.c
+	* gcc.c-torture/execute/builtins/strcat.c
+	* gcc.c-torture/execute/builtins/strchr.c
+	* gcc.c-torture/execute/builtins/strcmp.c
+	* gcc.c-torture/execute/builtins/strcpy.c
+	* gcc.c-torture/execute/builtins/strcspn.c
+	* gcc.c-torture/execute/builtins/strlen-2.c
+	* gcc.c-torture/execute/builtins/strlen.c
+	* gcc.c-torture/execute/builtins/strncat.c
+	* gcc.c-torture/execute/builtins/strncmp-2.c
+	* gcc.c-torture/execute/builtins/strncmp.c
+	* gcc.c-torture/execute/builtins/strncpy.c
+	* gcc.c-torture/execute/builtins/strpbrk.c
+	* gcc.c-torture/execute/builtins/strpcpy-2.c
+	* gcc.c-torture/execute/builtins/strpcpy.c
+	* gcc.c-torture/execute/builtins/strrchr.c
+	* gcc.c-torture/execute/builtins/strspn.c
+	* gcc.c-torture/execute/builtins/strstr-asm.c
+	* gcc.c-torture/execute/builtins/strstr.c:
+	... these new files.
+
+	* gcc.c-torture/execute/builtins/abs-2-lib.c
+	* gcc.c-torture/execute/builtins/abs-3-lib.c
+	* gcc.c-torture/execute/builtins/complex-1-lib.c
+	* gcc.c-torture/execute/builtins/fprintf-lib.c
+	* gcc.c-torture/execute/builtins/fputs-lib.c
+	* gcc.c-torture/execute/builtins/memcmp-lib.c
+	* gcc.c-torture/execute/builtins/memmove-lib.c
+	* gcc.c-torture/execute/builtins/memops-asm-lib.c
+	* gcc.c-torture/execute/builtins/mempcpy-2-lib.c
+	* gcc.c-torture/execute/builtins/mempcpy-lib.c
+	* gcc.c-torture/execute/builtins/memset-lib.c
+	* gcc.c-torture/execute/builtins/printf-lib.c
+	* gcc.c-torture/execute/builtins/sprintf-lib.c
+	* gcc.c-torture/execute/builtins/strcat-lib.c
+	* gcc.c-torture/execute/builtins/strchr-lib.c
+	* gcc.c-torture/execute/builtins/strcmp-lib.c
+	* gcc.c-torture/execute/builtins/strcpy-lib.c
+	* gcc.c-torture/execute/builtins/strcspn-lib.c
+	* gcc.c-torture/execute/builtins/strlen-2-lib.c
+	* gcc.c-torture/execute/builtins/strlen-lib.c
+	* gcc.c-torture/execute/builtins/strncat-lib.c
+	* gcc.c-torture/execute/builtins/strncmp-2-lib.c
+	* gcc.c-torture/execute/builtins/strncmp-lib.c
+	* gcc.c-torture/execute/builtins/strncpy-lib.c
+	* gcc.c-torture/execute/builtins/strpbrk-lib.c
+	* gcc.c-torture/execute/builtins/strpcpy-2-lib.c
+	* gcc.c-torture/execute/builtins/strpcpy-lib.c
+	* gcc.c-torture/execute/builtins/strrchr-lib.c
+	* gcc.c-torture/execute/builtins/strspn-lib.c
+	* gcc.c-torture/execute/builtins/strstr-asm-lib.c
+	* gcc.c-torture/execute/builtins/strstr-lib.c
+	* gcc.c-torture/execute/builtins/lib/abs.c
+	* gcc.c-torture/execute/builtins/lib/fprintf.c
+	* gcc.c-torture/execute/builtins/lib/memset.c
+	* gcc.c-torture/execute/builtins/lib/printf.c
+	* gcc.c-torture/execute/builtins/lib/sprintf.c
+	* gcc.c-torture/execute/builtins/lib/strcpy.c
+	* gcc.c-torture/execute/builtins/lib/strcspn.c
+	* gcc.c-torture/execute/builtins/lib/strncat.c
+	* gcc.c-torture/execute/builtins/lib/strncmp.c
+	* gcc.c-torture/execute/builtins/lib/strncpy.c
+	* gcc.c-torture/execute/builtins/lib/strpbrk.c
+	* gcc.c-torture/execute/builtins/lib/strspn.c
+	* gcc.c-torture/execute/builtins/lib/strstr.c:
+	New files containing support routines.
+
+	* gcc.c-torture/execute/builtins/abs-1.c: Remove unnecessary
+	declaration.
+	* gcc.c-torture/execute/builtins/lib/main.c: Define link_error
+	when not optimizing.
+
+2004-07-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16240
+	* g++.dg/abi/mangle22.C: New test.
+	* g++.dg/abi/mangle23.C: Likewise.
+
+2004-07-02  David Billinghurst  <David.Billinghurst@riotinto.com>
+
+	PR fortran/16290
+	* gfortran.fortran-torture/execute/intrinsic_set_exponent.f90
+	Allow for cases without denormalized floating point numbers.
+
+2004-07-01  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/1027
+	* gcc.dg/Wswitch-enum.c, gcc.dg/Wswitch.c,
+	gcc.dg/format/branch-1.c, gcc.dg/format/diag-1.c,
+	gcc.dg/format/multattr-3.c, gcc.dg/format/xopen-1.c: Update
+	expected warning text.
+	* gcc.dg/format/diag-2.c: New test.
+
+2004-07-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040323-1.c: XFAIL on Solaris 2.
+
+2004-07-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/builtins-43.c: New.
+	* gcc.dg/builtins-44.c: New.
+	* gcc.dg/builtins-45.c: New.
+
+2004-06-26  Geoffrey Keating  <geoffk@apple.com>
+	    Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* gcc.dg/cleanup-10.c: Run on all Linux platforms and powerpc-darwin.
+	Use SA_RESETHAND rather than SA_ONESHOT.  Trap SIGBUS as well
+	as SIGSEGV.
+	* gcc.dg/cleanup-11.c: Likewise.
+	* gcc.dg/cleanup-8.c: Likewise.
+	* gcc.dg/cleanup-9.c: Likewise.
+	* gcc.dg/cleanup-5.c: Run on all platforms.
+
+2004-06-30  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g++.dg/warn/nonnull1.C: New test.
+
+2004-06-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/compat/compat-common.h: Wrap up CINT in
+	an #ifndef SKIP_COMPLEX_INT/#endif pair.
+	Special-case the Sun compiler wrt to <complex.h>.
+
+2004-06-30  Nitin Yewale <nitiny@kpitcummins.com>
+
+	* gcc.dg/Wunreachable-8.C: New test.
+
+	* gcc.dg/h8300-ice2.c : New test.
+
+2004-06-30  Tobias Schlueter  <tobias.shclueter@physik.uni-muenchen.de>
+
+	PR fortran/16161
+	* gfortran.fortran-torture/compile/implicit.f90: Add test
+	for implicit character.
+
+2004-06-30  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/16289
+	* gfortran.fortran-torture/execute/intrinsic_nearest.f90
+	Use tiny() intrinsic to find smallest non-negative real
+
+2004-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-by-value-22_main.c: New test.
+	* gcc.dg/compat/struct-by-value-22_x.c: New.
+	* gcc.dg/compat/struct-by-value-22_y.c: New.
+
+	* gcc.c-torture/execute/20040629-1.c: New test.
+
+2004-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/vector-defs.h: Use vector_size attribute
+	only for GCC 3.5+, for GCC up to 3.4 mode(V*) attribute instead.
+
+	PR target/16195
+	* gcc.dg/20040625-1.c: New test.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/parameter_2.f90: New test.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15963
+	* gfortran.fortran-torture/execute/initialization_1.f90: New test.
+
+2004-06-29  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040430-1.c: Expect zero if's.
+
+2004-06-29  Paul Brook  <paul@codesourcery.com>
+
+	* g++.old-deja/g++.abi/arraynew.C: Handle ARM EABI cookies.
+	* g++.old-deja/g++.abi/cxa_vec.C: Allocate larger cookies for AEABI.
+
+2004-06-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16260
+	* g++.dg/parse/crash15.C: New.
+
+2004-06-28  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/pr14963.c: Remove the dg-warning as it is dected
+	by the error already.
+
+	* g++.dg/opt/ptrmem4.C: Change to compile only test.
+
+2004-06-28  Dhananjay Deshpande  <dhananjayd@kpitcummins.com>
+
+	PR target/14041
+	* gcc.dg/h8300-bss-align-1.c : New.
+
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* PR c++/16174
+	* g++.dg/template/ctor4.C: New.
+
 2004-06-27  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c++/16205
@@ -178,7 +1308,7 @@
 	* gcc.dg/unordered-2.c: New test case.
 	* gcc.dg/unordered-3.c: New test case.
 
-2004-06-19  David Billinghurst (David.Billinghurst@riotinto.com)
+2004-06-19  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR other/16043
 	* lib/g++.exp (g++_version): Tweak regexp for version
@@ -6003,7 +7133,7 @@
 	* gcc.c-torture/execute/string-opt-3.c: New test.
 	* gcc.dg/string-opt-1.c: New test.
 
-2003-06-03  David Billinghurst (David.Billinghurst@riotinto.com)
+2003-06-03  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR fortran/10965
 	* g77.f-torture/compile/20000601-2.f: Fix non-standard code.
@@ -6078,7 +7208,7 @@
 
 	* gcc.dg/duff-4.c: New test case.
 
-2003-05-27  David Billinghurst (David.Billinghurst@riotinto.com)
+2003-05-27  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR fortran/10843
 	* g77.dg/ffixed-form-1.f: New test
