@@ -878,7 +878,8 @@ insert_copy_on_edge (edge e, tree dest, tree src)
 
   copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
   set_is_used (dest);
-  set_is_used (src);
+  if (DECL_P (src))
+    set_is_used (src);
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,

@@ -1,5 +1,9 @@
 2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa.c (insert_copy_on_edge): Only set used bit on DECL nodes.
+
+2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
+
 	* common.opt (ftree-combine-temps): Add new option.
 	* flags.h (flag_tree_combine_temps): New flag.
 	* opts.c (decode_options): Initialize flag_tree_combine_temps.
