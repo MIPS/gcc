@@ -608,29 +608,8 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
-/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
-/* Nonzero if all calls to virtual functions should cause indirection
-   through a vtable.  */
-
-extern int flag_indirect_virtual_calls;
-/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
-
-/* APPLE LOCAL begin -fterminated-vtables */
-/* Nonzero to terminate vtables with a unique value, currently zero.
-   Used by the darwin kernel to find ends of vtables for patching
-   when loading drivers dynamically.  */
-
-extern int flag_terminated_vtables;
-/* APPLE LOCAL end -fterminated-vtables */
-
-/* APPLE LOCAL begin 2.95-compatibility stuff --turly */
-/* Nonzero if we're compiling in a gcc2.95-compatibility mode.
-   Implies -fterminated-vtables and -findirect-virtual-calls,
-   only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
-   constructors-returning-this...  */
- 
+/* APPLE LOCAL KEXT */
 extern int flag_apple_kext;
-/* APPLE LOCAL end 2.95-compatibility stuff --turly */
 
 /* APPLE LOCAL begin structor thunks */
 /* Nonzero if we prefer to clone con/de/structors.

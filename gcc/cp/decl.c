@@ -2902,7 +2902,7 @@ initialize_predefined_identifiers (void)
       if (pid->ctor_or_dtor_p)
 	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
     }
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
   if (flag_apple_kext)
     {
       /* This is snarfed from the 2.95 cp-tree.h.  The mechanism is
@@ -2940,7 +2940,7 @@ initialize_predefined_identifiers (void)
       index_identifier = get_identifier ("__index");
       pfn_or_delta2_identifier = get_identifier ("__pfn_or_delta2");
     }
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 }
 
 /* Create the predefined scalar types of C,
@@ -3028,11 +3028,11 @@ cxx_init_decl_processing (void)
   record_builtin_type (RID_MAX, NULL, string_type_node);
 #endif
 
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
   if (flag_apple_kext)
     delta_type_node = short_integer_type_node;
   else
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
   delta_type_node = ptrdiff_type_node;
   vtable_index_type = ptrdiff_type_node;
 
@@ -5964,7 +5964,7 @@ build_ptrmemfunc_type (tree type)
     unqualified_variant
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
   if (flag_apple_kext)
     {
       tree u = make_aggr_type (UNION_TYPE);
@@ -5993,7 +5993,7 @@ build_ptrmemfunc_type (tree type)
     }
   else
     {
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
   t = make_aggr_type (RECORD_TYPE);
   xref_basetypes (t, NULL_TREE);
@@ -6012,7 +6012,7 @@ build_ptrmemfunc_type (tree type)
 
   finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
 
-  /* APPLE LOCAL 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
     }
 
   /* Zap out the name so that the back-end will give us the debugging

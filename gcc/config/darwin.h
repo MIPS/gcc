@@ -112,6 +112,10 @@ Boston, MA 02111-1307, USA.  */
    architecture.  */
    
 #define TARGET_OPTION_TRANSLATE_TABLE \
+/* APPLE LOCAL begin KEXT terminated-vtables */ \
+  { "-fterminated-vtables", "-fapple-kext" }, \
+/* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */ \
+  { "-findirect-virtual-calls", "-fapple-kext" }, \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
   { "-arch_errors_fatal", "-Zarch_errors_fatal" },  \
@@ -178,7 +182,7 @@ extern const char *darwin_fix_and_continue_switch;
    N_("Generate code suitable for fast turn around debugging"), 0},	\
   {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
    N_("Don't generate code suitable for fast turn around debugging"), 0}, \
-/* APPLE LOCAL begin constant cfstrings */ \
+/* APPLE LOCAL begin constant cfstrings */				\
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\
@@ -1259,6 +1263,12 @@ void add_framework_path (char *);
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
 #endif
+
+/* APPLE LOCAL begin KEXT ctors return this */
+/* For Apple KEXTs, we make the constructors return this to match gcc
+   2.95.  */
+#define TARGET_CXX_CDTOR_RETURNS_THIS (flag_apple_kext_p)
+/* APPLE LOCAL end KEXT ctors return this */
 
 #define WINT_TYPE "int"
 #endif /* CONFIG_DARWIN_H */

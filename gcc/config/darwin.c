@@ -1077,7 +1077,8 @@ machopic_output_indirection (void **slot, void *data)
   else if (! indirect_data (symbol)
 	   && (machopic_symbol_defined_p (symbol)
 	       /* APPLE LOCAL private extern */
-	       || (SYMBOL_REF_DECL (symbol) && DECL_VISIBILITY (SYMBOL_REF_DECL (symbol)))))
+	       || (SYMBOL_REF_DECL (symbol) && DECL_VISIBILITY (SYMBOL_REF_DECL (symbol))
+		   == VISIBILITY_HIDDEN)))
     {
       data_section ();
       assemble_align (GET_MODE_ALIGNMENT (Pmode));
@@ -1752,6 +1753,15 @@ darwin_file_end (void)
 
 int darwin_fix_and_continue;
 const char *darwin_fix_and_continue_switch;
+
+/* APPLE LOCAL begin KEXT */
+/* Ture, iff we're generating code for loadable kernel extentions.  */
+
+bool
+flag_apple_kext_p (void) {
+  return flag_apple_kext;
+}
+/* APPLE LOCAL begin KEXT */
 
 /* APPLE LOCAL begin constant cfstrings */
 int darwin_constant_cfstrings = 0;

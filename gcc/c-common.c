@@ -477,18 +477,6 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
-/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
-/* Nonzero if all calls to virtual functions should cause indirection
-   through a vtable.  */
-int flag_indirect_virtual_calls;
-/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
-
-/* APPLE LOCAL begin terminated-vtables */
-/* Nonzero means append a zero word to vtables.  Used by darwin kernel
-   driver dynamic-loader to find the ends of vtables for patching.  */
-int flag_terminated_vtables = 0;
-/* APPLE LOCAL end terminated-vtables */
-
 /* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
 /* Nonzero if -fpreproceessed specified.  This is needed by
    init_reswords() so that it can make __private_extern__ have the
@@ -498,14 +486,6 @@ int flag_terminated_vtables = 0;
    value out using the rid code.  */
 int flag_preprocessed = 0;
 /* APPLE LOCAL end private extern  Radar 2872481 --ilr */
-
-/* APPLE LOCAL begin -fapple-kext   (Radar #2849864) --ilr */
-/* Nonzero if we're compiling in a gcc2.95-compatibility mode.
-   Implies -fterminated-vtables and -findirect-virtual-calls,
-   only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
-   constructors-returning-this...  */
-int flag_apple_kext = 0;
-/* APPLE LOCAL end -fapple-kext --ilr */
 
 /* APPLE LOCAL begin structor thunks */
 /* Nonzero if we prefer to clone con/de/structors.  Alternative is to

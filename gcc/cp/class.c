@@ -571,7 +571,7 @@ build_vfn_ref (tree instance_ptr, tree idx)
   return aref;
 }
 
-/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
+/* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
 /* Given a VTBL and an IDX, return an expression for the function
    pointer located at the indicated index.  BASETYPE is the static
    type of the object containing the vtable.  */
@@ -592,7 +592,7 @@ build_vfn_ref_using_vtable (tree vtbl, tree idx)
   TREE_CONSTANT (aref) = 1;
   return aref;
 }
-/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
+/* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
 
 /* Return the name of the virtual function table (as an IDENTIFIER_NODE)
    for the given TYPE.  */
@@ -1801,26 +1801,20 @@ layout_vtable_decl (tree binfo, int n)
 {
   tree atype;
   tree vtable;
-  /* APPLE LOCAL begin terminated-vtables */
+  /* APPLE LOCAL begin KEXT terminated-vtables */
   int n_entries;
 
   n_entries = n;
   
   /* Enlarge suggested vtable size by one entry; it will be filled
      with a zero word.  Darwin kernel dynamic-driver loader looks
-     for this value to find vtable ends for patching. 
-
-     Kludge: IOKit project all use -findirect_virtual_calls, and all
-     will need the newly-created -fterminated_vtables flag when built
-     with GCC3, so as a short-term hack to avoid updating
-     eighty-odd IOKit projects, enable both when we see the one currently
-     used by all IOKit projects.  */
-  if (flag_terminated_vtables || flag_indirect_virtual_calls)
+     for this value to find vtable ends for patching.  */
+  if (flag_apple_kext)
     n_entries += 1;
-  /* APPLE LOCAL end terminated-vtables */
+  /* APPLE LOCAL end KEXT terminated-vtables */
 
   atype = build_cplus_array_type (vtable_entry_type, 
-				  /* APPLE LOCAL terminated-vtables */
+				  /* APPLE LOCAL KEXT terminated-vtables */
 				  build_index_type (size_int (n_entries - 1)));
   layout_type (atype);
 

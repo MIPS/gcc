@@ -1023,6 +1023,12 @@ Common Report Var(flag_writable_strings) VarExists
 Store strings in writable data section
 ; APPLE LOCAL end fwritable strings
 
+; APPLE LOCAL begin KEXT
+fapple-kext
+C++ Report Var(flag_apple_kext)
+Generate code for darwin loadable kernel extentions
+; APPLE LOCAL end KEXT
+
 fzero-initialized-in-bss
 Common Report Var(flag_zero_initialized_in_bss) Init(1)
 Put zero initialized data in the bss section

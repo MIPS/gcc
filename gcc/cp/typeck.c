@@ -2033,7 +2033,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
      routine directly because it expects the object to be of class
      type.  */
   ptrmem_type = TREE_TYPE (ptrmem);
-  /* APPLE LOCAL 2.95-ptmf-compatibility */
+  /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
   if (!flag_apple_kext)
   my_friendly_assert (TYPE_PTRMEMFUNC_P (ptrmem_type), 20020804);
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
@@ -2318,9 +2318,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
     {
-      /* APPLE LOCAL begin 2.95-ptmf-compatibility  */
+      /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
       tree idx, delta, e1, e2, e3, vtbl = vtbl, basetype;
-      /* APPLE LOCAL end 2.95-ptmf-compatibility  20020314 --turly  */
       tree delta2 = delta2;
       tree fntype = TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function));
 
@@ -2354,7 +2353,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       e3 = PFN_FROM_PTRMEMFUNC (function);
       delta = build_ptrmemfunc_access_expr (function, delta_identifier);
       
-      /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
       if (flag_apple_kext)
 	{
 	  idx = build_ptrmemfunc_access_expr (function, index_identifier);
@@ -2363,7 +2362,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	}
       else
         {
-      /* APPLE LOCAL end 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
@@ -2381,7 +2380,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  abort ();
 	}
 
-      /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
         }
       /* DELTA2 is the amount by which to adjust the `this' pointer
 	 to find the vtbl.  */
@@ -2392,7 +2391,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  delta2 = build_ptrmemfunc_access_expr (delta2,
 						 delta2_identifier);
 	}
-      /* APPLE LOCAL end 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
       /* Convert down to the right base before using the instance.  First
          use the type...  */
@@ -2403,12 +2402,12 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       if (instance_ptr == error_mark_node)
 	return error_mark_node;
 
-      /* APPLE LOCAL begin 2.95-ptmf-compatibility  */
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
       if (flag_apple_kext)
 	/* Next extract the vtable pointer from the object.  */
 	vtbl = build (PLUS_EXPR,build_pointer_type (vtbl_ptr_type_node),
 		      instance_ptr, cp_convert (ptrdiff_type_node, delta2));
-      /* APPLE LOCAL end 2.95-ptmf-compatibility  */
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
       /* ...and then the delta in the PMF.  */
       instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
@@ -2417,7 +2416,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
 
-      /* APPLE LOCAL 2.95-ptmf-compatibility  */
+      /* APPLE LOCAL KEXT 2.95-ptmf-compatibility --turly */
       if (!flag_apple_kext)
       /* Next extract the vtable pointer from the object.  */
       vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
@@ -2430,14 +2429,14 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       if (0) ADJUST_VTABLE_INDEX (idx, vtbl);
 #endif
 
-      /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
       /* 2.95-style indices are off by one.  */
       if (flag_apple_kext)
 	{
 	  idx = cp_build_binary_op (MINUS_EXPR, idx, integer_one_node);
 	  idx = cp_build_binary_op (LSHIFT_EXPR, idx, integer_two_node);
 	}
-      /* APPLE LOCAL end 2.95-ptmf-compatibility  20020314 --turly  */
+      /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
       /* Finally, extract the function pointer from the vtable.  */
       e2 = fold (build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx));
@@ -3094,13 +3093,13 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
 	{
-	  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020314 --turly  */
+	  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
 	  /* Shouldn't we use INDEX here rather than PFN?  This seems to
 	     work fine, though...  */
 	  if (flag_apple_kext)
 	    op0 = build_ptrmemfunc_access_expr (op0, index_identifier);
 	  else
-	  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020314 --turly  */
+	  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 	  op0 = build_ptrmemfunc_access_expr (op0, pfn_identifier);
 	  op1 = cp_convert (TREE_TYPE (op0), integer_zero_node);
 	  result_type = TREE_TYPE (op0);
@@ -5487,7 +5486,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   tree delta_field;
   tree pfn_field;
 
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
   if (flag_apple_kext)
     {
       /* Ooo-err, Missus.  Cons up a 2.95-style ptmf struct given
@@ -5593,7 +5592,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
       TREE_STATIC (u) = allconstant && allsimple;
       return u;
     }
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
   /* Pull the FIELD_DECLs out of the type.  */
   pfn_field = TYPE_FIELDS (type);
@@ -5781,7 +5780,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 tree
 pfn_from_ptrmemfunc (tree t)
 {
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
   if (flag_apple_kext)
     {
       if (TREE_CODE (t) == PTRMEM_CST)
@@ -5795,7 +5794,7 @@ pfn_from_ptrmemfunc (tree t)
       t = build_ptrmemfunc_access_expr (t, pfn_or_delta2_identifier);
       return build_ptrmemfunc_access_expr (t, pfn_identifier);
     }
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
+  /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
 
   if (TREE_CODE (t) == PTRMEM_CST)
     {

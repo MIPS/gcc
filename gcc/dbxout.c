@@ -88,8 +88,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "target.h"
 #include "langhooks.h"
-/* APPLE LOCAL Constructors return THIS  20020315 --turly  */
-#include "c-common.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -3328,15 +3326,6 @@ dbxout_begin_function (tree decl)
 
   dbxout_parms (DECL_ARGUMENTS (decl));
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
-    /* APPLE LOCAL begin Constructors return THIS  20020315 --turly  */
-#ifdef POSSIBLY_COMPILING_APPLE_KEXT_P
-    /* We cheat with kext constructors: DECL_RESULT is "this", but "this"
-       is actually the first parameter, so don't confuse matters by
-       outputting the same parameter twice.  */
-    if (!(POSSIBLY_COMPILING_APPLE_KEXT_P ()
-	  && DECL_RESULT (decl) == DECL_ARGUMENTS (decl)))
-#endif
-    /* APPLE LOCAL end Constructors return THIS  20020315 --turly  */
     dbxout_symbol (DECL_RESULT (decl), 1);
 }
 #endif /* DBX_DEBUGGING_INFO */

@@ -4726,10 +4726,11 @@ grokdeclarator (tree declarator, tree declspecs,
 	  C_FUNCTION_IMPLICIT_INT (decl) = 1;
 
 	/* APPLE LOCAL begin private extern */
-        DECL_VISIBILITY (decl)
-          = ((specbits & (1 << (int) RID_PRIVATE_EXTERN)) != 0)
-	  ? VISIBILITY_HIDDEN
-	  : VISIBILITY_DEFAULT;
+        if (specbits & (1 << (int) RID_PRIVATE_EXTERN))
+	  {
+	    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	    DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  }
 	/* APPLE LOCAL end private extern */
 
 	/* Record presence of `inline', if it is reasonable.  */
@@ -4809,14 +4810,17 @@ grokdeclarator (tree declarator, tree declspecs,
 	/* At file scope, an initialized extern declaration may follow
 	   a static declaration.  In that case, DECL_EXTERNAL will be
 	   reset later in start_decl.  */
-	DECL_EXTERNAL (decl) = !!(specbits & (1 << (int) RID_EXTERN));
+	/* APPLE LOCAL private extern */
+	DECL_EXTERNAL (decl) = !!(specbits & ((1 << (int) RID_EXTERN)
+					      | (1 << (int) RID_PRIVATE_EXTERN)));
 
 	/* APPLE LOCAL begin private extern */
-        DECL_VISIBILITY (decl)
-	  = ((specbits & (1 << (int) RID_PRIVATE_EXTERN)) != 0)
-	  ? VISIBILITY_HIDDEN
-	  : VISIBILITY_DEFAULT;
-	/* APPLE LOCAL end */
+	if (specbits & (1 << (int) RID_PRIVATE_EXTERN))
+	  {
+	    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+	    DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  }
+	/* APPLE LOCAL end private extern */
 
 	/* At file scope, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers

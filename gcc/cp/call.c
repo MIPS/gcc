@@ -4877,11 +4877,11 @@ build_over_call (struct z_candidate *cand, int flags)
 
   mark_used (fn);
 
-  /* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
+  /* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
   if (DECL_VINDEX (fn)
-      && (flag_indirect_virtual_calls
+      && (flag_apple_kext
           || (flags & LOOKUP_NONVIRTUAL) == 0))
-    /* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
+    /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
     {
       tree t, *p = &TREE_VALUE (converted_args);
       tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
@@ -4895,7 +4895,7 @@ build_over_call (struct z_candidate *cand, int flags)
       t = build_pointer_type (TREE_TYPE (fn));
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
 	fn = build_java_interface_fn_ref (fn, *p);
-      /* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
+      /* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
       /* If this is not really supposed to be a virtual call, find the
          vtable corresponding to the correct type, and use it.  */
       else if (flags & LOOKUP_NONVIRTUAL) {
@@ -4921,7 +4921,7 @@ build_over_call (struct z_candidate *cand, int flags)
               (BINFO_VTABLE (TYPE_BINFO (call_site_type)),
                DECL_VINDEX (fn)));
       }
-      /* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
+      /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
       else
 	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;

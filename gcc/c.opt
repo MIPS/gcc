@@ -484,11 +484,6 @@ falt-external-templates
 C++ ObjC++
 Change when template instances are emitted
 
-; APPLE LOCAL -fapple-kext
-fapple-kext
-C++
-Used for building Darwin kernel extensions
-
 fasm
 C ObjC C++ ObjC++
 Recognize the \"asm\" keyword
@@ -629,11 +624,6 @@ fimplicit-templates
 C++ ObjC++
 Emit implicit instantiations of templates
 
-; APPLE LOCAL -findirect-virtual-calls
-findirect-virtual-calls
-C++ ObjC++
-Always use the vtable to make direct calls to virtual functions
-
 flabels-ok
 C++ ObjC++
 
@@ -744,11 +734,6 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger
 ftemplate-depth-
 C++ ObjC++ Joined RejectNegative UInteger 
 -ftemplate-depth-<number>	Specify maximum template instantiation depth
-
-; APPLE LOCAL -fterminated-vtables
-fterminated-vtables
-C++ ObjC++
-Put zero word at the end of every vtable
 
 fthis-is-variable
 C++ ObjC++

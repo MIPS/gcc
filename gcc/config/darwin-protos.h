@@ -156,3 +156,9 @@ extern tree darwin_construct_objc_string (tree);
 
 /* APPLE LOCAL CW asm blocks */
 #define CW_ASM_SPECIAL_LABEL(ID) darwin_cw_asm_special_label (ID)
+
+/* APPLE LOCAL begin KEXT */
+#ifdef TREE_CODE
+extern bool flag_apple_kext_p (void);
+#endif
+/* APPLE LOCAL end KEXT */

@@ -593,14 +593,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_access_control = value;
       break;
 
-      /* APPLE LOCAL begin -fapple-kext */
-    case OPT_fapple_kext:
-      flag_apple_kext = value;
-      flag_indirect_virtual_calls = 1;
-      flag_terminated_vtables = 1;
-      break;
-      /* APPLE LOCAL end -fapple-kext */
-
     case OPT_fasm:
       flag_no_asm = !value;
       break;
@@ -743,12 +735,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_implicit_templates = value;
       break;
 
-      /* APPLE LOCAL begin -findirect-virtual-calls */
-    case OPT_findirect_virtual_calls:
-      flag_indirect_virtual_calls = value;
-      break;
-      /* APPLE LOCAL end -findirect-virtual-calls */
-
     case OPT_fms_extensions:
       flag_ms_extensions = value;
       break;
@@ -830,12 +816,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fexec_charset_:
       cpp_opts->narrow_charset = arg;
       break;
-
-      /* APPLE LOCAL begin -fterminated-vtables */
-    case OPT_fterminated_vtables:
-      flag_terminated_vtables = value;
-      break;
-      /* APPLE LOCAL end -fterminated-vtables */
 
     case OPT_fwide_exec_charset_:
       cpp_opts->wide_charset = arg;
