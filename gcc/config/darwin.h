@@ -1081,17 +1081,6 @@ enum machopic_addr_class {
     cpp_register_pragma (PFILE, 0, "CALL_ON_UNLOAD", \
 					darwin_pragma_call_on_unload); \
     /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
-    /* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */  \
-    cpp_register_pragma (PFILE, 0, "CALL_ON_MODULE_BIND", darwin_pragma_call_on_module_bind);  \
-    /* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */  \
-    /* APPLE LOCAL begin temporary pragmas 2001-07-05 --sts */  \
-    cpp_register_pragma (PFILE, 0, "CC_NO_MACH_TEXT_SECTIONS", darwin_pragma_cc_no_mach_text_sections);  \
-    cpp_register_pragma (PFILE, 0, "CC_OPT_OFF", darwin_pragma_cc_opt_off);  \
-    cpp_register_pragma (PFILE, 0, "CC_OPT_ON", darwin_pragma_cc_opt_on);  \
-    cpp_register_pragma (PFILE, 0, "CC_OPT_RESTORE", darwin_pragma_cc_opt_restore);  \
-    cpp_register_pragma (PFILE, 0, "CC_WRITABLE_STRINGS", darwin_pragma_cc_writable_strings);  \
-    cpp_register_pragma (PFILE, 0, "CC_NON_WRITABLE_STRINGS", darwin_pragma_cc_non_writable_strings);  \
-    /* APPLE LOCAL end temporary pragmas 2001-07-05 --sts */  \
   } while (0)
 
 extern int flag_coalescing_enabled,

@@ -53,7 +53,6 @@ shebs     local      Apple banner
 shebs     local      Apple version
 shebs     submitted  C++ EH
 shebs     unknown    CALL_ON_LOAD/CALL_ON_UNLOAD pragmas
-mrs       unknown    CALL_ON_MODULE_BIND deprecated
 dalej     unknown    CCUNS, CCFP, CCEQ patterns
 mrs       unknown    Constructors return THIS
 mrs       unknown    EH VALID_FDE_P

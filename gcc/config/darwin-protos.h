@@ -89,17 +89,6 @@ extern void darwin_pragma_pack (struct cpp_reader *);
 extern void darwin_pragma_call_on_load (struct cpp_reader *);
 extern void darwin_pragma_call_on_unload (struct cpp_reader *);
 /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
-/* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */
-extern void darwin_pragma_call_on_module_bind (struct cpp_reader *);
-/* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */
-/* APPLE LOCAL begin temporary pragmas 2001-07-05 --sts */
-extern void darwin_pragma_cc_no_mach_text_sections (struct cpp_reader *);
-extern void darwin_pragma_cc_opt_off (struct cpp_reader *);
-extern void darwin_pragma_cc_opt_on (struct cpp_reader *);
-extern void darwin_pragma_cc_opt_restore (struct cpp_reader *);
-extern void darwin_pragma_cc_writable_strings (struct cpp_reader *);
-extern void darwin_pragma_cc_non_writable_strings (struct cpp_reader *);
-/* APPLE LOCAL end temporary pragmas 2001-07-05 --sts */
 
 /* APPLE LOCAL begin darwin_set_section_for_var_p  */
 extern int darwin_set_section_for_var_p (tree, int, int);
