@@ -22,3 +22,10 @@ JDBC2.0
 # The behaviour of the garbarge collector cannot be predicted.
 # Note the . at the end so we do test java.lang.reflect
 !java.lang.ref.
+
+!java.beans.EventHandler
+!java.beans.Expression
+!java.beans.Statement
+!java.text.CollationElementIterator
+!javax.print.DocFlavor
+!javax.swing.text.PlainDocument
