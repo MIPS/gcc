@@ -1,3 +1,8 @@
+2002-12-14  Jason Merrill  <jason@redhat.com>
+
+	* optimize.c (dump_function): Use pretty dumpers.
+	(optimize_function): Don't do .original dump here.
+
 2002-12-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* cp-simplify.c: Include coretypes.h and tm.h.

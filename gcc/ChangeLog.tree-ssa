@@ -1,3 +1,10 @@
+2002-12-14  Jason Merrill  <jason@redhat.com>
+
+	* tree-dump.c (dump_files): Add .generic.  Move .inlined after it.
+	* tree.h (tree_dump_index): Likewise.
+	* c-simplify.c (c_genericize): Emit original and generic dumps here.
+	* c-decl.c (c_expand_body): Not here.
+
 2002-12-13  Ben Elliston  <bje@redhat.com>
 
 	* tree-dfa.c (find_refs_in_expr): Terminate comment.

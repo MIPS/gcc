@@ -3241,11 +3241,11 @@ enum tree_dump_index
 {
   TDI_tu,			/* dump the whole translation unit.  */
   TDI_class,			/* dump class hierarchy.  */
+  TDI_original,			/* dump each function before optimizing it */
+  TDI_generic,			/* dump each function after genericizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
-  TDI_original,			/* dump each function before optimizing it */
-  TDI_simple,			/* dump each function before and after 
-				   simplifying it.  */
+  TDI_simple,			/* dump each function after simplifying it.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */

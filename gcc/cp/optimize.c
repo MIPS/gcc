@@ -51,24 +51,6 @@ static void dump_function (enum tree_dump_index, tree);
 void
 optimize_function (tree fn)
 {
-  FILE *dump_file;
-  int dump_flags;
-
-  /* Dump the unoptimized tree IR.  */
-  dump_file = dump_begin (TDI_original, &dump_flags);
-  if (dump_file)
-    {
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fn)));
-
-      if (dump_flags & TDF_RAW)
-	dump_node (DECL_SAVED_TREE (fn), TDF_SLIM | dump_flags, dump_file);
-      else
-	print_c_tree (dump_file, DECL_SAVED_TREE (fn));
-      fprintf (dump_file, "\n");
-
-      dump_end (TDI_original, dump_file);
-    }
-
   /* While in this function, we may choose to go off and compile
      another function.  For example, we might instantiate a function
      in the hopes of inlining it.  Normally, that wouldn't trigger any
@@ -101,20 +83,7 @@ optimize_function (tree fn)
       && simplify_function_tree (fn))
     {
       /* Debugging dump after simplification.  */
-      dump_file = dump_begin (TDI_simple, &dump_flags);
-      if (dump_file)
-	{
-	  fprintf (dump_file, "%s()\n", get_name (fn));
-
-	  if (dump_flags & TDF_RAW)
-	    dump_node (DECL_SAVED_TREE (fn), TDF_SLIM | dump_flags,
-		       dump_file);
-	  else
-	    print_generic_stmt (dump_file, DECL_SAVED_TREE (fn), 0);
-	  fprintf (dump_file, "\n");
-
-	  dump_end (TDI_simple, dump_file);
-	}
+      dump_function (TDI_simple, fn);
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1)
@@ -333,7 +302,10 @@ dump_function (enum tree_dump_index phase, tree fn)
       fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
       fprintf (stream, "\n");
       
-      dump_node (fn, TDF_SLIM | flags, stream);
+      if (flags & TDF_RAW)
+	dump_node (fn, TDF_SLIM | flags, stream);
+      else
+	print_generic_stmt (stream, DECL_SAVED_TREE (fn), 0);
       dump_end (phase, stream);
     }
 }

@@ -6452,21 +6452,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       dump_end (TDI_xml, dump_file);
     }
 
-  /* And the unoptimized tree IR.  */
-  dump_file = dump_begin (TDI_original, &dump_flags);
-  if (dump_file)
-    {
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-
-      if (dump_flags & TDF_RAW)
-	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
-      else
-	print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
-      fprintf (dump_file, "\n");
-
-      dump_end (TDI_original, dump_file);
-    }
-
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)

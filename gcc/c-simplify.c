@@ -130,10 +130,43 @@ void
 c_genericize (fndecl)
      tree fndecl;
 {
+  FILE *dump_file;
+  int dump_flags;
+
+  /* Dump the C-specific tree IR.  */
+  dump_file = dump_begin (TDI_original, &dump_flags);
+  if (dump_file)
+    {
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_RAW)
+	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, DECL_SAVED_TREE (fndecl));
+      fprintf (dump_file, "\n");
+
+      dump_end (TDI_original, dump_file);
+    }
+
   /* Go ahead and simplify for now.  */
   push_context ();
   simplify_function_tree (fndecl);
   pop_context ();
+
+  /* Dump the genericized tree IR.  */
+  dump_file = dump_begin (TDI_generic, &dump_flags);
+  if (dump_file)
+    {
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_RAW)
+	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
+      else
+	print_generic_stmt (dump_file, DECL_SAVED_TREE (fndecl), 0);
+      fprintf (dump_file, "\n");
+
+      dump_end (TDI_generic, dump_file);
+    }
 }
 
 /*  Entry point for the tree lowering pass.  Recursively scan
