@@ -1,5 +1,11 @@
 2004-03-02  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-operands.c (get_expr_operands): Mark CALL_EXPRs
+	with has_volatile_ops if aliases haven't been computed yet.
+	(add_stmt_operand): Use 'true' instead of '1'.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
 	PR optimization/14266
 	* tree-ssa-alias.c (create_global_var): Mark GLOBAL_VAR for
 	renaming.

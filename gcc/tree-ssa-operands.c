@@ -1052,6 +1052,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
 	    add_call_read_ops (stmt, prev_vops);
 	}
+      else if (!aliases_computed_p)
+	stmt_ann (stmt)->has_volatile_ops = true;
 
       return;
     }
@@ -1165,14 +1167,14 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      the statement as having volatile operands and return.  */
   if (v_ann->has_hidden_use)
     {
-      s_ann->has_volatile_ops = 1;
+      s_ann->has_volatile_ops = true;
       return;
     }
 
   /* Don't expose volatile variables to the optimizers.  */
   if (TREE_THIS_VOLATILE (sym))
     {
-      s_ann->has_volatile_ops = 1;
+      s_ann->has_volatile_ops = true;
       return;
     }
 
@@ -1203,7 +1205,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 	 and return.  */
       if (!aliases_computed_p && may_be_aliased (var))
 	{
-	  s_ann->has_volatile_ops = 1;
+	  s_ann->has_volatile_ops = true;
 	  return;
 	}
 
