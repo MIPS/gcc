@@ -526,6 +526,7 @@ Perform SMS based modulo scheduling before the first scheduling pass
 frtl-loop-hc
 Common Report Var(flag_rtl_loop_hc)
 Perform loop header copying at RTL level.
+
 fmove-loop-invariants
 Common Report Var(flag_move_loop_invariants)
 Move loop invariant computations out of loops
