@@ -546,7 +546,8 @@ namespace std
       __glibcxx_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIterator1>::value_type,
 	    typename iterator_traits<_ForwardIterator2>::value_type>)
-      return std::search(__first1, __last1, __first2, __last2, __gnu_cxx::__ops::equal_to());
+      return std::search(__first1, __last1, __first2, __last2,
+			 __gnu_cxx::__ops::equal_to());
     }
 
  
@@ -639,7 +640,8 @@ namespace std
       __glibcxx_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_function_requires(_EqualityComparableConcept<_Tp>)
-      return std::search_n(__first, __last, __count, __val, __gnu_cxx::__ops::equal_to());
+      return std::search_n(__first, __last, __count, __val,
+			   __gnu_cxx::__ops::equal_to());
     }
 
 
@@ -2168,15 +2170,13 @@ namespace std
 	_InputValueType;
       typedef typename iterator_traits<_RandomAccessIterator>::value_type
 	_OutputValueType;
-      typedef typename iterator_traits<_RandomAccessIterator>::difference_type
-	_DistanceType;
 
       // concept requirements
-           __glibcxx_function_requires(_LessThanComparableConcept<_OutputValueType>)
+      __glibcxx_function_requires(_LessThanComparableConcept<_OutputValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_InputValueType>)
 
-     std::partial_sort_copy(__first, __last, __result_first, __result_last, 
-			    __gnu_cxx::__ops::less());
+      std::partial_sort_copy(__first, __last, __result_first, __result_last, 
+			     __gnu_cxx::__ops::less());
     }
 
   /**
@@ -2347,8 +2347,6 @@ namespace std
     {
       typedef typename iterator_traits<_ForwardIterator>::value_type
 	_ValueType;
-      typedef typename iterator_traits<_ForwardIterator>::difference_type
-	_DistanceType;
 
       // concept requirements
       // Note that these are slightly stricter than those of the 4-argument
@@ -2357,7 +2355,7 @@ namespace std
       // comparison function, as was intended.
       __glibcxx_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
-      return lower_bound(__first, __last, __val, __gnu_cxx::__ops::less());
+      return std::lower_bound(__first, __last, __val, __gnu_cxx::__ops::less());
     }
  
   /**
@@ -2428,8 +2426,6 @@ namespace std
     {
       typedef typename iterator_traits<_ForwardIterator>::value_type
 	_ValueType;
-      typedef typename iterator_traits<_ForwardIterator>::difference_type
-	_DistanceType;
 
       // concept requirements
       // See comments on lower_bound.
@@ -2994,7 +2990,7 @@ namespace std
 
       // concept requirements
       __glibcxx_function_requires(_LessThanComparableConcept<_ValueType>)
-      return stable_sort(__first, __last, __gnu_cxx::__ops::less());
+      return std::stable_sort(__first, __last, __gnu_cxx::__ops::less());
     }
 
   /**
@@ -3166,8 +3162,6 @@ namespace std
     {
       typedef typename iterator_traits<_ForwardIterator>::value_type
 	_ValueType;
-      typedef typename iterator_traits<_ForwardIterator>::difference_type
-	_DistanceType;
 
       // concept requirements
       // See comments on lower_bound.
@@ -3311,7 +3305,6 @@ namespace std
       // concept requirements
       __glibcxx_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIterator1>::value_type>)
-	      ;
       return std::includes(__first1, __last1, __first2, __last2, 
 			   __gnu_cxx::__ops::less());
     }

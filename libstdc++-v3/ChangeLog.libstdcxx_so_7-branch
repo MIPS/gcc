@@ -1,5 +1,10 @@
 2005-02-01  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/stl_algo.h: Minor tweaks (i.e., add missing std::
+	qualifications, remove unused typedefs, formatting).
+
+2005-02-01  Paolo Carlini  <pcarlini@suse.de>
+
         Merged to mainline at tag libstdcxx_so_7-merge-20050201.
 
 2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
