@@ -2674,9 +2674,18 @@ assign_stack_slots_1 ()
 	  unsigned int i;
 	  rtx dead = DF_REF_INSN (web->defs[0]);
 	  struct ra_insn_info *info = &insn_df[INSN_UID (dead)];
+	  rtx set;
 
-	  if (info->num_defs != 1 || GET_CODE (dead) != INSN
-	      || can_throw_internal (dead))
+	  /* This web only has one definition and the insn also only one
+	     def.  But we really have to test if the only set in that insn
+	     indeed sets a reg, because otherwise it could be a clobber and
+	     the real set does change memory.  We can't delete such insns.  */
+	  if (info->num_defs != 1
+	      || !(set = single_set (dead))
+	      || !REG_P (SET_DEST (set))
+	      || volatile_refs_p (SET_SRC (set))
+	      || can_throw_internal (dead)
+	      || (flag_non_call_exceptions && may_trap_p (dead)))
 	    continue;
 	  for (i = 0; i < info->num_uses; ++i)
 	    {
@@ -4063,120 +4072,106 @@ web_class_spill_ref (web, ref)
 {
   rtx insns;
   rtx insn = DF_REF_INSN (ref);
+  int num_refs;
+  int i, j;
+  struct ref **refs;
+  rtx *new_defs, *new_uses;
+  int ind_defs = 0, ind_uses = 0;
+  rtx reg = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+  basic_block bb = BLOCK_FOR_INSN (insn);
 
-  if (DF_REF_REG_USE_P (ref))
-    {
-      int num_refs;
-      int i, j;
-      rtx source, target;
-      struct ref **refs;
-      rtx def_dst = NULL;
-      rtx def_src = NULL;
-      rtx reg = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
-      basic_block bb = BLOCK_FOR_INSN (insn);
-
-      for (i = 0, refs = web->uses, num_refs = web->num_uses;
-	   i < 2;
-	   refs = web->defs, num_refs = web->num_defs, i++)
-	for (j = 0; j < num_refs; j++)
-	  {
-	    if (DF_REF_INSN (refs[j]) != insn)
-	      continue;
-	      
-	    target = DF_REF_REG (refs[j]);
-	    source = reg;
-
-	    if (GET_CODE (target) == SUBREG)
-	      source = simplify_gen_subreg (GET_MODE (target), source,
-					    GET_MODE (source),
-					    SUBREG_BYTE (target));
-	    ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 1);
-	    if (i == 1) /* This is a def.  */
-	      {
-		if (def_src)
-		  abort ();
-		def_src = source;
-		def_dst = DF_REF_REG (refs[j]);
-	      }
-	  }
-      if (!ra_apply_change_group ())
-	abort ();
-
-      df_insn_modify (df, bb, insn);
-      bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
-
-      start_sequence ();
-      ra_emit_move_insn (reg, web->orig_x);
-      insns = get_insns ();
-      end_sequence ();
-      if (insns)
+  new_defs = alloca (2 * (web->num_defs + web->num_uses)
+		     * sizeof (new_defs[0]));
+  new_uses = alloca (2 * (web->num_defs + web->num_uses)
+		     * sizeof (new_uses[0]));
+  for (i = 0, refs = web->uses, num_refs = web->num_uses;
+       i < 2;
+       refs = web->defs, num_refs = web->num_defs, i++)
+    for (j = 0; j < num_refs; j++)
+      if (DF_REF_INSN (refs[j]) == insn)
 	{
-	  rtx pi;
-	  rtx aux_insn = PREV_INSN (insn);
-	  emit_insn_before (insns, insn);
-	  if (bb->head == insn)
-	    bb->head = NEXT_INSN (aux_insn);
-	  for (pi = PREV_INSN (insn); pi != aux_insn;
-	       pi = PREV_INSN (pi))
-	    {
-	      set_block_for_insn (pi, bb);
-	      df_insn_modify (df, bb, pi);
-	      bitmap_set_bit (ra_modified_insns, INSN_UID (pi));
-	    }
-	}
+	  rtx target = DF_REF_REG (refs[j]);
+	  rtx source = reg;
 
-      if (def_src)
-	{
-	  start_sequence ();
-	  ra_emit_move_insn (def_dst, copy_rtx (def_src));
-	  insns = get_insns ();
-	  end_sequence ();
-	  if (insns)
+	  if (GET_CODE (target) == SUBREG)
+	    source = simplify_gen_subreg (GET_MODE (target), source,
+					  GET_MODE (source),
+					  SUBREG_BYTE (target));
+	  ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 1);
+	  if (i == 0)
+	    /* A use.  */
 	    {
-	      rtx ni;
-	      rtx aux_insn = NEXT_INSN (insn);
-	      emit_insn_after (insns, insn);
-	      if (bb->end == insn)
-		bb->end = PREV_INSN (aux_insn);
-	      for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
+	      /* Full REGs come first.  */
+	      if (GET_CODE (target) == REG)
+		new_uses[0] = source, new_uses[1] = target, ind_uses = 1;
+	      else if (ind_uses == 0 || GET_CODE (new_uses[0]) == SUBREG)
+		/* Otherwise if we are a SUBREG add us only if there's
+		   not already a full REG in the first position.  */
 		{
-		  set_block_for_insn (ni, bb);
-		  df_insn_modify (df, bb, ni);
-		  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+		  new_uses[2 * ind_uses] = copy_rtx (source);
+		  new_uses[2 * ind_uses + 1] = copy_rtx (target);
+		  ind_uses++;
+		}
+	    }
+	  else
+	    /* A def.  */
+	    {
+	      if (GET_CODE (target) == REG)
+		new_defs[0] = source, new_defs[1] = target, ind_defs = 1;
+	      else if (ind_defs == 0 || GET_CODE (new_defs[0]) == SUBREG)
+		/* Otherwise if we are a SUBREG add us only if there's
+		   not already a full REG in the first position.  */
+		{
+		  new_defs[2 * ind_defs] = copy_rtx (source);
+		  new_defs[2 * ind_defs + 1] = copy_rtx (target);
+		  ind_defs++;
 		}
 	    }
 	}
-    }
-  else if (DF_REF_REG_DEF_P (ref))
-    {
-      rtx aux_insn = NEXT_INSN (insn);
-      rtx reg = gen_reg_rtx (GET_MODE (DF_REF_REG (ref)));
-      basic_block bb = BLOCK_FOR_INSN (insn);
-      
-      if (ra_validate_change (insn, DF_REF_LOC (ref), reg, 0))
-	{
-	  df_insn_modify (df, bb, insn);
-	  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
-	}
-      else
-	abort ();
+  if (!ra_apply_change_group ())
+    abort ();
 
-      start_sequence ();
-      ra_emit_move_insn (DF_REF_REG (ref), reg);
-      insns = get_insns ();
-      end_sequence ();
-      if (insns)
+  df_insn_modify (df, bb, insn);
+  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+
+  start_sequence ();
+  for (i = 0; i < ind_uses; i++)
+    ra_emit_move_insn (new_uses[2 * i], new_uses[2 * i + 1]);
+  insns = get_insns ();
+  end_sequence ();
+  if (insns)
+    {
+      rtx pi;
+      rtx aux_insn = PREV_INSN (insn);
+      emit_insn_before (insns, insn);
+      if (bb->head == insn)
+	bb->head = NEXT_INSN (aux_insn);
+      for (pi = PREV_INSN (insn); pi != aux_insn;
+	   pi = PREV_INSN (pi))
 	{
-	  rtx ni;
-	  emit_insn_after (insns, insn);
-	  if (bb->end == insn)
-	    bb->end = PREV_INSN (aux_insn);
-	  for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
-	    {
-	      set_block_for_insn (ni, bb);
-	      df_insn_modify (df, bb, ni);
-	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
-	    }
+	  set_block_for_insn (pi, bb);
+	  df_insn_modify (df, bb, pi);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (pi));
+	}
+    }
+
+  start_sequence ();
+  for (i = 0; i < ind_defs; i++)
+    ra_emit_move_insn (new_defs[2 * i + 1], new_defs[2 * i]);
+  insns = get_insns ();
+  end_sequence ();
+  if (insns)
+    {
+      rtx ni;
+      rtx aux_insn = NEXT_INSN (insn);
+      emit_insn_after (insns, insn);
+      if (bb->end == insn)
+	bb->end = PREV_INSN (aux_insn);
+      for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
+	{
+	  set_block_for_insn (ni, bb);
+	  df_insn_modify (df, bb, ni);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
 	}
     }
 }

@@ -1,3 +1,22 @@
+2004-04-02  Michael Matz  <matz@suse.de>
+
+	* df.c (df_def_record_1, df_uses_record): Set DF_REF_MODE_CHANGE.
+	* pre-reload.c (scan_alternative): Don't ignore characters after '*'.
+	(scan_alternative): Use pre_operands_match_p, handle other
+	direction too.
+	* ra-build.c (select_regclass): Use ALL_REGS for nonreferenced webs.
+	Move never_use_colors intersection down.  Handle
+	CANNOT_CHANGE_MODE_CLASS machines.
+	(calc_pref_class): Use invalid_mode_change_regs instead predicate.
+	* ra-rewrite.c (assign_stack_slots_1): Don't delete complicated
+	insns.
+	(web_class_spill_ref): Handle the case of multiple uses and defs
+	in one insns.  Handle defs and uses by the same code.
+	* ra.c (init_ra): Calculate invalid_mode_change_regs at all
+	and correctly.
+	* recog.c (scratch_operand): During register allocation accept
+	also subregs as scratch operands.
+
 2004-03-03  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-build.c (flags.h): Include new file.

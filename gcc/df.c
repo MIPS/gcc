@@ -928,6 +928,9 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
       return;
     }
 
+  if (GET_CODE (dst) == SUBREG)
+    flags |= DF_REF_MODE_CHANGE;
+
   /* Maybe, we should flag the use of STRICT_LOW_PART somehow.  It might
      be handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
@@ -943,6 +946,8 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
 	  loc = &XEXP (dst, 0);
 	  dst = *loc;
 	}
+      if (GET_CODE (dst) == SUBREG)
+	flags |= DF_REF_MODE_CHANGE;
       loc = &XEXP (dst, 0);
       dst = *loc;
       flags |= DF_REF_READ_WRITE;
@@ -1033,6 +1038,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	  df_uses_record (df, loc, ref_type, bb, insn, flags);
 	  return;
 	}
+      flags |= DF_REF_MODE_CHANGE;
       /* ... Fall through ...  */
 
     case REG:
@@ -1053,7 +1059,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	      if ((df->flags & DF_FOR_REGALLOC) == 0
                   && read_modify_subreg_p (dst))
 		{
-		  use_flags = DF_REF_READ_WRITE;
+		  use_flags = DF_REF_READ_WRITE | DF_REF_MODE_CHANGE;
 		  df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
 				  insn, use_flags);
 		  break;
@@ -1074,7 +1080,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	      dst = XEXP (dst, 0);
 	      if (GET_CODE (dst) != SUBREG)
 		abort ();
-	      use_flags = DF_REF_READ_WRITE;
+	      use_flags = DF_REF_READ_WRITE | DF_REF_MODE_CHANGE;
 	      df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
 			     insn, use_flags);
 	      break;

@@ -2366,9 +2366,10 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    c = '\0';
 	    break;
 
-	  case '=':  case '+':
+	  case '=':  case '+':  case '*':
 	    break;
 		
+#if 0
 	  case '*':
           /* Ignore next constraint because it's reloading.
              It's not a regclass.  */
@@ -2377,6 +2378,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
           if (c && c != ',')
             len = CONSTRAINT_LEN (c, p);
 	    break;
+#endif
 
 	  case '%':
 	    /* The last operand should not be marked commutative.  */
@@ -2802,8 +2804,13 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 		/* Don't coutn an input operand that is constrained to match
 		   the early clobber operand.  */
 		&& ! (this_alt[j].matches == i
-		      && rtx_equal_p (recog_data.operand[i],
-				      recog_data.operand[j]))
+		      && pre_operands_match_p (recog_data.operand[i],
+					       recog_data.operand[j]))
+		/* Similarly if the output operand is constrained to match
+		   the input operand.  This can only happen for clobbers.  */
+		&& ! (this_alt[i].matches == j
+		      && pre_operands_match_p (recog_data.operand[i],
+		      			       recog_data.operand[j]))
 		/* Is it altered by storing the earlyclobber operand?  */
 		&& !pre_reload_immune_p (recog_data.operand[j],
 					 recog_data.operand[i],

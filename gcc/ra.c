@@ -233,7 +233,7 @@ hard_regs_count (HARD_REG_SET rs)
 
 /* Basically like emit_move_insn (i.e. validifies constants and such),
    but also handle MODE_CC moves (but then the operands must already
-   be basically valid.  */
+   be basically valid).  */
 
 rtx
 ra_emit_move_insn (rtx x, rtx y)
@@ -634,7 +634,6 @@ init_ra (void)
 
   CLEAR_HARD_REG_SET (invalid_mode_change_regs);
 #ifdef CANNOT_CHANGE_MODE_CLASS
-  if (0)
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       enum machine_mode from = (enum machine_mode) i;
@@ -643,7 +642,7 @@ init_ra (void)
 	{
 	  int r;
 	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (REG_CANNOT_CHANGE_MODE_P (from, to, r))
+	    if (REG_CANNOT_CHANGE_MODE_P (r, from, to))
 	      SET_HARD_REG_BIT (invalid_mode_change_regs, r);
 	}
     }

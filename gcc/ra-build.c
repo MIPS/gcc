@@ -3092,12 +3092,6 @@ select_regclass ()
 				[reg_alternate_class (web->regno)]);
 	    }
 	}
-      /* add_hardregs is wrong in multi-length classes, e.g.
-	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
-	 where, if it finally is allocated to GENERAL_REGS it needs two,
-	 if allocated to FLOAT_REGS only one hardreg.  XXX */
-      AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
-
       /* Don't limit usable regs for uninitialized webs too much.
 	 This could make us spill them (when usable_regs becomes empty
 	 if we also remove caller saved regs),
@@ -3110,6 +3104,15 @@ select_regclass ()
       if (!web->num_defs)
 	IOR_HARD_REG_SET (web->usable_regs,
 			  reg_class_contents[(int) GENERAL_REGS]);
+
+      /* XXX A non referenced web sometimes happens when we were able to
+	 remove all references by rematerialization.  We shouldn't even
+	 try to color them or look at them at all, but for now we simply
+	 make sure they can be colored to something.  */
+      if (web->num_defs == 0 && web->num_uses == 0)
+	IOR_HARD_REG_SET (web->usable_regs,
+			  reg_class_contents[(int) ALL_REGS]);
+
       if (web->crosses_call)
 	{
 	  unsigned int num_refs = web->num_uses + web->num_defs;
@@ -3137,11 +3140,12 @@ select_regclass ()
 
       prune_hardregs_for_mode (&web->usable_regs,
 			       PSEUDO_REGNO_MODE (web->regno));
-#ifdef CLASS_CANNOT_CHANGE_MODE
+#ifdef CANNOT_CHANGE_MODE_CLASS
       if (web->mode_changed)
-	AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents
-				[(int) CLASS_CANNOT_CHANGE_MODE]);
+	AND_COMPL_HARD_REG_SET (web->usable_regs, invalid_mode_change_regs);
 #endif
+
+      AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
 
       if ((web->spill_temp == 1 || web->spill_temp == 2)
 	  && ! web->changed
@@ -3171,6 +3175,10 @@ found:
 	    }
 	}
 
+      /* add_hardregs is wrong in multi-length classes, e.g.
+	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
+	 where, if it finally is allocated to GENERAL_REGS it needs two,
+	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       web->add_hardregs
 	  = CLASS_MAX_NREGS (web->regclass,
 			     web->parent_web
@@ -4004,8 +4012,8 @@ calc_pref_class (struct costs *p, struct web *web)
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
         || (web->mode_changed
-            && invalid_mode_change_p (web->regno, (enum reg_class) class,
-                                      mode))
+            && hard_regs_intersect_p (&invalid_mode_change_regs,
+				      &reg_class_contents[class]))
 #endif
         )
       ;

@@ -1092,7 +1092,8 @@ scratch_operand (rtx op, enum machine_mode mode)
   return (GET_CODE (op) == SCRATCH
 	  || (GET_CODE (op) == REG
 	      && (REGNO (op) < FIRST_PSEUDO_REGISTER || while_newra
-	          || (newra_in_progress && !SPILL_SLOT_P (REGNO (op))))));
+	          || (newra_in_progress && !SPILL_SLOT_P (REGNO (op)))))
+	  || (while_newra && GET_CODE (op) == SUBREG));
 }
 
 /* Return 1 if OP is a valid immediate operand for mode MODE.
