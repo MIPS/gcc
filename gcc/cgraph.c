@@ -100,6 +100,8 @@ cgraph_node (decl)
   struct cgraph_node *node;
   struct cgraph_node **slot;
 
+  DECL_RTL (decl);
+
   if (TREE_CODE (decl) != FUNCTION_DECL)
     abort ();
 
@@ -210,6 +212,8 @@ void
 cgraph_remove_node (node)
      struct cgraph_node *node;
 {
+  void **slot;
+
   while (node->callers)
     cgraph_remove_edge (node->callers->caller, node);
   while (node->callees)
@@ -231,6 +235,11 @@ cgraph_remove_node (node)
   if (node->next)
     node->next->previous = node->previous;
   DECL_SAVED_TREE (node->decl) = NULL;
+  slot = 
+    htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
+			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+						     (node->decl)), 1);
+  htab_clear_slot (cgraph_hash, slot);
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 
@@ -440,6 +449,21 @@ cgraph_varpool_node (tree decl)
   *slot = node;
   return node;
 }
+/* Remove the node from cgraph.  */
+
+static void
+cgraph_varpool_remove_node (node)
+     struct cgraph_varpool_node *node;
+{
+  void **slot;
+
+  slot = 
+    htab_find_slot_with_hash (cgraph_varpool_hash,
+			      DECL_ASSEMBLER_NAME (node->decl),
+			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+						     (node->decl)), 1);
+  htab_clear_slot (cgraph_hash, slot);
+}
 
 /* Try to find existing function for identifier ID.  */
 struct cgraph_varpool_node *
@@ -531,26 +555,42 @@ cgraph_set_decl_assembler_name (tree decl, tree name)
   if (TREE_CODE (decl) == FUNCTION_DECL && cgraph_hash)
     {
       slot = 
-	htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
-				  IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							 (decl)), 0);
+	htab_find_slot_with_hash (cgraph_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), 1);
       if (slot)
+	cgraph_remove_node (cgraph_node (decl));
+      else
 	{
-	  node = *slot;
-	  htab_clear_slot (cgraph_hash, slot);
+	  slot = 
+	    htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
+				      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							     (decl)), 0);
+	  if (slot)
+	    {
+	      node = *slot;
+	      htab_clear_slot (cgraph_hash, slot);
+	    }
 	}
     }
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl) && cgraph_varpool_hash)
     {
       slot = 
-	htab_find_slot_with_hash (cgraph_varpool_hash,
-	    			  DECL_ASSEMBLER_NAME (decl),
-				  IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
-							 (decl)), 0);
+	htab_find_slot_with_hash (cgraph_varpool_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), 1);
       if (slot)
+	cgraph_varpool_remove_node (cgraph_varpool_node (decl));
+      else
 	{
-	  vnode = *slot;
-	  htab_clear_slot (cgraph_varpool_hash, slot);
+	  slot = 
+	    htab_find_slot_with_hash (cgraph_varpool_hash,
+				      DECL_ASSEMBLER_NAME (decl),
+				      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							     (decl)), 0);
+	  if (slot)
+	    {
+	      vnode = *slot;
+	      htab_clear_slot (cgraph_varpool_hash, slot);
+	    }
 	}
     }
   SET_DECL_ASSEMBLER_NAME (decl, name);
