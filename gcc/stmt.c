@@ -1927,8 +1927,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 }
 
 void
-expand_asm_expr (exp)
-     tree exp;
+expand_asm_expr (tree exp)
 {
   int noutputs, i;
   tree outputs, tail;
