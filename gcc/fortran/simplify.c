@@ -562,61 +562,23 @@ gfc_expr *
 gfc_simplify_atan2 (gfc_expr * y, gfc_expr * x)
 {
   gfc_expr *result;
-  mpf_t term;
 
   if (x->expr_type != EXPR_CONSTANT || y->expr_type != EXPR_CONSTANT)
     return NULL;
 
   result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
 
-  mpf_init (term);
 
-  if (mpf_cmp_ui (y->value.real, 0) == 0)
+  if (mpf_sgn (y->value.real) == 0 && mpf_sgn (x->value.real) == 0)
     {
-      if (mpf_cmp_ui (x->value.real, 0) == 0)
-	{
-	  mpf_clear (term);
-	  gfc_error
-	    ("If first argument of ATAN2 %L is zero, the second argument "
-	     "must not be zero", &x->where);
-	  gfc_free_expr (result);
-	  return &gfc_bad_expr;
-	}
-      else if (mpf_cmp_si (x->value.real, 0) < 0)
-	{
-	  mpf_set (result->value.real, pi);
-	  mpf_clear (term);
-	  return result;
-	}
-      else if (mpf_cmp_si (x->value.real, -1) == 0)
-	{
-	  mpf_set_ui (result->value.real, 0);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
+      gfc_error
+	("If first argument of ATAN2 %L is zero, the second argument "
+	  "must not be zero", &x->where);
+      gfc_free_expr (result);
+      return &gfc_bad_expr;
     }
 
-  if (mpf_cmp_ui (x->value.real, 0) == 0)
-    {
-      if (mpf_cmp_si (y->value.real, 0) < 0)
-	{
-	  mpf_neg (term, half_pi);
-	  mpf_set (result->value.real, term);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
-      else if (mpf_cmp_si (y->value.real, 0) > 0)
-	{
-	  mpf_set (result->value.real, half_pi);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
-    }
-
-  mpf_div (term, y->value.real, x->value.real);
-  arctangent (&term, &result->value.real);
-
-  mpf_clear (term);
+  arctangent2 (&y->value.real, &x->value.real, &result->value.real);
 
   return range_check (result, "ATAN2");
 
@@ -2073,7 +2035,8 @@ gfc_simplify_log (gfc_expr * x)
       mpf_init (xi);
 
       mpf_div (xr, x->value.complex.i, x->value.complex.r);
-      arctangent (&xr, &result->value.complex.i);
+      arctangent2 (&x->value.complex.i, &x->value.complex.r,
+	&result->value.complex.i);
 
       mpf_mul (xr, x->value.complex.r, x->value.complex.r);
       mpf_mul (xi, x->value.complex.i, x->value.complex.i);

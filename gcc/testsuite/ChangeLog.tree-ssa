@@ -1,3 +1,10 @@
+2004-04-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14921
+	PR fortran/14540
+	* gfortran.fortran-torture/execute/math.f90: Add atan2 and clog
+	simplify test.
+
 2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.c-torture/compile/20040415-1.c: New test.

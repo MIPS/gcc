@@ -390,7 +390,6 @@ cosine (mpf_t * arg, mpf_t * result)
 }
 
 
-
 /* Calculate atan(arg).
 
    Similar to sine but requires special handling for x near 1.  */
@@ -515,6 +514,49 @@ arctangent (mpf_t * arg, mpf_t * result)
   mpf_clear (x);
 }
 
+
+/* Calculate atan2 (y, x)
+
+atan2(y, x) = atan(y/x)				if x > 0,
+	      sign(y)*(pi - atan(|y/x|))	if x < 0,
+	      0					if x = 0 && y == 0,
+	      sign(y)*pi/2			if x = 0 && y != 0.
+*/
+
+void
+arctangent2 (mpf_t * y, mpf_t * x, mpf_t * result)
+{
+  mpf_t t;
+
+  mpf_init (t);
+
+  switch (mpf_sgn (*x))
+    {
+    case 1:
+      mpf_div (t, *y, *x);
+      arctangent (&t, result);
+      break;
+    case -1:
+      mpf_div (t, *y, *x);
+      mpf_abs (t, t);
+      arctangent (&t, &t);
+      mpf_sub (*result, pi, t);
+      if (mpf_sgn (*y) == -1)
+	mpf_neg (*result, *result);
+      break;
+    case 0:
+      if (mpf_sgn (*y) == 0)
+	mpf_set_ui (*result, 0);
+      else
+	{
+	  mpf_set (*result, half_pi);
+	  if (mpf_sgn (*y) == -1)
+	    mpf_neg (*result, *result);
+	}
+       break;
+    }
+  mpf_clear (t);
+}
 
 /* Calculate cosh(arg). */
 
