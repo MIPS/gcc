@@ -1,5 +1,9 @@
 2004-04-28  Paul Brook  <paul@codesourcery.com>
 
+	* dwarf2out.c (mem_loc_descriptor): Handle shifts.
+
+2004-04-28  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/lib1funcs.asm: Recognize armv5tej and armv6.
 
 2004-04-27  Paul Brook  <paul@codesourcery.com>
