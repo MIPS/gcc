@@ -1,3 +1,27 @@
+2003-04-25  Alan Modra  <amodra@bigpond.net.au>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_address,
+	rs6000_emit_move): Handle -maddr32.
+	(rs6000_stack_info): Handle -msafe-stack and -mprofile-kernel.
+	(rs6000_emit_prologue, rs6000_emit_epilogue): Handle -msafe-stack.
+	(output_function_profiler): Handle -mprofile-kernel.
+	* config/rs6000/linux64.h (MASK_SAFE_STACK, MASK_ADDR32,
+	MASK_PROFILE_KERNEL): Define.
+	(TARGET_SAFE_STACK, TARGET_ADDR32, TARGET_PROFILE_KERNEL,
+	EXTRA_SUBTARGET_SWITCHES): Redefine.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Disallow -msafe-stack,
+	-mprofile-kernel and -maddr32 if -m32, disallow -fpic -maddr32.
+	(PROFILE_HOOK): Don't call output_profile_hook if
+	TARGET_PROFILE_KERNEL.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Handle -maddr32.
+	* config/rs6000/rs6000.h (TARGET_ADDR32, TARGET_SAFE_STACK,
+	TARGET_PROFILE_KERNEL): Define.
+	(LEGITIMATE_LO_SUM_ADDRESS_P): Handle -maddr32.
+	* config/rs6000/rs6000.md (elf_high, elf_low): Allow even if
+	TARGET_ADDR32.
+	(elf_high64, elf_low64): New insns.
+
 2003-05-20  Jakub Jelinek  <jakub@redhat.com>
 	    Alan Modra  <amodra@bigpond.net.au>
 
