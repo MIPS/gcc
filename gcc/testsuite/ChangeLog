@@ -1,3 +1,10 @@
+2003-09-19  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/12262
+	* objc.dg/method-12.m: New test.
+	PR objc/12309
+	* objc.dg/missing-proto-3.m: New test.
+
 2003-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/11788

@@ -1055,12 +1055,14 @@ check_protocol_recursively (tree proto, tree list)
     }
 }
 
+/* Look up PROTOCOLS, and return a list of those that are found.
+   If none are found, return NULL.  */
+
 static tree
 lookup_and_install_protocols (tree protocols)
 {
   tree proto;
-  tree prev = NULL;
-  tree return_value = protocols;
+  tree return_value = NULL_TREE;
 
   for (proto = protocols; proto; proto = TREE_CHAIN (proto))
     {
@@ -1068,17 +1070,11 @@ lookup_and_install_protocols (tree protocols)
       tree p = lookup_protocol (ident);
 
       if (!p)
-	{
-	  error ("cannot find protocol declaration for `%s'",
-		 IDENTIFIER_POINTER (ident));
-	  return error_mark_node;
-	}
+	error ("cannot find protocol declaration for `%s'",
+	       IDENTIFIER_POINTER (ident));
       else
-	{
-	  /* Replace identifier with actual protocol node.  */
-	  TREE_VALUE (proto) = p;
-	  prev = proto;
-	}
+	return_value = chainon (return_value,
+				build_tree_list (NULL_TREE, p));
     }
 
   return return_value;
