@@ -105,7 +105,8 @@ class_object_creator::create_one_field_record (model_field *field)
 
   inst.set_field ("name", builtins->map_utf8const (field->get_name ()));
   // FIXME: ABI difference here.
-  inst.set_field ("type", builtins->map_type (field->type ()));
+  inst.set_field ("type",
+		  builtins->map_utf8const (field->type ()->get_descriptor ()));
   inst.set_field ("accflags", build_int_cst (type_jint,
 					     field->get_modifiers ()));
   inst.set_field ("bsize", TYPE_SIZE_UNIT (TREE_TYPE (fdecl)));
@@ -136,13 +137,17 @@ class_object_creator::create_field_array (model_class *real_class,
 
   num_fields = 0;
   num_static_fields = 0;
+  if (fields.size () == 0)
+    return null_pointer_node;
+
+  int index = 0;
   tree field_array = NULL_TREE;
   for (std::list<ref_field>::const_iterator i = fields.begin ();
        i != fields.end ();
-       ++i)
+       ++i, ++index)
     {
       tree elt = create_one_field_record ((*i).get ());
-      field_array = tree_cons (NULL_TREE, // FIXME
+      field_array = tree_cons (build_int_cst (type_jint, index),
 			       elt, field_array);
       if ((*i)->static_p ())
 	++num_static_fields;
@@ -150,11 +155,13 @@ class_object_creator::create_field_array (model_class *real_class,
 	++num_fields;
     }
 
-  if (field_array == NULL_TREE)
-    return null_pointer_node;
   field_array = nreverse (field_array);
 
-  return make_decl (type_field_array, field_array);
+  tree fa_type
+    = build_array_type (type_field,
+			build_index_type (build_int_cst (type_jint,
+							 index - 1)));
+  return make_decl (fa_type, build_constructor (fa_type, field_array));
 }
 
 tree

@@ -1,5 +1,15 @@
 2005-02-10  Tom Tromey  <tromey@redhat.com>
 
+	* hooks.hh (type_method_array): Removed.
+	(type_field_array): Likewise.
+	* decl.cc (type_field_array): Removed.
+	(type_method_array): Likewise.
+	(start_type_initialization): Updated.
+	* classobj.cc (create_field_array): Fixed initialization.
+	(create_one_field_record): Fixed value of "type" field.
+
+2005-02-10  Tom Tromey  <tromey@redhat.com>
+
 	* decl.cc (build_utf8_record): Correctly initialize global
 	type_utf8const.
 	* builtins.cc (map_utf8const): Wrote.
