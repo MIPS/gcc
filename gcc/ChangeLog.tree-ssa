@@ -1,5 +1,10 @@
 2002-10-21  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (OBJS): Move tree-mudflap.o ...
+	(C_AND_OBJC_OBJS): ... here.
+
+2002-10-21  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-flow-inline.h (rli_start): New function.
 	(rli_start_rev): New function.
 	(rli_start_at): New function.
