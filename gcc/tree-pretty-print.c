@@ -59,7 +59,7 @@ static void dump_vops (output_buffer *, tree, int);
 
 static output_buffer buffer;
 static int initialized = 0;
-static int last_bb;
+static basic_block last_bb;
 static bool dumping_stmts;
 
 /* Try to print something for an unknown tree code.  */
@@ -146,14 +146,14 @@ dump_generic_node (output_buffer *buffer, tree node, int spc, int flags)
     {
       basic_block curr_bb = bb_for_stmt (node);
 
-      if ((flags & TDF_BLOCKS) && curr_bb && curr_bb->index != last_bb)
+      if ((flags & TDF_BLOCKS) && curr_bb && curr_bb != last_bb)
 	dump_block_info (buffer, curr_bb, spc);
 
       if ((flags & TDF_VOPS) && stmt_ann (node))
 	dump_vops (buffer, node, spc);
 
-      if (curr_bb && curr_bb->index != last_bb)
-	last_bb = curr_bb->index;
+      if (curr_bb && curr_bb != last_bb)
+	last_bb = curr_bb;
     }
 
   switch (TREE_CODE (node))
@@ -1911,7 +1911,7 @@ pretty_print_string (output_buffer *buffer, const char *str)
 static void
 maybe_init_pretty_print (void)
 {
-  last_bb = -1;
+  last_bb = NULL;
 
   if (!initialized)
     {
@@ -1984,7 +1984,7 @@ dump_vops (output_buffer *buffer, tree stmt, int spc)
   varray_type vuses = vuse_ops (stmt);
 
   bb = bb_for_stmt (stmt);
-  if (bb && bb->index != last_bb && bb->tree_annotations)
+  if (bb && bb != last_bb && bb->tree_annotations)
     {
       tree phi;
 

@@ -445,6 +445,90 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 	}
     }
 
+  /* If we have a single successor, then we may be able to thread
+     the edge out of our block to a destination of our successor.
+
+     To simplify the initial implementation we require that
+     our successor have no PHI nodes.  */
+  if (bb->succ && bb->succ->succ_next == NULL && ! phi_nodes (bb->succ->dest))
+    {
+      block_stmt_iterator i = bsi_start (bb->succ->dest);
+      tree stmt;
+
+      /* Get the successor's first real statement.  */
+      while (! bsi_end_p (i)
+	     && (IS_EMPTY_STMT (bsi_stmt (i))
+		 || TREE_CODE (bsi_stmt (i)) == LABEL_EXPR))
+	bsi_next (&i);
+      stmt = bsi_end_p (i) ? NULL : bsi_stmt (i);
+
+      /* If the successor's first real statement is a COND_EXPR, then
+	 see if we know which arm will be taken.  */
+      if (stmt && TREE_CODE (stmt) == COND_EXPR)
+	{
+	  tree cached_lhs = lookup_avail_expr (stmt,
+					       &block_avail_exprs,
+					       const_and_copies);
+	  if (cached_lhs)
+	    {
+	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
+	      basic_block dest = (taken_edge ? taken_edge->dest : NULL);
+
+	      /* If we have a known destination for the conditional, then
+		 we can perform this optimization, which saves at least one
+		 conditional jump each time it applies since we get to
+		 bypass the conditional at our original destination.  */
+	      if (dest && ! phi_nodes (dest))
+		{
+		  block_stmt_iterator dest_iterator = bsi_start (dest);
+		  tree dest_stmt = bsi_stmt (dest_iterator);
+		  tree label, goto_stmt;
+
+		  /* We need a label at our final destination.  If it does
+		     not already exist, create it.  */
+		  if (TREE_CODE (dest_stmt) != LABEL_EXPR)
+		    {
+		      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+		      DECL_CONTEXT (label) = current_function_decl;
+		      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
+		      bsi_insert_before (&dest_iterator,
+					 dest_stmt,
+					 BSI_NEW_STMT);
+		    }
+		  else
+		    label = LABEL_EXPR_LABEL (dest_stmt);
+
+		  
+		  /* If our block does not end with a GOTO, then create
+		     one.  Otherwise redirect the existing GOTO_EXPR to
+		     LABEL.  */
+		  stmt = last_stmt (bb);
+		  if (TREE_CODE (stmt) != GOTO_EXPR)
+		    {
+		      basic_block tmp_bb;
+
+		      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
+		      bsi_insert_on_edge_immediate (bb->succ, goto_stmt,
+						    NULL, &tmp_bb);
+
+#ifdef ENABLE_CHECKING
+		      if (tmp_bb)
+			abort ();
+#endif
+		    }
+		  else
+		    GOTO_DESTINATION (stmt) = label;
+
+		  /* Update/insert PHI nodes as necessary.  */
+
+		  /* Now update the edges in the CFG.  */
+		  ssa_remove_edge (bb->succ);
+		  make_edge (bb, dest, 0);
+		}
+	    }
+	}
+    }
+
   /* Remove all the expressions made available in this block.  */
   while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
     {

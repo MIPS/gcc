@@ -1,5 +1,15 @@
 2003-08-17  Jeff Law  <law@redhat.com>
 
+	* tree-pretty-print.c (last_bb): Actually record the basic block,
+	not just its index.
+	(maybe_init_pretty_print): Corresponding changes.
+	(dump_generic_node, dump_vops): Test the actual block pointers, not
+	their indices.
+
+	* tree-ssa-dom.c (optimize_block): Use equivalences from the
+	dominator tree walk to thread through conditional jumps at leafs in
+	the dominator tree.
+
 	* tree-cfg.c (blocks_unreachable_p, remove_blocks): Use a bitmap
 	rather than a varray.
 	(REMOVE_ALL_STMTS, REMOVE_NO_STMTS): New defines for remove_bb.
