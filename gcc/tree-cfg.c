@@ -3554,7 +3554,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 
   /* When gimple is lowered, the variables are no longer available in the
      bind_exprs, so display them separately.  */
-  if (cfun->unexpanded_var_list)
+  if (cfun && cfun->unexpanded_var_list)
     {
       ignore_topmost_bind = true;
 

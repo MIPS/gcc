@@ -1,3 +1,7 @@
+2003-11-18  Richard Henderson  <rth@redhat.com>
+
+	* tree-cfg.c (dump_function_to_file): Mind when cfun is null.
+
 2003-11-18  Diego Novillo  <dnovillo@redhat.com>
 
 	Revert
