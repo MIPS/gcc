@@ -180,7 +180,7 @@ and again mark them read/write.
 #include "recog.h"
 #include "function.h"
 #include "regs.h"
-#include "obstack.h"
+#include "alloc-pool.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "sbitmap.h"
@@ -197,7 +197,8 @@ and again mark them read/write.
     }							\
   while (0)
 
-static struct obstack df_ref_obstack;
+static alloc_pool df_ref_pool;
+static alloc_pool df_link_pool;
 static struct df *ddf;
 
 static void df_reg_table_realloc PARAMS((struct df *, int));
@@ -307,7 +308,6 @@ static void hybrid_search_sbitmap PARAMS ((basic_block, sbitmap *, sbitmap *,
 					   enum df_confluence_op,
 					   transfer_function_sbitmap,
 					   sbitmap, sbitmap, void *));
-static inline bool read_modify_subreg_p PARAMS ((rtx));
 
 
 /* Local memory allocation/deallocation routines.  */
@@ -503,7 +503,9 @@ df_alloc (df, n_regs)
   int n_insns;
   basic_block bb;
 
-  gcc_obstack_init (&df_ref_obstack);
+  df_link_pool = create_alloc_pool ("df_link pool", sizeof (struct df_link),
+				    100);
+  df_ref_pool  = create_alloc_pool ("df_ref pool", sizeof (struct ref), 100);
 
   /* Perhaps we should use LUIDs to save memory for the insn_refs
      table.  This is only a small saving; a few pointers.  */
@@ -588,7 +590,9 @@ df_free (df)
   BITMAP_XFREE (df->all_blocks);
   df->all_blocks = 0;
 
-  obstack_free (&df_ref_obstack, NULL);
+  free_alloc_pool (df_ref_pool);
+  free_alloc_pool (df_link_pool);
+
 }
 
 /* Local miscellaneous routines.  */
@@ -630,8 +634,7 @@ df_link_create (ref, next)
 {
   struct df_link *link;
 
-  link = (struct df_link *) obstack_alloc (&df_ref_obstack,
-					   sizeof (*link));
+  link = pool_alloc (df_link_pool);
   link->next = next;
   link->ref = ref;
   return link;
@@ -769,8 +772,7 @@ df_ref_create (df, reg, loc, insn, ref_type, ref_flags)
 {
   struct ref *this_ref;
 
-  this_ref = (struct ref *) obstack_alloc (&df_ref_obstack,
-					   sizeof (*this_ref));
+  this_ref = pool_alloc (df_ref_pool);
   DF_REF_REG (this_ref) = reg;
   DF_REF_LOC (this_ref) = loc;
   DF_REF_INSN (this_ref) = insn;
@@ -849,6 +851,7 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
     {
       loc = &SUBREG_REG (reg);
       reg = *loc;
+      ref_flags |= DF_REF_STRIPPED;
     }
 
   regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
@@ -884,7 +887,7 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
 
 /* Return non-zero if writes to paradoxical SUBREGs, or SUBREGs which
    are too narrow, are read-modify-write.  */
-static inline bool
+bool
 read_modify_subreg_p (x)
      rtx x;
 {
@@ -893,13 +896,8 @@ read_modify_subreg_p (x)
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
-  if (isize <= osize)
-    return true;
-  if (isize <= UNITS_PER_WORD)
-    return false;
-  if (osize > UNITS_PER_WORD)
-    return false;
-  return true;
+  /* Paradoxical subreg writes don't leave a trace of the old content.  */
+  return (isize > osize && isize > UNITS_PER_WORD);
 }
 
 
@@ -911,9 +909,17 @@ df_def_record_1 (df, x, bb, insn)
      basic_block bb;
      rtx insn;
 {
-  rtx *loc = &SET_DEST (x);
-  rtx dst = *loc;
+  rtx *loc;
+  rtx dst;
   enum df_ref_flags flags = 0;
+
+ /* We may recursivly call ourselves on EXPR_LIST when dealing with PARALLEL
+     construct.  */  
+  if (GET_CODE (x) == EXPR_LIST || GET_CODE (x) == CLOBBER)
+    loc = &XEXP (x, 0);
+  else
+    loc = &SET_DEST (x);
+  dst = *loc;
 
   /* Some targets place small structures in registers for
      return values of functions.  */
@@ -922,14 +928,19 @@ df_def_record_1 (df, x, bb, insn)
       int i;
 
       for (i = XVECLEN (dst, 0) - 1; i >= 0; i--)
-	df_def_record_1 (df, XVECEXP (dst, 0, i), bb, insn);
+	{
+	  rtx temp = XVECEXP (dst, 0, i);
+	  if (GET_CODE (temp) == EXPR_LIST || GET_CODE (temp) == CLOBBER
+	      || GET_CODE (temp) == SET)
+	    df_def_record_1 (df, temp, bb, insn);
+	}
       return;
     }
 
 #ifdef CLASS_CANNOT_CHANGE_MODE
   if (GET_CODE (dst) == SUBREG
-      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (SUBREG_REG (dst)),
-				     GET_MODE (dst)))
+      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+				     GET_MODE (SUBREG_REG (dst))))
     flags |= DF_REF_MODE_CHANGE;
 #endif
 
@@ -938,7 +949,8 @@ df_def_record_1 (df, x, bb, insn)
   while (GET_CODE (dst) == STRICT_LOW_PART
 	 || GET_CODE (dst) == ZERO_EXTRACT
 	 || GET_CODE (dst) == SIGN_EXTRACT
-	 || read_modify_subreg_p (dst))
+	 || ((df->flags & DF_FOR_REGALLOC) == 0
+             && read_modify_subreg_p (dst)))
     {
       /* Strict low part always contains SUBREG, but we do not want to make
 	 it appear outside, as whole register is always considered.  */
@@ -949,8 +961,8 @@ df_def_record_1 (df, x, bb, insn)
 	}
 #ifdef CLASS_CANNOT_CHANGE_MODE
       if (GET_CODE (dst) == SUBREG
-	  && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (SUBREG_REG (dst)),
-				         GET_MODE (dst)))
+	  && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+				         GET_MODE (SUBREG_REG (dst))))
         flags |= DF_REF_MODE_CHANGE;
 #endif
       loc = &XEXP (dst, 0);
@@ -1072,7 +1084,8 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 	  {
 	    enum df_ref_flags use_flags;
 	    case SUBREG:
-	      if (read_modify_subreg_p (dst))
+	      if ((df->flags & DF_FOR_REGALLOC) == 0
+                  && read_modify_subreg_p (dst))
 		{
 		  use_flags = DF_REF_READ_WRITE;
 #ifdef CLASS_CANNOT_CHANGE_MODE
@@ -1104,7 +1117,7 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 #ifdef CLASS_CANNOT_CHANGE_MODE
 	      if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
 					      GET_MODE (SUBREG_REG (dst))))
-		use_flags |= DF_REF_MODE_CHANGE;
+  	        use_flags |= DF_REF_MODE_CHANGE;
 #endif
 	      df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
 			     insn, use_flags);
@@ -2155,6 +2168,7 @@ df_analyse_1 (df, blocks, flags, update)
     {
       df_reg_info_compute (df, df->all_blocks);
     }
+  
   free (df->dfs_order);
   free (df->rc_order);
   free (df->rts_order);

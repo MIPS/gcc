@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static int global_reg_mentioned_p_1 PARAMS ((rtx *, void *));
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
+static int rtx_referenced_p_1	PARAMS ((rtx *, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
 static void parms_set 		PARAMS ((rtx, rtx, void *));
 static bool hoist_test_store		PARAMS ((rtx, rtx, regset));
@@ -465,15 +466,7 @@ get_jump_table_offset (insn, earliest)
   rtx old_y;
   int i;
 
-  set = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
-
-  if (GET_CODE (insn) != JUMP_INSN
-      || ! (label = JUMP_LABEL (insn))
-      || ! (table = NEXT_INSN (label))
-      || GET_CODE (table) != JUMP_INSN
-      || (GET_CODE (PATTERN (table)) != ADDR_VEC
-	  && GET_CODE (PATTERN (table)) != ADDR_DIFF_VEC)
-      || ! (set = single_set (insn)))
+  if (!tablejump_p (insn, &label, &table) || !(set = single_set (insn)))
     return NULL_RTX;
 
   x = SET_SRC (set);
@@ -1328,19 +1321,17 @@ set_noop_p (set)
   rtx src = SET_SRC (set);
   rtx dst = SET_DEST (set);
 
-  if (side_effects_p (src) || side_effects_p (dst))
-    return 0;
-
-  if (GET_CODE (dst) == MEM && GET_CODE (src) == MEM)
-    return rtx_equal_p (dst, src);
-
   if (dst == pc_rtx && src == pc_rtx)
     return 1;
+
+  if (GET_CODE (dst) == MEM && GET_CODE (src) == MEM)
+    return rtx_equal_p (dst, src) && !side_effects_p (dst);
 
   if (GET_CODE (dst) == SIGN_EXTRACT
       || GET_CODE (dst) == ZERO_EXTRACT)
     return rtx_equal_p (XEXP (dst, 0), src)
-	   && ! BYTES_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx;
+	   && ! BYTES_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx
+	   && !side_effects_p (src);
 
   if (GET_CODE (dst) == STRICT_LOW_PART)
     dst = XEXP (dst, 0);
@@ -1560,7 +1551,7 @@ refers_to_regno_p (regno, endregno, x, loc)
       else if (fmt[i] == 'E')
 	{
 	  int j;
-	  for (j = XVECLEN (x, i) - 1; j >=0; j--)
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
 	      return 1;
@@ -2019,14 +2010,19 @@ rtx
 find_reg_equal_equiv_note (insn)
      rtx insn;
 {
-  rtx note;
+  rtx link;
 
-  if (single_set (insn) == 0)
+  if (!INSN_P (insn))
     return 0;
-  else if ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != 0)
-    return note;
-  else
-    return find_reg_note (insn, REG_EQUAL, NULL_RTX);
+  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+    if (REG_NOTE_KIND (link) == REG_EQUAL
+	|| REG_NOTE_KIND (link) == REG_EQUIV)
+      {
+	if (single_set (insn) == 0)
+	  return 0;
+	return link;
+      }
+  return NULL;
 }
 
 /* Return true if DATUM, or any overlap of DATUM, of kind CODE is found
@@ -2791,6 +2787,137 @@ replace_regs (x, reg_map, nregs, replace_dest)
 	}
     }
   return x;
+}
+
+/* Replace occurrences of the old label in *X with the new one.
+   DATA is a REPLACE_LABEL_DATA containing the old and new labels.  */
+
+int
+replace_label (x, data)
+     rtx *x;
+     void *data;
+{
+  rtx l = *x;
+  rtx tmp;
+  rtx old_label = ((replace_label_data *) data)->r1;
+  rtx new_label = ((replace_label_data *) data)->r2;
+  bool update_label_nuses = ((replace_label_data *) data)->update_label_nuses;
+
+  if (l == NULL_RTX)
+    return 0;
+
+  if (GET_CODE (l) == MEM
+      && (tmp = XEXP (l, 0)) != NULL_RTX
+      && GET_CODE (tmp) == SYMBOL_REF
+      && CONSTANT_POOL_ADDRESS_P (tmp))
+    {
+      rtx c = get_pool_constant (tmp);
+      if (rtx_referenced_p (old_label, c))
+	{
+	  rtx new_c, new_l;
+	  replace_label_data *d = (replace_label_data *) data;
+	  
+	  /* Create a copy of constant C; replace the label inside
+	     but do not update LABEL_NUSES because uses in constant pool
+	     are not counted.  */
+	  new_c = copy_rtx (c);
+	  d->update_label_nuses = false;
+	  for_each_rtx (&new_c, replace_label, data);
+	  d->update_label_nuses = update_label_nuses;
+
+	  /* Add the new constant NEW_C to constant pool and replace
+	     the old reference to constant by new reference.  */
+	  new_l = force_const_mem (get_pool_mode (tmp), new_c);
+	  *x = replace_rtx (l, l, new_l);
+	}
+      return 0;
+    }
+
+  /* If this is a JUMP_INSN, then we also need to fix the JUMP_LABEL
+     field.  This is not handled by for_each_rtx because it doesn't
+     handle unprinted ('0') fields.  */
+  if (GET_CODE (l) == JUMP_INSN && JUMP_LABEL (l) == old_label)
+    JUMP_LABEL (l) = new_label;
+
+  if ((GET_CODE (l) == LABEL_REF
+       || GET_CODE (l) == INSN_LIST)
+      && XEXP (l, 0) == old_label)
+    {
+      XEXP (l, 0) = new_label;
+      if (update_label_nuses)
+	{
+	  ++LABEL_NUSES (new_label);
+	  --LABEL_NUSES (old_label);
+	}
+      return 0;
+    }
+
+  return 0;
+}
+
+/* When *BODY is equal to X or X is directly referenced by *BODY
+   return nonzero, thus FOR_EACH_RTX stops traversing and returns nonzero
+   too, otherwise FOR_EACH_RTX continues traversing *BODY.  */
+
+static int
+rtx_referenced_p_1 (body, x)
+     rtx *body;
+     void *x;
+{
+  rtx y = (rtx) x;
+
+  if (*body == NULL_RTX)
+    return y == NULL_RTX;
+
+  /* Return true if a label_ref *BODY refers to label Y.  */
+  if (GET_CODE (*body) == LABEL_REF && GET_CODE (y) == CODE_LABEL)
+    return XEXP (*body, 0) == y;
+
+  /* If *BODY is a reference to pool constant traverse the constant.  */
+  if (GET_CODE (*body) == SYMBOL_REF
+      && CONSTANT_POOL_ADDRESS_P (*body))
+    return rtx_referenced_p (y, get_pool_constant (*body));
+
+  /* By default, compare the RTL expressions.  */
+  return rtx_equal_p (*body, y);
+}
+
+/* Return true if X is referenced in BODY.  */
+
+int
+rtx_referenced_p (x, body)
+     rtx x;
+     rtx body;
+{
+  return for_each_rtx (&body, rtx_referenced_p_1, x);
+}
+
+/* If INSN is a jump to jumptable insn rturn true and store the label (which
+   INSN jumps to) to *LABEL and the tablejump insn to *TABLE.
+   LABEL and TABLE may be NULL.  */
+
+bool
+tablejump_p (insn, label, table)
+     rtx insn;
+     rtx *label;
+     rtx *table;
+{
+  rtx l, t;
+
+  if (onlyjump_p (insn)
+      && (l = JUMP_LABEL (insn)) != NULL_RTX
+      && (t = NEXT_INSN (l)) != NULL_RTX
+      && GET_CODE (t) == JUMP_INSN
+      && (GET_CODE (PATTERN (t)) == ADDR_VEC
+	  || GET_CODE (PATTERN (t)) == ADDR_DIFF_VEC))
+    {
+      if (label)
+	*label = l;
+      if (table)
+	*table = t;
+      return true;
+    }
+  return false;
 }
 
 /* A subroutine of computed_jump_p, return 1 if X contains a REG or MEM or

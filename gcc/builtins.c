@@ -127,7 +127,8 @@ static rtx expand_builtin_memset	PARAMS ((tree, rtx,
 static rtx expand_builtin_bzero		PARAMS ((tree));
 static rtx expand_builtin_strlen	PARAMS ((tree, rtx));
 static rtx expand_builtin_alloca	PARAMS ((tree, rtx));
-static rtx expand_builtin_unop		PARAMS ((tree, rtx, rtx, optab));
+static rtx expand_builtin_unop		PARAMS ((enum machine_mode,
+						 tree, rtx, rtx, optab));
 static rtx expand_builtin_frame_address	PARAMS ((tree));
 static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
@@ -3926,7 +3927,8 @@ expand_builtin_alloca (arglist, target)
    SUBTARGET may be used as the target for computing one of EXP's operands.  */
 
 static rtx
-expand_builtin_unop (arglist, target, subtarget, op_optab)
+expand_builtin_unop (target_mode, arglist, target, subtarget, op_optab)
+     enum machine_mode target_mode;
      tree arglist;
      rtx target, subtarget;
      optab op_optab;
@@ -3943,7 +3945,8 @@ expand_builtin_unop (arglist, target, subtarget, op_optab)
 			op_optab, op0, target, 1);
   if (target == 0)
     abort ();
-  return target;
+
+  return convert_to_mode (target_mode, target, 0);
 }
 
 /* Simplify a call to the fputs builtin.
@@ -4016,8 +4019,12 @@ simplify_builtin_fputs (arglist, ignore, unlocked)
       /* FALLTHROUGH */
     case 1: /* length is greater than 1, call fwrite.  */
       {
-	tree string_arg = TREE_VALUE (arglist);
+	tree string_arg;
 
+	/* If optimizing for size keep fputs. */
+	if (optimize_size)
+	  return 0;
+	string_arg = TREE_VALUE (arglist);
 	/* New argument list transforming fputs(string, stream) to
 	   fwrite(string, 1, len, stream).  */
 	arglist = build_tree_list (NULL_TREE, TREE_VALUE (TREE_CHAIN (arglist)));
@@ -4292,6 +4299,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   tree arglist = TREE_OPERAND (exp, 1);
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
 
   /* Perform postincrements before expanding builtin functions.  */
   emit_queue ();
@@ -4535,7 +4543,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:
     case BUILT_IN_FFSLL:
-      target = expand_builtin_unop (arglist, target, subtarget, ffs_optab);
+      target = expand_builtin_unop (target_mode, arglist, target,
+				    subtarget, ffs_optab);
       if (target)
 	return target;
       break;
@@ -4543,7 +4552,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_CLZ:
     case BUILT_IN_CLZL:
     case BUILT_IN_CLZLL:
-      target = expand_builtin_unop (arglist, target, subtarget, clz_optab);
+      target = expand_builtin_unop (target_mode, arglist, target,
+				    subtarget, clz_optab);
       if (target)
 	return target;
       break;
@@ -4551,7 +4561,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_CTZ:
     case BUILT_IN_CTZL:
     case BUILT_IN_CTZLL:
-      target = expand_builtin_unop (arglist, target, subtarget, ctz_optab);
+      target = expand_builtin_unop (target_mode, arglist, target,
+				    subtarget, ctz_optab);
       if (target)
 	return target;
       break;
@@ -4559,8 +4570,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_POPCOUNT:
     case BUILT_IN_POPCOUNTL:
     case BUILT_IN_POPCOUNTLL:
-      target = expand_builtin_unop (arglist, target, subtarget,
-				    popcount_optab);
+      target = expand_builtin_unop (target_mode, arglist, target,
+				    subtarget, popcount_optab);
       if (target)
 	return target;
       break;
@@ -4568,7 +4579,8 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_PARITY:
     case BUILT_IN_PARITYL:
     case BUILT_IN_PARITYLL:
-      target = expand_builtin_unop (arglist, target, subtarget, parity_optab);
+      target = expand_builtin_unop (target_mode, arglist, target,
+				    subtarget, parity_optab);
       if (target)
 	return target;
       break;
@@ -4972,12 +4984,38 @@ fold_builtin (exp)
 		  || fcode == BUILT_IN_EXPL))
 	    {
 	      tree expfn = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
-	      arg = build (RDIV_EXPR, type,
-			   TREE_VALUE (TREE_OPERAND (arg, 1)),
-			   build_real (type, dconst2));
+	      arg = fold (build (RDIV_EXPR, type,
+				 TREE_VALUE (TREE_OPERAND (arg, 1)),
+				 build_real (type, dconst2)));
 	      arglist = build_tree_list (NULL_TREE, arg);
 	      return build_function_call_expr (expfn, arglist);
 	    }
+	}
+      break;
+
+    case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+    case BUILT_IN_SINL:
+      if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+	{
+	  tree arg = TREE_VALUE (arglist);
+
+	  /* Optimize sin(0.0) = 0.0.  */
+	  if (real_zerop (arg))
+	    return build_real (type, dconst0);
+	}
+      break;
+
+    case BUILT_IN_COS:
+    case BUILT_IN_COSF:
+    case BUILT_IN_COSL:
+      if (validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+	{
+	  tree arg = TREE_VALUE (arglist);
+
+	  /* Optimize cos(0.0) = 1.0.  */
+	  if (real_zerop (arg))
+	    return build_real (type, dconst1);
 	}
       break;
 
@@ -5045,13 +5083,75 @@ fold_builtin (exp)
 	  tree arg0 = TREE_VALUE (arglist);
 	  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
 
-	  /* Optimize pow(x,0.0) = 1.0.  */
-	  if (real_zerop (arg1))
-	    return omit_one_operand (type, build_real (type, dconst1), arg0);
-
 	  /* Optimize pow(1.0,y) = 1.0.  */
 	  if (real_onep (arg0))
 	    return omit_one_operand (type, build_real (type, dconst1), arg1);
+
+	  if (TREE_CODE (arg1) == REAL_CST
+	      && ! TREE_CONSTANT_OVERFLOW (arg1))
+	    {
+	      REAL_VALUE_TYPE c;
+	      c = TREE_REAL_CST (arg1);
+
+	      /* Optimize pow(x,0.0) = 1.0.  */
+	      if (REAL_VALUES_EQUAL (c, dconst0))
+		return omit_one_operand (type, build_real (type, dconst1),
+					 arg0);
+
+	      /* Optimize pow(x,1.0) = x.  */
+	      if (REAL_VALUES_EQUAL (c, dconst1))
+		return arg0;
+
+	      /* Optimize pow(x,-1.0) = 1.0/x.  */
+	      if (REAL_VALUES_EQUAL (c, dconstm1))
+		return fold (build (RDIV_EXPR, type,
+				    build_real (type, dconst1),
+				    arg0));
+
+	      /* Optimize pow(x,2.0) = x*x.  */
+	      if (REAL_VALUES_EQUAL (c, dconst2)
+		  && (*lang_hooks.decls.global_bindings_p) () == 0
+		  && ! contains_placeholder_p (arg0))
+		{
+		  arg0 = save_expr (arg0);
+		  return fold (build (MULT_EXPR, type, arg0, arg0));
+		}
+
+	      /* Optimize pow(x,-2.0) = 1.0/(x*x).  */
+	      if (flag_unsafe_math_optimizations
+		  && REAL_VALUES_EQUAL (c, dconstm2)
+		  && (*lang_hooks.decls.global_bindings_p) () == 0
+		  && ! contains_placeholder_p (arg0))
+		{
+		  arg0 = save_expr (arg0);
+		  return fold (build (RDIV_EXPR, type,
+				      build_real (type, dconst1),
+				      fold (build (MULT_EXPR, type,
+						   arg0, arg0))));
+		}
+
+	      /* Optimize pow(x,0.5) = sqrt(x).  */
+	      if (flag_unsafe_math_optimizations
+		  && REAL_VALUES_EQUAL (c, dconsthalf))
+		{
+		  tree sqrtfn;
+
+		  if (fcode == BUILT_IN_POW)
+		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRT];
+		  else if (fcode == BUILT_IN_POWF)
+		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTF];
+		  else if (fcode == BUILT_IN_POWL)
+		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTL];
+		  else
+		    sqrtfn = NULL_TREE;
+
+		  if (sqrtfn != NULL_TREE)
+		    {
+		      tree arglist = build_tree_list (NULL_TREE, arg0);
+		      return build_function_call_expr (sqrtfn, arglist);
+		    }
+		}
+	    }
 	}
       break;
 

@@ -1917,6 +1917,11 @@ struct tree_type GTY(())
    where it is called.  */
 #define DECL_INLINE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inline_flag)
 
+/* Nonzero in a FUNCTION_DECL means this function has been found inlinable
+   only by virtue of -finline-functions  */
+#define DID_INLINE_FUNC(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.inlined_function_flag)
+
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
 
@@ -2110,7 +2115,8 @@ struct tree_decl GTY(())
   unsigned user_align : 1;
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
-  /* Two unused bits.  */
+  unsigned inlined_function_flag : 1;
+  /* One unused bit.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2766,11 +2772,9 @@ typedef struct record_layout_info_s
   tree bitpos;
   /* The alignment of the record so far, in bits.  */
   unsigned int record_align;
-  /* The alignment of the record so far, not including padding, in bits.  */
+  /* The alignment of the record so far, ignoring #pragma pack and
+     __attribute__ ((packed)), in bits.  */
   unsigned int unpacked_align;
-  /* The alignment of the record so far, allowing for the record to be
-     padded only at the end, in bits.  */
-  unsigned int unpadded_align;
   /* The previous field layed out.  */
   tree prev_field;
   /* The static variables (i.e., class variables, as opposed to
@@ -2778,6 +2782,8 @@ typedef struct record_layout_info_s
   tree pending_statics;
   /* Bits remaining in the current alignment group */
   int remaining_in_alignment;
+  /* True if we've seen a packed field that didn't have normal
+     alignment anyway.  */
   int packed_maybe_necessary;
 } *record_layout_info;
 
@@ -3313,7 +3319,7 @@ extern void expand_dummy_function_end	PARAMS ((void));
 extern void init_function_for_compilation	PARAMS ((void));
 extern void init_function_start		PARAMS ((tree, const char *, int));
 extern void assign_parms		PARAMS ((tree));
-extern void put_var_into_stack		PARAMS ((tree));
+extern void put_var_into_stack		PARAMS ((tree, int));
 extern void flush_addressof		PARAMS ((tree));
 extern void uninitialized_vars_warning	PARAMS ((tree));
 extern void setjmp_args_warning		PARAMS ((void));

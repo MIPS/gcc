@@ -302,8 +302,25 @@ build_base_path (enum tree_code code,
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
          V_BINFO.  That offset is an entry in D_BINFO's vtable.  */
-      tree v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
-					TREE_TYPE (TREE_TYPE (expr)));
+      tree v_offset;
+
+      if (fixed_type_p < 0 && in_base_initializer)
+	{
+	  /* In a base member initializer, we cannot rely on
+	     the vtable being set up. We have to use the vtt_parm.  */
+	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
+	  
+	  v_offset = build (PLUS_EXPR, TREE_TYPE (current_vtt_parm),
+			    current_vtt_parm, BINFO_VPTR_INDEX (derived));
+	  
+	  v_offset = build1 (INDIRECT_REF,
+			     TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived))),
+			     v_offset);
+	  
+	}
+      else
+	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
+				     TREE_TYPE (TREE_TYPE (expr)));
       
       v_offset = build (PLUS_EXPR, TREE_TYPE (v_offset),
 			v_offset,  BINFO_VPTR_FIELD (v_binfo));
@@ -514,6 +531,11 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   DECL_VIRTUAL_P (decl) = 1;
   DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
 
+  /* At one time the vtable info was grabbed 2 words at a time.  This
+     fails on sparc unless you have 8-byte alignment.  (tiemann) */
+  DECL_ALIGN (decl) = MAX (TYPE_ALIGN (double_type_node),
+			   DECL_ALIGN (decl));
+
   import_export_vtable (decl, class_type, 0);
 
   return decl;
@@ -533,13 +555,8 @@ get_vtable_decl (tree type, int complete)
   if (CLASSTYPE_VTABLES (type))
     return CLASSTYPE_VTABLES (type);
   
-  decl = build_vtable (type, get_vtable_name (type), void_type_node);
+  decl = build_vtable (type, get_vtable_name (type), vtbl_type_node);
   CLASSTYPE_VTABLES (type) = decl;
-
-  /* At one time the vtable info was grabbed 2 words at a time.  This
-     fails on sparc unless you have 8-byte alignment.  (tiemann) */
-  DECL_ALIGN (decl) = MAX (TYPE_ALIGN (double_type_node),
-			   DECL_ALIGN (decl));
 
   if (complete)
     {
@@ -594,8 +611,7 @@ build_primary_vtable (tree binfo, tree type)
     }
   else
     {
-      my_friendly_assert (TREE_CODE (TREE_TYPE (decl)) == VOID_TYPE,
-                          20000118);
+      my_friendly_assert (TREE_TYPE (decl) == vtbl_type_node, 20000118);
       virtuals = NULL_TREE;
     }
 
@@ -2001,11 +2017,6 @@ layout_vtable_decl (tree binfo, int n)
       TREE_TYPE (vtable) = atype;
       DECL_SIZE (vtable) = DECL_SIZE_UNIT (vtable) = NULL_TREE;
       layout_decl (vtable, 0);
-
-      /* At one time the vtable info was grabbed 2 words at a time.  This
-	 fails on SPARC unless you have 8-byte alignment.  */
-      DECL_ALIGN (vtable) = MAX (TYPE_ALIGN (double_type_node),
-				 DECL_ALIGN (vtable));
     }
 }
 
@@ -2525,11 +2536,19 @@ get_basefndecls (tree name, tree t)
   int n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
   int i;
 
-  for (methods = TYPE_METHODS (t); methods; methods = TREE_CHAIN (methods))
-    if (TREE_CODE (methods) == FUNCTION_DECL
-	&& DECL_VINDEX (methods) != NULL_TREE
-	&& DECL_NAME (methods) == name)
-      base_fndecls = tree_cons (NULL_TREE, methods, base_fndecls);
+  /* Find virtual functions in T with the indicated NAME.  */
+  i = lookup_fnfields_1 (t, name);
+  if (i != -1)
+    for (methods = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), i);
+	 methods;
+	 methods = OVL_NEXT (methods))
+      {
+	tree method = OVL_CURRENT (methods);
+
+	if (TREE_CODE (method) == FUNCTION_DECL
+	    && DECL_VINDEX (method))
+	  base_fndecls = tree_cons (NULL_TREE, method, base_fndecls);
+      }
 
   if (base_fndecls)
     return base_fndecls;
@@ -2928,31 +2947,12 @@ check_bitfield_decl (tree field)
     {
       DECL_SIZE (field) = convert (bitsizetype, w);
       DECL_BIT_FIELD (field) = 1;
-
-      if (integer_zerop (w)
-	  && ! (* targetm.ms_bitfield_layout_p) (DECL_FIELD_CONTEXT (field)))
-	{
-#ifdef EMPTY_FIELD_BOUNDARY
-	  DECL_ALIGN (field) = MAX (DECL_ALIGN (field), 
-				    EMPTY_FIELD_BOUNDARY);
-#endif
-#ifdef PCC_BITFIELD_TYPE_MATTERS
-	  if (PCC_BITFIELD_TYPE_MATTERS)
-	    {
-	      DECL_ALIGN (field) = MAX (DECL_ALIGN (field), 
-					TYPE_ALIGN (type));
-	      DECL_USER_ALIGN (field) |= TYPE_USER_ALIGN (type);
-	    }
-#endif
-	}
     }
   else
     {
       /* Non-bit-fields are aligned for their type.  */
       DECL_BIT_FIELD (field) = 0;
       CLEAR_DECL_C_BIT_FIELD (field);
-      DECL_ALIGN (field) = MAX (DECL_ALIGN (field), TYPE_ALIGN (type));
-      DECL_USER_ALIGN (field) |= TYPE_USER_ALIGN (type);
     }
 }
 
@@ -3033,15 +3033,6 @@ check_field_decl (tree field,
 	cp_error_at ("multiple fields in union `%T' initialized");
       *any_default_members = 1;
     }
-
-  /* Non-bit-fields are aligned for their type, except packed fields
-     which require only BITS_PER_UNIT alignment.  */
-  DECL_ALIGN (field) = MAX (DECL_ALIGN (field), 
-			    (DECL_PACKED (field) 
-			     ? BITS_PER_UNIT
-			     : TYPE_ALIGN (TREE_TYPE (field))));
-  if (! DECL_PACKED (field))
-    DECL_USER_ALIGN (field) |= TYPE_USER_ALIGN (TREE_TYPE (field));
 }
 
 /* Check the data members (both static and non-static), class-scoped
@@ -4413,8 +4404,6 @@ create_vtable_ptr (tree t, tree* virtuals_p)
       DECL_ARTIFICIAL (field) = 1;
       DECL_FIELD_CONTEXT (field) = t;
       DECL_FCONTEXT (field) = t;
-      DECL_ALIGN (field) = TYPE_ALIGN (vtbl_ptr_type_node);
-      DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (vtbl_ptr_type_node);
       
       TYPE_VFIELD (t) = field;
       
@@ -4648,7 +4637,7 @@ end_of_class (tree t, int include_virtuals_p)
 
       if (!include_virtuals_p
 	  && TREE_VIA_VIRTUAL (binfo) 
-	  && !BINFO_PRIMARY_P (binfo))
+	  && BINFO_PRIMARY_BASE_OF (binfo) != TYPE_BINFO (t))
 	continue;
 
       offset = end_of_base (binfo);
@@ -4935,8 +4924,6 @@ layout_class_type (tree t, tree *virtuals_p)
 				      char_type_node); 
 	  DECL_BIT_FIELD (padding_field) = 1;
 	  DECL_SIZE (padding_field) = padding;
-	  DECL_ALIGN (padding_field) = 1;
-	  DECL_USER_ALIGN (padding_field) = 0;
 	  layout_nonempty_base_or_field (rli, padding_field,
 					 NULL_TREE, 
 					 empty_base_offsets);
@@ -5965,7 +5952,8 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 	    continue;
 
 	  /* Instantiate the template.  */
-	  instantiation = instantiate_template (fn, targs);
+	  instantiation = instantiate_template (fn, targs,
+						complain ? tf_error : tf_none);
 	  if (instantiation == error_mark_node)
 	    /* Instantiation failed.  */
 	    continue;
@@ -7923,22 +7911,20 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
 
   /* The second entry is the address of the typeinfo object.  */
   if (flag_rtti)
-    decl = build_unary_op (ADDR_EXPR, get_tinfo_decl (t), 0);
+    decl = build_address (get_tinfo_decl (t));
   else
     decl = integer_zero_node;
   
   /* Convert the declaration to a type that can be stored in the
      vtable.  */
-  init = build1 (NOP_EXPR, vfunc_ptr_type_node, decl);
-  TREE_CONSTANT (init) = 1;
+  init = build_nop (vfunc_ptr_type_node, decl);
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 
   /* Add the offset-to-top entry.  It comes earlier in the vtable that
      the the typeinfo entry.  Convert the offset to look like a
      function pointer, so that we can put it in the vtable.  */
-  init = build1 (NOP_EXPR, vfunc_ptr_type_node, offset);
-  TREE_CONSTANT (init) = 1;
+  init = build_nop (vfunc_ptr_type_node, offset);
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 }

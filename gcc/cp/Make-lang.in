@@ -80,23 +80,25 @@ g++-cross$(exeext): g++$(exeext)
 # Shared with C front end:
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
 	c-dump.o $(CXX_TARGET_OBJS) c-pretty-print.o c-opts.o c-pch.o \
-	c-incpath.o cppdefault.o c-simplify.o tree-inline.o
+	c-incpath.o cppdefault.o c-ppoutput.o c-cppbuiltin.o prefix.o \
+	c-simplify.o tree-inline.o
 
 # Language-specific object files.
 CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parser.o cp/ptree.o cp/rtti.o \
  cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
  cp/search.o cp/semantics.o cp/tree.o cp/repo.o cp/dump.o \
- cp/optimize.o cp/mangle.o cp/cp-lang.o cp/cp-simplify.o \
- tree-mudflap.o cp/cp-mudflap.o
+ cp/optimize.o cp/mangle.o cp/cp-lang.o cp/name-lookup.o \
+ cp/cp-simplify.o tree-mudflap.o cp/cp-mudflap.o
 
-# Use loose warnings for this front end.
-cp-warn =
+# Use strict warnings for this front end.
+cp-warn = $(STRICT_WARN) $(WERROR)
 # These files need -Wno-error because the gimplifier triggers hard to fix
 # warnings when converting to GIMPLE form.  The warnings are triggered when
 # the gimplifier re-writes va_start with a temporary instead of using the
 # last named argument of the function.
 cp/tree.o-warn = -Wno-error
+cp/typeck.o-warn = -Wno-error
 
 cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
 		  libcpp.a $(LIBDEPS)
@@ -110,7 +112,7 @@ $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 
 gtype-cp.h gt-cp-call.h gt-cp-decl.h gt-cp-decl2.h : s-gtype; @true
 gt-cp-pt.h gt-cp-repo.h gt-cp-parser.h : s-gtype; @true
-gt-cp-tree.h : s-gtype; @true
+gt-cp-tree.h gt-cp-mangle.h gt-cp-name-lookup.h: s-gtype; @true
 
 #
 # Build hooks:
@@ -120,9 +122,12 @@ c++.all.cross: g++-cross$(exeext)
 c++.start.encap: g++$(exeext)
 c++.rest.encap:
 
+c++.tags: force
+	cd $(srcdir)/cp; etags *.c *.h
+
 c++.info: 
 c++.dvi:
-c++.generated-manpages:
+c++.generated-manpages: cp/g++.1
 
 #
 # Install hooks:
@@ -167,15 +172,23 @@ c++.install-common: installdirs
 
 c++.install-info: 
 
-c++.install-man: installdirs $(srcdir)/cp/g++.1
+cp/g++.1:
+	-rm -f $@
+	if [ "$(ALL)" = all.cross ]; then \
+	  echo ".so man1/$(GCC_CROSS_NAME).1" > $@ ; \
+	else \
+	  echo ".so man1/$(GCC_INSTALL_NAME).1" > $@ ; \
+	fi
+
+c++.install-man: installdirs cp/g++.1
 	-if [ -f cc1plus$(exeext) ] ; then \
 	  if [ -f g++-cross$(exeext) ] ; then \
 	    rm -f $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
-	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
+	    $(INSTALL_DATA) cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
 	    chmod a-x $(DESTDIR)$(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
 	  else \
 	    rm -f $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
+	    $(INSTALL_DATA) cp/g++.1 $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
 	    chmod a-x $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
 	  fi; \
 	else true; fi
@@ -193,6 +206,7 @@ c++.uninstall:
 # We just have to delete files specific to us.
 
 c++.mostlyclean:
+	-rm -f cp/g++.1
 	-rm -f cp/*$(objext)
 	-rm -f cp/*$(coverageexts)
 c++.clean:
@@ -215,7 +229,8 @@ c++.stage4: stage4-start
 
 #
 # .o: .h dependencies.
-CXX_TREE_H = $(TREE_H) cp/cp-tree.h c-common.h cp/cp-tree.def c-common.def \
+CXX_TREE_H = $(TREE_H) cp/name-lookup.h cp/cp-tree.h c-common.h \
+	cp/cp-tree.def c-common.def \
 	function.h varray.h $(SYSTEM_H) coretypes.h $(CONFIG_H) $(TARGET_H) \
 	$(GGC_H) \
 	$(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h
@@ -265,18 +280,13 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) cp/lex.h except.h toplev.h 
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h
-cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h
+cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h real.h gt-cp-mangle.h
+
 cp/parser.o: cp/parser.c $(CXX_TREE_H) $(TM_H) diagnostic.h gt-cp-parser.h output.h
 cp/cp-simplify.o: cp/cp-simplify.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h
 cp/cp-mudflap.o: cp/cp-mudflap.c $(CXX_TREE_H) toplev.h c-common.h \
 	$(TM_H) coretypes.h
-#
-# These exist for maintenance purposes.
 
-# Update the tags table.
-cp/TAGS: force
-	cd $(srcdir)/cp ;			\
-	etags --no-globals -l c *.c *.h ../*.c ../*.h;
-
-.PHONY: cp/TAGS
+cp/name-lookup.o: cp/name-lookup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+	$(TM_H) $(CXX_TREE_H) timevar.h gt-cp-name-lookup.h

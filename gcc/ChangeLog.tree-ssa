@@ -1,3 +1,22 @@
+2003-04-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (simplify_expr): Handle VECTOR_CST nodes.
+	* tree-cfg.c (make_blocks): Ignore empty statement containers.
+	Create a basic block before processing containers that only have
+	empty statements.
+	(make_loop_expr_blocks): Use the container instead of the statement
+	when setting NEXT_BLOCK_LINK.
+	(make_cond_expr_blocks): Likewise.
+	(make_switch_expr_blocks): Likewise.
+	(make_bind_expr_blocks): Likewise.
+	(successor_block): If the last statement of the block is the empty
+	statement, use its container to get NEXT_BLOCK_LINK.
+	(stmt_starts_bb_p): Return false if the statement is NULL.
+	* tree-pretty-print.c (dump_generic_node): Handle VECTOR_CST nodes.
+	* tree-simple.c (is_simple_const): Accept VECTOR_CST as constants.
+	* objc/objc-lang.c (LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P):
+	Define.
+
 2003-04-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (remove_bb): Call ssa_remove_edge.

@@ -211,6 +211,15 @@ extern int target_flags;
    definition symbols is buggy prior to HP-UX 11.X.  */
 #define TARGET_SOM_SDEF 0
 
+/* Define to a C expression evaluating to true to save the entry value
+   of SP in the current frame marker.  This is normally unnecessary.
+   However, the HP-UX unwind library looks at the SAVE_SP callinfo flag.
+   HP compilers don't use this flag but it is supported by the assembler.
+   We set this flag to indicate that register %r3 has been saved at the
+   start of the frame.  Thus, when the HP unwind library is used, we
+   need to generate additional code to save SP into the frame marker.  */
+#define TARGET_HPUX_UNWIND_LIBRARY 0
+
 /* Macro to define tables used to set the flags.  This is a
    list in braces of target switches with each switch being
    { "NAME", VALUE, "HELP_STRING" }.  VALUE is the bits to set,
@@ -356,11 +365,6 @@ do {								\
      builtin_assert("machine=hppa");				\
      builtin_define("__hppa");					\
      builtin_define("__hppa__");				\
-     if (TARGET_64BIT)						\
-       {							\
-	 builtin_define("_LP64");				\
-	 builtin_define("__LP64__");				\
-       }							\
      if (TARGET_PA_20)						\
        builtin_define("_PA_RISC2_0");				\
      else if (TARGET_PA_11)					\
@@ -676,10 +680,17 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
-   of the first local allocated.  The start of the locals must lie on
-   a STACK_BOUNDARY or else the frame size of leaf functions will not
-   be zero.  */
-#define STARTING_FRAME_OFFSET (TARGET_64BIT ? 16 : 8)
+   of the first local allocated.
+
+   On the 32-bit ports, we reserve one slot for the previous frame
+   pointer and one fill slot.  The fill slot is for compatibility
+   with HP compiled programs.  On the 64-bit ports, we reserve one
+   slot for the previous frame pointer.  */
+#define STARTING_FRAME_OFFSET 8
+
+/* Define STACK_ALIGNMENT_NEEDED to zero to disable final alignment
+   of the stack.  The default is to align it to STACK_BOUNDARY.  */
+#define STACK_ALIGNMENT_NEEDED 0
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
@@ -712,9 +723,13 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* The weird HPPA calling conventions require a minimum of 48 bytes on
    the stack: 16 bytes for register saves, and 32 bytes for magic.
    This is the difference between the logical top of stack and the
-   actual sp.  */
+   actual sp.
+
+   On the 64-bit port, the HP C compiler allocates a 48-byte frame
+   marker, although the runtime documentation only describes a 16
+   byte marker.  For compatibility, we allocate 48 bytes.  */
 #define STACK_POINTER_OFFSET \
-  (TARGET_64BIT ? -(current_function_outgoing_args_size + 16): -32)
+  (TARGET_64BIT ? -(current_function_outgoing_args_size + 48): -32)
 
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
   (TARGET_64BIT				\

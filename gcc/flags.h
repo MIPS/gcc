@@ -476,6 +476,10 @@ extern int flag_unwind_tables;
 
 extern int flag_asynchronous_unwind_tables;
 
+/* Nonzero means allow for forced unwinding.  */
+
+extern int flag_forced_unwind_exceptions;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -515,6 +519,10 @@ extern int flag_verbose_asm;
 extern int flag_debug_asm;
 
 extern int flag_dump_rtl_in_asm;
+
+/* Greater than zero if user symbols are prepended by a leading underscore
+   in generated assembly code.  */
+extern int flag_leading_underscore;
 
 /* -fgnu-linker specifies use of the GNU linker for initializations.
    -fno-gnu-linker says that collect will be used.  */

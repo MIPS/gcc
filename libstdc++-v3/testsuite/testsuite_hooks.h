@@ -105,6 +105,9 @@ namespace __gnu_cxx_test
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
 
+  // Run select unit test inside exception catcher for non-C named locale
+  void 
+  run_test_wrapped_generic_locale_exception_catcher(const test_func);
 
   // Test data types.
   struct pod_char
@@ -244,7 +247,6 @@ namespace __gnu_cxx_test
     copy_tracker(const copy_tracker& rhs)
     : id_(rhs.id()), throw_on_copy_(rhs.throw_on_copy_)
     {
-      int kkk = throw_on_copy_;
       if (throw_on_copy_)
 	copy_constructor::throw_on(copy_constructor::count() + 1);
       copy_constructor::mark_call();
@@ -261,6 +263,7 @@ namespace __gnu_cxx_test
       if (rhs.throw_on_copy_)
         assignment_operator::throw_on(assignment_operator::count() + 1);
       assignment_operator::mark_call();
+      return *this;
     }
 
     ~copy_tracker()
@@ -299,7 +302,7 @@ namespace __gnu_cxx_test
   inline bool
   operator==(const copy_tracker& lhs, const copy_tracker& rhs)
   { return lhs.id() == rhs.id(); }
-}; // namespace __gnu_cxx_test
+} // namespace __gnu_cxx_test
 
 namespace std
 {

@@ -11,6 +11,15 @@ modify it under the terms of the GNU Library General Public
 License as published by the Free Software Foundation; either
 version 2 of the License, or (at your option) any later version.
 
+In addition to the permissions in the GNU Library General Public
+License, the Free Software Foundation gives you unlimited permission
+to link the compiled version of this file into combinations with other
+programs, and to distribute those combinations without any restriction
+coming from the use of this file.  (The Library Public License
+restrictions do apply in other respects; for example, they cover
+modification of the file, and distribution when not linked into a
+combined executable.)
+
 Libiberty is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -1788,31 +1797,34 @@ demangle_integral_value (work, mangled, s)
 
       success = 0;
 
-      /* Negative numbers are indicated with a leading `m'.  */
-      if (**mangled == 'm')
-	{
-	  string_appendn (s, "-", 1);
-	  (*mangled)++;
-	}
-      else if (mangled[0][0] == '_' && mangled[0][1] == 'm')
-	{
-	  /* Since consume_count_with_underscores does not handle the
-	     `m'-prefix we must do it here, using consume_count and
-	     adjusting underscores: we have to consume the underscore
-	     matching the prepended one.  */
-	  multidigit_without_leading_underscore = 1;
-	  string_appendn (s, "-", 1);
-	  (*mangled) += 2;
-	}
-      else if (**mangled == '_')
-	{
-	  /* Do not consume a following underscore;
-	     multidigit_without_leading_underscore will consume what should be
-	     consumed.  */
-	  leave_following_underscore = 1;
+      if (**mangled == '_')
+        {
+	  if (mangled[0][1] == 'm')
+	    {
+	      /* Since consume_count_with_underscores does not handle the
+		 `m'-prefix we must do it here, using consume_count and
+		 adjusting underscores: we have to consume the underscore
+		 matching the prepended one.  */
+	      multidigit_without_leading_underscore = 1;
+	      string_appendn (s, "-", 1);
+	      (*mangled) += 2;
+	    }
+	  else
+	    {
+	      /* Do not consume a following underscore;
+	         consume_count_with_underscores will consume what
+	         should be consumed.  */
+	      leave_following_underscore = 1;
+	    }
 	}
       else
 	{
+	  /* Negative numbers are indicated with a leading `m'.  */
+	  if (**mangled == 'm')
+	  {
+	    string_appendn (s, "-", 1);
+	    (*mangled)++;
+	  }
 	  /* Since consume_count_with_underscores does not handle
 	     multi-digit numbers that do not start with an underscore,
 	     and this number can be an integer template parameter,
@@ -1853,7 +1865,7 @@ demangle_integral_value (work, mangled, s)
 	  /* All is well.  */
 	  success = 1;
 	}
-    }
+      }
 
   return success;
 }

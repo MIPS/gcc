@@ -465,11 +465,43 @@ fixup_reorder_chain ()
 		      && e_fall->dest == EXIT_BLOCK_PTR))
 		continue;
 
+	      /* The degenerated case of conditional jump jumping to the next
+		 instruction can happen on target having jumps with side
+		 effects.  
+
+		 Create temporarily the duplicated edge representing branch.
+		 It will get unidentified by force_nonfallthru_and_redirect
+		 that would otherwise get confused by fallthru edge not pointing
+		 to the next basic block.  */
+	      if (!e_taken)
+		{
+		  rtx note;
+		  edge e_fake;
+
+		  e_fake = unchecked_make_edge (bb, e_fall->dest, 0);
+
+		  if (!redirect_jump (bb->end, block_label (bb), 0))
+		    abort ();
+		  note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX);
+		  if (note)
+		    {
+		      int prob = INTVAL (XEXP (note, 0));
+
+		      e_fake->probability = prob;
+		      e_fake->count = e_fall->count * prob / REG_BR_PROB_BASE;
+		      e_fall->probability -= e_fall->probability;
+		      e_fall->count -= e_fake->count;
+		      if (e_fall->probability < 0)
+			e_fall->probability = 0;
+		      if (e_fall->count < 0)
+			e_fall->count = 0;
+		    }
+		}
 	      /* There is one special case: if *neither* block is next,
 		 such as happens at the very end of a function, then we'll
 		 need to add a new unconditional jump.  Choose the taken
 		 edge based on known or assumed probability.  */
-	      if (RBI (bb)->next != e_taken->dest)
+	      else if (RBI (bb)->next != e_taken->dest)
 		{
 		  rtx note = find_reg_note (bb_end_insn, REG_BR_PROB, 0);
 
@@ -728,7 +760,6 @@ bool
 cfg_layout_can_duplicate_bb_p (bb)
      basic_block bb;
 {
-  rtx next;
   edge s;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
@@ -743,11 +774,7 @@ cfg_layout_can_duplicate_bb_p (bb)
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is difficult to do, as the instructions
      computing jump destination may be hoisted outside the basic block.  */
-  if (GET_CODE (bb->end) == JUMP_INSN && JUMP_LABEL (bb->end)
-      && (next = next_nonnote_insn (JUMP_LABEL (bb->end)))
-      && GET_CODE (next) == JUMP_INSN
-      && (GET_CODE (PATTERN (next)) == ADDR_VEC
-	  || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+  if (tablejump_p (bb->end, NULL, NULL))
     return false;
 
   /* Do not duplicate blocks containing insns that can't be copied.  */
@@ -980,7 +1007,10 @@ cfg_layout_duplicate_bb (bb, e)
   new_bb->flags = bb->flags;
   for (s = bb->succ; s; s = s->succ_next)
     {
-      n = make_edge (new_bb, s->dest, s->flags);
+      /* Since we are creating edges from a new block to successors
+	 of another block (which therefore are known to be disjoint), there
+	 is no need to actually check for duplicated edges.  */
+      n = unchecked_make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
       if (new_count)
 	/* Take care for overflows!  */

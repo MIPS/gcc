@@ -84,7 +84,12 @@ Note:
 #define STARTFILE_SPEC "crt1%O%s"
 
 /* Names to predefine in the preprocessor for this target machine.  */
-#define CPP_PREDEFINES		"-Dmc68hc1x"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("mc68hc1x");		\
+    }						\
+  while (0)
 
 /* As an embedded target, we have no libc.  */
 #define inhibit_libc
@@ -796,6 +801,12 @@ extern enum reg_class m68hc11_tmp_regs_class;
 
 #define SMALL_REGISTER_CLASSES 1
 
+/* A C expression that is nonzero if hard register number REGNO2 can be
+   considered for use as a rename register for REGNO1 */
+
+#define HARD_REGNO_RENAME_OK(REGNO1,REGNO2) \
+  m68hc11_hard_regno_rename_ok ((REGNO1), (REGNO2))
+
 /* A C expression whose value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
    because registers of CLASS are needed for spill registers.
@@ -851,6 +862,7 @@ extern enum reg_class m68hc11_tmp_regs_class;
    (C) == 'L' ? ((VALUE) >= -65536 && (VALUE) <= 65535) : \
    (C) == 'M' ? ((VALUE) & 0x0ffffL) == 0 : \
    (C) == 'N' ? ((VALUE) == 1 || (VALUE) == -1) : \
+   (C) == 'I' ? ((VALUE) >= -2 && (VALUE) <= 2) : \
    (C) == 'O' ? (VALUE) == 16 : \
    (C) == 'P' ? ((VALUE) <= 2 && (VALUE) >= -8) : 0)
 
@@ -1047,6 +1059,10 @@ typedef struct m68hc11_args
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
   m68hc11_function_arg_padding ((MODE), (TYPE))
 
+#undef PAD_VARARGS_DOWN
+#define PAD_VARARGS_DOWN \
+  (m68hc11_function_arg_padding (TYPE_MODE (type), type) == downward)
+
 /* A C expression that indicates when it is the called function's
    responsibility to make a copy of arguments passed by invisible
    reference.  Normally, the caller makes a copy and passes the
@@ -1092,10 +1108,6 @@ typedef struct m68hc11_args
    it forbids all spill registers at that point.  Enabling
    caller saving results in spill failure.  */
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  m68hc11_va_arg (valist, type)
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -1537,7 +1549,7 @@ do {                                                                    \
       fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
       putc ('\n', FILE);				\
       							\
-      if (TARGET_M6812 && current_function_far)		\
+      if (current_function_far)                         \
         {						\
           fprintf (FILE, "\t.far\t");			\
 	  assemble_name (FILE, NAME);			\
@@ -1548,7 +1560,7 @@ do {                                                                    \
         {						\
 	  fprintf (FILE, "\t.interrupt\t");		\
 	  assemble_name (FILE, NAME);			\
-	  putc ('\b', FILE);				\
+	  putc ('\n', FILE);				\
 	}						\
       ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));	\
       ASM_OUTPUT_LABEL(FILE, NAME);			\
@@ -1617,6 +1629,10 @@ do {                                                                    \
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
+/* For the support of memory banks we need addresses that indicate
+   the page number.  */
+#define DWARF2_ADDR_SIZE 4
+
 /* The prefix for local labels.  You should be able to define this as
    an empty string, or any arbitrary string (such as ".", ".L%", etc)
    without having to make any other changes to account for the specific
@@ -1643,6 +1659,7 @@ do {                                                                    \
 			      ROTATE, ROTATERT }},			\
 {"m68hc11_non_shift_operator", {AND, IOR, XOR, PLUS, MINUS}},		\
 {"m68hc11_unary_operator",   {NEG, NOT, SIGN_EXTEND, ZERO_EXTEND}},	\
+{"m68hc11_shift_operator",   {ASHIFT, ASHIFTRT, LSHIFTRT, ROTATE, ROTATERT}},\
 {"non_push_operand",         {SUBREG, REG, MEM}},			\
 {"reg_or_some_mem_operand",  {SUBREG, REG, MEM}},			\
 {"tst_operand",              {SUBREG, REG, MEM}},			\

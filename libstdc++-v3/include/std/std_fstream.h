@@ -311,8 +311,11 @@ namespace std
       virtual int
       sync()
       {
+	int __ret = 0;
 	bool __testput = this->_M_out_cur
 	  && this->_M_out_beg < this->_M_out_lim;
+	// Sync with stdio.
+	bool __sync = this->_M_buf_size <= 1;
 
 	// Make sure that the internal buffer resyncs its idea of
 	// the file position with the external file.
@@ -320,14 +323,19 @@ namespace std
 	  {
 	    // Need to restore current position after the write.
 	    off_type __off = this->_M_out_cur - this->_M_out_lim;
-	    _M_really_overflow(); // _M_file.sync() will be called within
-	    if (__off)
-	      _M_file.seekoff(__off, ios_base::cur);
+
+	    // _M_file.sync() will be called within
+	    if (traits_type::eq_int_type(_M_really_overflow(),
+					 traits_type::eof()))
+	      __ret = -1;
+	    else if (__off)
+	      _M_file.seekoff(__off, ios_base::cur, __sync);
 	  }
 	else
 	  _M_file.sync();
+
 	_M_last_overflowed = false;
-	return 0;
+	return __ret;
       }
 
       // [documentation is inherited]
@@ -401,13 +409,10 @@ namespace std
 	bool __testin = this->_M_mode & ios_base::in;
 	bool __testout = this->_M_mode & ios_base::out;
 	if (__testin)
-	  {
-	    this->_M_in_beg = this->_M_in_cur = this->_M_buf;
-	    this->_M_in_end = this->_M_buf + __off;
-	  }
+	  this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
 	if (__testout)
 	  {
-	    this->_M_out_beg = this->_M_out_cur = this->_M_buf;
+	    this->setp(this->_M_buf, this->_M_buf + this->_M_buf_size);
 	    this->_M_out_lim = this->_M_buf + __off;
 	  }
 	_M_filepos = this->_M_buf + __off;
@@ -517,8 +522,7 @@ namespace std
        *  @c &sb to the base class initializer.  Does not open any files
        *  (you haven't given it a filename to open).
       */
-      basic_ifstream()
-      : __istream_type(NULL), _M_filebuf()
+      basic_ifstream() : __istream_type(), _M_filebuf()
       { this->init(&_M_filebuf); }
 
       /**
@@ -533,7 +537,7 @@ namespace std
       */
       explicit
       basic_ifstream(const char* __s, ios_base::openmode __mode = ios_base::in)
-      : __istream_type(NULL), _M_filebuf()
+      : __istream_type(), _M_filebuf()
       {
 	this->init(&_M_filebuf);
 	this->open(__s, __mode);
@@ -640,8 +644,7 @@ namespace std
        *  @c &sb to the base class initializer.  Does not open any files
        *  (you haven't given it a filename to open).
       */
-      basic_ofstream()
-      : __ostream_type(NULL), _M_filebuf()
+      basic_ofstream(): __ostream_type(), _M_filebuf()
       { this->init(&_M_filebuf); }
 
       /**
@@ -658,7 +661,7 @@ namespace std
       explicit
       basic_ofstream(const char* __s,
 		     ios_base::openmode __mode = ios_base::out|ios_base::trunc)
-      : __ostream_type(NULL), _M_filebuf()
+      : __ostream_type(), _M_filebuf()
       {
 	this->init(&_M_filebuf);
 	this->open(__s, __mode);
@@ -768,7 +771,7 @@ namespace std
        *  (you haven't given it a filename to open).
       */
       basic_fstream()
-      : __iostream_type(NULL), _M_filebuf()
+      : __iostream_type(), _M_filebuf()
       { this->init(&_M_filebuf); }
 
       /**

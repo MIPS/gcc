@@ -294,7 +294,7 @@ m68hc11_override_options ()
       m68hc11_sp_correction = 0;
       m68hc11_tmp_regs_class = TMP_REGS;
       target_flags &= ~MASK_M6811;
-      target_flags |= MASK_NO_DIRECT_MODE | MASK_MIN_MAX;
+      target_flags |= MASK_NO_DIRECT_MODE;
       if (m68hc11_soft_reg_count == 0)
 	m68hc11_soft_reg_count = "0";
 
@@ -392,6 +392,23 @@ hard_regno_mode_ok (regno, mode)
     default:
       return 0;
     }
+}
+
+int
+m68hc11_hard_regno_rename_ok (reg1, reg2)
+     int reg1, reg2;
+{
+  /* Don't accept renaming to Z register.  We will replace it to
+     X,Y or D during machine reorg pass.  */
+  if (reg2 == HARD_Z_REGNUM)
+    return 0;
+
+  /* Don't accept renaming D,X to Y register as the code will be bigger.  */
+  if (TARGET_M6811 && reg2 == HARD_Y_REGNUM
+      && (D_REGNO_P (reg1) || X_REGNO_P (reg1)))
+    return 0;
+
+  return 1;
 }
 
 enum reg_class
@@ -1035,8 +1052,11 @@ hard_addr_reg_operand (operand, mode)
 int
 hard_reg_operand (operand, mode)
      rtx operand;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  if (GET_MODE (operand) != mode && mode != VOIDmode)
+    return 0;
+
   if (GET_CODE (operand) == SUBREG)
     operand = XEXP (operand, 0);
 
@@ -1140,6 +1160,16 @@ m68hc11_non_shift_operator (op, mode)
     || GET_CODE (op) == PLUS || GET_CODE (op) == MINUS;
 }
 
+/* Return true if op is a shift operator.  */
+int
+m68hc11_shift_operator (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return GET_CODE (op) == ROTATE || GET_CODE (op) == ROTATERT
+    || GET_CODE (op) == LSHIFTRT || GET_CODE (op) == ASHIFT
+    || GET_CODE (op) == ASHIFTRT;
+}
 
 int
 m68hc11_unary_operator (op, mode)
@@ -1205,8 +1235,15 @@ const struct attribute_spec m68hc11_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   { "interrupt", 0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
   { "trap",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { "far",       0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { "near",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
+
+/* Keep track of the symbol which has a `trap' attribute and which uses
+   the `swi' calling convention.  Since there is only one trap, we only
+   record one such symbol.  If there are several, a warning is reported.  */
+static rtx trap_handler_symbol = 0;
 
 /* Handle an attribute requiring a FUNCTION_TYPE, FIELD_DECL or TYPE_DECL;
    arguments as in struct attribute_spec.handler.  */
@@ -1219,6 +1256,7 @@ m68hc11_handle_fntype_attribute (node, name, args, flags, no_add_attrs)
      bool *no_add_attrs;
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
+      && TREE_CODE (*node) != METHOD_TYPE
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
@@ -1241,16 +1279,56 @@ m68hc11_encode_section_info (decl, first)
 {
   tree func_attr;
   int trap_handler;
+  int is_far = 0;
   rtx rtl;
-
+  
   if (TREE_CODE (decl) != FUNCTION_DECL)
     return;
 
   rtl = DECL_RTL (decl);
 
   func_attr = TYPE_ATTRIBUTES (TREE_TYPE (decl));
+
+
+  if (lookup_attribute ("far", func_attr) != NULL_TREE)
+    is_far = 1;
+  else if (lookup_attribute ("near", func_attr) == NULL_TREE)
+    is_far = TARGET_LONG_CALLS != 0;
+
   trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
-  SYMBOL_REF_FLAG (XEXP (rtl, 0)) = trap_handler;
+  if (trap_handler && is_far)
+    {
+      warning ("`trap' and `far' attributes are not compatible, ignoring `far'");
+      trap_handler = 0;
+    }
+  if (trap_handler)
+    {
+      if (trap_handler_symbol != 0)
+        warning ("`trap' attribute is already used");
+      else
+        trap_handler_symbol = XEXP (rtl, 0);
+    }
+  SYMBOL_REF_FLAG (XEXP (rtl, 0)) = is_far;
+}
+
+int
+m68hc11_is_far_symbol (sym)
+     rtx sym;
+{
+  if (GET_CODE (sym) == MEM)
+    sym = XEXP (sym, 0);
+
+  return SYMBOL_REF_FLAG (sym);
+}
+
+int
+m68hc11_is_trap_symbol (sym)
+     rtx sym;
+{
+  if (GET_CODE (sym) == MEM)
+    sym = XEXP (sym, 0);
+
+  return trap_handler_symbol != 0 && rtx_equal_p (trap_handler_symbol, sym);
 }
 
 
@@ -1290,6 +1368,14 @@ m68hc11_initial_elimination_offset (from, to)
   /* For a trap handler, we must take into account the registers which
      are pushed on the stack during the trap (except the PC).  */
   func_attr = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
+
+  if (lookup_attribute ("far", func_attr) != 0)
+    current_function_far = 1;
+  else if (lookup_attribute ("near", func_attr) != 0)
+    current_function_far = 0;
+  else
+    current_function_far = TARGET_LONG_CALLS != 0;
+
   trap_handler = lookup_attribute ("trap", func_attr) != NULL_TREE;
   if (trap_handler && from == ARG_POINTER_REGNUM)
     size = 7;
@@ -1461,51 +1547,6 @@ m68hc11_function_arg (cum, mode, type, named)
   return NULL_RTX;
 }
 
-rtx
-m68hc11_va_arg (valist, type)
-     tree valist;
-     tree type;
-{
-  tree addr_tree, t;
-  HOST_WIDE_INT align;
-  HOST_WIDE_INT rounded_size;
-  rtx addr;
-  int pad_direction;
-
-  /* Compute the rounded size of the type.  */
-  align = PARM_BOUNDARY / BITS_PER_UNIT;
-  rounded_size = (((int_size_in_bytes (type) + align - 1) / align) * align);
-
-  /* Get AP.  */
-  addr_tree = valist;
-  pad_direction = m68hc11_function_arg_padding (TYPE_MODE (type), type);
-
-  if (pad_direction == downward)
-    {
-      /* Small args are padded downward.  */
-
-      HOST_WIDE_INT adj;
-      adj = TREE_INT_CST_LOW (TYPE_SIZE (type)) / BITS_PER_UNIT;
-      if (rounded_size > align)
-	adj = rounded_size;
-
-      addr_tree = build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			 build_int_2 (rounded_size - adj, 0));
-    }
-
-  addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-  addr = copy_to_reg (addr);
-
-  /* Compute new value for AP.  */
-  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-	     build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		    build_int_2 (rounded_size, 0)));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  return addr;
-}
-
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
    `enum direction': either `upward' to pad above the argument,
@@ -1629,6 +1670,12 @@ expand_prologue ()
   current_function_interrupt = lookup_attribute ("interrupt",
 						 func_attr) != NULL_TREE;
   current_function_trap = lookup_attribute ("trap", func_attr) != NULL_TREE;
+  if (lookup_attribute ("far", func_attr) != NULL_TREE)
+    current_function_far = 1;
+  else if (lookup_attribute ("near", func_attr) != NULL_TREE)
+    current_function_far = 0;
+  else
+    current_function_far = TARGET_LONG_CALLS != 0;
 
   /* Get the scratch register to build the frame and push registers.
      If the first argument is a 32-bit quantity, the D+X registers
@@ -1638,6 +1685,10 @@ expand_prologue ()
     scratch = iy_reg;
   else
     scratch = ix_reg;
+
+  /* Save current stack frame.  */
+  if (frame_pointer_needed)
+    emit_move_after_reload (stack_push_word, hard_frame_pointer_rtx, scratch);
 
   /* For an interrupt handler, we must preserve _.tmp, _.z and _.xy.
      Other soft registers in page0 need not to be saved because they
@@ -1652,10 +1703,6 @@ expand_prologue ()
 			      gen_rtx (REG, HImode, SOFT_SAVED_XY_REGNUM),
 			      scratch);
     }
-
-  /* Save current stack frame.  */
-  if (frame_pointer_needed)
-    emit_move_after_reload (stack_push_word, hard_frame_pointer_rtx, scratch);
 
   /* Allocate local variables.  */
   if (TARGET_M6812 && (size > 4 || size == 3))
@@ -1730,7 +1777,7 @@ expand_epilogue ()
   else
     return_size = GET_MODE_SIZE (GET_MODE (current_function_return_rtx));
 
-  if (return_size > HARD_REG_SIZE)
+  if (return_size > HARD_REG_SIZE && return_size <= 2 * HARD_REG_SIZE)
     scratch = iy_reg;
   else
     scratch = ix_reg;
@@ -1777,10 +1824,6 @@ expand_epilogue ()
 			       stack_pointer_rtx, GEN_INT (1)));
     }
 
-  /* Restore previous frame pointer.  */
-  if (frame_pointer_needed)
-    emit_move_after_reload (hard_frame_pointer_rtx, stack_pop_word, scratch);
-
   /* For an interrupt handler, restore ZTMP, ZREG and XYREG.  */
   if (current_function_interrupt)
     {
@@ -1790,6 +1833,10 @@ expand_epilogue ()
 			      stack_pop_word, scratch);
       emit_move_after_reload (m68hc11_soft_tmp_reg, stack_pop_word, scratch);
     }
+
+  /* Restore previous frame pointer.  */
+  if (frame_pointer_needed)
+    emit_move_after_reload (hard_frame_pointer_rtx, stack_pop_word, scratch);
 
   /* If the trap handler returns some value, copy the value
      in D, X onto the stack so that the rti will pop the return value
@@ -2171,6 +2218,10 @@ print_operand (file, op, letter)
 	{
 	  asm_print_register (file, REGNO (op));
 	  fprintf (file, "+1");
+	}
+      else if (letter == 'b' && D_REG_P (op))
+	{
+	  asm_print_register (file, HARD_B_REGNUM);
 	}
       else
 	{
@@ -3223,6 +3274,17 @@ m68hc11_gen_movhi (insn, operands)
 	{
 	  if (SP_REG_P (operands[0]))
 	    output_asm_insn ("lds\t%1", operands);
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && !D_REG_P (operands[0])
+                   && GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
 	  else
 	    output_asm_insn ("ld%0\t%1", operands);
 	}
@@ -3388,10 +3450,16 @@ m68hc11_gen_movhi (insn, operands)
                   output_asm_insn ("xgdx", operands);
                   CC_STATUS_INIT;
                 }
-              else
+              else if (!optimize_size)
                 {
                   output_asm_insn ("sty\t%t1", operands);
                   output_asm_insn ("ldx\t%t1", operands);
+                }
+              else
+                {
+                  CC_STATUS_INIT;
+                  output_asm_insn ("pshy", operands);
+                  output_asm_insn ("pulx", operands);
                 }
 	    }
 	  else if (SP_REG_P (operands[1]))
@@ -3400,6 +3468,16 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsx", operands);
 	    }
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
 	  else
 	    {
 	      output_asm_insn ("ldx\t%1", operands);
@@ -3430,10 +3508,16 @@ m68hc11_gen_movhi (insn, operands)
                   output_asm_insn ("xgdy", operands);
                   CC_STATUS_INIT;
                 }
-              else
+              else if (!optimize_size)
                 {
                   output_asm_insn ("stx\t%t1", operands);
                   output_asm_insn ("ldy\t%t1", operands);
+                }
+              else
+                {
+                  CC_STATUS_INIT;
+                  output_asm_insn ("pshx", operands);
+                  output_asm_insn ("puly", operands);
                 }
 	    }
 	  else if (SP_REG_P (operands[1]))
@@ -3442,7 +3526,17 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsy", operands);
 	    }
-	  else
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("in%0", operands);
+              else
+                output_asm_insn ("de%0", operands);
+            }
+          else
 	    {
 	      output_asm_insn ("ldy\t%1", operands);
 	    }
@@ -3682,6 +3776,16 @@ m68hc11_gen_movqi (insn, operands)
 		  output_asm_insn ("ldab\t%T0", operands);
 		}
 	    }
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
+                   && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
+                   && find_reg_note (insn, REG_WAS_0, 0))
+            {
+              if (INTVAL (operands[1]) == 1)
+                output_asm_insn ("inc%b0", operands);
+              else
+                output_asm_insn ("dec%b0", operands);
+            }          
 	  else if (!DB_REG_P (operands[1]) && !D_REG_P (operands[1])
 		   && !DA_REG_P (operands[1]))
 	    {
@@ -3890,15 +3994,15 @@ m68hc11_gen_rotate (code, insn, operands)
 
   if (val > 0)
     {
-      /* Set the carry to bit-15, but don't change D yet.  */
-      if (GET_MODE (operands[0]) != QImode)
-        {
-          output_asm_insn ("asra", operands);
-          output_asm_insn ("rola", operands);
-        }
-
       while (--val >= 0)
         {
+          /* Set the carry to bit-15, but don't change D yet.  */
+          if (GET_MODE (operands[0]) != QImode)
+            {
+              output_asm_insn ("asra", operands);
+              output_asm_insn ("rola", operands);
+            }
+
           /* Rotate B first to move the carry to bit-0.  */
           if (D_REG_P (operands[0]))
             output_asm_insn ("rolb", operands);
@@ -3909,14 +4013,12 @@ m68hc11_gen_rotate (code, insn, operands)
     }
   else
     {
-      /* Set the carry to bit-8 of D.  */
-      if (val != 0 && GET_MODE (operands[0]) != QImode)
-        {
-          output_asm_insn ("tap", operands);
-        }
-      
       while (++val <= 0)
         {
+          /* Set the carry to bit-8 of D.  */
+          if (GET_MODE (operands[0]) != QImode)
+            output_asm_insn ("tap", operands);
+
           /* Rotate B first to move the carry to bit-7.  */
           if (D_REG_P (operands[0]))
             output_asm_insn ("rorb", operands);
@@ -4211,7 +4313,7 @@ m68hc11_check_z_replacement (insn, info)
 		  info->need_save_z = 0;
 		  info->found_call = 1;
 		  info->regno = SOFT_Z_REGNUM;
-		  info->last = insn;
+		  info->last = NEXT_INSN (insn);
 		}
 	      return 0;
 	    }

@@ -90,6 +90,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    	bbg:  function-graph*
 	function-graph: announce_function basic_blocks {arcs | lines}*
 	announce_function: header string:name int32:checksum
+		string:source int32:lineno
 	basic_block: header int32:flags*
 	arcs: header int32:block_no arc*
 	arc:  int32:dest_block int32:flags
@@ -121,7 +122,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	summary: in32:checksum int32:runs int32:arcs int64:sum int64:max \
 		int64:max_sum int64:sum_max
 
-   The ANNOUNCE_FUNCTION record is the same as that in the BBG file.
+   The ANNOUNCE_FUNCTION record is the same as that in the BBG file,
+   but without the source location.
    The ARC_COUNTS gives the counter values for those arcs that are
    instrumented.  The SUMMARY records give information about the whole
    object file and about the whole program.  The checksum is used for
@@ -195,7 +197,7 @@ typedef long long gcov_type;
      	(GCOV_TAG_MASK (TAG) > GCOV_TAG_MASK (SUB))
 
 /* Basic block flags.  */
-#define GCOV_BLOCK_UNEXPECTED	(1 << 0)
+#define GCOV_BLOCK_UNEXPECTED	(1 << 1)
 
 /* Arc flags.  */
 #define GCOV_ARC_ON_TREE 	(1 << 0)
@@ -302,18 +304,27 @@ static int gcov_write_summary PARAMS ((FILE *, unsigned,
      ATTRIBUTE_UNUSED;
 #endif
 #define gcov_save_position(STREAM) \
- 	ftell (STREAM)
+ 	da_file_position (STREAM)
 #define gcov_reserve_length(STREAM) \
-	(gcov_write_unsigned (STREAM, 0) ? 0 : ftell (STREAM) - 4)
+	(gcov_write_unsigned (STREAM, 0) ? 0 : da_file_position (STREAM) - 4)
 static int gcov_write_length PARAMS((FILE *, long))
      ATTRIBUTE_UNUSED;
 #define gcov_resync(STREAM, BASE, LENGTH) \
-	fseek (STREAM, BASE + (long)LENGTH, SEEK_SET)
+	da_file_seek (STREAM, BASE + (long)LENGTH, SEEK_SET)
 #define gcov_skip(STREAM, LENGTH) \
-	fseek (STREAM, LENGTH, SEEK_CUR)
+	da_file_seek (STREAM, LENGTH, SEEK_CUR)
 #define gcov_skip_string(STREAM, LENGTH) \
-	fseek (STREAM, (LENGTH) + 4 - ((LENGTH) & 3), SEEK_CUR)
-
+	da_file_seek (STREAM, (LENGTH) + 4 - ((LENGTH) & 3), SEEK_CUR)
+#if IN_LIBGCC2
+static FILE *da_file_open PARAMS ((const char *, int *));
+static int da_file_close PARAMS ((void));
+static int da_file_eof PARAMS ((void));
+static int da_file_error PARAMS ((void));
+#endif
+static unsigned long da_file_position PARAMS ((FILE *));
+static int da_file_seek PARAMS ((FILE *, long, int));
+static size_t da_file_write PARAMS ((const void *, size_t, size_t, FILE *));
+static size_t da_file_read PARAMS ((void *, size_t, size_t, FILE *));
 
 /* Write VALUE to coverage file FILE.  Return nonzero if failed due to
    file i/o error, or value error.  */
@@ -332,7 +343,7 @@ gcov_write_unsigned (file, value)
       value >>= 8;
     }
   return ((sizeof (value) > sizeof (buffer) && value)
-	  || fwrite (buffer, sizeof (buffer), 1, file) != 1);
+	  || da_file_write (buffer, 1, sizeof (buffer), file) != sizeof (buffer));
 }
 
 /* Write VALUE to coverage file FILE.  Return nonzero if failed due to
@@ -353,7 +364,7 @@ gcov_write_counter (file, value)
       value >>= 8;
     }
   return ((sizeof (value) > sizeof (buffer) && value != 0 && value != -1)
-	  || fwrite (buffer, sizeof (buffer), 1, file) != 1);
+	  || da_file_write (buffer, 1, sizeof (buffer), file) != sizeof (buffer));
 }
 
 /* Write VALUE to coverage file FILE.  Return nonzero if failed due to
@@ -366,11 +377,12 @@ gcov_write_string (file, string, length)
      const char *string;
 {
   unsigned pad = 0;
+  unsigned rem = 4 - (length & 3);
 
   if (string)
     return (gcov_write_unsigned (file, length)
-	    || fwrite (string, length, 1, file) != 1
-	    || fwrite (&pad, 4 - (length & 3), 1, file) != 1);
+	    || da_file_write (string, 1, length, file) != length
+	    || da_file_write (&pad, 1, rem, file) != rem);
   else
     return gcov_write_unsigned (file, 0);
 }
@@ -387,7 +399,7 @@ gcov_read_unsigned (file, value_p)
   unsigned ix;
   unsigned char buffer[4];
 
-  if (fread (buffer, sizeof (buffer), 1, file) != 1)
+  if (da_file_read (buffer, 1, sizeof (buffer), file) != sizeof (buffer))
     return 1;
   for (ix = sizeof (value); ix < sizeof (buffer); ix++)
     if (buffer[ix])
@@ -413,7 +425,7 @@ gcov_read_counter (file, value_p)
   unsigned ix;
   unsigned char buffer[8];
 
-  if (fread (buffer, sizeof (buffer), 1, file) != 1)
+  if (da_file_read (buffer, 1, sizeof (buffer), file) != sizeof (buffer))
     return 1;
   for (ix = sizeof (value); ix < sizeof (buffer); ix++)
     if (buffer[ix])
@@ -457,7 +469,7 @@ gcov_read_string (file, string_p, length_p)
   length += 4 - (length & 3);
   *string_p = (char *) xmalloc (length);
 
-  return fread (*string_p, length, 1, file) != 1;
+  return da_file_read (*string_p, 1, length, file) != length;
 
 }
 
@@ -472,10 +484,10 @@ gcov_write_length (file, place)
      FILE *file;
      long place;
 {
-  long here = ftell (file);
-  int result = (!place || fseek (file, place, SEEK_SET)
+  long here = da_file_position (file);
+  int result = (!place || da_file_seek (file, place, SEEK_SET)
 		|| gcov_write_unsigned (file, here - place - 4));
-  if (fseek (file, here, SEEK_SET))
+  if (da_file_seek (file, here, SEEK_SET))
     result = 1;
   return result;
 }
@@ -514,6 +526,290 @@ gcov_write_summary (da_file, tag, summary)
 	  || gcov_write_counter (da_file, summary->arc_max_sum)
 	  || gcov_write_counter (da_file, summary->arc_sum_max)
 	  || gcov_write_length (da_file, base));
+}
+#endif
+
+#if IN_LIBGCC2
+/* The kernel had problems with managing a lot of small reads/writes we use;
+   the functions below are used to buffer whole file in memory, thus reading and
+   writing it only once.  This should be feasible, as we have this amount
+   of memory for counters allocated anyway.  */
+
+static FILE *actual_da_file;
+static unsigned long actual_da_file_position;
+static unsigned long actual_da_file_length;
+static char *actual_da_file_buffer;
+static unsigned long actual_da_file_buffer_size;
+
+/* Open the file NAME and return it; in EXISTED return 1 if it existed
+   already.  */
+static FILE *
+da_file_open (name, existed)
+     const char *name;
+     int *existed;
+{
+#if defined (TARGET_HAS_F_SETLKW)
+  struct flock s_flock;
+
+  s_flock.l_type = F_WRLCK;
+  s_flock.l_whence = SEEK_SET;
+  s_flock.l_start = 0;
+  s_flock.l_len = 0; /* Until EOF.  */
+  s_flock.l_pid = getpid ();
+#endif
+
+  if (actual_da_file)
+    return 0;
+  actual_da_file_position = 0;
+  if (!actual_da_file_buffer)
+    {
+      actual_da_file_buffer = malloc (1);
+      actual_da_file_buffer_size = 1;
+    }
+
+  actual_da_file = fopen (name, "r+t");
+  if (actual_da_file)
+    *existed = 1;
+  else
+    {
+      actual_da_file = fopen (name, "w+t");
+      if (actual_da_file)
+	*existed = 0;
+      else
+	return 0;
+    }
+
+#if defined (TARGET_HAS_F_SETLKW)
+  /* After a fork, another process might try to read and/or write
+     the same file simultaneously.  So if we can, lock the file to
+     avoid race conditions.  */
+  while (fcntl (fileno (actual_da_file), F_SETLKW, &s_flock)
+	 && errno == EINTR)
+    continue;
+#endif
+
+  if (*existed)
+    {
+      if (fseek (actual_da_file, 0, SEEK_END))
+	{
+	  fclose (actual_da_file);
+	  actual_da_file = 0;
+	  return 0;
+	}
+      actual_da_file_length = ftell (actual_da_file);
+      rewind (actual_da_file);
+    }
+  else
+    actual_da_file_length = 0;
+
+  if (actual_da_file_length > actual_da_file_buffer_size)
+    {
+      actual_da_file_buffer_size = actual_da_file_length;
+      actual_da_file_buffer = realloc (actual_da_file_buffer,
+				       actual_da_file_buffer_size);
+      if (!actual_da_file_buffer)
+	{
+	  fclose (actual_da_file);
+	  actual_da_file = 0;
+	  return 0;
+	}
+    }
+
+  if (*existed)
+    {
+      if (fread (actual_da_file_buffer, actual_da_file_length,
+		 1, actual_da_file) != 1)
+	{
+	  fclose (actual_da_file);
+	  actual_da_file = 0;
+	  return 0;
+	}
+      rewind (actual_da_file);
+    }
+
+  return actual_da_file;
+}
+
+/* Write changes to the .da file and close it.  */
+static int da_file_close ()
+{
+  if (!actual_da_file)
+    return -1;
+  
+  if (fwrite (actual_da_file_buffer, actual_da_file_length,
+     	      1, actual_da_file) != 1)
+    return da_file_error ();
+
+  if (fclose (actual_da_file))
+    {
+      actual_da_file = 0;
+      return -1;
+    }
+
+  actual_da_file = 0;
+  return 0;
+}
+
+/* Returns current position in .da file.  */
+static unsigned long
+da_file_position (file)
+     FILE *file;
+{
+  if (file)
+    return ftell (file);
+  return actual_da_file_position;
+}
+
+/* Tests whether we have reached end of .da file.  */
+static int
+da_file_eof ()
+{
+  return actual_da_file_position == actual_da_file_length;
+}
+
+/* Change position in the .da file.  */
+static int
+da_file_seek (file, pos, whence)
+     FILE *file;
+     long pos;
+     int whence;
+{
+  if (file)
+    return fseek (file, pos, whence);
+
+  if (!actual_da_file)
+    return -1;
+
+  switch (whence)
+    {
+    case SEEK_CUR:
+      if (pos < 0 && (unsigned long) -pos > actual_da_file_position)
+	return da_file_error ();
+
+      actual_da_file_position += pos;
+      break;
+    case SEEK_SET:
+      actual_da_file_position = pos;
+      break;
+    case SEEK_END:
+      if ((unsigned long) -pos > actual_da_file_length)
+	return da_file_error ();
+      actual_da_file_position = actual_da_file_length + pos;
+    }
+  if (actual_da_file_position > actual_da_file_length)
+    return da_file_error ();
+  return 0;
+}
+
+/* Write LEN chars of DATA to actual .da file; ELTS is expected to be 1,
+   FILE 0.  */
+static size_t
+da_file_write (data, elts, len, file)
+     const void *data;
+     size_t elts;
+     size_t len;
+     FILE *file;
+{
+  size_t l = len;
+  const char *dat = data;
+
+  if (file)
+    return fwrite (data, elts, len, file);
+
+  if (elts != 1)
+    abort ();
+
+  if (!actual_da_file)
+    return -1;
+  if (actual_da_file_position + len > actual_da_file_buffer_size)
+    {
+      actual_da_file_buffer_size = 2 * (actual_da_file_position + len);
+      actual_da_file_buffer = realloc (actual_da_file_buffer,
+				       actual_da_file_buffer_size);
+      if (!actual_da_file_buffer)
+	return da_file_error ();
+    }
+  while (len--)
+    actual_da_file_buffer[actual_da_file_position++] = *dat++;
+  if (actual_da_file_position > actual_da_file_length)
+    actual_da_file_length = actual_da_file_position;
+
+  return l;
+}
+
+/* Read LEN chars of DATA from actual .da file; ELTS is expected to be 1,
+   FILE 0.  */
+static size_t
+da_file_read (data, elts, len, file)
+     void *data;
+     size_t elts;
+     size_t len;
+     FILE *file;
+{
+  size_t l;
+  char *dat = data;
+
+  if (file)
+    return fread (data, elts, len, file);
+
+  if (elts != 1)
+    abort ();
+
+  if (!actual_da_file)
+    return -1;
+  if (actual_da_file_position + len > actual_da_file_length)
+    len = actual_da_file_length - actual_da_file_position;
+  l = len;
+  
+  while (len--)
+    *dat++ = actual_da_file_buffer[actual_da_file_position++];
+  return l;
+}
+
+/* Close the current .da file and report error.  */
+static int
+da_file_error ()
+{
+  if (actual_da_file)
+    fclose (actual_da_file);
+  actual_da_file = 0;
+  return -1;
+}
+#else /* !IN_LIBGCC2 */
+static size_t
+da_file_write (data, elts, len, file)
+     const void *data;
+     size_t elts;
+     size_t len;
+     FILE *file;
+{
+  return fwrite (data, elts, len, file);
+}
+
+static size_t
+da_file_read (data, elts, len, file)
+     void *data;
+     size_t elts;
+     size_t len;
+     FILE *file;
+{
+  return fread (data, elts, len, file);
+}
+
+static unsigned long
+da_file_position (file)
+     FILE *file;
+{
+  return ftell (file);
+}
+
+static int
+da_file_seek (file, pos, whence)
+     FILE *file;
+     long pos;
+     int whence;
+{
+  return fseek (file, pos, whence);
 }
 #endif
 

@@ -1,6 +1,6 @@
 // Wrapper of C-language FILE struct -*- C++ -*-
 
-// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,6 +33,31 @@
 
 #include <bits/basic_file.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+
+#ifdef _GLIBCPP_HAVE_SYS_IOCTL_H
+#define BSD_COMP /* Get FIONREAD on Solaris2. */
+#include <sys/ioctl.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2.5.
+#ifdef _GLIBCPP_HAVE_SYS_FILIO_H
+#include <sys/filio.h>
+#endif
+
+#ifdef _GLIBCPP_HAVE_POLL
+#include <poll.h>
+#endif
+
+#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+# include <sys/stat.h>
+# ifdef _GLIBCPP_HAVE_S_ISREG
+#  define _GLIBCPP_ISREG(x) S_ISREG(x)
+# else
+#  define _GLIBCPP_ISREG(x) (((x) & S_IFMT) == S_IFREG)
+# endif
+#endif
 
 namespace std 
 {
@@ -74,11 +99,7 @@ namespace std
     if (__testi && !__testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r");
-#if defined (O_NONBLOCK)
-	__p_mode |=  O_RDONLY | O_NONBLOCK;
-#else
 	__p_mode |=  O_RDONLY;
-#endif
       }
     if (__testi && __testo && !__testt && !__testa)
       {
@@ -154,13 +175,6 @@ namespace std
 	if ((_M_cfile = fopen(__name, __c_mode)))
 	  {
 	    _M_cfile_created = true;
-
-#if defined (F_SETFL) && defined (O_NONBLOCK)
-	    // Set input to nonblocking for fifos.
-	    if (__mode & ios_base::in)
-	      fcntl(this->fd(), F_SETFL, O_NONBLOCK);
-#endif
-
 	    __ret = this;
 	  }
       }
@@ -191,36 +205,106 @@ namespace std
     return __retval;
   }
  
+  // In the next four functions we want to use stdio functions only
+  // when synced with stdio (_M_buf_size == 1): I/O primitives do not
+  // block until the asked number of bytes are available.
   streamsize 
-  __basic_file<char>::xsgetn(char* __s, streamsize __n)
-  { return fread(__s, 1, __n, _M_cfile); }
-  
+  __basic_file<char>::xsgetn(char* __s, streamsize __n, bool __stdio)
+  {
+    if (__stdio)
+      return fread(__s, 1, __n, _M_cfile);
+    else
+      {
+	streamsize __ret;
+        do
+	  __ret = read(this->fd(), __s, __n);
+	while (__ret == -1L && errno == EINTR);
+	return __ret;
+      }
+  }
+    
   streamsize 
-  __basic_file<char>::xsputn(const char* __s, streamsize __n)
-  { return fwrite(__s, 1, __n, _M_cfile); }
+  __basic_file<char>::xsputn(const char* __s, streamsize __n, bool __stdio)
+  {
+    if (__stdio)
+      return fwrite(__s, 1, __n, _M_cfile);
+    else
+      {
+	streamsize __ret;
+        do
+	  __ret = write(this->fd(), __s, __n);
+	while (__ret == -1L && errno == EINTR);
+	return __ret;
+      }
+  }
   
   streamoff
   __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
-			      ios_base::openmode /*__mode*/)
+			      bool __stdio, ios_base::openmode /*__mode*/)
   { 
-    if (!fseek(_M_cfile, __off, __way))
-      return ftell(_M_cfile); 
+    if (!__stdio)
+      return lseek(this->fd(), __off, __way);
     else
-      // Fseek failed.
-      return -1L;
+      {
+	if (!fseek(_M_cfile, __off, __way))
+	  return ftell(_M_cfile); 
+	else
+	  // Fseek failed.
+	  return -1L;
+      }
   }
 
   streamoff
-  __basic_file<char>::seekpos(streamoff __pos, ios_base::openmode /*__mode*/)
+  __basic_file<char>::seekpos(streamoff __pos, bool __stdio,
+			      ios_base::openmode /*__mode*/)
   { 
-    if (!fseek(_M_cfile, __pos, ios_base::beg))
-      return ftell(_M_cfile);
+    if (!__stdio)
+      return lseek(this->fd(), __pos, ios_base::beg);
     else
-      // Fseek failed.
-      return -1L;
+      {
+	if (!fseek(_M_cfile, __pos, ios_base::beg))
+	  return ftell(_M_cfile);
+	else
+	  // Fseek failed.
+	  return -1L;
+      }
   }
   
   int 
   __basic_file<char>::sync() 
   { return fflush(_M_cfile); }
+
+  streamsize
+  __basic_file<char>::showmanyc_helper(bool __stdio)
+  {
+#ifdef FIONREAD
+    // Pipes and sockets.    
+    int __num = 0;
+    int __r = ioctl(this->fd(), FIONREAD, &__num);
+    if (!__r && __num >= 0)
+      return __num; 
+#endif    
+
+#ifdef _GLIBCPP_HAVE_POLL
+    // Cheap test.
+    struct pollfd __pfd[1];
+    __pfd[0].fd = this->fd();
+    __pfd[0].events = POLLIN;
+    if (poll(__pfd, 1, 0) <= 0)
+      return 0;
+#endif   
+
+#if defined(_GLIBCPP_HAVE_S_ISREG) || defined(_GLIBCPP_HAVE_S_IFREG)
+    // Regular files.
+    struct stat __buffer;
+    int __ret = fstat(this->fd(), &__buffer);
+    if (!__ret && _GLIBCPP_ISREG(__buffer.st_mode))
+      if (__stdio)
+	return __buffer.st_size - ftell(_M_cfile);
+      else
+	return __buffer.st_size - lseek(this->fd(), 0, ios_base::cur);
+#endif
+    return 0;
+  }
+
 }  // namespace std

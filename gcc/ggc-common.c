@@ -1,5 +1,6 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,7 +39,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 
 #ifdef ENABLE_VALGRIND_CHECKING
-#include <valgrind.h>
+# ifdef HAVE_MEMCHECK_H
+# include <memcheck.h>
+# else
+# include <valgrind.h>
+# endif
 #else
 /* Avoid #ifdef:s when we can help it.  */
 #define VALGRIND_DISCARD(x)
@@ -108,7 +113,7 @@ ggc_mark_roots ()
       if (*cti->base)
 	{
 	  ggc_set_mark (*cti->base);
-	  htab_traverse (*cti->base, ggc_htab_delete, (PTR) cti);
+	  htab_traverse_noresize (*cti->base, ggc_htab_delete, (PTR) cti);
 	  ggc_set_mark ((*cti->base)->entries);
 	}
 }
@@ -538,6 +543,7 @@ gt_pch_save (f)
 	memcpy (state.ptrs[i]->obj, this_object, state.ptrs[i]->size);
     }
   ggc_pch_finish (state.d, state.f);
+  gt_pch_fixup_stringpool ();
 
   free (state.ptrs);
   htab_delete (saving_htab);
@@ -640,19 +646,19 @@ ggc_rlimit_bound (limit)
   struct rlimit rlim;
 # ifdef RLIMIT_RSS
   if (getrlimit (RLIMIT_RSS, &rlim) == 0
-      && rlim.rlim_cur != RLIM_INFINITY
+      && rlim.rlim_cur != (rlim_t) RLIM_INFINITY
       && rlim.rlim_cur < limit)
     limit = rlim.rlim_cur;
 # endif
 # ifdef RLIMIT_DATA
   if (getrlimit (RLIMIT_DATA, &rlim) == 0
-      && rlim.rlim_cur != RLIM_INFINITY
+      && rlim.rlim_cur != (rlim_t) RLIM_INFINITY
       && rlim.rlim_cur < limit)
     limit = rlim.rlim_cur;
 # endif
 # ifdef RLIMIT_AS
   if (getrlimit (RLIMIT_AS, &rlim) == 0
-      && rlim.rlim_cur != RLIM_INFINITY
+      && rlim.rlim_cur != (rlim_t) RLIM_INFINITY
       && rlim.rlim_cur < limit)
     limit = rlim.rlim_cur;
 # endif
@@ -689,7 +695,7 @@ ggc_min_heapsize_heuristic()
   /* Adjust for rlimits.  */
   min_heap_kbytes = ggc_rlimit_bound (min_heap_kbytes);
 
-  min_heap_kbytes /= 1024; /* convert to Kbytes. */
+  min_heap_kbytes /= 1024; /* convert to Kbytes.  */
   
   /* The heuristic is RAM/8, with a lower bound of 4M and an upper
      bound of 128M (when RAM >= 1GB).  */

@@ -240,18 +240,6 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
-/* Encapsulates state used to convert a stream of tokens into a text
-   file.  */
-struct printer
-{
-  FILE *outf;			/* Stream to write to.  */
-  const struct line_map *map;	/* Logical to physical line mappings.  */
-  const cpp_token *prev;	/* Previous token.  */
-  const cpp_token *source;	/* Source token for spacing.  */
-  unsigned int line;		/* Line currently being written.  */
-  unsigned char printed;	/* Nonzero if something output at line.  */
-};
-
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
@@ -344,11 +332,6 @@ struct cpp_reader
   /* If in_directive, the directive if known.  */
   const struct directive *directive;
 
-  /* The next -include-d file; NULL if they all are done.  If it
-     points to NULL, the last one is in progress, and
-     _cpp_maybe_push_include_file has yet to restore the line map.  */
-  struct pending_option **next_include_file;
-
   /* Search paths for include files.  */
   struct cpp_path *quote_include;	/* "" */
   struct cpp_path *bracket_include;	/* <> */
@@ -379,9 +362,6 @@ struct cpp_reader
   /* Current maximum length of directory names in the search path
      for include files.  (Altered as we get more of them.)  */
   unsigned int max_include_len;
-
-  /* Macros on or after this line are warned about if unused.  */
-  unsigned int first_unused_line;
 
   /* Date and time text.  Calculated together if either is requested.  */
   const uchar *date;
@@ -421,9 +401,6 @@ struct cpp_reader
   /* Special nodes - identifiers with predefined significance to the
      preprocessor.  */
   struct spec_nodes spec_nodes;
-
-  /* Used when doing preprocessed output.  */
-  struct printer print;
 
   /* Nonzero means don't look for #include "foo" the source-file
      directory.  */
@@ -532,6 +509,7 @@ extern cpp_token *_cpp_lex_direct	PARAMS ((cpp_reader *));
 extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 						 const cpp_token *));
 extern void _cpp_init_tokenrun		PARAMS ((tokenrun *, unsigned int));
+extern void _cpp_init_mbchar		PARAMS ((void));
 
 /* In cppinit.c.  */
 extern void _cpp_maybe_push_include_file PARAMS ((cpp_reader *));

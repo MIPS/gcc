@@ -174,7 +174,7 @@ bin_SCRIPTS = addr2name.awk
 @CANADIAN_TRUE@GCJH = @CANADIAN_TRUE@gcjh
 @CANADIAN_FALSE@GCJH = @CANADIAN_FALSE@$(MULTIBUILDTOP)../$(COMPPATH)/gcc/gcjh
 
-GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
+GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
@@ -191,13 +191,13 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 	-fdollars-in-identifiers \
 	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
-	-DPREFIX="\"$(prefix)\""
+	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\""
 
 @USING_GCC_TRUE@AM_CFLAGS = @USING_GCC_TRUE@@LIBGCJ_CFLAGS@ $(WARNINGS)
 @USING_GCC_FALSE@AM_CFLAGS = @USING_GCC_FALSE@@LIBGCJ_CFLAGS@
 
 JCFLAGS = -g
-JC1FLAGS = @LIBGCJ_JAVAFLAGS@ -Wno-deprecated $(GCJFLAGS)
+JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
@@ -536,6 +536,13 @@ gnu/java/beans/BeanInfoEmbryo.java \
 gnu/java/beans/EmptyBeanInfo.java \
 gnu/java/beans/ExplicitBeanInfo.java \
 gnu/java/beans/IntrospectionIncubator.java \
+gnu/javax/rmi/CORBA/DelegateFactory.java \
+gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
+gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
+gnu/javax/rmi/CORBA/StubDelegateImpl.java \
+gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
+gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
+gnu/javax/rmi/PortableServer.java \
 java/applet/Applet.java \
 java/applet/AppletStub.java \
 java/applet/AppletContext.java \
@@ -761,6 +768,7 @@ java/awt/peer/MenuItemPeer.java \
 java/awt/peer/MenuPeer.java \
 java/awt/peer/PanelPeer.java \
 java/awt/peer/PopupMenuPeer.java \
+java/awt/peer/RobotPeer.java \
 java/awt/peer/ScrollPanePeer.java \
 java/awt/peer/ScrollbarPeer.java \
 java/awt/peer/TextAreaPeer.java \
@@ -805,6 +813,7 @@ java/awt/dnd/peer/DragSourceContextPeer.java \
 java/awt/dnd/peer/DropTargetContextPeer.java \
 java/awt/dnd/peer/DropTargetPeer.java \
 java/awt/dnd/DnDConstants.java \
+java/awt/dnd/DnDEventMulticaster.java \
 java/awt/dnd/DragGestureEvent.java \
 java/awt/dnd/DragGestureListener.java \
 java/awt/dnd/DragGestureRecognizer.java	\
@@ -860,6 +869,8 @@ java/beans/beancontext/BeanContextServiceRevokedEvent.java \
 java/beans/beancontext/BeanContextServiceRevokedListener.java \
 java/beans/beancontext/BeanContextServices.java \
 java/beans/beancontext/BeanContextServicesListener.java \
+java/beans/beancontext/BeanContextServicesSupport.java \
+java/beans/beancontext/BeanContextSupport.java \
 java/beans/BeanDescriptor.java \
 java/beans/BeanInfo.java \
 java/beans/Beans.java \
@@ -888,6 +899,19 @@ java/beans/VetoableChangeListenerProxy.java \
 java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java \
 java/beans/AppletInitializer.java \
+javax/rmi/BAD_OPERATION.java \
+javax/rmi/ORB.java \
+javax/rmi/PortableRemoteObject.java \
+javax/rmi/CORBA/ClassDesc.java \
+javax/rmi/CORBA/ObjectImpl.java	\
+javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
+javax/rmi/CORBA/StubDelegate.java \
+javax/rmi/CORBA/Stub.java \
+javax/rmi/CORBA/SystemException.java \
+javax/rmi/CORBA/Tie.java \
+javax/rmi/CORBA/UtilDelegate.java \
+javax/rmi/CORBA/Util.java \
+javax/rmi/CORBA/ValueHandler.java \
 javax/swing/border/AbstractBorder.java \
 javax/swing/border/Border.java \
 javax/swing/border/CompoundBorder.java \
@@ -997,6 +1021,7 @@ javax/swing/JCheckBox.java \
 javax/swing/JComponent.java \
 javax/swing/JDialog.java \
 javax/swing/JEditorPane.java \
+javax/swing/JFormattedTextField.java \
 javax/swing/JFrame.java \
 javax/swing/JLabel.java \
 javax/swing/JLayeredPane.java \
@@ -1081,6 +1106,7 @@ javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
 javax/swing/text/Document.java \
+javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
 javax/swing/text/GapContent.java \
@@ -1094,6 +1120,7 @@ javax/swing/text/Style.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \
+javax/swing/text/NavigationFilter.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
 javax/swing/text/TextAction.java \
@@ -1386,6 +1413,9 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/print/attribute/Attribute.java \
+javax/print/attribute/AttributeSet.java \
+javax/print/attribute/PrintRequestAttributeSet.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
 javax/sql/ConnectionPoolDataSource.java \
@@ -1833,6 +1863,7 @@ gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FloatBufferImpl.java \
 gnu/java/nio/IntBufferImpl.java \
 gnu/java/nio/LongBufferImpl.java \
+gnu/java/nio/MappedByteFileBuffer.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2252,6 +2283,7 @@ gnu/java/nio/natFileChannelImpl.cc \
 gnu/java/nio/natFloatBufferImpl.cc \
 gnu/java/nio/natIntBufferImpl.cc \
 gnu/java/nio/natLongBufferImpl.cc \
+gnu/java/nio/natMappedByteFileBuffer.cc \
 gnu/java/nio/natSelectorImpl.cc \
 gnu/java/nio/natShortBufferImpl.cc \
 gnu/java/nio/natSocketChannelImpl.cc \
@@ -2429,14 +2461,14 @@ gnu/gcj/runtime/natVMClassLoader.lo gnu/java/nio/natByteBufferImpl.lo \
 gnu/java/nio/natCharBufferImpl.lo gnu/java/nio/natDoubleBufferImpl.lo \
 gnu/java/nio/natFileChannelImpl.lo gnu/java/nio/natFloatBufferImpl.lo \
 gnu/java/nio/natIntBufferImpl.lo gnu/java/nio/natLongBufferImpl.lo \
-gnu/java/nio/natSelectorImpl.lo gnu/java/nio/natShortBufferImpl.lo \
-gnu/java/nio/natSocketChannelImpl.lo java/io/natFile.lo \
-java/io/natFileDescriptor.lo java/io/natObjectInputStream.lo \
-java/io/natVMObjectStreamClass.lo java/lang/natCharacter.lo \
-java/lang/natClass.lo java/lang/natClassLoader.lo \
-java/lang/natConcreteProcess.lo java/lang/natDouble.lo \
-java/lang/natFloat.lo java/lang/natMath.lo java/lang/natObject.lo \
-java/lang/natRuntime.lo java/lang/natString.lo \
+gnu/java/nio/natMappedByteFileBuffer.lo gnu/java/nio/natSelectorImpl.lo \
+gnu/java/nio/natShortBufferImpl.lo gnu/java/nio/natSocketChannelImpl.lo \
+java/io/natFile.lo java/io/natFileDescriptor.lo \
+java/io/natObjectInputStream.lo java/io/natVMObjectStreamClass.lo \
+java/lang/natCharacter.lo java/lang/natClass.lo \
+java/lang/natClassLoader.lo java/lang/natConcreteProcess.lo \
+java/lang/natDouble.lo java/lang/natFloat.lo java/lang/natMath.lo \
+java/lang/natObject.lo java/lang/natRuntime.lo java/lang/natString.lo \
 java/lang/natStringBuffer.lo java/lang/natSystem.lo \
 java/lang/natThread.lo java/lang/natVMSecurityManager.lo \
 java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
@@ -2895,7 +2927,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/DoubleBufferImpl.P \
 .deps/gnu/java/nio/FileChannelImpl.P \
 .deps/gnu/java/nio/FloatBufferImpl.P .deps/gnu/java/nio/IntBufferImpl.P \
-.deps/gnu/java/nio/LongBufferImpl.P .deps/gnu/java/nio/PipeImpl.P \
+.deps/gnu/java/nio/LongBufferImpl.P \
+.deps/gnu/java/nio/MappedByteFileBuffer.P .deps/gnu/java/nio/PipeImpl.P \
 .deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
@@ -2917,6 +2950,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/natFloatBufferImpl.P \
 .deps/gnu/java/nio/natIntBufferImpl.P \
 .deps/gnu/java/nio/natLongBufferImpl.P \
+.deps/gnu/java/nio/natMappedByteFileBuffer.P \
 .deps/gnu/java/nio/natSelectorImpl.P \
 .deps/gnu/java/nio/natShortBufferImpl.P \
 .deps/gnu/java/nio/natSocketChannelImpl.P \
@@ -2970,7 +3004,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/util/prefs/MemoryBasedFactory.P \
 .deps/gnu/java/util/prefs/MemoryBasedPreferences.P \
 .deps/gnu/java/util/prefs/NodeReader.P \
-.deps/gnu/java/util/prefs/NodeWriter.P .deps/interpret.P \
+.deps/gnu/java/util/prefs/NodeWriter.P \
+.deps/gnu/javax/rmi/CORBA/DelegateFactory.P \
+.deps/gnu/javax/rmi/CORBA/GetDelegateInstanceException.P \
+.deps/gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.P \
+.deps/gnu/javax/rmi/CORBA/StubDelegateImpl.P \
+.deps/gnu/javax/rmi/CORBA/UtilDelegateImpl.P \
+.deps/gnu/javax/rmi/CORBA/ValueHandlerImpl.P \
+.deps/gnu/javax/rmi/PortableServer.P .deps/interpret.P \
 .deps/java/applet/Applet.P .deps/java/applet/AppletContext.P \
 .deps/java/applet/AppletStub.P .deps/java/applet/AudioClip.P \
 .deps/java/awt/AWTError.P .deps/java/awt/AWTEvent.P \
@@ -3042,6 +3083,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/datatransfer/Transferable.P \
 .deps/java/awt/datatransfer/UnsupportedFlavorException.P \
 .deps/java/awt/dnd/Autoscroll.P .deps/java/awt/dnd/DnDConstants.P \
+.deps/java/awt/dnd/DnDEventMulticaster.P \
 .deps/java/awt/dnd/DragGestureEvent.P \
 .deps/java/awt/dnd/DragGestureListener.P \
 .deps/java/awt/dnd/DragGestureRecognizer.P \
@@ -3177,7 +3219,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/peer/MenuComponentPeer.P \
 .deps/java/awt/peer/MenuItemPeer.P .deps/java/awt/peer/MenuPeer.P \
 .deps/java/awt/peer/PanelPeer.P .deps/java/awt/peer/PopupMenuPeer.P \
-.deps/java/awt/peer/ScrollPanePeer.P \
+.deps/java/awt/peer/RobotPeer.P .deps/java/awt/peer/ScrollPanePeer.P \
 .deps/java/awt/peer/ScrollbarPeer.P .deps/java/awt/peer/TextAreaPeer.P \
 .deps/java/awt/peer/TextComponentPeer.P \
 .deps/java/awt/peer/TextFieldPeer.P .deps/java/awt/peer/WindowPeer.P \
@@ -3226,6 +3268,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/beans/beancontext/BeanContextServiceRevokedListener.P \
 .deps/java/beans/beancontext/BeanContextServices.P \
 .deps/java/beans/beancontext/BeanContextServicesListener.P \
+.deps/java/beans/beancontext/BeanContextServicesSupport.P \
+.deps/java/beans/beancontext/BeanContextSupport.P \
 .deps/java/io/BufferedInputStream.P \
 .deps/java/io/BufferedOutputStream.P .deps/java/io/BufferedReader.P \
 .deps/java/io/BufferedWriter.P .deps/java/io/ByteArrayInputStream.P \
@@ -3804,6 +3848,17 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/naming/spi/ObjectFactoryBuilder.P \
 .deps/javax/naming/spi/ResolveResult.P \
 .deps/javax/naming/spi/Resolver.P .deps/javax/naming/spi/StateFactory.P \
+.deps/javax/print/attribute/Attribute.P \
+.deps/javax/print/attribute/AttributeSet.P \
+.deps/javax/print/attribute/PrintRequestAttributeSet.P \
+.deps/javax/rmi/BAD_OPERATION.P .deps/javax/rmi/CORBA/ClassDesc.P \
+.deps/javax/rmi/CORBA/ObjectImpl.P \
+.deps/javax/rmi/CORBA/PortableRemoteObjectDelegate.P \
+.deps/javax/rmi/CORBA/Stub.P .deps/javax/rmi/CORBA/StubDelegate.P \
+.deps/javax/rmi/CORBA/SystemException.P .deps/javax/rmi/CORBA/Tie.P \
+.deps/javax/rmi/CORBA/Util.P .deps/javax/rmi/CORBA/UtilDelegate.P \
+.deps/javax/rmi/CORBA/ValueHandler.P .deps/javax/rmi/ORB.P \
+.deps/javax/rmi/PortableRemoteObject.P \
 .deps/javax/sql/ConnectionEvent.P \
 .deps/javax/sql/ConnectionEventListener.P \
 .deps/javax/sql/ConnectionPoolDataSource.P .deps/javax/sql/DataSource.P \
@@ -3842,13 +3897,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/JComboBox.P .deps/javax/swing/JComponent.P \
 .deps/javax/swing/JDesktopPane.P .deps/javax/swing/JDialog.P \
 .deps/javax/swing/JEditorPane.P .deps/javax/swing/JFileChooser.P \
-.deps/javax/swing/JFrame.P .deps/javax/swing/JInternalFrame.P \
-.deps/javax/swing/JLabel.P .deps/javax/swing/JLayeredPane.P \
-.deps/javax/swing/JList.P .deps/javax/swing/JMenu.P \
-.deps/javax/swing/JMenuBar.P .deps/javax/swing/JMenuItem.P \
-.deps/javax/swing/JOptionPane.P .deps/javax/swing/JPanel.P \
-.deps/javax/swing/JPasswordField.P .deps/javax/swing/JPopupMenu.P \
-.deps/javax/swing/JProgressBar.P .deps/javax/swing/JRadioButton.P \
+.deps/javax/swing/JFormattedTextField.P .deps/javax/swing/JFrame.P \
+.deps/javax/swing/JInternalFrame.P .deps/javax/swing/JLabel.P \
+.deps/javax/swing/JLayeredPane.P .deps/javax/swing/JList.P \
+.deps/javax/swing/JMenu.P .deps/javax/swing/JMenuBar.P \
+.deps/javax/swing/JMenuItem.P .deps/javax/swing/JOptionPane.P \
+.deps/javax/swing/JPanel.P .deps/javax/swing/JPasswordField.P \
+.deps/javax/swing/JPopupMenu.P .deps/javax/swing/JProgressBar.P \
+.deps/javax/swing/JRadioButton.P \
 .deps/javax/swing/JRadioButtonMenuItem.P .deps/javax/swing/JRootPane.P \
 .deps/javax/swing/JScrollBar.P .deps/javax/swing/JScrollPane.P \
 .deps/javax/swing/JSeparator.P .deps/javax/swing/JSlider.P \
@@ -4004,10 +4060,13 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/ComponentView.P \
 .deps/javax/swing/text/DefaultCaret.P \
 .deps/javax/swing/text/DefaultEditorKit.P \
-.deps/javax/swing/text/Document.P .deps/javax/swing/text/EditorKit.P \
-.deps/javax/swing/text/Element.P .deps/javax/swing/text/GapContent.P \
+.deps/javax/swing/text/Document.P \
+.deps/javax/swing/text/DocumentFilter.P \
+.deps/javax/swing/text/EditorKit.P .deps/javax/swing/text/Element.P \
+.deps/javax/swing/text/GapContent.P \
 .deps/javax/swing/text/JTextComponent.P .deps/javax/swing/text/Keymap.P \
 .deps/javax/swing/text/MutableAttributeSet.P \
+.deps/javax/swing/text/NavigationFilter.P \
 .deps/javax/swing/text/PlainDocument.P \
 .deps/javax/swing/text/PlainEditorKit.P \
 .deps/javax/swing/text/Position.P .deps/javax/swing/text/Segment.P \

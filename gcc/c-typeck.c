@@ -1153,7 +1153,7 @@ build_component_ref (datum, component)
 	 end does it - by giving the anonymous entities each a
 	 separate name and type, and then have build_component_ref
 	 recursively call itself.  We can't do that here.  */
-      for (; field; field = TREE_CHAIN (field))
+      do
 	{
 	  tree subdatum = TREE_VALUE (field);
 
@@ -1170,7 +1170,10 @@ build_component_ref (datum, component)
 	    warn_deprecated_use (subdatum);
 
 	  datum = ref;
+
+	  field = TREE_CHAIN (field);
 	}
+      while (field);
 
       return ref;
     }
@@ -1410,6 +1413,11 @@ build_external_ref (id, fun)
 	}
       else
 	{
+	  /* Don't complain about something that's already been
+	     complained about.  */
+	  if (decl == error_mark_node)
+	    return error_mark_node;
+
 	  /* Reference to undeclared variable, including reference to
 	     builtin outside of function-call context.  */
 	  if (current_function_decl == 0)
@@ -1417,21 +1425,22 @@ build_external_ref (id, fun)
 		   IDENTIFIER_POINTER (id));
 	  else
 	    {
-	      if (IDENTIFIER_GLOBAL_VALUE (id) != error_mark_node
-		  || IDENTIFIER_ERROR_LOCUS (id) != current_function_decl)
-		{
-		  error ("`%s' undeclared (first use in this function)",
-			 IDENTIFIER_POINTER (id));
+	      error ("`%s' undeclared (first use in this function)",
+		     IDENTIFIER_POINTER (id));
 
-		  if (! undeclared_variable_notice)
-		    {
-		      error ("(Each undeclared identifier is reported only once");
-		      error ("for each function it appears in.)");
-		      undeclared_variable_notice = 1;
-		    }
+	      if (! undeclared_variable_notice)
+		{
+		  error ("(Each undeclared identifier is reported only once");
+		  error ("for each function it appears in.)");
+		  undeclared_variable_notice = 1;
 		}
-	      IDENTIFIER_GLOBAL_VALUE (id) = error_mark_node;
-	      IDENTIFIER_ERROR_LOCUS (id) = current_function_decl;
+
+	      /* Set IDENTIFIER_LOCAL_VALUE (id) to error_mark_node and
+		 add a function-scope shadow entry which will undo that.
+		 This suppresses further warnings about this undeclared
+		 identifier in this function.  */
+	      record_function_scope_shadow (id);
+	      IDENTIFIER_LOCAL_VALUE (id) = error_mark_node;
 	    }
 	  return error_mark_node;
 	}
@@ -2323,7 +2332,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  tree arg1 = get_narrower (op1, &unsigned1);
 	  /* UNS is 1 if the operation to be done is an unsigned one.  */
 	  int uns = TREE_UNSIGNED (result_type);
-	  tree type = NULL;  /* [GIMPLE] Avoid uninitialized use warning.  */
+	  tree type;
 
 	  final_type = result_type;
 
@@ -2600,13 +2609,13 @@ c_tree_expr_nonnegative_p (t)
 {
   if (TREE_CODE (t) == STMT_EXPR)
     {
-      t=COMPOUND_BODY (STMT_EXPR_STMT (t));
+      t = COMPOUND_BODY (STMT_EXPR_STMT (t));
 
       /* Find the last statement in the chain, ignoring the final
 	     * scope statement */
       while (TREE_CHAIN (t) != NULL_TREE 
              && TREE_CODE (TREE_CHAIN (t)) != SCOPE_STMT)
-        t=TREE_CHAIN (t);
+        t = TREE_CHAIN (t);
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
     }
   return tree_expr_nonnegative_p (t);
@@ -3338,7 +3347,7 @@ c_mark_addressable (exp)
 	    pedwarn ("address of register variable `%s' requested",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
-	put_var_into_stack (x);
+	put_var_into_stack (x, /*rescan=*/true);
 
 	/* drops in */
       case FUNCTION_DECL:
@@ -4751,6 +4760,14 @@ digest_init (type, init, require_constant)
 	}
     }
 
+  /* Build a VECTOR_CST from a *constant* vector constructor.  If the
+     vector constructor is not constant (e.g. {1,2,3,foo()}) then punt
+     below and handle as a constructor.  */
+  if (code == VECTOR_TYPE
+      && comptypes (TREE_TYPE (inside_init), type)
+      && TREE_CONSTANT (inside_init))
+    return build_vector (type, TREE_OPERAND (inside_init, 1));
+
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
 
@@ -5274,6 +5291,7 @@ push_init_level (implicit)
 	  && constructor_fields == 0)
 	process_init_element (pop_init_level (1));
       else if (TREE_CODE (constructor_type) == ARRAY_TYPE
+	       && constructor_max_index 
 	       && tree_int_cst_lt (constructor_max_index, constructor_index))
 	process_init_element (pop_init_level (1));
       else
@@ -7190,11 +7208,19 @@ do_case (low_value, high_value)
 
   if (switch_stack)
     {
+      bool switch_was_empty_p = (SWITCH_BODY (switch_stack->switch_stmt) == NULL_TREE);
+
       label = c_add_case_label (switch_stack->cases, 
 				SWITCH_COND (switch_stack->switch_stmt), 
 				low_value, high_value);
       if (label == error_mark_node)
 	label = NULL_TREE;
+      else if (switch_was_empty_p)
+	{
+	  /* Attach the first case label to the SWITCH_BODY.  */
+	  SWITCH_BODY (switch_stack->switch_stmt) = TREE_CHAIN (switch_stack->switch_stmt);
+	  TREE_CHAIN (switch_stack->switch_stmt) = NULL_TREE;
+	}
     }
   else if (low_value)
     error ("case label not within a switch statement");
@@ -7211,7 +7237,8 @@ c_finish_case ()
 {
   struct c_switch *cs = switch_stack;
 
-  RECHAIN_STMTS (cs->switch_stmt, SWITCH_BODY (cs->switch_stmt)); 
+  /* Rechain the next statements to the SWITCH_STMT.  */
+  last_tree = cs->switch_stmt;
 
   /* Pop the stack.  */
   switch_stack = switch_stack->next;

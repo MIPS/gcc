@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -333,12 +333,13 @@ extern tree walk_stmt_tree			PARAMS ((tree *,
 							 void *));
 extern void prep_stmt                           PARAMS ((tree));
 extern void expand_stmt                         PARAMS ((tree));
-extern void shadow_warning			PARAMS ((const char *,
-							 tree, tree));
 extern tree c_begin_if_stmt			PARAMS ((void));
 extern tree c_begin_while_stmt			PARAMS ((void));
 extern void c_finish_while_stmt_cond		PARAMS ((tree, tree));
 
+enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
+extern void shadow_warning			PARAMS ((enum sw_kind, int,
+							 const char *, tree));
 
 /* Extra information associated with a DECL.  Other C dialects extend
    this structure in various ways.  The C front-end only uses this
@@ -363,6 +364,24 @@ extern int allow_pch;
 /* Nonzero if prepreprocessing only.  */
 
 extern int flag_preprocess_only;
+
+/* Nonzero means don't output line number information.  */
+
+extern char flag_no_line_commands;
+
+/* Nonzero causes -E output not to be done, but directives such as
+   #define that have side effects are still obeyed.  */
+
+extern char flag_no_output;
+
+/* Nonzero means dump macros in some fashion; contains the 'D', 'M' or
+   'N' of the command line switch.  */
+
+extern char flag_dump_macros;
+
+/* Nonzero means pass #include lines through to the output.  */
+
+extern char flag_dump_includes;
 
 /* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
@@ -937,8 +956,8 @@ extern void disable_builtin_function		PARAMS ((const char *));
 extern tree build_va_arg			PARAMS ((tree, tree));
 
 extern void c_common_init_options		PARAMS ((enum c_language_kind));
-extern bool c_common_post_options		PARAMS ((void));
-extern const char *c_common_init		PARAMS ((const char *));
+extern bool c_common_post_options		PARAMS ((const char **));
+extern bool c_common_init			PARAMS ((void));
 extern void c_common_finish			PARAMS ((void));
 extern void c_common_parse_file			PARAMS ((int));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
@@ -1206,9 +1225,9 @@ extern int c_staticp                            PARAMS ((tree));
 
 extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
-extern const char *init_c_lex			PARAMS ((const char *));
+extern void init_c_lex				PARAMS ((void));
 
-extern void cb_register_builtins		PARAMS ((cpp_reader *));
+extern void c_cpp_builtins			PARAMS ((cpp_reader *));
 
 /* Positive if an implicit `extern "C"' scope has just been entered;
    negative if such a scope has just been exited.  */
@@ -1226,7 +1245,7 @@ struct c_fileinfo
 struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
 
-extern int c_dump_tree				PARAMS ((void *, tree));
+extern bool c_dump_tree				PARAMS ((void *, tree));
 
 extern int c_simplify_expr			PARAMS ((tree *, tree *, tree *));
 extern tree c_walk_subtrees PARAMS ((tree*, int*, walk_tree_fn, void*, void*));
@@ -1254,5 +1273,14 @@ extern void c_common_read_pch			PARAMS ((cpp_reader *pfile,
 							 int fd,
 							 const char *orig));
 extern void c_common_write_pch			PARAMS ((void));
+extern void builtin_define_with_value		PARAMS ((const char *,
+							 const char *, int));
+extern void c_stddef_cpp_builtins		PARAMS ((void));
+extern void fe_file_change		PARAMS ((const struct line_map *));
+
+/* In c-ppoutput.c  */
+extern void init_pp_output			PARAMS ((FILE *));
+extern void preprocess_file			PARAMS ((cpp_reader *));
+extern void pp_file_change		PARAMS ((const struct line_map *));
 
 #endif /* ! GCC_C_COMMON_H */

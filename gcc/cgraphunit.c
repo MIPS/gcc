@@ -33,11 +33,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "cgraph.h"
+#include "diagnostic.h"
 
 static void cgraph_expand_functions PARAMS ((void));
 static void cgraph_mark_functions_to_output PARAMS ((void));
 static void cgraph_expand_function PARAMS ((struct cgraph_node *));
 static tree record_call_1 PARAMS ((tree *, int *, void *));
+static void cgraph_mark_local_functions PARAMS ((void));
+static void cgraph_mark_functions_to_inline_once PARAMS ((void));
+static void cgraph_optimize_function PARAMS ((struct cgraph_node *));
 
 /* Analyze function once it is parsed.  Set up the local information
    available - create cgraph edges for function calles via BODY.  */
@@ -51,8 +55,11 @@ cgraph_finalize_function (decl, body)
 
   node->decl = decl;
 
-  /* Set TREE_UNINLINABLE flag.  */
-  tree_inlinable_function_p (decl);
+  node->local.can_inline_once = tree_inlinable_function_p (decl, 1);
+  if (flag_inline_trees)
+    node->local.inline_many = tree_inlinable_function_p (decl, 0);
+  else
+    node->local.inline_many = 0;
 
   (*debug_hooks->deferred_inline_function) (decl);
 }
@@ -196,7 +203,7 @@ cgraph_finalize_compilation_unit ()
 
       if (!node->reachable && DECL_SAVED_TREE (decl))
 	{
-	  DECL_SAVED_TREE (decl) = NULL;
+	  cgraph_remove_node (node);
 	  announce_function (decl);
 	}
     }
@@ -217,11 +224,28 @@ cgraph_mark_functions_to_output ()
 
       if (DECL_SAVED_TREE (decl)
 	  && (node->needed
-	      || (DECL_UNINLINABLE (decl) && node->reachable)
+	      || (!node->local.inline_many && !node->global.inline_once
+		  && node->reachable)
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	  && !TREE_ASM_WRITTEN (decl) && !node->origin
 	  && !DECL_EXTERNAL (decl))
 	node->output = 1;
+    }
+}
+
+/* Optimize the function before expansion.  */
+static void
+cgraph_optimize_function (node)
+     struct cgraph_node *node;
+{
+  tree decl = node->decl;
+
+  if (flag_inline_trees)
+    optimize_inline_calls (decl);
+  if (node->nested)
+    {
+      for (node = node->nested; node; node = node->next_nested)
+	cgraph_optimize_function (node);
     }
 }
 
@@ -233,10 +257,18 @@ cgraph_expand_function (node)
   tree decl = node->decl;
 
   announce_function (decl);
-  if (flag_inline_trees)
-    optimize_inline_calls (decl);
+
+  cgraph_optimize_function (node);
+
+  /* Avoid RTL inlining from taking place.  */
   (*lang_hooks.callgraph.expand_function) (decl);
-  if (DECL_UNINLINABLE (decl))
+
+  /* When we decided to inline the function once, we never ever should need to
+     output it separately.  */
+  if (node->global.inline_once)
+    abort ();
+  if (!node->local.inline_many
+      || !node->callers)
     DECL_SAVED_TREE (decl) = NULL;
   current_function_decl = NULL;
 }
@@ -310,7 +342,7 @@ cgraph_expand_functions ()
 	      }
 	  }
       }
-  for (i = order_pos - 1; i >=0; i--)
+  for (i = order_pos - 1; i >= 0; i--)
     {
       node = order[i];
       if (node->output)
@@ -325,6 +357,67 @@ cgraph_expand_functions ()
   free (order);
 }
 
+/* Mark all local functions.
+   We can not use node->needed directly as it is modified during
+   execution of cgraph_optimize.  */
+
+static void
+cgraph_mark_local_functions ()
+{
+  struct cgraph_node *node;
+
+  if (!quiet_flag)
+    fprintf (stderr, "\n\nMarking local functions:");
+
+  /* Figure out functions we want to assemble.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      node->local.local = (!node->needed
+		           && DECL_SAVED_TREE (node->decl)
+		           && !TREE_PUBLIC (node->decl));
+      if (node->local.local)
+	announce_function (node->decl);
+    }
+}
+
+/*  Decide what function should be inlined because they are invoked once
+    (so inlining won't result in duplication of the code).  */
+
+static void
+cgraph_mark_functions_to_inline_once ()
+{
+  struct cgraph_node *node, *node1;
+
+  if (!quiet_flag)
+    fprintf (stderr, "\n\nMarking functions to inline once:");
+
+  /* Now look for function called only once and mark them to inline.  From this
+     point number of calls to given function won't grow.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (node->callers && !node->callers->next_caller && !node->needed
+	  && node->local.can_inline_once)
+	{
+	  bool ok = true;
+
+	  /* Verify that we won't duplicate the caller.  */
+	  for (node1 = node->callers->caller;
+	       node1->local.inline_many
+	       && node1->callers
+	       && ok;
+	       node1 = node1->callers->caller)
+	    if (node1->callers->next_caller || node1->needed)
+	      ok = false;
+	  if (ok)
+	    {
+	      node->global.inline_once = true;
+	      announce_function (node->decl);
+	    }
+	}
+    }
+}
+
+
 /* Perform simple optimizations based on callgraph.  */
 
 void
@@ -332,8 +425,12 @@ cgraph_optimize ()
 {
   struct cgraph_node *node;
   bool changed = true;
-  struct cgraph_edge *edge;
 
+  cgraph_mark_local_functions ();
+
+  cgraph_mark_functions_to_inline_once ();
+
+  cgraph_global_info_ready = true;
   if (!quiet_flag)
     fprintf (stderr, "\n\nAssembling functions:");
 
@@ -343,18 +440,29 @@ cgraph_optimize ()
      Later we should move all inlining decisions to callgraph code to make
      this impossible.  */
   cgraph_expand_functions ();
-  while (changed)
+  if (!quiet_flag)
+    fprintf (stderr, "\n\nAssembling functions that failed to inline:");
+  while (changed && !errorcount && !sorrycount)
     {
       changed = false;
       for (node = cgraph_nodes; node; node = node->next)
 	{
-	  if (!node->needed)
-	    continue;
+	  tree decl = node->decl;
+	  if (!node->origin
+	      && !TREE_ASM_WRITTEN (decl)
+	      && DECL_SAVED_TREE (decl)
+	      && !DECL_EXTERNAL (decl))
+	    {
+	      struct cgraph_edge *edge;
 
-	  for (edge = node->callees; edge; edge = edge->next_callee)
-	    if (!edge->callee->needed)
-	      changed = edge->callee->needed = true;
+	      for (edge = node->callers; edge; edge = edge->next_caller)
+		if (TREE_ASM_WRITTEN (edge->caller->decl))
+		  {
+		    changed = true;
+		    cgraph_expand_function (node);
+		    break;
+		  }
+	    }
 	}
     }
-  cgraph_expand_functions ();
 }

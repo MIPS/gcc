@@ -2137,10 +2137,10 @@ operands_match_p (x, y)
 	 (reg:SI 1) will be considered the same register.  */
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
 	  && i < FIRST_PSEUDO_REGISTER)
-	i += (GET_MODE_SIZE (GET_MODE (x)) / UNITS_PER_WORD) - 1;
+	i += HARD_REGNO_NREGS (i, GET_MODE (x)) - 1;
       if (WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (y)) > UNITS_PER_WORD
 	  && j < FIRST_PSEUDO_REGISTER)
-	j += (GET_MODE_SIZE (GET_MODE (y)) / UNITS_PER_WORD) - 1;
+	j += HARD_REGNO_NREGS (j, GET_MODE (y)) - 1;
 
       return i == j;
     }
@@ -4890,25 +4890,23 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
      that the index needs a reload and find_reloads_address_1 will take care
      of it.
 
-     If we decide to do something here, it must be that
-     `double_reg_address_ok' is true and that this address rtl was made by
-     eliminate_regs.  We generate a reload of the fp/sp/ap + constant and
+     Handle all base registers here, not just fp/ap/sp, because on some
+     targets (namely Sparc) we can also get invalid addresses from preventive
+     subreg big-endian corrections made by find_reloads_toplev.
+
+     If we decide to do something, it must be that `double_reg_address_ok'
+     is true.  We generate a reload of the base register + constant and
      rework the sum so that the reload register will be added to the index.
      This is safe because we know the address isn't shared.
 
-     We check for fp/ap/sp as both the first and second operand of the
-     innermost PLUS.  */
+     We check for the base register as both the first and second operand of
+     the innermost PLUS.  */
 
   else if (GET_CODE (ad) == PLUS && GET_CODE (XEXP (ad, 1)) == CONST_INT
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
-	   && (XEXP (XEXP (ad, 0), 0) == frame_pointer_rtx
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	       || XEXP (XEXP (ad, 0), 0) == hard_frame_pointer_rtx
-#endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	       || XEXP (XEXP (ad, 0), 0) == arg_pointer_rtx
-#endif
-	       || XEXP (XEXP (ad, 0), 0) == stack_pointer_rtx)
+	   && GET_CODE (XEXP (XEXP (ad, 0), 0)) == REG
+	   && REGNO (XEXP (XEXP (ad, 0), 0)) < FIRST_PSEUDO_REGISTER
+	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 0), mode)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 1)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -4926,14 +4924,9 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
 
   else if (GET_CODE (ad) == PLUS && GET_CODE (XEXP (ad, 1)) == CONST_INT
 	   && GET_CODE (XEXP (ad, 0)) == PLUS
-	   && (XEXP (XEXP (ad, 0), 1) == frame_pointer_rtx
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-	       || XEXP (XEXP (ad, 0), 1) == hard_frame_pointer_rtx
-#endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	       || XEXP (XEXP (ad, 0), 1) == arg_pointer_rtx
-#endif
-	       || XEXP (XEXP (ad, 0), 1) == stack_pointer_rtx)
+	   && GET_CODE (XEXP (XEXP (ad, 0), 1)) == REG
+	   && REGNO (XEXP (XEXP (ad, 0), 1)) < FIRST_PSEUDO_REGISTER
+	   && REG_MODE_OK_FOR_BASE_P (XEXP (XEXP (ad, 0), 1), mode)
 	   && ! maybe_memory_address_p (mode, ad, &XEXP (XEXP (ad, 0), 0)))
     {
       *loc = ad = gen_rtx_PLUS (GET_MODE (ad),
@@ -5954,7 +5947,7 @@ subst_reloads (insn)
 	     do the wrong thing if RELOADREG is multi-word.  RELOADREG
 	     will always be a REG here.  */
 	  if (GET_MODE (reloadreg) != r->mode && r->mode != VOIDmode)
-	    reloadreg = gen_rtx_REG (r->mode, REGNO (reloadreg));
+	    reloadreg = reload_adjust_reg_for_mode (reloadreg, r->mode);
 
 	  /* If we are putting this into a SUBREG and RELOADREG is a
 	     SUBREG, we would be making nested SUBREGs, so we have to fix
@@ -6403,9 +6396,6 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
   int need_stable_sp = 0;
   int nregs;
   int valuenregs;
-
-  valtry = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
-  valueno = 0;		/* [GIMPLE] Avoid uninitialized use warning.  */
 
   if (goal == 0)
     regno = goalreg;
@@ -6935,6 +6925,26 @@ regno_clobbered_p (regno, insn, mode, sets)
     }
 
   return 0;
+}
+
+/* Find the low part, with mode MODE, of a hard regno RELOADREG.  */
+rtx
+reload_adjust_reg_for_mode (reloadreg, mode)
+     rtx reloadreg;
+     enum machine_mode mode;
+{
+  int regno;
+
+  if (GET_MODE (reloadreg) == mode)
+    return reloadreg;
+
+  regno = REGNO (reloadreg);
+
+  if (WORDS_BIG_ENDIAN)
+    regno += HARD_REGNO_NREGS (regno, GET_MODE (reloadreg))
+      - HARD_REGNO_NREGS (regno, mode);
+
+  return gen_rtx_REG (mode, regno);
 }
 
 static const char *const reload_when_needed_name[] =

@@ -183,6 +183,7 @@ maybe_clone_body (tree fn)
       /* Update CLONE's source position information to match FN's.  */
       TREE_LOCUS (clone) = TREE_LOCUS (fn);
       DECL_INLINE (clone) = DECL_INLINE (fn);
+      DID_INLINE_FUNC (clone) = DID_INLINE_FUNC (fn);
       DECL_DECLARED_INLINE_P (clone) = DECL_DECLARED_INLINE_P (fn);
       DECL_COMDAT (clone) = DECL_COMDAT (fn);
       DECL_WEAK (clone) = DECL_WEAK (fn);

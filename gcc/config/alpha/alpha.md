@@ -413,7 +413,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "r")
 		 (high:DI (match_operand:DI 2 "local_symbolic_operand" ""))))]
-  "TARGET_EXPLICIT_RELOCS"
+  "TARGET_EXPLICIT_RELOCS && reload_completed"
   "ldah %0,%2(%1)\t\t!gprelhigh"
   [(set_attr "usegp" "yes")])
 
@@ -750,17 +750,31 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "mulqv %r1,%2,%0"
   [(set_attr "type" "imul")])
 
-(define_insn "umuldi3_highpart"
+(define_expand "umuldi3_highpart"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(truncate:DI
+	 (lshiftrt:TI
+	  (mult:TI (zero_extend:TI
+		     (match_operand:DI 1 "register_operand" ""))
+		   (match_operand:DI 2 "reg_or_8bit_operand" ""))
+	  (const_int 64))))]
+  ""
+{
+  if (REG_P (operands[2]))
+    operands[2] = gen_rtx_ZERO_EXTEND (TImode, operands[2]);
+})
+
+(define_insn "*umuldi3_highpart_reg"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(truncate:DI
 	 (lshiftrt:TI
 	  (mult:TI (zero_extend:TI
-		     (match_operand:DI 1 "reg_or_0_operand" "%rJ"))
+		     (match_operand:DI 1 "register_operand" "r"))
 		   (zero_extend:TI
-		     (match_operand:DI 2 "reg_or_8bit_operand" "rI")))
+		     (match_operand:DI 2 "register_operand" "r")))
 	  (const_int 64))))]
   ""
-  "umulh %r1,%2,%0"
+  "umulh %1,%2,%0"
   [(set_attr "type" "imul")
    (set_attr "opsize" "udi")])
 
@@ -4687,6 +4701,16 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "jsr $26,(%0),%2%J3"
   [(set_attr "type" "jsr")])
 
+;; We output a nop after noreturn calls at the very end of the function to
+;; ensure that the return address always remains in the caller's code range,
+;; as not doing so might confuse unwinding engines.
+;;
+;; The potential change in insn length is not reflected in the length
+;; attributes at this stage. Since the extra space is only actually added at
+;; the very end of the compilation process (via final/print_operand), it
+;; really seems harmless and not worth the trouble of some extra computation
+;; cost and complexity.
+
 (define_insn "*call_osf_1_noreturn"
   [(call (mem:DI (match_operand:DI 0 "call_operand" "c,R,s"))
 	 (match_operand 1 "" ""))
@@ -4695,9 +4719,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
   "@
-   jsr $26,($27),0
-   bsr $26,$%0..ng
-   jsr $26,%0"
+   jsr $26,($27),0%+
+   bsr $26,$%0..ng%+
+   jsr $26,%0%+"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,*,8")])
 
@@ -7920,9 +7944,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   "! TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF
    && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
   "@
-   jsr $26,($27),0
-   bsr $26,$%1..ng
-   jsr $26,%1"
+   jsr $26,($27),0%+
+   bsr $26,$%1..ng%+
+   jsr $26,%1%+"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,*,8")])
 

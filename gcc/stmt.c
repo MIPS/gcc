@@ -947,9 +947,9 @@ expand_fixups (first_insn)
    Gotos that jump out of this contour must restore the
    stack level and do the cleanups before actually jumping.
 
-   DONT_JUMP_IN nonzero means report error there is a jump into this
-   contour from before the beginning of the contour.
-   This is also done if STACK_LEVEL is nonzero.  */
+   DONT_JUMP_IN positive means report error if there is a jump into this
+   contour from before the beginning of the contour.  This is also done if
+   STACK_LEVEL is nonzero unless DONT_JUMP_IN is negative.  */
 
 static void
 fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
@@ -991,7 +991,8 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	     It detects only a problem with the innermost block
 	     around the label.  */
 	  if (f->target != 0
-	      && (dont_jump_in || stack_level || cleanup_list)
+	      && (dont_jump_in > 0 || (dont_jump_in == 0 && stack_level)
+		  || cleanup_list)
 	      && INSN_UID (first_insn) < INSN_UID (f->target_rtl)
 	      && INSN_UID (first_insn) > INSN_UID (f->before_jump)
 	      && ! DECL_ERROR_ISSUED (f->target))
@@ -3396,15 +3397,15 @@ tail_recursion_args (actuals, formals)
       else
 	{
 	  rtx tmp = argvec[i];
-
+	  int unsignedp = TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a)));
+	  promote_mode(TREE_TYPE (TREE_VALUE (a)), GET_MODE (tmp),
+		       &unsignedp, 0);
 	  if (DECL_MODE (f) != GET_MODE (DECL_RTL (f)))
 	    {
 	      tmp = gen_reg_rtx (DECL_MODE (f));
-	      convert_move (tmp, argvec[i],
-			    TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	      convert_move (tmp, argvec[i], unsignedp);
 	    }
-	  convert_move (DECL_RTL (f), tmp,
-			TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (a))));
+	  convert_move (DECL_RTL (f), tmp, unsignedp);
 	}
     }
 
@@ -3761,8 +3762,10 @@ warn_about_unused_variables (vars)
    MARK_ENDS is nonzero if we should put a note at the beginning
    and end of this binding contour.
 
-   DONT_JUMP_IN is nonzero if it is not valid to jump into this contour.
-   (That is true automatically if the contour has a saved stack level.)  */
+   DONT_JUMP_IN is positive if it is not valid to jump into this contour,
+   zero if we can jump into this contour only if it does not have a saved
+   stack level, and negative if we are not to check for invalid use of
+   labels (because the front end does that).  */
 
 void
 expand_end_bindings (vars, mark_ends, dont_jump_in)
@@ -3797,8 +3800,8 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 
   /* Don't allow jumping into a block that has a stack level.
      Cleanups are allowed, though.  */
-  if (dont_jump_in
-      || thisblock->data.block.stack_level != 0)
+  if (dont_jump_in > 0
+      || (dont_jump_in == 0 && thisblock->data.block.stack_level != 0))
     {
       struct label_chain *chain;
 
@@ -3987,7 +3990,7 @@ expand_decl (decl)
 
       /* If something wants our address, try to use ADDRESSOF.  */
       if (TREE_ADDRESSABLE (decl))
-	put_var_into_stack (decl);
+	put_var_into_stack (decl, /*rescan=*/false);
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -4087,6 +4090,8 @@ expand_decl_init (decl)
 
   /* Compute and store the initial value now.  */
 
+  push_temp_slots ();
+
   if (DECL_INITIAL (decl) == error_mark_node)
     {
       enum tree_code code = TREE_CODE (TREE_TYPE (decl));
@@ -4110,6 +4115,7 @@ expand_decl_init (decl)
   /* Free any temporaries we made while initializing the decl.  */
   preserve_temp_slots (NULL_RTX);
   free_temp_slots ();
+  pop_temp_slots ();
 }
 
 /* CLEANUP is an expression to be executed at exit from this binding contour;
@@ -4472,6 +4478,7 @@ expand_start_case (exit_flag, expr, type, printname)
   nesting_stack = thiscase;
 
   do_pending_stack_adjust ();
+  emit_queue ();
 
   /* Make sure case_stmt.start points to something that won't
      need any transformation before expand_end_case.  */
@@ -5545,6 +5552,7 @@ expand_end_case_type (orig_index, orig_type)
       else if (CASE_USE_BIT_TESTS
 	       && ! TREE_CONSTANT (index_expr)
 	       && compare_tree_int (range, GET_MODE_BITSIZE (word_mode)) < 0
+	       && compare_tree_int (range, 0) > 0
 	       && lshift_cheap_p ()
 	       && ((uniq == 1 && count >= 3)
 		   || (uniq == 2 && count >= 5)

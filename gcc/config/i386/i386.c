@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
+#include "cgraph.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -529,10 +530,6 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_PPRO;
    epilogue code.  */
 #define FAST_PROLOGUE_INSN_COUNT 20
 
-/* Set by prologue expander and used by epilogue expander to determine
-   the style used.  */
-static int use_fast_prologue_epilogue;
-
 /* Names for 8 (low), 8 (high), and 16-bit registers, respectively.  */
 static const char *const qi_reg_name[] = QI_REGISTER_NAMES;
 static const char *const qi_high_reg_name[] = QI_HIGH_REGISTER_NAMES;
@@ -723,6 +720,10 @@ struct ix86_frame
   HOST_WIDE_INT frame_pointer_offset;
   HOST_WIDE_INT hard_frame_pointer_offset;
   HOST_WIDE_INT stack_pointer_offset;
+
+  /* When save_regs_using_mov is set, emit prologue using
+     move instead of push instructions.  */
+  bool save_regs_using_mov;
 };
 
 /* Used to enable/disable debugging features.  */
@@ -1379,7 +1380,13 @@ override_options ()
       ix86_fpmath = FPMATH_SSE;
      }
   else
-    ix86_fpmath = FPMATH_387;
+    {
+      ix86_fpmath = FPMATH_387;
+      /* i386 ABI does not specify red zone.  It still makes sense to use it
+         when programmer takes care to stack from being destroyed.  */
+      if (!(target_flags_explicit & MASK_NO_RED_ZONE))
+        target_flags |= MASK_NO_RED_ZONE;
+    }
 
   if (ix86_fpmath_string != 0)
     {
@@ -1765,13 +1772,15 @@ ix86_function_arg_regno_p (regno)
    For a library call, FNTYPE is 0.  */
 
 void
-init_cumulative_args (cum, fntype, libname)
+init_cumulative_args (cum, fntype, libname, fndecl)
      CUMULATIVE_ARGS *cum;	/* Argument info to initialize */
      tree fntype;		/* tree ptr for function decl */
      rtx libname;		/* SYMBOL_REF of library name or 0 */
+     tree fndecl;
 {
   static CUMULATIVE_ARGS zero_cum;
   tree param, next_param;
+  bool user_convention = false;
 
   if (TARGET_DEBUG_ARG)
     {
@@ -1797,7 +1806,10 @@ init_cumulative_args (cum, fntype, libname)
       tree attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (fntype));
 
       if (attr)
-	cum->nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	{
+	  cum->nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  user_convention = true;
+	}
     }
   cum->maybe_vaarg = false;
 
@@ -1808,6 +1820,23 @@ init_cumulative_args (cum, fntype, libname)
 	{
 	  cum->nregs = 2;
 	  cum->fastcall = 1;
+	  user_convention = true;
+	}
+    }
+
+  /* Use register calling convention for local functions when possible.  */
+  if (!TARGET_64BIT && !user_convention && fndecl
+      && flag_unit_at_a_time)
+    {
+      struct cgraph_local_info *i = cgraph_local_info (fndecl);
+      if (i && i->local)
+	{
+	  /* We can't use regparm(3) for nested functions as these use
+	     static chain pointer in third argument.  */
+	  if (DECL_CONTEXT (fndecl) && !DECL_NO_STATIC_CHAIN (fndecl))
+	    cum->nregs = 2;
+	  else
+	    cum->nregs = 3;
 	}
     }
 
@@ -1912,6 +1941,10 @@ classify_argument (mode, type, classes, bit_offset)
 
   /* Variable sized entities are always passed/returned in memory.  */
   if (bytes < 0)
+    return 0;
+
+  if (mode != VOIDmode
+      && MUST_PASS_IN_STACK (mode, type))
     return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
@@ -2837,6 +2870,8 @@ ix86_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 
   /* Indicate to allocate space on the stack for varargs save area.  */
   ix86_save_varrargs_registers = 1;
+
+  cfun->stack_alignment_needed = 128;
 
   fntype = TREE_TYPE (current_function_decl);
   stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
@@ -4800,7 +4835,8 @@ ix86_save_reg (regno, maybe_eh_return)
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
 	  || current_function_profile
-	  || current_function_calls_eh_return))
+	  || current_function_calls_eh_return
+	  || current_function_uses_const_pool))
     {
       if (ix86_select_alt_pic_regnum () != INVALID_REGNUM)
 	return 0;
@@ -4884,6 +4920,43 @@ ix86_compute_frame_layout (frame)
   frame->nregs = ix86_nsaved_regs ();
   total_size = size;
 
+  /* During reload iteration the amount of registers saved can change.
+     Recompute the value as needed.  Do not recompute when amount of registers
+     didn't change as reload does mutiple calls to the function and does not
+     expect the decision to change within single iteration.  */
+  if (!optimize_size
+      && cfun->machine->use_fast_prologue_epilogue_nregs != frame->nregs)
+    {
+      int count = frame->nregs;
+
+      cfun->machine->use_fast_prologue_epilogue_nregs = count;
+      /* The fast prologue uses move instead of push to save registers.  This
+         is significantly longer, but also executes faster as modern hardware
+         can execute the moves in parallel, but can't do that for push/pop.
+	 
+	 Be careful about choosing what prologue to emit:  When function takes
+	 many instructions to execute we may use slow version as well as in
+	 case function is known to be outside hot spot (this is known with
+	 feedback only).  Weight the size of function by number of registers
+	 to save as it is cheap to use one or two push instructions but very
+	 slow to use many of them.  */
+      if (count)
+	count = (count - 1) * FAST_PROLOGUE_INSN_COUNT;
+      if (cfun->function_frequency < FUNCTION_FREQUENCY_NORMAL
+	  || (flag_branch_probabilities
+	      && cfun->function_frequency < FUNCTION_FREQUENCY_HOT))
+        cfun->machine->use_fast_prologue_epilogue = false;
+      else
+        cfun->machine->use_fast_prologue_epilogue
+	   = !expensive_function_p (count);
+    }
+  if (TARGET_PROLOGUE_USING_MOVE
+      && cfun->machine->use_fast_prologue_epilogue)
+    frame->save_regs_using_mov = true;
+  else
+    frame->save_regs_using_mov = false;
+
+
   /* Skip return address and saved base pointer.  */
   offset = frame_pointer_needed ? UNITS_PER_WORD * 2 : UNITS_PER_WORD;
 
@@ -4956,10 +5029,15 @@ ix86_compute_frame_layout (frame)
     (size + frame->padding1 + frame->padding2
      + frame->outgoing_arguments_size + frame->va_arg_size);
 
-  if (TARGET_64BIT && TARGET_RED_ZONE && current_function_sp_is_unchanging
+  if (!frame->to_allocate && frame->nregs <= 1)
+    frame->save_regs_using_mov = false;
+
+  if (TARGET_RED_ZONE && current_function_sp_is_unchanging
       && current_function_is_leaf)
     {
       frame->red_zone_size = frame->to_allocate;
+      if (frame->save_regs_using_mov)
+	frame->red_zone_size += frame->nregs * UNITS_PER_WORD;
       if (frame->red_zone_size > RED_ZONE_SIZE - RED_ZONE_RESERVE)
 	frame->red_zone_size = RED_ZONE_SIZE - RED_ZONE_RESERVE;
     }
@@ -5028,35 +5106,9 @@ ix86_expand_prologue ()
   rtx insn;
   bool pic_reg_used;
   struct ix86_frame frame;
-  int use_mov = 0;
   HOST_WIDE_INT allocate;
 
   ix86_compute_frame_layout (&frame);
-  if (!optimize_size)
-    {
-      int count = frame.nregs;
-
-      /* The fast prologue uses move instead of push to save registers.  This
-         is significantly longer, but also executes faster as modern hardware
-         can execute the moves in parallel, but can't do that for push/pop.
-	 
-	 Be careful about choosing what prologue to emit:  When function takes
-	 many instructions to execute we may use slow version as well as in
-	 case function is known to be outside hot spot (this is known with
-	 feedback only).  Weight the size of function by number of registers
-	 to save as it is cheap to use one or two push instructions but very
-	 slow to use many of them.  */
-      if (count)
-	count = (count - 1) * FAST_PROLOGUE_INSN_COUNT;
-      if (cfun->function_frequency < FUNCTION_FREQUENCY_NORMAL
-	  || (flag_branch_probabilities
-	      && cfun->function_frequency < FUNCTION_FREQUENCY_HOT))
-	use_fast_prologue_epilogue = 0;
-      else
-        use_fast_prologue_epilogue = !expensive_function_p (count);
-      if (TARGET_PROLOGUE_USING_MOVE)
-        use_mov = use_fast_prologue_epilogue;
-    }
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -5071,15 +5123,18 @@ ix86_expand_prologue ()
     }
 
   allocate = frame.to_allocate;
-  /* In case we are dealing only with single register and empty frame,
-     push is equivalent of the mov+add sequence.  */
-  if (allocate == 0 && frame.nregs <= 1)
-    use_mov = 0;
 
-  if (!use_mov)
+  if (!frame.save_regs_using_mov)
     ix86_emit_save_regs ();
   else
     allocate += frame.nregs * UNITS_PER_WORD;
+
+  /* When using red zone we may start register saving before allocating
+     the stack frame saving one cycle of the prologue.  */
+  if (TARGET_RED_ZONE && frame.save_regs_using_mov)
+    ix86_emit_save_regs_using_mov (frame_pointer_needed ? hard_frame_pointer_rtx
+				   : stack_pointer_rtx,
+				   -frame.nregs * UNITS_PER_WORD);
 
   if (allocate == 0)
     ;
@@ -5114,7 +5169,7 @@ ix86_expand_prologue ()
          call.  */
       emit_insn (gen_blockage (const0_rtx));
     }
-  if (use_mov)
+  if (frame.save_regs_using_mov && !TARGET_RED_ZONE)
     {
       if (!frame_pointer_needed || !frame.to_allocate)
         ix86_emit_save_regs_using_mov (stack_pointer_rtx, frame.to_allocate);
@@ -5213,11 +5268,12 @@ ix86_expand_epilogue (style)
      tuning in future.  */
   if ((!sp_valid && frame.nregs <= 1)
       || (TARGET_EPILOGUE_USING_MOVE
-	  && use_fast_prologue_epilogue
+	  && cfun->machine->use_fast_prologue_epilogue
 	  && (frame.nregs > 1 || frame.to_allocate))
       || (frame_pointer_needed && !frame.nregs && frame.to_allocate)
       || (frame_pointer_needed && TARGET_USE_LEAVE
-	  && use_fast_prologue_epilogue && frame.nregs == 1)
+	  && cfun->machine->use_fast_prologue_epilogue
+	  && frame.nregs == 1)
       || current_function_calls_eh_return)
     {
       /* Restore registers.  We can use ebp or esp to address the memory
@@ -5264,7 +5320,8 @@ ix86_expand_epilogue (style)
 		    GEN_INT (frame.to_allocate
 			     + frame.nregs * UNITS_PER_WORD)));
       /* If not an i386, mov & pop is faster than "leave".  */
-      else if (TARGET_USE_LEAVE || optimize_size || !use_fast_prologue_epilogue)
+      else if (TARGET_USE_LEAVE || optimize_size
+	       || !cfun->machine->use_fast_prologue_epilogue)
 	emit_insn (TARGET_64BIT ? gen_leave_rex64 () : gen_leave ());
       else
 	{
@@ -5653,26 +5710,7 @@ bool
 constant_address_p (x)
      rtx x;
 {
-  switch (GET_CODE (x))
-    {
-    case LABEL_REF:
-    case CONST_INT:
-      return true;
-
-    case CONST_DOUBLE:
-      return TARGET_64BIT;
-
-    case CONST:
-      /* For Mach-O, really believe the CONST.  */
-      if (TARGET_MACHO)
-	return true;
-      /* Otherwise fall through.  */
-    case SYMBOL_REF:
-      return !flag_pic && legitimate_constant_p (x);
-
-    default:
-      return false;
-    }
+  return CONSTANT_P (x) && legitimate_address_p (Pmode, x, 1);
 }
 
 /* Nonzero if the constant value X is a legitimate general operand
@@ -6023,7 +6061,12 @@ legitimate_address_p (mode, addr, strict)
 	     that never results in lea, this seems to be easier and
 	     correct fix for crash to disable this test.  */
 	}
-      else if (!CONSTANT_ADDRESS_P (disp))
+      else if (GET_CODE (disp) != LABEL_REF
+	       && GET_CODE (disp) != CONST_INT
+	       && (GET_CODE (disp) != CONST
+		   || !legitimate_constant_p (disp))
+	       && (GET_CODE (disp) != SYMBOL_REF
+		   || !legitimate_constant_p (disp)))
 	{
 	  reason = "displacement is not constant";
 	  goto report_error;
@@ -6031,11 +6074,6 @@ legitimate_address_p (mode, addr, strict)
       else if (TARGET_64BIT && !x86_64_sign_extended_value (disp))
 	{
 	  reason = "displacement is out of range";
-	  goto report_error;
-	}
-      else if (!TARGET_64BIT && GET_CODE (disp) == CONST_DOUBLE)
-	{
-	  reason = "displacement is a const_double";
 	  goto report_error;
 	}
     }
@@ -7434,10 +7472,8 @@ print_operand (file, x, code)
 	}
 
       x = XEXP (x, 0);
-      if (flag_pic && CONSTANT_ADDRESS_P (x))
-	output_pic_addr_const (file, x, code);
       /* Avoid (%rip) for call operands.  */
-      else if (CONSTANT_ADDRESS_P (x) && code == 'P'
+      if (CONSTANT_ADDRESS_P (x) && code == 'P'
 	       && GET_CODE (x) != CONST_INT)
 	output_addr_const (file, x);
       else if (this_is_asm_operands && ! address_operand (x, VOIDmode))
@@ -8343,9 +8379,17 @@ ix86_expand_move (mode, operands)
 
 	  if (strict)
 	    ;
-	  else if (GET_CODE (op1) == CONST_DOUBLE
-		   && register_operand (op0, mode))
-	    op1 = validize_mem (force_const_mem (mode, op1));
+	  else if (GET_CODE (op1) == CONST_DOUBLE)
+	    {
+	      op1 = validize_mem (force_const_mem (mode, op1));
+	      if (!register_operand (op0, mode))
+		{
+		  rtx temp = gen_reg_rtx (mode);
+		  emit_insn (gen_rtx_SET (VOIDmode, temp, op1));
+		  emit_move_insn (op0, temp);
+		  return;
+		}
+	    }
 	}
     }
 
@@ -11731,7 +11775,12 @@ ix86_expand_call (retval, fnaddr, callarg1, callarg2, pop, sibcall)
 static struct machine_function *
 ix86_init_machine_status ()
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  struct machine_function *f;
+
+  f = ggc_alloc_cleared (sizeof (struct machine_function));
+  f->use_fast_prologue_epilogue_nregs = -1;
+
+  return f;
 }
 
 /* Return a MEM corresponding to a stack slot with mode MODE.
@@ -11829,7 +11878,8 @@ memory_address_length (addr)
       if (disp)
 	{
 	  if (GET_CODE (disp) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K'))
+	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K')
+	      && base)
 	    len = 1;
 	  else
 	    len = 4;
@@ -11892,6 +11942,26 @@ ix86_attr_length_address_default (insn)
      rtx insn;
 {
   int i;
+
+  if (get_attr_type (insn) == TYPE_LEA)
+    {
+      rtx set = PATTERN (insn);
+      if (GET_CODE (set) == SET)
+	;
+      else if (GET_CODE (set) == PARALLEL
+	       && GET_CODE (XVECEXP (set, 0, 0)) == SET)
+	set = XVECEXP (set, 0, 0);
+      else
+	{
+#ifdef ENABLE_CHECKING
+	  abort ();
+#endif
+	  return 0;
+	}
+
+      return memory_address_length (SET_SRC (set));
+    }
+
   extract_insn_cached (insn);
   for (i = recog_data.n_operands - 1; i >= 0; --i)
     if (GET_CODE (recog_data.operand[i]) == MEM)
@@ -14487,7 +14557,7 @@ ix86_force_to_memory (mode, operand)
   rtx result;
   if (!reload_completed)
     abort ();
-  if (TARGET_64BIT && TARGET_RED_ZONE)
+  if (TARGET_RED_ZONE)
     {
       result = gen_rtx_MEM (mode,
 			    gen_rtx_PLUS (Pmode,
@@ -14495,7 +14565,7 @@ ix86_force_to_memory (mode, operand)
 					  GEN_INT (-RED_ZONE_SIZE)));
       emit_move_insn (result, operand);
     }
-  else if (TARGET_64BIT && !TARGET_RED_ZONE)
+  else if (!TARGET_RED_ZONE && TARGET_64BIT)
     {
       switch (mode)
 	{
@@ -14564,7 +14634,7 @@ void
 ix86_free_from_memory (mode)
      enum machine_mode mode;
 {
-  if (!TARGET_64BIT || !TARGET_RED_ZONE)
+  if (!TARGET_RED_ZONE)
     {
       int size;
 
@@ -14724,9 +14794,10 @@ ix86_hard_regno_mode_ok (regno, mode)
   if (FP_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (SSE_REGNO_P (regno))
-    return VALID_SSE_REG_MODE (mode);
+    return (TARGET_SSE ? VALID_SSE_REG_MODE (mode) : 0);
   if (MMX_REGNO_P (regno))
-    return VALID_MMX_REG_MODE (mode) || VALID_MMX_REG_MODE_3DNOW (mode);
+    return (TARGET_MMX
+	    ? VALID_MMX_REG_MODE (mode) || VALID_MMX_REG_MODE_3DNOW (mode) : 0);
   /* We handle both integer and floats in the general purpose registers.
      In future we should be able to handle vector modes as well.  */
   if (!VALID_INT_MODE_P (mode) && !VALID_FP_MODE_P (mode))
@@ -14854,7 +14925,11 @@ ix86_rtx_costs (x, code, outer_code, total)
 	*total = 3;
       else if (TARGET_64BIT && !x86_64_zero_extended_value (x))
 	*total = 2;
-      else if (flag_pic && SYMBOLIC_CONST (x))
+      else if (flag_pic && SYMBOLIC_CONST (x)
+	       && (!TARGET_64BIT
+		   || (!GET_CODE (x) != LABEL_REF
+		       && (GET_CODE (x) != SYMBOL_REF
+		           || !SYMBOL_REF_FLAG (x)))))
 	*total = 1;
       else
 	*total = 0;
@@ -14877,7 +14952,7 @@ ix86_rtx_costs (x, code, outer_code, total)
 	    /* Start with (MEM (SYMBOL_REF)), since that's where
 	       it'll probably end up.  Add a penalty for size.  */
 	    *total = (COSTS_N_INSNS (1)
-		      + (flag_pic != 0)
+		      + (flag_pic != 0 && !TARGET_64BIT)
 		      + (mode == SFmode ? 0 : mode == DFmode ? 1 : 2));
 	    break;
 	  }
@@ -15637,6 +15712,17 @@ x86_emit_floatuns (operands)
   emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
 
   emit_label (donelab);
+}
+
+/* Return if we do not know how to pass TYPE solely in registers.  */
+bool
+ix86_must_pass_in_stack (mode, type)
+	enum machine_mode mode;
+	tree type;
+{
+   if (default_must_pass_in_stack (mode, type))
+     return true;
+   return (!TARGET_64BIT && type && mode == TImode);
 }
 
 #include "gt-i386.h"

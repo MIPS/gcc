@@ -1,5 +1,5 @@
 /* DataInputStream.java -- FilteredInputStream that implements DataInput
-   Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+   Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -49,8 +49,6 @@ package java.io;
  * Java data types from a stream.
  *
  * @see DataInput
- *
- * @version 0.0
  *
  * @author Warren Levy <warrenl@cygnus.com>
  * @author Aaron M. Renn (arenn@urbanophile.com)
@@ -598,7 +596,8 @@ public class DataInputStream extends FilterInputStream implements DataInput
    * character encoding, then they would be converted to a Java
    * <code>char</code> like so:
    * <p>
-   * <code>(char)(((byte1 & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F))</code>
+   * <code>(char)(((byte1 & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | 
+   * (byte3 & 0x3F))</code>
    * <p>
    * Note that all characters are encoded in the method that requires
    * the fewest number of bytes with the exception of the character
@@ -610,7 +609,7 @@ public class DataInputStream extends FilterInputStream implements DataInput
    * This method can read data that was written by an object implementing the
    * <code>writeUTF()</code> method in <code>DataOutput</code>
    * 
-   * @returns The <code>String</code> read
+   * @return The <code>String</code> read
    *
    * @exception EOFException If end of file is reached before reading
    * the String

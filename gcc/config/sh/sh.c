@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "real.h"
 #include "langhooks.h"
+#include "basic-block.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -212,6 +213,8 @@ static const char *sh_strip_name_encoding PARAMS ((const char *));
 static void sh_init_builtins PARAMS ((void));
 static void sh_media_init_builtins PARAMS ((void));
 static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
+static void sh_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					HOST_WIDE_INT, tree));
 static int flow_dependent_p PARAMS ((rtx, rtx));
 static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 static int shiftcosts PARAMS ((rtx));
@@ -241,6 +244,12 @@ static int sh_address_cost PARAMS ((rtx));
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE sh_output_function_epilogue
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK sh_output_mi_thunk
+
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
@@ -1048,6 +1057,7 @@ output_far_jump (insn, op)
   const char *jump;
   int far;
   int offset = branch_dest (insn) - INSN_ADDRESSES (INSN_UID (insn));
+  rtx prev;
 
   this.lab = gen_label_rtx ();
 
@@ -1072,10 +1082,10 @@ output_far_jump (insn, op)
 	jump = "mov.l	%O0,%1; jmp	@%1";
     }
   /* If we have a scratch register available, use it.  */
-  if (GET_CODE (PREV_INSN (insn)) == INSN
-      && INSN_CODE (PREV_INSN (insn)) == CODE_FOR_indirect_jump_scratch)
+  if (GET_CODE ((prev = prev_nonnote_insn (insn))) == INSN
+      && INSN_CODE (prev) == CODE_FOR_indirect_jump_scratch)
     {
-      this.reg = SET_DEST (PATTERN (PREV_INSN (insn)));
+      this.reg = SET_DEST (XVECEXP (PATTERN (prev), 0, 0));
       if (REGNO (this.reg) == R0_REG && flag_pic && ! TARGET_SH2)
 	jump = "mov.l	r1,@-r15; mova	%O0,r0; mov.l	@r0,r1; add	r1,r0; mov.l	@r15+,r1; jmp	@%1";
       output_asm_insn (jump, &this.lab);
@@ -3016,7 +3026,7 @@ find_barrier (num_mova, mova, from)
 	{
 	  if (num_mova)
 	    num_mova--;
-	  if (barrier_align (next_real_insn (from)) == CACHE_LOG)
+	  if (barrier_align (next_real_insn (from)) == align_jumps_log)
 	    {
 	      /* We have just passed the barrier in front of the
 		 ADDR_DIFF_VEC, which is stored in found_barrier.  Since
@@ -3454,6 +3464,13 @@ gen_block_redirect (jump, addr, need_block)
       rtx insn = emit_insn_before (gen_indirect_jump_scratch
 				   (reg, GEN_INT (INSN_UID (JUMP_LABEL (jump))))
 				   , jump);
+      /* ??? We would like this to have the scope of the jump, but that
+	 scope will change when a delay slot insn of an inner scope is added.
+	 Hence, after delay slot scheduling, we'll have to expect
+	 NOTE_INSN_BLOCK_END notes between the indirect_jump_scratch and
+	 the jump.  */
+	 
+      INSN_SCOPE (insn) = INSN_SCOPE (jump);
       INSN_CODE (insn) = CODE_FOR_indirect_jump_scratch;
       return insn;
     }
@@ -3596,14 +3613,14 @@ barrier_align (barrier_or_label)
       return ((TARGET_SMALLCODE
 	       || ((unsigned) XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
 		   <= (unsigned)1 << (CACHE_LOG - 2)))
-	      ? 1 << TARGET_SHMEDIA : CACHE_LOG);
+	      ? 1 << TARGET_SHMEDIA : align_jumps_log);
     }
 
   if (TARGET_SMALLCODE)
     return 0;
 
   if (! TARGET_SH2 || ! optimize)
-    return CACHE_LOG;
+    return align_jumps_log;
 
   /* When fixing up pcloads, a constant table might be inserted just before
      the basic block that ends with the barrier.  Thus, we can't trust the
@@ -3679,7 +3696,7 @@ barrier_align (barrier_or_label)
 	}
     }
   
-  return CACHE_LOG;
+  return align_jumps_log;
 }
 
 /* If we are inside a phony loop, almost any kind of label can turn up as the
@@ -3704,10 +3721,7 @@ sh_loop_align (label)
       || recog_memoized (next) == CODE_FOR_consttable_2)
     return 0;
 
-  if (TARGET_SH5)
-    return 3;
-
-  return 2;
+  return align_loops_log;
 }
 
 /* Exported to toplev.c.
@@ -4417,9 +4431,6 @@ split_branches (first)
 
    If relaxing, output the label and pseudo-ops used to link together
    calls and the instruction which set the registers.  */
-
-/* ??? This is unnecessary, and probably should be deleted.  This makes
-   the insn_addresses declaration above unnecessary.  */
 
 /* ??? The addresses printed by this routine for insns are nonsense for
    insns which are inside of a sequence where none of the inner insns have
@@ -5187,6 +5198,7 @@ sh_expand_epilogue ()
       int sp_in_r0 = 0;
       int align;
       rtx r0 = gen_rtx_REG (Pmode, R0_REG);
+      int tmp_regno = R20_REG;
       
       /* We loop twice: first, we save 8-byte aligned registers in the
 	 higher addresses, that are known to be aligned.  Then, we
@@ -5301,10 +5313,15 @@ sh_expand_epilogue ()
 		}
 	      else if (TARGET_REGISTER_P (i))
 		{
-		  rtx r1 = gen_rtx_REG (mode, R1_REG);
+		  rtx tmp_reg = gen_rtx_REG (mode, tmp_regno);
 
-		  insn = emit_move_insn (r1, mem_rtx);
-		  mem_rtx = r1;
+		  /* Give the scheduler a bit of freedom by using R20..R23
+		     in a round-robin fashion.  Don't use R1 here because
+		     we want to use it for EH_RETURN_STACKADJ_RTX.  */
+		  insn = emit_move_insn (tmp_reg, mem_rtx);
+		  mem_rtx = tmp_reg;
+		  if (++tmp_regno > R23_REG)
+		    tmp_regno = R20_REG;
 		}
 
 	      insn = emit_move_insn (reg_rtx, mem_rtx);
@@ -7163,7 +7180,7 @@ fpscr_set_from_mem (mode, regs_live)
   enum attr_fp_mode fp_mode = mode;
   rtx addr_reg = get_free_reg (regs_live);
 
-  if (fp_mode == (enum attr_fp_mode) NORMAL_MODE (FP_MODE))
+  if (fp_mode == (enum attr_fp_mode) ACTUAL_NORMAL_MODE (FP_MODE))
     emit_insn (gen_fpu_switch1 (addr_reg));
   else
     emit_insn (gen_fpu_switch0 (addr_reg));
@@ -7917,7 +7934,8 @@ sh_function_ok_for_sibcall (decl, exp)
 {
   return (decl 
 	  && (! TARGET_SHCOMPACT
-	      || current_function_args_info.stack_regs == 0));
+	      || current_function_args_info.stack_regs == 0)
+	  && ! sh_cfun_interrupt_handler_p ());
 }
 
 /* Machine specific built-in functions.  */
@@ -8364,6 +8382,189 @@ sh_register_operand (op, mode)
   if (op == CONST0_RTX (mode) && TARGET_SHMEDIA)
     return 1;
   return register_operand (op, mode);
+}
+
+static rtx emit_load_ptr PARAMS ((rtx, rtx));
+
+static rtx
+emit_load_ptr (reg, addr)
+     rtx reg, addr;
+{
+  rtx mem = gen_rtx_MEM (ptr_mode, addr);
+
+  if (Pmode != ptr_mode)
+    mem = gen_rtx_SIGN_EXTEND (Pmode, mem);
+  return emit_move_insn (reg, mem);
+}
+
+void
+sh_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset;
+     tree function;
+{
+  CUMULATIVE_ARGS cum;
+  int structure_value_byref = 0;
+  rtx this, this_value, sibcall, insns, funexp;
+  tree funtype = TREE_TYPE (function);
+  int simple_add
+    = (TARGET_SHMEDIA ? CONST_OK_FOR_J (delta) : CONST_OK_FOR_I (delta));
+  int did_load = 0;
+  rtx scratch0, scratch1, scratch2;
+
+  reload_completed = 1;
+  no_new_pseudos = 1;
+  current_function_uses_only_leaf_regs = 1;
+
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  We have such a wide range of ABIs for the
+     SH that it's best to do this completely machine independently.
+     "this" is passed as first argument, unless a structure return pointer 
+     comes first, in which case "this" comes second.  */
+  INIT_CUMULATIVE_ARGS (cum, funtype, NULL_RTX, 0);
+#ifndef PCC_STATIC_STRUCT_RETURN
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    structure_value_byref = 1;
+#endif /* not PCC_STATIC_STRUCT_RETURN */
+  if (structure_value_byref && struct_value_rtx == 0)
+    { 
+      tree ptype = build_pointer_type (TREE_TYPE (funtype));
+
+      FUNCTION_ARG_ADVANCE (cum, Pmode, ptype, 1);
+    }
+  this = FUNCTION_ARG (cum, Pmode, ptr_type_node, 1);
+
+  /* For SHcompact, we only have r0 for a scratch register: r1 is the
+     static chain pointer (even if you can't have nested virtual functions
+     right now, someone might implement them sometime), and the rest of the
+     registers are used for argument passing, are callee-saved, or reserved.  */
+  scratch0 = scratch1 = scratch2 = gen_rtx_REG (Pmode, 0);
+  if (! TARGET_SH5)
+    {
+      scratch1 = gen_rtx_REG (ptr_mode, 1);
+      /* N.B., if not TARGET_HITACHI, register 2 is used to pass the pointer
+	 pointing where to return struct values.  */
+      scratch2 = gen_rtx_REG (Pmode, 3);
+    }
+  else if (TARGET_SHMEDIA)
+    {
+      scratch1 = gen_rtx_REG (ptr_mode, 21);
+      scratch2 = gen_rtx_REG (Pmode, TR0_REG);
+    }
+
+  this_value = plus_constant (this, delta);
+  if (vcall_offset
+      && (simple_add || scratch0 != scratch1)
+      && strict_memory_address_p (ptr_mode, this_value))
+    {
+      emit_load_ptr (scratch0, this_value);
+      did_load = 1;
+    }
+
+  if (!delta)
+    ; /* Do nothing.  */
+  else if (simple_add)
+    emit_move_insn (this, this_value);
+  else
+    {
+      emit_move_insn (scratch1, GEN_INT (delta));
+      emit_insn (gen_add2_insn (this, scratch1));
+    }
+
+  if (vcall_offset)
+    {
+      rtx offset_addr;
+
+      if (!did_load)
+	emit_load_ptr (scratch0, this);
+
+      offset_addr = plus_constant (scratch0, vcall_offset);
+      if (strict_memory_address_p (ptr_mode, offset_addr))
+	; /* Do nothing.  */
+      else if (! TARGET_SH5)
+	{
+	  /* scratch0 != scratch1, and we have indexed loads.  Get better
+	     schedule by loading the offset into r1 and using an indexed
+	     load - then the load of r1 can issue before the load from
+             (this + delta) finishes.  */
+	  emit_move_insn (scratch1, GEN_INT (vcall_offset));
+	  offset_addr = gen_rtx_PLUS (Pmode, scratch0, scratch1);
+	}
+      else if (TARGET_SHMEDIA
+	       ? CONST_OK_FOR_J (vcall_offset)
+	       : CONST_OK_FOR_I (vcall_offset))
+	{
+	  emit_insn (gen_add2_insn (scratch0, GEN_INT (vcall_offset)));
+	  offset_addr = scratch0;
+	}
+      else if (scratch0 != scratch1)
+	{
+	  emit_move_insn (scratch1, GEN_INT (vcall_offset));
+	  emit_insn (gen_add2_insn (scratch0, scratch1));
+	  offset_addr = scratch0;
+	}
+      else
+	abort (); /* FIXME */
+      emit_load_ptr (scratch0, offset_addr);
+
+     if (Pmode != ptr_mode)
+	scratch0 = gen_rtx_TRUNCATE (ptr_mode, scratch0);
+      emit_insn (gen_add2_insn (this, scratch0));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  emit_move_insn (scratch2, funexp);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, scratch2);
+  sibcall = emit_call_insn (gen_sibcall (funexp, const0_rtx, NULL_RTX));
+  SIBLING_CALL_P (sibcall) = 1;
+  use_reg (&CALL_INSN_FUNCTION_USAGE (sibcall), this);
+  emit_barrier ();
+
+    /* Run just enough of rest_of_compilation to do scheduling and get
+     the insns emitted.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insns = get_insns ();
+
+  if (optimize > 0 && flag_schedule_insns_after_reload)
+    {
+
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+
+      split_all_insns (1);
+
+      schedule_insns (rtl_dump_file);
+    }
+
+  MACHINE_DEPENDENT_REORG (insns);
+
+  if (optimize > 0 && flag_delayed_branch)
+      dbr_schedule (insns, rtl_dump_file);
+  shorten_branches (insns);
+  final_start_function (insns, file, 1);
+  final (insns, file, 1, 0);
+  final_end_function ();
+
+  if (optimize > 0 && flag_schedule_insns_after_reload)
+    {
+      /* Release all memory allocated by flow.  */
+      free_basic_block_vars (0);
+
+      /* Release all memory held by regsets now.  */
+      regset_release_memory ();
+    }
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
 }
 
 #include "gt-sh.h"

@@ -130,6 +130,7 @@ static void pa_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 static void pa_asm_out_constructor PARAMS ((rtx, int));
 static void pa_asm_out_destructor PARAMS ((rtx, int));
 #endif
+static void pa_init_builtins PARAMS ((void));
 static void copy_fp_args PARAMS ((rtx)) ATTRIBUTE_UNUSED;
 static int length_fp_args PARAMS ((rtx)) ATTRIBUTE_UNUSED;
 static struct deferred_plabel *get_plabel PARAMS ((const char *))
@@ -221,6 +222,9 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_ASM_DESTRUCTOR
 #define TARGET_ASM_DESTRUCTOR pa_asm_out_destructor
 #endif
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS pa_init_builtins
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS hppa_rtx_costs
@@ -336,6 +340,14 @@ override_options ()
       targetm.asm_out.unaligned_op.si = NULL;
       targetm.asm_out.unaligned_op.di = NULL;
     }
+}
+
+static void
+pa_init_builtins ()
+{
+#ifdef DONT_HAVE_FPUTC_UNLOCKED
+  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
+#endif
 }
 
 /* Return nonzero only if OP is a register of mode MODE,
@@ -3195,15 +3207,24 @@ compute_frame_size (size, fregs_live)
      int size;
      int *fregs_live;
 {
-  int i, fsize;
+  int freg_saved = 0;
+  int i, j;
 
-  /* Space for frame pointer + filler. If any frame is allocated
-     we need to add this in because of STARTING_FRAME_OFFSET.
+  /* The code in hppa_expand_prologue and hppa_expand_epilogue must
+     be consistent with the rounding and size calculation done here.
+     Change them at the same time.  */
 
-     Similar code also appears in hppa_expand_prologue.  Change both
-     of them at the same time.  */
-  fsize = size + (size || frame_pointer_needed ? STARTING_FRAME_OFFSET : 0);
+  /* We do our own stack alignment.  First, round the size of the
+     stack locals up to a word boundary.  */
+  size = (size + UNITS_PER_WORD - 1) & ~(UNITS_PER_WORD - 1);
 
+  /* Space for previous frame pointer + filler.  If any frame is
+     allocated, we need to add in the STARTING_FRAME_OFFSET.  We
+     waste some space here for the sake of HP compatibility.  The
+     first slot is only used when the frame pointer is needed.  */
+  if (size || frame_pointer_needed)
+    size += STARTING_FRAME_OFFSET;
+  
   /* If the current function calls __builtin_eh_return, then we need
      to allocate stack space for registers that will hold data for
      the exception handler.  */
@@ -3213,41 +3234,49 @@ compute_frame_size (size, fregs_live)
 
       for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM; ++i)
 	continue;
-      fsize += i * UNITS_PER_WORD;
+      size += i * UNITS_PER_WORD;
     }
 
   /* Account for space used by the callee general register saves.  */
-  for (i = 18; i >= 3; i--)
+  for (i = 18, j = frame_pointer_needed ? 4 : 3; i >= j; i--)
     if (regs_ever_live[i])
-      fsize += UNITS_PER_WORD;
-
-  /* Round the stack.  */
-  fsize = (fsize + 7) & ~7;
+      size += UNITS_PER_WORD;
 
   /* Account for space used by the callee floating point register saves.  */
   for (i = FP_SAVED_REG_LAST; i >= FP_SAVED_REG_FIRST; i -= FP_REG_STEP)
     if (regs_ever_live[i]
-	|| (! TARGET_64BIT && regs_ever_live[i + 1]))
+	|| (!TARGET_64BIT && regs_ever_live[i + 1]))
       {
-	if (fregs_live)
-	  *fregs_live = 1;
+	freg_saved = 1;
 
 	/* We always save both halves of the FP register, so always
 	   increment the frame size by 8 bytes.  */
-	fsize += 8;
+	size += 8;
       }
 
+  /* If any of the floating registers are saved, account for the
+     alignment needed for the floating point register save block.  */
+  if (freg_saved)
+    {
+      size = (size + 7) & ~7;
+      if (fregs_live)
+	*fregs_live = 1;
+    }
+
   /* The various ABIs include space for the outgoing parameters in the
-     size of the current function's stack frame.  */
-  fsize += current_function_outgoing_args_size;
+     size of the current function's stack frame.  We don't need to align
+     for the outgoing arguments as their alignment is set by the final
+     rounding for the frame as a whole.  */
+  size += current_function_outgoing_args_size;
 
   /* Allocate space for the fixed frame marker.  This space must be
-     allocated for any function that makes calls or otherwise allocates
+     allocated for any function that makes calls or allocates
      stack space.  */
-  if (!current_function_is_leaf || fsize)
-    fsize += TARGET_64BIT ? 16 : 32;
+  if (!current_function_is_leaf || size)
+    size += TARGET_64BIT ? 48 : 32;
 
-  return ((fsize + PREFERRED_STACK_BOUNDARY / 8 - 1)
+  /* Finally, round to the preferred stack boundary.  */
+  return ((size + PREFERRED_STACK_BOUNDARY / 8 - 1)
 	  & ~(PREFERRED_STACK_BOUNDARY / 8 - 1));
 }
 
@@ -3288,6 +3317,15 @@ pa_output_function_prologue (file, size)
   else
     fputs (",NO_CALLS", file);
 
+  /* The SAVE_SP flag is used to indicate that register %r3 is stored
+     at the beginning of the frame and that it is used as the frame
+     pointer for the frame.  We do this because our current frame
+     layout doesn't conform to that specified in the the HP runtime
+     documentation and we need a way to indicate to programs such as
+     GDB where %r3 is saved.  The SAVE_SP flag was chosen because it
+     isn't used by HP compilers but is supported by the assembler.
+     However, SAVE_SP is supposed to indicate that the previous stack
+     pointer has been saved in the frame marker.  */
   if (frame_pointer_needed)
     fputs (",SAVE_SP", file);
 
@@ -3313,8 +3351,8 @@ pa_output_function_prologue (file, size)
 void
 hppa_expand_prologue ()
 {
-  int size = get_frame_size ();
   int merge_sp_adjust_with_store = 0;
+  int size = get_frame_size ();
   int i, offset;
   rtx insn, tmpreg;
 
@@ -3322,13 +3360,12 @@ hppa_expand_prologue ()
   fr_saved = 0;
   save_fregs = 0;
 
-  /* Allocate space for frame pointer + filler. If any frame is allocated
-     we need to add this in because of STARTING_FRAME_OFFSET.
-
-     Similar code also appears in compute_frame_size.  Change both
-     of them at the same time.  */
-  local_fsize = size + (size || frame_pointer_needed
-			? STARTING_FRAME_OFFSET : 0);
+  /* Compute total size for frame pointer, filler, locals and rounding to
+     the next word boundary.  Similar code appears in compute_frame_size
+     and must be changed in tandem with this code.  */
+  local_fsize = (size + UNITS_PER_WORD - 1) & ~(UNITS_PER_WORD - 1);
+  if (local_fsize || frame_pointer_needed)
+    local_fsize += STARTING_FRAME_OFFSET;
 
   actual_fsize = compute_frame_size (size, &save_fregs);
 
@@ -3388,11 +3425,32 @@ hppa_expand_prologue ()
 			      adjust2, 1);
 	    }
 
-	  /* Prevent register spills from being scheduled before the
-	     stack pointer is raised.  Necessary as we will be storing
-	     registers using the frame pointer as a base register, and
-	     we happen to set fp before raising sp.  */
-	  emit_insn (gen_blockage ());
+	  /* We set SAVE_SP in frames that need a frame pointer.  Thus,
+	     we need to store the previous stack pointer (frame pointer)
+	     into the frame marker on targets that use the HP unwind
+	     library.  This allows the HP unwind library to be used to
+	     unwind GCC frames.  However, we are not fully compatible
+	     with the HP library because our frame layout differs from
+	     that specified in the HP runtime specification.
+
+	     We don't want a frame note on this instruction as the frame
+	     marker moves during dynamic stack allocation.
+
+	     This instruction also serves as a blockage to prevent
+	     register spills from being scheduled before the stack
+	     pointer is raised.  This is necessary as we store
+	     registers using the frame pointer as a base register,
+	     and the frame pointer is set before sp is raised.  */
+	  if (TARGET_HPUX_UNWIND_LIBRARY)
+	    {
+	      rtx addr = gen_rtx_PLUS (word_mode, stack_pointer_rtx,
+				       GEN_INT (TARGET_64BIT ? -8 : -4));
+
+	      emit_move_insn (gen_rtx_MEM (word_mode, addr),
+			      frame_pointer_rtx);
+	    }
+	  else
+	    emit_insn (gen_blockage ());
 	}
       /* no frame pointer needed.  */
       else
@@ -5489,14 +5547,19 @@ output_cbranch (operands, nullify, length, negated, insn)
 {
   static char buf[100];
   int useskip = 0;
+  rtx xoperands[5];
 
-  /* A conditional branch to the following instruction (eg the delay slot) is
-     asking for a disaster.  This can happen when not optimizing.
+  /* A conditional branch to the following instruction (eg the delay slot)
+     is asking for a disaster.  This can happen when not optimizing and
+     when jump optimization fails.
 
-     In such cases it is safe to emit nothing.  */
-
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+     While it is usually safe to emit nothing, this can fail if the
+     preceding instruction is a nullified branch with an empty delay
+     slot and the same branch target as this branch.  We could check
+     for this but jump optimization should eliminate nop jumps.  It
+     is always safe to emit a nop.  */
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5594,98 +5657,182 @@ output_cbranch (operands, nullify, length, negated, insn)
 	break;
 
       case 20:
-	/* Very long branch.  Right now we only handle these when not
-	   optimizing.  See "jump" pattern in pa.md for details.  */
-	if (optimize)
-	  abort ();
-
-	/* Create a reversed conditional branch which branches around
-	   the following insns.  */
-	if (negated)
-	  strcpy (buf, "{com%I2b,%S3,n %2,%r1,.+20|cmp%I2b,%S3,n %2,%r1,.+20}");
-	else
-	  strcpy (buf, "{com%I2b,%B3,n %2,%r1,.+20|cmp%I2b,%B3,n %2,%r1,.+20}");
-	if (GET_MODE (operands[1]) == DImode)
-	  {
-	    if (negated)
-	      strcpy (buf,
-		      "{com%I2b,*%S3,n %2,%r1,.+20|cmp%I2b,*%S3,n %2,%r1,.+20}");
-	    else
-	      strcpy (buf,
-		      "{com%I2b,*%B3,n %2,%r1,.+20|cmp%I2b,*%B3,n %2,%r1,.+20}");
-	  }
-	output_asm_insn (buf, operands);
-
-	/* Output an insn to save %r1.  */
-	output_asm_insn ("stw %%r1,-16(%%r30)", operands);
-
-	/* Now output a very long branch to the original target.  */
-	output_asm_insn ("ldil L'%l0,%%r1\n\tbe R'%l0(%%sr4,%%r1)", operands);
-
-	/* Now restore the value of %r1 in the delay slot.  We're not
-	   optimizing so we know nothing else can be in the delay slot.  */
-	return "ldw -16(%%r30),%%r1";
-
       case 28:
-	/* Very long branch when generating PIC code.  Right now we only
-	   handle these when not optimizing.  See "jump" pattern in pa.md
-	   for details.  */
-	if (optimize)
-	  abort ();
+	xoperands[0] = operands[0];
+	xoperands[1] = operands[1];
+	xoperands[2] = operands[2];
+	xoperands[3] = operands[3];
+
+	/* The reversed conditional branch must branch over one additional
+	   instruction if the delay slot is filled.  If the delay slot
+	   is empty, the instruction after the reversed condition branch
+	   must be nullified.  */
+	nullify = dbr_sequence_length () == 0;
+	xoperands[4] = nullify ? GEN_INT (length) : GEN_INT (length + 4);
 
 	/* Create a reversed conditional branch which branches around
 	   the following insns.  */
-	if (negated)
-	  strcpy (buf, "{com%I2b,%S3,n %2,%r1,.+28|cmp%I2b,%S3,n %2,%r1,.+28}");
-	else
-	  strcpy (buf, "{com%I2b,%B3,n %2,%r1,.+28|cmp%I2b,%B3,n %2,%r1,.+28}");
-	if (GET_MODE (operands[1]) == DImode)
+	if (GET_MODE (operands[1]) != DImode)
 	  {
-	    if (negated)
-	      strcpy (buf, "{com%I2b,*%S3,n %2,%r1,.+28|cmp%I2b,*%S3,n %2,%r1,.+28}");
+	    if (nullify)
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,%S3,n %2,%r1,.+%4|cmp%I2b,%S3,n %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,%B3,n %2,%r1,.+%4|cmp%I2b,%B3,n %2,%r1,.+%4}");
+	      }
 	    else
-	      strcpy (buf, "{com%I2b,*%B3,n %2,%r1,.+28|cmp%I2b,*%B3,n %2,%r1,.+28}");
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,%S3 %2,%r1,.+%4|cmp%I2b,%S3 %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,%B3 %2,%r1,.+%4|cmp%I2b,%B3 %2,%r1,.+%4}");
+	      }
 	  }
-	output_asm_insn (buf, operands);
+	else
+	  {
+	    if (nullify)
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,*%S3,n %2,%r1,.+%4|cmp%I2b,*%S3,n %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,*%B3,n %2,%r1,.+%4|cmp%I2b,*%B3,n %2,%r1,.+%4}");
+	      }
+	    else
+	      {
+		if (negated)
+		  strcpy (buf,
+		    "{com%I2b,*%S3 %2,%r1,.+%4|cmp%I2b,*%S3 %2,%r1,.+%4}");
+		else
+		  strcpy (buf,
+		    "{com%I2b,*%B3 %2,%r1,.+%4|cmp%I2b,*%B3 %2,%r1,.+%4}");
+	      }
+	  }
 
-	/* Output an insn to save %r1.  */
-	output_asm_insn ("stw %%r1,-16(%%r30)", operands);
-
-	/* Now output a very long PIC branch to the original target.  */
-	{
-	  rtx xoperands[5];
-
-	  xoperands[0] = operands[0];
-	  xoperands[1] = operands[1];
-	  xoperands[2] = operands[2];
-	  xoperands[3] = operands[3];
-
-	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
-	  if (TARGET_SOM || !TARGET_GAS)
-	    {
-	      xoperands[4] = gen_label_rtx ();
-	      output_asm_insn ("addil L'%l0-%l4,%%r1", xoperands);
-	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
-					 CODE_LABEL_NUMBER (xoperands[4]));
-	      output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1", xoperands);
-	    }
-	  else
-	    {
-	      output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
-	      output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1",
-			       xoperands);
-	    }
-	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
-	}
-
-	/* Now restore the value of %r1 in the delay slot.  We're not
-	   optimizing so we know nothing else can be in the delay slot.  */
-	return "ldw -16(%%r30),%%r1";
+	output_asm_insn (buf, xoperands);
+	return output_lbranch (operands[0], insn);
 
       default:
 	abort ();
     }
   return buf;
+}
+
+/* This routine handles long unconditional branches that exceed the
+   maximum range of a simple branch instruction.  */
+
+const char *
+output_lbranch (dest, insn)
+     rtx dest, insn;
+{
+  rtx xoperands[2];
+ 
+  xoperands[0] = dest;
+
+  /* First, free up the delay slot.  */
+  if (dbr_sequence_length () != 0)
+    {
+      /* We can't handle a jump in the delay slot.  */
+      if (GET_CODE (NEXT_INSN (insn)) == JUMP_INSN)
+	abort ();
+
+      final_scan_insn (NEXT_INSN (insn), asm_out_file,
+		       optimize, 0, 0);
+
+      /* Now delete the delay insn.  */
+      PUT_CODE (NEXT_INSN (insn), NOTE);
+      NOTE_LINE_NUMBER (NEXT_INSN (insn)) = NOTE_INSN_DELETED;
+      NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
+    }
+
+  /* Output an insn to save %r1.  The runtime documentation doesn't
+     specify whether the "Clean Up" slot in the callers frame can
+     be clobbered by the callee.  It isn't copied by HP's builtin
+     alloca, so this suggests that it can be clobbered if necessary.
+     The "Static Link" location is copied by HP builtin alloca, so
+     we avoid using it.  Using the cleanup slot might be a problem
+     if we have to interoperate with languages that pass cleanup
+     information.  However, it should be possible to handle these
+     situations with GCC's asm feature.
+
+     The "Current RP" slot is reserved for the called procedure, so
+     we try to use it when we don't have a frame of our own.  It's
+     rather unlikely that we won't have a frame when we need to emit
+     a very long branch.
+
+     Really the way to go long term is a register scavenger; goto
+     the target of the jump and find a register which we can use
+     as a scratch to hold the value in %r1.  Then, we wouldn't have
+     to free up the delay slot or clobber a slot that may be needed
+     for other purposes.  */
+  if (TARGET_64BIT)
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	/* Use the return pointer slot in the frame marker.  */
+	output_asm_insn ("std %%r1,-16(%%r30)", xoperands);
+      else
+	/* Use the slot at -40 in the frame marker since HP builtin
+	   alloca doesn't copy it.  */
+	output_asm_insn ("std %%r1,-40(%%r30)", xoperands);
+    }
+  else
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	/* Use the return pointer slot in the frame marker.  */
+	output_asm_insn ("stw %%r1,-20(%%r30)", xoperands);
+      else
+	/* Use the "Clean Up" slot in the frame marker.  In GCC,
+	   the only other use of this location is for copying a
+	   floating point double argument from a floating-point
+	   register to two general registers.  The copy is done
+	   as an "atomic" operation when outputing a call, so it
+	   won't interfere with our using the location here.  */
+	output_asm_insn ("stw %%r1,-12(%%r30)", xoperands);
+    }
+
+  if (flag_pic)
+    {
+      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+      if (TARGET_SOM || !TARGET_GAS)
+	{
+	  xoperands[1] = gen_label_rtx ();
+	  output_asm_insn ("addil L'%l0-%l1,%%r1", xoperands);
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
+					     CODE_LABEL_NUMBER (xoperands[1]));
+	  output_asm_insn ("ldo R'%l0-%l1(%%r1),%%r1", xoperands);
+	}
+      else
+	{
+	  output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
+	  output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1", xoperands);
+	}
+      output_asm_insn ("bv %%r0(%%r1)", xoperands);
+    }
+  else
+    /* Now output a very long branch to the original target.  */
+    output_asm_insn ("ldil L'%l0,%%r1\n\tbe R'%l0(%%sr4,%%r1)", xoperands);
+
+  /* Now restore the value of %r1 in the delay slot.  */
+  if (TARGET_64BIT)
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	return "ldd -16(%%r30),%%r1";
+      else
+	return "ldd -40(%%r30),%%r1";
+    }
+  else
+    {
+      if (actual_fsize == 0 && !regs_ever_live[2])
+	return "ldw -20(%%r30),%%r1";
+      else
+	return "ldw -12(%%r30),%%r1";
+    }
 }
 
 /* This routine handles all the branch-on-bit conditional branch sequences we
@@ -5708,8 +5855,8 @@ output_bb (operands, nullify, length, negated, insn, which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5856,8 +6003,8 @@ output_bvb (operands, nullify, length, negated, insn, which)
      is only used when optimizing; jump optimization should eliminate the
      jump.  But be prepared just in case.  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
-    return "";
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
+    return "nop";
 
   /* If this is a long branch with its delay slot unfilled, set `nullify'
      as it can nullify the delay slot and save a nop.  */
@@ -5997,7 +6144,7 @@ output_dbra (operands, insn, which_alternative)
   /* A conditional branch to the following instruction (eg the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
     {
       if (which_alternative == 0)
 	return "ldo %1(%0),%0";
@@ -6104,7 +6251,7 @@ output_movb (operands, insn, which_alternative, reverse_comparison)
   /* A conditional branch to the following instruction (eg the delay slot) is
      asking for a disaster.  Be prepared!  */
 
-  if (next_active_insn (JUMP_LABEL (insn)) == next_active_insn (insn))
+  if (next_real_insn (JUMP_LABEL (insn)) == next_real_insn (insn))
     {
       if (which_alternative == 0)
 	return "copy %1,%0";
@@ -7442,9 +7589,9 @@ jump_in_call_delay (insn)
 
   if (PREV_INSN (insn)
       && PREV_INSN (PREV_INSN (insn))
-      && GET_CODE (next_active_insn (PREV_INSN (PREV_INSN (insn)))) == INSN)
+      && GET_CODE (next_real_insn (PREV_INSN (PREV_INSN (insn)))) == INSN)
     {
-      rtx test_insn = next_active_insn (PREV_INSN (PREV_INSN (insn)));
+      rtx test_insn = next_real_insn (PREV_INSN (PREV_INSN (insn)));
 
       return (GET_CODE (PATTERN (test_insn)) == SEQUENCE
 	      && XVECEXP (PATTERN (test_insn), 0, 1) == insn);

@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "timevar.h"
 #include "target.h"
+#include "cgraph.h"
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
@@ -97,7 +98,6 @@ rtx get_addr				PARAMS ((rtx));
 static int memrefs_conflict_p		PARAMS ((int, rtx, int, rtx,
 						 HOST_WIDE_INT));
 static void record_set			PARAMS ((rtx, rtx, void *));
-static rtx find_base_term		PARAMS ((rtx));
 static int base_alias_check		PARAMS ((rtx, rtx, enum machine_mode,
 						 enum machine_mode));
 static rtx find_base_value		PARAMS ((rtx));
@@ -1117,6 +1117,7 @@ canon_rtx (x)
 }
 
 /* Return 1 if X and Y are identical-looking rtx's.
+   Expect that X and Y has been already canonicalized.
 
    We use the data in reg_known_value above to see if two registers with
    different numbers are, in fact, equivalent.  */
@@ -1134,9 +1135,6 @@ rtx_equal_for_memref_p (x, y)
     return 1;
   if (x == 0 || y == 0)
     return 0;
-
-  x = canon_rtx (x);
-  y = canon_rtx (y);
 
   if (x == y)
     return 1;
@@ -1176,24 +1174,42 @@ rtx_equal_for_memref_p (x, y)
 
     case ADDRESSOF:
       return (XINT (x, 1) == XINT (y, 1)
-	      && rtx_equal_for_memref_p (XEXP (x, 0), XEXP (y, 0)));
+	      && rtx_equal_for_memref_p (XEXP (x, 0),
+		      			 XEXP (y, 0)));
 
     default:
       break;
     }
 
-  /* For commutative operations, the RTX match if the operand match in any
-     order.  Also handle the simple binary and unary cases without a loop.  */
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+  /* canon_rtx knows how to handle plus.  No need to canonicalize.  */
+  if (code == PLUS)
     return ((rtx_equal_for_memref_p (XEXP (x, 0), XEXP (y, 0))
 	     && rtx_equal_for_memref_p (XEXP (x, 1), XEXP (y, 1)))
 	    || (rtx_equal_for_memref_p (XEXP (x, 0), XEXP (y, 1))
 		&& rtx_equal_for_memref_p (XEXP (x, 1), XEXP (y, 0))));
+  /* For commutative operations, the RTX match if the operand match in any
+     order.  Also handle the simple binary and unary cases without a loop.  */
+  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+    {
+      rtx xop0 = canon_rtx (XEXP (x, 0));
+      rtx yop0 = canon_rtx (XEXP (y, 0));
+      rtx yop1 = canon_rtx (XEXP (y, 1));
+
+      return ((rtx_equal_for_memref_p (xop0, yop0)
+	       && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)), yop1))
+	      || (rtx_equal_for_memref_p (xop0, yop1)
+		  && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)), yop0)));
+    }
   else if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == '2')
-    return (rtx_equal_for_memref_p (XEXP (x, 0), XEXP (y, 0))
-	    && rtx_equal_for_memref_p (XEXP (x, 1), XEXP (y, 1)));
+    {
+      return (rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
+	  			      canon_rtx (XEXP (y, 0)))
+	      && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)),
+					 canon_rtx (XEXP (y, 1))));
+    }
   else if (GET_RTX_CLASS (code) == '1')
-    return rtx_equal_for_memref_p (XEXP (x, 0), XEXP (y, 0));
+    return rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
+      				   canon_rtx (XEXP (y, 0)));
 
   /* Compare the elements.  If any pair of corresponding elements
      fail to match, return 0 for the whole things.
@@ -1217,13 +1233,14 @@ rtx_equal_for_memref_p (x, y)
 
 	  /* And the corresponding elements must match.  */
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (rtx_equal_for_memref_p (XVECEXP (x, i, j),
-					XVECEXP (y, i, j)) == 0)
+	    if (rtx_equal_for_memref_p (canon_rtx (XVECEXP (x, i, j)),
+					canon_rtx (XVECEXP (y, i, j))) == 0)
 	      return 0;
 	  break;
 
 	case 'e':
-	  if (rtx_equal_for_memref_p (XEXP (x, i), XEXP (y, i)) == 0)
+	  if (rtx_equal_for_memref_p (canon_rtx (XEXP (x, i)),
+				      canon_rtx (XEXP (y, i))) == 0)
 	    return 0;
 	  break;
 
@@ -1281,7 +1298,7 @@ find_symbolic_term (x)
   return 0;
 }
 
-static rtx
+rtx
 find_base_term (x)
      rtx x;
 {
@@ -1548,9 +1565,11 @@ addr_side_effect_eval (addr, size, n_refs)
     }
 
   if (offset)
-    addr = gen_rtx_PLUS (GET_MODE (addr), XEXP (addr, 0), GEN_INT (offset));
+    addr = gen_rtx_PLUS (GET_MODE (addr), XEXP (addr, 0),
+		         GEN_INT (offset));
   else
     addr = XEXP (addr, 0);
+  addr = canon_rtx (addr);
 
   return addr;
 }
@@ -1560,6 +1579,7 @@ addr_side_effect_eval (addr, size, n_refs)
    C is nonzero, we are testing aliases between X and Y + C.
    XSIZE is the size in bytes of the X reference,
    similarly YSIZE is the size in bytes for Y.
+   Expect that canon_rtx has been already called for X and Y.
 
    If XSIZE or YSIZE is zero, we do not know the amount of memory being
    referenced (the reference was BLKmode), so make the most pessimistic
@@ -1587,13 +1607,13 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
   else if (GET_CODE (x) == LO_SUM)
     x = XEXP (x, 1);
   else
-    x = canon_rtx (addr_side_effect_eval (x, xsize, 0));
+    x = addr_side_effect_eval (x, xsize, 0);
   if (GET_CODE (y) == HIGH)
     y = XEXP (y, 0);
   else if (GET_CODE (y) == LO_SUM)
     y = XEXP (y, 1);
   else
-    y = canon_rtx (addr_side_effect_eval (y, ysize, 0));
+    y = addr_side_effect_eval (y, ysize, 0);
 
   if (rtx_equal_for_memref_p (x, y))
     {
@@ -1716,7 +1736,7 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
     {
       if (GET_CODE (y) == AND || ysize < -INTVAL (XEXP (x, 1)))
 	xsize = -1;
-      return memrefs_conflict_p (xsize, XEXP (x, 0), ysize, y, c);
+      return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)), ysize, y, c);
     }
   if (GET_CODE (y) == AND && GET_CODE (XEXP (y, 1)) == CONST_INT)
     {
@@ -1726,7 +1746,7 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
 	 a following reference, so we do nothing with that for now.  */
       if (GET_CODE (x) == AND || xsize < -INTVAL (XEXP (y, 1)))
 	ysize = -1;
-      return memrefs_conflict_p (xsize, x, ysize, XEXP (y, 0), c);
+      return memrefs_conflict_p (xsize, x, ysize, canon_rtx (XEXP (y, 0)), c);
     }
 
   if (GET_CODE (x) == ADDRESSOF)
@@ -2668,9 +2688,9 @@ mark_constant_function ()
   if (insn)
     ;
   else if (nonlocal_memory_referenced)
-    DECL_IS_PURE (current_function_decl) = 1;
+    cgraph_rtl_info (current_function_decl)->pure_function = 1;
   else
-    TREE_READONLY (current_function_decl) = 1;
+    cgraph_rtl_info (current_function_decl)->const_function = 1;
 }
 
 

@@ -166,7 +166,7 @@ in the following sections.
 -ansi  -std=@var{standard}  -aux-info @var{filename} @gol
 -fno-asm  -fno-builtin -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding  -fms-extensions @gol
--trigraphs  -traditional  -traditional-cpp @gol
+-trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char @gol
@@ -450,6 +450,7 @@ in the following sections.
 -mstrict-align  -mno-strict-align  -mrelocatable @gol
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
+-mdynamic-no-pic @gol
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
 -maix-struct-return -msvr4-struct-return @gol
 -mabi=altivec -mabi=no-altivec @gol
@@ -713,7 +714,7 @@ in the following sections.
 -fcall-saved-@var{reg}  -fcall-used-@var{reg} @gol
 -ffixed-@var{reg} -fexceptions @gol
 -fnon-call-exceptions  -funwind-tables @gol
--fasynchronous-unwind-tables @gol
+-fasynchronous-unwind-tables -fforced-unwind-exceptions @gol
 -finhibit-size-directive  -finstrument-functions @gol
 -fno-common  -fno-ident  -fno-gnu-linker @gol
 -fpcc-struct-return  -fpic  -fPIC @gol
@@ -1206,6 +1207,17 @@ Accept some non-standard constructs used in Microsoft header files.
 @opindex trigraphs
 Support ISO C trigraphs.  The @option{-ansi} option (and @option{-std}
 options for strict ISO C conformance) implies @option{-trigraphs}.
+
+@item -no-integrated-cpp
+@opindex no-integrated-cpp
+Performs a compilation in two passes: preprocessing and compiling.  This
+option allows a user supplied "cc1", "cc1plus", or "cc1obj" via the
+@option{-B} option. The user supplied compilation step can then add in
+an additional preprocessing step after normal preprocessing but before
+compiling. The default is to use the integrated cpp (internal cpp)
+
+The semantics of this option will change if "cc1", "cc1plus", and
+"cc1obj" are merged.
 
 @cindex traditional C language
 @cindex C language, traditional
@@ -3582,8 +3594,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @item -O3
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
-@option{-O2} and also turns on the @option{-finline-functions} and
-@option{-frename-registers} options.
+@option{-O2} and also turns on the @option{-finline-functions},
+@option{-funit-at-a-time} and @option{-frename-registers} options.
 
 @item -O0
 @opindex O0
@@ -3703,6 +3715,28 @@ the cost of compilation time and memory consumption.  Decreasing usually makes
 the compilation faster and less code will be inlined (which presumably
 means slower programs).  This option is particularly useful for programs that
 use inlining heavily such as those based on recursive templates with C++.
+
+Inlining is actually controlled by a number of parameters, which may be
+specified individually by using @option{--param @var{name}=@var{value}}.
+The @option{-finline-limit=@var{n}} option sets some of these parameters 
+as follows:
+
+@table @gcctabopt
+ @item max-inline-insns
+  is set to @var{n}.
+ @item max-inline-insns-single
+  is set to @var{n}/2.
+ @item max-inline-insns-single-auto
+  is set to @var{n}/2.
+ @item min-inline-insns
+  is set to 130 or @var{n}/4, whichever is smaller.
+ @item max-inline-insns-rtl
+  is set to @var{n}.
+@end table
+
+Using @option{-finline-limit=600} thus results in the default settings
+for these parameters.  See below for a documentation of the individual
+parameters controlling inlining.
 
 @emph{Note:} pseudo instruction represents, in this particular context, an
 abstract measurement of function's size.  In no way, it represents a count
@@ -4601,10 +4635,53 @@ before flushing the current state and starting over.  Large functions
 with few branches or calls can create excessively large lists which
 needlessly consume memory and resources.
 
+@item max-inline-insns-single
+Several parameters control the tree inliner used in gcc.
+This number sets the maximum number of instructions (counted in gcc's
+internal representation) in a single function that the tree inliner 
+will consider for inlining.  This only affects functions declared
+inline and methods implemented in a class declaration (C++).
+The default value is 300.
+
+@item max-inline-insns-auto
+When you use @option{-finline-functions} (included in @option{-O3}),
+a lot of functions that would otherwise not be considered for inlining
+by the compiler will be investigated.  To those functions, a different
+(more restrictive) limit compared to functions declared inline can
+be applied.
+The default value is 300.
+
 @item max-inline-insns
-If an function contains more than this many instructions, it
-will not be inlined.  This option is precisely equivalent to
-@option{-finline-limit}.
+The tree inliner does decrease the allowable size for single functions 
+to be inlined after we already inlined the number of instructions
+given here by repeated inlining.  This number should be a factor of 
+two or more larger than the single function limit.
+Higher numbers result in better runtime performance, but incur higher
+compile-time resource (CPU time, memory) requirements and result in
+larger binaries.  Very high values are not advisable, as too large
+binaries may adversely affect runtime performance.
+The default value is 600.
+
+@item max-inline-slope
+After exceeding the maximum number of inlined instructions by repeated
+inlining, a linear function is used to decrease the allowable size
+for single functions.  The slope of that function is the negative
+reciprocal of the number specified here.
+The default value is 32.
+
+@item min-inline-insns
+The repeated inlining is throttled more and more by the linear function
+after exceeding the limit.  To avoid too much throttling, a minimum for
+this function is specified here to allow repeated inlining for very small
+functions even when a lot of repeated inlining already has been done.
+The default value is 130.
+
+@item max-inline-insns-rtl
+For languages that use the RTL inliner (this happens at a later stage
+than tree inlining), you can set the maximum allowable size (counted 
+in RTL instructions) for the RTL inliner with this parameter.
+The default value is 600.
+
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -5374,18 +5451,6 @@ Output the accumulated assembler options specified by @option{-Wa}.
 
 @item %Z
 Output the accumulated preprocessor options specified by @option{-Wp}.
-
-@item %v1
-Substitute the major version number of GCC@.
-(For version 2.9.5, this is 2.)
-
-@item %v2
-Substitute the minor version number of GCC@.
-(For version 2.9.5, this is 9.)
-
-@item %v3
-Substitute the patch level number of GCC@.
-(For version 2.9.5, this is 5.)
 
 @item %a
 Process the @code{asm} spec.  This is used to compute the
@@ -7294,6 +7359,13 @@ the same as @option{-mlittle}.
 On System V.4 and embedded PowerPC systems compile code for the
 processor in big endian mode.  The @option{-mbig-endian} option is
 the same as @option{-mbig}.
+
+@item -mdynamic-no-pic
+@opindex mdynamic-no-pic
+On Darwin and Mac OS X systems, compile code so that it is not
+relocatable, but that its external references are relocatable.  The
+resulting code is suitable for applications, but not shared
+libraries.
 
 @item -mcall-sysv
 @opindex mcall-sysv
@@ -10916,6 +10988,13 @@ not exist everywhere.  Moreover, it only allows @emph{trapping}
 instructions to throw exceptions, i.e.@: memory references or floating
 point instructions.  It does not allow exceptions to be thrown from
 arbitrary signal handlers such as @code{SIGALRM}.
+
+@item -fforced-unwind-exceptions
+@opindex fforced-unwind-exceptions
+Generate code that checks for non-catchable exceptions derived from
+@code{_Unwind_ForcedUnwind}, such as from @code{longjmp_unwind} or
+from pthread cancellation.  There is some amount of code-size 
+overhead associated with this, so it is not default.
 
 @item -funwind-tables
 @opindex funwind-tables

@@ -150,12 +150,15 @@ typedef struct edge_def {
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
 					   flow.  */
-#define EDGE_TRUE_VALUE		128	/* Edge taken when controlling
+#define EDGE_IRREDUCIBLE_LOOP	128	/* Part of irreducible loop.  */
+
+#define EDGE_TRUE_VALUE		512	/* Edge taken when controlling
 					   predicate is non zero.  */
-#define EDGE_FALSE_VALUE	256	/* Edge taken when controlling
+#define EDGE_FALSE_VALUE	1024	/* Edge taken when controlling
 					   predicate is zero.  */
-#define EDGE_EXECUTABLE		512	/* Edge is executable.  Only
+#define EDGE_EXECUTABLE		2048	/* Edge is executable.  Only
 					   valid during SSA-CCP.  */
+#define EDGE_ALL_FLAGS		4095
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -352,6 +355,8 @@ extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
 extern void connect_infinite_loops_to_exit	PARAMS ((void));
 extern int flow_call_edges_add		PARAMS ((sbitmap));
+extern edge unchecked_make_edge		PARAMS ((basic_block,
+						 basic_block, int));
 extern edge cached_make_edge		PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern edge make_edge			PARAMS ((basic_block,
@@ -550,7 +555,7 @@ extern void init_flow                   PARAMS ((void));
 extern void reorder_basic_blocks	PARAMS ((void));
 extern void dump_bb			PARAMS ((basic_block, FILE *));
 extern void debug_bb			PARAMS ((basic_block));
-extern void debug_bb_n			PARAMS ((int));
+extern basic_block debug_bb_n		PARAMS ((int));
 extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));

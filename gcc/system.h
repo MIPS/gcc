@@ -270,6 +270,12 @@ extern int errno;
 #ifndef WSTOPSIG
 #define WSTOPSIG WEXITSTATUS
 #endif
+#ifndef WCOREDUMP
+#define WCOREDUMP(S) ((S) & WCOREFLG)
+#endif
+#ifndef WCOREFLG
+#define WCOREFLG 0200
+#endif
 
 /* The HAVE_DECL_* macros are three-state, undefined, 0 or 1.  If they
    are defined to 0 then we must provide the relevant declaration
@@ -502,13 +508,16 @@ extern void abort PARAMS ((void));
 #define HOST_BIT_BUCKET "/dev/null"
 #endif
 
-/* Be conservative and only use enum bitfields with GCC.
+/* Be conservative and only use enum bitfields with GCC.  Likewise for
+   char bitfields.
    FIXME: provide a complete autoconf test for buggy enum bitfields.  */
 
 #if (GCC_VERSION > 2000)
 #define ENUM_BITFIELD(TYPE) enum TYPE
+#define CHAR_BITFIELD unsigned char
 #else
 #define ENUM_BITFIELD(TYPE) unsigned int
+#define CHAR_BITFIELD unsigned int
 #endif
 
 #ifndef offsetof

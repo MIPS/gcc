@@ -457,6 +457,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	case REAL_CST:
 	case STRING_CST:
 	case COMPLEX_CST:
+	case VECTOR_CST:
 	  break;
 
 	  /* FIXME make this a decl.  */

@@ -649,7 +649,8 @@ is_simple_const (t)
 	  || TREE_CODE (t) == STRING_CST
 	  || TREE_CODE (t) == LABEL_DECL
 	  || TREE_CODE (t) == RESULT_DECL
-	  || TREE_CODE (t) == COMPLEX_CST);
+	  || TREE_CODE (t) == COMPLEX_CST
+	  || TREE_CODE (t) == VECTOR_CST);
 }
 
 int

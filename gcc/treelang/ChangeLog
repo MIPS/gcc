@@ -1,12 +1,53 @@
+2003-03-21  Andreas Jaeger  <aj@suse.de>
+
+	* treetree.c (cpp_create_reader): Follow prototype change in
+	cpplib.h.
+
+2003-03-17  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (treelang.tags): Remove duplicate entry.
+
+2003-03-15  Andreas Jaeger  <aj@suse.de>
+
+	* treetree.c (cpp_handle_option): Remove.
+
+2003-03-13  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (tree1$(exeext)): Fix previous patch.
+
+2003-03-12  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (tree1$(exeext)): Add c-cppbuiltin.o.
+
+2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* tree1.c (in_fname): Fix type.
+	(treelang_init): Update prototype and use of in_fname.
+	* treelang.h (in_fname): Fix type.
+	* treetree.c (tree_code_if_start, tree_code_if_else,
+	tree_code_if_end, tree_code_create_function_prototype,
+	tree_code_create_function_initial, tree_code_create_funciton_wrapup,
+	tree_code_create_variable, tree_code_output_expression_statement)
+	: Fix prototypes and use of filenames.
+	* treetree.h: Similarly.
+
+2003-03-05  Andreas Jaeger  <aj@suse.de>
+
+	* treetree.c (init_c_lex): Follow change to c-common.h.
+
+2003-03-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (treelang.tags): New target.
+
 2003-03-01  Tim Josling  <tej@melbpc.org.au>
 
         Name clashes with rtl.h fixed.
-	
+
 	* lex.l: Tokens PLUS, MINUS, RETURN changed to tl_PLUS tl_MINUS
 	tl_RETURN.
 
-	* parse.y: Ditto.	
-	
+	* parse.y: Ditto.
+
 2003-02-24  Tim Josling  <tej@melbpc.org.au>
 
 	* parse.y (my_yylex): New - ensure lexer time is charged to
@@ -14,11 +55,11 @@
 	(yylex): redefine as invocation of my_yylex which then calls
 	flex-generated yylex.
 	(timevar.h): include.
-	
+
 2003-02-23  Tim Josling  <tej@melbpc.org.au>
 
         Fix garbage collection, add more error checking, force GC always.
-	
+
 	* Make-lang.in (treelang/tree1.o): Depend on treelang/treetree.h
 	(treelang/treetree.o): Depend on  treelang/parse.h
 

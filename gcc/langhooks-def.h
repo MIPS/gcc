@@ -2,20 +2,20 @@
    Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -46,6 +46,7 @@ extern void lhd_do_nothing_t PARAMS ((tree));
 extern void lhd_do_nothing_i PARAMS ((int));
 extern void lhd_do_nothing_f PARAMS ((struct function *));
 extern int lhd_decode_option PARAMS ((int, char **));
+extern bool lhd_post_options PARAMS ((const char **));
 extern HOST_WIDE_INT lhd_get_alias_set PARAMS ((tree));
 extern tree lhd_return_tree PARAMS ((tree));
 extern tree lhd_return_null_tree PARAMS ((tree));
@@ -90,13 +91,13 @@ void write_global_declarations PARAMS ((void));
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
-#define LANG_HOOKS_INIT			lhd_do_nothing
+#define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		lhd_do_nothing
 #define LANG_HOOKS_DECODE_OPTION	lhd_decode_option
-#define LANG_HOOKS_POST_OPTIONS		hook_bool_void_false
+#define LANG_HOOKS_POST_OPTIONS		lhd_post_options
 #define LANG_HOOKS_GET_ALIAS_SET	lhd_get_alias_set
 #define LANG_HOOKS_EXPAND_CONSTANT	lhd_return_tree
 #define LANG_HOOKS_EXPAND_EXPR		lhd_expand_expr
@@ -190,7 +191,7 @@ void write_global_declarations PARAMS ((void));
 #define LANG_HOOKS_SIMPLIFY_EXPR lhd_simplify_expr
 
 /* Tree dump hooks.  */
-int lhd_tree_dump_dump_tree 			PARAMS ((void *, tree));
+bool lhd_tree_dump_dump_tree 			PARAMS ((void *, tree));
 int lhd_tree_dump_type_quals			PARAMS ((tree));
 
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN lhd_tree_dump_dump_tree

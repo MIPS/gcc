@@ -100,6 +100,9 @@ static void objc_init_options                   PARAMS ((void));
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
+#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
+#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
+  c_tree_chain_matters_p
 
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION c_expand_body

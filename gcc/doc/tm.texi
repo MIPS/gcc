@@ -619,7 +619,7 @@ Here are run-time target specifications.
 This function-like macro expands to a block of code that defines
 built-in preprocessor macros and assertions for the target cpu, using
 the functions @code{builtin_define}, @code{builtin_define_std} and
-@code{builtin_assert} defined in @file{c-common.c}.  When the front end
+@code{builtin_assert}.  When the front end
 calls this macro it provides a trailing semicolon, and since it has
 finished command line option processing your code can use those
 results freely.
@@ -1160,8 +1160,7 @@ make it all fit in fewer cache lines.
 Alignment in bits to be given to a structure bit-field that follows an
 empty field such as @code{int : 0;}.
 
-Note that @code{PCC_BITFIELD_TYPE_MATTERS} also affects the alignment
-that results from an empty field.
+If @code{PCC_BITFIELD_TYPE_MATTERS} is true, it overrides this macro.
 
 @findex STRUCTURE_SIZE_BOUNDARY
 @item STRUCTURE_SIZE_BOUNDARY
@@ -2816,6 +2815,16 @@ value @code{STARTING_FRAME_OFFSET}.
 @c i'm not sure if the above is still correct.. had to change it to get
 @c rid of an overfull.  --mew 2feb93
 
+@findex STACK_ALIGNMENT_NEEDED
+@item STACK_ALIGNMENT_NEEDED
+Define to zero to disable final alignment of the stack during reload.
+The non-zero default for this macro is suitable for most ports.
+
+On ports where @code{STARTING_FRAME_OFFSET} is non-zero or where there
+is a register save block following the local block that doesn't require
+alignment to @code{STACK_BOUNDARY}, it may be beneficial to disable
+stack alignment and do it in the backend.
+
 @findex STACK_POINTER_OFFSET
 @item STACK_POINTER_OFFSET
 Offset from the stack pointer register to the first location at which
@@ -3245,6 +3254,16 @@ for backward compatibility in pre GCC 3.0 compiled code.
 
 If this macro is not defined, it defaults to
 @code{DWARF_FRAME_REGISTERS}.
+
+@findex DWARF_REG_TO_UNWIND_COLUMN
+@item DWARF_REG_TO_UNWIND_COLUMN (@var{regno})
+
+Define this macro if the target's representation for dwarf registers
+is different than the internal representation for unwind column.
+Given a dwarf register, this macro should return the interal unwind
+column number to use instead.
+
+See the PowerPC's SPE target for an example.  
 
 @end table
 
@@ -7599,6 +7618,15 @@ end of a Dwarf-2 frame info section when used for exception handling.
 Default value is false if @code{EH_FRAME_SECTION_NAME} is defined, and
 true otherwise.
 @end deftypevar
+
+@deftypefn {Target Hook} rtx TARGET_DWARF_REGISTER_SPAN (rtx @var{reg})
+Given a register, this hook should return a parallel of registers to
+represent where to find the register pieces.  Define this hook if the
+register and its mode are represented in Dwarf in non-contiguous
+locations, or if the register should be represented in more than one
+register in Dwarf.  Otherwise, this hook should return @code{NULL_RTX}.
+If not defined, the default is to return @code{NULL_RTX}.
+@end deftypefn
 
 @node Alignment Output
 @subsection Assembler Commands for Alignment

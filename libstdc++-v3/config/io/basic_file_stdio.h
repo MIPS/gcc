@@ -93,21 +93,24 @@ namespace std
       ~__basic_file();
 
       streamsize 
-      xsputn(const char* __s, streamsize __n);
+      xsputn(const char* __s, streamsize __n, bool __stdio);
 
       streamsize 
-      xsgetn(char* __s, streamsize __n);
+      xsgetn(char* __s, streamsize __n, bool __stdio);
 
       streamoff
-      seekoff(streamoff __off, ios_base::seekdir __way,
+      seekoff(streamoff __off, ios_base::seekdir __way, bool __stdio,
 	      ios_base::openmode __mode = ios_base::in | ios_base::out);
 
       streamoff
-      seekpos(streamoff __pos, 
+      seekpos(streamoff __pos, bool __stdio,
 	      ios_base::openmode __mode = ios_base::in | ios_base::out);
 
       int 
       sync();
+
+      streamsize
+      showmanyc_helper(bool __stdio);
     };
 }  // namespace std
 

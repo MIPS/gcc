@@ -347,6 +347,9 @@
    through valgrind (a memory checker).  This is extremely expensive. */
 #undef ENABLE_VALGRIND_CHECKING
 
+/* Define if valgrind's memcheck.h header is installed. */
+#undef HAVE_MEMCHECK_H
+
 /* Define if you want to use __cxa_atexit, rather than atexit, to
    register C++ destructors for local statics and global objects.
    This is essential for fully standards-compliant handling of
@@ -378,17 +381,6 @@
 
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
 #undef BYTEORDER
-
-/* Define to the floating point format of the host machine, if not IEEE. */
-#undef HOST_FLOAT_FORMAT
-
-/* Define to 1 if the host machine stores floating point numbers in
-   memory with the word containing the sign bit at the lowest address,
-   or to 0 if it does it the other way around.
-
-   This macro should not be defined if the ordering is the same as for
-   multi-word integers. */
-#undef HOST_FLOAT_WORDS_BIG_ENDIAN
 
 /* Define if you have a working <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -485,6 +477,9 @@
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_GETRUSAGE
+
+/* Define to `long' if <sys/resource.h> doesn't define. */
+#undef rlim_t
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_LDGETNAME
@@ -599,6 +594,9 @@
 
 /* Define true if the assembler supports '.long foo@GOTOFF'. */
 #undef HAVE_AS_GOTOFF_IN_DATA
+
+/* Define if your assembler supports ltoffx and ldxmov relocations. */
+#undef HAVE_AS_LTOFFX_LDXMOV_RELOCS
 
 /* Define if your assembler supports dwarf2 .file/.loc directives,
    and preserves file table indices exactly as given. */

@@ -1,20 +1,20 @@
 # Makefile for GNU Ada Compiler (GNAT).
 #   Copyright (C) 1994-2003 Free Software Foundation, Inc.
 
-#This file is part of GNU CC.
+#This file is part of GCC.
 
-#GNU CC is free software; you can redistribute it and/or modify
+#GCC is free software; you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
 #the Free Software Foundation; either version 2, or (at your option)
 #any later version.
 
-#GNU CC is distributed in the hope that it will be useful,
+#GCC is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with GNU CC; see the file COPYING.  If not, write to
+#along with GCC; see the file COPYING.  If not, write to
 #the Free Software Foundation, 59 Temple Place - Suite 330,
 #Boston, MA 02111-1307, USA.
 
@@ -750,7 +750,25 @@ ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
   LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
 endif
 
-ifeq ($(strip $(filter-out hppa% hp hpux%,$(targ))),)
+ifeq ($(strip $(filter-out hppa% hp hpux10%,$(targ))),)
+  LIBGNAT_TARGET_PAIRS = \
+  a-excpol.adb<4wexcpol.adb \
+  a-intnam.ads<4hintnam.ads \
+  s-inmaop.adb<7sinmaop.adb \
+  s-interr.adb<5ginterr.adb \
+  s-intman.adb<7sintman.adb \
+  s-osinte.adb<5hosinte.adb \
+  s-osinte.ads<5hosinte.ads \
+  s-parame.ads<5hparame.ads \
+  s-osprim.adb<7sosprim.adb \
+  s-taprop.adb<5htaprop.adb \
+  s-taspri.ads<5htaspri.ads \
+  s-tpopsp.adb<7stpopsp.adb \
+  g-soccon.ads<3hsoccon.ads \
+  system.ads<5hsystem.ads
+endif
+
+ifeq ($(strip $(filter-out hppa% hp hpux11%,$(targ))),)
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<4hintnam.ads \
   s-inmaop.adb<7sinmaop.adb \
@@ -766,7 +784,7 @@ ifeq ($(strip $(filter-out hppa% hp hpux%,$(targ))),)
   g-soccon.ads<3hsoccon.ads \
   system.ads<5hsystem.ads
 
-  TGT_LIB = /usr/lib/libcl.a -lpthread
+  TGT_LIB = /usr/lib/libcl.a
   THREADSLIB = -lpthread -lc_r
   SYMLIB = -laddr2line -lbfd $(INTLLIBS)
   soext = .sl
@@ -789,6 +807,7 @@ ifeq ($(strip $(filter-out hppa% hp hpux%,$(targ))),)
     g-soccon.ads<3hsoccon.ads \
     system.ads<5hsystem.ads
 
+    TGT_LIB =
     THREADSLIB = -lcma
   endif
 endif
@@ -1717,19 +1736,19 @@ install-gnatlib: ../stamp-gnatlib
 	$(RMDIR) $(DESTDIR)$(ADA_INCLUDE_DIR)
 	-$(MKDIR) $(DESTDIR)$(ADA_RTL_OBJ_DIR)
 	-$(MKDIR) $(DESTDIR)$(ADA_INCLUDE_DIR)
-	-$(INSTALL_DATA) ada/rts/Makefile.adalib $(DESTDIR)$(ADA_RTL_OBJ_DIR)
-	for file in ada/rts/*.ali; do \
+	-$(INSTALL_DATA) rts/Makefile.adalib $(DESTDIR)$(ADA_RTL_OBJ_DIR)
+	for file in rts/*.ali; do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
-	-for file in ada/rts/*$(arext);do \
+	-for file in rts/*$(arext);do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
 ifeq ($(strip $(filter-out alpha% dec vms% openvms% alphavms%,$(targ))),)
-	-for file in ada/rts/lib*$(soext);do \
+	-for file in rts/lib*$(soext);do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
 else
-	-for file in ada/rts/lib*-**$(soext);do \
+	-for file in rts/lib*-**$(soext);do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
 endif
@@ -1738,7 +1757,7 @@ endif
 	-( cd $(DESTDIR)$(ADA_RTL_OBJ_DIR) && \
 	  $(LN_S) libgnarl-*$(soext) libgnarl$(soext) )
 # This copy must be done preserving the date on the original file.
-	for file in ada/rts/*.adb ada/rts/*.ads; do \
+	for file in rts/*.adb rts/*.ads; do \
 	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_INCLUDE_DIR); \
 	done
 	cd $(DESTDIR)$(ADA_INCLUDE_DIR); $(CHMOD) a-wx *.adb

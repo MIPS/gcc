@@ -206,24 +206,12 @@ struct cpp_token
 typedef unsigned CPPCHAR_SIGNED_T cppchar_t;
 typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 
-/* Values for opts.dump_macros.
-  dump_only means inhibit output of the preprocessed text
-             and instead output the definitions of all user-defined
-             macros in a form suitable for use as input to cpp.
-   dump_names means pass #define and the macro name through to output.
-   dump_definitions means pass the whole definition (plus #define) through
-*/
-enum { dump_none = 0, dump_only, dump_names, dump_definitions };
-
 /* This structure is nested inside struct cpp_reader, and
    carries all the options visible to the command line.  */
 struct cpp_options
 {
   /* Characters between tab stops.  */
   unsigned int tabstop;
-
-  /* Pending options - -D, -U, -A, -I, -ixxx.  */
-  struct cpp_pending *pending;
 
   /* Map between header names and file names, used only on DOS where
      file names are limited in length.  */
@@ -306,16 +294,9 @@ struct cpp_options
   /* Nonzero means turn warnings into errors.  */
   unsigned char warnings_are_errors;
 
-  /* Nonzero causes output not to be done, but directives such as
-     #define that have side effects are still obeyed.  */
-  unsigned char no_output;
-
   /* Nonzero means we should look for header.gcc files that remap file
      names.  */
   unsigned char remap;
-
-  /* Nonzero means don't output line number information.  */
-  unsigned char no_line_commands;
 
   /* Zero means dollar signs are punctuation.  */
   unsigned char dollars_in_ident;
@@ -339,12 +320,6 @@ struct cpp_options
      bother trying to do macro expansion and whatnot.  */
   unsigned char preprocessed;
 
-  /* Nonzero means dump macros in some fashion - see above.  */
-  unsigned char dump_macros;
-
-  /* Nonzero means pass #include lines through to the output.  */
-  unsigned char dump_includes;
-
   /* Print column number in error messages.  */
   unsigned char show_column;
 
@@ -353,6 +328,12 @@ struct cpp_options
 
   /* True for traditional preprocessing.  */
   unsigned char traditional;
+
+  /* True to warn about precompiled header files we couldn't use.  */
+  bool warn_invalid_pch;
+
+  /* True if dependencies should be restored from a precompiled header.  */
+  bool restore_pch_deps;
 
   /* Dependency generation.  */
   struct
@@ -380,14 +361,11 @@ struct cpp_options
   /* True means chars (wide chars) are unsigned.  */
   bool unsigned_char, unsigned_wchar;
 
+  /* True if target is EBCDIC.  */
+  bool EBCDIC;
+
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
-
-  /* True to warn about precompiled header files we couldn't use.  */
-  bool warn_invalid_pch;
-
-  /* True if dependencies should be restored from a precompiled header.  */
-  bool restore_pch_deps;
 };
 
 /* Call backs.  */
@@ -402,10 +380,6 @@ struct cpp_callbacks
   void (*undef) PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
   void (*ident) PARAMS ((cpp_reader *, unsigned int, const cpp_string *));
   void (*def_pragma) PARAMS ((cpp_reader *, unsigned int));
-  void (*simplify_path) PARAMS ((char *));
-  /* Called when the client has a chance to properly register
-     built-ins with cpp_define() and cpp_assert().  */
-  void (*register_builtins) PARAMS ((cpp_reader *));
   int (*valid_pch) PARAMS ((cpp_reader *, const char *, int));
   void (*read_pch) PARAMS ((cpp_reader *, const char *, int, const char *));
 };
@@ -511,8 +485,13 @@ struct cpp_hashnode GTY(())
   } GTY ((desc ("0"))) value;
 };
 
-/* Call this first to get a handle to pass to other functions.  */
-extern cpp_reader *cpp_create_reader PARAMS ((enum c_lang));
+/* Call this first to get a handle to pass to other functions.
+
+   If you want cpplib to manage its own hashtable, pass in a NULL
+   pointer.  Otherwise you should pass in an initialized hash table
+   that cpplib will share; this technique is used by the C front
+   ends.  */
+extern cpp_reader *cpp_create_reader PARAMS ((enum c_lang, struct ht *));
 
 /* Call this to change the selected language standard (e.g. because of
    command line options).  */
@@ -540,30 +519,15 @@ extern const struct line_maps *cpp_get_line_maps PARAMS ((cpp_reader *));
 extern cpp_callbacks *cpp_get_callbacks PARAMS ((cpp_reader *));
 extern void cpp_set_callbacks PARAMS ((cpp_reader *, cpp_callbacks *));
 
-/* Now call cpp_handle_option to handle 1 switch.  The return value is
-   the number of arguments used.  Options processing is not completed
-   until you call cpp_finish_options.  */
-extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **));
-
 /* This function reads the file, but does not start preprocessing.  It
    returns the name of the original file; this is the same as the
    input file, except for preprocessed input.  This will generate at
    least one file change callback, and possibly a line change callback
-   too.  If there was an error opening the file, it returns NULL.
+   too.  If there was an error opening the file, it returns NULL.  */
+extern const char *cpp_read_main_file PARAMS ((cpp_reader *, const char *));
 
-   If you want cpplib to manage its own hashtable, pass in a NULL
-   pointer.  Otherwise you should pass in an initialized hash table
-   that cpplib will share; this technique is used by the C front
-   ends.  */
-extern const char *cpp_read_main_file PARAMS ((cpp_reader *, const char *,
-					       struct ht *));
-
-/* Deferred handling of command line options that can generate debug
-   callbacks, such as -D and -imacros.  Call this after
-   cpp_read_main_file.  The front ends need this separation so they
-   can initialize debug output with the original file name, returned
-   from cpp_read_main_file, before they get debug callbacks.  */
-extern void cpp_finish_options PARAMS ((cpp_reader *));
+/* Set up built-ins like __FILE__.  */
+extern void cpp_init_builtins PARAMS ((cpp_reader *));
 
 /* Call this to finish preprocessing.  If you requested dependency
    generation, pass an open stream to write the information to,
@@ -601,7 +565,7 @@ extern cppchar_t
 cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
 				 unsigned int *, int *));
 
-/* Used to register builtins during the register_builtins callback.
+/* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
@@ -741,6 +705,10 @@ extern unsigned char *cpp_quote_string	PARAMS ((unsigned char *,
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
 extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
+extern void cpp_simplify_path PARAMS ((char *));
+extern bool cpp_push_include PARAMS ((cpp_reader *, const char *));
+extern void cpp_change_file PARAMS ((cpp_reader *, enum lc_reason,
+				     const char *));
 
 /* In cpppch.c */
 struct save_macro_data;
@@ -752,9 +720,6 @@ extern void cpp_prepare_state PARAMS ((cpp_reader *,
 				       struct save_macro_data **));
 extern int cpp_read_state PARAMS ((cpp_reader *, const char *, FILE *,
 				   struct save_macro_data *));
-
-/* In cppmain.c */
-extern void cpp_preprocess_file PARAMS ((cpp_reader *, const char *, FILE *));
 
 #ifdef __cplusplus
 }

@@ -37,7 +37,7 @@ static const char *op_symbol		PARAMS ((tree));
 static void pretty_print_string		PARAMS ((output_buffer *, const char*));
 static void print_call_name		PARAMS ((output_buffer *, tree));
 static void newline_and_indent		PARAMS ((output_buffer *, int));
-static inline void maybe_init_pretty_print PARAMS ((void));
+static void maybe_init_pretty_print	PARAMS ((void));
 static void print_declaration		PARAMS ((output_buffer *, tree, int,
       						 int));
 static void print_struct_decl		PARAMS ((output_buffer *, tree, int));
@@ -475,6 +475,20 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_string (buffer, "\"");
       pretty_print_string (buffer, TREE_STRING_POINTER (node));
       output_add_string (buffer, "\"");
+      break;
+
+    case VECTOR_CST:
+      {
+	tree elt;
+	output_add_string (buffer, "{ ");
+	for (elt = TREE_VECTOR_CST_ELTS (node); elt; elt = TREE_CHAIN (elt))
+	  {
+	    dump_generic_node (buffer, TREE_VALUE (elt), spc, flags);
+	    if (TREE_CHAIN (elt))
+	      output_add_string (buffer, ", ");
+	  }
+	output_add_string (buffer, " }");
+      }
       break;
 
     case FUNCTION_TYPE:

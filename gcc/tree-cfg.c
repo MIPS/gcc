@@ -278,20 +278,12 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
       tree prev_stmt;
       tree *stmt_p = tsi_container (i);
 
+      /* Ignore empty containers.  */
+      if (*stmt_p == empty_stmt_node || *stmt_p == error_mark_node)
+	continue;
+
       prev_stmt = stmt;
       stmt = tsi_stmt (i);
-
-      /* Set the block for the container of non-executable statements.  */
-      if (stmt == NULL_TREE)
-	{
-	  if (bb && *stmt_p != empty_stmt_node)
-	    append_stmt_to_bb (stmt_p, bb, parent_stmt);
-	  continue;
-	}
-
-      STRIP_NOPS (stmt);
-      NEXT_BLOCK_LINK (stmt) = NULL_TREE;
-      code = TREE_CODE (stmt);
 
       /* If the statement starts a new basic block or if we have determined
 	 in a previous pass that we need to create a new block for STMT, do
@@ -301,6 +293,19 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
 	  bb = create_bb ();
 	  start_new_block = false;
 	}
+
+      /* Set the block for the container of non-executable statements.  */
+      if (stmt == NULL_TREE)
+	{
+	  if (bb)
+	    append_stmt_to_bb (stmt_p, bb, parent_stmt);
+	  last = *stmt_p;
+	  continue;
+	}
+
+      STRIP_NOPS (stmt);
+      NEXT_BLOCK_LINK (stmt) = NULL_TREE;
+      code = TREE_CODE (stmt);
 
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
@@ -380,9 +385,8 @@ make_blocks (first_p, next_block_link, parent_stmt, bb)
       last = stmt;
     }
 
-  /* If LAST_STMT is set, link it to NEXT_BLOCK_LINK.  This allows making
-     edges from the last block inside a lexical scope (see
-     successor_block).  */
+  /* If LAST is set, link it to NEXT_BLOCK_LINK.  This allows making edges
+     from the last block inside a lexical scope (see successor_block).  */
   if (last)
     {
       NEXT_BLOCK_LINK (last) = next_block_link;
@@ -421,17 +425,17 @@ make_loop_expr_blocks (loop_p, next_block_link, entry)
      LOOP_EXPR body, will naturally loop back.  */
   STRIP_CONTAINERS (loop);
   si = tsi_start (&LOOP_EXPR_BODY (loop));
-  next_block_link = tsi_stmt (si);
+  next_block_link = *(tsi_container (si));
 
   /* If the loop body is empty, point NEXT_BLOCK_LINK to the statement
      following the LOOP_EXPR node, as we do with the other control
      structures.  */
-  if (next_block_link == NULL_TREE)
+  if (body_is_empty (LOOP_EXPR_BODY (loop)))
     {
       si = tsi_start (loop_p);
       tsi_next (&si);
       if (!tsi_end_p (si))
-	next_block_link = tsi_stmt (si);
+	next_block_link = *(tsi_container (si));
     }
 
   make_blocks (&LOOP_EXPR_BODY (loop), next_block_link, loop, NULL);
@@ -461,7 +465,7 @@ make_cond_expr_blocks (cond_p, next_block_link, entry)
   si = tsi_start (cond_p);
   tsi_next (&si);
   if (!tsi_end_p (si))
-    next_block_link = tsi_stmt (si);
+    next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (cond);
   make_blocks (&COND_EXPR_THEN (cond), next_block_link, cond, NULL);
@@ -492,7 +496,7 @@ make_switch_expr_blocks (switch_e_p, next_block_link, entry)
   si = tsi_start (switch_e_p);
   tsi_next (&si);
   if (!tsi_end_p (si))
-    next_block_link = tsi_stmt (si);
+    next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (switch_e);
   make_blocks (&SWITCH_BODY (switch_e), next_block_link, switch_e, NULL);
@@ -531,7 +535,7 @@ make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
   si = tsi_start (bind_p);
   tsi_next (&si);
   if (!tsi_end_p (si))
-    next_block_link = tsi_stmt (si);
+    next_block_link = *(tsi_container (si));
 
   /* By passing the current block ENTRY to make_blocks, we will keep adding
      statements to ENTRY until we find a block terminating statement inside
@@ -1761,12 +1765,13 @@ dump_tree_bb (outf, prefix, bb, indent)
   else
     fprintf (outf, "nil\n");
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    {
-      fprintf (outf, "%s%s# ", s_indent, prefix);
-      print_generic_stmt (outf, phi, 0);
-      fprintf (outf, "\n");
-    }
+  if (bb->aux)
+    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      {
+	fprintf (outf, "%s%s# ", s_indent, prefix);
+	print_generic_stmt (outf, phi, 0);
+	fprintf (outf, "\n");
+      }
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
@@ -2038,7 +2043,10 @@ successor_block (bb)
      NEXT_BLOCK_LINK for BB's last statement.  If NEXT_BLOCK_LINK is still
      NULL, then BB is the last basic block in the function.  In which case
      we have reached the end of the flowgraph and return EXIT_BLOCK_PTR.  */
-  if (last_stmt && NEXT_BLOCK_LINK (last_stmt))
+  if (last_stmt == NULL_TREE)
+    last_stmt = *bb->end_tree_p;
+
+  if (NEXT_BLOCK_LINK (last_stmt))
     return bb_for_stmt (NEXT_BLOCK_LINK (last_stmt));
   else
     return EXIT_BLOCK_PTR;
@@ -2157,12 +2165,16 @@ stmt_starts_bb_p (t, prev_t)
      tree t;
      tree prev_t;
 {
-  enum tree_code code = TREE_CODE (t);
-
+  enum tree_code code;
+  
+  if (t == NULL_TREE)
+    return false;
+  
   /* LABEL_EXPRs and CASE_LABEL_EXPRs start a new basic block only if the
      preceding statement wasn't a label of the same type.  This prevents
      the creation of consecutive blocks that have nothing but a single
      label.  */
+  code = TREE_CODE (t);
   if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
     {
       if (prev_t && TREE_CODE (prev_t) == code)

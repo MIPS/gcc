@@ -1298,7 +1298,7 @@ schedule_insn (insn, ready, clock)
       char buf[2048];
 
       print_insn (buf, insn, 0);
-      buf[40]=0;
+      buf[40] = 0;
       fprintf (sched_dump, ";;\t%3i--> %-40s:", clock, buf);
 
       if (recog_memoized (insn) < 0)
@@ -2251,7 +2251,7 @@ schedule_block (b, rgn_n_insns)
 
       /* Allow the target to reorder the list, typically for
 	 better instruction bundling.  */
-      if (targetm.sched.reorder
+      if (sort_p && targetm.sched.reorder
 	  && (ready.n_ready == 0
 	      || !SCHED_GROUP_P (ready_element (&ready, 0))))
 	can_issue_more =

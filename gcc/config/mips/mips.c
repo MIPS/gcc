@@ -5714,8 +5714,12 @@ override_options ()
   else
     mips16 = 0;
 
+  real_format_for_mode[SFmode - QFmode] = &mips_single_format;
+  real_format_for_mode[DFmode - QFmode] = &mips_double_format;
 #ifdef MIPS_TFMODE_FORMAT
   real_format_for_mode[TFmode - QFmode] = &MIPS_TFMODE_FORMAT;
+#else
+  real_format_for_mode[TFmode - QFmode] = &mips_quad_format;
 #endif
   
   mips_print_operand_punct['?'] = 1;
@@ -5766,6 +5770,9 @@ override_options ()
   start = FP_DBX_FIRST - FP_REG_FIRST;
   for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
     mips_dbx_regno[i] = i + start;
+
+  mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;
+  mips_dbx_regno[LO_REGNUM] = MD_DBX_FIRST + 1;
 
   /* Set up array giving whether a given register can hold a given mode.
      At present, restrict ints from being in FP registers, because reload

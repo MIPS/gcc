@@ -214,7 +214,7 @@ invariant_rtx_wrto_regs_p_helper (expr, invariant_regs)
     }
 }
 
-/* Checks that EXPR is invariant provided that INVARIANT_REGS are invariant. */
+/* Checks that EXPR is invariant provided that INVARIANT_REGS are invariant.  */
 static bool
 invariant_rtx_wrto_regs_p (expr, invariant_regs)
      rtx expr;
@@ -278,7 +278,7 @@ simple_condition_p (loop, condition, invariant_regs, desc)
       return true;
     }
 
-  /* Check the other operand. */
+  /* Check the other operand.  */
   if (!invariant_rtx_wrto_regs_p (op1, invariant_regs))
     return false;
   if (!REG_P (op0))
@@ -494,7 +494,7 @@ constant_iterations (desc, niter, may_be_zero)
    These cases needs to be either cared by copying the loop test in the front
    of loop or keeping the test in first iteration of loop.
    
-   When INIT/LIM are set, they are used instead of var/lim of DESC. */
+   When INIT/LIM are set, they are used instead of var/lim of DESC.  */
 rtx
 count_loop_iterations (desc, init, lim)
      struct loop_desc *desc;
@@ -578,7 +578,7 @@ count_loop_iterations (desc, init, lim)
   if (stride != const1_rtx)
     {
       /* Number of iterations is now (EXP + STRIDE - 1 / STRIDE),
-	 but we need to take care for overflows.   */
+	 but we need to take care for overflows.  */
 
       mod = simplify_gen_binary (UMOD, GET_MODE (desc->var), exp, stride);
 
@@ -719,7 +719,7 @@ simple_loop_exit_p (loops, loop, exit_edge, invariant_regs, single_set_regs, des
   desc->var_alts = variable_initial_values (e, desc->var);
   desc->lim_alts = variable_initial_values (e, desc->lim);
 
-  /* Number of iterations. */
+  /* Number of iterations.  */
   if (!count_loop_iterations (desc, NULL, NULL))
     return false;
   desc->const_iter =
@@ -819,12 +819,12 @@ simple_loop_p (loops, loop, desc)
   return any;
 }
 
-/* Marks blocks that are part of non-recognized loops; i.e. we throw away
-   all latch edges and mark blocks inside any remaining cycle.  Everything
-   is a bit complicated due to fact we do not want to do this for parts of
-   cycles that only "pass" through some loop -- i.e. for each cycle, we want
-   to mark blocks that belong directly to innermost loop containing the whole
-   cycle.  */
+/* Marks blocks and edges that are part of non-recognized loops; i.e. we
+   throw away all latch edges and mark blocks inside any remaining cycle.
+   Everything is a bit complicated due to fact we do not want to do this
+   for parts of cycles that only "pass" through some loop -- i.e. for
+   each cycle, we want to mark blocks that belong directly to innermost
+   loop containing the whole cycle.  */
 void
 mark_irreducible_loops (loops)
      struct loops *loops;
@@ -832,9 +832,18 @@ mark_irreducible_loops (loops)
   int *dfs_in, *closed, *mr, *mri, *n_edges, *stack;
   unsigned i;
   edge **edges, e;
+  edge *estack;
   basic_block act;
   int stack_top, tick, depth;
   struct loop *cloop;
+
+  /* Reset the flags.  */
+  FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+    {
+      act->flags &= ~BB_IRREDUCIBLE_LOOP;
+      for (e = act->succ; e; e = e->succ_next)
+	e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+    }
 
   /* The first last_basic_block + 1 entries are for real blocks (including
      entry); then we have loops->num - 1 fake blocks for loops to that we
@@ -846,6 +855,7 @@ mark_irreducible_loops (loops)
   n_edges = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   edges = xmalloc ((last_basic_block + loops->num) * sizeof (edge *));
   stack = xmalloc ((n_basic_blocks + loops->num) * sizeof (int));
+  estack = xmalloc ((n_basic_blocks + loops->num) * sizeof (edge));
 
   /* Create the edge lists.  */
   for (i = 0; i < last_basic_block + loops->num; i++)
@@ -923,7 +933,11 @@ mark_irreducible_loops (loops)
   stack_top = 0;
   for (i = 0; i < loops->num; i++)
     if (loops->parray[i])
-      stack[stack_top++] = loops->parray[i]->header->index + 1;
+      {
+	stack[stack_top] = loops->parray[i]->header->index + 1;
+	estack[stack_top] = NULL;
+	stack_top++;
+      }
 
   while (stack_top)
     {
@@ -941,16 +955,24 @@ mark_irreducible_loops (loops)
 	           : e->dest->index + 1;
           if (closed[sidx])
 	    {
-	      if (mr[sidx] < mr[idx] && !closed[mri[sidx]])
+	      if (!closed[mri[sidx]])
 		{
-		  mr[idx] = mr[sidx];
-		  mri[idx] = mri[sidx];
+		  if (mr[sidx] < mr[idx])
+		    {
+		      mr[idx] = mr[sidx];
+		      mri[idx] = mri[sidx];
+		    }
+
+		  if (mr[sidx] <= dfs_in[idx])
+		    e->flags |= EDGE_IRREDUCIBLE_LOOP;
 		}
 	      continue;
 	    }
 	  if (dfs_in[sidx] < 0)
 	    {
-	      stack[stack_top++] = sidx;
+	      stack[stack_top] = sidx;
+	      estack[stack_top] = e;
+	      stack_top++;
 	      goto next;
 	    }
 	  if (dfs_in[sidx] < mr[idx])
@@ -958,12 +980,14 @@ mark_irreducible_loops (loops)
 	      mr[idx] = dfs_in[sidx];
 	      mri[idx] = sidx;
 	    }
+	  e->flags |= EDGE_IRREDUCIBLE_LOOP;
 	}
 
       /* Return back.  */
       closed[idx] = 1;
+      e = estack[stack_top - 1];
       stack_top--;
-      if (stack_top && dfs_in[stack[stack_top - 1]] >= 0)
+      if (e)
         {
 	  /* Propagate information back.  */
 	  sidx = stack[stack_top - 1];
@@ -972,6 +996,8 @@ mark_irreducible_loops (loops)
 	      mr[sidx] = mr[idx];
 	      mri[sidx] = mri[idx];
 	    }
+	  if (mr[idx] <= dfs_in[sidx])
+	    e->flags |= EDGE_IRREDUCIBLE_LOOP;
 	}
       /* Mark the block if relevant.  */
       if (idx && idx <= last_basic_block && mr[idx] <= dfs_in[idx])
@@ -980,6 +1006,7 @@ next:;
     }
 
   free (stack);
+  free (estack);
   free (dfs_in);
   free (closed);
   free (mr);

@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by David Mosberger-Tang <davidm@hpl.hp.com>
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
@@ -51,13 +51,13 @@ struct _Unwind_Context {
 static _Unwind_Reason_Code
 uw_frame_state_for (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 {
-  unw_word_t handler;
+  unw_proc_info_t pi;
 
   if (unw_step (&context->cursor) <= 0)
     return _URC_END_OF_STACK;
 
-  unw_get_reg (&context->cursor, UNW_REG_HANDLER, &handler);
-  fs->personality = (_Unwind_Personality_Fn) handler;
+  unw_get_proc_info(&context->cursor, &pi);
+  fs->personality = (_Unwind_Personality_Fn) pi.handler;
 
   return _URC_NO_REASON;
 }
@@ -105,6 +105,15 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
   return ret;
 }
 
+/* Get the value of the CFA as saved in CONTEXT.  */
+
+_Unwind_Word
+_Unwind_GetCFA (struct _Unwind_Context *context)
+{
+  /* ??? Is there any way to get this information?  */
+  return NULL;
+} 
+
 /* Overwrite the saved value for register REG in CONTEXT with VAL.  */
 
 void
@@ -137,19 +146,19 @@ _Unwind_SetIP (struct _Unwind_Context *context, _Unwind_Ptr val)
 void *
 _Unwind_GetLanguageSpecificData (struct _Unwind_Context *context)
 {
-  unw_word_t ret;
+  unw_proc_info_t pi;
 
-  unw_get_reg (&context->cursor, UNW_REG_LSDA, &ret);
-  return (void *) ret;
+  unw_get_proc_info(&context->cursor, &pi);
+  return (void *) pi.lsda;
 }
 
 _Unwind_Ptr
 _Unwind_GetRegionStart (struct _Unwind_Context *context)
 {
-  unw_word_t ret;
+  unw_proc_info_t pi;
 
-  unw_get_reg (&context->cursor, UNW_REG_PROC_START, &ret);
-  return (_Unwind_Ptr) ret;
+  unw_get_proc_info(&context->cursor, &pi);
+  return (_Unwind_Ptr) pi.start_ip;
 }
 
 #include "unwind.inc"

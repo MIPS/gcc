@@ -1877,8 +1877,13 @@ substitute_in_expr (exp, f, r)
 	  else if (code == CONSTRUCTOR)
 	    abort ();
 
-	  op0 = substitute_in_expr (TREE_OPERAND (exp, 0), f, r);
-	  op1 = substitute_in_expr (TREE_OPERAND (exp, 1), f, r);
+	  op0 = TREE_OPERAND (exp, 0);
+	  op1 = TREE_OPERAND (exp, 1);
+	  if (contains_placeholder_p (op0))
+	    op0 = substitute_in_expr (op0, f, r);
+	  if (contains_placeholder_p (op1))
+	    op1 = substitute_in_expr (op1, f, r);
+
 	  if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
 	    return exp;
 
@@ -1904,9 +1909,17 @@ substitute_in_expr (exp, f, r)
 	  else if (code != COND_EXPR)
 	    abort ();
 
-	  op0 = substitute_in_expr (TREE_OPERAND (exp, 0), f, r);
-	  op1 = substitute_in_expr (TREE_OPERAND (exp, 1), f, r);
-	  op2 = substitute_in_expr (TREE_OPERAND (exp, 2), f, r);
+	  op0 = TREE_OPERAND (exp, 0);
+	  op1 = TREE_OPERAND (exp, 1);
+	  op2 = TREE_OPERAND (exp, 2);
+
+	  if (contains_placeholder_p (op0))
+	    op0 = substitute_in_expr (op0, f, r);
+	  if (contains_placeholder_p (op1))
+	    op1 = substitute_in_expr (op1, f, r);
+	  if (contains_placeholder_p (op2))
+	    op2 = substitute_in_expr (op2, f, r);
+
 	  if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1)
 	      && op2 == TREE_OPERAND (exp, 2))
 	    return exp;
@@ -3948,10 +3961,10 @@ get_narrower (op, unsignedp_ptr)
 
       /* See what's inside this conversion.  If we decide to strip it,
 	 we will set WIN.  */
-      op = TREE_OPERAND (op, 0);
 
       if (bitschange > 0)
 	{
+	  op = TREE_OPERAND (op, 0);
 	  /* An extension: the outermost one can be stripped,
 	     but remember whether it is zero or sign extension.  */
 	  if (first)
@@ -3970,6 +3983,7 @@ get_narrower (op, unsignedp_ptr)
 	  if (first)
 	    uns = TREE_UNSIGNED (TREE_TYPE (op));
 	  first = 0;
+	  op = TREE_OPERAND (op, 0);
 	}
 
       win = op;

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "sbitmap.h"
 #include "langhooks.h"
 #include "target.h"
+#include "cgraph.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -795,17 +796,26 @@ flags_from_decl_or_type (exp)
 {
   int flags = 0;
   tree type = exp;
-  /* ??? We can't set IS_MALLOC for function types?  */
+
   if (DECL_P (exp))
     {
+      struct cgraph_rtl_info *i = cgraph_rtl_info (exp);
       type = TREE_TYPE (exp);
 
+      if (i)
+	{
+	  if (i->pure_function)
+	    flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
+	  if (i->const_function)
+	    flags |= ECF_CONST | ECF_LIBCALL_BLOCK;
+	}
+
       /* The function exp may have the `malloc' attribute.  */
-      if (DECL_P (exp) && DECL_IS_MALLOC (exp))
+      if (DECL_IS_MALLOC (exp))
 	flags |= ECF_MALLOC;
 
       /* The function exp may have the `pure' attribute.  */
-      if (DECL_P (exp) && DECL_IS_PURE (exp))
+      if (DECL_IS_PURE (exp))
 	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
 
       if (TREE_NOTHROW (exp))
@@ -1634,6 +1644,7 @@ compute_argument_addresses (args, argblock, num_actuals)
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
+	  set_mem_align (args[i].stack, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack,
 			      TREE_TYPE (args[i].tree_value), 1);
 
@@ -1644,6 +1655,7 @@ compute_argument_addresses (args, argblock, num_actuals)
 
 	  addr = plus_constant (addr, arg_offset);
 	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
+	  set_mem_align (args[i].stack_slot, PARM_BOUNDARY);
 	  set_mem_attributes (args[i].stack_slot,
 			      TREE_TYPE (args[i].tree_value), 1);
 
@@ -1663,12 +1675,12 @@ compute_argument_addresses (args, argblock, num_actuals)
    FNDECL is the tree node for the target function.  For an indirect call
    FNDECL will be NULL_TREE.
 
-   EXP is the CALL_EXPR for this call.  */
+   ADDR is the operand 0 of CALL_EXPR for this call.  */
 
 static rtx
-rtx_for_function_call (fndecl, exp)
+rtx_for_function_call (fndecl, addr)
      tree fndecl;
-     tree exp;
+     tree addr;
 {
   rtx funexp;
 
@@ -1690,7 +1702,7 @@ rtx_for_function_call (fndecl, exp)
     /* Generate an rtx (probably a pseudo-register) for the address.  */
     {
       push_temp_slots ();
-      funexp = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, VOIDmode, 0);
+      funexp = expand_expr (addr, NULL_RTX, VOIDmode, 0);
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
       emit_queue ();
     }
@@ -2212,6 +2224,7 @@ expand_call (exp, target, ignore)
   int old_stack_allocated;
   rtx call_fusage;
   tree p = TREE_OPERAND (exp, 0);
+  tree addr = TREE_OPERAND (exp, 0);
   int i;
   /* The alignment of the stack, in bits.  */
   HOST_WIDE_INT preferred_stack_boundary;
@@ -2341,9 +2354,15 @@ expand_call (exp, target, ignore)
 
   /* Figure out the amount to which the stack should be aligned.  */
   preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  if (fndecl)
+    {
+      struct cgraph_rtl_info *i = cgraph_rtl_info (fndecl);
+      if (i && i->preferred_incoming_stack_boundary)
+	preferred_stack_boundary = i->preferred_incoming_stack_boundary;
+    }
 
   /* Operand 0 is a pointer-to-function; get the type of the function.  */
-  funtype = TREE_TYPE (TREE_OPERAND (exp, 0));
+  funtype = TREE_TYPE (addr);
   if (! POINTER_TYPE_P (funtype))
     abort ();
   funtype = TREE_TYPE (funtype);
@@ -2480,8 +2499,8 @@ expand_call (exp, target, ignore)
 
   /* Tail recursion fails, when we are not dealing with recursive calls.  */
   if (!try_tail_recursion
-      || TREE_CODE (TREE_OPERAND (exp, 0)) != ADDR_EXPR
-      || TREE_OPERAND (TREE_OPERAND (exp, 0), 0) != current_function_decl)
+      || TREE_CODE (addr) != ADDR_EXPR
+      || TREE_OPERAND (addr, 0) != current_function_decl)
     try_tail_recursion = 0;
 
   /*  Rest of purposes for tail call optimizations to fail.  */
@@ -2503,7 +2522,7 @@ expand_call (exp, target, ignore)
       /* Functions that do not return exactly once may not be sibcall
          optimized.  */
       || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
-      || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
+      || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (addr)))
       /* If this function requires more stack slots than the current
 	 function, we cannot change it into a sibling call.  */
       || args_size.constant > current_function_args_size
@@ -2556,9 +2575,9 @@ expand_call (exp, target, ignore)
 	  if (try_tail_recursion)
 	    actparms = tree_cons (NULL_TREE, args[i].tree_value, actparms);
 	}
-      /* Do the same for the function address if it is an expression. */
+      /* Do the same for the function address if it is an expression.  */
       if (!fndecl)
-        TREE_OPERAND (exp, 0) = fix_unsafe_tree (TREE_OPERAND (exp, 0));
+        addr = fix_unsafe_tree (addr);
       /* Expanding one of those dangerous arguments could have added
 	 cleanups, but otherwise give it a whirl.  */
       if (any_pending_cleanups (1))
@@ -2627,6 +2646,8 @@ expand_call (exp, target, ignore)
   if (cfun->preferred_stack_boundary < preferred_stack_boundary
       && fndecl != current_function_decl)
     cfun->preferred_stack_boundary = preferred_stack_boundary;
+  if (fndecl == current_function_decl)
+    cfun->recursive_call_emit = true;
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
@@ -2949,7 +2970,7 @@ expand_call (exp, target, ignore)
 	 be deferred during the evaluation of the arguments.  */
       NO_DEFER_POP;
 
-      funexp = rtx_for_function_call (fndecl, exp);
+      funexp = rtx_for_function_call (fndecl, addr);
 
       /* Figure out the register where the value, if any, will come back.  */
       valreg = 0;
@@ -4576,7 +4597,6 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 
   return sibcall_failure;
 }
-
 
 /* Nonzero if we do not know how to pass TYPE solely in registers.
    We cannot do so in the following cases:

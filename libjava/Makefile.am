@@ -72,7 +72,7 @@ endif # CANADIAN
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
-GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8
+GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 
 GCJCOMPILE = $(LIBTOOL) --tag=GCJ --mode=compile $(GCJ_WITH_FLAGS) -fclasspath= -fbootclasspath=$(here) $(JC1FLAGS) -MD -MT $@ -MF $(@:.lo=.d) -c
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) $(LDFLAGS) -o $@
@@ -97,7 +97,7 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 ## Detect bugs in the verifier implementation, and maybe other places.
 	-Wswitch-enum \
 	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
-	-DPREFIX="\"$(prefix)\""
+	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\""
 if USING_GCC
 AM_CFLAGS = @LIBGCJ_CFLAGS@ $(WARNINGS)
 else
@@ -105,7 +105,7 @@ AM_CFLAGS = @LIBGCJ_CFLAGS@
 endif
 
 JCFLAGS = -g
-JC1FLAGS = @LIBGCJ_JAVAFLAGS@ -Wno-deprecated $(GCJFLAGS)
+JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
@@ -767,6 +767,13 @@ gnu/java/beans/BeanInfoEmbryo.java \
 gnu/java/beans/EmptyBeanInfo.java \
 gnu/java/beans/ExplicitBeanInfo.java \
 gnu/java/beans/IntrospectionIncubator.java \
+gnu/javax/rmi/CORBA/DelegateFactory.java \
+gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
+gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
+gnu/javax/rmi/CORBA/StubDelegateImpl.java \
+gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
+gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
+gnu/javax/rmi/PortableServer.java \
 java/applet/Applet.java \
 java/applet/AppletStub.java \
 java/applet/AppletContext.java \
@@ -1037,6 +1044,7 @@ java/awt/dnd/peer/DragSourceContextPeer.java \
 java/awt/dnd/peer/DropTargetContextPeer.java \
 java/awt/dnd/peer/DropTargetPeer.java \
 java/awt/dnd/DnDConstants.java \
+java/awt/dnd/DnDEventMulticaster.java \
 java/awt/dnd/DragGestureEvent.java \
 java/awt/dnd/DragGestureListener.java \
 java/awt/dnd/DragGestureRecognizer.java	\
@@ -1092,6 +1100,8 @@ java/beans/beancontext/BeanContextServiceRevokedEvent.java \
 java/beans/beancontext/BeanContextServiceRevokedListener.java \
 java/beans/beancontext/BeanContextServices.java \
 java/beans/beancontext/BeanContextServicesListener.java \
+java/beans/beancontext/BeanContextServicesSupport.java \
+java/beans/beancontext/BeanContextSupport.java \
 java/beans/BeanDescriptor.java \
 java/beans/BeanInfo.java \
 java/beans/Beans.java \
@@ -1120,6 +1130,19 @@ java/beans/VetoableChangeListenerProxy.java \
 java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java \
 java/beans/AppletInitializer.java \
+javax/rmi/BAD_OPERATION.java \
+javax/rmi/ORB.java \
+javax/rmi/PortableRemoteObject.java \
+javax/rmi/CORBA/ClassDesc.java \
+javax/rmi/CORBA/ObjectImpl.java	\
+javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
+javax/rmi/CORBA/StubDelegate.java \
+javax/rmi/CORBA/Stub.java \
+javax/rmi/CORBA/SystemException.java \
+javax/rmi/CORBA/Tie.java \
+javax/rmi/CORBA/UtilDelegate.java \
+javax/rmi/CORBA/Util.java \
+javax/rmi/CORBA/ValueHandler.java \
 javax/swing/border/AbstractBorder.java \
 javax/swing/border/Border.java \
 javax/swing/border/CompoundBorder.java \
@@ -1229,6 +1252,7 @@ javax/swing/JCheckBox.java \
 javax/swing/JComponent.java \
 javax/swing/JDialog.java \
 javax/swing/JEditorPane.java \
+javax/swing/JFormattedTextField.java \
 javax/swing/JFrame.java \
 javax/swing/JLabel.java \
 javax/swing/JLayeredPane.java \
@@ -1313,6 +1337,7 @@ javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
 javax/swing/text/Document.java \
+javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
 javax/swing/text/Element.java \
 javax/swing/text/GapContent.java \
@@ -1326,6 +1351,7 @@ javax/swing/text/Style.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
 javax/swing/text/MutableAttributeSet.java \
+javax/swing/text/NavigationFilter.java \
 javax/swing/text/StyledDocument.java \
 javax/swing/text/StyledEditorKit.java \
 javax/swing/text/TextAction.java \
@@ -1616,6 +1642,9 @@ javax/naming/ldap/UnsolicitedNotification.java \
 javax/naming/ldap/UnsolicitedNotificationEvent.java \
 javax/naming/ldap/UnsolicitedNotificationListener.java \
 javax/naming/OperationNotSupportedException.java \
+javax/print/attribute/Attribute.java \
+javax/print/attribute/AttributeSet.java \
+javax/print/attribute/PrintRequestAttributeSet.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
 javax/sql/ConnectionPoolDataSource.java \
@@ -2072,6 +2101,7 @@ gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FloatBufferImpl.java \
 gnu/java/nio/IntBufferImpl.java \
 gnu/java/nio/LongBufferImpl.java \
+gnu/java/nio/MappedByteFileBuffer.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2492,6 +2522,7 @@ gnu/java/nio/natFileChannelImpl.cc \
 gnu/java/nio/natFloatBufferImpl.cc \
 gnu/java/nio/natIntBufferImpl.cc \
 gnu/java/nio/natLongBufferImpl.cc \
+gnu/java/nio/natMappedByteFileBuffer.cc \
 gnu/java/nio/natSelectorImpl.cc \
 gnu/java/nio/natShortBufferImpl.cc \
 gnu/java/nio/natSocketChannelImpl.cc \

@@ -704,7 +704,7 @@ extern int x86_prefetch_sse;
    the rounding precision is indeterminate, since either may be chosen
    apparently at random.  */
 #define TARGET_FLT_EVAL_METHOD \
-  (TARGET_MIX_SSE_I387 ? -1 : TARGET_SSE_MATH ? 1 : 2)
+  (TARGET_MIX_SSE_I387 ? -1 : TARGET_SSE_MATH ? 0 : 2)
 
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE 32
@@ -1664,18 +1664,7 @@ enum reg_class
    definition that is usually appropriate, refer to expr.h for additional
    documentation. If `REG_PARM_STACK_SPACE' is defined, the argument will be
    computed in the stack and then loaded into a register.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)				\
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)				\
-       || ((MODE) == TImode)					\
-       || ((MODE) == BLKmode 					\
-	   && ! ((TYPE) != 0					\
-		 && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST \
-		 && 0 == (int_size_in_bytes (TYPE)		\
-			  % (PARM_BOUNDARY / BITS_PER_UNIT)))	\
-	   && (FUNCTION_ARG_PADDING (MODE, TYPE)		\
-	       == (BYTES_BIG_ENDIAN ? upward : downward)))))
+#define MUST_PASS_IN_STACK(MODE, TYPE)  ix86_must_pass_in_stack ((MODE), (TYPE))
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -1743,8 +1732,8 @@ typedef struct ix86_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
-  init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME))
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+  init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -3231,6 +3220,12 @@ struct machine_function GTY(())
   int save_varrargs_registers;
   int accesses_prev_frame;
   int optimize_mode_switching;
+  /* Set by ix86_compute_frame_layout and used by prologue/epilogue expander to
+     determine the style used.  */
+  int use_fast_prologue_epilogue;
+  /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE has been computed
+     for.  */
+  int use_fast_prologue_epilogue_nregs;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)

@@ -2,20 +2,20 @@
    Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -115,7 +115,7 @@ static tree copy_body_r PARAMS ((tree *, int *, void *));
 static tree copy_body PARAMS ((inline_data *));
 static tree expand_call_inline PARAMS ((tree *, int *, void *));
 static void expand_calls_inline PARAMS ((tree *, inline_data *));
-static int inlinable_function_p PARAMS ((tree, inline_data *));
+static int inlinable_function_p PARAMS ((tree, inline_data *, int));
 static tree remap_decl PARAMS ((tree, inline_data *));
 static tree remap_decls PARAMS ((tree, inline_data *));
 static tree initialize_inlined_parameters PARAMS ((inline_data *, tree, tree, tree));
@@ -534,6 +534,10 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
 	      if (DECL_P (value))
 		value = build1 (NOP_EXPR, TREE_TYPE (value), value);
 
+	      /* If this is a constant, make sure it has the right type.  */
+	      else if (TREE_TYPE (value) != TREE_TYPE (p))
+		value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
+
 	      splay_tree_insert (id->decl_map,
 				 (splay_tree_key) p,
 				 (splay_tree_value) value);
@@ -682,10 +686,11 @@ declare_return_variable (id, return_slot_addr, use_p)
 /* Returns nonzero if a function can be inlined as a tree.  */
 
 int
-tree_inlinable_function_p (fn)
+tree_inlinable_function_p (fn, nolimit)
      tree fn;
+     int nolimit;
 {
-  return inlinable_function_p (fn, NULL);
+  return inlinable_function_p (fn, NULL, nolimit);
 }
 
 /* If *TP is possibly call to alloca, return nonzero.  */
@@ -705,7 +710,12 @@ static tree
 find_alloca_call (exp)
      tree exp;
 {
-  return walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+  int line = lineno;
+  const char *file = input_filename;
+  tree ret = walk_tree (&exp, find_alloca_call_1, NULL, NULL);
+  lineno = line;
+  input_filename = file;
+  return ret;
 }
 
 static tree
@@ -731,7 +741,12 @@ static tree
 find_builtin_longjmp_call (exp)
      tree exp;
 {
-  return walk_tree (&exp, find_builtin_longjmp_call_1, NULL, NULL);
+  int line = lineno;
+  const char *file = input_filename;
+  tree ret = walk_tree (&exp, find_builtin_longjmp_call_1, NULL, NULL);
+  lineno = line;
+  input_filename = file;
+  return ret;
 }
 
 /* Returns nonzero if FN is a function that can be inlined into the
@@ -739,12 +754,14 @@ find_builtin_longjmp_call (exp)
    can be inlined at all.  */
 
 static int
-inlinable_function_p (fn, id)
+inlinable_function_p (fn, id, nolimit)
      tree fn;
      inline_data *id;
+     int nolimit;
 {
   int inlinable;
   int currfn_insns;
+  int max_inline_insns_single = MAX_INLINE_INSNS_SINGLE;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
@@ -753,7 +770,13 @@ inlinable_function_p (fn, id)
 
   /* Assume it is not inlinable.  */
   inlinable = 0;
-
+       
+  /* We may be here either because fn is declared inline or because
+     we use -finline-functions.  For the second case, we are more
+     restrictive.  */
+  if (DID_INLINE_FUNC (fn))
+    max_inline_insns_single = MAX_INLINE_INSNS_AUTO;
+	
   /* The number of instructions (estimated) of current function.  */
   currfn_insns = DECL_NUM_STMTS (fn) * INSNS_PER_STMT;
 
@@ -766,13 +789,14 @@ inlinable_function_p (fn, id)
      front-end that must set DECL_INLINE in this case, because
      dwarf2out loses if a function is inlined that doesn't have
      DECL_INLINE set.  */
-  else if (! DECL_INLINE (fn))
+  else if (! DECL_INLINE (fn) && !nolimit)
     ;
   /* We can't inline functions that are too big.  Only allow a single
      function to be of MAX_INLINE_INSNS_SINGLE size.  Make special
      allowance for extern inline functions, though.  */
-  else if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-	   && currfn_insns > MAX_INLINE_INSNS_SINGLE)
+  else if (!nolimit
+	   && ! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
+	   && currfn_insns > max_inline_insns_single)
     ;
   /* We can't inline functions that call __builtin_longjmp at all.
      The non-local goto machenery really requires the destination
@@ -802,7 +826,7 @@ inlinable_function_p (fn, id)
   /* In case we don't disregard the inlining limits and we basically
      can inline this function, investigate further.  */
   if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-      && inlinable)
+      && inlinable && !nolimit)
     {
       int sum_insns = (id ? id->inlined_stmts : 0) * INSNS_PER_STMT
 		     + currfn_insns;
@@ -945,7 +969,9 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!inlinable_function_p (fn, id))
+  if ((!flag_unit_at_a_time || !DECL_SAVED_TREE (fn)
+       || !cgraph_global_info (fn)->inline_once)
+      && !inlinable_function_p (fn, id, 0))
     return NULL_TREE;
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))

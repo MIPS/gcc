@@ -1,3 +1,73 @@
+2003-03-27  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* ffe.texi: Don't mention dead file proj.c.
+
+2003-03-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/9793
+	* target.h (ffetarget_divide_integer1): Perform division by -1
+	using negation to prevent possible overflow trap on the host.
+
+2003-03-25  Marcelo Abreu  <mmabreu@inf.ufrgs.br>
+
+	PR fortran/10204
+	* ffe.texi: Reference the GCC web site in the URL.
+
+2003-03-24  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/10197
+	* news.texi: Document PR fortran/10197 fixed.
+
+Sun Mar 23 23:43:45 2003  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* com.c (ffecom_sym_transform_): Adjust calls to
+	put_var_into_stack.
+	(ffe_mark_addressable): Likewise.
+
+2003-03-22  Bud Davis  <bdavis9659@comcast.net>
+
+	* com.c (ffecom_constantunion_with_type): New function.
+	* com.h (ffecom_constantunion_with_type): Declare.
+	* stc.c (ffestc_R810): Check for kind type.
+	* ste.c (ffeste_R810): Use ffecom_constantunion_with_type
+	to discern SELECT CASE variables.
+
+2003-03-15  Roger Sayle  <roger@eyesopen.com>
+
+	* stb.c (ffestb_R100110_): Allow the number before the X format
+	to be optional when not -fpedantic.
+	* std.c (ffestd_R1001dump_1010_3_): Delete unused static function.
+	(ffestd_R1001dump_): For the FFESTP_formattypeX case, call
+	ffestd_R1001dump_1010_2_ instead of ffestd_R1001dump_1010_3_.
+
+2003-03-15  Roger Sayle  <roger@eyesopen.com>
+
+	* f/ste.c (ffeste_R810): Fix whitespace.
+
+2003-03-15  Andreas Jaeger  <aj@suse.de>
+
+	* g77spec.c (DEFAULT_SWITCH_TAKES_ARG): Remove.
+	(DEFAULT_WORD_SWITCH_TAKES_ARG): Remove.
+
+2003-03-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* g77.texi, invoke.texi, g77spec.c, lang-specs.h: GCC, not
+	GNU CC.  Especially here.
+
+2003-03-10  Roger Sayle  <roger@eyesopen.com>
+
+	* com.c (duplicate_decls): Synchronize with C's duplicate_decls.
+
+Sat Mar  8 21:11:40 2003  Neil Booth  <neil@daikokuya.co.uk>
+
+	* com.c (ffe_init): Update prototype; move code to ffe_post_options.
+	(ffe_post_options): New.
+
+2003-03-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (f77.tags): New target.
+
 2003-02-20  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* news.texi: Document fixing PR fortran/9038.

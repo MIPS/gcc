@@ -2365,7 +2365,8 @@ find_if_block (ce_info)
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
   if (then_succ != NULL_EDGE
       && (then_succ->succ_next != NULL_EDGE
-          || (then_succ->flags & EDGE_COMPLEX)))
+          || (then_succ->flags & EDGE_COMPLEX)
+	  || (flow2_completed && tablejump_p (then_bb->end, NULL, NULL))))
     return FALSE;
 
   /* If the THEN block has no successors, conditional execution can still
@@ -2412,7 +2413,8 @@ find_if_block (ce_info)
 	   && then_succ->dest == else_succ->dest
 	   && else_bb->pred->pred_next == NULL_EDGE
 	   && else_succ->succ_next == NULL_EDGE
-	   && ! (else_succ->flags & EDGE_COMPLEX))
+	   && ! (else_succ->flags & EDGE_COMPLEX)
+	   && ! (flow2_completed && tablejump_p (else_bb->end, NULL, NULL)))
     join_bb = else_succ->dest;
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
@@ -2741,6 +2743,8 @@ find_if_case_1 (test_bb, then_edge, else_edge)
     {
       new_bb->index = then_bb_index;
       BASIC_BLOCK (then_bb_index) = new_bb;
+      if (post_dominators)
+	add_to_dominance_info (post_dominators, new_bb);
     }
   /* We've possibly created jump to next insn, cleanup_cfg will solve that
      later.  */

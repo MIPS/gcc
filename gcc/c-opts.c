@@ -34,10 +34,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "cppdefault.h"
 #include "c-incpath.h"
+#include "debug.h"		/* For debug_hooks.  */
 
 #ifndef TARGET_SYSTEM_ROOT
 # define TARGET_SYSTEM_ROOT NULL
 #endif
+
+#ifndef TARGET_EBCDIC
+# define TARGET_EBCDIC 0
+#endif
+
+static int saved_lineno;
 
 /* CPP's options.  */
 static cpp_options *cpp_opts;
@@ -76,8 +83,14 @@ static bool std_cxx_inc = true;
 /* If the quote chain has been split by -I-.  */
 static bool quote_chain_split;
 
+/* If -Wunused-macros.  */
+static bool warn_unused_macros;
+
 /* Number of deferred options, deferred options array size.  */
 static size_t deferred_count, deferred_size;
+
+/* Number of deferred options scanned for -include.  */
+static size_t include_cursor;
 
 static void missing_arg PARAMS ((size_t));
 static size_t find_opt PARAMS ((const char *, int));
@@ -90,10 +103,12 @@ static void set_std_cxx98 PARAMS ((int));
 static void set_std_c89 PARAMS ((int, int));
 static void set_std_c99 PARAMS ((int));
 static void check_deps_environment_vars PARAMS ((void));
-static void preprocess_file PARAMS ((void));
 static void handle_deferred_opts PARAMS ((void));
 static void sanitize_cpp_opts PARAMS ((void));
 static void add_prefixed_path PARAMS ((const char *, size_t));
+static void push_command_line_include PARAMS ((void));
+static void cb_file_change PARAMS ((cpp_reader *, const struct line_map *));
+static void finish_options PARAMS ((void));
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -138,8 +153,10 @@ static void add_prefixed_path PARAMS ((const char *, size_t));
 #define COMMAND_LINE_OPTIONS						     \
   OPT("-help",                  CL_ALL,   OPT__help)			     \
   OPT("-output-pch=",		CL_ALL | CL_ARG, OPT__output_pch)	     \
+  OPT("A",                      CL_ALL | CL_ARG, OPT_A)			     \
   OPT("C",                      CL_ALL,   OPT_C)			     \
   OPT("CC",                     CL_ALL,   OPT_CC)			     \
+  OPT("D",                      CL_ALL | CL_ARG, OPT_D)			     \
   OPT("E",			CL_ALL,   OPT_E)			     \
   OPT("H",                      CL_ALL,   OPT_H)			     \
   OPT("I",                      CL_ALL | CL_ARG, OPT_I)			     \
@@ -153,6 +170,7 @@ static void add_prefixed_path PARAMS ((const char *, size_t));
   OPT("MQ",                     CL_ALL | CL_ARG, OPT_MQ)		     \
   OPT("MT",                     CL_ALL | CL_ARG, OPT_MT)		     \
   OPT("P",                      CL_ALL,   OPT_P)			     \
+  OPT("U",                      CL_ALL | CL_ARG, OPT_U)			     \
   OPT("Wabi",                   CL_CXX,   OPT_Wabi)                          \
   OPT("Wall",			CL_ALL,   OPT_Wall)			     \
   OPT("Wbad-function-cast",	CL_C,     OPT_Wbad_function_cast)	     \
@@ -287,6 +305,8 @@ static void add_prefixed_path PARAMS ((const char *, size_t));
   OPT("fxref",			CL_CXX,   OPT_fxref)			     \
   OPT("gen-decls",		CL_OBJC,  OPT_gen_decls)		     \
   OPT("idirafter",              CL_ALL | CL_ARG, OPT_idirafter)              \
+  OPT("imacros",                CL_ALL | CL_ARG, OPT_imacros)		     \
+  OPT("include",                CL_ALL | CL_ARG, OPT_include)		     \
   OPT("iprefix",		CL_ALL | CL_ARG, OPT_iprefix)		     \
   OPT("isysroot",               CL_ALL | CL_ARG, OPT_isysroot)               \
   OPT("isystem",                CL_ALL | CL_ARG, OPT_isystem)                \
@@ -400,6 +420,15 @@ missing_arg (opt_index)
       error ("no class name specified with \"-%s\"", opt_text);
       break;
 
+    case OPT_A:
+      error ("assertion missing after \"-%s\"", opt_text);
+      break;
+
+    case OPT_D:
+    case OPT_U:
+      error ("macro name missing after \"-%s\"", opt_text);
+      break;
+
     case OPT_I:
     case OPT_idirafter:
     case OPT_isysroot:
@@ -410,6 +439,8 @@ missing_arg (opt_index)
     case OPT_MF:
     case OPT_MD:
     case OPT_MMD:
+    case OPT_include:
+    case OPT_imacros:
     case OPT_o:
       error ("missing filename after \"-%s\"", opt_text);
       break;
@@ -556,7 +587,8 @@ c_common_init_options (lang)
 #endif
 
   c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89 : CLK_GNUCXX);
+  parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89 : CLK_GNUCXX,
+				ident_hash);
   cpp_opts = cpp_get_options (parse_in);
   if (flag_objc)
     cpp_opts->objc = 1;
@@ -580,7 +612,7 @@ c_common_decode_option (argc, argv)
   const char *opt, *arg = 0;
   char *dup = 0;
   bool on = true;
-  int result, lang_flag;
+  int result = 0, lang_flag;
   const struct cl_option *option;
   enum opt_code code;
 
@@ -616,8 +648,6 @@ c_common_decode_option (argc, argv)
       opt = dup;
       on = false;
     }
-
-  result = cpp_handle_option (parse_in, argc, argv);
 
   /* Skip over '-'.  */
   lang_flag = lang_flags[(c_language << 1) + flag_objc];
@@ -679,6 +709,10 @@ c_common_decode_option (argc, argv)
       pch_file = arg;
       break;
 
+    case OPT_A:
+      defer_opt (code, arg);
+      break;
+
     case OPT_C:
       cpp_opts->discard_comments = 0;
       break;
@@ -686,6 +720,10 @@ c_common_decode_option (argc, argv)
     case OPT_CC:
       cpp_opts->discard_comments = 0;
       cpp_opts->discard_comments_in_macro_exp = 0;
+      break;
+
+    case OPT_D:
+      defer_opt (code, arg);
       break;
 
     case OPT_E:
@@ -715,7 +753,7 @@ c_common_decode_option (argc, argv)
 	 depends on this.  Preprocessed output does occur if -MD, -MMD
 	 or environment var dependency generation is used.  */
       cpp_opts->deps.style = (code == OPT_M ? DEPS_SYSTEM: DEPS_USER);
-      cpp_opts->no_output = 1;
+      flag_no_output = 1;
       cpp_opts->inhibit_warnings = 1;
       break;
 
@@ -747,7 +785,11 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_P:
-      cpp_opts->no_line_commands = 1;
+      flag_no_line_commands = 1;
+      break;
+
+    case OPT_U:
+      defer_opt (code, arg);
       break;
 
     case OPT_Wabi:
@@ -1039,7 +1081,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_Wunused_macros:
-      cpp_opts->warn_unused_macros = on;
+      warn_unused_macros = on;
       break;
 
     case OPT_Wwrite_strings:
@@ -1322,6 +1364,11 @@ c_common_decode_option (argc, argv)
       add_path (xstrdup (arg), AFTER, 0);
       break;
 
+    case OPT_imacros:
+    case OPT_include:
+      defer_opt (code, arg);
+      break;
+
     case OPT_iprefix:
       iprefix = arg;
       break;
@@ -1443,7 +1490,8 @@ c_common_decode_option (argc, argv)
 
 /* Post-switch processing.  */
 bool
-c_common_post_options ()
+c_common_post_options (pfilename)
+     const char **pfilename;
 {
   /* Canonicalize the input and output filenames.  */
   if (in_fname == NULL || !strcmp (in_fname, "-"))
@@ -1493,6 +1541,40 @@ c_common_post_options ()
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
+  if (flag_preprocess_only)
+    {
+      /* Open the output now.  We must do so even if flag_no_output is
+	 on, because there may be other output than from the actual
+	 preprocessing (e.g. from -dM).  */
+      if (out_fname[0] == '\0')
+	out_stream = stdout;
+      else
+	out_stream = fopen (out_fname, "w");
+
+      if (out_stream == NULL)
+	{
+	  fatal_io_error ("opening output file %s", out_fname);
+	  return false;
+	}
+
+      init_pp_output (out_stream);
+    }
+  else
+    {
+      init_c_lex ();
+
+      /* Yuk.  WTF is this?  I do know ObjC relies on it somewhere.  */
+      lineno = 0;
+    }
+
+  cpp_get_callbacks (parse_in)->file_change = cb_file_change;
+
+  /* NOTE: we use in_fname here, not the one supplied.  */
+  *pfilename = cpp_read_main_file (parse_in, in_fname);
+
+  saved_lineno = lineno;
+  lineno = 0;
+
   /* If an error has occurred in cpplib, note it so we fail
      immediately.  */
   errorcount += cpp_errors (parse_in);
@@ -1500,29 +1582,12 @@ c_common_post_options ()
   return flag_preprocess_only;
 }
 
-/* Preprocess the input file to out_stream.  */
-static void
-preprocess_file ()
-{
-  /* Open the output now.  We must do so even if no_output is on,
-     because there may be other output than from the actual
-     preprocessing (e.g. from -dM).  */
-  if (out_fname[0] == '\0')
-    out_stream = stdout;
-  else
-    out_stream = fopen (out_fname, "w");
-
-  if (out_stream == NULL)
-    fatal_io_error ("opening output file %s", out_fname);
-  else
-    cpp_preprocess_file (parse_in, in_fname, out_stream);
-}
-
 /* Front end initialization common to C, ObjC and C++.  */
-const char *
-c_common_init (filename)
-     const char *filename;
+bool
+c_common_init ()
 {
+  lineno = saved_lineno;
+
   /* Set up preprocessor arithmetic.  Must be done after call to
      c_common_nodes_and_builtins for type nodes to be good.  */
   cpp_opts->precision = TYPE_PRECISION (intmax_type_node);
@@ -1530,26 +1595,40 @@ c_common_init (filename)
   cpp_opts->int_precision = TYPE_PRECISION (integer_type_node);
   cpp_opts->wchar_precision = TYPE_PRECISION (wchar_type_node);
   cpp_opts->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
+  cpp_opts->EBCDIC = TARGET_EBCDIC;
 
-  /* Register preprocessor built-ins before calls to
-     cpp_main_file.  */
-  cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
-
-  /* NULL is passed up to toplev.c and we exit quickly.  */
   if (flag_preprocess_only)
     {
-      preprocess_file ();
-      return NULL;
+      finish_options ();
+      preprocess_file (parse_in);
+      return false;
     }
 
-  /* Do this before initializing pragmas, as then cpplib's hash table
-     has been set up.  NOTE: we are using our own file name here, not
-     the one supplied.  */
-  filename = init_c_lex (in_fname);
-
+  /* Has to wait until now so that cpplib has its hash table.  */
   init_pragma ();
 
-  return filename;
+  return true;
+}
+
+/* A thin wrapper around the real parser that initializes the 
+   integrated preprocessor after debug output has been initialized.
+   Also, make sure the start_source_file debug hook gets called for
+   the primary source file.  */
+void
+c_common_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
+{
+#if YYDEBUG != 0
+  yydebug = set_yydebug;
+#else
+  warning ("YYDEBUG not defined");
+#endif
+
+  (*debug_hooks->start_source_file) (lineno, input_filename);
+  finish_options();
+  pch_init();
+  yyparse ();
+  free_parser_stacks ();
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1638,19 +1717,9 @@ handle_deferred_opts ()
     {
       struct deferred_opt *opt = &deferred_opts[i];
 
-      switch (opt->code)
-	{
-	case OPT_MT:
-	case OPT_MQ:
-	  cpp_add_dependency_target (parse_in, opt->arg, opt->code == OPT_MQ);
-	  break;
-
-	default:
-	  abort ();
-	}
+      if (opt->code == OPT_MT || opt->code == OPT_MQ)
+	cpp_add_dependency_target (parse_in, opt->arg, opt->code == OPT_MQ);
     }
-
-  free (deferred_opts);
 }
 
 /* These settings are appropriate for GCC, but not necessarily so for
@@ -1665,16 +1734,16 @@ sanitize_cpp_opts ()
 
   /* -dM and dependencies suppress normal output; do it here so that
      the last -d[MDN] switch overrides earlier ones.  */
-  if (cpp_opts->dump_macros == dump_only)
-    cpp_opts->no_output = 1;
+  if (flag_dump_macros == 'M')
+    flag_no_output = 1;
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
-  if (cpp_opts->no_output)
+  if (flag_no_output)
     {
-      if (cpp_opts->dump_macros != dump_only)
-	cpp_opts->dump_macros = dump_none;
-      cpp_opts->dump_includes = 0;
+      if (flag_dump_macros != 'M')
+	flag_dump_macros = 0;
+      flag_dump_includes = 0;
     }
 
   cpp_opts->unsigned_char = !flag_signed_char;
@@ -1692,10 +1761,103 @@ add_prefixed_path (suffix, chain)
      const char *suffix;
      size_t chain;
 {
+  char *path;
   const char *prefix;
+  size_t prefix_len, suffix_len;
 
-  prefix = iprefix ? iprefix: cpp_GCC_INCLUDE_DIR;
-  add_path (concat (prefix, suffix), chain, 0);
+  suffix_len = strlen (suffix);
+  prefix     = iprefix ? iprefix : cpp_GCC_INCLUDE_DIR;
+  prefix_len = iprefix ? strlen (iprefix) : cpp_GCC_INCLUDE_DIR_len;
+
+  path = xmalloc (prefix_len + suffix_len + 1);
+  memcpy (path, prefix, prefix_len);
+  memcpy (path + prefix_len, suffix, suffix_len);
+  path[prefix_len + suffix_len] = '\0';
+
+  add_path (path, chain, 0);
+}
+
+/* Handle -D, -U, -A, -imacros, and the first -include.  */
+static void
+finish_options ()
+{
+  if (!cpp_opts->preprocessed)
+    {
+      size_t i;
+
+      cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
+      cpp_init_builtins (parse_in);
+      c_cpp_builtins (parse_in);
+      cpp_change_file (parse_in, LC_RENAME, _("<command line>"));
+      for (i = 0; i < deferred_count; i++)
+	{
+	  struct deferred_opt *opt = &deferred_opts[i];
+
+	  if (opt->code == OPT_D)
+	    cpp_define (parse_in, opt->arg);
+	  else if (opt->code == OPT_U)
+	    cpp_undef (parse_in, opt->arg);
+	  else if (opt->code == OPT_A)
+	    {
+	      if (opt->arg[0] == '-')
+		cpp_unassert (parse_in, opt->arg + 1);
+	      else
+		cpp_assert (parse_in, opt->arg);
+	    }
+	}
+
+      /* Handle -imacros after -D and -U.  */
+      for (i = 0; i < deferred_count; i++)
+	{
+	  struct deferred_opt *opt = &deferred_opts[i];
+
+	  if (opt->code == OPT_imacros
+	      && cpp_push_include (parse_in, opt->arg))
+	    cpp_scan_nooutput (parse_in);
+	}
+    }
+
+  push_command_line_include ();
+}
+
+/* Give CPP the next file given by -include, if any.  */
+static void
+push_command_line_include ()
+{
+  if (cpp_opts->preprocessed)
+    return;
+    
+  while (include_cursor < deferred_count)
+    {
+      struct deferred_opt *opt = &deferred_opts[include_cursor++];
+      
+      if (opt->code == OPT_include && cpp_push_include (parse_in, opt->arg))
+	return;
+    }
+
+  if (include_cursor == deferred_count)
+    {
+      /* Restore the line map from <command line>.  */
+      cpp_change_file (parse_in, LC_RENAME, main_input_filename);
+      /* -Wunused-macros should only warn about macros defined hereafter.  */
+      cpp_opts->warn_unused_macros = warn_unused_macros;
+      include_cursor++;
+    }
+}
+
+/* File change callback.  Has to handle -include files.  */
+static void
+cb_file_change (pfile, new_map)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const struct line_map *new_map;
+{
+  if (flag_preprocess_only)
+    pp_file_change (new_map);
+  else
+    fe_file_change (new_map);
+
+  if (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map))
+    push_command_line_include ();
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU
@@ -1769,20 +1931,14 @@ handle_OPT_d (arg)
   while ((c = *arg++) != '\0')
     switch (c)
       {
-      case 'M':
-	cpp_opts->dump_macros = dump_only;
-	break;
-
-      case 'N':
-	cpp_opts->dump_macros = dump_names;
-	break;
-
-      case 'D':
-	cpp_opts->dump_macros = dump_definitions;
+      case 'M':			/* Dump macros only.  */
+      case 'N':			/* Dump names.  */
+      case 'D':			/* Dump definitions.  */
+	flag_dump_macros = c;
 	break;
 
       case 'I':
-	cpp_opts->dump_includes = 1;
+	flag_dump_includes = 1;
 	break;
       }
 }

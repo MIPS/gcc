@@ -1,23 +1,24 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the
+   Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_MCORE_H
 #define GCC_MCORE_H
@@ -46,28 +47,28 @@ Boston, MA 02111-1307, USA.  */
    predefined attributes later on.  This can be solved by using one attribute,
    say __declspec__, and passing args to it.  The problem with that approach
    is that args are not accumulated: each new appearance would clobber any
-   existing args.  XXX- FIXME the definition below relies upon string
-   concatenation, which is non-portable.  */
-#define CPP_PREDEFINES \
-  "-D__mcore__ -D__MCORE__=1 -D__declspec(x)=__attribute__((x))" SUBTARGET_CPP_PREDEFINES
+   existing args.  */
+#define TARGET_CPU_CPP_BUILTINS()					  \
+  do									  \
+    {									  \
+      builtin_define ("__mcore__");					  \
+      builtin_define ("__MCORE__");					  \
+      builtin_define ("__declspec(x)=__attribute__((x))");		  \
+      if (TARGET_LITTLE_END)						  \
+        builtin_define ("__MCORELE__");					  \
+      else								  \
+        builtin_define ("__MCOREBE__");					  \
+      if (TARGET_M340)							  \
+        builtin_define ("__M340__");					  \
+      else								  \
+        builtin_define ("__M210__");					  \
+    }									  \
+  while (0)
 
-/* If -m4align is ever re-enabled then uncomment this line as well:
-   #define CPP_SPEC "%{!m4align:-D__MCORE_ALIGN_8__} %{m4align:-D__MCORE__ALIGN_4__}" */
-
-#undef  CPP_SPEC
-#define CPP_SPEC "							\
-%{mbig-endian:								\
-  %{mlittle-endian:%echoose either big or little endian, not both}	\
-  -D__MCOREBE__}							\
-%{m210:									\
-  %{m340:%echoose either m340 or m210 not both}				\
-  %{mlittle-endian:%ethe m210 does not have little endian support}	\
-  -D__M210__}								\
-%{!mbig-endian: -D__MCORELE__}						\
-%{!m210: -D__M340__}							\
-"
 /* If -m4align is ever re-enabled then add this line to the definition of CPP_SPEC
    %{!m4align:-D__MCORE_ALIGN_8__} %{m4align:-D__MCORE__ALIGN_4__} */
+#undef  CPP_SPEC
+#define CPP_SPEC "%{m210:%{mlittle-endian:%ethe m210 does not have little endian support}}"
 
 /* We don't have a -lg library, so don't put it in the list.  */
 #undef	LIB_SPEC
@@ -210,7 +211,7 @@ extern const char * mcore_stack_increment_string;
 
 /* What options are we going to force to specific settings,
    regardless of what the user thought he wanted.
-   We also use this for some post-processing of options. */
+   We also use this for some post-processing of options.  */
 #define OVERRIDE_OPTIONS  mcore_override_options ()
 
 /* Target machine storage Layout.  */
@@ -374,7 +375,7 @@ extern int mcore_stack_increment;
    Aside from that, you can include as many other registers as you like.  */
 
 /* RBE: r15 {link register} not available across calls,
- *  But we don't mark it that way here... */
+   But we don't mark it that way here...  */
 #define CALL_USED_REGISTERS \
  /*  r0  r1  r2  r3  r4  r5  r6  r7  r8  r9  r10 r11 r12 r13 r14 r15 ap  c   fp x19 */ \
    { 1,  1,  1,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1, 1}
@@ -529,7 +530,7 @@ extern const int regno_reg_class[FIRST_PSEUDO_REGISTER];
 extern const enum reg_class reg_class_from_letter[];
 
 #define REG_CLASS_FROM_LETTER(C) \
-   ( ISLOWER (C) ? reg_class_from_letter[(C) - 'a'] : NO_REGS )
+   (ISLOWER (C) ? reg_class_from_letter[(C) - 'a'] : NO_REGS)
 
 /* The letters I, J, K, L, M, N, O, and P in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -1133,7 +1134,7 @@ extern long mcore_current_compilation_timestamp;
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.export\t"
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 
@@ -1142,7 +1143,7 @@ extern long mcore_current_compilation_timestamp;
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM)  \
   sprintf (STRING, "*.%s%ld", PREFIX, (long) NUM)
 
-/* Jump tables must be 32 bit aligned. */
+/* Jump tables must be 32 bit aligned.  */
 #undef  ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(STREAM,PREFIX,NUM,TABLE) \
   fprintf (STREAM, "\t.align 2\n.%s%d:\n", PREFIX, NUM);

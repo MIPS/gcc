@@ -704,6 +704,20 @@ extern int rs6000_default_long_calls;
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
 
+/* Add 32 dwarf columns for synthetic SPE registers.  The SPE
+   synthetic registers are 113 through 145.  */
+#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 32)
+
+/* The SPE has an additional 32 synthetic registers starting at 1200.
+   We must map them here to sane values in the unwinder to avoid a
+   huge hole in the unwind tables.
+
+   FIXME: the AltiVec ABI has AltiVec registers being 1124-1155, and
+   the VRSAVE SPR (SPR256) assigned to register 356.  When AltiVec EH
+   is verified to be working, this macro should be changed
+   accordingly.  */
+#define DWARF_REG_TO_UNWIND_COLUMN(r) ((r) > 1200 ? ((r) - 1200 + 113) : (r))
+
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
 
@@ -814,6 +828,13 @@ extern int rs6000_default_long_calls;
 	v31 - v20       (saved; order given to save least number)
 */
 						
+#if FIXED_R2 == 1
+#define MAYBE_R2_AVAILABLE
+#define MAYBE_R2_FIXED 2,
+#else
+#define MAYBE_R2_AVAILABLE 2,
+#define MAYBE_R2_FIXED
+#endif
 
 #define REG_ALLOC_ORDER					\
   {32, 							\
@@ -822,13 +843,13 @@ extern int rs6000_default_long_calls;
    63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51,	\
    50, 49, 48, 47, 46, 					\
    75, 74, 69, 68, 72, 71, 70,				\
-   0,							\
+   0, MAYBE_R2_AVAILABLE				\
    9, 11, 10, 8, 7, 6, 5, 4,				\
    3,							\
    31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19,	\
    18, 17, 16, 15, 14, 13, 12,				\
    64, 66, 65, 						\
-   73, 1, 2, 67, 76,					\
+   73, 1, MAYBE_R2_FIXED 67, 76,			\
    /* AltiVec registers.  */				\
    77, 78,						\
    90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80,		\
@@ -902,22 +923,24 @@ extern int rs6000_default_long_calls;
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-   For POWER and PowerPC, the GPRs can hold any mode, but the float
+   For POWER and PowerPC, the GPRs can hold any mode, but values bigger
+   than one register cannot go past R31.  The float
    registers only can hold floating modes and DImode, and CR register only
    can hold CC modes.  We cannot put TImode anywhere except general
    register and it must be able to fit within the register set.  */
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (FP_REGNO_P (REGNO) ?							\
-   (GET_MODE_CLASS (MODE) == MODE_FLOAT					\
-    || (GET_MODE_CLASS (MODE) == MODE_INT				\
-	&& GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))			\
+  (INT_REGNO_P (REGNO) ?						\
+     INT_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1)	        \
+   : FP_REGNO_P (REGNO) ?						\
+     (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
+      || (GET_MODE_CLASS (MODE) == MODE_INT				\
+	  && GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))		\
    : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_VECTOR_MODE (MODE)		\
    : SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE) ? 1 \
    : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
    : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
-   : ! INT_REGNO_P (REGNO) ? GET_MODE_SIZE (MODE) <= UNITS_PER_WORD	\
-   : 1)
+   : GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -937,6 +960,12 @@ extern int rs6000_default_long_calls;
    : ALTIVEC_VECTOR_MODE (MODE2)		\
    ? ALTIVEC_VECTOR_MODE (MODE1)		\
    : 1)
+
+/* Post-reload, we can't use any new AltiVec registers, as we already
+   emitted the vrsave mask.  */
+
+#define HARD_REGNO_RENAME_OK(SRC, DST) \
+  (! ALTIVEC_REGNO_P (DST) || regs_ever_live[DST])
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
@@ -1263,6 +1292,7 @@ enum reg_class
    'S' is a constant that can be placed into a 64-bit mask operand
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
+   'W' is a vector constant that can be easily generated (no mem refs).
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1276,6 +1306,7 @@ enum reg_class
 		   && (fixed_regs[CR0_REGNO]				\
 		       || !logical_operand (OP, DImode))		\
 		   && !mask64_operand (OP, DImode))			\
+   : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -1395,6 +1426,7 @@ typedef struct rs6000_stack {
   int spe_padding_size;
   int toc_size;			/* size to hold TOC if not in save_size */
   int total_size;		/* total bytes allocated for stack */
+  int spe_64bit_regs_used;
 } rs6000_stack_t;
 
 /* Define this if pushing a word on the stack
@@ -1611,20 +1643,20 @@ typedef struct rs6000_stack {
    as seen by the caller.
 
    On RS/6000, this is r3, fp1, and v2 (for AltiVec).  */
-#define FUNCTION_VALUE_REGNO_P(N)  ((N) == GP_ARG_RETURN	\
-				    || ((N) == FP_ARG_RETURN)	\
-				    || (TARGET_ALTIVEC &&	\
-					(N) == ALTIVEC_ARG_RETURN))
+#define FUNCTION_VALUE_REGNO_P(N)					\
+  ((N) == GP_ARG_RETURN							\
+   || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT)			\
+   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
    On AltiVec, v2 - v13 are used for passing vectors.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
-  (((unsigned)((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
-   || (TARGET_ALTIVEC &&						\
-       (unsigned)((N) - ALTIVEC_ARG_MIN_REG) < (unsigned)(ALTIVEC_ARG_NUM_REG)) \
-   || ((unsigned)((N) - FP_ARG_MIN_REG) < (unsigned)(FP_ARG_NUM_REG)))
-
+  ((unsigned) (N) - GP_ARG_MIN_REG < GP_ARG_NUM_REG			\
+   || ((unsigned) (N) - ALTIVEC_ARG_MIN_REG < ALTIVEC_ARG_NUM_REG	\
+       && TARGET_ALTIVEC)						\
+   || ((unsigned) (N) - FP_ARG_MIN_REG < FP_ARG_NUM_REG			\
+       && TARGET_HARD_FLOAT))
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
@@ -1634,6 +1666,8 @@ typedef struct machine_function GTY(())
   int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* Whether the instruction chain has been scanned already.  */
+  int insn_chain_scanned_p;
 } machine_function;
 
 /* Define a data type for recording info about an argument list
@@ -2086,7 +2120,8 @@ typedef struct rs6000_args
 
 #define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X, STRICT)	\
   (TARGET_ELF						\
-   && ! flag_pic && ! TARGET_TOC			\
+   && (DEFAULT_ABI == ABI_AIX || ! flag_pic)		\
+   && ! TARGET_TOC					\
    && GET_MODE_NUNITS (MODE) == 1			\
    && (GET_MODE_BITSIZE (MODE) <= 32 			\
        || (TARGET_HARD_FLOAT && TARGET_FPRS && (MODE) == DFmode))	\
@@ -2707,6 +2742,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
+  {"easy_vector_constant", {CONST_VECTOR}},				   \
+  {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \
   {"zero_fp_constant", {CONST_DOUBLE}},					   \
   {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
   {"lwa_operand", {SUBREG, MEM, REG}},					   \

@@ -31,6 +31,7 @@ extern unsigned int compute_plussi_length PARAMS ((rtx *));
 extern int compute_plussi_cc PARAMS ((rtx *));
 extern const char *output_a_shift PARAMS ((rtx *));
 extern unsigned int compute_a_shift_length PARAMS ((rtx, rtx *));
+extern int compute_a_shift_cc PARAMS ((rtx, rtx *));
 extern const char *emit_a_rotate PARAMS ((enum rtx_code, rtx *));
 extern const char *output_simode_bld PARAMS ((int, rtx[]));
 extern void print_operand_address PARAMS ((FILE *, rtx));
@@ -68,10 +69,13 @@ extern int incdec_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operator PARAMS ((rtx, enum machine_mode));
 extern int nshift_operator PARAMS ((rtx, enum machine_mode));
 extern int eqne_operator PARAMS ((rtx, enum machine_mode));
+extern int gtle_operator PARAMS ((rtx, enum machine_mode));
 extern int gtuleu_operator PARAMS ((rtx, enum machine_mode));
+extern int iorxor_operator PARAMS ((rtx, enum machine_mode));
 
 extern int h8300_eightbit_constant_address_p PARAMS ((rtx));
 extern int h8300_tiny_constant_address_p PARAMS ((rtx));
+extern int byte_accesses_mergeable_p PARAMS ((rtx, rtx));
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx PARAMS ((int, rtx));

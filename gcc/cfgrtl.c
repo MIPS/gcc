@@ -78,7 +78,7 @@ static void commit_one_edge_insertion	PARAMS ((edge, int));
 static bool try_redirect_by_replacing_jump PARAMS ((edge, basic_block));
 static rtx last_loop_beg_note		PARAMS ((rtx));
 static bool back_edge_of_syntactic_loop_p PARAMS ((basic_block, basic_block));
-static basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
+basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
@@ -383,12 +383,7 @@ flow_delete_block_noexpunge (b)
 
   /* Include any jump table following the basic block.  */
   end = b->end;
-  if (GET_CODE (end) == JUMP_INSN
-      && (tmp = JUMP_LABEL (end)) != NULL_RTX
-      && (tmp = NEXT_INSN (tmp)) != NULL_RTX
-      && GET_CODE (tmp) == JUMP_INSN
-      && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
-	  || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
+  if (tablejump_p (end, NULL, &tmp))
     end = tmp;
 
   /* Include any barrier that may follow the basic block.  */
@@ -467,7 +462,8 @@ update_bb_for_insn (bb)
 
   for (insn = bb->head; ; insn = NEXT_INSN (insn))
     {
-      set_block_for_insn (insn, bb);
+      if (GET_CODE (insn) != BARRIER)
+	set_block_for_insn (insn, bb);
       if (insn == bb->end)
 	break;
     }
@@ -674,7 +670,7 @@ try_redirect_by_replacing_jump (e, target)
   basic_block src = e->src;
   rtx insn = src->end, kill_from;
   edge tmp;
-  rtx set, table;
+  rtx set;
   int fallthru = 0;
 
   /* Verify that all targets will be TARGET.  */
@@ -684,11 +680,7 @@ try_redirect_by_replacing_jump (e, target)
 
   if (tmp || !onlyjump_p (insn))
     return false;
-  if (reload_completed && JUMP_LABEL (insn)
-      && (table = NEXT_INSN (JUMP_LABEL (insn))) != NULL_RTX
-      && GET_CODE (table) == JUMP_INSN
-      && (GET_CODE (PATTERN (table)) == ADDR_VEC
-	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
+  if ((!optimize || flow2_completed) && tablejump_p (insn, NULL, NULL))
     return false;
 
   /* Avoid removing branch with side effects.  */
@@ -739,7 +731,7 @@ try_redirect_by_replacing_jump (e, target)
   else
     {
       rtx target_label = block_label (target);
-      rtx barrier, tmp;
+      rtx barrier, label, table;
 
       emit_jump_insn_after (gen_jump (target_label), insn);
       JUMP_LABEL (src->end) = target_label;
@@ -754,14 +746,8 @@ try_redirect_by_replacing_jump (e, target)
       /* Recognize a tablejump that we are converting to a
 	 simple jump and remove its associated CODE_LABEL
 	 and ADDR_VEC or ADDR_DIFF_VEC.  */
-      if ((tmp = JUMP_LABEL (insn)) != NULL_RTX
-	  && (tmp = NEXT_INSN (tmp)) != NULL_RTX
-	  && GET_CODE (tmp) == JUMP_INSN
-	  && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
-	      || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
-	{
-	  delete_insn_chain (JUMP_LABEL (insn), tmp);
-	}
+      if (tablejump_p (insn, &label, &table))
+	delete_insn_chain (label, table);
 
       barrier = next_nonnote_insn (src->end);
       if (!barrier || GET_CODE (barrier) != BARRIER)
@@ -854,11 +840,7 @@ redirect_edge_and_branch (e, target)
     return false;
 
   /* Recognize a tablejump and adjust all matching cases.  */
-  if ((tmp = JUMP_LABEL (insn)) != NULL_RTX
-      && (tmp = NEXT_INSN (tmp)) != NULL_RTX
-      && GET_CODE (tmp) == JUMP_INSN
-      && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
-	  || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
+  if (tablejump_p (insn, NULL, &tmp))
     {
       rtvec vec;
       int j;
@@ -930,7 +912,7 @@ redirect_edge_and_branch (e, target)
 /* Like force_nonfallthru below, but additionally performs redirection
    Used by redirect_edge_and_branch_force.  */
 
-static basic_block
+basic_block
 force_nonfallthru_and_redirect (e, target)
      edge e;
      basic_block target;
@@ -939,6 +921,34 @@ force_nonfallthru_and_redirect (e, target)
   rtx note;
   edge new_edge;
   int abnormal_edge_flags = 0;
+
+  /* In the case the last instruction is conditional jump to the next
+     instruction, first redirect the jump itself and then continue
+     by creating an basic block afterwards to redirect fallthru edge.  */
+  if (e->src != ENTRY_BLOCK_PTR && e->dest != EXIT_BLOCK_PTR
+      && any_condjump_p (e->src->end)
+      && JUMP_LABEL (e->src->end) == e->dest->head)
+    {
+      rtx note;
+      edge b = make_edge (e->src, target, 0);
+
+      if (!redirect_jump (e->src->end, block_label (target), 0))
+	abort ();
+      note = find_reg_note (e->src->end, REG_BR_PROB, NULL_RTX);
+      if (note)
+	{
+	  int prob = INTVAL (XEXP (note, 0));
+
+	  b->probability = prob;
+	  b->count = e->count * prob / REG_BR_PROB_BASE;
+	  e->probability -= e->probability;
+	  e->count -= b->count;
+	  if (e->probability < 0)
+	    e->probability = 0;
+	  if (e->count < 0)
+	    e->count = 0;
+	}
+    }
 
   if (e->flags & EDGE_ABNORMAL)
     {
@@ -1594,11 +1604,13 @@ debug_bb (bb)
   dump_bb (bb, stderr);
 }
 
-void
+basic_block
 debug_bb_n (n)
      int n;
 {
-  dump_bb (BASIC_BLOCK (n), stderr);
+  basic_block bb = BASIC_BLOCK (n);
+  dump_bb (bb, stderr);
+  return bb;
 }
 
 /* Like print_rtl, but also print out live information for the start of each
@@ -1866,7 +1878,7 @@ verify_flow_info ()
 	  if (e->flags & EDGE_FALLTHRU)
 	    n_fallthru++;
 
-	  if ((e->flags & ~(EDGE_EXECUTABLE | EDGE_DFS_BACK | EDGE_CAN_FALLTHRU)) == 0)
+	  if ((e->flags & ~(EDGE_DFS_BACK | EDGE_CAN_FALLTHRU | EDGE_IRREDUCIBLE_LOOP)) == 0)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)

@@ -1,6 +1,8 @@
-# Makefile for GNU C compiler.
-#   Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-#   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+# Makefile for GNU Compiler Collection
+# Run 'configure' to generate Makefile from Makefile.in
+
+# Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997
+# 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -25,17 +27,53 @@
 # stage1, stage2, stage3, stage4.
 
 # This is the default target.
-all:
+# Set by autoconf to "all.internal" for a native build, or
+# "all.cross" to build a cross compiler.
+all: @ALL@
+
+# Depend on this to specify a phony target portably.
+force:
+
+# This tells GNU make version 3 not to export the variables
+# defined in this file into the environment (and thus recursive makes).
+.NOEXPORT:
+# And this tells it not to automatically pass command-line variables
+# to recursive makes.
+MAKEOVERRIDES =
 
 # Suppress smart makes who think they know how to automake Yacc files
 .y.c:
 
+# The only suffixes we want for implicit rules are .c and .o, so clear
+# the list and add them.  This speeds up GNU Make, and allows -r to work.
+# For i18n support, we also need .gmo, .po, .pox.
+# This must come before the language makefile fragments to allow them to
+# add suffixes and rules of their own.
+.SUFFIXES:
+.SUFFIXES: .c .o .po .pox .gmo
+
+# -------------------------------
+# Standard autoconf-set variables
+# -------------------------------
+
 # Directory where sources are, from where we are.
-srcdir = @srcdir@
 VPATH = @srcdir@
 
-# Pointer to the GCC Project website
-website=http://gcc.gnu.org
+build_canonical = @build_canonical@
+host_canonical = @host_canonical@
+target=@target@
+target_alias=@target_alias@
+
+# Sed command to transform gcc to installed name.
+program_transform_name = @program_transform_name@
+program_transform_cross_name = s,^,$(target_alias)-,
+
+# -----------------------------
+# Directories used during build
+# -----------------------------
+
+# Directory where sources are, from where we are.
+srcdir = @srcdir@
 
 # These directories contain files that are provided as part of a FSF tarball,
 # but not provided in CVS.  Some GCC integrators like to use the CVS sources
@@ -44,20 +82,27 @@ website=http://gcc.gnu.org
 parsedir = $(srcdir)
 docobjdir = $(srcdir)/doc
 
+# Top build directory, relative to here.
+top_builddir = .
+# objdir is set by configure.
+# It's normally the absolute path to the current directory.
+objdir = @objdir@
+
+# --------
+# UNSORTED
+# --------
+
 # Variables that exist for you to override.
 # See below for how to change them for certain systems.
 
 # List of language subdirectories.
-# This is overridden by configure.
 SUBDIRS =@subdirs@
 
 # Selection of languages to be made.
-# This is overridden by configure.
 CONFIG_LANGUAGES = @all_languages@
 LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) $(CONFIG_LANGUAGES)
 
 # Selection of languages to be made during stage1 build.
-# This is overridden by configure.
 BOOT_LANGUAGES = c @all_boot_languages@
 
 # Various ways of specifying flags for compilations:
@@ -97,7 +142,7 @@ coverageexts = .{da,bbg}
 # stage1, as not all versions of gcc understand -Wno-long-long.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
 STRICT_WARN = @strict1_warn@
-STRICT2_WARN = -pedantic -Wno-long-long
+STRICT2_WARN = -pedantic -Wno-long-long @WERROR@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
 # "extern" tags in header files.
@@ -109,7 +154,7 @@ VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
 
 # This is how we control whether or not the additional warnings are applied.
 .-warn = $(STRICT_WARN)
-GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $(WERROR) $($@-warn)
+GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 
 # These files are to have -Werror bypassed in stage2:
 # These are very hard to completely clean due to target complexities.
@@ -124,10 +169,20 @@ c-parse.o-warn = -Wno-error
 # warnings when converting to GIMPLE form.  The warnings are triggered when
 # the gimplifier re-writes va_start with a temporary instead of using the
 # last named argument of the function.
+bitmap.o-warn = -Wno-error
+combine.o-warn = -Wno-error
 c-semantics.o-warn = -Wno-error
+c-typeck.o-warn = -Wno-error
+dwarf2out.o-warn = -Wno-error
 emit-rtl.o-warn = -Wno-error
+expr.o-warn = -Wno-error
+fold-const.o-warn = -Wno-error
 genattrtab.o-warn = -Wno-error
+reload1.o-warn = -Wno-error
+reload.o-warn = -Wno-error
+rtlanal.o-warn = -Wno-error
 tree.o-warn = -Wno-error
+varasm.o-warn = -Wno-error
 # The warning for 'prev_file_name' in profile.c is odd.  The variable *is*
 # initialized before being used.
 profile.o-warn = -Wno-error
@@ -157,6 +212,11 @@ AR = ar
 AR_FLAGS = rc
 DLLTOOL = dlltool
 RANLIB = @RANLIB@
+
+# -------------------------------------------
+# Programs which operate on the build machine
+# -------------------------------------------
+
 SHELL = @SHELL@
 # pwd command to use.  Allow user to override default by setting PWDCMD in
 # the environment to account for automounters.  The make variable must not
@@ -178,17 +238,21 @@ MAKEINFOFLAGS =
 TEXI2DVI = texi2dvi
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
-# For GNUmake: let us decide what gets passed to recursive makes.
-MAKEOVERRIDES =
-@SET_MAKE@
-# Some compilers can't handle cc -c blah.c -o foo/blah.o.
-# In stage2 and beyond, we force this to "-o $@" since we know we're using gcc.
-OUTPUT_OPTION = @OUTPUT_OPTION@
-
 # Some versions of `touch' (such as the version on Solaris 2.8)
 # do not correctly set the timestamp due to buggy versions of `utime'
 # in the kernel.  So, we use `echo' instead.
 STAMP = echo timestamp >
+
+# Make sure the $(MAKE) variable is defined.
+@SET_MAKE@
+
+# --------
+# UNSORTED
+# --------
+
+# Some compilers can't handle cc -c blah.c -o foo/blah.o.
+# In stage2 and beyond, we force this to "-o $@" since we know we're using gcc.
+OUTPUT_OPTION = @OUTPUT_OPTION@
 
 # This is where we get zlib from.  zlibdir is -L../zlib and zlibinc is
 # -I../zlib, unless we were configured with --with-system-zlib, in which
@@ -213,6 +277,7 @@ USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/stdbool.h \
 	 $(srcdir)/ginclude/stddef.h \
 	 $(srcdir)/ginclude/varargs.h \
+	 $(srcdir)/unwind.h \
 	 $(EXTRA_HEADERS)
 
 # The GCC to use for compiling libgcc.a and crt*.o.
@@ -225,21 +290,9 @@ GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) ./xgcc -B./ -B$(build_tooldir)/bin/ -isyste
 # It also specifies -isystem ./include to find, e.g., stddef.h.
 GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(LOOSE_WARN) -isystem ./include $(TCFLAGS)
 
-# Sed command to transform gcc to installed name.  Overwritten by configure.
-program_transform_name = @program_transform_name@
-program_transform_cross_name = s,^,$(target_alias)-,
-
-build_canonical = @build_canonical@
-host_canonical = @host_canonical@
-
-# Tools to use when building a cross-compiler.
-# These are used because `configure' appends `cross-make'
-# to the makefile when making a cross-compiler.
-
-# Use the tools from the build tree, if they are available.
-
-# objdir is set by configure.
-objdir = @objdir@
+# ---------------------------------------------------
+# Programs which produce files for the target machine
+# ---------------------------------------------------
 
 AR_FOR_TARGET = ` \
   if [ -f $(objdir)/../binutils/ar ] ; then \
@@ -277,6 +330,10 @@ NM_FOR_TARGET = ` \
     fi; \
   fi`
 
+# --------
+# UNSORTED
+# --------
+
 # Where to find some libiberty headers.
 HASHTAB_H   = $(srcdir)/../include/hashtab.h
 OBSTACK_H   = $(srcdir)/../include/obstack.h
@@ -299,8 +356,10 @@ STMP_FIXINC = @STMP_FIXINC@
 # Test to see whether <limits.h> exists in the system header files.
 LIMITS_H_TEST = [ -f $(SYSTEM_HEADER_DIR)/limits.h ]
 
-target=@target@
-target_alias=@target_alias@
+# Directory for prefix to system directories, for
+# each of $(system_prefix)/usr/include, $(system_prefix)/usr/lib, etc.
+TARGET_SYSTEM_ROOT = @TARGET_SYSTEM_ROOT@
+
 xmake_file=@dep_host_xmake_file@
 tmake_file=@dep_tmake_file@
 out_file=$(srcdir)/config/@out_file@
@@ -333,6 +392,10 @@ gcc_version_trigger=@gcc_version_trigger@
 version=$(gcc_version)
 mainversion=`grep version_string $(srcdir)/version.c | sed -e 's/.*\"\([0-9]*\.[0-9]*\).*/\1/'`
 
+# ------------------------
+# Installation directories
+# ------------------------
+
 # Common prefix for installation directories.
 # NOTE: This directory must exist when you start installation.
 prefix = @prefix@
@@ -347,6 +410,11 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 # Directory in which to put the directories used by the compiler.
 libdir = @libdir@
+
+# --------
+# UNSORTED
+# --------
+
 # Directory in which the compiler finds executables, libraries, etc.
 libsubdir = $(libdir)/gcc-lib/$(target_alias)/$(version)
 # Used to produce a relative $(gcc_tooldir) in gcc.o
@@ -384,9 +452,6 @@ man1dir = $(mandir)/man1
 man7dir = $(mandir)/man7
 # Dir for temp files.
 tmpdir = /tmp
-
-# Top build directory, relative to here.
-top_builddir = .
 
 # Whether we were configured with NLS.
 USE_NLS = @USE_NLS@
@@ -458,7 +523,6 @@ EXTRA_OBJS = @extra_objs@
 EXTRA_GCC_OBJS =@host_extra_gcc_objs@
 
 # List of additional header files to install.
-# Often this is edited directly by `configure'.
 EXTRA_HEADERS =@extra_headers_list@
 
 # It is convenient for configure to add the assignment at the beginning,
@@ -494,7 +558,6 @@ GENERATED_MANPAGES = @GENERATED_MANPAGES@
 OTHER_FIXINCLUDES_DIRS=
 
 # A list of all the language-specific executables.
-# This is overridden by configure.
 COMPILERS = cc1$(exeext) @all_compilers@
 
 # List of things which should already be built whenever we try to use xgcc
@@ -540,10 +603,6 @@ CPP_CROSS_NAME = `echo cpp|sed '$(program_transform_cross_name)'`
 PROTOIZE_CROSS_NAME = `echo protoize|sed '$(program_transform_cross_name)'`
 UNPROTOIZE_CROSS_NAME = `echo unprotoize|sed '$(program_transform_cross_name)'`
 
-# Set by autoconf to "all.internal" for a native build, or
-# "all.cross" to build a cross compiler.
-ALL = @ALL@
-
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
             echo $${rootme}/../expect/expect ; \
@@ -579,15 +638,6 @@ T_TARGET : $(T_TARGET)
 SPECS = specs
 
 # End of variables for you to override.
-
-# Definition of `all' is here so that new rules inserted by sed
-# do not specify the default target.
-# The real definition is under `all.internal' (for native compilers)
-# or `all.cross' (for cross compilers).
-all: all.indirect
-
-# This tells GNU Make version 3 not to put all variables in the environment.
-.NOEXPORT:
 
 # GTM_H lists the config files that the generator files depend on,
 # while TM_H lists the ones ordinary gcc files depend on, which
@@ -641,8 +691,6 @@ TREE_FLOW_H = tree-flow.h tree-flow-inline.h bitmap.h $(BASIC_BLOCK_H) \
 #
 # Now figure out from those variables how to compile and link.
 
-all.indirect: $(ALL)
-
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
@@ -676,6 +724,9 @@ LIBS =	$(INTLLIBS) @LIBS@ $(LIBIBERTY) $(BANSHEELIB)
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
 
+# Libs needed (at present) just for jcf-dump.
+LDEXP_LIB = @LDEXP_LIB@
+
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
 BUILD_LIBS = $(BUILD_LIBIBERTY)
@@ -702,14 +753,10 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
-# This tells GNU make version 3 not to export all the variables
-# defined in this file into the environment.
-.NOEXPORT:
 #
-# Support for additional languages (other than c and objc).
-# ??? objc can be supported this way too (leave for later).
+# Support for additional languages (other than C).
+# C can be supported this way too (leave for later).
 
-# These next lines are overridden by configure.
 LANG_MAKEFILES = @all_lang_makefiles@
 LANG_STAGESTUFF = @all_stagestuff@
 
@@ -774,7 +821,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
-  c-incpath.o cppdefault.o \
+  c-incpath.o cppdefault.o c-ppoutput.o c-cppbuiltin.o prefix.o \
   c-objc-common.o c-dump.o c-pch.o libcpp.a $(C_TARGET_OBJS) \
   c-simplify.o c-call-graph.o tree-mudflap.o c-mudflap.o c-pretty-print.o
 
@@ -791,7 +838,8 @@ OBJS = tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o tree-simple.o      \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
- debug.o dependence.o df.o diagnostic.o doloop.o dominance.o		   \
+ debug.o df.o diagnostic.o dojump.o doloop.o dominance.o		   \
+ dependence.o                                                              \
  dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
@@ -859,14 +907,6 @@ TPBIT_FUNCS = _pack_tf _unpack_tf _addsub_tf _mul_tf _div_tf \
 # unwinder info.
 LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
-# The only suffixes we want for implicit rules are .c and .o, so clear
-# the list and add them.  This speeds up GNU Make, and allows -r to work.
-# For i18n support, we also need .gmo, .po, .pox.
-# This must come before the language makefile fragments to allow them to
-# add suffixes and rules of their own.
-.SUFFIXES:
-.SUFFIXES: .c .o .po .pox .gmo
-
 #
 # Language makefile fragments.
 
@@ -892,6 +932,10 @@ LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
 # End of language makefile fragments.
 #
+
+# -----------------------------
+# Rebuilding this configuration
+# -----------------------------
 
 Makefile: $(srcdir)/Makefile.in config.status $(srcdir)/version.c \
    $(xmake_file) $(tmake_file) $(LANG_MAKEFILES)
@@ -980,6 +1024,10 @@ config.status: $(srcdir)/configure $(srcdir)/config.gcc version.c
 	else \
 	  LANGUAGES="$(CONFIG_LANGUAGES)" $(SHELL) config.status --recheck; \
 	fi
+
+# --------
+# UNSORTED
+# --------
 
 all.internal: start.encap rest.encap doc
 # This is what to compile if making a cross-compiler.
@@ -1254,6 +1302,8 @@ c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) c-common.h real.h c-incpath.h cppdefault.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
+c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+    c-common.h $(TREE_H) $(CPPLIB_H) cpphash.h $(TM_P_H) c-pragma.h
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h integrate.h $(EXPR_H) $(C_TREE_H) \
     flags.h toplev.h tree-inline.h diagnostic.h integrate.h $(VARRAY_H) \
@@ -1290,15 +1340,19 @@ tlink.o: tlink.c $(DEMANGLE_H) $(HASHTAB_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h 
 # A file used by all variants of C.
 
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-	$(OBSTACK_H) $(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) \
-	$(GGC_H) $(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h except.h gt-c-common.h real.h langhooks.h varray.h
+	$(OBSTACK_H) $(C_COMMON_H) flags.h toplev.h output.h c-pragma.h intl.h \
+	$(GGC_H) $(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def \
+	diagnostic.h gt-c-common.h langhooks.h varray.h $(RTL_H) $(TARGET_H)
 c-pretty-print.o : c-pretty-print.c c-pretty-print.h pretty-print.h \
 	$(C_COMMON_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) real.h
 
-c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_COMMON_H) \
+c-opts.o : c-opts.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
         c-pragma.h flags.h toplev.h langhooks.h tree-inline.h diagnostic.h \
-	intl.h
+	intl.h debug.h $(C_COMMON_H)
+
+c-cppbuiltin.o : c-cppbuiltin.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	$(TREE_H) $(C_COMMON_H) c-pragma.h flags.h toplev.h langhooks.h \
+	output.h except.h real.h $(TM_P_H)
 
 # A file used by all variants of C and some other languages.
 
@@ -1317,7 +1371,7 @@ c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(TREE_DUMP_H)
 
 c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(CPPLIB_H) $(TREE_H) \
-	c-common.h output.h toplev.h c-pragma.h $(GGC_H) debug.h
+	c-common.h output.h toplev.h c-pragma.h $(GGC_H) debug.h langhooks.h
 
 # Language-independent files.
 
@@ -1405,7 +1459,7 @@ ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) 
 	flags.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
 
 ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
-	flags.h toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
+	flags.h toplev.h $(GGC_H) $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
 
 stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	$(TREE_H) $(GGC_H) gt-stringpool.h
@@ -1524,7 +1578,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
    langhooks.h insn-flags.h options.h cfglayout.h real.h cfgloop.h \
-   hosthooks.h $(LANGHOOKS_DEF_H)
+   hosthooks.h $(LANGHOOKS_DEF_H) cgraph.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -1569,13 +1623,16 @@ expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) f
    function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h insn-attr.h insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H) real.h
+dojump.o : dojump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
+   flags.h function.h $(EXPR_H) $(OPTABS_H) insn-attr.h insn-config.h \
+   langhooks.h
 builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H)\
    flags.h $(TARGET_H) function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
    except.h $(TM_P_H) $(PREDICT_H) libfuncs.h real.h langhooks.h
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) flags.h \
    $(EXPR_H) langhooks.h $(TARGET_H) \
-   libfuncs.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
+   libfuncs.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H) cgraph.h
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) real.h \
    toplev.h $(TM_P_H) langhooks.h
@@ -1611,7 +1668,7 @@ xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
    $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h \
-   $(HASHTAB_H) $(TM_P_H) debug.h langhooks.h
+   $(HASHTAB_H) $(TM_P_H) debug.h langhooks.h gt-emit-rtl.h
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h $(TM_P_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    flags.h debug.h $(INTEGRATE_H) insn-config.h $(EXPR_H) real.h $(REGS_H) \
@@ -1625,7 +1682,7 @@ simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RT
    $(REGS_H) hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H) $(TARGET_H)
 cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-   langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H) cgraph.h
+   langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H) cgraph.h gt-cgraph.h
 cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h tree-inline.h toplev.h flags.h ggc.h  $(TARGET_H) cgraph.h
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
@@ -1664,7 +1721,7 @@ tree-ssa-copyprop.o : tree-ssa-copyprop.c $(CONFIG_H) system.h errors.h \
     $(TREE_H) $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h $(TIMEVAR_H) \
     $(TREE_DUMP_H) coretypes.h $(TREE_SIMPLE_H) $(TM_H)
 df.o : df.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   insn-config.h $(RECOG_H) function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
+   insn-config.h $(RECOG_H) function.h $(REGS_H) alloc-pool.h hard-reg-set.h \
    $(BASIC_BLOCK_H) df.h $(FIBHEAP_H)
 conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(OBSTACK_H) \
    $(HASHTAB_H) $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
@@ -1766,7 +1823,7 @@ reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) condition
 alias.o : alias.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(REGS_H) toplev.h output.h $(EXPR_H) \
    $(GGC_H) function.h cselib.h $(TREE_H) $(TM_P_H) langhooks.h $(TARGET_H) \
-   gt-alias.h $(TIMEVAR_H)
+   gt-alias.h $(TIMEVAR_H) cgraph.h
 regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) insn-config.h \
    $(RECOG_H) output.h $(REGS_H) hard-reg-set.h flags.h function.h \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
@@ -2027,7 +2084,7 @@ GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
   $(srcdir)/basic-block.h $(srcdir)/location.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
-  $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
+  $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/dependence.c  \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
@@ -2047,7 +2104,7 @@ GTFILES_FILES_FILES = @all_gtfiles_files_files@
 GTFILES_LANG_DIR_NAMES = @subdirs@
 GTFILES_SRCDIR = @srcdir@
 
-gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
+gt-cgraph.h gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
@@ -2256,7 +2313,7 @@ gengtype$(build_exeext) : gengtype.o gengtype-lex.o gengtype-yacc.o \
 	 gengtype.o gengtype-lex.o gengtype-yacc.o $(BUILD_LIBS)
 
 gengtype.o : gengtype.c gengtype.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) \
-  real.h rtl.def gtyp-gen.h
+  real.h $(RTL_BASE_H) gtyp-gen.h
 	$(BUILD_CC) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
 
@@ -2382,8 +2439,8 @@ PREPROCESSOR_DEFINES = \
   @TARGET_SYSTEM_ROOT_DEFINE@
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
-		cpphash.o cpperror.o cppinit.o cppmain.o \
-		hashtable.o line-map.o mkdeps.o prefix.o mbchar.o cpppch.o
+		cpphash.o cpperror.o cppinit.o \
+		hashtable.o line-map.o mkdeps.o mbchar.o cpppch.o
 
 LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
 		$(OBSTACK_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
@@ -2395,8 +2452,6 @@ libcpp.a: $(LIBCPP_OBJS)
 	$(AR) $(AR_FLAGS) libcpp.a $(LIBCPP_OBJS)
 	-$(RANLIB) libcpp.a
 
-cppmain.o:  cppmain.c  $(LIBCPP_DEPS)
-
 cpperror.o: cpperror.c $(LIBCPP_DEPS)
 cppexp.o:   cppexp.c   $(LIBCPP_DEPS)
 cpplex.o:   cpplex.c   $(LIBCPP_DEPS) mbchar.h
@@ -2405,7 +2460,7 @@ cpplib.o:   cpplib.c   $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(LIBCPP_DEPS)
 cpptrad.o:  cpptrad.c  $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
-cppinit.o:  cppinit.c  $(LIBCPP_DEPS) mkdeps.h prefix.h
+cppinit.o:  cppinit.c  $(LIBCPP_DEPS) mkdeps.h
 cpppch.o:   cpppch.c   $(LIBCPP_DEPS) mkdeps.h
 
 cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -2545,6 +2600,11 @@ specs.ready: specs
 		$(STAMP) specs.ready; \
 	fi
 
+# Until someone fixes this recursive make nightmare (please note where
+# BUILD_CFLAGS and WARN_CFLAGS are first expanded below versus which
+# later make invocation has the fine-grain -warn markings for fixinc):
+fixinc.sh-warn = -Wno-error
+
 FIXINCSRCDIR=$(srcdir)/fixinc
 fixinc.sh: $(FIXINCSRCDIR)/mkfixinc.sh $(FIXINCSRCDIR)/fixincl.c \
 	$(FIXINCSRCDIR)/procopen.c $(FIXINCSRCDIR)/gnu-regex.c \
@@ -2623,9 +2683,9 @@ xsys-protos.h: $(GCC_PASSES) $(srcdir)/sys-protos.h deduced.h gen-protos$(build_
 # This is nominally a 'build' program, but it's run only when host==build,
 # so we can (indeed, must) use $(LIBDEPS) and $(LIBS).
 fix-header$(build_exeext): fix-header.o scan-decls.o scan.o xsys-protos.h \
-           c-incpath.o cppdefault.o $(LIBDEPS) libcpp.a
+           c-incpath.o cppdefault.o prefix.o $(LIBDEPS) libcpp.a
 	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ fix-header.o \
-	   c-incpath.o cppdefault.o scan-decls.o scan.o libcpp.a $(LIBS)
+	c-incpath.o cppdefault.o scan-decls.o prefix.o scan.o libcpp.a $(LIBS)
 
 fix-header.o: fix-header.c $(OBSTACK_H) scan.h \
 	xsys-protos.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(CPPLIB_H)
@@ -2695,7 +2755,7 @@ TEXI_GCCINT_FILES = $(docdir)/gccint.texi \
 	 $(docdir)/gnu.texi $(docdir)/include/gpl.texi \
 	 $(docdir)/include/fdl.texi $(docdir)/contrib.texi \
 	 $(docdir)/languages.texi $(docdir)/sourcebuild.texi \
-	 $(docdir)/gty.texi
+	 $(docdir)/gty.texi $(docdir)/libgcc.texi
 
 TEXI_GCCINSTALL_FILES = $(docdir)/install.texi $(docdir)/install-old.texi \
 	 $(docdir)/include/fdl.texi
@@ -3496,12 +3556,18 @@ paranoia: paranoia.o real.o $(LIBIBERTY)
 # These exist for maintenance purposes.
 
 # Update the tags table.
-TAGS: force
-	(cd $(srcdir);							\
-	mkdir tmp-tags;							\
-	mv -f c-parse.[ch] =*.[chy] tmp-tags;				\
-	etags *.y *.h *.c;						\
-	mv tmp-tags/* .;						\
+TAGS: lang.tags
+	(cd $(srcdir);						     \
+	incs= ;							     \
+	list='$(SUBDIRS)'; for dir in $$list; do		     \
+	  if test -f $$dir/TAGS; then				     \
+	    incs="$$incs --include $$dir/TAGS";			     \
+	  fi;							     \
+	done;							     \
+	mkdir tmp-tags;						     \
+	mv -f c-parse.[ch] tmp-tags;				     \
+	etags *.y *.h *.c $$incs;				     \
+	mv tmp-tags/* .;					     \
 	rmdir tmp-tags)
 
 # A list of files to be destroyed during "lean" builds.
@@ -3660,7 +3726,7 @@ cleanstrap:
 	$(MAKE) LANGUAGES="$(LANGUAGES)" bootstrap
 
 unstrap:
-	-rm -rf stage[234]*
+	-rm -rf stage[234]* stage_last
 	$(MAKE) unstage1
 
 # Differs from cleanstrap in that it starts from the earlier stage1 build,
@@ -3871,8 +3937,6 @@ risky-stage4: stage4
 #In GNU Make, ignore whether `stage*' exists.
 .PHONY: stage1 stage2 stage3 stage4 clean maintainer-clean TAGS bootstrap
 .PHONY: risky-stage1 risky-stage2 risky-stage3 risky-stage4
-
-force:
 
 # Rules for generating translated message descriptions.
 # Disabled by autoconf if the tools are not available.

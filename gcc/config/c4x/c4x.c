@@ -5,20 +5,20 @@
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -5025,7 +5025,7 @@ c4x_expand_builtin (exp, target, subtarget, mode, ignore)
 	break;
       arg0 = TREE_VALUE (arglist);
       if (TREE_CODE (arg0) == VAR_DECL || TREE_CODE (arg0) == PARM_DECL)
-	put_var_into_stack (arg0);
+	put_var_into_stack (arg0, /*rescan=*/true);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       r0 = protect_from_queue (r0, 0);
       if (register_operand (r0, QFmode))

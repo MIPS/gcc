@@ -1,20 +1,20 @@
 /* Precompiled header implementation for the C languages.
    Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -29,18 +29,37 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "c-pragma.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 struct c_pch_header 
 {
   unsigned long asm_size;
 };
 
-static const char pch_ident[8] = "gpchC010";
+#define IDENT_LENGTH 8
 
 static FILE *pch_outfile;
 
 extern char *asm_file_name;
 static long asm_file_startpos;
+
+static const char * get_ident PARAMS((void));
+
+static const char *
+get_ident()
+{
+  static char result[IDENT_LENGTH];
+  static const char template[IDENT_LENGTH] = "gpch.010";
+  
+  memcpy (result, template, IDENT_LENGTH);
+  if (c_language == clk_c)
+    result[4] = flag_objc ? 'o' : 'C';
+  else if (c_language == clk_cplusplus)
+    result[4] = flag_objc ? 'O' : '+';
+  else
+    abort ();
+  return result;
+}
 
 void
 pch_init ()
@@ -49,16 +68,12 @@ pch_init ()
   
   if (pch_file)
     {
-      /* We're precompiling a header file, so when it's actually used,
-	 it'll be at least one level deep.  */
-      (*debug_hooks->start_source_file) (lineno, input_filename);
-
       f = fopen (pch_file, "w+b");
       if (f == NULL)
 	fatal_io_error ("can't open %s", pch_file);
       pch_outfile = f;
       
-      if (fwrite (pch_ident, sizeof (pch_ident), 1, f) != 1)
+      if (fwrite (get_ident(), IDENT_LENGTH, 1, f) != 1)
 	fatal_io_error ("can't write to %s", pch_file);
 
       /* We need to be able to re-read the output.  */
@@ -69,6 +84,9 @@ pch_init ()
 
       asm_file_startpos = ftell (asm_out_file);
       
+      /* Let the debugging format deal with the PCHness.  */
+      (*debug_hooks->handle_pch) (0);
+
       cpp_save_state (parse_in, f);
     }
 }
@@ -80,6 +98,8 @@ c_common_write_pch ()
   long asm_file_end;
   long written;
   struct c_pch_header h;
+
+  (*debug_hooks->handle_pch) (1);
 
   cpp_write_pch_deps (parse_in, pch_outfile);
 
@@ -122,7 +142,8 @@ c_common_valid_pch (pfile, name, fd)
 {
   int sizeread;
   int result;
-  char ident[sizeof (pch_ident)];
+  char ident[IDENT_LENGTH];
+  const char *pch_ident;
 
   if (! allow_pch)
     return 2;
@@ -130,16 +151,17 @@ c_common_valid_pch (pfile, name, fd)
   /* Perform a quick test of whether this is a valid
      precompiled header for C.  */
 
-  sizeread = read (fd, ident, sizeof (pch_ident));
+  sizeread = read (fd, ident, IDENT_LENGTH);
   if (sizeread == -1)
     {
       fatal_io_error ("can't read %s", name);
       return 2;
     }
-  else if (sizeread != sizeof (pch_ident))
+  else if (sizeread != IDENT_LENGTH)
     return 2;
   
-  if (memcmp (ident, pch_ident, sizeof (pch_ident)) != 0)
+  pch_ident = get_ident();
+  if (memcmp (ident, pch_ident, IDENT_LENGTH) != 0)
     {
       if (cpp_get_options (pfile)->warn_invalid_pch)
 	{
@@ -150,7 +172,8 @@ c_common_valid_pch (pfile, name, fd)
 		       "%s: not compatible with this GCC version", name);
 	  else if (memcmp (ident, pch_ident, 4) == 0)
 	    /* It's a PCH for the wrong language.  */
-	    cpp_error (pfile, DL_WARNING, "%s: not for C language", name);
+	    cpp_error (pfile, DL_WARNING, "%s: not for %s", name,
+		       lang_hooks.name);
 	  else 
 	    /* Not any kind of PCH.  */
 	    cpp_error (pfile, DL_WARNING, "%s: not a PCH file", name);
@@ -173,17 +196,13 @@ c_common_read_pch (pfile, name, fd, orig_name)
      cpp_reader *pfile;
      const char *name;
      int fd;
-     const char *orig_name;
+     const char *orig_name ATTRIBUTE_UNUSED;
 {
   FILE *f;
   struct c_pch_header h;
   char *buf;
   unsigned long written;
   struct save_macro_data *smd;
-  
-  /* Before we wrote the file, we started a source file, so we have to start
-     one here to match.  */
-  (*debug_hooks->start_source_file) (lineno, orig_name);
   
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -221,6 +240,4 @@ c_common_read_pch (pfile, name, fd, orig_name)
     return;
 
   fclose (f);
-
-  (*debug_hooks->end_source_file) (lineno);
 }

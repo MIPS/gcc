@@ -76,6 +76,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-alias-common.h" 
 #include "cfgloop.h"
 #include "hosthooks.h"
+#include "cgraph.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -135,6 +136,9 @@ static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
 
+/* True if we don't need a backend (e.g. preprocessing only).  */
+static bool no_backend;
+
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -177,7 +181,7 @@ const char *dump_base_name;
 
 /* Name to use as a base for auxiliary output files.  */
 
-const char *aux_base_name;
+static const char *aux_base_name;
 
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
@@ -322,7 +326,7 @@ static void close_dump_file PARAMS ((enum dump_file_index,
 int rtl_dump_and_exit;
 int flag_print_asm_name;
 static int version_flag;
-static char *filename;
+static const char *filename;
 enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
@@ -741,6 +745,10 @@ int flag_unwind_tables = 0;
 
 int flag_asynchronous_unwind_tables = 0;
 
+/* Nonzero means allow for forced unwinding.  */
+
+int flag_forced_unwind_exceptions;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -1151,6 +1159,8 @@ static const lang_independent_options f_options[] =
    N_("Generate unwind tables exact at each instruction boundary") },
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
+  {"forced-unwind-exceptions", &flag_forced_unwind_exceptions, 1,
+   N_("Support forced unwinding, e.g. for thread cancellation") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
@@ -2007,7 +2017,7 @@ wrapup_global_declarations (vec, len)
       decl = vec[i];
 
       /* We're not deferring this any longer.  Assignment is
-	 conditional to avoid needlessly dirtying PCH pages. */
+	 conditional to avoid needlessly dirtying PCH pages.  */
       if (DECL_DEFER_OUTPUT (decl) != 0)
 	DECL_DEFER_OUTPUT (decl) = 0;
 
@@ -2203,11 +2213,17 @@ pop_srcloc ()
   input_file_stack = fs->next;
   free (fs);
   input_file_stack_tick++;
-  /* The initial source file is never popped.  */
-  if (!input_file_stack)
-    abort ();
-  input_filename = input_file_stack->name;
-  lineno = input_file_stack->line;
+
+  if (input_file_stack)
+    {
+      input_filename = input_file_stack->name;
+      lineno = input_file_stack->line;
+    }
+  else
+    {
+      input_filename = NULL;
+      lineno = 0;
+    }
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -2522,12 +2538,16 @@ rest_of_compilation (decl)
 		  goto exit_rest_of_compilation;
 		}
 	    }
-	  else
-	    /* ??? Note that this has the effect of making it look
-		 like "inline" was specified for a function if we choose
-		 to inline it.  This isn't quite right, but it's
-		 probably not worth the trouble to fix.  */
+	  else {
+	    /* ??? Note that we used to just make it look like if
+	         the "inline" keyword was specified when we decide
+	         to inline it (because of -finline-functions).
+	         garloff@suse.de, 2002-04-24: Add another flag to
+	         actually record this piece of information.  */
+	    if (!DECL_INLINE (decl))
+	       DID_INLINE_FUNC (decl) = 1;
 	    inlinable = DECL_INLINE (decl) = 1;
+	  }
 	}
 
       insns = get_insns ();
@@ -2555,6 +2575,7 @@ rest_of_compilation (decl)
 
       if (inlinable
 	  || (DECL_INLINE (decl)
+	      && flag_inline_functions
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
 		   && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 		   && ! flag_keep_inline_functions)
@@ -2665,6 +2686,10 @@ rest_of_compilation (decl)
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   delete_unreachable_blocks ();
+
+  /* We have to issue these warnings now already, because CFG cleanups
+     further down may destroy the required information.  */
+  check_function_return_warnings ();
 
   /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
   if (flag_guess_branch_prob)
@@ -2849,7 +2874,8 @@ rest_of_compilation (decl)
     }
 
   timevar_push (TV_JUMP);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP: 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
   /* Try to identify useless null pointer tests and delete them.  */
   if (flag_delete_null_pointer_checks)
@@ -2950,6 +2976,10 @@ rest_of_compilation (decl)
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
+      /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
+      if (current_function_calls_constant_p)
+	purge_builtin_constant_p ();
+
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
       if (flag_expensive_optimizations)
@@ -2994,10 +3024,6 @@ rest_of_compilation (decl)
       verify_flow_info ();
 #endif
     }
-
-  /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
-  if (optimize > 0 && flag_gcse && current_function_calls_constant_p)
-    purge_builtin_constant_p ();
 
   /* Move constant computations out of loops.  */
 
@@ -3080,8 +3106,9 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
      eliminated by life_analysis, but we need to do it early, as -fprofile-arcs
@@ -3221,8 +3248,6 @@ rest_of_compilation (decl)
 
   open_dump_file (DFI_life, decl);
   regclass_init ();
-
-  check_function_return_warnings ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -3511,7 +3536,8 @@ rest_of_compilation (decl)
 #endif
     split_all_insns (0);
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3575,7 +3601,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_bbro, decl);
 
       /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-	 splitting possibly introduced more crossjumping opportunities. */
+	 splitting possibly introduced more crossjumping opportunities.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3805,6 +3831,16 @@ rest_of_compilation (decl)
   free_bb_for_insn ();
 
   timevar_pop (TV_FINAL);
+
+  if ((*targetm.binds_local_p) (current_function_decl))
+    {
+      int pref = cfun->preferred_stack_boundary;
+      if (cfun->recursive_call_emit
+          && cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+	pref = cfun->stack_alignment_needed;
+      cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
+        = pref;
+    }
 
   /* Make sure volatile mem refs aren't considered valid operands for
      arithmetic insns.  We must call this here if this is a nested inline
@@ -4127,6 +4163,16 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+      set_param_value ("max-inline-insns-single", val/2);
+      set_param_value ("max-inline-insns-auto", val/2);
+      set_param_value ("max-inline-insns-rtl", val);
+      if (val/4 < MIN_INLINE_INSNS)
+	{
+	  if (val/4 > 10)
+	    set_param_value ("min-inline-insns", val/4);
+	  else
+	    set_param_value ("min-inline-insns", 10);
+	}
     }
   else if ((option_value = skip_leading_substring (arg, "tree-points-to=")))
     {
@@ -4429,18 +4475,21 @@ independent_decode_option (argc, argv)
     {
       display_help ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-target-help"))
     {
       display_target_options ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-version"))
     {
       print_version (stderr, "");
       exit_after_options = 1;
+      return 1;
     }
 
   /* Handle '--param <name>=<value>'.  */
@@ -4476,9 +4525,6 @@ independent_decode_option (argc, argv)
 
       return 2;
     }
-
-  if (*arg == 'Y')
-    arg++;
 
   switch (*arg)
     {
@@ -5056,6 +5102,7 @@ parse_options_and_default_flags (argc, argv)
       flag_inline_functions = 1;
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
+      flag_unit_at_a_time = 1;
     }
   
   if (optimize < 2 || optimize_size)
@@ -5195,10 +5242,30 @@ parse_options_and_default_flags (argc, argv)
 static void
 process_options ()
 {
+  /* Allow the front end to perform consistency checks and do further
+     initialization based on the command line options.  This hook also
+     sets the original filename if appropriate (e.g. foo.i -> foo.c)
+     so we can correctly initialize debug output.  */
+  no_backend = (*lang_hooks.post_options) (&filename);
+  main_input_filename = input_filename = filename;
+
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  /* Set aux_base_name if not already set.  */
+  if (aux_base_name)
+    ;
+  else if (filename)
+    {
+      char *name = xstrdup (lbasename (filename));
+      
+      strip_off_ending (name, strlen (name));
+      aux_base_name = name;
+    }
+  else
+    aux_base_name = "gccaux";
 
   /* Set up the align_*_log variables, defaulting them to 1 if they
      were still unset.  */
@@ -5431,17 +5498,10 @@ lang_dependent_init (name)
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
 
-  /* Front-end initialization.  This hook can assume that GC,
-     identifier hashes etc. are set up, but debug initialization is
-     not done yet.  This routine must return the original filename
-     (e.g. foo.i -> foo.c) so can correctly initialize debug output.  */
-  name = (*lang_hooks.init) (name);
-  if (name == NULL)
+  /* Other front-end initialization.  */
+  if ((*lang_hooks.init) () == 0)
     return 0;
 
-  /* Is this duplication necessary?  */
-  name = ggc_strdup (name);
-  main_input_filename = input_filename = name;
   init_asm_output (name);
 
   /* These create various _DECL nodes, so need to be called after the
@@ -5537,29 +5597,6 @@ finalize ()
 static void
 do_compile ()
 {
-  /* All command line options have been parsed; allow the front end to
-     perform consistency checks, etc.  */
-  bool no_backend = (*lang_hooks.post_options) ();
-
-  /* The bulk of command line switch processing.  */
-  process_options ();
-
-  /* If an error has already occurred, give up.  */
-  if (errorcount)
-    return;
-
-  if (aux_base_name)
-    /*NOP*/;
-  else if (filename)
-    {
-      char *name = xstrdup (lbasename (filename));
-
-      aux_base_name = name;
-      strip_off_ending (name, strlen (name));
-    }
-  else
-    aux_base_name = "gccaux";
-
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */
   init_timevar ();
@@ -5601,7 +5638,13 @@ toplev_main (argc, argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    {
+      process_options ();
+
+      /* Don't do any more if an error has already occurred.  */
+      if (!errorcount)
+	do_compile ();
+    }
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

@@ -1,17 +1,48 @@
-// URLConnection.java - Superclass of all communications links between
-//			an application and a URL.
+/* URLConnection.java -- Abstract superclass for reading from URL's
+   Copyright (C) 1998, 2002 Free Software Foundation, Inc.
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+This file is part of GNU Classpath.
 
-   This file is part of libgcj.
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+ 
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
-This software is copyrighted work licensed under the terms of the
-Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
-details.  */
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
+
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
+
 
 package java.net;
 
-import java.io.*;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.security.Permission;
+import java.security.AllPermission;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -19,14 +50,7 @@ import java.util.Locale;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.StringTokenizer;
-import java.security.Permission;
-import java.security.AllPermission;
 import gnu.gcj.io.MimeTypes;
-
-/**
- * @author Warren Levy <warrenl@cygnus.com>
- * @date March 5, 1999.
- */
 
 /**
  * Written using on-line Java Platform 1.2 API Specification, as well
@@ -35,15 +59,39 @@ import gnu.gcj.io.MimeTypes;
  *    getContent method assumes content type from response; see comment there.
  */
 
+/**
+ * This class models a connection that retrieves the information pointed
+ * to by a URL object.  This is typically a connection to a remote node
+ * on the network, but could be a simple disk read.
+ * <p>
+ * A URLConnection object is normally created by calling the openConnection()
+ * method of a URL object.  This method is somewhat misnamed because it does
+ * not actually open the connection.  Instead, it return an unconnected
+ * instance of this object.  The caller then has the opportunity to set
+ * various connection options prior to calling the actual connect() method.
+ * <p>
+ * After the connection has been opened, there are a number of methods in
+ * this class that access various attributes of the data, typically
+ * represented by headers sent in advance of the actual data itself.
+ * <p>
+ * Also of note are the getInputStream and getContent() methods which allow
+ * the caller to retrieve the actual data from the connection.  Note that
+ * for some types of connections, writing is also allowed.  The setDoOutput()
+ * method must be called prior to connecing in order to enable this, then
+ * the getOutputStream method called after the connection in order to
+ * obtain a stream to write the output to.
+ * <p>
+ * The getContent() method is of particular note.  This method returns an
+ * Object that encapsulates the data returned.  There is no way do determine
+ * the type of object that will be returned in advance.  This is determined
+ * by the actual content handlers as described in the description of that
+ * method.
+ *
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Warren Levy <warrenl@cygnus.com>
+ */
 public abstract class URLConnection
 {
-  protected URL url;
-  protected boolean doInput = true;
-  protected boolean doOutput = false;
-  protected boolean allowUserInteraction;
-  protected boolean useCaches;
-  protected long ifModifiedSince = 0L;
-  protected boolean connected = false;
   private static boolean defaultAllowUserInteraction = false;
   private static boolean defaultUseCaches = true;
   private static FileNameMap fileNameMap;  // Set by the URLConnection subclass.
@@ -55,12 +103,56 @@ public abstract class URLConnection
   private static boolean dateformats_initialized = false;
 
   /**
+   * This is the URL associated with this connection
+   */
+  protected URL url;
+
+  /**
+   * Indicates whether or not input can be read from this URL
+   */
+  protected boolean doInput = true;
+  
+  /**
+   * Indicates whether or not output can be sent to this URL
+   */
+  protected boolean doOutput = false;
+  
+  protected boolean allowUserInteraction;
+
+  /**
+   * If this flag is set, the protocol is allowed to cache data whenever
+   * it can (caching is not guaranteed). If it is not set, the protocol
+   * must a get a fresh copy of the data.
+   * <p>
+   * This field is set by the setUseCaches method and returned by the
+   * getUseCaches method.
+   *
+   * Its default value is that determined by the last invocation of
+   * setDefaultUseCaches
+   */
+  protected boolean useCaches;
+
+  /**
+   * If this value is non-zero, then the connection will only attempt to
+   * fetch the document pointed to by the URL if the document has been
+   * modified more recently than the date set in this variable.  That date
+   * should be specified as the number of seconds since 1/1/1970 GMT.
+   */
+  protected long ifModifiedSince = 0L;
+
+  /**
+   * Indicates whether or not a connection has been established to the
+   * destination specified in the URL
+   */
+  protected boolean connected = false;
+  
+  /**
    * Creates a URL connection to a given URL. A real connection is not made.
    * Use #connect to do this.
    *
    * @param url The Object to create the URL connection to
    *
-   * @see URLConnection:connect
+   * @see URLConnection#connect()
    */
   protected URLConnection(URL url)
   {
@@ -472,8 +564,8 @@ public abstract class URLConnection
    * @exception IllegalStateException If already connected
    * @exception NullPointerException If key is null
    *
-   * @see URLConnection:getRequestProperty(String key)
-   * @see URLConnection:addRequestProperty(String key, String value)
+   * @see URLConnection#getRequestProperty(String key)
+   * @see URLConnection#addRequestProperty(String key, String value)
    */
   public void setRequestProperty(String key, String value)
   {
@@ -494,8 +586,8 @@ public abstract class URLConnection
    * @exception IllegalStateException If already connected
    * @exception NullPointerException If key is null
    * 
-   * @see URLConnection:getRequestProperty(String key)
-   * @see URLConnection:setRequestProperty(String key, String value)
+   * @see URLConnection#getRequestProperty(String key)
+   * @see URLConnection#setRequestProperty(String key, String value)
    * 
    * @since 1.4
    */
@@ -517,8 +609,8 @@ public abstract class URLConnection
    *
    * @exception IllegalStateException If already connected
    *
-   * @see URLConnection:setRequestProperty(String key, String value)
-   * @see URLConnection:addRequestProperty(String key, String value)
+   * @see URLConnection#setRequestProperty(String key, String value)
+   * @see URLConnection#addRequestProperty(String key, String value)
    * 
    * @return Value of the property.
    */
@@ -554,7 +646,7 @@ public abstract class URLConnection
    *
    * @deprecated 1.3 The method setRequestProperty should be used instead
    *
-   * @see URLConnection:setRequestProperty
+   * @see URLConnectionr#setRequestProperty(String key, String value)
    */
   public static void setDefaultRequestProperty(String key, String value)
   {
@@ -571,7 +663,7 @@ public abstract class URLConnection
    * 
    * @deprecated 1.3 The method getRequestProperty should be used instead
    *
-   * @see URLConnection:getRequestProperty
+   * @see URLConnection#getRequestProperty(String key)
    */
   public static String getDefaultRequestProperty(String key)
   {

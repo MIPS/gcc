@@ -343,12 +343,8 @@ make_edges (label_value_list, min, max, update_p)
 	  else if (find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
 	    ;
 
-	  /* ??? Recognize a tablejump and do the right thing.  */
-	  else if ((tmp = JUMP_LABEL (insn)) != NULL_RTX
-		   && (tmp = NEXT_INSN (tmp)) != NULL_RTX
-		   && GET_CODE (tmp) == JUMP_INSN
-		   && (GET_CODE (PATTERN (tmp)) == ADDR_VEC
-		       || GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC))
+	  /* Recognize a tablejump and do the right thing.  */
+	  else if (tablejump_p (insn, NULL, &tmp))
 	    {
 	      rtvec vec;
 	      int j;
@@ -811,7 +807,7 @@ find_many_sub_basic_blocks (blocks)
 	{
 	  bb->count = 0;
 	  bb->frequency = 0;
-	  for (e = bb->pred; e; e=e->pred_next)
+	  for (e = bb->pred; e; e = e->pred_next)
 	    {
 	      bb->count += e->count;
 	      bb->frequency += EDGE_FREQUENCY (e);
@@ -852,7 +848,7 @@ find_sub_basic_blocks (bb)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  for (e = b->pred; e; e=e->pred_next)
+	  for (e = b->pred; e; e = e->pred_next)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);

@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler for IA-64.
    Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -77,11 +77,12 @@ extern int basereg_operand PARAMS((rtx, enum machine_mode));
 extern rtx ia64_expand_move PARAMS ((rtx, rtx));
 extern int ia64_move_ok PARAMS((rtx, rtx));
 extern int ia64_depz_field_mask PARAMS((rtx, rtx));
-extern rtx ia64_gp_save_reg PARAMS((int));
 extern rtx ia64_split_timode PARAMS((rtx[], rtx, rtx));
 extern rtx spill_tfmode_operand PARAMS((rtx, int));
 extern rtx ia64_expand_compare PARAMS((enum rtx_code, enum machine_mode));
 extern void ia64_expand_call PARAMS((rtx, rtx, rtx, int));
+extern void ia64_split_call PARAMS((rtx, rtx, rtx, rtx, rtx, int, int));
+extern void ia64_reload_gp PARAMS((void));
 
 extern HOST_WIDE_INT ia64_initial_elimination_offset PARAMS((int, int));
 extern void ia64_expand_prologue PARAMS((void));
@@ -97,6 +98,7 @@ extern void ia64_print_operand PARAMS((FILE *, rtx, int));
 extern enum reg_class ia64_secondary_reload_class PARAMS((enum reg_class,
 							  enum machine_mode,
 							  rtx));
+extern void ia64_output_dwarf_dtprel PARAMS ((FILE*, int, rtx));
 extern void ia64_reorg PARAMS((rtx));
 extern void process_for_unwind_directive PARAMS ((FILE *, rtx));
 extern const char *get_bundle_name PARAMS ((int));

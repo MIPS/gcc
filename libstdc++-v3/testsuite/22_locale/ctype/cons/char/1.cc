@@ -51,13 +51,14 @@ public:
 void test01()
 {
   using namespace std;
-  
+  bool test = true; 
+
   comma_ctype obj;
   const ctype_base::mask* tmp = obj.get_classic_table();
 
   comma_ctype obj2(tmp);
   const ctype_base::mask* ctable = obj2.get_table();
-  VERIFY ( tmp = ctable );
+  VERIFY ( tmp == ctable );
 }
 
 int main() 

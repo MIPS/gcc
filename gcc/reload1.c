@@ -3940,6 +3940,7 @@ reload_as_needed (live_known)
 	      if (asm_noperands (PATTERN (insn)) >= 0)
 		for (p = NEXT_INSN (prev); p != next; p = NEXT_INSN (p))
 		  if (p != insn && INSN_P (p)
+		      && GET_CODE (PATTERN (p)) != USE
 		      && (recog_memoized (p) < 0
 			  || (extract_insn (p), ! constrain_operands (1))))
 		    {
@@ -5503,7 +5504,7 @@ choose_reload_regs (chain)
 #ifdef CANNOT_CHANGE_MODE_CLASS
 		      (!REG_CANNOT_CHANGE_MODE_P (i, GET_MODE (last_reg),
 						  need_mode)
-		       ||
+		       &&
 #endif
 		      (GET_MODE_SIZE (GET_MODE (last_reg))
 		       >= GET_MODE_SIZE (need_mode))
@@ -6319,7 +6320,7 @@ emit_input_reload_insns (chain, rl, old, j)
      must always be a REG here.  */
 
   if (GET_MODE (reloadreg) != mode)
-    reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+    reloadreg = reload_adjust_reg_for_mode (reloadreg, mode);
   while (GET_CODE (oldequiv) == SUBREG && GET_MODE (oldequiv) != mode)
     oldequiv = SUBREG_REG (oldequiv);
   if (GET_MODE (oldequiv) != VOIDmode
@@ -6568,8 +6569,8 @@ emit_input_reload_insns (chain, rl, old, j)
 			oldequiv = old, real_oldequiv = real_old;
 		      else
 			second_reload_reg
-			  = gen_rtx_REG (new_mode,
-					 REGNO (second_reload_reg));
+			  = reload_adjust_reg_for_mode (second_reload_reg,
+							new_mode);
 		    }
 		}
 	    }
@@ -6691,7 +6692,7 @@ emit_output_reload_insns (chain, rl, j)
     }
 
   if (GET_MODE (reloadreg) != mode)
-    reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+    reloadreg = reload_adjust_reg_for_mode (reloadreg, mode);
 
 #ifdef SECONDARY_OUTPUT_RELOAD_CLASS
 
@@ -6732,7 +6733,7 @@ emit_output_reload_insns (chain, rl, j)
 		= rld[secondary_reload].secondary_out_icode;
 
 	      if (GET_MODE (reloadreg) != mode)
-		reloadreg = gen_rtx_REG (mode, REGNO (reloadreg));
+		reloadreg = reload_adjust_reg_for_mode (reloadreg, mode);
 
 	      if (tertiary_icode != CODE_FOR_nothing)
 		{
@@ -9147,7 +9148,6 @@ reload_cse_move2add (first)
 
 	      if (GET_CODE (src) == CONST_INT && reg_base_reg[regno] < 0)
 		{
-		  int success = 0;
 		  rtx new_src =
 		    GEN_INT (trunc_int_for_mode (INTVAL (src)
 						 - reg_offset[regno],
@@ -9159,11 +9159,11 @@ reload_cse_move2add (first)
 		     value flag.  jump2 already knows how to get rid of
 		     no-op moves.  */
 		  if (new_src == const0_rtx)
-		    success = validate_change (insn, &SET_SRC (pat), reg, 0);
+		    validate_change (insn, &SET_SRC (pat), reg, 0);
 		  else if (rtx_cost (new_src, PLUS) < rtx_cost (src, SET)
 			   && have_add2_insn (reg, new_src))
-		    success = validate_change (insn, &PATTERN (insn),
-					       gen_add2_insn (reg, new_src), 0);
+		    validate_change (insn, &PATTERN (insn),
+				     gen_add2_insn (reg, new_src), 0);
 		  else
 		    {
 		      enum machine_mode narrow_mode;
@@ -9187,9 +9187,8 @@ reload_cse_move2add (first)
 					     gen_rtx_STRICT_LOW_PART (VOIDmode,
 								      narrow_reg),
 					     narrow_src);
-			      success = validate_change (insn, &PATTERN (insn),
-							 new_set, 0);
-			      if (success)
+			      if (validate_change (insn, &PATTERN (insn),
+						   new_set, 0))
 				break;
 			    }
 			}
@@ -9206,7 +9205,7 @@ reload_cse_move2add (first)
 				  (set (REGX) (REGY))
 				  (set (REGX) (PLUS (REGX) (CONST_INT B)))
 		 to
-				  (REGX) (REGY))
+				  (set (REGX) (REGY))
 				  (set (REGX) (PLUS (REGX) (CONST_INT A)))
 				  ...
 				  (set (REGX) (plus (REGX) (CONST_INT B-A)))  */

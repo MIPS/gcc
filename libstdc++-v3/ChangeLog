@@ -1,3 +1,610 @@
+2003-04-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/10276
+	* src/ios.cc (ios_base::_M_init): Remove _M_callbacks
+	initialization.
+
+2003-03-31  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_streambuf.h (_M_out_buf_size()): Remove.
+	* include/bits/fstream.tcc (_M_allocate_internal_buffer):
+	Don't set _M_out_end.
+	(basic_filebuf::overflow): Replace _M_out_buf_size() with
+	this->_M_out_cur && this->_M_out_cur < this->_M_out_end.
+	* include/bits/sstream.tcc (basic_stringbuf::overflow):
+	Replace _M_out_buf_size() with this->_M_out_cur < this->_M_out_end;
+	* include/bits/streambuf.tcc (basic_streambuf::sputc):
+	Replace _M_out_buf_size() with _M_out_cur && _M_out_cur < _M_out_end.
+	(basic_streambuf::xsputn): Replace _M_out_buf_size() with
+	_M_out_end - _M_out_cur.
+	(__copy_streambufs): Likewise.
+	* include/std/std_fstream.h (_M_set_determinate): Set
+	_M_out_end here.
+	
+2003-03-30  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (basic_filebuf::showmanyc,
+	_M_convert_to_external, _M_really_overflow, seekoff): Fix
+	test for synced buffer.
+	* include/std/std_fstream.h (sync): Likewise.
+	* src/fstream.cc (basic_filebuf<char>::_M_underflow_common,
+	basic_filebuf<wchar_t>::_M_underflow_common): Likewise.
+
+2003-03-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/std_sstream.h (basic_istringstream): Adjust
+	initialization.
+	(basic_ostringstream): Same.
+	(basic_stringstream): Same.	
+	* include/std/std_fstream.h (basic_ifstream): Adjust initialization.
+	(basic_ofstream): Same.
+	(basic_fstream): Same.
+	* include/std/std_ostream.h (basic_ostrem): Add protected ctor
+	that does not call init.
+	* include/std/std_istream.h (basic_istream): Same.		
+	(basic_iostream): Construct istream, ostream uninitialized, use
+	init to initialize just once. Add protected ctor that does not
+	call init.
+
+2003-03-28  Paolo Carlini  <pcarlini@unitus.it>
+            Nathan Myers  <ncm@cantrip.org>
+
+	PR libstdc++/9533
+	* include/bits/fstream.tcc (basic_filebuf<>::open): Don't
+	call underflow().
+	(basic_filebuf<>::showmanyc): Use the information provided
+	by codecvt and __basic_file<>::showmanyc_helper to implement
+	a non-trivial showmanyc.
+	* config/io/basic_file_stdio.h
+	(__basic_file<>::showmanyc_helper): New, declare.
+	* config/io/basic_file_stdio.cc
+	(__basic_file<>::showmanyc_helper): Define.
+	(__basic_file<>::_M_open_mode): Don't set O_NONBLOCK.
+	(__basic_file<char>::open): Don't call fcntl().
+	* acinclude.m4 (GLIBCPP_CHECK_S_ISREG_OR_S_IFREG,
+	GLIBCPP_CHECK_POLL): New macros.
+	* configure.in: Call here.
+	* acconfig.h: Add #undefs for the corresponding symbols.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2003-03-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Remove string export restrictions.
+
+2003-03-24  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/21_strings/basic_string/find/char/1.cc: Remove
+	find_first_of, find_last_of and find_last_not_of tests.
+	* testsuite/21_strings/basic_string/find/char/2.cc: find_first_of
+	tests here, new file.
+	* testsuite/21_strings/basic_string/find/wchar_t/1.cc: Likewise,
+	remove wchar_t find_first_of, find_last_of and find_last_not_of tests.
+	* testsuite/21_strings/basic_string/find/wchar_t/2.cc: Likewise,
+	wchar_t find_first_of tests here, new file.
+	* testsuite/21_strings/basic_string/rfind/char/2.cc: find_last_of
+	tests here.
+	* testsuite/21_strings/basic_string/rfind/char/3.cc: find_last_not_of
+	tests here.
+	* testsuite/21_strings/basic_string/rfind/wchar_t/2.cc: likewise,
+	wchar_t find_last_of tests here.
+	* testsuite/21_strings/basic_string/rfind/wchar_t/3.cc: likewise,
+	wchar_t find_last_not_of tests here.	
+
+2003-03-22  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/os/hpux/ctype_noninline.h (ctype<char>::classic_table):
+	Correct return value.
+
+2003-03-21  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/5730
+	* include/bits/c++config (_GLIBCPP_FAST_MATH): Define.
+        * include/std/std_complex.h (norm):  Use faster,
+        less accurate computation for builtin float types under --fast-math.
+
+2003-03-21  Magnus Fromreide  <gnats@magfr.user.lysator.liu.se>
+
+	* testsuite/testsuite_hooks.h: Fix warning nits.
+
+2003-03-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/cpu/mips/atomicity.h (__exchange_and_add, __atomic_add):
+	Only .set mips2 for the o32 ABI.
+
+2003-03-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/21_strings/char_traits/requirements/char/1.cc:
+	Test char not wchar_t.
+
+2003-03-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/21_strings/basic_string/append/wchar_t/1.cc:
+	Correct size, taking into account sizeof(wchar_t).
+
+2003-03-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	Reshuffle 21_strings testsuite.
+	* testsuite/21_strings/append.cc, c_strings.cc, invariants.cc,
+	assign.cc, ctor_copy_dtor.cc, nonmember.cc, capacity.cc,
+	element_access.cc, operations.cc, char_traits_requirements.cc,
+	find.cc, replace.cc, char_traits_typedefs.cc, insert.cc, rfind.cc,
+	compare.cc, inserters_extractors.cc, substr.cc: Split up, add
+	wchar_t tests as follows.	
+	* 21_strings/basic_string/append/char/1.cc: New.
+	* 21_strings/basic_string/append/wchar_t/1.cc: New.
+	* 21_strings/basic_string/assign/char/1.cc: New.
+	* 21_strings/basic_string/assign/char/2.cc: New.
+	* 21_strings/basic_string/assign/char/3.cc: New.
+	* 21_strings/basic_string/assign/wchar_t/1.cc: New.
+	* 21_strings/basic_string/assign/wchar_t/2.cc: New.
+	* 21_strings/basic_string/assign/wchar_t/3.cc: New.
+	* 21_strings/basic_string/capacity/1.cc: New.
+	* 21_strings/basic_string/capacity/char/1.cc: New.
+	* 21_strings/basic_string/capacity/char/2.cc: New.
+	* 21_strings/basic_string/capacity/wchar_t/1.cc: New.
+	* 21_strings/basic_string/capacity/wchar_t/2.cc: New.
+	* 21_strings/basic_string/compare/char/1.cc: New.
+	* 21_strings/basic_string/compare/wchar_t/1.cc: New.
+	* 21_strings/basic_string/cons/char/1.cc: New.
+	* 21_strings/basic_string/cons/char/2.cc: New.
+	* 21_strings/basic_string/cons/char/3.cc: New.
+	* 21_strings/basic_string/cons/char/4.cc: New.
+	* 21_strings/basic_string/cons/char/5.cc: New.
+	* 21_strings/basic_string/cons/wchar_t/1.cc: New.
+	* 21_strings/basic_string/cons/wchar_t/2.cc: New.
+	* 21_strings/basic_string/cons/wchar_t/3.cc: New.
+	* 21_strings/basic_string/cons/wchar_t/4.cc: New.
+	* 21_strings/basic_string/cons/wchar_t/5.cc: New.
+	* 21_strings/basic_string/element_access/char/1.cc: New.
+	* 21_strings/basic_string/element_access/char/2.cc: New.
+	* 21_strings/basic_string/element_access/char/3.cc: New.
+	* 21_strings/basic_string/element_access/wchar_t/1.cc: New.
+	* 21_strings/basic_string/element_access/wchar_t/2.cc: New.
+	* 21_strings/basic_string/element_access/wchar_t/3.cc: New.
+	* 21_strings/basic_string/find/char/1.cc: New.
+	* 21_strings/basic_string/find/wchar_t/1.cc: New.
+	* 21_strings/basic_string/insert/char/1.cc: New.
+	* 21_strings/basic_string/insert/char/2.cc: New.
+	* 21_strings/basic_string/insert/wchar_t/1.cc: New.
+	* 21_strings/basic_string/insert/wchar_t/2.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/1.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/4.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/5.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/6.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/7.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/8.cc: New.
+	* 21_strings/basic_string/inserters_extractors/char/9.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/1.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/4.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/5.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/6.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/7.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/8.cc: New.
+	* 21_strings/basic_string/inserters_extractors/wchar_t/9.cc: New.
+	* 21_strings/basic_string/operators/char/1.cc: New.
+	* 21_strings/basic_string/operators/char/2.cc: New.
+	* 21_strings/basic_string/operators/wchar_t/1.cc: New.
+	* 21_strings/basic_string/operators/wchar_t/2.cc: New.
+	* 21_strings/basic_string/replace/char/1.cc: New.
+	* 21_strings/basic_string/replace/char/2.cc: New.
+	* 21_strings/basic_string/replace/char/3.cc: New.
+	* 21_strings/basic_string/replace/char/4.cc: New.
+	* 21_strings/basic_string/replace/char/5.cc: New.
+	* 21_strings/basic_string/replace/wchar_t/1.cc: New.
+	* 21_strings/basic_string/replace/wchar_t/2.cc: New.
+	* 21_strings/basic_string/replace/wchar_t/3.cc: New.
+	* 21_strings/basic_string/replace/wchar_t/4.cc: New.
+	* 21_strings/basic_string/replace/wchar_t/5.cc: New.
+	* 21_strings/basic_string/rfind/char/1.cc: New.
+	* 21_strings/basic_string/rfind/char/2.cc: New.
+	* 21_strings/basic_string/rfind/char/3.cc: New.
+	* 21_strings/basic_string/rfind/wchar_t/1.cc: New.
+	* 21_strings/basic_string/rfind/wchar_t/2.cc: New.
+	* 21_strings/basic_string/rfind/wchar_t/3.cc: New.
+	* 21_strings/basic_string/substr/char/1.cc: New.
+	* 21_strings/basic_string/substr/wchar_t/1.cc: New.
+	* 21_strings/c_strings/char/1.cc: New.
+	* 21_strings/c_strings/char/2.cc: New.
+	* 21_strings/c_strings/wchar_t/1.cc: New.
+	* 21_strings/c_strings/wchar_t/2.cc: New.
+	* 21_strings/char_traits/requirements/char/1.cc: New.
+	* 21_strings/char_traits/requirements/wchar_t/1.cc: New.
+	* 21_strings/char_traits/typedefs/char/1.cc: New.
+	
+2003-03-17  Paolo Carlini  <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/10097
+	* src/fstream.cc (basic_filebuf<char>::_M_underflow_common,
+	basic_filebuf<wchar_t>::_M_underflow_common):
+	if (gptr() < egptr()) return *gptr().
+	* testsuite/27_io/filebuf_virtuals.cc (test16): Add.
+
+	* testsuite/27_io/filebuf_members.cc (test_04): Minor
+	changes: unlink fifo before making it, fix spelling error.
+
+2003-03-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/Makefile.am (CLEANFILES): Add tmp*.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/27_io/filebuf_members.cc: Consistently name tmp files.
+	Cleanups.
+
+2003-03-17  Petur Runolfsson  <peturr02@ru.is>
+ 
+        PR libstdc++/9964
+        * include/bits/fstream.tcc (basic_filebuf::close):
+        Always close file, even when write fails.
+        * testsuite/27_io/filebuf_members.cc (test_07):  New test.
+ 
+2003-03-17  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libsupc++/Makefile.am (C_COMPILE): Remove.
+	(LTCOMPILE): Likewise.
+	* libsupc++/Makefile.in: Regenerate.
+
+2003-03-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/bitset_members.cc: Add test variable.	
+	* testsuite/23_containers/map_insert.cc: Same.
+	* testsuite/22_locale/ctype/cons/char/1.cc: Same.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/1.cc: Same.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/2.cc: Same.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/3.cc: Same.
+	* testsuite/22_locale/codecvt/max_length/wchar_t/4.cc: Same.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/1.cc: Same.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/2.cc: Same.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/3.cc: Same.
+	* testsuite/22_locale/codecvt/always_noconv/wchar_t/4.cc: Same.
+	* testsuite/27_io/istream_exception.cc: Same.
+	* testsuite/27_io/filebuf_virtuals.cc: Same.
+	* testsuite/27_io/stringbuf_virtuals.cc: Same.
+	* testsuite/27_io/ostream_inserter_arith.cc: Same.
+	* testsuite/26_numerics/valarray_operators.cc: Same.
+	* testsuite/26_numerics/slice.cc: Same.
+	* testsuite/26_numerics/slice_array_assignment.cc: Same.
+	* testsuite/24_iterators/istream_iterator.cc: Same.
+	* mkcheck.in (TESTS_FILE): Use dejagnu-generated file if possible.
+	
+2003-03-14  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9581
+	PR libstdc++/9870
+	* config/locale/generic/ctype_members.cc,
+	* config/locale/gnu/ctype_members.cc
+	(ctype<wchar_t>::do_widen(char)):  Cast argument to
+	unsigned char before passing to btowc.
+	(ctype<wchar_t>::do_widen(const char*, const char*, wchar_t*)):
+	Convert characters with btowc instead of mbsrtowcs.
+	(ctype<wchar_t>::do_narrow(const wchar_t*, const wchar_t*,
+	char, char*):
+	Convert characters with wctob instead of wcsrtombs.
+	* testsuite/22_locale/ctype/narrow/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/ctype/widen/wchar_t/2.cc:  New test.	
+	* testsuite/22_locale/ctype/widen/wchar_t/3.cc:  New test.	
+
+2003-03-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/stdc++.h: New.	
+	* libsupc++/exception_defines.h (__EXCEPTION_DEFINES_H): Add guard.
+	* include/Makefile.am (stamp-std-precompile): Generate stdc++.h.gch
+        * include/Makefile.in: Regenerate.
+        * testsuite_flags.in (--build-cxx): Add, but don't use PCHFLAGS.
+	(--cxxflags): Put -g -O2 here.
+	* testsuite/libstdc++-v3.dg/dg.exp: Remove -g -O2 here.
+
+2003-03-14  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/testsuite_hooks.h: Suppress runtime exception thrown by
+	missing named locale.
+
+2003-03-14  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: Only append to makefiles that are newly created to
+	avoid multiple multi-do/multi-clean rules.
+	* configure: Rebuilt.
+
+2003-03-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/configopts.html, docs/html/documentation.html,
+	docs/html/explanations.html, docs/html/install.html,
+	docs/html/19_diagnostics/howto.html, docs/html/faq/index.html: Fix
+	invalid XHTML and make page header style consistent.
+
+2003-03-12  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/faq/index.html: Explain memory "leaks" due to allocators.
+	* docs/html/faq/index.txt: Regenerate.
+	* docs/html/debug.html: Add a bit to allocator text and fix XHTML.
+
+2003-03-12  Andreas Schwab  <schwab@suse.de>
+
+	* acinclude.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Avoid trailing /. in
+	glibcpp_toolexeclibdir.
+	* aclocal.m4, configure: Rebuilt.
+
+2003-03-11  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/faq/index.html: Update text about location of headers.
+	* docs/html/faq/index.txt: Regenerate.
+
+2003-03-11  Carlo Wood  <carlo@alinoe.com>
+
+	* include/bits/demangle.h: Prepend accessors of
+	class qualifier with 'get_' in order to fix warnings
+	when compiling with -Wshadow.
+
+2003-03-11  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/os/bsd/freebsd/ctype_inline.h:  Support _M_table
+	when so installed.
+	* testsuite/22_locale/ctype/cons/char/1.cc: Fix typo.
+
+	* testsuite/testsuite_hooks.h (run_tests_wrapped_env): Do not
+	report lack of setenv().
+
+2003-03-09  Paolo Carlini  <pcarlini@unitus.it>
+
+	* config/io/basic_file_stdio.cc: include <unistd.h>.
+
+2003-03-09  Paolo Carlini  <pcarlini@unitus.it>
+            Nathan Myers  <ncm@cantrip.org>
+
+	PR libstdc++/7744
+	* config/io/basic_file_stdio.h (__basic_file<>::xsgetn, xsputn,
+	seekoff, seekpos): Add a boolean parameter __stdio.
+	* config/io/basic_file_stdio.cc (__basic_file<>::xsgetn, xsputn,
+	seekoff, seekpos): If __stdio == true, use fread (fwrite, fseek/ftell,
+	fseek/ftell, respectively), otherwise read (write, lseek, lseek,
+	respectively).
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_convert_to_external,
+	_M_really_overflow, seekoff): Use the boolean parameter in the calls.
+	* include/std/std_fstream.h (sync): Likewise.
+	* src/fstream.cc (basic_filebuf<>::_M_underflow_common): Likewise.
+	* src/ios.cc (ios_base::Init::_S_ios_create(bool)): Revert
+	libstdc++/8399 commit involving isatty(0).
+	* acinclude.m4 (GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1): Remove.
+	(GLIBCPP_CHECK_UNISTD_SUPPORT): Remove
+	* configure.in: Remove call.
+	* aclocal.m4: Regenerate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* testsuite/27_io/narrow_stream_objects.cc (test11): Add.
+
+2003-03-09  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9988
+	* include/bits/fstream.tcc (overflow): don't write EOF to file.
+	* testsuite/27_io/filebuf_virtuals.cc (test15): Add.
+
+2003-03-08  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/9561
+	* include/bits/basic_ios.h (_M_setstate): New.
+	* include/bits/ostream.tcc (operator<<): Use it.
+	* include/bits/istream.tcc (operator>>): Use it.
+	* include/std/std_ostream.h (operator<<): Make friends.
+	* include/std/std_istream.h (operator>>): Make friends.
+	* testsuite/27_io/ostream_exception.cc,
+	testsuite/27_io/istream_exception.cc: New tests.
+
+2003-03-08  Benjamin Kosnik  <bkoz@redhat.com>	
+
+	* include/bits/locale_facets.tcc: Fix typo.
+
+2003-03-08  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/26_numerics/c99_classification_macros_c.cc: Tweak test.
+	
+	* config/locale/generic/c_locale.cc
+	(locale::facet::_S_create_c_locale): Throw runtime exception when
+	unsupported language is specified.
+	* testsuite/testsuite_hooks.h
+	(run_test_wrapped_generic_locale_exception_catcher): New function.
+	* testsuite/testsuite_hooks.cc (run_tests_wrapped_locale):
+	Suppress runtime exception thrown by generic implementation.
+	(run_tests_wrapped_env): Likewise.
+	(run_test_wrapped_generic_locale_exception_catcher): New function.
+	* testsuite/22_locale/collate/compare/char/1.cc: New test wrap.
+	* testsuite/22_locale/collate/compare/char/2.cc: New test wrap.
+	* testsuite/22_locale/collate/compare/char/3.cc: New test wrap.
+	* testsuite/22_locale/collate/hash/char/2.cc: New test wrap.
+	* testsuite/22_locale/collate/transform/char/2.cc: New test wrap.
+	* testsuite/22_locale/collate/transform/char/3.cc: New test wrap.
+	* testsuite/22_locale/collate_byname/1.cc: New test wrap.
+	* testsuite/22_locale/ctype/is/char/2.cc: New test wrap.
+	* testsuite/22_locale/facet/2.cc: New test wrap.
+	* testsuite/22_locale/locale/cons/4.cc: New test wrap.
+	* testsuite/22_locale/locale/cons/5.cc: New test wrap.
+	* testsuite/22_locale/locale/cons/7.cc: New test wrap.
+	* testsuite/22_locale/messages/members/char/1.cc: New test wrap.
+	* testsuite/22_locale/messages/members/char/2.cc: New test wrap.
+	* testsuite/22_locale/messages/members/char/3.cc: New test wrap.
+	* testsuite/22_locale/messages_byname/1.cc: New test wrap.
+	* testsuite/22_locale/money_get/get/char/1.cc: New test wrap.
+	* testsuite/22_locale/money_get/get/char/2.cc: New test wrap.
+	* testsuite/22_locale/money_get/get/char/3.cc: New test wrap.
+	* testsuite/22_locale/money_get/get/char/4.cc: New test wrap.
+	* testsuite/22_locale/money_put/put/char/1.cc: New test wrap.
+	* testsuite/22_locale/money_put/put/char/2.cc: New test wrap.
+	* testsuite/22_locale/money_put/put/char/3.cc: New test wrap.
+	* testsuite/22_locale/moneypunct/members/char/2.cc: New test wrap.
+	* testsuite/22_locale/moneypunct_byname/1.cc: New test wrap.
+	* testsuite/22_locale/num_get/get/char/1.cc: New test wrap.
+	* testsuite/22_locale/num_get/get/char/2.cc: New test wrap.
+	* testsuite/22_locale/num_get/get/char/3.cc: New test wrap.
+	* testsuite/22_locale/num_get/get/char/5.cc: New test wrap.
+	* testsuite/22_locale/num_get/get/char/6.cc: New test wrap.
+	* testsuite/22_locale/num_put/put/char/1.cc: New test wrap.
+	* testsuite/22_locale/num_put/put/char/2.cc: New test wrap.
+	* testsuite/22_locale/num_put/put/char/3.cc: New test wrap.
+	* testsuite/22_locale/num_put/put/char/5.cc: New test wrap.
+	* testsuite/22_locale/numpunct/members/char/1.cc: New test wrap.
+	* testsuite/22_locale/numpunct/members/char/2.cc: New test wrap.
+	* testsuite/22_locale/numpunct_byname/1.cc: New test wrap.
+	* testsuite/22_locale/numpunct_byname/2.cc: New test wrap.
+	* testsuite/22_locale/time_get/date_order/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: New test wrap.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/1.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/2.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/3.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/4.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/5.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/6.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/7.cc: New test wrap.
+	* testsuite/22_locale/time_put/put/char/8.cc: New test wrap.
+	* testsuite/27_io/filebuf_virtuals.cc: New test wrap.
+	* testsuite/27_io/ios_members.cc: New test wrap.
+	* testsuite/27_io/ostream_inserter_arith.cc (test02): Make void.
+	New test wrap.
+	* testsuite/27_io/streambuf_members.cc: New test wrap.
+	* testsuite/27_io/stringbuf_virtuals.cc: New test wrap.
+
+2003-03-08  Paolo Carlini <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9424
+	* include/bits/streambuf.tcc (__copy_streambufs): Use
+	sgetn-sputn only when sputn cannot fail, otherwise fall back
+	to safe snextc-sputc.
+	* testsuite/27_io/streambuf_members.cc (test11, test12): Add.
+
+2003-03-08  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/locale_facets.tcc (num_put::do_put(bool)): Use
+	locale cache for truename and falsename.
+
+2003-03-08  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::ios_base): Correct order of _M_word and
+	_M_word_size initialization.
+
+2003-03-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (_M_convert_to_external):
+	Set __elen to zero if codecvt::out eventually fails.
+
+2003-03-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9182
+	* include/bits/fstream.tcc (_M_really_overflow): Check
+	for _M_convert_to_external possible failures.
+	* include/std/std_fstream.h (sync): Check _M_really_overflow
+	return value and return -1 in case of failure.
+	* testsuite/27_io/filebuf_virtuals.cc (test13, test14): Add.
+
+2003-03-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9826
+	* include/bits/istream.tcc (operator>>(_CharT*),
+	operator>>(basic_string&), ws): Pass a char_type to __ctype.is.
+	* testsuite/27_io/stringstream.cc (test02): Add.
+
+	* include/bits/istream.tcc (operator>>(_CharT*)):
+	Assign a char_type to *__s.
+
+2003-03-07  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9817
+	* include/bits/locale_facets.tcc
+	(collate::do_compare, collate::do_transform):
+	Handle nul characters in input.
+	* testsuite/22_locale/collate/compare/char/3.cc:  New test.
+	* testsuite/22_locale/collate/compare/wchar_t/3.cc:  New test.
+	* testsuite/22_locale/collate/transform/char/3.cc:  New test.
+	* testsuite/22_locale/collate/transform/wchar_t/3.cc:  New test.
+
+2003-03-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/streambuf_iterator.h (_M_put): Set _M_failed if
+	sputn fails.
+	* testsuite/27_io/ostream_fail.cc: New test.
+
+2003-03-07  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am (AM_MAKEFLAGS): Also pass gxx_include_dir.
+	FLAGS_TO_PASS: Set to AM_MAKEFLAGS
+	* Makefile.in: Regenerate.
+	* libsupc++/Makefile.am: Express glibcppinstalldir in terms
+	of gxx_include_dir.
+	AM_MAKEFLAGS: Pass gxx_include_dir.
+	* libsupc++/Makefile.in: Regenerate.
+
+2003-03-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	* testsuite/27_io/ios_base_storage.cc (test02): Set exception
+	mask.  Test setting small-numbered pword and iword slots.  Test
+	behavior at limit of numeric_limits::max.  Check that values are
+	still good after failures.
+
+2003-03-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::_M_init): Remove _M_word_size.
+	(ios_base::ios_base): Set _M_word, _M_word_size.
+	(ios_base::~ios_base): Remove redundant test.
+	* testsuite/27_io/ios_base_storage.cc (test03): New.
+
+2003-03-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* src/strstream.cc, include/bits/basic_string.tcc: Remove
+	incorrect whitespace added in my previous change.
+
+2003-03-05  Carlo Wood  <carlo@alinoe.com>
+
+        * include/bits/ios_base.h(ios_base::Init::_S_initialized()): Added
+	_S_initialized() in order to allow debugging libraries to detect
+	when the std streams are initialized from an overloaded operator
+	new.
+
+2003-03-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/demangle.h: Move to..
+	* include/bits/demangle.h: ...here.
+	* src/demangle.cc: Adjust include.
+	* include/Makefile.am (bits_headers): Add.
+	* include/Makefile.in: Regenerate.
+	
+2003-03-04  Benjamin Kosnik  <bkoz@redhat.com>	
+
+	* src/globals.cc: Clarify comments, remove c_locale_imp_compat.
+
+	* config/linker-map.gnu: Filter typeinfo and vtable info.
+
+2003-03-04  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (ios_base::_M_grow_words): Don't delete _M_word on
+	new failure.  Throw exception if badbit and exception mask when ix
+	>= numeric_limits<int>::max().
+
+2003-03-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* src/strstream.cc (strstreambuf::overflow): Make sure operands of
+	min and max have the same type.
+	* include/bits/basic_string.tcc (append, rfind, compare): Likewise.
+
+2003-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (allstamps): Remove stamp-std-precompile.
+	* include/Makefile.in: Regenerate.
+
+2003-03-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/abi_check.cc (report_symbol_info): Add version info.
+
+	* config/linker-map.gnu: Hide more stuff.
+	* include/Makefile.am: Cleanups.
+	* include/Makefile.in: Regenerate.
+	
 2003-02-27  Jerry Quinn  <jlquinn@optonline.net>
 
         * config/locale/generic/messages_members.h (messages::messages):
@@ -800,7 +1407,7 @@
 	global_templates.cc time_get_members_wchar_t.cc, members.cc,
 	time_put.cc, messages_byname.cc, time_put_members_char.cc,
 	messages.cc, time_put_members_wchar_t.cc, messages_members_char.cc): 
-	Splint up into individual test cases...	
+	Split up into individual test cases...	
 	* 22_locale/codecvt/1.cc: New.
 	* 22_locale/codecvt/2.cc: New.
 	* 22_locale/codecvt/always_noconv/char/1.cc: New.

@@ -1,7 +1,7 @@
 // 1999-11-15 Kevin Ediger  <kediger@licor.com>
 // test the floating point inserters (facet num_put)
 
-// Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -253,7 +253,7 @@ test01()
   return 0;
 }
 
-int
+void
 test02()
 {
   bool test = true;
@@ -297,7 +297,7 @@ test02()
   os2 << endl;
   os2 << fixed << setprecision(1) << val2 << endl;
 
-  return 0;
+  return;
 }
 
 template<typename T>
@@ -360,6 +360,7 @@ test04()
 int
 test05()
 {
+  bool test = true;
   double pi = 3.14159265358979323846;
   ostringstream ostr;
   ostr.precision(20);
@@ -377,6 +378,7 @@ test05()
 int
 test06()
 {
+  bool test = true;
   int prec = numeric_limits<double>::digits10 + 2;
   double oval = numeric_limits<double>::min();
 
@@ -395,7 +397,7 @@ int
 main()
 {
   test01();
-  test02();
+  __gnu_cxx_test::run_test_wrapped_generic_locale_exception_catcher(test02);
   test03();
   test04();
   test05();

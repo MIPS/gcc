@@ -5,4 +5,10 @@
 	information.  Use TREE_FILENAME and TREE_LINENO to extract file/line
 	information from tree nodes.
 
+2003-04-06  Diego Novillo  <dnovillo@redhat.com>
 
+	* treetree.c (print_call_graph): New function.
+	(make_rtl_for_local_static): New function.
+	(prep_stmt): New function.
+	* Make-lang.in (tree1): Add dependencies on c-simplify.o
+	and c-pretty-print.o

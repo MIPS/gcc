@@ -2,20 +2,20 @@
    Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -91,6 +91,15 @@ lhd_decode_option (argc, argv)
      char **argv ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+/* The default post options hook.  */
+
+bool
+lhd_post_options (pfilename)
+     const char **pfilename ATTRIBUTE_UNUSED;
+{
+  return false;
 }
 
 /* Called from by print-tree.c.  */
@@ -431,12 +440,12 @@ lhd_tree_inlining_convert_parm_for_inlining (parm, value, fndecl)
    nodes.  Returns nonzero if it does not want the usual dumping of the
    second argument.  */
 
-int
+bool
 lhd_tree_dump_dump_tree (di, t)
      void *di ATTRIBUTE_UNUSED;
      tree t ATTRIBUTE_UNUSED;
 {
-  return 0;
+  return false;
 }
 
 /* lang_hooks.tree_dump.type_qual:  Determine type qualifiers in a
@@ -475,7 +484,7 @@ lhd_simplify_expr (expr_p, pre_p, post_p)
 }
 
 /* lang_hooks.decls.final_write_globals: perform final processing on
-   global variables. */
+   global variables.  */
 void
 write_global_declarations ()
 {

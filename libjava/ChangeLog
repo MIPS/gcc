@@ -1,3 +1,1362 @@
+2003-04-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java:
+	Import classes directly.
+	(URLConnection): Merged class documentation with classpath.
+	(url): Moved, documentation from classpath added.
+	(doInput): Moved, documentation from classpath added.
+	(doOutput): Moved, documentation from classpath added.
+	(allowUserInteraction): Moved.
+	(useCaches): Moved, documentation from classpath added.
+	(ifModifiedSince): Moved, documentation from classpath added.
+	(connected): Moved, documentation from classpath added.
+
+2003-04-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileInputStream.java
+	(skip): Renamed some variables to match classpath, added
+	checks from classpath.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractAction.java
+	(AbstractAction): Reformatted.
+	(serialVersionUID): New private member variable.
+	* javax/swing/plaf/BorderUIResource.java
+	(serialVersionUID): New private member variable.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	(serialVersionUID): New private member variable.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/sql/Date.java
+	(valueOf): Deprecated, reformatted.
+	(toString): Deprecated, reformatted.
+	* java/sql/Time.java
+	(valueOf): Deprecated, reformatted.
+	(toString): Deprecated, reformatted.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/dgc/VMID.java
+	(isUnique): Deprecated.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java
+	(separator): Merged documentation from classpath.
+	(separatorChar): Merged documentation from classpath.
+	(pathSeparator): Merged documentation from classpath.
+	(pathSeparatorChar): Merged documentation from classpath.
+	(path): Merged documentation from classpath.
+	(canRead): Merged documentation from classpath.
+	(canWrite): Merged documentation from classpath.
+	(createNewFile): Merged documentation from classpath.
+	(delete): Merged documentation from classpath.
+	(equals): Merged documentation from classpath.
+	(exists): Merged documentation from classpath.
+	(File): Renamed p to name to match classpath, merged documentation
+	from classpath.
+	(getAbsolutePath): Merged documentation from classpath.
+	(getCanonicalPath): Merged documentation from classpath.
+	(getCanonicalFile): Merged documentation from classpath.
+	(getName): Merged documentation from classpath.
+	(getParent): Merged documentation from classpath.
+	(getParentFile): Merged documentation from classpath.
+	(getPath): Merged documentation from classpath.
+	(hashCode): Merged documentation from classpath.
+	(isAbsolute): Merged documentation from classpath.
+	(isDirectory): Merged documentation from classpath.
+	(isFile): Merged documentation from classpath.
+	(isHidden): Merged documentation from classpath.
+	(lastModified): Merged documentation from classpath.
+	(length): Merged documentation from classpath.
+	(list): Merged documentation from classpath.
+	(listFiles): Merged documentation from classpath.
+	(toString): Merged documentation from classpath.
+	(toURL): Merged documentation from classpath.
+	(mkdir): Merged documentation from classpath.
+	(mkdirs): Merged documentation from classpath.
+	(createTempFile): Merged documentation from classpath.
+	(setReadOnly): Merged documentation from classpath.
+	(listRoots): Merged documentation from classpath.
+	(compareTo): Merged documentation from classpath.
+	(renameTo): Merged documentation from classpath.
+	(setLastModified): Merged documentation from classpath.
+	* java/io/PrintStream.java
+	(auto_flush): Merged documentation from classpath.
+	(PrintStream): Merged documentation from classpath.
+	(checkError): Merged documentation from classpath.
+	(setError): Merged documentation from classpath.
+	(close): Merged documentation from classpath.
+	(flush): Merged documentation from classpath.
+	(print): Merged documentation from classpath.
+	(println):  Merged documentation from classpath.
+	(write): Renamed count to len to match classpath,
+	merged documentation from classpath.
+	* java/io/RandomAccessFile.java
+	(readShort): Merged documentation from classpath.
+	(readUnsignedByte): Merged documentation from classpath.
+	(readUnsignedShort): Merged documentation from classpath.
+	(readUTF): Merged documentation from classpath.
+	(seek): Reformatted, merged documentation from classpath.
+	(skipBytes): Renamed some variables to match classpath, reformatted,
+	merged documentation from classpath.
+	(write): Merged documentation from classpath.
+	(writeBoolean): Merged documentation from classpath.
+	(writeByte): Merged documentation from classpath.
+	(writeShort): Merged documentation from classpath.
+	(writeChar): Merged documentation from classpath.
+	(writeInt): Merged documentation from classpath.
+	(writeLong): Merged documentation from classpath.
+	(writeFloat): Merged documentation from classpath.
+	(writeDouble): Merged documentation from classpath.
+	(writeBytes): Merged documentation from classpath.
+	(writeChars): Merged documentation from classpath.
+	(writeUTF): Reformatted.
+	(getChannel): Reformatted.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/font/TextAttribute.java
+	(readResolve): Throws java.io.InvalidObjectException.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/server/LoaderHandler.java
+	(loadClass): Deprecated.
+	(getSecurityContext): Deprecated.
+	* java/rmi/server/LogStream.java
+	(getDefaultStream): Deprecated.
+	(setDefaultStream): Deprecated.
+	(getOutputStream): Deprecated.
+	(setOutputStream): Deprecated.
+	(write): Deprecated.
+	(toString): Deprecated.
+	(parseLevel): Deprecated.
+	* java/rmi/server/Operation.java
+	(Operation): Deprecated.
+	(getOperation): Deprecated.
+	(toString): Deprecated.
+	* java/rmi/server/RemoteCall.java
+	(getOutputStream): Deprecated.
+	(releaseOutputStream): Deprecated.
+	(getInputStream): Deprecated.
+	(releaseInputStream): Deprecated.
+	(getResultStream): Deprecated.
+	(executeCall): Deprecated.
+	(done): Deprecated.
+	* java/rmi/server/RemoteRef.java
+	(invoke): Deprecated.
+	(newCall): Deprecated.
+	(done): Deprecated.
+	* java/rmi/server/RemoteStub.java
+	(setRef): Deprecated.
+	* java/rmi/server/Skeleton.java:
+	No need to import java.lang.Exception explicitly.
+	(dispatch): Deprecated.
+	(getOperations): Deprecated.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/dgc/VMID.java,
+	java/rmi/registry/RegistryHandler.java,
+	java/rmi/server/LogStream.java,
+	java/rmi/server/Operation.java,
+	java/rmi/server/RemoteCall.java,
+	java/rmi/server/RemoteRef.java,
+	java/rmi/server/RemoteStub.java:
+	Reformatted.
+
+2003-03-31  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractCellEditor.java,
+	javax/swing/AbstractListModel.java,
+	javax/swing/ActionMap.java,
+	javax/swing/BorderFactory.java,
+	javax/swing/ButtonGroup.java,
+	javax/swing/DefaultBoundedRangeModel.java,
+	javax/swing/DefaultButtonModel.java,
+	javax/swing/DefaultCellEditor.java,
+	javax/swing/DefaultComboBoxModel.java,
+	javax/swing/DefaultDesktopManager.java,
+	javax/swing/DefaultListCellRenderer.java,
+	javax/swing/DefaultSingleSelectionModel.java,
+	javax/swing/InputMap.java,
+	javax/swing/JComponent.java,
+	javax/swing/JMenu.java,
+	javax/swing/JSlider.java,
+	javax/swing/KeyStroke.java,
+	javax/swing/OverlayLayout.java,
+	javax/swing/ScrollPaneLayout.java,
+	javax/swing/SizeRequirements.java,
+	javax/swing/UIManager.java,
+	javax/swing/ViewportLayout.java,
+	javax/swing/border/AbstractBorder.java,
+	javax/swing/colorchooser/DefaultColorSelectionModel.java,
+	javax/swing/event/EventListenerList.java,
+	javax/swing/table/AbstractTableModel.java,
+	javax/swing/table/DefaultTableCellRenderer.java,
+	javax/swing/table/DefaultTableColumnModel.java,
+	javax/swing/table/DefaultTableModel.java,
+	javax/swing/table/TableColumn.java,
+	javax/swing/text/StyledEditorKit.java,
+	javax/swing/tree/DefaultMutableTreeNode.java,
+	javax/swing/tree/DefaultTreeModel.java,
+	javax/swing/tree/DefaultTreeSelectionModel.java,
+	javax/swing/tree/TreePath.java,
+	javax/swing/undo/AbstractUndoableEdit.java,
+	javax/swing/undo/StateEdit.java,
+	javax/swing/undo/StateEditable.java,
+	javax/swing/undo/UndoableEditSupport.java:
+	Merges from classpath.
+
+2003-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/String.java (data, boffset, count): Documented.
+	(String(byte[],String)): Reformatted.
+	(String(byte[])): Likewise.
+	(lastIndexOf(int)): Likewise.
+	(lastIndexOf(String)): Likewise.
+	(substring(int)): Renamed argument to match Classpath.
+	(String(StringBuffer)): Don't share buffer if it is nearly empty.
+
+	* java/lang/String.java: Miscellaneous minor formatting changes
+	to match Classpath more closely.
+
+2003-03-29  Eric Blake  <ebb9@email.byu.edu>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natString.cc (hashCode): Use cachedHashCode.
+	(init()): Removed.
+	(charAt): Put index in exception.
+	(contentEquals): New method.
+	Include StringBuffer.h.
+	* java/lang/String.java (cachedHashCode): New field.
+	(String()): Follow classpath implementation.
+	(init()): Removed.
+	(contentEquals): Declare.
+	(subSequence): Don't declare IndexOutIfBoundsException in throws
+	clause.
+	(matches, replaceFirst, replaceAll, split): New methods from
+	Classpath.
+
+2003-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/String.java: Reordered to follow Classpath; merged in
+	javadoc.
+
+	* java/text/MessageFormat.java: Removed some whitespace.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added new files.
+	* gnu/javax/rmi/PortableServer.java,
+	gnu/javax/rmi/CORBA/DelegateFactory.java,
+	gnu/javax/rmi/CORBA/GetDelegateInstanceException.java,
+	gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java,
+	gnu/javax/rmi/CORBA/StubDelegateImpl.java,
+	gnu/javax/rmi/CORBA/UtilDelegateImpl.java,
+	gnu/javax/rmi/CORBA/ValueHandlerImpl.java,
+	javax/rmi/BAD_OPERATION.java, javax/rmi/ORB.java,
+	javax/rmi/PortableRemoteObject.java,
+	javax/rmi/CORBA/ClassDesc.java, javax/rmi/CORBA/ObjectImpl.java,
+	javax/rmi/CORBA/PortableRemoteObjectDelegate.java,
+	javax/rmi/CORBA/Stub.java, javax/rmi/CORBA/StubDelegate.java,
+	javax/rmi/CORBA/SystemException.java, javax/rmi/CORBA/Tie.java,
+	javax/rmi/CORBA/Util.java, javax/rmi/CORBA/UtilDelegate.java,
+	javax/rmi/CORBA/ValueHandler.java: New files from Classpath.
+
+	* java/lang/natClass.cc (newInstance): Put method name in
+	exception.
+	(getConstructor): Likewise.
+	(getDeclaredConstructor): Likewise.
+	(getPrivateMethod): Likewise.
+
+2003-03-28  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/Proxy.java: New version from Classpath.
+	* java/lang/Package.java: New version from Classpath.
+
+2003-03-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.in (HAVE_BACKTRACE) [s390*-*-linux*]: Define.
+	* configure: Regenerate.
+
+2003-03-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java:
+	Import needed classes instead of whole packages, merged class
+	documentation with classpath, moved constants and variables to top of
+	class.
+	* java/io/PrintStream.java:
+	Merged class documentation with classpath, moved constants and
+	variables to top of class.
+	* java/io/RandomAccessFile.java
+	(RandomAccessFile): Merged with classpath.
+	(read): Merged with classpath).
+	(read*): Reformatted.
+
+2003-03-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileDescriptor.java
+	(finalize): Throws Throwable, not IOException.
+	* java/io/ObjectOutputStream.java
+	(PutField.put): Doesnt throws anything.
+
+2003­03-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileOutputStream.java:
+	Merged class documentation and authors with classpath.
+	(FileOutputStream): Partly merged with classpath.
+	(write): Merged with classpath.
+	(getChannel): Make it synchronized instead of explicit block in this
+	method.
+	* java/io/RandomAccessFile.java:
+	Merged class documentation and authors with classpath.
+
+2003-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Set
+	gnu.classpath.home.url.
+	* Makefile.in: Rebuilt.
+	* Makefile.am: Define LIBDIR.
+
+2003-03-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileInputStream.java
+	(read): Renamed b to buf and off to offset.
+	* java/io/FileOutputStream.java
+	(ch): Documentation added.
+	(FileOutputStream): Documentation added.
+	(getFD): Documentation added.
+	(write): Documentation added.
+	(close): Documentation added.
+	(getChannel): Documentation added.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataOutputStream.java
+	(write): Merged from classpath.
+	* java/io/File.java:
+	Merged copyrigth with classpath.
+	* java/io/FileInputStream.java
+	(getChannel): Made it synchronized instead of using a synchronized
+	block.
+	* java/io/FileOutputStream.java: Reformatted.
+	* java/io/InputStreamReader.java
+	(InputStreamReader): Renamed enc to encoding_name.
+	(close): Merged documentation from classpath.
+	(getEncoding): Merged documentation from classpath.
+	(ready): Merged documentation from classpath.
+	(read): Merged documentation from classpath.
+	* java/io/LineNumberReader.java
+	(lineNumber): Made it private.
+	(LineNumberReader): Use Constant instead of a direct value.
+	* java/io/OutputStreamWriter.java
+	(OutputStreamWriter): Renamed enc to encoding_scheme, merged
+	documentation from classpath.
+	(close): Merged documentation from classpath.
+	(flush): Merged documentation from classpath.
+	(write): Merged documentation from classpath.
+	* java/io/PrintStream.java: Reformatted.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/ComponentView.java
+	(getComponent): Must be final.
+	* javax/swing/tree/DefaultTreeCellRenderer.java:
+	Reformatted.
+	* javax/swing/undo/StateEditable.java:
+	Reformatted.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/activation/ActivationInstantiator.java:
+	Reformatted.
+	* java/rmi/activation/Activator.java:
+	Reformatted.
+	* java/rmi/registry/RegistryHandler.java:
+	Remerged from classpath.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Date.java:
+	Fixed documentation starting tag to make javadoc happy.
+	* java/util/regex/Pattern.java
+	(Pattern): Implements Serializable.
+	* java/util/PatternSyntaxException.java
+	(serialVersionUID): New member variable.
+
+2003-03-24  Michael Koch  <koqnueror@gmx.de>
+
+	* java/awt/ContainerOrderFocusTraversalPolicy.java
+	(getFirstComponent): Implemented.
+	(getLastComponent): Implemented.
+	(getDefaultComponent): Implemented.
+	(setImplicitDownCycleTraversal): Fixed implementation.
+	* java/awt/Robot.java
+	(Robot): Added documentation.
+	* java/awt/Toolkit.java
+	(getFontList): Deprecated.
+	(getFontMetrics): Deprecated.
+	(getPrintJob): Added documentation.
+	(getSystemSelection): Added documentation.
+	(getLockingKeyState): Added documentation.
+	(setLockingKeyState): Added documentation.
+	(createCustomCursor): Added documentation.
+	(getBestCursorSize): Added documentation.
+	(getMaximumCursorColors): Added documentation.
+	(isFrameStateSupported): Added documentation.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/RandomAccessFile.java:
+	More little merges with classpath. No code changes.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/natInetAddressNoNet.cc:
+	Include stddef.h.
+	* java/net/natPlainDatagramSocketImplNoNet.cc:
+	Fixed inlcude of java/net/DatagramPacket.h.
+	* java/net/natPlainSocketImplNoNet.cc:
+	Include some missing classes.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/DropTarget.java
+	(DropTargetAutoScroller): According to the online documentation, this
+	is protected, but in reality it is public.
+	* java/awt/dnd/DropTargetContext.java
+	(TransferableProxy): According to the online documentation, this
+        is protected, but in reality it is public.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataInputStream.java
+	(): Wrapped documentation line.
+	(): Fixed @return tag.
+	* java/io/DataOutputStream.java
+	(written): Moved to top of class.
+	(all methods): Merged documentation from classpath.
+	* java/io/File.java:
+	Merged copyright year with classpath.
+	* java/io/FileInputStream.java
+	(all methods): Merged documentation from classpath.
+	* java/io/LineNumberReader.java
+	(getLineNumber): Fixed @return tag.
+	* java/io/ObjectInputStream.java.
+	Reformatted.
+	* java/io/ObjectOutputStream.java:
+	Reformatted, fixed some @see tags.
+	* java/io/OutputStreamWriter.java:
+	Deleted empty line.
+	* java/io/Writer.java:
+	Reformatted.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Frame.java
+	(DEFAULT_CURSOR): Fixed @deprecated tag.
+	(setCursor): Fixed @deprecated tag.
+
+2003-03-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/beancontext/BeanContextEvent.java:
+	Reformated.
+
+2003-03-23  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/lang/natStringBuffer.cc (regionMatches): New function.
+	* java/lang/String.java (count): Now package-private.
+	* java/lang/StringBuffer.java: Merged with Classpath.
+
+2003-03-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedOutputStream.java:
+	Reformated.
+	* java/io/BufferedReader.java:
+	Reformated.
+	* java/io/ByteArrayOutputStream.java
+	(size): Fixed @see tag.
+	* java/io/CharArrayWriter.java
+	(size): Fixed @see tag.
+	* java/io/DataInput.java:
+	Reformated.
+	* java/io/DataOutput.java:
+	Reformated.
+	* java/io/DataOutputStream.java:
+	Merged copyright years with classpath.
+	* java/io/Externalizable.java:
+	Reformated.
+	* java/io/FileFilter.java:
+	Reformated.
+	* java/io/FileInputStream.java:
+	Merged copyright years with classpath.
+	* java/io/FileOutputStream.java:
+	Merged copyright years with classpath.
+	* java/io/FilePermission.java
+	(FilePermission): Replaced @XXX with FIXME:.
+	* java/io/FileWriter.java:
+	Reformated.
+	* java/io/FilenameFilter.java:
+	Reformated.
+	* java/io/FilterInputStream.java:
+	Reformated.
+	* java/io/FilterOutputStream.java:
+	Reformated.
+	* java/io/FilterReader.java:
+	Reformated.
+	* java/io/FilterWriter.java:
+	Reformated.
+	* java/io/LineNumberInputStream.java
+	(LineNumberInputStream): Replaced @code with HTML tags to make javadoc
+	happy.
+	(getLineNumber): Fixed @return tag.
+	* java/io/ObjectInput.java:
+	Reformated.
+	* java/io/ObjectOutput.java:
+	Reformated.
+	* java/io/ObjectStreamClass.java:
+	Reformated.
+	* java/io/PrintStream.java:
+	Merged copyright years with classpath.
+	* java/io/PushbackReader.java
+	(PushbackReader): Replaced @code with @param.
+	* java/io/SerializablePermission.java:
+	Reformated.
+	* java/io/StreamTokenizer.java
+	(resetSyntax): Fixed @see tag.
+
+2003-03-22  Richard Henderson  <rth@redhat.com>
+
+	* sysdep/ia64/locks.h: Include ia64intrin.h.
+	(compare_and_swap): Use __sync_bool_compare_and_swap.
+	(compare_and_swap_release): Expose ar.ccv assignment.
+
+2003-03-22  Andreas Tobler <a.tobler@schweiz.ch>
+
+	* include/posix.h: Add suffix for darwin dynamic libraries.
+
+2003-03-21  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/Action.java
+	(ACCELERATOR_KEY): New constant.
+	(ACTION_COMMAND_KEY): Likewise.
+	(MNEMONIC_KEY): Likewise.
+	* javax/swing/UnsupportedLookAndFeelException.java
+	(UnsupportedLookAndFeelException): Must be public.
+	* javax/swing/WindowConstants.java
+	(EXIT_ON_CLOSE): New constant.
+	* javax/swing/text/BadLocationException.java
+	(offset): New member variable.
+	(BadLocationException): New implementation, documentation added.
+	(offsetRequested): New method.
+	* javax/swing/text/Caret.java:
+	Reformated.
+	* javax/swing/text/Document.java:
+	Reformated.
+
+2003-03-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/activation/Activatable.java
+	(serialVersionUID): New member variable.
+	* java/rmi/activation/ActivationGroup.java
+	(serialVersionUID): New member variable.
+	* java/rmi/activation/ActivationGroupDesc.java
+	(serialVersionUID): New member variable.
+	* java/rmi/registry/Registry.java:
+	Reformated.
+	(Registry): Deprecated.
+	* java/rmi/server/LoaderHandler.java
+	Reformated.
+	(LoaderHandler): Deprecated.
+	* java/rmi/server/LogStream.java
+	Reformated.
+	(LogStream): Deprecated.
+	* java/rmi/server/Operation.java
+	(Operation): Deprecated.
+	* java/rmi/server/RMIFailureHandler.java:
+	Reformated.
+	* java/rmi/server/RMISocketFactory.java:
+	Reformated.
+	* java/rmi/server/RemoteCall.java
+	(RemoteCall): Deprecated.
+	* java/rmi/server/RemoteStub.java:
+	Reformated.
+	* java/rmi/server/Skeleton.java
+	Reformated.
+	(Skeleton): Deprecated.
+
+2003-03-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/LineNumberReader.java
+	(LineNumberReader): Merged documentation with classpath.
+	(getLineNumber): Likewise.
+	(setLineNumber): Likewise.
+	(mark): Likewise.
+	(reset): Likewise.
+	(read): Likewise.
+	(readLine): Likewise.
+	(skip): Likewise.
+
+2003-03-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/rmi/RMISecurityManager.java
+	(checkAccept): Removed.
+	(checkAccess): Likewise.
+	(checkAccess): Likewise.
+	(checkAwtEventQueueAccess): Likewise.
+	(checkConnect): Likewise.
+	(checkCreateClassLoader): Likewise.
+	(checkDelete): Likewise.
+	(checkExec): Likewise.
+	(checkExit): Likewise.
+	(checkLink): Likewise.
+	(checkListen): Likewise.
+	(checkMemberAccess): Likewise.
+	(checkMulticast): Likewise.
+	(checkPackageAccess): Likewise.
+	(checkPackageDefinition): Likewise.
+	(checkPermission): Likewise.
+	(checkPrintJobAccess): Likewise.
+	(checkPropertiesAccess): Likewise.
+	(checkPropertyAccess): Likewise.
+	(checkRead): Likewise.
+	(checkSecurityAccess): Likewise.
+	(checkSetFactory): Likewise.
+	(checkSystemClipboardAccess): Likewise.
+	(checkTopLevelWindow): Likewise.
+	(checkWrite): Likewise.
+
+2003-03-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(address): Removed.
+	(map_address): New member variable.
+	(length): Make it package private.
+	(fd): Make it package private.
+	(buf): Make it package private.
+	(file_obj): Make it package private.
+	(FileChannelImpl): New constructor.
+	(nio_mmap_file): Use RawData instead of long.
+	(nio_munmap_file): Use RawData instead of long.
+	(nio_msync): Use RawData instead of long.
+	(implCloseChannel): New implementation using map_address.
+	(read): Reformated.
+	(map): Implemented.
+	(create_direct_mapped_buffer): Implemented, use RawData, throws
+	IOException.
+	(force): Use map_address instead of address.
+	* gnu/java/nio/MappedByteFileBuffer.java
+	(address): Removed.
+	(map_address): New member variable.
+	(MappedByteFileBuffer): Use map_address instead of address, reformated.
+	(several methods): Use map_address instead of address, replaced long
+	with RawData where appropriate.
+	* gnu/java/nio/natFileChannelImpl.cc
+	(nio_mmap_file): Replaced long with RawData.
+	(nio_munmap_file): Replaced long with RawData.
+	(nio_msync): Replaced long with RawData.
+	* gnu/java/nio/natMappedByteFileBuffer.cc
+	(several methods): Replaced long with RawData where appropriate.
+
+2003-03-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java,
+	java/net/JarURLConnection.java,
+	java/net/PlainDatagramSocketImpl.java,
+	java/net/PlainSocketImpl.java,
+	java/net/URLConnection.java:
+	Merged copyright statements with classpath for easier merging.
+
+2003-03-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileInputStream.java
+	(getChannel): New implementation.
+	* java/io/FileOutputStream.java
+	(ch): New member variable.
+	(getChannel): Implemented.
+	* java/io/RandomAccessFile.java
+	(RandomAccessFile): Throws FileNotFoundException instead of
+	IOException.
+	(getChannel): New method.
+	(ch): New member variable.
+
+2003-03-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataOutputStream.java,
+	java/io/File.java,
+	java/io/FileInputStream.java,
+	java/io/FileOutputStream.java,
+	java/io/InputStreamReader.java,
+	java/io/LineNumberReader.java,
+	java/io/OutputStreamWriter.java,
+	java/io/PrintStream.java,
+	java/io/RandomAccessFile.java:
+	Merged copyright statements with classpath for easier merging.
+
+2003-03-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Process.java:
+	Merged from classpath.
+
+2003-03-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/FileOutputStream.java
+	(FileOutputStream): New constructor, merged from classpath.
+	* java/io/FileWriter.java
+	(FileWriter): New constructor, merged from classpath.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/ScrollPane.java
+	(ScrollPane): Rewrote for new ScrollPaneAdjustable.
+	(getViewportSize): Likewise.
+	(addNotify): Likewise.
+	(removeNotify): Likewise.
+	* java/awt/ScrollPaneAdjustable.java
+	(ScrollPaneAdjustable): No longer extends Scrollbar.
+	* java/beans/beancontext/BeanContextServices.java:
+	Reformated.
+	(getService): Added throws TooManyListenersException;
+	* java/beans/beancontext/BeanContextServicesSupport.java:
+	Reformated.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedOutputStream.java,
+	java/io/DataInput.java,
+	java/io/DataInputStream.java,
+	java/io/DataOutput.java,
+	java/io/Externalizable.java:
+	More merges from classpath.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Fixed links to platform dependant java.net files.
+	* configure: Regenerated.
+	* java/net/natInetAddress.cc,
+	java/net/natNetworkInterface.cc,
+	java/net/natPlainDatagramSocketImpl.cc,
+	java/net/natPlainSocketImpl.cc:
+	Removed.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Create links to architecture dependent files,
+	introduced PLATFORMNET variable (set to NoNet for newlib usage).
+	* configure: Regenerated.
+	* java/net/natInetAddressNoNet.cc,
+	java/net/natInetAddressPosix.cc,
+	java/net/natInetAddressWin32.cc,
+	java/net/natNetworkInterfaceNoNet.cc,
+	java/net/natNetworkInterfacePosix.cc,
+	java/net/natNetworkInterfaceWin32.cc,
+	java/net/natPlainDatagramSocketImplNoNet.cc,
+	java/net/natPlainDatagramSocketImplPosix.cc,
+	java/net/natPlainDatagramSocketImplWin32.cc,
+	java/net/natPlainSocketImplNoNet.cc,
+	java/net/natPlainSocketImplPosix.cc,
+	java/net/natPlainSocketImplWin32.cc: New files.
+
+2003-03-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedReader.java,
+	java/io/BufferedWriter.java,
+	java/io/ByteArrayOutputStream.java,
+	java/io/FileFilter.java,
+	java/io/FilePermission.java,
+	java/io/FileReader.java,
+	java/io/FileWriter.java,
+	java/io/FilenameFilter.java,
+	java/io/FilterInputStream.java,
+	java/io/FilterOutputStream.java,
+	java/io/FilterReader.java,
+	java/io/FilterWriter.java,
+	java/io/ObjectInput.java,
+	java/io/ObjectInputValidation.java,
+	java/io/ObjectOutput.java,
+	java/io/ObjectStreamField.java,
+	java/io/PipedInputStream.java,
+	java/io/PipedReader.java,
+	java/io/PrintWriter.java,
+	java/io/PushbackReader.java,
+	java/io/Reader.java,
+	java/io/SerializablePermission.java,
+	java/io/StringReader.java,
+	java/io/Writer.java:
+	Merged from classpath.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/ScrollPaneAdjustable.java:
+	Compile fixes.
+	
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(connect): Fixed comment.
+	* java/nio/ByteBuffer.java
+	(hasArray): Fixed comment.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java:
+	Explicitely import classes not packages.
+	* java/beans/FeatureDescriptor.java
+	(preferred): New member variable.
+	(isPreferred): New method.
+	(setPreferred): New method.
+	* java/beans/PropertyEditorManager.java:
+	Explicitely import used classes.
+	* java/beans/beancontext/BeanContextChild.java:
+	Added line wrapping.
+	* java/beans/beancontext/BeanContextChildSupport.java:
+	Reindented.
+	* java/beans/beancontext/BeanContextEvent.java:
+	Reindented.
+
+2003-03-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Dialog.java
+	(Dialog): New constructor, changed implementations, added
+	documentation.
+	* java/awt/ScrollPaneAdjustable.java
+	(ScrollPaneAdjustable): Extends Object, implements Adjustable and
+	Serializable.
+	(serialVersionUID): New member variable.
+	(sp): New member variable.
+	(orientation): New member variable.
+	(value): New member variable.
+	(minimum): New member variable.
+	(maximum): New member variable.
+	(visibleAmount): New member variable.
+	(unitIncrement): New member variable.
+	(blockIncrement): New member variable.
+	(AdjustmentListener): New member variable.
+	(ScrollPaneAdjustable): New implementation.
+	(addAdjustmentListener): New method.
+	(removeAdjustmentListener): New method.
+	(getAdjustmentListeners): New method.
+	(getBlockIncrement): New method.
+	(getMaximum): New method.
+	(getMinimum): New method.
+	(getOrientation): New method.
+	(getUnitIncrement): New method.
+	(getValue): New method.
+	(getVisibleAmount): New method.
+	(setBlockIncrement): New method.
+	(setMaximum): Implemented.
+	(setMinimum): Implemented.
+	(setUnitIncrement): New method.
+	(setValue): New method.
+	(setVisibleAmount): Implemented. 
+	(paramString): New stubbed method.
+	* java/awt/Window.java
+	(show): Call setVisible().
+	(hide): Call setVisible().
+	(processEvent): Add cases for WINDOW_GAINED_FOCUS, WINDOW_LOST_FOCUS
+	and WINDOW_STATE_CHANGED.
+	(processWindowFocusEvent): New method.
+	(processWindowStateEvent): New method.
+	(postEvent): Deprecated.
+	(applyResourceBundle): Deprecated.
+	* java/awt/datatransfer/DataFlavor.java
+	(DataFlavor): Doesn't thow ClassNotFoundException.
+
+2003-03-17  Michael Koch
+
+	* javax/print/attribute/Attribute.java,
+	javax/print/attribute/AttributeSet.java,
+	javax/print/attribute/PrintRequestAttributeSet.java:
+	New files.
+	* Makefile.am
+	(javax_source_files): Added new files:
+	javax/print/attribute/Attribute.java
+	javax/print/attribute/AttributeSet.java
+	javax/print/attribute/PrintRequestAttributeSet.java
+	* Makefile.in: Regenerated.
+
+2003-03-17  Michael Koch
+
+	* javax/print/attribute/Attribute.java,
+	javax/print/attribute/AttributeSet.java,
+	javax/print/attribute/PrintRequestAttributeSet.java:
+	New files.
+	* Makefile.am
+	(awt_java_source_files): Added new files:
+	javax/print/attribute/Attribute.java
+	javax/print/attribute/AttributeSet.java
+	javax/print/attribute/PrintRequestAttributeSet.java
+	* Makefile.in: Regenerated.
+
+2003-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* resolve.cc (ncode): Use _Jv_platform_ffi_abi.
+	Include platform.h.
+	* java/lang/natRuntime.cc (insertSystemProperties): Use
+	_Jv_platform_path_separator.
+	(nativeGetLibname): Use _Jv_platform_file_separator.
+	(_load): Use _Jv_platform_onload_names.
+	(onload_names): New global.
+	* include/win32.h (_Jv_platform_file_separator): New define.
+	(_Jv_platform_path_separator): Likewise.
+	(_Jv_platform_onload_names): Likewise.
+	(_Jv_platform_ffi_abi): Likewise.
+	* include/posix.h (_Jv_platform_file_separator): New define.
+	(_Jv_platform_path_separator): Likewise.
+	(_Jv_platform_onload_names): Likewise.
+	(_Jv_platform_ffi_abi): Likewise.
+
+2003-03-14  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* java/lang/natObject.cc (JV_SYNC_HASH): replace signed % by &.
+
+2003-02-14  Jeroen Frijters  <jeroen@sumatra.nl>
+
+	* java/io/ObjectInputStream.java (readObject): Cleaned up the class
+	hierarchy loop.
+	(readFields(Object,ObjectStreamField[],boolean)): Changed argument
+	list to Object,ObjectStreamClass, moved callReadMethod code up into
+	readObject and added Class argument to all setXxxField calls.
+	(callReadMethod): Changed Class argument to ObjectStreamClass to be
+	consistent with ObjectOutputStream and to facilitate caching the
+	Method in the future.
+	(setBooleanField): Added Class argument.
+	(setByteField): Likewise.
+	(setCharField): Likewise.
+	(setDoubleField): Likewise.
+	(setFloatField): Likewise.
+	(setIntField): Likewise.
+	(setLongField): Likewise.
+	(setShortField): Likewise.
+	(setObjectField): Likewise.
+	* java/io/ObjectOutputStream.java (writeObject): Cleaned up the
+	class hierarchy loop.
+	(defaultWriteObject): Call writeFields with new argument list.
+	(writeFields(Object,ObjectStreamField[],boolean): Changed argument
+	list to Object,ObjectStreamClass, moved callWriteMethod up into
+	writeObject and added Class argument to all getXxxField calls.
+	(callWriteMethod): Added ObjectStreamClass argument to be able to
+	get the proper class to call getMethod on (each class can have (or
+	not have) its own writeObject method).
+	(getBooleanField): Added Class argument.
+	(getByteField): Likewise.
+	(getCharField): Likewise.
+	(getDoubleField): Likewise.
+	(getFloatField): Likewise.
+	(getIntField): Likewise.
+	(getLongField): Likewise.
+	(getShortField): Likewise.
+	(getObjectField): Likewise.
+	* java/io/ObjectStreamClass.java (hasReadMethod): Added method to
+	facilitate caching the Method object in the future.
+
+2003-03-12  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: Avoid trailing /. in toolexeclibdir.
+	* configure: Rebuilt.
+
+2003-03-11  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(putInt): Use limit() instead of limit.
+	* gnu/java/nio/CharBufferImpl.java
+	(slice): Fixed implementation.
+	(subSequence): Better bounds checking.
+	* gnu/java/nio/MappedByteFileBuffer.java:
+	Import all needed classes directly.
+	* java/nio/ByteBuffer.java
+	(hashCode): New dummy method.
+	* java/nio/CharBuffer.java
+	(array_offset): New member variable.
+	(hasArray): Fixed documentation.
+	(arrayOffset): Return array_offset.
+
+2003-03-10  2003-02-27  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/jvm.h: removed declaration of _Jv_ThisExecutable()
+	setter; made return value of getter const char* instead of char*
+	* prims.cc: removed all references to _Jv_ThisExecutable().
+	These are in the platform-specific sections now.
+	* posix.cc: define platform-specific _Jv_ThisExecutable().
+	Handle DISABLE_MAIN_ARGS and HAVE_PROC_SELF_EXE cases
+	* win32.cc: define platform-specific _Jv_ThisExecutable()
+	using GetModuleFilename()
+	* java/lang/natRuntime.cc: set gnu.gcj.progname property
+	to argv[0] instead of _Jv_ThisExecutable()
+
+2003-03-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* gnu/gcj/runtime/NameFinder.java (usingAddr2name): New flag
+	that is set if we are using addr2name.awk instead of addr2line.
+	(NameFinder): Set usingAddr2name if using addr2name.awk.
+	(getExternalLabel): New native method to convert a method 
+	name to an external label.
+	(lookup): Convert name given by addr2line to an external label
+	before demangling.
+
+	* gnu/gcj/runtime/natNameFinder.cc (LABEL_PREFIX): New string
+	constant representing the prefix attached to method names to
+	convert them to an external label.
+	(gnu::gcj::runtime::NameFinder::getExternalLabel): Define 
+	using LABEL_PREFIX.
+
+2003-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (GCJ_WITH_FLAGS): Added -Wno-deprecated.
+	(JC1FLAGS): Removed -Wno-deprecated.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteOrder.java
+	(nativeOrder): Working implementation, added documentation.
+	(toString): Added documentation.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java,
+	java/net/MulticastSocket.java,
+	java/net/Socket.java,
+	java/net/URL.java,
+	java/net/URLConnection.java:
+	Fixed some documentation tags to make javadoc and friends happy.
+
+2003-03-10  Michael Koch  <koqnueror@gmx.de>
+
+	* java/beans/beancontext/BeanContextServicesSupport.java,
+	java/beans/beancontext/BeanContextSupport.java: New files.
+	* Makefile.am
+	(awt_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2003-03-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/FocusTraversalPolicy.java
+	(FocusTraversalPolicy): Documentation added.
+	(getComponentAfter): Documentation added.
+	(getComponentBefore): Documentation added.
+	(getFirstComponent): Documentation added.
+	(getLastComponent): Documentation added.
+	(getDefaultComponent): Documentation added.
+	(getInitialComponent): Documentation added.
+	* java/awt/ScrollPaneAdjustable.java
+	(sp): New member variable.
+	(orientation): New member variable.
+	(value): New member variable.
+	(minimum): New member variable.
+	(maximum): New member variable.
+	(visibleAmount): New member variable.
+	(unitIncrement): New member variable.
+	(blockIncrement): New member variable.
+	(adjustmentListener): New member variable.
+	(ScrollPaneAdjustable): Rewrote.
+	(addAdjustmentListener): New method.
+	(removeAdjustmentListener): New method.
+	(getAdjustmentListeners): New method.
+	(getBlockIncrement): New method.
+	(getMaximum): New method.
+	(getMinimum): New method.
+	(getOrientation): New method.
+	(getUnitIncrement): New method.
+	(getValue): New method.
+	(getVisibleAmount): New method.
+	(setBlockIncrement): New method.
+	(setUnitIncrement): New method.
+	(setMaximum): Implemented.
+	(setMinimum): Implemented.
+	(setValue): New method.
+	(setVisibleAmount): Implemented.
+	(paramString): New method.
+	* java/awt/Window.java
+	(show): Use setVisible(true) instead of super.show().
+	(hide): Use sevVisible(false) instead of super.hide().
+	(processWindowEvent): Added cases for WINDOW_GAINED_FOCUS,
+	WINDOW_LOST_FOCUS and WINDOW_STATE_CHANGED.
+	(postEvent): Deprecated.
+	(applyResourceBundle): Deprecated.
+	(processWindowFocusEvent): New method.
+	(processWindowStateEvent): New method.
+	* java/awt/datatransfer/DataFlavor.java: Reindented.
+	* java/awt/font/TextHitInfo.java
+	(charIndex): New member variable.
+	(leadingEdge): New member variable.
+	(TextHitInfo): New constructor.
+	(getCharIndex): Implemented.
+	(isLeadingEdge): Implemented.
+	(getInsertionIndex): Implemented.
+	(hashCode): Access charIndex directly.
+	(equals): Reformated.
+	(leading): Implemented.
+	(trailing): Implemented.
+	(beforeOffset): Implemented.
+	(afterOffset): Implemented.
+	(getOtherHit): Implemented.
+	(getOffsetHit): Implemented.
+	(toString): Implemented.
+	* java/awt/image/BufferedImage.java
+	(BufferedImage): Implements WritableRenderedImage.
+	(observers): New member variable.
+	(addTileObserver): New method.
+	(removeTileObserver): New method.
+
+2003-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/9934:
+	* java/io/natFileDescriptorPosix.cc (available): Fixed arguments
+	to lseek.  Return 0 if we can't compute the value.
+
+2003-03-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetworkInterface.java: Merged with classpath.
+
+2003-03-03  Tom Tromey  <tromey@redhat.com>
+
+	* verify.cc (handle_jsr_insn): Don't fail if `jsr' appears at end
+	of bytecode.
+	(handle_ret_insn): Fail if returning to jsr that appears at end of
+	bytecode.
+
+2003-03-03  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(ordinary_java_source_files):
+	Added gnu/java/nio/MappedByteFileBuffer.java.
+	(nat_source_files):
+	Added gnu/java/nio/natMappedByteFileBuffer.cc.
+	* Makefile.in: Regenerated.
+
+2003-03-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(connect): Merged comment from classpath.
+	(receive): Merged documentation from classpath.
+	* java/net/Socket.java
+	(setSoTimeout): Clarified documentation.
+	* java/net/URL.java
+	(getPath): Merged from classpath.
+	(getUserInfo): Merged from classpath.
+	(getQuery): Merged from classpath.
+	* java/net/URLStreamHandler.java
+	(toExternalForm): Merged from classpath.
+
+2003-03-02  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Properties.java (load): Only skip line if the first
+	character is a comment, whitespaces don't count.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetPermission.java:
+	Merged copyright with classpath.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/Package.java:
+	Remerged from classpath.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/HttpURLConnection.java
+	(HTTP_SERVER_ERROR): Deprecated.
+	* java/net/MulticastSocket.java
+	(send): Replaced checkMulticast with appropriate checkPermission call,
+	deprecated.
+	* java/net/URLDecoder.java
+	(decode): Deprecated.
+	* java/net/URLEncoder.java
+	(encode): Deprecated.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/Caret.java
+	(getMagicCaretPosition): Fixed typo in method name.
+	* javax/swing/text/DefaultCaret.java
+	(getMagicCaretPosition): Fixed typo in method name.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/List.java
+	(setMultipleSelections): Deprecated.
+	(delItem): Deprecated.
+	* java/awt/MenuComponent.java
+	(getPeer): Deprecated.
+	* java/awt/ScrollPane.java
+	(addNotify): getPeer() is deprecated. Use isDisplayable() instead.
+	* java/awt/dnd/MouseDragGestureRecognizer.java
+	(mouseClicked): Added comment.
+	(mousePressed): Added comment.
+	(mouseReleased): Added comment.
+	(mouseEntered): Added comment.
+	(mouseExited): Added comment.
+	(mouseDragged): Added comment.
+	(mouseMoved): Added comment.
+	* java/awt/event/KeyEvent.java
+	(KeyEvent): Deprecated.
+	(setModifiers): Deprecated.
+	
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java
+	(fd): Type FileDescriptor instead of int.
+	(lengthInternal): Removed.
+	(FileChannelImpl): Fixed arguments, check type of file object.
+	(size): Made it native.
+	(implPosition): New native method.
+	(implTruncate): New native method.
+	(position): Implemented.
+	(truncate): Implemented.
+	(nio_mmap_file): Changed arguments.
+	(nio_munmap_file): Changed arguments.
+	(nio_msync): Changed arguments.
+	* gnu/java/nio/natFileChannelImpl.cc
+	(lengthInternal): Removed.
+	(size): New method.
+	(implPosition): New method.
+	(implTruncate): New method.
+	(nio_mmap_file): Changed arguments.
+	(nio_munmap_file): Changed arguments.
+	(nio_msync): Changed arguments.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/DropTargetContext.java:
+	Compile fix: Forgot to commit import.
+	
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Component.java,
+	java/awt/ScrollPane.java:
+	Fixed typos.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/DnDEventMulticaster.java: New file.
+	* java/awt/dnd/DragSource.java
+	(flavorMap): New member variable.
+	(dragSourceListener): New member variable.
+	(dragSourceMotionListener): New member variable.
+	(getFlavorMap): Implemented.
+	(createDragGestureRecognizer): Implemented.
+	(addDragSourceListener): Implemented.
+	(removeDragSourceListener): Implemented.
+	(getDragSourceListeners): Implemented.
+	(addDragSourceMotionListener): Implemented.
+	(removeDragSourceMotionListener): Implemented.
+	(getDragSourceMotionListeners): Implemented.
+	(getListeners): Implemented.
+	* java/awt/dnd/DragSourceContext.java
+	(peer): New member variable.
+	(cursor): New member variable.
+	(transferable): New member variable.
+	(trigger): New member variable.
+	(dragSourceListener): New member variable.
+	(image): New member variable.
+	(offset): New member variable.
+	(DragSourceContext): Implemented.
+	(getDragSource): Implemented.
+	(getComponent): Implemented.
+	(getTrigger): Implemented.
+	(getSourceActions): Implemented.
+	(setCursor): Implemented.
+	(getCursor): Implemented.
+	(addDragSourceListener): Implemented.
+	(removeDragSourceListener): Implemented.
+	(getTransferable): Implemented.
+	* java/awt/dnd/DropTarget.java
+	(DropTargetAutoScroller.component): New member variable.
+	(DropTargetAutoScroller.point): New member variable.
+	(DropTargetAutoScroller.DropTargetAutoScroller): Implemented.
+	(DropTargetAutoScroller.updateLocation): Implemented.
+	(active): Renamed from isActive, defaults to true now.
+	(component): New member variable.
+	(flavorMap): New member variable.
+	(actions): New member variable.
+	(dropTargetContext): New member variable.
+	(dropTargetListener): New member variable.
+	(DropTarget): Implemented.
+	(getComponent): Implemented.
+	(setComponent): Implemented.
+	(setDefaultActions): Implemented.
+	(getDefaultActions): Implemented.
+	(setActive): Use active instead of isActive.
+	(isActive): Use active instead of isActive.
+	(addDropTargetListener): Implemented.
+	(removeDropTargetListener): Implemented.
+	(getFlavorMap): Implemented.
+	(setFlavorMap): Implemented.
+	(getDropTargetContext): Implemented.
+	(createDropTargetContext): Implemented.
+	(createDropTargetAutoScroller): Implemented.
+	* java/awt/dnd/DropTargetContext.java
+	(TransferableProxy.getTransferDataFlavors): Implemented.
+	(TransferableProxy.isDataFlavorSupported): Implemented.
+	(TransferableProxy.getTransferData): Implemented.
+	(dropTarget):  New member variable.
+	(dtcp): New member variable.
+	(DropTargetContext): New package private constructor.
+	(getDropTarget): Implemented.
+	(getComponent): Implemented.
+	(addNotify): Implemented.
+	(removeNotify): Implemented.
+	(getCurrentDataFlavorsAsList): Implemented.
+	(isDataFlavorSupported): Implemented.
+	* java/awt/dnd/MouseDragGestureRecognizer.java
+	(registerListeners): Implemented.
+	(unregisterListeners): Implemented.
+	* Makefile.am
+	(awt_java_source_files): Added java/awt/dnd/DnDEventMulticaster.java.
+	* Makefile.in: Regenerated.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Component.java
+	(eventTypeEnabled): New method.
+	(dispatchEventImpl): Moved checks for event to eventTypeEnabled.
+	* java/awt/Container.java
+	(changeSupport): New member variable.
+	(addPropertyChangeListener): New methods.
+	* java/awt/ContainerOrderFocusTraversalPolicy.java
+	(ContainerOrderFocusTraversalPolicy): Added comment.
+	(getComponentAfter): Throw exception, documentation added.
+	(getComponentBefore): Throw exception, documentation added.
+	(getFirstComponent): Throw exception, documentation added.
+	(getLastComponent): Throw exception, documentation added.
+	(getDefaultComponent): Throw exception, documentation added.
+	* java/awt/EventQueue.java: Reindented.
+	* java/awt/FocusTraversalPolicy.java:
+	(FocusTraversalPolicy): Added comment.
+	(getComponentAfter): Documentation added.
+	(getComponentBefore): Documentation added.
+	(getFirstComponent): Documentation added.
+	(getLastComponent): Documentation added.
+	(getDefaultComponent): Documentation added.
+	(getInitialComponent): Documentation added.
+	* java/awt/ScrollPane.java
+	(wheelScrollingEnabled): New member variable.
+	(ScrollPane): Initialize wheelScollingEnabled.
+	(eventTypeEnabled): New method.
+	(isWheelScrollingEnabled): New method.
+	(setWheelScrollingEnabled): New method.
+
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(closed): New member variable.
+	(close): Use closed variable.
+	(getInetAddress): No need to call isConnected().
+	(getPort): No need to call isConnected().
+	(disconnect): Reset remoteAddress and remotePort, fixed typo.
+	(isClosed): Reimplemented.
+	
+2003-03-02  Michael Koch  <konqueror@gmx.de>
+
+	* configure.in: Added check for memory mapping of files.
+	* configure: Regenerated.
+	* config.h.in: Regenerated.
+
 2003-03-01  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* posix-threads.cc: Include <unistd.h> if HAVE_UNISTD_H is defined.

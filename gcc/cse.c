@@ -3352,17 +3352,11 @@ fold_rtx (x, insn)
       /* If the next insn is a CODE_LABEL followed by a jump table,
 	 PC's value is a LABEL_REF pointing to that label.  That
 	 lets us fold switch statements on the VAX.  */
-      if (insn && GET_CODE (insn) == JUMP_INSN)
-	{
-	  rtx next = next_nonnote_insn (insn);
-
-	  if (next && GET_CODE (next) == CODE_LABEL
-	      && NEXT_INSN (next) != 0
-	      && GET_CODE (NEXT_INSN (next)) == JUMP_INSN
-	      && (GET_CODE (PATTERN (NEXT_INSN (next))) == ADDR_VEC
-		  || GET_CODE (PATTERN (NEXT_INSN (next))) == ADDR_DIFF_VEC))
-	    return gen_rtx_LABEL_REF (Pmode, next);
-	}
+      {
+	rtx next;
+	if (insn && tablejump_p (insn, &next, NULL))
+	  return gen_rtx_LABEL_REF (Pmode, next);
+      }
       break;
 
     case SUBREG:
@@ -7494,15 +7488,8 @@ count_reg_usage (x, counts, dest, incr)
       /* Unless we are setting a REG, count everything in SET_DEST.  */
       if (GET_CODE (SET_DEST (x)) != REG)
 	count_reg_usage (SET_DEST (x), counts, NULL_RTX, incr);
-
-      /* If SRC has side-effects, then we can't delete this insn, so the
-	 usage of SET_DEST inside SRC counts.
-
-	 ??? Strictly-speaking, we might be preserving this insn
-	 because some other SET has side-effects, but that's hard
-	 to do and can't happen now.  */
       count_reg_usage (SET_SRC (x), counts,
-		       side_effects_p (SET_SRC (x)) ? NULL_RTX : SET_DEST (x),
+		       SET_DEST (x),
 		       incr);
       return;
 

@@ -116,6 +116,9 @@ static int count_cond		PARAMS ((tree, int));
 static tree fold_binary_op_with_conditional_arg
   PARAMS ((enum tree_code, tree, tree, tree, int));
 static bool fold_real_zero_addition_p	PARAMS ((tree, tree, int));
+static tree fold_mathfn_compare	PARAMS ((enum built_in_function,
+					 enum tree_code, tree, tree, tree));
+static tree fold_inf_compare	PARAMS ((enum tree_code, tree, tree, tree));
 
 /* The following constants represent a bit based encoding of GCC's
    comparison operators.  This encoding simplifies transformations
@@ -4174,7 +4177,12 @@ extract_muldiv_1 (t, c, code, wide_type)
 	      /* ... or its type is larger than ctype,
 		 then we cannot pass through this truncation.  */
 	      || (GET_MODE_SIZE (TYPE_MODE (ctype))
-		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))))
+		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
+	      /* ... or signedness changes for division or modulus,
+		 then we cannot pass through this conversion.  */
+	      || (code != MULT_EXPR
+		  && (TREE_UNSIGNED (ctype)
+		      != TREE_UNSIGNED (TREE_TYPE (op0))))))
 	break;
 
       /* Pass the constant down and see if we can make a simplification.  If
@@ -4334,14 +4342,6 @@ extract_muldiv_1 (t, c, code, wide_type)
 	  && TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
 	  && integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
 	return omit_one_operand (type, integer_zero_node, op0);
-
-      /* Arrange for the code below to simplify two constants first.  */
-      if (TREE_CODE (op1) == INTEGER_CST && TREE_CODE (op0) != INTEGER_CST)
-	{
-	  tree tmp = op0;
-	  op0 = op1;
-	  op1 = tmp;
-	}
 
       /* ... fall through ...  */
 
@@ -4667,6 +4667,200 @@ fold_real_zero_addition_p (type, addend, negate)
   return negate && !HONOR_SIGN_DEPENDENT_ROUNDING (TYPE_MODE (type));
 }
 
+/* Subroutine of fold() that checks comparisons of built-in math
+   functions against real constants.
+
+   FCODE is the DECL_FUNCTION_CODE of the built-in, CODE is the comparison
+   operator: EQ_EXPR, NE_EXPR, GT_EXPR, LT_EXPR, GE_EXPR or LE_EXPR.  TYPE
+   is the type of the result and ARG0 and ARG1 are the operands of the
+   comparison.  ARG1 must be a TREE_REAL_CST.
+
+   The function returns the constant folded tree if a simplification
+   can be made, and NULL_TREE otherwise.  */
+
+static tree
+fold_mathfn_compare (fcode, code, type, arg0, arg1)
+     enum built_in_function fcode;
+     enum tree_code code;
+     tree type, arg0, arg1;
+{
+  REAL_VALUE_TYPE c;
+
+  if (fcode == BUILT_IN_SQRT
+      || fcode == BUILT_IN_SQRTF
+      || fcode == BUILT_IN_SQRTL)
+    {
+      tree arg = TREE_VALUE (TREE_OPERAND (arg0, 1));
+      enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg0));
+
+      c = TREE_REAL_CST (arg1);
+      if (REAL_VALUE_NEGATIVE (c))
+	{
+	  /* sqrt(x) < y is always false, if y is negative.  */
+	  if (code == EQ_EXPR || code == LT_EXPR || code == LE_EXPR)
+	    return omit_one_operand (type,
+				     convert (type, integer_zero_node),
+				     arg);
+
+	  /* sqrt(x) > y is always true, if y is negative and we
+	     don't care about NaNs, i.e. negative values of x.  */
+	  if (code == NE_EXPR || !HONOR_NANS (mode))
+	    return omit_one_operand (type,
+				     convert (type, integer_one_node),
+				     arg);
+
+	  /* sqrt(x) > y is the same as x >= 0, if y is negative.  */
+	  return fold (build (GE_EXPR, type, arg,
+			      build_real (TREE_TYPE (arg), dconst0)));
+	}
+      else if (code == GT_EXPR || code == GE_EXPR)
+	{
+	  REAL_VALUE_TYPE c2;
+
+	  REAL_ARITHMETIC (c2, MULT_EXPR, c, c);
+	  real_convert (&c2, mode, &c2);
+
+	  if (REAL_VALUE_ISINF (c2))
+	    {
+	      /* sqrt(x) > y is x == +Inf, when y is very large.  */
+	      if (HONOR_INFINITIES (mode))
+		return fold (build (EQ_EXPR, type, arg,
+				    build_real (TREE_TYPE (arg), c2)));
+
+	      /* sqrt(x) > y is always false, when y is very large
+		 and we don't care about infinities.  */
+	      return omit_one_operand (type,
+				       convert (type, integer_zero_node),
+				       arg);
+	    }
+
+	  /* sqrt(x) > c is the same as x > c*c.  */
+	  return fold (build (code, type, arg,
+			      build_real (TREE_TYPE (arg), c2)));
+	}
+      else if (code == LT_EXPR || code == LE_EXPR)
+	{
+	  REAL_VALUE_TYPE c2;
+
+	  REAL_ARITHMETIC (c2, MULT_EXPR, c, c);
+	  real_convert (&c2, mode, &c2);
+
+	  if (REAL_VALUE_ISINF (c2))
+	    {
+	      /* sqrt(x) < y is always true, when y is a very large
+		 value and we don't care about NaNs or Infinities.  */
+	      if (! HONOR_NANS (mode) && ! HONOR_INFINITIES (mode))
+		return omit_one_operand (type,
+					 convert (type, integer_one_node),
+					 arg);
+
+	      /* sqrt(x) < y is x != +Inf when y is very large and we
+		 don't care about NaNs.  */
+	      if (! HONOR_NANS (mode))
+		return fold (build (NE_EXPR, type, arg,
+				    build_real (TREE_TYPE (arg), c2)));
+
+	      /* sqrt(x) < y is x >= 0 when y is very large and we
+		 don't care about Infinities.  */
+	      if (! HONOR_INFINITIES (mode))
+		return fold (build (GE_EXPR, type, arg,
+				    build_real (TREE_TYPE (arg), dconst0)));
+
+	      /* sqrt(x) < y is x >= 0 && x != +Inf, when y is large.  */
+	      if ((*lang_hooks.decls.global_bindings_p) () != 0
+		  || contains_placeholder_p (arg))
+		return NULL_TREE;
+
+	      arg = save_expr (arg);
+	      return fold (build (TRUTH_ANDIF_EXPR, type,
+				  fold (build (GE_EXPR, type, arg,
+					       build_real (TREE_TYPE (arg),
+							   dconst0))),
+				  fold (build (NE_EXPR, type, arg,
+					       build_real (TREE_TYPE (arg),
+							   c2)))));
+	    }
+
+	  /* sqrt(x) < c is the same as x < c*c, if we ignore NaNs.  */
+	  if (! HONOR_NANS (mode))
+	    return fold (build (code, type, arg,
+				build_real (TREE_TYPE (arg), c2)));
+
+	  /* sqrt(x) < c is the same as x >= 0 && x < c*c.  */
+	  if ((*lang_hooks.decls.global_bindings_p) () == 0
+	      && ! contains_placeholder_p (arg))
+	    {
+	      arg = save_expr (arg);
+	      return fold (build (TRUTH_ANDIF_EXPR, type,
+				  fold (build (GE_EXPR, type, arg,
+					       build_real (TREE_TYPE (arg),
+							   dconst0))),
+				  fold (build (code, type, arg,
+					       build_real (TREE_TYPE (arg),
+							   c2)))));
+	    }
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* Subroutine of fold() that optimizes comparisons against Infinities,
+   either +Inf or -Inf.
+
+   CODE is the comparison operator: EQ_EXPR, NE_EXPR, GT_EXPR, LT_EXPR,
+   GE_EXPR or LE_EXPR.  TYPE is the type of the result and ARG0 and ARG1
+   are the operands of the comparison.  ARG1 must be a TREE_REAL_CST.
+
+   The function returns the constant folded tree if a simplification
+   can be made, and NULL_TREE otherwise.  */
+
+static tree
+fold_inf_compare (code, type, arg0, arg1)
+     enum tree_code code;
+     tree type, arg0, arg1;
+{
+  /* For negative infinity swap the sense of the comparison.  */
+  if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (arg1)))
+    code = swap_tree_comparison (code);
+
+  switch (code)
+    {
+    case GT_EXPR:
+      /* x > +Inf is always false, if with ignore sNANs.  */
+      if (HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0))))
+        return NULL_TREE;
+      return omit_one_operand (type,
+			       convert (type, integer_zero_node),
+			       arg0);
+
+    case LE_EXPR:
+      /* x <= +Inf is always true, if we don't case about NaNs.  */
+      if (! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg0))))
+	return omit_one_operand (type,
+				 convert (type, integer_one_node),
+				 arg0);
+
+      /* x <= +Inf is the same as x == x, i.e. isfinite(x).  */
+      if ((*lang_hooks.decls.global_bindings_p) () == 0
+	  && ! contains_placeholder_p (arg0))
+	{
+	  arg0 = save_expr (arg0);
+	  return fold (build (EQ_EXPR, type, arg0, arg0));
+	}
+      break;
+
+    case EQ_EXPR:  /* ??? x == +Inf is x > DBL_MAX  */
+    case GE_EXPR:  /* ??? x >= +Inf is x > DBL_MAX  */
+    case LT_EXPR:  /* ??? x < +Inf is x <= DBL_MAX  */
+    case NE_EXPR:  /* ??? x != +Inf is !(x > DBL_MAX)  */
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
 
 /* Return the tree for neg (ARG0) when ARG0 is known to be either
    an integer constant or real constant.
@@ -5417,8 +5611,6 @@ fold (expr)
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;
-
-  tem = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* Don't try to process an RTL_EXPR since its operands aren't trees.
      Likewise for a SAVE_EXPR that's already been evaluated.  */
@@ -6245,6 +6437,22 @@ fold (expr)
 					     TREE_OPERAND (arg0, 0),
 					     TREE_OPERAND (arg1, 0))),
 				TREE_OPERAND (arg0, 1)));
+
+	  /* Fold A - (A & B) into ~B & A.  */
+	  if (!TREE_SIDE_EFFECTS (arg0)
+	      && TREE_CODE (arg1) == BIT_AND_EXPR)
+	    {
+	      if (operand_equal_p (arg0, TREE_OPERAND (arg1, 1), 0))
+		return fold (build (BIT_AND_EXPR, type,
+				    fold (build1 (BIT_NOT_EXPR, type,
+						  TREE_OPERAND (arg1, 0))),
+				    arg0));
+	      if (operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
+		return fold (build (BIT_AND_EXPR, type,
+				    fold (build1 (BIT_NOT_EXPR, type,
+						  TREE_OPERAND (arg1, 1))),
+				    arg0));
+	    }
 	}
 
       /* See if ARG1 is zero and X - ARG1 reduces to X.  */
@@ -6849,20 +7057,42 @@ fold (expr)
 	      && TREE_CODE (arg1) == NEGATE_EXPR)
 	    return fold (build (code, type, TREE_OPERAND (arg1, 0),
 				TREE_OPERAND (arg0, 0)));
-	  /* (-a) CMP CST -> a swap(CMP) (-CST)  */
-	  if (TREE_CODE (arg0) == NEGATE_EXPR && TREE_CODE (arg1) == REAL_CST)
-	    return
-	      fold (build
-		    (swap_tree_comparison (code), type,
-		     TREE_OPERAND (arg0, 0),
-		     build_real (TREE_TYPE (arg1),
-				 REAL_VALUE_NEGATE (TREE_REAL_CST (arg1)))));
-	  /* IEEE doesn't distinguish +0 and -0 in comparisons.  */
-	  /* a CMP (-0) -> a CMP 0  */
-	  if (TREE_CODE (arg1) == REAL_CST
-	      && REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (arg1)))
-	    return fold (build (code, type, arg0,
-				build_real (TREE_TYPE (arg1), dconst0)));
+
+	  if (TREE_CODE (arg1) == REAL_CST)
+	  {
+	    REAL_VALUE_TYPE cst;
+	    cst = TREE_REAL_CST (arg1);
+
+	    /* (-a) CMP CST -> a swap(CMP) (-CST)  */
+	    if (TREE_CODE (arg0) == NEGATE_EXPR)
+	      return
+		fold (build (swap_tree_comparison (code), type,
+			     TREE_OPERAND (arg0, 0),
+			     build_real (TREE_TYPE (arg1),
+					 REAL_VALUE_NEGATE (cst))));
+
+	    /* IEEE doesn't distinguish +0 and -0 in comparisons.  */
+	    /* a CMP (-0) -> a CMP 0  */
+	    if (REAL_VALUE_MINUS_ZERO (cst))
+	      return fold (build (code, type, arg0,
+				  build_real (TREE_TYPE (arg1), dconst0)));
+
+	    /* x != NaN is always true, other ops are always false.  */
+	    if (REAL_VALUE_ISNAN (cst)
+		&& ! HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg1))))
+	      {
+		t = (code == NE_EXPR) ? integer_one_node : integer_zero_node;
+		return omit_one_operand (type, convert (type, t), arg0);
+	      }
+
+	    /* Fold comparisons against infinity.  */
+	    if (REAL_VALUE_ISINF (cst))
+	      {
+		tem = fold_inf_compare (code, type, arg0, arg1);
+		if (tem != NULL_TREE)
+		  return tem;
+	      }
+	  }
 
 	  /* If this is a comparison of a real constant with a PLUS_EXPR
 	     or a MINUS_EXPR of a real constant, we can convert it into a
@@ -6878,6 +7108,21 @@ fold (expr)
 					  arg1, TREE_OPERAND (arg0, 1), 0))
 	      && ! TREE_CONSTANT_OVERFLOW (tem))
 	    return fold (build (code, type, TREE_OPERAND (arg0, 0), tem));
+
+	  /* Fold comparisons against built-in math functions.  */
+	  if (TREE_CODE (arg1) == REAL_CST
+	      && flag_unsafe_math_optimizations
+	      && ! flag_errno_math)
+	    {
+	      enum built_in_function fcode = builtin_mathfn_code (arg0);
+
+	      if (fcode != END_BUILTINS)
+		{
+		  tem = fold_mathfn_compare (fcode, code, type, arg0, arg1);
+		  if (tem != NULL_TREE)
+		    return tem;
+		}
+	    }
 	}
 
       /* Convert foo++ == CONST into ++foo == CONST + INCR.

@@ -1,5 +1,5 @@
 /* com.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
@@ -7443,7 +7443,7 @@ ffecom_sym_transform_ (ffesymbol s)
 		assert (et != NULL_TREE);
 
 		if (! TREE_STATIC (et))
-		  put_var_into_stack (et);
+		  put_var_into_stack (et, /*rescan=*/true);
 
 		offset = ffestorag_modulo (est)
 		  + ffestorag_offset (ffesymbol_storage (s))
@@ -10591,6 +10591,78 @@ ffecom_constantunion (ffebldConstantUnion *cu, ffeinfoBasictype bt,
   return item;
 }
 
+/* Transform constant-union to tree, with the type known.  */
+
+tree
+ffecom_constantunion_with_type (ffebldConstantUnion *cu,
+		      tree tree_type, ffebldConst ct)
+{
+  tree item;
+
+  int val;
+
+  switch (ct)
+  {
+#if FFETARGET_okINTEGER1
+	  case  FFEBLD_constINTEGER1:
+         	  val = ffebld_cu_val_integer1 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okINTEGER2
+	  case  FFEBLD_constINTEGER2:
+		  val = ffebld_cu_val_integer2 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okINTEGER3
+	  case  FFEBLD_constINTEGER3:
+		  val = ffebld_cu_val_integer3 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okINTEGER4
+	  case  FFEBLD_constINTEGER4:
+		  val = ffebld_cu_val_integer4 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okLOGICAL1
+	  case  FFEBLD_constLOGICAL1:
+		  val = ffebld_cu_val_logical1 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okLOGICAL2
+          case  FFEBLD_constLOGICAL2:
+		  val = ffebld_cu_val_logical2 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okLOGICAL3
+	  case  FFEBLD_constLOGICAL3:
+		  val = ffebld_cu_val_logical3 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+#if FFETARGET_okLOGICAL4
+	  case  FFEBLD_constLOGICAL4:
+		  val = ffebld_cu_val_logical4 (*cu);
+		  item = build_int_2 (val, (val < 0) ? -1 : 0);
+		  break;
+#endif
+	  default:
+		  assert ("constant type not supported"==NULL);
+		  return error_mark_node;
+		  break;
+  }
+
+  TREE_TYPE (item) = tree_type;
+
+  TREE_CONSTANT (item) = 1;
+
+  return item;
+}
 /* Transform expression into constant tree.
 
    If the expression can be transformed into a tree that is constant,
@@ -13220,9 +13292,6 @@ duplicate_decls (tree newdecl, tree olddecl)
       COPY_DECL_RTL (olddecl, newdecl);
 
       /* Merge the type qualifiers.  */
-      if (DECL_BUILT_IN_NONANSI (olddecl) && TREE_THIS_VOLATILE (olddecl)
-	  && !TREE_THIS_VOLATILE (newdecl))
-	TREE_THIS_VOLATILE (olddecl) = 0;
       if (TREE_READONLY (newdecl))
 	TREE_READONLY (olddecl) = 1;
       if (TREE_THIS_VOLATILE (newdecl))
@@ -14030,8 +14099,9 @@ insert_block (tree block)
 }
 
 /* Each front end provides its own.  */
-static const char *ffe_init PARAMS ((const char *));
+static bool ffe_init PARAMS ((void));
 static void ffe_finish PARAMS ((void));
+static bool ffe_post_options PARAMS ((const char **));
 static void ffe_init_options PARAMS ((void));
 static void ffe_print_identifier PARAMS ((FILE *, tree, int));
 
@@ -14050,6 +14120,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_INIT_OPTIONS		ffe_init_options
 #undef  LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION	ffe_decode_option
+#undef  LANG_HOOKS_POST_OPTIONS
+#define LANG_HOOKS_POST_OPTIONS		ffe_post_options
 #undef  LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		ffe_parse_file
 #undef  LANG_HOOKS_MARK_ADDRESSABLE
@@ -14115,9 +14187,12 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-static const char *
-ffe_init (const char *filename)
+static bool
+ffe_post_options (pfilename)
+     const char **pfilename;
 {
+  const char *filename = *pfilename;
+
   /* Open input file.  */
   if (filename == 0 || !strcmp (filename, "-"))
     {
@@ -14126,9 +14201,17 @@ ffe_init (const char *filename)
     }
   else
     finput = fopen (filename, "r");
+
   if (finput == 0)
     fatal_io_error ("can't open %s", filename);
 
+  return false;
+}
+
+
+static bool
+ffe_init ()
+{
 #ifdef IO_BUFFER_SIZE
   setvbuf (finput, (char *) xmalloc (IO_BUFFER_SIZE), _IOFBF, IO_BUFFER_SIZE);
 #endif
@@ -14144,11 +14227,8 @@ ffe_init (const char *filename)
   ffelex_hash_kludge (finput);
 
   /* FIXME: The ffelex_hash_kludge code needs to be cleaned up to
-     return the new file name.  */
-  if (main_input_filename)
-    filename = main_input_filename;
-
-  return filename;
+     set the new file name.  Maybe in ffe_post_options.  */
+  return true;
 }
 
 static void
@@ -14214,7 +14294,7 @@ ffe_mark_addressable (tree exp)
 	      }
 	    assert ("address of register var requested" == NULL);
 	  }
-	put_var_into_stack (x);
+	put_var_into_stack (x, /*rescan=*/true);
 
 	/* drops in */
       case FUNCTION_DECL:

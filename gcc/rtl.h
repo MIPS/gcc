@@ -1577,7 +1577,7 @@ extern rtx simplify_rtx			PARAMS ((rtx));
 extern rtx avoid_constant_pool_reference PARAMS ((rtx));
 
 /* In function.c  */
-extern rtx gen_mem_addressof		PARAMS ((rtx, tree));
+extern rtx gen_mem_addressof		PARAMS ((rtx, tree, int));
 
 /* In regclass.c  */
 extern enum machine_mode choose_hard_reg_mode PARAMS ((unsigned int,
@@ -1594,6 +1594,14 @@ extern rtx set_unique_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 			  ? PATTERN (I) : single_set_1 (I)) \
 		       : NULL_RTX)
 #define single_set_1(I) single_set_2 (I, PATTERN (I))
+
+/* Structure used for passing data to REPLACE_LABEL.  */
+typedef struct replace_label_data
+{
+  rtx r1;
+  rtx r2;
+  bool update_label_nuses;
+} replace_label_data;
 
 extern int rtx_addr_can_trap_p		PARAMS ((rtx));
 extern bool nonzero_address_p		PARAMS ((rtx));
@@ -1654,6 +1662,9 @@ extern int inequality_comparisons_p	PARAMS ((rtx));
 extern rtx replace_rtx			PARAMS ((rtx, rtx, rtx));
 extern rtx replace_regs			PARAMS ((rtx, rtx *, unsigned int,
 						 int));
+extern int replace_label		PARAMS ((rtx *, void *));
+extern int rtx_referenced_p		PARAMS ((rtx, rtx));
+extern bool tablejump_p			PARAMS ((rtx, rtx *, rtx *));
 extern int computed_jump_p		PARAMS ((rtx));
 typedef int (*rtx_function)             PARAMS ((rtx *, void *));
 extern int for_each_rtx                 PARAMS ((rtx *, rtx_function, void *));
@@ -2101,6 +2112,7 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 						int, int));
 
 /* In gcse.c */
+extern bool can_copy_p			PARAMS ((enum machine_mode));
 #ifdef BUFSIZ
 extern int gcse_main			PARAMS ((rtx, FILE *));
 extern int bypass_jumps			PARAMS ((FILE *));
@@ -2270,6 +2282,7 @@ extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));
 extern bool memory_modified_in_insn_p	PARAMS ((rtx, rtx));
+extern rtx find_base_term		PARAMS ((rtx));
 
 /* In sibcall.c */
 typedef enum {

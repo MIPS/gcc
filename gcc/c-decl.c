@@ -272,7 +272,8 @@ tree static_ctors, static_dtors;
 
 /* Forward declarations.  */
 
-static struct binding_level * make_binding_level	PARAMS ((void));
+static struct binding_level *make_binding_level		PARAMS ((void));
+static struct binding_level *get_function_binding_level PARAMS ((void));
 static void pop_binding_level		PARAMS ((struct binding_level **));
 static void clear_limbo_values		PARAMS ((tree));
 static int duplicate_decls		PARAMS ((tree, tree, int));
@@ -313,7 +314,6 @@ c_print_identifier (file, node, indent)
   print_node (file, "local", IDENTIFIER_LOCAL_VALUE (node), indent + 4);
   print_node (file, "label", IDENTIFIER_LABEL_VALUE (node), indent + 4);
   print_node (file, "implicit", IDENTIFIER_IMPLICIT_DECL (node), indent + 4);
-  print_node (file, "error locus", IDENTIFIER_ERROR_LOCUS (node), indent + 4);
   print_node (file, "limbo value", IDENTIFIER_LIMBO_VALUE (node), indent + 4);
   if (C_IS_RESERVED_WORD (node))
     {
@@ -362,6 +362,17 @@ make_binding_level ()
     }
   else
     return (struct binding_level *) ggc_alloc (sizeof (struct binding_level));
+}
+
+/* Return the outermost binding level for the current function.  */
+static struct binding_level *
+get_function_binding_level ()
+{
+  struct binding_level *b = current_binding_level;
+
+  while (b->level_chain->parm_flag == 0)
+    b = b->level_chain;
+  return b;
 }
 
 /* Remove a binding level from a list and add it to the level chain.  */
@@ -1153,7 +1164,8 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 to variables that were declared between olddecl and newdecl. This
 	 will make the initializer invalid for olddecl in case it gets
 	 assigned to olddecl below.  */
-      DECL_INITIAL (newdecl) = 0;
+      if (TREE_CODE (newdecl) == VAR_DECL)
+	DECL_INITIAL (newdecl) = 0;
     }
   /* TLS cannot follow non-TLS declaration.  */
   else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
@@ -1592,12 +1604,14 @@ static void
 warn_if_shadowing (x, oldlocal)
      tree x, oldlocal;
 {
-  tree name;
+  tree sym;
+  const char *name;
 
   if (DECL_EXTERNAL (x))
     return;
 
-  name = DECL_NAME (x);
+  sym = DECL_NAME (x);
+  name = IDENTIFIER_POINTER (sym);
 
   /* Warn if shadowing an argument at the top level of the body.  */
   if (oldlocal != 0
@@ -1608,14 +1622,7 @@ warn_if_shadowing (x, oldlocal)
       /* Check that the decl being shadowed
 	 comes from the parm level, one level up.  */
       && chain_member (oldlocal, current_binding_level->level_chain->names))
-    {
-      if (TREE_CODE (oldlocal) == PARM_DECL)
-	pedwarn ("declaration of `%s' shadows a parameter",
-		 IDENTIFIER_POINTER (name));
-      else
-	pedwarn ("declaration of `%s' shadows a symbol from the parameter list",
-		 IDENTIFIER_POINTER (name));
-    }
+    shadow_warning (SW_PARAM, true, name, oldlocal);
   /* Maybe warn if shadowing something else.  */
   else if (warn_shadow
 	   /* No shadow warnings for internally generated vars.  */
@@ -1634,14 +1641,14 @@ warn_if_shadowing (x, oldlocal)
       else if (oldlocal)
 	{
 	  if (TREE_CODE (oldlocal) == PARM_DECL)
-	    shadow_warning ("a parameter", name, oldlocal);
+	    shadow_warning (SW_PARAM, false, name, oldlocal);
 	  else
-	    shadow_warning ("a previous local", name, oldlocal);
+	    shadow_warning (SW_LOCAL, false, name, oldlocal);
 	}
-      else if (IDENTIFIER_GLOBAL_VALUE (name) != 0
-	       && IDENTIFIER_GLOBAL_VALUE (name) != error_mark_node)
-	shadow_warning ("a global declaration", name,
-			IDENTIFIER_GLOBAL_VALUE (name));
+      else if (IDENTIFIER_GLOBAL_VALUE (sym) != 0
+	       && IDENTIFIER_GLOBAL_VALUE (sym) != error_mark_node)
+	shadow_warning (SW_GLOBAL, false, name,
+			IDENTIFIER_GLOBAL_VALUE (sym));
     }
 }
 
@@ -2018,6 +2025,17 @@ pushdecl (x)
   b->names = x;
 
   return x;
+}
+
+/* Record that the local value of NAME is shadowed at function scope.
+   This is used by build_external_ref in c-typeck.c.  */
+void
+record_function_scope_shadow (name)
+     tree name;
+{
+  struct binding_level *b = get_function_binding_level ();
+  b->shadowed = tree_cons (name, IDENTIFIER_LOCAL_VALUE (name),
+			   b->shadowed);
 }
 
 /* Like pushdecl, only it places X in GLOBAL_BINDING_LEVEL, if appropriate.  */
@@ -2559,11 +2577,8 @@ c_make_fname_decl (id, type_dep)
   if (current_function_decl)
     {
       /* Add the decls to the outermost block.  */
-      struct binding_level *b = current_binding_level;
-      struct binding_level *old = b;
-      while (b->level_chain->parm_flag == 0)
-	b = b->level_chain;
-      current_binding_level = b;
+      struct binding_level *old = current_binding_level;
+      current_binding_level = get_function_binding_level ();
       pushdecl (decl);
       current_binding_level = old;
     }	
@@ -4092,7 +4107,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    }
 
 		  if (size_varies)
-		    itype = variable_size (itype);
+		    {
+		      /* We must be able to distinguish the
+			 SAVE_EXPR_CONTEXT for the variably-sized type
+			 so that we can set it correctly in
+			 set_save_expr_context.  The convention is
+			 that all SAVE_EXPRs that need to be reset
+			 have NULL_TREE for their SAVE_EXPR_CONTEXT.  */
+		      tree cfd = current_function_decl;
+		      if (decl_context == PARM)
+			current_function_decl = NULL_TREE;
+		      itype = variable_size (itype);
+		      if (decl_context == PARM)
+			current_function_decl = cfd;
+		    }
 		  itype = build_index_type (itype);
 		}
 	    }
@@ -4571,6 +4599,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	   needed, and let dwarf2 know that the function is inlinable.  */
 	else if (flag_inline_trees == 2 && initialized)
 	  {
+	    if (!DECL_INLINE (decl))
+		DID_INLINE_FUNC (decl) = 1;
 	    DECL_INLINE (decl) = 1;
 	    DECL_DECLARED_INLINE_P (decl) = 0;
 	  }
@@ -5224,36 +5254,7 @@ finish_struct (t, fieldlist, attributes)
 	      DECL_SIZE (x) = bitsize_int (width);
 	      DECL_BIT_FIELD (x) = 1;
 	      SET_DECL_C_BIT_FIELD (x);
-
-	      if (width == 0
-		  && ! (* targetm.ms_bitfield_layout_p) (t))
-		{
-		  /* field size 0 => force desired amount of alignment.  */
-#ifdef EMPTY_FIELD_BOUNDARY
-		  DECL_ALIGN (x) = MAX (DECL_ALIGN (x), EMPTY_FIELD_BOUNDARY);
-#endif
-#ifdef PCC_BITFIELD_TYPE_MATTERS
-		  if (PCC_BITFIELD_TYPE_MATTERS)
-		    {
-		      DECL_ALIGN (x) = MAX (DECL_ALIGN (x),
-					    TYPE_ALIGN (TREE_TYPE (x)));
-		      DECL_USER_ALIGN (x) |= TYPE_USER_ALIGN (TREE_TYPE (x));
-		    }
-#endif
-		}
 	    }
-	}
-
-      else if (TREE_TYPE (x) != error_mark_node)
-	{
-	  unsigned int min_align = (DECL_PACKED (x) ? BITS_PER_UNIT
-				    : TYPE_ALIGN (TREE_TYPE (x)));
-
-	  /* Non-bit-fields are aligned for their type, except packed
-	     fields which require only BITS_PER_UNIT alignment.  */
-	  DECL_ALIGN (x) = MAX (DECL_ALIGN (x), min_align);
-	  if (! DECL_PACKED (x))
-	    DECL_USER_ALIGN (x) |= TYPE_USER_ALIGN (TREE_TYPE (x));
 	}
 
       DECL_INITIAL (x) = 0;
@@ -5550,11 +5551,6 @@ finish_enum (enumtype, values, attributes)
 	  tree enu = TREE_PURPOSE (pair);
 
 	  TREE_TYPE (enu) = enumtype;
-	  DECL_SIZE (enu) = TYPE_SIZE (enumtype);
-	  DECL_SIZE_UNIT (enu) = TYPE_SIZE_UNIT (enumtype);
-	  DECL_ALIGN (enu) = TYPE_ALIGN (enumtype);
-	  DECL_USER_ALIGN (enu) = TYPE_USER_ALIGN (enumtype);
-	  DECL_MODE (enu) = TYPE_MODE (enumtype);
 
 	  /* The ISO C Standard mandates enumerators to have type int,
 	     even though the underlying type of an enum type is
@@ -5881,6 +5877,8 @@ start_function (declspecs, declarator, attributes)
   pushlevel (0);
   declare_parm_level (1);
   current_binding_level->subblocks_tag_transparent = 1;
+
+  make_decl_rtl (current_function_decl, NULL);
 
   restype = TREE_TYPE (TREE_TYPE (current_function_decl));
   /* Promote the value to int before returning it.  */
@@ -6464,9 +6462,14 @@ finish_function (nested, can_defer_p)
 	     predicates depend on cfun and current_function_decl to
 	     function completely.  */
 	  timevar_push (TV_INTEGRATION);
-	  uninlinable = ! tree_inlinable_function_p (fndecl);
-	  
-	  if (! uninlinable && can_defer_p
+	  uninlinable = ! tree_inlinable_function_p (fndecl, 0);
+
+	  if (can_defer_p
+	      /* We defer functions marked inline *even if* the function
+		 itself is not inlinable.  This is because we don't yet
+		 know if the function will actually be used; we may be
+		 able to avoid emitting it entirely.  */
+	      && (! uninlinable || DECL_DECLARED_INLINE_P (fndecl))
 	      /* Save function tree for inlining.  Should return 0 if the
 		 language does not support function deferring or the
 		 function could not be deferred.  */
@@ -6523,6 +6526,25 @@ c_expand_deferred_function (fndecl)
     }
 }
 
+/* Called to move the SAVE_EXPRs for parameter declarations in a
+   nested function into the nested function.  DATA is really the
+   nested FUNCTION_DECL.  */
+
+static tree
+set_save_expr_context (tree *tp, 
+		       int *walk_subtrees,
+		       void *data)
+{
+  if (TREE_CODE (*tp) == SAVE_EXPR && !SAVE_EXPR_CONTEXT (*tp))
+    SAVE_EXPR_CONTEXT (*tp) = (tree) data;
+  /* Do not walk back into the SAVE_EXPR_CONTEXT; that will cause
+     circularity.  */
+  else if (DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
    function.  If can_defer_p is zero, we won't attempt to defer the
@@ -6549,9 +6571,6 @@ c_expand_body_1 (fndecl, nested_p)
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
   input_filename = TREE_FILENAME (fndecl);
-#if 0
-  make_decl_rtl (fndecl, NULL);
-#endif
   init_function_start (fndecl, input_filename, TREE_LINENO (fndecl));
   lineno = TREE_LINENO (fndecl);
 
@@ -6596,6 +6615,15 @@ c_expand_body_1 (fndecl, nested_p)
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
+  /* If the function has a variably modified type, there may be
+     SAVE_EXPRs in the parameter types.  Their context must be set to
+     refer to this function; they cannot be expanded in the containing
+     function.  */
+  if (decl_function_context (fndecl)
+      && variably_modified_type_p (TREE_TYPE (fndecl)))
+    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
+	       NULL);
+	     
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
   if (DECL_NAME (fndecl)

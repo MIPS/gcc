@@ -1674,23 +1674,14 @@ s390_preferred_reload_class (op, class)
   switch (GET_CODE (op))
     {
       /* Constants we cannot reload must be forced into the
-	 literal pool.  For constants we *could* handle directly,
-	 it might still be preferable to put them in the pool and
-	 use a memory-to-memory instruction.
+	 literal pool.  */
 
-	 However, try to avoid needlessly allocating a literal
-	 pool in a routine that wouldn't otherwise need any.
-	 Heuristically, we assume that 64-bit leaf functions
-	 typically don't need a literal pool, all others do.  */
       case CONST_DOUBLE:
       case CONST_INT:
-	if (!legitimate_reload_constant_p (op))
-	  return NO_REGS;
-
-	if (TARGET_64BIT && current_function_is_leaf)
+	if (legitimate_reload_constant_p (op))
 	  return class;
-
-	return NO_REGS;
+	else
+	  return NO_REGS;
 
       /* If a symbolic constant or a PLUS is reloaded,
 	 it is most likely being used as an address, so
@@ -1878,6 +1869,22 @@ s390_decompose_address (addr, out)
   else
     disp = addr;		/* displacement */
 
+
+  /* Prefer to use pointer as base, not index.  */
+  if (base && indx)
+    {
+      int base_ptr = GET_CODE (base) == UNSPEC
+		     || (REG_P (base) && REG_POINTER (base));
+      int indx_ptr = GET_CODE (indx) == UNSPEC
+		     || (REG_P (indx) && REG_POINTER (indx));
+
+      if (!base_ptr && indx_ptr)
+	{
+	  rtx tmp = base;
+	  base = indx;
+	  indx = tmp;
+	}
+    }
 
   /* Validate base register.  */
   if (base)
@@ -3054,6 +3061,30 @@ s390_expand_cmpstr (target, op0, op1, len)
 
       emit_insn ((*gen_result) (target));
     }
+}
+
+/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+   We need to emit DTP-relative relocations.  */
+
+void
+s390_output_dwarf_dtprel (file, size, x)
+     FILE *file;
+     int size;
+     rtx x;
+{
+  switch (size)
+    {
+    case 4:
+      fputs ("\t.long\t", file);
+      break;
+    case 8:
+      fputs ("\t.quad\t", file);
+      break;
+    default:
+      abort ();
+    }
+  output_addr_const (file, x);
+  fputs ("@DTPOFF", file);
 }
 
 /* In the name of slightly smaller debug output, and to cater to
@@ -4748,11 +4779,21 @@ s390_optimize_prolog (temp_regno)
   
   for (i = 6; i < 16; i++)
     if (regs_ever_live[i])
-      break;
+      if (!global_regs[i]
+	  || i == STACK_POINTER_REGNUM 
+          || i == RETURN_REGNUM
+          || i == BASE_REGISTER 
+          || (flag_pic && i == (int)PIC_OFFSET_TABLE_REGNUM))
+	break;
 
   for (j = 15; j > i; j--)
     if (regs_ever_live[j])
-      break;
+      if (!global_regs[j]
+	  || j == STACK_POINTER_REGNUM 
+          || j == RETURN_REGNUM
+          || j == BASE_REGISTER 
+          || (flag_pic && j == (int)PIC_OFFSET_TABLE_REGNUM))
+	break;
 
   if (i == 16)
     {
@@ -4863,6 +4904,12 @@ s390_fixup_clobbered_return_reg (return_reg)
 {
   bool replacement_done = 0;
   rtx insn;
+
+  /* If we never called __builtin_return_address, register 14
+     might have been used as temp during the prolog; we do
+     not want to touch those uses.  */
+  if (!has_hard_reg_initial_val (Pmode, REGNO (return_reg)))
+    return false;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
@@ -5046,7 +5093,7 @@ s390_frame_info ()
   cfun->machine->save_fprs_p = 0;
   if (TARGET_64BIT)
     for (i = 24; i < 32; i++) 
-      if (regs_ever_live[i])
+      if (regs_ever_live[i] && !global_regs[i])
 	{
           cfun->machine->save_fprs_p = 1;
 	  break;
@@ -5070,8 +5117,11 @@ s390_frame_info ()
      prolog/epilog code is modified again.  */
 
   for (i = 0; i < 16; i++)
-    gprs_ever_live[i] = regs_ever_live[i];
+    gprs_ever_live[i] = regs_ever_live[i] && !global_regs[i];
 
+  if (flag_pic)
+    gprs_ever_live[PIC_OFFSET_TABLE_REGNUM] =
+    regs_ever_live[PIC_OFFSET_TABLE_REGNUM];
   gprs_ever_live[BASE_REGISTER] = 1;
   gprs_ever_live[RETURN_REGNUM] = 1;
   gprs_ever_live[STACK_POINTER_REGNUM] = cfun->machine->frame_size > 0;
@@ -5108,7 +5158,7 @@ s390_arg_frame_offset ()
   save_fprs_p = 0;
   if (TARGET_64BIT)
     for (i = 24; i < 32; i++) 
-      if (regs_ever_live[i])
+      if (regs_ever_live[i] && !global_regs[i])
 	{
           save_fprs_p = 1;
 	  break;
@@ -5337,12 +5387,12 @@ s390_emit_prologue ()
   if (!TARGET_64BIT)
     {
       /* Save fpr 4 and 6.  */
-      if (regs_ever_live[18])
+      if (regs_ever_live[18] && !global_regs[18])
 	{
 	  insn = save_fpr (stack_pointer_rtx, STACK_POINTER_OFFSET - 16, 18);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      if (regs_ever_live[19]) 
+      if (regs_ever_live[19] && !global_regs[19])
 	{
 	  insn = save_fpr (stack_pointer_rtx, STACK_POINTER_OFFSET - 8, 19); 
 	  RTX_FRAME_RELATED_P (insn) = 1;
@@ -5385,6 +5435,16 @@ s390_emit_prologue ()
 	  set_mem_alias_set (addr, s390_sr_alias_set);
 	  insn = emit_insn (gen_move_insn (addr, temp_reg));
 	}
+
+      /* If we support asynchronous exceptions (e.g. for Java),
+	 we need to make sure the backchain pointer is set up
+	 before any possibly trapping memory access.  */
+
+      if (TARGET_BACKCHAIN && flag_non_call_exceptions)
+	{
+	  addr = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode, addr));
+	}
     }
 
   /* Save fprs 8 - 15 (64 bit ABI).  */
@@ -5394,7 +5454,7 @@ s390_emit_prologue ()
       insn = emit_insn (gen_add2_insn (temp_reg, GEN_INT(-64)));
 
       for (i = 24; i < 32; i++)
-	if (regs_ever_live[i])
+	if (regs_ever_live[i] && !global_regs[i])
 	  {
 	    rtx addr = plus_constant (stack_pointer_rtx, 
 				      cfun->machine->frame_size - 64 + (i-24)*8);
@@ -5492,14 +5552,14 @@ s390_emit_epilogue ()
     }
   else
     {
-      if (regs_ever_live[18])
+      if (regs_ever_live[18] && !global_regs[18])
 	{
 	  if (area_bottom > STACK_POINTER_OFFSET - 16)
 	    area_bottom = STACK_POINTER_OFFSET - 16;
 	  if (area_top < STACK_POINTER_OFFSET - 8)
 	    area_top = STACK_POINTER_OFFSET - 8;
 	}
-      if (regs_ever_live[19])
+      if (regs_ever_live[19] && !global_regs[19])
 	{
 	  if (area_bottom > STACK_POINTER_OFFSET - 8)
 	    area_bottom = STACK_POINTER_OFFSET - 8;

@@ -359,9 +359,21 @@ extern int target_flags;
   { "subtarget_link_emul_suffix", SUBTARGET_LINK_EMUL_SUFFIX },	\
   { "subtarget_link_spec", SUBTARGET_LINK_SPEC },		\
   { "subtarget_asm_endian_spec", SUBTARGET_ASM_ENDIAN_SPEC },	\
+  { "subtarget_asm_relax_spec", SUBTARGET_ASM_RELAX_SPEC },	\
+  { "subtarget_asm_isa_spec", SUBTARGET_ASM_ISA_SPEC },	\
   SUBTARGET_EXTRA_SPECS
 
-#define ASM_SPEC  "%(subtarget_asm_endian_spec) %{mrelax:-relax}"
+#if TARGET_CPU_DEFAULT & HARD_SH4_BIT
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m[1235]*:-isa=sh4}"
+#else
+#define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4}"
+#endif
+
+#define SH_ASM_SPEC \
+ "%(subtarget_asm_endian_spec) %{mrelax:-relax %(subtarget_asm_relax_spec)}\
+%(subtarget_asm_isa_spec)"
+
+#define ASM_SPEC SH_ASM_SPEC
 
 #ifndef SUBTARGET_ASM_ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == LITTLE_ENDIAN_BIT
@@ -370,6 +382,8 @@ extern int target_flags;
 #define SUBTARGET_ASM_ENDIAN_SPEC "%{ml:-little} %{!ml:-big}"
 #endif
 #endif
+
+#define SUBTARGET_ASM_ISA_SPEC ""
 
 #define LINK_EMUL_PREFIX "sh%{ml:l}"
 
@@ -489,6 +503,13 @@ do {									\
       flag_schedule_insns = 0;						\
     }									\
 									\
+  if (align_loops == 0)							\
+    align_loops =  1 << (TARGET_SH5 ? 3 : 2);				\
+  if (align_jumps == 0)							\
+    align_jumps = 1 << CACHE_LOG;					\
+  else if (align_jumps < (TARGET_SHMEDIA ? 4 : 2))			\
+    align_jumps = TARGET_SHMEDIA ? 4 : 2;				\
+									\
   /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
      fetched as a pair from a longword boundary.			\
@@ -496,6 +517,20 @@ do {									\
   if (align_functions == 0)						\
     align_functions							\
       = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
+  /* The linker relaxation code breaks when a function contains		\
+     alignments that are larger than that at the start of a		\
+     compilation unit.  */						\
+  if (TARGET_RELAX)							\
+    {									\
+      int min_align							\
+	= align_loops > align_jumps ? align_loops : align_jumps;	\
+									\
+      /* Also take possible .long constants / mova tables int account.	*/\
+      if (min_align < 4)						\
+	min_align = 4;							\
+      if (align_functions < min_align)					\
+	align_functions = min_align;					\
+    }									\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -902,10 +937,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 #define HARD_REGNO_NREGS(REGNO, MODE) \
    (XD_REGISTER_P (REGNO) \
-    ? (GET_MODE_SIZE (MODE) / (2 * UNITS_PER_WORD)) \
+    ? ((GET_MODE_SIZE (MODE) + (2*UNITS_PER_WORD - 1)) / (2*UNITS_PER_WORD)) \
     : (TARGET_SHMEDIA && FP_REGISTER_P (REGNO)) \
     ? ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD/2 - 1) / (UNITS_PER_WORD/2)) \
-    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)) \
+    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    We can allow any mode in any general register.  The special registers
@@ -1360,8 +1395,9 @@ extern enum reg_class reg_class_from_letter[];
    ? R0_REGS								\
    : (CLASS == FPUL_REGS						\
       && ((GET_CODE (X) == REG						\
-          && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
-	      || REGNO (X) == T_REG))))					\
+	   && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
+	       || REGNO (X) == T_REG))					\
+	  || GET_CODE (X) == PLUS))					\
    ? GENERAL_REGS							\
    : CLASS == FPUL_REGS && immediate_operand ((X), (MODE))		\
    ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I (INTVAL (X))		\
@@ -3252,10 +3288,12 @@ extern int rtx_equal_function_value_matters;
 
 #define OPTIMIZE_MODE_SWITCHING(ENTITY) TARGET_SH4
 
+#define ACTUAL_NORMAL_MODE(ENTITY) \
+  (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
+
 #define NORMAL_MODE(ENTITY) \
   (sh_cfun_interrupt_handler_p () ? FP_MODE_NONE \
-   : TARGET_FPU_SINGLE ? FP_MODE_SINGLE \
-   : FP_MODE_DOUBLE)
+   : ACTUAL_NORMAL_MODE (ENTITY))
 
 #define EPILOGUE_USES(REGNO)       ((TARGET_SH2E || TARGET_SH4)		\
 				    && (REGNO) == FPSCR_REG)

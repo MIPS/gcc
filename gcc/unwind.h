@@ -18,6 +18,13 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
+/* As a special exception, if you include this header file into source
+   files compiled by GCC, this header file does not by itself cause
+   the resulting executable to be covered by the GNU General Public
+   License.  This exception does not however invalidate any other
+   reasons why the executable file might be covered by the GNU General
+   Public License.  */
+
 /* This is derived from the C++ ABI for IA-64.  Where we diverge
    for cross-architecture compatibility are noted with "@@@".  */
 
@@ -130,6 +137,9 @@ extern void _Unwind_SetGR (struct _Unwind_Context *, int, _Unwind_Word);
 
 extern _Unwind_Ptr _Unwind_GetIP (struct _Unwind_Context *);
 extern void _Unwind_SetIP (struct _Unwind_Context *, _Unwind_Ptr);
+
+/* @@@ Retrieve the CFA of the given context.  */
+extern _Unwind_Word _Unwind_GetCFA (struct _Unwind_Context *);
 
 extern void *_Unwind_GetLanguageSpecificData (struct _Unwind_Context *);
 

@@ -1292,6 +1292,8 @@ struct cum_arg
   {"bit_operator", {XOR, AND, IOR}},					\
   {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},			\
   {"eqne_operator", {EQ, NE}},						\
-  {"gtuleu_operator", {GTU, LEU}},
+  {"gtle_operator", {GT, LE, GTU, LEU}},				\
+  {"gtuleu_operator", {GTU, LEU}},					\
+  {"iorxor_operator", {IOR, XOR}},
 
 #endif /* ! GCC_H8300_H */

@@ -1851,6 +1851,7 @@ do {							\
 #define MD_REG_FIRST 64
 #define MD_REG_LAST  66
 #define MD_REG_NUM   (MD_REG_LAST - MD_REG_FIRST + 1)
+#define MD_DBX_FIRST (FP_DBX_FIRST + FP_REG_NUM)
 
 #define ST_REG_FIRST 67
 #define ST_REG_LAST  74
@@ -2921,12 +2922,15 @@ typedef struct mips_args {
   fprintf (FILE, "\t.set\tnoat\n");					\
   fprintf (FILE, "\tmove\t%s,%s\t\t# save current return address\n",	\
 	   reg_names[GP_REG_FIRST + 1], reg_names[GP_REG_FIRST + 31]);	\
-  fprintf (FILE,							\
-	   "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",	\
-	   TARGET_64BIT ? "dsubu" : "subu",				\
-	   reg_names[STACK_POINTER_REGNUM],				\
-	   reg_names[STACK_POINTER_REGNUM],				\
-	   Pmode == DImode ? 16 : 8);					\
+  if (mips_abi != ABI_N32 && mips_abi != ABI_64)			\
+    {									\
+      fprintf (FILE,							\
+	       "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n", \
+	       TARGET_64BIT ? "dsubu" : "subu",				\
+	       reg_names[STACK_POINTER_REGNUM],				\
+	       reg_names[STACK_POINTER_REGNUM],				\
+	       Pmode == DImode ? 16 : 8);				\
+    }									\
   fprintf (FILE, "\tjal\t_mcount\n");                                   \
   fprintf (FILE, "\t.set\tat\n");					\
 }

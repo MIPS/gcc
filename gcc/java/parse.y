@@ -3527,9 +3527,16 @@ resolve_inner_class (htab_t circularity_hash, tree cl, tree *enclosing,
 	    return decl;
 	}
 
-      /* Now go to the upper classes, bail out if necessary. We will
+      /* Now go to the upper classes, bail out if necessary.  We will
 	 analyze the returned SUPER and act accordingly (see
-	 do_resolve_class.) */
+	 do_resolve_class).  */
+      if (JPRIMITIVE_TYPE_P (TREE_TYPE (local_enclosing))
+	  || TREE_TYPE (local_enclosing) == void_type_node)
+	{
+	  parse_error_context (cl, "Qualifier must be a reference");
+	  local_enclosing = NULL_TREE;
+	  break;
+	}
       local_super = CLASSTYPE_SUPER (TREE_TYPE (local_enclosing));
       if (!local_super || local_super == object_type_node)
         break;
@@ -3826,6 +3833,9 @@ create_interface (int flags, tree id, tree super)
   ctxp->interface_number = 0;
   CLASS_COMPLETE_P (decl) = 1;
   add_superinterfaces (decl, super);
+
+  /* Eventually sets the @deprecated tag flag */
+  CHECK_DEPRECATED (decl);
 
   return decl;
 }
@@ -9310,6 +9320,19 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
 	return error_mark_node;
       if (is_static)
 	field_ref = maybe_build_class_init_for_field (decl, field_ref);
+
+      /* If we're looking at a static field, we may need to generate a
+	 class initialization for it.  This can happen when the access
+	 looks like `field.ref', where `field' is a static field in an
+	 interface we implement.  */
+      if (!flag_emit_class_files
+	  && !flag_emit_xref
+	  && TREE_CODE (where_found) == VAR_DECL
+	  && FIELD_STATIC (where_found))
+	{
+	  build_static_field_ref (where_found);
+	  field_ref = build_class_init (DECL_CONTEXT (where_found), field_ref);
+	}
     }
   else
     field_ref = decl;
@@ -11136,8 +11159,6 @@ qualify_ambiguous_name (tree id)
     saved_current_class;
   int again, super_found = 0, this_found = 0, new_array_found = 0;
   int code;
-
-  decl = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* We first qualify the first element, then derive qualification of
      others based on the first one. If the first element is qualified

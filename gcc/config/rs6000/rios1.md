@@ -56,7 +56,7 @@
   "iu_rios1")
 
 (define_insn_reservation "rios1-imul" 5
-  (and (eq_attr "type" "imul")
+  (and (eq_attr "type" "imul,imul_compare")
        (eq_attr "cpu" "rios1"))
   "iu_rios1*5")
 
@@ -71,7 +71,7 @@
   "iu_rios1*3")
 
 (define_insn_reservation "ppc601-imul" 5
-  (and (eq_attr "type" "imul,imul2,imul3")
+  (and (eq_attr "type" "imul,imul2,imul3,imul_compare")
        (eq_attr "cpu" "ppc601"))
   "iu_rios1*5")
 

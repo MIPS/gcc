@@ -48,19 +48,19 @@ cxx_print_decl (FILE *file, tree node, int indent)
       && DECL_PENDING_INLINE_INFO (node))
     {
       fprintf (file, " pending-inline-info ");
-      fprintf (file, HOST_PTR_PRINTF, DECL_PENDING_INLINE_INFO (node));
+      fprintf (file, HOST_PTR_PRINTF, (void *) DECL_PENDING_INLINE_INFO (node));
     }
   if (TREE_CODE (node) == TYPE_DECL
       && DECL_SORTED_FIELDS (node))
     {
       fprintf (file, " sorted-fields ");
-      fprintf (file, HOST_PTR_PRINTF, DECL_SORTED_FIELDS (node));
+      fprintf (file, HOST_PTR_PRINTF, (void *) DECL_SORTED_FIELDS (node));
     }
   if ((TREE_CODE (node) == FUNCTION_DECL || TREE_CODE (node) == VAR_DECL)
       && DECL_TEMPLATE_INFO (node))
     {
       fprintf (file, " template-info ");
-      fprintf (file, HOST_PTR_PRINTF,  DECL_TEMPLATE_INFO (node));
+      fprintf (file, HOST_PTR_PRINTF, (void *) DECL_TEMPLATE_INFO (node));
     }
 }
 
@@ -153,12 +153,21 @@ cxx_print_type (FILE *file, tree node, int indent)
     }
 }
 
+
+static void
+cxx_print_binding (FILE *stream, cxx_binding *binding, const char *prefix)
+{
+  fprintf (stream, "%s <", prefix);
+  fprintf (stream, HOST_PTR_PRINTF, (char *) binding);
+  fprintf (stream, ">");
+}
+
 void
 cxx_print_identifier (FILE *file, tree node, int indent)
 {
-  print_node (file, "bindings", IDENTIFIER_NAMESPACE_BINDINGS (node), indent + 4);
+  cxx_print_binding (file, IDENTIFIER_NAMESPACE_BINDINGS (node), "bindings");
   print_node (file, "class", IDENTIFIER_CLASS_VALUE (node), indent + 4);
-  print_node (file, "local bindings", IDENTIFIER_BINDING (node), indent + 4);
+  cxx_print_binding (file, IDENTIFIER_BINDING (node), "local bindings");
   print_node (file, "label", IDENTIFIER_LABEL_VALUE (node), indent + 4);
   print_node (file, "template", IDENTIFIER_TEMPLATE (node), indent + 4);
   print_node (file, "implicit", IDENTIFIER_IMPLICIT_DECL (node), indent + 4);
@@ -170,12 +179,6 @@ cxx_print_xnode (FILE *file, tree node, int indent)
 {
   switch (TREE_CODE (node))
     {
-    case CPLUS_BINDING:
-      fprintf (file, " scope ");
-      fprintf (file, HOST_PTR_PRINTF, BINDING_SCOPE (node));
-      print_node (file, "value", BINDING_VALUE (node), indent+4);
-      print_node (file, "chain", TREE_CHAIN (node), indent+4);
-      break;
     case OVERLOAD:
       print_node (file, "function", OVL_FUNCTION (node), indent+4);
       print_node (file, "chain", TREE_CHAIN (node), indent+4);

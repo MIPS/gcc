@@ -41,7 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
-#include "c-incpath.h"
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -87,16 +86,14 @@ static int dump_one_header	PARAMS ((splay_tree_node, void *));
 static void cb_line_change     PARAMS ((cpp_reader *, const cpp_token *, int));
 static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
 					 const cpp_string *));
-static void cb_file_change    PARAMS ((cpp_reader *, const struct line_map *));
 static void cb_def_pragma	PARAMS ((cpp_reader *, unsigned int));
 static void cb_define		PARAMS ((cpp_reader *, unsigned int,
 					 cpp_hashnode *));
 static void cb_undef		PARAMS ((cpp_reader *, unsigned int,
 					 cpp_hashnode *));
 
-const char *
-init_c_lex (filename)
-     const char *filename;
+void
+init_c_lex ()
 {
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
@@ -113,19 +110,11 @@ init_c_lex (filename)
       toplevel->time = body_time;
     }
   
-#ifdef MULTIBYTE_CHARS
-  /* Change to the native locale for multibyte conversions.  */
-  setlocale (LC_CTYPE, "");
-  GET_ENVIRONMENT (literal_codeset, "LANG");
-#endif
-
   cb = cpp_get_callbacks (parse_in);
 
   cb->line_change = cb_line_change;
   cb->ident = cb_ident;
-  cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
-  cb->simplify_path = simplify_path;
   cb->valid_pch = c_common_valid_pch;
   cb->read_pch = c_common_read_pch;
 
@@ -137,35 +126,6 @@ init_c_lex (filename)
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
-
-  /* Start it at 0.  */
-  lineno = 0;
-
-  return cpp_read_main_file (parse_in, filename, ident_hash);
-}
-
-/* A thin wrapper around the real parser that initializes the 
-   integrated preprocessor after debug output has been initialized.
-   Also, make sure the start_source_file debug hook gets called for
-   the primary source file.  */
-
-void
-c_common_parse_file (set_yydebug)
-     int set_yydebug ATTRIBUTE_UNUSED;
-{
-#if YYDEBUG != 0
-  yydebug = set_yydebug;
-#else
-  warning ("YYDEBUG not defined");
-#endif
-
-  (*debug_hooks->start_source_file) (lineno, input_filename);
-  cpp_finish_options (parse_in);
-
-  pch_init();
-  
-  yyparse ();
-  free_parser_stacks ();
 }
 
 struct c_fileinfo *
@@ -258,9 +218,8 @@ cb_line_change (pfile, token, parsing_args)
   src_lineno = SOURCE_LINE (map, token->line);
 }
 
-static void
-cb_file_change (pfile, new_map)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+void
+fe_file_change (new_map)
      const struct line_map *new_map;
 {
   unsigned int to_line = SOURCE_LINE (new_map, new_map->to_line);

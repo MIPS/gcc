@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.awt;
 
+import java.awt.event.MouseEvent;
 import java.awt.peer.ScrollPanePeer;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.ComponentPeer;
@@ -105,6 +106,8 @@ private int scrollbarDisplayPolicy;
 // Current scroll position
 private Point scrollPosition = new Point(0, 0);
 
+private boolean wheelScrollingEnabled;
+
 /*************************************************************************/
 
 /*
@@ -150,9 +153,11 @@ ScrollPane(int scrollbarDisplayPolicy)
 
   if (scrollbarDisplayPolicy != SCROLLBARS_NEVER)
     {
-      hAdjustable = new ScrollPaneAdjustable(Scrollbar.HORIZONTAL);
-      vAdjustable = new ScrollPaneAdjustable(Scrollbar.VERTICAL);
+      hAdjustable = new ScrollPaneAdjustable (this, Scrollbar.HORIZONTAL);
+      vAdjustable = new ScrollPaneAdjustable (this, Scrollbar.VERTICAL);
     }
+
+  wheelScrollingEnabled = true;
 }
 
 /*************************************************************************/
@@ -210,23 +215,17 @@ getVAdjustable()
   *
   * @return The viewport size.
   */
-public Dimension
-getViewportSize()
+public Dimension getViewportSize ()
 {
-  Dimension viewsize = getSize();
-  Insets insets = getInsets();
-  viewsize.width = viewsize.width - (insets.left + insets.right);
-  viewsize.height = viewsize.height - (insets.top + insets.bottom);
-
-  ScrollPaneAdjustable v = (ScrollPaneAdjustable)getVAdjustable();
-  ScrollPaneAdjustable h = (ScrollPaneAdjustable)getHAdjustable();
-
-  if ((v != null) && v.isVisible())
-    viewsize.width = viewsize.width - v.getSize().width;
-  if ((h != null) && h.isVisible())
-    viewsize.height = viewsize.height - v.getSize().height;
-
-  return(viewsize);
+  Dimension viewsize = getSize ();
+  Insets insets = getInsets ();
+  viewsize.width = (viewsize.width
+                    - (insets.left + insets.right)
+                    - getVScrollbarWidth ());
+  viewsize.height = (viewsize.height
+                     - (insets.top + insets.bottom)
+                     - getHScrollbarHeight ());
+  return viewsize;
 }
 
 /*************************************************************************/
@@ -338,15 +337,11 @@ setScrollPosition(int x, int y)
 public void
 addNotify()
 {
-  if (getPeer() == null)
+  if (!isDisplayable ())
     return;
 
   setPeer((ComponentPeer)getToolkit().createScrollPane(this));
-
-  if (hAdjustable != null)
-    hAdjustable.addNotify();
-  if (vAdjustable != null)
-    vAdjustable.removeNotify();
+  super.addNotify();
 }
 
 /*************************************************************************/
@@ -357,11 +352,6 @@ addNotify()
 public void
 removeNotify()
 {
-  if (hAdjustable != null)
-    hAdjustable.removeNotify();
-  if (vAdjustable != null)
-    vAdjustable.removeNotify();
-
   super.removeNotify();
 }
 
@@ -470,5 +460,37 @@ paramString()
   return(getClass().getName());
 }
 
+  /**
+   * Tells whether or not an event is enabled.
+   *
+   * @since 1.4
+   */
+  public boolean eventTypeEnabled (int type)
+  {
+    if (type == MouseEvent.MOUSE_WHEEL)
+      return wheelScrollingEnabled;
+
+    return super.eventTypeEnabled (type);
+  }
+
+  /**
+   * Tells whether or not wheel scrolling is enabled.
+   *
+   * @since 1.4
+   */
+  public boolean isWheelScrollingEnabled ()
+  {
+    return wheelScrollingEnabled;
+  }
+
+  /**
+   * Enables/disables wheel scrolling.
+   *
+   * @since 1.4
+   */
+  public void setWheelScrollingEnabled (boolean enable)
+  {
+    wheelScrollingEnabled = enable;
+  }
 } // class ScrollPane 
 

@@ -757,13 +757,7 @@ single_one_operand (operand, mode)
     {
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
-      unsigned HOST_WIDE_INT mask =
-	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
-	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
-	: ~(unsigned HOST_WIDE_INT) 0;
-      unsigned HOST_WIDE_INT value = INTVAL (operand);
-
-      if (exact_log2 (value & mask) >= 0)
+      if (exact_log2 (INTVAL (operand) & GET_MODE_MASK (mode)) >= 0)
 	return 1;
     }
 
@@ -782,13 +776,7 @@ single_zero_operand (operand, mode)
     {
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
-      unsigned HOST_WIDE_INT mask =
-	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
-	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
-	: ~(unsigned HOST_WIDE_INT) 0;
-      unsigned HOST_WIDE_INT value = INTVAL (operand);
-
-      if (exact_log2 (~value & mask) >= 0)
+      if (exact_log2 (~INTVAL (operand) & GET_MODE_MASK (mode)) >= 0)
 	return 1;
     }
 
@@ -1158,7 +1146,7 @@ h8300_and_costs (x)
   operands[1] = NULL;
   operands[2] = XEXP (x, 1);
   operands[3] = x;
-  return compute_logical_op_length (GET_MODE (x), operands);
+  return compute_logical_op_length (GET_MODE (x), operands) / 2;
 }
 
 static int
@@ -1176,7 +1164,7 @@ h8300_shift_costs (x)
   operands[1] = NULL;
   operands[2] = XEXP (x, 1);
   operands[3] = x;
-  return compute_a_shift_length (NULL, operands);
+  return compute_a_shift_length (NULL, operands) / 2;
 }
 
 static bool
@@ -1238,6 +1226,7 @@ h8300_rtx_costs (x, code, outer_code, total)
        If this operand isn't a register, fall back to 'R' handling.
    'Z' print int & 7.
    'b' print the bit opcode
+   'c' print the opcode corresponding to rtl
    'e' first word of 32 bit value - if reg, then least reg. if mem
        then least. if const then most sig word
    'f' second word of 32 bit value - if reg, then biggest reg. if mem
@@ -1385,6 +1374,19 @@ print_operand (file, x, code)
 	  break;
 	case AND:
 	  fprintf (file, "band");
+	  break;
+	default:
+	  break;
+	}
+      break;
+    case 'c':
+      switch (GET_CODE (x))
+	{
+	case IOR:
+	  fprintf (file, "or");
+	  break;
+	case XOR:
+	  fprintf (file, "xor");
 	  break;
 	default:
 	  break;
@@ -1701,9 +1703,11 @@ h8300_initial_elimination_offset (from, to)
      int from, to;
 {
   int offset = 0;
+  /* The number of bytes that the return address takes on the stack.  */
+  int pc_size = POINTER_SIZE / BITS_PER_UNIT;
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    offset = UNITS_PER_WORD + frame_pointer_needed * UNITS_PER_WORD;
+    offset = pc_size + frame_pointer_needed * UNITS_PER_WORD;
   else if (from == RETURN_ADDRESS_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     offset = frame_pointer_needed * UNITS_PER_WORD;
   else
@@ -1720,11 +1724,9 @@ h8300_initial_elimination_offset (from, to)
       offset += round_frame_size (get_frame_size ());
 
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-	offset += UNITS_PER_WORD;	/* Skip saved PC */
+	/* Skip saved PC.  */
+	offset += pc_size;
     }
-
-  if ((TARGET_H8300H || TARGET_H8300S) && TARGET_NORMAL_MODE)
-    offset -= 2;
 
   return offset;
 }
@@ -1795,7 +1797,14 @@ notice_update_cc (body, insn)
       set = single_set (insn);
       cc_status.value1 = SET_SRC (set);
       if (SET_DEST (set) != cc0_rtx)
-	cc_status.value2 = SET_DEST (set);
+	{
+	  /* If the destination is STRICT_LOW_PART, strip off
+	     STRICT_LOW_PART.  */
+	  if (GET_CODE (SET_DEST (set)) == STRICT_LOW_PART)
+	    cc_status.value2 = XEXP (SET_DEST (set), 0);
+	  else
+	    cc_status.value2 = SET_DEST (set);
+	}
       break;
 
     case CC_COMPARE:
@@ -1891,6 +1900,18 @@ eqne_operator (x, mode)
   return (code == EQ || code == NE);
 }
 
+/* Return nonzero if X is GT, LE, GTU, or LEU.  */
+
+int
+gtle_operator (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum rtx_code code = GET_CODE (x);
+
+  return (code == GT || code == LE || code == GTU || code == LEU);
+}
+
 /* Return nonzero if X is either GTU or LEU.  */
 
 int
@@ -1901,6 +1922,18 @@ gtuleu_operator (x, mode)
   enum rtx_code code = GET_CODE (x);
 
   return (code == GTU || code == LEU);
+}
+
+/* Return nonzero if X is either IOR or XOR.  */
+
+int
+iorxor_operator (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum rtx_code code = GET_CODE (x);
+
+  return (code == IOR || code == XOR);
 }
 
 /* Recognize valid operators for bit instructions.  */
@@ -2616,42 +2649,42 @@ static const struct shift_insn shift_one[2][3][3] =
   {
 /* SHIFT_ASHIFT */
     {
-      { "shll\t%X0", CC_NO_CARRY },
-      { "add.w\t%T0,%T0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "add.w\t%f0,%f0\n\taddx\t%y0,%y0\n\taddx\t%z0,%z0", 0 }
+      { "shll\t%X0", CC_SET_ZNV },
+      { "add.w\t%T0,%T0", CC_SET_ZN },
+      { "add.w\t%f0,%f0\n\taddx\t%y0,%y0\n\taddx\t%z0,%z0", CC_CLOBBER }
     },
 /* SHIFT_LSHIFTRT */
     {
-      { "shlr\t%X0", CC_NO_CARRY },
-      { "shlr\t%t0\n\trotxr\t%s0", 0 },
-      { "shlr\t%z0\n\trotxr\t%y0\n\trotxr\t%x0\n\trotxr\t%w0", 0 }
+      { "shlr\t%X0", CC_SET_ZNV },
+      { "shlr\t%t0\n\trotxr\t%s0", CC_CLOBBER },
+      { "shlr\t%z0\n\trotxr\t%y0\n\trotxr\t%x0\n\trotxr\t%w0", CC_CLOBBER }
     },
 /* SHIFT_ASHIFTRT */
     {
-      { "shar\t%X0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "shar\t%t0\n\trotxr\t%s0", 0 },
-      { "shar\t%z0\n\trotxr\t%y0\n\trotxr\t%x0\n\trotxr\t%w0", 0 }
+      { "shar\t%X0", CC_SET_ZNV },
+      { "shar\t%t0\n\trotxr\t%s0", CC_CLOBBER },
+      { "shar\t%z0\n\trotxr\t%y0\n\trotxr\t%x0\n\trotxr\t%w0", CC_CLOBBER }
     }
   },
 /* H8/300H */
   {
 /* SHIFT_ASHIFT */
     {
-      { "shll.b\t%X0", CC_NO_CARRY },
-      { "shll.w\t%T0", CC_NO_CARRY },
-      { "shll.l\t%S0", CC_NO_CARRY }
+      { "shll.b\t%X0", CC_SET_ZNV },
+      { "shll.w\t%T0", CC_SET_ZNV },
+      { "shll.l\t%S0", CC_SET_ZNV }
     },
 /* SHIFT_LSHIFTRT */
     {
-      { "shlr.b\t%X0", CC_NO_CARRY },
-      { "shlr.w\t%T0", CC_NO_CARRY },
-      { "shlr.l\t%S0", CC_NO_CARRY }
+      { "shlr.b\t%X0", CC_SET_ZNV },
+      { "shlr.w\t%T0", CC_SET_ZNV },
+      { "shlr.l\t%S0", CC_SET_ZNV }
     },
 /* SHIFT_ASHIFTRT */
     {
-      { "shar.b\t%X0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "shar.w\t%T0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "shar.l\t%S0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY }
+      { "shar.b\t%X0", CC_SET_ZNV },
+      { "shar.w\t%T0", CC_SET_ZNV },
+      { "shar.l\t%S0", CC_SET_ZNV }
     }
   }
 };
@@ -2660,21 +2693,21 @@ static const struct shift_insn shift_two[3][3] =
 {
 /* SHIFT_ASHIFT */
     {
-      { "shll.b\t#2,%X0", CC_NO_CARRY },
-      { "shll.w\t#2,%T0", CC_NO_CARRY },
-      { "shll.l\t#2,%S0", CC_NO_CARRY }
+      { "shll.b\t#2,%X0", CC_SET_ZNV },
+      { "shll.w\t#2,%T0", CC_SET_ZNV },
+      { "shll.l\t#2,%S0", CC_SET_ZNV }
     },
 /* SHIFT_LSHIFTRT */
     {
-      { "shlr.b\t#2,%X0", CC_NO_CARRY },
-      { "shlr.w\t#2,%T0", CC_NO_CARRY },
-      { "shlr.l\t#2,%S0", CC_NO_CARRY }
+      { "shlr.b\t#2,%X0", CC_SET_ZNV },
+      { "shlr.w\t#2,%T0", CC_SET_ZNV },
+      { "shlr.l\t#2,%S0", CC_SET_ZNV }
     },
 /* SHIFT_ASHIFTRT */
     {
-      { "shar.b\t#2,%X0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "shar.w\t#2,%T0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY },
-      { "shar.l\t#2,%S0", CC_OVERFLOW_UNUSABLE | CC_NO_CARRY }
+      { "shar.b\t#2,%X0", CC_SET_ZNV },
+      { "shar.w\t#2,%T0", CC_SET_ZNV },
+      { "shar.l\t#2,%S0", CC_SET_ZNV }
     }
 };
 
@@ -2769,8 +2802,11 @@ struct shift_info {
      or SHIFT_SPECIAL, and REMAINDER is nonzero.  */
   const char *shift2;
 
-  /* Valid CC flags.  */
-  int cc_valid_p;
+  /* CC status for SHIFT_INLINE.  */
+  int cc_inline;
+
+  /* CC status  for SHIFT_SPECIAL.  */
+  int cc_special;
 };
 
 static void get_shift_alg PARAMS ((enum shift_type,
@@ -2840,13 +2876,13 @@ get_shift_alg (shift_type, shift_mode, count, info)
       /* It is up to the caller to know that looping clobbers cc.  */
       info->shift1 = shift_one[cpu_type][shift_type][shift_mode].assembler;
       info->shift2 = shift_two[shift_type][shift_mode].assembler;
-      info->cc_valid_p = shift_one[cpu_type][shift_type][shift_mode].cc_valid;
+      info->cc_inline = shift_one[cpu_type][shift_type][shift_mode].cc_valid;
       goto end;
 
     case SHIFT_ROT_AND:
       info->shift1 = rotate_one[cpu_type][shift_type][shift_mode];
       info->shift2 = rotate_two[shift_type][shift_mode];
-      info->cc_valid_p = 0;
+      info->cc_inline = CC_CLOBBER;
       goto end;
 
     case SHIFT_SPECIAL:
@@ -2854,7 +2890,8 @@ get_shift_alg (shift_type, shift_mode, count, info)
       info->remainder = 0;
       info->shift1 = shift_one[cpu_type][shift_type][shift_mode].assembler;
       info->shift2 = shift_two[shift_type][shift_mode].assembler;
-      info->cc_valid_p = 0;
+      info->cc_inline = shift_one[cpu_type][shift_type][shift_mode].cc_valid;
+      info->cc_special = CC_CLOBBER;
       break;
     }
 
@@ -2908,10 +2945,12 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		{
 		  info->special = "mov.b\t%t0,%s0\n\tsub.b\t%t0,%t0";
 		  info->shift1  = "shlr.b\t%s0";
+		  info->cc_inline = CC_SET_ZNV;
 		}
 	      else
 		{
 		  info->special = "mov.b\t%t0,%s0\n\textu.w\t%T0";
+		  info->cc_special = CC_SET_ZNV;
 		}
 	      goto end;
 	    case SHIFT_ASHIFTRT:
@@ -2923,6 +2962,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      else
 		{
 		  info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0";
+		  info->cc_special = CC_SET_ZNV;
 		}
 	      goto end;
 	    }
@@ -2943,7 +2983,10 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      if (TARGET_H8300)
 		info->special = "mov.b\t%t0,%s0\n\tshll.b\t%s0\n\tsubx.b\t%t0,%t0\n\tshll.b\t%s0\n\tmov.b\t%t0,%s0\n\tbst.b\t#0,%s0";
 	      else if (TARGET_H8300H)
-		info->special = "shll.b\t%t0\n\tsubx.b\t%s0,%s0\n\tshll.b\t%t0\n\trotxl.b\t%s0\n\texts.w\t%T0";
+		{
+		  info->special = "shll.b\t%t0\n\tsubx.b\t%s0,%s0\n\tshll.b\t%t0\n\trotxl.b\t%s0\n\texts.w\t%T0";
+		  info->cc_special = CC_SET_ZNV;
+		}
 	      else /* TARGET_H8300S */
 		abort ();
 	      goto end;
@@ -3020,9 +3063,11 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "shlr.w\t%e0\n\tmov.w\t%f0,%e0\n\txor.w\t%f0,%f0\n\trotxr.l\t%S0";
+	      info->cc_special = CC_SET_ZNV;
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "shll.w\t%f0\n\tmov.w\t%e0,%f0\n\txor.w\t%e0,%e0\n\trotxl.l\t%S0";
+	      info->cc_special = CC_SET_ZNV;
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      abort ();
@@ -3050,6 +3095,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      else
 		{
 		  info->special = "mov.w\t%e0,%f0\n\textu.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
 		}
 	      goto end;
 	    case SHIFT_ASHIFTRT:
@@ -3061,6 +3107,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      else
 		{
 		  info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
 		}
 	      goto end;
 	    }
@@ -3074,14 +3121,17 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.b\t%w0,%z0\n\tsub.b\t%y0,%y0\n\tsub.w\t%f0,%f0";
 	      info->shift1  = "shll.b\t%z0";
+	      info->cc_inline = CC_SET_ZNV;
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.b\t%z0,%w0\n\tsub.b\t%x0,%x0\n\tsub.w\t%e0,%e0";
 	      info->shift1  = "shlr.b\t%w0";
+	      info->cc_inline = CC_SET_ZNV;
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.b\t%z0,%w0\n\tbld\t#7,%w0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0";
 	      info->shift1  = "shar.b\t%w0";
+	      info->cc_inline = CC_SET_ZNV;
 	      goto end;
 	    }
 	}
@@ -3097,9 +3147,11 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\textu.w\t%f0\n\textu.l\t%S0";
+	      info->cc_special = CC_SET_ZNV;
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\texts.w\t%f0\n\texts.l\t%S0";
+	      info->cc_special = CC_SET_ZNV;
 	      goto end;
 	    }
 	}
@@ -3115,7 +3167,10 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300H)
-		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		{
+		  info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
+		}
 	      else
 		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t#2,%S0\n\textu.l\t%S0";
 	      goto end;
@@ -3135,9 +3190,15 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      if (TARGET_H8300H)
-		info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		{
+		  info->special = "sub.w\t%f0,%f0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
+		}
 	      else
-		info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		{
+		  info->special = "sub.w\t%f0,%f0\n\trotl.l\t#2,%S0\n\trotl.l\t%S0\n\textu.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
+		}
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      abort ();
@@ -3186,12 +3247,15 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		{
 		case SHIFT_ASHIFT:
 		  info->special = "shlr.l\t%S0\n\txor.l\t%S0,%S0\n\trotxr.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
 		  goto end;
 		case SHIFT_LSHIFTRT:
 		  info->special = "shll.l\t%S0\n\txor.l\t%S0,%S0\n\trotxl.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
 		  goto end;
 		case SHIFT_ASHIFTRT:
 		  info->special = "shll\t%e0\n\tsubx\t%w0,%w0\n\texts.w\t%T0\n\texts.l\t%S0";
+		  info->cc_special = CC_SET_ZNV;
 		  goto end;
 		}
 	    }
@@ -3345,13 +3409,6 @@ output_a_shift (operands)
 	  /* Now emit one bit shifts for any residual.  */
 	  for (; n > 0; n--)
 	    output_asm_insn (info.shift1, operands);
-
-	  /* Keep track of CC.  */
-	  if (info.cc_valid_p)
-	    {
-	      cc_status.value1 = operands[0];
-	      cc_status.flags |= info.cc_valid_p;
-	    }
 	  return "";
 
 	case SHIFT_ROT_AND:
@@ -3386,8 +3443,6 @@ output_a_shift (operands)
 	    else
 	      abort ();
 
-	    cc_status.value1 = operands[0];
-	    cc_status.flags |= CC_NO_CARRY;
 	    output_asm_insn (insn_buf, operands);
 	    return "";
 	  }
@@ -3579,6 +3634,100 @@ compute_a_shift_length (insn, operands)
 	      wlength += 3 + h8300_asm_insn_count (info.shift1);
 	    }
 	  return 2 * wlength;
+
+	default:
+	  abort ();
+	}
+    }
+}
+
+int
+compute_a_shift_cc (insn, operands)
+     rtx insn ATTRIBUTE_UNUSED;
+     rtx *operands;
+{
+  rtx shift = operands[3];
+  enum machine_mode mode = GET_MODE (shift);
+  enum rtx_code code = GET_CODE (shift);
+  enum shift_type shift_type;
+  enum shift_mode shift_mode;
+  struct shift_info info;
+
+  switch (mode)
+    {
+    case QImode:
+      shift_mode = QIshift;
+      break;
+    case HImode:
+      shift_mode = HIshift;
+      break;
+    case SImode:
+      shift_mode = SIshift;
+      break;
+    default:
+      abort ();
+    }
+
+  switch (code)
+    {
+    case ASHIFTRT:
+      shift_type = SHIFT_ASHIFTRT;
+      break;
+    case LSHIFTRT:
+      shift_type = SHIFT_LSHIFTRT;
+      break;
+    case ASHIFT:
+      shift_type = SHIFT_ASHIFT;
+      break;
+    default:
+      abort ();
+    }
+
+  if (GET_CODE (operands[2]) != CONST_INT)
+    {
+      /* This case must be taken care of by one of the two splitters
+	 that convert a variable shift into a loop.  */
+      abort ();
+    }
+  else
+    {
+      int n = INTVAL (operands[2]);
+
+      /* If the count is negative, make it 0.  */
+      if (n < 0)
+	n = 0;
+      /* If the count is too big, truncate it.
+         ANSI says shifts of GET_MODE_BITSIZE are undefined - we choose to
+	 do the intuitive thing.  */
+      else if ((unsigned int) n > GET_MODE_BITSIZE (mode))
+	n = GET_MODE_BITSIZE (mode);
+
+      get_shift_alg (shift_type, shift_mode, n, &info);
+
+      switch (info.alg)
+	{
+	case SHIFT_SPECIAL:
+	  if (info.remainder == 0)
+	    return info.cc_special;
+
+	  /* Fall through.  */
+
+	case SHIFT_INLINE:
+	  return info.cc_inline;
+
+	case SHIFT_ROT_AND:
+	  /* This case always ends with an and instruction.  */
+	  return CC_SET_ZNV;
+
+	case SHIFT_LOOP:
+	  /* A loop to shift by a "large" constant value.
+	     If we have shift-by-2 insns, use them.  */
+	  if (info.shift2 != NULL)
+	    {
+	      if (n % 2)
+		return info.cc_inline;
+	    }
+	  return CC_CLOBBER;
 
 	default:
 	  abort ();
@@ -4086,14 +4235,24 @@ output_simode_bld (bild, operands)
     }
   else
     {
+      /* Determine if we can clear the destination first.  */
+      int clear_first = (REG_P (operands[0]) && REG_P (operands[1])
+			 && REGNO (operands[0]) != REGNO (operands[1]));
+
+      if (clear_first)
+	output_asm_insn ("sub.l\t%S0,%S0", operands);
+
       /* Output the bit load or bit inverse load.  */
       if (bild)
 	output_asm_insn ("bild\t%Z2,%Y1", operands);
       else
 	output_asm_insn ("bld\t%Z2,%Y1", operands);
 
-      /* Clear the destination register and perform the bit store.  */
-      output_asm_insn ("xor.l\t%S0,%S0\n\tbst\t#0,%w0", operands);
+      if (!clear_first)
+	output_asm_insn ("xor.l\t%S0,%S0", operands);
+
+      /* Perform the bit store.  */
+      output_asm_insn ("bst\t#0,%w0", operands);
     }
 
   /* All done.  */
@@ -4348,4 +4507,50 @@ h8300_tiny_constant_address_p (x)
 	      && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
 	  || ((TARGET_H8300S && !TARGET_NORMAL_MODE)
 	      && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
+}
+
+int
+byte_accesses_mergeable_p (addr1, addr2)
+     rtx addr1, addr2;
+{
+  HOST_WIDE_INT offset1, offset2;
+  rtx reg1, reg2;
+
+  if (REG_P (addr1))
+    {
+      reg1 = addr1;
+      offset1 = 0;
+    }
+  else if (GET_CODE (addr1) == PLUS
+	   && REG_P (XEXP (addr1, 0))
+	   && GET_CODE (XEXP (addr1, 1)) == CONST_INT)
+    {
+      reg1 = XEXP (addr1, 0);
+      offset1 = INTVAL (XEXP (addr1, 1));
+    }
+  else
+    return 0;
+
+  if (REG_P (addr2))
+    {
+      reg2 = addr2;
+      offset2 = 0;
+    }
+  else if (GET_CODE (addr2) == PLUS
+	   && REG_P (XEXP (addr2, 0))
+	   && GET_CODE (XEXP (addr2, 1)) == CONST_INT)
+    {
+      reg2 = XEXP (addr2, 0);
+      offset2 = INTVAL (XEXP (addr2, 1));
+    }
+  else
+    return 0;
+
+  if (((reg1 == stack_pointer_rtx && reg2 == stack_pointer_rtx)
+       || (reg1 == frame_pointer_rtx && reg2 == frame_pointer_rtx))
+      && offset1 % 2 == 0
+      && offset1 + 1 == offset2)
+    return 1;
+
+  return 0;
 }

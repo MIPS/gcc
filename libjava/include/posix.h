@@ -42,7 +42,23 @@ details.  */
 
 // Prefix and suffix for shared libraries.
 #define _Jv_platform_solib_prefix "lib"
+#if defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+#define _Jv_platform_solib_suffix ".dylib"
+#else
 #define _Jv_platform_solib_suffix ".so"
+#endif
+
+// Separator for file name components.
+#define _Jv_platform_file_separator ((jchar) '/')
+// Separator for path components.
+#define _Jv_platform_path_separator ((jchar) ':')
+
+// List of names for `JNI_OnLoad'.
+#define _Jv_platform_onload_names { "JNI_OnLoad", NULL }
+
+// Type of libffi ABI used by JNICALL methods.  NOTE: This must agree
+// with the JNICALL definition in jni.h
+#define _Jv_platform_ffi_abi FFI_DEFAULT_ABI
 
 #ifndef DISABLE_JAVA_NET
 #include <java/net/InetAddress.h>

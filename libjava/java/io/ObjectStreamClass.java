@@ -166,14 +166,14 @@ public class ObjectStreamClass implements Serializable
 
 
   /**
-     Returns a textual representation of this
-     <code>ObjectStreamClass</code> object including the name of the
-     class it represents as well as that class's serial version
-     stream-unique identifier.
-
-     @see getSerialVersionUID ()
-     @see getName ()
-  */
+   * Returns a textual representation of this
+   * <code>ObjectStreamClass</code> object including the name of the
+   * class it represents as well as that class's serial version
+   * stream-unique identifier.
+   *
+   * @see #getSerialVersionUID()
+   * @see #getName()
+   */
   public String toString ()
   {
     return "java.io.ObjectStreamClass< " + name + ", " + uid + " >";
@@ -190,6 +190,28 @@ public class ObjectStreamClass implements Serializable
   boolean hasWriteMethod ()
   {
     return (flags & ObjectStreamConstants.SC_WRITE_METHOD) != 0;
+  }
+
+
+  // Returns true iff the class that this ObjectStreamClass represents
+  // has the following method:
+  //
+  // private void readObject (ObjectOutputStream)
+  //
+  // This method is used by the class to override default
+  // serialization behavior.
+  boolean hasReadMethod ()
+  {
+      try
+      {
+	  Class[] readObjectParams = { ObjectInputStream.class };
+	  forClass ().getDeclaredMethod ("readObject", readObjectParams);
+	  return true;
+      }
+      catch (NoSuchMethodException e)
+      {
+	  return false;
+      }
   }
 
 

@@ -21,6 +21,11 @@
 // 27.8.1.4 Overridden virtual functions
 
 #include <fstream>
+#include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <locale>
 #include <testsuite_hooks.h>
 
@@ -74,6 +79,8 @@ const char name_03[] = "filebuf_virtuals-3.txt"; // empty file, need to create
 const char name_04[] = "filebuf_virtuals-4.txt"; // empty file, need to create
 const char name_05[] = "filebuf_virtuals-5.txt"; // empty file, need to create
 const char name_06[] = "filebuf_virtuals-6.txt"; // empty file, need to create
+const char name_07[] = "filebuf_virtuals-7.txt"; // empty file, need to create
+const char name_08[] = "filebuf_virtuals-8.txt"; // empty file, need to create
 
 class derived_filebuf: public std::filebuf
 {
@@ -544,6 +551,7 @@ class MyTraits : public std::char_traits<char>
 public:
   static bool eq(char c1, char c2)
   {
+    bool test = true;
     VERIFY( c1 != 'X' );
     VERIFY( c2 != 'X' );
     return std::char_traits<char>::eq(c1, c2);
@@ -704,6 +712,162 @@ void test12()
   fbuf.close();  
 }
 
+class errorcvt : public std::codecvt<char, char, mbstate_t>
+{
+protected:
+  std::codecvt_base::result
+  do_out(mbstate_t&, const char* from, const char*,
+	 const char*& from_next, char* to, char*,
+	 char*& to_next) const
+  {
+    from_next = from;
+    to_next = to;
+    return std::codecvt<char, char, mbstate_t>::error;
+  }
+  
+  virtual bool do_always_noconv() const throw()
+  {
+    return false;
+  }
+};
+
+// libstdc++/9182
+void test13()
+{
+  using namespace std;
+  bool test = true;
+
+  locale loc;
+  loc = locale(loc, new errorcvt);
+  
+  filebuf fbuf1;
+  fbuf1.pubimbue(loc);
+  fbuf1.open(name_07, ios_base::out | ios_base::trunc);
+  fbuf1.sputn("ison", 4); 
+  int r = fbuf1.pubsync();
+  VERIFY( r == -1 );
+  fbuf1.close();
+}
+
+void test14()
+{
+  using namespace std;
+  bool test = true;
+  
+  locale loc;
+  loc = locale(loc, new errorcvt);
+  
+  filebuf fbuf1;
+  fbuf1.pubimbue(loc);
+  fbuf1.pubsetbuf(0, 0);
+  fbuf1.open(name_07, ios_base::out | ios_base::trunc);
+  streamsize n = fbuf1.sputn("onne", 4);
+  VERIFY( n == 0 );
+  fbuf1.close();
+}
+
+
+class OverBuf : public std::filebuf
+{
+public:
+  int_type pub_overflow(int_type c = traits_type::eof())
+  { return std::filebuf::overflow(c); }
+};
+
+// libstdc++/9988
+void test15()
+{
+  using namespace std;
+  bool test = true;
+  
+  OverBuf fb;
+  fb.open(name_08, ios_base::out | ios_base::trunc);
+  
+  fb.sputc('a');
+  fb.pub_overflow('b');
+  fb.pub_overflow();
+  fb.sputc('c');
+  fb.close();
+
+  filebuf fbin;
+  fbin.open(name_08, ios_base::in);
+  filebuf::int_type c;
+  c = fbin.sbumpc();
+  VERIFY( c == 'a' );
+  c = fbin.sbumpc();
+  VERIFY( c == 'b' );
+  c = fbin.sbumpc();
+  VERIFY( c == 'c' );
+  c = fbin.sbumpc();
+  VERIFY( c == filebuf::traits_type::eof() );
+  fbin.close();
+}
+
+class UnderBuf : public std::filebuf
+{
+public:
+  int_type
+  pub_underflow()
+  { return underflow(); }
+
+  std::streamsize
+  pub_showmanyc()
+  { return showmanyc(); }
+};
+
+// libstdc++/10097
+void test16()
+{
+  using namespace std;
+  bool test = true;
+
+  const char* name = "tmp_fifo1";
+  
+  signal(SIGPIPE, SIG_IGN);
+  unlink(name);
+  
+  if (0 != mkfifo(name, S_IRWXU))
+    {
+      VERIFY( false );
+    }
+  
+  int fval = fork();
+  if (fval == -1)
+    {
+      unlink(name);
+      VERIFY( false );
+    }
+  else if (fval == 0)
+    {
+      filebuf fbout;
+      fbout.open(name, ios_base::out);
+      fbout.sputn("0123456789", 10);
+      fbout.pubsync();
+      sleep(2);
+      fbout.close();
+      exit(0);
+    }
+
+  UnderBuf fb;
+  fb.open(name, ios_base::in);
+  sleep(1);
+  
+  fb.sgetc();
+  streamsize n = fb.pub_showmanyc();
+
+  while (n > 0)
+    {
+      --n;
+      
+      UnderBuf::int_type c = fb.pub_underflow();
+      VERIFY( c != UnderBuf::traits_type::eof() );
+      
+      fb.sbumpc();
+    }
+
+  fb.close();
+}
+
 main() 
 {
   test01();
@@ -714,11 +878,15 @@ main()
   test05();
   test06();
 
-  test07();
+  __gnu_cxx_test::run_test_wrapped_generic_locale_exception_catcher(test07);
   test08();
   test09();
   test10();
   test11();
   test12();
+  test13();
+  test14();
+  test15();
+  test16();
   return 0;
 }

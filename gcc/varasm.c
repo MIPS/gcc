@@ -1562,6 +1562,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   else if (DECL_INITIAL (decl) == 0
 	   || DECL_INITIAL (decl) == error_mark_node
 	   || (flag_zero_initialized_in_bss
+	       /* Leave constant zeroes in .rodata so they can be shared.  */
+	       && !TREE_READONLY (decl)
 	       && initializer_zerop (DECL_INITIAL (decl))))
     {
       unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
@@ -2124,7 +2126,11 @@ struct rtx_const GTY(())
   ENUM_BITFIELD(machine_mode) mode : 16;
   union rtx_const_un {
     REAL_VALUE_TYPE GTY ((tag ("4"))) du;
-    struct addr_const GTY ((tag ("1"))) addr;
+    struct rtx_const_u_addr {
+      rtx base;
+      const char *symbol;
+      HOST_WIDE_INT offset;
+    } GTY ((tag ("1"))) addr;
     struct rtx_const_u_di {
       HOST_WIDE_INT high;
       HOST_WIDE_INT low;
@@ -2632,8 +2638,6 @@ output_constant_def (exp, defer)
   int labelno = -1;
   rtx rtl;
 
-  defstr = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
-
   /* We can't just use the saved RTL if this is a deferred string constant
      and we are not to defer anymore.  */
   if (TREE_CODE (exp) != INTEGER_CST && TREE_CST_RTL (exp)
@@ -3066,13 +3070,12 @@ decode_rtx_const (mode, x, value)
   if (value->kind >= RTX_INT && value->un.addr.base != 0)
     switch (GET_CODE (value->un.addr.base))
       {
-#if 0
       case SYMBOL_REF:
 	/* Use the string's address, not the SYMBOL_REF's address,
 	   for the sake of addresses of library routines.  */
-	value->un.addr.base = (rtx) XSTR (value->un.addr.base, 0);
+	value->un.addr.symbol = XSTR (value->un.addr.base, 0);
+	value->un.addr.base = NULL_RTX;
 	break;
-#endif
 
       case LABEL_REF:
 	/* For a LABEL_REF, compare labels.  */
@@ -3097,7 +3100,8 @@ simplify_subtraction (x)
 
   if (val0.kind >= RTX_INT
       && val0.kind == val1.kind
-      && val0.un.addr.base == val1.un.addr.base)
+      && val0.un.addr.base == val1.un.addr.base
+      && val0.un.addr.symbol == val1.un.addr.symbol)
     return GEN_INT (val0.un.addr.offset - val1.un.addr.offset);
 
   return x;
@@ -4031,6 +4035,23 @@ output_constant (exp, size, align)
 	{
 	  thissize = MIN (TREE_STRING_LENGTH (exp), size);
 	  assemble_string (TREE_STRING_POINTER (exp), thissize);
+	}
+      else if (TREE_CODE (exp) == VECTOR_CST)
+	{
+	  int elt_size;
+	  tree link;
+	  unsigned int nalign;
+	  enum machine_mode inner;
+
+	  inner = GET_MODE_INNER (TYPE_MODE (TREE_TYPE (exp)));
+	  nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
+
+	  elt_size = GET_MODE_UNIT_SIZE (TYPE_MODE (TREE_TYPE (exp)));
+
+	  link = TREE_VECTOR_CST_ELTS (exp);
+	  output_constant (TREE_VALUE (link), elt_size, align);
+	  while ((link = TREE_CHAIN (link)) != NULL)
+	    output_constant (TREE_VALUE (link), elt_size, nalign);
 	}
       else
 	abort ();
