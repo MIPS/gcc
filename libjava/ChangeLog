@@ -1,3 +1,9 @@
+2004-03-02  Olga Rodimina  <rodimina@redhat.com>
+
+	* Makefile.am: Added java/awt/image/AffineTransformOp.java
+	* Makefile.in: Re-generated.
+	* java/awt/image/AffineTransformOp.java: New Class.
+
 2004-03-01  Olga Rodimina  <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java

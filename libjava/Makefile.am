@@ -1104,6 +1104,7 @@ java/awt/image/RenderedImage.java \
 java/awt/image/TileObserver.java \
 java/awt/image/VolatileImage.java \
 java/awt/image/WritableRenderedImage.java \
+java/awt/image/AffineTransformOp.java \
 java/awt/image/renderable/ContextualRenderedImageFactory.java \
 java/awt/image/renderable/ParameterBlock.java \
 java/awt/image/renderable/RenderContext.java \

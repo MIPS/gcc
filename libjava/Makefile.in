@@ -809,6 +809,7 @@ java/awt/image/RenderedImage.java \
 java/awt/image/TileObserver.java \
 java/awt/image/VolatileImage.java \
 java/awt/image/WritableRenderedImage.java \
+java/awt/image/AffineTransformOp.java \
 java/awt/image/renderable/ContextualRenderedImageFactory.java \
 java/awt/image/renderable/ParameterBlock.java \
 java/awt/image/renderable/RenderContext.java \
@@ -3515,6 +3516,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/im/spi/InputMethod.P \
 .deps/java/awt/im/spi/InputMethodContext.P \
 .deps/java/awt/im/spi/InputMethodDescriptor.P \
+.deps/java/awt/image/AffineTransformOp.P \
 .deps/java/awt/image/AreaAveragingScaleFilter.P \
 .deps/java/awt/image/BufferStrategy.P \
 .deps/java/awt/image/BufferedImage.P \
