@@ -194,7 +194,12 @@ do {									\
   else if (!strcmp (rs6000_abi_name, "freebsd"))			\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "linux"))				\
-    rs6000_current_abi = ABI_V4;					\
+    {									\
+      if (TARGET_64BIT)							\
+	rs6000_current_abi = ABI_AIX;					\
+      else								\
+	rs6000_current_abi = ABI_V4;					\
+    }									\
   else if (!strcmp (rs6000_abi_name, "gnu"))				\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "netbsd"))				\
@@ -327,7 +332,7 @@ do {									\
 /* Size of the V.4 varargs area if needed.  */
 /* Override rs6000.h definition.  */
 #undef	RS6000_VARARGS_AREA
-#define RS6000_VARARGS_AREA ((cfun->machine->sysv_varargs_p) ? RS6000_VARARGS_SIZE : 0)
+#define RS6000_VARARGS_AREA (current_function_stdarg ? RS6000_VARARGS_SIZE : 0)
 
 /* Override default big endianism definitions in rs6000.h.  */
 #undef	BYTES_BIG_ENDIAN
@@ -1086,7 +1091,7 @@ extern int fixuplabelno;
 #define LINK_START_FREEBSD_SPEC	""
 
 #define LINK_OS_FREEBSD_SPEC "\
-  %{p:%e`-p' not supported; use `-pg' and gprof(1)} \
+  %{p:%nconsider using `-pg' instead of `-p' with gprof(1)} \
   %{Wl,*:%*} \
   %{v:-V} \
   %{assert*} %{R*} %{rpath*} %{defsym*} \

@@ -28,8 +28,10 @@
 // the GNU General Public License.
 
 #include <bits/c++config.h>
+#include <cxxabi.h>
 #include "unwind-cxx.h"
 
+#if _GLIBCXX_HOSTED
 #ifdef _GLIBCXX_HAVE_UNISTD_H
 # include <unistd.h>
 # define writestr(str)	write(2, str, sizeof(str) - 1)
@@ -42,9 +44,12 @@
 # include <cstdio>
 # define writestr(str)	std::fputs(str, stderr)
 #endif
+#else
+# define writestr(str) /* Empty */
+#endif
 
 extern "C" void
-__cxa_pure_virtual (void)
+__cxxabiv1::__cxa_pure_virtual (void)
 {
   writestr ("pure virtual method called\n");
   std::terminate ();

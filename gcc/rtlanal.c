@@ -81,10 +81,7 @@ rtx_unstable_p (rtx x)
   switch (code)
     {
     case MEM:
-      return ! RTX_UNCHANGING_P (x) || rtx_unstable_p (XEXP (x, 0));
-
-    case QUEUED:
-      return 1;
+      return !MEM_READONLY_P (x) || rtx_unstable_p (XEXP (x, 0));
 
     case CONST:
     case CONST_INT:
@@ -98,8 +95,7 @@ rtx_unstable_p (rtx x)
       /* As in rtx_varies_p, we have to use the actual rtx, not reg number.  */
       if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
 	  /* The arg pointer varies if it is not a fixed register.  */
-	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
-	  || RTX_UNCHANGING_P (x))
+	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]))
 	return 0;
 #ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
       /* ??? When call-clobbered, the value is stable modulo the restore
@@ -159,10 +155,7 @@ rtx_varies_p (rtx x, int for_alias)
   switch (code)
     {
     case MEM:
-      return ! RTX_UNCHANGING_P (x) || rtx_varies_p (XEXP (x, 0), for_alias);
-
-    case QUEUED:
-      return 1;
+      return !MEM_READONLY_P (x) || rtx_varies_p (XEXP (x, 0), for_alias);
 
     case CONST:
     case CONST_INT:
@@ -631,7 +624,7 @@ global_reg_mentioned_p (rtx x)
 {
   if (INSN_P (x))
     {
-      if (GET_CODE (x) == CALL_INSN)
+      if (CALL_P (x))
 	{
 	  if (! CONST_OR_PURE_CALL_P (x))
 	    return 1;
@@ -784,7 +777,7 @@ no_labels_between_p (rtx beg, rtx end)
   if (beg == end)
     return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
-    if (GET_CODE (p) == CODE_LABEL)
+    if (LABEL_P (p))
       return 0;
   return 1;
 }
@@ -797,7 +790,7 @@ no_jumps_between_p (rtx beg, rtx end)
 {
   rtx p;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
-    if (GET_CODE (p) == JUMP_INSN)
+    if (JUMP_P (p))
       return 0;
   return 1;
 }
@@ -816,7 +809,7 @@ reg_used_between_p (rtx reg, rtx from_insn, rtx to_insn)
   for (insn = NEXT_INSN (from_insn); insn != to_insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& (reg_overlap_mentioned_p (reg, PATTERN (insn))
-	   || (GET_CODE (insn) == CALL_INSN
+	   || (CALL_P (insn)
 	      && (find_reg_fusage (insn, USE, reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
       return 1;
@@ -915,7 +908,7 @@ reg_referenced_between_p (rtx reg, rtx from_insn, rtx to_insn)
   for (insn = NEXT_INSN (from_insn); insn != to_insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& (reg_referenced_p (reg, PATTERN (insn))
-	   || (GET_CODE (insn) == CALL_INSN
+	   || (CALL_P (insn)
 	      && find_reg_fusage (insn, USE, reg))))
       return 1;
   return 0;
@@ -946,15 +939,11 @@ reg_set_p (rtx reg, rtx insn)
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
       && (FIND_REG_INC_NOTE (insn, reg)
-	  || (GET_CODE (insn) == CALL_INSN
-	      /* We'd like to test call_used_regs here, but rtlanal.c can't
-		 reference that variable due to its use in genattrtab.  So
-		 we'll just be more conservative.
-
-		 ??? Unless we could ensure that the CALL_INSN_FUNCTION_USAGE
-		 information holds all clobbered registers.  */
+	  || (CALL_P (insn)
 	      && ((REG_P (reg)
-		   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
+		   && REGNO (reg) < FIRST_PSEUDO_REGISTER
+		   && TEST_HARD_REG_BIT (regs_invalidated_by_call,
+					 REGNO (reg)))
 		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
     return 1;
@@ -1037,7 +1026,7 @@ modified_between_p (rtx x, rtx start, rtx end)
       return 1;
 
     case MEM:
-      if (RTX_UNCHANGING_P (x))
+      if (MEM_READONLY_P (x))
 	return 0;
       if (modified_between_p (XEXP (x, 0), start, end))
 	return 1;
@@ -1095,7 +1084,7 @@ modified_in_p (rtx x, rtx insn)
       return 1;
 
     case MEM:
-      if (RTX_UNCHANGING_P (x))
+      if (MEM_READONLY_P (x))
 	return 0;
       if (modified_in_p (XEXP (x, 0), insn))
 	return 1;
@@ -1134,8 +1123,8 @@ insn_dependent_p (rtx x, rtx y)
 {
   rtx tmp;
 
-  if (! INSN_P (x) || ! INSN_P (y))
-    abort ();
+  gcc_assert (INSN_P (x));
+  gcc_assert (INSN_P (y));
 
   tmp = PATTERN (y);
   note_stores (PATTERN (x), insn_dependent_p_1, &tmp);
@@ -1368,7 +1357,7 @@ find_last_value (rtx x, rtx *pinsn, rtx valid_to, int allow_hwreg)
 {
   rtx p;
 
-  for (p = PREV_INSN (*pinsn); p && GET_CODE (p) != CODE_LABEL;
+  for (p = PREV_INSN (*pinsn); p && !LABEL_P (p);
        p = PREV_INSN (p))
     if (INSN_P (p))
       {
@@ -1589,11 +1578,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
       }
 
     default:
-#ifdef ENABLE_CHECKING
-      if (!CONSTANT_P (x))
-	abort ();
-#endif
-
+      gcc_assert (CONSTANT_P (x));
       return 0;
     }
 }
@@ -1755,8 +1740,7 @@ dead_or_set_p (rtx insn, rtx x)
   if (GET_CODE (x) == CC0)
     return 1;
 
-  if (!REG_P (x))
-    abort ();
+  gcc_assert (REG_P (x));
 
   regno = REGNO (x);
   last_regno = (regno >= FIRST_PSEUDO_REGISTER ? regno
@@ -1782,7 +1766,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
   if (find_regno_note (insn, REG_DEAD, test_regno))
     return 1;
 
-  if (GET_CODE (insn) == CALL_INSN
+  if (CALL_P (insn)
       && find_regno_fusage (insn, CLOBBER, test_regno))
     return 1;
 
@@ -1935,11 +1919,10 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
 {
   /* If it's not a CALL_INSN, it can't possibly have a
      CALL_INSN_FUNCTION_USAGE field, so don't bother checking.  */
-  if (GET_CODE (insn) != CALL_INSN)
+  if (!CALL_P (insn))
     return 0;
 
-  if (! datum)
-    abort ();
+  gcc_assert (datum);
 
   if (!REG_P (datum))
     {
@@ -1986,7 +1969,7 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
      to pseudo registers, so don't bother checking.  */
 
   if (regno >= FIRST_PSEUDO_REGISTER
-      || GET_CODE (insn) != CALL_INSN )
+      || !CALL_P (insn) )
     return 0;
 
   for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
@@ -2011,7 +1994,7 @@ pure_call_p (rtx insn)
 {
   rtx link;
 
-  if (GET_CODE (insn) != CALL_INSN || ! CONST_OR_PURE_CALL_P (insn))
+  if (!CALL_P (insn) || ! CONST_OR_PURE_CALL_P (insn))
     return 0;
 
   /* Look for the note that differentiates const and pure functions.  */
@@ -2051,7 +2034,7 @@ remove_note (rtx insn, rtx note)
 	return;
       }
 
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
@@ -2531,8 +2514,7 @@ replace_rtx (rtx x, rtx from, rtx to)
 	  x = simplify_subreg (GET_MODE (x), new,
 			       GET_MODE (SUBREG_REG (x)),
 			       SUBREG_BYTE (x));
-	  if (! x)
-	    abort ();
+	  gcc_assert (x);
 	}
       else
 	SUBREG_REG (x) = new;
@@ -2547,8 +2529,7 @@ replace_rtx (rtx x, rtx from, rtx to)
 	{
 	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
 					new, GET_MODE (XEXP (x, 0)));
-	  if (! x)
-	    abort ();
+	  gcc_assert (x);
 	}
       else
 	XEXP (x, 0) = new;
@@ -2711,7 +2692,7 @@ replace_label (rtx *x, void *data)
   /* If this is a JUMP_INSN, then we also need to fix the JUMP_LABEL
      field.  This is not handled by for_each_rtx because it doesn't
      handle unprinted ('0') fields.  */
-  if (GET_CODE (l) == JUMP_INSN && JUMP_LABEL (l) == old_label)
+  if (JUMP_P (l) && JUMP_LABEL (l) == old_label)
     JUMP_LABEL (l) = new_label;
 
   if ((GET_CODE (l) == LABEL_REF
@@ -2743,7 +2724,7 @@ rtx_referenced_p_1 (rtx *body, void *x)
     return y == NULL_RTX;
 
   /* Return true if a label_ref *BODY refers to label Y.  */
-  if (GET_CODE (*body) == LABEL_REF && GET_CODE (y) == CODE_LABEL)
+  if (GET_CODE (*body) == LABEL_REF && LABEL_P (y))
     return XEXP (*body, 0) == y;
 
   /* If *BODY is a reference to pool constant traverse the constant.  */
@@ -2771,10 +2752,10 @@ tablejump_p (rtx insn, rtx *labelp, rtx *tablep)
 {
   rtx label, table;
 
-  if (GET_CODE (insn) == JUMP_INSN
+  if (JUMP_P (insn)
       && (label = JUMP_LABEL (insn)) != NULL_RTX
       && (table = next_active_insn (label)) != NULL_RTX
-      && GET_CODE (table) == JUMP_INSN
+      && JUMP_P (table)
       && (GET_CODE (PATTERN (table)) == ADDR_VEC
 	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
     {
@@ -2849,7 +2830,7 @@ int
 computed_jump_p (rtx insn)
 {
   int i;
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     {
       rtx pat = PATTERN (insn);
 
@@ -2999,6 +2980,7 @@ commutative_operand_precedence (rtx op)
   if (code == CONST_DOUBLE)
     return -6;
   op = avoid_constant_pool_reference (op);
+  code = GET_CODE (op);
 
   switch (GET_RTX_CLASS (code))
     {
@@ -3103,7 +3085,7 @@ insns_safe_to_move_p (rtx from, rtx to, rtx *new_to)
 
   while (r)
     {
-      if (GET_CODE (r) == NOTE)
+      if (NOTE_P (r))
 	{
 	  switch (NOTE_LINE_NUMBER (r))
 	    {
@@ -3165,7 +3147,7 @@ loc_mentioned_in_p (rtx *loc, rtx in)
 
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      if (loc == &in->u.fld[i].rtx)
+      if (loc == &in->u.fld[i].rt_rtx)
 	return 1;
       if (fmt[i] == 'e')
 	{
@@ -3200,11 +3182,10 @@ subreg_lsb_1 (enum machine_mode outer_mode,
   if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
     /* If the subreg crosses a word boundary ensure that
        it also begins and ends on a word boundary.  */
-    if ((subreg_byte % UNITS_PER_WORD
-	 + GET_MODE_SIZE (outer_mode)) > UNITS_PER_WORD
-	&& (subreg_byte % UNITS_PER_WORD
-	    || GET_MODE_SIZE (outer_mode) % UNITS_PER_WORD))
-	abort ();
+    gcc_assert (!((subreg_byte % UNITS_PER_WORD
+		  + GET_MODE_SIZE (outer_mode)) > UNITS_PER_WORD
+		  && (subreg_byte % UNITS_PER_WORD
+		      || GET_MODE_SIZE (outer_mode) % UNITS_PER_WORD)));
 
   if (WORDS_BIG_ENDIAN)
     word = (GET_MODE_SIZE (inner_mode)
@@ -3247,8 +3228,7 @@ subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
   int mode_multiple, nregs_multiple;
   int y_offset;
 
-  if (xregno >= FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
 
   nregs_xmode = hard_regno_nregs[xregno][xmode];
   nregs_ymode = hard_regno_nregs[xregno][ymode];
@@ -3267,8 +3247,7 @@ subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
 
   /* size of ymode must not be greater than the size of xmode.  */
   mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
-  if (mode_multiple == 0)
-    abort ();
+  gcc_assert (mode_multiple != 0);
 
   y_offset = offset / GET_MODE_SIZE (ymode);
   nregs_multiple =  nregs_xmode / nregs_ymode;
@@ -3290,8 +3269,7 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   int mode_multiple, nregs_multiple;
   int y_offset;
 
-  if (xregno >= FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
 
   nregs_xmode = hard_regno_nregs[xregno][xmode];
   nregs_ymode = hard_regno_nregs[xregno][ymode];
@@ -3307,15 +3285,12 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   if (offset == subreg_lowpart_offset (ymode, xmode))
     return true;
 
-#ifdef ENABLE_CHECKING
   /* This should always pass, otherwise we don't know how to verify the
      constraint.  These conditions may be relaxed but subreg_offset would
      need to be redesigned.  */
-  if (GET_MODE_SIZE (xmode) % GET_MODE_SIZE (ymode)
-      || GET_MODE_SIZE (ymode) % nregs_ymode
-      || nregs_xmode % nregs_ymode)
-    abort ();
-#endif
+  gcc_assert ((GET_MODE_SIZE (xmode) % GET_MODE_SIZE (ymode)) == 0);
+  gcc_assert ((GET_MODE_SIZE (ymode) % nregs_ymode) == 0);
+  gcc_assert ((nregs_xmode % nregs_ymode) == 0);
 
   /* The XMODE value can be seen as a vector of NREGS_XMODE
      values.  The subreg must represent a lowpart of given field.
@@ -3327,16 +3302,14 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
 
   /* size of ymode must not be greater than the size of xmode.  */
   mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
-  if (mode_multiple == 0)
-    abort ();
+  gcc_assert (mode_multiple != 0);
 
   y_offset = offset / GET_MODE_SIZE (ymode);
   nregs_multiple =  nregs_xmode / nregs_ymode;
-#ifdef ENABLE_CHECKING
-  if (offset % GET_MODE_SIZE (ymode)
-      || mode_multiple % nregs_multiple)
-    abort ();
-#endif
+
+  gcc_assert ((offset % GET_MODE_SIZE (ymode)) == 0);
+  gcc_assert ((mode_multiple % nregs_multiple) == 0);
+
   return (!(y_offset % (mode_multiple / nregs_multiple)));
 }
 
@@ -3391,8 +3364,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
     if (GET_CODE (XEXP (p, 0)) == USE
 	&& REG_P (XEXP (XEXP (p, 0), 0)))
       {
-	if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
-	  abort ();
+	gcc_assert (REGNO (XEXP (XEXP (p, 0), 0)) < FIRST_PSEUDO_REGISTER);
 
 	/* We only care about registers which can hold function
 	   arguments.  */
@@ -3411,17 +3383,16 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 
       /* It is possible that some loads got CSEed from one call to
          another.  Stop in that case.  */
-      if (GET_CODE (before) == CALL_INSN)
+      if (CALL_P (before))
 	break;
 
       /* Our caller needs either ensure that we will find all sets
          (in case code has not been optimized yet), or take care
          for possible labels in a way by setting boundary to preceding
          CODE_LABEL.  */
-      if (GET_CODE (before) == CODE_LABEL)
+      if (LABEL_P (before))
 	{
-	  if (before != boundary)
-	    abort ();
+	  gcc_assert (before == boundary);
 	  break;
 	}
 
@@ -3536,7 +3507,7 @@ can_hoist_insn_p (rtx insn, rtx val, regset live)
     return false;
   /* We can move CALL_INSN, but we need to check that all caller clobbered
      regs are dead.  */
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     return false;
   /* In future we will handle hoisting of libcall sequences, but
      give up for now.  */
@@ -3582,7 +3553,7 @@ can_hoist_insn_p (rtx insn, rtx val, regset live)
 	}
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return true;
 }
@@ -3614,8 +3585,7 @@ hoist_update_store (rtx insn, rtx *xp, rtx val, rtx new)
       x = *xp;
     }
 
-  if (!REG_P (x))
-    abort ();
+  gcc_assert (REG_P (x));
 
   /* We've verified that hard registers are dead, so we may keep the side
      effect.  Otherwise replace it by new pseudo.  */
@@ -3634,6 +3604,7 @@ hoist_insn_after (rtx insn, rtx after, rtx val, rtx new)
   rtx pat;
   int i;
   rtx note;
+  int applied;
 
   insn = emit_copy_of_insn_after (insn, after);
   pat = PATTERN (insn);
@@ -3684,10 +3655,10 @@ hoist_insn_after (rtx insn, rtx after, rtx val, rtx new)
 	}
       break;
     default:
-      abort ();
+      gcc_unreachable ();
     }
-  if (!apply_change_group ())
-    abort ();
+  applied = apply_change_group ();
+  gcc_assert (applied);
 
   return insn;
 }
@@ -3699,8 +3670,7 @@ hoist_insn_to_edge (rtx insn, edge e, rtx val, rtx new)
 
   /* We cannot insert instructions on an abnormal critical edge.
      It will be easier to find the culprit if we die now.  */
-  if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
-    abort ();
+  gcc_assert (!(e->flags & EDGE_ABNORMAL) || !EDGE_CRITICAL_P (e));
 
   /* Do not use emit_insn_on_edge as we want to preserve notes and similar
      stuff.  We also emit CALL_INSNS and firends.  */
@@ -4189,7 +4159,7 @@ nonzero_bits1 (rtx x, enum machine_mode mode, rtx known_x,
 	    result_low = MIN (low0, low1);
 	    break;
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 
 	if (result_width < mode_width)
@@ -4784,4 +4754,40 @@ num_sign_bit_copies1 (rtx x, enum machine_mode mode, rtx known_x,
   nonzero = nonzero_bits (x, mode);
   return nonzero & ((HOST_WIDE_INT) 1 << (bitwidth - 1))
 	 ? 1 : bitwidth - floor_log2 (nonzero) - 1;
+}
+
+/* Calculate the rtx_cost of a single instruction.  A return value of
+   zero indicates an instruction pattern without a known cost.  */
+
+int
+insn_rtx_cost (rtx pat)
+{
+  int i, cost;
+  rtx set;
+
+  /* Extract the single set rtx from the instruction pattern.
+     We can't use single_set since we only have the pattern.  */
+  if (GET_CODE (pat) == SET)
+    set = pat;
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      set = NULL_RTX;
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  rtx x = XVECEXP (pat, 0, i);
+	  if (GET_CODE (x) == SET)
+	    {
+	      if (set)
+		return 0;
+	      set = x;
+	    }
+	}
+      if (!set)
+	return 0;
+    }
+  else
+    return 0;
+
+  cost = rtx_cost (SET_SRC (set), SET);
+  return cost > 0 ? cost : COSTS_N_INSNS (1);
 }

@@ -2191,14 +2191,35 @@ package body Freeze is
                Freeze_And_Append (Etype (E), Loc, Result);
             end if;
 
-            --  For object created by object declaration, perform required
-            --  categorization (preelaborate and pure) checks. Defer these
-            --  checks to freeze time since pragma Import inhibits default
-            --  initialization and thus pragma Import affects these checks.
+            --  Special processing for objects created by object declaration
 
             if Nkind (Declaration_Node (E)) = N_Object_Declaration then
+
+               --  For object created by object declaration, perform required
+               --  categorization (preelaborate and pure) checks. Defer these
+               --  checks to freeze time since pragma Import inhibits default
+               --  initialization and thus pragma Import affects these checks.
+
                Validate_Object_Declaration (Declaration_Node (E));
+
+               --  If there is an address clause, check it is valid
+
                Check_Address_Clause (E);
+
+               --  For imported objects, set Is_Public unless there is also
+               --  an address clause, which means that there is no external
+               --  symbol needed for the Import (Is_Public may still be set
+               --  for other unrelated reasons). Note that we delayed this
+               --  processing till freeze time so that we can be sure not
+               --  to set the flag if there is an address clause. If there
+               --  is such a clause, then the only purpose of the import
+               --  pragma is to suppress implicit initialization.
+
+               if Is_Imported (E)
+                 and then not Present (Address_Clause (E))
+               then
+                  Set_Is_Public (E);
+               end if;
             end if;
 
             --  Check that a constant which has a pragma Volatile[_Components]
@@ -3087,6 +3108,44 @@ package body Freeze is
             Result := New_List (F_Node);
          else
             Append (F_Node, Result);
+         end if;
+
+         --  A final pass over record types with discriminants. If the type
+         --  has an incomplete declaration, there may be constrained access
+         --  subtypes declared elsewhere, which do not depend on the discrimi-
+         --  nants of the type, and which are used as component types (i.e.
+         --  the full view is a recursive type). The designated types of these
+         --  subtypes can only be elaborated after the type itself, and they
+         --  need an itype reference.
+
+         if Ekind (E) = E_Record_Type
+           and then Has_Discriminants (E)
+         then
+            declare
+               Comp : Entity_Id;
+               IR   : Node_Id;
+               Typ  : Entity_Id;
+
+            begin
+               Comp := First_Component (E);
+
+               while Present (Comp) loop
+                  Typ  := Etype (Comp);
+
+                  if Ekind (Comp) = E_Component
+                    and then Is_Access_Type (Typ)
+                    and then Scope (Typ) /= E
+                    and then Base_Type (Designated_Type (Typ)) = E
+                    and then Is_Itype (Designated_Type (Typ))
+                  then
+                     IR := Make_Itype_Reference (Sloc (Comp));
+                     Set_Itype (IR, Designated_Type (Typ));
+                     Append (IR, Result);
+                  end if;
+
+                  Next_Component (Comp);
+               end loop;
+            end;
          end if;
       end if;
 
@@ -4237,7 +4296,7 @@ package body Freeze is
       Ensure_Type_Is_SA (Etype (E));
 
       --  Reset True_Constant flag, since something strange is going on
-      --  with the scoping here, and our simple value traceing may not
+      --  with the scoping here, and our simple value tracing may not
       --  be sufficient for this indication to be reliable. We kill the
       --  Constant_Value indication for the same reason.
 

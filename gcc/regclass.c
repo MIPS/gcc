@@ -104,6 +104,13 @@ static const char initial_call_used_regs[] = CALL_USED_REGISTERS;
 char call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 #endif
 
+#ifdef CALL_REALLY_USED_REGISTERS
+#define CALL_REALLY_USED_REGNO_P(X)  call_really_used_regs[X]
+#else
+#define CALL_REALLY_USED_REGNO_P(X)  call_used_regs[X]
+#endif
+
+
 /* Indexed by hard register number, contains 1 for registers that are
    fixed use or call used registers that cannot hold quantities across
    calls even if we are willing to save and restore them.  call fixed
@@ -190,6 +197,10 @@ const char * reg_names[] = REGISTER_NAMES;
    register.  */
 
 enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
+
+/* 1 if there is a register of given mode.  */
+
+bool have_regs_of_mode [MAX_MACHINE_MODE];
 
 /* 1 if class does contain register of given mode.  */
 
@@ -280,9 +291,8 @@ init_reg_sets (void)
 
   /* Sanity check: make sure the target macros FIXED_REGISTERS and
      CALL_USED_REGISTERS had the right number of initializers.  */
-  if (sizeof fixed_regs != sizeof initial_fixed_regs
-      || sizeof call_used_regs != sizeof initial_call_used_regs)
-    abort();
+  gcc_assert (sizeof fixed_regs == sizeof initial_fixed_regs);
+  gcc_assert (sizeof call_used_regs == sizeof initial_call_used_regs);
 
   memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
   memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
@@ -305,7 +315,6 @@ init_reg_sets_1 (void)
 {
   unsigned int i, j;
   unsigned int /* enum machine_mode */ m;
-  char allocatable_regs_of_mode [MAX_MACHINE_MODE];
 
   /* This macro allows the fixed or call-used registers
      and the register classes to depend on target flags.  */
@@ -424,6 +433,13 @@ init_reg_sets_1 (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
+      /* call_used_regs must include fixed_regs.  */
+      gcc_assert (!fixed_regs[i] || call_used_regs[i]);
+#ifdef CALL_REALLY_USED_REGISTERS
+      /* call_used_regs must include call_really_used_regs.  */
+      gcc_assert (!call_really_used_regs[i] || call_used_regs[i]);
+#endif
+
       if (fixed_regs[i])
 	SET_HARD_REG_BIT (fixed_reg_set, i);
       else
@@ -445,7 +461,11 @@ init_reg_sets_1 (void)
 	 If we are generating PIC code, the PIC offset table register is
 	 preserved across calls, though the target can override that.  */
 
-      if (i == STACK_POINTER_REGNUM || i == FRAME_POINTER_REGNUM)
+      if (i == STACK_POINTER_REGNUM)
+	;
+      else if (global_regs[i])
+	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
+      else if (i == FRAME_POINTER_REGNUM)
 	;
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
       else if (i == HARD_FRAME_POINTER_REGNUM)
@@ -459,18 +479,12 @@ init_reg_sets_1 (void)
       else if (i == (unsigned) PIC_OFFSET_TABLE_REGNUM && fixed_regs[i])
 	;
 #endif
-      else if (0
-#ifdef CALL_REALLY_USED_REGISTERS
-	       || call_really_used_regs[i]
-#else
-	       || call_used_regs[i]
-#endif
-	       || global_regs[i])
+      else if (CALL_REALLY_USED_REGNO_P (i))
 	SET_HARD_REG_BIT (regs_invalidated_by_call, i);
     }
 
+  memset (have_regs_of_mode, 0, sizeof (have_regs_of_mode));
   memset (contains_reg_of_mode, 0, sizeof (contains_reg_of_mode));
-  memset (allocatable_regs_of_mode, 0, sizeof (allocatable_regs_of_mode));
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
     for (i = 0; i < N_REG_CLASSES; i++)
       if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i])
@@ -479,7 +493,7 @@ init_reg_sets_1 (void)
 	      && HARD_REGNO_MODE_OK (j, m))
 	     {
 	       contains_reg_of_mode [i][m] = 1;
-	       allocatable_regs_of_mode [m] = 1;
+	       have_regs_of_mode [m] = 1;
 	       break;
 	     }
 
@@ -487,7 +501,7 @@ init_reg_sets_1 (void)
      and take the maximum cost of moving any subset to any other.  */
 
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
-    if (allocatable_regs_of_mode [m])
+    if (have_regs_of_mode [m])
       {
 	for (i = 0; i < N_REG_CLASSES; i++)
 	  if (contains_reg_of_mode [i][m])
@@ -642,7 +656,7 @@ memory_move_secondary_cost (enum machine_mode mode, enum reg_class class, int in
        what it is, so MEMORY_MOVE_COST really ought not to be calling
        here in that case.
 
-       I'm tempted to put in an abort here, but returning this will
+       I'm tempted to put in an assert here, but returning this will
        probably only give poor estimates, which is what we would've
        had before this code anyways.  */
     return partial_cost;
@@ -791,17 +805,25 @@ globalize_reg (int i)
 
   global_regs[i] = 1;
 
+  /* If we're globalizing the frame pointer, we need to set the
+     appropriate regs_invalidated_by_call bit, even if it's already
+     set in fixed_regs.  */
+  if (i != STACK_POINTER_REGNUM)
+    SET_HARD_REG_BIT (regs_invalidated_by_call, i);
+
   /* If already fixed, nothing else to do.  */
   if (fixed_regs[i])
     return;
 
   fixed_regs[i] = call_used_regs[i] = call_fixed_regs[i] = 1;
+#ifdef CALL_REALLY_USED_REGISTERS
+  call_really_used_regs[i] = 1;
+#endif
   n_non_fixed_regs--;
 
   SET_HARD_REG_BIT (fixed_reg_set, i);
   SET_HARD_REG_BIT (call_used_reg_set, i);
   SET_HARD_REG_BIT (call_fixed_reg_set, i);
-  SET_HARD_REG_BIT (regs_invalidated_by_call, i);
 }
 
 /* Now the data and code for the `regclass' pass, which happens
@@ -1087,7 +1109,7 @@ scan_one_insn (rtx insn, int pass)
 	 We need not check for code_label here;
 	 while a basic block can start with a code_label,
 	 INSN could not be at the beginning of that block.  */
-      if (previnsn == 0 || GET_CODE (previnsn) == JUMP_INSN)
+      if (previnsn == 0 || JUMP_P (previnsn))
 	{
 	  basic_block b;
 	  FOR_EACH_BB (b)
@@ -1560,7 +1582,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  win = address_operand (op, GET_MODE (op));
 		  /* We know this operand is an address, so we want it to be
 		     allocated to a register that can be the base of an
-		     address, ie BASE_REG_CLASS.  */
+		     address, i.e. BASE_REG_CLASS.  */
 		  classes[i]
 		    = reg_class_subunion[(int) classes[i]]
 		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
@@ -1611,10 +1633,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    break;
 		case 'i':
 		  if (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-		      )
+		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
 		    win = 1;
 		  break;
 
@@ -1645,10 +1664,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case 'g':
 		  if (MEM_P (op)
 		      || (CONSTANT_P (op)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))
-#endif
-			  ))
+			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))))
 		    win = 1;
 		  allows_mem[i] = 1;
 		case 'r':
@@ -1680,7 +1696,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			win = 1;
 		      /* We know this operand is an address, so we want it to
 			 be allocated to a register that can be the base of an
-			 address, ie BASE_REG_CLASS.  */
+			 address, i.e. BASE_REG_CLASS.  */
 		      classes[i]
 			= reg_class_subunion[(int) classes[i]]
 			  [(int) MODE_BASE_REG_CLASS (VOIDmode)];

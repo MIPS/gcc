@@ -322,6 +322,9 @@ struct cpp_reader
   /* If in_directive, the directive if known.  */
   const struct directive *directive;
 
+  /* Token generated while handling a directive, if any. */
+  cpp_token directive_result;
+
   /* Search paths for include files.  */
   struct cpp_dir *quote_include;	/* "" */
   struct cpp_dir *bracket_include;	/* <> */
@@ -334,6 +337,7 @@ struct cpp_reader
 
   /* File and directory hash table.  */
   struct htab *file_hash;
+  struct htab *dir_hash;
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
 
@@ -559,11 +563,6 @@ extern const char *_cpp_default_encoding (void);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1
-#define xnew(T)		(T *) xmalloc (sizeof(T))
-#define xcnew(T)	(T *) xcalloc (1, sizeof(T))
-#define xnewvec(T, N)	(T *) xmalloc (sizeof(T) * (N))
-#define xcnewvec(T, N)	(T *) xcalloc (N, sizeof(T))
-#define xobnew(O, T)	(T *) obstack_alloc (O, sizeof(T))
 
 /* These are inline functions instead of macros so we can get type
    checking.  */

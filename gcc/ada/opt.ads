@@ -72,6 +72,10 @@ package Opt is
    --  GNAT
    --  Current Ada version for compiler
 
+   Ada_Version_Runtime : Ada_Version_Type := Ada_05;
+   --  GNAT
+   --  Ada version used to compile the runtime
+
    Ada_Final_Suffix : constant String := "final";
    Ada_Final_Name : String_Ptr := new String'("ada" & Ada_Final_Suffix);
    --  GNATBIND
@@ -836,6 +840,11 @@ package Opt is
    --  GNAT, GBATBIND
    --  Set True if generated code uses the System.Secondary_Stack package.
    --  For the binder, set if any unit uses the secondary stack package.
+
+   Setup_Projects : Boolean := False;
+   --  GNAT DRIVER
+   --  Set to True for GNAT SETUP: the Project Manager creates non existing
+   --  object, library and exec directories.
 
    Shared_Libgnat : Boolean;
    --  GNATBIND

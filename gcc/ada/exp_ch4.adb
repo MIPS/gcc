@@ -47,6 +47,7 @@ with Opt;      use Opt;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
+with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
@@ -54,7 +55,6 @@ with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
 with Sinfo;    use Sinfo;
-with Sinfo.CN; use Sinfo.CN;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Targparm; use Targparm;
@@ -154,6 +154,17 @@ package body Exp_Ch4 is
    --  If the designated type is controlled, build final_list expression
    --  for created object. If context is an access parameter, create a
    --  local access type to have a usable finalization list.
+
+   function Has_Inferable_Discriminants (N : Node_Id) return Boolean;
+   --  Ada 2005 (AI-216): A view of an Unchecked_Union object has inferable
+   --  discriminants if it has a constrained nominal type, unless the object
+   --  is a component of an enclosing Unchecked_Union object that is subject
+   --  to a per-object constraint and the enclosing object lacks inferable
+   --  discriminants.
+   --
+   --  An expression of an Unchecked_Union type has inferable discriminants
+   --  if it is either a name of an object with inferable discriminants or a
+   --  qualified expression whose subtype mark denotes a constrained subtype.
 
    procedure Insert_Dereference_Action (N : Node_Id);
    --  N is an expression whose type is an access. When the type of the
@@ -521,7 +532,17 @@ package body Exp_Ch4 is
                --  Normal case, not a secondary stack allocation
 
                else
-                  Flist := Find_Final_List (PtrT);
+                  if Controlled_Type (T)
+                    and then Ekind (PtrT) = E_Anonymous_Access_Type
+                  then
+                     --  Create local finalization list for access parameter.
+
+                     Flist :=
+                       Get_Allocator_Final_List (N, Base_Type (T), PtrT);
+                  else
+                     Flist := Find_Final_List (PtrT);
+                  end if;
+
                   Attach :=  Make_Integer_Literal (Loc, 2);
                end if;
 
@@ -877,21 +898,27 @@ package body Exp_Ch4 is
    --     end if;
 
    --     declare
-   --        B1 : Index_T1 := B'first (1)
+   --        A1 : Index_T1 := A'first (1);
+   --        B1 : Index_T1 := B'first (1);
    --     begin
-   --        for A1 in A'range (1) loop
+   --        loop
    --           declare
-   --              B2 : Index_T2 := B'first (2)
+   --              A2 : Index_T2 := A'first (2);
+   --              B2 : Index_T2 := B'first (2);
    --           begin
-   --              for A2 in A'range (2) loop
+   --              loop
    --                 if A (A1, A2) /= B (B1, B2) then
    --                    return False;
    --                 end if;
 
+   --                 exit when A2 = A'last (2);
+   --                 A2 := Index_T2'succ (A2);
    --                 B2 := Index_T2'succ (B2);
    --              end loop;
    --           end;
 
+   --           exit when A1 = A'last (1);
+   --           A1 := Index_T1'succ (A1);
    --           B1 := Index_T1'succ (B1);
    --        end loop;
    --     end;
@@ -904,6 +931,10 @@ package body Exp_Ch4 is
    --  do an unchecked conversion of the actual. If either of the arrays
    --  has a bound depending on a discriminant, then we use the base type
    --  since otherwise we have an escaped discriminant in the function.
+
+   --  If both arrays are constrained and have the same bounds, we can
+   --  generate a loop with an explicit iteration scheme using a 'Range
+   --  attribute over the first array.
 
    function Expand_Array_Equality
      (Nod    : Node_Id;
@@ -949,26 +980,28 @@ package body Exp_Ch4 is
       --  This procedure returns the following code
       --
       --    declare
-      --       Bn : Index_T := B'First (n);
+      --       Bn : Index_T := B'First (N);
       --    begin
-      --       for An in A'range (n) loop
+      --       loop
       --          xxx
+      --          exit when An = A'Last (N);
+      --          An := Index_T'Succ (An)
       --          Bn := Index_T'Succ (Bn)
       --       end loop;
       --    end;
       --
-      --  Note: we don't need Bn or the declare block when the index types
-      --  of the two arrays are constrained and identical.
+      --  If both indices are constrained and identical, the procedure
+      --  returns a simpler loop:
       --
-      --  where N is the value of "n" in the above code. Index is the
+      --      for An in A'Range (N) loop
+      --         xxx
+      --      end loop
+      --
+      --  N is the dimension for which we are generating a loop. Index is the
       --  N'th index node, whose Etype is Index_Type_n in the above code.
       --  The xxx statement is either the loop or declare for the next
       --  dimension or if this is the last dimension the comparison
       --  of corresponding components of the arrays.
-      --
-      --  Note: if the index types are identical and constrained, we
-      --  need only one index, so we generate only An and we do not
-      --  need the declare block.
       --
       --  The actual way the code works is to return the comparison
       --  of corresponding components for the N+1 call. That's neater!
@@ -1119,6 +1152,24 @@ package body Exp_Ch4 is
            Handle_One_Dimension (N + 1, Next_Index (Index)));
 
          if Need_Separate_Indexes then
+            --  Generate guard for loop, followed by increments of indices.
+
+            Append_To (Stm_List,
+               Make_Exit_Statement (Loc,
+                 Condition =>
+                   Make_Op_Eq (Loc,
+                      Left_Opnd => New_Reference_To (An, Loc),
+                      Right_Opnd => Arr_Attr (A, Name_Last, N))));
+
+            Append_To (Stm_List,
+              Make_Assignment_Statement (Loc,
+                Name       => New_Reference_To (An, Loc),
+                Expression =>
+                  Make_Attribute_Reference (Loc,
+                    Prefix         => New_Reference_To (Index_T, Loc),
+                    Attribute_Name => Name_Succ,
+                    Expressions    => New_List (New_Reference_To (An, Loc)))));
+
             Append_To (Stm_List,
               Make_Assignment_Statement (Loc,
                 Name       => New_Reference_To (Bn, Loc),
@@ -1129,34 +1180,44 @@ package body Exp_Ch4 is
                     Expressions    => New_List (New_Reference_To (Bn, Loc)))));
          end if;
 
-         Loop_Stm :=
-           Make_Implicit_Loop_Statement (Nod,
-             Statements       => Stm_List,
-             Iteration_Scheme =>
-               Make_Iteration_Scheme (Loc,
-                 Loop_Parameter_Specification =>
-                   Make_Loop_Parameter_Specification (Loc,
-                     Defining_Identifier         => An,
-                     Discrete_Subtype_Definition =>
-                       Arr_Attr (A, Name_Range, N))));
-
-         --  If separate indexes, need a declare block to declare Bn
+         --  If separate indexes, we need a declare block for An and Bn,
+         --  and a loop without an iteration scheme.
 
          if Need_Separate_Indexes then
+            Loop_Stm :=
+              Make_Implicit_Loop_Statement (Nod, Statements => Stm_List);
+
             return
               Make_Block_Statement (Loc,
                 Declarations => New_List (
                   Make_Object_Declaration (Loc,
+                    Defining_Identifier => An,
+                    Object_Definition   => New_Reference_To (Index_T, Loc),
+                    Expression          => Arr_Attr (A, Name_First, N)),
+
+                  Make_Object_Declaration (Loc,
                     Defining_Identifier => Bn,
                     Object_Definition   => New_Reference_To (Index_T, Loc),
                     Expression          => Arr_Attr (B, Name_First, N))),
+
                 Handled_Statement_Sequence =>
                   Make_Handled_Sequence_Of_Statements (Loc,
                     Statements => New_List (Loop_Stm)));
 
-         --  If no separate indexes, return loop statement on its own
+         --  If no separate indexes, return loop statement with explicit
+         --  iteration scheme on its own
 
          else
+            Loop_Stm :=
+              Make_Implicit_Loop_Statement (Nod,
+                Statements       => Stm_List,
+                Iteration_Scheme =>
+                  Make_Iteration_Scheme (Loc,
+                    Loop_Parameter_Specification =>
+                      Make_Loop_Parameter_Specification (Loc,
+                        Defining_Identifier         => An,
+                        Discrete_Subtype_Definition =>
+                          Arr_Attr (A, Name_Range, N))));
             return Loop_Stm;
          end if;
       end Handle_One_Dimension;
@@ -1532,6 +1593,123 @@ package body Exp_Ch4 is
                end;
 
             else
+               --  Comparison between Unchecked_Union components
+
+               if Is_Unchecked_Union (Full_Type) then
+                  declare
+                     Lhs_Type      : Node_Id := Full_Type;
+                     Rhs_Type      : Node_Id := Full_Type;
+                     Lhs_Discr_Val : Node_Id;
+                     Rhs_Discr_Val : Node_Id;
+
+                  begin
+                     --  Lhs subtype
+
+                     if Nkind (Lhs) = N_Selected_Component then
+                        Lhs_Type := Etype (Entity (Selector_Name (Lhs)));
+                     end if;
+
+                     --  Rhs subtype
+
+                     if Nkind (Rhs) = N_Selected_Component then
+                        Rhs_Type := Etype (Entity (Selector_Name (Rhs)));
+                     end if;
+
+                     --  Lhs of the composite equality
+
+                     if Is_Constrained (Lhs_Type) then
+
+                        --  Since the enclosing record can never be an
+                        --  Unchecked_Union (this code is executed for records
+                        --  that do not have variants), we may reference its
+                        --  discriminant(s).
+
+                        if Nkind (Lhs) = N_Selected_Component
+                          and then Has_Per_Object_Constraint (
+                                     Entity (Selector_Name (Lhs)))
+                        then
+                           Lhs_Discr_Val :=
+                             Make_Selected_Component (Loc,
+                               Prefix => Prefix (Lhs),
+                               Selector_Name =>
+                                 New_Copy (
+                                   Get_Discriminant_Value (
+                                     First_Discriminant (Lhs_Type),
+                                     Lhs_Type,
+                                     Stored_Constraint (Lhs_Type))));
+
+                        else
+                           Lhs_Discr_Val := New_Copy (
+                             Get_Discriminant_Value (
+                               First_Discriminant (Lhs_Type),
+                               Lhs_Type,
+                               Stored_Constraint (Lhs_Type)));
+
+                        end if;
+                     else
+                        --  It is not possible to infer the discriminant since
+                        --  the subtype is not constrained.
+
+                        Insert_Action (Nod,
+                          Make_Raise_Program_Error (Loc,
+                            Reason => PE_Unchecked_Union_Restriction));
+
+                        --  Prevent Gigi from generating illegal code, change
+                        --  the equality to a standard False.
+
+                        return New_Occurrence_Of (Standard_False, Loc);
+                     end if;
+
+                     --  Rhs of the composite equality
+
+                     if Is_Constrained (Rhs_Type) then
+                        if Nkind (Rhs) = N_Selected_Component
+                          and then Has_Per_Object_Constraint (
+                                     Entity (Selector_Name (Rhs)))
+                        then
+                           Rhs_Discr_Val :=
+                             Make_Selected_Component (Loc,
+                               Prefix => Prefix (Rhs),
+                               Selector_Name =>
+                                 New_Copy (
+                                   Get_Discriminant_Value (
+                                     First_Discriminant (Rhs_Type),
+                                     Rhs_Type,
+                                     Stored_Constraint (Rhs_Type))));
+
+                        else
+                           Rhs_Discr_Val := New_Copy (
+                             Get_Discriminant_Value (
+                               First_Discriminant (Rhs_Type),
+                               Rhs_Type,
+                               Stored_Constraint (Rhs_Type)));
+
+                        end if;
+                     else
+                        Insert_Action (Nod,
+                          Make_Raise_Program_Error (Loc,
+                            Reason => PE_Unchecked_Union_Restriction));
+
+                        return Empty;
+                     end if;
+
+                     --  Call the TSS equality function with the inferred
+                     --  discriminant values.
+
+                     return
+                       Make_Function_Call (Loc,
+                         Name => New_Reference_To (Eq_Op, Loc),
+                         Parameter_Associations => New_List (
+                           Lhs,
+                           Rhs,
+                           Lhs_Discr_Val,
+                           Rhs_Discr_Val));
+                  end;
+               end if;
+
+               --  Shouldn't this be an else, we can't fall through
+               --  the above IF, right???
+
                return
                  Make_Function_Call (Loc,
                    Name => New_Reference_To (Eq_Op, Loc),
@@ -2914,6 +3092,27 @@ package body Exp_Ch4 is
                        Prefix => New_Reference_To (Typ, Loc))));
                Analyze_And_Resolve (N, Rtyp);
                return;
+
+            --  Ada 2005 (AI-216): Program_Error is raised when evaluating
+            --  a membership test if the subtype mark denotes a constrained
+            --  Unchecked_Union subtype and the expression lacks inferable
+            --  discriminants.
+
+            elsif Is_Unchecked_Union (Base_Type (Typ))
+              and then Is_Constrained (Typ)
+              and then not Has_Inferable_Discriminants (Lop)
+            then
+               Insert_Action (N,
+                 Make_Raise_Program_Error (Loc,
+                   Reason => PE_Unchecked_Union_Restriction));
+
+               --  Prevent Gigi from generating incorrect code by rewriting
+               --  the test as a standard False.
+
+               Rewrite (N,
+                 New_Occurrence_Of (Standard_False, Loc));
+
+               return;
             end if;
 
             --  Here we have a non-scalar type
@@ -3665,6 +3864,10 @@ package body Exp_Ch4 is
       --  build and analyze call, adding conversions if the operation is
       --  inherited.
 
+      function Has_Unconstrained_UU_Component (Typ : Node_Id) return Boolean;
+      --  Determines whether a type has a subcompoment of an unconstrained
+      --  Unchecked_Union subtype. Typ is a record type.
+
       -------------------------
       -- Build_Equality_Call --
       -------------------------
@@ -3682,13 +3885,314 @@ package body Exp_Ch4 is
             R_Exp := OK_Convert_To (Op_Type, R_Exp);
          end if;
 
-         Rewrite (N,
-           Make_Function_Call (Loc,
-             Name => New_Reference_To (Eq, Loc),
-             Parameter_Associations => New_List (L_Exp, R_Exp)));
+         --  If we have an Unchecked_Union, we need to add the inferred
+         --  discriminant values as actuals in the function call. At this
+         --  point, the expansion has determined that both operands have
+         --  inferable discriminants.
+
+         if Is_Unchecked_Union (Op_Type) then
+            declare
+               Lhs_Type      : constant Node_Id := Etype (L_Exp);
+               Rhs_Type      : constant Node_Id := Etype (R_Exp);
+               Lhs_Discr_Val : Node_Id;
+               Rhs_Discr_Val : Node_Id;
+
+            begin
+               --  Per-object constrained selected components require special
+               --  attention. If the enclosing scope of the component is an
+               --  Unchecked_Union, we can not reference its discriminants
+               --  directly. This is why we use the two extra parameters of
+               --  the equality function of the enclosing Unchecked_Union.
+
+               --  type UU_Type (Discr : Integer := 0) is
+               --     . . .
+               --  end record;
+               --  pragma Unchecked_Union (UU_Type);
+
+               --  1. Unchecked_Union enclosing record:
+
+               --     type Enclosing_UU_Type (Discr : Integer := 0) is record
+               --        . . .
+               --        Comp : UU_Type (Discr);
+               --        . . .
+               --     end Enclosing_UU_Type;
+               --     pragma Unchecked_Union (Enclosing_UU_Type);
+
+               --     Obj1 : Enclosing_UU_Type;
+               --     Obj2 : Enclosing_UU_Type (1);
+
+               --     . . . Obj1 = Obj2 . . .
+
+               --     Generated code:
+
+               --     if not (uu_typeEQ (obj1.comp, obj2.comp, a, b)) then
+
+               --  A and B are the formal parameters of the equality function
+               --  of Enclosing_UU_Type. The function always has two extra
+               --  formals to capture the inferred discriminant values.
+
+               --  2. Non-Unchecked_Union enclosing record:
+
+               --     type
+               --       Enclosing_Non_UU_Type (Discr : Integer := 0)
+               --     is record
+               --        . . .
+               --        Comp : UU_Type (Discr);
+               --        . . .
+               --     end Enclosing_Non_UU_Type;
+
+               --     Obj1 : Enclosing_Non_UU_Type;
+               --     Obj2 : Enclosing_Non_UU_Type (1);
+
+               --     . . . Obj1 = Obj2 . . .
+
+               --     Generated code:
+
+               --     if not (uu_typeEQ (obj1.comp, obj2.comp,
+               --                        obj1.discr, obj2.discr)) then
+
+               --  In this case we can directly reference the discriminants of
+               --  the enclosing record.
+
+               --  Lhs of equality
+
+               if Nkind (Lhs) = N_Selected_Component
+                 and then Has_Per_Object_Constraint (
+                            Entity (Selector_Name (Lhs)))
+               then
+                  --  Enclosing record is an Unchecked_Union, use formal A
+
+                  if Is_Unchecked_Union (Scope
+                       (Entity (Selector_Name (Lhs))))
+                  then
+                     Lhs_Discr_Val :=
+                       Make_Identifier (Loc,
+                         Chars => Name_A);
+
+                  --  Enclosing record is of a non-Unchecked_Union type, it is
+                  --  possible to reference the discriminant.
+
+                  else
+                     Lhs_Discr_Val :=
+                       Make_Selected_Component (Loc,
+                         Prefix => Prefix (Lhs),
+                         Selector_Name =>
+                           New_Copy (Get_Discriminant_Value (
+                             First_Discriminant (Lhs_Type),
+                             Lhs_Type,
+                             Stored_Constraint (Lhs_Type))));
+
+                  end if;
+
+               --  Comment needed here ???
+
+               else
+                  --  Infer the discriminant value
+
+                  Lhs_Discr_Val :=
+                    New_Copy (Get_Discriminant_Value (
+                      First_Discriminant (Lhs_Type),
+                      Lhs_Type,
+                      Stored_Constraint (Lhs_Type)));
+
+               end if;
+
+               --  Rhs of equality
+
+               if Nkind (Rhs) = N_Selected_Component
+                  and then Has_Per_Object_Constraint (
+                             Entity (Selector_Name (Rhs)))
+               then
+                  if Is_Unchecked_Union (Scope
+                       (Entity (Selector_Name (Rhs))))
+                  then
+                     Rhs_Discr_Val :=
+                       Make_Identifier (Loc,
+                         Chars => Name_B);
+
+                  else
+                     Rhs_Discr_Val :=
+                       Make_Selected_Component (Loc,
+                         Prefix => Prefix (Rhs),
+                         Selector_Name =>
+                           New_Copy (Get_Discriminant_Value (
+                             First_Discriminant (Rhs_Type),
+                             Rhs_Type,
+                             Stored_Constraint (Rhs_Type))));
+
+                  end if;
+               else
+                  Rhs_Discr_Val :=
+                    New_Copy (Get_Discriminant_Value (
+                      First_Discriminant (Rhs_Type),
+                      Rhs_Type,
+                      Stored_Constraint (Rhs_Type)));
+
+               end if;
+
+               Rewrite (N,
+                 Make_Function_Call (Loc,
+                   Name => New_Reference_To (Eq, Loc),
+                   Parameter_Associations => New_List (
+                     L_Exp,
+                     R_Exp,
+                     Lhs_Discr_Val,
+                     Rhs_Discr_Val)));
+            end;
+
+         --  Normal case, not an unchecked union
+
+         else
+            Rewrite (N,
+              Make_Function_Call (Loc,
+                Name => New_Reference_To (Eq, Loc),
+                Parameter_Associations => New_List (L_Exp, R_Exp)));
+         end if;
 
          Analyze_And_Resolve (N, Standard_Boolean, Suppress => All_Checks);
       end Build_Equality_Call;
+
+      ------------------------------------
+      -- Has_Unconstrained_UU_Component --
+      ------------------------------------
+
+      function Has_Unconstrained_UU_Component
+        (Typ : Node_Id) return Boolean
+      is
+         Tdef  : constant Node_Id :=
+                   Type_Definition (Declaration_Node (Typ));
+         Clist : Node_Id;
+         Vpart : Node_Id;
+
+         function Component_Is_Unconstrained_UU
+           (Comp : Node_Id) return Boolean;
+         --  Determines whether the subtype of the component is an
+         --  unconstrained Unchecked_Union.
+
+         function Variant_Is_Unconstrained_UU
+           (Variant : Node_Id) return Boolean;
+         --  Determines whether a component of the variant has an unconstrained
+         --  Unchecked_Union subtype.
+
+         -----------------------------------
+         -- Component_Is_Unconstrained_UU --
+         -----------------------------------
+
+         function Component_Is_Unconstrained_UU
+           (Comp : Node_Id) return Boolean
+         is
+         begin
+            if Nkind (Comp) /= N_Component_Declaration then
+               return False;
+            end if;
+
+            declare
+               Sindic : constant Node_Id :=
+                          Subtype_Indication (Component_Definition (Comp));
+
+            begin
+               --  Unconstrained nominal type. In the case of a constraint
+               --  present, the node kind would have been N_Subtype_Indication.
+
+               if Nkind (Sindic) = N_Identifier then
+                  return Is_Unchecked_Union (Base_Type (Etype (Sindic)));
+               end if;
+
+               return False;
+            end;
+         end Component_Is_Unconstrained_UU;
+
+         ---------------------------------
+         -- Variant_Is_Unconstrained_UU --
+         ---------------------------------
+
+         function Variant_Is_Unconstrained_UU
+           (Variant : Node_Id) return Boolean
+         is
+            Clist : constant Node_Id := Component_List (Variant);
+
+         begin
+            if Is_Empty_List (Component_Items (Clist)) then
+               return False;
+            end if;
+
+            declare
+               Comp : Node_Id := First (Component_Items (Clist));
+
+            begin
+               while Present (Comp) loop
+
+                  --  One component is sufficent
+
+                  if Component_Is_Unconstrained_UU (Comp) then
+                     return True;
+                  end if;
+
+                  Next (Comp);
+               end loop;
+            end;
+
+            --  None of the components withing the variant were of
+            --  unconstrained Unchecked_Union type.
+
+            return False;
+         end Variant_Is_Unconstrained_UU;
+
+      --  Start of processing for Has_Unconstrained_UU_Component
+
+      begin
+         if Null_Present (Tdef) then
+            return False;
+         end if;
+
+         Clist := Component_List (Tdef);
+         Vpart := Variant_Part (Clist);
+
+         --  Inspect available components
+
+         if Present (Component_Items (Clist)) then
+            declare
+               Comp : Node_Id := First (Component_Items (Clist));
+
+            begin
+               while Present (Comp) loop
+
+                  --  One component is sufficent
+
+                  if Component_Is_Unconstrained_UU (Comp) then
+                     return True;
+                  end if;
+
+                  Next (Comp);
+               end loop;
+            end;
+         end if;
+
+         --  Inspect available components withing variants
+
+         if Present (Vpart) then
+            declare
+               Variant : Node_Id := First (Variants (Vpart));
+
+            begin
+               while Present (Variant) loop
+
+                  --  One component within a variant is sufficent
+
+                  if Variant_Is_Unconstrained_UU (Variant) then
+                     return True;
+                  end if;
+
+                  Next (Variant);
+               end loop;
+            end;
+         end if;
+
+         --  Neither the available components, nor the components inside the
+         --  variant parts were of an unconstrained Unchecked_Union subtype.
+
+         return False;
+      end Has_Unconstrained_UU_Component;
 
    --  Start of processing for Expand_N_Op_Eq
 
@@ -3849,6 +4353,50 @@ package body Exp_Ch4 is
             end if;
 
             Build_Equality_Call (Op_Name);
+
+         --  Ada 2005 (AI-216): Program_Error is raised when evaluating the
+         --  predefined equality operator for a type which has a subcomponent
+         --  of an Unchecked_Union type whose nominal subtype is unconstrained.
+
+         elsif Has_Unconstrained_UU_Component (Typl) then
+            Insert_Action (N,
+              Make_Raise_Program_Error (Loc,
+                Reason => PE_Unchecked_Union_Restriction));
+
+            --  Prevent Gigi from generating incorrect code by rewriting the
+            --  equality as a standard False.
+
+            Rewrite (N,
+              New_Occurrence_Of (Standard_False, Loc));
+
+         elsif Is_Unchecked_Union (Typl) then
+
+            --  If we can infer the discriminants of the operands, we make a
+            --  call to the TSS equality function.
+
+            if Has_Inferable_Discriminants (Lhs)
+                 and then
+               Has_Inferable_Discriminants (Rhs)
+            then
+               Build_Equality_Call
+                 (TSS (Root_Type (Typl), TSS_Composite_Equality));
+
+            else
+               --  Ada 2005 (AI-216): Program_Error is raised when evaluating
+               --  the predefined equality operator for an Unchecked_Union type
+               --  if either of the operands lack inferable discriminants.
+
+               Insert_Action (N,
+                 Make_Raise_Program_Error (Loc,
+                   Reason => PE_Unchecked_Union_Restriction));
+
+               --  Prevent Gigi from generating incorrect code by rewriting
+               --  the equality as a standard False.
+
+               Rewrite (N,
+                 New_Occurrence_Of (Standard_False, Loc));
+
+            end if;
 
          --  If a type support function is present (for complex cases), use it
 
@@ -6068,8 +6616,16 @@ package body Exp_Ch4 is
                    Condition => Cond,
                    Reason    => CE_Tag_Check_Failed));
 
-               Change_Conversion_To_Unchecked (N);
-               Analyze_And_Resolve (N, Target_Type);
+               declare
+                  Conv : Node_Id;
+               begin
+                  Conv :=
+                    Make_Unchecked_Type_Conversion (Loc,
+                      Subtype_Mark => New_Occurrence_Of (Target_Type, Loc),
+                      Expression => Relocate_Node (Expression (N)));
+                  Rewrite (N, Conv);
+                  Analyze_And_Resolve (N, Target_Type);
+               end;
             end if;
          end;
 
@@ -6231,7 +6787,33 @@ package body Exp_Ch4 is
       --  assignment processing.
 
       elsif Is_Record_Type (Target_Type) then
-         Handle_Changed_Representation;
+
+         --  Ada 2005 (AI-216): Program_Error is raised when converting from
+         --  a derived Unchecked_Union type to an unconstrained non-Unchecked_
+         --  Union type if the operand lacks inferable discriminants.
+
+         if Is_Derived_Type (Operand_Type)
+           and then Is_Unchecked_Union (Base_Type (Operand_Type))
+           and then not Is_Constrained (Target_Type)
+           and then not Is_Unchecked_Union (Base_Type (Target_Type))
+           and then not Has_Inferable_Discriminants (Operand)
+         then
+            --  To prevent Gigi from generating illegal code, we make a
+            --  Program_Error node, but we give it the target type of the
+            --  conversion.
+
+            declare
+               PE : constant Node_Id := Make_Raise_Program_Error (Loc,
+                      Reason => PE_Unchecked_Union_Restriction);
+
+            begin
+               Set_Etype (PE, Target_Type);
+               Rewrite (N, PE);
+
+            end;
+         else
+            Handle_Changed_Representation;
+         end if;
 
       --  Case of conversions of enumeration types
 
@@ -6498,31 +7080,6 @@ package body Exp_Ch4 is
    --  Start of processing for Expand_Record_Equality
 
    begin
-      --  Special processing for the unchecked union case, which will occur
-      --  only in the context of tagged types and dynamic dispatching, since
-      --  other cases are handled statically. We return True, but insert a
-      --  raise Program_Error statement.
-
-      if Is_Unchecked_Union (Typ) then
-
-         --  If this is a component of an enclosing record, return the Raise
-         --  statement directly.
-
-         if No (Parent (Lhs)) then
-            Result :=
-              Make_Raise_Program_Error (Loc,
-                Reason => PE_Unchecked_Union_Restriction);
-            Set_Etype (Result, Standard_Boolean);
-            return Result;
-
-         else
-            Insert_Action (Lhs,
-              Make_Raise_Program_Error (Loc,
-                Reason => PE_Unchecked_Union_Restriction));
-            return New_Occurrence_Of (Standard_True, Loc);
-         end if;
-      end if;
-
       --  Generates the following code: (assuming that Typ has one Discr and
       --  component C2 is also a record)
 
@@ -6654,6 +7211,90 @@ package body Exp_Ch4 is
 
       return Find_Final_List (Owner);
    end Get_Allocator_Final_List;
+
+   ---------------------------------
+   -- Has_Inferable_Discriminants --
+   ---------------------------------
+
+   function Has_Inferable_Discriminants (N : Node_Id) return Boolean is
+
+      function Prefix_Is_Formal_Parameter (N : Node_Id) return Boolean;
+      --  Determines whether the left-most prefix of a selected component is a
+      --  formal parameter in a subprogram. Assumes N is a selected component.
+
+      --------------------------------
+      -- Prefix_Is_Formal_Parameter --
+      --------------------------------
+
+      function Prefix_Is_Formal_Parameter (N : Node_Id) return Boolean is
+         Sel_Comp : Node_Id := N;
+
+      begin
+         --  Move to the left-most prefix by climbing up the tree
+
+         while Present (Parent (Sel_Comp))
+           and then Nkind (Parent (Sel_Comp)) = N_Selected_Component
+         loop
+            Sel_Comp := Parent (Sel_Comp);
+         end loop;
+
+         return Ekind (Entity (Prefix (Sel_Comp))) in Formal_Kind;
+      end Prefix_Is_Formal_Parameter;
+
+   --  Start of processing for Has_Inferable_Discriminants
+
+   begin
+      --  For identifiers and indexed components, it is sufficent to have a
+      --  constrained Unchecked_Union nominal subtype.
+
+      if Nkind (N) = N_Identifier
+           or else
+         Nkind (N) = N_Indexed_Component
+      then
+         return Is_Unchecked_Union (Base_Type (Etype (N)))
+                  and then
+                Is_Constrained (Etype (N));
+
+      --  For selected components, the subtype of the selector must be a
+      --  constrained Unchecked_Union. If the component is subject to a
+      --  per-object constraint, then the enclosing object must have inferable
+      --  discriminants.
+
+      elsif Nkind (N) = N_Selected_Component then
+         if Has_Per_Object_Constraint (Entity (Selector_Name (N))) then
+
+            --  A small hack. If we have a per-object constrained selected
+            --  component of a formal parameter, return True since we do not
+            --  know the actual parameter association yet.
+
+            if Prefix_Is_Formal_Parameter (N) then
+               return True;
+            end if;
+
+            --  Otherwise, check the enclosing object and the selector
+
+            return Has_Inferable_Discriminants (Prefix (N))
+                     and then
+                   Has_Inferable_Discriminants (Selector_Name (N));
+         end if;
+
+         --  The call to Has_Inferable_Discriminants will determine whether
+         --  the selector has a constrained Unchecked_Union nominal type.
+
+         return Has_Inferable_Discriminants (Selector_Name (N));
+
+      --  A qualified expression has inferable discriminants if its subtype
+      --  mark is a constrained Unchecked_Union subtype.
+
+      elsif Nkind (N) = N_Qualified_Expression then
+         return Is_Unchecked_Union (Subtype_Mark (N))
+                  and then
+                Is_Constrained (Subtype_Mark (N));
+
+      end if;
+
+      return False;
+   end Has_Inferable_Discriminants;
 
    -------------------------------
    -- Insert_Dereference_Action --

@@ -431,6 +431,9 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 	  || (sregno < FIRST_PSEUDO_REGISTER
 	      && asm_noperands (PATTERN (p)) >= 0
 	      && reg_overlap_mentioned_p (src, PATTERN (p)))
+	  /* Don't change hard registers used by a call.  */
+	  || (CALL_P (p) && sregno < FIRST_PSEUDO_REGISTER
+	      && find_reg_fusage (p, USE, src))
 	  /* Don't change a USE of a register.  */
 	  || (GET_CODE (PATTERN (p)) == USE
 	      && reg_overlap_mentioned_p (src, XEXP (PATTERN (p), 0))))
@@ -491,7 +494,7 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 
 	      /* If the insn in which SRC dies is a CALL_INSN, don't count it
 		 as a call that has been crossed.  Otherwise, count it.  */
-	      if (q != p && GET_CODE (q) == CALL_INSN)
+	      if (q != p && CALL_P (q))
 		{
 		  /* Similarly, total calls for SREGNO, total calls beyond
 		     the death note for DREGNO.  */
@@ -620,7 +623,7 @@ optimize_reg_copy_2 (rtx insn, rtx dest, rtx src)
 		  PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
 
 
-	      if (GET_CODE (q) == CALL_INSN)
+	      if (CALL_P (q))
 		{
 		  REG_N_CALLS_CROSSED (dregno)--;
 		  REG_N_CALLS_CROSSED (sregno)++;
@@ -636,7 +639,7 @@ optimize_reg_copy_2 (rtx insn, rtx dest, rtx src)
 
       if (reg_set_p (src, p)
 	  || find_reg_note (p, REG_DEAD, dest)
-	  || (GET_CODE (p) == CALL_INSN && REG_N_CALLS_CROSSED (sregno) == 0))
+	  || (CALL_P (p) && REG_N_CALLS_CROSSED (sregno) == 0))
 	break;
     }
 }
@@ -652,7 +655,7 @@ optimize_reg_copy_3 (rtx insn, rtx dest, rtx src)
   rtx src_reg = XEXP (src, 0);
   int src_no = REGNO (src_reg);
   int dst_no = REGNO (dest);
-  rtx p, set, subreg;
+  rtx p, set;
   enum machine_mode old_mode;
 
   if (src_no < FIRST_PSEUDO_REGISTER
@@ -700,14 +703,15 @@ optimize_reg_copy_3 (rtx insn, rtx dest, rtx src)
 
   /* Now walk forward making additional replacements.  We want to be able
      to undo all the changes if a later substitution fails.  */
-  subreg = gen_lowpart_SUBREG (old_mode, src_reg);
   while (p = NEXT_INSN (p), p != insn)
     {
       if (! INSN_P (p))
 	continue;
 
       /* Make a tentative change.  */
-      validate_replace_rtx_group (src_reg, subreg, p);
+      validate_replace_rtx_group (src_reg,
+				  gen_lowpart_SUBREG (old_mode, src_reg),
+				  p);
     }
 
   validate_replace_rtx_group (src, src_reg, insn);
@@ -755,7 +759,6 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest, int old_max_uid)
   if (REG_P (src)
       && REG_LIVE_LENGTH (REGNO (src)) > 0
       && REG_P (dest)
-      && !RTX_UNCHANGING_P (dest)
       && REG_LIVE_LENGTH (REGNO (dest)) > 0
       && (set = single_set (insn)) != NULL_RTX
       && !reg_mentioned_p (dest, SET_SRC (set))
@@ -971,8 +974,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 #ifdef AUTO_INC_DEC
 	      for (p = PREV_INSN (insn); p; p = PREV_INSN (p))
 		{
-		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN)
+		  if (LABEL_P (p)
+		      || JUMP_P (p))
 		    break;
 		  if (! INSN_P (p))
 		    continue;
@@ -985,8 +988,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 		}
 	      for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
 		{
-		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN)
+		  if (LABEL_P (p)
+		      || JUMP_P (p))
 		    break;
 		  if (! INSN_P (p))
 		    continue;
@@ -1010,7 +1013,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
       /* reg_set_p is overly conservative for CALL_INSNS, thinks that all
 	 hard regs are clobbered.  Thus, we only use it for src for
 	 non-call insns.  */
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	{
 	  if (! dst_death)
 	    num_calls++;
@@ -1259,7 +1262,6 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 	      if (!REG_P (dst)
 		  || REGNO (dst) < FIRST_PSEUDO_REGISTER
 		  || REG_LIVE_LENGTH (REGNO (dst)) < 0
-		  || RTX_UNCHANGING_P (dst)
 		  || GET_MODE (src) != GET_MODE (dst))
 		continue;
 
@@ -1423,7 +1425,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		  /* If we have passed a call instruction, and the
 		     pseudo-reg DST is not already live across a call,
 		     then don't perform the optimization.  */
-		  if (GET_CODE (p) == CALL_INSN)
+		  if (CALL_P (p))
 		    {
 		      num_calls++;
 
@@ -1654,12 +1656,6 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
   rtx src_note = find_reg_note (insn, REG_DEAD, src), dst_note = NULL_RTX;
   int length, s_length;
 
-  /* If SRC is marked as unchanging, we may not change it.
-     ??? Maybe we could get better code by removing the unchanging bit
-     instead, and changing it back if we don't succeed?  */
-  if (RTX_UNCHANGING_P (src))
-    return 0;
-
   if (! src_note)
     {
       /* Look for (set (regX) (op regA constX))
@@ -1702,7 +1698,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 
   for (length = s_length = 0, p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
     {
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	replace_in_call_usage (& CALL_INSN_FUNCTION_USAGE (p),
 			       REGNO (dst), src, p);
 
@@ -1839,7 +1835,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 
       /* If we have passed a call instruction, and the pseudo-reg SRC is not
 	 already live across a call, then don't perform the optimization.  */
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	{
 	  if (REG_N_CALLS_CROSSED (REGNO (src)) == 0)
 	    break;
@@ -1930,7 +1926,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 		  q = 0;
 		  break;
 		}
-	      if (GET_CODE (p) == CALL_INSN)
+	      if (CALL_P (p))
 		num_calls2++;
 	    }
 	  if (q && set2 && SET_DEST (set2) == src && CONSTANT_P (SET_SRC (set2))
@@ -2036,10 +2032,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
    mentioning SRC or mentioning / changing DST .  If in doubt, presume
    it is unstable.
    The rationale is that we want to check if we can move an insn easily
-   while just paying attention to SRC and DST.  A register is considered
-   stable if it has the RTX_UNCHANGING_P bit set, but that would still
-   leave the burden to update REG_DEAD / REG_UNUSED notes, so we don't
-   want any registers but SRC and DST.  */
+   while just paying attention to SRC and DST.  */
 static int
 stable_and_no_regs_but_for_p (rtx x, rtx src, rtx dst)
 {
@@ -2159,7 +2152,7 @@ single_set_for_csa (rtx insn)
   if (tmp)
     return tmp;
 
-  if (GET_CODE (insn) != INSN
+  if (!NONJUMP_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) != PARALLEL)
     return NULL_RTX;
 
@@ -2441,7 +2434,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 
       data.insn = insn;
       data.memlist = memlist;
-      if (GET_CODE (insn) != CALL_INSN && last_sp_set
+      if (!CALL_P (insn) && last_sp_set
 	  && !for_each_rtx (&PATTERN (insn), record_stack_memrefs, &data))
 	{
 	   memlist = data.memlist;
@@ -2452,7 +2445,7 @@ combine_stack_adjustments_for_block (basic_block bb)
       /* Otherwise, we were not able to process the instruction.
 	 Do not continue collecting data across such a one.  */
       if (last_sp_set
-	  && (GET_CODE (insn) == CALL_INSN
+	  && (CALL_P (insn)
 	      || reg_mentioned_p (stack_pointer_rtx, PATTERN (insn))))
 	{
 	  if (last_sp_set && last_sp_adjust == 0)

@@ -189,7 +189,7 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 	{
 	  /* A called function may clobber any special registers required for
 	     low-overhead looping.  */
-	  if (GET_CODE (insn) == CALL_INSN)
+	  if (CALL_P (insn))
 	    {
 	      if (dump_file)
 		fprintf (dump_file, "Doloop: Function call in loop.\n");
@@ -199,7 +199,7 @@ doloop_valid_p (struct loop *loop, struct niter_desc *desc)
 
 	  /* Some targets (eg, PPC) use the count register for branch on table
 	     instructions.  ??? This should be a target specific check.  */
-	  if (GET_CODE (insn) == JUMP_INSN
+	  if (JUMP_P (insn)
 	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
 	    {
@@ -292,7 +292,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
   if (GET_CODE (counter_reg) == PLUS)
     counter_reg = XEXP (counter_reg, 0);
 
-  count = desc->niter_expr;
+  count = copy_rtx (desc->niter_expr);
   increment_count = false;
   switch (GET_CODE (condition))
     {
@@ -345,7 +345,7 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 
   if (desc->noloop_assumptions)
     {
-      rtx ass = desc->noloop_assumptions;
+      rtx ass = copy_rtx (desc->noloop_assumptions);
       basic_block preheader = loop_preheader_edge (loop)->src;
       basic_block set_zero
 	      = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
@@ -514,7 +514,7 @@ doloop_optimize (struct loop *loop)
     {
       while (NEXT_INSN (doloop_pat) != NULL_RTX)
 	doloop_pat = NEXT_INSN (doloop_pat);
-      if (GET_CODE (doloop_pat) == JUMP_INSN)
+      if (JUMP_P (doloop_pat))
 	doloop_pat = PATTERN (doloop_pat);
       else
 	doloop_pat = NULL_RTX;

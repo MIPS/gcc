@@ -41,7 +41,14 @@ hook_bool_void_false (void)
   return false;
 }
 
-/* The same, but formally returning NO_REGS.  */
+/* Generic hook that takes no arguments and returns true.  */
+bool
+hook_bool_void_true (void)
+{
+  return true;
+}
+
+/* Generic hook that takes no arguments and returns NO_REGS.  */
 int
 hook_int_void_no_regs (void)
 {
@@ -58,6 +65,13 @@ hook_int_void_1 (void)
 /* Generic hook that takes (bool) and returns false.  */
 bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* Generic hook that takes (enum machine_mode) and returns false.  */
+bool
+hook_bool_mode_false (enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -142,7 +156,7 @@ hook_void_tree (tree a ATTRIBUTE_UNUSED)
 }
 
 void
-hook_void_charptr (char *a ATTRIBUTE_UNUSED)
+hook_void_constcharptr (const char *a ATTRIBUTE_UNUSED)
 {
 }
 
@@ -225,3 +239,10 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 {
   return NULL;
 }
+
+tree
+hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+  

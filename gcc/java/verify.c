@@ -734,8 +734,8 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
         handlers.  */
 	prev_eh_ranges = NULL_EH_RANGE;
 
-	/* Allocate decl and rtx for this variable now, so if we're not
-	   optimizing, we get a temporary that survives the whole method.  */
+	/* Allocate decl for this variable now, so we get a temporary
+! 	   that survives the whole method. */
 	find_local_variable (index, type, oldpc);
 
         if (TYPE_IS_WIDE (type))
@@ -1093,7 +1093,7 @@ verify_jvm_instructions (JCF* jcf, const unsigned char *byte_ops, long length)
 
 	    self_is_interface = CLASS_INTERFACE (TYPE_NAME (self_type));
 	    method_name = COMPONENT_REF_NAME (&current_jcf->cpool, index);
-	    method_type = parse_signature_string (IDENTIFIER_POINTER (sig),
+	    method_type = parse_signature_string ((const unsigned char *) IDENTIFIER_POINTER (sig),
 						  IDENTIFIER_LENGTH (sig));
 
 	    if (TREE_CODE (method_type) != FUNCTION_TYPE)

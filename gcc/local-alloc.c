@@ -484,7 +484,7 @@ validate_equiv_mem (rtx start, rtx reg, rtx memref)
       if (find_reg_note (insn, REG_DEAD, reg))
 	return 1;
 
-      if (GET_CODE (insn) == CALL_INSN && ! RTX_UNCHANGING_P (memref)
+      if (CALL_P (insn) && ! MEM_READONLY_P (memref)
 	  && ! CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
@@ -518,10 +518,7 @@ equiv_init_varies_p (rtx x)
   switch (code)
     {
     case MEM:
-      return ! RTX_UNCHANGING_P (x) || equiv_init_varies_p (XEXP (x, 0));
-
-    case QUEUED:
-      return 1;
+      return !MEM_READONLY_P (x) || equiv_init_varies_p (XEXP (x, 0));
 
     case CONST:
     case CONST_INT:
@@ -985,7 +982,7 @@ update_equiv_regs (void)
 		    if (REG_N_REFS (regno) == 2
 			&& (rtx_equal_p (XEXP (note, 0), src)
 			    || ! equiv_init_varies_p (src))
-			&& GET_CODE (insn) == INSN
+			&& NONJUMP_INSN_P (insn)
 			&& equiv_init_movable_p (PATTERN (insn), regno))
 		      reg_equiv[regno].replace = 1;
 		}
@@ -1190,7 +1187,7 @@ block_alloc (int b)
   insn = BB_END (BASIC_BLOCK (b));
   while (1)
     {
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	if (++insn_count > max_uid)
 	  abort ();
       if (insn == BB_HEAD (BASIC_BLOCK (b)))
@@ -1213,7 +1210,7 @@ block_alloc (int b)
   insn = BB_HEAD (BASIC_BLOCK (b));
   while (1)
     {
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	insn_number++;
 
       if (INSN_P (insn))
@@ -1353,7 +1350,7 @@ block_alloc (int b)
 		  REG_P (r0))
 	      && (link = find_reg_note (insn, REG_LIBCALL, NULL_RTX)) != 0
 	      && XEXP (link, 0) != 0
-	      && GET_CODE (XEXP (link, 0)) == INSN
+	      && NONJUMP_INSN_P (XEXP (link, 0))
 	      && (set = single_set (XEXP (link, 0))) != 0
 	      && SET_DEST (set) == r0 && SET_SRC (set) == r0
 	      && (note = find_reg_note (XEXP (link, 0), REG_EQUAL,
@@ -1428,7 +1425,7 @@ block_alloc (int b)
 	     CLOBBER insn, we have reached the end of a REG_NO_CONFLICT
 	     block, so clear any register number that combined within it.  */
 	  if ((note = find_reg_note (insn, REG_RETVAL, NULL_RTX)) != 0
-	      && GET_CODE (XEXP (note, 0)) == INSN
+	      && NONJUMP_INSN_P (XEXP (note, 0))
 	      && GET_CODE (PATTERN (XEXP (note, 0))) == CLOBBER)
 	    no_conflict_combined_regno = -1;
 	}

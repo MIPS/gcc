@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "params.h"
 #include "hashtab.h"
+#include "target.h"
 #include "debug.h"
 #include "tree-inline.h"
 #include "flags.h"
@@ -88,9 +89,8 @@ maybe_clone_body (tree fn)
 
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
-  for (clone = TREE_CHAIN (fn);
-       clone && DECL_CLONED_FUNCTION_P (clone);
-       clone = TREE_CHAIN (clone))
+  push_to_top_level ();
+  FOR_EACH_CLONE (clone, fn)
     {
       tree parm;
       tree clone_parm;
@@ -111,6 +111,7 @@ maybe_clone_body (tree fn)
       DECL_NOT_REALLY_EXTERN (clone) = DECL_NOT_REALLY_EXTERN (fn);
       TREE_PUBLIC (clone) = TREE_PUBLIC (fn);
       DECL_VISIBILITY (clone) = DECL_VISIBILITY (fn);
+      DECL_VISIBILITY_SPECIFIED (clone) = DECL_VISIBILITY_SPECIFIED (fn);
 
       /* Adjust the parameter names and locations.  */
       parm = DECL_ARGUMENTS (fn);
@@ -131,7 +132,6 @@ maybe_clone_body (tree fn)
 	update_cloned_parm (parm, clone_parm);
 
       /* Start processing the function.  */
-      push_to_top_level ();
       start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);
 
       /* Remap the parameters.  */
@@ -185,6 +185,13 @@ maybe_clone_body (tree fn)
 	    }
 	}
 
+      if (targetm.cxx.cdtor_returns_this ())
+	{
+	  parm = DECL_RESULT (fn);
+	  clone_parm = DECL_RESULT (clone);
+	  splay_tree_insert (decl_map, (splay_tree_key) parm,
+			     (splay_tree_value) clone_parm);
+	}
       /* Clone the body.  */
       clone_body (clone, fn, decl_map);
 
@@ -198,8 +205,8 @@ maybe_clone_body (tree fn)
       finish_function (0);
       BLOCK_ABSTRACT_ORIGIN (DECL_INITIAL (clone)) = DECL_INITIAL (fn);
       expand_or_defer_fn (clone);
-      pop_from_top_level ();
     }
+  pop_from_top_level ();
 
   /* We don't need to process the original function any further.  */
   return 1;

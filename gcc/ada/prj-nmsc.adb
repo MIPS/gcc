@@ -241,8 +241,11 @@ package body Prj.Nmsc is
       Parent  : Name_Id;
       Dir     : out Name_Id;
       Display : out Name_Id);
-   --  Locate a directory.
-   --  Returns No_Name if directory does not exist.
+   --  Locate a directory (returns No_Name for Dir and Display if directory
+   --  does not exist). Name is the directory name. Parent is the root
+   --  directory, if Name is a relative path name. Dir is the canonical case
+   --  path name of the directory, Display is the directory path name for
+   --  display purposes.
 
    function Path_Name_Of
      (File_Name : Name_Id;
@@ -378,7 +381,11 @@ package body Prj.Nmsc is
                      Source_Names.Set (Canonical_Name, NL);
                      Name_Len := Dir_Path'Length;
                      Name_Buffer (1 .. Name_Len) := Dir_Path;
-                     Add_Char_To_Name_Buffer (Directory_Separator);
+
+                     if Name_Buffer (Name_Len) /= Directory_Separator then
+                        Add_Char_To_Name_Buffer (Directory_Separator);
+                     end if;
+
                      Add_Str_To_Name_Buffer (Name_Str (1 .. Last));
                      Path := Name_Find;
 

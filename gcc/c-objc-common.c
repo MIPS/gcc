@@ -38,7 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "target.h"
-#include "cgraph.h"
+#include "c-objc-common.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
 
@@ -78,7 +78,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it "
+	warning ("%Jfunction %qF can never be inlined because it "
 		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
@@ -88,7 +88,7 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it might not "
+	warning ("%Jfunction %qF can never be inlined because it might not "
 		 "be bound within this unit of translation", fn, fn);
       goto cannot_inline;
     }
@@ -96,7 +96,7 @@ c_cannot_inline_tree_fn (tree *fnp)
   if (! function_attribute_inlinable_p (fn))
     {
       if (do_warning)
-	warning ("%Jfunction '%F' can never be inlined because it uses "
+	warning ("%Jfunction %qF can never be inlined because it uses "
 		 "attributes conflicting with inlining", fn, fn);
       goto cannot_inline;
     }
@@ -111,7 +111,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (t)
 	{
 	  if (do_warning)
-	    warning ("%Jfunction '%F' can never be inlined because it has "
+	    warning ("%Jfunction %qF can never be inlined because it has "
 		     "pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -124,7 +124,7 @@ c_cannot_inline_tree_fn (tree *fnp)
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
 	{
 	  if (do_warning)
-	    warning ("%Jnested function '%F' can never be inlined because it "
+	    warning ("%Jnested function %qF can never be inlined because it "
 		     "has possibly saved pending sizes", fn, fn);
 	  goto cannot_inline;
 	}
@@ -183,50 +183,6 @@ c_objc_common_init (void)
   return true;
 }
 
-/* Synthesize a function which calls all the global ctors or global dtors
-   in this file.  */
-
-static void
-build_cdtor (int method_type, tree cdtors)
-{
-  tree body;
-
-  body = push_stmt_list ();
-
-  for (; cdtors; cdtors = TREE_CHAIN (cdtors))
-    add_stmt (build_function_call (TREE_VALUE (cdtors), NULL_TREE));
-
-  body = pop_stmt_list (body);
-
-  cgraph_build_static_cdtor (method_type, body);
-}
-
-/* Called at end of parsing, but before end-of-file processing.  */
-
-void
-c_objc_common_finish_file (void)
-{
-  if (pch_file)
-    c_common_write_pch ();
-
-  if (static_ctors)
-    {
-      build_cdtor ('I', static_ctors);
-      static_ctors = 0;
-    }
-  if (static_dtors)
-    {
-      build_cdtor ('D', static_dtors);
-      static_dtors = 0;
-    }
-
-  cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
-
-  if (flag_mudflap)
-    mudflap_finish_file ();
-}
-
 /* Called during diagnostic message formatting process to print a
    source-level entity onto BUFFER.  The meaning of the format specifiers
    is as follows:
@@ -257,10 +213,9 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       break;
 
     case 'T':
-      if (TYPE_P (t))
-	name = TYPE_NAME (t);
-      else
-	abort ();
+      gcc_assert (TYPE_P (t));
+      name = TYPE_NAME (t);
+      
       if (name && TREE_CODE (name) == TYPE_DECL)
 	{
 	  if (DECL_NAME (name))
@@ -280,7 +235,7 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       if (TREE_CODE (t) == IDENTIFIER_NODE)
 	n = IDENTIFIER_POINTER (t);
       else
-        return false;
+	pp_expression (cpp, t);
       break;
 
     default:
@@ -330,11 +285,11 @@ void
 c_initialize_diagnostics (diagnostic_context *context)
 {
   pretty_printer *base = context->printer;
-  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
+  c_pretty_printer *pp = XNEW (c_pretty_printer);
   memcpy (pp_base (pp), base, sizeof (pretty_printer));
   pp_c_pretty_printer_init (pp);
   context->printer = (pretty_printer *) pp;
 
-  /* It is safe to free this object because it was previously malloc()'d.  */
-  free (base);
+  /* It is safe to free this object because it was previously XNEW()'d.  */
+  XDELETE (base);
 }

@@ -45,10 +45,9 @@ static void replace_phi_with_stmt (block_stmt_iterator, basic_block,
 static bool candidate_bb_for_phi_optimization (basic_block,
 					       basic_block *,
 					       basic_block *);
-static bool empty_block_p (basic_block);
 
 /* This pass eliminates PHI nodes which can be trivially implemented as
-   an assignment from a conditional expression.  ie if we have something
+   an assignment from a conditional expression.  i.e. if we have something
    like:
 
      bb0:
@@ -147,7 +146,7 @@ tree_ssa_phiopt (void)
 
 /* Return TRUE if block BB has no executable statements, otherwise return
    FALSE.  */
-static bool
+bool
 empty_block_p (basic_block bb)
 {
   block_stmt_iterator bsi;
@@ -236,6 +235,8 @@ static void
 replace_phi_with_stmt (block_stmt_iterator bsi, basic_block bb,
 		       basic_block cond_block, tree phi, tree new)
 {
+  basic_block block_to_remove;
+
   /* Insert our new statement at the head of our block.  */
   bsi_insert_after (&bsi, new, BSI_NEW_STMT);
   
@@ -250,21 +251,23 @@ replace_phi_with_stmt (block_stmt_iterator bsi, basic_block bb,
   release_phi_node (phi);
   bb_ann (bb)->phi_nodes = NULL;
   
-  /* Disconnect the edge leading into the empty block.  That will
-     make the empty block unreachable and it will be removed later.  */
+  /* Remove the empty basic block.  */
   if (cond_block->succ->dest == bb)
     {
       cond_block->succ->flags |= EDGE_FALLTHRU;
       cond_block->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-      ssa_remove_edge (cond_block->succ->succ_next);
+
+      block_to_remove = cond_block->succ->succ_next->dest;
     }
   else
     {
       cond_block->succ->succ_next->flags |= EDGE_FALLTHRU;
       cond_block->succ->succ_next->flags
 	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-      ssa_remove_edge (cond_block->succ);
+
+      block_to_remove = cond_block->succ->dest;
     }
+  delete_basic_block (block_to_remove);
   
   /* Eliminate the COND_EXPR at the end of COND_BLOCK.  */
   bsi = bsi_last (cond_block);
@@ -338,14 +341,14 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
   if (old_result)
     {
       tree new1;
-      if (TREE_CODE_CLASS (TREE_CODE (old_result)) != '<')
+      if (!COMPARISON_CLASS_P (old_result))
 	return false;
       
-      new1 = build (TREE_CODE (old_result), TREE_TYPE (result),
+      new1 = build (TREE_CODE (old_result), TREE_TYPE (old_result),
 		    TREE_OPERAND (old_result, 0),
 		    TREE_OPERAND (old_result, 1));
       
-      new1 = build (MODIFY_EXPR, TREE_TYPE (result), new_var, new1);
+      new1 = build (MODIFY_EXPR, TREE_TYPE (old_result), new_var, new1);
       bsi_insert_after (&bsi, new1, BSI_NEW_STMT);
     }
   
@@ -665,13 +668,14 @@ struct tree_opt_pass pass_phiopt =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_PHIOPT,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
     | TODO_verify_ssa | TODO_rename_vars
-    | TODO_verify_flow
+    | TODO_verify_flow,
+  0					/* letter */
 };
 												
 

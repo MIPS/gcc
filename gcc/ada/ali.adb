@@ -815,6 +815,12 @@ package body ALI is
                Checkc ('E');
                ALIs.Table (Id).Compile_Errors := True;
 
+            --  Processing for DB
+
+            elsif C = 'D' then
+               Checkc ('B');
+               Detect_Blocking := True;
+
             --  Processing for FD/FG/FI
 
             elsif C = 'F' then
@@ -1173,6 +1179,7 @@ package body ALI is
          Units.Table (Units.Last).First_Arg       := First_Arg;
          Units.Table (Units.Last).Elab_Position   := 0;
          Units.Table (Units.Last).Interface       := ALIs.Table (Id).Interface;
+         Units.Table (Units.Last).Body_Needed_For_SAL := False;
 
          if Debug_Flag_U then
             Write_Str (" ----> reading unit ");

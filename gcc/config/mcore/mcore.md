@@ -2854,12 +2854,10 @@
   ""
   "
 {
-  rtx dest_mem = operands[0];
-  rtx src_mem = operands[1];
-  operands[0] = copy_to_mode_reg (SImode, XEXP (operands[0], 0));
-  operands[1] = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
-  mcore_expand_block_move (dest_mem, src_mem, operands);
-  DONE;
+  if (mcore_expand_block_move (operands))
+    DONE;
+  else
+    FAIL;
 }")
 
 ;; ;;; ??? These patterns are meant to be generated from expand_block_move,
@@ -3159,7 +3157,7 @@
 }")
 
 ; experimental - do the constant folding ourselves.  note that this isn't
-;   re-applied like we'd really want.  ie., four ands collapse into two
+;   re-applied like we'd really want.  i.e., four ands collapse into two
 ;   instead of one.  this is because peepholes are applied as a sliding
 ;   window.  the peephole does not generate new rtl's, but instead slides
 ;   across the rtl's generating machine instructions.  it would be nice

@@ -36,7 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 gfc_st_label *gfc_statement_label;
 
 static locus label_locus;
-static jmp_buf eof;
+static jmp_buf eof_buf;
 
 gfc_state_data *gfc_state_stack;
 
@@ -178,7 +178,7 @@ decode_statement (void)
 
     case 'b':
       match ("backspace", gfc_match_backspace, ST_BACKSPACE);
-      match ("block data% ", gfc_match_block_data, ST_BLOCK_DATA);
+      match ("block data", gfc_match_block_data, ST_BLOCK_DATA);
       break;
 
     case 'c':
@@ -551,6 +551,7 @@ push_state (gfc_state_data * p, gfc_compile_state new_state, gfc_symbol * sym)
   p->previous = gfc_state_stack;
   p->sym = sym;
   p->head = p->tail = NULL;
+  p->do_variable = NULL;
 
   gfc_state_stack = p;
 }
@@ -1057,24 +1058,7 @@ accept_statement (gfc_statement st)
 
       break;
 
-    case ST_BLOCK_DATA:
-      {
-        gfc_symbol *block_data = NULL;
-        symbol_attribute attr;
-
-        gfc_get_symbol ("_BLOCK_DATA__", gfc_current_ns, &block_data);
-        gfc_clear_attr (&attr);
-        attr.flavor = FL_PROCEDURE;
-        attr.proc = PROC_UNKNOWN;
-        attr.subroutine = 1;
-        attr.access = ACCESS_PUBLIC;
-        block_data->attr = attr;
-        gfc_current_ns->proc_name = block_data;
-        gfc_commit_symbols ();
-      }
-
-      break;
-
+    case ST_ENTRY:
     case_executable:
     case_exec_markers:
       add_statement ();
@@ -1268,7 +1252,7 @@ unexpected_eof (void)
   gfc_current_ns->code = (p && p->previous) ? p->head : NULL;
   gfc_done_2 ();
 
-  longjmp (eof, 1);
+  longjmp (eof_buf, 1);
 }
 
 
@@ -1911,6 +1895,28 @@ parse_select_block (void)
 }
 
 
+/* Given a symbol, make sure it is not an iteration variable for a DO
+   statement.  This subroutine is called when the symbol is seen in a
+   context that causes it to become redefined.  If the symbol is an
+   iterator, we generate an error message and return nonzero.  */
+
+int 
+gfc_check_do_variable (gfc_symtree *st)
+{
+  gfc_state_data *s;
+
+  for (s=gfc_state_stack; s; s = s->previous)
+    if (s->do_variable == st)
+      {
+	gfc_error_now("Variable '%s' at %C cannot be redefined inside "
+		      "loop beginning at %L", st->name, &s->head->loc);
+	return 1;
+      }
+
+  return 0;
+}
+  
+
 /* Checks to see if the current statement label closes an enddo.
    Returns 0 if not, 1 if closes an ENDDO correctly, or 2 (and issues
    an error) if it incorrectly closes an ENDDO.  */
@@ -1965,13 +1971,21 @@ parse_do_block (void)
   gfc_statement st;
   gfc_code *top;
   gfc_state_data s;
+  gfc_symtree *stree;
 
   s.ext.end_do_label = new_st.label;
+
+  if (new_st.ext.iterator != NULL)
+    stree = new_st.ext.iterator->var->symtree;
+  else
+    stree = NULL;
 
   accept_statement (ST_DO);
 
   top = gfc_state_stack->tail;
   push_state (&s, COMP_DO, gfc_new_block);
+
+  s.do_variable = stree;
 
   top->block = new_level (top);
   top->block->op = EXEC_DO;
@@ -2109,6 +2123,7 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
   gfc_symtree *st;
   gfc_symbol *old_sym;
 
+  sym->attr.referenced = 1;
   for (ns = siblings; ns; ns = ns->sibling)
     {
       gfc_find_sym_tree (sym->name, ns, 0, &st);
@@ -2116,7 +2131,9 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
         continue;
 
       old_sym = st->n.sym;
-      if (old_sym->attr.flavor == FL_PROCEDURE && old_sym->ns == ns
+      if ((old_sym->attr.flavor == FL_PROCEDURE
+	   || old_sym->ts.type == BT_UNKNOWN)
+	  && old_sym->ns == ns
           && ! old_sym->attr.contained)
         {
           /* Replace it with the symbol from the parent namespace.  */
@@ -2141,6 +2158,7 @@ parse_contained (int module)
   gfc_state_data s1, s2;
   gfc_statement st;
   gfc_symbol *sym;
+  gfc_entry_list *el;
 
   push_state (&s1, COMP_CONTAINS, NULL);
   parent_ns = gfc_current_ns;
@@ -2168,7 +2186,7 @@ parse_contained (int module)
 		      gfc_new_block);
 
 	  /* For internal procedures, create/update the symbol in the
-	   * parent namespace */
+	     parent namespace.  */
 
 	  if (!module)
 	    {
@@ -2199,11 +2217,15 @@ parse_contained (int module)
           /* Mark this as a contained function, so it isn't replaced
              by other module functions.  */
           sym->attr.contained = 1;
+	  sym->attr.referenced = 1;
+
+	  parse_progunit (ST_NONE);
 
           /* Fix up any sibling functions that refer to this one.  */
           gfc_fixup_sibling_symbols (sym, gfc_current_ns);
-
-	  parse_progunit (ST_NONE);
+	  /* Or refer to any of its alternate entry points.  */
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    gfc_fixup_sibling_symbols (el->sym, gfc_current_ns);
 
 	  gfc_current_ns->code = s2.head;
 	  gfc_current_ns = parent_ns;
@@ -2370,6 +2392,9 @@ parse_block_data (void)
   static int blank_block=0;
   gfc_gsymbol *s;
 
+  gfc_current_ns->proc_name = gfc_new_block;
+  gfc_current_ns->is_block_data = 1;
+
   if (gfc_new_block == NULL)
     {
       if (blank_block)
@@ -2503,6 +2528,7 @@ gfc_parse_file (void)
   top.sym = NULL;
   top.previous = NULL;
   top.head = top.tail = NULL;
+  top.do_variable = NULL;
 
   gfc_state_stack = &top;
 
@@ -2510,7 +2536,7 @@ gfc_parse_file (void)
 
   gfc_statement_label = NULL;
 
-  if (setjmp (eof))
+  if (setjmp (eof_buf))
     return FAILURE;	/* Come here on unexpected EOF */
 
   seen_program = 0;

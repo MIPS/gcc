@@ -1173,7 +1173,11 @@ package body Sem_Res is
                          or else Scope (Opnd_Type) /= System_Aux_Id
                          or else Pack /= Scope (System_Aux_Id))
             then
-               Error := True;
+               if not Is_Overloaded (Right_Opnd (Op_Node)) then
+                  Error := True;
+               else
+                  Error := not Operand_Type_In_Scope (Pack);
+               end if;
 
             elsif Pack = Standard_Standard
               and then not Operand_Type_In_Scope (Standard_Standard)
@@ -2110,7 +2114,11 @@ package body Sem_Res is
             if not Is_Predefined_Op (Entity (N)) then
                Rewrite_Operator_As_Call (N, Entity (N));
 
-            elsif Present (Alias (Entity (N))) then
+            elsif Present (Alias (Entity (N)))
+              and then
+                Nkind (Parent (Parent (Entity (N))))
+                  = N_Subprogram_Renaming_Declaration
+            then
                Rewrite_Renamed_Operator (N, Alias (Entity (N)), Typ);
 
                --  If the node is rewritten, it will be fully resolved in
@@ -4001,13 +4009,6 @@ package body Sem_Res is
             return;
 
          else
-            if Comes_From_Source (N)
-              and then Has_Unchecked_Union (T)
-            then
-               Error_Msg_N
-                ("cannot compare Unchecked_Union values", N);
-            end if;
-
             Resolve (L, T);
             Resolve (R, T);
             Check_Unset_Reference (L);
@@ -4742,13 +4743,6 @@ package body Sem_Res is
                Set_Etype (N, Any_Type);
                return;
             end if;
-         end if;
-
-         if Comes_From_Source (N)
-           and then Has_Unchecked_Union (T)
-         then
-            Error_Msg_N
-              ("cannot compare Unchecked_Union values", N);
          end if;
 
          Resolve (L, T);

@@ -1036,17 +1036,6 @@ typedef struct m68hc11_args
   int nregs;
 } CUMULATIVE_ARGS;
 
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.
-   The pointer is passed in whatever way is appropriate for passing a pointer
-   to that type.
- 
-   64-bit numbers are passed by reference.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-    m68hc11_function_arg_pass_by_reference (& (CUM), (MODE), (TYPE), (NAMED))
-
-
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
    `enum direction': either `upward' to pad above the argument,
@@ -1059,18 +1048,6 @@ typedef struct m68hc11_args
 #undef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN \
   (m68hc11_function_arg_padding (TYPE_MODE (type), type) == downward)
-
-/* A C expression that indicates when it is the called function's
-   responsibility to make a copy of arguments passed by invisible
-   reference.  Normally, the caller makes a copy and passes the
-   address of the copy to the routine being called.  When
-   FUNCTION_ARG_CALLEE_COPIES is defined and is nonzero, the caller
-   does not make a copy.  Instead, it passes a pointer to the "live"
-   value.  The called function must not modify this value.  If it can
-   be determined that the value won't be modified, it need not make a
-   copy; otherwise a copy must be made.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
-    ((NAMED) && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS for a call to a
    function whose data type is FNTYPE. For a library call, FNTYPE is 0.  */

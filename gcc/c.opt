@@ -294,6 +294,10 @@ Wmissing-declarations
 C ObjC Var(warn_missing_declarations)
 Warn about global functions without previous declarations
 
+Wmissing-field-initializers
+C ObjC C++ ObjC++ Var(warn_missing_field_initializers) Init(-1)
+Warn about missing fields in struct initializers
+
 Wmissing-format-attribute
 C ObjC C++ ObjC++ Var(warn_missing_format_attribute)
 Warn about functions which might be candidates for format attributes
@@ -671,6 +675,10 @@ C++ ObjC++ Joined RejectNegative UInteger
 fthis-is-variable
 C++ ObjC++
 
+fthreadsafe-statics
+C++ ObjC++
+-fno-threadsafe-statics	Do not generate thread-safe code for initializing local statics.
+
 funsigned-bitfields
 C ObjC C++ ObjC++
 When \"signed\" or \"unsigned\" is not given make the bitfield unsigned
@@ -682,6 +690,10 @@ Make \"char\" unsigned by default
 fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
+
+fvisibility-inlines-hidden
+C++
+Marks all inlined methods as having hidden visibility
 
 fvtable-gc
 C++ ObjC++

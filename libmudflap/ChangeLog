@@ -1,3 +1,95 @@
+2004-09-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* testsuite/libmudflap.c/pass35-frag.c: Update expected message.
+
+2004-09-07  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.ac: Look for pwd.h, grp.h, netdb.h headers and functions.
+	* mf-hooks2.c (strerror): Unregister previous string returned by
+	previous strerror.
+	(getlogin,cuserid,getpwnam,getpwuid,getgrnam,getgrgid): New wrappers.
+	(getservent,getservbyname,getservbyport,gai_strerror): Ditto.
+	* mf-runtime.h.in: Add redefine_extname pragmas for them all.
+	* mf-runtime.c (__mf_describe_object): Clarify object life status.
+	* testsuite/libmudflap.c/pass48-frag.c, pass49-frag.c, fail32-frag.c:
+	New tests.
+	* configure, config.h.in: Regenerated.
+
+2004-08-03  Dale Johannesen  <dalej@apple.com>
+
+         * mf-runtime.c: Conditionalize POSIX_SOURCE for Darwin.
+
+2004-08-03  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.c (compare_uintptr_t): Remove function.  Inline
+	simplified contents in all former callers.
+
+2004-07-27  Ulrich Weigand  <weigand@informatik.uni-erlangen.de>
+
+	* mf-runtime.c (__mf_fini): Set mudflap_mode to mode_nop in
+	the statically linked case.
+
+2004-07-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	* splay-tree.[ch]: Remove.  Merge contents into ...
+	* mf-runtime.c: ... here, renaming symbols and making all functions
+	static.  Remove unused min/max functions.
+	* Makefile.am: Forget about splay-tree.[ch].
+	* Makefile.in, testsuite/Makefile.in: Regenerated.
+
+2004-07-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.c (__mfu_check): Remove mistaken mode-nop handling.
+	(__mfu_usage): Include (C) 2004.
+	* mf-hooks3.c (__mf_find_threadinfo): Don't call tracing functions
+	here.  Include a comment explaining why.
+
+2004-07-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-impl.h (__mf_options): Add ignore_reads and timestamps fields.
+	* mf-runtime.c (options): Give them a name.
+	(__mf_set_default_options): Set them.
+	(__mf_insert_new_object, __mfu_unregister): Optionalize timestamps.
+	(__mf_violation): Warning cleanup.
+	* mf-impl.h (MF_VALIDATE_EXTENT): Support ignore_reads option.
+	* splay-tree.c (splay_tree_delete_helper): Remove obsolete decl.
+
+2004-07-15  Frank Ch. Eigler  <fche@redhat.com>
+
+	g++/15861
+	* mf-runtime.c (__mf_init): Make it non-static.  Tolerate
+	repeated invocation.
+
+2004-07-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	Test case for g++/15861
+	* testsuite/libmudflap.c++/ctors-[12].cxx: New test case halves.
+	* testsuite/libmudflap.c++/ctors.exp: Driver.
+	* testsuite/libmudflap.c++/c++frags.exp: Elide redundant default.
+	Look only for *frag* test cases.
+
+2004-07-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	ANSI C conversion, libmudflap specialization, recursion limiting.
+	* splay-tree.h (splay_tree_{de,}allocate_fn): Remove allocation_data
+	argument and indirection function pointers, update callers.
+	(splay_tree_s): Add statistics and recursion control fields
+	num_keys, max_depth, depth, rebalance_p.
+	* splay-tree.c (splay_tree_splay_helper): Track recursion depth.
+	Back out of search if it exceeds limit.
+	(splay_tree_splay): Manage recursion limiting with rebalancing as
+	needed.
+	(splay_tree_new): More initialization.
+	(splay_tree_rebalance): New function.
+	(splay_tree_foreach): Rewrite using nonrecursive logic.
+	(splay_tree_xmalloc_allocate, splay_tree_xmalloc_deallocate):
+	Remove.  Point indirect calls to mf-runtime.c's routines.
+	(splay_tree_compare_ints, splay_tree_compare_pointers): Remove unused
+	functions.
+	(splay_tree_delete, splay_tree_delete_helper): Ditto.
+	* testsuite/heap-scalestress.c: New test based on one from
+	Eyal Lebedinsky <eyal@eyal.emu.id.au>:
+
 2004-07-05  Matthias Klose  <doko@debian.org>
 
 	* libtool-version: New.

@@ -37,47 +37,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 
 
-/* This part will be removed once the merging is finished.  */
-
-
-
-/* The following trees are unique elements.  Thus the comparison of
-   another element to these elements should be done on the pointer to
-   these trees, and not on their value.  */
-
-/* The SSA_NAMEs that are not yet analyzed are qualified with NULL_TREE.  */
-tree chrec_not_analyzed_yet;
-
-/* Reserved to the cases where the analyzer has detected an
-   undecidable property at compile time.  */
-tree chrec_dont_know;
-
-/* When the analyzer has detected that a property will never
-   happen, then it qualifies it with chrec_known.  */
-tree chrec_known;
-
-/* Empty hook.  Will be replaced by the main function from
-   tree-scalar-evolution.c.  */
-
-tree
-count_ev_in_wider_type (tree foo ATTRIBUTE_UNUSED, 
-			tree bar ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-/* Empty hook.  Will be replaced by the main function from
-   tree-scalar-evolution.c.  */
-
-bool 
-chrec_contains_symbols_defined_in_loop (tree chrec ATTRIBUTE_UNUSED, 
-					unsigned loop_nb ATTRIBUTE_UNUSED)
-{
-  return true;
-}
-
-
-
 
 /* Extended folder for chrecs.  */
 
@@ -97,13 +56,10 @@ chrec_fold_poly_cst (enum tree_code code,
 		     tree poly, 
 		     tree cst)
 {
-#if defined ENABLE_CHECKING
-  if (poly == NULL_TREE
-      || cst == NULL_TREE
-      || TREE_CODE (poly) != POLYNOMIAL_CHREC
-      || is_not_constant_evolution (cst))
-    abort ();
-#endif
+  gcc_assert (poly);
+  gcc_assert (cst);
+  gcc_assert (TREE_CODE (poly) == POLYNOMIAL_CHREC);
+  gcc_assert (!is_not_constant_evolution (cst));
   
   switch (code)
     {
@@ -139,14 +95,11 @@ chrec_fold_plus_poly_poly (enum tree_code code,
 			   tree poly1)
 {
   tree left, right;
-  
-#if defined ENABLE_CHECKING
-  if (poly0 == NULL_TREE
-      || poly1 == NULL_TREE
-      || TREE_CODE (poly0) != POLYNOMIAL_CHREC
-      || TREE_CODE (poly1) != POLYNOMIAL_CHREC)
-    abort ();
-#endif
+
+  gcc_assert (poly0);
+  gcc_assert (poly1);
+  gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
+  gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
   
   /*
     {a, +, b}_1 + {c, +, d}_2  ->  {{a, +, b}_1 + c, +, d}_2,
@@ -212,13 +165,10 @@ chrec_fold_multiply_poly_poly (tree type,
 			       tree poly0, 
 			       tree poly1)
 {
-#if defined ENABLE_CHECKING
-  if (poly0 == NULL_TREE
-      || poly1 == NULL_TREE
-      || TREE_CODE (poly0) != POLYNOMIAL_CHREC
-      || TREE_CODE (poly1) != POLYNOMIAL_CHREC)
-    abort ();
-#endif
+  gcc_assert (poly0);
+  gcc_assert (poly1);
+  gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
+  gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
   
   /* {a, +, b}_1 * {c, +, d}_2  ->  {c*{a, +, b}_1, +, d}_2,
      {a, +, b}_2 * {c, +, d}_1  ->  {a*{c, +, d}_1, +, b}_2,
@@ -259,7 +209,7 @@ chrec_fold_multiply_poly_poly (tree type,
      
      /* "2*b*d".  */
      chrec_fold_multiply
-     (type, build_int_2 (2, 0),
+     (type, build_int_cst (NULL_TREE, 2),
       chrec_fold_multiply (type, CHREC_RIGHT (poly0), CHREC_RIGHT (poly1))));
 }
 
@@ -282,7 +232,7 @@ chrec_fold_automatically_generated_operands (tree op0,
       || op1 == chrec_not_analyzed_yet)
     return chrec_not_analyzed_yet;
   
-  /* The default case produces a safe result. */
+  /* The default case produces a safe result.  */
   return chrec_dont_know;
 }
 
@@ -633,14 +583,16 @@ hide_evolution_in_other_loops_than_loop (tree chrec,
     }
 }
 
-/* Returns the evolution part in LOOP_NUM.  Example: the call
-   get_evolution_in_loop (1, {{0, +, 1}_1, +, 2}_1) returns 
-   {1, +, 2}_1  */
+/* Returns the evolution part of CHREC in LOOP_NUM when RIGHT is
+   true, otherwise returns the initial condition in LOOP_NUM.  */
 
-tree 
-evolution_part_in_loop_num (tree chrec, 
-			    unsigned loop_num)
+static tree 
+chrec_component_in_loop_num (tree chrec, 
+			     unsigned loop_num,
+			     bool right)
 {
+  tree component;
+
   if (automatically_generated_chrec_p (chrec))
     return chrec;
   
@@ -649,15 +601,22 @@ evolution_part_in_loop_num (tree chrec,
     case POLYNOMIAL_CHREC:
       if (CHREC_VARIABLE (chrec) == loop_num)
 	{
+	  if (right)
+	    component = CHREC_RIGHT (chrec);
+	  else
+	    component = CHREC_LEFT (chrec);
+
 	  if (TREE_CODE (CHREC_LEFT (chrec)) != POLYNOMIAL_CHREC
 	      || CHREC_VARIABLE (CHREC_LEFT (chrec)) != CHREC_VARIABLE (chrec))
-	    return CHREC_RIGHT (chrec);
+	    return component;
 	  
 	  else
 	    return build_polynomial_chrec
 	      (loop_num, 
-	       evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num), 
-	       CHREC_RIGHT (chrec));
+	       chrec_component_in_loop_num (CHREC_LEFT (chrec), 
+					    loop_num, 
+					    right), 
+	       component);
 	}
       
       else if (CHREC_VARIABLE (chrec) < loop_num)
@@ -665,11 +624,38 @@ evolution_part_in_loop_num (tree chrec,
 	return NULL_TREE;
       
       else
-	return evolution_part_in_loop_num (CHREC_LEFT (chrec), loop_num);
+	return chrec_component_in_loop_num (CHREC_LEFT (chrec), 
+					    loop_num, 
+					    right);
       
-    default:
-      return NULL_TREE;
+     default:
+      if (right)
+	return NULL_TREE;
+      else
+	return chrec;
     }
+}
+
+/* Returns the evolution part in LOOP_NUM.  Example: the call
+   evolution_part_in_loop_num (1, {{0, +, 1}_1, +, 2}_1) returns 
+   {1, +, 2}_1  */
+
+tree 
+evolution_part_in_loop_num (tree chrec, 
+			    unsigned loop_num)
+{
+  return chrec_component_in_loop_num (chrec, loop_num, true);
+}
+
+/* Returns the initial condition in LOOP_NUM.  Example: the call
+   initial_condition_in_loop_num ({{0, +, 1}_1, +, 2}_2, 1) returns 
+   {0, +, 1}_1  */
+
+tree 
+initial_condition_in_loop_num (tree chrec, 
+			       unsigned loop_num)
+{
+  return chrec_component_in_loop_num (chrec, loop_num, false);
 }
 
 /* Set or reset the evolution of CHREC to NEW_EVOL in loop LOOP_NUM.
@@ -686,7 +672,7 @@ reset_evolution_in_loop (unsigned loop_num,
       && CHREC_VARIABLE (chrec) > loop_num)
     return build 
       (TREE_CODE (chrec), 
-       build_int_2 (CHREC_VARIABLE (chrec), 0), 
+       build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec)), 
        reset_evolution_in_loop (loop_num, CHREC_LEFT (chrec), new_evol), 
        reset_evolution_in_loop (loop_num, CHREC_RIGHT (chrec), new_evol));
   
@@ -982,7 +968,7 @@ chrec_convert (tree type,
 
 	/* Don't propagate overflows.  */
 	TREE_OVERFLOW (res) = 0;
-	if (TREE_CODE_CLASS (TREE_CODE (res)) == 'c')
+	if (CONSTANT_CLASS_P (res))
 	  TREE_CONSTANT_OVERFLOW (res) = 0;
 	return res;
       }
@@ -998,22 +984,4 @@ chrec_type (tree chrec)
     return NULL_TREE;
   
   return TREE_TYPE (chrec);
-}
-
-extern void initialize_scalar_evolutions_analyzer (void);
-
-/* Initializer.  */
-
-void
-initialize_scalar_evolutions_analyzer (void)
-{
-  /* The elements below are unique.  */
-  if (chrec_dont_know == NULL_TREE)
-    {
-      chrec_not_analyzed_yet = NULL_TREE;
-      chrec_dont_know = make_node (SCEV_NOT_KNOWN);
-      chrec_known = make_node (SCEV_KNOWN);
-      TREE_TYPE (chrec_dont_know) = NULL_TREE;
-      TREE_TYPE (chrec_known) = NULL_TREE;
-    }
 }

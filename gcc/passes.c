@@ -60,7 +60,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
-#include "loop.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -81,12 +80,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
+#include "tree-dump.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif
 
-#if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
 #endif
 
@@ -108,166 +108,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define DUMPFILE_FORMAT ".%02d."
 #endif
 
-/* Describes a dump file.  */
-
-struct dump_file_info
-{
-  /* The unique extension to apply, e.g. ".jump".  */
-  const char *const extension;
-
-  /* The -d<c> character that enables this dump file.  */
-  char const debug_switch;
-
-  /* True if there is a corresponding graph dump file.  */
-  char const graph_dump_p;
-
-  /* True if the user selected this dump.  */
-  char enabled;
-
-  /* True if the files have been initialized (ie truncated).  */
-  char initialized;
-};
-
-/* Enumerate the extant dump files.  */
-
-enum dump_file_index
-{
-  DFI_cgraph,
-  DFI_rtl,
-  DFI_sibling,
-  DFI_eh,
-  DFI_jump,
-  DFI_null,
-  DFI_cse,
-  DFI_gcse,
-  DFI_loop,
-  DFI_bypass,
-  DFI_cfg,
-  DFI_bp,
-  DFI_vpt,
-  DFI_ce1,
-  DFI_tracer,
-  DFI_loop2,
-  DFI_web,
-  DFI_cse2,
-  DFI_life,
-  DFI_combine,
-  DFI_ce2,
-  DFI_regmove,
-  DFI_sms,
-  DFI_sched,
-  DFI_lreg,
-  DFI_greg,
-  DFI_postreload,
-  DFI_gcse2,
-  DFI_flow2,
-  DFI_peephole2,
-  DFI_ce3,
-  DFI_rnreg,
-  DFI_bbro,
-  DFI_branch_target_load,
-  DFI_sched2,
-  DFI_stack,
-  DFI_vartrack,
-  DFI_mach,
-  DFI_dbr,
-  DFI_MAX
-};
-
-/* Describes all the dump files.  Should be kept in order of the
-   pass and in sync with dump_file_index above.
-
-   Remaining -d letters:
-
-	"   e            q         "
-	"    F     K   O Q     WXY "
-*/
-
-static struct dump_file_info dump_file_tbl[DFI_MAX] =
-{
-  { "cgraph",	'U', 0, 0, 0 },
-  { "rtl",	'r', 0, 0, 0 },
-  { "sibling",  'i', 0, 0, 0 },
-  { "eh",	'h', 0, 0, 0 },
-  { "jump",	'j', 0, 0, 0 },
-  { "null",	'u', 0, 0, 0 },
-  { "cse",	's', 0, 0, 0 },
-  { "gcse",	'G', 1, 0, 0 },
-  { "loop",	'L', 1, 0, 0 },
-  { "bypass",   'G', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "cfg",	'f', 1, 0, 0 },
-  { "bp",	'b', 1, 0, 0 },
-  { "vpt",	'V', 1, 0, 0 },
-  { "ce1",	'C', 1, 0, 0 },
-  { "tracer",	'T', 1, 0, 0 },
-  { "loop2",	'L', 1, 0, 0 },
-  { "web",      'Z', 0, 0, 0 },
-  { "cse2",	't', 1, 0, 0 },
-  { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
-  { "combine",	'c', 1, 0, 0 },
-  { "ce2",	'C', 1, 0, 0 },
-  { "regmove",	'N', 1, 0, 0 },
-  { "sms",      'm', 0, 0, 0 },
-  { "sched",	'S', 1, 0, 0 },
-  { "lreg",	'l', 1, 0, 0 },
-  { "greg",	'g', 1, 0, 0 },
-  { "postreload", 'o', 1, 0, 0 },
-  { "gcse2",    'J', 0, 0, 0 },
-  { "flow2",	'w', 1, 0, 0 },
-  { "peephole2", 'z', 1, 0, 0 },
-  { "ce3",	'E', 1, 0, 0 },
-  { "rnreg",	'n', 1, 0, 0 },
-  { "bbro",	'B', 1, 0, 0 },
-  { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "sched2",	'R', 1, 0, 0 },
-  { "stack",	'k', 1, 0, 0 },
-  { "vartrack",	'V', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
-  { "mach",	'M', 1, 0, 0 },
-  { "dbr",	'd', 0, 0, 0 },
-};
+static int initializing_dump = 0;
 
 /* Routine to open a dump file.  Return true if the dump file is enabled.  */
 
 static int
-open_dump_file (enum dump_file_index index, tree decl)
+open_dump_file (enum tree_dump_index index, tree decl)
 {
-  char *dump_name;
-  const char *open_arg;
-  char seq[16];
-
-  if (! dump_file_tbl[index].enabled)
+  if (! dump_enabled_p (index))
     return 0;
 
   timevar_push (TV_DUMP);
-  if (dump_file != NULL)
-    fclose (dump_file);
 
-  sprintf (seq, DUMPFILE_FORMAT, index);
+  if (dump_file != NULL || dump_file_name != NULL)
+    abort ();
 
-  if (! dump_file_tbl[index].initialized)
-    {
-      /* If we've not initialized the files, do so now.  */
-      if (graph_dump_format != no_graph
-	  && dump_file_tbl[index].graph_dump_p)
-	{
-	  dump_name = concat (seq, dump_file_tbl[index].extension, NULL);
-	  clean_graph_dump_file (dump_base_name, dump_name);
-	  free (dump_name);
-	}
-      dump_file_tbl[index].initialized = 1;
-      open_arg = "w";
-    }
-  else
-    open_arg = "a";
+  dump_file_name = get_dump_file_name (index);
+  initializing_dump = !dump_initialized_p (index);
+  dump_file = dump_begin (index, NULL);
 
-  dump_name = concat (dump_base_name, seq,
-		      dump_file_tbl[index].extension, NULL);
-
-  dump_file = fopen (dump_name, open_arg);
   if (dump_file == NULL)
-    fatal_error ("can't open %s: %m", dump_name);
-
-  free (dump_name);
+    fatal_error ("can't open %s: %m", dump_file_name);
 
   if (decl)
     fprintf (dump_file, "\n;; Function %s%s\n\n",
@@ -285,7 +146,7 @@ open_dump_file (enum dump_file_index index, tree decl)
 /* Routine to close a dump file.  */
 
 static void
-close_dump_file (enum dump_file_index index,
+close_dump_file (enum tree_dump_index index,
 		 void (*func) (FILE *, rtx),
 		 rtx insns)
 {
@@ -294,25 +155,23 @@ close_dump_file (enum dump_file_index index,
 
   timevar_push (TV_DUMP);
   if (insns
-      && graph_dump_format != no_graph
-      && dump_file_tbl[index].graph_dump_p)
+      && graph_dump_format != no_graph)
     {
-      char seq[16];
-      char *suffix;
+      /* If we've not initialized the files, do so now.  */
+      if (initializing_dump)
+	clean_graph_dump_file (dump_file_name);
 
-      sprintf (seq, DUMPFILE_FORMAT, index);
-      suffix = concat (seq, dump_file_tbl[index].extension, NULL);
-      print_rtl_graph_with_bb (dump_base_name, suffix, insns);
-      free (suffix);
+      print_rtl_graph_with_bb (dump_file_name, insns);
     }
 
   if (func && insns)
     func (dump_file, insns);
 
-  fflush (dump_file);
-  fclose (dump_file);
+  dump_end (index, dump_file);
+  free ((char *) dump_file_name);
 
   dump_file = NULL;
+  dump_file_name = NULL;
   timevar_pop (TV_DUMP);
 }
 
@@ -320,18 +179,16 @@ close_dump_file (enum dump_file_index index,
    and TYPE_DECL nodes.
 
    This does nothing for local (non-static) variables, unless the
-   variable is a register variable with an ASMSPEC.  In that case, or
-   if the variable is not an automatic, it sets up the RTL and
-   outputs any assembler code (label definition, storage allocation
-   and initialization).
+   variable is a register variable with DECL_ASSEMBLER_NAME set.  In
+   that case, or if the variable is not an automatic, it sets up the
+   RTL and outputs any assembler code (label definition, storage
+   allocation and initialization).
 
-   DECL is the declaration.  If ASMSPEC is nonzero, it specifies
-   the assembler symbol name to be used.  TOP_LEVEL is nonzero
+   DECL is the declaration.  TOP_LEVEL is nonzero
    if this declaration is not within a function.  */
 
 void
 rest_of_decl_compilation (tree decl,
-			  const char *asmspec,
 			  int top_level,
 			  int at_end)
 {
@@ -348,15 +205,17 @@ rest_of_decl_compilation (tree decl,
       }
   }
 
+  /* Can't defer this, because it needs to happen before any
+     later function definitions are processed.  */
+  if (DECL_REGISTER (decl) && DECL_ASSEMBLER_NAME_SET_P (decl))
+    make_decl_rtl (decl);
+
   /* Forward declarations for nested functions are not "external",
      but we need to treat them as if they were.  */
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
       || TREE_CODE (decl) == FUNCTION_DECL)
     {
       timevar_push (TV_VARCONST);
-
-      if (asmspec)
-	make_decl_rtl (decl, asmspec);
 
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.
@@ -370,7 +229,14 @@ rest_of_decl_compilation (tree decl,
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
-	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
+	      && TREE_CODE (decl) != FUNCTION_DECL && top_level
+	      /* If we defer processing of decls that have had their
+		 DECL_RTL set above (say, in make_decl_rtl),
+		 check_global_declarations() will clear it before
+		 assemble_variable has a chance to act on it.  This
+		 would remove all traces of the register name in a
+		 global register variable, for example.  */
+	      && !DECL_RTL_SET_P (decl))
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -385,22 +251,6 @@ rest_of_decl_compilation (tree decl,
 #endif
 
       timevar_pop (TV_VARCONST);
-    }
-  else if (DECL_REGISTER (decl) && asmspec != 0)
-    {
-      if (decode_reg_name (asmspec) >= 0)
-	{
-	  SET_DECL_RTL (decl, NULL_RTX);
-	  make_decl_rtl (decl, asmspec);
-	}
-      else
-	{
-	  error ("%Hinvalid register name `%s' for register variable",
-		 &DECL_SOURCE_LOCATION (decl), asmspec);
-	  DECL_REGISTER (decl) = 0;
-	  if (!top_level)
-	    expand_decl (decl);
-	}
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -450,7 +300,7 @@ rest_of_handle_final (void)
     final (get_insns (), asm_out_file, optimize, 0);
     final_end_function ();
 
-#ifdef IA64_UNWIND_INFO
+#ifdef TARGET_UNWIND_INFO
     /* ??? The IA-64 ".handlerdata" directive must be issued before
        the ".endp" directive that closes the procedure descriptor.  */
     output_function_exception_table ();
@@ -458,10 +308,12 @@ rest_of_handle_final (void)
 
     assemble_end_function (current_function_decl, fnname);
 
-#ifndef IA64_UNWIND_INFO
+#ifndef TARGET_UNWIND_INFO
     /* Otherwise, it feels unclean to switch sections in the middle.  */
     output_function_exception_table ();
 #endif
+
+    user_defined_section_attribute = false;
 
     if (! quiet_flag)
       fflush (asm_out_file);
@@ -472,9 +324,24 @@ rest_of_handle_final (void)
     /* Release all memory held by regsets now.  */
     regset_release_memory ();
   }
-  timevar_pop (TV_FINAL);
+
+  /* Write DBX symbols if requested.  */
+
+  /* Note that for those inline functions where we don't initially
+     know for certain that we will be generating an out-of-line copy,
+     the first invocation of this routine (rest_of_compilation) will
+     skip over this code by doing a `goto exit_rest_of_compilation;'.
+     Later on, wrapup_global_declarations will (indirectly) call
+     rest_of_compilation again for those inline functions that need
+     to have out-of-line copies generated.  During that call, we
+     *will* be routed past here.  */
+
+  timevar_push (TV_SYMOUT);
+  (*debug_hooks->function_decl) (current_function_decl);
+  timevar_pop (TV_SYMOUT);
 
   ggc_collect ();
+  timevar_pop (TV_FINAL);
 }
 
 #ifdef DELAY_SLOTS
@@ -488,9 +355,10 @@ rest_of_handle_delay_slots (void)
   dbr_schedule (get_insns (), dump_file);
 
   close_dump_file (DFI_dbr, print_rtl, get_insns ());
-  timevar_pop (TV_DBR_SCHED);
 
   ggc_collect ();
+
+  timevar_pop (TV_DBR_SCHED);
 }
 #endif
 
@@ -526,19 +394,19 @@ rest_of_handle_stack_regs (void)
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
 	  && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
 	{
-	  reorder_basic_blocks ();
+	  reorder_basic_blocks (0);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
 	}
     }
 
   close_dump_file (DFI_stack, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_REG_STACK);
 
   ggc_collect ();
+  timevar_pop (TV_REG_STACK);
 }
 #endif
 
-/* Track the variables, ie. compute where the variable is stored at each position in function.  */
+/* Track the variables, i.e. compute where the variable is stored at each position in function.  */
 static void
 rest_of_handle_variable_tracking (void)
 {
@@ -551,7 +419,7 @@ rest_of_handle_variable_tracking (void)
   timevar_pop (TV_VAR_TRACKING);
 }
 
-/* Machine independent reorg pass.  */
+/* Machine dependent reorg pass.  */
 static void
 rest_of_handle_machine_reorg (void)
 {
@@ -561,9 +429,9 @@ rest_of_handle_machine_reorg (void)
   targetm.machine_dependent_reorg ();
 
   close_dump_file (DFI_mach, print_rtl, get_insns ());
-  timevar_pop (TV_MACH_DEP);
 
   ggc_collect ();
+  timevar_pop (TV_MACH_DEP);
 }
 
 
@@ -574,17 +442,14 @@ rest_of_handle_new_regalloc (void)
 {
   int failure;
 
+  timevar_push (TV_LOCAL_ALLOC);
+  open_dump_file (DFI_lreg, current_function_decl);
+
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   reg_alloc ();
 
   timevar_pop (TV_LOCAL_ALLOC);
-  if (dump_file_tbl[DFI_lreg].enabled)
-    {
-      timevar_push (TV_DUMP);
-
-      close_dump_file (DFI_lreg, NULL, NULL);
-      timevar_pop (TV_DUMP);
-    }
+  close_dump_file (DFI_lreg, NULL, NULL);
 
   /* XXX clean up the whole mess to bring live info in shape again.  */
   timevar_push (TV_GLOBAL_ALLOC);
@@ -595,14 +460,14 @@ rest_of_handle_new_regalloc (void)
 
   timevar_pop (TV_GLOBAL_ALLOC);
 
-  if (dump_file_tbl[DFI_greg].enabled)
+  ggc_collect ();
+
+  if (dump_enabled_p (DFI_greg))
     {
       timevar_push (TV_DUMP);
-
       dump_global_regs (dump_file);
-
-      close_dump_file (DFI_greg, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_DUMP);
+      close_dump_file (DFI_greg, print_rtl_with_bb, get_insns ());
     }
 
   if (failure)
@@ -620,6 +485,9 @@ rest_of_handle_old_regalloc (void)
 {
   int failure;
   int rebuild_notes;
+
+  timevar_push (TV_LOCAL_ALLOC);
+  open_dump_file (DFI_lreg, current_function_decl);
 
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
@@ -648,16 +516,15 @@ rest_of_handle_old_regalloc (void)
       timevar_pop (TV_JUMP);
     }
 
-  if (dump_file_tbl[DFI_lreg].enabled)
+  if (dump_enabled_p (DFI_lreg))
     {
       timevar_push (TV_DUMP);
-
       dump_flow_info (dump_file);
       dump_local_alloc (dump_file);
-
-      close_dump_file (DFI_lreg, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_DUMP);
     }
+
+  close_dump_file (DFI_lreg, print_rtl_with_bb, get_insns ());
 
   ggc_collect ();
 
@@ -675,17 +542,18 @@ rest_of_handle_old_regalloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  timevar_pop (TV_GLOBAL_ALLOC);
-
-  if (dump_file_tbl[DFI_greg].enabled)
+  if (dump_enabled_p (DFI_greg))
     {
       timevar_push (TV_DUMP);
-
       dump_global_regs (dump_file);
+      timevar_pop (TV_DUMP);
 
       close_dump_file (DFI_greg, print_rtl_with_bb, get_insns ());
-      timevar_pop (TV_DUMP);
     }
+
+  ggc_collect ();
+
+  timevar_pop (TV_GLOBAL_ALLOC);
 
   return failure;
 }
@@ -711,23 +579,22 @@ static void
 rest_of_handle_reorder_blocks (void)
 {
   bool changed;
+  unsigned int liveness_flags;
+
   open_dump_file (DFI_bbro, current_function_decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  changed = cleanup_cfg (CLEANUP_EXPENSIVE
-			 | (!HAVE_conditional_execution
-			    ? CLEANUP_UPDATE_LIFE : 0));
+  liveness_flags = (!HAVE_conditional_execution ? CLEANUP_UPDATE_LIFE : 0);
+  changed = cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
-    tracer ();
+    tracer (liveness_flags);
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks ();
+    reorder_basic_blocks (liveness_flags);
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE
-			    | (!HAVE_conditional_execution
-			       ? CLEANUP_UPDATE_LIFE : 0));
+    changed |= cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
 
   /* On conditional execution targets we can not update the life cheaply, so
      we deffer the updating to after both cleanups.  This may lose some cases
@@ -738,52 +605,65 @@ rest_of_handle_reorder_blocks (void)
   close_dump_file (DFI_bbro, print_rtl_with_bb, get_insns ());
 }
 
+/* Partition hot and cold basic blocks.  */
+static void
+rest_of_handle_partition_blocks (void)
+{
+  no_new_pseudos = 0;
+  partition_hot_cold_basic_blocks ();
+  allocate_reg_life_data ();
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, 
+		    PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
+  no_new_pseudos = 1;
+}
+
 #ifdef INSN_SCHEDULING
+/* Run instruction scheduler.  */
+/* Perform SMS module scheduling.  */
+static void
+rest_of_handle_sms (void)
+{
+  timevar_push (TV_SMS);
+  open_dump_file (DFI_sms, current_function_decl);
+
+  /* We want to be able to create new pseudos.  */
+  no_new_pseudos = 0;
+  sms_schedule (dump_file);
+  close_dump_file (DFI_sms, print_rtl, get_insns ());
+
+
+  /* Update the life information, because we add pseudos.  */
+  max_regno = max_reg_num ();
+  allocate_reg_info (max_regno, FALSE, FALSE);
+  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+				    (PROP_DEATH_NOTES
+				     | PROP_KILL_DEAD_CODE
+				     | PROP_SCAN_DEAD_CODE));
+  no_new_pseudos = 1;
+
+  ggc_collect ();
+  timevar_pop (TV_SMS);
+}
+
 /* Run instruction scheduler.  */
 static void
 rest_of_handle_sched (void)
 {
-  timevar_push (TV_SMS);
-  if (optimize > 0 && flag_modulo_sched)
-    {
-
-      /* Perform SMS module scheduling.  */
-      open_dump_file (DFI_sms, current_function_decl);
-
-      /* We want to be able to create new pseudos.  */
-      no_new_pseudos = 0;
-      sms_schedule (dump_file);
-      close_dump_file (DFI_sms, print_rtl, get_insns ());
-
-
-      /* Update the life information, because we add pseudos.  */
-      max_regno = max_reg_num ();
-      allocate_reg_info (max_regno, FALSE, FALSE);
-      update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					(PROP_DEATH_NOTES
-					 | PROP_KILL_DEAD_CODE
-					 | PROP_SCAN_DEAD_CODE));
-      no_new_pseudos = 1;
-    }
-  timevar_pop (TV_SMS);
   timevar_push (TV_SCHED);
 
   /* Print function header into sched dump now
      because doing the sched analysis makes some of the dump.  */
-  if (optimize > 0 && flag_schedule_insns)
-    {
-      open_dump_file (DFI_sched, current_function_decl);
+  open_dump_file (DFI_sched, current_function_decl);
 
-      /* Do control and data sched analysis,
-	 and write some of the results to dump file.  */
+  /* Do control and data sched analysis,
+     and write some of the results to dump file.  */
 
-      schedule_insns (dump_file);
+  schedule_insns (dump_file);
 
-      close_dump_file (DFI_sched, print_rtl_with_bb, get_insns ());
-    }
-  timevar_pop (TV_SCHED);
+  close_dump_file (DFI_sched, print_rtl_with_bb, get_insns ());
 
   ggc_collect ();
+  timevar_pop (TV_SCHED);
 }
 
 /* Run second scheduling pass after reload.  */
@@ -810,18 +690,20 @@ rest_of_handle_sched2 (void)
     schedule_insns (dump_file);
 
   close_dump_file (DFI_sched2, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_SCHED2);
 
   ggc_collect ();
+
+  timevar_pop (TV_SCHED2);
 }
 #endif
 
 static void
 rest_of_handle_gcse2 (void)
 {
+  timevar_push (TV_GCSE_AFTER_RELOAD);
   open_dump_file (DFI_gcse2, current_function_decl);
 
-  gcse_after_reload_main (get_insns (), dump_file);
+  gcse_after_reload_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   close_dump_file (DFI_gcse2, print_rtl_with_bb, get_insns ());
@@ -831,6 +713,8 @@ rest_of_handle_gcse2 (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+
+  timevar_pop (TV_GCSE_AFTER_RELOAD);
 }
 
 /* Register allocation pre-pass, to reduce number of moves necessary
@@ -845,9 +729,9 @@ rest_of_handle_regmove (void)
 
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   close_dump_file (DFI_regmove, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_REGMOVE);
 
   ggc_collect ();
+  timevar_pop (TV_REGMOVE);
 }
 
 /* Run tracer.  */
@@ -857,7 +741,7 @@ rest_of_handle_tracer (void)
   open_dump_file (DFI_tracer, current_function_decl);
   if (dump_file)
     dump_flow_info (dump_file);
-  tracer ();
+  tracer (0);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num (), 0);
   close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
@@ -867,22 +751,25 @@ rest_of_handle_tracer (void)
 static void
 rest_of_handle_if_conversion (void)
 {
+  timevar_push (TV_IFCVT);
   open_dump_file (DFI_ce1, current_function_decl);
+
   if (flag_if_conversion)
     {
-      timevar_push (TV_IFCVT);
       if (dump_file)
 	dump_flow_info (dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num (), 0);
       if_convert (0);
-      timevar_pop (TV_IFCVT);
     }
+
   timevar_push (TV_JUMP);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num (), 0);
   timevar_pop (TV_JUMP);
+
   close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_IFCVT);
 }
 
 /* Rerun if-conversion, as combine may have simplified things enough
@@ -899,6 +786,23 @@ rest_of_handle_if_after_combine (void)
 
   close_dump_file (DFI_ce2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_IFCVT);
+}
+
+static void
+rest_of_handle_if_after_reload (void)
+{
+  timevar_push (TV_IFCVT2);
+  open_dump_file (DFI_ce3, current_function_decl);
+
+  /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+     splitting possibly introduced more crossjumping opportunities.  */
+  cleanup_cfg (CLEANUP_EXPENSIVE
+	       | CLEANUP_UPDATE_LIFE 
+	       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  if (flag_if_conversion2)
+    if_convert (1);
+  close_dump_file (DFI_ce3, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_IFCVT2);
 }
 
 static void
@@ -920,6 +824,7 @@ static void
 rest_of_handle_branch_prob (void)
 {
   struct loops loops;
+
   timevar_push (TV_BRANCH_PROB);
   open_dump_file (DFI_bp, current_function_decl);
 
@@ -1026,7 +931,7 @@ rest_of_handle_combine (void)
   rebuild_jump_labels_after_combine
     = combine_instructions (get_insns (), max_reg_num ());
 
-  /* Combining get_insns () may have turned an indirect jump into a
+  /* Combining insns may have turned an indirect jump into a
      direct jump.  Rebuild the JUMP_LABEL fields of jumping
      instructions.  */
   if (rebuild_jump_labels_after_combine)
@@ -1059,7 +964,6 @@ rest_of_handle_life (void)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
 		 | CLEANUP_LOG_LINKS
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-  timevar_pop (TV_FLOW);
 
   if (extra_warnings)
     {
@@ -1093,6 +997,7 @@ static void
 rest_of_handle_cse (void)
 {
   int tem;
+
   open_dump_file (DFI_cse, current_function_decl);
   if (dump_file)
     dump_flow_info (dump_file);
@@ -1100,7 +1005,7 @@ rest_of_handle_cse (void)
 
   reg_scan (get_insns (), max_reg_num (), 1);
 
-  tem = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges (0))
@@ -1117,6 +1022,8 @@ rest_of_handle_cse (void)
 
   timevar_pop (TV_CSE);
   close_dump_file (DFI_cse, print_rtl_with_bb, get_insns ());
+
+  ggc_collect ();
 }
 
 /* Run second CSE pass after loop optimizations.  */
@@ -1124,12 +1031,13 @@ static void
 rest_of_handle_cse2 (void)
 {
   int tem;
+
   timevar_push (TV_CSE2);
   open_dump_file (DFI_cse2, current_function_decl);
   if (dump_file)
     dump_flow_info (dump_file);
   /* CFG is no longer maintained up-to-date.  */
-  tem = cse_main (get_insns (), max_reg_num (), 1, dump_file);
+  tem = cse_main (get_insns (), max_reg_num (), dump_file);
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -1149,8 +1057,9 @@ rest_of_handle_cse2 (void)
     }
   reg_scan (get_insns (), max_reg_num (), 0);
   close_dump_file (DFI_cse2, print_rtl_with_bb, get_insns ());
-  ggc_collect ();
   timevar_pop (TV_CSE2);
+
+  ggc_collect ();
 }
 
 /* Perform global cse.  */
@@ -1159,6 +1068,7 @@ rest_of_handle_gcse (void)
 {
   int save_csb, save_cfj;
   int tem2 = 0, tem;
+
   timevar_push (TV_GCSE);
   open_dump_file (DFI_gcse, current_function_decl);
 
@@ -1176,7 +1086,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_CSE);
       reg_scan (get_insns (), max_reg_num (), 1);
-      tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
@@ -1197,7 +1107,7 @@ rest_of_handle_gcse (void)
 	{
 	  timevar_push (TV_CSE);
 	  reg_scan (get_insns (), max_reg_num (), 1);
-	  tem2 = cse_main (get_insns (), max_reg_num (), 0, dump_file);
+	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
 	  purge_all_dead_edges (0);
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
 	  timevar_pop (TV_CSE);
@@ -1219,7 +1129,7 @@ rest_of_handle_gcse (void)
 static void
 rest_of_handle_loop_optimize (void)
 {
-  int do_unroll, do_prefetch;
+  int do_prefetch;
 
   timevar_push (TV_LOOP);
   delete_dead_jumptables ();
@@ -1228,11 +1138,8 @@ rest_of_handle_loop_optimize (void)
 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
+  profile_status = PROFILE_ABSENT;
 
-  if (flag_unroll_loops)
-    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
-  else
-    do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 
   if (flag_rerun_loop_opt)
@@ -1240,8 +1147,7 @@ rest_of_handle_loop_optimize (void)
       cleanup_barriers ();
 
       /* We only want to perform unrolling once.  */
-      loop_optimize (get_insns (), dump_file, do_unroll);
-      do_unroll = 0;
+      loop_optimize (get_insns (), dump_file, 0);
 
       /* The first call to loop_optimize makes some instructions
 	 trivially dead.  We delete those instructions now in the
@@ -1254,13 +1160,13 @@ rest_of_handle_loop_optimize (void)
       reg_scan (get_insns (), max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (get_insns (), dump_file, do_unroll | do_prefetch);
+  loop_optimize (get_insns (), dump_file, do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  find_basic_blocks (get_insns (), max_reg_num (), dump_file);
   close_dump_file (DFI_loop, print_rtl, get_insns ());
   timevar_pop (TV_LOOP);
-  find_basic_blocks (get_insns (), max_reg_num (), dump_file);
 
   ggc_collect ();
 }
@@ -1287,7 +1193,7 @@ rest_of_handle_loop2 (void)
     dump_flow_info (dump_file);
 
   /* Initialize structures for layout changes.  */
-  cfg_layout_initialize ();
+  cfg_layout_initialize (0);
 
   loops = loop_optimizer_init (dump_file);
 
@@ -1314,6 +1220,8 @@ rest_of_handle_loop2 (void)
       loop_optimizer_finalize (loops, dump_file);
     }
 
+  free_dominance_info (CDI_DOMINATORS);
+
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
@@ -1330,87 +1238,48 @@ rest_of_handle_loop2 (void)
   ggc_collect ();
 }
 
-/* This is called from finish_function (within langhooks.parse_file)
-   after each top-level definition is parsed.
-   It is supposed to compile that function or variable
-   and output the assembler code for it.
-   After we return, the tree storage is freed.  */
-
-void
-rest_of_compilation (void)
+static void
+rest_of_handle_branch_target_load_optimize (void)
 {
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (current_function_decl) = 0;
+  static int warned = 0;
 
-  /* There's no need to defer outputting this function any more; we
-     know we want to output it.  */
-  DECL_DEFER_OUTPUT (current_function_decl) = 0;
+  /* Leave this a warning for now so that it is possible to experiment
+     with running this pass twice.  In 3.6, we should either make this
+     an error, or use separate dump files.  */
+  if (flag_branch_target_load_optimize
+      && flag_branch_target_load_optimize2
+      && !warned)
+    {
+      warning ("branch target register load optimization is not intended "
+	       "to be run twice");
 
-  /* Register rtl specific functions for cfg.  */
-  rtl_register_cfg_hooks ();
+      warned = 1;
+    }
 
-  /* Now that we're out of the frontend, we shouldn't have any more
-     CONCATs anywhere.  */
-  generating_concat_p = 0;
-
-  /* When processing delayed functions, prepare_function_start() won't
-     have been run to re-initialize it.  */
-  cse_not_expected = ! optimize;
-
-  finalize_block_changes ();
-
-  /* Dump the rtl code if we are dumping rtl.  */
-  if (open_dump_file (DFI_rtl, current_function_decl))
-    close_dump_file (DFI_rtl, print_rtl, get_insns ());
-
-  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  Delay this until after the
-     initial rtl dump so that we can see the original nesting.  */
-  convert_from_eh_region_ranges ();
-
-  /* If we're emitting a nested function, make sure its parent gets
-     emitted as well.  Doing otherwise confuses debug info.  */
-  {
-    tree parent;
-    for (parent = DECL_CONTEXT (current_function_decl);
-	 parent != NULL_TREE;
-	 parent = get_containing_scope (parent))
-      if (TREE_CODE (parent) == FUNCTION_DECL)
-	TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
-  }
-
-  /* We are now committed to emitting code for this function.  Do any
-     preparation, such as emitting abstract debug info for the inline
-     before it gets mangled by optimization.  */
-  if (cgraph_function_possibly_inlined_p (current_function_decl))
-    (*debug_hooks->outlining_inline_function) (current_function_decl);
-
-  /* Remove any notes we don't need.  That will make iterating
-     over the instruction sequence faster, and allow the garbage
-     collector to reclaim the memory used by the notes.  */
-  remove_unnecessary_notes ();
-
+  open_dump_file (DFI_branch_target_load, current_function_decl);
+  branch_target_load_optimize (epilogue_completed);
+  close_dump_file (DFI_branch_target_load, print_rtl_with_bb, get_insns ());
   ggc_collect ();
+}
 
-  /* Initialize some variables used by the optimizers.  */
-  init_function_for_compilation ();
+#ifdef OPTIMIZE_MODE_SWITCHING
+static void
+rest_of_handle_mode_switching (void)
+{
+  timevar_push (TV_MODE_SWITCH);
 
-  TREE_ASM_WRITTEN (current_function_decl) = 1;
+  no_new_pseudos = 0;
+  optimize_mode_switching (NULL);
+  no_new_pseudos = 1;
 
-  /* Now that integrate will no longer see our rtl, we need not
-     distinguish between the return value of this function and the
-     return value of called functions.  Also, we can remove all SETs
-     of subregs of hard registers; they are only here because of
-     integrate.  Also, we can now initialize pseudos intended to
-     carry magic hard reg data throughout the function.  */
-  rtx_equal_function_value_matters = 0;
-  purge_hard_subreg_sets (get_insns ());
+  timevar_pop (TV_MODE_SWITCH);
+}
+#endif
 
-  /* Early return if there were errors.  We can run afoul of our
-     consistency checks, and there's not really much point in fixing them.  */
-  if (rtl_dump_and_exit || flag_syntax_only || errorcount || sorrycount)
-    goto exit_rest_of_compilation;
+static void
+rest_of_handle_jump (void)
+{
+  ggc_collect ();
 
   timevar_push (TV_JUMP);
   open_dump_file (DFI_sibling, current_function_decl);
@@ -1425,24 +1294,32 @@ rest_of_compilation (void)
       find_exception_handler_labels ();
       find_basic_blocks (get_insns (), max_reg_num (), dump_file);
     }
+
+  /* ??? We may get called either via tree_rest_of_compilation when the CFG
+     is already built or directly (for instance from coverage code).
+     The direct callers shall be updated.  */
+  if (!basic_block_info)
+    {
+      init_flow ();
+      rebuild_jump_labels (get_insns ());
+      find_exception_handler_labels ();
+      find_basic_blocks (get_insns (), max_reg_num (), dump_file);
+    }
   delete_unreachable_blocks ();
 #ifdef ENABLE_CHECKING
-  verify_flow_info();
+  verify_flow_info ();
 #endif
-
-  /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
-  if (flag_guess_branch_prob)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      note_prediction_to_br_prob ();
-      timevar_pop (TV_BRANCH_PROB);
-    }
-
-  timevar_pop (TV_JUMP);
 
   if (cfun->tail_call_emit)
     fixup_tail_calls ();
 
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+  timevar_pop (TV_JUMP);
+}
+
+static void
+rest_of_handle_eh (void)
+{
   insn_locators_initialize ();
   /* Complete generation of exception handling code.  */
   if (doing_eh (0))
@@ -1450,40 +1327,90 @@ rest_of_compilation (void)
       timevar_push (TV_JUMP);
       open_dump_file (DFI_eh, current_function_decl);
 
+      cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
+
       finish_eh_generation ();
+
+      cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
 
       close_dump_file (DFI_eh, print_rtl, get_insns ());
       timevar_pop (TV_JUMP);
     }
+}
 
-  /* Delay emitting hard_reg_initial_value sets until after EH landing pad
-     generation, which might create new sets.  */
-  emit_initial_value_sets ();
 
-#ifdef FINALIZE_PIC
-  /* If we are doing position-independent code generation, now
-     is the time to output special prologues and epilogues.
-     We do not want to do this earlier, because it just clutters
-     up inline functions with meaningless insns.  */
-  if (flag_pic)
-    FINALIZE_PIC;
+static void
+rest_of_handle_prologue_epilogue (void)
+{
+  if (optimize && !flow2_completed)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+  thread_prologue_and_epilogue_insns (get_insns ());
+  epilogue_completed = 1;
+
+  if (optimize && flow2_completed)
+    life_analysis (dump_file, PROP_POSTRELOAD);
+}
+
+static void
+rest_of_handle_stack_adjustments (void)
+{
+  life_analysis (dump_file, PROP_POSTRELOAD);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+	       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+    
+  /* This is kind of a heuristic.  We need to run combine_stack_adjustments
+     even for machines with possibly nonzero RETURN_POPS_ARGS
+     and ACCUMULATE_OUTGOING_ARGS.  We expect that only ports having
+     push instructions will have popping returns.  */
+#ifndef PUSH_ROUNDING
+  if (!ACCUMULATE_OUTGOING_ARGS)
+#endif
+    combine_stack_adjustments ();
+}
+
+static void
+rest_of_handle_flow2 (void)
+{
+  timevar_push (TV_FLOW2);
+  open_dump_file (DFI_flow2, current_function_decl);
+
+  /* Re-create the death notes which were deleted during reload.  */
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
 #endif
 
-  /* Copy any shared structure that should not be shared.  */
-  unshare_all_rtl ();
-
-#ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virtual register instantiation.
-     Please be aware that everything in the compiler that can look
-     at the RTL up to this point must understand that REG_SAVE_AREA
-     is just like a use of the REG contained inside.  */
-  if (current_function_calls_alloca)
-    optimize_save_area_alloca (get_insns ());
+  /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
+  if (optimize > 0)
 #endif
+    split_all_insns (0);
 
-  /* Instantiate all virtual registers.  */
-  instantiate_virtual_regs ();
+  if (flag_branch_target_load_optimize)
+    rest_of_handle_branch_target_load_optimize ();
 
+  if (!targetm.late_rtl_prologue_epilogue)
+    rest_of_handle_prologue_epilogue ();
+
+  if (optimize)
+    rest_of_handle_stack_adjustments ();
+
+  flow2_completed = 1;
+
+  close_dump_file (DFI_flow2, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_FLOW2);
+
+  ggc_collect ();
+}
+
+
+static void
+rest_of_handle_jump2 (void)
+{
   open_dump_file (DFI_jump, current_function_decl);
 
   /* Always do one jump optimization pass to ensure that JUMP_LABEL fields
@@ -1497,7 +1424,7 @@ rest_of_compilation (void)
     expected_value_to_br_prob ();
 
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns(), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num (), 0);
   if (dump_file)
     dump_flow_info (dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
@@ -1506,8 +1433,6 @@ rest_of_compilation (void)
   create_loop_notes ();
 
   purge_line_number_notes (get_insns ());
-
-  close_dump_file (DFI_jump, print_rtl, get_insns ());
 
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
@@ -1518,358 +1443,69 @@ rest_of_compilation (void)
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
   renumber_insns (dump_file);
-  timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_JUMP);
 
   ggc_collect ();
+}
 
-  if (optimize > 0)
-    rest_of_handle_cse ();
+#ifdef HAVE_peephole2
+static void
+rest_of_handle_peephole2 (void)
+{
+  timevar_push (TV_PEEPHOLE2);
+  open_dump_file (DFI_peephole2, current_function_decl);
 
-  ggc_collect ();
+  peephole2_optimize (dump_file);
 
-  if (optimize > 0)
-    {
-      if (flag_gcse)
-	rest_of_handle_gcse ();
-
-      if (flag_loop_optimize)
-	rest_of_handle_loop_optimize ();
-
-      if (flag_gcse)
-	rest_of_handle_jump_bypass ();
-    }
-
-  timevar_push (TV_FLOW);
-
-  rest_of_handle_cfg ();
-
-  if (!flag_tree_based_profiling
-      && (optimize > 0 || profile_arc_flag
-	  || flag_test_coverage || flag_branch_probabilities))
-    {
-      rtl_register_profile_hooks ();
-      rtl_register_value_prof_hooks ();
-      rest_of_handle_branch_prob ();
-
-      if (flag_branch_probabilities
-	  && flag_profile_values
-	  && flag_value_profile_transformations)
-	rest_of_handle_value_profile_transformations ();
-
-      /* Remove the death notes created for vpt.  */
-      if (flag_profile_values)
-	count_or_remove_death_notes (NULL, 1);
-    }
-
-  if (optimize > 0)
-    rest_of_handle_if_conversion ();
-
-  if (flag_tracer)
-    rest_of_handle_tracer ();
-
-  if (optimize > 0
-      && flag_loop_optimize2)
-    rest_of_handle_loop2 ();
-
-  if (flag_web)
-    rest_of_handle_web ();
-
-  if (flag_rerun_cse_after_loop)
-    rest_of_handle_cse2 ();
-
-  cse_not_expected = 1;
-
-  rest_of_handle_life ();
-
-  if (optimize > 0)
-    rest_of_handle_combine ();
-
-  if (flag_if_conversion)
-    rest_of_handle_if_after_combine ();
-
-  /* The optimization to partition hot/cold basic blocks into separate
-     sections of the .o file does not work well with exception handling.
-     Don't call it if there are exceptions.  */
-
-  if (flag_reorder_blocks_and_partition && !flag_exceptions)
-    {
-      no_new_pseudos = 0;
-      partition_hot_cold_basic_blocks ();
-      allocate_reg_life_data ();
-      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, 
-			PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
-      no_new_pseudos = 1;
-    }
-
-  if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
-    rest_of_handle_regmove ();
-
-  /* Do unconditional splitting before register allocation to allow machine
-     description to add extra information not needed previously.  */
-  split_all_insns (1);
-
-#ifdef OPTIMIZE_MODE_SWITCHING
-  timevar_push (TV_MODE_SWITCH);
-
-  no_new_pseudos = 0;
-  optimize_mode_switching (NULL);
-  no_new_pseudos = 1;
-
-  timevar_pop (TV_MODE_SWITCH);
+  close_dump_file (DFI_peephole2, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_PEEPHOLE2);
+}
 #endif
 
-  /* Any of the several passes since flow1 will have munged register
-     lifetime data a bit.  We need it to be up to date for scheduling
-     (see handling of reg_known_equiv in init_alias_analysis).  */
-  recompute_reg_usage (get_insns (), !optimize_size);
-
-#ifdef INSN_SCHEDULING
-  rest_of_handle_sched ();
-#endif
-
-  /* Determine if the current function is a leaf before running reload
-     since this can impact optimizations done by the prologue and
-     epilogue thus changing register elimination offsets.  */
-  current_function_is_leaf = leaf_function_p ();
-
-  timevar_push (TV_LOCAL_ALLOC);
-  open_dump_file (DFI_lreg, current_function_decl);
-
-  if (flag_new_regalloc)
-    {
-      if (rest_of_handle_new_regalloc ())
-	goto exit_rest_of_compilation;
-    }
-  else
-    {
-      if (rest_of_handle_old_regalloc ())
-	goto exit_rest_of_compilation;
-    }
-
-  ggc_collect ();
-
+static void
+rest_of_handle_postreload (void)
+{
+  timevar_push (TV_RELOAD_CSE_REGS);
   open_dump_file (DFI_postreload, current_function_decl);
 
   /* Do a very simple CSE pass over just the hard registers.  */
-  if (optimize > 0)
-    {
-      timevar_push (TV_RELOAD_CSE_REGS);
-      reload_cse_regs (get_insns ());
-      /* reload_cse_regs can eliminate potentially-trapping MEMs.
-	 Remove any EH edges associated with them.  */
-      if (flag_non_call_exceptions)
-	purge_all_dead_edges (0);
-      timevar_pop (TV_RELOAD_CSE_REGS);
-    }
+  reload_cse_regs (get_insns ());
+  /* reload_cse_regs can eliminate potentially-trapping MEMs.
+     Remove any EH edges associated with them.  */
+  if (flag_non_call_exceptions)
+    purge_all_dead_edges (0);
 
   close_dump_file (DFI_postreload, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_RELOAD_CSE_REGS);
+}
 
-  if (optimize > 0 && flag_gcse_after_reload)
-    rest_of_handle_gcse2 ();
-
-  /* Re-create the death notes which were deleted during reload.  */
-  timevar_push (TV_FLOW2);
-  open_dump_file (DFI_flow2, current_function_decl);
-
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
-
-  /* If optimizing, then go ahead and split get_insns () now.  */
-#ifndef STACK_REGS
-  if (optimize > 0)
-#endif
-    split_all_insns (0);
-
-    if (flag_branch_target_load_optimize)
-      {
-	open_dump_file (DFI_branch_target_load, current_function_decl);
-
-	branch_target_load_optimize (/*after_prologue_epilogue_gen=*/false);
-
-	close_dump_file (DFI_branch_target_load, print_rtl_with_bb, get_insns ());
-
-	ggc_collect ();
-      }
-
-  if (! targetm.late_rtl_prologue_epilogue)
-    {
-      if (optimize)
-	cleanup_cfg (CLEANUP_EXPENSIVE);
-
-      /* On some machines, the prologue and epilogue code, or parts thereof,
-	 can be represented as RTL.  Doing so lets us schedule insns between
-	 it and the rest of the code and also allows delayed branch
-	 scheduling to operate in the epilogue.  */
-      thread_prologue_and_epilogue_insns (get_insns ());
-      epilogue_completed = 1;
-    }
-
-  if (optimize)
-    {
-      life_analysis (dump_file, PROP_POSTRELOAD);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-
-      /* This is kind of a heuristic.  We need to run combine_stack_adjustments
-         even for machines with possibly nonzero RETURN_POPS_ARGS
-         and ACCUMULATE_OUTGOING_ARGS.  We expect that only ports having
-         push instructions will have popping returns.  */
-#ifndef PUSH_ROUNDING
-      if (!ACCUMULATE_OUTGOING_ARGS)
-#endif
-	combine_stack_adjustments ();
-
-      ggc_collect ();
-    }
-
-  flow2_completed = 1;
-
-  close_dump_file (DFI_flow2, print_rtl_with_bb, get_insns ());
-  timevar_pop (TV_FLOW2);
-
-#ifdef HAVE_peephole2
-  if (optimize > 0 && flag_peephole2)
-    {
-      timevar_push (TV_PEEPHOLE2);
-      open_dump_file (DFI_peephole2, current_function_decl);
-
-      peephole2_optimize (dump_file);
-
-      close_dump_file (DFI_peephole2, print_rtl_with_bb, get_insns ());
-      timevar_pop (TV_PEEPHOLE2);
-    }
-#endif
-
-  open_dump_file (DFI_ce3, current_function_decl);
-  if (optimize)
-    /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-       splitting possibly introduced more crossjumping opportunities.  */
-    cleanup_cfg (CLEANUP_EXPENSIVE
-		 | CLEANUP_UPDATE_LIFE 
-		 | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-  if (flag_if_conversion2)
-    {
-      timevar_push (TV_IFCVT2);
-
-      if_convert (1);
-
-      timevar_pop (TV_IFCVT2);
-    }
-  close_dump_file (DFI_ce3, print_rtl_with_bb, get_insns ());
-
-  if (optimize > 0)
-    {
-      if (flag_rename_registers || flag_cprop_registers)
-	rest_of_handle_regrename ();
-
-      rest_of_handle_reorder_blocks ();
-    }
-
-  if (flag_branch_target_load_optimize2)
-    {
-      /* Leave this a warning for now so that it is possible to experiment
-	 with running this pass twice.  In 3.6, we should either make this
-	 an error, or use separate dump files.  */
-      if (flag_branch_target_load_optimize)
-	warning ("branch target register load optimization is not intended "
-		 "to be run twice");
-
-      open_dump_file (DFI_branch_target_load, current_function_decl);
-
-      branch_target_load_optimize (/*after_prologue_epilogue_gen=*/true);
-
-      close_dump_file (DFI_branch_target_load, print_rtl_with_bb, get_insns ());
-
-      ggc_collect ();
-    }
-
-#ifdef LEAF_REGISTERS
-  current_function_uses_only_leaf_regs
-    = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
-#endif
-
-  if (targetm.late_rtl_prologue_epilogue)
-    {
-      /* On some machines, the prologue and epilogue code, or parts thereof,
-	 can be represented as RTL.  Doing so lets us schedule insns between
-	 it and the rest of the code and also allows delayed branch
-	 scheduling to operate in the epilogue.  */
-      thread_prologue_and_epilogue_insns (get_insns ());
-      epilogue_completed = 1;
-      if (optimize)
-	life_analysis (dump_file, PROP_POSTRELOAD);
-    }
-
-#ifdef INSN_SCHEDULING
-  if (optimize > 0 && flag_schedule_insns_after_reload)
-    rest_of_handle_sched2 ();
-#endif
-
-#ifdef STACK_REGS
-  rest_of_handle_stack_regs ();
-#endif
-
-  compute_alignments ();
-
-  if (flag_var_tracking)
-    rest_of_handle_variable_tracking ();
-
-  /* CFG is no longer maintained up-to-date.  */
-  free_bb_for_insn ();
-
-  if (targetm.machine_dependent_reorg != 0)
-    rest_of_handle_machine_reorg ();
-
-  purge_line_number_notes (get_insns ());
-  cleanup_barriers ();
-
-#ifdef DELAY_SLOTS
-  if (optimize > 0 && flag_delayed_branch)
-    rest_of_handle_delay_slots ();
-#endif
-
-#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
-  timevar_push (TV_SHORTEN_BRANCH);
-  split_all_insns_noflow ();
-  timevar_pop (TV_SHORTEN_BRANCH);
-#endif
-
-  convert_to_eh_region_ranges ();
-
+static void
+rest_of_handle_shorten_branches (void)
+{
   /* Shorten branches.  */
   timevar_push (TV_SHORTEN_BRANCH);
   shorten_branches (get_insns ());
   timevar_pop (TV_SHORTEN_BRANCH);
+}
 
-  set_nothrow_function_flags ();
-  if (current_function_nothrow)
-    /* Now we know that this can't throw; set the flag for the benefit
-       of other functions later in this translation unit.  */
-    TREE_NOTHROW (current_function_decl) = 1;
-
-  rest_of_handle_final ();
-
-  /* Write DBX symbols if requested.  */
-
-  /* Note that for those inline functions where we don't initially
-     know for certain that we will be generating an out-of-line copy,
-     the first invocation of this routine (rest_of_compilation) will
-     skip over this code by doing a `goto exit_rest_of_compilation;'.
-     Later on, wrapup_global_declarations will (indirectly) call
-     rest_of_compilation again for those inline functions that need
-     to have out-of-line copies generated.  During that call, we
-     *will* be routed past here.  */
-
-  timevar_push (TV_SYMOUT);
-  (*debug_hooks->function_decl) (current_function_decl);
-  timevar_pop (TV_SYMOUT);
-
- exit_rest_of_compilation:
-
+static void
+rest_of_clean_state (void)
+{
+  rtx insn, next;
   coverage_end_function ();
+
+  /* It is very important to decompose the RTL instruction chain here:
+     debug information keeps pointing into CODE_LABEL insns inside the function
+     body.  If these remain pointing to the other insns, we end up preserving
+     whole RTL chain and attached detailed debug info in memory.  */
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      NEXT_INSN (insn) = NULL;
+      PREV_INSN (insn) = NULL;
+    }
 
   /* In case the function was not output,
      don't leave any temporary anonymous types
@@ -1921,90 +1557,326 @@ rest_of_compilation (void)
 
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
+  free_after_compilation (cfun);
 }
+
+
+/* This function is called from the pass manager in tree-optimize.c
+   after all tree passes have finished for a single function, and we
+   have expanded the function body from trees to RTL.
+   Once we are here, we have decided that we're supposed to output
+   that function, i.e. that we should write assembler code for it.
+
+   We run a series of low-level passes here on the function's RTL
+   representation.  Each pass is called via a rest_of_* function.  */
 
 void
-init_optimization_passes (void)
+rest_of_compilation (void)
 {
-  open_dump_file (DFI_cgraph, NULL);
-  cgraph_dump_file = dump_file;
-  dump_file = NULL;
+  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
+     sorts of eh initialization.  */
+  convert_from_eh_region_ranges ();
+
+  /* If we're emitting a nested function, make sure its parent gets
+     emitted as well.  Doing otherwise confuses debug info.  */
+  {
+    tree parent;
+    for (parent = DECL_CONTEXT (current_function_decl);
+	 parent != NULL_TREE;
+	 parent = get_containing_scope (parent))
+      if (TREE_CODE (parent) == FUNCTION_DECL)
+	TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
+  }
+
+  /* We are now committed to emitting code for this function.  Do any
+     preparation, such as emitting abstract debug info for the inline
+     before it gets mangled by optimization.  */
+  if (cgraph_function_possibly_inlined_p (current_function_decl))
+    (*debug_hooks->outlining_inline_function) (current_function_decl);
+
+  /* Remove any notes we don't need.  That will make iterating
+     over the instruction sequence faster, and allow the garbage
+     collector to reclaim the memory used by the notes.  */
+  remove_unnecessary_notes ();
+
+  /* Initialize some variables used by the optimizers.  */
+  init_function_for_compilation ();
+
+  TREE_ASM_WRITTEN (current_function_decl) = 1;
+
+  /* Early return if there were errors.  We can run afoul of our
+     consistency checks, and there's not really much point in fixing them.  */
+  if (rtl_dump_and_exit || flag_syntax_only || errorcount || sorrycount)
+    goto exit_rest_of_compilation;
+
+  rest_of_handle_jump ();
+
+  rest_of_handle_eh ();
+
+  /* Delay emitting hard_reg_initial_value sets until after EH landing pad
+     generation, which might create new sets.  */
+  emit_initial_value_sets ();
+
+#ifdef FINALIZE_PIC
+  /* If we are doing position-independent code generation, now
+     is the time to output special prologues and epilogues.
+     We do not want to do this earlier, because it just clutters
+     up inline functions with meaningless insns.  */
+  if (flag_pic)
+    FINALIZE_PIC;
+#endif
+
+  /* Copy any shared structure that should not be shared.  */
+  unshare_all_rtl ();
+
+#ifdef SETJMP_VIA_SAVE_AREA
+  /* This must be performed before virtual register instantiation.
+     Please be aware that everything in the compiler that can look
+     at the RTL up to this point must understand that REG_SAVE_AREA
+     is just like a use of the REG contained inside.  */
+  if (current_function_calls_alloca)
+    optimize_save_area_alloca ();
+#endif
+
+  /* Instantiate all virtual registers.  */
+  instantiate_virtual_regs ();
+
+  rest_of_handle_jump2 ();
+
+  if (optimize > 0)
+    rest_of_handle_cse ();
+
+  if (optimize > 0)
+    {
+      if (flag_gcse)
+	rest_of_handle_gcse ();
+
+      if (flag_loop_optimize)
+	rest_of_handle_loop_optimize ();
+
+      if (flag_gcse)
+	rest_of_handle_jump_bypass ();
+    }
+
+  timevar_push (TV_FLOW);
+  rest_of_handle_cfg ();
+
+  if (!flag_tree_based_profiling
+      && (optimize > 0 || profile_arc_flag
+	  || flag_test_coverage || flag_branch_probabilities))
+    {
+      rtl_register_profile_hooks ();
+      rtl_register_value_prof_hooks ();
+      rest_of_handle_branch_prob ();
+
+      if (flag_branch_probabilities
+	  && flag_profile_values
+	  && (flag_value_profile_transformations
+	      || flag_speculative_prefetching))
+	rest_of_handle_value_profile_transformations ();
+
+      /* Remove the death notes created for vpt.  */
+      if (flag_profile_values)
+	count_or_remove_death_notes (NULL, 1);
+    }
+
+  if (optimize > 0)
+    rest_of_handle_if_conversion ();
+
+  if (optimize > 0 && flag_tracer)
+    rest_of_handle_tracer ();
+
+  if (optimize > 0
+      && flag_loop_optimize2)
+    rest_of_handle_loop2 ();
+
+  if (optimize > 0 && flag_web)
+    rest_of_handle_web ();
+
+  if (optimize > 0 && flag_rerun_cse_after_loop)
+    rest_of_handle_cse2 ();
+
+  cse_not_expected = 1;
+
+  rest_of_handle_life ();
+  timevar_pop (TV_FLOW);
+
+  if (optimize > 0)
+    rest_of_handle_combine ();
+
+  if (optimize > 0 && flag_if_conversion)
+    rest_of_handle_if_after_combine ();
+
+  /* The optimization to partition hot/cold basic blocks into separate
+     sections of the .o file does not work well with linkonce or with
+     user defined section attributes.  Don't call it if either case
+     arises.  */
+
+  if (flag_reorder_blocks_and_partition 
+      && !DECL_ONE_ONLY (current_function_decl)
+      && !user_defined_section_attribute)
+    rest_of_handle_partition_blocks ();
+
+  if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
+    rest_of_handle_regmove ();
+
+  /* Do unconditional splitting before register allocation to allow machine
+     description to add extra information not needed previously.  */
+  split_all_insns (1);
+
+#ifdef OPTIMIZE_MODE_SWITCHING
+  rest_of_handle_mode_switching ();
+#endif
+
+  /* Any of the several passes since flow1 will have munged register
+     lifetime data a bit.  We need it to be up to date for scheduling
+     (see handling of reg_known_equiv in init_alias_analysis).  */
+  recompute_reg_usage (get_insns (), !optimize_size);
+
+#ifdef INSN_SCHEDULING
+  if (optimize > 0 && flag_modulo_sched)
+    rest_of_handle_sms ();
+
+  if (flag_schedule_insns)
+    rest_of_handle_sched ();
+#endif
+
+  /* Determine if the current function is a leaf before running reload
+     since this can impact optimizations done by the prologue and
+     epilogue thus changing register elimination offsets.  */
+  current_function_is_leaf = leaf_function_p ();
+
+  if (flag_new_regalloc)
+    {
+      if (rest_of_handle_new_regalloc ())
+	goto exit_rest_of_compilation;
+    }
+  else
+    {
+      if (rest_of_handle_old_regalloc ())
+	goto exit_rest_of_compilation;
+    }
+
+  if (optimize > 0)
+    rest_of_handle_postreload ();
+
+  if (optimize > 0 && flag_gcse_after_reload)
+    rest_of_handle_gcse2 ();
+
+  rest_of_handle_flow2 ();
+
+#ifdef HAVE_peephole2
+  if (optimize > 0 && flag_peephole2)
+    rest_of_handle_peephole2 ();
+#endif
+
+  if (optimize > 0)
+    rest_of_handle_if_after_reload ();
+
+  if (optimize > 0)
+    {
+      if (flag_rename_registers || flag_cprop_registers)
+	rest_of_handle_regrename ();
+
+      rest_of_handle_reorder_blocks ();
+    }
+
+  if (flag_branch_target_load_optimize2)
+    rest_of_handle_branch_target_load_optimize ();
+
+#ifdef LEAF_REGISTERS
+  current_function_uses_only_leaf_regs
+    = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
+#endif
+
+  if (targetm.late_rtl_prologue_epilogue)
+    rest_of_handle_prologue_epilogue ();
+
+#ifdef INSN_SCHEDULING
+  if (optimize > 0 && flag_schedule_insns_after_reload)
+    rest_of_handle_sched2 ();
+#endif
+
+#ifdef STACK_REGS
+  rest_of_handle_stack_regs ();
+#endif
+
+  compute_alignments ();
+
+  if (flag_var_tracking)
+    rest_of_handle_variable_tracking ();
+
+  /* CFG is no longer maintained up-to-date.  */
+  free_bb_for_insn ();
+
+  if (targetm.machine_dependent_reorg != 0)
+    rest_of_handle_machine_reorg ();
+
+  purge_line_number_notes (get_insns ());
+  cleanup_barriers ();
+
+#ifdef DELAY_SLOTS
+  if (flag_delayed_branch)
+    rest_of_handle_delay_slots ();
+#endif
+
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+  timevar_push (TV_SHORTEN_BRANCH);
+  split_all_insns_noflow ();
+  timevar_pop (TV_SHORTEN_BRANCH);
+#endif
+
+  convert_to_eh_region_ranges ();
+
+  rest_of_handle_shorten_branches ();
+
+  set_nothrow_function_flags ();
+
+  rest_of_handle_final ();
+
+ exit_rest_of_compilation:
+
+  rest_of_clean_state ();
 }
 
 void
 finish_optimization_passes (void)
 {
+  enum tree_dump_index i;
+  struct dump_file_info *dfi;
+  char *name;
+
+  timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      timevar_push (TV_DUMP);
       open_dump_file (DFI_bp, NULL);
-
       end_branch_prob ();
-
       close_dump_file (DFI_bp, NULL, NULL_RTX);
-      timevar_pop (TV_DUMP);
     }
 
   if (optimize > 0 && open_dump_file (DFI_combine, NULL))
     {
-      timevar_push (TV_DUMP);
       dump_combine_total_stats (dump_file);
       close_dump_file (DFI_combine, NULL, NULL_RTX);
-      timevar_pop (TV_DUMP);
     }
-
-  dump_file = cgraph_dump_file;
-  cgraph_dump_file = NULL;
-  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
-    {
-      int i;
+    for (i = DFI_MIN; (dfi = get_dump_file_info (i)) != NULL; ++i)
+      if (dump_initialized_p (i)
+	  && (dfi->flags & TDF_RTL) != 0
+	  && (name = get_dump_file_name (i)) != NULL)
+        {
+          finish_graph_dump_file (name);
+          free (name);
+        }
 
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	if (dump_file_tbl[i].initialized && dump_file_tbl[i].graph_dump_p)
-	  {
-	    char seq[16];
-	    char *suffix;
-
-	    sprintf (seq, DUMPFILE_FORMAT, i);
-	    suffix = concat (seq, dump_file_tbl[i].extension, NULL);
-	    finish_graph_dump_file (dump_base_name, suffix);
-	    free (suffix);
-	  }
-    }
-
-}
-
-bool
-enable_rtl_dump_file (int letter)
-{
-  bool matched = false;
-  int i;
-
-  if (letter == 'a')
-    {
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	dump_file_tbl[i].enabled = 1;
-      matched = true;
-    }
-  else
-    {
-      for (i = 0; i < (int) DFI_MAX; ++i)
-	if (letter == dump_file_tbl[i].debug_switch)
-	  {
-	    dump_file_tbl[i].enabled = 1;
-	    matched = true;
-	  }
-    }
-
-  return matched;
+  timevar_pop (TV_DUMP);
 }
 
 struct tree_opt_pass pass_rest_of_compilation =
 {
-  "rest of compilation",                /* name */
+  NULL,			                /* name */
   NULL,		                        /* gate */
   rest_of_compilation,                  /* execute */
   NULL,                                 /* sub */
@@ -2015,7 +1887,8 @@ struct tree_opt_pass pass_rest_of_compilation =
   0,                                    /* properties_provided */
   PROP_rtl,                             /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect			/* todo_flags_finish */
+  TODO_ggc_collect,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 

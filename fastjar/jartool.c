@@ -284,8 +284,8 @@ static void init_args(char **, int);
 static char *get_next_arg (void);
 static char *jt_strdup (char*);
 static void expand_options (int *argcp, char ***argvp);
-static inline struct zipentry *find_entry (const char *);
-static inline int looks_like_dir (const char *);
+static struct zipentry *find_entry (const char *);
+static int looks_like_dir (const char *);
 
 /* global variables */
 ub1 file_header[30];
@@ -573,9 +573,16 @@ int main(int argc, char **argv){
     
     create_central_header(jarfd);
 
+#if ! (HAVE_FTRUNCATE || HAVE__CHSIZE)
+  #error neither ftruncate() or _chsize() available
+#endif
     /* Check if the file shrunk when we updated it. */
     if (action == ACTION_UPDATE)
+#if HAVE_FTRUNCATE
       ftruncate (jarfd, lseek (jarfd, 0, SEEK_CUR));
+#else
+      _chsize (jarfd, lseek (jarfd, 0, SEEK_CUR));
+#endif
 
     if (jarfd != STDIN_FILENO && close(jarfd) != 0) {
       fprintf(stderr, "%s: error closing jar archive: %s\n",
@@ -731,7 +738,7 @@ void add_entry(struct zipentry *ze){
   number_of_entries++;
 }
 
-static inline struct zipentry *
+static struct zipentry *
 find_entry (const char *fname)
 {
   struct zipentry *ze;
@@ -745,7 +752,7 @@ find_entry (const char *fname)
 }
 
 
-static inline int
+static int
 looks_like_dir (const char *fname)
 {
   struct zipentry *ze;
@@ -1798,8 +1805,10 @@ int extract_jar(int fd, char **files, int file_num){
       exit(1);
     }
 
+    if (eflen > 0)
+      consume(&pbf, eflen);
+
     if(method == 8 || flags & 0x0008){
-        consume(&pbf, eflen);
       
       inflate_file(&pbf, f_fd, &ze);
     } else {
@@ -1832,8 +1841,6 @@ int extract_jar(int fd, char **files, int file_num){
         printf("%d bytes written\n", out_a);
 #endif
       }
-
-        consume(&pbf, eflen);
     }
 
     /* if there is a data descriptor left, compare the CRC */

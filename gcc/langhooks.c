@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "intl.h"
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
@@ -46,23 +47,23 @@ lhd_do_nothing (void)
 /* Do nothing (tree).  */
 
 void
-lhd_do_nothing_t (tree t ATTRIBUTE_UNUSED)
+lhd_do_nothing_t (tree ARG_UNUSED (t))
 {
 }
 
 /* Do nothing (int).  */
 
 void
-lhd_do_nothing_i (int i ATTRIBUTE_UNUSED)
+lhd_do_nothing_i (int ARG_UNUSED (i))
 {
 }
 
 /* Do nothing (int, int, int).  Return NULL_TREE.  */
 
 tree
-lhd_do_nothing_iii_return_null_tree (int i ATTRIBUTE_UNUSED, 
-				     int j ATTRIBUTE_UNUSED,
-				     int k ATTRIBUTE_UNUSED)
+lhd_do_nothing_iii_return_null_tree (int ARG_UNUSED (i),
+				     int ARG_UNUSED (j),
+				     int ARG_UNUSED (k))
 {
   return NULL_TREE;
 }
@@ -70,7 +71,7 @@ lhd_do_nothing_iii_return_null_tree (int i ATTRIBUTE_UNUSED,
 /* Do nothing (function).  */
 
 void
-lhd_do_nothing_f (struct function *f ATTRIBUTE_UNUSED)
+lhd_do_nothing_f (struct function * ARG_UNUSED (f))
 {
 }
 
@@ -93,7 +94,7 @@ lhd_return_null_tree_v (void)
 /* Do nothing (return NULL_TREE).  */
 
 tree
-lhd_return_null_tree (tree t ATTRIBUTE_UNUSED)
+lhd_return_null_tree (tree ARG_UNUSED (t))
 {
   return NULL_TREE;
 }
@@ -101,7 +102,7 @@ lhd_return_null_tree (tree t ATTRIBUTE_UNUSED)
 /* The default post options hook.  */
 
 bool
-lhd_post_options (const char **pfilename ATTRIBUTE_UNUSED)
+lhd_post_options (const char ** ARG_UNUSED (pfilename))
 {
   return false;
 }
@@ -109,34 +110,26 @@ lhd_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 /* Called from by print-tree.c.  */
 
 void
-lhd_print_tree_nothing (FILE *file ATTRIBUTE_UNUSED,
-			tree node ATTRIBUTE_UNUSED,
-			int indent ATTRIBUTE_UNUSED)
+lhd_print_tree_nothing (FILE * ARG_UNUSED (file),
+			tree ARG_UNUSED (node),
+			int ARG_UNUSED (indent))
 {
 }
 
 /* Called from safe_from_p.  */
 
 int
-lhd_safe_from_p (rtx x ATTRIBUTE_UNUSED, tree exp ATTRIBUTE_UNUSED)
+lhd_safe_from_p (rtx ARG_UNUSED (x), tree ARG_UNUSED (exp))
 {
   return 1;
 }
 
-/* Called from unsafe_for_reeval.  */
-
-int
-lhd_unsafe_for_reeval (tree t ATTRIBUTE_UNUSED)
-{
-  return -1;
-}
-
 /* Called from staticp.  */
 
-int
-lhd_staticp (tree exp ATTRIBUTE_UNUSED)
+tree
+lhd_staticp (tree ARG_UNUSED (exp))
 {
-  return 0;
+  return NULL;
 }
 
 /* Called from check_global_declarations.  */
@@ -175,35 +168,19 @@ lhd_set_decl_assembler_name (tree decl)
 	 same as that used in the source language.  (That's correct
 	 for C, and GCC used to set DECL_ASSEMBLER_NAME to the same
 	 value as DECL_NAME in build_decl, so this choice provides
-	 backwards compatibility with existing front-ends.  
+	 backwards compatibility with existing front-ends.
 
          Can't use just the variable's own name for a variable whose
 	 scope is less than the whole compilation.  Concatenate a
-	 distinguishing number.  If the decl is at block scope, the
-	 number assigned is the DECL_UID; if the decl is at file
-	 scope, the number is the DECL_UID of the surrounding
-	 TRANSLATION_UNIT_DECL, except for the T_U_D with UID 0.
-	 Those (the file-scope internal-linkage declarations from the
-	 first input file) get no suffix, which is consistent with
-	 what has historically been done for file-scope declarations
-	 with internal linkage.  */
-      if (TREE_PUBLIC (decl)
-	  || DECL_CONTEXT (decl) == NULL_TREE
-	  || (TREE_CODE (DECL_CONTEXT (decl)) == TRANSLATION_UNIT_DECL
-	      && DECL_UID (DECL_CONTEXT (decl)) == 0))
+	 distinguishing number - we use the DECL_UID.  */
+      if (TREE_PUBLIC (decl) || DECL_CONTEXT (decl) == NULL_TREE)
 	SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
       else
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
 	  char *label;
-	  unsigned int uid;
 
-	  if (TREE_CODE (DECL_CONTEXT (decl)) == TRANSLATION_UNIT_DECL)
-	    uid = DECL_UID (DECL_CONTEXT (decl));
-	  else
-	    uid = DECL_UID (decl);
-
-	  ASM_FORMAT_PRIVATE_NAME (label, name, uid);
+	  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
 	  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
 	}
     }
@@ -221,32 +198,23 @@ lhd_can_use_bit_fields_p (void)
   return true;
 }
 
-/* Provide a default routine to clear the binding stack.  This is used
-   by languages that don't need to do anything special.  */
-void
-lhd_clear_binding_stack (void)
-{
-  while (! lang_hooks.decls.global_bindings_p ())
-    lang_hooks.decls.poplevel (0, 0, 0);
-}
-
 /* Type promotion for variable arguments.  */
 tree
-lhd_type_promotes_to (tree type ATTRIBUTE_UNUSED)
+lhd_type_promotes_to (tree ARG_UNUSED (type))
 {
   abort ();
 }
 
 /* Registration of machine- or os-specific builtin types.  */
 void
-lhd_register_builtin_type (tree type ATTRIBUTE_UNUSED, 
-			   const char* name ATTRIBUTE_UNUSED)
+lhd_register_builtin_type (tree ARG_UNUSED (type),
+			   const char * ARG_UNUSED (name))
 {
 }
 
 /* Invalid use of an incomplete type.  */
 void
-lhd_incomplete_type_error (tree value ATTRIBUTE_UNUSED, tree type)
+lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
 {
   if (TREE_CODE (type) == ERROR_MARK)
     return;
@@ -258,7 +226,7 @@ lhd_incomplete_type_error (tree value ATTRIBUTE_UNUSED, tree type)
    is used by languages that don't need to do anything special.  */
 
 HOST_WIDE_INT
-lhd_get_alias_set (tree t ATTRIBUTE_UNUSED)
+lhd_get_alias_set (tree ARG_UNUSED (t))
 {
   return -1;
 }
@@ -267,7 +235,7 @@ lhd_get_alias_set (tree t ATTRIBUTE_UNUSED)
    used by languages that haven't deal with alias sets yet.  */
 
 HOST_WIDE_INT
-hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
+hook_get_alias_set_0 (tree ARG_UNUSED (t))
 {
   return 0;
 }
@@ -275,10 +243,10 @@ hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
 /* This is the default expand_expr function.  */
 
 rtx
-lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
-		 enum machine_mode mm ATTRIBUTE_UNUSED,
-		 int em ATTRIBUTE_UNUSED,
-		 rtx *a ATTRIBUTE_UNUSED)
+lhd_expand_expr (tree ARG_UNUSED (t), rtx ARG_UNUSED (r),
+		 enum machine_mode ARG_UNUSED (mm),
+		 int ARG_UNUSED (em),
+		 rtx * ARG_UNUSED (a))
 {
   abort ();
 }
@@ -290,7 +258,7 @@ lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
    any RTL generation.  */
 
 int
-lhd_expand_decl (tree t ATTRIBUTE_UNUSED)
+lhd_expand_decl (tree ARG_UNUSED (t))
 {
   return 0;
 }
@@ -298,8 +266,9 @@ lhd_expand_decl (tree t ATTRIBUTE_UNUSED)
 /* This is the default decl_printable_name function.  */
 
 const char *
-lhd_decl_printable_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
+lhd_decl_printable_name (tree decl, int ARG_UNUSED (verbosity))
 {
+  gcc_assert (decl && DECL_NAME (decl));
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
@@ -387,28 +356,6 @@ lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
 	      || TREE_CODE (var) == RESULT_DECL));
 }
 
-/* lang_hooks.tree_inlining.copy_res_decl_for_inlining should return a
-   declaration for the result RES of function FN to be inlined into
-   CALLER.  NDP points to an integer that should be set in case a new
-   declaration wasn't created (presumably because RES was of aggregate
-   type, such that a TARGET_EXPR is used for the result).  TEXPS is a
-   pointer to a varray with the stack of TARGET_EXPRs seen while
-   inlining functions into caller; the top of TEXPS is supposed to
-   match RES.  */
-
-tree
-lhd_tree_inlining_copy_res_decl_for_inlining (tree res, tree fn, tree caller,
-					      void *dm ATTRIBUTE_UNUSED,
-					      int *ndp ATTRIBUTE_UNUSED,
-					      tree return_slot_addr ATTRIBUTE_UNUSED)
-{
-  if (return_slot_addr)
-    return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (return_slot_addr)),
-		   return_slot_addr);
-  else
-    return copy_decl_for_inlining (res, fn, caller);
-}
-
 /* lang_hooks.tree_inlining.anon_aggr_type_p determines whether T is a
    type node representing an anonymous aggregate (union, struct, etc),
    i.e., one whose members are in the same scope as the union itself.  */
@@ -475,7 +422,7 @@ lhd_tree_dump_type_quals (tree t)
 tree
 lhd_expr_size (tree exp)
 {
-  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+  if (DECL_P (exp)
       && DECL_SIZE_UNIT (exp) != 0)
     return DECL_SIZE_UNIT (exp);
   else
@@ -492,8 +439,8 @@ lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
 }
 
 /* lang_hooks.tree_size: Determine the size of a tree with code C,
-   which is a language-specific tree code in category 'x'.  The
-   default expects never to be called.  */
+   which is a language-specific tree code in category tcc_constant or
+   tcc_exceptional.  The default expects never to be called.  */
 size_t
 lhd_tree_size (enum tree_code c ATTRIBUTE_UNUSED)
 {
@@ -508,6 +455,14 @@ bool
 lhd_decl_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED)
 {
   return true;
+}
+
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+lhd_comdat_group (tree decl)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 }
 
 /* lang_hooks.decls.final_write_globals: perform final processing on
@@ -558,16 +513,16 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
       pp_set_prefix (context->printer, new_prefix);
 
       if (current_function_decl == NULL)
-	pp_printf (context->printer, "At top level:");
+	pp_printf (context->printer, _("At top level:"));
       else
 	{
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
 	    pp_printf
-	      (context->printer, "In member function `%s':",
+	      (context->printer, _("In member function %qs:"),
 	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	  else
 	    pp_printf
-	      (context->printer, "In function `%s':",
+	      (context->printer, _("In function %qs:"),
 	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	}
 

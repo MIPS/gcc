@@ -79,6 +79,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
   tree intype = TREE_TYPE (expr);
   enum tree_code form;
   tree rval;
+  if (intype == error_mark_node)
+    return error_mark_node;
 
   if (IS_AGGR_TYPE (intype))
     {
@@ -261,14 +263,16 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
 
       if (TYPE_PTRMEM_P (type))
-	/* A NULL pointer-to-member is represented by -1, not by
-	   zero.  */
-	expr = build_int_2 (-1, -1);
+	{
+	  /* A NULL pointer-to-member is represented by -1, not by
+	     zero.  */
+	  expr = build_int_cst (type, -1);
+	  /* Fix up the representation of -1 if appropriate.  */
+	  expr = force_fit_type (expr, 0, false, false);
+	}
       else
-	expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
-      /* Fix up the representation of -1 if appropriate.  */
-      force_fit_type (expr, 0);
+	expr = build_int_cst (type, 0);
+      
       return expr;
     }
   else if (TYPE_PTR_TO_MEMBER_P (type) && INTEGRAL_CODE_P (form))
@@ -282,12 +286,12 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
       if (TYPE_PRECISION (intype) == POINTER_SIZE)
 	return build1 (CONVERT_EXPR, type, expr);
       expr = cp_convert (c_common_type_for_size (POINTER_SIZE, 0), expr);
-      /* Modes may be different but sizes should be the same.  */
-      if (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr)))
-	  != GET_MODE_SIZE (TYPE_MODE (type)))
-	/* There is supposed to be some integral type
-	   that is the same width as a pointer.  */
-	abort ();
+      /* Modes may be different but sizes should be the same.  There
+	 is supposed to be some integral type that is the same width
+	 as a pointer.  */
+      gcc_assert (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr)))
+		  == GET_MODE_SIZE (TYPE_MODE (type)));
+      
       return convert_to_pointer (type, expr);
     }
 
@@ -364,7 +368,7 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
   tree argtype = TREE_TYPE (arg);
   tree target_type = TREE_TYPE (type);
 
-  my_friendly_assert (TREE_CODE (type) == REFERENCE_TYPE, 187);
+  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 
   if ((flags & DIRECT_BIND) && ! real_lvalue_p (arg))
     {
@@ -468,7 +472,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
   intype = TREE_TYPE (expr);
 
-  my_friendly_assert (TREE_CODE (intype) != REFERENCE_TYPE, 364);
+  gcc_assert (TREE_CODE (intype) != REFERENCE_TYPE);
 
   intype = TYPE_MAIN_VARIANT (intype);
 
@@ -645,17 +649,18 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
 	     type of the temporary.  Only allow this for cv-qual changes,
 	     though.  */
-	  if (!same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
-			    TYPE_MAIN_VARIANT (type)))
-	    abort ();
+	  gcc_assert (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
+				   TYPE_MAIN_VARIANT (type)));
 	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
 	  return e;
 	}
-      else if (TREE_ADDRESSABLE (type))
-	/* We shouldn't be treating objects of ADDRESSABLE type as rvalues.  */
-	abort ();
       else
-	return fold (build1 (NOP_EXPR, type, e));
+	{
+	  /* We shouldn't be treating objects of ADDRESSABLE type as
+	     rvalues.  */
+	  gcc_assert (!TREE_ADDRESSABLE (type));
+	  return fold (build1 (NOP_EXPR, type, e));
+	}
     }
 
   if (code == VOID_TYPE && (convtype & CONV_STATIC))
@@ -696,7 +701,20 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (POINTER_TYPE_P (type) || TYPE_PTR_TO_MEMBER_P (type))
     return fold (cp_convert_to_pointer (type, e, false));
   if (code == VECTOR_TYPE)
-    return fold (convert_to_vector (type, e));
+    {
+      tree in_vtype = TREE_TYPE (e);
+      if (IS_AGGR_TYPE (in_vtype))
+	{
+	  tree ret_val;
+	  ret_val = build_type_conversion (type, e);
+          if (ret_val)
+            return ret_val;
+          if (flags & LOOKUP_COMPLAIN)
+            error ("`%#T' used where a `%T' was expected", in_vtype, type);
+          return error_mark_node;
+	}
+      return fold (convert_to_vector (type, e));
+    }
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
       if (IS_AGGR_TYPE (TREE_TYPE (e)))
@@ -748,7 +766,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	ctor = build_special_member_call (NULL_TREE, 
 					  complete_ctor_identifier,
 					  build_tree_list (NULL_TREE, ctor),
-					  TYPE_BINFO (type), flags);
+					  type, flags);
       if (ctor)
 	return build_cplus_new (type, ctor);
     }
@@ -802,8 +820,8 @@ convert_to_void (tree expr, const char *implicit)
 	  (op2, (implicit && !TREE_SIDE_EFFECTS (op1)
 		 ? "third operand of conditional" : NULL));
         
-	expr = build (COND_EXPR, TREE_TYPE (new_op1),
-		      TREE_OPERAND (expr, 0), new_op1, new_op2);
+	expr = build3 (COND_EXPR, TREE_TYPE (new_op1),
+		       TREE_OPERAND (expr, 0), new_op1, new_op2);
         break;
       }
     
@@ -817,8 +835,8 @@ convert_to_void (tree expr, const char *implicit)
         
         if (new_op1 != op1)
 	  {
-	    tree t = build (COMPOUND_EXPR, TREE_TYPE (new_op1),
-			    TREE_OPERAND (expr, 0), new_op1);
+	    tree t = build2 (COMPOUND_EXPR, TREE_TYPE (new_op1),
+			     TREE_OPERAND (expr, 0), new_op1);
 	    expr = t;
 	  }
 

@@ -588,6 +588,28 @@ public class JList extends JComponent implements Accessible, Scrollable
     return getUI().locationToIndex(this, r.getLocation());      
   }
 
+
+  /**
+   * Returns index of the cell to which specified location is closest to
+   * @param location for which to look for in the list
+   * 
+   * @return index of the cell to which specified location is closest to.
+   */
+   public int locationToIndex(Point location) {
+     return getUI().locationToIndex(this, location);      
+   }
+
+  /**
+   * Returns location of the cell located at the specified index in the list.
+   * @param index of the cell for which location will be determined
+   * 
+   * @return location of the cell located at the specified index in the list.
+   */
+   public Point indexToLocation(int index){
+   	//FIXME: Need to implement.
+	return null;
+   }
+
   /**
    * Returns the list index of the lower right or lower left corner of the
    * {@link #visibleRect} property, depending on the {@link
@@ -994,7 +1016,32 @@ public class JList extends JComponent implements Accessible, Scrollable
    */
   public Dimension getPreferredScrollableViewportSize()
   {
-    return getPreferredSize();
+    int vis = getVisibleRowCount();
+    int nrows = getModel() == null ? 0 : getModel().getSize();
+    // FIXME: this is a somewhat arbitrary default, but.. ?
+    Dimension single = new Dimension(10, 10);;
+    Rectangle bounds = null;
+
+    if (vis > nrows)
+      {
+        if (fixedCellWidth != -1 && 
+            fixedCellHeight != -1)
+          {
+            single = new Dimension(fixedCellWidth, fixedCellHeight);
+          }
+        else if (nrows != 0 && getUI() != null)
+          {
+            Rectangle tmp = getUI().getCellBounds(this, 0, 0);
+            if (tmp != null)
+              single = tmp.getSize();
+          }
+      }
+    else if (getUI() != null)
+      {
+        return getUI().getCellBounds(this, 0, vis - 1).getSize();
+      }
+
+    return new Dimension(single.width, single.height * vis);
   }
 
   /**

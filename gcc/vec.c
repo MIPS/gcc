@@ -29,51 +29,111 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct vec_prefix 
 {
-  size_t num;
-  size_t alloc;
+  unsigned num;
+  unsigned alloc;
   void *vec[1];
 };
 
-/* Ensure there are at least RESERVE free slots in VEC, if RESERVE !=
-   ~0u. If RESERVE == ~0u increase the current allocation
-   exponentially.  VEC can be NULL, to create a new vector.  */
+/* Ensure there are at least RESERVE free slots in VEC, if RESERVE >=
+   0.  If RESERVE < 0 increase the current allocation exponentially.
+   VEC can be NULL, to create a new vector.  */
 
 void *
-vec_p_reserve (void *vec, size_t reserve MEM_STAT_DECL)
+vec_gc_p_reserve (void *vec, int reserve MEM_STAT_DECL)
 {
-  return vec_o_reserve (vec, reserve,
-			offsetof (struct vec_prefix, vec), sizeof (void *)
-			PASS_MEM_STAT);
+  return vec_gc_o_reserve (vec, reserve,
+			   offsetof (struct vec_prefix, vec), sizeof (void *)
+			   PASS_MEM_STAT);
 }
 
-/* Ensure there are at least RESERVE free slots in VEC, if RESERVE !=
-   ~0u.  If RESERVE == ~0u, increase the current allocation
-   exponentially.  VEC can be NULL, in which case a new vector is
-   created.  The vector's trailing array is at VEC_OFFSET offset and
-   consistes of ELT_SIZE sized elements.  */
+/* Ensure there are at least RESERVE free slots in VEC, if RESERVE >=
+   0.  If RESERVE < 0, increase the current allocation exponentially.
+   VEC can be NULL, in which case a new vector is created.  The
+   vector's trailing array is at VEC_OFFSET offset and consists of
+   ELT_SIZE sized elements.  */
 
 void *
-vec_o_reserve (void *vec, size_t reserve, size_t vec_offset, size_t elt_size
-	       MEM_STAT_DECL)
+vec_gc_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
+		   MEM_STAT_DECL)
 {
   struct vec_prefix *pfx = vec;
-  size_t alloc;
+  unsigned alloc = pfx ? pfx->num : 0;
 
-  if (reserve + 1)
-    alloc = (pfx ? pfx->num : 0) + reserve;
+  if (reserve >= 0)
+    alloc += reserve;
+  else if (alloc)
+    alloc *= 2;
   else
-    alloc = pfx ? pfx->alloc * 2 : 4;
+    alloc = 4;
+
+  if (pfx && pfx->alloc >= alloc)
+    abort ();
   
-  if (!pfx || pfx->alloc < alloc)
-    {
-      vec = ggc_realloc_stat (vec, vec_offset + alloc * elt_size
-			      PASS_MEM_STAT);
-      ((struct vec_prefix *)vec)->alloc = alloc;
-      if (!pfx)
-	((struct vec_prefix *)vec)->num = 0;
-    }
+  vec = ggc_realloc_stat (vec, vec_offset + alloc * elt_size PASS_MEM_STAT);
+  ((struct vec_prefix *)vec)->alloc = alloc;
+  if (!pfx)
+    ((struct vec_prefix *)vec)->num = 0;
   
   return vec;
+}
+
+/* Explicitly release a vector.  */
+
+void
+vec_gc_free (void *vec)
+{
+  ggc_free (vec);
+}
+
+/* Ensure there are at least RESERVE free slots in VEC, if RESERVE >=
+   0.  If RESERVE < 0 increase the current allocation exponentially.
+   VEC can be NULL, to create a new vector.  */
+
+void *
+vec_heap_p_reserve (void *vec, int reserve MEM_STAT_DECL)
+{
+  return vec_heap_o_reserve (vec, reserve,
+			     offsetof (struct vec_prefix, vec), sizeof (void *)
+			     PASS_MEM_STAT);
+}
+
+/* Ensure there are at least RESERVE free slots in VEC, if RESERVE >=
+   0.  If RESERVE < 0, increase the current allocation exponentially.
+   VEC can be NULL, in which case a new vector is created.  The
+   vector's trailing array is at VEC_OFFSET offset and consists of
+   ELT_SIZE sized elements.  */
+
+void *
+vec_heap_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
+		    MEM_STAT_DECL)
+{
+  struct vec_prefix *pfx = vec;
+  unsigned alloc = pfx ? pfx->num : 0;
+
+  if (reserve >= 0)
+    alloc += reserve;
+  else if (alloc)
+    alloc *= 2;
+  else
+    alloc = 4;
+
+  if (pfx && pfx->alloc >= alloc)
+    abort ();
+  
+  vec = xrealloc (vec, vec_offset + alloc * elt_size);
+  ((struct vec_prefix *)vec)->alloc = alloc;
+  if (!pfx)
+    ((struct vec_prefix *)vec)->num = 0;
+  
+  return vec;
+}
+
+/* Explicitly release a vector.  */
+
+void
+vec_heap_free (void *vec)
+{
+  free (vec);
 }
 
 #if ENABLE_CHECKING
@@ -81,10 +141,9 @@ vec_o_reserve (void *vec, size_t reserve, size_t vec_offset, size_t elt_size
 
 void
 vec_assert_fail (const char *op, const char *struct_name,
-		 const char *file, size_t line, const char *function)
+		 const char *file, unsigned int line, const char *function)
 {
   internal_error ("vector %s %s domain error, in %s at %s:%u",
-		  struct_name, op, function, function,
-		  trim_filename (file), line);
+		  struct_name, op, function, trim_filename (file), line);
 }
 #endif

@@ -671,26 +671,49 @@ gfc_gobble_whitespace (void)
 }
 
 
-/* Load a single line into the buffer.  We truncate lines that are too
-   long.  In fixed mode, we expand a tab that occurs within the
-   statement label region to expand to spaces that leave the next
-   character in the source region.  */
+/* Load a single line into pbuf.
+
+   If pbuf points to a NULL pointer, it is allocated.
+   We truncate lines that are too long, unless we're dealing with
+   preprocessor lines or if the option -ffixed-line-length-none is set,
+   in which case we reallocate the buffer to fit the entire line, if
+   need be.
+   In fixed mode, we expand a tab that occurs within the statement
+   label region to expand to spaces that leave the next character in
+   the source region.  */
 
 static void
-load_line (FILE * input, char *buffer, char *filename, int linenum)
+load_line (FILE * input, char **pbuf, char *filename, int linenum)
 {
   int c, maxlen, i, trunc_flag, preprocessor_flag;
+  static int buflen = 0;
+  char *buffer;
 
-  maxlen = (gfc_current_form == FORM_FREE) 
-    ? 132 
-    : gfc_option.fixed_line_length;
+  /* Determine the maximum allowed line length.  */
+  if (gfc_current_form == FORM_FREE)
+    maxlen = GFC_MAX_LINE;
+  else
+    maxlen = gfc_option.fixed_line_length;
+
+  if (*pbuf == NULL)
+    {
+      /* Allocate the line buffer, storing its length into buflen.  */
+      if (maxlen > 0)
+	buflen = maxlen;
+      else
+	buflen = GFC_MAX_LINE;
+
+      *pbuf = gfc_getmem (buflen + 1);
+    }
 
   i = 0;
+  buffer = *pbuf;
 
   preprocessor_flag = 0;
   c = fgetc (input);
   if (c == '#')
-    /* Don't truncate preprocessor lines.  */
+    /* In order to not truncate preprocessor lines, we have to
+       remember that this is one.  */
     preprocessor_flag = 1;
   ungetc (c, input);
 
@@ -716,7 +739,7 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 	}
 
       if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
-	{			/* Tab expandsion.  */
+	{			/* Tab expansion.  */
 	  while (i <= 6)
 	    {
 	      *buffer++ = ' ';
@@ -729,8 +752,17 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
       *buffer++ = c;
       i++;
 
-      if (i >= maxlen && !preprocessor_flag)
-	{			/* Truncate the rest of the line.  */
+      if (i >= buflen && (maxlen == 0 || preprocessor_flag))
+	{
+	  /* Reallocate line buffer to double size to hold the
+	     overlong line.  */
+	  buflen = buflen * 2;
+	  *pbuf = xrealloc (*pbuf, buflen);
+	  buffer = (*pbuf)+i;
+	}
+      else if (i >= buflen)
+	{			
+	  /* Truncate the rest of the line.  */
 	  trunc_flag = 1;
 
 	  for (;;)
@@ -753,6 +785,14 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 	}
     }
 
+  /* Pad lines to the selected line length in fixed form.  */
+  if (gfc_current_form == FORM_FIXED
+      && gfc_option.fixed_line_length > 0
+      && !preprocessor_flag
+      && c != EOF)
+    while (i++ < buflen)
+      *buffer++ = ' ';
+
   *buffer = '\0';
 }
 
@@ -761,7 +801,7 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
    the file stack.  */
 
 static gfc_file *
-get_file (char *name)
+get_file (char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
 {
   gfc_file *f;
 
@@ -776,6 +816,10 @@ get_file (char *name)
   f->included_by = current_file;
   if (current_file != NULL)
     f->inclusion_line = current_file->line;
+
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, reason, false, f->filename, 1);
+#endif
 
   return f;
 }
@@ -834,7 +878,7 @@ preprocessor_line (char *c)
   
   if (flag[1] || flag[3]) /* Starting new file.  */
     {
-      f = get_file (filename);
+      f = get_file (filename, LC_RENAME);
       f->up = current_file;
       current_file = f;
     }
@@ -925,7 +969,7 @@ include_line (char *line)
 static try
 load_file (char *filename, bool initial)
 {
-  char line[GFC_MAX_LINE+1];
+  char *line;
   gfc_linebuf *b;
   gfc_file *f;
   FILE *input;
@@ -959,14 +1003,15 @@ load_file (char *filename, bool initial)
 
   /* Load the file.  */
 
-  f = get_file (filename);
+  f = get_file (filename, initial ? LC_RENAME : LC_ENTER);
   f->up = current_file;
   current_file = f;
   current_file->line = 1;
+  line = NULL;
 
   for (;;) 
     {
-      load_line (input, line, filename, current_file->line);
+      load_line (input, &line, filename, current_file->line);
 
       len = strlen (line);
       if (feof (input) && len == 0)
@@ -989,9 +1034,14 @@ load_file (char *filename, bool initial)
 
       /* Add line.  */
 
-      b = gfc_getmem (sizeof (gfc_linebuf) + len + 1);
+      b = gfc_getmem (gfc_linebuf_header_size + len + 1);
 
+#ifdef USE_MAPPED_LOCATION
+      b->location
+	= linemap_line_start (&line_table, current_file->line++, 120);
+#else
       b->linenum = current_file->line++;
+#endif
       b->file = current_file;
       strcpy (b->line, line);
 
@@ -1003,9 +1053,15 @@ load_file (char *filename, bool initial)
       line_tail = b;
     }
 
+  /* Release the line buffer allocated in load_line.  */
+  gfc_free (line);
+
   fclose (input);
 
   current_file = current_file->up;
+#ifdef USE_MAPPED_LOCATION
+  linemap_add (&line_table, LC_LEAVE, 0, NULL, 0);
+#endif
   return SUCCESS;
 }
 
@@ -1123,7 +1179,12 @@ gfc_new_file (const char *filename, gfc_source_form form)
 #if 0 /* Debugging aid.  */
   for (; line_head; line_head = line_head->next)
     gfc_status ("%s:%3d %s\n", line_head->file->filename, 
-		line_head->linenum, line_head->line);
+#ifdef USE_MAPPED_LOCATION
+		LOCATION_LINE (line_head->location),
+#else
+		line_head->linenum,
+#endif
+		line_head->line);
 
   exit (0);
 #endif

@@ -664,9 +664,9 @@ typedef struct jdeplist_s jdeplist;
 #define BUILD_THROW(WHERE, WHAT)				\
   {								\
     (WHERE) = 							\
-      build (CALL_EXPR, void_type_node,				\
-	     build_address_of (throw_node),			\
-	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
+      build3 (CALL_EXPR, void_type_node,			\
+	      build_address_of (throw_node),			\
+	      build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
     TREE_SIDE_EFFECTS ((WHERE)) = 1;				\
   }
 
@@ -842,7 +842,7 @@ struct parser_ctxt GTY(()) {
 	    != TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this))))	      \
 	&& !inherits_from_p (TREE_TYPE (TREE_TYPE (current_this)),	      \
 			     TREE_TYPE (DECL_CONTEXT (TYPE_NAME (T))))	      \
-        && !common_enclosing_context_p (TREE_TYPE (TREE_TYPE (current_this)), \
+        && !common_enclosing_instance_p (TREE_TYPE (TREE_TYPE (current_this)),\
 					(T))                                  \
 	&& INNER_CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_this)))          \
 	&& !inherits_from_p                                                   \
@@ -910,9 +910,9 @@ struct parser_ctxt GTY(()) {
     TREE_PURPOSE (CPC_INSTANCE_INITIALIZER_LIST (C)) = (S);
 
 /* This is used by the lexer to communicate with the parser.  It is
-   set on an integer constant if the radix is 10, so that the parser
+   set on an integer constant if the radix is NOT 10, so that the parser
    can correctly diagnose a numeric overflow.  */
-#define JAVA_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
+#define JAVA_NOT_RADIX10_FLAG(NODE) TREE_LANG_FLAG_0(NODE)
 
 #ifndef JC1_LITE
 void java_complete_class (void);

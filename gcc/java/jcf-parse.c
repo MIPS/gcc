@@ -64,7 +64,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
     text = (JCF)->read_ptr; \
     save = text[LENGTH]; \
     text[LENGTH] = 0; \
-    (JCF)->cpool.data[INDEX].t = get_identifier (text); \
+    (JCF)->cpool.data[INDEX].t = get_identifier ((const char *) text); \
     text[LENGTH] = save; \
     JCF_SKIP (JCF, LENGTH); } while (0)
 
@@ -266,20 +266,20 @@ get_constant (JCF *jcf, int index)
     case CONSTANT_Integer:
       {
 	jint num = JPOOL_INT(jcf, index);
-	value = build_int_2 (num, num < 0 ? -1 : 0);
-	TREE_TYPE (value) = int_type_node;
+	value = build_int_cst (int_type_node, num);
 	break;
       }
     case CONSTANT_Long:
       {
 	unsigned HOST_WIDE_INT num = JPOOL_UINT (jcf, index);
-	HOST_WIDE_INT lo, hi;
+	unsigned HOST_WIDE_INT lo;
+	HOST_WIDE_INT hi;
+	
 	lshift_double (num, 0, 32, 64, &lo, &hi, 0);
 	num = JPOOL_UINT (jcf, index+1);
 	add_double (lo, hi, num, 0, &lo, &hi);
-	value = build_int_2 (lo, hi);
-	TREE_TYPE (value) = long_type_node;
-	force_fit_type (value, 0);
+	value = build_int_cst_wide (long_type_node, lo, hi);
+	value = force_fit_type (value, 0, false, false);
 	break;
       }
 
@@ -411,7 +411,7 @@ give_name_to_class (JCF *jcf, int i)
       tree this_class;
       int j = JPOOL_USHORT1 (jcf, i);
       /* verify_constant_pool confirmed that j is a CONSTANT_Utf8. */
-      tree class_name = unmangle_classname (JPOOL_UTF_DATA (jcf, j),
+      tree class_name = unmangle_classname ((const char *) JPOOL_UTF_DATA (jcf, j),
 					    JPOOL_UTF_LENGTH (jcf, j));
       this_class = lookup_class (class_name);
       input_filename = DECL_SOURCE_FILE (TYPE_NAME (this_class));
@@ -439,11 +439,11 @@ get_class_constant (JCF *jcf, int i)
     {
       int name_index = JPOOL_USHORT1 (jcf, i);
       /* verify_constant_pool confirmed that name_index is a CONSTANT_Utf8. */
-      const char *name = JPOOL_UTF_DATA (jcf, name_index);
+      const char *name = (const char *) JPOOL_UTF_DATA (jcf, name_index);
       int nlength = JPOOL_UTF_LENGTH (jcf, name_index);
 
       if (name[0] == '[')  /* Handle array "classes". */
-	  type = TREE_TYPE (parse_signature_string (name, nlength));
+	  type = TREE_TYPE (parse_signature_string ((const unsigned char *) name, nlength));
       else
         { 
           tree cname = unmangle_classname (name, nlength);
@@ -501,7 +501,7 @@ read_class (tree name)
       java_parser_context_save_global ();
       java_push_parser_context ();
 
-      BUILD_FILENAME_IDENTIFIER_NODE (given_file, filename);
+      given_file = get_identifier (filename);
       real_file = get_identifier (lrealpath (filename));
 
       generate = IS_A_COMMAND_LINE_FILENAME_P (given_file);
@@ -887,7 +887,7 @@ java_emit_static_constructor (void)
   write_resource_constructor (&body);
 
   if (body)
-    cgraph_build_static_cdtor ('I', body);
+    cgraph_build_static_cdtor ('I', body, DEFAULT_INIT_PRIORITY);
 }
 
 void
@@ -897,7 +897,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   char *list, *next;
   tree node;
   FILE *finput = NULL;
-
+  int in_quotes = 0;
+ 
   if (flag_filelist_file)
     {
       int avail = 2000;
@@ -940,8 +941,9 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       for (next = list; ; )
 	{
 	  char ch = *next;
-	  if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' '
-	      || ch == '&' /* FIXME */)
+	  if (flag_filelist_file && ! in_quotes
+	      && (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' '
+		  || ch == '&') /* FIXME */)
 	    {
 	      if (next == list)
 		{
@@ -954,6 +956,15 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 		  *next++ = '\0';
 		  break;
 		}
+	    }
+	  if (flag_filelist_file && ch == '"')
+	    {
+	      in_quotes = ! in_quotes;
+	      *next++ = '\0';
+	      if (in_quotes) 
+		list = next;
+	      else 
+		break;
 	    }
 	  if (ch == '\0')
 	    {
@@ -1006,7 +1017,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	    }
 	  else
 	    {
-	      BUILD_FILENAME_IDENTIFIER_NODE (node, value);
+	      node = get_identifier (value);
 	      IS_A_COMMAND_LINE_FILENAME_P (node) = 1;
 	      current_file_list = tree_cons (NULL_TREE, node, 
 					     current_file_list);

@@ -37,7 +37,6 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
-with Expander; use Expander;
 with Exp_Dist; use Exp_Dist;
 with Fname;    use Fname;
 with Hostparm; use Hostparm;
@@ -72,6 +71,7 @@ with Sinput;   use Sinput;
 with Snames;   use Snames;
 with Stringt;  use Stringt;
 with Stylesw;  use Stylesw;
+with Table;
 with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;
@@ -137,6 +137,26 @@ package body Sem_Prag is
    --  Note: All these pragmas are implemented exactly following the DEC
    --  design and implementation and are intended to be fully compatible
    --  with the use of these pragmas in the DEC Ada compiler.
+
+   --------------------------------------------
+   -- Checking for Duplicated External Names --
+   --------------------------------------------
+
+   --  It is suspicious if two separate Export pragmas use the same external
+   --  name. The following table is used to diagnose this situation so that
+   --  an appropriate warning can be issued.
+
+   --  The Node_Id stored is for the N_String_Literal node created to
+   --  hold the value of the external name. The Sloc of this node is
+   --  used to cross-reference the location of the duplication.
+
+   package Externals is new Table.Table (
+     Table_Component_Type => Node_Id,
+     Table_Index_Type     => Int,
+     Table_Low_Bound      => 0,
+     Table_Initial        => 100,
+     Table_Increment      => 100,
+     Table_Name           => "Name_Externals");
 
    -------------------------------------
    -- Local Subprograms and Variables --
@@ -308,6 +328,16 @@ package body Sem_Prag is
       procedure Check_At_Most_N_Arguments (N : Nat);
       --  Check there are no more than N arguments present
 
+      procedure Check_Component (Comp : Node_Id);
+      --  Examine Unchecked_Union component for correct use of per-object
+      --  constrained subtypes.
+
+      procedure Check_Duplicated_Export_Name (Nam : Node_Id);
+      --  Nam is an N_String_Literal node containing the external name set
+      --  by an Import or Export pragma (or extended Import or Export pragma).
+      --  This procedure checks for possible duplications if this is the
+      --  export case, and if found, issues an appropriate error message.
+
       procedure Check_First_Subtype (Arg : Node_Id);
       --  Checks that Arg, whose expression is an entity name referencing
       --  a subtype, does not reference a type that is not a first subtype.
@@ -364,6 +394,10 @@ package body Sem_Prag is
       --  would normally be invalid (they only apply to the original template
       --  and to library level instantiations), and they are simply ignored,
       --  which is implemented by rewriting them as null statements.
+
+      procedure Check_Variant (Variant : Node_Id);
+      --  Check Unchecked_Union variant for lack of nested variants and
+      --  presence of at least one component.
 
       procedure Error_Pragma (Msg : String);
       pragma No_Return (Error_Pragma);
@@ -888,13 +922,75 @@ package body Sem_Prag is
       begin
          if Arg_Count > N then
             Arg := Arg1;
-
             for J in 1 .. N loop
                Next (Arg);
                Error_Pragma_Arg ("too many arguments for pragma%", Arg);
             end loop;
          end if;
       end Check_At_Most_N_Arguments;
+
+      ---------------------
+      -- Check_Component --
+      ---------------------
+
+      procedure Check_Component (Comp : Node_Id) is
+      begin
+         if Nkind (Comp) = N_Component_Declaration then
+            declare
+               Sindic : constant Node_Id :=
+                          Subtype_Indication (Component_Definition (Comp));
+
+            begin
+               if Nkind (Sindic) = N_Subtype_Indication then
+
+                  --  Ada 2005 (AI-216): If a component subtype is subject to
+                  --  a per-object constraint, then the component type shall
+                  --  be an Unchecked_Union.
+
+                  if Has_Per_Object_Constraint (Defining_Identifier (Comp))
+                    and then
+                      not Is_Unchecked_Union (Etype (Subtype_Mark (Sindic)))
+                  then
+                     Error_Msg_N ("component subtype subject to per-object" &
+                       " constraint must be an Unchecked_Union", Comp);
+                  end if;
+               end if;
+            end;
+         end if;
+      end Check_Component;
+
+      ----------------------------------
+      -- Check_Duplicated_Export_Name --
+      ----------------------------------
+
+      procedure Check_Duplicated_Export_Name (Nam : Node_Id) is
+         String_Val : constant String_Id := Strval (Nam);
+
+      begin
+         --  We are only interested in the export case, and in the case of
+         --  generics, it is the instance, not the template, that is the
+         --  problem (the template will generate a warning in any case).
+
+         if not Inside_A_Generic
+           and then (Prag_Id = Pragma_Export
+                       or else
+                     Prag_Id = Pragma_Export_Procedure
+                       or else
+                     Prag_Id = Pragma_Export_Valued_Procedure
+                       or else
+                     Prag_Id = Pragma_Export_Function)
+         then
+            for J in Externals.First .. Externals.Last loop
+               if String_Equal (String_Val, Strval (Externals.Table (J))) then
+                  Error_Msg_Sloc := Sloc (Externals.Table (J));
+                  Error_Msg_N ("external name duplicates name given#", Nam);
+                  exit;
+               end if;
+            end loop;
+
+            Externals.Append (Nam);
+         end if;
+      end Check_Duplicated_Export_Name;
 
       -------------------------
       -- Check_First_Subtype --
@@ -1357,6 +1453,37 @@ package body Sem_Prag is
          end if;
       end Check_Valid_Library_Unit_Pragma;
 
+      -------------------
+      -- Check_Variant --
+      -------------------
+
+      procedure Check_Variant (Variant : Node_Id) is
+         Clist : constant Node_Id := Component_List (Variant);
+         Comp  : Node_Id;
+
+      begin
+         if Present (Variant_Part (Clist)) then
+            Error_Msg_N
+              ("Unchecked_Union may not have nested variants",
+               Variant_Part (Clist));
+         end if;
+
+         if not Is_Non_Empty_List (Component_Items (Clist)) then
+            Error_Msg_N
+              ("Unchecked_Union may not have empty component list",
+               Variant);
+            return;
+         end if;
+
+         Comp := First (Component_Items (Clist));
+         while Present (Comp) loop
+
+            Check_Component (Comp);
+            Next (Comp);
+
+         end loop;
+      end Check_Variant;
+
       ------------------
       -- Error_Pragma --
       ------------------
@@ -1480,7 +1607,6 @@ package body Sem_Prag is
          --  Otherwise first deal with any positional parameters present
 
          Arg := First (Pragma_Argument_Associations (N));
-
          for Index in Args'Range loop
             exit when No (Arg) or else Chars (Arg) /= No_Name;
             Args (Index) := Expression (Arg);
@@ -2592,6 +2718,7 @@ package body Sem_Prag is
                   --  Deal with positional ones first
 
                   Formal := First_Formal (Ent);
+
                   if Present (Expressions (Arg_Mechanism)) then
                      Mname := First (Expressions (Arg_Mechanism));
 
@@ -2772,8 +2899,12 @@ package body Sem_Prag is
 
             else
                Set_Imported (Def_Id);
-               Set_Is_Public (Def_Id);
                Process_Interface_Name (Def_Id, Arg3, Arg4);
+
+               --  Note that we do not set Is_Public here. That's because we
+               --  only want to set if if there is no address clause, and we
+               --  don't know that yet, so we delay that processing till
+               --  freeze time.
 
                --  pragma Import completes deferred constants
 
@@ -2801,7 +2932,6 @@ package body Sem_Prag is
             --  denoted entities in the same declarative part.
 
             Hom_Id := Def_Id;
-
             while Present (Hom_Id) loop
                Def_Id := Get_Base_Subprogram (Hom_Id);
 
@@ -2832,8 +2962,8 @@ package body Sem_Prag is
                else
                   Set_Imported (Def_Id);
 
-                  --  If Import intrinsic, set intrinsic flag
-                  --  and verify that it is known as such.
+                  --  If Import intrinsic, set intrinsic flag and verify
+                  --  that it is known as such.
 
                   if C = Convention_Intrinsic then
                      Set_Is_Intrinsic_Subprogram (Def_Id);
@@ -2841,9 +2971,9 @@ package body Sem_Prag is
                        (Def_Id, Expression (Arg2));
                   end if;
 
-                  --  All interfaced procedures need an external
-                  --  symbol created for them since they are
-                  --  always referenced from another object file.
+                  --  All interfaced procedures need an external symbol
+                  --  created for them since they are always referenced
+                  --  from another object file.
 
                   Set_Is_Public (Def_Id);
 
@@ -3144,7 +3274,7 @@ package body Sem_Prag is
             elsif not Effective
               and then Warn_On_Redundant_Constructs
             then
-               Error_Msg_NE ("pragma inline on& is redundant?",
+               Error_Msg_NE ("pragma Inline for& is redundant?",
                  N, Entity (Subp_Id));
             end if;
 
@@ -3170,6 +3300,10 @@ package body Sem_Prag is
          --  performs some minimal checks that the name is reasonable. In
          --  particular that no spaces or other obviously incorrect characters
          --  appear. This is only a warning, since any characters are allowed.
+
+         ----------------------------------
+         -- Check_Form_Of_Interface_Name --
+         ----------------------------------
 
          procedure Check_Form_Of_Interface_Name (SN : Node_Id) is
             S  : constant String_Id := Strval (Expr_Value_S (SN));
@@ -3275,9 +3409,7 @@ package body Sem_Prag is
          --  If there is no link name, just set the external name
 
          if No (Link_Nam) then
-            Set_Encoded_Interface_Name
-              (Get_Base_Subprogram (Subprogram_Def),
-               Adjust_External_Name_Case (Expr_Value_S (Ext_Nam)));
+            Link_Nam := Adjust_External_Name_Case (Expr_Value_S (Ext_Nam));
 
          --  For the Link_Name case, the given literal is preceded by an
          --  asterisk, which indicates to GCC that the given name should
@@ -3296,10 +3428,11 @@ package body Sem_Prag is
 
             Link_Nam :=
               Make_String_Literal (Sloc (Link_Nam), End_String);
-
-            Set_Encoded_Interface_Name
-              (Get_Base_Subprogram (Subprogram_Def), Link_Nam);
          end if;
+
+         Set_Encoded_Interface_Name
+           (Get_Base_Subprogram (Subprogram_Def), Link_Nam);
+         Check_Duplicated_Export_Name (Link_Nam);
       end Process_Interface_Name;
 
       -----------------------------------------
@@ -3708,12 +3841,16 @@ package body Sem_Prag is
          --  Import or Export pragma), then the external names must match
 
          if Present (Interface_Name (Internal_Ent)) then
-            declare
+            Check_Matching_Internal_Names : declare
                S1 : constant String_Id := Strval (Old_Name);
                S2 : constant String_Id := Strval (New_Name);
 
                procedure Mismatch;
                --  Called if names do not match
+
+               --------------
+               -- Mismatch --
+               --------------
 
                procedure Mismatch is
                begin
@@ -3722,6 +3859,8 @@ package body Sem_Prag is
                     ("external name does not match that given #",
                      Arg_External);
                end Mismatch;
+
+            --  Start of processing for Check_Matching_Internal_Names
 
             begin
                if String_Length (S1) /= String_Length (S2) then
@@ -3734,14 +3873,14 @@ package body Sem_Prag is
                      end if;
                   end loop;
                end if;
-            end;
+            end Check_Matching_Internal_Names;
 
          --  Otherwise set the given name
 
          else
             Set_Encoded_Interface_Name (Internal_Ent, New_Name);
+            Check_Duplicated_Export_Name (New_Name);
          end if;
-
       end Set_Extended_Import_Export_External_Name;
 
       ------------------
@@ -3798,10 +3937,18 @@ package body Sem_Prag is
          procedure Bad_Mechanism;
          --  Signal bad mechanism name
 
+         ---------------
+         -- Bad_Class --
+         ---------------
+
          procedure Bad_Class is
          begin
             Error_Pragma_Arg ("unrecognized descriptor class name", Class);
          end Bad_Class;
+
+         -------------------------
+         -- Bad_Mechanism_Value --
+         -------------------------
 
          procedure Bad_Mechanism is
          begin
@@ -4371,6 +4518,9 @@ package body Sem_Prag is
             elsif Ekind (Nm) = E_Record_Type
               and then Present (Corresponding_Remote_Type (Nm))
             then
+               --  A record type that is the Equivalent_Type for
+               --  a remote access-to-subprogram type.
+
                N := Declaration_Node (Corresponding_Remote_Type (Nm));
 
                if Nkind (N) = N_Full_Type_Declaration
@@ -4379,6 +4529,13 @@ package body Sem_Prag is
                then
                   L := Parameter_Specifications (Type_Definition (N));
                   Process_Async_Pragma;
+
+                  if Is_Asynchronous (Nm)
+                    and then Expander_Active
+                  then
+                     RACW_Type_Is_Asynchronous (
+                       Underlying_RACW_Type (Nm));
+                  end if;
 
                else
                   Error_Pragma_Arg
@@ -5238,29 +5395,14 @@ package body Sem_Prag is
          when Pragma_Debug => Debug : begin
             GNAT_Pragma;
 
-            --  If assertions are enabled, and we are expanding code, then
-            --  we rewrite the pragma with its corresponding procedure call
-            --  and then analyze the call.
+            --  Rewrite into a conditional with a static condition
 
-            if Assertions_Enabled and Expander_Active then
-               Rewrite (N, Relocate_Node (Debug_Statement (N)));
-               Analyze (N);
-
-            --  Otherwise we work a bit to get a tree that makes sense
-            --  for ASIS purposes, namely a pragma with an analyzed
-            --  argument that looks like a procedure call.
-
-            else
-               Expander_Mode_Save_And_Set (False);
-               Rewrite (N, Relocate_Node (Debug_Statement (N)));
-               Analyze (N);
-               Rewrite (N,
-                 Make_Pragma (Loc,
-                   Chars => Name_Debug,
-                   Pragma_Argument_Associations =>
-                     New_List (Relocate_Node (N))));
-               Expander_Mode_Restore;
-            end if;
+            Rewrite (N, Make_Implicit_If_Statement (N,
+              Condition => New_Occurrence_Of (Boolean_Literals (
+                Assertions_Enabled and Expander_Active), Loc),
+              Then_Statements => New_List (
+                Relocate_Node (Debug_Statement (N)))));
+            Analyze (N);
          end Debug;
 
          ---------------------
@@ -6087,9 +6229,7 @@ package body Sem_Prag is
          --    UPPERCASE | LOWERCASE
          --    [, AS_IS | UPPERCASE | LOWERCASE]);
 
-         when Pragma_External_Name_Casing =>
-
-         External_Name_Casing : declare
+         when Pragma_External_Name_Casing => External_Name_Casing : declare
          begin
             GNAT_Pragma;
             Check_No_Identifiers;
@@ -9682,6 +9822,14 @@ package body Sem_Prag is
                Tdef  := Type_Definition (Declaration_Node (Typ));
                Clist := Component_List (Tdef);
 
+               Comp := First (Component_Items (Clist));
+               while Present (Comp) loop
+
+                  Check_Component (Comp);
+                  Next (Comp);
+
+               end loop;
+
                if No (Clist) or else No (Variant_Part (Clist)) then
                   Error_Msg_N
                     ("Unchecked_Union must have variant part",
@@ -9690,60 +9838,12 @@ package body Sem_Prag is
                end if;
 
                Vpart := Variant_Part (Clist);
-
-               if Is_Non_Empty_List (Component_Items (Clist)) then
-                  Error_Msg_N
-                    ("components before variant not allowed " &
-                     "in Unchecked_Union",
-                     First (Component_Items (Clist)));
-               end if;
-
                Variant := First (Variants (Vpart));
                while Present (Variant) loop
-                  Clist := Component_List (Variant);
 
-                  if Present (Variant_Part (Clist)) then
-                     Error_Msg_N
-                       ("Unchecked_Union may not have nested variants",
-                        Variant_Part (Clist));
-                  end if;
-
-                  if not Is_Non_Empty_List (Component_Items (Clist)) then
-                     Error_Msg_N
-                       ("Unchecked_Union may not have empty component list",
-                        Variant);
-                     return;
-                  end if;
-
-                  Comp := First (Component_Items (Clist));
-
-                  if Nkind (Comp) = N_Component_Declaration then
-
-                     if Present (Expression (Comp)) then
-                        Error_Msg_N
-                          ("default initialization not allowed " &
-                           "in Unchecked_Union",
-                           Expression (Comp));
-                     end if;
-
-                     declare
-                        Sindic : constant Node_Id :=
-                          Subtype_Indication (Component_Definition (Comp));
-
-                     begin
-                        if Nkind (Sindic) = N_Subtype_Indication then
-                           Check_Static_Constraint (Constraint (Sindic));
-                        end if;
-                     end;
-                  end if;
-
-                  if Present (Next (Comp)) then
-                     Error_Msg_N
-                       ("Unchecked_Union variant can have only one component",
-                        Next (Comp));
-                  end if;
-
+                  Check_Variant (Variant);
                   Next (Variant);
+
                end loop;
             end if;
 
@@ -10503,6 +10603,10 @@ package body Sem_Prag is
       --  Stores encoded value of character code CC. The encoding we
       --  use an underscore followed by four lower case hex digits.
 
+      ------------
+      -- Encode --
+      ------------
+
       procedure Encode is
       begin
          Store_String_Char (Get_Char_Code ('_'));
@@ -10605,7 +10709,6 @@ package body Sem_Prag is
 
          Pref := Prefix (N);
          Scop := Scope (Entity (N));
-
          while Nkind (Pref) = N_Selected_Component loop
             Change_Selected_Component_To_Expanded_Name (Pref);
             Set_Entity (Selector_Name (Pref), Scop);
@@ -10617,5 +10720,4 @@ package body Sem_Prag is
          Set_Entity (Pref, Scop);
       end if;
    end Set_Unit_Name;
-
 end Sem_Prag;

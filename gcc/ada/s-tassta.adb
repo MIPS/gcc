@@ -109,6 +109,9 @@ with System.Standard_Library;
 with System.Traces.Tasking;
 --  used for Send_Trace_Info
 
+with Unchecked_Deallocation;
+--  To recover from failure of ATCB initialization.
+
 package body System.Tasking.Stages is
 
    package STPO renames System.Task_Primitives.Operations;
@@ -129,6 +132,9 @@ package body System.Tasking.Stages is
    -----------------------
    -- Local Subprograms --
    -----------------------
+
+   procedure Free is new
+     Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
 
    procedure Trace_Unhandled_Exception_In_Task (Self_Id : Task_Id);
    --  This procedure outputs the task specific message for exception
@@ -220,6 +226,17 @@ package body System.Tasking.Stages is
 
    procedure Abort_Tasks (Tasks : Task_List) is
    begin
+      --  If pragma Detect_Blocking is active then Program_Error must be
+      --  raised if this potentially blocking operation is called from a
+      --  protected action.
+
+      if System.Tasking.Detect_Blocking
+        and then STPO.Self.Common.Protected_Action_Nesting > 0
+      then
+         Ada.Exceptions.Raise_Exception
+           (Program_Error'Identity, "potentially blocking operation");
+      end if;
+
       Utilities.Abort_Tasks (Tasks);
    end Abort_Tasks;
 
@@ -260,6 +277,17 @@ package body System.Tasking.Stages is
       All_Elaborated : Boolean := True;
 
    begin
+      --  If pragma Detect_Blocking is active must be checked whether
+      --  this potentially blocking operation is called from a
+      --  protected action.
+
+      if System.Tasking.Detect_Blocking
+        and then Self_ID.Common.Protected_Action_Nesting > 0
+      then
+         Ada.Exceptions.Raise_Exception
+           (Program_Error'Identity, "potentially blocking operation");
+      end if;
+
       pragma Debug
         (Debug.Trace (Self_ID, "Activate_Tasks", 'C'));
 
@@ -507,6 +535,17 @@ package body System.Tasking.Stages is
       Len           : Natural;
 
    begin
+      --  If pragma Detect_Blocking is active must be checked whether
+      --  this potentially blocking operation is called from a
+      --  protected action.
+
+      if System.Tasking.Detect_Blocking
+        and then Self_ID.Common.Protected_Action_Nesting > 0
+      then
+         Ada.Exceptions.Raise_Exception
+           (Program_Error'Identity, "potentially blocking operation");
+      end if;
+
       pragma Debug
         (Debug.Trace (Self_ID, "Create_Task", 'C'));
 
@@ -569,6 +608,7 @@ package body System.Tasking.Stages is
         Base_Priority, Task_Info, Size, T, Success);
 
       if not Success then
+         Free (T);
          Unlock (Self_ID);
          Unlock_RTS;
          Initialization.Undefer_Abort_Nestable (Self_ID);

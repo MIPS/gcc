@@ -246,7 +246,10 @@ public abstract class KeyboardFocusManager
    */
   public Component getFocusOwner ()
   {
-    return (Component) getObject (currentFocusOwners);
+    Component owner = (Component) getObject (currentFocusOwners);
+    if (owner == null)
+      owner = (Component) getObject (currentPermanentFocusOwners);
+    return owner;
   }
 
   /**
@@ -737,8 +740,11 @@ public abstract class KeyboardFocusManager
 
   public final void redispatchEvent (Component target, AWTEvent e)
   {
-    e.setSource (target);
-    dispatchEvent (e);
+    synchronized (e)
+      {
+        e.setSource (target);
+        target.dispatchEvent (e);
+      }
   }
 
   public abstract boolean dispatchKeyEvent (KeyEvent e);

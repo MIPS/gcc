@@ -856,6 +856,10 @@ package body Lib.Writ is
          Write_Info_Str (" CE");
       end if;
 
+      if Opt.Detect_Blocking then
+         Write_Info_Str (" DB");
+      end if;
+
       if Opt.Float_Format /= ' ' then
          Write_Info_Str (" F");
 
@@ -958,7 +962,9 @@ package body Lib.Writ is
       --  And now the information for the parameter restrictions
 
       for RP in All_Parameter_Restrictions loop
-         if Main_Restrictions.Set (RP) then
+         if Main_Restrictions.Set (RP)
+           and then not Restriction_Warnings (RP)
+         then
             Write_Info_Char ('r');
             Write_Info_Nat (Nat (Main_Restrictions.Value (RP)));
          else

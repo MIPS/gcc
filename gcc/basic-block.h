@@ -149,8 +149,6 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-  bool crossing_edge;           /* Crosses between hot and cold sections, when
-				   we do partitioning.  */
 };
 
 typedef struct edge_def *edge;
@@ -169,12 +167,15 @@ typedef struct edge_def *edge;
 #define EDGE_SIBCALL		256	/* Edge from sibcall to exit.  */
 #define EDGE_LOOP_EXIT		512	/* Exit of a loop.  */
 #define EDGE_TRUE_VALUE		1024	/* Edge taken when controlling
-					   predicate is non zero.  */
+					   predicate is nonzero.  */
 #define EDGE_FALSE_VALUE	2048	/* Edge taken when controlling
 					   predicate is zero.  */
 #define EDGE_EXECUTABLE		4096	/* Edge is executable.  Only
 					   valid during SSA-CCP.  */
-#define EDGE_ALL_FLAGS		8191
+#define EDGE_CROSSING		8192    /* Edge crosses between hot
+					   and cold sections, when we
+					   do partitioning.  */
+#define EDGE_ALL_FLAGS	       16383
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -248,39 +249,36 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
 
-  /* The index of this block.  */
-  int index;
-
-  /* Previous and next blocks in the chain.  */
-  struct basic_block_def *prev_bb;
-  struct basic_block_def *next_bb;
-
-  /* The loop depth of this block.  */
-  int loop_depth;
-
   /* Innermost loop containing the block.  */
   struct loop * GTY ((skip (""))) loop_father;
 
   /* The dominance and postdominance information node.  */
   struct et_node * GTY ((skip (""))) dom[2];
 
-  /* Expected number of executions: calculated in profile.c.  */
-  gcov_type count;
-
-  /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
-  int frequency;
-
-  /* Various flags.  See BB_* below.  */
-  int flags;
-
-  /* Which section block belongs in, when partitioning basic blocks.  */
-  int partition;
+  /* Previous and next blocks in the chain.  */
+  struct basic_block_def *prev_bb;
+  struct basic_block_def *next_bb;
 
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * GTY ((skip (""))) rbi;
 
   /* Annotations used at the tree level.  */
   struct bb_ann_d *tree_annotations;
+
+  /* Expected number of executions: calculated in profile.c.  */
+  gcov_type count;
+
+  /* The index of this block.  */
+  int index;
+
+  /* The loop depth of this block.  */
+  int loop_depth;
+
+  /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
+  int frequency;
+
+  /* Various flags.  See BB_* below.  */
+  int flags;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -297,10 +295,11 @@ typedef struct reorder_block_def
   /* Used by loop copying.  */
   basic_block copy;
   int duplicated;
+  int copy_number;
 
   /* These fields are used by bb-reorder pass.  */
   int visited;
-} *reorder_block_def;
+} *reorder_block_def_p;
 
 #define BB_FREQ_MAX 10000
 
@@ -311,12 +310,23 @@ typedef struct reorder_block_def
 #define BB_VISITED		8
 #define BB_IRREDUCIBLE_LOOP	16
 #define BB_SUPERBLOCK		32
+#define BB_DISABLE_SCHEDULE     64
+
+#define BB_HOT_PARTITION	128
+#define BB_COLD_PARTITION	256
+#define BB_UNPARTITIONED	0
 
 /* Partitions, to be used when partitioning hot and cold basic blocks into
    separate sections.  */
-#define UNPARTITIONED   0
-#define HOT_PARTITION   1
-#define COLD_PARTITION  2
+#define BB_PARTITION(bb) ((bb)->flags & (BB_HOT_PARTITION|BB_COLD_PARTITION))
+#define BB_SET_PARTITION(bb, part) do {					\
+  basic_block bb_ = (bb);						\
+  bb_->flags = ((bb_->flags & ~(BB_HOT_PARTITION|BB_COLD_PARTITION))	\
+		| (part));						\
+} while (0)
+
+#define BB_COPY_PARTITION(dstbb, srcbb) \
+  BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
 /* Number of basic blocks in the current function.  */
 
@@ -329,6 +339,14 @@ extern int last_basic_block;
 /* Number of edges in the current function.  */
 
 extern int n_edges;
+
+/* Signalize the status of profile information in the CFG.  */
+extern enum profile_status
+{
+  PROFILE_ABSENT,
+  PROFILE_GUESSED,
+  PROFILE_READ
+} profile_status;
 
 /* Index by basic block number, get basic block struct info.  */
 
@@ -417,6 +435,7 @@ extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
+extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
@@ -435,6 +454,7 @@ extern void flow_preorder_transversal_compute (int *);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
+extern void compute_dominance_frontiers (bitmap *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
@@ -594,7 +614,6 @@ extern rtx emit_block_insn_before (rtx, rtx, basic_block);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
-extern void note_prediction_to_br_prob (void);
 extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
@@ -604,6 +623,7 @@ extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
 extern void tree_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
+extern void guess_outgoing_edge_probabilities (basic_block);
 
 /* In flow.c */
 extern void init_flow (void);
@@ -676,7 +696,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (void);
+extern void reorder_basic_blocks (unsigned int);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */
@@ -712,6 +732,8 @@ extern void set_immediate_dominator (enum cdi_direction, basic_block,
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
 extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
 extern int get_dominated_by (enum cdi_direction, basic_block, basic_block **);
+extern unsigned get_dominated_by_region (enum cdi_direction, basic_block *,
+					 unsigned, basic_block *);
 extern void add_to_dominance_info (enum cdi_direction, basic_block);
 extern void delete_from_dominance_info (enum cdi_direction, basic_block);
 basic_block recount_dominator (enum cdi_direction, basic_block);
@@ -723,6 +745,8 @@ extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
+extern void check_bb_profile (basic_block, FILE *);
+extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
 
 #include "cfghooks.h"
 

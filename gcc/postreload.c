@@ -118,6 +118,19 @@ reload_cse_simplify (rtx insn, rtx testreg)
       int count = 0;
       rtx value = NULL_RTX;
 
+      /* Registers mentioned in the clobber list for an asm cannot be reused
+	 within the body of the asm.  Invalidate those registers now so that
+	 we don't try to substitute values for them.  */
+      if (asm_noperands (body) >= 0)
+	{
+	  for (i = XVECLEN (body, 0) - 1; i >= 0; --i)
+	    {
+	      rtx part = XVECEXP (body, 0, i);
+	      if (GET_CODE (part) == CLOBBER && REG_P (XEXP (part, 0)))
+		cselib_invalidate_rtx (XEXP (part, 0));
+	    }
+	}
+
       /* If every action in a PARALLEL is a noop, we can delete
 	 the entire PARALLEL.  */
       for (i = XVECLEN (body, 0) - 1; i >= 0; --i)
@@ -214,7 +227,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
   cselib_val *val;
   struct elt_loc_list *l;
 #ifdef LOAD_EXTEND_OP
-  enum rtx_code extend_op = NIL;
+  enum rtx_code extend_op = UNKNOWN;
 #endif
 
   dreg = true_regnum (SET_DEST (set));
@@ -234,7 +247,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
      the destination must be a register that we can widen.  */
   if (MEM_P (src)
       && GET_MODE_BITSIZE (GET_MODE (src)) < BITS_PER_WORD
-      && (extend_op = LOAD_EXTEND_OP (GET_MODE (src))) != NIL
+      && (extend_op = LOAD_EXTEND_OP (GET_MODE (src))) != UNKNOWN
       && !REG_P (SET_DEST (set)))
     return 0;
 #endif
@@ -260,7 +273,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
       if (CONSTANT_P (this_rtx) && ! references_value_p (this_rtx, 0))
 	{
 #ifdef LOAD_EXTEND_OP
-	  if (extend_op != NIL)
+	  if (extend_op != UNKNOWN)
 	    {
 	      HOST_WIDE_INT this_val;
 
@@ -290,7 +303,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
       else if (REG_P (this_rtx))
 	{
 #ifdef LOAD_EXTEND_OP
-	  if (extend_op != NIL)
+	  if (extend_op != UNKNOWN)
 	    {
 	      this_rtx = gen_rtx_fmt_e (extend_op, word_mode, this_rtx);
 	      this_cost = rtx_cost (this_rtx, SET);
@@ -313,7 +326,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
 	{
 #ifdef LOAD_EXTEND_OP
 	  if (GET_MODE_BITSIZE (GET_MODE (SET_DEST (set))) < BITS_PER_WORD
-	      && extend_op != NIL
+	      && extend_op != UNKNOWN
 #ifdef CANNOT_CHANGE_MODE_CLASS
 	      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
 					    word_mode,
@@ -396,7 +409,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
       /* cselib blows up on CODE_LABELs.  Trying to fix that doesn't seem
 	 right, so avoid the problem here.  Likewise if we have a constant
          and the insn pattern doesn't tell us the mode we need.  */
-      if (GET_CODE (recog_data.operand[i]) == CODE_LABEL
+      if (LABEL_P (recog_data.operand[i])
 	  || (CONSTANT_P (recog_data.operand[i])
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;
@@ -406,7 +419,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 #ifdef LOAD_EXTEND_OP
       if (MEM_P (op)
 	  && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
-	  && LOAD_EXTEND_OP (mode) != NIL)
+	  && LOAD_EXTEND_OP (mode) != UNKNOWN)
 	{
 	  rtx set = single_set (insn);
 
@@ -721,7 +734,7 @@ reload_combine (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       insn = BB_HEAD (bb);
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	{
 	  HARD_REG_SET live;
 
@@ -752,9 +765,9 @@ reload_combine (void)
       /* We cannot do our optimization across labels.  Invalidating all the use
 	 information we have would be costly, so we just note where the label
 	 is and then later disable any optimization that would cross it.  */
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	last_label_ruid = reload_combine_ruid;
-      else if (GET_CODE (insn) == BARRIER)
+      else if (BARRIER_P (insn))
 	for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
 	  if (! fixed_regs[r])
 	      reg_state[r].use_index = RELOAD_COMBINE_MAX_USES;
@@ -898,7 +911,7 @@ reload_combine (void)
 
       note_stores (PATTERN (insn), reload_combine_note_store, NULL);
 
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  rtx link;
 
@@ -932,7 +945,7 @@ reload_combine (void)
 	     }
 
 	}
-      else if (GET_CODE (insn) == JUMP_INSN
+      else if (JUMP_P (insn)
 	       && GET_CODE (PATTERN (insn)) != RETURN)
 	{
 	  /* Non-spill registers might be used at the call destination in
@@ -1192,7 +1205,7 @@ reload_cse_move2add (rtx first)
     {
       rtx pat, note;
 
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	{
 	  move2add_last_label_luid = move2add_luid;
 	  /* We're going to increment move2add_luid twice after a
@@ -1375,13 +1388,14 @@ reload_cse_move2add (rtx first)
 
       /* If INSN is a conditional branch, we try to extract an
 	 implicit set out of it.  */
-      if (any_condjump_p (insn) && onlyjump_p (insn))
+      if (any_condjump_p (insn))
 	{
 	  rtx cnd = fis_get_condition (insn);
 
 	  if (cnd != NULL_RTX
 	      && GET_CODE (cnd) == NE
 	      && REG_P (XEXP (cnd, 0))
+	      && !reg_set_p (XEXP (cnd, 0), insn)
 	      /* The following two checks, which are also in
 		 move2add_note_store, are intended to reduce the
 		 number of calls to gen_rtx_SET to avoid memory
@@ -1398,7 +1412,7 @@ reload_cse_move2add (rtx first)
 
       /* If this is a CALL_INSN, all call used registers are stored with
 	 unknown values.  */
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {

@@ -196,7 +196,7 @@ may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
     return NULL_RTX;
 
   /* Condition must be invariant.  */
-  test = get_condition (BB_END (bb), &at, true);
+  test = get_condition (BB_END (bb), &at, true, false);
   if (!test)
     return NULL_RTX;
 
@@ -475,7 +475,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
-		   loop->header->rbi->copy->pred, switch_bb);
+		   loop->header->rbi->copy->pred, switch_bb, true);
 
   /* Remove branches that are now unreachable in new loops.  */
   remove_path (loops, true_edge);

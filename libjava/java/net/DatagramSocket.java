@@ -1,5 +1,6 @@
 /* DatagramSocket.java -- A class to model UDP sockets
-   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -282,7 +283,7 @@ public class DatagramSocket
    */
   public InetAddress getLocalAddress()
   {
-    if (isClosed())
+    if (! isBound())
       return null;
 
     InetAddress localAddr;
@@ -553,7 +554,7 @@ public class DatagramSocket
    * @exception IllegalBlockingModeException If this socket has an associated
    * channel, and the channel is in non-blocking mode.
    * @exception SecurityException If a security manager exists and its
-   * checkAccept ethod doesn't allow the receive.
+   * checkAccept method doesn't allow the receive.
    */
   public synchronized void receive(DatagramPacket p) throws IOException
   {

@@ -290,10 +290,11 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
       *qin++ = bb;
       bb->aux = bb;
     }
-  qin = worklist;
+
   /* Note that we do not use the last allocated element for our queue,
      as EXIT_BLOCK is never inserted into it. In fact the above allocation
      of n_basic_blocks + 1 elements is not necessary.  */
+  qin = worklist;
   qend = &worklist[n_basic_blocks];
   qlen = n_basic_blocks;
 
@@ -310,7 +311,8 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
       /* Compute the intersection of LATERIN for each incoming edge to B.  */
       sbitmap_ones (laterin[bb->index]);
       for (e = bb->pred; e != NULL; e = e->pred_next)
-	sbitmap_a_and_b (laterin[bb->index], laterin[bb->index], later[(size_t)e->aux]);
+	sbitmap_a_and_b (laterin[bb->index], laterin[bb->index],
+			 later[(size_t)e->aux]);
 
       /* Calculate LATER for all outgoing edges.  */
       for (e = bb->succ; e != NULL; e = e->succ_next)
@@ -354,7 +356,8 @@ compute_insert_delete (struct edge_list *edge_list, sbitmap *antloc,
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], antloc[bb->index], laterin[bb->index]);
+    sbitmap_difference (delete[bb->index], antloc[bb->index],
+			laterin[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
     {
@@ -526,7 +529,8 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
 	  sbitmap_intersection_of_preds (avin[bb->index], avout, bb->index);
 	}
 
-      if (sbitmap_union_of_diff_cg (avout[bb->index], avloc[bb->index], avin[bb->index], kill[bb->index]))
+      if (sbitmap_union_of_diff_cg (avout[bb->index], avloc[bb->index],
+				    avin[bb->index], kill[bb->index]))
 	/* If the out state of this block changed, then we need
 	   to add the successors of this block to the worklist
 	   if they are not already on the worklist.  */
@@ -683,7 +687,8 @@ compute_rev_insert_delete (struct edge_list *edge_list, sbitmap *st_avloc,
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], st_avloc[bb->index], nearerout[bb->index]);
+    sbitmap_difference (delete[bb->index], st_avloc[bb->index],
+			nearerout[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
     {
@@ -1201,7 +1206,7 @@ optimize_mode_switching (FILE *file)
 	      if (eg->flags & EDGE_ABNORMAL)
 		{
 		  emited = true;
-		  if (GET_CODE (BB_END (src_bb)) == JUMP_INSN)
+		  if (JUMP_P (BB_END (src_bb)))
 		    emit_insn_before (mode_set, BB_END (src_bb));
 		  /* It doesn't make sense to switch to normal mode
 		     after a CALL_INSN, so we're going to abort if we
@@ -1214,7 +1219,7 @@ optimize_mode_switching (FILE *file)
 		     the call (it wouldn't make sense, anyway).  In
 		     the case of EH edges, EH entry points also start
 		     in normal mode, so a similar reasoning applies.  */
-		  else if (GET_CODE (BB_END (src_bb)) == INSN)
+		  else if (NONJUMP_INSN_P (BB_END (src_bb)))
 		    emit_insn_after (mode_set, BB_END (src_bb));
 		  else
 		    abort ();
@@ -1266,7 +1271,7 @@ optimize_mode_switching (FILE *file)
 		    continue;
 
 		  emited = true;
-		  if (GET_CODE (ptr->insn_ptr) == NOTE
+		  if (NOTE_P (ptr->insn_ptr)
 		      && (NOTE_LINE_NUMBER (ptr->insn_ptr)
 			  == NOTE_INSN_BASIC_BLOCK))
 		    emit_insn_after (mode_set, ptr->insn_ptr);

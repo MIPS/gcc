@@ -225,7 +225,7 @@ typedef struct value_set
 
 
 /* An unordered bitmap set.  One bitmap tracks values, the other,
-   expressions. */
+   expressions.  */
 typedef struct bitmap_set
 {
   bitmap expressions;
@@ -306,6 +306,11 @@ static alloc_pool value_set_node_pool;
 static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
+static struct obstack grand_bitmap_obstack;
+
+/* Set of blocks with statements that have had its EH information
+   cleaned up.  */
+static bitmap need_eh_cleanup;
 
 /* The phi_translate_table caches phi translations for a given
    expression and predecessor.  */
@@ -317,7 +322,7 @@ static htab_t phi_translate_table;
 
 typedef struct expr_pred_trans_d
 {
-  /* The expression. */
+  /* The expression.  */
   tree e;
 
   /* The predecessor block along which we translated the expression.  */
@@ -367,7 +372,7 @@ expr_pred_trans_eq (const void *p1, const void *p2)
 
 /* Search in the phi translation table for the translation of
    expression E in basic block PRED. Return the translated value, if
-   found, NULL otherwise. */ 
+   found, NULL otherwise.  */ 
 
 static inline tree
 phi_trans_lookup (tree e, basic_block pred)
@@ -439,10 +444,7 @@ value_exists_in_set_bitmap (value_set_t set, tree v)
 static void
 value_remove_from_set_bitmap (value_set_t set, tree v)
 {
-#ifdef ENABLE_CHECKING
-  if (!set->indexed)
-    abort ();
-#endif
+  gcc_assert (set->indexed);
 
   if (!set->values)
     return;
@@ -457,14 +459,11 @@ value_remove_from_set_bitmap (value_set_t set, tree v)
 static inline void
 value_insert_into_set_bitmap (value_set_t set, tree v)
 {
-#ifdef ENABLE_CHECKING
-  if (!set->indexed)
-    abort ();
-#endif
+  gcc_assert (set->indexed);
 
   if (set->values == NULL)
     {
-      set->values = BITMAP_GGC_ALLOC ();
+      set->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
       bitmap_clear (set->values);
     }
 
@@ -478,8 +477,8 @@ static bitmap_set_t
 bitmap_set_new (void)
 {
   bitmap_set_t ret = pool_alloc (bitmap_set_pool);
-  ret->expressions = BITMAP_GGC_ALLOC ();
-  ret->values = BITMAP_GGC_ALLOC ();
+  ret->expressions = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
+  ret->values = BITMAP_OBSTACK_ALLOC (&grand_bitmap_obstack);
   bitmap_clear (ret->expressions);
   bitmap_clear (ret->values);
   return ret;
@@ -506,15 +505,15 @@ bitmap_insert_into_set (bitmap_set_t set, tree expr)
 {
   tree val;
   /* XXX: For now, we only let SSA_NAMES into the bitmap sets.  */
-  if (TREE_CODE (expr) != SSA_NAME)
-    abort ();
+  gcc_assert (TREE_CODE (expr) == SSA_NAME);
   val = get_value_handle (expr);
   
-  if (val == NULL)
-    abort ();
+  gcc_assert (val);
   if (!is_gimple_min_invariant (val))
+  {
     bitmap_set_bit (set->values, VALUE_HANDLE_ID (val));
-  bitmap_set_bit (set->expressions, SSA_NAME_VERSION (expr));
+    bitmap_set_bit (set->expressions, SSA_NAME_VERSION (expr));
+  }
 }
 
 /* Insert EXPR into SET.  */
@@ -524,9 +523,10 @@ insert_into_set (value_set_t set, tree expr)
 {
   value_set_node_t newnode = pool_alloc (value_set_node_pool);
   tree val = get_value_handle (expr);
+  gcc_assert (val);
   
-  if (val == NULL)
-    abort ();
+  if (is_gimple_min_invariant (val))
+    return;
 
   /* For indexed sets, insert the value into the set value bitmap.
      For all sets, add it to the linked list and increment the list
@@ -625,6 +625,10 @@ set_contains_value (value_set_t set, tree val)
 static bool
 bitmap_set_contains (bitmap_set_t set, tree expr)
 {
+  /* All constants are in every set.  */
+  if (is_gimple_min_invariant (get_value_handle (expr)))
+    return true;
+
   /* XXX: Bitmapped sets only contain SSA_NAME's for now.  */
   if (TREE_CODE (expr) != SSA_NAME)
     return false;
@@ -695,7 +699,7 @@ bitmap_set_subtract_from_value_set (value_set_t a, bitmap_set_t b,
   return ret;
 }
 
-/* Return true if two sets are equal. */
+/* Return true if two sets are equal.  */
 
 static bool
 set_equal (value_set_t a, value_set_t b)
@@ -730,6 +734,7 @@ static void
 bitmap_value_insert_into_set (bitmap_set_t set, tree expr)
 {
   tree val = get_value_handle (expr);
+
   if (is_gimple_min_invariant (val))
     return;
   
@@ -848,15 +853,21 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   if (expr == NULL)
     return NULL;
 
+  if (is_gimple_min_invariant (expr))
+    return expr;
+
   /* Phi translations of a given expression don't change,  */
   phitrans = phi_trans_lookup (expr, pred);
   if (phitrans)
     return phitrans;
   
-  
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
-    case '2':
+    case tcc_reference:
+      /* XXX: Until we have PRE of loads working, none will be ANTIC. */
+      return NULL;
+
+    case tcc_binary:
       {
 	tree oldop1 = TREE_OPERAND (expr, 0);
 	tree oldop2 = TREE_OPERAND (expr, 1);
@@ -884,13 +895,9 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	    phi_trans_add (oldexpr, newexpr, pred);	    
 	  }
       }
-      break;
-      /* XXX: Until we have PRE of loads working, none will be ANTIC.
-       */
-    case 'r':
-      return NULL;
-      break;
-    case '1':
+      return expr;
+
+    case tcc_unary:
       {
 	tree oldop1 = TREE_OPERAND (expr, 0);
 	tree newop1;
@@ -911,15 +918,13 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	    phi_trans_add (oldexpr, newexpr, pred);
 	  }
       }
-      break;
-    case 'd':
-      abort ();
-    case 'x':
+      return expr;
+
+    case tcc_exceptional:
       {
 	tree phi = NULL;
 	int i;
-	if (TREE_CODE (expr) != SSA_NAME)
-	  abort ();
+	gcc_assert (TREE_CODE (expr) == SSA_NAME);
 	if (TREE_CODE (SSA_NAME_DEF_STMT (expr)) == PHI_NODE)
 	  phi = SSA_NAME_DEF_STMT (expr);
 	else
@@ -935,9 +940,11 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	      return PHI_ARG_DEF (phi, i);
 	    }
       }
-      break;
+      return expr;
+
+    default:
+      gcc_unreachable ();
     }
-  return expr;
 }
 
 static void
@@ -1047,35 +1054,31 @@ valid_in_set (value_set_t set, tree expr)
 {
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
-    case '2':
+    case tcc_binary:
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
 	return set_contains_value (set, op1) && set_contains_value (set, op2);
       }
-      break;
-    case '1':
+
+    case tcc_unary:
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	return set_contains_value (set, op1);
       }
-      break;
-      /* XXX: Until PRE of loads works, no reference nodes are ANTIC.
-       */
-    case 'r':
-      {
-	return false;
-      }
-    case 'x':
-      {
-	if (TREE_CODE (expr) == SSA_NAME)
-	  return true;
-	abort ();
-      }
-    case 'c':
-      abort ();
-    }
-  return false;
+
+    case tcc_reference:
+      /* XXX: Until PRE of loads works, no reference nodes are ANTIC.  */
+      return false;
+
+    case tcc_exceptional:
+      gcc_assert (TREE_CODE (expr) == SSA_NAME);
+      return true;
+
+    default:
+      /* No other cases should be encountered.  */
+      gcc_unreachable (); 
+   }
 }
 
 /* Clean the set of expressions that are no longer valid in SET.  This
@@ -1096,6 +1099,8 @@ clean (value_set_t set)
       node = next;
     }
 }
+
+DEF_VEC_MALLOC_P (basic_block);
 
 /* Compute the ANTIC set for BLOCK.
 
@@ -1163,24 +1168,23 @@ compute_antic_aux (basic_block block)
      them.  */
   else
     {
-      varray_type worklist;
+      VEC (basic_block) * worklist;
       edge e;
       size_t i;
       basic_block bprime, first;
 
-      VARRAY_BB_INIT (worklist, 1, "succ");
+      worklist = VEC_alloc (basic_block, 2);
       e = block->succ;
       while (e)
 	{
-	  VARRAY_PUSH_BB (worklist, e->dest);
+	  VEC_safe_push (basic_block, worklist, e->dest);
 	  e = e->succ_next;
 	}
-      first = VARRAY_BB (worklist, 0);
+      first = VEC_index (basic_block, worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
-      for (i = 1; i < VARRAY_ACTIVE_SIZE (worklist); i++)
+      for (i = 1; VEC_iterate (basic_block, worklist, i, bprime); i++)
 	{
-	  bprime = VARRAY_BB (worklist, i);
 	  node = ANTIC_OUT->head;
 	  while (node)
 	    {
@@ -1192,7 +1196,7 @@ compute_antic_aux (basic_block block)
 	      node = next;
 	    }
 	}
-      VARRAY_CLEAR (worklist);
+      VEC_free (basic_block, worklist);
     }
 
   /* Generate ANTIC_OUT - TMP_GEN */
@@ -1248,8 +1252,7 @@ compute_antic (void)
   FOR_ALL_BB (bb)
     {
       ANTIC_IN (bb) = set_new (true);
-      if (bb->flags & BB_VISITED)
-	abort ();
+      gcc_assert (!(bb->flags & BB_VISITED));
     }
 
   while (changed)
@@ -1294,10 +1297,9 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
   if (genop == NULL)
     {
       genop = VALUE_HANDLE_EXPR_SET (expr)->head->expr;
-      if (TREE_CODE_CLASS (TREE_CODE (genop)) != '1'
-	  && TREE_CODE_CLASS (TREE_CODE (genop)) != '2'
-	  && TREE_CODE_CLASS (TREE_CODE (genop)) != 'r')
-	abort ();
+      gcc_assert (UNARY_CLASS_P (genop)
+		  || BINARY_CLASS_P (genop)
+		  || REFERENCE_CLASS_P (genop));
       genop = create_expression_by_pieces (block, genop, stmts);
     }
   return genop;
@@ -1327,7 +1329,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
-    case '2':
+    case tcc_binary:
       {
 	tree_stmt_iterator tsi;
 	tree genop1, genop2;
@@ -1349,7 +1351,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	pre_stats.insertions++;
 	break;
       }
-    case '1':
+    case tcc_unary:
       {
 	tree_stmt_iterator tsi;
 	tree genop1;
@@ -1371,7 +1373,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	break;
       }
     default:
-      abort ();
+      gcc_unreachable ();
       
     }
   v = get_value_handle (expr);
@@ -1427,8 +1429,8 @@ insert_aux (basic_block block)
 		   node;
 		   node = node->next)
 		{
-		  if (TREE_CODE_CLASS (TREE_CODE (node->expr)) == '2'
-		      || TREE_CODE_CLASS (TREE_CODE (node->expr)) == '1')
+		  if (BINARY_CLASS_P (node->expr)
+		      || UNARY_CLASS_P (node->expr))
 		    {
 		      tree *avail;
 		      tree val;
@@ -1457,6 +1459,15 @@ insert_aux (basic_block block)
 			{
 			  tree vprime;
 			  tree edoubleprime;
+
+			  /* This can happen in the very weird case
+			     that our fake infinite loop edges have caused a
+			     critical edge to appear.  */
+			  if (EDGE_CRITICAL_P (pred))
+			    {
+			      cant_insert = true;
+			      break;
+			    }
 			  bprime = pred->src;
 			  eprime = phi_translate (node->expr,
 						  ANTIC_IN (block),
@@ -1478,8 +1489,7 @@ insert_aux (basic_block block)
 			    }
 
 			  vprime = get_value_handle (eprime);
-			  if (!vprime)
-			    abort ();			  
+			  gcc_assert (vprime);
 			  edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
 							     vprime);
 			  if (edoubleprime == NULL)
@@ -1495,9 +1505,9 @@ insert_aux (basic_block block)
 				first_s = edoubleprime;
 			      else if (first_s != edoubleprime)
 				all_same = false;
-			      if (first_s != edoubleprime 
-				  && operand_equal_p (first_s, edoubleprime, 0))
-				abort ();
+			      gcc_assert (first_s == edoubleprime 
+					  || !operand_equal_p
+					      (first_s, edoubleprime, 0));
 			    }
 			}
 		      /* If we can insert it, it's not the same value
@@ -1515,7 +1525,7 @@ insert_aux (basic_block block)
 			      fprintf (dump_file, "\n");
 			    }
 
-			  /* Make the necessary insertions. */
+			  /* Make the necessary insertions.  */
 			  for (pred = block->pred;
 			       pred;
 			       pred = pred->pred_next)
@@ -1524,14 +1534,13 @@ insert_aux (basic_block block)
 			      tree builtexpr;
 			      bprime = pred->src;
 			      eprime = avail[bprime->index];
-			      if (TREE_CODE_CLASS (TREE_CODE (eprime)) == '2'
-				  || TREE_CODE_CLASS (TREE_CODE (eprime)) == '1')
+			      if (BINARY_CLASS_P (eprime)
+				  || UNARY_CLASS_P (eprime))
 				{
 				  builtexpr = create_expression_by_pieces (bprime,
 									   eprime,
 									   stmts);
 				  bsi_insert_on_edge (pred, stmts);
-				  bsi_commit_edge_inserts (NULL);
 				  avail[bprime->index] = builtexpr;
 				}			      
 			    } 
@@ -1664,16 +1673,13 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
   enum tree_code code = TREE_CODE (expr);
   tree vexpr;
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (code) != '1'
-      && TREE_CODE_CLASS (code) != '2'
-      && TREE_CODE_CLASS (code) != 'r')
-    abort ();
-#endif
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_unary
+	      || TREE_CODE_CLASS (code) == tcc_binary
+	      || TREE_CODE_CLASS (code) == tcc_reference);
 
-  if (TREE_CODE_CLASS (code) == '1')
+  if (TREE_CODE_CLASS (code) == tcc_unary)
     vexpr = pool_alloc (unary_node_pool);
-  else if (TREE_CODE_CLASS (code) == 'r')
+  else if (TREE_CODE_CLASS (code) == tcc_reference)
     vexpr = pool_alloc (reference_node_pool);
   else
     vexpr = pool_alloc (binary_node_pool);
@@ -1688,7 +1694,8 @@ create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
 	  tree val = vn_lookup_or_add (op, vuses);
 	  if (!is_undefined_value (op))
 	    value_insert_into_set (EXP_GEN (block), op);
-	  TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
+	  if (TREE_CODE (val) == VALUE_HANDLE)
+	    TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
 	  TREE_OPERAND (vexpr, i) = val;
 	}
     }
@@ -1789,8 +1796,7 @@ compute_avail (basic_block block)
 		    value_insert_into_set (EXP_GEN (block), rhs);
 		  continue;
 		}	   
-	      else if (TREE_CODE_CLASS (TREE_CODE (rhs)) == '1'
-		       || TREE_CODE_CLASS (TREE_CODE (rhs)) == '2'
+	      else if (UNARY_CLASS_P (rhs) || BINARY_CLASS_P (rhs)
 		       || TREE_CODE (rhs) == INDIRECT_REF)
 		{
 		  /* For binary, unary, and reference expressions,
@@ -1867,8 +1873,7 @@ eliminate (void)
 		  && (TREE_CODE (*rhs_p) != SSA_NAME
 		      || may_propagate_copy (*rhs_p, sprime)))
 		{
-		  if (sprime == *rhs_p)
-		    abort ();
+		  gcc_assert (sprime != *rhs_p);
 
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
@@ -1882,6 +1887,16 @@ eliminate (void)
 		  pre_stats.eliminations++;
 		  propagate_tree_value (rhs_p, sprime);
 		  modify_stmt (stmt);
+
+		  /* If we removed EH side effects from the statement, clean
+		     its EH information.  */
+		  if (maybe_clean_eh_stmt (stmt))
+		    {
+		      bitmap_set_bit (need_eh_cleanup,
+				      bb_for_stmt (stmt)->index);
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			fprintf (dump_file, "  Removed EH side effects.\n");
+		    }
 		}
 	    }
         }
@@ -1894,14 +1909,27 @@ eliminate (void)
 static void
 init_pre (void)
 {
-  size_t tsize;
   basic_block bb;
 
+  connect_infinite_loops_to_exit ();
   vn_init ();
   memset (&pre_stats, 0, sizeof (pre_stats));
+
+  /* If block 0 has more than one predecessor, it means that its PHI
+     nodes will have arguments coming from block -1.  This creates
+     problems for several places in PRE that keep local arrays indexed
+     by block number.  To prevent this, we split the edge coming from
+     ENTRY_BLOCK_PTR (FIXME, if ENTRY_BLOCK_PTR had an index number
+     different than -1 we wouldn't have to hack this.  tree-ssa-dce.c
+     needs a similar change).  */
+  if (ENTRY_BLOCK_PTR->succ->dest->pred->pred_next)
+    if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
+      split_edge (ENTRY_BLOCK_PTR->succ);
+
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_value_sets));
 
+  gcc_obstack_init (&grand_bitmap_obstack);
   phi_translate_table = htab_create (511, expr_pred_trans_hash,
 				     expr_pred_trans_eq, free);
   value_set_pool = create_alloc_pool ("Value sets",
@@ -1912,12 +1940,12 @@ init_pre (void)
 				           sizeof (struct value_set_node), 30);
   calculate_dominance_info (CDI_POST_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
-  tsize = tree_size (build (PLUS_EXPR, void_type_node, NULL_TREE, NULL_TREE));
-  binary_node_pool = create_alloc_pool ("Binary tree nodes", tsize, 30);
-  tsize = tree_size (build1 (NEGATE_EXPR, void_type_node, NULL_TREE));
-  unary_node_pool = create_alloc_pool ("Unary tree nodes", tsize, 30);
-  tsize = tree_size (build (COMPONENT_REF, void_type_node, NULL_TREE, NULL_TREE, NULL_TREE));
-  reference_node_pool = create_alloc_pool ("Reference tree nodes", tsize, 30);
+  binary_node_pool = create_alloc_pool ("Binary tree nodes",
+				        tree_code_size (PLUS_EXPR), 30);
+  unary_node_pool = create_alloc_pool ("Unary tree nodes",
+				       tree_code_size (NEGATE_EXPR), 30);
+  reference_node_pool = create_alloc_pool ("Reference tree nodes",
+					   tree_code_size (COMPONENT_REF), 30);
   FOR_ALL_BB (bb)
     {
       EXP_GEN (bb) = set_new (true);
@@ -1925,6 +1953,8 @@ init_pre (void)
       TMP_GEN (bb) = bitmap_set_new ();
       AVAIL_OUT (bb) = bitmap_set_new ();
     }
+
+  need_eh_cleanup = BITMAP_XMALLOC ();
 }
 
 
@@ -1934,7 +1964,11 @@ static void
 fini_pre (void)
 {
   basic_block bb;
+  unsigned int i;
 
+  bsi_commit_edge_inserts (NULL);
+
+  obstack_free (&grand_bitmap_obstack, NULL);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);
   free_alloc_pool (value_set_node_pool);
@@ -1942,14 +1976,38 @@ fini_pre (void)
   free_alloc_pool (reference_node_pool);
   free_alloc_pool (unary_node_pool);
   htab_delete (phi_translate_table);
-  
+  remove_fake_exit_edges ();
+
   FOR_ALL_BB (bb)
     {
       free (bb->aux);
       bb->aux = NULL;
     }
+
   free_dominance_info (CDI_POST_DOMINATORS);
   vn_delete ();
+
+  if (bitmap_first_set_bit (need_eh_cleanup) >= 0)
+    {
+      tree_purge_all_dead_eh_edges (need_eh_cleanup);
+      cleanup_tree_cfg ();
+    }
+
+  BITMAP_XFREE (need_eh_cleanup);
+
+  /* Wipe out pointers to VALUE_HANDLEs.  In the not terribly distant
+     future we will want them to be persistent though.  */
+  for (i = 0; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+
+      if (!name)
+	continue;
+
+      if (SSA_NAME_VALUE (name)
+	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+	SSA_NAME_VALUE (name) = NULL;
+    }
 }
 
 
@@ -2027,11 +2085,13 @@ struct tree_opt_pass pass_pre =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_PRE,				/* tv_id */
-  PROP_no_crit_edges | PROP_cfg | PROP_ssa,/* properties_required */
+  PROP_no_crit_edges | PROP_cfg
+    | PROP_ssa | PROP_alias,		/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -2058,9 +2118,10 @@ struct tree_opt_pass pass_fre =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_FRE,				/* tv_id */
-  PROP_no_crit_edges | PROP_cfg | PROP_ssa,/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  0					/* letter */
 };

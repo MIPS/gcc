@@ -70,7 +70,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
 
-  gfc_option.q_kind = gfc_default_double_kind ();
+  gfc_option.q_kind = gfc_default_double_kind;
   gfc_option.i8 = 0;
   gfc_option.r8 = 0;
   gfc_option.d8 = 0;
@@ -80,7 +80,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
     | GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_F2003 | GFC_STD_GNU;
   gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-    | GFC_STD_F2003 | GFC_STD_GNU;
+    | GFC_STD_F2003;
 
   return CL_F95;
 }
@@ -111,7 +111,11 @@ gfc_post_options (const char **pfilename)
       flag_inline_trees = 2;
       flag_inline_functions = 0;
     }
-  
+
+  /* If -pedantic, warn about the use of GNU extensions.  */
+  if (pedantic && (gfc_option.allow_std & GFC_STD_GNU) != 0)
+    gfc_option.warn_std |= GFC_STD_GNU;
+
   return false;
 }
 
@@ -260,12 +264,14 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_repack_arrays = value;
       break;
 
-    case OPT_ffixed_line_length_80:
-      gfc_option.fixed_line_length = 80;
+    case OPT_ffixed_line_length_none:
+      gfc_option.fixed_line_length = 0;
       break;
 
-    case OPT_ffixed_line_length_132:
-      gfc_option.fixed_line_length = 132;
+    case OPT_ffixed_line_length_:
+      if (value != 0 && value < 7)
+	gfc_fatal_error ("Fixed line length must be at least seven.");
+      gfc_option.fixed_line_length = value;
       break;
 
     case OPT_fmax_identifier_length_:
@@ -276,7 +282,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_qkind_:
-      if (gfc_validate_kind (BT_REAL, value) < 0)
+      if (gfc_validate_kind (BT_REAL, value, true) < 0)
 	gfc_fatal_error ("Argument to -fqkind isn't a valid real kind");
       gfc_option.q_kind = value;
       break;
@@ -319,7 +325,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
 	| GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_F2003 | GFC_STD_GNU;
       gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-	| GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_GNU;
+	| GFC_STD_F2003_OBS | GFC_STD_F2003_DEL;
       break;
     }
 

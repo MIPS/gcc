@@ -8959,82 +8959,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set_attr "type" "fpalu")
    (set_attr "length" "4")])
 
-;; Clean up turds left by reload.
-(define_peephole
-  [(set (match_operand 0 "move_dest_operand" "")
-	(match_operand 1 "register_operand" "fr"))
-   (set (match_operand 2 "register_operand" "fr")
-	(match_dup 0))]
-  "!TARGET_SOFT_FLOAT
-   && GET_CODE (operands[0]) == MEM
-   && ! MEM_VOLATILE_P (operands[0])
-   && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[2])
-   && GET_MODE (operands[0]) == DFmode
-   && GET_CODE (operands[1]) == REG
-   && GET_CODE (operands[2]) == REG
-   && ! side_effects_p (XEXP (operands[0], 0))
-   && REGNO_REG_CLASS (REGNO (operands[1]))
-      == REGNO_REG_CLASS (REGNO (operands[2]))"
-  "*
-{
-  rtx xoperands[2];
-
-  if (FP_REG_P (operands[1]))
-    output_asm_insn (output_fp_move_double (operands), operands);
-  else
-    output_asm_insn (output_move_double (operands), operands);
-
-  if (rtx_equal_p (operands[1], operands[2]))
-    return \"\";
-
-  xoperands[0] = operands[2];
-  xoperands[1] = operands[1];
-      
-  if (FP_REG_P (xoperands[1]))
-    output_asm_insn (output_fp_move_double (xoperands), xoperands);
-  else
-    output_asm_insn (output_move_double (xoperands), xoperands);
-
-  return \"\";
-}")
-
-(define_peephole
-  [(set (match_operand 0 "register_operand" "fr")
-	(match_operand 1 "move_src_operand" ""))
-   (set (match_operand 2 "register_operand" "fr")
-	(match_dup 1))]
-  "!TARGET_SOFT_FLOAT
-   && GET_CODE (operands[1]) == MEM
-   && ! MEM_VOLATILE_P (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[2])
-   && GET_MODE (operands[0]) == DFmode
-   && GET_CODE (operands[0]) == REG
-   && GET_CODE (operands[2]) == REG
-   && ! side_effects_p (XEXP (operands[1], 0))
-   && REGNO_REG_CLASS (REGNO (operands[0]))
-      == REGNO_REG_CLASS (REGNO (operands[2]))"
-  "*
-{
-  rtx xoperands[2];
-
-  if (FP_REG_P (operands[0]))
-    output_asm_insn (output_fp_move_double (operands), operands);
-  else
-    output_asm_insn (output_move_double (operands), operands);
-
-  xoperands[0] = operands[2];
-  xoperands[1] = operands[0];
-      
-  if (FP_REG_P (xoperands[1]))
-    output_asm_insn (output_fp_move_double (xoperands), xoperands);
-  else
-    output_asm_insn (output_move_double (xoperands), xoperands);
-
-  return \"\";
-}")
-
 ;; Flush the I and D cache lines from the start address (operand0)
 ;; to the end address (operand1).  No lines are flushed if the end
 ;; address is less than the start address (unsigned).
@@ -9393,12 +9317,9 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     (match_operand:DI 2 "const_int_operand" "n,n"))]
   "TARGET_64BIT
    && (operands[2] != const0_rtx
-       || REG_P (XEXP (operands[0], 0))
-       || IS_INDEX_ADDR_P (XEXP (operands[0], 0))
-       || (GET_CODE (XEXP (operands[0], 0)) == PLUS
-	   && REG_P (XEXP (XEXP (operands[0], 0), 0))
-	   && GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == CONST_INT
-	   && VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1))))"
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
 {
   /* The SL completor indicates good spatial locality but poor temporal
      locality.  The ldw instruction with a target of general register 0
@@ -9448,12 +9369,9 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     (match_operand:SI 2 "const_int_operand" "n,n"))]
   "TARGET_PA_20
    && (operands[2] != const0_rtx
-       || REG_P (XEXP (operands[0], 0))
-       || IS_INDEX_ADDR_P (XEXP (operands[0], 0))
-       || (GET_CODE (XEXP (operands[0], 0)) == PLUS
-	   && REG_P (XEXP (XEXP (operands[0], 0), 0))
-	   && GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == CONST_INT
-	   && VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1))))"
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
 {
   /* The SL completor indicates good spatial locality but poor temporal
      locality.  The ldw instruction with a target of general register 0

@@ -44,6 +44,8 @@ avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
 fr30 port		Nick Clifton		nickc@redhat.com
+frv port		Aldy Hernandez		aldyh@redhat.com
+frv port		Alexandre Oliva		aoliva@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@cs.umass.edu
 hppa port		Jeff Law		law@redhat.com
@@ -86,6 +88,7 @@ xtensa port		Bob Wilson		bob.wilson@acm.org
 			OS Port Maintainers	(OS alphabetical order)
 
 darwin port		Stan Shebs		shebs@apple.com
+darwin port		Dale Johannesen		dalej@apple.com
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
 netbsd			Jason Thorpe		thorpej@wasabisystems.com
@@ -109,6 +112,7 @@ fortran 95		Steven Bosscher		stevenb@suse.de
 fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
 c++			Jason Merrill		jason@redhat.com
 c++                     Mark Mitchell		mark@codesourcery.com
+c++			Nathan Sidwell		nathan@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
@@ -148,7 +152,7 @@ gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
 web pages		Gerald Pfeifer		gerald@pfeifer.com
-web pages		Janis Johnson		janis187@us.ibm.com
+build status lists	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
@@ -177,6 +181,7 @@ PRE, points-to		Daniel Berlin		dberlin@dberlin.org
 mudflap			Frank Ch. Eigler	fche@redhat.com
 tree browser/unparser	Sebastian Pop		s.pop@laposte.net
 profile feedback	Jan Hubicka		jh@suse.cz
+type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -197,8 +202,8 @@ Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
+Segher Boessenkool				segher@kernel.crashing.org
 Paolo Bonzini					bonzini@gnu.org
-Brian Booth					bbooth@redhat.com
 Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Kevin Buettner					kevinb@redhat.com

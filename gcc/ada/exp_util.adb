@@ -624,12 +624,14 @@ package body Exp_Util is
          if Nkind (Id_Ref) = N_Identifier
            or else Nkind (Id_Ref) = N_Defining_Identifier
          then
-            --  For a simple variable, the image of the task is the name
-            --  of the variable.
+            --  For a simple variable, the image of the task is built from
+            --  the name of the variable. To avoid possible conflict with
+            --  the anonymous type created for a single protected object,
+            --  add a numeric suffix.
 
             T_Id :=
               Make_Defining_Identifier (Loc,
-                New_External_Name (Chars (Id_Ref), 'T'));
+                New_External_Name (Chars (Id_Ref), 'T', 1));
 
             Get_Name_String (Chars (Id_Ref));
 
@@ -1325,13 +1327,16 @@ package body Exp_Util is
 
    begin
       --  Loop to determine whether there is a component reference in
-      --  the left hand side if this appears on the left side of an
+      --  the left hand side if Exp appears on the left side of an
       --  assignment statement. Needed to determine if form of result
       --  must be a variable.
 
       Par := Exp;
       while Present (Par)
-        and then Nkind (Par) = N_Selected_Component
+        and then
+         (Nkind (Par) = N_Selected_Component
+            or else
+          Nkind (Par) = N_Indexed_Component)
       loop
          if Nkind (Parent (Par)) = N_Assignment_Statement
            and then Par = Name (Parent (Par))
@@ -3837,6 +3842,16 @@ package body Exp_Util is
       --  this conversion will be a noop.
 
       if Implementation_Base_Type (Otyp) = Implementation_Base_Type (Ityp) then
+         return True;
+
+      --  Same if this is an upwards conversion of an untagged type, and there
+      --  are no constraints involved (could be more general???)
+
+      elsif Etype (Ityp) = Otyp
+        and then not Is_Tagged_Type (Ityp)
+        and then not Has_Discriminants (Ityp)
+        and then No (First_Rep_Item (Base_Type (Ityp)))
+      then
          return True;
 
       --  If the size of output type is known at compile time, there is

@@ -41,8 +41,8 @@ struct token_spelling
 static const unsigned char *const digraph_spellings[] =
 { U"%:", U"%:%:", U"<:", U":>", U"<%", U"%>" };
 
-#define OP(e, s) { SPELL_OPERATOR, U s           },
-#define TK(e, s) { s,              U #e },
+#define OP(e, s) { SPELL_OPERATOR, U s  },
+#define TK(e, s) { SPELL_ ## s,    U #e },
 static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
 #undef OP
 #undef TK
@@ -662,7 +662,7 @@ save_comment (cpp_reader *pfile, cpp_token *token, const unsigned char *from,
 void
 _cpp_init_tokenrun (tokenrun *run, unsigned int count)
 {
-  run->base = xnewvec (cpp_token, count);
+  run->base = XNEWVEC (cpp_token, count);
   run->limit = run->base + count;
   run->next = NULL;
 }
@@ -673,7 +673,7 @@ next_tokenrun (tokenrun *run)
 {
   if (run->next == NULL)
     {
-      run->next = xnew (tokenrun);
+      run->next = XNEW (tokenrun);
       run->next->prev = run;
       _cpp_init_tokenrun (run->next, 250);
     }
@@ -736,7 +736,16 @@ _cpp_lex_token (cpp_reader *pfile)
 		 handles the directive as normal.  */
 	      && pfile->state.parsing_args != 1
 	      && _cpp_handle_directive (pfile, result->flags & PREV_WHITE))
-	    continue;
+	    {
+	      if (pfile->directive_result.type == CPP_PADDING)
+		continue;
+	      else
+		{
+		  result = &pfile->directive_result;
+		  break;
+		}
+	    }
+
 	  if (pfile->cb.line_change && !pfile->state.skipping)
 	    pfile->cb.line_change (pfile, result, pfile->state.parsing_args);
 	}
@@ -1573,6 +1582,8 @@ cpp_token_val_index (cpp_token *tok)
 	return CPP_TOKEN_FLD_ARG_NO;
       else if (tok->type == CPP_PADDING)
 	return CPP_TOKEN_FLD_SOURCE;
+      else if (tok->type == CPP_PRAGMA)
+	return CPP_TOKEN_FLD_STR;
       /* else fall through */
     default:
       return CPP_TOKEN_FLD_NONE;

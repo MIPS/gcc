@@ -122,8 +122,9 @@ static const char * const optabs[] =
   "floor_optab->handlers[$A].insn_code = CODE_FOR_$(floor$a2$)",
   "ceil_optab->handlers[$A].insn_code = CODE_FOR_$(ceil$a2$)",
   "round_optab->handlers[$A].insn_code = CODE_FOR_$(round$a2$)",
-  "trunc_optab->handlers[$A].insn_code = CODE_FOR_$(trunc$a2$)",
+  "btrunc_optab->handlers[$A].insn_code = CODE_FOR_$(btrunc$a2$)",
   "nearbyint_optab->handlers[$A].insn_code = CODE_FOR_$(nearbyint$a2$)",
+  "rint_optab->handlers[$A].insn_code = CODE_FOR_$(rint$a2$)",
   "sincos_optab->handlers[$A].insn_code = CODE_FOR_$(sincos$a3$)",
   "sin_optab->handlers[$A].insn_code = CODE_FOR_$(sin$a2$)",
   "asin_optab->handlers[$A].insn_code = CODE_FOR_$(asin$a2$)",
@@ -168,7 +169,9 @@ static const char * const optabs[] =
   "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
-  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)" };
+  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
+  "vec_realign_store_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_store_$a$)",
+  "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)" };
 
 static void gen_insn (rtx);
 
@@ -264,6 +267,7 @@ gen_insn (rtx insn)
                             || mode_class[i] == MODE_PARTIAL_INT
 			    || mode_class[i] == MODE_VECTOR_INT)
 			&& (! force_float || mode_class[i] == MODE_FLOAT 
+			    || mode_class[i] == MODE_COMPLEX_FLOAT
 			    || mode_class[i] == MODE_VECTOR_FLOAT))
 		      break;
 		  }
@@ -279,7 +283,7 @@ gen_insn (rtx insn)
 		break;
 
 	      default:
-		abort ();
+		gcc_unreachable ();
 	      }
 	}
 
@@ -350,9 +354,6 @@ main (int argc, char **argv)
   rtx desc;
 
   progname = "genopinit";
-
-  if (argc <= 1)
-    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

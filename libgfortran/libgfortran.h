@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfor.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -87,8 +87,12 @@ typedef double GFC_REAL_8;
 typedef complex float GFC_COMPLEX_4;
 typedef complex double GFC_COMPLEX_8;
 
+/* The following two definitions must be consistent with the types used
+   by the compiler.  */
+/* The type used of array indices, amongst other things.  */
 typedef size_t index_type;
-typedef GFC_INTEGER_4 gfc_strlen_type;
+/* The type used for the lengths of character variables.  */
+typedef GFC_INTEGER_4 gfc_charlen_type;
 
 /* This will be 0 on little-endian machines and one on big-endian machines.  */
 #define l8_to_l4_offset prefix(l8_to_l4_offset)
@@ -233,6 +237,11 @@ extern unsigned line;		/* Location of the current libray call (optional).  */
 #define filename prefix(filename)
 extern char *filename;
 
+/* Avoid conflicting prototypes of alloca() in system headers by using 
+   GCC's builtin alloca().  */
+
+#define gfc_alloca(x)  __builtin_alloca(x)
+
 
 /* main.c */
 
@@ -250,9 +259,6 @@ void get_args (int *, char ***);
 
 
 /* error.c */
-#define rtoa prefix(rtoa)
-char *rtoa (double f, int length, int oprec);
-
 #define itoa prefix(itoa)
 char *itoa (int64_t);
 
@@ -416,6 +422,13 @@ GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
 
 #define normalize_r8_i8 prefix(normalize_r8_i8)
 GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
+
+/* size.c */
+
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) array_t;
+
+#define size0 prefix(size0)
+index_type size0 (const array_t * array); 
 
 #endif
 

@@ -1,23 +1,23 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -204,11 +204,11 @@ match_integer_constant (gfc_expr ** result, int signflag)
 
   kind = get_kind ();
   if (kind == -2)
-    kind = gfc_default_integer_kind ();
+    kind = gfc_default_integer_kind;
   if (kind == -1)
     return MATCH_ERROR;
 
-  if (gfc_validate_kind (BT_INTEGER, kind) == -1)
+  if (gfc_validate_kind (BT_INTEGER, kind, true) < 0)
     {
       gfc_error ("Integer kind %d at %C not available", kind);
       return MATCH_ERROR;
@@ -235,7 +235,7 @@ match_integer_constant (gfc_expr ** result, int signflag)
 static match
 match_boz_constant (gfc_expr ** result)
 {
-  int radix, delim, length;
+  int radix, delim, length, x_hex;
   locus old_loc;
   char *buffer;
   gfc_expr *e;
@@ -244,6 +244,7 @@ match_boz_constant (gfc_expr ** result)
   old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
+  x_hex = 0;
   switch (gfc_next_char ())
     {
     case 'b':
@@ -255,12 +256,7 @@ match_boz_constant (gfc_expr ** result)
       rname = "octal";
       break;
     case 'x':
-      if (pedantic
-         && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
-                            "constant at %C uses non-standard syntax.")
-             == FAILURE))
-       goto backup;
-
+      x_hex = 1;
       /* Fall through.  */
     case 'z':
       radix = 16;
@@ -299,13 +295,23 @@ match_boz_constant (gfc_expr ** result)
   match_digits (0, radix, buffer);
   gfc_next_char ();
 
-  e = gfc_convert_integer (buffer, gfc_default_integer_kind (), radix,
+  e = gfc_convert_integer (buffer, gfc_default_integer_kind, radix,
 			   &gfc_current_locus);
 
   if (gfc_range_check (e) != ARITH_OK)
     {
       gfc_error ("Integer too big for default integer kind at %C");
 
+      gfc_free_expr (e);
+      return MATCH_ERROR;
+    }
+
+  if (x_hex
+      && pedantic
+      && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
+			  "constant at %C uses non-standard syntax.")
+	  == FAILURE))
+    {
       gfc_free_expr (e);
       return MATCH_ERROR;
     }
@@ -430,7 +436,7 @@ done:
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
@@ -454,7 +460,7 @@ done:
 	    ("Real number at %C has a 'd' exponent and an explicit kind");
 	  goto cleanup;
 	}
-      kind = gfc_default_double_kind ();
+      kind = gfc_default_double_kind;
       break;
 
     case 'q':
@@ -469,9 +475,9 @@ done:
 
     default:
       if (kind == -2)
-	kind = gfc_default_real_kind ();
+	kind = gfc_default_real_kind;
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  goto cleanup;
@@ -491,7 +497,7 @@ done:
     case ARITH_UNDERFLOW:
       if (gfc_option.warn_underflow)
         gfc_warning ("Real constant underflows its kind at %C");
-      mpf_set_ui(e->value.real, 0);
+      mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
       break;
 
     default:
@@ -752,7 +758,7 @@ match_string_constant (gfc_expr ** result)
   c = gfc_next_char ();
   if (c == '\'' || c == '"')
     {
-      kind = gfc_default_character_kind ();
+      kind = gfc_default_character_kind;
       goto got_delim;
     }
 
@@ -812,7 +818,7 @@ match_string_constant (gfc_expr ** result)
 	}
     }
 
-  if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Invalid kind %d for CHARACTER constant at %C", kind);
       return MATCH_ERROR;
@@ -899,9 +905,9 @@ match_logical_constant (gfc_expr ** result)
   if (kind == -1)
     return MATCH_ERROR;
   if (kind == -2)
-    kind = gfc_default_logical_kind ();
+    kind = gfc_default_logical_kind;
 
-  if (gfc_validate_kind (BT_LOGICAL, kind) == -1)
+  if (gfc_validate_kind (BT_LOGICAL, kind, true) < 0)
     gfc_error ("Bad kind for logical constant at %C");
 
   e = gfc_get_expr ();
@@ -966,7 +972,7 @@ match_sym_complex_part (gfc_expr ** result)
       break;
 
     case BT_INTEGER:
-      e = gfc_int2real (sym->value, gfc_default_real_kind ());
+      e = gfc_int2real (sym->value, gfc_default_real_kind);
       if (e == NULL)
 	goto error;
       break;
@@ -1070,12 +1076,12 @@ done:
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
       c = gfc_next_char ();
-      if (c == 'd')
+      if (c == 'd' || c == 'q')
 	c = 'e';
       *p++ = c;
       count--;
@@ -1092,7 +1098,7 @@ done:
   if (seen_dp == 0 && exp_char == ' ')
     {
       if (kind == -2)
-	kind = gfc_default_integer_kind ();
+	kind = gfc_default_integer_kind;
 
     }
   else
@@ -1105,16 +1111,16 @@ done:
 		("Real number at %C has a 'd' exponent and an explicit kind");
 	      return MATCH_ERROR;
 	    }
-	  kind = gfc_default_double_kind ();
+	  kind = gfc_default_double_kind;
 
 	}
       else
 	{
 	  if (kind == -2)
-	    kind = gfc_default_real_kind ();
+	    kind = gfc_default_real_kind;
 	}
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  return MATCH_ERROR;
@@ -1400,7 +1406,8 @@ cleanup:
    the opening parenthesis to the closing parenthesis.  The argument
    list is assumed to allow keyword arguments because we don't know if
    the symbol associated with the procedure has an implicit interface
-   or not.  We make sure keywords are unique.  */
+   or not.  We make sure keywords are unique. If SUB_FLAG is set,
+   we're matching the argument list of a subroutine.  */
 
 match
 gfc_match_actual_arglist (int sub_flag, gfc_actual_arglist ** argp)
@@ -1839,13 +1846,13 @@ match
 gfc_match_rvalue (gfc_expr ** result)
 {
   gfc_actual_arglist *actual_arglist;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], argname[GFC_MAX_SYMBOL_LEN + 1];
   gfc_state_data *st;
   gfc_symbol *sym;
   gfc_symtree *symtree;
-  locus where;
+  locus where, old_loc;
   gfc_expr *e;
-  match m;
+  match m, m2;
   int i;
 
   m = gfc_match_name (name);
@@ -2044,35 +2051,46 @@ gfc_match_rvalue (gfc_expr ** result)
 	  break;
 	}
 
-      /* See if this could possibly be a substring reference of a name
-         that we're not sure is a variable yet.  */
+      /* See if this is a function reference with a keyword argument
+	 as first argument. We do this because otherwise a spurious
+	 symbol would end up in the symbol table.  */
+
+      old_loc = gfc_current_locus;
+      m2 = gfc_match (" ( %n =", argname);
+      gfc_current_locus = old_loc;
 
       e = gfc_get_expr ();
       e->symtree = symtree;
 
-      if ((sym->ts.type == BT_UNKNOWN || sym->ts.type == BT_CHARACTER)
-	  && match_substring (sym->ts.cl, 0, &e->ref) == MATCH_YES)
+      if (m2 != MATCH_YES)
 	{
+	  /* See if this could possibly be a substring reference of a name
+	     that we're not sure is a variable yet.  */
 
-	  e->expr_type = EXPR_VARIABLE;
-
-	  if (sym->attr.flavor != FL_VARIABLE
-	      && gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
+	  if ((sym->ts.type == BT_UNKNOWN || sym->ts.type == BT_CHARACTER)
+	      && match_substring (sym->ts.cl, 0, &e->ref) == MATCH_YES)
 	    {
-	      m = MATCH_ERROR;
+
+	      e->expr_type = EXPR_VARIABLE;
+
+	      if (sym->attr.flavor != FL_VARIABLE
+		  && gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  break;
+		}
+
+	      if (sym->ts.type == BT_UNKNOWN
+		  && gfc_set_default_type (sym, 1, NULL) == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  break;
+		}
+
+	      e->ts = sym->ts;
+	      m = MATCH_YES;
 	      break;
 	    }
-
-	  if (sym->ts.type == BT_UNKNOWN
-	      && gfc_set_default_type (sym, 1, NULL) == FAILURE)
-	    {
-	      m = MATCH_ERROR;
-	      break;
-	    }
-
-	  e->ts = sym->ts;
-	  m = MATCH_YES;
-	  break;
 	}
 
       /* Give up, assume we have a function.  */

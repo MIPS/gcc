@@ -252,16 +252,22 @@ public class RepaintManager
    */
   public synchronized void addInvalidComponent(JComponent component)
   {
-    while ((component.getParent() != null)
-           && (component.getParent() instanceof JComponent)
-           && (component.isValidateRoot()))
-      component = (JComponent) component.getParent();
+    Component ancestor = component.getParent();
+
+    while (ancestor != null
+           && (! (ancestor instanceof JComponent)
+               || ! ((JComponent) ancestor).isValidateRoot() ))
+      ancestor = ancestor.getParent();
+
+    if (ancestor != null
+        && ancestor instanceof JComponent
+        && ((JComponent) ancestor).isValidateRoot())
+      component = (JComponent) ancestor;
     
     if (invalidComponents.contains(component))
       return;
 
     invalidComponents.add(component);
-    component.invalidate();
     
     if (! repaintWorker.isLive())
       {
@@ -425,6 +431,9 @@ public class RepaintManager
         if (damaged.width == 0 || damaged.height == 0)
           continue;
         JRootPane root = comp.getRootPane();
+        // If the component has no root, no repainting will occur.
+        if (root == null)
+          continue;
         Rectangle rootDamage = SwingUtilities.convertRectangle(comp, damaged, root);
         if (! roots.containsKey(root))
           {
@@ -444,7 +453,7 @@ public class RepaintManager
         Map.Entry ent = (Map.Entry) i.next();
         JRootPane root = (JRootPane) ent.getKey();
         Rectangle rect = (Rectangle) ent.getValue();
-        root.paintImmediately(rect);                
+        root.paintImmediately(rect);                	
       }
   }
 

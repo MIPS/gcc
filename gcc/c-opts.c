@@ -144,16 +144,16 @@ c_common_missing_argument (const char *opt, size_t code)
       return false;
 
     case OPT_fconstant_string_class_:
-      error ("no class name specified with \"%s\"", opt);
+      error ("no class name specified with %qs", opt);
       break;
 
     case OPT_A:
-      error ("assertion missing after \"%s\"", opt);
+      error ("assertion missing after %qs", opt);
       break;
 
     case OPT_D:
     case OPT_U:
-      error ("macro name missing after \"%s\"", opt);
+      error ("macro name missing after %qs", opt);
       break;
 
     case OPT_F:
@@ -162,7 +162,7 @@ c_common_missing_argument (const char *opt, size_t code)
     case OPT_isysroot:
     case OPT_isystem:
     case OPT_iquote:
-      error ("missing path after \"%s\"", opt);
+      error ("missing path after %qs", opt);
       break;
 
     case OPT_MF:
@@ -171,12 +171,12 @@ c_common_missing_argument (const char *opt, size_t code)
     case OPT_include:
     case OPT_imacros:
     case OPT_o:
-      error ("missing filename after \"%s\"", opt);
+      error ("missing filename after %qs", opt);
       break;
 
     case OPT_MQ:
     case OPT_MT:
-      error ("missing makefile target after \"%s\"", opt);
+      error ("missing makefile target after %qs", opt);
       break;
     }
 
@@ -194,7 +194,7 @@ defer_opt (enum opt_code code, const char *arg)
 
 /* Common initialization before parsing options.  */
 unsigned int
-c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
+c_common_init_options (unsigned int argc, const char ** ARG_UNUSED (argv))
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
   unsigned int result;
@@ -226,7 +226,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
 
-  deferred_opts = xmalloc (argc * sizeof (struct deferred_opt));
+  deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
   result = lang_flags[c_language];
 
@@ -420,6 +420,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Werror:
       cpp_opts->warnings_are_errors = value;
+      global_dc->warning_as_error_requested = value;
       break;
 
     case OPT_Werror_implicit_function_declaration:
@@ -538,7 +539,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fvtable_thunks:
     case OPT_fxref:
     case OPT_fvtable_gc:
-      warning ("switch \"%s\" is no longer supported", option->opt_text);
+      warning ("switch %qs is no longer supported", option->opt_text);
       break;
 
     case OPT_faccess_control:
@@ -764,9 +765,17 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fuse_cxa_atexit:
       flag_use_cxa_atexit = value;
       break;
+      
+    case OPT_fvisibility_inlines_hidden:
+      visibility_options.inlines_hidden = value;
+      break;
 
     case OPT_fweak:
       flag_weak = value;
+      break;
+
+    case OPT_fthreadsafe_statics:
+      flag_threadsafe_statics = value;
       break;
 
     case OPT_fzero_link:
@@ -913,7 +922,7 @@ c_common_post_options (const char **pfilename)
   /* Canonicalize the input and output filenames.  */
   if (in_fnames == NULL)
     {
-      in_fnames = xmalloc (sizeof (in_fnames[0]));
+      in_fnames = XNEWVEC (const char *, 1);
       in_fnames[0] = "";
     }
   else if (strcmp (in_fnames[0], "-") == 0)
@@ -943,16 +952,23 @@ c_common_post_options (const char **pfilename)
       flag_inline_functions = 0;
     }
 
+  /* If we are given more than one input file, we must use
+     unit-at-a-time mode.  */
+  if (num_in_fnames > 1)
+    flag_unit_at_a_time = 1;
+
   /* Default to ObjC sjlj exception handling if NeXT runtime.  */
   if (flag_objc_sjlj_exceptions < 0)
     flag_objc_sjlj_exceptions = flag_next_runtime;
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
-  /* -Wextra implies -Wsign-compare, but not if explicitly
-      overridden.  */
+  /* -Wextra implies -Wsign-compare and -Wmissing-field-initializers,
+     but not if explicitly overridden.  */
   if (warn_sign_compare == -1)
     warn_sign_compare = extra_warnings;
+  if (warn_missing_field_initializers == -1)
+    warn_missing_field_initializers = extra_warnings;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
@@ -1061,22 +1077,37 @@ c_common_init (void)
 void
 c_common_parse_file (int set_yydebug)
 {
+  unsigned int i;
+
+  /* Enable parser debugging, if requested and we can.  If requested
+     and we can't, notify the user.  */
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
   if (set_yydebug)
-    warning ("YYDEBUG not defined");
+    warning ("YYDEBUG was not defined at build time, -dy ignored");
 #endif
 
-  if (num_in_fnames > 1)
-    fatal_error ("sorry, inter-module analysis temporarily out of commission");
+  i = 0;
+  for (;;)
+    {
+      finish_options ();
+      pch_init ();
+      push_file_scope ();
+      c_parse_file ();
+      finish_file ();
+      pop_file_scope ();
 
-  finish_options ();
-  pch_init ();
-  push_file_scope ();
-  c_parse_file ();
-  finish_file ();
-  pop_file_scope ();
+      if (++i >= num_in_fnames)
+	break;
+      cpp_undef_all (parse_in);
+      this_input_filename
+	= cpp_read_main_file (parse_in, in_fnames[i]);
+      /* If an input file is missing, abandon further compilation.
+         cpplib has issued a diagnostic.  */
+      if (!this_input_filename)
+	break;
+    }
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1236,7 +1267,7 @@ add_prefixed_path (const char *suffix, size_t chain)
   prefix     = iprefix ? iprefix : cpp_GCC_INCLUDE_DIR;
   prefix_len = iprefix ? strlen (iprefix) : cpp_GCC_INCLUDE_DIR_len;
 
-  path = xmalloc (prefix_len + suffix_len + 1);
+  path = (char *) xmalloc (prefix_len + suffix_len + 1);
   memcpy (path, prefix, prefix_len);
   memcpy (path + prefix_len, suffix, suffix_len);
   path[prefix_len + suffix_len] = '\0';
@@ -1334,7 +1365,7 @@ push_command_line_include (void)
 
 /* File change callback.  Has to handle -include files.  */
 static void
-cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
+cb_file_change (cpp_reader * ARG_UNUSED (pfile),
 		const struct line_map *new_map)
 {
   if (flag_preprocess_only)
@@ -1347,7 +1378,7 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
 }
 
 void
-cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
+cb_dir_change (cpp_reader * ARG_UNUSED (pfile), const char *dir)
 {
   if (! set_src_pwd (dir))
     warning ("too late for # directive to set debug directory");

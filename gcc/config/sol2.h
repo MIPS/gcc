@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -162,9 +162,6 @@ Boston, MA 02111-1307, USA.  */
 /*
  * Attempt to turn on access permissions for the stack.
  *
- * This code must be defined when compiling gcc but not when compiling
- * libgcc2.a, unless we're generating code for 64-bit SPARC
- *
  * _SC_STACK_PROT is only defined for post 2.6, but we want this code
  * to run always.  2.6 can change the stack protection but has no way to
  * query it.
@@ -172,10 +169,10 @@ Boston, MA 02111-1307, USA.  */
  */
 
 /* sys/mman.h is not present on some non-Solaris configurations
-   that use sol2.h, so TRANSFER_FROM_TRAMPOLINE must use a magic
+   that use sol2.h, so ENABLE_EXECUTE_STACK must use a magic
    number instead of the appropriate PROT_* flags.  */
 
-#define TRANSFER_FROM_TRAMPOLINE					\
+#define ENABLE_EXECUTE_STACK					\
 									\
 /* #define STACK_PROT_RWX (PROT_READ | PROT_WRITE | PROT_EXEC) */	\
 									\
@@ -208,3 +205,32 @@ __enable_execute_stack (void *addr)					\
       perror ("mprotect of trampoline code");				\
   }									\
 }
+
+/* Support Solaris-specific format checking for cmn_err.  */
+#define TARGET_N_FORMAT_TYPES 1
+#define TARGET_FORMAT_TYPES solaris_format_types
+
+/* #pragma init and #pragma fini are implemented on top of init and
+   fini attributes.  */
+#define SOLARIS_ATTRIBUTE_TABLE						\
+  { "init",      0, 0, true,  false,  false, NULL },			\
+  { "fini",      0, 0, true,  false,  false, NULL }
+
+/* This is how to declare the size of a function.  For Solaris, we output
+   any .init or .fini entries here.  */
+#undef ASM_DECLARE_FUNCTION_SIZE
+#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
+  do								\
+    {								\
+      if (!flag_inhibit_size_directive)				\
+	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
+      solaris_output_init_fini (FILE, DECL);			\
+    }								\
+  while (0)
+
+/* Register the Solaris-specific #pragma directives.  */
+#define REGISTER_TARGET_PRAGMAS() solaris_register_pragmas ()
+
+extern GTY(()) tree solaris_pending_aligns;
+extern GTY(()) tree solaris_pending_inits;
+extern GTY(()) tree solaris_pending_finis;

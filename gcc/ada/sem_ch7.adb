@@ -692,10 +692,15 @@ package body Sem_Ch7 is
       --  is a public child of Parent as defined in 10.1.1
 
       procedure Inspect_Deferred_Constant_Completion;
-      --  Examines the deferred constants in the private part of the
-      --  package specification. Emits the error "constant declaration
-      --  requires initialization expression " if not completed by an
-      --  import pragma.
+      --  Examines the deferred constants in the private part of the package
+      --  specification. Emits the error message "constant declaration requires
+      --  initialization expression " if not completed by an Import pragma.
+
+      procedure Inspect_Unchecked_Union_Completion (Decls : List_Id);
+      --  Detects all incomplete or private type declarations having a known
+      --  discriminant part that are completed by an Unchecked_Union. Emits
+      --  the error message "Unchecked_Union may not complete discriminated
+      --  partial view".
 
       ---------------------
       -- Clear_Constants --
@@ -834,6 +839,37 @@ package body Sem_Ch7 is
          end loop;
       end Inspect_Deferred_Constant_Completion;
 
+      ----------------------------------------
+      -- Inspect_Unchecked_Union_Completion --
+      ----------------------------------------
+
+      procedure Inspect_Unchecked_Union_Completion (Decls : List_Id) is
+         Decl : Node_Id := First (Decls);
+
+      begin
+         while Present (Decl) loop
+
+            --  We are looking at an incomplete or private type declaration
+            --  with a known_discriminant_part whose full view is an
+            --  Unchecked_Union.
+
+            if (Nkind (Decl) = N_Incomplete_Type_Declaration
+                  or else
+                Nkind (Decl) = N_Private_Type_Declaration)
+              and then Has_Discriminants (Defining_Identifier (Decl))
+              and then Present (Full_View (Defining_Identifier (Decl)))
+              and then Is_Unchecked_Union
+                (Full_View (Defining_Identifier (Decl)))
+            then
+               Error_Msg_N ("completion of discriminated partial view" &
+                 " cannot be an Unchecked_Union",
+                 Full_View (Defining_Identifier (Decl)));
+            end if;
+
+            Next (Decl);
+         end loop;
+      end Inspect_Unchecked_Union_Completion;
+
    --  Start of processing for Analyze_Package_Specification
 
    begin
@@ -885,14 +921,31 @@ package body Sem_Ch7 is
 
       Public_Child := False;
 
-      if Present (Parent_Spec (Parent (N))) then
-         Generate_Parent_References;
+      declare
+         Par       : Entity_Id;
+         Pack_Decl : Node_Id;
+         Par_Spec  : Node_Id;
 
-         declare
-            Par       : Entity_Id := Id;
-            Pack_Decl : Node_Id;
+      begin
+         Par := Id;
+         Par_Spec := Parent_Spec (Parent (N));
 
-         begin
+         --  If the package is formal package of an enclosing generic, is is
+         --  transformed into a local generic declaration, and compiled to make
+         --  its spec available. We need to retrieve the original generic to
+         --  determine whether it is a child unit, and install its parents.
+
+         if No (Par_Spec)
+           and then
+             Nkind (Original_Node (Parent (N))) = N_Formal_Package_Declaration
+         then
+            Par := Entity (Name (Original_Node (Parent (N))));
+            Par_Spec := Parent_Spec (Unit_Declaration_Node (Par));
+         end if;
+
+         if Present (Par_Spec) then
+            Generate_Parent_References;
+
             while Scope (Par) /= Standard_Standard
               and then Is_Public_Child (Id, Par)
             loop
@@ -903,8 +956,8 @@ package body Sem_Ch7 is
                Pack_Decl := Unit_Declaration_Node (Par);
                Set_Use (Private_Declarations (Specification (Pack_Decl)));
             end loop;
-         end;
-      end if;
+         end if;
+      end;
 
       if Is_Compilation_Unit (Id) then
          Install_Private_With_Clauses (Id);
@@ -964,6 +1017,18 @@ package body Sem_Ch7 is
 
          Next_Entity (E);
       end loop;
+
+      --  Ada 2005 (AI-216): The completion of an incomplete or private type
+      --  declaration having a known_discriminant_part shall not be an
+      --  Unchecked_Union type.
+
+      if Present (Vis_Decls) then
+         Inspect_Unchecked_Union_Completion (Vis_Decls);
+      end if;
+
+      if Present (Priv_Decls) then
+         Inspect_Unchecked_Union_Completion (Priv_Decls);
+      end if;
 
       if Ekind (Id) = E_Generic_Package
         and then Nkind (Orig_Decl) = N_Generic_Package_Declaration
@@ -1426,6 +1491,7 @@ package body Sem_Ch7 is
 
       while Present (Id) loop
          Install_Package_Entity (Id);
+         Set_Is_Hidden (Id, False);
          Next_Entity (Id);
       end loop;
 

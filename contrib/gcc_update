@@ -56,6 +56,9 @@ self=$0
 # colon is stripped from the output.
 files_and_dependencies () {
     sed -e 's/ *#.*//' -e '/^$/d' -e 's/://' <<\EOF
+# fixincludes
+fixincludes/configure: fixincludes/configure.ac fixincludes/aclocal.m4
+fixincludes/config.h.in: fixincludes/configure.ac fixincludes/aclocal.m4
 # intl library
 intl/plural.c: intl/plural.y
 intl/configure: intl/configure.ac intl/aclocal.m4
@@ -65,6 +68,7 @@ gcc/configure: gcc/configure.ac
 gcc/cstamp-h.in: gcc/configure.ac
 gcc/config.in: gcc/cstamp-h.in
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
+gcc/config/arm/arm-tune.md: gcc/config/arm/arm-cores.def gcc/config/arm/gentune.sh
 # And then, language-specific files
 gcc/cp/cfns.h: gcc/cp/cfns.gperf
 gcc/java/keyword.h: gcc/java/keyword.gperf
@@ -92,15 +96,15 @@ libffi/fficonfig.h.in: libffi/configure.ac libffi/aclocal.m4
 libgfortran/aclocal.m4: libgfortran/configure.ac libgfortran/acinclude.m4
 libgfortran/Makefile.in: libgfortran/Makefile.am libgfortran/configure.ac libgfortran/aclocal.m4
 libgfortran/configure: libgfortran/configure.ac libgfortran/aclocal.m4
-libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
-libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
-libjava/configure: libjava/configure.in libjava/aclocal.m4
+libjava/aclocal.m4: libjava/configure.ac libjava/acinclude.m4
+libjava/Makefile.in: libjava/Makefile.am libjava/configure.ac libjava/aclocal.m4
+libjava/configure: libjava/configure.ac libjava/aclocal.m4
 libjava/libltdl/aclocal.m4: libjava/libltdl/configure.ac libjava/libltdl/acinclude.m4
 libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libcpp/aclocal.m4: libcpp/configure.ac
-libcpp/Makefile.in: libcpp/Makefile.am libcpp/configure.ac libcpp/aclocal.m4
+libcpp/Makefile.in: libcpp/configure.ac libcpp/aclocal.m4
 libcpp/configure: libcpp/configure.ac libcpp/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def

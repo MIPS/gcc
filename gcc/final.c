@@ -625,7 +625,7 @@ insn_current_reference_address (rtx branch)
 
   seq = NEXT_INSN (PREV_INSN (branch));
   seq_uid = INSN_UID (seq);
-  if (GET_CODE (branch) != JUMP_INSN)
+  if (!JUMP_P (branch))
     /* This can happen for example on the PA; the objective is to know the
        offset to address something in front of the start of the function.
        Thus, we can treat it like a backward branch.
@@ -678,7 +678,7 @@ compute_alignments (void)
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
 
-      if (GET_CODE (label) != CODE_LABEL
+      if (!LABEL_P (label)
 	  || probably_never_executed_bb_p (bb))
 	continue;
       max_log = LABEL_ALIGN (label);
@@ -788,8 +788,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       /* Range of labels grows monotonically in the function.  Abort here
          means that the initialization of array got lost.  */
-      if (n_old_labels > n_labels)
-	abort ();
+      gcc_assert (n_old_labels <= n_labels);
 
       memset (label_align + n_old_labels, 0,
 	      (n_labels - n_old_labels) * sizeof (struct label_alignment));
@@ -817,7 +816,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
              is separated by the former loop start insn from the
 	     NOTE_INSN_LOOP_BEG.  */
 	}
-      else if (GET_CODE (insn) == CODE_LABEL)
+      else if (LABEL_P (insn))
 	{
 	  rtx next;
 
@@ -839,7 +838,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
 	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
-	    if (next && GET_CODE (next) == JUMP_INSN)
+	    if (next && JUMP_P (next))
 	      {
 		rtx nextbody = PATTERN (next);
 		if (GET_CODE (nextbody) == ADDR_VEC
@@ -858,13 +857,13 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  max_log = 0;
 	  max_skip = 0;
 	}
-      else if (GET_CODE (insn) == BARRIER)
+      else if (BARRIER_P (insn))
 	{
 	  rtx label;
 
 	  for (label = insn; label && ! INSN_P (label);
 	       label = NEXT_INSN (label))
-	    if (GET_CODE (label) == CODE_LABEL)
+	    if (LABEL_P (label))
 	      {
 		log = LABEL_ALIGN_AFTER_BARRIER (insn);
 		if (max_log < log)
@@ -901,7 +900,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
     {
       int uid = INSN_UID (seq);
       int log;
-      log = (GET_CODE (seq) == CODE_LABEL ? LABEL_TO_ALIGNMENT (seq) : 0);
+      log = (LABEL_P (seq) ? LABEL_TO_ALIGNMENT (seq) : 0);
       uid_align[uid] = align_tab[0];
       if (log)
 	{
@@ -928,13 +927,12 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  int min_align;
 	  addr_diff_vec_flags flags;
 
-	  if (GET_CODE (insn) != JUMP_INSN
+	  if (!JUMP_P (insn)
 	      || GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	    continue;
 	  pat = PATTERN (insn);
 	  len = XVECLEN (pat, 1);
-	  if (len <= 0)
-	    abort ();
+	  gcc_assert (len > 0);
 	  min_align = MAX_CODE_ALIGN;
 	  for (min = max_shuid, max = min_shuid, i = len - 1; i >= 0; i--)
 	    {
@@ -977,7 +975,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       insn_lengths[uid] = 0;
 
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	{
 	  int log = LABEL_TO_ALIGNMENT (insn);
 	  if (log)
@@ -990,8 +988,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       INSN_ADDRESSES (uid) = insn_current_address + insn_lengths[uid];
 
-      if (GET_CODE (insn) == NOTE || GET_CODE (insn) == BARRIER
-	  || GET_CODE (insn) == CODE_LABEL)
+      if (NOTE_P (insn) || BARRIER_P (insn)
+	  || LABEL_P (insn))
 	continue;
       if (INSN_DELETED_P (insn))
 	continue;
@@ -1082,7 +1080,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
 	  uid = INSN_UID (insn);
 
-	  if (GET_CODE (insn) == CODE_LABEL)
+	  if (LABEL_P (insn))
 	    {
 	      int log = LABEL_TO_ALIGNMENT (insn);
 	      if (log > insn_current_align)
@@ -1107,7 +1105,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  INSN_ADDRESSES (uid) = insn_current_address;
 
 #ifdef CASE_VECTOR_SHORTEN_MODE
-	  if (optimize && GET_CODE (insn) == JUMP_INSN
+	  if (optimize && JUMP_P (insn)
 	      && GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    {
 	      rtx body = PATTERN (insn);
@@ -1217,7 +1215,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
 	  if (! (varying_length[uid]))
 	    {
-	      if (GET_CODE (insn) == INSN
+	      if (NONJUMP_INSN_P (insn)
 		  && GET_CODE (PATTERN (insn)) == SEQUENCE)
 		{
 		  int i;
@@ -1239,7 +1237,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      continue;
 	    }
 
-	  if (GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
+	  if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    {
 	      int i;
 
@@ -1347,7 +1345,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   (*debug_hooks->begin_prologue) (last_linenum, last_filename);
 
-#if defined (DWARF2_UNWIND_INFO) || defined (IA64_UNWIND_INFO)
+#if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
   if (write_symbols != DWARF2_DEBUG && write_symbols != VMS_AND_DWARF2_DEBUG)
     dwarf2out_begin_prologue (0, NULL);
 #endif
@@ -1517,7 +1515,7 @@ final (rtx first, FILE *file, int optimize, int prescan)
     {
       rtx last = 0;
       for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
 	  {
 	    if (last != 0
 #ifdef USE_MAPPED_LOCATION
@@ -1543,7 +1541,7 @@ final (rtx first, FILE *file, int optimize, int prescan)
 #ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
-      if (optimize && GET_CODE (insn) == JUMP_INSN)
+      if (optimize && JUMP_P (insn))
 	{
 	  rtx lab = JUMP_LABEL (insn);
 	  if (lab && LABEL_NUSES (lab) == 1)
@@ -1566,10 +1564,8 @@ final (rtx first, FILE *file, int optimize, int prescan)
 	{
 	  /* This can be triggered by bugs elsewhere in the compiler if
 	     new insns are created after init_insn_lengths is called.  */
-	  if (GET_CODE (insn) == NOTE)
-	    insn_current_address = -1;
-	  else
-	    abort ();
+	  gcc_assert (NOTE_P (insn));
+	  insn_current_address = -1;
 	}
       else
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
@@ -1589,12 +1585,11 @@ get_insn_template (int code, rtx insn)
     case INSN_OUTPUT_FORMAT_MULTI:
       return insn_data[code].output.multi[which_alternative];
     case INSN_OUTPUT_FORMAT_FUNCTION:
-      if (insn == NULL)
-	abort ();
+      gcc_assert (insn);
       return (*insn_data[code].output.function) (recog_data.operand, insn);
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1625,7 +1620,7 @@ output_alternate_entry_point (FILE *file, rtx insn)
 
     case LABEL_NORMAL:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -1641,10 +1636,10 @@ scan_ahead_for_unlikely_executed_note (rtx insn)
 
   for (temp = insn; temp; temp = NEXT_INSN (temp))
     {
-      if (GET_CODE (temp) == NOTE
+      if (NOTE_P (temp)
 	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
 	return true;
-      if (GET_CODE (temp) == NOTE
+      if (NOTE_P (temp)
 	  && NOTE_LINE_NUMBER (temp) == NOTE_INSN_BASIC_BLOCK)
 	{
 	  bb_note_count++;
@@ -1699,9 +1694,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_DELETED:
 	case NOTE_INSN_LOOP_BEG:
 	case NOTE_INSN_LOOP_END:
-	case NOTE_INSN_LOOP_END_TOP_COND:
-	case NOTE_INSN_LOOP_CONT:
-	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
@@ -1728,13 +1720,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	     are writing to appropriately.  */
 	  
 	  if (flag_reorder_blocks_and_partition
-	      && in_unlikely_text_section()
 	      && !scan_ahead_for_unlikely_executed_note (insn))
-	    text_section ();
+	    function_section (current_function_decl);
 
-#ifdef IA64_UNWIND_INFO
-	  IA64_UNWIND_EMIT (asm_out_file, insn);
+#ifdef TARGET_UNWIND_INFO
+	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
+
 	  if (flag_debug_asm)
 	    fprintf (asm_out_file, "\t%s basic block %d\n",
 		     ASM_COMMENT_START, NOTE_BASIC_BLOCK (insn)->index);
@@ -1794,7 +1786,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_BLOCK_BEG:
 	  if (debug_info_level == DINFO_LEVEL_NORMAL
 	      || debug_info_level == DINFO_LEVEL_VERBOSE
-	      || write_symbols == DWARF_DEBUG
 	      || write_symbols == DWARF2_DEBUG
 	      || write_symbols == VMS_AND_DWARF2_DEBUG
 	      || write_symbols == VMS_DEBUG)
@@ -1816,7 +1807,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_BLOCK_END:
 	  if (debug_info_level == DINFO_LEVEL_NORMAL
 	      || debug_info_level == DINFO_LEVEL_VERBOSE
-	      || write_symbols == DWARF_DEBUG
 	      || write_symbols == DWARF2_DEBUG
 	      || write_symbols == VMS_AND_DWARF2_DEBUG
 	      || write_symbols == VMS_DEBUG)
@@ -1827,8 +1817,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	      /* End of a symbol-block.  */
 	      --block_depth;
-	      if (block_depth < 0)
-		abort ();
+	      gcc_assert (block_depth >= 0);
 
 	      (*debug_hooks->end_block) (high_block_linenum, n);
 	    }
@@ -1849,8 +1838,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	default:
-	  if (NOTE_LINE_NUMBER (insn) <= 0)
-	    abort ();
+	  gcc_assert (NOTE_LINE_NUMBER (insn) > 0);
 	  break;
 	}
       break;
@@ -1902,10 +1890,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	     insn, and that branch is the only way to reach this label,
 	     set the condition codes based on the branch and its
 	     predecessor.  */
-	  if (barrier && GET_CODE (barrier) == BARRIER
-	      && jump && GET_CODE (jump) == JUMP_INSN
+	  if (barrier && BARRIER_P (barrier)
+	      && jump && JUMP_P (jump)
 	      && (prev = prev_nonnote_insn (jump))
-	      && GET_CODE (prev) == INSN)
+	      && NONJUMP_INSN_P (prev))
 	    {
 	      NOTICE_UPDATE_CC (PATTERN (prev), prev);
 	      NOTICE_UPDATE_CC (PATTERN (jump), jump);
@@ -1922,21 +1910,19 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	 basic blocks into separate sections of the .o file, we need
 	 to ensure the jump table ends up in the correct section...  */
       
-      if (flag_reorder_blocks_and_partition)
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
 	  rtx tmp_table, tmp_label;
-	  if (GET_CODE (insn) == CODE_LABEL
+	  if (LABEL_P (insn)
 	      && tablejump_p (NEXT_INSN (insn), &tmp_label, &tmp_table))
 	    {
 	      /* Do nothing; Do NOT change the current section.  */
 	    }
 	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
 	    unlikely_text_section ();
-	  else 
-	    {
-	      if (in_unlikely_text_section ())
-		text_section ();
-	    }
+	  else if (in_unlikely_text_section ())
+	    function_section (current_function_decl);
 	}
 
       if (app_on)
@@ -1945,7 +1931,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  app_on = 0;
 	}
       if (NEXT_INSN (insn) != 0
-	  && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN)
+	  && JUMP_P (NEXT_INSN (insn)))
 	{
 	  rtx nextbody = PATTERN (NEXT_INSN (insn));
 
@@ -1965,7 +1951,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		{
 		  int log_align;
 
-		  readonly_data_section ();
+		  targetm.asm_out.function_rodata_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));
@@ -1998,7 +1984,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	rtx body = PATTERN (insn);
 	int insn_code_number;
 	const char *template;
-	rtx note;
 
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
@@ -2008,17 +1993,19 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 #ifdef HAVE_cc0
-	/* If there is a REG_CC_SETTER note on this insn, it means that
-	   the setting of the condition code was done in the delay slot
-	   of the insn that branched here.  So recover the cc status
-	   from the insn that set it.  */
+	{
+	  /* If there is a REG_CC_SETTER note on this insn, it means that
+	     the setting of the condition code was done in the delay slot
+	     of the insn that branched here.  So recover the cc status
+	     from the insn that set it.  */
 
-	note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
-	if (note)
-	  {
-	    NOTICE_UPDATE_CC (PATTERN (XEXP (note, 0)), XEXP (note, 0));
-	    cc_prev_status = cc_status;
-	  }
+	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
+	  if (note)
+	    {
+	      NOTICE_UPDATE_CC (PATTERN (XEXP (note, 0)), XEXP (note, 0));
+	      cc_prev_status = cc_status;
+	    }
+	}
 #endif
 
 	/* Detect insns that are really jump-tables
@@ -2045,7 +2032,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef ASM_OUTPUT_ADDR_VEC
 		ASM_OUTPUT_ADDR_VEC (PREV_INSN (insn), body);
 #else
-		abort ();
+		gcc_unreachable ();
 #endif
 	      }
 	    else
@@ -2053,7 +2040,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef ASM_OUTPUT_ADDR_DIFF_VEC
 		ASM_OUTPUT_ADDR_DIFF_VEC (PREV_INSN (insn), body);
 #else
-		abort ();
+		gcc_unreachable ();
 #endif
 	      }
 #else
@@ -2066,7 +2053,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    ASM_OUTPUT_ADDR_VEC_ELT
 		      (file, CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 0, idx), 0)));
 #else
-		    abort ();
+		    gcc_unreachable ();
 #endif
 		  }
 		else
@@ -2078,7 +2065,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		       CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 1, idx), 0)),
 		       CODE_LABEL_NUMBER (XEXP (XEXP (body, 0), 0)));
 #else
-		    abort ();
+		    gcc_unreachable ();
 #endif
 		  }
 	      }
@@ -2214,7 +2201,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	       called function.  Hence we don't preserve any CC-setting
 	       actions in these insns and the CC must be marked as being
 	       clobbered by the function.  */
-	    if (GET_CODE (XVECEXP (body, 0, 0)) == CALL_INSN)
+	    if (CALL_P (XVECEXP (body, 0, 0)))
 	      {
 		CC_STATUS_INIT;
 	      }
@@ -2279,7 +2266,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   will cause an improper number of delay insns to be written.  */
 	if (final_sequence == 0
 	    && prescan >= 0
-	    && GET_CODE (insn) == INSN && GET_CODE (body) == SET
+	    && NONJUMP_INSN_P (insn) && GET_CODE (body) == SET
 	    && REG_P (SET_SRC (body))
 	    && REG_P (SET_DEST (body))
 	    && REGNO (SET_SRC (body)) == REGNO (SET_DEST (body)))
@@ -2293,7 +2280,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	   do straightforwardly if the cc's were set up normally.  */
 
 	if (cc_status.flags != 0
-	    && GET_CODE (insn) == JUMP_INSN
+	    && JUMP_P (insn)
 	    && GET_CODE (body) == SET
 	    && SET_DEST (body) == pc_rtx
 	    && GET_CODE (SET_SRC (body)) == IF_THEN_ELSE
@@ -2342,7 +2329,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  {
 	    rtx cond_rtx, then_rtx, else_rtx;
 
-	    if (GET_CODE (insn) != JUMP_INSN
+	    if (!JUMP_P (insn)
 		&& GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
 	      {
 		cond_rtx = XEXP (SET_SRC (set), 0);
@@ -2401,7 +2388,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	       emit them before the peephole.  */
 	    if (next != 0 && next != NEXT_INSN (insn))
 	      {
-		rtx prev = PREV_INSN (insn);
+		rtx note, prev = PREV_INSN (insn);
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
@@ -2470,7 +2457,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	current_output_insn = debug_insn = insn;
 
 #if defined (DWARF2_UNWIND_INFO)
-	if (GET_CODE (insn) == CALL_INSN && dwarf2out_do_frame ())
+	if (CALL_P (insn) && dwarf2out_do_frame ())
 	  dwarf2out_frame_debug (insn);
 #endif
 
@@ -2484,8 +2471,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  {
 	    rtx prev;
 
-	    if (prev_nonnote_insn (insn) != last_ignored_compare)
-	      abort ();
+	    gcc_assert (prev_nonnote_insn (insn) == last_ignored_compare);
 
 	    /* We have already processed the notes between the setter and
 	       the user.  Make sure we don't process them again, this is
@@ -2495,7 +2481,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		 prev != last_ignored_compare;
 		 prev = PREV_INSN (prev))
 	      {
-		if (GET_CODE (prev) == NOTE)
+		if (NOTE_P (prev))
 		  delete_insn (prev);	/* Use delete_note.  */
 	      }
 
@@ -2516,7 +2502,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    /* This instruction should have been split in shorten_branches,
 	       to ensure that we would have valid length info for the
 	       splitees.  */
-	    abort ();
+	    gcc_unreachable ();
 #endif
 
 	    return new;
@@ -2525,18 +2511,21 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	if (prescan > 0)
 	  break;
 
-#ifdef IA64_UNWIND_INFO
-	IA64_UNWIND_EMIT (asm_out_file, insn);
+#ifdef TARGET_UNWIND_INFO
+	/* ??? This will put the directives in the wrong place if
+	   get_insn_template outputs assembly directly.  However calling it
+	   before get_insn_template breaks if the insns is split.  */
+	targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
-	/* Output assembler code from the template.  */
 
+	/* Output assembler code from the template.  */
 	output_asm_insn (template, recog_data.operand);
 
 	/* If necessary, report the effect that the instruction has on
 	   the unwind info.   We've already done this for delay slots
 	   and call instructions.  */
 #if defined (DWARF2_UNWIND_INFO)
-	if (GET_CODE (insn) == INSN
+	if (NONJUMP_INSN_P (insn)
 #if !defined (HAVE_prologue)
 	    && !ACCUMULATE_OUTGOING_ARGS
 #endif
@@ -2544,18 +2533,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    && dwarf2out_do_frame ())
 	  dwarf2out_frame_debug (insn);
 #endif
-
-#if 0
-	/* It's not at all clear why we did this and doing so used to
-	   interfere with tests that used REG_WAS_0 notes, which are
-	   now gone, so let's try with this out.  */
-
-	/* Mark this insn as having been output.  */
-	INSN_DELETED_P (insn) = 1;
-#endif
-
-	/* Emit information for vtable gc.  */
-	note = find_reg_note (insn, REG_VTABLE_REF, NULL_RTX);
 
 	current_output_insn = debug_insn = 0;
       }
@@ -2637,14 +2614,14 @@ alter_subreg (rtx *xp)
 
       if (new != 0)
 	*xp = new;
-      /* Simplify_subreg can't handle some REG cases, but we have to.  */
-      else if (REG_P (y))
+      else
 	{
+	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno = subreg_hard_regno (x, 1);
+	  
+	  gcc_assert (REG_P (y));
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
-      else
-	abort ();
     }
 
   return *xp;
@@ -2795,7 +2772,7 @@ alter_cond (rtx cond)
     switch (GET_CODE (cond))
       {
       default:
-	abort ();
+	gcc_unreachable ();
 
       case NE:
 	PUT_CODE (cond, cc_status.flags & CC_Z_IN_N ? GE : LT);
@@ -3107,61 +3084,66 @@ output_asm_insn (const char *template, rtx *operands)
 	else if (ISALPHA (*p))
 	  {
 	    int letter = *p++;
-	    c = atoi (p);
+	    unsigned long opnum;
+	    char *endptr;
+	    
+	    opnum = strtoul (p, &endptr, 10);
 
-	    if (! ISDIGIT (*p))
-	      output_operand_lossage ("operand number missing after %%-letter");
-	    else if (this_is_asm_operands
-		     && (c < 0 || (unsigned int) c >= insn_noperands))
+	    if (endptr == p)
+	      output_operand_lossage ("operand number missing "
+				      "after %%-letter");
+	    else if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
 	    else if (letter == 'l')
-	      output_asm_label (operands[c]);
+	      output_asm_label (operands[opnum]);
 	    else if (letter == 'a')
-	      output_address (operands[c]);
+	      output_address (operands[opnum]);
 	    else if (letter == 'c')
 	      {
-		if (CONSTANT_ADDRESS_P (operands[c]))
-		  output_addr_const (asm_out_file, operands[c]);
+		if (CONSTANT_ADDRESS_P (operands[opnum]))
+		  output_addr_const (asm_out_file, operands[opnum]);
 		else
-		  output_operand (operands[c], 'c');
+		  output_operand (operands[opnum], 'c');
 	      }
 	    else if (letter == 'n')
 	      {
-		if (GET_CODE (operands[c]) == CONST_INT)
+		if (GET_CODE (operands[opnum]) == CONST_INT)
 		  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC,
-			   - INTVAL (operands[c]));
+			   - INTVAL (operands[opnum]));
 		else
 		  {
 		    putc ('-', asm_out_file);
-		    output_addr_const (asm_out_file, operands[c]);
+		    output_addr_const (asm_out_file, operands[opnum]);
 		  }
 	      }
 	    else
-	      output_operand (operands[c], letter);
+	      output_operand (operands[opnum], letter);
 
-	    if (!opoutput[c])
-	      oporder[ops++] = c;
-	    opoutput[c] = 1;
+	    if (!opoutput[opnum])
+	      oporder[ops++] = opnum;
+	    opoutput[opnum] = 1;
 
-	    while (ISDIGIT (c = *p))
-	      p++;
+	    p = endptr;
+	    c = *p;
 	  }
 	/* % followed by a digit outputs an operand the default way.  */
 	else if (ISDIGIT (*p))
 	  {
-	    c = atoi (p);
-	    if (this_is_asm_operands
-		&& (c < 0 || (unsigned int) c >= insn_noperands))
+	    unsigned long opnum;
+	    char *endptr;
+	    
+	    opnum = strtoul (p, &endptr, 10);
+	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
 	    else
-	      output_operand (operands[c], 0);
+	      output_operand (operands[opnum], 0);
 
-	    if (!opoutput[c])
-	      oporder[ops++] = c;
-	    opoutput[c] = 1;
+	    if (!opoutput[opnum])
+	      oporder[ops++] = opnum;
+	    opoutput[opnum] = 1;
 
-	    while (ISDIGIT (c = *p))
-	      p++;
+	    p = endptr;
+	    c = *p;
 	  }
 	/* % followed by punctuation: output something for that
 	   punctuation character alone, with no operand.
@@ -3196,8 +3178,8 @@ output_asm_label (rtx x)
 
   if (GET_CODE (x) == LABEL_REF)
     x = XEXP (x, 0);
-  if (GET_CODE (x) == CODE_LABEL
-      || (GET_CODE (x) == NOTE
+  if (LABEL_P (x)
+      || (NOTE_P (x)
 	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
@@ -3224,9 +3206,7 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 
   /* If X is a pseudo-register, abort now rather than writing trash to the
      assembler file.  */
-
-  if (x && REG_P (x) && REGNO (x) >= FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
 
   PRINT_OPERAND (asm_out_file, x, code);
 }
@@ -3525,7 +3505,7 @@ asm_fprintf (FILE *file, const char *p, ...)
 	  ASM_FPRINTF_EXTENSIONS (file, argptr, p)
 #endif
 	  default:
-	    abort ();
+	    gcc_unreachable ();
 	  }
 	break;
 
@@ -3672,8 +3652,8 @@ split_double (rtx value, rtx *first, rtx *second)
 	}
 #endif
 
-      *first = GEN_INT ((HOST_WIDE_INT) l[0]);
-      *second = GEN_INT ((HOST_WIDE_INT) l[1]);
+      *first = GEN_INT (l[0]);
+      *second = GEN_INT (l[1]);
     }
 }
 
@@ -3690,12 +3670,12 @@ leaf_function_p (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == CALL_INSN
+      if (CALL_P (insn)
 	  && ! SIBLING_CALL_P (insn))
 	return 0;
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE
-	  && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == CALL_INSN
+	  && CALL_P (XVECEXP (PATTERN (insn), 0, 0))
 	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
@@ -3705,12 +3685,12 @@ leaf_function_p (void)
     {
       insn = XEXP (link, 0);
 
-      if (GET_CODE (insn) == CALL_INSN
+      if (CALL_P (insn)
 	  && ! SIBLING_CALL_P (insn))
 	return 0;
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SEQUENCE
-	  && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == CALL_INSN
+	  && CALL_P (XVECEXP (PATTERN (insn), 0, 0))
 	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
@@ -3726,13 +3706,12 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  if (!uid_shuid)
-    abort ();
+  
+  gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
   /* We've hit some insns that does not have id information available.  */
-  if (!insn_id || !label_id)
-    abort ();
+  gcc_assert (insn_id && label_id);
   return insn_id < label_id;
 }
 
@@ -3824,8 +3803,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	  return;
 	}
       newreg = LEAF_REG_REMAP (newreg);
-      if (newreg < 0)
-	abort ();
+      gcc_assert (newreg >= 0);
       regs_ever_live[REGNO (in_rtx)] = 0;
       regs_ever_live[newreg] = 1;
       REGNO (in_rtx) = newreg;
@@ -3868,7 +3846,7 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	break;
 
       default:
-	abort ();
+	gcc_unreachable ();
       }
 }
 #endif

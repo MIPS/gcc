@@ -38,6 +38,7 @@
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "integrate.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -99,6 +100,8 @@ static void m32r_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static void init_idents (void);
 static bool m32r_rtx_costs (rtx, int, int, int *);
+static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ATTRIBUTE_TABLE
@@ -121,8 +124,6 @@ static bool m32r_rtx_costs (rtx, int, int, int *);
 #define TARGET_SCHED_ADJUST_PRIORITY m32r_adjust_priority
 #undef  TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE m32r_issue_rate
-#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO m32r_encode_section_info
@@ -136,12 +137,14 @@ static bool m32r_rtx_costs (rtx, int, int, int *);
 
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
-
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY m32r_return_in_memory
-
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS m32r_setup_incoming_varargs
+#undef  TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
+#undef  TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE m32r_pass_by_reference
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -969,19 +972,21 @@ large_insn_p (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   return get_attr_length (op) != 2;
 }
 
-/* Return nonzero if TYPE must be passed or returned in memory.
-   The m32r treats both directions the same so we handle both directions
-   in this function.  */
+/* Return nonzero if TYPE must be passed by indirect reference.  */
 
-int
-m32r_pass_by_reference (tree type)
+static bool
+m32r_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+			enum machine_mode mode, tree type,
+			bool named ATTRIBUTE_UNUSED)
 {
-  int size = int_size_in_bytes (type);
+  int size;
 
-  if (size < 0 || size > 8)
-    return 1;
+  if (type)
+    size = int_size_in_bytes (type);
+  else
+    size = GET_MODE_SIZE (mode);
 
-  return 0;
+  return (size < 0 || size > 8);
 }
 
 /* Comparisons.  */
@@ -1169,11 +1174,8 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 	y = force_reg (GET_MODE (x), y);
       else
 	{
-	  int ok_const =
-	    (code == LTU || code == LEU || code == GTU || code == GEU)
-	    ? uint16_operand (y, GET_MODE (y))
-	    : reg_or_cmp_int16_operand (y, GET_MODE (y));
-	  
+	  int ok_const = reg_or_int16_operand (y, GET_MODE (y));
+
 	  if (! ok_const)
 	    y = force_reg (GET_MODE (x), y);
 	}
@@ -1347,7 +1349,7 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 static bool
 m32r_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 {
-  return m32r_pass_by_reference (type);
+  return m32r_pass_by_reference (NULL, TYPE_MODE (type), type, false);
 }
 
 /* Do any needed setup for a variadic function.  For the M32R, we must
@@ -1391,65 +1393,6 @@ m32r_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
-
-/* Implement `va_arg'.  */
-
-rtx
-m32r_va_arg (tree valist, tree type)
-{
-  HOST_WIDE_INT size, rsize;
-  tree t;
-  rtx addr_rtx;
-
-  size = int_size_in_bytes (type);
-  rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
-
-  if (m32r_pass_by_reference (type))
-    {
-      tree type_ptr, type_ptr_ptr;
-
-      /* Pass by reference.  */
-      type_ptr = build_pointer_type (type);
-      type_ptr_ptr = build_pointer_type (type_ptr);
-
-      t = build (POSTINCREMENT_EXPR, va_list_type_node, valist, 
-		 build_int_2 (UNITS_PER_WORD, 0));
-      TREE_SIDE_EFFECTS (t) = 1;
-      t = build1 (NOP_EXPR, type_ptr_ptr, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-      t = build1 (INDIRECT_REF, type_ptr, t);
-
-      addr_rtx = expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-    }
-  else
-    {
-      /* Pass by value.  */
-      if (size < UNITS_PER_WORD)
-	{
-	  /* Care for bigendian correction on the aligned address.  */
-	  t = build (PLUS_EXPR, ptr_type_node, valist,
-		     build_int_2 (rsize - size, 0));
-	  addr_rtx = expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-	  addr_rtx = copy_to_reg (addr_rtx);
-
-	  /* Increment AP.  */
-	  t = build (PLUS_EXPR, va_list_type_node, valist,
-		     build_int_2 (rsize, 0));
-	  t = build (MODIFY_EXPR, va_list_type_node, valist, t);
-	  TREE_SIDE_EFFECTS (t) = 1;
-	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	}
-      else
-	{
-	  t = build (POSTINCREMENT_EXPR, va_list_type_node, valist, 
-		     build_int_2 (rsize, 0));
-	  TREE_SIDE_EFFECTS (t) = 1;
-	  addr_rtx = expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-	}
-    }
-
-  return addr_rtx;
-}
 
 /* Return true if INSN is real instruction bearing insn.  */
 
@@ -2047,9 +1990,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
       emit_insn (gen_pic_load_addr (address, orig));
 
       emit_insn (gen_addsi3 (address, address, pic_offset_table_rtx));
-      pic_ref = gen_rtx_MEM (Pmode, address);
-
-      RTX_UNCHANGING_P (pic_ref) = 1;
+      pic_ref = gen_const_mem (Pmode, address);
       insn = emit_move_insn (reg, pic_ref);
       current_function_uses_pic_offset_table = 1;
 #if 0

@@ -1130,10 +1130,6 @@ CUMULATIVE_ARGS;
 
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
-/* Never pass data by reference.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) 0
-
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* 1 if N is a possible register number for function argument passing.  */
@@ -1161,11 +1157,6 @@ CUMULATIVE_ARGS;
 /* How Large Values Are Returned.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
-
-/* Varargs handling.  */
-
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  c4x_va_arg (valist, type)
 
 /* Generating Code for Profiling.  */
 
@@ -1381,7 +1372,7 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Descripting Relative Cost of Operations.  */
+/* Describing Relative Cost of Operations.  */
 
 #define	CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
 if (REG_P (OP1) && ! REG_P (OP0))			\

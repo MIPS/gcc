@@ -82,12 +82,6 @@ struct impl_files
 static struct impl_files *impl_file_chain;
 
 
-int interface_only;		/* whether or not current file is only for
-				   interface definitions.  */
-int interface_unknown;		/* whether or not we know this class
-				   to behave according to #pragma interface.  */
-
-
 void
 cxx_finish (void)
 {
@@ -354,12 +348,21 @@ cxx_init (void)
 
   cxx_init_decl_processing ();
 
-  /* Create the built-in __null node.  */
-  null_node = build_int_2 (0, 0);
+  /* Create the built-in __null node.  It is important that this is
+     not shared. */
+  null_node = make_node (INTEGER_CST);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
-  ridpointers[RID_NULL] = null_node;
 
-  interface_unknown = 1;
+  /* The fact that G++ uses COMDAT for many entities (inline
+     functions, template instantiations, virtual tables, etc.) mean
+     that it is fundamentally unreliable to try to make decisions
+     about whether or not to output a particular entity until the end
+     of the compilation.  However, the inliner requires that functions
+     be provided to the back end if they are to be inlined.
+     Therefore, we always use unit-at-a-time mode; in that mode, we
+     can provide entities to the back end and it will decide what to
+     emit based on what is actually needed.  */
+  flag_unit_at_a_time = 1;
 
   if (c_common_init () == false)
     {
@@ -369,25 +372,12 @@ cxx_init (void)
 
   init_cp_pragma ();
 
-  init_repo (main_input_filename);
+  init_repo ();
 
   pop_srcloc();
   return true;
 }
 
-/* Helper function to load global variables with interface
-   information.  */
-
-void
-extract_interface_info (void)
-{
-  struct c_fileinfo *finfo;
-
-  finfo = get_fileinfo (input_filename);
-  interface_only = finfo->interface_only;
-  interface_unknown = finfo->interface_unknown;
-}
-
 /* Return nonzero if S is not considered part of an
    INTERFACE/IMPLEMENTATION pair.  Otherwise, return 0.  */
 
@@ -473,16 +463,16 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("interface", 1);
   struct c_fileinfo *finfo;
-  const char *main_filename;
+  const char *filename;
 
   if (fname == (tree)-1)
     return;
   else if (fname == 0)
-    main_filename = lbasename (input_filename);
+    filename = lbasename (input_filename);
   else
-    main_filename = TREE_STRING_POINTER (fname);
+    filename = ggc_strdup (TREE_STRING_POINTER (fname));
 
-  finfo = get_fileinfo (input_filename);
+  finfo = get_fileinfo (filename);
 
   if (impl_file_chain == 0)
     {
@@ -492,14 +482,11 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
 	main_input_filename = input_filename;
     }
 
-  interface_only = interface_strcmp (main_filename);
-#ifdef MULTIPLE_SYMBOL_SPACES
-  if (! interface_only)
-#endif
-    interface_unknown = 0;
-
-  finfo->interface_only = interface_only;
-  finfo->interface_unknown = interface_unknown;
+  finfo->interface_only = interface_strcmp (filename);
+  /* If MULTIPLE_SYMBOL_SPACES is set, we cannot assume that we can see
+     a definition in another file.  */
+  if (!MULTIPLE_SYMBOL_SPACES || !finfo->interface_only)
+    finfo->interface_unknown = 0;
 }
 
 /* Note that we have seen a #pragma implementation for the key MAIN_FILENAME.
@@ -507,14 +494,15 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
    in older compilers and it seems reasonable to allow it in the headers
    themselves, too.  It only needs to precede the matching #p interface.
 
-   We don't touch interface_only or interface_unknown; the user must specify
-   a matching #p interface for this to have any effect.  */
+   We don't touch finfo->interface_only or finfo->interface_unknown;
+   the user must specify a matching #p interface for this to have
+   any effect.  */
 
 static void
 handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("implementation", 1);
-  const char *main_filename;
+  const char *filename;
   struct impl_files *ifiles = impl_file_chain;
 
   if (fname == (tree)-1)
@@ -523,28 +511,36 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   if (fname == 0)
     {
       if (main_input_filename)
-	main_filename = main_input_filename;
+	filename = main_input_filename;
       else
-	main_filename = input_filename;
-      main_filename = lbasename (main_filename);
+	filename = input_filename;
+      filename = lbasename (filename);
     }
   else
     {
-      main_filename = TREE_STRING_POINTER (fname);
-      if (cpp_included (parse_in, main_filename))
-	warning ("#pragma implementation for %s appears after file is included",
-		 main_filename);
+      filename = ggc_strdup (TREE_STRING_POINTER (fname));
+#if 0
+      /* We currently cannot give this diagnostic, as we reach this point
+         only after cpplib has scanned the entire translation unit, so
+	 cpp_included always returns true.  A plausible fix is to compare
+	 the current source-location cookie with the first source-location
+	 cookie (if any) of the filename, but this requires completing the
+	 --enable-mapped-location project first.  See PR 17577.  */
+      if (cpp_included (parse_in, filename))
+	warning ("#pragma implementation for %qs appears after "
+		 "file is included", filename);
+#endif
     }
 
   for (; ifiles; ifiles = ifiles->next)
     {
-      if (! strcmp (ifiles->filename, main_filename))
+      if (! strcmp (ifiles->filename, filename))
 	break;
     }
   if (ifiles == 0)
     {
       ifiles = xmalloc (sizeof (struct impl_files));
-      ifiles->filename = main_filename;
+      ifiles->filename = filename;
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
     }
@@ -583,6 +579,9 @@ unqualified_name_lookup_error (tree name)
 	  decl = build_decl (VAR_DECL, name, error_mark_node);
 	  DECL_CONTEXT (decl) = current_function_decl;
 	  push_local_binding (name, decl, 0);
+	  /* Mark the variable as used so that we do not get warnings
+	     about it being unused later.  */
+	  TREE_USED (decl) = 1;
 	}
     }
 
@@ -637,6 +636,11 @@ build_lang_decl (enum tree_code code, tree name, tree type)
   t = build_decl (code, name, type);
   retrofit_lang_decl (t);
 
+  /* All nesting of C++ functions is lexical; there is never a "static
+     chain" in the sense of GNU C nested functions.  */
+  if (code == FUNCTION_DECL) 
+    DECL_NO_STATIC_CHAIN (t) = 1;
+
   return t;
 }
 
@@ -654,7 +658,7 @@ retrofit_lang_decl (tree t)
   else
     size = sizeof (struct lang_decl_flags);
 
-  ld = ggc_alloc_cleared (size);
+  ld = GGC_CNEWVAR (struct lang_decl, size);
 
   ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
   ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
@@ -670,7 +674,8 @@ retrofit_lang_decl (tree t)
     SET_DECL_LANGUAGE (t, lang_c);
   else if (current_lang_name == lang_name_java)
     SET_DECL_LANGUAGE (t, lang_java);
-  else abort ();
+  else
+    gcc_unreachable ();
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)lang_decl] += 1;
@@ -691,7 +696,7 @@ cxx_dup_lang_specific_decl (tree node)
     size = sizeof (struct lang_decl_flags);
   else
     size = sizeof (struct lang_decl);
-  ld = ggc_alloc (size);
+  ld = GGC_NEWVAR (struct lang_decl, size);
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
 
@@ -728,7 +733,7 @@ copy_lang_type (tree node)
     size = sizeof (struct lang_type);
   else
     size = sizeof (struct lang_type_ptrmem);
-  lt = ggc_alloc (size);
+  lt = GGC_NEWVAR (struct lang_type, size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
 
@@ -759,9 +764,7 @@ cxx_make_type (enum tree_code code)
   if (IS_AGGR_TYPE_CODE (code)
       || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     {
-      struct lang_type *pi;
-
-      pi = ggc_alloc_cleared (sizeof (struct lang_type));
+      struct lang_type *pi = GGC_CNEW (struct lang_type);
 
       TYPE_LANG_SPECIFIC (t) = pi;
       pi->u.c.h.is_lang_type_class = 1;
@@ -775,21 +778,10 @@ cxx_make_type (enum tree_code code)
   /* Set up some flags that give proper default behavior.  */
   if (IS_AGGR_TYPE_CODE (code))
     {
-      SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
-      CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
-
-      /* Make sure this is laid out, for ease of use later.  In the
-	 presence of parse errors, the normal was of assuring this
-	 might not ever get executed, so we lay it out *immediately*.  */
-      build_pointer_type (t);
-
-      TYPE_BINFO (t) = make_binfo (size_zero_node, t, NULL_TREE, NULL_TREE);
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, finfo->interface_unknown);
+      CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
     }
-  else
-    /* We use TYPE_ALIAS_SET for the CLASSTYPE_MARKED bits.  But,
-       TYPE_ALIAS_SET is initialized to -1 by default, so we must
-       clear it here.  */
-    TYPE_ALIAS_SET (t) = 0;
 
   return t;
 }
@@ -818,6 +810,6 @@ cp_type_qual_from_rid (tree rid)
   else if (rid == ridpointers[(int) RID_RESTRICT])
     return TYPE_QUAL_RESTRICT;
 
-  abort ();
+  gcc_unreachable ();
   return TYPE_UNQUALIFIED;
 }

@@ -84,8 +84,7 @@ static struct c_gimplify_ctx
 static void
 push_context (void)
 {
-  if (ctxp)
-    abort ();
+  gcc_assert (!ctxp);
   ctxp = (struct c_gimplify_ctx *) xcalloc (1, sizeof (struct c_gimplify_ctx));
   ctxp->bc_id[bc_continue] = get_identifier ("continue");
   ctxp->bc_id[bc_break] = get_identifier ("break");
@@ -94,8 +93,7 @@ push_context (void)
 static void
 pop_context (void)
 {
-  if (!ctxp || ctxp->current_bc_label)
-    abort ();
+  gcc_assert (ctxp && !ctxp->current_bc_label);
   free (ctxp);
   ctxp = NULL;
 }
@@ -196,7 +194,7 @@ c_build_bind_expr (tree block, tree body)
     body = build_empty_stmt ();
   if (decls || block)
     {
-      bind = build (BIND_EXPR, void_type_node, decls, body, block);
+      bind = build3 (BIND_EXPR, void_type_node, decls, body, block);
       TREE_SIDE_EFFECTS (bind) = 1;
     }
   else
@@ -275,8 +273,7 @@ begin_bc_block (enum bc_t bc)
 static tree
 finish_bc_block (tree label, tree body)
 {
-  if (label != ctxp->current_bc_label)
-    abort ();
+  gcc_assert (label == ctxp->current_bc_label);
 
   if (TREE_USED (label))
     {
@@ -365,7 +362,7 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
       if (cond)
 	{
 	  t = build_bc_goto (bc_break);
-	  exit = build (COND_EXPR, void_type_node, cond, exit, t);
+	  exit = build3 (COND_EXPR, void_type_node, cond, exit, t);
 	  exit = fold (exit);
 	  gimplify_stmt (&exit);
 	}
@@ -456,8 +453,8 @@ gimplify_switch_stmt (tree *stmt_p)
   if (!body)
     body = build_empty_stmt ();
 
-  *stmt_p = build (SWITCH_EXPR, SWITCH_TYPE (stmt), SWITCH_COND (stmt),
-		   body, NULL_TREE);
+  *stmt_p = build3 (SWITCH_EXPR, SWITCH_TYPE (stmt), SWITCH_COND (stmt),
+		    body, NULL_TREE);
   SET_EXPR_LOCATION (*stmt_p, stmt_locus);
   gimplify_stmt (stmt_p);
 

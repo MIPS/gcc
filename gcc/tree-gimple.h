@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);
-extern bool is_gimple_tmp_var (tree);
 extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
 extern void declare_tmp_vars (tree, tree);
@@ -39,6 +38,8 @@ extern void annotate_all_with_locus (tree *, location_t);
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
 
+typedef bool (*gimple_predicate)(tree);
+
 /* Returns true iff T is a valid GIMPLE statement.  */
 extern bool is_gimple_stmt (tree);
 
@@ -46,12 +47,16 @@ extern bool is_gimple_stmt (tree);
 extern bool is_gimple_reg_type (tree);
 /* Returns true iff T is a scalar register variable.  */
 extern bool is_gimple_reg (tree);
+/* Returns true if T is a GIMPLE temporary variable, false otherwise.  */
+extern bool is_gimple_formal_tmp_var (tree);
+/* Returns true if T is a GIMPLE temporary register variable.  */
+extern bool is_gimple_formal_tmp_reg (tree);
 /* Returns true iff T is any sort of variable.  */
 extern bool is_gimple_variable (tree);
 /* Returns true iff T is a variable or an INDIRECT_REF (of a variable).  */
 extern bool is_gimple_min_lval (tree);
-/* Returns true iff T is an lvalue other than an INDIRECT_REF.  */
-extern bool is_gimple_addr_expr_arg (tree);
+/* Returns true iff T is something whose address can be taken.  */
+extern bool is_gimple_addressable (tree);
 /* Returns true iff T is any valid GIMPLE lvalue.  */
 extern bool is_gimple_lvalue (tree);
 
@@ -59,8 +64,15 @@ extern bool is_gimple_lvalue (tree);
 extern bool is_gimple_min_invariant (tree);
 /* Returns true iff T is a GIMPLE rvalue.  */
 extern bool is_gimple_val (tree);
-/* Returns true iff T is a valid rhs for a MODIFY_EXPR.  */
-extern bool is_gimple_rhs (tree);
+/* Returns true iff T is a valid rhs for a MODIFY_EXPR where the LHS is a
+   GIMPLE temporary, a renamed user variable, or something else,
+   respectively.  */
+extern bool is_gimple_formal_tmp_rhs (tree);
+extern bool is_gimple_reg_rhs (tree);
+extern bool is_gimple_mem_rhs (tree);
+/* Returns the appropriate one of the above three predicates for the LHS
+   T.  */
+extern gimple_predicate rhs_predicate_for (tree);
 
 /* Returns true iff T is a valid if-statement condition.  */
 extern bool is_gimple_condexpr (tree);
@@ -108,7 +120,6 @@ extern void pop_gimplify_context (tree);
 extern void gimplify_and_add (tree, tree *);
 
 /* Miscellaneous helpers.  */
-extern tree get_base_address (tree t);
 extern void gimple_add_tmp_var (tree);
 extern tree gimple_current_bind_expr (void);
 extern void gimple_push_bind_expr (tree);

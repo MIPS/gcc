@@ -51,7 +51,6 @@
   [(UNSPECV_BLOCKAGE		0)
    (UNSPECV_FLUSHW		1)
    (UNSPECV_GOTO		2)
-   (UNSPECV_GOTO_V9		3)
    (UNSPECV_FLUSH		4)
    (UNSPECV_SETJMP		5)
    (UNSPECV_SAVEW		6)
@@ -88,14 +87,7 @@
 	 (symbol_ref "TARGET_SPARCLET") (const_string "sparclet")]
 	(const_string "v7"))))
 
-;; Architecture size.
-(define_attr "arch" "arch32bit,arch64bit"
- (const
-  (cond [(symbol_ref "TARGET_ARCH64") (const_string "arch64bit")]
-	(const_string "arch32bit"))))
-
 ;; Insn type.
-
 (define_attr "type"
   "ialu,compare,shift,
    load,sload,store,
@@ -113,27 +105,44 @@
    multi,savew,flushw,iflush,trap"
   (const_string "ialu"))
 
-;; true if branch/call has empty delay slot and will emit a nop in it
+;; True if branch/call has empty delay slot and will emit a nop in it
 (define_attr "empty_delay_slot" "false,true"
   (symbol_ref "empty_delay_slot (insn)"))
 
-(define_attr "branch_type" "none,icc,fcc,reg" (const_string "none"))
+(define_attr "branch_type" "none,icc,fcc,reg"
+  (const_string "none"))
 
 (define_attr "pic" "false,true"
   (symbol_ref "flag_pic != 0"))
 
-(define_attr "current_function_calls_alloca" "false,true"
+(define_attr "calls_alloca" "false,true"
   (symbol_ref "current_function_calls_alloca != 0"))
+
+(define_attr "calls_eh_return" "false,true"
+   (symbol_ref "current_function_calls_eh_return !=0 "))
+   
+(define_attr "leaf_function" "false,true"
+  (symbol_ref "current_function_uses_only_leaf_regs != 0"))
 
 (define_attr "delayed_branch" "false,true"
   (symbol_ref "flag_delayed_branch != 0"))
 
 ;; Length (in # of insns).
+;; Beware that setting a length greater or equal to 3 for conditional branches
+;; has a side-effect (see output_cbranch and output_v9branch).
 (define_attr "length" ""
-  (cond [(eq_attr "type" "uncond_branch,call,sibcall")
+  (cond [(eq_attr "type" "uncond_branch,call")
 	   (if_then_else (eq_attr "empty_delay_slot" "true")
 	     (const_int 2)
 	     (const_int 1))
+	 (eq_attr "type" "sibcall")
+	   (if_then_else (eq_attr "leaf_function" "true")
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 3)
+	       (const_int 2))
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 2)
+	       (const_int 1)))
 	 (eq_attr "branch_type" "icc")
 	   (if_then_else (match_operand 0 "noov_compare64_op" "")
 	     (if_then_else (lt (pc) (match_dup 1))
@@ -197,17 +206,18 @@
 	 ] (const_int 1)))
 
 ;; FP precision.
-(define_attr "fptype" "single,double" (const_string "single"))
+(define_attr "fptype" "single,double"
+  (const_string "single"))
 
 ;; UltraSPARC-III integer load type.
-(define_attr "us3load_type" "2cycle,3cycle" (const_string "2cycle"))
+(define_attr "us3load_type" "2cycle,3cycle"
+  (const_string "2cycle"))
 
 (define_asm_attributes
   [(set_attr "length" "2")
    (set_attr "type" "multi")])
 
 ;; Attributes for instruction and branch scheduling
-
 (define_attr "tls_call_delay" "false,true"
   (symbol_ref "tls_call_delay (insn)"))
 
@@ -1199,9 +1209,10 @@
 	(match_operator:SI 2 "noov_compare_op"
 			   [(match_operand 1 "icc_or_fcc_reg_operand" "")
 			    (const_int 0)]))]
-  ;; 32 bit LTU/GEU are better implemented using addx/subx
-  "TARGET_V9 && REGNO (operands[1]) == SPARC_ICC_REG
+  "TARGET_V9
+   && REGNO (operands[1]) == SPARC_ICC_REG
    && (GET_MODE (operands[1]) == CCXmode
+       /* 32 bit LTU/GEU are better implemented using addx/subx.  */
        || (GET_CODE (operands[2]) != LTU && GET_CODE (operands[2]) != GEU))"
   [(set (match_dup 0) (const_int 0))
    (set (match_dup 0)
@@ -1539,7 +1550,7 @@
 {
   return output_cbranch (operands[0], operands[1], 1, 0,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "icc")])
@@ -1555,7 +1566,7 @@
 {
   return output_cbranch (operands[0], operands[1], 1, 1,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "icc")])
@@ -1572,7 +1583,7 @@
 {
   return output_cbranch (operands[1], operands[2], 2, 0,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "fcc")])
@@ -1589,7 +1600,7 @@
 {
   return output_cbranch (operands[1], operands[2], 2, 1,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "fcc")])
@@ -1606,7 +1617,7 @@
 {
   return output_cbranch (operands[1], operands[2], 2, 0,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "fcc")])
@@ -1623,7 +1634,7 @@
 {
   return output_cbranch (operands[1], operands[2], 2, 1,
 			 final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			 ! final_sequence, insn);
+			 insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "fcc")])
@@ -1645,7 +1656,7 @@
 {
   return output_v9branch (operands[0], operands[2], 1, 2, 0,
 			  final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			  ! final_sequence, insn);
+			  insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "reg")])
@@ -1662,7 +1673,7 @@
 {
   return output_v9branch (operands[0], operands[2], 1, 2, 1,
 			  final_sequence && INSN_ANNULLED_BRANCH_P (insn),
-			  ! final_sequence, insn);
+			  insn);
 }
   [(set_attr "type" "branch")
    (set_attr "branch_type" "reg")])
@@ -6943,8 +6954,6 @@
 		   (match_operand:SI 2 "arith_operand" "rI")))]
   ""
 {
-  if (operands[2] == const1_rtx)
-    return "add\t%1, %1, %0";
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
   return "sll\t%1, %2, %0";
@@ -6974,8 +6983,6 @@
 		   (match_operand:SI 2 "arith_operand" "rI")))]
   "TARGET_ARCH64"
 {
-  if (operands[2] == const1_rtx)
-    return "add\t%1, %1, %0";
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x3f);
   return "sllx\t%1, %2, %0";
@@ -7272,27 +7279,10 @@
   [(set_attr "type" "shift")])
 
 ;; Unconditional and other jump instructions
-;; On the SPARC, by setting the annul bit on an unconditional branch, the
-;; following insn is never executed.  This saves us a nop.  Dbx does not
-;; handle such branches though, so we only use them when optimizing.
 (define_insn "jump"
   [(set (pc) (label_ref (match_operand 0 "" "")))]
   ""
-{
-  /* TurboSPARC is reported to have problems with
-     with
-	foo: b,a foo
-     i.e. an empty loop with the annul bit set.  The workaround is to use 
-        foo: b foo; nop
-     instead.  */
-
-  if (! TARGET_V9 && flag_delayed_branch
-      && (INSN_ADDRESSES (INSN_UID (operands[0]))
-	  == INSN_ADDRESSES (INSN_UID (insn))))
-    return "b\t%l0%#";
-  else
-    return TARGET_V9 ? "ba%*,pt\t%%xcc, %l0%(" : "b%*\t%l0%(";
-}
+  "* return output_ubranch (operands[0], 0, insn);"
   [(set_attr "type" "uncond_branch")])
 
 (define_expand "tablejump"
@@ -7699,7 +7689,24 @@
   ""
   "* return output_return (insn);"
   [(set_attr "type" "return")
-   (set_attr "length" "2")])
+   (set (attr "length")
+	(cond [(eq_attr "leaf_function" "true")
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+			       (const_int 2)
+			       (const_int 1))
+	       (eq_attr "calls_eh_return" "true")
+		 (if_then_else (eq_attr "delayed_branch" "true")
+			       (if_then_else (eq_attr "isa" "v9")
+					     (const_int 2)
+					     (const_int 3))
+			       (if_then_else (eq_attr "isa" "v9")
+					     (const_int 3)
+					     (const_int 4)))
+	       (eq_attr "empty_delay_slot" "true")
+		 (if_then_else (eq_attr "delayed_branch" "true")
+			       (const_int 2)
+			       (const_int 3))
+	      ] (const_int 1)))])
 
 ;; UNSPEC_VOLATILE is considered to use and clobber all hard registers and
 ;; all of memory.  This blocks insns from being moved across this point.
@@ -7758,9 +7765,17 @@
   [(unspec:SI [(match_operand:SI 0 "register_operand" "r")
 	       (match_operand:SI 1 "register_operand" "r")] UNSPEC_UPDATE_RETURN)]
   "! TARGET_ARCH64"
-  "cmp\t%1, 0\;be,a\t.+8\;add\t%0, 4, %0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "3")])
+{
+  if (flag_delayed_branch)
+    return "cmp\t%1, 0\n\tbe,a\t.+8\n\t add\t%0, 4, %0";
+  else
+    return "cmp\t%1, 0\n\tbne\t.+12\n\t nop\n\tadd\t%0, 4, %0";
+}
+  [(set (attr "type") (const_string "multi"))
+   (set (attr "length")
+	(if_then_else (eq_attr "delayed_branch" "true")
+		      (const_int 3)
+		      (const_int 4)))])
 
 (define_insn "nop"
   [(const_int 0)]
@@ -7881,7 +7896,7 @@
 }
   [(set_attr "type" "multi")
    (set (attr "length")
-        (cond [(eq_attr "current_function_calls_alloca" "false")
+        (cond [(eq_attr "calls_alloca" "false")
                  (const_int 0)
                (eq_attr "isa" "!v9")
                  (const_int 1)
@@ -8208,19 +8223,25 @@
   [(set_attr "type" "trap")])
 
 (define_expand "conditional_trap"
-  [(trap_if (match_operator 0 "noov_compare_op"
-			    [(match_dup 2) (match_dup 3)])
+  [(trap_if (match_operator 0 "noov_compare_op" [(match_dup 2) (match_dup 3)])
 	    (match_operand:SI 1 "arith_operand" ""))]
   ""
   "operands[2] = gen_compare_reg (GET_CODE (operands[0]),
 				  sparc_compare_op0, sparc_compare_op1);
+   if (GET_MODE (operands[2]) != CCmode && GET_MODE (operands[2]) != CCXmode)
+     FAIL;
    operands[3] = const0_rtx;")
 
 (define_insn ""
   [(trap_if (match_operator 0 "noov_compare_op" [(reg:CC 100) (const_int 0)])
 	    (match_operand:SI 1 "arith_operand" "rM"))]
   ""
-  "t%C0\t%1"
+{
+  if (TARGET_V9)
+    return "t%C0\t%%icc, %1";
+  else
+    return "t%C0\t%1";
+}
   [(set_attr "type" "trap")])
 
 (define_insn ""

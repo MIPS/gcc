@@ -1,5 +1,6 @@
 /* System.java -- useful methods to interface with the system
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -98,6 +99,20 @@ public final class System
 	defaultProperties.put("gnu.classpath.vm.shortname", value);
       }
 
+    // Network properties
+    if (defaultProperties.get("http.agent") == null)
+      {
+	String userAgent
+	  = ("gnu-classpath/"
+	     + defaultProperties.getProperty("gnu.classpath.version")
+	     + " ("
+	     + defaultProperties.getProperty("gnu.classpath.vm.shortname")
+	     + "/"
+	     + defaultProperties.getProperty("java.vm.version")
+	     + ")");
+	defaultProperties.put("http.agent", userAgent);
+      }
+
     defaultProperties.put("gnu.cpu.endian",
 			  isWordsBigEndian() ? "big" : "little");
 
@@ -148,7 +163,7 @@ public final class System
   /**
    * The standard output PrintStream.  This is assigned at startup and
    * starts its life perfectly valid. Although it is marked final, you can
-   * change it using {@link #setOut(PrintStream)} through some hefty VM magic.
+   * change it using {@link #setErr(PrintStream)} through some hefty VM magic.
    *
    * <p>This corresponds to the C stderr and C++ cerr variables, which
    * typically output error messages to the screen, but may be used to pipe

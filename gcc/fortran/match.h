@@ -80,7 +80,6 @@ match gfc_match_namelist (void);
 match gfc_match_module (void);
 match gfc_match_equivalence (void);
 match gfc_match_st_function (void);
-match gfc_match_data (void);
 match gfc_match_case (void);
 match gfc_match_select (void);
 match gfc_match_where (gfc_statement *);
@@ -89,10 +88,11 @@ match gfc_match_forall (gfc_statement *);
 
 /* Other functions.  */
 
-gfc_common_head *gfc_get_common (char *);
+gfc_common_head *gfc_get_common (const char *, int);
 
 /* decl.c */
 
+match gfc_match_data (void);
 match gfc_match_null (gfc_expr **);
 match gfc_match_kind_spec (gfc_typespec *);
 match gfc_match_old_kind_spec (gfc_typespec *);

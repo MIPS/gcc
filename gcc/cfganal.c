@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "timevar.h"
 
 /* Store the data structures necessary for depth-first search.  */
 struct depth_first_search_dsS {
@@ -51,7 +52,6 @@ static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
 					     basic_block);
 static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds);
 static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
-static void remove_fake_successors (basic_block);
 static bool flow_active_insn_p (rtx);
 
 /* Like active_insn_p, except keep the return value clobber around
@@ -93,7 +93,7 @@ forwarder_block_p (basic_block bb)
       return false;
 
   return (!INSN_P (insn)
-	  || (GET_CODE (insn) == JUMP_INSN && simplejump_p (insn))
+	  || (JUMP_P (insn) && simplejump_p (insn))
 	  || !flow_active_insn_p (insn));
 }
 
@@ -529,20 +529,20 @@ flow_edge_list_print (const char *str, const edge *edge_list, int num_edges, FIL
 }
 
 
-/* This routine will remove any fake successor edges for a basic block.
-   When the edge is removed, it is also removed from whatever predecessor
+/* This routine will remove any fake predecessor edges for a basic block.
+   When the edge is removed, it is also removed from whatever successor
    list it is in.  */
 
 static void
-remove_fake_successors (basic_block bb)
+remove_fake_predecessors (basic_block bb)
 {
   edge e;
 
-  for (e = bb->succ; e;)
+  for (e = bb->pred; e;)
     {
       edge tmp = e;
 
-      e = e->succ_next;
+      e = e->pred_next;
       if ((tmp->flags & EDGE_FAKE) == EDGE_FAKE)
 	remove_edge (tmp);
     }
@@ -557,9 +557,18 @@ remove_fake_edges (void)
 {
   basic_block bb;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    remove_fake_successors (bb);
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, NULL, next_bb)
+    remove_fake_predecessors (bb);
 }
+
+/* This routine will remove all fake edges to the EXIT_BLOCK.  */
+
+void
+remove_fake_exit_edges (void)
+{
+  remove_fake_predecessors (EXIT_BLOCK_PTR);
+}
+
 
 /* This function will add a fake edge between any block which has no
    successors, and the exit block. Some data flow equations require these
@@ -753,14 +762,8 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   free (stack);
   sbitmap_free (visited);
 
-  /* The number of nodes visited should not be greater than
-     n_basic_blocks.  */
-  if (dfsnum > n_basic_blocks)
-    abort ();
-
-  /* There are some nodes left in the CFG that are unreachable.  */
-  if (dfsnum < n_basic_blocks)
-    abort ();
+  /* The number of nodes visited should be the number of blocks.  */
+  gcc_assert (dfsnum == n_basic_blocks);
 
   return dfsnum;
 }
@@ -1010,8 +1013,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
           for (e = lbb->pred; e; e = e->pred_next)
 	    if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 	      {
-	        if (tv == rslt_max)
-	          abort ();
+	        gcc_assert (tv != rslt_max);
 	        rslt[tv++] = st[sp++] = e->src;
 	        e->src->flags |= BB_VISITED;
 	      }
@@ -1021,8 +1023,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
           for (e = lbb->succ; e; e = e->succ_next)
 	    if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 	      {
-	        if (tv == rslt_max)
-	          abort ();
+	        gcc_assert (tv != rslt_max);
 	        rslt[tv++] = st[sp++] = e->dest;
 	        e->dest->flags |= BB_VISITED;
 	      }
@@ -1033,3 +1034,81 @@ dfs_enumerate_from (basic_block bb, int reverse,
     rslt[sp]->flags &= ~BB_VISITED;
   return tv;
 }
+
+
+/* Computing the Dominance Frontier:
+
+   As described in Morgan, section 3.5, this may be done simply by
+   walking the dominator tree bottom-up, computing the frontier for
+   the children before the parent.  When considering a block B,
+   there are two cases:
+
+   (1) A flow graph edge leaving B that does not lead to a child
+   of B in the dominator tree must be a block that is either equal
+   to B or not dominated by B.  Such blocks belong in the frontier
+   of B.
+
+   (2) Consider a block X in the frontier of one of the children C
+   of B.  If X is not equal to B and is not dominated by B, it
+   is in the frontier of B.  */
+
+static void
+compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
+{
+  edge e;
+  basic_block c;
+
+  SET_BIT (done, bb->index);
+
+  /* Do the frontier of the children first.  Not all children in the
+     dominator tree (blocks dominated by this one) are children in the
+     CFG, so check all blocks.  */
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      if (! TEST_BIT (done, c->index))
+    	compute_dominance_frontiers_1 (frontiers, c, done);
+    }
+      
+  /* Find blocks conforming to rule (1) above.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      if (e->dest == EXIT_BLOCK_PTR)
+	continue;
+      if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
+	bitmap_set_bit (frontiers[bb->index], e->dest->index);
+    }
+
+  /* Find blocks conforming to rule (2).  */
+  for (c = first_dom_son (CDI_DOMINATORS, bb);
+       c;
+       c = next_dom_son (CDI_DOMINATORS, c))
+    {
+      int x;
+
+      EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
+	{
+	  if (get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (x)) != bb)
+	    bitmap_set_bit (frontiers[bb->index], x);
+	});
+    }
+}
+
+
+void
+compute_dominance_frontiers (bitmap *frontiers)
+{
+  sbitmap done = sbitmap_alloc (last_basic_block);
+
+  timevar_push (TV_DOM_FRONTIERS);
+
+  sbitmap_zero (done);
+
+  compute_dominance_frontiers_1 (frontiers, ENTRY_BLOCK_PTR->succ->dest, done);
+
+  sbitmap_free (done);
+
+  timevar_pop (TV_DOM_FRONTIERS);
+}
+

@@ -32,13 +32,10 @@ extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int, int);
 extern int function_arg_partial_nregs (const CUMULATIVE_ARGS *,
 				       enum machine_mode, tree, int);
-extern int function_arg_pass_by_reference (const CUMULATIVE_ARGS *,
-					   enum machine_mode, tree, int);
 #ifdef RTX_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern void sparc_va_start (tree, rtx);
 #endif
-extern struct rtx_def *sparc_va_arg (tree, tree);
 extern unsigned long sparc_type_code (tree);
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
@@ -83,11 +80,12 @@ extern void sparc_emit_set_const64 (rtx, rtx);
 extern void sparc_emit_set_symbolic_const64 (rtx, rtx, rtx);
 extern int sparc_splitdi_legitimate (rtx, rtx);
 extern int sparc_absnegfloat_split_legitimate (rtx, rtx);
-extern const char *output_cbranch (rtx, rtx, int, int, int, int, rtx);
+extern const char *output_ubranch (rtx, int, rtx);
+extern const char *output_cbranch (rtx, rtx, int, int, int, rtx);
 extern const char *output_return (rtx);
 extern const char *output_sibcall (rtx, rtx);
 extern const char *output_v8plus_shift (rtx *, rtx, const char *);
-extern const char *output_v9branch (rtx, rtx, int, int, int, int, int, rtx);
+extern const char *output_v9branch (rtx, rtx, int, int, int, int, rtx);
 extern void emit_v9_brxx_insn (enum rtx_code, rtx, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern int mems_ok_for_ldd_peep (rtx, rtx, rtx);

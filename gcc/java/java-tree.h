@@ -122,7 +122,8 @@ struct JCF;
 /* True if the class whose TYPE_BINFO this is has a superclass.
    (True of all classes except Object.) */
 #define CLASS_HAS_SUPER_FLAG(BINFO) BINFO_FLAG_1 (BINFO)
-#define CLASS_HAS_SUPER(TYPE) CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE))
+#define CLASS_HAS_SUPER(TYPE) \
+  (TYPE_BINFO (TYPE) && CLASS_HAS_SUPER_FLAG (TYPE_BINFO (TYPE)))
 
 /* Return the supertype of class TYPE, or NULL_TREE is it has none. */
 #define CLASSTYPE_SUPER(TYPE) (CLASS_HAS_SUPER (TYPE) \
@@ -152,9 +153,6 @@ extern int compiling_from_source;
 #define all_class_list \
   java_global_trees[JTI_ALL_CLASS_LIST]
 
-/* List of all class filenames seen so far.  */
-#define all_class_filename java_global_trees [JTI_ALL_CLASS_FILENAME]
-
 /* List of virtual decls referred to by this translation unit, used to
    generate virtual method offset symbol table.  */
 
@@ -181,9 +179,6 @@ extern int flag_jni;
 /* When nonzero, report the now deprecated empty statements.  */
 
 extern int flag_extraneous_semicolon;
-
-/* When nonzero, report use of deprecated classes, methods, or fields.  */
-extern int flag_deprecated;
 
 /* When nonzero, always check for a non gcj generated classes archive.  */
 
@@ -414,7 +409,6 @@ enum java_tree_index
   JTI_CURRENT_CLASS,
   JTI_OUTPUT_CLASS,
   JTI_ALL_CLASS_LIST,
-  JTI_ALL_CLASS_FILENAME,
 
   JTI_PREDEF_FILENAMES,
 
@@ -928,6 +922,8 @@ union lang_tree_node
 /* True if NODE is a variable that is out of scope.  */
 #define LOCAL_VAR_OUT_OF_SCOPE_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE)->u.v.freed)
+#define LOCAL_SLOT_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.v.local_slot)
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -1013,7 +1009,8 @@ struct lang_decl_var GTY(())
   tree owner;
   unsigned int final_iud : 1;	/* Final initialized upon declaration */
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
-  unsigned int freed;		/* Decl is no longer in scope.  */
+  unsigned int freed : 1;		/* Decl is no longer in scope.  */
+  unsigned int local_slot : 1;	/* Decl is a temporary in the stack frame.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1170,7 +1167,6 @@ extern tree getdecls (void);
 extern void pushlevel (int);
 extern tree poplevel (int,int, int);
 extern void insert_block (tree);
-extern void set_block (tree);
 extern tree pushdecl (tree);
 extern void java_init_decl_processing (void);
 extern void java_dup_lang_specific_decl (tree);
@@ -1180,7 +1176,7 @@ extern void set_java_signature (tree, tree);
 extern tree build_static_field_ref (tree);
 extern tree build_address_of (tree);
 extern tree find_local_variable (int index, tree type, int pc);
-extern void update_aliases (tree decl, int index);
+extern void update_aliases (tree decl, int index, int pc);
 extern tree find_stack_slot (int index, tree type);
 extern tree build_prim_array_type (tree, HOST_WIDE_INT);
 extern tree build_java_array_type (tree, HOST_WIDE_INT);
@@ -1237,6 +1233,7 @@ extern int get_access_flags_from_decl (tree);
 extern int interface_of_p (tree, tree);
 extern int inherits_from_p (tree, tree);
 extern int common_enclosing_context_p (tree, tree);
+extern int common_enclosing_instance_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
@@ -1257,6 +1254,8 @@ extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
 
 extern tree pushdecl_top_level (tree);
+extern tree pushdecl_function_level (tree);
+extern tree java_replace_reference (tree, bool);
 extern int alloc_class_constant (tree);
 extern void init_expr_processing (void);
 extern void push_super_field (tree, tree);
@@ -1333,9 +1332,6 @@ extern tree decl_constant_value (tree);
 
 extern void java_mark_class_local (tree);
 
-#if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
-struct rtx_def * java_expand_expr (tree, rtx, enum machine_mode, int, rtx *); 
-#endif
 extern void java_inlining_merge_static_initializers (tree, void *);
 extern void java_inlining_map_static_initializers (tree, void *);
 
@@ -1361,6 +1357,8 @@ extern void gen_indirect_dispatch_tables (tree type);
 extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
 
+extern tree builtin_function (const char *, tree, int, enum built_in_class,
+			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
@@ -1676,16 +1674,6 @@ extern tree *type_map;
    scope of TYPE_DECL.  */
 #define DECL_INNER_CLASS_LIST(NODE) DECL_INITIAL (TYPE_DECL_CHECK (NODE))
 
-/* Build a IDENTIFIER_NODE for a file name we're considering. Since
-   all_class_filename is a registered root, putting this identifier
-   in a TREE_LIST it holds keeps this node alive.  */
-#define BUILD_FILENAME_IDENTIFIER_NODE(F, S)		\
-  if (!((F) = maybe_get_identifier ((S))))		\
-    {							\
-      (F) = get_identifier ((S));			\
-      tree_cons ((F), NULL_TREE, all_class_filename);	\
-    }
-
 /* Add a FIELD_DECL to RECORD_TYPE RTYPE.
    The field has name NAME (a char*), and type FTYPE.
    Unless this is the first field, FIELD most hold the previous field.
@@ -1770,21 +1758,21 @@ while (0)
 #define BLOCK_EMPTY_P(NODE) \
   (TREE_CODE (NODE) == BLOCK && BLOCK_EXPR_BODY (NODE) == empty_stmt_node)
 
-#define BUILD_MONITOR_ENTER(WHERE, ARG)				\
-  {								\
-    (WHERE) = build (CALL_EXPR, int_type_node,			\
-		     build_address_of (soft_monitorenter_node),	\
-		     build_tree_list (NULL_TREE, (ARG)), 	\
-		     NULL_TREE);				\
-    TREE_SIDE_EFFECTS (WHERE) = 1;				\
+#define BUILD_MONITOR_ENTER(WHERE, ARG)					\
+  {									\
+    (WHERE) = build3 (CALL_EXPR, int_type_node,				\
+		      build_address_of (soft_monitorenter_node),	\
+		      build_tree_list (NULL_TREE, (ARG)),	 	\
+		      NULL_TREE);					\
+    TREE_SIDE_EFFECTS (WHERE) = 1;					\
   }
 
 #define BUILD_MONITOR_EXIT(WHERE, ARG)				\
   {								\
-    (WHERE) = build (CALL_EXPR, int_type_node,			\
-		     build_address_of (soft_monitorexit_node),	\
-		     build_tree_list (NULL_TREE, (ARG)),	\
-		     NULL_TREE);				\
+    (WHERE) = build3 (CALL_EXPR, int_type_node,			\
+		      build_address_of (soft_monitorexit_node),	\
+		      build_tree_list (NULL_TREE, (ARG)),	\
+		      NULL_TREE);				\
     TREE_SIDE_EFFECTS (WHERE) = 1;				\
   }
 

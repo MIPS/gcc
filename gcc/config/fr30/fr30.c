@@ -123,8 +123,7 @@ static struct fr30_frame_info 	zero_frame_info;
 
 static void fr30_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
-static rtx fr30_pass_by_reference (tree, tree);
-static rtx fr30_pass_by_value (tree, tree);
+static bool fr30_must_pass_in_stack (enum machine_mode, tree);
 
 #define FRAME_POINTER_MASK 	(1 << (FRAME_POINTER_REGNUM))
 #define RETURN_POINTER_MASK 	(1 << (RETURN_POINTER_REGNUM))
@@ -153,9 +152,13 @@ static rtx fr30_pass_by_value (tree, tree);
 
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#undef  TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_must_pass_in_stack
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS fr30_setup_incoming_varargs
+#undef  TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK fr30_must_pass_in_stack
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -663,6 +666,19 @@ fr30_print_operand (FILE *file, rtx x, int code)
 /*}}}*/
 /*{{{  Function arguments */ 
 
+/* Return true if we should pass an argument on the stack rather than
+   in registers.  */
+
+static bool
+fr30_must_pass_in_stack (enum machine_mode mode, tree type)
+{
+  if (mode == BLKmode)
+    return true;
+  if (type == NULL)
+    return false;
+  return AGGREGATE_TYPE_P (type);
+}
+
 /* Compute the number of word sized registers needed to hold a
    function argument of mode INT_MODE and tree type TYPE.  */
 int
@@ -670,7 +686,7 @@ fr30_num_arg_regs (enum machine_mode mode, tree type)
 {
   int size;
 
-  if (MUST_PASS_IN_STACK (mode, type))
+  if (targetm.calls.must_pass_in_stack (mode, type))
     return 0;
 
   if (type && mode == BLKmode)
@@ -693,7 +709,7 @@ int
 fr30_function_arg_partial_nregs (CUMULATIVE_ARGS cum, enum machine_mode mode,
 				 tree type, int named)
 {
-  /* Unnamed arguments, ie those that are prototyped as ...
+  /* Unnamed arguments, i.e. those that are prototyped as ...
      are always passed on the stack.
      Also check here to see if all the argument registers are full.  */
   if (named == 0 || cum >= FR30_NUM_ARG_REGS)
@@ -710,76 +726,6 @@ fr30_function_arg_partial_nregs (CUMULATIVE_ARGS cum, enum machine_mode mode,
   
   /* Otherwise return the number of registers that would be used.  */
   return FR30_NUM_ARG_REGS - cum;
-}
-
-static rtx
-fr30_pass_by_reference (tree valist, tree type)
-{
-  tree type_ptr;
-  tree type_ptr_ptr;
-  tree t;
-  
-  type_ptr     = build_pointer_type (type);
-  type_ptr_ptr = build_pointer_type (type_ptr);
-  
-  t = build (POSTINCREMENT_EXPR, va_list_type_node, valist, build_int_2 (UNITS_PER_WORD, 0));
-  TREE_SIDE_EFFECTS (t) = 1;
-  t = build1 (NOP_EXPR, type_ptr_ptr, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  t = build1 (INDIRECT_REF, type_ptr, t);
-  
-  return expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-}
-
-static rtx
-fr30_pass_by_value (tree valist, tree type)
-{
-  HOST_WIDE_INT size = int_size_in_bytes (type);
-  HOST_WIDE_INT rsize;
-  rtx addr_rtx;
-  tree t;
-
-  if ((size % UNITS_PER_WORD) == 0)
-    {
-      t = build (POSTINCREMENT_EXPR, va_list_type_node, valist, build_int_2 (size, 0));
-      TREE_SIDE_EFFECTS (t) = 1;
-      
-      return expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-    }
-
-  rsize = (size + UNITS_PER_WORD - 1) & - UNITS_PER_WORD;
-      
-  /* Care for bigendian correction on the aligned address.  */
-  t = build (PLUS_EXPR, ptr_type_node, valist, build_int_2 (rsize - size, 0));
-  addr_rtx = expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
-  addr_rtx = copy_to_reg (addr_rtx);
-      
-  /* Increment AP.  */
-  t = build (PLUS_EXPR, va_list_type_node, valist, build_int_2 (rsize, 0));
-  t = build (MODIFY_EXPR, va_list_type_node, valist, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-  
-  return addr_rtx;
-}
-
-/* Implement `va_arg'.  */
-
-rtx
-fr30_va_arg (tree valist, tree type)
-{
-  HOST_WIDE_INT size;
-  
-  if (AGGREGATE_TYPE_P (type))
-    return fr30_pass_by_reference (valist, type);
-  
-  size = int_size_in_bytes (type);
-
-  if ((size % sizeof (int)) == 0
-      || size < 4)
-    return fr30_pass_by_value (valist, type);
-
-  return fr30_pass_by_reference (valist, type);
 }
 
 /*}}}*/

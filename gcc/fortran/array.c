@@ -24,7 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "match.h"
 
 #include <string.h>
-#include <assert.h>
 
 /* This parameter is the size of the largest array constructor that we
    will expand to an array constructor without iterators.
@@ -942,7 +941,7 @@ check_element_type (gfc_expr * expr)
 {
 
   if (cons_state == CONS_BAD)
-    return 0;			/* Supress further errors */
+    return 0;			/* Suppress further errors */
 
   if (cons_state == CONS_START)
     {
@@ -1608,7 +1607,7 @@ gfc_get_array_element (gfc_expr * array, int element)
 
 /********* Subroutines for determining the size of an array *********/
 
-/* These are needed just to accomodate RESHAPE().  There are no
+/* These are needed just to accommodate RESHAPE().  There are no
    diagnostics here, we just return a negative number if something
    goes wrong. */
 
@@ -1972,4 +1971,23 @@ gfc_find_array_ref (gfc_expr * e)
     gfc_internal_error ("gfc_find_array_ref(): No ref found");
 
   return &ref->u.ar;
+}
+
+
+/* Find out if an array shape is known at compile time.  */
+
+int
+gfc_is_compile_time_shape (gfc_array_spec *as)
+{
+  int i;
+
+  if (as->type != AS_EXPLICIT)
+    return 0;
+
+  for (i = 0; i < as->rank; i++)
+    if (!gfc_is_constant_expr (as->lower[i])
+	|| !gfc_is_constant_expr (as->upper[i]))
+      return 0;
+
+  return 1;
 }

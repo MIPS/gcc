@@ -76,6 +76,12 @@ enum debug_info_level debug_info_level = DINFO_LEVEL_NONE;
    write_symbols is set to DBX_DEBUG, XCOFF_DEBUG, or DWARF_DEBUG.  */
 bool use_gnu_debug_info_extensions;
 
+/* The default visibility for all symbols (unless overridden) */
+enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
+
+/* Global visibility options.  */
+struct visibility_flags visibility_options;
+
 /* Columns of --help display.  */
 static unsigned int columns = 80;
 
@@ -87,12 +93,12 @@ static const char undocumented_msg[] = N_("This switch lacks documentation");
 static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
+bool flag_speculative_prefetching_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
 
 /* Input file names.  */
 const char **in_fnames;
 unsigned num_in_fnames;
-unsigned cur_in_fname;
 
 static size_t find_opt (const char *, int);
 static int common_handle_option (size_t scode, const char *arg, int value);
@@ -579,10 +585,10 @@ decode_options (unsigned int argc, const char **argv)
   target_flags = 0;
   set_target_switch ("");
 
-  /* Unwind tables are always present in an ABI-conformant IA-64
-     object file, so the default should be ON.  */
-#ifdef IA64_UNWIND_INFO
-  flag_unwind_tables = IA64_UNWIND_INFO;
+  /* Unwind tables are always present when a target has ABI-specified unwind
+     tables, so the default should be ON.  */
+#ifdef TARGET_UNWIND_INFO
+  flag_unwind_tables = TARGET_UNWIND_INFO;
 #endif
 
 #ifdef OPTIMIZATION_OPTIONS
@@ -633,6 +639,19 @@ decode_options (unsigned int argc, const char **argv)
     {
       warning 
 	    ("-freorder-blocks-and-partition does not work with exceptions");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
+
+  /* The optimization to partition hot and cold basic blocks into
+     separate sections of the .o and executable files does not currently
+     work correctly with DWARF debugging turned on.  Until this is fixed
+     we will disable the optimization when DWARF debugging is set.  */
+  
+  if (flag_reorder_blocks_and_partition && write_symbols == DWARF2_DEBUG)
+    {
+      warning
+	("-freorder-blocks-and-partition does not work with -g (currently)");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -791,6 +810,16 @@ common_handle_option (size_t scode, const char *arg, int value)
       pp_set_line_maximum_length (global_dc->printer, value);
       break;
 
+    case OPT_fpack_struct_:
+      if (value <= 0 || (value & (value - 1)) || value > 16)
+	error("structure alignment must be a small power of two, not %d", value);
+      else
+	{
+	  initial_max_fld_align = value;
+	  maximum_field_alignment = value * BITS_PER_UNIT;
+	}
+      break;
+
     case OPT_fpeel_loops:
       flag_peel_loops_set = true;
       break;
@@ -812,6 +841,10 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#ifdef HAVE_prefetch
+      if (!flag_speculative_prefetching_set)
+	flag_speculative_prefetching = value;
+#endif
       break;
 
     case OPT_fprofile_generate:
@@ -821,14 +854,37 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#ifdef HAVE_prefetch
+      if (!flag_speculative_prefetching_set)
+	flag_speculative_prefetching = value;
+#endif
       break;
 
     case OPT_fprofile_values:
       flag_profile_values_set = true;
       break;
 
+    case OPT_fvisibility_:
+      {
+        if (!strcmp(arg, "default"))
+          default_visibility = VISIBILITY_DEFAULT;
+        else if (!strcmp(arg, "internal"))
+          default_visibility = VISIBILITY_INTERNAL;
+        else if (!strcmp(arg, "hidden"))
+          default_visibility = VISIBILITY_HIDDEN;
+        else if (!strcmp(arg, "protected"))
+          default_visibility = VISIBILITY_PROTECTED;
+        else
+          error ("unrecognised visibility value \"%s\"", arg);
+      }
+      break;
+
     case OPT_fvpt:
-      flag_value_profile_transformations_set = value;
+      flag_value_profile_transformations_set = true;
+      break;
+
+    case OPT_fspeculative_prefetching:
+      flag_speculative_prefetching_set = true;
       break;
 
     case OPT_frandom_seed:
@@ -896,22 +952,6 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_ftracer:
       flag_tracer_set = true;
-      break;
-
-    case OPT_ftree_points_to_:
-      if (!strcmp (arg, "andersen"))
-#ifdef HAVE_BANSHEE
-        flag_tree_points_to = PTA_ANDERSEN;
-#else
-        warning ("Andersen's PTA not available - libbanshee not compiled.");
-#endif
-      else if (!strcmp (arg, "none"))
-	flag_tree_points_to = PTA_NONE;
-      else
-	{
-	  warning ("`%s`: unknown points-to analysis algorithm", arg);
-	  return 0;
-	}
       break;
 
     case OPT_funroll_loops:

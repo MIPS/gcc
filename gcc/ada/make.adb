@@ -1728,8 +1728,9 @@ package body Make is
 
             if Arguments_Project = No_Project then
                if not External_Unit_Compilation_Allowed then
-                  Make_Failed ("external source, not part of any projects, " &
-                               "cannot be compiled (", Source_File_Name, ")");
+                  Make_Failed ("external source (", Source_File_Name,
+                               ") is not part of any project; cannot be " &
+                               "compiled without gnatmake switch -x");
                end if;
 
                --  If it is allowed, simply add the saved gcc switches
@@ -4343,18 +4344,31 @@ package body Make is
                     not MLib.Tgt.Library_Exists_For (Proj);
 
                   if Projects.Table (Proj).Need_To_Build_Lib then
-                     if Verbose_Mode then
-                        Write_Str
-                          ("Library file does not exist for project """);
-                        Write_Str
-                          (Get_Name_String (Projects.Table (Proj).Name));
-                        Write_Line ("""");
-                     end if;
+                     --  If there is no object directory, then it will be
+                     --  impossible to build the library. So, we fail
+                     --  immediately.
 
-                     Insert_Project_Sources
-                       (The_Project  => Proj,
-                        All_Projects => False,
-                        Into_Q       => True);
+                     if Projects.Table (Proj).Object_Directory = No_Name then
+                        Make_Failed
+                          ("no object files to build library for project """,
+                           Get_Name_String (Projects.Table (Proj).Name),
+                           """");
+                        Projects.Table (Proj).Need_To_Build_Lib := False;
+
+                     else
+                        if Verbose_Mode then
+                           Write_Str
+                             ("Library file does not exist for project """);
+                           Write_Str
+                             (Get_Name_String (Projects.Table (Proj).Name));
+                           Write_Line ("""");
+                        end if;
+
+                        Insert_Project_Sources
+                          (The_Project  => Proj,
+                           All_Projects => False,
+                           Into_Q       => True);
+                     end if;
                   end if;
                end if;
             end loop;

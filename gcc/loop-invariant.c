@@ -154,7 +154,7 @@ check_maybe_invariant (rtx x)
 
       /* Just handle the most trivial case where we load from an unchanging
 	 location (most importantly, pic tables).  */
-      if (RTX_UNCHANGING_P (x))
+      if (MEM_READONLY_P (x))
 	break;
 
       return false;
@@ -230,7 +230,7 @@ find_exits (struct loop *loop, basic_block *body,
 	{
 	  FOR_BB_INSNS (body[i], insn)
 	    {
-	      if (GET_CODE (insn) == CALL_INSN
+	      if (CALL_P (insn)
 		  && !CONST_OR_PURE_CALL_P (insn))
 		{
 		  has_call = true;
@@ -525,7 +525,7 @@ find_invariants_bb (basic_block bb, bool always_reached, bool always_executed,
       find_invariants_insn (insn, always_reached, always_executed, df);
 
       if (always_reached
-	  && GET_CODE (insn) == CALL_INSN
+	  && CALL_P (insn)
 	  && !CONST_OR_PURE_CALL_P (insn))
 	always_reached = false;
     }
@@ -714,17 +714,6 @@ find_invariants_to_move (struct df *df)
 {
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
-
-  if (flag_move_all_movables)
-    {
-      /* This is easy & stupid.  */
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
-	{
-	  inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
-	  inv->move = true;
-	}
-      return;
-    }
 
   if (!VARRAY_ACTIVE_SIZE (invariants))
     return;

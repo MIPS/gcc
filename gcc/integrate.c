@@ -116,36 +116,14 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
   /* Copy the declaration.  */
   if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
     {
-      tree type;
-      int invisiref = 0;
-
-      /* See if the frontend wants to pass this by invisible reference.  */
-      if (TREE_CODE (decl) == PARM_DECL
-	  && DECL_ARG_TYPE (decl) != TREE_TYPE (decl)
-	  && POINTER_TYPE_P (DECL_ARG_TYPE (decl))
-	  && TREE_TYPE (DECL_ARG_TYPE (decl)) == TREE_TYPE (decl))
-	{
-	  invisiref = 1;
-	  type = DECL_ARG_TYPE (decl);
-	}
-      else
-	type = TREE_TYPE (decl);
+      tree type = TREE_TYPE (decl);
 
       /* For a parameter or result, we must make an equivalent VAR_DECL, not a
 	 new PARM_DECL.  */
       copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
-      if (!invisiref)
-	{
-	  TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
-	  TREE_READONLY (copy) = TREE_READONLY (decl);
-	  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
-	}
-      else
-	{
-	  TREE_ADDRESSABLE (copy) = 0;
-	  TREE_READONLY (copy) = 1;
-	  TREE_THIS_VOLATILE (copy) = 0;
-	}
+      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      TREE_READONLY (copy) = TREE_READONLY (decl);
+      TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
     }
   else
     {
@@ -160,9 +138,13 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
       if (TREE_CODE (copy) == LABEL_DECL)
 	{
 	  TREE_ADDRESSABLE (copy) = 0;
-	  DECL_TOO_LATE (copy) = 0;
 	}
     }
+
+  /* Don't generate debug information for the copy if we wouldn't have
+     generated it for the copy either.  */
+  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (decl);
+  DECL_IGNORED_P (copy) = DECL_IGNORED_P (decl);
 
   /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what
      declaration inspired this copy.  */
@@ -209,9 +191,7 @@ varray_type global_const_equiv_varray;
    rtl is ever emitted.
 
    If FOR_LHS is nonzero, if means we are processing something that will
-   be the LHS of a SET.  In that case, we copy RTX_UNCHANGING_P even if
-   inlining since we need to be conservative in how it is set for
-   such cases.
+   be the LHS of a SET.
 
    Handle constants that need to be placed in the constant pool by
    calling `force_const_mem'.  */
@@ -325,19 +305,6 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	      emit_insn_after (seq, map->insns_at_start);
 	      return temp;
 	    }
-	  else if (REG_FUNCTION_VALUE_P (orig))
-	    {
-	      if (rtx_equal_function_value_matters)
-		/* This is an ignored return value.  We must not
-		   leave it in with REG_FUNCTION_VALUE_P set, since
-		   that would confuse subsequent inlining of the
-		   current function into a later function.  */
-		return gen_rtx_REG (GET_MODE (orig), regno);
-	      else
-		/* Must be unrolling loops or replicating code if we
-		   reach here, so return the register unchanged.  */
-		return orig;
-	    }
 	  else
 	    return orig;
 
@@ -348,7 +315,6 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	  map->reg_map[regno] = gen_reg_rtx (mode);
 	  REG_USERVAR_P (map->reg_map[regno]) = REG_USERVAR_P (orig);
 	  REG_LOOP_TEST_P (map->reg_map[regno]) = REG_LOOP_TEST_P (orig);
-	  RTX_UNCHANGING_P (map->reg_map[regno]) = RTX_UNCHANGING_P (orig);
 	  /* A reg with REG_FUNCTION_VALUE_P true will never reach here.  */
 
 	  if (REG_POINTER (map->x_regno_reg_rtx[regno]))
@@ -637,7 +603,7 @@ try_constants (rtx insn, struct inline_remap *map)
 
   /* Enforce consistency between the addresses in the regular insn flow
      and the ones in CALL_INSN_FUNCTION_USAGE lists, if any.  */
-  if (GET_CODE (insn) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (insn))
+  if (CALL_P (insn) && CALL_INSN_FUNCTION_USAGE (insn))
     {
       subst_constants (&CALL_INSN_FUNCTION_USAGE (insn), insn, map, 1);
       apply_change_group ();

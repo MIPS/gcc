@@ -131,7 +131,7 @@ bitmap_element_allocate (bitmap head)
 					  obstack_chunk_free);
 	    }
 
-	  element = obstack_alloc (&bitmap_obstack, sizeof (bitmap_element));
+	  element = XOBNEW (&bitmap_obstack, bitmap_element);
 	}
     }
   else
@@ -142,7 +142,7 @@ bitmap_element_allocate (bitmap head)
           bitmap_ggc_free = element->next;
 	}
       else
-	element = ggc_alloc (sizeof (bitmap_element));
+	element = GGC_NEW (bitmap_element);
     }
 
   memset (element->bits, 0, sizeof (element->bits));
@@ -415,7 +415,7 @@ bitmap_first_set_bit (bitmap a)
   for (word_num = 0; word_num < BITMAP_ELEMENT_WORDS; ++word_num)
     if ((word = ptr->bits[word_num]) != 0)
       goto word_found;
-  abort ();
+  gcc_unreachable ();
  word_found:
 #endif
 
@@ -472,7 +472,7 @@ bitmap_last_set_bit (bitmap a)
   for (word_num = BITMAP_ELEMENT_WORDS; word_num-- > 0; )
     if ((word = ptr->bits[word_num]) != 0)
       goto word_found;
-  abort ();
+  gcc_unreachable ();
  word_found:
 #endif
 
@@ -608,7 +608,7 @@ bitmap_operation (bitmap to, bitmap from1, bitmap from2,
       switch (operation)
 	{
 	default:
-	  abort ();
+	  gcc_unreachable ();
 
 	case BITMAP_AND:
 	  DOIT (&);
@@ -716,7 +716,7 @@ bitmap
 bitmap_initialize (bitmap head, int using_obstack)
 {
   if (head == NULL && ! using_obstack)
-    head = ggc_alloc (sizeof (*head));
+    head = GGC_NEW (struct bitmap_head_def);
 
   head->first = head->current = 0;
   head->using_obstack = using_obstack;

@@ -1,5 +1,5 @@
 /* Tail call optimization on trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -143,8 +143,7 @@ suitable_for_tail_opt_p (void)
     {
       tree var = VARRAY_TREE (referenced_vars, i);
 
-      if (decl_function_context (var) == current_function_decl
-	  && !TREE_STATIC (var)
+      if (!(TREE_STATIC (var) || DECL_EXTERNAL (var))
 	  && var_ann (var)->mem_tag_kind == NOT_A_TAG
 	  && is_call_clobbered (var))
 	return false;
@@ -234,10 +233,14 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
       for (e = bb->pred; e; e = e->pred_next)
 	if (e->src->aux)
 	  break;
-      if (!e)
-	abort ();
+      gcc_assert (e);
 
       expr = PHI_ARG_DEF_FROM_EDGE (at, e);
+      if (TREE_CODE (expr) != SSA_NAME)
+	{
+	  /* The value is a constant.  */
+	  break;
+	}
     }
 
   /* Unmark the blocks.  */
@@ -276,8 +279,15 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
       return true;
     }
 
-  if (TREE_CODE_CLASS (code) != '2')
+  if (TREE_CODE_CLASS (code) != tcc_binary)
     return false;
+
+  /* Accumulator optimizations will reverse the order of operations.
+     We can only do that for floating-point types if we're assuming
+     that addition and multiplication are associative.  */
+  if (!flag_unsafe_math_optimizations)
+    if (FLOAT_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+      return false;
 
   /* We only handle the code like
 
@@ -379,6 +389,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	{
 	  ass_var = TREE_OPERAND (stmt, 0);
 	  call = TREE_OPERAND (stmt, 1);
+	  if (TREE_CODE (call) == WITH_SIZE_EXPR)
+	    call = TREE_OPERAND (call, 0);
 	}
       else
 	{
@@ -389,11 +401,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (TREE_CODE (call) == CALL_EXPR)
 	break;
 
-      /* If the statement has virtual operands, fail.  */
+      /* If the statement has virtual or volatile operands, fail.  */
       ann = stmt_ann (stmt);
       if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann))
           || NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann))
-	  || NUM_VUSES (VUSE_OPS (ann)))
+	  || NUM_VUSES (VUSE_OPS (ann))
+	  || ann->has_volatile_ops)
 	return;
     }
 
@@ -585,8 +598,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   block_stmt_iterator bsi = bsi_last (bb);
 
-  if (TREE_CODE (ret_stmt) != RETURN_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (ret_stmt) == RETURN_EXPR);
 
   ret_var = TREE_OPERAND (ret_stmt, 0);
   if (!ret_var)
@@ -612,7 +624,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
   else
     var = ret_var;
@@ -627,7 +639,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
 
       var = make_ssa_name (tmp, stmt);
       TREE_OPERAND (stmt, 0) = var;
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+      bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
 
   TREE_OPERAND (ret_stmt, 0) = var;
@@ -647,6 +659,7 @@ eliminate_tail_call (struct tailcall *t)
   stmt_ann_t ann;
   v_may_def_optype v_may_defs;
   unsigned i;
+  block_stmt_iterator bsi;
 
   stmt = bsi_stmt (t->call_bsi);
   get_stmt_operands (stmt);
@@ -666,10 +679,26 @@ eliminate_tail_call (struct tailcall *t)
 
   first = ENTRY_BLOCK_PTR->succ->dest;
 
+  /* Remove the code after call_bsi that will become unreachable.  The
+     possibly unreachable code in other blocks is removed later in
+     cfg cleanup.  */
+  bsi = t->call_bsi;
+  bsi_next (&bsi);
+  while (!bsi_end_p (bsi))
+    {
+      tree t = bsi_stmt (bsi);
+      /* Do not remove the return statement, so that redirect_edge_and_branch
+	 sees how the block ends.  */
+      if (TREE_CODE (t) == RETURN_EXPR)
+	break;
+
+      bsi_remove (&bsi);
+      release_defs (t);
+    }
+
   /* Replace the call by a jump to the start of function.  */
   e = redirect_edge_and_branch (t->call_block->succ, first);
-  if (!e)
-    abort ();
+  gcc_assert (e);
   PENDING_STMT (e) = NULL_TREE;
 
   /* Add phi node entries for arguments.  Not every PHI node corresponds to
@@ -708,7 +737,17 @@ eliminate_tail_call (struct tailcall *t)
       if (!phi)
 	{
 	  tree name = var_ann (param)->default_def;
-	  tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
+	  tree new_name;
+
+	  if (!name)
+	    {
+	      /* It may happen that the tag does not have a default_def in case
+		 when all uses of it are dominated by a MUST_DEF.  This however
+		 means that it is not necessary to add a phi node for this
+		 tag.  */
+	      continue;
+	    }
+	  new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 
 	  var_ann (param)->default_def = new_name;
 	  phi = create_phi_node (name, first);
@@ -718,8 +757,7 @@ eliminate_tail_call (struct tailcall *t)
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
 	     for the first time we eliminate the call.  */
-	  if (first->pred->pred_next->pred_next)
-	    abort ();
+	  gcc_assert (!first->pred->pred_next->pred_next);
 	}
 
       add_phi_arg (&phi, V_MAY_DEF_OP (v_may_defs, i), e);
@@ -739,6 +777,7 @@ eliminate_tail_call (struct tailcall *t)
     }
 
   bsi_remove (&t->call_bsi);
+  release_defs (call);
 }
 
 /* Optimizes the tailcall described by T.  If OPT_TAILCALLS is true, also
@@ -757,10 +796,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
     {
       tree stmt = bsi_stmt (t->call_bsi);
 
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
-	stmt = TREE_OPERAND (stmt, 1);
-      if (TREE_CODE (stmt) != CALL_EXPR)
-	abort ();
+      stmt = get_call_expr_in (stmt);
       CALL_EXPR_TAILCALL (stmt) = 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
@@ -845,8 +881,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_zero_node),
-		       first->pred);
+	  add_phi_arg (&phi, build_int_cst (ret_type, 0), first->pred);
 	  a_acc = PHI_RESULT (phi);
 	}
 
@@ -858,8 +893,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  add_referenced_tmp_var (tmp);
 
 	  phi = create_phi_node (tmp, first);
-	  add_phi_arg (&phi, fold_convert (ret_type, integer_one_node),
-		       first->pred);
+	  add_phi_arg (&phi, build_int_cst (ret_type, 1), first->pred);
 	  m_acc = PHI_RESULT (phi);
 	}
     }
@@ -918,11 +952,12 @@ struct tree_opt_pass pass_tail_recursion =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };
 
 struct tree_opt_pass pass_tail_calls = 
@@ -934,9 +969,10 @@ struct tree_opt_pass pass_tail_calls =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  0					/* letter */
 };

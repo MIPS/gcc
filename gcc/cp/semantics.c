@@ -31,6 +31,7 @@
 #include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "c-common.h"
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "except.h"
@@ -45,6 +46,7 @@
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "vec.h"
+#include "target.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -137,7 +139,7 @@ typedef struct deferred_access GTY(())
   enum deferring_kind deferring_access_checks_kind;
   
 } deferred_access;
-DEF_VEC_O (deferred_access);
+DEF_VEC_GC_O (deferred_access);
 
 /* Data for deferred access checking.  */
 static GTY(()) VEC (deferred_access) *deferred_access_stack;
@@ -306,7 +308,7 @@ perform_or_defer_access_check (tree binfo, tree decl)
   if (deferred_access_no_check)
     return;
   
-  my_friendly_assert (TREE_CODE (binfo) == TREE_BINFO, 20030623);
+  gcc_assert (TREE_CODE (binfo) == TREE_BINFO);
 
   ptr = VEC_last (deferred_access, deferred_access_stack);
   
@@ -356,7 +358,7 @@ static tree
 maybe_cleanup_point_expr (tree expr)
 {
   if (!processing_template_decl && stmts_are_full_exprs_p ())
-    expr = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr));
+    expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr);
   return expr;
 }
 
@@ -383,7 +385,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -703,13 +705,15 @@ finish_return_stmt (tree expr)
   expr = check_return_expr (expr);
   if (!processing_template_decl)
     {
-      if (DECL_DESTRUCTOR_P (current_function_decl))
+      if (DECL_DESTRUCTOR_P (current_function_decl)
+	  || (DECL_CONSTRUCTOR_P (current_function_decl) 
+	      && targetm.cxx.cdtor_returns_this ()))
 	{
 	  /* Similarly, all destructors must run destructors for
 	     base-classes before returning.  So, all returns in a
 	     destructor get sent to the DTOR_LABEL; finish_function emits
 	     code to return a value there.  */
-	  return finish_goto_stmt (dtor_label);
+	  return finish_goto_stmt (cdtor_label);
 	}
     }
 
@@ -1033,7 +1037,7 @@ finish_handler (tree handler)
 }
 
 /* Begin a compound statement.  FLAGS contains some bits that control the
-   behaviour and context.  If BCS_NO_SCOPE is set, the compound statement
+   behavior and context.  If BCS_NO_SCOPE is set, the compound statement
    does not define a scope.  If BCS_FN_BODY is set, this is the outermost
    block of a function.  If BCS_TRY_BLOCK is set, this is the block 
    created on behalf of a TRY statement.  Returns a token to be passed to
@@ -1066,7 +1070,7 @@ begin_compound_stmt (unsigned int flags)
      processing templates.  */
   if (processing_template_decl)
     {
-      r = build (BIND_EXPR, NULL, NULL, r, NULL);
+      r = build3 (BIND_EXPR, NULL, NULL, r, NULL);
       BIND_EXPR_TRY_BLOCK (r) = (flags & BCS_TRY_BLOCK) != 0;
       BIND_EXPR_BODY_BLOCK (r) = (flags & BCS_FN_BODY) != 0;
       TREE_SIDE_EFFECTS (r) = 1;
@@ -1085,7 +1089,13 @@ finish_compound_stmt (tree stmt)
   else if (STATEMENT_LIST_NO_SCOPE (stmt))
     stmt = pop_stmt_list (stmt);
   else
-    stmt = do_poplevel (stmt);
+    {
+      /* Destroy any ObjC "super" receivers that may have been
+	 created.  */
+      objc_clear_super_receiver ();
+
+      stmt = do_poplevel (stmt);
+    }
 
   /* ??? See c_end_compound_stmt wrt statement expressions.  */
   add_stmt (stmt);
@@ -1229,9 +1239,9 @@ finish_mem_initializers (tree mem_inits)
 tree
 finish_parenthesized_expr (tree expr)
 {
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+  if (EXPR_P (expr))
     /* This inhibits warnings in c_common_truthvalue_conversion.  */
-    C_SET_EXP_ORIGINAL_CODE (expr, ERROR_MARK); 
+    TREE_NO_WARNING (expr) = 1;
 
   if (TREE_CODE (expr) == OFFSET_REF)
     /* [expr.unary.op]/3 The qualified id of a pointer-to-member must not be
@@ -1246,7 +1256,7 @@ finish_parenthesized_expr (tree expr)
 tree
 finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
-  my_friendly_assert (TREE_CODE (decl) == FIELD_DECL, 20020909);
+  gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
   if (!object)
     {
@@ -1338,7 +1348,7 @@ check_accessibility_of_qualified_id (tree decl,
   tree scope;
   tree qualifying_type = NULL_TREE;
 
-  /* If we're not checking, return imediately.  */
+  /* If we're not checking, return immediately.  */
   if (deferred_access_no_check)
     return;
   
@@ -1381,7 +1391,9 @@ check_accessibility_of_qualified_id (tree decl,
        its bases.  */
     qualifying_type = currently_open_derived_class (scope);
 
-  if (qualifying_type)
+  if (qualifying_type && IS_AGGR_TYPE_CODE (TREE_CODE (qualifying_type)))
+    /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
+       or similar in a default argument value.  */
     perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
 }
 
@@ -1490,9 +1502,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 	      expr = build_special_member_call
 		(NULL_TREE, complete_ctor_identifier,
 		 build_tree_list (NULL_TREE, expr),
-		 TYPE_BINFO (type), LOOKUP_NORMAL);
+		 type, LOOKUP_NORMAL);
 	      expr = build_cplus_new (type, expr);
-	      my_friendly_assert (TREE_CODE (expr) == TARGET_EXPR, 20030729);
+	      gcc_assert (TREE_CODE (expr) == TARGET_EXPR);
 	    }
 	}
 
@@ -1558,7 +1570,7 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	      result_stmt_p = &TREE_OPERAND (t, 0);
 	      break;
 	    default:
-	      abort ();
+	      gcc_unreachable ();
 	    }
 	}
       type = TREE_TYPE (EXPR_STMT_EXPR (result_stmt));
@@ -1577,7 +1589,7 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	 the statement expression itself as the target's init
 	 expr. Finally, return the target expression.  */
       tree init, target_expr = EXPR_STMT_EXPR (result_stmt);
-      my_friendly_assert (TREE_CODE (target_expr) == TARGET_EXPR, 20030729);
+      gcc_assert (TREE_CODE (target_expr) == TARGET_EXPR);
 
       /* The initializer will be void if the initialization is done by
 	 AGGR_INIT_EXPR; propagate that out to the statement-expression as
@@ -1596,10 +1608,8 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
 	     returning a value directly, give it the appropriate type.  */
 	  if (VOID_TYPE_P (TREE_TYPE (result)))
 	    TREE_TYPE (result) = type;
-	  else if (same_type_p (TREE_TYPE (result), type))
-	    ;
 	  else
-	    abort ();
+	    gcc_assert (same_type_p (TREE_TYPE (result), type));
 	}
       else if (TREE_CODE (result) == STATEMENT_LIST)
 	/* We need to wrap a STATEMENT_LIST in a BIND_EXPR so it can have a
@@ -1677,8 +1687,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
     return error_mark_node;
 
   /* ARGS should be a list of arguments.  */
-  my_friendly_assert (!args || TREE_CODE (args) == TREE_LIST,
-		      20020712);
+  gcc_assert (!args || TREE_CODE (args) == TREE_LIST);
 
   orig_fn = fn;
   orig_args = args;
@@ -1796,8 +1805,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
   if (processing_template_decl)
     {
-      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn,
-		      orig_args, NULL_TREE);
+      result = build3 (CALL_EXPR, TREE_TYPE (result), orig_fn,
+		       orig_args, NULL_TREE);
       KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;
@@ -1853,7 +1862,7 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
   if (destructor == error_mark_node)
     return error_mark_node;
 
-  my_friendly_assert (TYPE_P (destructor), 20010905);
+  gcc_assert (TYPE_P (destructor));
 
   if (!processing_template_decl)
     {
@@ -1884,7 +1893,7 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	}
     }
 
-  return build (PSEUDO_DTOR_EXPR, void_type_node, object, scope, destructor);
+  return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope, destructor);
 }
 
 /* Finish an expression of the form CODE EXPR.  */
@@ -1993,7 +2002,7 @@ finish_template_template_parm (tree aggr, tree identifier)
   DECL_ARTIFICIAL (decl) = 1;
   end_template_decl ();
 
-  my_friendly_assert (DECL_TEMPLATE_PARMS (tmpl), 20010110);
+  gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
 
   return finish_template_type_parm (aggr, tmpl);
 }
@@ -2097,9 +2106,10 @@ begin_class_definition (tree t)
      before.  */
   if (! TYPE_ANONYMOUS_P (t))
     {
-      CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
+      CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X
-	(t, interface_unknown);
+	(t, finfo->interface_unknown);
     }
   reset_specialization();
   
@@ -2123,7 +2133,7 @@ finish_member_declaration (tree decl)
     return;
 
   /* We should see only one DECL at a time.  */
-  my_friendly_assert (TREE_CHAIN (decl) == NULL_TREE, 0);
+  gcc_assert (TREE_CHAIN (decl) == NULL_TREE);
 
   /* Set up access control for DECL.  */
   TREE_PRIVATE (decl) 
@@ -2154,7 +2164,7 @@ finish_member_declaration (tree decl)
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
-      add_method (current_class_type, decl, /*error_p=*/0);
+      add_method (current_class_type, decl);
 
       TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
       TYPE_METHODS (current_class_type) = decl;
@@ -2287,15 +2297,21 @@ check_multiple_declarators (void)
     error ("multiple declarators in template declaration");
 }
 
-/* Issue a diagnostic that NAME cannot be found in SCOPE.  */
+/* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is
+   what we found when we tried to do the lookup.  */
 
 void
-qualified_name_lookup_error (tree scope, tree name)
+qualified_name_lookup_error (tree scope, tree name, tree decl)
 {
   if (TYPE_P (scope))
     {
       if (!COMPLETE_TYPE_P (scope))
 	error ("incomplete type `%T' used in nested name specifier", scope);
+      else if (TREE_CODE (decl) == TREE_LIST)
+	{
+	  error ("reference to `%T::%D' is ambiguous", scope, name);
+	  print_candidates (decl);
+	}
       else
 	error ("`%D' is not a member of `%T'", name, scope);
     }
@@ -2371,7 +2387,7 @@ finish_id_expression (tree id_expression,
 	      /* If the qualifying type is non-dependent (and the name
 		 does not name a conversion operator to a dependent
 		 type), issue an error.  */
-	      qualified_name_lookup_error (scope, id_expression);
+	      qualified_name_lookup_error (scope, id_expression, decl);
 	      return error_mark_node;
 	    }
 	  else if (!scope)
@@ -2537,8 +2553,8 @@ finish_id_expression (tree id_expression,
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
-		return build (SCOPE_REF, TREE_TYPE (decl), scope,
-			      id_expression);
+		return build2 (SCOPE_REF, TREE_TYPE (decl), scope,
+			       id_expression);
 	      else
 		return decl;
 	    }
@@ -2564,25 +2580,15 @@ finish_id_expression (tree id_expression,
       /* Only certain kinds of names are allowed in constant
        expression.  Enumerators and template parameters 
        have already been handled above.  */
-      if (integral_constant_expression_p)
+      if (integral_constant_expression_p
+	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
 	{
-	    /* Const variables or static data members of integral or
-	      enumeration types initialized with constant expressions
-	      are OK.  */
-	  if (TREE_CODE (decl) == VAR_DECL
-	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
-	    ;
-	  else
+	  if (!allow_non_integral_constant_expression_p)
 	    {
-	      if (!allow_non_integral_constant_expression_p)
-		{
-		  error ("`%D' cannot appear in a constant-expression", decl);
-		  return error_mark_node;
-		}
-	      *non_integral_constant_expression_p = true;
+	      error ("`%D' cannot appear in a constant-expression", decl);
+	      return error_mark_node;
 	    }
+	  *non_integral_constant_expression_p = true;
 	}
       
       if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -2624,7 +2630,7 @@ finish_id_expression (tree id_expression,
 	  else if (!processing_template_decl)
 	    decl = convert_from_reference (decl);
 	  else if (TYPE_P (scope))
-	    decl = build (SCOPE_REF, TREE_TYPE (decl), scope, decl);
+	    decl = build2 (SCOPE_REF, TREE_TYPE (decl), scope, decl);
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
 	decl = finish_non_static_data_member (decl, current_class_ref,
@@ -2771,12 +2777,11 @@ simplify_aggr_init_expr (tree *tp)
   else if (1)
     style = pcc;
 #endif
-  else if (TREE_ADDRESSABLE (type))
-    style = arg;
   else
-    /* We shouldn't build an AGGR_INIT_EXPR if we don't need any special
-       handling.  See build_cplus_new.  */
-    abort ();
+    {
+      gcc_assert (TREE_ADDRESSABLE (type));
+      style = arg;
+    }
 
   if (style == ctor || style == arg)
     {
@@ -2793,20 +2798,18 @@ simplify_aggr_init_expr (tree *tp)
 	{
 	  /* The return type might have different cv-quals from the slot.  */
 	  tree fntype = TREE_TYPE (TREE_TYPE (fn));
-#ifdef ENABLE_CHECKING
-	  if (TREE_CODE (fntype) != FUNCTION_TYPE
-	      && TREE_CODE (fntype) != METHOD_TYPE)
-	    abort ();
-#endif
+	  
+	  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+		      || TREE_CODE (fntype) == METHOD_TYPE);
 	  addr = convert (build_pointer_type (TREE_TYPE (fntype)), addr);
 	}
 
       args = tree_cons (NULL_TREE, addr, args);
     }
 
-  call_expr = build (CALL_EXPR, 
-		     TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-		     fn, args, NULL_TREE);
+  call_expr = build3 (CALL_EXPR, 
+		      TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+		      fn, args, NULL_TREE);
 
   if (style == arg)
     /* Tell the backend that we've added our return slot to the argument
@@ -2855,7 +2858,7 @@ emit_associated_thunks (tree fn)
 		}
 	    }
 	  else
-	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
+	    gcc_assert (!DECL_THUNKS (thunk));
 	}
     }
 }
@@ -2886,23 +2889,14 @@ expand_body (tree fn)
   /* Emit any thunks that should be emitted at the same time as FN.  */
   emit_associated_thunks (fn);
 
-  tree_rest_of_compilation (fn, function_depth > 1);
+  /* This function is only called from cgraph, or recursively from
+     emit_associated_thunks.  In neither case should we be currently
+     generating trees for a function.  */
+  gcc_assert (function_depth == 0);
+
+  tree_rest_of_compilation (fn, 0);
 
   current_function_decl = saved_function;
-
-  extract_interface_info ();
-
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
 
   if (DECL_CLONED_FUNCTION_P (fn))
     {
@@ -2957,14 +2951,44 @@ expand_or_defer_fn (tree fn)
       return;
     }
 
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+
+  /* We make a decision about linkage for these functions at the end
+     of the compilation.  Until that point, we do not want the back
+     end to output them -- but we do want it to see the bodies of
+     these functions so that it can inline them as appropriate.  */
+  if (DECL_DECLARED_INLINE_P (fn) || DECL_IMPLICIT_INSTANTIATION (fn))
+    {
+      if (!at_eof)
+	{
+	  DECL_EXTERNAL (fn) = 1;
+	  DECL_NOT_REALLY_EXTERN (fn) = 1;
+	  note_vague_linkage_fn (fn);
+	}
+      else
+	import_export_decl (fn);
+
+      /* If the user wants us to keep all inline functions, then mark
+	 this function as needed so that finish_file will make sure to
+	 output it later.  */
+      if (flag_keep_inline_functions && DECL_DECLARED_INLINE_P (fn))
+	mark_needed (fn);
+    }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
-
-  /* Compute the appropriate object-file linkage for inline functions.  */
-  if (DECL_DECLARED_INLINE_P (fn))
-    import_export_decl (fn);
 
   function_depth++;
 
@@ -3012,8 +3036,8 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
       if (DECL_INITIAL (dp->var)
 	  && DECL_INITIAL (dp->var) != error_mark_node)
 	{
-	  init = build (INIT_EXPR, void_type_node, dp->result,
-			DECL_INITIAL (dp->var));
+	  init = build2 (INIT_EXPR, void_type_node, dp->result,
+			 DECL_INITIAL (dp->var));
 	  DECL_INITIAL (dp->var) = error_mark_node;
 	}
       else
@@ -3050,6 +3074,8 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   /* Copy debugging information from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
+  DECL_ARTIFICIAL (result) = DECL_ARTIFICIAL (var);
+  DECL_IGNORED_P (result) = DECL_IGNORED_P (var);
   DECL_SOURCE_LOCATION (result) = DECL_SOURCE_LOCATION (var);
   DECL_ABSTRACT_ORIGIN (result) = DECL_ABSTRACT_ORIGIN (var);
   /* Don't forget that we take its address.  */

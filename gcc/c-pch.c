@@ -129,10 +129,10 @@ pch_init (void)
   if (f == NULL)
     fatal_error ("can't create precompiled header %s: %m", pch_file);
   pch_outfile = f;
-  
-  if (strlen (host_machine) > 255 || strlen (target_machine) > 255
-      || strlen (version_string) > 255)
-    abort ();
+
+  gcc_assert (strlen (host_machine) < 256
+	      && strlen (target_machine) < 256
+	      && strlen (version_string) < 256);
   
   v.host_machine_length = strlen (host_machine);
   v.target_machine_length = strlen (target_machine);
@@ -143,8 +143,7 @@ pch_init (void)
     for (i = 0; i < MATCH_SIZE; i++)
       {
 	v.match[i] = *pch_matching[i].flag_var;
-	if (v.match[i] != *pch_matching[i].flag_var)
-	  abort ();
+	gcc_assert (v.match[i] == *pch_matching[i].flag_var);
       }
   }
   v.pch_init = &pch_init;
@@ -162,7 +161,7 @@ pch_init (void)
   /* The driver always provides a valid -o option.  */
   if (asm_file_name == NULL
       || strcmp (asm_file_name, "-") == 0)
-    fatal_error ("`%s' is not a valid output file", asm_file_name);
+    fatal_error ("%qs is not a valid output file", asm_file_name);
   
   asm_file_startpos = ftell (asm_out_file);
   
@@ -285,7 +284,7 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     {
       if (cpp_get_options (pfile)->warn_invalid_pch)
 	cpp_error (pfile, CPP_DL_WARNING, 
-		   "%s: created on host `%.*s', but used on host `%s'", name,
+		   "%s: created on host '%.*s', but used on host '%s'", name,
 		   v.host_machine_length, short_strings, host_machine);
       return 2;
     }
@@ -295,7 +294,7 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     {
       if (cpp_get_options (pfile)->warn_invalid_pch)
 	cpp_error (pfile, CPP_DL_WARNING, 
-		   "%s: created for target `%.*s', but used for target `%s'", 
+		   "%s: created for target '%.*s', but used for target '%s'", 
 		   name, v.target_machine_length, 
 		   short_strings + v.host_machine_length, target_machine);
       return 2;
@@ -308,7 +307,7 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     {
       if (cpp_get_options (pfile)->warn_invalid_pch)
 	cpp_error (pfile, CPP_DL_WARNING,
-		   "%s: created by version `%.*s', but this is version `%s'", 
+		   "%s: created by version '%.*s', but this is version '%s'", 
 		   name, v.version_length, 
 		   (short_strings + v.host_machine_length 
 		    + v.target_machine_length), 
@@ -384,6 +383,10 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     return result == 0;
 }
 
+/* If non-NULL, this function is called after a precompile header file
+   is loaded.  */
+void (*lang_post_pch_load) (void);
+
 /* Load in the PCH file NAME, open on FD.  It was originally searched for
    by ORIG_NAME.  */
 
@@ -443,6 +446,11 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
     return;
 
   fclose (f);
+  
+  /* Give the front end a chance to take action after a PCH file has
+     been loaded.  */
+  if (lang_post_pch_load)
+    (*lang_post_pch_load) ();
 }
 
 /* Indicate that no more PCH files should be read.  */

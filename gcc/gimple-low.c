@@ -69,8 +69,7 @@ lower_function_body (void)
   tree_stmt_iterator i;
   tree t, x;
 
-  if (TREE_CODE (bind) != BIND_EXPR)
-    abort ();
+  gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
@@ -117,8 +116,7 @@ lower_function_body (void)
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
     }
 
-  if (data.block != DECL_INITIAL (current_function_decl))
-    abort ();
+  gcc_assert (data.block == DECL_INITIAL (current_function_decl));
   BLOCK_SUBBLOCKS (data.block)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
@@ -138,7 +136,8 @@ struct tree_opt_pass pass_lower_cf =
   PROP_gimple_lcf,			/* properties_provided */
   PROP_gimple_any,			/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };
 
 
@@ -195,14 +194,16 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case CALL_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
-    case VA_ARG_EXPR:
     case SWITCH_EXPR:
       break;
 
     default:
+#ifdef ENABLE_CHECKING
       print_node_brief (stderr, "", stmt, 0);
+      internal_error ("unexpected node");
+#endif
     case COMPOUND_EXPR:
-      abort ();
+      gcc_unreachable ();
     }
 
   tsi_next (tsi);
@@ -224,15 +225,13 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 	  /* The outermost block of the original function may not be the
 	     outermost statement chain of the gimplified function.  So we
 	     may see the outermost block just inside the function.  */
-	  if (new_block != DECL_INITIAL (current_function_decl))
-	    abort ();
+	  gcc_assert (new_block == DECL_INITIAL (current_function_decl));
 	  new_block = NULL;
 	}
       else
 	{
 	  /* We do not expect to handle duplicate blocks.  */
-	  if (TREE_ASM_WRITTEN (new_block))
-	    abort ();
+	  gcc_assert (!TREE_ASM_WRITTEN (new_block));
 	  TREE_ASM_WRITTEN (new_block) = 1;
 
 	  /* Block tree may get clobbered by inlining.  Normally this would
@@ -252,8 +251,7 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   if (new_block)
     {
-      if (data->block != new_block)
-	abort ();
+      gcc_assert (data->block == new_block);
 
       BLOCK_SUBBLOCKS (new_block)
 	= blocks_nreverse (BLOCK_SUBBLOCKS (new_block));
@@ -476,16 +474,13 @@ expand_var_p (tree var)
   if (TREE_CODE (var) != VAR_DECL)
     return true;
 
-  /* Remove all unused, unaliased temporaries.  Also remove unused, unaliased
-     local variables during highly optimizing compilations.  */
+  /* Leave statics and externals alone.  */
+  if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+    return true;
+
+  /* Remove all unused local variables.  */
   ann = var_ann (var);
-  if (ann
-      && ! ann->may_aliases
-      && ! ann->used
-      && ! ann->has_hidden_use
-      && ! TREE_ADDRESSABLE (var)
-      && ! TREE_THIS_VOLATILE (var)
-      && (DECL_ARTIFICIAL (var) || optimize >= 2))
+  if (!ann || !ann->used)
     return false;
 
   return true;
@@ -497,6 +492,13 @@ static void
 remove_useless_vars (void)
 {
   tree var, *cell;
+  FILE *df = NULL;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      df = dump_file;
+      fputs ("Discarding as unused:\n", df);
+    }
 
   for (cell = &cfun->unexpanded_var_list; *cell; )
     {
@@ -504,27 +506,22 @@ remove_useless_vars (void)
 
       if (!expand_var_p (var))
 	{
+	  if (df)
+	    {
+	      fputs ("  ", df);
+	      print_generic_expr (df, var, dump_flags);
+	      fputc ('\n', df);
+	    }
+
 	  *cell = TREE_CHAIN (*cell);
 	  continue;
 	}
 
       cell = &TREE_CHAIN (*cell);
     }
-}
 
-/* Expand variables in the unexpanded_var_list.  */
-
-void
-expand_used_vars (void)
-{
-  tree cell;
-
-  cfun->unexpanded_var_list = nreverse (cfun->unexpanded_var_list);
-
-  for (cell = cfun->unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
-    expand_var (TREE_VALUE (cell));
-
-  cfun->unexpanded_var_list = NULL_TREE;
+  if (df)
+    fputc ('\n', df);
 }
 
 struct tree_opt_pass pass_remove_useless_vars = 
@@ -540,5 +537,6 @@ struct tree_opt_pass pass_remove_useless_vars =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
 };

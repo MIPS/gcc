@@ -109,11 +109,17 @@ Boston, MA 02111-1307, USA.  */
   { "-bundle", "-Zbundle" },  \
   { "-bundle_loader", "-Zbundle_loader" },  \
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
+  { "-dead_strip", "-Zdead_strip" }, \
+  { "-no_dead_strip_inits_and_terms", "-Zno_dead_strip_inits_and_terms" }, \
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-segaddr", "-Zsegaddr" }, \
+  { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
+  { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
+  { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -130,7 +136,25 @@ Boston, MA 02111-1307, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+/* Nonzero if the user has chosen to force sizeof(bool) to be 1
+   by providing the -mone-byte-bool switch.  It would be better
+   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
+   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
+   that this switch has no "no-" variant. */
+extern const char *darwin_one_byte_bool;
   
+extern int darwin_fix_and_continue;
+extern const char *darwin_fix_and_continue_switch;
+
+#undef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS \
+  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
+  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
+   N_("Generate code suitable for fast turn around debugging"), 0},	\
+  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}
+
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -154,10 +178,13 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "read_only_relocs") ? 1 :      \
    !strcmp (STR, "sectcreate") ? 3 :            \
    !strcmp (STR, "sectorder") ? 3 :             \
+   !strcmp (STR, "Zsegaddr") ? 2 :              \
+   !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
+   !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
+   !strcmp (STR, "Zseg_addr_table") ? 1 :       \
    !strcmp (STR, "Zseg_addr_table_filename") ?1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
-   !strcmp (STR, "seg_addr_table") ? 1 :        \
    !strcmp (STR, "sub_library") ? 1 :           \
    !strcmp (STR, "sub_umbrella") ? 1 :          \
    !strcmp (STR, "umbrella") ? 1 :              \
@@ -200,8 +227,7 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt }} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -212,6 +238,7 @@ Boston, MA 02111-1307, USA.  */
    their names so all of them get passed.  */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
+   %{fgnu-runtime:%:replace-outfile(-lobjc -lobjc-gnu)}\
    %{!Zdynamiclib: \
      %{Zbundle:-bundle} \
      %{Zbundle_loader*:-bundle_loader %*} \
@@ -241,6 +268,8 @@ Boston, MA 02111-1307, USA.  */
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
+   %{Zdead_strip:-dead_strip} \
+   %{Zno_dead_strip_inits_and_terms:-no_dead_strip_inits_and_terms} \
    %{Zdylib_file*:-dylib_file %*} \
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
@@ -254,7 +283,11 @@ Boston, MA 02111-1307, USA.  */
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
-   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} %{seg_addr_table*} \
+   %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
+   %{Zsegaddr*:-segaddr %*} \
+   %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
+   %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
+   %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
@@ -414,7 +447,7 @@ do { text_section ();							\
 
 /* The RTTI data (e.g., __ti4name) is common and public (and static),
    but it does need to be referenced via indirect PIC data pointers.
-   The machopic_define_name calls are telling the machopic subsystem
+   The machopic_define_symbol calls are telling the machopic subsystem
    that the name *is* defined in this module, so it doesn't need to
    make them indirect.  */
 
@@ -428,7 +461,7 @@ do { text_section ();							\
       if ((TREE_STATIC (DECL)						\
 	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
           || DECL_INITIAL (DECL))					\
-        machopic_define_name (xname);					\
+        machopic_define_symbol (DECL_RTL (DECL));			\
     if ((TREE_STATIC (DECL)						\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL))						\
@@ -449,7 +482,7 @@ do { text_section ();							\
       if ((TREE_STATIC (DECL)                                           \
 	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))             \
           || DECL_INITIAL (DECL))                                       \
-        machopic_define_name (xname);                                   \
+        machopic_define_symbol (DECL_RTL (DECL));                       \
     if ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
@@ -472,18 +505,18 @@ do { text_section ();							\
 #undef	ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
-       const char *xname = darwin_strip_name_encoding (NAME);		     \
+       const char *xname = (NAME);					     \
        if (! strcmp (xname, "<pic base>"))				     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \
            int len = strlen (xname);					     \
 	   if (len > 6 && !strcmp ("$stub", xname + len - 5))		     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 7 && !strcmp ("$stub\"", xname + len - 6))	     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 0);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   fputs (&xname[1], FILE);					     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
@@ -515,7 +548,7 @@ do { text_section ();							\
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     fputs (".lcomm ", (FILE));						\
@@ -525,11 +558,10 @@ do { text_section ();							\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL)))					\
-      (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
-    if ((DECL) && ((TREE_STATIC (DECL)					\
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
-        || DECL_INITIAL (DECL)))					\
-      machopic_define_name (NAME);					\
+      {									\
+	(* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
+	machopic_define_symbol (DECL_RTL (DECL));			\
+      }									\
   } while (0)
 
 /* The maximum alignment which the object file format can support.
@@ -646,7 +678,7 @@ SECTION_FUNCTION (objc_selector_refs_section,	\
 		  ".objc_message_refs", 1)	\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
-		  ".section __OBJC, __sel_fixup", 1)	\
+		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_symbols_section,		\
 		  in_objc_symbols,		\
 		  ".objc_symbols", 1)	\
@@ -661,11 +693,11 @@ SECTION_FUNCTION (objc_string_object_section,	\
 		  ".objc_string_object", 1)	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
-		  ".section __OBJC, __cstring_object", 1)	\
+		  ".section __OBJC, __cstring_object, regular, no_dead_strip", 1)	\
 /* Fix-and-Continue image marker.  */		\
 SECTION_FUNCTION (objc_image_info_section,	\
                   in_objc_image_info,		\
-                  ".section __OBJC, __image_info", 1)	\
+                  ".section __OBJC, __image_info, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
 		".objc_class_names", 1)	\
@@ -745,7 +777,8 @@ objc_section_init (void)			\
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
 #undef  TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
-
+#undef  TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
@@ -785,12 +818,29 @@ objc_section_init (void)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%ld", PREFIX, (long)(NUM))
 
+#undef TARGET_ASM_MARK_DECL_PRESERVED
+#define TARGET_ASM_MARK_DECL_PRESERVED darwin_mark_decl_preserved
+
 /* Since we have a separate readonly data section, define this so that
    jump tables end up in text rather than data.  */
 
 #ifndef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
+
+/* Set on a symbol with SYMBOL_FLAG_FUNCTION or
+   MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
+   variable has been defined in this translation unit.  */
+
+#define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
+#define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
+/* Set on a symbol to indicate when fix-and-continue style code
+   generation is being used and the symbol refers to a static symbol
+   that should be rebound from new instances of a translation unit to
+   the original instance of the data.  */
+
+#define MACHO_SYMBOL_STATIC ((SYMBOL_FLAG_MACH_DEP) << 2)
 
 /* Symbolic names for various things we might know about a symbol.  */
 
@@ -812,7 +862,7 @@ enum machopic_addr_class {
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING  darwin_strip_name_encoding
+#define TARGET_STRIP_NAME_ENCODING  default_strip_name_encoding
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
@@ -848,7 +898,7 @@ enum machopic_addr_class {
 
 #define GEN_LAZY_PTR_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH)	\
   do {								\
-    const char *symbol_ = darwin_strip_name_encoding (SYMBOL);	\
+    const char *symbol_ = (SYMBOL);                             \
     char *buffer_ = (BUF);					\
     if (symbol_[0] == '"')					\
       {								\
@@ -875,7 +925,7 @@ enum machopic_addr_class {
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
 #define EH_FRAME_SECTION_NAME   "__TEXT"
-#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
+#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms+live_support"
 
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
@@ -913,7 +963,9 @@ enum machopic_addr_class {
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
 
-void darwin_register_frameworks (int);
+void darwin_register_frameworks (const char *, const char *, int);
+void darwin_register_objc_includes (const char *, const char *, int);
+#define TARGET_EXTRA_PRE_INCLUDES darwin_register_objc_includes
 #define TARGET_EXTRA_INCLUDES darwin_register_frameworks
 
 void add_framework_path (char *);
@@ -925,5 +977,7 @@ void add_framework_path (char *);
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
 #endif
+
+#define WINT_TYPE "int"
 
 #endif /* CONFIG_DARWIN_H */

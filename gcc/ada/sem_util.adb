@@ -41,7 +41,6 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Output;   use Output;
 with Opt;      use Opt;
-with Restrict; use Restrict;
 with Rtsfind;  use Rtsfind;
 with Scans;    use Scans;
 with Scn;      use Scn;
@@ -467,6 +466,12 @@ package body Sem_Util is
       Decl : Node_Id;
 
    begin
+      --  Unchecked_Union components do not require component subtypes
+
+      if Is_Unchecked_Union (T) then
+         return Empty;
+      end if;
+
       Subt :=
         Make_Defining_Identifier (Loc,
           Chars => New_Internal_Name ('S'));
@@ -863,33 +868,23 @@ package body Sem_Util is
 
    procedure Check_Potentially_Blocking_Operation (N : Node_Id) is
       S   : Entity_Id;
-      Loc : constant Source_Ptr := Sloc (N);
 
    begin
-      --  N is one of the potentially blocking operations listed in
-      --  9.5.1 (8). When using the Ravenscar profile, raise Program_Error
-      --  before N if the context is a protected action. Otherwise, only issue
-      --  a warning, since some users are relying on blocking operations
-      --  inside protected objects.
-      --  Indirect blocking through a subprogram call
-      --  cannot be diagnosed statically without interprocedural analysis,
-      --  so we do not attempt to do it here.
+      --  N is one of the potentially blocking operations listed in 9.5.1(8).
+      --  When pragma Detect_Blocking is active, the run time will raise
+      --  Program_Error. Here we only issue a warning, since we generally
+      --  support the use of potentially blocking operations in the absence
+      --  of the pragma.
+
+      --  Indirect blocking through a subprogram call cannot be diagnosed
+      --  statically without interprocedural analysis, so we do not attempt
+      --  to do it here.
 
       S := Scope (Current_Scope);
-
       while Present (S) and then S /= Standard_Standard loop
          if Is_Protected_Type (S) then
-            if Restricted_Profile then
-               Insert_Before_And_Analyze (N,
-                  Make_Raise_Program_Error (Loc,
-                    Reason => PE_Potentially_Blocking_Operation));
-               Error_Msg_N ("potentially blocking operation, " &
-                 " Program Error will be raised at run time?", N);
-
-            else
-               Error_Msg_N
-                 ("potentially blocking operation in protected operation?", N);
-            end if;
+            Error_Msg_N
+              ("potentially blocking operation in protected operation?", N);
 
             return;
          end if;
@@ -2394,7 +2389,7 @@ package body Sem_Util is
       --  because the discriminant is not available. The restrictions on
       --  Unchecked_Union are designed to make sure that this is OK.
 
-      elsif Is_Unchecked_Union (Utyp) then
+      elsif Is_Unchecked_Union (Base_Type (Utyp)) then
          return Typ;
 
       --  Here for the unconstrained case, we must find actual subtype
@@ -4043,6 +4038,9 @@ package body Sem_Util is
          then
             return False;
 
+         elsif Nkind (Original_Node (AV)) = N_Type_Conversion then
+            return Is_OK_Variable_For_Out_Formal (Expression (AV));
+
          else
             return True;
          end if;
@@ -5093,7 +5091,8 @@ package body Sem_Util is
                              or else
                            (Nkind (Parent (N)) = N_Function_Call
                              or else
-                           Nkind (Parent (N)) = N_Parameter_Association))
+                            Nkind (Parent (N)) = N_Parameter_Association))
+                          and then Ekind (S) /= E_Function
                         then
                            Set_Etype (N, Etype (S));
                         else
@@ -5763,29 +5762,40 @@ package body Sem_Util is
       then
          return True;
 
-      --  Record type. OK if none of the component types requires a transient
-      --  scope. Note that we already know that this is a definite type (i.e.
-      --  has discriminant defaults if it is a discriminated record).
+      --  Record type
 
       elsif Is_Record_Type (Typ) then
-         if Has_Discriminants (Typ) then
+
+         --  In GCC 2, discriminated records always require a transient
+         --  scope because the back end otherwise tries to allocate a
+         --  variable length temporary for the particular variant.
+
+         if Opt.GCC_Version = 2
+           and then Has_Discriminants (Typ)
+         then
             return True;
+
+         --  For GCC 3, or for a non-discriminated record in GCC 2, we are
+         --  OK if none of the component types requires a transient scope.
+         --  Note that we already know that this is a definite type (i.e.
+         --  has discriminant defaults if it is a discriminated record).
+
+         else
+            declare
+               Comp : Entity_Id;
+            begin
+               Comp := First_Entity (Typ);
+               while Present (Comp) loop
+                  if Requires_Transient_Scope (Etype (Comp)) then
+                     return True;
+                  else
+                     Next_Entity (Comp);
+                  end if;
+               end loop;
+            end;
+
+            return False;
          end if;
-
-         declare
-            Comp : Entity_Id;
-         begin
-            Comp := First_Entity (Typ);
-            while Present (Comp) loop
-               if Requires_Transient_Scope (Etype (Comp)) then
-                  return True;
-               else
-                  Next_Entity (Comp);
-               end if;
-            end loop;
-         end;
-
-         return False;
 
       --  String literal types never require transient scope
 

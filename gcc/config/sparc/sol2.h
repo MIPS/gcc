@@ -108,6 +108,9 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
+/* The Solaris assembler cannot grok .stabd directives.  */
+#undef NO_DBX_BNSYM_ENSYM
+#define NO_DBX_BNSYM_ENSYM 1
 
 
 #undef  ENDFILE_SPEC
@@ -156,3 +159,12 @@ Boston, MA 02111-1307, USA.  */
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_V8PLUS + MASK_FPU + MASK_LONG_DOUBLE_128)
+
+/* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
+   the bits from config/sol2.c.  */
+#define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
+#define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
+
+/* Output a simple call for .init/.fini.  */
+#define ASM_OUTPUT_CALL(FILE, NAME)			\
+  fprintf (FILE, "\tcall\t%s\n\t nop\n", NAME)
