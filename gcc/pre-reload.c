@@ -2455,7 +2455,12 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
                                      recog_data.operand[i + 1]))
                 reject++;
 
-	      if (REG_P (operand))
+	      if (GET_CODE (recog_data.operand[c]) == MEM
+	          || mop_alt->address_operand)
+		{
+		  op_alt->address_operand = mop_alt->address_operand;
+		}
+	      else if (REG_P (operand))
 		{
 		  op_alt->reg = operand;
 		  op_alt->reg_loc = operand_loc;

@@ -1,5 +1,10 @@
 2003-10-16  Michael Matz  <matz@suse.de>
 
+	* pre-reload.c (scan_alternative): Don't handle address ops
+	as registers (even if they are).
+
+2003-10-16  Michael Matz  <matz@suse.de>
+
 	* ra-build.c (select_regclass): Subtract call_fixed_regs &
 	call_used_regs).
 
