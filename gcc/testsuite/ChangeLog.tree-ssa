@@ -1,0 +1,3 @@
+2002-08-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20020819-1.c: New test. 
