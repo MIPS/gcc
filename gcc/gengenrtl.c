@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "hconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #define NO_GENRTL_H
 #include "rtl.h"
@@ -333,6 +335,8 @@ gencode ()
 
   puts ("#include \"config.h\"");
   puts ("#include \"system.h\"");
+  puts ("#include \"coretypes.h\"");
+  puts ("#include \"tm.h\"");
   puts ("#include \"obstack.h\"");
   puts ("#include \"rtl.h\"");
   puts ("#include \"ggc.h\"\n");

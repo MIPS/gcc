@@ -1,3 +1,12 @@
+2002-11-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* call.c, class.c, cp-lang.c, cvt.c, cxxfilt.c, decl.c, decl2.c,
+	dump.c, error.c, except.c, expr.c, friend.c, g++spec.c, init.c,
+	lex.c, mangle.c, method.c, optimize.c, parse.y, pt.c, ptree.c,
+	repo.c, rtti.c, search.c, semantics.c, spew.c, tree.c, typeck.c,
+	typeck2.c: Include coretypes.h and tm.h.
+	* Make-lang.in: Update dependencies.
+
 2002-11-25  Jason Merrill  <jason@redhat.com>
 
 	* init.c (build_vec_init): Use a FOR_STMT instead of an IF_STMT
@@ -13,7 +22,7 @@
 	maybe_clone_body): Remove use of PARAMS.
 
 	* method.c (do_build_assign_ref, do_build_copy_constructor,
-	synthesize_exception_spec, locate_dtor, locate_ctor, locate_copy): 
+	synthesize_exception_spec, locate_dtor, locate_ctor, locate_copy):
 	Likewise.
 	(synthesize_method): Use 'bool' type and constants instead of
 	'int'.

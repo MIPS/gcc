@@ -24,6 +24,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    by pretty much any C compiler.  */
 #include "hconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "assert.h"
 
 /* Pull in the intrinsics info, but only the doc parts.  */

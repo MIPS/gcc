@@ -978,9 +978,10 @@ fi
 AC_SUBST(FORBUILD)
 
 tm_file="${tm_file} defaults.h"
-host_xm_file="auto-host.h ansidecl.h ${host_xm_file} ${tm_file}"
-build_xm_file="${build_auto} ansidecl.h ${build_xm_file} ${tm_file}"
-xm_file="ansidecl.h ${xm_file} ${tm_file}"
+tm_p_file="${tm_p_file} tm-preds.h"
+host_xm_file="auto-host.h ansidecl.h ${host_xm_file}"
+build_xm_file="${build_auto} ansidecl.h ${build_xm_file}"
+xm_file="ansidecl.h ${xm_file}"
 
 # Truncate the target if necessary
 if test x$host_truncate_target != x; then
@@ -1152,7 +1153,11 @@ done
 
 tm_p_file_list=
 for f in $tm_p_file; do
-    tm_p_file_list="${tm_p_file_list} \$(srcdir)/config/$f"
+  case $f in
+    tm-preds.h )
+       tm_p_file_list="${tm_p_file_list} $f" ;;
+    *) tm_p_file_list="${tm_p_file_list} \$(srcdir)/config/$f" ;;
+  esac
 done
 
 host_xm_file_list=

@@ -52,6 +52,8 @@
 
 #include "hconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "errors.h"
 #include "gensupport.h"
@@ -2396,6 +2398,8 @@ write_header ()
 \n\
 #include \"config.h\"\n\
 #include \"system.h\"\n\
+#include \"coretypes.h\"\n\
+#include \"tm.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tm_p.h\"\n\
 #include \"function.h\"\n\

@@ -20,6 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "hconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #define DEFTREECODE(SYM, NAME, TYPE, LEN)   STRINGX(SYM),
 

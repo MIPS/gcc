@@ -30,6 +30,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #endif
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #if (GCC_VERSION < 2000)
  #error "You have to use gcc 2.x to build g77."

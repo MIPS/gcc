@@ -20,6 +20,8 @@
 
 #include "hconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gensupport.h"
 
 /* MD generators that are run before insn-conditions.c exists should

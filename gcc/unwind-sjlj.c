@@ -21,6 +21,8 @@
 
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind.h"
 #include "gthr.h"
 
