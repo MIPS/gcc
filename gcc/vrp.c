@@ -1486,14 +1486,13 @@ compute_ranges_for_bb (bb)
 static void
 compute_ranges ()
 {
-  fibheap_t worklist;
-  sbitmap visited, pending, in_worklist;
+  fibheap_t worklist, pending, fibheap_swap;
+  sbitmap visited, in_worklist, in_pending, sbitmap_swap;
   basic_block bb;
   edge e;
   int *bb_order;
   int *rc_order;
   int i;
-  bool next_iteration;
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
@@ -1505,32 +1504,29 @@ compute_ranges ()
   free (rc_order);
 
   worklist = fibheap_new ();
+  pending = fibheap_new ();
   visited = sbitmap_alloc (last_basic_block);
-  pending = sbitmap_alloc (last_basic_block);
   in_worklist = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (pending);
+  in_pending = sbitmap_alloc (last_basic_block);
   sbitmap_zero (in_worklist);
+  sbitmap_zero (in_pending);
 
   FOR_EACH_BB (bb)
     {
-      SET_BIT (pending, bb->index);
+      fibheap_insert (pending, bb_order[bb->index], bb);
+      SET_BIT (in_pending, bb->index);
     }
-  next_iteration = true;
 
-  while (next_iteration)
+  while (!fibheap_empty (pending))
     {
-      FOR_EACH_BB (bb)
-	{
-	  if (TEST_BIT (pending, bb->index))
-	    {
-	      fibheap_insert (worklist, bb_order[bb->index], bb);
-	      SET_BIT (in_worklist, bb->index);
-	    }
-	}
+      fibheap_swap = pending;
+      pending = worklist;
+      worklist = fibheap_swap;
+      sbitmap_swap = in_pending;
+      in_pending = in_worklist;
+      in_worklist = sbitmap_swap;
 
       sbitmap_zero (visited);
-      sbitmap_zero (pending);
-      next_iteration = false;
 
       while (!fibheap_empty (worklist))
 	{
@@ -1560,12 +1556,21 @@ compute_ranges ()
 
 		      if (TEST_BIT (visited, e->dest->index))
 			{
-			  SET_BIT (pending, e->dest->index);
-			  next_iteration = true;
+			  if (!TEST_BIT (in_pending, e->dest->index))
+			    {
+			      /* Send E->DEST to next round.  */
+			      SET_BIT (in_pending, e->dest->index);
+			      fibheap_insert (pending, bb_order[e->dest->index],
+					      e->dest);
+			    }
 			}
 		      else if (!TEST_BIT (in_worklist, e->dest->index))
-			fibheap_insert (worklist, bb_order[e->dest->index],
-					e->dest);
+			{
+			  /* Add E->DEST to current round.  */
+			  SET_BIT (in_worklist, e->dest->index);
+			  fibheap_insert (worklist, bb_order[e->dest->index],
+					  e->dest);
+			}
 		    }
 		}
 	    }
@@ -1573,6 +1578,11 @@ compute_ranges ()
     }
 
   free (bb_order);
+  fibheap_delete (worklist);
+  fibheap_delete (pending);
+  sbitmap_free (visited);
+  sbitmap_free (in_worklist);
+  sbitmap_free (in_pending);
 }
 
 /* Return true if edge E is dead (we will never go though this edge because

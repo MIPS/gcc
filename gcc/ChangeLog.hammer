@@ -1,3 +1,7 @@
+2003-10-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* vrp.c (compute_ranges): Use 2 heaps, fix memory leak.
+
 2003-10-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline:
