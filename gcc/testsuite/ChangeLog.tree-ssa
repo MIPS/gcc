@@ -1,3 +1,10 @@
+2003-12-01  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/excute/intrinsic_fraction_exponent.f90:
+	Use correct types.  Handle negative exponents.
+	* gfortran.fortran- torture/excute/intrinsic_scale.f90: Remove
+	incorrect conditions.
+
 2003-12-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tls/asm-1.c: Update expected error message.

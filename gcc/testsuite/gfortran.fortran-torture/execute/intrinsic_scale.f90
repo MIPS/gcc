@@ -15,8 +15,7 @@ subroutine test_real4 (x, i)
   integer i
   y = x * (2.0 ** i)
   x = scale (x, i)
-  if ((abs (x - y) .gt. abs(x * 1e-6)) &
-    .and. (abs (x - t) .gt. abs(x * 1e-6)))call abort
+  if (abs (x - y) .gt. abs(x * 1e-6)) call abort
 end
 
 subroutine test_real8 (x, i)
@@ -24,6 +23,5 @@ subroutine test_real8 (x, i)
   integer i
   y = x * (2.0 ** i)
   x = scale (x, i)
-  if ((abs (x - y) .gt. abs(x * 1e-6)) &
-    .and. (abs (x - t) .gt. abs(x * 1e-6)))call abort
+  if (abs (x - y) .gt. abs(x * 1e-6)) call abort
 end

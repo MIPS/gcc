@@ -57,19 +57,28 @@ program test_exponent_fraction
 end
 
 subroutine test_4(x)
-real*4 x,y,z
+real*4 x,y
+integer z
 y = fraction (x)
 z = exponent(x)
-y = y * 2 * (2 ** (z - 1))
-if (x.ne.y) call abort()
+if (z .gt. 0) then
+  y = (y * 2.) * (2. ** (z - 1))
+else
+  y = (y / 2.) * (2. ** (z + 1))
+end if
+if (abs (x - y) .gt. abs(x * 1e-6)) call abort()
 end
 
 subroutine test_8(x)
-real*8 x, y, z
-
+real*8 x, y
+integer z
 y = fraction (x)
 z = exponent(x)
-y = y * 2 * (2 ** (z-1))
-if (x.ne.y) call abort()
+if (z .gt. 0) then
+  y = (y * 2._8) * (2._8 ** (z - 1))
+else
+  y = (y / 2._8) * (2._8 ** (z + 1))
+end if
+if (abs (x - y) .gt. abs(x * 1e-6)) call abort()
 end
 
