@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, NetBSD/arm ELF version.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GCC.
@@ -35,10 +35,8 @@
 /* Default it to use ATPCS with soft-VFP.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT			\
-  (ARM_FLAG_APCS_32			\
-   | ARM_FLAG_SOFT_FLOAT		\
+  (ARM_FLAG_SOFT_FLOAT			\
    | ARM_FLAG_APCS_FRAME		\
-   | ARM_FLAG_MMU_TRAPS			\
    | TARGET_ENDIAN_DEFAULT)
 
 #undef ARM_DEFAULT_ABI

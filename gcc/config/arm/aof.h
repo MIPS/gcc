@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler, for Advanced RISC Machines
    ARM compilation, AOF Assembler.
-   Copyright (C) 1995, 1996, 1997, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 2000, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@armltd.co.uk)
 
    This file is part of GCC.
@@ -34,8 +35,7 @@
 #define ENDFILE_SPEC "crtend.o%s"
 
 #ifndef ASM_SPEC
-#define ASM_SPEC "%{g -g} -arch 4 \
--apcs 3%{mapcs-32:/32bit}%{mapcs-26:/26bit}%{!mapcs-26:%{!macps-32:/26bit}}"
+#define ASM_SPEC "%{g -g} -arch 4 -apcs 3/32bit"
 #endif
 
 #ifndef LIB_SPEC
