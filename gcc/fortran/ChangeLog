@@ -1,3 +1,7 @@
+2004-04-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gfortranspec.c: Do not include multilib.h.
+
 2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* trans-intrinsic.c: Fix comment, this is not trans-expr.c. Add

@@ -49,7 +49,6 @@ Boston, MA 02111-1307, USA.  */
 #include "gcc.h"
 
 #include "coretypes.h"
-#include "multilib.h" /* before tm.h */
 #include "tm.h"
 
 #ifndef MATH_LIBRARY
