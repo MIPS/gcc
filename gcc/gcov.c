@@ -954,7 +954,7 @@ read_count_file ()
 	    {
 	      gcov_type count;
 	      
-	      if (gcov_read_counter (file, &count))
+	      if (gcov_read_counter (file, &count, false))
 		goto corrupt;
 	      fn->counts[ix] += count;
 	    }

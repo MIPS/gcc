@@ -90,6 +90,7 @@ gcov_exit (void)
   gcov_type program_max_sum = 0;
   gcov_type program_sum = 0;
   unsigned program_arcs = 0;
+  merger_function merger;
   
 #if defined (TARGET_HAS_F_SETLKW)
   struct flock s_flock;
@@ -227,6 +228,8 @@ gcov_exit (void)
 		   f_sect_index < fn_info->n_counter_sections;
 		   f_sect_index++)
 		{
+		  unsigned n_counters;
+
 		  if (gcov_read_unsigned (da_file, &tag)
 		      || gcov_read_unsigned (da_file, &length))
 		    goto read_error;
@@ -235,17 +238,28 @@ gcov_exit (void)
 		       sect_index++)
 		    if (ptr->counter_sections[sect_index].tag == tag)
 		      break;
-		  if (fn_info->counter_sections[f_sect_index].tag != tag
-		      || sect_index == ptr->n_counter_sections
-		      || length / 8 != fn_info->counter_sections[f_sect_index].n_counters)
+		  if (sect_index == ptr->n_counter_sections
+		      || fn_info->counter_sections[f_sect_index].tag != tag)
 		    goto read_mismatch;
-		  
-		  for (jx = fn_info->counter_sections[f_sect_index].n_counters;
-		       jx--; counters[sect_index]++)
-		    if (gcov_read_counter (da_file, &count))
-		      goto read_error;
-		    else
-		      *counters[sect_index] += count;
+
+		  n_counters = fn_info->counter_sections[f_sect_index].n_counters;
+		  if (n_counters != length / 8)
+		    goto read_mismatch;
+		 
+		  if ((merger = profile_merger_for_tag (tag)))
+		    {
+		      if ((*merger) (da_file, counters[sect_index], n_counters))
+			goto read_error;
+		    }
+		  else
+		    {
+		      for (jx = 0; jx < n_counters; jx++)
+			if (gcov_read_counter (da_file, &count, 0))
+			  goto read_error;
+			else
+			  counters[sect_index][jx] += count;
+		    }
+		  counters[sect_index] += n_counters;
 		}
 	    }
 

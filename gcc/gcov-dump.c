@@ -417,7 +417,7 @@ tag_arc_counts (filename, file, tag, length)
 	{
 	  gcov_type count;
 	  
-	  if (gcov_read_counter (file, &count))
+	  if (gcov_read_counter (file, &count, false))
 	    return 1;
 	  if (!(ix & 7))
 	    printf ("\n%s:\t\t%u", filename, ix);

@@ -177,6 +177,7 @@ typedef long long gcov_type;
 #define GCOV_TAG_ARC_COUNTS  	 ((unsigned)0x01a10000)
 #define GCOV_TAG_LOOP_HISTOGRAMS ((unsigned)0x01a30000)
 #define GCOV_TAG_VALUE_HISTOGRAMS ((unsigned)0x01a50000)
+#define GCOV_TAG_SAME_VALUE_HISTOGRAMS ((unsigned)0x01a70000)
 #define GCOV_TAG_OBJECT_SUMMARY  ((unsigned)0xa1000000)
 #define GCOV_TAG_PROGRAM_SUMMARY ((unsigned)0xa3000000)
 #define GCOV_TAG_PLACEHOLDER_SUMMARY ((unsigned)0xa5000000)
@@ -290,7 +291,7 @@ static int gcov_write_string PARAMS((FILE *, const char *, unsigned))
      ATTRIBUTE_UNUSED;
 static int gcov_read_unsigned PARAMS((FILE *, unsigned *))
      ATTRIBUTE_UNUSED;
-static int gcov_read_counter PARAMS((FILE *, gcov_type *))
+static int gcov_read_counter PARAMS((FILE *, gcov_type *, int))
      ATTRIBUTE_UNUSED;
 #if !IN_LIBGCC2
 static int gcov_read_string PARAMS((FILE *, char **, unsigned *))
@@ -315,6 +316,11 @@ static int gcov_write_length PARAMS((FILE *, long))
 	fseek (STREAM, LENGTH, SEEK_CUR)
 #define gcov_skip_string(STREAM, LENGTH) \
 	fseek (STREAM, (LENGTH) + 4 - ((LENGTH) & 3), SEEK_CUR)
+typedef int (*merger_function) PARAMS ((FILE *, gcov_type *, unsigned));
+static int same_value_histograms_merger PARAMS ((FILE *, gcov_type *, unsigned))
+     ATTRIBUTE_UNUSED;
+static merger_function profile_merger_for_tag PARAMS ((unsigned))
+     ATTRIBUTE_UNUSED;
 
 
 /* Write VALUE to coverage file FILE.  Return nonzero if failed due to
@@ -404,12 +410,14 @@ gcov_read_unsigned (file, value_p)
 }
 
 /* Read *VALUE_P from coverage file FILE.  Return nonzero if failed
-   due to file i/o error, or range error.  */
+   due to file i/o error, or range error.  If not MAY_BE_NEGATIVE,
+   report error if read value is negative.  */
 
 static int
-gcov_read_counter (file, value_p)
+gcov_read_counter (file, value_p, may_be_negative)
      FILE *file;
      gcov_type *value_p;
+     int may_be_negative;
 {
   gcov_type value = 0;
   unsigned ix;
@@ -427,7 +435,54 @@ gcov_read_counter (file, value_p)
     }
 
   *value_p = value;
-  return value < 0;
+  return !may_be_negative && value < 0;
+}
+
+static int
+same_value_histograms_merger (da_file, counters, n_counters)
+     FILE *da_file;
+     gcov_type *counters;
+     unsigned n_counters;
+{
+  unsigned i, n_measures;
+  gcov_type value, counter, all;
+
+  if (n_counters % 3)
+    return 1;
+
+  n_measures = n_counters / 3;
+  for (i = 0; i < n_measures; i++, counters += 3)
+    {
+      if (gcov_read_counter (da_file, &value, 1)
+	  || gcov_read_counter (da_file, &counter, 0)
+	  || gcov_read_counter (da_file, &all, 0))
+	return 1;
+
+      if (counters[0] == value)
+	counters[1] += counter;
+      else if (counter > counters[1])
+	{
+	  counters[0] = value;
+	  counters[1] = counter - counters[1];
+	}
+      else
+	counters[1] -= counter;
+      counters[2] += all;
+    }
+  return 0;
+}
+
+static merger_function
+profile_merger_for_tag (tag)
+     unsigned tag;
+{
+  switch (tag)
+    {
+    case GCOV_TAG_SAME_VALUE_HISTOGRAMS:
+      return same_value_histograms_merger;
+    default:
+      return 0;
+    }
 }
 
 #if !IN_LIBGCC2
@@ -491,10 +546,10 @@ gcov_read_summary (da_file, summary)
   return (gcov_read_unsigned (da_file, &summary->checksum)
 	  || gcov_read_unsigned (da_file, &summary->runs)
 	  || gcov_read_unsigned (da_file, &summary->arcs)
-	  || gcov_read_counter (da_file, &summary->arc_sum)
-	  || gcov_read_counter (da_file, &summary->arc_max_one)
-	  || gcov_read_counter (da_file, &summary->arc_max_sum)
-	  || gcov_read_counter (da_file, &summary->arc_sum_max));
+	  || gcov_read_counter (da_file, &summary->arc_sum, 0)
+	  || gcov_read_counter (da_file, &summary->arc_max_one, 0)
+	  || gcov_read_counter (da_file, &summary->arc_max_sum, 0)
+	  || gcov_read_counter (da_file, &summary->arc_sum_max, 0));
 }
 
 #if IN_LIBGCC2

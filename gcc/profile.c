@@ -139,6 +139,9 @@ static GTY(()) rtx loop_histograms_label;
 /* The name of the value histograms table.  */
 static GTY(()) rtx value_histograms_label;
 
+/* The name of the same value histograms table.  */
+static GTY(()) rtx same_value_histograms_label;
+
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
 
@@ -332,9 +335,10 @@ instrument_values (n_values, values)
   rtx sequence;
   unsigned i;
   edge e;
-  int n_histogram_counters = 0;
-  struct section_info *section_info;
+  int n_histogram_counters = 0, n_sv_histogram_counters = 0;
+  struct section_info *section_info, *sv_section_info;
  
+  sv_section_info = find_counters_section (GCOV_TAG_SAME_VALUE_HISTOGRAMS);
   section_info = find_counters_section (GCOV_TAG_VALUE_HISTOGRAMS);
 
   /* Emit code to generate the histograms before the insns.  */
@@ -350,24 +354,28 @@ instrument_values (n_values, values)
 	  sequence = 
 	      gen_interval_profiler (values + i, value_histograms_label,
 			section_info->n_counters + n_histogram_counters);
+	  n_histogram_counters += values[i].n_counters;
 	  break;
 
 	case HIST_TYPE_RANGE:
 	  sequence = 
 	      gen_range_profiler (values + i, value_histograms_label,
 			section_info->n_counters + n_histogram_counters);
+	  n_histogram_counters += values[i].n_counters;
 	  break;
 
 	case HIST_TYPE_POW2:
 	  sequence = 
 	      gen_pow2_profiler (values + i, value_histograms_label,
 			section_info->n_counters + n_histogram_counters);
+	  n_histogram_counters += values[i].n_counters;
 	  break;
 
 	case HIST_TYPE_ONE_VALUE:
 	  sequence = 
-	      gen_one_value_profiler (values + i, value_histograms_label,
-			section_info->n_counters + n_histogram_counters);
+	      gen_one_value_profiler (values + i, same_value_histograms_label,
+			sv_section_info->n_counters + n_sv_histogram_counters);
+	  n_sv_histogram_counters += values[i].n_counters;
 	  break;
 
 	default:
@@ -375,11 +383,12 @@ instrument_values (n_values, values)
 	}
 
       insert_insn_on_edge (sequence, e);
-      n_histogram_counters += values[i].n_counters;
     }
 
   section_info->n_counters_now = n_histogram_counters;
   section_info->n_counters += n_histogram_counters;
+  sv_section_info->n_counters_now = n_sv_histogram_counters;
+  sv_section_info->n_counters += n_sv_histogram_counters;
 }
 
 struct section_reference
@@ -668,7 +677,7 @@ get_exec_counts ()
 	  
       for (ix = 0; ix != num; ix++)
 	{
-	  if (gcov_read_counter (da_file, &count))
+	  if (gcov_read_counter (da_file, &count, false))
 	    abort ();
 	  if (count > max_count)
 	    max_count = count;
@@ -723,6 +732,7 @@ get_histogram_counts (section_tag, n_counters)
   struct da_index_entry *entry, what;
   struct section_reference *act;
   gcov_type count;
+  merger_function merger;
 
   /* No .da file, no execution counts.  */
   if (!da_file)
@@ -778,12 +788,26 @@ get_histogram_counts (section_tag, n_counters)
 	  warning ("profile mismatch for `%s'", current_function_name);
 	  goto cleanup;
 	}
-	  
-      for (ix = 0; ix != num; ix++)
+
+      if ((merger = profile_merger_for_tag (tag)))
 	{
-	  if (gcov_read_counter (da_file, &count))
-	    abort ();
-	  profile[ix] += count;
+	  if ((*merger) (da_file, profile, n_counters))
+	    {
+	      warning ("profile mismatch for `%s'", current_function_name);
+	      goto cleanup;
+	    }
+	}
+      else
+	{
+	  for (ix = 0; ix != num; ix++)
+	    {
+	      if (gcov_read_counter (da_file, &count, false))
+		{
+		  warning ("profile mismatch for `%s'", current_function_name);
+		  goto cleanup;
+		}
+	      profile[ix] += count;
+	    }
 	}
     }
 
@@ -839,35 +863,58 @@ compute_value_histograms (n_values, values)
      unsigned n_values;
      struct histogram_value *values;
 {
-  unsigned i, j, n_histogram_counters;
+  unsigned i, j, n_histogram_counters, n_sv_histogram_counters;
   gcov_type *histogram_counts, *act_count;
+  gcov_type *sv_histogram_counts, *sv_act_count;
+  gcov_type *aact_count;
   
   n_histogram_counters = 0;
+  n_sv_histogram_counters = 0;
   for (i = 0; i < n_values; i++)
-    n_histogram_counters += values[i].n_counters;
+    {
+      if (values[i].type == HIST_TYPE_ONE_VALUE)
+	n_sv_histogram_counters += values[i].n_counters;
+      else
+	n_histogram_counters += values[i].n_counters;
+    }
 
   histogram_counts = get_histogram_counts (GCOV_TAG_VALUE_HISTOGRAMS,
 					   n_histogram_counters);
-  if (!histogram_counts)
+  sv_histogram_counts = get_histogram_counts (GCOV_TAG_SAME_VALUE_HISTOGRAMS,
+   					      n_sv_histogram_counters);
+  if (!histogram_counts || !sv_histogram_counts)
     return;
 
   act_count = histogram_counts;
+  sv_act_count = sv_histogram_counts;
   for (i = 0; i < n_values; i++)
     {
       rtx hist_list = NULL_RTX;
 
+      
+      if (values[i].type == HIST_TYPE_ONE_VALUE)
+	{
+	  aact_count = sv_act_count;
+	  sv_act_count += values[i].n_counters;
+	}
+      else
+	{
+	  aact_count = act_count;
+	  act_count += values[i].n_counters;
+	}
       for (j = values[i].n_counters; j > 0; j--)
-	hist_list = alloc_EXPR_LIST (0, GEN_INT (act_count[j - 1]), hist_list);
+	hist_list = alloc_EXPR_LIST (0, GEN_INT (aact_count[j - 1]), hist_list);
       hist_list = alloc_EXPR_LIST (0, copy_rtx (values[i].value), hist_list);
       hist_list = alloc_EXPR_LIST (0, GEN_INT (values[i].type), hist_list);
       REG_NOTES (values[i].insn) =
 	      alloc_EXPR_LIST (REG_VALUE_HISTOGRAM, hist_list,
 			       REG_NOTES (values[i].insn));
-      act_count += values[i].n_counters;
     }
 
   free (histogram_counts);
+  free (sv_histogram_counts);
   find_counters_section (GCOV_TAG_VALUE_HISTOGRAMS)->present = 1;
+  find_counters_section (GCOV_TAG_SAME_VALUE_HISTOGRAMS)->present = 1;
 }
 
 /* Compute the branch probabilities for the various branches.
@@ -1559,7 +1606,10 @@ branch_prob ()
     }
 
   if (flag_value_histograms)
-    find_values_to_profile (&n_values, &values);
+    {
+      find_values_to_profile (&n_values, &values);
+      allocate_reg_info (max_reg_num (), FALSE, FALSE);
+    }
 
   if (flag_branch_probabilities)
     {
@@ -1797,6 +1847,9 @@ init_branch_prob (filename)
 
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 4);
       value_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 5);
+      same_value_histograms_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
     }
   
   total_num_blocks = 0;
@@ -1925,6 +1978,8 @@ label_for_tag (tag)
       return loop_histograms_label;
     case GCOV_TAG_VALUE_HISTOGRAMS:
       return value_histograms_label;
+    case GCOV_TAG_SAME_VALUE_HISTOGRAMS:
+      return same_value_histograms_label;
     default:
       abort ();
     }

@@ -22,7 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_PROFILE_H
 
 /* The number of different counter sections.  */
-#define MAX_COUNTER_SECTIONS	3
+#define MAX_COUNTER_SECTIONS	4
 
 /* Info about number of counters in the section.  */
 struct section_info
