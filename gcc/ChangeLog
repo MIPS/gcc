@@ -1,5 +1,13 @@
 2004-05-13  Paul Brook  <paul@codesourcery.com>
 
+	Backport from mainline.
+	* flags.h (flag_shor_enums): Update comments.
+	* opts.c (decode_options): Set flag_short_enums=2.
+	(process_options): Set default for flag_short_enums.
+	* config/arm/arm.h (DEFAULT_SHORT_ENUMS): Define
+
+2004-05-13  Paul Brook  <paul@codesourcery.com>
+
 	* config/arm/arm.h (PCC_BITFIELD_TYPE_MATTERS): Define.
 
 2004-05-07  Paul Brook  <paul@codesourcery.com>
