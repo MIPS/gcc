@@ -1,3 +1,56 @@
+2002-10-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree.h (struct tree_common): Rename field unused_0 to
+	not_gimple_flag.
+	(TREE_NOT_GIMPLE): Define.
+	* c-simplify.c (mark_not_simple_r): Remove.  Update all users.
+	(mark_not_simple): Set TREE_NOT_GIMPLE.
+	* gimplify.c (simplify_call_expr): Enable call to mark_not_simple.
+	* tree-flow.h (TF_NOT_SIMPLE): Remove.  Update all users.
+
+	* tree-cfg.c (build_tree_cfg): Rename from tree_find_basic_blocks.
+	Update all users.
+	Find the first executable statement before starting basic block 0.
+	(make_blocks): Do not accept TRY_FINALLY_EXPR and TRY_CATCH_EXPR
+	nodes.
+	(make_edges): Always create an edge from entry to basic block 0.
+	(delete_tree_cfg): Rename from delete_cfg.  Update all uses.
+	(first_exec_stmt): Return the container for the first statement,
+	not the statement itself.
+
+	* tree-dfa.c (tree_find_refs): Re-implement using a GIMPLE
+	iterator.
+	(find_refs_in_stmt): Handle GIMPLE statements.
+	(find_refs_in_expr): Call flags_from_decl_or_type when handling
+	CALL_EXPR expressions.
+	(create_ref): Call DECL_P.
+	(remove_tree_ann): Call tree_annotation.
+
+	* tree-flow-inline.h (gsi_step_bb): Stop if statement is not inside
+	a basic block.
+
+	* tree-flow.h (build_tree_cfg): Rename from tree_find_basic_blocks.
+	Update all users.
+	(delete_tree_cfg): Rename from delete_cfg.
+	(tree_find_refs): Declare.
+	(build_tree_ssa): Rename from tree_build_ssa.
+	(is_upward_exposed): Remove unused function.
+	* tree-optimize.c (delete_tree_ssa): Remove declaration.
+	(optimize_function_tree): Re-enable SSA builder.
+	* tree-simple.h (gsi_container): New function.
+
+	* Makefile.in (tree-ssa.o): Remove dependencies on c-common.h and
+	c-tree.h.
+	* tree-ssa.c: Don't include c-common.h nor c-tree.h.
+	(tree_find_refs): Remove declaration.
+	(remove_annotations_r): New local function.
+	(build_tree_ssa): Rename from tree_build_ssa.  Update all users.
+	(analyze_rdefs): Don't call prep_stmt.
+	(is_upward_exposed): Remove unused function.
+	(add_phi_node): Don't associate the PHI node to a statement.
+	(delete_tree_ssa): Receive the function body as argument.
+	Walk the function body removing annotations from every tree.
+
 2002-10-10  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	* tree-ssa-dce (tree_ssa_eliminate_dead_code): Initialize prev to

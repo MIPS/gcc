@@ -79,7 +79,6 @@ static void simplify_stmt_expr       PARAMS ((tree *, tree *));
 static void simplify_compound_literal_expr PARAMS ((tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
-static tree mark_not_simple_r        PARAMS ((tree *, int *, void *));
 static void simplify_block	     PARAMS ((tree *, tree *));
 static tree simplify_c_loop	     PARAMS ((tree, tree, tree, int));
 static void push_context             PARAMS ((void));
@@ -1143,29 +1142,9 @@ is_last_stmt_of_scope (stmt)
 	  && SCOPE_END_P (TREE_CHAIN (stmt)));
 }
 
-/* Callback for walk_tree.  Mark *TP and its sub-trees as not simplified.  */
-
-static tree
-mark_not_simple_r (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees;
-     void *data ATTRIBUTE_UNUSED;
-{
-  const enum tree_code code = TREE_CODE (*tp);
-  const char class = TREE_CODE_CLASS (code);
-
-  /* Don't mark constants, identifier nodes, declarations nor types.  */
-  if (class == 'c' || class == 'd' || class == 't' || code == IDENTIFIER_NODE)
-    *walk_subtrees = 0;
-  else
-    set_tree_flag (*tp, TF_NOT_SIMPLE);
-
-  return NULL_TREE;
-}
-
 void
 mark_not_simple (expr_p)
      tree *expr_p;
 {
-  walk_tree (expr_p, mark_not_simple_r, NULL, NULL);
+  TREE_NOT_GIMPLE (*expr_p) = 1;
 }

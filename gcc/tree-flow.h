@@ -486,14 +486,11 @@ enum tree_flags
   /* Expression tree should be folded.  */
   TF_FOLDED		= 1 << 0,
 
-  /* The expression is not in SIMPLE form.  */
-  TF_NOT_SIMPLE		= 1 << 1,
-
   /* This _DECL node has already been referenced in this function.  */
-  TF_REFERENCED		= 1 << 2,
+  TF_REFERENCED		= 1 << 1,
 
   /* This expression is necessary (not dead code).  */
-  TF_NECESSARY		= 1 << 3
+  TF_NECESSARY		= 1 << 2
 };
 
 static inline tree_ann tree_annotation	PARAMS ((tree));
@@ -603,7 +600,8 @@ referenced_var (i)
 
 
 /* In tree-cfg.c  */
-extern void tree_find_basic_blocks	PARAMS ((tree));
+extern void build_tree_cfg		PARAMS ((tree));
+extern void delete_tree_cfg		PARAMS ((void));
 extern bool is_ctrl_stmt		PARAMS ((tree));
 extern bool is_ctrl_altering_stmt	PARAMS ((tree));
 extern bool is_loop_stmt		PARAMS ((tree));
@@ -611,7 +609,6 @@ extern bool is_computed_goto		PARAMS ((tree));
 extern tree loop_body			PARAMS ((tree));
 extern void set_loop_body		PARAMS ((tree, tree));
 extern bool stmt_starts_bb_p		PARAMS ((tree));
-extern void delete_cfg			PARAMS ((void));
 extern bb_ann create_bb_ann 		PARAMS ((basic_block));
 extern void tree_dump_bb		PARAMS ((FILE *, const char *,
 						 basic_block, int));
@@ -631,6 +628,7 @@ extern tree last_stmt			PARAMS ((basic_block));
 
 
 /* In tree-dfa.c  */
+extern void tree_find_refs		PARAMS ((void));
 extern void find_refs_in_stmt           PARAMS ((tree, basic_block));
 extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
@@ -676,11 +674,10 @@ extern int get_alias_index		PARAMS ((tree, tree));
 
 
 /* In tree-ssa.c  */
-extern void tree_build_ssa		PARAMS ((void));
+extern void build_tree_ssa		PARAMS ((tree));
+extern void delete_tree_ssa		PARAMS ((tree));
 extern void tree_compute_rdefs		PARAMS ((void));
 extern void analyze_rdefs		PARAMS ((void));
-extern bool is_upward_exposed		PARAMS ((tree, sbitmap, int));
-extern void delete_tree_ssa		PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));
 extern void debug_reaching_defs		PARAMS ((void));

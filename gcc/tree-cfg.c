@@ -93,9 +93,11 @@ static basic_block switch_parent	PARAMS ((basic_block));
    function to process.  */
 
 void
-tree_find_basic_blocks (fnbody)
+build_tree_cfg (fnbody)
      tree fnbody;
 {
+  tree first;
+
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   last_basic_block = 0;
@@ -108,31 +110,37 @@ tree_find_basic_blocks (fnbody)
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
-  /* Find the basic blocks for the flowgraph.  */
-  make_blocks (fnbody, NULL);
-
-  if (n_basic_blocks > 0)
+  /* Find the basic blocks for the flowgraph.  First skip any
+     non-executable statements at the start of the function.  Otherwise
+     we'll end up with an empty basic block 0, which is useless.  */
+  first = first_exec_stmt (fnbody);
+  if (first)
     {
-      /* Adjust the size of the array.  */
-      VARRAY_GROW (basic_block_info, n_basic_blocks);
+      make_blocks (first, NULL);
 
-      /* Create the edges of the flowgraph.  */
-      make_edges ();
-
-      /* Write the flowgraph to a dot file.  */
-      dump_file = dump_begin (TDI_dot, &dump_flags);
-      if (dump_file)
+      if (n_basic_blocks > 0)
 	{
-	  tree_cfg2dot (dump_file);
-	  dump_end (TDI_dot, dump_file);
-	}
+	  /* Adjust the size of the array.  */
+	  VARRAY_GROW (basic_block_info, n_basic_blocks);
 
-      /* Dump a textual representation of the flowgraph.  */
-      dump_file = dump_begin (TDI_cfg, &dump_flags);
-      if (dump_file)
-	{
-	  tree_dump_cfg (dump_file);
-	  dump_end (TDI_cfg, dump_file);
+	  /* Create the edges of the flowgraph.  */
+	  make_edges ();
+
+	  /* Write the flowgraph to a dot file.  */
+	  dump_file = dump_begin (TDI_dot, &dump_flags);
+	  if (dump_file)
+	    {
+	      tree_cfg2dot (dump_file);
+	      dump_end (TDI_dot, dump_file);
+	    }
+
+	  /* Dump a textual representation of the flowgraph.  */
+	  dump_file = dump_begin (TDI_cfg, &dump_flags);
+	  if (dump_file)
+	    {
+	      tree_dump_cfg (dump_file);
+	      dump_end (TDI_cfg, dump_file);
+	    }
 	}
     }
 }
@@ -188,6 +196,9 @@ make_blocks (body, parent_block)
 	make_loop_expr_blocks (container, parent_block);
       else if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (container, parent_block);
+      else if (code == TRY_FINALLY_EXPR || code == TRY_CATCH_EXPR)
+	/* FIXME: These nodes should've been lowered by gimplify.c  */
+	abort ();
       else
 	{
 	  /* For regular statements, add them the current block and move on
@@ -407,9 +418,7 @@ make_edges ()
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  bb = first_exec_block (BASIC_BLOCK (0)->head_tree);
-  if (bb)
-    make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
   /* Traverse basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -1348,7 +1357,7 @@ stmt_starts_bb_p (t)
 /* Remove all the blocks and edges that make up the flowgraph.  */
 
 void
-delete_cfg ()
+delete_tree_cfg ()
 {
   basic_block bb;
 
@@ -1400,7 +1409,7 @@ first_exec_stmt (entry)
   gimple_stmt_iterator i;
   tree stmt;
   
-  for (i = gsi_start (entry); ! gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start (entry); !gsi_after_end (i); gsi_step (&i))
     {
       stmt = gsi_stmt (i);
       STRIP_WFL (stmt);
@@ -1409,9 +1418,12 @@ first_exec_stmt (entry)
       if (TREE_CODE (stmt) == BIND_EXPR)
 	return first_exec_stmt (BIND_EXPR_BODY (stmt));
 
-      /* Don't consider empty_stmt_node to be executable.  */
+      /* Don't consider empty_stmt_node to be executable.  Note that we
+	 actually return the container for the executable statement, not
+	 the statement itself.  This is to allow the caller to start
+	 iterating from this point.  */
       else if (stmt != empty_stmt_node)
-	return gsi_stmt (i);
+	return gsi_container (i);
     }
 
   return NULL_TREE;

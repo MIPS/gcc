@@ -640,7 +640,7 @@ gsi_step_bb (i)
      gimple_stmt_iterator *i;
 {
   basic_block bb = bb_for_stmt (i->ptr);
-  if (i->ptr != bb->end_tree)
+  if (bb && i->ptr != bb->end_tree)
     gsi_step (i);
   else
     i->ptr = NULL_TREE;

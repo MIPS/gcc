@@ -139,159 +139,77 @@ tree_find_refs ()
   /* Traverse every block in the function looking for variable references.  */
   FOR_EACH_BB (bb)
     {
-      /* for_each_stmt_in_bb (bb)  */
-#if 0
-      tree t = first_stmt (bb);
+      gimple_stmt_iterator i;
 
-      if (bb_empty_p (bb))
-	continue;
-
-      while (t)
-	{
-	  /* Some basic blocks are composed exclusively of expressions
-	     (e.g., FOR_* and DO_COND nodes), these are handled when
-	     find_refs_in_stmt processes their entry node.  */
-	  if (statement_code_p (TREE_CODE (t)))
-	    {
-	      find_refs_in_stmt (t, bb);
-	      if (t == last_stmt (bb) || is_ctrl_stmt (t))
-		break;
-	    }
-
-	  t = TREE_CHAIN (t);
-	}
-#endif
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
+	find_refs_in_stmt (gsi_stmt (i), bb);
     }
 
   compute_may_aliases ();
 }
 
 
-/* Walk T looking for variable references.  BB is the basic block that
-   contains T.  */
+/* Walk STMT looking for variable references.  BB is the basic block that
+   contains STMT.  */
 
 void
-find_refs_in_stmt (t, bb)
-     tree t;
+find_refs_in_stmt (stmt, bb)
+     tree stmt;
      basic_block bb;
 {
-#if 0
   enum tree_code code;
 
-  if (t == NULL || t == error_mark_node)
+  if (stmt == NULL || stmt == error_mark_node || stmt == empty_stmt_node)
     return;
 
-  code = TREE_CODE (t);
+  STRIP_WFL (stmt);
+  STRIP_NOPS (stmt);
+  code = TREE_CODE (stmt);
+
   switch (code)
     {
-    case EXPR_STMT:
-      find_refs_in_expr (&EXPR_STMT_EXPR (t), V_USE, bb, t, EXPR_STMT_EXPR (t));
+    case COND_EXPR:
+      find_refs_in_expr (&COND_EXPR_COND (stmt), V_USE, bb, stmt,
+	                 COND_EXPR_COND (stmt));
       break;
 
-    case IF_STMT:
-      find_refs_in_expr (&IF_COND (t), V_USE, bb, t, IF_COND (t));
-      break;
-      
-    case SWITCH_STMT:
-      find_refs_in_expr (&SWITCH_COND (t), V_USE, bb, t, SWITCH_COND (t));
+    case SWITCH_EXPR:
+      find_refs_in_expr (&SWITCH_COND (stmt), V_USE, bb, stmt,
+	                 SWITCH_COND (stmt));
       break;
 
-    case WHILE_STMT:
-      find_refs_in_expr (&WHILE_COND (t), V_USE, bb, t, WHILE_COND (t));
+    case ASM_EXPR:
+      find_refs_in_expr (&ASM_INPUTS (stmt), V_USE, bb, stmt,
+	                 ASM_INPUTS (stmt));
+      find_refs_in_expr (&ASM_OUTPUTS (stmt), V_DEF | M_CLOBBER, bb, stmt,
+	                 ASM_OUTPUTS (stmt));
+      find_refs_in_expr (&ASM_CLOBBERS (stmt), V_DEF | M_CLOBBER, bb, stmt,
+	                 ASM_CLOBBERS (stmt));
       break;
 
-    case FOR_STMT:
-      /* Grr, the FOR_INIT_STMT node of a FOR_STMT is also a statement,
-	 which is handled by the main loop in tree_find_tree_refs.  */
-      if (for_cond_bb (bb))
-	find_refs_in_expr (&FOR_COND (t), V_USE, for_cond_bb (bb), t,
-			   FOR_COND (t));
-
-      if (for_expr_bb (bb))
-	find_refs_in_expr (&FOR_EXPR (t), V_USE, for_expr_bb (bb), t,
-			   FOR_EXPR (t));
+    case RETURN_EXPR:
+      find_refs_in_expr (&TREE_OPERAND (stmt, 0), V_USE, bb, stmt, 
+	                 TREE_OPERAND (stmt, 0));
       break;
 
-    case DO_STMT:
-      if (do_cond_bb (bb))
-	find_refs_in_expr (&DO_COND (t), V_USE, do_cond_bb (bb), t,
-	                   DO_COND (t));
+    case GOTO_EXPR:
+      find_refs_in_expr (&GOTO_DESTINATION (stmt), V_USE, bb, stmt,
+	                 GOTO_DESTINATION (stmt));
       break;
 
-    case ASM_STMT:
-      find_refs_in_expr (&ASM_INPUTS (t), V_USE, bb, t, ASM_INPUTS (t));
-      find_refs_in_expr (&ASM_OUTPUTS (t), V_DEF | M_CLOBBER, bb, t,
-	                 ASM_OUTPUTS (t));
-      find_refs_in_expr (&ASM_CLOBBERS (t), V_DEF | M_CLOBBER, bb, t,
-	                 ASM_CLOBBERS (t));
+    case LABEL_EXPR:
+      find_refs_in_expr (&LABEL_EXPR_LABEL (stmt), V_USE, bb, stmt,
+			 LABEL_EXPR_LABEL (stmt));
       break;
 
-    case RETURN_STMT:
-      find_refs_in_expr (&RETURN_STMT_EXPR (t), V_USE, bb, t, 
-	                 RETURN_STMT_EXPR (t));
+      /* These nodes contain no variable references.  */
+    case LOOP_EXPR:
+    case CASE_LABEL_EXPR:
       break;
-
-    case GOTO_STMT:
-      find_refs_in_expr (&GOTO_DESTINATION (t), V_USE, bb, t,
-	                 GOTO_DESTINATION (t));
-      break;
-
-    case DECL_STMT:
-      if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL
-	  && DECL_INITIAL (DECL_STMT_DECL (t)))
-	{
-	  find_refs_in_expr (&DECL_INITIAL (DECL_STMT_DECL (t)), V_USE, bb, t,
-	                     DECL_INITIAL (DECL_STMT_DECL (t)));
-	  find_refs_in_expr (&DECL_STMT_DECL (t), V_DEF | M_INITIAL, bb, t,
-			     DECL_STMT_DECL (t));
-	}
-      break;
-
-    /* FIXME  CLEANUP_STMTs are not simplified.  Clobber everything.  */
-    case CLEANUP_STMT:
-      {
-	struct clobber_data_d clobber_data;
-
-	clobber_data.bb = bb;
-	clobber_data.parent_stmt = t;
-	clobber_data.parent_expr = CLEANUP_DECL (t);
-	walk_tree (&CLEANUP_DECL (t), clobber_vars_r, &clobber_data, NULL);
-
-	clobber_data.parent_expr = CLEANUP_EXPR (t);
-	walk_tree (&CLEANUP_EXPR (t), clobber_vars_r, &clobber_data, NULL);
-	break;
-      }
-
-    case LABEL_STMT:
-      find_refs_in_expr (&LABEL_STMT_LABEL (t), V_USE, bb, t,
-			 LABEL_STMT_LABEL (t));
-      break;
-
-    case STMT_EXPR:
-      find_refs_in_stmt (STMT_EXPR_STMT (t), bb);
-      break;
-
-    case CONTINUE_STMT:
-    case CASE_LABEL:
-    case BREAK_STMT:
-    case COMPOUND_STMT:
-    case SCOPE_STMT:
-    case FILE_STMT:
-      break;				/* Nothing to do.  */
 
     default:
-      {
-	prep_stmt (t);
-	error ("unhandled statement node in find_refs_in_stmt():");
-	fprintf (stderr, "\n");
-	tree_debug_bb (bb);
-	fprintf (stderr, "\n");
-	debug_tree (t);
-	fprintf (stderr, "\n");
-	abort ();
-      }
+      find_refs_in_expr (&stmt, V_USE, bb, stmt, stmt);
     }
-#endif
 }
 
 
@@ -339,9 +257,8 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
   /* If this reference is associated with a non SIMPLE expression, then we
      mark the parent expression non SIMPLE and recursively clobber every
      variable referenced by PARENT_EXPR.  */
-  if (parent_expr && tree_flags (expr) & TF_NOT_SIMPLE)
+  if (parent_expr && TREE_NOT_GIMPLE (expr))
     {
-      set_tree_flag (parent_expr, TF_NOT_SIMPLE);
       clobber_data.bb = bb;
       clobber_data.parent_expr = parent_expr;
       clobber_data.parent_stmt = parent_stmt;
@@ -476,30 +393,27 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
   if (code == CALL_EXPR)
     {
       tree callee;
+      int flags;
 
-      /* Find references in the call address.  */
       find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, bb, parent_stmt,
-			 parent_expr);
+	                 parent_expr);
 
-      /* Find references in the argument list.  */
       find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, bb, parent_stmt,
-			 parent_expr);
+	                 parent_expr);
 
-      /* See if the call might clobber local and/or global variables.  If
-	 the called function is pure or const, then we can safely ignore
-	 it.  */
       callee = get_callee_fndecl (expr);
-      if (callee
-	  && (DECL_IS_PURE (callee)
-	      || (TREE_READONLY (callee)
-		  && ! TREE_THIS_VOLATILE (callee))))
-	return;
+      flags = (callee) ? flags_from_decl_or_type (callee) : 0;
 
-      /* Create a may-use followed by a clobbering definition of GLOBAL_VAR.  */
-      create_ref (global_var, V_USE | M_MAY, bb, parent_stmt, parent_expr,
-		  NULL, true);
-      create_ref (global_var, V_DEF | M_CLOBBER, bb, parent_stmt, parent_expr,
-		  NULL, true);
+      /* If the called function is neither pure nor const, we create a
+	 may-use followed by a clobbering definition of GLOBAL_VAR.  */
+      if (! (flags & (ECF_CONST | ECF_PURE)))
+	{
+	  create_ref (global_var, V_USE | M_MAY, bb, parent_stmt,
+		      parent_expr, NULL, 1);
+
+	  create_ref (global_var, V_DEF | M_CLOBBER, bb, parent_stmt,
+		      parent_expr, NULL, 1);
+	}
 
       return;
     }
@@ -802,7 +716,7 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
     abort ();
 
   if (ref_type & (V_DEF | V_USE | V_PHI)
-      && TREE_CODE_CLASS (TREE_CODE (var)) != 'd'
+      && ! DECL_P (var)
       && TREE_CODE (var) != INDIRECT_REF)
     abort ();
 #endif
@@ -861,8 +775,7 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
       /* Add the variable to the list of variables referenced in this
 	 function.  But only for actual variable defs or uses in the code.  */
       if ((ref_type & (V_DEF | V_USE))
-	  && (TREE_CODE_CLASS (TREE_CODE (var)) == 'd'
-	      || TREE_CODE (var) == INDIRECT_REF))
+	  && (DECL_P (var) || TREE_CODE (var) == INDIRECT_REF))
 	add_referenced_var (var);
 
       /* Add this reference to the list of references for the variable.  */
@@ -975,7 +888,7 @@ void
 remove_tree_ann (t)
      tree t;
 {
-  tree_ann ann = (tree_ann)t->common.aux;
+  tree_ann ann = tree_annotation (t);
 
   if (ann == NULL)
     return;

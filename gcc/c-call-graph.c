@@ -125,10 +125,10 @@ construct_call_graph (buffer, t, spc)
 	  
 	  /* Control flow statistics.  */
 	  init_flow ();
-	  tree_find_basic_blocks (DECL_SAVED_TREE (node));
+	  build_tree_cfg (DECL_SAVED_TREE (node));
 	  output_printf (buffer, " CFG-edges=\"%d\" CFG-BB=\"%d\" McCabe=\"%d\">\n",
 			 n_edges, n_basic_blocks, n_edges - n_basic_blocks + 2);
-	  delete_cfg ();
+	  delete_tree_cfg ();
 
 	  /* End of the node.  */
 	  INDENT (spc);

@@ -32,13 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 #include "expr.h"
 #include "diagnostic.h"
-
-/* This should be eventually be generalized to other languages, but
-   this would require a shared function-as-trees infrastructure.  */
-#include "c-common.h"
-#include "c-tree.h"
 #include "bitmap.h"
-
 #include "tree-flow.h"
 #include "tree-simple.h"
 #include "tree-inline.h"
@@ -183,15 +177,14 @@ static void set_ssa_links		PARAMS ((tree_ref, tree, int));
 static void set_alias_imm_reaching_def	PARAMS ((tree_ref, size_t, tree_ref));
 static tree_ref create_default_def	PARAMS ((tree));
 static void init_tree_ssa		PARAMS ((void));
-
-/* Functions shared with tree-dfa.c.  */
-extern void tree_find_refs		PARAMS ((void));
+static tree remove_annotations_r		PARAMS ((tree *, int *, void *));
 
 
 /* Main entry point to the SSA builder.  */
 
 void
-tree_build_ssa ()
+build_tree_ssa (fndecl)
+     tree fndecl;
 {
   sbitmap *dfs;
   dominance_info idom;
@@ -202,8 +195,7 @@ tree_build_ssa ()
   /* Debugging dumps.  */
   tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
   if (tree_ssa_dump_file)
-    fprintf (tree_ssa_dump_file, "\nFunction %s\n\n",
-	     get_name (current_function_decl));
+    fprintf (tree_ssa_dump_file, "\nFunction %s\n\n", get_name (fndecl));
 
   /* Find variable references.  */
   tree_find_refs ();
@@ -553,7 +545,6 @@ analyze_rdefs ()
 	     uninitialized.  Otherwise it _may_ be used uninitialized.  */
 	  if (found_default)
 	    {
-	      prep_stmt (ref_stmt (use));
 	      if (reaching_defs (use)->last == reaching_defs (use)->first)
 		warning ("`%s' is used uninitialized at this point",
 		         get_name (var));
@@ -630,46 +621,6 @@ follow_chain (d, u)
       if (i >= 0)
 	follow_chain (alias_imm_reaching_def (d, i), u);
     }
-}
-
-
-/* Return true if one or more uses of VAR in BB_SET have reaching definitions
-   coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
-   the initializer expression used in the declaration of VAR will always
-   be considered external to BB_SET.  */
-
-bool
-is_upward_exposed (var, bb_set, exclude_init_decl)
-     tree var;
-     sbitmap bb_set;
-     int exclude_init_decl;
-{
-  struct ref_list_node *tmp;
-  tree_ref r;
-
-  FOR_EACH_REF (r, tmp, tree_refs (var))
-    {
-      /* If this is a use of the variable in one of the basic blocks that
-	 we are interested in, check its reaching definitions.  */
-      if ((ref_type (r) & V_USE) && TEST_BIT (bb_set, ref_bb (r)->index))
-	{
-	  tree_ref def;
-	  struct ref_list_node *tmp2;
-
-	  FOR_EACH_REF (def, tmp2, reaching_defs (r))
-	    {
-	      basic_block def_bb = ref_bb (def);
-
-	      if ((ref_type (def) & (V_DEF | M_DEFAULT))
-		  || (exclude_init_decl
-		      && TREE_CODE (ref_stmt (def)) == DECL_STMT)
-		  || ! TEST_BIT (bb_set, def_bb->index))
-		return 1;
-	    }
-	}
-    }
-
-  return 0;
 }
 
 
@@ -846,7 +797,7 @@ add_phi_node (bb, var)
     {
       tree_ref phi;
 
-      phi = create_ref (var, V_PHI, bb, first_stmt (bb), NULL, NULL, false);
+      phi = create_ref (var, V_PHI, bb, NULL_TREE, NULL_TREE, NULL, false);
       add_ref_to_list_begin (bb_refs (bb), phi);
 
       VARRAY_TREE (added, bb->index) = var;
@@ -1028,16 +979,26 @@ init_tree_ssa ()
 /* Deallocate memory associated with SSA data structures.  */
 
 void
-delete_tree_ssa ()
+delete_tree_ssa (fnbody)
+     tree fnbody;
 {
-  size_t i;
-
-  /* Remove annotations from every variable.  We should only need to remove
-     annotations from global variables, because those are the only ones that
-     might be re-used in other functions.  But better be safe.  */
-  for (i = 0; i < num_referenced_vars; i++)
-    remove_tree_ann (referenced_var (i));
+  /* Remove annotations from every tree in the function.  */
+  walk_tree (&fnbody, remove_annotations_r, NULL, NULL);
 
   num_referenced_vars = 0;
   referenced_vars = NULL;
+}
+
+
+/* Callback function for walk_tree to clear DFA/SSA annotations from
+   node *TP.  */
+
+static tree
+remove_annotations_r (tp, walk_subtrees, data)
+    tree *tp;
+    int *walk_subtrees ATTRIBUTE_UNUSED;
+    void *data ATTRIBUTE_UNUSED;
+{
+  remove_tree_ann (*tp);
+  return NULL_TREE;
 }

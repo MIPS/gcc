@@ -35,6 +35,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "tree-dchain.h"
 
+/* Shared functions with tree-cfg.c and tree-ssa.c.  */
+extern void delete_tree_ssa		PARAMS ((tree));
+
+
 /* Main entry point to the tree SSA transformation routines.  FNDECL is
    the FUNCTION_DECL node for the function to optimize.  */
 
@@ -45,7 +49,6 @@ optimize_function_tree (fndecl)
   tree fnbody;
   FILE *dump_file;
   int dump_flags;
-
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -70,14 +73,14 @@ optimize_function_tree (fndecl)
   /* Initialize flow data.  */
   init_flow ();
 
-  tree_find_basic_blocks (DECL_SAVED_TREE (fndecl));
+  build_tree_cfg (fnbody);
 
   /* Begin analysis optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
-#if 0
-      tree_build_ssa ();
+      build_tree_ssa (fndecl);
 
+#if 0
       if (flag_tree_points_to)
 	create_alias_vars ();
 
@@ -92,12 +95,14 @@ optimize_function_tree (fndecl)
 #endif
     }
 
+#if 0
   /* Wipe out the back-pointes in the statement chain.  */
   double_chain_free (fnbody);
+#endif
 
   /* Flush out flow graph and SSA data.  */
-  delete_cfg ();
-  delete_tree_ssa ();
+  delete_tree_ssa (fnbody);
+  delete_tree_cfg ();
 
   /* Debugging dump after optimization.  */
   dump_file = dump_begin (TDI_optimized, &dump_flags);

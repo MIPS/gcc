@@ -881,12 +881,8 @@ simplify_call_expr (expr_p, pre_p, post_p)
 	    be simplified.  The question mark are MD builtins.  */
   if (!is_simplifiable_builtin (*expr_p))
     {
-#if 0
-      /* FIXME disabled until mark_not_simple_r stops marking shared things
-	 (i.e. identifiers).  */
       /* Mark the whole expression not simplifiable.  */
       mark_not_simple (expr_p);
-#endif
       return;
     }
 

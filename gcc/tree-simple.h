@@ -106,6 +106,7 @@ static inline gimple_stmt_iterator gsi_start PARAMS ((tree));
 static inline bool gsi_after_end	PARAMS ((gimple_stmt_iterator));
 static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
 static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
+static inline tree gsi_container	PARAMS ((gimple_stmt_iterator));
 
 static inline gimple_stmt_iterator
 gsi_start (t)
@@ -152,6 +153,13 @@ gsi_stmt (i)
     }
 
   return t;
+}
+
+static inline tree
+gsi_container (i)
+     gimple_stmt_iterator i;
+{
+  return i.ptr;
 }
 
 #endif /* _TREE_SIMPLE_H  */
