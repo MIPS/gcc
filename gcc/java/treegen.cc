@@ -58,6 +58,10 @@ tree_code_generator::generate (model_class *the_class)
     {
       tree_generator gen (builtins, wrapper);
       tree method = gen.generate ((*i).get ());
+
+      dump_function (TDI_original, method);
+      gimplify_function_tree (method);
+      dump_function (TDI_generic, method);
       cgraph_finalize_function (method, 0);
     }
 

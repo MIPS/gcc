@@ -1,5 +1,10 @@
 2005-02-07  Tom Tromey  <tromey@redhat.com>
 
+	* glue.hh: Include tree-dump.h.
+	* treegen.cc (generate): Gimplify function.
+
+2005-02-07  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_type_qualified_invocation): Pass 'super' to
 	handle_invocation.  Handle static methods correctly.
 	* builtins.cc (map_type): Assign a name to the type.

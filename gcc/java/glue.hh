@@ -72,6 +72,7 @@ extern "C"
 // This gets us alloc_stmt_list().  Shouldn't that be in
 // tree-iterator.h?
 #include "tree-gimple.h"
+#include "tree-dump.h"
 }
 
 // gcc's system.h defines these unconditionally, but they make life
