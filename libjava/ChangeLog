@@ -1,3 +1,7 @@
+2005-01-05  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* libgcj.spec.in (lib): Add -l-javax-imageio.
+
 2005-01-04  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java: Replace direct
