@@ -53,6 +53,13 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
+#define EASY_VECTOR_15(n, x, y) ((n) >= -16 && (n) <= 15 \
+				 && easy_vector_same (x, y))
+
+#define EASY_VECTOR_15_ADD_SELF(n, x, y) ((n) >= 0x10 && (n) <= 0x1e \
+                                          && !((n) & 1)              \
+					  && easy_vector_same (x, y))
+
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
@@ -273,7 +280,6 @@ static unsigned int compute_vrsave_mask PARAMS ((void));
 static void is_altivec_return_reg PARAMS ((rtx, void *));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
-static int easy_vector_constant PARAMS ((rtx));
 static rtx rs6000_legitimize_tls_address PARAMS ((rtx, enum tls_model));
 static rtx rs6000_tls_get_addr PARAMS ((void));
 static rtx rs6000_got_sym PARAMS ((void));
@@ -1435,48 +1441,148 @@ easy_fp_constant (op, mode)
     abort ();
 }
 
-/* Return 1 if the operand is a CONST_INT and can be put into a
-   register with one instruction.  */
+/* Return nonzero if all elements of a vector have the same value.  */
 
 static int
-easy_vector_constant (op)
-     rtx op;
+easy_vector_same (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
-  rtx elt;
-  int units, i;
-
-  if (GET_CODE (op) != CONST_VECTOR)
-    return 0;
+  int units, i, cst;
 
   units = CONST_VECTOR_NUNITS (op);
 
-  /* We can generate 0 easily.  Look for that.  */
-  for (i = 0; i < units; ++i)
+  cst = INTVAL (CONST_VECTOR_ELT (op, 0));
+  for (i = 1; i < units; ++i)
+    if (INTVAL (CONST_VECTOR_ELT (op, i)) != cst)
+      break;
+  if (i == units)
+    return 1;
+  return 0;
+}
+
+/* Return 1 if the operand is a CONST_INT and can be put into a
+   register without using memory.  */
+
+int
+easy_vector_constant (rtx op, enum machine_mode mode)
+{
+  int cst, cst2;
+
+  if (GET_CODE (op) != CONST_VECTOR
+      || (!TARGET_ALTIVEC
+	  && !TARGET_SPE))
+    return 0;
+
+  if (zero_constant (op, mode)
+      && ((TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (mode))
+	  || (TARGET_SPE && SPE_VECTOR_MODE (mode))))
+    return 1;
+
+  if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
+    return 0;
+
+  if (TARGET_SPE && mode == V1DImode)
+    return 0;
+
+  cst  = INTVAL (CONST_VECTOR_ELT (op, 0));
+  cst2 = INTVAL (CONST_VECTOR_ELT (op, 1));
+
+  if (TARGET_ALTIVEC)
+    switch (mode) 
+      {
+      case V4SImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
+	  break;
+	cst = cst >> 16;
+      case V8HImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xff) != ((cst >> 8) & 0xff))
+	  break;
+	cst = cst >> 8;
+      case V16QImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+      default: 
+	break;
+      }
+
+  if (TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode))
+    return 1;
+
+  return 0;
+}
+
+/* Same as easy_vector_constant but only for EASY_VECTOR_15_ADD_SELF.  */
+
+int
+easy_vector_constant_add_self (rtx op, enum machine_mode mode)
+{
+  int cst;
+
+  if (!easy_vector_constant (op, mode))
+    return 0;
+
+  cst = INTVAL (CONST_VECTOR_ELT (op, 0));
+
+  return TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode);
+}
+
+const char *
+output_vec_const_move (rtx *operands)
+{
+  int cst, cst2;
+  enum machine_mode mode;
+  rtx dest, vec;
+
+  dest = operands[0];
+  vec = operands[1];
+
+  cst = INTVAL (CONST_VECTOR_ELT (vec, 0));
+  cst2 = INTVAL (CONST_VECTOR_ELT (vec, 1));
+  mode = GET_MODE (dest);
+
+  if (TARGET_ALTIVEC)
     {
-      elt = CONST_VECTOR_ELT (op, i);
-
-      /* We could probably simplify this by just checking for equality
-	 with CONST0_RTX for the current mode, but let's be safe
-	 instead.  */
-
-      switch (GET_CODE (elt))
+      if (zero_constant (vec, mode))
+	return "vxor %0,%0,%0";
+      else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
+	return "#";
+      else if (easy_vector_constant (vec, mode))
 	{
-	case CONST_INT:
-	  if (INTVAL (elt) != 0)
-	    return 0;
-	  break;
-	case CONST_DOUBLE:
-	  if (CONST_DOUBLE_LOW (elt) != 0 || CONST_DOUBLE_HIGH (elt) != 0)
-	    return 0;
-	  break;
-	default:
-	  return 0;
+	  operands[1] = GEN_INT (cst);
+	  switch (mode)
+	    {
+	    case V4SImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisw %0,%1";
+		}
+	      cst = cst >> 16;
+	    case V8HImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltish %0,%1";
+		}
+	      cst = cst >> 8;
+	    case V16QImode:
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisb %0,%1";
+		}
+	    default:
+	      abort ();
+	    }
 	}
+      else
+	abort ();
     }
 
-  /* We could probably generate a few other constants trivially, but
-     gcc doesn't generate them yet.  FIXME later.  */
-  return 1;
+  abort ();
 }
 
 /* Return 1 if the operand is the constant 0.  This works for scalars
@@ -2085,6 +2191,15 @@ small_data_operand (op, mode)
   return 0;
 #endif
 }
+/* Return true if either operand is a general purpose register.  */
+
+bool
+gpr_or_gpr_p (rtx op0, rtx op1)
+{
+  return ((REG_P (op0) && INT_REGNO_P (REGNO (op0)))
+	  || (REG_P (op1) && INT_REGNO_P (REGNO (op1))));
+}
+
 
 static int 
 constant_pool_expr_1 (op, have_sym, have_toc) 
@@ -3045,7 +3160,7 @@ rs6000_emit_move (dest, source, mode)
     case V2SImode:
     case V1DImode:
       if (CONSTANT_P (operands[1])
-	  && !easy_vector_constant (operands[1]))
+	  && !easy_vector_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
       
@@ -9304,6 +9419,145 @@ rs6000_emit_minmax (dest, code, op0, op1)
   if (target != dest)
     emit_move_insn (dest, target);
 }
+
+/* Emit instructions to move SRC to DST.  Called by splitters for
+   multi-register moves.  It will emit at most one instruction for
+   each register that is accessed; that is, it won't emit li/lis pairs
+   (or equivalent for 64-bit code).  One of SRC or DST must be a hard
+   register.  */
+
+void
+rs6000_split_multireg_move (rtx dst, rtx src)
+{
+  /* The register number of the first register being moved.  */
+  int reg;
+  /* The mode that is to be moved.  */
+  enum machine_mode mode;
+  /* The mode that the move is being done in, and its size.  */
+  enum machine_mode reg_mode;
+  int reg_mode_size;
+  /* The number of registers that will be moved.  */
+  int nregs;
+
+  reg = REG_P (dst) ? REGNO (dst) : REGNO (src);
+  mode = GET_MODE (dst);
+  nregs = HARD_REGNO_NREGS (reg, mode);
+  if (FP_REGNO_P (reg))
+    reg_mode = DFmode;
+  else if (ALTIVEC_REGNO_P (reg))
+    reg_mode = V16QImode;
+  else
+    reg_mode = word_mode;
+  reg_mode_size = GET_MODE_SIZE (reg_mode);
+  
+  if (reg_mode_size * nregs != GET_MODE_SIZE (mode))
+    abort ();
+  
+  if (REG_P (src) && REG_P (dst) && (REGNO (src) < REGNO (dst)))
+    {
+      /* Move register range backwards, if we might have destructive
+	 overlap.  */
+      int i;
+      for (i = nregs - 1; i >= 0; i--)
+	emit_insn (gen_rtx_SET (VOIDmode, 
+				simplify_gen_subreg (reg_mode, dst, mode,
+						     i * reg_mode_size),
+				simplify_gen_subreg (reg_mode, src, mode,
+						     i * reg_mode_size)));
+    }
+  else
+    {
+      int i;
+      int j = -1;
+      bool used_update = false;
+
+      if (GET_CODE (src) == MEM && INT_REGNO_P (reg))
+        {
+          rtx breg;
+
+	  if (GET_CODE (XEXP (src, 0)) == PRE_INC
+	      || GET_CODE (XEXP (src, 0)) == PRE_DEC)
+	    {
+	      rtx delta_rtx;
+	      breg = XEXP (XEXP (src, 0), 0);
+	      delta_rtx =  GET_CODE (XEXP (src, 0)) == PRE_INC 
+		  ? GEN_INT (GET_MODE_SIZE (GET_MODE (src))) 
+		  : GEN_INT (-GET_MODE_SIZE (GET_MODE (src))); 
+	      emit_insn (TARGET_32BIT
+			 ? gen_addsi3 (breg, breg, delta_rtx)
+			 : gen_adddi3 (breg, breg, delta_rtx));
+	      src = gen_rtx_MEM (mode, breg);
+	    }
+
+	  /* We have now address involving an base register only.
+	     If we use one of the registers to address memory, 
+	     we have change that register last.  */
+
+	  breg = (GET_CODE (XEXP (src, 0)) == PLUS
+		  ? XEXP (XEXP (src, 0), 0)
+		  : XEXP (src, 0));
+
+	  if (!REG_P (breg))
+	      abort();
+
+	  if (REGNO (breg) >= REGNO (dst) 
+	      && REGNO (breg) < REGNO (dst) + nregs)
+	    j = REGNO (breg) - REGNO (dst);
+        }
+
+      if (GET_CODE (dst) == MEM && INT_REGNO_P (reg))
+	{
+	  rtx breg;
+
+	  if (GET_CODE (XEXP (dst, 0)) == PRE_INC
+	      || GET_CODE (XEXP (dst, 0)) == PRE_DEC)
+	    {
+	      rtx delta_rtx;
+	      breg = XEXP (XEXP (dst, 0), 0);
+	      delta_rtx = GET_CODE (XEXP (dst, 0)) == PRE_INC 
+		? GEN_INT (GET_MODE_SIZE (GET_MODE (dst))) 
+		: GEN_INT (-GET_MODE_SIZE (GET_MODE (dst))); 
+
+	      /* We have to update the breg before doing the store.
+		 Use store with update, if available.  */
+
+	      if (TARGET_UPDATE)
+		{
+		  rtx nsrc = simplify_gen_subreg (reg_mode, src, mode, 0);
+		  emit_insn (TARGET_32BIT
+			     ? gen_movsi_update (breg, breg, delta_rtx, nsrc)
+			     : gen_movdi_update (breg, breg, delta_rtx, nsrc));
+		  used_update = true;
+		}
+	      else
+		emit_insn (TARGET_32BIT
+			   ? gen_addsi3 (breg, breg, delta_rtx)
+			   : gen_adddi3 (breg, breg, delta_rtx));
+	      dst = gen_rtx_MEM (mode, breg);
+	    }
+	}
+
+      for (i = 0; i < nregs; i++)
+	{  
+	  /* Calculate index to next subword.  */
+	  ++j;
+	  if (j == nregs) 
+	    j = 0;
+
+	  /* If compiler already emited move of first word by 
+	     store with update, no need to do anything.  */
+	  if (j == 0 && used_update)
+	    continue;
+	  
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  simplify_gen_subreg (reg_mode, dst, mode,
+						       j * reg_mode_size),
+				  simplify_gen_subreg (reg_mode, src, mode,
+						       j * reg_mode_size)));
+	}
+    }
+}
+
 
 /* This page contains routines that are used to determine what the
    function prologue and epilogue code will do and write them out.  */

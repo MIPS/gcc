@@ -2903,6 +2903,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
+  {"easy_vector_constant", {CONST_VECTOR}},				   \
+  {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \
   {"zero_fp_constant", {CONST_DOUBLE}},					   \
   {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
   {"lwa_operand", {SUBREG, MEM, REG}},					   \

@@ -54,6 +54,8 @@ extern int got_operand PARAMS ((rtx, enum machine_mode));
 extern int got_no_const_operand PARAMS ((rtx, enum machine_mode));
 extern int num_insns_constant PARAMS ((rtx, enum machine_mode));
 extern int easy_fp_constant PARAMS ((rtx, enum machine_mode));
+extern int easy_vector_constant (rtx, enum machine_mode);
+extern const char *output_vec_const_move (rtx *);
 extern int zero_fp_constant PARAMS ((rtx, enum machine_mode));
 extern int zero_constant PARAMS ((rtx, enum machine_mode));
 extern int volatile_mem_operand PARAMS ((rtx, enum machine_mode));
@@ -100,6 +102,7 @@ extern int includes_rldic_lshift_p PARAMS ((rtx, rtx));
 extern int includes_rldicr_lshift_p PARAMS ((rtx, rtx));
 extern int registers_ok_for_quad_peep PARAMS ((rtx, rtx));
 extern int addrs_ok_for_quad_peep PARAMS ((rtx, rtx));
+extern bool gpr_or_gpr_p (rtx, rtx);
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 						      enum machine_mode, rtx));
 extern int ccr_bit PARAMS ((rtx, int));
@@ -123,6 +126,7 @@ extern int stmw_operation PARAMS ((rtx, enum machine_mode));
 extern int mtcrf_operation PARAMS ((rtx, enum machine_mode));
 extern int lmw_operation PARAMS ((rtx, enum machine_mode));
 extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
+extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 extern rtx rs6000_legitimize_reload_address PARAMS ((rtx, enum machine_mode,

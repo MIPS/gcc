@@ -1,5 +1,39 @@
 2004-01-21  Hartmut Penner  <hpenner@de.ibm.com>
 
+	Backport 64 bit altivec enablement from mainline.
+	2004-01-08  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (easy_vector_constant): Accept
+	all vector constant loadable by vsplt*.
+	(output_vec_const_move): Likewise.
+
+	2003-10-17  Segher Boessenkool  <boessen@de.ibm.com>
+		    Hartmut Penner  <hpenner@de.ibm.com>
+
+	PR 10404, partial 11591, partial 11601
+	* config/rs6000/altivec.md ("altivec_dst", "altivec_dstt",
+	"altivec_dstst", "altivec_dststt", "altivec_lvsl", "altivec_lvsr",
+	"altivec_lvebx", "altivec_lvehx", "altivec_lvewx", "altivec_lvxl",
+	"altivec_lvx", "altivec_stvx", "altivec_stvxl", "altivec_stvebx",
+	"altivec_stvehx", "altivec_stvewx"): Use a memory_operand.
+	* config/rs6000/rs6000.c (altivec_expand_lv_builtin): New function.
+	(altivec_expand_stv_builtin): Adjust for the memory_operand.
+	(altivec_expand_builtin): Call altivec_expand_lv_builtin.
+	(altivec_init_builtins): Use `long int' for memory offsets.
+
+	2003-09-22  David Edelsohn  <edelsohn@gnu.org>
+		    Hartmut Penner  <hpenner@de.ibm.com>
+	            Segher Boessenkool  <boessen@de.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_in_gprs_p): Rename to ...
+	(gpr_or_gpr_p): Test INT_REGNO_P and convert to boolean.
+	(rs6000_split_altivec_in_gprs): Rename to ...
+	(rs6000_split_multireg_move): Add support for update addressing.
+	* config/rs6000/rs6000-protos.h: Same.
+	* config/rs6000/altivec.md: Same.
+
+2004-01-21  Hartmut Penner  <hpenner@de.ibm.com>
+
 	* f/com.h (ffecom_gfrt_basictype): Fix prototype.	
 
 2004-01-21  Andreas Jaeger  <aj@suse.de>
