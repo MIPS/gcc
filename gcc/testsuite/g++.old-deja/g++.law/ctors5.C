@@ -27,7 +27,7 @@ X::X( int xi )
 
 const X X::x0( 0 );
 
-Y::Y()
-{// ERROR -  no mat
+Y::Y() // ERROR -  no mat
+{
     xx = X::x0;
 }

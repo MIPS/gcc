@@ -1220,7 +1220,7 @@ current_scope_stmt_stack ()
 
 /* Finish a parenthesized expression EXPR.  */
 
-tree
+void
 finish_parenthesized_expr (expr)
      tree expr;
 {
@@ -1232,7 +1232,6 @@ finish_parenthesized_expr (expr)
     /* [expr.unary.op]/3 The qualified id of a pointer-to-member must not be
        enclosed in parentheses.  */
     PTRMEM_OK_P (expr) = 0;
-  return expr;
 }
 
 /* Begin a statement-expression.  The value returned must be passed to
@@ -1335,8 +1334,7 @@ finish_call_expr (fn, args, koenig)
     {
       if (TREE_CODE (fn) == BIT_NOT_EXPR)
 	fn = build_x_unary_op (BIT_NOT_EXPR, TREE_OPERAND (fn, 0));
-      else if (TREE_CODE (fn) != TEMPLATE_ID_EXPR
-	       && TREE_CODE (fn) != PSEUDO_DTOR_EXPR)
+      else if (TREE_CODE (fn) == IDENTIFIER_NODE)
 	fn = do_identifier (fn, 2, args);
     }
   
@@ -1489,12 +1487,22 @@ finish_qualified_call_expr (fn, args)
      tree fn;
      tree args;
 {
+  tree scope;
+
   if (processing_template_decl)
     return build_min_nt (CALL_EXPR, fn, args, NULL_TREE);
+
+  if (TREE_CODE (fn) == VAR_DECL)
+    return finish_call_expr (fn, args, /*koenig=*/0);
+  else if (TREE_CODE (fn) == OFFSET_REF)
+    {
+      scope = TREE_TYPE (TREE_OPERAND (fn, 0));
+      fn = TREE_OPERAND (fn, 1);
+    }
   else
-    return build_member_call (TREE_OPERAND (fn, 0),
-			      TREE_OPERAND (fn, 1),
-			      args);
+    scope = CP_DECL_CONTEXT (get_first_fn (fn));
+
+  return build_member_call (scope, fn, args);
 }
 
 /* Finish an expression of the form CODE EXPR.  */

@@ -2584,10 +2584,8 @@ build_x_function_call (function, params, decl)
        && DECL_STATIC_FUNCTION_P (function))
       || (DECL_FUNCTION_TEMPLATE_P (function)
 	  && DECL_STATIC_FUNCTION_P (DECL_TEMPLATE_RESULT (function))))
-      return build_member_call (DECL_CONTEXT (function), 
-				template_id 
-				? template_id : DECL_NAME (function), 
-				params);
+    return build_member_call (DECL_CONTEXT (function), function,
+			      params);
 
   is_method = ((TREE_CODE (function) == TREE_LIST
 		&& current_class_type != NULL_TREE
@@ -4621,8 +4619,10 @@ build_unary_op (code, xarg, noconvert)
 	  return build1 (ADDR_EXPR, unknown_type_node, arg);
 	}
 
-      if (TREE_CODE (arg) == COMPONENT_REF && type_unknown_p (arg)
-          && OVL_NEXT (TREE_OPERAND (arg, 1)) == NULL_TREE)
+      if (TREE_CODE (arg) == COMPONENT_REF 
+	  && type_unknown_p (arg)
+          && (OVL_NEXT (get_overloaded_fn (TREE_OPERAND (arg, 1)))
+	      == NULL_TREE))
         {
 	  /* They're trying to take the address of a unique non-static
 	     member function.  This is ill-formed (except in MS-land),
@@ -4635,7 +4635,7 @@ build_unary_op (code, xarg, noconvert)
 	     a useful error here.  */
 
 	  tree base = TREE_TYPE (TREE_OPERAND (arg, 0));
-	  tree name = DECL_NAME (get_first_fn (TREE_OPERAND (arg, 1)));
+	  tree name = get_first_fn (TREE_OPERAND (arg, 1));
 
 	  if (! flag_ms_extensions)
 	    {

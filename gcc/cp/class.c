@@ -6370,6 +6370,9 @@ instantiate_type (lhstype, rhs, flags)
 	tree fns = TREE_OPERAND (rhs, 0);
 	tree args = TREE_OPERAND (rhs, 1);
 
+	if (BASELINK_P (fns))
+	  fns = TREE_VALUE (fns);
+
 	return
 	  resolve_address_of_overloaded_function (lhstype,
 						  fns,

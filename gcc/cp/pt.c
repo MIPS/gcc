@@ -6760,7 +6760,9 @@ tsubst_copy (t, args, complain, in_decl)
 
     case VAR_DECL:
     case FUNCTION_DECL:
-      if ((DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
+      if ((DECL_LANG_SPECIFIC (t) 
+	   && DECL_TEMPLATE_INFO (t)
+	   && uses_template_parms (t))
 	  /* Substitute for local variables, too.  */
 	  || local_variable_p (t))
 	t = tsubst (t, args, complain, in_decl);
@@ -6880,13 +6882,9 @@ tsubst_copy (t, args, complain, in_decl)
     case CALL_EXPR:
       {
 	tree fn = TREE_OPERAND (t, 0);
-	if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-	  fn = tsubst_copy (fn, args, complain, in_decl);
-	else if (is_overloaded_fn (fn))
-	  fn = tsubst_copy (get_first_fn (fn), args, complain, in_decl);
-	else
-	  /* Sometimes FN is a LOOKUP_EXPR.  */
-	  fn = tsubst_copy (fn, args, complain, in_decl);
+	/* Substitute as necessary so that build_expr_from_tree can do
+	   lookup for unresolved names.  */
+	fn = tsubst_copy (fn, args, complain, in_decl);
 	return build_nt
 	  (code, fn, tsubst_copy (TREE_OPERAND (t, 1), args, complain,
 				  in_decl),
@@ -6990,9 +6988,6 @@ tsubst_copy (t, args, complain, in_decl)
 	fn = tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl);
 	return lookup_template_function (fn, targs);
       }
-
-    case OVERLOAD:
-      return DECL_NAME (get_first_fn (t));
 
     case TREE_LIST:
       {

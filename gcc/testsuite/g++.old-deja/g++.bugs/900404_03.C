@@ -7,13 +7,13 @@
 
 // keywords: overloading, ambiguity, resolution
 
-void function0 (int i, char c)
-{				// ERROR - 
+void function0 (int i, char c)  // ERROR - 
+{				
   i = c;
 }
 
-void function0 (char c, int i)
-{				// ERROR - 
+void function0 (char c, int i)  // ERROR - 
+{				
   i = c;
 }
 

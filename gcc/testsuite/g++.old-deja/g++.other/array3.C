@@ -1,6 +1,6 @@
 // Build don't link:
 // 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 10 Aug 2000 <nathan@codesourcery.com>
 
 // bug 386.C We ICE'd before emitting a diagnostic when trying to
@@ -20,6 +20,6 @@ class B
 };
 
 B::B (const A a[])
-  : ary(a)
-{        // ERROR - bad array initializer
+  : ary(a) // ERROR - bad array initializer
+{        
 }

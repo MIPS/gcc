@@ -943,16 +943,26 @@ really_overloaded_fn (x)
 	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
 }
 
+/* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
+   OVERLOAD, FUNCTION_DECL, TEMPLATE_ID_EXPR, or baselink.  */
+
+tree
+get_overloaded_fn (fns)
+     tree fns;
+{
+  if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
+    fns = TREE_OPERAND (fns, 0);
+  if (BASELINK_P (fns))
+    fns = TREE_VALUE (fns);
+  return fns;
+}
+
 tree
 get_first_fn (from)
      tree from;
 {
   my_friendly_assert (is_overloaded_fn (from), 9);
-  if (TREE_CODE (from) == TEMPLATE_ID_EXPR)
-    from = TREE_OPERAND (from, 0);
-  /* A baselink is also considered an overloaded function. */
-  if (BASELINK_P (from))
-    from = TREE_VALUE (from);
+  from = get_overloaded_fn (from);
   return OVL_CURRENT (from);
 }
 

@@ -9,8 +9,8 @@ typedef int array_type[0];		// ERROR - gets warning only
 
 int array_object_1[0];			// ERROR - gets warning only
 
-void function_0 (int formal_array[0])
-{					// ERROR - gets warning only
+void function_0 (int formal_array[0])   // ERROR - gets warning only
+{					
 }
 
 void function_2 ()

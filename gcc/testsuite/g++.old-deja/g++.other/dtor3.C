@@ -31,8 +31,8 @@ struct S5
   ~S5(); 
 };
 
-S5::~S5(float) 
-{ // ERROR - destructors may not have parameters
+S5::~S5(float) // ERROR - destructors may not have parameters
+{ 
 }
 
 

@@ -1,3 +1,5 @@
+// Build don't link:
+
 struct A {
   ~A();
 };

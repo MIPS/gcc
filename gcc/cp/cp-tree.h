@@ -3834,6 +3834,7 @@ extern tree start_handler_parms                 PARAMS ((tree, tree));
 extern int complete_array_type			PARAMS ((tree, tree, int));
 extern tree build_ptrmemfunc_type		PARAMS ((tree));
 /* the grokdeclarator prototype is in decl.h */
+extern tree get_scope_of_declarator             PARAMS ((tree));
 extern int copy_args_p				PARAMS ((tree));
 extern int grok_ctor_properties			PARAMS ((tree, tree));
 extern void grok_op_properties			PARAMS ((tree, int, int));
@@ -4254,7 +4255,7 @@ extern tree finish_asm_stmt                     PARAMS ((tree, tree, tree, tree,
 extern void finish_label_stmt                   PARAMS ((tree));
 extern void finish_label_decl                   PARAMS ((tree));
 extern void finish_subobject                    PARAMS ((tree));
-extern tree finish_parenthesized_expr           PARAMS ((tree));
+extern void finish_parenthesized_expr           PARAMS ((tree));
 extern tree begin_stmt_expr                     PARAMS ((void));
 extern tree finish_stmt_expr                    PARAMS ((tree));
 extern tree finish_call_expr                    PARAMS ((tree, tree, int));
@@ -4326,6 +4327,7 @@ extern tree binfo_value				PARAMS ((tree, tree));
 extern tree reverse_path			PARAMS ((tree));
 extern int count_functions			PARAMS ((tree));
 extern int is_overloaded_fn			PARAMS ((tree));
+extern tree get_overloaded_fn                   PARAMS ((tree));
 extern tree get_first_fn			PARAMS ((tree));
 extern int bound_pmf_p				PARAMS ((tree));
 extern tree ovl_cons                            PARAMS ((tree, tree));

@@ -3837,7 +3837,17 @@ build_expr_from_tree (t)
 	 build_expr_from_tree (TREE_OPERAND (t, 1)));
 
     case SCOPE_REF:
-      return build_offset_ref (TREE_OPERAND (t, 0), TREE_OPERAND (t, 1));
+      {
+	tree scope;
+	tree member;
+
+	scope = build_expr_from_tree (TREE_OPERAND (t, 0));
+	member = TREE_OPERAND (t, 1);
+	if (TREE_CODE (member) == IDENTIFIER_NODE)
+	  member = lookup_qualified_name (scope, member, /*is_type=*/0);
+
+	return build_offset_ref (scope, member);
+      }
 
     case ARRAY_REF:
       if (TREE_OPERAND (t, 0) == NULL_TREE)
@@ -3929,40 +3939,36 @@ build_expr_from_tree (t)
 	}
 
     case CALL_EXPR:
-      if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
-	{
-	  tree ref = TREE_OPERAND (t, 0);
-	  tree name = TREE_OPERAND (ref, 1);
-	  
-	  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-	    name = build_nt (TEMPLATE_ID_EXPR,
-	                     TREE_OPERAND (name, 0),
-	                     build_expr_from_tree (TREE_OPERAND (name, 1)));
-	    
-	  return build_member_call
-	    (build_expr_from_tree (TREE_OPERAND (ref, 0)),
-	     name,
-	     build_expr_from_tree (TREE_OPERAND (t, 1)));
-	}
-      else
-	{
-	  tree name = TREE_OPERAND (t, 0);
-          tree id;
-          tree args = build_expr_from_tree (TREE_OPERAND (t, 1));
-          if (args != NULL_TREE && TREE_CODE (name) == LOOKUP_EXPR
-              && !LOOKUP_EXPR_GLOBAL (name)
-              && TREE_CODE ((id = TREE_OPERAND (name, 0))) == IDENTIFIER_NODE
-              && (!current_class_type
-                  || !lookup_member (current_class_type, id, 0, 0)))
-            {
-              /* Do Koenig lookup if there are no class members. */
-              name = do_identifier (id, 0, args);
-            }
-          else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
-	      || ! really_overloaded_fn (name))
-	    name = build_expr_from_tree (name);
-	  return build_x_function_call (name, args, current_class_ref);
-	}
+      {
+	tree name;
+	tree id;
+	tree args;
+
+	args = build_expr_from_tree (TREE_OPERAND (t, 1));
+
+	if (TREE_CODE (TREE_OPERAND (t, 0)) == SCOPE_REF)
+	  {
+	    tree ref
+	      = build_expr_from_tree (TREE_OPERAND (t, 0));
+	    return finish_qualified_call_expr (ref, args);
+	  }
+	else
+	  name = TREE_OPERAND (t, 0);
+
+	if (args != NULL_TREE && TREE_CODE (name) == LOOKUP_EXPR
+	    && !LOOKUP_EXPR_GLOBAL (name)
+	    && TREE_CODE ((id = TREE_OPERAND (name, 0))) == IDENTIFIER_NODE
+	    && (!current_class_type
+		|| !lookup_member (current_class_type, id, 0, 0)))
+	  {
+	    /* Do Koenig lookup if there are no class members. */
+	    name = do_identifier (id, 0, args);
+	  }
+	else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
+		 || ! really_overloaded_fn (name))
+	  name = build_expr_from_tree (name);
+	return build_x_function_call (name, args, current_class_ref);
+      }
 
     case COND_EXPR:
       return build_x_conditional_expr

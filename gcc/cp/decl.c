@@ -4282,8 +4282,9 @@ pushdecl_class_level (x)
   register tree name;
 
   if (TREE_CODE (x) == OVERLOAD)
-    x = OVL_CURRENT (x);
-  name = DECL_NAME (x);
+    name = DECL_NAME (get_first_fn (x));
+  else
+    name = DECL_NAME (x);
 
   if (name)
     {
@@ -5816,10 +5817,8 @@ lookup_qualified_name (scope, name, is_type_p)
 	return NULL_TREE;
       return select_decl (val, flags);
     }
-  else if (scope == current_class_type)
-    val = IDENTIFIER_CLASS_VALUE (name);
   else
-    val = lookup_member (scope, name, 0, /*prefer_type=*/0);
+    val = lookup_member (scope, name, 0, is_type_p);
 
   return val;
 }
@@ -9152,6 +9151,41 @@ compute_array_index_type (name, size)
   return build_index_type (itype);
 }
 
+/* Returns the scope (if any) in which the entity declared by
+   DECLARATOR will be located.  If the entity was declared with an
+   unqualified name, NULL_TREE is returned.  */
+
+tree
+get_scope_of_declarator (declarator)
+     tree declarator;
+{
+  switch (TREE_CODE (declarator))
+    {
+    case CALL_EXPR:
+    case ARRAY_REF:
+    case INDIRECT_REF:
+    case ADDR_EXPR:
+      /* For any of these, the main declarator is the first operand.  */
+      return get_scope_of_declarator (TREE_OPERAND
+				      (declarator, 0));
+
+    case SCOPE_REF:
+      /* For a pointer-to-member, continue descending.  */
+      if (TREE_CODE (TREE_OPERAND (declarator, 1))
+	  == INDIRECT_REF)
+	return get_scope_of_declarator (TREE_OPERAND
+					(declarator, 1));
+      /* Otherwise, if the declarator-id is a SCOPE_REF, the scope in
+	 which the declaration occurs is the first operand.  */
+      return TREE_OPERAND (declarator, 0);
+
+    default:
+      /* Otherwise, we have a declarator-id which is not a qualified
+	 name; the entity will be declared in the current scope.  */
+      return NULL_TREE;
+    }
+}
+
 /* Returns an ARRAY_TYPE for an array with SIZE elements of the
    indicated TYPE.  If non-NULL, NAME is the NAME of the declaration
    with this type.  */
@@ -9380,6 +9414,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   tree in_namespace = NULL_TREE;
   tree inner_attrs;
   int ignore_attrs;
+  tree orig_declarator = declarator;
 
   RIDBIT_RESET_ALL (specbits);
   if (decl_context == FUNCDEF)
@@ -10586,9 +10621,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		/* This is the `standard' use of the scoping operator:
 		   basetype :: member .  */
 
-		if (current_class_type
-		    && same_type_p (ctype, current_class_type))
-		  ;
+		if (get_scope_of_declarator (orig_declarator)
+		    == current_class_type)
+		  {
+		    /* class A {
+		         void A::f ();
+		       };
+
+		       Is this ill-formed?  */
+
+		    if (pedantic && decl_context == FIELD)
+		      cp_pedwarn ("extra qualification `%T::' on member `%s' ignored",
+				  ctype, name);
+		  }
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
 		  {
 		    if (current_class_type == NULL_TREE || friendp)
@@ -10736,6 +10781,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   if (RIDBIT_SETP (RID_TYPEDEF, specbits) && decl_context != TYPENAME)
     {
       tree decl;
+      tree scope;
 
       /* Note that the grammar rejects storage classes
 	 in typenames, fields or parameters.  */
@@ -10790,7 +10836,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	     type with external linkage have external linkage.  */
 	}
 
-      if (TREE_CODE (type) == OFFSET_TYPE || TREE_CODE (type) == METHOD_TYPE)
+      scope = get_scope_of_declarator (orig_declarator);
+      if (scope && TYPE_P (scope))
 	{
 	  cp_error_at ("typedef name may not be class-qualified", decl);
 	  return NULL_TREE;

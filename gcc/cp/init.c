@@ -1444,85 +1444,28 @@ get_type_value (name)
 /* This code could just as well go in `class.c', but is placed here for
    modularity.  */
 
-/* For an expression of the form TYPE :: NAME (PARMLIST), build
+/* For an expression of the form TYPE :: FUNCTION (PARMLIST), build
    the appropriate function call.  */
 
 tree
-build_member_call (type, name, parmlist)
-     tree type, name, parmlist;
+build_member_call (type, function, parmlist)
+     tree type, function, parmlist;
 {
-  tree t;
-  tree method_name;
-  int dtor = 0;
-  tree basetype_path, decl;
+  tree basetype_path;
+  tree decl;
+  tree first_fn;
 
-  if (TREE_CODE (name) == TEMPLATE_ID_EXPR
-      && TREE_CODE (type) == NAMESPACE_DECL)
-    {
-      /* 'name' already refers to the decls from the namespace, since we
-	 hit do_identifier for template_ids.  */
-      method_name = TREE_OPERAND (name, 0);
-      /* FIXME: Since we don't do independent names right yet, the
-	 name might also be a LOOKUP_EXPR. Once we resolve this to a
-	 real decl earlier, this can go. This may happen during
-	 tsubst'ing.  */
-      if (TREE_CODE (method_name) == LOOKUP_EXPR)
-	{
-	  method_name = lookup_namespace_name 
-	    (type, TREE_OPERAND (method_name, 0));
-	  TREE_OPERAND (name, 0) = method_name;
-	}
-      my_friendly_assert (is_overloaded_fn (method_name), 980519);
-      return build_x_function_call (name, parmlist, current_class_ref);
-    }
-
-  if (DECL_P (name))
-    name = DECL_NAME (name);
-
-  if (type == fake_std_node)
-    return build_x_function_call (do_scoped_id (name, 0), parmlist,
+  if (TREE_CODE (type) == NAMESPACE_DECL || type == fake_std_node)
+    return build_x_function_call (function, 
+				  parmlist, 
 				  current_class_ref);
-  if (TREE_CODE (type) == NAMESPACE_DECL)
-    return build_x_function_call (lookup_namespace_name (type, name),
-				  parmlist, current_class_ref);
 
-  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-    {
-      method_name = DECL_NAME (get_first_fn (TREE_OPERAND (name, 0)));
-      TREE_OPERAND (name, 0) = method_name;
-    }
-  else
-    method_name = name;
+  first_fn = get_first_fn (function);
 
-  if (TREE_CODE (method_name) == BIT_NOT_EXPR)
-    {
-      method_name = TREE_OPERAND (method_name, 0);
-      dtor = 1;
-    }
-
-  /* This shouldn't be here, and build_member_call shouldn't appear in
-     parse.y!  (mrs)  */
-  if (type && TREE_CODE (type) == IDENTIFIER_NODE
-      && get_aggr_from_typedef (type, 0) == 0)
-    {
-      tree ns = lookup_name (type, 0);
-      if (ns && TREE_CODE (ns) == NAMESPACE_DECL)
-	{
-	  return build_x_function_call (build_offset_ref (type, name), parmlist, current_class_ref);
-	}
-    }
-
-  if (type == NULL_TREE || ! is_aggr_type (type, 1))
-    return error_mark_node;
-
-  /* An operator we did not like.  */
-  if (name == NULL_TREE)
-    return error_mark_node;
-
-  if (dtor)
+  if (DECL_DESTRUCTOR_P (first_fn))
     {
       cp_error ("cannot call destructor `%T::~%T' without object", type,
-		method_name);
+		type);
       return error_mark_node;
     }
 
@@ -1545,47 +1488,15 @@ build_member_call (type, name, parmlist)
 	}
     }
 
-  /* FIXME: We should not be doing name lookup here.  */
   /* FIXME: Functional casts are now detected by the parser.  */
-  if (constructor_name_p (method_name, type))
+  if (DECL_CONSTRUCTOR_P (first_fn))
     return build_functional_cast (type, parmlist);
-  if (lookup_fnfields (basetype_path, method_name, 0))
-    return build_method_call (decl, 
-			      TREE_CODE (name) == TEMPLATE_ID_EXPR
-			      ? name : method_name,
-			      parmlist, basetype_path,
-			      LOOKUP_NORMAL|LOOKUP_NONVIRTUAL);
-  if (TREE_CODE (name) == IDENTIFIER_NODE
-      && ((t = lookup_field (TYPE_BINFO (type), name, 1, 0))))
-    {
-      if (t == error_mark_node)
-	return error_mark_node;
-      if (TREE_CODE (t) == FIELD_DECL)
-	{
-	  if (is_dummy_object (decl))
-	    {
-	      cp_error ("invalid use of non-static field `%D'", t);
-	      return error_mark_node;
-	    }
-	  decl = build (COMPONENT_REF, TREE_TYPE (t), decl, t);
-	}
-      else if (TREE_CODE (t) == VAR_DECL)
-	decl = t;
-      else
-	{
-	  cp_error ("invalid use of member `%D'", t);
-	  return error_mark_node;
-	}
-      if (TYPE_LANG_SPECIFIC (TREE_TYPE (decl)))
-	return build_opfncall (CALL_EXPR, LOOKUP_NORMAL, decl,
-			       parmlist, NULL_TREE);
-      return build_function_call (decl, parmlist);
-    }
-  else
-    {
-      cp_error ("no method `%T::%D'", type, name);
-      return error_mark_node;
-    }
+  
+  return build_method_call (decl, 
+			    function, 
+			    parmlist, 
+			    basetype_path,
+			    LOOKUP_NORMAL|LOOKUP_NONVIRTUAL);
 }
 
 /* Build a reference to a member of an aggregate.  This is not a
@@ -1599,125 +1510,53 @@ build_member_call (type, name, parmlist)
    @@ This function should be rewritten and placed in search.c.  */
 
 tree
-build_offset_ref (type, name)
-     tree type, name;
+build_offset_ref (type, member)
+     tree type;
+     tree member;
 {
-  tree decl, t = error_mark_node;
-  tree member;
+  tree decl;
   tree basebinfo = NULL_TREE;
-  tree orig_name = name;
-
-  /* class templates can come in as TEMPLATE_DECLs here.  */
-  if (TREE_CODE (name) == TEMPLATE_DECL)
-    return name;
-
-  if (type == fake_std_node)
-    return do_scoped_id (name, 0);
-
-  if (processing_template_decl || uses_template_parms (type))
-    return build_min_nt (SCOPE_REF, type, name);
-
-  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-    {
-      /* If the NAME is a TEMPLATE_ID_EXPR, we are looking at
-	 something like `a.template f<int>' or the like.  For the most
-	 part, we treat this just like a.f.  We do remember, however,
-	 the template-id that was used.  */
-      name = TREE_OPERAND (orig_name, 0);
-
-      if (DECL_P (name))
-	name = DECL_NAME (name);
-      else
-	{
-	  if (TREE_CODE (name) == LOOKUP_EXPR)
-	    /* This can happen during tsubst'ing.  */
-	    name = TREE_OPERAND (name, 0);
-	  else
-	    {
-	      if (TREE_CODE (name) == COMPONENT_REF)
-		name = TREE_OPERAND (name, 1);
-	      if (TREE_CODE (name) == OVERLOAD)
-		name = DECL_NAME (OVL_CURRENT (name));
-	    }
-	}
-
-      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 0);
-    }
 
   if (type == NULL_TREE)
     return error_mark_node;
   
+  if (member == error_mark_node)
+    return error_mark_node;
+
   /* Handle namespace names fully here.  */
   if (TREE_CODE (type) == NAMESPACE_DECL)
     {
-      t = lookup_namespace_name (type, name);
-      if (t == error_mark_node)
-        return t;
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-        /* Reconstruct the TEMPLATE_ID_EXPR.  */
-        t = build (TEMPLATE_ID_EXPR, TREE_TYPE (t),
-                   t, TREE_OPERAND (orig_name, 1));
-      if (! type_unknown_p (t))
+      if (! type_unknown_p (member))
 	{
-	  mark_used (t);
-	  t = convert_from_reference (t);
+	  mark_used (member);
+	  member = convert_from_reference (member);
 	}
-      return t;
+      return member;
     }
 
   if (! is_aggr_type (type, 1))
     return error_mark_node;
 
-  if (TREE_CODE (name) == BIT_NOT_EXPR)
-    {
-      check_dtor_name (type, name);
-      name = dtor_identifier;
-    }
-
   if (!COMPLETE_TYPE_P (complete_type (type))
       && !TYPE_BEING_DEFINED (type))
     {
-      cp_error ("incomplete type `%T' does not have member `%D'", type,
-		name);
+      cp_error ("invalid use of incomplete type `%T'", type);
       return error_mark_node;
     }
 
   decl = maybe_dummy_object (type, &basebinfo);
 
-  member = lookup_member (basebinfo, name, 1, 0);
-
-  if (member == error_mark_node)
-    return error_mark_node;
+  if (uses_template_parms (TREE_TYPE (decl)))
+    return build_nt (SCOPE_REF, type, member);
 
   /* A lot of this logic is now handled in lookup_member.  */
   if (member && BASELINK_P (member))
     {
       /* Go from the TREE_BASELINK to the member function info.  */
       tree fnfields = member;
+      tree t;
+
       t = TREE_VALUE (fnfields);
-
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	{
-	  /* The FNFIELDS are going to contain functions that aren't
-	     necessarily templates, and templates that don't
-	     necessarily match the explicit template parameters.  We
-	     save all the functions, and the explicit parameters, and
-	     then figure out exactly what to instantiate with what
-	     arguments in instantiate_type.  */
-
-	  if (TREE_CODE (t) != OVERLOAD)
-	    /* The code in instantiate_type which will process this
-	       expects to encounter OVERLOADs, not raw functions.  */
-	    t = ovl_cons (t, NULL_TREE);
-
-          t = build (TEMPLATE_ID_EXPR, TREE_TYPE (t), t,
-	             TREE_OPERAND (orig_name, 1));
-	  t = build (OFFSET_REF, unknown_type_node, decl, t);
-          
-          PTRMEM_OK_P (t) = 1;
-          	  
-	  return t;
-	}
 
       if (!really_overloaded_fn (t))
 	{
@@ -1742,44 +1581,38 @@ build_offset_ref (type, name)
       return t;
     }
 
-  t = member;
-
-  if (t == NULL_TREE)
+  if (TREE_CODE (member) == TYPE_DECL)
     {
-      cp_error ("`%D' is not a member of type `%T'", name, type);
+      TREE_USED (member) = 1;
+      return member;
+    }
+  /* Static class members and class-specific enum values can be
+     returned without further ado.  */
+  if (TREE_CODE (member) == VAR_DECL 
+      || TREE_CODE (member) == CONST_DECL
+      || (TREE_CODE (member) == FUNCTION_DECL
+	  && DECL_STATIC_FUNCTION_P (member)))
+    {
+      mark_used (member);
+      return convert_from_reference (member);
+    }
+
+  if (TREE_CODE (member) == FIELD_DECL 
+      && DECL_C_BIT_FIELD (member))
+    {
+      cp_error ("illegal pointer to bit field `%D'", member);
       return error_mark_node;
     }
-
-  if (TREE_CODE (t) == TYPE_DECL)
-    {
-      TREE_USED (t) = 1;
-      return t;
-    }
-  /* static class members and class-specific enum
-     values can be returned without further ado.  */
-  if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == CONST_DECL)
-    {
-      mark_used (t);
-      return convert_from_reference (t);
-    }
-
-  if (TREE_CODE (t) == FIELD_DECL && DECL_C_BIT_FIELD (t))
-    {
-      cp_error ("illegal pointer to bit field `%D'", t);
-      return error_mark_node;
-    }
-
-  /* static class functions too.  */
-  if (TREE_CODE (t) == FUNCTION_DECL
-      && TREE_CODE (TREE_TYPE (t)) == FUNCTION_TYPE)
-    my_friendly_abort (53);
 
   /* In member functions, the form `type::name' is no longer
      equivalent to `this->type::name', at least not until
      resolve_offset_ref.  */
-  t = build (OFFSET_REF, build_offset_type (type, TREE_TYPE (t)), decl, t);
-  PTRMEM_OK_P (t) = 1;
-  return t;
+  member 
+    = build (OFFSET_REF, 
+	     build_offset_type (type, TREE_TYPE (member)), 
+	     decl, member);
+  PTRMEM_OK_P (member) = 1;
+  return member;
 }
 
 /* If a OFFSET_REF made it through to here, then it did

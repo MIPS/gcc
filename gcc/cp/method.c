@@ -217,8 +217,6 @@ hack_identifier (value, name)
 
       context = DECL_CONTEXT (get_first_fn (value));
       decl = maybe_dummy_object (context, 0);
-      if (current_template_parms)
-	
       value = build_component_ref (decl, value, NULL_TREE);
     }
   else if (really_overloaded_fn (value))
@@ -647,8 +645,13 @@ do_build_assign_ref (fndecl)
 	    (build_reference_type (p), parm,
 	     CONV_IMPLICIT, LOOKUP_COMPLAIN, NULL_TREE);
 	  p = convert_from_reference (p);
-	  p = build_member_call (basetype, ansi_assopname (NOP_EXPR),
-				 build_tree_list (NULL_TREE, p));
+	  p = (build_member_call 
+	       (basetype, 
+		lookup_member (basetype,
+			       ansi_assopname (NOP_EXPR),
+			       /*protect=*/1,
+			       /*is_type=*/0),
+		build_tree_list (NULL_TREE, p)));
 	  finish_expr_stmt (p);
 	}
       for (; fields; fields = TREE_CHAIN (fields))
