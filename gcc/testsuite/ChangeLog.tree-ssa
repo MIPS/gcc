@@ -1,3 +1,8 @@
+2003-10-01  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/parse/crash10.C: Adjust expected error lines.
+	* g++.old-deja/g++.other/crash31.C: Likewise.
+
 2003-09-29  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/ext/stmtexpr1.C, g++.dg/parse/stack1.C: XFAIL.
