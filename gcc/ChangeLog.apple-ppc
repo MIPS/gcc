@@ -1,3 +1,22 @@
+2005-01-13  Dale Johannesen  <dalej@apple.com>
+
+	Radars 3942172 3897795 3944716 3941494
+	* config/rs6000/rs6000.h (CUMULATIVE_ARGS): New fields
+	intoffset, use_stack, named.
+	* config/rs6000/rs6000.c (rs6000_darwin64_function_arg):  Remove.
+	rs6000_darwin64_record_arg_advance_flush_pending_int_fields:  New.
+	rs6000_darwin64_record_arg_advance_recurs: New.
+	rs6000_darwin64_record_arg_flush_pending_int_fields:  New.
+	rs6000_darwin64_record_arg_recurs:  New.
+	rs6000_darwin64_record_arg:  New.
+	rs6000_return_in_memory:  Remove AGGREGATE_TYPE_P check.
+	function_arg_boundary:  Handle 128-bit aligned structs.
+	function_arg_advance:  Rewrite darwin-64 struct handling.
+	function_arg:  Call rs6000_darwin64_record_arg.
+	function_arg_partial_nregs:  Handle darwin-64 structs.
+	rs6000_darwin64_function_value:  Remove.
+	rs6000_function_value:  Call rs6000_darwin64_record_arg.
+
 2005-01-04  Anders Bertelrud  <anders@apple.com>
 
 	Radar 3871393
