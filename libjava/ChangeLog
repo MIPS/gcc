@@ -1,5 +1,27 @@
 2004-05-18  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java: Give gtkSetFont
+	package access.  Don't override setFont.
+	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java: Give
+	gtkWidgetRequestFocus package access.
+	* gnu/java/awt/peer/gtk/GtkLabelPeer.java: Don't override
+	setFont.
+	* gnu/java/awt/peer/gtk/GtkListPeer.java: Override gtkSetFont.
+	Give gtkWidgetRequestFocus package access.
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java: Give
+	gtkWidgetRequestFocus package access.  Don't override setFont.
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java: Don't override
+	setFont.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(gtkSetLabel): Move call to gtk_bin_get_child into GDK critical
+	region.
+	(gtkSetFont): Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c (gtkSetFont):
+	Implement.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
+	(gtkSetFont): Whitespace fix.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
 	(gtkWidgetSetUsize): Remove method.
 

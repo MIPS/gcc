@@ -164,7 +164,7 @@ Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_gtkSetFont
   if (style & AWT_STYLE_ITALIC)
     pango_font_description_set_style (font_desc, PANGO_STYLE_OBLIQUE);
 
-  gtk_widget_modify_font (GTK_WIDGET(text), font_desc);
+  gtk_widget_modify_font (GTK_WIDGET (text), font_desc);
 
   pango_font_description_free (font_desc);
 

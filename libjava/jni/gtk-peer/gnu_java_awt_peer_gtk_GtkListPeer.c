@@ -149,6 +149,41 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_connectSignals
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkListPeer_gtkSetFont
+  (JNIEnv *env, jobject obj, jstring name, jint style, jint size)
+{
+  const char *font_name;
+  void *ptr;
+  GtkWidget *list;
+  PangoFontDescription *font_desc;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter();
+
+  list = GTK_WIDGET (TREE_VIEW_FROM_SW (ptr));
+
+  font_name = (*env)->GetStringUTFChars (env, name, NULL);
+
+  font_desc = pango_font_description_from_string (font_name);
+  pango_font_description_set_size (font_desc, size * PANGO_SCALE);
+
+  if (style & AWT_STYLE_BOLD)
+    pango_font_description_set_weight (font_desc, PANGO_WEIGHT_BOLD);
+
+  if (style & AWT_STYLE_ITALIC)
+    pango_font_description_set_style (font_desc, PANGO_STYLE_OBLIQUE);
+
+  gtk_widget_modify_font (GTK_WIDGET (list), font_desc);
+
+  pango_font_description_free (font_desc);
+
+  (*env)->ReleaseStringUTFChars (env, name, font_name);
+
+  gdk_threads_leave();
+}
+
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkListPeer_gtkWidgetRequestFocus
   (JNIEnv *env, jobject obj)
 {

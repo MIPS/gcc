@@ -96,11 +96,14 @@ Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetLabel
   void *ptr;
 
   ptr = NSA_GET_PTR (env, obj);
-  label = gtk_bin_get_child (GTK_BIN(ptr));
+
   text = (*env)->GetStringUTFChars (env, jtext, NULL);
 
   gdk_threads_enter ();
+
+  label = gtk_bin_get_child (GTK_BIN (ptr));
   gtk_label_set_text (GTK_LABEL(label), text);
+
   gdk_threads_leave ();
 
   (*env)->ReleaseStringUTFChars (env, jtext, text);
@@ -112,21 +115,19 @@ Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkSetFont
 {
   const char *font_name;
   void *ptr;
-  GtkWidget *button;
   GtkWidget *label;
   PangoFontDescription *font_desc;
 
   ptr = NSA_GET_PTR (env, obj);
 
-  button = GTK_WIDGET (ptr);
-  label = gtk_bin_get_child (GTK_BIN(button));
-  
-  if (!label)
-      return;
-
   font_name = (*env)->GetStringUTFChars (env, name, NULL);
 
   gdk_threads_enter();
+
+  label = gtk_bin_get_child (GTK_BIN (ptr));
+
+  if (!label)
+    return;
 
   font_desc = pango_font_description_from_string (font_name);
   pango_font_description_set_size (font_desc, size * PANGO_SCALE);
