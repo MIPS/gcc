@@ -1,3 +1,9 @@
+2003-12-31  Huang Chun <chunhuang73@hotmail.com>
+
+	PR fortran/13434
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxval): Fixed bug in 
+	minval/maxval.
+
 2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* options.c (gfc_init_options): Set flag_argument_noalias to 2, to indicate

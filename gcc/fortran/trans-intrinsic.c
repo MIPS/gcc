@@ -1631,7 +1631,7 @@ gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, int op)
   if (maskss)
     {
       /* We enclose the above in if (mask) {...}.  */
-      tmp = build (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
+      tmp = build_v (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
     }
   gfc_add_expr_to_block (&body, tmp);
 
