@@ -1715,7 +1715,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 #ifdef BLOCK_REG_PADDING
 		  && args[i].locate.where_pad == downward
 #else
-		  && BYTES_BIG_ENDIAN
+		  && BYTES_BIG_ENDIAN 
+		  /* APPLE LOCAL begin fix to regression caused by PR 14262 */
+		  && !args[i].pass_on_stack
+		  /* APPLE LOCAL end fix to regression caused by PR 14262 */
 #endif
 		 )
 		{
