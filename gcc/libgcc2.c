@@ -1075,7 +1075,10 @@ __floatdisf (DWtype u)
 	     && u < ((DWtype) 1 << DF_SIZE)))
 	{
 	  if ((UDWtype) u & (REP_BIT - 1))
-	    u |= REP_BIT;
+	    {
+	      u &= ~ (REP_BIT - 1);
+	      u |= REP_BIT;
+	    }
 	}
     }
   f = (Wtype) (u >> WORD_SIZE);

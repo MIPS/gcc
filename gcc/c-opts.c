@@ -400,7 +400,7 @@ find_opt (input, lang_flag)
       md = (mn + mx) / 2;
 
       opt_len = cl_options[md].opt_len;
-      comp = memcmp (input, cl_options[md].opt_text, opt_len);
+      comp = strncmp (input, cl_options[md].opt_text, opt_len);
 
       if (comp < 0)
 	mx = md;
@@ -443,7 +443,7 @@ find_opt (input, lang_flag)
 	      for (md = md + 1; md < (size_t) N_OPTS; md++)
 		{
 		  opt_len = cl_options[md].opt_len;
-		  if (memcmp (input, cl_options[md].opt_text, opt_len))
+		  if (strncmp (input, cl_options[md].opt_text, opt_len))
 		    break;
 		  if (input[opt_len] == '\0')
 		    return md;
@@ -702,7 +702,8 @@ c_common_decode_option (argc, argv)
       warn_sequence_point = on;	/* Was C only.  */
       warn_sign_compare = on;	/* Was C++ only.  */
       warn_switch = on;
-
+      warn_strict_aliasing = on;
+      
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */                                        
       warn_unknown_pragmas = on;

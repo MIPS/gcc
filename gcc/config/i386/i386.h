@@ -76,6 +76,12 @@ struct processor_costs {
   const int simultaneous_prefetches; /* number of parallel prefetch
 				   operations.  */
   const int branch_cost;	/* Default value for BRANCH_COST.  */
+  const int fadd;		/* cost of FADD and FSUB instructions.  */
+  const int fmul;		/* cost of FMUL instruction.  */
+  const int fdiv;		/* cost of FDIV instruction.  */
+  const int fabs;		/* cost of FABS instruction.  */
+  const int fchs;		/* cost of FCHS instruction.  */
+  const int fsqrt;		/* cost of FSQRT instruction.  */
 };
 
 extern const struct processor_costs *ix86_cost;
@@ -704,8 +710,11 @@ extern int x86_prefetch_sse;
 #define FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN \
   (ix86_preferred_stack_boundary > STACK_BOUNDARY && !TARGET_64BIT)
 
-/* Allocation boundary for the code of a function.  */
-#define FUNCTION_BOUNDARY 16
+/* Minimum allocation boundary for the code of a function.  */
+#define FUNCTION_BOUNDARY 8
+
+/* C++ stores the virtual bit in the lowest bit of function pointers.  */
+#define TARGET_PTRMEMFUNC_VBIT_LOCATION ptrmemfunc_vbit_in_pfn
 
 /* Alignment of field after `int : 0' in a structure.  */
 
@@ -2620,7 +2629,9 @@ do {							\
     break;								\
 									\
   case MULT:								\
-    if (GET_CODE (XEXP (X, 1)) == CONST_INT)				\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fmul);				\
+    else if (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
       {									\
 	unsigned HOST_WIDE_INT value = INTVAL (XEXP (X, 1));		\
 	int nbits = 0;							\
@@ -2642,10 +2653,16 @@ do {							\
   case UDIV:								\
   case MOD:								\
   case UMOD:								\
-    TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);				\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fdiv);				\
+    else								\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide);			\
+    break;								\
 									\
   case PLUS:								\
-    if (!TARGET_DECOMPOSE_LEA						\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
+    else if (!TARGET_DECOMPOSE_LEA					\
 	&& INTEGRAL_MODE_P (GET_MODE (X))				\
 	&& GET_MODE_BITSIZE (GET_MODE (X)) <= GET_MODE_BITSIZE (Pmode))	\
       {									\
@@ -2685,21 +2702,29 @@ do {							\
 		    + rtx_cost (XEXP (X, 1), (OUTER_CODE)));		\
 	  }								\
       }									\
-									\
     /* fall through */							\
+									\
+  case MINUS:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
+    /* fall through */							\
+									\
   case AND:								\
   case IOR:								\
   case XOR:								\
-  case MINUS:								\
     if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
       return (COSTS_N_INSNS (ix86_cost->add) * 2			\
 	      + (rtx_cost (XEXP (X, 0), (OUTER_CODE))			\
 	         << (GET_MODE (XEXP (X, 0)) != DImode))			\
 	      + (rtx_cost (XEXP (X, 1), (OUTER_CODE))			\
  	         << (GET_MODE (XEXP (X, 1)) != DImode)));		\
-									\
     /* fall through */							\
+									\
   case NEG:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fchs);				\
+    /* fall through */							\
+									\
   case NOT:								\
     if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->add * 2);			\
@@ -2709,6 +2734,16 @@ do {							\
     if (!TARGET_SSE_MATH						\
 	|| !VALID_SSE_REG_MODE (GET_MODE (X)))				\
       TOPLEVEL_COSTS_N_INSNS (0);					\
+    break;								\
+									\
+  case ABS:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fabs);				\
+    break;								\
+									\
+  case SQRT:								\
+    if (FLOAT_MODE_P (GET_MODE (X)))					\
+      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fsqrt);			\
     break;								\
 									\
   egress_rtx_costs:							\

@@ -34,7 +34,7 @@ enum real_value_class {
   rvc_nan
 };
 
-#define SIGNIFICAND_BITS	128
+#define SIGNIFICAND_BITS	(128 + HOST_BITS_PER_LONG)
 #define EXP_BITS		(32 - 3)
 #define MAX_EXP			((1 << (EXP_BITS - 1)) - 1)
 #define SIGSZ			(SIGNIFICAND_BITS / HOST_BITS_PER_LONG)
@@ -42,7 +42,7 @@ enum real_value_class {
 
 struct real_value GTY(())
 {
-  enum real_value_class class : 2;
+  ENUM_BITFIELD (real_value_class) class : 2;
   unsigned int sign : 1;
   signed int exp : EXP_BITS;
   unsigned long sig[SIGSZ];
@@ -88,7 +88,11 @@ extern char test_real_width
 #    if REAL_WIDTH == 5
 #     define CONST_DOUBLE_FORMAT "wwwww"
 #    else
-      #error "REAL_WIDTH > 5 not supported"
+#     if REAL_WIDTH == 6
+#      define CONST_DOUBLE_FORMAT "wwwwww"
+#     else
+       #error "REAL_WIDTH > 6 not supported"
+#     endif
 #    endif
 #   endif
 #  endif
@@ -100,8 +104,10 @@ extern char test_real_width
 struct real_format
 {
   /* Move to and from the target bytes.  */
-  void (*encode) (const struct real_format *, long *, const REAL_VALUE_TYPE *);
-  void (*decode) (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+  void (*encode) PARAMS ((const struct real_format *, long *,
+			  const REAL_VALUE_TYPE *));
+  void (*decode) PARAMS ((const struct real_format *, REAL_VALUE_TYPE *,
+			  const long *));
 
   /* The radix of the exponent and digits of the significand.  */
   int b;

@@ -3338,7 +3338,8 @@ check_field_decls (t, access_decls, empty_p,
 	  *cant_have_default_ctor_p = 1;
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
-	  if (! TYPE_HAS_CONSTRUCTOR (t) && extra_warnings)
+	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
+	      && extra_warnings)
             cp_warning_at ("non-static reference `%#D' in class without a constructor", x);
 	}
 
@@ -3372,7 +3373,8 @@ check_field_decls (t, access_decls, empty_p,
 	  *cant_have_default_ctor_p = 1;
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
-	  if (! TYPE_HAS_CONSTRUCTOR (t) && extra_warnings)
+	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
+	      && extra_warnings)
             cp_warning_at ("non-static const member `%#D' in class without a constructor", x);
 	}
       /* A field that is pseudo-const makes the structure likewise.  */
@@ -6992,6 +6994,7 @@ initialize_array (decl, inits)
   context = DECL_CONTEXT (decl);
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = build_nt (CONSTRUCTOR, NULL_TREE, inits);
+  TREE_HAS_CONSTRUCTOR (DECL_INITIAL (decl)) = 1;
   cp_finish_decl (decl, DECL_INITIAL (decl), NULL_TREE, 0);
   DECL_CONTEXT (decl) = context;
 }
@@ -7617,8 +7620,8 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
 
 	  for (i = 1; i < TARGET_VTABLE_DATA_ENTRY_DISTANCE; ++i)
 	    add = tree_cons (NULL_TREE,
-			     build_c_cast (vtable_entry_type,
-				     size_zero_node),
+			     build1 (NOP_EXPR, vtable_entry_type,
+				     null_pointer_node),
 			     add);
 	  *prev = add;
 	}

@@ -84,6 +84,8 @@ enum internal_test {
 struct constant;
 struct mips_arg_info;
 static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
+static void get_float_compare_codes PARAMS ((enum rtx_code, enum rtx_code *,
+					     enum rtx_code *));
 static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
@@ -365,6 +367,11 @@ char mips_hard_regno_mode_ok[(int)MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
    constant pool is output.  */
 int mips_string_length;
 
+/* When generating mips16 code, a list of all strings that are to be
+   output after the current function.  */
+
+static GTY(()) rtx mips16_strings;
+
 /* In mips16 mode, we build a list of all the string constants we see
    in a particular function.  */
 
@@ -589,9 +596,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "r4000", PROCESSOR_R4000, 3 },
   { "vr4100", PROCESSOR_R4100, 3 },
   { "vr4111", PROCESSOR_R4111, 3 },
-  { "vr4121", PROCESSOR_R4121, 3 },
+  { "vr4120", PROCESSOR_R4120, 3 },
   { "vr4300", PROCESSOR_R4300, 3 },
-  { "vr4320", PROCESSOR_R4320, 3 },
   { "r4400", PROCESSOR_R4000, 3 }, /* = r4000 */
   { "r4600", PROCESSOR_R4600, 3 },
   { "orion", PROCESSOR_R4600, 3 }, /* = r4600 */
@@ -811,8 +817,6 @@ mips_const_double_ok (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  REAL_VALUE_TYPE d;
-
   if (GET_CODE (op) != CONST_DOUBLE)
     return 0;
 
@@ -3316,6 +3320,34 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
   return result;
 }
 
+/* Work out how to check a floating-point condition.  We need a
+   separate comparison instruction (C.cond.fmt), followed by a
+   branch or conditional move.  Given that IN_CODE is the
+   required condition, set *CMP_CODE to the C.cond.fmt code
+   and *action_code to the branch or move code.  */
+
+static void
+get_float_compare_codes (in_code, cmp_code, action_code)
+     enum rtx_code in_code, *cmp_code, *action_code;
+{
+  switch (in_code)
+    {
+    case NE:
+    case UNGE:
+    case UNGT:
+    case LTGT:
+    case ORDERED:
+      *cmp_code = reverse_condition_maybe_unordered (in_code);
+      *action_code = EQ;
+      break;
+
+    default:
+      *cmp_code = in_code;
+      *action_code = NE;
+      break;
+    }
+}
+
 /* Emit the common code for doing conditional branches.
    operand[0] is the label to jump to.
    The comparison operands are saved away by cmp{si,di,sf,df}.  */
@@ -3329,6 +3361,7 @@ gen_conditional_branch (operands, test_code)
   rtx cmp0 = branch_cmp[0];
   rtx cmp1 = branch_cmp[1];
   enum machine_mode mode;
+  enum rtx_code cmp_code;
   rtx reg;
   int invert;
   rtx label1, label2;
@@ -3361,15 +3394,10 @@ gen_conditional_branch (operands, test_code)
       else
 	reg = gen_reg_rtx (CCmode);
 
-      /* For cmp0 != cmp1, build cmp0 == cmp1, and test for result ==
-         0 in the instruction built below.  The MIPS FPU handles
-         inequality testing by testing for equality and looking for a
-         false result.  */
+      get_float_compare_codes (test_code, &cmp_code, &test_code);
       emit_insn (gen_rtx_SET (VOIDmode, reg,
-			      gen_rtx (test_code == NE ? EQ : test_code,
-				       CCmode, cmp0, cmp1)));
+			      gen_rtx (cmp_code, CCmode, cmp0, cmp1)));
 
-      test_code = test_code == NE ? EQ : NE;
       mode = CCmode;
       cmp0 = reg;
       cmp1 = const0_rtx;
@@ -3463,8 +3491,8 @@ gen_conditional_move (operands)
 	  abort ();
 	}
     }
-  else if (cmp_code == NE)
-    cmp_code = EQ, move_code = EQ;
+  else
+    get_float_compare_codes (cmp_code, &cmp_code, &move_code);
 
   if (mode == SImode || mode == DImode)
     cmp_mode = mode;
@@ -3523,6 +3551,51 @@ mips_gen_conditional_trap (operands)
   emit_insn (gen_rtx_TRAP_IF (VOIDmode,
 			      gen_rtx (cmp_code, GET_MODE (operands[0]), op0, op1),
 			      operands[1]));
+}
+
+/* Return true if operand OP is a condition code register.
+   Only for use during or after reload.  */
+
+int
+fcc_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return ((mode == VOIDmode || mode == GET_MODE (op))
+	  && (reload_in_progress || reload_completed)
+	  && (GET_CODE (op) == REG || GET_CODE (op) == SUBREG)
+	  && ST_REG_P (true_regnum (op)));
+}
+
+/* Emit code to move general operand SRC into condition-code
+   register DEST.  SCRATCH is a scratch TFmode float register.
+   The sequence is:
+
+	FP1 = SRC
+	FP2 = 0.0f
+	DEST = FP2 < FP1
+
+   where FP1 and FP2 are single-precision float registers
+   taken from SCRATCH.  */
+
+void
+mips_emit_fcc_reload (dest, src, scratch)
+     rtx dest, src, scratch;
+{
+  rtx fp1, fp2;
+
+  /* Change the source to SFmode.  */
+  if (GET_CODE (src) == MEM)
+    src = adjust_address (src, SFmode, 0);
+  else if (GET_CODE (src) == REG || GET_CODE (src) == SUBREG)
+    src = gen_rtx_REG (SFmode, true_regnum (src));
+
+  fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
+  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + FP_INC);
+
+  emit_move_insn (copy_rtx (fp1), src);
+  emit_move_insn (copy_rtx (fp2), CONST0_RTX (SFmode));
+  emit_insn (gen_slt_sf (dest, fp2, fp1));
 }
 
 /* Emit code to change the current function's return address to
@@ -5365,7 +5438,9 @@ override_options ()
 			/* Allow integer modes that fit into a single
 			   register.  We need to put integers into FPRs
 			   when using instructions like cvt and trunc.  */
-			|| (class == MODE_INT && size <= UNITS_PER_FPREG)));
+			|| (class == MODE_INT && size <= UNITS_PER_FPREG)
+			/* Allow TFmode for CCmode reloads.  */
+			|| (ISA_HAS_8CC && mode == TFmode)));
 
 	  else if (MD_REG_P (regno))
 	    temp = (class == MODE_INT
@@ -7636,6 +7711,7 @@ mips_output_function_epilogue (file, size)
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   const char *fnname = "";	/* FIXME: Correct initialisation?  */
+  rtx string;
 
 #ifndef FUNCTION_NAME_ALREADY_DECLARED
   /* Get the function name the same way that toplev.c does before calling
@@ -7699,6 +7775,17 @@ mips_output_function_epilogue (file, size)
       free (string_constants);
       string_constants = next;
     }
+
+  /* If any following function uses the same strings as this one, force
+     them to refer those strings indirectly.  Nearby functions could
+     refer them using pc-relative addressing, but it isn't safe in
+     general.  For instance, some functions may be placed in sections
+     other than .text, and we don't know whether they be close enough
+     to this one.  In large files, even other .text functions can be
+     too far away.  */
+  for (string = mips16_strings; string != 0; string = XEXP (string, 1))
+    SYMBOL_REF_FLAG (XEXP (string, 0)) = 0;
+  free_EXPR_LIST_list (&mips16_strings);
 
   /* Restore the output file if optimizing the GP (optimizing the GP causes
      the text to be diverted to a tempfile, so that data decls come before
@@ -8078,7 +8165,11 @@ mips_encode_section_info (decl, first)
 	  && (! current_function_decl
 	      || ! DECL_ONE_ONLY (current_function_decl)))
 	{
-	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
+	  rtx symref;
+
+	  symref = XEXP (TREE_CST_RTL (decl), 0);
+	  mips16_strings = alloc_EXPR_LIST (0, symref, mips16_strings);
+	  SYMBOL_REF_FLAG (symref) = 1;
 	  mips_string_length += TREE_STRING_LENGTH (decl);
 	}
     }

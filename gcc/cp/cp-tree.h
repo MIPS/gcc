@@ -2437,8 +2437,18 @@ struct lang_decl GTY(())
    || TYPE_PTRMEM_P (TYPE)			\
    || TYPE_PTRMEMFUNC_P (TYPE))
 
-/* Nonzero for _TYPE means that the _TYPE defines
-   at least one constructor.  */
+/* [dcl.init.aggr]
+
+   An aggregate is an array or a class with no user-declared
+   constructors, no private or protected non-static data members, no
+   base classes, and no virtual functions.  */
+#define CP_AGGREGATE_TYPE_P(TYPE)		\
+  (TREE_CODE (TYPE) == ARRAY_TYPE		\
+   || (CLASS_TYPE_P (TYPE)			\
+       && !CLASSTYPE_NON_AGGREGATE (TYPE)))
+
+/* Nonzero for a class type means that the class type has a
+   user-declared constructor.  */
 #define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
 
 /* When appearing in an INDIRECT_REF, it means that the tree structure
@@ -2539,32 +2549,6 @@ struct lang_decl GTY(())
 /* Indicates when overload resolution may resolve to a pointer to
    member function. [expr.unary.op]/3 */
 #define PTRMEM_OK_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* A pointer-to-function member type looks like:
-
-     struct {
-       __P __pfn;
-       ptrdiff_t __delta;
-     };
-
-   If __pfn is NULL, it is a NULL pointer-to-member-function.
-  
-   (Because the vtable is always the first thing in the object, we
-   don't need its offset.)  If the function is virtual, then PFN is
-   one plus twice the index into the vtable; otherwise, it is just a
-   pointer to the function.
-
-   Unfortunately, using the lowest bit of PFN doesn't work in
-   architectures that don't impose alignment requirements on function
-   addresses, or that use the lowest bit to tell one ISA from another,
-   for example.  For such architectures, we use the lowest bit of
-   DELTA instead of the lowest bit of the PFN, and DELTA will be
-   multiplied by 2.  */
-enum ptrmemfunc_vbit_where_t
-{
-  ptrmemfunc_vbit_in_pfn,
-  ptrmemfunc_vbit_in_delta
-};
 
 /* Get the POINTER_TYPE to the METHOD_TYPE associated with this
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
@@ -3693,8 +3677,6 @@ extern void start_decl_1			PARAMS ((tree));
 extern void cp_finish_decl			PARAMS ((tree, tree, tree, int));
 extern void finish_decl				PARAMS ((tree, tree, tree));
 extern void maybe_inject_for_scope_var          PARAMS ((tree));
-extern void initialize_local_var                PARAMS ((tree, tree, int));
-extern void expand_static_init			PARAMS ((tree, tree));
 extern tree start_handler_parms                 PARAMS ((tree, tree));
 extern int complete_array_type			PARAMS ((tree, tree, int));
 extern tree build_ptrmemfunc_type		PARAMS ((tree));
@@ -3869,8 +3851,8 @@ extern void add_friend                          PARAMS ((tree, tree));
 extern tree do_friend				PARAMS ((tree, tree, tree, tree, tree, enum overload_flags, tree, int));
 
 /* in init.c */
-extern void emit_base_init			PARAMS ((tree, tree));
-extern tree expand_member_init			PARAMS ((tree, tree, tree));
+extern tree expand_member_init			(tree, tree);
+extern void emit_mem_initializers		(tree);
 extern tree build_aggr_init			PARAMS ((tree, tree, int));
 extern tree build_init				PARAMS ((tree, tree, int));
 extern int is_aggr_type				PARAMS ((tree, int));
@@ -4195,6 +4177,7 @@ extern tree cxx_unsave_expr_now			PARAMS ((tree));
 extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
+extern bool variably_modified_type_p            (tree);
 extern int zero_init_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));

@@ -20,6 +20,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define CONSTANT_POOL_BEFORE_FUNCTION	0
 
 /* check whether load_fpu_reg or not */
 #define LOAD_FPU_REG_P(x) ((x)>=8 && (x)<=11)
@@ -700,7 +701,7 @@ extern int may_call_alloca;
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (1)
+#define LEGITIMATE_CONSTANT_P(X) (TARGET_FPU? 1: !(GET_CODE(X) == CONST_DOUBLE))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -771,6 +772,29 @@ extern int may_call_alloca;
 	&& GET_CODE (XEXP (operand, 0)) == REG				\
 	&& REG_OK_FOR_BASE_P (XEXP (operand, 0)))			\
       goto ADDR;							\
+									\
+    /* accept -(SP) -- which uses PRE_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == PRE_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == -2)      	               		\
+      goto ADDR;							\
+									\
+    /* accept (SP)+ -- which uses POST_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == POST_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == 2)      	               		\
+      goto ADDR;							\
+									\
     									\
     /* handle another level of indirection ! */				\
     if (GET_CODE(operand) != MEM)					\
@@ -1075,7 +1099,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.=.+ %o\n", (SIZE))
+  fprintf (FILE, "\t.=.+ %#ho\n", (unsigned short)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1085,7 +1109,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), "\n"),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ": .=.+ %o\n", (ROUNDED))		\
+  fprintf ((FILE), ": .=.+ %#ho\n", (unsigned short)(ROUNDED))		\
 )
 
 /* This says how to output an assembler line
@@ -1093,7 +1117,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ":\t.=.+ %o\n", (ROUNDED)))
+  fprintf ((FILE), ":\t.=.+ %#ho\n", (unsigned short)(ROUNDED)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1113,7 +1137,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
       char buf[30];							\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
       REAL_VALUE_TO_DECIMAL (r, buf, -1);				\
-      fprintf (FILE, "#%s", buf); }					\
+      fprintf (FILE, "$0F%s", buf); }					\
   else { putc ('$', FILE); output_addr_const_pdp11 (FILE, X); }}
 
 /* Print a memory address as an operand to reference that memory location.  */

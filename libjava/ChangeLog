@@ -1,3 +1,330 @@
+2002-10-13  Mark Wielaard  <mark@klomp.org>
+
+	* mauve-libgcj: Enable Mauve tests that compile now.
+
+2002-10-11  Mark Wielaard  <mark@klomp.org>
+
+	Fix for PR libgcj/8142
+	* java/lang/natClassLoader.cc (findClass): Skip inner classes when
+	loading native modules.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractListModel.java
+	(getListDataListeners): New stubbed method.
+	javax/swing/DefaultBoundedRangeModel.java
+	(getChangeListeners): New stubbed method.
+	javax/swing/DefaultSingleSelectionModel.java
+	(getChangeListeners): New stubbed method.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* gcj/.cvsignore: New file to ignore files generated during build.
+	* include/.cvsignore: New file to ignore files generated during build.
+
+2002-10-10  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/HttpURLConnection.java
+	(getPermission): New method.
+	(getErrorStream): New stub method.
+	(getHeaderFieldDate): New stub method.
+	* java/net/Inet4Address.java:
+	(isLinkLocalAddress): Typo fixed.
+	* java/net/InetAddress.java:
+	(readResolve): New stubbed method (for serialization).
+	(isAnyLocalAddress): New stubbed method.
+	(isLoopbackAddress): New stubbed method.
+	(isLinkLocalAddress): New stubbed method.
+	(isSiteLocalAddress): New stubbed method.
+	(isMCGlobal): New stubbed method.
+	(isMCNodeGlobal): New stubbed method.
+	(isMCLinkLocal): New stubbed method.
+	(isMCSiteLocal): New stubbed method.
+	(isMCOrgLocal): New stubbed method.
+	(getCanonicalHostName): New stubbed method.
+	(getByAddress): Create instances of Inet4Address/Inet6Address,
+	instead of InetAddress, documentation added.
+	* java/net/MulticastSocket.java
+	(getInterface): Removed FIXME.
+	(getNetworkInterface): New method.
+	(setNetworkInterface): New method.
+	* java/net/NetworkInterface.java:
+	(toString): Use property "line.separator" instead of "\n".
+	* java/net/URLConnection.java
+	(getContent): New stubbed method.
+	* java/net/URLStreamHandler.java:
+	(equals): New stubbed method.
+	(hostsEqual): New stubbed method.
+	(hashCode): New stubbed method.
+	* java/net/natNetworkInterface.cc:
+	(getRealNetworkInterfaces): Create Inet4Address object
+	instead of InetAddress.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* interpret.cc (_Jv_InterpMethod::run): Use UINT32 instead of
+	unsigned long temporary to implement insn_iushr shifts.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host [s390*-*]: Enable Java interpreter.
+	Enable hash synchronization.  Add sysdeps dir.
+	* sysdep/s390/locks.h: New file.
+
+2002-10-06  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Thread.java (setDaemon): Check startable_flag,
+	not isAlive().
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/Buffer.java: New stub file.
+	* java/nio/charset/spi/CharsetProvider.java: Commented out all usages
+	of class Charset.
+	* Makefile.am (java_native_source_files): Added java/nio/Buffer.java.
+	* Makefile.in: Regenerated.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java:
+	removed import of not commited class.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java,
+	java/nio/MappedByteBuffer.java:
+	New files, forgot to add these dummies.
+	* Makefile.am (java_native_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2002-10-07  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/AlreadyConnectedException.java,
+	java/nio/channels/ClosedChannelException.java,
+	java/nio/channels/ReadableByteChannel.java,
+	java/nio/channels/InterruptibleChannel.java,
+	java/nio/channels/Channel.java,
+	java/nio/channels/ByteChannel.java,
+	java/nio/channels/GatheringByteChannel.java,
+	java/nio/channels/ScatteringByteChannel.java,
+	java/nio/channels/WritableByteChannel.java,
+	java/nio/charset/CharacterCodingException.java,
+	java/nio/charset/IllegalCharsetNameException.java,
+	java/nio/charset/MalformedInputException.java,
+	java/nio/charset/UnmappableCharacterException.java,
+	java/nio/charset/UnsupportedCharsetException.java,
+	java/nio/charset/spi/CharsetProvider.java: New file.
+	These files are exceptions or interfaces,
+	no real or abstract classes.
+	* Makefile.am (java_native_source_files): Added new files.
+	* Makefile.in: Regenerated.
+
+2002-10-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(getByAddress): Fixed documentation.
+	(getByAddress): New method.
+	* java/net/Inet4Address.java: New file.
+	* java/net/URL.java
+	(URL): Documentation added.
+	(getContent): Documentation added.
+	(getContent): New stubbed method.
+	(getQuery): New method.
+	(openConnection): Documentation added.
+	(openStream): Documentation added.
+	(setURLStreamHandlerFactory): Documentation added.
+	* java/net/URI.java: New stub file.
+	* Makefile.am
+	(java_native_source_files): Added java/net/Inet4Address.java,
+	java/net/Inet6Address.java and java/net/URI.java.
+	* Makefile.in: Regenerated.
+
+2002-10-04  C. Scott Ananian <cananian@lesser-magoo.lcs.mit.edu>
+	
+	* java/lang/ProtectionDomain.java (linesep): Remove field.
+	(toString): Use System.getProperty("line.separator").
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/security/Identity.java: Added serialVersionUID.
+	* java/security/KeyPair.java: Added serialVersionUID.
+	* java/security/Provider.java: Added serialVersionUID.
+	* java/security/SecureRandom.java: Added serialVersionUID.
+	* java/security/SecureRandomSpi.java: Added serialVersionUID.
+	* java/security/SignedObject.java: Added serialVersionUID.
+	* java/security/cert/Certificate.java: Added serialVersionUID.
+
+2002-10-04  Mark Wielaard <mark@klomp.org>
+
+	* java/security/Security.java: Use java.home or gnu.classpath.home
+	to load providers.
+	(loadProviders): Extra dir argument.
+	(getProvider): Return null when not found.
+
+2002-10-04  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/Throwable.java: Remerge with Classpath.
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	(isMulticastAddress): Added documentation.
+	(getHostAddress): Added documentation.
+	(toString): Added documentation.
+	(getByAddress): Fixed documentation.
+	(getByName): Added documentation.
+	(getAllByName): Added documentation.
+	(getLocalHost): Added documentation.
+
+2002-10-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/beancontext/BeanContextChildSupport.java:
+	Added serialVersionUID.
+	* java/text/Collator.java: (compare): Made documentation HTML-aware.
+	* javax/naming/BinaryRefAddr.java: Added serialVersionUID.
+	* javax/naming/Name.java: Added serialVersionUID.
+
+2002-10-03  Adam Megacz <adam@xwt.org>
+
+	* natNetworkInterface.cc (getRealNetworkInterfaces): ifdef out
+	some functionality that isn't supported yet on WIN32.
+
+2002-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added new files.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java
+	(class InetAddress): Removed final keyword.
+	(equals): Fixed typo.
+	(getByAddress): New method.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/dnd/Autoscroll.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DragSourceAdapter.java:
+	(dragExit): Fixed typos in argument type.
+	(dragDropEnd): Fixed typos in argument type.
+	* java/awt/dnd/DragSourceDropEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTarget.java:
+	Added stubs, merge from Classpath.
+	* java/awt/dnd/DropTargetAdapter.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetContext.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetDragEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetDropEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetEvent.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/DropTargetListener.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/MouseDragGestureRecognizer.java:
+	New file, merge from Classpath.
+	* java/awt/dnd/peer/DropTargetContextPeer.java:
+	New file, merge from Classpath.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket.java
+	(setLength): Fixed typo and be HTML-aware.
+	* java/net/InetSocketAddress.java
+	(InetSocketAddress): Correct initialization of hostname, fixed typo.
+	(equals): Added comment about equality of InetSocketAddress objects.
+	* java/net/ServerSocket.java
+	(accept): Added checks.
+	(isClosed): New stubbed method.
+	* java/net/SocketOptions.java: Reindention.
+	* java/net/SocketPermission
+	(SocketPermission): Documentation fixed.
+	
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(receive): Check with SecurityManager AFTER the packet is received,
+	check if connected to multicast address, documentation added.
+	(send): Only check SecurityManager if connected, check address of
+	packet to send.
+	(connect): Implemented, documentation added.
+	* java/net/Inet6Address.java: New file (not added yet to Makefile.am).
+	* java/net/InetSocketAddress.java
+	(whole file): Reindented.
+	(hostname): New attribute.
+	(InetSocketAddress): Initialize new attribute.
+	(getAddress): Documentation added.
+	(getHostName): Documentation added.
+	(getPort): Documentation added.
+	(hashCode): Documentation added.
+	(isUnresolved): Documentation added.
+	(toString): Conform to output of JDK 1.4.1, documentation added.
+	* java/net/MulticastSocket.java
+	(joinGroup): Removed FIXME, documentation added.
+	(leaveGroup): Removed FIXME, documentation added.
+	(send): Documentation added.
+	* java/net/Socket.java
+	(inputShutdown): New variable.
+	(outputShutdown): New variable.
+	(Socket): Initialize new variables.
+	(getRemoteSocketAddress): Check if connected.
+	(shutdownInput): Set new variable.
+	(shutdownOutput): Set new variable.
+	(isConnected): New method.
+	(isClosed): New method.
+	(isInputShutdown): New method.
+	(isOutputShutdown): New method.
+	* java/net/URLStreamHandler.java
+	(URLStreamHandler): New method.
+	(openConnection): Added documentation.
+	(parseURL): Added documentation.
+	(getHostAddress): New method.
+	(getDefaultPort): New method.
+
+2002-10-02  Tom Tromey  <tromey@redhat.com>
+
+	* java/rmi/activation/ActivationDesc.java,
+	java/rmi/activation/ActivationGroupDesc.java,
+	java/rmi/activation/ActivationGroupID.java,
+	java/rmi/activation/ActivationID.java: New versions from
+	Classpath.
+
+2002-09-30  Bo Thorsen  <bo@suse.de>
+
+	* sysdep/x86-64/locks.h (compare_and_swap): Fix multilib support.
+
+2002-09-30  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (resolveProxyClass): New method
+	from Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (rmi_java_source_files): Added new files.
+	* gnu/java/rmi/RMIMarshalledObjectInputStream.java,
+	gnu/java/rmi/RMIMarshalledObjectOutputStream.java,
+	gnu/java/rmi/server/ConnectionRunnerPool.java: New files from
+	Classpath.
+	* gnu/java/rmi/dgc/DGCImpl.java,
+	gnu/java/rmi/dgc/DGCImpl_Skel.java,
+	gnu/java/rmi/dgc/DGCImpl_Stub.java,
+	gnu/java/rmi/registry/RegistryImpl_Skel.java,
+	gnu/java/rmi/registry/RegistryImpl_Stub.java,
+	gnu/java/rmi/server/RMIHashes.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/rmi/server/RMIObjectOutputStream.java,
+	gnu/java/rmi/server/UnicastConnection.java,
+	gnu/java/rmi/server/UnicastConnectionManager.java,
+	gnu/java/rmi/server/UnicastRef.java,
+	gnu/java/rmi/server/UnicastServer.java,
+	gnu/java/rmi/server/UnicastServerRef.java,
+	java/rmi/MarshalledObject.java,
+	java/rmi/server/RMIClassLoader.java,
+	java/rmi/server/RemoteObject.java,
+	java/rmi/server/UnicastRemoteObject.java,
+	java/security/SecureClassLoader.java: Merged from Classpath.
+
 2002-09-29  Anthony Green  <green@redhat.com>
 
 	* java/lang/reflect/UndeclaredThrowableException.java: New file.

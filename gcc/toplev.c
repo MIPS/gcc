@@ -912,6 +912,10 @@ int align_labels_max_skip;
 int align_functions;
 int align_functions_log;
 
+/* Like align_functions_log above, but used by front-ends to force the
+   minimum function alignment.  Zero means no alignment is forced.  */
+int force_align_functions_log;
+
 /* Table of supported debugging formats.  */
 static const struct
 {
@@ -1507,6 +1511,11 @@ int warn_missing_noreturn;
 
 int warn_deprecated_decl = 1;
 
+/* Nonzero means warn about constructs which might not be
+   strict-aliasing safe.  */
+
+int warn_strict_aliasing;
+
 /* Likewise for -W.  */
 
 static const lang_independent_options W_options[] =
@@ -1552,7 +1561,9 @@ static const lang_independent_options W_options[] =
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
-   N_("Warn about functions which might be candidates for attribute noreturn") }
+   N_("Warn about functions which might be candidates for attribute noreturn") },
+  {"strict-aliasing", &warn_strict_aliasing, 1,
+   N_ ("Warn about code which might break the strict aliasing rules") }
 };
 
 void

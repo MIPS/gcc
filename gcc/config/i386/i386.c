@@ -85,7 +85,14 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
+  2,					/* cost of FADD and FSUB insns.  */
+  2,					/* cost of FMUL instruction.  */
+  2,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  2,					/* cost of FSQRT instruction.  */
 };
+
 /* Processor costs (relative to an add) */
 static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
@@ -123,6 +130,12 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
+  23,					/* cost of FADD and FSUB insns.  */
+  27,					/* cost of FMUL instruction.  */
+  88,					/* cost of FDIV instruction.  */
+  22,					/* cost of FABS instruction.  */
+  24,					/* cost of FCHS instruction.  */
+  122,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -161,6 +174,12 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
+  8,					/* cost of FADD and FSUB insns.  */
+  16,					/* cost of FMUL instruction.  */
+  73,					/* cost of FDIV instruction.  */
+  3,					/* cost of FABS instruction.  */
+  3,					/* cost of FCHS instruction.  */
+  83,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -199,6 +218,12 @@ struct processor_costs pentium_cost = {
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   2,					/* Branch cost */
+  3,					/* cost of FADD and FSUB insns.  */
+  3,					/* cost of FMUL instruction.  */
+  39,					/* cost of FDIV instruction.  */
+  1,					/* cost of FABS instruction.  */
+  1,					/* cost of FCHS instruction.  */
+  70,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -237,6 +262,12 @@ struct processor_costs pentiumpro_cost = {
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
+  3,					/* cost of FADD and FSUB insns.  */
+  5,					/* cost of FMUL instruction.  */
+  56,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  56,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -275,6 +306,12 @@ struct processor_costs k6_cost = {
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
   1,					/* Branch cost */
+  2,					/* cost of FADD and FSUB insns.  */
+  2,					/* cost of FMUL instruction.  */
+  2,					/* cost of FDIV instruction.  */
+  56,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  56,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -291,28 +328,34 @@ struct processor_costs athlon_cost = {
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
-  {4, 5, 4},				/* cost of loading integer registers
+  {3, 4, 3},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
 					   Relative to reg-reg move (2).  */
-  {2, 3, 2},				/* cost of storing integer registers */
+  {3, 4, 3},				/* cost of storing integer registers */
   4,					/* cost of reg,reg fld/fst */
-  {6, 6, 20},				/* cost of loading fp registers
+  {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 16},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of loading integer registers */
   2,					/* cost of moving MMX register */
-  {2, 2},				/* cost of loading MMX registers
+  {4, 4},				/* cost of loading MMX registers
 					   in SImode and DImode */
-  {2, 2},				/* cost of storing MMX registers
+  {4, 4},				/* cost of storing MMX registers
 					   in SImode and DImode */
   2,					/* cost of moving SSE register */
-  {2, 2, 8},				/* cost of loading SSE registers
+  {4, 4, 6},				/* cost of loading SSE registers
 					   in SImode, DImode and TImode */
-  {2, 2, 8},				/* cost of storing SSE registers
+  {4, 4, 5},				/* cost of storing SSE registers
 					   in SImode, DImode and TImode */
-  6,					/* MMX or SSE register to integer */
+  5,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
+  4,					/* cost of FADD and FSUB insns.  */
+  4,					/* cost of FMUL instruction.  */
+  24,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  35,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -351,6 +394,12 @@ struct processor_costs pentium4_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
+  5,					/* cost of FADD and FSUB insns.  */
+  7,					/* cost of FMUL instruction.  */
+  43,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  43,					/* cost of FSQRT instruction.  */
 };
 
 const struct processor_costs *ix86_cost = &pentium_cost;
@@ -6893,7 +6942,8 @@ print_operand_address (file, addr)
 	      || GET_CODE (addr) == LABEL_REF
 	      || (GET_CODE (addr) == CONST
 		  && GET_CODE (XEXP (addr, 0)) == PLUS
-		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		  && (GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		      || GET_CODE (XEXP (XEXP (addr, 0), 0)) == LABEL_REF)
 		  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)))
 	fputs ("(%rip)", file);
     }
@@ -7739,8 +7789,7 @@ ix86_expand_vector_move (mode, operands)
   /* Make operand1 a register if it isn't already.  */
   if ((reload_in_progress | reload_completed) == 0
       && !register_operand (operands[0], mode)
-      && !register_operand (operands[1], mode)
-      && operands[1] != CONST0_RTX (mode))
+      && !register_operand (operands[1], mode))
     {
       rtx temp = force_reg (GET_MODE (operands[1]), operands[1]);
       emit_move_insn (operands[0], temp);
@@ -13668,17 +13717,33 @@ ix86_register_move_cost (mode, class1, class2)
      enum reg_class class1, class2;
 {
   /* In case we require secondary memory, compute cost of the store followed
-     by load.  In case of copying from general_purpose_register we may emit
-     multiple stores followed by single load causing memory size mismatch
-     stall.  Count this as arbitarily high cost of 20.  */
+     by load.  In order to avoid bad register allocation choices, we need 
+     for this to be *at least* as high as the symmetric MEMORY_MOVE_COST.  */
+
   if (ix86_secondary_memory_needed (class1, class2, mode, 0))
     {
-      int add_cost = 0;
+      int cost = 1;
+
+      cost += MAX (MEMORY_MOVE_COST (mode, class1, 0),
+		   MEMORY_MOVE_COST (mode, class1, 1));
+      cost += MAX (MEMORY_MOVE_COST (mode, class2, 0),
+		   MEMORY_MOVE_COST (mode, class2, 1));
+      
+      /* In case of copying from general_purpose_register we may emit multiple
+         stores followed by single load causing memory size mismatch stall.
+         Count this as arbitarily high cost of 20.  */
       if (CLASS_MAX_NREGS (class1, mode) > CLASS_MAX_NREGS (class2, mode))
-	  add_cost = 20;
-      return (MEMORY_MOVE_COST (mode, class1, 0)
-	      + MEMORY_MOVE_COST (mode, class2, 1) + add_cost);
+	cost += 20;
+
+      /* In the case of FP/MMX moves, the registers actually overlap, and we
+	 have to switch modes in order to treat them differently.  */
+      if ((MMX_CLASS_P (class1) && MAYBE_FLOAT_CLASS_P (class2))
+          || (MMX_CLASS_P (class2) && MAYBE_FLOAT_CLASS_P (class1)))
+	cost += 20;
+
+      return cost;
     }
+
   /* Moves between SSE/MMX and integer unit are expensive.  */
   if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
       || SSE_CLASS_P (class1) != SSE_CLASS_P (class2))

@@ -1,12 +1,144 @@
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* g++.dg/ext/vlm1.C: New test.
+	* g++.dg/ext/vlm2.C: Likewise.
+
+	* g++.dg/init/array1.C: Remove invalid braces.
+	* g++.dg/init/brace1.C: New test.
+	* g++.dg/init/copy2.C: Likewise.
+	* g++.dg/init/copy3.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew.C: Change WARNING to ERROR.
+	* g++.old-deja/g++.mike/p9129.C: Add ERROR on invalid use of
+	braces.
+
+2002-10-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/assembler.S: Don't use -ansi.
+
+Fri Oct 11 10:56:49 2002  Richard Shann  <richard.shann@superh.com>
+
+	* gcc.c-torture/compile/simd-5.c: New test.
+
 2002-10-10  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/shiftopt-1.c: New test case.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* gcc.c-torture/execute/20021010-1.c: New test.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* g++.dg/ext/typedef-init.C: New test.
+	* gcc.dg/typedef-init.c: New test.
+
+2002-10-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/paste13.c: New test.
+
+2002-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/20020720-1.x: Take out sparc XFAILs.  For
+	remaining platforms, XFAIL during compile, not execute.  Don't
+	XFAIL at -O0.
+
+2002-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: Tweak expected warning.
+
+2002-10-06  D.Venkatasubramanian <dvenkat@noida.hcltech.com>
+
+	* gcc.dg/20020411-1.c: Disable for 16-bit "int".
+
+2002-10-06  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/cpp/c++98-pedantic.C: Moved to g++.dg/cpp.
+	* gcc.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/cpp/c++98-pedantic.C: Moved from gcc.dg/cpp to here.
+	* g++.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/README (Subdirectories): Mention cpp directory.
+
+	PR target/7559
+	* gcc.dg/20021006-1.c: New test.
+
+2002-10-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7804
+	* g++.dg/other/warning1.C: New test.
+
+2002-10-04  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x:  XFAIL instead of skipping
+	the test on failing platforms.  Mark sparcv9-*-*, sparc64-*-*
+	and sparc-*-* with -m64 as expected failures.  See PR 8087.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7931
+	* g++.dg/template/ptrmem3.C: New test.
+
+	PR c++/7754
+	* g++.dg/template/union1.C: New test.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8006
+	* g++.dg/abi/mangle9.C: New test.
+	* g++.dg/abi/mangle10.C: New test.
+	* g++.dg/abi/mangle11.C: New test.
+	* g++.dg/abi/mangle12.C: New test.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7188.
+	* g++.dg/template/meminit1.C: New test.
+	* g++.dg/warn/Wreorder-1.C: Likewise.
+	* g++.old-deja/g++.mike/warn3.C: Tweak.
+	* lib/prune.exp: Ingore "in copy constructor".
+
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/20020919-1.c, gcc.dg/inline-2.c, gcc.dg/980211-1.c,
+	gcc.dg/20020103-1.c, gcc.dg/20000614-2.c,
+	g++.old-deja/g++.pt/asm1.C, g++.old-deja/g++.other/asm3.C: Enable
+	on x86-64.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: Fix typo.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: New test.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: New test.
+
+	* g++.dg/tls/init-2.C: Tweak error messages.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20020923-1.c: New test.
+
+2002-09-30  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.c-torture/execute/ffs-1.c: New test.
+	* gcc.c-torture/execute/ffs-2.c: Ditto.
+
+2002-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/overload/member1.C: New test.
 
 2002-09-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/empty7.C: New test.
 	* g++.dg/init/pm2.C: Likewise.
-	
+
 2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/rtti/crash1.C: New test.
@@ -223,6 +355,11 @@ Tue Sep 17 13:59:45 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 2002-09-14  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.c-torture/execute/struct-cpy-1.c: New test.
+
+2002-09-13  Matt Austern  <austern@apple.com>
+
+	* testsuite/g++.dg/other/constref[12].C: New, regression tests for
+	passing a cast expression to a function by const reference.
 
 2002-09-13  Nathan Sidwell  <nathan@codesourcery.com>
 

@@ -130,7 +130,8 @@ fixincludes		Bruce Korb		bkorb@gnu.org
 gcse.c 			Jeff Law		law@redhat.com
 global opt framework	Jeff Law		law@redhat.com
 jump.c			David S. Miller		davem@redhat.com
-web pages		Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
+web pages co-maintainer	Janis Johnson		janis187@us.ibm.com
 config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
@@ -145,6 +146,8 @@ docs co-maintainer	Gerald Pfeifer		pfeifer@dbai.tuwien.ac.at
 docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill
+VxWorks	ports		Zack Weinberg		zack@codesourcery.com
+VxWorks	ports		Nathan Sidwell		nathan@codesourcery.com
 predict.def		Jan Hubicka		jh@suse.cz
 contrib/regression	Geoff Keating		geoffk@geoffk.org
 treelang                Tim Josling             tej@melbpc.org.au
@@ -185,7 +188,6 @@ Manfred Hollstein				mhollstein@redhat.com
 Andreas Jaeger					aj@suse.de
 Jakub Jelinek					jakub@redhat.com
 Dale Johannesen 				dalej@apple.com
-Janis Johnson					janis187@us.ibm.com
 Klaus Kaempf					kkaempf@progis.de
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu

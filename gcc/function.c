@@ -3241,7 +3241,7 @@ insns_for_mem_hash (k)
 {
   /* Use the address of the key for the hash value.  */
   struct insns_for_mem_entry *m = (struct insns_for_mem_entry *) k;
-  return (hashval_t) m->key;
+  return htab_hash_pointer (m->key);
 }
 
 /* Return nonzero if K1 and K2 (two REGs) are the same.  */
@@ -6228,6 +6228,8 @@ prepare_function_start ()
   cfun->arc_profile = profile_arc_flag || flag_test_coverage;
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
+
+  cfun->max_jumptable_ents = 0;
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)

@@ -690,6 +690,10 @@ rs6000_override_options (default_cpu)
 	target_flags |= MASK_AIX_STRUCT_RET;
     }
 
+  if (TARGET_LONG_DOUBLE_128
+      && (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN))
+    real_format_for_mode[TFmode - QFmode] = &ibm_extended_format;
+
   /* Register global variables with the garbage collector.  */
   rs6000_add_gc_roots ();
 
@@ -1313,7 +1317,21 @@ easy_fp_constant (op, mode)
     return 0;
 #endif
 
-  if (mode == DFmode)
+  if (mode == TFmode)
+    {
+      long k[4];
+      REAL_VALUE_TYPE rv;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
+      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+
+      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[2]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
+    }
+
+  else if (mode == DFmode)
     {
       long k[2];
       REAL_VALUE_TYPE rv;
@@ -2102,7 +2120,7 @@ rs6000_legitimize_address (x, oldx, mode)
 	   && GET_MODE_NUNITS (mode) == 1
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
-	       || mode != DFmode)
+	       || (mode != DFmode && mode != TFmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -2355,7 +2373,7 @@ rs6000_legitimate_address (mode, x, reg_ok_strict)
   if (mode != TImode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || mode != DFmode)
+	  || (mode != DFmode && mode != TFmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && LEGITIMATE_INDEXED_ADDRESS_P (x, reg_ok_strict))
     return 1;
@@ -3033,7 +3051,7 @@ function_arg_advance (cum, mode, type, named)
 
       if (GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
-	cum->fregno++;
+	cum->fregno += (mode == TFmode ? 2 : 1);
 
       if (TARGET_DEBUG_ARG)
 	{
@@ -9436,7 +9454,6 @@ rs6000_function_ok_for_sibcall (decl, exp)
   return false;
 }
 
-/* function rewritten to handle sibcalls */
 static int
 rs6000_ra_ever_killed ()
 {
@@ -9448,19 +9465,21 @@ rs6000_ra_ever_killed ()
   if (current_function_is_thunk)
     return 0;
 #endif
-  /* regs_ever_live has LR marked as used if any sibcalls
-     are present.  Which it is, but this should not force
-     saving and restoring in the prologue/epilog.  Likewise,
-     reg_set_between_p thinks a sibcall clobbers LR, so
-     that is inappropriate. */
+  /* regs_ever_live has LR marked as used if any sibcalls are present,
+     but this should not force saving and restoring in the
+     pro/epilogue.  Likewise, reg_set_between_p thinks a sibcall
+     clobbers LR, so that is inappropriate. */
+
   /* Also, the prologue can generate a store into LR that
      doesn't really count, like this:
+
         move LR->R0
         bcl to set PIC register
         move LR->R31
         move R0->LR
-     When we're called from the epilog, we need to avoid counting
-     this as a store; thus we ignore any insns with a REG_MAYBE_DEAD note. */
+
+     When we're called from the epilogue, we need to avoid counting
+     this as a store.  */
          
   push_topmost_sequence ();
   top = get_insns ();
@@ -9476,8 +9495,8 @@ rs6000_ra_ever_killed ()
 	  else if (GET_CODE (insn) == CALL_INSN 
 		   && !SIBLING_CALL_P (insn))
 	    return 1;
-	  else if (set_of (reg, insn) != NULL_RTX 
-		   && find_reg_note (insn, REG_MAYBE_DEAD, NULL_RTX) == 0)
+	  else if (set_of (reg, insn) != NULL_RTX
+		   && !prologue_epilogue_contains (insn))
 	    return 1;
     	}
     }
@@ -10461,21 +10480,21 @@ rs6000_emit_prologue ()
 		      gen_rtx_REG (Pmode, 11));
   }
 
+#if TARGET_MACHO
   if (DEFAULT_ABI == ABI_DARWIN
       && flag_pic && current_function_uses_pic_offset_table)
     {
       rtx dest = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
-#if TARGET_MACHO
       char *picbase = machopic_function_base_name ();
       rtx src = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
 
       rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest, src)));
-#endif
 
       rs6000_maybe_dead (
 	emit_move_insn (gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM),
 			gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)));
     }
+#endif
 }
 
 /* Write function prologue.  */
@@ -10975,7 +10994,7 @@ rs6000_output_function_epilogue (file, size)
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
       && rs6000_traceback != traceback_none)
     {
-      const char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+      const char *fname = NULL;
       const char *language_string = lang_hooks.name;
       int fixed_parms = 0, float_parms = 0, parm_info = 0;
       int i;
@@ -10988,15 +11007,17 @@ rs6000_output_function_epilogue (file, size)
       else
 	optional_tbtab = !optimize_size && !TARGET_ELF;
 
-      while (*fname == '.')	/* V.4 encodes . in the name */
-	fname++;
+      if (optional_tbtab)
+	{
+	  fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+	  while (*fname == '.')	/* V.4 encodes . in the name */
+	    fname++;
 
-      /* Need label immediately before tbtab, so we can compute its offset
-	 from the function start.  */
-      if (*fname == '*')
-	++fname;
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
-      ASM_OUTPUT_LABEL (file, fname);
+	  /* Need label immediately before tbtab, so we can compute
+	     its offset from the function start.  */
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
+	  ASM_OUTPUT_LABEL (file, fname);
+	}
 
       /* The .tbtab pseudo-op can only be used for the first eight
 	 expressions, since it can't handle the possibly variable
@@ -11091,7 +11112,7 @@ rs6000_output_function_epilogue (file, size)
 
 		      if (mode == SFmode)
 			bits = 0x2;
-		      else if (mode == DFmode)
+		      else if (mode == DFmode || mode == TFmode)
 			bits = 0x3;
 		      else
 			abort ();
@@ -11168,6 +11189,8 @@ rs6000_output_function_epilogue (file, size)
       /* Omit this list of longs, because there are no CTL anchors.  */
 
       /* Length of function name.  */
+      if (*fname == '*')
+	++fname;
       fprintf (file, "\t.short %d\n", (int) strlen (fname));
 
       /* Function name.  */
@@ -11293,7 +11316,6 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 			      TYPE_ATTRIBUTES (TREE_TYPE (function)))
 	  || lookup_attribute ("shortcall",
 			       TYPE_ATTRIBUTES (TREE_TYPE (function)))))
-
     {
       fprintf (file, "\tb %s", prefix);
       assemble_name (file, fname);
@@ -11328,7 +11350,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	  if (TARGET_ELF)
 	    function_section (current_function_decl);
 	  else
-	    text_section();
+	    text_section ();
 	  if (TARGET_MINIMAL_TOC)
 	    asm_fprintf (file, (TARGET_32BIT)
 			 ? "\t{l|lwz} %s,%s(%s)\n" : "\tld %s,%s(%s)\n", r12,
@@ -11644,7 +11666,42 @@ output_toc (file, x, labelno, mode)
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
      FP constants.  */
-  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
+  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == TFmode)
+    {
+      REAL_VALUE_TYPE rv;
+      long k[4];
+
+      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
+      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+
+      if (TARGET_64BIT)
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fputs (DOUBLE_INT_ASM_OP, file);
+	  else
+	    fprintf (file, "\t.tc FT_%lx_%lx_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff,
+		     k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  fprintf (file, "0x%lx%08lx,0x%lx%08lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff,
+		   k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  return;
+	}
+      else
+	{
+	  if (TARGET_MINIMAL_TOC)
+	    fputs ("\t.long ", file);
+	  else
+	    fprintf (file, "\t.tc FT_%lx_%lx_%lx_%lx[TC],",
+		     k[0] & 0xffffffff, k[1] & 0xffffffff,
+		     k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  fprintf (file, "0x%lx,0x%lx,0x%lx,0x%lx\n",
+		   k[0] & 0xffffffff, k[1] & 0xffffffff,
+		   k[2] & 0xffffffff, k[3] & 0xffffffff);
+	  return;
+	}
+    }
+  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
     {
       REAL_VALUE_TYPE rv;
       long k[2];

@@ -4918,6 +4918,7 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__INT_MAX__", integer_type_node, 0);
   builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
+  builtin_define_type_max ("__WCHAR_MAX__", wchar_type_node, 0);
 
   builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
 
@@ -4951,7 +4952,7 @@ cb_register_builtins (pfile)
 
   if (fast_math_flags_set_p ())
     cpp_define (pfile, "__FAST_MATH__");
-  if (flag_no_inline)
+  if (flag_really_no_inline)
     cpp_define (pfile, "__NO_INLINE__");
   if (flag_signaling_nans)
     cpp_define (pfile, "__SUPPORT_SNAN__");

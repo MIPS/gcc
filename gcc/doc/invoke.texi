@@ -222,13 +222,13 @@ in the following sections.
 -Werror-implicit-function-declaration @gol
 -Wimport  -Winline -Wno-endif-labels @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
--Wmain  -Wmissing-braces  -Wmissing-declarations @gol
+-Wmain  -Wmissing-braces @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
 -Wno-multichar  -Wno-format-extra-args  -Wno-format-y2k @gol
 -Wno-import  -Wnonnull  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wswitch  -Wswitch-default -Wswitch-enum @gol
+-Wsign-compare  -Wstrict-aliasing -Wswitch  -Wswitch-default -Wswitch-enum @gol
 -Wsystem-headers -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
@@ -236,8 +236,8 @@ in the following sections.
 
 @item C-only Warning Options
 @gccoptlist{
--Wbad-function-cast  -Wmissing-prototypes  -Wnested-externs @gol
--Wstrict-prototypes  -Wtraditional}
+-Wbad-function-cast  -Wmissing-declarations  -Wmissing-prototypes @gol
+-Wnested-externs  -Wstrict-prototypes  -Wtraditional}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -489,7 +489,7 @@ in the following sections.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse -msse2 -msse-math -m3dnow @gol
+-mmmx  -msse -msse2 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -501,7 +501,8 @@ in the following sections.
 @gccoptlist{
 -march=@var{architecture-type} @gol
 -mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
--mfast-indirect-calls  -mgas  -mjump-in-delay @gol
+-mfast-indirect-calls  -mgas  -mgnu-ld -mhp-ld @gol
+-mjump-in-delay -mlinker-opt @gol
 -mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
@@ -1565,6 +1566,21 @@ G++ will place the @code{A} base class of @code{C} at a non-zero offset;
 it should be placed at offset zero.  G++ mistakenly believes that the
 @code{A} data member of @code{B} is already at offset zero.
 
+@item
+Names of template functions whose types involve @code{typename} or
+template template parameters can be mangled incorrectly.
+
+@smallexample
+template <typename Q>
+void f(typename Q::X) @{@}
+
+template <template <typename> class Q>
+void f(typename Q<int>::X) @{@}
+@end smallexample
+
+@noindent
+Instantions of these templates may be mangled incorrectly.
+
 @end itemize
 
 @item -Wctor-dtor-privacy @r{(C++ only)}
@@ -2324,6 +2340,14 @@ Warn when a #pragma directive is encountered which is not understood by
 GCC@.  If this command line option is used, warnings will even be issued
 for unknown pragmas in system header files.  This is not the case if
 the warnings were only enabled by the @option{-Wall} command line option.
+
+@item -Wstrict-aliasing
+@opindex Wstrict-aliasing
+This option is only active when @option{-fstrict-aliasing} is active.
+It warns about code which might break the strict aliasing rules that the
+compiler is using for optimization. The warning does not catch all
+cases, but does attempt to catch the more common pitfalls. It is
+included in @option{-Wall}.
 
 @item -Wall
 @opindex Wall
@@ -7766,6 +7790,9 @@ direct access to the MMX, SSE and 3Dnow extensions of the instruction set.
 @xref{X86 Built-in Functions}, for details of the functions enabled
 and disabled by these switches.
 
+To have SSE/SSE2 instructions generated automatically from floating-point
+code, see @option{-mfpmath=sse}.
+
 @item -mpush-args
 @itemx -mno-push-args
 @opindex mpush-args
@@ -7981,6 +8008,30 @@ Generate the predefine, @code{_SIO}, for server IO.  The default is
 @option{-mwsio}.  This generates the predefines, @code{__hp9000s700},
 @code{__hp9000s700__} and @code{_WSIO}, for workstation IO.  These
 options are available under HP-UX and HI-UX.
+
+@item -mgnu-ld
+@opindex gnu-ld
+Use GNU ld specific options.  This passes @option{-shared} to ld when
+building a shared library.  It is the default when GCC is configured,
+explicitly or implicitly, with the GNU linker.  This option does not
+have any affect on which ld is called, it only changes what parameters
+are passed to that ld.  The ld that is called is determined by the
+@option{--with-ld} configure option, gcc's program search path, and
+finally by the user's @env{PATH}.  The linker used by GCC can be printed
+using @samp{which `gcc -print-prog-name=ld`}.
+
+@item -mhp-ld
+@opindex hp-ld
+Use HP ld specific options.  This passes @option{-b} to ld when building
+a shared library and passes @option{+Accept TypeMismatch} to ld on all
+links.  It is the default when GCC is configured, explicitly or
+implicitly, with the HP linker.  This option does not have any affect on
+which ld is called, it only changes what parameters are passed to that
+ld.  The ld that is called is determined by the @option{--with-ld}
+configure option, gcc's program search path, and finally by the user's
+@env{PATH}.  The linker used by GCC can be printed using @samp{which
+`gcc -print-prog-name=ld`}.
+
 @end table
 
 @node Intel 960 Options

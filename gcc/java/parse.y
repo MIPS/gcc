@@ -1000,12 +1000,7 @@ variable_declarator_id:
 		{yyerror ("Invalid declaration"); DRECOVER(vdi);}
 |	variable_declarator_id OSB_TK error
 		{
-		  tree node = java_lval.node;
-		  if (node && (TREE_CODE (node) == INTEGER_CST
-			       || TREE_CODE (node) == EXPR_WITH_FILE_LOCATION))
-		    yyerror ("Can't specify array dimension in a declaration");
-		  else
-		    yyerror ("']' expected");
+		  yyerror ("']' expected");
 		  DRECOVER(vdi);
 		}
 |	variable_declarator_id CSB_TK error
@@ -13773,8 +13768,19 @@ merge_string_cste (op1, op2, after)
 	string = null_pointer;
       else if (TREE_TYPE (op2) == char_type_node)
 	{
-	  ch[0] = (char )TREE_INT_CST_LOW (op2);
-	  ch[1] = '\0';
+	  /* Convert the character into UTF-8.	*/
+	  unsigned char c = (unsigned char) TREE_INT_CST_LOW (op2);
+	  unsigned char *p = (unsigned char *) ch;
+	  if (0x01 <= c
+	      && c <= 0x7f)
+	    *p++ = c;
+	  else
+	    {
+	      *p++ = c >> 6 | 0xc0;
+	      *p++ = (c & 0x3f) | 0x80;
+	    }
+	  *p = '\0';
+ 
 	  string = ch;
 	}
       else
@@ -16210,8 +16216,11 @@ attach_init_test_initialization_flags (entry, ptr)
   tree block = (tree)ptr;
   struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
 
-  TREE_CHAIN (ite->value) = BLOCK_EXPR_DECLS (block);
-  BLOCK_EXPR_DECLS (block) = ite->value;
+  if (block != error_mark_node)
+    {
+      TREE_CHAIN (ite->value) = BLOCK_EXPR_DECLS (block);
+      BLOCK_EXPR_DECLS (block) = ite->value;
+    }
   return true;
 }
 
