@@ -2,6 +2,16 @@
 
 	* cfgloopanal.c (average_num_loop_insns): Fix.
 
+2002-12-10  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (GET_ARRAY_SIZE): Alloc array a bit larger.
+
+	* bb-reorder.c (find_traces_1_round): Do not duplicate block
+	that is its own successor.
+
+	* Makefile.in (bb-reorder.o): Add dependencies.
+	(tracer.o): Add dependencies.
+
 2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (loop.o): Add cfgloop.h dependency.
