@@ -1,3 +1,7 @@
+Fri Jun 20 18:58:58 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcse.c (pre_insert_copy_insn): Deal nicely with parallels.
+
 2003-06-19  Josef Zlomek  <zlomekj@suse.cz>
 
 	* vrp.c (redirect_edges): Do not redirect if some edge points to

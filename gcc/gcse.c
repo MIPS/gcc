@@ -5311,11 +5311,23 @@ pre_insert_copy_insn (expr, insn)
   rtx reg = expr->reaching_reg;
   int regno = REGNO (reg);
   int indx = expr->bitmap_index;
-  rtx set = single_set (insn);
+  rtx pat = PATTERN (insn), set = pat;
   rtx new_insn;
+  int i;
 
-  if (!set)
-    abort ();
+  if (GET_CODE (set) == PARALLEL)
+    {
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  set = XVECEXP (pat, 0, i);
+
+	  if (GET_CODE (set) == SET
+	      && rtx_equal_p (SET_SRC (set), expr->expr))
+	    break;
+	}
+      if (!set)
+	abort ();
+    }
 
   new_insn = emit_insn_after (gen_move_insn (reg, SET_DEST (set)), insn);
 
