@@ -2624,7 +2624,6 @@ cannot_change_mode_set_regs (used, from, regno)
      unsigned int regno;
 {
   enum machine_mode to;
-  enum reg_class class;
 
   for (to = VOIDmode; to < MAX_MACHINE_MODE; ++to)
     if (REGNO_REG_SET_P (&subregs_of_mode[to], regno))

@@ -1,3 +1,25 @@
+2003-02-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcov-io.h (GCOV_TAG_SAME_VALUE_HISTOGRAMS): New section.
+	(gcov_read_counter): Add parameter.
+	(merger_function, same_value_histograms_merger, profile_merger_for_tag):
+	New.
+	(gcov_read_summary): Add parameter to gcov_read_counter call.
+	* gcov.c (read_count_file): Ditto.
+	* libgcc.c (gcov_exit): Support profile merging hooks.
+	* profile.c (same_value_histograms_label): New.
+	(get_exec_counts): Add parameter to gcov_read_counter call.
+	(get_histogram_counts): Support profile merging hooks.
+	(instrument_values, compute_value_histograms): Place same value
+	histograms into own section.
+	(branch_prob): Call allocate_reg_info after find_values_to_profile.
+	(init_branch_prob): Create same_value_histograms_label.
+	(label_for_tag): Return the label.
+	* profile.h (MAX_COUNTER_SECTIONS): Increase.
+
+	* loop.c (loop_optimize): Avoid warning.
+	* regclass.c (cannot_change_mode_set_regs): Ditto.
+
 Thu Feb 20 16:27:56 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* c-typeck.c (build_c_cast):  Fold constant variables into
