@@ -2508,7 +2508,7 @@ dump_table (scan)
   pool_window_last = 0;
 }
 
-/* Return non-zero if constant would be an ok source for a
+/* Return nonzero if constant would be an ok source for a
    mov.w instead of a mov.l.  */
 
 static int
@@ -2520,7 +2520,7 @@ hi_const (src)
 	  && INTVAL (src) <= 32767);
 }
 
-/* Non-zero if the insn is a move instruction which needs to be fixed.  */
+/* Nonzero if the insn is a move instruction which needs to be fixed.  */
 
 /* ??? For a DImode/DFmode moves, we don't need to fix it if each half of the
    CONST_DOUBLE input value is CONST_OK_FOR_I.  For a SFmode move, we don't
@@ -3862,7 +3862,7 @@ machine_dependent_reorg (first)
   split_branches (first);
 
   /* The INSN_REFERENCES_ARE_DELAYED in sh.h is problematic because it
-     also has an effect on the register that holds the addres of the sfunc.
+     also has an effect on the register that holds the address of the sfunc.
      Insert an extra dummy insn in front of each sfunc that pretends to
      use this register.  */
   if (flag_delayed_branch)
@@ -6429,7 +6429,7 @@ branch_dest (branch)
   return INSN_ADDRESSES (dest_uid);
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels.  It may live past calls or jumps though.  */
 int
@@ -6971,7 +6971,7 @@ sh_can_redirect_branch (branch1, branch2)
   return 0;
 }
 
-/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
 int
 sh_hard_regno_rename_ok (old_reg, new_reg)
      unsigned int old_reg ATTRIBUTE_UNUSED;
@@ -7137,7 +7137,7 @@ sh_pr_n_sets ()
   return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
-/* This Function returns non zero if the DFA based scheduler interface
+/* This Function returns nonzero if the DFA based scheduler interface
    is to be used.  At present this is supported for the SH4 only.  */
 static int
 sh_use_dfa_interface()
@@ -7652,6 +7652,8 @@ sh_expand_builtin (exp, target, subtarget, mode, ignore)
       if (! signature_args[signature][i])
 	break;
       arg = TREE_VALUE (arglist);
+      if (arg == error_mark_node)
+	return const0_rtx;
       arglist = TREE_CHAIN (arglist);
       opmode = insn_data[icode].operand[nop].mode;
       argmode = TYPE_MODE (TREE_TYPE (arg));

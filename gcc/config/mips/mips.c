@@ -5888,7 +5888,7 @@ print_operand (file, op, letter)
       char s[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-      REAL_VALUE_TO_DECIMAL (d, "%.20e", s);
+      REAL_VALUE_TO_DECIMAL (d, s, -1);
       fprintf (file, s);
     }
 
@@ -8092,7 +8092,7 @@ mips_select_section (decl, reloc, align)
    precisely correct.
 
    When not mips16 code nor embedded PIC, if a symbol is in a
-   gp addresable section, SYMBOL_REF_FLAG is set prevent gcc from
+   gp addressable section, SYMBOL_REF_FLAG is set prevent gcc from
    splitting the reference so that gas can generate a gp relative
    reference.
 

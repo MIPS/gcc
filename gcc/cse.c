@@ -2320,11 +2320,7 @@ canon_hash (x, mode)
 	 the integers representing the constant.  */
       hash += (unsigned) code + (unsigned) GET_MODE (x);
       if (GET_MODE (x) != VOIDmode)
-	for (i = 2; i < GET_RTX_LENGTH (CONST_DOUBLE); i++)
-	  {
-	    unsigned HOST_WIDE_INT tem = XWINT (x, i);
-	    hash += tem;
-	  }
+	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
       else
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
@@ -3147,13 +3143,17 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 
       else if (GET_RTX_CLASS (GET_CODE (arg1)) == '<')
 	{
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
+
 	  if (code == NE
 	      || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_INT
 		  && code == LT && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
 	      || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
-		  && (REAL_VALUE_NEGATIVE
-		      (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
+		  && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
+		      REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 	      )
 	    x = arg1;
@@ -3162,8 +3162,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 		       && code == GE && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		   || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
-		       && (REAL_VALUE_NEGATIVE
-			   (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
+		       && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
+			   REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		   )
 	    x = arg1, reverse_code = 1;
@@ -3199,6 +3199,9 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
       for (; p; p = p->next_same_value)
 	{
 	  enum machine_mode inner_mode = GET_MODE (p->exp);
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
 
 	  /* If the entry isn't valid, skip it.  */
 	  if (! exp_equiv_p (p->exp, p->exp, 1, 0))
@@ -3223,8 +3226,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		   || (code == LT
 		       && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-		       && (REAL_VALUE_NEGATIVE
-			   (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
+		       && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
+			   REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		   )
 		  && GET_RTX_CLASS (GET_CODE (p->exp)) == '<'))
@@ -3243,8 +3246,8 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		    || (code == GE
 			&& GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			&& (REAL_VALUE_NEGATIVE
-			    (FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)))))
+			&& (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
+			    REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		    )
 		   && GET_RTX_CLASS (GET_CODE (p->exp)) == '<')
@@ -6203,14 +6206,23 @@ cse_insn (insn, libcall_insn)
 		    && ! exp_equiv_p (elt->exp, elt->exp, 1, 0))
 		  continue;
 
-		/* Calculate big endian correction for the SUBREG_BYTE
-		   (or equivalent).  We have already checked that M1
-		   ( GET_MODE (dest) ) is not narrower than M2 (new_mode).  */
-		if (BYTES_BIG_ENDIAN)
-		  byte = (GET_MODE_SIZE (GET_MODE (dest))
-			  - GET_MODE_SIZE (new_mode));
-		new_src = simplify_gen_subreg (new_mode, elt->exp,
-					       GET_MODE (dest), byte);
+		/* We may have already been playing subreg games.  If the
+		   mode is already correct for the destination, use it.  */
+		if (GET_MODE (elt->exp) == new_mode)
+		  new_src = elt->exp;
+		else
+		  {
+		    /* Calculate big endian correction for the SUBREG_BYTE.
+		       We have already checked that M1 (GET_MODE (dest))
+		       is not narrower than M2 (new_mode).  */
+		    if (BYTES_BIG_ENDIAN)
+		      byte = (GET_MODE_SIZE (GET_MODE (dest))
+			      - GET_MODE_SIZE (new_mode));
+
+		    new_src = simplify_gen_subreg (new_mode, elt->exp,
+					           GET_MODE (dest), byte);
+		  }
+
 		/* The call to simplify_gen_subreg fails if the value
 		   is VOIDmode, yet we can't do any simplification, e.g.
 		   for EXPR_LISTs denoting function call results.
@@ -6291,7 +6303,7 @@ cse_insn (insn, libcall_insn)
 
 	     This section previously turned the REG_EQUIV into a REG_EQUAL
 	     note.  We cannot do that because REG_EQUIV may provide an
-	     uninitialised stack slot when REG_PARM_STACK_SPACE is used.  */
+	     uninitialized stack slot when REG_PARM_STACK_SPACE is used.  */
 
 	  if (prev != 0 && GET_CODE (prev) == INSN
 	      && GET_CODE (PATTERN (prev)) == SET

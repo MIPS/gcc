@@ -31,6 +31,13 @@
 
 namespace std 
 {
+  // Definitions for locale::id of standard facets that are specialized.
+ locale::id codecvt<char, char, mbstate_t>::id;
+
+#ifdef _GLIBCPP_USE_WCHAR_T  
+  locale::id codecvt<wchar_t, char, mbstate_t>::id;
+#endif
+
 #ifdef _GLIBCPP_USE___ENC_TRAITS
   // Definitions for static const data members of __enc_traits.
   const int __enc_traits::_S_max_size;
@@ -39,10 +46,19 @@ namespace std
   codecvt<char, char, mbstate_t>::
   codecvt(size_t __refs)
   : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
-  { }
+  { _M_c_locale_codecvt = _S_c_locale; }
 
   codecvt<char, char, mbstate_t>::
-  ~codecvt() { }
+  codecvt(__c_locale __cloc, size_t __refs)
+  : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
+  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+
+  codecvt<char, char, mbstate_t>::
+  ~codecvt()
+   {
+     if (_M_c_locale_codecvt != _S_c_locale)
+       _S_destroy_c_locale(_M_c_locale_codecvt);
+   }
   
   codecvt_base::result
   codecvt<char, char, mbstate_t>::
@@ -106,38 +122,19 @@ namespace std
   // codecvt<wchar_t, char, mbstate_t> required specialization
   codecvt<wchar_t, char, mbstate_t>::
   codecvt(size_t __refs)
-  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs) { }
+  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
+  { _M_c_locale_codecvt = _S_c_locale; }  
 
   codecvt<wchar_t, char, mbstate_t>::
-  ~codecvt() { }
-  
-  codecvt_base::result
+  codecvt(__c_locale __cloc, size_t __refs)
+  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
+  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+
   codecvt<wchar_t, char, mbstate_t>::
-  do_out(state_type& __state, const intern_type* __from, 
-	 const intern_type* __from_end, const intern_type*& __from_next,
-	 extern_type* __to, extern_type* __to_end,
-	 extern_type*& __to_next) const
+  ~codecvt()
   {
-    result __ret = error;
-    size_t __len = min(__from_end - __from, __to_end - __to);
-    size_t __conv = wcsrtombs(__to, &__from, __len, &__state);
-
-    if (__conv == __len)
-      {
-	__from_next = __from;
-	__to_next = __to + __conv;
-	__ret = ok;
-      }
-    else if (__conv > 0 && __conv < __len)
-      {
-	__from_next = __from;
-	__to_next = __to + __conv;
-	__ret = partial;
-      }
-    else
-      __ret = error;
-	
-    return __ret; 
+    if (_M_c_locale_codecvt != _S_c_locale)
+      _S_destroy_c_locale(_M_c_locale_codecvt); 
   }
   
   codecvt_base::result
@@ -147,35 +144,6 @@ namespace std
   {
     __to_next = __to;
     return noconv;
-  }
-  
-  codecvt_base::result
-  codecvt<wchar_t, char, mbstate_t>::
-  do_in(state_type& __state, const extern_type* __from, 
-	const extern_type* __from_end, const extern_type*& __from_next,
-	intern_type* __to, intern_type* __to_end,
-	intern_type*& __to_next) const
-  {
-    result __ret = error;
-    size_t __len = min(__from_end - __from, __to_end - __to);
-    size_t __conv = mbsrtowcs(__to, &__from, __len, &__state);
-
-    if (__conv == __len)
-      {
-	__from_next = __from;
-	__to_next = __to + __conv;
-	__ret = ok;
-      }
-    else if (__conv > 0 && __conv < __len)
-      {
-	__from_next = __from;
-	__to_next = __to + __conv;
-	__ret = partial;
-      }
-    else
-      __ret = error;
-	
-    return __ret; 
   }
   
   int 

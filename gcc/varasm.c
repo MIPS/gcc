@@ -136,13 +136,14 @@ static HOST_WIDE_INT const_alias_set;
 static const char *strip_reg_name	PARAMS ((const char *));
 static int contains_pointers_p		PARAMS ((tree));
 static void decode_addr_const		PARAMS ((tree, struct addr_const *));
-static int const_hash			PARAMS ((tree));
+static unsigned int const_hash		PARAMS ((tree));
+static unsigned int const_hash_1	PARAMS ((tree));
 static int compare_constant		PARAMS ((tree, tree));
 static tree copy_constant		PARAMS ((tree));
 static void output_constant_def_contents  PARAMS ((tree, int, int));
 static void decode_rtx_const		PARAMS ((enum machine_mode, rtx,
 					       struct rtx_const *));
-static int const_hash_rtx		PARAMS ((enum machine_mode, rtx));
+static unsigned int const_hash_rtx	PARAMS ((enum machine_mode, rtx));
 static int compare_constant_rtx
   PARAMS ((enum machine_mode, rtx, struct constant_descriptor_rtx *));
 static struct constant_descriptor_rtx * record_constant_rtx
@@ -2166,9 +2167,15 @@ struct rtx_const GTY(())
       HOST_WIDE_INT low;
     } GTY ((tag ("0"))) di;
 
-    /* The max vector size we have is 8 wide.  This should be enough.  */
-    HOST_WIDE_INT veclo[16];
-    HOST_WIDE_INT vechi[16];
+    /* The max vector size we have is 8 wide; two variants for
+       integral and floating point vectors.  */
+    struct rtx_const_int_vec {
+      HOST_WIDE_INT high;
+      HOST_WIDE_INT low;
+    } GTY ((tag ("2"))) int_vec[8];
+
+    REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
+
   } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
 };
 
@@ -2191,7 +2198,6 @@ struct constant_descriptor_tree GTY(())
   tree value;
 };
 
-#define HASHBITS 30
 #define MAX_HASH_TABLE 1009
 static GTY(()) struct constant_descriptor_tree *
   const_hash_table[MAX_HASH_TABLE];
@@ -2236,12 +2242,20 @@ const_str_htab_eq (x, y)
 
 /* Compute a hash code for a constant expression.  */
 
-static int
+static unsigned int
 const_hash (exp)
      tree exp;
 {
+  return const_hash_1 (exp) % MAX_HASH_TABLE;
+}
+
+static unsigned int
+const_hash_1 (exp)
+     tree exp;
+{
   const char *p;
-  int len, hi, i;
+  unsigned int hi;
+  int len, i;
   enum tree_code code = TREE_CODE (exp);
 
   /* Either set P and LEN to the address and len of something to hash and
@@ -2255,9 +2269,7 @@ const_hash (exp)
       break;
 
     case REAL_CST:
-      p = (char *) &TREE_REAL_CST (exp);
-      len = sizeof TREE_REAL_CST (exp);
-      break;
+      return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
       p = TREE_STRING_POINTER (exp);
@@ -2265,8 +2277,8 @@ const_hash (exp)
       break;
 
     case COMPLEX_CST:
-      return (const_hash (TREE_REALPART (exp)) * 5
-	      + const_hash (TREE_IMAGPART (exp)));
+      return (const_hash_1 (TREE_REALPART (exp)) * 5
+	      + const_hash_1 (TREE_IMAGPART (exp)));
 
     case CONSTRUCTOR:
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
@@ -2283,23 +2295,11 @@ const_hash (exp)
 	{
 	  tree link;
 
-	  /* For record type, include the type in the hashing.
-	     We do not do so for array types
-	     because (1) the sizes of the elements are sufficient
-	     and (2) distinct array types can have the same constructor.
-	     Instead, we include the array size because the constructor could
-	     be shorter.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-	    hi = ((unsigned long) TREE_TYPE (exp) & ((1 << HASHBITS) - 1))
-	      % MAX_HASH_TABLE;
-	  else
-	    hi = ((5 + int_size_in_bytes (TREE_TYPE (exp)))
-		  & ((1 << HASHBITS) - 1)) % MAX_HASH_TABLE;
+	  hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
 
 	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
 	    if (TREE_VALUE (link))
-	      hi
-		= (hi * 603 + const_hash (TREE_VALUE (link))) % MAX_HASH_TABLE;
+	      hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
 
 	  return hi;
 	}
@@ -2323,25 +2323,22 @@ const_hash (exp)
 	  hi = value.offset + CODE_LABEL_NUMBER (XEXP (value.base, 0)) * 13;
 	else
 	  abort ();
-
-	hi &= (1 << HASHBITS) - 1;
-	hi %= MAX_HASH_TABLE;
       }
       return hi;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      return (const_hash (TREE_OPERAND (exp, 0)) * 9
-	      + const_hash (TREE_OPERAND (exp, 1)));
+      return (const_hash_1 (TREE_OPERAND (exp, 0)) * 9
+	      + const_hash_1 (TREE_OPERAND (exp, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
-      return const_hash (TREE_OPERAND (exp, 0)) * 7 + 2;
+      return const_hash_1 (TREE_OPERAND (exp, 0)) * 7 + 2;
 
     default:
       /* A language specific constant. Just hash the code.  */
-      return (int) code % MAX_HASH_TABLE;
+      return code;
     }
 
   /* Compute hashing function */
@@ -2349,8 +2346,6 @@ const_hash (exp)
   for (i = 0; i < len; i++)
     hi = ((hi * 613) + (unsigned) (p[i]));
 
-  hi &= (1 << HASHBITS) - 1;
-  hi %= MAX_HASH_TABLE;
   return hi;
 }
 
@@ -2450,7 +2445,7 @@ compare_constant (t1, t2)
 	       l1 && l2;
 	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
 	    {
-	      /* Check that each value is the same... */
+	      /* Check that each value is the same...  */
 	      if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
 		return 0;
 	      /* ... and that they apply to the same fields!  */
@@ -2689,7 +2684,7 @@ output_constant_def (exp, defer)
      to see if any of them describes EXP.  If yes, the descriptor records
      the label number already assigned.  */
 
-  hash = const_hash (exp) % MAX_HASH_TABLE;
+  hash = const_hash (exp);
 
   for (desc = const_hash_table[hash]; desc; desc = desc->next)
     if (compare_constant (exp, desc->value))
@@ -2908,8 +2903,7 @@ struct pool_constant GTY(())
 /* Hash code for a SYMBOL_REF with CONSTANT_POOL_ADDRESS_P true.
    The argument is XSTR (... , 0)  */
 
-#define SYMHASH(LABEL)	\
-  ((((unsigned long) (LABEL)) & ((1 << HASHBITS) - 1))  % MAX_RTX_HASH_TABLE)
+#define SYMHASH(LABEL)	(((unsigned long) (LABEL)) % MAX_RTX_HASH_TABLE)
 
 /* Initialize constant pool hashing for a new function.  */
 
@@ -2956,8 +2950,29 @@ decode_rtx_const (mode, x, value)
       value->kind = RTX_DOUBLE;
       if (GET_MODE (x) != VOIDmode)
 	{
+	  const REAL_VALUE_TYPE *r = CONST_DOUBLE_REAL_VALUE (x);
+
 	  value->mode = GET_MODE (x);
-	  REAL_VALUE_FROM_CONST_DOUBLE (value->un.du, x);
+
+	  /* Copy the REAL_VALUE_TYPE by members so that we don't
+	     copy garbage from the original structure into our
+	     carefully cleaned hashing structure.  */
+	  value->un.du.class = r->class;
+	  value->un.du.sign = r->sign;
+	  switch (r->class)
+	    {
+	    case rvc_zero:
+	    case rvc_inf:
+	      break;
+	    case rvc_normal:
+	      value->un.du.exp = r->exp;
+	      /* FALLTHRU */
+	    case rvc_nan:
+	      memcpy (value->un.du.sig, r->sig, sizeof (r->sig));
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
       else
 	{
@@ -2969,28 +2984,59 @@ decode_rtx_const (mode, x, value)
     case CONST_VECTOR:
       {
 	int units, i;
-	rtx elt;
 
 	units = CONST_VECTOR_NUNITS (x);
 	value->kind = RTX_VECTOR;
 	value->mode = mode;
 
-	for (i = 0; i < units; ++i)
+	if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	  {
-	    elt = CONST_VECTOR_ELT (x, i);
-	    if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+	    for (i = 0; i < units; ++i)
 	      {
-		value->un.veclo[i] = (HOST_WIDE_INT) INTVAL (elt);
-		value->un.vechi[i] = 0;
+	        rtx elt = CONST_VECTOR_ELT (x, i);
+	        if (GET_CODE (elt) == CONST_INT)
+	          {
+		    value->un.int_vec[i].low = INTVAL (elt);
+		    value->un.int_vec[i].high = 0;
+	          }
+		else
+	          {
+		    value->un.int_vec[i].low = CONST_DOUBLE_LOW (elt);
+		    value->un.int_vec[i].high = CONST_DOUBLE_HIGH (elt);
+		  }
 	      }
-	    else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
-	      {
-		value->un.veclo[i] = (HOST_WIDE_INT) CONST_DOUBLE_LOW (elt);
-		value->un.vechi[i] = (HOST_WIDE_INT) CONST_DOUBLE_HIGH (elt);
-	      }
-	    else
-	      abort ();
 	  }
+	else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  {
+	    for (i = 0; i < units; ++i)
+	      {
+		const REAL_VALUE_TYPE *r
+		  = CONST_DOUBLE_REAL_VALUE (CONST_VECTOR_ELT (x, i));
+		REAL_VALUE_TYPE *d = &value->un.fp_vec[i];
+
+	        /* Copy the REAL_VALUE_TYPE by members so that we don't
+	           copy garbage from the original structure into our
+	           carefully cleaned hashing structure.  */
+	        d->class = r->class;
+	        d->sign = r->sign;
+	        switch (r->class)
+	          {
+	          case rvc_zero:
+	          case rvc_inf:
+	            break;
+	          case rvc_normal:
+	            d->exp = r->exp;
+	            /* FALLTHRU */
+	          case rvc_nan:
+	            memcpy (d->sig, r->sig, sizeof (r->sig));
+	            break;
+	          default:
+	            abort ();
+	          }
+	      }
+	  }
+	else
+	  abort ();
       }
       break;
 
@@ -3045,7 +3091,7 @@ decode_rtx_const (mode, x, value)
 	}
     }
 
-  if (value->kind > RTX_DOUBLE && value->un.addr.base != 0)
+  if (value->kind >= RTX_INT && value->un.addr.base != 0)
     switch (GET_CODE (value->un.addr.base))
       {
 #if 0
@@ -3077,7 +3123,7 @@ simplify_subtraction (x)
   decode_rtx_const (GET_MODE (x), XEXP (x, 0), &val0);
   decode_rtx_const (GET_MODE (x), XEXP (x, 1), &val1);
 
-  if (val0.kind > RTX_DOUBLE
+  if (val0.kind >= RTX_INT
       && val0.kind == val1.kind
       && val0.un.addr.base == val1.un.addr.base)
     return GEN_INT (val0.un.addr.offset - val1.un.addr.offset);
@@ -3087,25 +3133,27 @@ simplify_subtraction (x)
 
 /* Compute a hash code for a constant RTL expression.  */
 
-static int
+static unsigned int
 const_hash_rtx (mode, x)
      enum machine_mode mode;
      rtx x;
 {
-  int hi;
+  union {
+    struct rtx_const value;
+    unsigned int data[sizeof(struct rtx_const) / sizeof (unsigned int)];
+  } u;
+
+  unsigned int hi;
   size_t i;
 
-  struct rtx_const value;
-  decode_rtx_const (mode, x, &value);
+  decode_rtx_const (mode, x, &u.value);
 
   /* Compute hashing function */
   hi = 0;
-  for (i = 0; i < sizeof value / sizeof (int); i++)
-    hi += ((int *) &value)[i];
+  for (i = 0; i < ARRAY_SIZE (u.data); i++)
+    hi = hi * 613 + u.data[i];
 
-  hi &= (1 << HASHBITS) - 1;
-  hi %= MAX_RTX_HASH_TABLE;
-  return hi;
+  return hi % MAX_RTX_HASH_TABLE;
 }
 
 /* Compare a constant rtl object X with a constant-descriptor DESC.
@@ -4595,7 +4643,7 @@ assemble_alias (decl, target)
    VISIBILITY_TYPE.  */
 
 void
-assemble_visibility (decl, visibility_type)
+default_assemble_visibility (decl, visibility_type)
      tree decl;
      const char *visibility_type ATTRIBUTE_UNUSED;
 {
@@ -4622,7 +4670,7 @@ maybe_assemble_visibility (decl)
     {
       const char *type
 	= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (visibility)));
-      assemble_visibility (decl, type);
+      (* targetm.asm_out.visibility) (decl, type);
     }
 }
 
@@ -4691,11 +4739,21 @@ default_section_type_flags (decl, name, reloc)
      const char *name;
      int reloc;
 {
+  return default_section_type_flags_1 (decl, name, reloc, flag_pic);
+}
+
+unsigned int
+default_section_type_flags_1 (decl, name, reloc, shlib)
+     tree decl;
+     const char *name;
+     int reloc;
+     int shlib;
+{
   unsigned int flags;
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && decl_readonly_section (decl, reloc))
+  else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
   else
     flags = SECTION_WRITE;
@@ -4888,6 +4946,7 @@ enum section_category
   SECCAT_RODATA_MERGE_STR,
   SECCAT_RODATA_MERGE_STR_INIT,
   SECCAT_RODATA_MERGE_CONST,
+  SECCAT_SRODATA,
 
   SECCAT_DATA,
 
@@ -4913,12 +4972,14 @@ enum section_category
   SECCAT_TBSS
 };
 
-static enum section_category categorize_decl_for_section PARAMS ((tree, int));
+static enum section_category
+categorize_decl_for_section PARAMS ((tree, int, int));
 
 static enum section_category
-categorize_decl_for_section (decl, reloc)
+categorize_decl_for_section (decl, reloc, shlib)
      tree decl;
      int reloc;
+     int shlib;
 {
   enum section_category ret;
 
@@ -4940,16 +5001,16 @@ categorize_decl_for_section (decl, reloc)
 	       || TREE_SIDE_EFFECTS (decl)
 	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
 	{
-	  if (flag_pic && (reloc & 2))
+	  if (shlib && (reloc & 2))
 	    ret = SECCAT_DATA_REL;
-	  else if (flag_pic && reloc)
+	  else if (shlib && reloc)
 	    ret = SECCAT_DATA_REL_LOCAL;
 	  else
 	    ret = SECCAT_DATA;
 	}
-      else if (flag_pic && (reloc & 2))
+      else if (shlib && (reloc & 2))
 	ret = SECCAT_DATA_REL_RO;
-      else if (flag_pic && reloc)
+      else if (shlib && reloc)
 	ret = SECCAT_DATA_REL_RO_LOCAL;
       else if (flag_merge_constants < 2)
 	/* C and C++ don't allow different variables to share the same
@@ -4963,7 +5024,7 @@ categorize_decl_for_section (decl, reloc)
     }
   else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
-      if ((flag_pic && reloc)
+      if ((shlib && reloc)
 	  || TREE_SIDE_EFFECTS (decl)
 	  || ! TREE_CONSTANT (decl))
 	ret = SECCAT_DATA;
@@ -4987,6 +5048,8 @@ categorize_decl_for_section (decl, reloc)
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
+      else if (targetm.have_srodata_section && ret == SECCAT_RODATA)
+	ret = SECCAT_SRODATA;
       else
 	ret = SECCAT_SDATA;
     }
@@ -4999,12 +5062,22 @@ decl_readonly_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  switch (categorize_decl_for_section (decl, reloc))
+  return decl_readonly_section_1 (decl, reloc, flag_pic);
+}
+
+bool
+decl_readonly_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_RODATA:
     case SECCAT_RODATA_MERGE_STR:
     case SECCAT_RODATA_MERGE_STR_INIT:
     case SECCAT_RODATA_MERGE_CONST:
+    case SECCAT_SRODATA:
       return true;
       break;
     default:
@@ -5021,7 +5094,17 @@ default_elf_select_section (decl, reloc, align)
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  switch (categorize_decl_for_section (decl, reloc))
+  default_elf_select_section_1 (decl, reloc, align, flag_pic);
+}
+
+void
+default_elf_select_section_1 (decl, reloc, align, shlib)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
       /* We're not supposed to be called on FUNCTION_DECLs.  */
@@ -5037,6 +5120,9 @@ default_elf_select_section (decl, reloc, align)
       break;
     case SECCAT_RODATA_MERGE_CONST:
       mergeable_constant_section (DECL_MODE (decl), align, 0);
+      break;
+    case SECCAT_SRODATA:
+      named_section (NULL_TREE, ".sdata2", reloc);
       break;
     case SECCAT_DATA:
       data_section ();
@@ -5085,12 +5171,21 @@ default_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
+  default_unique_section_1 (decl, reloc, flag_pic);
+}
+
+void
+default_unique_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
   bool one_only = DECL_ONE_ONLY (decl);
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;
 
-  switch (categorize_decl_for_section (decl, reloc))
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
       prefix = one_only ? ".gnu.linkonce.t." : ".text.";
@@ -5100,6 +5195,9 @@ default_unique_section (decl, reloc)
     case SECCAT_RODATA_MERGE_STR_INIT:
     case SECCAT_RODATA_MERGE_CONST:
       prefix = one_only ? ".gnu.linkonce.r." : ".rodata.";
+      break;
+    case SECCAT_SRODATA:
+      prefix = one_only ? ".gnu.linkonce.s2." : ".sdata2.";
       break;
     case SECCAT_DATA:
     case SECCAT_DATA_REL:
@@ -5205,6 +5303,14 @@ bool
 default_binds_local_p (exp)
      tree exp;
 {
+  return default_binds_local_p_1 (exp, flag_pic);
+}
+
+bool
+default_binds_local_p_1 (exp, shlib)
+     tree exp;
+     int shlib;
+{
   bool local_p;
 
   /* A non-decl is an entry in the constant pool.  */
@@ -5224,7 +5330,7 @@ default_binds_local_p (exp)
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
-  else if (flag_pic)
+  else if (shlib)
     local_p = false;
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */

@@ -240,6 +240,11 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #endif
 #endif
 
+/* By default, there is no prefix on user-defined symbols.  */
+#ifndef USER_LABEL_PREFIX
+#define USER_LABEL_PREFIX ""
+#endif
+
 /* If the target supports weak symbols, define TARGET_ATTRIBUTE_WEAK to
    provide a weak attribute.  Else define it to nothing. 
 
@@ -437,7 +442,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 /* By default, the vtable entries are void pointers, the so the alignment
    is the same as pointer alignment.  The value of this macro specifies
    the alignment of the vtable entry in bits.  It should be defined only
-   when special alignment is necessary. */
+   when special alignment is necessary.  */
 #ifndef TARGET_VTABLE_ENTRY_ALIGN
 #define TARGET_VTABLE_ENTRY_ALIGN POINTER_SIZE
 #endif
@@ -518,6 +523,18 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
 #endif
 
+/* Define codes for all the float formats that we know of.  */
+#define UNKNOWN_FLOAT_FORMAT 0
+#define IEEE_FLOAT_FORMAT 1
+#define VAX_FLOAT_FORMAT 2
+#define IBM_FLOAT_FORMAT 3
+#define C4X_FLOAT_FORMAT 4
+
+/* Default to IEEE float if not specified.  Nearly all machines use it.  */
+#ifndef TARGET_FLOAT_FORMAT
+#define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
@@ -559,6 +576,21 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    && !ROUND_TOWARDS_ZERO)
 #endif
 
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#define INTEL_EXTENDED_IEEE_FORMAT 0
+#endif
+
+/* If FLOAT_WORDS_BIG_ENDIAN and HOST_FLOAT_WORDS_BIG_ENDIAN are not defined
+   in the header files, then this implies the word-endianness is the same as
+   for integers.  */
+#ifndef FLOAT_WORDS_BIG_ENDIAN
+#define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
+#endif
+
+#ifndef TARGET_FLT_EVAL_METHOD
+#define TARGET_FLT_EVAL_METHOD 0
+#endif
+
 #ifndef HOT_TEXT_SECTION_NAME
 #define HOT_TEXT_SECTION_NAME "text.hot"
 #endif
@@ -572,7 +604,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
-   register C++ destructors for local statics and global objects. */
+   register C++ destructors for local statics and global objects.  */
 #ifndef DEFAULT_USE_CXA_ATEXIT
 #define DEFAULT_USE_CXA_ATEXIT 0
 #endif

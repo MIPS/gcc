@@ -38,9 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "darwin-protos.h"
-
-extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
+#include "tm_p.h"
 
 static int machopic_data_defined_p PARAMS ((const char *));
 static void update_non_lazy_ptrs PARAMS ((const char *));
@@ -859,18 +857,11 @@ machopic_finish (asm_out_file)
     {
       const char *const sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
       const char *const lazy_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
-#if 0
-      tree decl = lookup_name_darwin (TREE_VALUE (temp));
-#endif
 
       if (! TREE_USED (temp))
 	continue;
 
-      if (machopic_ident_defined_p (TREE_VALUE (temp))
-#if 0 /* add back when we have private externs */
-          || (decl && DECL_PRIVATE_EXTERN (decl))
-#endif
-	  )
+      if (machopic_ident_defined_p (TREE_VALUE (temp)))
 	{
 	  data_section ();
 	  assemble_align (GET_MODE_ALIGNMENT (Pmode));
@@ -919,18 +910,6 @@ machopic_operand_p (op)
       && machopic_name_defined_p (XSTR (XEXP (op, 0), 0))
       && machopic_name_defined_p (XSTR (XEXP (op, 1), 0)))
       return 1;
-
-#if 0 /*def TARGET_TOC*/ /* i.e., PowerPC */
-  /* Without this statement, the compiler crashes while compiling enquire.c
-     when targetting PowerPC.  It is not known why this code is not needed
-     when targetting other processors.  */
-  else if (GET_CODE (op) == SYMBOL_REF
-	   && (machopic_classify_name (XSTR (op, 0))
-	       == MACHOPIC_DEFINED_FUNCTION))
-    {
-      return 1;
-    }
-#endif
 
   return 0;
 }
@@ -1292,6 +1271,35 @@ darwin_globalize_label (stream, name)
 {
   if (!!strncmp (name, "_OBJC_", 6))
     default_globalize_label (stream, name);
+}
+
+/* Output a difference of two labels that will be an assembly time
+   constant if the two labels are local.  (.long lab1-lab2 will be
+   very different if lab1 is at the boundary between two sections; it
+   will be relocated according to the second section, not the first,
+   so one ends up with a difference between labels in different
+   sections, which is bad in the dwarf2 eh context for instance.)  */
+
+static int darwin_dwarf_label_counter;
+
+void
+darwin_asm_output_dwarf_delta (file, size, lab1, lab2)
+     FILE *file;
+     int size ATTRIBUTE_UNUSED;
+     const char *lab1, *lab2;
+{
+  const char *p = lab1 + (lab1[0] == '*');
+  int islocaldiff = (p[0] == 'L');
+
+  if (islocaldiff)
+    fprintf (file, "\t.set L$set$%d,", darwin_dwarf_label_counter);
+  else
+    fprintf (file, "\t%s\t", ".long");
+  assemble_name (file, lab1);
+  fprintf (file, "-");
+  assemble_name (file, lab2);
+  if (islocaldiff)
+    fprintf (file, "\n\t.long L$set$%d", darwin_dwarf_label_counter++);
 }
 
 #include "gt-darwin.h"

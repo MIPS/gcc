@@ -123,7 +123,7 @@ enum block_move_type {
   BLOCK_MOVE_LAST			/* generate just the last store */
 };
 
-/* Information about one recognised processor.  Defined here for the
+/* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
 struct mips_cpu_info {
   /* The 'canonical' name of the processor as far as GCC is concerned.
@@ -2686,10 +2686,6 @@ extern enum reg_class mips_char_to_class[256];
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 	(PRETEND_SIZE) = mips_setup_incoming_varargs (&(CUM), (MODE),	\
 						      (TYPE), (NO_RTL))
-
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 #define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 

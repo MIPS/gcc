@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "m32r-protos.h"
+#include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -2318,7 +2318,7 @@ m32r_print_operand (file, x, code)
 	    || GET_MODE_CLASS (GET_MODE (x)) != MODE_FLOAT)
 	  fatal_insn ("bad insn for 'A'", x);
 	REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	REAL_VALUE_TO_DECIMAL (d, "%.20e", str);
+	REAL_VALUE_TO_DECIMAL (d, str, -1);
 	fprintf (file, "%s", str);
 	return;
       }

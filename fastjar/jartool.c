@@ -239,6 +239,12 @@
 #include "pushback.h"
 #include "compress.h"
 
+/* Some systems have mkdir that takes a single argument.  */
+#ifdef MKDIR_TAKES_ONE_ARG
+# define mkdir(a,b) mkdir(a)
+#endif
+
+
 #ifdef WORDS_BIGENDIAN
 
 #define L2BI(l) ((l & 0xff000000) >> 24) | \
@@ -1657,7 +1663,7 @@ int list_jar(int fd, char **files, int file_num){
         strftime(ascii_date, 30, "%a %b %d %H:%M:%S %Z %Y", s_tm);
       }
 
-      if(filename_len < fnlen){
+      if(filename_len < fnlen + 1){
         if(filename != NULL)
           free(filename);
       
@@ -1776,7 +1782,7 @@ int list_jar(int fd, char **files, int file_num){
         strftime(ascii_date, 30, "%a %b %d %H:%M:%S %Z %Y", s_tm);
       }
 
-      if(filename_len < fnlen){
+      if(filename_len < fnlen + 1){
         if(filename != NULL)
           free(filename);
         

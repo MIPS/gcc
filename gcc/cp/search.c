@@ -204,7 +204,7 @@ lookup_base_r (binfo, base, access, within_current_scope,
   if (same_type_p (BINFO_TYPE (binfo), base))
     {
       /* We have found a base. Check against what we have found
-         already. */
+         already.  */
       found = bk_same_type;
       if (is_virtual)
 	found = bk_via_virtual;
@@ -311,7 +311,7 @@ lookup_base (t, base, access, kind_ptr)
      base_access access;
      base_kind *kind_ptr;
 {
-  tree binfo = NULL;		/* The binfo we've found so far. */
+  tree binfo = NULL;		/* The binfo we've found so far.  */
   tree t_binfo = NULL;
   base_kind bk;
   
@@ -1400,15 +1400,16 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
 }
 
 /* Look for a member named NAME in an inheritance lattice dominated by
-   XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it is
-   1, we enforce accessibility.  If PROTECT is zero, then, for an
-   ambiguous lookup, we return NULL.  If PROTECT is 1, we issue an
-   error message.  If PROTECT is 2, we return a TREE_LIST whose
-   TREE_TYPE is error_mark_node and whose TREE_VALUEs are the list of
-   ambiguous candidates.
+   XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it
+   is 1, we enforce accessibility.  If PROTECT is zero, then, for an
+   ambiguous lookup, we return NULL.  If PROTECT is 1, we issue error
+   messages about inaccessible or ambiguous lookup.  If PROTECT is 2,
+   we return a TREE_LIST whose TREE_TYPE is error_mark_node and whose
+   TREE_VALUEs are the list of ambiguous candidates.
 
-   WANT_TYPE is 1 when we should only return TYPE_DECLs, if no
-   TYPE_DECL can be found return NULL_TREE.  */
+   WANT_TYPE is 1 when we should only return TYPE_DECLs.
+
+   If nothing can be found return NULL_TREE and do not issue an error.  */
 
 tree
 lookup_member (xbasetype, name, protect, want_type)
@@ -1995,7 +1996,7 @@ look_for_overrides_here (type, fndecl)
 }
 
 /* Look in TYPE for virtual functions overridden by FNDECL. Check both
-   TYPE itself and its bases. */
+   TYPE itself and its bases.  */
 
 static int
 look_for_overrides_r (type, fndecl)
@@ -2795,7 +2796,7 @@ binfo_for_vtable (var)
     }
 
   /* If no secondary base classes matched, return the primary base, if
-     there is one.   */
+     there is one.  */
   if (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (main_binfo)))
     return get_primary_binfo (main_binfo);
 

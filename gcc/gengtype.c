@@ -135,7 +135,7 @@ do_scalar_typedef (s, pos)
   do_typedef (s, create_scalar_type (s, strlen (s)), pos);
 }
 
-/* Return the type previously defined for S.  Use POS to report errors.   */
+/* Return the type previously defined for S.  Use POS to report errors.  */
 
 type_p
 resolve_typedef (s, pos)
@@ -1649,7 +1649,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		break;
 	      }
 	  }
-	  /* Fall through... */
+	  /* Fall through...  */
 	case TYPE_STRUCT:
 	case TYPE_UNION:
 	  {

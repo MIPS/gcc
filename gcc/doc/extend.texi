@@ -782,7 +782,7 @@ GCC implements taking the address of a nested function using a technique
 called @dfn{trampolines}.  A paper describing them is available as
 
 @noindent
-@uref{http://people.debian.org/~karlheg/Usenix88-lexic.pdf}.
+@uref{http://people.debian.org/~aaronl/Usenix88-lexic.pdf}.
 
 A nested function can jump to a label inherited from a containing
 function, provided the label was explicitly declared in the containing
@@ -1445,9 +1445,9 @@ variable number of arguments much as a function can.  The syntax for
 defining the macro is similar to that of a function.  Here is an
 example:
 
-@example
+@smallexample
 #define debug(format, ...) fprintf (stderr, format, __VA_ARGS__)
-@end example
+@end smallexample
 
 Here @samp{@dots{}} is a @dfn{variable argument}.  In the invocation of
 such a macro, it represents the zero or more tokens until the closing
@@ -1486,9 +1486,9 @@ string.
 To help solve this problem, CPP behaves specially for variable arguments
 used with the token paste operator, @samp{##}.  If instead you write
 
-@example
+@smallexample
 #define debug(format, ...) fprintf (stderr, format, ## __VA_ARGS__)
-@end example
+@end smallexample
 
 and if the variable arguments are omitted or empty, the @samp{##}
 operator causes the preprocessor to remove the comma before it.  If you
@@ -1798,9 +1798,9 @@ nested subobject to initialize; the list is taken relative to the
 subobject corresponding to the closest surrounding brace pair.  For
 example, with the @samp{struct point} declaration above:
 
-@example
+@smallexample
 struct point ptarray[10] = @{ [2].y = yv2, [2].x = xv2, [0].x = xv0 @};
-@end example
+@end smallexample
 
 @noindent
 If the same field is initialized multiple times, it will have value from
@@ -3235,7 +3235,7 @@ typedef int more_aligned_int __attribute__ ((aligned (8)));
 @noindent
 force the compiler to insure (as far as it can) that each variable whose
 type is @code{struct S} or @code{more_aligned_int} will be allocated and
-aligned @emph{at least} on a 8-byte boundary.  On a Sparc, having all
+aligned @emph{at least} on a 8-byte boundary.  On a SPARC, having all
 variables of type @code{struct S} aligned to 8-byte boundaries allows
 the compiler to use the @code{ldd} and @code{std} (doubleword load and
 store) instructions when copying one variable of type @code{struct S} to
@@ -3420,7 +3420,7 @@ any other type of objects, just like the @code{char} type.  See
 
 Example of use:
 
-@example
+@smallexample
 typedef short __attribute__((__may_alias__)) short_a;
 
 int
@@ -3436,7 +3436,7 @@ main (void)
 
   exit(0);
 @}
-@end example
+@end smallexample
 
 If you replaced @code{short_a} with @code{short} in the variable
 declaration, the above program would abort when compiled with
@@ -4140,7 +4140,7 @@ being used for other purposes in the preceding functions.
 Global register variables may not have initial values, because an
 executable file has no means to supply initial contents for a register.
 
-On the Sparc, there are reports that g3 @dots{} g7 are suitable
+On the SPARC, there are reports that g3 @dots{} g7 are suitable
 registers, but certain library functions, such as @code{getwd}, as well
 as the subroutines for division and remainder, modify g3 and g4.  g1 and
 g2 are local temporaries.
@@ -4688,13 +4688,15 @@ as @var{exp2}.
 Example:
 
 @smallexample
-#define foo(x)                                                               \
-  __builtin_choose_expr (__builtin_types_compatible_p (typeof (x), double),  \
-    foo_double (x),                                                          \
-    __builtin_choose_expr (__builtin_types_compatible_p (typeof (x), float), \
-      foo_float (x),                                                         \
-      /* @r{The void expression results in a compile-time error}             \
-         @r{when assigning the result to something.}  */                     \
+#define foo(x)                                                    \
+  __builtin_choose_expr (                                         \
+    __builtin_types_compatible_p (typeof (x), double),            \
+    foo_double (x),                                               \
+    __builtin_choose_expr (                                       \
+      __builtin_types_compatible_p (typeof (x), float),           \
+      foo_float (x),                                              \
+      /* @r{The void expression results in a compile-time error}  \
+         @r{when assigning the result to something.}  */          \
       (void)0))
 @end smallexample
 
@@ -4829,6 +4831,74 @@ address, but evaluation will fault if @code{p} is not a valid address.
 If the target does not support data prefetch, the address expression
 is evaluated if it includes side effects but no other code is generated
 and GCC does not issue a warning.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_huge_val (void)
+Returns a positive infinity, if supported by the floating-point format,
+else @code{DBL_MAX}.  This function is suitable for implementing the
+ISO C macro @code{HUGE_VAL}.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_huge_valf (void)
+Similar to @code{__builtin_huge_val}, except the return type is @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} long double __builtin_huge_vall (void)
+Similar to @code{__builtin_huge_val}, except the return
+type is @code{long double}.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_inf (void)
+Similar to @code{__builtin_huge_val}, except a warning is generated
+if the target floating-point format does not support infinities.
+This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_inff (void)
+Similar to @code{__builtin_inf}, except the return type is @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} long double __builtin_infl (void)
+Similar to @code{__builtin_inf}, except the return
+type is @code{long double}.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_nan (const char *str)
+This is an implementation of the ISO C99 function @code{nan}.
+
+Since ISO C99 defines this function in terms of @code{strtod}, which we
+do not implement, a desription of the parsing is in order.  The string
+is parsed as by @code{strtol}; that is, the base is recognized by
+leading @samp{0} or @samp{0x} prefixes.  The number parsed is placed
+in the significand such that the least significant bit of the number
+is at the least significant bit of the significand.  The number is 
+truncated to fit the significand field provided.  The significand is
+forced to be a quiet NaN.
+
+This function, if given a string literal, is evaluated early enough
+that it is considered a compile-time constant.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_nanf (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} long double __builtin_nanl (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{long double}.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_nans (const char *str)
+Similar to @code{__builtin_nan}, except the significand is forced 
+to be a signaling NaN.  The @code{nans} function is proposed by
+@uref{http://std.dkuug.dk/JTC1/SC22/WG14/www/docs/n965.htm,,WG14 N965}.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_nansf (const char *str)
+Similar to @code{__builtin_nans}, except the return type is @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} long double __builtin_nansl (const char *str)
+Similar to @code{__builtin_nans}, except the return type is @code{long double}.
 @end deftypefn
 
 @node Target Builtins
@@ -7289,10 +7359,10 @@ inclusive.  Lower numbers indicate a higher priority.
 In the following example, @code{A} would normally be created before
 @code{B}, but the @code{init_priority} attribute has reversed that order:
 
-@example
+@smallexample
 Some_Class  A  __attribute__ ((init_priority (2000)));
 Some_Class  B  __attribute__ ((init_priority (543)));
-@end example
+@end smallexample
 
 @noindent
 Note that the particular values of @var{priority} do not matter; only their
@@ -7318,7 +7388,7 @@ appropriately.  However, if C++ code only needs to execute destructors
 when Java exceptions are thrown through it, GCC will guess incorrectly.
 Sample problematic code is:
 
-@example
+@smallexample
   struct S @{ ~S(); @};
   extern void bar();    // is written in Java, and may throw exceptions
   void foo()
@@ -7326,7 +7396,7 @@ Sample problematic code is:
     S s;
     bar();
   @}
-@end example
+@end smallexample
 
 @noindent
 The usual effect of an incorrect guess is a link failure, complaining of
@@ -7383,7 +7453,7 @@ Floating and complex non-type template parameters have been deprecated,
 and are now removed from g++.
 
 The implicit typename extension has been deprecated and will be removed
-from g++ at some point.  In some cases g++ determines that a dependant
+from g++ at some point.  In some cases g++ determines that a dependent
 type such as @code{TPL<T>::X} is a type without needing a
 @code{typename} keyword, contrary to the standard.
 

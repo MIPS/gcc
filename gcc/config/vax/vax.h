@@ -630,7 +630,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    || GET_CODE (X) == CONST_INT)
 
 
-/* Non-zero if X is an address which can be indirected.  External symbols
+/* Nonzero if X is an address which can be indirected.  External symbols
    could be in a sharable image library, so we disallow those.  */
 
 #define INDIRECTABLE_ADDRESS_P(X)  \
@@ -645,7 +645,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define INDIRECTABLE_CONSTANT_ADDRESS_P(X) CONSTANT_ADDRESS_P(X)
 
-/* Non-zero if X is an address which can be indirected.  */
+/* Nonzero if X is an address which can be indirected.  */
 #define INDIRECTABLE_ADDRESS_P(X)  \
   (CONSTANT_ADDRESS_P (X)						\
    || (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))			\
@@ -885,32 +885,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define UDIVSI3_LIBCALL "*udiv"
 #define UMODSI3_LIBCALL "*urem"
-
-/* Check a `double' value for validity for a particular machine mode.  */
-
-/* note that it is very hard to accidentally create a number that fits in a
-   double but not in a float, since their ranges are almost the same */
-
-#define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \
-  ((OVERFLOW) = check_float_value (MODE, &D, OVERFLOW))
-
-/* For future reference:
-   D Float: 9 bit, sign magnitude, excess 128 binary exponent
-            normalized 56 bit fraction, redundant bit not represented
-            approximately 16 decimal digits of precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_D_FLOAT 1.7014118346046923e+38
-#define MIN_D_FLOAT .29387358770557188e-38
-
-   G float: 12 bit, sign magnitude, excess 1024 binary exponent
-            normalized 53 bit fraction, redundant bit not represented
-            approximately 15 decimal digits precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_G_FLOAT .898846567431157e+308
-#define MIN_G_FLOAT .556268464626800e-308
-*/
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1207,12 +1181,12 @@ VAX operand formatting codes:
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == SFmode)	\
     { REAL_VALUE_TYPE r; char dstr[30];					\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20e", dstr);				\
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);				\
       fprintf (FILE, "$0f%s", dstr); }					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == DFmode)	\
     { REAL_VALUE_TYPE r; char dstr[30];					\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20e", dstr);				\
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);				\
       fprintf (FILE, "$0%c%s", ASM_DOUBLE_CHAR, dstr); }		\
   else { putc ('$', FILE); output_addr_const (FILE, X); }}
 

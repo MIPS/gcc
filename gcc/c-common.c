@@ -39,6 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
+#include "tree-inline.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -300,7 +301,7 @@ int warn_write_strings;
 
 int warn_redundant_decls;
 
-/* Warn about testing equality of floating point numbers. */
+/* Warn about testing equality of floating point numbers.  */
 
 int warn_float_equal;
 
@@ -312,7 +313,7 @@ int warn_char_subscripts;
 
 int warn_conversion;
 
-/* Warn about #pragma directives that are not recognised.  */      
+/* Warn about #pragma directives that are not recognized.  */      
 
 int warn_unknown_pragmas; /* Tri state variable.  */  
 
@@ -771,9 +772,16 @@ static bool get_nonnull_operand		PARAMS ((tree,
 void builtin_define_std PARAMS ((const char *));
 static void builtin_define_with_value PARAMS ((const char *, const char *,
                                                int));
+static void builtin_define_with_int_value PARAMS ((const char *,
+						   HOST_WIDE_INT));
+static void builtin_define_with_hex_fp_value PARAMS ((const char *, tree,
+						      int, const char *,
+						      const char *));
 static void builtin_define_type_max PARAMS ((const char *, tree, int));
 static void cpp_define_data_format PARAMS ((cpp_reader *));
 static void builtin_define_type_precision PARAMS ((const char *, tree));
+static void builtin_define_float_constants PARAMS ((const char *,
+						    const char *, tree));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -1123,7 +1131,7 @@ fname_decl (rid, id)
 	 the current statement.  Later this tree will be moved to the
 	 beginning of the function and this line number will be wrong.
 	 To avoid this problem set the lineno to 0 here; that prevents
-	 it from appearing in the RTL. */
+	 it from appearing in the RTL.  */
       int saved_lineno = lineno;
       lineno = 0;
       
@@ -1828,7 +1836,7 @@ verify_tree (x, pbefore_sp, pno_sp, writer)
     }
 }
 
-/* Try to warn for undefined behaviour in EXPR due to missing sequence
+/* Try to warn for undefined behavior in EXPR due to missing sequence
    points.  */
 
 static void
@@ -2031,6 +2039,8 @@ c_common_type_for_mode (mode, unsignedp)
       return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
     case V8QImode:
       return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+    case V1DImode:
+      return unsignedp ? unsigned_V1DI_type_node : V1DI_type_node;
     case V16SFmode:
       return V16SF_type_node;
     case V4SFmode:
@@ -4692,6 +4702,7 @@ cpp_define_data_format (pfile)
     cpp_reader *pfile;
 {
   const char *format;
+
   /* Define endianness enumeration values.  */
   cpp_define (pfile, "__GCC_LITTLE_ENDIAN__=0");
   cpp_define (pfile, "__GCC_BIG_ENDIAN__=1");
@@ -4782,9 +4793,280 @@ builtin_define_type_precision (name, type)
      const char *name;
      tree type;
 {
-  char buf[8];
-  sprintf (buf, "%d", (int) TYPE_PRECISION (type));
+  builtin_define_with_int_value (name, TYPE_PRECISION (type));
+}
+
+/* Define the float.h constants for TYPE using NAME_PREFIX and FP_SUFFIX.  */
+static void
+builtin_define_float_constants (name_prefix, fp_suffix, type)
+     const char *name_prefix;
+     const char *fp_suffix;
+     tree type;
+{
+  /* Used to convert radix-based values to base 10 values in several cases.
+
+     In the max_exp -> max_10_exp conversion for 128-bit IEEE, we need at
+     least 6 significant digits for correct results.  Using the fraction
+     formed by (log(2)*1e6)/(log(10)*1e6) overflows a 32-bit integer as an
+     intermediate; perhaps someone can find a better approximation, in the
+     mean time, I suspect using doubles won't harm the bootstrap here.  */
+
+  const double log10_2 = .30102999566398119521;
+  const double log10_16 = 1.20411998265592478085;
+  const double log10_b
+    = TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT ? log10_16 : log10_2;
+
+  const int log2_b = TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT ? 4 : 1;
+
+  char name[64], buf[128];
+  int mant_dig, max_exp, min_exp;
+  int dig, min_10_exp, max_10_exp;
+  int decimal_dig;
+
+  /* ??? This information should be shared with real.c.  */
+
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
+#define INTEL_EXTENDED_IEEE_FORMAT 0
+#endif
+#ifndef TARGET_G_FLOAT
+#define TARGET_G_FLOAT 0
+#endif
+
+  switch (TARGET_FLOAT_FORMAT)
+    {
+    case IEEE_FLOAT_FORMAT:
+      switch (TYPE_PRECISION (type))
+	{
+	case 32:
+	  /* ??? Handle MIPS r5900, which doesn't implement Inf or NaN,
+	     but rather reuses the largest exponent as a normal number.  */
+	  mant_dig = 24;
+	  min_exp = -125;
+	  max_exp = 128;
+	  break;
+	case 64:
+	  mant_dig = 53;
+	  min_exp = -1021;
+	  max_exp = 1024;
+	  break;
+	case 128:
+	  if (!INTEL_EXTENDED_IEEE_FORMAT)
+	    {
+	      mant_dig = 113;
+	      min_exp = -16381;
+	      max_exp = 16384;
+	      break;
+	    }
+	  /* FALLTHRU */
+	case 96:
+	  mant_dig = 64;
+	  max_exp = 16384;
+	  if (INTEL_EXTENDED_IEEE_FORMAT)
+	    min_exp = -16381;
+	  else
+	    /* ??? Otherwise assume m68k.  */
+	    min_exp = -16382;
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case VAX_FLOAT_FORMAT:
+      switch (TYPE_PRECISION (type))
+	{
+	case 32: /* F_FLOAT */
+	  mant_dig = 24;
+	  min_exp = -127;
+	  max_exp = 127;
+	  break;
+	case 64: /* G_FLOAT or D_FLOAT */
+	  if (TARGET_G_FLOAT)
+	    {
+	      mant_dig = 53;
+	      min_exp = -1023;
+	      max_exp = 1023;
+	    }
+	  else
+	    {
+	      mant_dig = 56;
+	      min_exp = -127;
+	      max_exp = 127;
+	    }
+	  break;
+	case 128: /* H_FLOAT */
+	  mant_dig = 113;
+	  min_exp = -16383;
+	  max_exp = 16383;
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case IBM_FLOAT_FORMAT:
+      switch (TYPE_PRECISION (type))
+	{
+	case 32:
+	  mant_dig = 6;
+	  min_exp = -64;
+	  max_exp = 63;
+	  break;
+	case 64:
+	  mant_dig = 14;
+	  min_exp = -64;
+	  max_exp = 63;
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+      
+    case C4X_FLOAT_FORMAT:
+      switch (TYPE_PRECISION (type))
+	{
+	case 32:
+	  mant_dig = 24;
+	  min_exp = -126;
+	  max_exp = 128;
+	  break;
+	case 64:
+	  mant_dig = 32;
+	  min_exp = -126;
+	  max_exp = 128;
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    default:
+      abort ();
+    }
+
+  /* The number of radix digits, p, in the floating-point significand.  */
+  sprintf (name, "__%s_MANT_DIG__", name_prefix);
+  builtin_define_with_int_value (name, mant_dig);
+
+  /* The number of decimal digits, q, such that any floating-point number
+     with q decimal digits can be rounded into a floating-point number with
+     p radix b digits and back again without change to the q decimal digits,
+
+	p log10 b			if b is a power of 10
+ 	floor((p - 1) log10 b)		otherwise
+  */
+  dig = (mant_dig - 1) * log10_b;
+  sprintf (name, "__%s_DIG__", name_prefix);
+  builtin_define_with_int_value (name, dig);
+
+  /* The minimum negative int x such that b**(x-1) is a normalized float.  */
+  sprintf (name, "__%s_MIN_EXP__", name_prefix);
+  sprintf (buf, "(%d)", min_exp);
   builtin_define_with_value (name, buf, 0);
+
+  /* The minimum negative int x such that 10**x is a normalized float,
+
+	  ceil (log10 (b ** (min_exp - 1)))
+	= ceil (log10 (b) * (min_exp - 1))
+
+     Recall that min_exp is negative, so the integer truncation calculates
+     the ceiling, not the floor, in this case.  */
+  min_10_exp = (min_exp - 1) * log10_b;
+  sprintf (name, "__%s_MIN_10_EXP__", name_prefix);
+  sprintf (buf, "(%d)", min_10_exp);
+  builtin_define_with_value (name, buf, 0);
+
+  /* The maximum int x such that b**(x-1) is a representable float.  */
+  sprintf (name, "__%s_MAX_EXP__", name_prefix);
+  builtin_define_with_int_value (name, max_exp);
+
+  /* The maximum int x such that 10**x is in the range of representable
+     finite floating-point numbers,
+
+	  floor (log10((1 - b**-p) * b**max_exp))
+	= floor (log10(1 - b**-p) + log10(b**max_exp))
+	= floor (log10(1 - b**-p) + log10(b)*max_exp)
+
+     The safest thing to do here is to just compute this number.  But since
+     we don't link cc1 with libm, we cannot.  We could implement log10 here
+     a series expansion, but that seems too much effort because:
+
+     Note that the first term, for all extant p, is a number exceedingly close
+     to zero, but slightly negative.  Note that the second term is an integer
+     scaling an irrational number, and that because of the floor we are only
+     interested in its integral portion.
+
+     In order for the first term to have any effect on the integral portion
+     of the second term, the second term has to be exceedingly close to an
+     integer itself (e.g. 123.000000000001 or something).  Getting a result
+     that close to an integer requires that the irrational multiplicand have
+     a long series of zeros in its expansion, which doesn't occur in the
+     first 20 digits or so of log10(b).
+
+     Hand-waving aside, crunching all of the sets of constants above by hand
+     does not yield a case for which the first term is significant, which
+     in the end is all that matters.  */
+  max_10_exp = max_exp * log10_b;
+  sprintf (name, "__%s_MAX_10_EXP__", name_prefix);
+  builtin_define_with_int_value (name, max_10_exp);
+
+  /* The number of decimal digits, n, such that any floating-point number
+     can be rounded to n decimal digits and back again without change to
+     the value. 
+
+	p * log10(b)			if b is a power of 10
+	ceil(1 + p * log10(b))		otherwise
+
+     The only macro we care about is this number for the widest supported
+     floating type, but we want this value for rendering constants below.  */
+  {
+    double d_decimal_dig = 1 + mant_dig * log10_b;
+    decimal_dig = d_decimal_dig;
+    if (decimal_dig < d_decimal_dig)
+      decimal_dig++;
+  }
+  if (type == long_double_type_node)
+    builtin_define_with_int_value ("__DECIMAL_DIG__", decimal_dig);
+
+  /* Since, for the supported formats, B is always a power of 2, we
+     construct the following numbers directly as a hexadecimal
+     constants.  */
+
+  /* The maximum representable finite floating-point number,
+     (1 - b**-p) * b**max_exp  */
+  {
+    int i, n;
+    char *p;
+
+    strcpy (buf, "0x0.");
+    n = mant_dig * log2_b;
+    for (i = 0, p = buf + 4; i + 3 < n; i += 4)
+      *p++ = 'f';
+    if (i < n)
+      *p++ = "08ce"[n - i];
+    sprintf (p, "p%d", max_exp * log2_b);
+  }
+  sprintf (name, "__%s_MAX__", name_prefix);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* The minimum normalized positive floating-point number,
+     b**(min_exp-1).  */
+  sprintf (name, "__%s_MIN__", name_prefix);
+  sprintf (buf, "0x1p%d", (min_exp - 1) * log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* The difference between 1 and the least value greater than 1 that is
+     representable in the given floating point type, b**(1-p).  */
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "0x1p%d", (1 - mant_dig) * log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
+     positive floating-point number, b**(min_exp-p).  Winds up being zero
+     for targets that don't support denormals.  */
+  sprintf (name, "__%s_DENORM_MIN__", name_prefix);
+  sprintf (buf, "0x1p%d", (min_exp - mant_dig) * log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
@@ -4839,6 +5121,20 @@ cb_register_builtins (pfile)
   builtin_define_type_precision ("__FLOAT_BIT__", float_type_node);
   builtin_define_type_precision ("__DOUBLE_BIT__", double_type_node);
   builtin_define_type_precision ("__LONG_DOUBLE_BIT__", long_double_type_node);
+
+  /* float.h needs to know these.  */
+
+  /* The radix of the exponent representation.  */
+  builtin_define_with_int_value ("__FLT_RADIX__",
+			         (TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT
+			          ? 16 : 2));
+
+  builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
+				 TARGET_FLT_EVAL_METHOD);
+
+  builtin_define_float_constants ("FLT", "F", float_type_node);
+  builtin_define_float_constants ("DBL", "", double_type_node);
+  builtin_define_float_constants ("LDBL", "L", long_double_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
@@ -4963,6 +5259,54 @@ builtin_define_with_value (macro, expansion, is_str)
   else
     sprintf (buf, "%s=%s", macro, expansion);
 
+  cpp_define (parse_in, buf);
+}
+
+/* Pass an object-like macro and an integer value to define it to.  */
+static void
+builtin_define_with_int_value (macro, value)
+     const char *macro;
+     HOST_WIDE_INT value;
+{
+  char *buf;
+  size_t mlen = strlen (macro);
+  size_t vlen = 18;
+  size_t extra = 2; /* space for = and NUL.  */
+
+  buf = alloca (mlen + vlen + extra);
+  memcpy (buf, macro, mlen);
+  buf[mlen] = '=';
+  sprintf (buf + mlen + 1, HOST_WIDE_INT_PRINT_DEC, value);
+
+  cpp_define (parse_in, buf);
+}
+
+/* Pass an object-like macro a hexadecimal floating-point value.  */
+static void
+builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
+     const char *macro;
+     tree type ATTRIBUTE_UNUSED;
+     int digits;
+     const char *hex_str;
+     const char *fp_suffix;
+{
+  REAL_VALUE_TYPE real;
+  char dec_str[64], buf[256];
+
+  /* Hex values are really cool and convenient, except that they're
+     not supported in strict ISO C90 mode.  First, the "p-" sequence
+     is not valid as part of a preprocessor number.  Second, we get a
+     pedwarn from the preprocessor, which has no context, so we can't
+     suppress the warning with __extension__.
+
+     So instead what we do is construct the number in hex (because 
+     it's easy to get the exact correct value), parse it as a real,
+     then print it back out as decimal.  */
+
+  real_from_string (&real, hex_str);
+  real_to_decimal (dec_str, &real, digits);
+
+  sprintf (buf, "%s=%s%s", macro, dec_str, fp_suffix);
   cpp_define (parse_in, buf);
 }
 

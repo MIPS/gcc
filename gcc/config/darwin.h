@@ -35,6 +35,12 @@ Boston, MA 02111-1307, USA.  */
    leave it undefined and expect system builders to set configure args
    correctly.  */
 
+/* One of Darwin's NeXT legacies is the Mach-O format, which is partly
+   like a.out and partly like COFF, with additional features like
+   multi-architecture binary support.  */
+
+#define OBJECT_FORMAT_MACHO
+
 /* Suppress g++ attempt to link in the math library automatically.
    (Some Darwin versions have a libm, but they seem to cause problems
    for C++ executables.)  */
@@ -78,11 +84,6 @@ Boston, MA 02111-1307, USA.  */
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* Don't warn about MacOS-style 'APPL' four-char-constants.  */
-
-#undef WARN_FOUR_CHAR_CONSTANTS
-#define WARN_FOUR_CHAR_CONSTANTS 0
-
 /* Machine dependent cpp options.  */
 
 #undef	CPP_SPEC
@@ -97,8 +98,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC  \
-  "%{pg:%{static:-lgcrt0.o}%{!static:-lgcrt1.o}} \
-    %{!pg:%{static:-lcrt0.o}%{!static:-lcrt1.o}}"
+  "%{pg:%{static:-lgcrt0.o}%{!static:-lgcrt1.o -lcrtbegin.o}} \
+    %{!pg:%{static:-lcrt0.o}%{!static:-lcrt1.o -lcrtbegin.o}}"
+
+#undef	ENDFILE_SPEC
+#define ENDFILE_SPEC \
+  "-lcrtend.o"
 
 #undef	DOLLARS_IN_IDENTIFIERS
 #define DOLLARS_IN_IDENTIFIERS 2
@@ -106,12 +111,6 @@ Boston, MA 02111-1307, USA.  */
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
-
-/* Also enable Dwarf 2 as an option.  */
-
-#define DWARF2_DEBUGGING_INFO 1
-
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 /* When generating stabs debugging, use N_BINCL entries.  */
 
@@ -142,6 +141,9 @@ do { text_section ();							\
 #define TARGET_ASM_CONSTRUCTOR  machopic_asm_out_constructor
 #define TARGET_ASM_DESTRUCTOR   machopic_asm_out_destructor
 
+/* Always prefix with an underscore.  */
+
+#define USER_LABEL_PREFIX "_"
 
 /* Don't output a .file directive.  That is only used by the assembler for
    error reporting.  */
@@ -281,11 +283,6 @@ do { text_section ();							\
         || DECL_INITIAL (DECL)))					\
       machopic_define_name (NAME);					\
   } while (0)
-
-/* Output nothing for #ident.  */
-
-#undef	ASM_OUTPUT_IDENT
-#define ASM_OUTPUT_IDENT(FILE, NAME)
 
 /* The maximum alignment which the object file format can support.
    For Mach-O, this is 2^15.  */
@@ -441,7 +438,7 @@ SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		".picsymbol_stub", 0)      		\
 SECTION_FUNCTION (darwin_exception_section,		\
 		in_darwin_exception,			\
-		".section __TEXT,__gcc_except_tab", 0)	\
+		".section __DATA,__gcc_except_tab", 0)	\
 SECTION_FUNCTION (darwin_eh_frame_section,		\
 		in_darwin_eh_frame,			\
 		".section __TEXT,__eh_frame", 0)	\
@@ -613,7 +610,14 @@ enum machopic_addr_class {
   
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
-  (((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
+  (((CODE) == 2 && (GLOBAL) == 1) \
+   ? (DW_EH_PE_pcrel | DW_EH_PE_indirect) : \
+     ((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
+
+#define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
+  darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
+
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
 #define DARWIN_REGISTER_TARGET_PRAGMAS(PFILE)				\
   do {									\

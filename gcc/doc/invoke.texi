@@ -170,7 +170,7 @@ in the following sections.
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char @gol
--fwritable-strings  -fshort-wchar}
+-fwritable-strings}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -271,11 +271,12 @@ in the following sections.
 -fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmove-all-movables  -fnew-ra -fno-default-inline  -fno-defer-pop @gol
+-fmove-all-movables  -fnew-ra  -fno-default-inline @gol
+-fno-defer-pop @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
--funsafe-math-optimizations -ffinite-math-only -fno-trapping-math @gol
--fno-zero-initialized-in-bss @gol
+-funsafe-math-optimizations -ffinite-math-only @gol
+-fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -freduce-all-givs -fregmove  -frename-registers @gol
@@ -283,8 +284,8 @@ in the following sections.
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fschedule-insns  -fschedule-insns2 -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
--fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps  -ftrapv @gol
--funroll-all-loops  -funroll-loops  @gol
+-fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
+-ftrapv -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -339,7 +340,8 @@ in the following sections.
 @emph{M68hc1x Options}
 @gccoptlist{
 -m6811  -m6812  -m68hc11  -m68hc12 @gol
--mauto-incdec  -minmax  -mlong-calls  -mshort  -msoft-reg-count=@var{count}}
+-mauto-incdec  -minmax  -mlong-calls  -mshort @gol
+-msoft-reg-count=@var{count}}
 
 @emph{VAX Options}
 @gccoptlist{
@@ -448,7 +450,7 @@ in the following sections.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
--maix-struct-return -msvr4-struct-return
+-maix-struct-return -msvr4-struct-return @gol
 -mabi=altivec -mabi=no-altivec @gol
 -mabi=spe -mabi=no-spe @gol
 -misel=yes -misel=no @gol
@@ -478,7 +480,7 @@ in the following sections.
 -m4650  -msingle-float  -mmad @gol
 -mstats  -EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi @gol
--mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func
+-mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func @gol
 -mbranch-likely -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
@@ -620,8 +622,8 @@ in the following sections.
 
 @emph{D30V Options}
 @gccoptlist{
--mextmem  -mextmemory  -monchip  -mno-asm-optimize  -masm-optimize @gol
--mbranch-cost=@var{n} -mcond-exec=@var{n}}
+-mextmem  -mextmemory  -monchip  -mno-asm-optimize @gol
+-masm-optimize -mbranch-cost=@var{n} -mcond-exec=@var{n}}
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{
@@ -680,12 +682,13 @@ in the following sections.
 -fno-common  -fno-ident  -fno-gnu-linker @gol
 -fpcc-struct-return  -fpic  -fPIC @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
--fshort-double  -fvolatile @gol
+-fshort-double  -fshort-wchar -fvolatile @gol
 -fvolatile-global  -fvolatile-static @gol
 -fverbose-asm  -fpack-struct  -fstack-check @gol
 -fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym} @gol
 -fargument-alias  -fargument-noalias @gol
--fargument-noalias-global  -fleading-underscore -ftls-model=@var{model}}
+-fargument-noalias-global  -fleading-underscore @gol
+-ftls-model=@var{model}}
 @end table
 
 @menu
@@ -1227,12 +1230,6 @@ write into string constants.
 
 Writing into string constants is a very bad idea; ``constants'' should
 be constant.
-
-@item -fshort-wchar
-@opindex fshort-wchar
-Override the underlying type for @samp{wchar_t} to be @samp{short
-unsigned int} instead of the default for the target.  This option is
-useful for building programs to run under WINE@.
 @end table
 
 @node C++ Dialect Options
@@ -3739,7 +3736,7 @@ in the output file.
 
 Use these options on systems where the linker can perform optimizations
 to improve locality of reference in the instruction space.  HPPA
-processors running HP-UX and Sparc processors running Solaris 2 have
+processors running HP-UX and SPARC processors running Solaris 2 have
 linkers with such optimizations.  Other systems using the ELF object format
 as well as AIX may have these optimizations in the future.
 
@@ -5377,7 +5374,7 @@ With @option{-mfaster-structs}, the compiler assumes that structures
 should have 8 byte alignment.  This enables the use of pairs of
 @code{ldd} and @code{std} instructions for copies in structure
 assignment, in place of twice as many @code{ld} and @code{st} pairs.
-However, the use of this changed alignment directly violates the Sparc
+However, the use of this changed alignment directly violates the SPARC
 ABI@.  Thus, it's intended only for use on targets where the developer
 acknowledges that their resulting code will not be directly in line with
 the rules of the ABI@.
@@ -5409,11 +5406,11 @@ They have been replaced with @option{-mcpu=xxx}.
 These two options select the processor for which the code is optimized.
 
 With @option{-mcypress} (the default), the compiler optimizes code for the
-Cypress CY7C602 chip, as used in the SparcStation/SparcServer 3xx series.
-This is also appropriate for the older SparcStation 1, 2, IPX etc.
+Cypress CY7C602 chip, as used in the SPARCStation/SPARCServer 3xx series.
+This is also appropriate for the older SPARCStation 1, 2, IPX etc.
 
-With @option{-msupersparc} the compiler optimizes code for the SuperSparc cpu, as
-used in the SparcStation 10, 1000 and 2000 series.  This flag also enables use
+With @option{-msupersparc} the compiler optimizes code for the SuperSPARC cpu, as
+used in the SPARCStation 10, 1000 and 2000 series.  This flag also enables use
 of the full SPARC v8 instruction set.
 
 These options are deprecated and will be deleted in a future GCC release.
@@ -5855,7 +5852,7 @@ memory a feature of the ARM architecture allows a word load to be used,
 even if the address is unaligned, and the processor core will rotate the
 data as it is being loaded.  This option tells the compiler that such
 misaligned accesses will cause a MMU trap and that it should instead
-synthesise the access as a series of byte accesses.  The compiler can
+synthesize the access as a series of byte accesses.  The compiler can
 still use word accesses to load half-word data if it knows that the
 address is aligned to a word boundary.
 
@@ -7482,8 +7479,8 @@ for the ABI and the set of available instructions.  The choices for
 @var{cpu-type} are @samp{i386}, @samp{i486}, @samp{i586}, @samp{i686},
 @samp{pentium}, @samp{pentium-mmx}, @samp{pentiumpro}, @samp{pentium2},
 @samp{pentium3}, @samp{pentium4}, @samp{k6}, @samp{k6-2}, @samp{k6-3},
-@samp{athlon}, @samp{athlon-tbird}, @samp{athlon-4}, @samp{athlon-xp}
-and @samp{athlon-mp}.
+@samp{athlon}, @samp{athlon-tbird}, @samp{athlon-4}, @samp{athlon-xp},
+@samp{athlon-mp}, @samp{winchip-c6}, @samp{winchip2} and @samp{c3}.
 
 While picking a specific @var{cpu-type} will schedule things appropriately
 for that particular chip, the compiler will not generate any code that
@@ -8395,11 +8392,11 @@ Generate code for the H8/300H@.
 
 @item -ms
 @opindex ms
-Generate code for the H8/S@.
+Generate code for the H8S@.
 
 @item -ms2600
 @opindex ms2600
-Generate code for the H8/S2600.  This switch must be used with @option{-ms}.
+Generate code for the H8S/2600.  This switch must be used with @option{-ms}.
 
 @item -mint32
 @opindex mint32
@@ -8407,8 +8404,8 @@ Make @code{int} data 32 bits by default.
 
 @item -malign-300
 @opindex malign-300
-On the H8/300H and H8/S, use the same alignment rules as for the H8/300.
-The default for the H8/300H and H8/S is to align longs and floats on 4
+On the H8/300H and H8S, use the same alignment rules as for the H8/300.
+The default for the H8/300H and H8S is to align longs and floats on 4
 byte boundaries.
 @option{-malign-300} causes them to be aligned on 2 byte boundaries.
 This option has no effect on the H8/300.
@@ -8603,10 +8600,10 @@ DBcond(D), instructions.  This is enabled by default for the C4x.  To be
 on the safe side, this is disabled for the C3x, since the maximum
 iteration count on the C3x is @math{2^{23} + 1} (but who iterates loops more than
 @math{2^{23}} times on the C3x?).  Note that GCC will try to reverse a loop so
-that it can utilise the decrement and branch instruction, but will give
+that it can utilize the decrement and branch instruction, but will give
 up if there is more than one memory reference in the loop.  Thus a loop
 where the loop counter is decremented can generate slightly more
-efficient code, in cases where the RPTB instruction cannot be utilised.
+efficient code, in cases where the RPTB instruction cannot be utilized.
 
 @item -mdp-isr-reload
 @itemx -mparanoid
@@ -9904,13 +9901,19 @@ unwinding from asynchronous events (such as debugger or garbage collector).
 Return ``short'' @code{struct} and @code{union} values in memory like
 longer ones, rather than in registers.  This convention is less
 efficient, but it has the advantage of allowing intercallability between
-GCC-compiled files and files compiled with other compilers.
+GCC-compiled files and files compiled with other compilers, particularly
+the Portable C Compiler (pcc).
 
 The precise convention for returning structures in memory depends
 on the target configuration macros.
 
 Short structures and unions are those whose size and alignment match
 that of some integer type.
+
+@strong{Warning:} code compiled with the @option{-fpcc-struct-return}
+switch is not binary compatible with code compiled with the
+@option{-freg-struct-return} switch.
+Use it to conform to a non-default application binary interface.
 
 @item -freg-struct-return
 @opindex freg-struct-return
@@ -9925,15 +9928,38 @@ defaults to @option{-fpcc-struct-return}, except on targets where GCC is
 the principal compiler.  In those cases, we can choose the standard, and
 we chose the more efficient register return alternative.
 
+@strong{Warning:} code compiled with the @option{-freg-struct-return}
+switch is not binary compatible with code compiled with the
+@option{-fpcc-struct-return} switch.
+Use it to conform to a non-default application binary interface.
+
 @item -fshort-enums
 @opindex fshort-enums
 Allocate to an @code{enum} type only as many bytes as it needs for the
 declared range of possible values.  Specifically, the @code{enum} type
 will be equivalent to the smallest integer type which has enough room.
 
+@strong{Warning:} the @option{-fshort-enums} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
+
 @item -fshort-double
 @opindex fshort-double
 Use the same size for @code{double} as for @code{float}.
+
+@strong{Warning:} the @option{-fshort-double} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
+
+@item -fshort-wchar
+@opindex fshort-wchar
+Override the underlying type for @samp{wchar_t} to be @samp{short
+unsigned int} instead of the default for the target.  This option is
+useful for building programs to run under WINE@.
+
+@strong{Warning:} the @option{-fshort-wchar} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
 
 @item -fshared-data
 @opindex fshared-data
@@ -10012,7 +10038,7 @@ loader is not part of GCC; it is part of the operating system).  If
 the GOT size for the linked executable exceeds a machine-specific
 maximum size, you get an error message from the linker indicating that
 @option{-fpic} does not work; in that case, recompile with @option{-fPIC}
-instead.  (These maximums are 16k on the m88k, 8k on the Sparc, and 32k
+instead.  (These maximums are 16k on the m88k, 8k on the SPARC, and 32k
 on the m68k and RS/6000.  The 386 has no such limit.)
 
 Position-independent code requires special support, and therefore works
@@ -10025,7 +10051,7 @@ position-independent.
 If supported for the target machine, emit position-independent code,
 suitable for dynamic linking and avoiding any limit on the size of the
 global offset table.  This option makes a difference on the m68k, m88k,
-and the Sparc.
+and the SPARC.
 
 Position-independent code requires special support, and therefore works
 only on certain machines.
@@ -10076,9 +10102,12 @@ three-way choice.
 
 @item -fpack-struct
 @opindex fpack-struct
-Pack all structure members together without holes.  Usually you would
-not want to use this option, since it makes the code suboptimal, and
-the offsets of structure members won't agree with system libraries.
+Pack all structure members together without holes.
+
+@strong{Warning:} the @option{-fpack-struct} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Additionally, it makes the code suboptimial.
+Use it to conform to a non-default application binary interface.
 
 @item -finstrument-functions
 @opindex finstrument-functions
@@ -10175,8 +10204,10 @@ This option and its counterpart, @option{-fno-leading-underscore}, forcibly
 change the way C symbols are represented in the object file.  One use
 is to help link with legacy assembly code.
 
-Be warned that you should know what you are doing when invoking this
-option, and that not all targets provide complete support for it.
+@strong{Warning:} the @option{-fleading-underscore} switch causes GCC to
+generate code that is not binary compatible with code generated without that
+switch.  Use it to conform to a non-default application binary interface.
+Not all targets provide complete support for this switch.
 
 @item -ftls-model=@var{model}
 Alter the thread-local storage model to be used (@pxref{Thread-Local}).

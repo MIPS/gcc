@@ -107,6 +107,7 @@ extern int    arm_gen_movstrqi		PARAMS ((rtx *));
 extern rtx    arm_gen_rotated_half_load	PARAMS ((rtx));
 extern enum machine_mode arm_select_cc_mode PARAMS ((RTX_CODE, rtx, rtx));
 extern rtx    arm_gen_compare_reg	PARAMS ((RTX_CODE, rtx, rtx));
+extern rtx    arm_gen_return_addr_mask	PARAMS ((void));
 extern void   arm_reload_in_hi		PARAMS ((rtx *));
 extern void   arm_reload_out_hi		PARAMS ((rtx *));
 extern void   arm_reorg			PARAMS ((rtx));
@@ -152,6 +153,8 @@ extern void   common_section		PARAMS ((void));
 #endif /* AOF_ASSEMBLER */
 
 #endif /* RTX_CODE */
+
+extern int    arm_float_words_big_endian PARAMS ((void));
 
 /* Thumb functions.  */
 extern void   arm_init_expanders	PARAMS ((void));

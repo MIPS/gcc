@@ -42,6 +42,12 @@ extern int standard_80387_constant_p PARAMS ((rtx));
 extern int standard_sse_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 
+extern int any_fp_register_operand PARAMS ((rtx, enum machine_mode));
+extern int register_and_not_any_fp_reg_operand PARAMS ((rtx, enum machine_mode));
+
+extern int fp_register_operand PARAMS ((rtx, enum machine_mode));
+extern int register_and_not_fp_reg_operand PARAMS ((rtx, enum machine_mode));
+
 extern int x86_64_general_operand PARAMS ((rtx, enum machine_mode));
 extern int x86_64_szext_general_operand PARAMS ((rtx, enum machine_mode));
 extern int x86_64_nonmemory_operand PARAMS ((rtx, enum machine_mode));
@@ -110,6 +116,7 @@ extern const char *output_fix_trunc PARAMS ((rtx, rtx*));
 extern const char *output_fp_compare PARAMS ((rtx, rtx*, int, int));
 
 extern void i386_dwarf_output_addr_const PARAMS ((FILE*, rtx));
+extern void i386_output_dwarf_dtprel PARAMS ((FILE*, int, rtx));
 extern rtx i386_simplify_dwarf_addr PARAMS ((rtx));
 
 extern void ix86_expand_clear PARAMS ((rtx));
@@ -212,6 +219,13 @@ extern rtx ix86_tls_get_addr PARAMS ((void));
 extern void x86_machine_dependent_reorg PARAMS ((rtx));
 
 /* In winnt.c  */
+extern int i386_pe_dllexport_name_p PARAMS ((const char *));
+extern int i386_pe_dllimport_name_p PARAMS ((const char *));
+extern void i386_pe_unique_section PARAMS ((tree, int));
+extern void i386_pe_declare_function_type PARAMS ((FILE *, const char *, int));
+extern void i386_pe_record_external_function PARAMS ((const char *));
+extern void i386_pe_record_exported_symbol PARAMS ((const char *, int));
+extern void i386_pe_asm_file_end PARAMS ((FILE *));
 extern void i386_pe_encode_section_info PARAMS ((tree, int));
 extern const char *i386_pe_strip_name_encoding PARAMS ((const char *));
 extern const char *i386_pe_strip_name_encoding_full PARAMS ((const char *));

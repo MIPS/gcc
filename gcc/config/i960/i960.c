@@ -321,8 +321,8 @@ bitpos (val)
   return -1;
 }
 
-/* Return non-zero if OP is a mask, i.e. all one bits are consecutive.
-   The return value indicates how many consecutive non-zero bits exist
+/* Return nonzero if OP is a mask, i.e. all one bits are consecutive.
+   The return value indicates how many consecutive nonzero bits exist
    if this is a mask.  This is the same as the next function, except that
    it does not indicate what the start and stop bit positions are.  */
 
@@ -1761,7 +1761,7 @@ i960_print_operand (file, x, code)
 	}
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-      REAL_VALUE_TO_DECIMAL (d, "%#g", dstr);
+      REAL_VALUE_TO_DECIMAL (d, dstr, -1);
       fprintf (file, "0f%s", dstr);
       return;
     }
