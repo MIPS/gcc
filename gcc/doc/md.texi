@@ -5650,12 +5650,16 @@ used for @acronym{RISC} processors too.
 
 @smallexample
 (exclusion_set @var{unit-names} @var{unit-names})
-(presence_set @var{unit-names} @var{unit-names})
-(absence_set @var{unit-names} @var{unit-names})
+(presence_set @var{unit-names} @var{patterns})
+(absence_set @var{unit-names} @var{patterns})
 @end smallexample
 
 @var{unit-names} is a string giving names of functional units
 separated by commas.
+
+@var{patterns} is a string giving patterns of functional units
+separated by comma.  Currently pattern is is one unit or units
+separated by white-spaces.
 
 The first construction (@samp{exclusion_set}) means that each
 functional unit in the first string can not be reserved simultaneously
@@ -5667,18 +5671,43 @@ point insns or only double floating point insns.
 
 The second construction (@samp{presence_set}) means that each
 functional unit in the first string can not be reserved unless at
-least one of units whose names are in the second string is reserved.
-This is an asymmetric relation.  For example, it is useful for
-description that @acronym{VLIW} @samp{slot1} is reserved after
-@samp{slot0} reservation.
+least one of pattern of units whose names are in the second string is
+reserved.  This is an asymmetric relation.  For example, it is useful
+for description that @acronym{VLIW} @samp{slot1} is reserved after
+@samp{slot0} reservation.  We could describe it by the following
+construction
+
+@smallexample
+(presence_set "slot1" "slot0")
+@end smallexample
+
+Or @samp{slot1} is reserved only after @samp{slot0} and unit @samp{b0}
+reservation.  In this case we could write
+
+@smallexample
+(presence_set "slot1" "slot0 b0")
+@end smallexample
 
 The third construction (@samp{absence_set}) means that each functional
-unit in the first string can be reserved only if each unit whose name
-is in the second string is not reserved.  This is an asymmetric
-relation (actually @samp{exclusion_set} is analogous to this one but
-it is symmetric).  For example, it is useful for description that
-@acronym{VLIW} @samp{slot0} can not be reserved after @samp{slot1} or
-@samp{slot2} reservation.
+unit in the first string can be reserved only if each pattern of units
+whose names are in the second string is not reserved.  This is an
+asymmetric relation (actually @samp{exclusion_set} is analogous to
+this one but it is symmetric).  For example, it is useful for
+description that @acronym{VLIW} @samp{slot0} can not be reserved after
+@samp{slot1} or @samp{slot2} reservation.  We could describe it by the
+following construction
+
+@smallexample
+(absence_set "slot2" "slot0, slot1")
+@end smallexample
+
+Or @samp{slot2} can not be reserved if @samp{slot0} and unit @samp{b0}
+are reserved or @samp{slot1} and unit @samp{b1} are reserved .  In
+this case we could write
+
+@smallexample
+(absence_set "slot2" "slot0 b0, slot1 b1")
+@end smallexample
 
 All functional units mentioned in a set should belong to the same
 automaton.
