@@ -1,5 +1,14 @@
 2003-09-17  Richard Henderson  <rth@redhat.com>
 
+	* tree.c (tsi_link_before): Remove unnecessary parens.
+	(tsi_link_chain_before, tsi_delink): Likewise.
+	(tsi_link_after): Accept the case if the iterator points
+	to a NULL node; treat it as an empty list.
+	(tsi_link_chain_after): Likewise.  Update iterator properly
+	for TSI_CHAIN_END.
+
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
 	* tree-inline.c (debug_find_tree_1, debug_find_tree): New.
 
 2003-09-17  Richard Henderson  <rth@redhat.com>
