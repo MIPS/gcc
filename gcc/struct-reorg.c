@@ -48,36 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "struct-reorg.h"
 
-static void peel_structs (void);
-
-static bool
-gate_peel_structs (void)
-{
-  return flag_peel_structs != 0;
-}
-
-static void
-do_peel_structs (void)
-{
-  peel_structs ();
-}
-
-struct tree_opt_pass pass_struct_reorg =
-{
-  "struct_reorg",                       /* name */
-  gate_peel_structs,			/* gate */
-  do_peel_structs,                      /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_PEEL_STRUCTS,                      /* tv_id */
-  PROP_gimple_leh | PROP_cfg,           /* properties_required */
-  PROP_gimple_leh | PROP_cfg,           /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_verify_stmts                     /* todo_flags_finish */
-};
-
 /* Not used yet.  Commented it out so we can bootstrap.  */
 #if 0 
 static htab_t visited_nodes;
@@ -304,15 +274,18 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
 /* Build the accesses list of the fields of the given data structure
    in each one of the basic blocks.  */
 static void
-build_access_list_for_struct (struct data_structure *ds)
+build_bb_access_list_for_struct (struct data_structure *ds, struct function *f)
 {
   basic_block bb;
 
+  if (! f)
+    return;
+
   ds->bbs_f_acc_lists =
-    (struct bb_field_access **) xcalloc (last_basic_block,
+    (struct bb_field_access **) xcalloc (n_basic_blocks_for_function (f),
                                 sizeof (struct bb_field_access *));
   /* Build the access list in each one of the basic blocks.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, f)
     {
       ds->bbs_f_acc_lists[bb->index] = build_f_acc_list_for_bb (ds, bb);
       /* If there are accesses to fields of DS in BB update the access
@@ -320,6 +293,32 @@ build_access_list_for_struct (struct data_structure *ds)
       if (ds->bbs_f_acc_lists[bb->index]->next)
         ds->count += bb->count;
     }
+}
+
+/* Free the BB field access list for the gievn function.  */
+static void
+free_bb_access_list_for_struct (struct data_structure *ds, struct function *f)
+{
+  int i;
+
+  if (! f)
+    return;
+  
+  for (i = 0; i < n_basic_blocks_for_function (f); i++)
+    {
+       
+      struct bb_field_access *crr =  ds->bbs_f_acc_lists[i]; 
+      struct bb_field_access *next;
+
+      while (crr != NULL)
+        {
+	  next = crr->next; 
+	  free (crr);
+	  crr = next;
+        }
+     } 
+  free (ds->bbs_f_acc_lists);
+  ds->bbs_f_acc_lists = NULL;
 }
 
 static void
@@ -352,7 +351,7 @@ verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl,
 #endif 
 
 /* Perform data structure peeling.  */
-static void
+void
 peel_structs (void)
 {
 
@@ -370,9 +369,9 @@ peel_structs (void)
 
 
   /* For every global variable in the program:
-   *     - Check to see if it's of a candidate type; if so stuff type into
-   *       data structure.
-   */
+     - Check to see if it's of a candidate type; if so stuff type into
+     data structure.
+  */ 
 
   for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
        current_varpool = current_varpool->next_needed)
@@ -402,8 +401,8 @@ peel_structs (void)
 			 "FILE") == 0)
 	    continue;
 
-	  d_node = (struct data_structure *) xmalloc (sizeof
-						      (struct data_structure));
+	  d_node = (struct data_structure *) xcalloc (1, 
+						      sizeof (struct data_structure));
 	  num_fields = fields_length (struct_decl);
 	  d_node->decl = struct_decl;
 	  d_node->num_fields = num_fields;
@@ -415,20 +414,32 @@ peel_structs (void)
 	  temp_node->struct_data = d_node;
 	  temp_node->next = data_struct_list;
 	  data_struct_list = temp_node;
-          /* Build the access sites list for fields and also the field
-	     access lists for basic blocks.  */
-	  build_access_list_for_struct (d_node);
 	}
     }
 
   /* Walk through entire program tree looking for:
-   *     - Any declaration that uses struct type; record variable
-   *     - Any use of any variable that uses struct type; record use
-   *    (- Verify that all uses are "legal".)
+       - Any declaration that uses struct type; record variable
+       - Any use of any variable that uses struct type; record use
+       TODO: (- Verify that all uses are "legal".)
+     We currenlty traverse each function separately several times 
+     one for each data structure of our interest, this is a gready
+     algorithm, we should optimize this in the future. 
    */
 
   for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
     {
+      struct struct_list *ds_node;
+
+      for (ds_node = data_struct_list; ds_node; ds_node = ds_node->next)
+	{
+          struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
+
+          /* Build the access sites list for fields and also the field
+	     access lists for basic blocks.  */
+	  build_bb_access_list_for_struct (ds_node->struct_data, func);
+          update_cpg_for_structure (ds_node->struct_data, func);
+	  free_bb_access_list_for_struct (ds_node->struct_data, func);
+	}
     }
 
   /* Stage 2:  Determine what, if anything, we want to transform and how.  */
@@ -438,6 +449,9 @@ peel_structs (void)
     {
       struct data_structure *crr_ds = current_struct->struct_data;
       success = cache_aware_data_reorganization (crr_ds, reordering_only);
+      dump_cpg (stdout, crr_ds->cpg);
+      free_cpg (crr_ds->cpg);
+      crr_ds->cpg = NULL;
 
       /* Stage 3:  Do the actual transformation decided on in stage 2.  */
 

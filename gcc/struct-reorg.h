@@ -93,6 +93,7 @@ struct field_cluster {
   struct field_cluster *children;
 };
 
+struct cpg;
 /* Represents a data structure that is candidate for
    clustering/reordering.  */
 struct data_structure {
@@ -112,6 +113,8 @@ struct data_structure {
 
   struct allocation_site *alloc_sites;
 
+  /* The CPG for this data structure.  */
+  struct cpg *cpg;
   /* This is the a tree data structure representing the hierarchy of
      of the clustering of this data structure.  */
   struct field_cluster *struct_clustering;
@@ -120,11 +123,66 @@ struct data_structure {
   struct bb_field_access **bbs_f_acc_lists;
 };
 
+/*
+ * Field access profiling for structure reorganization
+    The structure reorganization optimization is profile directed.
+    Following is the part responsible for extracting the field access
+    profiling information out of the basic block profiling that is
+    currently available in GCC.  And the part responsible for representing
+    that information in a graph called the Close Proximity Graph or CPG
+    in short.
+ * Close proximity graph
+    The CPG is a relation graph for fields of a structure that we are
+    interested in reorganizing its definition.  A node in the graph
+    represents a struct field.  An edge between two nodes represents the
+    close proximity relation between two fields.  The close proximity
+    between two fields is the couple (count, average distance).  The count
+    is the number of times one field access is followed immediately (wrt
+    other fields of same struct) by an access to the other field
+    (symmetrically).  The distance is the number of memory access
+    instructions (not to other fields) that comes in between the two
+    consecutive accesses.  Function calls should also be taken into
+    account, we should distinguish between function calls that have many
+    accesses to memory and others that have only small number of accesses
+    to memory.  Inter procedural analysis could be used to make accurate
+    decisions.  The distances are normalized by the following equation to
+    produce the average:
+        ____
+        \
+        /    distance(i) x count(i)
+        ----
+         n
+        ----------------------------
+           ____
+           \
+           /    count(i)
+           ----
+            n
+*/
+
+/* An edge in the CPG (a cell in the matrix).  */
+typedef struct cpg_cell {
+  gcov_type count;
+  int distance;
+} cpg_cell_t;
+
+typedef struct cpg {
+  /* Information about the data structure of our interest.  */
+  struct data_structure *ds;
+  /* A matrix of edges ds->NUM_FIELDS X ds->NUM_FIELDS nodes.  */
+  struct cpg_cell **matrix;
+} cpg_t;
+
 /*extern struct bb_field_access * get_last_field_access (struct data_structure *ds,
 						       basic_block bb);*/
 struct bb_field_access *
 get_last_field_access (struct data_structure *ds, basic_block bb);
 
+
+void dump_cpg (FILE *, cpg_t *);
+void free_cpg (cpg_t *cpg);
+void update_cpg_for_structure (struct data_structure *, struct function *);
+ 
 /* Stage 2 (profile based clustering) API.  Detailed comment in
    struct-reorg-cpg.c  */
 bool

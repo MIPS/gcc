@@ -1,3 +1,17 @@
+2004-09-28  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* cgraph.h (peel_structs): Declare.
+	* graphunit.c (peel_structs): Call.
+	* struct-reorg-cpg.c (struct cpg_cell, struct cpg_struct):
+	Move the definition.
+	* struct-reorg.c (peel_structs): Make the field access analysis
+	inter-procedural.
+	* struct-reorg.h (struct cpg_cell, struct cpg_struct):
+	Move the definition to here.
+	* tree-optimize.c (init_tree_optimization_passes): Remove
+	pass_struct_reorg.
+	* tree-pass.h : Remove pass_struct_reorg.
+
 2004-09-27  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* struct-reorg.c : Bug fixes.

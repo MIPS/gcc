@@ -2017,10 +2017,10 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
-#if 0
+
   if (flag_peel_structs)
-    cgraph_peel_structs ();
-#endif
+    peel_structs ();
+
   cgraph_expand_all_functions ();
   if (cgraph_dump_file)
     {
