@@ -106,7 +106,7 @@ __mf_set_default_options ()
   __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
   __mf_opts.abbreviate = 1;
-  __mf_opts.check_initialization = 0;
+  __mf_opts.check_initialization = 1;
   __mf_opts.verbose_violations = 1;
   __mf_opts.multi_threaded = 0;
   __mf_opts.free_queue_length = 4;
@@ -806,7 +806,8 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   new_obj->data.type = type;
   new_obj->data.name = name;
   new_obj->data.alloc_pc = pc;
-  if (type == __MF_TYPE_STATIC ||
+  if (type == __MF_TYPE_STATIC || 
+      type == __MF_TYPE_STACK || /* XXX */
       type == __MF_TYPE_GUESS)
     new_obj->data.write_count = 1; /* assume initialized */
   gettimeofday (& new_obj->data.alloc_time, NULL);

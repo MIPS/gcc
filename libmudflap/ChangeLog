@@ -1,5 +1,14 @@
 2003-03-05  Frank Ch. Eigler  <fche@redhat.com>
 
+	* mf-runtime.c (__mf_set_default_options): Turn on initialization
+	checking by default.
+	(__mf_insert_new_object): As a temporary hack, assume that new
+	objects registered on the stack start out initialized.
+	* testsuite/libmudflap.c/fail9,pass23,pass[6789]-*: Initialize
+	heap objects by hand.
+
+2003-03-05  Frank Ch. Eigler  <fche@redhat.com>
+
 	Switch to macro-style hooks for str*/mem*/b* functions.
 	* mf-runtime.h.in (__MF_TYPE_*): Moved some internal values out.
 	(mem*, str*, b*): Added macro-style hooks for _MUDFLAP case.

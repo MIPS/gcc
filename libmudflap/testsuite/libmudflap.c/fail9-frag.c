@@ -10,6 +10,7 @@ bar = (char *)malloc (10);
 
 free(foo);
 
+bar[4] = 'a'; /* touch source buffer */
 memcpy(foo, bar, 10);
 return 0;
 }
