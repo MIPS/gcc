@@ -658,7 +658,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   system.ads<5lsystem.ads
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
-  SYMLIB = -laddr2line -lbfd $(INTLLIBS)
+  SYMLIB =  $(INTLLIBS)
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -1814,7 +1814,7 @@ gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 	$(MAKE) -C rts CC="../../xgcc -B../../" \
 	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
                 CFLAGS="$(GNATLIBCFLAGS_FOR_C)" \
-		srcdir=$(fsrcdir) \
+		srcdir=$(fsrcdir) VPATH=$(fsrcdir) \
 	        -f ../Makefile $(LIBGNAT_OBJS) prefix.o
 	$(MAKE) -C rts CC="../../xgcc -B../../" \
 	        ADA_INCLUDES="$(ADA_INCLUDES_FOR_SUBDIR)" \
