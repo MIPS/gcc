@@ -1,5 +1,12 @@
 2003-12-16  Diego Novillo  <dnovillo@redhat.com>
 
+	* gcc.dg/tree-ssa/20031216-2.c: Remove duplicate test.
+	* gcc.dg/tree-ssa/20030807-7.c: Use -O2 to enable strict
+	aliasing.
+	(simplify_condition): Remove static declarator.
+
+2003-12-16  Diego Novillo  <dnovillo@redhat.com>
+
 	* gcc.dg/tree-ssa/20031216-2.c: New test.
 
 2003-12-16  Dan Nicolaescu  <dann@ics.uci.edu>

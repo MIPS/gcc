@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O2 -fdump-tree-dom2" } */
   
  
 
@@ -18,7 +18,7 @@ union tree_node
   struct tree_common common;
   struct tree_list list;
 };
-static void
+void
 simplify_condition (cond_p)
      tree *cond_p;
 {
