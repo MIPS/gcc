@@ -1,3 +1,7 @@
+Fri Aug 15 11:13:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (find_best_addr):  Fold the best address discovered.
+
 Thu Aug 14 15:08:13 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from gcc_3_3_1_release branch.

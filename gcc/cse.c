@@ -3021,9 +3021,29 @@ find_best_addr (insn, loc, mode)
 
 	  if (found_better)
 	    {
-	      if (validate_change (insn, loc,
-				   canon_reg (copy_rtx (best_elt->exp),
-					      NULL_RTX), 0))
+	      /*  Avoid find_best_addr from touching this address again:
+		  at the beggining of this function we attempt to fold
+		  the address.  Do it now as well.  Not doing so would mean
+		  that we will create multiple versions of the address in the
+		  insn chain that may result in "+m" ASM constraint from not
+		  being matched.  */
+		  
+	      rtx best = canon_reg (copy_rtx (best_elt->exp), NULL_RTX);
+	      rtx folded = fold_rtx (copy_rtx (best), NULL_RTX);
+	      int addr_folded_cost = address_cost (folded, mode);
+	      int addr_cost = address_cost (best, mode);
+
+	      if ((addr_folded_cost < addr_cost
+		   || (addr_folded_cost == addr_cost
+		       /* ??? The rtx_cost comparison is left over from an
+			  older version of this code.  It is probably no
+			  longer helpful.  */
+		       && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
+			   || (approx_reg_cost (folded)
+			       < approx_reg_cost (addr)))))
+		       && validate_change (insn, loc, folded, 0))
+		return;
+	      if (validate_change (insn, loc, best, 0))
 		return;
 	      else
 		best_elt->flag = 1;
