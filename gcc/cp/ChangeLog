@@ -1,3 +1,24 @@
+2002-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Remove traditional C constructs 1/n.
+	* cp-tree.h (init_method, set_mangled_name_for_decl,
+	build_opfncall, hack_identifier, make_thunk, use_thunk,
+	synthesize_method, implicitly_declare_fn,
+	skip_artificial_parms_for, optimize_function, calls_setjmp_p,
+	maybe_clone_body): Remove use of PARAMS.
+
+	* method.c (do_build_assign_ref, do_build_copy_constructor,
+	synthesize_exception_spec, locate_dtor, locate_ctor, locate_copy): 
+	Likewise.
+	(synthesize_method): Use 'bool' type and constants instead of
+	'int'.
+	(locate_copy): Likewise.
+	(implicitly_declare_fn): Likewise.
+
+	* optimize.c (calls_setjmp_r, update_cloned_parm, dump_function):
+	Remove old-style declaration.
+	(maybe_clone_body): Use 'bool' type and constants.
+
 2002-11-15  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* ChangeLog: Follow spelling conventions.

@@ -3943,20 +3943,20 @@ extern void cxx_finish PARAMS ((void));
 extern void cxx_init_options PARAMS ((void));
 
 /* in method.c */
-extern void init_method				PARAMS ((void));
-extern void set_mangled_name_for_decl           PARAMS ((tree));
-extern tree build_opfncall			PARAMS ((enum tree_code, int, tree, tree, tree));
-extern tree hack_identifier			PARAMS ((tree, tree));
-extern tree make_thunk				PARAMS ((tree, tree, tree));
-extern void use_thunk				PARAMS ((tree, int));
-extern void synthesize_method			PARAMS ((tree));
-extern tree implicitly_declare_fn               PARAMS ((special_function_kind, tree, int));
-extern tree skip_artificial_parms_for		PARAMS ((tree, tree));
+extern void init_method	(void);
+extern void set_mangled_name_for_decl (tree);
+extern tree build_opfncall (enum tree_code, int, tree, tree, tree);
+extern tree hack_identifier (tree, tree);
+extern tree make_thunk (tree, tree, tree);
+extern void use_thunk (tree, bool);
+extern void synthesize_method (tree);
+extern tree implicitly_declare_fn (special_function_kind, tree, bool);
+extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern void optimize_function                   PARAMS ((tree));
-extern int calls_setjmp_p                       PARAMS ((tree));
-extern int maybe_clone_body                     PARAMS ((tree));
+extern void optimize_function (tree);
+extern bool calls_setjmp_p (tree);
+extern bool maybe_clone_body (tree);
 
 /* in pt.c */
 extern void check_template_shadow		PARAMS ((tree));
