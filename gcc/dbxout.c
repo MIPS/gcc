@@ -343,7 +343,7 @@ static void dbxout_handle_pch (unsigned);
 static void dbxout_source_line (unsigned int, const char *);
 static void dbxout_begin_prologue (unsigned int, const char *);
 static void dbxout_source_file (const char *);
-static void dbxout_function_end (void);
+static void dbxout_function_end (tree);
 static void dbxout_begin_function (tree);
 static void dbxout_begin_block (unsigned, unsigned);
 static void dbxout_end_block (unsigned, unsigned);
@@ -903,7 +903,7 @@ dbxout_finish_complex_stabs (tree sym, STAB_CODE_TYPE code,
 #if defined (DBX_DEBUGGING_INFO)
 
 static void
-dbxout_function_end (void)
+dbxout_function_end (tree decl)
 {
   char lscope_label_name[100];
 
@@ -923,7 +923,8 @@ dbxout_function_end (void)
      named sections.  */
   if (!use_gnu_debug_info_extensions
       || NO_DBX_FUNCTION_END
-      || !targetm.have_named_sections)
+      || !targetm.have_named_sections
+      || DECL_IGNORED_P (decl))
     return;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -1296,7 +1297,7 @@ dbxout_function_decl (tree decl)
   dbxout_begin_function (decl);
 #endif
   dbxout_block (DECL_INITIAL (decl), 0, DECL_ARGUMENTS (decl));
-  dbxout_function_end ();
+  dbxout_function_end (decl);
 }
 
 #endif /* DBX_DEBUGGING_INFO  */
@@ -2429,6 +2430,9 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       context = decl_function_context (decl);
       if (context == current_function_decl)
 	break;
+      /* Don't mention an inline instance of a nested function.  */
+      if (context && DECL_FROM_INLINE (decl))
+	break;
       if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	break;
@@ -3355,7 +3359,12 @@ dbxout_block (tree block, int depth, tree args)
 static void
 dbxout_begin_function (tree decl)
 {
-  int saved_tree_used1 = TREE_USED (decl);
+  int saved_tree_used1;
+
+  if (DECL_IGNORED_P (decl))
+    return;
+
+  saved_tree_used1 = TREE_USED (decl);
   TREE_USED (decl) = 1;
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
     {

@@ -1577,9 +1577,6 @@ build_class_member_access_expr (tree object, tree member,
   if (object == error_mark_node || member == error_mark_node)
     return error_mark_node;
 
-  if (TREE_CODE (member) == PSEUDO_DTOR_EXPR)
-    return member;
-
   gcc_assert (DECL_P (member) || BASELINK_P (member));
 
   /* [expr.ref]
@@ -1753,7 +1750,7 @@ build_class_member_access_expr (tree object, tree member,
 	 expression itself.  */
       if (type_quals & TYPE_QUAL_CONST)
 	TREE_READONLY (result) = 1;
-      else if (type_quals & TYPE_QUAL_VOLATILE)
+      if (type_quals & TYPE_QUAL_VOLATILE)
 	TREE_THIS_VOLATILE (result) = 1;
     }
   else if (BASELINK_P (member))
@@ -1822,9 +1819,6 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
 	     TYPE_MAIN_VARIANT (object_type), dtor_type);
       return error_mark_node;
     }
-  if (!TYPE_HAS_DESTRUCTOR (dtor_type))
-    return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope,
-		   dtor_type);
   expr = lookup_member (dtor_type, complete_dtor_identifier,
 			/*protect=*/1, /*want_type=*/false);
   expr = (adjust_result_of_qualified_name_lookup
@@ -6387,6 +6381,47 @@ cp_has_mutable_p (tree type)
   type = strip_array_types (type);
 
   return CLASS_TYPE_P (type) && CLASSTYPE_HAS_MUTABLE (type);
+}
+
+/* Apply the TYPE_QUALS to the new DECL.  */
+void
+cp_apply_type_quals_to_decl (int type_quals, tree decl)
+{
+  tree type = TREE_TYPE (decl);
+
+  if (type == error_mark_node)
+    return;
+
+  if (TREE_CODE (type) == FUNCTION_TYPE 
+      && type_quals != TYPE_UNQUALIFIED)
+    {
+      /* This was an error in C++98 (cv-qualifiers cannot be added to
+         a function type), but DR 295 makes the code well-formed by
+         dropping the extra qualifiers. */
+      if (pedantic)
+        {
+          tree bad_type = build_qualified_type (type, type_quals);
+          pedwarn ("ignoring %qV qualifiers added to function type %qT",
+                   bad_type, type);
+        }
+
+      TREE_TYPE (decl) = TYPE_MAIN_VARIANT (type);
+      return;
+    }
+
+  /* Avoid setting TREE_READONLY incorrectly.  */
+  if (/* If the object has a constructor, the constructor may modify
+	 the object.  */
+      TYPE_NEEDS_CONSTRUCTING (type)
+      /* If the type isn't complete, we don't know yet if it will need
+	 constructing.  */
+      || !COMPLETE_TYPE_P (type) 
+      /* If the type has a mutable component, that component might be
+	 modified.  */
+      || TYPE_HAS_MUTABLE_P (type))
+    type_quals &= ~TYPE_QUAL_CONST;
+
+  c_apply_type_quals_to_decl (type_quals, decl);
 }
 
 /* Subroutine of casts_away_constness.  Make T1 and T2 point at

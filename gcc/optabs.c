@@ -5027,6 +5027,7 @@ init_optabs (void)
   exp10_optab = init_optab (UNKNOWN);
   exp2_optab = init_optab (UNKNOWN);
   expm1_optab = init_optab (UNKNOWN);
+  ldexp_optab = init_optab (UNKNOWN);
   logb_optab = init_optab (UNKNOWN);
   ilogb_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
@@ -5048,6 +5049,8 @@ init_optabs (void)
   vec_init_optab = init_optab (UNKNOWN);
   vec_realign_load_optab = init_optab (UNKNOWN);
   movmisalign_optab = init_optab (UNKNOWN);
+
+  powi_optab = init_optab (UNKNOWN);
 
   /* Conversions.  */
   sext_optab = init_convert_optab (SIGN_EXTEND);
@@ -5134,6 +5137,8 @@ init_optabs (void)
   init_floating_libfuncs (lt_optab, "lt", '2');
   init_floating_libfuncs (le_optab, "le", '2');
   init_floating_libfuncs (unord_optab, "unord", '2');
+
+  init_floating_libfuncs (powi_optab, "powi", '2');
 
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",

@@ -212,6 +212,7 @@ class java::io::ObjectStreamClass;
 
 void _Jv_RegisterClassHookDefault (jclass klass);
 void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+void _Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
 void _Jv_UnregisterClass (jclass);
 jclass _Jv_FindClass (_Jv_Utf8Const *name,
 		      java::lang::ClassLoader *loader);
@@ -227,7 +228,7 @@ void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
 void _Jv_InitPrimClass (jclass, char *, char, int);
-jstring _Jv_GetMethodString (jclass, _Jv_Utf8Const *);
+jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 			  jint flags);
@@ -436,6 +437,7 @@ private:
 					     size_t count);
   friend void ::_Jv_RegisterClassHookDefault (jclass klass);
   friend void ::_Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
+  friend void ::_Jv_UnregisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void ::_Jv_UnregisterClass (jclass);
   friend jclass (::_Jv_FindClass) (_Jv_Utf8Const *name,
 				   java::lang::ClassLoader *loader);
@@ -452,7 +454,7 @@ private:
   // in prims.cc
   friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Utf8Const *);
+  friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
   friend jboolean (::_Jv_CheckAccess) (jclass self_klass, jclass other_klass,
 				   jint flags);

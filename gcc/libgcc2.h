@@ -1,5 +1,5 @@
 /* Header file for libgcc2.c.  */
-/* Copyright (C) 2000, 2001, 2004
+/* Copyright (C) 2000, 2001, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -51,8 +51,24 @@ extern short int __get_eh_table_version (struct exception_descriptor *);
 #define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
+#ifndef LIBGCC2_DOUBLE_TYPE_SIZE
+#define LIBGCC2_DOUBLE_TYPE_SIZE DOUBLE_TYPE_SIZE
+#endif
 #ifndef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
+#endif
+
+#ifndef LIBGCC2_HAS_DF_MODE
+#define LIBGCC2_HAS_DF_MODE \
+  (LIBGCC2_DOUBLE_TYPE_SIZE == 64 || LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64)
+#endif
+
+#ifndef LIBGCC2_HAS_XF_MODE
+#define LIBGCC2_HAS_XF_MODE (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
+#endif
+
+#ifndef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #endif
 
 #ifndef MIN_UNITS_PER_WORD
@@ -91,13 +107,19 @@ typedef unsigned int UTItype	__attribute__ ((mode (TI)));
 #if BITS_PER_UNIT == 8
 
 typedef 	float SFtype	__attribute__ ((mode (SF)));
-typedef		float DFtype	__attribute__ ((mode (DF)));
+typedef _Complex float SCtype	__attribute__ ((mode (SC)));
 
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80
-typedef		float XFtype	__attribute__ ((mode (XF)));
+#if LIBGCC2_HAS_DF_MODE
+typedef		float DFtype	__attribute__ ((mode (DF)));
+typedef _Complex float DCtype	__attribute__ ((mode (DC)));
 #endif
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
+#if LIBGCC2_HAS_XF_MODE
+typedef		float XFtype	__attribute__ ((mode (XF)));
+typedef _Complex float XCtype	__attribute__ ((mode (XC)));
+#endif
+#if LIBGCC2_HAS_TF_MODE
 typedef		float TFtype	__attribute__ ((mode (TF)));
+typedef _Complex float TCtype	__attribute__ ((mode (TC)));
 #endif
 
 #else /* BITS_PER_UNIT != 8 */
@@ -195,6 +217,18 @@ typedef int word_type __attribute__ ((mode (__word__)));
 
 #define Wtype_MAX ((Wtype)(((UWtype)1 << (W_TYPE_SIZE - 1)) - 1))
 #define Wtype_MIN (- Wtype_MAX - 1)
+
+#if W_TYPE_SIZE == 8
+# define Wtype_MAXp1_F	0x1p8f
+#elif W_TYPE_SIZE == 16
+# define Wtype_MAXp1_F	0x1p16f
+#elif W_TYPE_SIZE == 32
+# define Wtype_MAXp1_F	0x1p32f
+#elif W_TYPE_SIZE == 64
+# define Wtype_MAXp1_F	0x1p64f
+#else
+# error "expand the table"
+#endif
 
 #define __muldi3	__NDW(mul,3)
 #define __divdi3	__NDW(div,3)
@@ -297,26 +331,41 @@ extern SItype __negvsi2 (SItype);
 #endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 
 #if BITS_PER_UNIT == 8
-extern DWtype __fixdfdi (DFtype);
 extern DWtype __fixsfdi (SFtype);
-extern DFtype __floatdidf (DWtype);
 extern SFtype __floatdisf (DWtype);
-extern UWtype __fixunsdfSI (DFtype);
 extern UWtype __fixunssfSI (SFtype);
-extern DWtype __fixunsdfDI (DFtype);
 extern DWtype __fixunssfDI (SFtype);
+extern SFtype __powisf2 (SFtype, Wtype);
+extern SCtype __divsc3 (SFtype, SFtype, SFtype, SFtype);
+extern SCtype __mulsc3 (SFtype, SFtype, SFtype, SFtype);
 
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80
+#if LIBGCC2_HAS_DF_MODE
+extern DWtype __fixdfdi (DFtype);
+extern DFtype __floatdidf (DWtype);
+extern UWtype __fixunsdfSI (DFtype);
+extern DWtype __fixunsdfDI (DFtype);
+extern DFtype __powidf2 (DFtype, Wtype);
+extern DCtype __divdc3 (DFtype, DFtype, DFtype, DFtype);
+extern DCtype __muldc3 (DFtype, DFtype, DFtype, DFtype);
+#endif
+
+#if LIBGCC2_HAS_XF_MODE
 extern DWtype __fixxfdi (XFtype);
 extern DWtype __fixunsxfDI (XFtype);
 extern XFtype __floatdixf (DWtype);
 extern UWtype __fixunsxfSI (XFtype);
+extern XFtype __powixf2 (XFtype, Wtype);
+extern XCtype __divxc3 (XFtype, XFtype, XFtype, XFtype);
+extern XCtype __mulxc3 (XFtype, XFtype, XFtype, XFtype);
 #endif
 
-#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
+#if LIBGCC2_HAS_TF_MODE
 extern DWtype __fixunstfDI (TFtype);
 extern DWtype __fixtfdi (TFtype);
 extern TFtype __floatditf (DWtype);
+extern TFtype __powitf2 (TFtype, Wtype);
+extern TCtype __divtc3 (TFtype, TFtype, TFtype, TFtype);
+extern TCtype __multc3 (TFtype, TFtype, TFtype, TFtype);
 #endif
 #endif /* BITS_PER_UNIT == 8 */
 

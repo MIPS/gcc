@@ -49,8 +49,7 @@ and the Info entries for @file{gcc}, @file{cpp}, @file{as},
 @c man end
 @c man begin BUGS
 For instructions on reporting bugs, see
-@w{@uref{http://gcc.gnu.org/bugs.html}}.  Use of the @command{gccbug}
-script to report bugs is recommended.
+@w{@uref{http://gcc.gnu.org/bugs.html}}.
 @c man end
 @c man begin AUTHOR
 See the Info entry for @command{gcc}, or
@@ -215,7 +214,7 @@ Objective-C and Objective-C++ Dialects}.
 -w  -Wextra  -Wall  -Waggregate-return @gol
 -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
--Wdisabled-optimization  -Wno-div-by-zero  -Wendif-labels @gol
+-Wdisabled-optimization  -Wno-div-by-zero  -Wno-endif-labels @gol
 -Werror  -Werror-implicit-function-declaration @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
@@ -267,6 +266,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-ftree-vectorizer-verbose=@var{n} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs -ftree-based-profiling @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -285,8 +285,8 @@ Objective-C and Objective-C++ Dialects}.
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
--fcaller-saves  -fcprop-registers @gol
--fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
+-fcaller-saves  -fcprop-registers  -fcse-follow-jumps @gol
+-fcse-follow-jumps  -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
@@ -499,7 +499,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{IA-64 Options}
 @gccoptlist{-mbig-endian  -mlittle-endian  -mgnu-as  -mgnu-ld  -mno-pic @gol
--mvolatile-asm-stop  -mb-step  -mregister-names  -mno-sdata @gol
+-mvolatile-asm-stop  -mregister-names  -mno-sdata @gol
 -mconstant-gp  -mauto-pic  -minline-float-divide-min-latency @gol
 -minline-float-divide-max-throughput @gol
 -minline-int-divide-min-latency @gol
@@ -602,7 +602,7 @@ See RS/6000 and PowerPC Options.
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
--m64  -m32  -mxl-call  -mno-xl-call  -mpe @gol
+-m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
 -malign-power  -malign-natural @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
@@ -2166,11 +2166,13 @@ Inhibit warning messages about the use of @samp{#import}.
 Warn if an array subscript has type @code{char}.  This is a common cause
 of error, as programmers often forget that this type is signed on some
 machines.
+This warning is enabled by @option{-Wall}.
 
 @item -Wcomment
 @opindex Wcomment
 Warn whenever a comment-start sequence @samp{/*} appears in a @samp{/*}
 comment, or whenever a Backslash-Newline appears in a @samp{//} comment.
+This warning is enabled by @option{-Wall}.
 
 @item -Wfatal-errors
 @opindex Wfatal-errors
@@ -2291,6 +2293,7 @@ int f()
 @item -Wimplicit-int
 @opindex Wimplicit-int
 Warn when a declaration does not specify a type.
+This warning is enabled by @option{-Wall}.
 
 @item -Wimplicit-function-declaration
 @itemx -Werror-implicit-function-declaration
@@ -2299,16 +2302,19 @@ Warn when a declaration does not specify a type.
 Give a warning (or error) whenever a function is used before being
 declared.  The form @option{-Wno-error-implicit-function-declaration}
 is not supported.
+This warning is enabled by @option{-Wall} (as a warning, not an error).
 
 @item -Wimplicit
 @opindex Wimplicit
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
+This warning is enabled by @option{-Wall}.
 
 @item -Wmain
 @opindex Wmain
 Warn if the type of @samp{main} is suspicious.  @samp{main} should be a
 function with external linkage, returning int, taking either zero
 arguments, two, or three arguments of appropriate types.
+This warning is enabled by @option{-Wall}.
 
 @item -Wmissing-braces
 @opindex Wmissing-braces
@@ -2320,6 +2326,8 @@ bracketed, but that for @samp{b} is fully bracketed.
 int a[2][2] = @{ 0, 1, 2, 3 @};
 int b[2][2] = @{ @{ 0, 1 @}, @{ 2, 3 @} @};
 @end smallexample
+
+This warning is enabled by @option{-Wall}.
 
 @item -Wmissing-include-dirs @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Wmissing-include-dirs
@@ -2377,6 +2385,8 @@ the enclosing @code{if}.  The resulting code would look like this:
 @end group
 @end smallexample
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wsequence-point
 @opindex Wsequence-point
 Warn about code that may have undefined semantics because of violations
@@ -2423,6 +2433,8 @@ Links to discussions of the problem, including proposed formal
 definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wreturn-type
 @opindex Wreturn-type
 Warn whenever a function is defined with a return-type that defaults to
@@ -2439,6 +2451,8 @@ For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
 exceptions are @samp{main} and functions defined in system headers.
 
+This warning is enabled by @option{-Wall}.
+
 @item -Wswitch
 @opindex Wswitch
 Warn whenever a @code{switch} statement has an index of enumerated type
@@ -2446,6 +2460,7 @@ and lacks a @code{case} for one or more of the named codes of that
 enumeration.  (The presence of a @code{default} label prevents this
 warning.)  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
+This warning is enabled by @option{-Wall}.
 
 @item -Wswitch-default
 @opindex Wswitch-switch
@@ -2463,15 +2478,18 @@ provoke warnings when this option is used.
 @opindex Wtrigraphs
 Warn if any trigraphs are encountered that might change the meaning of
 the program (trigraphs within comments are not warned about).
+This warning is enabled by @option{-Wall}.
 
 @item -Wunused-function
 @opindex Wunused-function
 Warn whenever a static function is declared but not defined or a
 non\-inline static function is unused.
+This warning is enabled by @option{-Wall}.
 
 @item -Wunused-label
 @opindex Wunused-label
 Warn whenever a label is declared but not used.
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @samp{unused} attribute
 (@pxref{Variable Attributes}).
@@ -2487,6 +2505,7 @@ To suppress this warning use the @samp{unused} attribute
 @opindex Wunused-variable
 Warn whenever a local variable or non-constant static variable is unused
 aside from its declaration
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @samp{unused} attribute
 (@pxref{Variable Attributes}).
@@ -2494,6 +2513,7 @@ To suppress this warning use the @samp{unused} attribute
 @item -Wunused-value
 @opindex Wunused-value
 Warn whenever a statement computes a result that is explicitly not used.
+This warning is enabled by @option{-Wall}.
 
 To suppress this warning cast the expression to @samp{void}.
 
@@ -2582,6 +2602,8 @@ in fact be called at the place which would cause a problem.
 Some spurious warnings can be avoided if you declare all the functions
 you use that never return as @code{noreturn}.  @xref{Function
 Attributes}.
+
+This warning is enabled by @option{-Wall}.
 
 @item -Wunknown-pragmas
 @opindex Wunknown-pragmas
@@ -2854,9 +2876,10 @@ GCC versions before GCC 3.0.  @xref{Mixed Declarations}.
 @opindex Wundef
 Warn if an undefined identifier is evaluated in an @samp{#if} directive.
 
-@item -Wendif-labels
+@item -Wno-endif-labels
+@opindex Wno-endif-labels
 @opindex Wendif-labels
-Warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
+Do not warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
 
 @item -Wshadow
 @opindex Wshadow
@@ -3861,6 +3884,13 @@ made by appending @file{.vect} to the source file name.
 Enable all the available tree dumps with the flags provided in this option.
 @end table
 
+@item -ftree-vectorizer-verbose=@var{n}
+@opindex ftree-vectorizer-verbose
+This option controls the amount of debugging output the vectorizer prints.
+This information is written to standard error, unless @option{-fdump-tree-all}
+or @option{-fdump-tree-vect} is specified, in which case it is output to the
+usual dump listing file, @file{.vect}.
+
 @item -frandom-seed=@var{string}
 @opindex frandom-string
 This option provides a seed that GCC uses when it would otherwise use
@@ -4816,8 +4846,8 @@ sections.
 
 @item -freorder-functions
 @opindex freorder-functions
-Reorder basic blocks in the compiled function in order to reduce number of
-taken branches and improve code locality.  This is implemented by using special
+Reorder functions in the object file in order to
+improve code locality.  This is implemented by using special
 subsections @code{.text.hot} for most frequently executed functions and
 @code{.text.unlikely} for unlikely executed functions.  Reordering is done by
 the linker so object file format must support named sections and linker must
@@ -5042,7 +5072,8 @@ them to store all pertinent intermediate computations into variables.
 @opindex ffast-math
 Sets @option{-fno-math-errno}, @option{-funsafe-math-optimizations}, @*
 @option{-fno-trapping-math}, @option{-ffinite-math-only},
-@option{-fno-rounding-math} and @option{-fno-signaling-nans}.
+@option{-fno-rounding-math}, @option{-fno-signaling-nans}
+and @option{fcx-limited-range}.
 
 This option causes the preprocessor macro @code{__FAST_MATH__} to be defined.
 
@@ -5146,6 +5177,17 @@ disable all GCC optimizations that affect signaling NaN behavior.
 Treat floating point constant as single precision constant instead of
 implicitly converting it to double precision constant.
 
+@item -fcx-limited-range
+@itemx -fno-cx-limited-range
+@opindex fcx-limited-range
+@opindex fno-cx-limited-range
+When enabled, this option states that a range reduction step is not
+needed when performing complex division.  The default is
+@option{-fno-cx-limited-range}, but is enabled by @option{-ffast-math}.
+
+This option controls the default setting of the ISO C99 
+@code{CX_LIMITED_RANGE} pragma.  Nevertheless, the option applies to
+all languages.
 
 @end table
 
@@ -6342,11 +6384,6 @@ command line passed to the linker.  Typically it will make use of the
 Dump out a @option{-L} option for each directory that GCC believes might
 contain startup files.  If the target supports multilibs then the
 current multilib directory will be prepended to each of these paths.
-
-@item %M
-Output the multilib directory with directory separators replaced with
-@samp{_}.  If multilib directories are not set, or the multilib directory is
-@file{.} then this option emits nothing.
 
 @item %L
 Process the @code{lib} spec.  This is a spec string for deciding which
@@ -8836,10 +8873,6 @@ is not position independent code, and violates the IA-64 ABI@.
 Generate (or don't) a stop bit immediately before and after volatile asm
 statements.
 
-@item -mb-step
-@opindex mb-step
-Generate code that works around Itanium B step errata.
-
 @item -mregister-names
 @itemx -mno-register-names
 @opindex mregister-names
@@ -10472,13 +10505,17 @@ Specifying @option{-maix64} implies @option{-mpowerpc64} and
 @option{-mpowerpc}, while @option{-maix32} disables the 64-bit ABI and
 implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 
-@item -mxl-call
-@itemx -mno-xl-call
-@opindex mxl-call
-@opindex mno-xl-call
-On AIX, pass floating-point arguments to prototyped functions beyond the
-register save area (RSA) on the stack in addition to argument FPRs.  The
-AIX calling convention was extended but not initially documented to
+@item -mxl-compat
+@itemx -mno-xl-compat
+@opindex mxl-compat
+@opindex mno-xl-compat
+Produce code that conforms more closely to IBM XLC semantics when using
+AIX-compatible ABI.  Pass floating-point arguments to prototyped
+functions beyond the register save area (RSA) on the stack in addition
+to argument FPRs.  Do not assume that most significant double in 128
+bit long double value is properly rounded when comparing values.
+
+The AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
 address of its arguments with fewer arguments than declared.  AIX XL
 compilers access floating point arguments which do not fit in the
@@ -10503,11 +10540,14 @@ option are incompatible.
 @itemx -malign-power
 @opindex malign-natural
 @opindex malign-power
-On AIX, Darwin, and 64-bit PowerPC GNU/Linux, the option
+On AIX, 32-bit Darwin, and 64-bit PowerPC GNU/Linux, the option
 @option{-malign-natural} overrides the ABI-defined alignment of larger
 types, such as floating-point doubles, on their natural size-based boundary.
 The option @option{-malign-power} instructs GCC to follow the ABI-specified
 alignment rules.  GCC defaults to the standard alignment defined in the ABI@.
+
+On 64-bit Darwin, natural alignment is the default, and @option{-malign-power}
+is not supported.
 
 @item -msoft-float
 @itemx -mhard-float

@@ -102,12 +102,14 @@ endif
 
 if GTK_AWT
 cond_gtk_ltlibrary = lib-gnu-java-awt-peer-gtk.la
+cond_gtk_jawt_ltlibrary = libjawt.la
 else
 cond_gtk_ltlibrary =
+cond_gtk_jawt_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la libgij.la \
-    $(cond_gtk_ltlibrary) $(cond_xlib_ltlibrary)
+    $(cond_gtk_ltlibrary) $(cond_gtk_jawt_ltlibrary) $(cond_xlib_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -211,7 +213,11 @@ libgij_la_LIBADD = -L$(here)/.libs libgcj.la
 libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
-libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
+# Work around libtool wanting to do piece-wise linking with -r.  Using a
+# convenience library suddenly invokes the --whole-archive path instead.
+# This allows the build to succeed for targets that allocate multiple got
+# subsections in the linker, such as Alpha and MIPS.
+libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
 	$(gnu_xml_source_files) $(built_java_source_files) \
@@ -220,9 +226,9 @@ libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
 	$(DARWIN_CRT_SRC) \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
-libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
-	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
-	$(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
+noinst_LTLIBRARIES = libgcj0_convenience.la
+
+libgcj_la_SOURCES =
 
 ## Objects from C++ sources in subdirs.
 nat_files = $(nat_source_files:.cc=.lo)
@@ -237,7 +243,11 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 libgcj_la_LIBADD = \
 	external/sax/libsax_convenience.la \
 	external/w3c_dom/libw3c_convenience.la \
+	libgcj0_convenience.la \
 	$(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
+libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
+	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
+	$(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
 
 # Gtk/Cairo JNI sources.
@@ -252,12 +262,11 @@ endif
 gtk_c_source_files = \
 $(gtk_cairo_c_source_files) \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c \
@@ -274,7 +283,6 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c \
@@ -290,6 +298,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c	\
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
+jni/gtk-peer/gtk_jawt.c \
 jni/classpath/jcl.c \
 jni/classpath/jnilink.c	\
 jni/classpath/native_state.c \
@@ -303,8 +312,11 @@ gnu/java/awt/peer/gtk/GdkFontPeer.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
+gnu/java/awt/peer/gtk/GdkGraphicsConfiguration.java \
 gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
+gnu/java/awt/peer/gtk/GdkRobotPeer.java \
+gnu/java/awt/peer/gtk/GdkScreenGraphicsDevice.java \
 gnu/java/awt/peer/gtk/GtkButtonPeer.java \
 gnu/java/awt/peer/gtk/GtkCanvasPeer.java \
 gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java	\
@@ -323,7 +335,6 @@ gnu/java/awt/peer/gtk/GtkImage.java \
 gnu/java/awt/peer/gtk/GtkImagePainter.java \
 gnu/java/awt/peer/gtk/GtkLabelPeer.java	\
 gnu/java/awt/peer/gtk/GtkListPeer.java \
-gnu/java/awt/peer/gtk/GtkMainThread.java \
 gnu/java/awt/peer/gtk/GtkMenuBarPeer.java \
 gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java	\
 gnu/java/awt/peer/gtk/GtkMenuItemPeer.java \
@@ -344,8 +355,6 @@ gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java
 
 gtk_jni_headers = $(patsubst %.java,jniinclude/%.h,$(subst /,_,$(gtk_awt_peer_sources)))
 
-jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h: gnu/java/awt/peer/gtk/GdkFontMetrics.java
-jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h: gnu/java/awt/peer/gtk/GdkGlyphVector.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h: gnu/java/awt/peer/gtk/GdkGraphics.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h: gnu/java/awt/peer/gtk/GdkGraphics2D.java
 jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h: gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java
@@ -369,7 +378,6 @@ jniinclude/gnu_java_awt_peer_gtk_GtkImage.h: gnu/java/awt/peer/gtk/GtkImage.java
 jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h: gnu/java/awt/peer/gtk/GtkImagePainter.java
 jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h: gnu/java/awt/peer/gtk/GtkLabelPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h: gnu/java/awt/peer/gtk/GtkListPeer.java
-jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h: gnu/java/awt/peer/gtk/GtkMainThread.java
 jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h: gnu/java/awt/peer/gtk/GtkMenuBarPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h: gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java
 jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h: gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
@@ -394,9 +402,7 @@ $(gtk_jni_headers): %.h:
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
 
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontMetrics.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkFontPeer.h
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGlyphVector.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics2D.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphicsEnvironment.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GdkGraphics.h
@@ -418,7 +424,6 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo: $(top_builddir)/jniinclude
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkImagePainter.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkLabelPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkListPeer.h
-jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMainThread.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuBarPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.h
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo: $(top_builddir)/jniinclude/gnu_java_awt_peer_gtk_GtkMenuItemPeer.h
@@ -451,14 +456,22 @@ jni/classpath/primlib.h
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
 	-I$(srcdir)/jni/gtk-peer $(PEDANTIC_CFLAGS) $(GTK_CFLAGS) $(LIBART_CFLAGS) \
-	$(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
+	$(X_CFLAGS) $(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
+
+libjawt_la_SOURCES = jawt.c
+libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
+libjawt_la_LIBADD = lib-gnu-java-awt-peer-gtk.la
+libjawt_la_LDFLAGS = \
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+	$(LIBGCJ_LD_SYMBOLIC)
+libjawt_la_LINK = $(LIBLINK)
 
 lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_java_source_files) \
@@ -467,6 +480,7 @@ lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spe
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
 ## We require libstdc++-v3 to be in the same build tree.
 lib_gnu_awt_xlib_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
 	-I../libstdc++-v3/include \
 	-I../libstdc++-v3/include/$(target_noncanonical) \
 	-I$(srcdir)/../libstdc++-v3/libsupc++
@@ -486,7 +500,7 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
-all_property_files = $(property_files) $(jgss_property_files) \
+all_property_files = $(property_files) \
     java/util/logging/logging.properties
 
 ## Build property files into the library.
@@ -508,7 +522,7 @@ classes.stamp: $(all_java_source_files)
 	@echo Compiling Java sourcefiles...
 	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) @libgcj.sourcelist
-
+	echo > classes.stamp
 # This next rule seems backward, but reflects the fact that 1) all
 # classfiles are compiled in one go when classes.stamp is built and 2)
 # anything which depends on a particular .class file must wait until
@@ -1063,6 +1077,43 @@ gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
 gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
+gnu/java/beans/decoder/AbstractContext.java \
+gnu/java/beans/decoder/AbstractCreatableObjectContext.java \
+gnu/java/beans/decoder/AbstractElementHandler.java \
+gnu/java/beans/decoder/AbstractObjectContext.java \
+gnu/java/beans/decoder/ArrayContext.java \
+gnu/java/beans/decoder/ArrayHandler.java \
+gnu/java/beans/decoder/AssemblyException.java \
+gnu/java/beans/decoder/BooleanHandler.java \
+gnu/java/beans/decoder/ByteHandler.java \
+gnu/java/beans/decoder/CharHandler.java \
+gnu/java/beans/decoder/ClassHandler.java \
+gnu/java/beans/decoder/ConstructorContext.java \
+gnu/java/beans/decoder/Context.java \
+gnu/java/beans/decoder/DecoderContext.java \
+gnu/java/beans/decoder/DefaultExceptionListener.java \
+gnu/java/beans/decoder/DoubleHandler.java \
+gnu/java/beans/decoder/DummyContext.java \
+gnu/java/beans/decoder/DummyHandler.java \
+gnu/java/beans/decoder/ElementHandler.java \
+gnu/java/beans/decoder/FloatHandler.java \
+gnu/java/beans/decoder/GrowableArrayContext.java \
+gnu/java/beans/decoder/IndexContext.java \
+gnu/java/beans/decoder/IntHandler.java \
+gnu/java/beans/decoder/JavaHandler.java \
+gnu/java/beans/decoder/LongHandler.java \
+gnu/java/beans/decoder/MethodContext.java \
+gnu/java/beans/decoder/MethodFinder.java \
+gnu/java/beans/decoder/NullHandler.java \
+gnu/java/beans/decoder/ObjectContext.java \
+gnu/java/beans/decoder/ObjectHandler.java \
+gnu/java/beans/decoder/PersistenceParser.java \
+gnu/java/beans/decoder/PropertyContext.java \
+gnu/java/beans/decoder/ShortHandler.java \
+gnu/java/beans/decoder/SimpleHandler.java \
+gnu/java/beans/decoder/StaticMethodContext.java \
+gnu/java/beans/decoder/StringHandler.java \
+gnu/java/beans/decoder/VoidHandler.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -1073,9 +1124,9 @@ gnu/java/beans/editors/NativeIntEditor.java \
 gnu/java/beans/editors/NativeLongEditor.java \
 gnu/java/beans/editors/NativeShortEditor.java \
 gnu/java/beans/editors/StringEditor.java \
-gnu/java/beans/info/ComponentBeanInfo.java \
 gnu/java/beans/BeanInfoEmbryo.java \
-gnu/java/beans/EmptyBeanInfo.java \
+gnu/java/beans/DummyAppletContext.java \
+gnu/java/beans/DummyAppletStub.java \
 gnu/java/beans/ExplicitBeanInfo.java \
 gnu/java/beans/IntrospectionIncubator.java \
 java/applet/Applet.java \
@@ -1455,6 +1506,7 @@ java/beans/VetoableChangeListenerProxy.java \
 java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java \
 java/beans/AppletInitializer.java \
+java/beans/XMLDecoder.java \
 javax/swing/border/AbstractBorder.java \
 javax/swing/border/BevelBorder.java \
 javax/swing/border/Border.java \
@@ -1480,6 +1532,7 @@ javax/swing/plaf/basic/BasicComboBoxRenderer.java \
 javax/swing/plaf/basic/BasicComboPopup.java \
 javax/swing/plaf/basic/BasicDesktopIconUI.java \
 javax/swing/plaf/basic/BasicDesktopPaneUI.java \
+javax/swing/plaf/basic/BasicEditorPaneUI.java \
 javax/swing/plaf/basic/BasicFormattedTextFieldUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
@@ -1536,7 +1589,9 @@ javax/swing/plaf/TabbedPaneUI.java \
 javax/swing/plaf/TextUI.java \
 javax/swing/plaf/TreeUI.java \
 javax/swing/plaf/ViewportUI.java \
+javax/swing/plaf/metal/DefaultMetalTheme.java \
 javax/swing/plaf/metal/MetalLookAndFeel.java \
+javax/swing/plaf/metal/MetalTheme.java \
 javax/swing/plaf/ColorUIResource.java \
 javax/swing/plaf/DimensionUIResource.java \
 javax/swing/plaf/FontUIResource.java \
@@ -1566,7 +1621,6 @@ javax/swing/plaf/TableUI.java \
 javax/swing/plaf/ToolBarUI.java \
 javax/swing/plaf/ToolTipUI.java \
 javax/swing/AbstractListModel.java \
-javax/swing/AbstractSet.java \
 javax/swing/colorchooser/AbstractColorChooserPanel.java \
 javax/swing/colorchooser/ColorChooserComponentFactory.java \
 javax/swing/colorchooser/ColorSelectionModel.java \
@@ -1596,12 +1650,12 @@ javax/swing/ButtonGroup.java \
 javax/swing/ButtonModel.java \
 javax/swing/ComponentInputMap.java \
 javax/swing/DefaultButtonModel.java \
-javax/swing/DefaultCellRenderer.java \
 javax/swing/DefaultListModel.java \
 javax/swing/DefaultListSelectionModel.java \
 javax/swing/Icon.java \
 javax/swing/ImageIcon.java \
 javax/swing/InputMap.java \
+javax/swing/InternalFrameFocusTraversalPolicy.java \
 javax/swing/JApplet.java \
 javax/swing/JButton.java \
 javax/swing/JCheckBox.java \
@@ -1630,11 +1684,14 @@ javax/swing/JTree.java \
 javax/swing/JViewport.java \
 javax/swing/JWindow.java \
 javax/swing/KeyStroke.java \
+javax/swing/LayoutFocusTraversalPolicy.java \
 javax/swing/ListCellRenderer.java \
 javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SortingFocusTraversalPolicy.java \
+javax/swing/SpinnerDateModel.java \
 javax/swing/SpinnerListModel.java \
 javax/swing/SpinnerModel.java \
 javax/swing/SpinnerNumberModel.java \
@@ -1700,6 +1757,7 @@ javax/swing/text/ComponentView.java \
 javax/swing/text/DefaultCaret.java \
 javax/swing/text/DefaultEditorKit.java \
 javax/swing/text/DefaultHighlighter.java \
+javax/swing/text/DefaultStyledDocument.java \
 javax/swing/text/Document.java \
 javax/swing/text/DocumentFilter.java \
 javax/swing/text/EditorKit.java \
@@ -1718,6 +1776,7 @@ javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/SimpleAttributeSet.java \
+javax/swing/text/StringContent.java \
 javax/swing/text/Style.java \
 javax/swing/text/StyleConstants.java \
 javax/swing/text/StyleContext.java \
@@ -1930,6 +1989,9 @@ javax/imageio/spi/IIOServiceProvider.java \
 javax/imageio/spi/ImageReaderWriterSpi.java \
 javax/imageio/spi/ImageInputStreamSpi.java \
 javax/imageio/spi/RegisterableService.java \
+javax/imageio/metadata/IIOAttr.java \
+javax/imageio/metadata/IIONamedNodeMap.java \
+javax/imageio/metadata/IIONodeList.java \
 javax/imageio/metadata/IIOMetadataFormatImpl.java \
 javax/imageio/metadata/IIOInvalidTreeException.java \
 javax/imageio/metadata/IIOMetadataFormat.java \
@@ -1994,6 +2056,10 @@ javax/print/attribute/HashPrintServiceAttributeSet.java	\
 javax/print/attribute/Attribute.java \
 javax/print/attribute/DocAttributeSet.java \
 javax/print/attribute/PrintRequestAttributeSet.java \
+javax/print/attribute/standard/Chromaticity.java \
+javax/print/attribute/standard/Destination.java \
+javax/print/attribute/standard/MediaPrintableArea.java \
+javax/print/attribute/standard/MediaSize.java \
 javax/print/attribute/standard/NumberOfInterveningJobs.java \
 javax/print/attribute/standard/PrinterMakeAndModel.java	\
 javax/print/attribute/standard/PrinterStateReason.java \
@@ -2476,10 +2542,9 @@ gnu/xml/util/Resolver.java \
 gnu/xml/util/DoParse.java \
 gnu/xml/util/XHTMLWriter.java \
 gnu/xml/util/SAXNullTransformerFactory.java \
-gnu/xml/dom/DomCDATA.java \
 gnu/xml/dom/DomXPathNSResolver.java \
-gnu/xml/dom/ls/DomLSEx.java \
 gnu/xml/dom/ls/FilteredSAXEventSink.java \
+gnu/xml/dom/ls/DomLSException.java \
 gnu/xml/dom/ls/DomLSSerializer.java \
 gnu/xml/dom/ls/DomLSInput.java \
 gnu/xml/dom/ls/DomLSOutput.java	\
@@ -2490,14 +2555,14 @@ gnu/xml/dom/ls/WriterOutputStream.java \
 gnu/xml/dom/DomElement.java \
 gnu/xml/dom/DomNsNode.java \
 gnu/xml/dom/DomAttr.java \
-gnu/xml/dom/DomPI.java \
 gnu/xml/dom/DTDAttributeTypeInfo.java \
 gnu/xml/dom/DomDocumentBuilder.java \
 gnu/xml/dom/DTDElementTypeInfo.java \
-gnu/xml/dom/DomEx.java \
 gnu/xml/dom/DomDocument.java \
 gnu/xml/dom/DomXPathExpression.java \
 gnu/xml/dom/DomDocumentConfiguration.java \
+gnu/xml/dom/DomDocumentFragment.java \
+gnu/xml/dom/DomProcessingInstruction.java \
 gnu/xml/dom/Consumer.java \
 gnu/xml/dom/DomComment.java \
 gnu/xml/dom/DomCharacterData.java \
@@ -2517,9 +2582,10 @@ gnu/xml/dom/DomNodeIterator.java \
 gnu/xml/dom/DomNotation.java \
 gnu/xml/dom/JAXPFactory.java \
 gnu/xml/dom/DomIterator.java \
-gnu/xml/dom/DomFragment.java \
 gnu/xml/dom/DomEvent.java \
 gnu/xml/dom/DomEntity.java \
+gnu/xml/dom/DomCDATASection.java \
+gnu/xml/dom/DomDOMException.java \
 gnu/xml/transform/GenerateIdFunction.java \
 gnu/xml/transform/FormatNumberFunction.java \
 gnu/xml/transform/ValueOfNode.java \
@@ -3005,8 +3071,11 @@ gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
 gnu/java/net/BASE64.java \
+gnu/java/net/CRLFInputStream.java \
+gnu/java/net/CRLFOutputStream.java \
 gnu/java/net/DefaultContentHandlerFactory.java \
 gnu/java/net/EmptyX509TrustManager.java \
+gnu/java/net/GetLocalHostAction.java \
 gnu/java/net/HeaderFieldHelper.java \
 gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
@@ -3017,6 +3086,22 @@ gnu/java/net/protocol/core/CoreInputStream.java \
 gnu/java/net/protocol/core/Handler.java \
 gnu/java/net/protocol/file/Connection.java \
 gnu/java/net/protocol/file/Handler.java \
+gnu/java/net/protocol/ftp/ActiveModeDTP.java \
+gnu/java/net/protocol/ftp/BlockInputStream.java \
+gnu/java/net/protocol/ftp/BlockOutputStream.java \
+gnu/java/net/protocol/ftp/CompressedInputStream.java \
+gnu/java/net/protocol/ftp/CompressedOutputStream.java \
+gnu/java/net/protocol/ftp/DTP.java \
+gnu/java/net/protocol/ftp/DTPInputStream.java \
+gnu/java/net/protocol/ftp/DTPOutputStream.java \
+gnu/java/net/protocol/ftp/FTPConnection.java \
+gnu/java/net/protocol/ftp/FTPException.java \
+gnu/java/net/protocol/ftp/FTPResponse.java \
+gnu/java/net/protocol/ftp/FTPURLConnection.java \
+gnu/java/net/protocol/ftp/Handler.java \
+gnu/java/net/protocol/ftp/PassiveModeDTP.java \
+gnu/java/net/protocol/ftp/StreamInputStream.java \
+gnu/java/net/protocol/ftp/StreamOutputStream.java \
 gnu/java/net/protocol/gcjlib/Connection.java \
 gnu/java/net/protocol/gcjlib/Handler.java \
 gnu/java/net/protocol/http/Authenticator.java \
@@ -3045,6 +3130,7 @@ gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \
 gnu/java/nio/ChannelOutputStream.java \
+gnu/java/nio/ChannelReader.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/DatagramChannelSelectionKey.java \
 gnu/java/nio/FileLockImpl.java \
@@ -3080,12 +3166,18 @@ gnu/java/security/PolicyFile.java \
 gnu/java/security/action/GetPropertyAction.java \
 gnu/java/security/action/GetSecurityPropertyAction.java \
 gnu/java/security/action/SetAccessibleAction.java \
+gnu/java/security/ber/BER.java \
+gnu/java/security/ber/BEREncodingException.java \
+gnu/java/security/ber/BERReader.java \
+gnu/java/security/ber/BERValue.java \
 gnu/java/security/der/BitString.java \
 gnu/java/security/der/DER.java \
 gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/der/DERReader.java \
 gnu/java/security/der/DERValue.java \
 gnu/java/security/der/DERWriter.java \
+gnu/java/security/pkcs/PKCS7SignedData.java \
+gnu/java/security/pkcs/SignerInfo.java \
 gnu/java/security/provider/CollectionCertStoreImpl.java \
 gnu/java/security/provider/DSAKeyFactory.java \
 gnu/java/security/provider/DSAKeyPairGenerator.java \
@@ -3629,6 +3721,7 @@ java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \
+java/util/logging/natLogger.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 
@@ -3727,6 +3820,49 @@ texinfo: TexinfoDoclet.class
 	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/*.java
 	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/jar/*.java
 	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/zip/*.java
+
+## ################################################################
+
+##
+## Creating and installing sources.zip
+##
+
+## Create a zip holding all the sources.  This can be meaningfully
+## used in Eclipse.
+src.zip:
+	-rm -f src.zip
+	here=`pwd`; \
+	( ( cd $(srcdir); \
+	  find java gnu javax org -name '*.java' -print | \
+	  while read file; do \
+## Ugly code to avoid "echo -C".  Must separate each entry by a newline
+## Gross but easy.
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo $(srcdir); \
+	    echo $$file; \
+	  done ); \
+## Now the build tree.
+	  find gnu java -name '*.java' -print) | \
+## Many of the above circumlocutions are because ZIP will most likely
+## be a relative path to fastjar.
+	$(ZIP) -cfM@ $$here/src.zip
+## Now include the files from external/.
+	for dir in sax w3c_dom; do \
+	  (cd $(srcdir)/external/$$dir; \
+	  find org -type f -name '*.java' -print | while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo $(srcdir)/external/$$dir; \
+	    echo $$file; \
+          done) | \
+	  $(ZIP) -ufM0E@ src.zip; \
+	done
+
+## We use a variable for this in case the user wants to override it.
+sourcesdir = $(jardir)
+
+install-src.zip: src.zip
+	$(INSTALL_DATA) src.zip $(DESTDIR)$(sourcesdir)/src-@gcc_version@.zip
+
 
 ## ################################################################
 

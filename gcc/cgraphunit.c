@@ -1,5 +1,5 @@
 /* Callgraph based intraprocedural optimizations.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -346,6 +346,16 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
       node->local.redefined_extern_inline = true;
+
+      if (!flag_unit_at_a_time)
+	{
+	  struct cgraph_node *n;
+
+	  for (n = cgraph_nodes; n; n = n->next)
+	    if (n->global.inlined_to == node)
+	      cgraph_remove_node (n);
+	}
+
       while (node->callees)
 	cgraph_remove_edge (node->callees);
 

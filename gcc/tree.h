@@ -182,10 +182,24 @@ extern const char *const built_in_class_names[4];
 /* Codes that identify the various built in functions
    so that expand_call can identify them quickly.  */
 
-#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM) ENUM,
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) ENUM,
 enum built_in_function
 {
 #include "builtins.def"
+
+  /* Complex division routines in libgcc.  These are done via builtins
+     because emit_library_call_value can't handle complex values.  */
+  BUILT_IN_COMPLEX_MUL_MIN,
+  BUILT_IN_COMPLEX_MUL_MAX
+    = BUILT_IN_COMPLEX_MUL_MIN
+      + MAX_MODE_COMPLEX_FLOAT
+      - MIN_MODE_COMPLEX_FLOAT,
+
+  BUILT_IN_COMPLEX_DIV_MIN,
+  BUILT_IN_COMPLEX_DIV_MAX
+    = BUILT_IN_COMPLEX_DIV_MIN
+      + MAX_MODE_COMPLEX_FLOAT
+      - MIN_MODE_COMPLEX_FLOAT,
 
   /* Upper bound on non-language-specific builtins.  */
   END_BUILTINS
@@ -193,7 +207,7 @@ enum built_in_function
 #undef DEF_BUILTIN
 
 /* Names for the above.  */
-extern const char *const built_in_names[(int) END_BUILTINS];
+extern const char * built_in_names[(int) END_BUILTINS];
 
 /* Helper macros for math builtins.  */
 
@@ -3275,6 +3289,7 @@ extern int integer_nonzerop (tree);
 
 extern bool zero_p (tree);
 extern bool cst_and_fits_in_hwi (tree);
+extern tree num_ending_zeros (tree);
 
 /* staticp (tree x) is nonzero if X is a reference to data allocated
    at a fixed address in memory.  Returns the outermost data.  */
@@ -3527,11 +3542,16 @@ extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
-tree fold_build_cleanup_point_expr (tree type, tree expr);
+extern tree fold_build_cleanup_point_expr (tree type, tree expr);
+extern tree fold_strip_sign_ops (tree);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
+extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree fold_complex_mult_parts (tree, tree, tree, tree, tree);
+extern tree fold_complex_div_parts (tree, tree, tree, tree, tree,
+				    enum tree_code);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -3590,6 +3610,7 @@ extern int real_minus_onep (tree);
 extern void init_ttree (void);
 extern void build_common_tree_nodes (bool, bool);
 extern void build_common_tree_nodes_2 (int);
+extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
@@ -3916,5 +3937,8 @@ extern bool thread_through_all_blocks (void);
 
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);
+
+/* In tree-vectorizer.c.  */
+extern void vect_set_verbosity_level (const char *);
 
 #endif  /* GCC_TREE_H  */

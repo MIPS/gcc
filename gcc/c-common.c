@@ -1606,12 +1606,36 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
     return void_type_node;
 
   if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
+    return (unsignedp
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
 
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return unsignedp ? make_unsigned_type (mode) : make_signed_type (mode);
+    return (unsignedp
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
 
-  if (VECTOR_MODE_P (mode))
+  if (COMPLEX_MODE_P (mode))
+    {
+      enum machine_mode inner_mode;
+      tree inner_type;
+
+      if (mode == TYPE_MODE (complex_float_type_node))
+	return complex_float_type_node;
+      if (mode == TYPE_MODE (complex_double_type_node))
+	return complex_double_type_node;
+      if (mode == TYPE_MODE (complex_long_double_type_node))
+	return complex_long_double_type_node;
+
+      if (mode == TYPE_MODE (complex_integer_type_node) && !unsignedp)
+	return complex_integer_type_node;
+
+      inner_mode = GET_MODE_INNER (mode);
+      inner_type = c_common_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL_TREE)
+	return build_complex_type (inner_type);
+    }
+  else if (VECTOR_MODE_P (mode))
     {
       enum machine_mode inner_mode = GET_MODE_INNER (mode);
       tree inner_type = c_common_type_for_mode (inner_mode, unsignedp);
@@ -3199,9 +3223,9 @@ c_common_nodes_and_builtins (void)
 
   c_init_attributes ();
 
-#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE,			\
-		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT)	\
-  if (NAME)								\
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
+		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
+  if (NAME && COND)							\
     {									\
       tree decl;							\
 									\
@@ -3233,6 +3257,8 @@ c_common_nodes_and_builtins (void)
     }
 #include "builtins.def"
 #undef DEF_BUILTIN
+
+  build_common_builtin_nodes ();
 
   targetm.init_builtins ();
   if (flag_mudflap)
@@ -5596,6 +5622,27 @@ c_warn_unused_result (tree *top_p)
       /* Not a container, not a call, or a call whose value is used.  */
       break;
     }
+}
+
+/* Convert a character from the host to the target execution character
+   set.  cpplib handles this, mostly.  */
+
+HOST_WIDE_INT
+c_common_to_target_charset (HOST_WIDE_INT c)
+{
+  /* Character constants in GCC proper are sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  cpplib insists that characters
+     and character constants are always unsigned.  Hence we must convert
+     back and forth.  */
+  cppchar_t uc = ((cppchar_t)c) & ((((cppchar_t)1) << CHAR_BIT)-1);
+
+  uc = cpp_host_to_exec_charset (parse_in, uc);
+
+  if (flag_signed_char)
+    return ((HOST_WIDE_INT)uc) << (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE)
+			       >> (HOST_BITS_PER_WIDE_INT - CHAR_TYPE_SIZE);
+  else
+    return uc;
 }
 
 /* Build the result of __builtin_offsetof.  EXPR is a nested sequence of

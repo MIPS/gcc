@@ -1422,7 +1422,7 @@ constraint_set_union (VEC(constraint_t) **to,
 static void
 solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
 {
-  bitmap result = BITMAP_XMALLOC ();
+  bitmap result = BITMAP_ALLOC (NULL);
   unsigned int i;
   bitmap_iterator bi;
 
@@ -1450,7 +1450,7 @@ solution_set_add (bitmap set, unsigned HOST_WIDE_INT offset)
     }
   
   bitmap_copy (set, result);  
-  BITMAP_XFREE (result);
+  BITMAP_FREE (result);
 }
 
 /* Union solution sets TO and FROM, and add INC to each member of FROM in the
@@ -1465,11 +1465,11 @@ set_union_with_increment  (bitmap to, bitmap from, unsigned HOST_WIDE_INT inc)
     {
       bitmap tmp;
       bool res;
-      tmp = BITMAP_XMALLOC ();
+      tmp = BITMAP_ALLOC (NULL);
       bitmap_copy (tmp, from);
       solution_set_add (tmp, inc);
       res = bitmap_ior_into (to, tmp);
-      BITMAP_XFREE (tmp);
+      BITMAP_FREE (tmp);
       return res;
     }
 }
@@ -1911,7 +1911,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 			   bool update_changed)
 {
   size_t i = 0;
-  bitmap tmp = BITMAP_XMALLOC ();
+  bitmap tmp = BITMAP_ALLOC (NULL);
   bitmap_clear (tmp);
   while (i != VARRAY_ACTIVE_SIZE (si->unification_queue))
     {
@@ -1976,7 +1976,7 @@ process_unification_queue (constraint_graph_t graph, struct scc_info *si,
 	    }
 	}
     }
-  BITMAP_XFREE (tmp);
+  BITMAP_FREE (tmp);
 }
 
 /* Information needed to compute the topographic ordering of a graph.  */
@@ -2358,16 +2358,16 @@ perform_rountev_chandra (constraint_graph_t graph)
 	     Corrolary: If all predecessors of i have the same
 	     points-to set, then i has that same points-to set as
 	     those predecessors.  */
-	  tmp = BITMAP_XMALLOC ();
+	  tmp = BITMAP_ALLOC (NULL);
 	  bitmap_and_compl (tmp, get_varinfo (i)->solution,
 			    get_varinfo (w)->solution);
 	  if (!bitmap_empty_p (tmp))
 	    {
 	      okay_to_elim = false;
-	      BITMAP_XFREE (tmp);
+	      BITMAP_FREE (tmp);
 	      break;
 	    }
-	  BITMAP_XFREE (tmp);
+	  BITMAP_FREE (tmp);
 	}
       /* See if the root is different than the original node. 
 	 If so, we've found an equivalence.  */

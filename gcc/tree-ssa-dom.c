@@ -181,7 +181,7 @@ static struct opt_stats_d opt_stats;
    of the form SSA_NAME COND CONST we create a new vrp_element to record
    how the condition affects the possible values SSA_NAME may have.
 
-   Each record contains the condition tested (COND), and the the range of
+   Each record contains the condition tested (COND), and the range of
    values the variable may legitimately have if COND is true.  Note the
    range of values may be a smaller range than COND specifies if we have
    recorded other ranges for this variable.  Each record also contains the
@@ -383,8 +383,8 @@ tree_ssa_dominator_optimize (void)
   nonzero_vars_stack = VEC_alloc (tree_on_heap, 20);
   vrp_variables_stack = VEC_alloc (tree_on_heap, 20);
   stmts_to_rescan = VEC_alloc (tree_on_heap, 20);
-  nonzero_vars = BITMAP_XMALLOC ();
-  need_eh_cleanup = BITMAP_XMALLOC ();
+  nonzero_vars = BITMAP_ALLOC (NULL);
+  need_eh_cleanup = BITMAP_ALLOC (NULL);
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.walk_stmts_backward = false;
@@ -497,8 +497,8 @@ tree_ssa_dominator_optimize (void)
   fini_walk_dominator_tree (&walk_data);
 
   /* Free nonzero_vars.  */
-  BITMAP_XFREE (nonzero_vars);
-  BITMAP_XFREE (need_eh_cleanup);
+  BITMAP_FREE (nonzero_vars);
+  BITMAP_FREE (need_eh_cleanup);
   
   VEC_free (tree_on_heap, block_defs_stack);
   VEC_free (tree_on_heap, avail_exprs_stack);
@@ -603,8 +603,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  use_optype uses = USE_OPS (ann);
 	  vuse_optype vuses = VUSE_OPS (ann);
-	  tree *uses_copy = xcalloc (NUM_USES (uses),  sizeof (tree));
-	  tree *vuses_copy = xcalloc (NUM_VUSES (vuses), sizeof (tree));
+	  tree *uses_copy = xmalloc (NUM_USES (uses) * sizeof (tree));
+	  tree *vuses_copy = xmalloc (NUM_VUSES (vuses) * sizeof (tree));
 	  unsigned int i;
 
 	  /* Make a copy of the uses into USES_COPY, then cprop into
@@ -1398,7 +1398,7 @@ record_cond (tree cond, tree value)
 
 /* Build a new conditional using NEW_CODE, OP0 and OP1 and store
    the new conditional into *p, then store a boolean_true_node
-   into the the *(p + 1).  */
+   into *(p + 1).  */
    
 static void
 build_and_record_new_cond (enum tree_code new_code, tree op0, tree op1, tree *p)
@@ -1635,6 +1635,46 @@ unsafe_associative_fp_binop (tree exp)
            && FLOAT_TYPE_P (TREE_TYPE (exp)));
 }
 
+/* Returns true when STMT is a simple iv increment.  It detects the
+   following situation:
+   
+   i_1 = phi (..., i_2)
+   i_2 = i_1 +/- ...  */
+
+static bool
+simple_iv_increment_p (tree stmt)
+{
+  tree lhs, rhs, preinc, phi;
+  unsigned i;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  lhs = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (lhs) != SSA_NAME)
+    return false;
+
+  rhs = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (rhs) != PLUS_EXPR
+      && TREE_CODE (rhs) != MINUS_EXPR)
+    return false;
+
+  preinc = TREE_OPERAND (rhs, 0);
+  if (TREE_CODE (preinc) != SSA_NAME)
+    return false;
+
+  phi = SSA_NAME_DEF_STMT (preinc);
+  if (TREE_CODE (phi) != PHI_NODE)
+    return false;
+
+  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+    if (PHI_ARG_DEF (phi, i) == lhs)
+      return true;
+
+  return false;
+}
+
 /* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
    hash tables.  Try to simplify the RHS using whatever equivalences
    we may have recorded.
@@ -1687,6 +1727,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
+
+      /* If the statement defines an induction variable, do not propagate
+	 its value, so that we do not create overlapping life ranges.  */
+      if (simple_iv_increment_p (rhs_def_stmt))
+	goto dont_fold_assoc;
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
@@ -2551,7 +2596,10 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || NUM_V_MAY_DEFS (v_may_defs) != 0)
+      || NUM_V_MAY_DEFS (v_may_defs) != 0
+      /* Do not record equivalences for increments of ivs.  This would create
+	 overlapping live ranges for a very questionable gain.  */
+      || simple_iv_increment_p (stmt))
     insert = false;
 
   /* Check if the expression has been computed before.  */
@@ -3106,7 +3154,7 @@ lookup_avail_expr (tree stmt, bool insert)
   void **slot;
   tree lhs;
   tree temp;
-  struct expr_hash_elt *element = xcalloc (sizeof (struct expr_hash_elt), 1);
+  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
 
   lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
 
@@ -3189,15 +3237,18 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
   tree op1 = TREE_OPERAND (cond, 1);
   tree high, low, type;
   int inverted;
-  
+
+  type = TREE_TYPE (op1);
+
   /* Experiments have shown that it's rarely, if ever useful to
      record ranges for enumerations.  Presumably this is due to
      the fact that they're rarely used directly.  They are typically
      cast into an integer type and used that way.  */
-  if (TREE_CODE (TREE_TYPE (op1)) != INTEGER_TYPE)
+  if (TREE_CODE (type) != INTEGER_TYPE
+      /* We don't know how to deal with types with variable bounds.  */
+      || TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
+      || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
     return 0;
-
-  type = TREE_TYPE (op1);
 
   switch (TREE_CODE (cond))
     {

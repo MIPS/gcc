@@ -1883,6 +1883,11 @@ check_explicit_specialization (tree declarator,
 	      /* Find the namespace binding, using the declaration
                  context.  */
 	      fns = namespace_binding (dname, CP_DECL_CONTEXT (decl));
+	      if (!fns || !is_overloaded_fn (fns))
+		{
+		  error ("%qD is not a template function", dname);
+		  fns = error_mark_node;
+		}
 	    }
 
 	  declarator = lookup_template_function (fns, NULL_TREE);
@@ -1932,7 +1937,7 @@ check_explicit_specialization (tree declarator,
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
 	      if (is_constructor ? !TYPE_HAS_CONSTRUCTOR (ctype)
-		  : !TYPE_HAS_DESTRUCTOR (ctype))
+		  : !CLASSTYPE_DESTRUCTORS (ctype))
 		{
 		  /* From [temp.expl.spec]:
 		       
@@ -2099,49 +2104,6 @@ check_explicit_specialization (tree declarator,
     }
   
   return decl;
-}
-
-/* TYPE is being declared.  Verify that the use of template headers
-   and such is reasonable.  Issue error messages if not.  */
-
-void
-maybe_check_template_type (tree type)
-{
-  if (template_header_count)
-    {
-      /* We are in the scope of some `template <...>' header.  */
-
-      int context_depth 
-	= template_class_depth_real (TYPE_CONTEXT (type),
-				     /*count_specializations=*/1);
-
-      if (template_header_count <= context_depth)
-	/* This is OK; the template headers are for the context.  We
-	   are actually too lenient here; like
-	   check_explicit_specialization we should consider the number
-	   of template types included in the actual declaration.  For
-	   example, 
-
-	     template <class T> struct S {
-	       template <class U> template <class V>
-	       struct I {};
-	     }; 
-
-	   is invalid, but:
-
-	     template <class T> struct S {
-	       template <class U> struct I;
-	     }; 
-
-	     template <class T> template <class U.
-	     struct S<T>::I {};
-
-	   is not.  */
-	; 
-      else if (template_header_count > context_depth + 1)
-	/* There are two many template parameter lists.  */
-	error ("too many template parameter lists in declaration of %qT", type); 
-    }
 }
 
 /* Returns 1 iff PARMS1 and PARMS2 are identical sets of template
@@ -4239,17 +4201,8 @@ lookup_template_function (tree fns, tree arglist)
     return error_mark_node;
 
   gcc_assert (!arglist || TREE_CODE (arglist) == TREE_VEC);
-  if (fns == NULL_TREE 
-      || TREE_CODE (fns) == FUNCTION_DECL)
-    {
-      error ("non-template used as template");
-      return error_mark_node;
-    }
-
-  gcc_assert (TREE_CODE (fns) == TEMPLATE_DECL
-	      || TREE_CODE (fns) == OVERLOAD
-	      || BASELINK_P (fns)
-	      || TREE_CODE (fns) == IDENTIFIER_NODE);
+  gcc_assert (fns && (is_overloaded_fn (fns)
+		      || TREE_CODE (fns) == IDENTIFIER_NODE));
 
   if (BASELINK_P (fns))
     {
@@ -5541,7 +5494,6 @@ instantiate_class_template (tree type)
   input_location = DECL_SOURCE_LOCATION (TYPE_NAME (pattern));
 
   TYPE_HAS_CONSTRUCTOR (type) = TYPE_HAS_CONSTRUCTOR (pattern);
-  TYPE_HAS_DESTRUCTOR (type) = TYPE_HAS_DESTRUCTOR (pattern);
   TYPE_HAS_NEW_OPERATOR (type) = TYPE_HAS_NEW_OPERATOR (pattern);
   TYPE_HAS_ARRAY_NEW_OPERATOR (type) = TYPE_HAS_ARRAY_NEW_OPERATOR (pattern);
   TYPE_GETS_DELETE (type) = TYPE_GETS_DELETE (pattern);
@@ -6517,7 +6469,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
 	if (DECL_INITIAL (r))
 	  {
@@ -6547,7 +6499,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (type == error_mark_node)
 	  return error_mark_node;
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
@@ -6647,7 +6599,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	else if (DECL_SELF_REFERENCE_P (t))
 	  SET_DECL_SELF_REFERENCE_P (r);
 	TREE_TYPE (r) = type;
-	c_apply_type_quals_to_decl (cp_type_quals (type), r);
+	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 	DECL_CONTEXT (r) = ctx;
 	/* Clear out the mangled name and RTL for the instantiation.  */
 	SET_DECL_ASSEMBLER_NAME (r, NULL_TREE);
@@ -7266,22 +7218,18 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	gcc_assert (TREE_CODE (type) != METHOD_TYPE);
 	if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    /* This is really a method type. The cv qualifiers of the
-	       this pointer should _not_ be determined by the cv
-	       qualifiers of the class type.  They should be held
-	       somewhere in the FUNCTION_TYPE, but we don't do that at
-	       the moment.  Consider
-		  typedef void (Func) () const;
-
-		  template <typename T1> void Foo (Func T1::*);
-
-		*/
+            /* The type of the implicit object parameter gets its
+               cv-qualifiers from the FUNCTION_TYPE. */
 	    tree method_type;
-
-	    method_type = build_method_type_directly (TYPE_MAIN_VARIANT (r),
+            tree this_type = cp_build_qualified_type (TYPE_MAIN_VARIANT (r),
+                                                      cp_type_quals (type));
+            tree memptr;
+            method_type = build_method_type_directly (this_type,
 						      TREE_TYPE (type),
 						      TYPE_ARG_TYPES (type));
-	    return build_ptrmemfunc_type (build_pointer_type (method_type));
+            memptr = build_ptrmemfunc_type (build_pointer_type (method_type));
+            return cp_build_qualified_type_real (memptr, cp_type_quals (t),
+                                                 complain);
 	  }
 	else
 	  return cp_build_qualified_type_real (build_ptrmem_type (r, type),
@@ -10299,6 +10247,37 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 				    DEDUCE_EXACT, 0, -1);
 
     case OFFSET_TYPE:
+      /* Unify a pointer to member with a pointer to member function, which
+         deduces the type of the member as a function type. */
+      if (TYPE_PTRMEMFUNC_P (arg))
+        {
+          tree method_type;
+          tree fntype;
+          cp_cv_quals cv_quals;
+
+          /* Check top-level cv qualifiers */
+          if (!check_cv_quals_for_unify (UNIFY_ALLOW_NONE, arg, parm))
+            return 1;
+
+          if (unify (tparms, targs, TYPE_OFFSET_BASETYPE (parm),
+                     TYPE_PTRMEMFUNC_OBJECT_TYPE (arg), UNIFY_ALLOW_NONE))
+            return 1;
+
+          /* Determine the type of the function we are unifying against. */
+          method_type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (arg));
+          fntype = 
+            build_function_type (TREE_TYPE (method_type),
+                                 TREE_CHAIN (TYPE_ARG_TYPES (method_type)));
+
+          /* Extract the cv-qualifiers of the member function from the
+             implicit object parameter and place them on the function
+             type to be restored later. */
+          cv_quals = 
+            cp_type_quals(TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (method_type))));
+          fntype = build_qualified_type (fntype, cv_quals);
+          return unify (tparms, targs, TREE_TYPE (parm), fntype, strict);
+        }
+
       if (TREE_CODE (arg) != OFFSET_TYPE)
 	return 1;
       if (unify (tparms, targs, TYPE_OFFSET_BASETYPE (parm),
@@ -11694,7 +11673,7 @@ get_mostly_instantiated_function_type (tree decl)
     ;
   else
     {
-      int i;
+      int i, save_access_control;
       tree partial_args;
 
       /* Replace the innermost level of the TARGS with NULL_TREEs to
@@ -11707,12 +11686,10 @@ get_mostly_instantiated_function_type (tree decl)
 			   TMPL_ARGS_DEPTH (targs),
 			   make_tree_vec (DECL_NTPARMS (tmpl)));
 
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  We can just use the context of DECL for the
-	 partial substitution here.  It depends only on outer template
-	 parameters, regardless of whether the innermost level is
-	 specialized or not.  */
-      push_access_scope (decl);
+      /* Disable access control as this function is used only during
+	 name-mangling.  */
+      save_access_control = flag_access_control;
+      flag_access_control = 0;
 
       ++processing_template_decl;
       /* Now, do the (partial) substitution to figure out the
@@ -11727,7 +11704,7 @@ get_mostly_instantiated_function_type (tree decl)
       TREE_VEC_LENGTH (partial_args)--;
       tparms = tsubst_template_parms (tparms, partial_args, tf_error);
 
-      pop_access_scope (decl);
+      flag_access_control = save_access_control;
     }
 
   return fn_type;

@@ -67,7 +67,7 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 	     real_inv_br_prob_base, real_one_half, real_bb_freq_max;
 
 /* Random guesstimation given names.  */
-#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
+#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 100 - 1)
 #define PROB_EVEN		(REG_BR_PROB_BASE / 2)
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
@@ -1043,9 +1043,9 @@ tree_predict_by_opcode (basic_block bb)
     return;
   op0 = TREE_OPERAND (cond, 0);
   type = TREE_TYPE (op0);
-  visited = BITMAP_XMALLOC ();
+  visited = BITMAP_ALLOC (NULL);
   val = expr_expected_value (cond, visited);
-  BITMAP_XFREE (visited);
+  BITMAP_FREE (visited);
   if (val)
     {
       if (integer_zerop (val))
@@ -1819,7 +1819,7 @@ estimate_bb_frequencies (struct loops *loops)
       EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->probability = REG_BR_PROB_BASE;
 
       /* Set up block info for each basic block.  */
-      tovisit = BITMAP_XMALLOC ();
+      tovisit = BITMAP_ALLOC (NULL);
       alloc_aux_for_blocks (sizeof (struct block_info_def));
       alloc_aux_for_edges (sizeof (struct edge_info_def));
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -1857,7 +1857,7 @@ estimate_bb_frequencies (struct loops *loops)
 
       free_aux_for_blocks ();
       free_aux_for_edges ();
-      BITMAP_XFREE (tovisit);
+      BITMAP_FREE (tovisit);
     }
   compute_function_frequency ();
   if (flag_reorder_functions)

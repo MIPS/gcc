@@ -1,6 +1,7 @@
 /* Form lists of pseudo register references for autoinc optimization
    for GNU compiler.  This is part of flow optimization.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -57,23 +58,10 @@ enum df_ref_flags
        independent.  */
     DF_REF_READ_WRITE = 1,
 
-    /* This flag is set on register references inside a subreg on
-       machines which have CANNOT_CHANGE_MODE_CLASS.
-       Note, that this flag can also be set on df_refs representing
-       the REG itself (i.e., one might not see the subreg anymore).
-       Also note, that this flag is set also for hardreg refs, i.e.,
-       you must check yourself if it's a pseudo.  */
-    DF_REF_MODE_CHANGE = 2,
-
     /* This flag is set, if we stripped the subreg from the reference.
        In this case we must make conservative guesses, at what the
        outer mode was.  */
-    DF_REF_STRIPPED = 4,
-
-    /* This flag is set during register allocation if it's okay for
-    the reference's INSN to have one of its operands replaced with a
-    memory reference.  */
-    DF_REF_MEM_OK = 8
+    DF_REF_STRIPPED = 2
   };
 
 

@@ -488,6 +488,7 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
       do
 	{
 	  int prob, freq;
+	  bool ends_in_call;
 
 	  /* The probability and frequency of the best edge.  */
 	  int best_prob = INT_MIN / 2;
@@ -500,6 +501,8 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 	  if (dump_file)
 	    fprintf (dump_file, "Basic block %d was visited in trace %d\n",
 		     bb->index, *n_traces - 1);
+
+          ends_in_call = block_ends_with_call_p (bb);
 
 	  /* Select the successor that will be placed after BB.  */
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -519,6 +522,19 @@ find_traces_1_round (int branch_th, int exec_th, gcov_type count_th,
 
 	      prob = e->probability;
 	      freq = EDGE_FREQUENCY (e);
+
+	      /* The only sensible preference for a call instruction is the
+		 fallthru edge.  Don't bother selecting anything else.  */
+	      if (ends_in_call)
+		{
+		  if (e->flags & EDGE_CAN_FALLTHRU)
+		    {
+		      best_edge = e;
+		      best_prob = prob;
+		      best_freq = freq;
+		    }
+		  continue;
+		}
 
 	      /* Edge that cannot be fallthru or improbable or infrequent
 		 successor (i.e. it is unsuitable successor).  */
@@ -2015,7 +2031,7 @@ duplicate_computed_gotos (void)
     uncond_jump_length = get_uncond_jump_length ();
 
   max_size = uncond_jump_length * PARAM_VALUE (PARAM_MAX_GOTO_DUPLICATION_INSNS);
-  candidates = BITMAP_XMALLOC ();
+  candidates = BITMAP_ALLOC (NULL);
 
   /* Build the reorder chain for the original order of blocks.
      Look for a computed jump while we are at it.  */
@@ -2034,7 +2050,17 @@ duplicate_computed_gotos (void)
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      if (INSN_P (insn))
-	        size += get_attr_length (insn);
+		{
+		  /* If the insn isn't copyable, don't duplicate
+		     the block.  */
+		  if (targetm.cannot_copy_insn_p
+		      && targetm.cannot_copy_insn_p (insn))
+		    {
+		      size = max_size + 1;
+		      break;
+		    }
+		  size += get_attr_length (insn);
+		}
 	      if (size > max_size)
 		break;
 	    }
@@ -2078,7 +2104,7 @@ duplicate_computed_gotos (void)
 done:
   cfg_layout_finalize ();
 
-  BITMAP_XFREE (candidates);
+  BITMAP_FREE (candidates);
 
   timevar_pop (TV_REORDER_BLOCKS);
 }

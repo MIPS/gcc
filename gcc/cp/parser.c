@@ -706,7 +706,7 @@ cp_lexer_print_token (FILE * stream, cp_token *token)
 static void
 cp_lexer_start_debugging (cp_lexer* lexer)
 {
-  ++lexer->debugging_p;
+  lexer->debugging_p = true;
 }
 
 /* Stop emitting debugging information.  */
@@ -714,7 +714,7 @@ cp_lexer_start_debugging (cp_lexer* lexer)
 static void
 cp_lexer_stop_debugging (cp_lexer* lexer)
 {
-  --lexer->debugging_p;
+  lexer->debugging_p = false;
 }
 
 #endif /* ENABLE_CHECKING */
@@ -3173,6 +3173,7 @@ cp_parser_unqualified_id (cp_parser* parser,
 	tree qualifying_scope;
 	tree object_scope;
 	tree scope;
+	bool done;
 
 	/* Consume the `~' token.  */
 	cp_lexer_consume_token (parser->lexer);
@@ -3229,6 +3230,8 @@ cp_parser_unqualified_id (cp_parser* parser,
 
 	/* If there was an explicit qualification (S::~T), first look
 	   in the scope given by the qualification (i.e., S).  */
+	done = false;
+	type_decl = NULL_TREE;
 	if (scope)
 	  {
 	    cp_parser_parse_tentatively (parser);
@@ -3240,10 +3243,10 @@ cp_parser_unqualified_id (cp_parser* parser,
 					      /*class_head_p=*/false,
 					      declarator_p);
 	    if (cp_parser_parse_definitely (parser))
-	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
+	      done = true;
 	  }
 	/* In "N::S::~S", look in "N" as well.  */
-	if (scope && qualifying_scope)
+	if (!done && scope && qualifying_scope)
 	  {
 	    cp_parser_parse_tentatively (parser);
 	    parser->scope = qualifying_scope;
@@ -3258,10 +3261,10 @@ cp_parser_unqualified_id (cp_parser* parser,
 				      /*class_head_p=*/false,
 				      declarator_p);
 	    if (cp_parser_parse_definitely (parser))
-	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
+	      done = true;
 	  }
 	/* In "p->S::~T", look in the scope given by "*p" as well.  */
-	else if (object_scope)
+	else if (!done && object_scope)
 	  {
 	    cp_parser_parse_tentatively (parser);
 	    parser->scope = object_scope;
@@ -3276,20 +3279,23 @@ cp_parser_unqualified_id (cp_parser* parser,
 				      /*class_head_p=*/false,
 				      declarator_p);
 	    if (cp_parser_parse_definitely (parser))
-	      return build_nt (BIT_NOT_EXPR, TREE_TYPE (type_decl));
+	      done = true;
 	  }
 	/* Look in the surrounding context.  */
-	parser->scope = NULL_TREE;
-	parser->object_scope = NULL_TREE;
-	parser->qualifying_scope = NULL_TREE;
-	type_decl
-	  = cp_parser_class_name (parser,
-				  /*typename_keyword_p=*/false,
-				  /*template_keyword_p=*/false,
-				  none_type,
-				  /*check_dependency=*/false,
-				  /*class_head_p=*/false,
-				  declarator_p);
+	if (!done)
+	  {
+	    parser->scope = NULL_TREE;
+	    parser->object_scope = NULL_TREE;
+	    parser->qualifying_scope = NULL_TREE;
+	    type_decl
+	      = cp_parser_class_name (parser,
+				      /*typename_keyword_p=*/false,
+				      /*template_keyword_p=*/false,
+				      none_type,
+				      /*check_dependency=*/false,
+				      /*class_head_p=*/false,
+				      declarator_p);
+	  }
 	/* If an error occurred, assume that the name of the
 	   destructor is the same as the name of the qualifying
 	   class.  That allows us to keep parsing after running
@@ -9574,7 +9580,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
    typedef-name:
      identifier
 
-   Returns a TYPE_DECL for the the type.  */
+   Returns a TYPE_DECL for the type.  */
 
 static tree
 cp_parser_type_name (cp_parser* parser)
@@ -11099,6 +11105,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 						 &non_constant_p);
 	      if (!non_constant_p)
 		bounds = fold_non_dependent_expr (bounds);
+	      /* Normally, the array bound must be an integral constant
+		 expression.  However, as an extension, we allow VLAs
+		 in function scopes.  */  
 	      else if (!at_function_scope_p ())
 		{
 		  error ("array bound is not an integer constant");
@@ -12833,9 +12842,17 @@ cp_parser_class_head (cp_parser* parser,
     CLASSTYPE_DECLARED_CLASS (type) = (class_key == class_type);
   cp_parser_check_class_key (class_key, type);
 
+  /* If this type was already complete, and we see another definition,
+     that's an error.  */
+  if (type != error_mark_node && COMPLETE_TYPE_P (type))
+    {
+      error ("redefinition of %q#T", type);
+      cp_error_at ("previous definition of %q#T", type);
+      type = error_mark_node;
+    }
+
   /* We will have entered the scope containing the class; the names of
-     base classes should be looked up in that context.  For example,
-     given:
+     base classes should be looked up in that context.  For example:
 
        struct A { struct B {}; struct C; };
        struct A::C : B {};
@@ -14042,10 +14059,10 @@ cp_parser_attributes_opt (cp_parser* parser)
      identifier ( identifier , expression-list )
      identifier ( expression-list )
 
-   Returns a TREE_LIST.  Each node corresponds to an attribute.  THe
-   TREE_PURPOSE of each node is the identifier indicating which
-   attribute is in use.  The TREE_VALUE represents the arguments, if
-   any.  */
+   Returns a TREE_LIST, or NULL_TREE on error.  Each node corresponds
+   to an attribute.  The TREE_PURPOSE of each node is the identifier
+   indicating which attribute is in use.  The TREE_VALUE represents
+   the arguments, if any.  */
 
 static tree
 cp_parser_attribute_list (cp_parser* parser)
@@ -14063,37 +14080,39 @@ cp_parser_attribute_list (cp_parser* parser)
       /* Look for the identifier.  We also allow keywords here; for
 	 example `__attribute__ ((const))' is legal.  */
       token = cp_lexer_peek_token (parser->lexer);
-      if (token->type != CPP_NAME
-	  && token->type != CPP_KEYWORD)
-	return error_mark_node;
-      /* Consume the token.  */
-      token = cp_lexer_consume_token (parser->lexer);
-
-      /* Save away the identifier that indicates which attribute this is.  */
-      identifier = token->value;
-      attribute = build_tree_list (identifier, NULL_TREE);
-
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If it's an `(', then parse the attribute arguments.  */
-      if (token->type == CPP_OPEN_PAREN)
+      if (token->type == CPP_NAME
+	  || token->type == CPP_KEYWORD)
 	{
-	  tree arguments;
+	  /* Consume the token.  */
+	  token = cp_lexer_consume_token (parser->lexer);
 
-	  arguments = (cp_parser_parenthesized_expression_list
-		       (parser, true, /*cast_p=*/false, 
-			/*non_constant_p=*/NULL));
-	  /* Save the identifier and arguments away.  */
-	  TREE_VALUE (attribute) = arguments;
+	  /* Save away the identifier that indicates which attribute
+	     this is.  */ 
+	  identifier = token->value;
+	  attribute = build_tree_list (identifier, NULL_TREE);
+
+	  /* Peek at the next token.  */
+	  token = cp_lexer_peek_token (parser->lexer);
+	  /* If it's an `(', then parse the attribute arguments.  */
+	  if (token->type == CPP_OPEN_PAREN)
+	    {
+	      tree arguments;
+
+	      arguments = (cp_parser_parenthesized_expression_list
+			   (parser, true, /*cast_p=*/false, 
+			    /*non_constant_p=*/NULL));
+	      /* Save the identifier and arguments away.  */
+	      TREE_VALUE (attribute) = arguments;
+	    }
+
+	  /* Add this attribute to the list.  */
+	  TREE_CHAIN (attribute) = attribute_list;
+	  attribute_list = attribute;
+
+	  token = cp_lexer_peek_token (parser->lexer);
 	}
-
-      /* Add this attribute to the list.  */
-      TREE_CHAIN (attribute) = attribute_list;
-      attribute_list = attribute;
-
-      /* Now, look for more attributes.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If the next token isn't a `,', we're done.  */
+      /* Now, look for more attributes.  If the next token isn't a
+	 `,', we're done.  */
       if (token->type != CPP_COMMA)
 	break;
 
@@ -14252,6 +14271,8 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
       /* If that's not a class type, there is no destructor.  */
       if (!type || !CLASS_TYPE_P (type))
 	return error_mark_node;
+      if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+	lazily_declare_fn (sfk_destructor, type);
       if (!CLASSTYPE_DESTRUCTORS (type))
 	  return error_mark_node;
       /* If it was a class type, return the destructor.  */
@@ -14312,7 +14333,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	     lookup_member, we must enter the scope here.  */
 	  if (dependent_p)
 	    pushed_scope = push_scope (parser->scope);
-	  /* If the PARSER->SCOPE is a a template specialization, it
+	  /* If the PARSER->SCOPE is a template specialization, it
 	     may be instantiated during name lookup.  In that case,
 	     errors may be issued.  Even if we rollback the current
 	     tentative parse, those errors are valid.  */
@@ -15266,9 +15287,10 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       tokens = DECL_PENDING_INLINE_INFO (member_function);
       DECL_PENDING_INLINE_INFO (member_function) = NULL;
       DECL_PENDING_INLINE_P (member_function) = 0;
-      /* If this was an inline function in a local class, enter the scope
-	 of the containing function.  */
-      function_scope = decl_function_context (member_function);
+      
+      /* If this is a local class, enter the scope of the containing
+	 function.  */
+      function_scope = current_function_decl;
       if (function_scope)
 	push_function_context_to (function_scope);
 

@@ -4538,9 +4538,14 @@ build_function_type_list (tree return_type, ...)
   for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
     args = tree_cons (NULL_TREE, t, args);
 
-  last = args;
-  args = nreverse (args);
-  TREE_CHAIN (last) = void_list_node;
+  if (args == NULL_TREE)
+    args = void_list_node;
+  else
+    {
+      last = args;
+      args = nreverse (args);
+      TREE_CHAIN (last) = void_list_node;
+    }
   args = build_function_type (return_type, args);
 
   va_end (p);
@@ -5782,6 +5787,166 @@ build_common_tree_nodes_2 (int short_double)
   }
 }
 
+/* A subroutine of build_common_builtin_nodes.  Define a builtin function.  */
+
+static void
+local_define_builtin (const char *name, tree type, enum built_in_function code,
+                      const char *library_name, int ecf_flags)
+{
+  tree decl;
+
+  decl = lang_hooks.builtin_function (name, type, code, BUILT_IN_NORMAL,
+				      library_name, NULL_TREE);
+  if (ecf_flags & ECF_CONST)
+    TREE_READONLY (decl) = 1;
+  if (ecf_flags & ECF_PURE)
+    DECL_IS_PURE (decl) = 1;
+  if (ecf_flags & ECF_NORETURN)
+    TREE_THIS_VOLATILE (decl) = 1;
+  if (ecf_flags & ECF_NOTHROW)
+    TREE_NOTHROW (decl) = 1;
+  if (ecf_flags & ECF_MALLOC)
+    DECL_IS_MALLOC (decl) = 1;
+
+  built_in_decls[code] = decl;
+  implicit_built_in_decls[code] = decl;
+}
+
+/* Call this function after instantiating all builtins that the language
+   front end cares about.  This will build the rest of the builtins that
+   are relied upon by the tree optimizers and the middle-end.  */
+
+void
+build_common_builtin_nodes (void)
+{
+  tree tmp, ftype;
+
+  if (built_in_decls[BUILT_IN_MEMCPY] == NULL
+      || built_in_decls[BUILT_IN_MEMMOVE] == NULL)
+    {
+      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
+      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+      ftype = build_function_type (ptr_type_node, tmp);
+
+      if (built_in_decls[BUILT_IN_MEMCPY] == NULL)
+	local_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
+			      "memcpy", ECF_NOTHROW);
+      if (built_in_decls[BUILT_IN_MEMMOVE] == NULL)
+	local_define_builtin ("__builtin_memmove", ftype, BUILT_IN_MEMMOVE,
+			      "memmove", ECF_NOTHROW);
+    }
+
+  if (built_in_decls[BUILT_IN_MEMCMP] == NULL)
+    {
+      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
+      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
+      ftype = build_function_type (ptr_type_node, tmp);
+      local_define_builtin ("__builtin_memcmp", ftype, BUILT_IN_MEMCMP,
+			    "memcmp", ECF_PURE | ECF_NOTHROW);
+    }
+
+  if (built_in_decls[BUILT_IN_MEMSET] == NULL)
+    {
+      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+      tmp = tree_cons (NULL_TREE, integer_type_node, tmp);
+      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+      ftype = build_function_type (ptr_type_node, tmp);
+      local_define_builtin ("__builtin_memset", ftype, BUILT_IN_MEMSET,
+			    "memset", ECF_NOTHROW);
+    }
+
+  if (built_in_decls[BUILT_IN_ALLOCA] == NULL)
+    {
+      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+      ftype = build_function_type (ptr_type_node, tmp);
+      local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+			    "alloca", ECF_NOTHROW | ECF_MALLOC);
+    }
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_init_trampoline", ftype,
+			BUILT_IN_INIT_TRAMPOLINE,
+			"__builtin_init_trampoline", ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  ftype = build_function_type (ptr_type_node, tmp);
+  local_define_builtin ("__builtin_adjust_trampoline", ftype,
+			BUILT_IN_ADJUST_TRAMPOLINE,
+			"__builtin_adjust_trampoline",
+			ECF_CONST | ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_nonlocal_goto", ftype,
+			BUILT_IN_NONLOCAL_GOTO,
+			"__builtin_nonlocal_goto",
+			ECF_NORETURN | ECF_NOTHROW);
+
+  ftype = build_function_type (ptr_type_node, void_list_node);
+  local_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
+			"__builtin_stack_save", ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_stack_restore", ftype,
+			BUILT_IN_STACK_RESTORE,
+			"__builtin_stack_restore", ECF_NOTHROW);
+
+  ftype = build_function_type (void_type_node, void_list_node);
+  local_define_builtin ("__builtin_profile_func_enter", ftype,
+			BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", 0);
+  local_define_builtin ("__builtin_profile_func_exit", ftype,
+			BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit", 0);
+
+  /* Complex multiplication and division.  These are handled as builtins
+     rather than optabs because emit_library_call_value doesn't support
+     complex.  Further, we can do slightly better with folding these 
+     beasties if the real and complex parts of the arguments are separate.  */
+  {
+    enum machine_mode mode;
+
+    for (mode = MIN_MODE_COMPLEX_FLOAT; mode <= MAX_MODE_COMPLEX_FLOAT; ++mode)
+      {
+	char mode_name_buf[4], *q;
+	const char *p;
+	enum built_in_function mcode, dcode;
+	tree type, inner_type;
+
+	type = lang_hooks.types.type_for_mode (mode, 0);
+	if (type == NULL)
+	  continue;
+	inner_type = TREE_TYPE (type);
+
+	tmp = tree_cons (NULL_TREE, inner_type, void_list_node);
+	tmp = tree_cons (NULL_TREE, inner_type, tmp);
+	tmp = tree_cons (NULL_TREE, inner_type, tmp);
+	tmp = tree_cons (NULL_TREE, inner_type, tmp);
+	ftype = build_function_type (type, tmp);
+
+        mcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+        dcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+
+        for (p = GET_MODE_NAME (mode), q = mode_name_buf; *p; p++, q++)
+	  *q = TOLOWER (*p);
+	*q = '\0';
+
+	built_in_names[mcode] = concat ("__mul", mode_name_buf, "3", NULL);
+        local_define_builtin (built_in_names[mcode], ftype, mcode,
+			      built_in_names[mcode], ECF_CONST | ECF_NOTHROW);
+
+	built_in_names[dcode] = concat ("__div", mode_name_buf, "3", NULL);
+        local_define_builtin (built_in_names[dcode], ftype, dcode,
+			      built_in_names[dcode], ECF_CONST | ECF_NOTHROW);
+      }
+  }
+}
+
 /* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
    better way.
 
@@ -6191,6 +6356,44 @@ operand_equal_for_phi_arg_p (tree arg0, tree arg1)
   if (TREE_CODE (arg0) == SSA_NAME || TREE_CODE (arg1) == SSA_NAME)
     return 0;
   return operand_equal_p (arg0, arg1, 0);
+}
+
+/* Returns number of zeros at the end of binary representation of X.
+   
+   ??? Use ffs if available?  */
+
+tree
+num_ending_zeros (tree x)
+{
+  unsigned HOST_WIDE_INT fr, nfr;
+  unsigned num, abits;
+  tree type = TREE_TYPE (x);
+
+  if (TREE_INT_CST_LOW (x) == 0)
+    {
+      num = HOST_BITS_PER_WIDE_INT;
+      fr = TREE_INT_CST_HIGH (x);
+    }
+  else
+    {
+      num = 0;
+      fr = TREE_INT_CST_LOW (x);
+    }
+
+  for (abits = HOST_BITS_PER_WIDE_INT / 2; abits; abits /= 2)
+    {
+      nfr = fr >> abits;
+      if (nfr << abits == fr)
+	{
+	  num += abits;
+	  fr = nfr;
+	}
+    }
+
+  if (num > TYPE_PRECISION (type))
+    num = TYPE_PRECISION (type);
+
+  return build_int_cst_type (type, num);
 }
 
 #include "gt-tree.h"

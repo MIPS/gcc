@@ -1,6 +1,7 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2238,8 +2239,8 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
   qsort (test, count, sizeof(*test), case_bit_test_cmp);
 
   index_expr = fold (build2 (MINUS_EXPR, index_type,
-			     convert (index_type, index_expr),
-			     convert (index_type, minval)));
+			     fold_convert (index_type, index_expr),
+			     fold_convert (index_type, minval)));
   index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
   do_pending_stack_adjust ();
 
@@ -2359,7 +2360,7 @@ expand_case (tree exp)
 
       uniq = 0;
       count = 0;
-      label_bitmap = BITMAP_XMALLOC ();
+      label_bitmap = BITMAP_ALLOC (NULL);
       for (n = case_list; n; n = n->right)
 	{
 	  /* Count the elements and track the largest and smallest
@@ -2390,11 +2391,17 @@ expand_case (tree exp)
 	    }
 	}
 
-      BITMAP_XFREE (label_bitmap);
+      BITMAP_FREE (label_bitmap);
 
       /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
-	 destination, such as one with a default case only.  */
-      gcc_assert (count != 0);
+	 destination, such as one with a default case only.  However,
+	 it doesn't remove cases that are out of range for the switch
+	 type, so we may still get a zero here.  */
+      if (count == 0)
+	{
+	  emit_jump (default_label);
+	  return;
+	}
 
       /* Compute span of values.  */
       range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
@@ -2611,8 +2618,7 @@ static int
 estimate_case_costs (case_node_ptr node)
 {
   tree min_ascii = integer_minus_one_node;
-  tree max_ascii = convert (TREE_TYPE (node->high),
-			    build_int_cst (NULL_TREE, 127));
+  tree max_ascii = build_int_cst (TREE_TYPE (node->high), 127);
   case_node_ptr n;
   int i;
 

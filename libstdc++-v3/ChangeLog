@@ -1,3 +1,337 @@
+2005-02-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Add the trivial is_union and is_class;
+	add the __is_union_or_class extension.
+	(is_enum, is_empty): Use the latter.
+	* include/tr1/type_traits_fwd.h: Add __is_union_or_class.
+	* testsuite/testsuite_tr1.h: Add UnionType; trivial formatting
+	fixes.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/is_union_or_class.cc: New.
+	* testsuite/tr1/4_metaprogramming/composite_type_traits/
+	is_union_or_class/typedefs.cc: Likewise.
+
+2005-02-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: Guard
+	wchar_t use with _GLIBCXX_USE_WCHAR_T.
+
+2005-02-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/std_complex.h: _GLIBCXX_USE_C99_COMPLEX_MATH to
+	_GLIBCXX_USE_C99_COMPLEX.
+	* acinclude.m4: Same.
+	* acconfig.h: Same.
+	* configure: Regenerate.
+	* config.h.in: Same.
+	
+2005-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional (mem_fn): Avoid _T, badname on
+	Darwin.
+
+2005-02-23  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/functional (function): New class template.
+	(mem_fn): New function template.
+	Implementations of TR1 function and mem_fn facilities.
+	* include/tr1/functional_iterate.h: Implementations of TR1
+	function and mem_fn facilities. 
+	* testsuite/tr1/3_function_objects/function/1.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/2.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/3.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/4.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/5.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/6.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/7.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/8.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/function/9.cc: New
+	test of std::tr1::function.
+	* testsuite/tr1/3_function_objects/mem_fn.cc: New test of
+	std::tr1::mem_fn. 
+	
+2005-02-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement is_convertible.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_convertible/is_convertible.cc: New.
+	* testsuite/tr1/4_metaprogramming/relationships_between_types/
+	is_convertible/typedefs.cc: Likewise.
+	* testsuite/testsuite_tr1.h: Add class DerivedType.
+
+	* include/tr1/type_traits (is_function): Don't mistake references
+	to function types for function types.
+	* testsuite/tr1/4_metaprogramming/primary_type_categories/
+	is_function/is_function.cc: Add testcase.
+
+2005-02-22  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* scripts/check_performance: Tweaks.
+
+	* testsuite/27_io/basic_ostream/inserters_other/wchar_t/2.cc: Name
+	output file with extension that clean rules can find.
+
+2005-02-22  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/20091
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Don't special case
+	decrement of uncaughtExceptions for rethrow.
+
+2005-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional: Fix License to GPL with exception.
+	* include/tr1/hashtable: Likewise.
+	* include/tr1/tuple: Likewise.
+	* include/tr1/type_traits: Likewise.
+	* include/tr1/type_traits_fwd.h: Likewise.
+	* include/tr1/unordered_map: Likewise.
+	* include/tr1/unordered_set: Likewise.
+	* include/tr1/utility: Likewise.
+
+2005-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	auto_ptr_neg.cc: Add missing dg-do compile directive.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	auto_ptr_rvalue_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/assign/
+	shared_ptr_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/cons/
+	auto_ptr_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	reset_neg.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/modifiers/
+	swap_neg.cc: Likewise.
+
+2005-02-22  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/Makefile.am, include/Makefile.in: Fix accidental extra
+	change from previous commit.
+
+2005-02-21  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/tr1/memory: New file.
+	* include/Makefile.am, include/Makefile.in: Add new TR1 header.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared2.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/not_shared3.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	enable_shared_from_this/still_shared.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/assign.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/auto_ptr_rvalue_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/shared_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/assign/shared_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/comparison/cmp.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/auto_ptr_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/copy.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/default.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/pointer.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/cons/weak_ptr_expired.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/dest/dest.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/misc/io.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/misc/swap.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/reset.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/reset_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/swap.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/modifiers/swap_neg.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/bool_conv.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/get.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/unique.cc: New test.
+	* testsuite/tr1/2_general_utilities/memory/
+	shared_ptr/observers/use_count.cc: New test.
+
+2005-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (is_member_function_pointer):
+	Remove ugly workaround for c++/19076.
+
+2005-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_Rep::_M_destroy): Don't
+	check for this == &_S_empty_rep, it's always false, here.
+
+2005-02-19  Matt Austern  <austern@gmail.com>
+
+	* include/tr1/functional (tr1_hashtable_define_trivial_hash): Make
+	hash<T>::operator() a const member function for T a fundamental type
+	* include/tr1/hashtable (extract1st::operator()): Declare const.
+	(hash_code_base): Declare all member functions const
+	(hashtable::find): fix call to this->bucket_count()
+	(hashtable::count): Likewise.
+	(hashtable::equal_range): m_incr_bucket applies to iterator, not node.
+	* testsuite/tr1/6_containers/unordered/find/set1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/map1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multimap1.cc: New test.
+	* testsuite/tr1/6_containers/unordered/find/multiset1.cc: New test.
+	
+2005-02-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR libstdc++/20071
+	* include/tr1/functional (hash<std::wstring>): Wrap in #ifdef
+	_GLIBCXX_USE_WCHAR_T.
+
+2005-02-18  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/10606
+	* config/linker-map.gnu (CXXABI_1.3.1): Add __cxa_get_exception_ptr.
+	* libsupc++/eh_alloc.cc (__cxa_allocate_exception): Increment
+	uncaughtExceptions here instead of ...
+	* libsupc++/eh_throw.cc (__cxa_throw) ... here.
+	(__cxa_rethrow): Increment uncaughtExceptions here instead of ...
+	* libsupc++/eh_catch.cc (__cxa_end_catch): ... here.
+	(__cxa_get_exception_ptr): New.
+	* libsupc++/unwind-cxx.h (__cxa_get_exception_ptr): Declare.
+
+2005-02-18  Matt Austern  <austern@apple.com>
+
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: Fix
+	test case to use assignment instead of ==
+	* testsuite/tr1/6_containers/unordered/insert/map_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_range.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_range.cc: New test.
+	
+2005-02-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/thread/pthread1.cc: Do not invoke pthread_setconcurrency
+	on Solaris 2.6 and below.
+	* testsuite/thread/pthread2.cc: Likewise.
+	* testsuite/thread/pthread3.cc: Likewise.
+	* testsuite/thread/pthread4.cc: Likewise.
+	* testsuite/thread/pthread5.cc: Likewise.
+	* testsuite/thread/pthread6.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+2005-02-17  Matt Austern  <austern@apple.com>
+
+	* include/tr1/functional (hash): New function object.
+	* include/tr1/hashtable: New file.
+	* include/tr1/unordered_set: New file.
+	* include/tr1/unordered_map: New file.
+	* include/Makefile.am: Add three new TR1 headers.
+	* include/Makefile.in: Likewise.
+	* testsuite/tr1/6_containers/unordered/insert/array_syntax.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/map_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multimap_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/multiset_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/insert/set_single.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/map.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multimap.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/multiset.cc: New test.
+	* testsuite/tr1/6_containers/unordered/instantiate/set.cc: New test.
+	
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/23_containers/set/modifiers/16728.cc:
+	Remove redundant include <testsuite_performance.h>.
+
+2005-02-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19829
+	* testsuite/21_strings/basic_string/find/char/3.cc: Fix the test
+	at line #66 to not access str_lit01 beyond its end.
+	* testsuite/21_strings/basic_string/find/wchar_t/3.cc: Likewise.
+
+2005-02-15  Paolo Carlini  <pcarlini@suse.de>
+	    Jon Grimm  <jgrimm2@us.ibm.com>
+	
+	PR libstdc++/19955
+	* include/bits/locale_facets.h (ctype<char>::_M_narrow_init()):
+	Fix the logic setting _M_narrow_ok: first check whether the
+	transformation is trivial with a dflt == 0, then deal with the
+	special case of zero.
+	* testsuite/22_locale/ctype/narrow/char/19955.cc: New.
+
+	* include/bits/locale_facets.h (ctype<char>::_M_widen_init()):
+	Tweak consistently to use memcmp; minor formatting fixes.
+
+2005-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/19946
+	* testsuite/demangle/abi_examples/01.cc (main): Adjust for 2005-02-13
+	demangler change.
+	* testsuite/demangle/abi_examples/02.cc (main): Likewise.
+
+2005-02-13  Richard Guenther  <rguenth@gcc.gnu.org>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/11706
+	* include/c_std/std_cmath.h (pow): Use __builtin_powi[lf]
+	for integer overloads.
+
+	* testsuite/26_numerics/cmath/powi.cc: New.
+
+2005-02-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/26_numerics/complex/13450.cc: Fix XFAIL selector.
+	* testsuite/26_numerics/complex/complex_value.cc: Ditto.
+	* testsuite/26_numerics/complex/pow.cc: Ditto.
+
+	* testsuite/lib/libstdc++.exp: Load target-supports-dg.exp.
+	* testsuite/26_numerics/complex/13450.cc: XFAIL for broken_cplxf_arg.
+	* testsuite/26_numerics/complex/complex_value.cc: Ditto.
+	* testsuite/26_numerics/complex/pow.cc: Ditto.
+
+2005-02-09  Mike Stump  <mrs@apple.com>
+
+	* libsupc++/del_op.cc: Don't include cstdlib when !_GLIBCXX_HOSTED.
+
+2005-02-09  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/ext/array_allocator/2.cc: XFAIL for powerpc*-*-linux*.
+
+2005-02-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/linker-map.gnu (GLIBCXX_3.4): Add _ZNSdC* and _ZNSdD*.
+
+2005-02-07  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/27_io/basic_istream/getline/wchar_t/5.cc: Make buf static.
+	* testsuite/27_io/basic_stringbuf/setbuf/wchar_t/4.cc: Make ref and
+	src static.
+
 2005-02-02  Brad Spencer  <spencer@infointeractive.com>
 
 	* debug.html: Fix broken tags.

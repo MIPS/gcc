@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -54,6 +54,19 @@ enum dr_alignment_support {
   dr_unaligned_supported,
   dr_unaligned_software_pipeline,
   dr_aligned
+};
+
+/* Define verbosity levels.  */
+enum verbosity_levels {
+  REPORT_NONE,
+  REPORT_VECTORIZED_LOOPS,
+  REPORT_UNVECTORIZED_LOOPS,
+  REPORT_ALIGNMENT,
+  REPORT_BAD_FORM_LOOPS,
+  REPORT_OUTER_LOOPS,
+  REPORT_DETAILS,
+  /* New verbosity levels should be added before this one.  */
+  MAX_VERBOSITY_LEVEL
 };
 
 /*-----------------------------------------------------------------*/
@@ -161,20 +174,25 @@ typedef struct _stmt_vec_info {
   tree memtag;
 
   /** The following fields are used to store the information about 
-      data-reference. {base + initial_offset} is the first location accessed by
-      data-ref in the loop, and step is the stride of data-ref in the loop;
+      data-reference. {base_address + initial_offset} is the first location 
+      accessed by data-ref in the loop, and step is the stride of data-ref in 
+      the loop in bytes;
       e.g.:
     
                        Example 1                      Example 2
       data-ref         a[j].b[i][j]                   a + 4B (a is int*)
-
-      base             a                              a
+      
+      base_address     &a                             a
       initial_offset   j_0*D_j + i_0*D_i + C          4
       step             D_j                            4
 
+      data-reference structure info:
+      base_name        a                              NULL
+      access_fn        <access_fns of indexes of b>   (0, +, 1)
+
   **/
-  /* The above base, offset and step.  */
-  tree base;
+  /* The above base_address, offset and step.  */
+  tree base_address;
   tree initial_offset;
   tree step;
 
@@ -195,7 +213,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
 #define STMT_VINFO_MEMTAG(S)              (S)->memtag
-#define STMT_VINFO_VECT_DR_BASE(S)        (S)->base
+#define STMT_VINFO_VECT_DR_BASE_ADDRESS(S)(S)->base_address
 #define STMT_VINFO_VECT_INIT_OFFSET(S)    (S)->initial_offset
 #define STMT_VINFO_VECT_STEP(S)           (S)->step
 #define STMT_VINFO_VECT_BASE_ALIGNED_P(S) (S)->base_aligned_p
@@ -240,17 +258,68 @@ unknown_alignment_for_access_p (struct data_reference *data_ref_info)
 /* Perform signed modulo, always returning a non-negative value.  */
 #define VECT_SMODULO(x,y) ((x) % (y) < 0 ? ((x) % (y) + (y)) : (x) % (y))
 
+/* vect_dump will be set to stderr or dump_file if exist.  */
+extern FILE *vect_dump;
+extern enum verbosity_levels vect_verbosity_level;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
 
-/* Main driver.  */
-extern void vectorize_loops (struct loops *);
+/*************************************************************************
+  Simple Loop Peeling Utilities - in tree-vectorizer.c
+ *************************************************************************/
+/* Entry point for peeling of simple loops.
+   Peel the first/last iterations of a loop.
+   It can be used outside of the vectorizer for loops that are simple enough
+   (see function documentation).  In the vectorizer it is used to peel the
+   last few iterations when the loop bound is unknown or does not evenly
+   divide by the vectorization factor, and to peel the first few iterations
+   to force the alignment of data references in the loop.  */
+extern struct loop *slpeel_tree_peel_loop_to_edge 
+  (struct loop *, struct loops *, edge, tree, tree, bool);
+extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
+extern bool slpeel_can_duplicate_loop_p (struct loop *, edge);
+#ifdef ENABLE_CHECKING
+extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
+#endif
 
-/* creation and deletion of loop and stmt info structs.  */
+
+/*************************************************************************
+  General Vectorization Utilities
+ *************************************************************************/
+/** In tree-vectorizer.c **/
+extern tree vect_strip_conversion (tree);
+extern tree get_vectype_for_scalar_type (tree);
+extern bool vect_is_simple_use (tree , loop_vec_info, tree *);
+extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
+extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern enum dr_alignment_support vect_supportable_dr_alignment
+  (struct data_reference *);
+/* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
+/* Main driver.  */
+extern void vectorize_loops (struct loops *);
+
+/** In tree-vect-analyze.c  **/
+/* Driver for analysis stage.  */
+extern loop_vec_info vect_analyze_loop (struct loop *);
+
+/** In tree-vect-transform.c  **/
+extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+/* Driver for transformation stage.  */
+extern void vect_transform_loop (loop_vec_info, struct loops *);
+
+/*************************************************************************
+  Vectorization Debug Information - in tree-vectorizer.c
+ *************************************************************************/
+extern bool vect_print_dump_info (enum verbosity_levels, LOC);
+extern void vect_set_verbosity_level (const char *);
+extern LOC find_loop_location (struct loop *);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

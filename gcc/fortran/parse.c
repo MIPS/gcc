@@ -1349,7 +1349,8 @@ parse_derived (void)
 	    }
 
 	  seen_sequence = 1;
-	  gfc_add_sequence (&gfc_current_block ()->attr, NULL);
+	  gfc_add_sequence (&gfc_current_block ()->attr, 
+			    gfc_current_block ()->name, NULL);
 	  break;
 
 	default:
@@ -1404,7 +1405,7 @@ parse_interface (void)
   current_state = COMP_NONE;
 
 loop:
-  gfc_current_ns = gfc_get_namespace (current_interface.ns);
+  gfc_current_ns = gfc_get_namespace (current_interface.ns, 0);
 
   st = next_statement ();
   switch (st)
@@ -1451,9 +1452,9 @@ loop:
       if (current_state == COMP_NONE)
 	{
 	  if (new_state == COMP_FUNCTION)
-	    gfc_add_function (&sym->attr, NULL);
-	  if (new_state == COMP_SUBROUTINE)
-	    gfc_add_subroutine (&sym->attr, NULL);
+	    gfc_add_function (&sym->attr, sym->name, NULL);
+	  else if (new_state == COMP_SUBROUTINE)
+	    gfc_add_subroutine (&sym->attr, sym->name, NULL);
 
 	  current_state = new_state;
 	}
@@ -2169,7 +2170,7 @@ parse_contained (int module)
 
   do
     {
-      gfc_current_ns = gfc_get_namespace (parent_ns);
+      gfc_current_ns = gfc_get_namespace (parent_ns, 1);
 
       gfc_current_ns->sibling = parent_ns->contained;
       parent_ns->contained = gfc_current_ns;
@@ -2200,15 +2201,15 @@ parse_contained (int module)
 		   gfc_new_block->name);
 	      else
 		{
-		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL,
+		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL, sym->name,
 					 &gfc_new_block->declared_at) ==
 		      SUCCESS)
 		    {
 		      if (st == ST_FUNCTION)
-			gfc_add_function (&sym->attr,
+			gfc_add_function (&sym->attr, sym->name,
 					  &gfc_new_block->declared_at);
 		      else
-			gfc_add_subroutine (&sym->attr,
+			gfc_add_subroutine (&sym->attr, sym->name,
 					    &gfc_new_block->declared_at);
 		    }
 		}

@@ -80,7 +80,7 @@ struct diagnostic_context;
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
    1: TYPE_HAS_CONSTRUCTOR.
-   2: TYPE_HAS_DESTRUCTOR.
+   2: Unused
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
    5: IS_AGGR_TYPE.
@@ -1035,8 +1035,9 @@ struct lang_type_class GTY(())
   unsigned lazy_default_ctor : 1;
   unsigned lazy_copy_ctor : 1;
   unsigned lazy_assignment_op : 1;
+  unsigned lazy_destructor : 1;
+
   unsigned has_const_init_ref : 1;
-  
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
   unsigned non_aggregate : 1;
@@ -1049,7 +1050,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 12;
+  unsigned dummy : 11;
 
   tree primary_base;
   VEC (tree_pair_s) *vcall_indices;
@@ -1153,6 +1154,11 @@ struct lang_type GTY(())
 #define CLASSTYPE_LAZY_ASSIGNMENT_OP(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->lazy_assignment_op)
 
+/* Nonzero means that NODE (a class type) has a destructor -- but that
+   it has not yet been declared.  */
+#define CLASSTYPE_LAZY_DESTRUCTOR(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->lazy_destructor)
+ 
 /* Nonzero means that this _CLASSTYPE node overloads operator=(X&).  */
 #define TYPE_HAS_ASSIGN_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_assign_ref)
 
@@ -1236,9 +1242,13 @@ struct lang_type GTY(())
   (VEC_index (tree, CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_CONSTRUCTOR_SLOT))
 
 /* A FUNCTION_DECL for the destructor for NODE.  These are the
-   destructors that take an in-charge parameter.  */
+   destructors that take an in-charge parameter.  If
+   CLASSTYPE_LAZY_DESTRUCTOR is true, then this entry will be NULL
+   until the destructor is created with lazily_declare_fn.  */
 #define CLASSTYPE_DESTRUCTORS(NODE) \
-  (VEC_index (tree, CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT))
+  (CLASSTYPE_METHOD_VEC (NODE)						      \
+   ? VEC_index (tree, CLASSTYPE_METHOD_VEC (NODE), CLASSTYPE_DESTRUCTOR_SLOT) \
+   : NULL_TREE)
 
 /* A dictionary of the nested user-defined-types (class-types, or enums)
    found within this class.  This table includes nested member class
@@ -1673,7 +1683,7 @@ struct lang_decl GTY(())
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor, but not the
    specialized in-charge constructor, in-charge deleting constructor,
-   or the the base destructor.  */
+   or the base destructor.  */
 #define DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P(NODE)			\
   (DECL_DESTRUCTOR_P (NODE) && !DECL_CLONED_FUNCTION_P (NODE))
 
@@ -2412,9 +2422,6 @@ struct lang_decl GTY(())
 				   && CONSTRUCTOR_ELTS (NODE) == NULL_TREE \
 				   && ! TREE_HAS_CONSTRUCTOR (NODE))
 
-/* Nonzero for _TYPE means that the _TYPE defines a destructor.  */
-#define TYPE_HAS_DESTRUCTOR(NODE) (TYPE_LANG_FLAG_2 (NODE))
-
 /* Nonzero means that an object of this type can not be initialized using
    an initializer list.  */
 #define CLASSTYPE_NON_AGGREGATE(NODE) \
@@ -2829,7 +2836,7 @@ struct lang_decl GTY(())
 
 /* Nonzero if this VAR_DECL or FUNCTION_DECL has already been
    instantiated, i.e. its definition has been generated from the
-   pattern given in the the template.  */
+   pattern given in the template.  */
 #define DECL_TEMPLATE_INSTANTIATED(NODE) \
   DECL_LANG_FLAG_1 (VAR_OR_FUNCTION_DECL_CHECK (NODE))
 
@@ -3721,6 +3728,7 @@ extern void debug_thunks 			(tree);
 extern tree cp_fold_obj_type_ref		(tree, tree);
 extern void set_linkage_according_to_type       (tree, tree);
 extern void determine_key_method                (tree);
+extern void check_for_override                  (tree, tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
@@ -3924,7 +3932,6 @@ extern tree build_vec_init			(tree, tree, tree, int);
 extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree, special_function_kind, int, int);
 extern void push_base_cleanups			(void);
-extern tree build_vbase_delete			(tree, tree);
 extern tree build_vec_delete			(tree, tree, special_function_kind, int);
 extern tree create_temporary_var                (tree);
 extern void initialize_vtbl_ptrs                (tree);
@@ -4003,7 +4010,6 @@ extern int is_specialization_of                 (tree, tree);
 extern bool is_specialization_of_friend         (tree, tree);
 extern int comp_template_args                   (tree, tree);
 extern void maybe_process_partial_specialization (tree);
-extern void maybe_check_template_type           (tree);
 extern tree most_specialized_instantiation      (tree);
 extern void print_candidates                    (tree);
 extern void instantiate_pending_templates       (int);
@@ -4304,6 +4310,7 @@ extern tree build_ptrmemfunc			(tree, tree, int, bool);
 extern int cp_type_quals                        (tree);
 extern bool cp_has_mutable_p                     (tree);
 extern bool at_least_as_qualified_p              (tree, tree);
+extern void cp_apply_type_quals_to_decl         (int, tree);
 extern tree build_ptrmemfunc1                   (tree, tree, tree);
 extern void expand_ptrmemfunc_cst               (tree, tree *, tree *);
 extern tree pfn_from_ptrmemfunc                 (tree);
@@ -4364,7 +4371,7 @@ extern tree mangle_ref_init_variable            (tree);
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
 
-/* in cp-simplify.c */
+/* in cp-gimplify.c */
 extern int cp_gimplify_expr		        (tree *, tree *, tree *);
 extern void cp_genericize			(tree);
 

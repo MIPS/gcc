@@ -1,5 +1,5 @@
 /* Button.java -- AWT button widget
-   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -47,7 +47,6 @@ import java.util.EventListener;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleAction;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleRelation;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleValue;
 
@@ -55,7 +54,7 @@ import javax.accessibility.AccessibleValue;
   * This class provides a button widget for the AWT. 
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
-  * @author Tom Tromey <tromey@cygnus.com>
+  * @author Tom Tromey (tromey@cygnus.com)
   */
 public class Button extends Component
   implements java.io.Serializable, Accessible
@@ -97,7 +96,10 @@ private transient ActionListener action_listeners;
   protected class AccessibleAWTButton extends AccessibleAWTComponent
     implements AccessibleAction, AccessibleValue
   {
-    protected AccessibleAWTButton() { }
+    protected AccessibleAWTButton()
+    {
+      // Do nothing here.
+    }
 
     /* (non-Javadoc)
      * @see javax.accessibility.AccessibleAction#getAccessibleActionCount()
@@ -429,9 +431,18 @@ paramString()
     + getWidth () + "x" + getHeight () + ",label=" + getLabel ();
 }
 
+/**
+ * Gets the AccessibleContext associated with this <code>Button</code>.
+ * The context is created, if necessary.
+ *
+ * @return the associated context
+ */
 public AccessibleContext getAccessibleContext()
 {
-  return new AccessibleAWTButton();
+  /* Create the context if this is the first request */
+  if (accessibleContext == null)
+    accessibleContext = new AccessibleAWTButton();
+  return accessibleContext;
 }
 
   /**

@@ -308,9 +308,6 @@ case "${host}" in
   powerpc-*-beos*)
     noconfigdirs="$noconfigdirs tk itcl libgui gdb dejagnu readline"
     ;;
-  *-*-darwin*)
-    noconfigdirs="$noconfigdirs tk itcl libgui"
-    ;;
 esac
 
 
@@ -752,6 +749,9 @@ case "${target}" in
     else
            use_gnu_ld=no
     fi
+    ;;
+  sparc-*-solaris2.[[0-6]] | sparc-*-solaris2.[[0-6]].*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   sparc-*-solaris* | sparc64-*-solaris* | sparcv9-*-solaris*)
     ;;

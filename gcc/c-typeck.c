@@ -375,29 +375,51 @@ composite_type (tree t1, tree t2)
 		&& TREE_VALUE (p1) != TREE_VALUE (p2))
 	      {
 		tree memb;
+		tree mv2 = TREE_VALUE (p2);
+		if (mv2 && mv2 != error_mark_node
+		    && TREE_CODE (mv2) != ARRAY_TYPE)
+		  mv2 = TYPE_MAIN_VARIANT (mv2);
 		for (memb = TYPE_FIELDS (TREE_VALUE (p1));
 		     memb; memb = TREE_CHAIN (memb))
-		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p2)))
-		    {
-		      TREE_VALUE (n) = TREE_VALUE (p2);
-		      if (pedantic)
-			pedwarn ("function types not truly compatible in ISO C");
-		      goto parm_done;
-		    }
+		  {
+		    tree mv3 = TREE_TYPE (memb);
+		    if (mv3 && mv3 != error_mark_node
+			&& TREE_CODE (mv3) != ARRAY_TYPE)
+		      mv3 = TYPE_MAIN_VARIANT (mv3);
+		    if (comptypes (mv3, mv2))
+		      {
+			TREE_VALUE (n) = composite_type (TREE_TYPE (memb),
+							 TREE_VALUE (p2));
+			if (pedantic)
+			  pedwarn ("function types not truly compatible in ISO C");
+			goto parm_done;
+		      }
+		  }
 	      }
 	    if (TREE_CODE (TREE_VALUE (p2)) == UNION_TYPE
 		&& TREE_VALUE (p2) != TREE_VALUE (p1))
 	      {
 		tree memb;
+		tree mv1 = TREE_VALUE (p1);
+		if (mv1 && mv1 != error_mark_node
+		    && TREE_CODE (mv1) != ARRAY_TYPE)
+		  mv1 = TYPE_MAIN_VARIANT (mv1);
 		for (memb = TYPE_FIELDS (TREE_VALUE (p2));
 		     memb; memb = TREE_CHAIN (memb))
-		  if (comptypes (TREE_TYPE (memb), TREE_VALUE (p1)))
-		    {
-		      TREE_VALUE (n) = TREE_VALUE (p1);
-		      if (pedantic)
-			pedwarn ("function types not truly compatible in ISO C");
-		      goto parm_done;
-		    }
+		  {
+		    tree mv3 = TREE_TYPE (memb);
+		    if (mv3 && mv3 != error_mark_node
+			&& TREE_CODE (mv3) != ARRAY_TYPE)
+		      mv3 = TYPE_MAIN_VARIANT (mv3);
+		    if (comptypes (mv3, mv1))
+		      {
+			TREE_VALUE (n) = composite_type (TREE_TYPE (memb),
+							 TREE_VALUE (p1));
+			if (pedantic)
+			  pedwarn ("function types not truly compatible in ISO C");
+			goto parm_done;
+		      }
+		  }
 	      }
 	    TREE_VALUE (n) = composite_type (TREE_VALUE (p1), TREE_VALUE (p2));
 	  parm_done: ;
@@ -470,8 +492,8 @@ common_pointer_type (tree t1, tree t2)
    This is the type for the result of most arithmetic operations
    if the operands have the given two types.  */
 
-tree
-common_type (tree t1, tree t2)
+static tree
+c_common_type (tree t1, tree t2)
 {
   enum tree_code code1;
   enum tree_code code2;
@@ -522,7 +544,7 @@ common_type (tree t1, tree t2)
     {
       tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TYPE (t1) : t1;
       tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TYPE (t2) : t2;
-      tree subtype = common_type (subtype1, subtype2);
+      tree subtype = c_common_type (subtype1, subtype2);
 
       if (code1 == COMPLEX_TYPE && TREE_TYPE (t1) == subtype)
 	return t1;
@@ -590,6 +612,18 @@ common_type (tree t1, tree t2)
     return t1;
   else
     return t2;
+}
+
+/* Wrapper around c_common_type that is used by c-common.c.  ENUMERAL_TYPEs
+   are allowed here and are converted to their compatible integer types.  */
+tree
+common_type (tree t1, tree t2)
+{
+  if (TREE_CODE (t1) == ENUMERAL_TYPE)
+    t1 = c_common_type_for_size (TYPE_PRECISION (t1), 1);
+  if (TREE_CODE (t2) == ENUMERAL_TYPE)
+    t2 = c_common_type_for_size (TYPE_PRECISION (t2), 1);
+  return c_common_type (t1, t2);
 }
 
 /* Return 1 if TYPE1 and TYPE2 are compatible types for assignment
@@ -1110,8 +1144,14 @@ type_lists_compatible_p (tree args1, tree args2)
 	      tree memb;
 	      for (memb = TYPE_FIELDS (a1);
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes (TREE_TYPE (memb), a2))
-		  break;
+		{
+		  tree mv3 = TREE_TYPE (memb);
+		  if (mv3 && mv3 != error_mark_node
+		      && TREE_CODE (mv3) != ARRAY_TYPE)
+		    mv3 = TYPE_MAIN_VARIANT (mv3);
+		  if (comptypes (mv3, mv2))
+		    break;
+		}
 	      if (memb == 0)
 		return 0;
 	    }
@@ -1125,8 +1165,14 @@ type_lists_compatible_p (tree args1, tree args2)
 	      tree memb;
 	      for (memb = TYPE_FIELDS (a2);
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes (TREE_TYPE (memb), a1))
-		  break;
+		{
+		  tree mv3 = TREE_TYPE (memb);
+		  if (mv3 && mv3 != error_mark_node
+		      && TREE_CODE (mv3) != ARRAY_TYPE)
+		    mv3 = TYPE_MAIN_VARIANT (mv3);
+		  if (comptypes (mv3, mv1))
+		    break;
+		}
 	      if (memb == 0)
 		return 0;
 	    }
@@ -2893,7 +2939,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
            && (code2 == INTEGER_TYPE || code2 == REAL_TYPE
                || code2 == COMPLEX_TYPE))
     {
-      result_type = common_type (type1, type2);
+      result_type = c_common_type (type1, type2);
 
       /* If -Wsign-compare, warn here if type1 and type2 have
 	 different signedness.  We'll promote the signed to unsigned
@@ -7461,7 +7507,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
 
       if (shorten || common || short_compare)
-	result_type = common_type (type0, type1);
+	result_type = c_common_type (type0, type1);
 
       /* For certain operations (which identify themselves by shorten != 0)
 	 if both args were extended from the same smaller type,
@@ -7519,7 +7565,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && (unsigned0 || !uns))
 	    result_type
 	      = c_common_signed_or_unsigned_type
-	      (unsigned0, common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
+	      (unsigned0, c_common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
 	  else if (TREE_CODE (arg0) == INTEGER_CST
 		   && (unsigned1 || !uns)
 		   && (TYPE_PRECISION (TREE_TYPE (arg1))

@@ -1,6 +1,6 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -5135,56 +5135,20 @@ mips_output_ascii (FILE *stream, const char *string_param, size_t len,
     {
       register int c = string[i];
 
-      switch (c)
+      if (ISPRINT (c))
 	{
-	case '\"':
-	case '\\':
-	  putc ('\\', stream);
-	  putc (c, stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_NEWLINE:
-	  fputs ("\\n", stream);
-	  if (i+1 < len
-	      && (((c = string[i+1]) >= '\040' && c <= '~')
-		  || c == TARGET_TAB))
-	    cur_pos = 32767;		/* break right here */
-	  else
-	    cur_pos += 2;
-	  break;
-
-	case TARGET_TAB:
-	  fputs ("\\t", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_FF:
-	  fputs ("\\f", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_BS:
-	  fputs ("\\b", stream);
-	  cur_pos += 2;
-	  break;
-
-	case TARGET_CR:
-	  fputs ("\\r", stream);
-	  cur_pos += 2;
-	  break;
-
-	default:
-	  if (c >= ' ' && c < 0177)
+	  if (c == '\\' || c == '\"')
 	    {
-	      putc (c, stream);
+	      putc ('\\', stream);
 	      cur_pos++;
 	    }
-	  else
-	    {
-	      fprintf (stream, "\\%03o", c);
-	      cur_pos += 4;
-	    }
+	  putc (c, stream);
+	  cur_pos++;
+	}
+      else
+	{
+	  fprintf (stream, "\\%03o", c);
+	  cur_pos += 4;
 	}
 
       if (cur_pos > 72 && i+1 < len)

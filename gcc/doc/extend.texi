@@ -1549,7 +1549,7 @@ useful to override the effects of the @option{-mrtd} switch.
 @cindex @code{const} function attribute
 Many functions do not examine any values except their arguments, and
 have no effects except the return value.  Basically this is just slightly
-more strict class than the @code{pure} attribute above, since function is not
+more strict class than the @code{pure} attribute below, since function is not
 allowed to read global memory.
 
 @cindex pointer arguments
@@ -2033,6 +2033,8 @@ typedef void voidfn ();
 
 volatile voidfn fatal;
 @end smallexample
+
+This approach does not work in GNU C++.
 
 @item nothrow
 @cindex @code{nothrow} function attribute
@@ -4507,6 +4509,9 @@ identifier, or a sequence of member accesses and array references.
 @findex __builtin_islessequal
 @findex __builtin_islessgreater
 @findex __builtin_isunordered
+@findex __builtin_powi
+@findex __builtin_powif
+@findex __builtin_powil
 @findex _Exit
 @findex _exit
 @findex abort
@@ -5366,6 +5371,21 @@ Similar to @code{__builtin_popcount}, except the argument type is
 @deftypefn {Built-in Function} int __builtin_parityll (unsigned long long)
 Similar to @code{__builtin_parity}, except the argument type is
 @code{unsigned long long}.
+@end deftypefn
+
+@deftypefn {Built-in Function} double __builtin_powi (double, int)
+Returns the first argument raised to the power of the second.  Unlike the
+@code{pow} function no guarantees about precision and rounding are made.
+@end deftypefn
+
+@deftypefn {Built-in Function} float __builtin_powif (float, int)
+Similar to @code{__builtin_powi}, except the argument and return types
+are @code{float}.
+@end deftypefn
+
+@deftypefn {Built-in Function} {long double} __builtin_powil (long double, int)
+Similar to @code{__builtin_powi}, except the argument and return types
+are @code{long double}.
 @end deftypefn
 
 
@@ -9798,6 +9818,16 @@ removed from G++.
 The use of default arguments in function pointers, function typedefs and
 and other places where they are not permitted by the standard is
 deprecated and will be removed from a future version of G++.
+
+G++ allows floating-point literals to appear in integral constant expressions,
+e.g. @samp{ enum E @{ e = int(2.2 * 3.7) @} }
+This extension is deprecated and will be removed from a future version.
+
+G++ allows static data members of const floating-point type to be declared
+with an initializer in a class definition. The standard only allows
+initializers for static members of const integral types and const
+enumeration types so this extension has been deprecated and will be removed
+from a future version.
 
 @node Backwards Compatibility
 @section Backwards Compatibility
