@@ -2863,6 +2863,9 @@ finish_file ()
 	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),
 					 pending_statics_used))
 	reconsider = true;
+
+      if (cgraph_assemble_pending_functions ())
+	reconsider = true;
     } 
   while (reconsider);
 
@@ -3221,10 +3224,8 @@ ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
       if (flags & LOOKUP_COMPLAIN)
         {
           error ("`%D' denotes an ambiguous type",name);
-          error ("%H  first type here",
-		 &DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (BINDING_TYPE (old))));
-          error ("%H  other type here",
-		 &DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type)));
+          error ("%J  first type here", TYPE_MAIN_DECL (BINDING_TYPE (old)));
+          error ("%J  other type here", TYPE_MAIN_DECL (type));
         }
     }
   return old;

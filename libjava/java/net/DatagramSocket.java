@@ -75,12 +75,6 @@ public class DatagramSocket
   DatagramSocketImpl impl;
 
   /**
-   * The unique DatagramChannel object associated with this datagram socket,
-   * or null.
-   */
-  DatagramChannel ch;
-
-  /**
    * This is the address we are "connected" to
    */
   private InetAddress remoteAddress;
@@ -272,26 +266,26 @@ public class DatagramSocket
 	|| closed)
       return null;
     
-    InetAddress result;
+    InetAddress localAddr;
     
     try
       {
-        result = (InetAddress) impl.getOption (SocketOptions.SO_BINDADDR);
+	localAddr = (InetAddress) impl.getOption (SocketOptions.SO_BINDADDR);
 
 	SecurityManager s = System.getSecurityManager();
 	if (s != null)
-	  s.checkConnect (result.getHostName(), -1);
+	  s.checkConnect (localAddr.getHostName(), -1);
       }
     catch (SecurityException e)
       {
-	result = InetAddress.ANY_IF;
+	localAddr = InetAddress.ANY_IF;
       }
     catch (SocketException e)
       {
-	result = InetAddress.ANY_IF;
+        return null;
       }
 
-    return result;
+    return localAddr;
   }
 
   /**
@@ -519,7 +513,8 @@ public class DatagramSocket
       throw new IOException (
         "Socket connected to a multicast address my not receive");
 
-    if (ch != null && !ch.isBlocking ())
+    if (getChannel() != null
+        && !getChannel().isBlocking ())
       throw new IllegalBlockingModeException ();
 
     impl.receive(p);
@@ -568,7 +563,8 @@ public class DatagramSocket
     // FIXME: if this is a subclass of MulticastSocket,
     // use getTimeToLive for TTL val.
 
-    if (ch != null && !ch.isBlocking ())
+    if (getChannel() != null
+        && !getChannel().isBlocking ())
       throw new IllegalBlockingModeException ();
 
     impl.send(p);
@@ -618,7 +614,7 @@ public class DatagramSocket
    */
   public DatagramChannel getChannel()
   {
-    return ch;
+    return null;
   }
 
   /**

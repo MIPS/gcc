@@ -339,6 +339,10 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
+if ONESTEP
+
+# Compile all classfiles in one go.
+
 libgcj-@gcc_version@.jar: $(all_java_source_files)
 	-@rm -f libgcj-@gcc_version@.jar
 	@echo Compiling Java sourcefiles...
@@ -356,12 +360,39 @@ libgcj-@gcc_version@.jar: $(all_java_source_files)
 # is built.
 $(all_java_class_files): libgcj-@gcc_version@.jar
 
-MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
+else # !ONESTEP
+
+# Compile each classfile individually.
+
+.java.class:
+	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $<
+
+libgcj-@gcc_version@.jar: $(all_java_class_files)
+	-@rm -f libgcj-@gcc_version@.jar
+## Note that we explicitly want to include directory information.
+	find java gnu javax org -type d -o -type f -name '*.class' | \
+	  sed -e '/\/\./d' -e '/\/xlib/d' | \
+	  $(ZIP) cfM0E@ $@
+
+endif
+
+# Note: The libtool objects are removed by mostlyclean-local
+# because of command-line-length issues.
+MOSTLYCLEANFILES = $(nat_headers) $(x_nat_headers)
+
 CLEANFILES = libgcj-@gcc_version@.jar
 
+mostlyclean-local:
+## Use libtool rm to remove each libtool object
+	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
+
 clean-local:
-## We just remove every .class file that was created.
+## Remove every .class file that was created.
 	find . -name '*.class' -print | xargs rm -f
+
+distclean-local:
+## Remove every .d file that was created.
+	find . -name '*.d' -print | xargs rm -f
 
 # Just remove the objects from C++ sources, for testing the C++ compiler.
 clean-nat:
@@ -1549,9 +1580,12 @@ gnu/java/rmi/registry/RegistryImpl.java	\
 gnu/java/rmi/registry/RegistryImpl_Skel.java \
 gnu/java/rmi/registry/RegistryImpl_Stub.java \
 gnu/java/rmi/rmic/Compile_gcj.java \
+gnu/java/rmi/rmic/Compile_jikes.java \
+gnu/java/rmi/rmic/Compile_kjc.java \
 gnu/java/rmi/rmic/Compiler.java	\
 gnu/java/rmi/rmic/CompilerProcess.java \
 gnu/java/rmi/rmic/RMIC.java \
+gnu/java/rmi/rmic/RMICException.java \
 gnu/java/rmi/rmic/TabbedWriter.java \
 gnu/java/rmi/server/ConnectionRunnerPool.java \
 gnu/java/rmi/server/ProtocolConstants.java \
@@ -2140,6 +2174,8 @@ gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
+gnu/java/nio/NIODatagramSocket.java \
+gnu/java/nio/NIOSocket.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \

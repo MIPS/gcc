@@ -8112,7 +8112,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
 
    If DECLARES_CLASS_OR_ENUM is non-NULL, and the type-specifier is a
    class-specifier, enum-specifier, or elaborated-type-specifier, then
-   *DECLARES_CLASS_OR_ENUM is set to a non-zero value.  The value is 1
+   *DECLARES_CLASS_OR_ENUM is set to a nonzero value.  The value is 1
    if a type is declared; 2 if it is defined.  Otherwise, it is set to
    zero.
 
@@ -9720,6 +9720,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	  if (!first || dcl_kind != CP_PARSER_DECLARATOR_NAMED)
 	    {
 	      tree params;
+	      unsigned saved_num_template_parameter_lists;
 	      
 	      cp_parser_parse_tentatively (parser);
 
@@ -9733,8 +9734,17 @@ cp_parser_direct_declarator (cp_parser* parser,
 		  parser->in_declarator_p = true;
 		}
 	  
+	      /* Inside the function parameter list, surrounding
+		 template-parameter-lists do not apply.  */
+	      saved_num_template_parameter_lists
+		= parser->num_template_parameter_lists;
+	      parser->num_template_parameter_lists = 0;
+
 	      /* Parse the parameter-declaration-clause.  */
 	      params = cp_parser_parameter_declaration_clause (parser);
+
+	      parser->num_template_parameter_lists
+		= saved_num_template_parameter_lists;
 
 	      /* If all went well, parse the cv-qualifier-seq and the
 	     	 exception-specification.  */
@@ -13436,6 +13446,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 	  && !cp_parser_storage_class_specifier_opt (parser))
 	{
 	  tree type;
+	  unsigned saved_num_template_parameter_lists;
 
 	  /* Names appearing in the type-specifier should be looked up
 	     in the scope of the class.  */
@@ -13456,6 +13467,13 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 		}
 	      push_scope (type);
 	    }
+
+	  /* Inside the constructor parameter list, surrounding
+	     template-parameter-lists do not apply.  */
+	  saved_num_template_parameter_lists
+	    = parser->num_template_parameter_lists;
+	  parser->num_template_parameter_lists = 0;
+
 	  /* Look for the type-specifier.  */
 	  cp_parser_type_specifier (parser,
 				    CP_PARSER_FLAGS_NONE,
@@ -13463,6 +13481,10 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 				    /*is_declarator=*/true,
 				    /*declares_class_or_enum=*/NULL,
 				    /*is_cv_qualifier=*/NULL);
+
+	  parser->num_template_parameter_lists
+	    = saved_num_template_parameter_lists;
+
 	  /* Leave the scope of the class.  */
 	  if (type)
 	    pop_scope (type);

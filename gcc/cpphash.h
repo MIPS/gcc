@@ -371,7 +371,7 @@ struct cpp_reader
      directory.  */
   bool quote_ignores_source_dir;
 
-  /* Non-zero if any file has contained #pragma once or #import has
+  /* Nonzero if any file has contained #pragma once or #import has
      been used.  */
   bool seen_once_only;
 
@@ -451,7 +451,7 @@ struct cpp_reader
     uchar *base;
     uchar *limit;
     uchar *cur;
-    unsigned int first_line;
+    fileline first_line;
   } out;
 
   /* Used to save the original line number during traditional

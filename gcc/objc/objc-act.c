@@ -291,6 +291,7 @@ static void handle_class_ref (tree);
 static void generate_struct_by_value_array (void)
      ATTRIBUTE_NORETURN;
 static void mark_referenced_methods (void);
+static void generate_objc_image_info (void);
 
 /*** Private Interface (data) ***/
 
@@ -383,8 +384,6 @@ static void val_stack_pop (struct val_stack **);
 
 /* The OCTI_... enumeration itself is in objc/objc-act.h.  */
 tree objc_global_trees[OCTI_MAX];
-
-static void generate_objc_image_info (void);
 
 static void handle_impent (struct imp_entry *);
 
@@ -1351,7 +1350,7 @@ synth_module_prologue (void)
    }; */
 
 static int
-check_string_class_template ()
+check_string_class_template (void)
 {
   tree field_decl = TYPE_FIELDS (constant_string_type);
 
@@ -7317,8 +7316,7 @@ encode_aggregate (tree type, int curtype, int format)
    field type.  */
 
 static void
-encode_next_bitfield (width)
-     int width;
+encode_next_bitfield (int width)
 {
   char buffer[40];
   sprintf (buffer, "b%d", width);
@@ -7502,7 +7500,7 @@ objc_expr_last (tree complex_expr)
 }
 
 static void
-synth_self_and_ucmd_args ()
+synth_self_and_ucmd_args (void)
 {
   tree decl_specs;
 

@@ -1819,8 +1819,7 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
   if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
       && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
     {
-      warning ("%Hinlining failed in call to '%F'",
-               &DECL_SOURCE_LOCATION (fndecl), fndecl);
+      warning ("%Jinlining failed in call to '%F'", fndecl, fndecl);
       warning ("called from here");
     }
   (*lang_hooks.mark_addressable) (fndecl);
@@ -2160,12 +2159,17 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
 	      && optimize > 0)
 	    {
-	      warning ("%Hcan't inline call to '%F'",
-                       &DECL_SOURCE_LOCATION (fndecl), fndecl);
+	      warning ("%Jcan't inline call to '%F'", fndecl, fndecl);
 	      warning ("called from here");
 	    }
 	  (*lang_hooks.mark_addressable) (fndecl);
 	}
+
+      if (ignore
+	  && lookup_attribute ("warn_unused_result",
+			       TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))
+	warning ("ignoring return value of `%D', "
+		 "declared with attribute warn_unused_result", fndecl);
 
       flags |= flags_from_decl_or_type (fndecl);
     }
@@ -2173,7 +2177,14 @@ expand_call (tree exp, rtx target, int ignore)
   /* If we don't have specific function to call, see if we have a
      attributes set in the type.  */
   else
-    flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+    {
+      if (ignore
+	  && lookup_attribute ("warn_unused_result",
+			       TYPE_ATTRIBUTES (TREE_TYPE (TREE_TYPE (p)))))
+	warning ("ignoring return value of function "
+		 "declared with attribute warn_unused_result");
+      flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+    }
 
   struct_value = targetm.calls.struct_value_rtx (fndecl ? TREE_TYPE (fndecl) : 0, 0);
 
@@ -3013,11 +3024,8 @@ expand_call (tree exp, rtx target, int ignore)
 	 structure value.  */
       if (pass != 0 && structure_value_addr && ! structure_value_addr_parm)
 	{
-#ifdef POINTERS_EXTEND_UNSIGNED
-	  if (GET_MODE (structure_value_addr) != Pmode)
-	    structure_value_addr = convert_memory_address
-					(Pmode, structure_value_addr);
-#endif
+	  structure_value_addr 
+	    = convert_memory_address (Pmode, structure_value_addr);
 	  emit_move_insn (struct_value,
 			  force_reg (Pmode,
 				     force_operand (structure_value_addr,

@@ -460,12 +460,6 @@ AC_ARG_WITH(stabs,
 stabs="$with_stabs",
 stabs=no)
 
-# With ELF
-AC_ARG_WITH(elf,
-[  --with-elf              arrange to use ELF instead of host debug format],
-elf="$with_elf",
-elf=no)
-
 # Determine whether or not multilibs are enabled.
 AC_ARG_ENABLE(multilib,
 [  --enable-multilib       enable library support for multiple ABIs],
@@ -1180,9 +1174,18 @@ if test -f configargs.h ; then
 else
 	gcc_config_arguments="$TOPLEVEL_CONFIGURE_ARGUMENTS"
 fi
+
+# Double all backslashes and backslash all quotes to turn
+# gcc_config_arguments into a C string.
+sed -e 's/\\/\\\\/g; s/"/\\"/g' <<EOF >conftest.out
+$gcc_config_arguments
+EOF
+gcc_config_arguments_str=`cat conftest.out`
+rm -f conftest.out
+
 cat > configargs.h <<EOF
 /* Generated automatically. */
-static const char configuration_arguments[] = "$gcc_config_arguments";
+static const char configuration_arguments[] = "$gcc_config_arguments_str";
 static const char thread_model[] = "$thread_file";
 
 static const struct {
@@ -1855,9 +1858,7 @@ changequote([,])dnl
     fi
   else
     # non-GNU linkers don't seem to support .hidden yet
-    if test x"$gnu_ld_flag" = x"no"; then
-      gcc_cv_ld_hidden=no
-    fi
+    gcc_cv_ld_hidden=no
   fi
 fi])
 libgcc_visibility=no

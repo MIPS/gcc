@@ -56,6 +56,16 @@ lhd_do_nothing_i (int i ATTRIBUTE_UNUSED)
 {
 }
 
+/* Do nothing (int, int, int).  Return NULL_TREE.  */
+
+tree
+lhd_do_nothing_iii_return_null_tree (int i ATTRIBUTE_UNUSED, 
+				     int j ATTRIBUTE_UNUSED,
+				     int k ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 /* Do nothing (function).  */
 
 void
@@ -69,6 +79,14 @@ tree
 lhd_return_tree (tree t)
 {
   return t;
+}
+
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_tree_v (void)
+{
+  return NULL_TREE;
 }
 
 /* Do nothing (return NULL_TREE).  */

@@ -5,6 +5,132 @@
 	PR objc/12309
 	* objc.dg/missing-proto-3.m: New test.
 
+2003-09-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/12281
+	* gcc.c-torture/compile/20030921-1.c: New test.
+
+2003-09-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/reg-stack2.C: New test.
+
+2003-09-21  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* g++.dg/eh/delayslot1.C: New test.
+
+2003-09-20  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/format/gcc_diag-1.c: Add tests for %J.
+
+2003-09-20  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20030920-1.c: New test case.
+
+2003-09-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/rtti/typeid3.C: Correct expected error message.
+
+2003-09-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/157
+	* g++.dg/parse/crash12.C: New test.
+
+2003-09-19  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/mixed-struct-check.h: New.
+	* gcc.dg/compat/mixed-struct-defs.h: New.
+	* gcc.dg/compat/mixed-struct-init.h: New.
+	* gcc.dg/compat/struct-by-value-19_main.c: New.
+	* gcc.dg/compat/struct-by-value-19_x.c: New.
+	* gcc.dg/compat/struct-by-value-19_y.c: New.
+	* gcc.dg/compat/struct-by-value-20_main.c: New.
+	* gcc.dg/compat/struct-by-value-20_x.c: New.
+	* gcc.dg/compat/struct-by-value-20_y.c: New.
+	* gcc.dg/compat/struct-return-19_main.c: New.
+	* gcc.dg/compat/struct-return-19_x.c: New.
+	* gcc.dg/compat/struct-return-19_y.c: New.
+	* gcc.dg/compat/struct-return-20_main.c: New.
+	* gcc.dg/compat/struct-return-20_x.c: New.
+	* gcc.dg/compat/struct-return-20_y.c: New.
+
+2003-09-19  Andrew Pinski  <pinskia@physics.uc.edu>
+	* g++.dg/init/array11.C: Change unsigned to __SIZE_TYPE__
+	so that it will not complain on LP64 targets.
+
+2003-09-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/495
+	* g++.dg/template/friend24.C: New test.
+
+2003-09-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12332
+	* g++.dg/template/memtmpl2.C: New test.
+
+2003-09-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/11184
+	* gcc.dg/builtin-apply1.c: New test.
+
+2003-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9848
+	* g++.dg/warn/Wunused-4.C: New test.
+
+2003-09-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/12316
+	* g++.dg/other/gc2.C: New test.
+
+2003-09-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11991
+	* g++.dg/rtti/typeid3.C: New test.
+
+	PR c++/12266
+	* g++.dg/overload/template1.C: New test.
+
+2003-09-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/cfg3.C: New test.
+
+2003-09-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7939
+	* g++.dg/template/crash11.C: New test.
+
+2003-09-16  Jason Merrill  <jason@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/attr-warn-unused-result.c: New test.
+
+2003-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12184
+	* g++.dg/expr/call2.C: New test.
+
+2003-09-15  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/Wold-style-definition-1.c: New test.
+
+2003-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/3907
+	* g++.dg/parse/template12.C: New test.
+
+	* g++.dg/abi/bitfield11.C: New test.
+	* g++.dg/abi/bitfield12.C: Likewise.
+
+2003-09-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/cpp/separate-1.c: Adjust line of error.  Test for correct
+	non-expansion of functional macro name without arguments at EOL.
+	* gcc.dg/cpp/spacing1.c: Revert 2003-08-04's change.  Likewise.
+
+2003-09-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20030914-[12].c: New tests.
+
 2003-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/11788
@@ -627,7 +753,7 @@
 	* gcc.dg/i386-387-1.c (dg-options): Add -march=i386.
 	* gcc.dg/i386-387-5.c (dg-options): Likewise.
 
-Wed Jul 30 19:13:34 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-07-30  Jan Hubicka  <jh@suse.cz>
 
 	* vtgc1.c: Kill.
 
@@ -1808,7 +1934,7 @@ Wed Jul 30 19:13:34 CEST 2003  Jan Hubicka  <jh@suse.cz>
 	* lib/gcc-dg.exp (dg-require-alias): Fix typo.
 	(dg-require-gc-sections): Likewise.
 
-Sun Jun  8 16:46:04 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-06-08  Jan Hubicka  <jh@suse.cz>
 
 	* i386-cmov1.c: Fix regular expression.
 	* i386-cvt-1.c: Likewise.

@@ -2946,8 +2946,7 @@ redeclare_class_template (tree type, tree parms)
 	     A template-parameter may not be given default arguments
 	     by two different declarations in the same scope.  */
 	  error ("redefinition of default argument for `%#D'", parm);
-	  error ("%H  original definition appeared here",
-		 &DECL_SOURCE_LOCATION (tmpl_parm));
+	  error ("%J  original definition appeared here", tmpl_parm);
 	  return;
 	}
 
@@ -5001,6 +5000,8 @@ tsubst_friend_class (tree friend_tmpl, tree args)
       DECL_USE_TEMPLATE (tmpl) = 0;
       DECL_TEMPLATE_INFO (tmpl) = NULL_TREE;
       CLASSTYPE_USE_TEMPLATE (TREE_TYPE (tmpl)) = 0;
+      CLASSTYPE_TI_ARGS (TREE_TYPE (tmpl))
+	= INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (TREE_TYPE (tmpl)));
 
       /* Inject this template into the global scope.  */
       friend_type = TREE_TYPE (pushdecl_top_level (tmpl));
@@ -5254,12 +5255,14 @@ instantiate_class_template (tree type)
 		  if (TYPE_LANG_SPECIFIC (tag) && CLASSTYPE_IS_TEMPLATE (tag))
 		    /* Unfortunately, lookup_template_class sets
 		       CLASSTYPE_IMPLICIT_INSTANTIATION for a partial
-		       instantiation (i.e., for the type of a member template
-		       class nested within a template class.)  This behavior is
-		       required for maybe_process_partial_specialization to work
-		       correctly, but is not accurate in this case; the TAG is not
-		       an instantiation of anything.  (The corresponding
-		       TEMPLATE_DECL is an instantiation, but the TYPE is not.) */
+		       instantiation (i.e., for the type of a member
+		       template class nested within a template class.)
+		       This behavior is required for
+		       maybe_process_partial_specialization to work
+		       correctly, but is not accurate in this case;
+		       the TAG is not an instantiation of anything.
+		       (The corresponding TEMPLATE_DECL is an
+		       instantiation, but the TYPE is not.) */
 		    CLASSTYPE_USE_TEMPLATE (newtag) = 0;
 
 		  /* Now, we call pushtag to put this NEWTAG into the scope of
@@ -5276,8 +5279,13 @@ instantiate_class_template (tree type)
 		   || DECL_FUNCTION_TEMPLATE_P (t))
 	    {
 	      /* Build new TYPE_METHODS.  */
-
-	      tree r = tsubst (t, args, tf_error, NULL_TREE);
+	      tree r;
+	      
+	      if (TREE_CODE (t) == TEMPLATE_DECL)
+		processing_template_decl++;
+	      r = tsubst (t, args, tf_error, NULL_TREE);
+	      if (TREE_CODE (t) == TEMPLATE_DECL)
+		processing_template_decl--;
 	      set_current_access_from_decl (r);
 	      grok_special_member_properties (r);
 	      finish_member_declaration (r);

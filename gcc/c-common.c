@@ -447,6 +447,10 @@ int warn_implicit_int;
 
 int warn_nonnull;
 
+/* Warn about old-style parameter declaration.  */
+
+int warn_old_style_definition;
+
 
 /* ObjC language option variables.  */
 
@@ -787,6 +791,8 @@ static tree handle_vector_size_attribute (tree *, tree, tree, int,
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
+						 bool *);
 static tree vector_size_helper (tree, tree);
 
 static void check_function_nonnull (tree, tree);
@@ -864,6 +870,8 @@ const struct attribute_spec c_common_attribute_table[] =
   { "may_alias",	      0, 0, false, true, false, NULL },
   { "cleanup",		      1, 1, true, false, false,
 			      handle_cleanup_attribute },
+  { "warn_unused_result",     0, 0, false, true, true,
+			      handle_warn_unused_result_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -1150,8 +1158,7 @@ fname_decl (unsigned int rid, tree id)
       input_line = saved_lineno;
     }
   if (!ix && !current_function_decl)
-    pedwarn ("%H'%D' is not defined outside of function scope",
-             &DECL_SOURCE_LOCATION (decl), decl);
+    pedwarn ("%J'%D' is not defined outside of function scope", decl, decl);
 
   return decl;
 }
@@ -2654,8 +2661,6 @@ c_common_truthvalue_conversion (tree expr)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case FLOAT_EXPR:
-    case FFS_EXPR:
-    case POPCOUNT_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
@@ -3948,19 +3953,17 @@ c_add_case_label (splay_tree cases, tree cond, tree low_value,
       if (high_value)
 	{
 	  error ("duplicate (or overlapping) case value");
-	  error ("%Hthis is the first entry overlapping that value",
-                 &DECL_SOURCE_LOCATION (duplicate));
+	  error ("%Jthis is the first entry overlapping that value", duplicate);
 	}
       else if (low_value)
 	{
 	  error ("duplicate case value") ;
-	  error ("%Hpreviously used here", &DECL_SOURCE_LOCATION (duplicate));
+	  error ("%Jpreviously used here", duplicate);
 	}
       else
 	{
 	  error ("multiple default labels in one switch");
-	  error ("%Hthis is the first default label",
-                 &DECL_SOURCE_LOCATION (duplicate));
+	  error ("%Jthis is the first default label", duplicate);
 	}
       if (!cases->root)
 	add_stmt (build_case_label (NULL_TREE, NULL_TREE, label));
@@ -4020,6 +4023,26 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	rtx result;
 	bool preserve_result = false;
 	bool return_target = false;
+
+	if (STMT_EXPR_WARN_UNUSED_RESULT (exp) && target == const0_rtx)
+	  {
+	    tree stmt = STMT_EXPR_STMT (exp);
+	    tree scope;
+
+	    for (scope = COMPOUND_BODY (stmt);
+		 scope && TREE_CODE (scope) != SCOPE_STMT;
+		 scope = TREE_CHAIN (scope));
+
+	    if (scope && SCOPE_STMT_BLOCK (scope))
+	      warning ("%Hignoring return value of `%D', "
+		       "declared with attribute warn_unused_result",
+		       &expr_wfl_stack->location,
+		       BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope)));
+	    else
+	      warning ("%Hignoring return value of function "
+		       "declared with attribute warn_unused_result",
+		       &expr_wfl_stack->location);
+	  }
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -4241,7 +4264,7 @@ shadow_warning (enum sw_kind msgcode, const char *name, tree decl)
   };
 
   warning (msgs[msgcode], name);
-  warning ("%Hshadowed declaration is here", &DECL_SOURCE_LOCATION (decl));
+  warning ("%Jshadowed declaration is here", decl);
 }
 
 /* Attribute handlers common to C front ends.  */
@@ -4682,8 +4705,8 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 	      && current_function_decl != NULL_TREE
 	      && ! TREE_STATIC (decl))
 	    {
-	      error ("%Hsection attribute cannot be specified for "
-                     "local variables", &DECL_SOURCE_LOCATION (decl));
+	      error ("%Jsection attribute cannot be specified for "
+                     "local variables", decl);
 	      *no_add_attrs = true;
 	    }
 
@@ -4693,8 +4716,8 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 		   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
-	      error ("%Hsection of '%D' conflicts with previous declaration",
-                     &DECL_SOURCE_LOCATION (*node), *node);
+	      error ("%Jsection of '%D' conflicts with previous declaration",
+                     *node, *node);
 	      *no_add_attrs = true;
 	    }
 	  else
@@ -4702,15 +4725,13 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 	}
       else
 	{
-	  error ("%Hsection attribute not allowed for '%D'",
-                 &DECL_SOURCE_LOCATION (*node), *node);
+	  error ("%Jsection attribute not allowed for '%D'", *node, *node);
 	  *no_add_attrs = true;
 	}
     }
   else
     {
-      error ("%Hsection attributes are not supported for this target",
-             &DECL_SOURCE_LOCATION (*node));
+      error ("%Jsection attributes are not supported for this target", *node);
       *no_add_attrs = true;
     }
 
@@ -4784,8 +4805,7 @@ handle_aligned_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
   else if (TREE_CODE (decl) != VAR_DECL
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
-      error ("%Halignment may not be specified for '%D'",
-             &DECL_SOURCE_LOCATION (decl), decl);
+      error ("%Jalignment may not be specified for '%D'", decl, decl);
       *no_add_attrs = true;
     }
   else
@@ -4823,8 +4843,7 @@ handle_alias_attribute (tree *node, tree name, tree args,
   if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
       || (TREE_CODE (decl) != FUNCTION_DECL && ! DECL_EXTERNAL (decl)))
     {
-      error ("%H'%D' defined both normally and as an alias",
-             &DECL_SOURCE_LOCATION (decl), decl);
+      error ("%J'%D' defined both normally and as an alias", decl, decl);
       *no_add_attrs = true;
     }
   else if (decl_function_context (decl) == 0)
@@ -4948,14 +4967,12 @@ handle_no_instrument_function_attribute (tree *node, tree name,
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
-      error ("%H'%E' attribute applies only to functions",
-             &DECL_SOURCE_LOCATION (decl), name);
+      error ("%J'%E' attribute applies only to functions", decl, name);
       *no_add_attrs = true;
     }
   else if (DECL_INITIAL (decl))
     {
-      error ("%Hcan't set '%E' attribute after definition",
-             &DECL_SOURCE_LOCATION (decl), name);
+      error ("%Jcan't set '%E' attribute after definition", decl, name);
       *no_add_attrs = true;
     }
   else
@@ -4996,14 +5013,12 @@ handle_no_limit_stack_attribute (tree *node, tree name,
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     {
-      error ("%H'%E' attribute applies only to functions",
-             &DECL_SOURCE_LOCATION (decl), name);
+      error ("%J'%E' attribute applies only to functions", decl, name);
       *no_add_attrs = true;
     }
   else if (DECL_INITIAL (decl))
     {
-      error ("%Hcan't set '%E' attribute after definition",
-             &DECL_SOURCE_LOCATION (decl), name);
+      error ("%Jcan't set '%E' attribute after definition", decl, name);
       *no_add_attrs = true;
     }
   else
@@ -5507,6 +5522,23 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
 
   /* That the function has proper type is checked with the
      eventual call to build_function_call.  */
+
+  return NULL_TREE;
+}
+
+/* Handle a "warn_unused_result" attribute.  No special handling.  */
+
+static tree
+handle_warn_unused_result_attribute (tree *node, tree name,
+			       tree args ATTRIBUTE_UNUSED,
+			       int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  /* Ignore the attribute for functions not returning any value.  */
+  if (VOID_TYPE_P (TREE_TYPE (*node)))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
 
   return NULL_TREE;
 }

@@ -4759,6 +4759,15 @@ layout_class_type (tree t, tree *virtuals_p)
 	     field to the size of its declared type; the rest of the
 	     field is effectively invisible.  */
 	  DECL_SIZE (field) = TYPE_SIZE (type);
+	  /* We must also reset the DECL_MODE of the field.  */
+	  if (abi_version_at_least (2))
+	    DECL_MODE (field) = TYPE_MODE (type);
+	  else if (warn_abi
+		   && DECL_MODE (field) != TYPE_MODE (type))
+	    /* Versions of G++ before G++ 3.4 did not reset the
+	       DECL_MODE.  */
+	    warning ("the offset of `%D' may not be ABI-compliant and may "
+		     "change in a future version of GCC", field);
 	}
       else
 	layout_nonempty_base_or_field (rli, field, NULL_TREE,
@@ -5928,7 +5937,13 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
           explained = 1;
         }
     }
-  mark_used (fn);
+
+  /* If we're doing overload resolution purely for the purpose of
+     determining conversion sequences, we should not consider the
+     function used.  If this conversion sequence is selected, the
+     function will be marked as used at this point.  */
+  if (!(flags & tf_conv))
+    mark_used (fn);
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
     return build_unary_op (ADDR_EXPR, fn, 0);
@@ -6115,7 +6130,6 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case ABS_EXPR:
     case MAX_EXPR:
     case MIN_EXPR:
-    case FFS_EXPR:
 
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
@@ -6349,7 +6363,7 @@ maybe_note_name_used_in_class (tree name, tree decl)
   splay_tree names_used;
 
   /* If we're not defining a class, there's nothing to do.  */
-  if (!current_class_type || !TYPE_BEING_DEFINED (current_class_type))
+  if (innermost_scope_kind() != sk_class)
     return;
   
   /* If there's already a binding for this NAME, then we don't have

@@ -1,3 +1,280 @@
+2003-09-22  Anthony Green  <green@redhat.com>
+
+	* configure.in (HAVE_USLEEP_DECL): Define for newlib build.
+	* configure: Rebuilt.
+
+2003-09-21  Ralph Loader  <suckfish@ihug.co.nz>
+
+	PR java/12350:
+	* java/lang/StringBuffer.java (substring): Fix handling of shared flag.
+
+2003-09-22  Michael Koch  <konqueror@gmx.de>
+
+	* jni.cc (_Jv_LookupJNIMethod): Remove workaround that should hide a
+	compiler warning but produces a different one now.
+
+2003-09-22  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/InetAddress.java:
+	Moves around some code, reformats and adds documentation.
+	No functional changes.
+
+2003-09-22  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/JarURLConnection.java
+	(JarURLConnection): Modifed code to match classpath more, fixed comment.
+	(getCertificates): Made it more error prone.
+	(getMainAttributes): Likewise.
+	(getAttributes): Implemented.
+	(getManifest): Reformatted code.
+
+2003-09-20  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/Component.java: Indentation cleanup from Classpath.
+
+2003-09-20  Dalibor Topic  <robilad@kaffe.org>
+
+       * java/awt/BasicStroke.java (BasicStroke): Fixed illegal argument
+       checking to follow 1.4.2 spec.
+
+2003-08-11  Ingo Proetel  <proetel@aicas.com>
+
+        * gnu/java/rmi/server/UnicastRef.java: make constructor public and check if serverobject  
+        is compatible in case client and server are running in the same VM
+	(remerged from Classpath on 2003-09-20)
+
+2003-09-19  David Daney <ddaney@avtrex.com>
+
+	* java/lang/ref/Reference.java (clear): Set referent to null and
+	synchronize.
+
+2003-09-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/NIODatagramSocket.java,
+	gnu/java/nio/NIOSocket.java: New files.
+	* Makefile.am (ordinary_java_source_files):
+	Added gnu/java/nio/NIODatagramSocket.java and
+	gnu/java/nio/NIOSocket.java.
+	* Makefile.in: Regenerated.
+
+2003-09-19  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkDialogPeer.java (create()): Create a
+	top-level GTK window.
+	(getArgs): Add "title" property.
+	* gnu/java/awt/peer/gtk/GtkWindowPeer.java (setResizable): Use
+	"allow_shrink" and "allow_grow" properties.
+	* java/awt/Dialog.java: Initialize resizable to true and change
+	comments accordingly.  Initialize visible to false in
+	constructors.
+	* java/awt/Frame.java (dispose): Remove method.
+	* java/awt/Window.java (ownedWindows): New field.
+	(Window(Window,GraphicsConfiguration)): Add a weak reference to
+	owner's ownedWindows vector.
+	(finalize): Remove method.
+	(hide): Hide owned windows.
+	(dispose): Dispose of owned windows.
+	(getOwnedWindows): Implement.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c: Remove
+	unused GtkArg code.
+	(set(String,boolean)): Clamp gboolean parameter to g_object_set
+	to TRUE or FALSE.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(create): Set window's size requisition.
+	(connectHooks): Fix indentation.
+	(setResizable): Remove function.
+	(static setBounds): Likewise.
+	(setBounds): Replace call to setBounds with GTK size requisition
+	and resize calls.
+
+2003-09-19  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* win32-threads.cc: (ensure_interrupt_event_initialized) New
+	function for lazy initialization of an auto-reset event.
+	(_Jv_CondWait) Added thread interrupt support.
+	(_Jv_ThreadInitData) Added initialization of interrupt support
+	members.
+	(_Jv_ThreadDestroyData) Added cleanup of interrupt support members.
+	(_Jv_ThreadStart) Removed unused code.
+	(_Jv_Win32GetInterruptEvent) New method for returning interrupt event
+	to an external caller.
+	(_Jv_ThreadInterrupt) Implemented.
+	* include/win32-threads.h: (_Jv_Thread_t) Added a Win32 auto-reset
+	event for interrupt support as well as a mutex which regulates
+	access to this.
+	(_Jv_Win32GetInterruptEvent) Declared new method for returning interrupt
+	event to an external caller.
+	* java/lang/natWin32Process.cc: (cleanup) Close handle to spawned
+	process.
+	(waitFor) Added interrupt support.
+
+2003-09-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java (getLocalAddress):
+	Renamed result variable to localAddr.
+	* java/net/MulticastSocket.java:
+	No need to import gnu.java.net.PlainDatagramSocketImpl.
+
+2003-09-18  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/Toolkit.java (getSystemEventQueue, getSystemEventQueueImpl):
+	Replace UTF-8 characters in Javadoc by XML/HTML escape sequence.
+
+2003-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/InitialContext.java: Reindented.
+
+2003-09-18  Dalibor Topic <robilad@kaffe.org>,
+	    Helmer Kraemer <hkraemer@freenet.de>
+
+	* javax/naming/spi/NamingManager.java (getURLContext,
+	getObjectInstance, getStateToBind): Always use current thread's
+	context class loader when calling Class.forName.
+
+2003-09-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Timer.java (finalize): Added "throws Throwable".
+
+2003-09-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(ch): Removed.
+	(receive): Use getChannel() instead of ch.
+	(send): Likewise.
+	(getChannel): Return null.
+	* java/net/ServerSocket.java
+	(ch): Removed.
+	(setChannel): Removed.
+	(implAccept): Use getChannel() instead of ch.
+	(close): Likewise.
+	(getChannel): Return null.
+	* java/net/Socket.java
+	(ch): Removed.
+	(connect): Use getChannel() instead of ch.
+	(setChannel): Removed.
+	(getChannel): Return null.
+
+2003-09-18  Mark Wielaard  <mark@klomp.org>
+
+	Reported by Guilhem Lavaux and Julian Dolby
+	* java/io/ObjectStreamClass.java (getSerialPersistentFields): Get the
+	field "serialPersistentFields", not "getSerialPersistentFields".
+
+2003-09-18  Ingo Proetel  <proetel@aicas.com>
+
+	* java/util/TimeZone.java: Initialize lazily.
+	* java/util/Locale.java (readManifest): Fix check for country.
+	* java/util/GregorianCalendar.java: Make use of ResourceBundle better
+	traceable 
+	* java/util/Calendar.java: Make use of ResourceBundle better
+	traceable.
+
+2003-09-18  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/sql/Timestamp.java
+	(valueOf): Fixed confusion of java.sql.Date and java.util.Date
+
+2003-09-18  David P Grove  <groved@us.ibm.com>
+
+	* java/io/LineNumberReader (read): Don't reset pos & limit when
+	markPos is 0.
+
+2003-09-18  Dalibor Topic  <robilad@kaffe.org>
+
+	* gnu/java/rmi/rmic/Compile_gcj.java (COMPILER_ARGS): New private
+	constant.
+	(computeArguments): use computeTypicalArguments.
+
+	* gnu/java/rmi/rmic/Makefile.am (EXTRA_DIST): Add Compile_kjc.java,
+	Compile_jikes.java and RMICException.java.
+	* gnu/java/rmi/rmic/Compile_kjc.java: New file.
+	* gnu/java/rmi/rmic/Compile_jikes.java: Likewise.
+	* gnu/java/rmi/rmic/RMICException.java: Likewise.
+ 
+	* gnu/java/rmi/rmic/Compiler.java (getDestination): New method.
+ 
+	* gnu/java/rmi/rmic/CompilerProcess.java: Import java.io.InputStream.
+	(computeTypicalArguments): New method.
+	(compile): Print compiler output to System.out. Collect compiler
+	error output and use it in exception message.
+ 
+	* gnu/java/rmi/rmic/RMIC.java: Import java.util.Set.
+	(destination): Initialize to null.
+	(run): Replace file separator with '.' when processing class.
+	(processClass): Replace '.' with file separator when compiling
+	classes.
+	(findClass): Use SystemClassLoader to load class.
+	(generateStub): Use full class name for generated stub, that puts
+	it in right path.  Replace '.' with file separator when generating
+	stub file name. Write just the stub class name without package
+	information as class name, and constructor name. Write only
+	interface names for interfaces extending java.rmi.Remote as
+	implemented.
+	(generateSkel): Use full class name for generated skel, that puts
+	it in right path.  Replace '.' with file separator when generating
+	stub file name. Write just the stub class name without package
+	information as class name.
+
+2003-09-18  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (rmi_java_source_files):
+	Added gnu/java/rmi/rmic/Compile_kjc.java,
+	gnu/java/rmi/rmic/Compile_jikes.java and
+	gnu/java/rmi/rmic/RMICException.java
+	* Makefile.in: Regenerated.
+
+2003-09-17  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java,
+	gnu/java/awt/peer/gtk/GdkPixbufDecoder.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c: 
+	New files.
+
+2003-09-16  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/BufferedImage.java (setData): Support non-component
+	sample models.
+	(getData): Same.
+
+2003-09-10  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/geom/AffineTransform.java(transform): Fix airthmetic bugs.
+	* java/awt/geom/Arc2D.java: Approximate arc segments with cubics.
+
+2003-09-17  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* configure.in: Standardized help text case of
+	--enable-hash-synchronization
+	New configure switch --enable-libgcj-multifile and corresponding
+	automake conditional ONESTEP.
+	* configure: Rebuilt.
+	* Makefile.am: Use automake conditional ONESTEP to determine
+	whether classfiles should be compiled individually or all
+	at once.
+	* Makefile.in: Rebuilt.
+
+2003-09-16  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java (construct):
+	Remove method declaration.
+	(create()): Call native create.
+	(create(int)): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c:
+	(create): Add window_id parameter.  Call gtk_plug_new with
+	window_id parameter.
+	(construct): Remove method implementation.
+
+2003-09-16  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* Makefile.am: (MOSTLYCLEANFILES) Removed libtool objects.
+	(mostlyclean-local): New target patterned after clean-local
+	which recursively deletes all libtool objects using 'libtool rm'.
+	(clean-local): Slightly modified comment to alleviate monotony.
+	(distclean-local): New target patterned after clean-local
+	which recursively deletes all .d files.
+	* Makefile.in: Rebuilt.
+
 2003-09-11  Tom Tromey  <tromey@redhat.com>
 
 	* java/net/URLStreamHandler.java (parseURL): If original file

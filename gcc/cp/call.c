@@ -593,7 +593,7 @@ standard_conversion (tree to, tree from, tree expr)
   if ((TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
       && expr && type_unknown_p (expr))
     {
-      expr = instantiate_type (to, expr, tf_none);
+      expr = instantiate_type (to, expr, tf_conv);
       if (expr == error_mark_node)
 	return NULL_TREE;
       from = TREE_TYPE (expr);
@@ -2362,11 +2362,9 @@ print_z_candidate (const char *msgstr, struct z_candidate *candidate)
   else if (TYPE_P (candidate->fn))
     inform ("%s %T <conversion>", msgstr, candidate->fn);
   else if (candidate->viable == -1)
-    inform ("%H%s %+#D <near match>",
-	    &DECL_SOURCE_LOCATION (candidate->fn), msgstr, candidate->fn);
+    inform ("%J%s %+#D <near match>", candidate->fn, msgstr, candidate->fn);
   else
-    inform ("%H%s %+#D",
-	    &DECL_SOURCE_LOCATION (candidate->fn), msgstr, candidate->fn);
+    inform ("%J%s %+#D", candidate->fn, msgstr, candidate->fn);
 }
 
 static void
@@ -4278,11 +4276,9 @@ cxx_type_promotes_to (tree type)
 {
   tree promote;
 
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    return build_pointer_type (TREE_TYPE (type));
-
-  if (TREE_CODE (type) == FUNCTION_TYPE)
-    return build_pointer_type (type);
+  /* Perform the array-to-pointer and function-to-pointer
+     conversions.  */
+  type = type_decays_to (type);
 
   promote = type_promotes_to (type);
   if (same_type_p (type, promote))
@@ -4344,6 +4340,7 @@ type_passed_as (tree type)
     type = build_reference_type (type);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
+	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     type = integer_type_node;
@@ -4363,6 +4360,7 @@ convert_for_arg_passing (tree type, tree val)
     val = build1 (ADDR_EXPR, build_reference_type (type), val);
   else if (PROMOTE_PROTOTYPES
 	   && INTEGRAL_TYPE_P (type)
+	   && COMPLETE_TYPE_P (type)
 	   && INT_CST_LT_UNSIGNED (TYPE_SIZE (type),
 				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);

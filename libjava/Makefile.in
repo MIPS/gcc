@@ -429,7 +429,10 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
-MOSTLYCLEANFILES = $(javao_files) $(nat_files) $(nat_headers) $(c_files) $(x_javao_files) $(x_nat_files) $(x_nat_headers)
+# Note: The libtool objects are removed by mostlyclean-local
+# because of command-line-length issues.
+MOSTLYCLEANFILES = $(nat_headers) $(x_nat_headers)
+
 CLEANFILES = libgcj-@gcc_version@.jar
 
 SUFFIXES = .class .java .h
@@ -1312,9 +1315,12 @@ gnu/java/rmi/registry/RegistryImpl.java	\
 gnu/java/rmi/registry/RegistryImpl_Skel.java \
 gnu/java/rmi/registry/RegistryImpl_Stub.java \
 gnu/java/rmi/rmic/Compile_gcj.java \
+gnu/java/rmi/rmic/Compile_jikes.java \
+gnu/java/rmi/rmic/Compile_kjc.java \
 gnu/java/rmi/rmic/Compiler.java	\
 gnu/java/rmi/rmic/CompilerProcess.java \
 gnu/java/rmi/rmic/RMIC.java \
+gnu/java/rmi/rmic/RMICException.java \
 gnu/java/rmi/rmic/TabbedWriter.java \
 gnu/java/rmi/server/ConnectionRunnerPool.java \
 gnu/java/rmi/server/ProtocolConstants.java \
@@ -1895,6 +1901,8 @@ gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
+gnu/java/nio/NIODatagramSocket.java \
+gnu/java/nio/NIOSocket.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2702,13 +2710,14 @@ LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DATA =  $(jar_DATA) $(pkgconfig_DATA) $(toolexecmainlib_DATA)
 
 DIST_COMMON =  README COPYING ChangeLog Makefile.am Makefile.in NEWS \
-THANKS acinclude.m4 aclocal.m4 configure configure.in \
-libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
+THANKS acinclude.m4 aclocal.m4 config.guess config.sub configure \
+configure.in install-sh libgcj-test.spec.in libgcj.pc.in libgcj.spec.in \
+ltmain.sh missing mkinstalldirs
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -3014,8 +3023,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/net/natPlainDatagramSocketImpl.P \
 .deps/gnu/java/net/natPlainSocketImpl.P \
 .deps/gnu/java/nio/DatagramChannelImpl.P \
-.deps/gnu/java/nio/FileLockImpl.P .deps/gnu/java/nio/PipeImpl.P \
-.deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
+.deps/gnu/java/nio/FileLockImpl.P \
+.deps/gnu/java/nio/NIODatagramSocket.P .deps/gnu/java/nio/NIOSocket.P \
+.deps/gnu/java/nio/PipeImpl.P .deps/gnu/java/nio/SelectionKeyImpl.P \
+.deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
 .deps/gnu/java/nio/SocketChannelImpl.P \
@@ -3037,9 +3048,12 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/rmi/registry/RegistryImpl_Skel.P \
 .deps/gnu/java/rmi/registry/RegistryImpl_Stub.P \
 .deps/gnu/java/rmi/rmic/Compile_gcj.P \
+.deps/gnu/java/rmi/rmic/Compile_jikes.P \
+.deps/gnu/java/rmi/rmic/Compile_kjc.P \
 .deps/gnu/java/rmi/rmic/Compiler.P \
 .deps/gnu/java/rmi/rmic/CompilerProcess.P \
-.deps/gnu/java/rmi/rmic/RMIC.P .deps/gnu/java/rmi/rmic/TabbedWriter.P \
+.deps/gnu/java/rmi/rmic/RMIC.P .deps/gnu/java/rmi/rmic/RMICException.P \
+.deps/gnu/java/rmi/rmic/TabbedWriter.P \
 .deps/gnu/java/rmi/server/ConnectionRunnerPool.P \
 .deps/gnu/java/rmi/server/ProtocolConstants.P \
 .deps/gnu/java/rmi/server/RMIDefaultSocketFactory.P \
@@ -4802,7 +4816,8 @@ maintainer-clean-generic:
 mostlyclean-am:  mostlyclean-toolexeclibLTLIBRARIES mostlyclean-compile \
 		mostlyclean-libtool mostlyclean-binPROGRAMS \
 		mostlyclean-noinstPROGRAMS mostlyclean-tags \
-		mostlyclean-depend mostlyclean-generic
+		mostlyclean-depend mostlyclean-generic \
+		mostlyclean-local
 
 mostlyclean: mostlyclean-recursive
 
@@ -4815,7 +4830,8 @@ clean: clean-recursive
 distclean-am:  distclean-toolexeclibLTLIBRARIES distclean-compile \
 		distclean-libtool distclean-binPROGRAMS \
 		distclean-noinstPROGRAMS distclean-tags \
-		distclean-depend distclean-generic clean-am
+		distclean-depend distclean-generic clean-am \
+		distclean-local
 	-rm -f libtool
 
 distclean: distclean-recursive
@@ -4867,24 +4883,43 @@ $(gtk_c_headers): $(gtk_awt_peer_sources)
 	echo "$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input"; \
 	$(GCJH) -jni -d jniinclude -classpath '' -bootclasspath $(top_builddir) $$input
 
-libgcj-@gcc_version@.jar: $(all_java_source_files)
-	-@rm -f libgcj-@gcc_version@.jar
-	@echo Compiling Java sourcefiles...
-	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
-	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
-	find java gnu javax org -type d -o -type f -name '*.class' | \
-	  sed -e '/\/\./d' -e '/\/xlib/d' | \
-	  $(ZIP) cfM0E@ $@
+# Compile all classfiles in one go.
+
+@ONESTEP_TRUE@libgcj-@gcc_version@.jar: $(all_java_source_files)
+@ONESTEP_TRUE@	-@rm -f libgcj-@gcc_version@.jar
+@ONESTEP_TRUE@	@echo Compiling Java sourcefiles...
+@ONESTEP_TRUE@	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
+@ONESTEP_TRUE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
+@ONESTEP_TRUE@	find java gnu javax org -type d -o -type f -name '*.class' | \
+@ONESTEP_TRUE@	  sed -e '/\/\./d' -e '/\/xlib/d' | \
+@ONESTEP_TRUE@	  $(ZIP) cfM0E@ $@
 
 # This next rule seems backward, but reflects the fact
 # that 1) all classfiles are compiled in one go when the
 # libgcj jarfile is built and 2) anything which depends
 # on a particular .class file must wait until the jarfile
 # is built.
-$(all_java_class_files): libgcj-@gcc_version@.jar
+@ONESTEP_TRUE@$(all_java_class_files): libgcj-@gcc_version@.jar
+
+# Compile each classfile individually.
+
+@ONESTEP_FALSE@.java.class:
+@ONESTEP_FALSE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $<
+
+@ONESTEP_FALSE@libgcj-@gcc_version@.jar: $(all_java_class_files)
+@ONESTEP_FALSE@	-@rm -f libgcj-@gcc_version@.jar
+@ONESTEP_FALSE@	find java gnu javax org -type d -o -type f -name '*.class' | \
+@ONESTEP_FALSE@	  sed -e '/\/\./d' -e '/\/xlib/d' | \
+@ONESTEP_FALSE@	  $(ZIP) cfM0E@ $@
+
+mostlyclean-local:
+	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
 
 clean-local:
 	find . -name '*.class' -print | xargs rm -f
+
+distclean-local:
+	find . -name '*.d' -print | xargs rm -f
 
 # Just remove the objects from C++ sources, for testing the C++ compiler.
 clean-nat:

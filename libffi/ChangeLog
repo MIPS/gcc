@@ -1,3 +1,80 @@
+2003-09-19  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/closure_fn0.c: Xfail mips, arm,
+	strongarm, xscale. Cleanup whitespaces.
+	* testsuite/libffi.call/closure_fn1.c: Likewise.
+	* testsuite/libffi.call/closure_fn2.c: Likewise.
+	* testsuite/libffi.call/closure_fn3.c: Likewise.
+	* testsuite/libffi.call/cls_12byte.c: Likewise.
+	* testsuite/libffi.call/cls_16byte.c: Likewise.
+	* testsuite/libffi.call/cls_1_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_20byte.c: Likewise.
+	* testsuite/libffi.call/cls_24byte.c: Likewise.
+	* testsuite/libffi.call/cls_2byte.c: Likewise.
+	* testsuite/libffi.call/cls_3_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_3byte1.c: Likewise.
+	* testsuite/libffi.call/cls_3byte2.c: Likewise.
+	* testsuite/libffi.call/cls_4_1byte.c: Likewise.
+	* testsuite/libffi.call/cls_4byte.c: Likewise.
+	* testsuite/libffi.call/cls_5byte.c: Likewise.
+	* testsuite/libffi.call/cls_6byte.c: Likewise.
+	* testsuite/libffi.call/cls_7byte.c: Likewise.
+	* testsuite/libffi.call/cls_8byte.c: Likewise.
+	* testsuite/libffi.call/cls_double.c: Likewise.
+	* testsuite/libffi.call/cls_float.c: Likewise.
+	* testsuite/libffi.call/cls_uchar.c: Likewise.
+	* testsuite/libffi.call/cls_uint.c: Likewise.
+	* testsuite/libffi.call/cls_ulonglong.c: Likewise.
+	* testsuite/libffi.call/cls_ushort.c: Likewise.
+	* testsuite/libffi.call/nested_struct.c: Likewise.
+	* testsuite/libffi.call/nested_struct1.c: Likewise.
+	* testsuite/libffi.call/problem1.c: Likewise.
+	* testsuite/libffi.special/unwindtest.cc: Likewise.
+	* testsuite/libffi.call/pyobjc-tc.c: Cleanup whitespaces.
+
+2003-09-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* src/powerpc/aix.S: Cleanup whitespaces.
+	* src/powerpc/aix_closure.S: Likewise.
+
+2003-09-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/powerpc/darwin.S: Cleanup whitespaces, comment formatting.
+	* src/powerpc/darwin_closure.S: Likewise.
+	* src/powerpc/ffi_darwin.c: Likewise.
+
+2003-09-18  Andreas Tobler  <a.tobler@schweiz.ch>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* src/types.c (double): Add AIX and Darwin to the right TYPEDEF.
+	* src/powerpc/aix_closure.S: Remove the pointer to the outgoing
+	parameter stack.
+	* src/powerpc/darwin_closure.S: Likewise.
+	* src/powerpc/ffi_darwin.c (ffi_prep_args): Handle structures
+	according to the Darwin/AIX ABI.
+	(ffi_prep_cif_machdep): Likewise.
+	(ffi_closure_helper_DARWIN): Likewise.
+	Remove the outgoing parameter stack logic. Simplify the evaluation
+	of the different CASE types.
+	(ffi_prep_clousure): Avoid the casts on lvalues. Change the branch
+	statement in the trampoline code.
+
+2003-09-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/ffi.c (ffi_prep_args): Take account into the alignement
+	for the register size.
+	(ffi_closure_helper_SYSV): Handle the structure return value
+	address correctly.
+	(ffi_closure_helper_SYSV): Return the appropriate type when
+	the registers are used for the structure return value.
+	* src/sh/sysv.S (ffi_closure_SYSV): Fix the stack layout for
+	the 64-bit return value.  Update copyright years.
+
+2003-09-17  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libffi-dg.exp (libffi_target_compile): Search in
+	srcdir for ffi_mips.h.
+
 2003-09-12  Alan Modra  <amodra@bigpond.net.au>
 
 	* src/prep_cif.c (initialize_aggregate): Include tail padding in

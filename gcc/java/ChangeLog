@@ -1,3 +1,44 @@
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	resource.c: Revert.
+
+2003-09-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c, decl.c, jcf-parse.c, jcf-write.c, parse.y, 
+	resource.c: Update for DECL_SOURCE_LOCATION rename and change to const.
+
+2003-09-20  Richard Henderson  <rth@redhat.com>
+
+        * check-init.c, class.c, decl.c, expr.c: Use %J in diagnostics.
+
+2003-09-18  Roger Sayle  <roger@eyesopen.com>
+
+	* expr.c (java_truthvalue_conversion): Remove FFS_EXPR case.
+	* check-init.c (check_init): Likewise.
+
+2003-09-18  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-write.c (generate_bytecode_insns): Add support for fconst_2.
+
+2003-09-16  Andrew Haley  <aph@redhat.com>
+
+	* jcf-write.c (generate_bytecode_insns): Add MIN_EXPR and MAX_EXPR.
+
+2003-09-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/9577
+	* mangle.c (find_compression_record_match): Skip
+	over a "6JArray" (the array template mangled string)
+	IDENTIFIER_NODE.
+	(mangle_array_type): Correct minor typo.
+	(atms): Move definition to the beginning.
+
+2003-09-16  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* class.c (add_miranda_methods): Ensure super-interfaces are laid 
+	out. Fix for PR java/12254.
+
 2003-09-11  Richard Henderson  <rth@redhat.com>
 
         * parse.y (source_end_java_method): Update for new
@@ -152,7 +193,7 @@
 
 	* expr.c: Remove the last argument to expand_assignment().
 
-Wed Jul  9 02:29:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-07-09  Jan Hubicka  <jh@suse.cz>
 
 	* java-tree.h (DECL_NUM_STMTS): Rename to...
 	(DECL_ESTIMATED_INSNS): ... this.
@@ -337,7 +378,7 @@ Wed Jul  9 02:29:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* lang.c (java_init_options): Update.
 
-Thu Jun  5 18:33:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+2003-06-05  Jan Hubicka  <jh@suse.cz>
 
 	* Make-lang.in:  Add support for stageprofile and stagefeedback
 

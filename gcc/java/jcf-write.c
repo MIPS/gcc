@@ -1462,8 +1462,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  OP1 (prec == 1 ? OPCODE_fconst_0 : OPCODE_dconst_0);
 	else if (real_onep (exp))
 	  OP1 (prec == 1 ? OPCODE_fconst_1 : OPCODE_dconst_1);
-	/* FIXME Should also use fconst_2 for 2.0f.
-	   Also, should use iconst_2/ldc followed by i2f/i2d
+	else if (prec == 1 && real_twop (exp))
+	  OP1 (OPCODE_fconst_2);
+	/* ??? We could also use iconst_3/ldc followed by i2f/i2d
 	   for other float/double when the value is a small integer. */
 	else
 	  {
@@ -2413,6 +2414,23 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
     case JAVA_EXC_OBJ_EXPR:
       NOTE_PUSH (1);  /* Pushed by exception system. */
       break;
+    case MIN_EXPR:
+    case MAX_EXPR:
+      {
+	/* This copes with cases where fold() has created MIN or MAX
+	   from a conditional expression.  */
+	enum tree_code code = TREE_CODE (exp) == MIN_EXPR ? LT_EXPR : GT_EXPR;
+	tree op0 = TREE_OPERAND (exp, 0);
+	tree op1 = TREE_OPERAND (exp, 1);
+	tree x;
+	if (TREE_SIDE_EFFECTS (op0) || TREE_SIDE_EFFECTS (op1))
+	  abort ();
+	x = build (COND_EXPR, TREE_TYPE (exp), 
+		   build (code, boolean_type_node, op0, op1), 
+		   op0, op1);	  
+	generate_bytecode_insns (x, target, state);
+	break;
+      }					     
     case NEW_CLASS_EXPR:
       {
 	tree class = TREE_TYPE (TREE_TYPE (exp));

@@ -2845,7 +2845,6 @@ emit_associated_thunks (tree fn)
 void
 expand_body (tree fn)
 {
-  location_t saved_loc;
   tree saved_function;
   
   /* Compute the appropriate object-file linkage for inline
@@ -2862,7 +2861,6 @@ expand_body (tree fn)
     return;
 
   /* ??? When is this needed?  */
-  saved_loc = input_location;
   saved_function = current_function_decl;
 
   timevar_push (TV_INTEGRATION);
@@ -2872,7 +2870,6 @@ expand_body (tree fn)
   tree_rest_of_compilation (fn, function_depth > 1);
 
   current_function_decl = saved_function;
-  input_location = saved_loc;
 
   extract_interface_info ();
 
@@ -2890,6 +2887,26 @@ expand_body (tree fn)
      static duration objects.  */
   if (DECL_STATIC_DESTRUCTOR (fn))
     static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+
+  if (DECL_CLONED_FUNCTION_P (fn))
+    {
+      /* If this is a clone, go through the other clones now and mark
+         their parameters used.  We have to do that here, as we don't
+         know whether any particular clone will be expanded, and
+         therefore cannot pick one arbitrarily.  */ 
+      tree probe;
+
+      for (probe = TREE_CHAIN (DECL_CLONED_FUNCTION (fn));
+	   probe && DECL_CLONED_FUNCTION_P (probe);
+	   probe = TREE_CHAIN (probe))
+	{
+	  tree parms;
+
+	  for (parms = DECL_ARGUMENTS (probe);
+	       parms; parms = TREE_CHAIN (parms))
+	    TREE_USED (parms) = 1;
+	}
+    }
 }
 
 /* Generate RTL for FN.  */
@@ -2939,8 +2956,12 @@ expand_or_defer_fn (tree fn)
   if (DECL_DECLARED_INLINE_P (fn))
     import_export_decl (fn);
 
+  function_depth++;
+
   /* Expand or defer, at the whim of the compilation unit manager.  */
   cgraph_finalize_function (fn, function_depth > 1);
+
+  function_depth--;
 }
 
 /* Helper function for walk_tree, used by finish_function to override all
@@ -2971,10 +2992,6 @@ nullify_returns_r (tree* tp, int* walk_subtrees, void* data)
 void
 cxx_expand_function_start (void)
 {
-  /* Let everybody know that we're expanding this function, not doing
-     semantic analysis.  */
-  expanding_p = 1;
-
   /* Give our named return value the same RTL as our RESULT_DECL.  */
   if (current_function_return_value)
     COPY_DECL_RTL (DECL_RESULT (cfun->decl), current_function_return_value);

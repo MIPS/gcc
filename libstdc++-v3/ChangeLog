@@ -1,3 +1,45 @@
+2003-09-22  Petur Runolfsson  <peturr02@ru.is>
+
+	* include/bits/istream.tcc (basic_istream::read,
+	basic_istream::readsome, basic_istream::putback,
+	basic_istream::unget, operator>>(basic_istream, CharT)):
+	Avoid redundant setstate(failbit) calls when sentry::operator bool()
+	returns false.
+
+2003-09-22  Carlo Wood  <carlo@alinoe.com>
+
+	PR libstdc++/12365
+	* include/bits/demangle.h (qualifier(int, cv_qualifier_nt,
+	char const*, int, int)):  Remove unused identifier
+	cv_qualifier for overloaded constructor.
+
+2003-09-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/11504
+	* acinclude.m4 (GLIBCXX_EXPORT_FLAGS): Add -Wcast-qual to
+	WARN_FLAGS, remove -Wno-format.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-09-18  Petur Runolfsson  <peturr02@ru.is>
+
+	* config/io/basic_file_stdio.cc (sys_getc, sys_ungetc): Delete.
+	* config/io/basic_file_stdio.h: Same.
+	* include/std/std_fstream.h (__ctype_type): Delete.
+	* include/std/std_streambuf.h (__ctype_type, __state_type): Delete.
+	
+2003-09-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/12239
+	* configure.host (abi_baseline_pair): Error out on solaris2
+	configurations without a minor version number.
+
+2003-09-13  Phil Edwards  <phil@codesourcery.com>
+
+	* docs/doxygen/run_doxygen:  Clear GENERATE_TAGFILE entirely
+	if man pages are on.
+	* docs/doxygen/user.cfg.in:  And here.
+
 2003-09-10  Daniel Jacobowitz  <drow@mvista.com>
 	    Andreas Jaeger <aj@suse.de>
 

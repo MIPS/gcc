@@ -888,10 +888,8 @@ find_base_value (rtx src)
       {
 	rtx temp = find_base_value (XEXP (src, 0));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	if (temp != 0 && CONSTANT_P (temp))
 	  temp = convert_memory_address (Pmode, temp);
-#endif
 
 	return temp;
       }
@@ -1307,10 +1305,8 @@ find_base_term (rtx x)
       {
 	rtx temp = find_base_term (XEXP (x, 0));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	if (temp != 0 && CONSTANT_P (temp))
 	  temp = convert_memory_address (Pmode, temp);
-#endif
 
 	return temp;
       }
@@ -2202,7 +2198,7 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 }
 
 /* Returns nonzero if a write to X might alias a previous read from
-   (or, if WRITEP is nonzero, a write to) MEM.  If CONSTP is non-zero,
+   (or, if WRITEP is nonzero, a write to) MEM.  If CONSTP is nonzero,
    honor the RTX_UNCHANGING_P flags on X and MEM.  */
 
 static int

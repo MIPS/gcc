@@ -1030,22 +1030,22 @@ ia64_handle_model_attribute (tree *node, tree name, tree args, int flags ATTRIBU
 	   == FUNCTION_DECL)
 	  && !TREE_STATIC (decl))
 	{
-	  error ("%Ha an address area attribute cannot be specified for "
-		 "local variables", &DECL_SOURCE_LOCATION (decl), decl);
+	  error ("%Jan address area attribute cannot be specified for "
+		 "local variables", decl, decl);
 	  *no_add_attrs = true;
 	}
       area = ia64_get_addr_area (decl);
       if (area != ADDR_AREA_NORMAL && addr_area != area)
 	{
-	  error ("%Ha address area of '%s' conflicts with previous "
-		 "declaration", &DECL_SOURCE_LOCATION (decl), decl);
+	  error ("%Jaddress area of '%s' conflicts with previous "
+		 "declaration", decl, decl);
 	  *no_add_attrs = true;
 	}
       break;
 
     case FUNCTION_DECL:
-      error ("%Ha address area attribute cannot be specified for functions",
-	     &DECL_SOURCE_LOCATION (decl), decl);
+      error ("%Jaddress area attribute cannot be specified for functions",
+	     decl, decl);
       *no_add_attrs = true;
       break;
 
@@ -8248,14 +8248,8 @@ ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
        && int_size_in_bytes (type) < UNITS_PER_WORD)
      return upward;
 
-   /* This is the standard FUNCTION_ARG_PADDING with !BYTES_BIG_ENDIAN
-      hardwired to be true.  */
-
-   return((mode == BLKmode
-       ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-          && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
-       : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
-      ? downward : upward);
+   /* Fall back to the default.  */
+   return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
 }
 
 /* Linked list of all external functions that are to be emitted by GCC.

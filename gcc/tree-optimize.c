@@ -95,6 +95,8 @@ clear_decl_rtl (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
 void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
+  location_t saved_loc;
+
   timevar_push (TV_EXPAND);
 
   if (flag_unit_at_a_time && !cgraph_global_info_ready)
@@ -102,6 +104,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
+  saved_loc = input_location;
   input_location = DECL_SOURCE_LOCATION (fndecl);
   init_function_start (fndecl);
 
@@ -180,16 +183,15 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	  && 0 < compare_tree_int (TYPE_SIZE_UNIT (ret_type),
 				   larger_than_size))
 	{
-          const location_t *locus = &DECL_SOURCE_LOCATION (fndecl);
 	  unsigned int size_as_int
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Hsize of return value of '%D' is %u bytes",
-                     locus, fndecl, size_as_int);
+	    warning ("%Jsize of return value of '%D' is %u bytes",
+                     fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Hsize of return value of '%D' is larger than %wd bytes",
-                     locus, fndecl, larger_than_size);
+	    warning ("%Jsize of return value of '%D' is larger than %wd bytes",
+                     fndecl, fndecl, larger_than_size);
 	}
     }
 
@@ -231,6 +233,8 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
       DECL_ARGUMENTS (fndecl) = 0;
     }
+
+  input_location = saved_loc;
 
   timevar_pop (TV_EXPAND);
 }

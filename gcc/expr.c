@@ -235,6 +235,9 @@ enum insn_code movstr_optab[NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block clears.  */
 enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 
+/* Stack of EXPR_WITH_FILE_LOCATION nested expressions.  */
+struct file_stack *expr_wfl_stack;
+
 /* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
@@ -1954,10 +1957,8 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
   dst_addr = copy_to_mode_reg (Pmode, XEXP (dst, 0));
   src_addr = copy_to_mode_reg (Pmode, XEXP (src, 0));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
   dst_addr = convert_memory_address (ptr_mode, dst_addr);
   src_addr = convert_memory_address (ptr_mode, src_addr);
-#endif
 
   dst_tree = make_tree (ptr_type_node, dst_addr);
   src_tree = make_tree (ptr_type_node, src_addr);
@@ -4296,11 +4297,8 @@ expand_assignment (tree to, tree from, int want_value)
 	emit_block_move (to_rtx, value, expr_size (from), BLOCK_OP_NORMAL);
       else
 	{
-#ifdef POINTERS_EXTEND_UNSIGNED
-	  if (POINTER_TYPE_P (TREE_TYPE (to))
-	      && GET_MODE (to_rtx) != GET_MODE (value))
+	  if (POINTER_TYPE_P (TREE_TYPE (to)))
 	    value = convert_memory_address (GET_MODE (to_rtx), value);
-#endif
 	  emit_move_insn (to_rtx, value);
 	}
       preserve_temp_slots (to_rtx);
@@ -6759,8 +6757,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
     case PARM_DECL:
       if (!DECL_RTL_SET_P (exp))
 	{
-	  error ("%Hprior parameter's size depends on '%D'",
-                 &DECL_SOURCE_LOCATION (exp), exp);
+	  error ("%Jprior parameter's size depends on '%D'", exp, exp);
 	  return CONST0_RTX (mode);
 	}
 
@@ -6959,14 +6956,23 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
     case EXPR_WITH_FILE_LOCATION:
       {
 	rtx to_return;
-	location_t saved_loc = input_location;
+	struct file_stack fs;
+
+	fs.location = input_location;
+	fs.next = expr_wfl_stack;
 	input_filename = EXPR_WFL_FILENAME (exp);
 	input_line = EXPR_WFL_LINENO (exp);
+	expr_wfl_stack = &fs;
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
 	  emit_line_note (input_location);
 	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
-	input_location = saved_loc;
+	to_return = expand_expr (EXPR_WFL_NODE (exp),
+				 (ignore ? const0_rtx : target),
+				 tmode, modifier);
+	if (expr_wfl_stack != &fs)
+	  abort ();
+	input_location = fs.location;
+	expr_wfl_stack = fs.next;
 	return to_return;
       }
 
@@ -8513,43 +8519,6 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	abort ();
       return temp;
 
-    case FFS_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      temp = expand_unop (mode, ffs_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case CLZ_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, clz_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case CTZ_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, ctz_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case POPCOUNT_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, popcount_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
-    case PARITY_EXPR:
-      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
-      temp = expand_unop (mode, parity_optab, op0, target, 1);
-      if (temp == 0)
-	abort ();
-      return temp;
-
       /* ??? Can optimize bitwise operations with one arg constant.
 	 Can optimize (a bitwise1 n) bitwise2 (a bitwise3 b)
 	 and (a bitwise1 b) bitwise2 b (etc)
@@ -9253,11 +9222,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	  if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
 	    {
 	      op0 = XEXP (op0, 0);
-#ifdef POINTERS_EXTEND_UNSIGNED
-	      if (GET_MODE (op0) == Pmode && GET_MODE (op0) != mode
-		  && mode == ptr_mode)
+	      if (GET_MODE (op0) == Pmode && mode == ptr_mode)
 		op0 = convert_memory_address (ptr_mode, op0);
-#endif
 	      return op0;
 	    }
 
@@ -9318,11 +9284,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	  && ! REG_USERVAR_P (op0))
 	mark_reg_pointer (op0, TYPE_ALIGN (TREE_TYPE (type)));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-      if (GET_MODE (op0) == Pmode && GET_MODE (op0) != mode
-	  && mode == ptr_mode)
+      if (GET_MODE (op0) == Pmode && mode == ptr_mode)
 	op0 = convert_memory_address (ptr_mode, op0);
-#endif
 
       return op0;
 
