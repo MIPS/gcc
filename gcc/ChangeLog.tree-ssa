@@ -1,5 +1,9 @@
 2004-03-04  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dce.c (remove_dead_stmt): Redirect an existing edge
+	rather than deleting the old ones and creating a new one when
+	removing a dead conditional.
+ 
 	* fold-const.c (fold): When rebuilding the expression after a
 	call to fold_relational_hi_lo, make sure to convert the type of
 	the second argument to the type of the first.

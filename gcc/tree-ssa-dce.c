@@ -693,15 +693,28 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  return;
 	}
 
-      /* Remove all outgoing edges, and add an edge to the post dominator.  */
-      for (e = bb->succ; e != NULL;)
+      /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
+      redirect_edge_and_branch (bb->succ, post_dom_bb);
+
+      /* The edge is no longer associated with a conditional, so it does
+	 not have TRUE/FALSE flags.  */
+      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+
+      /* If the edge reaches any block other than the exit, then it is a
+	 fallthru edge; if it reaches the exit, then it is not a fallthru
+	 edge.  */
+      if (post_dom_bb != EXIT_BLOCK_PTR)
+	bb->succ->flags |= EDGE_FALLTHRU;
+      else
+	bb->succ->flags &= ~EDGE_FALLTHRU;
+
+      /* Remove the remaining the outgoing edges.  */
+      for (e = bb->succ->succ_next; e != NULL;)
 	{
 	  edge tmp = e;
 	  e = e->succ_next;
 	  remove_edge (tmp);
 	}
-      make_edge (bb, post_dom_bb,
-		 (post_dom_bb == EXIT_BLOCK_PTR ? 0 : EDGE_FALLTHRU));
     }
 
   bsi_remove (i);

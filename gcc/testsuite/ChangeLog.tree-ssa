@@ -1,3 +1,7 @@
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/20040304-1.c: New test.
+
 2004-03-03  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/20040303-1.c: New test.
