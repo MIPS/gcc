@@ -4448,6 +4448,23 @@ last_cleanup_this_contour ()
   return block_stack->data.block.cleanups;
 }
 
+
+/* Return nonzero if any containing block has a stack level or
+   cleanups.  */
+
+int
+containing_blocks_have_cleanups_or_stack_level ()
+{
+  struct nesting *block;
+
+  for (block = block_stack; block; block = block->next)
+    if (block->data.block.stack_level != 0
+        || block->data.block.cleanups != 0)
+      return 1;
+
+  return 0;
+}
+
 /* Return 1 if there are any pending cleanups at this point.
    Check the current contour as well as contours that enclose
    the current contour.  */
@@ -4462,8 +4479,8 @@ any_pending_cleanups ()
 
   if (block_stack->data.block.cleanups != NULL)
     return 1;
-  if (block_stack->data.block.cleanups == 0
-      && block_stack->data.block.outer_cleanups == 0)
+
+  if (block_stack->data.block.outer_cleanups == 0)
     return 0;
 
   for (block = block_stack->next; block; block = block->next)

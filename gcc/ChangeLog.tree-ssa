@@ -1,3 +1,15 @@
+2003-07-01  Jeff Law  <law@redhat.com>
+
+	* expr.c (expand_expr, case COND_EXPR): Correctly (?) handle
+	cases where a containing block has a stack level.  Handle
+	cases where one arm is a GOTO_EXPR and the other arm has
+	side effects.
+                                                                                
+	* stmt.c (containing_blocks_have_cleanups_or_stack_level): New
+	function.
+	(any_pending_cleanups): Further simplification.
+	* tree.h (containing_blocks_have_cleanups_or_stack_level): Prototype.
+
 2003-06-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-flow.h (struct tree_ann_common_d): Remove 'stmt' field.
