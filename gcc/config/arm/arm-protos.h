@@ -38,6 +38,7 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 							     unsigned int);
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
+extern void arm_output_fn_unwind (FILE *, bool);
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);

@@ -12885,7 +12885,7 @@ thumb_pushpop (FILE *f, int mask, int push, int *cfa_offset, int real_regs)
       return;
     }
 
-  if (flag_exceptions && push)
+  if (ARM_EABI_UNWIND_TABLES && push)
     {
       fprintf (f, "\t.save\t{");
       for (regno = 0; regno < 15; regno++)
@@ -13577,9 +13577,9 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   if (current_function_pretend_args_size)
     {
       /* Output unwind directive for the stack adjustment.  */
-      if (flag_exceptions)
-	asm_fprintf (f, "\t.pad #%d\n",
-		    current_function_pretend_args_size);
+      if (flag_exceptions && !USING_SJLJ_EXCEPTIONS)
+	fprintf (f, "\t.pad #%d\n",
+		 current_function_pretend_args_size);
 
       if (cfun->machine->uses_anonymous_args)
 	{
@@ -13642,8 +13642,8 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       work_register = thumb_find_work_register (live_regs_mask);
       
-      if (flag_exceptions)
-	asm_fprintf (f, "\t.pad #16\n");
+      if (ARM_EABI_UNWIND_TABLES)
+	fputs ("\t.pad #16\n", f);
 
       asm_fprintf
 	(f, "\tsub\t%r, %r, #16\t%@ Create stack backtrace structure\n",
@@ -14922,8 +14922,7 @@ arm_unwind_emit (FILE * asm_out_file, rtx insn)
 {
   rtx pat;
 
-  if (USING_SJLJ_EXCEPTIONS
-      || !(flag_unwind_tables && flag_exceptions))
+  if (!ARM_EABI_UNWIND_TABLES)
     return;
 
   if (GET_CODE (insn) == NOTE || !RTX_FRAME_RELATED_P (insn))
@@ -14969,3 +14968,18 @@ arm_output_ttype (rtx x)
   return TRUE;
 }
 #endif /* TARGET_UNWIND_INFO */
+
+
+/* Output unwind directives for the start/end of a function.  */
+
+void
+arm_output_fn_unwind (FILE * f, bool prologue)
+{
+  if (!ARM_EABI_UNWIND_TABLES)
+    return;
+
+  if (prologue)
+    fputs ("\t.fnstart\n", f);
+  else
+    fputs ("\t.fnend\n", f);
+}

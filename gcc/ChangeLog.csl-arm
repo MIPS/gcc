@@ -1,3 +1,13 @@
+2004-09-27  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_output_fn_unwind): Add prototype.
+	* config/arm/arm.c (thumb_pushpop): Use ARM_EABI_UNWIND_TABLES.
+	(thumb_output_function_prologue, arm_unwind_emit): Ditto.
+	(arm_output_fn_unwind): Ditto.
+	* config/arm/arm.h (ARM_OUTPUT_FN_UNWIND): Define.
+	(ARM_EABI_UNWIND_TABLES): Define.
+	* config/arm/elf.h (ARM_OUTPUT_FN_UNWIND): Use ARM_OUTPUT_FN_UNWIND.
+
 2004-09-25  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_elf_asm_constructor): New function.

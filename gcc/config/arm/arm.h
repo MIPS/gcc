@@ -2147,6 +2147,15 @@ STATIC func_ptr __CTOR_LIST__[1] \
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
 
+#define ARM_OUTPUT_FN_UNWIND(F, PROLOGUE) arm_output_fn_unwind (F, PROLOGUE)
+
+#ifdef TARGET_UNWIND_INFO
+#define ARM_EABI_UNWIND_TABLES \
+  (!USING_SJLJ_EXCEPTIONS && flag_exceptions && flag_unwind_tables)
+#else
+#define ARM_EABI_UNWIND_TABLES 0
+#endif
+
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
    We have two alternate definitions for each of them.
