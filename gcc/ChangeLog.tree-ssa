@@ -1,5 +1,10 @@
 2003-07-14  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (add_vdef): Initialize variable 'vdef'.
+	(add_vuse): Initialize variable 'vuse'.
+
+2003-07-14  Diego Novillo  <dnovillo@redhat.com>
+
 	Must alias analysis.  Allow the SSA rename pass to be done on a set
 	of variables.
 

@@ -745,6 +745,7 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
      existing VDEFs matches VAR.  If so, re-use it, otherwise add a new
      VDEF for VAR.  */
   found = false;
+  vdef = NULL_TREE;
   if (prev_vops && prev_vops->vdef_ops)
     {
       size_t i;
@@ -804,6 +805,7 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
      existing VUSEs matches VAR.  If so, re-use it, otherwise add a new
      VUSE for VAR.  */
   found = false;
+  vuse = NULL_TREE;
   if (prev_vops && prev_vops->vuse_ops)
     {
       size_t i;
