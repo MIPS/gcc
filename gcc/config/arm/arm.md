@@ -2945,7 +2945,8 @@
    ldr%?b\\t%Q0, %1\;mov%?\\t%R0, #0"
   [(set_attr "length" "8")
    (set_attr "type" "*,load")
-   (set_attr "pool_range" "*,4096")]
+   (set_attr "pool_range" "*,4092")
+   (set_attr "neg_pool_range" "*,4084")]
 )
 
 (define_insn "extendsidi2"
@@ -3074,7 +3075,8 @@
   "TARGET_ARM && arm_arch4"
   "ldr%?h\\t%0, %1"
   [(set_attr "type" "load")
-   (set_attr "pool_range" "252")]
+   (set_attr "pool_range" "256")
+   (set_attr "neg_pool_range" "244")]
 )
 
 (define_split
@@ -3159,7 +3161,8 @@
   "TARGET_ARM"
   "ldr%?b\\t%0, %1\\t%@ zero_extendqisi2"
   [(set_attr "type" "load")
-   (set_attr "pool_range" "4096")]
+   (set_attr "pool_range" "4096")
+   (set_attr "neg_pool_range" "4084")]
 )
 
 (define_split
@@ -3336,7 +3339,8 @@
   "TARGET_ARM && arm_arch4"
   "ldr%?sh\\t%0, %1"
   [(set_attr "type" "load")
-   (set_attr "pool_range" "256")]
+   (set_attr "pool_range" "256")
+   (set_attr "neg_pool_range" "244")]
 )
 
 (define_split
@@ -3406,7 +3410,8 @@
   "
   [(set_attr "type" "load")
    (set_attr "length" "8")
-   (set_attr "pool_range" "256")]
+   (set_attr "pool_range" "256")
+   (set_attr "neg_pool_range" "244")]
 )
 
 (define_split
@@ -3501,7 +3506,8 @@
   "
   [(set_attr "type" "load")
    (set_attr "length" "8")
-   (set_attr "pool_range" "256")]
+   (set_attr "pool_range" "256")
+   (set_attr "neg_pool_range" "244")]
 )
 
 (define_split
@@ -3715,7 +3721,8 @@
   "
   [(set_attr "length" "8")
    (set_attr "type" "*,load,store2")
-   (set_attr "pool_range" "0,1020,0")]
+   (set_attr "pool_range" "*,1020,*")
+   (set_attr "neg_pool_range" "*,1012,*")]
 )
 
 ;;; ??? This should have alternatives for constants.
@@ -3816,7 +3823,7 @@
    str%?\\t%1, %0"
   [(set_attr "type" "*,*,load,store1")
    (set_attr "pool_range" "*,*,4096,*")
-   (set_attr "neg_pool_range" "*,*,4088,*")]
+   (set_attr "neg_pool_range" "*,*,4084,*")]
 )
 
 (define_split
@@ -3924,7 +3931,11 @@
    (set (attr "pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
 		      (const_int 1024)
-		      (const_int 4096)))]
+		      (const_int 4096)))
+   (set (attr "neg_pool_range")
+	(if_then_else (eq_attr "is_thumb" "yes")
+		      (const_int 0)
+		      (const_int 4084)))]
 )
 
 ;; This variant is used for AOF assembly, since it needs to mention the
@@ -3952,7 +3963,11 @@
    (set (attr "pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
 		      (const_int 1024)
-		      (const_int 4096)))]
+		      (const_int 4096)))
+   (set (attr "neg_pool_range")
+	(if_then_else (eq_attr "is_thumb" "yes")
+		      (const_int 0)
+		      (const_int 4084)))]
 )
 
 (define_insn "pic_add_dot_plus_four"
@@ -4310,7 +4325,7 @@
 
 (define_insn "*thumb_movhi_insn"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=l,l,m,*r,*h,l")
-	(match_operand:HI 1 "general_operand"       "l,m,l,*h,*r,I"))]
+	(match_operand:HI 1 "general_operand"       "l,mn,l,*h,*r,I"))]
   "TARGET_THUMB
    && (   register_operand (operands[0], HImode)
        || register_operand (operands[1], HImode))"
@@ -4341,7 +4356,7 @@
 	}
       return \"ldrh	%0, %1\";
     }"
-  [(set_attr "length" "2,4,4,2,2,2")
+  [(set_attr "length" "2,4,2,2,2,2")
    (set_attr "type" "*,load,store1,*,*,*")
    (set_attr "pool_range" "*,64,*,*,*,*")]
 )
@@ -4430,7 +4445,8 @@
    str%?h\\t%1, %0\\t%@ movhi 
    ldr%?h\\t%0, %1\\t%@ movhi"
   [(set_attr "type" "*,*,store1,load")
-   (set_attr "pool_range" "*,*,*,256")]
+   (set_attr "pool_range" "*,*,*,256")
+   (set_attr "neg_pool_range" "*,*,*,244")]
 )
 
 (define_insn "*movhi_insn_littleend"
@@ -4448,7 +4464,8 @@
    mvn%?\\t%0, #%B1\\t%@ movhi
    ldr%?\\t%0, %1\\t%@ movhi"
   [(set_attr "type" "*,*,load")
-   (set_attr "pool_range" "4096")]
+   (set_attr "pool_range" "4096")
+   (set_attr "neg_pool_range" "4084")]
 )
 
 (define_insn "*movhi_insn_bigend"
@@ -4467,7 +4484,8 @@
    ldr%?\\t%0, %1\\t%@ movhi_bigend\;mov%?\\t%0, %0, asr #16"
   [(set_attr "type" "*,*,load")
    (set_attr "length" "4,4,8")
-   (set_attr "pool_range" "*,*,4092")]
+   (set_attr "pool_range" "*,*,4092")
+   (set_attr "neg_pool_range" "*,*,4084")]
 )
 
 (define_insn "*loadhi_si_bigend"
@@ -4479,7 +4497,8 @@
    && ! TARGET_MMU_TRAPS"
   "ldr%?\\t%0, %1\\t%@ movhi_bigend"
   [(set_attr "type" "load")
-   (set_attr "pool_range" "4096")]
+   (set_attr "pool_range" "4096")
+   (set_attr "neg_pool_range" "4084")]
 )
 
 (define_insn "*movhi_bytes"
@@ -4684,7 +4703,8 @@
   [(set_attr "length" "4,4,4,4,8,8,4,4,4")
    (set_attr "type"
 	 "ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r,*,load,store1")
-   (set_attr "pool_range" "*,*,1024,*,*,*,*,4096,*")]
+   (set_attr "pool_range" "*,*,1024,*,*,*,*,4096,*")
+   (set_attr "neg_pool_range" "*,*,1012,*,*,*,*,4084,*")]
 )
 
 ;; Exactly the same as above, except that all `f' cases are deleted.
@@ -4703,7 +4723,8 @@
    str%?\\t%1, %0\\t%@ float"
   [(set_attr "length" "4,4,4")
    (set_attr "type" "*,load,store1")
-   (set_attr "pool_range" "*,4096,*")]
+   (set_attr "pool_range" "*,4096,*")
+   (set_attr "neg_pool_range" "*,4084,*")]
 )
 
 ;;; ??? This should have alternatives for constants.
@@ -4816,7 +4837,8 @@
   [(set_attr "length" "4,4,8,8,8,4,4,4,4,8,8")
    (set_attr "type"
      "load,store2,*,store2,load,ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r")
-   (set_attr "pool_range" "*,*,*,*,252,*,*,1024,*,*,*")]
+   (set_attr "pool_range" "*,*,*,*,252,*,*,1024,*,*,*")
+   (set_attr "neg_pool_range" "*,*,*,*,244,*,*,1012,*,*,*")]
 )
 
 ;; Software floating point version.  This is essentially the same as movdi.
@@ -4830,7 +4852,8 @@
   "* return output_move_double (operands);"
   [(set_attr "length" "8,8,8")
    (set_attr "type" "*,load,store2")
-   (set_attr "pool_range" "252")]
+   (set_attr "pool_range" "252")
+   (set_attr "neg_pool_range" "244")]
 )
 
 ;;; ??? This should have alternatives for constants.
@@ -4901,7 +4924,8 @@
   "
   [(set_attr "length" "4,4,4,4,8,8,12")
    (set_attr "type" "ffarith,ffarith,f_load,f_store,r_mem_f,f_mem_r,*")
-   (set_attr "pool_range" "*,*,1024,*,*,*,*")]
+   (set_attr "pool_range" "*,*,1024,*,*,*,*")
+   (set_attr "neg_pool_range" "*,*,1012,*,*,*,*")]
 )
 
 

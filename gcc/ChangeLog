@@ -15,6 +15,9 @@
 	unspec_volatile arguments to avoid duplicates.
 	(consttable_1, consttable_2): Fixes for big-endian mode.
 
+	* arm.md (all ARM-mode load insns): Add neg_pool_range attribute
+	as appropriate.
+
 2000-03-16  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Fix compile time
