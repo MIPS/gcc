@@ -2550,7 +2550,8 @@ interpret_rhs_modify_expr (struct loop *loop,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10);
-      res = chrec_fold_negate (type, chrec10);
+      res = chrec_fold_minus (type, convert (type, integer_zero_node), 
+			      chrec10);
       break;
 
     case MULT_EXPR:

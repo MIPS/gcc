@@ -1,5 +1,14 @@
 2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
+	* tree-chrec.c (chrec_fold_multiply_ival_cst): Compute the min
+	and max on the multiplication result.
+	(chrec_fold_negate): Removed.
+	* tree-chrec.h (chrec_fold_negate): Removed.
+	* tree-scalar-evolution.c (interpret_rhs_modify_expr): 
+	Use chrec_fold_minus instead of chrec_fold_negate.
+
+2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
 	* tree-chrec.h (evolution_function_is_constant_p): Be careful.
 	* tree-data-ref.c (analyze_siv_subscript_affine_affine): Renamed
 	analyze_subscript_affine_affine.  Exchange the CHREC_VARIABLEs for

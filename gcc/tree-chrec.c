@@ -453,7 +453,6 @@ chrec_fold_multiply_ival_cst (tree type,
 			      tree cst)
 {
   tree lowm, upm;
-  bool pos;
 
 #if defined ENABLE_CHECKING
   if (ival == NULL_TREE
@@ -469,16 +468,11 @@ chrec_fold_multiply_ival_cst (tree type,
   if (ival == chrec_bot)
     return chrec_bot;
 
-  if (!chrec_is_positive (cst, &pos))
-    return chrec_top;
-  
   lowm = chrec_fold_multiply (type, CHREC_LOW (ival), cst);
   upm = chrec_fold_multiply (type, CHREC_UP (ival), cst);
-  
-  if (pos)
-    return build_interval_chrec (lowm, upm);
-  else
-    return build_interval_chrec (upm, lowm);
+
+  return build_interval_chrec (tree_fold_min (type, lowm, upm),
+			       tree_fold_max (type, lowm, upm));
 }
 
 /* Fold the multiplication of two polynomial functions.  */
@@ -827,7 +821,7 @@ chrec_fold_plus_1 (enum tree_code code,
 	     CHREC_RIGHT (op1));
 	  
 	case EXPONENTIAL_CHREC:
-	  return chrec_fold_plus_cst_expo (code, type, op0, op1);
+	  return chrec_top;
 	  
 	case INTERVAL_CHREC:
 	  t1 = (code == PLUS_EXPR ? 
@@ -945,21 +939,6 @@ chrec_fold_minus (tree type,
   return chrec_fold_plus_1 (MINUS_EXPR, type, op0, op1);
 }
 
-/* Fold the negation of a two chrec.  */
-
-tree 
-chrec_fold_negate (tree type, tree op0)
-{
-  if (integer_zerop (op0)
-      || (TREE_CODE (op0) == INTERVAL_CHREC
-	  && integer_zerop (CHREC_LOW (op0))
-	  && integer_zerop (CHREC_UP (op0))))
-    return op0;
-  
-  return chrec_fold_plus_1 (MINUS_EXPR, type,
-			    convert (type, integer_zero_node),
-			    op0);
-}
 /* Fold the multiplication of two chrecs.  */
 
 tree
