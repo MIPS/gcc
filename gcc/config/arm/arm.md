@@ -4650,6 +4650,21 @@
   "
 )
 
+(define_split
+  [(set (match_operand:SF 0 "nonimmediate_operand" "")
+	(match_operand:SF 1 "immediate_operand" ""))]
+  "TARGET_ARM
+   && ! TARGET_HARD_FLOAT
+   && reload_completed
+   && GET_CODE (operands[1]) == CONST_DOUBLE"
+  [(set (match_dup 2) (match_dup 3))]
+  "
+  operands[2] = gen_lowpart (SImode, operands[0]);
+  operands[3] = gen_lowpart (SImode, operands[1]);
+  if (operands[2] == 0 || operands[3] == 0)
+    FAIL;
+")
+
 (define_insn "*arm_movsf_hard_insn"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f,m,f,r,r,r,m")
 	(match_operand:SF 1 "general_operand" "fG,H,mE,f,r,f,r,mE,r"))]
