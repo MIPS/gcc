@@ -11914,8 +11914,6 @@ ia32_multipass_dfa_lookahead ()
 {
   if (ix86_cpu == PROCESSOR_PENTIUM)
     return 2;
-  else if (TARGET_ATHLON_K8)
-    return 6;
   else
    return 0;
 }
