@@ -1,3 +1,9 @@
+2004-03-25  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-data-ref.c (subscript_dependence_tester): Removed.
+	(build_classic_dist_vector): Implement the subscript tester:
+	test for different distances carried by the same loop.
+
 2004-03-23  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-cfg.c (print_loop): Modify dump formatting.

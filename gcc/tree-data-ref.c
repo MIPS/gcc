@@ -105,7 +105,6 @@ initialize_data_dependence_relation (struct data_reference *,
 				     struct data_reference *);
 
 static void subscript_dependence_tester (struct data_dependence_relation *);
-static void subscript_coupling_tester (struct data_dependence_relation *);
 
 static unsigned int data_ref_id = 0;
 static struct loops *current_loops;
@@ -594,61 +593,6 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
     fprintf (dump_file, ")\n");
 }
 
-/* This is the subscript {coupling | conflict} tester (SubCT).  
-   
-   What is subscript coupling?  In the following example, the analyzer
-   is able to determine that there is no dependence between the two
-   references.
-   
-   | loop i = 0, N, 1
-   |   T[i+1][i] = ...
-   |   ... = T[i][i]
-   | endloop
-   
-   For a complete discussion on the subscript coupling, read the
-   chapter 3 in "Advanced Compilation for High Performance Computing"
-   by Randy Allen and Ken Kennedy.
-   
-   How it works?  Solving this problem is similar to finding
-   conflicting iterations tuples in the per subscript dependence
-   tester (SubDT).  Instead of looking to the conflicting accessed
-   elements, here we look for conflicting iterations between the
-   conflicting tuples given by the SubDT.  SubDT applies the
-   chrec_intersection vertically (see example above), while SubCT
-   applies the chrec_intersection horizontally on the SubDT result.
-   
-   For the example above:
-   - SubDT constructs the following conflicting tuples:
-   
-   A = DataRef_0: T[i+1][i]
-   B = DataRef_1: T[i][i]
-   (Affine Dep (A = 0, B = 1):
-     (subscript 0: 
-       iterations_that_access_an_element_twice_in_A : {0, +, 1}_1
-       iterations_that_access_an_element_twice_in_B : {0, +, 1}_1
-     )
-     (subscript 1: 
-       iterations_that_access_an_element_twice_in_A : {0, +, 1}_1
-       iterations_that_access_an_element_twice_in_B : {1, +, 1}_1
-     )
-   )
-   
-   From this information, the analyzer constructs the intersections:
-   chrec_intersection (sub_0_twice_in_A, sub_1_twice_in_A) = {0, +, 1}_1
-   chrec_intersection (sub_0_twice_in_B, sub_1_twice_in_B) = {1, +, 1}_1
-   FIXME...
-*/
-
-static void
-subscript_coupling_tester (struct data_dependence_relation *res ATTRIBUTE_UNUSED)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(subscript_coupling_tester \n");
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-}
-
 /* Return value of a constant X.  
    Borrowed from tree-ssa-loop-ivopts.c
    XXX: Move this into tree.c and remove from both files.  */
@@ -675,11 +619,13 @@ build_classic_dist_vector (struct data_dependence_relation *res,
 			   varray_type *classic_dist)
 {
   unsigned i, nb_loops;
-  lambda_vector dist;
+  lambda_vector dist_v, init_v;
   nb_loops = current_loops->num;
   
-  dist = lambda_vector_new (nb_loops);
-  lambda_vector_clear (dist, nb_loops);
+  dist_v = lambda_vector_new (nb_loops);
+  init_v = lambda_vector_new (nb_loops);
+  lambda_vector_clear (dist_v, nb_loops);
+  lambda_vector_clear (init_v, nb_loops);
   
   if (DDR_ARE_DEPENDENT (res) != NULL_TREE)
     return;
@@ -690,16 +636,68 @@ build_classic_dist_vector (struct data_dependence_relation *res,
       
       if (SUB_DISTANCE (subscript) != chrec_top)
 	{
-	  unsigned loop_nb;
 	  if (TREE_CODE (SUB_CONFLICTS_IN_A (subscript)) == POLYNOMIAL_CHREC)
 	    {
+	      int dist;
+	      unsigned loop_nb;
 	      loop_nb = CHREC_VARIABLE (SUB_CONFLICTS_IN_A (subscript));
-	      dist[loop_nb] = int_cst_value (SUB_DISTANCE (subscript));
+	      dist = int_cst_value (SUB_DISTANCE (subscript));
+	      
+	      /* This is the subscript coupling test.  
+		 | loop i = 0, N, 1
+		 |   T[i+1][i] = ...
+		 |   ... = T[i][i]
+		 | endloop
+		 There is no dependence.  */
+	      if (init_v[loop_nb] != 0
+		  && dist_v[loop_nb] != dist)
+		{
+		  DDR_ARE_DEPENDENT (res) = chrec_bot;
+		  return;
+		}
+	      
+	      dist_v[loop_nb] = dist;
+	      init_v[loop_nb] = 1;
 	    }
 	}
     }
   
-  VARRAY_PUSH_GENERIC_PTR (*classic_dist, dist);
+  /* There is a distance of 1 on all the outer loops: 
+     
+     Example: there is a dependence of distance 1 on loop_1 for the array A.
+     | loop_1
+     |   A[5] = ...
+     | endloop
+  */
+  {
+    struct loop *lca, *loop_a, *loop_b;
+    struct data_reference *a = DDR_A (res);
+    struct data_reference *b = DDR_B (res);
+    
+    loop_a = loop_of_stmt (DR_STMT (a));
+    loop_b = loop_of_stmt (DR_STMT (b));
+    
+    /* Get the common ancestor loop.  */
+    lca = find_common_loop (loop_a, loop_b); 
+    
+    /* For each outer_loop where init_v is not set, the accesses are
+       in dependence of distance 1 in the loop.  */
+    if (lca != loop_a
+	&& lca != loop_b
+	&& init_v[loop_num (lca)] == 0)
+      dist_v[loop_num (lca)] = 1;
+    
+    lca = outer_loop (lca);
+    if (lca)
+      while (loop_depth (lca) != 0)
+	{
+	  if (init_v[loop_num (lca)] == 0)
+	    dist_v[loop_num (lca)] = 1;
+	  lca = outer_loop (lca);
+	}
+  }
+  
+  VARRAY_PUSH_GENERIC_PTR (*classic_dist, dist_v);
 }
 
 /* For all the subscripts, set the same value: CHREC.  */
@@ -756,10 +754,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
     {
       if (access_functions_are_affine_or_constant_p (dra)
 	  && access_functions_are_affine_or_constant_p (drb))
-	{
-	  subscript_dependence_tester (ddr);
-	  subscript_coupling_tester (ddr);
-	}
+	subscript_dependence_tester (ddr);
       
       /* As a last case, if the dependence cannot be determined, or if
 	 the dependence is considered too difficult to determine, answer

@@ -1,3 +1,9 @@
+2004-03-25  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* ssa-chrec-10.c.ddall: Classify more access tuples as
+	independent.
+	* ssa-chrec-36.c.ddall: Same.
+
 2004-03-11  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.dg/tree-ssa/20040308-2.c: UnXFAIL.
