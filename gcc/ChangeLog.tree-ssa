@@ -1,3 +1,10 @@
+2004-02-23  Dale Johannesen <dalej@apple.com>
+
+	* config/rs6000/rs6000.md:  Roll in changes from mainline:
+	(movdf_softfloat64):  Add POWER form of nop.
+	(movsf_hardfloat): Ditto, and accept CTR-to-CTR copy.
+	(movdf_hardfloat64):  Ditto.
+	
 2004-02-23  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJC-common): Add tree-ssa-copy.o.
