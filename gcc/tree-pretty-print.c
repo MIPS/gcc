@@ -734,7 +734,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	    else
 	      first = false;
 	    dump_generic_node (buffer, tsi_stmt (si), spc, flags, true);
-	    pp_character (buffer, ';');
 	  }
       }
       break;

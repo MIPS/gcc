@@ -1,3 +1,7 @@
+2003-11-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-pretty-print.c (dump_generic_node): Remove superfluous ';'.
+
 2003-11-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (simple-break-elim.o): Remove.
