@@ -1,3 +1,20 @@
+2003-09-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow.h (struct bb_ann_d): Add erefs array.
+	* tree-ssa-pre.c (handle_bb_creation): Remove ei parameter.
+	Update caller.
+	(struct expr_info): Remove erefs array.
+	(append_eref_to_block): New function.
+	(clear_all_eref_arrays): Ditto.
+	(expr_phi_insertion): Use append_eref_to_block.
+	(insert_occ_in_preorder_dt_order_1): Ditto.
+	(subst_phis): Only copy expression, not the containing EUSE/EPHI.
+	Update all callers to reflect this.
+	(compute_will_be_avail): Update for per-block eref array.
+	(handle_bb_creation): Ditto.
+	(pre_expression): Ditto.
+	(tree_perform_ssapre): Clear eref arrays when done with expression.
+
 2003-09-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (dump_tree_bb): Remove superlfuous newlines.

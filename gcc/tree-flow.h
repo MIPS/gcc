@@ -300,7 +300,11 @@ struct bb_ann_d
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
 
+  /* Chain of EPHI nodes created in this block.  */
   tree ephi_nodes;
+  
+  /* EUSE/ELEFT/EKILL/EPHI nodes created in this block.  */
+  varray_type erefs;
 
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
