@@ -647,7 +647,7 @@ make_switch_expr_edges (basic_block bb)
 basic_block
 label_to_block (tree dest)
 {
-  return VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (dest));
+  return VARRAY_BB (label_to_block_map, LABEL_DECL_UID (dest));
 }
 
 /* Create edges for a goto statement at block BB.  */
@@ -2281,7 +2281,6 @@ stmt_starts_bb_p (tree t, tree prev_t)
   return false;
 }
 
-
 /* Return true if T should end a basic block.  */
 
 static inline bool
@@ -2289,7 +2288,6 @@ stmt_ends_bb_p (tree t)
 {
   return is_ctrl_stmt (t) || is_ctrl_altering_stmt (t);
 }
-
 
 /* Remove all the blocks and edges that make up the flowgraph.  */
 
@@ -2344,19 +2342,33 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
   else
     {
-      stmt_ann_t ann;
+      stmt_ann_t ann = get_stmt_ann (t);
+      ann->bb = bb;
 
       /* If the statement is a label, add the label to block-to-labels map
 	 so that we can speed up edge creation for GOTO_EXPRs.  */
       if (TREE_CODE (t) == LABEL_EXPR)
 	{
-	  LABEL_DECL_INDEX (LABEL_EXPR_LABEL (t))
-	      = VARRAY_ACTIVE_SIZE (label_to_block_map);
-	  VARRAY_PUSH_BB (label_to_block_map, bb);
-	}
+	  long uid;
 
-      ann = get_stmt_ann (t);
-      ann->bb = bb;
+	  t = LABEL_EXPR_LABEL (t);
+	  uid = LABEL_DECL_UID (t);
+	  if (uid == -1)
+	    {
+	      LABEL_DECL_UID (t) = VARRAY_ACTIVE_SIZE (label_to_block_map);
+	      VARRAY_PUSH_BB (label_to_block_map, bb);
+	    }
+	  else
+	    {
+#ifdef ENABLE_CHECKING
+	      /* We're moving an existing label.  Make sure that we've
+		 removed it from the old block.  */
+	      if (bb && VARRAY_BB (label_to_block_map, uid))
+		abort ();
+#endif
+	      VARRAY_BB (label_to_block_map, uid) = bb;
+	    }
+	}
     }
 }
 
@@ -2370,12 +2382,26 @@ bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
   tsi_link_before (&i->tsi, t, m);
 }
 
+/* Insert a statement, or statement list, after the given pointer.  */
+
 void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
   modify_stmt (t);
   tsi_link_after (&i->tsi, t, m);
+}
+
+/* Remove the statement at the given pointer.  The pointer is updated
+   to the next statement.  */
+
+void
+bsi_remove (block_stmt_iterator *i)
+{
+  tree t = bsi_stmt (*i);
+  set_bb_for_stmt (t, NULL);
+  modify_stmt (t);
+  tsi_delink (&i->tsi);
 }
 
 /* Move the statement at FROM so it comes right after the statement at TO.  */

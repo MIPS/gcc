@@ -518,6 +518,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case LABEL_DECL:
       if (DECL_NAME (node))
 	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+      else if (LABEL_DECL_UID (node) != -1)
+        pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
+		   LABEL_DECL_UID (node));
       else
         pp_printf (buffer, "<U%x>", MASK_POINTER (node));
       break;

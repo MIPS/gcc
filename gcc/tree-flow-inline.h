@@ -529,10 +529,4 @@ bsi_stmt_ptr (block_stmt_iterator i)
   return tsi_stmt_ptr (i.tsi);
 }
 
-static inline void
-bsi_remove (block_stmt_iterator *i)
-{
-  tsi_delink (&i->tsi);
-}
-
 #endif /* _TREE_FLOW_INLINE_H  */

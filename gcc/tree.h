@@ -2017,10 +2017,11 @@ struct tree_type GTY(())
 #define DECL_PTA_TYPEVAR(NODE) \
   (DECL_CHECK (NODE)->decl.typevar)
 
-/* Used to map between a label and the block it begins during CFG
-   construction.  Not valid any other time.  */
-#define LABEL_DECL_INDEX(NODE) \
-  (DECL_CHECK (NODE)->decl.pointer_alias_set)
+/* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
+   dense, unique within any one function, and may be used to index arrays.
+   If the value is -1, then no UID has been assigned.  */
+#define LABEL_DECL_UID(NODE) \
+  (LABEL_DECL_CHECK (NODE)->decl.pointer_alias_set)
 
 /* Nonzero if an alias set has been assigned to this declaration.  */
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
