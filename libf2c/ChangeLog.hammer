@@ -1,0 +1,7 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	Wed Mar 12 22:27:14 2003  Andreas Schwab  <schwab@suse.de>
+	* aclocal.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Avoid trailing /. in
+	glibcpp_toolexeclibdir.
+	* configure: Rebuilt.
