@@ -1,3 +1,19 @@
+2004-10-07  Caroline Tice  <ctice@apple.com>
+
+	* cgraphunit.c (comment): Fix function name in comment.
+	(cgraph_finalize_compilation_unit): Modify to not call 
+	cgraph_varpool_assemble_pending_decls if flag_unit_at_a_time is true.
+	(cgraph_mark_nonexportable): New function.
+	(cgraph_optimize): Add call to cgraph_mark_nonexportable.
+	* common.opt (fwhole-program): New compiler option, with new flag
+	flag_whole_program.
+	* opts.c (decode_options): flag_whole_program automatically turns on
+	flag_unit_at_a_time.
+	* struct-reorg.c (whole_program_p): Remove function.
+	(build_data_structure_list): Remove code that tested variable names.
+	(peel_structs): Remove call to whole_program_p; add test of 
+	flag_whole_program.
+
 2004-10-05  Caroline Tice  <ctice@apple.com>
 
 	* c-common.c (disable_typechecking_for_spec_flag): New flag.

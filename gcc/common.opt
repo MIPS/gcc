@@ -930,6 +930,10 @@ fweb
 Common Report Var(flag_web) VarExists
 Construct webs and split unrelated uses of single variable
 
+fwhole-program
+Common Report Var(flag_whole_program)
+Assume entire source program has been passed to cc1 at once
+
 fwrapv
 Common Report Var(flag_wrapv)
 Assume signed arithmetic overflow wraps around

@@ -61,7 +61,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       modify calling conventions, do better inlining or similar optimizations.
 
     - cgraph_assemble_pending_functions
-    - cgraph_varpool_assemble_pending_variables
+    - cgraph_varpool_assemble_pending_decls
 
       In non-unit-at-a-time mode these functions can be used to force compilation
       of functions or variables that are known to be needed at given stage
@@ -765,7 +765,8 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  cgraph_varpool_assemble_pending_decls ();
+  if (!flag_unit_at_a_time)
+    cgraph_varpool_assemble_pending_decls ();
   if (!quiet_flag)
     fprintf (stderr, "\nAnalyzing compilation unit\n");
 
@@ -807,7 +808,8 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
-      cgraph_varpool_assemble_pending_decls ();
+      if (!flag_unit_at_a_time)
+	cgraph_varpool_assemble_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
@@ -1980,6 +1982,43 @@ cgraph_preserve_function_body_p (tree decl)
   return false;
 }
 
+/* Nothing in the current compilation, other than main, should be
+   allowed to be externally visible.  Fix the TREE_PUBLIC field to make
+   this so.  */
+
+static void 
+cgraph_mark_nonexportable (void)
+{
+  struct cgraph_node *c_node;
+  struct cgraph_varpool_node *current_varpool;
+  tree var_decl;
+  
+  for (current_varpool = cgraph_varpool_nodes_queue; current_varpool;
+       current_varpool = current_varpool->next_needed)
+    {
+      
+      var_decl = current_varpool->decl;
+      if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
+	continue;
+      
+      TREE_PUBLIC (var_decl) = 0;
+    }
+
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      tree fn_decl = c_node->decl;
+
+      if ((TREE_STATIC (fn_decl))
+	  && (TREE_PUBLIC (fn_decl)))
+	{
+	  if (strcmp (IDENTIFIER_POINTER (DECL_NAME (fn_decl)), "main")
+	      != 0)
+	    TREE_PUBLIC (fn_decl) = 0;
+	}
+
+    }
+}
+
 /* Perform simple optimizations based on callgraph.  */
 
 void
@@ -1988,6 +2027,9 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
+  if (flag_whole_program)
+    cgraph_mark_nonexportable ();
+
   if (!flag_unit_at_a_time)
     return;
   timevar_push (TV_CGRAPHOPT);

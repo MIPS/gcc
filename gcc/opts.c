@@ -640,6 +640,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
+
+  if (flag_whole_program)
+    flag_unit_at_a_time = 1;
 }
 
 /* Handle target- and language-independent options.  Return zero to

@@ -409,102 +409,6 @@ verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl,
 }
 #endif 
 
-/* This function checks to see if cc1 has been passed all the
-   non-library source files for the program or not.  It does this by
-   going through all the cgraph nodes (assuming there will be at least
-   one for every function called), and making sure the cgraph node
-   function is "ok".  A function is "ok" if: 1). We have the source
-   for it (it is not external, and we have a size count for it; or
-   2). It is a library function (i.e. it's source file name contains
-   either "/usr/include" or "/include/stdlib.h"); or 3). It's source
-   file name is one of the input source files passed to cc1.  */
-
-/* NB:  I have discovered that function calls made through a variable
-   (where the function being called is assigned to the variable) do NOT
-   get cgraph nodes.  I need to use some other mechanism to discover the
-   existence of these functions and verify that we've got the source
-   for them.  I believe such function calls are recorded in cgraph edges
-   out of the function that calls them. (In other words, this function
-   isn't completely right yet.)  */
-
-static bool
-whole_program_p (void)
-{
-  struct cgraph_node *c_node;
-  char *filename;
-  char *fileroot;
-  char *cptr;
-  int i;
-  int len;
-  int rootlen;
-  bool okay;
-
-  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
-    {
-      okay = false;
-      if (DECL_EXTERNAL (c_node->decl)
-	  || (c_node->local.self_insns == 0))
-	{
-	  filename = DECL_SOURCE_FILE (c_node->decl);
-
-	  if (strstr (filename, "/usr/include")
-	      || strstr (filename, "/include/stdlib.h")
-	      || strcmp (filename, "<built-in>") == 0)
-	    okay = true;
-	  else
-	    {
-	  
-	      cptr = strrchr (filename, '/');
-	      if (cptr)
-		{
-		  len = strlen (cptr) + 1;
-		  fileroot = xmalloc (len * sizeof (char));
-		  strcpy (fileroot, cptr);
-		}
-	      else
-		{
-		  len = strlen (filename) + 1;
-		  fileroot = xmalloc (len * sizeof (char));
-		  strcpy (fileroot, filename);
-		}
-	      
-	      cptr = strrchr (fileroot, '.');
-	      if (strcmp (cptr, ".h") == 0)
-		okay = false;
-	      else
-		{
-		  cptr[0] = '\0';
-	      
-		  rootlen = strlen (fileroot);
-		  
-		  for (i = 0; i < num_in_fnames; i++)
-		    {
-		      if (strncmp (in_fnames[i], fileroot, rootlen) == 0)
-			{
-			  cptr = strrchr (in_fnames[i], '.');
-			  if (cptr 
-			      && (strcmp (cptr, ".c") == 0
-				  || strcmp (cptr, ".i") == 0))
-			    {
-			      okay = true;
-			      i = num_in_fnames;
-			    }
-			}
-		    }
-		}
-	    }
-
-	}
-      else
-	okay = true;
-
-      if (! okay)
-	return false;
-    }
-
-  return true;
-}
-
 /* Search the data structure list DS_LIST for a data structure with 
    SDECL declaration return it if found and return NULL otherwise.  */
 static struct data_structure *
@@ -628,24 +532,8 @@ build_data_structure_list (void)
 	{
 	  var_decl = TREE_VALUE (var_list);
 	  if (TREE_CODE (var_decl) == VAR_DECL)
-	    {
-	      /* Eliminate non-local variables referenced.  Non-local
-		 variables have the form <var_name>.<number>  */
-
-	      cptr = strrchr (IDENTIFIER_POINTER (DECL_NAME (var_decl)), '.');
-	      if (cptr)
-		{
-		  cptr++;
-		  while (isdigit (cptr[0]))
-		    {
-		      cptr++;
-		    }
-		  if (cptr != '\0')
-		    break;
-		}
-	      if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
-		data_struct_list = tmp;
-	    }
+	    if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
+	      data_struct_list = tmp;
 	}
     }
   return data_struct_list;
@@ -664,12 +552,13 @@ peel_structs (void)
   /* Verify that this compiler invocation was passed *all* the user-written
      code for this program.  */
   
-  if (!whole_program_p ())
+  if (! flag_whole_program)
     {
       inform 
 	("Whole program not passed to compiler: Can't perform struct peeling.");
       return;
     }
+
   /* Stage 1: Build DATA_STRUCTURE list of the data structures that are valid
      for the transformation.  */
   data_struct_list = build_data_structure_list ();
