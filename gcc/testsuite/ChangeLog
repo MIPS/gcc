@@ -1,3 +1,8 @@
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/17751
+	* gcc.dg/ppc64-toc.c: New test.
+
 2004-11-12  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/18389

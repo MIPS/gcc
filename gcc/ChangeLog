@@ -1,3 +1,11 @@
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/17751
+	* config/rs6000/rs6000.c (rs6000_file_start): Create toc section
+	for AIX ABI or ELF -fPIC.
+	(rs6000_emit_load_toc_table): Don't create toc_section here.
+	(rs6000_xcoff_file_start): Nor here.
+
 2004-11-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* config.gcc (ia64*-*-linux*): If native and libelf is installed,
