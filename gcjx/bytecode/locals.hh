@@ -117,14 +117,15 @@ public:
 
   /// Used when generating debug information.  Write the actual
   /// information.  If the writer is NULL, just enter information into
-  /// the constant pool.
-  void emit (output_constant_pool *, bytecode_stream *);
+  /// the constant pool and return the number of bytes that will be
+  /// emitted.  The final argument is true if we are emitting a
+  /// LocalVariableTypeTable, false if we are emitting a
+  /// LocalVariableTable.
+  int emit (output_constant_pool *, bytecode_stream *, bool);
 
-  /// Return the size of the local variable table attribute.
-  int size ()
-  {
-    return 2 + 10 * valid;
-  }
+  /// Return true if any local variable has a parameterized type (and
+  /// thus a LocalVariableTypeTable is required).
+  bool any_parameterized_p ();
 };
 
 /// This is an class for allocating a temporary local variable.  Usage

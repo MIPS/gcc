@@ -1,3 +1,20 @@
+2005-01-20  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.cc (generate): Add LocalVariableTypeTable if
+	requested.
+	* bytecode/locals.cc (emit): Added 'types' argument.  Changed
+	return type.
+	(any_parameterized_p): New method.
+	* bytecode/locals.hh (locals::emit): Updated.
+	(locals::size): Removed.
+	(locals::any_parameterized_p): Declare.
+	* bytecode/generate.hh (local_variable_table_attribute::use_types):
+	New field.
+	(local_variable_table_attribute::bytes): New field.
+	(local_variable_table_attribute): Updated.  Added new argument.
+	(local_variable_table_attribute::emit): Updated.
+	(local_variable_table_attribute::size): Rewrote.
+
 2005-01-19  Tom Tromey  <tromey@redhat.com>
 
 	* model/annotype.cc (resolve_hook): Allow one interface when read

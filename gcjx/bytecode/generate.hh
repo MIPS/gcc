@@ -191,25 +191,35 @@ class bytecode_generator : public visitor
   {
     locals *vars;
 
+    // True if we're emitting the type table, not the ordinary table.
+    bool use_types;
+
+    // Number of bytes we're going to emit.
+    int bytes;
+
   public:
 
-    local_variable_table_attribute (output_constant_pool *p, locals *v)
-      : bytecode_attribute (p, "LocalVariableTable"),
-	vars (v)
+    local_variable_table_attribute (output_constant_pool *p, locals *v,
+				    bool types)
+      : bytecode_attribute (p, (types ? "LocalVariableTypeTable"
+				: "LocalVariableTable")),
+	vars (v),
+	use_types (types)
     {
-      // This is inefficient, we could cache information.
-      vars->emit (pool, NULL);
+      bytes = vars->emit (pool, NULL, use_types);
+      // We shouldn't make an empty table.
+      assert (bytes > 0);
     }
 
     void emit (bytecode_stream &writer)
     {
       bytecode_attribute::emit (writer);
-      vars->emit (pool, &writer);
+      vars->emit (pool, &writer, use_types);
     }
 
     int size ()
     {
-      return vars->size ();
+      return bytes;
     }
   };
 

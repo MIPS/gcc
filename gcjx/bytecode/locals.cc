@@ -159,8 +159,29 @@ locals::update ()
   return valid > 0;
 }
 
-void
-locals::emit (output_constant_pool *pool, bytecode_stream *out)
+bool
+locals::any_parameterized_p ()
+{
+  for (std::list<debug_info>::iterator i = var_descriptions.begin ();
+       i != var_descriptions.end ();
+       ++i)
+    {
+      debug_info &info (*i);
+      if (! info.start->live_p () || info.start == info.end)
+	continue;
+
+      model_type *t = info.variable->type ();
+      if (t->erasure () == t)
+	continue;
+
+      return true;
+    }
+  return false;
+}
+
+int
+locals::emit (output_constant_pool *pool, bytecode_stream *out,
+	      bool types)
 {
   int count = 0;
   for (std::list<debug_info>::iterator i = var_descriptions.begin ();
@@ -171,12 +192,16 @@ locals::emit (output_constant_pool *pool, bytecode_stream *out)
       if (! info.start->live_p () || info.start == info.end)
 	continue;
 
+      model_type *t = info.variable->type ();
+      if (types && t->erasure () == t)
+	continue;
+
       ++count;
       if (! out)
 	{
 	  // Make sure these are in the pool.
 	  pool->add_utf (info.variable->get_name ());
-	  pool->add_utf (info.variable->type ()->get_descriptor ());
+	  pool->add_utf (types ? t->get_signature () : t->get_descriptor ());
 	}
     }
 
@@ -184,7 +209,7 @@ locals::emit (output_constant_pool *pool, bytecode_stream *out)
   assert (count > 0);
 
   if (! out)
-    return;
+    return 2 + 10 * count;
 
   out->put2 (count);
   for (std::list<debug_info>::const_iterator i = var_descriptions.begin ();
@@ -195,10 +220,19 @@ locals::emit (output_constant_pool *pool, bytecode_stream *out)
       if (! info.start->live_p () || info.start == info.end)
 	continue;
 
+      model_type *t = info.variable->type ();
+      if (types && t->erasure () == t)
+	continue;
+
       out->put2 (info.start->get_pc ());
       out->put2 (info.end->get_pc () - info.start->get_pc ());
       out->put2 (pool->add_utf (info.variable->get_name ()));
-      out->put2 (pool->add_utf (info.variable->type ()->get_descriptor ()));
+      out->put2 (pool->add_utf (types ? t->get_signature ()
+				: t->get_descriptor ()));
       out->put2 (info.index);
     }
+
+  // The return value here doesn't matter, but we might as well be
+  // correct.
+  return 2 + 10 * count;
 }

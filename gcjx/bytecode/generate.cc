@@ -178,8 +178,14 @@ bytecode_generator::generate ()
 	attributes.push_back (new line_table_attribute (cpool, this));
 
       if (vars.update ())
-	attributes.push_back (new local_variable_table_attribute (cpool,
-								  &vars));
+	{
+	  attributes.push_back (new local_variable_table_attribute (cpool,
+								    &vars,
+								    false));
+	  if (global->get_compiler ()->target_15 ()
+	      && vars.any_parameterized_p ())
+	    attributes.push_back (new local_variable_table_attribute (cpool, &vars, true));
+	}
     }
 }
 
