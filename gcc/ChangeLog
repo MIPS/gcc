@@ -1,3 +1,7 @@
+2004-06-15  Paul Brook  <paul@codesourcery.com>
+
+	* dwarf2out.c (output_call_frame_info): Support dwarf3 cie entries.
+
 2004-05-28  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_output_epilogue): Remove redundant code.
