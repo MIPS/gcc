@@ -70,7 +70,7 @@ struct ref
   rtx *loc;			/* Loc is the location of the reg.  */
   struct df_link *chain;	/* Head of def-use or use-def chain.  */
   enum df_ref_type type;	/* Type of ref.  */
-  int id;			/* Ref index.  */
+  unsigned int id;		/* Ref index.  */
   enum df_ref_flags flags;	/* Various flags.  */
 };
 

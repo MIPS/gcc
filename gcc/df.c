@@ -1391,7 +1391,7 @@ df_bb_reg_def_chain_create (df, bb)
           /* Don't add ref's to the chain two times.  I.e. only add
              new refs.  XXX the same could be done by testing if the current
              insn is a modified (or a new) one.  This would be faster.  */
-          if ((unsigned) DF_REF_ID (def) < df->def_id_save)
+          if (DF_REF_ID (def) < df->def_id_save)
             continue;
 
 	  df->regs[dregno].defs
@@ -1445,7 +1445,7 @@ df_bb_reg_use_chain_create (df, bb)
           /* Don't add ref's to the chain two times.  I.e. only add
              new refs.  XXX the same could be done by testing if the current
              insn is a modified (or a new) one.  This would be faster.  */
-          if ((unsigned) DF_REF_ID (use) < df->use_id_save)
+          if (DF_REF_ID (use) < df->use_id_save)
             continue;
 
 	  df->regs[uregno].uses

@@ -1,3 +1,21 @@
+2002-06-20  Michael Matz  <matz@suse.de>
+
+	Split ra.c into ra.c, ra.h, ra-build.c, ra-colorize.c, ra-debug.c,
+	ra-ranges.c and ra-rewrite.c.
+
+	* df.h (struct ref.id): Make unsigned.
+	* df.c (df_bb_reg_def_chain_create): Remove unsigned cast.
+	* ra.c (regs_overlap_p): Removed.
+	(realloc_mem, free_mem, free_all_mem): Split out into ...
+	* ra-build.c (ra_build_realloc, ra_build_free,
+	ra_build_free_all): ... here ...
+	* ra_colorize.c (ra_colorize_free_all): ... and here.
+	(ra_colorize_init, ra_colorize_graph): New.
+	* ra-rewrite.c (ra_rewrite_init): New.
+	* Makefile.in (ra-build.o, ra-colorize.o, ra-debug.o, ra-rewrite.o):
+	New targets.
+	(libbackend.a): Link them in.
+
 2002-06-20  Hartmut Penner <HPENNER@de.ibm.com>
 
 	* df.c (df_uses_record): Fix pasto.

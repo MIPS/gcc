@@ -735,7 +735,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
- ra.o pre-reload.o \
+ ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o pre-reload.o \
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1626,7 +1626,15 @@ dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H)
 ra.o : ra.c df.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  insn-config.h $(REGS_H) \
-   $(TM_P_H) reload.h
+   $(TM_P_H) reload.h ra.h
+ra-build.o : ra-build.c df.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  insn-config.h \
+   $(REGS_H) $(TM_P_H) reload.h ra.h
+ra-colorize.o : ra-colorize.c df.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+    insn-config.h $(REGS_H) $(TM_P_H) reload.h ra.h
+ra-debug.o : ra-debug.c df.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  insn-config.h \
+   $(REGS_H) $(TM_P_H) reload.h ra.h
+ra-rewrite.o : ra-rewrite.c df.h $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
+   insn-config.h $(REGS_H) $(TM_P_H) reload.h ra.h
 pre-reload.o : pre-reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) real.h flags.h \
    $(EXPR_H) reload.h $(REGS_H) hard-reg-set.h insn-config.h pre-reload.h \
    $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h \
