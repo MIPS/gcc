@@ -911,7 +911,9 @@ df_def_record_1 (df, x, bb, insn)
      basic_block bb;
      rtx insn;
 {
-  rtx *loc = &SET_DEST (x);
+  /* We may recursivly call ourselves on EXPR_LIST when dealing with PARALLEL
+     construct.  */
+  rtx *loc = GET_CODE (x) == EXPR_LIST ? &XEXP (x, 0) : &SET_DEST (x);
   rtx dst = *loc;
   enum df_ref_flags flags = 0;
 
