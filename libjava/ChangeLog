@@ -1,3 +1,10 @@
+2004-02-18  Olga Rodimina  <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(drawRaster): Fixed small error that caused
+	imageToUser transformation to be set incorrectly.
+	(toString): Implemented.
+
 2004-02-18  David Jee  <djee@redhat.com>
 
 	* java/awt/CardLayout.java

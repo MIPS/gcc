@@ -850,7 +850,7 @@ public class GdkGraphics2D extends Graphics2D
       {
         i2u[0] = 1; i2u[1] = 0;
         i2u[2] = 0; i2u[3] = 1;
-        i2u[2] = 0; i2u[3] = 0;
+        i2u[4] = 0; i2u[5] = 0;
       }
 
     int pixels[] = null;
@@ -1374,7 +1374,9 @@ public class GdkGraphics2D extends Graphics2D
 
   public String toString()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    return  getClass ().getName () +
+            "[font=" + font.toString () +
+            ",color=" + fg.toString () + "]";
   }
 
 }
