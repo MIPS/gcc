@@ -241,7 +241,7 @@ static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
 						    basic_block, tree);
 static bool eliminate_redundant_computations (struct dom_walk_data *,
 					      tree, stmt_ann_t);
-static void record_equivalences_from_stmt (tree, varray_type *, varray_type *,
+static void record_equivalences_from_stmt (tree, struct dom_walk_block_data *,
 					   int, stmt_ann_t);
 static void thread_across_edge (struct dom_walk_data *, edge);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
@@ -1279,9 +1279,8 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
       /* If we managed to iterate through each PHI alternative without
 	 breaking out of the loop, then we have a PHI which may create
 	 a useful equivalence.  */
-      if (i == PHI_NUM_ARGS (phi)
-	  && may_propagate_copy (lhs, rhs))
-	set_value_for (lhs, rhs, const_and_copies);
+      if (i == PHI_NUM_ARGS (phi) && may_propagate_copy (lhs, rhs))
+	record_const_or_copy (lhs, rhs, &bd->const_and_copies);
 
       register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
 			&bd->block_defs, currdefs);
@@ -2498,8 +2497,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 
 static void
 record_equivalences_from_stmt (tree stmt,
-			       varray_type *block_avail_exprs_p,
-			       varray_type *block_nonzero_vars_p,
+			       struct dom_walk_block_data *bd,
 			       int may_optimize_p,
 			       stmt_ann_t ann)
 {
@@ -2519,7 +2517,7 @@ record_equivalences_from_stmt (tree stmt,
       if (may_optimize_p
 	  && (TREE_CODE (rhs) == SSA_NAME
 	      || is_gimple_min_invariant (rhs)))
-	set_value_for (lhs, rhs, const_and_copies);
+	record_const_or_copy (lhs, rhs, &bd->const_and_copies);
 
       /* alloca never returns zero and the address of a non-weak symbol
 	 is never zero.  NOP_EXPRs and CONVERT_EXPRs can be completely
@@ -2532,14 +2530,14 @@ record_equivalences_from_stmt (tree stmt,
           || (TREE_CODE (rhs) == ADDR_EXPR
 	      && DECL_P (TREE_OPERAND (rhs, 0))
 	      && ! DECL_WEAK (TREE_OPERAND (rhs, 0))))
-	record_var_is_nonzero (lhs, block_nonzero_vars_p);
+	record_var_is_nonzero (lhs, &bd->nonzero_vars);
 
       /* IOR of any value with a nonzero value will result in a nonzero
 	 value.  Even if we do not know the exact result recording that
 	 the result is nonzero is worth the effort.  */
       if (TREE_CODE (rhs) == BIT_IOR_EXPR
 	  && integer_nonzerop (TREE_OPERAND (rhs, 1)))
-	record_var_is_nonzero (lhs, block_nonzero_vars_p);
+	record_var_is_nonzero (lhs, &bd->nonzero_vars);
     }
 
   /* Look at both sides for pointer dereferences.  If we find one, then
@@ -2561,7 +2559,7 @@ record_equivalences_from_stmt (tree stmt,
 	  /* If the pointer is a SSA variable, then enter new
 	     equivalences into the hash table.  */
 	  if (TREE_CODE (op) == SSA_NAME)
-	    record_var_is_nonzero (op, block_nonzero_vars_p);
+	    record_var_is_nonzero (op, &bd->nonzero_vars);
 	}
     }
 
@@ -2628,7 +2626,7 @@ record_equivalences_from_stmt (tree stmt,
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
-	  lookup_avail_expr (new, block_avail_exprs_p, true);
+	  lookup_avail_expr (new, &bd->avail_exprs, true);
 	}
     }
 }
@@ -2725,11 +2723,7 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 
   /* Record any additional equivalences created by this statement.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
-    record_equivalences_from_stmt (stmt,
-				   &bd->avail_exprs,
-				   &bd->nonzero_vars,
-				   may_optimize_p,
-				   ann);
+    record_equivalences_from_stmt (stmt, bd, may_optimize_p, ann);
 
   register_definitions_for_stmt (stmt, &bd->block_defs);
 
