@@ -46,7 +46,6 @@ static void set_block_levels		PARAMS ((tree, int));
 static void change_scope		PARAMS ((rtx, tree, tree));
 
 void verify_insn_chain			PARAMS ((void));
-static void fixup_fallthru_exit_predecessor PARAMS ((void));
 static void cleanup_unconditional_jumps	PARAMS ((struct loops *));
 static rtx unlink_insn_chain PARAMS ((rtx, rtx));
 static rtx duplicate_insn_chain PARAMS ((rtx, rtx));
@@ -357,7 +356,7 @@ scope_to_insns_finalize ()
 static void
 fixup_reorder_chain ()
 {
-  basic_block bb;
+  basic_block bb, last_bb;
   int index;
   rtx insn = NULL;
 
@@ -368,6 +367,7 @@ fixup_reorder_chain ()
        bb != 0;
        bb = RBI (bb)->next, index++)
     {
+      last_bb = bb;
       if (RBI (bb)->header)
 	{
 	  if (insn)
@@ -429,6 +429,30 @@ fixup_reorder_chain ()
 	  e_fall = e;
 	else if (! (e->flags & EDGE_EH))
 	  e_taken = e;
+
+      /* In case we need to create edge into exit block,
+	 we must ensure empty basic block to be last in the
+	 instruction chain and redirect the edge there.  */
+      if (e_fall && e_fall->dest == EXIT_BLOCK_PTR
+	  && bb != last_bb)
+	{
+	  if (!forwarder_block_p (last_bb)
+	      || last_bb->succ->dest != EXIT_BLOCK_PTR)
+	    {
+	      edge ne;
+	      nb = create_basic_block (n_basic_blocks, NULL_RTX, NULL_RTX);
+	      ne = make_edge (nb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+	      ne->probability = REG_BR_PROB_BASE;
+	      alloc_aux_for_block (nb, sizeof (struct reorder_block_def));
+	      RBI (nb)->visited = 1;
+	      RBI (last_bb)->next = nb;
+	      last_bb = nb;
+	    }
+	  redirect_edge_succ_nodup (e_fall, last_bb);
+	  last_bb->frequency += EDGE_FREQUENCY (e_fall);
+	  last_bb->count += e_fall->count;
+	  last_bb->succ->count += e_fall->count;
+	}
 
       bb_end_insn = bb->end;
       if (GET_CODE (bb_end_insn) == JUMP_INSN)
@@ -668,33 +692,6 @@ cleanup_unconditional_jumps (loops)
     }
 }
 
-/* The block falling through to exit must be the last one in the
-   reordered chain.  Ensure that this condition is met.  */
-static void
-fixup_fallthru_exit_predecessor ()
-{
-  edge e;
-  basic_block bb = NULL;
-
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
-    if (e->flags & EDGE_FALLTHRU)
-      bb = e->src;
-
-  if (bb && RBI (bb)->next)
-    {
-      basic_block c = BASIC_BLOCK (0);
-
-      while (RBI (c)->next != bb)
-	c = RBI (c)->next;
-
-      RBI (c)->next = RBI (bb)->next;
-      while (RBI (c)->next)
-	c = RBI (c)->next;
-
-      RBI (c)->next = bb;
-      RBI (bb)->next = NULL;
-    }
-}
 
 /* Return true in case it is possible to duplicate the basic block BB.  */
 
@@ -703,16 +700,9 @@ cfg_layout_can_duplicate_bb_p (bb)
      basic_block bb;
 {
   rtx next;
-  edge s;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
     return false;
-
-  /* Duplicating fallthru block to exit would require adding an jump
-     and splitting the real last BB.  */
-  for (s = bb->succ; s; s = s->succ_next)
-    if (s->dest == EXIT_BLOCK_PTR && s->flags & EDGE_FALLTHRU)
-       return false;
 
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is dificult to do, as the instructions
@@ -976,7 +966,6 @@ cfg_layout_initialize (loops)
 void
 cfg_layout_finalize ()
 {
-  fixup_fallthru_exit_predecessor ();
   fixup_reorder_chain ();
 
 #ifdef ENABLE_CHECKING
