@@ -76,7 +76,7 @@ const char *const built_in_names[(int) END_BUILTINS] =
 tree built_in_decls[(int) END_BUILTINS];
 /* Declarations used when constructing the builtin implicitly in the compiler.
    It may be NULL_TREE when this is invalid (for instance runtime is not
-   required to implement the function call in all cases.  */
+   required to implement the function call in all cases).  */
 tree implicit_built_in_decls[(int) END_BUILTINS];
 
 static int get_pointer_alignment	PARAMS ((tree, unsigned int));
@@ -110,23 +110,9 @@ static rtx expand_builtin_va_end	PARAMS ((tree));
 static rtx expand_builtin_va_copy	PARAMS ((tree));
 static rtx expand_builtin_memcmp	PARAMS ((tree, tree, rtx,
 						 enum machine_mode));
-static rtx expand_builtin_strcmp	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strncmp	PARAMS ((tree, rtx,
-						 enum machine_mode));
 static rtx builtin_memcpy_read_str	PARAMS ((PTR, HOST_WIDE_INT,
 						 enum machine_mode));
-static rtx expand_builtin_strcat	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strncat	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strspn	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strcspn	PARAMS ((tree, rtx,
-						 enum machine_mode));
 static rtx expand_builtin_memcpy	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strcpy	PARAMS ((tree, rtx,
 						 enum machine_mode));
 static rtx builtin_strncpy_read_str	PARAMS ((PTR, HOST_WIDE_INT,
 						 enum machine_mode));
@@ -140,18 +126,9 @@ static rtx expand_builtin_memset	PARAMS ((tree, rtx,
 						 enum machine_mode));
 static rtx expand_builtin_bzero		PARAMS ((tree));
 static rtx expand_builtin_strlen	PARAMS ((tree, rtx));
-static rtx expand_builtin_strstr	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strpbrk	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strchr	PARAMS ((tree, rtx,
-						 enum machine_mode));
-static rtx expand_builtin_strrchr	PARAMS ((tree, rtx,
-						 enum machine_mode));
 static rtx expand_builtin_alloca	PARAMS ((tree, rtx));
 static rtx expand_builtin_unop		PARAMS ((tree, rtx, rtx, optab));
 static rtx expand_builtin_frame_address	PARAMS ((tree));
-static rtx expand_builtin_fputs		PARAMS ((tree, int, int));
 static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
 static tree fold_builtin_constant_p	PARAMS ((tree));
@@ -160,6 +137,20 @@ static tree fold_builtin_inf		PARAMS ((tree, int));
 static tree fold_builtin_nan		PARAMS ((tree, tree, int));
 static int validate_arglist		PARAMS ((tree, ...));
 static tree fold_trunc_transparent_mathfn PARAMS ((tree));
+static tree simplify_builtin_memcmp	PARAMS ((tree));
+static tree simplify_builtin_strcmp	PARAMS ((tree));
+static tree simplify_builtin_strpbrk	PARAMS ((tree));
+static tree simplify_builtin_strstr	PARAMS ((tree));
+static tree simplify_builtin_strchr	PARAMS ((tree));
+static tree simplify_builtin_strrchr	PARAMS ((tree));
+static tree simplify_builtin_strcpy	PARAMS ((tree));
+static tree simplify_builtin_strncpy	PARAMS ((tree));
+static tree simplify_builtin_strncmp	PARAMS ((tree));
+static tree simplify_builtin_strcat	PARAMS ((tree));
+static tree simplify_builtin_strncat	PARAMS ((tree));
+static tree simplify_builtin_strspn	PARAMS ((tree));
+static tree simplify_builtin_strcspn	PARAMS ((tree));
+static tree simplify_builtin_fputs	PARAMS ((tree, int, int));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -2012,15 +2003,26 @@ expand_builtin_strlen (exp, target)
     }
 }
 
-/* Expand a call to the strstr builtin.  Return 0 if we failed the
-   caller should emit a normal call, otherwise try to get the result
-   in TARGET, if convenient (and in mode MODE if that's convenient).  */
+/* Simplify a call to the strstr builtin.
 
-static rtx
-expand_builtin_strstr (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strstr (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -2039,17 +2041,16 @@ expand_builtin_strstr (arglist, target, mode)
 	{
 	  const char *r = strstr (p1, p2);
 
-	  if (r == NULL)
-	    return const0_rtx;
-
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
-			      target, mode, EXPAND_NORMAL);
+	  if (r == NULL)
+	    return integer_zero_node;
+	  else
+	    return fold (build (PLUS_EXPR, TREE_TYPE (s1),
+				s1, ssize_int (r - p1)));
 	}
 
       if (p2[0] == '\0')
-	return expand_expr (s1, target, mode, EXPAND_NORMAL);
+	return s1;
 
       if (p2[1] != '\0')
 	return 0;
@@ -2060,23 +2061,32 @@ expand_builtin_strstr (arglist, target, mode)
 
       /* New argument list transforming strstr(s1, s2) to
 	 strchr(s1, s2[0]).  */
-      arglist =
-	build_tree_list (NULL_TREE, build_int_2 (p2[0], 0));
+      arglist = build_tree_list (NULL_TREE, build_int_2 (p2[0], 0));
       arglist = tree_cons (NULL_TREE, s1, arglist);
-      return expand_expr (build_function_call_expr (fn, arglist),
-			  target, mode, EXPAND_NORMAL);
+      return build_function_call_expr (fn, arglist);
     }
 }
 
-/* Expand a call to the strchr builtin.  Return 0 if we failed the
-   caller should emit a normal call, otherwise try to get the result
-   in TARGET, if convenient (and in mode MODE if that's convenient).  */
+/* Simplify a call to the strstr builtin.
 
-static rtx
-expand_builtin_strchr (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strchr (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -2100,12 +2110,11 @@ expand_builtin_strchr (arglist, target, mode)
 	  r = strchr (p1, c);
 
 	  if (r == NULL)
-	    return const0_rtx;
+	    return integer_zero_node;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
-			      target, mode, EXPAND_NORMAL);
+	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, ssize_int (r - p1)));
 	}
 
       /* FIXME: Should use here strchrM optab so that ports can optimize
@@ -2114,15 +2123,26 @@ expand_builtin_strchr (arglist, target, mode)
     }
 }
 
-/* Expand a call to the strrchr builtin.  Return 0 if we failed the
-   caller should emit a normal call, otherwise try to get the result
-   in TARGET, if convenient (and in mode MODE if that's convenient).  */
+/* Simplify a call to the strrchr builtin.
 
-static rtx
-expand_builtin_strrchr (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strrchr (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return 0;
@@ -2147,12 +2167,11 @@ expand_builtin_strrchr (arglist, target, mode)
 	  r = strrchr (p1, c);
 
 	  if (r == NULL)
-	    return const0_rtx;
+	    return integer_zero_node;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
-			      target, mode, EXPAND_NORMAL);
+	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, ssize_int (r - p1)));
 	}
 
       if (! integer_zerop (s2))
@@ -2163,20 +2182,30 @@ expand_builtin_strrchr (arglist, target, mode)
 	return 0;
 
       /* Transform strrchr(s1, '\0') to strchr(s1, '\0').  */
-      return expand_expr (build_function_call_expr (fn, arglist),
-			  target, mode, EXPAND_NORMAL);
+      return build_function_call_expr (fn, arglist);
     }
 }
 
-/* Expand a call to the strpbrk builtin.  Return 0 if we failed the
-   caller should emit a normal call, otherwise try to get the result
-   in TARGET, if convenient (and in mode MODE if that's convenient).  */
+/* Simplify a call to the strpbrk builtin.
 
-static rtx
-expand_builtin_strpbrk (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strpbrk (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -2196,12 +2225,11 @@ expand_builtin_strpbrk (arglist, target, mode)
 	  const char *r = strpbrk (p1, p2);
 
 	  if (r == NULL)
-	    return const0_rtx;
+	    return integer_zero_node;
 
 	  /* Return an offset into the constant string argument.  */
-	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
-			      target, mode, EXPAND_NORMAL);
+	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
+			      s1, ssize_int (r - p1)));
 	}
 
       if (p2[0] == '\0')
@@ -2209,8 +2237,7 @@ expand_builtin_strpbrk (arglist, target, mode)
 	  /* strpbrk(x, "") == NULL.
 	     Evaluate and ignore the arguments in case they had
 	     side-effects.  */
-	  expand_expr (s1, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return const0_rtx;
+	  return build (COMPOUND_EXPR, void_type_node, s1, integer_zero_node);
 	}
 
       if (p2[1] != '\0')
@@ -2225,8 +2252,7 @@ expand_builtin_strpbrk (arglist, target, mode)
       arglist =
 	build_tree_list (NULL_TREE, build_int_2 (p2[0], 0));
       arglist = tree_cons (NULL_TREE, s1, arglist);
-      return expand_expr (build_function_call_expr (fn, arglist),
-			  target, mode, EXPAND_NORMAL);
+      return build_function_call_expr (fn, arglist);
     }
 }
 
@@ -2338,18 +2364,27 @@ expand_builtin_memcpy (arglist, target, mode)
     }
 }
 
-/* Expand expression EXP, which is a call to the strcpy builtin.  Return 0
-   if we failed the caller should emit a normal call, otherwise try to get
-   the result in TARGET, if convenient (and in mode MODE if that's
-   convenient).  */
+/* Simplify a call to the strcpy builtin.
 
-static rtx
-expand_builtin_strcpy (exp, target, mode)
-     tree exp;
-     rtx target;
-     enum machine_mode mode;
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcpy (arglist)
+     tree arglist;
 {
-  tree arglist = TREE_OPERAND (exp, 1);
   tree fn, len;
 
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
@@ -2365,8 +2400,7 @@ expand_builtin_strcpy (exp, target, mode)
 
   len = size_binop (PLUS_EXPR, len, ssize_int (1));
   chainon (arglist, build_tree_list (NULL_TREE, len));
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      target, mode, EXPAND_NORMAL);
+  return build_function_call_expr (fn, arglist);
 }
 
 /* Callback routine for store_by_pieces.  Read GET_MODE_BITSIZE (MODE)
@@ -2387,8 +2421,68 @@ builtin_strncpy_read_str (data, offset, mode)
   return c_readstr (str + offset, mode);
 }
 
-/* Expand expression EXP, which is a call to the strncpy builtin.  Return 0
-   if we failed the caller should emit a normal call.  */
+/* Simplify a call to the strncpy builtin.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strncpy (arglist)
+     tree arglist;
+{
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      tree slen = c_strlen (TREE_VALUE (TREE_CHAIN (arglist)));
+      tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      tree fn;
+
+      /* We must be passed a constant len parameter.  */
+      if (TREE_CODE (len) != INTEGER_CST)
+	return 0;
+
+      /* If the len parameter is zero, return the dst parameter.  */
+      if (integer_zerop (len))
+	{
+	  /* Evaluate and ignore the src argument in case it has
+	     side-effects and return the dst parameter.  */
+	  return build (COMPOUND_EXPR, void_type_node,
+			TREE_VALUE (TREE_CHAIN (arglist)),
+			TREE_VALUE (arglist));
+	}
+
+      /* Now, we must be passed a constant src ptr parameter.  */
+      if (slen == 0 || TREE_CODE (slen) != INTEGER_CST)
+	return 0;
+
+      slen = size_binop (PLUS_EXPR, slen, ssize_int (1));
+
+      /* We do not support simplification of this case, though we do
+         support it when expanding trees into RTL.  */
+      if (tree_int_cst_lt (slen, len))
+	return 0;
+
+      /* OK transform into builtin memcpy.  */
+      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+      if (!fn)
+	return 0;
+      return build_function_call_expr (fn, arglist);
+    }
+}
 
 static rtx
 expand_builtin_strncpy (arglist, target, mode)
@@ -2664,17 +2758,26 @@ expand_builtin_bzero (exp)
   return result;
 }
 
-/* Expand expression EXP, which is a call to the memcmp or the strcmp builtin.
-   ARGLIST is the argument list for this call.  Return 0 if we failed and the
-   caller should emit a normal call, otherwise try to get the result in
-   TARGET, if convenient (and in mode MODE, if that's convenient).  */
+/* Simplify a call to the memcmp builtin.
 
-static rtx
-expand_builtin_memcmp (exp, arglist, target, mode)
-     tree exp ATTRIBUTE_UNUSED;
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_memcmp (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   tree arg1, arg2, len;
   const char *p1, *p2;
@@ -2692,9 +2795,9 @@ expand_builtin_memcmp (exp, arglist, target, mode)
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
          side-effects.  */
-      expand_expr (arg1, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      expand_expr (arg2, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      return const0_rtx;
+      return build (COMPOUND_EXPR, void_type_node, arg1,
+		    build (COMPOUND_EXPR, void_type_node,
+			   arg2, integer_zero_node));
     }
 
   p1 = c_getstr (arg1);
@@ -2708,7 +2811,9 @@ expand_builtin_memcmp (exp, arglist, target, mode)
     {
       const int r = memcmp (p1, p2, tree_low_cst (len, 1));
 
-      return (r < 0 ? constm1_rtx : (r > 0 ? const1_rtx : const0_rtx));
+      return (r < 0
+	      ? integer_minus_one_node
+	      : (r > 0 ? integer_one_node : integer_zero_node));
     }
 
   /* If len parameter is one, return an expression corresponding to
@@ -2725,9 +2830,53 @@ expand_builtin_memcmp (exp, arglist, target, mode)
       fold (build1 (CONVERT_EXPR, integer_type_node,
 		    build1 (INDIRECT_REF, cst_uchar_node,
 			    build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
-      return expand_expr (result, target, mode, EXPAND_NORMAL);
+      return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
+
+  return 0;
+}
+
+/* Expand expression EXP, which is a call to the memcmp or the strcmp builtin.
+   ARGLIST is the argument list for this call.  Return 0 if we failed and the
+   caller should emit a normal call, otherwise try to get the result in
+   TARGET, if convenient (and in mode MODE, if that's convenient).  */
+
+static rtx
+expand_builtin_memcmp (exp, arglist, target, mode)
+     tree exp ATTRIBUTE_UNUSED;
+     tree arglist;
+     rtx target;
+     enum machine_mode mode;
+{
+  tree arg1, arg2, len, new;
+
+  new = simplify_builtin_memcmp (arglist);
+  if (new)
+    {
+      /* First deal with any arguments which need to be expanded
+	 merely to deal with any side effects they may have.  */
+      while (TREE_CODE (new) == COMPOUND_EXPR)
+	{
+	  expand_expr (TREE_OPERAND (new, 0), const0_rtx,
+		       VOIDmode, EXPAND_NORMAL);
+	  new = TREE_OPERAND (new, 1);
+	}
+
+      /* At this point NEW contains either the result of the
+	 builtin call (if it was a compile-time constant) or
+	 a new CALL_EXPR to another builtin function.  Expand
+	 it and return the RTX for the result.  */
+      return expand_expr (new, target, mode, EXPAND_NORMAL);
+    }
+  else if (!validate_arglist (arglist,
+			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  /* If we were unable to simplify the builtin, there may be a target
+     insn which implements cmpstrsi that we can use.  */
+  arg1 = TREE_VALUE (arglist);
+  arg2 = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
 #ifdef HAVE_cmpstrsi
   {
@@ -2790,17 +2939,27 @@ expand_builtin_memcmp (exp, arglist, target, mode)
   return 0;
 }
 
-/* Expand expression EXP, which is a call to the strcmp builtin.  Return 0
-   if we failed the caller should emit a normal call, otherwise try to get
-   the result in TARGET, if convenient.  */
+/* Simplify a call to the strcmp builtin.
 
-static rtx
-expand_builtin_strcmp (exp, target, mode)
-     tree exp;
-     rtx target;
-     enum machine_mode mode;
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcmp (arglist)
+     tree arglist;
 {
-  tree arglist = TREE_OPERAND (exp, 1);
   tree arg1, arg2, len, len2, fn;
   const char *p1, *p2;
 
@@ -2816,7 +2975,9 @@ expand_builtin_strcmp (exp, target, mode)
   if (p1 && p2)
     {
       const int i = strcmp (p1, p2);
-      return (i < 0 ? constm1_rtx : (i > 0 ? const1_rtx : const0_rtx));
+      return (i < 0
+	      ? integer_minus_one_node
+	      : (i > 0 ? integer_one_node : integer_zero_node));
     }
 
   /* If either arg is "", return an expression corresponding to
@@ -2833,8 +2994,7 @@ expand_builtin_strcmp (exp, target, mode)
 	fold (build1 (CONVERT_EXPR, integer_type_node,
 		      build1 (INDIRECT_REF, cst_uchar_node,
 			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
-      return expand_expr (result, target, mode, EXPAND_NORMAL);
+      return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
   len = c_strlen (arg1);
@@ -2878,21 +3038,30 @@ expand_builtin_strcmp (exp, target, mode)
     return 0;
 
   chainon (arglist, build_tree_list (NULL_TREE, len));
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      target, mode, EXPAND_NORMAL);
+  return build_function_call_expr (fn, arglist);
 }
 
-/* Expand expression EXP, which is a call to the strncmp builtin.  Return 0
-   if we failed the caller should emit a normal call, otherwise try to get
-   the result in TARGET, if convenient.  */
+/* Simplify a call to the strncmp builtin.
 
-static rtx
-expand_builtin_strncmp (exp, target, mode)
-     tree exp;
-     rtx target;
-     enum machine_mode mode;
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strncmp (arglist)
+     tree arglist;
 {
-  tree arglist = TREE_OPERAND (exp, 1);
   tree fn, newarglist, len = 0;
   tree arg1, arg2, arg3;
   const char *p1, *p2;
@@ -2910,9 +3079,9 @@ expand_builtin_strncmp (exp, target, mode)
     {
       /* Evaluate and ignore arg1 and arg2 in case they have
 	 side-effects.  */
-      expand_expr (arg1, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      expand_expr (arg2, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      return const0_rtx;
+      return build (COMPOUND_EXPR, void_type_node, arg1,
+		    build (COMPOUND_EXPR, void_type_node,
+			   arg2, integer_zero_node));
     }
 
   p1 = c_getstr (arg1);
@@ -2922,7 +3091,9 @@ expand_builtin_strncmp (exp, target, mode)
   if (host_integerp (arg3, 1) && p1 && p2)
     {
       const int r = strncmp (p1, p2, tree_low_cst (arg3, 1));
-      return (r < 0 ? constm1_rtx : (r > 0 ? const1_rtx : const0_rtx));
+      return (r < 0
+	      ? integer_minus_one_node
+	      : (r > 0 ? integer_one_node : integer_zero_node));
     }
 
   /* If len == 1 or (either string parameter is "" and (len >= 1)),
@@ -2942,8 +3113,7 @@ expand_builtin_strncmp (exp, target, mode)
 	fold (build1 (CONVERT_EXPR, integer_type_node,
 		      build1 (INDIRECT_REF, cst_uchar_node,
 			      build1 (NOP_EXPR, cst_uchar_ptr_node, arg2))));
-      tree result = fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
-      return expand_expr (result, target, mode, EXPAND_NORMAL);
+      return fold (build (MINUS_EXPR, integer_type_node, ind1, ind2));
     }
 
   /* If c_strlen can determine an expression for one of the string
@@ -2980,19 +3150,29 @@ expand_builtin_strncmp (exp, target, mode)
   newarglist = build_tree_list (NULL_TREE, len);
   newarglist = tree_cons (NULL_TREE, arg2, newarglist);
   newarglist = tree_cons (NULL_TREE, arg1, newarglist);
-  return expand_expr (build_function_call_expr (fn, newarglist),
-		      target, mode, EXPAND_NORMAL);
+  return build_function_call_expr (fn, newarglist);
 }
 
-/* Expand expression EXP, which is a call to the strcat builtin.
-   Return 0 if we failed the caller should emit a normal call,
-   otherwise try to get the result in TARGET, if convenient.  */
+/* Simplify a call to the strcat builtin.
 
-static rtx
-expand_builtin_strcat (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcat (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -3004,21 +3184,32 @@ expand_builtin_strcat (arglist, target, mode)
 
       /* If the string length is zero, return the dst parameter.  */
       if (p && *p == '\0')
-	return expand_expr (dst, target, mode, EXPAND_NORMAL);
+	return dst;
 
       return 0;
     }
 }
 
-/* Expand expression EXP, which is a call to the strncat builtin.
-   Return 0 if we failed the caller should emit a normal call,
-   otherwise try to get the result in TARGET, if convenient.  */
+/* Simplify a call to the strncat builtin.
 
-static rtx
-expand_builtin_strncat (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strncat (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist,
 			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
@@ -3033,13 +3224,8 @@ expand_builtin_strncat (arglist, target, mode)
       /* If the requested length is zero, or the src parameter string
           length is zero, return the dst parameter.  */
       if (integer_zerop (len) || (p && *p == '\0'))
-	{
-	  /* Evaluate and ignore the src and len parameters in case
-	     they have side-effects.  */
-	  expand_expr (src, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  expand_expr (len, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return expand_expr (dst, target, mode, EXPAND_NORMAL);
-	}
+	return build (COMPOUND_EXPR, void_type_node, src,
+		      build (COMPOUND_EXPR, void_type_node, len, dst));
 
       /* If the requested len is greater than or equal to the string
          length, call strcat.  */
@@ -3055,22 +3241,32 @@ expand_builtin_strncat (arglist, target, mode)
 	  if (!fn)
 	    return 0;
 
-	  return expand_expr (build_function_call_expr (fn, newarglist),
-			      target, mode, EXPAND_NORMAL);
+	  return build_function_call_expr (fn, newarglist);
 	}
       return 0;
     }
 }
 
-/* Expand expression EXP, which is a call to the strspn builtin.
-   Return 0 if we failed the caller should emit a normal call,
-   otherwise try to get the result in TARGET, if convenient.  */
+/* Simplify a call to the strspn builtin.
 
-static rtx
-expand_builtin_strspn (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strspn (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -3083,7 +3279,7 @@ expand_builtin_strspn (arglist, target, mode)
       if (p1 && p2)
 	{
 	  const size_t r = strspn (p1, p2);
-	  return expand_expr (size_int (r), target, mode, EXPAND_NORMAL);
+	  return size_int (r);
 	}
 
       /* If either argument is "", return 0.  */
@@ -3091,23 +3287,34 @@ expand_builtin_strspn (arglist, target, mode)
 	{
 	  /* Evaluate and ignore both arguments in case either one has
 	     side-effects.  */
-	  expand_expr (s1, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  expand_expr (s2, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return const0_rtx;
+	  return build (COMPOUND_EXPR, void_type_node, s1,
+			build (COMPOUND_EXPR, void_type_node,
+			       s2, integer_zero_node));
 	}
       return 0;
     }
 }
 
-/* Expand expression EXP, which is a call to the strcspn builtin.
-   Return 0 if we failed the caller should emit a normal call,
-   otherwise try to get the result in TARGET, if convenient.  */
+/* Simplify a call to the strcspn builtin.
 
-static rtx
-expand_builtin_strcspn (arglist, target, mode)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_strcspn (arglist)
      tree arglist;
-     rtx target;
-     enum machine_mode mode;
 {
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return 0;
@@ -3120,7 +3327,7 @@ expand_builtin_strcspn (arglist, target, mode)
       if (p1 && p2)
 	{
 	  const size_t r = strcspn (p1, p2);
-	  return expand_expr (size_int (r), target, mode, EXPAND_NORMAL);
+	  return size_int (r);
 	}
 
       /* If the first argument is "", return 0.  */
@@ -3128,8 +3335,8 @@ expand_builtin_strcspn (arglist, target, mode)
 	{
 	  /* Evaluate and ignore argument s2 in case it has
 	     side-effects.  */
-	  expand_expr (s2, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  return const0_rtx;
+	  return build (COMPOUND_EXPR, void_type_node,
+			s2, integer_zero_node);
 	}
 
       /* If the second argument is "", return __builtin_strlen(s1).  */
@@ -3143,8 +3350,7 @@ expand_builtin_strcspn (arglist, target, mode)
 	  if (!fn)
 	    return 0;
 
-	  return expand_expr (build_function_call_expr (fn, newarglist),
-			      target, mode, EXPAND_NORMAL);
+	  return build_function_call_expr (fn, newarglist);
 	}
       return 0;
     }
@@ -3740,11 +3946,25 @@ expand_builtin_unop (arglist, target, subtarget, op_optab)
   return target;
 }
 
-/* If the string passed to fputs is a constant and is one character
-   long, we attempt to transform this call into __builtin_fputc().  */
+/* Simplify a call to the fputs builtin.
 
-static rtx
-expand_builtin_fputs (arglist, ignore, unlocked)
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.
+
+   The simplified form may be a constant or other expression which
+   computes the same value, but in a more efficient manner (including
+   calls to other builtin functions).
+
+   The call may contain arguments which need to be evaluated, but
+   which are not useful to determine the result of the call.  In
+   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
+   COMPOUND_EXPR will be an argument which must be evaluated.
+   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
+   COMPOUND_EXPR in the chain will contain the tree for the simplified
+   form of the builtin function call.  */
+
+static tree
+simplify_builtin_fputs (arglist, ignore, unlocked)
      tree arglist;
      int ignore;
      int unlocked;
@@ -3774,11 +3994,8 @@ expand_builtin_fputs (arglist, ignore, unlocked)
     {
     case -1: /* length is 0, delete the call entirely .  */
       {
-	/* Evaluate and ignore the argument in case it has
-           side-effects.  */
-	expand_expr (TREE_VALUE (TREE_CHAIN (arglist)), const0_rtx,
-		     VOIDmode, EXPAND_NORMAL);
-	return const0_rtx;
+	return build (COMPOUND_EXPR, void_type_node,
+		      TREE_VALUE (TREE_CHAIN (arglist)), integer_zero_node);
       }
     case 0: /* length is 1, call fputc.  */
       {
@@ -3814,9 +4031,7 @@ expand_builtin_fputs (arglist, ignore, unlocked)
       abort ();
     }
 
-  return expand_expr (build_function_call_expr (fn, arglist),
-		      (ignore ? const0_rtx : NULL_RTX),
-		      VOIDmode, EXPAND_NORMAL);
+  return build_function_call_expr (fn, arglist);
 }
 
 /* Expand a call to __builtin_expect.  We return our argument and emit a
@@ -4000,6 +4215,66 @@ expand_builtin_trap ()
   emit_barrier ();
 }
 
+/* Front-end to the simplify_builtin_XXX routines.
+
+   EXP is a call to a builtin function.  If possible try to simplify
+   that into a constant, expression or call to a more efficient
+   builtin function.
+
+   If IGNORE is nonzero, then the result of this builtin function
+   call is ignored.
+
+   If simplification is possible, return the simplified tree, otherwise
+   return NULL_TREE.  */
+
+tree
+simplify_builtin (exp, ignore)
+     tree exp;
+     int ignore;
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  switch (fcode)
+    {
+    case BUILT_IN_FPUTS:
+      return simplify_builtin_fputs (arglist, ignore, 0);
+    case BUILT_IN_FPUTS_UNLOCKED:
+      return simplify_builtin_fputs (arglist, ignore, 1);
+    case BUILT_IN_STRSTR:
+      return simplify_builtin_strstr (arglist);
+    case BUILT_IN_STRCAT:
+      return simplify_builtin_strcat (arglist);
+    case BUILT_IN_STRNCAT:
+      return simplify_builtin_strncat (arglist);
+    case BUILT_IN_STRSPN:
+      return simplify_builtin_strspn (arglist);
+    case BUILT_IN_STRCSPN:
+      return simplify_builtin_strcspn (arglist);
+    case BUILT_IN_STRCHR:
+    case BUILT_IN_INDEX:
+      return simplify_builtin_strchr (arglist);
+    case BUILT_IN_STRRCHR:
+    case BUILT_IN_RINDEX:
+      return simplify_builtin_strrchr (arglist);
+    case BUILT_IN_STRCPY:
+      return simplify_builtin_strcpy (arglist);
+    case BUILT_IN_STRNCPY:
+      return simplify_builtin_strncpy (arglist);
+    case BUILT_IN_STRCMP:
+      return simplify_builtin_strcmp (arglist);
+    case BUILT_IN_STRNCMP:
+      return simplify_builtin_strncmp (arglist);
+    case BUILT_IN_STRPBRK:
+      return simplify_builtin_strpbrk (arglist);
+    case BUILT_IN_BCMP:
+    case BUILT_IN_MEMCMP:
+      return simplify_builtin_memcmp (arglist);
+    default:
+      return NULL_TREE;
+    }
+}
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -4304,67 +4579,50 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	return target;
       break;
 
-    case BUILT_IN_STRCPY:
-      target = expand_builtin_strcpy (exp, target, mode);
-      if (target)
-	return target;
-      break;
-
     case BUILT_IN_STRNCPY:
       target = expand_builtin_strncpy (arglist, target, mode);
       if (target)
 	return target;
       break;
 
-    case BUILT_IN_STRCAT:
-      target = expand_builtin_strcat (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_STRNCAT:
-      target = expand_builtin_strncat (arglist, target, mode);
-      if (target)
-	return target;
-      break;
 
     case BUILT_IN_STRSPN:
-      target = expand_builtin_strspn (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
     case BUILT_IN_STRCSPN:
-      target = expand_builtin_strcspn (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
+    case BUILT_IN_STRCAT:
+    case BUILT_IN_STRNCAT:
     case BUILT_IN_STRSTR:
-      target = expand_builtin_strstr (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_STRPBRK:
-      target = expand_builtin_strpbrk (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
     case BUILT_IN_INDEX:
     case BUILT_IN_STRCHR:
-      target = expand_builtin_strchr (arglist, target, mode);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_RINDEX:
     case BUILT_IN_STRRCHR:
-      target = expand_builtin_strrchr (arglist, target, mode);
-      if (target)
-	return target;
-      break;
+    case BUILT_IN_RINDEX:
+    case BUILT_IN_STRCPY:
+    case BUILT_IN_STRNCMP:
+    case BUILT_IN_STRPBRK:
+    case BUILT_IN_FPUTS:
+    case BUILT_IN_FPUTS_UNLOCKED:
+    case BUILT_IN_STRCMP:
+      {
+	tree new;
+	new = simplify_builtin (exp, ignore);
+	if (new)
+	  {
+	    /* First deal with any arguments which need to be expanded
+	       merely to deal with any side effects they may have.  */
+	    while (TREE_CODE (new) == COMPOUND_EXPR)
+	      {
+		expand_expr (TREE_OPERAND (new, 0), const0_rtx,
+			     VOIDmode, EXPAND_NORMAL);
+		new = TREE_OPERAND (new, 1);
+	      }
+
+	    /* At this point NEW contains either the result of the
+	       builtin call (if it was a compile-time constant) or
+	       a new CALL_EXPR to another builtin function.  Expand
+	       it and return the RTX for the result.  */
+	    return expand_expr (new, target, mode, EXPAND_NORMAL);
+	  }
+	break;
+      }
 
     case BUILT_IN_MEMCPY:
       target = expand_builtin_memcpy (arglist, target, mode);
@@ -4380,18 +4638,6 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 
     case BUILT_IN_BZERO:
       target = expand_builtin_bzero (exp);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_STRCMP:
-      target = expand_builtin_strcmp (exp, target, mode);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_STRNCMP:
-      target = expand_builtin_strncmp (exp, target, mode);
       if (target)
 	return target;
       break;
@@ -4435,17 +4681,6 @@ expand_builtin (exp, target, subtarget, mode, ignore)
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
       return const0_rtx;
-
-    case BUILT_IN_FPUTS:
-      target = expand_builtin_fputs (arglist, ignore,/*unlocked=*/ 0);
-      if (target)
-	return target;
-      break;
-    case BUILT_IN_FPUTS_UNLOCKED:
-      target = expand_builtin_fputs (arglist, ignore,/*unlocked=*/ 1);
-      if (target)
-	return target;
-      break;
 
       /* Various hooks for the DWARF 2 __throw routine.  */
     case BUILT_IN_UNWIND_INIT:
