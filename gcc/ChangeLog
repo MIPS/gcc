@@ -1,5 +1,18 @@
 2003-08-14  Per Bothner  <pbothner@apple.com>
 
+	* langhooks.h (struct lang_hooks):  New hook init_once.
+	Renamed init hook init_eachsrc.
+	* toplev.c (lang_dependent_init):  Update hook call.
+	* langhooks-def.h (LANG_HOOKS_INIT_ONCE):  New macros.
+	(LANG_HOOKS_INITIALIZER):  Add LANG_HOOKS_INIT_ONCE.
+	* toplev.c (init_compile_once):  New function, split from do_compile.
+	(backend_init):  Move init_emit_once call to init_compile_once.
+	(do_compile):  Move process_options call to init_compile_once.
+	(init_compile_once);  Call init_once hook.
+	(toplev_main):  Call init_compiel_once before do_compile.
+
+2003-08-14  Per Bothner  <pbothner@apple.com>
+
 	* c-lex.c (init_c_lex):  Clear map - needed if server starts new file.
 	(fe_file_change):  Handle new_map == NULL.
 

@@ -83,6 +83,7 @@ extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
+#define LANG_HOOKS_INIT_ONCE		lhd_do_nothing
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
@@ -250,6 +251,7 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_HANDLE_OPTION, \
   LANG_HOOKS_MISSING_ARGUMENT, \
   LANG_HOOKS_POST_OPTIONS, \
+  LANG_HOOKS_INIT_ONCE, \
   LANG_HOOKS_INIT, \
   LANG_HOOKS_FINISH, \
   LANG_HOOKS_PARSE_FILE, \

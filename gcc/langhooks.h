@@ -231,10 +231,15 @@ struct lang_hooks
      immediately and the finish hook is not called.  */
   bool (*post_options) (const char **);
 
-  /* Called after post_options to initialize the front end.  Return
-     false to indicate that no further compilation be performed, in
-     which case the finish hook is called immediately.  */
-  bool (*init) (void);
+  /* Called after post_options, to initialize the front end.
+     This only gets called once, even if we're invoked as a server. */
+  void (*init_once) PARAMS ((void));
+
+  /* Called (after init_once) to initialize the front-end for a main file.
+     If we're invoked as a server, this is called once for each request.
+     Return false to indicate that no further compilation be performed,
+     in which case the finish hook is called immediately.  */
+  bool (*init_eachsrc) (void);
 
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) (void);

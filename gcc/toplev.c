@@ -108,6 +108,7 @@ static void general_init (const char *);
 static void do_compile (void);
 static void process_options (void);
 static void backend_init (void);
+static void init_compile_once (void);
 static int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
 static void finalize (void);
@@ -4250,15 +4251,6 @@ process_options (void)
 static void
 backend_init (void)
 {
-  init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
-		  || debug_info_level == DINFO_LEVEL_VERBOSE
-#ifdef VMS_DEBUGGING_INFO
-		    /* Enable line number info for traceback.  */
-		    || debug_info_level > DINFO_LEVEL_NONE
-#endif
-		    || flag_test_coverage
-		    || warn_notreached);
-
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
@@ -4284,7 +4276,7 @@ lang_dependent_init (const char *name)
     dump_base_name = name ? name : "gccdump";
 
   /* Other front-end initialization.  */
-  if ((*lang_hooks.init) () == 0)
+  if ((*lang_hooks.init_eachsrc) () == 0)
     return 0;
 
   init_asm_output (name);
@@ -4375,6 +4367,25 @@ finalize (void)
   (*lang_hooks.finish) ();
 }
 
+/* Initialize the compiler.  */
+static void
+init_compile_once (void)
+{
+  /* The bulk of the command line switch processing.  */
+  process_options ();
+
+  init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
+		  || debug_info_level == DINFO_LEVEL_VERBOSE
+#ifdef VMS_DEBUGGING_INFO
+		    /* Enable line number info for traceback.  */
+		    || debug_info_level > DINFO_LEVEL_NONE
+#endif
+		    || flag_test_coverage
+		    || warn_notreached);
+
+  (*lang_hooks.init_once) ();
+}
+
 /* Initialize the compiler, and compile the input file.  */
 static void
 do_compile (void)
@@ -4384,8 +4395,6 @@ do_compile (void)
   if (time_report || !quiet_flag  || flag_detailed_statistics)
     timevar_init ();
   timevar_start (TV_TOTAL);
-
-  process_options ();
 
   /* Don't do any more if an error has already occurred.  */
   if (!errorcount)
@@ -4444,7 +4453,13 @@ toplev_main (unsigned int argc, const char **argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    {
+      init_compile_once ();
+
+      /* If an error has already occurred, give up.  */
+      if (! errorcount)
+	do_compile ();
+    }
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
