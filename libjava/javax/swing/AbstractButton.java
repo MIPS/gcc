@@ -1039,15 +1039,17 @@ public abstract class AbstractButton extends JComponent
             action.removePropertyChangeListener(actionPropertyChangeListener);
             actionPropertyChangeListener = null;
           }
-        actionPropertyChangeListener = createActionPropertyChangeListener(a);
+
+
   }
+  
 
     Action old = action;
     action = a;
     configurePropertiesFromAction(action);
-
     if (action != null)
       {
+        actionPropertyChangeListener = createActionPropertyChangeListener(a);      
         action.addPropertyChangeListener(actionPropertyChangeListener);
         addActionListener(action);
       }
@@ -1070,15 +1072,15 @@ public abstract class AbstractButton extends JComponent
    * @param i The new default icon
    */
   public void setIcon(Icon i)
+  {
+    if (default_icon != i)
       {
-    Icon old = default_icon;
-    default_icon = i;
-    if (old != i)
-      {
-        firePropertyChange(ICON_CHANGED_PROPERTY, old, i);
+    Icon old = default_icon;      
+    default_icon = i;      
+    firePropertyChange(ICON_CHANGED_PROPERTY, old, i);
     revalidate();
     repaint();
-  }
+      }
   }
 
   /**
@@ -1382,7 +1384,8 @@ public abstract class AbstractButton extends JComponent
         setIcon((Icon)(a.getValue(Action.SMALL_ICON)));
         setEnabled(a.isEnabled());
         setToolTipText((String)(a.getValue(Action.SHORT_DESCRIPTION)));
-        setMnemonic(((Integer)(a.getValue(Action.MNEMONIC_KEY))).intValue());
+	if (a.getValue(Action.MNEMONIC_KEY) != null)
+          setMnemonic(((Integer)(a.getValue(Action.MNEMONIC_KEY))).intValue());
         setActionCommand((String)(a.getValue(Action.ACTION_COMMAND_KEY)));
       }
   }
@@ -1440,9 +1443,21 @@ public abstract class AbstractButton extends JComponent
       {
         public void propertyChange(PropertyChangeEvent e)
         {
-          Action act = (Action)(e.getSource());
-          AbstractButton.this.configurePropertiesFromAction(act);
-        }
+          Action act = (Action) (e.getSource());	
+	  if (e.getPropertyName().equals(AbstractAction.ENABLED_PROPERTY))
+	    setEnabled(act.isEnabled());
+	  else if (e.getPropertyName().equals(Action.NAME))
+            setText((String)(act.getValue(Action.NAME)));
+	  else if (e.getPropertyName().equals(Action.SMALL_ICON))
+	    setIcon((Icon)(act.getValue(Action.SMALL_ICON)));
+	  else if (e.getPropertyName().equals(Action.SHORT_DESCRIPTION))
+            setToolTipText((String)(act.getValue(Action.SHORT_DESCRIPTION)));
+	  else if (e.getPropertyName().equals(Action.MNEMONIC_KEY))
+            if (act.getValue(Action.MNEMONIC_KEY) != null)
+              setMnemonic(((Integer)(act.getValue(Action.MNEMONIC_KEY))).intValue());
+	  else if (e.getPropertyName().equals(Action.ACTION_COMMAND_KEY))
+            setActionCommand((String)(act.getValue(Action.ACTION_COMMAND_KEY)));
+	}
       };
   }
 

@@ -140,7 +140,7 @@ public class JMenuBar extends JComponent implements Accessible, MenuElement
    */
   public Component getComponentAtIndex(int i)
   {
-    return getComponentAt(i);
+    return getComponent(i);
   }
 
   /**

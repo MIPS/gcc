@@ -953,7 +953,11 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicDesktopIconUI.java \
+javax/swing/plaf/basic/BasicDesktopPaneUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
+javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
+javax/swing/plaf/basic/BasicInternalFrameUI.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicMenuUI.java \
@@ -3001,7 +3005,11 @@ javax/swing/plaf/basic/BasicArrowButton.lo \
 javax/swing/plaf/basic/BasicButtonListener.lo \
 javax/swing/plaf/basic/BasicButtonUI.lo \
 javax/swing/plaf/basic/BasicCheckBoxUI.lo \
+javax/swing/plaf/basic/BasicDesktopIconUI.lo \
+javax/swing/plaf/basic/BasicDesktopPaneUI.lo \
 javax/swing/plaf/basic/BasicGraphicsUtils.lo \
+javax/swing/plaf/basic/BasicInternalFrameTitlePane.lo \
+javax/swing/plaf/basic/BasicInternalFrameUI.lo \
 javax/swing/plaf/basic/BasicLabelUI.lo \
 javax/swing/plaf/basic/BasicListUI.lo \
 javax/swing/plaf/basic/BasicMenuUI.lo \
@@ -5095,8 +5103,12 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicButtonUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicCheckBoxUI.P \
+.deps/javax/swing/plaf/basic/BasicDesktopIconUI.P \
+.deps/javax/swing/plaf/basic/BasicDesktopPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicGraphicsUtils.P \
 .deps/javax/swing/plaf/basic/BasicIconFactory.P \
+.deps/javax/swing/plaf/basic/BasicInternalFrameTitlePane.P \
+.deps/javax/swing/plaf/basic/BasicInternalFrameUI.P \
 .deps/javax/swing/plaf/basic/BasicLabelUI.P \
 .deps/javax/swing/plaf/basic/BasicListUI.P \
 .deps/javax/swing/plaf/basic/BasicLookAndFeel.P \

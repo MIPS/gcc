@@ -1248,7 +1248,11 @@ javax/swing/plaf/basic/BasicArrowButton.java \
 javax/swing/plaf/basic/BasicButtonListener.java \
 javax/swing/plaf/basic/BasicButtonUI.java \
 javax/swing/plaf/basic/BasicCheckBoxUI.java \
+javax/swing/plaf/basic/BasicDesktopIconUI.java \
+javax/swing/plaf/basic/BasicDesktopPaneUI.java \
 javax/swing/plaf/basic/BasicGraphicsUtils.java \
+javax/swing/plaf/basic/BasicInternalFrameTitlePane.java \
+javax/swing/plaf/basic/BasicInternalFrameUI.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicMenuUI.java \

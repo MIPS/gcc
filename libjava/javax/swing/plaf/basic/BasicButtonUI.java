@@ -343,7 +343,7 @@ public class BasicButtonUI extends ButtonUI
    */
   protected void paintButtonNormal(Graphics g, Rectangle area, JComponent b)
   {
-    if (((AbstractButton)b).isContentAreaFilled())
+    if (((AbstractButton)b).isContentAreaFilled() && b.isOpaque())
       {
         g.setColor(b.getBackground());
         g.fillRect(area.x, area.y, area.width, area.height);

@@ -1,3 +1,60 @@
+2004-06-09  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: New files
+	* Makefile.in: Regenerated
+	* java/awt/Container.java
+	(getComponentAt): Removed.
+	* javax/swing/AbstractAction.java
+	(ENABLED_PROPERTY): New property.
+	(putValue): Fire PropertyChangeEvents.
+	(setEnabled): ditto.
+	(firePropertyChange): Javadoc and implement
+	convenience method.
+	* javax/swing/AbstractButton.java
+	(setAction): Don't create PropertyChangeListener
+	if new Action is null.
+	(setIcon): Don't set icon till after comparing
+	it.
+	(configurePropertiesFromAction): Check mnemonic
+	key before calling intValue().
+	(createActionPropertyChangeListener): Check
+	properties rather than bulk change.
+	* javax/swing/DefaultDesktopManager.java:
+	Implement.
+	* javax/swing/DesktopManager.java:
+	Jalopy and javadoc.
+	* javax/swing/JComponent.java
+	(fireVetoableChange): Implement.
+	(paintImmediately): Use root component.
+	* javax/swing/JDesktopPane.java: Implement
+	* javax/swing/JInternalFrame.java: Implement
+	* javax/swing/JLabel.java
+	(getDisabledIcon): Return grayscaled icon if
+	no disabled icon specified.
+	* javax/swing/JMenuBar.java
+	(getComponentAtIndex): Use getComponent
+	* javax/swing/JOptionPane.java
+	(getDesktopPaneForComponent): Use SwingUtilities'
+	getAncestorOfClass
+	(getFrameForComponent): ditto.
+	* javax/swing/JSplitPane.java
+	(remove): Use getComponent.
+	* javax/swing/SwingUtilities.java
+	(convertPoint): Implement.
+	* javax/swing/plaf/basic/BasicButtonUI.java
+	(paintButtonNormal): Check opaqueness before
+	filling background.
+	* javax/swing/plaf/basic/BasicDesktopIconUI.java:
+	Implement
+	* javax/swing/plaf/basic/BasicDesktopPaneUI.java:
+	Implement.
+	* javax/swing/plaf/basic/BasicInternalFrameTitlePane.java:
+	Implement.
+	* javax/swing/plaf/basic/BasicInternalFrameUI.java:
+	Implement.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Change InternalFrame and Desktop colors.
+
 2004-06-09  David Jee  <djee@redhat.com>
 
 	* java/awt/Container.java

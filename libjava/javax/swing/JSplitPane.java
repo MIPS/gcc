@@ -563,7 +563,7 @@ public class JSplitPane extends JComponent implements Accessible
    */
   public void remove(int index)
   {
-    Component component = getComponentAt(index);
+    Component component = getComponent(index);
     if (component == leftComponent)
       leftComponent = null;
     else if (component == rightComponent)

@@ -347,7 +347,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl F10", "maximize",
         "ctrl alt shift F6","selectPreviousFrame"
       }),
-      "Desktop.background", new ColorUIResource(0, 92, 92),
+      "Desktop.background", new ColorUIResource(175, 163, 236),
       "DesktopIcon.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                           null),
       "EditorPane.background", new ColorUIResource(Color.white),
@@ -420,7 +420,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "FocusManagerClassName", "TODO",
       "FormView.resetButtonText", "Reset",
       "FormView.submitButtonText", "Submit Query",
-      "InternalFrame.activeTitleBackground", new ColorUIResource(lightPurple),
+      "InternalFrame.activeTitleBackground", new ColorUIResource(162, 167, 241),
       "InternalFrame.activeTitleForeground", new ColorUIResource(Color.black),
       "InternalFrame.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                             null),
@@ -428,8 +428,8 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       // XXX Don't use gif
       "InternalFrame.icon", new IconUIResource(new ImageIcon("icons/JavaCup.gif")),
       "InternalFrame.iconifyIcon", BasicIconFactory.createEmptyFrameIcon(),
-      "InternalFrame.inactiveTitleBackground", new ColorUIResource(Color.gray),
-      "InternalFrame.inactiveTitleForeground", new ColorUIResource(Color.lightGray),
+      "InternalFrame.inactiveTitleBackground", new ColorUIResource(Color.lightGray),
+      "InternalFrame.inactiveTitleForeground", new ColorUIResource(Color.black),
       "InternalFrame.maximizeIcon", BasicIconFactory.createEmptyFrameIcon(),
       "InternalFrame.minimizeIcon", BasicIconFactory.createEmptyFrameIcon(),
       "InternalFrame.titleFont", new FontUIResource("Dialog", Font.PLAIN, 12),

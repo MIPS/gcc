@@ -376,8 +376,12 @@ public class SwingUtilities implements SwingConstants
 
     return pt;
   }
-
   
+  public static Point convertPoint(Component source, Point aPoint, Component destination)
+  {
+    return convertPoint(source, aPoint.x, aPoint.y, destination);
+  }
+
   /**
    * Converts a rectangle from the coordinate space of one component to
    * another. This is equivalent to converting the rectangle from
@@ -719,7 +723,6 @@ public class SwingUtilities implements SwingConstants
         iconR.y = centerLine - iconR.height/2;
         break;
       }
-
     // The two rectangles are laid out correctly now, but only assuming
     // that their upper left corner is at (0,0). If we have any alignment other
     // than TOP and LEFT, we need to adjust them.

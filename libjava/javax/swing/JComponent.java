@@ -57,6 +57,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.ImageObserver;
 import java.awt.peer.LightweightPeer;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyVetoException;
 import java.beans.VetoableChangeListener;
@@ -738,7 +739,12 @@ public abstract class JComponent extends Container implements Serializable
                                     Object newValue)
     throws PropertyVetoException
   {
-    //       Support for reporting constrained property changes.
+    VetoableChangeListener[] listeners = getVetoableChangeListeners();
+    
+    PropertyChangeEvent evt = new PropertyChangeEvent(this, propertyName, oldValue, newValue);
+    
+    for (int i = 0; i < listeners.length; i++)
+      ((VetoableChangeListener) listeners[i]).vetoableChange(evt);
   }
 
   /**
@@ -1385,7 +1391,7 @@ public abstract class JComponent extends Container implements Serializable
             g2 = doubleBuffer.getGraphics();
             g2.setClip(g.getClipBounds());
           }
-
+	  
         g2 = getComponentGraphics(g2);
         paintComponent(g2);
         paintBorder(g2);
@@ -1477,7 +1483,7 @@ public abstract class JComponent extends Container implements Serializable
    */
   public void paintImmediately(Rectangle r)
   {
-    Component root = this.getRootPane();
+    Component root = SwingUtilities.getRoot(this);
     if (root == null || ! root.isShowing())
       return;
     Graphics g = root.getGraphics();
