@@ -39,17 +39,17 @@
 /* The purpose that the location (REG or MEM) has in RTL.  */
 enum location_type
 {
-  LT_PARAM,   /* Location is a parameter of instruction.  */
-  LT_SET_DEST,        /* Location is the destination of the SET.  */
-  LT_CLOBBERED        /* Location is the "destination" of CLOBBER.  */
+  LT_PARAM,	/* Location is a parameter of instruction.  */
+  LT_SET_DEST,	/* Location is the destination of the SET.  */
+  LT_CLOBBERED	/* Location is the "destination" of CLOBBER.  */
 };
 
 /* Operation that is performed when scanning RTL.  */
 enum scan_operation
 {
-  SO_COUNT,   /* Count the number of locations.  */
-  SO_STORE,   /* Store the locatons to the array VTI (bb)->locs.  */
-  SO_SKIP     /* Skip current node, and scan and store its internals.  */
+  SO_COUNT,	/* Count the number of locations.  */
+  SO_STORE,	/* Store the locatons to the array VTI (bb)->locs.  */
+  SO_SKIP	/* Skip current node, and scan and store its internals.  */
 };
 
 /* Where shall the note be emited? BEFORE or AFTER the instruction.  */
@@ -174,46 +174,45 @@ typedef struct variable_def
 static htab_t variable_htab;
 
 /* Local function prototypes.  */
-static void init_attrs_list_set               PARAMS ((attrs_list *));
-static void attrs_list_clear          PARAMS ((attrs_list *));
-static attrs_list attrs_list_member   PARAMS ((attrs_list, tree,
-                                               HOST_WIDE_INT));
-static attrs_list attrs_list_member_alias     PARAMS ((attrs_list,
-                                                       HOST_WIDE_INT,
-                                                       HOST_WIDE_INT));
-static void attrs_list_insert         PARAMS ((attrs_list *, tree,
+static void init_attrs_list_set		PARAMS ((attrs_list *));
+static void attrs_list_clear		PARAMS ((attrs_list *));
+static attrs_list attrs_list_member	PARAMS ((attrs_list, tree,
+						 HOST_WIDE_INT));
+static attrs_list attrs_list_member_alias	PARAMS ((attrs_list,
+							 HOST_WIDE_INT,
+							 HOST_WIDE_INT));
+static void attrs_list_insert		PARAMS ((attrs_list *, tree,
                                                HOST_WIDE_INT, rtx));
-static void attrs_list_delete         PARAMS ((attrs_list *, tree,
+static void attrs_list_delete		PARAMS ((attrs_list *, tree,
                                                HOST_WIDE_INT));
-static void attrs_list_delete_alias   PARAMS ((attrs_list *, HOST_WIDE_INT,
+static void attrs_list_delete_alias	PARAMS ((attrs_list *, HOST_WIDE_INT,
                                                HOST_WIDE_INT));
-static void attrs_list_copy           PARAMS ((attrs_list *, attrs_list));
-static bool attrs_list_different      PARAMS ((attrs_list, attrs_list));
-static bool attrs_list_different_alias        PARAMS ((attrs_list, attrs_list));
+static void attrs_list_copy		PARAMS ((attrs_list *, attrs_list));
+static bool attrs_list_different	PARAMS ((attrs_list, attrs_list));
+static bool attrs_list_different_alias	PARAMS ((attrs_list, attrs_list));
 
-
-static int scan_for_locations         PARAMS ((rtx *, void *));
-static bool compute_bb_dataflow               PARAMS ((basic_block));
-static void hybrid_search             PARAMS ((basic_block, sbitmap,
+static int scan_for_locations		PARAMS ((rtx *, void *));
+static bool compute_bb_dataflow		PARAMS ((basic_block));
+static void hybrid_search		PARAMS ((basic_block, sbitmap,
                                                sbitmap));
-static void iterative_dataflow                PARAMS ((int *));
-static void dump_attrs_list_sets      PARAMS ((void));
+static void iterative_dataflow		PARAMS ((int *));
+static void dump_attrs_list_sets	PARAMS ((void));
 
-static hashval_t variable_htab_hash   PARAMS ((const void *));
-static int variable_htab_eq           PARAMS ((const void *, const void *));
-static void note_insn_var_location_emit       PARAMS ((rtx, enum where_emit_note,
+static hashval_t variable_htab_hash	PARAMS ((const void *));
+static int variable_htab_eq		PARAMS ((const void *, const void *));
+static void note_insn_var_location_emit	PARAMS ((rtx, enum where_emit_note,
                                                variable));
-static void set_location_part         PARAMS ((tree, HOST_WIDE_INT, rtx,
+static void set_location_part		PARAMS ((tree, HOST_WIDE_INT, rtx,
                                                rtx, enum where_emit_note));
-static void delete_location_part      PARAMS ((tree, HOST_WIDE_INT, rtx,
+static void delete_location_part	PARAMS ((tree, HOST_WIDE_INT, rtx,
                                                enum where_emit_note));
-static int process_location_parts     PARAMS ((void **, void *));
-static void emit_note_if_var_changed  PARAMS ((void **, void *));
-static void process_bb                        PARAMS ((basic_block));
-static void var_tracking_emit_notes   PARAMS ((void));
+static int process_location_parts	PARAMS ((void **, void *));
+static void emit_note_if_var_changed	PARAMS ((void **, void *));
+static void process_bb			PARAMS ((basic_block));
+static void var_tracking_emit_notes	PARAMS ((void));
 
-static void var_tracking_initialize   PARAMS ((void));
-static void var_tracking_finalize     PARAMS ((void));
+static void var_tracking_initialize	PARAMS ((void));
+static void var_tracking_finalize	PARAMS ((void));
 
 /* Initialize the set (array) SET of the attrs_lists to empty lists.  */
 
@@ -304,15 +303,15 @@ attrs_list_delete (listp, decl, offset)
     {
       next_list = list->next;
       if (list->decl == decl && list->offset == offset)
-      {
-        if (list == *listp)
-          *listp = next_list;
-        else
-          prev_list->next = next_list;
-        free (list);
-      }
+	{
+	  if (list == *listp)
+	    *listp = next_list;
+	  else
+	    prev_list->next = next_list;
+	  free (list);
+	}
       else
-      prev_list = list;
+	prev_list = list;
     }
 }
 
@@ -331,15 +330,15 @@ attrs_list_delete_alias (listp, alias, offset)
     {
       next_list = list->next;
       if (MEM_ALIAS_SET (list->loc) == alias && list->offset == offset)
-      {
-        if (list == *listp)
-          *listp = next_list;
-        else
-          prev_list->next = next_list;
-        free (list);
-      }
+	{
+	  if (list == *listp)
+	    *listp = next_list;
+	  else
+	    prev_list->next = next_list;
+	  free (list);
+	}
       else
-      prev_list = list;
+	prev_list = list;
     }
 }
 
@@ -421,89 +420,89 @@ scan_for_locations (x, data)
 
   switch (d->oper)
     {
-      case SO_SKIP:   /* Do not process current rtx X.  */
-      /* Store the locations from subexpressions.  */
-      d->oper = SO_STORE;
-      return 0;
+      case SO_SKIP:	/* Do not process current rtx X.  */
+	/* Store the locations from subexpressions.  */
+	d->oper = SO_STORE;
+	return 0;
 
-      case SO_COUNT:  /* Count the locations.  */
-      switch (GET_CODE (*x))
-        {
-          case REG:
-            if (REGNO (*x) >= FIRST_PSEUDO_REGISTER)
-              abort ();
-            VTI (bb)->n_locs++;
-            /* Continue traversing.  */
-            return 0;
+      case SO_COUNT:	/* Count the locations.  */
+	switch (GET_CODE (*x))
+	  {
+	    case REG:
+	      if (REGNO (*x) >= FIRST_PSEUDO_REGISTER)
+		abort ();
+	      VTI (bb)->n_locs++;
+	      /* Continue traversing.  */
+	      return 0;
 
-          case MEM:
-            if (MEM_EXPR (*x))
-              VTI (bb)->n_locs++;
-            /* Continue traversing.  */
-            return 0;
+	    case MEM:
+	      if (MEM_EXPR (*x))
+		VTI (bb)->n_locs++;
+	      /* Continue traversing.  */
+	      return 0;
 
-          default:
-            /* Continue traversing.  */
-            return 0;
-        }
-      break;
+	    default:
+	      /* Continue traversing.  */
+	      return 0;
+	  }
+	break;
 
-      case SO_STORE:  /* Store the locations.  */
-      switch (GET_CODE (*x))
-        {
-          case SET:
-            old_type = d->type;
-            d->type = LT_SET_DEST;
-            for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
-            d->type = LT_PARAM;
-            for_each_rtx (&SET_SRC (*x), scan_for_locations, data);
-            d->type = old_type;
-            /* Stop traversing.  */
-            return -1;
+      case SO_STORE:	/* Store the locations.  */
+	switch (GET_CODE (*x))
+	  {
+	    case SET:
+	      old_type = d->type;
+	      d->type = LT_SET_DEST;
+	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
+	      d->type = LT_PARAM;
+	      for_each_rtx (&SET_SRC (*x), scan_for_locations, data);
+	      d->type = old_type;
+	      /* Stop traversing.  */
+	      return -1;
 
-          case CLOBBER:
-            old_type = d->type;
-            d->type = LT_CLOBBERED;
-            for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
-            d->type = old_type;
-            /* Stop traversing.  */
-            return -1;
+	    case CLOBBER:
+	      old_type = d->type;
+	      d->type = LT_CLOBBERED;
+	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
+	      d->type = old_type;
+	      /* Stop traversing.  */
+	      return -1;
 
-          case REG:
-            l = VTI (bb)->locs + VTI (bb)->n_locs++;
-            l->loc = *x;
-            l->insn = d->insn;
-            l->type = d->type;
-            /* Stop traversing.  */
-            return -1;
+	    case REG:
+	      l = VTI (bb)->locs + VTI (bb)->n_locs++;
+	      l->loc = *x;
+	      l->insn = d->insn;
+	      l->type = d->type;
+	      /* Stop traversing.  */
+	      return -1;
 
-          case MEM:
-            if (MEM_EXPR (*x))
-              {
-                l = VTI (bb)->locs + VTI (bb)->n_locs++;
-                l->loc = *x;
-                l->insn = d->insn;
-                l->type = d->type;
-                if (d->type != LT_PARAM)
-                  {
-                    /* Scan for params in subexpressions.  */
-                    old_type = d->type;
-                    d->oper = SO_SKIP;
-                    d->type = LT_PARAM;
-                    for_each_rtx (x, scan_for_locations, data);
-                    d->type = old_type;
-                    /* Stop traversing.  */
-                    return -1;
-                  }
-              }
-            /* Continue traversing.  */
-            return 0;
+	    case MEM:
+	      if (MEM_EXPR (*x))
+		{
+		  l = VTI (bb)->locs + VTI (bb)->n_locs++;
+		  l->loc = *x;
+		  l->insn = d->insn;
+		  l->type = d->type;
+		  if (d->type != LT_PARAM)
+		    {
+		      /* Scan for params in subexpressions.  */
+		      old_type = d->type;
+		      d->oper = SO_SKIP;
+		      d->type = LT_PARAM;
+		      for_each_rtx (x, scan_for_locations, data);
+		      d->type = old_type;
+		      /* Stop traversing.  */
+		      return -1;
+		    }
+		}
+	      /* Continue traversing.  */
+	      return 0;
 
-          default:
-            /* Continue traversing.  */
-            return 0;
-        }
-      break;
+	    default:
+	      /* Continue traversing.  */
+	      return 0;
+	  }
+	break;
     }
 
   return 0;
@@ -535,64 +534,64 @@ compute_bb_dataflow (bb)
       rtx loc = VTI (bb)->locs[i].loc;
 
       if (GET_CODE (loc) == REG)
-      {
-        attrs_list_clear (&out[REGNO (loc)]);
-        if (VTI (bb)->locs[i].type == LT_PARAM
-            || VTI (bb)->locs[i].type == LT_SET_DEST)
-          {
-            if (REG_EXPR (loc))
-              {
-                tree decl = REG_EXPR (loc);
-                attrs_list_insert (&out[REGNO (loc)], REG_EXPR (loc),
-                                   REG_OFFSET (loc), loc);
+	{
+	  attrs_list_clear (&out[REGNO (loc)]);
+	  if (VTI (bb)->locs[i].type == LT_PARAM
+	      || VTI (bb)->locs[i].type == LT_SET_DEST)
+	    {
+	      if (REG_EXPR (loc))
+		{
+		  tree decl = REG_EXPR (loc);
+		  attrs_list_insert (&out[REGNO (loc)], REG_EXPR (loc),
+				     REG_OFFSET (loc), loc);
 #if DEBUG_REG_LOC
-                if (rtl_dump_file)
-                  {
-                    print_mem_expr (rtl_dump_file, REG_EXPR (loc));
-                    print_rtl_single (rtl_dump_file, loc);
-                    fprintf (rtl_dump_file, "\n");
-                  }
+		  if (rtl_dump_file)
+		    {
+		      print_mem_expr (rtl_dump_file, REG_EXPR (loc));
+		      print_rtl_single (rtl_dump_file, loc);
+		      fprintf (rtl_dump_file, "\n");
+		    }
 #endif
-              }
-          }
-      }
+		}
+	    }
+	}
       else if (GET_CODE (loc) == MEM && MEM_EXPR (loc))
-      {
-        int j;
-        tree decl = MEM_EXPR (loc);
-        HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+	{
+	  int j;
+	  tree decl = MEM_EXPR (loc);
+	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
 #if DEBUG_MEM_LOC
-        if (rtl_dump_file)
-          {
-            print_mem_expr (rtl_dump_file, decl);
-            print_rtl_single (rtl_dump_file, loc);
-            fprintf (rtl_dump_file, "\n");
-          }
+	  if (rtl_dump_file)
+	    {
+	      print_mem_expr (rtl_dump_file, decl);
+	      print_rtl_single (rtl_dump_file, loc);
+	      fprintf (rtl_dump_file, "\n");
+	    }
 #endif
-        attrs_list_delete_alias (&out[MEMORY_VAR], MEM_ALIAS_SET (loc),
-                                 offset);
-        if (VTI (bb)->locs[i].type == LT_PARAM
-            || VTI (bb)->locs[i].type == LT_SET_DEST)
-          {
-            /* The variable is no longer in any register.  */
-            for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-              attrs_list_delete (&out[j], decl, offset);
-            attrs_list_insert (&out[MEMORY_VAR], decl, offset, loc);
-          }
-      }
+	  attrs_list_delete_alias (&out[MEMORY_VAR], MEM_ALIAS_SET (loc),
+				   offset);
+	  if (VTI (bb)->locs[i].type == LT_PARAM
+	      || VTI (bb)->locs[i].type == LT_SET_DEST)
+	    {
+	      /* The variable is no longer in any register.  */
+	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+		attrs_list_delete (&out[j], decl, offset);
+	      attrs_list_insert (&out[MEMORY_VAR], decl, offset, loc);
+	    }
+	}
     }
 
   changed = false;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (attrs_list_different (old_out[i], out[i]))
       {
-      changed = true;
-      break;
+	changed = true;
+	break;
       }
   if (!changed)
     changed = attrs_list_different_alias (old_out[MEMORY_VAR],
-                                        out[MEMORY_VAR]);
+					  out[MEMORY_VAR]);
   attrs_list_clear (old_out);
   return changed;
 }
@@ -617,60 +616,60 @@ hybrid_search (bb, visited, pending)
     {
       /* Clear the IN list set.  */
       for (i = 0; i < IN_OUT_SIZE; i++)
-      attrs_list_clear (&VTI (bb)->in[i]);
+	attrs_list_clear (&VTI (bb)->in[i]);
 
       /* Calculate the union of predecessor outs.  */
       for (e = bb->pred; e; e = e->pred_next)
-      {
-        attrs_list *bb_in = VTI (bb)->in;
-        attrs_list *pred_out = VTI (e->src)->out;
-        attrs_list l;
-       
-        if (e->src == ENTRY_BLOCK_PTR)
-          continue;
+	{
+	  attrs_list *bb_in = VTI (bb)->in;
+	  attrs_list *pred_out = VTI (e->src)->out;
+	  attrs_list l;
 
-        for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-          {
-            for (l = pred_out[i]; l; l = l->next)
-              {
-                if (!attrs_list_member (bb_in[i], l->decl, l->offset))
-                  attrs_list_insert (&bb_in[i], l->decl, l->offset, l->loc);
-              }
-          }
-        for (l = pred_out[MEMORY_VAR]; l; l = l->next)
-          {
-            if (!attrs_list_member_alias (bb_in[MEMORY_VAR],
-                                          MEM_ALIAS_SET (l->loc), l->offset))
-              attrs_list_insert (&bb_in[MEMORY_VAR], l->decl, l->offset,
-                                 l->loc);
-          }
-      }
+	  if (e->src == ENTRY_BLOCK_PTR)
+	    continue;
+
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    {
+	      for (l = pred_out[i]; l; l = l->next)
+		{
+		  if (!attrs_list_member (bb_in[i], l->decl, l->offset))
+		    attrs_list_insert (&bb_in[i], l->decl, l->offset, l->loc);
+		}
+	    }
+	  for (l = pred_out[MEMORY_VAR]; l; l = l->next)
+	    {
+	      if (!attrs_list_member_alias (bb_in[MEMORY_VAR],
+					    MEM_ALIAS_SET (l->loc), l->offset))
+		attrs_list_insert (&bb_in[MEMORY_VAR], l->decl, l->offset,
+				   l->loc);
+	    }
+	}
 
       if (0 && rtl_dump_file)
-      fprintf (rtl_dump_file, "Clearing pending %d\n", bb->index);
+	fprintf (rtl_dump_file, "Clearing pending %d\n", bb->index);
 
       RESET_BIT (pending, bb->index);
       changed = compute_bb_dataflow (bb);
       if (changed)
-      {
-        if (0 && rtl_dump_file)
-          fprintf (rtl_dump_file, "BB %d changed\n", bb->index);
-        for (e = bb->succ; e != 0; e = e->succ_next)
-          {
-            if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-              continue;
-            if (0 && rtl_dump_file)
-              fprintf (rtl_dump_file, "Setting  pending %d\n", e->dest->index);
-            SET_BIT (pending, e->dest->index);
-          }
-      }
+	{
+	  if (0 && rtl_dump_file)
+	    fprintf (rtl_dump_file, "BB %d changed\n", bb->index);
+	  for (e = bb->succ; e != 0; e = e->succ_next)
+	    {
+	      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
+		continue;
+	      if (0 && rtl_dump_file)
+		fprintf (rtl_dump_file, "Setting  pending %d\n", e->dest->index);
+	      SET_BIT (pending, e->dest->index);
+	    }
+	}
     }
   for (e = bb->succ; e != 0; e = e->succ_next)
     {
       if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
-      continue;
+	continue;
       if (!TEST_BIT (visited, e->dest->index))
-      hybrid_search (e->dest, visited, pending);
+	hybrid_search (e->dest, visited, pending);
     }
 }
 
@@ -704,26 +703,26 @@ iterative_dataflow (bb_order)
   while (sbitmap_first_set_bit (pending) != -1)
     {
       if (0 && rtl_dump_file)
-      fprintf (rtl_dump_file, "Iterative dataflow\n");
+	fprintf (rtl_dump_file, "Iterative dataflow\n");
       while (!fibheap_empty (worklist))
-      {
-        i = (size_t) fibheap_extract_min (worklist);
-        bb = BASIC_BLOCK (i);
-        if (!TEST_BIT (visited, bb->index))
-          hybrid_search (bb, visited, pending);
-      }
+	{
+	  i = (size_t) fibheap_extract_min (worklist);
+	  bb = BASIC_BLOCK (i);
+	  if (!TEST_BIT (visited, bb->index))
+	    hybrid_search (bb, visited, pending);
+	}
       if (sbitmap_first_set_bit (pending) != -1)
-      {
-        for (i = 0; i < n_basic_blocks; i++)
-          {
-            fibheap_insert (worklist, bb_order[i], (void *) (size_t) i);
-          }
-        sbitmap_zero (visited);
-      }
+	{
+	  for (i = 0; i < n_basic_blocks; i++)
+	    {
+	      fibheap_insert (worklist, bb_order[i], (void *) (size_t) i);
+	    }
+	  sbitmap_zero (visited);
+	}
       else
-      {
-        break;
-      }
+	{
+	  break;
+	}
     }
   sbitmap_free (pending);
   sbitmap_free (visited);
@@ -745,44 +744,44 @@ dump_attrs_list_sets ()
 
       fprintf (rtl_dump_file, "  IN: ");
       for (j = 0; j < IN_OUT_SIZE; j++)
-      {
-        attrs_list l = VTI (bb)->in[j];
+	{
+	  attrs_list l = VTI (bb)->in[j];
 
-        if (l)
-          {
-            if (j < FIRST_PSEUDO_REGISTER)
-              fprintf (rtl_dump_file, "Reg %d:", j);
-            else
-              fprintf (rtl_dump_file, "Mem:");
-            for (; l; l = l->next)
-              {
-                print_mem_expr (rtl_dump_file, l->decl);
-                fprintf (rtl_dump_file, "[%d], ", l->offset);
-              }
-            fprintf (rtl_dump_file, "; ");
-          }
-      }
+	  if (l)
+	    {
+	      if (j < FIRST_PSEUDO_REGISTER)
+		fprintf (rtl_dump_file, "Reg %d:", j);
+	      else
+		fprintf (rtl_dump_file, "Mem:");
+	      for (; l; l = l->next)
+		{
+		  print_mem_expr (rtl_dump_file, l->decl);
+		  fprintf (rtl_dump_file, "[%d], ", l->offset);
+		}
+	      fprintf (rtl_dump_file, "; ");
+	    }
+	}
       fprintf (rtl_dump_file, "\n");
 
       fprintf (rtl_dump_file, "  OUT: ");
       for (j = 0; j < IN_OUT_SIZE; j++)
-      {
-        attrs_list l = VTI (bb)->out[j];
+	{
+	  attrs_list l = VTI (bb)->out[j];
 
-        if (l)
-          {
-            if (j < FIRST_PSEUDO_REGISTER)
-              fprintf (rtl_dump_file, "Reg %d:", j);
-            else
-              fprintf (rtl_dump_file, "Mem:");
-            for (; l; l = l->next)
-              {
-                print_mem_expr (rtl_dump_file, l->decl);
-                fprintf (rtl_dump_file, "[%d], ", l->offset);
-              }
-            fprintf (rtl_dump_file, "; ");
-          }
-      }
+	  if (l)
+	    {
+	      if (j < FIRST_PSEUDO_REGISTER)
+		fprintf (rtl_dump_file, "Reg %d:", j);
+	      else
+		fprintf (rtl_dump_file, "Mem:");
+	      for (; l; l = l->next)
+		{
+		  print_mem_expr (rtl_dump_file, l->decl);
+		  fprintf (rtl_dump_file, "[%d], ", l->offset);
+		}
+	      fprintf (rtl_dump_file, "; ");
+	    }
+	}
       fprintf (rtl_dump_file, "\n");
     }
 }
@@ -834,9 +833,9 @@ note_insn_var_location_emit (insn, where, var)
   if (var->n_location_parts == 1)
     {
       rtx expr_list
-      = gen_rtx_EXPR_LIST (VOIDmode,
-                           var->location_part[0].loc,
-                           GEN_INT (var->location_part[0].offset));
+	= gen_rtx_EXPR_LIST (VOIDmode,
+			     var->location_part[0].loc,
+			     GEN_INT (var->location_part[0].offset));
       rtx var_location = gen_rtx_VAR_LOCATION (VOIDmode, var->decl, expr_list);
       NOTE_VAR_LOCATION (note) = var_location;
     }
@@ -848,11 +847,11 @@ note_insn_var_location_emit (insn, where, var)
       rtx var_location;
 
       for (i = 0; i < var->n_location_parts; i++)
-      argp[i] = gen_rtx_EXPR_LIST (VOIDmode,
-                                   var->location_part[i].loc,
-                                   GEN_INT (var->location_part[i].offset));
+	argp[i] = gen_rtx_EXPR_LIST (VOIDmode,
+				     var->location_part[i].loc,
+				     GEN_INT (var->location_part[i].offset));
       parallel = gen_rtx_PARALLEL (VOIDmode,
-                                 gen_rtvec_v (var->n_location_parts, argp));
+				   gen_rtvec_v (var->n_location_parts, argp));
       var_location = gen_rtx_VAR_LOCATION (VOIDmode, var->decl, parallel);
       NOTE_VAR_LOCATION (note) = var_location;
     }
@@ -882,9 +881,9 @@ set_location_part (decl, offset, loc, insn, where)
       var->n_location_parts = 0;
 
       slot = htab_find_slot_with_hash (variable_htab, decl, HASH_VAL (decl),
-                                     INSERT);
+				       INSERT);
       if (*slot)
-      abort ();
+	abort ();
       *slot = (void *) var;
       k = 0;
     }
@@ -892,8 +891,8 @@ set_location_part (decl, offset, loc, insn, where)
     {
       /* Find the location part.  */
       for (k = 0; k < var->n_location_parts; k++)
-      if (var->location_part[k].offset == offset)
-        break;
+	if (var->location_part[k].offset == offset)
+	  break;
     }
   if (k == var->n_location_parts)
     {
@@ -931,24 +930,24 @@ delete_location_part (decl, offset, insn, where)
 {
   int i;
   void **slot = htab_find_slot_with_hash (variable_htab, decl, HASH_VAL (decl),
-                                        NO_INSERT);
+					  NO_INSERT);
   if (slot && *slot)
     {
       variable var = *slot;
       /* Delete the location part.  */
       for (i = 0; i < var->n_location_parts; i++)
-      if (var->location_part[i].offset == offset)
-        {
-          emit_note_data emit_note_data;
+	if (var->location_part[i].offset == offset)
+	  {
+	    emit_note_data emit_note_data;
 
-          var->n_location_parts--;
-          var->location_part[i] = var->location_part[var->n_location_parts];
-          var->changed = true;
-          emit_note_data.insn = insn;
-          emit_note_data.where = where;
-          emit_note_if_var_changed (slot, &emit_note_data);
-          break;
-        }
+	    var->n_location_parts--;
+	    var->location_part[i] = var->location_part[var->n_location_parts];
+	    var->changed = true;
+	    emit_note_data.insn = insn;
+	    emit_note_data.where = where;
+	    emit_note_if_var_changed (slot, &emit_note_data);
+	    break;
+	  }
     }
 }
 
@@ -967,9 +966,9 @@ process_location_parts (slot, aux)
   for (i = 0; i < var->n_location_parts; i++)
     if (var->location_part[i].delete_p)
       {
-      var->n_location_parts--;
-      var->location_part[i] = var->location_part[var->n_location_parts];
-      var->changed = true;
+	var->n_location_parts--;
+	var->location_part[i] = var->location_part[var->n_location_parts];
+	var->changed = true;
       }
   emit_note_if_var_changed (slot, aux);
   return 1;
@@ -988,7 +987,7 @@ emit_note_if_var_changed (slot, aux)
   variable var = *slot;
   emit_note_data *data = (emit_note_data *) aux;
   if (var->n_location_parts == 0)
-          var->changed = false;
+    var->changed = false;
   if (var->changed)
     {
       var->changed = false;
@@ -1011,7 +1010,7 @@ process_bb (bb)
   init_attrs_list_set (attrs);
   for (i = 0; i < IN_OUT_SIZE; i++)
     attrs_list_copy (&attrs[i], VTI (bb)->in[i]);
- 
+
   n = VTI (bb)->n_locs;
   for (i = 0; i < n; i++)
     {
@@ -1019,67 +1018,67 @@ process_bb (bb)
       rtx loc = VTI (bb)->locs[i].loc;
 
       if (GET_CODE (loc) == REG)
-      {
-        attrs_list l;
-        tree decl = REG_EXPR (loc);
-        HOST_WIDE_INT offset = REG_OFFSET (loc);
-        enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
+	{
+	  attrs_list l;
+	  tree decl = REG_EXPR (loc);
+	  HOST_WIDE_INT offset = REG_OFFSET (loc);
+	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
 
-        switch (VTI (bb)->locs[i].type)
-          {
-            case LT_PARAM:
-              where = EMIT_NOTE_BEFORE_INSN;
-            case LT_SET_DEST:
-              for (l = attrs[REGNO (loc)]; l; l = l->next)
-                if (l->decl != decl || l->offset != offset)
-                  delete_location_part (l->decl, l->offset, insn, where);
-              attrs_list_clear (&attrs[REGNO (loc)]);
-              if (decl)
-                {
-                  set_location_part (decl, offset, loc, insn, where);
-                  attrs_list_insert (&attrs[REGNO (loc)], decl, offset, loc);
-                }
-              break;
+	  switch (VTI (bb)->locs[i].type)
+	    {
+	      case LT_PARAM:
+		where = EMIT_NOTE_BEFORE_INSN;
+	      case LT_SET_DEST:
+		for (l = attrs[REGNO (loc)]; l; l = l->next)
+		  if (l->decl != decl || l->offset != offset)
+		    delete_location_part (l->decl, l->offset, insn, where);
+		attrs_list_clear (&attrs[REGNO (loc)]);
+		if (decl)
+		  {
+		    set_location_part (decl, offset, loc, insn, where);
+		    attrs_list_insert (&attrs[REGNO (loc)], decl, offset, loc);
+		  }
+		break;
 
-            case LT_CLOBBERED:
-              for (l = attrs[REGNO (loc)]; l; l = l->next)
-                delete_location_part (l->decl, l->offset, insn,
-                                      EMIT_NOTE_AFTER_INSN);
-              attrs_list_clear (&attrs[REGNO (loc)]);
-              break;
-          }
-      }
+	      case LT_CLOBBERED:
+		for (l = attrs[REGNO (loc)]; l; l = l->next)
+		  delete_location_part (l->decl, l->offset, insn,
+					EMIT_NOTE_AFTER_INSN);
+		attrs_list_clear (&attrs[REGNO (loc)]);
+		break;
+	    }
+	}
       else if (GET_CODE (loc) == MEM && MEM_EXPR (loc))
-      {
-        attrs_list l;
-        tree decl = MEM_EXPR (loc);
-        HOST_WIDE_INT alias = MEM_ALIAS_SET (loc);
-        HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
-        enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
+	{
+	  attrs_list l;
+	  tree decl = MEM_EXPR (loc);
+	  HOST_WIDE_INT alias = MEM_ALIAS_SET (loc);
+	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
 
-        switch (VTI (bb)->locs[i].type)
-          {
-            case LT_PARAM:
-              where = EMIT_NOTE_BEFORE_INSN;
-            case LT_SET_DEST:
-              for (l = attrs[MEMORY_VAR]; l; l = l->next)
-                if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset
-                    && l->decl != decl)
-                  delete_location_part (l->decl, l->offset, insn, where);
-              attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
-              set_location_part (decl, offset, loc, insn, where);
-              attrs_list_insert (&attrs[MEMORY_VAR], decl, offset, loc);
-              break;
+	  switch (VTI (bb)->locs[i].type)
+	    {
+	      case LT_PARAM:
+		where = EMIT_NOTE_BEFORE_INSN;
+	      case LT_SET_DEST:
+		for (l = attrs[MEMORY_VAR]; l; l = l->next)
+		  if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset
+		      && l->decl != decl)
+		    delete_location_part (l->decl, l->offset, insn, where);
+		attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
+		set_location_part (decl, offset, loc, insn, where);
+		attrs_list_insert (&attrs[MEMORY_VAR], decl, offset, loc);
+		break;
 
-            case LT_CLOBBERED:
-              for (l = attrs[MEMORY_VAR]; l; l = l->next)
-                if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset)
-                  delete_location_part (l->decl, l->offset, insn,
-                                        EMIT_NOTE_AFTER_INSN);
-              attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
-              break;
-          }
-      }
+	      case LT_CLOBBERED:
+		for (l = attrs[MEMORY_VAR]; l; l = l->next)
+		  if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset)
+		    delete_location_part (l->decl, l->offset, insn,
+					  EMIT_NOTE_AFTER_INSN);
+		attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
+		break;
+	    }
+	}
     }
 }
 
@@ -1102,32 +1101,32 @@ var_tracking_emit_notes ()
       emit_note_data emit_note_data;
 
       /* Emit the notes for changes of variable locations between two
-       sequential basic blocks.  */
+	 sequential basic blocks.  */
       /* Mark the variables of previous OUT set.  */
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-      for (l = last_out[j]; l; l = l->next)
-        {
-          variable var = htab_find_with_hash (variable_htab, l->decl,
-                                              HASH_VAL (l->decl));
-          if (var)
-            {
-              int k;
-              for (k = 0; k < var->n_location_parts; k++)
-                if (var->location_part[k].offset == last_out[j]->offset)
-                  {
-                    var->location_part[k].delete_p = true;
-                    break;
-                  }
-            }
-        }
+	for (l = last_out[j]; l; l = l->next)
+	  {
+	    variable var = htab_find_with_hash (variable_htab, l->decl,
+						HASH_VAL (l->decl));
+	    if (var)
+	      {
+		int k;
+		for (k = 0; k < var->n_location_parts; k++)
+		  if (var->location_part[k].offset == last_out[j]->offset)
+		    {
+		      var->location_part[k].delete_p = true;
+		      break;
+		    }
+	      }
+	  }
       /* Add the variables of IN set and unmark them.  */
       in = VTI (bb)->in;
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-      for (l = in[j]; l; l = l->next)
-        {
-          set_location_part (l->decl, l->offset, l->loc, bb->head,
-                             EMIT_NOTE_AFTER_INSN);
-        }
+	for (l = in[j]; l; l = l->next)
+	  {
+	    set_location_part (l->decl, l->offset, l->loc, bb->head,
+			       EMIT_NOTE_AFTER_INSN);
+	  }
       /* Emit the notes and delete the marked location parts.  */
       emit_note_data.insn = bb->head;
       emit_note_data.where = EMIT_NOTE_BEFORE_INSN;
@@ -1159,77 +1158,76 @@ var_tracking_initialize ()
       /* Count the number of stores.  */
       VTI (bb)->n_locs = 0;
       for (insn = bb->head; insn != NEXT_INSN (bb->end);
-         insn = NEXT_INSN (insn))
-      {
-        if (INSN_P (insn))
-          {
-            data.oper = SO_COUNT;
-            data.insn = insn;
-            for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
-          }
-      }
+	   insn = NEXT_INSN (insn))
+	{
+	  if (INSN_P (insn))
+	    {
+	      data.oper = SO_COUNT;
+	      data.insn = insn;
+	      for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
+	    }
+	}
 
       /* Add the stores to the array.  */
       VTI (bb)->locs = xmalloc (VTI (bb)->n_locs
-                              * sizeof (struct location_def));
+				* sizeof (struct location_def));
       VTI (bb)->n_locs = 0;
       for (insn = bb->head; insn != NEXT_INSN (bb->end);
-         insn = NEXT_INSN (insn))
-      {
-        if (INSN_P (insn))
-          {
-            int n1, n2;
+	   insn = NEXT_INSN (insn))
+	{
+	  if (INSN_P (insn))
+	    {
+	      int n1, n2;
 
-            data.type = LT_PARAM;
-            data.oper = SO_STORE;
-            data.insn = insn;
-            n1 = VTI (bb)->n_locs;
-            for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
+	      data.type = LT_PARAM;
+	      data.oper = SO_STORE;
+	      data.insn = insn;
+	      n1 = VTI (bb)->n_locs;
+	      for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
 
-            n2 = VTI (bb)->n_locs - 1;
-            /* Order the locations so that the locations of type LT_PARAM are
-               before others.  */
-            while (n1 < n2)
-              {
-                while (n1 < n2 && VTI (bb)->locs[n1].type == LT_PARAM)
-                  n1++;
-                while (n1 < n2 && VTI (bb)->locs[n2].type != LT_PARAM)
-                  n2--;
-                if (n1 < n2)
-                  {
-                    location sw;
-                    sw = VTI (bb)->locs[n1];
-                    VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
-                    VTI (bb)->locs[n2] = sw;
-                  }
-              }
-            /* Now the LT_PARAMs are first, order the rest so that the
-               LT_SET_DESTs are before LT_CLOBBEREDs.  */
-            n2 = VTI (bb)->n_locs - 1;
-            while (n1 < n2)
-              {
-                while (n1 < n2 && VTI (bb)->locs[n1].type == LT_SET_DEST)
-                  n1++;
-                while (n1 < n2 && VTI (bb)->locs[n2].type == LT_CLOBBERED)
-                  n2--;
-                if (n1 < n2)
-                  {
-                    location sw;
-                    sw = VTI (bb)->locs[n1];
-                    VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
-                    VTI (bb)->locs[n2] = sw;
-                  }
-              }
-          }
-      }
+	      n2 = VTI (bb)->n_locs - 1;
+	      /* Order the locations so that the locations of type LT_PARAM are
+		 before others.  */
+	      while (n1 < n2)
+		{
+		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_PARAM)
+		    n1++;
+		  while (n1 < n2 && VTI (bb)->locs[n2].type != LT_PARAM)
+		    n2--;
+		  if (n1 < n2)
+		    {
+		      location sw;
+		      sw = VTI (bb)->locs[n1];
+		      VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
+		      VTI (bb)->locs[n2] = sw;
+		    }
+		}
+	      /* Now the LT_PARAMs are first, order the rest so that the
+		 LT_SET_DESTs are before LT_CLOBBEREDs.  */
+	      n2 = VTI (bb)->n_locs - 1;
+	      while (n1 < n2)
+		{
+		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_SET_DEST)
+		    n1++;
+		  while (n1 < n2 && VTI (bb)->locs[n2].type == LT_CLOBBERED)
+		    n2--;
+		  if (n1 < n2)
+		    {
+		      location sw;
+		      sw = VTI (bb)->locs[n1];
+		      VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
+		      VTI (bb)->locs[n2] = sw;
+		    }
+		}
+	    }
+	}
 
       /* Init the IN and OUT arrays.  */
       init_attrs_list_set (VTI (bb)->in);
       init_attrs_list_set (VTI (bb)->out);
     }
 
-  variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq,
-                             free);
+  variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq, free);
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -1246,10 +1244,10 @@ var_tracking_finalize ()
       free (VTI (bb)->locs);
 
       for (j = 0; j < IN_OUT_SIZE; j++)
-      {
-        attrs_list_clear (&VTI (bb)->in[j]);
-        attrs_list_clear (&VTI (bb)->out[j]);
-      }
+	{
+	  attrs_list_clear (&VTI (bb)->in[j]);
+	  attrs_list_clear (&VTI (bb)->out[j]);
+	}
     }
   free_aux_for_blocks ();
 }
@@ -1279,7 +1277,7 @@ variable_tracking_main ()
     {
       fprintf (rtl_dump_file, "RC order: \n");
       for (i = 0; i < n_basic_blocks; i++)
-      fprintf (rtl_dump_file, "%d ", rc_order[i]);
+	fprintf (rtl_dump_file, "%d ", rc_order[i]);
       fprintf (rtl_dump_file, "\n");
     }
 

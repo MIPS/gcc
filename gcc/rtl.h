@@ -666,10 +666,10 @@ extern const char * const reg_note_name[];
 #define NOTE_PREDICT(ALG,FLAGS)     ((ALG<<8)+(FLAGS))
 
 /* Variable declaration and the location of a variable.  */
-#define NOTE_VAR_LOCATION_DECL(INSN)  (XCTREE (XCEXP (INSN, 3, NOTE), 0, \
-                                       VAR_LOCATION))
-#define NOTE_VAR_LOCATION_LOC(INSN)   (XCEXP (XCEXP (INSN, 3, NOTE), 1, \
-                                       VAR_LOCATION))
+#define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 3, NOTE),	\
+						 0, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 3, NOTE),	\
+						1, VAR_LOCATION))
 
 /* Codes that appear in the NOTE_LINE_NUMBER field
    for kinds of notes that are not line numbers.
