@@ -1,5 +1,9 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_array_ref): Lay out array class.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_for): Wrap body in a LOOP_EXPR.
 
 	* abi.cc (build_method_call): Wrap object in NOP_EXPR before

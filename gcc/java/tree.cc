@@ -941,6 +941,9 @@ tree_generator::visit_array_ref (model_array_ref *,
   tree index_tree = current;
   tree component_type
     = gcc_builtins->map_type (array->type ()->element_type ());
+  // We need the array type laid out before we can use it.
+  // FIXME: this should be handled more generically.
+  gcc_builtins->lay_out_class (assert_cast<model_class *> (array->type ()));
 
   current = build_array_reference (array_tree, index_tree,
 				   component_type);
