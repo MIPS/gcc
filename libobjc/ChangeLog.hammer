@@ -1,3 +1,7 @@
+2004-02-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* encoding.c (rs6000_special_round_type_align): Define.
+
 2004-01-24  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
