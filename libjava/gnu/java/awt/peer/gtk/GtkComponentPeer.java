@@ -202,7 +202,9 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Image createImage (ImageProducer producer)
   {
-    return new GtkImage (producer, null);
+    GtkImage image = new GtkImage (producer, null);
+    producer.startProduction (image);
+    return image;
   }
 
   public Image createImage (int width, int height)
