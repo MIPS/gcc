@@ -61,6 +61,19 @@ struct dfa_stats_d
   long num_vuses;
 };
 
+struct alias_stats_d
+{
+  unsigned int alias_queries;
+  unsigned int alias_mayalias;
+  unsigned int alias_noalias;
+  unsigned int simple_queries;
+  unsigned int simple_resolved;
+  unsigned int tbaa_queries;
+  unsigned int tbaa_resolved;
+  unsigned int pta_queries;
+  unsigned int pta_resolved;
+};
+
 /* Tuple to map a variable to its alias set.  Used to cache the results of
    calls to get_alias_set().  */
 struct GTY(()) alias_map_d
@@ -101,11 +114,13 @@ static int dump_flags;
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_stats_d dfa_stats;
 
+struct alias_stats_d alias_stats;
 
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static void compute_alias_sets (void);
+static void dump_alias_stats (FILE *);
 static void create_memory_tags (void);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
@@ -904,6 +919,7 @@ create_memory_tags (void)
 {
   size_t i;
 
+  memset (&alias_stats, 0, sizeof (alias_stats));
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
@@ -1105,6 +1121,9 @@ compute_alias_sets (void)
   dump_file = dump_begin (TDI_alias, &dump_flags);
   if (dump_file)
     {
+      if (dump_flags & TDF_STATS)
+	dump_alias_stats (dump_file);
+
       dump_alias_info (dump_file);
       dump_referenced_vars (dump_file);
       dump_function_to_file (current_function_decl, dump_file, dump_flags);
@@ -1130,10 +1149,15 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   var_ann_t v_ann, m_ann;
 
   mem = var_ann (ptr)->mem_tag;
-
+  alias_stats.alias_queries++;
+  alias_stats.simple_queries++;
   /* By convention, a variable cannot alias itself.  */
   if (mem == var)
-    return false;
+    {
+      alias_stats.alias_noalias++;
+      alias_stats.simple_resolved++;
+      return false;
+    }
 
   v_ann = var_ann (var);
   m_ann = var_ann (mem);
@@ -1142,7 +1166,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   if (!m_ann->is_mem_tag)
     abort ();
 #endif
-
+  alias_stats.tbaa_queries++;
   /* If VAR is a pointer with the same alias set as PTR, then dereferencing
      PTR can't possibly affect VAR.  Note, that we are specifically testing
      for PTR's alias set here, not its pointed-to type.  We also can't
@@ -1152,10 +1176,12 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
     {
       HOST_WIDE_INT ptr_alias_set = get_alias_set (ptr);
       if (ptr_alias_set == var_alias_set)
-	return false;
+	{
+	  alias_stats.alias_noalias++;
+	  alias_stats.tbaa_resolved++;
+	  return false;
+	}
     }
-
-
   /* If the alias sets don't conflict then MEM cannot alias VAR.  */
   if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
     {
@@ -1184,24 +1210,43 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 
 	  /* If no pointer-to VAR exists, then MEM can't alias VAR.  */
 	  if (ptr_to_var == NULL_TREE)
-	    return false;
+	    {
+	      alias_stats.alias_noalias++;
+	      alias_stats.tbaa_resolved++;
+	      return false;
+	    }
 
 	  /* If MEM doesn't alias a pointer to VAR and VAR doesn't alias
 	     PTR, then PTR can't alias VAR.  */
 	  if (!alias_sets_conflict_p (mem_alias_set, get_alias_set (ptr_to_var))
 	      && !alias_sets_conflict_p (var_alias_set, get_alias_set (ptr)))
-	    return false;
+	    {
+	      alias_stats.alias_noalias++;
+	      alias_stats.tbaa_resolved++;
+	      return false;
+	    }
 	}
       else
-	return false;
+	{
+	  alias_stats.alias_noalias++;
+	  alias_stats.tbaa_resolved++;
+	  return false;
+	}
     }
+
+  if (flag_tree_points_to != PTA_NONE)
+      alias_stats.pta_queries++;
 
   /* If -ftree-points-to is given, check if PTR may point to VAR.  */
   if (flag_tree_points_to == PTA_ANDERSEN
       && !ptr_may_alias_var (ptr, var))
-    return false;
+    {
+      alias_stats.alias_noalias++;
+      alias_stats.pta_resolved++;
+      return false;
+    }
 
-
+  alias_stats.alias_mayalias++;
   return true;
 }
 
@@ -1241,6 +1286,31 @@ add_may_alias (tree var, tree alias)
 }
 
 
+static void 
+dump_alias_stats (FILE *file)
+{
+  const char *funcname
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+  fprintf (file, "\nAlias statistics for %s\n\n", funcname);
+  fprintf (file, "Total alias queries:\t%u\n", alias_stats.alias_queries);
+  fprintf (file, "Total alias mayalias results:\t%u\n", 
+	   alias_stats.alias_mayalias);
+  fprintf (file, "Total alias noalias results:\t%u\n",
+	   alias_stats.alias_noalias);
+  fprintf (file, "Total simple queries:\t%u\n",
+	   alias_stats.simple_queries);
+  fprintf (file, "Total simple resolved:\t%u\n",
+	   alias_stats.simple_resolved);
+  fprintf (file, "Total TBAA queries:\t%u\n",
+	   alias_stats.tbaa_queries);
+  fprintf (file, "Total TBAA resolved:\t%u\n",
+	   alias_stats.tbaa_resolved);
+  fprintf (file, "Total PTA queries:\t%u\n",
+	   alias_stats.pta_queries);
+  fprintf (file, "Total PTA resolved:\t%u\n",
+	   alias_stats.pta_resolved);
+}
+  
 /* Dump alias information on FILE.  */
 
 void

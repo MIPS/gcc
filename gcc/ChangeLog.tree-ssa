@@ -1,3 +1,12 @@
+2003-12-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (alias_stats_d): New structure.
+	(alias_stats): New variable.
+	(create_memory_tags): Zero out alias_stats.
+	(dump_alias_stats): New function.
+	(compute_alias_sets): Call it if TDF_STATS is set.
+	(may_alias_p): Collect the various statistics.
+
 2003-12-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimple-low.c (expand_var_p): Always expand volatiles.
