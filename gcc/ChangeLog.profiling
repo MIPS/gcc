@@ -1,3 +1,47 @@
+2004-12-07  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (REG_BR_PROB_BASE): Define here.
+	* cgraph.c (cgraph_create_node): Set estimated_growth.
+	(dump_cgraph_node): Print profile.
+	(cgraph_clone_edge): Add count argument.
+	(cgraph_clone_node): Likewise; update profile.
+	* cgraph.h (cgraph_global_info): Add estimated_growth.
+	(cgraph_node): Add count; kill most_desirable.
+	(cgraph_edge): Kill desirability and undesirable fields.
+	(cgraph_clone_edge, cgraph_clone_node): Update prototypes.
+	* cgraphunit.c (cgraph_reset_node): Requeue nodes to reanalyze.
+	(cgraph_analyze_function): Initialize profile, do not perform IPA.
+	(cgraph_finalize_compilation_unit): Update comment; avoid
+	redundant work when called multiple times; do not dump cgraph
+	to avoid quadratic dumping on IMA; prettier -Q output.
+	(cgraph_optimize): Prettier -Q output; analyze functions.
+	* ipa-inline.c: Change heuristics to work per edge, not per inline
+	candidate, replace previous profile driven heuristics by common
+	implementation.
+	(max_insns): change into int.
+	(max_count): New static variable.
+	(cgraph_clone_inlined_nodes, cgraph_clone_inlined_nodes_1,
+	cgraph_mark_inline_edge): Rever the changes from cfginliner patch;
+	update profile.
+	(cgraph_estimate_growth): Cache result.
+	(update_caller_keys): Likewise
+	(update_callee_keys): Use update_caller_keys.
+	(lookup_recursive_calls): Use priority heap.
+	(cgraph_decide_recursive_inlining): Reorganize to use priority heap.
+	(cgraph_edge_badness): New function.
+	(cgraph_decide_inlining_of_small_functions): Reorganize to work per
+	edge instead of per inline candidate.
+	(cgraph_decide_inlining): Add TV_INLINE_HEURISTICS timevar; 
+	do not call cgraph_profile_driven_inlining.
+	(cgraph_profile_driven_inlining, cgraph_pick_most_desirable_edge,
+	cgraph_desirability): Kill.
+	* rtl.h (REG_BR_PROB_BASE): Move definition to basic-block.h.
+	* timevar.def (TV_INLINE_HEURISTICS): New TV.
+	* tree-inline.c (copy_cfg_body, copy_body): New count argument;
+	update profile.
+	(copy_body_r, expand_call_inline): Update profiling.
+	* tree-optimize.c (tree_rest_of_compilation): Update.
+
 2004-12-02  Dale Johannesen  <dalej@apple.com>
 
         * basic-block.h (scale_bbs_frequencies_int):  New declaration.

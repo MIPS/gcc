@@ -315,11 +315,20 @@ cgraph_reset_node (struct cgraph_node *node)
   memset (&node->local, 0, sizeof (node->local));
   memset (&node->global, 0, sizeof (node->global));
   memset (&node->rtl, 0, sizeof (node->rtl));
+  /* Requeue the node to be re-analyzed if it has been seen in the other unit
+     already.
+     FIXME: Currently intermodule optimization never inline extern inline
+     function defined in multiple units.  This is very wrong.
+     */
+  if (node->analyzed && flag_unit_at_a_time)
+    {
+      node->next_needed = cgraph_nodes_queue;
+      cgraph_nodes_queue = node;
+    }
   node->analyzed = node->local.finalized = false;
   node->local.redefined_extern_inline = true;
   while (node->callees)
     cgraph_remove_edge (node->callees);
-
   /* We may need to re-queue the node for assembling in case
      we already proceeded it and ignored as not needed.  */
   if (node->reachable && !flag_unit_at_a_time)
@@ -779,6 +788,8 @@ cgraph_analyze_function (struct cgraph_node *node)
   if (flag_unit_at_a_time)
     tree_early_local_passes (decl);
 
+  node->count = ENTRY_BLOCK_PTR->count;
+
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, decl);
 
@@ -787,8 +798,6 @@ cgraph_analyze_function (struct cgraph_node *node)
      don't want to add more passes like this, it should be OK.  */
   if (!flag_unit_at_a_time)
     cgraph_analyze_function_inlinability (node);
-  else
-    ipa_analyze_function (node);
 
   node->analyzed = true;
   current_function_decl = NULL;
@@ -796,12 +805,18 @@ cgraph_analyze_function (struct cgraph_node *node)
   timevar_pop (TV_IPA_ANALYSIS);
 }
 
-/* Analyze the whole compilation unit once it is parsed completely.  */
+/* Analyze the whole (source level) compilation unit once it is parsed
+   completely.  For frontends supporting multiple compilation units to
+   be parsed at once this function shall be called for each of them so
+   unreachable static functions are elliminated early.  */
 
 void
 cgraph_finalize_compilation_unit (void)
 {
   struct cgraph_node *node;
+  /* Keep track of already processed nodes when called multiple times for
+     intermodule optmization.  */
+  static struct cgraph_node *first_analyzed;
 
   if (!flag_unit_at_a_time)
     {
@@ -809,15 +824,18 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  cgraph_varpool_analyze_pending_decls ();
   if (!quiet_flag)
-    fprintf (stderr, "\nAnalyzing compilation unit\n");
+    {
+      fprintf (stderr, "\nAnalyzing compilation unit");
+      fflush (stderr);
+    }
 
   timevar_push (TV_CGRAPH);
+  cgraph_varpool_analyze_pending_decls ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Initial entry points:");
-      for (node = cgraph_nodes; node; node = node->next)
+      for (node = cgraph_nodes; node != first_analyzed; node = node->next)
 	if (node->needed && DECL_SAVED_TREE (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n");
@@ -862,17 +880,15 @@ cgraph_finalize_compilation_unit (void)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
-      for (node = cgraph_nodes; node; node = node->next)
+      for (node = cgraph_nodes; node != first_analyzed; node = node->next)
 	if (node->needed && DECL_SAVED_TREE (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
-      fprintf (cgraph_dump_file, "\n\nInitial ");
-      dump_cgraph (cgraph_dump_file);
     }
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nReclaiming functions:");
 
-  for (node = cgraph_nodes; node; node = node->next)
+  for (node = cgraph_nodes; node != first_analyzed; node = node->next)
     {
       tree decl = node->decl;
 
@@ -895,11 +911,9 @@ cgraph_finalize_compilation_unit (void)
       gcc_assert (!node->local.finalized || DECL_SAVED_TREE (decl));
       gcc_assert (node->analyzed == node->local.finalized);
     }
-  if (cgraph_dump_file)
-    {
-      fprintf (cgraph_dump_file, "\n\nReclaimed ");
-      dump_cgraph (cgraph_dump_file);
-    }
+  first_analyzed = cgraph_nodes;
+  if (!quiet_flag)
+    fprintf (stderr, "\n\n");
   ggc_collect ();
   timevar_pop (TV_CGRAPH);
 }
@@ -1122,6 +1136,7 @@ cgraph_preserve_function_body_p (tree decl)
 void
 cgraph_optimize (void)
 {
+  struct cgraph_node *node;
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
@@ -1131,6 +1146,16 @@ cgraph_optimize (void)
       return;
     }
   timevar_push (TV_IPA_OPT);
+  if (!quiet_flag)
+    {
+      fprintf (stderr, "Performing intraprocedural optimizations");
+      fflush (stderr);
+    }
+  if (cgraph_dump_file)
+    {
+      fprintf (cgraph_dump_file, "\n\nInitial ");
+      dump_cgraph (cgraph_dump_file);
+    }
 
   /* Frontend may output common variables after the unit has been finalized.
      It is safe to deal with them here as they are always zero initialized.  */
@@ -1138,10 +1163,12 @@ cgraph_optimize (void)
 
   cgraph_function_and_variable_visibility ();
 
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->analyzed)
+      ipa_analyze_function (node);
+
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
-  if (!quiet_flag)
-    fprintf (stderr, "Performing intraprocedural optimizations\n");
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Marked ");
@@ -1164,7 +1191,7 @@ cgraph_optimize (void)
 
   /* Output everything.  */
   if (!quiet_flag)
-    fprintf (stderr, "Assembling functions:\n");
+    fprintf (stderr, "\nAssembling functions:\n");
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif

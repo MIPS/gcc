@@ -773,7 +773,7 @@ tree_rest_of_compilation (tree fndecl)
 	  struct cgraph_edge *e;
 
 	  node = cgraph_node (current_function_decl);
-	  saved_node = cgraph_clone_node (node);
+	  saved_node = cgraph_clone_node (node, node->count);
 	  for (e = saved_node->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      cgraph_clone_inlined_nodes (e, true);

@@ -91,6 +91,8 @@ struct cgraph_global_info GTY(())
 
   /* Estimated size of the function after inlining.  */
   int insns;
+  /* Estimated growth after inlining.  INT_MIN if not computed.  */
+  int estimated_growth;
 
   /* Set iff the function has been inlined at least once.  */
   bool inlined;
@@ -140,6 +142,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
      variables modified by function calls.  */
   ipa_static_vars_info_t GTY ((skip)) static_vars_info;
 
+  /* Expected number of executions: calculated in profile.c.  */
+  gcov_type count;
   /* Unique id of the node.  */
   int uid;
   /* Set when function must be output - it is externally visible
@@ -157,8 +161,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool output;
   /* Used only while constructing the callgraph.  */
   basic_block current_basic_block;
-  /* The CALL within this function that we'd like to inline next.  */
-  struct cgraph_edge *most_desirable;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -174,10 +176,6 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   const char *inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
-  /* Desirability of this edge for inlining.  Higher numbers are more
-     likely to be inlined.  */
-  gcov_type desirability;
-  bool undesirable;
 };
 
 /* The cgraph_varpool data structure.
@@ -237,8 +235,8 @@ struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
-struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
-struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
+struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree, int);
+struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);

@@ -166,6 +166,7 @@ cgraph_create_node (void)
     cgraph_nodes->previous = node;
   node->previous = NULL;
   node->static_vars_info = NULL;
+  node->global.estimated_growth = INT_MIN;
   cgraph_nodes = node;
   cgraph_n_nodes++;
   return node;
@@ -504,6 +505,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
   if (node->master_clone && node->master_clone->uid != node->uid)
     fprintf (f, "(%i)", node->master_clone->uid);
+  if (node->count)
+    fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
+	     (HOST_WIDEST_INT)node->count);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
@@ -548,6 +552,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->caller->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
     }
 
   fprintf (f, "\n  calls: ");
@@ -557,6 +564,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->callee->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
     }
   fprintf (f, "\n  cycle: ");
   n = node->next_cycle;
@@ -791,20 +801,25 @@ cgraph_function_possibly_inlined_p (tree decl)
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
-cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n, tree call_expr)
+cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
+		   tree call_expr, int count_scale)
 {
   struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
 
   new->inline_failed = e->inline_failed;
+  new->count = e->count * count_scale / REG_BR_PROB_BASE;
+  e->count -= new->count;
   return new;
 }
 
-/* Create node representing clone of N.  */
+/* Create node representing clone of N executed COUNT times.  Decrease
+   the execution counts from original node too.  */
 struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n)
+cgraph_clone_node (struct cgraph_node *n, gcov_type count)
 {
   struct cgraph_node *new = cgraph_create_node ();
   struct cgraph_edge *e;
+  int count_scale;
 
   new->decl = n->decl;
   new->origin = n->origin;
@@ -819,9 +834,15 @@ cgraph_clone_node (struct cgraph_node *n)
   new->global = n->global;
   new->rtl = n->rtl;
   new->master_clone = n->master_clone;
+  new->count = count;
+  if (n->count)
+    count_scale = new->count * REG_BR_PROB_BASE / n->count;
+  else
+    count_scale = 0;
+  n->count -= count;
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_expr);
+    cgraph_clone_edge (e, new, e->call_expr, count_scale);
 
   new->next_clone = n->next_clone;
   n->next_clone = new;
