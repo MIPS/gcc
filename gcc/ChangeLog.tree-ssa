@@ -2,7 +2,7 @@
 
 	* gcc.c (MFWRAP_SPEC): Always wrap main().
 	* tree-mudflap.c (mudflap_enqueue_decl): Mark enqueued decls
-	to prevent them from repeated processing.
+	to prevent their repeated processing.
 
 2003-06-11  Daniel Berlin  <dberlin@dberlin.org>
 
