@@ -1657,6 +1657,8 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
 
       if (state >= JV_STATE_LINKED && klass->state < JV_STATE_LINKED)
 	{
+	  verify_class (klass);
+
 	  ensure_class_linked (klass);
 	  link_exception_table (klass);
 	  link_symbol_table (klass);

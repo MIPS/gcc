@@ -1,5 +1,7 @@
 2004-11-01  Tom Tromey  <tromey@redhat.com>
 
+	* link.cc (wait_for_state): Call verify_class.
+
 	* verify.cc (state::check_no_uninitialized_objects): Removed.
 	(push_jump): Updated.
 	(push_exception_jump): Likewise.
