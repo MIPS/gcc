@@ -1156,13 +1156,10 @@ assemble_start_function (tree decl, const char *fnname)
   unlikely_section_label_printed = false;
   unlikely_text_section_name = NULL;
 
-  if (flag_reorder_blocks_and_partition)
-    {
-      if (unlikely_section_label)
-	free (unlikely_section_label);
-      unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
-      sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
-    }
+  if (unlikely_section_label)
+    free (unlikely_section_label);
+  unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
+  sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
   /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The following code does not need preprocessing in the assembler.  */

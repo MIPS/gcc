@@ -142,6 +142,8 @@ check_maybe_invariant (rtx x)
     case PC:
     case CC0:
     case UNSPEC_VOLATILE:
+    /* APPLE LOCAL disallow hoisting calls at this point.  */
+    case CALL:
       return false;
 
     case REG:
