@@ -39,6 +39,7 @@ extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
 extern void arm_output_fn_unwind (FILE *, bool);
+extern unsigned int arm_dbx_register_number (unsigned int);
 
 #ifdef TREE_CODE
 extern int arm_return_in_memory (tree);
