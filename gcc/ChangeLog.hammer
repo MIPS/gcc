@@ -1,3 +1,33 @@
+Mon Nov 18 23:42:28 CET 2002  Jan Hubicka  <jh@suse.cz>
+	Merge from mainline (hammer-3_3-merge-20021811 branch)
+
+	Merge from 3.4-BIB:
+
+	Sun Nov 17 14:01:09 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
+		absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
+		(neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
+		generate unnecesary subregs.
+
+	Sat Nov 16 16:49:58 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (truncdfsf2_1_sse, truncdfsf2_1_sse_nooverlap, truncdfsf2_2,
+		floats?dff2_i387):
+		Work around regclass stupidity.
+		(truncdfsf_2_1_sse splitter):  Accept !TARGET_PARTIAL_SSE_REGS
+
+	Sat Nov 16 02:17:48 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (fop_df_6): New pattern.
+		(fop_xf_4, fop_xf_5): Handle both SF and DFmode extensions.
+		(fop_xf_6): Rewrite
+		(fop_xf_7): Delete.
+		(fop_tf_4, fop_tf_5): Handle both SF and DFmode extensions.
+		(fop_tf_6): Rewrite
+		(fop_tf_7): Delete.
+
+
 Wed Nov 13 12:08:08 CET 2002  Jan Hubicka  <jh@suse.cz>
 	Merge i386 specific optimizations for 3.4-BIB branch.
 

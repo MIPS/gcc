@@ -1,3 +1,236 @@
+2002-11-18  Joerg Brunsmann  <joerg_brunsmann@yahoo.de>
+
+	* java/security/KeyStore.java (getInstance): Fix
+	comment and throw IllegalArgumentException if 
+	given provider is null.
+	(getInstance): New method for jdk1.4 compatibility.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java: Fix imports.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/SelectionKey.java
+	(isValid): Added exception documentation.
+	* java/nio/channels/Selector.java
+	(open): Declare "throws IOException".
+
+2002-11-18  Jesse Rosenstock <jmr@ugcs.caltech.edu>
+ 
+	* java/nio/charset/Charset.java
+	(<clinit>): New method.
+	(encode): Synchronize use of cached encoder object.
+	(decode): Synchronize use of cached encoder object.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java,
+	gnu/java/nio/CharBufferImpl.java,
+	gnu/java/nio/DatagramChannelImpl.java,
+	gnu/java/nio/DoubleBufferImpl.java,
+	gnu/java/nio/FileChannelImpl.java,
+	gnu/java/nio/FloatBufferImpl.java,
+	gnu/java/nio/IntBufferImpl.java,
+	gnu/java/nio/LongBufferImpl.java,
+	gnu/java/nio/PipeImpl.java,
+	gnu/java/nio/SelectionKeyImpl.java,
+	gnu/java/nio/SelectorImpl.java,
+	gnu/java/nio/SelectorProviderImpl.java,
+	gnu/java/nio/ServerSocketChannelImpl.java,
+	gnu/java/nio/ShortBufferImpl.java,
+	gnu/java/nio/SocketChannelImpl.java,
+	java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java,
+	java/nio/channels/FileChannel.java: New files.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* Makefile.am (ordinary_java_source_files):
+	Added java/nio/ReadOnlyBufferException.java and
+	java/nio/channels/ClosedSelectorException.java.
+	* Makefile.in: Regenerated.
+
+2002-11-18  Michael Koch <konqueror@gmx.de>
+
+	* java/net/PlainSocketImpl.java: Reworked imports.
+	* java/net/ServerSocket.java
+	(ServerSocket): Create socket.
+	* java/net/SocketAddress.java: Documentation added.
+	* java/net/natPlainSocketImpl.cc: Reindented.
+	* java/nio/ReadOnlyBufferException.java: New file
+	* java/nio/channels/ClosedChannelException.java: Documentation added.
+	* java/nio/channels/ClosedSelectorException.java: New file.
+
+2002-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/HttpURLConnection.java ((getPermission): Take port
+	into consideration.
+	(getErrorStream): Implement.
+
+2002-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/HttpURLConnection.java: Merge with GNU Classpath.
+
+2002-11-16  Mark Wielaard  <mark@klomp.org>
+
+	Integrate work by Raif S. Naffah (raif@fl.net.au)
+	* java/security/DummyKeyPairGenerator.java (clone): New method.
+	* java/security/DummyMessageDigest.java (clone): New method.
+	(engineUpdate): Now public.
+	(engineReset): Likewise.
+	(engineDigest): Likewise.
+	(engineGetDigestLength): New method.
+	* java/security/DummySignature.java (clone): New method.
+	* java/security/KeyPairGenerator.java (provider): Now package private.
+	(getInstance(String)): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	(getInstance(String,String,Provider): Don't cast DummyKeyPairGenerator.
+	* java/security/KeyPairGeneratorSpi.java (clone): New method.
+	* java/security/MessageDigest.java (provider): Now package private.
+	(getInstance(String): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	* java/security/Provider.java (toCanonicalKey): New method.
+	(get): New method that uses toCanonicalKey().
+	(put): Use toCanonicalKey().
+	(remove): Likewise.
+	* java/security/Security.java (insertProviderAt): Provider index is one
+	based, not zero based.
+	(addProvider): Likewise.
+	(removeProvider): Likewise.
+	* java/security/Signature.java (provider): Now package private.
+	(getInstance(String)): Use getInstance(String,Provider).
+	(getInstance(String,String): Use getInstance(String,Provider)
+	(getInstance(String,Provider): New method.
+	(getInstance(String,String,Provider): Don't cast DummySignature.
+
+2002-11-15  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/8593:
+	* java/util/zip/GZIPInputStream.java (read): Check file size.
+	Look in inflater for remaining input bytes.
+	(read4): Added buf and offset arguments.
+
+2002-11-12  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/applet/AppletContext.java: Fix typo and remove redundant
+	modifiers.
+
+2002-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Set
+	gnu.classpath.home.
+
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(allocate): New method.
+	(wrap): New method.
+	(put): New method.
+	(get): New method.
+	
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/AlreadyConnectedException.java:
+	Removed unneeded import.
+	(AlreadyConnectedException): Documentation added.
+	* java/nio/channels/Pipe.java
+	(SinkChannel.SinkChannel): Documentation added.
+	(SinkChannel.validOps): New method.
+	(SourceChannel.SourceChannel): Documentation added.
+	(SourceChannel.validOps): New method.
+	(Pipe): Documentation added.
+	(open): Documentation added.
+	(SinkChannel.channel): Documentation added.
+	(SourceChannel.channel): Documentation added.
+	* java/nio/channel/SelectableChannel.java
+	(SelectableChannel): Documentation added.
+	(blockingLock): Documentation added.
+	(configureBlocking):Documentation added.
+	(isBlocking):Documentation added.
+	(isRegistered):Documentation added.
+	(keyFor):Documentation added.
+	(provider):Documentation added.
+	(register): Documentation added.
+	(validOps): Documentation added.
+	* jaba/nio/channels/SelectionKey.java
+	(SelectionKey): Documentation added.
+	(attach): Documentation added.
+	(attachment): Documentation added.
+	(isAcceptable): Documentation added.
+	(isConnetable): Documentation added.
+	(isReadable): Documentation added.
+	(isWritable): Documentation added.
+	(cancel): Documentation added.
+	(channel): Documentation added.
+	(interestOps): Documentation added.
+	(isValid): Documentation added.
+	(readyOps): Documentation added.
+	(selector): Documentation added.
+	* jaba/nio/channels/Selector.java
+	(Selector): Documentation added.
+	(open): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(keys): Documentation added.
+	(provider): Documentation added.
+	(select): Documentation added.
+	(selectedKeys): Documentation added.
+	(selectNow): Documentation added.
+	(wakeup): Documentation added.
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java
+	(AbstractInterruptibleChannel): Documentation added.
+	(opened): Default to true;
+	(begin): Documentation added.
+	(close): Set opened to false, documentation added.
+	(isOpen): Documentation added.
+	* java/nio/channels/spi/AbstractSelectionKey.java
+	(AbstractSelectionKey): Documentation added.
+	(cancel): Documentation added.
+	(isValid): Documentation added.
+	* java/nio/channels/spi/AbstractSelector.java
+	(AbstractSelector): Documentation added.
+	(begin): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(deregister): Documentation added.
+	(end): Documentation added.
+	(provider): Documentation added.
+	(implCloseSelector): Documentation added.
+	(register): Documentation added.
+	* java/nio/channels/spi/SelectorProvider.java
+	(SelectorProvider): Documentation added.
+	(openDatagramChannel): Documentation added.
+	(openPipe): Documentation added.
+	(openSelector): Documentation added.
+	(openServerSocketChannel): Documentation added.
+	(openSocketChannel): Documentation added.
+	(provider): Documentation added.
+
+2002-11-12  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/Buffer.java: Implemented.
+	* java/nio/CharBuffer.java: New file.
+	* java/nio/InvalidMarkException.java: New file.
+	* java/nio/channels/DatagramChannel.java: Implemented.
+	* java/nio/channels/ServerSocketChannel.java: Implemented.
+	* java/nio/channels/SocketChannel.java: Implemented.
+	* java/nio/channels/spi/AbstractChannel.java: Removed.
+	* java/nio/channels/spi/AbstractSelectableChannel.java:
+	Implemented.
+	* java/nio/charset/Charset.java:
+	Merge from Classpath.
+	* java/nio/charset/CharsetDecoder.java: New file.
+	* java/nio/charset/CharsetEncoder.java: New file.
+	* java/nio/charset/CoderResult.java: New file.
+	* Makefile.am (ordinary_java_source_files): Added new files.
+	* Makefile.in: Regenerated.
+	
 2002-11-11  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
 
 	* gnu/java/nio/charset/ISO_8859_1.java,
@@ -9,10 +242,7 @@
 	gnu/java/nio/charset/UTF_16Encoder.java,
 	gnu/java/nio/charset/UTF_16LE.java,
 	gnu/java/nio/charset/UTF_8.java: New files.
-	* Makefile.am ():
-	Added new files.
-	* Makefile.in: Regenerated.
-	
+
 2002-11-11  Michael Koch <konqueror@gmx.de>
 
 	* java/nio/charset/CharacterCodingException.java:

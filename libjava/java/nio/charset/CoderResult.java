@@ -182,7 +182,7 @@ public class CoderResult
       if (cr == null)
         {
           cr = make (length);
-          cache.put (len, new WeakReference (cr));
+          cache.put (len, cr);
         }
 
       return cr;

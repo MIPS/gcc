@@ -1,3 +1,24 @@
+2002-11-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* class.c: Likewise.
+	* decl2.c: Likewise.
+
+2002-11-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* search.c (dfs_push_decls): Do not try to reorder elements
+	3..n of method_vec if method_vec has only two elements.
+	Reverse order of two tests to avoid accessing unallocated
+	memory.
+
+2002-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (dfs_find_final_overrider): Adjust so that the most
+	derived object is a binfo, rather than a class type.
+	(find_final_overrider): Likewise.
+	(add_vcall_offset_vtbl_entries_1): Simplify accordingly.
+	(add_vcall_offset): Likewise.
+
 2002-11-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/8389
@@ -222,7 +243,7 @@
 	(layout_nonempty_base_or_field): Do not check for conflicts when
 	laying out a virtual base using the GCC 3.2 ABI.
 	(build_base_field): Correct checking for presence of empty classes
-	at non-zero offsets when clearing CLASSTYPE_NEARLY_EMPTY_P.
+	at nonzero offsets when clearing CLASSTYPE_NEARLY_EMPTY_P.
 
 	* class.c (include_empty_classes): Use normalize_rli.
 	(layout_class_type): Likewise.
