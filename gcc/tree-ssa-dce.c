@@ -190,9 +190,9 @@ tree_ssa_eliminate_dead_code (fndecl)
 
 	  FOR_EACH_REF (ref, tmp, blockrefs)
 	    {
-	      HOST_WIDE_INT type = ref_type (ref);
+	      enum tree_ref_type type = ref_type (ref);
 
-	      if (type & V_DEF)
+	      if (type == V_DEF)
 		{
 		  if (TREE_THIS_VOLATILE (ref_var (ref)))
 		    {
@@ -235,7 +235,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       FOR_EACH_REF (r, tmp, tree_refs (i))
 	{
 	  struct ref_list_node *tmp2;
-	  if (! (ref_type (r) & V_USE))
+	  if (ref_type (r) != V_USE)
 	    continue;
 
 	  FOR_EACH_REF (rdef, tmp2, reaching_defs (r))

@@ -812,7 +812,7 @@ block_invalidates_loop (bb, loop)
      non-pure function call is marked by the presence of a clobbering
      definition of GLOBAL_VAR.  */
   FOR_EACH_REF (ref, tmp, bb_refs (bb))
-    if (ref_var (ref) == global_var && (ref_type (ref) & (V_DEF | M_CLOBBER)))
+    if (ref_var (ref) == global_var && is_clobbering_def (ref))
       return true;
 
   return false;

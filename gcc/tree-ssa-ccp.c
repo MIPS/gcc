@@ -214,7 +214,7 @@ simulate_block (block)
      before.  Note that all PHI nodes are consecutive within a block.  */
   FOR_EACH_REF (ref, tmp, blockrefs)
     {
-      if (ref_type (ref) & V_PHI)
+      if (ref_type (ref) == V_PHI)
 	visit_phi_node (ref);
     }
 
@@ -235,7 +235,7 @@ simulate_block (block)
       FOR_EACH_REF (ref, tmp, blockrefs)
 	{
 	  /* Simulate each reference within the block.  */
-	  if (!(ref_type (ref) & V_PHI))
+	  if (ref_type (ref) != V_PHI)
 	    visit_expression_for (ref);
 	} 
 
@@ -267,13 +267,13 @@ simulate_def_use_chains (def)
     {
       /* Note that we only visit unmodified V_USE references.  We don't
 	 want to deal with any modifiers here.  */
-      if (ref_type (ref) == V_USE
+      if (is_pure_use (ref)
 	  && TEST_BIT (executable_blocks, ref_bb (ref)->index))
 	visit_expression_for (ref);
 
       /* PHI nodes are always visited, regardless of whether or not the
 	 destination block is executable.  */
-      else if (ref_type (ref) & V_PHI)
+      else if (ref_type (ref) == V_PHI)
 	visit_phi_node (ref);
     }
 }
@@ -314,7 +314,7 @@ optimize_unexecutable_edges (edges)
 
 	      FOR_EACH_REF (ref, tmp, blockrefs)
 		{
-		  if (ref_type (ref) & V_PHI)
+		  if (ref_type (ref) == V_PHI)
 		    tree_ssa_remove_phi_alternative (ref, edge->src);
 		}
 	    }
@@ -354,7 +354,7 @@ substitute_and_fold ()
 
 	  /* We are only interested in expressions that contain unmodified
 	     V_USE references.  */
-	  if (ref_type (ref) != V_USE)
+	  if (!is_pure_use (ref))
 	    continue;
 
 	  /* Skip statements that have been folded already.  */
@@ -526,15 +526,17 @@ visit_expression_for (ref)
 
 #if defined ENABLE_CHECKING
   /* PHI references should be handled by visit_phi_node.  */
-  if (ref_type (ref) & V_PHI)
+  if (ref_type (ref) == V_PHI)
     abort ();
 #endif
 
   /* First examine the reference to see if it's a special definition
      (clobbering, partial or may-def), mark it varying and add SSA edges
      that may be coming out of it.  */
-  if ((ref_type (ref) & V_DEF)
-      && ref_type (ref) & (M_CLOBBER | M_PARTIAL | M_MAY | M_RELOCATE))
+  if (is_clobbering_def (ref)
+      || is_partial_def (ref)
+      || is_may_def (ref)
+      || is_relocating_def (ref))
     def_to_varying (ref);
 
   expr = ref_expr (ref);
@@ -869,7 +871,7 @@ initialize ()
 	     variables should be considered varying.  */
 	  if ((TREE_CODE (var) == PARM_DECL
 	       || decl_function_context (get_base_symbol (var)) == NULL)
-	      && ref_type (r) == (V_DEF | M_DEFAULT))
+	      && is_default_def (r))
 	    values[id].lattice_val = VARYING;
 
 	  /* If this reference is the declaration of a static variable, set
@@ -877,7 +879,7 @@ initialize ()
 	     executed the first time the function is called.  We could
 	     assume them constant if there are no other definitions to the
 	     variable in the function, but that hardly seems worth it.  */
-	  else if (ref_type (r) == (V_DEF | M_INITIAL))
+	  else if (is_initializing_def (r))
 	    {
 	      values[id].lattice_val = VARYING;
 
@@ -1013,7 +1015,7 @@ replace_uses_in (expr)
       tree_ref rdef;
 
       /* Only replace unmodified V_USE references.  */
-      if (ref_type (use) != V_USE)
+      if (!is_pure_use (use))
 	continue;
 
       /* The lattice value of a USE reference is the value of its
@@ -1058,9 +1060,9 @@ restore_expr (expr)
 
   FOR_EACH_REF (use, tmp, refs)
     {
-      /* Only restore unmodified V_USE references (those are the only types
+      /* Only restore pure V_USE references (those are the only types
 	 of references changed by replace_uses_in.  */
-      if (ref_type (use) == V_USE)
+      if (is_pure_use (use))
 	restore_ref_operand (use);
     }
 }

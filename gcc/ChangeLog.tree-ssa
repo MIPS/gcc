@@ -1,5 +1,47 @@
 2002-10-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (find_refs_in_expr): Change type of second argument to
+	enum tree_ref_type.  Add third argument ref_mod.  Update all users.
+	(unsigned):
+	(create_ref): Add third argument ref_mod.  Decode bitmask to set
+	the individual bitfields in the new reference.
+	* tree-flow-inline.h (is_may_ref): New function.
+	(is_may_def): New function.
+	(is_may_use): New function.
+	(is_partial_ref): New function.
+	(is_partial_def): New function.
+	(is_partial_use): New function.
+	(is_volatile_ref): New function.
+	(is_volatile_def): New function.
+	(is_volatile_use): New function.
+	(is_default_def): New function.
+	(is_clobbering_def): New function.
+	(is_initializing_def): New function.
+	(is_relocating_def): New function.
+	(is_addressof_use): New function.
+	(is_pure_use): New function.
+	* tree-flow.h (V_DEF, V_USE, V_PHI, E_PHI, E_USE, E_KILL): Redefine
+	inside enum tree_ref_type.  Update all users.
+	(enum tree_ref_type): Define.
+	(TRM_DEFAULT, TRM_CLOBBER, TRM_MAY, TRM_PARTIAL, TRM_INITIAL, 
+	TRM_VOLATILE, TRM_RELOCATE): Rename from M_*.  Update all users.
+	(struct tree_ref_common): Change type of field 'type' to enum
+	tree_ref_type.  Update all users.
+	(struct var_ref): Add bitfields 'm_may', 'm_partial' and 'm_volatile'.
+	(struct var_def): Add bitfield 'm_default', 'm_clobber', 'm_initial'
+	and 'm_relocate'.
+	(struct var_use): Add bitfield 'm_addressof'.
+	(ref_type): Change return type to enum tree_ref_type.  Update all
+	users.
+	(create_ref): Add new argument ref_mod.  Update all users.
+	(function_may_recurse_p): Change return type to bool.  Update all
+	users.
+	(ref_type_name): Change argument type to tree_ref.  Update all
+	users.
+	(validate_ref_type): Remove.
+
+2002-10-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* cp/Make-lang.in (CXX_C_OBJS): Remove tree-cfg.o, tree-dfa.o,
 	tree-optimize.o, tree-ssa.o, tree-ssa-pre.o, gimplify.o, tree-simple.o,
 	tree-alias-steen.o, tree-alias-ecr.o, tree-alias-type.o,

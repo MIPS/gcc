@@ -36,113 +36,49 @@ Boston, MA 02111-1307, USA.  */
   prefix.
 
   The basic semantics of each referenc type can be altered using the
-  modifiers defined below (M_* constants).  These modifiers provide more
-  information for optimizers when making transformations.
+  modifiers defined in the various _ref structures (m_* bitfields).  These
+  modifiers provide more information for optimizers when making
+  transformations.
 ---------------------------------------------------------------------------*/
+enum tree_ref_type {
+  /* A V_DEF reference represents a write operation to the associated
+     variable.  If no modifier alters the reference, the reference
+     represents a killing definition of the associated variable via an
+     assignment expression (i.e., all the bits of the variable are
+     modified).  Note that unmodified V_DEF references are only allowed for
+     MODIFY_EXPR and INIT_EXPR expressions.
 
-/* A V_DEF reference represents a write operation to the associated
-   variable.  If no modifier alters the reference, the reference represents
-   a killing definition of the associated variable via an assignment
-   expression (i.e., all the bits of the variable are modified).  Note that
-   unmodified V_DEF references are only allowed for MODIFY_EXPR and
-   INIT_EXPR expressions.
-   
-   In this case, this reference will represent the output value of the
-   associated expression.  For instance, 'a = 3' creates a V_DEF reference
-   for 'a' and calling output_ref('a = 3') returns this V_DEF.  */
-extern const HOST_WIDE_INT V_DEF;
+     In this case, this reference will represent the output value of the
+     associated expression.  For instance, 'a = 3' creates a V_DEF
+     reference for 'a' and calling output_ref('a = 3') returns this V_DEF.  */
+  V_DEF,
 
-/* A V_USE reference represents a read operation from the associated
-   variable.  If no modifier alters the reference, the reference represents
-   a full read operation on the variable (i.e., all the bits of the
-   variable are read).  */
-extern const HOST_WIDE_INT V_USE;
+  /* A V_USE reference represents a read operation from the associated
+     variable.  If no modifier alters the reference, the reference
+     represents a full read operation on the variable (i.e., all the bits
+     of the variable are read).  */
+  V_USE,
 
-/* A V_PHI represents an SSA PHI operation on the associated variable.  */
-extern const HOST_WIDE_INT V_PHI;
+  /* A V_PHI represents an SSA PHI operation on the associated variable.  */
+  V_PHI,
 
-/* The following references are akin to the previous types but used
-   when building SSA information for expressions instead of variables
-   (see tree-ssa-pre.c)  */
-extern const HOST_WIDE_INT E_PHI;
-extern const HOST_WIDE_INT E_USE;
-extern const HOST_WIDE_INT E_KILL;
+  /* The following references are akin to the previous types but used
+     when building SSA information for expressions instead of variables
+     (see tree-ssa-pre.c)  */
+  E_PHI,
+  E_USE,
+  E_KILL
+};
 
-/*---------------------------------------------------------------------------
-			 Reference type modifiers
-
-  These modifiers are OR'd with the basic reference types to alter the
-  semantics of the reference.  For instance, V_DEF|M_CLOBBER means that the
-  reference modifies the associated variable in ways that the compiler
-  cannot determine.
----------------------------------------------------------------------------*/
-/* M_DEFAULT is used to modify V_DEF references to indicate a default
-   definition.  Default definitions are artificially created in the first
-   basic block of the program.  They provide a convenient way of checking
-   if a variable is used without being assigned a value first.  Their
-   presence is not required, but they save the code from having to consider
-   special cases like nil PHI node arguments.  */
-extern const HOST_WIDE_INT M_DEFAULT;
-
-/* M_CLOBBER is used to modify V_DEF references to represent an unknown
-   modification to the associated variable.  This is used for instructions
-   like __asm__ statements where we know that the variable is being
-   modified but not how.  Another case is at function call sites.
-   Variables that may be accessed by the called function are assumed read
-   and clobbered by the call.  */
-extern const HOST_WIDE_INT M_CLOBBER;
-
-/* M_MAY is used to represent references that may or may not occur at
-   runtime.  It is generated to model variable references in statements or
-   expressions that the compiler does not understand (e.g., non-simplified
-   tree nodes).
-
-   A may-def and may-use reference are created to all the symbols
-   referenced in the expression.  This models the possibility that the
-   instruction may use and modify the variable.  */
-extern const HOST_WIDE_INT M_MAY;
-
-/* M_PARTIAL is used to model partial references to compound structures
-   like arrays, structures and complex numbers.  For instance, given
-
-   		a[4] = 10;
-
-   The compiler creates a V_DEF for 'a[4]' and a V_DEF|M_PARTIAL for 'a'.
-   Partial definitions are also known as non-killing definitions in the
-   literature.  */
-extern const HOST_WIDE_INT M_PARTIAL;
-
-/* M_INITIAL modifies a V_DEF reference to indicate that the definition is
-   an initial static value for the variable.  Multiple executions of this
-   reference do not produce multiple definitions of the variable.  This is
-   used to model initialization of static variables.  For instance,
-
-   		static int counter = 0;
-
-   An initializing definition is created for variable counter.  */
-extern const HOST_WIDE_INT M_INITIAL;
-
-/* M_VOLATILE modifies a V_DEF or V_USE reference to indicate that it is
-   accessing a volatile variable.  Therefore, optimizers should not assume
-   anything about it.  For instance,
-
-   		volatile int a = 5;
-		int b = a;
-
-   In the above code fragment, we cannot assume that 'b' is assigned the
-   value 5.  */
-extern const HOST_WIDE_INT M_VOLATILE;
-
-/* M_RELOCATE modifies a V_DEF of a pointer dereference to indicate that
-   the base pointer is now pointing to a different memory location.  This
-   definition should reach dereferences of the pointer, but it should not
-   reach uses of any aliases (see ref_defines).  */
-extern const HOST_WIDE_INT M_RELOCATE;
-
-/* M_ADDRESSOF modifies a V_USE reference to indicate that the address of
-   the variable is needed.  This is not a memory load operation, just an
-   indication that we need the address of the variable being referenced.  */
-extern const HOST_WIDE_INT M_ADDRESSOF;
+/* Tree reference modifier bitmasks.  Used when calling create_ref.  */
+extern const unsigned TRM_DEFAULT;
+extern const unsigned TRM_CLOBBER;
+extern const unsigned TRM_MAY;
+extern const unsigned TRM_PARTIAL;
+extern const unsigned TRM_INITIAL;
+extern const unsigned TRM_VOLATILE;
+extern const unsigned TRM_RELOCATE;
+extern const unsigned TRM_ADDRESSOF;
 
 
 /*---------------------------------------------------------------------------
@@ -193,7 +129,7 @@ typedef struct basic_block_def *basic_block;
 struct tree_ref_common GTY(())
 {
   /* Reference type.  */
-  HOST_WIDE_INT type;
+  enum tree_ref_type type;
 
   /* Variable being referenced.  This may be a _DECL or an INDIRECT_REF
      node.  */
@@ -229,6 +165,37 @@ struct var_ref GTY(())
 {
   struct tree_ref_common common;
 
+  /* M_MAY is used to represent references that may or may not occur at
+     runtime.  It is generated to model variable references in statements
+     or expressions that the compiler does not understand (e.g.,
+     non-simplified tree nodes).
+
+     A may-def and may-use reference are created to all the symbols
+     referenced in the expression.  This models the possibility that the
+     instruction may use and modify the variable.  */
+  unsigned m_may : 1;
+
+  /* M_PARTIAL is used to model partial references to compound structures
+     like arrays, structures and complex numbers.  For instance, given
+
+   		a[4] = 10;
+
+     The compiler creates a V_DEF for 'a[4]' and a V_DEF/partial for 'a'.
+     Partial definitions are also known as non-killing definitions in the
+     literature.  */
+  unsigned m_partial : 1;
+
+  /* M_VOLATILE modifies a V_DEF or V_USE reference to indicate that it is
+     accessing a volatile variable.  Therefore, optimizers should not
+     assume anything about it.  For instance,
+
+   		volatile int a = 5;
+		int b = a;
+
+     In the above code fragment, we cannot assume that 'b' is assigned the
+     value 5.  */
+  unsigned m_volatile : 1;
+
   /* Immediate reaching definition for this reference.  This is applicable
      to both variable definitions and uses because we are interested in
      building def-def chains (for non-killing definitions).  */
@@ -245,6 +212,39 @@ struct var_ref GTY(())
 struct var_def GTY(())
 {
   struct var_ref common;
+
+  /* M_DEFAULT is used to modify V_DEF references to indicate a default
+     definition.  Default definitions are artificially created in the first
+     basic block of the program.  They provide a convenient way of checking
+     if a variable is used without being assigned a value first.  Their
+     presence is not required, but they save the code from having to
+     consider special cases like nil PHI node arguments.  */
+  unsigned m_default : 1;
+
+  /* M_CLOBBER is used to modify V_DEF references to represent an unknown
+     modification to the associated variable.  This is used for
+     instructions like __asm__ statements where we know that the variable
+     is being modified but not how.  Another case is at function call
+     sites. Variables that may be accessed by the called function are
+     assumed read and clobbered by the call.  */
+  unsigned m_clobber : 1;
+
+  /* M_INITIAL modifies a V_DEF reference to indicate that the definition
+     is an initial static value for the variable.  Multiple executions of
+     this reference do not produce multiple definitions of the variable.
+     This is used to model initialization of static variables.  For
+     instance,
+
+   		static int counter = 0;
+
+     An initializing definition is created for variable counter.  */
+  unsigned m_initial : 1;
+
+  /* M_RELOCATE modifies a V_DEF of a pointer dereference to indicate that
+     the base pointer is now pointing to a different memory location.  This
+     definition should reach dereferences of the pointer, but it should not
+     reach uses of any aliases (see ref_defines).  */
+  unsigned m_relocate : 1;
 
   /* Immediate uses for this definition.  */
   ref_list imm_uses;
@@ -268,6 +268,11 @@ struct var_phi GTY(())
 struct var_use GTY(())
 {
   struct var_ref common;
+
+  /* M_ADDRESSOF modifies a V_USE reference to indicate that the address of
+     the variable is needed.  This is not a memory load operation, just an
+     indication that we need the address of the variable being referenced.  */
+  unsigned m_addressof : 1;
 
   /* Definitions reaching this use.  */
   ref_list rdefs;
@@ -398,7 +403,7 @@ typedef union tree_ref_d *tree_ref;
 		    Accessor functions for tree_ref objects.
 ---------------------------------------------------------------------------*/
 /* For tree_ref_common.  */
-static inline HOST_WIDE_INT ref_type		PARAMS ((tree_ref));
+static inline enum tree_ref_type ref_type	PARAMS ((tree_ref));
 static inline tree ref_var			PARAMS ((tree_ref));
 static inline tree ref_stmt			PARAMS ((tree_ref));
 static inline tree ref_expr			PARAMS ((tree_ref));
@@ -424,6 +429,21 @@ static inline void set_phi_arg			PARAMS ((tree_ref, unsigned,
                                                          phi_node_arg));
 extern void add_phi_arg				PARAMS ((tree_ref, tree_ref,
                                                          edge));
+static inline bool is_may_ref			PARAMS ((tree_ref));
+static inline bool is_may_def			PARAMS ((tree_ref));
+static inline bool is_may_use			PARAMS ((tree_ref));
+static inline bool is_partial_ref		PARAMS ((tree_ref));
+static inline bool is_partial_def		PARAMS ((tree_ref));
+static inline bool is_partial_use		PARAMS ((tree_ref));
+static inline bool is_volatile_ref		PARAMS ((tree_ref));
+static inline bool is_volatile_def		PARAMS ((tree_ref));
+static inline bool is_volatile_use		PARAMS ((tree_ref));
+static inline bool is_default_def		PARAMS ((tree_ref));
+static inline bool is_clobbering_def		PARAMS ((tree_ref));
+static inline bool is_initializing_def		PARAMS ((tree_ref));
+static inline bool is_relocating_def		PARAMS ((tree_ref));
+static inline bool is_addressof_use		PARAMS ((tree_ref));
+static inline bool is_pure_use			PARAMS ((tree_ref));
 
 /* For phi_node_arg.  */
 static inline edge phi_arg_edge			PARAMS ((phi_node_arg));
@@ -649,9 +669,9 @@ extern tree last_stmt			PARAMS ((basic_block));
 extern void tree_find_refs		PARAMS ((void));
 extern void find_refs_in_stmt           PARAMS ((tree *, basic_block));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
-extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
-						 basic_block, tree *, tree *,
-						 tree *, int));
+extern tree_ref create_ref		PARAMS ((tree, enum tree_ref_type,
+      						 unsigned, basic_block, tree *,
+						 tree *, tree *, int));
 extern void debug_ref			PARAMS ((tree_ref));
 extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,
       						 int, int));
@@ -670,7 +690,7 @@ extern void debug_referenced_vars	PARAMS ((void));
 extern void dump_referenced_vars	PARAMS ((FILE *));
 extern void dump_variable		PARAMS ((FILE *, tree));
 extern void debug_variable		PARAMS ((tree));
-extern int function_may_recurse_p	PARAMS ((void));
+extern bool function_may_recurse_p	PARAMS ((void));
 extern ref_list create_ref_list		PARAMS ((void));
 extern void empty_ref_list		PARAMS ((ref_list));
 extern void add_ref_to_list_end		PARAMS ((ref_list, tree_ref));
@@ -682,8 +702,7 @@ extern void add_list_to_list_end        PARAMS ((ref_list, ref_list));
 extern void add_list_to_list_begin      PARAMS ((ref_list, ref_list));
 extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
 extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
-extern const char *ref_type_name	PARAMS ((HOST_WIDE_INT));
-extern bool validate_ref_type		PARAMS ((HOST_WIDE_INT));
+extern const char *ref_type_name	PARAMS ((tree_ref));
 extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
 extern int get_alias_index		PARAMS ((tree, tree));

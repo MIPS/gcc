@@ -76,8 +76,9 @@ extern int tree_ssa_dump_flags;
 
 
 /* Local functions.  */
-static void find_refs_in_expr		PARAMS ((tree *, HOST_WIDE_INT,
-      						 basic_block, tree *, tree *));
+static void find_refs_in_expr		PARAMS ((tree *, enum tree_ref_type,
+      						 unsigned, basic_block, tree *,
+						 tree *));
 static void add_referenced_var		PARAMS ((tree));
 static void dump_if_different		PARAMS ((FILE *, const char * const,
      						 unsigned long, unsigned long));
@@ -111,23 +112,16 @@ unsigned long next_tree_ref_id;
    global variable and every local that has had its address taken.  */
 tree global_var;
 
-/* Reference types.  */
-const HOST_WIDE_INT V_DEF	= 1 << 0;
-const HOST_WIDE_INT V_USE	= 1 << 1;
-const HOST_WIDE_INT V_PHI	= 1 << 2;
-const HOST_WIDE_INT E_PHI	= 1 << 3;
-const HOST_WIDE_INT E_USE	= 1 << 4;
-const HOST_WIDE_INT E_KILL	= 1 << 5;
+/* Tree reference modifier bitmasks.  Used when calling create_ref.  */
+const unsigned TRM_DEFAULT	= 1 << 0;
+const unsigned TRM_CLOBBER	= 1 << 1;
+const unsigned TRM_MAY		= 1 << 2;
+const unsigned TRM_PARTIAL	= 1 << 3;
+const unsigned TRM_INITIAL	= 1 << 4;
+const unsigned TRM_VOLATILE	= 1 << 5;
+const unsigned TRM_RELOCATE	= 1 << 6;
+const unsigned TRM_ADDRESSOF	= 1 << 7;
 
-/* Reference type modifiers.  */
-const HOST_WIDE_INT M_DEFAULT	= 1 << 7;
-const HOST_WIDE_INT M_CLOBBER	= 1 << 8;
-const HOST_WIDE_INT M_MAY	= 1 << 9;
-const HOST_WIDE_INT M_PARTIAL	= 1 << 10;
-const HOST_WIDE_INT M_INITIAL	= 1 << 11;
-const HOST_WIDE_INT M_RELOCATE	= 1 << 12;
-const HOST_WIDE_INT M_VOLATILE	= 1 << 13;
-const HOST_WIDE_INT M_ADDRESSOF	= 1 << 14;
 
 /* Look for variable references in every block of the flowgraph.  */
 
@@ -169,36 +163,36 @@ find_refs_in_stmt (stmt_p, bb)
   switch (code)
     {
     case COND_EXPR:
-      find_refs_in_expr (&COND_EXPR_COND (stmt), V_USE, bb, stmt_p,
+      find_refs_in_expr (&COND_EXPR_COND (stmt), V_USE, 0, bb, stmt_p,
 	                 &COND_EXPR_COND (stmt));
       break;
 
     case SWITCH_EXPR:
-      find_refs_in_expr (&SWITCH_COND (stmt), V_USE, bb, stmt_p,
+      find_refs_in_expr (&SWITCH_COND (stmt), V_USE, 0, bb, stmt_p,
 	                 &SWITCH_COND (stmt));
       break;
 
     case ASM_EXPR:
-      find_refs_in_expr (&ASM_INPUTS (stmt), V_USE, bb, stmt_p,
+      find_refs_in_expr (&ASM_INPUTS (stmt), V_USE, 0, bb, stmt_p,
 	                 &ASM_INPUTS (stmt));
-      find_refs_in_expr (&ASM_OUTPUTS (stmt), V_DEF | M_CLOBBER, bb, stmt_p,
+      find_refs_in_expr (&ASM_OUTPUTS (stmt), V_DEF, TRM_CLOBBER, bb, stmt_p,
 	                 &ASM_OUTPUTS (stmt));
-      find_refs_in_expr (&ASM_CLOBBERS (stmt), V_DEF | M_CLOBBER, bb, stmt_p,
+      find_refs_in_expr (&ASM_CLOBBERS (stmt), V_DEF, TRM_CLOBBER, bb, stmt_p,
 	                 &ASM_CLOBBERS (stmt));
       break;
 
     case RETURN_EXPR:
-      find_refs_in_expr (&TREE_OPERAND (stmt, 0), V_USE, bb, stmt_p, 
+      find_refs_in_expr (&TREE_OPERAND (stmt, 0), V_USE, 0, bb, stmt_p, 
 	                 &TREE_OPERAND (stmt, 0));
       break;
 
     case GOTO_EXPR:
-      find_refs_in_expr (&GOTO_DESTINATION (stmt), V_USE, bb, stmt_p,
+      find_refs_in_expr (&GOTO_DESTINATION (stmt), V_USE, 0, bb, stmt_p,
 	                 &GOTO_DESTINATION (stmt));
       break;
 
     case LABEL_EXPR:
-      find_refs_in_expr (&LABEL_EXPR_LABEL (stmt), V_USE, bb, stmt_p,
+      find_refs_in_expr (&LABEL_EXPR_LABEL (stmt), V_USE, 0, bb, stmt_p,
 			 &LABEL_EXPR_LABEL (stmt));
       break;
 
@@ -208,7 +202,7 @@ find_refs_in_stmt (stmt_p, bb)
       break;
 
     default:
-      find_refs_in_expr (stmt_p, V_USE, bb, stmt_p, stmt_p);
+      find_refs_in_expr (stmt_p, V_USE, 0, bb, stmt_p, stmt_p);
     }
 }
 
@@ -217,6 +211,8 @@ find_refs_in_stmt (stmt_p, bb)
    variable references.
    
    REF_TYPE indicates what type of reference should be created.
+
+   REF_MOD is the set of modifier flags for REF_TYPE.
 
    BB, PARENT_STMT_P and PARENT_EXPR_P give the location of *EXPR_P in the
       program.
@@ -229,9 +225,10 @@ find_refs_in_stmt (stmt_p, bb)
       COND_EXPR tree, while PARENT_EXPR_P will point to the GT_EXPR tree.  */
 
 static void
-find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
+find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p)
      tree *expr_p;
-     HOST_WIDE_INT ref_type;
+     enum tree_ref_type ref_type;
+     unsigned ref_mod;
      basic_block bb;
      tree *parent_stmt_p;
      tree *parent_expr_p;
@@ -283,16 +280,17 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
   /* If we found a _DECL node, create a reference to it and return.  */
   if (code == VAR_DECL || code == PARM_DECL)
     {
-      create_ref (expr, ref_type, bb, parent_stmt_p, parent_expr_p, expr_p, 1);
+      create_ref (expr, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p,
+	          expr_p, 1);
 
       /* If we just created a V_DEF reference for a pointer variable 'p',
 	 we have to clobber the associated '*p' variable, because now 'p'
 	 is pointing to a different memory location.  */
-      if (ref_type & V_DEF
+      if (ref_type == V_DEF
 	  && POINTER_TYPE_P (TREE_TYPE (expr))
 	  && indirect_var (expr))
-	create_ref (indirect_var (expr), ref_type | M_RELOCATE, bb,
-		    parent_stmt_p, parent_expr_p, NULL, 1);
+	create_ref (indirect_var (expr), V_DEF, TRM_RELOCATE, bb, parent_stmt_p,
+	            parent_expr_p, NULL, 1);
 
       return;
     }
@@ -330,7 +328,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       tree ptr_sym = get_base_symbol (ptr);
 
       /* Create a V_USE reference for the pointer variable itself.  */
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, 0, bb, parent_stmt_p,
 	                 parent_expr_p);
 
       /* If this is the first INDIRECT_REF node we find for PTR, set EXPR
@@ -339,7 +337,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       if (indirect_var (ptr_sym) == NULL)
 	set_indirect_var (ptr_sym, expr);
 
-      create_ref (indirect_var (ptr_sym), ref_type, bb, parent_stmt_p,
+      create_ref (indirect_var (ptr_sym), ref_type, ref_mod, bb, parent_stmt_p,
 		  parent_expr_p, expr_p, 1);
 
       return;
@@ -355,11 +353,12 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
     {
       /* Change the reference type to a partial def/use when processing
 	 the LHS of the reference.  */
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type | M_PARTIAL, bb,
-	                 parent_stmt_p, parent_expr_p);
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type,
+	                 ref_mod | TRM_PARTIAL, bb, parent_stmt_p,
+			 parent_expr_p);
 
       /* References on the RHS of the array are always used as indices.  */
-      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, 0, bb, parent_stmt_p,
 			 parent_expr_p);
       return;
     }
@@ -381,18 +380,19 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
     {
       /* Modify the reference to be a partial reference of the LHS of the
 	 expression.  */
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type | M_PARTIAL, bb,
-	                 parent_stmt_p, parent_expr_p);
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type,
+	                 ref_mod | TRM_PARTIAL, bb, parent_stmt_p,
+			 parent_expr_p);
       return;
     }
 
-  /* Assignments.  These are the only expressions that create V_DEF
-     references besides DECL_STMTs.  */
+  /* Assignments.  These are the only expressions that create pure V_DEF
+     references.  */
   if (code == INIT_EXPR || code == MODIFY_EXPR)
     {
-      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, 0, bb, parent_stmt_p,
 			 parent_expr_p);
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_DEF, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_DEF, 0, bb, parent_stmt_p,
 			 parent_expr_p);
       return;
     }
@@ -410,10 +410,10 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       tree callee;
       int flags;
 
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, 0, bb, parent_stmt_p,
 			  parent_expr_p);
 
-      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, bb, parent_stmt_p,
+      find_refs_in_expr (&TREE_OPERAND (expr, 1), V_USE, 0, bb, parent_stmt_p,
 			  parent_expr_p);
 
       callee = get_callee_fndecl (expr);
@@ -423,9 +423,9 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
 	  may-use followed by a clobbering definition of GLOBAL_VAR.  */
       if (! (flags & (ECF_CONST | ECF_PURE)))
 	{
-	  create_ref (global_var, V_USE | M_MAY, bb, parent_stmt_p, NULL,
+	  create_ref (global_var, V_USE, TRM_MAY, bb, parent_stmt_p, NULL,
 	              NULL, 1);
-	  create_ref (global_var, V_DEF | M_CLOBBER, bb, parent_stmt_p, NULL,
+	  create_ref (global_var, V_DEF, TRM_CLOBBER, bb, parent_stmt_p, NULL,
 	              NULL, 1);
 	}
 
@@ -436,7 +436,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
      that the variable is not read, but its address is needed.  */
   if (code == ADDR_EXPR)
     {
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE|M_ADDRESSOF, bb,
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE, TRM_ADDRESSOF, bb,
 			 parent_stmt_p, parent_expr_p);
       return;
     }
@@ -447,8 +447,8 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       tree op;
 
       for (op = expr; op; op = TREE_CHAIN (op))
-	find_refs_in_expr (&TREE_VALUE (op), ref_type, bb, parent_stmt_p,
-			   parent_expr_p);
+	find_refs_in_expr (&TREE_VALUE (op), ref_type, ref_mod, bb,
+	                   parent_stmt_p, parent_expr_p);
       return;
     }
 
@@ -457,8 +457,8 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       || code == EXPR_WITH_FILE_LOCATION
       || code == VA_ARG_EXPR)
     {
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt_p,
-			 parent_expr_p);
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type, ref_mod, bb,
+			 parent_stmt_p, parent_expr_p);
       return;
     }
 
@@ -471,10 +471,10 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       || code == COMPOUND_EXPR
       || code == CONSTRUCTOR)
     {
-      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type, bb, parent_stmt_p,
-			 parent_expr_p);
-      find_refs_in_expr (&TREE_OPERAND (expr, 1), ref_type, bb, parent_stmt_p,
-			 parent_expr_p);
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), ref_type, ref_mod, bb,
+		         parent_stmt_p, parent_expr_p);
+      find_refs_in_expr (&TREE_OPERAND (expr, 1), ref_type, ref_mod, bb,
+	                 parent_stmt_p, parent_expr_p);
       return;
     }
 
@@ -667,6 +667,10 @@ add_ref_to_list_after (list, node, ref)
 
    REF_TYPE is the type of reference to create (V_DEF, V_USE, V_PHI, etc).
     
+   REF_MOD is the set of modifier flags for REF_TYPE.  The modifier is a
+      bitmask built from the TRM_* constants.  This bitmask is used to set
+      the corresponding bitfield in the various tree_ref structures.
+
    BB, PARENT_STMT_P, PARENT_EXPR_P and OPERAND_P give the exact location
       of the reference.  The last three can be NULL in the case of
       artificial references (PHI nodes, default definitions, etc).
@@ -681,10 +685,11 @@ add_ref_to_list_after (list, node, ref)
       responsible for the placement of the newly created reference.  */
 
 tree_ref
-create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
+create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
             add_to_bb)
      tree var;
-     HOST_WIDE_INT ref_type;
+     enum tree_ref_type ref_type;
+     unsigned ref_mod;
      basic_block bb;
      tree *parent_stmt_p;
      tree *parent_expr_p;
@@ -699,7 +704,9 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
   if (bb == NULL)
     abort ();
 
-  if (ref_type & (V_DEF | V_USE | V_PHI)
+  if ((ref_type == V_DEF
+       || ref_type == V_USE
+       || ref_type == V_PHI)
       && ! DECL_P (var)
       && TREE_CODE (var) != INDIRECT_REF)
     abort ();
@@ -708,7 +715,7 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
   /* Set the M_VOLATILE modifier if the reference is to a volatile
      variable.  */
   if (var && TREE_THIS_VOLATILE (var))
-    ref_type |= M_VOLATILE;
+    ref_mod |= TRM_VOLATILE;
 
   ref = (tree_ref) ggc_alloc (sizeof (*ref));
   memset ((void *) ref, 0, sizeof (*ref));
@@ -722,12 +729,35 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
   ref->common.operand_p = operand_p;
   ref->common.orig_operand = (operand_p) ? *operand_p : NULL;
 
+  /* Set the reference type modifier flags.  */
+  if (ref_mod & TRM_MAY)
+    ref->vref.m_may = 1;
+
+  if (ref_mod & TRM_PARTIAL)
+    ref->vref.m_partial = 1;
+
+  if (ref_mod & TRM_VOLATILE)
+    ref->vref.m_volatile = 1;
+
   /* Create containers according to the type of reference.  */
-  if (ref_type & (V_DEF | V_PHI))
+  if (ref_type == V_DEF || ref_type == V_PHI)
     {
+      if (ref_mod & TRM_DEFAULT)
+	ref->vdef.m_default = 1;
+
+      if (ref_mod & TRM_CLOBBER)
+	ref->vdef.m_clobber = 1;
+
+      if (ref_mod & TRM_RELOCATE)
+	ref->vdef.m_relocate = 1;
+
+      if (ref_mod & TRM_INITIAL)
+	ref->vdef.m_initial = 1;
+
       ref->vdef.imm_uses = create_ref_list ();
       ref->vdef.reached_uses = create_ref_list ();
-      if (ref_type & V_PHI)
+
+      if (ref_type == V_PHI)
 	{
 	  unsigned num;
 	  edge in;
@@ -739,8 +769,13 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
 	  VARRAY_GENERIC_PTR_INIT (ref->vphi.phi_args, num, "phi_args");
 	}
     }
-  else if (ref_type & V_USE)
-    ref->vuse.rdefs = create_ref_list ();
+  else if (ref_type == V_USE)
+    {
+      if (ref_mod & TRM_ADDRESSOF)
+	ref->vuse.m_addressof = 1;
+
+      ref->vuse.rdefs = create_ref_list ();
+    }
   else if (ref_type & E_PHI)
     {
       varray_type temp;
@@ -758,7 +793,7 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
     {
       /* Add the variable to the list of variables referenced in this
 	 function.  But only for actual variable defs or uses in the code.  */
-      if ((ref_type & (V_DEF | V_USE))
+      if ((ref_type == V_DEF || ref_type == V_USE)
 	  && (DECL_P (var) || TREE_CODE (var) == INDIRECT_REF))
 	add_referenced_var (var);
 
@@ -792,9 +827,9 @@ create_ref (var, ref_type, bb, parent_stmt_p, parent_expr_p, operand_p,
      evaluating expressions, the output reference for the expression is
      where the lattice value of the expression can be stored.  */
   if (ref_type == V_DEF
+      && ref_mod == 0
       && !TREE_NOT_GIMPLE (parent_stmt))
     set_output_ref (parent_stmt, ref);
-
 
   return ref;
 }
@@ -925,7 +960,7 @@ create_tree_ann (t)
    FIXME Currently this is very limited because we do not have call-graph
 	 information.  */
 
-int
+bool
 function_may_recurse_p ()
 {
   basic_block bb;
@@ -938,12 +973,11 @@ function_may_recurse_p ()
       tree_ref ref;
 
       FOR_EACH_REF (ref, tmp, bb_refs (bb))
-	if (ref_var (ref) == global_var
-	      && (ref_type (ref) & (V_DEF | M_CLOBBER)))
-	  return 1;
+	if (ref_var (ref) == global_var && is_clobbering_def (ref))
+	  return true;
     }
 
-  return 0;
+  return false;
 }
 
 
@@ -977,7 +1011,7 @@ dump_ref (outf, prefix, ref, indent, details)
 
   bbix = (ref_bb (ref)) ? ref_bb (ref)->index : -1;
 
-  type = ref_type_name (ref_type (ref));
+  type = ref_type_name (ref);
 
   fprintf (outf, "%s%s%s(", s_indent, prefix, type);
 
@@ -996,7 +1030,7 @@ dump_ref (outf, prefix, ref, indent, details)
   /* Dump specific contents for the different types of references.  */
   if (details)
     {
-      if (ref_type (ref) & V_PHI)
+      if (ref_type (ref) == V_PHI)
 	{
 	  if (phi_args (ref))
 	    {
@@ -1021,13 +1055,13 @@ dump_ref (outf, prefix, ref, indent, details)
 	  dump_ref_array (outf, prefix, exprphi_phi_args (ref), indent + 4, 1);
 	}	
 
-      if ((ref_type (ref) & V_DEF) && imm_uses (ref))
+      if (ref_type (ref) == V_DEF && imm_uses (ref))
 	{
 	  fputs (" immediate uses:\n", outf);
 	  dump_ref_list (outf, prefix, imm_uses (ref), indent + 4, 0);
 	}
 
-      if (ref_type (ref) & V_USE && imm_reaching_def (ref))
+      if (ref_type (ref) == V_USE && imm_reaching_def (ref))
 	{
 	  fputs (" immediate reaching def:\n", outf);
 	  dump_ref (outf, prefix, imm_reaching_def (ref), indent + 4, 0);
@@ -1484,18 +1518,18 @@ count_tree_refs (dfa_stats_p, list)
 	    dfa_stats_p->max_num_alias_imm_rdefs = num;
 	}
 
-      if (ref_type (ref) & V_DEF)
+      if (ref_type (ref) == V_DEF)
 	{
 	  dfa_stats_p->num_defs++;
 	  count_ref_list_nodes (dfa_stats_p, imm_uses (ref));
 	  count_ref_list_nodes (dfa_stats_p, reached_uses (ref));
 	}
-      else if (ref_type (ref) & V_USE)
+      else if (ref_type (ref) == V_USE)
 	{
 	  dfa_stats_p->num_uses++;
 	  count_ref_list_nodes (dfa_stats_p, reaching_defs (ref));
 	}
-      else if (ref_type (ref) & V_PHI)
+      else if (ref_type (ref) == V_PHI)
 	{
 	  unsigned int num = num_phi_args (ref);
 	  dfa_stats_p->num_phis++;
@@ -1528,94 +1562,50 @@ count_ref_list_nodes (dfa_stats_p, list)
 }
 
 
-/* Return the reference type as a string.  */
+/* Return the reference type and modifiers for reference REF as a string.  */
 
 const char *
-ref_type_name (type)
-     HOST_WIDE_INT type;
+ref_type_name (ref)
+     tree_ref ref;
 {
 #define max 80
   static char str[max];
+  enum tree_ref_type type = ref_type (ref);
 
-#if defined ENABLE_CHECKING
-  if (!validate_ref_type (type))
-    abort ();
-#endif
-
-  strncpy (str, type & V_DEF ? "V_DEF"
-	        : type & V_USE ? "V_USE"
-	        : type & V_PHI ? "V_PHI"
-	        : type & E_PHI ? "E_PHI"
-	        : type & E_USE ? "E_USE"
-	        : type & E_KILL ? "E_KILL"
+  strncpy (str, type == V_DEF ? "V_DEF"
+	        : type == V_USE ? "V_USE"
+	        : type == V_PHI ? "V_PHI"
+	        : type == E_PHI ? "E_PHI"
+	        : type == E_USE ? "E_USE"
+	        : type == E_KILL ? "E_KILL"
 	        : "???",
 	   max);
 
-  if (type & M_DEFAULT)
+  if (is_default_def (ref))
     strncat (str, "/default", max - strlen (str));
 
-  if (type & M_MAY)
+  if (is_may_ref (ref))
     strncat (str, "/may", max - strlen (str));
 
-  if (type & M_PARTIAL)
+  if (is_partial_ref (ref))
     strncat (str, "/partial", max - strlen (str));
 
-  if (type & M_CLOBBER)
+  if (is_clobbering_def (ref))
     strncat (str, "/clobber", max - strlen (str));
 
-  if (type & M_INITIAL)
+  if (is_initializing_def (ref))
     strncat (str, "/initial", max - strlen (str));
 
-  if (type & M_VOLATILE)
+  if (is_volatile_ref (ref))
     strncat (str, "/volatile", max - strlen (str));
 
-  if (type & M_RELOCATE)
+  if (is_relocating_def (ref))
     strncat (str, "/relocate", max - strlen (str));
 
-  if (type & M_ADDRESSOF)
+  if (is_addressof_use (ref))
     strncat (str, "/addressof", max - strlen (str));
 
   return str;
-}
-
-
-/* Return true if TYPE is a valid reference type.  */
-
-bool
-validate_ref_type (type)
-     HOST_WIDE_INT type;
-{
-  type &= ~M_VOLATILE;
-
-  if (type & V_DEF)
-    {
-      type &= ~(M_DEFAULT | M_MAY | M_PARTIAL | M_CLOBBER | M_INITIAL
-	        | M_RELOCATE);
-      return type == V_DEF;
-    }
-  else if (type & V_USE)
-    {
-      type &= ~(M_MAY | M_PARTIAL | M_ADDRESSOF);
-      return type == V_USE;
-    }
-  else if (type & V_PHI)
-    {
-      return type == V_PHI;
-    }
-  else if (type & E_PHI)
-    {
-      return type == E_PHI;
-    }
-  else if (type & E_USE)
-    {
-      return type == E_USE;
-    }
-  else if (type & E_KILL)
-    {
-      return type == E_KILL;
-    }
-
-  return false;
 }
 
 /* Callback for walk_tree.  Create a may-def/may-use reference for every _DECL
@@ -1633,9 +1623,9 @@ clobber_vars_r (tp, walk_subtrees, data)
   /* Create may-use and clobber references for every *_DECL in sight.  */
   if (code == VAR_DECL || code == PARM_DECL)
     {
-      create_ref (*tp, V_USE | M_MAY, clobber->bb, clobber->parent_stmt_p,
+      create_ref (*tp, V_USE, TRM_MAY, clobber->bb, clobber->parent_stmt_p,
 		  clobber->parent_expr_p, NULL, 1);
-      create_ref (*tp, V_DEF | M_CLOBBER, clobber->bb, clobber->parent_stmt_p,
+      create_ref (*tp, V_DEF, TRM_CLOBBER, clobber->bb, clobber->parent_stmt_p,
 		  clobber->parent_expr_p, NULL, 1);
     }
 
@@ -1782,14 +1772,14 @@ ref_defines (ref, var)
 {
   tree rvar;
 
-  if (!(ref_type (ref) & V_DEF))
+  if (ref_type (ref) != V_DEF)
     return false;
   
   rvar = ref_var (ref);
 
   /* If this is a relocating definition, then it only reaches VAR if both
      REF's variable and VAR are the same.  */
-  if (ref_type (ref) & M_RELOCATE)
+  if (is_relocating_def (ref))
     return (rvar == var);
 
   /* Otherwise, REF is a definition for VAR if either VAR and REF's
@@ -1809,11 +1799,14 @@ is_killing_def (def, use)
   tree def_var = ref_var (def);
   tree use_var = ref_var (use);
 
-  if (!(ref_type (def) & (V_DEF | V_PHI)) || !(ref_type (use) & V_USE))
+  if ((ref_type (def) != V_DEF && ref_type (def) != V_PHI)
+      || ref_type (use) != V_USE)
     return false;
 
   /* Partial, potential and volatile definitions are no killers.  */
-  if (ref_type (def) & (M_PARTIAL | M_VOLATILE | M_MAY))
+  if (is_partial_def (def)
+      || is_volatile_def (def)
+      || is_may_def (def))
     return false;
 
   /* Common case.  Both references are for the same variable.  */
@@ -1885,19 +1878,19 @@ enum tree_ref_structure_enum
 tree_ref_structure (ref)
      tree_ref ref;
 {
-  HOST_WIDE_INT type = ref_type (ref);
+  enum tree_ref_type type = ref_type (ref);
 
-  if (type & V_DEF)
+  if (type == V_DEF)
     return TR_VAR_DEF;
-  else if (type & V_USE)
+  else if (type == V_USE)
     return TR_VAR_USE;
-  else if (type & V_PHI)
+  else if (type == V_PHI)
     return TR_VAR_PHI;
-  else if (type & E_PHI)
+  else if (type == E_PHI)
     return TR_EXPR_PHI;
-  else if (type & E_USE)
+  else if (type == E_USE)
     return TR_EXPR_USE;
-  else if (type & E_KILL)
+  else if (type == E_KILL)
     return TR_EXPR_REF_COMMON;
 
   abort ();

@@ -355,12 +355,14 @@ search_fud_chains (bb, idom)
     {
       tree var = ref_var (ref);
 
-      if (!(ref_type (ref) & (V_DEF | V_USE | V_PHI)))
+      if (ref_type (ref) != V_DEF
+	  && ref_type (ref) != V_USE
+	  && ref_type (ref) != V_PHI)
 	continue;
 
       /* For V_USE references and non-killing definitions, create a default
 	 definition if CURRDEF doesn't exist.  */
-      if (ref_type (ref) & (V_USE | M_PARTIAL))
+      if (ref_type (ref) == V_USE || is_partial_def (ref))
 	{
 	  tree_ref currdef = currdef_for (var);
 	  if (currdef == NULL)
@@ -375,7 +377,7 @@ search_fud_chains (bb, idom)
 	 we don't process aliases when looking at V_USE references.  Each
 	 alias sets its own def-use and use-def links.  We only need to
 	 process aliases when setting def-def links.  */
-      if (!(ref_type (ref) & V_USE))
+      if (ref_type (ref) != V_USE)
 	{
 	  size_t i;
 	  for (i = 0; i < num_may_alias (var); i++)
@@ -393,7 +395,7 @@ search_fud_chains (bb, idom)
       tree_ref phi;
 
       FOR_EACH_REF (phi, tmp, bb_refs (e->dest))
-	if (ref_type (phi) & V_PHI)
+	if (ref_type (phi) == V_PHI)
 	  {
 	    tree_ref currdef = currdef_for (ref_var (phi));
 	    if (currdef == NULL)
@@ -419,7 +421,7 @@ search_fud_chains (bb, idom)
   /* Restore the current reaching definition for each variable referenced
      in the block (in reverse order).  */
   FOR_EACH_REF_REV (ref, tmp, bb_refs (bb))
-    if (ref_type (ref) & (V_DEF | V_PHI))
+    if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
       {
 	size_t i;
 	unsigned long id = ref_id (ref);
@@ -454,9 +456,9 @@ tree_compute_rdefs ()
 
       FOR_EACH_REF (r, tmp, tree_refs (var))
 	{
-	  if (ref_type (r) & V_USE)
+	  if (ref_type (r) == V_USE)
 	    empty_ref_list (reaching_defs (r));
-	  else if (ref_type (r) & (V_DEF | V_PHI))
+	  else if (ref_type (r) == V_DEF || ref_type (r) == V_PHI)
 	    empty_ref_list (reached_uses (r));
 	}
     }
@@ -477,7 +479,7 @@ tree_compute_rdefs ()
       struct ref_list_node *tmp;
 
       FOR_EACH_REF (u, tmp, tree_refs (var))
-	if (ref_type (u) & V_USE)
+	if (ref_type (u) == V_USE)
 	  follow_chain (imm_reaching_def (u), u);
     }
 
@@ -526,7 +528,7 @@ analyze_rdefs ()
 	  tree_ref def;
 	  struct ref_list_node *tmp2;
 
-	  if (!(ref_type (use) & V_USE))
+	  if (ref_type (use) != V_USE)
 	    continue;
 
 	  /* Check all the reaching definitions looking for the default
@@ -534,7 +536,7 @@ analyze_rdefs ()
 	  found_default = 0;
 	  FOR_EACH_REF (def, tmp2, reaching_defs (use))
 	    {
-	      if (ref_type (def) & (V_DEF | M_DEFAULT))
+	      if (is_default_def (def))
 		found_default = 1;
 	    }
 
@@ -573,11 +575,11 @@ follow_chain (d, u)
 
 #if defined ENABLE_CHECKING
   /* Consistency check.  D should be a definition or a PHI node.  */
-  if (!(ref_type (d) & (V_DEF | V_PHI)))
+  if (ref_type (d) != V_DEF && ref_type (d) != V_PHI)
     abort ();
 
   /* U should be a V_USE.  */
-  if (!(ref_type (u) & V_USE))
+  if (ref_type (u) != V_USE)
     abort ();
 #endif
 
@@ -593,14 +595,14 @@ follow_chain (d, u)
   /* If D is a definition for U, add it to the list of definitions reaching
      U.  Similarly, add U to the list of reached uses of D.  We consider
      killing and non-killing definitions.  */
-  if ((ref_type (d) & V_DEF) && ref_defines (d, u_var))
+  if (ref_type (d) == V_DEF && ref_defines (d, u_var))
     {
       add_ref_to_list_end (reaching_defs (u), d);
       add_ref_to_list_end (reached_uses (d), u);
     }
 
   /* If D is a PHI node, recursively follow each of its arguments.  */
-  if (ref_type (d) & V_PHI)
+  if (ref_type (d) == V_PHI)
     {
       size_t i;
       for (i = 0; i < num_phi_args (d); i++)
@@ -608,7 +610,7 @@ follow_chain (d, u)
     }
 
   /* If D is a non-killing definition for U, follow D's def-def link.  */
-  else if (ref_type (d) & (M_PARTIAL | M_MAY))
+  else if (is_partial_def (d))
     follow_chain (imm_reaching_def (d), u);
 
   /* If D is a may-def for U (i.e., D does not define U_VAR, but U_VAR is
@@ -684,7 +686,7 @@ dump_reaching_defs (file)
 
       FOR_EACH_REF (u, tmp, tree_refs (var))
 	{
-	  if (ref_type (u) & V_USE)
+	  if (ref_type (u) == V_USE)
 	    {
 	      dump_ref (file, "", u, 4, 0);
 	      dump_ref_list (file, "", reaching_defs (u), 6, 0);
@@ -760,7 +762,7 @@ insert_phi_nodes_for (var, dfs)
   {
     basic_block bb = ref_bb (ref);
 
-    if (ref_type (ref) & V_DEF)
+    if (ref_type (ref) == V_DEF)
       {
 	VARRAY_PUSH_BB (work_stack, bb);
 	VARRAY_TREE (in_work, bb->index) = var;
@@ -801,7 +803,7 @@ add_phi_node (bb, var)
 	 first executable statement.  This is for debugging convenience.
 	 This way, the PHI node will have line number information.  */
       stmt_p = !bb_empty_p (bb) ? bb->head_tree_p : NULL;
-      phi = create_ref (var, V_PHI, bb, stmt_p, NULL, NULL, false);
+      phi = create_ref (var, V_PHI, 0, bb, stmt_p, NULL, NULL, false);
       add_ref_to_list_begin (bb_refs (bb), phi);
 
       VARRAY_TREE (added, bb->index) = var;
@@ -836,7 +838,7 @@ set_ssa_links (ref, var, alias_ix)
   /* Retrieve the current definition for the variable.  */
   currdef = currdef_for (var);
 
-  if (ref_type (ref) & V_USE)
+  if (ref_type (ref) == V_USE)
     {
 #if defined ENABLE_CHECKING
       /* We should not set def-use/use-def edges for aliases, only def-def
@@ -856,14 +858,14 @@ set_ssa_links (ref, var, alias_ix)
       /* Set up a use-def chain between REF and CURRDEF.  */
       set_imm_reaching_def (ref, currdef);
     }
-  else if (ref_type (ref) & (V_DEF | V_PHI))
+  else if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
     {
       /* Save the current definition chain (only when not processing
 	 aliases).  */
       save_chain[ref_id (ref)] = currdef;
 
-      /* Set a def-def link for non-killing (partial) definitions.  */
-      if (ref_type (ref) & M_PARTIAL)
+      /* Set a def-def link for partial definitions.  */
+      if (is_partial_ref (ref))
 	set_imm_reaching_def (ref, currdef);
 
       /* Similarly, if VAR is one of the aliases for REF's variable then
@@ -931,17 +933,17 @@ create_default_def (var)
   basic_block decl_bb;
   tree_ref def;
   size_t i;
-  HOST_WIDE_INT mod;
+  unsigned mod;
 
   decl_bb = ENTRY_BLOCK_PTR->succ->dest;
 
   if (TREE_STATIC (var) && DECL_INITIAL (var))
-    mod = M_INITIAL;
+    mod = TRM_INITIAL;
   else
-    mod = M_DEFAULT;
+    mod = TRM_DEFAULT;
 
   /* Create a default definition and set it to be CURRDEF(var).  */
-  def = create_ref (var, V_DEF | mod, decl_bb, NULL, NULL, NULL, false);
+  def = create_ref (var, V_DEF, mod, decl_bb, NULL, NULL, NULL, false);
   add_ref_to_list_begin (bb_refs (decl_bb), def);
   set_currdef_for (var, def);
 

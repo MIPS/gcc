@@ -32,7 +32,7 @@ ref_id (ref)
   return ref->common.id;
 }
 
-static inline HOST_WIDE_INT
+static inline enum tree_ref_type
 ref_type (ref)
      tree_ref ref;
 {
@@ -218,7 +218,7 @@ set_currdef_for (v, def)
       && TREE_CODE (v) != INDIRECT_REF)
     abort ();
 
-  if (def && !(def->common.type & (V_DEF | V_PHI)))
+  if (def && ref_type (def) != V_DEF && ref_type (def) != V_PHI)
     abort ();
 #endif
   ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
@@ -641,6 +641,115 @@ is_exec_stmt (t)
      tree t;
 {
   return (t && t != empty_stmt_node);
+}
+
+static inline bool
+is_may_ref (ref)
+     tree_ref ref;
+{
+  return ref->vref.m_may;
+}
+
+static inline bool
+is_may_def (ref)
+     tree_ref ref;
+{
+  return is_may_ref (ref) && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_may_use (ref)
+     tree_ref ref;
+{
+  return is_may_ref (ref) && ref_type (ref) == V_USE;
+}
+
+static inline bool
+is_partial_ref (ref)
+     tree_ref ref;
+{
+  return ref->vref.m_partial;
+}
+
+static inline bool
+is_partial_def (ref)
+     tree_ref ref;
+{
+  return is_partial_ref (ref) && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_partial_use (ref)
+     tree_ref ref;
+{
+  return is_partial_ref (ref) && ref_type (ref) == V_USE;
+}
+
+static inline bool
+is_volatile_ref (ref)
+     tree_ref ref;
+{
+  return ref->vref.m_volatile;
+}
+
+static inline bool
+is_volatile_def (ref)
+     tree_ref ref;
+{
+  return is_volatile_ref (ref) && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_volatile_use (ref)
+     tree_ref ref;
+{
+  return is_volatile_ref (ref) && ref_type (ref) == V_USE;
+}
+
+static inline bool
+is_default_def (ref)
+     tree_ref ref;
+{
+  return ref->vdef.m_default && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_clobbering_def (ref)
+     tree_ref ref;
+{
+  return ref->vdef.m_clobber && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_initializing_def (ref)
+     tree_ref ref;
+{
+  return ref->vdef.m_initial && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_relocating_def (ref)
+     tree_ref ref;
+{
+  return ref->vdef.m_relocate && ref_type (ref) == V_DEF;
+}
+
+static inline bool
+is_addressof_use (ref)
+     tree_ref ref;
+{
+  return ref->vuse.m_addressof && ref_type (ref) == V_USE;
+}
+
+static inline bool
+is_pure_use (ref)
+     tree_ref ref;
+{
+  return !ref->vuse.m_addressof
+         && !is_may_ref (ref)
+	 && !is_partial_ref (ref)
+	 && !is_volatile_ref (ref)
+	 && ref_type (ref) == V_USE;
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */
