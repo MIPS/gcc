@@ -1,3 +1,12 @@
+2003-02-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcse-globals.h (struct store_global): Change type of regvec
+	field, new current_insn field.
+	* gcse-store.c (reg_set_info, store_ops_ok, find_moveable_store,
+	store_killed_after, store_killed_before, compute_store_table,
+	build_store_vectors, insert_store, store_motion): Modified.
+	* gcse.c (gcse_main): Enable store motion.
+
 Wed Feb 12 17:35:55 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rtlopt-merge-20030212)

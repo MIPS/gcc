@@ -280,7 +280,10 @@ struct store_global
 {
   /* This is used to communicate the target bitvector we want to use in the 
      reg_set_info routine when called via the note_stores mechanism.  */
-  sbitmap * regvec;
+  int * regvec;
+
+  /* And current insn, for the same routine.  */
+  rtx current_insn;
 
   /* Nonzero for expressions that are transparent in the block.  */
   sbitmap *transp;
