@@ -87,12 +87,20 @@ typedef unsigned long   uintptr_t;
 /* 7.18.1.5 Greatest-width integer types */
 #ifndef _INTMAX_T
 #define _INTMAX_T
+#ifdef __INTMAX_TYPE__
+typedef __INTMAX_TYPE__             intmax_t;
+#else /* __INTMAX_TYPE__ */
 typedef long long                intmax_t;
+#endif /* __INTMAX_TYPE__ */
 #endif /* _INTMAX_T */
 
 #ifndef _UINTMAX_T
 #define _UINTMAX_T
+#ifdef __UINTMAX_TYPE__
+typedef __UINTMAX_TYPE__             uintmax_t;
+#else /* __UINTMAX_TYPE__ */
 typedef unsigned long long      uintmax_t;
+#endif /* __UINTMAX_TYPE__ */
 #endif /* _UINTMAX_T */
 
 /* "C++ implementations should define these macros only when

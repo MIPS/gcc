@@ -1,3 +1,9 @@
+2005-01-18  Stuart Hastings  <stuart@apple.com>
+
+	Radar 3939868
+	* more-hdrs/stdint.h (intmax_t, unitmax_t): Derive from __INTMAX_TYPE__,
+	 __UINTMAX_TYPE__ if available.
+
 2004-12-16  Stan Shebs  <shebs@apple.com>
 
 	* build_gcc: Lipo in the ppc64 libstdc++ dylib if it exists.
