@@ -1,3 +1,9 @@
+2004-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (decide_is_function_needed): Nested functions of extern
+	inline functions don't need to be output.
+	(expand_function): Re-enable sanity check.
+
 2004-02-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop.c (do_while_loop_p): New function.
