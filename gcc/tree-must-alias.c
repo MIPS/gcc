@@ -217,7 +217,6 @@ promote_var (tree var, sbitmap vars_to_rename)
   ann->may_aliases = NULL;
   ann->is_call_clobbered = 0;
   ann->may_alias_global_mem = 0;
-  ann->may_point_to_global_mem = 0;
 
   /* If the variable was an alias tag, remove it from every variable that
      had it in its may-alias set.  */

@@ -1,3 +1,8 @@
+2003-11-25  Jan Hubicka  <jh@suse.cz>
+
+	* tree-mustalias.c (promote_var): Do not clear
+	may_point_to_global_mem.
+
 2003-11-25  Jeff law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-phinodes.o.
