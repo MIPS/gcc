@@ -1,3 +1,8 @@
+2004-06-09  Fariborz Jahanian <fjahanian@apple.com>
+	* gengtype.c (get_output_file_with_visibility): Removed dead code.
+	* gimplify.c (copy_if_shared_r): brought in patch to PR15884 done
+	by RTH to fix perlbmk crash.
+
 2004-06-08  Dale Johannesen  <dalej@apple.com>
 	* config/rs6000/t-darwin:  Remove duplicate fpsave.
 

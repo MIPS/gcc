@@ -1223,11 +1223,6 @@ get_output_file_with_visibility (const char *input_file)
   /* Determine the output file name.  */
   basename = get_file_basename (input_file);
 
-#if 0
-  /* APPLE LOCAL DEBUG GCC */
-  printf ("Examining %s (%s)\n", basename, input_file);
-#endif
-
   len = strlen (basename);
   if ((len > 2 && memcmp (basename+len-2, ".c", 2) == 0)
       || (len > 2 && memcmp (basename+len-2, ".y", 2) == 0)
