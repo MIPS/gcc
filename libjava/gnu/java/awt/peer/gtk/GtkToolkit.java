@@ -368,8 +368,8 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    * implementations. Our newer Font class uses getClasspathFontPeer.
    */
   protected FontPeer getFontPeer (String name, int style) {
-    // All fonts get a default size of 1 if size is not specified.
-    return getFontPeer(name, style, 1);
+    // All fonts get a default size of 12 if size is not specified.
+    return getFontPeer(name, style, 12);
   }
 
   /**
@@ -397,9 +397,11 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
       return new GdkClasspathFontPeer (name, attrs);
     else
       {
-        // All fonts get a default size of 1 if size is not specified.
-        int size = 1;
+        // Default values
+        int size = 12;
         int style = Font.PLAIN;
+        if (name == null)
+          name = "Default";
 
         if (attrs.containsKey (TextAttribute.WEIGHT))
           {

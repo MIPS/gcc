@@ -66,8 +66,8 @@ public class GtkFontPeer extends ClasspathFontPeer
 
   public GtkFontPeer (String name, int style)
   {
-    // All fonts get a default size of 1 if size is not specified.
-    this(name, style, 1);
+    // All fonts get a default size of 12 if size is not specified.
+    this(name, style, 12);
   }
 
   public GtkFontPeer (String name, int style, int size)
