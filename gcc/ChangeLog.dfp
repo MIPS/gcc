@@ -1,4 +1,13 @@
 2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
+	* Makefile.in: Remove HAVE_DECNUMBER scaffolding.
+	* c-cppbuiltin.c (builtin_define_decfloat_constants): New.
+	(c_cpp_builtins): Call builtin_define_decfloat_constants.
+	* dfp.c: Fix preamble and formatting fixes.
+	(decimal_real_from_string): Fix bug marking all reals as decimal.
+	* dfp.h: Remove HAVE_DECNUMBER scaffolding.
+	(decNumberNegate): Remove.
+
+2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	Change file preambles. Convert c++ style comments to c style comments.
 	* decContext.c (decContextStatusToString): Return const.

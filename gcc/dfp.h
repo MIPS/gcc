@@ -1,6 +1,5 @@
 /* Definitions of decimal floating-point access for GNU compiler.
-   Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,24 +21,6 @@
 #ifndef GCC_DFP_H
 #define GCC_DFP_H
 
-/* FIXME: Suprisingly, there was no decNumberNegate. Move to
-   decNumber.h */
-#define decNumberNegate(dn) (((dn)->bits)^=DECNEG)
-
-
-#ifndef HAVE_DECNUMBER
-
-#define ENCODE_DECIMAL_SINGLE(x,y,z)
-#define DECODE_DECIMAL_SINGLE(x,y,z) 
-#define ENCODE_DECIMAL_DOUBLE(x,y,z) 
-#define DECODE_DECIMAL_DOUBLE(x,y,z) 
-#define ENCODE_DECIMAL_QUAD(x,y,z)
-#define DECODE_DECIMAL_QUAD(x,y,z) 
-#define REAL_OR_DECIMAL_FROM_STRING(r, s, mode) real_from_string((r),(s))
-#define DECIMAL_DO_COMPARE(r1, r2, nan_result) ((nan_result)) 
-
-#else
-
 void encode_decimal32 (const struct real_format *fmt,
 		       long *, const REAL_VALUE_TYPE *);
 void decode_decimal32 (const struct real_format *,
@@ -55,7 +36,7 @@ void decode_decimal128 (const struct real_format *,
 void decimal_real_from_string (REAL_VALUE_TYPE *, const char *,
 			       enum machine_mode );
 int decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
-
+ 
 #define ENCODE_DECIMAL_SINGLE encode_decimal32
 #define DECODE_DECIMAL_SINGLE decode_decimal32
 #define ENCODE_DECIMAL_DOUBLE encode_decimal64
@@ -64,7 +45,5 @@ int decimal_do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 #define DECODE_DECIMAL_QUAD decode_decimal128
 #define REAL_OR_DECIMAL_FROM_STRING decimal_real_from_string
 #define DECIMAL_DO_COMPARE decimal_do_compare
-
-#endif
 
 #endif /* ! GCC_DFP_H */

@@ -1,3 +1,22 @@
+/* Decimal floating point support.
+   Copyright (C) 2005 Free Software Foundation, Inc.
+
+   This file is part of GCC.
+
+   GCC is free software; you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 2, or (at your option) any later
+   version.
+
+   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+   WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -15,7 +34,6 @@
 #include "decimal64.h"
 #include "decimal32.h"
 #include "decNumber.h"
-#include "decDPD.h"
 
 /* Useful for munging between formats. */
 static decNumber dn;
@@ -34,8 +52,8 @@ decimal_from_string (REAL_VALUE_TYPE *r, const char *s)
   decNumberFromString(&dn, (char *)s, &set);
 
   /* Really, it would be more efficient to store directly in decNumber
-    format, but that is impractical from data structure size. 
-    Encoding as a decimal128 is much more compact. */
+     format, but that is impractical from data structure size. 
+     Encoding as a decimal128 is much more compact. */
   decimal128FromNumber((decimal128 *)r->sig, &dn, &set);
 
   if (decNumberIsNegative(&dn))
@@ -57,11 +75,10 @@ void
 decimal_real_from_string (REAL_VALUE_TYPE *r, const char *s, 
 			  enum machine_mode mode)
 {
-  if (mode != SDmode && mode != DDmode && mode != TDmode) {
+  if (mode != SDmode && mode != DDmode && mode != TDmode)
     real_from_string (r, s);
-  } else
+  else
     decimal_from_string (r, s);
-  r->decimal = 1;
 }
 
 void 
@@ -72,7 +89,6 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 
   decContextDefault(&set, DEC_INIT_DECIMAL128);
   set.traps=0;
-
   decimal128ToNumber((decimal128 *)r->sig, &dn);
 
   /* Still in intermediate representation, so sign
@@ -90,7 +106,7 @@ encode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 void decode_decimal32 (const struct real_format *fmt ATTRIBUTE_UNUSED,
 		       REAL_VALUE_TYPE *r ATTRIBUTE_UNUSED,
 		       const long *buf ATTRIBUTE_UNUSED)
-{  
+{
   /* FIXME: Do something. */
 }
 

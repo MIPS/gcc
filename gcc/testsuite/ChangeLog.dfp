@@ -1,3 +1,7 @@
+2005-04-06  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* gcc.dg/dfp/decfloat-constants.c: New test.
+
 2005-04-04  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* gcc.dg/dfp/compare-constants.c: New test.
@@ -52,3 +56,7 @@
 
 	* gcc.misc-tests/dfp.exp: New test driver.
 
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.dfp"
+End:
