@@ -108,8 +108,8 @@ extern void rename_ssa_copies (void);
    and so we still retain the user variable whenever possible.  */
 
 
-/* Coalesce two partitions if appropriate, and choose an appropriate 
-   representative.  */
+/* Coalesce the partitions in MAP representing VAR1 and VAR2 if it is valid.
+   Choose a representative for the partition, and send debug info to DEBUG.  */
 
 static void
 copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
@@ -220,7 +220,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   /* Merge the two partitions.  */
   p3 = partition_union (map->var_partition, p1, p2);
 
-  /* Set the root variable of the partition to the better choice.  */
+  /* Set the root variable of the partition to the better choice, if there is 
+     one.  */
   if (!gimp2)
     SSA_NAME_VAR (partition_to_var (map, p3)) = root2;
   else
@@ -246,7 +247,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
 /* This function will make a pass through the IL, and attempt to coalesce any
    SSA versions which occur in PHI's or copies.  Coalescing is accomplished by
-   changing the underlying root variable of all coalesced version. This will 
+   changing the underlying root variable of all coalesced version.  This will 
    then cause the SSA->normal pass to attempt to coalesce them all to the same 
    variable.  */
 

@@ -1,3 +1,10 @@
+2004-04-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-outof-ssa.c: Update comments and reformat for legibility.
+	* tree-ssa-copyrename.c: Update comments and reformat for legibility.
+	* tree-ssa-live.c: Update comments and reformat for legibility.
+	* tree-ssa-live.h: Update comments and reformat for legibility.
+
 2004-04-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Don't use POST_P when
