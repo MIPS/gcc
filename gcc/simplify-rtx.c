@@ -571,15 +571,19 @@ simplify_unary_operation (code, mode, op, op_mode)
   else if (GET_CODE (trueop) == CONST_DOUBLE
 	   && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
-      REAL_VALUE_TYPE d;
+      REAL_VALUE_TYPE d, t;
       REAL_VALUE_FROM_CONST_DOUBLE (d, trueop);
 
       switch (code)
 	{
 	case SQRT:
-	  /* We don't attempt to optimize this.  */
-	  return 0;
-
+	  if (! flag_unsafe_math_optimizations)
+	    return 0;
+	  if (HONOR_SNANS (mode) && real_isnan (&d))
+	    return 0;
+	  real_sqrt (&t, mode, &d);
+	  d = t;
+	  break;
 	case ABS:
 	  d = REAL_VALUE_ABS (d);
 	  break;

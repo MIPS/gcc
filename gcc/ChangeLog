@@ -1,3 +1,11 @@
+2002-11-03  Roger Sayle  <roger@eyesopen.com>
+
+	* real.c (real_sqrt): New function to calculate square roots.
+	* real.h (real_sqrt): Add function prototype.
+	* builtins.c (fold_builtin): Fold sqrt of constant argument.
+	* simplify-rtx.c (simplify_unary_operation): Simplify sqrt
+	of constant argument.
+
 Thu Oct 31 18:20:50 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_loadss, sse_loadsd):  Canonicalize; add expander
