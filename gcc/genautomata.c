@@ -3662,7 +3662,7 @@ output_reserv_sets (f, reservs)
         repetition_num = 1;
         start_cycle = cycle;
       }
-  if (start_cycle < max_cycle)
+  if (start_cycle < max_cycles_num)
     {
       if (start_cycle != 0)
         fprintf (f, ", ");
