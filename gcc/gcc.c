@@ -306,8 +306,9 @@ static int do_spec_1		PARAMS ((const char *, int, const char *));
 static int do_spec_2		PARAMS ((const char *));
 static const char *find_file	PARAMS ((const char *));
 static int is_directory		PARAMS ((const char *, const char *, int));
-static void validate_switches	PARAMS ((const char *));
+static const char *validate_switches	PARAMS ((const char *));
 static void validate_all_switches PARAMS ((void));
+static inline void validate_switches_from_spec PARAMS ((const char *));
 static void give_switch		PARAMS ((int, int));
 static int used_arg		PARAMS ((const char *, int));
 static int default_arg		PARAMS ((const char *, int));
@@ -6528,89 +6529,106 @@ notice VPARAMS ((const char *msgid, ...))
   VA_CLOSE (ap);
 }
 
+static inline void
+validate_switches_from_spec (spec)
+     const char *spec;
+{
+  const char *p = spec;
+  char c;
+  while ((c = *p++))
+    if (c == '%' && (*p == '{' || *p == '<' || (*p == 'W' && *++p == '{')))
+      /* We have a switch spec.  */
+      p = validate_switches (p + 1);
+}
+
 static void
 validate_all_switches ()
 {
   struct compiler *comp;
-  const char *p;
-  char c;
   struct spec_list *spec;
 
   for (comp = compilers; comp->spec; comp++)
-    {
-      p = comp->spec;
-      while ((c = *p++))
-	if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-	  /* We have a switch spec.  */
-	  validate_switches (p + 1);
-    }
+    validate_switches_from_spec (comp->spec);
 
   /* Look through the linked list of specs read from the specs file.  */
   for (spec = specs; spec; spec = spec->next)
-    {
-      p = *(spec->ptr_spec);
-      while ((c = *p++))
-	if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-	  /* We have a switch spec.  */
-	  validate_switches (p + 1);
-    }
+    validate_switches_from_spec (*spec->ptr_spec);
 
-  p = link_command_spec;
-  while ((c = *p++))
-    if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-      /* We have a switch spec.  */
-      validate_switches (p + 1);
+  validate_switches_from_spec (link_command_spec);
 }
 
 /* Look at the switch-name that comes after START
    and mark as valid all supplied switches that match it.  */
 
-static void
+static const char *
 validate_switches (start)
      const char *start;
 {
   const char *p = start;
-  const char *filter;
+  const char *atom;
+  size_t len;
   int i;
-  int suffix;
-
-  if (*p == '|')
-    ++p;
-
+  bool suffix = false;
+  bool starred = false;
+  
+#define SKIP_WHITE() do { while (*p == ' ' || *p == '\t') p++; } while (0)
+  
 next_member:
+  SKIP_WHITE ();
+
   if (*p == '!')
-    ++p;
-
-  suffix = 0;
-  if (*p == '.')
-    suffix = 1, ++p;
-
-  filter = p;
-  while (*p != ':' && *p != '}' && *p != '|' && *p != '&')
     p++;
 
-  if (suffix)
-    ;
-  else if (p[-1] == '*')
+  SKIP_WHITE ();
+  if (*p == '.')
+    suffix = true, p++;
+
+  atom = p;
+  while (ISIDNUM (*p) || *p == '-' || *p == '+' || *p == '='
+	 || *p == ',' || *p == '.')
+    p++;
+  len = p - atom;
+
+  if (*p == '*')
+    starred = true, p++;
+
+  SKIP_WHITE ();
+
+  if (!suffix)
     {
       /* Mark all matching switches as valid.  */
       for (i = 0; i < n_switches; i++)
-	if (!strncmp (switches[i].part1, filter, p - filter - 1))
+	if (!strncmp (switches[i].part1, atom, len)
+	    && (starred || switches[i].part1[len] == 0))
 	  switches[i].validated = 1;
     }
-  else
+
+  p++;
+  if (p[-1] == '|' || p[-1] == '&')
+    goto next_member;
+
+  if (p[-1] == ':')
     {
-      /* Mark an exact matching switch as valid.  */
-      for (i = 0; i < n_switches; i++)
+      while (*p && *p != ';' && *p != '}')
 	{
-	  if (!strncmp (switches[i].part1, filter, p - filter)
-	      && switches[i].part1[p - filter] == 0)
-	    switches[i].validated = 1;
+	  if (*p == '%')
+	    {
+	      p++;
+	      if (*p == '{' || *p == '<')
+		p = validate_switches (p+1);
+	      else if (p[0] == 'W' && p[1] == '{')
+		p = validate_switches (p+2);
+	    }
+	  p++;
 	}
+
+      p++;
+      if (p[-1] == ';')
+	goto next_member;
     }
 
-  if (*p++ == '|' || p[-1] == '&')
-    goto next_member;
+  return p;
+#undef SKIP_WHITE
 }
 
 /* Check whether a particular argument was used.  The first time we

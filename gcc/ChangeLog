@@ -1,3 +1,11 @@
+2002-09-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c (validate_switches): Handle all new forms of spec
+	syntax introduced recently.  Now returns a char *.
+	(validate_all_switches): Repetitive logic broken out to...
+	(validate_switches_from_spec): ...here.
+	* mklibgcc.in: Don't @-flag commands to generate .oS files.
+
 2002-09-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* openbsd.h: Fix typo in last change.
