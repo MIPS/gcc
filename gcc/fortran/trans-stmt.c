@@ -377,66 +377,52 @@ gfc_trans_stop (gfc_code * code)
 
    where COND_S is the simplified version of the predicate. PRE_COND_S
    are the pre side-effects produced by the translation of the
-   conditional.  */
+   conditional.
+   We need to build the chain recursively otherwise we run into
+   problems with folding incomplete statements.  */
+
+static tree
+gfc_trans_if_1 (gfc_code * code)
+{
+  gfc_se if_se;
+  tree stmt, elsestmt;
+
+  /* Check for an unconditional ELSE clause.  */
+  if (!code->expr)
+    return gfc_trans_code (code->next);
+
+  /* Initialize a statement builder for each block. Puts in NULL_TREEs.  */
+  gfc_init_se (&if_se, NULL);
+  gfc_start_block (&if_se.pre);
+
+  /* Calculate the IF condition expression.  */
+  gfc_conv_expr_val (&if_se, code->expr);
+
+  /* Translate the THEN clause.  */
+  stmt = gfc_trans_code (code->next);
+
+  /* Translate the ELSE clause.  */
+  if (code->block)
+    elsestmt = gfc_trans_if_1 (code->block);
+  else
+    elsestmt = build_empty_stmt ();
+
+  /* Build the condition expression and add it to the condition block.  */
+  stmt = build_v (COND_EXPR, if_se.expr, stmt, elsestmt);
+  
+  gfc_add_expr_to_block (&if_se.pre, stmt);
+
+  /* Finish off this statement.  */
+  return gfc_finish_block (&if_se.pre);
+}
 
 tree
 gfc_trans_if (gfc_code * code)
 {
-  gfc_se if_se;
-  tree top, stmt, tail, ifstmt;
-
-  top = tail = NULL_TREE;
-
   /* Ignore the top EXEC_IF, it only announces an IF construct. The
      actual code we must translate is in code->block.  */
 
-  code = code->block;
-
-  /* If code->expr != NULL, then we need to build a condition
-     expression. This is true for IF(cond) and ELSEIF(cond). The
-     final, unconditional ELSE is chained at the bottom of this
-     function.  */
-
-  while (code && code->expr)
-    {
-
-      /* Initialize a statement builder for each block. Puts in NULL_TREEs.  */
-      gfc_init_se (&if_se, NULL);
-      gfc_start_block (&if_se.pre);
-
-      /* Calculate the IF condition expression.  */
-      gfc_conv_expr_val (&if_se, code->expr);
-
-      /* Translate the THEN clause.  */
-      stmt = gfc_trans_code (code->next);
-
-      /* Build the condition expression and add it to the condition block.  */
-      ifstmt = build_v (COND_EXPR, if_se.expr, stmt, build_empty_stmt ());
-      gfc_add_expr_to_block (&if_se.pre, ifstmt);
-
-      /* Finish off this statement.  */
-      stmt = gfc_finish_block (&if_se.pre);
-
-      /* If this is an ELSE IF, insert it into the else of the previous
-         condition.  */
-      if (tail)
-	TREE_OPERAND (tail, 2) = stmt;
-      tail = ifstmt;
-
-      /* Store in TOP if this is the first translated IF block of this
-         construct.  */
-      if (!top)
-	top = stmt;
-
-      /* Advance to the next block, if there is one.  */
-      code = code->block;
-    }
-
-  /* See about the unconditional ELSE.  */
-  if (code)
-    TREE_OPERAND (tail, 2) = gfc_trans_code (code->next);
-
-  return top;
+  return gfc_trans_if_1 (code->block);
 }
 
 
