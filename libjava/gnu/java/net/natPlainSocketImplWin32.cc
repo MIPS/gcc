@@ -14,8 +14,6 @@ details.  */
 #undef MIN_PRIORITY
 
 #include <gnu/java/net/PlainSocketImpl.h>
-#include <gnu/java/net/PlainSocketImpl$SocketInputStream.h>
-#include <gnu/java/net/PlainSocketImpl$SocketOutputStream.h>
 #include <java/io/IOException.h>
 #include <java/io/InterruptedIOException.h>
 #include <java/net/BindException.h>
