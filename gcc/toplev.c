@@ -271,6 +271,7 @@ enum dump_file_index
   DFI_gcse,
   DFI_loop,
   DFI_cfg,
+  DFI_tracer,
   DFI_cse2,
   DFI_bp,
   DFI_life,
@@ -299,7 +300,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q   u     "
-	"       H JK   OPQ  TUV  YZ"
+	"       H JK   OPQ   UV  YZ"
 */
 
 struct dump_file_info dump_file[DFI_MAX] =
@@ -317,6 +318,7 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
+  { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
@@ -2966,6 +2968,8 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
  		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
@@ -2994,6 +2998,8 @@ rest_of_compilation (decl)
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
   renumber_insns (rtl_dump_file);
+  if (optimize)
+    compute_bb_for_insn (get_max_uid ());
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl, insns);
@@ -3008,6 +3014,8 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       open_dump_file (DFI_cse, decl);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
       timevar_push (TV_CSE);
 
       reg_scan (insns, max_reg_num (), 1);
@@ -3046,9 +3054,14 @@ rest_of_compilation (decl)
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
+      if (optimize)
+	compute_bb_for_insn (get_max_uid ());
 
       timevar_pop (TV_CSE);
       close_dump_file (DFI_cse, print_rtl_with_bb, insns);
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
     }
 
   open_dump_file (DFI_addressof, decl);
@@ -3071,6 +3084,8 @@ rest_of_compilation (decl)
 
       timevar_push (TV_GCSE);
       open_dump_file (DFI_gcse, decl);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
 
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
@@ -3108,6 +3123,7 @@ rest_of_compilation (decl)
 	      timevar_push (TV_CSE);
 	      reg_scan (insns, max_reg_num (), 1);
 	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	      purge_all_dead_edges (0);
 	      timevar_pop (TV_CSE);
 	    }
 	}
@@ -3118,6 +3134,9 @@ rest_of_compilation (decl)
       ggc_collect ();
       flag_cse_skip_blocks = save_csb;
       flag_cse_follow_jumps = save_cfj;
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
       free_bb_for_insn ();
      }
 
@@ -3162,8 +3181,9 @@ rest_of_compilation (decl)
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
 
-
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
 
   cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 
@@ -3214,12 +3234,26 @@ rest_of_compilation (decl)
     flow_loops_free (&loops);
 
   if (flag_tracer)
-    tracer ();
+    {
+      timevar_push (TV_TRACER);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      open_dump_file (DFI_tracer, decl);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      tracer ();
+      close_dump_file (DFI_tracer, print_rtl_with_bb, insns);
+      timevar_pop (TV_TRACER);
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
+    }
 
   if (optimize > 0)
     {
       timevar_push (TV_CSE2);
       open_dump_file (DFI_cse2, decl);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
 
       if (flag_rerun_cse_after_loop)
 	{

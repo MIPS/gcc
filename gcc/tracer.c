@@ -118,7 +118,7 @@ construct_traces ()
 	  basic_block seed = bb;
 
 	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Trace seed %i forward ", bb->index);
+	    fprintf (rtl_dump_file, "Trace seed %i forward:\n", bb->index);
 	  while ((e = find_best_successor (bb)) != NULL)
 	    {
 	      basic_block bb2 = e->dest;
@@ -128,21 +128,23 @@ construct_traces ()
 		  || (e->flags & EDGE_DFS_BACK))
 		break;
 	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "%i ", bb2->index);
+		fprintf (rtl_dump_file, "   %i", bb2->index);
 	      if (bb2->pred && bb2->pred->pred_next)
 		{
 		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "(duplicated) ");
+		    fprintf (rtl_dump_file, " (duplicated)\n");
 		  if (!cfg_layout_can_duplicate_bb_p (bb2))
 		    break;
 		  bb2 = cfg_layout_duplicate_bb (bb2, e);
 		}
+	      else if (rtl_dump_file)
+		fprintf (rtl_dump_file, "\n");
 	      RBI (bb)->next = bb2;
 	      RBI (bb2)->visited = 1;
 	      bb = bb2;
 	    }
 	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "backward ");
+	    fprintf (rtl_dump_file, " backward\n");
 
 	  bb = seed;
 	  while ((e = find_best_predecessor (bb)) != NULL)
@@ -154,15 +156,17 @@ construct_traces ()
 		  || (e->flags & EDGE_DFS_BACK))
 		break;
 	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "%i ", bb2->index);
+		fprintf (rtl_dump_file, "  %i", bb2->index);
 	      if (bb->pred && bb->pred->pred_next)
 		{
 		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file, "(duplicated) ");
+		    fprintf (rtl_dump_file, "(duplicated)\n");
 		  if (!cfg_layout_can_duplicate_bb_p (bb))
 		    break;
 		  bb = cfg_layout_duplicate_bb (bb, e);
 		}
+	      else if (rtl_dump_file)
+		fprintf (rtl_dump_file, "\n");
 	      RBI (bb2)->next = bb;
 	      RBI (bb)->visited = 1;
 	      bb = bb2;

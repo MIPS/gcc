@@ -735,7 +735,7 @@ cleanup_unconditional_jumps ()
       if (!bb->succ->succ_next)
 	{
 	  rtx insn;
-	  if (GET_CODE (bb->head) != CODE_LABEL && forwarder_block_p (bb))
+	  if (GET_CODE (bb->head) != CODE_LABEL && forwarder_block_p (bb) && i)
 	    {
 	      basic_block prev = BASIC_BLOCK (--i);
 
