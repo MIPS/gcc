@@ -55,7 +55,21 @@ public class GtkMainThread extends GtkGenericPeer implements Runnable
    * set to "false".  -1 if unset.
    */
   static native void gtkInit(int portableNativeSync);
-  native void gtkMain();
+
+  public native void wakeup();
+  native void iterate();
+
+  boolean running = true;
+  public synchronized boolean stillRunning()
+  {
+    return running;
+  }
+
+  public synchronized void quit() 
+  { 
+    running = false;
+    wakeup();
+  }
   
   public GtkMainThread() 
   {
@@ -63,7 +77,8 @@ public class GtkMainThread extends GtkGenericPeer implements Runnable
     synchronized (mainThreadLock) 
       {
 	if (mainThread != null)
-	  throw new IllegalStateException();
+          return;
+        //throw new IllegalStateException();
 	mainThread = new Thread(this, "GtkMain");
       }
     
@@ -103,7 +118,8 @@ public class GtkMainThread extends GtkGenericPeer implements Runnable
 	gtkInitCalled = true;
 	notifyAll();
       }
-    gtkMain();
+    while(stillRunning())
+      iterate();
   }
 }
 

@@ -251,17 +251,23 @@ init_glib_threads(JNIEnv *env, jint portableNativeSync)
 }
 
 
-
 /*
  * Run gtk_main and block.
  */ 
+
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain
+Java_gnu_java_awt_peer_gtk_GtkMainThread_iterate
   (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)))
 {
-  gdk_threads_enter ();
-  gtk_main ();
-  gdk_threads_leave ();
+  gtk_main_iteration();
+}
+
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkMainThread_wakeUp
+  (JNIEnv *env __attribute__((unused)), jobject obj __attribute__((unused)))
+{
+  /* Argument is a GtkContext*. NULL means "default context". */
+  g_main_context_wakeup (NULL);
 }
 
 /* This is a big hack, needed until this pango bug is resolved:

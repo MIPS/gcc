@@ -443,4 +443,24 @@ public class XToolkit extends ClasspathToolkit
   {
     throw new java.lang.UnsupportedOperationException ();
   }
+
+  boolean interrupted;
+
+  public boolean nativeQueueEmpty() 
+  { 
+    return eventLoop.isIdle(); 
+  }
+
+  public void wakeNativeQueue() 
+  {
+    interrupted = true;
+    eventLoop.interrupt();
+  }
+
+  public void iterateNativeQueue(java.awt.EventQueue locked) 
+  {
+    interrupted = false;
+    while (!interrupted)
+      eventLoop.postNextEvent();
+  }; 
 }

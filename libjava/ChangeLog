@@ -1,3 +1,54 @@
+2005-01-04  Graydon Hoare  <graydon@redhat.com>
+
+	* Makefile.am 
+	(jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c)
+	(gnu/java/awt/peer/gtk/GtkMainThread.java) : Remove.
+	* Makefile.in: Regenerate.
+	* gnu/awt/xlib/XEventLoop.java: Fix to match thread model.
+	* gnu/awt/xlib/XFramePeer.java: Likewise.
+	* gnu/awt/xlib/XToolkit.java: Likewise.
+	* gnu/gcj/xlib/XAnyEvent.java: Likewise.
+	* gnu/gcj/xlib/natXAnyEvent.cc: Likewise.
+	* gnu/java/awt/ClasspathToolkit.java 
+	(nativeQueueEmpty)
+	(wakeNativeQueue)
+	(iterateNativeQueue): New methods.
+	* gnu/java/awt/peer/gtk/GtkMainThread.java: Remove.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java
+	(gtkInit): Absorb from defunct GtkMainThread class.
+	(static): Run gtkInit in static startup block.
+	(GtkToolkit): Remove construction of GtkMainThread and queue.
+	(getSystemEventQueueImpl): Construct queue when requested.
+	(nativeQueueEmpty)
+	(wakeNativeQueue)
+	(iterateNativeQueue): New methods.
+	* java/awt/Component.java (removeNotify): Remove race.
+	* java/awt/EventDispatchThread.java 
+	(EventDispatchThread): Don't start on construction.
+	(run): Remove isInterrupted check.
+	* java/awt/EventQueue.java (shutdown): New flag.
+	(isShutdown): New method checking J2SE shutdown condition.
+	(setShutdown): New method.
+	(getNextEvent): Restructure to use ClasspathToolkit.
+	(postEvent): Activate new thread on posting, wake thread on
+	post of possible shutdown condition event.
+	* java/awt/Frame.java 
+	(Frame): Call noteFrame in all constructors.
+	(fireDummyEvent): New helper method.
+	(addNotify): Fire a dummy event to wake up queue.
+	(removeNotify): Fire a dummy event to wake up queue.
+	(noteFrame): New method.
+	(weakFrames): New static field.
+	(getFrames): Implement.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c: 
+	Remove.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c:
+	Move everything from GtkMainThread into this file
+	(Java_gnu_java_awt_peer_gtk_GtkToolkit_iterateNativeQueue)
+	(Java_gnu_java_awt_peer_gtk_GtkToolkit_wakeNativeQueue)
+	(Java_gnu_java_awt_peer_gtk_GtkToolkit_nativeQueueEmpty):
+	New functions to implement single-threaded queue semantics.
+
 2005-01-03  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/metal/MetalLookAndFeel.java
