@@ -74,13 +74,6 @@ Boston, MA 02111-1307, USA.  */
    deleted and recreated from scratch.  REG_DEAD is never created for a
    SET_DEST, only REG_UNUSED.
 
-   Before life analysis, the mode of each insn is set based on whether
-   or not any stack registers are mentioned within that insn.  VOIDmode
-   means that no regs are mentioned anyway, and QImode means that at
-   least one pattern within the insn mentions stack registers.  This
-   information is valid until after reg_to_stack returns, and is used
-   from jump_optimize.
-
    * asm_operands:
 
    There are several rules on the usage of stack-like regs in
@@ -167,6 +160,8 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "insn-flags.h"
 #include "toplev.h"
+#include "recog.h"
+#include "varray.h"
 
 #ifdef STACK_REGS
 
@@ -218,9 +213,17 @@ static HARD_REG_SET *block_out_reg_set;
    add insns within a block.  */
 static int *block_number;
 
+/* We use this array to cache info about insns, because otherwise we
+   spend too much time in stack_regs_mentioned_p. 
+
+   Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
+   the insn uses stack registers, two indicates the insn does not use
+   stack registers.  */
+static varray_type stack_regs_mentioned_data;
+
 /* This is the register file for all register after conversion */
 static rtx
-FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
+  FP_mode_reg[LAST_STACK_REG+1-FIRST_STACK_REG][(int) MAX_MACHINE_MODE];
 
 #define FP_MODE_REG(regno,mode)	\
   (FP_mode_reg[(regno)-FIRST_STACK_REG][(int)(mode)])
@@ -236,15 +239,16 @@ extern rtx forced_labels;
 
 /* Forward declarations */
 
+static int stack_regs_mentioned_p	PROTO((rtx pat));
 static void mark_regs_pat		PROTO((rtx, HARD_REG_SET *));
 static void straighten_stack		PROTO((rtx, stack));
 static void pop_stack			PROTO((stack, int));
 static void record_label_references	PROTO((rtx, rtx));
 static rtx *get_true_reg		PROTO((rtx *));
-static int constrain_asm_operands	PROTO((int, rtx *, char **, int *,
-					       enum reg_class *));
+static int constrain_asm_operands	PROTO((int, rtx *, const char **,
+					       int *, enum reg_class *));
 
-static void record_asm_reg_life		PROTO((rtx,stack, rtx *, char **,
+static void record_asm_reg_life		PROTO((rtx,stack, rtx *, const char **,
 					       int, int));
 static void record_reg_life_pat		PROTO((rtx, HARD_REG_SET *,
 					       HARD_REG_SET *, int));
@@ -265,7 +269,7 @@ static int swap_rtx_condition		PROTO((rtx));
 static void compare_for_stack_reg	PROTO((rtx, stack, rtx));
 static void subst_stack_regs_pat	PROTO((rtx, stack, rtx));
 static void subst_asm_stack_regs	PROTO((rtx, stack, rtx *, rtx **,
-					       char **, int, int));
+					       const char **, int, int));
 static void subst_stack_regs		PROTO((rtx, stack));
 static void change_stack		PROTO((rtx, stack, stack, rtx (*) ()));
 
@@ -273,6 +277,69 @@ static void goto_block_pat		PROTO((rtx, stack, rtx));
 static void convert_regs		PROTO((void));
 static void print_blocks		PROTO((FILE *, rtx, rtx));
 static void dump_stack_info		PROTO((FILE *));
+
+/* Return non-zero if any stack register is mentioned somewhere within PAT.  */
+
+static int
+stack_regs_mentioned_p (pat)
+     rtx pat;
+{
+  register char *fmt;
+  register int i;
+
+  if (STACK_REG_P (pat))
+    return 1;
+
+  fmt = GET_RTX_FORMAT (GET_CODE (pat));
+  for (i = GET_RTX_LENGTH (GET_CODE (pat)) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'E')
+	{
+	  register int j;
+
+	  for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
+	    if (stack_regs_mentioned_p (XVECEXP (pat, i, j)))
+	      return 1;
+	}
+      else if (fmt[i] == 'e' && stack_regs_mentioned_p (XEXP (pat, i)))
+	return 1;
+    }
+
+  return 0;
+}
+
+/* Return nonzero if INSN mentions stacked registers, else return zero.  */
+
+int
+stack_regs_mentioned (insn)
+     rtx insn;
+{
+  unsigned int uid, max;
+  int test;
+
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    return 0;
+
+  uid = INSN_UID (insn);
+  max = VARRAY_SIZE (stack_regs_mentioned_data);
+  if (uid >= max)
+    {
+      /* Allocate some extra size to avoid too many reallocs, but
+	 do not grow too quickly.  */
+      max = uid + uid / 20;
+      VARRAY_GROW (stack_regs_mentioned_data, max);
+    }
+
+  test = VARRAY_CHAR (stack_regs_mentioned_data, uid);
+  if (test == 0)
+    {
+      /* This insn has yet to be examined.  Do so now.  */
+      test = stack_regs_mentioned_p (PATTERN (insn)) ? 1 : 2;
+      VARRAY_CHAR (stack_regs_mentioned_data, uid) = test;
+    }
+
+  return test == 1;
+}
 
 static rtx ix86_flags_rtx;
 
@@ -365,36 +432,6 @@ pop_stack (regstack, regno)
     }
 }
 
-/* Return non-zero if any stack register is mentioned somewhere within PAT.  */
-
-int
-stack_regs_mentioned (pat)
-     rtx pat;
-{
-  register char *fmt;
-  register int i;
-
-  if (STACK_REG_P (pat))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (GET_CODE (pat));
-  for (i = GET_RTX_LENGTH (GET_CODE (pat)) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'E')
-	{
-	  register int j;
-
-	  for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
-	    if (stack_regs_mentioned (XVECEXP (pat, i, j)))
-	      return 1;
-	}
-      else if (fmt[i] == 'e' && stack_regs_mentioned (XEXP (pat, i)))
-	return 1;
-    }
-
-  return 0;
-}
-
 /* Convert register usage from "flat" register file usage to a "stack
    register file.  FIRST is the first insn in the function, FILE is the
    dump file, if used.
@@ -417,6 +454,10 @@ reg_to_stack (first, file)
   HARD_REG_SET stackentry;
 
   ix86_flags_rtx = gen_rtx_REG (CCmode, FLAGS_REG);
+
+  max_uid = get_max_uid ();
+  VARRAY_CHAR_INIT (stack_regs_mentioned_data, max_uid + 1,
+		    "stack_regs_mentioned cache");
 
   CLEAR_HARD_REG_SET (stackentry);
 
@@ -475,10 +516,10 @@ reg_to_stack (first, file)
 	   Check JUMP_INSNs too, in case someone creates a funny PARALLEL.  */
 
 	if (GET_RTX_CLASS (code) == 'i'
-	    && stack_regs_mentioned (PATTERN (insn)))
+	    && stack_regs_mentioned_p (PATTERN (insn)))
 	  {
 	    stack_reg_seen = 1;
-	    PUT_MODE (insn, QImode);
+ 	    VARRAY_CHAR (stack_regs_mentioned_data, INSN_UID (insn)) = 1;
 
 	    /* Note any register passing parameters.  */
 
@@ -488,7 +529,7 @@ reg_to_stack (first, file)
 				   &stackentry, 1);
 	  }
 	else
-	  PUT_MODE (insn, VOIDmode);
+	  VARRAY_CHAR (stack_regs_mentioned_data, INSN_UID (insn)) = 2;
 
 	if (code == CODE_LABEL)
 	  LABEL_REFS (insn) = insn; /* delete old chain */
@@ -502,7 +543,10 @@ reg_to_stack (first, file)
      anything to convert.  */
 
   if (! stack_reg_seen)
-    return;
+    {
+      VARRAY_FREE (stack_regs_mentioned_data);
+      return;
+    }
 
   /* If there are stack registers, there must be at least one block.  */
 
@@ -537,6 +581,8 @@ reg_to_stack (first, file)
 
   if (optimize)
     jump_optimize (first, 2, 0, 0);
+
+  VARRAY_FREE (stack_regs_mentioned_data);
 }
 
 /* Check PAT, which is in INSN, for LABEL_REFs.  Add INSN to the
@@ -646,12 +692,13 @@ constrain_asm_operands (n_operands, operands, operand_constraints,
 			operand_matches, operand_class)
      int n_operands;
      rtx *operands;
-     char **operand_constraints;
+     const char **operand_constraints;
      int *operand_matches;
      enum reg_class *operand_class;
 {
-  char **constraints = (char **) alloca (n_operands * sizeof (char *));
-  char *q;
+  const char **constraints
+    = (const char **) alloca (n_operands * sizeof (char *));
+  const char *q;
   int this_alternative, this_operand;
   int n_alternatives;
   int j;
@@ -689,7 +736,7 @@ constrain_asm_operands (n_operands, operands, operand_constraints,
 	{
 	  rtx op = operands[this_operand];
 	  enum machine_mode mode = GET_MODE (op);
-	  char *p = constraints[this_operand];
+	  const char *p = constraints[this_operand];
 	  int offset = 0;
 	  int win = 0;
 	  int c;
@@ -928,7 +975,7 @@ record_asm_reg_life (insn, regstack, operands, constraints,
      rtx insn;
      stack regstack;
      rtx *operands;
-     char **constraints;
+     const char **constraints;
      int n_inputs, n_outputs;
 {
   int i;
@@ -1084,7 +1131,7 @@ record_asm_reg_life (insn, regstack, operands, constraints,
     {
       /* Avoid further trouble with this insn.  */
       PATTERN (insn) = gen_rtx_USE (VOIDmode, const0_rtx);
-      PUT_MODE (insn, VOIDmode);
+      VARRAY_CHAR (stack_regs_mentioned_data, INSN_UID (insn)) = 2;
       return;
     }
 
@@ -1095,7 +1142,7 @@ record_asm_reg_life (insn, regstack, operands, constraints,
 
       if (! STACK_REG_P (op))
 	{
-	  if (stack_regs_mentioned (op))
+	  if (stack_regs_mentioned_p (op))
 	    abort ();
 	  else
 	    continue;
@@ -1117,7 +1164,7 @@ record_asm_reg_life (insn, regstack, operands, constraints,
     {
       if (! STACK_REG_P (operands[i]))
 	{
-	  if (stack_regs_mentioned (operands[i]))
+	  if (stack_regs_mentioned_p (operands[i]))
 	    abort ();
 	  else
 	    continue;
@@ -1267,7 +1314,8 @@ record_reg_life (insn, block, regstack)
       rtx operands[MAX_RECOG_OPERANDS];
       rtx body = PATTERN (insn);
       int n_inputs, n_outputs;
-      char **constraints = (char **) alloca (n_operands * sizeof (char *));
+      const char **constraints =
+	(const char **) alloca (n_operands * sizeof (char *));
 
       decode_asm_operands (body, operands, NULL_PTR, constraints, NULL_PTR);
       get_asm_operand_lengths (body, n_operands, &n_inputs, &n_outputs);
@@ -1327,7 +1375,6 @@ record_reg_life (insn, block, regstack)
 	      pat = gen_rtx_SET (VOIDmode, FP_MODE_REG (reg, DFmode),
 				 CONST0_RTX (DFmode));
 	      init = emit_insn_after (pat, insn);
-	      PUT_MODE (init, QImode);
 
 	      CLEAR_HARD_REG_BIT (regstack->reg_set, reg);
 
@@ -1537,7 +1584,7 @@ stack_reg_life_analysis (first, stackentry)
 	     everything dies.  But otherwise don't process unless there
 	     are some stack regs present.  */
 
-	  if (GET_MODE (insn) == QImode || GET_CODE (insn) == CALL_INSN)
+	  if (stack_regs_mentioned (insn) || GET_CODE (insn) == CALL_INSN)
 	    record_reg_life (insn, block, &regstack);
 
 	} while (insn != block_begin[block]);
@@ -1623,7 +1670,6 @@ stack_reg_life_analysis (first, stackentry)
 	init_rtx = gen_rtx_SET (VOIDmode, FP_MODE_REG(reg, DFmode),
 				CONST0_RTX (DFmode));
 	block_begin[0] = emit_insn_after (init_rtx, first);
-	PUT_MODE (block_begin[0], QImode);
 
 	CLEAR_HARD_REG_BIT (block_stack_in[0].reg_set, reg);
       }
@@ -1741,8 +1787,6 @@ emit_pop_insn (insn, regstack, reg, when)
 			 FP_MODE_REG (FIRST_STACK_REG, DFmode));
 
   pop_insn = (*when) (pop_rtx, insn);
-  /* ??? This used to be VOIDmode, but that seems wrong.  */
-  PUT_MODE (pop_insn, QImode);
 
   REG_NOTES (pop_insn) = gen_rtx_EXPR_LIST (REG_DEAD,
 					    FP_MODE_REG (FIRST_STACK_REG, DFmode),
@@ -1792,7 +1836,7 @@ emit_swap_insn (insn, regstack, reg)
   /* Find the previous insn involving stack regs, but don't go past
      any labels, calls or jumps.  */
   i1 = prev_nonnote_insn (insn);
-  while (i1 && GET_CODE (i1) == INSN && GET_MODE (i1) != QImode)
+  while (i1 && GET_CODE (i1) == INSN && !stack_regs_mentioned (i1))
     i1 = prev_nonnote_insn (i1);
 
   if (i1)
@@ -1823,8 +1867,6 @@ emit_swap_insn (insn, regstack, reg)
   swap_rtx = gen_swapxf (FP_MODE_REG (hard_regno, XFmode),
 			 FP_MODE_REG (FIRST_STACK_REG, XFmode));
   swap_insn = emit_insn_after (swap_rtx, i1);
-  /* ??? This used to be VOIDmode, but that seems wrong.  */
-  PUT_MODE (swap_insn, QImode);
 }
 
 /* Handle a move to or from a stack register in PAT, which is in INSN.
@@ -1941,7 +1983,6 @@ move_for_stack_reg (insn, regstack, pat)
 
 	  push_rtx = gen_movxf (top_stack_reg, top_stack_reg);
 	  push_insn = emit_insn_before (push_rtx, insn);
-	  PUT_MODE (push_insn, QImode);
 	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_DEAD, top_stack_reg,
 						REG_NOTES (insn));
 	}
@@ -2512,7 +2553,7 @@ subst_asm_stack_regs (insn, regstack, operands, operands_loc, constraints,
      rtx insn;
      stack regstack;
      rtx *operands, **operands_loc;
-     char **constraints;
+     const char **constraints;
      int n_inputs, n_outputs;
 {
   int n_operands = n_inputs + n_outputs;
@@ -2829,7 +2870,7 @@ subst_stack_regs (insn, regstack)
      we must check each pattern in a parallel here.  A call_value_pop could
      fail otherwise.  */
 
-  if (GET_MODE (insn) == QImode)
+  if (stack_regs_mentioned (insn))
     {
       n_operands = asm_noperands (PATTERN (insn));
       if (n_operands >= 0)
@@ -2842,8 +2883,8 @@ subst_stack_regs (insn, regstack)
 	  rtx *operands_loc[MAX_RECOG_OPERANDS];
 	  rtx body = PATTERN (insn);
 	  int n_inputs, n_outputs;
-	  char **constraints
-	    = (char **) alloca (n_operands * sizeof (char *));
+	  const char **constraints
+	    = (const char **) alloca (n_operands * sizeof (char *));
 
 	  decode_asm_operands (body, operands, operands_loc,
 			       constraints, NULL_PTR);
@@ -2856,7 +2897,7 @@ subst_stack_regs (insn, regstack)
       if (GET_CODE (PATTERN (insn)) == PARALLEL)
 	for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
 	  {
-	    if (stack_regs_mentioned (XVECEXP (PATTERN (insn), 0, i)))
+	    if (stack_regs_mentioned_p (XVECEXP (PATTERN (insn), 0, i)))
 	      subst_stack_regs_pat (insn, regstack,
 				    XVECEXP (PATTERN (insn), 0, i));
 	  }
@@ -3156,7 +3197,7 @@ convert_regs ()
 	     mentioned or if it's a CALL_INSN (register passing of
 	     floating point values).  */
 
-	  if (GET_MODE (insn) == QImode || GET_CODE (insn) == CALL_INSN)
+	  if (stack_regs_mentioned (insn) || GET_CODE (insn) == CALL_INSN)
 	    subst_stack_regs (insn, &regstack);
 
 	} while (insn != block_end[block]);
