@@ -2849,14 +2849,9 @@ static bool
 gate_scev_iv_canon (void)
 {
   return (current_loops
-	  /* Only run this pass if
-	     1) We will be able to eliminate the superfluous ivs
-		we create.   */
-	  && flag_tree_loop
-	  /* 2) Someone at rtl level will be able to use the information
-		provided.  */
-	  && (flag_unroll_loops
-	      || flag_branch_on_count_reg));
+	  /* Only run this pass if we will be able to eliminate the
+	     superfluous ivs we create.   */
+	  && flag_tree_loop);
 }
 
 static bool

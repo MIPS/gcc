@@ -1,3 +1,15 @@
+2004-03-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (gate_scev_iv_canon): Do not check rtl
+	level flags here.
+	* tree-ssa-loop-ivcanon.c (get_base_for): Verfify that the argument
+	of the phi node is a constant.
+	(loop_niter_by_eval, create_canonical_iv, try_unroll_loop_completely,
+	canonicalize_loop_induction_variables): Handle loops with more than
+	one exit.
+	(find_loop_niter_by_eval): New.
+	(canonicalize_induction_variables): Check rtl level flags here.
+
 2004-03-12  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* tree-ssa-return.c (tree_ssa_return):

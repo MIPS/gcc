@@ -122,6 +122,9 @@ get_base_for (struct loop *loop, tree x)
   init = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
   next = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
 
+  if (TREE_CODE (next) != SSA_NAME)
+    return NULL_TREE;
+
   if (!is_gimple_min_invariant (init))
     return NULL_TREE;
 
@@ -160,20 +163,16 @@ get_val_for (tree x, tree base)
   return val;
 }
 
-/* Tries to count the number of iterations of LOOP by brute force.  */
+/* Tries to count the number of iterations of LOOP till it exits by EXIT
+   by brute force.  */
 
 static tree
-loop_niter_by_eval (struct loop *loop)
+loop_niter_by_eval (struct loop *loop, edge exit)
 {
-  edge exit;
   tree cond, cnd, acnd;
   tree op[2], val[2], next[2], aval[2], phi[2];
   unsigned i, j;
   enum tree_code cmp;
-
-  if (loop_num_exits (loop) != 1)
-    return chrec_top;
-  exit = loop_exit_edge (loop, 0);
 
   cond = last_stmt (exit->src);
   if (!cond || TREE_CODE (cond) != COND_EXPR)
@@ -246,12 +245,49 @@ loop_niter_by_eval (struct loop *loop)
   return chrec_top;
 }
 
-/* Adds a canonical induction variable to LOOP iterating NITER times.  */
+/* Finds the exit of the LOOP by that the loop exits after a constant
+   number of iterations and stores it to *EXIT.  The iteration count
+   is returned.  */
+
+static tree
+find_loop_niter_by_eval (struct loop *loop, edge *exit)
+{
+  unsigned n_exits, i;
+  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  edge ex;
+  tree niter = NULL_TREE, aniter;
+
+  *exit = NULL;
+  for (i = 0; i < n_exits; i++)
+    {
+      ex = exits[i];
+      if (!just_once_each_iteration_p (loop, ex->src))
+	continue;
+
+      aniter = loop_niter_by_eval (loop, ex);
+      if (TREE_CODE (aniter) != INTEGER_CST)
+	continue;
+
+      if (niter
+	  && !integer_nonzerop (fold (build (LT_EXPR, boolean_type_node,
+					     aniter, niter))))
+	continue;
+
+      niter = aniter;
+      *exit = ex;
+    }
+  free (exits);
+
+  return niter ? niter : chrec_top;
+}
+
+/* Adds a canonical induction variable to LOOP iterating NITER times.  EXIT
+   is the exit edge whose condition is replaced.  */
 
 static void
-create_canonical_iv (struct loop *loop, tree niter)
+create_canonical_iv (struct loop *loop, edge exit, tree niter)
 {
-  edge exit, in;
+  edge in;
   tree cond, type, var;
   block_stmt_iterator incr_at;
   enum tree_code cmp;
@@ -263,7 +299,6 @@ create_canonical_iv (struct loop *loop, tree niter)
       fprintf (tree_dump_file, " iterations.\n");
     }
 
-  exit = loop_exit_edge (loop, 0);
   cond = last_stmt (exit->src);
   in = exit->src->succ;
   if (in == exit)
@@ -300,15 +335,18 @@ estimate_loop_size (struct loop *loop)
 }
 
 /* Tries to unroll LOOP completely, i.e. NITER times.  LOOPS is the
-   loop tree. */
+   loop tree.  COMPLETELY_UNROLL is true if we should unroll the loop
+   even if it may cause code growth.  EXIT is the exit of the loop
+   that should be eliminated.  */
 
 static bool
-try_unroll_loop_completely (struct loops *loops, struct loop *loop, tree niter)
+try_unroll_loop_completely (struct loops *loops, struct loop *loop,
+			    edge exit, tree niter,
+			    bool completely_unroll)
 {
   tree max_unroll = build_int_2 (PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES),
 				 0);
   unsigned n_unroll, ninsns;
-  edge exit = loop_exit_edge (loop, 0);
   tree cond, dont_exit, do_exit;
 
   if (loop->inner)
@@ -318,6 +356,10 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop, tree niter)
 				      niter, max_unroll))))
     return false;
   n_unroll = tree_low_cst (niter, 1);
+
+  if (n_unroll && !completely_unroll)
+    return false;
+
   ninsns = estimate_loop_size (loop);
 
   if (n_unroll * ninsns
@@ -360,27 +402,34 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop, tree niter)
 }
 
 /* Adds a canonical induction variable to LOOP if suitable.  LOOPS is the loops
-   tree.  */
+   tree.  CREATE_IV is true if we may create a new iv.  COMPLETELY_UNROLL is
+   true if we should do complete unrolling even if it may cause the code
+   growth.  */
 
 static void
-canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop)
+canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
+				       bool create_iv, bool completely_unroll)
 {
+  edge exit = NULL;
   tree niter 
 #if 0 /* Causes bootstrap to fail  */
 	  = number_of_iterations_in_loop (loop);
 
-  if (TREE_CODE (niter) != INTEGER_CST)
+  if (TREE_CODE (niter) == INTEGER_CST)
+    exit = loop_exit_edge (loop, 0);
+  else
     niter  
 #endif
-	  = loop_niter_by_eval (loop);
+	  = find_loop_niter_by_eval (loop, &exit);
 
   if (TREE_CODE (niter) != INTEGER_CST)
     return;
 
-  if (try_unroll_loop_completely (loops, loop, niter))
+  if (try_unroll_loop_completely (loops, loop, exit, niter, completely_unroll))
     return;
 
-  create_canonical_iv (loop, niter);
+  if (create_iv)
+    create_canonical_iv (loop, exit, niter);
 }
 
 /* The main entry point of the pass.  Adds canonical induction variables
@@ -391,12 +440,15 @@ canonicalize_induction_variables (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
+  bool create_ivs = flag_unroll_loops || flag_branch_on_count_reg;
+  bool completely_unroll_loops = flag_unroll_loops;
 
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
 
       if (loop)
-	canonicalize_loop_induction_variables (loops, loop);
+	canonicalize_loop_induction_variables (loops, loop, create_ivs,
+					       completely_unroll_loops);
     }
 }
