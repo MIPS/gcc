@@ -1,3 +1,7 @@
+2000-02-09  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/linux-oldld.h: Imported from mainline sources.
+
 2000-02-07  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/lib1funcs.asm: Merge in thumb functions from
