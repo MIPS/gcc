@@ -47,11 +47,6 @@ do {									\
   ASM_OUTPUT_SKIP (FILE, SIZE ? SIZE : 1);				\
 } while (0)
 
-/* ??? Intel assembler does not allow "." in section names, so turn off
-   gnu.linkonce section support, but only when using the Intel assembler.  */
-#undef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (TARGET_GNU_AS ? DECL_ONE_ONLY (DECL) : 0)
-
 /* The # tells the Intel assembler that this is not a register name.
    However, we can't emit the # in a label definition, so we set a variable
    in ASM_OUTPUT_LABEL to control whether we want the postfix here or not.
@@ -62,25 +57,23 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME) 				\
   do									\
     {									\
-      const char * real_name;						\
-      const char * name_end;						\
+      const char *real_name;						\
+      const char *name_end;						\
 									\
       STRIP_NAME_ENCODING (real_name, NAME);				\
       name_end = strchr (real_name, '+');				\
 									\
+      fputs (user_label_prefix, STREAM);				\
       if (name_end)							\
-	* name_end = 0;							\
-									\
-      asm_fprintf (STREAM, "%U%s", real_name);				\
+	fwrite (real_name, name_end - real_name, 1, STREAM);		\
+      else								\
+	fputs (real_name, STREAM);					\
 									\
       if (ia64_asm_output_label)					\
-	asm_fprintf (STREAM, "#");					\
+	fputc ('#', STREAM);						\
 									\
       if (name_end)							\
-	{								\
-	  * name_end = '+';						\
-	  asm_fprintf (STREAM, name_end);				\
-	}								\
+	fputs (name_end, STREAM);					\
     }									\
   while (0)
 

@@ -1132,7 +1132,7 @@ enum reg_class {
    argument popping will always be the responsibility of the calling
    function.
 
-   On the Vax, all functions always pop their arguments, so the
+   On the VAX, all functions always pop their arguments, so the
    definition of this macro is STACK-SIZE.  On the 68000, using the
    standard calling convention, no functions pop their arguments, so
    the value of the macro is always 0 in this case.  But an
@@ -1157,7 +1157,7 @@ enum reg_class {
    hard register in which to pass the argument, or zero to pass the
    argument on the stack.
 
-   For machines like the Vax and 68000, where normally all arguments
+   For machines like the VAX and 68000, where normally all arguments
    are pushed, zero suffices as a definition.
 
    The value of the expression can also be a `parallel' RTX.  This is
@@ -1956,12 +1956,6 @@ progmem_section (void)							      \
    Decode SYM_NAME and store the real name part in VAR, sans the
    characters that encode section info.  Define this macro if
    `ENCODE_SECTION_INFO' alters the symbol's name string.  */
-/* `UNIQUE_SECTION_P (DECL)'
-   A C expression which evaluates to true if DECL should be placed
-   into a unique section for some target-specific reason.  If you do
-   not define this macro, the default is `0'.  Note that the flag
-   `-ffunction-sections' will also cause functions to be placed into
-   unique sections.  */
 
 #define UNIQUE_SECTION(DECL, RELOC) unique_section (DECL, RELOC)
 /* `UNIQUE_SECTION (DECL, RELOC)'
@@ -1970,7 +1964,6 @@ progmem_section (void)							      \
    RELOC indicates whether the initial value of EXP requires
    link-time relocations.  If you do not define this macro, GNU CC
    will use the symbol name prefixed by `.' as the section name.  */
-
 
 #define ASM_FILE_START(STREAM) asm_file_start (STREAM)
 /* A C expression which outputs to the stdio stream STREAM some
@@ -2022,19 +2015,8 @@ progmem_section (void)							      \
    This macro need not be defined if the standard form of debugging
    information for the debugger in use is appropriate.  */
 
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  asm_output_section_name(FILE, DECL, NAME, RELOC)
-
-/* `ASM_OUTPUT_SECTION_NAME (STREAM, DECL, NAME, RELOC)'
-   A C statement to output something to the assembler file to switch
-   to section NAME for object DECL which is either a `FUNCTION_DECL',
-   a `VAR_DECL' or `NULL_TREE'.  RELOC indicates whether the initial
-   value of EXP requires link-time relocations.  Some target formats
-   do not support arbitrary sections.  Do not define this macro in
-   such cases.
-
-   At present this macro is only used to support section attributes.
-   When this macro is undefined, section attributes are disabled.  */
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are

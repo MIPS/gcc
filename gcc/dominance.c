@@ -115,7 +115,10 @@ static void calc_idoms			PARAMS ((struct dom_info *,
 						 enum cdi_direction));
 static void idoms_to_doms		PARAMS ((struct dom_info *,
 						 sbitmap *));
-
+static unsigned int add_dom_node PARAMS ((dominator_tree, int));
+static dominator_tree new_dom_tree PARAMS ((void));
+static unsigned int add_dom_edge PARAMS ((dominator_tree, unsigned int,
+					  unsigned int));
 /* Helper macro for allocating and initializing an array,
    for aesthetic reasons.  */
 #define init_ar(var, type, num, content)			\
@@ -573,6 +576,133 @@ idoms_to_doms (di, dominators)
       SET_BIT (dominators[bb], bb);
     }
 }
+/* Create a new empty dominator tree and return it */
+static dominator_tree
+new_dom_tree ()
+{
+  dominator_tree ret = (dominator_tree) xmalloc (sizeof (struct dom_graph));
+  VARRAY_DOM_NODE_INIT (ret->nodes, 20, "Dominator tree nodes");
+  VARRAY_DOM_EDGE_INIT (ret->edges, 20, "Dominator tree edges");
+  return ret;
+}
+
+void 
+destroy_dominator_tree (graph)
+     dominator_tree graph;
+{
+  VARRAY_FREE (graph->nodes);
+  VARRAY_FREE (graph->edges);
+  free (graph);
+}
+/* Add a new node to the dominator tree, representing basic block
+   BBNUM */
+static unsigned int
+add_dom_node (graph, bbnum)
+     dominator_tree graph;
+     int bbnum;
+{
+  struct dom_node *newnode = (struct dom_node *) xmalloc (sizeof (struct dom_node));
+  memset (newnode, 0, sizeof (struct dom_node));
+  newnode->index = bbnum;
+  newnode->fsucc = -1;
+  newnode->fpred = -1;
+  newnode->id = DTREE_N_NODES (graph);
+  VARRAY_PUSH_DOM_NODE (graph->nodes, newnode);
+  return newnode->id;
+}
+/* Given a BB number, return the dominator node id. */
+/* FIXME: Probably should use a splay tree or something, rather than
+   linear search it. */
+int 
+dom_node_for_block (graph, bb)
+     dominator_tree graph;
+     int bb;
+{
+  unsigned int i;
+  for (i = 0; i < DTREE_N_NODES (graph); i++)
+    if (DTREE_NODE (graph, i)->index == bb)
+      return i;
+  return -1;
+}
+/* Add an edge to the dominator tree that goes from FROM to TO */
+static unsigned int 
+add_dom_edge(graph, from, to)
+     dominator_tree graph;
+     unsigned int from, to;
+{
+  struct dom_edge *newedge = (struct dom_edge *) 
+    xmalloc (sizeof (struct dom_edge));
+  memset (newedge, 0, sizeof (struct dom_edge));
+  newedge->id = DTREE_N_EDGES (graph);
+  newedge->to = to;
+  newedge->from = from;
+  newedge->succ = DTREE_NODE (graph, from)->fsucc;
+  DTREE_NODE (graph, from)->fsucc = newedge->id;
+  newedge->pred = DTREE_NODE (graph, to)->fpred;
+  DTREE_NODE (graph, to)->fpred = newedge->id;
+  VARRAY_PUSH_DOM_EDGE (graph->edges, newedge);
+  return newedge->id;
+}
+
+/* Given the immediate dominators, construct a dominator tree */
+dominator_tree
+dom_tree_from_idoms (idoms)
+     int *idoms;
+{
+  int i;
+  dominator_tree ret = new_dom_tree ();
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      int to, from;
+      /*if (idoms[i] < 0)
+	continue; */
+      to = dom_node_for_block (ret, i);
+      if (to < 0)
+	{
+	  to = add_dom_node (ret, i);
+	}
+      from = dom_node_for_block (ret, idoms[i]);
+      if (from < 0)
+	{
+	  from = add_dom_node (ret, idoms[i]);
+	}	  	       
+      add_dom_edge (ret, from, to);
+    }
+  return ret;
+}
+/* Dump out the dominator tree GRAPH to FILE */
+void dump_dom_tree (file, graph)
+     FILE *file;
+     dominator_tree graph;
+{
+  unsigned int i;
+  for (i = 0; i < DTREE_N_NODES (graph); i++)
+    {
+      struct dom_node *node = DTREE_NODE (graph, i);
+      int succ;
+      int pred;
+      fprintf (file, "Dominator tree node %d (bb %d)\n", node->id, node->index);
+      fprintf (file, "Predecessors:");
+      pred = node->fpred;
+      while (pred >= 0)
+	{
+	  fprintf (file, "%d (bb %d),", DTREE_EDGE (graph, pred)->from, DTREE_NODE (graph, DTREE_EDGE (graph, pred)->from)->index);
+	  pred = DTREE_EDGE (graph, pred)->pred;
+	}
+      fprintf (file, "\n");
+      fprintf (file, "Successors:");
+      succ = node->fsucc;
+      while (succ >= 0)
+	{
+	  fprintf (file, "%d (bb %d),", DTREE_EDGE (graph, succ)->to, DTREE_NODE (graph, DTREE_EDGE (graph, succ)->to)->index);
+	  succ = DTREE_EDGE (graph, succ)->succ;
+	}
+      fprintf (file, "\n");
+    }
+}
+
+	  
 
 /* The main entry point into this module.  IDOM is an integer array with room
    for n_basic_blocks integers, DOMS is a preallocated sbitmap array having

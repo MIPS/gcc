@@ -156,6 +156,8 @@ static rtx mark_constant_pool_use PARAMS ((rtx));
 static int sh_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
 static void sh_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void sh_insert_attributes PARAMS ((tree, tree *));
+static void sh_asm_named_section PARAMS ((const char *, unsigned int,
+					  unsigned int));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_VALID_DECL_ATTRIBUTE
@@ -2956,28 +2958,32 @@ barrier_align (barrier_or_label)
 	}
       if (prev
 	  && GET_CODE (prev) == JUMP_INSN
-	  && JUMP_LABEL (prev)
-	  && (jump_to_next || next_real_insn (JUMP_LABEL (prev)) == next
+	  && JUMP_LABEL (prev))
+	{
+	  rtx x;
+	  if (jump_to_next 
+	      || next_real_insn (JUMP_LABEL (prev)) == next
 	      /* If relax_delay_slots() decides NEXT was redundant
 		 with some previous instruction, it will have
 		 redirected PREV's jump to the following insn.  */
 	      || JUMP_LABEL (prev) == next_nonnote_insn (next)
 	      /* There is no upper bound on redundant instructions that
-		 might have been skipped, but we must not put an alignment
-		 where none had been before.  */
-	      || (INSN_CODE (NEXT_INSN (NEXT_INSN (PREV_INSN (prev))))
-		  == CODE_FOR_block_branch_redirect)
-	      || (INSN_CODE (NEXT_INSN (NEXT_INSN (PREV_INSN (prev))))
-		  == CODE_FOR_indirect_jump_scratch)))
-	{
-	  rtx pat = PATTERN (prev);
-	  if (GET_CODE (pat) == PARALLEL)
-	    pat = XVECEXP (pat, 0, 0);
-	  if (credit - slot >= (GET_CODE (SET_SRC (pat)) == PC ? 2 : 0))
-	    return 0;
-	}
+		 might have been skipped, but we must not put an
+		 alignment where none had been before.  */
+	      || (x = (NEXT_INSN (NEXT_INSN (PREV_INSN (prev)))),	    
+		  (INSN_P (x) 
+		   && (INSN_CODE (x) == CODE_FOR_block_branch_redirect
+		       || INSN_CODE (x) == CODE_FOR_indirect_jump_scratch))))
+	    {
+	      rtx pat = PATTERN (prev);
+	      if (GET_CODE (pat) == PARALLEL)
+	      pat = XVECEXP (pat, 0, 0);
+	      if (credit - slot >= (GET_CODE (SET_SRC (pat)) == PC ? 2 : 0))
+		return 0;
+	    }
+	}     
     }
-
+  
   return CACHE_LOG;
 }
 
@@ -3023,7 +3029,7 @@ machine_dependent_reorg (first)
      optimizing, they'll have already been split.  Otherwise, make
      sure we don't split them too late.  */
   if (! optimize)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* If relaxing, generate pseudo-ops to associate function calls with
      the symbols they call.  It does no harm to not generate these
@@ -5514,4 +5520,50 @@ static rtx mark_constant_pool_use (x)
     }
 
   return lab;
+}
+
+/* Return true if it's possible to redirect BRANCH1 to the destination
+   of an unconditional jump BRANCH2.  We only want to do this if the
+   resulting branch will have a short displacement.  */
+int 
+sh_can_redirect_branch (branch1, branch2)
+     rtx branch1;
+     rtx branch2;
+{
+  if (flag_expensive_optimizations && simplejump_p (branch2))
+    {
+      rtx dest = XEXP (SET_SRC (single_set (branch2)), 0);
+      rtx insn;
+      int distance;
+      
+      for (distance = 0, insn = NEXT_INSN (branch1); 
+	   insn && distance < 256; 
+	   insn = PREV_INSN (insn))
+	{
+	  if (insn == dest)    
+	    return 1;
+	  else
+	    distance += get_attr_length (insn);
+	}
+      for (distance = 0, insn = NEXT_INSN (branch1); 
+	   insn && distance < 256; 
+	   insn = NEXT_INSN (insn))
+	{
+	  if (insn == dest)    
+	    return 1;
+	  else
+	    distance += get_attr_length (insn);
+	}
+    }
+  return 0;
+}
+
+static void
+sh_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  /* ??? Perhaps we should be using default_coff_asm_named_section.  */
+  fprintf (asm_out_file, "\t.section %s\n", name);
 }

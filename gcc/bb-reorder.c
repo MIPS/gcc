@@ -205,7 +205,7 @@ static rtx
 skip_insns_after_block (bb)
      basic_block bb;
 {
-  rtx insn, last_insn, next_head;
+  rtx insn, last_insn, next_head, prev;
 
   next_head = NULL_RTX;
   if (bb->index + 1 != n_basic_blocks)
@@ -234,12 +234,7 @@ skip_insns_after_block (bb)
 	      continue;
 
 	    default:
-	      /* Make line notes attached to the succesor block unless they
-	         are followed by something attached to predecesor block.
-	         These notes remained after removing code in the predecesor
-	         block and thus should be kept together.  */
-	      if (NOTE_LINE_NUMBER (insn) >= 0)
-		continue;
+	      continue;
 	      break;
 	    }
 	  break;
@@ -261,6 +256,32 @@ skip_insns_after_block (bb)
 	}
 
       break;
+    }
+  /* It is possible to hit contradicting sequence.  For instance:
+    
+     jump_insn
+     NOTE_INSN_LOOP_BEG
+     barrier
+
+     Where barrier belongs to jump_insn, but the note does not.
+     This can be created by removing the basic block originally
+     following NOTE_INSN_LOOP_BEG.
+
+     In such case reorder the notes.  */
+  for (insn = last_insn; insn != bb->end; insn = prev)
+    {
+    prev = PREV_INSN (insn);
+    if (GET_CODE (insn) == NOTE)
+      switch (NOTE_LINE_NUMBER (insn))
+        {
+          case NOTE_INSN_LOOP_END:
+          case NOTE_INSN_BLOCK_END:
+          case NOTE_INSN_DELETED:
+          case NOTE_INSN_DELETED_LABEL:
+    	continue;
+          default:
+    	reorder_insns (insn, insn, last_insn);
+        }
     }
 
   return last_insn;
@@ -698,6 +719,8 @@ fixup_reorder_chain ()
       nb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
       nb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
       nb->local_set = 0;
+      nb->count = e_fall->count;
+      nb->frequency = EDGE_FREQUENCY (e_fall);
 
       COPY_REG_SET (nb->global_live_at_start, bb->global_live_at_start);
       COPY_REG_SET (nb->global_live_at_end, bb->global_live_at_start);
@@ -714,6 +737,8 @@ fixup_reorder_chain ()
       /* Link to new block.  */
       make_edge (NULL, nb, e_fall->dest, 0);
       redirect_edge_succ (e_fall, nb);
+      nb->succ->count = e_fall->count;
+      nb->succ->probability = REG_BR_PROB_BASE;
 
       /* Don't process this new block.  */
       bb = nb;

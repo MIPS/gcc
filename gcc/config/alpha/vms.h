@@ -111,6 +111,10 @@ Boston, MA 02111-1307, USA.  */
 #undef HARD_FRAME_POINTER_REGNUM
 #define HARD_FRAME_POINTER_REGNUM 29
 
+/* Define registers used by the epilogue and return instruction.  */
+#undef EPILOGUE_USES
+#define EPILOGUE_USES(REGNO)    ((REGNO) == 26 || (REGNO) == 29)
+
 #undef CAN_ELIMINATE
 #define CAN_ELIMINATE(FROM, TO)  \
 ((TO) != STACK_POINTER_REGNUM || ! alpha_using_fp ())
@@ -403,30 +407,8 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
     fprintf (FILE, "\t.align %d\n", LOG);
 
-#define ASM_OUTPUT_SECTION(FILE,SECTION)			\
-   (strcmp (SECTION, ".text") == 0)				\
-     ? text_section ()						\
-     : named_section (NULL_TREE, SECTION, 0),			\
-       ASM_OUTPUT_ALIGN (FILE, 0)				\
-
-#define ASM_OUTPUT_SECTION_NAME(FILE,DECL,NAME,RELOC)		\
-  do								\
-    {								\
-      const char *flags;				 	\
-      int ovr = 0;						\
-      if (DECL && DECL_MACHINE_ATTRIBUTES (DECL)		\
-	  && lookup_attribute					\
-	      ("overlaid", DECL_MACHINE_ATTRIBUTES (DECL)))	\
-	flags = ",OVR", ovr = 1;				\
-      else if (strncmp (NAME,".debug", 6) == 0)			\
-	flags = ",NOWRT";					\
-      else							\
-	flags = "";						\
-      fputc ('\n', (FILE));					\
-      fprintf (FILE, ".section\t%s%s\n", NAME, flags);		\
-      if (ovr)							\
-        (NAME) = "";						\
-    } while (0)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION vms_asm_named_section
 
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
   do {	literals_section();                                             \

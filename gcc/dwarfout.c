@@ -578,9 +578,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "debug.h"
 
-/* IMPORTANT NOTE: Please see the file README.DWARF for important details
-   regarding the GNU implementation of Dwarf.  */
-
 /* NOTE: In the comments in this file, many references are made to
    so called "Debugging Information Entries".  For the sake of brevity,
    this term is abbreviated to `DIE' throughout the remainder of this
@@ -1387,6 +1384,7 @@ struct gcc_debug_hooks dwarf_debug_hooks =
   dwarfout_end_source_file_check,
   dwarfout_begin_block,
   dwarfout_end_block,
+  debug_true_tree,		/* ignore_block */
   dwarfout_source_line,		/* source_line */
   dwarfout_source_line,		/* begin_prologue */
   dwarfout_end_prologue,
@@ -1395,7 +1393,9 @@ struct gcc_debug_hooks dwarf_debug_hooks =
   dwarfout_end_function,
   dwarfout_function_decl,
   dwarfout_global_decl,
-  dwarfout_deferred_inline_function
+  dwarfout_deferred_inline_function,
+  debug_nothing_tree,		/* outlining_inline_function */
+  debug_nothing_rtx		/* label */
 };
 
 /************************ general utility functions **************************/

@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "cpplib.h"
 #include "target.h"
+#include "debug.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -1921,19 +1922,6 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
   /* For functions, static overrides non-static.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
-      /* If we're redefining a function previously defined as extern
-	 inline, make sure we emit debug info for the inline before we
-	 throw it away, in case it was inlined into a function that hasn't
-	 been written out yet.  */
-      if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
-	{
-	  note_outlining_of_inline_function (olddecl);
-
-	  /* The new defn must not be inline.
-	     FIXME what about -finline-functions? */
-	  DECL_INLINE (newdecl) = 0;
-	}
-
       TREE_PUBLIC (newdecl) &= TREE_PUBLIC (olddecl);
       /* This is since we don't automatically
 	 copy the attributes of NEWDECL into OLDDECL.  */
@@ -1973,7 +1961,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 been written out yet.  */
       if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
 	{
-	  note_outlining_of_inline_function (olddecl);
+	  (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
 	  DECL_INLINE (newdecl) = 0;
@@ -3110,7 +3098,7 @@ c_make_fname_decl (id, type_dep)
 	   build_index_type (size_int (length)));
 
   decl = build_decl (VAR_DECL, id, type);
-  /* We don't push the decl, so have to set its context here. */
+  /* We don't push the decl, so have to set its context here.  */
   DECL_CONTEXT (decl) = current_function_decl;
   
   TREE_STATIC (decl) = 1;
@@ -6793,9 +6781,10 @@ c_expand_body (fndecl, nested_p)
 	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
       else
 #endif
-	assemble_constructor (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
-
+	assemble_constructor (XEXP (DECL_RTL (fndecl), 0),
+			      DEFAULT_INIT_PRIORITY);
     }
+
   if (DECL_STATIC_DESTRUCTOR (fndecl))
     {
 #ifndef ASM_OUTPUT_DESTRUCTOR
@@ -6803,7 +6792,8 @@ c_expand_body (fndecl, nested_p)
 	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
       else
 #endif
-	assemble_destructor (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
+	assemble_destructor (XEXP (DECL_RTL (fndecl), 0),
+			     DEFAULT_INIT_PRIORITY);
     }
 
   if (nested_p)

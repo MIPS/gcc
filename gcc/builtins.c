@@ -186,8 +186,8 @@ get_pointer_alignment (exp, max_align)
 	  if (! host_integerp (TREE_OPERAND (exp, 1), 1))
 	    return align;
 
-	  while (((tree_low_cst (TREE_OPERAND (exp, 1), 1) * BITS_PER_UNIT)
-		  & (max_align - 1))
+	  while (((tree_low_cst (TREE_OPERAND (exp, 1), 1))
+		  & (max_align / BITS_PER_UNIT - 1))
 		 != 0)
 	    max_align >>= 1;
 
@@ -510,7 +510,7 @@ expand_builtin_setjmp_setup (buf_addr, receiver_label)
   current_function_calls_setjmp = 1;
 
   /* Set this so all the registers get saved in our frame; we need to be
-     able to copy the saved values for any registers from frames we unwind. */
+     able to copy the saved values for any registers from frames we unwind.  */
   current_function_has_nonlocal_label = 1;
 }
 
@@ -696,7 +696,7 @@ expand_builtin_longjmp (buf_addr, value)
 	/* We have to pass a value to the nonlocal_goto pattern that will
 	   get copied into the static_chain pointer, but it does not matter
 	   what that value is, because builtin_setjmp does not use it.  */
-	emit_insn (gen_nonlocal_goto (value, fp, stack, lab));
+	emit_insn (gen_nonlocal_goto (value, lab, stack, fp));
       else
 #endif
 	{
@@ -757,7 +757,7 @@ get_memory_rtx (exp)
     return mem;
 
   set_mem_attributes (mem, exp, 0);
-  /* memcpy, memset and other builtin stringops can alias with anything. */
+  /* memcpy, memset and other builtin stringops can alias with anything.  */
   set_mem_alias_set (mem, 0);
   return mem;
 }
@@ -1138,7 +1138,7 @@ expand_builtin_apply (function, arguments, argsize)
     }
 
   /* All arguments and registers used for the call are set up by now!  */
-  function = prepare_call_address (function, NULL_TREE, &call_fusage, 0);
+  function = prepare_call_address (function, NULL_TREE, &call_fusage, 0, 0);
 
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
@@ -2480,7 +2480,7 @@ expand_builtin_strncat (arglist, target, mode)
 	    fn = built_in_decls[BUILT_IN_STRCAT];
 	  
 	  /* If the replacement _DECL isn't initialized, don't do the
-	     transformation. */
+	     transformation.  */
 	  if (!fn)
 	    return 0;
 
@@ -2574,7 +2574,7 @@ expand_builtin_strcspn (arglist, target, mode)
 	    fn = built_in_decls[BUILT_IN_STRLEN];
 	  
 	  /* If the replacement _DECL isn't initialized, don't do the
-	     transformation. */
+	     transformation.  */
 	  if (!fn)
 	    return 0;
 
@@ -3141,7 +3141,7 @@ expand_builtin_ffs (arglist, target, subtarget)
 }
 
 /* If the string passed to fputs is a constant and is one character
-   long, we attempt to transform this call into __builtin_fputc(). */
+   long, we attempt to transform this call into __builtin_fputc().  */
 
 static rtx
 expand_builtin_fputs (arglist, ignore)
@@ -3152,11 +3152,11 @@ expand_builtin_fputs (arglist, ignore)
     fn_fwrite = built_in_decls[BUILT_IN_FWRITE];
 
   /* If the return value is used, or the replacement _DECL isn't
-     initialized, don't do the transformation. */
+     initialized, don't do the transformation.  */
   if (!ignore || !fn_fputc || !fn_fwrite)
     return 0;
 
-  /* Verify the arguments in the original call. */
+  /* Verify the arguments in the original call.  */
   if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE)
       || current_function_check_memory_usage)
     return 0;
@@ -3793,10 +3793,14 @@ fold_builtin_constant_p (arglist)
      has side effects, show we don't know it to be a constant.
      Likewise if it's a pointer or aggregate type since in those
      case we only want literals, since those are only optimized
-     when generating RTL, not later.  */
+     when generating RTL, not later.
+     And finally, if we are compiling an initializer, not code, we
+     need to return a definite result now; there's not going to be any
+     more optimization done.  */
   if (TREE_SIDE_EFFECTS (arglist) || cse_not_expected
       || AGGREGATE_TYPE_P (TREE_TYPE (arglist))
-      || POINTER_TYPE_P (TREE_TYPE (arglist)))
+      || POINTER_TYPE_P (TREE_TYPE (arglist))
+      || cfun == 0)
     return integer_zero_node;
 
   return 0;

@@ -521,8 +521,8 @@ validate_replace_rtx_1 (loc, from, to, object)
 			 simplify_gen_binary
 			 (PLUS, GET_MODE (x), XEXP (x, 0),
 			  simplify_gen_unary (NEG,
-					      op0_mode, XEXP (x, 1),
-					      op0_mode)), 1);
+					      GET_MODE (x), XEXP (x, 1),
+					      GET_MODE (x))), 1);
       break;
     case ZERO_EXTEND:
     case SIGN_EXTEND:
@@ -2725,22 +2725,6 @@ split_all_insns (upd_life)
   int changed;
   int i;
 
-  if (!upd_life)
-    {
-      rtx next, insn;
-
-      for (insn = get_insns (); insn ; insn = next)
-	{
-	  rtx last;
-
-	  /* Can't use `next_real_insn' because that might go across
-	     CODE_LABELS and short-out basic blocks.  */
-	  next = NEXT_INSN (insn);
-	  last = split_insn (insn);
-	}
-      return;
-    }
-
   blocks = sbitmap_alloc (n_basic_blocks);
   sbitmap_zero (blocks);
   changed = 0;
@@ -2775,14 +2759,39 @@ split_all_insns (upd_life)
 	abort ();
     }
 
-  if (changed && upd_life)
+  if (changed)
     {
       compute_bb_for_insn (get_max_uid ());
+      for (i = 0; i < n_basic_blocks; i++)
+	find_sub_basic_blocks (BASIC_BLOCK (i));
+    }
+
+  if (changed && upd_life)
+    {
       count_or_remove_death_notes (blocks, 1);
       update_life_info (blocks, UPDATE_LIFE_LOCAL, PROP_DEATH_NOTES);
     }
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
 
   sbitmap_free (blocks);
+}
+
+/* Same as split_all_insns, but do not expect CFG to be available. 
+   Used by machine depedent reorg passes.  */
+
+void
+split_all_insns_noflow ()
+{
+  rtx next, insn;
+
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      split_insn (insn);
+    }
+  return;
 }
 
 #ifdef HAVE_peephole2

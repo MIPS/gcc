@@ -335,6 +335,9 @@ USE_NLS = @USE_NLS@
 # Internationalization library.
 INTLLIBS = @INTLLIBS@
 
+# Character encoding conversion library.
+LIBICONV = @LIBICONV@
+
 # List of internationalization subdirectories.
 POSUB = @POSUB@
 INTL_SUBDIRS = intl $(POSUB)
@@ -365,7 +368,7 @@ INSTALL_LIBGCC = install-libgcc
 # so that -g1 will be tested.
 #
 LIBGCC2_DEBUG_CFLAGS = -g1
-LIBGCC2_CFLAGS = -O2  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
@@ -378,9 +381,6 @@ TARGET_LIBGCC2_CFLAGS =
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde.c \
   $(srcdir)/unwind-sjlj.c
 LIB2ADDEHDEP = unwind.inc unwind-dw2-fde.h
-
-# libgcc1-test target (must also be overridable for a target)
-LIBGCC1_TEST = libgcc1-test
 
 # nm flags to list global symbols in libgcc object files.
 SHLIB_NM_FLAGS = -pg
@@ -579,6 +579,7 @@ C_COMMON_H = c-common.h $(SPLAY_TREE_H)
 C_TREE_H = c-tree.h $(C_COMMON_H)
 SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
+CPPLIB_H = cpplib.h line-map.h
 
 # sed inserts variable overrides after the following line.
 ####target overrides
@@ -750,7 +751,7 @@ OBJS =									\
  sbitmap.o sched-deps.o	sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
  sibcall.o simplify-rtx.o splay-tree.o ssa.o ssa-ccp.o ssa-dce.o	\
  stmt.o stor-layout.o stringpool.o timevar.o toplev.o tree.o unroll.o	\
- varasm.o varray.o version.o xcoffout.o ra.o cbitmap.o			\
+ varasm.o varray.o version.o xcoffout.o	ra.o 				\
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -793,7 +794,7 @@ LIB2FUNCS = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _ffsdi2 _clz \
     _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
 
 # Defined in libgcc2.c, included only in the static library.
-LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp 
+LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
@@ -880,7 +881,12 @@ cs-tm_p.h: Makefile
 	HEADERS="$(tm_p_file)" DEFINES="" TARGET_CPU_DEFAULT="" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm_p.h
 
-$(srcdir)/configure: $(srcdir)/configure.in
+# Don't automatically run autoconf, since configure.in might be accidentally
+# newer than configure.  Also, this writes into the source directory which
+# might be on a read-only file system.  If configured for maintainer mode
+# then do allow autoconf to be run.
+
+$(srcdir)/configure: @MAINT@ $(srcdir)/configure.in
 	(cd $(srcdir) && autoconf)
 
 gccbug:	$(srcdir)/gccbug.in
@@ -898,11 +904,14 @@ mklibgcc: $(srcdir)/mklibgcc.in
 # "echo timestamp" is used instead of touch to be consistent with other
 # packages that use autoconf (??? perhaps also to avoid problems with patch?).
 # ??? Newer versions have a maintainer mode that may be useful here.
-$(srcdir)/config.in: $(srcdir)/cstamp-h.in
-$(srcdir)/cstamp-h.in: $(srcdir)/configure.in $(srcdir)/acconfig.h
-	(cd $(srcdir) && autoheader)
-	@rm -f $(srcdir)/cstamp-h.in
-	echo timestamp > $(srcdir)/cstamp-h.in
+
+# Don't run autoheader automatically either.
+# Only run it if maintainer mode is enabled.
+@MAINT@ $(srcdir)/config.in: $(srcdir)/cstamp-h.in
+@MAINT@ $(srcdir)/cstamp-h.in: $(srcdir)/configure.in $(srcdir)/acconfig.h
+@MAINT@	(cd $(srcdir) && autoheader)
+@MAINT@	@rm -f $(srcdir)/cstamp-h.in
+@MAINT@	echo timestamp > $(srcdir)/cstamp-h.in
 auto-host.h: cstamp-h ; @true
 cstamp-h: config.in config.status
 	CONFIG_HEADERS=auto-host.h:config.in LANGUAGES="$(CONFIG_LANGUAGES)" $(SHELL) config.status
@@ -986,7 +995,7 @@ gcc-cross: xgcc$(exeext)
 
 cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
-		$(C_OBJS) $(BACKEND) $(LIBS) 
+		$(C_OBJS) $(BACKEND) $(LIBS)
 
 # Build the version of limits.h that we will install.
 xlimits.h: glimits.h limitx.h limity.h
@@ -1025,6 +1034,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_MKMAP='$(SHLIB_MKMAP)' \
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
+	mkinstalldirs='$(SHELL) $(srcdir)/mkinstalldirs' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	mv tmp-libgcc.mk libgcc.mk
 
@@ -1143,7 +1153,7 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) flags.h \
     diagnostic.h $(TM_P_H)
 c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) intl.h \
-    $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h cpplib.h \
+    $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h $(CPPLIB_H) \
     diagnostic.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -c $(srcdir)/c-parse.c
 
@@ -1159,7 +1169,7 @@ $(srcdir)/c-parse.y: c-parse.in
 
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
     $(GGC_H) $(TARGET_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
-    toplev.h intl.h $(TM_P_H)
+    debug.h toplev.h intl.h $(TM_P_H)
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
@@ -1168,7 +1178,7 @@ c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
     debug.h $(C_TREE_H) \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
-    mbchar.h cpplib.h $(EXPR_H) $(TM_P_H)
+    mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h
@@ -1179,7 +1189,6 @@ graph.o: graph.c $(CONFIG_H) $(SYSTEM_H) toplev.h flags.h output.h $(RTL_H) \
     function.h hard-reg-set.h $(BASIC_BLOCK_H) graph.h
 sbitmap.o: sbitmap.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h \
     $(BASIC_BLOCK_H)
-
 COLLECT2_OBJS = collect2.o tlink.o hash.o intl.o underscore.o version.o
 COLLECT2_LIBS = @COLLECT2_LIBS@
 collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
@@ -1315,6 +1324,8 @@ stringpool.o: stringpool.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 
 hashtable.o: hashtable.c hashtable.h $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H)
 
+line-map.o: line-map.c line-map.h intl.h $(CONFIG_H) $(SYSTEM_H)
+
 ggc-none.o: ggc-none.c $(GCONFIG_H) $(SYSTEM_H) $(GGC_H)
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
@@ -1342,11 +1353,11 @@ diagnostic.o : diagnostic.c diagnostic.h diagnostic.def \
    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(TM_P_H) flags.h \
    $(GGC_H) input.h $(INSN_ATTR_H) insn-config.h toplev.h intl.h
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
-   flags.h input.h $(INSN_ATTR_H) xcoffout.h output.h diagnostic.h \
-   debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h dwarfout.h \
+   flags.h xcoffout.h input.h $(INSN_ATTR_H) output.h diagnostic.h \
+   debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
-   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h
+   ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(MAYBE_USE_COLLECT2) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c
@@ -1364,8 +1375,9 @@ errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
-   function.h $(EXPR_H) hard-reg-set.h $(REGS_H) \
-   xcoffout.h output.h c-pragma.h toplev.h dbxout.h sdbout.h $(GGC_H) $(TM_P_H)
+   function.h $(EXPR_H) hard-reg-set.h $(REGS_H) $(OBSTACK_H) \
+   output.h c-pragma.h toplev.h xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
+   $(HASHTAB_H) $(TARGET_H)
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) $(REGS_H) hard-reg-set.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) $(TM_P_H)
@@ -1383,10 +1395,8 @@ expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h \
 builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) function.h $(REGS_H) $(EXPR_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h
-cbitmap.o : cbitmap.c cbitmap.h $(CONFIG_H) $(RTL_H)
-df.o : df.c df.h $(CONFIG_H) $(RTL_H)
-ra.o : ra.c df.h $(CONFIG_H) $(RTL_H)  insn-config.h
+   except.h $(TM_P_H) $(PREDICT_H)
+ra.o : ra.c df.h $(CONFIG_H) $(RTL_H)  insn-config.h $(REGS_H) $(TM_P_H)   
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h $(EXPR_H) \
    $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h  \
@@ -1399,7 +1409,7 @@ optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h  \
    insn-config.h $(EXPR_H) $(RECOG_H) reload.h \
    toplev.h $(GGC_H) real.h $(TM_P_H) except.h
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
-    $(REGS_H) debug.h $(TM_P_H) \
+    $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) \
    insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h
 debug.o : debug.c $(CONFIG_H) $(SYSTEM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
@@ -1407,7 +1417,7 @@ sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    insn-config.h $(OBSTACK_H) xcoffout.h c-pragma.h ggc.h \
    sdbout.h toplev.h $(TM_P_H) except.h debug.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
-   flags.h insn-config.h reload.h output.h toplev.h dwarfout.h $(TM_P_H) \
+   flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
    debug.h
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
    debug.h flags.h insn-config.h reload.h output.h diagnostic.h \
@@ -1420,7 +1430,7 @@ xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
    $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h \
-   $(HASHTAB_H) $(TM_P_H)
+   $(HASHTAB_H) $(TM_P_H) debug.h
 real.o : real.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h $(TM_P_H)
 integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    debug.h $(INTEGRATE_H) insn-config.h $(EXPR_H) real.h $(REGS_H) \
@@ -1459,9 +1469,9 @@ ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h
 df.o : df.c $(CONFIG_H) system.h $(RTL_H) insn-config.h $(RECOG_H) \
-   function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h
+   function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h 
 conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
-   $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
+   $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H) 
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
    gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H)
@@ -1486,7 +1496,7 @@ regclass.o : regclass.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h flags.h 
    toplev.h function.h output.h $(GGC_H) $(TM_P_H) $(EXPR_H)
 local-alloc.o : local-alloc.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h insn-config.h $(RECOG_H) \
-   output.h function.h $(INSN_ATTR_H) toplev.h $(TM_P_H)
+   output.h function.h $(INSN_ATTR_H) toplev.h  except.h $(TM_P_H)
 bitmap.o : bitmap.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(BASIC_BLOCK_H) \
    $(REGS_H)
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
@@ -1500,7 +1510,8 @@ reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h output.h $(EXPR_H) 
    function.h real.h toplev.h $(TM_P_H)
 reload1.o : reload1.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) real.h flags.h $(EXPR_H) \
    reload.h $(REGS_H) hard-reg-set.h insn-config.h \
-   $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H)
+   $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H) \
+   except.h
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h \
    $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) function.h \
    $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
@@ -1518,7 +1529,7 @@ haifa-sched.o : haifa-sched.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
 sched-deps.o : sched-deps.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
-   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
+   $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h cselib.h $(PARAMS_H) $(TM_P_H)
 sched-rgn.o : sched-rgn.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h flags.h insn-config.h function.h \
    $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(TM_P_H)
@@ -1529,9 +1540,8 @@ sched-vis.o : sched-vis.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(INSN_ATTR_H) $(REGS_H) $(TM_P_H)
 final.o : final.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h intl.h \
    $(REGS_H) $(RECOG_H) conditions.h insn-config.h $(INSN_ATTR_H) function.h \
-   real.h output.h hard-reg-set.h except.h debug.h \
-   xcoffout.h toplev.h reload.h dwarfout.h dwarf2out.h sdbout.h \
-   dbxout.h $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H)
+   real.h output.h hard-reg-set.h except.h debug.h xcoffout.h \
+   toplev.h reload.h dwarf2out.h $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H)
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) function.h $(BASIC_BLOCK_H) \
    $(REGS_H) $(RECOG_H) $(EXPR_H) hard-reg-set.h flags.h insn-config.h \
    $(INSN_ATTR_H) real.h toplev.h output.h reload.h $(TM_P_H)
@@ -1927,9 +1937,10 @@ PREPROCESSOR_DEFINES = \
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o \
 		cpphash.o cpperror.o cppinit.o cppdefault.o \
-		hashtable.o mkdeps.o prefix.o version.o mbchar.o
+		hashtable.o line-map.o mkdeps.o prefix.o version.o mbchar.o
 
-LIBCPP_DEPS =	cpplib.h cpphash.h hashtable.h intl.h $(OBSTACK_H) $(SYSTEM_H)
+LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
+		$(OBSTACK_H) $(SYSTEM_H)
 
 # Most of the other archives built/used by this makefile are for
 # targets.  This one is strictly for the host.
@@ -1942,7 +1953,7 @@ cpp0$(exeext): cppmain.o intl.o libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cpp0$(exeext) cppmain.o \
 	intl.o libcpp.a $(LIBS)
 
-cppmain.o:  cppmain.c  $(CONFIG_H) cpplib.h intl.h $(SYSTEM_H)
+cppmain.o:  cppmain.c  $(CONFIG_H) $(CPPLIB_H) intl.h $(SYSTEM_H)
 
 cpperror.o: cpperror.c $(CONFIG_H) $(LIBCPP_DEPS)
 cppexp.o:   cppexp.c   $(CONFIG_H) $(LIBCPP_DEPS)
@@ -2185,10 +2196,10 @@ fix-header$(build_exeext): fix-header.o scan-decls.o scan.o xsys-protos.h \
 	   scan-decls.o scan.o libcpp.a $(LIBS)
 
 fix-header.o: fix-header.c $(OBSTACK_H) scan.h \
-	xsys-protos.h $(HCONFIG_H) $(SYSTEM_H) cpplib.h
+	xsys-protos.h $(HCONFIG_H) $(SYSTEM_H) $(CPPLIB_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/fix-header.c
 
-scan-decls.o: scan-decls.c scan.h cpplib.h $(HCONFIG_H) $(SYSTEM_H)
+scan-decls.o: scan-decls.c scan.h $(CPPLIB_H) $(HCONFIG_H) $(SYSTEM_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/scan-decls.c
 
 # stmp-fixproto depends on this, not on fix-header directly.

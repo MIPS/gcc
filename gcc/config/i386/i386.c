@@ -572,7 +572,6 @@ static void ix86_sched_reorder_pentium PARAMS((rtx *, rtx *));
 static void ix86_sched_reorder_ppro PARAMS((rtx *, rtx *));
 static HOST_WIDE_INT ix86_GOT_alias_set PARAMS ((void));
 static void ix86_adjust_counter PARAMS ((rtx, HOST_WIDE_INT));
-static rtx ix86_zero_extend_to_Pmode PARAMS ((rtx));
 static rtx ix86_expand_aligntest PARAMS ((rtx, int));
 static void ix86_expand_strlensi_unroll_1 PARAMS ((rtx, rtx));
 
@@ -608,6 +607,11 @@ static int ix86_fp_comparison_cost PARAMS ((enum rtx_code code));
 static int ix86_save_reg PARAMS ((int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
+
+#if defined(TARGET_ELF) && defined(TARGET_COFF)
+static void sco_asm_named_section PARAMS ((const char *, unsigned int,
+					   unsigned int));
+#endif
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_VALID_TYPE_ATTRIBUTE
@@ -2319,7 +2323,7 @@ ix86_asm_file_end (file)
   /* ??? Binutils 2.10 and earlier has a linkonce elimination bug related
      to updating relocations to a section being discarded such that this
      doesn't work.  Ought to detect this at configure time.  */
-#if 0 && defined (ASM_OUTPUT_SECTION_NAME)
+#if 0
   /* The trick here is to create a linkonce section containing the
      pic label thunk, but to refer to it with an internal label.
      Because the label is internal, we don't have inter-dso name
@@ -2327,16 +2331,18 @@ ix86_asm_file_end (file)
 
      In order to use these macros, however, we must create a fake
      function decl.  */
-  {
-    tree decl = build_decl (FUNCTION_DECL,
-			    get_identifier ("i686.get_pc_thunk"),
-			    error_mark_node);
-    DECL_ONE_ONLY (decl) = 1;
-    UNIQUE_SECTION (decl, 0);
-    named_section (decl, NULL, 0);
-  }
+  if (targetm.have_named_sections)
+    {
+      tree decl = build_decl (FUNCTION_DECL,
+			      get_identifier ("i686.get_pc_thunk"),
+			      error_mark_node);
+      DECL_ONE_ONLY (decl) = 1;
+      UNIQUE_SECTION (decl, 0);
+      named_section (decl, NULL, 0);
+    }
+  else
 #else
-  text_section ();
+    text_section ();
 #endif
 
   /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
@@ -6268,6 +6274,8 @@ ix86_split_fp_branch (code, op1, op2, target1, target2, tmp)
   rtx second, bypass;
   rtx label = NULL_RTX;
   rtx condition;
+  int bypass_probability = -1, second_probability = -1, probability = -1;
+  rtx i;
 
   if (target2 != pc_rtx)
     {
@@ -6279,35 +6287,59 @@ ix86_split_fp_branch (code, op1, op2, target1, target2, tmp)
 
   condition = ix86_expand_fp_compare (code, op1, op2,
 				      tmp, &second, &bypass);
+
+  if (split_branch_probability >= 0)
+    {
+      /* Distribute the probabilities across the jumps.
+	 Assume the BYPASS and SECOND to be always test
+	 for UNORDERED.  */
+      probability = split_branch_probability;
+
+      /* Value of 1 is low enought to make no need for probability
+	 to be updated.  Later we may run some experiments and see
+	 if unordered values are more frequent in practice.  */
+      if (bypass)
+	bypass_probability = 1;
+      if (second)
+	second_probability = 1;
+    }
   if (bypass != NULL_RTX)
     {
       label = gen_label_rtx ();
-      emit_jump_insn (gen_rtx_SET
+      i = emit_jump_insn (gen_rtx_SET
+			  (VOIDmode, pc_rtx,
+			   gen_rtx_IF_THEN_ELSE (VOIDmode,
+						 bypass,
+						 gen_rtx_LABEL_REF (VOIDmode,
+								    label),
+						 pc_rtx)));
+      if (bypass_probability >= 0)
+	REG_NOTES (i)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (bypass_probability),
+			       REG_NOTES (i));
+    }
+  i = emit_jump_insn (gen_rtx_SET
 		      (VOIDmode, pc_rtx,
 		       gen_rtx_IF_THEN_ELSE (VOIDmode,
-					     bypass,
-					     gen_rtx_LABEL_REF (VOIDmode,
-								label),
-					     pc_rtx)));
-    }
-  /* AMD Athlon and probably other CPUs too have fast bypass path between the
-     comparison and first branch.  The second branch takes longer to execute
-     so place first branch the worse predicable one if possible.  */
-  if (second != NULL_RTX
-      && (GET_CODE (second) == UNORDERED || GET_CODE (second) == ORDERED))
-    {
-      rtx tmp = condition;
-      condition = second;
-      second = tmp;
-    }
-  emit_jump_insn (gen_rtx_SET
-		  (VOIDmode, pc_rtx,
-		   gen_rtx_IF_THEN_ELSE (VOIDmode,
-					 condition, target1, target2)));
+					     condition, target1, target2)));
+  if (probability >= 0)
+    REG_NOTES (i)
+      = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			   GEN_INT (probability),
+			   REG_NOTES (i));
   if (second != NULL_RTX)
-    emit_jump_insn (gen_rtx_SET
-		    (VOIDmode, pc_rtx,
-		     gen_rtx_IF_THEN_ELSE (VOIDmode, second, target1, target2)));
+    {
+      i = emit_jump_insn (gen_rtx_SET
+			  (VOIDmode, pc_rtx,
+			   gen_rtx_IF_THEN_ELSE (VOIDmode, second, target1,
+						 target2)));
+      if (second_probability >= 0)
+	REG_NOTES (i)
+	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
+			       GEN_INT (second_probability),
+			       REG_NOTES (i));
+    }
   if (label != NULL_RTX)
     emit_label (label);
 }
@@ -6332,9 +6364,12 @@ ix86_expand_setcc (code, dest)
           emit subreg setcc, zero extend.
      2 -- destination is in QImode:
           emit setcc only.
-  */
 
-  type = 0;
+     We don't use mode 0 early in compilation because it confuses CSE.
+     There are peepholes to turn mode 1 into mode 0 if things work out
+     nicely after reload.  */
+
+  type = cse_not_expected ? 0 : 1;
 
   if (GET_MODE (dest) == QImode)
     type = 2;
@@ -7463,7 +7498,7 @@ ix86_adjust_counter (countreg, value)
 }
 
 /* Zero extend possibly SImode EXP to Pmode register.  */
-static rtx
+rtx
 ix86_zero_extend_to_Pmode (exp)
    rtx exp;
 {
@@ -10747,3 +10782,17 @@ ix86_memory_move_cost (mode, class, in)
 		* (int) GET_MODE_SIZE (mode) / 4);
     }
 }
+
+#if defined(TARGET_ELF) && defined(TARGET_COFF)
+static void
+sco_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align;
+{
+  if (TARGET_ELF)
+    default_elf_asm_named_section (name, flags, align);
+  else
+    default_coff_asm_named_section (name, flags, align);
+}
+#endif

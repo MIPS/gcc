@@ -35,7 +35,6 @@ struct directive;		/* Deliberately incomplete.  */
 
 #define CPP_OPTION(PFILE, OPTION) ((PFILE)->opts.OPTION)
 #define CPP_BUFFER(PFILE) ((PFILE)->buffer)
-#define CPP_BUF_LINE(BUF) ((BUF)->lineno)
 #define CPP_BUF_COLUMN(BUF, CUR) ((CUR) - (BUF)->line_base + (BUF)->col_adjust)
 #define CPP_BUF_COL(BUF) CPP_BUF_COLUMN(BUF, (BUF)->cur)
 
@@ -93,10 +92,6 @@ struct search_path
   struct file_name_map *name_map;
 };
 
-/* Multiple-include optimisation.  */
-enum mi_state {MI_FAILED = 0, MI_OUTSIDE};
-enum mi_ind {MI_IND_NONE = 0, MI_IND_NOT};
-
 /* #include types.  */
 enum include_type {IT_INCLUDE, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
@@ -126,15 +121,15 @@ struct lexer_state
   /* Nonzero if first token on line is CPP_HASH.  */
   unsigned char in_directive;
 
+  /* True if we are skipping a failed conditional group.  */
+  unsigned char skipping;
+
   /* Nonzero if in a directive that takes angle-bracketed headers.  */
   unsigned char angled_headers;
 
   /* Nonzero to save comments.  Turned off if discard_comments, and in
      all directives apart from #define.  */
   unsigned char save_comments;
-
-  /* If nonzero the next token is at the beginning of the line.  */
-  unsigned char next_bol;
 
   /* Nonzero if we're mid-comment.  */
   unsigned char lexing_comment;
@@ -195,8 +190,10 @@ struct cpp_buffer
   /* Token column position adjustment owing to tabs in whitespace.  */
   unsigned int col_adjust;
 
-  /* Line number at line_base (above). */
-  unsigned int lineno;
+  /* The line of the buffer that we return to after a #include.
+     Strictly this is redundant, since it can be calculated from the
+     line maps, but it is clearest to save it here.  */
+  unsigned int return_to_line;
 
   /* Contains PREV_WHITE and/or AVOID_LPASTE.  */
   unsigned char saved_flags;
@@ -216,19 +213,17 @@ struct cpp_buffer
      buffers.  */
   unsigned char from_stage3;
 
-  /* Temporary storage for pfile->skipping whilst in a directive.  */
-  unsigned char was_skipping;
-
   /* 1 = system header file, 2 = C system header file used for C++.  */
   unsigned char sysp;
-
-  /* Nonzero means we have printed (while error reporting) a list of
-     containing files that matches the current status.  */
-  unsigned char include_stack_listed;
 
   /* Nonzero means that the directory to start searching for ""
      include files has been calculated and stored in "dir" below.  */
   unsigned char search_cached;
+
+  /* At EOF, a buffer is automatically popped.  If RETURN_AT_EOF is
+     true, a CPP_EOF token is then returned.  Otherwise, the next
+     token from the enclosing buffer is returned.  */
+  bool return_at_eof;
 
   /* Buffer type.  */
   ENUM_BITFIELD (cpp_buffer_type) type : 8;
@@ -250,9 +245,15 @@ struct cpp_reader
   /* Lexer state.  */
   struct lexer_state state;
 
+  /* Source line tracking.  */
+  struct line_maps line_maps;
+  struct line_map *map;
+  unsigned int line;
+
   /* The position of the last lexed token and last lexed directive.  */
   cpp_lexer_pos lexer_pos;
   cpp_lexer_pos directive_pos;
+  unsigned int directive_line;
 
   /* Memory pools.  */
   cpp_pool ident_pool;		/* For all identifiers, and permanent
@@ -268,11 +269,9 @@ struct cpp_reader
   const struct directive *directive;
 
   /* Multiple inlcude optimisation.  */
-  enum mi_state mi_state;
-  enum mi_ind mi_if_not_defined;
-  unsigned int mi_lexed;
   const cpp_hashnode *mi_cmacro;
   const cpp_hashnode *mi_ind_cmacro;
+  bool mi_valid;
 
   /* Token lookahead.  */
   struct cpp_lookahead *la_read;	/* Read from this lookahead.  */
@@ -338,12 +337,6 @@ struct cpp_reader
   /* Special nodes - identifiers with predefined significance to the
      preprocessor.  */
   struct spec_nodes spec_nodes;
-
-  /* We're printed a warning recommending against using #import.  */
-  unsigned char import_warning;
-
-  /* True if we are skipping a failed conditional group.  */
-  unsigned char skipping;
 
   /* Whether to print our version number.  Done this way so
      we don't get it twice for -v -version.  */
@@ -445,8 +438,9 @@ extern void _cpp_define_builtin	PARAMS ((cpp_reader *, const char *));
 extern void _cpp_do__Pragma	PARAMS ((cpp_reader *));
 extern void _cpp_init_directives PARAMS ((cpp_reader *));
 extern void _cpp_init_internal_pragmas PARAMS ((cpp_reader *));
-extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum cpp_fc_reason,
-					 const char *, unsigned int));
+extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum lc_reason,
+					 unsigned int));
+extern void _cpp_pop_buffer PARAMS ((cpp_reader *));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const U_CHAR *)str, sizeof str - 1

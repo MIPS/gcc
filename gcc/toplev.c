@@ -2597,23 +2597,6 @@ rest_of_type_compilation (type, toplev)
   timevar_pop (TV_SYMOUT);
 }
 
-/* FNDECL is an inline function which is about to be emitted out of line.
-   Do any preparation, such as emitting abstract debug info for the inline
-   before it gets mangled by optimization.  */
-
-void
-note_outlining_of_inline_function (fndecl)
-     tree fndecl ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF2_DEBUGGING_INFO
-  /* The DWARF 2 backend tries to reduce debugging bloat by not emitting
-     the abstract description of inline functions until something tries to
-     reference them.  Force it out now, before optimizations mangle the
-     block tree.  */
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_abstract_function (fndecl);
-#endif
-}
 
 /* This is called from finish_function (within yyparse)
    after each top-level definition is parsed.
@@ -2761,7 +2744,7 @@ rest_of_compilation (decl)
 	      rebuild_jump_labels (insns);
 	      find_exception_handler_labels ();
 	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	      cleanup_cfg (CLEANUP_PRE_SIBCALL);
+	      cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 	      optimize = saved_optimize;
 	    }
 
@@ -2803,7 +2786,7 @@ rest_of_compilation (decl)
   purge_hard_subreg_sets (get_insns ());
   emit_initial_value_sets ();
 
-  /* Don't return yet if -Wreturn-type; we need to do jump_optimize.  */
+  /* Don't return yet if -Wreturn-type; we need to do cleanup_cfg.  */
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
     goto exit_rest_of_compilation;
 
@@ -2868,7 +2851,11 @@ rest_of_compilation (decl)
   expected_value_to_br_prob ();
 
   reg_scan (insns, max_reg_num (), 0);
-  jump_optimize (insns, !JUMP_NOOP_MOVES, JUMP_AFTER_REGSCAN);
+  rebuild_jump_labels (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP);
+  copy_loop_headers (insns);
+  purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);
 
@@ -2890,7 +2877,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_ssa, decl);
 
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       convert_to_ssa ();
 
       close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
@@ -2955,7 +2942,7 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
       /* ??? Run if-conversion before delete_null_pointer_checks,
          since the later does not preserve the CFG.  This should
@@ -3010,7 +2997,9 @@ rest_of_compilation (decl)
       if (tem || optimize > 1)
 	{
 	  timevar_push (TV_JUMP);
-	  jump_optimize (insns, !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
+	  rebuild_jump_labels (insns);
+	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -3024,7 +3013,7 @@ rest_of_compilation (decl)
 	  timevar_push (TV_JUMP);
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
-	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  delete_null_pointer_checks (insns);
 	  timevar_pop (TV_JUMP);
@@ -3058,7 +3047,7 @@ rest_of_compilation (decl)
       open_dump_file (DFI_gcse, decl);
 
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns);
 
       save_csb = flag_cse_skip_blocks;
@@ -3082,7 +3071,10 @@ rest_of_compilation (decl)
 	{
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
-	  jump_optimize (insns, !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
+ 	  rebuild_jump_labels (insns);
+ 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+ 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+ 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3111,6 +3103,7 @@ rest_of_compilation (decl)
 
       if (flag_rerun_loop_opt)
 	{
+ 	  cleanup_barriers ();
 	  /* We only want to perform unrolling once.  */
 
 	  loop_optimize (insns, rtl_dump_file, 0);
@@ -3125,6 +3118,7 @@ rest_of_compilation (decl)
 		  analysis code depends on this information.  */
 	  reg_scan (insns, max_reg_num (), 1);
 	}
+      cleanup_barriers  ();
       loop_optimize (insns, rtl_dump_file,
 		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT);
 
@@ -3155,7 +3149,6 @@ rest_of_compilation (decl)
 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 
 	  reg_scan (insns, max_reg_num (), 0);
-	  jump_optimize (insns, !JUMP_NOOP_MOVES, JUMP_AFTER_REGSCAN);
 
 	  timevar_push (TV_IFCVT);
 
@@ -3172,7 +3165,9 @@ rest_of_compilation (decl)
 	  if (tem)
 	    {
 	      timevar_push (TV_JUMP);
-	      jump_optimize (insns, !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
+ 	      rebuild_jump_labels (insns);
+ 	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+ 	      cleanup_cfg (CLEANUP_EXPENSIVE);
 	      timevar_pop (TV_JUMP);
 	    }
 	}
@@ -3202,7 +3197,6 @@ rest_of_compilation (decl)
 
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
-
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
   check_function_return_warnings ();
@@ -3274,7 +3268,9 @@ rest_of_compilation (decl)
 
       rebuild_jump_labels_after_combine
 	= combine_instructions (insns, max_reg_num ());
-
+      /* Always purge dead edges, as we may eliminate an insn 
+        throwing exception */
+      rebuild_jump_labels_after_combine |= purge_all_dead_edges ();
       /* Combining insns may have turned an indirect jump into a
 	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
 	 instructions.  */
@@ -3285,7 +3281,6 @@ rest_of_compilation (decl)
 	  timevar_pop (TV_JUMP);
 
 	  timevar_push (TV_FLOW);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
 
 	  /* Blimey.  We've got to have the CFG up to date for the call to
@@ -3391,7 +3386,6 @@ rest_of_compilation (decl)
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
-
   timevar_push (TV_LOCAL_ALLOC);
   open_dump_file (DFI_lreg, decl);
 
@@ -3399,19 +3393,21 @@ rest_of_compilation (decl)
 
      RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
      jump optimizer after register allocation and reloading are finished.  */
-
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
   regclass (insns, max_reg_num (), rtl_dump_file);
-
   if (flag_new_regalloc)
     {
+      delete_trivially_dead_insns (insns, max_reg_num (), 0);
       reg_alloc ();
-      //allocate_reg_info (max_regno, FALSE, TRUE);
+
       timevar_pop (TV_LOCAL_ALLOC);
       if (dump_file[DFI_lreg].enabled)
 	{
 	  timevar_push (TV_DUMP);
+
+	  dump_flow_info (rtl_dump_file);
+	  
 	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
 	  timevar_pop (TV_DUMP);
 	}
@@ -3419,14 +3415,10 @@ rest_of_compilation (decl)
       /* XXX clean up the whole mess to bring live info in shape again.  */
       timevar_push (TV_GLOBAL_ALLOC);
       open_dump_file (DFI_greg, decl);
-      //allocate_reg_life_data ();
-      //update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_REG_INFO);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      life_analysis (insns, rtl_dump_file, PROP_FINAL);
-      recompute_reg_usage (insns, ! optimize_size);
-      regclass (insns, max_reg_num (), rtl_dump_file);
+
       build_insn_chain (insns);
       failure = reload (insns, 0);
+      
       timevar_pop (TV_GLOBAL_ALLOC);
 
       if (dump_file[DFI_greg].enabled)
@@ -3441,7 +3433,7 @@ rest_of_compilation (decl)
 
       if (failure)
         goto exit_rest_of_compilation;
-      /*reload_completed = 1;*/
+      reload_completed = 1;
     }
   else
     {
@@ -3500,18 +3492,10 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       timevar_push (TV_RELOAD_CSE_REGS);
+  
       reload_cse_regs (insns);
+     
       timevar_pop (TV_RELOAD_CSE_REGS);
-    }
-
-  /* If optimizing, then go ahead and split insns now since we are about
-     to recompute flow information anyway.  */
-  if (optimize > 0)
-    {
-      int old_labelnum = max_label_num ();
-
-      split_all_insns (0);
-      rebuild_label_notes_after_reload |= old_labelnum != max_label_num ();
     }
 
   /* Register allocation and reloading may have turned an indirect jump into
@@ -3532,8 +3516,17 @@ rest_of_compilation (decl)
   timevar_push (TV_FLOW2);
   open_dump_file (DFI_flow2, decl);
 
-  jump_optimize (insns, JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
+ 
+  compute_bb_for_insn (get_max_uid ());
+ 
+  /* If optimizing, then go ahead and split insns now.  */
+  if (optimize > 0)
+    split_all_insns (0);
+
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3669,6 +3662,8 @@ rest_of_compilation (decl)
 #endif
 
   /* CFG no longer kept up to date.  */
+  purge_line_number_notes (insns);
+  cleanup_barriers ();
 
   /* If a scheduling pass for delayed branches is to be done,
      call the scheduling code.  */
@@ -3690,7 +3685,7 @@ rest_of_compilation (decl)
 
 #if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
   timevar_push (TV_SHORTEN_BRANCH);
-  split_all_insns (0);
+  split_all_insns_noflow ();
   timevar_pop (TV_SHORTEN_BRANCH);
 #endif
 
@@ -5139,26 +5134,3 @@ print_switch_values (file, pos, max, indent, sep, term)
   fprintf (file, "%s", term);
 }
 
-/* Returns nonzero if it is appropriate not to emit any debugging
-   information for BLOCK, because it doesn't contain any instructions.
-   This may not be the case for blocks containing nested functions, since
-   we may actually call such a function even though the BLOCK information
-   is messed up.  */
-
-int
-debug_ignore_block (block)
-     tree block ATTRIBUTE_UNUSED;
-{
-  /* Never delete the BLOCK for the outermost scope
-     of the function; we can refer to names from
-     that scope even if the block notes are messed up.  */
-  if (is_body_block (block))
-    return 0;
-
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    return dwarf2out_ignore_block (block);
-#endif
-
-  return 1;
-}

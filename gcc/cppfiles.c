@@ -219,11 +219,11 @@ open_file (pfile, filename)
       return 0;
     }
 
-  /* Don't reopen an idempotent file. */
+  /* Don't reopen an idempotent file.  */
   if (DO_NOT_REREAD (file))
     return file;
       
-  /* Don't reopen one which is already loaded. */
+  /* Don't reopen one which is already loaded.  */
   if (file->buffer != NULL)
     return file;
 
@@ -326,20 +326,18 @@ stack_include_file (pfile, inc)
     }
 
   /* Push a buffer.  */
-  fp = cpp_push_buffer (pfile, inc->buffer, len, BUF_FILE, inc->name);
+  fp = cpp_push_buffer (pfile, inc->buffer, len, BUF_FILE, inc->name, 0);
   fp->inc = inc;
   fp->inc->refcnt++;
   fp->sysp = sysp;
 
   /* Initialise controlling macro state.  */
-  pfile->mi_state = MI_OUTSIDE;
+  pfile->mi_valid = true;
   pfile->mi_cmacro = 0;
   pfile->include_depth++;
 
   /* Generate the call back.  */
-  fp->lineno = 0;
-  _cpp_do_file_change (pfile, FC_ENTER, 0, 0);
-  fp->lineno = 1;
+  _cpp_do_file_change (pfile, LC_ENTER, 1);
 }
 
 /* Read the file referenced by INC into the file cache.
@@ -579,8 +577,8 @@ cpp_make_system_header (pfile, syshdr, externc)
   if (syshdr)
     flags = 1 + (externc != 0);
   pfile->buffer->sysp = flags;
-  _cpp_do_file_change (pfile, FC_RENAME, pfile->buffer->nominal_fname,
-		       pfile->buffer->lineno);
+  _cpp_do_file_change (pfile, LC_RENAME,
+		       SOURCE_LINE (pfile->map, pfile->line));
 }
 
 /* Report on all files that might benefit from a multiple include guard.
@@ -680,6 +678,7 @@ _cpp_execute_include (pfile, header, type)
       if (header->type == CPP_HEADER_NAME)
 	pfile->system_include_depth++;
 
+      pfile->buffer->return_to_line = SOURCE_LINE (pfile->map, pfile->line);
       stack_include_file (pfile, inc);
 
       if (type == IT_IMPORT)
@@ -748,12 +747,12 @@ _cpp_pop_file_buffer (pfile, buf)
     pfile->include_depth--;
 
   /* Record the inclusion-preventing macro, which could be NULL
-     meaning no controlling macro, if we haven't got it already.  */
-  if (pfile->mi_state == MI_OUTSIDE && inc->cmacro == NULL)
+     meaning no controlling macro.  */
+  if (pfile->mi_valid && inc->cmacro == NULL)
     inc->cmacro = pfile->mi_cmacro;
 
   /* Invalidate control macros in the #including file.  */
-  pfile->mi_state = MI_FAILED;
+  pfile->mi_valid = false;
 
   inc->refcnt--;
   if (inc->refcnt == 0 && DO_NOT_REREAD (inc))
@@ -1066,11 +1065,11 @@ _cpp_simplify_pathname (path)
     return path;
 
 #if defined (HAVE_DOS_BASED_FILE_SYSTEM)
-  /* Convert all backslashes to slashes. */
+  /* Convert all backslashes to slashes.  */
   for (from = path; *from; from++)
     if (*from == '\\') *from = '/';
     
-  /* Skip over leading drive letter if present. */
+  /* Skip over leading drive letter if present.  */
   if (ISALPHA (path[0]) && path[1] == ':')
     from = to = &path[2];
   else

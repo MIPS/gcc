@@ -1522,7 +1522,7 @@ copy_insn_list (insns, map, static_chain_value)
 	  copy = emit_call_insn (pattern);
 
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
-	  CONST_CALL_P (copy) = CONST_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (copy) = CONST_OR_PURE_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
 	     than hard registers, we need to copy it.  */
@@ -1555,6 +1555,14 @@ copy_insn_list (insns, map, static_chain_value)
 	  break;
 
 	case NOTE:
+	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL)
+	    {
+	      copy = emit_label (get_label_from_map (map,
+						    CODE_LABEL_NUMBER (insn)));
+	      map->const_age++;
+	      break;
+	    }
+
 	  /* NOTE_INSN_FUNCTION_END and NOTE_INSN_FUNCTION_BEG are
 	     discarded because it is important to have only one of
 	     each in the current function.
@@ -1992,17 +2000,17 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	copy = SUBREG_REG (copy);
       return gen_rtx_fmt_e (code, VOIDmode, copy);
 
+    /* We need to handle "deleted" labels that appear in the DECL_RTL
+       of a LABEL_DECL.  */
+    case NOTE:
+      if (NOTE_LINE_NUMBER (orig) != NOTE_INSN_DELETED_LABEL)
+	break;
+
+      /* ... FALLTHRU ... */
     case CODE_LABEL:
       LABEL_PRESERVE_P (get_label_from_map (map, CODE_LABEL_NUMBER (orig)))
 	= LABEL_PRESERVE_P (orig);
       return get_label_from_map (map, CODE_LABEL_NUMBER (orig));
-
-    /* We need to handle "deleted" labels that appear in the DECL_RTL
-       of a LABEL_DECL.  */
-    case NOTE:
-      if (NOTE_LINE_NUMBER (orig) == NOTE_INSN_DELETED_LABEL)
-	return map->insn_map[INSN_UID (orig)];
-      break;
 
     case LABEL_REF:
       copy
@@ -2868,7 +2876,7 @@ output_inline_function (fndecl)
 {
   struct function *old_cfun = cfun;
   enum debug_info_type old_write_symbols = write_symbols;
-  struct debug_hooks *old_debug_hooks = debug_hooks;
+  struct gcc_debug_hooks *old_debug_hooks = debug_hooks;
   struct function *f = DECL_SAVED_INSNS (fndecl);
 
   cfun = f;
@@ -2889,7 +2897,7 @@ output_inline_function (fndecl)
 
   /* Do any preparation, such as emitting abstract debug info for the inline
      before it gets mangled by optimization.  */
-  note_outlining_of_inline_function (fndecl);
+  (*debug_hooks->outlining_inline_function) (fndecl);
 
   /* Compile this function all the way down to assembly code.  */
   rest_of_compilation (fndecl);

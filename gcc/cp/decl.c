@@ -48,8 +48,7 @@ Boston, MA 02111-1307, USA.  */
 extern int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree));
 
 #ifndef BOOL_TYPE_SIZE
-/* In the new ABI, `bool' has size and alignment `1', on all
-   platforms.  */
+/* `bool' has size and alignment `1', on all platforms.  */
 #define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
 #endif
 
@@ -163,28 +162,13 @@ tree error_mark_list;
 
 	tree vtable_entry_type;
 	tree delta_type_node;
-#if 0
-   Old rtti stuff.
-	tree __baselist_desc_type_node;
-	tree __i_desc_type_node, __m_desc_type_node;
-	tree __t_desc_array_type, __i_desc_array_type, __m_desc_array_type;
-#endif
 	tree __t_desc_type_node;
-#if 0
-	tree __tp_desc_type_node;
-#endif
         tree ti_desc_type_node;
 	tree bltn_desc_type_node, ptr_desc_type_node;
 	tree ary_desc_type_node, func_desc_type_node, enum_desc_type_node;
 	tree class_desc_type_node, si_class_desc_type_node, vmi_class_desc_type_node;
 	tree ptm_desc_type_node;
 	tree base_desc_type_node;
-#if 0
-   Not needed yet?  May be needed one day?
-	tree __bltn_desc_array_type, __user_desc_array_type, __class_desc_array_type;
-	tree __ptr_desc_array_type, __attr_dec_array_type, __func_desc_array_type;
-	tree __ptmf_desc_array_type, __ptmd_desc_array_type;
-#endif
 
 	tree class_type_node, record_type_node, union_type_node, enum_type_node;
 	tree unknown_type_node;
@@ -222,11 +206,6 @@ tree cp_global_trees[CPTI_MAX];
 
 static tree global_type_node;
 
-/* If non-zero, this is the number of times we have entered the `std'
-   namespace when we are treating that namespace as an alias for the
-   global namespace.  */
-static int in_fake_std;
-
 /* Expect only namespace names now. */
 static int only_namespace_names;
 
@@ -259,14 +238,8 @@ tree static_aggregates;
 
 tree integer_two_node, integer_three_node;
 
-/* Parsing a function declarator leaves here a chain of structure
-   and enum types declared in the parmlist.  */
-
-static tree last_function_parm_tags;
-
 /* Similar, for last_function_parm_tags.  */
 tree last_function_parms;
-static tree current_function_parm_tags;
 
 /* A list of all LABEL_DECLs in the function that have names.  Here so
    we can clear out their names' definitions at the end of the
@@ -1816,12 +1789,6 @@ walk_namespaces_r (namespace, f, data)
       if (TREE_CODE (current) != NAMESPACE_DECL
 	  || DECL_NAMESPACE_ALIAS (current))
 	continue;
-      if (!DECL_LANG_SPECIFIC (current))
-	{
-	  /* Hmm. std. */
-	  my_friendly_assert (current == fake_std_node, 393);
-	  continue;
-	}
 
       /* We found a namespace.  */
       result |= walk_namespaces_r (current, f, data);
@@ -2301,13 +2268,6 @@ push_namespace (name)
         need_new = 0;
       implicit_use = 1;
     }
-  else if (current_namespace == global_namespace
-	   && !flag_honor_std
-	   && name == std_identifier)
-    {
-      in_fake_std++;
-      return;
-    }
   else
     {
       /* Check whether this is an extended namespace definition. */
@@ -2353,12 +2313,7 @@ push_namespace (name)
 void
 pop_namespace ()
 {
-  if (current_namespace == global_namespace)
-    {
-      my_friendly_assert (in_fake_std > 0, 980421);
-      in_fake_std--;
-      return;
-    }
+  my_friendly_assert (current_namespace != global_namespace, 20010801);
   current_namespace = CP_DECL_CONTEXT (current_namespace);
   /* The binding level is not popped, as it might be re-opened later.  */
   suspend_binding_level ();
@@ -5914,10 +5869,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
       if (looking_for_template)
         flags |= LOOKUP_TEMPLATES_EXPECTED;
 
-      /* std:: becomes :: for now.  */
-      if (got_scope && got_scope == fake_std_node)
-	got_scope = void_type_node;
-
       if (got_scope)
 	type = got_scope;
       else if (got_object != error_mark_node)
@@ -6305,14 +6256,11 @@ initialize_predefined_identifiers ()
     { "__comp_dtor", &complete_dtor_identifier, 1 },
     { "__base_dtor", &base_dtor_identifier, 1 },
     { "__deleting_dtor", &deleting_dtor_identifier, 1 },
-    { VTABLE_DELTA2_NAME, &delta2_identifier, 0 },
-    { VTABLE_DELTA_NAME, &delta_identifier, 0 },
     { IN_CHARGE_NAME, &in_charge_identifier, 0 },
-    { VTABLE_INDEX_NAME, &index_identifier, 0 },
     { "nelts", &nelts_identifier, 0 },
     { THIS_NAME, &this_identifier, 0 },
+    { VTABLE_DELTA_NAME, &delta_identifier, 0 },
     { VTABLE_PFN_NAME, &pfn_identifier, 0 },
-    { "__pfn_or_delta2", &pfn_or_delta2_identifier, 0 },
     { "_vptr", &vptr_identifier, 0 },
     { "__vtt_parm", &vtt_parm_identifier, 0 },
     { "std", &std_identifier, 0 },
@@ -6335,14 +6283,8 @@ initialize_predefined_identifiers ()
 void
 init_decl_processing ()
 {
-  tree fields[20];
   tree void_ftype;
   tree void_ftype_ptr;
-
-  /* Check to see that the user did not specify an invalid combination
-     of command-line options.  */
-  if (!flag_vtable_thunks)
-    error ("the ABI requires vtable thunks");
 
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
@@ -6408,20 +6350,9 @@ init_decl_processing ()
   declare_namespace_level ();
 
   /* Create the `std' namespace.  */
-  if (flag_honor_std)
-    {
-      push_namespace (std_identifier);
-      std_node = current_namespace;
-      pop_namespace ();
-      fake_std_node = error_mark_node;
-    }
-  else
-    {
-      fake_std_node = build_decl (NAMESPACE_DECL,
-				  std_identifier,
-				  void_type_node);
-      pushdecl (fake_std_node);
-    }
+  push_namespace (std_identifier);
+  std_node = current_namespace;
+  pop_namespace ();
 
   c_common_nodes_and_builtins ();
 
@@ -6488,41 +6419,16 @@ init_decl_processing ()
   TYPE_POINTER_TO (unknown_type_node) = unknown_type_node;
   TYPE_REFERENCE_TO (unknown_type_node) = unknown_type_node;
 
-  if (flag_vtable_thunks)
-    {
-      /* Make sure we get a unique function type, so we can give
-	 its pointer type a name.  (This wins for gdb.) */
-      tree vfunc_type = make_node (FUNCTION_TYPE);
-      TREE_TYPE (vfunc_type) = integer_type_node;
-      TYPE_ARG_TYPES (vfunc_type) = NULL_TREE;
-      layout_type (vfunc_type);
+  {
+    /* Make sure we get a unique function type, so we can give
+       its pointer type a name.  (This wins for gdb.) */
+    tree vfunc_type = make_node (FUNCTION_TYPE);
+    TREE_TYPE (vfunc_type) = integer_type_node;
+    TYPE_ARG_TYPES (vfunc_type) = NULL_TREE;
+    layout_type (vfunc_type);
 
-      vtable_entry_type = build_pointer_type (vfunc_type);
-    }
-  else
-    {
-      vtable_entry_type = make_aggr_type (RECORD_TYPE);
-      fields[0] = build_decl (FIELD_DECL, delta_identifier,
-			      delta_type_node);
-      fields[1] = build_decl (FIELD_DECL, index_identifier,
-			      delta_type_node);
-      fields[2] = build_decl (FIELD_DECL, pfn_identifier,
-			      ptr_type_node);
-      finish_builtin_type (vtable_entry_type, VTBL_PTR_TYPE, fields, 2,
-			   double_type_node);
-
-      /* Make this part of an invisible union.  */
-      fields[3] = copy_node (fields[2]);
-      TREE_TYPE (fields[3]) = delta_type_node;
-      DECL_NAME (fields[3]) = delta2_identifier;
-      DECL_MODE (fields[3]) = TYPE_MODE (delta_type_node);
-      DECL_SIZE (fields[3]) = TYPE_SIZE (delta_type_node);
-      DECL_SIZE_UNIT (fields[3]) = TYPE_SIZE_UNIT (delta_type_node);
-      TREE_UNSIGNED (fields[3]) = 0;
-      TREE_CHAIN (fields[2]) = fields[3];
-      vtable_entry_type = build_qualified_type (vtable_entry_type,
-						TYPE_QUAL_CONST);
-    }
+    vtable_entry_type = build_pointer_type (vfunc_type);
+  }
   record_builtin_type (RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
 
   vtbl_type_node
@@ -6548,12 +6454,10 @@ init_decl_processing ()
     tree bad_alloc_type_node, newtype, deltype;
     tree ptr_ftype_sizetype;
 
-    if (flag_honor_std)
-      push_namespace (std_identifier);
+    push_namespace (std_identifier);
     bad_alloc_type_node = xref_tag
       (class_type_node, get_identifier ("bad_alloc"), 1);
-    if (flag_honor_std)
-      pop_namespace ();
+    pop_namespace ();
     ptr_ftype_sizetype 
       = build_function_type (ptr_type_node,
 			     tree_cons (NULL_TREE,
@@ -6615,8 +6519,6 @@ init_decl_processing ()
   ggc_add_tree_root (&static_dtors, 1);
   ggc_add_tree_root (&lastiddecl, 1);
 
-  ggc_add_tree_root (&last_function_parm_tags, 1);
-  ggc_add_tree_root (&current_function_parm_tags, 1);
   ggc_add_tree_root (&last_function_parms, 1);
   ggc_add_tree_root (&error_mark_list, 1);
 
@@ -6724,13 +6626,13 @@ builtin_function (name, type, code, class, libname)
 
   /* All builtins that don't begin with an `_' should go in the `std'
      namespace.  */
-  if (flag_honor_std && name[0] != '_')
+  if (name[0] != '_')
     {
       push_namespace (std_identifier);
       DECL_CONTEXT (decl) = std_node;
     }
   pushdecl (decl);
-  if (flag_honor_std && name[0] != '_')
+  if (name[0] != '_')
     pop_namespace ();
 
   /* Since `pushdecl' relies on DECL_ASSEMBLER_NAME instead of DECL_NAME,
@@ -7436,14 +7338,7 @@ grok_reference_init (decl, type, init)
   if (TREE_STATIC (decl) && !TREE_CONSTANT (tmp))
     return tmp;
 
-  if (building_stmt_tree ())
-    {
-      /* Initialize the declaration.  */
-      tmp = build (INIT_EXPR, TREE_TYPE (decl), decl, tmp);
-      finish_expr_stmt (tmp);
-    }
-  else
-    DECL_INITIAL (decl) = tmp;
+  DECL_INITIAL (decl) = tmp;
 
   return NULL_TREE;
 }
@@ -8060,17 +7955,16 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   if (type == error_mark_node)
     return;
 
-  /* Add this declaration to the statement-tree.  */
-  if (building_stmt_tree ()
-      && at_function_scope_p ()
-      && TREE_CODE (decl) != RESULT_DECL)
-    add_decl_stmt (decl);
-
   if (TYPE_HAS_MUTABLE_P (type))
     TREE_READONLY (decl) = 0;
 
   if (processing_template_decl)
     {
+      /* Add this declaration to the statement-tree.  */
+      if (at_function_scope_p ()
+	  && TREE_CODE (decl) != RESULT_DECL)
+	add_decl_stmt (decl);
+
       if (init && DECL_INITIAL (decl))
 	DECL_INITIAL (decl) = init;
       goto finish_end0;
@@ -8138,6 +8032,14 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   init = check_initializer (decl, init);
 
   GNU_xref_decl (current_function_decl, decl);
+
+  /* Add this declaration to the statement-tree.  This needs to happen
+     after the call to check_initializer so that the DECL_STMT for a
+     reference temp is added before the DECL_STMT for the reference itself.  */
+  if (building_stmt_tree ()
+      && at_function_scope_p ()
+      && TREE_CODE (decl) != RESULT_DECL)
+    add_decl_stmt (decl);
 
   if (TREE_CODE (decl) == VAR_DECL)
     layout_var_decl (decl);
@@ -9475,7 +9377,6 @@ check_special_function_return_type (sfk, type, optype)
       if (type)
 	cp_error ("return type specification for constructor invalid");
 
-      /* In the new ABI constructors do not return a value.  */
       type = void_type_node;
       break;
 
@@ -11152,6 +11053,26 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       && TYPE_DOMAIN (type) == NULL_TREE)
     {
       type = build_cplus_array_type (TREE_TYPE (type), TYPE_DOMAIN (type));
+    }
+
+  /* Detect where we're using a typedef of function type to declare a
+     function. last_function_parms will not be set, so we must create
+     it now.  */
+  
+  if (type == typedef_type && TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      tree decls = NULL_TREE;
+      tree args;
+
+      for (args = TYPE_ARG_TYPES (type); args; args = TREE_CHAIN (args))
+	{
+	  tree decl = build_decl (PARM_DECL, NULL_TREE, TREE_VALUE (args));
+
+	  TREE_CHAIN (decl) = decls;
+	  decls = decl;
+	}
+      
+      last_function_parms = nreverse (decls);
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -13349,7 +13270,6 @@ start_function (declspecs, declarator, attrs, flags)
 	}
 
       last_function_parms = DECL_ARGUMENTS (decl1);
-      last_function_parm_tags = NULL_TREE;
     }
   else
     {
@@ -13456,7 +13376,6 @@ start_function (declspecs, declarator, attrs, flags)
   /* Save the parm names or decls from this function's declarator
      where store_parm_decls will find them.  */
   current_function_parms = last_function_parms;
-  current_function_parm_tags = last_function_parm_tags;
 
   /* Make sure the parameter and return types are reasonable.  When
      you declare a function, these types can be incomplete, but they
@@ -13683,9 +13602,6 @@ store_parm_decls (current_function_parms)
   int parms_have_cleanups = 0;
   tree cleanups = NULL_TREE;
 
-  /* This is a list of types declared among parms in a prototype.  */
-  tree parmtags = current_function_parm_tags;
-
   /* This is a chain of any other decls that came in among the parm
      declarations.  If a parm is declared with  enum {foo, bar} x;
      then CONST_DECLs for foo and bar are put here.  */
@@ -13743,7 +13659,7 @@ store_parm_decls (current_function_parms)
 	 function.  This is all and only the PARM_DECLs that were
 	 pushed into scope by the loop above.  */
       DECL_ARGUMENTS (fndecl) = getdecls ();
-      storetags (chainon (parmtags, gettags ()));
+      storetags (gettags ());
     }
   else
     DECL_ARGUMENTS (fndecl) = NULL_TREE;

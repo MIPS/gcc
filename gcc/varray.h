@@ -77,6 +77,8 @@ typedef union varray_data_tag {
   struct const_equiv_data const_equiv[1];
   struct basic_block_def *bb[1];
   struct elt_list       *te[1];
+  struct dom_node       *dn[1];
+  struct dom_edge       *de[1];
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -156,6 +158,12 @@ extern varray_type varray_init	PARAMS ((size_t, size_t, const char *));
 #define VARRAY_ELT_LIST_INIT(va, num, name) \
   va = varray_init (num, sizeof (struct elt_list *), name)
 
+#define VARRAY_DOM_NODE_INIT(va, num, name) \
+  va = varray_init (num, sizeof (struct dom_node *), name)
+
+#define VARRAY_DOM_EDGE_INIT(va, num, name) \
+  va = varray_init (num, sizeof (struct dom_edge *), name)
+
 /* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
@@ -226,6 +234,8 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_CONST_EQUIV(VA, N)	VARRAY_CHECK (VA, N, const_equiv)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
+#define VARRAY_DOM_NODE(VA, N)          VARRAY_CHECK (VA, N, dn)
+#define VARRAY_DOM_EDGE(VA, N)          VARRAY_CHECK (VA, N, de)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)
@@ -248,6 +258,8 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_PUSH_REG(VA, X)		VARRAY_PUSH (VA, reg, X)
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
+#define VARRAY_PUSH_DOM_NODE(VA, X)     VARRAY_PUSH (VA, dn, X)
+#define VARRAY_PUSH_DOM_EDGE(VA, X)     VARRAY_PUSH (VA, de, X)
 
 /* Return the last element of VA.  */
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
@@ -270,5 +282,6 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_TOP_REG(VA)		VARRAY_TOP (VA, reg)
 #define VARRAY_TOP_CONST_EQUIV(VA)	VARRAY_TOP (VA, const_equiv)
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
-
+#define VARRAY_TOP_DOM_NODE(VA)         VARRAY_TOP (VA, dn)
+#define VARRAY_TOP_DOM_EDGE(VA)         VARRAY_TOP (VA, de)
 #endif /* ! GCC_VARRAY_H */

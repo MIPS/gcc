@@ -99,7 +99,6 @@ Boston, MA 02111-1307, USA.  */
 static rtx simplify_plus_minus		PARAMS ((enum rtx_code,
 						 enum machine_mode, rtx, rtx));
 static void check_fold_consts		PARAMS ((PTR));
-static rtx avoid_constant_pool_reference PARAMS ((rtx));
 
 /* Make a binary operation by properly ordering the operands and 
    seeing if the expression folds.  */
@@ -136,18 +135,36 @@ simplify_gen_binary (code, mode, op0, op1)
     return gen_rtx_fmt_ee (code, mode, op0, op1);
 }
 
-/* In case X is MEM referencing constant pool, return the real value.
+/* If X is a MEM referencing the constant pool, return the real value.
    Otherwise return X.  */
-static rtx
+rtx
 avoid_constant_pool_reference (x)
      rtx x;
 {
+  rtx c, addr;
+  enum machine_mode cmode;
+
   if (GET_CODE (x) != MEM)
     return x;
-  if (GET_CODE (XEXP (x, 0)) != SYMBOL_REF
-      || !CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)))
+  addr = XEXP (x, 0);
+
+  if (GET_CODE (addr) != SYMBOL_REF
+      || ! CONSTANT_POOL_ADDRESS_P (addr))
     return x;
-  return get_pool_constant (XEXP (x, 0));
+
+  c = get_pool_constant (addr);
+  cmode = get_pool_mode (addr);
+
+  /* If we're accessing the constant in a different mode than it was
+     originally stored, attempt to fix that up via subreg simplifications.
+     If that fails we have no choice but to return the original memory.  */
+  if (cmode != GET_MODE (x))
+    {
+      c = simplify_subreg (GET_MODE (x), c, cmode, 0);
+      return c ? c : x;
+    }
+
+  return c;
 }
 
 /* Make a unary operation by first seeing if it folds and otherwise making
@@ -247,21 +264,38 @@ simplify_replace_rtx (x, old, new)
 			     simplify_replace_rtx (XEXP (x, 0), old, new),
 			     simplify_replace_rtx (XEXP (x, 1), old, new));
     case '<':
-      return
-	simplify_gen_relational (code, mode,
-				 (GET_MODE (XEXP (x, 0)) != VOIDmode
-				  ? GET_MODE (XEXP (x, 0))
-				  : GET_MODE (XEXP (x, 1))),
-				 simplify_replace_rtx (XEXP (x, 0), old, new),
-				 simplify_replace_rtx (XEXP (x, 1), old, new));
+      {
+	enum machine_mode op_mode = (GET_MODE (XEXP (x, 0)) != VOIDmode
+				     ? GET_MODE (XEXP (x, 0))
+				     : GET_MODE (XEXP (x, 1)));
+	rtx op0 = simplify_replace_rtx (XEXP (x, 0), old, new);
+	rtx op1 = simplify_replace_rtx (XEXP (x, 1), old, new);
+
+	return
+	  simplify_gen_relational (code, mode,
+				   (op_mode != VOIDmode
+				    ? op_mode
+				    : GET_MODE (op0) != VOIDmode
+				    ? GET_MODE (op0)
+				    : GET_MODE (op1)),
+				   op0, op1);
+      }
 
     case '3':
     case 'b':
-      return
-	simplify_gen_ternary (code, mode, GET_MODE (XEXP (x, 0)),
-			      simplify_replace_rtx (XEXP (x, 0), old, new),
-			      simplify_replace_rtx (XEXP (x, 1), old, new),
-			      simplify_replace_rtx (XEXP (x, 2), old, new));
+      {
+	enum machine_mode op_mode = GET_MODE (XEXP (x, 0));
+	rtx op0 = simplify_replace_rtx (XEXP (x, 0), old, new);
+
+	return
+	  simplify_gen_ternary (code, mode, 
+				(op_mode != VOIDmode
+				 ? op_mode
+				 : GET_MODE (op0)),
+				op0,
+				simplify_replace_rtx (XEXP (x, 1), old, new),
+				simplify_replace_rtx (XEXP (x, 2), old, new));
+      }
 
     case 'x':
       /* The only case we try to handle is a SUBREG.  */
@@ -674,7 +708,7 @@ simplify_unary_operation (code, mode, op, op_mode)
 	  /* (sign_extend (truncate (minus (label_ref L1) (label_ref L2))))
 	     becomes just the MINUS if its mode is MODE.  This allows
 	     folding switch statements on machines using casesi (such as
-	     the Vax).  */
+	     the VAX).  */
 	  if (GET_CODE (op) == TRUNCATE
 	      && GET_MODE (XEXP (op, 0)) == mode
 	      && GET_CODE (XEXP (op, 0)) == MINUS
@@ -682,7 +716,7 @@ simplify_unary_operation (code, mode, op, op_mode)
 	      && GET_CODE (XEXP (XEXP (op, 0), 1)) == LABEL_REF)
 	    return XEXP (op, 0);
 
-#ifdef POINTERS_EXTEND_UNSIGNED
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
 	  if (! POINTERS_EXTEND_UNSIGNED
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
 	      && (CONSTANT_P (op)
@@ -694,9 +728,9 @@ simplify_unary_operation (code, mode, op, op_mode)
 #endif
 	  break;
 
-#ifdef POINTERS_EXTEND_UNSIGNED
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
 	case ZERO_EXTEND:
-	  if (POINTERS_EXTEND_UNSIGNED
+	  if (POINTERS_EXTEND_UNSIGNED > 0
 	      && mode == Pmode && GET_MODE (op) == ptr_mode
 	      && (CONSTANT_P (op)
 		  || (GET_CODE (op) == SUBREG

@@ -119,6 +119,7 @@ extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
 extern int ix86_expand_fp_movcc PARAMS ((rtx[]));
 extern void x86_initialize_trampoline PARAMS ((rtx, rtx, rtx));
+extern rtx ix86_zero_extend_to_Pmode PARAMS ((rtx));
 extern void ix86_split_long_move PARAMS ((rtx[]));
 extern void ix86_split_ashldi PARAMS ((rtx *, rtx));
 extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
@@ -180,4 +181,8 @@ extern int ix86_constant_alignment PARAMS ((tree, int));
 extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int i386_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int i386_pe_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern unsigned int i386_pe_section_type_flags PARAMS ((tree, const char *,
+							int));
+extern void i386_pe_asm_named_section PARAMS ((const char *, unsigned int,
+					       unsigned int));
 #endif

@@ -378,6 +378,9 @@ enum optab_index
   OTI_cmov,
   OTI_cstore,
     
+  /* Push instruction.  */
+  OTI_push,
+
   OTI_MAX
 };
 
@@ -437,6 +440,7 @@ extern optab optab_table[OTI_MAX];
 #define cbranch_optab (optab_table[OTI_cbranch])
 #define cmov_optab (optab_table[OTI_cmov])
 #define cstore_optab (optab_table[OTI_cstore])
+#define push_optab (optab_table[OTI_push])
 
 /* Tables of patterns for extending one integer mode to another.  */
 extern enum insn_code extendtab[MAX_MACHINE_MODE][MAX_MACHINE_MODE][2];
@@ -1112,7 +1116,7 @@ extern rtx trampoline_address PARAMS ((tree));
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value PARAMS ((tree, tree, int));
 
-extern rtx prepare_call_address	PARAMS ((rtx, tree, rtx *, int));
+extern rtx prepare_call_address	PARAMS ((rtx, tree, rtx *, int, int));
 
 extern rtx expand_call PARAMS ((tree, rtx, int));
 

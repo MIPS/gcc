@@ -8303,11 +8303,9 @@
    && ((GET_CODE (operands[3]) == CONST_DOUBLE
            && CONST_DOUBLE_HIGH (operands[3]) == 0
            && CONST_DOUBLE_LOW (operands[3]) == 0xffffffff)
-#if HOST_BITS_PER_WIDE_INT >= 64
-          || (GET_CODE (operands[3]) == CONST_INT
-              && (unsigned HOST_WIDE_INT) INTVAL (operands[3]) == 0xffffffff)
-#endif
-         )"
+       || (HOST_BITS_PER_WIDE_INT >= 64
+	   && GET_CODE (operands[3]) == CONST_INT
+           && (unsigned HOST_WIDE_INT) INTVAL (operands[3]) == 0xffffffff))"
   "srl\\t%1, %2, %0"
   [(set_attr "type" "shift")
    (set_attr "length" "1")])
@@ -8970,9 +8968,9 @@
 #if 0
   rtx chain = operands[0];
 #endif
-  rtx fp = operands[1];
+  rtx lab = operands[1];
   rtx stack = operands[2];
-  rtx lab = operands[3];
+  rtx fp = operands[3];
   rtx labreg;
 
   /* Trap instruction to flush all the register windows.  */

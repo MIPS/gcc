@@ -57,6 +57,9 @@ Boston, MA 02111-1307, USA.  */
 /* The input filename as understood by CPP, where "" represents stdin.  */
 static const char *cpp_filename;
 
+/* The current line map.  */
+static struct line_map *map;
+
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
@@ -73,7 +76,7 @@ extern FILE *asm_out_file;
 /* Number of bytes in a wide character.  */
 #define WCHAR_BYTES (WCHAR_TYPE_SIZE / BITS_PER_UNIT)
 
-int indent_level;        /* Number of { minus number of }. */
+int indent_level;        /* Number of { minus number of }.  */
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
 
@@ -86,11 +89,14 @@ static tree lex_string		PARAMS ((const char *, unsigned int, int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
-static void cb_ident		PARAMS ((cpp_reader *, const cpp_string *));
+static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
+					 const cpp_string *));
 static void cb_file_change    PARAMS ((cpp_reader *, const cpp_file_change *));
-static void cb_def_pragma	PARAMS ((cpp_reader *));
-static void cb_define		PARAMS ((cpp_reader *, cpp_hashnode *));
-static void cb_undef		PARAMS ((cpp_reader *, cpp_hashnode *));
+static void cb_def_pragma	PARAMS ((cpp_reader *, unsigned int));
+static void cb_define		PARAMS ((cpp_reader *, unsigned int,
+					 cpp_hashnode *));
+static void cb_undef		PARAMS ((cpp_reader *, unsigned int,
+					 cpp_hashnode *));
 
 const char *
 init_c_lex (filename)
@@ -222,8 +228,9 @@ dump_time_statistics ()
    No need to deal with linemarkers under normal conditions.  */
 
 static void
-cb_ident (pfile, str)
+cb_ident (pfile, line, str)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
+     unsigned int line ATTRIBUTE_UNUSED;
      const cpp_string *str ATTRIBUTE_UNUSED;
 {
 #ifdef ASM_OUTPUT_IDENT
@@ -241,16 +248,19 @@ cb_file_change (pfile, fc)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
      const cpp_file_change *fc;
 {
-  if (fc->reason == FC_ENTER)
+
+  if (fc->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (fc->from.filename)
+      if (MAIN_FILE_P (fc->map))
+	main_input_filename = fc->map->to_file;
+      else
 	{
-	  lineno = fc->from.lineno;
-	  push_srcloc (fc->to.filename, 1);
+	  lineno = SOURCE_LINE (fc->map - 1, fc->line - 1);
+	  push_srcloc (fc->map->to_file, 1);
 	  input_file_stack->indent_level = indent_level;
-	  (*debug_hooks->start_source_file) (fc->from.lineno, fc->to.filename);
+	  (*debug_hooks->start_source_file) (lineno, fc->map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -261,14 +271,13 @@ cb_file_change (pfile, fc)
 	    }
 #endif
 	}
-      else
-	main_input_filename = fc->to.filename;
     }
-  else if (fc->reason == FC_LEAVE)
+  else if (fc->reason == LC_LEAVE)
     {
       /* Popping out of a file.  */
       if (input_file_stack->next)
 	{
+	  unsigned int from_line = SOURCE_LINE (fc->map - 1, fc->line - 1);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level && --c_header_level == 0)
 	    {
@@ -288,28 +297,30 @@ cb_file_change (pfile, fc)
 	    }
 #endif
 	  pop_srcloc ();
-	  (*debug_hooks->end_source_file) (input_file_stack->line);
+	  (*debug_hooks->end_source_file) (from_line);
 	}
       else
 	error ("leaving more files than we entered");
     }
 
-  update_header_times (fc->to.filename);
+  update_header_times (fc->map->to_file);
+  map = fc->map;
   in_system_header = fc->sysp != 0;
-  input_filename = fc->to.filename;
-  lineno = fc->to.lineno;	/* Do we need this?  */
+  input_filename = map->to_file;
+  lineno = SOURCE_LINE (map, fc->line);
 
   /* Hook for C++.  */
   extract_interface_info ();
 }
 
 static void
-cb_def_pragma (pfile)
+cb_def_pragma (pfile, line)
      cpp_reader *pfile;
+     unsigned int line;
 {
   /* Issue a warning message if we have been asked to do so.  Ignore
      unknown pragmas in system headers unless an explicit
-     -Wunknown-pragmas has been given. */
+     -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
       const unsigned char *space, *name = 0;
@@ -321,7 +332,7 @@ cb_def_pragma (pfile)
       if (s.type == CPP_NAME)
 	name = cpp_token_as_text (pfile, &s);
 
-      lineno = cpp_get_line (parse_in)->line;
+      lineno = SOURCE_LINE (map, line);
       if (name)
 	warning ("ignoring #pragma %s %s", space, name);
       else
@@ -331,21 +342,23 @@ cb_def_pragma (pfile)
 
 /* #define callback for DWARF and DWARF2 debug info.  */
 static void
-cb_define (pfile, node)
+cb_define (pfile, line, node)
      cpp_reader *pfile;
+     unsigned int line;
      cpp_hashnode *node;
 {
-  (*debug_hooks->define) (cpp_get_line (pfile)->line,
+  (*debug_hooks->define) (SOURCE_LINE (map, line),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
-cb_undef (pfile, node)
-     cpp_reader *pfile;
+cb_undef (pfile, line, node)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     unsigned int line;
      cpp_hashnode *node;
 {
-  (*debug_hooks->undef) (cpp_get_line (pfile)->line,
+  (*debug_hooks->undef) (SOURCE_LINE (map, line),
 			 (const char *) NODE_NAME (node));
 }
 
@@ -754,7 +767,7 @@ c_lex (value)
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
      every time we return a token.  */
-  lineno = cpp_get_line (parse_in)->line;
+  lineno = SOURCE_LINE (map, cpp_get_line (parse_in)->line);
 
   *value = NULL_TREE;
   type = tok.type;
@@ -775,8 +788,6 @@ c_lex (value)
       *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok.val.node));
       break;
 
-    case CPP_INT:
-    case CPP_FLOAT:
     case CPP_NUMBER:
       *value = lex_number ((const char *)tok.val.str.text, tok.val.str.len);
       break;
@@ -828,7 +839,7 @@ lex_number (str, len)
      Two HOST_WIDE_INTs is the largest int literal we can store.
      In order to detect overflow below, the number of parts (TOTAL_PARTS)
      must be exactly the number of parts needed to hold the bits
-     of two HOST_WIDE_INTs. */
+     of two HOST_WIDE_INTs.  */
 #define TOTAL_PARTS ((HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR) * 2)
   unsigned int parts[TOTAL_PARTS];
   
@@ -938,7 +949,7 @@ lex_number (str, len)
 	  /* If the highest-order part overflows (gets larger than
 	     a host char will hold) then the whole number has 
 	     overflowed.  Record this and truncate the highest-order
-	     part. */
+	     part.  */
 	  if (parts[TOTAL_PARTS - 1] >> HOST_BITS_PER_CHAR)
 	    {
 	      overflow = 1;
@@ -1125,7 +1136,7 @@ lex_number (str, len)
 	    }
 	}
 
-      /* If the literal overflowed, pedwarn about it now. */
+      /* If the literal overflowed, pedwarn about it now.  */
       if (overflow)
 	{
 	  warn = 1;
@@ -1266,7 +1277,7 @@ lex_number (str, len)
 	TREE_TYPE (value) = type;
 
       /* If it's still an integer (not a complex), and it doesn't
-	 fit in the type we choose for it, then pedwarn. */
+	 fit in the type we choose for it, then pedwarn.  */
 
       if (! warn
 	  && TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE

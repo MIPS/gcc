@@ -1729,6 +1729,12 @@ decay_conversion (exp)
   if (type == error_mark_node)
     return error_mark_node;
 
+  if (type_unknown_p (exp))
+    {
+      incomplete_type_error (exp, TREE_TYPE (exp));
+      return error_mark_node;
+    }
+  
   /* Constants can be used directly unless they're not loadable.  */
   if (TREE_CODE (exp) == CONST_DECL)
     exp = DECL_INITIAL (exp);
@@ -2231,16 +2237,7 @@ build_component_ref (datum, component, basetype_path, protect)
 	      error ("invalid reference to NULL ptr, use ptr-to-member instead");
 	      return error_mark_node;
 	    }
-	  if (VBASE_NAME_P (DECL_NAME (field)))
-	    {
-	      /* It doesn't matter which vbase pointer we grab, just
-		 find one of them.  */
-	      tree binfo = get_binfo (base,
-				      TREE_TYPE (TREE_TYPE (addr)), 0);
-	      addr = convert_pointer_to_real (binfo, addr);
-	    }
-	  else
-	    addr = convert_pointer_to (base, addr);
+	  addr = convert_pointer_to (base, addr);
 	  datum = build_indirect_ref (addr, NULL);
 	  if (datum == error_mark_node)
 	    return error_mark_node;
@@ -2858,7 +2855,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
     {
-      tree fntype, idx, e1, delta, delta2, e2, e3, aref, vtbl;
+      tree fntype, idx, e1, delta, delta2, e2, e3, vtbl;
       tree instance, basetype;
 
       tree instance_ptr = *instance_ptrptr;
@@ -2940,26 +2937,8 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 build_pointer_type (build_pointer_type (vtable_entry_type)),
 	 vtbl, cp_convert (ptrdiff_type_node, delta2));
       vtbl = build_indirect_ref (vtbl, NULL);
-      aref = build_array_ref (vtbl, idx);
+      e2 = build_array_ref (vtbl, idx);
 
-      if (! flag_vtable_thunks)
-	{
-	  aref = save_expr (aref);
-	  
-	  delta = cp_build_binary_op
-	    (PLUS_EXPR,
-	     build_conditional_expr (e1,
-				     build_component_ref (aref,
-							  delta_identifier,
-							  NULL_TREE, 0),
-				     integer_zero_node),
-	     delta);
-	}
-
-      if (flag_vtable_thunks)
-	e2 = aref;
-      else
-	e2 = build_component_ref (aref, pfn_identifier, NULL_TREE, 0);
       TREE_TYPE (e2) = TREE_TYPE (e3);
       e1 = build_conditional_expr (e1, e2, e3);
       
@@ -3383,17 +3362,24 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   int common = 0;
 
   /* Apply default conversions.  */
+  op0 = orig_op0;
+  op1 = orig_op1;
+  
   if (code == TRUTH_AND_EXPR || code == TRUTH_ANDIF_EXPR
       || code == TRUTH_OR_EXPR || code == TRUTH_ORIF_EXPR
       || code == TRUTH_XOR_EXPR)
     {
-      op0 = decay_conversion (orig_op0);
-      op1 = decay_conversion (orig_op1);
+      if (!really_overloaded_fn (op0))
+	op0 = decay_conversion (op0);
+      if (!really_overloaded_fn (op1))
+	op1 = decay_conversion (op1);
     }
   else
     {
-      op0 = default_conversion (orig_op0);
-      op1 = default_conversion (orig_op1);
+      if (!really_overloaded_fn (op0))
+	op0 = default_conversion (op0);
+      if (!really_overloaded_fn (op1))
+	op1 = default_conversion (op1);
     }
 
   /* Strip NON_LVALUE_EXPRs, etc., since we aren't using as an lvalue.  */
@@ -4349,6 +4335,8 @@ condition_conversion (expr)
   tree t;
   if (processing_template_decl)
     return expr;
+  if (TREE_CODE (expr) == OFFSET_REF)
+    expr = resolve_offset_ref (expr);
   t = perform_implicit_conversion (boolean_type_node, expr);
   t = fold (build1 (CLEANUP_POINT_EXPR, boolean_type_node, t));
   return t;
@@ -5116,7 +5104,6 @@ build_static_cast (type, expr)
 				    build_tree_list (NULL_TREE, expr),
 				    TYPE_BINFO (type), LOOKUP_NORMAL)));
   
-  expr = decay_conversion (expr);
   intype = TREE_TYPE (expr);
 
   /* FIXME handle casting to array type.  */
@@ -6105,8 +6092,7 @@ build_ptrmemfunc (type, pfn, force)
 	  delta = build_component_ref (pfn, delta_identifier, NULL_TREE, 0);
 	}
 
-      /* Under the new ABI, the conversion is easy.  Just adjust
-	 the DELTA field.  */
+      /* Just adjust the DELTA field.  */
       delta = cp_convert (ptrdiff_type_node, delta);
       if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_delta)
 	n = cp_build_binary_op (LSHIFT_EXPR, n, integer_one_node);
@@ -6171,10 +6157,9 @@ expand_ptrmemfunc_cst (cst, delta, pfn)
       *delta = fold (build (PLUS_EXPR, TREE_TYPE (*delta),
 			    *delta, BINFO_OFFSET (binfo)));
 
-      /* Under the new ABI, we set PFN to the vtable offset at
-	 which the function can be found, plus one (unless
-	 ptrmemfunc_vbit_in_delta, in which case delta is shifted
-	 left, and then incremented).  */
+      /* We set PFN to the vtable offset at which the function can be
+	 found, plus one (unless ptrmemfunc_vbit_in_delta, in which
+	 case delta is shifted left, and then incremented).  */
       *pfn = DECL_VINDEX (fn);
       *pfn = fold (build (MULT_EXPR, integer_type_node, *pfn,
 			  TYPE_SIZE_UNIT (vtable_entry_type)));

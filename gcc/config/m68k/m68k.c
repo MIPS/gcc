@@ -60,6 +60,8 @@ static rtx find_addr_reg PARAMS ((rtx));
 static const char *singlemove_string PARAMS ((rtx *));
 static void m68k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m68k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int,
+						 unsigned int));
 
 
 /* Alignment to use for loops and jumps */
@@ -1494,7 +1496,7 @@ not_sp_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return op != stack_pointer_rtx && general_operand (op, mode);
+  return op != stack_pointer_rtx && nonimmediate_operand (op, mode);
 }
 
 /* Return TRUE if X is a valid comparison operator for the dbcc 
@@ -3937,8 +3939,13 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 int
 const_uint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  /* It doesn't make sense to ask this question with a mode that is
+     not larger than 32 bits.  */
+  if (GET_MODE_BITSIZE (mode) <= 32)
+    abort ();
+
 #if HOST_BITS_PER_WIDE_INT > 32
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
@@ -3956,8 +3963,13 @@ const_uint32_operand (op, mode)
 int
 const_sint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  /* It doesn't make sense to ask this question with a mode that is
+     not larger than 32 bits.  */
+  if (GET_MODE_BITSIZE (mode) <= 32)
+    abort ();
+
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) >= (-0x7fffffff - 1) && INTVAL (op) <= 0x7fffffff));
@@ -4197,4 +4209,22 @@ output_xorsi3 (operands)
       return "bchg %1,%0";
     }
   return "eor%.l %2,%0";
+}
+
+/* Output assembly to switch to section NAME with attribute FLAGS.  */
+
+static void
+m68k_coff_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  char flagchar;
+
+  if (flags & SECTION_WRITE)
+    flagchar = 'd';
+  else
+    flagchar = 'x';
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%c\"\n", name, flagchar);
 }

@@ -80,6 +80,9 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case WITH_CLEANUP_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+      /* This shouldn't be here, but there are lots of places in the compiler
+         that are sloppy about tacking on NOP_EXPRs to the same type when
+	 no actual conversion is happening.  */
     case NOP_EXPR:
       return lvalue_p_1 (TREE_OPERAND (ref, 0),
 			 treat_class_rvalues_as_lvalues);
@@ -1195,12 +1198,18 @@ walk_tree (tp, func, data, htab)
   if (result)
     return result;
 
+  code = TREE_CODE (*tp);
+
   /* Even if we didn't, FUNC may have decided that there was nothing
      interesting below this point in the tree.  */
   if (!walk_subtrees)
-    return NULL_TREE;
-
-  code = TREE_CODE (*tp);
+    {
+      if (statement_code_p (code) || code == TREE_LIST || code == OVERLOAD)
+	/* But we still need to check our siblings.  */
+	return walk_tree (&TREE_CHAIN (*tp), func, data, htab);
+      else
+	return NULL_TREE;
+    }
 
   /* Handle common cases up front.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
@@ -1955,7 +1964,7 @@ cp_tree_equal (t1, t2)
       cmp = cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
       if (cmp <= 0)
 	return cmp;
-      return cp_tree_equal (TREE_OPERAND (t1, 2), TREE_OPERAND (t1, 2));
+      return cp_tree_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t1, 1));
 
     case COMPONENT_REF:
       if (TREE_OPERAND (t1, 1) == TREE_OPERAND (t2, 1))

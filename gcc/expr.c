@@ -3155,7 +3155,21 @@ emit_single_push_insn (mode, x, type)
   rtx dest_addr;
   unsigned rounded_size = PUSH_ROUNDING (GET_MODE_SIZE (mode));
   rtx dest;
+  enum insn_code icode;
+  insn_operand_predicate_fn pred;
 
+  stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
+  /* If there is push pattern, use it.  Otherwise try old way of throwing
+     MEM representing push operation to move expander.  */
+  icode = push_optab->handlers[(int) mode].insn_code;
+  if (icode != CODE_FOR_nothing)
+    {
+      if (((pred = insn_data[(int) icode].operand[0].predicate)
+	  && !((*pred) (x, mode))))
+	x = force_reg (mode, x);
+      emit_insn (GEN_FCN (icode) (x));
+      return;
+    }
   if (GET_MODE_SIZE (mode) == rounded_size)
     dest_addr = gen_rtx_fmt_e (STACK_PUSH_CODE, Pmode, stack_pointer_rtx);
   else
@@ -3171,8 +3185,6 @@ emit_single_push_insn (mode, x, type)
     }
 
   dest = gen_rtx_MEM (mode, dest_addr);
-
-  stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
 
   if (type != 0)
     {
@@ -4765,7 +4777,7 @@ store_constructor (exp, target, align, cleared, size)
 	    clear_storage (target, GEN_INT (size), align);
 	  cleared = 1;
 	}
-      else
+      else if (REG_P (target))
 	/* Inform later passes that the old value is dead.  */
 	emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
 
@@ -5846,7 +5858,7 @@ safe_from_p (x, exp, top_p)
 	  break;
 
 	case WITH_CLEANUP_EXPR:
-	  exp_rtl = RTL_EXPR_RTL (exp);
+	  exp_rtl = WITH_CLEANUP_EXPR_RTL (exp);
 	  break;
 
 	case CLEANUP_POINT_EXPR:
@@ -6440,7 +6452,7 @@ expand_expr (exp, target, tmode, modifier)
 	lineno = EXPR_WFL_LINENO (exp);
 	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
 	  emit_line_note (input_filename, lineno);
-	/* Possibly avoid switching back and force here.  */
+	/* Possibly avoid switching back and forth here.  */
 	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
 	input_filename = saved_input_filename;
 	lineno = saved_lineno;
@@ -7364,16 +7376,16 @@ expand_expr (exp, target, tmode, modifier)
       }
 
     case WITH_CLEANUP_EXPR:
-      if (RTL_EXPR_RTL (exp) == 0)
+      if (WITH_CLEANUP_EXPR_RTL (exp) == 0)
 	{
-	  RTL_EXPR_RTL (exp)
+	  WITH_CLEANUP_EXPR_RTL (exp)
 	    = expand_expr (TREE_OPERAND (exp, 0), target, tmode, ro_modifier);
-	  expand_decl_cleanup (NULL_TREE, TREE_OPERAND (exp, 2));
+	  expand_decl_cleanup (NULL_TREE, TREE_OPERAND (exp, 1));
 
 	  /* That's it for this cleanup.  */
-	  TREE_OPERAND (exp, 2) = 0;
+	  TREE_OPERAND (exp, 1) = 0;
 	}
-      return RTL_EXPR_RTL (exp);
+      return WITH_CLEANUP_EXPR_RTL (exp);
 
     case CLEANUP_POINT_EXPR:
       {
@@ -7830,6 +7842,16 @@ expand_expr (exp, target, tmode, modifier)
       return expand_divmod (0, code, mode, op0, op1, target, unsignedp);
 
     case RDIV_EXPR:
+      /* Emit a/b as a*(1/b).  Later we may manage CSE the reciprocal saving
+         expensive divide.  If not, combine will rebuild the original
+         computation.  */
+      if (flag_unsafe_math_optimizations && optimize && !optimize_size
+	  && !real_onep (TREE_OPERAND (exp, 0)))
+        return expand_expr (build (MULT_EXPR, type, TREE_OPERAND (exp, 0),
+				   build (RDIV_EXPR, type,
+					  build_real (type, dconst1),
+					  TREE_OPERAND (exp, 1))),
+			    target, tmode, unsignedp);
       this_optab = flodiv_optab;
       goto binop;
 
@@ -8189,8 +8211,8 @@ expand_expr (exp, target, tmode, modifier)
 		     || GET_CODE (original_target) == REG
 		     || TREE_ADDRESSABLE (type))
 #endif
-		 && ! (GET_CODE (original_target) == MEM
-		       && MEM_VOLATILE_P (original_target)))
+		 && (GET_CODE (original_target) != MEM
+		     || TREE_ADDRESSABLE (type)))
 	  temp = original_target;
 	else if (TREE_ADDRESSABLE (type))
 	  abort ();

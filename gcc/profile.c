@@ -1,4 +1,4 @@
-/* Calculate branch probabilities, and basic block execution counts. 
+/* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
    2000, 2001  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
@@ -69,10 +69,10 @@ struct bb_info
 /* Keep all basic block indexes nonnegative in the gcov output.  Index 0
    is used for entry block, last block exit block.   */
 #define GCOV_INDEX_TO_BB(i)  ((i) == 0 ? ENTRY_BLOCK_PTR		\
-    			      : (((i) == n_basic_blocks + 1)		\
+			      : (((i) == n_basic_blocks + 1)		\
 			         ? EXIT_BLOCK_PTR : BASIC_BLOCK ((i)-1)))
-#define BB_TO_GCOV_INDEX(bb)  ((bb) == ENTRY_BLOCK_PTR ? 0 		\
-  			       : ((bb) == EXIT_BLOCK_PTR		\
+#define BB_TO_GCOV_INDEX(bb)  ((bb) == ENTRY_BLOCK_PTR ? 0		\
+			       : ((bb) == EXIT_BLOCK_PTR		\
 				  ? n_basic_blocks + 1 : (bb)->index + 1))
 
 /* Name and file pointer of the output file for the basic block graph.  */
@@ -179,7 +179,7 @@ output_gcov_string (string, delimiter)
      long delimiter;
 {
   long temp;
-			
+
   /* Write a delimiter to indicate that a file name follows.  */
   __write_long (delimiter, bb_file, 4);
 
@@ -216,7 +216,6 @@ compute_branch_probabilities ()
   int hist_br_prob[20];
   int num_never_executed;
   int num_branches;
-  int bad_counts = 0;
   struct bb_info *bb_infos;
 
   /* Attach extra info block to each bb.  */
@@ -356,7 +355,7 @@ compute_branch_probabilities ()
 		  EDGE_INFO (e)->count_valid = 1;
 		  e->count = total;
 		  bi->succ_count--;
-		  
+
 		  BB_INFO (e->dest)->pred_count--;
 		  changes = 1;
 		}
@@ -383,7 +382,7 @@ compute_branch_probabilities ()
 		  EDGE_INFO (e)->count_valid = 1;
 		  e->count = total;
 		  bi->pred_count--;
-		  
+
 		  BB_INFO (e->src)->succ_count--;
 		  changes = 1;
 		}
@@ -418,84 +417,63 @@ compute_branch_probabilities ()
     {
       basic_block bb = BASIC_BLOCK (i);
       edge e;
-      rtx insn;
       gcov_type total;
       rtx note;
 
       total = bb->count;
-      if (!total)
-	continue;
-      for (e = bb->succ; e; e = e->succ_next)
+      if (total)
+	for (e = bb->succ; e; e = e->succ_next)
+	  {
+	      e->probability = (e->count * REG_BR_PROB_BASE + total / 2) / total;
+	      if (e->probability < 0 || e->probability > REG_BR_PROB_BASE)
+		{
+		  error ("Corrupted profile info: prob for %d-%d thought to be %d\n",
+			 e->src->index, e->dest->index, e->probability);
+		  e->probability = REG_BR_PROB_BASE / 2;
+		}
+	  }
+      if (any_condjump_p (bb->end)
+	  && bb->succ->succ_next)
 	{
-	  if (any_condjump_p (e->src->end)
-	      && !EDGE_INFO (e)->ignore
-	      && !(e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_FAKE)))
-	    {
-	      int prob;
-	      /* This calculates the branch probability as an integer between
-		 0 and REG_BR_PROB_BASE, properly rounded to the nearest
-		 integer.  Perform the arithmetic in double to avoid
-		 overflowing the range of ints.  */
-	      if (total == 0)
-		prob = -1;
-	      else
-		{
-		  prob = (((double)e->count * REG_BR_PROB_BASE)
-			  + (total >> 1)) / total;
-		  if (prob < 0 || prob > REG_BR_PROB_BASE)
-		    {
-		      if (rtl_dump_file)
-			fprintf (rtl_dump_file, "bad count: prob for %d-%d thought to be %d (forcibly normalized)\n",
-				 e->src->index, e->dest->index, prob);
+	  int prob;
+	  edge e;
 
-		      bad_counts = 1;
-		      prob = REG_BR_PROB_BASE / 2;
-		    }
-		  
-		  /* Match up probability with JUMP pattern.  */
-		  if (e->flags & EDGE_FALLTHRU)
-		    prob = REG_BR_PROB_BASE - prob;
-		}
-	      
-	      if (prob == -1)
-		num_never_executed++;
-	      else
-		{
-		  int index = prob * 20 / REG_BR_PROB_BASE;
-		  if (index == 20)
-		    index = 19;
-		  hist_br_prob[index]++;
-		}
-	      num_branches++;
-	      
-	      note = find_reg_note (e->src->end, REG_BR_PROB, 0);
+	  if (total == 0)
+	    prob = -1;
+	  else
+	  if (total == -1)
+	    num_never_executed++;
+	  else
+	    {
+	      int index;
+
+	      /* Find the branch edge.  It is possible that we do have fake
+		 edges here.  */
+	      for (e = bb->succ; e->flags & (EDGE_FAKE | EDGE_FALLTHRU);
+		   e = e->succ_next)
+		continue; /* Loop body has been intentionally left blank.  */
+
+	      prob = e->probability;
+	      index = prob * 20 / REG_BR_PROB_BASE;
+
+	      if (index == 20)
+		index = 19;
+	      hist_br_prob[index]++;
+
+	      note = find_reg_note (bb->end, REG_BR_PROB, 0);
 	      /* There may be already note put by some other pass, such
-	         as builtin_expect expander.  */
+		 as builtin_expect expander.  */
 	      if (note)
 		XEXP (note, 0) = GEN_INT (prob);
 	      else
-		REG_NOTES (e->src->end)
+		REG_NOTES (bb->end)
 		  = gen_rtx_EXPR_LIST (REG_BR_PROB, GEN_INT (prob),
-				       REG_NOTES (e->src->end));
+				       REG_NOTES (bb->end));
 	    }
+	  num_branches++;
+
 	}
-
-      /* Add a REG_EXEC_COUNT note to the first instruction of this block.  */
-      insn = next_nonnote_insn (bb->head);
-
-      if (GET_CODE (bb->head) == CODE_LABEL)
-	insn = next_nonnote_insn (insn);
-
-      /* Avoid crash on empty basic blocks.  */
-      if (insn && INSN_P (insn))
-	REG_NOTES (insn)
-	  = gen_rtx_EXPR_LIST (REG_EXEC_COUNT, GEN_INT (total),
-			       REG_NOTES (insn));
     }
-  
-  /* This should never happen.  */
-  if (bad_counts)
-    warning ("Arc profiling: some edge counts were bad.");
 
   if (rtl_dump_file)
     {
@@ -550,22 +528,52 @@ branch_prob ()
 
   total_num_times_called++;
 
+  flow_call_edges_add (NULL);
+
   /* We can't handle cyclic regions constructed using abnormal edges.
      To avoid these we replace every source of abnormal edge by a fake
      edge from entry node and every destination by fake edge to exit.
      This keeps graph acyclic and our calculation exact for all normal
      edges except for exit and entrance ones.
-   
+
      We also add fake exit edges for each call and asm statement in the
      basic, since it may not return.  */
 
   for (i = 0; i < n_basic_blocks ; i++)
     {
-      rtx insn;
       int need_exit_edge = 0, need_entry_edge = 0;
       int have_exit_edge = 0, have_entry_edge = 0;
       basic_block bb = BASIC_BLOCK (i);
+      rtx insn;
       edge e;
+
+      /* Add fake edges from entry block to the call insns that may return
+	 twice.  The CFG is not quite correct then, as call insn plays more
+	 role of CODE_LABEL, but for our purposes, everything should be OK,
+	 as we never insert code to the beggining of basic block.  */
+      for (insn = bb->head; insn != NEXT_INSN (bb->end);
+	   insn = NEXT_INSN (insn))
+	{
+	  if (GET_CODE (insn) == CALL_INSN
+	      && find_reg_note (insn, REG_SETJMP, NULL))
+	    {
+	      if (GET_CODE (bb->head) == CODE_LABEL
+		  || insn != NEXT_INSN (bb->head))
+		{
+		  e = split_block (bb, PREV_INSN (insn));
+		  make_edge (NULL, ENTRY_BLOCK_PTR, e->dest, EDGE_FAKE);
+		  break;
+		}
+	      else
+		{
+		  /* We should not get abort here, as call to setjmp should not
+		     be the very first instruction of function.  */
+		  if (!i)
+		    abort ();
+		  make_edge (NULL, ENTRY_BLOCK_PTR, bb, EDGE_FAKE);
+		}
+	    }
+	}
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
@@ -582,28 +590,6 @@ branch_prob ()
 	    need_entry_edge = 1;
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    have_entry_edge = 1;
-	}
-
-      /* ??? Not strictly needed unless flag_test_coverage, but adding
-	 them anyway keeps the .da file consistent.  */
-      /* ??? Currently inexact for basic blocks with multiple calls. 
-	 We need to split blocks here.  */
-      for (insn = bb->head;
-	   insn != NEXT_INSN (bb->end);
-	   insn = NEXT_INSN (insn))
-	{
-	  rtx set;
-	  if (GET_CODE (insn) == CALL_INSN && !CONST_CALL_P (insn))
-	    need_exit_edge = 1;
-	  else if (GET_CODE (insn) == INSN)
-	    {
-	      set = PATTERN (insn);
-	      if (GET_CODE (set) == PARALLEL)
-		set = XVECEXP (set, 0, 0);
-	      if ((GET_CODE (set) == ASM_OPERANDS && MEM_VOLATILE_P (set))
-		  || GET_CODE (set) == ASM_INPUT)
-		need_exit_edge = 1;
-	    }
 	}
 
       if (need_exit_edge && !have_exit_edge)
@@ -809,6 +795,12 @@ branch_prob ()
     }
 
   remove_fake_edges ();
+  /* Re-merge split basic blocks and the mess introduced by
+     insert_insn_on_edge.  */
+  cleanup_cfg (profile_arc_flag ? CLEANUP_EXPENSIVE : 0);
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
+
   free (edge_infos);
   free_edge_list (el);
 }
@@ -1004,10 +996,10 @@ end_branch_prob ()
 	     flag will not be set until an attempt is made to read
 	     past the end of the file. */
 	  if (feof (da_file))
-	    warning (".da file contents exhausted too early\n");
+	    error (".da file contents exhausted too early");
 	  /* Should be at end of file now.  */
 	  if (__read_long (&temp, da_file, 8) == 0)
-	    warning (".da file contents not exhausted\n");
+	    error (".da file contents not exhausted");
 	  fclose (da_file);
 	}
     }
@@ -1184,5 +1176,5 @@ output_func_start_profiler ()
     fflush (asm_out_file);
   current_function_decl = NULL_TREE;
 
-  assemble_constructor (IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+  assemble_constructor (XEXP (DECL_RTL (fndecl), 0), DEFAULT_INIT_PRIORITY);
 }

@@ -1,3 +1,322 @@
+2001-08-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3820
+	Stop using TYPE_NONCOPIED_PARTS.
+	* call.c (build_over_call): Be careful when copy constructing
+	or assigning to an empty class.
+	* class.c (check_bases_and_members): It has a
+	COMPLEX_ASSIGN_REF if it has a vptr.
+	(layout_class_type): Don't add empty class padding to
+	TYPE_NONCOPIED_PARTS.
+	(finish_struct_1): Don't add the VFIELD either.
+	* cp-tree.h (TYPE_HAS_TRIVIAL_INIT_REF): Mention _copy_
+	initialization.
+
+2001-08-07  Jason Merrill  <jason_merrill@redhat.com>
+
+	* tree.c (walk_tree): Walk siblings even if !walk_subtrees.
+
+2001-08-06  Richard Henderson  <rth@redhat.com>
+
+	* decl2.c (finish_objects): Pass a symbol_ref and priority to
+	assemble_{constructor,destructor}.  Remove priority handling.
+
+2001-08-05  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	Don't allow template-id in using-declaration.
+	* decl2.c (validate_nonmember_using_decl): Handle template-ids.
+	(do_class_using_decl): Likewise.
+
+2001-08-04  Neil Booth  <neil@cat.daikokuya.demon.co.uk>
+
+	* cp/spew.c (read_token): No need to pop buffers.
+
+2001-08-02  Stan Shebs  <shebs@apple.com>
+
+	* cp-tree.h (FNADDR_FROM_VTABLE_ENTRY): Remove, no longer used.
+	(fnaddr_from_vtable_entry): Remove decl.
+	* method.c (use_thunk): Update comment.
+
+2001-08-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* repo.c (get_base_filename): Change return value to const char
+	pointer.
+
+2001-08-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Kill -fhonor-std.
+	* NEWS: Document.
+	* cp-tree.h (flag_honor_std): Remove.
+	(CPTI_FAKE_STD): Remove.
+	(std_node): Remove comment about it being NULL.
+	(fake_std_node): Remove.
+	* decl.c (in_fake_std): Remove.
+	(walk_namespaces_r): Remove fake_std_node check.
+	(push_namespace): Remove in_fake_std code.
+	(pop_namespace): Likewise.
+	(lookup_name_real): Remove fake_std_node check.
+	(init_decl_processing): Always create std_node. Always add
+	std:: things there.
+	(builtin_function): Always put non '_' fns in std.
+	* decl2.c (flag_honor_std): Remove.
+	(lang_f_options): Remove honor-std.
+	(unsupported_options): Add honor-std.
+	(set_decl_namespace): Remove fake_std_node check.
+	(validate_nonmember_using_decl): Likewise.
+	(do_using_directive): Likewise.
+	(handle_class_head): Likewise.
+	* dump.c (cp_dump_tree): Likewise.
+	* except.c (init_exception_processing): Adjust.
+	* init.c (build_member_call): Remove fake_std_node check.
+	(build_offset_ref): Likewise.
+	* lang-options.h: Remove -fhonor-std, -fno-honor-std.
+	* rtti.c (init_rtti_processing): Adjust.
+
+2001-07-31  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* tree.c (cp_tree_equal): WITH_CLEANUP_EXPR node to use its second
+	operand while calling cp_tree_equal.
+
+2001-07-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	The 3.0 ABI no longer has vbase pointer fields.
+	* cp-tree.h (VBASE_NAME, VBASE_NAME_FORMAT, VBASE_NAME_P,
+	FORMAT_VBASE_NAME): Remove.
+	* method.c (do_build_copy_constructor): Adjust.
+	(do_build_assign_ref): Adjust.
+	* search.c (lookup_field_r): Adjust.
+	* typeck.c (build_component_ref): Adjust.
+
+	The 3.0 ABI always has a vtable pointer at the start of every
+	polymorphic class.
+	* rtti.c (build_headof_sub): Remove.
+	(build_headof): Adjust.
+	(get_tinfo_decl_dynamic): No need to check flag_rtti
+	here. Adjust.
+	(create_real_tinfo_var): Explain why we need a hidden name.
+
+2001-07-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3631
+	* class.c (update_vtable_entry_for_fn): The fixed adjustment
+	of a virtual thunk should be from declaring base.
+
+2001-07-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (dfs_ctor_vtable_bases_queue_p): Always walk into
+	the shared virtual base, so preserving inheritance graph order.
+
+2001-07-30  Andreas Jaeger  <aj@suse.de>
+
+        * decl2.c: Remove unused var global_temp_name_counter.
+
+2001-07-28  Richard Henderson  <rth@redhat.com>
+
+	* method.c (pending_inlines): Remove.
+
+2001-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (mark_primary_virtual_base): Don't adjust base
+	offsets here.
+	(dfs_unshared_virtual_bases): Adjust them here.
+	(mark_primary_bases): Explain why we adjust at the end.
+
+2001-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (finish_struct_1): When copying the primary base's
+	VFIELD, make sure we find it is at offset zero.
+
+2001-07-26  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (tsubst_template_parms): Call maybe_fold_nontype_arg and
+	tsubst_expr for default template arguments.
+
+2001-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3621
+	* spew.c (yylex): Only copy the token's lineno, if it is
+	non-zero.
+
+2001-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3624
+	* call.c (resolve_args): Simplify, call
+	convert_from_reference.
+	(build_new_op): Resolve and convert from reference ARG1
+	earlier. Adjust ARG2 & ARG3 resolve and conversion.
+
+2001-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (last_function_parm_tags): Remove.
+	(current_function_parm_tags): Remove.
+	(init_decl_processing): Adjust.
+	(start_function): Adjust.
+	(store_parm_decls): Adjust.
+
+	PR c++/3152
+	* decl.c (grokdeclarator): Detect when a function typedef is
+	declaring a function, and create last_function_parms correctly.
+
+2001-07-25  Jason Merrill  <jason_merrill@redhat.com>
+	
+	* call.c (joust): Only prefer a non-builtin candidate to a builtin
+	one if they have the same signature.
+
+	* cvt.c (build_up_reference): Take DECL parm.  Check TREE_STATIC on
+	it rather than toplevel_bindings_p.  Give it a mangled name if static.
+	(convert_to_reference): Adjust.
+	* decl2.c (get_temp_name): Lose.
+	* mangle.c (mangle_ref_init_variable): New fn.
+	(mangle_guard_variable): Strip the ref-init header.
+	* cp-tree.h: Adjust.
+	* decl.c (cp_finish_decl): Add the DECL_STMT after processing the
+	initializer.
+	(grok_reference_init): Always use DECL_INITIAL.
+
+2001-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3416
+	* call.c (build_conditional_expr): Recheck args after
+	conversions.
+	* cp-tree.h (build_conditional_expr): Move to correct file.
+	* typeck.c (decay_conversion): Diagnose any unknown types
+	reaching here.
+	(build_binary_op): Don't do initial decay or default
+	conversions on overloaded functions.
+	(build_static_cast): Don't do a decay conversion here.
+
+2001-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3543
+	* typeck.c (condition_conversion): Resolve an OFFSET_REF.
+	* expr.c (cplus_expand_expr): An OFFSET_REF should never get here.
+
+2001-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (build_vtbl_or_vbase_field): Remove, move into ...
+	(create_vtbl_ptr): ... here.
+
+2001-07-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (build_vbase_offset_vbtl_entries): Look for
+	non-primary base of which we are a sub vtable.
+
+2001-07-24  Phil Edwards  <pme@sources.redhat.com>
+
+	* semantics.c (finish_this_expr):  Remove unused code.
+
+2001-07-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Simplify rtti, now we've only one ABI.
+	* cp-tree.h (cp_tree_index): Remove CPTI_TINFO_DECL_ID,
+	CPTI_TINFO_VAR_ID.
+	(tinfo_decl_id, tinfo_var_id): Remove.
+	(get_typeid_1): Remove.
+	* rtti.c
+	(init_rtti_processing): Remove tinfo_decl_id & tinfo_var_id.
+	(typeid_ok_p): New function.
+	(build_type_id): Call typeid_ok_p. Don't call tinfo_from_decl.
+	(get_tinfo_decl): Remove old abi documentation.
+	(tinfo_from_decl): Remove.
+	(get_type_id): Call typeid_ok_p. Absorb get_typeid_1.
+	(get_typeid_1): Remove.
+	(get_base_offset): Remove.
+	(synthesize_tinfo_var): Absorb get_base_offset.
+	(create_real_tinfo_var): Don't use tinfo_decl_id.
+
+2001-07-23  Graham Stott  <grahams@redhat.com>
+
+	* cp/class.c (type_requires_array_cookie): Fix use of uninitialised
+	variable has_two_argument_delete_p.
+
+2001-07-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Remove flag_vtable_thunk. It is always on for the 3.0 ABI.
+	* cp-tree.h (CPTI_DELTA2_IDENTIFIER): Remove.
+	(CPTI_INDEX_IDENTIFIER): Remove.
+	(CPT_PFN_OR_DELTA2_IDENTIFIER): Remove.
+	(delta2_identifier): Remove.
+	(index_identifier): Remove.
+	(pfn_or_delta2_identifier): Remove.
+	(flag_vtable_thunks): Remove.
+	(VTABLE_DELTA2_NAME): Remove.
+	(VTABLE_INDEX_NAME): Remove.
+	(FNADDR_FROM_VTABLE_ENTRY): Adjust.
+	(vfunc_ptr_type_node): Adjust.
+	(VTABLE_NAME_PREFIX): Adjust.
+	(build_vfn_ref): Lose first parameter.
+	(fixup_all_virtual_upcast_offsets): Remove.
+	* decl.c (initialize_predefined_identifiers): Remove
+	delta2_identifier, index_identifier, pfn_or_delta2_identifier.
+	(init_decl_processing): Remove no-vtable-thunk code.
+	* decl2.c (flag_vtable_thunks): Remove.
+	(mark_vtable_entries): Remove no-vtable-thunk code.
+	* error.c (dump_decl): Remove no-vtable-thunk code.
+	(dump_expr): Adjust ptr to member function code.
+	* init.c (initialize_vtable_ptrs): Remove no-vtable-thunk
+	code.
+	* rtti.c (build_headof): Remove no-vtable-thunk code.
+	(get_tinfo_decl_dynamic): Adjust build_vfn_ref call.
+	* search.c (get_base_distance): Remove expand_upcast_fixups case.
+	(virtual_context) Remove.
+	(expand_upcast_fixups): Remove.
+	(fixup_virtual_upcast_offsets): Remove.
+	(fixup_all_virtual_upcast_offsets): Remove.
+	* typeck.c (get_member_function_from_ptrfunc): Remove
+	no-vtable-thunk code.
+	* call.c (build_over_call): Adjust call to build_vfn_ref.
+	* class.c (build_vfn_ref): Lose first parameter. Remove
+	no-vtable-thunk code.
+	(build_rtti_vtbl_entries): Remove no-vtable-thunk code.
+	(build_vtable_entry): Remove no-vtable-thunk code.
+
+2001-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Remove old-abi remnants. Remove comments about old abi
+	behaviour. Remove refences to 'new-abi' in comments.
+	* cp-tree.h: Adjust comments.
+	(vbase_offsets_in_vtable_p): Delete.
+	(vcall_offsets_in_vtable_p): Delete.
+	(vptrs_present_everywhere_p): Delete.
+	(all_overridden_vfuns_in_vtables_p): Delete.
+	(merge_primary_and_secondary_vtables_p): Delete.
+	(TYPE_CONTAINS_VPTR_P): Adjust.
+	(VTT_NAME_PREFIX): Remove.
+	(CTOR_VTBL_NAME_PREFIX): Remove.
+	(init_vbase_pointers): Remove.
+	* class.c: Adjust coments.
+	(build_vbase_pointer_fields): Delete.
+	(build_vbase_pointer): Remove old-abi code.
+	(build_secondary_vtable): Likewise.
+	(modify_all_vtables): Likewise.
+	(create_vtable_ptr): Likewise.
+	(layout_class_type): Likewise.
+	(finish_struct_1): Likewise.
+	(finish_vtbls): Likewise.
+	(dfs_finish_vtbls): Delete.
+	(build_vbase_offset_vtbl_entries): Remove old-abi code.
+	* cvt.c: Adjust comments.
+	* decl.c: Adjust comments.
+	* decl2.c: Adjust comments.
+	* init.c: Adjust comments.
+	(construct_virtual_bases): Remove old-abi code.
+	* lang-specs.h: Remove -fno-new-abi.
+	* mangle.c: Adjust comments.
+	* rtti.c: Adjust comments.
+	(get_base_offset): Remove old-abi-code.
+	* search.c: Adjust comments.
+	(dfs_init_vbase_pointers): Remove.
+	(dfs_vtable_path_unmark): Remove.
+	(init_vbase_pointers): Remove.
+	* semantics.c: Adjust comments.
+	(emit_associated_thunks): Remove old-abi code.
+	* typeck.c: Adjust comments.
+
+2001-07-20  Daniel Berlin  <dan@cgsoftware.com>
+
+	* Make-lang.in (cp/optimize.o): Depend on $(PARAMS_H), not
+	params.h.
+
 2001-07-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (finish_struct_anon): Forbid nested classes.
@@ -25,7 +344,7 @@
 	* pt.c (instantiate_class_template): Don't set
 	TYPE_VEC_DELETE_TAKES_SIZE.
 	* NEWS: Document ABI changes from GCC 3.0.
-	
+
 2001-07-18  Xavier Delacour <xavier@fmaudio.net>,
             Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 

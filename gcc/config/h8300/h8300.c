@@ -56,6 +56,8 @@ static const char *cond_string PARAMS ((enum rtx_code));
 static int h8300_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
 static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void h8300_asm_named_section PARAMS ((const char *, unsigned int,
+					     unsigned int));
 
 /* CPU_TYPE, says what cpu we're compiling for.  */
 int cpu_type;
@@ -537,7 +539,7 @@ general_operand_src (op, mode)
 }
 
 /* Return true if OP is a valid destination operand for an integer move
-   instruction.  */
+   instruction, excluding those involving pre_modify.  */
 
 int
 general_operand_dst (op, mode)
@@ -547,6 +549,20 @@ general_operand_dst (op, mode)
   if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == PRE_DEC)
     return 1;
   return general_operand (op, mode);
+}
+
+/* Return true if OP is a valid destination operand for an integer move
+   instruction, including those involving pre_modify.  */
+
+int
+general_operand_dst_push (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (push_operand (op, mode))
+    return 1;
+
+  return general_operand_dst (op, mode);
 }
 
 /* Return true if OP is a const valid for a bit clear instruction.  */
@@ -3310,4 +3326,14 @@ h8300_adjust_insn_length (insn, length)
     }
 
   return 0;
+}
+
+static void
+h8300_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags ATTRIBUTE_UNUSED;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  /* ??? Perhaps we should be using default_coff_asm_named_section.  */
+  fprintf (asm_out_file, "\t.section %s\n", name);
 }

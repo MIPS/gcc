@@ -2,144 +2,144 @@
    and global constant/copy propagation for GNU compiler.
    Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* TODO
    - reordering of memory allocation and freeing to be more space efficient
    - do rough calc of how many regs are needed in each block, and a rough
-   calc of how many regs are available in each class and use that to
-   throttle back the code in cases where RTX_COST is minimal.
+     calc of how many regs are available in each class and use that to
+     throttle back the code in cases where RTX_COST is minimal.
    - a store to the same address as a load does not kill the load if the
-   source of the store is also the destination of the load.  Handling this
-   allows more load motion, particularly out of loops.
+     source of the store is also the destination of the load.  Handling this
+     allows more load motion, particularly out of loops.
    - ability to realloc sbitmap vectors would allow one initial computation
-   of reg_set_in_block with only subsequent additions, rather than
-   recomputing it for each pass
+     of reg_set_in_block with only subsequent additions, rather than
+     recomputing it for each pass
 
 */
 
 /* References searched while implementing this.
 
-Compilers Principles, Techniques and Tools
-Aho, Sethi, Ullman
-Addison-Wesley, 1988
+   Compilers Principles, Techniques and Tools
+   Aho, Sethi, Ullman
+   Addison-Wesley, 1988
 
-Global Optimization by Suppression of Partial Redundancies
-E. Morel, C. Renvoise
-communications of the acm, Vol. 22, Num. 2, Feb. 1979
+   Global Optimization by Suppression of Partial Redundancies
+   E. Morel, C. Renvoise
+   communications of the acm, Vol. 22, Num. 2, Feb. 1979
 
-A Portable Machine-Independent Global Optimizer - Design and Measurements
-Frederick Chow
-Stanford Ph.D. thesis, Dec. 1983
+   A Portable Machine-Independent Global Optimizer - Design and Measurements
+   Frederick Chow
+   Stanford Ph.D. thesis, Dec. 1983
 
-A Fast Algorithm for Code Movement Optimization
-D.M. Dhamdhere
-SIGPLAN Notices, Vol. 23, Num. 10, Oct. 1988
+   A Fast Algorithm for Code Movement Optimization
+   D.M. Dhamdhere
+   SIGPLAN Notices, Vol. 23, Num. 10, Oct. 1988
 
-A Solution to a Problem with Morel and Renvoise's
-Global Optimization by Suppression of Partial Redundancies
-K-H Drechsler, M.P. Stadel
-ACM TOPLAS, Vol. 10, Num. 4, Oct. 1988
+   A Solution to a Problem with Morel and Renvoise's
+   Global Optimization by Suppression of Partial Redundancies
+   K-H Drechsler, M.P. Stadel
+   ACM TOPLAS, Vol. 10, Num. 4, Oct. 1988
 
-Practical Adaptation of the Global Optimization
-Algorithm of Morel and Renvoise
-D.M. Dhamdhere
-ACM TOPLAS, Vol. 13, Num. 2. Apr. 1991
+   Practical Adaptation of the Global Optimization
+   Algorithm of Morel and Renvoise
+   D.M. Dhamdhere
+   ACM TOPLAS, Vol. 13, Num. 2. Apr. 1991
 
-Efficiently Computing Static Single Assignment Form and the Control
-Dependence Graph
-R. Cytron, J. Ferrante, B.K. Rosen, M.N. Wegman, and F.K. Zadeck
-ACM TOPLAS, Vol. 13, Num. 4, Oct. 1991
+   Efficiently Computing Static Single Assignment Form and the Control
+   Dependence Graph
+   R. Cytron, J. Ferrante, B.K. Rosen, M.N. Wegman, and F.K. Zadeck
+   ACM TOPLAS, Vol. 13, Num. 4, Oct. 1991
 
-Lazy Code Motion
-J. Knoop, O. Ruthing, B. Steffen
-ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
+   Lazy Code Motion
+   J. Knoop, O. Ruthing, B. Steffen
+   ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
 
-What's In a Region?  Or Computing Control Dependence Regions in Near-Linear
-Time for Reducible Flow Control
-Thomas Ball
-ACM Letters on Programming Languages and Systems,
-Vol. 2, Num. 1-4, Mar-Dec 1993
+   What's In a Region?  Or Computing Control Dependence Regions in Near-Linear
+   Time for Reducible Flow Control
+   Thomas Ball
+   ACM Letters on Programming Languages and Systems,
+   Vol. 2, Num. 1-4, Mar-Dec 1993
 
-An Efficient Representation for Sparse Sets
-Preston Briggs, Linda Torczon
-ACM Letters on Programming Languages and Systems,
-Vol. 2, Num. 1-4, Mar-Dec 1993
+   An Efficient Representation for Sparse Sets
+   Preston Briggs, Linda Torczon
+   ACM Letters on Programming Languages and Systems,
+   Vol. 2, Num. 1-4, Mar-Dec 1993
 
-A Variation of Knoop, Ruthing, and Steffen's Lazy Code Motion
-K-H Drechsler, M.P. Stadel
-ACM SIGPLAN Notices, Vol. 28, Num. 5, May 1993
+   A Variation of Knoop, Ruthing, and Steffen's Lazy Code Motion
+   K-H Drechsler, M.P. Stadel
+   ACM SIGPLAN Notices, Vol. 28, Num. 5, May 1993
 
-Partial Dead Code Elimination
-J. Knoop, O. Ruthing, B. Steffen
-ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+   Partial Dead Code Elimination
+   J. Knoop, O. Ruthing, B. Steffen
+   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-Effective Partial Redundancy Elimination
-P. Briggs, K.D. Cooper
-ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+   Effective Partial Redundancy Elimination
+   P. Briggs, K.D. Cooper
+   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-The Program Structure Tree: Computing Control Regions in Linear Time
-R. Johnson, D. Pearson, K. Pingali
-ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+   The Program Structure Tree: Computing Control Regions in Linear Time
+   R. Johnson, D. Pearson, K. Pingali
+   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-Optimal Code Motion: Theory and Practice
-J. Knoop, O. Ruthing, B. Steffen
-ACM TOPLAS, Vol. 16, Num. 4, Jul. 1994
+   Optimal Code Motion: Theory and Practice
+   J. Knoop, O. Ruthing, B. Steffen
+   ACM TOPLAS, Vol. 16, Num. 4, Jul. 1994
 
-The power of assignment motion
-J. Knoop, O. Ruthing, B. Steffen
-ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
+   The power of assignment motion
+   J. Knoop, O. Ruthing, B. Steffen
+   ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
 
-Global code motion / global value numbering
-C. Click
-ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
+   Global code motion / global value numbering
+   C. Click
+   ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
 
-Value Driven Redundancy Elimination
-L.T. Simpson
-Rice University Ph.D. thesis, Apr. 1996
+   Value Driven Redundancy Elimination
+   L.T. Simpson
+   Rice University Ph.D. thesis, Apr. 1996
 
-Value Numbering
-L.T. Simpson
-Massively Scalar Compiler Project, Rice University, Sep. 1996
+   Value Numbering
+   L.T. Simpson
+   Massively Scalar Compiler Project, Rice University, Sep. 1996
 
-High Performance Compilers for Parallel Computing
-Michael Wolfe
-Addison-Wesley, 1996
+   High Performance Compilers for Parallel Computing
+   Michael Wolfe
+   Addison-Wesley, 1996
 
-Advanced Compiler Design and Implementation
-Steven Muchnick
-Morgan Kaufmann, 1997
+   Advanced Compiler Design and Implementation
+   Steven Muchnick
+   Morgan Kaufmann, 1997
 
-Building an Optimizing Compiler
-Robert Morgan
-Digital Press, 1998
+   Building an Optimizing Compiler
+   Robert Morgan
+   Digital Press, 1998
 
-People wishing to speed up the code here should read:
-Elimination Algorithms for Data Flow Analysis
-B.G. Ryder, M.C. Paull
-ACM Computing Surveys, Vol. 18, Num. 3, Sep. 1986
+   People wishing to speed up the code here should read:
+     Elimination Algorithms for Data Flow Analysis
+     B.G. Ryder, M.C. Paull
+     ACM Computing Surveys, Vol. 18, Num. 3, Sep. 1986
 
-How to Analyze Large Programs Efficiently and Informatively
-D.M. Dhamdhere, B.K. Rosen, F.K. Zadeck
-ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
+     How to Analyze Large Programs Efficiently and Informatively
+     D.M. Dhamdhere, B.K. Rosen, F.K. Zadeck
+     ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
 
-People wishing to do something different can find various possibilities
-in the above papers and elsewhere.
+   People wishing to do something different can find various possibilities
+   in the above papers and elsewhere.
 */
 
 #include "config.h"
@@ -242,10 +242,10 @@ in the above papers and elsewhere.
    3) Delete the redundant instructions
 
    4) Insert the required copies [if any] that make the partially
-   redundant instructions fully redundant.
+      redundant instructions fully redundant.
 
    5) For other reaching expressions, insert an instruction to copy the value
-   to a newly created pseudo that will reach the redundant instruction.
+      to a newly created pseudo that will reach the redundant instruction.
 
    The deletion is done first so that when we do insertions we
    know which pseudo reg to use.
@@ -279,9 +279,9 @@ in the above papers and elsewhere.
 /* Note whether or not we should run jump optimization after gcse.  We
    want to do this for two cases.
 
-   * If we changed any jumps via cprop.
+    * If we changed any jumps via cprop.
 
-   * If we added any labels via edge splitting.  */
+    * If we added any labels via edge splitting.  */
 
 static int run_jump_opt_after_gcse;
 
@@ -302,6 +302,10 @@ static char can_copy_p[(int) NUM_MACHINE_MODES];
 
 /* Non-zero if can_copy_p has been initialized.  */
 static int can_copy_init_p;
+
+/* Dataflow analyzer  */
+struct df *df_analyzer;
+
 
 struct reg_use {rtx reg_rtx; };
 
@@ -410,26 +414,26 @@ static int n_sets;
 
 /* Table of registers that are modified.
 
-For each register, each element is a list of places where the pseudo-reg
-is set.
+   For each register, each element is a list of places where the pseudo-reg
+   is set.
 
-For simplicity, GCSE is done on sets of pseudo-regs only.  PRE GCSE only
-requires knowledge of which blocks kill which regs [and thus could use
-a bitmap instead of the lists `reg_set_table' uses].
+   For simplicity, GCSE is done on sets of pseudo-regs only.  PRE GCSE only
+   requires knowledge of which blocks kill which regs [and thus could use
+   a bitmap instead of the lists `reg_set_table' uses].
 
-`reg_set_table' and could be turned into an array of bitmaps (num-bbs x
-num-regs) [however perhaps it may be useful to keep the data as is].  One
-advantage of recording things this way is that `reg_set_table' is fairly
-sparse with respect to pseudo regs but for hard regs could be fairly dense
-[relatively speaking].  And recording sets of pseudo-regs in lists speeds
-up functions like compute_transp since in the case of pseudo-regs we only
-need to iterate over the number of times a pseudo-reg is set, not over the
-number of basic blocks [clearly there is a bit of a slow down in the cases
-where a pseudo is set more than once in a block, however it is believed
-that the net effect is to speed things up].  This isn't done for hard-regs
-because recording call-clobbered hard-regs in `reg_set_table' at each
-function call can consume a fair bit of memory, and iterating over
-hard-regs stored this way in compute_transp will be more expensive.  */
+   `reg_set_table' and could be turned into an array of bitmaps (num-bbs x
+   num-regs) [however perhaps it may be useful to keep the data as is].  One
+   advantage of recording things this way is that `reg_set_table' is fairly
+   sparse with respect to pseudo regs but for hard regs could be fairly dense
+   [relatively speaking].  And recording sets of pseudo-regs in lists speeds
+   up functions like compute_transp since in the case of pseudo-regs we only
+   need to iterate over the number of times a pseudo-reg is set, not over the
+   number of basic blocks [clearly there is a bit of a slow down in the cases
+   where a pseudo is set more than once in a block, however it is believed
+   that the net effect is to speed things up].  This isn't done for hard-regs
+   because recording call-clobbered hard-regs in `reg_set_table' at each
+   function call can consume a fair bit of memory, and iterating over
+   hard-regs stored this way in compute_transp will be more expensive.  */
 
 typedef struct reg_set
 {
@@ -603,14 +607,14 @@ static void compute_cprop_data	PARAMS ((void));
 static void find_used_regs	PARAMS ((rtx *, void *));
 static int try_replace_reg	PARAMS ((rtx, rtx, rtx));
 static struct expr *find_avail_set PARAMS ((int, rtx));
-static int cprop_jump		PARAMS ((rtx, rtx, rtx));
+static int cprop_jump		PARAMS ((basic_block, rtx, rtx, rtx));
 #ifdef HAVE_cc0
-static int cprop_cc0_jump	PARAMS ((rtx, struct reg_use *, rtx));
+static int cprop_cc0_jump	PARAMS ((basic_block, rtx, struct reg_use *, rtx));
 #endif
 static void mems_conflict_for_gcse_p PARAMS ((rtx, rtx, void *));
 static int load_killed_in_block_p    PARAMS ((basic_block, int, rtx, int));
 static void canon_list_insert        PARAMS ((rtx, rtx, void *));
-static int cprop_insn		PARAMS ((rtx, int));
+static int cprop_insn		PARAMS ((basic_block, rtx, int));
 static int cprop		PARAMS ((int));
 static int one_cprop_pass	PARAMS ((int, int));
 static void alloc_pre_mem	PARAMS ((int, int));
@@ -899,10 +903,8 @@ gcse_main (f)
   /* We are finished with alias.  */
   end_alias_analysis ();
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
-#if 0
   if (!optimize_size && flag_gcse_sm)
     store_motion ();
-#endif
   /* Record where pseudo-registers are set.  */
   return run_jump_opt_after_gcse;
 }
@@ -1461,7 +1463,6 @@ mems_conflict_for_gcse_p (dest, setter, data)
      elsewhere.  */
   if (GET_CODE (dest) != MEM)
     return;
-
   /* If we are setting a MEM in our list of specially recognized MEMs,
      don't mark as killed this time.  */ 
   
@@ -1471,7 +1472,6 @@ mems_conflict_for_gcse_p (dest, setter, data)
 	gcse_mems_conflict_p = 1;
       return;
     }
-
   if (true_dependence (dest, GET_MODE (dest), gcse_mem_operand,
 		       rtx_addr_varies_p))
     gcse_mems_conflict_p = 1;
@@ -1749,6 +1749,7 @@ hash_expr_1 (x, mode, do_not_record_p)
 	hash += hash_string_1 (XSTR (x, i));
       else if (fmt[i] == 'i')
 	hash += (unsigned int) XINT (x, i);
+      else if (fmt[i] == 't');
       else
 	abort ();
     }
@@ -1907,8 +1908,9 @@ expr_equiv_p (x, y)
 	break;
 
 	case '0':
+	case 't':
 	  break;
-
+	
 	default:
 	  abort ();
 	}
@@ -2509,7 +2511,7 @@ compute_hash_table (set_p)
 		if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 		  record_last_reg_set_info (insn, regno);
 
-	      if (! CONST_CALL_P (insn))
+	      if (! CONST_OR_PURE_CALL_P (insn))
 		record_last_mem_set_info (insn);
 	    }
 
@@ -2789,7 +2791,7 @@ static void
 mark_call (insn)
      rtx insn;
 {
-  if (! CONST_CALL_P (insn))
+  if (! CONST_OR_PURE_CALL_P (insn))
     record_last_mem_set_info (insn);
 }
 
@@ -4010,10 +4012,11 @@ find_avail_set (regno, insn)
    nonzero if a change was made.  We know INSN has just a SET.  */
 
 static int
-cprop_jump (insn, from, src)
+cprop_jump (bb, insn, from, src)
      rtx insn;
      rtx from;
      rtx src;
+     basic_block bb;
 {
   rtx set = PATTERN (insn);
   rtx new = simplify_replace_rtx (SET_SRC (set), from, src);
@@ -4054,6 +4057,7 @@ cprop_jump (insn, from, src)
       print_rtl (rtl_dump_file, src);
       fprintf (rtl_dump_file, "\n");
     }
+  purge_dead_edges (bb);
 
   return 1;
 }
@@ -4067,7 +4071,8 @@ cprop_jump (insn, from, src)
    Returns nonzero if a change was made.  */
 
 static int
-cprop_cc0_jump (insn, reg_used, src)
+cprop_cc0_jump (bb, insn, reg_used, src)
+     basic_block bb;
      rtx insn;
      struct reg_use *reg_used;
      rtx src;
@@ -4078,7 +4083,7 @@ cprop_cc0_jump (insn, reg_used, src)
   rtx new_src = simplify_replace_rtx (SET_SRC (PATTERN (insn)),
 				      reg_used->reg_rtx, src);
 
-  if (! cprop_jump (jump, cc0_rtx, new_src))
+  if (! cprop_jump (bb, jump, cc0_rtx, new_src))
     return 0;
 
   /* If we succeeded, delete the cc0 setter.  */
@@ -4094,7 +4099,8 @@ cprop_cc0_jump (insn, reg_used, src)
    The result is non-zero if a change was made.  */
 
 static int
-cprop_insn (insn, alter_jumps)
+cprop_insn (bb, insn, alter_jumps)
+     basic_block bb;
      rtx insn;
      int alter_jumps;
 {
@@ -4178,7 +4184,7 @@ cprop_insn (insn, alter_jumps)
 		   && GET_CODE (insn) == JUMP_INSN
 		   && condjump_p (insn)
 		   && ! simplejump_p (insn))
-	    changed |= cprop_jump (insn, reg_used->reg_rtx, src);
+	    changed |= cprop_jump (bb, insn, reg_used->reg_rtx, src);
 
 #ifdef HAVE_cc0
 	  /* Similar code for machines that use a pair of CC0 setter and
@@ -4189,7 +4195,7 @@ cprop_insn (insn, alter_jumps)
 		   && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
 		   && condjump_p (NEXT_INSN (insn))
 		   && ! simplejump_p (NEXT_INSN (insn))
-		   && cprop_cc0_jump (insn, reg_used, src))
+		   && cprop_cc0_jump (bb, insn, reg_used, src))
 	    {
 	      changed = 1;
 	      break;
@@ -4247,7 +4253,7 @@ cprop (alter_jumps)
 	   insn = NEXT_INSN (insn))
 	if (INSN_P (insn))
 	  {
-	    changed |= cprop_insn (insn, alter_jumps);
+	    changed |= cprop_insn (BASIC_BLOCK (bb), insn, alter_jumps);
 
 	    /* Keep track of everything modified by this insn.  */
 	    /* ??? Need to be careful w.r.t. mods done to INSN.  Don't
@@ -4619,10 +4625,6 @@ insert_insn_end_bb (expr, bb, pre)
      of exception handling.  */
   else if (GET_CODE (insn) == CALL_INSN)
     {
-      HARD_REG_SET parm_regs;
-      int nparm_regs;
-      rtx p;
-
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
 	 parameter is loaded.  Do this for everyone for consistency and a
@@ -4640,38 +4642,8 @@ insert_insn_end_bb (expr, bb, pre)
       /* Since different machines initialize their parameter registers
 	 in different orders, assume nothing.  Collect the set of all
 	 parameter registers.  */
-      CLEAR_HARD_REG_SET (parm_regs);
-      nparm_regs = 0;
-      for (p = CALL_INSN_FUNCTION_USAGE (insn); p ; p = XEXP (p, 1))
-	if (GET_CODE (XEXP (p, 0)) == USE
-	    && GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
-	  {
-	    if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
-	      abort ();
+      insn = find_first_parameter_load (insn, bb->head);
 
-	    /* We only care about registers which can hold function
-	       arguments.  */
-	    if (! FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
-	      continue;
-
-	    SET_HARD_REG_BIT (parm_regs, REGNO (XEXP (XEXP (p, 0), 0)));
-	    nparm_regs++;
-	  }
-
-      /* Search backward for the first set of a register in this set.  */
-      while (nparm_regs && bb->head != insn)
-	{
-	  insn = PREV_INSN (insn);
-	  p = single_set (insn);
-	  if (p && GET_CODE (SET_DEST (p)) == REG
-	      && REGNO (SET_DEST (p)) < FIRST_PSEUDO_REGISTER
-	      && TEST_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p))))
-	    {
-	      CLEAR_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p)));
-	      nparm_regs--;
-	    }
-	}
-      
       /* If we found all the parameter loads, then we want to insert
 	 before the first parameter load.
 
@@ -4847,6 +4819,7 @@ pre_insert_copy_insn (expr, insn)
 	     "PRE: bb %d, insn %d, copy expression %d in insn %d to reg %d\n",
 	      BLOCK_NUM (insn), INSN_UID (new_insn), indx,
 	      INSN_UID (insn), regno);
+  update_ld_motion_stores (expr);
 }
 
 /* Copy available expressions that reach the redundant expression
@@ -6043,7 +6016,7 @@ simple_mem (x)
   
   if (GET_MODE (x) == BLKmode)
     return 0;
-  
+  /* See comment in find_moveable_store */
   if (!rtx_addr_varies_p (XEXP (x, 0), 0))
     return 1;
   return 0;
@@ -6127,7 +6100,6 @@ compute_ld_motion_mems ()
 		      /* Make sure there isn't a buried load somewhere.  */
 		      invalidate_any_buried_refs (src);
 		    }
-		  
 		  /* Check for stores. Don't worry about aliased ones, they
 		     will block any movement we might do later. We only care
 		     about this exact pattern since those are the only
@@ -6135,7 +6107,7 @@ compute_ld_motion_mems ()
 		  if (GET_CODE (dest) == MEM && simple_mem (dest))
 		    {
 		      ptr = ldst_entry (dest);
-		      
+
 		      if (GET_CODE (src) != MEM
 			  && GET_CODE (src) != ASM_OPERANDS)
 			ptr->stores = alloc_INSN_LIST (insn, ptr->stores);
@@ -6280,8 +6252,6 @@ static sbitmap * st_antloc;
 /* Global holding the number of store expressions we are dealing with.  */
 static int num_stores;
 
-/* Dataflow analyzer to figure out reg-def chains */
-struct df *df_analyzer;
 
 /* Mark which registers are used by the mem, in the sbitmap used. */
 static int
@@ -6300,7 +6270,7 @@ mark_mem_regs (x, used)
 	  return 1;
 }
       return 0;
-}
+    }
 
   fmt = GET_RTX_FORMAT (GET_CODE (x));
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
@@ -6368,12 +6338,12 @@ store_ops_ok (x, bb,insn, before)
 		}
 	      if (before)
 		{
-		  if (INSN_UID (DF_REF_INSN (currref->ref)) >= INSN_UID (insn))
+		  if (INSN_CUID (DF_REF_INSN (currref->ref)) >= INSN_CUID (insn))
 		    continue;
 		}
 	      else
 		{
-		  if (INSN_UID (DF_REF_INSN (currref->ref)) < INSN_UID (insn))
+		  if (INSN_CUID (DF_REF_INSN (currref->ref)) < INSN_CUID (insn))
 		    continue;
 		}
 	      thereyet = TRUE;
@@ -6383,7 +6353,7 @@ store_ops_ok (x, bb,insn, before)
 	  return 1;
 	}
 
-
+	
     case MEM:
       x = XEXP (x, 0);
       goto repeat;
@@ -6468,13 +6438,11 @@ find_moveable_store (insn)
   if (GET_CODE (dest) != MEM || MEM_VOLATILE_P (dest)
       || GET_MODE (dest) == BLKmode)
       return;
-#if 0
   /* ??? Is this conservative, or just correct? We get more
      *candidates* without it, but i don't think we ever remove any
      stores where the address did vary. */
   if (rtx_addr_varies_p (XEXP (dest, 0), 0))
     return;
-#endif
   ptr = ldst_entry (dest);
   ptr->stores = alloc_INSN_LIST (insn, ptr->stores);
 }
@@ -6499,7 +6467,7 @@ compute_store_table ()
 	   insn && insn != PREV_INSN (BLOCK_HEAD (bb));
 	   insn = PREV_INSN (insn))
 	{
-	/* Ignore anything that is not a normal insn.  */
+	  /* Ignore anything that is not a normal insn.  */
 	  if (!INSN_P (insn))
 	    continue;
 
@@ -6533,19 +6501,36 @@ load_kills_store (x, store_pattern)
   return 0;
 }
 
-/* Go through the entire insn X, looking for any loads which might
-   alias, and therefore, kill, STORE_PATTERN.  Return 1 if found.  */
+/* Go through the entire insn X, looking for any loads which might alias 
+   STORE_PATTERN.  Return 1 if found.  */
 
 static int
 find_loads (x, store_pattern)
-     rtx x, store_pattern;
+	rtx x, store_pattern;
 {
   const char * fmt;
   int i,j;
   int ret = 0;
 
+  if (!x)
+    return 0;
+
   if (GET_CODE (x) == SET) 
-    x = SET_SRC (x);
+    {
+      /* Check for memory stores to aliased objects.  */
+      if (GET_CODE (SET_DEST (x)) == MEM 
+	  && !expr_equiv_p (SET_DEST (x), store_pattern))
+	/* pretend its a load and check for aliasing.  */
+	if (find_loads (SET_DEST (x), store_pattern))
+	  return 1;
+      x = SET_SRC (x);
+    }
+  if (GET_CODE (x) == COMPARE)
+    {
+      return find_loads (XEXP (x, 0), store_pattern) 
+	|| find_loads (XEXP (x, 1), store_pattern);
+    }
+
 
   if (GET_CODE (x) == MEM)
     {
@@ -6555,7 +6540,7 @@ find_loads (x, store_pattern)
 
   /* Recursively process the insn.  */
   fmt = GET_RTX_FORMAT (GET_CODE (x));
-  
+
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0 && !ret; i--)
     {
       if (fmt[i] == 'e')
@@ -6579,7 +6564,8 @@ store_killed_in_insn (x, insn)
   
   if (GET_CODE (insn) == CALL_INSN)
     {
-      if (CONST_CALL_P (insn))
+      if (CONST_OR_PURE_CALL_P (insn)
+          && find_loads (CALL_INSN_FUNCTION_USAGE (insn), x))
 	return 0;
       else
 	return 1;
@@ -6589,17 +6575,16 @@ store_killed_in_insn (x, insn)
     {
       rtx pat = PATTERN (insn);
       /* Check for memory stores to aliased objects.  */
-      if (GET_CODE (SET_DEST (pat)) == MEM && !expr_equiv_p (SET_DEST (pat), x))
-	{
+      if (GET_CODE (SET_DEST (pat)) == MEM 
+	  && !expr_equiv_p (SET_DEST (pat), x))
+	/* pretend its a load and check for aliasing.  */
 	if (find_loads (SET_DEST (pat), x))
 	  return 1;
-	}
       return find_loads (SET_SRC (pat), x);
     }
   else
     return find_loads (PATTERN (insn), x);
 }
-
 /* Returns 1 if the expression X is loaded or clobbered on or after INSN
    within basic block BB.  */
 
@@ -6613,11 +6598,11 @@ store_killed_after (x, insn, bb, testops)
    
    if (insn == last)
      return 0;
-
+   
    if (testops)
      /* Check if the register operands of the store are OK in this block.*/
      if (!store_ops_ok (XEXP (x, 0), bb, insn, 0))
-    return 1;
+       return 1;
 
    for ( ; 
 	 insn && insn != NEXT_INSN (last); 
@@ -6637,11 +6622,11 @@ store_killed_before (x, insn, bb)
 {
    rtx first = bb->head;
 
-   if (insn == first)
-     return store_killed_in_insn (x, insn);
    /* Check if the register operands of the store are OK in this block.*/
    if (!store_ops_ok (XEXP (x, 0), bb, insn, 1))
-    return 1;
+     return 1;
+   if (insn == first)
+     return store_killed_in_insn (x, insn);
 
    for (insn = PREV_INSN (insn) ; 
 	insn && insn != PREV_INSN (first); 
@@ -6676,7 +6661,7 @@ build_store_vectors ()
 
   st_antloc = (sbitmap *) sbitmap_vector_alloc (n_basic_blocks, num_stores);
   sbitmap_vector_zero (st_antloc, n_basic_blocks);
-
+  
   /* Note: In case someone needs something to optimize about store
      motion, here's the next place to look.  We currently test one more
      basic block per store than necessary (at least).  Since we know, at
@@ -6726,7 +6711,7 @@ build_store_vectors ()
 							AVAIL_STORE_LIST (ptr));
 	    }
 	  
-	  if (!store_killed_before (ptr->pattern, insn, bb))
+	  if (!store_killed_before( ptr->pattern, insn, bb))
 	    {
 	      SET_BIT (st_antloc[BLOCK_NUM (insn)], ptr->index);
 	      ANTIC_STORE_LIST (ptr) = alloc_INSN_LIST (insn,
@@ -6776,18 +6761,14 @@ build_store_vectors ()
      store motion. (It's not on the first page of the profile, it
      takes less than a second).
      
-     ??? I'm not sure !TEST_BIT (ae_gen[j], ptr->index) is really the right
-     test.  I have a gut feeling it should be !TEST_BIT (ae_gen[j],
-     ptr->index) && !TEST_BIT (st_antloc[j], ptr->index).  I.E. If we know
-     it's somehow not killed before, or after, it's transparent.
   */
 
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
-    {
+      {
       /* Make sure we don't have a load-only expr, which we never seem
 	 to, but i don't think there's actually a guarantee */
       if (ptr->stores != NULL)
-	{
+	  {
 	  /* First mark the regs used by the mem */
 	  mark_mem_regs (ptr->pattern, used);
 	  /* Now see if it had any regs */
@@ -6808,7 +6789,7 @@ build_store_vectors ()
 						   BASIC_BLOCK (j), FALSE))
 			  {
 			    SET_BIT (ae_kill[j], ptr->index);
-			    if (!TEST_BIT (ae_gen[j], ptr->index) 
+			    if (!TEST_BIT (ae_gen[j], ptr->index)
 				|| !TEST_BIT (st_antloc[j], ptr->index))
 			      RESET_BIT (transp[j], ptr->index);
 			  }
@@ -6875,8 +6856,8 @@ build_store_vectors ()
 		    }
 		}
 	    }  
-	}
     }
+}
   sbitmap_free (tested);
   sbitmap_free (used);
   sbitmap_vector_free (result);
@@ -7071,6 +7052,11 @@ free_store_memory ()
     sbitmap_vector_free (pre_insert_map);
   if (pre_delete_map)
     sbitmap_vector_free (pre_delete_map);
+  if (uid_cuid)
+    free (uid_cuid);
+  if (cuid_insn)
+    free (cuid_insn);
+
   
   ae_gen = ae_kill = transp = st_antloc = NULL;
   pre_insert_map = pre_delete_map = reg_set_in_block = NULL;
@@ -7079,32 +7065,58 @@ free_store_memory ()
 /* Perform store motion. Much like gcse, except we move expressions the
    other way by looking at the flowgraph in reverse.  */
 
-int
+void
 store_motion ()
 {
   int x;
   struct ls_expr * ptr;
   sbitmap trapping_expr;
-  int i;
-
+  int i,n;
+  rtx insn, f;
   int update_flow = 0;
   if (rtl_dump_file)
     {
       fprintf (rtl_dump_file, "before store motion\n");
       print_rtl (rtl_dump_file, get_insns ());
     }
+  
+  /* Find the largest UID and create a mapping from UIDs to CUIDs.
+     CUIDs are like UIDs except they increase monotonically, have no gaps,
+     and only apply to real insns.  */
+  f = get_insns();
+  max_uid = get_max_uid ();
+  n = (max_uid + 1) * sizeof (int);
+  uid_cuid = (int *) gmalloc (n);
+  memset ((char *) uid_cuid, 0, n);
+  for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	uid_cuid[INSN_UID (insn)] = i++;
+      else
+	uid_cuid[INSN_UID (insn)] = i;
+    }
+
+  /* Create a table mapping cuids to insns.  */
+
+  max_cuid = i;
+  n = (max_cuid + 1) * sizeof (rtx);
+  cuid_insn = (rtx *) gmalloc (n);
+  memset ((char *) cuid_insn, 0, n);
+  for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      CUID_INSN (i++) = insn;
 
 
   init_alias_analysis ();
   df_analyzer = df_init();
-  df_analyse (df_analyzer, 0, DF_RD_CHAIN | DF_HARD_REGS);
+  df_analyse (df_analyzer, 0,   DF_RD_CHAIN | DF_HARD_REGS);
   /* Find all the stores that are live to the end of their block.  */
   num_stores = compute_store_table ();
   if (num_stores == 0)
     {
       df_finish (df_analyzer);
       end_alias_analysis ();
-      return 0;
+      return;
     }
 
   /* Now compute whats actually available to move.  */
@@ -7116,8 +7128,8 @@ store_motion ()
   sbitmap_zero (trapping_expr);
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr(ptr))
     {
-      if (may_trap_p (ptr->pattern))
-	SET_BIT (trapping_expr, ptr->index);
+	    if (may_trap_p (ptr->pattern))
+		    SET_BIT (trapping_expr, ptr->index);
     }
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -7135,7 +7147,7 @@ store_motion ()
 	    break;
 	  }
     }
-
+#if 0
   edge_list = pre_edge_rev_lcm (rtl_dump_file, num_stores, transp, ae_gen, 
 				st_antloc, ae_kill, &pre_insert_map, 
 				&pre_delete_map);
@@ -7154,11 +7166,13 @@ store_motion ()
 
   if (update_flow)
     commit_edge_insertions ();
+#endif
   sbitmap_free (trapping_expr);
   free_store_memory ();
+#if 0
   free_edge_list (edge_list);
+#endif
   remove_fake_edges ();
   end_alias_analysis ();
   df_finish (df_analyzer);
-  return 1;
 }

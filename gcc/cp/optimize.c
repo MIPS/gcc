@@ -33,7 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "hashtab.h"
 #include "debug.h"
-
+#include "flags.h"
 /* To Do:
 
    o In order to make inlining-on-trees work, we pessimized
@@ -107,7 +107,7 @@ static void dump_function PARAMS ((enum tree_dump_index, tree));
 /* The approximate number of instructions per statement.  This number
    need not be particularly accurate; it is used only to make
    decisions about when a function is too big to inline.  */
-#define INSNS_PER_STMT (10)
+#define INSNS_PER_STMT (15)
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
@@ -614,6 +614,16 @@ declare_return_variable (id, use_stmt)
   else
     return NULL_TREE;
 }
+/* Default max number of insns a function can have and still be inline.
+   This is overridden on RISC machines.  */
+#ifndef INTEGRATE_THRESHOLD
+/* Inlining small functions might save more space then not inlining at
+   all.  Assume 1 instruction for the call and 1.5 insns per argument.  */
+#define INTEGRATE_THRESHOLD(DECL) \
+  (optimize_size \
+   ? (1 + (3 * list_length (DECL_ARGUMENTS (DECL))) / 2) \
+   : (8 * (8 + list_length (DECL_ARGUMENTS (DECL)))))
+#endif
 
 /* Returns non-zero if FN is a function that can be inlined.  */
 
@@ -623,7 +633,7 @@ inlinable_function_p (fn, id)
      inline_data *id;
 {
   int inlinable;
-
+  int max_insns = ((DECL_INLINE (fn) ) ? (MAX_INLINE_INSNS + (8 * list_length (DECL_ARGUMENTS (fn)))) : INTEGRATE_THRESHOLD (fn));
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
   if (DECL_UNINLINABLE (fn))
@@ -643,7 +653,7 @@ inlinable_function_p (fn, id)
   else if (varargs_function_p (fn))
     ;
   /* We can't inline functions that are too big.  */
-  else if (DECL_NUM_STMTS (fn) * INSNS_PER_STMT > MAX_INLINE_INSNS)
+  else if (DECL_NUM_STMTS (fn) * INSNS_PER_STMT > max_insns * INSNS_PER_STMT)
     ;
   /* All is well.  We can inline this function.  Traditionally, GCC
      has refused to inline functions using alloca, or functions whose
@@ -654,14 +664,14 @@ inlinable_function_p (fn, id)
 
   /* Squirrel away the result so that we don't have to check again.  */
   DECL_UNINLINABLE (fn) = !inlinable;
-
+  
   /* Even if this function is not itself too big to inline, it might
      be that we've done so much inlining already that we don't want to
      risk inlining any more.  */
   if ((DECL_NUM_STMTS (fn) + id->inlined_stmts) * INSNS_PER_STMT 
       > MAX_INLINE_INSNS)
     inlinable = 0;
-
+ 
   /* We can inline a template instantiation only if it's fully
      instantiated.  */
   if (inlinable

@@ -43,8 +43,9 @@ struct if_stack
   struct if_stack *next;
   cpp_lexer_pos pos;		/* line and column where condition started */
   const cpp_hashnode *mi_cmacro;/* macro name for #ifndef around entire file */
-  unsigned char was_skipping;	/* Value of pfile->skipping before this if.  */
-  int type;			/* type of last directive seen in this group */
+  bool skip_elses;		/* Can future #else / #elif be skipped?  */
+  bool was_skipping;		/* If were skipping on entry.  */
+  int type;			/* Most recent conditional, for diagnostics.  */
 };
 
 /* Values for the origin field of struct directive.  KANDR directives
@@ -153,7 +154,7 @@ SCCS_ENTRY						   /* 0 SVR4? */
    instead of void, because some old compilers have trouble with
    pointers to functions returning void.  */
 
-/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail. */
+/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail.  */
 #define D(name, t, o, f) static void CONCAT2(do_,name) PARAMS ((cpp_reader *));
 DIRECTIVE_TABLE
 #undef D
@@ -166,7 +167,7 @@ enum
 };
 #undef D
 
-/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail. */
+/* Don't invoke CONCAT2 with any whitespace or K&R cc will fail.  */
 #define D(name, t, origin, flags) \
 { CONCAT2(do_,name), (const U_CHAR *) STRINGX(name), \
   sizeof STRINGX(name) - 1, origin, flags },
@@ -176,6 +177,8 @@ DIRECTIVE_TABLE
 };
 #undef D
 #undef DIRECTIVE_TABLE
+
+#define SEEN_EOL() (pfile->lexer_pos.output_line > pfile->line)
 
 /* Skip any remaining tokens in a directive.  */
 static void
@@ -193,10 +196,8 @@ skip_rest_of_line (pfile)
     _cpp_pop_context (pfile);
 
   /* Sweep up all tokens remaining on the line.  */
-  pfile->state.prevent_expansion++;
-  while (!pfile->state.next_bol)
+  while (! SEEN_EOL ())
     _cpp_lex_token (pfile, &token);
-  pfile->state.prevent_expansion--;
 }
 
 /* Ensure there are no stray tokens at the end of a directive.  */
@@ -204,7 +205,7 @@ static void
 check_eol (pfile)
      cpp_reader *pfile;
 {
-  if (!pfile->state.next_bol)
+  if (! SEEN_EOL ())
     {
       cpp_token token;
 
@@ -220,22 +221,17 @@ static void
 start_directive (pfile)
      cpp_reader *pfile;
 {
-  cpp_buffer *buffer = pfile->buffer;
-
   /* Setup in-directive state.  */
   pfile->state.in_directive = 1;
   pfile->state.save_comments = 0;
 
   /* Some handlers need the position of the # for diagnostics.  */
   pfile->directive_pos = pfile->lexer_pos;
+  pfile->directive_line = pfile->line;
 
   /* Don't save directive tokens for external clients.  */
   pfile->la_saved = pfile->la_write;
   pfile->la_write = 0;
-
-  /* Turn off skipping.  */
-  buffer->was_skipping = pfile->skipping;
-  pfile->skipping = 0;
 }
 
 /* Called when leaving a directive, _Pragma or command-line directive.  */
@@ -244,15 +240,13 @@ end_directive (pfile, skip_line)
      cpp_reader *pfile;
      int skip_line;
 {
-  cpp_buffer *buffer = pfile->buffer;
-
-  /* Restore pfile->skipping before skip_rest_of_line, so that e.g.
-     __VA_ARGS__ in the rest of the directive doesn't warn.  */
-  pfile->skipping = buffer->was_skipping;
-
   /* We don't skip for an assembler #.  */
   if (skip_line)
-    skip_rest_of_line (pfile);
+    {
+      skip_rest_of_line (pfile);
+      /*  "Accept" the newline now.  */
+      pfile->line++;
+    }
 
   /* Restore state.  */
   pfile->la_write = pfile->la_saved;
@@ -270,7 +264,6 @@ _cpp_handle_directive (pfile, indented)
      cpp_reader *pfile;
      int indented;
 {
-  cpp_buffer *buffer = pfile->buffer;
   const directive *dir = 0;
   cpp_token dname;
   int skip = 1;
@@ -293,7 +286,7 @@ _cpp_handle_directive (pfile, indented)
 	 skipped conditional groups.  Complain about this form if
 	 we're being pedantic, but not if this is regurgitated input
 	 (preprocessed or fed back in by the C++ frontend).  */
-      if (! buffer->was_skipping && CPP_OPTION (pfile, lang) != CLK_ASM)
+      if (! pfile->state.skipping && CPP_OPTION (pfile, lang) != CLK_ASM)
 	{
 	  dir = &dtable[T_LINE];
 	  pfile->state.line_extension = 1;
@@ -361,7 +354,7 @@ _cpp_handle_directive (pfile, indented)
 
 	  /* If we are skipping a failed conditional group, all
 	     non-conditional directives are ignored.  */
-	  if (! buffer->was_skipping || (dir->flags & COND))
+	  if (! pfile->state.skipping || (dir->flags & COND))
 	    {
 	      /* Issue -pedantic warnings for extensions.   */
 	      if (CPP_PEDANTIC (pfile) && dir->origin == EXTENSION)
@@ -370,13 +363,13 @@ _cpp_handle_directive (pfile, indented)
 	      /* If we have a directive that is not an opening
 		 conditional, invalidate any control macro.  */
 	      if (! (dir->flags & IF_COND))
-		pfile->mi_state = MI_FAILED;
+		pfile->mi_valid = false;
 
 	      (*dir->handler) (pfile);
 	    }
 	}
     }
-  else if (dname.type != CPP_EOF && ! buffer->was_skipping)
+  else if (dname.type != CPP_EOF && ! pfile->state.skipping)
     {
       /* An unknown directive.  Don't complain about it in assembly
 	 source: we don't know where the comments are, and # may
@@ -393,7 +386,8 @@ _cpp_handle_directive (pfile, indented)
 		   cpp_token_as_text (pfile, &dname));
     }
 
-  end_directive (pfile, skip);
+  if (pfile->state.in_directive)
+    end_directive (pfile, skip);
   return skip;
 }
 
@@ -407,19 +401,9 @@ run_directive (pfile, dir_no, type, buf, count)
      const char *buf;
      size_t count;
 {
-  unsigned int output_line = pfile->lexer_pos.output_line;
   cpp_buffer *buffer;
 
-  buffer = cpp_push_buffer (pfile, (const U_CHAR *) buf, count, type, 0);
-
-  if (dir_no == T_PRAGMA)
-    {
-      /* A kludge to avoid line markers for _Pragma.  */
-      pfile->lexer_pos.output_line = output_line;
-      /* Avoid interpretation of directives in a _Pragma string.  */
-      pfile->state.next_bol = 0;
-    }
-
+  buffer = cpp_push_buffer (pfile, (const U_CHAR *) buf, count, type, 0, 1);
   start_directive (pfile);
   pfile->state.prevent_expansion++;
   pfile->directive = &dtable[dir_no];
@@ -427,8 +411,7 @@ run_directive (pfile, dir_no, type, buf, count)
   pfile->state.prevent_expansion--;
   check_eol (pfile);
   end_directive (pfile, 1);
-
-  cpp_pop_buffer (pfile);
+  _cpp_pop_buffer (pfile);
 }
 
 /* Checks for validity the macro name in #define, #undef, #ifdef and
@@ -490,7 +473,7 @@ do_define (pfile)
     {
       if (_cpp_create_definition (pfile, node))
 	if (pfile->cb.define)
-	  (*pfile->cb.define) (pfile, node);
+	  (*pfile->cb.define) (pfile, pfile->directive_line, node);
     }
 }
 
@@ -506,7 +489,7 @@ do_undef (pfile)
   if (node && node->type == NT_MACRO)
     {
       if (pfile->cb.undef)
-	(*pfile->cb.undef) (pfile, node);
+	(*pfile->cb.undef) (pfile, pfile->directive_line, node);
 
       if (node->flags & NODE_WARN)
 	cpp_warning (pfile, "undefining \"%s\"", NODE_NAME (node));
@@ -577,10 +560,9 @@ parse_include (pfile, header)
      cpp_reader *pfile;
      cpp_token *header;
 {
-  int is_pragma = pfile->directive == &dtable[T_PRAGMA];
   const unsigned char *dir;
 
-  if (is_pragma)
+  if (pfile->directive == &dtable[T_PRAGMA])
     dir = U"pragma dependency";
   else
     dir = pfile->directive->name;
@@ -604,15 +586,6 @@ parse_include (pfile, header)
       return 1;
     }
 
-  if (!is_pragma)
-    {
-      check_eol (pfile);
-      /* Get out of macro context, if we are.  */
-      skip_rest_of_line (pfile);
-      if (pfile->cb.include)
-	(*pfile->cb.include) (pfile, dir, header);
-    }
-
   return 0;
 }
 
@@ -624,22 +597,33 @@ do_include_common (pfile, type)
 {
   cpp_token header;
 
+  /* For #include_next, if this is the primary source file, warn and
+     use the normal search logic.  */
+  if (type == IT_INCLUDE_NEXT && ! pfile->buffer->prev)
+    {
+      cpp_warning (pfile, "#include_next in primary source file");
+      type = IT_INCLUDE;
+    }
+  else if (type == IT_IMPORT && CPP_OPTION (pfile, warn_import))
+    {
+      CPP_OPTION (pfile, warn_import) = 0;
+      cpp_warning (pfile,
+	   "#import is obsolete, use an #ifndef wrapper in the header file");
+    }
+
   if (!parse_include (pfile, &header))
     {
       /* Prevent #include recursion.  */
       if (pfile->buffer_stack_depth >= CPP_STACK_MAX)
 	cpp_fatal (pfile, "#include nested too deeply");
-      else if (pfile->context->prev)
-	cpp_ice (pfile, "attempt to push file buffer with contexts stacked");
       else
 	{
-	  /* For #include_next, if this is the primary source file,
-	     warn and use the normal search logic.  */
-	  if (type == IT_INCLUDE_NEXT && ! pfile->buffer->prev)
-	    {
-	      cpp_warning (pfile, "#include_next in primary source file");
-	      type = IT_INCLUDE;
-	    }
+	  check_eol (pfile);
+	  /* Get out of macro context, if we are.  */
+	  end_directive (pfile, 1);
+	  if (pfile->cb.include)
+	    (*pfile->cb.include) (pfile, pfile->directive_line,
+				  pfile->directive->name, &header);
 
 	  _cpp_execute_include (pfile, &header, type);
 	}
@@ -657,13 +641,6 @@ static void
 do_import (pfile)
      cpp_reader *pfile;
 {
-  if (!pfile->import_warning && CPP_OPTION (pfile, warn_import))
-    {
-      pfile->import_warning = 1;
-      cpp_warning (pfile,
-	   "#import is obsolete, use an #ifndef wrapper in the header file");
-    }
-
   do_include_common (pfile, IT_IMPORT);
 }
 
@@ -734,9 +711,7 @@ do_line (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = pfile->buffer;
-  const char *filename = buffer->nominal_fname;
-  unsigned int lineno = buffer->lineno;
-  enum cpp_fc_reason reason = FC_RENAME;
+  enum lc_reason reason = LC_RENAME;
   unsigned long new_lineno;
   unsigned int cap;
   cpp_token token;
@@ -754,30 +729,31 @@ do_line (pfile)
       return;
     }      
 
-  if (CPP_PEDANTIC (pfile) && (new_lineno == 0 || new_lineno > cap))
+  if (CPP_PEDANTIC (pfile) && ! pfile->state.line_extension
+      && (new_lineno == 0 || new_lineno > cap))
     cpp_pedwarn (pfile, "line number out of range");
 
   cpp_get_token (pfile, &token);
   if (token.type == CPP_STRING)
     {
-      const char *fname = (const char *) token.val.str.text;
+      buffer->nominal_fname = (const char *) token.val.str.text;
 
       /* Only accept flags for the # 55 form.  */
-      if (! pfile->state.line_extension)
-	check_eol (pfile);
-      else
+      if (pfile->state.line_extension)
 	{
 	  int flag = 0, sysp = 0;
 
 	  flag = read_flag (pfile, flag);
 	  if (flag == 1)
 	    {
-	      reason = FC_ENTER;
+	      reason = LC_ENTER;
+	      /* Fake an include for cpp_included ().  */
+	      _cpp_fake_include (pfile, buffer->nominal_fname);
 	      flag = read_flag (pfile, flag);
 	    }
 	  else if (flag == 2)
 	    {
-	      reason = FC_LEAVE;
+	      reason = LC_LEAVE;
 	      flag = read_flag (pfile, flag);
 	    }
 	  if (flag == 3)
@@ -785,42 +761,11 @@ do_line (pfile)
 	      sysp = 1;
 	      flag = read_flag (pfile, flag);
 	      if (flag == 4)
-		sysp = 2, read_flag (pfile, flag);
-	    }
-
-	  if (reason == FC_ENTER)
-	    {
-	      /* Fake a buffer stack for diagnostics.  */
-	      cpp_push_buffer (pfile, 0, 0, BUF_FAKE, fname);
-	      /* Fake an include for cpp_included.  */
-	      _cpp_fake_include (pfile, fname);
-	      buffer = pfile->buffer;
-	    }
-	  else if (reason == FC_LEAVE)
-	    {
-	      if (buffer->type != BUF_FAKE)
-		cpp_warning (pfile, "file \"%s\" left but not entered",
-			     buffer->nominal_fname);
-	      else
-		{
-		  cpp_pop_buffer (pfile);
-		  buffer = pfile->buffer;
-#ifdef ENABLE_CHECKING
-		  if (strcmp (buffer->nominal_fname, fname))
-		    cpp_warning (pfile, "expected to return to file \"%s\"",
-				 buffer->nominal_fname);
-		  if (buffer->lineno + 1 != new_lineno)
-		    cpp_warning (pfile, "expected to return to line number %u",
-				 buffer->lineno + 1);
-		  if (buffer->sysp != sysp)
-		    cpp_warning (pfile, "header flags for \"%s\" have changed",
-				 buffer->nominal_fname);
-#endif
-		}
+		sysp = 2;
 	    }
 	  buffer->sysp = sysp;
 	}
-      buffer->nominal_fname = fname;
+      check_eol (pfile);
     }
   else if (token.type != CPP_EOF)
     {
@@ -829,49 +774,34 @@ do_line (pfile)
       return;
     }
 
-  /* Our line number is incremented after the directive is processed.  */
-  buffer->lineno = new_lineno - 1;
-  _cpp_do_file_change (pfile, reason, filename, lineno);
+  end_directive (pfile, 1);
+  _cpp_do_file_change (pfile, reason, new_lineno);
 }
 
-/* Arrange the file_change callback.  */
+/* Arrange the file_change callback.  pfile->line has changed to
+   FILE_LINE of the current buffer, for reason REASON.  */
 void
-_cpp_do_file_change (pfile, reason, from_file, from_lineno)
+_cpp_do_file_change (pfile, reason, file_line)
      cpp_reader *pfile;
-     enum cpp_fc_reason reason;
-     const char *from_file;
-     unsigned int from_lineno;
+     enum lc_reason reason;
+     unsigned int file_line;
 {
+  cpp_buffer *buffer = pfile->buffer;
+  
+  pfile->map = add_line_map (&pfile->line_maps, reason,
+			     pfile->line, buffer->nominal_fname, file_line);
+
   if (pfile->cb.file_change)
     {
       cpp_file_change fc;
-      cpp_buffer *buffer = pfile->buffer;
-
+      
+      fc.map = pfile->map;
+      fc.line = pfile->line;
       fc.reason = reason;
-      fc.to.filename = buffer->nominal_fname;
-      fc.to.lineno = buffer->lineno + 1;
       fc.sysp = buffer->sysp;
       fc.externc = CPP_OPTION (pfile, cplusplus) && buffer->sysp == 2;
 
-      /* Caller doesn't need to handle FC_ENTER.  */
-      if (reason == FC_ENTER)
-	{
-	  if (buffer->prev)
-	    {
-	      from_file = buffer->prev->nominal_fname;
-	      from_lineno = buffer->prev->lineno;
-	    }
-	  else
-	    from_file = 0;
-	}
-      /* Special case for file "foo.i" with "# 1 foo.c" on first line.  */
-      else if (reason == FC_RENAME && ! buffer->prev
-	       && pfile->directive_pos.line == 1)
-	from_file = 0;
-
-      fc.from.filename = from_file;
-      fc.from.lineno = from_lineno;
-      pfile->cb.file_change (pfile, &fc);
+      (*pfile->cb.file_change) (pfile, &fc);
     }
 }
 
@@ -923,7 +853,7 @@ do_ident (pfile)
   if (str.type != CPP_STRING)
     cpp_error (pfile, "invalid #ident");
   else if (pfile->cb.ident)
-    (*pfile->cb.ident) (pfile, &str.val.str);
+    (*pfile->cb.ident) (pfile, pfile->directive_line, &str.val.str);
 
   check_eol (pfile);
 }
@@ -935,7 +865,8 @@ do_ident (pfile)
    This implementation never macro-expands the text after #pragma.  */
 
 /* Sub-handlers for the pragmas needing treatment here.
-   They return 1 if the token buffer is to be popped, 0 if not. */
+   They return 1 if the token buffer is to be popped, 0 if not.  */
+typedef void (*pragma_cb) PARAMS ((cpp_reader *));
 struct pragma_entry
 {
   struct pragma_entry *next;
@@ -943,7 +874,7 @@ struct pragma_entry
   size_t len;
   int isnspace;
   union {
-    void (*handler) PARAMS ((cpp_reader *));
+    pragma_cb handler;
     struct pragma_entry *space;
   } u;
 };
@@ -953,7 +884,7 @@ cpp_register_pragma (pfile, space, name, handler)
      cpp_reader *pfile;
      const char *space;
      const char *name;
-     void (*handler) PARAMS ((cpp_reader *));
+     pragma_cb handler;
 {
   struct pragma_entry **x, *new;
   size_t len;
@@ -1035,9 +966,9 @@ static void
 do_pragma (pfile)
      cpp_reader *pfile;
 {
+  pragma_cb handler = NULL;
   const struct pragma_entry *p;
   cpp_token tok;
-  int drop = 0;
 
   p = pfile->pragmas;
   pfile->state.prevent_expansion++;
@@ -1062,8 +993,7 @@ do_pragma (pfile)
 		}
 	      else
 		{
-		  (*p->u.handler) (pfile);
-		  drop = 1;
+		  handler = p->u.handler;
 		  break;
 		}
 	    }
@@ -1071,11 +1001,13 @@ do_pragma (pfile)
 	}
     }
 
-  cpp_stop_lookahead (pfile, drop);
+  cpp_stop_lookahead (pfile, handler != NULL);
   pfile->state.prevent_expansion--;
 
-  if (!drop && pfile->cb.def_pragma)
-    (*pfile->cb.def_pragma) (pfile);
+  if (handler)
+    (*handler) (pfile);
+  else if (pfile->cb.def_pragma)
+    (*pfile->cb.def_pragma) (pfile, pfile->directive_line);
 }
 
 static void
@@ -1123,11 +1055,6 @@ do_pragma_poison (pfile)
       hp->flags |= NODE_POISONED | NODE_DIAGNOSTIC;
     }
   pfile->state.poisoned_ok = 0;
-
-#if 0				/* Doesn't quite work yet.  */
-  if (tok.type == CPP_EOF && pfile->cb.poison)
-    (*pfile->cb.poison) (pfile);
-#endif
 }
 
 /* Mark the current header as a system header.  This will suppress
@@ -1145,9 +1072,11 @@ do_pragma_system_header (pfile)
   if (buffer->prev == 0)
     cpp_warning (pfile, "#pragma system_header ignored outside include file");
   else
-    cpp_make_system_header (pfile, 1, 0);
-
-  check_eol (pfile);
+    {
+      check_eol (pfile);
+      end_directive (pfile, 1);
+      cpp_make_system_header (pfile, 1, 0);
+    }
 }
 
 /* Check the modified date of the current include file against a specified
@@ -1229,16 +1158,19 @@ _cpp_do__Pragma (pfile)
   cpp_token string;
   unsigned char *buffer;
   unsigned int len;
+  cpp_lexer_pos orig_pos;
 
+  orig_pos = pfile->lexer_pos;
   if (get__Pragma_string (pfile, &string))
+    cpp_error (pfile, "_Pragma takes a parenthesized string literal");
+  else
     {
-      cpp_error (pfile, "_Pragma takes a parenthesized string literal");
-      return;
+      buffer = destringize (&string.val.str, &len);
+      run_directive (pfile, T_PRAGMA, BUF_PRAGMA, (char *) buffer, len);
+      free ((PTR) buffer);
+      pfile->lexer_pos = orig_pos;
+      pfile->line = pfile->lexer_pos.line;
     }
-
-  buffer = destringize (&string.val.str, &len);
-  run_directive (pfile, T_PRAGMA, BUF_PRAGMA, (char *) buffer, len);
-  free ((PTR) buffer);
 }
 
 /* Just ignore #sccs, on systems where we define it at all.  */
@@ -1256,7 +1188,7 @@ do_ifdef (pfile)
 {
   int skip = 1;
 
-  if (! pfile->buffer->was_skipping)
+  if (! pfile->state.skipping)
     {
       const cpp_hashnode *node = lex_macro_node (pfile);
 
@@ -1277,7 +1209,7 @@ do_ifndef (pfile)
   int skip = 1;
   const cpp_hashnode *node = 0;
 
-  if (! pfile->buffer->was_skipping)
+  if (! pfile->state.skipping)
     {
       node = lex_macro_node (pfile);
       if (node)
@@ -1290,27 +1222,22 @@ do_ifndef (pfile)
   push_conditional (pfile, skip, T_IFNDEF, node);
 }
 
-/* #if cooperates with parse_defined to handle multiple-include
-   optimisations.  If macro expansions or identifiers appear in the
-   expression, we cannot treat it as a controlling conditional, since
-   their values could change in the future.  */
+/* _cpp_parse_expr puts a macro in a "#if !defined ()" expression in
+   pfile->mi_ind_cmacro so we can handle multiple-include
+   optimisations.  If macro expansion occurs in the expression, we
+   cannot treat it as a controlling conditional, since the expansion
+   could change in the future.  That is handled by cpp_get_token.  */
 
 static void
 do_if (pfile)
      cpp_reader *pfile;
 {
   int skip = 1;
-  const cpp_hashnode *cmacro = 0;
 
-  if (! pfile->buffer->was_skipping)
-    {
-      /* Controlling macro of #if ! defined ()  */
-      pfile->mi_ind_cmacro = 0;
-      skip = _cpp_parse_expr (pfile) == 0;
-      cmacro = pfile->mi_ind_cmacro;
-    }
+  if (! pfile->state.skipping)
+    skip = _cpp_parse_expr (pfile) == 0;
 
-  push_conditional (pfile, skip, T_IF, cmacro);
+  push_conditional (pfile, skip, T_IF, pfile->mi_ind_cmacro);
 }
 
 /* Flip skipping state if appropriate and continue without changing
@@ -1336,16 +1263,17 @@ do_else (pfile)
 	}
       ifs->type = T_ELSE;
 
-      /* Buffer->was_skipping is 1 if all conditionals in this chain
-	 have been false, 2 if a conditional has been true.  */
-      if (! ifs->was_skipping && buffer->was_skipping != 2)
-	buffer->was_skipping = ! buffer->was_skipping;
+      /* Skip any future (erroneous) #elses or #elifs.  */
+      pfile->state.skipping = ifs->skip_elses;
+      ifs->skip_elses = true;
 
       /* Invalidate any controlling macro.  */
       ifs->mi_cmacro = 0;
-    }
 
-  check_eol (pfile);
+      /* Only check EOL if was not originally skipping.  */
+      if (!ifs->was_skipping)
+	check_eol (pfile);
+    }
 }
 
 /* handle a #elif directive by not changing if_stack either.  see the
@@ -1370,23 +1298,23 @@ do_elif (pfile)
 	}
       ifs->type = T_ELIF;
 
-      /* Don't evaluate #elif if our higher level is skipping.  */
-      if (! ifs->was_skipping)
+      /* Only evaluate this if we aren't skipping elses.  During
+	 evaluation, set skipping to false to get lexer warnings.  */
+      if (ifs->skip_elses)
+	pfile->state.skipping = 1;
+      else
 	{
-	  /* Buffer->was_skipping is 1 if all conditionals in this
-	     chain have been false, 2 if a conditional has been true.  */
-	  if (buffer->was_skipping == 1)
-	    buffer->was_skipping = ! _cpp_parse_expr (pfile);
-	  else
-	    buffer->was_skipping = 2;
-
-	  /* Invalidate any controlling macro.  */
-	  ifs->mi_cmacro = 0;
+	  pfile->state.skipping = 0;
+	  pfile->state.skipping = ! _cpp_parse_expr (pfile);
+	  ifs->skip_elses = ! pfile->state.skipping;
 	}
+
+      /* Invalidate any controlling macro.  */
+      ifs->mi_cmacro = 0;
     }
 }
 
-/* #endif pops the if stack and resets pfile->skipping.  */
+/* #endif pops the if stack and resets pfile->state.skipping.  */
 
 static void
 do_endif (pfile)
@@ -1399,24 +1327,26 @@ do_endif (pfile)
     cpp_error (pfile, "#endif without #if");
   else
     {
+      /* Only check EOL if was not originally skipping.  */
+      if (!ifs->was_skipping)
+	check_eol (pfile);
+
       /* If potential control macro, we go back outside again.  */
       if (ifs->next == 0 && ifs->mi_cmacro)
 	{
-	  pfile->mi_state = MI_OUTSIDE;
+	  pfile->mi_valid = true;
 	  pfile->mi_cmacro = ifs->mi_cmacro;
 	}
 
       buffer->if_stack = ifs->next;
-      buffer->was_skipping = ifs->was_skipping;
+      pfile->state.skipping = ifs->was_skipping;
       obstack_free (&pfile->buffer_ob, ifs);
     }
-
-  check_eol (pfile);
 }
 
-/* Push an if_stack entry and set pfile->skipping accordingly.
-   If this is a #ifndef starting at the beginning of a file,
-   CMACRO is the macro name tested by the #ifndef.  */
+/* Push an if_stack entry and set pfile->state.skipping accordingly.
+   If this is a #if or #ifndef, CMACRO is a potentially controlling
+   macro - we need to check here that we are at the top of the file.  */
 
 static void
 push_conditional (pfile, skip, type, cmacro)
@@ -1431,14 +1361,16 @@ push_conditional (pfile, skip, type, cmacro)
   ifs = xobnew (&pfile->buffer_ob, struct if_stack);
   ifs->pos = pfile->directive_pos;
   ifs->next = buffer->if_stack;
-  ifs->was_skipping = buffer->was_skipping;
+  ifs->skip_elses = pfile->state.skipping || !skip;
+  ifs->was_skipping = pfile->state.skipping;
   ifs->type = type;
-  if (pfile->mi_state == MI_OUTSIDE && pfile->mi_cmacro == 0)
+  /* This condition is effectively a test for top-of-file.  */
+  if (pfile->mi_valid && pfile->mi_cmacro == 0)
     ifs->mi_cmacro = cmacro;
   else
     ifs->mi_cmacro = 0;
 
-  buffer->was_skipping = skip;
+  pfile->state.skipping = skip;
   buffer->if_stack = ifs;
 }
 
@@ -1673,7 +1605,7 @@ do_unassert (pfile)
 /* Process the string STR as if it appeared as the body of a #define.
    If STR is just an identifier, define it with value 1.
    If STR has anything after the identifier, then it should
-   be identifier=definition. */
+   be identifier=definition.  */
 
 void
 cpp_define (pfile, str)
@@ -1722,7 +1654,7 @@ cpp_undef (pfile, macro)
   run_directive (pfile, T_UNDEF, BUF_CL_OPTION, macro, strlen (macro));
 }
 
-/* Process the string STR as if it appeared as the body of a #assert. */
+/* Process the string STR as if it appeared as the body of a #assert.  */
 void
 cpp_assert (pfile, str)
      cpp_reader *pfile;
@@ -1731,7 +1663,7 @@ cpp_assert (pfile, str)
   handle_assertion (pfile, str, T_ASSERT);
 }
 
-/* Process STR as if it appeared as the body of an #unassert. */
+/* Process STR as if it appeared as the body of an #unassert.  */
 void
 cpp_unassert (pfile, str)
      cpp_reader *pfile;
@@ -1789,6 +1721,14 @@ cpp_get_callbacks (pfile)
   return &pfile->cb;
 }
 
+/* The line map set.  */
+struct line_maps *
+cpp_get_line_maps (pfile)
+     cpp_reader *pfile;
+{
+  return &pfile->line_maps;
+}
+
 /* Copy the given callbacks structure to our own.  */
 void
 cpp_set_callbacks (pfile, cb)
@@ -1802,47 +1742,37 @@ cpp_set_callbacks (pfile, cb)
    doesn't fail.  It does not generate a file change call back; that
    is the responsibility of the caller.  */
 cpp_buffer *
-cpp_push_buffer (pfile, buffer, len, type, filename)
+cpp_push_buffer (pfile, buffer, len, type, filename, return_at_eof)
      cpp_reader *pfile;
      const U_CHAR *buffer;
      size_t len;
      enum cpp_buffer_type type;
      const char *filename;
+     int return_at_eof;
 {
   cpp_buffer *new = xobnew (&pfile->buffer_ob, cpp_buffer);
 
-  if (type == BUF_FAKE)
-    {
-      /* A copy of the current buffer, just with a new name and type.  */
-      memcpy (new, pfile->buffer, sizeof (cpp_buffer));
-      new->type = BUF_FAKE;
-    }
-  else
-    {
-      if (type == BUF_BUILTIN)
-	filename = _("<builtin>");
-      else if (type == BUF_CL_OPTION)
-	filename = _("<command line>");
-      else if (type == BUF_PRAGMA)
-	filename = "<_Pragma>";
+  if (type == BUF_BUILTIN)
+    filename = _("<builtin>");
+  else if (type == BUF_CL_OPTION)
+    filename = _("<command line>");
+  else if (type == BUF_PRAGMA)
+    filename = "<_Pragma>";
 
-      /* Clears, amongst other things, if_stack and mi_cmacro.  */
-      memset (new, 0, sizeof (cpp_buffer));
+  /* Clears, amongst other things, if_stack and mi_cmacro.  */
+  memset (new, 0, sizeof (cpp_buffer));
 
-      new->line_base = new->buf = new->cur = buffer;
-      new->rlimit = buffer + len;
-      new->sysp = 0;
+  new->line_base = new->buf = new->cur = buffer;
+  new->rlimit = buffer + len;
+  new->sysp = 0;
 
-      /* No read ahead or extra char initially.  */
-      new->read_ahead = EOF;
-      new->extra_char = EOF;
+  /* No read ahead or extra char initially.  */
+  new->read_ahead = EOF;
+  new->extra_char = EOF;
 
-      /* Preprocessed files, builtins, _Pragma and command line
-	 options don't do trigraph and escaped newline processing.  */
-      new->from_stage3 = type != BUF_FILE || CPP_OPTION (pfile, preprocessed);
-
-      pfile->lexer_pos.output_line = 1;
-    }
+  /* Preprocessed files, builtins, _Pragma and command line
+     options don't do trigraph and escaped newline processing.  */
+  new->from_stage3 = type != BUF_FILE || CPP_OPTION (pfile, preprocessed);
 
   if (*filename == '\0')
     new->nominal_fname = _("<stdin>");
@@ -1851,10 +1781,8 @@ cpp_push_buffer (pfile, buffer, len, type, filename)
   new->type = type;
   new->prev = pfile->buffer;
   new->pfile = pfile;
-  new->include_stack_listed = 0;
-  new->lineno = 1;
+  new->return_at_eof = return_at_eof;
 
-  pfile->state.next_bol = 1;
   pfile->buffer_stack_depth++;
   pfile->buffer = new;
 
@@ -1864,54 +1792,40 @@ cpp_push_buffer (pfile, buffer, len, type, filename)
 /* If called from do_line, pops a single buffer.  Otherwise pops all
    buffers until a real file is reached.  Generates appropriate
    call-backs.  */
-cpp_buffer *
-cpp_pop_buffer (pfile)
+void
+_cpp_pop_buffer (pfile)
      cpp_reader *pfile;
 {
-  cpp_buffer *buffer;
+  cpp_buffer *buffer = pfile->buffer;
   struct if_stack *ifs;
 
-  for (;;)
+  /* Walk back up the conditional stack till we reach its level at
+     entry to this file, issuing error messages.  */
+  for (ifs = buffer->if_stack; ifs; ifs = ifs->next)
+    cpp_error_with_line (pfile, ifs->pos.line, ifs->pos.col,
+			 "unterminated #%s", dtable[ifs->type].name);
+
+  /* Update the reader's buffer before _cpp_do_file_change.  */
+  pfile->buffer = buffer->prev;
+  pfile->buffer_stack_depth--;
+
+  if (buffer->type == BUF_FILE)
     {
-      buffer = pfile->buffer;
-      /* Walk back up the conditional stack till we reach its level at
-	 entry to this file, issuing error messages.  */
-      for (ifs = buffer->if_stack; ifs; ifs = ifs->next)
-	cpp_error_with_line (pfile, ifs->pos.line, ifs->pos.col,
-			     "unterminated #%s", dtable[ifs->type].name);
+      /* Callbacks are not generated for popping the main file.  */
+      if (buffer->prev)
+	_cpp_do_file_change (pfile, LC_LEAVE, buffer->prev->return_to_line);
 
-      if (buffer->type == BUF_FAKE)
-	buffer->prev->cur = buffer->cur;
-      else if (buffer->type == BUF_FILE)
-	_cpp_pop_file_buffer (pfile, buffer);
-
-      pfile->buffer = buffer->prev;
-      pfile->buffer_stack_depth--;
-
-      /* Callbacks only generated for faked or real files.  */
-      if (buffer->type != BUF_FILE && buffer->type != BUF_FAKE)
-	break;
-	  
-      /* No callback for EOF of last file.  */
-      if (!pfile->buffer)
-	break;
-
-      /* do_line does its own call backs.  */
-      pfile->buffer->include_stack_listed = 0;
-      if (pfile->directive == &dtable[T_LINE])
-	break;
-
-      _cpp_do_file_change (pfile, FC_LEAVE, buffer->nominal_fname,
-			   buffer->lineno);
-      if (pfile->buffer->type == BUF_FILE)
-	break;
-
-      cpp_warning (pfile, "file \"%s\" entered but not left",
-		   buffer->nominal_fname);
+      _cpp_pop_file_buffer (pfile, buffer);
     }
 
   obstack_free (&pfile->buffer_ob, buffer);
-  return pfile->buffer;
+
+  /* The output line can fall out of sync if we missed the final
+     newline from the previous buffer, for example because of an
+     unterminated comment.  Similarly, skipping needs to be cleared in
+     case of a missing #endif.  */
+  pfile->lexer_pos.output_line = pfile->line;
+  pfile->state.skipping = 0;
 }
 
 void

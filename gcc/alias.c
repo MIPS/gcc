@@ -107,8 +107,6 @@ static int aliases_everything_p         PARAMS ((rtx));
 static int write_dependence_p           PARAMS ((rtx, rtx, int));
 static int nonlocal_mentioned_p         PARAMS ((rtx));
 
-static int loop_p                       PARAMS ((void));
-
 /* Set up all info needed to perform alias analysis on memory references.  */
 
 /* Returns the size in bytes of the mode of X.  */
@@ -354,7 +352,7 @@ objects_must_conflict_p (t1, t2)
       != (t2 != 0 && AGGREGATE_TYPE_P (t2)))
     return 0;
 
-  /* Otherwise they conflict only if the alias sets conflict. */
+  /* Otherwise they conflict only if the alias sets conflict.  */
   return alias_sets_conflict_p (t1 ? get_alias_set (t1) : 0,
 				t2 ? get_alias_set (t2) : 0);
 }
@@ -401,7 +399,6 @@ find_base_decl (t)
     case '3':
       d0 = find_base_decl (TREE_OPERAND (t, 0));
       d1 = find_base_decl (TREE_OPERAND (t, 1));
-      d0 = find_base_decl (TREE_OPERAND (t, 0));
       d2 = find_base_decl (TREE_OPERAND (t, 2));
 
       /* Set any nonzero values from the last, then from the first.  */
@@ -760,7 +757,7 @@ find_base_value (src)
       if (GET_CODE (src) != PLUS && GET_CODE (src) != MINUS)
 	break;
 
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case PLUS:
     case MINUS:
@@ -809,7 +806,7 @@ find_base_value (src)
 
     case AND:
       /* If the second operand is constant set the base
-	 address to the first operand. */
+	 address to the first operand.  */
       if (GET_CODE (XEXP (src, 1)) == CONST_INT && INTVAL (XEXP (src, 1)) != 0)
 	return find_base_value (XEXP (src, 0));
       return 0;
@@ -1034,6 +1031,9 @@ rtx_equal_for_memref_p (x, y)
   /* Some RTL can be compared without a recursive examination.  */
   switch (code)
     {
+    case VALUE:
+      return CSELIB_VAL_PTR (x) == CSELIB_VAL_PTR (y);
+
     case REG:
       return REGNO (x) == REGNO (y);
 
@@ -1100,6 +1100,12 @@ rtx_equal_for_memref_p (x, y)
 
 	case 'e':
 	  if (rtx_equal_for_memref_p (XEXP (x, i), XEXP (y, i)) == 0)
+	    return 0;
+	  break;
+
+	  /* This can happen for asm operands.  */
+	case 's':
+	  if (strcmp (XSTR (x, i), XSTR (y, i)))
 	    return 0;
 	  break;
 
@@ -1340,7 +1346,7 @@ base_alias_check (x, y, x_mode, y_mode)
   if (flag_argument_noalias > 1)
     return 0;
 
-  /* Weak noalias assertion (arguments are distinct, but may match globals). */
+  /* Weak noalias assertion (arguments are distinct, but may match globals).  */
   return ! (GET_MODE (x_base) == VOIDmode && GET_MODE (y_base) == VOIDmode);
 }
 
@@ -1927,7 +1933,7 @@ nonlocal_mentioned_p (x)
     {
       /* Constant functions can be constant if they don't use
          scratch memory used to mark function w/o side effects.  */
-      if (code == CALL_INSN && CONST_CALL_P (x))
+      if (code == CALL_INSN && CONST_OR_PURE_CALL_P (x))
         {
 	  x = CALL_INSN_FUNCTION_USAGE (x);
 	  if (x == 0)
@@ -2045,96 +2051,6 @@ nonlocal_mentioned_p (x)
   return 0;
 }
 
-/* Return non-zero if a loop (natural or otherwise) is present.
-   Inspired by Depth_First_Search_PP described in:
-
-     Advanced Compiler Design and Implementation
-     Steven Muchnick
-     Morgan Kaufmann, 1997
-
-   and heavily borrowed from flow_depth_first_order_compute.  */
-
-static int
-loop_p ()
-{
-  edge *stack;
-  int *pre;
-  int *post;
-  int sp;
-  int prenum = 1;
-  int postnum = 1;
-  sbitmap visited;
-
-  /* Allocate the preorder and postorder number arrays.  */
-  pre = (int *) xcalloc (n_basic_blocks, sizeof (int));
-  post = (int *) xcalloc (n_basic_blocks, sizeof (int));
-
-  /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
-  sp = 0;
-
-  /* Allocate bitmap to track nodes that have been visited.  */
-  visited = sbitmap_alloc (n_basic_blocks);
-
-  /* None of the nodes in the CFG have been visited yet.  */
-  sbitmap_zero (visited);
-
-  /* Push the first edge on to the stack.  */
-  stack[sp++] = ENTRY_BLOCK_PTR->succ;
-
-  while (sp)
-    {
-      edge e;
-      basic_block src;
-      basic_block dest;
-
-      /* Look at the edge on the top of the stack.  */
-      e = stack[sp - 1];
-      src = e->src;
-      dest = e->dest;
-
-      /* Check if the edge destination has been visited yet.  */
-      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
-	{
-	  /* Mark that we have visited the destination.  */
-	  SET_BIT (visited, dest->index);
-
-	  pre[dest->index] = prenum++;
-
-	  if (dest->succ)
-	    {
-	      /* Since the DEST node has been visited for the first
-		 time, check its successors.  */
-	      stack[sp++] = dest->succ;
-	    }
-	  else
-	    post[dest->index] = postnum++;
-	}
-      else
-	{
-	  if (dest != EXIT_BLOCK_PTR
-	      && pre[src->index] >= pre[dest->index]
-	      && post[dest->index] == 0)
-	    break;
-
-	  if (! e->succ_next && src != ENTRY_BLOCK_PTR)
-	    post[src->index] = postnum++;
-
-	  if (e->succ_next)
-	    stack[sp - 1] = e->succ_next;
-	  else
-	    sp--;
-	}
-    }
-
-  free (pre);
-  free (post);
-  free (stack);
-  sbitmap_free (visited);
-
-  return sp;
-}
-
 /* Mark the function if it is constant.  */
 
 void
@@ -2151,7 +2067,7 @@ mark_constant_function ()
     return;
 
   /* A loop might not return which counts as a side effect.  */
-  if (loop_p ())
+  if (mark_dfs_back_edges ())
     return;
 
   nonlocal_mentioned = 0;
@@ -2189,7 +2105,7 @@ init_alias_once ()
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     /* Check whether this register can hold an incoming pointer
        argument.  FUNCTION_ARG_REGNO_P tests outgoing register
-       numbers, so translate if necessary due to register windows. */
+       numbers, so translate if necessary due to register windows.  */
     if (FUNCTION_ARG_REGNO_P (OUTGOING_REGNO (i))
 	&& HARD_REGNO_MODE_OK (i, Pmode))
       SET_HARD_REG_BIT (argument_registers, i);
@@ -2317,7 +2233,7 @@ init_alias_analysis ()
 
 	      /* If this insn has a noalias note, process it,  Otherwise,
 	         scan for sets.  A simple set will have no side effects
-	         which could change the base value of any other register. */
+	         which could change the base value of any other register.  */
 
 	      if (GET_CODE (PATTERN (insn)) == SET
 		  && REG_NOTES (insn) != 0

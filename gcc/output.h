@@ -159,10 +159,6 @@ extern void readonly_data_section	PARAMS ((void));
 /* Determine if we're in the text section. */
 extern int in_text_section		PARAMS ((void));
 
-#ifdef EH_FRAME_SECTION_ASM_OP
-extern void eh_frame_section		PARAMS ((void));
-#endif
-
 #ifdef CTORS_SECTION_ASM_OP
 extern void ctors_section PARAMS ((void));
 #endif
@@ -261,20 +257,14 @@ extern void assemble_variable		PARAMS ((tree, int, int, int));
 extern void assemble_external		PARAMS ((tree));
 #endif /* TREE_CODE */
 
-/* Record an element in the table of global destructors.
-   How this is done depends on what sort of assembler and linker
-   are in use.
-
-   NAME should be the name of a global function to be called
-   at exit time.  This name is output using assemble_name.  */
-extern void assemble_destructor		PARAMS ((const char *));
+#ifdef RTX_CODE
+/* Record an element in the table of global destructors.  The argument
+   should be a SYMBOL_REF of the function to be called.  */
+extern void assemble_destructor		PARAMS ((rtx, int));
 
 /* Likewise for global constructors.  */
-extern void assemble_constructor	PARAMS ((const char *));
-
-/* Likewise for entries we want to record for garbage collection.
-   Garbage collection is still under development.  */
-extern void assemble_gc_entry		PARAMS ((const char *));
+extern void assemble_constructor	PARAMS ((rtx, int));
+#endif
 
 /* Assemble code to leave SIZE bytes of zeros.  */
 extern void assemble_zeros		PARAMS ((int));
@@ -459,3 +449,30 @@ extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Default target hook that outputs nothing to a stream.  */
 extern void no_asm_to_stream PARAMS ((FILE *));
+
+/* Flags controling properties of a section.  */
+#define SECTION_CODE	    1	/* contains code */
+#define SECTION_WRITE	    2	/* data is writable */
+#define SECTION_DEBUG	    4	/* contains debug data */
+#define SECTION_LINKONCE    8	/* is linkonce */
+#define SECTION_SMALL	   16	/* contains "small data" */
+#define SECTION_BSS	   32	/* contains zeros only */
+#define SECTION_FORGET	   64	/* forget that we've entered the section */
+#define SECTION_MACH_DEP  128	/* subsequent bits reserved for target */
+
+extern void named_section_flags		PARAMS ((const char *, unsigned int,
+						 unsigned int));
+
+union tree_node;
+extern unsigned int default_section_type_flags PARAMS ((union tree_node *,
+							const char *, int));
+
+extern void default_no_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_elf_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_coff_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+extern void default_pe_asm_named_section PARAMS ((const char *, unsigned int,
+					      unsigned int));
+

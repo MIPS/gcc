@@ -71,7 +71,7 @@ enum processor_type {
 };
 
 /* Recast the cpu class to be the cpu attribute.  */
-#define mips_cpu_attr ((enum attr_cpu)mips_cpu)
+#define mips_cpu_attr ((enum attr_cpu)mips_tune)
 
 /* Which ABI to use.  These are constants because abi64.h must check their
    value at preprocessing time.
@@ -135,7 +135,6 @@ extern struct rtx_def *branch_cmp[2];	/* operands for compare */
 extern enum cmp_type branch_type;	/* what type of branch to use */
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
 extern enum processor_type mips_tune;   /* which cpu to schedule for */
-extern enum processor_type mips_cpu;	/* historical codegen/sched */
 extern enum mips_abicalls_type mips_abicalls;/* for svr4 abi pic calls */
 extern int mips_isa;			/* architectural level */
 extern int mips16;			/* whether generating mips16 code */
@@ -643,6 +642,9 @@ extern void		sbss_section PARAMS ((void));
 /* ISA has conditional trap instructions.  */
 #define ISA_HAS_COND_TRAP	(mips_isa >= 2)
 
+/* ISA has nmadd and nmsub instructions.  */
+#define ISA_HAS_NMADD_NMSUB	(mips_isa == 4				\
+				)
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -860,6 +862,7 @@ while (0)
 
 /* ASM_SPEC is the set of arguments to pass to the assembler.  */
 
+#undef ASM_SPEC
 #define ASM_SPEC "\
 %{!membedded-pic:%{G*}} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
@@ -989,6 +992,7 @@ while (0)
 
 /* For C++ we need to ensure that _LANGUAGE_C_PLUS_PLUS is defined independent
    of the source file extension.  */
+#undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC "\
 -D__LANGUAGE_C_PLUS_PLUS -D_LANGUAGE_C_PLUS_PLUS \
 %(cpp) \
@@ -2312,7 +2316,7 @@ extern struct mips_frame_info current_frame_info;
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
-   On the vax, sp@- in a byte insn really pushes a word.  */
+   On the VAX, sp@- in a byte insn really pushes a word.  */
 
 /* #define PUSH_ROUNDING(BYTES) 0 */
 
@@ -3095,10 +3099,6 @@ typedef struct mips_args {
    If you are changing this macro, you should look at
    mips_select_section and see if it needs a similar change.  */
 
-#ifndef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (0)
-#endif
-
 #define ENCODE_SECTION_INFO(DECL)					\
 do									\
   {									\
@@ -3118,7 +3118,7 @@ do									\
 	       references again.  We force it to work by putting string	\
 	       addresses in the constant pool and indirecting.  */	\
 	    && (! current_function_decl					\
-		|| ! UNIQUE_SECTION_P (current_function_decl)))		\
+		|| ! DECL_ONE_ONLY (current_function_decl)))		\
 	  {								\
 	    SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;	\
 	    mips_string_length += TREE_STRING_LENGTH (DECL);		\
@@ -3820,12 +3820,16 @@ while (0)
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
+#ifndef ASM_APP_ON
 #define ASM_APP_ON " #APP\n"
+#endif
 
 /* Output to assembler file text saying following lines
    no longer contain unusual constructs.  */
 
+#ifndef ASM_APP_OFF
 #define ASM_APP_OFF " #NO_APP\n"
+#endif
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).
@@ -4117,9 +4121,10 @@ while (0)
 #define LABEL_AFTER_LOC(STREAM)
 #endif
 
-#undef ASM_OUTPUT_SOURCE_LINE
+#ifndef ASM_OUTPUT_SOURCE_LINE
 #define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE)				\
   mips_output_lineno (STREAM, LINE)
+#endif
 
 /* The MIPS implementation uses some labels for its own purpose.  The
    following lists what labels are created, and are all formed by the
@@ -4408,8 +4413,8 @@ do {									\
 /* Handle certain cpp directives used in header files on sysV.  */
 #define SCCS_DIRECTIVE
 
+#ifndef ASM_OUTPUT_IDENT
 /* Output #ident as a in the read-only data section.  */
-#undef ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, STRING)					\
 {									\
   const char *p = STRING;						\
@@ -4417,6 +4422,7 @@ do {									\
   rdata_section ();							\
   assemble_string (p, size);						\
 }
+#endif
 
 /* Default to -G 8 */
 #ifndef MIPS_DEFAULT_GVALUE

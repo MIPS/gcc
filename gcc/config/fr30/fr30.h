@@ -297,7 +297,7 @@ extern int target_flags;
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -311,18 +311,6 @@ extern int target_flags;
    memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
    `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', but is not binary
-   compatible with code compiled using the traditional implementation.  If you
-   are writing a new ports, define `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 1
 
 /*}}}*/ 
 /*{{{  Layout of Source Language Data Types.  */ 
@@ -854,7 +842,7 @@ enum reg_class
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available

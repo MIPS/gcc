@@ -110,7 +110,9 @@ static void mips_add_gc_roots                   PARAMS ((void));
 static void mips_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void mips_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static enum processor_type mips_parse_cpu       PARAMS ((const char *));
-
+static void iris6_asm_named_section		PARAMS ((const char *,
+							 unsigned int,
+							 unsigned int));
 /* Global variables for machine-dependent things.  */
 
 /* Threshold for data being put into the small data/bss area, instead
@@ -201,9 +203,6 @@ enum processor_type mips_arch;
 
 /* The target cpu for optimization and scheduling.  */
 enum processor_type mips_tune;
-
-/* Historical option for code generation and scheduling.  */
-enum processor_type mips_cpu;
 
 /* which instruction set architecture to use.  */
 int mips_isa;
@@ -1367,7 +1366,7 @@ mips_legitimate_address_p (mode, xinsn, strict)
 	      /* When assembling for machines with 64 bit registers,
 	         the assembler will not sign-extend the constant "foo"
 		 in "la x, foo(x)" */
-	      && (!TARGET_64BIT || (INTVAL (xplus1) > 0))
+	      && (!TARGET_64BIT || (code1 == CONST_INT && INTVAL (xplus1) > 0))
 	      && !TARGET_MIPS16)
 	    return 1;
 	}
@@ -4706,6 +4705,7 @@ override_options ()
   register int i, start;
   register int regno;
   register enum machine_mode mode;
+  register enum processor_type mips_cpu;
 
   mips_section_threshold = g_switch_set ? g_switch_value : MIPS_DEFAULT_GVALUE;
 
@@ -9801,4 +9801,122 @@ mips_parse_cpu (cpu_string)
     cpu = PROCESSOR_DEFAULT;
 
   return cpu;
+}
+
+/* Output assembly to switch to section NAME with attribute FLAGS.  */
+
+static void
+iris6_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align;
+{
+  unsigned int sh_type, sh_flags, sh_entsize;
+
+  sh_flags = 0;
+  if (!(flags & SECTION_DEBUG))
+    sh_flags |= 2; /* SHF_ALLOC */
+  if (flags & SECTION_WRITE)
+    sh_flags |= 1; /* SHF_WRITE */
+  if (flags & SECTION_CODE)
+    sh_flags |= 4; /* SHF_EXECINSTR */
+  if (flags & SECTION_SMALL)
+    sh_flags |= 0x10000000; /* SHF_MIPS_GPREL */
+  if (strcmp (name, ".debug_frame") == 0)
+    sh_flags |= 0x08000000; /* SHF_MIPS_NOSTRIP */
+
+  if (flags & SECTION_DEBUG)
+    sh_type = 0x7000001e; /* SHT_MIPS_DWARF */
+  else if (flags & SECTION_BSS)
+    sh_type = 8; /* SHT_NOBITS */
+  else
+    sh_type = 1; /* SHT_PROGBITS */
+
+  if (flags & SECTION_CODE)
+    sh_entsize = 4;
+  else
+    sh_entsize = 0;
+
+  if (align == 0)
+    {
+      if (flags & SECTION_CODE)
+	align = 4;
+      else
+	align = 8;
+    }
+
+  fprintf (asm_out_file, "\t.section %s,%u,%u,%u,%u\n",
+	   name, sh_type, sh_flags, sh_entsize, align);
+}
+
+/* Cover function for UNIQUE_SECTION.  */
+
+void
+mips_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  int len, size, sec;
+  char *name, *string, *prefix;
+  static char *prefixes[4][2] = {
+    { ".text.", ".gnu.linkonce.t." },
+    { ".rodata.", ".gnu.linkonce.r." },
+    { ".data.", ".gnu.linkonce.d." },
+    { ".sdata.", ".gnu.linkonce.s." }
+  };
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  size = int_size_in_bytes (TREE_TYPE (decl));
+
+  /* Determine the base section we are interested in:
+     0=text, 1=rodata, 2=data, 3=sdata, [4=bss].  */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    sec = 0;
+  else if (DECL_INITIAL (decl) == 0
+           || DECL_INITIAL (decl) == error_mark_node)
+    sec = 2;
+  else if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)
+      && TREE_CODE (decl) == STRING_CST
+      && !flag_writable_strings)
+    {
+      /* For embedded position independent code, put constant
+	 strings in the text section, because the data section
+	 is limited to 64K in size.  For mips16 code, put
+	 strings in the text section so that a PC relative load
+	 instruction can be used to get their address.  */
+      sec = 0;
+    }
+  else if (TARGET_EMBEDDED_DATA)
+    {
+      /* For embedded applications, always put an object in
+	 read-only data if possible, in order to reduce RAM
+	 usage.  */
+
+      if (DECL_READONLY_SECTION (decl, reloc))
+	sec = 1;
+      else if (size > 0 && size <= mips_section_threshold)
+	sec = 3;
+      else
+	sec = 2;
+    }
+  else
+    {
+      /* For hosted applications, always put an object in
+	 small data if possible, as this gives the best
+	 performance.  */
+
+      if (size > 0 && size <= mips_section_threshold)
+	sec = 3;
+      else if (DECL_READONLY_SECTION (decl, reloc))
+	sec = 1;
+      else
+	sec = 2;
+    }
+
+  prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
+  len = strlen (name) + strlen (prefix);
+  string = alloca (len + 1);
+  sprintf (string, "%s%s", prefix, name);
+
+  DECL_SECTION_NAME (decl) = build_string (len, string);
 }

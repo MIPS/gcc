@@ -72,14 +72,23 @@ struct predictor_info
   const char *name;	/* Name used in the debugging dumps.  */
   int hitrate;		/* Expected hitrate used by
 			   predict_insn_def call.  */
+  int flags;
 };
 
-#define DEF_PREDICTOR(ENUM, NAME, HITRATE) {NAME, HITRATE},
+/* Use given predictor without Dempster-Shaffer theory if it matches
+   using first_match heuristics.  */
+#define PRED_FLAG_FIRST_MATCH 1
+
+/* Recompute hitrate in percent to our representation.  */
+
+#define HITRATE(VAL) ((int)((VAL) * REG_BR_PROB_BASE + 50) / 100)
+
+#define DEF_PREDICTOR(ENUM, NAME, HITRATE, FLAGS) {NAME, HITRATE, FLAGS},
 struct predictor_info predictor_info[] = {
 #include "predict.def"
 
-  /* Upper bound on non-language-specific builtins. */
-  {NULL, 0}
+  /* Upper bound on predictors. */
+  {NULL, 0, 0}
 };
 #undef DEF_PREDICTOR
 
@@ -211,13 +220,15 @@ combine_predictions_for_insn (insn, bb)
   rtx *pnote = &REG_NOTES (insn);
   int best_probability = PROB_EVEN;
   int best_predictor = END_PREDICTORS;
+  int combined_probability = REG_BR_PROB_BASE / 2;
+  int d;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Predictions for insn %i bb %i\n", INSN_UID (insn),
 	     bb->index);
 
   /* We implement "first match" heuristics and use probability guessed
-     by predictor with smallest index.  In future we will use better
+     by predictor with smallest index.  In the future we will use better
      probability combination techniques.  */
   while (*pnote)
     {
@@ -230,16 +241,33 @@ combine_predictions_for_insn (insn, bb)
 	  if (best_predictor > predictor)
 	    best_probability = probability, best_predictor = predictor;
 	  *pnote = XEXP (*pnote, 1);
+
+	  d = (combined_probability * probability
+	       + (REG_BR_PROB_BASE - combined_probability)
+	       * (REG_BR_PROB_BASE - probability));
+	  /* An FP math to avoid overflows of 32bit integers.  */
+	  combined_probability = (((double)combined_probability) * probability
+				  * REG_BR_PROB_BASE / d + 0.5);
 	}
       else
         pnote = &XEXP (*pnote, 1);
     }
+  if (predictor_info [best_predictor].flags & PRED_FLAG_FIRST_MATCH)
+    combined_probability = best_probability;
   dump_prediction (PRED_FIRST_MATCH, best_probability, bb);
+  dump_prediction (PRED_COMBINED, combined_probability, bb);
   if (!prob_note)
     {
       REG_NOTES (insn)
 	= gen_rtx_EXPR_LIST (REG_BR_PROB,
-			     GEN_INT (best_probability), REG_NOTES (insn));
+			     GEN_INT (combined_probability), REG_NOTES (insn));
+      /* Save the prediction into CFG in case we are seeing non-degenerated
+	 conditional jump.  */
+      if (bb->succ->succ_next)
+	{
+	  BRANCH_EDGE (bb)->probability = combined_probability;
+	  FALLTHRU_EDGE (bb)->probability = REG_BR_PROB_BASE - combined_probability;
+	}
     }
 }
 
@@ -255,6 +283,7 @@ estimate_probability (loops_info)
 {
   sbitmap *dominators, *post_dominators;
   int i;
+  int found_noreturn = 0;
 
   dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
@@ -275,17 +304,19 @@ estimate_probability (loops_info)
 	    {
 	      int header_found = 0;
 	      edge e;
-	  
-	      /* Loop branch heruistics - predict as taken an edge back to
+
+	      /* Loop branch heuristics - predict as taken an edge back to
 	         a loop's head.  */
 	      for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
-		if (e->dest == loops_info->array[i].header)
+		if (e->dest == loops_info->array[i].header
+		    && e->src == loops_info->array[i].latch)
 		  {
 		    header_found = 1;
 		    predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
 		  }
-	      /* Loop exit heruistics - predict as not taken an edge exiting
-	         the loop if the conditinal has no loop header successors  */
+	      /* Loop exit heuristics - predict as not taken an edge
+	         exiting the loop if the conditinal has no loop header
+	         successors.  */
 	      if (!header_found)
 		for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
 		  if (e->dest->index <= 0
@@ -295,10 +326,7 @@ estimate_probability (loops_info)
 	}
     }
 
-  /* Attempt to predict conditional jumps using a number of heuristics.
-     For each conditional jump, we try each heuristic in a fixed order.
-     If more than one heuristic applies to a particular branch, the first
-     is used as the prediction for the branch.  */
+  /* Attempt to predict conditional jumps using a number of heuristics.  */
   for (i = 0; i < n_basic_blocks; i++)
     {
       basic_block bb = BASIC_BLOCK (i);
@@ -309,9 +337,15 @@ estimate_probability (loops_info)
       /* If block has no sucessor, predict all possible paths to
          it as improbable, as the block contains a call to a noreturn
 	 function and thus can be executed only once.  */
-      if (bb->succ == NULL)
+      if (bb->succ == NULL && !found_noreturn)
 	{
 	  int y;
+
+	  /* ??? Postdominator claims each noreturn block to be postdominated
+	     by each, so we need to run only once.  This needs to be changed
+	     once postdominace algorithm is updated to say something more sane.
+	     */
+	  found_noreturn = 1;
 	  for (y = 0; y < n_basic_blocks; y++)
 	    if (!TEST_BIT (post_dominators[y], i))
 	      {
@@ -352,7 +386,7 @@ estimate_probability (loops_info)
 		if (GET_CODE (insn) == CALL_INSN
 		    /* Constant and pure calls are hardly used to signalize
 		       something exceptional.  */
-		    && ! CONST_CALL_P (insn))
+		    && ! CONST_OR_PURE_CALL_P (insn))
 		  {
 		    predict_edge_def (e, PRED_CALL, NOT_TAKEN);
 		    break;
@@ -375,7 +409,7 @@ estimate_probability (loops_info)
 	      && (XEXP (cond, 1) == const0_rtx
 		  || (GET_CODE (XEXP (cond, 1)) == REG
 		      && REG_POINTER (XEXP (cond, 1)))))
-	    
+
 	    predict_insn_def (last_insn, PRED_POINTER, NOT_TAKEN);
 	  break;
 	case NE:
@@ -454,7 +488,7 @@ estimate_probability (loops_info)
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing
-   expected values of registers.  Generate branch probabilities 
+   expected values of registers.  Generate branch probabilities
    based off these values.  */
 
 void
@@ -502,7 +536,7 @@ expected_value_to_br_prob ()
 		(set r71 -1)
 		(set r80 (lt r70 r71))
 		(set pc (if_then_else (ne r80 0) ...))
-	 as canonicalize_condition will render this to us as 
+	 as canonicalize_condition will render this to us as
 		(lt r70, r71)
 	 Could use cselib to try and reduce this further.  */
       cond = XEXP (SET_SRC (PATTERN (insn)), 0);
@@ -512,7 +546,7 @@ expected_value_to_br_prob ()
 	  || GET_CODE (XEXP (cond, 1)) != CONST_INT)
 	continue;
 
-      /* Substitute and simplify.  Given that the expression we're 
+      /* Substitute and simplify.  Given that the expression we're
 	 building involves two constants, we should wind up with either
 	 true or false.  */
       cond = gen_rtx_fmt_ee (GET_CODE (cond), VOIDmode,
@@ -527,7 +561,7 @@ expected_value_to_br_prob ()
     }
 }
 
-/* This is used to carry information about basic blocks.  It is 
+/* This is used to carry information about basic blocks.  It is
    attached to the AUX field of the standard CFG block.  */
 
 typedef struct block_info_def
@@ -587,19 +621,22 @@ propagate_freq (head)
 	    if (!BLOCK_INFO (e->src)->visited && !EDGE_INFO (e)->back_edge)
 	      break;
 
-	  /* We didn't proceeded all predecesors of edge e yet.  These may
-	     be waiting in the queue or we may hit irreducible region.
+	  /* We haven't proceeded all predecessors of edge e yet.
+	     These may be waiting in the queue or we may hit an
+	     irreducible region.
 
-	     To avoid infinite looping on irrecudible regions, count number
-	     of block proceeded at the time basic block has been queued.  In the
-	     case number didn't changed, we've hit irreducible region and we
-	     forget the backward edge.  This can increase time complexity
-	     by the number of irreducible blocks, but in same way standard the
-	     loop does, so it should not result in noticeable slowodwn.
+	     To avoid infinite looping on irrecudible regions, count
+	     the number of blocks proceeded at the time the basic
+	     block has been queued.  In the case the number doesn't
+	     change, we've hit an irreducible region and we can forget
+	     the backward edge.	 This can increase the time complexity
+	     by the number of irreducible blocks, but in the same way
+	     the standard the loop does, so it should not result in a
+	     noticeable slowdown.
 
-	     Alternativly we may distinquish backward and cross edges in the
-	     DFS tree by preprocesing pass and ignore existence of non-loop
-	     backward edges.  */
+	     Alternatively we may distinguish backward and cross edges
+	     in the DFS tree by the preprocessing pass and ignore the
+	     existence of non-loop backward edges.  */
 	  if (e && BLOCK_INFO (bb)->nvisited != nvisited)
 	    {
 	      if (!nextbb)
@@ -637,7 +674,7 @@ propagate_freq (head)
 					   * BLOCK_INFO (bb)->frequency
 					   / REG_BR_PROB_BASE);
 
-      /* Propagate to succesor blocks.  */
+      /* Propagate to successor blocks.  */
       for (e = bb->succ; e; e = e->succ_next)
 	if (!EDGE_INFO (e)->back_edge
 	    && !BLOCK_INFO (e->dest)->visited
@@ -654,7 +691,7 @@ propagate_freq (head)
     }
 }
 
-/* Estimate probabilities of the loopback edges in loops at same nest level.  */
+/* Estimate probabilities of loopback edges in loops at same nest level.  */
 static void
 estimate_loops_at_level (first_loop)
      struct loop *first_loop;
@@ -668,13 +705,13 @@ estimate_loops_at_level (first_loop)
 
       estimate_loops_at_level (loop->inner);
 
-      /* find current loop back edge and mark it.  */
+      /* Find current loop back edge and mark it.  */
       for (e = loop->latch->succ; e->dest != loop->header; e = e->succ_next);
 
       EDGE_INFO (e)->back_edge = 1;
 
-      /* In case loop header is shared, ensure that it is the last one sharing
-         same header, so we avoid redundant work.  */
+      /* In case the loop header is shared, ensure that it is the last
+	 one sharing the same header, so we avoid redundant work.  */
       if (loop->shared)
 	{
 	  for (l = loop->next; l; l = l->next)
@@ -745,12 +782,12 @@ estimate_bb_frequencies (loops)
       edge fallthru, branch;
 
       if (GET_CODE (last_insn) != JUMP_INSN || !any_condjump_p (last_insn)
-	  /* Avoid handling of conditionals jump jumping to fallthru edge.  */
+	  /* Avoid handling of conditional jumps jumping to fallthru edge.  */
 	  || BASIC_BLOCK (i)->succ->succ_next == NULL)
 	{
 	  /* We can predict only conditional jumps at the moment.
-	     Expect each edge to be equall probable.
-	     ?? In future we want to make abnormal edges improbable.  */
+	     Expect each edge to be equally probable.
+	     ?? In the future we want to make abnormal edges improbable.  */
 	  int nedges = 0;
 	  edge e;
 

@@ -56,6 +56,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "cpplib.h"
+#include "debug.h"
 
 /* This is the default way of generating a method name.  */
 /* I am not sure it is really correct.
@@ -164,7 +165,7 @@ static void objc_post_options			PARAMS ((void));
 
 static void synth_module_prologue		PARAMS ((void));
 static tree build_constructor			PARAMS ((tree, tree));
-static const char *build_module_descriptor      PARAMS ((void));
+static rtx build_module_descriptor		PARAMS ((void));
 static tree init_module_descriptor		PARAMS ((tree));
 static tree build_objc_method_call		PARAMS ((int, tree, tree,
 						       tree, tree, tree));
@@ -252,6 +253,7 @@ static tree build_selector_reference_decl	PARAMS ((void));
 
 static tree add_protocol			PARAMS ((tree));
 static tree lookup_protocol			PARAMS ((tree));
+static void check_protocol_recursively		PARAMS ((tree, tree));
 static tree lookup_and_install_protocols	PARAMS ((tree));
 
 /* Type encoding.  */
@@ -335,6 +337,8 @@ static tree check_duplicates			PARAMS ((hash));
 static tree receiver_is_class_object		PARAMS ((tree));
 static int check_methods			PARAMS ((tree, tree, int));
 static int conforms_to_protocol			PARAMS ((tree, tree));
+static void check_protocol			PARAMS ((tree, const char *,
+						       const char *));
 static void check_protocols			PARAMS ((tree, const char *,
 						       const char *));
 static tree encode_method_def			PARAMS ((tree));
@@ -1009,6 +1013,12 @@ objc_comptypes (lhs, rhs, reflexive)
 		      tree cat;
 
 		      rproto_list = CLASS_PROTOCOL_LIST (rinter);
+		      /* If the underlying ObjC class does not have
+			 protocols attached to it, perhaps there are
+			 "one-off" protocols attached to the rhs?
+			 E.g., 'id<MyProt> foo;'.  */
+		      if (!rproto_list)
+			rproto_list = TYPE_PROTOCOL_LIST (TREE_TYPE (rhs));
 		      rproto = lookup_protocol_in_reflist (rproto_list, p);
 
 		      /* Check for protocols adopted by categories.  */
@@ -1201,6 +1211,32 @@ get_object_reference (protocols)
   return type;
 }
 
+/* Check for circular dependencies in protocols.  The arguments are
+   PROTO, the protocol to check, and LIST, a list of protocol it
+   conforms to.  */
+
+static void 
+check_protocol_recursively (proto, list)
+     tree proto;
+     tree list;
+{
+  tree p;
+
+  for (p = list; p; p = TREE_CHAIN (p))
+    {
+      tree pp = TREE_VALUE (p);
+
+      if (TREE_CODE (pp) == IDENTIFIER_NODE)
+	pp = lookup_protocol (pp);
+
+      if (pp == proto)
+	fatal_error ("protocol `%s' has circular dependency",
+		     IDENTIFIER_POINTER (PROTOCOL_NAME (pp)));      
+      if (pp)
+	check_protocol_recursively (proto, PROTOCOL_LIST (pp));
+    }
+}
+
 static tree
 lookup_and_install_protocols (protocols)
      tree protocols;
@@ -1377,12 +1413,15 @@ synth_module_prologue ()
 	  /* Suppress outputting debug symbols, because
 	     dbxout_init hasn'r been called yet.  */
 	  enum debug_info_type save_write_symbols = write_symbols;
+	  struct gcc_debug_hooks *save_hooks = debug_hooks;
 	  write_symbols = NO_DEBUG;
+	  debug_hooks = &do_nothing_debug_hooks;
 
 	  build_selector_template ();
 	  temp_type = build_array_type (objc_selector_template, NULL_TREE);
 
 	  write_symbols = save_write_symbols;
+	  debug_hooks = save_hooks;
 	}
       else
 	temp_type = build_array_type (selector_type, NULL_TREE);
@@ -1797,13 +1836,12 @@ init_module_descriptor (type)
 
 /* Write out the data structures to describe Objective C classes defined.
    If appropriate, compile and output a setup function to initialize them.
-   Return a string which is the name of a function to call to initialize
-   the Objective C data structures for this file (and perhaps for other files
-   also).
+   Return a symbol_ref to the function to call to initialize the Objective C
+   data structures for this file (and perhaps for other files also).
 
    struct objc_module { ... } _OBJC_MODULE = { ... };   */
 
-static const char *
+static rtx
 build_module_descriptor ()
 {
   tree decl_specs, field_decl, field_decl_chain;
@@ -1872,7 +1910,7 @@ build_module_descriptor ()
      way of generating the requisite code.  */
 
   if (flag_next_runtime)
-    return 0;
+    return NULL_RTX;
 
   {
     tree parms, function_decl, decelerator, void_list_node_1;
@@ -1928,8 +1966,7 @@ build_module_descriptor ()
     function_decl = current_function_decl;
     finish_function (0);
 
-    /* Return the name of the constructor function.  */
-    return XSTR (XEXP (DECL_RTL (function_decl), 0), 0);
+    return XEXP (DECL_RTL (function_decl), 0);
   }
 }
 
@@ -4867,18 +4904,27 @@ check_duplicates (hsh)
   return meth;
 }
 
-/* If RECEIVER is a class reference, return the identifier node for the
-   referenced class.  RECEIVER is created by get_class_reference, so we
-   check the exact form created depending on which runtimes are used.  */
+/* If RECEIVER is a class reference, return the identifier node for
+   the referenced class.  RECEIVER is created by get_class_reference,
+   so we check the exact form created depending on which runtimes are
+   used.  */
 
 static tree
 receiver_is_class_object (receiver)
       tree receiver;
 {
   tree chain, exp, arg;
+
   if (flag_next_runtime)
     {
-      /* The receiver is a variable created by build_class_reference_decl.  */
+      /* The receiver is 'self' in the context of a class method.  */
+      if (objc_method_context
+	  && receiver == self_decl
+	  && TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
+	return CLASS_NAME (objc_implementation_context);
+
+      /* The receiver is a variable created by
+         build_class_reference_decl.  */
       if (TREE_CODE (receiver) == VAR_DECL
 	  && TREE_TYPE (receiver) == objc_class_type)
 	/* Look up the identifier.  */
@@ -4895,7 +4941,7 @@ receiver_is_class_object (receiver)
 	  && (exp = TREE_OPERAND (exp, 0))
 	  && TREE_CODE (exp) == FUNCTION_DECL
 	  && exp == objc_get_class_decl
-	  /* we have a call to objc_getClass! */
+	  /* We have a call to objc_getClass!  */
 	  && (arg = TREE_OPERAND (receiver, 1))
 	  && TREE_CODE (arg) == TREE_LIST
 	  && (arg = TREE_VALUE (arg)))
@@ -5139,7 +5185,8 @@ build_message_expr (mess)
 	    method_prototype = lookup_class_method_static (iface, sel_name);
 	}
 
-      if (!method_prototype)
+      if (!method_prototype 
+          || TREE_CODE (method_prototype) != CLASS_METHOD_DECL)
 	{
 	  warning ("cannot find class (factory) method.");
 	  warning ("return type for `%s' defaults to id",
@@ -5956,16 +6003,17 @@ check_methods (chain, list, mtype)
     return first;
 }
 
+/* Check if CLASS, or its superclasses, explicitly conforms to PROTOCOL.  */
+
 static int
 conforms_to_protocol (class, protocol)
      tree class;
      tree protocol;
 {
-   while (protocol)
+   if (TREE_CODE (protocol) == PROTOCOL_INTERFACE_TYPE)
      {
        tree p = CLASS_PROTOCOL_LIST (class);
-
-       while (p && TREE_VALUE (p) != TREE_VALUE (protocol))
+       while (p && TREE_VALUE (p) != protocol)
 	 p = TREE_CHAIN (p);
 
        if (!p)
@@ -5977,8 +6025,6 @@ conforms_to_protocol (class, protocol)
 	   if (!tmp)
 	     return 0;
 	 }
-
-       protocol = TREE_CHAIN (protocol);
      }
 
    return 1;
@@ -6050,6 +6096,68 @@ check_methods_accessible (chain, context, mtype)
     return first;
 }
 
+/* Check whether the current interface (accessible via
+   'implementation_context') actually implements protocol P, along
+   with any protocols that P inherits.  */
+   
+static void
+check_protocol (p, type, name)
+     tree p;
+     const char *type;
+     const char *name;
+{
+  if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
+    {
+      int f1, f2;
+
+      /* Ensure that all protocols have bodies!  */
+      if (flag_warn_protocol)
+	{
+	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
+			      CLASS_CLS_METHODS (implementation_context),
+			      '+');
+	  f2 = check_methods (PROTOCOL_NST_METHODS (p),
+			      CLASS_NST_METHODS (implementation_context),
+			      '-');
+	}
+      else
+	{
+	  f1 = check_methods_accessible (PROTOCOL_CLS_METHODS (p),
+					 implementation_context,
+					 '+');
+	  f2 = check_methods_accessible (PROTOCOL_NST_METHODS (p),
+					 implementation_context,
+					 '-');
+	}
+
+      if (!f1 || !f2)
+	warning ("%s `%s' does not fully implement the `%s' protocol",
+		 type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
+    }
+    
+  /* Check protocols recursively.  */
+  if (PROTOCOL_LIST (p))
+    {
+      tree subs = PROTOCOL_LIST (p);
+      tree super_class =
+	lookup_interface (CLASS_SUPER_NAME (implementation_template));
+      while (subs) 
+	{
+	  tree sub = TREE_VALUE (subs);
+
+	  /* If the superclass does not conform to the protocols
+	     inherited by P, then we must!  */
+	  if (!super_class || !conforms_to_protocol (super_class, sub))
+	    check_protocol (sub, type, name);
+	  subs = TREE_CHAIN (subs);
+	}
+    }
+}
+	
+/* Check whether the current interface (accessible via
+   'implementation_context') actually implements the protocols listed
+   in PROTO_LIST.  */
+   
 static void
 check_protocols (proto_list, type, name)
      tree proto_list;
@@ -6060,45 +6168,7 @@ check_protocols (proto_list, type, name)
     {
       tree p = TREE_VALUE (proto_list);
 
-      if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
-	{
-	  int f1, f2;
-	  
-	  /* Ensure that all protocols have bodies.  */
-	  if (flag_warn_protocol) {
-	    f1 = check_methods (PROTOCOL_CLS_METHODS (p),
-				CLASS_CLS_METHODS (implementation_context),
-				'+');
-	    f2 = check_methods (PROTOCOL_NST_METHODS (p),
-				CLASS_NST_METHODS (implementation_context),
-				'-');
-	  } else {
-	    f1 = check_methods_accessible (PROTOCOL_CLS_METHODS (p),
-					   implementation_context,
-					   '+');
-	    f2 = check_methods_accessible (PROTOCOL_NST_METHODS (p),
-					   implementation_context,
-					   '-');
-	  }
-
-	  if (!f1 || !f2)
-	    warning ("%s `%s' does not fully implement the `%s' protocol",
-		     type, name, IDENTIFIER_POINTER (PROTOCOL_NAME (p)));
-
-	}
-      else
-        {
-	  ; /* An identifier if we could not find a protocol.  */
-        }
-
-      /* Check protocols recursively.  */
-      if (PROTOCOL_LIST (p))
-	{
-	  tree super_class
-	    = lookup_interface (CLASS_SUPER_NAME (implementation_template));
-	  if (! conforms_to_protocol (super_class, PROTOCOL_LIST (p)))
-	    check_protocols (PROTOCOL_LIST (p), type, name);
-	}
+      check_protocol (p, type, name);
     }
 }
 
@@ -6426,6 +6496,33 @@ lookup_protocol (ident)
   return NULL_TREE;
 }
 
+/* This function forward declares the protocols named by NAMES.  If
+   they are already declared or defined, the function has no effect.  */
+
+void
+objc_declare_protocols (names)
+     tree names;
+{
+  tree list;
+
+  for (list = names; list; list = TREE_CHAIN (list))
+    {
+      tree name = TREE_VALUE (list);
+
+      if (lookup_protocol (name) == NULL_TREE)
+	{
+	  tree protocol = make_node (PROTOCOL_INTERFACE_TYPE);
+
+	  TYPE_BINFO (protocol) = make_tree_vec (2);
+	  PROTOCOL_NAME (protocol) = name;
+	  PROTOCOL_LIST (protocol) = NULL_TREE;
+	  add_protocol (protocol);
+	  PROTOCOL_DEFINED (protocol) = 0;
+	  PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
+	}
+    }
+}
+
 tree
 start_protocol (code, name, list)
      enum tree_code code;
@@ -6434,26 +6531,38 @@ start_protocol (code, name, list)
 {
   tree protocol;
 
-  /* This is as good a place as any.  Need to invoke push_tag_toplevel.  */
+  /* This is as good a place as any.  Need to invoke
+     push_tag_toplevel.  */
   if (!objc_protocol_template)
     objc_protocol_template = build_protocol_template ();
 
-  protocol = make_node (code);
-  TYPE_BINFO (protocol) = make_tree_vec (2);
+  protocol = lookup_protocol (name);
 
-  PROTOCOL_NAME (protocol) = name;
-  PROTOCOL_LIST (protocol) = list;
+  if (!protocol)
+    {
+      protocol = make_node (code);
+      TYPE_BINFO (protocol) = make_tree_vec (2);
 
-  lookup_and_install_protocols (list);
+      PROTOCOL_NAME (protocol) = name;
+      PROTOCOL_LIST (protocol) = lookup_and_install_protocols (list);
+      add_protocol (protocol);
+      PROTOCOL_DEFINED (protocol) = 1;
+      PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
 
-  if (lookup_protocol (name))
-    warning ("duplicate declaration for protocol `%s'",
-	   IDENTIFIER_POINTER (name));
+      check_protocol_recursively (protocol, list);
+    }
+  else if (! PROTOCOL_DEFINED (protocol))
+    {
+      PROTOCOL_DEFINED (protocol) = 1;
+      PROTOCOL_LIST (protocol) = lookup_and_install_protocols (list);
+
+      check_protocol_recursively (protocol, list);
+    }
   else
-    add_protocol (protocol);
-
-  PROTOCOL_FORWARD_DECL (protocol) = NULL_TREE;
-
+    {
+      warning ("duplicate declaration for protocol `%s'",
+	       IDENTIFIER_POINTER (name));
+    }
   return protocol;
 }
 
@@ -6591,6 +6700,11 @@ encode_aggregate_within (type, curtype, format, left, right)
      int left;
      int right;
 {
+  /* The RECORD_TYPE may in fact be a typedef!  For purposes
+     of encoding, we need the real underlying enchilada.  */
+  if (TYPE_MAIN_VARIANT (type))
+    type = TYPE_MAIN_VARIANT (type);
+
   if (obstack_object_size (&util_obstack) > 0
       && *(obstack_next_free (&util_obstack) - 1) == '^')
     {
@@ -8245,9 +8359,9 @@ finish_objc ()
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
     {
       /* Arrange for Objc data structures to be initialized at run time.  */
-      const char *init_name = build_module_descriptor ();
-      if (init_name)
-	assemble_constructor (init_name);
+      rtx init_sym = build_module_descriptor ();
+      if (init_sym)
+	assemble_constructor (init_sym, DEFAULT_INIT_PRIORITY);
     }
 
   /* Dump the class references.  This forces the appropriate classes

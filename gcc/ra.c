@@ -1,7 +1,7 @@
 /* Graph coloring register allocator
    Copyright (C) 2001 Free Software Foundation, Inc.
    Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
-   and Daniel Berlin <dberlin@redhat.com>
+   and Daniel Berlin <dan@cgsoftware.com>
 
    This file is part of GNU CC.
 
@@ -18,7 +18,6 @@
    with GNU CC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-/*#define OLD_DF_INTERFACE*/
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
@@ -35,7 +34,8 @@
 #include "expr.h"
 #include "output.h"
 #include "toplev.h"
-
+#include "flags.h"
+#include "ggc.h"
 /* The algorithm used is currently Iterated Register Coalescing by
    L.A.George, and Appel.
 */
@@ -134,14 +134,14 @@ struct web
 {
   unsigned int id; /* Unique web ID */
   unsigned int regno; /* Register number of the live range's variable */
-  unsigned int weight; /* Weight used to determine, among other
+  unsigned HOST_WIDE_INT weight; /* Weight used to determine, among other
                           things, how many colors we can block */
   unsigned int span_insns; /* How many insn's the live range spans */
   unsigned int spill_temp; /* Temporarily used to remember what webs
                               were spilled */
   unsigned int use_my_regs; /* Determine if we should use the
                                usable_regs for this web */
-  unsigned int spill_cost; /* Cost of spilling */
+  unsigned HOST_WIDE_INT spill_cost; /* Cost of spilling */
   int was_spilled;
   /* We need to distinguish also webs which are targets of coalescing
      (all x with some y, so that x==alias(y)), but the alias field is
@@ -342,8 +342,8 @@ static void coalesce PARAMS ((void));
 static void freeze_moves PARAMS ((struct web *));
 static void freeze PARAMS ((void));
 static void select_spill PARAMS ((void));
-static int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET,
-				 enum machine_mode));
+int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET,
+			  enum machine_mode));
 static int count_long_blocks PARAMS ((HARD_REG_SET, int));
 static char * hardregset_to_string PARAMS ((HARD_REG_SET));
 static void colorize_one_web PARAMS ((struct web *, int));
@@ -353,17 +353,20 @@ static void allocate_spill_web PARAMS ((struct web *));
 static void rewrite_program PARAMS ((void));
 static void actual_spill PARAMS ((void));
 static void emit_colors PARAMS ((struct df *));
-static void delete_insn_bb PARAMS ((rtx));
 static void delete_moves PARAMS ((void));
 static int one_pass PARAMS ((struct df *));
 static void dump_constraints PARAMS ((void));
 static void dump_ra PARAMS ((struct df *));
 static void init_ra PARAMS ((void));
 static int rematerializable PARAMS ((struct ref *));
+static bool find_splits PARAMS ((unsigned int, int *));
+static void splits_init PARAMS ((void));
+static int only_one_reaching_def PARAMS ((struct df_link *));
 void reg_alloc PARAMS ((void));
 
 /* XXX use Daniels compressed bitmaps here.  */
-#define igraph_index(i, j) ((i) < (j) ? (j)*((j)-1)/2+(i) : (i)*((i)-1)/2+(j))
+#define igraph_index(i, j) ((i) < (j) ? ((j)*((j)-1)/2)+(i) : ((i)*((i)-1)/2)+(j))
+static bitmap unbrokengraph;
 static sbitmap igraph;
 /* Uhhuuhu.  Don't the hell use two sbitmaps! XXX
    (for now I need the sup_igraph to note if there is any conflict between
@@ -397,6 +400,7 @@ static struct web **use2web;
 static struct move_list *wl_moves;
 static struct ref **all_defs_for_web;
 static struct ref **all_uses_for_web;
+struct df *df;
 
 /* Used to detect spill instructions inserted by me.  */
 static int orig_max_uid;
@@ -625,13 +629,10 @@ undef_to_bitmap (wp, undefined)
 	  unsigned HOST_WIDE_INT u = *undefined;
 	  int word;
 	  int size;
-	  
 	  for (word = 0; ! (u & 1); ++word)
 	    u >>= 1;
 	  for (size = 0; u & 1; ++size)
 	    u >>= 1;
-	  if (u)
-	    abort ();
 	  *undefined = u;
 	  return get_sub_conflicts (wp, size, word);
 	}
@@ -991,7 +992,9 @@ live_out_1 (df, use, insn)
 		    int b = BYTE_BEGIN (bl);
 		    int e = b + BYTE_LENGTH (bl);
 		    for (; b < e; b++)
-		      undef &= ~((unsigned HOST_WIDE_INT)1 << b);
+		      {
+			undef &= ~((unsigned HOST_WIDE_INT)1 << b);
+		      }
 		  }
 		if (undef)
 		  {
@@ -1336,9 +1339,6 @@ handle_asm_insn (df, insn)
 	}
       else
 	{
-#if 0
-	  int c;
-#endif
 	  COPY_HARD_REG_SET (conflict, usable_regs
 			     [reg_preferred_class (web->regno)]);
 	  IOR_HARD_REG_SET (conflict, usable_regs
@@ -1413,7 +1413,7 @@ init_one_web (web, reg)
   web->span_insns = 0;
   web->spill_temp = 0;
   web->use_my_regs = 0;
-  web->spill_cost = reg_spill_cost (web->regno);
+  web->spill_cost = 0;
   web->was_spilled = -1;
   web->is_coalesced = 0;
   web->has_sub_conflicts = 0;
@@ -1580,15 +1580,23 @@ init_web_parts (df)
 {
   int regno;
   unsigned int no;
+  num_webs = 0;
   for (no = 0; no < df->def_id; no++)
     {
-      web_parts[no].ref = df->defs[no];
+      if (df->defs[no])
+	{
+	  web_parts[no].ref = df->defs[no];
+	  num_webs++;
+	}
     }
   for (no = 0; no < df->use_id; no++)
     {
-      web_parts[no + df->def_id].ref = df->uses[no];
+      if (df->uses[no])
+	{
+	  web_parts[no + df->def_id].ref = df->uses[no];
+	  num_webs++;
+	}      
     }
-  num_webs = df->def_id + df->use_id;
 
   /* We want to have only one web for each precolored register.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1781,6 +1789,7 @@ record_conflict (web1, web2)
   SET_BIT (igraph, index);
   add_conflict_edge (web1, web2);
   add_conflict_edge (web2, web1);
+  
 }
 
 /* This builds full webs out of web parts, without relating them to each
@@ -1790,13 +1799,13 @@ parts_to_webs (df, part2web)
      struct df *df;
      struct web **part2web;
 {
-  unsigned int i,j;
+  unsigned int i;
+  int j;
   unsigned int webnum;
   struct ref **ref_use, **ref_def;
   struct web_part *wp_first_use = &web_parts[df->def_id];
   struct web_link *all_subwebs = NULL;
   struct web_link *wl;
-
   num_subwebs = 0;
 
   memset (hardreg2web, 0, sizeof (hardreg2web));
@@ -1846,11 +1855,8 @@ parts_to_webs (df, part2web)
 	  all_subwebs = wl;
 	  num_subwebs++;
 	}
-      /* XXX make sure, web->weight doesn't wrap.  */
-      if (DF_REF_BB (ref)->loop_depth <= 8)
-        web->weight += 1 << (3 * DF_REF_BB (ref)->loop_depth);
-      else
-	web->weight += 1 << (3 * 8);
+      web->weight += DF_REF_BB (ref)->frequency;
+      web->weight += web->span_insns;
       if (i < df->def_id)
 	{
 	  web->num_defs++;
@@ -1922,8 +1928,10 @@ parts_to_webs (df, part2web)
   num_webs += num_subwebs;
   igraph = sbitmap_alloc (num_webs * num_webs / 2);
   sup_igraph = sbitmap_alloc (num_webs * num_webs);
+  unbrokengraph = BITMAP_XMALLOC ();
   sbitmap_zero (igraph);
   sbitmap_zero (sup_igraph);
+  bitmap_zero (unbrokengraph);
 
   /* Setup and fill uses[] and defs[] arrays of the webs.  */
   ref_def = all_defs_for_web;
@@ -1937,13 +1945,19 @@ parts_to_webs (df, part2web)
     }
   for (i = 0; i < df->def_id; i++)
     {
-      def2web[i]->defs[0] = df->defs[i];
-      def2web[i]->defs++;
+      if (df->defs[i])
+	{
+	  def2web[i]->defs[0] = df->defs[i];
+	  def2web[i]->defs++;
+	}
     }
   for (i = 0; i < df->use_id; i++)
     {
-      use2web[i]->uses[0] = df->uses[i];
-      use2web[i]->uses++;
+      if (df->uses[i])
+	{
+	  use2web[i]->uses[0] = df->uses[i];
+	  use2web[i]->uses++;
+	}
     }
   for (i = 0; i < num_webs; i++)
     {
@@ -1951,13 +1965,18 @@ parts_to_webs (df, part2web)
       web->defs -= web->num_defs;
       web->uses -= web->num_uses;
       web->weight *= (1 + web->add_hardregs);
-      for (j = 0; j < web->num_defs; j++)
+      for (j = 0; j < web->num_uses; j++)
 	{
-	  if (rematerializable (web->defs[j]))
-	    {
-	      web->spill_cost = rtx_cost (DF_REF_INSN (web->defs[j]), 0);
-	    }
+	  if (rematerializable (web->uses[j]))
+	    web->spill_cost += rtx_cost (DF_REF_INSN (web->uses[j]), 0);
+	  else
+	    web->spill_cost += MEMORY_MOVE_COST (GET_MODE (*DF_REF_LOC (web->uses[j])), 
+						   web->regclass, 1);
+
 	}
+      for (j = 0; j < web->num_defs; j++)
+	web->spill_cost += MEMORY_MOVE_COST (GET_MODE (*DF_REF_LOC (web->defs[j])), 
+					     web->regclass, 0);
     }
 }
 
@@ -2023,6 +2042,11 @@ conflicts_between_webs (df, part2web)
 		    if (GET_CODE (reg2) == SUBREG)
 		      web2 = find_subweb (web2, reg2);
 		    record_conflict (web1, web2);
+		    if (!rematerializable (web_parts[j].ref) && (DF_REF_REGNO (web_parts[j].ref) >= FIRST_PSEUDO_REGISTER))
+		      {
+			if (web1->id != web2->id)
+			  bitmap_set_bit (unbrokengraph, (web1->id * num_webs) + web2->id);
+		      }
 		  });
 	      }
 	    BITMAP_XFREE (cl->conflicts);
@@ -2066,7 +2090,8 @@ remember_web_was_spilled (web)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (web->usable_regs, i))
       web->num_freedom++;
-
+  if (!web->num_freedom)
+      abort();
   /* Now look for a class, which is subset of our constraints, to
      setup add_hardregs, and regclass for debug output.  */
   web->regclass = NO_REGS;
@@ -2194,7 +2219,6 @@ make_webs (df)
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df, part2web);
-
   free (part2web);
 }
 
@@ -2291,7 +2315,6 @@ connect_rmw_web_parts (df)
       struct web_part *wp1 = &web_parts[df->def_id + i];
       rtx reg;
       struct df_link *link;
-
       /* If it's an uninitialized web, we don't want to connect it to others,
 	 as the read cycle in read-mod-write had probably no effect.  */
       if (find_web_part (wp1) >= &web_parts[df->def_id])
@@ -2452,8 +2475,9 @@ free_mem (df)
   free (web_parts);
   web_parts = NULL;
   free (move_handled);
-  free (sup_igraph);
-  free (igraph);
+  sbitmap_free (sup_igraph);
+  sbitmap_free (igraph);
+  BITMAP_XFREE (unbrokengraph);
 }
 
 
@@ -2814,7 +2838,6 @@ ok (target, source)
 {
   struct conflict_link *wl;
   int i;
-
   /* Source is PRECOLORED.  We test here, if it isn't one of the fixed
      registers.  In this case we disallow the coalescing.
      XXX maybe not all fixed_regs[] have to be excluded.  The actual
@@ -3048,7 +3071,7 @@ coalesce (void)
       add_worklist (target);
     }
   else if ((source->type == PRECOLORED && ok (target, source))
-	   || (source->type != PRECOLORED && conservative (target, source)))
+	   || (source->type != PRECOLORED /*&& conservative (target, source)*/))
     {
       remove_move (source, m);
       remove_move (target, m);
@@ -3096,14 +3119,14 @@ freeze (void)
 {
   struct dlist *d = pop_list (&freeze_wl);
   put_web (DLIST_WEB (d), SIMPLIFY);
-  freeze_moves (DLIST_WEB (d));
+  /*freeze_moves (DLIST_WEB (d));*/
 }
 
-static long (*spill_heuristic) PARAMS ((struct web *));
+static unsigned HOST_WIDE_INT (*spill_heuristic) PARAMS ((struct web *));
 
-static long default_spill_heuristic PARAMS ((struct web *));
+static unsigned HOST_WIDE_INT default_spill_heuristic PARAMS ((struct web *));
 
-static long
+static unsigned HOST_WIDE_INT
 default_spill_heuristic (w)
      struct web *w;
 {
@@ -3115,15 +3138,15 @@ default_spill_heuristic (w)
 static void
 select_spill (void)
 {
-  long best = INT_MAX;
+  unsigned HOST_WIDE_INT best = (unsigned HOST_WIDE_INT) -1;
   struct dlist *bestd = NULL;
-  long best2 = INT_MAX;
+  unsigned HOST_WIDE_INT best2 = (unsigned HOST_WIDE_INT) -1;
   struct dlist *bestd2 = NULL;
   struct dlist *d;
   for (d = spill_wl; d; d = d->next)
     {
       struct web *w = DLIST_WEB (d);
-      long cost = spill_heuristic (w);
+      unsigned HOST_WIDE_INT cost = spill_heuristic (w);
       if (!w->spill_temp && cost < best)
 	{
 	  best = cost;
@@ -3155,7 +3178,7 @@ select_spill (void)
    for MODE.  If it needs more than one hardreg it prefers blocks beginning
    at an even hardreg, and only gives an odd begin reg if no other
    block could be found.  */
-static int
+int
 get_free_reg (dont_begin_colors, free_colors, mode)
      HARD_REG_SET dont_begin_colors, free_colors;
      enum machine_mode mode;
@@ -3174,6 +3197,12 @@ get_free_reg (dont_begin_colors, free_colors, mode)
 	int i, size;
 	size = HARD_REGNO_NREGS (c, mode);
 	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
+	if (i != size)
+ 	  {
+ 	    c += i;
+ 	    continue;
+ 	  }
+ 	for (i = 1; i < size && HARD_REGNO_MODE_OK (c + i, mode); i++); 
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
@@ -3219,21 +3248,21 @@ count_long_blocks (free_colors, len)
     }
   return count;
 }
-
 static char *
 hardregset_to_string (s)
      HARD_REG_SET s;
 {
-  static char string[FIRST_PSEUDO_REGISTER + 30];
+  static char string[/*FIRST_PSEUDO_REGISTER + 30*/1024];
 #if FIRST_PSEUDO_REGISTER <= HOST_BITS_PER_WIDE_INT
   sprintf (string, "%x", s);
 #else
   char *c = string;
-  int i = HARD_REG_SET_LONGS - 1;
+  int i,j;
   c += sprintf (c, "{ ");
-  for (;i >= 0; i--)
+  for (i = 0;i < HARD_REG_SET_LONGS; i++)
     {
-      c += sprintf (c, HOST_WIDE_INT_PRINT_HEX, s[i]);
+      for (j = 0; j < HOST_BITS_PER_WIDE_INT; j++)
+	  c += sprintf (c, "%s", ( 1 << j) & s[i] ? "1" : "0");
       c += sprintf (c, "%s", i ? ", " : "");
     }
   c += sprintf (c, " }");
@@ -3663,20 +3692,30 @@ rewrite_program (void)
       struct web *web = id2web[i];
       struct web *aweb = alias (web);
       int j;
-      rtx slot;
-      if (aweb->type != SPILLED)
+      rtx slot = 0;
+      if (aweb->type != SPILLED/* || web->num_uses == 0*/)
 	continue;
-      allocate_spill_web (aweb);
-      slot = aweb->stack_slot;
+      
+      for (j = 0; j < web->num_uses; j++)
+	{
+	  if (!rematerializable (web->uses[j]))
+	    { 
+	      allocate_spill_web (aweb);
+	      slot = aweb->stack_slot;
+	      break;
+
+	    }
+	} 
       bitmap_clear (b);
+      if (slot)
       for (j = 0; j < web->num_defs; j++)
 	{
 	  rtx insns, source, dest;
 	  rtx insn = DF_REF_INSN (web->defs[j]);
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
-	  if (!rematerializable (web->defs[j]))
-	    {
+/*	  if (!rematerializable (web->defs[j]))
+	    { */
 	      /* Happens when spill_coalescing() deletes move insns.  */
 	      if (!INSN_P (insn))
 		continue;
@@ -3695,11 +3734,11 @@ rewrite_program (void)
 		}
 	      else
 		{
-		  rtx reg = gen_reg_rtx (GET_MODE (source));
+/*		  rtx reg = gen_reg_rtx (GET_MODE (source));
 		  if (validate_change (insn, DF_REF_LOC (web->defs[j]),
 				       reg, 0))
 		    emit_insn (gen_move_insn (dest, reg));
-		  else
+		  else*/
 		    emit_insn (gen_move_insn (dest, source));
 		}
 		
@@ -3709,14 +3748,18 @@ rewrite_program (void)
 	      if (bb->end == insn)
 		bb->end = PREV_INSN (following);
 	      for (; insn != following; insn = NEXT_INSN (insn))
-		set_block_for_insn (insn, bb);
+		{
+		  set_block_for_insn (insn, bb);
+		  df_insn_modify (df, bb, insn);
+		}
 	      emitted_spill_stores++;
-	    }
+/*	    }
+      
 	  else
 	    {
 	      if (rtl_dump_file)
 		  fprintf (rtl_dump_file, "We *should* rematerialize uses of def ID %d for web %d\n", DF_REF_ID (web->defs[j]), web->id);
-	    }
+	    } */
 	}
       bitmap_clear (b);
       for (j = 0; j < web->num_uses; j++)
@@ -3725,22 +3768,38 @@ rewrite_program (void)
 	  rtx insn = DF_REF_INSN (web->uses[j]);
 	  rtx prev = PREV_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
-	  if (DF_REF_CHAIN (web->uses[j]) && rematerializable (DF_REF_CHAIN (web->uses[j])->ref))
+	  if (rematerializable (web->uses[j]))
 	    {
+	      rtx pat = PATTERN (DF_REF_INSN (DF_REF_CHAIN (web->uses[j])->ref));
 	      if (!INSN_P (insn))
 		continue;
 	      if (bitmap_bit_p (b, INSN_UID (insn)))
 		continue;
 	      bitmap_set_bit (b, INSN_UID (insn));
-	      start_sequence ();
-	      emit_insn (PATTERN (DF_REF_INSN (DF_REF_CHAIN (web->uses[j])->ref)));
-	      insns = get_insns ();
-	      end_sequence ();
-	      emit_insns_before (insns, insn);
-	      if (bb->head == insn)
-		bb->head = NEXT_INSN (prev);
-	      for (; insn != prev; insn = PREV_INSN (insn))
-		set_block_for_insn (insn, bb);
+	      if (!validate_change (insn, DF_REF_LOC (web->uses[j]),
+				    SET_SRC (pat), 0))
+		{
+		  rtx reg = gen_reg_rtx (GET_MODE (SET_DEST (pat)));
+		  start_sequence ();
+		  if (validate_change (insn, DF_REF_LOC (web->uses[j]), reg, 0))
+		      emit_insn (gen_move_insn (reg, SET_SRC (pat)));
+		  else
+		      emit_insn (gen_move_insn (SET_DEST (pat), SET_SRC (pat)));
+		  /*	      emit_insn (PATTERN (DF_REF_INSN
+			      (DF_REF_CHAIN (web->uses[j])->ref))); */
+		  insns = get_insns ();
+		  end_sequence ();
+		  emit_insns_before (insns, insn);
+		  if (bb->head == insn)
+		      bb->head = NEXT_INSN (prev);
+		  for (; insn != prev; insn = PREV_INSN (insn))
+		    {
+		      set_block_for_insn (insn, bb);
+		      df_insn_modify (df, bb, insn);
+		    }
+		}
+	      else
+		  df_insn_modify (df, bb, insn);
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "Poof! We rematerialized use %d for web %d, associated with def %d\n", 
 			 j, web->id, DF_REF_ID (DF_REF_CHAIN (web->uses[j])->ref));
@@ -3767,12 +3826,12 @@ rewrite_program (void)
 		}
 	      else
 		{
-		  rtx reg = gen_reg_rtx (GET_MODE (target));
+/*		  rtx reg = gen_reg_rtx (GET_MODE (target));
 
 		  if (validate_change (insn, DF_REF_LOC (web->uses[j]),
 				       reg, 0))
 		    emit_insn (gen_move_insn (reg ,source));
-		  else
+		  else*/
 		    emit_insn (gen_move_insn (target, source));
 		}
 
@@ -3782,7 +3841,11 @@ rewrite_program (void)
 	      if (bb->head == insn)
 		bb->head = NEXT_INSN (prev);
 	      for (; insn != prev; insn = PREV_INSN (insn))
-		set_block_for_insn (insn, bb);
+		{
+		  set_block_for_insn (insn, bb);
+		  df_insn_modify (df, bb, insn);
+		}
+		
 	      emitted_spill_loads++;
 	    }
 	}
@@ -3850,7 +3913,7 @@ emit_colors (df)
      the definition of the other REG rtx.  So we must replace the defs last.
    */
   for (i = 0; i < df->use_id; i++)
-    {
+    {     
       regset rs = DF_REF_BB (df->uses[i])->global_live_at_start;
       rtx regrtx;
       web = use2web[i];
@@ -3870,8 +3933,11 @@ emit_colors (df)
   /* And all defs.  */
   for (i = 0; i < df->def_id; i++)
     {
-      regset rs = DF_REF_BB (df->defs[i])->global_live_at_start;
+      regset rs;
       rtx regrtx;
+      if (!df->defs[i])
+	continue;
+      rs = DF_REF_BB (df->defs[i])->global_live_at_start;
       web = def2web[i];
       if (web->type != COLORED && web->type != COALESCED)
 	continue;
@@ -3913,30 +3979,6 @@ emit_colors (df)
   BITMAP_XFREE (old_regs);
 }
 
-/* Copy of dce.c:delete_insn_bb.  */
-static void
-delete_insn_bb (insn)
-     rtx insn;
-{
-  basic_block bb;
-  if (!insn)
-    abort ();
-  bb = BLOCK_FOR_INSN (insn);
-  if (!bb)
-    abort ();
-  if (bb->head == bb->end)
-    {
-      /* Delete the insn by converting it to a note.  */
-      PUT_CODE (insn, NOTE);
-      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-      return;
-    }
-  else if (insn == bb->head)
-    bb->head = NEXT_INSN (insn);
-  else if (insn == bb->end)
-    bb->end = PREV_INSN (insn);
-  delete_insn (insn);
-}
 
 static unsigned int deleted_move_insns;
 
@@ -3979,7 +4021,7 @@ delete_moves (void)
        	    == (t = alias (ml->move->target_web))->reg_rtx
 	&& s->type != PRECOLORED && t->type != PRECOLORED)
       {
-	delete_insn_bb (ml->move->insn);
+	df_insn_delete (df, BLOCK_FOR_INSN (ml->move->insn), ml->move->insn);
 	deleted_move_insns++;
       }
 }
@@ -3993,6 +4035,7 @@ one_pass (df)
   if (rtl_dump_file)
     dump_igraph (df);
   build_worklists (df);
+  /*splits_init ();*/
   do
     {
       simplify ();
@@ -4067,7 +4110,7 @@ dump_ra (df)
 	  debug_msg (0, " sub %d", SUBREG_BYTE (web->orig_x));
 	  debug_msg (0, " par %d", find_web_for_subweb (web)->id);
 	}
-      debug_msg (0, " +%d (span %d, weight %d) (%s)%s",
+      debug_msg (0, " +%d (span %d, weight " HOST_WIDE_INT_PRINT_DEC ") (%s)%s",
 	         web->add_hardregs, web->span_insns, web->weight,
 	         reg_class_names[web->regclass],
 	         web->spill_temp ? " (spilltemp)" : "");
@@ -4144,26 +4187,544 @@ init_ra (void)
   orig_max_uid = get_max_uid ();
   compute_bb_for_insn (get_max_uid ());
 }
+static 
+int only_one_reaching_def (link)
+     struct df_link *link;
+{
+  for (; link; link = link->next)
+    {
+      if (DF_REF_CHAIN (link->ref) == NULL || DF_REF_CHAIN (link->ref)->next != NULL)
+	return 0;
+    }
+  return 1;
+}
 static
 int rematerializable (ref)
      struct ref *ref;
 {
   rtx set;
-  set = single_set (DF_REF_INSN (ref));
-  if (!set)
-    return 0;
-  if (CONSTANT_P (SET_SRC (set)))
-    return 1;
+  if (DF_REF_REG_USE_P (ref))
+    {
+      if (DF_REF_CHAIN (ref) != NULL && DF_REF_CHAIN (ref)->next == NULL)
+	{
+	  set = single_set (DF_REF_INSN (DF_REF_CHAIN (ref)->ref));
+	  if (!set)
+	    return 0;
+	  if (CONSTANT_P (SET_SRC (set)))
+	    return 1;
+	}
+    }
+  else if (DF_REF_REG_DEF_P (ref))
+    {
+      if (DF_REF_REGNO (ref) < FIRST_PSEUDO_REGISTER)
+	return 0;
+      if (DF_REF_CHAIN (ref) != NULL && only_one_reaching_def (DF_REF_CHAIN (ref)))
+	{
+	  set = single_set (DF_REF_INSN (ref));
+	  if (!set)
+	    return 0;
+	  if (CONSTANT_P (SET_SRC (set)))
+	    return 1;
+	}
+      else if (DF_REF_CHAIN (ref) == NULL)
+	return 1;
+    }
   return 0;
 }
+
+static basic_block dom_parent PARAMS ((basic_block));
+static void find_nesting_depths PARAMS ((void));
+static void calculate_pre_post PARAMS ((void));
+static unsigned int walk_dom_tree PARAMS ((basic_block, unsigned int *,
+					   unsigned int));
+static bool sp_back_edge PARAMS ((basic_block, basic_block));
+static void reach_under PARAMS ((basic_block, basic_block, sbitmap));
+static void dfs PARAMS ((unsigned int));
+static bool dominates PARAMS ((basic_block, basic_block));
+static unsigned int DFS_DJ_graph PARAMS ((basic_block, unsigned int *));
+static void visit_successors PARAMS ((unsigned int, unsigned int));
+static struct dj_graph_info *dj_graph_info;
+static unsigned int max_level = 0;
+static struct linked_list **levels;
+static struct scc_info *scc_info;
+static unsigned int dfs_stack;
+static unsigned int next_dfs_num;
+static unsigned int max_depth;
+static unsigned int *depths;
+static int *pre;
+static int *pre_inverse;
+static int *post;
+dominator_tree domtree;
+
+static
+void calculate_pre_post ()
+{
+  edge *stack;
+  int i;
+  int sp;
+  int prenum = 0;
+  int postnum = 0;
+  sbitmap visited;
+
+  /* Allocate the preorder and postorder number arrays.  */
+  pre = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
+  post = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
+  pre_inverse = (int *) xcalloc (n_basic_blocks+1, sizeof (int));
+  
+  /* Allocate stack for back-tracking up CFG.  */
+  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  sp = 0;
+
+  /* Allocate bitmap to track nodes that have been visited.  */
+  visited = sbitmap_alloc (n_basic_blocks);
+
+  /* None of the nodes in the CFG have been visited yet.  */
+  sbitmap_zero (visited);
+
+  /* Push the first edge on to the stack.  */
+  stack[sp++] = ENTRY_BLOCK_PTR->succ;
+
+  while (sp)
+    {
+      edge e;
+      basic_block src;
+      basic_block dest;
+
+      /* Look at the edge on the top of the stack.  */
+      e = stack[sp - 1];
+      src = e->src;
+      dest = e->dest;
+
+      /* Check if the edge destination has been visited yet.  */
+      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
+	{
+	  /* Mark that we have visited the destination.  */
+	  SET_BIT (visited, dest->index);
+
+	  pre[dest->index] = prenum++;
+
+	  if (dest->succ)
+	    {
+	      /* Since the DEST node has been visited for the first
+		 time, check its successors.  */
+	      stack[sp++] = dest->succ;
+	    }
+	  else
+	    post[dest->index] = postnum++;
+	}
+      else
+	{
+	  if (! e->succ_next && src != ENTRY_BLOCK_PTR)
+	    post[src->index] = postnum++;
+
+	  if (e->succ_next)
+	    stack[sp - 1] = e->succ_next;
+	  else
+	    sp--;
+	}
+    }
+
+
+  free (stack);
+  sbitmap_free (visited);
+  for (i = 0; i < n_basic_blocks; i++)
+    pre_inverse[pre[i]] = i;
+}
+static basic_block
+dom_parent (block)
+     basic_block block;
+{
+  int fpred,dedge, index;
+  fpred = DTREE_NODE (domtree, dom_node_for_block (domtree, block->index))->fpred;
+  dedge = DTREE_EDGE (domtree, fpred)->from;
+  index = DTREE_NODE (domtree, dedge)->index;
+  if (index >= 0)
+    return BASIC_BLOCK (index);
+  if (index == ENTRY_BLOCK)
+    return ENTRY_BLOCK_PTR;
+  if (index == EXIT_BLOCK)
+    return EXIT_BLOCK_PTR;
+  abort();
+}
+
+  
+
+static unsigned int
+walk_dom_tree (block, index, level)
+     basic_block block;
+     unsigned int *index;
+     unsigned int level;
+{
+  unsigned int size = 1;
+  int preorder_index = pre [block->index];
+  unsigned int dom_index = (*index)++;
+  int child;
+  dj_graph_info[preorder_index].dom_index = dom_index;
+  dj_graph_info[preorder_index].dom_level = level;
+  if (level > max_level) max_level = level;
+  if (dom_node_for_block (domtree, block->index) < 0)
+    child = -1;
+  else
+    child = DTREE_NODE (domtree,
+			dom_node_for_block (domtree, block->index))->fsucc;
+  while (child >= 0)
+    {
+      struct dom_edge *edge;
+      basic_block block;
+      edge = DTREE_EDGE (domtree, child);
+      block = BASIC_BLOCK (DTREE_NODE (domtree, edge->to)->index);
+      size += walk_dom_tree (block, index, level + 1);
+      child =  edge->succ;
+    }
+  return dj_graph_info[preorder_index].dom_size = size;
+}
+static bool
+sp_back_edge (parent, child)
+     basic_block parent;
+     basic_block child;
+{
+  unsigned int p_index = dj_graph_info[pre[parent->index]].dfs_index;
+  unsigned int p_size = dj_graph_info[pre[parent->index]].dfs_size;
+  unsigned int c_index = dj_graph_info[pre[child->index]].dfs_index;
+  return p_index <= c_index && c_index < p_index + p_size;
+}
+static void
+reach_under (block, head, loop)
+     basic_block block;
+     basic_block head;
+     sbitmap loop;
+{
+  sbitmap worklist;
+  edge edge;
+  
+  worklist = sbitmap_alloc (n_basic_blocks + 1);
+  sbitmap_zero (worklist);
+  SET_BIT (worklist, pre[block->index]);
+  SET_BIT (worklist, pre[head->index]);
+  for (edge = block->pred; edge; edge = edge->pred_next)
+    {
+      basic_block predblock = edge->src;
+      int pred_index = pre[predblock->index];
+      if (dominates (head, predblock))
+	SET_BIT (worklist, pred_index);
+    }
+  while (sbitmap_first_set_bit (worklist) >= 0)
+    {
+      int index = sbitmap_first_set_bit (worklist);
+      RESET_BIT (worklist, index);
+      if (!TEST_BIT (loop, index))
+	{
+	  SET_BIT (loop, index);
+	  for (edge = BASIC_BLOCK (pre_inverse[index])->pred; edge; edge = edge->pred_next)
+	    {
+	      basic_block predblock = edge->src;
+	      int pred_index = pre[predblock->index];
+	      if (dominates (head, predblock))
+		SET_BIT (worklist, pred_index);
+	    }
+	}
+    }
+  sbitmap_free (worklist);
+}
+
+	      
+      
+static bool
+dominates (parent, child)
+     basic_block parent;
+     basic_block child;
+{
+  unsigned int p_index = dj_graph_info[pre[parent->index]].dom_index;
+  unsigned int p_size = dj_graph_info[pre[parent->index]].dom_size;
+  unsigned int c_index = dj_graph_info[pre[child->index]].dom_index;
+  return p_index <= c_index && c_index < p_index + p_size;
+}
+static void
+dfs (i)
+     unsigned int i;
+{
+  scc_info[i].visited = TRUE;
+  scc_info[i].dfs_num = scc_info[i].low = next_dfs_num++;
+  scc_info[i].in_stack = TRUE;
+  scc_info[i].next = dfs_stack;
+  dfs_stack = i;
+  
+  visit_successors (i, i);
+  if (scc_info[i].low == scc_info[i].dfs_num)
+    {
+      unsigned int name = dfs_stack;
+      if (i == name)
+	{
+	  unsigned int name = dfs_stack;
+	  scc_info[name].in_stack = FALSE;
+	  dfs_stack = scc_info[name].next;
+	}
+      else
+	{
+	  unsigned int scc = 0;
+	  do
+	    {
+	      name = dfs_stack;
+	      scc_info[name].in_stack = FALSE;
+	      dfs_stack = scc_info[name].next;
+	      scc_info[name].next = scc;
+	      scc = name;
+	    } while (name != i);
+	  for (name = scc; name; name = scc_info[name].next)
+	    {
+	      unsigned int depth = ++(depths[i]);
+	      if (depth > max_depth) max_depth = depth;
+	      if (!dj_graph_info[name].loop_head || dj_graph_info[i].loop_head == name)
+		{
+		  dj_graph_info[name].loop_head = i;
+		  if (name != i)
+		    {
+		      struct linked_list * node = (struct linked_list *) ggc_alloc (sizeof (struct linked_list));
+		      node->name = name;
+		      node->next = dj_graph_info[i].children;
+		      dj_graph_info[i].children = node;
+		    }		 
+		}
+	    }
+	}
+    }
+}
+static void
+visit_successors PARAMS ((pred, i))
+     unsigned int pred;
+     unsigned int i;
+{
+  basic_block block;
+  edge edge;
+  struct linked_list *node;
+
+  block = BASIC_BLOCK (pre_inverse[i]);
+  for (edge = block->succ; edge; edge = edge->succ_next)
+    {
+      int succ_index = pre[edge->dest->index];
+      if (!dj_graph_info[succ_index].loop_head)
+	{
+	  if (!scc_info[succ_index].visited)
+	    {
+	      dfs (succ_index);
+	      scc_info[pred].low = MIN(scc_info[pred].low, scc_info[succ_index].low);
+	    }
+	  if (scc_info[succ_index].dfs_num < scc_info[pred].dfs_num
+	      && scc_info[succ_index].in_stack)
+	    scc_info[pred].low = MIN(scc_info[succ_index].dfs_num, scc_info[pred].low);
+	}
+    }
+  for (node = dj_graph_info[i].children; node; node = node->next)
+    visit_successors (pred, node->name);
+}
+
+static sbitmap visited;
+
+static unsigned int
+DFS_DJ_graph (block, index)
+     basic_block block;
+     unsigned int *index;
+{
+  unsigned int size = 1;
+  int preorder_index = pre[block->index];
+  edge succ;
+  int child;
+  SET_BIT (visited, block->index);
+  dj_graph_info[preorder_index].dfs_index = (*index)++; 
+  if (dom_node_for_block (domtree, block->index) < 0)
+    child = -1;
+  else
+    child = DTREE_NODE (domtree,
+			dom_node_for_block (domtree, block->index))->fsucc;
+  while (child >= 0)
+    {
+      struct dom_edge *edge;
+      basic_block childblock;
+      edge = DTREE_EDGE (domtree, child);
+      childblock = BASIC_BLOCK (DTREE_NODE (domtree, edge->to)->index);
+      size += DFS_DJ_graph (childblock, index);
+      child =  edge->succ;
+    }
+  for (succ = block->succ; succ; succ = succ->succ_next)
+    {
+      basic_block next_block = succ->dest;
+      if (next_block->index >= 0)
+	{
+	  if (!TEST_BIT (visited, next_block->index))
+	    size += DFS_DJ_graph (next_block, index);
+	}
+    }
+  return dj_graph_info[preorder_index].dfs_size = size;
+}
+static void 
+find_nesting_depths()
+{
+  unsigned int *depthtemp;
+  unsigned int index = 1;
+  unsigned int level = 0;
+  int i;
+  int *idom = (int *)alloca (n_basic_blocks * sizeof (int));
+  sbitmap loop;
+  
+  memset (idom, -1, (size_t) n_basic_blocks * sizeof (int));
+  calculate_pre_post ();
+  depths = (unsigned int *)xcalloc (n_basic_blocks + 1, sizeof(unsigned int));
+  depthtemp = (unsigned int *)xcalloc (n_basic_blocks + 1, sizeof (unsigned int));
+  calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
+  domtree = dom_tree_from_idoms (idom);
+  dj_graph_info = (struct dj_graph_info *) ggc_alloc_cleared
+    ((n_basic_blocks + 1) * sizeof (struct dj_graph_info));
+  walk_dom_tree (BASIC_BLOCK (0), &index,  level);    
+  levels = (struct linked_list **) ggc_alloc_cleared ((max_level + 1) * sizeof (struct linked_list *));
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block block = BASIC_BLOCK (i);
+      int block_num = pre[block->index];
+      struct linked_list *node;
+
+      level = dj_graph_info[block_num].dom_level;
+      node = (struct linked_list *) ggc_alloc (sizeof (struct linked_list));
+      node->name = block_num;
+      node->next = levels[level];
+      levels[level] = node;
+    }
+  index = 1;
+  visited = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (visited);
+  DFS_DJ_graph (BASIC_BLOCK (0), &index);
+  loop = sbitmap_alloc (n_basic_blocks + 1);
+  sbitmap_zero (loop);
+  
+  for (i = max_level; i >= 0; i--)
+    {
+      bool irreducible_loop = FALSE;
+      struct linked_list *node;
+      for (node = levels[i]; node; node = node->next)
+	{
+	  basic_block block = BASIC_BLOCK (pre_inverse[node->name]);
+	  edge edge;
+	  sbitmap_zero (loop);
+	  for (edge = block->pred; edge; edge = edge->pred_next)
+	    {
+	      basic_block pred = edge->src;
+	      if (pred != dom_parent (block))
+		{
+		  if (!dominates (block, pred) && sp_back_edge (block, pred))
+		    irreducible_loop = TRUE;
+		  if (dominates (block, pred))
+		    reach_under (pred, block, loop);
+		}
+	    }
+	  if (sbitmap_first_set_bit (loop) >= 0)
+	    {
+	      int block_index = pre [block->index];
+	      unsigned int i;
+	      EXECUTE_IF_SET_IN_SBITMAP (loop, 0, i, 
+	      {
+		unsigned int depth = ++(depths[i]);
+		if (depth > max_depth) max_depth = depth;
+		if (!dj_graph_info[i].loop_head || dj_graph_info[i].loop_head == i)
+		  {
+		    dj_graph_info[i].loop_head = block_index;
+		    if ((int )i != block_index)
+		      {
+			struct linked_list *node = (struct linked_list *) ggc_alloc (sizeof (struct linked_list));
+			node->name = i;
+			node->next = dj_graph_info[block_index].children;
+			dj_graph_info[block_index].children = node;
+		      }
+		  }
+	      });
+	    }
+	  if (irreducible_loop)
+	    {
+	      unsigned int j;
+	      scc_info = (struct scc_info *) ggc_alloc_cleared (sizeof (struct scc_info) * (n_basic_blocks + 1));
+	      next_dfs_num = 0;
+	      for (j = i; j <= max_depth; j++)
+		{
+		  struct linked_list *node;
+		  for (node = levels[j]; node; node = node->next)
+		    {
+		      int index = node->name;
+		      if (!dj_graph_info[index].loop_head && !scc_info[index].visited)
+			dfs(i);
+		    }
+		}
+	    }
+	}
+    }
+  memcpy (depthtemp, depths, sizeof (unsigned int) * (n_basic_blocks));
+  for (i = 0; i < n_basic_blocks; i ++)
+	depths[i] = depthtemp[pre[i]];
+  free (depthtemp);
+  sbitmap_free (loop);
+  sbitmap_free (visited);
+  free (pre);
+  free (post);
+  destroy_dominator_tree (domtree);
+}
+bool split_live_ranges = FALSE;
+static bool any_splits_found;
+struct split_range
+{
+  double loads;
+  double stores;
+};
+static struct split_range *split_ranges;
+
+static struct linked_list **split_around;
+static struct linked_list **neighbors_with_color;
+static inline double powraise PARAMS ((unsigned int));
+static inline double 
+powraise (power)
+     unsigned int power;
+{
+  double i = 1.0;
+  while (power--)
+      i *= 10.0;
+  return i;
+}
+static bool 
+find_splits (name, colors)
+     unsigned int name;
+     int *colors;
+{
+  return FALSE;
+}
+static void 
+splits_init ()
+{
+  if (split_live_ranges)
+    {
+      unsigned int i;
+      split_ranges = (struct split_range *)ggc_alloc_cleared (num_webs * sizeof (struct split_range));
+      split_around = (struct linked_list **)ggc_alloc_cleared (num_webs * sizeof (struct linked_list *));
+      for (i = 0; i < num_webs; i++)
+	{
+	  int j;
+	  struct web *web = id2web[i];
+	  for (j = 0; j < web->num_defs; j++)
+	    split_ranges[i].stores += powraise (depths[DF_REF_BB (web->defs[j])->index]);
+	  for (j = 0; j < web->num_uses; j++)
+	    split_ranges[i].loads += powraise (depths[DF_REF_BB (web->uses[j])->index]);
+	}
+      any_splits_found = FALSE;
+    }
+}
+
+
 /* Main register allocator entry point.  */
 void
 reg_alloc (void)
 {
-  struct df *df;
   int changed;
   int pass = 0;
+  split_live_ranges = FALSE;
+  update_equiv_regs();
   init_ra ();
+  /*find_nesting_depths ();*/
+  pass = 0;
   no_new_pseudos = 0;
   /* We don't use those NOTEs, and as we anyway change all registers,
      they only make problems later.  */
@@ -4172,12 +4733,13 @@ reg_alloc (void)
   emitted_spill_stores = 0;
   emitted_remat = 0;
   deleted_move_insns = 0;
+  df = df_init ();
   do
     {
+      int j;
       debug_msg (0, "RegAlloc Pass %d\n\n", pass);
       if (pass++ > 40)
 	internal_error ("Didn't find a coloring.\n");
-      df = df_init ();
       df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN | DF_DU_CHAIN | DF_UD_CHAIN );
       if (rtl_dump_file)
 	{
@@ -4200,10 +4762,12 @@ reg_alloc (void)
       else
 	{
 	  allocate_reg_info (max_reg_num (), FALSE, TRUE);
-	  reg_scan_update (get_insns(), BLOCK_END (n_basic_blocks - 1),
+	  compute_bb_for_insn (get_max_uid ());
+	  delete_trivially_dead_insns (get_insns (), max_reg_num (), 0);
+	  reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
 			   max_regno);
-	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
 	  max_regno = max_reg_num ();
+	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
 	}
       dump_ra (df);
       if (changed && rtl_dump_file)
@@ -4213,22 +4777,27 @@ reg_alloc (void)
 	}
       free_all_lists ();
       free_mem (df);
-      df_finish (df);
     }
   while (changed);
-/*   if (rtl_dump_file)
-    print_rtl_with_bb (rtl_dump_file, get_insns ()); */
+  df_finish (df);
+  if (rtl_dump_file)
+       print_rtl_with_bb (rtl_dump_file, get_insns ()); 
+  no_new_pseudos = 0;
+  allocate_reg_info (max_reg_num (), FALSE, TRUE);
+  compute_bb_for_insn (get_max_uid ());
+  store_motion ();
   no_new_pseudos = 1;
   compute_bb_for_insn (get_max_uid ());
-  /*  no_new_pseudos = 0;
-      store_motion();
-      allocate_reg_info (max_reg_num (), 0, 1);
-      no_new_pseudos = 1;*/
+  clear_log_links (get_insns ());
   cleanup_cfg (CLEANUP_EXPENSIVE);
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
-  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+  life_analysis (get_insns (), rtl_dump_file, 
+		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO); 
   recompute_reg_usage (get_insns (), TRUE);
-  regclass (get_insns (), max_reg_num (), rtl_dump_file);
+  /* XXX: reg_scan screws up reg_renumber, and without reg_scan, we can't do
+     regclass. */
+  /*reg_scan (get_insns (), max_reg_num (), 1);
+    regclass (get_insns (), max_reg_num (), rtl_dump_file); */
 }
 
 /*

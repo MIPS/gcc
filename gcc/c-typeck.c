@@ -4494,7 +4494,7 @@ static int spelling_size;		/* Size of the spelling stack.  */
    Alternative to SAVE_SPELLING_STACK.  */
 
 #define SPELLING_DEPTH() (spelling - spelling_base)
-#define RESTORE_SPELLING_DEPTH(depth) (spelling = spelling_base + depth)
+#define RESTORE_SPELLING_DEPTH(DEPTH) (spelling = spelling_base + (DEPTH))
 
 /* Save and restore the spelling stack around arbitrary C code.  */
 
@@ -5850,7 +5850,7 @@ add_pending_init (purpose, value)
 	    {
 	      if (r->balance < 0)
 		{
-		  /* L rotation. */
+		  /* L rotation.  */
 		  p->left = r->right;
 		  if (p->left)
 		    p->left->parent = p;
@@ -5874,7 +5874,7 @@ add_pending_init (purpose, value)
 		}
 	      else
 		{
-		  /* LR rotation. */
+		  /* LR rotation.  */
 		  struct init_node *t = r->right;
 
 		  r->right = t->left;
@@ -5923,7 +5923,7 @@ add_pending_init (purpose, value)
 	    {
 	      if (r->balance > 0)
 		{
-		  /* R rotation. */
+		  /* R rotation.  */
 		  p->right = r->left;
 		  if (p->right)
 		    p->right->parent = p;
@@ -5982,7 +5982,7 @@ add_pending_init (purpose, value)
 	    }
 	  else
 	    {
-	      /* p->balance == -1; growth of right side balances the node. */
+	      /* p->balance == -1; growth of right side balances the node.  */
 	      p->balance = 0;
 	      break;
 	    }

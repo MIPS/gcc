@@ -355,11 +355,12 @@ calls_function_1 (exp, which)
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen)
+prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen, sibcallp)
      rtx funexp;
      tree fndecl;
      rtx *call_fusage;
      int reg_parm_seen;
+     int sibcallp;
 {
   rtx static_chain_value = 0;
 
@@ -377,7 +378,7 @@ prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen)
     funexp = ((SMALL_REGISTER_CLASSES && reg_parm_seen)
 	      ? force_not_mem (memory_address (FUNCTION_MODE, funexp))
 	      : memory_address (FUNCTION_MODE, funexp));
-  else
+  else if (! sibcallp)
     {
 #ifndef NO_FUNCTION_CSE
       if (optimize && ! flag_no_function_cse)
@@ -597,7 +598,7 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
   /* If this is a const call, then set the insn's unchanging bit.  */
   if (ecf_flags & (ECF_CONST | ECF_PURE))
-    CONST_CALL_P (call_insn) = 1;
+    CONST_OR_PURE_CALL_P (call_insn) = 1;
 
   /* If this call can't throw, attach a REG_EH_REGION reg note to that
      effect.  */
@@ -607,6 +608,10 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 
   if (ecf_flags & ECF_NORETURN)
     REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_NORETURN, const0_rtx,
+					       REG_NOTES (call_insn));
+
+  if (ecf_flags & ECF_RETURNS_TWICE)
+    REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_SETJMP, const0_rtx,
 					       REG_NOTES (call_insn));
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
@@ -3038,7 +3043,7 @@ expand_call (exp, target, ignore)
 	}
 
       funexp = prepare_call_address (funexp, fndecl, &call_fusage,
-				     reg_parm_seen);
+				     reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags);
 
@@ -3151,9 +3156,9 @@ expand_call (exp, target, ignore)
 	 if nonvolatile values are live.  For functions that cannot return,
 	 inform flow that control does not fall through.  */
 
-      if ((flags & (ECF_RETURNS_TWICE | ECF_NORETURN | ECF_LONGJMP)) || pass == 0)
+      if ((flags & (ECF_NORETURN | ECF_LONGJMP)) || pass == 0)
 	{
-	  /* The barrier or NOTE_INSN_SETJMP note must be emitted
+	  /* The barrier must be emitted
 	     immediately after the CALL_INSN.  Some ports emit more
 	     than just a CALL_INSN above, so we must search for it here.  */
 
@@ -3166,13 +3171,7 @@ expand_call (exp, target, ignore)
 		abort ();
 	    }
 
-	  if (flags & ECF_RETURNS_TWICE)
-	    {
-	      emit_note_after (NOTE_INSN_SETJMP, last);
-	      current_function_calls_setjmp = 1;
-	    }
-	  else
-	    emit_barrier_after (last);
+	  emit_barrier_after (last);
 	}
 
       if (flags & ECF_LONGJMP)
@@ -4005,7 +4004,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   else
     argnum = 0;
 
-  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0);
+  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0, 0);
 
   /* Now load any reg parms into their regs.  */
 
@@ -4085,9 +4084,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      if nonvolatile values are live.  For functions that cannot return,
      inform flow that control does not fall through.  */
 
-  if (flags & (ECF_RETURNS_TWICE | ECF_NORETURN | ECF_LONGJMP))
+  if (flags & (ECF_NORETURN | ECF_LONGJMP))
     {
-      /* The barrier or NOTE_INSN_SETJMP note must be emitted
+      /* The barrier note must be emitted
 	 immediately after the CALL_INSN.  Some ports emit more than
 	 just a CALL_INSN above, so we must search for it here.  */
 
@@ -4100,13 +4099,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	    abort ();
 	}
 
-      if (flags & ECF_RETURNS_TWICE)
-	{
-	  emit_note_after (NOTE_INSN_SETJMP, last);
-	  current_function_calls_setjmp = 1;
-	}
-      else
-	emit_barrier_after (last);
+      emit_barrier_after (last);
     }
 
   /* Now restore inhibit_defer_pop to its actual original value.  */
@@ -4618,7 +4611,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	}
 
       /*  If parm is passed both in stack and in register and offset is 
-	  greater than reg_parm_stack_space, split the offset. */
+	  greater than reg_parm_stack_space, split the offset.  */
       if (arg->reg && arg->pass_on_stack)
 	{
 	  if (arg->offset.constant < reg_parm_stack_space && arg->offset.var)

@@ -88,6 +88,7 @@ extern int arith_reg_or_0_operand PARAMS ((rtx, enum machine_mode));
 extern int logical_operand PARAMS ((rtx, enum machine_mode));
 extern int tertiary_reload_operand PARAMS ((rtx, enum machine_mode));
 extern int fpscr_operand PARAMS ((rtx, enum machine_mode));
+extern int fpul_operand PARAMS ((rtx, enum machine_mode));
 extern int commutative_float_operator PARAMS ((rtx, enum machine_mode));
 extern int noncommutative_float_operator PARAMS ((rtx, enum machine_mode));
 extern int binary_float_operator PARAMS ((rtx, enum machine_mode));
@@ -98,6 +99,7 @@ extern void expand_df_unop PARAMS ((rtx (*)(rtx, rtx, rtx), rtx *));
 extern void expand_df_binop PARAMS ((rtx (*)(rtx, rtx, rtx, rtx), rtx *));
 extern void expand_fp_branch PARAMS ((rtx (*)(void), rtx (*)(void)));
 extern int sh_insn_length_adjustment PARAMS ((rtx));
+extern int sh_can_redirect_branch PARAMS ((rtx, rtx));
 #ifdef TREE_CODE
 extern void sh_va_start PARAMS ((int, tree, rtx));
 extern rtx sh_va_arg PARAMS ((tree, tree));

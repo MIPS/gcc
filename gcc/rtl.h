@@ -35,6 +35,10 @@ struct function;
 union tree_node;
 #endif
 
+/* Value used by some passes to "recognize" noop moves as valid instructions.
+ */
+#define NOOP_MOVE_INSN_CODE	INT_MAX
+
 /* Register Transfer Language EXPRESSIONS CODES */
 
 #define RTX_CODE	enum rtx_code
@@ -390,7 +394,7 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 #define INSN_DELETED_P(INSN) ((INSN)->volatil)
 
 /* 1 if insn is a call to a const function.  */
-#define CONST_CALL_P(INSN) ((INSN)->unchanging)
+#define CONST_OR_PURE_CALL_P(INSN) ((INSN)->unchanging)
 
 /* 1 if insn (assumed to be a CALL_INSN) is a sibling call.  */
 #define SIBLING_CALL_P(INSN) ((INSN)->jump)
@@ -558,7 +562,11 @@ enum reg_note
 
   /* Indicates that an indirect jump is a non-local goto instead of a 
      computed goto.  */
-  REG_NON_LOCAL_GOTO
+  REG_NON_LOCAL_GOTO,
+
+  /* This kind of note is generated at each call to 'setjmp'
+     and similar functions that return twice. */
+  REG_SETJMP
 };
 
 /* The base value for branch probability notes.  */
@@ -655,10 +663,6 @@ enum insn_note
      enabling that optimizer to determine whether control can fall
      off the end of the function body without a return statement.  */
   NOTE_INSN_FUNCTION_END,
-
-  /* This kind of note is generated just after each call to `setjmp',
-     and similar functions that can return twice.  */
-  NOTE_INSN_SETJMP,
 
   /* This marks the point immediately after the last prologue insn.  */
   NOTE_INSN_PROLOGUE_END,
@@ -1286,6 +1290,7 @@ extern enum rtx_code swap_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code unsigned_condition	PARAMS ((enum rtx_code));
 extern enum rtx_code signed_condition	PARAMS ((enum rtx_code));
 extern void mark_jump_label		PARAMS ((rtx, rtx, int));
+extern void cleanup_barriers		PARAMS ((void));
 
 /* In jump.c */
 extern rtx squeeze_notes		PARAMS ((rtx, rtx));
@@ -1301,6 +1306,7 @@ extern rtx *find_constant_term_loc	PARAMS ((rtx *));
 
 /* In emit-rtl.c  */
 extern rtx try_split			PARAMS ((rtx, rtx, int));
+extern int split_branch_probability;
 
 /* In unknown file  */
 extern rtx split_insns			PARAMS ((rtx, rtx));
@@ -1343,6 +1349,7 @@ extern rtx simplify_gen_subreg		PARAMS ((enum machine_mode,
 						 unsigned int));
 extern rtx simplify_replace_rtx		PARAMS ((rtx, rtx, rtx));
 extern rtx simplify_rtx			PARAMS ((rtx));
+extern rtx avoid_constant_pool_reference PARAMS ((rtx));
 
 /* In function.c  */
 extern rtx gen_mem_addressof		PARAMS ((rtx, union tree_node *));
@@ -1386,6 +1393,7 @@ extern int reg_set_p			PARAMS ((rtx, rtx));
 extern rtx single_set_2			PARAMS ((rtx, rtx));
 extern int multiple_sets		PARAMS ((rtx));
 extern int set_noop_p			PARAMS ((rtx));
+extern int noop_move_p			PARAMS ((rtx));
 extern rtx find_last_value		PARAMS ((rtx, rtx *, rtx, int));
 extern int refers_to_regno_p		PARAMS ((unsigned int, unsigned int,
 						 rtx, rtx *));
@@ -1424,6 +1432,7 @@ extern int auto_inc_p			PARAMS ((rtx));
 extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
 extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
+extern rtx find_first_parameter_load	PARAMS ((rtx, rtx));
 
 /* flow.c */
 
@@ -1455,12 +1464,12 @@ extern const char *decode_asm_operands	PARAMS ((rtx, rtx *, rtx **,
 					       enum machine_mode *));
 
 extern enum reg_class reg_preferred_class PARAMS ((int));
-extern unsigned int reg_spill_cost PARAMS ((int));
 extern enum reg_class reg_alternate_class PARAMS ((int));
 
 extern rtx get_first_nonparm_insn	PARAMS ((void));
 
 extern void split_all_insns		PARAMS ((int));
+extern void split_all_insns_noflow	PARAMS ((void));
 
 #define MAX_SAVED_CONST_INT 64
 extern rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
@@ -1716,8 +1725,6 @@ extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
-extern void jump_optimize		PARAMS ((rtx, int, int));
-extern void jump_optimize_minimal	PARAMS ((rtx));
 extern void rebuild_jump_labels		PARAMS ((rtx));
 extern void thread_jumps		PARAMS ((rtx, int, int));
 extern int rtx_equal_for_thread_p	PARAMS ((rtx, rtx, rtx));
@@ -1728,10 +1735,8 @@ extern enum rtx_code reversed_comparison_code_parts PARAMS ((enum rtx_code,
 extern void delete_for_peephole		PARAMS ((rtx, rtx));
 extern int condjump_in_parallel_p	PARAMS ((rtx));
 extern void never_reached_warning	PARAMS ((rtx));
-
-/* Flags for jump_optimize() */
-#define JUMP_NOOP_MOVES			1
-#define JUMP_AFTER_REGSCAN		1
+extern void purge_line_number_notes	PARAMS ((rtx));
+extern void copy_loop_headers		PARAMS ((rtx));
 
 /* In emit-rtl.c. */
 extern int max_reg_num				PARAMS ((void));
@@ -1851,7 +1856,7 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 /* In gcse.c */
 #ifdef BUFSIZ
 extern int gcse_main			PARAMS ((rtx));
-extern int store_motion			PARAMS ((void));
+void store_motion			PARAMS ((void));
 #endif
 
 /* In global.c */

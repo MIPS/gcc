@@ -119,6 +119,10 @@ static int alpha_does_function_need_gp
   PARAMS ((void));
 static int alpha_ra_ever_killed
   PARAMS ((void));
+static const char *get_trap_mode_suffix
+  PARAMS ((void));
+static const char *get_round_mode_suffix
+  PARAMS ((void));
 static rtx set_frame_related_p
   PARAMS ((void));
 static const char *alpha_lookup_xfloating_lib_func
@@ -144,9 +148,14 @@ static void alpha_output_function_end_prologue
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
-   static int vms_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
-#  undef TARGET_VALID_DECL_ATTRIBUTE
-#  define TARGET_VALID_DECL_ATTRIBUTE vms_valid_decl_attribute_p
+static int vms_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
+static unsigned int vms_section_type_flags PARAMS ((tree, const char *, int));
+static void vms_asm_named_section PARAMS ((const char *, unsigned int,
+					   unsigned int));
+# undef TARGET_VALID_DECL_ATTRIBUTE
+# define TARGET_VALID_DECL_ATTRIBUTE vms_valid_decl_attribute_p
+# undef TARGET_SECTION_TYPE_FLAGS
+# define TARGET_SECTION_TYPE_FLAGS vms_section_type_flags
 #endif
 
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
@@ -1901,7 +1910,7 @@ alpha_emit_setcc (code)
       break;
 
     case GE:  case GT: case GEU:  case GTU:
-      /* These are normally need swapping, but for integer zero we have
+      /* These normally need swapping, but for integer zero we have
 	 special patterns that recognize swapped operands.  */
       if (!fp_p && op1 == const0_rtx)
 	break;
@@ -1992,8 +2001,9 @@ alpha_emit_conditional_move (cmp, mode)
 	  break;
 
 	case GE: case GT: case GEU: case GTU:
-	  /* These must be swapped.  */
-	  if (op1 == CONST0_RTX (cmp_mode))
+	  /* These normally need swapping, but for integer zero we have
+	     special patterns that recognize swapped operands.  */
+	  if (!fp_p && op1 == const0_rtx)
 	    cmp_code = code, code = NE;
 	  else
 	    {
@@ -3719,6 +3729,105 @@ alpha_ra_ever_killed ()
 }
 
 
+/* Return the trap mode suffix applicable to the current
+   instruction, or NULL.   */
+
+static const char *
+get_trap_mode_suffix ()
+{
+  enum attr_trap_suffix s = get_attr_trap_suffix (current_output_insn);
+
+  switch (s)
+    {
+    case TRAP_SUFFIX_NONE:
+      return NULL;
+
+    case TRAP_SUFFIX_SU:
+      if (alpha_fptm >= ALPHA_FPTM_SU)
+	return "su";
+      return NULL;
+
+    case TRAP_SUFFIX_SUI:
+      if (alpha_fptm >= ALPHA_FPTM_SUI)
+	return "sui";
+      return NULL;
+
+    case TRAP_SUFFIX_V_SV:
+      switch (alpha_fptm)
+	{
+	case ALPHA_FPTM_N:
+	  return NULL;
+	case ALPHA_FPTM_U:
+	  return "v";
+	case ALPHA_FPTM_SU:
+	case ALPHA_FPTM_SUI:
+	  return "sv";
+	}
+      break;
+
+    case TRAP_SUFFIX_V_SV_SVI:
+      switch (alpha_fptm)
+	{
+	case ALPHA_FPTM_N:
+	  return NULL;
+	case ALPHA_FPTM_U:
+	  return "v";
+	case ALPHA_FPTM_SU:
+	  return "sv";
+	case ALPHA_FPTM_SUI:
+	  return "svi";
+	}
+      break;
+
+    case TRAP_SUFFIX_U_SU_SUI:
+      switch (alpha_fptm)
+	{
+	case ALPHA_FPTM_N:
+	  return NULL;
+	case ALPHA_FPTM_U:
+	  return "u";
+	case ALPHA_FPTM_SU:
+	  return "su";
+	case ALPHA_FPTM_SUI:
+	  return "sui";
+	}
+      break;
+    }
+  abort ();
+}
+
+/* Return the rounding mode suffix applicable to the current
+   instruction, or NULL.   */
+
+static const char *
+get_round_mode_suffix ()
+{
+  enum attr_round_suffix s = get_attr_round_suffix (current_output_insn);
+
+  switch (s)
+    {
+    case ROUND_SUFFIX_NONE:
+      return NULL;
+    case ROUND_SUFFIX_NORMAL:
+      switch (alpha_fprm)
+	{
+	case ALPHA_FPRM_NORM:
+	  return NULL;
+	case ALPHA_FPRM_MINF: 
+	  return "m";
+	case ALPHA_FPRM_CHOP:
+	  return "c";
+	case ALPHA_FPRM_DYN:
+	  return "d";
+	}
+      break;
+
+    case ROUND_SUFFIX_C:
+      return "c";
+    }
+  abort ();
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 void
@@ -3736,115 +3845,25 @@ print_operand (file, x, code)
       assemble_name (file, alpha_fnname);
       break;
 
-    case '&':
-      /* Generates fp-rounding mode suffix: nothing for normal, 'c' for
-	 chopped, 'm' for minus-infinity, and 'd' for dynamic rounding
-	 mode.  alpha_fprm controls which suffix is generated.  */
-      switch (alpha_fprm)
-	{
-	case ALPHA_FPRM_NORM:
-	  break;
-	case ALPHA_FPRM_MINF: 
-	  fputc ('m', file);
-	  break;
-	case ALPHA_FPRM_CHOP:
-	  fputc ('c', file);
-	  break;
-	case ALPHA_FPRM_DYN:
-	  fputc ('d', file);
-	  break;
-	default:
-	  abort ();
-	}
-      break;
+    case '/':
+      {
+	const char *trap = get_trap_mode_suffix ();
+	const char *round = get_round_mode_suffix ();
 
-    case '\'':
-      /* Generates trap-mode suffix for instructions that accept the su
-	 suffix only (cmpt et al).  */
-      if (alpha_fptm >= ALPHA_FPTM_SU)
-	fputs ("su", file);
-      break;
+	if (trap || round)
+	  fprintf (file, "%s%s", (trap ? trap : ""), (round ? round : ""));
 
-    case '`':
-      /* Generates trap-mode suffix for instructions that accept the
-	 v and sv suffix.  The only instruction that needs this is cvtql.  */
-      switch (alpha_fptm)
-	{
-	case ALPHA_FPTM_N:
-	  break;
-	case ALPHA_FPTM_U:
-	  fputs ("v", file);
-	  break;
-	case ALPHA_FPTM_SU:
-	case ALPHA_FPTM_SUI:
-	  fputs ("sv", file);
-	  break;
-	}
-      break;
-
-    case '(':
-      /* Generates trap-mode suffix for instructions that accept the
-	 v, sv, and svi suffix.  The only instruction that needs this
-	 is cvttq.  */
-      switch (alpha_fptm)
-	{
-	case ALPHA_FPTM_N:
-	  break;
-	case ALPHA_FPTM_U:
-	  fputs ("v", file);
-	  break;
-	case ALPHA_FPTM_SU:
-	  fputs ("sv", file);
-	  break;
-	case ALPHA_FPTM_SUI:
-	  fputs ("svi", file);
-	  break;
-	}
-      break;
-
-    case ')':
-      /* Generates trap-mode suffix for instructions that accept the u, su,
-	 and sui suffix.  This is the bulk of the IEEE floating point
-	 instructions (addt et al).  */
-      switch (alpha_fptm)
-	{
-	case ALPHA_FPTM_N:
-	  break;
-	case ALPHA_FPTM_U:
-	  fputc ('u', file);
-	  break;
-	case ALPHA_FPTM_SU:
-	  fputs ("su", file);
-	  break;
-	case ALPHA_FPTM_SUI:
-	  fputs ("sui", file);
-	  break;
-	}
-      break;
-
-    case '+':
-      /* Generates trap-mode suffix for instructions that accept the sui
-	 suffix (cvtqt and cvtqs).  */
-      switch (alpha_fptm)
-	{
-	case ALPHA_FPTM_N:
-	case ALPHA_FPTM_U:
-	case ALPHA_FPTM_SU:	/* cvtqt/cvtqs can't cause underflow */
-	  break;
-	case ALPHA_FPTM_SUI:
-	  fputs ("sui", file);
-	  break;
-	}
-      break;
+	break;
+      }
 
     case ',':
       /* Generates single precision instruction suffix.  */
-      fprintf (file, "%c", (TARGET_FLOAT_VAX ? 'f' : 's'));
+      fputc ((TARGET_FLOAT_VAX ? 'f' : 's'), file);
       break;
 
     case '-':
       /* Generates double precision instruction suffix.  */
-      fprintf (file, "%c", (TARGET_FLOAT_VAX ? 'g' : 't'));
+      fputc ((TARGET_FLOAT_VAX ? 'g' : 't'), file);
       break;
 
     case 'r':
@@ -4841,13 +4860,14 @@ alpha_expand_prologue ()
   if (TARGET_ABI_OPEN_VMS)
     {
       if (!vms_is_stack_procedure)
-	/* Register frame procedures fave the fp.  */
-	FRP (emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
-			     hard_frame_pointer_rtx));
+	/* Register frame procedures save the fp.  */
+	/* ??? Ought to have a dwarf2 save for this.  */
+	emit_move_insn (gen_rtx_REG (DImode, vms_save_fp_regno),
+			hard_frame_pointer_rtx);
 
       if (vms_base_regno != REG_PV)
-	FRP (emit_move_insn (gen_rtx_REG (DImode, vms_base_regno),
-			     gen_rtx_REG (DImode, REG_PV)));
+	emit_insn (gen_force_movdi (gen_rtx_REG (DImode, vms_base_regno),
+				    gen_rtx_REG (DImode, REG_PV)));
 
       if (vms_unwind_regno == HARD_FRAME_POINTER_REGNUM)
 	FRP (emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx));
@@ -6518,6 +6538,51 @@ alpha_write_linkage (stream)
   readonly_section ();
   fprintf (stream, "\t.align 3\n");
   splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
+}
+
+/* Given a decl, a section name, and whether the decl initializer
+   has relocs, choose attributes for the section.  */
+
+#define SECTION_VMS_OVERLAY	SECTION_FORGET
+
+static unsigned int
+vms_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (decl && DECL_MACHINE_ATTRIBUTES (decl)
+      && lookup_attribute ("overlaid", DECL_MACHINE_ATTRIBUTES (decl)))
+    flags |= SECTION_VMS_OVERLAY;
+
+  return flags;
+}
+
+/* Switch to an arbitrary section NAME with attributes as specified
+   by FLAGS.  ALIGN specifies any known alignment requirements for
+   the section; 0 if the default should be used.  */
+
+static void
+vms_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align;
+{
+  const char *flag_str = "";
+
+  if (flags & SECTION_VMS_OVERLAY)
+    flag_str = ",OVR";
+  else if (flags & SECTION_DEBUG)
+    flag_str = ",NOWRT";
+
+  fprintf (asm_out_file, ".section\t%s%s\n", name, flag_str);
+
+  /* ??? An indicated alignment of 1 byte is only used by dwarf,
+     and for that we turn off auto-alignment.  */
+  if (align == 1)
+    ASM_OUTPUT_ALIGN (asm_out_file, 0);
 }
 
 #else

@@ -385,7 +385,6 @@ extern void save_call_clobbered_regs PARAMS ((void));
 /* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
 extern void cleanup_subreg_operands PARAMS ((rtx));
 
-extern void alter_reg PARAMS((int, int));
 /* Debugging support.  */
 extern void debug_reload_to_stream PARAMS ((FILE *));
 extern void debug_reload PARAMS ((void));

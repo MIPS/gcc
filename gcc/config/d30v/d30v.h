@@ -869,7 +869,7 @@ do {									\
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -883,19 +883,6 @@ do {									\
    memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
    `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', see *Note Function
-   Entry::), but is not binary compatible with code compiled using the
-   traditional implementation.  If you are writing a new ports, define
-   `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 0
 
 
 /* Layout of Source Language Data Types */
@@ -2303,7 +2290,7 @@ typedef struct d30v_stack {
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -2330,7 +2317,7 @@ typedef struct d30v_stack {
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -3773,15 +3760,6 @@ extern const char *d30v_branch_cost_string;
    the symbol's name string.  */
 /* #define STRIP_NAME_ENCODING(VAR, SYM_NAME) */
 
-/* A C expression which evaluates to true if DECL should be placed
-   into a unique section for some target-specific reason.  If you do
-   not define this macro, the default is `0'.  Note that the flag
-   `-ffunction-sections' will also cause functions to be placed into
-   unique sections.
-
-   Defined in svr4.h.  */
-/* #define UNIQUE_SECTION_P(DECL) */
-
 /* A C statement to build up a unique section name, expressed as a
    STRING_CST node, and assign it to `DECL_SECTION_NAME (DECL)'.
    RELOC indicates whether the initial value of EXP requires
@@ -3900,17 +3878,6 @@ extern const char *d30v_branch_cost_string;
 
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_IDENT(STREAM, STRING) */
-
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a `FUNCTION_DECL', a `VAR_DECL' or
-   `NULL_TREE'.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.
-
-   At present this macro is only used to support section attributes.  When this
-   macro is undefined, section attributes are disabled.
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_SECTION_NAME(STREAM, DECL, NAME) */
 
 /* A C statement to output any assembler statements which are required to
    precede any Objective C object definitions or message sending.  The
@@ -4864,23 +4831,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
    This macro need not be defined on most platforms.  */
 /* #define ASM_OUTPUT_EH_REGION_END() */
-
-/* A C expression to switch to the section in which the main exception table is
-   to be placed (*note Sections::.).  The default is a section named
-   `.gcc_except_table' on machines that support named sections via
-   `ASM_OUTPUT_SECTION_NAME', otherwise if `-fpic' or `-fPIC' is in effect, the
-   `data_section', otherwise the `readonly_data_section'.  */
-/* #define EXCEPTION_SECTION() */
-
-/* If defined, a C string constant for the assembler operation to switch to the
-   section for exception handling frame unwind information.  If not defined,
-   GNU CC will provide a default definition if the target supports named
-   sections.  `crtstuff.c' uses this macro to switch to the appropriate
-   section.
-
-   You should define this symbol if your target supports DWARF 2 frame unwind
-   information and the default definition does not work.  */
-/* #define EH_FRAME_SECTION_ASM_OP */
 
 /* A C expression that is nonzero if the normal exception table output should
    be omitted.

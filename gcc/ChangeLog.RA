@@ -1,4 +1,87 @@
+2001-08-15  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (splits_init): New function, initialize split data
+	structures/determine costs in terms of loads/stores.
+	(rematerializable): Handle reg_defs properly.
+	(parts_to_webs): Calculate spill cost on our own, taking remat
+	into account.
+	(init_one_web): Init spill cost to 0 now that we calculate it on
+	our own.
+	(struct split_range): New struct, keeping track of stores/loads
+	needed for live ranges.
+	(reg_alloc): Don't call reg_scan and regclass at the end, they
+	screw reg_renumber.
+
+	* df.[ch]: Use sbitmaps for reaching uses/defs instead of bitmaps.
+	The kill set is greedily set, so it's very very dense, and we waste 
+	memory/time using bitmaps for it.
+
+	* gcse.c: Begin to fix store motion, global store elimination
+	works okay now. 
+
+2001-08-07  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (get_free_reg): Revert Denis's change, it caused subregs to
+	get allocated to registers of the wrong mode on SPARC. I don't
+	believe it's correct.
+	(rewrite_program): Mark modified insns with df_insn_modify.
+	Properly emit pseudos for rematerialized things, if possible, 
+	in order to split our live range.
+	Move definition of df to top of file, making it global, so we can
+	stop passing it around for no good reason.
+	
+	* df.c (df_insn_modify): Grow the UID table if necessary, rather
+	than assume all emits go through df_insns_modify.
+
+	Add dj graph stuff for loop finding/block depth (hopefully will be
+	moved to flow.c at some point)
+	(find_nesting_depths): New function.
+	(dominates): New function.
+	(DFS_DJ_graph): New function.
+	(visit_successors): New function.
+	(dfs): New function.
+	(reach_under): New function.
+	(sp_back_edge): New function.
+	(dom_parent): New function.
+	(walk_dom_tree): New function.
+	(calculate_pre_post): New function.
+	(toplevel): New variables, pre/post order info, depths array for
+	blocks, domtree is a dominator tree.
+	* dominance.c (new_dom_tree): New function.
+	(destroy_dominator_tree): New function.
+	(add_dom_node): New function.
+	(dom_node_for_block): New function.
+	(add_dom_edge): New function.
+	(dom_tree_from_idoms): New function.
+	(dump_dom_tree): New function.
+
+	* basic-block.h (dom_node): New struct.
+	(dom_edge): New struct.
+	(dom_graph): New struct.
+	(dominator_tree): New typedef.
+	(dom_tree_from_idoms): New prototype.
+	(DTREE_N_EDGES): New macro.
+	(DTREE_N_NODES): New macro.
+	(DTREE_NODE): New macro.
+	(DTREE_EDGE): New macro.
+	(dom_node_for_block): New prototype.
+	(dump_dom_tree): New prototype.
+	(destroy_dominator_tree): New prototype.
+	(linked_list): New struct.
+	(dj_graph_info): New struct.
+	(scc_info): New struct.
+
 2001-08-06  Daniel Berlin  <dan@cgsoftware.com>
+
+	Mainline merge of gcc stuff, fixes a bunch of flow bugs that had
+	been fixed, etc.
+	
+	* ra.c (reg_alloc): Do only what is necessary for life analysis,
+	rather than PROP_FINAL and whatnot.
+	Also, fix all the comparison warnings and such.
+	
+
+2001-08-06  Daniel Berlin  <dan@cgsoftware.co>
 
 	* gcse.c (gcse_main): Disable store motion, it's completely broken
 	in it's current state.
@@ -12,12 +95,13 @@ Sun Aug  5 14:16:46 2001  Denis Chertykov  <denisc@overta.ru>
         Restore ra.c version 1.1.2.28
 
 	* ra.c (reg_alloc): Correct `max_regno' after rescan registers
-	preferences.
+	preferences. 
 
 2001-08-03  Daniel Berlin  <dan@cgsoftware.com>
 
 	* ra.c (coalesce): Comment out conservative test, in preparation
-	for optimistic coalescing. Also fixes x86 (though this is a side effect).
+	for optimistic coalescing. Also fixes x86 (though this is a side
+	effect). 
 
 Wed Aug  1 23:40:05 2001  Denis Chertykov  <denisc@overta.ru>
 

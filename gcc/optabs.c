@@ -3919,7 +3919,12 @@ can_extend_p (to_mode, from_mode, unsignedp)
      enum machine_mode to_mode, from_mode;
      int unsignedp;
 {
-  return extendtab[(int) to_mode][(int) from_mode][unsignedp != 0];
+#ifdef HAVE_ptr_extend
+  if (unsignedp < 0)
+    return CODE_FOR_ptr_extend;
+  else
+#endif
+    return extendtab[(int) to_mode][(int) from_mode][unsignedp != 0];
 }
 
 /* Generate the body of an insn to extend Y (with mode MFROM)
@@ -4677,6 +4682,7 @@ init_optabs ()
   cbranch_optab = init_optab (UNKNOWN);
   cmov_optab = init_optab (UNKNOWN);
   cstore_optab = init_optab (UNKNOWN);
+  push_optab = init_optab (UNKNOWN);
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {

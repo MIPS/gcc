@@ -54,6 +54,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bitmap.h"
 #include "basic-block.h"
 #include "ggc.h"
+#include "debug.h"
 
 /* Commonly used modes.  */
 
@@ -183,6 +184,10 @@ static int const_int_htab_eq            PARAMS ((const void *,
 						 const void *));
 static int rtx_htab_mark_1              PARAMS ((void **, void *));
 static void rtx_htab_mark               PARAMS ((void *));
+
+/* Probability of the conditional branch currently proceeded by try_split.
+   Set to -1 otherwise.  */
+int split_branch_probability = -1;
 
 
 /* Returns a hash code for X (which is a really a CONST_INT).  */
@@ -1631,6 +1636,9 @@ adjust_address (memref, mode, offset)
      will do memref tracking.  */
   rtx addr = XEXP (memref, 0);
 
+  /* ??? Prefer to create garbage instead of creating shared rtl.  */
+  addr = copy_rtx (addr);
+
   /* If MEMREF is a LO_SUM and the offset is within the alignment of the
      object, we can merge it into the LO_SUM.  */
   if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
@@ -2485,9 +2493,19 @@ try_split (pat, trial, last)
 {
   rtx before = PREV_INSN (trial);
   rtx after = NEXT_INSN (trial);
-  rtx seq = split_insns (pat, trial);
   int has_barrier = 0;
   rtx tem;
+  rtx note, seq;
+  int probability;
+
+  if (any_condjump_p (trial)
+      && (note = find_reg_note (trial, REG_BR_PROB, 0)))
+    split_branch_probability = INTVAL (XEXP (note, 0));
+  probability = split_branch_probability;
+
+  seq = split_insns (pat, trial);
+
+  split_branch_probability = -1;
 
   /* If we are splitting a JUMP_INSN, it might be followed by a BARRIER.
      We may need to handle this specially.  */
@@ -2504,7 +2522,7 @@ try_split (pat, trial, last)
 	 it, in turn, will be split (SFmode on the 29k is an example).  */
       if (GET_CODE (seq) == SEQUENCE)
 	{
-	  int i;
+	  int i, njumps = 0;
 	  rtx eh_note;
 
 	  /* Avoid infinite loop if any insn of the result matches
@@ -2517,9 +2535,27 @@ try_split (pat, trial, last)
 	  /* Mark labels.  */
 	  for (i = XVECLEN (seq, 0) - 1; i >= 0; i--)
 	    if (GET_CODE (XVECEXP (seq, 0, i)) == JUMP_INSN)
-	      mark_jump_label (PATTERN (XVECEXP (seq, 0, i)),
-			       XVECEXP (seq, 0, i), 0);
-
+	      {
+		rtx insn = XVECEXP (seq, 0, i);
+		mark_jump_label (PATTERN (insn),
+				 XVECEXP (seq, 0, i), 0);
+		njumps++;
+		if (probability != -1
+		    && any_condjump_p (insn)
+		    && !find_reg_note (insn, REG_BR_PROB, 0))
+		  {
+		    /* We can preserve the REG_BR_PROB notes only if exactly
+		       one jump is created, otherwise the machinde description
+		       is responsible for this step using
+		       split_branch_probability variable.  */
+		    if (njumps != 1)
+		      abort ();
+		    REG_NOTES (insn)
+		      = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					   GEN_INT (probability),
+					   REG_NOTES (insn));
+		  }
+	      }
 	  /* If we are splitting a CALL_INSN, look for the CALL_INSN
 	     in SEQ and copy our CALL_INSN_FUNCTION_USAGE to it.  */
 	  if (GET_CODE (trial) == CALL_INSN)
@@ -2576,8 +2612,8 @@ try_split (pat, trial, last)
       /* Return either the first or the last insn, depending on which was
 	 requested.  */
       return last
-		? (after ? prev_active_insn (after) : last_insn)
-		: next_active_insn (before);
+		? (after ? PREV_INSN (after) : last_insn)
+		: NEXT_INSN (before);
     }
 
   return trial;
@@ -3003,9 +3039,13 @@ remove_unnecessary_notes ()
 
 	      if (NOTE_LINE_NUMBER (tmp) == NOTE_INSN_BLOCK_BEG)
 		{
-		  /* We just verified that this BLOCK matches us
-		     with the block_stack check above.  */
-		  if (debug_ignore_block (NOTE_BLOCK (insn)))
+		  /* We just verified that this BLOCK matches us with
+		     the block_stack check above.  Never delete the
+		     BLOCK for the outermost scope of the function; we
+		     can refer to names from that scope even if the
+		     block notes are messed up.  */
+		  if (! is_body_block (NOTE_BLOCK (insn))
+		      && (*debug_hooks->ignore_block) (NOTE_BLOCK (insn)))
 		    {
 		      remove_insn (tmp);
 		      remove_insn (insn);

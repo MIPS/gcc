@@ -1,6 +1,84 @@
+2001-08-06  Richard Henderson  <rth@redhat.com>
+
+        * class.c (emit_register_classes): Pass a symbol_ref and priority
+	to assemble_constructor.
+
+2001-08-02  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* java-tree.h (all_class_filename): New macro.
+	(enum java_tree_index): New enum `JTI_ALL_CLASS_FILENAME.'
+	(BUILD_FILENAME_IDENTIFIER_NODE): Fixed leading comment. Link
+	newly created IDENTIFIER_NODE to `all_class_filename.'
+
+2001-08-01  Jeff Sturm  <jsturm@one-point.com>
+
+        * java-tree.h (BUILD_FILENAME_IDENTIFIER_NODE):
+        Use ggc_add_tree_root to register roots.
+	
+2001-07-31  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* check-init.c (check_init): WITH_CLEANUP_EXPR node to use its
+	second operand calling check_init.
+	* decl.c (complete_start_java_method): Swaped second and third
+	arguments while creating WITH_CLEANUP_EXPR node.
+	* jcf-write.c (generate_bytecode_insns): Use second operand
+	instead of third when handling WITH_CLEANUP_EXPR.
+	* parse.y (java_complete_lhs): Expand second operand of
+	WITH_CLEANUP_EXPR nodes.
+	(patch_synchronized_statement): Swaped second and third arguments
+	while creating WITH_CLEANUP_EXPR node.
+
+2001-07-18  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (create_interface): Avoid cyclic inheritance report when
+	syntax error encountered during class definition.
+	Fixes PR java/2956
+
+2001-08-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* jvspec.c (jvgenmain_spec): Cannot use %umain, breaks
+	ASM_FINAL_SPEC.
+	(lang_specific_pre_link): Use set_input to set input_filename.
+	Append `main' here.
+	* jvgenmain.c (usage): Append literal `main' to CLASSNAME.
+	(main): Fix definition.
+	Strip `main' from classname.
+	Fixes PR java/227.
+
+2001-07-18  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/2812:
+	* lex.h: Use HAVE_ICONV, not HAVE_ICONV_H.
+	* lex.c (java_new_lexer): Use ICONV_CONST.
+	(java_read_char): Likewise.
+	* Make-lang.in (jc1$(exeext)): Link against LIBICONV.
+	(jv-scan$(exeext)): Likewise.
+
+2001-07-17  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.h (INTERFACE_INNER_MODIFIERS): Disallow `private.'
+	* parse.y (check_class_interface_creation): Allow `private' if the
+	enclosing is not an interface.
+	(create_interface): Interface tagged public if the enclosing
+	context	is an interface.
+	(create_class): Class tagged public if the enclosing context
+	is an interface.
+	Fixes PR java/2959
+
+2001-07-17  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* class.c (push_class): Set DECL_SIZE to `integer_zero_node.'
+	Fixes PR java/2665
+
 2001-07-14  Tim Josling  <tej@melbpc.org.au>
 
 	* check-init.c (check_init): Remove references to EXPON_EXPR.
+
+2001-07-13  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* parse.y (java_complete_lsh): Set CAN_COMPLETE_NORMALLY and unset
+	TREE_CONSTANT_OVERFLOW of CASE_EXPR value.
+	Fixes PR java/3602
 
 2001-07-13  Tom Tromey  <tromey@redhat.com>
 

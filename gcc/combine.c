@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "insn-config.h"
 #include "function.h"
-/* Include expr.h after insn-config.h so we get HAVE_conditional_move. */
+/* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "expr.h"
 #include "insn-attr.h"
 #include "recog.h"
@@ -712,6 +712,8 @@ combine_instructions (f, nregs)
 	  ;
 	}
     }
+
+  delete_noop_moves (f);
 
   if (need_refresh)
     {
@@ -2467,7 +2469,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
     }
 #ifdef HAVE_cc0
   /* If I2 is the setter CC0 and I3 is the user CC0 then check whether
-     they are adjacent to each other or not. */
+     they are adjacent to each other or not.  */
   {
     rtx p = prev_nonnote_insn (i3);
     if (p && p != i2 && GET_CODE (p) == INSN && newi2pat
@@ -2769,6 +2771,12 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	    || GET_CODE (temp) != BARRIER)
 	  emit_barrier_after (i3);
       }
+    /* An NOOP jump does not need barrier, but it does need cleaning up
+       of CFG.  */
+    if (GET_CODE (newpat) == SET
+	&& SET_SRC (newpat) == pc_rtx
+	&& SET_DEST (newpat) == pc_rtx)
+      *new_direct_jump_p = 1;
   }
 
   combine_successes++;
@@ -3048,7 +3056,7 @@ find_split_point (loc, insn)
 
 	case NE:
 	  /* if STORE_FLAG_VALUE is -1, this is (NE X 0) and only one bit of X
-	     is known to be on, this can be converted into a NEG of a shift. */
+	     is known to be on, this can be converted into a NEG of a shift.  */
 	  if (STORE_FLAG_VALUE == -1 && XEXP (SET_SRC (x), 1) == const0_rtx
 	      && GET_MODE (SET_SRC (x)) == GET_MODE (XEXP (SET_SRC (x), 0))
 	      && 1 <= (pos = exact_log2
@@ -3722,10 +3730,10 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
   /* If CODE is an associative operation not otherwise handled, see if we
      can associate some operands.  This can win if they are constants or
      if they are logically related (i.e. (a & b) & a).  */
-  if ((code == PLUS || code == MINUS
-       || code == MULT || code == AND || code == IOR || code == XOR
+  if ((code == PLUS || code == MINUS || code == MULT || code == DIV
+       || code == AND || code == IOR || code == XOR
        || code == SMAX || code == SMIN || code == UMAX || code == UMIN)
-      && (INTEGRAL_MODE_P (mode)
+      && ((INTEGRAL_MODE_P (mode) && code != DIV)
 	  || (flag_unsafe_math_optimizations && FLOAT_MODE_P (mode))))
     {
       if (GET_CODE (XEXP (x, 0)) == code)
@@ -3745,7 +3753,6 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	    }
 	  inner = simplify_binary_operation (code == MINUS ? PLUS
 					     : code == DIV ? MULT
-					     : code == UDIV ? MULT
 					     : code,
 					     mode, inner_op0, inner_op1);
 
@@ -3849,13 +3856,12 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 					      XEXP (XEXP (x, 0), 1))))
 	return reversed;
 
-      /* (ashiftrt foo C) where C is the number of bits in FOO minus 1
-	 is (lt foo (const_int 0)) if STORE_FLAG_VALUE is -1, so we can
+      /* (not (ashiftrt foo C)) where C is the number of bits in FOO minus 1
+	 is (ge foo (const_int 0)) if STORE_FLAG_VALUE is -1, so we can
 	 perform the above simplification.  */
 
       if (STORE_FLAG_VALUE == -1
 	  && GET_CODE (XEXP (x, 0)) == ASHIFTRT
-	  && XEXP (x, 1) == const1_rtx
 	  && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) == GET_MODE_BITSIZE (mode) - 1)
 	return gen_rtx_GE (mode, XEXP (XEXP (x, 0), 0), const0_rtx);
@@ -3922,10 +3928,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  temp = simplify_unary_operation (NEG, mode,
 					   XEXP (XEXP (x, 0), 0), mode);
 	  if (temp)
-	    {
-	      SUBST (XEXP (XEXP (x, 0), 0), temp);
-	      return XEXP (x, 0);
-	    }
+	    return gen_binary (ASHIFT, mode, temp, XEXP (XEXP (x, 0), 1));
 	}
 
       temp = expand_compound_operation (XEXP (x, 0));
@@ -6262,7 +6265,7 @@ extract_left_shift (x, count)
 
    Return the new rtx, usually just X.
 
-   Also, for machines like the Vax that don't have logical shift insns,
+   Also, for machines like the VAX that don't have logical shift insns,
    try to convert logical to arithmetic shift operations in cases where
    they are equivalent.  This undoes the canonicalizations to logical
    shifts done elsewhere.
@@ -7906,7 +7909,7 @@ nonzero_bits (x, mode)
   switch (code)
     {
     case REG:
-#ifdef POINTERS_EXTEND_UNSIGNED
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
       /* If pointers extend unsigned and this is a pointer in Pmode, say that
 	 all the bits above ptr_mode are known to be zero.  */
       if (POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
@@ -8183,7 +8186,7 @@ nonzero_bits (x, mode)
 	/* If pointers extend unsigned and this is an addition or subtraction
 	   to a pointer in Pmode, all the bits above ptr_mode are known to be
 	   zero.  */
-	if (POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
+	if (POINTERS_EXTEND_UNSIGNED > 0 && GET_MODE (x) == Pmode
 	    && (code == PLUS || code == MINUS)
 	    && GET_CODE (XEXP (x, 0)) == REG && REG_POINTER (XEXP (x, 0)))
 	  nonzero &= GET_MODE_MASK (ptr_mode);
@@ -8364,7 +8367,7 @@ num_sign_bit_copies (x, mode)
     {
     case REG:
 
-#ifdef POINTERS_EXTEND_UNSIGNED
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
       /* If pointers extend signed and this is a pointer in Pmode, say that
 	 all the bits above ptr_mode are known to be sign bit copies.  */
       if (! POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode && mode == Pmode
@@ -8950,7 +8953,7 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
       /* We simplify the tests below and elsewhere by converting
 	 ASHIFTRT to LSHIFTRT if we know the sign bit is clear.
 	 `make_compound_operation' will convert it to a ASHIFTRT for
-	 those machines (such as Vax) that don't have a LSHIFTRT.  */
+	 those machines (such as VAX) that don't have a LSHIFTRT.  */
       if (GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
 	  && code == ASHIFTRT
 	  && ((nonzero_bits (varop, shift_mode)
@@ -9602,7 +9605,6 @@ recog_for_combine (pnewpat, insn, pnotes)
   old_notes = REG_NOTES (insn);
   REG_NOTES (insn) = 0;
 
-  /* Is the result of combination a valid instruction?  */
   insn_code_number = recog (pat, insn, &num_clobbers_to_add);
 
   /* If it isn't, there is the possibility that we previously had an insn
@@ -9630,6 +9632,10 @@ recog_for_combine (pnewpat, insn, pnotes)
 
       insn_code_number = recog (pat, insn, &num_clobbers_to_add);
     }
+
+  /* Recognize all noop sets, these will be killed by followup pass.  */
+  if (insn_code_number < 0 && GET_CODE (pat) == SET && set_noop_p (pat))
+    insn_code_number = NOOP_MOVE_INSN_CODE, num_clobbers_to_add = 0;
 
   REG_NOTES (insn) = old_notes;
 
@@ -12348,6 +12354,15 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 	  if (place && REG_NOTE_KIND (note) == REG_DEAD)
 	    {
 	      unsigned int regno = REGNO (XEXP (note, 0));
+
+	      /* Similarly, if the instruction on which we want to place
+		 the note is a noop, we'll need do a global live update
+		 after we remove them in delete_noop_moves.  */
+	      if (noop_move_p (place))
+		{
+		  SET_BIT (refresh_blocks, this_basic_block);
+		  need_refresh = 1;
+		}
 
 	      if (dead_or_set_p (place, XEXP (note, 0))
 		  || reg_bitfield_target_p (XEXP (note, 0), PATTERN (place)))

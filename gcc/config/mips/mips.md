@@ -2179,7 +2179,7 @@
 	(neg:DF (plus:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
 				  (match_operand:DF 2 "register_operand" "f"))
 			 (match_operand:DF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP4 && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
   "nmadd.d\\t%0,%3,%1,%2"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"DF")])
@@ -2189,7 +2189,7 @@
 	(neg:SF (plus:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
 				  (match_operand:SF 2 "register_operand" "f"))
 			 (match_operand:SF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP4 && TARGET_HARD_FLOAT"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT"
   "nmadd.s\\t%0,%3,%1,%2"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"SF")])
@@ -2199,7 +2199,7 @@
 	(minus:DF (match_operand:DF 1 "register_operand" "f")
 		  (mult:DF (match_operand:DF 2 "register_operand" "f")
 			   (match_operand:DF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP4 && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
   "nmsub.d\\t%0,%1,%2,%3"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"DF")])
@@ -2209,7 +2209,7 @@
 	(minus:SF (match_operand:SF 1 "register_operand" "f")
 		  (mult:SF (match_operand:SF 2 "register_operand" "f")
 			   (match_operand:SF 3 "register_operand" "f"))))]
-  "ISA_HAS_FP4 && TARGET_HARD_FLOAT"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT"
   "nmsub.s\\t%0,%1,%2,%3"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"SF")])
@@ -10180,7 +10180,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:DI 2 "se_reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "se_reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
+  "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -10195,7 +10195,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 			  (const_int 0)])
 	 (match_operand:DI 2 "se_reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "se_reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
+  "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
   "@
     mov%B4\\t%0,%z2,%1
     mov%b4\\t%0,%z3,%1"
@@ -10211,7 +10211,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 					  (const_int 0)])
 	 (match_operand:DI 1 "se_reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 2 "se_reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT"
+  "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT && TARGET_64BIT"
   "@
     mov%T3\\t%0,%z1,%4
     mov%t3\\t%0,%z2,%4"
@@ -10331,7 +10331,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 	(if_then_else:DI (match_dup 5)
 			 (match_operand:DI 2 "se_reg_or_0_operand" "")
 			 (match_operand:DI 3 "se_reg_or_0_operand" "")))]
-  "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
+  "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
   "
 {
   gen_conditional_move (operands);

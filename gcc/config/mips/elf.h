@@ -56,24 +56,9 @@ do {							\
 #undef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#undef ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(F, DECL, NAME, RELOC) \
-do {								\
-  extern FILE *asm_out_text_file;				\
-  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)		\
-    fprintf (asm_out_text_file, "\t.section %s,\"ax\",@progbits\n", (NAME)); \
-  else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))	\
-    fprintf (F, "\t.section %s,\"a\",@progbits\n", (NAME));	\
-  else if (! strcmp (NAME, ".bss"))                             \
-    fprintf (F, "\t.section %s,\"aw\",@nobits\n", (NAME));      \
-  else								\
-    fprintf (F, "\t.section %s,\"aw\",@progbits\n", (NAME));	\
-} while (0)
+/* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* The following macro defines the format used to output the second
    operand of the .type assembler directive.  Different svr4 assemblers
@@ -211,73 +196,9 @@ do {									 \
  } while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-#undef UNIQUE_SECTION_P
-#define UNIQUE_SECTION_P(DECL) (DECL_ONE_ONLY (DECL))
 #undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC)					   \
-do {									   \
-  int len, size, sec;							   \
-  char *name, *string, *prefix;						   \
-  static char *prefixes[4][2] = {					   \
-    { ".text.", ".gnu.linkonce.t." },					   \
-    { ".rodata.", ".gnu.linkonce.r." },					   \
-    { ".data.", ".gnu.linkonce.d." },					   \
-    { ".sdata.", ".gnu.linkonce.s." }					   \
-  };									   \
-									   \
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));		   \
-  size = int_size_in_bytes (TREE_TYPE (decl));				   \
-									   \
-  /* Determine the base section we are interested in:			   \
-     0=text, 1=rodata, 2=data, 3=sdata, [4=bss].  */			   \
-  if (TREE_CODE (DECL) == FUNCTION_DECL)				   \
-    sec = 0;								   \
-  else if (DECL_INITIAL (DECL) == 0					   \
-           || DECL_INITIAL (DECL) == error_mark_node)			   \
-    sec = 2;								   \
-  else if ((TARGET_EMBEDDED_PIC || TARGET_MIPS16)			   \
-      && TREE_CODE (decl) == STRING_CST					   \
-      && !flag_writable_strings)					   \
-    {									   \
-      /* For embedded position independent code, put constant strings	   \
-	 in the text section, because the data section is limited to	   \
-	 64K in size.  For mips16 code, put strings in the text		   \
-	 section so that a PC relative load instruction can be used to	   \
-	 get their address.  */						   \
-      sec = 0;								   \
-    }									   \
-  else if (TARGET_EMBEDDED_DATA)					   \
-    {									   \
-      /* For embedded applications, always put an object in read-only data \
-	 if possible, in order to reduce RAM usage.  */			   \
-									   \
-      if (DECL_READONLY_SECTION (DECL, RELOC))				   \
-	sec = 1;							   \
-      else if (size > 0 && size <= mips_section_threshold)		   \
-	sec = 3;							   \
-      else								   \
-	sec = 2;							   \
-    }									   \
-  else									   \
-    {									   \
-      /* For hosted applications, always put an object in small data if	   \
-	 possible, as this gives the best performance.  */		   \
-									   \
-      if (size > 0 && size <= mips_section_threshold)			   \
-	sec = 3;							   \
-      else if (DECL_READONLY_SECTION (DECL, RELOC))			   \
-	sec = 1;							   \
-      else								   \
-	sec = 2;							   \
-    }									   \
-									   \
-  prefix = prefixes[sec][DECL_ONE_ONLY (DECL)];				   \
-  len = strlen (name) + strlen (prefix);				   \
-  string = alloca (len + 1);						   \
-  sprintf (string, "%s%s", prefix, name);				   \
-									   \
-  DECL_SECTION_NAME (DECL) = build_string (len, string);		   \
-} while (0)
+#define UNIQUE_SECTION(DECL,RELOC) \
+  mips_unique_section ((DECL), (RELOC))
 
 /* Support the ctors/dtors and other sections.  */
  

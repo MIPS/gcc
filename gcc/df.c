@@ -243,7 +243,7 @@ static void df_bb_reg_def_chain_create PARAMS((struct df *, basic_block));
 static void df_reg_def_chain_create PARAMS((struct df *, bitmap));
 static void df_bb_reg_use_chain_create PARAMS((struct df *, basic_block));
 static void df_reg_use_chain_create PARAMS((struct df *, bitmap));
-static void df_bb_du_chain_create PARAMS((struct df *, basic_block, bitmap));
+static void df_bb_du_chain_create PARAMS((struct df *, basic_block, sbitmap));
 static void df_du_chain_create PARAMS((struct df *, bitmap));
 static void df_bb_ud_chain_create PARAMS((struct df *, basic_block));
 static void df_ud_chain_create PARAMS((struct df *, bitmap));
@@ -413,25 +413,25 @@ df_bitmaps_alloc (df, flags)
       if (flags & DF_RD && ! bb_info->rd_in)
 	{
 	  /* Allocate bitmaps for reaching definitions.  */
-	  bb_info->rd_kill = BITMAP_XMALLOC ();
-	  bitmap_zero (bb_info->rd_kill);
-	  bb_info->rd_gen = BITMAP_XMALLOC ();
-	  bitmap_zero (bb_info->rd_gen);
-	  bb_info->rd_in = BITMAP_XMALLOC ();
-	  bb_info->rd_out = BITMAP_XMALLOC ();
+	  bb_info->rd_kill = sbitmap_alloc (df->def_id);
+	  sbitmap_zero (bb_info->rd_kill);
+	  bb_info->rd_gen = sbitmap_alloc (df->def_id);
+	  sbitmap_zero (bb_info->rd_gen);
+	  bb_info->rd_in = sbitmap_alloc (df->def_id);
+	  bb_info->rd_out = sbitmap_alloc (df->def_id);
 	  bb_info->rd_valid = 0;
 	}
 
       if (flags & DF_RU && ! bb_info->ru_in)
 	{
 	  /* Allocate bitmaps for upward exposed uses.  */
-	  bb_info->ru_kill = BITMAP_XMALLOC ();
-	  bitmap_zero (bb_info->ru_kill);
+	  bb_info->ru_kill = sbitmap_alloc (df->use_id);
+	  sbitmap_zero (bb_info->ru_kill);
 	  /* Note the lack of symmetry.  */
-	  bb_info->ru_gen = BITMAP_XMALLOC ();
-	  bitmap_zero (bb_info->ru_gen);
-	  bb_info->ru_in = BITMAP_XMALLOC ();
-	  bb_info->ru_out = BITMAP_XMALLOC ();
+	  bb_info->ru_gen = sbitmap_alloc (df->use_id);
+	  sbitmap_zero (bb_info->ru_gen);
+	  bb_info->ru_in = sbitmap_alloc (df->use_id);
+	  bb_info->ru_out = sbitmap_alloc (df->use_id);
 	  bb_info->ru_valid = 0;
 	}
 
@@ -469,26 +469,26 @@ df_bitmaps_free (df, flags)
       if ((flags & DF_RD) && bb_info->rd_in)
 	{
 	  /* Free bitmaps for reaching definitions.  */
-	  BITMAP_XFREE (bb_info->rd_kill);
+	  sbitmap_free (bb_info->rd_kill);
 	  bb_info->rd_kill = NULL;
-	  BITMAP_XFREE (bb_info->rd_gen);
+	  sbitmap_free (bb_info->rd_gen);
 	  bb_info->rd_gen = NULL;
-	  BITMAP_XFREE (bb_info->rd_in);
+	  sbitmap_free (bb_info->rd_in);
 	  bb_info->rd_in = NULL;
-	  BITMAP_XFREE (bb_info->rd_out);
+	  sbitmap_free (bb_info->rd_out);
 	  bb_info->rd_out = NULL;
 	}
 
       if ((flags & DF_RU) && bb_info->ru_in)
 	{
 	  /* Free bitmaps for upward exposed uses.  */
-	  BITMAP_XFREE (bb_info->ru_kill);
+	  sbitmap_free (bb_info->ru_kill);
 	  bb_info->ru_kill = NULL;
-	  BITMAP_XFREE (bb_info->ru_gen);
+	  sbitmap_free (bb_info->ru_gen);
 	  bb_info->ru_gen = NULL;
-	  BITMAP_XFREE (bb_info->ru_in);
+	  sbitmap_free (bb_info->ru_in);
 	  bb_info->ru_in = NULL;
-	  BITMAP_XFREE (bb_info->ru_out);
+	  sbitmap_free (bb_info->ru_out);
 	  bb_info->ru_out = NULL;
 	}
 
@@ -1432,12 +1432,12 @@ static void
 df_bb_du_chain_create (df, bb, ru)
      struct df *df;
      basic_block bb;
-     bitmap ru;
+     sbitmap ru;
 {
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
   
-  bitmap_copy (ru, bb_info->ru_out);
+  sbitmap_copy (ru, bb_info->ru_out);
   
   /* For each def in BB create a linked list (chain) of uses
      reached from the def.  */
@@ -1467,12 +1467,12 @@ df_bb_du_chain_create (df, bb, ru)
 	    {
 	      struct ref *use = use_link->ref;
 	      
-	      if (bitmap_bit_p (ru, DF_REF_ID (use)))
+	      if (TEST_BIT (ru, DF_REF_ID (use)))
 		{
 		  DF_REF_CHAIN (def) 
 		    = df_link_create (use, DF_REF_CHAIN (def));
 		  
-		  bitmap_clear_bit (ru, DF_REF_ID (use));
+		  RESET_BIT (ru, DF_REF_ID (use));
 		}
 	    }
 	}
@@ -1481,7 +1481,7 @@ df_bb_du_chain_create (df, bb, ru)
       for (use_link = df->insns[uid].uses; use_link; use_link = use_link->next)
 	{
 	  struct ref *use = use_link->ref;
-	  bitmap_set_bit (ru, DF_REF_ID (use));
+	  SET_BIT (ru, DF_REF_ID (use));
 	}
     }
 }
@@ -1494,17 +1494,17 @@ df_du_chain_create (df, blocks)
      struct df *df;
      bitmap blocks;
 {
-  bitmap ru;
+  sbitmap ru;
   basic_block bb;
 
-  ru = BITMAP_XMALLOC ();
+  ru = sbitmap_alloc (df->n_uses);
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
     {
       df_bb_du_chain_create (df, bb, ru);
     });
 
-  BITMAP_XFREE (ru);
+  sbitmap_free (ru);
 }
 
 
@@ -1561,7 +1561,7 @@ df_bb_ud_chain_create (df, bb)
 		{
 		  struct ref *def = def_link->ref;
 	      
-		  if (bitmap_bit_p (bb_info->rd_in, DF_REF_ID (def)))
+		  if (TEST_BIT (bb_info->rd_in, DF_REF_ID (def)))
 		    {
 		      DF_REF_CHAIN (use) 
 			= df_link_create (def, DF_REF_CHAIN (use));
@@ -1640,7 +1640,7 @@ df_rd_global_compute (df, blocks)
     {
       struct bb_info *bb_info = DF_BB_INFO (df, bb);
       
-      bitmap_copy (bb_info->rd_out, bb_info->rd_gen);
+      sbitmap_copy (bb_info->rd_out, bb_info->rd_gen);
     });
   
   while ((i = df_visit_next (df, worklist)) >= 0)
@@ -1657,7 +1657,7 @@ df_rd_global_compute (df, blocks)
       bb_info = DF_BB_INFO (df, bb);
 
       /* Calculate union of predecessor outs.  */
-      bitmap_zero (bb_info->rd_in);
+      sbitmap_zero (bb_info->rd_in);
       for (e = bb->pred; e != 0; e = e->pred_next)
 	{
 	  struct bb_info *pred_refs = DF_BB_INFO (df, e->src);
@@ -1665,7 +1665,7 @@ df_rd_global_compute (df, blocks)
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    continue;
 
-	  bitmap_a_or_b (bb_info->rd_in, bb_info->rd_in, 
+	  sbitmap_a_or_b (bb_info->rd_in, bb_info->rd_in, 
 			  pred_refs->rd_out);
 	}
       
@@ -1673,7 +1673,7 @@ df_rd_global_compute (df, blocks)
 	 BB.  These are the defs that are either generated by defs
 	 (RD_GEN) within the BB or are live at the start (RD_IN)
 	 and are not killed by other defs (RD_KILL).  */
-      changed = bitmap_union_of_diff (bb_info->rd_out, bb_info->rd_gen,
+      changed = sbitmap_union_of_diff (bb_info->rd_out, bb_info->rd_gen,
 				       bb_info->rd_in, bb_info->rd_kill);
 
       if (changed)
@@ -1717,7 +1717,7 @@ df_ru_global_compute (df, blocks)
     {
       struct bb_info *bb_info = DF_BB_INFO (df, bb);
 
-      bitmap_copy (bb_info->ru_in, bb_info->ru_gen);
+      sbitmap_copy (bb_info->ru_in, bb_info->ru_gen);
     });
 
 
@@ -1734,7 +1734,7 @@ df_ru_global_compute (df, blocks)
       bb_info = DF_BB_INFO (df, bb);
 
       /* Calculate union of successor ins.  */
-      bitmap_zero (bb_info->ru_out);
+      sbitmap_zero (bb_info->ru_out);
       for (e = bb->succ; e != 0; e = e->succ_next)
 	{
 	  struct bb_info *succ_refs = DF_BB_INFO (df, e->dest);
@@ -1742,7 +1742,7 @@ df_ru_global_compute (df, blocks)
 	  if (e->dest == EXIT_BLOCK_PTR)
 	    continue;
 	  
-	  bitmap_a_or_b (bb_info->ru_out, bb_info->ru_out, 
+	  sbitmap_a_or_b (bb_info->ru_out, bb_info->ru_out, 
 			  succ_refs->ru_in);
 	}
 
@@ -1750,7 +1750,7 @@ df_ru_global_compute (df, blocks)
 	 BB.  These are the uses that are either generated within the
 	 BB (RU_GEN) or are live at the end (RU_OUT) and are not uses
 	 killed by defs within the BB (RU_KILL).  */
-      changed = bitmap_union_of_diff (bb_info->ru_in, bb_info->ru_gen,
+      changed = sbitmap_union_of_diff (bb_info->ru_in, bb_info->ru_gen,
 				       bb_info->ru_out, bb_info->ru_kill);
 
       if (changed)
@@ -1873,13 +1873,13 @@ df_bb_rd_local_compute (df, bb)
 		 is greedy since many of these defs will not actually
 		 be killed by this BB but it keeps things a lot
 		 simpler.  */
-	      bitmap_set_bit (bb_info->rd_kill, DF_REF_ID (def2));
+	      SET_BIT (bb_info->rd_kill, DF_REF_ID (def2));
 	      
 	      /* Zap from the set of gens for this BB.  */
-	      bitmap_clear_bit (bb_info->rd_gen, DF_REF_ID (def2));
+	      RESET_BIT (bb_info->rd_gen, DF_REF_ID (def2));
 	    }
 
-	  bitmap_set_bit (bb_info->rd_gen, DF_REF_ID (def));
+	  SET_BIT (bb_info->rd_gen, DF_REF_ID (def));
 	}
     }
   
@@ -1940,10 +1940,10 @@ df_bb_ru_local_compute (df, bb)
 		 is greedy since many of these uses will not actually
 		 be killed by this BB but it keeps things a lot
 		 simpler.  */
-	      bitmap_set_bit (bb_info->ru_kill, DF_REF_ID (use));
+	      SET_BIT (bb_info->ru_kill, DF_REF_ID (use));
 	      
 	      /* Zap from the set of gens for this BB.  */
-	      bitmap_clear_bit (bb_info->ru_gen, DF_REF_ID (use));
+	      RESET_BIT (bb_info->ru_gen, DF_REF_ID (use));
 	    }
 	}
       
@@ -1951,7 +1951,7 @@ df_bb_ru_local_compute (df, bb)
 	{
 	  struct ref *use = use_link->ref;
 	  /* Add use to set of gens in this BB.  */
-	  bitmap_set_bit (bb_info->ru_gen, DF_REF_ID (use));
+	  SET_BIT (bb_info->ru_gen, DF_REF_ID (use));
 	}
     }
   bb_info->ru_valid = 1;
@@ -2600,6 +2600,8 @@ df_insn_modify (df, bb, insn)
   unsigned int uid;
 
   uid = INSN_UID (insn);
+  if (uid >= df->insn_size)
+    df_insn_table_realloc (df, 0);
 
   bitmap_set_bit (df->bbs_modified, bb->index);
   bitmap_set_bit (df->insns_modified, uid);
@@ -2882,7 +2884,7 @@ df_insns_modify (df, bb, first_insn, last_insn)
 	 it does, we need to create a new basic block.  Ouch.  The
 	 same applies for a label.  */
       if ((GET_CODE (insn) == CALL_INSN
-	   && ! CONST_CALL_P (insn))
+	   && ! CONST_OR_PURE_CALL_P (insn))
 	  || GET_CODE (insn) == CODE_LABEL)
 	abort ();
 
@@ -3447,13 +3449,13 @@ df_dump (df, flags, file)
 	    continue;
 
 	  fprintf (file, "bb %d in  \t", i);
-	  dump_bitmap (file, bb_info->rd_in);
+	  dump_sbitmap (file, bb_info->rd_in);
 	  fprintf (file, "bb %d gen \t", i);
-	  dump_bitmap (file, bb_info->rd_gen);
+	  dump_sbitmap (file, bb_info->rd_gen);
 	  fprintf (file, "bb %d kill\t", i);
-	  dump_bitmap (file, bb_info->rd_kill);
+	  dump_sbitmap (file, bb_info->rd_kill);
 	  fprintf (file, "bb %d out \t", i);
-	  dump_bitmap (file, bb_info->rd_out);
+	  dump_sbitmap (file, bb_info->rd_out);
 	}
     }
 
@@ -3487,13 +3489,13 @@ df_dump (df, flags, file)
 	    continue;
 
 	  fprintf (file, "bb %d in  \t", i);
-	  dump_bitmap (file, bb_info->ru_in);
+	  dump_sbitmap (file, bb_info->ru_in);
 	  fprintf (file, "bb %d gen \t", i);
-	  dump_bitmap (file, bb_info->ru_gen);
+	  dump_sbitmap (file, bb_info->ru_gen);
 	  fprintf (file, "bb %d kill\t", i);
-	  dump_bitmap (file, bb_info->ru_kill);
+	  dump_sbitmap (file, bb_info->ru_kill);
 	  fprintf (file, "bb %d out \t", i);
-	  dump_bitmap (file, bb_info->ru_out);
+	  dump_sbitmap (file, bb_info->ru_out);
 	}
     }
 

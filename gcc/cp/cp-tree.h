@@ -133,11 +133,9 @@ Boston, MA 02111-1307, USA.  */
      The BV_FN is the declaration for the virtual function itself.
 
    BINFO_VTABLE
-     Sometimes this is a VAR_DECL.  Under the new ABI, it is instead
-     an expression with POINTER_TYPE pointing that gives the value
+     This is an expression with POINTER_TYPE that gives the value
      to which the vptr should be initialized.  Use get_vtbl_decl_for_binfo
-     to extract the VAR_DECL for the complete vtable; that macro works
-     in both ABIs.
+     to extract the VAR_DECL for the complete vtable.
 
    DECL_ARGUMENTS
      For a VAR_DECL this is DECL_ANON_UNION_ELEMS.
@@ -211,10 +209,6 @@ Boston, MA 02111-1307, USA.  */
 
 extern int flag_use_cxa_atexit;
 
-/* Nonzero to not ignore namespace std. */
-
-extern int flag_honor_std;
-
 /* Nonzero means generate 'rtti' that give run-time type information.  */
 
 extern int flag_rtti;
@@ -223,40 +217,6 @@ extern int flag_rtti;
    objects.  */
 
 extern int flag_huge_objects;
-
-/* Nonzero if virtual base class offsets are stored in the virtual
-   function table.  Zero if, instead, a pointer to the virtual base is
-   stored in the object itself.  */
-#define vbase_offsets_in_vtable_p() (1)
-
-/* Nonzero if displacements to the `this' pointer to use when calling
-   virtual functions in a virtual base class are present in the
-   vtable.  */
-#define vcall_offsets_in_vtable_p() (1)
-
-/* Nonzero if a derived class that needs a vptr should always get one,
-   even if a non-primary base class already has one.  For example,
-   given:
-
-     struct S { int i; virtual void f(); };
-     struct T : virtual public S {};
-
-   one could either reuse the vptr in `S' for `T', or create a new
-   vptr for `T'.  If this flag is nonzero we choose the latter
-   alternative; otherwise, we choose the former.  */
-#define vptrs_present_everywhere_p() (1)
-
-/* Nonzero if the vtable for a derived class should contain the
-   virtual functions from the primary base and all virtual functions
-   present in the class itself.  Zero if, instead, it should contain
-   only those virtual functions from the primary base together with
-   the functions declared in the derived class (but not in any base
-   class).  */
-#define all_overridden_vfuns_in_vtables_p() (1)
-
-/* Nonzero if primary and secondary vtables are combined into a single
-   vtable.  */
-#define merge_primary_and_secondary_vtables_p() (1)
 
 
 /* Language-dependent contents of an identifier.  */
@@ -562,12 +522,9 @@ enum cp_tree_index
     CPTI_VTBL_TYPE,
     CPTI_VTBL_PTR_TYPE,
     CPTI_STD,
-    CPTI_FAKE_STD,
     CPTI_ABI,
     CPTI_TYPE_INFO_TYPE,
-    CPTI_TINFO_DECL_ID,
     CPTI_TINFO_DECL_TYPE,
-    CPTI_TINFO_VAR_ID,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
     CPTI_AGGR_TAG,
@@ -588,15 +545,12 @@ enum cp_tree_index
     CPTI_COMPLETE_DTOR_IDENTIFIER,
     CPTI_BASE_DTOR_IDENTIFIER,
     CPTI_DELETING_DTOR_IDENTIFIER,
-    CPTI_DELTA2_IDENTIFIER,
     CPTI_DELTA_IDENTIFIER,
     CPTI_IN_CHARGE_IDENTIFIER,
     CPTI_VTT_PARM_IDENTIFIER,
-    CPTI_INDEX_IDENTIFIER,
     CPTI_NELTS_IDENTIFIER,
     CPTI_THIS_IDENTIFIER,
     CPTI_PFN_IDENTIFIER,
-    CPTI_PFN_OR_DELTA2_IDENTIFIER,
     CPTI_VPTR_IDENTIFIER,
     CPTI_STD_IDENTIFIER,
 
@@ -630,8 +584,7 @@ extern tree cp_global_trees[CPTI_MAX];
 #define wchar_decl_node			cp_global_trees[CPTI_WCHAR_DECL]
 #define vtable_entry_type		cp_global_trees[CPTI_VTABLE_ENTRY_TYPE]
 /* The type used to represent an offset by which to adjust the `this'
-   pointer in pointer-to-member types and, when not using vtable
-   thunks, in vtables.  */
+   pointer in pointer-to-member types.  */
 #define delta_type_node			cp_global_trees[CPTI_DELTA_TYPE]
 /* The type used to represent an index into the vtable.  */
 #define vtable_index_type               cp_global_trees[CPTI_VTABLE_INDEX_TYPE]
@@ -655,19 +608,10 @@ extern tree cp_global_trees[CPTI_MAX];
 #define unknown_type_node		cp_global_trees[CPTI_UNKNOWN_TYPE]
 #define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
 #define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
-/* When the `std' namespace is a real namespace, this is the
-   corresponding NAMESPACE_DECL.  When the `std' namespace is an alias
-   for the global namespace, this is NULL_TREE.  */
 #define std_node			cp_global_trees[CPTI_STD]
-/* When the `std' namespace is a real namespace, this is the
-   ERROR_MARK_NODE.  Otherwise, this is a dummy NAMESPACE_DECL that
-   should be treated like the global namespace.  */
-#define fake_std_node                   cp_global_trees[CPTI_FAKE_STD]
 #define abi_node                        cp_global_trees[CPTI_ABI]
 #define type_info_type_node		cp_global_trees[CPTI_TYPE_INFO_TYPE]
-#define tinfo_decl_id			cp_global_trees[CPTI_TINFO_DECL_ID]
 #define tinfo_decl_type			cp_global_trees[CPTI_TINFO_DECL_TYPE]
-#define tinfo_var_id                    cp_global_trees[CPTI_TINFO_VAR_ID]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
@@ -707,20 +651,14 @@ extern tree cp_global_trees[CPTI_MAX];
 /* The name of a destructor that destroys virtual base classes, and
    then deletes the entire object.  */
 #define deleting_dtor_identifier        cp_global_trees[CPTI_DELETING_DTOR_IDENTIFIER]
-
-#define delta2_identifier               cp_global_trees[CPTI_DELTA2_IDENTIFIER]
 #define delta_identifier                cp_global_trees[CPTI_DELTA_IDENTIFIER]
 #define in_charge_identifier            cp_global_trees[CPTI_IN_CHARGE_IDENTIFIER]
-
 /* The name of the parameter that contains a pointer to the VTT to use
    for this subobject constructor or destructor.  */
 #define vtt_parm_identifier             cp_global_trees[CPTI_VTT_PARM_IDENTIFIER]
-
-#define index_identifier                cp_global_trees[CPTI_INDEX_IDENTIFIER]
 #define nelts_identifier                cp_global_trees[CPTI_NELTS_IDENTIFIER]
 #define this_identifier                 cp_global_trees[CPTI_THIS_IDENTIFIER]
 #define pfn_identifier                  cp_global_trees[CPTI_PFN_IDENTIFIER]
-#define pfn_or_delta2_identifier        cp_global_trees[CPTI_PFN_OR_DELTA2_IDENTIFIER]
 #define vptr_identifier                 cp_global_trees[CPTI_VPTR_IDENTIFIER]
 /* The name of the std namespace.  */
 #define std_identifier                  cp_global_trees[CPTI_STD_IDENTIFIER]
@@ -1067,11 +1005,6 @@ extern int warn_reorder;
 
 extern int flag_signed_bitfields;
 
-/* True for more efficient but incompatible (not fully tested)
-   vtable implementation (using thunks).
-   0 is old behavior; 1 is new behavior.  */
-extern int flag_vtable_thunks;
-
 /* INTERFACE_ONLY nonzero means that we are in an "interface"
    section of the compiler.  INTERFACE_UNKNOWN nonzero means
    we cannot trust the value of INTERFACE_ONLY.  If INTERFACE_UNKNOWN
@@ -1212,15 +1145,6 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CP_TYPE_CONST_NON_VOLATILE_P(NODE)				\
   ((CP_TYPE_QUALS (NODE) & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE))	\
    == TYPE_QUAL_CONST)
-
-/* Virtual function addresses can be gotten from a virtual function
-   table entry using this macro.  */
-#define FNADDR_FROM_VTABLE_ENTRY(ENTRY)					\
-  (!flag_vtable_thunks ?						\
-     TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (ENTRY))))	\
-   : !DECL_THUNK_P (TREE_OPERAND ((ENTRY), 0))				\
-   ? (ENTRY)								\
-   : DECL_INITIAL (TREE_OPERAND ((ENTRY), 0)))
 
 #define FUNCTION_ARG_CHAIN(NODE) \
   (TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (NODE))))
@@ -2431,8 +2355,7 @@ struct lang_decl
 /* Nonzero if this class has a virtual function table pointer.  */
 #define TYPE_CONTAINS_VPTR_P(NODE)		\
   (TYPE_POLYMORPHIC_P (NODE)			\
-   || (vbase_offsets_in_vtable_p ()		\
-       && TYPE_USES_VIRTUAL_BASECLASSES (NODE)))
+   || TYPE_USES_VIRTUAL_BASECLASSES (NODE))
 
 extern int flag_new_for_scope;
 
@@ -2546,7 +2469,7 @@ extern int flag_new_for_scope;
 #define TYPE_HAS_NONTRIVIAL_DESTRUCTOR(NODE) \
   (TYPE_LANG_FLAG_4(NODE))
 
-/* Nonzero for class type means that initialization of this type can use
+/* Nonzero for class type means that copy initialization of this type can use
    a bitwise copy.  */
 #define TYPE_HAS_TRIVIAL_INIT_REF(NODE) \
   (TYPE_HAS_INIT_REF (NODE) && ! TYPE_HAS_COMPLEX_INIT_REF (NODE))
@@ -2587,67 +2510,17 @@ extern int flag_new_for_scope;
 
 /* A pointer-to-function member type looks like:
 
-   struct {
-     short __delta;
-     short __index;
-     union {
-       P __pfn;
-       short __delta2;
-     } __pfn_or_delta2;
-   };
-
-   where P is a POINTER_TYPE to a METHOD_TYPE appropriate for the
-   pointer to member.  The fields are used as follows:
-
-     If __INDEX is -1, then the function to call is non-virtual, and
-     is located at the address given by __PFN.
-
-     If __INDEX is zero, then this a NULL pointer-to-member.
-
-     Otherwise, the function to call is virtual.  Then, __DELTA2 gives
-     the offset from an instance of the object to the virtual function
-     table, and __INDEX - 1 is the index into the vtable to use to
-     find the function.
-
-     The value to use for the THIS parameter is the address of the
-     object plus __DELTA.
-
-   For example, given:
-
-     struct B1 {
-       int i;
-     };
-
-     struct B2 {
-       double d;
-       void f();
-     };
-
-     struct S : public B1, B2 {};
-
-   the pointer-to-member for `&S::f' looks like:
-
-     { 4, -1, { &f__2B2 } };
-
-   The `4' means that given an `S*' you have to add 4 bytes to get to
-   the address of the `B2*'.  Then, the -1 indicates that this is a
-   non-virtual function.  Of course, `&f__2B2' is the name of that
-   function.
-
-   (Of course, the exact values may differ depending on the mangling
-   scheme, sizes of types, and such.).
-
-   Under the new ABI, we do:
-
      struct {
        __P __pfn;
        ptrdiff_t __delta;
      };
 
-   (We don't need DELTA2, because the vtable is always the first thing
-   in the object.)  If the function is virtual, then PFN is one plus
-   twice the index into the vtable; otherwise, it is just a pointer to
-   the function.
+   If __pfn is NULL, it is a NULL pointer-to-member-function.
+  
+   (Because the vtable is always the first thing in the object, we
+   don't need its offset.)  If the function is virtual, then PFN is
+   one plus twice the index into the vtable; otherwise, it is just a
+   pointer to the function.
 
    Unfortunately, using the lowest bit of PFN doesn't work in
    architectures that don't impose alignment requirements on function
@@ -3176,8 +3049,7 @@ extern tree error_mark_list;
 
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
-#define vfunc_ptr_type_node \
-  (flag_vtable_thunks ? vtable_entry_type : ptr_type_node)
+#define vfunc_ptr_type_node  vtable_entry_type
 
 
 /* For building calls to `delete'.  */
@@ -3245,12 +3117,10 @@ extern varray_type local_classes;
 #define AUTO_TEMP_NAME "_$tmp_"
 #define AUTO_TEMP_FORMAT "_$tmp_%d"
 #define VTABLE_BASE "$vb"
-#define VTABLE_NAME_PREFIX (flag_vtable_thunks ? "__vt_" : "_vt$")
+#define VTABLE_NAME_PREFIX "__vt_"
 #define VFIELD_BASE "$vf"
 #define VFIELD_NAME "_vptr$"
 #define VFIELD_NAME_FORMAT "_vptr$%s"
-#define VBASE_NAME "_vb$"
-#define VBASE_NAME_FORMAT "_vb$%s"
 #define STATIC_NAME_FORMAT "_%s$%s"
 #define ANON_AGGRNAME_FORMAT "$_%d"
 
@@ -3267,12 +3137,10 @@ extern varray_type local_classes;
 #define AUTO_TEMP_NAME "_.tmp_"
 #define AUTO_TEMP_FORMAT "_.tmp_%d"
 #define VTABLE_BASE ".vb"
-#define VTABLE_NAME_PREFIX (flag_vtable_thunks ? "__vt_" : "_vt.")
+#define VTABLE_NAME_PREFIX "__vt_"
 #define VFIELD_BASE ".vf"
 #define VFIELD_NAME "_vptr."
 #define VFIELD_NAME_FORMAT "_vptr.%s"
-#define VBASE_NAME "_vb."
-#define VBASE_NAME_FORMAT "_vb.%s"
 #define STATIC_NAME_FORMAT "_%s.%s"
 
 #define ANON_AGGRNAME_FORMAT "._%d"
@@ -3296,7 +3164,7 @@ extern varray_type local_classes;
 #define AUTO_TEMP_FORMAT "__tmp_%d"
 #define VTABLE_BASE "__vtb"
 #define VTABLE_NAME "__vt_"
-#define VTABLE_NAME_PREFIX (flag_vtable_thunks ? "__vt_" : "_vt_")
+#define VTABLE_NAME_PREFIX "__vt_"
 #define VTABLE_NAME_P(ID_NODE) \
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VTABLE_NAME, \
 	     sizeof (VTABLE_NAME) - 1))
@@ -3306,11 +3174,6 @@ extern varray_type local_classes;
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VFIELD_NAME, \
 	    sizeof (VFIELD_NAME) - 1))
 #define VFIELD_NAME_FORMAT "_vptr_%s"
-#define VBASE_NAME "__vb_"
-#define VBASE_NAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), VBASE_NAME, \
-	     sizeof (VBASE_NAME) - 1))
-#define VBASE_NAME_FORMAT "__vb_%s"
 #define STATIC_NAME_FORMAT "__static_%s_%s"
 
 #define ANON_AGGRNAME_PREFIX "__anon_"
@@ -3336,20 +3199,9 @@ extern varray_type local_classes;
 
 #define VTBL_PTR_TYPE		"__vtbl_ptr_type"
 #define VTABLE_DELTA_NAME	"__delta"
-#define VTABLE_INDEX_NAME	"__index"
 #define VTABLE_PFN_NAME		"__pfn"
-#define VTABLE_DELTA2_NAME	"__delta2"
 
 #define EXCEPTION_CLEANUP_NAME	"exception cleanup"
-
-/* The name used as a prefix for VTTs.  When the new ABI mangling
-   scheme is implemented, this should be removed.  */
-
-#define VTT_NAME_PREFIX "__vtt_"
-
-/* The name used as a prefix for construction vtables.  */
-
-#define CTOR_VTBL_NAME_PREFIX "__ctorvt_"
 
 #define THIS_NAME_P(ID_NODE) (strcmp(IDENTIFIER_POINTER (ID_NODE), "this") == 0)
 
@@ -3364,10 +3216,6 @@ extern varray_type local_classes;
   && IDENTIFIER_POINTER (ID_NODE)[2] == 't' \
   && IDENTIFIER_POINTER (ID_NODE)[3] == JOINER)
 
-#define VBASE_NAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[1] == 'v' \
-  && IDENTIFIER_POINTER (ID_NODE)[2] == 'b' \
-  && IDENTIFIER_POINTER (ID_NODE)[3] == JOINER)
-
 #define TEMP_NAME_P(ID_NODE) (!strncmp (IDENTIFIER_POINTER (ID_NODE), AUTO_TEMP_NAME, sizeof (AUTO_TEMP_NAME)-1))
 #define VFIELD_NAME_P(ID_NODE) (!strncmp (IDENTIFIER_POINTER (ID_NODE), VFIELD_NAME, sizeof(VFIELD_NAME)-1))
 
@@ -3380,14 +3228,6 @@ extern varray_type local_classes;
 #define ANON_PARMNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '_' \
 				  && IDENTIFIER_POINTER (ID_NODE)[1] <= '9')
 #endif /* !defined(NO_DOLLAR_IN_LABEL) || !defined(NO_DOT_IN_LABEL) */
-
-/* Store the vbase pointer field name for type TYPE into pointer BUF.  */
-#define FORMAT_VBASE_NAME(BUF,TYPE) do {				\
-  char *wbuf = (char *) alloca (TYPE_ASSEMBLER_NAME_LENGTH (TYPE)	\
-			 + sizeof (VBASE_NAME) + 1);			\
-  sprintf (wbuf, VBASE_NAME_FORMAT, TYPE_ASSEMBLER_NAME_STRING (TYPE));	\
-  (BUF) = wbuf;								\
-} while (0)
 
 /* Returns non-zero iff NODE is a declaration for the global function
    `main'.  */
@@ -3665,6 +3505,7 @@ extern int get_arglist_len_in_bytes		PARAMS ((tree));
 
 extern tree build_vfield_ref			PARAMS ((tree, tree));
 extern tree build_scoped_method_call		PARAMS ((tree, tree, tree, tree));
+extern tree build_conditional_expr		PARAMS ((tree, tree, tree));
 extern tree build_addr_func			PARAMS ((tree));
 extern tree build_call				PARAMS ((tree, tree));
 extern tree build_method_call			PARAMS ((tree, tree, tree, tree, int));
@@ -3690,7 +3531,7 @@ extern tree perform_implicit_conversion         PARAMS ((tree, tree));
 /* in class.c */
 extern tree build_vbase_path			PARAMS ((enum tree_code, tree, tree, tree, int));
 extern tree build_vtbl_ref			PARAMS ((tree, tree));
-extern tree build_vfn_ref			PARAMS ((tree *, tree, tree));
+extern tree build_vfn_ref			PARAMS ((tree, tree));
 extern tree get_vtable_decl                     PARAMS ((tree, int));
 extern void add_method				PARAMS ((tree, tree, int));
 extern int currently_open_class			PARAMS ((tree));
@@ -3903,7 +3744,6 @@ extern void cplus_decl_attributes		PARAMS ((tree *, tree, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
 extern void defer_fn            		PARAMS ((tree));
-extern tree get_temp_name			PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
 extern void finish_builtin_type			PARAMS ((tree, const char *,
@@ -4143,7 +3983,6 @@ extern void init_rtti_processing		PARAMS((void));
 extern tree build_typeid			PARAMS((tree));
 extern tree get_tinfo_decl                      PARAMS((tree));
 extern tree get_typeid				PARAMS((tree));
-extern tree get_typeid_1			PARAMS((tree));
 extern tree build_dynamic_cast			PARAMS((tree, tree));
 extern void emit_support_tinfos                 PARAMS((void));
 extern int tinfo_decl_p                         PARAMS((tree, void *));
@@ -4165,7 +4004,6 @@ extern tree lookup_fnfields			PARAMS ((tree, tree, int));
 extern tree lookup_member			PARAMS ((tree, tree, int, int));
 extern int look_for_overrides			PARAMS ((tree, tree));
 extern void get_pure_virtuals		        PARAMS ((tree));
-extern tree init_vbase_pointers			PARAMS ((tree, tree));
 extern void get_vbase_types			PARAMS ((tree));
 extern void maybe_suppress_debug_info		PARAMS ((tree));
 extern void note_debug_info_needed		PARAMS ((tree));
@@ -4205,7 +4043,6 @@ extern tree convert_pointer_to_vbase            PARAMS ((tree, tree));
 extern tree find_vbase_instance                 PARAMS ((tree, tree));
 extern tree binfo_for_vbase                     PARAMS ((tree, tree));
 extern tree binfo_via_virtual                   PARAMS ((tree, tree));
-extern void fixup_all_virtual_upcast_offsets    PARAMS ((tree));
 
 /* in semantics.c */
 extern void init_cp_semantics                   PARAMS ((void));
@@ -4341,7 +4178,6 @@ extern int bound_pmf_p				PARAMS ((tree));
 extern tree ovl_cons                            PARAMS ((tree, tree));
 extern int ovl_member                           PARAMS ((tree, tree));
 extern tree build_overload                      PARAMS ((tree, tree));
-extern tree fnaddr_from_vtable_entry		PARAMS ((tree));
 extern tree function_arg_chain			PARAMS ((tree));
 extern int promotes_to_aggr_type		PARAMS ((tree, enum tree_code));
 extern int is_aggr_type_2			PARAMS ((tree, tree));
@@ -4428,7 +4264,6 @@ extern tree build_x_binary_op			PARAMS ((enum tree_code, tree, tree));
 extern tree build_x_unary_op			PARAMS ((enum tree_code, tree));
 extern tree unary_complex_lvalue		PARAMS ((enum tree_code, tree));
 extern tree build_x_conditional_expr		PARAMS ((tree, tree, tree));
-extern tree build_conditional_expr		PARAMS ((tree, tree, tree));
 extern tree build_x_compound_expr		PARAMS ((tree));
 extern tree build_compound_expr			PARAMS ((tree));
 extern tree build_static_cast			PARAMS ((tree, tree));
@@ -4507,6 +4342,7 @@ extern tree mangle_ctor_vtbl_for_type           PARAMS ((tree, tree));
 extern tree mangle_thunk                        PARAMS ((tree, tree, tree));
 extern tree mangle_conv_op_name_for_type        PARAMS ((tree));
 extern tree mangle_guard_variable               PARAMS ((tree));
+extern tree mangle_ref_init_variable            PARAMS ((tree));
 
 /* in dump.c */
 extern int cp_dump_tree                         PARAMS ((dump_info_p, tree));

@@ -31,6 +31,7 @@ static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
 static int operand_preference	PARAMS ((rtx));
+static void parms_set 		PARAMS ((rtx, rtx, void *));
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -998,6 +999,9 @@ set_noop_p (set)
   if (GET_CODE (dst) == MEM && GET_CODE (src) == MEM)
     return rtx_equal_p (dst, src);
 
+  if (dst == pc_rtx && src == pc_rtx)
+    return 1;
+
   if (GET_CODE (dst) == SIGN_EXTRACT
       || GET_CODE (dst) == ZERO_EXTRACT)
     return rtx_equal_p (XEXP (dst, 0), src)
@@ -1017,6 +1021,48 @@ set_noop_p (set)
   return (GET_CODE (src) == REG && GET_CODE (dst) == REG
 	  && REGNO (src) == REGNO (dst));
 }
+
+/* Return nonzero if an insn consists only of SETs, each of which only sets a
+   value to itself.  */
+
+int
+noop_move_p (insn)
+     rtx insn;
+{
+  rtx pat = PATTERN (insn);
+
+  if (INSN_CODE (insn) == NOOP_MOVE_INSN_CODE)
+    return 1;
+
+  /* Insns carrying these notes are useful later on.  */
+  if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
+    return 0;
+
+  if (GET_CODE (pat) == SET && set_noop_p (pat))
+    return 1;
+
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+      /* If nothing but SETs of registers to themselves,
+	 this insn can also be deleted.  */
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  rtx tem = XVECEXP (pat, 0, i);
+
+	  if (GET_CODE (tem) == USE
+	      || GET_CODE (tem) == CLOBBER)
+	    continue;
+
+	  if (GET_CODE (tem) != SET || ! set_noop_p (tem))
+	    return 0;
+	}
+
+      return 1;
+    }
+  return 0;
+}
+
 
 /* Return the last thing that X was assigned from before *PINSN.  If VALID_TO
    is not NULL_RTX then verify that the object is not modified up to VALID_TO.
@@ -2742,4 +2788,81 @@ subreg_regno (x)
 				     GET_MODE (x));
   return ret;
 
+}
+struct parms_set_data
+{
+  int nregs;
+  HARD_REG_SET regs;
+};
+
+/* Helper function for noticing stores to parameter registers.  */
+static void
+parms_set (x, pat, data)
+	rtx x, pat ATTRIBUTE_UNUSED;
+	void *data;
+{
+  struct parms_set_data *d = data;
+  if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
+      && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
+    {
+      CLEAR_HARD_REG_BIT (d->regs, REGNO (x));
+      d->nregs--;
+    }
+}
+
+/* Look backward for first parameter to be loaded.  
+   Do not skip BOUNDARY.  */
+rtx
+find_first_parameter_load (call_insn, boundary)
+     rtx call_insn, boundary;
+{
+  struct parms_set_data parm;
+  rtx p, before;
+
+  /* Since different machines initialize their parameter registers
+     in different orders, assume nothing.  Collect the set of all
+     parameter registers.  */
+  CLEAR_HARD_REG_SET (parm.regs);
+  parm.nregs = 0;
+  for (p = CALL_INSN_FUNCTION_USAGE (call_insn); p; p = XEXP (p, 1))
+    if (GET_CODE (XEXP (p, 0)) == USE
+	&& GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
+      {
+	if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
+	  abort ();
+
+	/* We only care about registers which can hold function
+	   arguments.  */
+	if (!FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
+	  continue;
+
+	SET_HARD_REG_BIT (parm.regs, REGNO (XEXP (XEXP (p, 0), 0)));
+	parm.nregs++;
+      }
+  before = call_insn;
+
+  /* Search backward for the first set of a register in this set.  */
+  while (parm.nregs && before != boundary)
+    {
+      before = PREV_INSN (before);
+
+      /* It is possible that some loads got CSEed from one call to
+         another.  Stop in that case.  */
+      if (GET_CODE (before) == CALL_INSN)
+	break;
+
+      /* Our caller needs either ensure that we will find all sets
+         (in case code has not been optimized yet), or take care
+         for possible labels in a way by setting boundary to preceeding
+         CODE_LABEL.  */
+      if (GET_CODE (before) == CODE_LABEL)
+	{
+	  if (before != boundary)
+	    abort ();
+	  break;
+	}
+
+      note_stores (INSN_P (before) ? PATTERN (before) : before, parms_set, &parm);
+    }
+  return before;
 }

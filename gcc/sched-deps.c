@@ -38,6 +38,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "sched-int.h"
+#include "params.h"
 
 extern char *reg_known_equiv_p;
 extern rtx *reg_known_value;
@@ -534,6 +535,7 @@ flush_pending_lists (deps, insn, only_write)
 
   free_INSN_LIST_list (&deps->last_pending_memory_flush);
   deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
+  deps->pending_flush_length = 1;
 }
 
 /* Analyze a single SET, CLOBBER, PRE_DEC, POST_DEC, PRE_INC or POST_INC
@@ -675,14 +677,13 @@ sched_analyze_1 (deps, x, insn)
     {
       /* Writing memory.  */
 
-      if (deps->pending_lists_length > 32)
+      if (deps->pending_lists_length > MAX_PENDING_LIST_LENGTH)
 	{
 	  /* Flush all pending reads and writes to prevent the pending lists
 	     from getting any larger.  Insn scheduling runs too slowly when
-	     these lists get long.  The number 32 was chosen because it
-	     seems like a reasonable number.  When compiling GCC with itself,
+	     these lists get long.  When compiling GCC with itself,
 	     this flush occurs 8 times for sparc, and 10 times for m88k using
-	     the number 32.  */
+	     the default value of 32.  */
 	  flush_pending_lists (deps, insn, 0);
 	}
       else
@@ -1016,13 +1017,17 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 
   /* Mark registers CLOBBERED or used by called function.  */
   if (GET_CODE (insn) == CALL_INSN)
-    for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
-      {
-	if (GET_CODE (XEXP (link, 0)) == CLOBBER)
-	  sched_analyze_1 (deps, XEXP (link, 0), insn);
-	else
-	  sched_analyze_2 (deps, XEXP (link, 0), insn);
-      }
+    {
+      for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+	{
+	  if (GET_CODE (XEXP (link, 0)) == CLOBBER)
+	    sched_analyze_1 (deps, XEXP (link, 0), insn);
+	  else
+	    sched_analyze_2 (deps, XEXP (link, 0), insn);
+	}
+      if (find_reg_note (insn, REG_SETJMP, NULL))
+	schedule_barrier_found = 1;
+    }
 
   if (GET_CODE (insn) == JUMP_INSN)
     {
@@ -1093,8 +1098,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
 	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END
-	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_SETJMP)
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END)
 	    schedule_barrier_found = 1;
 
 	  link = XEXP (link, 1);
@@ -1246,8 +1250,14 @@ sched_analyze (deps, head, tail)
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */
 	  if (GET_CODE (insn) == JUMP_INSN)
-	    deps->last_pending_memory_flush
-	      = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
+	    {
+	      /* Keep the list a reasonable size.  */
+	      if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)
+		flush_pending_lists (deps, insn, 0);
+	      else
+		deps->last_pending_memory_flush
+		  = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
+	    }
 	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
@@ -1270,15 +1280,14 @@ sched_analyze (deps, head, tail)
 	     past a void call (i.e. it does not explicitly set the hard
 	     return reg).  */
 
-	  /* If this call is followed by a NOTE_INSN_SETJMP, then assume that
+	  /* If this call has REG_SETJMP, then assume that
 	     all registers, not just hard registers, may be clobbered by this
 	     call.  */
 
 	  /* Insn, being a CALL_INSN, magically depends on
 	     `last_function_call' already.  */
 
-	  if (NEXT_INSN (insn) && GET_CODE (NEXT_INSN (insn)) == NOTE
-	      && NOTE_LINE_NUMBER (NEXT_INSN (insn)) == NOTE_INSN_SETJMP)
+	  if (find_reg_note (insn, REG_SETJMP, NULL))
 	    {
 	      for (i = 0; i < deps->max_reg; i++)
 		{
@@ -1294,16 +1303,6 @@ sched_analyze (deps, head, tail)
 		  free_INSN_LIST_list (&reg_last->uses);
 		}
 	      reg_pending_sets_all = 1;
-
-	      /* Add a pair of REG_SAVE_NOTEs which we will later
-		 convert back into a NOTE_INSN_SETJMP note.  See
-		 reemit_notes for why we use a pair of NOTEs.  */
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_SAVE_NOTE,
-						  GEN_INT (0),
-						  REG_NOTES (insn));
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_SAVE_NOTE,
-						  GEN_INT (NOTE_INSN_SETJMP),
-						  REG_NOTES (insn));
 	    }
 	  else
 	    {
@@ -1336,7 +1335,7 @@ sched_analyze (deps, head, tail)
 	     all pending reads and writes, and start new dependencies starting
 	     from here.  But only flush writes for constant calls (which may
 	     be passed a pointer to something we haven't written yet).  */
-	  flush_pending_lists (deps, insn, CONST_CALL_P (insn));
+	  flush_pending_lists (deps, insn, CONST_OR_PURE_CALL_P (insn));
 
 	  /* Depend this function call (actually, the user of this
 	     function call) on all hard register clobberage.  */
@@ -1368,9 +1367,7 @@ sched_analyze (deps, head, tail)
 	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END
-		   || (NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP
-		       && GET_CODE (PREV_INSN (insn)) != CALL_INSN)))
+		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
 	{
 	  rtx rtx_region;
 
@@ -1386,7 +1383,7 @@ sched_analyze (deps, head, tail)
 	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
 					GEN_INT (NOTE_LINE_NUMBER (insn)),
 					loop_notes);
-	  CONST_CALL_P (loop_notes) = CONST_CALL_P (insn);
+	  CONST_OR_PURE_CALL_P (loop_notes) = CONST_OR_PURE_CALL_P (insn);
 	}
 
       if (insn == tail)
@@ -1473,6 +1470,7 @@ init_deps (deps)
   deps->pending_write_insns = 0;
   deps->pending_write_mems = 0;
   deps->pending_lists_length = 0;
+  deps->pending_flush_length = 0;
   deps->last_pending_memory_flush = 0;
   deps->last_function_call = 0;
   deps->in_post_call_group_p = 0;

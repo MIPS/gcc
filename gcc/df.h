@@ -91,15 +91,15 @@ struct reg_info
 struct bb_info
 {
   /* Reaching def bitmaps have def_id elements.  */
-  bitmap rd_kill;
-  bitmap rd_gen;
-  bitmap rd_in;
-  bitmap rd_out;
+  sbitmap rd_kill;
+  sbitmap rd_gen;
+  sbitmap rd_in;
+  sbitmap rd_out;
   /* Reaching use bitmaps have use_id elements.  */
-  bitmap ru_kill;
-  bitmap ru_gen;
-  bitmap ru_in;
-  bitmap ru_out;
+  sbitmap ru_kill;
+  sbitmap ru_gen;
+  sbitmap ru_in;
+  sbitmap ru_out;
   /* Live variable bitmaps have n_regs elements.  */
   bitmap lr_def;
   bitmap lr_use;

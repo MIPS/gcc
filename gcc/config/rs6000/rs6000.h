@@ -33,9 +33,13 @@ Boston, MA 02111-1307, USA.  */
 #define OBJECT_MACHO 4
 
 #define TARGET_ELF (TARGET_OBJECT_FORMAT == OBJECT_ELF)
-#define TARGET_AIX (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
+#define TARGET_XCOFF (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
 #define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
 #define TARGET_MACHO (TARGET_OBJECT_FORMAT == OBJECT_MACHO)
+
+#ifndef TARGET_AIX
+#define TARGET_AIX 0
+#endif
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
@@ -81,8 +85,6 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=823: -D_ARCH_PPC} \
 %{mcpu=860: -D_ARCH_PPC}"
 
-#define CPP_DEFAULT_SPEC "-D_ARCH_PWR"
-
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -118,6 +120,8 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc}"
+
+#define CPP_DEFAULT_SPEC ""
 
 #define ASM_DEFAULT_SPEC ""
 
@@ -574,13 +578,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* Handle #pragma pack.  */
 #define HANDLE_PRAGMA_PACK 1
 
-/* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
-	      ? get_inner_array_type (FIELD) \
-	      : TREE_TYPE (FIELD)) == DFmode \
-   ? MIN ((COMPUTED), 32) : (COMPUTED))
-
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
 
@@ -589,17 +586,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* AIX increases natural record alignment to doubleword if the first
-   field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
-   : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -796,7 +782,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    registers is expensive.  */
 
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)		\
-  ((CLASS1) == FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 2		\
+   ((CLASS1) == FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 2		\
    : (CLASS1) == FLOAT_REGS && (CLASS2) != FLOAT_REGS ? 10	\
    : (CLASS1) != FLOAT_REGS && (CLASS2) == FLOAT_REGS ? 10	\
    : (((CLASS1) == SPECIAL_REGS || (CLASS1) == MQ_REGS		\
@@ -1050,7 +1036,7 @@ enum reg_class
    `K' is a constant with only the low-order 16 bits non-zero
    `L' is a signed 16-bit constant shifted left 16 bits
    `M' is a constant that is greater than 31
-   `N' is a constant that is an exact power of two
+   `N' is a positive constant that is an exact power of two
    `O' is the constant zero
    `P' is a constant whose negation is a signed 16-bit constant */
 
@@ -1061,7 +1047,7 @@ enum reg_class
    : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
 		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
    : (C) == 'M' ? (VALUE) > 31						\
-   : (C) == 'N' ? exact_log2 (VALUE) >= 0				\
+   : (C) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
    : (C) == 'O' ? (VALUE) == 0						\
    : (C) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
    : 0)
@@ -1384,7 +1370,7 @@ typedef struct rs6000_stack {
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
-  (((unsigned)((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
+  ((unsigned)(((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
    || ((unsigned)((N) - FP_ARG_MIN_REG) < (unsigned)(FP_ARG_NUM_REG)))
 
 
@@ -1575,6 +1561,7 @@ typedef struct rs6000_args
    || (current_function_calls_eh_return				\
        && TARGET_AIX						\
        && (REGNO) == TOC_REGISTER))
+
 
 /* TRAMPOLINE_TEMPLATE deleted */
 
@@ -2281,10 +2268,6 @@ extern int toc_initialized;
     }									  \
 }
 
-/* This is how we tell the assembler that two symbols have the same value.  */
-
-#define SET_ASM_OP "\t.set\t"
-
 /* This implementes the `alias' attribute.  */
 
 #define ASM_OUTPUT_DEF_FROM_DECLS(FILE,decl,target)	\
@@ -2498,7 +2481,7 @@ do {									\
     }									\
   else									\
     {									\
-      fputs ("\t.llong ", FILE);					\
+      fprintf (FILE, "%s", DOUBLE_INT_ASM_OP);				\
       output_addr_const (FILE, (VALUE));				\
       putc ('\n', FILE);						\
     }									\
@@ -2527,7 +2510,7 @@ do {									\
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This is used by the definition of ASM_OUTPUT_ADDR_ELT in defaults.h.  */
-#define ASM_LONG (TARGET_32BIT ? ".long" : ".quad")
+#define ASM_LONG (TARGET_32BIT ? ".long" : DOUBLE_INT_ASM_OP)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -2549,19 +2532,6 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
-
-/* This says how to output an assembler line
-   to define a local common symbol.
-   Alignment cannot be specified, but we can try to maintain
-   alignment after preceding TOC section if it was aligned
-   for 64-bit mode.  */
-
-#define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".lcomm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       fprintf ((FILE), ",%d,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
-		xcoff_bss_section_name);		\
-     } while (0)
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -2603,6 +2573,7 @@ do {									\
   {"short_cint_operand", {CONST_INT}},					   \
   {"u_short_cint_operand", {CONST_INT}},				   \
   {"non_short_cint_operand", {CONST_INT}},				   \
+  {"exact_log2_cint_operand", {CONST_INT}},				   \
   {"gpc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_operand", {SUBREG, REG}},					   \
   {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
@@ -2611,6 +2582,8 @@ do {									\
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_add_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_sub_cint64_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \

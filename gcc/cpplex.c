@@ -80,7 +80,7 @@ const struct token_spelling token_spellings [N_TTYPES] = {TTYPE_TABLE };
 #define TOKEN_SPELL(token) (token_spellings[(token)->type].category)
 #define TOKEN_NAME(token) (token_spellings[(token)->type].name)
 
-static cppchar_t handle_newline PARAMS ((cpp_buffer *, cppchar_t));
+static cppchar_t handle_newline PARAMS ((cpp_reader *, cppchar_t));
 static cppchar_t skip_escaped_newlines PARAMS ((cpp_buffer *, cppchar_t));
 static cppchar_t get_effective_char PARAMS ((cpp_buffer *));
 
@@ -124,14 +124,16 @@ cpp_ideq (token, string)
 /* Call when meeting a newline.  Returns the character after the newline
    (or carriage-return newline combination), or EOF.  */
 static cppchar_t
-handle_newline (buffer, newline_char)
-     cpp_buffer *buffer;
+handle_newline (pfile, newline_char)
+     cpp_reader *pfile;
      cppchar_t newline_char;
 {
+  cpp_buffer *buffer;
   cppchar_t next = EOF;
 
+  pfile->line++;
+  buffer = pfile->buffer;
   buffer->col_adjust = 0;
-  buffer->lineno++;
   buffer->line_base = buffer->cur;
 
   /* Handle CR-LF and LF-CR combinations, get the next character.  */
@@ -168,15 +170,16 @@ trigraph_ok (pfile, from_char)
   if (CPP_OPTION (pfile, warn_trigraphs) && !pfile->state.lexing_comment)
     {
       cpp_buffer *buffer = pfile->buffer;
+
       if (accept)
-	cpp_warning_with_line (pfile, buffer->lineno, CPP_BUF_COL (buffer) - 2,
+	cpp_warning_with_line (pfile, pfile->line, CPP_BUF_COL (buffer) - 2,
 			       "trigraph ??%c converted to %c",
 			       (int) from_char,
 			       (int) _cpp_trigraph_map[from_char]);
       else if (buffer->cur != buffer->last_Wtrigraphs)
 	{
 	  buffer->last_Wtrigraphs = buffer->cur;
-	  cpp_warning_with_line (pfile, buffer->lineno,
+	  cpp_warning_with_line (pfile, pfile->line,
 				 CPP_BUF_COL (buffer) - 2,
 				 "trigraph ??%c ignored", (int) from_char);
 	}
@@ -264,7 +267,7 @@ skip_escaped_newlines (buffer, next)
 	    cpp_warning (buffer->pfile,
 			 "backslash and newline separated by space");
 
-	  next = handle_newline (buffer, next1);
+	  next = handle_newline (buffer->pfile, next1);
 	  if (next == EOF)
 	    cpp_pedwarn (buffer->pfile, "backslash-newline at end of file");
 	}
@@ -339,8 +342,8 @@ skip_block_comment (pfile)
 		{
 		  prevc = c, c = *buffer->cur++;
 		  if (c != '/') 
-		    cpp_warning_with_line (pfile, CPP_BUF_LINE (buffer),
-					   CPP_BUF_COL (buffer),
+		    cpp_warning_with_line (pfile, pfile->line,
+					   CPP_BUF_COL (buffer) - 2,
 					   "\"/*\" within comment");
 		}
 	      goto next_char;
@@ -348,7 +351,7 @@ skip_block_comment (pfile)
 	}
       else if (is_vspace (c))
 	{
-	  prevc = c, c = handle_newline (buffer, c);
+	  prevc = c, c = handle_newline (pfile, c);
 	  goto next_char;
 	}
       else if (c == '\t')
@@ -368,7 +371,7 @@ skip_line_comment (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = pfile->buffer;
-  unsigned int orig_lineno = buffer->lineno;
+  unsigned int orig_line = pfile->line;
   cppchar_t c;
 
   pfile->state.lexing_comment = 1;
@@ -386,7 +389,7 @@ skip_line_comment (pfile)
 
   pfile->state.lexing_comment = 0;
   buffer->read_ahead = c;	/* Leave any newline for caller.  */
-  return orig_lineno != buffer->lineno;
+  return orig_line != pfile->line;
 }
 
 /* pfile->buffer->cur is one beyond the \t character.  Update
@@ -432,7 +435,7 @@ skip_whitespace (pfile, c)
 	    }
 	}
       else if (pfile->state.in_directive && CPP_PEDANTIC (pfile))
-	cpp_pedwarn_with_line (pfile, CPP_BUF_LINE (buffer),
+	cpp_pedwarn_with_line (pfile, pfile->line,
 			       CPP_BUF_COL (buffer),
 			       "%s in preprocessing directive",
 			       c == '\f' ? "form feed" : "vertical tab");
@@ -442,7 +445,7 @@ skip_whitespace (pfile, c)
 	break;
       c = *buffer->cur++;
     }
-  /* We only want non-vertical space, i.e. ' ' \t \f \v \0. */
+  /* We only want non-vertical space, i.e. ' ' \t \f \v \0.  */
   while (is_nvspace (c));
 
   /* Remember the next character.  */
@@ -509,7 +512,7 @@ parse_identifier (pfile, c)
   /* $ is not a identifier character in the standard, but is commonly
      accepted as an extension.  Don't warn about it in skipped
      conditional blocks.  */
-  if (saw_dollar && CPP_PEDANTIC (pfile) && ! pfile->skipping)
+  if (saw_dollar && CPP_PEDANTIC (pfile) && ! pfile->state.skipping)
     cpp_pedwarn (pfile, "'$' character(s) in identifier");
 
   /* Identifiers are null-terminated.  */
@@ -521,7 +524,7 @@ parse_identifier (pfile, c)
     ht_lookup (pfile->hash_table, obstack_finish (stack), len, HT_ALLOCED);
 
   /* Some identifiers require diagnostics when lexed.  */
-  if (result->flags & NODE_DIAGNOSTIC && !pfile->skipping)
+  if (result->flags & NODE_DIAGNOSTIC && !pfile->state.skipping)
     {
       /* It is allowed to poison the same identifier twice.  */
       if ((result->flags & NODE_POISONED) && !pfile->state.poisoned_ok)
@@ -652,7 +655,7 @@ parse_string (pfile, token, terminator)
   cpp_pool *pool = &pfile->ident_pool;
   unsigned char *dest, *limit;
   cppchar_t c;
-  unsigned int nulls = 0;
+  bool warned_nulls = false, warned_multi = false;
 
   dest = POOL_FRONT (pool);
   limit = POOL_LIMIT (pool);
@@ -702,18 +705,23 @@ parse_string (pfile, token, terminator)
 	      break;
 	    }
 
-	  cpp_pedwarn (pfile, "multi-line string literals are deprecated");
+	  if (!warned_multi)
+	    {
+	      warned_multi = true;
+	      cpp_pedwarn (pfile, "multi-line string literals are deprecated");
+	    }
+
 	  if (pfile->mlstring_pos.line == 0)
 	    pfile->mlstring_pos = pfile->lexer_pos;
 	      
-	  c = handle_newline (buffer, c);
+	  c = handle_newline (pfile, c);
 	  *dest++ = '\n';
 	  goto have_char;
 	}
-      else if (c == '\0')
+      else if (c == '\0' && !warned_nulls)
 	{
-	  if (nulls++ == 0)
-	    cpp_warning (pfile, "null character(s) preserved in literal");
+	  warned_nulls = true;
+	  cpp_warning (pfile, "null character(s) preserved in literal");
 	}
 
       *dest++ = c;
@@ -855,17 +863,17 @@ _cpp_lex_token (pfile, result)
   cppchar_t c;
   cpp_buffer *buffer;
   const unsigned char *comment_start;
-  unsigned char bol;
+  int bol;
 
- skip:
-  bol = pfile->state.next_bol;
- done_directive:
+ next_token:
   buffer = pfile->buffer;
-  pfile->state.next_bol = 0;
   result->flags = buffer->saved_flags;
   buffer->saved_flags = 0;
+  bol = (buffer->cur <= buffer->line_base + 1
+	 && pfile->lexer_pos.output_line == pfile->line);
  next_char:
-  pfile->lexer_pos.line = buffer->lineno;
+  pfile->lexer_pos.line = pfile->line;
+  result->line = pfile->line;
  next_char2:
   pfile->lexer_pos.col = CPP_BUF_COLUMN (buffer, buffer->cur);
 
@@ -875,22 +883,42 @@ _cpp_lex_token (pfile, result)
       c = *buffer->cur++;
       pfile->lexer_pos.col++;
     }
+  result->col = pfile->lexer_pos.col;
 
  do_switch:
   buffer->read_ahead = EOF;
   switch (c)
     {
     case EOF:
-      /* Non-empty files should end in a newline.  Checking "bol" too
-	  prevents multiple warnings when hitting the EOF more than
-	  once, like in a directive.  Don't warn for command line and
-	  _Pragma buffers.  */
-      if (pfile->lexer_pos.col != 0 && !bol && !buffer->from_stage3)
-	cpp_pedwarn (pfile, "no newline at end of file");
-      pfile->state.next_bol = 1;
-      pfile->skipping = 0;	/* In case missing #endif.  */
+      /* To prevent bogus diagnostics, only pop the buffer when
+	 in-progress directives and arguments have been taken care of.
+	 Decrement the line to terminate an in-progress directive.  */
+      if (pfile->state.in_directive)
+	pfile->line--;
+      else if (! pfile->state.parsing_args)
+	{
+	  /* Non-empty files should end in a newline.  Don't warn for
+	     command line and _Pragma buffers.  */
+	  if (pfile->lexer_pos.col != 0)
+	    {
+	      /* Account for the missing \n, prevent multiple warnings.  */
+	      pfile->line++;
+	      pfile->lexer_pos.col = 0;
+	      if (!buffer->from_stage3)
+		cpp_pedwarn (pfile, "no newline at end of file");
+	    }
+
+	  /* Don't pop the last file.  */
+	  if (buffer->prev)
+	    {
+	      unsigned char stop = buffer->return_at_eof;
+
+	      _cpp_pop_buffer (pfile);
+	      if (!stop)
+		goto next_token;
+	    }
+	}
       result->type = CPP_EOF;
-      /* Don't do MI optimisation.  */
       return;
 
     case ' ': case '\t': case '\f': case '\v': case '\0':
@@ -899,34 +927,41 @@ _cpp_lex_token (pfile, result)
       goto next_char2;
 
     case '\n': case '\r':
-      if (!pfile->state.in_directive)
+      if (pfile->state.in_directive)
 	{
-	  handle_newline (buffer, c);
-	  bol = 1;
-	  pfile->lexer_pos.output_line = buffer->lineno;
-	  /* This is a new line, so clear any white space flag.
-	     Newlines in arguments are white space (6.10.3.10);
-	     parse_arg takes care of that.  */
-	  result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
-	  goto next_char;
+	  result->type = CPP_EOF;
+	  if (pfile->state.parsing_args)
+	    buffer->read_ahead = c;
+	  else
+	    {
+	      handle_newline (pfile, c);
+	      /* Decrementing pfile->line allows directives to
+		 recognise that the newline has been seen, and also
+		 means that diagnostics don't point to the next line.  */
+	      pfile->lexer_pos.output_line = pfile->line--;
+	    }
+	  return;
 	}
 
-      /* Don't let directives spill over to the next line.  */
-      buffer->read_ahead = c;
-      pfile->state.next_bol = 1;
-      result->type = CPP_EOF;
-      /* Don't break; pfile->skipping might be true.  */
-      return;
+      handle_newline (pfile, c);
+      /* This is a new line, so clear any white space flag.  Newlines
+	 in arguments are white space (6.10.3.10); parse_arg takes
+	 care of that.  */
+      result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
+      bol = 1;
+      if (pfile->state.parsing_args != 2)
+	pfile->lexer_pos.output_line = pfile->line;
+      goto next_char;
 
     case '?':
     case '\\':
       /* These could start an escaped newline, or '?' a trigraph.  Let
 	 skip_escaped_newlines do all the work.  */
       {
-	unsigned int lineno = buffer->lineno;
+	unsigned int line = pfile->line;
 
 	c = skip_escaped_newlines (buffer, c);
-	if (lineno != buffer->lineno)
+	if (line != pfile->line)
 	  /* We had at least one escaped newline of some sort, and the
 	     next character is in buffer->read_ahead.  Update the
 	     token's line and column.  */
@@ -951,7 +986,7 @@ _cpp_lex_token (pfile, result)
     case '$':
       if (!CPP_OPTION (pfile, dollars_in_ident))
 	goto random_char;
-      /* Fall through... */
+      /* Fall through...  */
 
     case '_':
     case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
@@ -1005,9 +1040,7 @@ _cpp_lex_token (pfile, result)
       if (c == '*')
 	{
 	  if (skip_block_comment (pfile))
-	    cpp_error_with_line (pfile, pfile->lexer_pos.line,
-				 pfile->lexer_pos.col,
-				 "unterminated comment");
+	    cpp_error (pfile, "unterminated comment");
 	}
       else
 	{
@@ -1191,26 +1224,21 @@ _cpp_lex_token (pfile, result)
 	 macro invocation, and proceed to process the directive.  */
       if (pfile->state.parsing_args)
 	{
+	  pfile->lexer_pos.output_line = pfile->line;
 	  if (pfile->state.parsing_args == 2)
-	    cpp_error (pfile,
-		       "directives may not be used inside a macro argument");
-
-	  /* Put a '#' in lookahead, return CPP_EOF for parse_arg.  */
-	  buffer->extra_char = buffer->read_ahead;
-	  buffer->read_ahead = '#';
-	  pfile->state.next_bol = 1;
-	  result->type = CPP_EOF;
-
-	  /* Get whitespace right - newline_in_args sets it.  */
-	  if (pfile->lexer_pos.col == 1)
-	    result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
+	    {
+	      cpp_error (pfile,
+			 "directives may not be used inside a macro argument");
+	      result->type = CPP_EOF;
+	    }
 	}
-      else
+      /* in_directive can be true inside a _Pragma.  */
+      else if (!pfile->state.in_directive)
 	{
-	  /* This is the hash introducing a directive.  */
+	  /* This is the hash introducing a directive.  If the return
+	     value is false, it is an assembler #.  */
 	  if (_cpp_handle_directive (pfile, result->flags & PREV_WHITE))
-	    goto done_directive; /* bol still 1.  */
-	  /* This is in fact an assembler #.  */
+	    goto next_token;
 	}
       break;
 
@@ -1261,12 +1289,12 @@ _cpp_lex_token (pfile, result)
       break;
     }
 
-  if (pfile->skipping)
-    goto skip;
+  if (!pfile->state.in_directive && pfile->state.skipping)
+    goto next_char;
 
   /* If not in a directive, this token invalidates controlling macros.  */
   if (!pfile->state.in_directive)
-    pfile->mi_state = MI_FAILED;
+    pfile->mi_valid = false;
 }
 
 /* An upper bound on the number of bytes needed to spell a token,

@@ -840,6 +840,16 @@ struct cum_arg
   (GET_CODE (X) == CONST_INT && TARGET_H8300H		\
    && 0xffff00 <= INTVAL (X) && INTVAL (X) <= 0xffffff)
 
+/* 'T' if valid for a push destination using pre_modify.  */
+#define OK_FOR_T(OP)							      \
+  (GET_CODE (OP) == MEM							      \
+   && GET_CODE (XEXP (OP, 0)) == PRE_MODIFY				      \
+   && GET_CODE (XEXP (XEXP (OP, 0), 1)) == PLUS				      \
+   && XEXP (XEXP (XEXP (OP, 0), 1), 0) == XEXP (XEXP (OP, 0), 0)	      \
+   && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 1), 1)) == CONST_INT		      \
+   && INTVAL (XEXP (XEXP (XEXP (OP, 0), 1), 1)) == - (int) STACK_BOUNDARY / 8 \
+   && XEXP (XEXP (OP, 0), 0) == stack_pointer_rtx)
+
 /* 'U' if valid for a bset destination;
    i.e. a register, register indirect, or the eightbit memory region
    (a SYMBOL_REF with an SYMBOL_REF_FLAG set).
@@ -862,7 +872,8 @@ struct cum_arg
        && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
 #define EXTRA_CONSTRAINT(OP, C)			\
-  ((C) == 'U' ? OK_FOR_U (OP) :			\
+  ((C) == 'T' ? OK_FOR_T (OP) :			\
+   (C) == 'U' ? OK_FOR_U (OP) :			\
    0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
@@ -1164,15 +1175,15 @@ readonly_data ()							\
    so the call patterns can generate the correct code.  */
 #define ENCODE_SECTION_INFO(DECL)			\
   if (TREE_CODE (DECL) == FUNCTION_DECL			\
-       && h8300_funcvec_function_p (DECL))		\
+      && h8300_funcvec_function_p (DECL))		\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_eightbit_data_p (DECL))			\
+  else if (TREE_CODE (DECL) == VAR_DECL			\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)) \
+	   && h8300_eightbit_data_p (DECL))		\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-  else if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-      && TREE_CODE (DECL) == VAR_DECL			\
-      && h8300_tiny_data_p (DECL))			\
+  else if (TREE_CODE (DECL) == VAR_DECL			\
+	   && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)) \
+	   && h8300_tiny_data_p (DECL))			\
     h8300_encode_label (DECL);
 
 /* Store the user-specified part of SYMBOL_NAME in VAR.
@@ -1214,13 +1225,8 @@ readonly_data ()							\
   fprintf (FILE,							\
 	   "\t.text\n.stabs \"\",%d,0,0,.Letext\n.Letext:\n", N_SO)
 
-/* A C statement to output something to the assembler file to switch to section
-   NAME for object DECL which is either a FUNCTION_DECL, a VAR_DECL or
-   NULL_TREE.  Some target formats do not support arbitrary sections.  Do not
-   define this macro in such cases.  */
-
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
-  fprintf (FILE, "\t.section %s\n", NAME)
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */

@@ -54,10 +54,6 @@ enum mangling_flags
 
 typedef enum mangling_flags mangling_flags;
 
-/* TREE_LIST of the current inline functions that need to be
-   processed.  */
-struct pending_inline *pending_inlines;
-
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
@@ -391,9 +387,7 @@ use_thunk (thunk_fndecl, emit_p)
   fnaddr = DECL_INITIAL (thunk_fndecl);
   if (TREE_CODE (DECL_INITIAL (thunk_fndecl)) != ADDR_EXPR)
     /* We already turned this thunk into an ordinary function.
-       There's no need to process this thunk again.  (We can't just
-       clear DECL_THUNK_P because that will confuse
-       FNADDR_FROM_VTABLE_ENTRY and friends.)  */
+       There's no need to process this thunk again.  */
     return;
 
   /* Thunks are always addressable; they only appear in vtables.  */
@@ -592,8 +586,6 @@ do_build_copy_constructor (fndecl)
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
 		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
-		continue;
 
 	      /* True for duplicate members.  */
 	      if (IDENTIFIER_CLASS_VALUE (DECL_NAME (field)) != field)
@@ -681,8 +673,6 @@ do_build_assign_ref (fndecl)
 	  if (DECL_NAME (field))
 	    {
 	      if (VFIELD_NAME_P (DECL_NAME (field)))
-		continue;
-	      if (VBASE_NAME_P (DECL_NAME (field)))
 		continue;
 
 	      /* True for duplicate members.  */

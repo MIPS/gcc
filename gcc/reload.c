@@ -372,11 +372,18 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
 	 in operand 1.  Outputs should have an initial "=", which we must
 	 skip.  */
 
-      char insn_letter
-	= insn_data[(int) icode].operand[!in_p].constraint[in_p];
-      enum reg_class insn_class
-	= (insn_letter == 'r' ? GENERAL_REGS
-	   : REG_CLASS_FROM_LETTER ((unsigned char) insn_letter));
+      enum reg_class insn_class;
+
+      if (insn_data[(int) icode].operand[!in_p].constraint[0] == 0)
+	insn_class = ALL_REGS;
+      else
+	{
+	  char insn_letter
+	    = insn_data[(int) icode].operand[!in_p].constraint[in_p];
+	  insn_class
+	    = (insn_letter == 'r' ? GENERAL_REGS
+	       : REG_CLASS_FROM_LETTER ((unsigned char) insn_letter));
+	}
 
       if (insn_class == NO_REGS
 	  || (in_p
@@ -1357,7 +1364,7 @@ push_reload (in, out, inloc, outloc, class,
       rld[i].opnum = MIN (rld[i].opnum, opnum);
     }
 
-  /* If the ostensible rtx being reload differs from the rtx found
+  /* If the ostensible rtx being reloaded differs from the rtx found
      in the location to substitute, this reload is not safe to combine
      because we cannot reliably tell whether it appears in the insn.  */
 
@@ -1461,15 +1468,6 @@ push_reload (in, out, inloc, outloc, class,
 	if (REG_NOTE_KIND (note) == REG_DEAD
 	    && GET_CODE (XEXP (note, 0)) == REG
 	    && (regno = REGNO (XEXP (note, 0))) < FIRST_PSEUDO_REGISTER
-	    /* We can't do this with the new regalloc.  A REG_DEAD note
-	       does not mean, that the hardreg really dies here.  It meant,
-	       that the pseudo dies here.  Still reg_renumber[] was set up
-	       for this pseudo, so it was included in the REG_DEAD note
-	       and now it looks like the hardreg dies.  I'm not sure, what
-	       the old allocator did.  Either for those pseudos it was
-	       reg_renumber[]==-1, or there were no REG_DEAD notes for these.
-	       */
-            && 0
 	    && reg_mentioned_p (XEXP (note, 0), in)
 	    && ! refers_to_regno_for_reload_p (regno,
 					       (regno
@@ -2778,7 +2776,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	  register char *p = constraints[i];
 	  register int win = 0;
 	  int did_match = 0;
-	  /* 0 => this operand can be reloaded somehow for this alternative */
+	  /* 0 => this operand can be reloaded somehow for this alternative.  */
 	  int badop = 1;
 	  /* 0 => this operand can be reloaded if the alternative allows regs.  */
 	  int winreg = 0;
@@ -3189,7 +3187,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 			|| (REGNO (operand) >= FIRST_PSEUDO_REGISTER
 			    && reg_renumber[REGNO (operand)] < 0)))
 		  win = 1;
-		/* Drop through into 'r' case */
+		/* Drop through into 'r' case.  */
 
 	      case 'r':
 		this_alternative[i]
@@ -4538,7 +4536,7 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
       regno = REGNO (ad);
 
       /* If the register is equivalent to an invariant expression, substitute
-	 the invariant, and eliminate any eliminable register references. */
+	 the invariant, and eliminate any eliminable register references.  */
       tem = reg_equiv_constant[regno];
       if (tem != 0
 	  && (tem = eliminate_regs (tem, mode, insn))
@@ -4849,7 +4847,7 @@ find_reloads_address (mode, memrefloc, ad, loc, opnum, type, ind_levels, insn)
      into a register.  */
   if (CONSTANT_P (ad) && ! strict_memory_address_p (mode, ad))
     {
-      /* If AD is in address in the constant pool, the MEM rtx may be shared.
+      /* If AD is an address in the constant pool, the MEM rtx may be shared.
 	 Unshare it so we can safely alter it.  */
       if (memrefloc && GET_CODE (ad) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (ad))
@@ -5093,7 +5091,7 @@ update_auto_inc_notes (insn, regno, reloadnum)
 /* Note that we take shortcuts assuming that no multi-reg machine mode
    occurs as part of an address.
    Also, this is not fully machine-customizable; it works for machines
-   such as vaxes and 68000's and 32000's, but other possible machines
+   such as VAXen and 68000's and 32000's, but other possible machines
    could have addressing modes that this does not handle right.  */
 
 static int
@@ -6078,7 +6076,7 @@ refers_to_regno_for_reload_p (regno, endregno, x, loc)
    contains a MEM (we don't bother checking for memory addresses that can't
    conflict because we expect this to be a rare case.
 
-   This function is similar to reg_overlap_mention_p in rtlanal.c except
+   This function is similar to reg_overlap_mentioned_p in rtlanal.c except
    that we look at equivalences for pseudos that didn't get hard registers.  */
 
 int
@@ -6463,13 +6461,11 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
 	    for (i = 0; i < valuenregs; ++i)
 	      if (call_used_regs[valueno + i])
 		return 0;
-	}
-
 #ifdef NON_SAVING_SETJMP
-      if (NON_SAVING_SETJMP && GET_CODE (p) == NOTE
-	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_SETJMP)
-	return 0;
+	  if (NON_SAVING_SETJMP && find_reg_note (p, REG_SETJMP, NULL))
+	    return 0;
 #endif
+	}
 
       if (INSN_P (p))
 	{

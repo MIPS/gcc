@@ -189,6 +189,8 @@ extern int target_flags;
 
 #define CONDITIONAL_REGISTER_USAGE \
 {						\
+  unsigned int i;				\
+						\
   if (!TARGET_AM33)				\
     {						\
       for (i = FIRST_EXTENDED_REGNUM; 		\
@@ -793,7 +795,7 @@ struct cum_arg {int nbytes; };
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe

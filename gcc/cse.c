@@ -3339,7 +3339,7 @@ fold_rtx (x, insn)
     case PC:
       /* If the next insn is a CODE_LABEL followed by a jump table,
 	 PC's value is a LABEL_REF pointing to that label.  That
-	 lets us fold switch statements on the Vax.  */
+	 lets us fold switch statements on the VAX.  */
       if (insn && GET_CODE (insn) == JUMP_INSN)
 	{
 	  rtx next = next_nonnote_insn (insn);
@@ -5956,7 +5956,7 @@ cse_insn (insn, libcall_insn)
 
   if (GET_CODE (insn) == CALL_INSN)
     {
-      if (! CONST_CALL_P (insn))
+      if (! CONST_OR_PURE_CALL_P (insn))
 	invalidate_memory ();
       invalidate_for_call ();
     }
@@ -6251,7 +6251,7 @@ cse_insn (insn, libcall_insn)
 
 	     This section previously turned the REG_EQUIV into a REG_EQUAL
 	     note.  We cannot do that because REG_EQUIV may provide an
-	     uninitialised stack slot when REG_PARM_STACK_SPACE is used. */
+	     uninitialised stack slot when REG_PARM_STACK_SPACE is used.  */
 
 	  if (prev != 0 && GET_CODE (prev) == INSN
 	      && GET_CODE (PATTERN (prev)) == SET
@@ -6440,7 +6440,8 @@ cse_process_notes (x, object)
       return x;
 
     case MEM:
-      XEXP (x, 0) = cse_process_notes (XEXP (x, 0), x);
+      validate_change (x, &XEXP (x, 0),
+		       cse_process_notes (XEXP (x, 0), x), 0);
       return x;
 
     case EXPR_LIST:
@@ -6635,7 +6636,7 @@ invalidate_skipped_block (start)
 
       if (GET_CODE (insn) == CALL_INSN)
 	{
-	  if (! CONST_CALL_P (insn))
+	  if (! CONST_OR_PURE_CALL_P (insn))
 	    invalidate_memory ();
 	  invalidate_for_call ();
 	}
@@ -6851,11 +6852,11 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
 	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)
 	break;
 
-      /* Don't cse over a call to setjmp; on some machines (eg vax)
+      /* Don't cse over a call to setjmp; on some machines (eg VAX)
 	 the regs restored by the longjmp come from
 	 a later time than the setjmp.  */
-      if (GET_CODE (p) == NOTE
-	  && NOTE_LINE_NUMBER (p) == NOTE_INSN_SETJMP)
+      if (PREV_INSN (p) && GET_CODE (PREV_INSN (p)) == CALL_INSN
+	  && find_reg_note (PREV_INSN (p), REG_SETJMP, NULL))
 	break;
 
       /* A PARALLEL can have lots of SETs in it,
@@ -6905,7 +6906,8 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
 	  for (q = PREV_INSN (JUMP_LABEL (p)); q; q = PREV_INSN (q))
 	    if ((GET_CODE (q) != NOTE
 		 || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END
-		 || NOTE_LINE_NUMBER (q) == NOTE_INSN_SETJMP)
+		 || (PREV_INSN (q) && GET_CODE (PREV_INSN (q)) == CALL_INSN
+		     && find_reg_note (PREV_INSN (q), REG_SETJMP, NULL)))
 		&& (GET_CODE (q) != CODE_LABEL || LABEL_NUSES (q) != 0))
 	      break;
 
@@ -7380,7 +7382,7 @@ check_for_label_ref (rtl, data)
   /* If this insn uses a LABEL_REF and there isn't a REG_LABEL note for it,
      we must rerun jump since it needs to place the note.  If this is a
      LABEL_REF for a CODE_LABEL that isn't in the insn chain, don't do this
-     since no REG_LABEL will be added. */
+     since no REG_LABEL will be added.  */
   return (GET_CODE (*rtl) == LABEL_REF
 	  && INSN_UID (XEXP (*rtl, 0)) != 0
 	  && ! find_reg_note (insn, REG_LABEL, XEXP (*rtl, 0)));
@@ -7488,7 +7490,7 @@ count_reg_usage (x, counts, dest, incr)
 static bool
 set_live_p (set, insn, counts)
      rtx set;
-     rtx insn;
+     rtx insn ATTRIBUTE_UNUSED;	/* Only used with HAVE_cc0.  */
      int *counts;
 {
 #ifdef HAVE_cc0

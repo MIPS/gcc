@@ -1240,6 +1240,8 @@ convert_from_eh_region_ranges_1 (pinsns, orig_sp, cur)
 		  /* If we wanted exceptions for non-call insns, then
 		     any may_trap_p instruction could throw.  */
 		  || (flag_non_call_exceptions
+		      && GET_CODE (PATTERN (insn)) != CLOBBER
+		      && GET_CODE (PATTERN (insn)) != USE
 		      && may_trap_p (PATTERN (insn)))))
 	    {
 	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (cur),
@@ -1444,7 +1446,7 @@ duplicate_eh_regions (ifun, map)
 	cur->inner = root;
 
       for (i = 1; i <= ifun_last_region_number; ++i)
-	if (n_array[i]->outer == NULL)
+	if (n_array[i] && n_array[i]->outer == NULL)
 	  n_array[i]->outer = cur;
     }
   else
@@ -1846,8 +1848,7 @@ connect_post_landing_pads ()
       seq = get_insns ();
       end_sequence ();
       emit_insns_before (seq, region->resume);
-
-      /* Leave the RESX to be deleted by flow.  */
+      flow_delete_insn (region->resume);
     }
 }
 
@@ -2084,51 +2085,7 @@ sjlj_mark_call_sites (lp_info)
       /* Don't separate a call from it's argument loads.  */
       before = insn;
       if (GET_CODE (insn) == CALL_INSN)
-	{
-	  HARD_REG_SET parm_regs;
-	  int nparm_regs;
-	  
-	  /* Since different machines initialize their parameter registers
-	     in different orders, assume nothing.  Collect the set of all
-	     parameter registers.  */
-	  CLEAR_HARD_REG_SET (parm_regs);
-	  nparm_regs = 0;
-	  for (p = CALL_INSN_FUNCTION_USAGE (insn); p ; p = XEXP (p, 1))
-	    if (GET_CODE (XEXP (p, 0)) == USE
-		&& GET_CODE (XEXP (XEXP (p, 0), 0)) == REG)
-	      {
-		if (REGNO (XEXP (XEXP (p, 0), 0)) >= FIRST_PSEUDO_REGISTER)
-		  abort ();
-
-		/* We only care about registers which can hold function
-		   arguments.  */
-		if (! FUNCTION_ARG_REGNO_P (REGNO (XEXP (XEXP (p, 0), 0))))
-		  continue;
-
-		SET_HARD_REG_BIT (parm_regs, REGNO (XEXP (XEXP (p, 0), 0)));
-		nparm_regs++;
-	      }
-
-	  /* Search backward for the first set of a register in this set.  */
-	  while (nparm_regs)
-	    {
-	      before = PREV_INSN (before);
-
-	      /* Given that we've done no other optimizations yet,
-		 the arguments should be immediately available.  */
-	      if (GET_CODE (before) == CODE_LABEL)
-		abort ();
-
-	      p = single_set (before);
-	      if (p && GET_CODE (SET_DEST (p)) == REG
-		  && REGNO (SET_DEST (p)) < FIRST_PSEUDO_REGISTER
-		  && TEST_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p))))
-		{
-		  CLEAR_HARD_REG_BIT (parm_regs, REGNO (SET_DEST (p)));
-		  nparm_regs--;
-		}
-	    }
-	}
+         before = find_first_parameter_load (insn, NULL_RTX);
 
       start_sequence ();
       emit_move_insn (mem, GEN_INT (this_call_site));
@@ -2349,7 +2306,7 @@ finish_eh_generation ()
 
   rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (0);
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 
   /* These registers are used by the landing pads.  Make sure they
      have been generated.  */
@@ -2372,7 +2329,7 @@ finish_eh_generation ()
   find_exception_handler_labels ();
   rebuild_jump_labels (get_insns ());
   find_basic_blocks (get_insns (), max_reg_num (), 0);
-  cleanup_cfg (0);
+  cleanup_cfg (CLEANUP_PRE_LOOP);
 }
 
 /* This section handles removing dead code for flow.  */
@@ -2729,14 +2686,20 @@ reachable_handlers (insn)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (GET_CODE (insn) == JUMP_INSN
+      && GET_CODE (PATTERN (insn)) == RESX)
+    {
+      /* A RESX leaves a region instead of entering it.  Thus the
+	 region itself may have been deleted out from under us.  */
+      if (region == NULL)
+	return NULL;
+      region = region->outer;
+    }
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
     }
-  else if (GET_CODE (insn) == JUMP_INSN
-	   && GET_CODE (PATTERN (insn)) == RESX)
-    region = region->outer;
 
   for (; region; region = region->outer)
     if (reachable_next_level (region, type_thrown, &info) >= RNL_CAUGHT)
@@ -3059,6 +3022,17 @@ expand_eh_return ()
   emit_label (around_label);
 }
 
+/* In the following functions, we represent entries in the action table
+   as 1-based indicies.  Special cases are:
+
+	 0:	null action record, non-null landing pad; implies cleanups
+	-1:	null action record, null landing pad; implies no action
+	-2:	no call-site entry; implies must_not_throw
+	-3:	we have yet to process outer regions
+
+   Further, no special cases apply to the "next" field of the record.
+   For next, 0 means end of list.  */
+
 struct action_record
 {
   int offset;
@@ -3162,8 +3136,16 @@ collect_one_action_chain (ar_hash, region)
 	      if (next == -3)
 		{
 		  next = collect_one_action_chain (ar_hash, region->outer);
-		  if (next < 0)
+
+		  /* If there is no next action, terminate the chain.  */
+		  if (next == -1)
 		    next = 0;
+		  /* If all outer actions are cleanups or must_not_throw,
+		     we'll have no action record for it, since we had wanted
+		     to encode these states in the call-site record directly.
+		     Add a cleanup action to the chain to catch these.  */
+		  else if (next <= 0)
+		    next = add_action_record (ar_hash, 0, 0);
 		}
 	      next = add_action_record (ar_hash, c->u.catch.filter, next);
 	    }
@@ -3539,7 +3521,7 @@ output_function_exception_table ()
 #endif
       tt_format_size = size_of_encoded_value (tt_format);
 
-      assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+      assemble_align (tt_format_size * BITS_PER_UNIT);
     }
 
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LLSDA", funcdef_number);
@@ -3646,7 +3628,7 @@ output_function_exception_table ()
 			 (i ? NULL : "Action record table"));
 
   if (have_tt_data)
-    assemble_eh_align (tt_format_size * BITS_PER_UNIT);
+    assemble_align (tt_format_size * BITS_PER_UNIT);
 
   i = VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data);
   while (i-- > 0)

@@ -38,7 +38,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Windows does not natively support inodes, and neither does MSDOS.
    Cygwin's emulation can generate non-unique inodes, so don't use it.
-   VMS has non-numeric inodes. */
+   VMS has non-numeric inodes.  */
 #ifdef VMS
 # define INO_T_EQ(a, b) (!memcmp (&(a), &(b), sizeof (a)))
 #else
@@ -100,9 +100,9 @@ static void init_library		PARAMS ((void));
 static void init_builtins		PARAMS ((cpp_reader *));
 static void append_include_chain	PARAMS ((cpp_reader *,
 						 char *, int, int));
-struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
+static struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
 						 struct search_path *));
-struct search_path * remove_dup_dirs PARAMS ((cpp_reader *,
+static struct search_path * remove_dup_dirs PARAMS ((cpp_reader *,
 						 struct search_path *));
 static void merge_include_chains	PARAMS ((cpp_reader *));
 static void do_includes			PARAMS ((cpp_reader *,
@@ -198,7 +198,7 @@ path_include (pfile, list, path)
 }
 
 /* Append DIR to include path PATH.  DIR must be permanently allocated
-   and writable. */
+   and writable.  */
 static void
 append_include_chain (pfile, dir, path, cxx_aware)
      cpp_reader *pfile;
@@ -241,7 +241,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
   new->dev  = st.st_dev;
   /* Both systm and after include file lists should be treated as system
      include files since these two lists are really just a concatenation
-     of one "system" list. */
+     of one "system" list.  */
   if (path == SYSTEM || path == AFTER)
 #ifdef NO_IMPLICIT_EXTERN_C
     new->sysp = 1;
@@ -264,7 +264,7 @@ append_include_chain (pfile, dir, path, cxx_aware)
 /* Handle a duplicated include path.  PREV is the link in the chain
    before the duplicate.  The duplicate is removed from the chain and
    freed.  Returns PREV.  */
-struct search_path *
+static struct search_path *
 remove_dup_dir (pfile, prev)
      cpp_reader *pfile;
      struct search_path *prev;
@@ -285,7 +285,7 @@ remove_dup_dir (pfile, prev)
    chain, or NULL if the chain is empty.  This algorithm is quadratic
    in the number of -I switches, which is acceptable since there
    aren't usually that many of them.  */
-struct search_path *
+static struct search_path *
 remove_dup_dirs (pfile, head)
      cpp_reader *pfile;
      struct search_path *head;
@@ -297,20 +297,18 @@ remove_dup_dirs (pfile, head)
       for (other = head; other != cur; other = other->next)
         if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
 	  {
-	    if (cur->sysp)
+	    if (cur->sysp && !other->sysp)
 	      {
 		cpp_warning (pfile,
 			     "changing search order for system directory \"%s\"",
 			     cur->name);
 		if (strcmp (cur->name, other->name))
-		  cpp_warning (pfile, other->sysp
-			       ? "  as it is the same as system directory \"%s\""
-			       : "  as it is the same as non-system directory \"%s\"",
+		  cpp_warning (pfile, 
+			       "  as it is the same as non-system directory \"%s\"",
 			       other->name);
 		else
-		  cpp_warning (pfile, other->sysp
-			       ? "  as it has already been specified as a system directory"
-			       : "  as it has already been specified as a non-system directory");
+		  cpp_warning (pfile, 
+			       "  as it has already been specified as a non-system directory");
 	      }
 	    cur = remove_dup_dir (pfile, prev);
 	    break;
@@ -470,7 +468,7 @@ init_library ()
     }
 }
 
-/* Initialize a cpp_reader structure. */
+/* Initialize a cpp_reader structure.  */
 cpp_reader *
 cpp_create_reader (table, lang)
      hash_table *table;
@@ -497,6 +495,9 @@ cpp_create_reader (table, lang)
   /* It's simplest to just create this struct whether or not it will
      be needed.  */
   pfile->deps = deps_init ();
+
+  /* Initialise the line map.  */
+  init_line_maps (&pfile->line_maps);
 
   /* Initialize lexer state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
@@ -554,7 +555,7 @@ cpp_destroy (pfile)
   cpp_context *context, *contextn;
 
   while (CPP_BUFFER (pfile) != NULL)
-    cpp_pop_buffer (pfile);
+    _cpp_pop_buffer (pfile);
 
   if (pfile->macro_buffer)
     {
@@ -586,6 +587,8 @@ cpp_destroy (pfile)
       contextn = context->next;
       free (context);
     }
+
+  free_line_maps (&pfile->line_maps);
 
   result = pfile->errors;
   free (pfile);
@@ -811,7 +814,7 @@ init_standard_includes (pfile)
   if (specd_prefix != 0 && cpp_GCC_INCLUDE_DIR_len)
     {
       /* Remove the `include' from /usr/local/lib/gcc.../include.
-	 GCC_INCLUDE_DIR will always end in /include. */
+	 GCC_INCLUDE_DIR will always end in /include.  */
       int default_len = cpp_GCC_INCLUDE_DIR_len;
       char *default_prefix = (char *) alloca (default_len + 1);
       int specd_len = strlen (specd_prefix);
@@ -880,7 +883,10 @@ do_includes (pfile, p, scan)
 	  header.val.str.text = (const unsigned char *) p->arg;
 	  header.val.str.len = strlen (p->arg);
 	  if (_cpp_execute_include (pfile, &header, IT_CMDLINE) && scan)
-	    cpp_scan_buffer_nooutput (pfile, 0);
+	    {
+	      pfile->buffer->return_at_eof = true;
+	      cpp_scan_nooutput (pfile);
+	    }
 	}
       q = p->next;
       free (p);
@@ -943,6 +949,11 @@ cpp_start_read (pfile, fname)
       p = q;
     }
 
+  /* Hopefully a short-term kludge.  We stacked the main file at line
+     zero.  The intervening macro definitions have messed up line
+     numbering, so we need to restore it.  */
+  pfile->lexer_pos.output_line = pfile->line = 0;
+
   /* The -imacros files can be scanned now, but the -include files
      have to be pushed onto the buffer stack and processed later,
      otherwise cppmain.c won't see the tokens.  include_head was built
@@ -999,12 +1010,13 @@ void
 cpp_finish (pfile)
      cpp_reader *pfile;
 {
-  if (CPP_BUFFER (pfile))
-    {
-      cpp_ice (pfile, "buffers still stacked in cpp_finish");
-      while (CPP_BUFFER (pfile))
-	cpp_pop_buffer (pfile);
-    }
+  /* cpplex.c leaves the final buffer on the stack.  This it so that
+     it returns an unending stream of CPP_EOFs to the client.  If we
+     popped the buffer, we'd derefence a NULL buffer pointer and
+     segfault.  It's nice to allow the client to do worry-free excess
+     cpp_get_token calls.  */
+  while (pfile->buffer)
+    _cpp_pop_buffer (pfile);
 
   /* Don't write the deps file if preprocessing has failed.  */
   if (CPP_OPTION (pfile, print_deps) && pfile->errors == 0)
@@ -1401,7 +1413,7 @@ cpp_handle_option (pfile, argc, argv)
 	  CPP_OPTION (pfile, no_standard_includes) = 1;
 	  break;
 	case OPT_nostdincplusplus:
-	  /* -nostdinc++ causes no default C++-specific include directories. */
+	  /* -nostdinc++ causes no default C++-specific include directories.  */
 	  CPP_OPTION (pfile, no_standard_cplusplus_includes) = 1;
 	  break;
 	case OPT_o:
@@ -1698,7 +1710,7 @@ cpp_post_options (pfile)
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
 
-  /* Set this if it hasn't been set already. */
+  /* Set this if it hasn't been set already.  */
   if (CPP_OPTION (pfile, user_label_prefix) == NULL)
     CPP_OPTION (pfile, user_label_prefix) = USER_LABEL_PREFIX;
 
@@ -1767,12 +1779,14 @@ init_dependency_output (pfile)
     }
 
   /* If dependencies go to standard output, or -MG is used, we should
-     suppress output.  The user may be requesting other stuff to
-     stdout, with -dM, -v etc.  We let them shoot themselves in the
-     foot.  */
+     suppress output, including -dM, -dI etc.  */
   if (CPP_OPTION (pfile, deps_file) == 0
       || CPP_OPTION (pfile, print_deps_missing_files))
-    CPP_OPTION (pfile, no_output) = 1;
+    {
+      CPP_OPTION (pfile, no_output) = 1;
+      CPP_OPTION (pfile, dump_macros) = 0;
+      CPP_OPTION (pfile, dump_includes) = 0;
+    }
 }
 
 static void
@@ -1780,7 +1794,7 @@ print_help ()
 {
   fprintf (stderr, _("Usage: %s [switches] input output\n"), progname);
   /* To keep the lines from getting too long for some compilers, limit
-     to about 500 characters (6 lines) per chunk. */
+     to about 500 characters (6 lines) per chunk.  */
   fputs (_("\
 Switches:\n\
   -include <file>           Include the contents of <file> before other files\n\

@@ -40,17 +40,17 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "real.h"
 #include "toplev.h"
-#include "dbxout.h"
-#include "sdbout.h"
 #include "obstack.h"
 #include "hashtab.h"
 #include "c-pragma.h"
 #include "ggc.h"
 #include "tm_p.h"
 #include "debug.h"
+#include "target.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
-#include "xcoffout.h"
+#include "xcoffout.h"		/* Needed for external data
+				   declarations for e.g. AIX 4.x.  */
 #endif
 
 #ifndef TRAMPOLINE_ALIGNMENT
@@ -64,10 +64,6 @@ Boston, MA 02111-1307, USA.  */
 /* Define the prefix to use when check_memory_usage_flag is enable.  */
 #define CHKR_PREFIX "_CHKR_"
 #define CHKR_PREFIX_SIZE (sizeof (CHKR_PREFIX) - 1)
-
-/* File in which assembler code is being written.  */
-
-extern FILE *asm_out_file;
 
 /* The (assembler) name of the first globally-visible object output.  */
 const char *first_global_object_name;
@@ -186,13 +182,11 @@ static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
 static void const_str_htab_del		PARAMS ((void *));
 static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
+static void resolve_unique_section	PARAMS ((tree, int));
 
 static enum in_section { no_section, in_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
-#endif
-#ifdef EH_FRAME_SECTION_ASM_OP
-  , in_eh_frame
 #endif
 #ifdef EXTRA_SECTIONS
   , EXTRA_SECTIONS
@@ -286,6 +280,28 @@ in_data_section ()
   return in_section == in_data;
 }
 
+/* Tell assembler to change to section NAME with attributes FLAGS.  */
+
+void
+named_section_flags (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align;
+{
+  if (in_section != in_named || strcmp (name, in_named_name))
+    {
+      (* targetm.asm_out.named_section) (name, flags, align);
+
+      if (flags & SECTION_FORGET)
+	in_section = no_section;
+      else
+	{
+	  in_named_name = ggc_strdup (name);
+	  in_section = in_named;
+	}
+    }
+}
+
 /* Tell assembler to change to section NAME for DECL.
    If DECL is NULL, just switch to section NAME.
    If NAME is NULL, get the name from DECL.
@@ -295,27 +311,31 @@ void
 named_section (decl, name, reloc)
      tree decl;
      const char *name;
-     int reloc ATTRIBUTE_UNUSED;
+     int reloc;
 {
+  unsigned int flags;
+
   if (decl != NULL_TREE && !DECL_P (decl))
     abort ();
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-  if (in_section != in_named || strcmp (name, in_named_name))
-    {
-#ifdef ASM_OUTPUT_SECTION_NAME
-      ASM_OUTPUT_SECTION_NAME (asm_out_file, decl, name, reloc);
-#else
-      /* Section attributes are not supported if this macro isn't provided -
-	 some host formats don't support them at all.  The front-end should
-	 already have flagged this as an error.  */
-      abort ();
-#endif
+  flags = (* targetm.section_type_flags) (decl, name, reloc);
+  named_section_flags (name, flags, 0);
+}
 
-      in_named_name = ggc_strdup (name);
-      in_section = in_named;
-    }
+/* If required, set DECL_SECTION_NAME to a unique name.  */
+
+static void
+resolve_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  if (DECL_SECTION_NAME (decl) == NULL_TREE
+      && (flag_function_sections
+	  || (targetm.have_named_sections
+	      && DECL_ONE_ONLY (decl))))
+    UNIQUE_SECTION (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -397,18 +417,6 @@ asm_output_aligned_bss (file, decl, name, size, align)
 
 #endif /* BSS_SECTION_ASM_OP */
 
-#ifdef EH_FRAME_SECTION_ASM_OP
-void
-eh_frame_section ()
-{
-  if (in_section != in_eh_frame)
-    {
-      fprintf (asm_out_file, "%s\n", EH_FRAME_SECTION_ASM_OP);
-      in_section = in_eh_frame;
-    }
-} 
-#endif
-
 /* Switch to the section for function DECL.
 
    If DECL is NULL_TREE, switch to the text section.
@@ -472,14 +480,12 @@ exception_section ()
 #if defined (EXCEPTION_SECTION)
   EXCEPTION_SECTION ();
 #else
-#ifdef ASM_OUTPUT_SECTION_NAME
-  named_section (NULL_TREE, ".gcc_except_table", 0);
-#else
-  if (flag_pic)
+  if (targetm.have_named_sections)
+    named_section (NULL_TREE, ".gcc_except_table", 0);
+  else if (flag_pic)
     data_section ();
   else
     readonly_data_section ();
-#endif
 #endif
 }
 
@@ -807,31 +813,34 @@ assemble_asm (string)
   fprintf (asm_out_file, "\t%s\n", TREE_STRING_POINTER (string));
 }
 
-#if 0 /* This should no longer be needed, because
-	 flag_gnu_linker should be 0 on these systems,
-	 which should prevent any output
-	 if ASM_OUTPUT_CONSTRUCTOR and ASM_OUTPUT_DESTRUCTOR are absent.  */
-#if !(defined(DBX_DEBUGGING_INFO) && !defined(FASCIST_ASSEMBLER))
-#ifndef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(file, name)
-#endif
-#ifndef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(file, name)
-#endif
-#endif
-#endif /* 0 */
-
-/* Record an element in the table of global destructors.
-   How this is done depends on what sort of assembler and linker
-   are in use.
-
-   NAME should be the name of a global function to be called
-   at exit time.  This name is output using assemble_name.  */
+/* Record an element in the table of global destructors.  The argument
+   should be a SYMBOL_REF of the function to be called.  */
 
 void
-assemble_destructor (name)
-     const char *name;
+assemble_destructor (symbol, priority)
+     rtx symbol;
+     int priority;
 {
+  const char *name;
+
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    abort ();
+  name = XSTR (symbol, 0);
+
+  if (priority != DEFAULT_INIT_PRIORITY
+      && targetm.have_named_sections)
+    {
+      char buf[15];
+      sprintf (buf, ".dtors.%.5u",
+	       /* Invert the numbering so the linker puts us in the proper
+		  order; constructors are run from right to left, and the
+		  linker sorts in increasing order.  */
+	       MAX_INIT_PRIORITY - priority);
+      named_section_flags (buf, SECTION_WRITE, POINTER_SIZE / BITS_PER_UNIT);
+      assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, 1);
+      return;
+    }
+
 #ifdef ASM_OUTPUT_DESTRUCTOR
   ASM_OUTPUT_DESTRUCTOR (asm_out_file, name);
 #else
@@ -849,9 +858,30 @@ assemble_destructor (name)
 /* Likewise for global constructors.  */
 
 void
-assemble_constructor (name)
-     const char *name;
+assemble_constructor (symbol, priority)
+     rtx symbol;
+     int priority;
 {
+  const char *name;
+
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    abort ();
+  name = XSTR (symbol, 0);
+
+  if (priority != DEFAULT_INIT_PRIORITY
+      && targetm.have_named_sections)
+    {
+      char buf[15];
+      sprintf (buf, ".ctors.%.5u",
+	       /* Invert the numbering so the linker puts us in the proper
+		  order; constructors are run from right to left, and the
+		  linker sorts in increasing order.  */
+	       MAX_INIT_PRIORITY - priority);
+      named_section_flags (buf, SECTION_WRITE, POINTER_SIZE / BITS_PER_UNIT);
+      assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, 1);
+      return;
+    }
+
 #ifdef ASM_OUTPUT_CONSTRUCTOR
   ASM_OUTPUT_CONSTRUCTOR (asm_out_file, name);
 #else
@@ -860,26 +890,6 @@ assemble_constructor (name)
       /* Now tell GNU LD that this is part of the static constructor set.  */
       /* This code works for any machine provided you use GNU as/ld.  */
       fprintf (asm_out_file, "%s\"___CTOR_LIST__\",22,0,0,", ASM_STABS_OP);
-      assemble_name (asm_out_file, name);
-      fputc ('\n', asm_out_file);
-    }
-#endif
-}
-
-/* Likewise for entries we want to record for garbage collection.
-   Garbage collection is still under development.  */
-
-void
-assemble_gc_entry (name)
-     const char *name;
-{
-#ifdef ASM_OUTPUT_GC_ENTRY
-  ASM_OUTPUT_GC_ENTRY (asm_out_file, name);
-#else
-  if (flag_gnu_linker)
-    {
-      /* Now tell GNU LD that this is part of the static constructor set.  */
-      fprintf (asm_out_file, "%s\"___PTR_LIST__\",22,0,0,", ASM_STABS_OP);
       assemble_name (asm_out_file, name);
       fputc ('\n', asm_out_file);
     }
@@ -915,15 +925,7 @@ assemble_start_function (decl, fnname)
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
 
-#ifdef ASM_OUTPUT_SECTION_NAME
-  /* If the function is to be put in its own section and it's not in a section
-     already, indicate so.  */
-  if ((flag_function_sections
-       && DECL_SECTION_NAME (decl) == NULL_TREE)
-      || UNIQUE_SECTION_P (decl))
-    UNIQUE_SECTION (decl, 0);
-#endif
-
+  resolve_unique_section (decl, 0);
   function_section (decl);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
@@ -1182,12 +1184,8 @@ asm_emit_uninitialised (decl, name, size, rounded)
 	}
     }
 
-#ifdef ASM_OUTPUT_SECTION_NAME
-  /* We already know that DECL_SECTION_NAME() == NULL.  */
-  if (flag_data_sections != 0 || UNIQUE_SECTION_P (decl))
-    UNIQUE_SECTION (decl, 0);
-#endif
-  
+  resolve_unique_section (decl, 0);
+
   switch (destination)
     {
 #ifdef ASM_EMIT_BSS
@@ -1228,47 +1226,9 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   register const char *name;
   unsigned int align;
   int reloc = 0;
-  enum in_section saved_in_section;
+  rtx decl_rtl;
 
   last_assemble_variable_decl = 0;
-
-  if (DECL_RTL_SET_P (decl) && GET_CODE (DECL_RTL (decl)) == REG)
-    {
-      /* Do output symbol info for global register variables, but do nothing
-	 else for them.  */
-
-      if (TREE_ASM_WRITTEN (decl))
-	return;
-      TREE_ASM_WRITTEN (decl) = 1;
-
-      /* Do no output if -fsyntax-only.  */
-      if (flag_syntax_only)
-	return;
-
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-      /* File-scope global variables are output here.  */
-      if ((write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	   && top_level)
-	dbxout_symbol (decl, 0);
-#endif
-#ifdef SDB_DEBUGGING_INFO
-      if (write_symbols == SDB_DEBUG && top_level
-	  /* Leave initialized global vars for end of compilation;
-	     see comment in compile_file.  */
-	  && (TREE_PUBLIC (decl) == 0 || DECL_INITIAL (decl) == 0))
-	sdbout_symbol (decl, 0);
-#endif
-
-      /* Don't output any DWARF debugging information for variables here.
-	 In the case of local variables, the information for them is output
-	 when we do our recursive traversal of the tree representation for
-	 the entire containing function.  In the case of file-scope variables,
-	 we output information for all of them at the very end of compilation
-	 while we are doing our final traversal of the chain of file-scope
-	 declarations.  */
-
-      return;
-    }
 
   /* Normally no need to say anything here for external references,
      since assemble_external is called by the language-specific code
@@ -1282,6 +1242,13 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     return;
+
+  /* Do nothing for global register variables.  */
+  if (DECL_RTL_SET_P (decl) && GET_CODE (DECL_RTL (decl)) == REG)
+    {
+      TREE_ASM_WRITTEN (decl) = 1;
+      return;
+    }
 
   /* If type was incomplete when the variable was declared,
      see if it is complete now.  */
@@ -1310,6 +1277,9 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   if (TREE_ASM_WRITTEN (decl))
     return;
 
+  /* Make sure ENCODE_SECTION_INFO is invoked before we set ASM_WRITTEN.  */
+  decl_rtl = DECL_RTL (decl);
+ 
   TREE_ASM_WRITTEN (decl) = 1;
 
   /* Do no output if -fsyntax-only.  */
@@ -1322,10 +1292,10 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       && ! host_integerp (DECL_SIZE_UNIT (decl), 1))
     {
       error_with_decl (decl, "size of variable `%s' is too large");
-      goto finish;
+      return;
     }
 
-  name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  name = XSTR (XEXP (decl_rtl, 0), 0);
   if (TREE_PUBLIC (decl) && DECL_NAME (decl)
       && ! first_global_object_name
       && ! (DECL_COMMON (decl) && (DECL_INITIAL (decl) == 0
@@ -1411,35 +1381,9 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
            (decl, "requested alignment for %s is greater than implemented alignment of %d.",rounded);
 #endif
        
-#ifdef DBX_DEBUGGING_INFO
-      /* File-scope global variables are output here.  */
-      if (write_symbols == DBX_DEBUG && top_level)
-	dbxout_symbol (decl, 0);
-#endif
-#ifdef SDB_DEBUGGING_INFO
-      if (write_symbols == SDB_DEBUG && top_level
-	  /* Leave initialized global vars for end of compilation;
-	     see comment in compile_file.  */
-	  && (TREE_PUBLIC (decl) == 0 || DECL_INITIAL (decl) == 0))
-	sdbout_symbol (decl, 0);
-#endif
-
-      /* Don't output any DWARF debugging information for variables here.
-	 In the case of local variables, the information for them is output
-	 when we do our recursive traversal of the tree representation for
-	 the entire containing function.  In the case of file-scope variables,
-	 we output information for all of them at the very end of compilation
-	 while we are doing our final traversal of the chain of file-scope
-	 declarations.  */
-
-#if 0 /* ??? We should either delete this or add a comment describing what
-	 it was intended to do and why we shouldn't delete it.  */
-      if (flag_shared_data)
-	data_section ();
-#endif
       asm_emit_uninitialised (decl, name, size, rounded);
 
-      goto finish;
+      return;
     }
 
   /* Handle initialized definitions.
@@ -1462,15 +1406,6 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 #endif
       ASM_GLOBALIZE_LABEL (asm_out_file, name);
     }
-#if 0
-  for (d = equivalents; d; d = TREE_CHAIN (d))
-    {
-      tree e = TREE_VALUE (d);
-      if (TREE_PUBLIC (e) && DECL_NAME (e))
-	ASM_GLOBALIZE_LABEL (asm_out_file,
-			     XSTR (XEXP (DECL_RTL (e), 0), 0));
-    }
-#endif
 
   /* Output any data that we will need to use the address of.  */
   if (DECL_INITIAL (decl) == error_mark_node)
@@ -1478,49 +1413,13 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   else if (DECL_INITIAL (decl))
     reloc = output_addressed_constants (DECL_INITIAL (decl));
 
-#ifdef ASM_OUTPUT_SECTION_NAME
-  if ((flag_data_sections != 0 && DECL_SECTION_NAME (decl) == NULL_TREE)
-      || UNIQUE_SECTION_P (decl))
-    UNIQUE_SECTION (decl, reloc);
-#endif
-
   /* Switch to the appropriate section.  */
+  resolve_unique_section (decl, reloc);
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
   if (in_text_section ())
     DECL_IN_TEXT_SECTION (decl) = 1;
-
-  /* Record current section so we can restore it if dbxout.c clobbers it.  */
-  saved_in_section = in_section;
-
-  /* Output the dbx info now that we have chosen the section.  */
-
-#ifdef DBX_DEBUGGING_INFO
-  /* File-scope global variables are output here.  */
-  if (write_symbols == DBX_DEBUG && top_level)
-    dbxout_symbol (decl, 0);
-#endif
-#ifdef SDB_DEBUGGING_INFO
-  if (write_symbols == SDB_DEBUG && top_level
-      /* Leave initialized global vars for end of compilation;
-	 see comment in compile_file.  */
-      && (TREE_PUBLIC (decl) == 0 || DECL_INITIAL (decl) == 0))
-    sdbout_symbol (decl, 0);
-#endif
-
-  /* Don't output any DWARF debugging information for variables here.
-     In the case of local variables, the information for them is output
-     when we do our recursive traversal of the tree representation for
-     the entire containing function.  In the case of file-scope variables,
-     we output information for all of them at the very end of compilation
-     while we are doing our final traversal of the chain of file-scope
-     declarations.  */
-
-  /* If the debugging output changed sections, reselect the section
-     that's supposed to be selected.  */
-  if (in_section != saved_in_section)
-    variable_section (decl, reloc);
 
   /* Output the alignment of this data.  */
   if (align > BITS_PER_UNIT)
@@ -1546,29 +1445,6 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 	/* Leave space for it.  */
 	assemble_zeros (tree_low_cst (DECL_SIZE_UNIT (decl), 1));
     }
-
- finish:
-#ifdef XCOFF_DEBUGGING_INFO
-  /* Unfortunately, the IBM assembler cannot handle stabx before the actual
-     declaration.  When something like ".stabx  "aa:S-2",aa,133,0" is emitted 
-     and `aa' hasn't been output yet, the assembler generates a stab entry with
-     a value of zero, in addition to creating an unnecessary external entry
-     for `aa'.  Hence, we must postpone dbxout_symbol to here at the end.  */
-
-  /* File-scope global variables are output here.  */
-  if (write_symbols == XCOFF_DEBUG && top_level)
-    {
-      saved_in_section = in_section;
-
-      dbxout_symbol (decl, 0);
-
-      if (in_section != saved_in_section)
-	variable_section (decl, reloc);
-    }
-#else
-  /* There must be a statement after a label.  */
-  ;
-#endif
 }
 
 /* Return 1 if type TYPE contains any pointers.  */
@@ -2053,19 +1929,15 @@ immed_real_const_1 (d, mode)
 
   u.d = d;
 
-  /* Detect special cases.  But be careful we don't use a CONST_DOUBLE
-     that's from a parent function since it may be in its constant pool.  */
-  if (REAL_VALUES_IDENTICAL (dconst0, d)
-      && (cfun == 0 || decl_function_context (current_function_decl) == 0))
+  /* Detect special cases.  */
+  if (REAL_VALUES_IDENTICAL (dconst0, d))
     return CONST0_RTX (mode);
 
   /* Check for NaN first, because some ports (specifically the i386) do not
      emit correct ieee-fp code by default, and thus will generate a core
      dump here if we pass a NaN to REAL_VALUES_EQUAL and if REAL_VALUES_EQUAL
      does a floating point comparison.  */
-  else if ((! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
-	   && (cfun == 0
-	       || decl_function_context (current_function_decl) == 0))
+  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
     return CONST1_RTX (mode);
 
   if (sizeof u == sizeof (HOST_WIDE_INT))
@@ -2132,6 +2004,8 @@ void
 clear_const_double_mem ()
 {
   register rtx r, next;
+  enum machine_mode mode;
+  int i;
 
   for (r = const_double_chain; r; r = next)
     {
@@ -2140,6 +2014,15 @@ clear_const_double_mem ()
       CONST_DOUBLE_MEM (r) = cc0_rtx;
     }
   const_double_chain = 0;
+
+  for (i = 0; i <= 2; i++)
+    for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+         mode = GET_MODE_WIDER_MODE (mode))
+      {
+	r = const_tiny_rtx[i][(int) mode];
+	CONST_DOUBLE_CHAIN (r) = 0;
+	CONST_DOUBLE_MEM (r) = cc0_rtx;
+      }
 }
 
 /* Given an expression EXP with a constant value,
@@ -3245,7 +3128,8 @@ output_constant_def_contents (exp, reloc, labelno)
   /* Output the value of EXP.  */
   output_constant (exp,
 		   (TREE_CODE (exp) == STRING_CST
-		    ? TREE_STRING_LENGTH (exp)
+		    ? MAX (TREE_STRING_LENGTH (exp),
+			   int_size_in_bytes (TREE_TYPE (exp)))
 		    : int_size_in_bytes (TREE_TYPE (exp))));
 
 }
@@ -4894,73 +4778,141 @@ init_varasm_once ()
 		mark_const_str_htab);
 }
 
-/* Extra support for EH values.  */
-void
-assemble_eh_label (name)
+/* Select a set of attributes for section NAME based on the properties
+   of DECL and whether or not RELOC indicates that DECL's initializer
+   might contain runtime relocations.
+
+   We make the section read-only and executable for a function decl,
+   read-only for a const data decl, and writable for a non-const data decl.
+
+   If the section has already been defined, to not allow it to have
+   different attributes, as (1) this is ambiguous since we're not seeing
+   all the declarations up front and (2) some assemblers (e.g. SVR4)
+   do not recoginize section redefinitions.  */
+
+unsigned int
+default_section_type_flags (decl, name, reloc)
+     tree decl;
      const char *name;
+     int reloc;
 {
-#ifdef ASM_OUTPUT_EH_LABEL
-  ASM_OUTPUT_EH_LABEL (asm_out_file, name);
-#else
-  assemble_label (name);
-#endif
+  static htab_t htab;
+  unsigned int flags;
+  unsigned int **slot;
+
+  /* The names we put in the hashtable will always be the unique
+     versions gived to us by the stringtable, so we can just use
+     their addresses as the keys.  */
+  if (!htab)
+    htab = htab_create (31, htab_hash_pointer, htab_eq_pointer, NULL);
+
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+    flags = SECTION_CODE;
+  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+    flags = 0;
+  else
+    flags = SECTION_WRITE;
+
+  if (decl && DECL_ONE_ONLY (decl))
+    flags |= SECTION_LINKONCE;
+
+  if (strcmp (name, ".bss") == 0
+      || strncmp (name, ".bss.", 5) == 0
+      || strncmp (name, ".gnu.linkonce.b.", 16) == 0
+      || strcmp (name, ".sbss") == 0
+      || strncmp (name, ".sbss.", 6) == 0
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+    flags |= SECTION_BSS;
+
+  /* See if we already have an entry for this section.  */
+  slot = (unsigned int **) htab_find_slot (htab, name, INSERT);
+  if (!*slot)
+    {
+      *slot = (unsigned int *) xmalloc (sizeof (unsigned int));
+      **slot = flags;
+    }
+  else
+    {
+      if (decl && **slot != flags)
+	error_with_decl (decl, "%s causes a section type conflict");
+    }
+
+  return flags;
 }
 
-/* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
+/* Output assembly to switch to section NAME with attribute FLAGS.
+   Four variants for common object file formats.  */
 
 void
-assemble_eh_align (align)
-     int align;
+default_no_named_section (name, flags, align)
+     const char *name ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
+     unsigned int align ATTRIBUTE_UNUSED;
 {
-#ifdef ASM_OUTPUT_EH_ALIGN
-  if (align > BITS_PER_UNIT)
-    ASM_OUTPUT_EH_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
-#else
-  assemble_align (align);
-#endif
+  /* Some object formats don't support named sections at all.  The
+     front-end should already have flagged this as an error.  */
+  abort ();
 }
 
-
-/* On some platforms, we may want to specify a special mechansim to
-   output EH data when generating with a function..  */
-int
-assemble_eh_integer (x, size, force)
-     rtx x;
-     int size;
-     int force;
+void
+default_elf_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
 {
+  char flagchars[8], *f = flagchars;
+  const char *type;
 
-  switch (size)
+  if (!(flags & SECTION_DEBUG))
+    *f++ = 'a';
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  if (flags & SECTION_SMALL)
+    *f++ = 's';
+  *f = '\0';
+
+  if (flags & SECTION_BSS)
+    type = "nobits";
+  else
+    type = "progbits";
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s\n",
+	   name, flagchars, type);
+}
+
+void
+default_coff_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  char flagchars[8], *f = flagchars;
+
+  if (flags & SECTION_WRITE)
+    *f++ = 'w';
+  if (flags & SECTION_CODE)
+    *f++ = 'x';
+  *f = '\0';
+
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"\n", name, flagchars);
+}
+
+void
+default_pe_asm_named_section (name, flags, align)
+     const char *name;
+     unsigned int flags;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  default_coff_asm_named_section (name, flags, align);
+
+  if (flags & SECTION_LINKONCE)
     {
-#ifdef ASM_OUTPUT_EH_CHAR
-    case 1:
-      ASM_OUTPUT_EH_CHAR (asm_out_file, x);
-      return 1;
-#endif
-
-#ifdef ASM_OUTPUT_EH_SHORT
-    case 2:
-      ASM_OUTPUT_EH_SHORT (asm_out_file, x);
-      return 1;
-#endif
-
-#ifdef ASM_OUTPUT_EH_INT
-    case 4:
-      ASM_OUTPUT_EH_INT (asm_out_file, x);
-      return 1;
-#endif
-
-#ifdef ASM_OUTPUT_EH_DOUBLE_INT
-    case 8:
-      ASM_OUTPUT_EH_DOUBLE_INT (asm_out_file, x);
-      return 1;
-#endif
-
-    default:
-      break;
+      /* Functions may have been compiled at various levels of
+         optimization so we can't use `same_size' here.
+         Instead, have the linker pick one.  */
+      fprintf (asm_out_file, "\t.linkonce %s\n",
+	       (flags & SECTION_CODE ? "discard" : "same_size"));
     }
-  return (assemble_integer (x, size, force));
 }
-
-
-

@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cselib.h"
 #include "real.h"
 #include "toplev.h"
-
+#include "except.h"
 
 #if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
@@ -383,7 +383,7 @@ static void delete_caller_save_insns	PARAMS ((void));
 static void spill_failure		PARAMS ((rtx, enum reg_class));
 static void count_spilled_pseudo	PARAMS ((int, int, int));
 static void delete_dead_insn		PARAMS ((rtx));
-void alter_reg			PARAMS ((int, int));
+static void alter_reg			PARAMS ((int, int));
 static void set_label_offsets		PARAMS ((rtx, rtx, int));
 static void check_eliminable_occurrences	PARAMS ((rtx));
 static void elimination_effects		PARAMS ((rtx, enum machine_mode));
@@ -462,6 +462,7 @@ static void failed_reload		PARAMS ((rtx, int));
 static int set_reload_reg		PARAMS ((int, int));
 static void reload_cse_delete_noop_set	PARAMS ((rtx, rtx));
 static void reload_cse_simplify		PARAMS ((rtx));
+static void fixup_abnormal_edges	PARAMS ((void));
 extern void dump_needs			PARAMS ((struct insn_chain *));
 
 /* Initialize the reload pass once per compilation.  */
@@ -753,7 +754,7 @@ reload (first, global)
      Also find all paradoxical subregs and find largest such for each pseudo.
      On machines with small register classes, record hard registers that
      are used for user variables.  These can never be used for spills.
-     Also look for a "constant" NOTE_INSN_SETJMP.  This means that all
+     Also look for a "constant" REG_SETJMP.  This means that all
      caller-saved registers must be marked live.  */
 
   num_eliminable_invariants = 0;
@@ -761,8 +762,7 @@ reload (first, global)
     {
       rtx set = single_set (insn);
 
-      if (GET_CODE (insn) == NOTE && CONST_CALL_P (insn)
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP)
+      if (GET_CODE (insn) == CALL && find_reg_note (insn, REG_SETJMP, NULL))
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	  if (! call_used_regs[i])
 	    regs_ever_live[i] = 1;
@@ -1270,6 +1270,7 @@ reload (first, global)
   /* Free all the insn_chain structures at once.  */
   obstack_free (&reload_obstack, reload_startobj);
   unused_insn_chains = 0;
+  fixup_abnormal_edges ();
 
   return failure;
 }
@@ -1933,7 +1934,7 @@ delete_dead_insn (insn)
    This is used so that all pseudos spilled from a given hard reg
    can share one stack slot.  */
 
-void
+static void
 alter_reg (i, from_reg)
      register int i;
      int from_reg;
@@ -1942,6 +1943,7 @@ alter_reg (i, from_reg)
      for a reg that isn't actually used.  */
   if (regno_reg_rtx[i] == 0)
     return;
+
   /* If the reg got changed to a MEM at rtl-generation time,
      ignore it.  */
   if (GET_CODE (regno_reg_rtx[i]) != REG)
@@ -2908,8 +2910,7 @@ eliminate_regs_in_insn (insn, replace)
 	  || GET_CODE (PATTERN (insn)) == CLOBBER
 	  || GET_CODE (PATTERN (insn)) == ADDR_VEC
 	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-	  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-	  || GET_CODE (PATTERN (insn)) == NOTE)
+	  || GET_CODE (PATTERN (insn)) == ASM_INPUT)
 	return 0;
       abort ();
     }
@@ -2963,22 +2964,29 @@ eliminate_regs_in_insn (insn, replace)
 
 		if (ok)
 		  {
-		    if (replace)
-		      {
-			rtx src
-			  = plus_constant (ep->to_rtx, offset - ep->offset);
+		    rtx src
+		      = plus_constant (ep->to_rtx, offset - ep->offset);
 
-			/* First see if this insn remains valid when we
-			   make the change.  If not, keep the INSN_CODE
-			   the same and let reload fit it up.  */
-			validate_change (insn, &SET_SRC (old_set), src, 1);
-			validate_change (insn, &SET_DEST (old_set),
-					 ep->to_rtx, 1);
-			if (! apply_change_group ())
-			  {
-			    SET_SRC (old_set) = src;
-			    SET_DEST (old_set) = ep->to_rtx;
-			  }
+		    new_body = old_body;
+		    if (! replace)
+		      {
+			new_body = copy_insn (old_body);
+			if (REG_NOTES (insn))
+			  REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
+		      }
+		    PATTERN (insn) = new_body;
+		    old_set = single_set (insn);
+
+		    /* First see if this insn remains valid when we
+		       make the change.  If not, keep the INSN_CODE
+		       the same and let reload fit it up.  */
+		    validate_change (insn, &SET_SRC (old_set), src, 1);
+		    validate_change (insn, &SET_DEST (old_set),
+				     ep->to_rtx, 1);
+		    if (! apply_change_group ())
+		      {
+			SET_SRC (old_set) = src;
+			SET_DEST (old_set) = ep->to_rtx;
 		      }
 
 		    val = 1;
@@ -3657,15 +3665,7 @@ finish_spills (global)
 	    COPY_HARD_REG_SET (forbidden, bad_spill_regs_global);
 	    IOR_HARD_REG_SET (forbidden, pseudo_forbidden_regs[i]);
 	    IOR_HARD_REG_SET (forbidden, pseudo_previous_regs[i]);
-	    COMPL_HARD_REG_SET(forbidden,forbidden);
-	    //	    reg_renumber[i] = find_reg_given_constraints(forbidden,i);
-	    /* If we found a register, modify the RTL for the register to
-	       show the hard register, and mark that register live.  */
-	    if (reg_renumber[i] >= 0)
-	      {
-		REGNO (regno_reg_rtx[i]) = reg_renumber[i];
-		mark_home_live (i);
-	      }
+	    retry_global_alloc (i, forbidden);
 	    if (reg_renumber[i] >= 0)
 	      CLEAR_REGNO_REG_SET (&spilled_pseudos, i);
 	  }
@@ -3763,8 +3763,6 @@ scan_paradoxical_subregs (x)
     case SUBREG:
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-	/* XXX this is not calculating the max width, but instead simply
-	   overwriting it.  (matz) */
 	reg_max_ref_width[REGNO (SUBREG_REG (x))]
 	  = GET_MODE_SIZE (GET_MODE (x));
       return;
@@ -5519,9 +5517,15 @@ choose_reload_regs (chain)
 		      if (k == nr)
 			{
 			  int i1;
+			  int bad_for_class;
 
 			  last_reg = (GET_MODE (last_reg) == mode
 				      ? last_reg : gen_rtx_REG (mode, i));
+
+			  bad_for_class = 0;
+			  for (k = 0; k < nr; k++)
+			    bad_for_class |= ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
+								  i+k);
 
 			  /* We found a register that contains the
 			     value we need.  If this register is the
@@ -5552,8 +5556,7 @@ choose_reload_regs (chain)
 				 if we need it wider than we've got it.  */
 			      || (GET_MODE_SIZE (rld[r].mode)
 				  > GET_MODE_SIZE (mode))
-			      || ! TEST_HARD_REG_BIT (reg_class_contents[(int) rld[r].class],
-						      i)
+			      || bad_for_class
 
 			      /* If find_reloads chose reload_out as reload
 				 register, stay with it - that leaves the
@@ -9469,3 +9472,60 @@ copy_eh_notes (insn, x)
     }
 }
 
+/* This is used by reload pass, that does emit some instructions after
+   abnormal calls moving basic block end, but in fact it wants to emit
+   them on the edge.  Looks for abnormal call edges, find backward the
+   proper call and fix the damage.
+ 
+   Similar handle instructions throwing exceptions internally.  */
+static void
+fixup_abnormal_edges ()
+{
+  int i;
+  bool inserted = false;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      edge e;
+
+      /* Look for cases we are interested in - an calls or instructions causing
+         exceptions.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->flags & EDGE_ABNORMAL_CALL)
+	    break;
+	  if ((e->flags & (EDGE_ABNORMAL | EDGE_EH))
+	      == (EDGE_ABNORMAL | EDGE_EH))
+	    break;
+	}
+      if (e && GET_CODE (bb->end) != CALL_INSN && !can_throw_internal (bb->end))
+	{
+	  rtx insn = bb->end;
+	  rtx next;
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->flags & EDGE_FALLTHRU)
+	      break;
+	  /* Get past the new insns generated. Allow notes, as the insns may
+	     be already deleted.  */
+	  while ((GET_CODE (insn) == INSN || GET_CODE (insn) == NOTE)
+		 && !can_throw_internal (insn)
+		 && insn != bb->head)
+	    insn = PREV_INSN (insn);
+	  if (GET_CODE (insn) != CALL_INSN && !can_throw_internal (insn))
+	    abort ();
+	  bb->end = insn;
+	  inserted = true;
+	  insn = NEXT_INSN (insn);
+	  while (insn && GET_CODE (insn) == INSN)
+	    {
+	      next = NEXT_INSN (insn);
+	      insert_insn_on_edge (PATTERN (insn), e);
+	      flow_delete_insn (insn);
+	      insn = next;
+	    }
+	}
+    }
+  if (inserted)
+    commit_edge_insertions ();
+}

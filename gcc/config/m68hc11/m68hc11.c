@@ -1922,18 +1922,30 @@ m68hc11_gen_highpart (mode, x)
     }
 
   /* gen_highpart crashes when it is called with a SUBREG.  */
-  if (GET_CODE (x) == SUBREG && SUBREG_BYTE (x) != 0)
+  if (GET_CODE (x) == SUBREG)
     {
       return gen_rtx (SUBREG, mode, XEXP (x, 0), XEXP (x, 1));
     }
-  x = gen_highpart (mode, x);
+  if (GET_CODE (x) == REG)
+    {
+      if (REGNO (x) < FIRST_PSEUDO_REGISTER)
+        return gen_rtx (REG, mode, REGNO (x));
+      else
+        return gen_rtx_SUBREG (mode, x, 0);
+    }
 
-  /* Return a different rtx to avoid to share it in several insns
-     (when used by a split pattern).  Sharing addresses within
-     a MEM breaks the Z register replacement (and reloading).  */
   if (GET_CODE (x) == MEM)
-    x = copy_rtx (x);
-  return x;
+    {
+      x = change_address (x, mode, 0);
+
+      /* Return a different rtx to avoid to share it in several insns
+	 (when used by a split pattern).  Sharing addresses within
+	 a MEM breaks the Z register replacement (and reloading).  */
+      if (GET_CODE (x) == MEM)
+	x = copy_rtx (x);
+      return x;
+    }
+  abort ();
 }
 
 
@@ -4791,7 +4803,7 @@ m68hc11_reorg (first)
 
   /* Force a split of all splitable insn.  This is necessary for the
      Z register replacement mechanism because we end up with basic insns.  */
-  split_all_insns (0);
+  split_all_insns_noflow ();
   split_done = 1;
 
   z_replacement_completed = 1;
@@ -4838,7 +4850,7 @@ m68hc11_reorg (first)
      split after Z register replacement.  This gives more opportunities
      for peephole (in particular for consecutives xgdx/xgdy).  */
   if (optimize > 0)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* Once insns are split after the z_replacement_completed == 2,
      we must not re-run the life_analysis.  The xgdx/xgdy patterns

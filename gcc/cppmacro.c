@@ -175,7 +175,8 @@ builtin_macro (pfile, token)
       /* If __LINE__ is embedded in a macro, it must expand to the
 	 line of the macro's invocation, not its definition.
 	 Otherwise things like assert() will not work properly.  */
-      make_number_token (pfile, token, cpp_get_line (pfile)->line);
+      make_number_token (pfile, token,
+			 SOURCE_LINE (pfile->map, cpp_get_line (pfile)->line));
       break;
 
     case BT_STDC:
@@ -484,9 +485,9 @@ parse_arg (pfile, arg, variadic)
 	}
 
       /* Newlines in arguments are white space (6.10.3.10).  */
-      line = pfile->lexer_pos.output_line;
+      line = pfile->line;
       cpp_get_token (pfile, token);
-      if (line != pfile->lexer_pos.output_line)
+      if (line != pfile->line)
 	token->flags |= PREV_WHITE;
 
       result = token->type;
@@ -761,7 +762,12 @@ replace_args (pfile, macro, args, list)
 
 	arg = &args[src->val.arg_no - 1];
 	if (src->flags & STRINGIFY_ARG)
-	  from = arg->stringified, count = 1;
+	  {
+	    from = arg->stringified, count = 1;
+	    /* Ugh.  Maintain position of original argument.  */
+	    arg->stringified->line = src->line;
+	    arg->stringified->col = src->col;
+	  }
 	else if (src->flags & PASTE_LEFT)
 	  count = arg->count, from = arg->first;
 	else if (src > macro->expansion && (src[-1].flags & PASTE_LEFT))
@@ -923,6 +929,7 @@ cpp_get_token (pfile, token)
 	  /* PASTE_LEFT tokens can only appear in macro expansions.  */
 	  if (token->flags & PASTE_LEFT)
 	    {
+	      /* Maintains position of original token.  */
 	      paste_all_tokens (pfile, token);
 	      pfile->buffer->saved_flags = AVOID_LPASTE;
 	    }
@@ -953,10 +960,11 @@ cpp_get_token (pfile, token)
 	  cpp_hashnode *node = token->val.node;
 
 	  /* Macros invalidate controlling macros.  */
-	  pfile->mi_state = MI_FAILED;
+	  pfile->mi_valid = false;
 
 	  if (node->flags & NODE_BUILTIN)
 	    {
+	      /* Maintains position of original token.  */
 	      builtin_macro (pfile, token);
 	      pfile->buffer->saved_flags = AVOID_LPASTE;
 	      break;
@@ -1003,18 +1011,14 @@ cpp_sys_macro_p (pfile)
 /* Read each token in, until EOF.  Directives are transparently
    processed.  */
 void
-cpp_scan_buffer_nooutput (pfile, all_buffers)
+cpp_scan_nooutput (pfile)
      cpp_reader *pfile;
-     int all_buffers;
 {
   cpp_token token;
-  cpp_buffer *buffer = all_buffers ? 0: pfile->buffer->prev;
 
   do
-    do
-      cpp_get_token (pfile, &token);
-    while (token.type != CPP_EOF);
-  while (cpp_pop_buffer (pfile) != buffer);
+    cpp_get_token (pfile, &token);
+  while (token.type != CPP_EOF);
 }
 
 /* Lookahead handling.  */
@@ -1024,22 +1028,19 @@ save_lookahead_token (pfile, token)
      cpp_reader *pfile;
      const cpp_token *token;
 {
-  if (token->type != CPP_EOF)
+  cpp_lookahead *la = pfile->la_write;
+  cpp_token_with_pos *twp;
+
+  if (la->count == la->cap)
     {
-      cpp_lookahead *la = pfile->la_write;
-      cpp_token_with_pos *twp;
-
-      if (la->count == la->cap)
-	{
-	  la->cap += la->cap + 8;
-	  la->tokens = (cpp_token_with_pos *)
-	    xrealloc (la->tokens, la->cap * sizeof (cpp_token_with_pos));
-	}
-
-      twp = &la->tokens[la->count++];
-      twp->token = *token;
-      twp->pos = *cpp_get_line (pfile);
+      la->cap += la->cap + 8;
+      la->tokens = (cpp_token_with_pos *)
+	xrealloc (la->tokens, la->cap * sizeof (cpp_token_with_pos));
     }
+
+  twp = &la->tokens[la->count++];
+  twp->token = *token;
+  twp->pos = *cpp_get_line (pfile);
 }
 
 static void
@@ -1188,7 +1189,7 @@ warn_of_redefinition (pfile, node, macro2)
     return 0;
 
   /* Redefinition of a macro is allowed if and only if the old and new
-     definitions are the same.  (6.10.3 paragraph 2). */
+     definitions are the same.  (6.10.3 paragraph 2).  */
   macro1 = node->value.macro;
 
   /* The quick failures.  */

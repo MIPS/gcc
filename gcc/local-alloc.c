@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -73,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "output.h"
 #include "toplev.h"
+#include "except.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -281,7 +282,6 @@ static int equiv_init_movable_p PARAMS ((rtx, int));
 static int contains_replace_regs PARAMS ((rtx));
 static int memref_referenced_p	PARAMS ((rtx, rtx));
 static int memref_used_between_p PARAMS ((rtx, rtx, rtx));
-void update_equiv_regs	PARAMS ((void));
 static void no_equiv		PARAMS ((rtx, rtx, void *));
 static void block_alloc		PARAMS ((int));
 static int qty_sugg_compare    	PARAMS ((int, int));
@@ -296,6 +296,7 @@ static void reg_is_born		PARAMS ((rtx, int));
 static void wipe_dead_reg	PARAMS ((rtx, int));
 static int find_free_reg	PARAMS ((enum reg_class, enum machine_mode,
 				       int, int, int, int, int));
+void update_equiv_regs   PARAMS ((void));
 static void mark_life		PARAMS ((int, enum machine_mode, int));
 static void post_mark_life	PARAMS ((int, enum machine_mode, int, int, int));
 static int no_conflict_p	PARAMS ((rtx, rtx, rtx));
@@ -498,7 +499,7 @@ validate_equiv_mem (start, reg, memref)
 	return 1;
 
       if (GET_CODE (insn) == CALL_INSN && ! RTX_UNCHANGING_P (memref)
-	  && ! CONST_CALL_P (insn))
+	  && ! CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
       note_stores (PATTERN (insn), validate_equiv_mem_from_store, NULL);
@@ -1102,6 +1103,12 @@ update_equiv_regs ()
 		abort ();
 	      equiv_insn = XEXP (reg_equiv[regno].init_insns, 0);
 
+	      /* We may not move instructions that can throw, since
+		 that changes basic block boundaries and we are not
+		 prepared to adjust the CFG to match.  */
+	      if (can_throw_internal (equiv_insn))
+		continue;
+
 	      if (asm_noperands (PATTERN (equiv_insn)) < 0
 		  && validate_replace_rtx (regno_reg_rtx[regno],
 					   reg_equiv[regno].src, insn))
@@ -1698,13 +1705,14 @@ block_alloc (b)
 
 /* Note that the quotient will never be bigger than
    the value of floor_log2 times the maximum number of
-   times a register can occur in one insn (surely less than 100).
-   Multiplying this by 10000 can't overflow.
+   times a register can occur in one insn (surely less than 100)
+   weighted by frequency (max REG_FREQ_MAX).
+   Multiplying this by 10000/REG_FREQ_MAX can't overflow.
    QTY_CMP_PRI is also used by qty_sugg_compare.  */
 
 #define QTY_CMP_PRI(q)		\
   ((int) (((double) (floor_log2 (qty[q].n_refs) * qty[q].freq * qty[q].size) \
-	  / (qty[q].death - qty[q].birth)) * 10000))
+	  / (qty[q].death - qty[q].birth)) * (10000 / REG_FREQ_MAX)))
 
 static int
 qty_compare (q1, q2)

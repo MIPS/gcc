@@ -992,7 +992,7 @@ cselib_mem_conflict_p (mem_base, val)
   code = GET_CODE (val);
   switch (code)
     {
-      /* Get rid of a few simple cases quickly. */
+      /* Get rid of a few simple cases quickly.  */
     case REG:
     case PC:
     case CC0:
@@ -1254,8 +1254,8 @@ cselib_process_insn (insn)
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
   if (GET_CODE (insn) == CODE_LABEL
-      || (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP)
+      || (GET_CODE (insn) == CALL
+	  && find_reg_note (insn, REG_SETJMP, NULL))
       || (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
 	  && MEM_VOLATILE_P (PATTERN (insn))))
@@ -1279,7 +1279,7 @@ cselib_process_insn (insn)
 	if (call_used_regs[i])
 	  cselib_invalidate_regno (i, VOIDmode);
 
-      if (! CONST_CALL_P (insn))
+      if (! CONST_OR_PURE_CALL_P (insn))
 	cselib_invalidate_mem (callmem);
     }
 

@@ -975,7 +975,7 @@ do {									\
 /* Tell final.c how to eliminate redundant test instructions.  */
 
 /* Here we define machine-dependent flags and fields in cc_status
-   (see `conditions.h').  No extra ones are needed for the vax.  */
+   (see `conditions.h').  No extra ones are needed for the VAX.  */
 
 /* Store in cc_status the expressions
    that the condition codes will describe
@@ -1332,6 +1332,17 @@ do { char dstr[30];					\
     }						\
   while (0)
 
+/* This is how to output a reference to a user-level label named NAME.
+   `assemble_name' uses this.  */
+
+#undef ASM_OUTPUT_LABELREF
+#define ASM_OUTPUT_LABELREF(FILE, NAME)           \
+  do {                                            \
+  char* real_name;                                \
+  STRIP_NAME_ENCODING (real_name, (NAME));        \
+  asm_fprintf (FILE, "%U%s", real_name);          \
+  } while (0)
+
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -1558,13 +1569,13 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL)			\
-  do							\
-    {							\
-      if ((TREE_STATIC (DECL) || DECL_EXTERNAL (DECL))	\
-	  && TREE_CODE (DECL) == VAR_DECL)		\
-	v850_encode_data_area (DECL);			\
-    }							\
+#define ENCODE_SECTION_INFO(DECL)				\
+  do								\
+    {								\
+      if (TREE_CODE (DECL) == VAR_DECL				\
+          && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
+	v850_encode_data_area (DECL);				\
+    }								\
   while (0)
 
 #define ZDA_NAME_FLAG_CHAR '@'

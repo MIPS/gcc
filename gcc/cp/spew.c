@@ -331,8 +331,6 @@ read_token (t)
 #undef YYCODE
 
     case CPP_EOF:
-      if (cpp_pop_buffer (parse_in) != 0)
-	goto retry;
       t->yychar = 0;
       break;
       
@@ -833,8 +831,13 @@ yylex ()
     got_object = NULL_TREE;
 
   yychar = yychr;
-  yylval = nth_token (0)->yylval;
-  lineno = nth_token (0)->lineno;
+  {
+    struct token *tok = nth_token (0);
+    
+    yylval = tok->yylval;
+    if (tok->lineno)
+      lineno = tok->lineno;
+  }
 
 #ifdef SPEW_DEBUG    
   if (spew_debug)

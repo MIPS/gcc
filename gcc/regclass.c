@@ -2378,7 +2378,8 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
   register enum rtx_code code;
   register rtx dest;
   register rtx note;
-
+  if (!x)
+	  return;
   code = GET_CODE (x);
   switch (code)
     {

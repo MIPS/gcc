@@ -1,4 +1,4 @@
-/* Subroutines for insn-output.c for Vax.
+/* Subroutines for insn-output.c for VAX.
    Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "tree.h"
 #include "recog.h"
+#include "expr.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"

@@ -719,6 +719,19 @@ predicate_operator (op, mode)
 	  && (code == EQ || code == NE));
 }
 
+/* Return 1 if this operator can be used in a conditional operation.  */
+
+int
+condop_operator (op, mode)
+    register rtx op;
+    enum machine_mode mode;
+{
+  enum rtx_code code = GET_CODE (op);
+  return ((GET_MODE (op) == mode || mode == VOIDmode)
+	  && (code == PLUS || code == MINUS || code == AND
+	      || code == IOR || code == XOR));
+}
+
 /* Return 1 if this is the ar.lc register.  */
 
 int
@@ -1621,6 +1634,7 @@ struct spill_fill_data
   rtx init_reg[2];		/* initial base register */
   rtx iter_reg[2];		/* the iterator registers */
   rtx *prev_addr[2];		/* address of last memory use */
+  rtx prev_insn[2];		/* the insn corresponding to prev_addr */
   HOST_WIDE_INT prev_off[2];	/* last offset */
   int n_iter;			/* number of iterators in use */
   int next_iter;		/* next iterator to use */
@@ -1642,6 +1656,8 @@ setup_spill_pointers (n_spills, init_reg, cfa_off)
   spill_fill_data.init_reg[1] = init_reg;
   spill_fill_data.prev_addr[0] = NULL;
   spill_fill_data.prev_addr[1] = NULL;
+  spill_fill_data.prev_insn[0] = NULL;
+  spill_fill_data.prev_insn[1] = NULL;
   spill_fill_data.prev_off[0] = cfa_off;
   spill_fill_data.prev_off[1] = cfa_off;
   spill_fill_data.next_iter = 0;
@@ -1675,11 +1691,16 @@ spill_restore_mem (reg, cfa_off)
   if (spill_fill_data.prev_addr[iter])
     {
       if (CONST_OK_FOR_N (disp))
-	*spill_fill_data.prev_addr[iter]
-	  = gen_rtx_POST_MODIFY (DImode, spill_fill_data.iter_reg[iter],
-				 gen_rtx_PLUS (DImode,
-					       spill_fill_data.iter_reg[iter],
-					       disp_rtx));
+	{
+	  *spill_fill_data.prev_addr[iter]
+	    = gen_rtx_POST_MODIFY (DImode, spill_fill_data.iter_reg[iter],
+				   gen_rtx_PLUS (DImode,
+						 spill_fill_data.iter_reg[iter],
+						 disp_rtx));
+	  REG_NOTES (spill_fill_data.prev_insn[iter])
+	    = gen_rtx_EXPR_LIST (REG_INC, spill_fill_data.iter_reg[iter],
+				 REG_NOTES (spill_fill_data.prev_insn[iter]));
+	}
       else
 	{
 	  /* ??? Could use register post_modify for loads.  */
@@ -1769,10 +1790,12 @@ do_spill (move_fn, reg, cfa_off, frame_reg)
      rtx reg, frame_reg;
      HOST_WIDE_INT cfa_off;
 {
+  int iter = spill_fill_data.next_iter;
   rtx mem, insn;
 
   mem = spill_restore_mem (reg, cfa_off);
   insn = emit_insn ((*move_fn) (mem, reg, GEN_INT (cfa_off)));
+  spill_fill_data.prev_insn[iter] = insn;
 
   if (frame_reg)
     {
@@ -1812,8 +1835,12 @@ do_restore (move_fn, reg, cfa_off)
      rtx reg;
      HOST_WIDE_INT cfa_off;
 {
-  emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off),
-			 GEN_INT (cfa_off)));
+  int iter = spill_fill_data.next_iter;
+  rtx insn;
+
+  insn = emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off),
+				GEN_INT (cfa_off)));
+  spill_fill_data.prev_insn[iter] = insn;
 }
 
 /* Wrapper functions that discards the CONST_INT spill offset.  These
@@ -4423,6 +4450,10 @@ rtx_needs_barrier (x, flags, pred)
 	case 23: /* cycle display */
           break;
 
+        case 24: /* addp4 */
+	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
+	  break;
+
 	case 5: /* recip_approx */
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
@@ -5964,10 +5995,10 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
      int *pn_ready;
      int reorder_type, clock_var;
 {
+  int n_asms;
   int n_ready = *pn_ready;
   rtx *e_ready = ready + n_ready;
   rtx *insnp;
-  rtx highest;
 
   if (sched_verbose)
     {
@@ -6011,7 +6042,7 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
     maybe_rotate (sched_verbose ? dump : NULL);
 
   /* First, move all USEs, CLOBBERs and other crud out of the way.  */
-  highest = ready[n_ready - 1];
+  n_asms = 0;
   for (insnp = ready; insnp < e_ready; insnp++)
     if (insnp < e_ready)
       {
@@ -6019,24 +6050,42 @@ ia64_sched_reorder (dump, sched_verbose, ready, pn_ready,
 	enum attr_type t = ia64_safe_type (insn);
 	if (t == TYPE_UNKNOWN)
 	  {
-	    highest = ready[n_ready - 1];
-	    ready[n_ready - 1] = insn;
-	    *insnp = highest;
-	    if (ia64_final_schedule && group_barrier_needed_p (insn))
+	    if (GET_CODE (PATTERN (insn)) == ASM_INPUT
+		|| asm_noperands (PATTERN (insn)) >= 0)
 	      {
-		schedule_stop (sched_verbose ? dump : NULL);
-		sched_data.last_was_stop = 1;
-		maybe_rotate (sched_verbose ? dump : NULL);
+		rtx lowest = ready[0];
+		ready[0] = insn;
+		*insnp = lowest;
+		n_asms++;
 	      }
-	    else if (GET_CODE (PATTERN (insn)) == ASM_INPUT
-		     || asm_noperands (PATTERN (insn)) >= 0)
+	    else
 	      {
-		/* It must be an asm of some kind.  */
-		cycle_end_fill_slots (sched_verbose ? dump : NULL);
+		rtx highest = ready[n_ready - 1];
+		ready[n_ready - 1] = insn;
+		*insnp = highest;
+		if (ia64_final_schedule && group_barrier_needed_p (insn))
+		  {
+		    schedule_stop (sched_verbose ? dump : NULL);
+		    sched_data.last_was_stop = 1;
+		    maybe_rotate (sched_verbose ? dump : NULL);
+		  }
+
+		return 1;
 	      }
-	    return 1;
 	  }
       }
+  if (n_asms < n_ready)
+    {
+      /* Some normal insns to process.  Skip the asms.  */
+      ready += n_asms;
+      n_ready -= n_asms;
+    }
+  else if (n_ready > 0)
+    {
+      /* Only asm insns left.  */
+      cycle_end_fill_slots (sched_verbose ? dump : NULL);
+      return 1;
+    }
 
   if (ia64_final_schedule)
     {
@@ -6453,7 +6502,7 @@ ia64_reorg (insns)
 {
   /* If optimizing, we'll have split before scheduling.  */
   if (optimize == 0)
-    split_all_insns (0);
+    split_all_insns_noflow ();
 
   /* Make sure the CFG and global_live_at_start are correct
      for emit_predicate_relation_info.  */

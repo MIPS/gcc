@@ -331,6 +331,10 @@ push_class (class_type, class_name)
   input_filename = IDENTIFIER_POINTER (source_name);
   lineno = 0;
   decl = build_decl (TYPE_DECL, class_name, class_type);
+
+  /* dbxout needs a DECL_SIZE if in gstabs mode */
+  DECL_SIZE (decl) = integer_zero_node;
+
   input_filename = save_input_filename;
   lineno = save_lineno;
   signature = identifier_subst (class_name, "L", '.', '/', ";");
@@ -1899,7 +1903,7 @@ emit_register_classes ()
     flag_inline_functions = saved_flag;
   }
   current_function_decl = NULL_TREE;
-  assemble_constructor (IDENTIFIER_POINTER (init_name));
+  assemble_constructor (XEXP (DECL_RTL (init_decl), 0), DEFAULT_INIT_PRIORITY);
 }
 
 void

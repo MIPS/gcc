@@ -331,6 +331,7 @@ cbitmap_set_bit (a, num)
   cbitmap_negate (a);
   cbitmap_a_and_b (a, tmp);
   cbitmap_negate (a);
+  cbitmap_free (tmp);
 }
 
 void
@@ -352,4 +353,5 @@ cbitmap_clear_bit (a, num)
 	cbitmap_int_list_add (&tmp->blist, 1);
     }
   cbitmap_a_and_b (a, tmp);
+  cbitmap_free (tmp);
 }
