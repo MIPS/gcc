@@ -644,7 +644,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
      Remember the constant are in our vector a, our coefficient matrix is A,
      and our invariant coefficient matrix is B  */
 
-  /* Swap B and B1, and a1 and a */
+  /* Swap B and B1, and a1 and a.  */
   temp0 = B1;
   B1 = B;
   B = temp0;
@@ -806,10 +806,10 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
       /* Computes the gcd of the coefficients of the linear part.  */
       gcd1 = gcd_vector (target[i], i);
 
-      /* Include the denominator in the GCD  */
+      /* Include the denominator in the GCD.  */
       gcd1 = gcd (gcd1, determinant);
 
-      /* Now divide through by the gcd  */
+      /* Now divide through by the gcd.  */
       for (j = 0; j < i; j++)
 	target[i][j] = target[i][j] / gcd1;
 
@@ -822,7 +822,7 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
       LL_LINEAR_OFFSET (target_loop) = expression;
     }
 
-  /* For each loop, compute the new bounds from H */
+  /* For each loop, compute the new bounds from H.  */
   for (i = 0; i < depth; i++)
     {
       auxillary_loop = LN_LOOPS (auxillary_nest)[i];
@@ -1868,7 +1868,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       /* Create the new iv, and insert it's increment on the latch
          block.  */
 
-      bb = temp->latch->pred->src;
+      bb = EDGE_PRED (temp->latch, 0)->src;
       bsi = bsi_last (bb);
       create_iv (newlowerbound,
 		 build_int_cst (integer_type_node, LL_STEP (newloop)),
@@ -2282,7 +2282,7 @@ perfect_nestify (struct loops *loops,
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
       mark_for_rewrite (PHI_RESULT (phi));
     }
-  e = redirect_edge_and_branch (preheaderbb->succ, headerbb);
+  e = redirect_edge_and_branch (EDGE_SUCC (preheaderbb, 0), headerbb);
   unmark_all_for_rewrite ();
   bb_ann (olddest)->phi_nodes = NULL;
   /* Add back the old exit phis.  */
@@ -2294,7 +2294,7 @@ perfect_nestify (struct loops *loops,
       phiname = VEC_pop (tree, phis);
       
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (&phi, def, preheaderbb->pred);
+      add_phi_arg (&phi, def, EDGE_PRED (preheaderbb, 0));
     } 
       
   nestify_update_pending_stmts (e);
@@ -2332,7 +2332,7 @@ perfect_nestify (struct loops *loops,
   /* Create the new iv.  */
   ivvar = create_tmp_var (integer_type_node, "perfectiv");
   add_referenced_tmp_var (ivvar);
-  bsi = bsi_last (newloop->latch->pred->src);
+  bsi = bsi_last (EDGE_PRED (newloop->latch, 0)->src);
   create_iv (VEC_index (tree, lbounds, 0),
 	     build_int_cst (integer_type_node, 
 			    VEC_index (int, steps, 0)),

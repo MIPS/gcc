@@ -1493,6 +1493,8 @@ staticp (tree arg)
     case BIT_FIELD_REF:
       return NULL;
 
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       return TREE_CONSTANT (TREE_OPERAND (arg, 0)) ? arg : NULL;
 
@@ -2412,6 +2414,8 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
       TREE_READONLY (t) = 0;
       break;
 
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
       /* Whether a dereference is readonly has nothing to do with whether
 	 its operand is readonly.  */
@@ -4214,7 +4218,7 @@ build_index_type (tree maxval)
   TREE_TYPE (itype) = sizetype;
   TYPE_PRECISION (itype) = TYPE_PRECISION (sizetype);
   TYPE_MIN_VALUE (itype) = size_zero_node;
-  TYPE_MAX_VALUE (itype) = convert (sizetype, maxval);
+  TYPE_MAX_VALUE (itype) = fold_convert (sizetype, maxval);
   TYPE_MODE (itype) = TYPE_MODE (sizetype);
   TYPE_SIZE (itype) = TYPE_SIZE (sizetype);
   TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (sizetype);
@@ -5638,10 +5642,15 @@ reconstruct_complex_type (tree type, tree bottom)
     }
   else if (TREE_CODE (type) == METHOD_TYPE)
     {
+      tree argtypes;
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      /* The build_method_type_directly() routine prepends 'this' to argument list,
+         so we must compensate by getting rid of it.  */
+      argtypes = TYPE_ARG_TYPES (type);
       outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
 					  inner,
 					  TYPE_ARG_TYPES (type));
+      TYPE_ARG_TYPES (outer) = argtypes;
     }
   else
     return bottom;

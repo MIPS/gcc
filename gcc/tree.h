@@ -390,7 +390,7 @@ struct tree_common GTY(())
 	   ..._TYPE
 
        TREE_THIS_NOTRAP in
-          INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
+          (ALIGN/MISALIGNED_)INDIRECT_REF, ARRAY_REF, ARRAY_RANGE_REF
 
    deprecated_flag:
 
@@ -901,7 +901,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
    this only applies to an object when used appropriately: it doesn't
-   mean that writing a READONLY mem won't trap.
+   mean that writing a READONLY mem won't trap. Similarly for
+   ALIGN_INDIRECT_REF and MISALIGNED_INDIRECT_REF.
 
    In ARRAY_REF and ARRAY_RANGE_REF means that we know that the index
    (or slice of the array) always belongs to the range of the array.
@@ -1145,8 +1146,9 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
-/* In INDIRECT_REF.  */
-#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK (NODE, INDIRECT_REF))
+/* In INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
+#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
+	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
 /* In a LABELED_BLOCK_EXPR node.  */
 #define LABELED_BLOCK_LABEL(NODE) \
@@ -1310,20 +1312,6 @@ struct tree_exp GTY(())
 #define SSA_NAME_IN_FREE_LIST(NODE) \
     SSA_NAME_CHECK (NODE)->common.nothrow_flag
 
-/* If NAME is equivalent to some other SSA_NAME or an invariant, then
-   return the equivalent SSA_NAME or invariant, else return NULL.  */
-#define SSA_NAME_EQUIV(NAME) __extension__ \
-  ({  tree equiv = SSA_NAME_CHECK (NAME)->ssa_name.equiv; \
-      if (equiv && TREE_CODE (equiv) == SSA_NAME) \
-	equiv = ssa_name (SSA_NAME_VERSION (equiv)); \
-      equiv; \
-   })
-
-/* Record that NAME (an SSA_NAME) is equivalent to EQUIV.  */
-
-#define SET_SSA_NAME_EQUIV(NAME, EQUIV)\
-   SSA_NAME_CHECK (NAME)->ssa_name.equiv = (EQUIV);
-
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
     SSA_NAME_CHECK (N)->ssa_name.ptr_info
@@ -1355,9 +1343,12 @@ struct tree_ssa_name GTY(())
   /* Pointer attributes used for alias analysis.  */
   struct ptr_info_def *ptr_info;
 
-  /* Value for SSA name used by various propagation passes (PRE,
-     SSA-CCP, copy propagation).  */
-  tree GTY((skip)) value_handle;
+  /* Value for SSA name used by various passes.
+
+     Right now only invariants are allowed to persist beyond a pass in
+     this field; in the future we will allow VALUE_HANDLEs to persist
+     as well.  */
+  tree value_handle;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
@@ -2577,6 +2568,8 @@ enum tree_index
   TI_PID_TYPE,
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
+  TI_VA_LIST_GPR_COUNTER_FIELD,
+  TI_VA_LIST_FPR_COUNTER_FIELD,
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
@@ -2643,6 +2636,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+#define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
+#define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
 
@@ -3260,11 +3255,11 @@ extern int mostly_zeros_p (tree);
 
 extern void add_var_to_bind_expr (tree, tree);
 
-/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
+/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
 extern int integer_zerop (tree);
 
-/* integer_onep (tree x) is nonzero if X is an integer constant of value 1 */
+/* integer_onep (tree x) is nonzero if X is an integer constant of value 1.  */
 
 extern int integer_onep (tree);
 
@@ -3560,7 +3555,6 @@ extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
-extern tree simplify_builtin (tree, int);
 extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 extern tree build_va_arg_indirect_ref (tree);

@@ -58,8 +58,6 @@ typedef enum ssa_prop_result (*ssa_prop_visit_phi_fn) (tree);
 
 /* In tree-ssa-propagate.c  */
 void ssa_propagate (ssa_prop_visit_stmt_fn, ssa_prop_visit_phi_fn);
-bool replace_uses_in (tree, bool *);
-void substitute_and_fold (void);
 tree get_rhs (tree);
 bool set_rhs (tree *, tree);
 

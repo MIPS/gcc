@@ -136,11 +136,11 @@ get_default_value (tree var)
   val.const_val = NULL_TREE;
 
   if (TREE_CODE (var) == SSA_NAME
-      && SSA_NAME_EQUIV (var)
-      && is_gimple_min_invariant (SSA_NAME_EQUIV (var)))
+      && SSA_NAME_VALUE (var)
+      && is_gimple_min_invariant (SSA_NAME_VALUE (var)))
     {
       val.lattice_val = CONSTANT;
-      val.const_val = SSA_NAME_EQUIV (var);
+      val.const_val = SSA_NAME_VALUE (var);
     }
   else if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
     {
@@ -440,6 +440,220 @@ ccp_initialize (void)
 
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
+}
+
+
+/* Replace USE references in statement STMT with their immediate reaching
+   definition.  Return true if at least one reference was replaced.  If
+   REPLACED_ADDRESSES_P is given, it will be set to true if an address
+   constant was replaced.  */
+
+bool
+replace_uses_in (tree stmt, bool *replaced_addresses_p)
+{
+  bool replaced = false;
+  use_operand_p use;
+  ssa_op_iter iter;
+
+  get_stmt_operands (stmt);
+
+  FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
+    {
+      tree tuse = USE_FROM_PTR (use);
+      tree val = SSA_NAME_VALUE (tuse);
+
+      if (val == tuse || val == NULL_TREE)
+	continue;
+
+      if (TREE_CODE (stmt) == ASM_EXPR
+	  && !may_propagate_copy_into_asm (tuse))
+	continue;
+
+      propagate_value (use, val);
+
+      replaced = true;
+      if (POINTER_TYPE_P (TREE_TYPE (tuse)) && replaced_addresses_p)
+	*replaced_addresses_p = true;
+    }
+
+  return replaced;
+}
+
+
+/* Replace the VUSE references in statement STMT with its immediate reaching
+   definition.  Return true if the reference was replaced.  If
+   REPLACED_ADDRESSES_P is given, it will be set to true if an address
+   constant was replaced.  */
+
+static bool
+replace_vuse_in (tree stmt, bool *replaced_addresses_p)
+{
+  bool replaced = false;
+  ssa_op_iter iter;
+  vuse_optype vuses;
+  use_operand_p vuse;
+  tree var, val;
+
+  get_stmt_operands (stmt);
+
+  vuses = STMT_VUSE_OPS (stmt);
+
+  if (NUM_VUSES (vuses) != 1)
+    return false;
+
+  vuse = VUSE_OP_PTR (vuses, 0);
+  var = USE_FROM_PTR (vuse);
+  val = SSA_NAME_VALUE (var);
+
+  FOR_EACH_SSA_USE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
+    {
+      tree var = USE_FROM_PTR (vuse);
+      tree val = SSA_NAME_VALUE (var);
+
+      if (val == NULL_TREE || var == val)
+	continue;
+
+      /* Notice that we are making a very specific replacement here.
+	 We need to handle two different cases:
+
+	 1- If the value of A_i is another name for A (say A_j),
+	    then A_j is the result of copy propagation.  In this case,
+	    the statement is irrelevant because we just need to
+	    replace the VUSE operand.
+
+	 2- If the value of A_i is a constant C, then the RHS can
+	    only be the VAR_DECL A, and there must be exactly one VUSE
+	    operand.  Because the assumption is that this value comes
+	    from a V_MUST_DEF operation to A itself.  */
+      if (TREE_CODE (val) == SSA_NAME
+	  && SSA_NAME_VAR (val) == SSA_NAME_VAR (var))
+	propagate_value (vuse, val);
+      else if (TREE_CODE (stmt) == MODIFY_EXPR
+	       && DECL_P (TREE_OPERAND (stmt, 1))
+	       && TREE_OPERAND (stmt, 1) == SSA_NAME_VAR (var)
+	       && NUM_VUSES (STMT_VUSE_OPS (stmt)) == 1
+	       && is_gimple_min_invariant (val))
+	TREE_OPERAND (stmt, 1) = val;
+      else
+	continue;
+
+      replaced = true;
+      if (POINTER_TYPE_P (TREE_TYPE (var))
+	  && replaced_addresses_p)
+	*replaced_addresses_p = true;
+    }
+
+  return replaced;
+}
+
+
+/* Perform final substitution and folding of propagated values.  */
+
+void
+substitute_and_fold (void)
+{
+  basic_block bb;
+  size_t j;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
+	     "\nSubstituing values and folding statements\n\n");
+
+  /* Substitute values in every statement of every basic block.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      tree phi;
+
+      /* Propagate our known values into PHI nodes.  */
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  int i;
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Replaced ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	    }
+
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (arg) == SSA_NAME)
+		{
+		  tree val = SSA_NAME_VALUE (arg);
+		  if (val && val != arg && may_propagate_copy (arg, val))
+		    {
+		      SET_PHI_ARG_DEF (phi, i, val);
+		      
+		      /* If we propagated a copy and this argument
+			 flows through an abnormal edge, update the
+			 replacement accordingly.  */
+		      if (TREE_CODE (val) == SSA_NAME
+			  && PHI_ARG_EDGE (phi, i)->flags & EDGE_ABNORMAL)
+			SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
+		    }
+		}
+	    }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, " with ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+          bool replaced_address, did_replace;
+	  tree stmt = bsi_stmt (i);
+
+	  /* Skip statements that have been folded already.  */
+	  if (stmt_modified_p (stmt) || !is_exec_stmt (stmt))
+	    continue;
+
+	  /* Replace the statement with its folded version and mark it
+	     folded.  */
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Replaced ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	    }
+
+	  replaced_address = false;
+	  did_replace = replace_uses_in (stmt, &replaced_address);
+	  did_replace |= replace_vuse_in (stmt, &replaced_address);
+	  if (did_replace)
+	    {
+	      bool changed = fold_stmt (bsi_stmt_ptr (i));
+	      stmt = bsi_stmt(i);
+	      /* If we folded a builtin function, we'll likely
+		 need to rename VDEFs.  */
+	      if (replaced_address || changed)
+		{
+		  mark_new_vars_to_rename (stmt, vars_to_rename);
+		  if (maybe_clean_eh_stmt (stmt))
+		    tree_purge_dead_eh_edges (bb);
+		}
+	      else
+		modify_stmt (stmt);
+	    }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, " with ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+    }
+
+  /* Clear SSA_NAME_VALUE for every name.  */
+  for (j = 1; j < num_ssa_names; j++)
+    if (ssa_name (j))
+      SSA_NAME_VALUE (ssa_name (j)) = NULL_TREE;
 }
 
 
@@ -1222,7 +1436,7 @@ static tree
 maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 				    tree orig_type, bool base_is_ptr)
 {
-  tree f, t, field_type, tail_array_field;
+  tree f, t, field_type, tail_array_field, field_offset;
 
   if (TREE_CODE (record_type) != RECORD_TYPE
       && TREE_CODE (record_type) != UNION_TYPE
@@ -1242,7 +1456,9 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	continue;
       if (DECL_BIT_FIELD (f))
 	continue;
-      if (TREE_CODE (DECL_FIELD_OFFSET (f)) != INTEGER_CST)
+
+      field_offset = byte_position (f);
+      if (TREE_CODE (field_offset) != INTEGER_CST)
 	continue;
 
       /* ??? Java creates "interesting" fields for representing base classes.
@@ -1255,7 +1471,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       tail_array_field = NULL_TREE;
 
       /* Check to see if this offset overlaps with the field.  */
-      cmp = tree_int_cst_compare (DECL_FIELD_OFFSET (f), offset);
+      cmp = tree_int_cst_compare (field_offset, offset);
       if (cmp > 0)
 	continue;
 
@@ -1926,12 +2142,44 @@ fold_stmt (tree *stmt_p)
 }
 
 
+/* Convert EXPR into a GIMPLE value suitable for substitution on the
+   RHS of an assignment.  Insert the necessary statements before
+   iterator *SI_P.  */
+
+static tree
+convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
+{
+  tree_stmt_iterator ti;
+  tree stmt = bsi_stmt (*si_p);
+  tree tmp, stmts = NULL;
+
+  push_gimplify_context ();
+  tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+  pop_gimplify_context (NULL);
+
+  /* The replacement can expose previously unreferenced variables.  */
+  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
+    {
+      find_new_referenced_vars (tsi_stmt_ptr (ti));
+      mark_new_vars_to_rename (tsi_stmt (ti), vars_to_rename);
+    }
+
+  if (EXPR_HAS_LOCATION (stmt))
+    annotate_all_with_locus (&stmts, EXPR_LOCATION (stmt));
+
+  bsi_insert_before (si_p, stmts, BSI_SAME_STMT);
+
+  return tmp;
+}
+
+
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
 
 static void
 execute_fold_all_builtins (void)
 {
+  bool cfg_changed = false;
   basic_block bb;
   FOR_EACH_BB (bb)
     {
@@ -1969,8 +2217,16 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
-	  if (set_rhs (stmtp, result))
-	    modify_stmt (*stmtp);
+	  if (!set_rhs (stmtp, result))
+	    {
+	      result = convert_to_gimple_builtin (&i, result);
+	      if (result && !set_rhs (stmtp, result))
+		abort ();
+	    }
+	  modify_stmt (*stmtp);
+	  if (maybe_clean_eh_stmt (*stmtp)
+	      && tree_purge_dead_eh_edges (bb))
+	    cfg_changed = true;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1980,6 +2236,10 @@ execute_fold_all_builtins (void)
 	    }
 	}
     }
+
+  /* Delete unreachable blocks.  */
+  if (cfg_changed)
+    cleanup_tree_cfg ();
 }
 
 
@@ -1996,6 +2256,8 @@ struct tree_opt_pass pass_fold_builtins =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_verify_ssa
+    | TODO_rename_vars,			/* todo_flags_finish */
   0					/* letter */
 };

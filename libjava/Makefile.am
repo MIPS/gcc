@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
 
-ACLOCAL_AMFLAGS = -I .
+ACLOCAL_AMFLAGS = -I . -I ../config
 
 ## Garbage collector conditionals.
 if USING_BOEHMGC
@@ -211,6 +211,15 @@ libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
 	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
 	$(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
 
+## Pass the list of object files to libtool in a temporary file to
+## avoid tripping platform command line length limits.
+libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
+	@echo Creating list of files to link...
+	@: $(call write_entries_to_file,$(libgcj_la_OBJECTS),libgcj.objectlist)
+	$(libgcj_la_LINK) -objectlist libgcj.objectlist \
+	$(libgcj_la_LIBADD) \
+	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
+
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 ## The mysterious backslash in the grep pattern is consumed by make.
@@ -364,9 +373,11 @@ org/ietf/jgss/GSSName.java \
 org/ietf/jgss/MessageProp.java \
 org/ietf/jgss/Oid.java
 
-lib_org_ietf_jgss_la_DEPENDENCIES= $(jgss_propertyo_files)
+lib_org_ietf_jgss_la_DEPENDENCIES= $(jgss_propertyo_files) \
+	libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 ## See jv_convert_LDADD.
-lib_org_ietf_jgss_la_LIBADD = -L$(here)/.libs  $(jgss_propertyo_files)
+lib_org_ietf_jgss_la_LIBADD = -L$(here)/.libs  $(jgss_propertyo_files) \
+	libgcj.la
 
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_ietf_jgss_la_LDFLAGS = -rpath $(toolexeclibdir) \
@@ -2422,6 +2433,7 @@ java/util/TreeMap.java \
 java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
+java/util/VMTimeZone.java	\
 java/util/WeakHashMap.java \
 java/util/logging/ConsoleHandler.java \
 java/util/logging/ErrorManager.java \
@@ -2661,6 +2673,8 @@ gnu/java/nio/ServerSocketChannelImpl.java \
 gnu/java/nio/ServerSocketChannelSelectionKey.java \
 gnu/java/nio/SocketChannelImpl.java \
 gnu/java/nio/SocketChannelSelectionKey.java \
+gnu/java/nio/VMPipe.java \
+gnu/java/nio/VMSelector.java \
 gnu/java/nio/channels/FileChannelImpl.java \
 gnu/java/nio/charset/ISO_8859_1.java \
 gnu/java/nio/charset/Provider.java \
@@ -2688,6 +2702,7 @@ gnu/regexp/RETokenBackRef.java \
 gnu/regexp/RETokenChar.java \
 gnu/regexp/RETokenEnd.java \
 gnu/regexp/RETokenEndSub.java \
+gnu/regexp/RETokenLookAhead.java \
 gnu/regexp/RETokenOneOf.java \
 gnu/regexp/RETokenPOSIX.java \
 gnu/regexp/RETokenRange.java \
@@ -3186,7 +3201,7 @@ java/nio/channels/natChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
-java/util/natTimeZone.cc \
+java/util/natVMTimeZone.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc
 

@@ -1,3 +1,304 @@
+2004-09-28  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_RegisterNatives): Formatting fixlets.
+
+	PR libgcj/17222:
+	* Makefile.am (libgcj.la): Restored.
+	* Makefile.in: Rebuilt.
+
+2004-09-28  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URLConnection.java: Reformatted.
+	* java/net/URLClassLoader.java: Reformatted.
+	(getContent): Reordered return of content.
+	(getContentHandler): Don't check for null explicitely.
+
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/BufferedInputStream.java
+	(BufferedInputStream): Added Jeroen Frijters to authors.
+	(count): Don't explicitely initialize with default value.
+	(pos): Likewise.
+	(marklimit): Likewise.
+	(read): Changed boolean expression to match GNU classpath' version.
+	(reset): Add proper message to exception.
+	(skip): Check for closed stream.
+	(refill): Likewise.
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* prims.cc (unblock_signal): Annotate signum with __unused__ to
+	avoid warnings in the non-POSIX_VERSION case.
+	Also, we only need this function if either HANDLE_SEGV or HANDLE_FPE,
+	so place it inside an #if block.
+	* include/default-signal.h (SIGNAL_HANDLER): Parameters are __unused__.
+	* include/i386-signal.h (SIGNAL_HANDLER):  Likewise
+	* include/mips-signal.h (SIGNAL_HANDLER):  Likewise
+	* include/sparc-signal.h (SIGNAL_HANDLER):  Likewise
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* prims.cc (process_gcj_properties):  Optimization.
+
+2004-09-26  Per Bothner  <per@bothner.com>
+
+	* java/util/Collections.java (sort):  Copy from array in forwards
+	order, rather than reverse order which may be much less efficient.
+
+2004-09-26  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/System.java (properties): Make package private.
+	* java/lang/Throwable.java (StaticData.nl): Initialize through
+	directly accessing System.properties.getProperty().
+
+	* java/lang/Throwable.java (nl): Remove static field.
+	(StaticData): New private static inner class.
+	(stackTraceStringBuffer): Use StaticData.nl.
+
+2004-09-26  Casey Marshall <csm@gnu.org>
+
+	* java/security/ProtectionDomain.java
+	(<init>(CodeSource,PermissionCollection)): set `staticBinding' to
+	`true'.
+
+	* java/security/SecureClassLoader.java
+	(defineClass): make protection domain dynamically bound.
+	(getPermissions): call `getCurrentPolicy' to avoid permission
+	check.
+
+2004-09-25  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (core_java_source_files): Add VMTimeZone.java.
+	(nat_source_files): Rename natTimeZone.cc to natVMTimeZone.cc.
+	* Makefile.in: Regenerated.
+
+	* gcj/javaprims.h: Regenerated.
+
+	* java/util/TimeZone.java (defaultZone): Use VMTimeZone.
+	(getDefaultTimeZone): Make package private. Check that GMToffset
+	contains at least one digit.
+	(getDefaultTimeZoneId, readTimeZoneFile, readtzFile): (Re)Moved to
+	VMTimeZone.
+	* util/VMTimeZone.java: New file with above methods.
+
+	* java/util/natTimeZone.cc: Removed (renamed).
+	* java/util/natVMTimeZone.cc: Added (renamed).
+
+2004-09-25  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/util/TimeZone.java
+	(getDefaultTimeZone): Fixed test to distinguish between hours and
+	minutes in specified timezone.
+
+2004-09-25  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/lang/reflect/Proxy.java (getPackage, ClassFactory): Fixed
+	handling of default package. (generate): Removed confused comments
+	and code about making Method and Field accessible.
+
+2004-09-25  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17500:
+	* testsuite/libjava.compile/pr17500.java: New file.
+
+2004-09-25  Shashank Bapat  <shashankbapat@yahoo.com>
+            Mark Wielaard  <mark@klomp.org>
+
+	* gnu/regexp/RE.java (initialize): Add RETokenLookAhead support.
+	* gnu/regexp/RETokenLookAhead.java: New file.
+
+	* Makefile.am (ordinary_java_source_files): Add RETokenLookAhead.java.
+	* Makefile.in: Regenerated.
+
+2004-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectStreamField.java:
+	Removed unused import statement.
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	PR java/15656:
+	* testsuite/libjava.compile/pr15656.xfail: New file.
+	* testsuite/libjava.compile/pr15656.java: new file.
+
+	PR java/16789:
+	* testsuite/libjava.lang/pr16789.out: New file.
+	* testsuite/libjava.lang/pr16789.java: New file.
+
+2004-09-24  Andrew Haley  <aph@redhat.com>
+
+	PR java/16927
+	* testsuite/libjava.compile/AssertBug.java: New file.
+
+2004-09-24  Casey Marshall <csm@gnu.org>
+
+	* java/util/PropertyPermissionCollection.java
+	(implies): avoid infinite loop.
+
+2004-09-24  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/security/auth/PrivateCredentialPermission.java
+	(PrivateCredentialPermission): added serialization UID
+
+
+2004-09-24  Ilya Perminov  <iperminov@logicalsoft.com>
+
+	* gnu/java/rmi/server/UnicastServer.java
+	(incomingMessageCall): Added code to handle Errors.
+	* gnu/java/rmi/server/UnicastServerRef.java
+	(incomingMessageCall): Added code to handle Errors.
+
+
+2004-09-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (loadedClasses): Declare as HashMap.
+	(definedPackages): Likewise.
+
+2004-09-24  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/ObjectInputStream.java:
+	Re-ordered imports.
+
+2004-09-24  Casey Marshall <csm@gnu.org>
+
+	* java/io/ObjectInputStream.java (callReadMethod): re-throw
+	`ClassNotFoundException'.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java (readObject): Delegate instantation
+	of Externalizable classes to ObjectStreamClass.
+	* java/io/ObjectStreamClass.java (newInstance): New method to
+	instantiate Externalizable (while ignoring the accessibility of
+	the constructor). (constructor): New field to cache the constructor.
+
+2004-09-24  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URL.java (systemClassLoader): New static field.
+	(getURLStreamHandler): Always use system/application classloader
+	for finding URLStreamhandler. Remove unecessary instanceof checks.
+
+2004-09-24  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/net/URL.java
+	(set): This method now matches the behaviour of the JDK.
+	(DEFAULT_SEARCH_PATH): Added "gnu.inet".
+
+2004-09-24  Guilhem Lavaux  <guilhem@kaffe.org>
+
+	* java/net/URL.java (URL): Delete whitespaces in the protocol string.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URL.java (URL(String,String,int,String,URLStreamHandler):
+	Don't set authority if host isn't specified.
+
+2004-09-24  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/PipeImpl.java: Use VMPipe for native stuff.
+	* gnu/java/nio/SelectorImpl.java: Use VMSelector for native stuff.
+	* gnu/java/nio/VMPipe.java,
+	gnu/java/nio/VMSelector.java:
+	New files.
+	* gnu/java/nio/natPipeImplEcos.cc,
+	gnu/java/nio/natPipeImplPosix.cc,
+	gnu/java/nio/natPipeImplWin32.cc:
+	Ported to VMPipe.
+	* gnu/java/nio/natSelectorImplEcos.cc,
+	gnu/java/nio/natSelectorImplPosix.cc,
+	gnu/java/nio/natSelectorImplWin32.cc:
+	Ported to VMSelector.
+	* Makefile.am: Added new files gnu/java/nio/VMPipe.java and
+	gnu/java/nio/VMSelector.java.
+	* Makefile.in: Regenerated.
+
+2004-09-24  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/lang/StackTraceElement.java
+	(className): Renamed field to declaringClass to be compatible
+	with Sun serialization format.
+
+2004-09-23  Michael Koch  <konqueror@gmx.de>
+
+	* java/applet/AppletContext.java,
+	java/applet/Applet.java,
+	java/applet/AppletStub.java,
+	java/applet/AudioClip.java:
+	Jalopied and checkstyle clean.
+
+2004-09-23  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/Collections.java
+	(binarySearch(List, Object, Comparator)): Explicitly
+	reverse direction in list iterator.
+	(rotate): Just return when list is empty.
+
+2004-09-23  Tom Tromey  <tromey@redhat.com>
+
+	PR java/17329:
+	* testsuite/libjava.compile/pr17329.java: New file.
+
+	PR java/17380:
+	* testsuite/libjava.jacks/jacks.xfail: Added 9.2-implicit-6 and
+	9.2-implicit-7.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Run aclocal with -I ../config
+	* acinclude.m4: Delete macros picked up from ../config and tidy.
+	(AM_ICONV,AM_LC_MESSAGES, PKG_CHECK_MODULES): Delete.
+	* aclocal.m4, configure, Makefile.in, gcj/Makefile.in: Regenerate.
+	* include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2004-09-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Regenerate with aclocal 1.9.2.
+	* configure: Regenerate.
+	* Makefile.in, gcj/Makefile.in: Regenerate with automake 1.9.2.
+	* include/Makefile.in, testsuite/Makefile.in: Likewise.
+
+2004-09-22  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/17623
+	* java/net/URL.java (URL): Copy userInfo from context.
+	(getUserInfo): Return cached userInfo if present.
+
+2004-09-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/6182:
+	* mauve-libgcj: Enable java.lang.Character tests.
+
+2004-09-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (lib_org_ietf_jgss_la_DEPENDENCIES): Add missing
+	dependencies.
+	(lib_org_ietf_jgss_la_LIBADD): Likewise.
+	* Makefile.in: Regenerated.
+
+2004-09-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac: Introduce AC_C_BIGENDIAN_CROSS for WORDS_BIGENDIAN.
+	* configure: Regenerate.
+	* include/config.h.in: Likewise.
+	* jni/gtk-peer/gtkpeer.h (SWAPU32): Introduce macro to swap pixels.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c: Moved SWAPU32
+	macro to gtkpeer.h.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
+	(Java_gnu_java_awt_peer_gtk_GdkGraphics2D_getImagePixels): Convert
+	pixels from  0xBBGGRRAA to 0xAARRGGBB only on Little Endian
+	architectures.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c (area_updated):
+	Likewise.
+
+2004-09-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/14446:
+	* java/util/zip/GZIPInputStream.java (read): Avoid sign extension
+	when comparing CRCs.
+	* java/util/zip/InflaterInputStream.java (onebytebuffer): New
+	field.
+	(read()): New overload.
+
 2004-09-21  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA):

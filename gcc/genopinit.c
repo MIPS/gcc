@@ -169,7 +169,11 @@ static const char * const optabs[] =
   "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
-  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)" };
+  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
+  "vec_realign_store_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_store_$a$)",
+  "vec_realign_load_optab->handlers[$A].insn_code = CODE_FOR_$(vec_realign_load_$a$)",
+  "vcond_gen_code[$A] = CODE_FOR_$(vcond$a$)",
+  "vcondu_gen_code[$A] = CODE_FOR_$(vcondu$a$)" };
 
 static void gen_insn (rtx);
 

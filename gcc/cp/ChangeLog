@@ -1,4 +1,233 @@
+2004-09-28  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/17525
+	* class.c (build_base_field): Set TYPE_MODE.
+
+2004-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR driver/17537
+	* g++spec.c (lang_specific_driver): Unrecognized libraries, other
+	than -lc and -lm, may require linking against libstc++.
+
+2004-09-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree.c: Fix a comment typo.
+
+2004-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (VTT_TOP_LEVEL_P, VTT_MARKED_BINFO_P): Remove.
+	(struct secondary_vptr_vtt_init_data_s): New.
+	(build_vtt_inits): Adjust dfs_walkers.
+	(dfs_build_secondary_vptr_vtt_inits): Caller data is a
+	secondary_vptr_vtt_init_data_s structure. Adjust.
+	(dfs_ctor_vtable_bases_queue_p): Remove.
+	(dfs_fixup_binfo_vtbls): No need to clear BINFO_MARKED. Simplify.
+
+	* pt.c (struct get_template_base_data_s): Remove.
+	(get_template_base_r): Fold into get_template_base.
+	(get_template_base): Walk base binfos directly in inheritance
+	graph order.
+
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17642
+	* cp-tree.h (fold_if_not_in_template): New function.
+	* call.c (build_conditional_expr): Use fold_if_not_in_template.
+	(build_cxx_call): Likewise.
+	* cvt.c (convert_to_complex): Likewise.
+	(ocp_convert): Likewise.
+	(convert): Likewise.
+	(convert_force): Likewise.
+	* decl.c (compute_array_index_type): Clear
+	processing_template_decl while folding array bounds.
+	* pt.c (convert_nontype_argument): Clear
+	processing_template_decl while processing non-type argument
+	initialization.
+	* tree.c (fold_if_not_in_template): New function.
+	* typeck.c (build_class_member_access_expr): Use
+	fold_if_not_in_template.
+	(build_array_ref): Likewise.
+	(build_binary_op): Likewise.  Do not try to optimize computations
+	when processing templates.
+	(cp_pointer_int_sum): Use fold_if_not_in_template.
+	(pointer_diff): Likewise.
+	(build_unary_op): Likewise.
+	(build_reinterpret_cast): Likewise.
+	(get_delta_difference): Likewise.
+	(expand_ptrmemfunc_cst): Likewise.
+	(dubious_conversion_warnings): Likewise.
+
+2004-09-27  Matt Austern  <austern@apple.com>
+
+	* cp/parser.c (struct cp_token): New one-bit field , implicit_extern_c
+	(cp_lexer_get_preprocessor_token): Set implicit_extern_c for
+	tokens that come from headers that are implicitly extern "C".
+	(struct cp_parser): new one-bit field, implicit_extern_c.
+	(cp_parser_new): Set parser's implicit_extern_c to false.
+	(cp_parser_translation_unit): Pop lang context if we were in a
+	header that was implicitly extern "C".
+	(cp_parser_declaration_seq_opt): Push/pop lang context as
+	required by the token's and parser's implicit_extern_c.
+	
+2004-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17585
+	* cp-tree.h (shared_member_p): Declare.
+	* search.c (shared_member_p): Give it external linkage.
+	* semantics.c (finish_qualified_id_expr): Use it.
+	(finish_id_expression): Likewise.
+
+	PR c++/17585
+	* semantics.c (finish_id_expression): Do not add "this->" to
+	static member functions.
+
+2004-09-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17681
+	* error.c (dump_type): Change TREE_VEC case into TREE_BINFO.
+
+	* class.c (struct count_depth_data): Remove.
+	(dfs_depth_post, dfs_depth_q): Remove.
+	(find_final_overrider): Use number of vbase classes as depth
+	bound.
+	
+	* cp-tree.h (types_overlap_p): Remove.
+	* search.c (struct overlap_info): Remove.
+	(dfs_check_overlap, dfs_no_overlap_yet, types_overlap_p): Remove.
+	
+	* pt.c (GTB_VIA_VIRTUAL, GTB_IGNORE_TYPE): Remove.
+	(get_template_base_recursive): Remove. Replace with ...
+	(get_template_base_r): ... this.
+	(struct get_template_base_data_s): New.
+	(get_template_base): Use get_template_base_r via dfs_walk.  Always
+	return NULL on failure.
+	(unify): Remove error_mark_node check from get_template_base result.
+
+2004-09-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* parser.c (cp_parser_expression_stack): Clarify why it is
+	an array of NUM_PREC_VALUES elements.
+	(cp_parser_binary_expression): Clarify why we do not need to
+	handle stack overflow.
+
+2004-09-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16889
+	* search.c (lookup_field_queue_p): Correct check for hidden base.
+
+	* search.c (bfs_walk): Remove.
+	(lookup_member): Use dfs_walk_real.
+	(dfs_walk_real): Move and adjust documentation from bfs_walk.
+
+2004-09-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (grokfndecl): If ::main is found not to return int,
+	correct it after issuing a diagnostic.
+	(grokdeclarator): If the incoming type was error_mark_node, do
+	not complain about declaring something with no type.
+	(start_function): Change check for ::main not returning int to
+	an assertion, as grokfndecl now catches this when the user did it.
+	* init.c (perform_member_init, sort_mem_initializers)
+	(emit_mem_initializers): Make most diagnostics be issued on
+	the line of current_function_decl, not whatever the current
+	input line is.
+	* parser.c (cp_lexer_peek_token_emit_debug_info): Surround
+	definition and declaration with #ifdef ENABLE_CHECKING.
+	Avoid unnecessary use of fprintf.
+	(cp_lexer_print_token, cp_lexer_debug_stream): Adjust stub
+	definitions to avoid warnings.
+	(cp_lexer_new_main): Add assertion that first token is not a
+	padding token.
+	(cp_lexer_new_from_token_array): Fold into ...
+	(cp_lexer_new_from_tokens): ... here.  Add assertion that
+	first token is not a padding token.
+	(cp_lexer_set_source_position_from_token): Move nearer to callers.
+	Remove unused lexer argument.
+	(cp_lexer_peek_token): Just print debugging report (if enabled)
+	and return lexer->next_token.
+	(cp_lexer_skip_purged_tokens): Delete.
+	(cp_lexer_next_token_is, cp_lexer_next_token_is_not): Make
+	inline, simplify bodies.
+	(cp_lexer_peek_nth_token): Add debugging report a la
+	cp_lexer_peek_token.
+	(cp_lexer_consume_token): Correct commentary.  Advance over
+	purged tokens here.  Set current source position here, from
+	token to be returned.  Avoid unnecessary use of fprintf.
+	(cp_lexer_purge_token): Advance next_token pointer over this and
+	subsequent purged tokens.
+	(cp_parser_error): Adjust source position to that of the
+	peeked token.
+	(cp_parser_push_lexer_for_tokens, cp_parser_pop_lexer): New functions.
+	(cp_parser_string_literal): Remove some excessive cleverness.
+	(cp_parser_enum_specifier): Call start_enum before consuming
+	the opening brace.
+	(cp_parser_member_declaration): Make the "extra semicolon"
+	diagnostic consistently-worded with the other place this is
+	diagnosed.  Explicitly set the diagnostic location to the
+	location of the offending semicolon.
+	(cp_parser_enclosed_template_argument_list): Use %</%> quoting
+	in diagnostics.  Do not use cp_parser_require.  Set location
+	of diagnostics about improper use of '>>' to location of
+	offending token.
+	(cp_parser_late_parsing_for_member):
+	Use cp_parser_push_lexer_for_tokens and cp_parser_pop_lexer.
+	(cp_parser_late_parsing_default_args): Likewise.  Manually
+	move some logic outside the loop.
+
+2004-09-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/17618
+	* cvt.c (cp_convert_to_pointer): Return early when the type is
+	an error_mark_node.
+
+2004-09-21 Fariborz Jahanian <fjahanian@apple.com>
+
+	PR c++/13989
+	PR c++/9844
+	* decl.c (grokfndecl): Add new argument "attrlist", use it
+	to call cplus_decl_attributes.
+	(start_function): Remove call to cplus_decl_attributes.
+	* cvt.c (ocp_convert): Add support to use type conversion
+	function to vector type.
+	* parser.c (cp_parser_conversion_type_id): Add attributes, if any,
+	to the parsed type.
+
+2004-09-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/17596
+
+	* parser.c (cp_parser_token_tree_map_node,
+	cp_parser_pm_expression, cp_parser_additive_expression,
+	cp_parser_multiplicative_expression, cp_parser_shift_expression,
+	cp_parser_relational_expression, cp_parser_equality_expression,
+	cp_parser_and_expression, cp_parser_exclusive_or_expression,
+	cp_parser_inclusive_or_expression,
+	cp_parser_logical_and_expression,
+	cp_parser_logical_or_expression): Removed.
+	(enum cp_parser_prec, struct cp_parser_token_tree_map_node,
+	binops, binops_by_token): New.
+	(cp_parser_assignment_expression): Use cp_parser_binary_expression.
+	(cp_parser_new): Initialize binops_by_token.
+	(cp_parser_binary_expression): Rewritten.
+	(N_CP_TTYPES): New.
+
+2004-09-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* parser.c: Fix a comment typo.
+
+2004-09-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17620
+	* decl.c (xref_basetypes): Look through typedefs before checking
+	for duplicate base.
+
 2004-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (unemitted_tinfo_decls): Make a VEC(tree).
+	* decl2.c (cp_finish_file): Adjust tinfo decl emission loop.
+	* rtti.c (unemitted_tinfo_decls): Make a VEC(tree).
+	(init_rtti_processing): Initialize it to something realistic.
+	(get_tinfo_decl): Adjust pushing the new decl.
 
 	* cp-tree.h (struct lang_type_class): Remove marked flags, add
 	diamond_shaped and repeated_base flags.  Reorder to keep 8-bit blocks.
@@ -15,7 +244,7 @@
 	class_hint_flags): Remove.
 	(get_pseudo_ti_init): Use CLASSTYPE_REPEATED_BASE_P and
 	CLASSTYPE_DIAMOND_SHAPED_P.
-	
+
 2004-09-21  Ziemowit Laski  <zlaski@apple.com>
 
 	* cp-lang.c (LANG_HOOKS_FOLD_OBJ_TYPE_REF): Moved here from

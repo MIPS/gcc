@@ -40,7 +40,8 @@
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
-
+#include "varray.h"
+#include "vec.h"
 
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
@@ -142,7 +143,7 @@ static sbitmap bb_in_list;
    definition has changed.  SSA edges are def-use edges in the SSA
    web.  For each D-U edge, we store the target statement or PHI node
    U.  */
-static GTY(()) varray_type interesting_ssa_edges;
+static GTY(()) VEC(tree) *interesting_ssa_edges;
 
 /* Identical to INTERESTING_SSA_EDGES.  For performance reasons, the
    list of SSA edges is split into two.  One contains all SSA edges
@@ -158,7 +159,7 @@ static GTY(()) varray_type interesting_ssa_edges;
    don't use a separate worklist for VARYING edges, we end up with
    situations where lattice values move from
    UNDEFINED->INTERESTING->VARYING instead of UNDEFINED->VARYING.  */
-static GTY(()) varray_type varying_ssa_edges;
+static GTY(()) VEC(tree) *varying_ssa_edges;
 
 
 /* Return true if the block worklist empty.  */
@@ -170,7 +171,8 @@ cfg_blocks_empty_p (void)
 }
 
 
-/* Add a basic block to the worklist.  */
+/* Add a basic block to the worklist.  The block must not be already
+   in the worklist.  */
 
 static void 
 cfg_blocks_add (basic_block bb)
@@ -178,8 +180,7 @@ cfg_blocks_add (basic_block bb)
   if (bb == ENTRY_BLOCK_PTR || bb == EXIT_BLOCK_PTR)
     return;
 
-  if (TEST_BIT (bb_in_list, bb->index))
-    return;
+  gcc_assert (!TEST_BIT (bb_in_list, bb->index));
 
   if (cfg_blocks_empty_p ())
     {
@@ -247,9 +248,9 @@ add_ssa_edge (tree var, bool is_varying)
 	{
 	  STMT_IN_SSA_EDGE_WORKLIST (use_stmt) = 1;
 	  if (is_varying)
-	    VARRAY_PUSH_TREE (varying_ssa_edges, use_stmt);
+	    VEC_safe_push (tree, varying_ssa_edges, use_stmt);
 	  else
-	    VARRAY_PUSH_TREE (interesting_ssa_edges, use_stmt);
+	    VEC_safe_push (tree, interesting_ssa_edges, use_stmt);
 	}
     }
 }
@@ -318,8 +319,9 @@ simulate_stmt (tree stmt)
       if (stmt_ends_bb_p (stmt))
 	{
 	  edge e;
+	  edge_iterator ei;
 	  basic_block bb = bb_for_stmt (stmt);
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    add_control_edge (e);
 	}
     }
@@ -339,19 +341,20 @@ simulate_stmt (tree stmt)
 
 /* Process an SSA edge worklist.  WORKLIST is the SSA edge worklist to
    drain.  This pops statements off the given WORKLIST and processes
-   them until there are no more statements on WORKLIST.  */
+   them until there are no more statements on WORKLIST.
+   We take a pointer to WORKLIST because it may be reallocated when an
+   SSA edge is added to it in simulate_stmt.  */
 
 static void
-process_ssa_edge_worklist (varray_type *worklist)
+process_ssa_edge_worklist (VEC(tree) **worklist)
 {
   /* Drain the entire worklist.  */
-  while (VARRAY_ACTIVE_SIZE (*worklist) > 0)
+  while (VEC_length (tree, *worklist) > 0)
     {
       basic_block bb;
 
       /* Pull the statement to simulate off the worklist.  */
-      tree stmt = VARRAY_TOP_TREE (*worklist);
-      VARRAY_POP (*worklist);
+      tree stmt = VEC_pop (tree, *worklist);
 
       /* If this statement was already visited by simulate_block, then
 	 we don't need to visit it again here.  */
@@ -406,6 +409,7 @@ simulate_block (basic_block block)
       block_stmt_iterator j;
       unsigned int normal_edge_count;
       edge e, normal_edge;
+      edge_iterator ei;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
@@ -434,7 +438,7 @@ simulate_block (basic_block block)
 	 worklist.  */
       normal_edge_count = 0;
       normal_edge = NULL;
-      for (e = block->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, block->succs)
 	{
 	  if (e->flags & EDGE_ABNORMAL)
 	    add_control_edge (e);
@@ -457,12 +461,13 @@ static void
 ssa_prop_init (void)
 {
   edge e;
+  edge_iterator ei;
   basic_block bb;
   size_t i;
 
   /* Worklists of SSA edges.  */
-  VARRAY_TREE_INIT (interesting_ssa_edges, 20, "interesting_ssa_edges");
-  VARRAY_TREE_INIT (varying_ssa_edges, 20, "varying_ssa_edges");
+  interesting_ssa_edges = VEC_alloc (tree, 20);
+  varying_ssa_edges = VEC_alloc (tree, 20);
 
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
@@ -488,13 +493,13 @@ ssa_prop_init (void)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	STMT_IN_SSA_EDGE_WORKLIST (bsi_stmt (si)) = 0;
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
     }
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       if (e->dest != EXIT_BLOCK_PTR)
 	{
@@ -510,8 +515,8 @@ ssa_prop_init (void)
 static void
 ssa_prop_fini (void)
 {
-  interesting_ssa_edges = NULL;
-  varying_ssa_edges = NULL;
+  VEC_free (tree, interesting_ssa_edges);
+  VEC_free (tree, varying_ssa_edges);
   cfg_blocks = NULL;
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);
@@ -581,6 +586,8 @@ set_rhs (tree *stmt_p, tree expr)
       if (!is_gimple_val (TREE_OPERAND (expr, 0)))
 	return false;
     }
+  else if (code == COMPOUND_EXPR)
+    return false;
 
   switch (TREE_CODE (stmt))
     {
@@ -654,8 +661,8 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
 
   /* Iterate until the worklists are empty.  */
   while (!cfg_blocks_empty_p () 
-	 || VARRAY_ACTIVE_SIZE (interesting_ssa_edges) > 0
-	 || VARRAY_ACTIVE_SIZE (varying_ssa_edges) > 0)
+	 || VEC_length (tree, interesting_ssa_edges) > 0
+	 || VEC_length (tree, varying_ssa_edges) > 0)
     {
       if (!cfg_blocks_empty_p ())
 	{
@@ -673,198 +680,6 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
     }
 
   ssa_prop_fini ();
-}
-
-/*---------------------------------------------------------------------------
-		   Common functions used in value propagation
----------------------------------------------------------------------------*/
-/* Replace USE references in statement STMT with the value held in
-   each name's SSA_NAME_VALUE. Return true if at least one reference
-   was replaced.  If REPLACED_ADDRESSES_P is given, it will be set to
-   true if an address constant was replaced.  */ 
-
-bool
-replace_uses_in (tree stmt, bool *replaced_addresses_p)
-{
-  use_operand_p use;
-  ssa_op_iter iter;
-  bool replaced = false;
-
-  get_stmt_operands (stmt);
-
-  FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
-    {
-      tree var = USE_FROM_PTR (use);
-      tree val = SSA_NAME_VALUE (var);
-
-      if (val && val != var && may_propagate_copy (var, val))
-	{
-	  propagate_value (use, val);
-	  replaced = true;
-	  if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (use))) 
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
-	}
-    }
-
-  return replaced;
-}
-
-
-/* Replace the VUSE references in statement STMT with its immediate reaching
-   definition.  Return true if the reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
-
-static bool
-replace_vuse_in (tree stmt, bool *replaced_addresses_p)
-{
-  bool replaced = false;
-  ssa_op_iter iter;
-  use_operand_p vuse_op;
-
-  get_stmt_operands (stmt);
-
-  FOR_EACH_SSA_USE_OPERAND (vuse_op, stmt, iter, SSA_OP_VIRTUAL_USES)
-    {
-      tree var = USE_FROM_PTR (vuse_op);
-      tree val = SSA_NAME_VALUE (var);
-
-      if (val && var != val)
-	{
-	  /* Notice that we are making a very specific replacement here.
-	     We need to handle two different cases:
-
-	     1- If the value of A_i is another name for A (say A_j),
-		then A_j is the result of copy propagation.  In this
-		case, the statement is irrelevant because we just
-		need to replace the VUSE operand.
-
-	     2- If the value of A_i is a constant C, then the RHS can
-		only be the VAR_DECL A, and there must be exactly one
-		VUSE operand.  Because the assumption is that
-		this value comes from a V_MUST_DEF operation to A
-		itself.  */
-	  if (TREE_CODE (val) == SSA_NAME
-	      && SSA_NAME_VAR (val) == SSA_NAME_VAR (var))
-	    propagate_value (vuse_op, val);
-	  else if (TREE_CODE (stmt) == MODIFY_EXPR
-		   && DECL_P (TREE_OPERAND (stmt, 1))
-		   && TREE_OPERAND (stmt, 1) == SSA_NAME_VAR (var)
-		   && NUM_VUSES (STMT_VUSE_OPS (stmt)) == 1
-		   && is_gimple_min_invariant (val))
-	    TREE_OPERAND (stmt, 1) = val;
-	  else
-	    continue;
-
-	  replaced = true;
-	  if (POINTER_TYPE_P (TREE_TYPE (var))
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
-	}
-    }
-
-  return replaced;
-}
-
-
-/* Perform final substitution and folding of propagated values.  */
-
-void
-substitute_and_fold (void)
-{
-  basic_block bb;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file,
-	     "\nSubstituing values and folding statements\n\n");
-
-  /* Substitute values in every statement of every basic block.  */
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator i;
-      tree phi;
-
-      /* Propagate our known values into PHI nodes.  */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Replaced ");
-	      print_generic_stmt (dump_file, phi, TDF_SLIM);
-	    }
-
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, i);
-
-	      if (TREE_CODE (arg) == SSA_NAME)
-		{
-		  tree val = SSA_NAME_VALUE (arg);
-		  if (val && val != arg && may_propagate_copy (arg, val))
-		    {
-		      SET_PHI_ARG_DEF (phi, i, val);
-		      
-		      /* If we propagated a copy and this argument
-			 flows through an abnormal edge, update the
-			 replacement accordingly.  */
-		      if (TREE_CODE (val) == SSA_NAME
-			  && PHI_ARG_EDGE (phi, i)->flags & EDGE_ABNORMAL)
-			SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
-		    }
-		}
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, phi, TDF_SLIM);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	{
-          bool replaced_address, did_replace;
-	  tree stmt = bsi_stmt (i);
-
-	  /* Replace the statement with its folded version and mark it
-	     folded.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Replaced ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	    }
-
-	  replaced_address = false;
-	  did_replace = replace_uses_in (stmt, &replaced_address);
-	  did_replace |= replace_vuse_in (stmt, &replaced_address);
-	  if (did_replace)
-	    {
-	      bool changed = fold_stmt (bsi_stmt_ptr (i));
-	      stmt = bsi_stmt(i);
-	      /* If we folded a builtin function, we'll likely
-		 need to rename VDEFs.  */
-	      if (replaced_address || changed)
-		{
-		  mark_new_vars_to_rename (stmt, vars_to_rename);
-		  if (maybe_clean_eh_stmt (stmt))
-		    tree_purge_dead_eh_edges (bb);
-		}
-	      else
-		modify_stmt (stmt);
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-    }
 }
 
 #include "gt-tree-ssa-propagate.h"

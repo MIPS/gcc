@@ -46,8 +46,6 @@ struct vbase_info
 };
 
 static int is_subobject_of_p (tree, tree);
-static tree dfs_check_overlap (tree, void *);
-static tree dfs_no_overlap_yet (tree, int, void *);
 static base_kind lookup_base_r (tree, tree, base_access, bool, tree *);
 static int dynamic_cast_base_recurse (tree, tree, bool, tree *);
 static tree dfs_debug_unmarkedp (tree, int, void *);
@@ -57,10 +55,7 @@ static tree split_conversions (tree, tree, tree, tree);
 static int lookup_conversions_r (tree, int, int,
 				 tree, tree, tree, tree, tree *, tree *);
 static int look_for_overrides_r (tree, tree);
-static tree bfs_walk (tree, tree (*) (tree, void *),
-		      tree (*) (tree, int, void *), void *);
 static tree lookup_field_queue_p (tree, int, void *);
-static int shared_member_p (tree);
 static tree lookup_field_r (tree, void *);
 static tree dfs_accessible_queue_p (tree, int, void *);
 static tree dfs_accessible_p (tree, void *);
@@ -991,7 +986,7 @@ lookup_field_queue_p (tree derived, int ix, void *data)
 
   /* If this base class is hidden by the best-known value so far, we
      don't need to look.  */
-  if (lfi->rval_binfo && original_binfo (binfo, lfi->rval_binfo))
+  if (lfi->rval_binfo && derived == lfi->rval_binfo)
     return NULL_TREE;
 
   /* If this is a dependent base, don't look in it.  */
@@ -1029,7 +1024,7 @@ template_self_reference_p (tree type, tree decl)
 
    This function checks that T contains no nonstatic members.  */
 
-static int
+int
 shared_member_p (tree t)
 {
   if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == TYPE_DECL \
@@ -1256,7 +1251,8 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
   lfi.type = type;
   lfi.name = name;
   lfi.want_type = want_type;
-  bfs_walk (basetype_path, &lookup_field_r, &lookup_field_queue_p, &lfi);
+  dfs_walk_real (basetype_path, &lookup_field_r, 0,
+		 &lookup_field_queue_p, &lfi);
   rval = lfi.rval;
   rval_binfo = lfi.rval_binfo;
   if (rval_binfo)
@@ -1513,101 +1509,16 @@ adjust_result_of_qualified_name_lookup (tree decl,
 }
 
 
-/* Walk the class hierarchy dominated by TYPE.  FN is called for each
-   type in the hierarchy, in a breadth-first preorder traversal.
-   If it ever returns a non-NULL value, that value is immediately
-   returned and the walk is terminated.  At each node, FN is passed a
-   BINFO indicating the path from the currently visited base-class to
-   TYPE.  Before each base-class is walked QFN is called.  If the
-   value returned is nonzero, the base-class is walked; otherwise it
-   is not.  If QFN is NULL, it is treated as a function which always
-   returns 1.  Both FN and QFN are passed the DATA whenever they are
-   called.
-
-   Implementation notes: Uses a circular queue, which starts off on
-   the stack but gets moved to the malloc arena if it needs to be
-   enlarged.  The underflow and overflow conditions are
-   indistinguishable except by context: if head == tail and we just
-   moved the head pointer, the queue is empty, but if we just moved
-   the tail pointer, the queue is full.  
-   Start with enough room for ten concurrent base classes.  That
-   will be enough for most hierarchies.  */
-#define BFS_WALK_INITIAL_QUEUE_SIZE 10
-
-static tree
-bfs_walk (tree binfo,
-	  tree (*fn) (tree, void *),
-	  tree (*qfn) (tree, int, void *),
-	  void *data)
-{
-  tree rval = NULL_TREE;
-
-  tree bases_initial[BFS_WALK_INITIAL_QUEUE_SIZE];
-  /* A circular queue of the base classes of BINFO.  These will be
-     built up in breadth-first order, except where QFN prunes the
-     search.  */
-  size_t head, tail;
-  size_t base_buffer_size = BFS_WALK_INITIAL_QUEUE_SIZE;
-  tree *base_buffer = bases_initial;
-
-  head = tail = 0;
-  base_buffer[tail++] = binfo;
-
-  while (head != tail)
-    {
-      int n_bases, ix;
-      tree binfo = base_buffer[head++];
-      if (head == base_buffer_size)
-	head = 0;
-
-      /* Is this the one we're looking for?  If so, we're done.  */
-      rval = fn (binfo, data);
-      if (rval)
-	goto done;
-
-      n_bases = BINFO_N_BASE_BINFOS (binfo);
-      for (ix = 0; ix != n_bases; ix++)
-	{
-	  tree base_binfo;
-	  
-	  if (qfn)
-	    base_binfo = (*qfn) (binfo, ix, data);
-	  else
-	    base_binfo = BINFO_BASE_BINFO (binfo, ix);
-	  
- 	  if (base_binfo)
-	    {
-	      base_buffer[tail++] = base_binfo;
-	      if (tail == base_buffer_size)
-		tail = 0;
-	      if (tail == head)
-		{
-		  tree *new_buffer = xmalloc (2 * base_buffer_size
-					      * sizeof (tree));
-		  memcpy (&new_buffer[0], &base_buffer[0],
-			  tail * sizeof (tree));
-		  memcpy (&new_buffer[head + base_buffer_size],
-			  &base_buffer[head],
-			  (base_buffer_size - head) * sizeof (tree));
-		  if (base_buffer_size != BFS_WALK_INITIAL_QUEUE_SIZE)
-		    free (base_buffer);
-		  base_buffer = new_buffer;
-		  head += base_buffer_size;
-		  base_buffer_size *= 2;
-		}
-	    }
-	}
-    }
-
- done:
-  if (base_buffer_size != BFS_WALK_INITIAL_QUEUE_SIZE)
-    free (base_buffer);
-  return rval;
-}
-
-/* Exactly like bfs_walk, except that a depth-first traversal is
-   performed, and PREFN is called in preorder, while POSTFN is called
-   in postorder.  */
+/* Walk the class hierarchy within BINFO, in a depth-first traversal.
+   PREFN is called in preorder, while POSTFN is called in postorder.
+   If they ever returns a non-NULL value, that value is immediately
+   returned and the walk is terminated.  Both PREFN and POSTFN can be
+   NULL.  At each node, PREFN and POSTFN are passed the binfo to
+   examine.  Before each base-binfo of BINFO is walked, QFN is called.
+   If the value returned is nonzero, the base-binfo is walked;
+   otherwise it is not.  If QFN is NULL, it is treated as a function
+   which always returns 1.  All callbacks are passed DATA whenever
+   they are called.  */
 
 tree
 dfs_walk_real (tree binfo,
@@ -1649,8 +1560,8 @@ dfs_walk_real (tree binfo,
   return rval;
 }
 
-/* Exactly like bfs_walk, except that a depth-first post-order traversal is
-   performed.  */
+/* Exactly like dfs_walk_real, except that there is no pre-order
+   function call and  FN is called in post-order.  */
 
 tree
 dfs_walk (tree binfo,
@@ -2356,65 +2267,6 @@ lookup_conversions (tree type)
     }
   
   return list;
-}
-
-struct overlap_info 
-{
-  tree compare_type;
-  int found_overlap;
-};
-
-/* Check whether the empty class indicated by EMPTY_BINFO is also present
-   at offset 0 in COMPARE_TYPE, and set found_overlap if so.  */
-
-static tree
-dfs_check_overlap (tree empty_binfo, void *data)
-{
-  struct overlap_info *oi = (struct overlap_info *) data;
-  tree binfo;
-  
-  for (binfo = TYPE_BINFO (oi->compare_type); 
-       ; 
-       binfo = BINFO_BASE_BINFO (binfo, 0))
-    {
-      if (BINFO_TYPE (binfo) == BINFO_TYPE (empty_binfo))
-	{
-	  oi->found_overlap = 1;
-	  break;
-	}
-      else if (!BINFO_N_BASE_BINFOS (binfo))
-	break;
-    }
-
-  return NULL_TREE;
-}
-
-/* Trivial function to stop base traversal when we find something.  */
-
-static tree
-dfs_no_overlap_yet (tree derived, int ix, void *data)
-{
-  tree binfo = BINFO_BASE_BINFO (derived, ix);
-  struct overlap_info *oi = (struct overlap_info *) data;
-  
-  return !oi->found_overlap ? binfo : NULL_TREE;
-}
-
-/* Returns nonzero if EMPTY_TYPE or any of its bases can also be found at
-   offset 0 in NEXT_TYPE.  Used in laying out empty base class subobjects.  */
-
-int
-types_overlap_p (tree empty_type, tree next_type)
-{
-  struct overlap_info oi;
-
-  if (! IS_AGGR_TYPE (next_type))
-    return 0;
-  oi.compare_type = next_type;
-  oi.found_overlap = 0;
-  dfs_walk (TYPE_BINFO (empty_type), dfs_check_overlap,
-	    dfs_no_overlap_yet, &oi);
-  return oi.found_overlap;
 }
 
 /* Returns the binfo of the first direct or indirect virtual base derived

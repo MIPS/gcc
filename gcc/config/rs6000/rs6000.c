@@ -143,6 +143,11 @@ enum rs6000_dependence_cost rs6000_sched_costly_dep;
 const char *rs6000_sched_insert_nops_str;
 enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
+/* Support targetm.vectorize.builtin_mask_for_load.  */
+tree altivec_builtin_mask_for_load;
+/* Support targetm.vectorize.builtin_mask_for_store.  */
+tree altivec_builtin_mask_for_store;
+
 /* Size of long double */
 const char *rs6000_long_double_size_string;
 int rs6000_long_double_type_size;
@@ -681,6 +686,8 @@ static int redefine_groups (FILE *, int, rtx, rtx);
 static int pad_groups (FILE *, int, rtx, rtx);
 static void rs6000_sched_finish (FILE *, int);
 static int rs6000_use_sched_lookahead (void);
+static tree rs6000_builtin_mask_for_load (void);
+static tree rs6000_builtin_mask_for_store (void);
 
 static void rs6000_init_builtins (void);
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
@@ -904,6 +911,12 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD rs6000_use_sched_lookahead
+
+#undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
+
+#undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE
+#define TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE rs6000_builtin_mask_for_store
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1534,6 +1547,26 @@ rs6000_override_options (const char *default_cpu)
       default:
 	abort ();
       }
+}
+
+/* Implement targetm.vectorize.builtin_mask_for_load.  */
+static tree
+rs6000_builtin_mask_for_load (void)
+{
+  if (TARGET_ALTIVEC)
+    return altivec_builtin_mask_for_load;
+  else
+    return 0;
+}
+
+/* Implement targetm.vectorize.builtin_mask_for_store.  */
+static tree
+rs6000_builtin_mask_for_store (void)
+{
+  if (TARGET_ALTIVEC)
+    return altivec_builtin_mask_for_store;
+  else
+    return 0;
 }
 
 /* Handle generic options of the form -mfoo=yes/no.
@@ -3156,6 +3189,7 @@ legitimate_indexed_address_p (rtx x, int strict)
 
   if (GET_CODE (x) != PLUS)
     return false;
+
   op0 = XEXP (x, 0);
   op1 = XEXP (x, 1);
 
@@ -3772,6 +3806,14 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 int
 rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
 {
+  /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
+  if (TARGET_ALTIVEC
+      && ALTIVEC_VECTOR_MODE (mode)
+      && GET_CODE (x) == AND
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && INTVAL (XEXP (x, 1)) == -16)
+    x = XEXP (x, 0);
+
   if (RS6000_SYMBOL_REF_TLS_P (x))
     return 0;
   if (legitimate_indirect_address_p (x, reg_ok_strict))
@@ -5342,8 +5384,14 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   set = get_varargs_alias_set ();
-  if (! no_rtl && first_reg_offset < GP_ARG_NUM_REG)
+  if (! no_rtl && first_reg_offset < GP_ARG_NUM_REG
+      && cfun->va_list_gpr_size)
     {
+      int nregs = GP_ARG_NUM_REG - first_reg_offset;
+
+      if (nregs > cfun->va_list_gpr_size)
+        nregs = cfun->va_list_gpr_size;
+
       mem = gen_rtx_MEM (BLKmode,
 		         plus_constant (save_area,
 					first_reg_offset * reg_size)),
@@ -5351,16 +5399,17 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       set_mem_align (mem, BITS_PER_WORD);
 
       rs6000_move_block_from_reg (GP_ARG_MIN_REG + first_reg_offset, mem,
-			          GP_ARG_NUM_REG - first_reg_offset);
+			          nregs);
     }
 
   /* Save FP registers if needed.  */
   if (DEFAULT_ABI == ABI_V4
       && TARGET_HARD_FLOAT && TARGET_FPRS
       && ! no_rtl
-      && next_cum.fregno <= FP_ARG_V4_MAX_REG)
+      && next_cum.fregno <= FP_ARG_V4_MAX_REG
+      && cfun->va_list_fpr_size)
     {
-      int fregno = next_cum.fregno;
+      int fregno = next_cum.fregno, nregs;
       rtx cr1 = gen_rtx_REG (CCmode, CR1_REGNO);
       rtx lab = gen_label_rtx ();
       int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG) * 8);
@@ -5373,13 +5422,14 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 					    gen_rtx_LABEL_REF (VOIDmode, lab),
 					    pc_rtx)));
 
-      while (fregno <= FP_ARG_V4_MAX_REG)
+      for (nregs = 0;
+           fregno <= FP_ARG_V4_MAX_REG && nregs < cfun->va_list_fpr_size;
+           fregno++, off += 8, nregs++)
 	{
-	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
+	  mem = gen_rtx_MEM (DFmode,
+	                     plus_constant (save_area, off));
           set_mem_alias_set (mem, set);
 	  emit_move_insn (mem, gen_rtx_REG (DFmode, fregno));
-	  fregno++;
-	  off += 8;
 	}
 
       emit_label (lab);
@@ -5413,6 +5463,9 @@ rs6000_build_builtin_va_list (void)
 		      ptr_type_node);
   f_sav = build_decl (FIELD_DECL, get_identifier ("reg_save_area"),
 		      ptr_type_node);
+
+  va_list_gpr_counter_field = f_gpr;
+  va_list_fpr_counter_field = f_fpr;
 
   DECL_FIELD_CONTEXT (f_gpr) = record;
   DECL_FIELD_CONTEXT (f_fpr) = record;
@@ -5472,15 +5525,28 @@ rs6000_va_start (tree valist, rtx nextarg)
 	     HOST_WIDE_INT_PRINT_DEC", n_fpr = "HOST_WIDE_INT_PRINT_DEC"\n",
 	     words, n_gpr, n_fpr);
 
-  t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-	     build_int_cst (NULL_TREE, n_gpr));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (cfun->va_list_gpr_size)
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+                 build_int_cst (NULL_TREE, n_gpr));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
-  t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-	     build_int_cst (NULL_TREE, n_fpr));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (cfun->va_list_fpr_size)
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+	         build_int_cst (NULL_TREE, n_fpr));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
+
+  /* If there were no va_arg invocations, don't set up anything.  */
+  if (!cfun->va_list_gpr_size
+      && !cfun->va_list_fpr_size
+      && n_gpr < GP_ARG_NUM_REG
+      && n_fpr < FP_ARG_V4_MAX_REG)
+    return;
 
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
@@ -7202,6 +7268,48 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   rtx ret;
   bool success;
 
+  if (fcode == ALTIVEC_BUILTIN_MASK_FOR_LOAD
+      || fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
+    {
+      int icode = (int) CODE_FOR_altivec_lvsr;
+      enum machine_mode tmode = insn_data[icode].operand[0].mode;
+      enum machine_mode mode = insn_data[icode].operand[1].mode;
+      tree arg;
+      rtx op, addr, pat;
+
+      if (!TARGET_ALTIVEC)
+	abort ();
+
+      arg = TREE_VALUE (arglist);
+      if (TREE_CODE (TREE_TYPE (arg)) != POINTER_TYPE)
+	abort ();
+      op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
+      addr = memory_address (mode, op);
+      if (fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
+	op = addr;
+      else
+	{
+	  /* For the load case need to negate the address.  */
+	  op = gen_reg_rtx (GET_MODE (addr));
+	  emit_insn (gen_rtx_SET (VOIDmode, op,
+			 gen_rtx_NEG (GET_MODE (addr), addr)));
+        }
+      op = gen_rtx_MEM (mode, op);
+
+      if (target == 0
+	  || GET_MODE (target) != tmode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	target = gen_reg_rtx (tmode);
+
+      /*pat = gen_altivec_lvsr (target, op);*/
+      pat = GEN_FCN (icode) (target, op);
+      if (!pat)
+	return 0;
+      emit_insn (pat);
+
+      return target;
+    }
+
   if (TARGET_ALTIVEC)
     {
       ret = altivec_expand_builtin (exp, target, &success);
@@ -7691,6 +7799,9 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				pcchar_type_node, NULL_TREE);
 
+  tree id;
+  tree decl;
+
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_ld_internal_4sf", v4sf_ftype_pcfloat,
 	       ALTIVEC_BUILTIN_LD_INTERNAL_4sf);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_st_internal_4sf", void_ftype_pfloat_v4sf,
@@ -7792,6 +7903,24 @@ altivec_init_builtins (void)
 
       def_builtin (d->mask, d->name, type, d->code);
     }
+
+  /* Initialize target builtin that implements 
+     targetm.vectorize.builtin_mask_for_load.  */
+  id = get_identifier ("__builtin_altivec_mask_for_load");
+  decl = build_decl (FUNCTION_DECL, id, v16qi_ftype_long_pcvoid);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  DECL_FUNCTION_CODE (decl) = ALTIVEC_BUILTIN_MASK_FOR_LOAD;
+  /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
+  altivec_builtin_mask_for_load = decl;
+
+  /* Initialize target builtin that implements 
+     targetm.vectorize.builtin_mask_for_store.  */
+  id = get_identifier ("__builtin_altivec_mask_for_store");
+  decl = build_decl (FUNCTION_DECL, id, v16qi_ftype_long_pcvoid);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  DECL_FUNCTION_CODE (decl) = ALTIVEC_BUILTIN_MASK_FOR_STORE;
+  /* Record the decl. Will be used by rs6000_builtin_mask_for_store.  */
+  altivec_builtin_mask_for_store = decl;
 }
 
 static void
@@ -10463,6 +10592,11 @@ print_operand (FILE *file, rtx x, int code)
 
 	    /* Fall through.  Must be [reg+reg].  */
 	  }
+	if (TARGET_ALTIVEC
+	    && GET_CODE (tmp) == AND
+	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
+	    && INTVAL (XEXP (tmp, 1)) == -16)
+	  tmp = XEXP (tmp, 0);
 	if (GET_CODE (tmp) == REG)
 	  fprintf (file, "0,%s", reg_names[REGNO (tmp)]);
 	else if (GET_CODE (tmp) == PLUS && GET_CODE (XEXP (tmp, 1)) == REG)
@@ -13445,7 +13579,7 @@ rs6000_emit_prologue (void)
 				    && DEFAULT_ABI != ABI_AIX
 				    && flag_pic
 				    && ! info->lr_save_p
-				    && EXIT_BLOCK_PTR->pred != NULL);
+				    && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0);
     if (save_LR_around_toc_setup)
       {
 	rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
@@ -16169,7 +16303,7 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
 	    /* If the user says 'vector int bool', we may be handed the 'bool'
 	       attribute _before_ the 'vector' attribute, and so select the proper
 	       type in the 'b' case below.  */
-	  case V4SImode: case V8HImode: case V16QImode: result = type;
+	  case V4SImode: case V8HImode: case V16QImode: case V4SFmode: result = type;
 	  default: break;
 	}
       break;

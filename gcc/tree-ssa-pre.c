@@ -769,16 +769,18 @@ bitmap_print_value_set (FILE *outfile, bitmap_set_t set,
   if (set)
     {
       int i;
-      EXECUTE_IF_SET_IN_BITMAP (set->expressions, 0, i,
-      {
-	print_generic_expr (outfile, ssa_name (i), 0);
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (set->expressions, 0, i, bi)
+	{
+	  print_generic_expr (outfile, ssa_name (i), 0);
 	
-	fprintf (outfile, " (");
-	print_generic_expr (outfile, get_value_handle (ssa_name (i)), 0);
-	fprintf (outfile, ") ");
-	if (bitmap_last_set_bit (set->expressions) != i)
-	  fprintf (outfile, ", ");
-      });
+	  fprintf (outfile, " (");
+	  print_generic_expr (outfile, get_value_handle (ssa_name (i)), 0);
+	  fprintf (outfile, ") ");
+	  if (bitmap_last_set_bit (set->expressions) != i)
+	    fprintf (outfile, ", ");
+	}
     }
   fprintf (outfile, " }\n");
 }
@@ -856,7 +858,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   if (is_gimple_min_invariant (expr))
     return expr;
 
-  /* Phi translations of a given expression don't change,  */
+  /* Phi translations of a given expression don't change.  */
   phitrans = phi_trans_lookup (expr, pred);
   if (phitrans)
     return phitrans;
@@ -1135,12 +1137,13 @@ compute_antic_aux (basic_block block)
      setting the BB_VISITED flag.  */
   if (! (block->flags & BB_VISITED))
     {
-      for (e = block->pred; e; e = e->pred_next)
- 	if (e->flags & EDGE_ABNORMAL)
- 	  {
- 	    block->flags |= BB_VISITED;
- 	    break;
- 	  }
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, block->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    block->flags |= BB_VISITED;
+	    break;
+	  }
     }
   if (block->flags & BB_VISITED)
     {
@@ -1155,14 +1158,14 @@ compute_antic_aux (basic_block block)
 
   /* If the block has no successors, ANTIC_OUT is empty, because it is
      the exit block.  */
-  if (block->succ == NULL);
+  if (EDGE_COUNT (block->succs) == 0);
 
   /* If we have one successor, we could have some phi nodes to
      translate through.  */
-  else if (block->succ->succ_next == NULL)
+  else if (EDGE_COUNT (block->succs) == 1)
     {
-      phi_translate_set (ANTIC_OUT, ANTIC_IN(block->succ->dest),
-			 block, block->succ->dest);
+      phi_translate_set (ANTIC_OUT, ANTIC_IN(EDGE_SUCC (block, 0)->dest),
+			 block, EDGE_SUCC (block, 0)->dest);
     }
   /* If we have multiple successors, we take the intersection of all of
      them.  */
@@ -1172,14 +1175,11 @@ compute_antic_aux (basic_block block)
       edge e;
       size_t i;
       basic_block bprime, first;
+      edge_iterator ei;
 
       worklist = VEC_alloc (basic_block, 2);
-      e = block->succ;
-      while (e)
-	{
-	  VEC_safe_push (basic_block, worklist, e->dest);
-	  e = e->succ_next;
-	}
+      FOR_EACH_EDGE (e, ei, block->succs)
+	VEC_safe_push (basic_block, worklist, e->dest);
       first = VEC_index (basic_block, worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
@@ -1199,7 +1199,7 @@ compute_antic_aux (basic_block block)
       VEC_free (basic_block, worklist);
     }
 
-  /* Generate ANTIC_OUT - TMP_GEN */
+  /* Generate ANTIC_OUT - TMP_GEN.  */
   S = bitmap_set_subtract_from_value_set (ANTIC_OUT, TMP_GEN (block), false);
 
   /* Start ANTIC_IN with EXP_GEN - TMP_GEN */
@@ -1416,13 +1416,15 @@ insert_aux (basic_block block)
       if (dom)
 	{
 	  int i;
+	  bitmap_iterator bi;
+
 	  bitmap_set_t newset = NEW_SETS (dom);
-	  EXECUTE_IF_SET_IN_BITMAP (newset->expressions, 0, i,
-          {
-	    bitmap_insert_into_set (NEW_SETS (block), ssa_name (i));
-	    bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
-	  });
-	  if (block->pred->pred_next)
+	  EXECUTE_IF_SET_IN_BITMAP (newset->expressions, 0, i, bi)
+	    {
+	      bitmap_insert_into_set (NEW_SETS (block), ssa_name (i));
+	      bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
+	    }
+	  if (EDGE_COUNT (block->preds) > 1)
 	    {
 	      value_set_node_t node;
 	      for (node = ANTIC_IN (block)->head;
@@ -1441,6 +1443,7 @@ insert_aux (basic_block block)
 		      edge pred;
 		      basic_block bprime;
 		      tree eprime;
+		      edge_iterator ei;
 
 		      val = get_value_handle (node->expr);
 		      if (bitmap_set_contains_value (PHI_GEN (block), val))
@@ -1451,11 +1454,9 @@ insert_aux (basic_block block)
 			    fprintf (dump_file, "Found fully redundant value\n");
 			  continue;
 			}
-		    		    
+					      
 		      avail = xcalloc (last_basic_block, sizeof (tree));
-		      for (pred = block->pred;
-			   pred;
-			   pred = pred->pred_next)
+		      FOR_EACH_EDGE (pred, ei, block->preds)
 			{
 			  tree vprime;
 			  tree edoubleprime;
@@ -1516,7 +1517,7 @@ insert_aux (basic_block block)
 			 partially redundant.  */
 		      if (!cant_insert && !all_same && by_some)
 			{
-			  tree type = TREE_TYPE (avail[block->pred->src->index]);
+			  tree type = TREE_TYPE (avail[EDGE_PRED (block, 0)->src->index]);
 			  tree temp;
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
@@ -1526,9 +1527,7 @@ insert_aux (basic_block block)
 			    }
 
 			  /* Make the necessary insertions.  */
-			  for (pred = block->pred;
-			       pred;
-			       pred = pred->pred_next)
+			  FOR_EACH_EDGE (pred, ei, block->preds)
 			    {
 			      tree stmts = alloc_stmt_list ();
 			      tree builtexpr;
@@ -1541,10 +1540,9 @@ insert_aux (basic_block block)
 									   eprime,
 									   stmts);
 				  bsi_insert_on_edge (pred, stmts);
-				  bsi_commit_edge_inserts (NULL);
 				  avail[bprime->index] = builtexpr;
 				}			      
-			    } 
+			    }
 			  /* Now build a phi for the new variable.  */
 			  temp = create_tmp_var (type, "prephitmp");
 			  add_referenced_tmp_var (temp);
@@ -1559,9 +1557,7 @@ insert_aux (basic_block block)
 #endif
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
-			  for (pred = block->pred;
-			       pred;
-			       pred = pred->pred_next)
+			  FOR_EACH_EDGE (pred, ei, block->preds)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);
@@ -1925,9 +1921,9 @@ init_pre (void)
      ENTRY_BLOCK_PTR (FIXME, if ENTRY_BLOCK_PTR had an index number
      different than -1 we wouldn't have to hack this.  tree-ssa-dce.c
      needs a similar change).  */
-  if (ENTRY_BLOCK_PTR->succ->dest->pred->pred_next)
-    if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
-      split_edge (ENTRY_BLOCK_PTR->succ);
+  if (EDGE_COUNT (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->preds) > 1)
+    if (!(EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->flags & EDGE_ABNORMAL))
+      split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
 
   FOR_ALL_BB (bb)
     bb->aux = xcalloc (1, sizeof (struct bb_value_sets));
@@ -1967,6 +1963,9 @@ static void
 fini_pre (void)
 {
   basic_block bb;
+  unsigned int i;
+
+  bsi_commit_edge_inserts (NULL);
 
   obstack_free (&grand_bitmap_obstack, NULL);
   free_alloc_pool (value_set_pool);
@@ -1994,6 +1993,20 @@ fini_pre (void)
     }
 
   BITMAP_XFREE (need_eh_cleanup);
+
+  /* Wipe out pointers to VALUE_HANDLEs.  In the not terribly distant
+     future we will want them to be persistent though.  */
+  for (i = 0; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+
+      if (!name)
+	continue;
+
+      if (SSA_NAME_VALUE (name)
+	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+	SSA_NAME_VALUE (name) = NULL;
+    }
 }
 
 

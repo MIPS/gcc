@@ -388,6 +388,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_fold_builtins);
+  NEXT_PASS (pass_stdarg);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_late_warn_uninitialized);
   NEXT_PASS (pass_del_ssa);
@@ -399,7 +400,9 @@ init_tree_optimization_passes (void)
   p = &pass_loop.sub;
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
+  NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_iv_canon);
+  NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
   NEXT_PASS (pass_linear_transform);

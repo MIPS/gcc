@@ -63,7 +63,8 @@ static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokfndecl (tree, tree, tree, tree, tree, int,
 			enum overload_flags, cp_cv_quals,
-			tree, int, int, int, int, int, int, tree);
+			tree, int, int, int, int, int, int, tree, 
+			tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
@@ -5534,7 +5535,8 @@ grokfndecl (tree ctype,
             int inlinep,
             int funcdef_flag,
             int template_count,
-            tree in_namespace)
+            tree in_namespace,
+	    tree* attrlist)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -5588,7 +5590,10 @@ grokfndecl (tree ctype,
 	error ("cannot declare `::main' to be static");
       if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			integer_type_node))
-	error ("`main' must return `int'");
+	{
+	  error ("`::main' must return `int'");
+	  TREE_TYPE (TREE_TYPE (decl)) = integer_type_node;
+	}
       inlinep = 0;
       publicp = 1;
     }
@@ -5752,6 +5757,12 @@ grokfndecl (tree ctype,
   if (decl == error_mark_node)
     return NULL_TREE;
 
+  if (attrlist)
+    {
+      cplus_decl_attributes (&decl, *attrlist, 0);
+      *attrlist = NULL_TREE;
+    }
+
   if (ctype != NULL_TREE
       && (! TYPE_FOR_JAVA (ctype) || check_java_method (decl))
       && check)
@@ -5762,7 +5773,7 @@ grokfndecl (tree ctype,
 				(processing_template_decl
 				 > template_class_depth (ctype))
 				? current_template_parms
-				: NULL_TREE);
+				: NULL_TREE); 
 
       if (old_decl && TREE_CODE (old_decl) == TEMPLATE_DECL)
 	/* Because grokfndecl is always supposed to return a
@@ -6185,12 +6196,20 @@ compute_array_index_type (tree name, tree size)
     itype = build_min (MINUS_EXPR, sizetype, size, integer_one_node);
   else
     {
+      HOST_WIDE_INT saved_processing_template_decl;
+
       /* Compute the index of the largest element in the array.  It is
-     	 one less than the number of elements in the array.  */
-      itype
-	= fold (cp_build_binary_op (MINUS_EXPR,
-				    cp_convert (ssizetype, size),
-				    cp_convert (ssizetype, integer_one_node)));
+     	 one less than the number of elements in the array.  We save
+     	 and restore PROCESSING_TEMPLATE_DECL so that computations in
+     	 cp_build_binary_op will be appropriately folded.  */
+      saved_processing_template_decl = processing_template_decl;
+      processing_template_decl = 0;
+      itype = cp_build_binary_op (MINUS_EXPR,
+				  cp_convert (ssizetype, size),
+				  cp_convert (ssizetype, integer_one_node));
+      itype = fold (itype);
+      processing_template_decl = saved_processing_template_decl;
+
       if (!TREE_CONSTANT (itype))
 	/* A variable sized array.  */
 	itype = variable_size (itype);
@@ -6457,6 +6476,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_decl_spec ds;
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
+  bool type_was_error_mark_node = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
   unsigned_p = declspecs->specs[(int)ds_unsigned];
@@ -6657,7 +6677,10 @@ grokdeclarator (const cp_declarator *declarator,
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
-    type = NULL_TREE;
+    {
+      type = NULL_TREE;
+      type_was_error_mark_node = true;
+    }
   /* If the entire declaration is itself tagged as deprecated then
      suppress reports of deprecated items.  */
   if (type && TREE_DEPRECATED (type)
@@ -6748,7 +6771,9 @@ grokdeclarator (const cp_declarator *declarator,
 		 && in_namespace == NULL_TREE
 		 && current_namespace == global_namespace);
 
-      if (in_system_header || flag_ms_extensions)
+      if (type_was_error_mark_node)
+	/* We've already issued an error, don't complain more.  */;
+      else if (in_system_header || flag_ms_extensions)
 	/* Allow it, sigh.  */;
       else if (pedantic || ! is_main)
 	pedwarn ("ISO C++ forbids declaration of `%s' with no type",
@@ -7839,7 +7864,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
-			       funcdef_flag, template_count, in_namespace);
+			       funcdef_flag, template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
 	      return decl;
 #if 0
@@ -7886,7 +7911,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
-			       template_count, in_namespace);
+			       template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
 	  }
@@ -8070,7 +8095,7 @@ grokdeclarator (const cp_declarator *declarator,
 			   virtualp, flags, quals, raises,
 			   1, friendp,
 			   publicp, inlinep, funcdef_flag,
-			   template_count, in_namespace);
+			   template_count, in_namespace, attrlist);
 	if (decl == NULL_TREE)
 	  return NULL_TREE;
 
@@ -9286,16 +9311,6 @@ xref_basetypes (tree ref, tree base_list)
 	  continue;
 	}
 
-      if (TYPE_MARKED_P (basetype))
-	{
-	  if (basetype == ref)
-	    error ("recursive type `%T' undefined", basetype);
-	  else
-	    error ("duplicate base type `%T' invalid", basetype);
-	  continue;
-	}
-      TYPE_MARKED_P (basetype) = 1;
-
       if (TYPE_FOR_JAVA (basetype) && (current_lang_depth () == 0))
 	TYPE_FOR_JAVA (ref) = 1;
 
@@ -9318,6 +9333,18 @@ xref_basetypes (tree ref, tree base_list)
 	  CLASSTYPE_REPEATED_BASE_P (ref)
 	    |= CLASSTYPE_REPEATED_BASE_P (basetype);
 	}
+      
+      /* We must do this test after we've seen through a typedef
+	 type.  */
+      if (TYPE_MARKED_P (basetype))
+	{
+	  if (basetype == ref)
+	    error ("recursive type `%T' undefined", basetype);
+	  else
+	    error ("duplicate base type `%T' invalid", basetype);
+	  continue;
+	}
+      TYPE_MARKED_P (basetype) = 1;
 
       base_binfo = copy_binfo (base_binfo, basetype, ref,
 			       &igo_prev, via_virtual);
@@ -10086,23 +10113,15 @@ start_function (cp_decl_specifier_seq *declspecs,
   if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
     return 0;
 
-  cplus_decl_attributes (&decl1, attrs, 0);
-
   /* If #pragma weak was used, mark the decl weak now.  */
   if (global_scope_p (current_binding_level))
     maybe_apply_pragma_weak (decl1);
 
   if (DECL_MAIN_P (decl1))
-    {
-      /* If this doesn't return integer_type, or a typedef to
-	 integer_type, complain.  */
-      if (!same_type_p (TREE_TYPE (TREE_TYPE (decl1)), integer_type_node))
-	{
-	  if (pedantic || warn_return_type)
-	    pedwarn ("return type for `main' changed to `int'");
-	  TREE_TYPE (decl1) = default_function_type;
-	}
-    }
+    /* main must return int.  grokfndecl should have corrected it
+       (and issued a diagnostic) if the user got it wrong.  */
+    gcc_assert (same_type_p (TREE_TYPE (TREE_TYPE (decl1)),
+			     integer_type_node));
 
   start_preparsed_function (decl1, attrs, /*flags=*/SF_DEFAULT);
 

@@ -228,6 +228,10 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Extract specified elements from vectors, for vector store.  */
+  OTI_vec_realign_store,
+  /* Extract specified elements from vectors, for vector load.  */
+  OTI_vec_realign_load,
 
   OTI_MAX
 };
@@ -330,6 +334,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
+#define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -392,6 +398,12 @@ extern enum insn_code setcc_gen_code[NUM_RTX_CODE];
 extern enum insn_code movcc_gen_code[NUM_MACHINE_MODES];
 #endif
 
+/* Indexed by the machine mode, gives the insn code for vector conditional
+   operation.  */
+
+extern enum insn_code vcond_gen_code[NUM_MACHINE_MODES];
+extern enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
+
 /* This array records the insn_code of insns to perform block moves.  */
 extern enum insn_code movmem_optab[NUM_MACHINE_MODES];
 
@@ -404,6 +416,10 @@ extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
+
+extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab, 
+			      rtx op0, rtx op1, rtx op2, rtx target, 
+			      int unsignedp);
 
 /* Expand a binary operation given optab and rtx operands.  */
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
@@ -487,5 +503,11 @@ extern void expand_float (rtx, rtx, int);
 
 /* Generate code for a FIX_EXPR.  */
 extern void expand_fix (rtx, rtx, int);
+
+/* Return tree if target supports vector operations for COND_EXPR.  */
+bool expand_vec_cond_expr_p (tree, enum machine_mode);
+
+/* Generate code for VEC_COND_EXPR.  */
+extern rtx expand_vec_cond_expr (tree, rtx);
 
 #endif /* GCC_OPTABS_H */

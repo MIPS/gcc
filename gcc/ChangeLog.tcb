@@ -1,3 +1,8 @@
+2004-09-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (replace_uses_in, replace_vuse_in,
+	substitute_and_fold): Bring from tree-ssa-propagate.c
+
 2004-09-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa-copy.o): Add dependency on

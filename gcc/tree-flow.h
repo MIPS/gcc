@@ -541,6 +541,8 @@ extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
+extern void find_new_referenced_vars (tree *);
+
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
 
@@ -599,6 +601,9 @@ tree duplicate_ssa_name (tree, tree);
 void execute_ssa_ccp (void);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
+/* FIXME.  Move these to tree-ssa-propagate.c.  */
+bool replace_uses_in (tree, bool *);
+void substitute_and_fold (void);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -609,6 +614,7 @@ extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern bool may_propagate_copy_into_asm (tree);
 extern void execute_copy_prop (void);
 
 /* Description of number of iterations of a loop.  All the expressions inside
@@ -652,6 +658,7 @@ bool empty_block_p (basic_block);
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);
+void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
@@ -677,6 +684,12 @@ void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
 basic_block ip_normal_pos (struct loop *);
+bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					 unsigned int, sbitmap,
+					 edge, edge *,
+					 unsigned int *, int);
+struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
+				    basic_block *);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

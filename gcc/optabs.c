@@ -84,6 +84,12 @@ enum insn_code setcc_gen_code[NUM_RTX_CODE];
 enum insn_code movcc_gen_code[NUM_MACHINE_MODES];
 #endif
 
+/* Indexed by the machine mode, gives the insn code for vector conditional
+   operation.  */
+
+enum insn_code vcond_gen_code[NUM_MACHINE_MODES];
+enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
+
 /* The insn generating function can not take an rtx_code argument.
    TRAP_RTX is used as an rtx argument.  Its code is replaced with
    the code to be used in the trap insn and all other fields are ignored.  */
@@ -116,6 +122,8 @@ static void prepare_float_lib_cmp (rtx *, rtx *, enum rtx_code *,
 				   enum machine_mode *, int *);
 static rtx widen_clz (enum machine_mode, rtx, rtx);
 static rtx expand_parity (enum machine_mode, rtx, rtx);
+static enum rtx_code get_rtx_code (enum tree_code, bool);
+static rtx vector_compare_rtx (tree, bool, enum insn_code);
 
 #ifndef HAVE_conditional_trap
 #define HAVE_conditional_trap 0
@@ -286,6 +294,12 @@ optab_for_tree_code (enum tree_code code, tree type)
     case MIN_EXPR:
       return TYPE_UNSIGNED (type) ? umin_optab : smin_optab;
 
+    case REALIGN_STORE_EXPR:
+      return vec_realign_store_optab;
+
+    case REALIGN_LOAD_EXPR:
+      return vec_realign_load_optab;
+
     default:
       break;
     }
@@ -313,6 +327,88 @@ optab_for_tree_code (enum tree_code code, tree type)
     }
 }
 
+
+/* Generate code to perform an operation specified by TERNARY_OPTAB
+   on operands OP0, OP1 and OP2, with result having machine-mode MODE.
+
+   UNSIGNEDP is for the case where we have to widen the operands
+   to perform the operation.  It says to use zero-extension.
+
+   If TARGET is nonzero, the value
+   is generated there, if it is convenient to do so.
+   In all cases an rtx is returned for the locus of the value;
+   this may or may not be TARGET.  */
+
+rtx
+expand_ternary_op (enum machine_mode mode, optab ternary_optab, rtx op0, 
+		   rtx op1, rtx op2, rtx target, int unsignedp) 
+{
+  int icode = (int) ternary_optab->handlers[(int) mode].insn_code;
+  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+  enum machine_mode mode2 = insn_data[icode].operand[3].mode;
+  rtx temp;
+  rtx pat;
+  rtx xop0 = op0, xop1 = op1, xop2 = op2;
+
+  if (ternary_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
+    abort ();
+
+  if (!target
+      || ! (*insn_data[icode].operand[0].predicate) (target, mode))
+    temp = gen_reg_rtx (mode);
+  else
+    temp = target;
+
+  /* In case the insn wants input operands in modes different from
+     those of the actual operands, convert the operands.  It would
+     seem that we don't need to convert CONST_INTs, but we do, so
+     that they're properly zero-extended, sign-extended or truncated
+     for their mode.  */
+
+  if (GET_MODE (op0) != mode0 && mode0 != VOIDmode)
+    xop0 = convert_modes (mode0,
+                          GET_MODE (op0) != VOIDmode
+                          ? GET_MODE (op0) 
+                          : mode,
+                          xop0, unsignedp);
+
+  if (GET_MODE (op1) != mode1 && mode1 != VOIDmode)
+    xop1 = convert_modes (mode1,
+                          GET_MODE (op1) != VOIDmode
+                          ? GET_MODE (op1)
+                          : mode,
+                          xop1, unsignedp);
+
+  if (GET_MODE (op2) != mode2 && mode2 != VOIDmode)
+    xop2 = convert_modes (mode2,
+                          GET_MODE (op2) != VOIDmode
+                          ? GET_MODE (op2)
+                          : mode,
+                          xop2, unsignedp);
+
+  /* Now, if insn's predicates don't allow our operands, put them into
+     pseudo regs.  */
+  
+  if (! (*insn_data[icode].operand[1].predicate) (xop0, mode0)
+      && mode0 != VOIDmode) 
+    xop0 = copy_to_mode_reg (mode0, xop0);
+  
+  if (! (*insn_data[icode].operand[2].predicate) (xop1, mode1)
+      && mode1 != VOIDmode)
+    xop1 = copy_to_mode_reg (mode1, xop1);
+    
+  if (! (*insn_data[icode].operand[3].predicate) (xop2, mode2)
+      && mode2 != VOIDmode)
+    xop2 = copy_to_mode_reg (mode2, xop2);
+    
+  pat = GEN_FCN (icode) (temp, xop0, xop1, xop2);
+    
+  emit_insn (pat);
+  return temp; 
+}
+
+
 /* Like expand_binop, but return a constant rtx if the result can be
    calculated at compile time.  The arguments and return value are
    otherwise the same as for expand_binop.  */
@@ -738,11 +834,19 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      force expensive constants into a register.  */
   if (CONSTANT_P (op0) && optimize
       && rtx_cost (op0, binoptab->code) > COSTS_N_INSNS (1))
-    op0 = force_reg (mode, op0);
+    {
+      if (GET_MODE (op0) != VOIDmode)
+	op0 = convert_modes (mode, VOIDmode, op0, unsignedp);
+      op0 = force_reg (mode, op0);
+    }
 
   if (CONSTANT_P (op1) && optimize
       && ! shift_op && rtx_cost (op1, binoptab->code) > COSTS_N_INSNS (1))
-    op1 = force_reg (mode, op1);
+    {
+      if (GET_MODE (op1) != VOIDmode)
+	op1 = convert_modes (mode, VOIDmode, op1, unsignedp);
+      op1 = force_reg (mode, op1);
+    }
 
   /* Record where to delete back to if we backtrack.  */
   last = get_last_insn ();
@@ -2894,7 +2998,6 @@ can_compare_p (enum rtx_code code, enum machine_mode mode,
       if (purpose == ccp_store_flag
 	  && cstore_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 	return 1;
-
       mode = GET_MODE_WIDER_MODE (mode);
     }
   while (mode != VOIDmode);
@@ -4561,6 +4664,12 @@ init_optabs (void)
     movcc_gen_code[i] = CODE_FOR_nothing;
 #endif
 
+  for (i = 0; i < NUM_MACHINE_MODES; i++)
+    {
+      vcond_gen_code[i] = CODE_FOR_nothing;
+      vcondu_gen_code[i] = CODE_FOR_nothing;
+    }
+
   add_optab = init_optab (PLUS);
   addv_optab = init_optabv (PLUS);
   sub_optab = init_optab (MINUS);
@@ -4657,6 +4766,8 @@ init_optabs (void)
   vec_extract_optab = init_optab (UNKNOWN);
   vec_set_optab = init_optab (UNKNOWN);
   vec_init_optab = init_optab (UNKNOWN);
+  vec_realign_load_optab = init_optab (UNKNOWN);
+
   /* Conversions.  */
   sext_optab = init_convert_optab (SIGN_EXTEND);
   zext_optab = init_convert_optab (ZERO_EXTEND);
@@ -4902,4 +5013,168 @@ gen_cond_trap (enum rtx_code code ATTRIBUTE_UNUSED, rtx op1,
   return insn;
 }
 
+/* Return rtx code for TCODE. Use UNSIGNEDP to select signed
+   or unsigned operation code.  */
+
+static enum rtx_code
+get_rtx_code (enum tree_code tcode, bool unsignedp)
+{
+  enum rtx_code code;
+  switch (tcode)
+    {
+    case EQ_EXPR:
+      code = EQ;
+      break;
+    case NE_EXPR:
+      code = NE;
+      break;
+    case LT_EXPR:
+      code = unsignedp ? LTU : LT;
+      break;
+    case LE_EXPR:
+      code = unsignedp ? LEU : LE;
+      break;
+    case GT_EXPR:
+      code = unsignedp ? GTU : GT;
+      break;
+    case GE_EXPR:
+      code = unsignedp ? GEU : GE;
+      break;
+      
+    case UNORDERED_EXPR:
+      code = UNORDERED;
+      break;
+    case ORDERED_EXPR:
+      code = ORDERED;
+      break;
+    case UNLT_EXPR:
+      code = UNLT;
+      break;
+    case UNLE_EXPR:
+      code = UNLE;
+      break;
+    case UNGT_EXPR:
+      code = UNGT;
+      break;
+    case UNGE_EXPR:
+      code = UNGE;
+      break;
+    case UNEQ_EXPR:
+      code = UNEQ;
+      break;
+    case LTGT_EXPR:
+      code = LTGT;
+      break;
+
+    default:
+      abort ();
+    }
+  return code;
+}
+
+/* Return comparison rtx for COND. Use UNSIGNEDP to select signed or
+   unsigned operators. Do not generate compare instruction.  */
+
+static rtx
+vector_compare_rtx (tree cond, bool unsignedp, enum insn_code icode)
+{
+  enum rtx_code rcode;
+  tree t_op0, t_op1;
+  rtx rtx_op0, rtx_op1;
+
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) != '<')
+    {
+      /* This is unlikely. While generating VEC_COND_EXPR,
+	 auto vectorizer ensures that condition is a relational
+	 operation.  */
+      abort ();
+    }
+  else
+    {
+      rcode = get_rtx_code (TREE_CODE (cond), unsignedp); 
+      t_op0 = TREE_OPERAND (cond, 0);
+      t_op1 = TREE_OPERAND (cond, 1);
+    }
+
+  /* Expand operands.  */
+  rtx_op0 = expand_expr (t_op0, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op0)), 1);
+  rtx_op1 = expand_expr (t_op1, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op1)), 1);
+
+  if (!(*insn_data[icode].operand[4].predicate) (rtx_op0, GET_MODE (rtx_op0))
+      && GET_MODE (rtx_op0) != VOIDmode)
+    rtx_op0 = force_reg (GET_MODE (rtx_op0), rtx_op0);
+  
+  if (!(*insn_data[icode].operand[5].predicate) (rtx_op1, GET_MODE (rtx_op1))
+      && GET_MODE (rtx_op1) != VOIDmode)
+    rtx_op1 = force_reg (GET_MODE (rtx_op1), rtx_op1);
+
+  return gen_rtx_fmt_ee (rcode, VOIDmode, rtx_op0, rtx_op1);
+}
+
+/* Return insn code for VEC_COND_EXPR EXPR.  */
+  
+static inline enum insn_code 
+get_vcond_icode (tree expr, enum machine_mode mode)
+{
+  enum insn_code icode = CODE_FOR_nothing;
+
+  if (TYPE_UNSIGNED (TREE_TYPE (expr)))
+    icode = vcondu_gen_code[mode];
+  else
+    icode = vcond_gen_code[mode];
+  return icode;
+}
+
+/* Return TRUE iff, appropriate vector insns are available
+   for vector cond expr expr in VMODE mode.  */
+
+bool
+expand_vec_cond_expr_p (tree expr, enum machine_mode vmode)
+{
+  if (get_vcond_icode (expr, vmode) == CODE_FOR_nothing)
+    return false;
+  return true;
+}
+
+/* Generate insns for VEC_COND_EXPR.  */
+
+rtx
+expand_vec_cond_expr (tree vec_cond_expr, rtx target)
+{
+  enum insn_code icode;
+  rtx comparison, rtx_op1, rtx_op2, cc_op0, cc_op1;
+  enum machine_mode mode = TYPE_MODE (TREE_TYPE (vec_cond_expr));
+  bool unsignedp = TYPE_UNSIGNED (TREE_TYPE (vec_cond_expr));
+
+  icode = get_vcond_icode (vec_cond_expr, mode);
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (!target)
+    target = gen_reg_rtx (mode);
+
+  /* Get comparison rtx.  First expand both cond expr operands.  */
+  comparison = vector_compare_rtx (TREE_OPERAND (vec_cond_expr, 0), 
+				   unsignedp, icode);
+  cc_op0 = XEXP (comparison, 0);
+  cc_op1 = XEXP (comparison, 1);
+  /* Expand both operands and force them in reg, if required.  */
+  rtx_op1 = expand_expr (TREE_OPERAND (vec_cond_expr, 1),
+			 NULL_RTX, VOIDmode, 1);
+  if (!(*insn_data[icode].operand[1].predicate) (rtx_op1, mode)
+      && mode != VOIDmode)
+    rtx_op1 = force_reg (mode, rtx_op1);
+
+  rtx_op2 = expand_expr (TREE_OPERAND (vec_cond_expr, 2),
+			 NULL_RTX, VOIDmode, 1);
+  if (!(*insn_data[icode].operand[2].predicate) (rtx_op2, mode)
+      && mode != VOIDmode)
+    rtx_op2 = force_reg (mode, rtx_op2);
+
+  /* Emit instruction! */
+  emit_insn (GEN_FCN (icode) (target, rtx_op1, rtx_op2, 
+			      comparison, cc_op0,  cc_op1));
+
+  return target;
+}
 #include "gt-optabs.h"

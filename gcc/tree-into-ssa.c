@@ -231,25 +231,27 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
 {
   basic_block bb, *worklist, *tos;
   int i;
+  bitmap_iterator bi;
 
   tos = worklist
     = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
-  EXECUTE_IF_SET_IN_BITMAP (livein, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (livein, 0, i, bi)
     {
-	*tos++ = BASIC_BLOCK (i);
-    });
+      *tos++ = BASIC_BLOCK (i);
+    }
 
   /* Iterate until the worklist is empty.  */
   while (tos != worklist)
     {
       edge e;
+      edge_iterator ei;
 
       /* Pull a block off the worklist.  */
       bb = *--tos;
 
       /* For each predecessor block.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  basic_block pred = e->src;
 	  int pred_index = pred->index;
@@ -319,8 +321,9 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
   edge e;
   tree phi, use;
   unsigned uid;
+  edge_iterator ei;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -602,6 +605,7 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
 {
   size_t i;
   varray_type work_stack;
+  bitmap_iterator bi;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
@@ -615,15 +619,17 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
      each definition block.  */
   if (names_to_rename)
     {
-      EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
+      EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i, bi)
 	{
 	  if (ssa_name (i))
 	    insert_phi_nodes_1 (ssa_name (i), dfs, &work_stack);
-	});
+	}
     }
   else if (vars_to_rename)
-    EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack));
+    EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i, bi)
+      {
+	insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
+      }
   else
     for (i = 0; i < num_referenced_vars; i++)
       insert_phi_nodes_1 (referenced_var (i), dfs, &work_stack);
@@ -726,6 +732,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   sbitmap names_to_rename = walk_data->global_data;
   edge e;
   bool abnormal_phi;
+  edge_iterator ei;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
@@ -733,7 +740,7 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   /* Mark the unwind point for this block.  */
   VARRAY_PUSH_TREE (block_defs_stack, NULL_TREE);
 
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     if (e->flags & EDGE_ABNORMAL)
       break;
   abnormal_phi = (e != NULL);
@@ -770,8 +777,9 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			   basic_block bb)
 {
   edge e;
+  edge_iterator ei;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;
 
@@ -799,8 +807,9 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
   edge e;
   sbitmap names_to_rename = walk_data->global_data;
   use_operand_p op;
+  edge_iterator ei;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;
 
@@ -964,6 +973,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
   edge e;
   tree phi;
   basic_block bb;
+  bitmap_iterator bi;
 
   def_map = find_def_blocks_for (var);
   if (def_map == NULL)
@@ -971,10 +981,10 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 
   phi_insertion_points = BITMAP_XMALLOC ();
 
-  EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index,
+  EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index, bi)
     {
       VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, BASIC_BLOCK (bb_index));
-    });
+    }
 
   /* Pop a block off the worklist, add every block that appears in
      the original block's dfs that we have not already processed to
@@ -991,6 +1001,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
   while (VARRAY_ACTIVE_SIZE (*work_stack) > 0)
     {
       int dfs_index;
+      bitmap_iterator bi;
 
       bb = VARRAY_TOP_GENERIC_PTR_NOGC (*work_stack);
       bb_index = bb->index;
@@ -999,13 +1010,13 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
       
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
 				      phi_insertion_points,
-				      0, dfs_index,
+				      0, dfs_index, bi)
 	{
 	  basic_block bb = BASIC_BLOCK (dfs_index);
 
 	  VARRAY_PUSH_GENERIC_PTR_NOGC (*work_stack, bb);
 	  bitmap_set_bit (phi_insertion_points, dfs_index);
-	});
+	}
     }
 
   /* Remove the blocks where we already have the phis.  */
@@ -1018,21 +1029,20 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 
   /* And insert the PHI nodes.  */
   EXECUTE_IF_AND_IN_BITMAP (phi_insertion_points, def_map->livein_blocks,
-			    0, bb_index,
-    do
-      {
-	bb = BASIC_BLOCK (bb_index);
+			    0, bb_index, bi)
+    {
+      bb = BASIC_BLOCK (bb_index);
 
-	phi = create_phi_node (var, bb);
+      phi = create_phi_node (var, bb);
 
-	/* If we are rewriting ssa names, add also the phi arguments.  */
-	if (TREE_CODE (var) == SSA_NAME)
-	  {
-	    for (e = bb->pred; e; e = e->pred_next)
-	      add_phi_arg (&phi, var, e);
-	  }
-      }
-    while (0));
+      /* If we are rewriting ssa names, add also the phi arguments.  */
+      if (TREE_CODE (var) == SSA_NAME)
+	{
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    add_phi_arg (&phi, var, e);
+	}
+    }
 
   BITMAP_XFREE (phi_insertion_points);
 }
@@ -1260,16 +1270,21 @@ debug_def_blocks_r (void **slot, void *data ATTRIBUTE_UNUSED)
 {
   unsigned long i;
   struct def_blocks_d *db_p = (struct def_blocks_d *) *slot;
+  bitmap_iterator bi;
   
   fprintf (stderr, "VAR: ");
   print_generic_expr (stderr, db_p->var, dump_flags);
   fprintf (stderr, ", DEF_BLOCKS: { ");
-  EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i,
-			    fprintf (stderr, "%ld ", i));
+  EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i, bi)
+    {
+      fprintf (stderr, "%ld ", i);
+    }
   fprintf (stderr, "}");
   fprintf (stderr, ", LIVEIN_BLOCKS: { ");
-  EXECUTE_IF_SET_IN_BITMAP (db_p->livein_blocks, 0, i,
-			    fprintf (stderr, "%ld ", i));
+  EXECUTE_IF_SET_IN_BITMAP (db_p->livein_blocks, 0, i, bi)
+    {
+      fprintf (stderr, "%ld ", i);
+    }
   fprintf (stderr, "}\n");
 
   return 1;
@@ -1334,14 +1349,17 @@ invalidate_name_tags (bitmap vars_to_rename)
 {
   size_t i;
   bool rename_name_tags_p;
+  bitmap_iterator bi;
 
   rename_name_tags_p = false;
-  EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i, bi)
+    {
       if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
 	{
 	  rename_name_tags_p = true;
 	  break;
-	});
+	}
+    }
 
   if (rename_name_tags_p)
     for (i = 0; i < num_referenced_vars; i++)
@@ -1433,13 +1451,7 @@ rewrite_into_ssa (bool all)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      edge e;
-      int count = 0;
-
-      for (e = bb->pred; e; e = e->pred_next)
-	count++;
-
-      bb_ann (bb)->num_preds = count;
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->preds);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
@@ -1550,6 +1562,7 @@ rewrite_ssa_into_ssa (void)
   sbitmap snames_to_rename;
   tree name;
   bitmap to_rename;
+  bitmap_iterator bi;
   
   if (!any_marked_for_rewrite_p ())
     return;
@@ -1567,13 +1580,7 @@ rewrite_ssa_into_ssa (void)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      edge e;
-      int count = 0;
-
-      for (e = bb->pred; e; e = e->pred_next)
-	count++;
-
-      bb_ann (bb)->num_preds = count;
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->preds);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
@@ -1598,8 +1605,10 @@ rewrite_ssa_into_ssa (void)
 
   snames_to_rename = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (snames_to_rename);
-  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i,
-			    SET_BIT (snames_to_rename, i));
+  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, bi)
+    {
+      SET_BIT (snames_to_rename, i);
+    }
 
   mark_def_sites_global_data.kills = sbitmap_alloc (num_ssa_names);
   mark_def_sites_global_data.names_to_rename = snames_to_rename;
@@ -1657,7 +1666,10 @@ rewrite_ssa_into_ssa (void)
 
   unmark_all_for_rewrite ();
 
-  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, release_ssa_name (ssa_name (i)));
+  EXECUTE_IF_SET_IN_BITMAP (to_rename, 0, i, bi)
+    {
+      release_ssa_name (ssa_name (i));
+    }
 
   sbitmap_free (snames_to_rename);
 

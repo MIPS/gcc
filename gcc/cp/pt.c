@@ -87,12 +87,6 @@ static htab_t local_specializations;
 #define UNIFY_ALLOW_OUTER_LESS_CV_QUAL 64
 #define UNIFY_ALLOW_MAX_CORRECTION 128
 
-#define GTB_VIA_VIRTUAL 1 /* The base class we are examining is
-			     virtual, or a base class of a virtual
-			     base.  */
-#define GTB_IGNORE_TYPE 2 /* We don't need to try to unify the current
-			     type with the desired type.  */
-
 static void push_access_scope (tree);
 static void pop_access_scope (tree);
 static int resolve_overloaded_unification (tree, tree, tree, tree,
@@ -154,7 +148,6 @@ static tree process_partial_specialization (tree);
 static void set_current_access_from_decl (tree);
 static void check_default_tmpl_args (tree, tree, int, int);
 static tree tsubst_call_declarator_parms (tree, tree, tsubst_flags_t, tree);
-static tree get_template_base_recursive (tree, tree, tree, tree, tree, int); 
 static tree get_template_base (tree, tree, tree, tree);
 static int verify_class_unification (tree, tree, tree);
 static tree try_class_unification (tree, tree, tree, tree);
@@ -3387,6 +3380,8 @@ convert_nontype_argument (tree type, tree expr)
 
   switch (TREE_CODE (type))
     {
+      HOST_WIDE_INT saved_processing_template_decl;
+
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
     case ENUMERAL_TYPE:
@@ -3404,8 +3399,12 @@ convert_nontype_argument (tree type, tree expr)
 	  return error_mark_node;
 
       /* It's safe to call digest_init in this case; we know we're
-	 just converting one integral constant expression to another.  */
+	 just converting one integral constant expression to another.
+	 */
+      saved_processing_template_decl = processing_template_decl;
+      processing_template_decl = 0;
       expr = digest_init (type, expr, (tree*) 0);
+      processing_template_decl = saved_processing_template_decl;
 
       if (TREE_CODE (expr) != INTEGER_CST)
 	/* Curiously, some TREE_CONSTANT integral expressions do not
@@ -9475,101 +9474,48 @@ try_class_unification (tree tparms, tree targs, tree parm, tree arg)
   return arg;
 }
 
-/* Subroutine of get_template_base.  RVAL, if non-NULL, is a base we
-   have already discovered to be satisfactory.  ARG_BINFO is the binfo
-   for the base class of ARG that we are currently examining.  */
-
-static tree
-get_template_base_recursive (tree tparms, 
-                             tree targs, 
-                             tree parm,
-                             tree arg_binfo, 
-                             tree rval, 
-                             int flags)
-{
-  tree base_binfo;
-  int i;
-  tree arg = BINFO_TYPE (arg_binfo);
-
-  if (!(flags & GTB_IGNORE_TYPE))
-    {
-      tree r = try_class_unification (tparms, targs,
-				      parm, arg);
-
-      /* If there is more than one satisfactory baseclass, then:
-
-	   [temp.deduct.call]
-
-	   If they yield more than one possible deduced A, the type
-	   deduction fails.
-
-	   applies.  */
-      if (r && rval && !same_type_p (r, rval))
-	return error_mark_node;
-      else if (r)
-	rval = r;
-    }
-
-  /* Process base types.  */
-  for (i = 0; BINFO_BASE_ITERATE (arg_binfo, i, base_binfo); i++)
-    {
-      int this_virtual;
-
-      /* Skip this base, if we've already seen it.  */
-      if (BINFO_MARKED (base_binfo))
-	continue;
-
-      this_virtual = 
-	(flags & GTB_VIA_VIRTUAL) || BINFO_VIRTUAL_P (base_binfo);
-      
-      /* When searching for a non-virtual, we cannot mark virtually
-	 found binfos.  */
-      if (! this_virtual)
-	BINFO_MARKED (base_binfo) = 1;
-      
-      rval = get_template_base_recursive (tparms, targs,
-					  parm,
-					  base_binfo, 
-					  rval,
-					  GTB_VIA_VIRTUAL * this_virtual);
-      
-      /* If we discovered more than one matching base class, we can
-	 stop now.  */
-      if (rval == error_mark_node)
-	return error_mark_node;
-    }
-
-  return rval;
-}
-
 /* Given a template type PARM and a class type ARG, find the unique
    base type in ARG that is an instance of PARM.  We do not examine
-   ARG itself; only its base-classes.  If there is no appropriate base
-   class, return NULL_TREE.  If there is more than one, return
-   error_mark_node.  PARM may be the type of a partial specialization,
-   as well as a plain template type.  Used by unify.  */
+   ARG itself; only its base-classes.  If there is not exactly one
+   appropriate base class, return NULL_TREE.  PARM may be the type of
+   a partial specialization, as well as a plain template type.  Used
+   by unify.  */
 
 static tree
 get_template_base (tree tparms, tree targs, tree parm, tree arg)
 {
-  tree rval;
-  tree arg_binfo;
+  tree rval = NULL_TREE;
+  tree binfo;
 
   gcc_assert (IS_AGGR_TYPE_CODE (TREE_CODE (arg)));
   
-  arg_binfo = TYPE_BINFO (complete_type (arg));
-  if (!arg_binfo)
+  binfo = TYPE_BINFO (complete_type (arg));
+  if (!binfo)
     /* The type could not be completed.  */
     return NULL_TREE;
-  
-  rval = get_template_base_recursive (tparms, targs,
-				      parm, arg_binfo, 
-				      NULL_TREE,
-				      GTB_IGNORE_TYPE);
 
-  /* Since get_template_base_recursive marks the bases classes, we
-     must unmark them here.  */
-  dfs_walk (arg_binfo, dfs_unmark, markedp, 0);
+  /* Walk in inheritance graph order.  The search order is not
+     important, and this avoids multiple walks of virtual bases.  */
+  for (binfo = TREE_CHAIN (binfo); binfo; binfo = TREE_CHAIN (binfo))
+    {
+      tree r = try_class_unification (tparms, targs, parm, BINFO_TYPE (binfo));
+
+      if (r)
+	{
+	  /* If there is more than one satisfactory baseclass, then:
+
+	       [temp.deduct.call]
+
+	      If they yield more than one possible deduced A, the type
+	      deduction fails.
+
+	     applies.  */
+	  if (rval && !same_type_p (r, rval))
+	    return NULL_TREE;
+	  
+	  rval = r;
+	}
+    }
 
   return rval;
 }
@@ -10058,10 +10004,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 		       a class of the form template-id, A can be a
 		       pointer to a derived class pointed to by the
 		       deduced A.  */
-		  t = get_template_base (tparms, targs,
-					 parm, arg);
+		  t = get_template_base (tparms, targs, parm, arg);
 
-		  if (! t || t == error_mark_node)
+		  if (!t)
 		    return 1;
 		}
 	    }

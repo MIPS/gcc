@@ -55,6 +55,8 @@ typedef struct cp_token GTY (())
   unsigned char flags;
   /* True if this token is from a system header. */
   BOOL_BITFIELD in_system_header : 1;
+  /* True if this token is from a context where it is implicitly extern "C" */
+  BOOL_BITFIELD implicit_extern_c : 1;
   /* The value associated with this token, if any.  */
   tree value;
   /* The location at which this token was found.  */
@@ -113,8 +115,6 @@ typedef struct cp_token_cache GTY(())
 
 static cp_lexer *cp_lexer_new_main
   (void);
-static cp_lexer *cp_lexer_new_from_token_array
-  (cp_token *, cp_token *);
 static cp_lexer *cp_lexer_new_from_tokens
   (cp_token_cache *tokens);
 static void cp_lexer_destroy
@@ -132,10 +132,6 @@ static void cp_lexer_grow_buffer
 static void cp_lexer_get_preprocessor_token
   (cp_lexer *, cp_token *);
 static inline cp_token *cp_lexer_peek_token
-  (cp_lexer *);
-static void cp_lexer_peek_token_emit_debug_info
-  (cp_lexer *, cp_token *);
-static void cp_lexer_skip_purged_tokens
   (cp_lexer *);
 static cp_token *cp_lexer_peek_nth_token
   (cp_lexer *, size_t);
@@ -159,8 +155,6 @@ static void cp_lexer_commit_tokens
   (cp_lexer *);
 static void cp_lexer_rollback_tokens
   (cp_lexer *);
-static inline void cp_lexer_set_source_position_from_token
-  (cp_lexer *, const cp_token *);
 #ifdef ENABLE_CHECKING
 static void cp_lexer_print_token
   (FILE *, cp_token *);
@@ -170,10 +164,17 @@ static void cp_lexer_start_debugging
   (cp_lexer *) ATTRIBUTE_UNUSED;
 static void cp_lexer_stop_debugging
   (cp_lexer *) ATTRIBUTE_UNUSED;
+static void cp_lexer_peek_token_emit_debug_info
+  (cp_lexer *, cp_token *);
 #else
-#define cp_lexer_debug_stream NULL
-#define cp_lexer_print_token(str, tok)
+/* If we define cp_lexer_debug_stream to NULL it will provoke warnings
+   about passing NULL to functions that require non-NULL arguments
+   (fputs, fprintf).  It will never be used, so all we need is a value
+   of the right type that's guaranteed not to be NULL.  */
+#define cp_lexer_debug_stream stdout
+#define cp_lexer_print_token(str, tok) (void) 0
 #define cp_lexer_debugging_p(lexer) 0
+#define cp_lexer_peek_token_emit_debug_info(lexer, tok) (void) 0
 #endif /* ENABLE_CHECKING */
 
 static cp_token_cache *cp_token_cache_new
@@ -203,7 +204,10 @@ static cp_token_cache *cp_token_cache_new
 /* A token type for tokens that are not tokens at all; these are used
    to represent slots in the array where there used to be a token
    that has now been deleted. */
-#define CPP_PURGED (CPP_NESTED_NAME_SPECIFIER + 1)
+#define CPP_PURGED ((enum cpp_ttype) (CPP_NESTED_NAME_SPECIFIER + 1))
+
+/* The number of token types, including C++-specific ones.  */
+#define N_CP_TTYPES ((int) (CPP_PURGED + 1))
 
 /* Variables.  */
 
@@ -266,16 +270,18 @@ cp_lexer_new_main (void)
      string constant concatenation.  */
   c_lex_return_raw_strings = false;
 
+  gcc_assert (lexer->next_token->type != CPP_PURGED);
   return lexer;
 }
 
 /* Create a new lexer whose token stream is primed with the tokens in
-   the range [FIRST, LAST).  When these tokens are exhausted, no new
-   tokens will be read.  */
+   CACHE.  When these tokens are exhausted, no new tokens will be read.  */
 
 static cp_lexer *
-cp_lexer_new_from_token_array (cp_token *first, cp_token *last)
+cp_lexer_new_from_tokens (cp_token_cache *cache)
 {
+  cp_token *first = cache->first;
+  cp_token *last = cache->last;
   cp_lexer *lexer = GGC_CNEW (cp_lexer);
   cp_token *eof;
 
@@ -302,16 +308,9 @@ cp_lexer_new_from_token_array (cp_token *first, cp_token *last)
   /* Initially we are not debugging.  */
   lexer->debugging_p = false;
 #endif
+
+  gcc_assert (lexer->next_token->type != CPP_PURGED);
   return lexer;
-}
-
-/* Create a new lexer whose token stream is primed with the tokens in
-   CACHE.  When these tokens are exhausted, no new tokens will be read.  */
-
-static cp_lexer *
-cp_lexer_new_from_tokens (cp_token_cache *cache)
-{
-  return cp_lexer_new_from_token_array (cache->first, cache->last);
 }
 
 /* Frees all resources associated with LEXER. */
@@ -334,24 +333,6 @@ cp_lexer_debugging_p (cp_lexer *lexer)
 }
 
 #endif /* ENABLE_CHECKING */
-
-/* Set the current source position from the information stored in
-   TOKEN.  */
-
-static inline void
-cp_lexer_set_source_position_from_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
-                                         const cp_token *token)
-{
-  /* Ideally, the source position information would not be a global
-     variable, but it is.  */
-
-  /* Update the line number and system header flag. */
-  if (token->type != CPP_EOF)
-    {
-      input_location = token->location;
-      in_system_header = token->in_system_header;
-    }
-}
 
 /* TOKEN points into the circular token buffer.  Return a pointer to
    the next token in the buffer.  */
@@ -439,6 +420,7 @@ static void
 cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
                                  cp_token *token)
 {
+  static int is_extern_c = 0;
   bool done;
 
   done = false;
@@ -466,6 +448,13 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   token->location = input_location;
   token->in_system_header = in_system_header;
 
+  /* On some systems, some header files are surrounded by an 
+     implicit extern "C" block.  Set a flag in the token if it
+     comes from such a header. */
+  is_extern_c += pending_lang_change;
+  pending_lang_change = 0;
+  token->implicit_extern_c = is_extern_c > 0;
+
   /* Check to see if this token is a keyword.  */
   if (token->type == CPP_NAME
       && C_IS_RESERVED_WORD (token->value))
@@ -484,28 +473,29 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
     token->keyword = RID_MAX;
 }
 
+/* Update the globals input_location and in_system_header from TOKEN.   */
+static inline void
+cp_lexer_set_source_position_from_token (cp_token *token)
+{
+  if (token->type != CPP_EOF)
+    {
+      input_location = token->location;
+      in_system_header = token->in_system_header;
+    }
+}
+
 /* Return a pointer to the next token in the token stream, but do not
    consume it.  */
 
 static inline cp_token *
 cp_lexer_peek_token (cp_lexer *lexer)
 {
-  cp_token *token;
-
-  /* Skip over purged tokens if necessary. */
-  if (lexer->next_token->type == CPP_PURGED)
-    cp_lexer_skip_purged_tokens (lexer);
-
-  token = lexer->next_token;
-
-  /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
-    cp_lexer_peek_token_emit_debug_info (lexer, token);
-
-  cp_lexer_set_source_position_from_token (lexer, token);
-  return token;
+    cp_lexer_peek_token_emit_debug_info (lexer, lexer->next_token);
+  return lexer->next_token;
 }
 
+#ifdef ENABLE_CHECKING
 /* Emit debug output for cp_lexer_peek_token.  Split out into a
    separate function so that cp_lexer_peek_token can be small and
    inlinable. */
@@ -514,35 +504,23 @@ static void
 cp_lexer_peek_token_emit_debug_info (cp_lexer *lexer ATTRIBUTE_UNUSED,
 				     cp_token *token ATTRIBUTE_UNUSED)
 {
-  fprintf (cp_lexer_debug_stream, "cp_lexer: peeking at token: ");
+  fputs ("cp_lexer: peeking at token: ", cp_lexer_debug_stream);
   cp_lexer_print_token (cp_lexer_debug_stream, token);
-  fprintf (cp_lexer_debug_stream, "\n");
+  putc ('\n', cp_lexer_debug_stream);
 }
-
-/* Skip all tokens whose type is CPP_PURGED. */
-
-static void cp_lexer_skip_purged_tokens (cp_lexer *lexer)
-{
-  while (lexer->next_token->type == CPP_PURGED)
-    ++lexer->next_token;
-}
+#endif
 
 /* Return true if the next token has the indicated TYPE.  */
 
-static bool
+static inline bool
 cp_lexer_next_token_is (cp_lexer* lexer, enum cpp_ttype type)
 {
-  cp_token *token;
-
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (lexer);
-  /* Check to see if it has the indicated TYPE.  */
-  return token->type == type;
+  return cp_lexer_peek_token (lexer)->type == type;
 }
 
 /* Return true if the next token does not have the indicated TYPE.  */
 
-static bool
+static inline bool
 cp_lexer_next_token_is_not (cp_lexer* lexer, enum cpp_ttype type)
 {
   return !cp_lexer_next_token_is (lexer, type);
@@ -550,7 +528,7 @@ cp_lexer_next_token_is_not (cp_lexer* lexer, enum cpp_ttype type)
 
 /* Return true if the next token is the indicated KEYWORD.  */
 
-static bool
+static inline bool
 cp_lexer_next_token_is_keyword (cp_lexer* lexer, enum rid keyword)
 {
   cp_token *token;
@@ -562,7 +540,10 @@ cp_lexer_next_token_is_keyword (cp_lexer* lexer, enum rid keyword)
 }
 
 /* Return a pointer to the Nth token in the token stream.  If N is 1,
-   then this is precisely equivalent to cp_lexer_peek_token.  */
+   then this is precisely equivalent to cp_lexer_peek_token (except
+   that it is not inline).  One would like to disallow that case, but
+   there is one case (cp_parser_nth_token_starts_template_id) where
+   the caller passes a variable for N and it might be 1.  */
 
 static cp_token *
 cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
@@ -571,6 +552,10 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
 
   /* N is 1-based, not zero-based.  */
   gcc_assert (n > 0);
+
+  if (cp_lexer_debugging_p (lexer))
+    fprintf (cp_lexer_debug_stream,
+	     "cp_lexer: peeking ahead %ld at token: ", (long)n);
 
   --n;
   token = lexer->next_token;
@@ -581,39 +566,43 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
 	--n;
     }
 
-  return token;
-}
-
-/* Consume the next token.  The pointer returned is valid only until
-   another token is read.  Callers should preserve copy the token
-   explicitly if they will need its value for a longer period of
-   time.  */
-
-static cp_token *
-cp_lexer_consume_token (cp_lexer* lexer)
-{
-  cp_token *token;
-
-  /* Skip over purged tokens if necessary. */
-  if (lexer->next_token->type == CPP_PURGED)
-    cp_lexer_skip_purged_tokens (lexer);
-
-  token = lexer->next_token++;
-
-  /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
     {
-      fprintf (cp_lexer_debug_stream, "cp_lexer: consuming token: ");
       cp_lexer_print_token (cp_lexer_debug_stream, token);
-      fprintf (cp_lexer_debug_stream, "\n");
+      putc ('\n', cp_lexer_debug_stream);
     }
 
   return token;
 }
 
-/* Permanently remove the next token from the token stream.  There
-   must be a valid next token already; this token never reads
-   additional tokens from the preprocessor.  */
+/* Return the next token, and advance the lexer's next_token pointer
+   to point to the next non-purged token.  */
+
+static cp_token *
+cp_lexer_consume_token (cp_lexer* lexer)
+{
+  cp_token *token = lexer->next_token;
+
+  do
+    ++lexer->next_token;
+  while (lexer->next_token->type == CPP_PURGED);
+
+  cp_lexer_set_source_position_from_token (token);
+
+  /* Provide debugging output.  */
+  if (cp_lexer_debugging_p (lexer))
+    {
+      fputs ("cp_lexer: consuming token: ", cp_lexer_debug_stream);
+      cp_lexer_print_token (cp_lexer_debug_stream, token);
+      putc ('\n', cp_lexer_debug_stream);
+    }
+
+  return token;
+}
+
+/* Permanently remove the next token from the token stream, and
+   advance the next_token pointer to refer to the next non-purged
+   token.  */
 
 static void
 cp_lexer_purge_token (cp_lexer *lexer)
@@ -623,6 +612,10 @@ cp_lexer_purge_token (cp_lexer *lexer)
   tok->location = UNKNOWN_LOCATION;
   tok->value = NULL_TREE;
   tok->keyword = RID_MAX;
+
+  do
+    ++lexer->next_token;
+  while (lexer->next_token->type == CPP_PURGED);
 }
 
 /* Permanently remove all tokens after TOK, up to, but not
@@ -658,7 +651,6 @@ cp_lexer_handle_pragma (cp_lexer *lexer)
   s.len = TREE_STRING_LENGTH (token->value);
   s.text = (const unsigned char *) TREE_STRING_POINTER (token->value);
 
-  cp_lexer_set_source_position_from_token (lexer, token);
   cpp_handle_deferred_pragma (parse_in, &s);
 
   /* Clearing token->value here means that we will get an ICE if we
@@ -1038,18 +1030,11 @@ make_parameter_declarator (cp_decl_specifier_seq *decl_specifiers,
    Future Improvements
    -------------------
 
-   The performance of the parser could probably be improved
-   substantially.  Some possible improvements include:
-
-     - The expression parser recurses through the various levels of
-       precedence as specified in the grammar, rather than using an
-       operator-precedence technique.  Therefore, parsing a simple
-       identifier requires multiple recursive calls.
-
-     - We could often eliminate the need to parse tentatively by
-       looking ahead a little bit.  In some places, this approach
-       might not entirely eliminate the need to parse tentatively, but
-       it might still speed up the average case.  */
+   The performance of the parser could probably be improved substantially.
+   We could often eliminate the need to parse tentatively by looking ahead
+   a little bit.  In some places, this approach might not entirely eliminate
+   the need to parse tentatively, but it might still speed up the average
+   case.  */
 
 /* Flags that are passed to some parsing functions.  These values can
    be bitwise-ored together.  */
@@ -1077,20 +1062,39 @@ typedef enum cp_parser_declarator_kind
   CP_PARSER_DECLARATOR_EITHER
 } cp_parser_declarator_kind;
 
-/* A mapping from a token type to a corresponding tree node type.  */
+/* The precedence values used to parse binary expressions.  The minimum value
+   of PREC must be 1, because zero is reserved to quickly discriminate
+   binary operators from other tokens.  */
 
-typedef struct cp_parser_token_tree_map_node
+enum cp_parser_prec
+{
+  PREC_NOT_OPERATOR,
+  PREC_LOGICAL_OR_EXPRESSION,
+  PREC_LOGICAL_AND_EXPRESSION,
+  PREC_INCLUSIVE_OR_EXPRESSION,
+  PREC_EXCLUSIVE_OR_EXPRESSION,
+  PREC_AND_EXPRESSION,
+  PREC_RELATIONAL_EXPRESSION,
+  PREC_EQUALITY_EXPRESSION,
+  PREC_SHIFT_EXPRESSION,
+  PREC_ADDITIVE_EXPRESSION,
+  PREC_MULTIPLICATIVE_EXPRESSION,
+  PREC_PM_EXPRESSION,
+  NUM_PREC_VALUES = PREC_PM_EXPRESSION
+};
+
+/* A mapping from a token type to a corresponding tree node type, with a
+   precedence value.  */
+
+typedef struct cp_parser_binary_operations_map_node
 {
   /* The token type.  */
-  ENUM_BITFIELD (cpp_ttype) token_type : 8;
+  enum cpp_ttype token_type;
   /* The corresponding tree code.  */
-  ENUM_BITFIELD (tree_code) tree_type : 8;
-} cp_parser_token_tree_map_node;
-
-/* A complete map consists of several ordinary entries, followed by a
-   terminator.  The terminating entry has a token_type of CPP_EOF.  */
-
-typedef cp_parser_token_tree_map_node cp_parser_token_tree_map[];
+  enum tree_code tree_type;
+  /* The precedence of this operator.  */
+  enum cp_parser_prec prec;
+} cp_parser_binary_operations_map_node;
 
 /* The status of a tentative parse.  */
 
@@ -1105,8 +1109,20 @@ typedef enum cp_parser_status_kind
   CP_PARSER_STATUS_KIND_COMMITTED
 } cp_parser_status_kind;
 
-/* Context that is saved and restored when parsing tentatively.  */
+typedef struct cp_parser_expression_stack_entry
+{
+  tree lhs;
+  enum tree_code tree_type;
+  int prec;
+} cp_parser_expression_stack_entry;
 
+/* The stack for storing partial expressions.  We only need NUM_PREC_VALUES
+   entries because precedence levels on the stack are monotonically
+   increasing.  */
+typedef struct cp_parser_expression_stack_entry
+  cp_parser_expression_stack[NUM_PREC_VALUES];
+
+/* Context that is saved and restored when parsing tentatively.  */
 typedef struct cp_parser_context GTY (())
 {
   /* If this is a tentative parsing context, the status of the
@@ -1117,6 +1133,7 @@ typedef struct cp_parser_context GTY (())
      scope given by OBJECT_TYPE (the type of `x' or `*x') and also in
      the context of the containing expression.  */
   tree object_type;
+
   /* The next parsing context in the stack.  */
   struct cp_parser_context *next;
 } cp_parser_context;
@@ -1131,6 +1148,50 @@ static cp_parser_context *cp_parser_context_new
 /* Class variables.  */
 
 static GTY((deletable)) cp_parser_context* cp_parser_context_free_list;
+
+/* The operator-precedence table used by cp_parser_binary_expression.
+   Transformed into an associative array (binops_by_token) by
+   cp_parser_new.  */
+
+static const cp_parser_binary_operations_map_node binops[] = {
+  { CPP_DEREF_STAR, MEMBER_REF, PREC_PM_EXPRESSION },
+  { CPP_DOT_STAR, DOTSTAR_EXPR, PREC_PM_EXPRESSION },
+
+  { CPP_MULT, MULT_EXPR, PREC_MULTIPLICATIVE_EXPRESSION },
+  { CPP_DIV, TRUNC_DIV_EXPR, PREC_MULTIPLICATIVE_EXPRESSION },
+  { CPP_MOD, TRUNC_MOD_EXPR, PREC_MULTIPLICATIVE_EXPRESSION },
+
+  { CPP_PLUS, PLUS_EXPR, PREC_ADDITIVE_EXPRESSION },
+  { CPP_MINUS, MINUS_EXPR, PREC_ADDITIVE_EXPRESSION },
+
+  { CPP_LSHIFT, LSHIFT_EXPR, PREC_SHIFT_EXPRESSION },
+  { CPP_RSHIFT, RSHIFT_EXPR, PREC_SHIFT_EXPRESSION },
+
+  { CPP_LESS, LT_EXPR, PREC_RELATIONAL_EXPRESSION },
+  { CPP_GREATER, GT_EXPR, PREC_RELATIONAL_EXPRESSION },
+  { CPP_LESS_EQ, LE_EXPR, PREC_RELATIONAL_EXPRESSION },
+  { CPP_GREATER_EQ, GE_EXPR, PREC_RELATIONAL_EXPRESSION },
+  { CPP_MIN, MIN_EXPR, PREC_RELATIONAL_EXPRESSION },
+  { CPP_MAX, MAX_EXPR, PREC_RELATIONAL_EXPRESSION },
+
+  { CPP_EQ_EQ, EQ_EXPR, PREC_EQUALITY_EXPRESSION },
+  { CPP_NOT_EQ, NE_EXPR, PREC_EQUALITY_EXPRESSION },
+
+  { CPP_AND, BIT_AND_EXPR, PREC_AND_EXPRESSION },
+
+  { CPP_XOR, BIT_XOR_EXPR, PREC_EXCLUSIVE_OR_EXPRESSION },
+
+  { CPP_OR, BIT_IOR_EXPR, PREC_INCLUSIVE_OR_EXPRESSION },
+
+  { CPP_AND_AND, TRUTH_ANDIF_EXPR, PREC_LOGICAL_AND_EXPRESSION },
+
+  { CPP_OR_OR, TRUTH_ORIF_EXPR, PREC_LOGICAL_OR_EXPRESSION }
+};
+
+/* The same as binops, but initialized by cp_parser_new so that
+   binops_by_token[N].token_type == N.  Used in cp_parser_binary_expression
+   for speed.  */
+static cp_parser_binary_operations_map_node binops_by_token[N_CP_TTYPES];
 
 /* Constructors and destructors.  */
 
@@ -1152,6 +1213,7 @@ cp_parser_context_new (cp_parser_context* next)
     }
   else
     context = GGC_CNEW (cp_parser_context);
+
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
   /* If this is not the bottomost context, copy information that we
@@ -1265,6 +1327,10 @@ typedef struct cp_parser GTY(())
      alternatives.  */
   bool in_type_id_in_expr_p;
 
+  /* TRUE if we are currently in a header file where declarations are
+     implicitly extern "C". */
+  bool implicit_extern_c;
+
   /* TRUE if strings in expressions should be translated to the execution
      character set.  */
   bool translate_strings_p;
@@ -1377,27 +1443,7 @@ static tree cp_parser_delete_expression
   (cp_parser *);
 static tree cp_parser_cast_expression
   (cp_parser *, bool);
-static tree cp_parser_pm_expression
-  (cp_parser *);
-static tree cp_parser_multiplicative_expression
-  (cp_parser *);
-static tree cp_parser_additive_expression
-  (cp_parser *);
-static tree cp_parser_shift_expression
-  (cp_parser *);
-static tree cp_parser_relational_expression
-  (cp_parser *);
-static tree cp_parser_equality_expression
-  (cp_parser *);
-static tree cp_parser_and_expression
-  (cp_parser *);
-static tree cp_parser_exclusive_or_expression
-  (cp_parser *);
-static tree cp_parser_inclusive_or_expression
-  (cp_parser *);
-static tree cp_parser_logical_and_expression
-  (cp_parser *);
-static tree cp_parser_logical_or_expression
+static tree cp_parser_binary_expression
   (cp_parser *);
 static tree cp_parser_question_colon_clause
   (cp_parser *, tree);
@@ -1651,8 +1697,6 @@ static bool cp_parser_check_template_parameters
   (cp_parser *, unsigned);
 static tree cp_parser_simple_cast_expression
   (cp_parser *);
-static tree cp_parser_binary_expression
-  (cp_parser *, const cp_parser_token_tree_map, cp_parser_expression_fn);
 static tree cp_parser_global_scope_opt
   (cp_parser *, bool);
 static bool cp_parser_constructor_declarator_p
@@ -1788,16 +1832,21 @@ cp_parser_is_keyword (cp_token* token, enum rid keyword)
   return token->keyword == keyword;
 }
 
-/* Issue the indicated error MESSAGE.  */
+/* If not parsing tentatively, issue a diagnostic of the form
+      FILE:LINE: MESSAGE before TOKEN
+   where TOKEN is the next token in the input stream.  MESSAGE
+   (specified by the caller) is usually of the form "expected
+   OTHER-TOKEN".  */
 
 static void
 cp_parser_error (cp_parser* parser, const char* message)
 {
-  /* Output the MESSAGE -- unless we're parsing tentatively.  */
   if (!cp_parser_simulate_error (parser))
     {
-      cp_token *token;
-      token = cp_lexer_peek_token (parser->lexer);
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+      /* This diagnostic makes more sense if it is tagged to the line
+	 of the token we just peeked at.  */
+      cp_lexer_set_source_position_from_token (token);
       c_parse_error (message,
 		     /* Because c_parser_error does not understand
 			CPP_KEYWORD, keywords are treated like
@@ -2340,10 +2389,16 @@ cp_parser_new (void)
 {
   cp_parser *parser;
   cp_lexer *lexer;
+  unsigned i;
 
   /* cp_lexer_new_main is called before calling ggc_alloc because
      cp_lexer_new_main might load a PCH file.  */
   lexer = cp_lexer_new_main ();
+
+  /* Initialize the binops_by_token so that we can get the tree
+     directly from the token.  */
+  for (i = 0; i < sizeof (binops) / sizeof (binops[0]); i++)
+    binops_by_token[binops[i].token_type] = binops[i];
 
   parser = GGC_CNEW (cp_parser);
   parser->lexer = lexer;
@@ -2384,6 +2439,9 @@ cp_parser_new (void)
   /* We are not parsing a type-id inside an expression.  */
   parser->in_type_id_in_expr_p = false;
 
+  /* Declarations aren't implicitly extern "C". */
+  parser->implicit_extern_c = false;
+
   /* String literals should be translated to the execution character set.  */
   parser->translate_strings_p = true;
 
@@ -2397,6 +2455,36 @@ cp_parser_new (void)
   parser->num_template_parameter_lists = 0;
 
   return parser;
+}
+
+/* Create a cp_lexer structure which will emit the tokens in CACHE
+   and push it onto the parser's lexer stack.  This is used for delayed
+   parsing of in-class method bodies and default arguments, and should
+   not be confused with tentative parsing.  */
+static void
+cp_parser_push_lexer_for_tokens (cp_parser *parser, cp_token_cache *cache)
+{
+  cp_lexer *lexer = cp_lexer_new_from_tokens (cache);
+  lexer->next = parser->lexer;
+  parser->lexer = lexer;
+
+  /* Move the current source position to that of the first token in the
+     new lexer.  */
+  cp_lexer_set_source_position_from_token (lexer->next_token);
+}
+
+/* Pop the top lexer off the parser stack.  This is never used for the
+   "main" lexer, only for those pushed by cp_parser_push_lexer_for_tokens.  */
+static void
+cp_parser_pop_lexer (cp_parser *parser)
+{
+  cp_lexer *lexer = parser->lexer;
+  parser->lexer = lexer->next;
+  cp_lexer_destroy (lexer);
+
+  /* Put the current source position back where it was before this
+     lexer was pushed.  */
+  cp_lexer_set_source_position_from_token (parser->lexer->next_token);
 }
 
 /* Lexical conventions [gram.lex]  */
@@ -2446,16 +2534,18 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
       return error_mark_node;
     }
 
-  /* Try to avoid the overhead of creating and destroying an obstac
+  /* Try to avoid the overhead of creating and destroying an obstack
      for the common case of just one string.  */
-  if (!cp_parser_is_string_literal (cp_lexer_peek_nth_token (parser->lexer, 2)))
+  if (!cp_parser_is_string_literal
+      (cp_lexer_peek_nth_token (parser->lexer, 2)))
     {
+      cp_lexer_consume_token (parser->lexer);
+
       str.text = (const unsigned char *)TREE_STRING_POINTER (tok->value);
       str.len = TREE_STRING_LENGTH (tok->value);
       count = 1;
       if (tok->type == CPP_WSTRING)
 	wide = true;
-      cp_lexer_consume_token (parser->lexer);
 
       strs = &str;
     }
@@ -2466,6 +2556,7 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
 
       do
 	{
+	  cp_lexer_consume_token (parser->lexer);
 	  count++;
 	  str.text = (unsigned char *)TREE_STRING_POINTER (tok->value);
 	  str.len = TREE_STRING_LENGTH (tok->value);
@@ -2474,11 +2565,7 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
 
 	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
 
-	  /* We do it this way so that, if we have to issue semantic
-	     errors on this string literal, the source position will
-	     be that of the first token of the string.  */
-	  tok = cp_lexer_peek_nth_token (parser->lexer, 2);
-	  cp_lexer_consume_token (parser->lexer);
+	  tok = cp_lexer_peek_token (parser->lexer);
 	}
       while (cp_parser_is_string_literal (tok));
 
@@ -2554,6 +2641,14 @@ cp_parser_translation_unit (cp_parser* parser)
 	  /* Get rid of the token array; we don't need it any more. */
 	  cp_lexer_destroy (parser->lexer);
 	  parser->lexer = NULL;
+
+	  /* This file might have been a context that's implicitly extern
+	     "C".  If so, pop the lang context.  (Only relevant for PCH.) */
+	  if (parser->implicit_extern_c)
+	    {
+	      pop_lang_context ();
+	      parser->implicit_extern_c = false;
+	    }
 
 	  /* Finish up.  */
 	  finish_translation_unit ();
@@ -5161,29 +5256,12 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p)
   return cp_parser_unary_expression (parser, address_p);
 }
 
-/* Parse a pm-expression.
+/* Parse a binary expression of the general form:
 
    pm-expression:
      cast-expression
      pm-expression .* cast-expression
      pm-expression ->* cast-expression
-
-     Returns a representation of the expression.  */
-
-static tree
-cp_parser_pm_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_DEREF_STAR, MEMBER_REF },
-    { CPP_DOT_STAR, DOTSTAR_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser, map,
-				      cp_parser_simple_cast_expression);
-}
-
-/* Parse a multiplicative-expression.
 
    multiplicative-expression:
      pm-expression
@@ -5191,70 +5269,15 @@ cp_parser_pm_expression (cp_parser* parser)
      multiplicative-expression / pm-expression
      multiplicative-expression % pm-expression
 
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_multiplicative_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_MULT, MULT_EXPR },
-    { CPP_DIV, TRUNC_DIV_EXPR },
-    { CPP_MOD, TRUNC_MOD_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_pm_expression);
-}
-
-/* Parse an additive-expression.
-
    additive-expression:
      multiplicative-expression
      additive-expression + multiplicative-expression
      additive-expression - multiplicative-expression
 
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_additive_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_PLUS, PLUS_EXPR },
-    { CPP_MINUS, MINUS_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_multiplicative_expression);
-}
-
-/* Parse a shift-expression.
-
    shift-expression:
      additive-expression
      shift-expression << additive-expression
      shift-expression >> additive-expression
-
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_shift_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_LSHIFT, LSHIFT_EXPR },
-    { CPP_RSHIFT, RSHIFT_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_additive_expression);
-}
-
-/* Parse a relational-expression.
 
    relational-expression:
      shift-expression
@@ -5263,160 +5286,149 @@ cp_parser_shift_expression (cp_parser* parser)
      relational-expression <= shift-expression
      relational-expression >= shift-expression
 
-   GNU Extension:
-
+  GNU Extension:
+  
    relational-expression:
      relational-expression <? shift-expression
      relational-expression >? shift-expression
-
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_relational_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_LESS, LT_EXPR },
-    { CPP_GREATER, GT_EXPR },
-    { CPP_LESS_EQ, LE_EXPR },
-    { CPP_GREATER_EQ, GE_EXPR },
-    { CPP_MIN, MIN_EXPR },
-    { CPP_MAX, MAX_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_shift_expression);
-}
-
-/* Parse an equality-expression.
 
    equality-expression:
      relational-expression
      equality-expression == relational-expression
      equality-expression != relational-expression
 
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_equality_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_EQ_EQ, EQ_EXPR },
-    { CPP_NOT_EQ, NE_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_relational_expression);
-}
-
-/* Parse an and-expression.
-
    and-expression:
      equality-expression
      and-expression & equality-expression
-
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_and_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_AND, BIT_AND_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_equality_expression);
-}
-
-/* Parse an exclusive-or-expression.
 
    exclusive-or-expression:
      and-expression
      exclusive-or-expression ^ and-expression
 
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_exclusive_or_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_XOR, BIT_XOR_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_and_expression);
-}
-
-
-/* Parse an inclusive-or-expression.
-
    inclusive-or-expression:
      exclusive-or-expression
      inclusive-or-expression | exclusive-or-expression
-
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_inclusive_or_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_OR, BIT_IOR_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_exclusive_or_expression);
-}
-
-/* Parse a logical-and-expression.
 
    logical-and-expression:
      inclusive-or-expression
      logical-and-expression && inclusive-or-expression
 
-   Returns a representation of the expression.  */
-
-static tree
-cp_parser_logical_and_expression (cp_parser* parser)
-{
-  static const cp_parser_token_tree_map map = {
-    { CPP_AND_AND, TRUTH_ANDIF_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
-
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_inclusive_or_expression);
-}
-
-/* Parse a logical-or-expression.
-
    logical-or-expression:
      logical-and-expression
      logical-or-expression || logical-and-expression
 
-   Returns a representation of the expression.  */
+   All these are implemented with a single function like:
+
+   binary-expression:
+     simple-cast-expression
+     binary-expression <token> binary-expression
+
+   The binops_by_token map is used to get the tree codes for each <token> type.
+   binary-expressions are associated according to a precedence table.  */
+
+#define TOKEN_PRECEDENCE(token) \
+  ((token->type == CPP_GREATER && !parser->greater_than_is_operator_p) \
+   ? PREC_NOT_OPERATOR \
+   : binops_by_token[token->type].prec)
 
 static tree
-cp_parser_logical_or_expression (cp_parser* parser)
+cp_parser_binary_expression (cp_parser* parser)
 {
-  static const cp_parser_token_tree_map map = {
-    { CPP_OR_OR, TRUTH_ORIF_EXPR },
-    { CPP_EOF, ERROR_MARK }
-  };
+  cp_parser_expression_stack stack;
+  cp_parser_expression_stack_entry *sp = &stack[0];
+  tree lhs, rhs;
+  cp_token *token;
+  enum tree_code tree_type;
+  enum cp_parser_prec prec = PREC_NOT_OPERATOR, new_prec, lookahead_prec;
+  bool overloaded_p;
 
-  return cp_parser_binary_expression (parser,
-				      map,
-				      cp_parser_logical_and_expression);
+  /* Parse the first expression.  */
+  lhs = cp_parser_simple_cast_expression (parser);
+
+  for (;;)
+    {
+      /* Get an operator token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      new_prec = TOKEN_PRECEDENCE (token);
+
+      /* Popping an entry off the stack means we completed a subexpression:
+         - either we found a token which is not an operator (`>' where it is not
+           an operator, or prec == PREC_NOT_OPERATOR), in which case popping
+           will happen repeatedly;
+         - or, we found an operator which has lower priority.  This is the case 
+           where the recursive descent *ascends*, as in `3 * 4 + 5' after
+           parsing `3 * 4'. */
+      if (new_prec <= prec)
+        {
+          if (sp == stack)
+	    break;
+          else
+	    goto pop;
+        }
+
+     get_rhs:
+      tree_type = binops_by_token[token->type].tree_type;
+
+      /* We used the operator token. */
+      cp_lexer_consume_token (parser->lexer);
+
+      /* Extract another operand.  It may be the RHS of this expression
+         or the LHS of a new, higher priority expression.  */
+      rhs = cp_parser_simple_cast_expression (parser);
+
+      /* Get another operator token.  Look up its precedence to avoid
+         building a useless (immediately popped) stack entry for common
+         cases such as 3 + 4 + 5 or 3 * 4 + 5.   */
+      token = cp_lexer_peek_token (parser->lexer);
+      lookahead_prec = TOKEN_PRECEDENCE (token);
+      if (lookahead_prec > new_prec)
+        {
+          /* ... and prepare to parse the RHS of the new, higher priority
+             expression.  Since precedence levels on the stack are
+	     monotonically increasing, we do not have to care about
+	     stack overflows.  */
+          sp->prec = prec;
+          sp->tree_type = tree_type;
+          sp->lhs = lhs;
+          sp++;
+          lhs = rhs;
+          prec = new_prec;
+          new_prec = lookahead_prec;
+          goto get_rhs;
+
+         pop:
+          /* If the stack is not empty, we have parsed into LHS the right side
+	     (`4' in the example above) of an expression we had suspended.
+	     We can use the information on the stack to recover the LHS (`3') 
+	     from the stack together with the tree code (`MULT_EXPR'), and
+	     the precedence of the higher level subexpression
+	     (`PREC_ADDITIVE_EXPRESSION').  TOKEN is the CPP_PLUS token,
+	     which will be used to actually build the additive expression.  */
+          --sp;
+	  prec = sp->prec;
+          tree_type = sp->tree_type;
+          rhs = lhs;
+          lhs = sp->lhs;
+        }
+
+      overloaded_p = false;
+      lhs = build_x_binary_op (tree_type, lhs, rhs, &overloaded_p);
+
+      /* If the binary operator required the use of an overloaded operator,
+         then this expression cannot be an integral constant-expression.
+         An overloaded operator can be used even if both operands are
+         otherwise permissible in an integral constant-expression if at
+         least one of the operands is of enumeration type.  */
+
+      if (overloaded_p
+          && (cp_parser_non_integral_constant_expression 
+              (parser, "calls to overloaded operators")))
+        return error_mark_node;
+    }
+
+  return lhs;
 }
+
 
 /* Parse the `? expression : assignment-expression' part of a
    conditional-expression.  The LOGICAL_OR_EXPR is the
@@ -5480,8 +5492,8 @@ cp_parser_assignment_expression (cp_parser* parser)
      logical-or-expression.  */
   else
     {
-      /* Parse the logical-or-expression.  */
-      expr = cp_parser_logical_or_expression (parser);
+      /* Parse the binary expressions (logical-or-expression).  */
+      expr = cp_parser_binary_expression (parser);
       /* If the next token is a `?' then we're actually looking at a
 	 conditional-expression.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_QUERY))
@@ -6641,10 +6653,23 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 	{
 	  /* A declaration consisting of a single semicolon is
 	     invalid.  Allow it unless we're being pedantic.  */
-	  if (pedantic && !in_system_header)
-	    pedwarn ("extra `;'");
 	  cp_lexer_consume_token (parser->lexer);
+	  if (pedantic && !in_system_header)
+	    pedwarn ("extra %<;%>");
 	  continue;
+	}
+
+      /* If we're entering or exiting a region that's implicitly
+	 extern "C", modify the lang context appropriately. */
+      if (!parser->implicit_extern_c && token->implicit_extern_c)
+	{
+	  push_lang_context (lang_name_c);
+	  parser->implicit_extern_c = true;
+	}
+      else if (parser->implicit_extern_c && !token->implicit_extern_c)
+	{
+	  pop_lang_context ();
+	  parser->implicit_extern_c = false;
 	}
 
       if (token->type == CPP_PRAGMA)
@@ -6655,19 +6680,6 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
 	     handled in cp_parser_statement.)  */
 	  cp_lexer_handle_pragma (parser->lexer);
 	  continue;
-	}
-
-      /* The C lexer modifies PENDING_LANG_CHANGE when it wants the
-	 parser to enter or exit implicit `extern "C"' blocks.  */
-      while (pending_lang_change > 0)
-	{
-	  push_lang_context (lang_name_c);
-	  --pending_lang_change;
-	}
-      while (pending_lang_change < 0)
-	{
-	  pop_lang_context ();
-	  ++pending_lang_change;
 	}
 
       /* Parse the declaration itself.  */
@@ -7472,6 +7484,7 @@ cp_parser_conversion_type_id (cp_parser* parser)
   tree attributes;
   cp_decl_specifier_seq type_specifiers;
   cp_declarator *declarator;
+  tree type_specified;
 
   /* Parse the attributes.  */
   attributes = cp_parser_attributes_opt (parser);
@@ -7483,8 +7496,11 @@ cp_parser_conversion_type_id (cp_parser* parser)
   /* Parse the conversion-declarator.  */
   declarator = cp_parser_conversion_declarator_opt (parser);
 
-  return grokdeclarator (declarator, &type_specifiers, TYPENAME,
-			 /*initialized=*/0, &attributes);
+  type_specified =  grokdeclarator (declarator, &type_specifiers, TYPENAME,
+			            /*initialized=*/0, &attributes);
+  if (attributes)
+    cplus_decl_attributes (&type_specified, attributes, /*flags=*/0);
+  return type_specified;
 }
 
 /* Parse an (optional) conversion-declarator.
@@ -8371,7 +8387,7 @@ cp_parser_template_id (cp_parser *parser,
   /* If we find the sequence `[:' after a template-name, it's probably
      a digraph-typo for `< ::'. Substitute the tokens and check if we can
      parse correctly the argument list.  */
-  next_token = cp_lexer_peek_nth_token (parser->lexer, 1);
+  next_token = cp_lexer_peek_token (parser->lexer);
   next_token_2 = cp_lexer_peek_nth_token (parser->lexer, 2);
   if (next_token->type == CPP_OPEN_SQUARE
       && next_token->flags & DIGRAPH
@@ -9835,13 +9851,16 @@ cp_parser_enum_specifier (cp_parser* parser)
   else
     identifier = make_anon_name ();
 
-  cp_lexer_consume_token (parser->lexer);
-
   /* Issue an error message if type-definitions are forbidden here.  */
   cp_parser_check_type_definition (parser);
 
-  /* Create the new type.  */
+  /* Create the new type.  We do this before consuming the opening brace
+     so the enum will be recorded as being on the line of its tag (or the
+     'enum' keyword, if there is no tag).  */
   type = start_enum (identifier);
+
+  /* Consume the opening brace.  */
+  cp_lexer_consume_token (parser->lexer);
 
   /* If the next token is not '}', then there are some enumerators.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
@@ -12907,8 +12926,9 @@ cp_parser_member_declaration (cp_parser* parser)
 	 name of the class.  */
       if (!decl_specifiers.any_specifiers_p)
 	{
-	  if (pedantic)
-	    pedwarn ("extra semicolon");
+	  cp_token *token = cp_lexer_peek_token (parser->lexer);
+	  if (pedantic && !token->in_system_header)
+	    pedwarn ("%Hextra %<;%>", &token->location);
 	}
       else
 	{
@@ -14411,79 +14431,6 @@ cp_parser_check_template_parameters (cp_parser* parser,
   return false;
 }
 
-/* Parse a binary-expression of the general form:
-
-   binary-expression:
-     <expr>
-     binary-expression <token> <expr>
-
-   The TOKEN_TREE_MAP maps <token> types to <expr> codes.  FN is used
-   to parser the <expr>s.  If the first production is used, then the
-   value returned by FN is returned directly.  Otherwise, a node with
-   the indicated EXPR_TYPE is returned, with operands corresponding to
-   the two sub-expressions.  */
-
-static tree
-cp_parser_binary_expression (cp_parser* parser,
-                             const cp_parser_token_tree_map token_tree_map,
-                             cp_parser_expression_fn fn)
-{
-  tree lhs;
-
-  /* Parse the first expression.  */
-  lhs = (*fn) (parser);
-  /* Now, look for more expressions.  */
-  while (true)
-    {
-      cp_token *token;
-      const cp_parser_token_tree_map_node *map_node;
-      tree rhs;
-
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If the token is `>', and that's not an operator at the
-	 moment, then we're done.  */
-      if (token->type == CPP_GREATER
-	  && !parser->greater_than_is_operator_p)
-	break;
-      /* If we find one of the tokens we want, build the corresponding
-	 tree representation.  */
-      for (map_node = token_tree_map;
-	   map_node->token_type != CPP_EOF;
-	   ++map_node)
-	if (map_node->token_type == token->type)
-	  {
-	    /* Assume that an overloaded operator will not be used.  */
-	    bool overloaded_p = false;
-
-	    /* Consume the operator token.  */
-	    cp_lexer_consume_token (parser->lexer);
-	    /* Parse the right-hand side of the expression.  */
-	    rhs = (*fn) (parser);
-	    /* Build the binary tree node.  */
-	    lhs = build_x_binary_op (map_node->tree_type, lhs, rhs,
-				     &overloaded_p);
-	    /* If the binary operator required the use of an
-	       overloaded operator, then this expression cannot be an
-	       integral constant-expression.  An overloaded operator
-	       can be used even if both operands are otherwise
-	       permissible in an integral constant-expression if at
-	       least one of the operands is of enumeration type.  */
-	    if (overloaded_p
-		&& (cp_parser_non_integral_constant_expression
-		    (parser, "calls to overloaded operators")))
-	      lhs = error_mark_node;
-	    break;
-	  }
-
-      /* If the token wasn't one of the ones we want, we're done.  */
-      if (map_node->token_type == CPP_EOF)
-	break;
-    }
-
-  return lhs;
-}
-
 /* Parse an optional `::' token indicating that the following name is
    from the global namespace.  If so, PARSER->SCOPE is set to the
    GLOBAL_NAMESPACE. Otherwise, PARSER->SCOPE is set to NULL_TREE,
@@ -15079,25 +15026,37 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
     {
       if (!saved_greater_than_is_operator_p)
 	{
-	  /* If we're in a nested template argument list, the '>>' has to be
-	    a typo for '> >'. We emit the error message, but we continue
-	    parsing and we push a '>' as next token, so that the argument
-	    list will be parsed correctly..  */
-	  cp_token* token;
-	  error ("`>>' should be `> >' within a nested template argument list");
-	  token = cp_lexer_peek_token (parser->lexer);
+	  /* If we're in a nested template argument list, the '>>' has
+	    to be a typo for '> >'. We emit the error message, but we
+	    continue parsing and we push a '>' as next token, so that
+	    the argument list will be parsed correctly.  Note that the
+	    global source location is still on the token before the
+	    '>>', so we need to say explicitly where we want it.  */
+	  cp_token *token = cp_lexer_peek_token (parser->lexer);
+	  error ("%H%<>>%> should be %<> >%> "
+		 "within a nested template argument list",
+		 &token->location);
+
+	  /* ??? Proper recovery should terminate two levels of
+	     template argument list here.  */
 	  token->type = CPP_GREATER;
 	}
       else
 	{
-	  /* If this is not a nested template argument list, the '>>' is
-	    a typo for '>'. Emit an error message and continue.  */
-	  error ("spurious `>>', use `>' to terminate a template argument list");
+	  /* If this is not a nested template argument list, the '>>'
+	    is a typo for '>'. Emit an error message and continue.
+	    Same deal about the token location, but here we can get it
+	    right by consuming the '>>' before issuing the diagnostic.  */
 	  cp_lexer_consume_token (parser->lexer);
+	  error ("spurious %<>>%>, use %<>%> to terminate "
+		 "a template argument list");
 	}
     }
-  else if (!cp_parser_require (parser, CPP_GREATER, "`>'"))
-    error ("missing `>' to terminate the template argument list");
+  else if (!cp_lexer_next_token_is (parser->lexer, CPP_GREATER))
+    error ("missing %<>%> to terminate the template argument list");
+  else
+    /* It's what we want, a '>'; consume it.  */
+    cp_lexer_consume_token (parser->lexer);
   /* The `>' token might be a greater-than operator again now.  */
   parser->greater_than_is_operator_p
     = saved_greater_than_is_operator_p;
@@ -15116,8 +15075,6 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 static void
 cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 {
-  cp_lexer *saved_lexer;
-
   /* If this member is a template, get the underlying
      FUNCTION_DECL.  */
   if (DECL_FUNCTION_TEMPLATE_P (member_function))
@@ -15154,15 +15111,8 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       if (function_scope)
 	push_function_context_to (function_scope);
 
-      /* Save away the current lexer.  */
-      saved_lexer = parser->lexer;
-      /* Make a new lexer to feed us the tokens saved for this function.  */
-      parser->lexer = cp_lexer_new_from_tokens (tokens);
-      parser->lexer->next = saved_lexer;
-
-      /* Set the current source position to be the location of the first
-	 token in the saved inline body.  */
-      cp_lexer_peek_token (parser->lexer);
+      /* Push the body of the function onto the lexer stack.  */
+      cp_parser_push_lexer_for_tokens (parser, tokens);
 
       /* Let the front end know that we going to be defining this
 	 function.  */
@@ -15176,8 +15126,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       /* Leave the scope of the containing function.  */
       if (function_scope)
 	pop_function_context_from (function_scope);
-      /* Restore the lexer.  */
-      parser->lexer = saved_lexer;
+      cp_parser_pop_lexer (parser);
     }
 
   /* Remove any template parameters from the symbol table.  */
@@ -15217,10 +15166,8 @@ cp_parser_save_default_args (cp_parser* parser, tree decl)
 static void
 cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
 {
-  cp_lexer *saved_lexer;
-  cp_token_cache *tokens;
   bool saved_local_variables_forbidden_p;
-  tree parameters;
+  tree parm;
 
   /* While we're parsing the default args, we might (due to the
      statement expression extension) encounter more classes.  We want
@@ -15229,30 +15176,28 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
   parser->unparsed_functions_queues
     = tree_cons (NULL_TREE, NULL_TREE, parser->unparsed_functions_queues);
 
-  for (parameters = TYPE_ARG_TYPES (TREE_TYPE (fn));
-       parameters;
-       parameters = TREE_CHAIN (parameters))
+  /* Local variable names (and the `this' keyword) may not appear
+     in a default argument.  */
+  saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
+  parser->local_variables_forbidden_p = true;
+
+  for (parm = TYPE_ARG_TYPES (TREE_TYPE (fn));
+       parm;
+       parm = TREE_CHAIN (parm))
     {
-      if (!TREE_PURPOSE (parameters)
-	  || TREE_CODE (TREE_PURPOSE (parameters)) != DEFAULT_ARG)
+      cp_token_cache *tokens;
+
+      if (!TREE_PURPOSE (parm)
+	  || TREE_CODE (TREE_PURPOSE (parm)) != DEFAULT_ARG)
 	continue;
 
-       /* Save away the current lexer.  */
-      saved_lexer = parser->lexer;
-       /* Create a new one, using the tokens we have saved.  */
-      tokens =  DEFARG_TOKENS (TREE_PURPOSE (parameters));
-      parser->lexer = cp_lexer_new_from_tokens (tokens);
+       /* Push the saved tokens for the default argument onto the parser's
+	  lexer stack.  */
+      tokens = DEFARG_TOKENS (TREE_PURPOSE (parm));
+      cp_parser_push_lexer_for_tokens (parser, tokens);
 
-       /* Set the current source position to be the location of the
-     	  first token in the default argument.  */
-      cp_lexer_peek_token (parser->lexer);
-
-       /* Local variable names (and the `this' keyword) may not appear
-     	  in a default argument.  */
-      saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
-      parser->local_variables_forbidden_p = true;
-       /* Parse the assignment-expression.  */
-      TREE_PURPOSE (parameters) = cp_parser_assignment_expression (parser);
+      /* Parse the assignment-expression.  */
+      TREE_PURPOSE (parm) = cp_parser_assignment_expression (parser);
 
       /* If the token stream has not been completely used up, then
 	 there was extra junk after the end of the default
@@ -15260,10 +15205,12 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       if (!cp_lexer_next_token_is (parser->lexer, CPP_EOF))
 	cp_parser_error (parser, "expected `,'");
 
-       /* Restore saved state.  */
-      parser->lexer = saved_lexer;
-      parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
+      /* Revert to the main lexer.  */
+      cp_parser_pop_lexer (parser);
     }
+
+  /* Restore the state of local_variables_forbidden_p.  */
+  parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
 
   /* Restore the queue.  */
   parser->unparsed_functions_queues

@@ -1145,6 +1145,15 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       return false;
     }
 
+  /* Enumerators have no linkage, so may only be declared once in a
+     given scope.  */
+  if (TREE_CODE (olddecl) == CONST_DECL)
+    {
+      error ("%Jredeclaration of enumerator %qD", newdecl, newdecl);
+      locate_old_decl (olddecl, error);
+      return false;
+    }
+
   if (!comptypes (oldtype, newtype))
     {
       if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -2977,6 +2986,15 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	    error ("elements of array %qD have incomplete type", decl);
 	    initialized = 0;
 	  }
+	else if (C_DECL_VARIABLE_SIZE (decl))
+	  {
+	    /* Although C99 is unclear about whether incomplete arrays
+	       of VLAs themselves count as VLAs, it does not make
+	       sense to permit them to be initialized given that
+	       ordinary VLAs may not be initialized.  */
+	    error ("variable-sized object may not be initialized");
+	    initialized = 0;
+	  }
       }
 
   if (initialized)
@@ -3407,9 +3425,14 @@ build_compound_literal (tree type, tree init)
   /* We do not use start_decl here because we have a type, not a declarator;
      and do not use finish_decl because the decl should be stored inside
      the COMPOUND_LITERAL_EXPR rather than added elsewhere as a DECL_EXPR.  */
-  tree decl = build_decl (VAR_DECL, NULL_TREE, type);
+  tree decl;
   tree complit;
   tree stmt;
+
+  if (type == error_mark_node)
+    return error_mark_node;
+
+  decl = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_EXTERNAL (decl) = 0;
   TREE_PUBLIC (decl) = 0;
   TREE_STATIC (decl) = (current_scope == file_scope);
@@ -4910,12 +4933,21 @@ start_struct (enum tree_code code, tree name)
     ref = lookup_tag (code, name, 1);
   if (ref && TREE_CODE (ref) == code)
     {
-      if (TYPE_FIELDS (ref))
+      if (TYPE_SIZE (ref))
         {
 	  if (code == UNION_TYPE)
 	    error ("redefinition of %<union %s%>", IDENTIFIER_POINTER (name));
           else
 	    error ("redefinition of %<struct %s%>", IDENTIFIER_POINTER (name));
+	}
+      else if (C_TYPE_BEING_DEFINED (ref))
+	{
+	  if (code == UNION_TYPE)
+	    error ("nested redefinition of %<union %s%>",
+		   IDENTIFIER_POINTER (name));
+          else
+	    error ("nested redefinition of %<struct %s%>",
+		   IDENTIFIER_POINTER (name));
 	}
     }
   else
@@ -5123,11 +5155,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
       if (C_DECL_VARIABLE_SIZE (x))
 	C_TYPE_VARIABLE_SIZE (t) = 1;
 
-      /* Detect invalid nested redefinition.  */
-      if (TREE_TYPE (x) == t)
-	error ("nested redefinition of %qs",
-	       IDENTIFIER_POINTER (TYPE_NAME (t)));
-
       if (DECL_INITIAL (x))
 	{
 	  unsigned HOST_WIDE_INT width = tree_low_cst (DECL_INITIAL (x), 1);
@@ -5329,6 +5356,9 @@ start_enum (tree name)
       enumtype = make_node (ENUMERAL_TYPE);
       pushtag (name, enumtype);
     }
+
+  if (C_TYPE_BEING_DEFINED (enumtype))
+    error ("nested redefinition of %<enum %s%>", IDENTIFIER_POINTER (name));
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
