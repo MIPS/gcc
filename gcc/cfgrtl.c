@@ -1862,6 +1862,9 @@ purge_dead_edges (bb)
 	{
 	  next = e->succ_next;
 
+	  /* Avoid abnormal flags to leak from computed jumps turned into simplejumps.  */
+	  if (e->flags & EDGE_ABNORMAL)
+	    e->flags &= ~EDGE_ABNORMAL;
 	  /* Check purposes we can have edge.  */
 	  if ((e->flags & EDGE_FALLTHRU)
 	      && any_condjump_p (insn))

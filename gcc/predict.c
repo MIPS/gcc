@@ -685,10 +685,12 @@ propagate_freq (head)
 			    * BLOCK_INFO (e->src)->frequency /
 			    REG_BR_PROB_BASE);
 
-	  if (cyclic_probability > 1.0 - 1.0 / REG_BR_PROB_BASE)
-	    cyclic_probability = 1.0 - 1.0 / REG_BR_PROB_BASE;
+	  cyclic_probability = (int) ((cyclic_probability) * REG_BR_PROB_BASE);
+	  if (cyclic_probability == REG_BR_PROB_BASE)
+	    cyclic_probability = REG_BR_PROB_BASE - 1;
 
-	  BLOCK_INFO (bb)->frequency = frequency / (1 - cyclic_probability);
+	  BLOCK_INFO (bb)->frequency = frequency / (REG_BR_PROB_BASE - cyclic_probability);
+	  BLOCK_INFO (bb)->frequency *= REG_BR_PROB_BASE;
 	}
 
       BLOCK_INFO (bb)->tovisit = 0;
