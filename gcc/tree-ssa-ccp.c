@@ -803,15 +803,29 @@ static void
 def_to_undefined (var)
      tree var;
 {
-  if (get_value (var)->lattice_val != UNDEFINED)
+  value *value = get_value (var);
+
+#ifdef ENABLE_CHECKING
+  /* In theory VARYING -> UNDEFINED should also trigger an abort.
+     However, our implementation will claim that some objects initially
+     have a VARYING value (the first time we call get_value for them).
+     Thus, it can appear that we get a VARYING -> UNDEFINED transition
+     when all that is really happening is we are setting the initial
+     value for the object to UNDEFINED.  */
+     VARYING
+  if (value->lattice_val == CONSTANT)
+    abort ();
+#endif
+
+  if (value->lattice_val != UNDEFINED)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
+      set_value (var, UNDEFINED, NULL_TREE);
     }
 
-  set_value (var, UNDEFINED, NULL_TREE);
 }
 
 
@@ -821,15 +835,17 @@ static void
 def_to_varying (var)
      tree var;
 {
-  if (get_value (var)->lattice_val != VARYING)
+  value *value = get_value (var);
+
+  if (value->lattice_val != VARYING)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
       VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
+      set_value (var, VARYING, NULL_TREE);
     }
 
-  set_value (var, VARYING, NULL_TREE);
 }
 
 
@@ -860,8 +876,20 @@ set_lattice_value (var, val)
 	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 
+#ifdef ENABLE_CHECKING
+	  /* VARYING -> CONSTANT is an invalid state transition.  */
+	  if (old_val->lattice_val == VARYING)
+	    abort ();
+#endif
+
+	  /* If the constant for VAR has changed, then this VAR is
+	     really varying.  */
+	  if (old_val->lattice_val == CONSTANT)
+	    set_value (var, VARYING, NULL_TREE);
+	  else
+	    set_value (var, CONSTANT, val.const_val);
+
 	  VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
-	  set_value (var, CONSTANT, val.const_val);
 	}
     }
 }

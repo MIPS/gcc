@@ -1,5 +1,13 @@
 2002-02-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-ccp.c (def_to_undefined): Add some state transition
+	sanity checking.  Avoid calling set_value if nothing changed.
+	(def_to_varying): Avoid calling set_value if nothing changed.
+	(set_lattice_value): Add some state transition sanity checking
+	for transitions into the CONSTANT state.  If the object's
+	"constant" value has changed to a new constant value, then the
+	object has a VARYING value.
+
  	* tree-ssa-ccp.c (tree_ssa_ccp): Work through the entire
 	ssa_edges worklist each iteration through the main loop.
 
