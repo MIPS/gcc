@@ -3346,6 +3346,8 @@ initializer_constant_valid_p (tree value, tree endtype)
     {
     case CONSTRUCTOR:
       if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
+	   /* APPLE LOCAL AltiVec */
+	   || TREE_CODE (TREE_TYPE (value)) == VECTOR_TYPE
 	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
 	  && TREE_CONSTANT (value)
 	  && CONSTRUCTOR_ELTS (value))

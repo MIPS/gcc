@@ -20,6 +20,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef CONFIG_DARWIN_H
+#define CONFIG_DARWIN_H
+
 /* The definitions in this file are common to all processor types
    running Darwin, which is the kernel for Mac OS X.  Darwin is
    basically a BSD user layer laid over a Mach kernel, then evolved
@@ -39,10 +42,6 @@ Boston, MA 02111-1307, USA.  */
 /* Suppress g++ attempt to link in the math library automatically.
    (Some Darwin versions have a libm, but they seem to cause problems
    for C++ executables.)  */
-
-/* APPLE LOCAL include guard for darwin.h */
-#ifndef CONFIG_DARWIN_H
-#define CONFIG_DARWIN_H
 
 #define MATH_LIBRARY ""
 

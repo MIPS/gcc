@@ -2892,24 +2892,29 @@ internal_build_compound_expr (tree list, int first_p)
 
   rest = internal_build_compound_expr (TREE_CHAIN (list), FALSE);
 
-  if (! TREE_SIDE_EFFECTS (TREE_VALUE (list)))
+  /* APPLE LOCAL begin AltiVec */
+  if (!targetm.cast_expr_as_vector_init)
     {
-      /* The left-hand operand of a comma expression is like an expression
-         statement: with -Wextra or -Wunused, we should warn if it doesn't have
-	 any side-effects, unless it was explicitly cast to (void).  */
-      if (warn_unused_value
-           && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
-                && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
-        warning ("left-hand operand of comma expression has no effect");
+      if (! TREE_SIDE_EFFECTS (TREE_VALUE (list)))
+	{
+	  /* The left-hand operand of a comma expression is like an expression
+	     statement: with -Wextra or -Wunused, we should warn if it doesn't have
+	     any side-effects, unless it was explicitly cast to (void).  */
+	  if (warn_unused_value
+	      && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
+		    && VOID_TYPE_P (TREE_TYPE (TREE_VALUE (list)))))
+	    warning ("left-hand operand of comma expression has no effect");
+	}
+
+      /* With -Wunused, we should also warn if the left-hand operand does have
+	 side-effects, but computes a value which is not used.  For example, in
+	 `foo() + bar(), baz()' the result of the `+' operator is not used,
+	 so we should issue a warning.  */
+      else if (warn_unused_value)
+	warn_if_unused_value (TREE_VALUE (list));
     }
-
-  /* With -Wunused, we should also warn if the left-hand operand does have
-     side-effects, but computes a value which is not used.  For example, in
-     `foo() + bar(), baz()' the result of the `+' operator is not used,
-     so we should issue a warning.  */
-  else if (warn_unused_value)
-    warn_if_unused_value (TREE_VALUE (list));
-
+  /* APPLE LOCAL end AltiVec */
+  
   return build (COMPOUND_EXPR, TREE_TYPE (rest), TREE_VALUE (list), rest);
 }
 
@@ -2922,6 +2927,13 @@ build_c_cast (tree type, tree expr)
 
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
      only in <protocol> qualifications.  But when constructing cast expressions,

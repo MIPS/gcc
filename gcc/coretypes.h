@@ -49,6 +49,8 @@ typedef union tree_node *tree;
    Note that the cpp_reader typedef remains part of cpplib.h.  */
 
 struct cpp_reader;
+/* APPLE LOCAL AltiVec */
+struct cpp_token;
 
 #else
 

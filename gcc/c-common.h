@@ -1388,6 +1388,12 @@ extern tree lookup_objc_ivar (tree);
 extern void *get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
 
+/* APPLE LOCAL begin AltiVec */
+/* The following function will convert expressions into
+   vector initializers.  */
+extern tree vector_constructor_from_expr (tree, tree);
+/* APPLE LOCAL end AltiVec */
+
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);

@@ -5367,12 +5367,22 @@ fold (tree expr)
   tree tem;
   tree type = TREE_TYPE (expr);
   tree arg0 = NULL_TREE, arg1 = NULL_TREE;
-  enum tree_code code = TREE_CODE (t);
-  int kind = TREE_CODE_CLASS (code);
-
+  /* APPLE LOCAL begin AltiVec */
+  enum tree_code code;
+  int kind, invert;
+  /* APPLE LOCAL end AltiVec */
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Fold constant comma expressions.  */
+  while (TREE_CODE (t) == COMPOUND_EXPR && TREE_CONSTANT (t))
+    t = TREE_OPERAND (t, 1);
+    
+  code = TREE_CODE (t);
+  kind = TREE_CODE_CLASS (code);
+  /* APPLE LOCAL end AltiVec */
 
   /* Don't try to process an RTL_EXPR since its operands aren't trees.
      Likewise for a SAVE_EXPR that's already been evaluated.  */

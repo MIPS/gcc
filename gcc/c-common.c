@@ -6343,4 +6343,58 @@ c_warn_unused_result (tree *top_p)
     }
 }
 
+/* APPLE LOCAL begin AltiVec */
+/* Convert the incoming expression EXPR into a vector constructor of
+   type VECTOR_TYPE, casting the individual vector elements as appropriate.  */
+
+tree
+vector_constructor_from_expr (tree expr, tree vector_type)
+{
+  tree list = NULL_TREE, elttype = TREE_TYPE (vector_type);
+  int index, max_index = TYPE_VECTOR_SUBPARTS (vector_type);
+  int all_constant = TREE_CONSTANT (expr);
+  bool cxx = (c_dialect_cxx () != 0);  /* Impedance matching.  */
+
+  /* If we already have a vector expression, then the user probably
+     wants to convert it to another.  */
+  if (TREE_CODE (TREE_TYPE (expr)) == VECTOR_TYPE)
+    return convert (vector_type, expr);
+
+  /* Walk through the compound expression, gathering initializers.  */
+  for (index = 0; index < max_index; ++index)
+    {
+      tree elem;
+      
+      if (TREE_CODE (expr) == COMPOUND_EXPR)
+	{
+	  elem
+	    = (cxx ? TREE_OPERAND (expr, 1) : TREE_OPERAND (expr, 0));
+	  expr = (cxx ? TREE_OPERAND (expr, 0) : TREE_OPERAND (expr, 1));
+	}
+      else
+	elem = expr;
+
+      while (TREE_CODE (elem) == COMPOUND_EXPR && TREE_CONSTANT (elem))
+	elem = TREE_OPERAND (elem, 1);
+      while (TREE_CODE (elem) == CONVERT_EXPR)
+	elem = TREE_OPERAND (elem, 0);
+
+      list = chainon (list,
+		      build_tree_list (NULL_TREE,
+				       convert (elttype, elem)));
+    }
+
+  if (cxx)                                                                                                                        
+    list = nreverse (list);
+
+  list = build_constructor (vector_type, list);
+  if (cxx)
+    TREE_LANG_FLAG_4 (list) = 1;  /* TREE_HAS_CONSTRUCTOR */
+  else  
+    TREE_CONSTANT (list) = all_constant;
+  
+  return list;
+}
+/* APPLE LOCAL end AltiVec */
+
 #include "gt-c-common.h"

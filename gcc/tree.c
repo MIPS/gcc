@@ -465,6 +465,8 @@ build_vector (tree type, tree vals)
     {
       tree value = TREE_VALUE (link);
 
+      /* APPLE LOCAL AltiVec */
+      TREE_VALUE (link) = fold (value);
       over1 |= TREE_OVERFLOW (value);
       over2 |= TREE_CONSTANT_OVERFLOW (value);
     }
@@ -2472,6 +2474,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   /* Expressions without side effects may be constant if their
      arguments are as well.  */
   constant = (TREE_CODE_CLASS (code) == '<'
+	   /* APPLE LOCAL AltiVec */
+	   || TREE_CODE_CLASS (code) == 'e'
 	      || TREE_CODE_CLASS (code) == '2');
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);

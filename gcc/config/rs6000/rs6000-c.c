@@ -30,6 +30,11 @@
 #include "c-pragma.h"
 #include "errors.h"
 #include "tm_p.h"
+/* APPLE LOCAL begin AltiVec */
+#include "c-common.h"
+#include "cpplib.h"
+#include "target.h"
+/* APPLE LOCAL end AltiVec */
 
 /* Handle the machine specific pragma longcall.  Its syntax is
 
@@ -78,6 +83,94 @@ rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
 #define builtin_define(TXT) cpp_define (pfile, TXT)
 #define builtin_assert(TXT) cpp_assert (pfile, TXT)
 
+/* APPLE LOCAL begin AltiVec */
+/* Keep the AltiVec keywords handy for fast comparisons.  */
+static GTY(()) cpp_hashnode *__vector_keyword, *vector_keyword;
+static GTY(()) cpp_hashnode *__pixel_keyword, *pixel_keyword;
+static GTY(()) cpp_hashnode *__bool_keyword, *bool_keyword, *_Bool_keyword;
+
+/* Called to decide whether a conditional macro should be expanded.  */
+
+bool
+rs6000_expand_macro_p (const cpp_token *tok)
+{
+  static bool expand_bool_pixel = 0;
+  bool expand_this = 0;
+  const cpp_hashnode *ident = tok->val.node;
+  
+  if (ident == vector_keyword)
+    {
+      tok = c_lex_peek (0);
+      if (tok->type == CPP_NAME)
+	{
+	  ident = tok->val.node;
+	  if (ident == pixel_keyword || ident == __pixel_keyword
+	      || ident == bool_keyword || ident == __bool_keyword
+	      || ident == _Bool_keyword)
+	    expand_this = expand_bool_pixel = 1;
+	  else
+	    {
+	      enum rid rid_code = (enum rid)(ident->rid_code);
+
+	      if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
+		  || rid_code == RID_SHORT || rid_code == RID_SIGNED
+		  || rid_code == RID_INT || rid_code == RID_CHAR
+		  || rid_code == RID_FLOAT)
+		{
+		  expand_this = 1;
+		  /* If the next keyword is bool or pixel, it 
+		     will need to be expanded as well.  */
+		  tok = c_lex_peek (1);
+		  if (tok->type == CPP_NAME)
+		    {
+		      ident = tok->val.node;
+		      if (ident == pixel_keyword || ident == __pixel_keyword
+			  || ident == bool_keyword || ident == __bool_keyword
+			  || ident == _Bool_keyword)
+			expand_bool_pixel = 1;
+		    }
+		}
+	    }
+	}
+    }
+  else if (ident == pixel_keyword || ident == bool_keyword
+           || ident == _Bool_keyword)
+    {
+      if (expand_bool_pixel)
+	{
+	  expand_this = 1;
+	  expand_bool_pixel = 0;
+	}
+    }
+
+  return expand_this;
+}
+
+static void
+cb_define_conditional_macro (cpp_reader *pfile ATTRIBUTE_UNUSED,
+			     unsigned int n ATTRIBUTE_UNUSED,
+			     cpp_hashnode *node) {
+  const unsigned char *name = node->ident.str;
+  bool underscore = (name[1] == '_');
+  char kwd = (underscore ? name[2] : name[0]);
+  cpp_hashnode **kwd_node = 0;
+
+  if (!underscore)			 /* macros without two leading underscores */
+    node->flags |= NODE_DISABLED;	/* shall be conditional */
+
+  switch (kwd)
+    {
+      case 'v': kwd_node = (underscore ? &__vector_keyword : &vector_keyword); break;
+      case 'p': kwd_node = (underscore ? &__pixel_keyword : &pixel_keyword); break;
+      case 'b': kwd_node = (underscore ? &__bool_keyword : &bool_keyword); break;
+      case '_': kwd_node = &_Bool_keyword; break;
+      default: abort ();
+    }
+  *kwd_node = node;
+}
+
+/* APPLE LOCAL end AltiVec */
+
 void
 rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 {
@@ -93,13 +186,39 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("_ARCH_COM");
   if (TARGET_ALTIVEC)
     {
+      /* APPLE LOCAL begin AltiVec */
+      struct cpp_callbacks *cb = cpp_get_callbacks (pfile);
+      void (*old_cb_define) (cpp_reader *, unsigned int, cpp_hashnode *)
+	= cb->define;
+      /* APPLE LOCAL end AltiVec */
+
       builtin_define ("__ALTIVEC__");
       builtin_define ("__VEC__=10206");
 
       /* Define the AltiVec syntactic elements.  */
+
+      /* APPLE LOCAL AltiVec */
+      cb->define = cb_define_conditional_macro;
+
       builtin_define ("__vector=__attribute__((altivec(vector__)))");
       builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
       builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
+
+      /* APPLE LOCAL begin AltiVec */
+      /* Keywords without two leading underscores are context-sensitive, and hence
+	 implemented as conditional macros, controlled by the rs6000_expand_macro_p()
+	 predicate above.  */
+      builtin_define ("vector=__attribute__((altivec(vector__)))");
+      builtin_define ("pixel=__attribute__((altivec(pixel__))) unsigned short");
+      builtin_define ("bool=__attribute__((altivec(bool__))) unsigned");
+      builtin_define ("_Bool=__attribute__((altivec(bool__))) unsigned");
+      cb->define = old_cb_define;
+
+      /* Enable context-sensitive macros.  */
+      targetm.expand_macro_p = rs6000_expand_macro_p;
+      /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
+      targetm.cast_expr_as_vector_init = true;
+      /* APPLE LOCAL end AltiVec */
     }
   if (TARGET_SPE)
     builtin_define ("__SPE__");

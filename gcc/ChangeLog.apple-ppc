@@ -1,3 +1,15 @@
+2004-04-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Roll in Ziem Laski's Altivec front-end fixes to 
+	support MOTOROLA's Altivec syntax.
+	* Makefile.in: Add c-lex.o dependencies.
+	* c-common.c (vector_constructor_from_expr): New function.
+	* c-common.h (vector_constructor_from_expr): Add declaration.
+	* c-lex.c: include target.h, cpphash.h. Add lexer support
+	for new syntax.
+	(c_lex_prepend): new function. (c_lex_peek): new function.
+	* c-pragma.h: add (c_lex_peek, c_lex_prepend) declarations.
+	 	
 2004-04-06  Dale Johannesen <dalej@apple.com>
 
 	Roll in Zdenek Dvorak's rewrite of doloop optimization.

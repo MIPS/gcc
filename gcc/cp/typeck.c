@@ -4425,8 +4425,12 @@ tree
 build_compound_expr (tree lhs, tree rhs)
 {
   lhs = decl_constant_value (lhs);
-  lhs = convert_to_void (lhs, "left-hand operand of comma");
-  
+  /* APPLE LOCAL begin AltiVec */
+  lhs = convert_to_void (lhs, targetm.cast_expr_as_vector_init
+			      ? NULL
+			      : "left-hand operand of comma");
+  /* APPLE LOCAL end AltiVec */
+
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
   
@@ -4469,6 +4473,13 @@ build_static_cast (tree type, tree expr)
 
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   if (processing_template_decl)
     {
@@ -4659,6 +4670,13 @@ build_reinterpret_cast (tree type, tree expr)
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
+
   if (processing_template_decl)
     {
       tree t = build_min (REINTERPRET_CAST_EXPR, type, expr);
@@ -4828,6 +4846,13 @@ build_c_cast (tree type, tree expr)
 
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* If we are casting to a vector type, treat the expression as a vector
+     initializer if this target supports it.  */
+  if (TREE_CODE (type) == VECTOR_TYPE && targetm.cast_expr_as_vector_init)
+    return vector_constructor_from_expr (expr, type);
+  /* APPLE LOCAL end AltiVec */
 
   if (processing_template_decl)
     {

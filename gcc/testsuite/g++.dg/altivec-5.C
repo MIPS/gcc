@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
 /* Test for AltiVec type overloading.  */
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
     void foo(vector unsigned char) { }
     void foo(vector signed char) { }

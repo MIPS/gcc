@@ -208,6 +208,9 @@ extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
 extern void rs6000_pragma_longcall (struct cpp_reader *);
 extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 
+/* APPLE LOCAL AltiVec */
+extern bool rs6000_expand_macro_p (const struct cpp_token *);
+
 #if TARGET_MACHO
 void add_compiler_stub PARAMS ((tree, tree, int));
 void output_compiler_stub PARAMS ((void));

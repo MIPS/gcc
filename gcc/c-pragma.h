@@ -55,6 +55,10 @@ extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
 extern int c_lex (tree *);
+/* APPLE LOCAL begin AltiVec */
+extern const struct cpp_token *c_lex_peek (int);
+extern void c_lex_prepend (const struct cpp_token *, int);
+/* APPLE LOCAL end AltiVec */
 extern int c_lex_with_flags (tree *, unsigned char *);
 
 /* If true, then lex strings into the execution character set.  
