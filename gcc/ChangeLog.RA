@@ -1,3 +1,7 @@
+Wed Aug  1 23:40:05 2001  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c (undef_to_bitmap): Handle more variants of *undefined.
+
 Wed Aug  1 23:35:02 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (combine): combine add_hardregs's of U and V.

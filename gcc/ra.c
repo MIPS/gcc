@@ -620,7 +620,22 @@ undef_to_bitmap (wp, undefined)
       case 0xff00 : *undefined = 0; return get_sub_conflicts (wp, 8, 8);
       case 0xfff0 : *undefined = 0xf0; return get_sub_conflicts (wp, 8, 8);
       case 0xffff : *undefined = 0; return get_sub_conflicts (wp, 16, 0);
-      default : break;
+      default :
+	{
+	  unsigned HOST_WIDE_INT u = *undefined;
+	  int word;
+	  int size;
+	  
+	  for (word = 0; ! (u & 1); ++word)
+	    u >>= 1;
+	  for (size = 0; u & 1; ++size)
+	    u >>= 1;
+	  if (u)
+	    abort ();
+	  *undefined = u;
+	  return get_sub_conflicts (wp, size, word);
+	}
+	break;
     }
   /* XXX */
   abort ();
