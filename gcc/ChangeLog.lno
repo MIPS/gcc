@@ -1,3 +1,11 @@
+2004-04-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-scalar-evolution.c (instantiate_parameters): Handle casts
+	correctly.
+	* tree-ssa-loop-manip.c (add_exit_phis_edge): Do not add unnecessary
+	phi nodes.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Do not call create_preheaders.
+
 2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-scalar-evolution.c (scev_info_str, new_scev_info_str, 

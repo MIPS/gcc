@@ -83,9 +83,6 @@ tree_ssa_loop_opt (void)
 
   if (loops)
     {
-      /* Ensure there is a place to move the computations to.  */
-      create_preheaders (loops, CP_SIMPLE_PREHEADERS);
-
 #if 0
       /* Test unrolling and peeling.  */
       test_unrolling_and_peeling (loops);

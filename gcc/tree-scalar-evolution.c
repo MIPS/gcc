@@ -2878,11 +2878,8 @@ instantiate_parameters (struct loop *loop,
 	break;
 
       case NOP_EXPR:
-	/* res = build1 (NOP_EXPR, TREE_TYPE (chrec), 
-	   instantiate_parameters (loop_nb, 
-	   TREE_OPERAND (chrec, 0)));
-	*/
-	res = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+	op0 = instantiate_parameters (loop, TREE_OPERAND (chrec, 0));
+	res = chrec_convert (TREE_TYPE (chrec), op0);
 	break;
 	
       default:
