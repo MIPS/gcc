@@ -1160,8 +1160,7 @@ init_c_common_once ()
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 
-  if (server_mode >= 0)
-    finish_options ();
+  finish_options ();
 #if 0
   if (flag_preprocess_onl
       && num_in_fnames > 1)
@@ -1192,9 +1191,6 @@ c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 #endif
 
   (*debug_hooks->start_source_file) (input_line, input_filename);
-  /* Kludge - finish_options emits debug stuff, so needs assembler. */
-  if (server_mode < 0)
-    finish_options ();
 
   c_parse_file ();
   free_parser_stacks ();
@@ -1435,8 +1431,6 @@ push_command_line_include (void)
 
   if (include_cursor == deferred_count)
     {
-      /* Restore the line map from <command line>.  */
-      cpp_change_file (parse_in, LC_RENAME, main_input_filename);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
       include_cursor++;

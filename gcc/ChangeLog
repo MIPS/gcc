@@ -1,5 +1,11 @@
 2003-08-21  Per Bothner  <pbothner@apple.com>
 
+	* c-opts.c (init_c_common_once):  Do finish_options now,
+	regardless of server_mode.
+	(c_common_parse_file):  Never do finish_options now.
+
+	* c-opts.c (push_command_line_include):  Don't do cpp_change_file.
+
 	* c-decl.c (setup_globals):  Don't clear input_filename.
 
 	* c-lang.c (c_write_globals):  Remove function.
