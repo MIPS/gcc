@@ -58,12 +58,6 @@ extern const HOST_WIDE_INT V_USE;
 /* A V_PHI represents an SSA PHI operation on the associated variable.  */
 extern const HOST_WIDE_INT V_PHI;
 
-/* An E_FCALL reference indicates a function call site.  Its associated
-   variable is the CALL_EXPR node.  Used to insert may-def/may-use
-   references when the compiler doesn't know what the called function might
-   do.  */
-extern const HOST_WIDE_INT E_FCALL;
-
 /* The following references are akin to the previous types but used
    when building SSA information for expressions instead of variables
    (see tree-ssa-pre.c)  */
@@ -97,13 +91,13 @@ extern const HOST_WIDE_INT M_DEFAULT;
 extern const HOST_WIDE_INT M_CLOBBER;
 
 /* M_MAY is used to represent references that may or may not occur at
-   runtime.  It is generated to model aliasing.  For instance, given
+   runtime.  It is generated to model variable references in statements or
+   expressions that the compiler does not understand (e.g., non-simplified
+   tree nodes).
 
-   		*ptr = 30;
-
-   A V_DEF|M_MAY reference is created for all the variables potentially
-   aliased by 'ptr'.  The M_MAY modifier may be removed using alias
-   analysis.  V_USE reference may be similarly created.  */
+   A may-def and may-use reference are created to all the symbols
+   referenced in the expression.  This models the possibility that the
+   instruction may use and modify the variable.  */
 extern const HOST_WIDE_INT M_MAY;
 
 /* M_PARTIAL is used to model partial references to compound structures
@@ -126,22 +120,6 @@ extern const HOST_WIDE_INT M_PARTIAL;
    An initializing definition is created for variable counter.  */
 extern const HOST_WIDE_INT M_INITIAL;
 
-/* M_INDIRECT modifies a V_DEF or V_USE reference to indicate that the
-   reference is to the memory location pointed by the variable.  For
-   instance, the following creates a V_DEF|M_INDIRECT to 'ptr',
-
-   		*ptr = 5;
-
-   FIXME This has the unpleasant side-effect that an indirect V_DEF to a
-   pointer also implies a definition for the pointer, because currently the
-   FUD chaining algorithm only keeps a single notion of 'current
-   definition' for symbols.  In the example above, *ptr = 5 means that ptr
-   itself is considered defined.  To fix this inefficiency, we should have
-   the notion of 'indirect current definitions' in the FUD chaining
-   algorithm (i.e., have a 'currdef' and an 'indirect_currdef' field in the
-   tree_ann structure).  */
-extern const HOST_WIDE_INT M_INDIRECT;
-
 /* M_VOLATILE modifies a V_DEF or V_USE reference to indicate that it is
    accessing a volatile variable.  Therefore, optimizers should not assume
    anything about it.  For instance,
@@ -152,6 +130,12 @@ extern const HOST_WIDE_INT M_INDIRECT;
    In the above code fragment, we cannot assume that 'b' is assigned the
    value 5.  */
 extern const HOST_WIDE_INT M_VOLATILE;
+
+/* M_RELOCATE modifies a V_DEF of a pointer dereference to indicate that
+   the base pointer is now pointing to a different memory location.  This
+   definition should reach dereferences of the pointer, but it should not
+   reach uses of any aliases (see ref_defines).  */
+extern const HOST_WIDE_INT M_RELOCATE;
 
 /* M_ADDRESSOF modifies a V_USE reference to indicate that the address of
    the variable is needed.  This is not a memory load operation, just an
@@ -200,8 +184,8 @@ struct tree_ref_common
   /* Reference type.  */
   HOST_WIDE_INT type;
 
-  /* Variable being referenced.  This is not necessarily a _DECL node.  It
-     may be also be a COMPONENT_REF, ARRAY_REF or an INDIRECT_REF.  */
+  /* Variable being referenced.  This may be a _DECL or an INDIRECT_REF
+     node.  */
   tree var;
 
   /* Statement containing the reference.  Maybe NULL for special references
@@ -238,6 +222,12 @@ struct var_ref
      to both variable definitions and uses because we are interested in
      building def-def chains (for non-killing definitions).  */
   union tree_ref_d *imm_rdef;
+
+  /* Immediate reaching definitions for all the may-aliases of this
+     reference.  This array is setup so that the Ith entry corresponds to
+     the Ith alias of the variable associated to this reference (i.e., this
+     is the Ith entry of the array MAY_ALIASES in struct tree_ann_d).  */
+  union tree_ref_d **alias_imm_rdefs;
 };
 
 /* Variable definitions.  */
@@ -400,6 +390,7 @@ static inline ref_list imm_uses			PARAMS ((tree_ref));
 static inline ref_list reached_uses		PARAMS ((tree_ref));
 static inline tree_ref imm_reaching_def		PARAMS ((tree_ref));
 static inline void set_imm_reaching_def		PARAMS ((tree_ref, tree_ref));
+static inline tree_ref alias_imm_reaching_def	PARAMS ((tree_ref, size_t));
 static inline ref_list reaching_defs		PARAMS ((tree_ref));
 static inline varray_type phi_args		PARAMS ((tree_ref));
 static inline unsigned int num_phi_args		PARAMS ((tree_ref));
@@ -453,22 +444,6 @@ static inline bool exprphi_willbeavail PARAMS ((tree_ref));
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.aux
 ---------------------------------------------------------------------------*/
-/* Tree flags.  */
-enum tree_flags
-{
-  /* Expression tree should be folded.  */
-  TF_FOLD	= 1 << 0,
-
-  /* The expression is not in SIMPLE form.  */
-  TF_NOT_SIMPLE	= 1 << 1,
-
-  /* This _DECL node has already been referenced in this function.  */
-  TF_REFERENCED	= 1 << 2,
-
-  /* This expression is necessary (not dead code).  */
-  TF_NECESSARY	= 1 << 3
-};
-
 struct tree_ann_d
 {
   /* Basic block that contains this tree.  */
@@ -484,6 +459,12 @@ struct tree_ann_d
      Used when placing FUD chains.  */
   tree_ref currdef;
 
+  /* Virtual variable used to represent dereferences to a pointer.  For
+     every pointer PTR, this is an INDIRECT_REF tree representing *PTR.
+     See the rationale for this in the handler for INDIRECT_REF nodes in
+     find_refs_in_expr.  */
+  tree indirect_var;
+
   /* Immediately enclosing compound statement to which this tree belongs.  */
   tree compound_parent;
 
@@ -494,9 +475,29 @@ struct tree_ann_d
      assignments (MODIFY_EXPR, INIT_EXPR and DECL_STMTs for static
      variables).  */
   tree_ref output_ref;
+
+  /* Set of variables that may be aliases of this variable.  */
+  varray_type may_aliases;
 };
 
 typedef struct tree_ann_d *tree_ann;
+
+/* Tree flags.  */
+enum tree_flags
+{
+  /* Expression tree should be folded.  */
+  TF_FOLDED		= 1 << 0,
+
+  /* The expression is not in SIMPLE form.  */
+  TF_NOT_SIMPLE		= 1 << 1,
+
+  /* This _DECL node has already been referenced in this function.  */
+  TF_REFERENCED		= 1 << 2,
+
+  /* This expression is necessary (not dead code).  */
+  TF_NECESSARY		= 1 << 3
+};
+
 
 static inline tree_ann tree_annotation	PARAMS ((tree));
 static inline basic_block bb_for_stmt	PARAMS ((tree));
@@ -514,6 +515,10 @@ static inline enum tree_flags tree_flags PARAMS ((tree));
 static inline void reset_tree_flags	PARAMS ((tree));
 static inline tree_ref output_ref	PARAMS ((tree));
 static inline void set_output_ref	PARAMS ((tree, tree_ref));
+static inline tree indirect_var		PARAMS ((tree));
+static inline void set_indirect_var	PARAMS ((tree, tree));
+static inline tree may_alias		PARAMS ((tree, size_t));
+static inline size_t num_may_alias	PARAMS ((tree));
 
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.aux
@@ -589,6 +594,16 @@ bb_empty_p (b)
 }
 
 
+/* Counters updated every time we allocate a new object.  Used to compare
+   against the counts collected by collect_dfa_stats.  */
+struct dfa_counts_d
+{
+  unsigned long num_phi_args;
+  unsigned long num_may_alias;
+  unsigned long num_alias_imm_rdefs;
+};
+
+
 /* Global declarations.  */
 
 /* Nonzero to warn about variables used before they are initialized.  */
@@ -603,6 +618,9 @@ extern ref_list call_sites;
 /* Next unique reference ID to be assigned by create_ref().  */
 extern unsigned long next_tree_ref_id;
 
+/* Artificial variable used to model the effects of function calls.  */
+extern tree global_var;
+
 /* Accessors for the referenced_vars array.  */
 extern unsigned long num_referenced_vars;
 
@@ -613,11 +631,6 @@ referenced_var (i)
 {
   return VARRAY_TREE (referenced_vars, i);
 }
-
-/* Bitmasks to select which function calls to return in get_fcalls().  */
-#define FCALL_NON_PURE	(1 << 0)
-#define FCALL_PURE	(1 << 1)
-#define FCALL_BUILT_IN	(1 << 2)
 
 
 /* Functions in tree-cfg.c  */
@@ -659,7 +672,6 @@ extern basic_block tree_split_bb	PARAMS ((basic_block, tree));
 
 
 /* Functions in tree-dfa.c  */
-extern void tree_find_refs		PARAMS ((void));
 extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
@@ -681,10 +693,9 @@ extern void dump_dfa_stats		PARAMS ((FILE *));
 extern void debug_dfa_stats		PARAMS ((void));
 extern void debug_referenced_vars	PARAMS ((void));
 extern void dump_referenced_vars	PARAMS ((FILE *));
+extern void dump_variable		PARAMS ((FILE *, tree));
+extern void debug_variable		PARAMS ((tree));
 extern int function_may_recurse_p	PARAMS ((void));
-extern void get_fcalls			PARAMS ((varray_type *, unsigned));
-extern bool is_pure_fcall		PARAMS ((tree));
-extern bool fcall_takes_ref_args	PARAMS ((tree));
 extern basic_block find_declaration	PARAMS ((tree));
 extern ref_list create_ref_list		PARAMS ((void));
 extern void empty_ref_list		PARAMS ((ref_list));
@@ -698,6 +709,9 @@ extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
 extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
 extern const char *ref_type_name	PARAMS ((HOST_WIDE_INT));
 extern bool validate_ref_type		PARAMS ((HOST_WIDE_INT));
+extern bool ref_defines			PARAMS ((tree_ref, tree));
+extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
+extern int get_alias_index		PARAMS ((tree, tree));
 
 
 /* Functions in tree-ssa.c  */
@@ -705,7 +719,7 @@ extern void tree_build_ssa		PARAMS ((void));
 extern void tree_compute_rdefs		PARAMS ((void));
 extern void analyze_rdefs		PARAMS ((void));
 extern bool is_upward_exposed		PARAMS ((tree, sbitmap, int));
-extern void delete_ssa			PARAMS ((void));
+extern void delete_tree_ssa		PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));
 extern void debug_reaching_defs		PARAMS ((void));
@@ -798,6 +812,21 @@ set_imm_reaching_def (use, def)
      tree_ref def;
 {
   use->vref.imm_rdef = def;
+}
+
+/* Return the immediate reaching definition for the Ith alias of REF's
+   variable.  */
+static inline tree_ref
+alias_imm_reaching_def (ref, i)
+     tree_ref ref;
+     size_t i;
+{
+#if defined ENABLE_CHECKING
+  if (i > num_may_alias (ref_var (ref)))
+    abort ();
+#endif
+
+  return ref->vref.alias_imm_rdefs[i];
 }
 
 /* Set DEF to be the definition reaching a given PHI_ARG.  */
@@ -901,6 +930,24 @@ restore_ref_operand (ref)
     *(ref->common.operand_p) = ref->common.orig_operand;
 }
 
+/* Return the Ith alias of VAR.  */
+static inline tree
+may_alias (var, i)
+     tree var;
+     size_t i;
+{
+  return VARRAY_TREE (tree_annotation (var)->may_aliases, i);
+}
+
+/* Return the number of aliases for VAR.  */
+static inline size_t
+num_may_alias (var)
+     tree var;
+{
+  tree_ann ann = tree_annotation (var);
+  return (ann->may_aliases) ? VARRAY_ACTIVE_SIZE (ann->may_aliases) : 0;
+}
+
 /* Return the annotation attached to T.  Create a new one if necessary.  */
 static inline tree_ann
 tree_annotation (t)
@@ -949,7 +996,8 @@ set_currdef_for (v, def)
 {
   tree_ann ann;
 #if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd')
+  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
+      && TREE_CODE (v) != INDIRECT_REF)
     abort ();
 
   if (def && !(def->common.type & (V_DEF | V_PHI)))
@@ -1104,12 +1152,43 @@ tree_flags (t)
   return tree_annotation (t) ? tree_annotation (t)->flags : 0;
 }
 
-/* Return the annotation for basic block B.  Create a new one if necessary.  */
+/* Return the virtual variable representing indirect references of PTR.  */
+static inline tree
+indirect_var (ptr)
+     tree ptr;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (ptr)) != 'd'
+      || !POINTER_TYPE_P (TREE_TYPE (ptr)))
+    abort ();
+#endif
+  return tree_annotation (ptr)->indirect_var;
+}
+
+/* Set INDIRECT to be the virtual variable representing indirect references
+   of PTR.  */
+static inline void
+set_indirect_var (ptr, indirect)
+     tree ptr;
+     tree indirect;
+{
+  tree_ann ann;
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (ptr)) != 'd'
+      || !POINTER_TYPE_P (TREE_TYPE (ptr))
+      || TREE_CODE (indirect) != INDIRECT_REF)
+    abort ();
+#endif
+  ann = tree_annotation (ptr);
+  ann->indirect_var = indirect;
+}
+
+/* Return the annotation for basic block B.  */
 static inline bb_ann
 bb_annotation (b)
      basic_block b;
 {
-  return (b->aux) ? (bb_ann)b->aux : create_bb_ann (b);
+  return (bb_ann)b->aux;
 }
 
 /* Return the control flow parent block for B.  This is the block that

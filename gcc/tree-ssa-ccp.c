@@ -121,11 +121,14 @@ static void set_lattice_value          PARAMS ((tree_ref, value));
 static void simulate_block             PARAMS ((basic_block));
 static void simulate_def_use_chains    PARAMS ((tree_ref));
 static void optimize_unexecutable_edges PARAMS ((struct edge_list *));
-static void ssa_ccp_substitute_constants PARAMS ((void));
+static void substitute_and_fold        PARAMS ((void));
 static void ssa_ccp_df_delete_unreachable_insns PARAMS ((void));
 static value evaluate_expr             PARAMS ((tree));
 static void dump_lattice_value         PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield             PARAMS ((tree, tree, tree));
+static void replace_uses_in            PARAMS ((tree));
+static void restore_expr               PARAMS ((tree));
+
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -177,7 +180,7 @@ tree_ssa_ccp (fndecl)
     }
 
   /* Now perform substitutions based on the known constant values.  */
-  ssa_ccp_substitute_constants ();
+  substitute_and_fold ();
 
   /* Remove unexecutable edges from the CFG and make appropriate
      adjustments to PHI nodes.  */
@@ -350,14 +353,14 @@ optimize_unexecutable_edges (edges)
 /* Perform substitution and folding.   */
 
 static void
-ssa_ccp_substitute_constants ()
+substitute_and_fold ()
 {
   basic_block bb;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSubstituing constants and folding expressions\n\n");
 
-  /* Substitute constants.  */
+  /* Substitute constants in every expression of every basic block.  */
   FOR_EACH_BB (bb)
     {
       tree_ref ref;
@@ -365,72 +368,52 @@ ssa_ccp_substitute_constants ()
 
       FOR_EACH_REF (ref, tmp, bb_refs (bb))
 	{
-	  tree_ref rdef;
-	  unsigned long id;
-	  
-	  /* Notice that we want an unmodified V_USE reference here.  We
-	     don't deal with modifiers like M_PARTIAL or M_VOLATILE.  */
-	  if (ref_type (ref) != V_USE)
-	    continue;
-
-	  rdef = imm_reaching_def (ref);
-	  id = ref_id (rdef);
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      dump_ref (dump_file, "Immediate reaching definition for ",
-		           ref, 0, 0);
-	      dump_ref (dump_file, ": ", rdef, 0, 0);
-	      dump_lattice_value (dump_file, "Lattice value: ", values[id]);
-	      fprintf (dump_file, "\n");
-	      if (values[id].lattice_val == CONSTANT)
-		{
-		  fprintf (dump_file, "Marking expression ");
-		  print_c_node (dump_file, ref_expr (ref));
-		  fprintf (dump_file, " for folding\n");
-		}
-	      fprintf (dump_file, "\n");
-	    }
-
-	  if (values[id].lattice_val == CONSTANT)
-	    {
-#if defined ENABLE_CHECKING
-	      if (values[id].const_value == NULL_TREE)
-		abort ();
-#endif
-
-	      /* Replace the constant inside the expression and mark the
-		 expression for folding.  */
-	      replace_ref_operand_with (ref, values[id].const_value);
-	      set_tree_flag (ref_expr (ref), TF_FOLD);
-	    }
-	}
-    }
-
-  /* Fold expressions.  */
-  FOR_EACH_BB (bb)
-    {
-      tree_ref ref;
-      struct ref_list_node *tmp;
-
-      FOR_EACH_REF (ref, tmp, bb_refs (bb))
-	{
+	  tree *expr_p;
 	  tree stmt = ref_stmt (ref);
 	  tree expr = ref_expr (ref);
 
-	  /* Notice that we want an unmodified V_USE reference here.  We
-	     don't deal with modifiers like M_PARTIAL or M_VOLATILE.  */
-	  if (ref_type (ref) == V_USE
-	      && (tree_flags (ref_expr (ref)) & TF_FOLD))
-	    {
-	      /* Fold the expression and clean the fold bit.  */
-	      clear_tree_flag (ref_expr (ref), TF_FOLD);
-	      
-	      if (TREE_CODE (expr) == MODIFY_EXPR
-		  || TREE_CODE (expr) == INIT_EXPR)
-		expr = TREE_OPERAND (expr, 1);
+	  /* Skip references not attached to statements and expressions.  */
+	  if (stmt == NULL_TREE || expr == NULL_TREE)
+	    continue;
 
-	      replace_expr_in_tree (stmt, expr, fold (expr));
+	  /* We are only interested in expressions that contain V_USE
+	     references.  */
+	  if (!(ref_type (ref) & V_USE))
+	    continue;
+
+	  /* Skip expressions that have been folded already.  */
+	  if (tree_flags (expr) & TF_FOLDED)
+	    continue;
+
+	  /* Replace V_USE references with their immediate reaching
+	     definition and mark the expression folded.  */
+	  replace_uses_in (expr);
+	  set_tree_flag (expr, TF_FOLDED);
+
+	  /* Replace the expression with its folded version in the
+	    statement. Note that in the case of assignment expressions, we
+	    fold their RHS (fold() does not handle assignments).  */
+	  if (TREE_CODE (expr) == MODIFY_EXPR || TREE_CODE (expr) == INIT_EXPR)
+	    expr = TREE_OPERAND (expr, 1);
+
+	  expr_p = find_expr_in_tree (stmt, expr);
+	  if (expr_p)
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "Line %d: substituing ",
+		           STMT_LINENO (stmt));
+		  print_c_node (dump_file, expr);
+		}
+
+	      *expr_p = fold (expr);
+
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, " with ");
+		  print_c_node (dump_file, *expr_p);
+		  fprintf (dump_file, "\n");
+		}
 	    }
 	}
     }
@@ -584,7 +567,7 @@ visit_expression_for (ref)
      (clobbering, partial or may-def), mark it varying and add SSA edges
      that may be coming out of it.  */
   if ((ref_type (ref) & V_DEF)
-      && ref_type (ref) & (M_CLOBBER | M_PARTIAL | M_MAY))
+      && ref_type (ref) & (M_CLOBBER | M_PARTIAL | M_MAY | M_RELOCATE))
     def_to_varying (ref);
 
 
@@ -733,77 +716,39 @@ evaluate_expr (expr)
      tree expr;
 {
   value val;
-  struct ref_list_node *tmp;
-  tree_ref r;
   tree simplified;
-  ref_list refs;
-
-  refs = tree_refs (expr);
+  tree rhs;
 
   val.lattice_val = VARYING;
   val.const_value = NULL_TREE;
   simplified = NULL_TREE;
 
-  /* If any USE reference in the expression is known to be VARYING or
-     UNDEFINED, then the expression is not a constant.  */
-  FOR_EACH_REF (r, tmp, refs)
-    {
-      unsigned long id;
-      tree_ref rdef;
-
-      /* Notice that we want an unmodified V_USE reference here.  We don't
-	 deal with modifiers like M_PARTIAL or M_VOLATILE.  */
-      if (ref_type (r) != V_USE)
-	continue;
-
-      /* The lattice value of a USE reference is the value of its
-	 immediately reaching definition.  */
-      rdef = imm_reaching_def (r);
-      id = ref_id (rdef);
-
-      if (values[id].lattice_val == VARYING)
-	{
-	  val.lattice_val = VARYING;
-	  val.const_value = NULL_TREE;
-
-	  /* The reference is VARYING, therefore the expression is VARYING
-	     regardless of any other values we may have found.  */
-	  goto dont_fold;
-	}
-      else if (values[id].lattice_val == CONSTANT)
-	{
-#if defined ENABLE_CHECKING
-	  if (values[id].const_value == NULL_TREE)
-	    abort ();
-#endif
-
-	  /* The reference is a constant, substitute it into the
-	     expression.  */
-	  replace_ref_operand_with (r, values[id].const_value);
-	}
-    }
+  /* Replace all V_USE references in the expression with their immediate
+     reaching definition.  */
+  replace_uses_in (expr);
 
   /* Fold the expression and return its value.  Being a SIMPLE expression,
      EXPR can only be an assignment, an RHS or a conditional expression.
-
      In the case of an assignment, we are only interested in its RHS,
      so we strip it off here.  */
   if (TREE_CODE (expr) == MODIFY_EXPR || TREE_CODE (expr) == INIT_EXPR)
-    expr = TREE_OPERAND (expr, 1);
+    rhs = TREE_OPERAND (expr, 1);
+  else
+    rhs = expr;
 
   /* Fold the expression.  */
-  simplified = fold (deep_copy_node (expr));
+  simplified = fold (deep_copy_node (rhs));
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
       val.const_value = simplified;
     }
 
-dont_fold:
+  /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Expression evaluates to ");
-      print_c_node (dump_file, expr);
+      print_c_node (dump_file, rhs);
       fprintf (dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
@@ -818,14 +763,7 @@ dont_fold:
       fprintf (dump_file, "\n");
     }
 
-  /* Restore the expression to its original form.  */
-  FOR_EACH_REF (r, tmp, refs)
-    {
-      /* Notice that we want an unmodified V_USE reference here.  We don't
-	 deal with modifiers like M_PARTIAL or M_VOLATILE.  */
-      if (ref_type (r) == V_USE)
-	restore_ref_operand (r);
-    }
+  restore_expr (expr);
 
   return val;
 }
@@ -942,7 +880,7 @@ initialize ()
 	  /* Default definitions for incoming parameters and global
 	     variables should be considered varying.  */
 	  if ((TREE_CODE (var) == PARM_DECL
-	       || decl_function_context (var) == NULL)
+	       || decl_function_context (get_base_symbol (var)) == NULL)
 	      && ref_type (r) == (V_DEF | M_DEFAULT))
 	    values[id].lattice_val = VARYING;
 
@@ -1066,5 +1004,78 @@ set_lattice_value (def, val)
 	  values[ref_id (def)].lattice_val = CONSTANT;
 	  values[ref_id (def)].const_value = val.const_value;
 	}
+    }
+}
+
+
+/* Replace USE reference in the expression EXPR with their immediate reaching
+   definition.  Mark EXPR for folding (used in substitute_and_fold).  */
+
+static void
+replace_uses_in (expr)
+     tree expr;
+{
+  ref_list refs = tree_refs (expr);
+  struct ref_list_node *tmp;
+  tree_ref use;
+
+  FOR_EACH_REF (use, tmp, refs)
+    {
+      HOST_WIDE_INT rdef_id;
+      tree_ref rdef;
+
+      /* Only replace unmodified V_USE references.  */
+      if (ref_type (use) != V_USE)
+	continue;
+
+      /* The lattice value of a USE reference is the value of its
+	 immediately reaching definition.  */
+      rdef = imm_reaching_def (use);
+
+      /* We are only interested in killing definitions.  If we are reached
+	 by a definition of a may-alias of USE's var, we can't assume
+	 anything about it.  */
+      if (!is_killing_def (rdef, use))
+	continue;
+
+      rdef_id = ref_id (rdef);
+      if (values[rdef_id].lattice_val == CONSTANT)
+	{
+#if defined ENABLE_CHECKING
+	  if (values[rdef_id].const_value == NULL_TREE)
+	    abort ();
+#endif
+	  /* The reference is a constant, substitute it into the
+	     expression.  */
+	  replace_ref_operand_with (use, values[rdef_id].const_value);
+	}
+      else
+	{
+	  /* The reference is not a constant, restore its original value.  */
+	  restore_ref_operand (use);
+	}
+    }
+
+  /* The expression has not been folded already.  */
+  clear_tree_flag (expr, TF_FOLDED);
+}
+
+
+/* Restore expression EXPR to its original form.  */
+
+static void
+restore_expr (expr)
+     tree expr;
+{
+  ref_list refs = tree_refs (expr);
+  struct ref_list_node *tmp;
+  tree_ref use;
+
+  FOR_EACH_REF (use, tmp, refs)
+    {
+      /* Only restore unmodified V_USE references (those are the only types
+	 of references changed by replace_uses_in.  */
+      if (ref_type (use) == V_USE)
+	restore_ref_operand (use);
     }
 }

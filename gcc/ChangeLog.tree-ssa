@@ -1,3 +1,144 @@
+2002-09-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-dfa.o): Depend on flags.h
+	* tree-cfg.c (tree_dump_cfg): Alter output format slightly.
+	(block_invalidates_loop): Look for clobbering definitions of
+	GLOBAL_VARIABLE.
+	* tree-simple.c (get_base_symbol): Handle EXPR_WITH_FILE_LOCATION
+	nodes.
+	* tree-optimize.c (init_tree_flow): Remove.  Update all users.
+	(build_tree_ssa): Don't call tree_find_refs.
+	Don't call tree_compute_rdefs.
+
+	* tree-dfa.c: Include flags.h
+	(dump_file): Remove.
+	(dump_flags): Remove.
+	(pointer_refs): Remove.
+	(struct dfa_stats_d): Add fields max_num_phi_args, num_may_alias,
+	max_num_may_alias, num_alias_imm_rdefs and max_num_alias_imm_rdefs.
+	Remove field num_fcalls.
+	(dfa_counts): Declare.
+	(tree_find_refs): Declare.
+	(tree_ssa_dump_file): Declare.
+	(tree_ssa_dump_flags): Declare.
+	(dump_if_different): New function.
+	(add_default_defs): Remove.  Update all users.
+	(add_call_site_clobbers): Remove.  Update all users.
+	(add_ptr_may_refs): Remove.  Update all users.
+	(compute_may_aliases): New function.
+	(find_may_aliases_for): New function.
+	(add_may_alias): New function.
+	(may_alias_p): New function.
+	(is_visible_to): New function.
+	(get_alias_index): New function.
+	(call_sites): Remove.  Update all users.
+	(global_var): Declare.
+	(E_FCALL): Remove.  Adjust other constants.
+	(M_INDIRECT): Remove.  Update all users.
+	(M_RELOCATE): Declare.
+	(tree_find_refs): Move debugging dumps to tree_build_ssa.
+	Move initialization code to init_tree_ssa.
+	Call compute_may_aliases.
+	(find_refs_in_expr): For INDIRECT_REF nodes create a reference to
+	the canonical INDIRECT_REF node associated with the pointer symbol.
+	Given a pointer p, clobber the canonical INDIRECT_REF of p after
+	creating a V_DEF for p.
+	For CALL_EXPR nodes, if the called function is not pure nor
+	const, create a use and a clobbering definition to GLOBAL_VAR.
+	(create_ref): Allow INDIRECT_REF variables.
+	(add_phi_arg): Keep track of number of PHI arguments created.
+	(function_may_recurse_p): Look for clobbering definitions to
+	GLOBAL_VAR.
+	(get_fcalls): Remove unused function.
+	(is_pure_fcall): Remove unused function.
+	(fcall_takes_ref_args): Remove unused function.
+	(find_declaration): Stop iterating at ENTRY_BLOCK_PTR.
+	(debug_variable): New function.
+	(dump_variable): New function.
+	(dump_referenced_vars): Call it.
+	(dump_phi_args): Don't dump NULL arguments.
+	(PERCENT): Define.
+	(dump_dfa_stats): Re-format output.
+	Add new counters.
+	Call dump_if_different.
+	(collect_dfa_stats): Also recurse into GLOBAL_VAR.
+	(collect_dfa_stats_r): Collect may-alias information.
+	(count_tree_refs): Collect information about def-def links for
+	aliases.
+	Keep track of maximum values for number of PHI arguments, aliases
+	and def-def links.
+	(ref_type_name): Handle M_RELOCATE.
+	(validate_ref_type): Ditto.
+
+	* tree-ssa.c: Add more documentation.
+	(tree_ssa_dump_file): Rename from dump_file.  Declare extern.
+	(tree_ssa_dump_flags): Rename from dump_flags.  Declare extern.
+	(added): New local varray.
+	(in_work): New local varray.
+	(work_stack): New local varray.
+	(dfa_counts): Declare.
+	(insert_phi_nodes_for): New local function.
+	(add_phi_node): New local function.
+	(set_ssa_links): New local function.
+	(set_alias_imm_reaching_def): New local function.
+	(create_default_def): New local function.
+	(init_tree_ssa): New local function.
+	(tree_find_refs): Relocate declaration from tree-flow.h
+	(tree_build_ssa): Call init_tree_ssa.
+	Call tree_find_refs.
+	Process all SSA-related dump options.
+	(insert_phi_nodes): Rename from insert_phi_terms.  Update all
+	users.
+	Call insert_phi_nodes_for.
+	(build_fud_chains): Add more documentation.
+	Initialize save_chain to 0.
+	(search_fud_chains): Add more documentation.
+	Call set_ssa_links.
+	Call create_default_def.
+	(tree_compute_rdefs): Initialize array marked to 0.
+	(follow_chain): Follow def-def chains for non-killing definitions
+	for aliases.
+	(dump_reaching_defs): Call dump_variable.
+
+	* tree-flow.h (E_FCALL): Remove.  Update all users.
+	(M_INDIRECT): Remove.  Update all users.
+	(M_RELOCATE): Declare.
+	(struct var_ref): Add field alias_imm_rdefs.
+	(alias_imm_reaching_def): New inline function.
+	(struct tree_ann_d): Add field indirect_var.
+	Add field may_aliases.
+	(enum tree_flags): Relocate.
+	(indirect_var): New inline function.
+	(set_indirect_var): New inline function.
+	(may_alias): New inline function.
+	(num_may_alias): New inline function.
+	(struct dfa_counts_d): Declare.
+	(global_var): Declare.
+	(FCALL_NON_PURE, FCALL_PURE, FCALL_BUILT_IN): Remove.
+	(tree_find_refs): Move to tree-ssa.c.
+	(dump_variable): Declare.
+	(debug_variable): Declare.
+	(get_fcalls): Remove.
+	(is_pure_fcall): Remove.
+	(fcall_takes_ref_args): Remove.
+	(ref_defines): Declare.
+	(is_killing_def): Declare.
+	(get_alias_index): Declare.
+	(delete_tree_ssa): Rename from delete_ssa.  Update all users.
+	(set_currdef_for): Allow INDIRECT_REF nodes.
+	(bb_annotation): Don't create a new one if the block didn't have an
+	annotation already.
+
+	* tree-ssa-ccp.c (substitute_and_fold): Rename from
+	ssa_ccp_substitute_constants.  Update all users.
+	Call replace_uses_in.
+	(replace_uses_in): New local function.
+	(evaluate_expr): Call it.
+	(initialize): Call get_base_symbol.
+
+	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Don't handle
+	E_FCALL.
+
 2002-09-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-dfa.o): Depend on hashtab.h.

@@ -971,6 +971,7 @@ get_base_symbol (t)
     case INDIRECT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case EXPR_WITH_FILE_LOCATION:
       return get_base_symbol (TREE_OPERAND (t, 0));
 
     default:

@@ -41,11 +41,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-alias-common.h"
 #include "tree-dchain.h"
 
-/* Local functions.  */
-static void init_tree_flow PARAMS ((void));
-
-/*  Main entry point to the tree SSA transformation routines.  FNDECL is
-    the FUNCTION_DECL node for the function to optimize.  */
+/* Main entry point to the tree SSA transformation routines.  FNDECL is
+   the FUNCTION_DECL node for the function to optimize.  */
 
 void
 optimize_function_tree (fndecl)
@@ -92,11 +89,11 @@ optimize_function_tree (fndecl)
 
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
-  delete_ssa ();
+  delete_tree_ssa ();
 }
 
 
-/*  Main entry point to the tree SSA analysis routines.  */
+/* Main entry point to the tree SSA analysis routines.  */
 
 void
 build_tree_ssa (fndecl)
@@ -104,33 +101,12 @@ build_tree_ssa (fndecl)
 {
   /* Initialize flow data.  */
   init_flow ();
-  init_tree_flow ();
 
   tree_find_basic_blocks (DECL_SAVED_TREE (fndecl));
 
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
-    {
-      tree_find_refs ();
-      tree_build_ssa ();
-      tree_compute_rdefs ();    
-    }
+    tree_build_ssa ();
+
   if (flag_tree_points_to)
     create_alias_vars ();
-}
-
-
-/*  Initialize internal data structures and flags for the tree SSA pass.  */
-
-static void
-init_tree_flow ()
-{
-  VARRAY_TREE_INIT (referenced_vars, 20, "Referenced variables");
-
-  /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
-     warn_uninitialized to avoid duplicate warnings.  */
-  if (warn_uninitialized == 1)
-    {
-      tree_warn_uninitialized = 1;
-      warn_uninitialized = 0;
-    }
 }

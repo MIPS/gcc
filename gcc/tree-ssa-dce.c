@@ -217,11 +217,6 @@ tree_ssa_eliminate_dead_code (fndecl)
 		      mark_necessary (get_base_symbol (ref_var (ref)));
 		    }
 		}
-	      else if (type & E_FCALL)
-		  {
-		    mark_necessary (t);
-		    VARRAY_PUSH_TREE (worklist, t);
-		  }
 	    }
 	  if (t == bb->end_tree)
 	    break;

@@ -521,7 +521,6 @@ create_loop_hdr (entry)
 {
   union header_blocks *hdr;
   bb_ann ann = bb_annotation (entry);
-
   hdr = (union header_blocks *) ggc_alloc (sizeof (union header_blocks));
   memset (hdr, 0, sizeof (union header_blocks));
   ann->loop_hdr = hdr;
@@ -1238,23 +1237,12 @@ block_invalidates_loop (bb, loop)
       && ! TEST_BIT (loop->nodes, bb->succ->dest->index))
     return true;
 
-  /* If the node contains a non-pure function call, mark it invalid.  */
+  /* If the node contains a non-pure function call, mark it invalid.  A
+     non-pure function call is marked by the presence of a clobbering
+     definition of GLOBAL_VAR.  */
   FOR_EACH_REF (ref, tmp, bb_refs (bb))
-    {
-      if (ref_type (ref) & E_FCALL)
-	{
-	  tree call_expr = ref_var (ref);
-	  tree fcall = TREE_OPERAND (call_expr, 0);
-
-	  if (TREE_CODE (fcall) == ADDR_EXPR)
-	    fcall = TREE_OPERAND (fcall, 0);
-
-	  if (TREE_CODE (fcall) == FUNCTION_DECL
-	      && ! DECL_IS_PURE (fcall)
-	      && ! DECL_BUILT_IN (fcall))
-	    return true;
-	}
-    }
+    if (ref_var (ref) == global_var && (ref_type (ref) & (V_DEF | M_CLOBBER)))
+      return true;
 
   return false;
 }
@@ -2500,7 +2488,7 @@ tree_dump_cfg (file)
   basic_block bb;
 
   fputc ('\n', file);
-  fprintf (file, ";; Function %s\n\n", get_name (current_function_decl));
+  fprintf (file, "Function %s\n\n", get_name (current_function_decl));
 
   fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
            n_basic_blocks, n_edges, last_basic_block);
