@@ -1,3 +1,15 @@
+2004-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR 14236
+	* stmt.c (nesting_block::called_alloca): New.
+	(expand_start_bindings_and_block): Initialize it.
+	(POPSTACK): Propagate it up block_stack.
+	(save_stack_pointer): Warn when called_alloca is set.
+	(stack_pointer_safe_for_alloca): New.
+	* tree.h (stack_pointer_safe_for_alloca): Declare it.
+	* builtins.c (expand_builtin_alloca): Call it.  Warn if
+	stack pointer saved.
+
 2004-02-14  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_four_jump_limit): New variable.
