@@ -1,3 +1,8 @@
+2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/image/ComponentColorModel.java (ComponentColorModel):
+	Implement missing 1.4 constructor.
+
 2004-09-26  Andrew John Hughes  <address@hidden>
 
 	* javax/swing/JToggleButton.java:
