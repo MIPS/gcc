@@ -1066,8 +1066,6 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
     case GDK_KEY_PRESS:
         if (GTK_IS_WINDOW (widget))
           {
-            g_print("got key event on widget %s\n", gtk_widget_get_name (widget));
-
             (*gdk_env)->CallVoidMethod (gdk_env, peer,
                                         postKeyEventID,
                                         (jint) AWT_KEY_PRESSED,
@@ -1084,8 +1082,6 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
     case GDK_KEY_RELEASE:
       if (GTK_IS_WINDOW (widget))
         {
-            g_print("got key event on widget %s\n", gtk_widget_get_name (widget));
-
             (*gdk_env)->CallVoidMethod (gdk_env, peer,
                                         postKeyEventID,
                                         (jint) AWT_KEY_RELEASED,

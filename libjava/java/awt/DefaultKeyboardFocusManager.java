@@ -167,10 +167,7 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
             if (((FocusEvent) e).isTemporary ())
               setGlobalFocusOwner (target);
             else
-              {
-                System.out.println ("SETTING FOCUS TO: " + target);
-                setGlobalPermanentFocusOwner (target);
-              }
+              setGlobalPermanentFocusOwner (target);
           }
 
         target.dispatchEvent (e);
@@ -228,8 +225,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public boolean dispatchKeyEvent (KeyEvent e)
   {
-    //    System.out.println ("DefaultKeyboardFocusManager.dispatchKeyEvent: " + e);
-
     Component focusOwner = getGlobalPermanentFocusOwner ();
 
     focusOwner.dispatchEvent (e);
@@ -258,8 +253,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public boolean postProcessKeyEvent (KeyEvent e)
   {
-    //    System.out.println ("DefaultKeyboardFocusManager.postProcessKeyEvent: " + e);
-
     // Check if this event represents a menu shortcut.
 
     // MenuShortcuts are activated by Ctrl- KeyEvents.
@@ -319,8 +312,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void processKeyEvent (Component comp, KeyEvent e)
   {
-    //    System.out.println ("DefaultKeyboardFocusManager.processKeyEvent: " + e);
-
     AWTKeyStroke keystroke = AWTKeyStroke.getAWTKeyStrokeForEvent (e);
 
     Set forwardKeystrokes = comp.getFocusTraversalKeys (KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS);
@@ -355,15 +346,11 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   protected void enqueueKeyEvents (long after, Component untilFocused)
   {
-    System.out.println ("DefaultKeyboardFocusManager.enqueueKeyEvents: " + untilFocused);
-
     delayRequests.add (new EventDelayRequest (after, untilFocused));
   }
 
   protected void dequeueKeyEvents (long after, Component untilFocused)
   {
-    System.out.println ("DefaultKeyboardFocusManager.dequeueKeyEvents: " + untilFocused);
-
     // FIXME: need synchronization on delayRequests and enqueuedKeyEvents.
 
     // Remove the KeyEvent with the oldest timestamp, which should be
@@ -388,8 +375,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   protected void discardKeyEvents (Component comp)
   {
-    System.out.println ("DefaultKeyboardFocusManager.discardKeyEvents: " + comp);
-
     // FIXME: need synchronization on delayRequests and enqueuedKeyEvents.
 
     Iterator i = delayRequests.iterator ();
@@ -407,8 +392,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void focusPreviousComponent (Component comp)
   {
-    System.out.println ("DefaultKeyboardFocusManager.focusPreviousComponent: " + comp);
-
     Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
     Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
     FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
@@ -419,22 +402,16 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void focusNextComponent (Component comp)
   {
-    System.out.println ("DefaultKeyboardFocusManager.focusNextComponent: " + comp);
-
     Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
     Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
     FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
 
     Component next = policy.getComponentAfter (focusCycleRoot, focusComp);
-    System.out.println ("Got next component: " + next);
-    System.out.println ("Got focus comp: " + focusComp);
     next.requestFocus ();
   }
 
   public void upFocusCycle (Component comp)
   {
-    System.out.println ("DefaultKeyboardFocusManager.upFocusCycle: " + comp);
-
     Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
     Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
 
@@ -455,8 +432,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void downFocusCycle (Container cont)
   {
-    System.out.println ("DefaultKeyboardFocusManager.downFocusCycle: " + cont);
-
     if (cont == null)
       return;
 

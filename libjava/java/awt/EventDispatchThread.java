@@ -80,13 +80,7 @@ class EventDispatchThread extends Thread
           // returning true.  Otherwise, it returns false and we
           // dispatch the event normally.
           if (!manager.dispatchEvent (evt))
-            {
-              queue.dispatchEvent(evt);
-            }
-          else
-            {
-              //              System.out.println ("Dispatched " + evt + " to DefaultKeyboardFocusManager");
-            }
+            queue.dispatchEvent(evt);
 	}
 	catch (InterruptedException ie)
 	{

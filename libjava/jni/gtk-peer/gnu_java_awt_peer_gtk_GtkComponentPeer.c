@@ -192,7 +192,6 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
 
   gdk_threads_enter ();
 
-  g_printerr ("sending event\n");
   gtk_main_do_event (event);
 
   gdk_threads_leave ();
@@ -881,7 +880,6 @@ static gboolean focus_in_cb (GtkWidget *widget,
                              GdkEventFocus *event,
                              jobject peer)
 {
-  g_printerr ("            focus in: %p\n", peer);
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
                               postFocusEventID,
                               AWT_FOCUS_GAINED,
@@ -893,7 +891,6 @@ static gboolean focus_out_cb (GtkWidget *widget,
                               GdkEventFocus *event,
                               jobject peer)
 {
-  g_printerr ("            focus out: %p\n", peer);
   (*gdk_env)->CallVoidMethod (gdk_env, peer,
                               postFocusEventID,
                               AWT_FOCUS_LOST,

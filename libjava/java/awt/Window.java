@@ -262,7 +262,6 @@ public class Window extends Container implements Accessible
         if (initialFocusOwner != null)
           initialFocusOwner.requestFocusInWindow (false);
 
-        System.out.println ("GOT INITIAL FOCUS OWNER: " + initialFocusOwner);
         shown = true;
       }
   }

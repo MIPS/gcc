@@ -366,7 +366,6 @@ public abstract class KeyboardFocusManager
    */
   protected void setGlobalPermanentFocusOwner (Component focusOwner)
   {
-    System.out.println ("in setGlobalFocusOwner: " + focusOwner);
     if (focusOwner == null || focusOwner.focusable)
       setGlobalObject (currentPermanentFocusOwners, focusOwner,
 		       "permanentFocusOwner");

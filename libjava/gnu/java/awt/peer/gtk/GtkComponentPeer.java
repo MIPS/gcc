@@ -353,7 +353,6 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void requestFocus ()
   {
-    System.out.println ("In GtkComponentPeer.requestFocus");
     gtkWidgetRequestFocus ();
     postFocusEvent (FocusEvent.FOCUS_GAINED, false);
   }
@@ -482,7 +481,6 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   protected void postFocusEvent (int id, boolean temporary)
   {
-    System.out.println ("GtkComponentPeer.postFocusEvent: " + awtComponent);
     q.postEvent (new FocusEvent (awtComponent, id, temporary));
   }
 
