@@ -1,3 +1,10 @@
+2002-12-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/invoke.texi (Precompiled Headers): Document the
+	directory form of PCH.
+	* cppfiles.c (validate_pch): New function.
+	(open_file_pch): Search suitably-named directories for PCH files.
+
 2002-12-14  Geoffrey Keating  <geoffk@apple.com>
 
 	* doc/gty.texi (GTY Options): Document chain_next, chain_prev,

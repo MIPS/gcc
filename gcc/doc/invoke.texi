@@ -10679,6 +10679,15 @@ file, and @option{-include} the precompiled header.  If the header files
 have guards against multiple inclusion, they will be skipped because
 they've already been included (in the precompiled header).
 
+If you need to precompile the same header file for different
+languages, targets, or compiler options, you can instead make a
+@emph{directory} named like @file{all.h.pch}, and put each precompiled
+header in the directory.  (It doesn't matter what you call the files
+in the directory, every precompiled header in the directory will be
+considered.)  The first precompiled header encountered in the
+directory that is valid for this compilation will be used; they're
+searched in no particular order.
+
 There are many other possibilities, limited only by your imagination,
 good sense, and the constraints of your build system.
 

@@ -22,6 +22,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include <dirent.h>
 #include "cpplib.h"
 #include "cpphash.h"
 #include "intl.h"
@@ -137,6 +138,9 @@ static struct include_file *
 	find_include_file PARAMS ((cpp_reader *, const cpp_token *,
 				   enum include_type));
 static struct include_file *open_file PARAMS ((cpp_reader *, const char *));
+static struct include_file *validate_pch PARAMS ((cpp_reader *,
+						  const char *,
+						  const char *));
 static struct include_file *open_file_pch PARAMS ((cpp_reader *, 
 						   const char *));
 static int read_include_file	PARAMS ((cpp_reader *, struct include_file *));
@@ -316,6 +320,30 @@ open_file (pfile, filename)
   return 0;
 }
 
+static struct include_file *
+validate_pch (pfile, filename, pchname)
+     cpp_reader *pfile;
+     const char *filename;
+     const char *pchname;
+{
+  struct include_file * file;
+  
+  file = open_file (pfile, pchname);
+  if (file == NULL)
+    return NULL;
+  if ((file->pch & 2) == 0)
+    file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+  if (INCLUDE_PCH_P (file))
+    {
+      file->header_name = _cpp_simplify_pathname (xstrdup (filename));
+      return file;
+    }
+  close (file->fd);
+  file->fd = -1;
+  return NULL;
+}
+
+
 /* Like open_file, but also look for a precompiled header if (a) one exists
    and (b) it is valid.  */
 static struct include_file *
@@ -329,20 +357,47 @@ open_file_pch (pfile, filename)
       size_t namelen = strlen (filename);
       char *pchname = alloca (namelen + 5);
       struct include_file * file;
+      splay_tree_node nd;
       
       memcpy (pchname, filename, namelen);
       memcpy (pchname + namelen, ".pch", 5);
-      file = open_file (pfile, pchname);
+
+      nd = find_or_create_entry (pfile, pchname);
+      file = (struct include_file *) nd->value;
+
       if (file != NULL)
 	{
-	  if ((file->pch & 2) == 0)
-	    file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
-	  file->header_name = xstrdup (filename);
-	  _cpp_simplify_pathname (file->header_name);
-	  if (INCLUDE_PCH_P (file))
+	  if (stat (file->name, &file->st) == 0 && S_ISDIR (file->st.st_mode))
+	    {
+	      DIR * thedir;
+	      struct dirent *d;
+	      size_t subname_len = namelen + 64;
+	      char *subname = xmalloc (subname_len);
+	      
+	      thedir = opendir (pchname);
+	      if (thedir == NULL)
+		return NULL;
+	      memcpy (subname, pchname, namelen + 4);
+	      subname[namelen+4] = '/';
+	      while ((d = readdir (thedir)) != NULL)
+		{
+		  if (strlen (d->d_name) + namelen + 7 > subname_len)
+		    {
+		      subname_len = strlen (d->d_name) + namelen + 64;
+		      subname = xrealloc (subname, subname_len);
+		    }
+		  strcpy (subname + namelen + 5, d->d_name);
+		  file = validate_pch (pfile, filename, subname);
+		  if (file)
+		    break;
+		}
+	      closedir (thedir);
+	      free (subname);
+	    }
+	  else
+	    file = validate_pch (pfile, filename, pchname);
+	  if (file)
 	    return file;
-	  close (file->fd);
-	  file->fd = -1;
 	}
     }
   return open_file (pfile, filename);
