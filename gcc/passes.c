@@ -1324,6 +1324,8 @@ rest_of_handle_loop2 (tree decl, rtx insns)
       loop_optimizer_finalize (loops, dump_file);
     }
 
+  free_dominance_info (CDI_DOMINATORS);
+
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)

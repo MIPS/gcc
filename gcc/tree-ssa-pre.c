@@ -2044,7 +2044,8 @@ execute_pre (void)
 static bool
 gate_pre (void)
 {
-  return flag_tree_pre != 0;
+  /* Disabled due to bootstrap problems.  */
+  return 0 && flag_tree_pre != 0;
 }
 
 struct tree_opt_pass pass_pre =

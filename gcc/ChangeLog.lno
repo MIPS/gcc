@@ -1,3 +1,24 @@
+2004-07-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-cfg.o): Add CFGLAYOUT_H dependency.
+	* loop-init.c (loop_optimizer_init, loop_optimizer_finalize): Do not
+	free the dominators.
+	* passes.c (rest_of_handle_loop2): Free the dominators.
+	* sched-rgn.c (compute_trg_info): Initialize fields of variable el.
+	* tree-cfg.c: Include cfglayout.h.
+	(tree_duplicate_bb): Copy also phi nodes.
+	(struct ssa_name_map_entry): New type.
+	(collect_defs, add_phi_args_after_copy, ssa_name_map_entry_hash,
+	ssa_name_map_entry_eq, allocate_ssa_names,
+	rewrite_to_new_ssa_names_def, rewrite_to_new_ssa_names_use,
+	rewrite_to_new_ssa_names, tree_duplicate_sese_region): New functions.
+	* tree-flow.h (tree_duplicate_sese_region): Declare.
+	* tree-ssa-loop-ch.c (mark_defs_for_rewrite, duplicate_blocks): Removed.
+	(copy_loop_headers): Use tree_duplicate_sese_region.
+	* tree-ssa-loop-manip.c (copy_phi_nodes): Only copy the phi node
+	arguments.
+	* tree-ssa-pre.c (gate_pre): Disable the optimization.
+
 2004-07-14  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c (vect_is_simple_use): Additional argument.

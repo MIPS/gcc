@@ -58,14 +58,13 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 
   for (i = first_new_block; i < (unsigned) last_basic_block; i++)
     {
-      tree nlist;
       bb = BASIC_BLOCK (i);
       orig = bb->rbi->original;
 
-      for (phi = phi_nodes (orig); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (orig), new_phi = phi_nodes (bb);
+	   phi;
+	   phi = TREE_CHAIN (phi), new_phi = TREE_CHAIN (new_phi))
 	{
-	  new_phi = create_phi_node (PHI_RESULT (phi), bb);
-
 	  if (orig == loop->header)
 	    {
 	      if (!bb->pred || bb->pred->pred_next)
@@ -88,10 +87,6 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 	      add_phi_arg (&new_phi, def, new_e);
 	    }
 	}
-
-      /* neverse phi nodes to keep them in original order.  */
-      nlist = nreverse (phi_nodes (bb));
-      set_phi_nodes (bb, nlist);
     }
 
   if (peeling)

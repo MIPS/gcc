@@ -48,7 +48,6 @@ loop_optimizer_init (FILE *dumpfile)
     {
       /* No loops.  */
       flow_loops_free (loops);
-      free_dominance_info (CDI_DOMINATORS);
       free (loops);
 
       return NULL;
@@ -98,7 +97,6 @@ loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 
   /* Clean up.  */
   flow_loops_free (loops);
-  free_dominance_info (CDI_DOMINATORS);
   free (loops);
 
   /* Checking.  */
