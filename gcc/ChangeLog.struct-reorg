@@ -1,3 +1,18 @@
+2005-02-02  Kenneth Zadeck <zadeck@naturalbridge.com> with inclusions from 
+	Daniel Berlin  <dberlin@dberlin.org>
+
+	* Makefile.in: added tree-promote-statics.c.
+	* treepass.h: added pass-promote-statics.
+	* alias.c (nonoverlapping_component_refs_p,nonoverlapping_memrefs_p):
+	ifdefed out agressive structure aliasing code.
+	* typecheck.c (convert_arguments): made code tolerant of builtins functions
+	with extra parameters.
+	* ipa-static-vars-analysis.c (unique_type_id_for, ipa_static_type_contained_p,
+	ipa_static_address_not_taken_of_field, 
+	check_function_parameter_and_return_types, close_addressof, do_type_analysis):
+	fixed bugs with missing types.
+	* ipa-static-vars-analysis.c (propagate_bits, do_type_analysis) fixed typos.
+
 2005-02-01  Caroline Tice  <ctice@apple.com>
 
 	* c-lang.c (LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF) New lang hooks 

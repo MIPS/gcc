@@ -3934,7 +3934,7 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
     return NULL;
 
   /* Check to see if it is legal to rearrange this structure.  */
-  if (ipa_static_type_contained_p (struct_type))
+  if (!ipa_static_type_contained_p (struct_type))
     return NULL;
 
   d_node = (struct data_structure *) 

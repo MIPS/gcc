@@ -1972,9 +1972,12 @@ nonoverlapping_component_refs_p (tree x, tree y)
 	  x = TREE_OPERAND (x, 0);
 	}
       while (x && TREE_CODE (x) == COMPONENT_REF);
-
       /* Never found a common type.  */
+#ifdef AGRESSIVE_ALIASING
+      return true;
+#else 
       return false;
+#endif /* AGRESSIVE_ALIASING */
 
     found:
       /* If we're left with accessing different fields of a structure,
@@ -2066,6 +2069,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsetx = MEM_OFFSET (x);
   if (TREE_CODE (exprx) == COMPONENT_REF)
     {
+#ifdef AGRESSIVE_ALIASING
       if (TREE_CODE (expry) == VAR_DECL
 	  && POINTER_TYPE_P (TREE_TYPE (expry)))
 	{
@@ -2075,6 +2079,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
+#endif /* AGRESSIVE_ALIASING */
       {
 	tree t = decl_for_component_ref (exprx);
 	if (! t)
@@ -2094,6 +2099,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
+#ifdef AGRESSIVE_ALIASING
       if (TREE_CODE (exprx) == VAR_DECL
 	  && POINTER_TYPE_P (TREE_TYPE (exprx)))
 	{
@@ -2103,6 +2109,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
 						    TREE_TYPE (field)))
 	   return 1;	 
 	}
+#endif /* AGRESSIVE_ALIASING */
       {
 	tree t = decl_for_component_ref (expry);
 	if (! t)

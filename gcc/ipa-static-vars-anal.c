@@ -200,11 +200,12 @@ print_order (FILE* out,
    declared in several files, multiple types will appear that are the
    same.  The code in this unit chooses one "unique" instance of that
    type as the representative and has all of the others point to
-   it.  */
+   it. If ALLOW_MISSING is true, just return UID if it is not found in
+   the table, otherwise abort. */
 
 /* Find the unique representative for a type with UID.  */  
 static int
-unique_type_id_for (int uid)
+unique_type_id_for (int uid, bool allow_missing)
 {
   splay_tree_node result = 
     splay_tree_lookup(uid_to_unique_type, (splay_tree_key) uid);
@@ -213,7 +214,8 @@ unique_type_id_for (int uid)
     return TYPE_UID((tree) result->value);
   else 
     {
-      abort();
+      if (!allow_missing)
+	abort();
       return uid;
     }
 }
@@ -222,7 +224,7 @@ unique_type_id_for (int uid)
 static bool 
 unique_type_id_p (int uid)
 {
-  return uid == unique_type_id_for (uid);
+  return uid == unique_type_id_for (uid, false);
 }
 
 /* FIXME -- PROFILE-RESTRUCTURE: Remove this function, it becomes a nop. */    
@@ -512,8 +514,8 @@ ipa_static_type_contained_p (tree type)
     type = TREE_TYPE (type);
 
   type = TYPE_MAIN_VARIANT (type);
-  uid = unique_type_id_for (TYPE_UID (type));
-  return bitmap_bit_p (global_types_full_escape, uid);
+  uid = unique_type_id_for (TYPE_UID (type), true);
+  return !bitmap_bit_p (global_types_full_escape, uid);
 }
 
 /* Return true if no fields with type FIELD_TYPE within a record of
@@ -546,14 +548,14 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
     return false;
 
   record_type = TYPE_MAIN_VARIANT (record_type);
-  uid = unique_type_id_for (TYPE_UID (record_type));
+  uid = unique_type_id_for (TYPE_UID (record_type), false);
   result = splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
   
   if (result) 
     {
       bitmap field_type_map = (bitmap) result->value;
       field_type = TYPE_MAIN_VARIANT (field_type);
-      uid = unique_type_id_for (TYPE_UID (field_type));
+      uid = unique_type_id_for (TYPE_UID (field_type), true);
       /* If the bit is there, the address was taken. If not, it
 	 wasn't.  */
       return !bitmap_bit_p (field_type_map, uid);
@@ -753,7 +755,13 @@ mark_type_seen (tree type)
 	  || TREE_CODE (type) == UNION_TYPE)
     return mark_any_type_seen (type);
   else 
-    return false;
+    {
+      /* Allow primitive and function types to get into the set of
+	 types seen, but do not return true because there is not
+	 reason to recurse in the calls that check the result.  */
+      mark_any_type_seen (type);
+      return false;
+    }
 }
 
 /* Add TYPE to the suspect type set. Return true if the bit needed to
@@ -1010,17 +1018,29 @@ static void
 check_function_parameter_and_return_types (tree fn, bool escapes) 
 {
   tree arg;
-
-  for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
-       arg && TREE_VALUE (arg) != void_type_node;
-       arg = TREE_CHAIN (arg))
-    {
-      if (escapes)
-	mark_interesting_type (TREE_VALUE (arg), EXPOSED_PARAMETER);
-      else
-	mark_type_seen (TREE_VALUE (arg));
-    }
   
+  if (TYPE_ARG_TYPES (TREE_TYPE (fn)))
+    {
+      for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
+	   arg && TREE_VALUE (arg) != void_type_node;
+	   arg = TREE_CHAIN (arg))
+	{
+	  if (escapes)
+	    mark_interesting_type (TREE_VALUE (arg), EXPOSED_PARAMETER);
+	  else
+	    mark_type_seen (TREE_VALUE (arg));
+	}
+    }
+  else
+    {
+      for (arg = DECL_ARGUMENTS (fn); arg; arg = TREE_CHAIN (arg))
+	{
+	  if (escapes)
+	    mark_interesting_type (TREE_TYPE (arg), EXPOSED_PARAMETER);
+	  else
+	    mark_type_seen (TREE_TYPE (arg));
+	}
+    }
   if (escapes)
     mark_interesting_type (TREE_TYPE (TREE_TYPE (fn)), EXPOSED_PARAMETER); 
   else 
@@ -1805,11 +1825,12 @@ propagate_bits (struct cgraph_node *x)
 	      if (x_global->pure_const_state < y_global->pure_const_state)
 		{
 		  if (dump_file)
-		  fprintf (dump_file, "$$$$raising level for call: %s(%d) -> %s(%d)\n",  
-			   lang_hooks.decl_printable_name(x->decl, 2), 
-			   x_global->pure_const_state,
-			   lang_hooks.decl_printable_name(y->decl, 2),
-			   y_global->pure_const_state); 
+		    fprintf (dump_file, 
+			     "$$$$raising level for call: %s(%d) -> %s(%d)\n",  
+			     lang_hooks.decl_printable_name(x->decl, 2), 
+			     x_global->pure_const_state,
+			     lang_hooks.decl_printable_name(y->decl, 2),
+			     y_global->pure_const_state); 
 		  x_global->pure_const_state = y_global->pure_const_state;
 		}
 	      if (x_global->statics_read_by_decl_uid != all_module_statics)
@@ -2467,7 +2488,7 @@ close_addressof (int uid)
 
   EXECUTE_IF_SET_IN_BITMAP (map, 0, i, bi)
     {
-      int new_uid = unique_type_id_for (i);
+      int new_uid = unique_type_id_for (i, false);
       bitmap submap = close_addressof (new_uid);
       bitmap_set_bit (new_map, new_uid);
       if (submap) 
@@ -2514,8 +2535,8 @@ do_type_analysis (void)
       splay_tree_insert (uid_to_unique_type, 
 			 (splay_tree_key) i, 
 			 (splay_tree_value) unique_type);
-      if (0)
-	fprintf(stderr, "dta i=%d,%d j=%d,%s\n", i, 
+      if (dump_file)
+	fprintf(dump_file, "dta i=%d,%d j=%d,%s\n", i, 
 		TYPE_UID(type_for_uid(i)),
 		TYPE_UID(unique_type), get_name_of_type(unique_type));
     }
@@ -2579,7 +2600,7 @@ do_type_analysis (void)
      unique type is also set in that map.  */
   EXECUTE_IF_SET_IN_BITMAP (global_types_full_escape, 0, i, bi)
     {
-      unsigned int j = unique_type_id_for (i);
+      unsigned int j = unique_type_id_for (i, false);
       if (i != j)
 	{
 	  bitmap_set_bit(global_types_full_escape, j);
@@ -2587,21 +2608,21 @@ do_type_analysis (void)
 	}
     }
 
-  if (0)
+  if (dump_file)
     { 
       EXECUTE_IF_SET_IN_BITMAP (global_types_seen, 0, i, bi)
 	{
 	  /* The pointer types are in the global_types_full_escape bitmap
 	     but not in the backwards map.  */
 	  tree type = type_for_uid (i);
-	  fprintf(stderr, "type %d ", i);
-	  print_generic_expr (stderr, type, 0);
+	  fprintf(dump_file, "type %d ", i);
+	  print_generic_expr (dump_file, type, 0);
 	  if (bitmap_bit_p (global_types_full_escape, i))
-	    fprintf(stderr, " escaped\n");
+	    fprintf(dump_file, " escaped\n");
 	  else if (unique_type_id_p (i))
-	    fprintf(stderr, " contained\n");
+	    fprintf(dump_file, " contained\n");
 	  else
-	    fprintf(stderr, " replaced\n");
+	    fprintf(dump_file, " replaced\n");
 	}
     }
 
@@ -2723,15 +2744,19 @@ static_execute (void)
       int value;
       fgets(line, sizeof(line), ok_statics_file);
       sscanf(line, "%d", &value);
-      for (i = 0; i < value; i++ )
+      i = 0;
+      while (!bitmap_empty_p (all_module_statics)) {
    	{
-   	  int j = bitmap_first_set_bit(all_module_statics);
- 	  if (j == -1) break;
+	  int j;
+	  if (i >= value) break;
+   	  j = bitmap_first_set_bit (all_module_statics);
    	  fprintf(stderr, "  not considering %s\n",
    		  get_static_name_by_uid (j));
    	  splay_tree_remove (static_vars_to_consider_by_uid, j);
    	  bitmap_clear_bit(all_module_statics, j);
+	  i++;
    	}
+      }
     }
 
     if (dump_file)
