@@ -2840,8 +2840,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 
   /* If #pragma weak was used, mark the decl weak now.  */
-  if (current_scope == global_scope)
-    maybe_apply_pragma_weak (decl);
+  maybe_apply_pragma_weak (decl);
 
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.

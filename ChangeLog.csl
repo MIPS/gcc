@@ -1,3 +1,12 @@
+2005-04-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/c-decl.c (finish_decl): Apply pending #pragma weak
+	regardless of scope.
+	* gcc/cp/decl.c (start_decl): Apply pending #pragma weak
+	regardless of scope.
+	* gcc/testsuite/gcc.dg/weak/weak-12.c,
+	gcc/testsuite/g++.dg/ext/weak2.C: New tests.
+
 2005-03-18  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config.gcc: Consistently use solaris2.1[0-9]* instead of
