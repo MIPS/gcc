@@ -1,5 +1,9 @@
 2005-01-14  Tom Tromey  <tromey@redhat.com>
 
+	* model/field.cc (type): Use const_cast.
+
+2005-01-14  Tom Tromey  <tromey@redhat.com>
+
 	* header/jnistub.cc (write_method): Updated.
 	* header/jni.hh (jni_code_generator::translate): Updated.
 	* header/jni.cc (translate): Added 'request' argument.  Throw

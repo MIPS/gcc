@@ -1,6 +1,6 @@
 // Fields.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -68,11 +68,9 @@ model_field::type () const
     {
       resolution_scope scope;
       declaring_class->push_on_scope (&scope);
-      // FIXME: ugly cast.
-      resolution_scope::push_warnings warn_holder (&scope,
-						   (IAnnotatable *) this);
-      // FIXME: ugly cast.
-      ((model_field *) this)->resolve_classes (&scope);
+      model_field *unconst_this = const_cast<model_field *> (this);
+      resolution_scope::push_warnings warn_holder (&scope, unconst_this);
+      unconst_this->resolve_classes (&scope);
     }
 
   return model_variable_decl::type ();
