@@ -1,4 +1,12 @@
+2004-01-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 3943502
+	* parser.c (cp_parser_objc_defs_expression): New.
+	(cp_parser_member_declaration): Handle @defs.
+
+
 2005-01-06  Robert Bowdidge <bowdidge@apple.com>
+
 	Radar 3943783
 	* class.c: change has_apple_kext_compatibility_attr_p to use
         BINFO_BASE_BINFO for walking class hierarchy.

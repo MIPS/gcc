@@ -231,6 +231,12 @@ objc_get_class_reference (tree ARG_UNUSED (name))
 }
 
 tree
+objc_get_class_ivars (tree ARG_UNUSED (name))
+{
+  return 0;
+}
+
+tree
 objc_get_protocol_qualified_type (tree ARG_UNUSED (name),
 				  tree ARG_UNUSED (protos))
 {

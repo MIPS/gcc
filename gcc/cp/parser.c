@@ -1684,6 +1684,8 @@ static tree cp_parser_objc_message_expression
   (cp_parser *);
 static tree cp_parser_objc_encode_expression
   (cp_parser *);
+static tree cp_parser_objc_defs_expression 
+  (cp_parser *);
 static tree cp_parser_objc_protocol_expression
   (cp_parser *);
 static tree cp_parser_objc_selector_expression
@@ -13243,6 +13245,24 @@ cp_parser_member_declaration (cp_parser* parser)
       return;
     }
 
+  /* APPLE LOCAL begin Objective-C++ */
+  /* Check for @defs.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_DEFS))
+    {
+      tree ivar, member;
+      tree ivar_chains = cp_parser_objc_defs_expression (parser);
+      ivar = ivar_chains;
+      while (ivar)
+	{
+	  member = ivar;
+	  ivar = TREE_CHAIN (member);
+	  TREE_CHAIN (member) = NULL_TREE;
+	  finish_member_declaration (member);
+	}
+      return;
+    }
+  /* APPLE LOCAL end Objective-C++ */
+
   /* Parse the decl-specifier-seq.  */
   cp_parser_decl_specifier_seq (parser,
 				CP_PARSER_FLAGS_OPTIONAL,
@@ -17023,6 +17043,20 @@ cp_parser_objc_encode_expression (cp_parser* parser)
     }
 
   return objc_build_encode_expr (type);
+}
+
+/* Parse an Objective-C @defs expression.  */
+
+static tree
+cp_parser_objc_defs_expression (cp_parser *parser)
+{
+  tree name;
+  cp_lexer_consume_token (parser->lexer);  /* Eat '@defs'.  */
+  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  name = cp_parser_identifier (parser);
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+  return objc_get_class_ivars (name);
 }
 
 /* Parse an Objective-C protocol expression.
