@@ -1,5 +1,9 @@
 2004-09-23  David Gilbert  <david.gilbert@object-refinery.com>
 
+	* java/awt/SystemColor.java: Fix @link doc entries.
+
+2004-09-23  David Gilbert  <david.gilbert@object-refinery.com>
+
 	* java/awt/RenderingHints.java: Documented.
 	(RenderingHints): Accept null init Map.
 	(putAll): Preprocess map to generate appropriate exceptions.
