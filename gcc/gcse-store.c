@@ -648,8 +648,9 @@ build_store_vectors (store_data)
 				  bb, regs_set_in_block, NULL))
 	    {
 	      /* It should not be neccessary to consider the expression
-		 killed if it is anticipatable.  */
-	      if (!TEST_BIT (store_data->antloc[bb->index], ptr->index))
+		 killed if it is both anticipatable and available.  */
+	      if (!TEST_BIT (store_data->antloc[bb->index], ptr->index)
+		  || !TEST_BIT (store_data->ae.gen[bb->index], ptr->index))
 		SET_BIT (store_data->ae.kill[bb->index], ptr->index);
   	    }
   	  else
