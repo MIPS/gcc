@@ -1,68 +1,52 @@
-/* Copyright (C) 2004 Free Software Foundation.
+/* PR target/12308 */
 
-   Check that constant folding and RTL simplification of -(x >> y) doesn't
-   break anything and produces the expected results.
-
-   Written by Roger Sayle, 11th March 2004.  */
-
+void *a;
 extern void abort (void);
 
-#define INT_BITS  (sizeof(int)*8)
-
-int test1(int x)
+void
+foo (const char *x, int y)
 {
-  return -(x >> (INT_BITS-1));
 }
 
-int test2(unsigned int x)
+void __attribute__ ((noinline))
+bar (void *x, const char *y)
 {
-  return -((int)(x >> (INT_BITS-1)));
+  if (__builtin_strcmp (y, "xyz\n"))
+    abort ();
 }
 
-int test3(int x)
+void __attribute__ ((noinline))
+baz (char *x, const char *y, const char *z)
 {
-  int y;
-  y = INT_BITS-1;
-  return -(x >> y);
 }
 
-int test4(unsigned int x)
+int
+main (void)
 {
-  int y;
-  y = INT_BITS-1;
-  return -((int)(x >> y));
-}
+  struct
+  {
+    const char *a;
+    int b;
+  } b;
+  const char *c = 0;
+  int i;
+  char d[80];
 
-int main()
-{
-  if (test1(0) != 0)
-    abort ();
-  if (test1(1) != 0)
-    abort ();
-  if (test1(-1) != 1)
-    abort ();
-
-  if (test2(0) != 0)
-    abort ();
-  if (test2(1) != 0)
-    abort ();
-  if (test2((unsigned int)-1) != -1)
-    abort ();
-
-  if (test3(0) != 0)
-    abort ();
-  if (test3(1) != 0)
-    abort ();
-  if (test3(-1) != 1)
-    abort ();
-
-  if (test4(0) != 0)
-    abort ();
-  if (test4(1) != 0)
-    abort ();
-  if (test4((unsigned int)-1) != -1)
-    abort ();
-
+  b.b = 5;
+  for (i = 0; i < 1; i++)
+    {
+      double e = b.b;
+      if (c)
+	{
+	  bar (a, "abcd\n");
+	  baz (d, "f%s", c);
+	}
+      else
+	{
+	  bar (a, "xyz\n");
+	  baz (d, "f%s", c);
+	}
+      foo (d, e);
+    }
   return 0;
 }
-
