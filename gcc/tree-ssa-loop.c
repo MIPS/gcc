@@ -35,15 +35,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 
 /* Dump file and flags.  */
+#if defined ENABLE_CHECKING
 static FILE *dump_file;
 static int dump_flags;
+#endif
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
    FNDECL is the current function decl.  */
 
 void
-tree_ssa_loop_opt (tree fndecl, enum tree_dump_index phase)
+tree_ssa_loop_opt (tree fndecl ATTRIBUTE_UNUSED,
+		   enum tree_dump_index phase ATTRIBUTE_UNUSED)
 {
 #ifdef ENABLE_CHECKING
   struct loops *loops;
