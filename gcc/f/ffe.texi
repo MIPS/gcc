@@ -444,7 +444,7 @@ Jim's views should be taken into account.
 Actually, Richard M. Stallman (RMS) also has written up
 some guidelines for implementing such things,
 but I'm not sure where I read them.
-Perhaps the old @email{gcc2@cygnus.com} list.
+Perhaps the old @email{gcc2@@cygnus.com} list.
 
 If someone could dig references to these up and get them to me,
 that would be much appreciated!
