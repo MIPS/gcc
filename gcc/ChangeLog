@@ -1,3 +1,9 @@
+Thu Oct 31 18:20:50 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_loadss, sse_loadsd):  Canonicalize; add expander
+	(movps, movpd splitters): Use canonical form.
+	(movv2di): Fix merge problem.
+
 Thu Oct 31 16:22:31 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (negdf2_ifs_rex64): Don't allow GPR operand.
