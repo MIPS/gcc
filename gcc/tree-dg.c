@@ -519,10 +519,7 @@ ddg_distance_between_stmts (tree stmt1, tree stmt2, int loop_num)
 static bool
 gate_ddg (void)
 {
-  struct loops *current_loops;
-
-  current_loops = loop_optimizer_init (NULL);
-  return current_loops && flag_ddg && flag_scalar_evolutions != 0;
+  return dd_info_available && flag_ddg && flag_scalar_evolutions != 0;
 }
 
 struct tree_opt_pass pass_ddg =

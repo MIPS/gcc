@@ -185,5 +185,7 @@ array_base_name_differ_p (struct data_reference *a,
   return true;
 }
 
+/* Flag to indicate availability of dependency info.  */
+extern bool dd_info_available;
 
 #endif  /* GCC_TREE_DATA_REF_H  */

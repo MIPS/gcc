@@ -239,6 +239,9 @@ tree chrec_bot;
    - the function's parameters.  */
 tree chrec_symbolic_parameter;
 
+/* Flag to indicate availability of dependency info.  */
+bool dd_info_available;
+
 static struct loops *scev_loops;
 static varray_type scev_info;
 
@@ -4271,6 +4274,7 @@ static void
 scev_depend (void)
 {
   analyze_all_data_dependences ();
+  dd_info_available = true;
 }
 
 static void
@@ -4291,6 +4295,8 @@ scev_done (void)
       loop_optimizer_finalize (current_loops, NULL);
       current_loops = NULL;
     }
+
+  dd_info_available = false;
 }
 
 static bool
@@ -4347,7 +4353,7 @@ struct tree_opt_pass pass_scev_anal =
   0,					/* static_pass_number */
   TV_SCALAR_EVOLUTIONS,			/* tv_id */
   PROP_cfg | PROP_ssa,			/* properties_required */
-  PROP_scev,				/* properties_provided */
+  0,        				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
@@ -4369,7 +4375,7 @@ struct tree_opt_pass pass_scev_depend =
   0,					/* static_pass_number */
   TV_ALL_DATA_DEPS,			/* tv_id */
   PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
+  PROP_scev,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
