@@ -1042,8 +1042,11 @@ hard_addr_reg_operand (operand, mode)
 int
 hard_reg_operand (operand, mode)
      rtx operand;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
+  if (GET_MODE (operand) != mode && mode != VOIDmode)
+    return 0;
+
   if (GET_CODE (operand) == SUBREG)
     operand = XEXP (operand, 0);
 
@@ -1673,6 +1676,10 @@ expand_prologue ()
   else
     scratch = ix_reg;
 
+  /* Save current stack frame.  */
+  if (frame_pointer_needed)
+    emit_move_after_reload (stack_push_word, hard_frame_pointer_rtx, scratch);
+
   /* For an interrupt handler, we must preserve _.tmp, _.z and _.xy.
      Other soft registers in page0 need not to be saved because they
      will be restored by C functions.  For a trap handler, we don't
@@ -1686,10 +1693,6 @@ expand_prologue ()
 			      gen_rtx (REG, HImode, SOFT_SAVED_XY_REGNUM),
 			      scratch);
     }
-
-  /* Save current stack frame.  */
-  if (frame_pointer_needed)
-    emit_move_after_reload (stack_push_word, hard_frame_pointer_rtx, scratch);
 
   /* Allocate local variables.  */
   if (TARGET_M6812 && (size > 4 || size == 3))
@@ -1764,7 +1767,7 @@ expand_epilogue ()
   else
     return_size = GET_MODE_SIZE (GET_MODE (current_function_return_rtx));
 
-  if (return_size > HARD_REG_SIZE)
+  if (return_size > HARD_REG_SIZE && return_size <= 2 * HARD_REG_SIZE)
     scratch = iy_reg;
   else
     scratch = ix_reg;
@@ -1811,10 +1814,6 @@ expand_epilogue ()
 			       stack_pointer_rtx, GEN_INT (1)));
     }
 
-  /* Restore previous frame pointer.  */
-  if (frame_pointer_needed)
-    emit_move_after_reload (hard_frame_pointer_rtx, stack_pop_word, scratch);
-
   /* For an interrupt handler, restore ZTMP, ZREG and XYREG.  */
   if (current_function_interrupt)
     {
@@ -1824,6 +1823,10 @@ expand_epilogue ()
 			      stack_pop_word, scratch);
       emit_move_after_reload (m68hc11_soft_tmp_reg, stack_pop_word, scratch);
     }
+
+  /* Restore previous frame pointer.  */
+  if (frame_pointer_needed)
+    emit_move_after_reload (hard_frame_pointer_rtx, stack_pop_word, scratch);
 
   /* If the trap handler returns some value, copy the value
      in D, X onto the stack so that the rti will pop the return value
@@ -3261,7 +3264,8 @@ m68hc11_gen_movhi (insn, operands)
 	{
 	  if (SP_REG_P (operands[0]))
 	    output_asm_insn ("lds\t%1", operands);
-	  else if (!D_REG_P (operands[0])
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && !D_REG_P (operands[0])
                    && GET_CODE (operands[1]) == CONST_INT
                    && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
                    && find_reg_note (insn, REG_WAS_0, 0))
@@ -3454,7 +3458,8 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsx", operands);
 	    }
-	  else if (GET_CODE (operands[1]) == CONST_INT
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
                    && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
                    && find_reg_note (insn, REG_WAS_0, 0))
             {
@@ -3511,7 +3516,8 @@ m68hc11_gen_movhi (insn, operands)
 	      cc_status = cc_prev_status;
 	      output_asm_insn ("tsy", operands);
 	    }
-	  else if (GET_CODE (operands[1]) == CONST_INT
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
                    && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
                    && find_reg_note (insn, REG_WAS_0, 0))
             {
@@ -3760,7 +3766,8 @@ m68hc11_gen_movqi (insn, operands)
 		  output_asm_insn ("ldab\t%T0", operands);
 		}
 	    }
-	  else if (GET_CODE (operands[1]) == CONST_INT
+	  else if (0 /* REG_WAS_0 note is boggus;  don't rely on it.  */
+                   && GET_CODE (operands[1]) == CONST_INT
                    && (INTVAL (operands[1]) == 1 || INTVAL (operands[1]) == -1)
                    && find_reg_note (insn, REG_WAS_0, 0))
             {

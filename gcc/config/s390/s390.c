@@ -4711,6 +4711,12 @@ s390_fixup_clobbered_return_reg (return_reg)
   bool replacement_done = 0;
   rtx insn;
 
+  /* If we never called __builtin_return_address, register 14
+     might have been used as temp during the prolog; we do
+     not want to touch those uses.  */
+  if (!has_hard_reg_initial_val (Pmode, REGNO (return_reg)))
+    return false;
+
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       rtx reg, off, new_insn;
@@ -5234,6 +5240,16 @@ s390_emit_prologue ()
 	  addr = gen_rtx_MEM (Pmode, stack_pointer_rtx);
 	  set_mem_alias_set (addr, s390_sr_alias_set);
 	  insn = emit_insn (gen_move_insn (addr, temp_reg));
+	}
+
+      /* If we support asynchronous exceptions (e.g. for Java),
+	 we need to make sure the backchain pointer is set up
+	 before any possibly trapping memory access.  */
+
+      if (TARGET_BACKCHAIN && flag_non_call_exceptions)
+	{
+	  addr = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode, addr));
 	}
     }
 

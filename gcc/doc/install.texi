@@ -2065,22 +2065,19 @@ of the configuration used in the stock FreeBSD configuration of GCC.  In
 particular, @option{--enable-threads} is now configured by default.
 However, as a general user, do not attempt to replace the system
 compiler with this release.  Known to bootstrap and check with good
-results on FreeBSD 3.0, 3.4, 4.0, 4.2, 4.3, 4.4, 4.5-STABLE and 5-CURRENT@.
+results on FreeBSD 4.8-STABLE and 5-CURRENT@.  In the past, known to
+bootstrap and check with good results on FreeBSD 3.0, 3.4, 4.0, 4.2,
+4.3, 4.4, 4.5-STABLE@.
 
 In principle, @option{--enable-threads} is now compatible with
 @option{--enable-libgcj} on FreeBSD@.  However, it has only been built
-and tested on @samp{i386-*-freebsd4.5} and @samp{alpha-*-freebsd5.0}.
+and tested on @samp{i386-*-freebsd[45]} and @samp{alpha-*-freebsd[45]}.
 The static
 library may be incorrectly built (symbols are missing at link time).
 There is a rare timing-based startup hang (probably involves an
 assumption about the thread library).  Multi-threaded boehm-gc (required for
 libjava) exposes severe threaded signal-handling bugs on FreeBSD before
-4.5-RELEASE.  The alpha port may not fully bootstrap without some manual
-intervention: @command{gcjh} will crash with a floating-point exception while
-generating @file{java/lang/Double.h} (just copy the version built on
-@samp{i386-*-freebsd*} and rerun the top-level @command{gmake} with no
-arguments and it
-should properly complete the bootstrap).  Other CPU architectures
+4.5-RELEASE@.  Other CPU architectures
 supported by FreeBSD will require additional configuration tuning in, at
 the very least, both boehm-gc and libffi.
 
@@ -2914,14 +2911,8 @@ PowerPC running Darwin (Mac OS X kernel).
 Pre-installed versions of Mac OS X may not include any developer tools,
 meaning that you will not be able to build GCC from source.  Tool
 binaries are available at
-@uref{http://www.opensource.apple.com/projects/darwin/} (free
+@uref{http://developer.apple.com/tools/compilers.html} (free
 registration required).
-
-If you're using Darwin 1.3 (Mac OS X 10.0) or earlier, you will need
-to upgrade the assembler to version ``cctools-364''.  To get cctools-364,
-check out @file{cctools} with tag @samp{Apple-364}, build it, and
-install the assembler as @file{usr/bin/as}.  See
-@uref{http://www.opensource.apple.com/tools/cvs/docs.html} for details.
 
 The default stack limit of 512K is too small, which may cause compiles
 to fail with 'Bus error'.  Set the stack larger, for instance
@@ -3029,12 +3020,12 @@ GCC you first have to install a pre-built compiler, see our
 @uref{binaries.html,,binaries page} for details.
 
 The Solaris 2 @command{/bin/sh} will often fail to configure
-@file{libstdc++-v3}, @file{boehm-gc} or
-@file{libjava}.  If you encounter this problem, set @env{CONFIG_SHELL} to
-@command{/bin/ksh} in your environment before running @command{configure}.
+@file{libstdc++-v3}, @file{boehm-gc} or @file{libjava}.  We therefore
+recommend to set @env{CONFIG_SHELL} to @command{/bin/ksh} in your
+environment.
 
 Solaris 2 comes with a number of optional OS packages.  Some of these
-packages are needed to use GCC fully, namely @code{SUNWarc},
+are needed to use GCC fully, namely @code{SUNWarc},
 @code{SUNWbtool}, @code{SUNWesu}, @code{SUNWhea}, @code{SUNWlibm},
 @code{SUNWsprot}, and @code{SUNWtoo}.  If you did not install all
 optional packages when installing Solaris 2, you will need to verify that

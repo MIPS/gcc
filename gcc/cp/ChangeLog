@@ -1,8 +1,31 @@
+2003-03-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10278
+	* spew.c (yyerror): Avoid crashing at all costs.
+
+2003-03-31  Jason Merrill  <jason@redhat.com>
+
+	PR java/10145
+	* class.c (check_field_decl): Don't set DECL_ALIGN.
+
+2003-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7647
+	* search.c (lookup_field_1): Add want_type parameter.
+	(lookup_field_r): Adjust call to lookup_field_1.
+
+2003-03-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10245
+	* cvt.c (force_rvalue): New fn.
+	* call.c (build_conditional_expr): Use it.
+	* cp-tree.h: Declare it.
+
 2003-03-28  Nathan Sidwell  <nathan@codesourcery.com>
 	
-        PR c++/10047
-        * decl2.c (finish_file): Don't warn about explicitly instantiated
-        inline decls.
+	PR c++/10047
+	* decl2.c (finish_file): Don't warn about explicitly instantiated
+	inline decls.
 
 2003-03-27  Nathan Sidwell  <nathan@codesourcery.com>
 

@@ -283,6 +283,7 @@ static tree c_make_fname_decl           PARAMS ((tree, int));
 static void c_expand_body_1             PARAMS ((tree, int));
 static void warn_if_shadowing		PARAMS ((tree, tree));
 static bool flexible_array_type_p	PARAMS ((tree));
+static tree set_save_expr_context	PARAMS ((tree *, int *, void *));
 
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
@@ -4072,7 +4073,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    }
 
 		  if (size_varies)
-		    itype = variable_size (itype);
+		    {
+		      /* We must be able to distinguish the
+			 SAVE_EXPR_CONTEXT for the variably-sized type
+			 so that we can set it correctly in
+			 set_save_expr_context.  The convention is
+			 that all SAVE_EXPRs that need to be reset
+			 have NULL_TREE for their SAVE_EXPR_CONTEXT.  */
+		      tree cfd = current_function_decl;
+		      if (decl_context == PARM)
+			current_function_decl = NULL_TREE;
+		      itype = variable_size (itype);
+		      if (decl_context == PARM)
+			current_function_decl = cfd;
+		    }
 		  itype = build_index_type (itype);
 		}
 	    }
@@ -5224,18 +5238,6 @@ finish_struct (t, fieldlist, attributes)
 #endif
 		}
 	    }
-	}
-
-      else if (TREE_TYPE (x) != error_mark_node)
-	{
-	  unsigned int min_align = (DECL_PACKED (x) ? BITS_PER_UNIT
-				    : TYPE_ALIGN (TREE_TYPE (x)));
-
-	  /* Non-bit-fields are aligned for their type, except packed
-	     fields which require only BITS_PER_UNIT alignment.  */
-	  DECL_ALIGN (x) = MAX (DECL_ALIGN (x), min_align);
-	  if (! DECL_PACKED (x))
-	    DECL_USER_ALIGN (x) |= TYPE_USER_ALIGN (TREE_TYPE (x));
 	}
 
       DECL_INITIAL (x) = 0;
@@ -6484,6 +6486,26 @@ c_expand_deferred_function (fndecl)
     }
 }
 
+/* Called to move the SAVE_EXPRs for parameter declarations in a
+   nested function into the nested function.  DATA is really the
+   nested FUNCTION_DECL.  */
+
+static tree
+set_save_expr_context (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  if (TREE_CODE (*tp) == SAVE_EXPR && !SAVE_EXPR_CONTEXT (*tp))
+    SAVE_EXPR_CONTEXT (*tp) = (tree) data;
+  /* Do not walk back into the SAVE_EXPR_CONTEXT; that will cause
+     circularity.  */
+  else if (DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
 /* Generate the RTL for the body of FNDECL.  If NESTED_P is nonzero,
    then we are already in the process of generating RTL for another
    function.  If can_defer_p is zero, we won't attempt to defer the
@@ -6523,6 +6545,15 @@ c_expand_body_1 (fndecl, nested_p)
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
 
+  /* If the function has a variably modified type, there may be
+     SAVE_EXPRs in the parameter types.  Their context must be set to
+     refer to this function; they cannot be expanded in the containing
+     function.  */
+  if (decl_function_context (fndecl)
+      && variably_modified_type_p (TREE_TYPE (fndecl)))
+    walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
+	       NULL);
+	     
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
   if (DECL_NAME (fndecl)
