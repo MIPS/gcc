@@ -261,7 +261,7 @@ extern int target_flags;
 
 
 /* Node: Storage Layout */
-/* I see no bitfield instructions.  Anyway, the common order is from low
+/* I see no bit-field instructions.  Anyway, the common order is from low
    to high, as the power of two, hence little-endian.  */
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 1
@@ -735,8 +735,13 @@ enum reg_class
 
 /* This *sounds* good, but does not seem to be implemented correctly to
    be a win; at least it wasn't in 2.7.2.  FIXME: Check and perhaps
-   replace with a big comment.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
+   replace with a big comment.
+   The definition needs to match or be a subset of
+   FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
+   usage.  Watch lots of C++ test-cases fail if set to 1, for example
+   g++.dg/init/byval1.C.  */
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
+ mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
 
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
@@ -768,10 +773,10 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
  mmix_function_outgoing_value (VALTYPE, FUNC)
 
 #define LIBCALL_VALUE(MODE) \
- gen_rtx_REG (MODE, MMIX_OUTGOING_RETURN_VALUE_REGNUM)
+ gen_rtx_REG (MODE, MMIX_RETURN_VALUE_REGNUM)
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) \
- ((REGNO) == MMIX_OUTGOING_RETURN_VALUE_REGNUM)
+ mmix_function_value_regno_p (REGNO)
 
 
 /* Node: Aggregate Return */
@@ -794,10 +799,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    FIXME: Not needed if nonlocal_goto_stack_level.  */
 #define EPILOGUE_USES(REGNO) \
  ((REGNO) == MMIX_INCOMING_RETURN_ADDRESS_REGNUM)
-
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
- mmix_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
 
 /* Node: Profiling */
 #define FUNCTION_PROFILER(FILE, LABELNO)	\

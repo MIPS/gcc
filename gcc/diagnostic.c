@@ -463,6 +463,16 @@ output_add_string (buffer, str)
   maybe_wrap_text (buffer, str, str + (str ? strlen (str) : 0));
 }
 
+/* Append an identifier ID to BUFFER.  */
+void
+output_add_identifier (buffer, id)
+     output_buffer *buffer;
+     tree id;
+{
+  output_append (buffer, IDENTIFIER_POINTER (id),
+		 IDENTIFIER_POINTER (id) + IDENTIFIER_LENGTH (id));
+}
+
 /* Flush the content of BUFFER onto the attached stream,
    and reinitialize.  */
 
@@ -1184,7 +1194,7 @@ internal_error VPARAMS ((const char *msgid, ...))
   fnotice (stderr,
 "Please submit a full bug report,\n\
 with preprocessed source if appropriate.\n\
-See %s for instructions.\n", GCCBUGURL);
+See %s for instructions.\n", bug_report_url);
   exit (FATAL_EXIT_CODE);
 }
 
@@ -1292,7 +1302,7 @@ error_recursion (context)
   fnotice (stderr,
 "Please submit a full bug report,\n\
 with preprocessed source if appropriate.\n\
-See %s for instructions.\n", GCCBUGURL);
+See %s for instructions.\n", bug_report_url);
   exit (FATAL_EXIT_CODE);
 }
 

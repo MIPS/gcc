@@ -7017,8 +7017,7 @@ cp_parser_mem_initializer (parser)
   /* Look for the closing `)'.  */
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  return expand_member_init (current_class_ref, 
-			     mem_initializer_id,
+  return expand_member_init (mem_initializer_id,
 			     expression_list);
 }
 

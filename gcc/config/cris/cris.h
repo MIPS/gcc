@@ -1013,10 +1013,6 @@ struct cum_args {int regs;};
 #define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) \
   cris_eligible_for_epilogue_delay (INSN)
 
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
- cris_asm_output_mi_thunk(FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
-
 /* Node: Profiling */
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
@@ -1030,7 +1026,7 @@ struct cum_args {int regs;};
 
 /* We save the register number of the first anonymous argument in
    first_vararg_reg, and take care of this in the function prologue.
-   This behaviour is used by at least one more port (the ARM?), but
+   This behavior is used by at least one more port (the ARM?), but
    may be unsafe when compiling nested functions.  (With varargs? Hairy.)
    Note that nested-functions is a GNU C extension.
 
@@ -1242,7 +1238,7 @@ struct cum_args {int regs;};
 
 /* For now, don't do anything.  GCC does a good job most often.
 
-    Maybe we could do something about gcc:s misbehaviour when it
+    Maybe we could do something about gcc:s misbehavior when it
    recalculates frame offsets for local variables, from fp+offs to
    sp+offs.  The resulting address expression gets screwed up
    sometimes, but I'm not sure that it may be fixed here, since it is

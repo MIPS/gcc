@@ -34,6 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
+#include "c++locale_internal.h"
 
 namespace std
 {
@@ -219,7 +220,7 @@ namespace std
     moneypunct<char, true>::_M_initialize_moneypunct(__c_locale __cloc, 
 						     const char*)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = '.';
@@ -264,7 +265,7 @@ namespace std
     moneypunct<char, false>::_M_initialize_moneypunct(__c_locale __cloc, 
 						      const char*)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = '.';
@@ -316,9 +317,13 @@ namespace std
   template<> 
     void
     moneypunct<wchar_t, true>::_M_initialize_moneypunct(__c_locale __cloc, 
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+							const char*)
+#else
 							const char* __name)
+#endif
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = L'.';
@@ -334,9 +339,13 @@ namespace std
       else
 	{
 	  // Named locale.
-	  // XXX Fix me. Switch to named locale so that mbsrtowcs will work.
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  __c_locale __old = __uselocale(__cloc);
+#else
+	  // Switch to named locale so that mbsrtowcs will work.
 	  char* __old = strdup(setlocale(LC_ALL, NULL));
 	  setlocale(LC_ALL, __name);
+#endif
 
 	  union __s_and_w { const char *__s; unsigned int __w; } __u;
 	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc);
@@ -346,14 +355,12 @@ namespace std
 	  _M_thousands_sep = static_cast<wchar_t>(__u.__w);
 	  _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
 
-	  mbstate_t __state;
-	  size_t __len;
 	  const char* __cpossign = __nl_langinfo_l(__POSITIVE_SIGN, __cloc);
 	  const char* __cnegsign = __nl_langinfo_l(__NEGATIVE_SIGN, __cloc);
 	  const char* __ccurr = __nl_langinfo_l(__INT_CURR_SYMBOL, __cloc);
 
-	  // NB: Should swich to __cloc's ctype info first.
-	  __len = strlen(__cpossign);
+	  mbstate_t __state;
+	  size_t __len = strlen(__cpossign);
 	  if (__len)
 	    {
 	      ++__len;
@@ -402,18 +409,25 @@ namespace std
 	  char __nspace = *(__nl_langinfo_l(__INT_N_SEP_BY_SPACE, __cloc));
 	  _M_neg_format = _S_construct_pattern(__nprecedes, __nspace, __nposn);
 
-	  // XXX
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  __uselocale(__old);
+#else
 	  setlocale(LC_ALL, __old);
 	  free(__old);
+#endif
 	}
     }
 
   template<> 
     void
-    moneypunct<wchar_t, false>::_M_initialize_moneypunct(__c_locale __cloc, 
+    moneypunct<wchar_t, false>::_M_initialize_moneypunct(__c_locale __cloc,
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) 
+							 const char*)
+#else
 							 const char* __name)
+#endif
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = L'.';
@@ -429,9 +443,13 @@ namespace std
       else
 	{
 	  // Named locale.
-	  // XXX Fix me. Switch to named locale so that mbsrtowcs will work.
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  __c_locale __old = __uselocale(__cloc);
+#else
+	  // Switch to named locale so that mbsrtowcs will work.
 	  char* __old = strdup(setlocale(LC_ALL, NULL));
 	  setlocale(LC_ALL, __name);
+#endif
 
 	  union __s_and_w { const char *__s; unsigned int __w; } __u;
 	  __u.__s = __nl_langinfo_l(_NL_NUMERIC_DECIMAL_POINT_WC, __cloc);
@@ -441,13 +459,12 @@ namespace std
 	  _M_thousands_sep = static_cast<wchar_t>(__u.__w);
 	  _M_grouping = __nl_langinfo_l(GROUPING, __cloc);
 
-	  mbstate_t __state;
-	  size_t __len;
 	  const char* __cpossign = __nl_langinfo_l(__POSITIVE_SIGN, __cloc);
 	  const char* __cnegsign = __nl_langinfo_l(__NEGATIVE_SIGN, __cloc);
 	  const char* __ccurr = __nl_langinfo_l(__CURRENCY_SYMBOL, __cloc);
 
-	  // NB: Should swich to __cloc's ctype info first.
+	  mbstate_t __state;
+	  size_t __len;
 	  __len = strlen(__cpossign);
 	  if (__len)
 	    {
@@ -497,9 +514,12 @@ namespace std
 	  char __nspace = *(__nl_langinfo_l(__N_SEP_BY_SPACE, __cloc));
 	  _M_neg_format = _S_construct_pattern(__nprecedes, __nspace, __nposn);
 
-	  // XXX
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  __uselocale(__old);
+#else
 	  setlocale(LC_ALL, __old);
 	  free(__old);
+#endif
 	}
     }
 

@@ -249,7 +249,7 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
    LEVEL is the optimization level specified; 2 if `-O2' is
    specified, 1 if `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified, 0 otherwise.  
+   SIZE is nonzero if `-Os' is specified, 0 otherwise.  
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same
@@ -664,7 +664,7 @@ enum reg_class
  { ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM },			\
  { ARG_POINTER_REGNUM,   HARD_FRAME_POINTER_REGNUM }}			\
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -713,7 +713,7 @@ enum reg_class
    such as FUNCTION_ARG to determine where the next arg should go.  */
 
 #define CUMULATIVE_ARGS struct cum_arg
-struct cum_arg { int nbytes; };
+struct cum_arg { int nbytes; int anonymous_args; };
 
 /* Define where to put the arguments to a function.
    Value is zero to push the argument on the stack,
@@ -739,7 +739,7 @@ struct cum_arg { int nbytes; };
    For a library call, FNTYPE is 0.  */
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
- ((CUM).nbytes = 0)
+ ((CUM).nbytes = 0, (CUM).anonymous_args = 0)
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -758,10 +758,9 @@ struct cum_arg { int nbytes; };
    space allocated by the caller.  */
 #define OUTGOING_REG_PARM_STACK_SPACE
 
-extern int current_function_anonymous_args;
 /* Do any setup necessary for varargs/stdargs functions.  */
 #define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PAS, SECOND) \
-  current_function_anonymous_args = (!TARGET_GHS ? 1 : 0);
+  (CUM).anonymous_args = (!TARGET_GHS ? 1 : 0);
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -812,6 +811,12 @@ extern int current_function_anonymous_args;
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
+
+/* Define this macro as a C expression that is nonzero for registers
+   used by the epilogue or the `return' pattern.  */
+
+#define EPILOGUE_USES(REGNO) \
+  (reload_completed && (REGNO) == LINK_POINTER_REGNUM)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

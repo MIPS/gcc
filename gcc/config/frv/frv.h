@@ -530,7 +530,7 @@ extern int target_flags;
    LEVEL is the optimization level specified; 2 if `-O2' is specified, 1 if
    `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified, 0 otherwise.
+   SIZE is nonzero if `-Os' is specified, 0 otherwise.
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same optimization
@@ -688,13 +688,13 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
 
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int' would not
+   Thus, on most machines, a bit-field whose type is written as `int' would not
    cross a four-byte boundary, and would force four-byte alignment for the
    whole structure.  (The alignment used may not be four bytes; it is
    controlled by the other alignment parameters.)
@@ -711,7 +711,7 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
    `STRUCTURE_SIZE_BOUNDARY' as large as `BIGGEST_ALIGNMENT'.  Then every
    structure can be accessed with fullwords.
 
-   Unless the machine has bitfield instructions or you define
+   Unless the machine has bit-field instructions or you define
    `STRUCTURE_SIZE_BOUNDARY' that way, you must define
    `PCC_BITFIELD_TYPE_MATTERS' to have a nonzero value.
 
@@ -747,41 +747,6 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 
    Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* A code distinguishing the floating point format of the target machine.
-   There are three defined values:
-
-   IEEE_FLOAT_FORMAT'
-        This code indicates IEEE floating point.  It is the default;
-        there is no need to define this macro when the format is IEEE.
-
-   VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
-
-   UNKNOWN_FLOAT_FORMAT'
-        This code indicates any other format.
-
-   The value of this macro is compared with `HOST_FLOAT_FORMAT'
-   to determine whether the target machine has the same format as
-   the host machine.  If any other formats are actually in use on supported
-   machines, new codes should be defined for them.
-
-   The ordering of the component words of floating point values stored in
-   memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
-   `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
-/* GNU CC supports two ways of implementing C++ vtables: traditional or with
-   so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
-   this macro to be a C expression for the default value of that flag.  If
-   `DEFAULT_VTABLE_THUNKS' is 0, GNU CC uses the traditional implementation by
-   default.  The "thunk" implementation is more efficient (especially if you
-   have provided an implementation of `ASM_OUTPUT_MI_THUNK', but is not binary
-   compatible with code compiled using the traditional implementation.  If you
-   are writing a new ports, define `DEFAULT_VTABLE_THUNKS' to 1.
-
-   If you do not define this macro, the default for `-fvtable-thunk' is 0.  */
-#define DEFAULT_VTABLE_THUNKS 1
 
 
 /* Layout of Source Language Data Types.  */
@@ -1776,7 +1741,7 @@ struct machine_function GTY(())
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}				\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  This macro need only
    be defined if `ELIMINABLE_REGS' is defined, and will usually be the constant
    1, since most of the cases preventing register elimination are things that
@@ -1832,7 +1797,7 @@ struct machine_function GTY(())
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -1881,7 +1846,7 @@ struct machine_function GTY(())
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -1892,7 +1857,7 @@ struct machine_function GTY(())
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)                    \
@@ -2103,39 +2068,6 @@ struct machine_function GTY(())
    adjustment in a function that has no frame pointer, and the compiler knows
    this regardless of `EXIT_IGNORE_STACK'.  */
 #define EXIT_IGNORE_STACK 1
-
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  The
-   thunk acts as a wrapper around a virtual function, adjusting the implicit
-   object parameter before handing control off to the real function.
-
-   First, emit code to add the integer DELTA to the location that contains the
-   incoming first argument.  Assume that this argument contains a pointer, and
-   is the one used to pass the `this' pointer in C++.  This is the incoming
-   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
-   addition must preserve the values of all other incoming arguments.
-
-   After the addition, emit code to jump to FUNCTION, which is a
-   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-   the return address.  Hence returning from FUNCTION will return to whoever
-   called the current `thunk'.
-
-   The effect must be as if FUNCTION had been called directly with the adjusted
-   first argument.  This macro is responsible for emitting all of the code for
-   a thunk function; `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' are not
-   invoked.
-
-   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-   extracted from it.)  It might possibly be useful on some targets, but
-   probably not.
-
-   If you do not define this macro, the target-independent code in the C++
-   frontend will generate a less efficient heavyweight thunk that calls
-   FUNCTION instead of jumping to it.  The generic approach does not support
-   varargs.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-frv_asm_output_mi_thunk (FILE, THUNK_FNDECL, (long)DELTA, FUNCTION)
-
 
 /* Generating Code for Profiling.  */
 
@@ -2202,7 +2134,7 @@ frv_asm_output_mi_thunk (FILE, THUNK_FNDECL, (long)DELTA, FUNCTION)
   frv_setup_incoming_varargs (& ARGS_SO_FAR, (int) MODE, TYPE, 	\
 			      & PRETEND_ARGS_SIZE, SECOND_TIME)
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
@@ -2464,7 +2396,7 @@ __asm__("\n"								\
    with suitable punctuation to prevent any ambiguity.  Allocate the new name
    in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
    remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
+   `(* targetm.strip_name_encoding)' to access the original name string.
 
    You can check the information stored here into the `symbol_ref' in the
    definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
@@ -2568,7 +2500,7 @@ __asm__("\n"								\
 
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2594,7 +2526,7 @@ __asm__("\n"								\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2722,17 +2654,6 @@ __asm__("\n"								\
    same word of the structure, but to different bytes.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this macro if zero-extension (of a `char' or `short' to an `int') can
-   be done faster if the destination is a register that is known to be zero.
-
-   If you define this macro, you must have instruction patterns that recognize
-   RTL structures like this:
-
-        (set (strict_low_part (subreg:QI (reg:SI ...) 0)) ...)
-
-   and likewise for `HImode'.  */
-#define SLOW_ZERO_EXTEND 0
-
 /* Define this macro if it is as good or better to call a constant function
    address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE
@@ -2837,59 +2758,9 @@ fixup_section ()							\
     }									\
 }									\
 
-/* A C statement or statements to switch to the appropriate section for output
-   of EXP.  You can assume that EXP is either a `VAR_DECL' node or a constant
-   of some sort.  RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  Select the section by calling `text_section' or one
-   of the alternatives for other sections.
-
-   Do not define this macro if you put all read-only variables and constants in
-   the read-only data section (usually the text section).
-
-   Defined in svr4.h.  */
-#undef	SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC, ALIGN) frv_select_section ((EXP), (RELOC))
-
-/* A C statement or statements to switch to the appropriate section for output
-   of RTX in mode MODE.  You can assume that RTX is some kind of constant in
-   RTL.  The argument MODE is redundant except in the case of a `const_int'
-   rtx.  Select the section by calling `text_section' or one of the
-   alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only data
-   section.
-
-   Defined in svr4.h.  */
-#undef	SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) frv_select_rtx_section (MODE, RTX)
-
 #define SDATA_FLAG_CHAR '@'
 
 #define SDATA_NAME_P(NAME) (*(NAME) == SDATA_FLAG_CHAR)
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)	\
-  do						\
-    {						\
-      if (FIRST)				\
-        frv_encode_section_info (DECL);		\
-    }						\
-  while (0)
-
-/* Decode SYM_NAME and store the real name part in VAR, sans
-   the characters that encode section info.  Define this macro if
-   ENCODE_SECTION_INFO alters the symbol's name string.  */
-
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)			\
-  do								\
-    {								\
-      const char * _name = (SYMBOL_NAME);			\
-								\
-      while (* _name == '*' || * _name == SDATA_FLAG_CHAR)	\
-	_name ++;						\
-      (VAR) = _name;						\
-    }								\
-  while (0)
-
 
 /* Position Independent Code.  */
 
@@ -3366,12 +3237,6 @@ do {                                                                    \
    Defined in svr4.h.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-/* This version of UNIQUE_SECTION overrides the one in elfos.h.  We
-   need to check whether DECL is destined for the .sdata section.  */
-
-#undef  UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC) frv_unique_section (DECL, RELOC)
 
 /* Miscellaneous Parameters.  */
 
@@ -3494,14 +3359,6 @@ do {                                                                    \
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
 
-/* An alias for a tree code that is the easiest kind of division to compile
-   code for in the general case.  It may be `TRUNC_DIV_EXPR', `FLOOR_DIV_EXPR',
-   `CEIL_DIV_EXPR' or `ROUND_DIV_EXPR'.  These four division operators differ
-   in how they round the result to an integer.  `EASY_DIV_EXPR' is used when it
-   is permissible to use any of those kinds of division and the choice should
-   be made on the basis of efficiency.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* The maximum number of bytes that a single instruction can move quickly from
    memory to memory.  */
 #define MOVE_MAX 8
@@ -3617,12 +3474,12 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
 #define PACKING_FLAG_USED_P() \
 (optimize && flag_schedule_insns_after_reload && ISSUE_RATE > 1)
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, the
    code making resource-constrained software pipelining is on.  */
 #define RCSP_SOFTWARE_PIPELINING 1
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, we
    will try to exchange insns in queue ready to improve the schedule.
    The more macro value, the more tries will be made.  */
@@ -3725,13 +3582,6 @@ enum frv_builtins
   FRV_BUILTIN_MHDSETS,
   FRV_BUILTIN_MHDSETH
 };
-
-#define MD_INIT_BUILTINS do { \
-    frv_init_builtins (); \
-  } while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    frv_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))
 
 /* Enable prototypes on the call rtl functions.  */
 #define MD_CALL_PROTOTYPES 1

@@ -50,6 +50,8 @@ static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
 static void xstormy16_asm_out_constructor PARAMS ((rtx, int));
 static void xstormy16_asm_out_destructor PARAMS ((rtx, int));
 static void xstormy16_encode_section_info PARAMS ((tree, int));
+static void xstormy16_asm_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+						   HOST_WIDE_INT, tree));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -254,7 +256,7 @@ xstormy16_split_cbranch (mode, label, comparison, dest, carry)
 
    OP is the conditional expression, or NULL for branch-always.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -331,7 +333,7 @@ xstormy16_output_cbranch_hi (op, label, reversed, insn)
 
    OP is the conditional expression (OP is never NULL_RTX).
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
    INSN is the insn.  */
 
@@ -407,7 +409,7 @@ xstormy16_output_cbranch_si (op, label, reversed, insn)
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -476,7 +478,7 @@ xstormy16_secondary_reload_class (class, mode, x)
   return NO_REGS;
 }
 
-/* Recognise a PLUS that needs the carry register.  */
+/* Recognize a PLUS that needs the carry register.  */
 int
 xstormy16_carry_plus_operand (x, mode)
      rtx x;
@@ -1170,7 +1172,7 @@ xstormy16_build_va_list ()
   return record;
 }
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */
@@ -1380,11 +1382,13 @@ xstormy16_function_value (valtype, func)
    extracted from it.)  It might possibly be useful on some targets, but
    probably not.  */
 
-void
-xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta,
+			       vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   int regnum = FIRST_ARGUMENT_REGISTER;
@@ -1393,7 +1397,7 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
     regnum += 1;
   
-  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (delta) & 0xFFFF);
+  fprintf (file, "\tadd %s,#0x%x\n", reg_names[regnum], (int) delta & 0xFFFF);
   fputs ("\tjmpf ", file);
   assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
   putc ('\n', file);
@@ -2030,5 +2034,10 @@ xstormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK xstormy16_asm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;

@@ -1,3 +1,157 @@
+2002-11-11  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-11-04  Adam Nemet  <anemet@lnxw.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-11-04  Kevin Buettner  <kevinb@redhat.com>
+
+	* Makefile.def (host_modules): Add rda.
+	* Makefile.in: Regenerate.
+	* configure.in (target_tool): Add target-rda to list.
+
+2002-10-28  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Remove "co-maintainer" note for web pages.
+
+2002-10-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.tpl (bootstrap):  Add bubblestrap, quickstrap, cleanstrap,
+	and restrap targets to this rule.
+	* Makefile.in:  Regenerate.
+
+2002-10-25  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Add Wolfgang Bangerth and Volker Reichelt under
+	GNATS only accounts.
+
+2002-10-24  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* configure.in (i[3456]86-*-linux*): Add check to disable
+	${libgcj} for glibc1.
+
+2002-10-24  Denis Chertykov  <denisc@overta.ru>
+
+	* MAINTAINERS: Add myself as ip2k port maintainer.
+
+2002-10-07  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* configure.in: Add tic4x target.
+
+2002-10-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Make SET_LIB_PATH substitution more autoconfy.
+	* configure.in: Make SET_LIB_PATH substitution more autoconfy.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Make RPATH_ENVVAR substitution more autoconfy.
+	* configure.in: Make RPATH_ENVVAR substitution more autoconfy.
+	* Makefile.in: Regenerate.
+
+2002-10-02  Janis Johnson  <janis187@us.ibm.com>
+
+	* MAINTAINERS: Add myself as web pages co-maintainer.
+
+2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Eliminate reference to all-gui, all-libproc.
+	* Makefile.in: Regenerate.
+
+2002-10-02  Zack Weinberg  <zack@codesourcery.com>
+
+	* MAINTAINERS: Add myself and Nathan Sidwell
+	<nathan@codesourcery.com> as VxWorks maintainers.
+
+2002-10-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.def: Remove order dependency comments.
+	* Makefile.tpl: Add explicit install-install dependencies.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Remove material now in src-release.  (Finally!)
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl: Add configure-target (for src-release in src)
+	* Makefile.in: Regenerate.
+
+2002-09-30  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.in (BINUTILS_SUPPORT_DIRS): Add cpu directory.
+
+2002-09-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.in (s390*-*-linux*): Enable libgcj.
+
+2002-09-29  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure: Revert accidentally applied changes.
+
+	* Makefile.tpl: Make more autoconf-friendly.
+	* Makefile.in: Regenerate.
+	* configure: Make substitution more autoconf-like.
+
+2002-09-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* configure.in (arm-*-coff, strongarm-*-coff, xscale-*-coff): Use a
+	single entry to handle all these.
+	(arm-*-elf, strongarm-*-elf, xscale-*-elf): Likewise.  Also enable
+	libjava on arm-*-elf.
+
+2002-09-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.in (powerpc-*-darwin*): Don't configure BFD, TK, or the
+	things that depend on them.
+
+2002-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Make subsituted variables more autoconfy.
+	* Makefile.in: Regenerate.
+	* configure: Make seds more autoconfy.
+
+2002-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Rewrite substituted lines to look autoconfy.
+	* Makefile.in: Regenerate.
+	* configure.in: Rewrite sed statements to look autoconfy.
+
+	* Makefile.tpl: Autogenerate *-target-* lists, dependencies of
+	all-target-foo on configure-target-foo.
+	* Makefile.def: Ditto.
+	* Makefile.in: Rebuild.
+
+2002-09-25  Andrew Haley  <aph@redhat.com>
+
+	* MAINTAINERS: Add aph@redhat.com as Java maintainer.
+
+2002-09-22  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.def: New file.
+	* Makefile.tpl: New file.
+	* Makefile.in: Generate from Makefile.tpl with 'autogen Makefile.def'.
+	* contrib/gcc_update: Note that Makefile.in is a generated file.
+
+	* configure.in: Minor rearrangement.  Simplify tests.
+
+2002-09-22  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* configure.in (with_headers): Skip copy if value is "yes".
+	(with_libs): Likewise.
+
+2002-09-20  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in (*-*-netbsd*): Use noconfigdirs, not skipdirs.
+	* configure.in (sh*-*-pe*): Ditto.
+	* configure.in (mips*-*-pe*): Ditto.
+	* configure.in (*arm-wince-pe): Ditto.
+
+	* configure.in: Rearrange.
+
+2002-09-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Update my email address.
+
 2002-08-30  Paul Koning  <pkoning@equallogic.com>
 
 	* MAINTAINERS: (Write After Approval): Add myself.
@@ -13,7 +167,7 @@
 2002-08-21  Paolo Carlini  <pcarlini@unitus.it>
 
 	* MAINTAINERS (Write After Approval): Remove myself.
-        (Various Maintainers: c++ runtime libs): Add myself.
+	(Various Maintainers: c++ runtime libs): Add myself.
 
 2002-08-20  Loren J. Rittle <ljrittle@acm.org>
 

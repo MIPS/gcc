@@ -249,7 +249,9 @@ ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
 	$(built_java_source_files:.java=.h)
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
-	java/io/ObjectInputStream$$GetField.h
+	java/io/ObjectInputStream$$GetField.h \
+	java/lang/reflect/Proxy$$ProxyData.h \
+	java/lang/reflect/Proxy$$ProxyType.h
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 
@@ -308,6 +310,18 @@ java/lang/reflect/Method.h: java/lang/reflect/Method.class
 	    -friend 'class java::io::ObjectInputStream;' \
 	    -friend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
 	    $(basename $<)
+
+java/lang/reflect/Proxy.h: java/lang/reflect/Proxy.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	    $(basename $<)
+
+java/lang/reflect/Proxy$$ProxyData.h: java/lang/reflect/Proxy.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/lang/reflect/Proxy$$ProxyData'
+
+java/lang/reflect/Proxy$$ProxyType.h: java/lang/reflect/Proxy.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/lang/reflect/Proxy$$ProxyType'
 
 gnu/gcj/runtime/VMClassLoader.h: gnu/gcj/runtime/VMClassLoader.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
@@ -664,6 +678,8 @@ java/awt/Window.java \
 java/awt/color/ColorSpace.java \
 java/awt/color/ICC_ColorSpace.java \
 java/awt/color/ICC_Profile.java \
+java/awt/color/ICC_ProfileGray.java \
+java/awt/color/ICC_ProfileRGB.java \
 java/awt/color/CMMException.java \
 java/awt/color/ProfileDataException.java \
 java/awt/datatransfer/Clipboard.java \
@@ -838,10 +854,12 @@ java/awt/Robot.java \
 java/awt/ScrollPaneAdjustable.java \
 java/awt/Stroke.java \
 java/awt/TexturePaint.java \
+java/awt/dnd/peer/DragSourceContextPeer.java \
+java/awt/dnd/peer/DropTargetContextPeer.java \
 java/awt/dnd/DnDConstants.java \
 java/awt/dnd/DragGestureEvent.java \
 java/awt/dnd/DragGestureListener.java \
-java/awt/dnd/DragGestureRecognizer.java \
+java/awt/dnd/DragGestureRecognizer.java	\
 java/awt/dnd/DragSource.java \
 java/awt/dnd/DragSourceAdapter.java \
 java/awt/dnd/DragSourceContext.java \
@@ -851,7 +869,15 @@ java/awt/dnd/DragSourceListener.java \
 java/awt/dnd/DragSourceMotionListener.java \
 java/awt/dnd/DropTarget.java \
 java/awt/dnd/InvalidDnDOperationException.java \
-java/awt/dnd/peer/DragSourceContextPeer.java \
+java/awt/dnd/Autoscroll.java \
+java/awt/dnd/DragSourceDropEvent.java \
+java/awt/dnd/DropTargetAdapter.java \
+java/awt/dnd/DropTargetContext.java \
+java/awt/dnd/DropTargetDragEvent.java \
+java/awt/dnd/DropTargetDropEvent.java \
+java/awt/dnd/DropTargetEvent.java \
+java/awt/dnd/DropTargetListener.java \
+java/awt/dnd/MouseDragGestureRecognizer.java \
 java/awt/font/TextHitInfo.java \
 java/awt/im/spi/InputMethod.java \
 java/awt/im/spi/InputMethodContext.java \
@@ -1270,6 +1296,8 @@ java/rmi/server/SocketSecurityException.java \
 java/rmi/server/UID.java \
 java/rmi/server/UnicastRemoteObject.java \
 java/rmi/server/Unreferenced.java \
+gnu/java/rmi/RMIMarshalledObjectInputStream.java \
+gnu/java/rmi/RMIMarshalledObjectOutputStream.java \
 gnu/java/rmi/dgc/DGCImpl.java \
 gnu/java/rmi/dgc/DGCImpl_Skel.java \
 gnu/java/rmi/dgc/DGCImpl_Stub.java \
@@ -1281,6 +1309,7 @@ gnu/java/rmi/rmic/Compiler.java	\
 gnu/java/rmi/rmic/CompilerProcess.java \
 gnu/java/rmi/rmic/RMIC.java \
 gnu/java/rmi/rmic/TabbedWriter.java \
+gnu/java/rmi/server/ConnectionRunnerPool.java \
 gnu/java/rmi/server/ProtocolConstants.java \
 gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
@@ -1661,7 +1690,10 @@ java/util/TreeMap.java \
 java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
-java/util/WeakHashMap.java
+java/util/WeakHashMap.java \
+java/util/regex/Matcher.java \
+java/util/regex/Pattern.java \
+java/util/regex/PatternSyntaxException.java
 
 ## List of all .java files to be compiled.  Please keep this list
 ## alphabetical.  Please put files from java/lang, java/io, and java/util
@@ -1870,11 +1902,14 @@ java/lang/reflect/AccessibleObject.java	\
 java/lang/reflect/Array.java \
 java/lang/reflect/Constructor.java \
 java/lang/reflect/Field.java \
+java/lang/reflect/InvocationHandler.java \
 java/lang/reflect/InvocationTargetException.java \
 java/lang/reflect/Member.java \
 java/lang/reflect/Method.java \
 java/lang/reflect/Modifier.java	\
+java/lang/reflect/Proxy.java \
 java/lang/reflect/ReflectPermission.java \
+java/lang/reflect/UndeclaredThrowableException.java \
 java/math/BigDecimal.java \
 java/math/BigInteger.java \
 java/net/Authenticator.java \
@@ -1885,14 +1920,18 @@ java/net/ContentHandlerFactory.java \
 java/net/DatagramPacket.java \
 java/net/DatagramSocket.java \
 java/net/DatagramSocketImpl.java \
+java/net/DatagramSocketImplFactory.java \
 java/net/FileNameMap.java \
 java/net/HttpURLConnection.java	\
 java/net/InetAddress.java \
+java/net/Inet4Address.java \
+java/net/Inet6Address.java \
 java/net/InetSocketAddress.java \
 java/net/JarURLConnection.java \
 java/net/MalformedURLException.java \
 java/net/MulticastSocket.java \
 java/net/NetPermission.java \
+java/net/NetworkInterface.java \
 java/net/NoRouteToHostException.java \
 java/net/PasswordAuthentication.java \
 java/net/PlainDatagramSocketImpl.java \
@@ -1908,6 +1947,7 @@ java/net/SocketImplFactory.java	\
 java/net/SocketOptions.java \
 java/net/SocketPermission.java \
 java/net/SocketTimeoutException.java \
+java/net/URI.java \
 java/net/URISyntaxException.java \
 java/net/URL.java \
 java/net/URLClassLoader.java \
@@ -1918,6 +1958,44 @@ java/net/URLStreamHandler.java \
 java/net/URLStreamHandlerFactory.java \
 java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
+java/nio/Buffer.java \
+java/nio/BufferOverflowException.java \
+java/nio/BufferUnderflowException.java \
+java/nio/ByteBuffer.java \
+java/nio/ByteOrder.java \
+java/nio/MappedByteBuffer.java \
+java/nio/channels/AlreadyConnectedException.java \
+java/nio/channels/ByteChannel.java \
+java/nio/channels/Channel.java \
+java/nio/channels/ClosedChannelException.java \
+java/nio/channels/DatagramChannel.java \
+java/nio/channels/GatheringByteChannel.java \
+java/nio/channels/IllegalBlockingModeException.java \
+java/nio/channels/InterruptibleChannel.java \
+java/nio/channels/Pipe.java \
+java/nio/channels/ReadableByteChannel.java \
+java/nio/channels/ScatteringByteChannel.java \
+java/nio/channels/SelectableChannel.java \
+java/nio/channels/SelectionKey.java \
+java/nio/channels/Selector.java \
+java/nio/channels/ServerSocketChannel.java \
+java/nio/channels/SocketChannel.java \
+java/nio/channels/WritableByteChannel.java \
+java/nio/channels/spi/AbstractSelectableChannel.java \
+java/nio/channels/spi/AbstractChannel.java \
+java/nio/channels/spi/AbstractInterruptibleChannel.java \
+java/nio/channels/spi/AbstractSelectionKey.java \
+java/nio/channels/spi/AbstractSelector.java \
+java/nio/channels/spi/SelectorProvider.java \
+java/nio/charset/Charset.java \
+java/nio/charset/CharacterCodingException.java \
+java/nio/charset/CoderMalfunctionError.java \
+java/nio/charset/CodingErrorAction.java \
+java/nio/charset/IllegalCharsetNameException.java \
+java/nio/charset/MalformedInputException.java \
+java/nio/charset/UnmappableCharacterException.java \
+java/nio/charset/UnsupportedCharsetException.java \
+java/nio/charset/spi/CharsetProvider.java \
 java/security/AccessControlContext.java \
 java/security/AccessControlException.java \
 java/security/AccessController.java \
@@ -2232,6 +2310,8 @@ java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
+java/lang/reflect/natProxy.cc \
+java/net/natNetworkInterface.cc \
 java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
@@ -2372,7 +2452,7 @@ AM_MAKEFLAGS = \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
-	"JC1FLAGS=$(JC1FLAGS)" \
+	"GCJFLAGS=$(GCJFLAGS)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
@@ -2388,14 +2468,15 @@ AM_MAKEFLAGS = \
 	"prefix=$(prefix)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
-	"CC=$(CC)" \
-	"CXX=$(CXX)" \
 	"LD=$(LD)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"NM=$(NM)" \
 	"PICFLAG=$(PICFLAG)" \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
+
+# Subdir rules rely on $(FLAGS_TO_PASS)
+FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
@@ -2421,7 +2502,7 @@ distclean-recursive: distclean-multi
 maintainer-clean-recursive: maintainer-clean-multi
 
 all-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
+	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
 install-multi:
 	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do
 mostlyclean-multi:

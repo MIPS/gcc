@@ -353,7 +353,7 @@ stack_include_file (pfile, inc)
   fp->inc = inc;
   fp->inc->refcnt++;
 
-  /* Initialise controlling macro state.  */
+  /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
   pfile->mi_cmacro = 0;
 
@@ -658,7 +658,7 @@ report_missing_guard (n, b)
 }
 
 /* Create a dependency for file FNAME, or issue an error message as
-   appropriate.  ANGLE_BRACKETS is non-zero if the file was bracketed
+   appropriate.  ANGLE_BRACKETS is nonzero if the file was bracketed
    like <..>.  */
 static void
 handle_missing_header (pfile, fname, angle_brackets)

@@ -1607,7 +1607,7 @@
 ;; Floating Point Moves
 ;;
 ;; Note - Patterns for SF mode moves are compulsory, but
-;; patterns for DF are optional, as GCC can synthesise them.
+;; patterns for DF are optional, as GCC can synthesize them.
 
 (define_expand "movsf"
   [(set (match_operand:SF 0 "general_operand" "")
@@ -2258,7 +2258,7 @@
 ;; Signed conversions from a smaller integer to a larger integer
 ;;
 ;; These operations are optional.  If they are not
-;; present GCC will synthesise them for itself
+;; present GCC will synthesize them for itself
 ;; Even though frv does not provide these instructions, we define them
 ;; to allow load + sign extend to be collapsed together
 (define_insn "extendqihi2"
@@ -5524,7 +5524,7 @@
 }")
 
 ;; Called after register allocation to add any instructions needed for the
-;; epilogue.  Using a epilogue insn is favored compared to putting all of the
+;; epilogue.  Using an epilogue insn is favored compared to putting all of the
 ;; instructions in the FUNCTION_EPILOGUE macro, since it allows the scheduler
 ;; to intermix instructions with the restires of the caller saved registers.
 ;; In some cases, it might be necessary to emit a barrier instruction as the

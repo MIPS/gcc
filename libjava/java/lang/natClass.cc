@@ -315,8 +315,8 @@ java::lang::Class::getSignature (JArray<jclass> *param_types,
 }
 
 java::lang::reflect::Method *
-java::lang::Class::getDeclaredMethod (jstring name,
-				      JArray<jclass> *param_types)
+java::lang::Class::_getDeclaredMethod (jstring name,
+				       JArray<jclass> *param_types)
 {
   jstring partial_sig = getSignature (param_types, false);
   jint p_len = partial_sig->length();
@@ -324,7 +324,6 @@ java::lang::Class::getDeclaredMethod (jstring name,
   int i = isPrimitive () ? 0 : method_count;
   while (--i >= 0)
     {
-      // FIXME: access checks.
       if (_Jv_equalUtf8Consts (methods[i].name, utf_name)
 	  && _Jv_equaln (methods[i].signature, partial_sig, p_len))
 	{
@@ -336,7 +335,7 @@ java::lang::Class::getDeclaredMethod (jstring name,
 	  return rmethod;
 	}
     }
-  throw new java::lang::NoSuchMethodException;
+  return NULL;
 }
 
 JArray<java::lang::reflect::Method *> *
@@ -742,9 +741,7 @@ java::lang::Class::initializeClass (void)
     wait ();
 
   // Steps 3 &  4.
-  if (state == JV_STATE_DONE
-      || state == JV_STATE_IN_PROGRESS
-      || thread == self)
+  if (state == JV_STATE_DONE || state == JV_STATE_IN_PROGRESS)
     {
       _Jv_MonitorExit (this);
       return;
@@ -754,7 +751,7 @@ java::lang::Class::initializeClass (void)
   if (state == JV_STATE_ERROR)
     {
       _Jv_MonitorExit (this);
-      throw new java::lang::NoClassDefFoundError;
+      throw new java::lang::NoClassDefFoundError (getName());
     }
 
   // Step 6.
@@ -1046,7 +1043,12 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
       jclass obj_class = JV_CLASS (obj);
       if (__builtin_expect 
           (! _Jv_IsAssignableFrom (elt_class, obj_class), false))
-	throw new java::lang::ArrayStoreException;
+	throw new java::lang::ArrayStoreException
+		((new java::lang::StringBuffer
+		 (JvNewStringUTF("Cannot store ")))->append
+		 (obj_class->getName())->append
+		 (JvNewStringUTF(" in array of type "))->append
+		 (elt_class->getName())->toString());
     }
 }
 

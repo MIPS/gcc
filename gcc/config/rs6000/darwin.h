@@ -136,6 +136,21 @@ Boston, MA 02111-1307, USA.  */
 #define	RESTORE_FP_PREFIX "._restf"
 #define RESTORE_FP_SUFFIX ""
 
+/* This is how to output an assembler line that says to advance
+   the location counter to a multiple of 2**LOG bytes using the
+   "nop" instruction as padding.  */
+
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)                   \
+  do                                                          \
+    {                                                         \
+      if ((LOG) < 3)                                          \
+        {                                                     \
+          ASM_OUTPUT_ALIGN (FILE,LOG);                        \
+        }                                                     \
+      else /* nop == ori r0,r0,0 */                           \
+        fprintf (FILE, "\t.align32 %d,0x60000000\n", (LOG));  \
+    } while (0)
+
 /* Generate insns to call the profiler.  */
 
 #define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)
@@ -214,7 +229,7 @@ Boston, MA 02111-1307, USA.  */
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
-   support 64 bit powerpc either, so this just keeps things happy.  */
+   support 64 bit PowerPC either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 
 /* Get HOST_WIDE_INT and CONST_INT to be 32 bits, for compile time

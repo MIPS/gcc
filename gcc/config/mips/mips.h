@@ -64,9 +64,8 @@ enum processor_type {
   PROCESSOR_R4000,
   PROCESSOR_R4100,
   PROCESSOR_R4111,
-  PROCESSOR_R4121,
+  PROCESSOR_R4120,
   PROCESSOR_R4300,
-  PROCESSOR_R4320,
   PROCESSOR_R4600,
   PROCESSOR_R4650,
   PROCESSOR_R5000,
@@ -123,7 +122,7 @@ enum block_move_type {
   BLOCK_MOVE_LAST			/* generate just the last store */
 };
 
-/* Information about one recognised processor.  Defined here for the
+/* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
 struct mips_cpu_info {
   /* The 'canonical' name of the processor as far as GCC is concerned.
@@ -357,10 +356,9 @@ extern void		sbss_section PARAMS ((void));
 /* Architecture target defines.  */
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
-#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100
-#define TARGET_MIPS4121             (mips_arch == PROCESSOR_R4121)
+#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
+#define TARGET_MIPS4120             (mips_arch == PROCESSOR_R4120)
 #define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
-#define TARGET_MIPS4320             (mips_arch == PROCESSOR_R4320)
 #define TARGET_MIPS4KC              (mips_arch == PROCESSOR_R4KC)
 #define TARGET_MIPS5KC              (mips_arch == PROCESSOR_R5KC)
 #define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
@@ -769,7 +767,6 @@ extern void		sbss_section PARAMS ((void));
 
 /* Generate three-operand multiply instructions for SImode.  */
 #define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
-                                  || TARGET_MIPS4320                    \
                                   || TARGET_MIPS5400                    \
                                   || TARGET_MIPS5500                    \
                                   || ISA_MIPS32	                        \
@@ -1575,14 +1572,14 @@ do {							\
    handle alignment of bitfields and the structures that contain
    them.
 
-   The behavior is that the type written for a bitfield (`int',
+   The behavior is that the type written for a bit-field (`int',
    `short', or other integer type) imposes an alignment for the
    entire structure, as if the structure really did contain an
-   ordinary field of that type.  In addition, the bitfield is placed
+   ordinary field of that type.  In addition, the bit-field is placed
    within the structure so that it would fit within such a field,
    not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int'
+   Thus, on most machines, a bit-field whose type is written as `int'
    would not cross a four-byte boundary, and would force four-byte
    alignment for the whole structure.  (The alignment used may not
    be four bytes; it is controlled by the other alignment
@@ -2299,7 +2296,7 @@ extern enum reg_class mips_char_to_class[256];
 
 /* Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode MODE in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.
@@ -2329,31 +2326,8 @@ extern enum reg_class mips_char_to_class[256];
 
 #define CLASS_MAX_NREGS(CLASS, MODE) mips_class_max_nregs (CLASS, MODE)
 
-/* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.
-
-   In little-endian mode, the hi-lo registers are numbered backwards,
-   so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
-   word as intended.
-
-   Similarly, when using paired floating-point registers, the first
-   register holds the low word, regardless of endianness.  So in big
-   endian mode, (subreg:SI (reg:DF $f0) 0) does not get the high word
-   as intended.
-
-   Also, loading a 32-bit value into a 64-bit floating-point register
-   will not sign-extend the value, despite what LOAD_EXTEND_OP says.
-   We can't allow 64-bit float registers to change from a 32-bit
-   mode to a 64-bit mode.  */
-
-#define CLASS_CANNOT_CHANGE_MODE					\
-  (TARGET_BIG_ENDIAN ? FP_REGS						\
-   : (TARGET_FLOAT64 ? HI_AND_FP_REGS : HI_REG))
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) \
+  mips_cannot_change_mode_class (FROM, TO)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -2471,7 +2445,7 @@ extern enum reg_class mips_char_to_class[256];
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 30},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 17}}
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -2686,10 +2660,6 @@ extern enum reg_class mips_char_to_class[256];
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 	(PRETEND_SIZE) = mips_setup_incoming_varargs (&(CUM), (MODE),	\
 						      (TYPE), (NO_RTL))
-
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 #define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 
@@ -3828,6 +3798,7 @@ typedef struct mips_args {
 				  REG, SIGN_EXTEND }},			\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
+  {"fcc_register_operand",	{ REG, SUBREG }},			\
   {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
   {"highpart_shift_operator",   { ASHIFTRT, LSHIFTRT, ROTATERT, ROTATE }},
 
@@ -4590,15 +4561,14 @@ while (0)
 #define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
 
 
-/* Default definitions for size_t and ptrdiff_t.  */
+/* Default definitions for size_t and ptrdiff_t.  We must override the
+   definitions from ../svr4.h on mips-*-linux-gnu.  */
 
-#ifndef SIZE_TYPE
+#undef SIZE_TYPE
 #define SIZE_TYPE (Pmode == DImode ? "long unsigned int" : "unsigned int")
-#endif
 
-#ifndef PTRDIFF_TYPE
+#undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (Pmode == DImode ? "long int" : "int")
-#endif
 
 /* See mips_expand_prologue's use of loadgp for when this should be
    true.  */

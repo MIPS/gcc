@@ -102,12 +102,24 @@ _Jv_FindSymbolInExecutable (const char *symname)
   return NULL;
 }
 
+void
+_Jv_SetDLLSearchPath (const char *path)
+{
+  lt_dlsetsearchpath (path);
+}
+
 #else
 
 void *
-_Jv_FindSymbolInExecutable (const char *symname)
+_Jv_FindSymbolInExecutable (const char *)
 {
   return NULL;
+}
+
+void
+_Jv_SetDLLSearchPath (const char *)
+{
+  // Nothing.
 }
 
 #endif /* USE_LTDL */
@@ -533,8 +545,30 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 		      sb->toString ());
     }
 
+  // The name used to invoke this process (argv[0] in C).
+  SET ("gnu.gcj.progname", _Jv_ThisExecutable());
+
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);
+
+  // If java.library.path is set, tell libltdl so we search the new
+  // directories as well.  FIXME: does this work properly on Windows?
+  String *path = newprops->getProperty(JvNewStringLatin1("java.library.path"));
+  if (path)
+    {
+      char *val = (char *) _Jv_Malloc (JvGetStringUTFLength (path) + 1);
+      jsize total = JvGetStringUTFRegion (path, 0, path->length(), val);
+      val[total] = '\0';
+      _Jv_SetDLLSearchPath (val);
+      _Jv_Free (val);
+    }
+  else
+    {
+      // Set a value for user code to see.
+      // FIXME: JDK sets this to the actual path used, including
+      // LD_LIBRARY_PATH, etc.
+      SET ("java.library.path", "");
+    }
 }
 
 java::lang::Process *

@@ -22,7 +22,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  OBJECT_FORMAT_COFF
 #undef  EXTENDED_COFF
-#define OBJECT_FORMAT_ELF
 
 #undef  SDB_DEBUGGING_INFO
 #define DBX_DEBUGGING_INFO 1
@@ -202,3 +201,6 @@ void FN ()                                                            \
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
+
+/* We support #pragma.  */
+#define HANDLE_SYSV_PRAGMA 1

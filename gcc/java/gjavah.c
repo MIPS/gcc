@@ -48,7 +48,7 @@ static int found_error = 0;
 /* Nonzero if we're generating JNI output.  */
 static int flag_jni = 0;
 
-/* When non zero, warn when source file is newer than matching class
+/* When nonzero, warn when source file is newer than matching class
    file.  */
 int flag_newer = 1;
 
@@ -1289,7 +1289,7 @@ decode_signature_piece (stream, signature, limit, need_space)
       /* If the previous iterations left us with something to print,
 	 print it.  For JNI, we always print `jobjectArray' in the
 	 nested cases.  */
-      if (flag_jni && ctype == NULL)
+      if (flag_jni && (ctype == NULL || array_depth > 0))
 	{
 	  ctype = "jobjectArray";
 	  *need_space = 1;
@@ -1565,7 +1565,7 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
 	return;
 
       if (flag_jni && ! stubs)
-	fputs ("extern ", stream);
+	fputs ("extern JNIEXPORT ", stream);
 
       /* If printing a method, skip to the return signature and print
 	 that first.  However, there is no return value if this is a
@@ -1597,6 +1597,9 @@ DEFUN(print_stub_or_jni, (stream, jcf, name_index, signature_index, is_init,
       /* When printing a JNI header we need to respect the space.  In
 	 other cases we're just going to insert a newline anyway.  */
       fputs (need_space && ! stubs ? " " : "\n", stream);
+
+      if (flag_jni && ! stubs)
+	fputs ("JNICALL ", stream);
       
       /* Now print the name of the thing.  */
       print_name_for_stub_or_jni (stream, jcf, name_index,
@@ -2289,7 +2292,7 @@ help ()
   /* We omit -MG until it is implemented.  */
   printf ("\n");
   printf ("For bug reporting instructions, please see:\n");
-  printf ("%s.\n", GCCBUGURL);
+  printf ("%s.\n", bug_report_url);
   exit (0);
 }
 

@@ -21,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -41,7 +41,6 @@ with Targparm;    use Targparm;
 with Types;       use Types;
 
 procedure Gnatls is
-   pragma Ident (Gnat_Version_String);
 
    Max_Column : constant := 80;
 

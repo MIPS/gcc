@@ -1,3 +1,211 @@
+2002-11-06  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (print_stub_or_jni): Include JNIEXPORT and JNICALL in
+	a JNI header.
+
+2002-11-05  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/6388.
+	* lex.h (JAVA_INTEGRAL_RANGE_ERROR): Wrap in do...while.
+	* java-tree.h (enum java_tree_index): New values
+	JTI_DECIMAL_INT_MAX_NODE, JTI_DECIMAL_LONG_MAX_NODE.
+	(decimal_int_max, decimal_long_max): New defines.
+	* lex.c (yylex): Rewrote range checking.  Sign extend literals.
+	(error_if_numeric_overflow): Rewrote range checking.
+	* decl.c (java_init_decl_processing): Initialize decimal_int_max,
+	decimal_long_max.
+
+2002-11-02  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h: Move JV_STATE_ERROR before JV_STATE_DONE.
+
+	* class.c (make_method_value): Put class name, not signature, into
+	`throws' field.  For PR java/8415.
+
+2002-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Invoking gij): Document --showversion.
+	(Standard Properties): java.library.path now set.
+
+2002-10-23  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (decode_signature_piece): In JNI mode, print
+	`jobjectArray' when array depth is nonzero.
+	Fixes PR java/8296.
+
+2002-10-15  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (patch_invoke): Call force_evaluation_order on a static
+	arg list.
+	(resolve_qualified_expression_name): Call force_evaluation_order
+	on a arg list that is part of a Qualified Expression Name.
+
+	* lang.c (dump_compound_expr): New.
+	(java_dump_tree): New.
+
+2002-10-20  Ranjit Mathew <rmathew@hotmail.com>
+
+	* gcj.texi: Added item describing the GCJ runtime property
+	"gnu.gcj.progname".
+
+2002-10-15  Richard Henderson  <rth@redhat.com>
+
+	* jcf-parse.c (get_constant): Fix type warning.
+
+2002-10-15  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (java_inlining_merge_static_initializers): Declare.
+	(java_inlining_map_static_initializers): Declare.
+
+2002-10-14  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c (remap_block): All local class initialization
+	flags go in the outermost scope.
+	(expand_call_inline): Call java_inlining_map_static_initializers.
+	(expand_call_inline): Call java_inlining_merge_static_initializers.
+	* java/lang.c (merge_init_test_initialization): New.
+	(java_inlining_merge_static_initializers): New.
+	(inline_init_test_initialization): New.
+	(java_inlining_map_static_initializers): New.
+
+2002-10-11  Mark Wielaard  <mark@klomp.org>
+
+	* gcj.texi (Compatibility): Add Limitations and Extensions section.
+
+2002-10-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (JAVA_TREEHASHHASH_H): Use htab_hash_pointer.
+
+2002-10-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* parse.y (merge_string_cste): Add parentheses around & within |.
+
+2002-10-08  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (variable_declarator_id): Simplify error path for
+	array declarator error.  For PR java/8003.
+
+2002-10-08  Zack Weinberg  <zack@codesourcery.com>
+
+	* gjavah.c, jcf-dump.c, jv-scan.c: Globally replace GCCBUGURL with
+	bug_report_url.
+
+2002-10-08  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (attach_init_test_initialization_flags): Check for
+	error_mark_node.
+
+2002-10-07  Anthony Green  <green@redhat.com>
+
+	* parse.y (merge_string_cste): Fix bug in string concatenation.
+
+2002-10-03  Michael Koch  <konqueror@gmx.de>
+
+	* gcj.texi (Standard properties):
+	Change default of java.awt.toolkit to gnu.awt.gtk.GtkToolkit.
+
+2002-10-02  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/6627
+	* lang.c (java_init): If storing the vbit in function
+	pointers, ensure that force_align_functions_log is atleast
+	one to aid compatability with g++ vtables.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* jcf-dump.c (print_constant, case CONSTANT_float): Don't fall
+	foul of type-based aliasing.
+
+2002-09-30  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Invoking jv-scan): Fix texinfo.
+
+2002-09-28  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Invoking jv-scan): Add --no-assert documentation.
+	(Code Generation): Add -fno-assert documentation.
+	* jv-scan.c (flag_assert): New global.
+	(options): Add assert option.
+	(help): Add --no-assert documentation.
+	* parse-scan.y (flag_assert): New global.
+	* lang.c (lang_f_options): Add -fassert/-fno-assert support.
+	(flag_assert): New global.
+	* java-tree.h (flag_assert): New global.
+	* lex.c (java_lex): Obey flag_assert.
+	* jvspec.c (jvgenmain_spec): Strip -fassert/-fno-assert when
+	calling cc1.
+
+2002-09-26  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_java_array_length_access): Check for null pointer.
+	* expr.c (expand_java_arrayload): Likewise.
+
+2002-09-21  Richard Henderson  <rth@redhat.com>
+
+	* jcf-parse.c (get_constant): Decode from IEEE no matter
+	what the target format.
+
+2002-09-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* class.c: Likewise.
+	* decl.c: Likewise.
+	* expr.c: Likewise.
+	* gjavah.c: Likewise.
+	* java-tree.h: Likewise.
+	* jcf-dump.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* jvspec.c: Likewise.
+	* lang.c: Likewise.
+	* mangle.c: Likewise.
+	* parse.y: Likewise.
+
+2002-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_read_unicode_collapsing_terminators): Handle case
+	where \r appears at EOF.  Fixes PR java/7950.
+
+2002-09-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* java-tree.h (union lang_tree_node): Add chain_next option.
+
+2002-09-16  Richard Henderson  <rth@redhat.com>
+
+	* jcf-parse.c (get_constant): Runtime check for IEEE format;
+	use new real.h interface.
+	* jcf-write.c (find_constant_index): Use new real.h interface.
+	* lex.c (IS_ZERO): Use REAL_VALUES_EQUAL.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* lang.c: Follow spelling conventions.
+
+2002-09-11  Per Bothner  <per@bothner.com>
+
+	* parse.y (fold_constant_for_init):  If a VAR_DECL, convert numerical
+	constant to the type of the field.
+	(java_complete_tree):  Remove now-redundant code.
+
+	* parse.y (fold_constant_for_init):  'null' is not a constant expr.
+
+2002-09-03  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	For PR java/5794:
+	* verify.c (verify_jvm_instructions) [OPCODE_jsr]: Only push the
+	return label if a ret instruction for the jsr has been reached.
+
+2002-09-09  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* parse.y (DIR_SEPARATOR): Don't define.
+	(check_class_interface_creation): Use IS_DIR_SEPARATOR.
+
+2002-08-28  Andrew Haley  <aph@redhat.com>
+
+	* verify.c (verify_jvm_instructions): Allow exception handler
+	inside code that is being protected, but generate a warning.
+	* except.c (link_handler): Initialize `expanded' in new eh_range.
+	(binding_depth, is_class_level, current_pc): Declare extern.
+
 2002-09-01  Mark Wielaard <mark@klomp.org>
 
 	* gcj.texi: Add chapter about system properties.
@@ -57,7 +265,7 @@
 
 2002-08-08  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
-	* jcf-write.c (get_access_flags): Return correct access flags for 
+	* jcf-write.c (get_access_flags): Return correct access flags for
 	private and protected inner classes.
 
 2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
@@ -200,10 +408,10 @@
 
 2002-06-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
-	* gjavah.c (throwable_p): Accept argument as either a classname or 
+	* gjavah.c (throwable_p): Accept argument as either a classname or
 	signature fragment. Create null-terminated classname string for super
 	when calling itself recursively.
-	(decode_signature_piece): Skip first character from class name 
+	(decode_signature_piece): Skip first character from class name
 	signature when calling throwable_p.
 
 2002-06-08  H.J. Lu  (hjl@gnu.org)
@@ -2784,7 +2992,7 @@ Tue Oct 23 14:02:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(generate_classfile): Compute the attribute count, invoke
 	`append_gcj_attribute'.
 	* jcf.h (typedef struct JCF): `seen_in_zip' and `java_source'
-	turned into bit fields. New bit field `right_zip.'
+	turned into bit-fields. New bit-field `right_zip.'
 	(JCF_ZERO): Set `right_zip' to zero.
 	* lang-options.h (-fforce-classes-archive-check): Added flag.
 	* lang.c (flag_force_classes_archive_check): New flag.
@@ -6866,8 +7074,8 @@ Fri Dec 24 00:25:29 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 	* jcf.h (typedef struct JCF): Field `outofsynch' deleted.
 	(jcf_out_of_synch): Prototype deleted.
 	* parse.h (struct parser_ctxt): `minus_seen', `java_error_flag',
-	`deprecated' and `class_err': integer turned into bit fields.
-	New bit fields `saved_data_ctx' and `saved_data'. Fixed comments.
+	`deprecated' and `class_err': integer turned into bit-fields.
+	New bit-fields `saved_data_ctx' and `saved_data'. Fixed comments.
 	* parse.y (package_list): New global.
 	(package_declaration:): Record newly parsed package name.
 	(extra_ctxp_pushed_p): Static global deleted.
@@ -12842,7 +13050,7 @@ Mon Apr 27 10:50:05 1998  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 	this_wfl. Call to parse_error_context uses this_wfl instead of
 	relying on lookup_cl.
 	(parser_check_super): Comment reflects function's new returned
-	type (int). Function returns non zero value on error.
+	type (int). Function returns nonzero value on error.
 	(create_jdep_list, reverse_jdep_list, obtain_incomplete_type,
 	register_incomplete_type, jdep_resolve_class): New functions to
 	handle incomplete types in declarations.

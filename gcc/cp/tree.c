@@ -57,7 +57,7 @@ static tree handle_init_priority_attribute PARAMS ((tree *, tree, tree, int, boo
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
-   non-zero, rvalues of class type are considered lvalues.  */
+   nonzero, rvalues of class type are considered lvalues.  */
 
 static cp_lvalue_kind
 lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
@@ -94,7 +94,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
       /* If expression doesn't change the type, we consider it as an
 	 lvalue even when cast_as_lvalue extension isn't selected.
 	 That's because parts of the compiler are alleged to be sloppy
-	 about sticking in NOP_EXPR node for no good reason. */
+	 about sticking in NOP_EXPR node for no good reason.  */
       if (allow_cast_as_lvalue ||
 	  same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ref)),
 		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (ref, 0)))))
@@ -227,6 +227,14 @@ lvalue_p (ref)
 {
   return 
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 1) != clk_none);
+}
+
+int
+non_cast_lvalue_p (ref)
+     tree ref;
+{
+  return 
+    (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 0) != clk_none);
 }
 
 /* Return nonzero if REF is an lvalue valid for this language;
@@ -569,6 +577,11 @@ cp_build_qualified_type_real (type, type_quals, complain)
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;
+  /* We keep bad function qualifiers separate, so that we can decide
+     whether to implement DR 295 or not. DR 295 break existing code,
+     unfortunately. Remove this variable to implement the defect
+     report.  */
+  int bad_func_quals = TYPE_UNQUALIFIED;
 
   if (type == error_mark_node)
     return type;
@@ -584,6 +597,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+      if (TREE_CODE (type) != REFERENCE_TYPE)
+	bad_func_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
     }
   
@@ -602,21 +617,23 @@ cp_build_qualified_type_real (type, type_quals, complain)
     /*OK*/;
   else if (!(complain & (tf_error | tf_ignore_bad_quals)))
     return error_mark_node;
+  else if (bad_func_quals && !(complain & tf_error))
+    return error_mark_node;
   else
     {
       if (complain & tf_ignore_bad_quals)
  	/* We're not going to warn about constifying things that can't
  	   be constified.  */
  	bad_quals &= ~TYPE_QUAL_CONST;
+      bad_quals |= bad_func_quals;
       if (bad_quals)
  	{
  	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
  
- 	  if (!(complain & tf_ignore_bad_quals))
+ 	  if (!(complain & tf_ignore_bad_quals)
+	      || bad_func_quals)
  	    error ("`%V' qualifiers cannot be applied to `%T'",
 		   bad_type, type);
- 	  else if (complain & tf_warning)
- 	    warning ("ignoring `%V' qualifiers on `%T'", bad_type, type);
  	}
     }
   
@@ -995,9 +1012,10 @@ really_overloaded_fn (x)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
     x = BASELINK_FUNCTIONS (x);
-  return (TREE_CODE (x) == OVERLOAD 
-	  && (OVL_CHAIN (x)
-	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
+  
+  return ((TREE_CODE (x) == OVERLOAD && OVL_CHAIN (x))
+	  || DECL_FUNCTION_TEMPLATE_P (OVL_CURRENT (x))
+	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
 }
 
 tree
@@ -1005,7 +1023,7 @@ get_first_fn (from)
      tree from;
 {
   my_friendly_assert (is_overloaded_fn (from), 9);
-  /* A baselink is also considered an overloaded function. */
+  /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
@@ -1022,7 +1040,7 @@ bound_pmf_p (t)
 	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
-/* Return a new OVL node, concatenating it with the old one. */
+/* Return a new OVL node, concatenating it with the old one.  */
 
 tree
 ovl_cons (decl, chain)
@@ -1061,7 +1079,7 @@ is_aggr_type_2 (t1, t2)
   return IS_AGGR_TYPE (t1) && IS_AGGR_TYPE (t2);
 }
 
-/* Returns non-zero if CODE is the code for a statement.  */
+/* Returns nonzero if CODE is the code for a statement.  */
 
 int
 cp_statement_code_p (code)
@@ -1876,7 +1894,7 @@ maybe_dummy_object (type, binfop)
   if (current_class_ref && context == current_class_type
       /* Kludge: Make sure that current_class_type is actually
          correct.  It might not be if we're in the middle of
-         tsubst_default_argument. */
+         tsubst_default_argument.  */
       && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
 		      current_class_type))
     decl = current_class_ref;
@@ -1906,6 +1924,8 @@ pod_type_p (t)
 {
   t = strip_array_types (t);
 
+  if (t == error_mark_node)
+    return 1;
   if (INTEGRAL_TYPE_P (t))
     return 1;  /* integral, character or enumeral type */
   if (FLOAT_TYPE_P (t))
@@ -1932,6 +1952,9 @@ zero_init_p (t)
      tree t;
 {
   t = strip_array_types (t);
+
+  if (t == error_mark_node)
+    return 1;
 
   /* NULL pointers to data members are initialized with -1.  */
   if (TYPE_PTRMEM_P (t))
@@ -2048,7 +2071,7 @@ handle_init_priority_attribute (node, name, args, flags, no_add_attrs)
       /* Static objects in functions are initialized the
 	 first time control passes through that
 	 function. This is not precise enough to pin down an
-	 init_priority value, so don't allow it. */
+	 init_priority value, so don't allow it.  */
       || current_function_decl) 
     {
       error ("can only use `%s' attribute on file-scope definitions of objects of class type",
@@ -2331,7 +2354,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
   return var;
 }
 
-/* Record that we're about to start inlining FN, and return non-zero if
+/* Record that we're about to start inlining FN, and return nonzero if
    that's OK.  Used for lang_hooks.tree_inlining.start_inlining.  */
 
 int
@@ -2518,7 +2541,7 @@ name_p (tree node)
 	  || TREE_CODE (node) == SCOPE_REF);
 }
 
-/* Returns non-zero if TYPE is a character type, including wchar_t.  */
+/* Returns nonzero if TYPE is a character type, including wchar_t.  */
 
 int
 char_type_p (type)

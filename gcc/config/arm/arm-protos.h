@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -31,6 +31,7 @@ extern void   arm_finalize_pic		PARAMS ((int));
 extern int    arm_volatile_func		PARAMS ((void));
 extern const char * arm_output_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
+extern HOST_WIDE_INT arm_get_frame_size	PARAMS ((void));
 /* Used in arm.md, but defined in output.c.  */
 extern void   assemble_align		PARAMS ((int)); 
 extern const char * arm_strip_name_encoding	PARAMS ((const char *));
@@ -107,6 +108,7 @@ extern int    arm_gen_movstrqi		PARAMS ((rtx *));
 extern rtx    arm_gen_rotated_half_load	PARAMS ((rtx));
 extern enum machine_mode arm_select_cc_mode PARAMS ((RTX_CODE, rtx, rtx));
 extern rtx    arm_gen_compare_reg	PARAMS ((RTX_CODE, rtx, rtx));
+extern rtx    arm_gen_return_addr_mask	PARAMS ((void));
 extern void   arm_reload_in_hi		PARAMS ((rtx *));
 extern void   arm_reload_out_hi		PARAMS ((rtx *));
 extern void   arm_reorg			PARAMS ((rtx));
@@ -153,10 +155,13 @@ extern void   common_section		PARAMS ((void));
 
 #endif /* RTX_CODE */
 
+extern int    arm_float_words_big_endian PARAMS ((void));
+
 /* Thumb functions.  */
 extern void   arm_init_expanders	PARAMS ((void));
 extern int    thumb_far_jump_used_p	PARAMS ((int));
 extern const char * thumb_unexpanded_epilogue	PARAMS ((void));
+extern HOST_WIDE_INT thumb_get_frame_size PARAMS ((void));
 extern void   thumb_expand_prologue	PARAMS ((void));
 extern void   thumb_expand_epilogue	PARAMS ((void));
 #ifdef TREE_CODE

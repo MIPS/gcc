@@ -65,6 +65,8 @@ static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int));
 #ifdef CTOR_LIST_BEGIN
 static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
+static void m68k_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					  HOST_WIDE_INT, tree));
 
 
 /* Alignment to use for loops and jumps */
@@ -122,6 +124,11 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
 
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK m68k_output_mi_thunk
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Sometimes certain combinations of command options do not make
@@ -174,6 +181,30 @@ override_options ()
       else
 	m68k_align_funcs = i;
     }
+
+  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
+     until the 68020.  */
+  if (! TARGET_68020 && flag_pic == 2)
+    error("-fPIC is not currently supported on the 68000 or 68010\n");
+
+  /* ??? A historic way of turning on pic, or is this intended to
+     be an embedded thing that doesn't have the same name binding
+     significance that it does on hosted ELF systems?  */
+  if (TARGET_PCREL && flag_pic == 0)
+    flag_pic = 1;
+
+  /* Turn off function cse if we are doing PIC.  We always want function call
+     to be done as `bsr foo@PLTPC', so it will force the assembler to create
+     the PLT entry for `foo'. Doing function cse will cause the address of
+     `foo' to be loaded into a register, which is exactly what we want to
+     avoid when we are doing PIC on svr4 m68k.  */
+  if (flag_pic)
+    flag_no_function_cse = 1;
+
+  SUBTARGET_OVERRIDE_OPTIONS;
+
+  /* Tell the compiler which flavor of XFmode we're using.  */
+  real_format_for_mode[XFmode - QFmode] = &ieee_extended_motorola_format;
 }
 
 /* This function generates the assembly code for function entry.
@@ -1119,7 +1150,7 @@ valid_dbcc_comparison_p (x, mode)
     }
 }
 
-/* Return non-zero if flags are currently in the 68881 flag register.  */
+/* Return nonzero if flags are currently in the 68881 flag register.  */
 int
 flags_in_68881 ()
 {
@@ -2719,22 +2750,18 @@ floating_exact_log2 (x)
      rtx x;
 {
   REAL_VALUE_TYPE r, r1;
-  int i;
+  int exp;
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
 
-  if (REAL_VALUES_LESS (r, dconst0))
+  if (REAL_VALUES_LESS (r, dconst1))
     return 0;
 
-  r1 = dconst1;
-  i = 0;
-  while (REAL_VALUES_LESS (r1, r))
-    {
-      r1 = REAL_VALUE_LDEXP (dconst1, i);
-      if (REAL_VALUES_EQUAL (r1, r))
-        return i;
-      i = i + 1;
-    }
+  exp = real_exponent (&r);
+  real_2expN (&r1, exp);
+  if (REAL_VALUES_EQUAL (r1, r))
+    return exp;
+
   return 0;
 }
 
@@ -3119,7 +3146,7 @@ print_operand (file, op, letter)
    macro.  See m68k/sgs.h for an example; for versions without the bug.
    Some assemblers refuse all the above solutions.  The workaround is to
    emit "K(pc,d0.l*2)" with K being a small constant known to give the
-   right behaviour.
+   right behavior.
 
    They also do not like things like "pea 1.w", so we simple leave off
    the .w on small constants. 
@@ -3815,3 +3842,69 @@ m68k_svr3_asm_out_constructor (symbol, priority)
   output_asm_insn (output_move_simode (xop), xop);
 }
 #endif
+
+static void
+m68k_output_mi_thunk (file, thunk, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
+     tree function;
+{
+  rtx xops[1];
+  const char *fmt;
+
+  if (delta > 0 && delta <= 8)
+    asm_fprintf (file, "\taddq.l %I%d,4(%Rsp)\n", (int) delta);
+  else if (delta < 0 && delta >= -8)
+    asm_fprintf (file, "\tsubq.l %I%d,4(%Rsp)\n", (int) -delta);
+  else
+    {
+      asm_fprintf (file, "\tadd.l %I");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+      asm_fprintf (file, ",4(%Rsp)\n");
+    }
+
+  xops[0] = DECL_RTL (function);
+
+  /* Logic taken from call patterns in m68k.md.  */
+  if (flag_pic)
+    {
+      if (TARGET_PCREL)
+	fmt = "bra.l %o0";
+      else
+	{
+#ifdef MOTOROLA
+#ifdef HPUX_ASM
+	  fmt = "bra.l %0";
+#else
+#ifdef USE_GAS
+	  fmt = "bra.l %0@PLTPC";
+#else
+	  fmt = "bra %0@PLTPC";
+#endif
+#endif
+#else
+#ifdef USE_GAS
+	  fmt = "bra.l %0";
+#else
+	  fmt = "jbra %0,a1";
+#endif
+#endif
+	}
+    }
+  else
+    {
+#if defined (MOTOROLA) && !defined (USE_GAS)
+#ifdef MOTOROLA_BSR
+      fmt = "bra %0";
+#else
+      fmt = "jmp %0";
+#endif
+#else
+      fmt = "jbra %0";
+#endif
+    }
+
+  output_asm_insn (fmt, xops);
+}

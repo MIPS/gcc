@@ -675,7 +675,7 @@ enum reg_class {
    machines allow copying all registers to and from memory, but
    require a scratch register for stores to some memory locations
    (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In
+   certain symbolic address on the SPARC when compiling PIC).  In
    some cases, both an intermediate and a scratch register are
    required.
 
@@ -731,7 +731,7 @@ enum reg_class {
 /* `SECONDARY_MEMORY_NEEDED (CLASS1, CLASS2, M)'
    Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode M in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.
@@ -755,16 +755,16 @@ enum reg_class {
    classes that there would not be enough registers to use as spill
    registers if this were done.
 
-   Define `SMALL_REGISTER_CLASSES' to be an expression with a non-zero
-   value on these machines.  When this macro has a non-zero value, the
+   Define `SMALL_REGISTER_CLASSES' to be an expression with a nonzero
+   value on these machines.  When this macro has a nonzero value, the
    compiler allows registers explicitly used in the rtl to be used as
    spill registers but avoids extending the lifetime of these
    registers.
 
-   It is always safe to define this macro with a non-zero value, but
+   It is always safe to define this macro with a nonzero value, but
    if you unnecessarily define it, you will reduce the amount of
    optimizations that can be performed in some cases.  If you do not
-   define this macro with a non-zero value when it is required, the
+   define this macro with a nonzero value when it is required, the
    compiler will run out of spill registers and print a fatal error
    message.  For most machines, you should not define this macro at
    all.  */
@@ -999,7 +999,7 @@ enum reg_class {
 				      || (FROM) == FRAME_POINTER_REGNUM+1) \
 				     && ! FRAME_POINTER_REQUIRED	   \
 				     ))
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -1115,7 +1115,7 @@ enum reg_class {
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the
    definition of this macro to determine if this argument is of a
    type that must be passed in the stack.  If `REG_PARM_STACK_SPACE'
-   is not defined and `FUNCTION_ARG' returns non-zero for such an
+   is not defined and `FUNCTION_ARG' returns nonzero for such an
    argument, the compiler will abort.  If `REG_PARM_STACK_SPACE' is
    defined, the argument will be computed in the stack and then
    loaded into a register.  */
@@ -1679,10 +1679,10 @@ do {									    \
    cost many times greater than aligned accesses, for example if they
    are emulated in a trap handler.
 
-   When this macro is non-zero, the compiler will act as if
-   `STRICT_ALIGNMENT' were non-zero when generating code for block
+   When this macro is nonzero, the compiler will act as if
+   `STRICT_ALIGNMENT' were nonzero when generating code for block
    moves.  This can cause significantly more instructions to be
-   produced.  Therefore, do not set this macro non-zero if unaligned
+   produced.  Therefore, do not set this macro nonzero if unaligned
    accesses only add a cycle or two to the time for a memory access.
 
    If the value of this macro is always zero, it need not be defined.
@@ -1845,9 +1845,9 @@ progmem_section ()							      \
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are
-   required to precede any Objective C object definitions or message
+   required to precede any Objective-C object definitions or message
    sending.  The statement is executed only when compiling an
-   Objective C program.  */
+   Objective-C program.  */
 
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
@@ -2523,6 +2523,12 @@ extern int avr_case_values_threshold;
 
    Do not define this macro if it does not need to do anything.  */
 
+#define CC1PLUS_SPEC "%{!frtti:-fno-rtti} \
+    %{!fenforce-eh-specs:-fno-enforce-eh-specs} \
+    %{!fexceptions:-fno-exceptions}"
+/* A C string constant that tells the GNU CC drvier program options to
+   pass to `cc1plus'.  */
+
 #define ASM_SPEC "%{mmcu=*:-mmcu=%*}"
 /* A C string constant that tells the GNU CC driver program options to
    pass to the assembler.  It can also specify how to translate
@@ -2683,8 +2689,6 @@ extern int avr_case_values_threshold;
 extern struct rtx_def *tmp_reg_rtx;
 extern struct rtx_def *zero_reg_rtx;
 extern struct rtx_def *ldi_reg_rtx;
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 

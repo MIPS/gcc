@@ -226,6 +226,7 @@ case "$TARGET_ECOS" in
             PLATFORM=Win32
             PLATFORMOBJS=win32.lo
 	    PLATFORMH=win32.h
+        CHECK_FOR_BROKEN_MINGW_LD
       ;;
       *)
             PLATFORM=Posix
@@ -444,7 +445,7 @@ AC_LINK_FILES(sysdep/$sysdeps_dir/locks.h, sysdep/locks.h)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
-if test "$enable_hash_synchronization" = yes && test "$THREADS" = "posix"; then
+if test "$enable_hash_synchronization" = yes && test "$THREADS" != "none"; then
    HASH_SYNC_SPEC=-fhash-synchronization
    AC_DEFINE(JV_HASH_SYNCHRONIZATION, 1, [Define if hash synchronization is in use])
 fi
@@ -813,7 +814,7 @@ CFLAGS="$save_CFLAGS"
 dnl We check for sys/filio.h because Solaris 2.5 defines FIONREAD there.
 dnl On that system, sys/ioctl.h will not include sys/filio.h unless
 dnl BSD_COMP is defined; just including sys/filio.h is simpler.
-AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h pwd.h sys/config.h stdint.h langinfo.h locale.h)
+AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h pwd.h sys/config.h stdint.h langinfo.h locale.h)
 dnl We avoid AC_HEADER_DIRENT since we really only care about dirent.h
 dnl for now.  If you change this, you also must update natFile.cc.
 AC_CHECK_HEADERS(dirent.h)

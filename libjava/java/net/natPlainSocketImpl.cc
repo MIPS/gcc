@@ -118,7 +118,9 @@ _Jv_accept (int fd, struct sockaddr *addr, socklen_t *addrlen)
 #include <java/net/ConnectException.h>
 #include <java/net/PlainSocketImpl.h>
 #include <java/net/InetAddress.h>
+#include <java/net/InetSocketAddress.h>
 #include <java/net/SocketException.h>
+#include <java/net/SocketTimeoutException.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/Object.h>
 #include <java/lang/Boolean.h>
@@ -146,7 +148,7 @@ java::net::PlainSocketImpl::bind (java::net::InetAddress *, jint)
 }
 
 void
-java::net::PlainSocketImpl::connect (java::net::InetAddress *, jint)
+java::net::PlainSocketImpl::connect (java::net::SocketAddress *, jint)
 {
   throw new ConnectException (
     JvNewStringLatin1 ("SocketImpl.connect: unimplemented"));
@@ -206,6 +208,13 @@ java::net::PlainSocketImpl::write(jbyteArray b, jint offset, jint len)
 {
   throw new SocketException (
     JvNewStringLatin1 ("SocketImpl.write: unimplemented"));
+}
+
+void
+java::net::PlainSocketImpl::sendUrgentData(jint data)
+{
+  throw new SocketException (
+    JvNewStringLatin1 ("SocketImpl.sendUrgentData: unimplemented"));
 }
 
 jint
@@ -316,8 +325,13 @@ java::net::PlainSocketImpl::bind (java::net::InetAddress *host, jint lport)
 }
 
 void
-java::net::PlainSocketImpl::connect (java::net::InetAddress *host, jint rport)
+java::net::PlainSocketImpl::connect (java::net::SocketAddress *addr,
+		                     jint timeout)
 {
+  java::net::InetSocketAddress *tmp = (java::net::InetSocketAddress*) addr;
+  java::net::InetAddress *host = tmp->getAddress();
+  jint rport = tmp->getPort();
+	
   union SockAddr u;
   socklen_t addrlen = sizeof(u);
   jbyteArray haddress = host->addr;
@@ -343,8 +357,37 @@ java::net::PlainSocketImpl::connect (java::net::InetAddress *host, jint rport)
   else
     throw new java::net::SocketException (JvNewStringUTF ("invalid length"));
 
-  if (_Jv_connect (fnum, ptr, len) != 0)
-    goto error;
+// FIXME: implement timeout support for Win32
+#ifndef WIN32
+  if (timeout > 0)
+    {
+      int flags = ::fcntl (fnum, F_GETFL);
+      ::fcntl (fnum, F_SETFL, flags | O_NONBLOCK);
+      
+      if ((_Jv_connect (fnum, ptr, len) != 0) && (errno != EINPROGRESS))
+        goto error;
+
+      fd_set rset;
+      struct timeval tv;
+      FD_ZERO(&rset);
+      FD_SET(fnum, &rset);
+      tv.tv_sec = timeout / 1000;
+      tv.tv_usec = (timeout % 1000) * 1000;
+      int retval;
+      
+      if ((retval = _Jv_select (fnum + 1, &rset, NULL, NULL, &tv)) < 0)
+	goto error;
+      else if (retval == 0)
+	throw new java::net::SocketTimeoutException ( 
+	         JvNewStringUTF("Connect timed out"));
+    }
+  else
+#endif
+    {
+      if (_Jv_connect (fnum, ptr, len) != 0)
+        goto error;
+    }
+
   address = host;
   port = rport;
   // A bind may not have been done on this socket; if so, set localport now.
@@ -518,6 +561,12 @@ java::net::PlainSocketImpl::write(jbyteArray b, jint offset, jint len)
     }
 }
 
+void
+java::net::PlainSocketImpl::sendUrgentData (jint)
+{
+  throw new SocketException (JvNewStringLatin1 (
+    "PlainSocketImpl: sending of urgent data not supported by this socket"));
+}
 
 // Read a single byte from the socket.
 jint
@@ -539,7 +588,8 @@ java::net::PlainSocketImpl::read(void)
     timeout_value.tv_sec = timeout / 1000;
     timeout_value.tv_usec = (timeout % 1000) * 1000;
     // Select on the fds.
-    int sel_retval = _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
+    int sel_retval =
+	    _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
     // If select returns 0 we've waited without getting data...
     // that means we've timed out.
     if (sel_retval == 0)
@@ -598,7 +648,8 @@ java::net::PlainSocketImpl::read(jbyteArray buffer, jint offset, jint count)
     timeout_value.tv_sec = timeout / 1000;
     timeout_value.tv_usec =(timeout % 1000) * 1000;
     // Select on the fds.
-    int sel_retval = _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
+    int sel_retval = 
+	    _Jv_select (fnum + 1, &read_fds, NULL, NULL, &timeout_value);
     // We're only interested in the 0 return.
     // error returns still require us to try to read 
     // the socket to see what happened.
@@ -727,7 +778,8 @@ java::net::PlainSocketImpl::setOption (jint optID, java::lang::Object *value)
     }
   else
     {
-      throw new java::lang::IllegalArgumentException (JvNewStringLatin1 ("`value' must be Boolean or Integer"));
+      throw new java::lang::IllegalArgumentException (
+        JvNewStringLatin1 ("`value' must be Boolean or Integer"));
     }
 
   switch (optID) 
@@ -747,6 +799,18 @@ java::net::PlainSocketImpl::setOption (jint optID, java::lang::Object *value)
         if (::setsockopt (fnum, SOL_SOCKET, SO_KEEPALIVE, (char *) &val,
 	    val_len) != 0)
 	  goto error;
+	break;
+      
+      case _Jv_SO_BROADCAST_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("SO_BROADCAST not valid for TCP"));
+	break;
+	
+      case _Jv_SO_OOBINLINE_ :
+        if (::setsockopt (fnum, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
+            val_len) != 0)
+          goto error;
+        break;
 
       case _Jv_SO_LINGER_ :
 #ifdef SO_LINGER
@@ -781,6 +845,23 @@ java::net::PlainSocketImpl::setOption (jint optID, java::lang::Object *value)
         throw new java::net::SocketException (
           JvNewStringUTF ("IP_MULTICAST_IF: not valid for TCP"));
         return;
+	
+      case _Jv_IP_MULTICAST_IF2_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("IP_MULTICAST_IF2: not valid for TCP"));
+        break;
+	
+      case _Jv_IP_MULTICAST_LOOP_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("IP_MULTICAST_LOOP: not valid for TCP"));
+	break;
+	
+      case _Jv_IP_TOS_ :
+        if (::setsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+	   val_len) != 0)
+	  goto error;    
+	break;
+	
       case _Jv_SO_REUSEADDR_ :
         throw new java::net::SocketException (
           JvNewStringUTF ("SO_REUSEADDR: not valid for TCP"));
@@ -830,7 +911,7 @@ java::net::PlainSocketImpl::getOption (jint optID)
         if (l_val.l_onoff)
           return new java::lang::Integer (l_val.l_linger);
         else
-	  return new java::lang::Boolean ((__java_boolean)false);
+	  return new java::lang::Boolean ((jboolean)false);
 #else
         throw new java::lang::InternalError (
           JvNewStringUTF ("SO_LINGER not supported"));
@@ -844,6 +925,18 @@ java::net::PlainSocketImpl::getOption (jint optID)
         else
 	  return new java::lang::Boolean (val != 0);
 
+      case _Jv_SO_BROADCAST_ :
+        if (::getsockopt (fnum, SOL_SOCKET, SO_BROADCAST, (char *) &val,
+	   &val_len) != 0)
+	  goto error;    
+        return new java::lang::Boolean ((jboolean)val);
+	
+      case _Jv_SO_OOBINLINE_ :
+        if (::getsockopt (fnum, SOL_SOCKET, SO_OOBINLINE, (char *) &val,
+	    &val_len) != 0)
+	  goto error;    
+        return new java::lang::Boolean ((jboolean)val);
+	
       case _Jv_SO_RCVBUF_ :
       case _Jv_SO_SNDBUF_ :
 #if defined(SO_SNDBUF) && defined(SO_RCVBUF)
@@ -878,8 +971,8 @@ java::net::PlainSocketImpl::getOption (jint optID)
 	      }
 #endif
 	    else
-	      throw
-		new java::net::SocketException (JvNewStringUTF ("invalid family"));
+	      throw new java::net::SocketException (
+			      JvNewStringUTF ("invalid family"));
 	    localAddress = new java::net::InetAddress (laddr, NULL);
 	  }
 	return localAddress;
@@ -888,6 +981,24 @@ java::net::PlainSocketImpl::getOption (jint optID)
 	throw new java::net::SocketException (
 	  JvNewStringUTF ("IP_MULTICAST_IF: not valid for TCP"));
 	break;
+	
+      case _Jv_IP_MULTICAST_IF2_ :
+	throw new java::net::SocketException (
+	  JvNewStringUTF ("IP_MULTICAST_IF2: not valid for TCP"));
+	break;
+	
+      case _Jv_IP_MULTICAST_LOOP_ :
+	throw new java::net::SocketException(
+          JvNewStringUTF ("IP_MULTICAST_LOOP: not valid for TCP"));
+	break;
+	
+      case _Jv_IP_TOS_ :
+        if (::getsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+           &val_len) != 0)
+          goto error;
+        return new java::lang::Integer (val);
+	break;
+	
       case _Jv_SO_REUSEADDR_ :
 	throw new java::net::SocketException (
 	  JvNewStringUTF ("SO_REUSEADDR: not valid for TCP"));

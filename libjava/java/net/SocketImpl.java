@@ -95,6 +95,8 @@ public abstract class SocketImpl implements SocketOptions
    * if the stream parameter is false.
    *
    * @param stream true for a stream socket, false for a datagram socket
+   *
+   * @exception IOException If an error occurs
    */
   protected abstract void create(boolean stream) throws IOException;
 
@@ -117,6 +119,21 @@ public abstract class SocketImpl implements SocketOptions
    * @exception IOException If an error occurs
    */
   protected abstract void connect(InetAddress host, int port)
+    throws IOException;
+
+  /**
+   * Connects to the socket to the host specified in address. This
+   * method blocks until successful connected or the timeout occurs.
+   * A timeout of zero means no timout.
+   *
+   * @param address Data of remote host
+   * @param timeout time to wait to stop connecting
+   *
+   * @exception IOException If an error occurs
+   *
+   * @since 1.4
+   */
+  protected abstract void connect(SocketAddress address, int timeout)
     throws IOException;
 
   /**
@@ -215,6 +232,31 @@ public abstract class SocketImpl implements SocketOptions
   protected int getPort() { return port; }
 
   /**
+   * Returns true or false when this socket supports sending urgent data
+   * or not.
+   *
+   * @since 1.4
+   */
+  protected boolean supportsUrgentData()
+  {
+    // This method has to be overwritten by socket classes that support
+    // sending urgend data.
+    return false;
+  }
+  
+  /**
+   * Sends one byte of urgent data to the socket.
+   *
+   * @param data The byte to send, the low eight bits of it
+   *
+   * @exception IOException If an error occurs
+   *
+   * @since 1.4
+   */
+  protected abstract void sendUrgentData(int data)
+    throws IOException;
+  
+  /**
    * Returns the local port this socket is bound to
    *
    * @return The local port
@@ -271,7 +313,7 @@ public abstract class SocketImpl implements SocketOptions
    *
    * @exception IOException if an error occurs
    */
-  public abstract void shutdownInput () throws IOException;
+  protected abstract void shutdownInput () throws IOException;
 
   /**
    * Shut down the output side of this socket.  Subsequent writes will
@@ -279,5 +321,5 @@ public abstract class SocketImpl implements SocketOptions
    *
    * @exception IOException if an error occurs
    */
-  public abstract void shutdownOutput () throws IOException;
+  protected abstract void shutdownOutput () throws IOException;
 }

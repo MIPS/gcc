@@ -319,7 +319,7 @@ namespace std
   operator-(const _Deque_iterator<_Tp, _RefL, _PtrL>& __x,
   	  const _Deque_iterator<_Tp, _RefR, _PtrR>& __y)
   {
-    return _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
+    return typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
       (_Deque_iterator<_Tp, _RefL, _PtrL>::_S_buffer_size()) *
       (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first) +
       (__y._M_last - __y._M_cur);
@@ -647,8 +647,8 @@ namespace std
     typedef const value_type*                  const_pointer;
     typedef typename _Base::iterator           iterator;
     typedef typename _Base::const_iterator     const_iterator;
-    typedef reverse_iterator<const_iterator>   const_reverse_iterator;
-    typedef reverse_iterator<iterator>         reverse_iterator;
+    typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
+    typedef std::reverse_iterator<iterator>         reverse_iterator;
     typedef value_type&                        reference;
     typedef const value_type&                  const_reference;
     typedef size_t                             size_type;

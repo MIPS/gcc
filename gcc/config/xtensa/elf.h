@@ -24,6 +24,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     builtin_define ("__ELF__");					\
   } while (0)
 
+#define TARGET_SECTION_TYPE_FLAGS xtensa_multibss_section_type_flags
+
 /* Don't assume anything about the header files. */
 #define NO_IMPLICIT_EXTERN_C
 
@@ -63,7 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef ASM_FINAL_SPEC
 
 #undef LIB_SPEC
-#define LIB_SPEC "-lc -lsim -lc -lhandlers-sim"
+#define LIB_SPEC "-lc -lsim -lc -lhandlers-sim -lhal"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "crt1-sim%O%s crti%O%s crtbegin%O%s _vectors%O%s"

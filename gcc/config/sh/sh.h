@@ -473,13 +473,13 @@ do {									\
      to the pressure on R0.  */						\
   flag_schedule_insns = 0;						\
 									\
-  /* Allocation boundary (in *bits*) for the code of a function.	\
+  /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
      fetched as a pair from a longword boundary.			\
      SH2 .. SH5 : align to cache line start.  */			\
   if (align_functions == 0)						\
     align_functions							\
-      = TARGET_SMALLCODE ? FUNCTION_BOUNDARY : (1 << CACHE_LOG) * 8;	\
+      = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -1372,14 +1372,8 @@ extern const enum reg_class reg_class_from_letter[];
 /* ??? We need to renumber the internal numbers for the frnn registers
    when in little endian in order to allow mode size changes.  */
 
-#define CLASS_CANNOT_CHANGE_MODE (TARGET_LITTLE_ENDIAN ? DF_REGS : DF_HI_REGS)
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
-   && ((TARGET_LITTLE_ENDIAN  && GET_MODE_SIZE (TO) < 8) \
-       || GET_MODE_SIZE (FROM) < 8))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) 			    \
+  sh_cannot_change_mode_class (FROM, TO)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1528,7 +1522,7 @@ enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
 struct sh_args {
     int arg_count[2];
     int force_mem;
-  /* Non-zero if a prototype is available for the function.  */
+  /* Nonzero if a prototype is available for the function.  */
     int prototype_p;
   /* The number of an odd floating-point register, that should be used
      for the next argument of type float.  */
@@ -2277,9 +2271,15 @@ while (0)
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
    && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTPLT)
 
+#define UNSPEC_GOTOFF_P(OP) \
+  (GET_CODE (OP) == UNSPEC && XINT ((OP), 1) == UNSPEC_GOTOFF)
+
 #define GOTOFF_P(OP) \
-  (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
-   && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTOFF)
+  (GET_CODE (OP) == CONST \
+   && (UNSPEC_GOTOFF_P (XEXP ((OP), 0)) \
+       || (GET_CODE (XEXP ((OP), 0)) == PLUS \
+           && UNSPEC_GOTOFF_P (XEXP (XEXP ((OP), 0), 0)) \
+	   && GET_CODE (XEXP (XEXP ((OP), 0), 1)) == CONST_INT)))
 
 #define PIC_ADDR_P(OP) \
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
@@ -3219,6 +3219,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_operand", {SUBREG, REG}},					\
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
+  {"binary_logical_operator", {AND, IOR, XOR}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3315,7 +3316,8 @@ extern int rtx_equal_function_value_matters;
 #define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
   sh_can_redirect_branch ((INSN), (SEQ))
 
-#define DWARF_FRAME_RETURN_COLUMN (TARGET_SH5 ? PR_MEDIA_REG : PR_REG)
+#define DWARF_FRAME_RETURN_COLUMN \
+  (TARGET_SH5 ? DWARF_FRAME_REGNUM (PR_MEDIA_REG) : DWARF_FRAME_REGNUM (PR_REG))
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section

@@ -204,7 +204,7 @@ lookup_base_r (binfo, base, access, within_current_scope,
   if (same_type_p (BINFO_TYPE (binfo), base))
     {
       /* We have found a base. Check against what we have found
-         already. */
+         already.  */
       found = bk_same_type;
       if (is_virtual)
 	found = bk_via_virtual;
@@ -311,7 +311,7 @@ lookup_base (t, base, access, kind_ptr)
      base_access access;
      base_kind *kind_ptr;
 {
-  tree binfo = NULL;		/* The binfo we've found so far. */
+  tree binfo = NULL;		/* The binfo we've found so far.  */
   tree t_binfo = NULL;
   base_kind bk;
   
@@ -577,7 +577,7 @@ current_scope ()
   return current_class_type;
 }
 
-/* Returns non-zero if we are currently in a function scope.  Note
+/* Returns nonzero if we are currently in a function scope.  Note
    that this function returns zero if we are within a local class, but
    not within a member function body of the local class.  */
 
@@ -862,7 +862,7 @@ dfs_accessible_p (binfo, data)
   return NULL_TREE;
 }
 
-/* Returns non-zero if it is OK to access DECL through an object
+/* Returns nonzero if it is OK to access DECL through an object
    indiated by BINFO in the context of DERIVED.  */
 
 static int
@@ -925,7 +925,7 @@ protected_accessible_p (decl, derived, binfo)
   return 1;
 }
 
-/* Returns non-zero if SCOPE is a friend of a type which would be able
+/* Returns nonzero if SCOPE is a friend of a type which would be able
    to access DECL through the object indicated by BINFO.  */
 
 static int
@@ -1014,7 +1014,7 @@ type_access_control (type, val)
 }
 
 /* DECL is a declaration from a base class of TYPE, which was the
-   class used to name DECL.  Return non-zero if, in the current
+   class used to name DECL.  Return nonzero if, in the current
    context, DECL is accessible.  If TYPE is actually a BINFO node,
    then we can tell in what context the access is occurring by looking
    at the most derived class along the path indicated by BINFO.  */
@@ -1028,7 +1028,7 @@ accessible_p (type, decl)
   tree binfo;
   tree t;
 
-  /* Non-zero if it's OK to access DECL if it has protected
+  /* Nonzero if it's OK to access DECL if it has protected
      accessibility in TYPE.  */
   int protected_ok = 0;
 
@@ -1146,15 +1146,15 @@ struct lookup_field_info {
   /* If non-NULL, the lookup was ambiguous, and this is a list of the
      candidates.  */
   tree ambiguous;
-  /* If non-zero, we are looking for types, not data members.  */
+  /* If nonzero, we are looking for types, not data members.  */
   int want_type;
-  /* If non-zero, RVAL was found by looking through a dependent base.  */
+  /* If nonzero, RVAL was found by looking through a dependent base.  */
   int from_dep_base_p;
   /* If something went wrong, a message indicating what.  */
   const char *errstr;
 };
 
-/* Returns non-zero if BINFO is not hidden by the value found by the
+/* Returns nonzero if BINFO is not hidden by the value found by the
    lookup so far.  If BINFO is hidden, then there's no need to look in
    it.  DATA is really a struct lookup_field_info.  Called from
    lookup_field via breadth_first_search.  */
@@ -1185,7 +1185,7 @@ lookup_field_queue_p (binfo, data)
    
      template <typename T> struct S { S* sp; }
 
-   Returns non-zero if DECL is such a declaration in a class TYPE.  */
+   Returns nonzero if DECL is such a declaration in a class TYPE.  */
 
 static int
 template_self_reference_p (type, decl)
@@ -1400,15 +1400,16 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
 }
 
 /* Look for a member named NAME in an inheritance lattice dominated by
-   XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it is
-   1, we enforce accessibility.  If PROTECT is zero, then, for an
-   ambiguous lookup, we return NULL.  If PROTECT is 1, we issue an
-   error message.  If PROTECT is 2, we return a TREE_LIST whose
-   TREE_TYPE is error_mark_node and whose TREE_VALUEs are the list of
-   ambiguous candidates.
+   XBASETYPE.  If PROTECT is 0 or two, we do not check access.  If it
+   is 1, we enforce accessibility.  If PROTECT is zero, then, for an
+   ambiguous lookup, we return NULL.  If PROTECT is 1, we issue error
+   messages about inaccessible or ambiguous lookup.  If PROTECT is 2,
+   we return a TREE_LIST whose TREE_TYPE is error_mark_node and whose
+   TREE_VALUEs are the list of ambiguous candidates.
 
-   WANT_TYPE is 1 when we should only return TYPE_DECLs, if no
-   TYPE_DECL can be found return NULL_TREE.  */
+   WANT_TYPE is 1 when we should only return TYPE_DECLs.
+
+   If nothing can be found return NULL_TREE and do not issue an error.  */
 
 tree
 lookup_member (xbasetype, name, protect, want_type)
@@ -1691,7 +1692,7 @@ adjust_result_of_qualified_name_lookup (tree decl,
    returned and the walk is terminated.  At each node, FN is passed a
    BINFO indicating the path from the curently visited base-class to
    TYPE.  Before each base-class is walked QFN is called.  If the
-   value returned is non-zero, the base-class is walked; otherwise it
+   value returned is nonzero, the base-class is walked; otherwise it
    is not.  If QFN is NULL, it is treated as a function which always
    returns 1.  Both FN and QFN are passed the DATA whenever they are
    called.  */
@@ -1928,7 +1929,7 @@ check_final_overrider (overrider, basefn)
    virtual functions in TYPE's hierarchy which FNDECL overrides.
    We do not look in TYPE itself, only its bases.
    
-   Returns non-zero, if we find any. Set FNDECL's DECL_VIRTUAL_P, if we
+   Returns nonzero, if we find any. Set FNDECL's DECL_VIRTUAL_P, if we
    find that it overrides anything.
    
    We check that every function which is overridden, is correctly
@@ -1954,9 +1955,8 @@ look_for_overrides (type, fndecl)
   return found;
 }
 
-/* Look in TYPE for virtual functions with the same signature as FNDECL.
-   This differs from get_matching_virtual in that it will only return
-   a function from TYPE.  */
+/* Look in TYPE for virtual functions with the same signature as
+   FNDECL.  */
 
 tree
 look_for_overrides_here (type, fndecl)
@@ -1995,7 +1995,7 @@ look_for_overrides_here (type, fndecl)
 }
 
 /* Look in TYPE for virtual functions overridden by FNDECL. Check both
-   TYPE itself and its bases. */
+   TYPE itself and its bases.  */
 
 static int
 look_for_overrides_r (type, fndecl)
@@ -2535,7 +2535,8 @@ dfs_push_decls (binfo, data)
       for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
 	if (DECL_NAME (fields) 
 	    && TREE_CODE (fields) != TYPE_DECL
-	    && TREE_CODE (fields) != USING_DECL)
+	    && TREE_CODE (fields) != USING_DECL
+	    && !DECL_ARTIFICIAL (fields))
 	  setup_class_bindings (DECL_NAME (fields), /*type_binding_p=*/0);
 	else if (TREE_CODE (fields) == FIELD_DECL
 		 && ANON_AGGR_TYPE_P (TREE_TYPE (fields)))
@@ -2596,7 +2597,7 @@ dfs_unuse_fields (binfo, data)
 
   for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
     {
-      if (TREE_CODE (fields) != FIELD_DECL)
+      if (TREE_CODE (fields) != FIELD_DECL || DECL_ARTIFICIAL (fields))
 	continue;
 
       TREE_USED (fields) = 0;
@@ -2795,7 +2796,7 @@ binfo_for_vtable (var)
     }
 
   /* If no secondary base classes matched, return the primary base, if
-     there is one.   */
+     there is one.  */
   if (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (main_binfo)))
     return get_primary_binfo (main_binfo);
 

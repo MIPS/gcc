@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "cpplib.h"
 #include "toplev.h"
-#include "c4x-protos.h"
+#include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
 
@@ -294,6 +294,11 @@ c4x_override_options ()
      This provides compatibility with the old -mno-aliases option.  */
   if (! TARGET_ALIASES && ! flag_argument_noalias)
     flag_argument_noalias = 1;
+
+  /* We're C4X floating point, not IEEE floating point.  */
+  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
+  real_format_for_mode[QFmode - QFmode] = &c4x_single_format;
+  real_format_for_mode[HFmode - QFmode] = &c4x_extended_format;
 }
 
 
@@ -436,7 +441,7 @@ c4x_hard_regno_mode_ok (regno, mode)
   return 0;
 }
 
-/* Return non-zero if REGNO1 can be renamed to REGNO2.  */
+/* Return nonzero if REGNO1 can be renamed to REGNO2.  */
 int
 c4x_hard_regno_rename_ok (regno1, regno2)
      unsigned int regno1;
@@ -1469,7 +1474,7 @@ c4x_check_legit_addr (mode, addr, strict)
   switch (code)
     {
       /* Register indirect with auto increment/decrement.  We don't
-	 allow SP here---push_operand should recognise an operand
+	 allow SP here---push_operand should recognize an operand
 	 being pushed on the stack.  */
 
     case PRE_DEC:
@@ -1954,11 +1959,10 @@ c4x_print_operand (file, op, letter)
       
     case CONST_DOUBLE:
       {
-	char str[30];
-	REAL_VALUE_TYPE r;
+	char str[64];
 	
-	REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-	REAL_VALUE_TO_DECIMAL (r, "%20f", str);
+	real_to_decimal (str, CONST_DOUBLE_REAL_VALUE (op),
+			 sizeof (str), 0, 1);
 	fprintf (file, "%s", str);
       }
       break;
@@ -3366,10 +3370,10 @@ src_operand (op, mode)
       || GET_CODE (op) == CONST)
     return 0;
 
-  /* If TARGET_LOAD_DIRECT_MEMS is non-zero, disallow direct memory
+  /* If TARGET_LOAD_DIRECT_MEMS is nonzero, disallow direct memory
      access to symbolic addresses.  These operands will get forced
      into a register and the movqi expander will generate a
-     HIGH/LO_SUM pair if TARGET_EXPOSE_LDP is non-zero.  */
+     HIGH/LO_SUM pair if TARGET_EXPOSE_LDP is nonzero.  */
   if (GET_CODE (op) == MEM
       && ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
 	   || GET_CODE (XEXP (op, 0)) == LABEL_REF

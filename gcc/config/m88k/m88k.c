@@ -246,7 +246,7 @@ output_load_const_dimode (operands)
    do the move.  Otherwise, return 0 and the caller will emit the move
    normally.
 
-   SCRATCH if non zero can be used as a scratch register for the move
+   SCRATCH if nonzero can be used as a scratch register for the move
    operation.  It is provided by a SECONDARY_RELOAD_* macro if needed.  */
 
 int
@@ -315,7 +315,7 @@ emit_move_sequence (operands, mode, scratch)
 /* Return a legitimate reference for ORIG (either an address or a MEM)
    using the register REG.  If PIC and the address is already
    position-independent, use ORIG.  Newly generated position-independent
-   addresses go into a reg.  This is REG if non zero, otherwise we
+   addresses go into a reg.  This is REG if nonzero, otherwise we
    allocate register(s) as necessary.  If this is called during reload,
    and we need a second temp register, then we use SCRATCH, which is
    provided via the SECONDARY_INPUT_RELOAD_CLASS mechanism.  */
@@ -1906,7 +1906,7 @@ m88k_layout_frame ()
   m88k_stack_size = m88k_fp_offset + STARTING_FRAME_OFFSET;
 
   /* First, combine m88k_stack_size and size.  If m88k_stack_size is
-     non-zero, align the frame size to 8 mod 16; otherwise align the
+     nonzero, align the frame size to 8 mod 16; otherwise align the
      frame size to 0 mod 16.  (If stacks are 8 byte aligned, this ends
      up as a NOP.  */
   {
@@ -2921,7 +2921,7 @@ print_operand (file, x, code)
       fprintf (file, "%d", value);
       return;
 
-    case 'S': /* compliment the value and then... */
+    case 'S': /* complement the value and then... */
       value = ~value;
     case 's': /* print the width and offset values forming the integer
 		 constant with a SET instruction.  See integer_ok_for_set. */

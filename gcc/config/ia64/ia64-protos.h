@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for IA-64.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -144,3 +144,9 @@ extern void sbss_section PARAMS ((void));
 /* expr.h defines ARGS_SIZE_RTX and `enum direction'.  */
 extern enum direction ia64_hpux_function_arg_padding PARAMS ((enum machine_mode, tree));
 #endif /* ARGS_SIZE_RTX */
+
+#ifdef GCC_C_PRAGMA_H
+extern void ia64_hpux_handle_builtin_pragma PARAMS ((cpp_reader *));
+#endif
+
+extern void ia64_hpux_asm_file_end PARAMS ((FILE *));

@@ -69,9 +69,6 @@ extern rtx frv_legitimize_address		PARAMS ((rtx, rtx,
 							 enum machine_mode));
 
 #ifdef TREE_CODE
-extern void frv_init_builtins PARAMS ((void));
-extern rtx frv_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
-
 extern void frv_init_cumulative_args		PARAMS ((CUMULATIVE_ARGS *, tree,
 						       rtx, int, int));
 
@@ -116,12 +113,6 @@ extern rtx frv_return_addr_rtx			PARAMS ((int, rtx));
 extern rtx frv_index_memory			PARAMS ((rtx,
 							 enum machine_mode,
 							 int));
-
-#ifdef TREE_CODE
-extern void frv_asm_output_mi_thunk		PARAMS ((FILE *, tree, long,
-							 tree));
-#endif	/* TREE_CODE */
-
 extern const char *frv_asm_output_opcode
 				 	PARAMS ((FILE *, const char *));
 extern void frv_final_prescan_insn	PARAMS ((rtx, rtx *, int));
@@ -174,16 +165,6 @@ extern int frv_register_move_cost	PARAMS ((enum reg_class, enum reg_class));
 
 #ifdef TREE_CODE
 extern int frv_adjust_field_align	PARAMS ((tree, int));
-extern void frv_select_section		PARAMS ((tree, int));
-#endif
-
-#ifdef RTX_CODE
-extern void frv_select_rtx_section	PARAMS ((enum machine_mode, rtx));
-#endif
-
-#ifdef TREE_CODE
-extern void frv_encode_section_info	PARAMS ((tree));
-extern void frv_unique_section		PARAMS ((tree, int));
 #endif
 
 extern void fixup_section		PARAMS ((void));
