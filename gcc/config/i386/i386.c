@@ -869,6 +869,8 @@ static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool
 static int ix86_value_regno PARAMS ((enum machine_mode));
 static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
 static bool contains_128bit_aligned_vector_p PARAMS ((tree));
+static int min_insn_size PARAMS ((rtx));
+static void k8_avoid_jump_misspredicts PARAMS ((rtx));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
