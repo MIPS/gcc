@@ -1,6 +1,13 @@
+2000-02-07  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/lib1funcs.asm: Merge in thumb functions from
+	lib1thumb.asm.
+	
+	* config/arm/lib1thumb.asm: Delete.
+
 2000-02-04  Nick Clifton  <nickc@cygnus.com>
 
-	* config/arm/arm.c: Sycnronised with current Red hat local
+	* config/arm/arm.c: Sychronised with current Red hat local
 	sources. 
 	* config/arm/arm.h: Ditto.
 	* config/arm/arm-protos.h: Ditto.
