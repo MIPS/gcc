@@ -204,7 +204,6 @@ static void wolfe_scc_recurse (unsigned int, varray_type, varray_type,
 
 /* Selection functions.  */
 static void get_exit_conditions_rec    (struct loop *, varray_type);
-static tree get_loop_exit_condition    (struct loop *);
 static bool analyzable_condition       (tree);
 
 /* Debugging functions.  */
@@ -3515,7 +3514,7 @@ get_exit_conditions_rec (struct loop *loop,
    guards the exit edge.  If the expression is too difficult to
    analyze, then give up.  */
 
-static tree 
+tree 
 get_loop_exit_condition (struct loop *loop)
 {
   tree res = NULL_TREE;

@@ -179,37 +179,7 @@ foo (int n)
   fbar (a);
 
 
-  /* Test 12 - loop induction with stride != 1.  */
-  i = 0;
-  j = 0;
-  while (i < 5*N)
-    {
-      a[j] = c[j];
-      i += 5;
-      j++;
-    } 
-  /* check results:  */
-  for (i = 0; i <N; i++)
-    {
-      if (a[i] != c[i])
-	abort ();
-    }
-
-
-  /* Test 13 - reverse access.  */
-  for (i = N; i > 0; i--)
-    {
-      a[N-i] = d[N-i];
-    }
-  /* check results:  */
-  for (i = 0; i <N; i++)
-    {
-      if (a[i] != d[i])
-	abort ();
-    }
-
-
-  /* Test 14 - reverse access and forward access.  */
+  /* Test 12 - reverse access and forward access.  */
   for (i = N; i > 0; i--)
     {
       a[N-i] = b[i-1];

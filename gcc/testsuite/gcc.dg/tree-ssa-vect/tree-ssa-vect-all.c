@@ -138,6 +138,36 @@ main1 ()
 	abort ();
     }
 
+
+  /* Test 6 - loop induction with stride != 1.  */
+  i = 0;
+  j = 0;
+  while (i < 5*N)
+    {
+      a[j] = c[j];
+      i += 5;
+      j++;
+    }
+  /* check results:  */
+  for (i = 0; i <N; i++)
+    {
+      if (a[i] != c[i])
+        abort ();
+    }
+
+
+  /* Test 7 - reverse access.  */
+  for (i = N; i > 0; i--)
+    {
+      a[N-i] = d[N-i];
+    }
+  /* check results:  */
+  for (i = 0; i <N; i++)
+    {
+      if (a[i] != d[i])
+        abort ();
+    }
+
   return 0;
 }
 
@@ -159,4 +189,4 @@ int main (void)
 }
 
 
-/* { dg-final { scan-tree-dump-times "vectorized 5 loops" 1 "vect"} } */
+/* { dg-final { scan-tree-dump-times "vectorized 7 loops" 1 "vect"} } */

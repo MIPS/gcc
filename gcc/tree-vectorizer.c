@@ -182,7 +182,7 @@ static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
 static bool vect_is_simple_use (tree , struct loop *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
+static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
 static void vect_mark_relevant (varray_type, tree);
 static bool vect_stmt_relevant_p (tree, loop_vec_info);
 static tree vect_get_loop_niters (struct loop *, int *);
@@ -435,7 +435,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   access_fn = DR_ACCESS_FN (dr, 0);
 
-  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step))
+  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step, true))
     abort ();
 
   /** Handle initialization.  **/
@@ -1065,13 +1065,14 @@ static void
 vect_transform_loop_bound (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree expr;
-  tree test, op0, op1;
-  tree access_fn;
-  tree init, step;
+  edge exit_edge = loop_exit_edge (loop, 0);
+  block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
+  block_stmt_iterator loop_latch_bsi = bsi_last (loop->latch);
+  block_stmt_iterator pre_header_bsi = bsi_last (loop->pre_header);
+  tree orig_cond_expr;
   int old_N, vf;
-  int init_val, step_val, new_N;
-  int old_bound, new_bound;
+  tree new_indx, init_stmt, step_stmt, cond_stmt;
+  tree new_loop_bound;
 
   /* FORNOW: assuming the loop bound is known.  */
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
@@ -1085,92 +1086,46 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   if (old_N % vf)
     abort ();
 
-  expr = LOOP_VINFO_EXIT_COND (loop_vinfo);
-  if (!expr)
+  orig_cond_expr = LOOP_VINFO_EXIT_COND (loop_vinfo);
+  if (!orig_cond_expr)
+    abort ();
+  if (orig_cond_expr != bsi_stmt (loop_exit_bsi))
     abort ();
 
-  /* FORNOW:
-     expecting an exit condition of the form:
-     i <= N
-     where:
-     - i has a simple iv evolution
-     - N is a known constant  */
+  /* create new induction var:  */
+  new_indx = vect_get_new_vect_var (unsigned_intSI_type_node,
+                                        vect_simple_var, NULL_TREE);
+  add_referenced_tmp_var (new_indx);
+  bitmap_set_bit (vars_to_rename, var_ann (new_indx)->uid);
+  
 
-  if (TREE_CODE (expr) != COND_EXPR)
-    abort ();
-  test = TREE_OPERAND (expr, 0);
-  if (TREE_CODE (test) != LE_EXPR)
-    abort ();
+  /* induction var initialization in loop proglog:  */
+  init_stmt = build (MODIFY_EXPR, unsigned_intSI_type_node, new_indx, 
+			integer_zero_node);
+  bsi_insert_before (&pre_header_bsi, init_stmt, BSI_SAME_STMT);   
 
-  op0 = TREE_OPERAND (test, 0);
-  op1 = TREE_OPERAND (test, 1);
 
-  if (TREE_CODE (op0) != SSA_NAME)
-    abort ();
+  /* induction var update in loop:  */
+  step_stmt = build (MODIFY_EXPR, unsigned_intSI_type_node, new_indx,
+                        build (PLUS_EXPR, unsigned_intSI_type_node,
+                                TREE_OPERAND (init_stmt, 0), integer_one_node));
+  bsi_insert_after (&loop_latch_bsi, step_stmt, BSI_SAME_STMT);
+
+
+  /* new loop exit test:  */
+  new_loop_bound = build_int_2 (old_N/vf, 0);
+  cond_stmt = build (COND_EXPR, TREE_TYPE (orig_cond_expr),
+		build (LT_EXPR, boolean_type_node, new_indx, new_loop_bound),
+		TREE_OPERAND (orig_cond_expr, 1),
+		TREE_OPERAND (orig_cond_expr, 2));
+  bsi_insert_before (&loop_exit_bsi, cond_stmt, BSI_SAME_STMT);   
+
+
+  /* remove old loop exit test:  */
+  bsi_remove (&loop_exit_bsi);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "transform loop bound: call monev analyzer!\n");
-
-  access_fn = instantiate_parameters  
-	(loop_num (loop), analyze_scalar_evolution (loop_num (loop), op0),
-		 op0);
-
-  if (!access_fn)
-    abort ();
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Access function of loop_exit cond var:\n");
-      print_generic_expr (dump_file, access_fn, TDF_SLIM);
-    }
-
-  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step))
-    abort ();
-
-  /* FORNOW: vectorization is restricted to cases in which the loop iv
-	     evolution has constant step and bounds, such that the
-	     number of iterations can be determined.  */
-
-  if (TREE_CODE (op1) != INTEGER_CST
-      || TREE_CODE (init) != INTEGER_CST
-      || TREE_CODE (step) != INTEGER_CST)
-    abort ();
-
-  /* CHECKME */
-  if (TREE_INT_CST_HIGH (op1) != 0
-      || TREE_INT_CST_HIGH (init) != 0
-      || TREE_INT_CST_HIGH (step) != 0)
-    abort ();
-
-  old_bound = TREE_INT_CST_LOW (op1);
-  init_val = TREE_INT_CST_LOW (init);
-  step_val = TREE_INT_CST_LOW (step);
-
-  if (step_val == 0)
-    abort ();
-
-  /* Just a sanity check.
-     CHECKME: revisit this computation when more general cases are allowed.  */
-  if (((old_bound - init_val + 1) / step_val) != old_N)
-    abort ();
-
-
-  /* Calculate the number of iteratoins of the vectorized loop.  */
-
-  new_N = old_N / vf;
-
-  /* CHECKME: revisit this computation when more general cases are allowed.  */
-  new_bound = (new_N * step_val) + init_val - 1;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, 
-	"old_bound %d, new_bound %d, old_niters %d, new_niters %d\n",
-	old_bound, new_bound, old_N, new_N);
-
-  TREE_INT_CST_LOW (op1) = new_bound;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_generic_expr (dump_file, expr, TDF_SLIM);
+    print_generic_expr (dump_file, cond_stmt, TDF_SLIM);
 }
 
 
@@ -1666,7 +1621,8 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
    considered a polynomial evolution with step 1.  */
 
 static bool
-vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init, tree * step)
+vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init, 
+				tree * step, bool strict)
 {
   tree init_expr;
   tree step_expr;
@@ -1701,8 +1657,9 @@ vect_is_simple_iv_evolution (unsigned loop_nb, tree access_fn, tree * init, tree
   if (TREE_CODE (step_expr) != INTEGER_CST)
     return false;
 
-  if (!integer_onep (step_expr))
-    return false;
+  if (strict)
+    if (!integer_onep (step_expr))
+      return false;
 
   return true;
 }
@@ -1813,7 +1770,7 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
         }
 
       if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &dummy, 
-					&dummy))
+					&dummy, false))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "unsupported cross iter cycle.\n");
@@ -1982,7 +1939,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   access_fn = DR_ACCESS_FN (dr, 0);
 
   if (!vect_is_simple_iv_evolution (loop_num (loop_of_stmt (DR_STMT (dr))), 
-		 		 		 		     access_fn, &init, &step))
+			 		 		     access_fn, &init, &step, true))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -2492,135 +2449,23 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 static tree
 vect_get_loop_niters (struct loop *loop, int *number_of_iterations)
 {
-  edge exit;
-  basic_block exit_bb;
-  tree expr, test, op0, op1;
-  tree access_fn;
-  tree init, step;
-  int N, niters, init_val, step_val;
-  tree loop_cond;
+  tree niters;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n<<get_loop_niters>>\n");
 
-  /* Inspired by tree-scalar-evolution.c:get_loop_exit_condition(): */
+  niters = loop->nb_iterations;
 
-  if (!loop->exit_edges)
+  if (niters != NULL_TREE
+      && TREE_CODE (niters) == INTEGER_CST)
     {
+      *number_of_iterations = TREE_INT_CST_LOW (niters);
+
       if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "get_loop_niters: no exit edges.\n");
-      return NULL;
+        fprintf (dump_file, "get_loop_niters: %d.\n",*number_of_iterations);
     }
 
-  exit = loop->exit_edges[0];
-  exit_bb = exit->src;
-  expr = last_stmt (exit_bb);
-
-  loop_cond = expr;
-
-  /* Make sure that exit condition is simple enough  */
-
-  /* FORNOW:
-     expecting an exit condition of the form
-     i <= N
-     where:
-     - i has a simple iv evolution
-     - N is a known constant
-   */
-
-  if (TREE_CODE (expr) != COND_EXPR)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "get_loop_niters: last not cond.\n");
-      return NULL;
-    }
-
-  test = TREE_OPERAND (expr, 0);
-
-  if (TREE_CODE (test) != LE_EXPR)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "get_loop_niters: not LE.\n");
-      return NULL;
-    }
-
-  op0 = TREE_OPERAND (test, 0);
-  op1 = TREE_OPERAND (test, 1);
-
-  /* check that the evolution of op0 is simple enough */
-
-  if (TREE_CODE (op0) != SSA_NAME)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-        fprintf (dump_file, "get_loop_niters: unsupported cond form.\n");
-      return NULL;
-    }
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "get_loop_niters: call monev analyzer!\n");
-
-  access_fn = instantiate_parameters
-	(loop_num (loop), analyze_scalar_evolution (loop_num (loop), op0), 
-		op0);
-
-  if (!access_fn)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "No Access function.");
-      return NULL;
-    }
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Access function of loop_exit cond var:\n");
-      print_generic_expr (dump_file, access_fn, TDF_SLIM);
-    }
-
-  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step))
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "unsupported loop iv.\n");
-      return NULL;
-    }
-
-  /* FORNOW: Make sure that loop bound is known.  */
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_generic_expr (dump_file, op1, TDF_SLIM);
-
-  if (TREE_CODE (op1) != INTEGER_CST
-      || TREE_CODE (init) != INTEGER_CST
-      || TREE_CODE (step) != INTEGER_CST)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init, step or bound not INTEGER_CST\n");
-      return NULL;
-    }
-
-  /* CHECKME */
-  if (TREE_INT_CST_HIGH (op1) != 0
-      || TREE_INT_CST_HIGH (init) != 0
-      || TREE_INT_CST_HIGH (step) != 0)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "init, step or bound CST_HIGH != 0\n");
-      return NULL;
-    }
-
-  N = TREE_INT_CST_LOW (op1);
-  init_val = TREE_INT_CST_LOW (init);
-  step_val = TREE_INT_CST_LOW (step);
-
-  /* CHECKME: this is probably a redundant check.  */
-  if (step_val == 0)
-    return NULL;
-
-  /* CHECKME: revisit this computations where more general cases are
-     supported.  */
-  niters = (N - init_val + 1) / step_val;
-
-  *number_of_iterations = (niters < 0 ? 0 : niters);
-
-  return loop_cond;
+  return get_loop_exit_condition (loop);
 }
 
 

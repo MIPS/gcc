@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern tree number_of_iterations_in_loop (struct loop *);
 extern void number_of_iterations_for_all_loops (varray_type);
+extern tree get_loop_exit_condition (struct loop *);
 
 extern void select_loops_exit_conditions (struct loops *, varray_type);
 extern tree analyze_scalar_evolution (unsigned, tree);

@@ -1,3 +1,20 @@
+2004-01-18  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-scalar-evolution.c: (get_loop_exit_condition): Exposed to
+        external usage.
+        * tree-scalar-evolution.h: (get_loop_exit_condition): Exposed to
+        external usage.
+        * tree-vectorizer.c: (vect_is_simple_iv_evolution): Additional argument
+        to control how strict this function would be.
+        (vect_create_index_for_array_ref): Invoke vect_is_simple_iv_evolution
+        with "strict" set to true.
+        (vect_transform_loop_bound): More general loop bound transformation
+        scheme, independent of the loop exit condition form.
+        (vect_analyze_scalar_cycles): Invoke vect_is_simple_iv_evolution with
+        "strict" set to false.
+        (vect_get_loop_niters): Use monev utilities/precomputed info -
+        loop->nb_iterations and get_loop_exit_condition.
+
 2004-01-17  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c: (vect_get_name_for_new_var): Removed.
