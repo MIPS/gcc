@@ -475,28 +475,7 @@ public abstract class AbstractButton extends JComponent
    */
   AbstractButton(String txt, Icon icon)
   {
-    text = txt;
-    default_icon = icon;
-    model = new DefaultButtonModel();
-    actionListener = createActionListener();
-    changeListener = createChangeListener();
-    itemListener = createItemListener();
-
-    model.addActionListener(actionListener);
-    model.addChangeListener(changeListener);
-    model.addItemListener(itemListener);
-
-    hori_align = CENTER;
-    hori_text_pos = TRAILING;
-    vert_align = CENTER;
-    vert_text_pos = CENTER;
-    paint_border = true;
-    content_area_filled = true;
-
-    setAlignmentX(LEFT_ALIGNMENT);
-    setAlignmentY(CENTER_ALIGNMENT);
-
-    addFocusListener(new ButtonFocusListener());
+    init (txt, icon);
     updateUI();
   }
 
@@ -541,6 +520,32 @@ public abstract class AbstractButton extends JComponent
     repaint();
   }
 
+ protected void init(String text, Icon icon) 
+ {
+    this.text = text;
+    default_icon = icon;
+    model = new DefaultButtonModel();
+    actionListener = createActionListener();
+    changeListener = createChangeListener();
+    itemListener = createItemListener();
+
+    model.addActionListener(actionListener);
+    model.addChangeListener(changeListener);
+    model.addItemListener(itemListener);
+
+    hori_align = CENTER;
+    hori_text_pos = TRAILING;
+    vert_align = CENTER;
+    vert_text_pos = CENTER;
+    paint_border = true;
+    content_area_filled = true;
+
+    setAlignmentX(LEFT_ALIGNMENT);
+    setAlignmentY(CENTER_ALIGNMENT);
+
+    addFocusListener(new ButtonFocusListener());
+ }
+ 
   /**
    * Get the action command string for this button's model.
    *

@@ -1,3 +1,26 @@
+2004-06-09  Olga Rodimina <rodimina@redhat.com>
+
+	* javax/swing/AbstractButton.java
+	(AbstractButton): Use init() to initialize the button.
+	(init): New Method. Initializes AbstractButton.
+	* javax/swing/JMenuItem.java: Documented.
+	(JMenuItem): Reimplemented.
+	(init): Implemented.
+	(setEnabled): Changed to call super.setEnabled()
+	(processMouseEvent): Reimplemented.
+	(fireMenuKeyPressed): Implemented.
+	(fireMenuKeyReleased): Implemented.
+	(fireMenuKeyTyped): Implemented.
+	(menuSelectionChanged): disarm the model if the menu item was
+	deselected.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:Documented.
+	(getPath): Change to use ArrayList instead of Vector.
+	(getPreferredSize): Renamed variable.
+	(paintMenuItem): Paint margin area of menu item.
+	(MouseInputHandler.mouseEntered): Set selection in MenuSelectionManager.
+	(MouseInputHandler.mouseReleased): Check if mouse was pressed inside
+	menu item's bounds before clearing the selection. 	
+
 2004-06-09  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
