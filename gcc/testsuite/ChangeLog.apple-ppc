@@ -1,5 +1,9 @@
 2004-12-22  Devang Patel <dpatel@apple.com>
 
+	* gcc.apple/Wextra-tokens-2.c: Remove.
+
+2004-12-22  Devang Patel <dpatel@apple.com>
+
 	* gcc.dg/vect/vect-ifcvt-9.c: New.
 
 2004-12-21  Ziemowit Laski  <zlaski@apple.com>
