@@ -201,7 +201,6 @@ tree_size (tree node)
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 	case EUSE_NODE:		return sizeof (struct tree_euse_node);
 
-	case ELEFT_NODE:
 	case EKILL_NODE:
 	case EEXIT_NODE: 	return sizeof (struct tree_eref_common);
 
@@ -1533,7 +1532,6 @@ tree_node_structure (tree t)
     case PHI_NODE:		return TS_PHI_NODE;
     case EPHI_NODE:		return TS_EPHI_NODE;
     case EUSE_NODE:             return TS_EUSE_NODE;
-    case ELEFT_NODE:            return TS_EREF_NODE;
     case EKILL_NODE:            return TS_EREF_NODE;
     case EEXIT_NODE:            return TS_EREF_NODE;
     case SSA_NAME:		return TS_SSA_NAME;
@@ -5559,9 +5557,8 @@ body_is_empty (tree t)
 bool
 is_essa_node (tree t)
 {
-  if (TREE_CODE (t) == ELEFT_NODE || TREE_CODE (t) == EPHI_NODE 
-      || TREE_CODE (t) == EUSE_NODE || TREE_CODE (t) == EEXIT_NODE
-      || TREE_CODE (t) == EKILL_NODE)
+  if (TREE_CODE (t) == EPHI_NODE || TREE_CODE (t) == EUSE_NODE 
+      || TREE_CODE (t) == EEXIT_NODE || TREE_CODE (t) == EKILL_NODE)
     return true;
   return false;
 }

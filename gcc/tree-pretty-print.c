@@ -1307,12 +1307,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       }
       break;
     case EEXIT_NODE:
-    case ELEFT_NODE:
     case EKILL_NODE:
       if (TREE_CODE (node) == EEXIT_NODE)
 	pp_string (buffer, "EEXIT (");
-      else if (TREE_CODE (node) == ELEFT_NODE)
-	pp_string (buffer, "ELEFT (");
       else if (TREE_CODE (node) == EKILL_NODE)
 	pp_string (buffer, "EKILL (");
       dump_generic_node (buffer, EREF_NAME (node), spc, flags);
@@ -1336,7 +1333,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
       pp_decimal_int (buffer, EUSE_PHIOP (node));
       pp_string (buffer, " bb:");
       pp_decimal_int (buffer, bb_for_stmt (node)->index);
+      if (EUSE_LVAL (node))
+	pp_string (buffer, " left-occurrence");
       pp_string (buffer, " ]");
+	
       break;
     case PHI_NODE:
       {

@@ -326,7 +326,7 @@ struct tree_common GTY(())
 
 #define EREF_NODE_CHECK(t) __extension__				\
 ({  const tree __t = t;							\
-    if (TREE_CODE (__t) != EPHI_NODE && TREE_CODE (__t) != ELEFT_NODE	\
+    if (TREE_CODE (__t) != EPHI_NODE                                    \
         && TREE_CODE (__t) != EKILL_NODE				\
         && TREE_CODE (__t) != EUSE_NODE					\
 	&& TREE_CODE (__t) != EEXIT_NODE)				\
@@ -1066,6 +1066,11 @@ struct tree_eref_common GTY(())
 {
   struct tree_common common;
   
+  /* SSAPRE: ID for the EREF. Used only for sorting erefs inside a
+     block.  */
+  int id;
+
+  /* SSAPRE: Name for the EREF.  Used only for printing.*/
   tree name;
   
   /* SSAPRE: The statement associated with this expression reference.  */
@@ -1104,6 +1109,8 @@ struct tree_euse_node GTY(())
   /* SSAPRE: True if expression was inserted as a PHI operand occurrence.  */
   unsigned int inserted:1;
 
+  /* SSAPRE: True if expression occurs as a lvalue.  */
+  unsigned int lval:1;
 };
 struct ephi_arg_d GTY(())
 {
@@ -1169,6 +1176,7 @@ struct tree_ephi_node GTY(())
 };
 /* In both EPHI's and EUSES */
 #define EREF_PROCESSED(NODE)    EREF_NODE_CHECK (NODE)->eref.processed
+#define EREF_ID(NODE)           EREF_NODE_CHECK (NODE)->eref.id
 #define EREF_NAME(NODE)         EREF_NODE_CHECK (NODE)->eref.name
 #define EREF_STMT(NODE)         EREF_NODE_CHECK (NODE)->eref.stmt
 #define EREF_RELOAD(NODE)       EREF_NODE_CHECK (NODE)->eref.reload
@@ -1181,6 +1189,7 @@ struct tree_ephi_node GTY(())
 #define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
 #define EUSE_PHIOP(NODE)        EUSE_NODE_CHECK (NODE)->euse.op_occurrence
 #define EUSE_INSERTED(NODE)     EUSE_NODE_CHECK (NODE)->euse.inserted
+#define EUSE_LVAL(NODE)         EUSE_NODE_CHECK (NODE)->euse.lval
 
 /* In a EPHI_NODE node.  */
 #define EPHI_NUM_ARGS(NODE)	EPHI_NODE_CHECK (NODE)->ephi.num_args

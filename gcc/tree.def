@@ -871,9 +871,6 @@ DEFTREECODE (VDEF_EXPR, "vdef_expr", 'e', 2)
 /* Expression SSA real and phi operand occurrence node.  */
 DEFTREECODE (EUSE_NODE, "euse_node", 'x', 0)
 
-/* Expression SSA left occurrence node.  */
-DEFTREECODE (ELEFT_NODE, "eleft_node", 'x', 0)
-
 /* Expression SSA kill occurrence node.  */
 DEFTREECODE (EKILL_NODE, "ekill_node", 'x', 0)
 

@@ -33,6 +33,59 @@
 
 2003-10-22  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-pretty-print.c (dump_generic_node): Kill off ELEFT_NODE.
+	Print out status of new EUSE_LVAL flag.
+
+	* tree-ssa-pre.c: #include alloc-pool.h
+	(append_eref_to_block): Inline.
+	(names_match_p): Ditto.
+	(pre_expression): Take sbitmap of variables to rename so we can
+	mark our new variable if necessary.
+	(insert_occ_in_preorder): Completely redo to be an O(n log n)
+	algorithm worst case, instead O(n^2) all the time.
+	(build_dfn_array): New function.
+	(eref_compare): Ditto.
+	(preorder_count): Remove no-longer used variable.
+	(pre_stats): Add new stats about memory use.
+	(struct expr_info): add loadpre_cand member.
+	(euse_node_pool): New alloc-pool
+	(eref_node_pool): Ditto
+	(create_expr_ref): Use them.
+	(expr_phi_insertion): Insert on PHI's of VUSES for loadpre cands.
+	Not all expressions have uses (left occurrences don't).
+	(load_modified_real_occ_real_occ): Return false, not abort.
+	(process_delayed_rename): Remove useless fibheap, do proper LVAL
+	handling.
+	(insert_euse_in_preorder_dt_order_1): No more ELEFT_NODE's.
+	(finalize_1): Ditto.
+	(set_save): Ditto.
+	(really_available_def): New function.
+	(finalize_2): Use really_available_def, not EUSE_SAVE, during EPHI
+	minimization.
+	(names_match_p): Handle INDIRECT_REF properly.
+	(call_modifies_slot): Removed.
+	(add_call_to_ei): Removed.
+	(process_left_occs_and_kills): Fix.
+	(pre_expression): Zero out counts.
+	(collect_expressions): Split out from tree_perform_ssapre. Do this
+	in domtree order.
+	(tree_perform_ssapre): Create and free alloc-pools.
+	Rename new variables that need to be renamed.
+
+	* tree.c (tree_size): Remove ELEFT_NODE.
+	(tree_node_size): Ditto.
+	(is_essa_node): Ditto.
+
+	* tree.def (ELEFT_NODE): Gone.
+
+	* tree.h (EREF_NODE_CHECK): No more ELEFT_NODE.
+	(struct tree_eref_common): Add ID flag.
+	(struct tree_euse_node): Add lval flag.
+	(EREF_ID): New macro.
+	(EUSE_LVAL): New macro.
+	
+2003-10-22  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-flow-inline.h (add_dom_child): XMALLOC, not GGC_ALLOC, 
 	the bitmap.
 	(clear_dom_children): XFREE the bitmap.
