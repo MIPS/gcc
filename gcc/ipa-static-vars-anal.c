@@ -141,7 +141,7 @@ print_order (FILE* out,
 static void 
 convert_UIDs_in_bitmap (bitmap in_ann, bitmap in_decl) 
 {
-  size_t index;
+  unsigned int index;
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP(in_decl, 0, index, bi)
@@ -1353,7 +1353,7 @@ static_execute (void)
   /* Prune out the variables that were found to behave badly
      (i.e. have there address taken).  */
   {
-    size_t index;
+    unsigned int index;
     bitmap_iterator bi;
     bitmap module_statics_readonly = BITMAP_ALLOC (&ipa_obstack);
     bitmap module_statics_const = BITMAP_ALLOC (&ipa_obstack);
@@ -1538,7 +1538,7 @@ static_execute (void)
     {
       for (i = 0; i < order_pos; i++ )
 	{
-	  size_t index;
+	  unsigned int index;
 	  ipa_local_static_vars_info_t l;
 	  bitmap_iterator bi;
 
@@ -1684,7 +1684,7 @@ static_execute (void)
 	  ipa_static_vars_info_t node_info;
 	  ipa_global_static_vars_info_t node_g;
 	  ipa_local_static_vars_info_t node_l;
-	  size_t index;
+	  unsigned int index;
 	  bitmap_iterator bi;
 
 	  node = order[i];
