@@ -1,6 +1,6 @@
 // 2004-11-29  Paolo Carlini  <pcarlini@suse.de>
 
-// Copyright (C) 2004 Free Software Foundation
+// Copyright (C) 2004, 2005 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,8 +34,8 @@ void test01()
   // Our current implementation provides exact shrink-to-size
   // and shrink-to-fit (in the future, maybe this will change
   // for short strings).
-  const size_type minsize = 2 << 0;
-  const size_type maxsize = 2 << 20;
+  const size_type minsize = 1 << 6;
+  const size_type maxsize = 1 << 20;
   for (size_type i = minsize; i <= maxsize; i *= 2)
     {
       string str(i, 'x');

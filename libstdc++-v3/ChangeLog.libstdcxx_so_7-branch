@@ -1,3 +1,18 @@
+2005-02-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/21_strings/basic_string/capacity/1.c: Tweak, avoid
+	the assumption that the capacity of a default constructed string
+	is zero.
+	* testsuite/21_strings/basic_string/capacity/char/1.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/char/18654.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/char/2.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/wchar_t/1.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc: Same.
+	* testsuite/21_strings/basic_string/capacity/wchar_t/2.cc: Same.
+
+	* testsuite/21_strings/basic_string/swap/char/1.cc: New.
+	* testsuite/21_strings/basic_string/swap/wchar_t/1.cc: Same.
+
 2005-02-01  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algo.h: Minor tweaks (i.e., add missing std::
