@@ -1,3 +1,11 @@
+2003-07-27  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (EREF_TEMP): Rename to EPHI_TEMP.
+	(tree_eref_common): Move temp to tree_ephi_node.
+	* tree-ssa-pre.c: Remove #if 0'd code.
+	Use EPHI_TEMP rather than EREF_TEMP, remove EREF_TEMP on EUSE nodes.
+    (finalize_1): Handle empty blocks properly.
+
 2003-07-27  Andreas Jaeger  <aj@suse.de>
 
 	* tree.c: Convert remaining K&R prototypes to ISO C90.

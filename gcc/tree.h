@@ -1052,8 +1052,6 @@ struct tree_eref_common GTY(())
   /* SSAPRE: True if this referenced is injured.  */
   unsigned int injured:1;
 
-  /* SSAPRE: Temporary assigned to this reference.  */
-  tree temp;
    
   /* SSAPRE: Uses of this reference.  */
   struct varray_head_tag *uses;
@@ -1099,6 +1097,9 @@ struct tree_ephi_node GTY(())
   /* SSAPRE: True if PHI is dead. */
   unsigned int dead:1;
   
+  /* SSAPRE: Temporary assigned to this reference.  */
+  tree temp;
+
   int num_args;
   int capacity;
   struct phi_arg_d GTY ((length ("((tree)&%h)->ephi.capacity"))) a[1];
@@ -1115,7 +1116,6 @@ struct tree_ephi_node GTY(())
 #define EREF_USES(NODE)         EREF_NODE_CHECK (NODE)->eref.uses
 #define EREF_DELAYED_RENAME(NODE) EREF_NODE_CHECK (NODE)->eref.delayed_rename
 #define EREF_INJURED(NODE)      EREF_NODE_CHECK (NODE)->eref.injured
-#define EREF_TEMP(NODE)         EREF_NODE_CHECK (NODE)->eref.temp
 
 /* In a EUSE_NODE node.  */
 #define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
@@ -1135,6 +1135,7 @@ struct tree_ephi_node GTY(())
 #define EPHI_LATER(NODE)        EPHI_NODE_CHECK (NODE)->ephi.later
 #define EPHI_EXTRANEOUS(NODE)   EPHI_NODE_CHECK (NODE)->ephi.extraneous
 #define EPHI_DEAD(NODE)         EPHI_NODE_CHECK (NODE)->ephi.dead
+#define EPHI_TEMP(NODE)         EPHI_NODE_CHECK (NODE)->ephi.temp
 
 /* In a BLOCK node.  */
 #define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
