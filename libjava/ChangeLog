@@ -1,5 +1,8 @@
 2004-05-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* java/applet/Applet.java: Revert changes from 2004-04-29,
+	2004-03-15 and 2004-03-14.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c (drawString):
 	Divide baseline y coordinate by PANGO_SCALE, not DPI conversion
 	factor.
