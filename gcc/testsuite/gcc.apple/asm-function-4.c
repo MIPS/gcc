@@ -4,6 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
+void abort(void);
+
 #define mac1 add r3, argx, argy
 
 asm int

@@ -1,3 +1,31 @@
+2004-09-13  Andrew Pinski  <apinski@apple.com>
+
+	Part of radar 3753405 and all of 3767339
+	* Makefile.in (c-parse.y): Remove ifcwasm as it is no longer used.
+	* objc/Makefile.in (objc/objc-parse.y): Likewise.
+	* c-parse.in: Remove all of @@ifcwasm.  Remove all of the MERGE FIXME
+	comments as they are fixed.
+	(cw_asm_expr_no_commas, cw_asm_unary_expr, cw_asm_primary,
+	cw_asm_operand): Change type to be exprtype.
+	(cw_asm_compstmt_nostart): Remove type.
+	(single_cw_asm_stmt): For cw_asm_operand use .value for the third
+	argument of cw_asm_entry.
+	(cw_asm_compstmt_start): Remove increment of compstmt_count.
+	Call c_begin_compound_stmt always and pass true.
+	(cw_asm_compstmt_nostart): Just set cw_asm_block to zero.
+	(cw_asm_compstmt): Call c_end_compound_stmt.
+	(cw_nonnull_asm_operands): use .value for the exprtype.
+	(cw_asm_operand): Set .value to cw_asm_build_register_offset
+	and .original_code to ERROR_MARK.
+	(stmt_nocomp): For cw_asm_compstmt and cw_asm_stmt, call
+	c_finish_expr_stmt.
+	(cw_asm_expr_no_commas): Remove extraneous curly braces.
+	Update return exprtype instead of just a tree.
+	(cw_asm_unary_expr): Likewise.
+	(cw_asm_primary): Likewise.
+	* c-typeck.c (cw_asm_c_build_component_ref): Change build2 to build3 and
+	add NULL as the last argument for COMPONENT_REF.
+	
 2004-09-10  Dale Johannesen  <dalej@apple.com>
 
 	* config/rs6000/power4.md: Increase store latency (mainline).

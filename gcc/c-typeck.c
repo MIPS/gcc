@@ -6442,7 +6442,9 @@ cw_asm_c_build_component_ref (tree typename, tree component)
 	  if (TREE_TYPE (subdatum) == error_mark_node)
 	    return error_mark_node;
 
-	  ref = build2 (COMPONENT_REF, TREE_TYPE (subdatum), fake_datum, subdatum);
+	  ref = build3 (COMPONENT_REF, TREE_TYPE (subdatum), fake_datum,
+		        subdatum, NULL_TREE);
+	  
 	  if (TREE_READONLY (fake_datum) || TREE_READONLY (subdatum))
 	    TREE_READONLY (ref) = 1;
 	  if (TREE_THIS_VOLATILE (fake_datum) || TREE_THIS_VOLATILE (subdatum))

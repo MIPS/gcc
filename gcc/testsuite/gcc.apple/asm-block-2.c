@@ -4,6 +4,9 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
+void abort(void);
+
+
 typedef struct astruct {
   int arr[40];
   char charfield;

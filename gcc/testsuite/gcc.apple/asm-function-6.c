@@ -4,6 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
+void abort(void);
+
 int entry1(int);
 int entry2(int);
 int entry3(int);

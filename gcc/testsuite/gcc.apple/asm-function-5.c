@@ -4,6 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
+void abort(void);
+
 int glob = 0;
 
 int other ();

@@ -1,3 +1,9 @@
+2004-09-19  Andrew Pinski  <apinski@apple.com>
+
+	Part of radar 3753405 and all of 3767339
+	* gcc.apple/asm-block-[1-2].c: Add prototype for abort.
+	* gcc.apple/asm-function-[1-6].c: Likewise.
+
 2004-08-19  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.apple/inttypes-3.c: New file.

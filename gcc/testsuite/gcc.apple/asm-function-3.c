@@ -4,6 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
+void abort(void);
+
 /* Return 0 if xer and spr1 both have the same data.  */
 
 asm int

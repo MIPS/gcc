@@ -4,6 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks" } */
 
+void abort(void);
+
 int
 foo (int argx, int argy)
 {
