@@ -289,6 +289,10 @@ struct ephi_use_entry
   int opnd_indx;
 };
 
+/* In order to prevent GC from deleting the phis we've added, we need
+   to put them in a marked array, because the bb annotations are not
+   marked.  */
+static GTY(()) varray_type added_phis;
 
 /* PRE Expression specific info.  */  
 struct expr_info
@@ -310,6 +314,11 @@ struct expr_info
   /* The name of the temporary for this expression. */
   tree temp;
 };
+
+
+/* Cache of expressions generated for given phi operand, to avoid
+   recomputation and wasting memory.  */
+tree *phi_pred_cache;
 
 /* Trying to lookup ephi pred operand indexes takes forever on graphs
    that have high connectivity because it's an O(n) linked list
@@ -1038,6 +1047,7 @@ generate_expr_as_of_bb (struct expr_info *ei ATTRIBUTE_UNUSED, tree expr,
 	      *vp = p;
 	      if (!phi_ssa_name_p (p))
 		replaced_constants = true;
+        break;
 	    }
 	}
     }
@@ -1046,6 +1056,7 @@ generate_expr_as_of_bb (struct expr_info *ei ATTRIBUTE_UNUSED, tree expr,
      simplify the result lest we crash in get_expr_operands.  */
   if (replaced_constants)
     fold_stmt (&expr);
+
 }
 
 /* Make a copy of Z as it would look in BB j, using the PHIs in BB.  */
@@ -1053,6 +1064,8 @@ static tree
 subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
 {
   tree stmt_copy;
+  if (phi_pred_cache[j->index] != NULL_TREE)
+    return phi_pred_cache[j->index];
   stmt_copy = unshare_expr (Z);
   create_stmt_ann (stmt_copy);
   modify_stmt (stmt_copy);
@@ -1061,6 +1074,7 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
   set_bb_for_stmt (stmt_copy, bb);
   modify_stmt (stmt_copy);
   get_stmt_operands (stmt_copy);
+  phi_pred_cache[j->index] = stmt_copy;
   return stmt_copy;
 }
 
@@ -2448,6 +2462,7 @@ code_motion (struct expr_info *ei)
 	    ann->phi_nodes = EREF_TEMP (use);
 	  else
 	    chainon (ann->phi_nodes, EREF_TEMP (use));
+	  VARRAY_PUSH_TREE (added_phis, EREF_TEMP (use));
 	}
       else if (EPHI_IDENTITY (use))
 	{
@@ -2819,6 +2834,7 @@ pre_expression (struct expr_info *slot, void *data)
   add_referenced_tmp_var (ei->temp);
   bitmap_clear (created_phi_preds);
   ephi_pindex_htab = htab_create (500, ephi_pindex_hash, ephi_pindex_eq, free);
+  phi_pred_cache = xcalloc (last_basic_block, sizeof (tree));
 
   if (!expr_phi_insertion ((bitmap *)data, ei))
     goto cleanup;
@@ -2866,6 +2882,12 @@ pre_expression (struct expr_info *slot, void *data)
       code_motion (ei);
     }
  cleanup:
+  free (phi_pred_cache);
+  if (ephi_pindex_htab)
+    {
+      htab_delete (ephi_pindex_htab);
+      ephi_pindex_htab = NULL;
+    }
   FOR_EACH_BB (bb)
   {
     bb_ann_t ann = bb_ann (bb);
@@ -2917,7 +2939,7 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   timevar_push (TV_TREE_PRE);
   dump_file = dump_begin (phase, &dump_flags);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
-
+  VARRAY_TREE_INIT (added_phis, 1, "Added phis");
   /* Compute immediate dominators.  */
   pre_idom = calculate_dominance_info (CDI_DOMINATORS);
 
@@ -3007,11 +3029,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
       pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs);
       free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
       clear_all_eref_arrays ();
-      if (ephi_pindex_htab)
-	{
-	  htab_delete (ephi_pindex_htab);
-	  ephi_pindex_htab = NULL;
-	}
       ggc_collect (); 
       if (redo_dominators)
 	{
@@ -3062,5 +3079,8 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   for (i = 0; i < currbbs; i++)
     if (idfs_cache[i] != NULL)
       BITMAP_XFREE (idfs_cache[i]);
+  added_phis = NULL;
   timevar_pop (TV_TREE_PRE);
 }
+
+#include "gt-tree-ssa-pre.h"

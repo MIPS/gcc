@@ -2186,7 +2186,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/tree-ssa.c $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-ccp.c \
-  $(out_file) \
+  $(srcdir)/tree-ssa-pre.c $(out_file) \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2204,7 +2204,8 @@ gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gt-c-objc-common.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-stringpool.h gt-langhooks.h \
 gt-tree-alias-common.h gt-tree-mudflap.h gt-dependence.h \
-gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h: s-gtype ; @true
+gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h \
+gt-tree-ssa-pre.h : s-gtype ; @true
 
 gtyp-gen.h: Makefile
 	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h

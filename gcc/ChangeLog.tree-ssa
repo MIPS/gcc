@@ -1,3 +1,15 @@
+2003-10-21  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (pre_expression): Free and allocate the
+	ephi_pindex_htab and phi_pred_cache in this function only.
+	(phi_pred_cache): New array to store cached phi preds, to avoid
+	recomputation and unnecessary copying.
+	(subst_phis): Use it.
+	(added_phis): array of added phis that is marked for GC.
+	
+	* Makefile.in: Add tree-ssa-pre.c to the gtype files, and 
+	gt-tree-ssa-pre.h to the list of generated files.
+	
 2003-10-21  Jason Merrill  <jason@redhat.com>
 
 	PR optimization/12661
@@ -47,10 +59,6 @@
 	* tree-optimize.c (optimize_function_tree): Call
 	tree_optimize_tail_calls.
 	* tree.h (enum tree_dump_index): Add TDI_tail.
-
-2003-10-18  Jan Hubicka  <jh@suse.cz>
-
-	* integrate.c (copy_decl_for_inlinig): Revert previous patch.
 
 2003-10-18  Jan Hubicka  <jh@suse.cz>
 
