@@ -1,5 +1,10 @@
 2004-06-09  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/tree/DefaultMutableTreeNode.java
+	(getLeafCount): Renamed enum to e.
+
+2004-06-09  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicSplitPaneDivider.java
 	(positionForMouseEvent): Removed redundant semicolon.
 	(continueDrag): Use method arguments.
