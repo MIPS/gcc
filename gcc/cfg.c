@@ -355,35 +355,38 @@ remove_edge (edge e)
   edge tmp;
   basic_block src, dest;
   bool found = false;
+  unsigned ix;
 
   src = e->src;
   dest = e->dest;
 
-  FOR_EACH_EDGE (tmp, src->succs)
+  for (ix = 0; VEC_iterate (edge, src->succs, ix, tmp); )
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, src->succs, __ix);
+	  VEC_unordered_remove (edge, src->succs, ix);
 	  found = true;
 	  break;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (!found)
     abort ();
 
   found = false;
-  FOR_EACH_EDGE (tmp, dest->preds)
+  for (ix = 0; VEC_iterate (edge, dest->preds, ix, tmp); )
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, dest->preds, __ix);
+	  VEC_unordered_remove (edge, dest->preds, ix);
 	  found = true;
 	  break;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (!found)
     abort ();
@@ -397,19 +400,21 @@ void
 redirect_edge_succ (edge e, basic_block new_succ)
 {
   edge tmp;
+  unsigned ix;
   bool found = false;
 
   /* Disconnect the edge from the old successor block.  */
-  FOR_EACH_EDGE (tmp, e->dest->preds)
+  for (ix = 0; VEC_iterate (edge, e->dest->preds, ix, tmp); )
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, e->dest->preds, __ix);	
+	  VEC_unordered_remove (edge, e->dest->preds, ix);
 	  found = true;
 	  break;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (!found)
     abort ();
@@ -457,18 +462,20 @@ redirect_edge_pred (edge e, basic_block new_pred)
 {
   edge tmp;
   bool found = false;
+  unsigned ix;
 
   /* Disconnect the edge from the old predecessor block.  */
-  FOR_EACH_EDGE (tmp, e->src->succs)
+  for (ix = 0; VEC_iterate (edge, e->src->succs, ix, tmp); )
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, e->src->succs, __ix);
+	  VEC_unordered_remove (edge, e->src->succs, ix);
 	  found = true;
 	  break;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (!found)
     abort ();
