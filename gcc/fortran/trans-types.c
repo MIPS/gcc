@@ -389,7 +389,7 @@ gfc_get_element_type (tree type)
     struct gfc_array_descriptor
     {
       array *data
-      array *base;
+      index offset;
       index dtype;
       struct descriptor_dimension dimension[N_DIM];
     }
@@ -422,12 +422,12 @@ gfc_get_element_type (tree type)
    would require modification with a GCC ARRAYS comment.
 
    The data component points to the first element in the array.
-   The base component points to the origin (ie. array(0, 0...)).  If the array
-   does not contain the origin, base points to where it would be in memory.
+   The offset field is the position of the origin of the array
+   (ie element (0, 0 ...)).  This may be outsite the bounds of the array.
 
    An element is accessed by
-   base[index0*stride0 + index1*stride1 + index2*stride2]
-   This gives good performance as this computation does not involve the
+   data[offset + index0*stride0 + index1*stride1 + index2*stride2]
+   This gives good performance as it computation does not involve the
    bounds of the array.  For packed arrays, this is optimized further by
    substituting the known strides.
 
@@ -436,10 +436,10 @@ gfc_get_element_type (tree type)
    integer, dimension (80000:90000, 80000:90000, 2) :: array
    may not work properly on 32-bit machines because 80000*80000 > 2^31, so
    the calculation for stride02 would overflow.  This may still work, but
-   I haven't checked and it relies on the overflow doing the right thing.
+   I haven't checked, and it relies on the overflow doing the right thing.
 
    The way to fix this problem is to access alements as follows:
-   base[(index0-lbound0)*stride0 + (index1-lobound1)*stride1]
+   data[(index0-lbound0)*stride0 + (index1-lbound1)*stride1]
    Obviously this is much slower.  I will make this a compile time option,
    something like -fsmall-array-offsets.  Mixing code compiled with and without
    this switch will work.
@@ -657,6 +657,15 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
         }
       GFC_TYPE_ARRAY_LBOUND (type, n) = tmp;
 
+      if (known_stride)
+	{
+          /* Calculate the offset.  */
+          mpz_mul (delta, stride, as->lower[n]->value.integer);
+          mpz_sub (offset, offset, delta);
+	}
+      else
+	known_offset = 0;
+
       expr = as->upper[n];
       if (expr && expr->expr_type == EXPR_CONSTANT)
         {
@@ -672,23 +681,19 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 
       if (known_stride)
         {
-          /* Calculate the stride and offset.  */
-          mpz_mul (delta, stride, as->lower[n]->value.integer);
-          mpz_sub (offset, offset, delta);
-
+          /* Calculate the stride.  */
           mpz_sub (delta, as->upper[n]->value.integer,
 	           as->lower[n]->value.integer);
           mpz_add_ui (delta, delta, 1);
           mpz_mul (stride, stride, delta);
         }
-      else
-        known_offset = 0;
+
       /* Only the first stride is known for partial packed arrays.  */
       if (packed < 2)
         known_stride = 0;
     }
 
-  if (packed == 3 && known_offset)
+  if (known_offset)
     {
       GFC_TYPE_ARRAY_OFFSET (type) =
         gfc_conv_mpz_to_tree (offset, gfc_index_integer_kind);
@@ -712,7 +717,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   GFC_TYPE_ARRAY_DATAPTR_TYPE (type) =
     build_pointer_type (build_array_type (etype, range));
 
-  if (packed == 3 && known_stride)
+  if (known_stride)
     {
       mpz_sub_ui (stride, stride, 1);
       range = gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
@@ -849,7 +854,8 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   fieldlist = decl;
 
   /* Add the base component.  */
-  decl = build_decl (FIELD_DECL, get_identifier ("base"), arraytype);
+  decl = build_decl (FIELD_DECL, get_identifier ("offset"),
+		     gfc_array_index_type);
   DECL_CONTEXT (decl) = fat_type;
   fieldlist = chainon (fieldlist, decl);
 

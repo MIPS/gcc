@@ -522,7 +522,8 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
     }
   if (GFC_TYPE_ARRAY_OFFSET (type) == NULL_TREE)
     {
-      GFC_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (type, "base");
+      GFC_TYPE_ARRAY_OFFSET (type) = gfc_create_var_np (gfc_array_index_type,
+							"offset");
       if (nest)
 	gfc_add_decl_to_parent_function (GFC_TYPE_ARRAY_OFFSET (type));
       else

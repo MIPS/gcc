@@ -53,3 +53,4 @@ extern GTY(()) tree gfc_strconst_wrong_return;
 
 /* Integer constants 0..GFC_MAX_DIMENSIONS.  */
 extern GTY(()) tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
+#define gfc_index_zero_node gfc_rank_cst[0]

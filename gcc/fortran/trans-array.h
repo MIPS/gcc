@@ -87,8 +87,8 @@ void gfc_conv_expr_descriptor (gfc_se *, gfc_expr *, gfc_ss *);
 void gfc_conv_array_parameter (gfc_se *, gfc_expr *, gfc_ss *, int);
 
 /* These work with both descriptors and descriptorless arrays.  */
-tree gfc_conv_array_base (tree);
 tree gfc_conv_array_data (tree);
+tree gfc_conv_array_offset (tree);
 /* Return either an INT_CST or an expression for that part of the descriptor. */
 tree gfc_conv_array_stride (tree, int);
 tree gfc_conv_array_lbound (tree, int);
@@ -101,7 +101,7 @@ int gfc_can_put_var_on_stack (tree);
 
 /* Build expressions for accessing components of an array descriptor.  */
 tree gfc_conv_descriptor_data (tree);
-tree gfc_conv_descriptor_base (tree);
+tree gfc_conv_descriptor_offset (tree);
 tree gfc_conv_descriptor_dtype (tree);
 tree gfc_conv_descriptor_stride (tree, tree);
 tree gfc_conv_descriptor_lbound (tree, tree);
