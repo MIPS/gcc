@@ -107,7 +107,7 @@ do {									\
    really right.  */
 #define ASM_SPEC " %(darwin_arch_asm_spec)\
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec|mcpu=*|mpowerpc64:-force_cpusubtype_ALL}}"
 
 #define DARWIN_ARCH_LD_SPEC                                        \
 "%{mcpu=601: %{!Zdynamiclib:-arch ppc601} %{Zdynamiclib:-arch_only ppc601}}    \
