@@ -515,6 +515,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 
       ptr_ref = gen_rtx_MEM (Pmode, ptr_ref);
       RTX_UNCHANGING_P (ptr_ref) = 1;
+      /* APPLE LOCAL x86 bootstrap fix should go away soon via x86-pic diffs from mrs to FSF */
+      machopic_define_symbol (ptr_ref);
 
       return ptr_ref;
     }
