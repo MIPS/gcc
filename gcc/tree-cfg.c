@@ -3712,7 +3712,7 @@ handle_switch_split (src, dest)
   tree stmt, label, parent;
   basic_block new_bb;
   edge e;
-  bb_ann_t bb_ann;
+  bb_ann_t ann;
 
 
   /* 1.  Insert the goto immediately preceeding the labels that are targeted. 
@@ -3732,11 +3732,10 @@ handle_switch_split (src, dest)
 
   new_bb = create_bb ();
   alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
-  bb_ann = (bb_ann_t) xmalloc (sizeof (struct bb_ann_d));
-  new_bb->aux = bb_ann;
-  bb_ann->phi_nodes = NULL_TREE;
-  bb_ann->ephi_nodes = NULL_TREE;
-  bb_ann->dom_children = (bitmap) NULL;
+  ann = bb_ann (new_bb);
+  ann->phi_nodes = NULL_TREE;
+  ann->ephi_nodes = NULL_TREE;
+  ann->dom_children = (bitmap) NULL;
   append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
 
   /* Reset the head of dest since the container might be different now.  */
@@ -3903,7 +3902,7 @@ bsi_commit_first_edge_insert (e, stmt)
   int single_exit, single_entry;
   enum find_location_action location;
   tree first, last, inserted_stmt, parent;
-  bb_ann_t bb_ann;
+  bb_ann_t ann;
 
   first = last = NULL_TREE;
   src = e->src;
@@ -3989,12 +3988,10 @@ bsi_commit_first_edge_insert (e, stmt)
 
   /* Otherwise, create a new basic block, and split this edge.  */
   new_bb = split_edge (e);
-
-  bb_ann = (bb_ann_t) xmalloc (sizeof (struct bb_ann_d));
-  new_bb->aux = bb_ann;
-  bb_ann->phi_nodes = NULL_TREE;
-  bb_ann->ephi_nodes = NULL_TREE;
-  bb_ann->dom_children = (bitmap) NULL;
+  ann = bb_ann (new_bb);
+  ann->phi_nodes = NULL_TREE;
+  ann->ephi_nodes = NULL_TREE;
+  ann->dom_children = (bitmap) NULL;
 
   tsi = find_insert_location (src, dest, new_bb, &location);
   parent = parent_stmt (tsi_stmt (tsi));

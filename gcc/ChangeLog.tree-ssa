@@ -1,3 +1,9 @@
+2003-06-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (handle_switch_split): Don't allocate basic block
+	annotations more than once.
+	(bsi_commit_first_edge_insert): Likewise.
+
 2003-06-07  Jeff Sturm  <jsturm@one-point.com>
 
 	* tree-cfg.c (could_trap_p): New function.
