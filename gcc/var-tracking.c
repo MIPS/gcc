@@ -1666,6 +1666,9 @@ vt_find_locations ()
 		      if (e->dest == EXIT_BLOCK_PTR)
 			continue;
 
+		      if (e->dest == bb)
+			continue;
+
 		      if (TEST_BIT (visited, e->dest->index))
 			{
 			  if (!TEST_BIT (in_pending, e->dest->index))

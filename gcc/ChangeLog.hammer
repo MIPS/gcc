@@ -1,3 +1,8 @@
+2003-11-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (vt_find_locations): Do not add block whose successor
+	is the block itself to worklist.
+
 2003-11-10  Andreas Jaeger  <aj@suse.de>
 
 	* ada/Makefile.in (gnattools2): Remove gnatpsta.
