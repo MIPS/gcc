@@ -405,12 +405,11 @@ represented in GIMPLE by a @code{TRY_FINALLY_EXPR}.  When the controlled
 block exits, the cleanup is run.
 
 @code{TRY_FINALLY_EXPR} complicates the flow graph, since the cleanup
-needs to appear on every edge out of the controlled block; this reduces our
-freedom to move code across these edges.  In the future,
-we will want to lower @code{TRY_FINALLY_EXPR} to simpler forms at some
-point in optimization, probably by changing it into a 
-@code{TRY_CATCH_EXPR} and inserting an additional copy of the cleanup
-along each normal edge out of the block.
+needs to appear on every edge out of the controlled block; this
+reduces our freedom to move code across these edges.  Therefore, the
+EH lowering pass which runs before most of the optimization passes
+eliminates these expressions by explicitly adding the cleanup to each
+edge.
 
 @node GIMPLE Exception Handling
 @subsubsection Exception Handling
@@ -434,7 +433,10 @@ since it is implemented by calling a function.  At some point in the future
 we will want to add some way to express that the call will throw an
 exception of a known type.
 
-@c Do we also want RESX?
+Just before running the optimizers, the compiler lowers the high-level
+EH constructs above into a set of @samp{goto}s, magic labels, and EH
+regions.  Continuing to unwind at the end of a cleanup is represented
+with a @code{RESX_EXPR}.
 
 @node GIMPLE Example
 @subsection GIMPLE Example
