@@ -182,6 +182,31 @@ resolve_formal_arglist (gfc_symbol * proc)
 	      continue;
 	    }
 	}
+
+      /* Each dummy shall be specified to be scalar.  */
+      if (proc->attr.proc == PROC_ST_FUNCTION)
+        {
+          if (sym->as != NULL)
+            {
+              gfc_error 
+                ("Argument '%s' of statement function at %L must be scalar",
+                 sym->name, &sym->declared_at);
+              continue;
+            }
+
+          if (sym->ts.type == BT_CHARACTER)
+            {
+              gfc_charlen *cl = sym->ts.cl;
+              if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
+                {
+                  gfc_error
+                    ("Character-valued argument '%s' of statement function at "
+                     "%L must has constant length",
+                     sym->name, &sym->declared_at);
+                  continue;
+                }
+            }
+        }
     }
 }
 
@@ -3716,6 +3741,20 @@ resolve_symbol (gfc_symbol * sym)
     {
       gfc_error ("Symbol at %L is not a DUMMY variable", &sym->declared_at);
       return;
+    }
+
+  if (sym->attr.proc == PROC_ST_FUNCTION)
+    {
+      if (sym->ts.type == BT_CHARACTER)
+        {
+          gfc_charlen *cl = sym->ts.cl;
+          if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
+            {
+              gfc_error ("Character-valued statement function '%s' at %L must "
+                         "have constant length", sym->name, &sym->declared_at);
+              return;
+            }
+        }
     }
 
   /* Constraints on deferred shape variable.  */

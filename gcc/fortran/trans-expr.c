@@ -1186,6 +1186,86 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 }
 
 
+/* Translate a statement function.
+   The value of a statement function reference is obtained by evaluating the
+   expression using the values of the actual arguments for the values of the
+   corresponding dummy arguments.  */
+
+static void
+gfc_conv_statement_function (gfc_se * se, gfc_expr * expr)
+{
+  gfc_symbol *sym;
+  gfc_symbol *fsym;
+  gfc_formal_arglist *fargs;
+  gfc_actual_arglist *args;
+  gfc_se lse;
+  gfc_se rse;
+
+  sym = expr->symtree->n.sym;
+  args = expr->value.function.actual;
+  gfc_init_se (&lse, NULL);
+  gfc_init_se (&rse, NULL);
+
+  for (fargs = sym->formal; fargs; fargs = fargs->next)
+    {
+      /* Each dummy shall be specified, explicitly or implicitly, to be
+         scalar.  */
+      assert (fargs->sym->attr.dimension == 0);
+      fsym = fargs->sym;
+      assert (fsym->backend_decl);
+
+      /* Convert non-pointer string dummy.  */
+      if (fsym->ts.type == BT_CHARACTER && !fsym->attr.pointer)
+        {
+          tree len1;
+          tree len2;
+          tree arg;
+          tree tmp;
+          tree type;
+          tree var;
+
+          assert (fsym->ts.cl && fsym->ts.cl->length
+                  && fsym->ts.cl->length->expr_type == EXPR_CONSTANT);
+
+          type = gfc_get_character_type (fsym->ts.kind, fsym->ts.cl);
+          len1 = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+          var = build1 (ADDR_EXPR, build_pointer_type (type),
+                        fsym->backend_decl);
+
+          gfc_conv_expr (&rse, args->expr);
+          gfc_conv_string_parameter (&rse);
+          len2 = rse.string_length;
+          gfc_add_block_to_block (&se->pre, &lse.pre);
+          gfc_add_block_to_block (&se->pre, &rse.pre);
+
+          arg = NULL_TREE;
+          arg = gfc_chainon_list (arg, len1);
+          arg = gfc_chainon_list (arg, var);
+          arg = gfc_chainon_list (arg, len2);
+          arg = gfc_chainon_list (arg, rse.expr);
+          tmp = gfc_build_function_call (gfor_fndecl_copy_string, arg);
+          gfc_add_expr_to_block (&se->pre, tmp);
+          gfc_add_block_to_block (&se->pre, &lse.post);
+          gfc_add_block_to_block (&se->pre, &rse.post);
+        }
+      else
+        {
+          /* For everything else, just evaluate the expression.  */
+          if (fsym->attr.pointer == 1)
+            lse.want_pointer = 1;
+
+          gfc_conv_expr (&lse, args->expr);
+
+          gfc_add_block_to_block (&se->pre, &lse.pre);
+          gfc_add_modify_expr (&se->pre, fsym->backend_decl, lse.expr);
+          gfc_add_block_to_block (&se->pre, &lse.post);
+        }
+      args = args->next;
+    }
+  gfc_conv_expr (se, sym->value);
+}
+
+
 /* Translate a function expression.  */
 
 static void
@@ -1196,6 +1276,14 @@ gfc_conv_function_expr (gfc_se * se, gfc_expr * expr)
   if (expr->value.function.isym)
     {
       gfc_conv_intrinsic_function (se, expr);
+      return;
+    }
+
+  /* We distinguish the statement function from general function to improve
+     runtime performance.  */
+  if (expr->symtree->n.sym->attr.proc == PROC_ST_FUNCTION)
+    {
+      gfc_conv_statement_function (se, expr);
       return;
     }
 
