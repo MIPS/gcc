@@ -525,10 +525,23 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			      bb = rotate_loop (best_edge, trace, *n_traces);
 			    }
 			}
-		      else if (copy_bb_p (best_edge->dest))
+		      else
 			{
 			  /* The loop has less than 4 iterations.  */
-			  bb = copy_bb (best_edge->dest, best_edge, bb, *n_traces);
+
+			  /* Check whether there is another edge from BB.  */
+			  edge another_edge;
+			  for (another_edge = bb->succ;
+			       another_edge;
+			       another_edge = another_edge->succ_next)
+			    if (another_edge != best_edge)
+			      break;
+				
+			  if (!another_edge && copy_bb_p (best_edge->dest))
+			    {
+			      bb = copy_bb (best_edge->dest, best_edge, bb,
+					    *n_traces);
+			    }
 			}
 		    }
 

@@ -1,3 +1,8 @@
+2002-12-11  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (find_traces_1_round): Do not duplicate loop
+	header when there is another edge from loop latch.
+
 2002-12-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopanal.c (average_num_loop_insns): Fix.
