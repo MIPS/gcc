@@ -203,10 +203,6 @@ variable_size (size)
 
   if (immediate_size_expand)
     expand_expr (save, const0_rtx, VOIDmode, 0);
-  else if (cfun != 0 && cfun->x_dont_save_pending_sizes_p)
-    /* The front-end doesn't want us to keep a list of the expressions
-       that determine sizes for variable size objects.  */
-    ;
   else
     put_pending_size (save);
 
