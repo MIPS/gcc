@@ -111,7 +111,7 @@ static int type_hash_eq (const void *, const void *);
 static hashval_t type_hash_hash (const void *);
 static void print_type_hash_statistics (void);
 static void finish_vector_type (tree);
-static tree make_vector (enum machine_mode, tree, int);
+static tree build_vector_type_with_mode (enum machine_mode, tree);
 static int type_hash_marked_p (const void *);
 
 tree global_trees[TI_MAX];
@@ -5061,55 +5061,74 @@ build_common_tree_nodes_2 (int short_double)
   }
 
   unsigned_V4SI_type_node
-    = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+    = build_vector_type_with_mode (V4SImode, unsigned_intSI_type_node);
   unsigned_V2HI_type_node
-    = make_vector (V2HImode, unsigned_intHI_type_node, 1);
+    = build_vector_type_with_mode (V2HImode, unsigned_intHI_type_node);
   unsigned_V2SI_type_node
-    = make_vector (V2SImode, unsigned_intSI_type_node, 1);
+    = build_vector_type_with_mode (V2SImode, unsigned_intSI_type_node);
   unsigned_V2DI_type_node
-    = make_vector (V2DImode, unsigned_intDI_type_node, 1);
+    = build_vector_type_with_mode (V2DImode, unsigned_intDI_type_node);
   unsigned_V4HI_type_node
-    = make_vector (V4HImode, unsigned_intHI_type_node, 1);
+    = build_vector_type_with_mode (V4HImode, unsigned_intHI_type_node);
   unsigned_V8QI_type_node
-    = make_vector (V8QImode, unsigned_intQI_type_node, 1);
+    = build_vector_type_with_mode (V8QImode, unsigned_intQI_type_node);
   unsigned_V8HI_type_node
-    = make_vector (V8HImode, unsigned_intHI_type_node, 1);
+    = build_vector_type_with_mode (V8HImode, unsigned_intHI_type_node);
   unsigned_V16QI_type_node
-    = make_vector (V16QImode, unsigned_intQI_type_node, 1);
+    = build_vector_type_with_mode (V16QImode, unsigned_intQI_type_node);
   unsigned_V1DI_type_node
-    = make_vector (V1DImode, unsigned_intDI_type_node, 1);
+    = build_vector_type_with_mode (V1DImode, unsigned_intDI_type_node);
 
-  V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
-  V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
-  V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
-  V2HI_type_node = make_vector (V2HImode, intHI_type_node, 0);
-  V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
-  V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
-  V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
-  V8QI_type_node = make_vector (V8QImode, intQI_type_node, 0);
-  V8HI_type_node = make_vector (V8HImode, intHI_type_node, 0);
-  V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
-  V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
-  V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
-  V1DI_type_node = make_vector (V1DImode, intDI_type_node, 0);
-  V4DF_type_node = make_vector (V4DFmode, double_type_node, 0);
+  V16SF_type_node = build_vector_type_with_mode (V16SFmode, float_type_node);
+  V4SF_type_node = build_vector_type_with_mode (V4SFmode, float_type_node);
+  V4SI_type_node = build_vector_type_with_mode (V4SImode, intSI_type_node);
+  V2HI_type_node = build_vector_type_with_mode (V2HImode, intHI_type_node);
+  V2SI_type_node = build_vector_type_with_mode (V2SImode, intSI_type_node);
+  V2DI_type_node = build_vector_type_with_mode (V2DImode, intDI_type_node);
+  V4HI_type_node = build_vector_type_with_mode (V4HImode, intHI_type_node);
+  V8QI_type_node = build_vector_type_with_mode (V8QImode, intQI_type_node);
+  V8HI_type_node = build_vector_type_with_mode (V8HImode, intHI_type_node);
+  V2SF_type_node = build_vector_type_with_mode (V2SFmode, float_type_node);
+  V2DF_type_node = build_vector_type_with_mode (V2DFmode, double_type_node);
+  V16QI_type_node = build_vector_type_with_mode (V16QImode, intQI_type_node);
+  V1DI_type_node = build_vector_type_with_mode (V1DImode, intDI_type_node);
+  V4DF_type_node = build_vector_type_with_mode (V4DFmode, double_type_node);
 }
 
-/* Returns a vector tree node given a vector mode, the inner type, and
-   the signness.  */
+/* Returns a vector tree node given a vector mode and inner type.  */
 
 static tree
-make_vector (enum machine_mode mode, tree innertype, int unsignedp)
+build_vector_type_with_mode (enum machine_mode mode, tree innertype)
 {
   tree t;
 
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = innertype;
   TYPE_MODE (t) = mode;
-  TREE_UNSIGNED (TREE_TYPE (t)) = unsignedp;
+  TREE_UNSIGNED (t) = TREE_UNSIGNED (innertype);
   finish_vector_type (t);
 
   return t;
+}
+
+/* Similarly, but takes inner type and units.  */
+
+tree
+build_vector_type (tree innertype, int nunits)
+{
+  enum machine_mode innermode = TYPE_MODE (innertype);
+  enum machine_mode mode;
+
+  if (GET_MODE_CLASS (innermode) == MODE_FLOAT)
+    mode = MIN_MODE_VECTOR_FLOAT;
+  else
+    mode = MIN_MODE_VECTOR_INT;
+
+  for (; mode != VOIDmode ; mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_NUNITS (mode) == nunits && GET_MODE_INNER (mode) == innermode)
+      return build_vector_type_with_mode (mode, innertype);
+
+  return NULL_TREE;
 }
 
 /* Given an initializer INIT, return TRUE if INIT is zero or some

@@ -492,32 +492,16 @@ vect_create_index_for_array_ref (tree expr, block_stmt_iterator *bsi)
 static tree
 get_vectype_for_scalar_type (tree scalar_type)
 {
-  tree vectype;
   enum machine_mode mode;
   int nbytes;
   int nunits;
 
-  vectype = ((*targetm.vectype_for_scalar_type) (scalar_type));
-
-  if (!vectype)
-    return NULL;
-
-  /* FORNOW: Only a single vector size per target is expected.
-             Following is a sanity check to verify this assumption.  */
-
+  /* FORNOW: Only a single vector size per target is expected.  */
   mode = TYPE_MODE (scalar_type);
   nbytes = GET_MODE_SIZE (mode);
   nunits = UNITS_PER_SIMD_WORD / nbytes;
 
-  if (nunits != GET_MODE_NUNITS (TYPE_MODE (vectype)))
-    {
-      DBG_VECT (fprintf (stderr, 
-		"nbytes = %d, UNITS_PER_SIMD_WORD/nbytes = %d, nunits = %d\n",
-		nbytes, nunits, GET_MODE_NUNITS (TYPE_MODE (vectype)))); 
-      return NULL;
-    }
-
-  return vectype;
+  return build_vector_type (scalar_type, nunits);
 }
 
 

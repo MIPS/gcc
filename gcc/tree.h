@@ -2635,6 +2635,7 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+extern tree build_vector_type (tree, int);
 extern tree array_type_nelts (tree);
 
 extern tree value_member (tree, tree);
