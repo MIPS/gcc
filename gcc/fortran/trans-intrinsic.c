@@ -104,13 +104,6 @@ typedef struct
 }
 real_compnt_info;
 
-/* Table of the <kind, range> pair defined in the integer model. The
-   first element is the numbers of the pairs.  */
-tree integer_kind_info = NULL;
-/* Table of the <kind, precision, range> defined in real model. The
-   first element is the numbers of the triples.  */
-tree real_kind_info = NULL;
-
 
 /* Evaluate the arguments to an intrinsic function.  */
 
