@@ -1240,7 +1240,6 @@ rtl_tidy_fallthru_edge (edge e)
   if (JUMP_P (q)
       && onlyjump_p (q)
       && (any_uncondjump_p (q)
-	  /* FIXME: correct? */
 	  || (EDGE_SUCC (b, 0) == e && ei.index == EDGE_COUNT (b->succs) - 1)))
     {
 #ifdef HAVE_cc0
