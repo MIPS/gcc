@@ -1,4 +1,8 @@
 2002-09-19  Daniel Berlin <dberlin@dberlin.org>
+       
+        * toplev.c: tree-ssa-* -> tree-*.
+
+2002-09-19  Daniel Berlin <dberlin@dberlin.org>
 
 	* flags.h: flag_tree_ssa_* -> flag_tree_*.
 
