@@ -1,3 +1,11 @@
+2004-04-24  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (compare_current_location): New.
+	(variable_part_different_p): Compare current location of the part
+	of variable only if compare_current_location is true.
+	(variable_tracking_main): Clear compare_current_location before
+	finding locations, set it before emitting notes.
+
 2004-04-21  Michael Matz  <matz@suse.de>
 
 	* toplev.c (rest_of_type_compilation): Check for TYPE_STUB_DECL

@@ -1291,8 +1291,10 @@ dataflow_set_union (dst, src)
 }
 
 /* Flag whether two dataflow sets being compared contain different data.  */
-static bool
-dataflow_set_different_value;
+static bool dataflow_set_different_value;
+
+/* True if current locations of variable parts should be compared.  */
+static bool compare_current_location;
 
 static bool
 variable_part_different_p (vp1, vp2)
@@ -1301,11 +1303,14 @@ variable_part_different_p (vp1, vp2)
 {
   location_chain lc1, lc2;
 
-  if (!((GET_CODE (vp1->cur_loc) == REG
-	 && GET_CODE (vp2->cur_loc) == REG
-	 && REGNO (vp1->cur_loc) == REGNO (vp2->cur_loc))
-	|| rtx_equal_p (vp1->cur_loc, vp2->cur_loc)))
-    return true;
+  if (compare_current_location)
+    {
+      if (!((GET_CODE (vp1->cur_loc) == REG
+	     && GET_CODE (vp2->cur_loc) == REG
+	     && REGNO (vp1->cur_loc) == REGNO (vp2->cur_loc))
+	    || rtx_equal_p (vp1->cur_loc, vp2->cur_loc)))
+	return true;
+    }
 
   for (lc1 = vp1->loc_chain; lc1; lc1 = lc1->next)
     {
@@ -2841,7 +2846,9 @@ variable_tracking_main ()
 	}
     }
 
+  compare_current_location = false;
   vt_find_locations ();
+  compare_current_location = true;
   vt_emit_notes ();
 
   if (rtl_dump_file)
