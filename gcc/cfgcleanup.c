@@ -414,6 +414,7 @@ try_forward_edges (int mode, basic_block b)
 {
   bool changed = false;
   edge e, *threaded_edges = NULL;
+  unsigned ix;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -423,7 +424,7 @@ try_forward_edges (int mode, basic_block b)
       && find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
     return false;
 
-  FOR_EACH_EDGE (e, b->succs)
+  for (ix = 0; VEC_iterate (edge, b->succs, ix, e); )
     {
       basic_block target, first;
       int counter;
@@ -437,7 +438,10 @@ try_forward_edges (int mode, basic_block b)
          edge to the same place as the branch edge of conditional branch
          and turn conditional branch to an unconditional branch.  */
       if (e->flags & EDGE_COMPLEX)
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       target = first = e->dest;
       counter = 0;
@@ -493,7 +497,6 @@ try_forward_edges (int mode, basic_block b)
 
 		  new_target = t->dest;
 		  new_target_threaded = true;
-/*		  ix = 0; */
 		}
 	    }
 
@@ -567,6 +570,7 @@ try_forward_edges (int mode, basic_block b)
 		fprintf (dump_file,
 			 "Forwarding edge %i->%i to %i failed.\n",
 			 b->index, e->dest->index, target->index);
+	      ix++;
 	      continue;
 	    }
 
@@ -643,9 +647,10 @@ try_forward_edges (int mode, basic_block b)
 	  while (first != target);
 
 	  changed = true;
+	  continue;
 	}
+      ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (threaded_edges)
     free (threaded_edges);

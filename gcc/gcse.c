@@ -3911,6 +3911,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
   edge e, edest;
   int i, change;
   int may_be_loop_header;
+  unsigned ix, removed_p;
 
   insn = (setcc != NULL) ? setcc : jump;
 
@@ -3934,21 +3935,32 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
   END_FOR_EACH_EDGE;
 
   change = 0;
-  FOR_EACH_EDGE (e, bb->preds)
+  for (ix = 0; VEC_iterate (edge, bb->preds, ix, e); )
     {
+      removed_p = 0;
+	  
       if (e->flags & EDGE_COMPLEX)
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       /* We can't redirect edges from new basic blocks.  */
       if (e->src->index >= bypass_last_basic_block)
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       /* The irreducible loops created by redirecting of edges entering the
 	 loop from outside would decrease effectiveness of some of the following
 	 optimizations, so prevent this.  */
       if (may_be_loop_header
 	  && !(e->flags & EDGE_DFS_BACK))
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       for (i = 0; i < reg_use_count; i++)
 	{
@@ -4050,11 +4062,13 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 			   e->src->index, old_dest->index, dest->index);
 		}
 	      change = 1;
+	      removed_p = 1;
 	      break;
 	    }
 	}
+      if (!removed_p)
+	ix++;
     }
-  END_FOR_EACH_EDGE;
   return change;
 }
 

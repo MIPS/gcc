@@ -3,6 +3,8 @@
 	* dominance.c (calc_idoms): Eliminate FOR_EACH_EDGE.
 	* cfghooks.c: (make_forwarder_block): Likewise.
 	* loop-init.c (loop_optimizer_init): Likewise.
+	* cfgcleanup.c (try_forward_edges): Likewise.
+	* gcse.c (bypass_block): Likewise.
 
 	* cfg.c (remove_edge): Don't use FOR_EACH_EDGE for loops that
 	alter the edge vector.
