@@ -199,7 +199,7 @@ cond_exec_process_insns (start, end, test, mod_ok)
       if (must_be_last)
 	return FALSE;
 
-      if (modified_in_p (test, PATTERN (insn)))
+      if (modified_in_p (test, insn))
 	{
 	  if (!mod_ok)
 	    return FALSE;
@@ -275,16 +275,31 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
     return FALSE;
 
   /* Collect the bounds of where we're to search.  */
+
   then_start = then_bb->head;
   then_end = then_bb->end;
+
+  /* Skip a (use (const_int 0)) or branch as the final insn.  */
+  if (GET_CODE (then_end) == INSN
+      && GET_CODE (PATTERN (then_end)) == USE
+      && GET_CODE (XEXP (PATTERN (then_end), 0)) == CONST_INT)
+    then_end = PREV_INSN (then_end);
+  else if (GET_CODE (then_end) == JUMP_INSN)
+    then_end = PREV_INSN (then_end);
+
   if (else_bb)
     {
-      /* Don't process the jump at the end of the THEN block.  */
-      then_end = PREV_INSN (then_bb->end);
-
       /* Skip the ELSE block's label.  */
       else_start = NEXT_INSN (else_bb->head);
       else_end = else_bb->end;
+
+      /* Skip a (use (const_int 0)) or branch as the final insn.  */
+      if (GET_CODE (else_end) == INSN
+	  && GET_CODE (PATTERN (else_end)) == USE
+	  && GET_CODE (XEXP (PATTERN (else_end), 0)) == CONST_INT)
+	else_end = PREV_INSN (else_end);
+      else if (GET_CODE (else_end) == JUMP_INSN)
+	else_end = PREV_INSN (else_end);
     }
 
   /* How many instructions should we convert in total?  */
@@ -338,7 +353,7 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   return TRUE;
 
  fail:
-  cancel_changes (num_validated_changes ());
+  cancel_changes (0);
   return FALSE;
 }
 
@@ -1158,7 +1173,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
 
       /* There should sill be a branch at the end of the THEN or ELSE
          blocks taking us to our final destination.  */
-      if (! simplejump_p (combo_bb->end))
+      if (! simplejump_p (combo_bb->end)
+          && ! returnjump_p (combo_bb->end))
 	abort ();
     }
 
@@ -1229,7 +1245,8 @@ find_if_header (test_bb)
 
   if (find_if_block (test_bb, then_edge, else_edge))
     goto success;
-  if (post_dominators)
+  if (post_dominators
+      && (! HAVE_conditional_execution || reload_completed))
     {
       if (find_if_case_1 (test_bb, then_edge, else_edge))
 	goto success;
@@ -1313,21 +1330,22 @@ find_if_block (test_bb, then_edge, else_edge)
 		 test_bb->index, then_bb->index, join_bb->index);
     }
 
-  /* Make sure IF, THEN, and ELSE, blocks are adjacent.  Actually, we get
-     the first condition for free, since we've already asserted that there's
-     a fallthru edge from IF to THEN.  */
-  /* ??? As an enhancement, move the ELSE block.  Have to deal with EH
-     and BLOCK notes, if by no other means than aborting the merge if
-     they exist.  Sticky enough I don't want to think about it now.  */
-
+  /* Make sure IF, THEN, and ELSE, blocks are adjacent.  Actually, we
+     get the first condition for free, since we've already asserted that
+     there's a fallthru edge from IF to THEN.  */
+  /* ??? As an enhancement, move the ELSE block.  Have to deal with EH and
+     BLOCK notes, if by no other means than aborting the merge if they
+     exist.  Sticky enough I don't want to think about it now.  */
   next_index = then_bb->index;
   if (else_bb && ++next_index != else_bb->index)
     return FALSE;
-
-  /* Don't report a JOIN block if it's not adjacent to the THEN or ELSE.
-     We only need it for merging anyway.  */
   if (++next_index != join_bb->index)
-    join_bb = NULL;
+    {
+      if (else_bb)
+	join_bb = NULL;
+      else
+	return FALSE;
+    }
 
   /* Do the real work.  */
   return process_if_block (test_bb, then_bb, else_bb, join_bb);
@@ -1652,9 +1670,20 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 
   /* Find the extent of the real code in the merge block.  */
   head = merge_bb->head;
-  head = next_nonnote_insn (head);
-
   end = merge_bb->end;
+
+  if (GET_CODE (head) == CODE_LABEL)
+    head = NEXT_INSN (head);
+  if (GET_CODE (head) == NOTE)
+    {
+      if (head == end)
+	{
+	  head = end = NULL_RTX;
+	  goto no_body;
+	}
+      head = NEXT_INSN (head);
+    }
+
   if (GET_CODE (end) == JUMP_INSN)
     {
       if (head == end)
@@ -1681,7 +1710,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 			       GET_MODE (cond), XEXP (cond, 0),
 			       XEXP (cond, 1));
 
-      if (cond_exec_process_insns (head, end, cond, 0))
+      if (! cond_exec_process_insns (head, end, cond, 0))
 	goto cancel;
 
       earliest = jump;
@@ -1795,7 +1824,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
   return TRUE;
 
  cancel:
-  cancel_changes (num_validated_changes ());
+  cancel_changes (0);
   return FALSE;
 }
 

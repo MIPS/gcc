@@ -1,5 +1,31 @@
 2000-04-20  Richard Henderson  <rth@cygnus.com>
 
+	* condexec.c (cond_exec_process_insns): Test whole insn for
+	modification, not just the pattern.
+	(cond_exec_process_if_block): Skip branch and use at end of THEN.
+	Fix thinko in call to cancel_changes.
+	(merge_if_block): Also check for return insn in assertion.
+	(find_if_header): Don't try find_if_case_1 or find_if_case_2 
+	before reload if HAVE_conditional_execution.
+	(find_if_block): Don't allow non-adjacent JOIN if no ELSE.
+	(dead_or_predicable): Fix search for first real insn.  Fix thinkos
+	in calls to cond_exec_process_insns and cancel_changes.
+
+	* flow.c (propagate_block): Initialize reg_cond_dead with data
+	from a conditional branch's successor blocks.
+
+	* config/d30v/d30v.c (d30v_expand_epilogue): Don't use
+	gen_return_internal.
+	* config/d30v/d30v.h (EPILOGUE_USES): New.
+	* config/d30v/d30v.md (return): Change to expander.
+	(*return_internal): Hide.  Don't reference link reg in rtl.
+	(*cond_return_true, *cond_return_false): New.
+	(*cond_exec_si_neg): Put the whole parallel under the cond_exec.
+	(*cond_exec_si_addsub): Likewise.
+	(*cond_exec_call_internal, *cond_exec_call_value_internal): New.
+
+2000-04-20  Richard Henderson  <rth@cygnus.com>
+
 	* basic-block.h (flow_delete_block): Declare.
 	* flow.c (flow_delete_block): Renamed from delete_block.  Export.
 
