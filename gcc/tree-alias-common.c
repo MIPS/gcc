@@ -47,8 +47,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "c-tree.h"
 #include "tree-simple.h"
 #include "hashtab.h"
-#include "splay-tree.h"
 #include "function.h"
+#include "cgraph.h"
 
 /*  This file contains the implementation of the common parts of the
     tree points-to analysis infrastructure.
@@ -90,8 +90,6 @@ static alias_typevar create_fun_alias_var_ptf (tree, tree);
 static alias_typevar create_fun_alias_var (tree, int);
 static alias_typevar create_alias_var (tree);
 static void intra_function_call (varray_type);
-static hashval_t annot_hash (const PTR);
-static int annot_eq (const PTR, const PTR);
 static void get_values_from_constructor (tree, varray_type *);
 static bool call_may_clobber (tree);
 static bool call_may_return (tree);
@@ -127,44 +125,6 @@ call_may_return (tree expr)
   flags = (callee) ? flags_from_decl_or_type (callee) : 0;
   return ! (flags & ECF_NORETURN);
 }
-
-
-
-/*  Alias annotation hash table entry.
-    Used in the annotation hash table to map trees to their
-    alias_typevar's.  */
-
-struct alias_annot_entry GTY(())
-{
-  tree key;
-  alias_typevar value;
-};
-
-/*  Alias annotation equality function. PENTRY is the hash table
-    entry, PDATA is the entry we gave the function calling this.
-    Return 1 if PENTRY is equal to PDATA.  */
-
-static int
-annot_eq (const PTR pentry, const PTR pdata)
-{
-  struct alias_annot_entry *entry = (struct alias_annot_entry *)pentry;
-  struct alias_annot_entry *data = (struct alias_annot_entry *)pdata;
-
-  return entry->key == data->key;
-}
-
-/*  Alias annotation hash function.  Hash PENTRY and return a value.  */
-
-static hashval_t
-annot_hash (const PTR pentry)
-{
-  struct alias_annot_entry *entry = (struct alias_annot_entry *) pentry;
-  return htab_hash_pointer (entry->key);
-}
-
-/*  Alias annotation hash table.  Maps vars to alias_typevars.  */
-
-static GTY ((param_is (struct alias_annot_entry))) htab_t alias_annot;
 
 /*  Get the alias_typevar for DECL.  
     Creates the alias_typevar if it does not exist already. Also
@@ -224,10 +184,6 @@ get_alias_var_decl (tree decl)
 static alias_typevar
 get_alias_var (tree expr)
 {
-  alias_typevar tvar;
-  struct alias_annot_entry entry;
-  struct alias_annot_entry *result;
-
   /* If it's a decl, get the alias var of the decl. We farm this off
      to get_alias_var_decl so it can abort if the alias var doesn't
      exist, and in case something else *knows* it has a decl, and
@@ -235,20 +191,6 @@ get_alias_var (tree expr)
 
   if (DECL_P (expr))
     return get_alias_var_decl (expr);
-
-  /* Non-DECL's alias vars must be temporary alias vars for an
-     expression, since we never create non-temporary ones on anything
-     but DECL's.
-     Since they are temporary, we want to erase it from the annotation
-     since they are use once. */
-  entry.key = expr;
-  result = htab_find (alias_annot, &entry);
-  if (result != NULL && result->value != 0)
-    {
-      tvar = result->value;
-      htab_remove_elt (alias_annot, &entry);
-      return tvar;
-    }
 
   /* True constants have no aliases (unless modifiable strings are on,
      in which case i don't think we'll end up with a STRING_CST anyway) */
@@ -272,7 +214,29 @@ get_alias_var (tree expr)
     case COMPONENT_REF:
       {
 #if FIELD_BASED
-	return get_alias_var (TREE_OPERAND (expr, 1));
+	bool safe = true;
+	tree p;
+	for (p = expr; 
+	     TREE_CODE (p) == COMPONENT_REF || TREE_CODE (p) == INDIRECT_REF;
+	     p = TREE_OPERAND (p, 0))
+	  {
+	    if (TREE_CODE (TREE_TYPE (p)) == UNION_TYPE 
+		|| TREE_CODE (TREE_TYPE (p)) == QUAL_UNION_TYPE)
+	      {
+		safe = false;
+		break;
+	      }
+	  }
+	if (!safe)
+	  {
+	    for (p = expr; TREE_CODE (p) == COMPONENT_REF;
+		 p = TREE_OPERAND (p, 0));
+	    return get_alias_var (p);
+	  }
+	else
+	  {
+	    return get_alias_var (TREE_OPERAND (expr, 1));
+	  }
 #else
         /* Find the first non-component ref, and return its alias variable. */
 	tree p;
@@ -438,6 +402,13 @@ deal_with_call_aliasing (tree callargs, alias_typevar lhsAV)
 static void
 find_func_aliases (tree stp)
 {
+  if (TREE_CODE (stp) == RETURN_EXPR)
+    {
+      stp = TREE_OPERAND (stp, 0);
+      if (!stp)
+	return;
+    }
+  
   if (TREE_CODE (stp) == MODIFY_EXPR
       || (DECL_P (stp) && DECL_INITIAL (stp) != NULL_TREE ))
     {
@@ -461,7 +432,14 @@ find_func_aliases (tree stp)
 	return;
       /* rhsAV might not have one, c.f. c = 5 */
       rhsAV = get_alias_var (op1);
-
+#if !FIELD_BASED
+      while (TREE_CODE (op1) == COMPONENT_REF 
+	     && TREE_CODE (TREE_OPERAND (op1, 0)) == COMPONENT_REF)
+	{
+	  op1 = TREE_OPERAND (op1, 0);
+	}
+#endif
+      
       /* You would think we could test rhsAV at the top, rather than
 	 50 separate times, but we can't, because it can be NULL for
 	 operator assignments, where we'd still collect the individual
@@ -548,7 +526,7 @@ find_func_aliases (tree stp)
 							    get_alias_var (callop0),
 							    args, addrargs))
 			{ 
-			  if (call_may_clobber (op1)
+        if (call_may_clobber (op1)
                               && !current_alias_ops->ip
                               && flag_argument_noalias != 2)
 			    {
@@ -720,8 +698,7 @@ find_func_aliases (tree stp)
 	  /* NORETURN and CONST functions have no effect on aliasing.  */
 	  if (call_may_clobber (stp))
 	    if (current_alias_ops->function_call (current_alias_ops, NULL,
-						  callvar,
-						  args, addrargs))
+						  callvar, args, addrargs))
 	      if (!current_alias_ops->ip && flag_argument_noalias != 2)
 		intra_function_call (args);
 	}
@@ -766,8 +743,7 @@ create_fun_alias_var (tree decl, int force)
 	      && !current_alias_ops->ip
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
-		  || !TREE_STATIC (decl)
-		  || TREE_PUBLIC (decl)))
+		  || !cgraph_local_info (decl)->local))
 	    current_alias_ops->simple_assign (current_alias_ops, tvar,
 					      get_alias_var (pta_global_var));
 	}
@@ -906,19 +882,16 @@ create_fun_alias_var_ptf (tree decl, tree type)
 static alias_typevar
 create_alias_var (tree decl)
 {
-  struct alias_annot_entry entry, *result, *newentry, **slot;
-
   alias_typevar avar;
+
+  if (!DECL_P (decl))
+    abort ();
+  
   if (DECL_P (decl))
     {
       if (DECL_PTA_TYPEVAR (decl))
 	return DECL_PTA_TYPEVAR (decl);
     }
-  entry.key = decl;
-  result = htab_find (alias_annot, &entry);
-  if (result != NULL && result->value != NULL)
-    return result->value;
-
 
   if (POINTER_TYPE_P (TREE_TYPE (decl))
       && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
@@ -932,16 +905,7 @@ create_alias_var (tree decl)
     {
       DECL_PTA_TYPEVAR (decl) = avar;
     }
-  else
-    {
-      newentry = ggc_alloc (sizeof (struct alias_annot_entry));
-      newentry->key = decl;
-      newentry->value = avar;
-      slot =
-	(struct alias_annot_entry **)htab_find_slot (alias_annot, newentry,
-						     INSERT);
-      *slot = newentry;
-    }
+
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
   ALIAS_TVAR_VARNUM (avar) = VARRAY_ACTIVE_SIZE (alias_vars) - 1;
   return avar;
@@ -1021,26 +985,19 @@ void
 delete_alias_vars (void)
 {
   size_t i;
-  struct alias_annot_entry entry;
-
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
-      entry.key = VARRAY_TREE (local_alias_vars, i);
-      if (!DECL_P (entry.key))
-	{
-	  htab_remove_elt (alias_annot, &entry);
-	}
+      tree key = VARRAY_TREE (local_alias_vars, i);
+      if (DECL_P (key))
+	DECL_PTA_TYPEVAR (key) = NULL;
       else
-	{
-	  DECL_PTA_TYPEVAR (entry.key) = NULL;
-	}
+	abort ();
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
     VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
   if (!current_alias_ops->ip && !current_alias_ops->ip_partial)
     {
-      /*      htab_delete (alias_annot); */
       /*      VARRAY_CLEAR (alias_vars); */
       VARRAY_CLEAR (local_alias_vars);
       VARRAY_CLEAR (local_alias_varnums);
@@ -1061,10 +1018,31 @@ init_alias_vars (void)
   if ((!current_alias_ops->ip && !current_alias_ops->ip_partial)
       || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial)
-      || alias_annot == NULL)
-    alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
+}
 
+/* Return true if PTR can't point to anything (i.e. it has an empty
+   points-to set.  */
+bool 
+empty_points_to_set (tree ptr)
+{
+ alias_typevar ptrtv;
+  
+#if !FIELD_BASED
+#else
+  if (TREE_CODE (ptr) == COMPONENT_REF)
+    ptr = TREE_OPERAND (ptr, 1);
+#endif
+
+  if (DECL_P (ptr))
+    {
+      ptrtv = DECL_PTA_TYPEVAR (ptr);
+      if (!ptrtv)
+	return true;
+    }
+  else
+    abort ();
+
+  return current_alias_ops->empty_points_to_set (current_alias_ops, ptrtv);
 }
 
 /* Return true if PTR and VAR have the same points-to set.  */
@@ -1072,7 +1050,6 @@ init_alias_vars (void)
 bool
 same_points_to_set (tree ptr, tree var)
 {
-  struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
   
 #if !FIELD_BASED
@@ -1093,13 +1070,7 @@ same_points_to_set (tree ptr, tree var)
 	return false;
     }
   else
-    {
-      entry.key = ptr;
-      result = htab_find (alias_annot, &entry);
-      if (!result)
-	return false;
-      ptrtv = result->value;
-    }
+    abort ();
 
   if (DECL_P (var))
     {
@@ -1108,14 +1079,8 @@ same_points_to_set (tree ptr, tree var)
 	return false;
     }
   else
-    {
-      entry.key = var;
-      result = htab_find (alias_annot, &entry);
-      if (!result)
-	return false;
+    abort ();
 
-      vartv = result->value;
-    }
   return current_alias_ops->same_points_to_set (current_alias_ops, vartv, ptrtv);
 }
 
@@ -1125,7 +1090,6 @@ same_points_to_set (tree ptr, tree var)
 bool
 ptr_may_alias_var (tree ptr, tree var)
 {
-  struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
 
 #if !FIELD_BASED
@@ -1146,13 +1110,7 @@ ptr_may_alias_var (tree ptr, tree var)
 	return false;
     }
   else
-    {
-      entry.key = ptr;
-      result = htab_find (alias_annot, &entry);
-      if (!result)
-	return false;
-      ptrtv = result->value;
-    }
+    abort ();
 
   if (DECL_P (var))
     {
@@ -1161,14 +1119,7 @@ ptr_may_alias_var (tree ptr, tree var)
 	return false;
     }
   else
-    {
-      entry.key = var;
-      result = htab_find (alias_annot, &entry);
-      if (!result)
-	return false;
-
-      vartv = result->value;
-    }
+    abort ();
 
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
 }

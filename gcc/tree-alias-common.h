@@ -74,7 +74,10 @@ struct tree_alias_ops
   /* Determine if two typevars have the same points-to set.  */
   bool (*same_points_to_set) (struct tree_alias_ops *, alias_typevar, 
 			      alias_typevar);
-
+  
+  /* Determine if the typevar has an empty points-to set.  */
+  bool (*empty_points_to_set) (struct tree_alias_ops *, alias_typevar);
+  
   /* Private data.  */
   void *data;
 
@@ -93,6 +96,6 @@ extern void delete_alias_vars (void);
 extern void init_alias_vars (void);
 extern bool ptr_may_alias_var (tree, tree);
 extern bool same_points_to_set (tree, tree);
-
+extern bool empty_points_to_set (tree);
 extern const char *alias_get_name (tree);
 #endif

@@ -42,11 +42,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-inline.h"
 #include "varray.h"
 #include "tree-simple.h"
-#include "hashtab.h"
 #include "splay-tree.h"
 #include "engine/util.h"
 #include "libcompat/regions.h"
 #include "andersen_terms.h"
+#include "cgraph.h"
 
 /*  Andersen's interprocedural points-to analysis.
     This is a flow-insensitive, context insensitive algorithm.
@@ -80,7 +80,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     beyond the scope of this documentation.  See the libbanshee
     documentation, and references therein for more enlightenment.
     
-    That said, our constraints inclusion constraints of  set
+    That said, our constraints inclusion constraints of set
     expressions.  Given the helper functions, the various inference
     functions we implement should *look* relatively straightforward.  
 
@@ -117,13 +117,15 @@ static int print_out_result (splay_tree_node, void *);
 static void andersen_cleanup (struct tree_alias_ops *);
 static bool andersen_may_alias (struct tree_alias_ops *, alias_typevar,
 				alias_typevar);
-static bool andersen_same_points_to_set (struct tree_alias_ops *, alias_typevar,
-				alias_typevar);
+static bool andersen_same_points_to_set (struct tree_alias_ops *, 
+					 alias_typevar, alias_typevar);
+static bool andersen_empty_points_to_set (struct tree_alias_ops *,
+					  alias_typevar);
 static alias_typevar andersen_add_var (struct tree_alias_ops *, tree);
 static alias_typevar andersen_add_var_same (struct tree_alias_ops *,
 					    tree, alias_typevar);
 static bool pointer_destroying_op (tree);
-
+static aterm_list get_ptset (alias_typevar);
 static splay_tree ptamap;
 
 
@@ -142,6 +144,7 @@ static struct tree_alias_ops andersen_ops = {
   andersen_function_call,
   andersen_may_alias,
   andersen_same_points_to_set,
+  andersen_empty_points_to_set,
   0, /* data */
   0, /* Currently non-interprocedural */
   1  /* Can do IP on all statics without help. */
@@ -168,9 +171,6 @@ typedef aterm contents_type;
 static contents_type pta_get_contents (aterm);
 static void pr_ptset_aterm_elem (aterm);
 static void pta_pr_ptset (contents_type);
-#if 0
-static int pta_get_ptsize (contents_type);
-#endif
 
 /* Hook for debugging.  This function is called instead of
    aterm_inclusion, and lets us print the actual constraints as they
@@ -431,15 +431,6 @@ pta_pr_ptset (contents_type t)
   deleteregion (scratch_rgn);
 }
 
-#if 0
-static int
-pta_get_ptsize (contents_type t)
-{
-  aterm_list ptset = aterm_tlb (t);
-  return aterm_list_length (ptset);
-}
-#endif
-
 /* Initialize Andersen alias analysis. */
 static int initted = 0;
 
@@ -455,7 +446,7 @@ andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 
   dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  /* Don't claim we can do ip partial unless the user requests it. */
+  /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
   if (!flag_unit_at_a_time) 
     andersen_ops.ip_partial = 0;
 
@@ -487,11 +478,10 @@ andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
       splay_tree_foreach (ptamap, print_out_result, NULL);
       dump_end (TDI_pta, dump_file);
     }
-
+  splay_tree_delete (ptamap);
   if (!flag_unit_at_a_time) 
     {
       pta_reset ();
-      splay_tree_delete (ptamap);
       deleteregion (andersen_rgn);
       andersen_rgn = NULL;
     }
@@ -818,7 +808,7 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_PTA_TYPEVAR (decl)
       && flag_unit_at_a_time 
-      && (!TREE_PUBLIC (decl) && TREE_STATIC (decl)))
+      && (cgraph_local_info (decl)->local))
     {
       return 0;
     }
@@ -835,10 +825,22 @@ simple_cmp (const aterm a, const aterm b)
 }
 
 
-/* Determine if two aterm's have the same points-to set.
-   When we didn't create global_var, we can just get the two points-to
-   sets and compare the lengths, then the names.
-   When we did create global_var, we have to filter it out.  */
+/* Get the points-to set for TV, caching if it we had to compute it. */
+   
+static aterm_list 
+get_ptset (alias_typevar tv)
+{
+  aterm_list ptset;
+  ptset = ALIAS_TVAR_PTSET (tv);
+  if (ptset != NULL)
+    return ptset;
+  ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (tv)));
+  ALIAS_TVAR_PTSET (tv) = ptset;
+  return ptset;
+}
+  
+  
+/* Determine if two aterm's have the same points-to set. */
 
 static bool
 andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
@@ -849,20 +851,8 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   aterm data1, data2;
   region scratch_rgn = newregion ();
 
-  ptset1 = ALIAS_TVAR_PTSET (ptrtv);
-  ptset2 = ALIAS_TVAR_PTSET (vartv);
-  /* Solve the points-to constraints and get the resulting sets if
-     they weren't cached previously.  */
-  if (!ptset1)
-    {
-      ptset1 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
-      ALIAS_TVAR_PTSET (ptrtv) = ptset1;
-    }
-  if (!ptset2)
-    {
-      ptset2 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (vartv)));
-      ALIAS_TVAR_PTSET (vartv) = ptset2;
-    }
+  ptset1 = get_ptset (ptrtv);
+  ptset2 = get_ptset (vartv);
   
   if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
     {
@@ -912,18 +902,22 @@ andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar ptrtv, alias_typevar vartv)
 {
   aterm_list ptset;
-  ptset = ALIAS_TVAR_PTSET (ptrtv);
-
-  /* Solve the points-to constraints and get the resulting set if we
-     haven't cached it.  */
-  if (!ptset)
-    {
-      ptset = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
-      ALIAS_TVAR_PTSET (ptrtv) = ptset;
-    }
+  ptset = get_ptset (ptrtv);
 
   if (aterm_list_empty (ptset))
     return false;
 
   return aterm_list_member (ptset, ALIAS_TVAR_ATERM (vartv));
+}
+
+/* Determine whether PTRTV has an empty points-to set. IE it may not
+   point to anything.  */
+
+static bool 
+andersen_empty_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
+			      alias_typevar ptrtv)
+{
+  aterm_list ptset;
+  ptset = get_ptset (ptrtv);
+  return aterm_list_empty (ptset);  
 }
