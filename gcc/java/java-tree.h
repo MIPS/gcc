@@ -1744,3 +1744,21 @@ enum
 };
 
 #undef DEBUG_JAVA_BINDING_LEVELS
+
+/* In an EXPR_WITH_FILE_LOCATION node.  */
+#define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
+  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
+#define EXPR_WFL_NODE(NODE) \
+  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
+#define EXPR_WFL_FILENAME_NODE(NODE) \
+  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 1)
+#define EXPR_WFL_FILENAME(NODE) \
+  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
+/* ??? Java uses this in all expressions.  */
+#define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+#define EXPR_WFL_LINENO(NODE) (EXPR_WFL_LINECOL (NODE) >> 12)
+#define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
+#define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
+  (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+
+extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));

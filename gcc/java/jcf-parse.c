@@ -149,7 +149,9 @@ set_source_filename (jcf, index)
 	return;
     }
   input_filename = sfname;
-  DECL_SOURCE_FILE (TYPE_NAME (current_class)) = sfname;
+  annotate_with_file_line (TYPE_NAME (current_class),
+			   sfname,
+			   TREE_LINENO (TYPE_NAME (current_class)));
   if (current_class == main_class) main_input_filename = input_filename;
 }
 
@@ -430,7 +432,7 @@ give_name_to_class (jcf, i)
       tree class_name = unmangle_classname (JPOOL_UTF_DATA (jcf, j),
 					    JPOOL_UTF_LENGTH (jcf, j));
       this_class = lookup_class (class_name);
-      input_filename = DECL_SOURCE_FILE (TYPE_NAME (this_class));
+      input_filename = TREE_FILENAME (TYPE_NAME (this_class));
       lineno = 0;
       if (main_input_filename == NULL && jcf == main_jcf)
 	main_input_filename = input_filename;
@@ -722,7 +724,7 @@ parse_class_file ()
 
   java_layout_seen_class_methods ();
 
-  input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
+  input_filename = TREE_FILENAME (TYPE_NAME (current_class));
   lineno = 0;
   (*debug_hooks->start_source_file) (lineno, input_filename);
   init_outgoing_cpool ();

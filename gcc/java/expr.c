@@ -2484,6 +2484,23 @@ java_expand_expr (exp, target, tmode, modifier)
 
   switch (TREE_CODE (exp))
     {
+
+    case EXPR_WITH_FILE_LOCATION:
+      {
+	rtx to_return;
+	const char *saved_input_filename = input_filename;
+	int saved_lineno = lineno;
+	input_filename = EXPR_WFL_FILENAME (exp);
+	lineno = EXPR_WFL_LINENO (exp);
+        if (EXPR_WFL_EMIT_LINE_NOTE (exp))
+          emit_line_note (input_filename, lineno);
+	/* Possibly avoid switching back and forth here.  */
+	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
+	input_filename = saved_input_filename;
+	lineno = saved_lineno;
+	return to_return;
+      }
+
     case NEW_ARRAY_INIT:
       {
 	rtx tmp;
@@ -3481,5 +3498,37 @@ emit_init_test_initialization (entry, x)
   return true;
 }
 
+/* EXPR_WITH_FILE_LOCATION are used to keep track of the exact
+   location where an expression or an identifier were encountered. It
+   is necessary for languages where the frontend parser will handle
+   recursively more than one file (Java is one of them).  */
+
+tree
+build_expr_wfl (node, file, line, col)
+     tree node;
+     const char *file;
+     int line, col;
+{
+  static const char *last_file = 0;
+  static tree last_filenode = NULL_TREE;
+  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
+
+  EXPR_WFL_NODE (wfl) = node;
+  EXPR_WFL_SET_LINECOL (wfl, line, col);
+  if (file != last_file)
+    {
+      last_file = file;
+      last_filenode = file ? get_identifier (file) : NULL_TREE;
+    }
+
+  EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
+  if (node)
+    {
+      TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
+      TREE_TYPE (wfl) = TREE_TYPE (node);
+    }
+
+  return wfl;
+}
 #include "gt-java-expr.h"
 
