@@ -1,5 +1,13 @@
 2005-03-30  Dale Johannesen  <dalej@apple.com>
 
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-[30|31|
+	32|33|34|35|36|52|59|60]:  Remove.
+	All above files with .ddall suffix:  Remove.
+	ssa-chrec-[03|04|06|07|08|10|56|57|58]:  Adjust
+	flags to ones that exist.
+
+2005-03-30  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3955567
 	* gcc.apple/bitreverse-[0-9].c:  New.
 
