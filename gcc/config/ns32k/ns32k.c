@@ -70,9 +70,6 @@ const struct attribute_spec ns32k_attribute_table[];
 static void ns32k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_encode_section_info PARAMS ((tree, int));
-#ifdef COLLECT
-static void ns32k_globalize_label PARAMS ((FILE *, const char *));
-#endif
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -1137,7 +1134,7 @@ print_operand (file, x, code)
 		   CONST_DOUBLE_HIGH (x), CONST_DOUBLE_LOW (x));
 #else
 	  char s[30];
-	  REAL_VALUE_TO_DECIMAL (r, "%.20e", s);
+	  REAL_VALUE_TO_DECIMAL (r, s, -1);
 #ifdef ENCORE_ASM
 	  fprintf (file, "0f%s", s);
 #else
@@ -1153,7 +1150,7 @@ print_operand (file, x, code)
 	  fprintf (file, "0Fx%08lx", l);
 #else
 	  char s[30];
-	  REAL_VALUE_TO_DECIMAL (r, "%.20e", s);
+	  REAL_VALUE_TO_DECIMAL (r, s, -1);
 	  fprintf (file, "0f%s", s);
 #endif
 	}
@@ -1576,13 +1573,3 @@ ns32k_encode_section_info (decl, first)
 	   || ! TREE_PUBLIC (decl));
     }
 }
-
-#ifdef COLLECT
-static void
-ns32k_globalize_label (stream, name)
-     FILE *stream;
-     const char *name;
-{
-  fprintf (stream, "\t.globl\t%s\n", name);
-}
-#endif

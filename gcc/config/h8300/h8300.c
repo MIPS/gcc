@@ -505,7 +505,10 @@ asm_file_start (file)
 {
   fprintf (file, ";\tGCC For the Hitachi H8/300\n");
   fprintf (file, ";\tBy Hitachi America Ltd and Cygnus Support\n");
-  if (optimize)
+  
+  if (optimize_size)
+    fprintf (file, "; -Os\n")
+  else if (optimize)
     fprintf (file, "; -O%d\n", optimize);
   if (TARGET_H8300H)
     fprintf (file, "\n\t.h8300h\n");
@@ -2213,23 +2216,23 @@ static const enum shift_alg shift_alg_hi[3][3][16] = {
     /* TARGET_H8300  */
     /*  0    1    2    3    4    5    6    7  */
     /*  8    9   10   11   12   13   14   15  */
+    { INL, INL, INL, INL, INL, INL, INL, SPC,
+      SPC, SPC, SPC, SPC, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFT   */
     { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFT   */
+      SPC, SPC, SPC, SPC, SPC, SPC, SPC, SPC }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_LSHIFTRT */
-    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+      SPC, SPC, SPC, SPC, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFTRT */
   },
   {
     /* TARGET_H8300H  */
     /*  0    1    2    3    4    5    6    7  */
     /*  8    9   10   11   12   13   14   15  */
-    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+    { INL, INL, INL, INL, INL, INL, INL, SPC,
       SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_ASHIFT   */
-    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
+    { INL, INL, INL, INL, INL, INL, INL, SPC,
       SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
-    { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+    { INL, INL, INL, INL, INL, INL, INL, SPC,
+      SPC, SPC, SPC, SPC, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFTRT */
   },
   {
     /* TARGET_H8300S  */
@@ -2240,7 +2243,7 @@ static const enum shift_alg shift_alg_hi[3][3][16] = {
     { INL, INL, INL, INL, INL, INL, INL, INL,
       SPC, SPC, SPC, SPC, SPC, ROT, ROT, ROT }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, INL, INL, INL, INL, INL,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+      SPC, SPC, SPC, SPC, SPC, SPC, SPC, SPC }, /* SHIFT_ASHIFTRT */
   }
 };
 
@@ -2458,7 +2461,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    }
 	}
-      else if (8 <= count && count <= 12)
+      else if (8 <= count && count <= 13)
 	{
 	  info->remainder = count - 8;
 
@@ -2481,6 +2484,28 @@ get_shift_alg (shift_type, shift_mode, count, info)
 		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0";
 	      info->shift1 = "shar.b\t%s0";
 	      info->shift2 = "shar.b\t#2,%s0";
+	      goto end;
+	    }
+	}
+      else if (count == 14)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      if (TARGET_H8300)
+		info->special = "mov.b\t%s0,%t0\n\trotr.b\t%t0\n\trotr.b\t%t0\n\tand.b\t#0xC0,%t0\n\tsub.b\t%s0,%s0";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      if (TARGET_H8300)
+		info->special = "mov.b\t%t0,%s0\n\trotl.b\t%s0\n\trotl.b\t%s0\n\tand.b\t#3,%s0\n\tsub.b\t%t0,%t0";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      if (TARGET_H8300)
+		info->special = "mov.b\t%t0,%s0\n\tshll.b\t%s0\n\tsubx.b\t%t0,%t0\n\tshll.b\t%s0\n\tmov.b\t%t0,%s0\n\tbst.b\t#0,%s0";
+	      else if (TARGET_H8300H)
+		info->special = "shll.b\t%t0\n\tsubx.b\t%s0,%s0\n\tshll.b\t%t0\n\trotxl.b\t%s0\n\texts.w\t%T0";
+	      else /* TARGET_H8300S */
+		info->special = "mov.b\t%t0,%s0\n\texts.w\t%T0\n\tshar.w\t#2,%T0\n\tshar.w\t#2,%T0\n\tshar.w\t#2,%T0";
 	      goto end;
 	    }
 	}

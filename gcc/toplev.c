@@ -1700,7 +1700,7 @@ static void
 crash_signal (signo)
      int signo;
 {
-  internal_error ("internal error: %s", strsignal (signo));
+  internal_error ("%s", strsignal (signo));
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -2506,7 +2506,7 @@ rest_of_compilation (decl)
 	      free_bb_for_insn ();
 	    }
 
-	  current_function_nothrow = nothrow_function_p ();
+	  set_nothrow_function_flags ();
 	  if (current_function_nothrow)
 	    /* Now we know that this can't throw; set the flag for the benefit
 	       of other functions later in this translation unit.  */
@@ -3528,7 +3528,7 @@ rest_of_compilation (decl)
   shorten_branches (get_insns ());
   timevar_pop (TV_SHORTEN_BRANCH);
 
-  current_function_nothrow = nothrow_function_p ();
+  set_nothrow_function_flags ();
   if (current_function_nothrow)
     /* Now we know that this can't throw; set the flag for the benefit
        of other functions later in this translation unit.  */

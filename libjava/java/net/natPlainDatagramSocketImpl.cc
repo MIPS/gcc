@@ -17,13 +17,10 @@ details.  */
 #define ENOPROTOOPT 109
 #endif
 
-static inline int
-close(int s)
-{
-  return closesocket(s);
-}
+#define NATIVE_CLOSE(s) closesocket (s)
 
 #else /* WIN32 */
+
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -35,6 +32,9 @@ close(int s)
 #endif
 #include <errno.h>
 #include <string.h>
+
+#define NATIVE_CLOSE(s) ::close (s)
+
 #endif /* WIN32 */
 
 #if HAVE_BSTRING_H
@@ -303,7 +303,7 @@ java::net::PlainDatagramSocketImpl::close ()
 
   // The method isn't declared to throw anything, so we disregard
   // the return value.
-  ::close (fnum);
+  NATIVE_CLOSE (fnum);
   fnum = -1;
   timeout = 0;
 }
@@ -524,6 +524,22 @@ java::net::PlainDatagramSocketImpl::setOption (jint optID,
         throw new java::net::SocketException (
           JvNewStringUTF ("SO_LINGER not valid for UDP"));
         return;
+      case _Jv_SO_KEEPALIVE_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("SO_KEEPALIVE not valid for UDP"));
+        return;
+	
+      case _Jv_SO_BROADCAST_ :
+        if (::setsockopt (fnum, SOL_SOCKET, SO_BROADCAST, (char *) &val,
+                          val_len) != 0)
+          goto error;
+        break;
+	
+      case _Jv_SO_OOBINLINE_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("SO_OOBINLINE: not valid for UDP"));
+        break;
+	
       case _Jv_SO_SNDBUF_ :
       case _Jv_SO_RCVBUF_ :
 #if defined(SO_SNDBUF) && defined(SO_RCVBUF)
@@ -587,6 +603,23 @@ java::net::PlainDatagramSocketImpl::setOption (jint optID,
 	if (::setsockopt (fnum, level, opname, ptr, len) != 0)
 	  goto error;
         return;
+	
+      case _Jv_IP_MULTICAST_IF2_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("IP_MULTICAST_IF2: not yet implemented"));
+        break;
+	
+      case _Jv_IP_MULTICAST_LOOP_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("IP_MULTICAST_LOOP: not yet implemented"));
+        break;
+	
+      case _Jv_IP_TOS_ :
+        if (::setsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+	   val_len) != 0)
+	  goto error;    
+	return;
+
       case _Jv_SO_TIMEOUT_ :
 	timeout = val;
         return;
@@ -613,11 +646,26 @@ java::net::PlainDatagramSocketImpl::getOption (jint optID)
         throw new java::net::SocketException (
           JvNewStringUTF ("TCP_NODELAY not valid for UDP"));
         break;
-
       case _Jv_SO_LINGER_ :
         throw new java::net::SocketException (
           JvNewStringUTF ("SO_LINGER not valid for UDP"));
         break;    
+      case _Jv_SO_KEEPALIVE_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("SO_KEEPALIVE not valid for UDP"));
+        break;
+
+      case _Jv_SO_BROADCAST_ :
+	if (::getsockopt (fnum, SOL_SOCKET, SO_BROADCAST, (char *) &val,
+	    &val_len) != 0)
+	  goto error;
+	return new java::lang::Boolean (val != 0);
+	
+      case _Jv_SO_OOBINLINE_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("SO_OOBINLINE not valid for UDP"));
+	break;
+	
       case _Jv_SO_RCVBUF_ :
       case _Jv_SO_SNDBUF_ :
 #if defined(SO_SNDBUF) && defined(SO_RCVBUF)
@@ -690,6 +738,24 @@ java::net::PlainDatagramSocketImpl::getOption (jint optID)
       case _Jv_SO_TIMEOUT_ :
 	return new java::lang::Integer (timeout);
 	break;
+	
+      case _Jv_IP_MULTICAST_IF2_ :
+        throw new java::net::SocketException (
+          JvNewStringUTF ("IP_MULTICAST_IF2: not yet implemented"));
+        break;
+	
+      case _Jv_IP_MULTICAST_LOOP_ :
+	if (::getsockopt (fnum, SOL_SOCKET, IP_MULTICAST_LOOP, (char *) &val,
+	    &val_len) != 0)
+	  goto error;
+	return new java::lang::Boolean (val != 0);
+	
+      case _Jv_IP_TOS_ :
+        if (::getsockopt (fnum, SOL_SOCKET, IP_TOS, (char *) &val,
+           &val_len) != 0)
+          goto error;
+        return new java::lang::Integer (val);
+
       default :
 	errno = ENOPROTOOPT;
     }

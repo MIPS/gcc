@@ -124,6 +124,7 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("MQ",                     CL_ALL | CL_ARG, OPT_MQ)		     \
   OPT("MT",                     CL_ALL | CL_ARG, OPT_MT)		     \
   OPT("P",                      CL_ALL,   OPT_P)			     \
+  OPT("Wabi",                   CL_CXX,   OPT_Wabi)                          \
   OPT("Wall",			CL_ALL,   OPT_Wall)			     \
   OPT("Wbad-function-cast",	CL_C,     OPT_Wbad_function_cast)	     \
   OPT("Wcast-qual",		CL_ALL,   OPT_Wcast_qual)		     \
@@ -180,6 +181,7 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("Wsystem-headers",	CL_ALL,   OPT_Wsystem_headers)		     \
   OPT("Wtraditional",		CL_C,     OPT_Wtraditional)		     \
   OPT("Wtrigraphs",		CL_ALL,   OPT_Wtrigraphs)		     \
+  OPT("Wundeclared-selector",	CL_OBJC,  OPT_Wundeclared_selector)	     \
   OPT("Wundef",			CL_ALL,   OPT_Wundef)			     \
   OPT("Wunknown-pragmas",	CL_ALL,   OPT_Wunknown_pragmas)		     \
   OPT("Wunused-macros",		CL_ALL,   OPT_Wunused_macros)		     \
@@ -374,7 +376,10 @@ missing_arg (opt_index)
    Complications arise since some options can be suffixed with an
    argument, and multiple complete matches can occur, e.g. -pedantic
    and -pedantic-errors.  Also, some options are only accepted by some
-   languages.  */
+   languages.  If a switch matches for a different language and
+   doesn't match any alternatives for the true front end, the index of
+   the matched switch is returned anyway.  The caller should check for
+   this case.  */
 static size_t
 find_opt (input, lang_flag)
      const char *input;
@@ -382,7 +387,7 @@ find_opt (input, lang_flag)
 {
   size_t md, mn, mx;
   size_t opt_len;
-  size_t wrong_lang = N_OPTS;
+  size_t result = N_OPTS;
   int comp;
 
   mn = 0;
@@ -403,13 +408,7 @@ find_opt (input, lang_flag)
 	{
 	  /* The switch matches.  It it an exact match?  */
 	  if (input[opt_len] == '\0')
-	    {
-	    exact_match:
-	      if (cl_options[md].flags & lang_flag)
-		return md;
-	      wrong_lang = md;
-	      break;
-	    }
+	    return md;
 	  else
 	    {
 	      mn = md + 1;
@@ -423,9 +422,10 @@ find_opt (input, lang_flag)
 	      /* Is this switch valid for this front end?  */
 	      if (!(cl_options[md].flags & lang_flag))
 		{
-		  /* If subsequently we don't find a good match,
-		     report this as a bad match.  */
-		  wrong_lang = md;
+		  /* If subsequently we don't find a better match,
+		     return this and let the caller report it as a bad
+		     match.  */
+		  result = md;
 		  continue;
 		}
 
@@ -444,7 +444,7 @@ find_opt (input, lang_flag)
 		  if (memcmp (input, cl_options[md].opt_text, opt_len))
 		    break;
 		  if (input[opt_len] == '\0')
-		    goto exact_match;
+		    return md;
 		  if (cl_options[md].flags & lang_flag
 		      && cl_options[md].flags & CL_JOINED)
 		    mx = md;
@@ -455,10 +455,7 @@ find_opt (input, lang_flag)
 	}
     }
 
-  if (wrong_lang != N_OPTS)
-    complain_wrong_lang (wrong_lang);
-
-  return N_OPTS;
+  return result;
 }
 
 /* Defer option CODE with argument ARG.  */
@@ -534,7 +531,7 @@ c_common_decode_option (argc, argv)
   const char *opt, *arg = 0;
   char *dup = 0;
   bool on = true;
-  int result;
+  int result, lang_flag;
   const struct cl_option *option;
   enum opt_code code;
 
@@ -574,7 +571,8 @@ c_common_decode_option (argc, argv)
   result = cpp_handle_option (parse_in, argc, argv);
 
   /* Skip over '-'.  */
-  opt_index = find_opt (opt + 1, lang_flags[(c_language << 1) + flag_objc]);
+  lang_flag = lang_flags[(c_language << 1) + flag_objc];
+  opt_index = find_opt (opt + 1, lang_flag);
   if (opt_index == N_OPTS)
     goto done;
 
@@ -608,6 +606,15 @@ c_common_decode_option (argc, argv)
 	  result = argc;
 	  goto done;
 	}
+    }
+
+  /* Complain about the wrong language after we've swallowed any
+     necessary extra argument.  Eventually make this a hard error
+     after the call to find_opt, and return argc.  */
+  if (!(cl_options[opt_index].flags & lang_flag))
+    {
+      complain_wrong_lang (opt_index);
+      goto done;
     }
 
   switch (code = option->opt_code)
@@ -676,6 +683,10 @@ c_common_decode_option (argc, argv)
 
     case OPT_P:
       cpp_opts->no_line_commands = 1;
+      break;
+
+    case OPT_Wabi:
+      warn_abi = on;
       break;
 
     case OPT_Wall:
@@ -940,6 +951,10 @@ c_common_decode_option (argc, argv)
 
     case OPT_Wtrigraphs:
       cpp_opts->warn_trigraphs = on;
+      break;
+
+    case OPT_Wundeclared_selector:
+      warn_undeclared_selector = on;
       break;
 
     case OPT_Wundef:

@@ -2167,8 +2167,10 @@ struct rtx_const GTY(())
     } GTY ((tag ("0"))) di;
 
     /* The max vector size we have is 8 wide.  This should be enough.  */
-    HOST_WIDE_INT veclo[16];
-    HOST_WIDE_INT vechi[16];
+    struct rtx_const_vec {
+      HOST_WIDE_INT veclo;
+      HOST_WIDE_INT vechi; 
+    } GTY ((tag ("2"))) vec[16];
   } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
 };
 
@@ -2980,13 +2982,13 @@ decode_rtx_const (mode, x, value)
 	    elt = CONST_VECTOR_ELT (x, i);
 	    if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	      {
-		value->un.veclo[i] = (HOST_WIDE_INT) INTVAL (elt);
-		value->un.vechi[i] = 0;
+		value->un.vec[i].veclo = (HOST_WIDE_INT) INTVAL (elt);
+		value->un.vec[i].vechi = 0;
 	      }
 	    else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
 	      {
-		value->un.veclo[i] = (HOST_WIDE_INT) CONST_DOUBLE_LOW (elt);
-		value->un.vechi[i] = (HOST_WIDE_INT) CONST_DOUBLE_HIGH (elt);
+		value->un.vec[i].veclo = (HOST_WIDE_INT) CONST_DOUBLE_LOW (elt);
+		value->un.vec[i].vechi = (HOST_WIDE_INT) CONST_DOUBLE_HIGH (elt);
 	      }
 	    else
 	      abort ();
@@ -4691,11 +4693,21 @@ default_section_type_flags (decl, name, reloc)
      const char *name;
      int reloc;
 {
+  return default_section_type_flags_1 (decl, name, reloc, flag_pic);
+}
+
+unsigned int
+default_section_type_flags_1 (decl, name, reloc, shlib)
+     tree decl;
+     const char *name;
+     int reloc;
+     int shlib;
+{
   unsigned int flags;
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && decl_readonly_section (decl, reloc))
+  else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
   else
     flags = SECTION_WRITE;
@@ -4888,6 +4900,7 @@ enum section_category
   SECCAT_RODATA_MERGE_STR,
   SECCAT_RODATA_MERGE_STR_INIT,
   SECCAT_RODATA_MERGE_CONST,
+  SECCAT_SRODATA,
 
   SECCAT_DATA,
 
@@ -4913,12 +4926,14 @@ enum section_category
   SECCAT_TBSS
 };
 
-static enum section_category categorize_decl_for_section PARAMS ((tree, int));
+static enum section_category
+categorize_decl_for_section PARAMS ((tree, int, int));
 
 static enum section_category
-categorize_decl_for_section (decl, reloc)
+categorize_decl_for_section (decl, reloc, shlib)
      tree decl;
      int reloc;
+     int shlib;
 {
   enum section_category ret;
 
@@ -4940,16 +4955,16 @@ categorize_decl_for_section (decl, reloc)
 	       || TREE_SIDE_EFFECTS (decl)
 	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
 	{
-	  if (flag_pic && (reloc & 2))
+	  if (shlib && (reloc & 2))
 	    ret = SECCAT_DATA_REL;
-	  else if (flag_pic && reloc)
+	  else if (shlib && reloc)
 	    ret = SECCAT_DATA_REL_LOCAL;
 	  else
 	    ret = SECCAT_DATA;
 	}
-      else if (flag_pic && (reloc & 2))
+      else if (shlib && (reloc & 2))
 	ret = SECCAT_DATA_REL_RO;
-      else if (flag_pic && reloc)
+      else if (shlib && reloc)
 	ret = SECCAT_DATA_REL_RO_LOCAL;
       else if (flag_merge_constants < 2)
 	/* C and C++ don't allow different variables to share the same
@@ -4963,7 +4978,7 @@ categorize_decl_for_section (decl, reloc)
     }
   else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
-      if ((flag_pic && reloc)
+      if ((shlib && reloc)
 	  || TREE_SIDE_EFFECTS (decl)
 	  || ! TREE_CONSTANT (decl))
 	ret = SECCAT_DATA;
@@ -4987,6 +5002,8 @@ categorize_decl_for_section (decl, reloc)
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
+      else if (targetm.have_srodata_section && ret == SECCAT_RODATA)
+	ret = SECCAT_SRODATA;
       else
 	ret = SECCAT_SDATA;
     }
@@ -4999,12 +5016,22 @@ decl_readonly_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  switch (categorize_decl_for_section (decl, reloc))
+  return decl_readonly_section_1 (decl, reloc, flag_pic);
+}
+
+bool
+decl_readonly_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_RODATA:
     case SECCAT_RODATA_MERGE_STR:
     case SECCAT_RODATA_MERGE_STR_INIT:
     case SECCAT_RODATA_MERGE_CONST:
+    case SECCAT_SRODATA:
       return true;
       break;
     default:
@@ -5021,7 +5048,17 @@ default_elf_select_section (decl, reloc, align)
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  switch (categorize_decl_for_section (decl, reloc))
+  default_elf_select_section_1 (decl, reloc, align, flag_pic);
+}
+
+void
+default_elf_select_section_1 (decl, reloc, align, shlib)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
       /* We're not supposed to be called on FUNCTION_DECLs.  */
@@ -5037,6 +5074,9 @@ default_elf_select_section (decl, reloc, align)
       break;
     case SECCAT_RODATA_MERGE_CONST:
       mergeable_constant_section (DECL_MODE (decl), align, 0);
+      break;
+    case SECCAT_SRODATA:
+      named_section (NULL_TREE, ".sdata2", reloc);
       break;
     case SECCAT_DATA:
       data_section ();
@@ -5085,12 +5125,21 @@ default_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
+  default_unique_section_1 (decl, reloc, flag_pic);
+}
+
+void
+default_unique_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
   bool one_only = DECL_ONE_ONLY (decl);
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;
 
-  switch (categorize_decl_for_section (decl, reloc))
+  switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
       prefix = one_only ? ".gnu.linkonce.t." : ".text.";
@@ -5100,6 +5149,9 @@ default_unique_section (decl, reloc)
     case SECCAT_RODATA_MERGE_STR_INIT:
     case SECCAT_RODATA_MERGE_CONST:
       prefix = one_only ? ".gnu.linkonce.r." : ".rodata.";
+      break;
+    case SECCAT_SRODATA:
+      prefix = one_only ? ".gnu.linkonce.s2." : ".sdata2.";
       break;
     case SECCAT_DATA:
     case SECCAT_DATA_REL:
@@ -5205,6 +5257,14 @@ bool
 default_binds_local_p (exp)
      tree exp;
 {
+  return default_binds_local_p_1 (exp, flag_pic);
+}
+
+bool
+default_binds_local_p_1 (exp, shlib)
+     tree exp;
+     int shlib;
+{
   bool local_p;
 
   /* A non-decl is an entry in the constant pool.  */
@@ -5224,7 +5284,7 @@ default_binds_local_p (exp)
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
-  else if (flag_pic)
+  else if (shlib)
     local_p = false;
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */

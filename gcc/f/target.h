@@ -224,7 +224,15 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define FFETARGET_f2cTYLOGICAL2 13
 #define FFETARGET_f2cTYQUAD 14
 
-#if !defined(__alpha__) && (!defined (_ARCH_PPC) || !defined (__64BIT__)) && (!defined(__sparc__) || (!defined(__sparcv9) && !defined(__arch64__))) && (!defined(__ia64__) || !defined(__LP64__)) && (!defined(__hppa__) || !defined(__LP64__)) && !defined(__s390x__)  && !defined(__x86_64__)
+#if (!defined(__alpha__) \
+     && (!defined(__hppa__) || !defined(__LP64__)) \
+     && (!defined(__ia64__) || !defined(__LP64__)) \
+     && !defined(__MMIX__) \
+     && (!defined (_ARCH_PPC) || !defined (__64BIT__)) \
+     && !defined(__powerpc64__) \
+     && !defined(__s390x__) \
+     && (!defined(__sparc__) || (!defined(__sparcv9) && !defined(__arch64__)))\
+     && !defined(__x86_64__))
 #define FFETARGET_32bit_longs
 #endif
 
@@ -1485,13 +1493,13 @@ void *ffetarget_memcpy_ (void *dst, void *src, size_t len);
 #define ffetarget_print_real1(f,l) \
   ({ REAL_VALUE_TYPE lr; \
      lr = ffetarget_cvt_r1_to_rv_ ((l)); \
-     REAL_VALUE_TO_DECIMAL (lr, bad_fmt_val??, ffetarget_string_); \
+     REAL_VALUE_TO_DECIMAL (lr, ffetarget_string_, -1); \
      fputs (ffetarget_string_, (f)); \
    })
 #define ffetarget_print_real2(f,l) \
   ({ REAL_VALUE_TYPE lr; \
      lr = ffetarget_cvt_r2_to_rv_ (&((l).v[0])); \
-     REAL_VALUE_TO_DECIMAL (lr, bad_fmt_val??, ffetarget_string_); \
+     REAL_VALUE_TO_DECIMAL (lr, ffetarget_string_, -1); \
      fputs (ffetarget_string_, (f)); \
    })
 #define ffetarget_real1_one(res) ffetarget_cvt_rv_to_r1_ (dconst1, *(res))

@@ -169,7 +169,7 @@ in the following sections.
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char @gol
--fwritable-strings  -fshort-wchar}
+-fwritable-strings}
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
@@ -187,7 +187,7 @@ in the following sections.
 -fno-optional-diags  -fpermissive @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
 -fuse-cxa-atexit  -fvtable-gc  -fno-weak  -nostdinc++ @gol
--fno-default-inline  -Wctor-dtor-privacy @gol
+-fno-default-inline -Wabi -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
 -Weffc++  -Wno-deprecated @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
@@ -199,7 +199,7 @@ in the following sections.
 @gccoptlist{
 -fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime  -gen-decls @gol
--Wno-protocol  -Wselector}
+-Wno-protocol  -Wselector -Wundeclared-selector}
 
 @item Language Independent Options
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
@@ -211,7 +211,7 @@ in the following sections.
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{
 -fsyntax-only  -pedantic  -pedantic-errors @gol
--w  -W  -Wall  -Waggregate-return @gol
+-w  -W  -Wall -Waggregate-return @gol
 -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  -Werror @gol
@@ -270,11 +270,12 @@ in the following sections.
 -fif-conversion -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
--fmove-all-movables  -fnew-ra -fno-default-inline  -fno-defer-pop @gol
+-fmove-all-movables  -fnew-ra  -fno-default-inline @gol
+-fno-defer-pop @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
--funsafe-math-optimizations -ffinite-math-only -fno-trapping-math @gol
--fno-zero-initialized-in-bss @gol
+-funsafe-math-optimizations -ffinite-math-only @gol
+-fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -freduce-all-givs -fregmove  -frename-registers @gol
@@ -282,8 +283,8 @@ in the following sections.
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fschedule-insns  -fschedule-insns2 -fsignaling-nans @gol
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
--fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps  -ftrapv @gol
--funroll-all-loops  -funroll-loops  @gol
+-fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
+-ftrapv -funroll-all-loops  -funroll-loops  @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -338,7 +339,8 @@ in the following sections.
 @emph{M68hc1x Options}
 @gccoptlist{
 -m6811  -m6812  -m68hc11  -m68hc12 @gol
--mauto-incdec  -minmax  -mlong-calls  -mshort  -msoft-reg-count=@var{count}}
+-mauto-incdec  -minmax  -mlong-calls  -mshort @gol
+-msoft-reg-count=@var{count}}
 
 @emph{VAX Options}
 @gccoptlist{
@@ -447,7 +449,7 @@ in the following sections.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
--maix-struct-return -msvr4-struct-return
+-maix-struct-return -msvr4-struct-return @gol
 -mabi=altivec -mabi=no-altivec @gol
 -mabi=spe -mabi=no-spe @gol
 -misel=yes -misel=no @gol
@@ -477,7 +479,7 @@ in the following sections.
 -m4650  -msingle-float  -mmad @gol
 -mstats  -EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi @gol
--mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func
+-mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func @gol
 -mbranch-likely -mno-branch-likely}
 
 @emph{i386 and x86-64 Options}
@@ -577,6 +579,9 @@ in the following sections.
 -mlong-calls  -mno-long-calls  -mep  -mno-ep @gol
 -mprolog-function  -mno-prolog-function  -mspace @gol
 -mtda=@var{n}  -msda=@var{n}  -mzda=@var{n} @gol
+-mapp-regs -mno-app-regs @gol
+-mdisable-callt -mno-disable-callt @gol
+-mv850e @gol
 -mv850  -mbig-switch}
 
 @emph{NS32K Options}
@@ -616,8 +621,8 @@ in the following sections.
 
 @emph{D30V Options}
 @gccoptlist{
--mextmem  -mextmemory  -monchip  -mno-asm-optimize  -masm-optimize @gol
--mbranch-cost=@var{n} -mcond-exec=@var{n}}
+-mextmem  -mextmemory  -monchip  -mno-asm-optimize @gol
+-masm-optimize -mbranch-cost=@var{n} -mcond-exec=@var{n}}
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{
@@ -676,12 +681,13 @@ in the following sections.
 -fno-common  -fno-ident  -fno-gnu-linker @gol
 -fpcc-struct-return  -fpic  -fPIC @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
--fshort-double  -fvolatile @gol
+-fshort-double  -fshort-wchar -fvolatile @gol
 -fvolatile-global  -fvolatile-static @gol
 -fverbose-asm  -fpack-struct  -fstack-check @gol
 -fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym} @gol
 -fargument-alias  -fargument-noalias @gol
--fargument-noalias-global  -fleading-underscore -ftls-model=@var{model}}
+-fargument-noalias-global  -fleading-underscore @gol
+-ftls-model=@var{model}}
 @end table
 
 @menu
@@ -1218,12 +1224,6 @@ write into string constants.
 
 Writing into string constants is a very bad idea; ``constants'' should
 be constant.
-
-@item -fshort-wchar
-@opindex fshort-wchar
-Override the underlying type for @samp{wchar_t} to be @samp{short
-unsigned int} instead of the default for the target.  This option is
-useful for building programs to run under WINE@.
 @end table
 
 @node C++ Dialect Options
@@ -1472,16 +1472,69 @@ Do not assume @samp{inline} for functions defined inside a class scope.
 functions will have linkage like inline functions; they just won't be
 inlined by default.
 
+@item -Wabi @r{(C++ only)}
+@opindex Wabi
+Warn when G++ generates code that is probably not compatible with the
+vendor-neutral C++ ABI.  Although an effort has been made to warn about
+all such cases, there are probably some cases that are not warned about, 
+even though G++ is generating incompatible code.  There may also be
+cases where warnings are emitted even though the code that is generated
+will be compatible.
+
+You should rewrite your code to avoid these warnings if you are
+concerned about the fact that code generated by G++ may not be binary
+compatible with code generated by other compilers.
+
+The known incompatibilites at this point include:
+
+@itemize @bullet
+
+@item
+Incorrect handling of tail-padding for bit-fields.  G++ may attempt to
+pack data into the same byte as a base class.  For example:
+
+@smallexample
+struct A @{ virtual void f(); int f1 : 1; @};
+struct B : public A @{ int f2 : 1; @};
+@end smallexample
+
+@noindent
+In this case, G++ will place @code{B::f2} into the same byte
+as@code{A::f1}; other compilers will not.  You can avoid this problem 
+by explicitly padding @code{A} so that its size is a multiple of the
+byte size on your platform; that will cause G++ and other compilers to
+layout @code{B} identically.
+
+@item
+Incorrect handling of tail-padding for virtual bases.  G++ does not use
+tail padding when laying out virtual bases.  For example:
+
+@smallexample
+struct A @{ virtual void f(); char c1; @};
+struct B @{ B(); char c2; @};
+struct C : public A, public virtual B @{@};
+@end smallexample
+
+@noindent
+In this case, G++ will not place @code{B} into the tail-padding for
+@code{A}; other compilers will.  You can avoid this problem by
+explicitly padding @code{A} so that its size is a multiple of its
+alignment (ignoring virtual base classes); that will cause G++ and other
+compilers to layout @code{C} identically.
+
+@end itemize
+
 @item -Wctor-dtor-privacy @r{(C++ only)}
 @opindex Wctor-dtor-privacy
 Warn when a class seems unusable, because all the constructors or
 destructors in a class are private and the class has no friends or
-public static member functions.
+public static member functions.  This warning is enabled by default.
 
 @item -Wnon-virtual-dtor @r{(C++ only)}
 @opindex Wnon-virtual-dtor
 Warn when a class declares a non-virtual destructor that should probably
 be virtual, because it looks like the class will be used polymorphically.
+This warning is enabled by @option{-Wall}.
 
 @item -Wreorder @r{(C++ only)}
 @opindex Wreorder
@@ -1500,7 +1553,7 @@ struct A @{
 
 Here the compiler will warn that the member initializers for @samp{i}
 and @samp{j} will be rearranged to match the declaration order of the
-members.
+members.  This warning is enabled by @option{-Wall}.
 @end table
 
 The following @option{-W@dots{}} options are not affected by @option{-Wall}.
@@ -1675,7 +1728,9 @@ runtime.  This is the default for most types of systems.
 @item -fnext-runtime
 @opindex fnext-runtime
 Generate output compatible with the NeXT runtime.  This is the default
-for NeXT-based systems, including Darwin and Mac OS X@.
+for NeXT-based systems, including Darwin and Mac OS X@.  The macro
+@code{__NEXT_RUNTIME__} is predefined if (and only if) this option is
+used.
 
 @item -gen-decls
 @opindex gen-decls
@@ -1684,12 +1739,39 @@ file named @file{@var{sourcename}.decl}.
 
 @item -Wno-protocol
 @opindex Wno-protocol
-Do not warn if methods required by a protocol are not implemented
-in the class adopting it.
+If a class is declared to implement a protocol, a warning is issued for
+every method in the protocol that is not implemented by the class.  The
+default behaviour is to issue a warning for every method not explicitly
+implemented in the class, even if a method implementation is inherited
+from the superclass.  If you use the @code{-Wno-protocol} option, then
+methods inherited from the superclass are considered to be implemented,
+and no warning is issued for them.
 
 @item -Wselector
 @opindex Wselector
-Warn if a selector has multiple methods of different types defined.
+Warn if multiple methods of different types for the same selector are
+found during compilation.  The check is performed on the list of methods
+in the final stage of compilation.  Additionally, a check is performed
+that for each selector appearing in a @code{@@selector(@dots{})}
+expression, a corresponding method with that selector has been found
+during compilation.  Because these checks scan the method table only at
+the end of compilation, these warnings are not produced if the final
+stage of compilation is not reached, for example because an error is
+found during compilation, or because the @code{-fsyntax-only} option is
+being used.
+
+@item -Wundeclared-selector
+@opindex Wundeclared-selector
+Warn if a @code{@@selector(@dots{})} expression referring to an
+undeclared selector is found.  A selector is considered undeclared if no
+method with that name has been declared (explicitly, in an
+@code{@@interface} or @code{@@protocol} declaration, or implicitly, in
+an @code{@@implementation} section) before the
+@code{@@selector(@dots{})} expression.  This option always performs its
+checks as soon as a @code{@@selector(@dots{})} expression is found
+(while @code{-Wselector} only performs its checks in the final stage of
+compilation), and so additionally enforces the coding style convention
+that methods and selectors must be declared before being used.
 
 @c not documented because only avail via -Wp
 @c @item -print-objc-runtime-info
@@ -2190,13 +2272,6 @@ Some spurious warnings can be avoided if you declare all the functions
 you use that never return as @code{noreturn}.  @xref{Function
 Attributes}.
 
-@item -Wreorder @r{(C++ only)}
-@opindex Wreorder
-@cindex reordering, warning
-@cindex warning for reordering of member initializers
-Warn when the order of member initializers given in the code does not
-match the order in which they must be executed.  For instance:
-
 @item -Wunknown-pragmas
 @opindex Wunknown-pragmas
 @cindex warning for unknown pragmas
@@ -2212,7 +2287,9 @@ the warnings were only enabled by the @option{-Wall} command line option.
 All of the above @samp{-W} options combined.  This enables all the
 warnings about constructions that some users consider questionable, and
 that are easy to avoid (or modify to prevent the warning), even in
-conjunction with macros.
+conjunction with macros.  This also enables some language-specific
+warnings described in @ref{C++ Dialect Options} and
+@ref{Objective-C Dialect Options}.
 @end table
 
 The following @option{-W@dots{}} options are not implied by @option{-Wall}.
@@ -8682,6 +8759,34 @@ Specify that the target processor is the V850.
 Generate code suitable for big switch tables.  Use this option only if
 the assembler/linker complain about out of range branches within a switch
 table.
+
+@item -mapp-regs
+@opindex -mapp-regs
+This option will cause r2 and r5 to be used in the code generated by
+the compiler.  This setting is the default.
+
+@item -mno-app-regs
+@opindex -mno-app-regs
+This option will cause r2 and r5 to be treated as fixed registers.
+  
+@item -mv850e
+@opindex -mv850e
+Specify that the target processor is the V850E.  The preprocessor
+constant @samp{__v850e__} will be defined if this option is used.
+
+If neither @option{-mv850} nor @option{-mv850e} are defined
+then a default target processor will be chosen and the relevant
+@samp{__v850*__} preprocessor constant will be defined.
+
+The preprocessor constants @samp{__v850} and @samp{__v851__} are always
+defined, regardless of which processor variant is the target.
+
+@item -mdisable-callt
+@opindex -mdisable-callt
+This option will suppress generation of the CALLT instruction for the
+v850e flavors of the v850 architecture.  The default is
+@option{-mno-disable-callt} which allows the CALLT instruction to be used.
+
 @end table
 
 @node ARC Options
@@ -9785,13 +9890,19 @@ unwinding from asynchronous events (such as debugger or garbage collector).
 Return ``short'' @code{struct} and @code{union} values in memory like
 longer ones, rather than in registers.  This convention is less
 efficient, but it has the advantage of allowing intercallability between
-GCC-compiled files and files compiled with other compilers.
+GCC-compiled files and files compiled with other compilers, particularly
+the Portable C Compiler (pcc).
 
 The precise convention for returning structures in memory depends
 on the target configuration macros.
 
 Short structures and unions are those whose size and alignment match
 that of some integer type.
+
+@strong{Warning:} code compiled with the @option{-fpcc-struct-return}
+switch is not binary compatible with code compiled with the
+@option{-freg-struct-return} switch.
+Use it to conform to a non-default application binary interface.
 
 @item -freg-struct-return
 @opindex freg-struct-return
@@ -9806,15 +9917,38 @@ defaults to @option{-fpcc-struct-return}, except on targets where GCC is
 the principal compiler.  In those cases, we can choose the standard, and
 we chose the more efficient register return alternative.
 
+@strong{Warning:} code compiled with the @option{-freg-struct-return}
+switch is not binary compatible with code compiled with the
+@option{-fpcc-struct-return} switch.
+Use it to conform to a non-default application binary interface.
+
 @item -fshort-enums
 @opindex fshort-enums
 Allocate to an @code{enum} type only as many bytes as it needs for the
 declared range of possible values.  Specifically, the @code{enum} type
 will be equivalent to the smallest integer type which has enough room.
 
+@strong{Warning:} the @option{-fshort-enums} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
+
 @item -fshort-double
 @opindex fshort-double
 Use the same size for @code{double} as for @code{float}.
+
+@strong{Warning:} the @option{-fshort-double} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
+
+@item -fshort-wchar
+@opindex fshort-wchar
+Override the underlying type for @samp{wchar_t} to be @samp{short
+unsigned int} instead of the default for the target.  This option is
+useful for building programs to run under WINE@.
+
+@strong{Warning:} the @option{-fshort-wchar} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Use it to conform to a non-default application binary interface.
 
 @item -fshared-data
 @opindex fshared-data
@@ -9957,9 +10091,12 @@ three-way choice.
 
 @item -fpack-struct
 @opindex fpack-struct
-Pack all structure members together without holes.  Usually you would
-not want to use this option, since it makes the code suboptimal, and
-the offsets of structure members won't agree with system libraries.
+Pack all structure members together without holes.
+
+@strong{Warning:} the @option{-fpack-struct} switch causes GCC to generate
+code that is not binary compatible with code generated without that switch.
+Additionally, it makes the code suboptimial.
+Use it to conform to a non-default application binary interface.
 
 @item -finstrument-functions
 @opindex finstrument-functions
@@ -10056,8 +10193,10 @@ This option and its counterpart, @option{-fno-leading-underscore}, forcibly
 change the way C symbols are represented in the object file.  One use
 is to help link with legacy assembly code.
 
-Be warned that you should know what you are doing when invoking this
-option, and that not all targets provide complete support for it.
+@strong{Warning:} the @option{-fleading-underscore} switch causes GCC to
+generate code that is not binary compatible with code generated without that
+switch.  Use it to conform to a non-default application binary interface.
+Not all targets provide complete support for this switch.
 
 @item -ftls-model=@var{model}
 Alter the thread-local storage model to be used (@pxref{Thread-Local}).

@@ -61,12 +61,6 @@ static void s390_encode_section_info PARAMS ((tree, int));
 #undef  TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER s390_assemble_integer
 
-#undef  TARGET_ASM_FUNCTION_PROLOGUE 
-#define TARGET_ASM_FUNCTION_PROLOGUE s390_function_prologue
-
-#undef  TARGET_ASM_FUNCTION_EPILOGUE 
-#define TARGET_ASM_FUNCTION_EPILOGUE s390_function_epilogue
-
 #undef  TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN ""
 
@@ -91,9 +85,6 @@ extern int reload_completed;
 
 /* The alias set for prologue/epilogue register save/restore.  */
 static int s390_sr_alias_set = 0;
-
-/* Function count for creating unique internal labels in a compile unit.  */
-int  s390_function_count = 0;
 
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
@@ -121,7 +112,6 @@ struct s390_address
 struct s390_frame
 {
   int frame_pointer_p;
-  int return_reg_saved_p;
   int save_fprs_p;
   int first_save_gpr;
   int first_restore_gpr;
@@ -136,18 +126,20 @@ static int s390_branch_condition_mask PARAMS ((rtx));
 static const char *s390_branch_condition_mnemonic PARAMS ((rtx, int));
 static int check_mode PARAMS ((rtx, enum machine_mode *));
 static int general_s_operand PARAMS ((rtx, enum machine_mode, int));
-static int s390_decompose_address PARAMS ((rtx, struct s390_address *, int));
+static int s390_decompose_address PARAMS ((rtx, struct s390_address *));
 static int reg_used_in_mem_p PARAMS ((int, rtx));
 static int addr_generation_dependency_p PARAMS ((rtx, rtx));
 static void s390_split_branches PARAMS ((void));
 static void find_constant_pool_ref PARAMS ((rtx, rtx *));
 static void replace_constant_pool_ref PARAMS ((rtx *, rtx, rtx));
 static void s390_chunkify_pool PARAMS ((void));
-static int save_fprs_p PARAMS ((void));
+static void s390_optimize_prolog PARAMS ((void));
 static int find_unused_clobbered_reg PARAMS ((void));
 static void s390_frame_info PARAMS ((struct s390_frame *));
 static rtx save_fpr PARAMS ((rtx, int, int));
 static rtx restore_fpr PARAMS ((rtx, int, int));
+static rtx save_gprs PARAMS ((rtx, int, int, int));
+static rtx restore_gprs PARAMS ((rtx, int, int, int));
 static int s390_function_arg_size PARAMS ((enum machine_mode, tree));
 
  
@@ -957,7 +949,7 @@ general_s_operand (op, mode, allow_immediate)
       case MEM:
 	if (GET_CODE (XEXP (op, 0)) == ADDRESSOF)
 	  return 1;
-	if (s390_decompose_address (XEXP (op, 0), &addr, FALSE) 
+	if (s390_decompose_address (XEXP (op, 0), &addr) 
 	    && !addr.indx)
 	  return 1;
 	break;
@@ -1008,7 +1000,7 @@ q_constraint (op)
   if (GET_CODE (op) != MEM)
     return 0;
 
-  if (!s390_decompose_address (XEXP (op, 0), &addr, FALSE))
+  if (!s390_decompose_address (XEXP (op, 0), &addr))
     return 0;
 
   if (addr.indx)
@@ -1269,15 +1261,6 @@ legitimate_reload_constant_p (op)
       && larl_operand (op, VOIDmode))
     return 1;
 
-  /* If reload is completed, and we do not already have a
-     literal pool, and OP must be forced to the literal 
-     pool, then something must have gone wrong earlier.
-     We *cannot* force the constant any more, because the
-     prolog generation already decided we don't need to 
-     set up the base register.  */
-  if (reload_completed && !regs_ever_live[BASE_REGISTER])
-    abort ();
-
   /* Everything else cannot be handled without reload.  */
   return 0;
 }
@@ -1388,6 +1371,7 @@ s390_expand_plus_operand (target, src, scratch_in)
      register rtx scratch_in;
 {
   rtx sum1, sum2, scratch;
+  struct s390_address ad;
 
   /* ??? reload apparently does not ensure that the scratch register
      and the target do not overlap.  We absolutely require this to be
@@ -1408,9 +1392,11 @@ s390_expand_plus_operand (target, src, scratch_in)
   sum1 = find_replacement (&XEXP (src, 0));
   sum2 = find_replacement (&XEXP (src, 1));
 
-  /* Accept already valid addresses.  */
+  /* Accept already strictly valid addresses.  */
   src = gen_rtx_PLUS (Pmode, sum1, sum2);
-  if (s390_decompose_address (src, NULL, 1))
+  if (s390_decompose_address (src, &ad)
+      && (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base))
+      && (!ad.indx || REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
     {
       src = legitimize_la_operand (src);
       emit_insn (gen_rtx_SET (VOIDmode, target, src));
@@ -1466,8 +1452,8 @@ s390_expand_plus_operand (target, src, scratch_in)
 
 
 /* Decompose a RTL expression ADDR for a memory address into
-   its components, returned in OUT.  The boolean STRICT 
-   specifies whether strict register checking applies.
+   its components, returned in OUT.
+
    Returns 0 if ADDR is not a valid memory address, nonzero
    otherwise.  If OUT is NULL, don't return the components,
    but check for validity only.
@@ -1477,10 +1463,9 @@ s390_expand_plus_operand (target, src, scratch_in)
    canonical form so that they will be recognized.  */
 
 static int
-s390_decompose_address (addr, out, strict)
+s390_decompose_address (addr, out)
      register rtx addr;
      struct s390_address *out;
-     int strict;
 {
   rtx base = NULL_RTX;
   rtx indx = NULL_RTX;
@@ -1545,10 +1530,6 @@ s390_decompose_address (addr, out, strict)
       if (GET_CODE (base) != REG || GET_MODE (base) != Pmode)
 	  return FALSE;
 
-      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
-	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
-	  return FALSE;
-    
       if (REGNO (base) == BASE_REGISTER
 	  || REGNO (base) == STACK_POINTER_REGNUM
 	  || REGNO (base) == FRAME_POINTER_REGNUM
@@ -1574,10 +1555,6 @@ s390_decompose_address (addr, out, strict)
       if (GET_CODE (indx) != REG || GET_MODE (indx) != Pmode)
 	  return FALSE;
 
-      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (indx))
-	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (indx)))
-	  return FALSE;
-    
       if (REGNO (indx) == BASE_REGISTER
 	  || REGNO (indx) == STACK_POINTER_REGNUM
 	  || REGNO (indx) == FRAME_POINTER_REGNUM
@@ -1708,7 +1685,26 @@ legitimate_address_p (mode, addr, strict)
      register rtx addr;
      int strict;
 {
-  return s390_decompose_address (addr, NULL, strict);
+  struct s390_address ad;
+  if (!s390_decompose_address (addr, &ad))
+    return FALSE;
+
+  if (strict)
+    {
+      if (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
+	return FALSE;
+      if (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx))
+	return FALSE;
+    }
+  else
+    {
+      if (ad.base && !REG_OK_FOR_BASE_NONSTRICT_P (ad.base))
+	return FALSE;
+      if (ad.indx && !REG_OK_FOR_INDEX_NONSTRICT_P (ad.indx))
+	return FALSE;
+    }
+
+  return TRUE;
 }
 
 /* Return 1 if OP is a valid operand for the LA instruction.
@@ -1720,7 +1716,7 @@ legitimate_la_operand_p (op)
      register rtx op;
 {
   struct s390_address addr;
-  if (!s390_decompose_address (op, &addr, FALSE))
+  if (!s390_decompose_address (op, &addr))
     return FALSE;
 
   if (TARGET_64BIT || addr.pointer)
@@ -1737,7 +1733,7 @@ legitimize_la_operand (op)
      register rtx op;
 {
   struct s390_address addr;
-  if (!s390_decompose_address (op, &addr, FALSE))
+  if (!s390_decompose_address (op, &addr))
     abort ();
 
   if (TARGET_64BIT || addr.pointer)
@@ -1826,7 +1822,8 @@ legitimize_pic_address (orig, reg)
           /* Assume GOT offset < 4k.  This is handled the same way
              in both 31- and 64-bit code (@GOT12).  */
 
-          current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress || reload_completed)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 
           new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), 110);
           new = gen_rtx_CONST (Pmode, new);
@@ -1859,7 +1856,8 @@ legitimize_pic_address (orig, reg)
 
           rtx temp = gen_reg_rtx (Pmode);
 
-          current_function_uses_pic_offset_table = 1;
+	  if (reload_in_progress || reload_completed)
+	    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 
           addr = gen_rtx_UNSPEC (SImode, gen_rtvec (1, addr), 112);
           addr = gen_rtx_CONST (SImode, addr);
@@ -2218,7 +2216,7 @@ s390_output_symbolic_const (file, x)
         {
         case 100:
 	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-          fprintf (file, "-.LT%X", s390_function_count);
+          fprintf (file, "-.LT%d", current_function_funcdef_no);
 	  break;
 	case 110:
 	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
@@ -2238,7 +2236,7 @@ s390_output_symbolic_const (file, x)
 	  break;
 	case 114:
 	  s390_output_symbolic_const (file, XVECEXP (x, 0, 0));
-          fprintf (file, "@PLT-.LT%X", s390_function_count);
+          fprintf (file, "@PLT-.LT%d", current_function_funcdef_no);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand (2)");
@@ -2262,7 +2260,9 @@ print_operand_address (file, addr)
 {
   struct s390_address ad;
 
-  if (!s390_decompose_address (addr, &ad, TRUE))
+  if (!s390_decompose_address (addr, &ad)
+      || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
+      || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
     output_operand_lossage ("Cannot decompose address.");
  
   if (ad.disp)
@@ -2313,7 +2313,8 @@ print_operand (file, x, code)
         struct s390_address ad;
 
         if (GET_CODE (x) != MEM
-            || !s390_decompose_address (XEXP (x, 0), &ad, TRUE)
+            || !s390_decompose_address (XEXP (x, 0), &ad)
+	    || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
             || ad.indx)
           abort ();
 
@@ -2329,7 +2330,8 @@ print_operand (file, x, code)
         struct s390_address ad;
 
         if (GET_CODE (x) != MEM
-            || !s390_decompose_address (XEXP (x, 0), &ad, TRUE)
+            || !s390_decompose_address (XEXP (x, 0), &ad)
+	    || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
             || ad.indx)
           abort ();
 
@@ -2638,6 +2640,10 @@ s390_split_branches ()
   if (TARGET_64BIT)
     return;
 
+  /* We need correct insn addresses.  */
+
+  shorten_branches (get_insns ());
+
   /* Find all branches that exceed 64KB, and split them.  */
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -2667,6 +2673,8 @@ s390_split_branches ()
 
       if (get_attr_length (insn) == 4)
 	continue;
+
+      regs_ever_live[RETURN_REGNUM] = 1;
 
       if (flag_pic)
 	{
@@ -3061,6 +3069,14 @@ s390_chunkify_pool ()
   if (get_pool_size () < S390_POOL_CHUNK_MAX)
     return;
 
+  if (!TARGET_64BIT)
+    regs_ever_live[RETURN_REGNUM] = 1;
+
+  /* We need correct insn addresses.  */
+
+  shorten_branches (get_insns ());
+
+
   /* Scan all insns and move literals to pool chunks.
      Replace all occurrances of literal pool references
      by explicit references to pool chunk entries.  */
@@ -3352,17 +3368,17 @@ s390_output_constant_pool (file)
     {
       if (TARGET_64BIT)
 	{
-	  fprintf (file, "\tlarl\t%s,.LT%X\n", reg_names[BASE_REGISTER],
-		   s390_function_count);
+	  fprintf (file, "\tlarl\t%s,.LT%d\n", reg_names[BASE_REGISTER],
+		   current_function_funcdef_no);
 	  readonly_data_section ();
 	  ASM_OUTPUT_ALIGN (file, 3);
 	}
       else
 	{
-	  fprintf (file, "\tbras\t%s,.LTN%X\n", reg_names[BASE_REGISTER],
-		   s390_function_count);
+	  fprintf (file, "\tbras\t%s,.LTN%d\n", reg_names[BASE_REGISTER],
+		   current_function_funcdef_no);
 	}
-      fprintf (file, ".LT%X:\n", s390_function_count);
+      fprintf (file, ".LT%d:\n", current_function_funcdef_no);
 
       s390_pool_count = 0;
       output_constant_pool (current_function_name, current_function_decl);
@@ -3371,26 +3387,158 @@ s390_output_constant_pool (file)
       if (TARGET_64BIT)
 	function_section (current_function_decl);
       else
-        fprintf (file, ".LTN%X:\n", s390_function_count);
+        fprintf (file, ".LTN%d:\n", current_function_funcdef_no);
     }
 }
 
 
-/* Return true if floating point registers need to be saved.  */
+/* Rework the prolog/epilog to avoid saving/restoring
+   registers unnecessarily.  */
 
-static int 
-save_fprs_p ()
+static void
+s390_optimize_prolog ()
 {
-  int i;
-  if (!TARGET_64BIT)
-    return 0;
-  for (i=24; i<=31; i++) 
+  int save_first, save_last, restore_first, restore_last;
+  int i, j;
+  rtx insn, new_insn, next_insn;
+
+  /* Find first and last gpr to be saved.  */
+  
+  for (i = 6; i < 16; i++)
+    if (regs_ever_live[i])
+      break;
+
+  for (j = 15; j > i; j--)
+    if (regs_ever_live[j])
+      break;
+
+  if (i == 16)
     {
-      if (regs_ever_live[i] == 1)
-	return 1;
+      /* Nothing to save/restore.  */
+      save_first = restore_first = -1;
+      save_last = restore_last = -1;
     }
-  return 0;
+  else
+    {
+      /* Save/restore from i to j.  */
+      save_first = restore_first = i;
+      save_last = restore_last = j;
+    }
+
+  /* Varargs functions need to save gprs 2 to 6.  */
+  if (current_function_stdarg)
+    {
+      save_first = 2;
+      if (save_last < 6)
+        save_last = 6;
+    }
+
+
+  /* If all special registers are in fact used, there's nothing we
+     can do, so no point in walking the insn list.  */
+  if (i <= BASE_REGISTER && j >= BASE_REGISTER
+      && i <= RETURN_REGNUM && j >= RETURN_REGNUM)
+    return;
+
+
+  /* Search for prolog/epilog insns and replace them.  */
+
+  for (insn = get_insns (); insn; insn = next_insn)
+    {
+      int first, last, off;
+      rtx set, base, offset;
+
+      next_insn = NEXT_INSN (insn);
+
+      if (GET_CODE (insn) != INSN)
+	continue;
+      if (GET_CODE (PATTERN (insn)) != PARALLEL)
+	continue;
+
+      if (store_multiple_operation (PATTERN (insn), VOIDmode))
+	{
+	  set = XVECEXP (PATTERN (insn), 0, 0);
+	  first = REGNO (SET_SRC (set));
+	  last = first + XVECLEN (PATTERN (insn), 0) - 1;
+	  offset = const0_rtx;
+	  base = eliminate_constant_term (XEXP (SET_DEST (set), 0), &offset);
+	  off = INTVAL (offset) - first * UNITS_PER_WORD;
+
+	  if (GET_CODE (base) != REG || off < 0)
+	    continue;
+	  if (first > BASE_REGISTER && first > RETURN_REGNUM)
+	    continue;
+	  if (last < BASE_REGISTER && last < RETURN_REGNUM)
+	    continue;
+
+	  if (save_first != -1)
+	    {
+	      new_insn = save_gprs (base, off, save_first, save_last);
+	      new_insn = emit_insn_before (new_insn, insn);
+	      INSN_ADDRESSES_NEW (new_insn, -1);
+	    }
+
+	  remove_insn (insn);
+	}
+
+      if (load_multiple_operation (PATTERN (insn), VOIDmode))
+	{
+	  set = XVECEXP (PATTERN (insn), 0, 0);
+	  first = REGNO (SET_DEST (set));
+	  last = first + XVECLEN (PATTERN (insn), 0) - 1;
+	  offset = const0_rtx;
+	  base = eliminate_constant_term (XEXP (SET_SRC (set), 0), &offset);
+	  off = INTVAL (offset) - first * UNITS_PER_WORD;
+
+	  if (GET_CODE (base) != REG || off < 0)
+	    continue;
+	  if (first > BASE_REGISTER && first > RETURN_REGNUM)
+	    continue;
+	  if (last < BASE_REGISTER && last < RETURN_REGNUM)
+	    continue;
+
+	  if (restore_first != -1)
+	    {
+	      new_insn = restore_gprs (base, off, restore_first, restore_last);
+	      new_insn = emit_insn_before (new_insn, insn);
+	      INSN_ADDRESSES_NEW (new_insn, -1);
+	    }
+
+	  remove_insn (insn);
+	}
+    }
 }
+
+/* Perform machine-dependent processing.  */
+
+void
+s390_machine_dependent_reorg (first)
+     rtx first ATTRIBUTE_UNUSED;
+{
+  struct s390_frame frame;
+  s390_frame_info (&frame);
+
+  /* Recompute regs_ever_live data for special registers.  */
+  regs_ever_live[BASE_REGISTER] = 0;
+  regs_ever_live[RETURN_REGNUM] = 0;
+  regs_ever_live[STACK_POINTER_REGNUM] = frame.frame_size > 0;
+
+  /* If there is (possibly) any pool entry, we need to
+     load the base register.  
+     ??? FIXME: this should be more precise.  */
+  if (get_pool_size ())
+    regs_ever_live[BASE_REGISTER] = 1;
+
+  /* In non-leaf functions, the prolog/epilog code relies 
+     on RETURN_REGNUM being saved in any case.  */
+  if (!current_function_is_leaf)
+    regs_ever_live[RETURN_REGNUM] = 1;
+
+  s390_chunkify_pool ();
+  s390_split_branches ();
+  s390_optimize_prolog ();
+}
+
 
 /* Find first call clobbered register unsused in a function.
    This could be used as base register in a leaf function
@@ -3412,6 +3560,7 @@ static void
 s390_frame_info (frame)
      struct s390_frame *frame;
 {
+  char gprs_ever_live[16];
   int i, j;
   HOST_WIDE_INT fsize = get_frame_size ();
 
@@ -3419,7 +3568,14 @@ s390_frame_info (frame)
     fatal_error ("Total size of local variables exceeds architecture limit.");
 
   /* fprs 8 - 15 are caller saved for 64 Bit ABI.  */
-  frame->save_fprs_p = save_fprs_p ();
+  frame->save_fprs_p = 0;
+  if (TARGET_64BIT)
+    for (i = 24; i < 32; i++) 
+      if (regs_ever_live[i])
+	{
+          frame->save_fprs_p = 1;
+	  break;
+	}
 
   frame->frame_size = fsize + frame->save_fprs_p * 64;
 
@@ -3431,66 +3587,41 @@ s390_frame_info (frame)
       || current_function_stdarg)
     frame->frame_size += STARTING_FRAME_OFFSET;
 
-  /* If we need to allocate a frame, the stack pointer is changed.  */ 
-
-  if (frame->frame_size > 0)
-    regs_ever_live[STACK_POINTER_REGNUM] = 1;
-
-  /* If the literal pool might overflow, the return register might
-     be used as temp literal pointer.  */
-
-  if (!TARGET_64BIT && get_pool_size () >= S390_POOL_CHUNK_MAX / 2)
-    regs_ever_live[RETURN_REGNUM] = 1;
-
-  /* If there is (possibly) any pool entry, we need to 
-     load base register.  */
-
-  if (get_pool_size () 
-      || !CONST_OK_FOR_LETTER_P (frame->frame_size, 'K')
-      || (!TARGET_64BIT && current_function_uses_pic_offset_table))
-    regs_ever_live[BASE_REGISTER] = 1; 
-
-  /* If we need the GOT pointer, remember to save/restore it.  */
-
-  if (current_function_uses_pic_offset_table)
-    regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
-
   /* Frame pointer needed.   */
     
   frame->frame_pointer_p = frame_pointer_needed;
 
-  /* Find first and last gpr to be saved.  */
+  /* Find first and last gpr to be saved.  Note that at this point,
+     we assume the return register and the base register always
+     need to be saved.  This is done because the usage of these
+     register might change even after the prolog was emitted.
+     If it turns out later that we really don't need them, the
+     prolog/epilog code is modified again.  */
+
+  for (i = 0; i < 16; i++)
+    gprs_ever_live[i] = regs_ever_live[i];
+
+  gprs_ever_live[BASE_REGISTER] = 1;
+  gprs_ever_live[RETURN_REGNUM] = 1;
+  gprs_ever_live[STACK_POINTER_REGNUM] = frame->frame_size > 0;
   
   for (i = 6; i < 16; i++)
-    if (regs_ever_live[i])
+    if (gprs_ever_live[i])
       break;
 
   for (j = 15; j > i; j--)
-    if (regs_ever_live[j])
+    if (gprs_ever_live[j])
       break;
-  
-  if (i == 16)
-    {
-      /* Nothing to save / restore.  */ 
-      frame->first_save_gpr = -1;
-      frame->first_restore_gpr = -1;
-      frame->last_save_gpr = -1;
-      frame->return_reg_saved_p = 0;
-    }
-  else
-    {
-      /* Save / Restore from gpr i to j.  */
-      frame->first_save_gpr = i;
-      frame->first_restore_gpr = i;
-      frame->last_save_gpr  = j;
-      frame->return_reg_saved_p = (j >= RETURN_REGNUM && i <= RETURN_REGNUM);
-    }
 
+
+  /* Save / Restore from gpr i to j.  */
+  frame->first_save_gpr = i;
+  frame->first_restore_gpr = i;
+  frame->last_save_gpr  = j;
+
+  /* Varargs functions need to save gprs 2 to 6.  */
   if (current_function_stdarg)
-    {
-      /* Varargs function need to save from gpr 2 to gpr 15.  */
-      frame->first_save_gpr = 2;
-    }
+    frame->first_save_gpr = 2;
 }
 
 /* Return offset between argument pointer and frame pointer 
@@ -3540,30 +3671,118 @@ restore_fpr (base, offset, regnum)
   return emit_move_insn (gen_rtx_REG (DFmode, regnum), addr);
 }
 
-/* Output the function prologue assembly code to the 
-   stdio stream FILE.  The local frame size is passed
-   in LSIZE.  */
+/* Generate insn to save registers FIRST to LAST into
+   the register save area located at offset OFFSET 
+   relative to register BASE.  */
 
-void
-s390_function_prologue (file, lsize)
-     FILE *file ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT lsize ATTRIBUTE_UNUSED;
+static rtx
+save_gprs (base, offset, first, last)
+     rtx base;
+     int offset;
+     int first;
+     int last;
 {
-  s390_chunkify_pool ();
-  s390_split_branches ();
+  rtx addr, insn, note;
+  int i;
+
+  addr = plus_constant (base, offset + first * UNITS_PER_WORD);
+  addr = gen_rtx_MEM (Pmode, addr);
+  set_mem_alias_set (addr, s390_sr_alias_set);
+
+  /* Special-case single register.  */
+  if (first == last)
+    {
+      if (TARGET_64BIT)
+        insn = gen_movdi (addr, gen_rtx_REG (Pmode, first));
+      else
+        insn = gen_movsi (addr, gen_rtx_REG (Pmode, first));
+
+      RTX_FRAME_RELATED_P (insn) = 1;
+      return insn;
+    }
+
+
+  insn = gen_store_multiple (addr,
+			     gen_rtx_REG (Pmode, first),
+			     GEN_INT (last - first + 1));
+
+
+  /* We need to set the FRAME_RELATED flag on all SETs
+     inside the store-multiple pattern.
+
+     However, we must not emit DWARF records for registers 2..5
+     if they are stored for use by variable arguments ...  
+
+     ??? Unfortunately, it is not enough to simply not the the
+     FRAME_RELATED flags for those SETs, because the first SET
+     of the PARALLEL is always treated as if it had the flag
+     set, even if it does not.  Therefore we emit a new pattern
+     without those registers as REG_FRAME_RELATED_EXPR note.  */
+
+  if (first >= 6)
+    {
+      rtx pat = PATTERN (insn);
+
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	if (GET_CODE (XVECEXP (pat, 0, i)) == SET)
+	  RTX_FRAME_RELATED_P (XVECEXP (pat, 0, i)) = 1;
+
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+  else if (last >= 6)
+    {
+      addr = plus_constant (base, offset + 6 * UNITS_PER_WORD);
+      note = gen_store_multiple (gen_rtx_MEM (Pmode, addr), 
+				 gen_rtx_REG (Pmode, 6),
+				 GEN_INT (last - 6 + 1));
+      note = PATTERN (note);
+
+      REG_NOTES (insn) =
+	gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, 
+			   note, REG_NOTES (insn));
+
+      for (i = 0; i < XVECLEN (note, 0); i++)
+	if (GET_CODE (XVECEXP (note, 0, i)) == SET)
+	  RTX_FRAME_RELATED_P (XVECEXP (note, 0, i)) = 1;
+
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+
+  return insn;
 }
 
-/* Output the function epilogue assembly code to the 
-   stdio stream FILE.  The local frame size is passed
-   in LSIZE.  */
+/* Generate insn to restore registers FIRST to LAST from
+   the register save area located at offset OFFSET 
+   relative to register BASE.  */
 
-void
-s390_function_epilogue (file, lsize)
-     FILE *file ATTRIBUTE_UNUSED;
-     HOST_WIDE_INT lsize ATTRIBUTE_UNUSED;
+static rtx
+restore_gprs (base, offset, first, last)
+     rtx base;
+     int offset;
+     int first;
+     int last;
 {
-  current_function_uses_pic_offset_table = 0;
-  s390_function_count++;
+  rtx addr, insn;
+
+  addr = plus_constant (base, offset + first * UNITS_PER_WORD);
+  addr = gen_rtx_MEM (Pmode, addr);
+  set_mem_alias_set (addr, s390_sr_alias_set);
+
+  /* Special-case single register.  */
+  if (first == last)
+    {
+      if (TARGET_64BIT)
+        insn = gen_movdi (gen_rtx_REG (Pmode, first), addr);
+      else
+        insn = gen_movsi (gen_rtx_REG (Pmode, first), addr);
+
+      return insn;
+    }
+
+  insn = gen_load_multiple (gen_rtx_REG (Pmode, first),
+			    addr,
+			    GEN_INT (last - first + 1));
+  return insn;
 }
 
 /* Expand the prologue into a bunch of separate insns.  */
@@ -3582,7 +3801,7 @@ s390_emit_prologue ()
 
   /* Choose best register to use for temp use within prologue.  */
   
-  if (frame.return_reg_saved_p
+  if (!current_function_is_leaf
       && !has_hard_reg_initial_val (Pmode, RETURN_REGNUM)
       && get_pool_size () < S390_POOL_CHUNK_MAX / 2)
     temp_reg = gen_rtx_REG (Pmode, RETURN_REGNUM);
@@ -3591,69 +3810,9 @@ s390_emit_prologue ()
 
   /* Save call saved gprs.  */
 
-  if (frame.first_save_gpr != -1)
-    {
-      addr = plus_constant (stack_pointer_rtx, 
-			    frame.first_save_gpr * UNITS_PER_WORD);
-      addr = gen_rtx_MEM (Pmode, addr);
-      set_mem_alias_set (addr, s390_sr_alias_set);
-
-      if (frame.first_save_gpr != frame.last_save_gpr )
-	{
-	  insn = emit_insn (gen_store_multiple (addr,
-			      gen_rtx_REG (Pmode, frame.first_save_gpr),
-			      GEN_INT (frame.last_save_gpr 
-				       - frame.first_save_gpr + 1)));
-
-	  /* We need to set the FRAME_RELATED flag on all SETs
-	     inside the store-multiple pattern.
-
-	     However, we must not emit DWARF records for registers 2..5
-	     if they are stored for use by variable arguments ...  
-
-	     ??? Unfortunately, it is not enough to simply not the the
-	     FRAME_RELATED flags for those SETs, because the first SET
-	     of the PARALLEL is always treated as if it had the flag
-	     set, even if it does not.  Therefore we emit a new pattern
-	     without those registers as REG_FRAME_RELATED_EXPR note.  */
-
-	  if (frame.first_save_gpr >= 6)
-	    {
-	      rtx pat = PATTERN (insn);
-
-	      for (i = 0; i < XVECLEN (pat, 0); i++)
-		if (GET_CODE (XVECEXP (pat, 0, i)) == SET)
-		  RTX_FRAME_RELATED_P (XVECEXP (pat, 0, i)) = 1;
-
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	    }
-	  else if (frame.last_save_gpr >= 6)
-	    {
-	      rtx note, naddr;
-	      naddr = plus_constant (stack_pointer_rtx, 6 * UNITS_PER_WORD);
-	      note = gen_store_multiple (gen_rtx_MEM (Pmode, naddr), 
-					 gen_rtx_REG (Pmode, 6),
-					 GEN_INT (frame.last_save_gpr - 6 + 1));
-	      note = PATTERN (note);
-
-	      REG_NOTES (insn) =
-		gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, 
-				   note, REG_NOTES (insn));
-
-	      for (i = 0; i < XVECLEN (note, 0); i++)
-		if (GET_CODE (XVECEXP (note, 0, i)) == SET)
-		  RTX_FRAME_RELATED_P (XVECEXP (note, 0, i)) = 1;
-
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	    }
-	}
-      else
-	{
-	  insn = emit_move_insn (addr, 
-				 gen_rtx_REG (Pmode, frame.first_save_gpr));
-          RTX_FRAME_RELATED_P (insn) = 1;
-	}
-    }
+  insn = save_gprs (stack_pointer_rtx, 0, 
+		    frame.first_save_gpr, frame.last_save_gpr);
+  emit_insn (insn);
 
   /* Dump constant pool and set constant pool register (13).  */
  
@@ -3765,7 +3924,7 @@ s390_emit_prologue ()
 
   /* Set up got pointer, if needed.  */
   
-  if (current_function_uses_pic_offset_table)
+  if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
     {
       rtx got_symbol = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
       SYMBOL_REF_FLAG (got_symbol) = 1;
@@ -3912,7 +4071,7 @@ s390_emit_epilogue ()
 
   if (frame.first_restore_gpr != -1)
     {
-      rtx addr;
+      rtx insn, addr;
       int i;
 
       /* Check for global register and save them 
@@ -3943,8 +4102,7 @@ s390_emit_epilogue ()
       /* Fetch return address from stack before load multiple,
 	 this will do good for scheduling.  */
 
-      if (frame.last_save_gpr >= RETURN_REGNUM 
-	  && frame.first_restore_gpr < RETURN_REGNUM)
+      if (!current_function_is_leaf)
 	{
 	  int return_regnum = find_unused_clobbered_reg();
 	  if (!return_regnum)
@@ -3964,23 +4122,9 @@ s390_emit_epilogue ()
 
       emit_insn (gen_blockage());      
 
-      addr = plus_constant (frame_pointer, 
-			    offset + frame.first_restore_gpr * UNITS_PER_WORD);
-      addr = gen_rtx_MEM (Pmode, addr);
-      set_mem_alias_set (addr, s390_sr_alias_set);
-
-      if (frame.first_restore_gpr != frame.last_save_gpr)
-	{
-	  emit_insn (gen_load_multiple (
-		       gen_rtx_REG (Pmode, frame.first_restore_gpr),
-                       addr,
-		       GEN_INT (frame.last_save_gpr - frame.first_restore_gpr + 1)));
-	}
-      else
-	{
-	  emit_move_insn (gen_rtx_REG (Pmode, frame.first_restore_gpr),
-		 	  addr); 
-	}
+      insn = restore_gprs (frame_pointer, offset, 
+			   frame.first_restore_gpr, frame.last_save_gpr);
+      emit_insn (insn);
     }
 
   /* Return to caller.  */

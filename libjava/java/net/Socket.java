@@ -534,7 +534,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket not connected
    *
-   * @since Java 1.2
+   * @since 1.2
    */
   public void setSendBufferSize (int size) throws SocketException
   {
@@ -556,7 +556,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or socket not connected
    *
-   * @since Java 1.2
+   * @since 1.2
    */
   public int getSendBufferSize () throws SocketException
   {
@@ -580,7 +580,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket is not connected
    *
-   * @since Java 1.2
+   * @since 1.2
    */
   public void setReceiveBufferSize (int size) throws SocketException
   {
@@ -602,7 +602,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket is not connected
    *
-   * @since Java 1.2
+   * @since 1.2
    */
   public int getReceiveBufferSize () throws SocketException
   {
@@ -613,6 +613,47 @@ public class Socket
 
     if (buf instanceof Integer)
       return(((Integer)buf).intValue());
+    else
+      throw new SocketException("Internal Error: Unexpected type");
+  }
+
+  /**
+   * This method sets the value for the socket level socket option
+   * SO_KEEPALIVE.
+   *
+   * @param on True if SO_KEEPALIVE should be enabled
+   *
+   * @exception SocketException If an error occurs or Socket is not connected
+   *
+   * @since Java 1.3
+   */
+  public void setKeepAlive (boolean on) throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException("Not connected");
+
+    impl.setOption(SocketOptions.SO_RCVBUF, new Boolean(on));
+  }
+
+  /**
+   * This method returns the value of the socket level socket option
+   * SO_KEEPALIVE.
+   *
+   * @return The setting
+   *
+   * @exception SocketException If an error occurs or Socket is not connected
+   *
+   * @since Java 1.3
+   */
+  public boolean getKeepAlive () throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException("Not connected");
+
+    Object buf = impl.getOption(SocketOptions.SO_RCVBUF);
+
+    if (buf instanceof Boolean)
+      return(((Boolean)buf).booleanValue());
     else
       throw new SocketException("Internal Error: Unexpected type");
   }
@@ -666,5 +707,27 @@ public class Socket
       sm.checkSetFactory();
 
     factory = fac;
+  }
+
+  /**
+   * Closes the input side of the socket stream.
+   *
+   * @exception IOException If an error occurs.
+   */
+  public void shutdownInput() throws IOException 
+  {
+    if (impl != null)
+      impl.shutdownInput();
+  }
+
+  /**
+   * Closes the output side of the socket stream.
+   *
+   * @exception IOException If an error occurs.
+   */
+  public void shutdownOutput() throws IOException
+  {
+    if (impl != null)
+      impl.shutdownOutput();
   }
 }

@@ -19,6 +19,7 @@ details.  */
 #include <java/net/URL.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
+#include <java/lang/Package.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -159,6 +160,9 @@ private:
   java::lang::reflect::Method *getPrivateMethod (jstring, JArray<jclass> *);
   java::security::ProtectionDomain *getProtectionDomain0 ();
 
+  java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
+  java::lang::reflect::Method *_getDeclaredMethod (jstring, JArray<jclass> *);
+
 public:
   JArray<java::lang::reflect::Field *> *getFields (void);
 
@@ -166,7 +170,6 @@ public:
 
   void getSignature (java::lang::StringBuffer *buffer);
   static jstring getSignature (JArray<jclass> *, jboolean is_constructor);
-  java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
@@ -209,6 +212,8 @@ public:
     }
 
   jobject newInstance (void);
+  java::security::ProtectionDomain *getProtectionDomain (void);
+  java::lang::Package *getPackage (void);
   jstring toString (void);
   jboolean desiredAssertionStatus (void);
 

@@ -1978,8 +1978,8 @@ get_proto_encoding (proto)
    identifier_node that represent the selector.  */
 
 static tree
-build_typed_selector_reference (ident, proto)
-     tree ident, proto;
+build_typed_selector_reference (ident, prototype)
+     tree ident, prototype;
 {
   tree *chain = &sel_ref_chain;
   tree expr;
@@ -1987,14 +1987,14 @@ build_typed_selector_reference (ident, proto)
 
   while (*chain)
     {
-      if (TREE_PURPOSE (*chain) == ident && TREE_VALUE (*chain) == proto)
+      if (TREE_PURPOSE (*chain) == prototype && TREE_VALUE (*chain) == ident)
 	goto return_at_index;
 
       index++;
       chain = &TREE_CHAIN (*chain);
     }
 
-  *chain = tree_cons (proto, ident, NULL_TREE);
+  *chain = tree_cons (prototype, ident, NULL_TREE);
 
  return_at_index:
   expr = build_unary_op (ADDR_EXPR,
@@ -5105,6 +5105,9 @@ build_protocol_expr (protoname)
   return expr;
 }
 
+/* This function is called by the parser when a @selector() expression
+   is found, in order to compile it.  It is only called by the parser
+   and only to compile a @selector().  */
 tree
 build_selector_expr (selnamelist)
      tree selnamelist;
@@ -5119,6 +5122,32 @@ build_selector_expr (selnamelist)
     selname = build_keyword_selector (selnamelist);
   else
     abort ();
+
+  /* If we are required to check @selector() expressions as they
+     are found, check that the selector has been declared.  */
+  if (warn_undeclared_selector)
+    {
+      /* Look the selector up in the list of all known class and
+         instance methods (up to this line) to check that the selector
+         exists.  */
+      hash hsh;
+
+      /* First try with instance methods.  */
+      hsh = hash_lookup (nst_method_hash_list, selname);
+      
+      /* If not found, try with class methods.  */
+      if (!hsh)
+	{
+	  hsh = hash_lookup (cls_method_hash_list, selname);
+	}
+      
+      /* If still not found, print out a warning.  */
+      if (!hsh)
+	{
+	  warning ("undeclared selector `%s'", IDENTIFIER_POINTER (selname));
+	}
+    }
+  
 
   if (flag_typed_selectors)
     return build_typed_selector_reference (selname, 0);
@@ -5259,6 +5288,7 @@ lookup_method (mchain, method)
     {
       if (METHOD_SEL_NAME (mchain) == key)
 	return mchain;
+
       mchain = TREE_CHAIN (mchain);
     }
   return NULL_TREE;
@@ -7042,9 +7072,13 @@ get_super_receiver ()
 	    {
 	      super_class = get_class_reference (super_name);
 	      if (TREE_CODE (objc_method_context) == CLASS_METHOD_DECL)
+		/* Cast the super class to 'id', since the user may not have
+		   included <objc/objc-class.h>, leaving 'struct objc_class'
+		   an incomplete type.  */
 		super_class
-		  = build_component_ref (build_indirect_ref (super_class, "->"),
-					 get_identifier ("isa"));
+		  = build_component_ref (build_indirect_ref 
+					 (build_c_cast (id_type, super_class), "->"),
+					  get_identifier ("isa"));
 	    }
 	  else
 	    {

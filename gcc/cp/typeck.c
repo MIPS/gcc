@@ -155,16 +155,16 @@ complete_type (type)
   return type;
 }
 
-/* Like complete_type, but issue an error if the TYPE cannot be
-   completed.  VALUE is used for informative diagnostics.  WARN_ONLY
-   will cause a warning message to be printed, instead of an error.
+/* Like complete_type, but issue an error if the TYPE cannot be completed.
+   VALUE is used for informative diagnostics.  DIAG_TYPE indicates the type
+   of diagnostic: 0 for an error, 1 for a warning, 2 for a pedwarn.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_diagnostic (type, value, warn_only)
+complete_type_or_diagnostic (type, value, diag_type)
      tree type;
      tree value;
-     int warn_only;
+     int diag_type;
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -172,7 +172,7 @@ complete_type_or_diagnostic (type, value, warn_only)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      cxx_incomplete_type_diagnostic (value, type, warn_only);
+      cxx_incomplete_type_diagnostic (value, type, diag_type);
       return NULL_TREE;
     }
   else
@@ -1859,6 +1859,27 @@ build_class_member_access_expr (tree object, tree member,
   my_friendly_assert (DECL_P (member) || BASELINK_P (member),
 		      20020801);
 
+  /* Transform `(a, b).x' into `a, b.x' and `(a ? b : c).x' into 
+     `a ? b.x : c.x'.  These transformations should not really be
+     necessary, but they are.  */
+  if (TREE_CODE (object) == COMPOUND_EXPR)
+    {
+      result = build_class_member_access_expr (TREE_OPERAND (object, 1),
+					       member, access_path, 
+					       preserve_reference);
+      return build (COMPOUND_EXPR, TREE_TYPE (result), 
+		    TREE_OPERAND (object, 0), result);
+    }
+  else if (TREE_CODE (object) == COND_EXPR)
+    return (build_conditional_expr
+	    (TREE_OPERAND (object, 0),
+	     build_class_member_access_expr (TREE_OPERAND (object, 1),
+					     member, access_path,
+					     preserve_reference),
+	     build_class_member_access_expr (TREE_OPERAND (object, 2),
+					     member, access_path,
+					     preserve_reference)));
+
   /* [expr.ref]
 
      The type of the first expression shall be "class object" (of a
@@ -2135,7 +2156,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  if (TREE_CODE (scope) == NAMESPACE_DECL)
 	    {
 	      error ("`%D::%D' is not a member of `%T'", 
-		     scope, member, object_type);
+		     scope, name, object_type);
 	      return error_mark_node;
 	    }
 
@@ -4247,7 +4268,7 @@ build_unary_op (code, xarg, noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && !lvalue_or_else (arg, "unary `&'"))
+	       && !non_cast_lvalue_or_else (arg, "unary `&'"))
 	return error_mark_node;
 
       if (argtype != error_mark_node)

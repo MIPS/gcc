@@ -148,6 +148,7 @@ static tree stabilize_va_list		PARAMS ((tree, int));
 static rtx expand_builtin_expect	PARAMS ((tree, rtx));
 static tree fold_builtin_constant_p	PARAMS ((tree));
 static tree fold_builtin_classify_type	PARAMS ((tree));
+static tree fold_builtin_inf		PARAMS ((tree, int));
 static int validate_arglist		PARAMS ((tree, ...));
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
@@ -1224,7 +1225,7 @@ expand_builtin_apply (function, arguments, argsize)
   set_mem_align (dest, PARM_BOUNDARY);
   src = gen_rtx_MEM (BLKmode, incoming_args);
   set_mem_align (src, PARM_BOUNDARY);
-  emit_block_move (dest, src, argsize);
+  emit_block_move (dest, src, argsize, BLOCK_OP_NORMAL);
 
   /* Refer to the argument block.  */
   apply_args_size ();
@@ -1999,7 +2000,8 @@ expand_builtin_memcpy (arglist, target, mode)
       set_mem_align (src_mem, src_align);
 
       /* Copy word part most expediently.  */
-      dest_addr = emit_block_move (dest_mem, src_mem, len_rtx);
+      dest_addr = emit_block_move (dest_mem, src_mem, len_rtx,
+				   BLOCK_OP_NORMAL);
 
       if (dest_addr == 0)
 	{
@@ -3297,7 +3299,7 @@ expand_builtin_va_copy (arglist)
       set_mem_align (srcb, TYPE_ALIGN (va_list_type_node));
 
       /* Copy.  */
-      emit_block_move (dstb, srcb, size);
+      emit_block_move (dstb, srcb, size, BLOCK_OP_NORMAL);
     }
 
   return const0_rtx;
@@ -4161,6 +4163,19 @@ fold_builtin_classify_type (arglist)
   return build_int_2 (type_to_class (TREE_TYPE (TREE_VALUE (arglist))), 0);
 }
 
+/* Fold a call to __builtin_inf or __builtin_huge_val.  */
+
+static tree
+fold_builtin_inf (type, warn)
+     tree type;
+     int warn;
+{
+  if (!MODE_HAS_INFINITIES (TYPE_MODE (type)) && warn)
+    warning ("target format does not support infinity");
+
+  return build_real (type, ereal_inf (TYPE_MODE (type)));
+}
+
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
@@ -4276,6 +4291,16 @@ fold_builtin (exp)
 	    }
 	}
       break;
+
+    case BUILT_IN_INF:
+    case BUILT_IN_INFF:
+    case BUILT_IN_INFL:
+      return fold_builtin_inf (TREE_TYPE (TREE_TYPE (fndecl)), true);
+
+    case BUILT_IN_HUGE_VAL:
+    case BUILT_IN_HUGE_VALF:
+    case BUILT_IN_HUGE_VALL:
+      return fold_builtin_inf (TREE_TYPE (TREE_TYPE (fndecl)), false);
 
     default:
       break;

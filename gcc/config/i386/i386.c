@@ -1592,7 +1592,11 @@ classify_argument (mode, type, classes, bit_offset)
 {
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
-  int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  int words = (bytes + (bit_offset % 64) / 8 + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+
+  /* Variable sized entities are always passed/returned in memory.  */
+  if (bytes < 0)
+    return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
     {
@@ -6606,7 +6610,7 @@ print_operand (file, x, code)
       char dstr[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);
       fprintf (file, "%s", dstr);
     }
 
@@ -6617,7 +6621,7 @@ print_operand (file, x, code)
       char dstr[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);
       fprintf (file, "%s", dstr);
     }
 
@@ -8990,7 +8994,7 @@ ix86_expand_int_movcc (operands)
 		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
 	    }
 	  if (out != operands[0])
-	    emit_move_insn (operands[0], out);
+	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
 	}
