@@ -6026,6 +6026,35 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   int flags;
   int val_is_implicit_typename = 0;
 
+  /* Conversion operators are handled specially because ordinary
+     unqualified name lookup will not find template conversion
+     operators.  */
+  if (IDENTIFIER_TYPENAME_P (name)) 
+    {
+      struct cp_binding_level *level;
+
+      for (level = current_binding_level; 
+	   level && !level->namespace_p; 
+	   level = level->level_chain)
+	{
+	  tree class_type;
+	  tree operators;
+	  
+	  /* A conversion operator can only be declared in a class 
+	     scope.  */
+	  if (level->parm_flag != 2)
+	    continue;
+	  
+	  /* Lookup the conversion operator in the class.  */
+	  class_type = level->this_class;
+	  operators = lookup_fnfields (class_type, name, /*protect=*/0);
+	  if (operators)
+	    return operators;
+	}
+
+      return NULL_TREE;
+    }
+
   /* Hack: copy flag set by parser, if set. */
   if (only_namespace_names)
     namespaces_only = 1;
@@ -11004,7 +11033,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		      {
 			error ("cannot declare member function `%T::%s' within `%T'",
 				  ctype, name, current_class_type);
-			return void_type_node;
+			return error_mark_node;
 		      }
 		  }
 		else if (RIDBIT_SETP (RID_TYPEDEF, specbits)
@@ -14272,9 +14301,14 @@ start_method (declspecs, declarator, attrlist)
   tree fndecl = grokdeclarator (declarator, declspecs, MEMFUNCDEF, 0,
 				&attrlist);
 
-  /* Something too ugly to handle.  */
-  if (fndecl == NULL_TREE)
-    return NULL_TREE;
+  if (fndecl == error_mark_node)
+    return error_mark_node;
+
+  if (fndecl == NULL || TREE_CODE (fndecl) != FUNCTION_DECL)
+    {
+      error ("invalid member function declaration");
+      return error_mark_node;
+    }
 
   if (attrlist)
     cplus_decl_attributes (&fndecl, attrlist, 0);
@@ -14282,10 +14316,6 @@ start_method (declspecs, declarator, attrlist)
   /* Pass friends other than inline friend functions back.  */
   if (fndecl == void_type_node)
     return fndecl;
-
-  if (TREE_CODE (fndecl) != FUNCTION_DECL)
-    /* Not a function, tell parser to report parse error.  */
-    return NULL_TREE;
 
   if (DECL_IN_AGGR_P (fndecl))
     {

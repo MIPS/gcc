@@ -7092,11 +7092,9 @@ tsubst_copy (t, args, complain, in_decl)
 	qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (t));
 	name = DECL_NAME (get_first_fn (BASELINK_FUNCTIONS (t)));
 	t = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
-	if (current_class_type)
-	  t = adjust_result_of_qualified_name_lookup (t, 
-						      qualifying_scope,
-						      current_class_type);
-	return t;
+	return adjust_result_of_qualified_name_lookup (t, 
+						       qualifying_scope,
+						       current_class_type);
       }
 
     case TEMPLATE_DECL:

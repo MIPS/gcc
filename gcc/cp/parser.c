@@ -39,7 +39,6 @@ static bool dummy() { return false; }
 #define diagnostic_issue_immediately(x) dummy ()
 #define diagnostic_cease_issuing_immediately(x) dummy ()
 #define diagnostic_rollback(x) dummy ()
-#define diagnostic_commit(x) dummy ()
 #define diagnostic_tentative_p(x) dummy ()
 #define diagnostic_issue_tentatively(x) dummy ()
 
@@ -47,6 +46,9 @@ static bool dummy() { return false; }
    
    enter_scope_of
 
+   Change build_offset_ref to take a declaration, not a name.
+   Similarly, do not allow type to be a namespace.  There should not
+   be name lookup going on inside build_offset_ref.
 */
 
 
@@ -643,6 +645,8 @@ static cp_token *
 cp_lexer_peek_token (lexer)
      cp_lexer *lexer;
 {
+  cp_token *token;
+
   /* If there are no tokens, read one now.  */
   if (!lexer->next_token)
     cp_lexer_read_token (lexer);
@@ -655,7 +659,9 @@ cp_lexer_peek_token (lexer)
       fprintf (cp_lexer_debug_stream, "\n");
     }
 
-  return lexer->next_token;
+  token = lexer->next_token;
+  cp_lexer_set_source_position_from_token (lexer, token);
+  return token;
 }
 
 /* Return true if the next token has the indicated TYPE.  */
@@ -1627,6 +1633,8 @@ static cp_token *cp_parser_require_keyword
   PARAMS ((cp_parser *, enum rid, const char *));
 static bool cp_parser_token_starts_function_definition_p 
   PARAMS ((cp_token *));
+static bool cp_parser_next_token_starts_class_definition_p
+  (cp_parser *);
 static enum tag_types cp_parser_token_is_class_key
   PARAMS ((cp_token *));
 static void cp_parser_parse_tentatively 
@@ -2206,7 +2214,7 @@ cp_parser_primary_expression (parser, idk)
 	  /* The `operator' keyword can be the beginning of an
 	     id-expression.  */
 	case RID_OPERATOR:
-	  break;
+	  goto id_expression;
 
 	case RID_FUNCTION_NAME:
 	case RID_PRETTY_FUNCTION_NAME:
@@ -2250,14 +2258,16 @@ cp_parser_primary_expression (parser, idk)
 	}
       /* Fall through. */
 
-      /* An id-expression can start with either an identifier, or a
-	 `::' as the beginning of a qualified-id.  */
+      /* An id-expression can start with either an identifier, a
+	 `::' as the beginning of a qualified-id, or the "operator"
+	 keyword.  */
     case CPP_NAME:
     case CPP_SCOPE:
       {
 	tree id_expression;
 	tree decl;
 
+      id_expression:
 	/* Parse the id-expression.  */
 	id_expression 
 	  = cp_parser_id_expression (parser, 
@@ -2457,12 +2467,8 @@ cp_parser_primary_expression (parser, idk)
 	      }
 
 	    if (parser->scope)
-	      {
-		if (current_class_type)
-		  decl = (adjust_result_of_qualified_name_lookup 
-			  (decl, parser->scope, current_class_type));
-		return decl;
-	      }
+	      return (adjust_result_of_qualified_name_lookup 
+		      (decl, parser->scope, current_class_type));
 	    else
 	      /* Transform references to non-static data members into
 		 COMPONENT_REFs.  */
@@ -3056,7 +3062,7 @@ cp_parser_postfix_expression (parser)
 	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 	/* If all went well, simply lookup the type-id.  */
 	if (cp_parser_parse_definitely (parser))
-	  postfix_expression = get_typeid (TYPE_MAIN_VARIANT (type));
+	  postfix_expression = get_typeid (type);
 	/* Otherwise, fall back to the expression variant.  */
 	else
 	  {
@@ -3240,7 +3246,8 @@ cp_parser_postfix_expression (parser)
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
 	    if (idk == CP_PARSER_ID_KIND_UNQUALIFIED
-		&& is_overloaded_fn (postfix_expression)
+		&& (is_overloaded_fn (postfix_expression)
+		    || TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
 		&& args)
 	      {
 		tree arg;
@@ -3255,7 +3262,11 @@ cp_parser_postfix_expression (parser)
 		if (!arg)
 		  {
 		    tree identifier;
-		    identifier = DECL_NAME (get_first_fn (postfix_expression));
+		    if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
+		      identifier = postfix_expression;
+		    else
+		      identifier = DECL_NAME (get_first_fn 
+					      (postfix_expression));
 		    postfix_expression 
 		      = lookup_arg_dependent(identifier, 
 					     postfix_expression,
@@ -3264,6 +3275,13 @@ cp_parser_postfix_expression (parser)
 		postfix_expression
 		  = finish_call_expr (postfix_expression, args, 
 				      /*diallow_virtual=*/false);
+	      }
+	    else if (idk == CP_PARSER_ID_KIND_UNQUALIFIED 
+		     && TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
+	      {
+		/* The unqualified name could not be resolved.  */
+		unqualified_name_lookup_error (postfix_expression);
+		postfix_expression = error_mark_node;
 	      }
 	    else if (TREE_CODE (postfix_expression) == COMPONENT_REF)
 	      {
@@ -3274,6 +3292,9 @@ cp_parser_postfix_expression (parser)
 		      TREE_OPERAND (postfix_expression, 0),
 		      args));
 	      }
+	    else if (TREE_CODE (postfix_expression) == OFFSET_REF)
+	      postfix_expression = (build_offset_ref_call_from_tree
+				    (postfix_expression, args));
 	    else if (idk == CP_PARSER_ID_KIND_QUALIFIED)
 	      {
 		/* A call to a static class member, or a
@@ -5029,7 +5050,8 @@ cp_parser_selection_statement (parser)
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
 	/* Look for the `)'.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	  cp_parser_skip_to_closing_parenthesis (parser);
 
 	if (keyword == RID_IF)
 	  {
@@ -5893,12 +5915,16 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	       register
 	       static
 	       extern
-	       mutable  */
+	       mutable  
+
+             GNU Extension:
+	       thread  */
 	case RID_AUTO:
 	case RID_REGISTER:
 	case RID_STATIC:
 	case RID_EXTERN:
 	case RID_MUTABLE:
+	case RID_THREAD:
 	  decl_spec = cp_parser_storage_class_specifier_opt (parser);
 	  break;
 	  
@@ -6004,6 +6030,11 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
      extern
      mutable  
 
+   GNU Extension:
+
+   storage-class-specifier:
+     thread
+
    Returns an IDENTIFIER_NODE corresponding to the keyword used.  */
    
 static tree
@@ -6017,6 +6048,7 @@ cp_parser_storage_class_specifier_opt (parser)
     case RID_STATIC:
     case RID_EXTERN:
     case RID_MUTABLE:
+    case RID_THREAD:
       /* Consume the token.  */
       return cp_lexer_consume_token (parser->lexer)->value;
 
@@ -7638,9 +7670,14 @@ cp_parser_simple_type_specifier (parser, flags)
 	  if (type == error_mark_node)
 	    type = NULL_TREE;
 	}
-      /* Resolve the TYPE_DECL to the underlying type.  */
       if (type)
-	type = TREE_TYPE (type);
+	{
+	  /* Warn about uses of deprecated types.  */
+	  if (TREE_DEPRECATED (type))
+	    warn_deprecated_use (type);
+	  /* Resolve the TYPE_DECL to the underlying type.  */
+	  type = TREE_TYPE (type);
+	}
 
       /* If it didn't work out, we don't have a TYPE.  */
       if ((flags & CP_PARSER_FLAGS_OPTIONAL) 
@@ -8353,10 +8390,15 @@ cp_parser_asm_definition (parser)
      a space in C, and so, for compatibility, we tolerate that here
      too.  Doing that means that we have to treat the `::' operator as
      two `:' tokens.  */
-  if (cp_parser_allow_gnu_extensions_p (parser))
+  if (cp_parser_allow_gnu_extensions_p (parser)
+      && (cp_lexer_next_token_is (parser->lexer, CPP_COLON)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_SCOPE)))
     {
       bool inputs_p = false;
       bool clobbers_p = false;
+
+      /* The extended syntax was used.  */
+      extended_p = true;
 
       /* Look for outputs.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
@@ -8410,12 +8452,10 @@ cp_parser_asm_definition (parser)
 	  /* Parse the clobbers.  */
 	  clobbers = cp_parser_asm_clobber_list (parser);
 	}
-
-      /* The extended syntax was used.  */
-      extended_p = true;
     }
   /* Look for the closing `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+    cp_parser_skip_to_closing_parenthesis (parser);
 
   /* Create the ASM_STMT.  */
   asm_stmt = 
@@ -10296,9 +10336,6 @@ cp_parser_class_specifier (parser)
     return error_mark_node;
   /* Issue an error message if type-definitions are forbidden here.  */
   cp_parser_check_type_definition (parser);
-  /* At this point, we're going ahead with the class-specifier, even
-     if some other problem occurs.  */
-  cp_parser_commit_to_tentative_parse (parser);
   /* Remember that we are defining one more class.  */
   ++parser->num_classes_being_defined;
   /* Inside the class, surrounding template-parameter-lists do not
@@ -10448,6 +10485,8 @@ cp_parser_class_head (parser,
   tree id = NULL_TREE;
   tree type = NULL_TREE;
   bool template_id_p = false;
+  bool qualified_p = false;
+  bool invalid_nested_name_p = false;
   unsigned num_templates;
 
   /* Assume no nested-name-specifier will be present.  */
@@ -10464,16 +10503,15 @@ cp_parser_class_head (parser,
   /* If the next token is `::', that is invalid -- but sometimes
      people do try to write:
 
-       struct ::S {};
+       struct ::S {};  
 
-     Rather than issuing a parse error, which will cause us to
-     backtrack and try to parse this construct as an
-     elaborated-type-specifier, we just issue an ordinary error.  
-     If this does not turn out to be a definition, we will issue a
-     parse error below.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE)) 
+     Handle this gracefully by accepting the extra qualifier, and then
+     issuing an error about it later if this really is a
+     class-header.  If it turns out just to be an elaborated type
+     specifier, remain silent.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
     {
-      error ("global qualification of class name is invalid");
+      qualified_p = true;
       cp_lexer_consume_token (parser->lexer);
     }
 
@@ -10524,24 +10562,36 @@ cp_parser_class_head (parser,
          */
       if (!cp_parser_parse_definitely (parser))
 	{
+	  cp_parser_parse_tentatively (parser);
 	  type = cp_parser_template_name (parser,
 					  /*template_keyword_p=*/false,
 					  /*check_dependency_p=*/true);
-	  if (DECL_CLASS_TEMPLATE_P (type))
-	    type = DECL_TEMPLATE_RESULT (type);
-	  else if (type != error_mark_node)
+	  if (cp_parser_parse_definitely (parser))
 	    {
-	      cp_parser_error (parser, "expected class-name");
-	      type = error_mark_node;
+	      if (DECL_CLASS_TEMPLATE_P (type))
+		type = DECL_TEMPLATE_RESULT (type);
+	      else
+		{
+		  my_friendly_assert (DECL_FUNCTION_TEMPLATE_P (type),
+				      20020908);
+		  invalid_nested_name_p = true;
+		  id = DECL_NAME (get_first_fn (type));
+		  type = error_mark_node;
+		}
+	    }
+	  else
+	    {
+	      my_friendly_assert (type == error_mark_node, 20020908);
+	      invalid_nested_name_p = true;
+	      id = cp_parser_identifier (parser);
+	      if (id == error_mark_node)
+		id = NULL_TREE;
 	    }
 	}
       /* If we could not find a corresponding TYPE, treat this
-	 declaration like an erroneous unqualified declaration.  */
+	 declaration like an unqualified declaration.  */
       if (type == error_mark_node)
-	{
-	  nested_name_specifier = NULL_TREE;
-	  id = make_anon_name ();
-	}
+	nested_name_specifier = NULL_TREE;
       /* Otherwise, count the number of templates used in TYPE and its
 	 containing scopes.  */
       else 
@@ -10585,18 +10635,26 @@ cp_parser_class_head (parser,
 	}
     }
 
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (parser->lexer);
   /* If it's not a `:' or a `{' then we can't really be looking at a
      class-head, since a class-head only appears as part of a
      class-specifier.  We have to detect this situation before calling
      xref_tag, since that has irreversible side-effects.  */
-  if (token->type != CPP_OPEN_BRACE && token->type != CPP_COLON)
+  if (!cp_parser_next_token_starts_class_definition_p (parser))
     {
       cp_parser_error (parser, "expected `{' or `:'");
       return error_mark_node;
     }
 
+  /* At this point, we're going ahead with the class-specifier, even
+     if some other problem occurs.  */
+  cp_parser_commit_to_tentative_parse (parser);
+  /* Issue the error about the overly-qualified name now.  */
+  if (qualified_p)
+    cp_parser_error (parser,
+		     "global qualification of class name is invalid");
+  else if (invalid_nested_name_p)
+    cp_parser_error (parser,
+		     "qualified name does not name a class");
   /* Make sure that the right number of template parameters were
      present.  */
   if (!cp_parser_check_template_parameters (parser, num_templates))
@@ -10626,6 +10684,7 @@ cp_parser_class_head (parser,
   else
     {
       int new_type_p;
+      tree class_type;
 
       /* Given:
 
@@ -10642,13 +10701,21 @@ cp_parser_class_head (parser,
 	    type = TYPE_NAME (type);
 	}
 
+      class_type = current_class_type;
       type = TREE_TYPE (handle_class_head (class_key, 
 					   nested_name_specifier,
 					   type,
 					   /*attributes=*/NULL_TREE,
 					   /*defn_p=*/1,
 					   &new_type_p));
-      *nested_name_specifier_p = true;
+      if (type != error_mark_node)
+	{
+	  if (!class_type && TYPE_CONTEXT (type))
+	    *nested_name_specifier_p = true;
+	  else if (class_type && !same_type_p (TYPE_CONTEXT (type),
+					       class_type))
+	    *nested_name_specifier_p = true;
+	}
     }
 
   /* Enter the scope containing the class; the names of base classes
@@ -13240,6 +13307,18 @@ cp_parser_token_starts_function_definition_p (token)
 	  || token->keyword == RID_TRY);
 }
 
+/* Returns TRUE iff the next token is the ":" or "{" beginning a class
+   definition.  */
+
+static bool
+cp_parser_next_token_starts_class_definition_p (cp_parser *parser)
+{
+  cp_token *token;
+
+  token = cp_lexer_peek_token (parser->lexer);
+  return (token->type == CPP_OPEN_BRACE || token->type == CPP_COLON);
+}
+
 /* Returns the kind of tag indicated by TOKEN, if it is a class-key,
    or none_type otherwise.  */
 
@@ -13286,20 +13365,9 @@ cp_parser_commit_to_tentative_parse (parser)
 {
   cp_parser_context *context;
 
-  /* Commit to the tentative parse.  */
-  for (context = parser->context;
-       context->next;
-       context = context->next)
-    {
-      if (context->status != CP_PARSER_STATUS_KIND_COMMITTED)
-	{
-	  /* Mark this level as having been committed.  */
-	  context->status = CP_PARSER_STATUS_KIND_COMMITTED;
-	  /* Issue any diagnostics queud up until this point, and begin
-	     issuing diagnostics immediately.  */
-	  diagnostic_commit (diagnostic_buffer);
-	}
-    }
+  /* Mark all of the levels as committed.  */
+  for (context = parser->context; context->next; context = context->next)
+    context->status = CP_PARSER_STATUS_KIND_COMMITTED;
 }
 
 /* Abort the currently active tentative parse.  All consumed tokens
@@ -13324,15 +13392,11 @@ cp_parser_parse_definitely (parser)
      cp_parser *parser;
 {
   bool error_occurred;
-  bool committed;
   cp_parser_context *context;
 
   /* Remember whether or not an error ocurred, since we are about to
      destroy that information.  */
   error_occurred = cp_parser_error_occurred (parser);
-  /* Similary, for whether or not we committed to this tentative
-     parse.  */
-  committed = cp_parser_committed_to_tentative_parse (parser);
   /* Remove the topmost context from the stack.  */
   context = parser->context;
   parser->context = context->next;
@@ -13340,10 +13404,6 @@ cp_parser_parse_definitely (parser)
   if (!error_occurred)
     {
       cp_lexer_commit_tokens (parser->lexer);
-      /* If we already committed to this tentative parse then we
-	 committed the diagnostics at that point.  */
-      if (!committed)
-	diagnostic_commit (diagnostic_buffer);
       /* Any lookups that were deferred during the tentative parse are
 	 still deferred.  */
       parser->context->deferred_access_checks 

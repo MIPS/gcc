@@ -29,7 +29,7 @@ class test
 // named return value version
 template <class T>
 test<T> operator + (const test<T>& a, const test<T>& b) return c(a);
-{ c += b; };
+{ c += b; }
 
 int main()
 {

@@ -1657,13 +1657,13 @@ adjust_result_of_qualified_name_lookup (tree decl,
 					tree qualifying_scope,
 					tree context_class)
 {
-  my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
-
-  if (BASELINK_P (decl) 
-      && CLASS_TYPE_P (qualifying_scope)
-      && DERIVED_FROM_P (qualifying_scope, context_class))
+  if (context_class && CLASS_TYPE_P (qualifying_scope) 
+      && DERIVED_FROM_P (qualifying_scope, context_class)
+      && BASELINK_P (decl))
     {
       tree base;
+
+      my_friendly_assert (CLASS_TYPE_P (context_class), 20020808);
 
       /* Look for the QUALIFYING_SCOPE as a base of the
 	 CONTEXT_CLASS.  If QUALIFYING_SCOPE is ambiguous, we cannot
@@ -1680,6 +1680,9 @@ adjust_result_of_qualified_name_lookup (tree decl,
 			   NULL);
 	}
     }
+  
+  if (BASELINK_P (decl) || TREE_CODE (decl) == FIELD_DECL)
+    decl = build_offset_ref (qualifying_scope, decl);
 
   return decl;
 }
