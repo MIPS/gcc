@@ -46,6 +46,8 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
@@ -88,13 +90,17 @@ public abstract class BasicTextUI extends TextUI
   
   private class RootView extends View
   {
-    private JTextComponent textComponent;
     private View view;
     
-    public RootView(JTextComponent parent)
+    public RootView()
     {
       super(null);
-      textComponent = parent;
+    }
+
+    public ViewFactory getViewFactory()
+    {
+      // FIXME: Handle EditorKit somehow.
+      return BasicTextUI.this;
     }
 
     public void setView(View v)
@@ -127,11 +133,24 @@ public abstract class BasicTextUI extends TextUI
 	view.paint(g, s);
     }
   }
+
+  class EventHandler implements PropertyChangeListener
+  {
+    public void propertyChange(PropertyChangeEvent event)
+    {
+      if (event.getPropertyName().equals("document"))
+	{
+          // Document changed.
+	  modelChanged();
+	}
+    }
+  }
   
-  RootView rootView;
+  RootView rootView = new RootView();
   JTextComponent textComponent;
   int gap = 3;
   EditorKit kit = new DefaultEditorKit();
+  EventHandler eventHandler = new EventHandler();
 
   public BasicTextUI()
   {
@@ -166,8 +185,7 @@ public abstract class BasicTextUI extends TextUI
 	textComponent.setDocument(doc);
       }
     
-    rootView = new RootView(textComponent);
-    setView(create(doc.getDefaultRootElement()));
+    modelChanged();
     
     installDefaults();
     installListeners();
@@ -328,5 +346,12 @@ public abstract class BasicTextUI extends TextUI
   {
     rootView.setView(view);
     view.setParent(rootView);
+  }
+
+  protected void modelChanged()
+  {
+    ViewFactory factory = rootView.getViewFactory();
+    Element elem = textComponent.getDocument().getDefaultRootElement();
+    setView(factory.create(elem));
   }
 }

@@ -1,6 +1,21 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/basic/BasicTextUI.java
+	(RootView.textComponent): Removed.
+	(RootView.RootView): Don't initialize textComponent.
+	(RootView.getViewFactory): New method.
+	(EventHandler): New inner class.
+	(rootView): Initialize at instance creation.
+	(eventHandler): New field.
+	(installUI): Don't create view hierarchy directly,
+	call modelChanged() instead.
+	(modelChanged): New method.
+	* javax/swing/text/JTextComponent.java
+	(setDocument): Fire property change event.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicTextUI.java
 	(RootView.paint): Removed debug output.
 	(paintSafely): Draw highlighter before text.
 	(paintBackground): Use background color of text component.

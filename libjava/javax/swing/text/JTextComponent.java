@@ -306,9 +306,11 @@ public abstract class JTextComponent extends JComponent
     updateUI();
   }
 
-  public void setDocument(Document s)
+  public void setDocument(Document newDoc)
   {
-    doc = s;
+    Document oldDoc = doc;
+    doc = newDoc;
+    firePropertyChange("document", oldDoc, newDoc);
     revalidate();
     repaint();
   }
