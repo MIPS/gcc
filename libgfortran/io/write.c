@@ -96,7 +96,7 @@ extract_int (const void *p, int len)
   return i;
 }
 
-double
+static double
 extract_real (const void *p, int len)
 {
   double i = 0.0;

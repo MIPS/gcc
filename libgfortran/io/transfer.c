@@ -274,8 +274,6 @@ unformatted_read (bt type, void *dest, int length)
     }
 }
 
-extern double extract_real(void * source, int length);
-
 static void
 unformatted_write (bt type, void *source, int length)
 {
@@ -1408,7 +1406,7 @@ st_write_done (void)
 }
 
 
-void
+static void
 st_set_nml_var (void * var_addr, char * var_name, int var_name_len,
                 int kind, bt type)
 {
