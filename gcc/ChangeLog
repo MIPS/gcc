@@ -1,3 +1,263 @@
+2002-05-14  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.c (override_options): Override TARGET_JUMP_IN_DELAY when scheduling
+	for PA8000 or generating dwarf2 call frame information.
+	(output_call): Remove DO_FRAME_NOTES check from return pointer
+	optimization.
+	(following_call): Return 0 when scheduling for PA8000 or generating
+	dwarf2 call frame information.  Revise comment.
+
+2002-05-14  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+config/alpha:
+	* alpha.h (TARGET_CPU_CPP_BUILTINS): Define __IEEE_FP
+	and __IEEE_FP_INEXACT as appropriate.
+	(CPLUSPLUS_CPP_SPEC): Don't define __cplusplus.
+	(CPP_SPEC): Remove ieee defines.
+	* freebsd.h, netbsd.h: Remove ieee defines and cpp_cpu.
+
+2002-05-14  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_save_reg): Make regno unsigned.
+	(ix86_safe_length, ix86_safe_length_prefix, ix86_safe_memory): Kill.
+
+2002-05-14  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* arm/arm.h (TARGET_CPU_CPP_BUILTINS): Define.
+	(CPP_SPEC): Update.
+	(CPP_APCS_PC_SPEC, CPP_APCS_PC_DEFAULT_SPEC,
+	CPP_FLOAT_SPEC, CPP_FLOAT_DEFAULT_SPEC, CPP_ENDIAN_SPEC,
+	CPP_ENDIAN_DEFAULT_SPEC, CPP_INTERWORK_DEFAULT_SPEC,
+	CPP_INTERWORK_SPEC, CPP_PREDEFINES): Remove.
+	(EXTRA_SPECS): Update.
+	* arm/conix-elf.h, arm/linux-elf.h, arm/netbsd.h, arm/riscix.h,
+	arm/riscix1-1.h, arm/rtems-elf.h, arm/semiaof.h, arm/unknown-elf.h,
+	arm/unknown-elf-oabi.h, arm/vxarm.h: Remove CPP_PREDEFINES and
+	define TARGET_OS_CPP_BUILTINS if necessary.
+
+2002-05-14  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.c (cpp_options): Must pass -m* and -f* options
+	to the front end even when only preprocessing.
+	(cc1_options): Remove redundant -lang-c.
+	* tradcpp.c (main): Ignore -m options.
+objc:
+	* lang-specs.h: Similarly.
+
+2002-05-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* genautomata.c (transform_3): Add code for transformation
+	`(A,B,...)+C -> A+C,B,...'.
+
+Tue May 14 12:48:22 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* final.c (end_final): Do not output profile_arcs constructor, when
+	no functions are instrumented.
+
+Tue May 14 12:38:30 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (testsi to testqi_zext_1 splitter): Fix typo.
+
+2002-05-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi: Remove special markup originally required for
+	HTML generation with texi2html.
+
+2002-05-14  Andreas Schwab  <schwab@suse.de>
+
+	* config/ia64/sysv4.h (DO_SELECT_SECTION): Factored out of
+	SELECT_SECTION.
+	(UNIQUE_SECTION): Define to get small data correctly.
+
+	* varasm.c (resolve_unique_section): Add third parameter
+	flag_function_or_data_sections and use it instead of
+	flag_function_sections.
+	(assemble_start_function): Pass flag_function_sections.
+	(asm_emit_uninitialised): Pass flag_data_sections.
+	(assemble_variable): Likewise.
+
+2002-05-14  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.md: Use define_constants for unspec numbers.
+	* config/i386/i386.c: Likewise.
+
+2002-05-13  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* doc/contrib.texi: Update my entry.
+
+2002-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* fixinc/inclhack.def (winidss_valist): Limit applicability.
+	* fixinc/fixincl.x: Regenerated.
+	* fixinc/tests/base/math.h: Update.
+	* fixinc/tests/base/testing.h: Likewise.
+
+2002-05-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* genattr.c (gen_attr): Don't emit a comma after the last
+	enumerator.
+
+2002-05-13  Richard Henderson  <rth@redhat.com>
+
+	* cfgrtl.c (purge_dead_edges): Handle abnormal call edges created
+	by non-local gotos.
+	* recog.c (peephole2_optimize): Likewise.
+
+2002-05-13  Andris Pavenis  <pavenis@lanet.lv>
+
+	* cppfiles.c (open_file): Change mode (DJGPP only) of redirected
+	input to O_BINARY.
+
+2002-05-13  Jeffrey A Law  (law@redhat.com)
+
+	* flow.c (invalidate_mems_from_autoinc): Rewrite to use for_each_rtx.
+	Update prototype and callers.
+	(propagate_one_insn): Stack pointer adjustments kill MEMs on
+	the mem_set_list which reference the stack pointer, as do
+	calls to constant functions as they may clobber outgoing
+	argument space.
+
+	* i386.c (ia32_multipass_dfa_lookahead): Prototype.
+
+	* i386.c (TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD): Define.
+	(ia32_multipass_dfa_lookahead): New function.
+
+2002-05-13  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.c (SWITCH_TAKES_ARG): Remove 'V'.
+	(translate_options): Remove 'V'.
+	(process_command): Similarly.
+doc:
+	* invoke.texi: Remove documentation of 'V'.
+
+2002-05-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/linux.h: Revert 2002-04-22 changes.
+
+2002-05-13  Scott Marks <SMarks@mobile-mind.com>
+
+	* config/fr30/fr30.md: Only allow splits of immediate loads
+	if the destination is a register.
+
+2002-05-13  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Makefile.in (c-common.o, cppinit.o): Update.
+	* c-common.c: Include except.h.
+	(cb_register_builtins): Handle __USING_SJLJ_EXCEPTIONS__.
+	Call TARGET_CPU_CPP_BUILTINS and TARGET_OS_CPP_BUILTINS.
+	* cppinit.c (__USING_SJLJ_EXCEPTIONS): Not here.
+	* defaults.h (TARGET_OS_CPP_BUILTINS, TARGET_CPU_CPP_BUILTINS,
+	CPP_PREDEFINES): Handle here.
+config:
+	* alpha/alpha-interix.h, alpha/gnu.h, alpha/linux.h,
+	alpha/netbsd.h, alpha/openbsd.h, alpha/osf.h, alpha/unicosmk.h,
+	alpha/vms.h, alpha/vxworks.h: Remove CPP_PREDEFINES, define
+	TARGET_OS_CPP_BUILTINS.
+	* alpha/alpha.h (TARGET_CPU_CPP_BUILTINS): Define.
+	(CPP_SPEC, EXTRA_SPECS): Update.
+	(CPP_AM_BWX_SPEC, CPP_AM_MAX_SPEC, CPP_AM_FIX_SPEC,
+	CPP_AM_CIX_SPEC, CPP_IM_EV4_SPEC, CPP_IM_EV5_SPEC,
+	CPP_IM_EV6_SPEC, CPP_CPU_EV4_SPEC, CPP_CPU_EV5_SPEC,
+	CPP_CPU_EV56_SPEC, CPP_CPU_PCA56_SPEC, CPP_CPU_EV6_SPEC,
+	CPP_CPU_EV67_SPEC, CPP_CPU_DEFAULT_SPEC, CPP_CPU_SPEC): Remove.
+doc:
+	* tm.texi (TARGET_REGISTER_CPP_BUILTINS): Remove.
+	(TARGET_OS_CPP_BUILTINS, TARGET_CPU_CPP_BUILTINS): Define.
+
+2002-05-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* emit-rtl.c (global_rtl): Update comment.
+	(const_double_htab, const_double_htab_hash,
+	const_double_htab_hash, lookup_const_double): New.
+	(const_int_htab_hash, const_int_htab_eq): Remove const
+	qualifiers, which cause tons of warnings with RTL checking on.
+	(gen_rtx_CONST_DOUBLE): Deleted.
+	(const_double_from_real_value): New function - bears some
+	resemblance to the former immed_real_const_1.
+	(immed_double_const): Moved here from varasm.c and
+	simplified.
+	(gen_rtx_REG): Make REGNO unsigned to squelch warnings.
+	(gen_rtx_SUBREG): Use gen_rtx_raw_SUBREG.
+	(gen_rtx): Use immed_double_const.
+	(init_emit_once): Initialize the const_double_htab.  Use
+	REAL_VALUE_FROM_INT where possible.  Can now use
+	CONST_DOUBLE_FROM_REAL_VALUE when setting up const_tiny_rtx.
+	* varasm.c (struct varasm_status): Remove x_const_double_chain.
+	(const_double_chain, immed_real_const, clear_const_double_mem): Delete.
+	(immed_double_const, immed_real_const_1): Moved to emit-rtl.c.
+	(init_varasm_status, mark_varasm_status): Don't touch
+	x_const_double_chain.
+
+	* output.h: Delete prototype for clear_const_double_mem.
+	* real.h: Make REAL_VALUE_TYPE a macro again.  Remove leading
+	'0' slot from all CONST_DOUBLE_FORMAT definitions.  Prototype
+	const_double_from_real_value, not immed_real_const_1, and use
+	it to define CONST_DOUBLE_FROM_REAL_VALUE.  Define new macro
+	CONST_DOUBLE_ATOF.
+	* rtl.h (CONST_DOUBLE_CHAIN): Kill.
+	(CONST_DOUBLE_LOW, CONST_DOUBLE_HIGH): Adjust.
+	(gen_rtx_CONST_DOUBLE, immed_real_const): Delete prototypes.
+	(gen_rtx_REG): Second arg is unsigned.
+
+	* gengenrtl.c (special_rtx): Take out CONST_DOUBLE.
+	(excluded_rtx): New, return true for CONST_DOUBLE.
+	(genmacro): Write nothing for excluded codes.
+	* combine.c (combine_simplify_rtx): Use CONST_DOUBLE_FROM_REAL_VALUE.
+	* expr.c (expand_expr): Likewise.
+	* ggc-common.c (ggc_mark_rtx_children_1): Don't mark the
+	CONST_DOUBLE_CHAIN.
+	* toplev.c (rest_of_compilation): Don't call
+	clear_const_double_mem.
+
+	* config/rs6000/rs6000.c (rs6000_float_const): Delete.
+	(rs6000_hash_constant): Remove CONST_DOUBLE special case.
+	(toc_hash_eq): Remove CONST_DOUBLE and LABEL_REF special cases.
+	* config/rs6000/rs6000-protos.h: Don't prototype rs6000_float_const.
+	* config/c4x/c4x.md, config/rs6000/rs6000.md: Use CONST_DOUBLE_ATOF.
+	* config/dsp16xx/dsp16xx.md, config/mips/mips.md,
+	config/pa/pa.md: Use CONST_DOUBLE_FROM_REAL_VALUE.
+	* config/sparc/sparc.md, config/sparc/sparc.c: Use immed_double_const.
+
+2002-05-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mips/iris6.h (CPLUSPLUS_CPP_SPEC): Define.
+
+2002-05-12  Tom Tromey  <tromey@redhat.com>
+
+	* tree.h (copy_node): Don't mention TREE_PERMANENT.
+
+2002-05-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* gensupport.c (n_comma_elts): Moved here from genattrtab.c.
+	(scan_comma_elt): New function.  Accepts whitespace in comma lists.
+	* gensupport.h: Prototype new routines.
+	* genattr.c (gen_attr): Use scan_comma_elt.  Avoid unnecessary
+	use of printf.
+	* genattrtab.c (n_comma_elts): Moved to gensupport.c.
+	(next_comma_elt): Use scan_comma_elt.
+
+	* config/i386/i386.md: Use new attribute notation to break up
+	long lines in define_attr forms.
+
+2002-05-12  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (compress_float_constant): New.
+	(emit_move_insn): Use it.
+	(float_extend_from_mem): New.
+	(init_expr_once): Initialize it.
+	* real.c (exact_real_truncate): New.
+
+	* config/i386/i386.h (CONST_COSTS): Assume CONST_DOUBLE gets
+	dropped into memory; penalize for size.
+	(RTX_COSTS): FLOAT_EXTEND is free.
+	* config/i386/i386.md (extendsfdf2, extendsfxf2, extendsftf2,
+	extenddfxf2, extenddftf2): Accept constants and drop them to memory.
+
+2002-05-12  Richard Henderson  <rth@redhat.com>
+
+	* profile.h (profile_info): Add missing extern to declaration.
+	* profile.c (profile_info): Define it.
+
 2002-05-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
 	* pa/pa32-regs.h (HARD_REGNO_MODE_OK): Revise sets of general registers
@@ -66,6 +326,12 @@ Sat May 11 14:34:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* cfglayout.c (cleanup_unconditional_jumps): New static function.
 	(cfg_layout_initialize): Use it.
 
+2002-05-11  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* config/avr/avr.c (avr_mcu_types): Update supported devices.
+	* config/avr/avr.h (CPP_SPEC, LINK_SPEC, CRT_BINUTILS_SPECS): Likewise.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
 2002-05-11  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* dbxout.c: Fix formatting.
@@ -124,6 +390,12 @@ Sat May 11 14:34:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cse.c (rtx_cost): Remove multiplication by power of 2 special
 	casing.
+
+2002-05-14  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific, *-*-solaris2*): Update passus on
+	setting CONFIG_SHELL to /bin/ksh and remove alternate trick to
+	(possibly) work around broken /bin/sh.
 
 2002-05-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
@@ -285,38 +557,38 @@ Thu May  9 14:52:45 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* final.c (end_final): Use C trees to output data structures for profiling.
 
 	* Makefile.in (LIBGCC_DEPS): Added missing dependency on gcov-io.h
-        (profile.o): New dependency profile.h
-        (final.o): New dependency profile.h
-        * profile.h: New file. New global structure profile_info.
-        * final.h (count_edges_instrumented_now): Declare.
-        (current_function_cfg_checksum): Declare.
-        (function_list): New structure.
-        (functions_head, functions_tail): New static variables.
-        (end_final): Emits more data, removed some -ax stuff.
-        (final): Stores function names and chcksums.
-        * gcov-io.h (__write_gcov_string): New function.
-        (__read_gcov_string): New function.
-        * gcov.c (read_profile): New function.
-        (create_program_flow_graph): Uses read_profile instead of reading
+	(profile.o): New dependency profile.h
+	(final.o): New dependency profile.h
+	* profile.h: New file. New global structure profile_info.
+	* final.h (count_edges_instrumented_now): Declare.
+	(current_function_cfg_checksum): Declare.
+	(function_list): New structure.
+	(functions_head, functions_tail): New static variables.
+	(end_final): Emits more data, removed some -ax stuff.
+	(final): Stores function names and chcksums.
+	* gcov-io.h (__write_gcov_string): New function.
+	(__read_gcov_string): New function.
+	* gcov.c (read_profile): New function.
+	(create_program_flow_graph): Uses read_profile instead of reading
 	da_file.
-        (read_files): Removed da_file checking, it's done by read_profile now.
-        * libgcc2.c (bb_function_info): New structure.
-        (bb): New field in structure, removed some -ax stuff.
-        (__bb_exit_func): Changed structure of da_file.
-        * profile.c (count_edges_instrumented_now): New global variable.
-        (current_function_cfg_checksum): New global variable.
-        (max_counter_in_program): New global variable.
-        (get_exec_counts): New function.
-        (compute_checksum): New function.
-        (instrument_edges): Sets count_edges_instrumented_now.
-        (compute_branch_probabilities): Uses get_exec_counts instead of
+	(read_files): Removed da_file checking, it's done by read_profile now.
+	* libgcc2.c (bb_function_info): New structure.
+	(bb): New field in structure, removed some -ax stuff.
+	(__bb_exit_func): Changed structure of da_file.
+	* profile.c (count_edges_instrumented_now): New global variable.
+	(current_function_cfg_checksum): New global variable.
+	(max_counter_in_program): New global variable.
+	(get_exec_counts): New function.
+	(compute_checksum): New function.
+	(instrument_edges): Sets count_edges_instrumented_now.
+	(compute_branch_probabilities): Uses get_exec_counts instead of
 	reading da_file.
-        (branch_prob): Calls compute_checksum and writes extra data to bbg_file.
-        (init_branch_prob): Removed da_file checking, done in get_exec_counts
+	(branch_prob): Calls compute_checksum and writes extra data to bbg_file.
+	(init_branch_prob): Removed da_file checking, done in get_exec_counts
 	now.
-        (end_branch_prob): Removed da_file checking, done in get_exec_counts
+	(end_branch_prob): Removed da_file checking, done in get_exec_counts
 	now.
-        * gcov.texi: Updated information about gcov file format.
+	* gcov.texi: Updated information about gcov file format.
 
 2002-05-09  Kazu Hirata  <kazu@cs.umass.edu>
 

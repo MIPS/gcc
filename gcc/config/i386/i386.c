@@ -44,19 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "langhooks.h"
 
-static int ia32_use_dfa_pipeline_interface PARAMS ((void));
-
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE ia32_use_dfa_pipeline_interface
-
-static int
-ia32_use_dfa_pipeline_interface ()
-{
-  if (ix86_cpu == PROCESSOR_PENTIUM)
-    return 1;
-  return 0;
-}
-
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
 #endif
@@ -670,8 +657,6 @@ static rtx gen_push PARAMS ((rtx));
 static int memory_address_length PARAMS ((rtx addr));
 static int ix86_flags_dependant PARAMS ((rtx, rtx, enum attr_type));
 static int ix86_agi_dependant PARAMS ((rtx, rtx, enum attr_type));
-static int ix86_safe_length PARAMS ((rtx));
-static enum attr_memory ix86_safe_memory PARAMS ((rtx));
 static enum attr_ppro_uops ix86_safe_ppro_uops PARAMS ((rtx));
 static void ix86_dump_ppro_packet PARAMS ((FILE *));
 static void ix86_reorder_insn PARAMS ((rtx *, rtx *));
@@ -679,7 +664,6 @@ static void ix86_init_machine_status PARAMS ((struct function *));
 static void ix86_mark_machine_status PARAMS ((struct function *));
 static void ix86_free_machine_status PARAMS ((struct function *));
 static int ix86_split_to_parts PARAMS ((rtx, rtx *, enum machine_mode));
-static int ix86_safe_length_prefix PARAMS ((rtx));
 static int ix86_nsaved_regs PARAMS ((void));
 static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
@@ -695,6 +679,8 @@ static int ix86_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void ix86_sched_init PARAMS ((FILE *, int, int));
 static int ix86_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
 static int ix86_variable_issue PARAMS ((FILE *, int, rtx, int));
+static int ia32_use_dfa_pipeline_interface PARAMS ((void));
+static int ia32_multipass_dfa_lookahead PARAMS ((void));
 static void ix86_init_mmx_sse_builtins PARAMS ((void));
 
 struct ix86_address
@@ -728,7 +714,7 @@ static int ix86_fp_comparison_arithmetics_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_fcomi_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_sahf_cost PARAMS ((enum rtx_code code));
 static int ix86_fp_comparison_cost PARAMS ((enum rtx_code code));
-static int ix86_save_reg PARAMS ((int, int));
+static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
 const struct attribute_spec ix86_attribute_table[];
@@ -829,6 +815,12 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #define TARGET_SCHED_INIT ix86_sched_init
 #undef TARGET_SCHED_REORDER
 #define TARGET_SCHED_REORDER ix86_sched_reorder
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
+  ia32_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
+  ia32_multipass_dfa_lookahead
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2869,9 +2861,9 @@ symbolic_operand (op, mode)
       if (GET_CODE (op) == SYMBOL_REF
 	  || GET_CODE (op) == LABEL_REF
 	  || (GET_CODE (op) == UNSPEC
-	      && (XINT (op, 1) == 6
-		  || XINT (op, 1) == 7
-		  || XINT (op, 1) == 15)))
+	      && (XINT (op, 1) == UNSPEC_GOT
+		  || XINT (op, 1) == UNSPEC_GOTOFF
+		  || XINT (op, 1) == UNSPEC_GOTPCREL)))
 	return 1;
       if (GET_CODE (op) != PLUS
 	  || GET_CODE (XEXP (op, 1)) != CONST_INT)
@@ -2883,7 +2875,7 @@ symbolic_operand (op, mode)
 	return 1;
       /* Only @GOTOFF gets offsets.  */
       if (GET_CODE (op) != UNSPEC
-	  || XINT (op, 1) != 7)
+	  || XINT (op, 1) != UNSPEC_GOTOFF)
 	return 0;
 
       op = XVECEXP (op, 0, 0);
@@ -3633,8 +3625,7 @@ x86_64_sign_extended_value (value)
          cases.  */
       case CONST:
 	if (GET_CODE (XEXP (value, 0)) == UNSPEC
-	    && XVECLEN (XEXP (value, 0), 0) == 1
-	    && XINT (XEXP (value, 0), 1) ==  15)
+	    && XINT (XEXP (value, 0), 1) == UNSPEC_GOTPCREL)
 	  return 1;
 	else if (GET_CODE (XEXP (value, 0)) == PLUS)
 	  {
@@ -3899,7 +3890,7 @@ gen_push (arg)
 /* Return 1 if we need to save REGNO.  */
 static int
 ix86_save_reg (regno, maybe_eh_return)
-     int regno;
+     unsigned int regno;
      int maybe_eh_return;
 {
   if (regno == PIC_OFFSET_TABLE_REGNUM
@@ -3916,7 +3907,7 @@ ix86_save_reg (regno, maybe_eh_return)
 	  unsigned test = EH_RETURN_DATA_REGNO (i);
 	  if (test == INVALID_REGNUM)
 	    break;
-	  if (test == (unsigned) regno)
+	  if (test == regno)
 	    return 1;
 	}
     }
@@ -4613,8 +4604,7 @@ ix86_find_base_term (x)
 	      || GET_CODE (XEXP (term, 1)) == CONST_DOUBLE))
 	term = XEXP (term, 0);
       if (GET_CODE (term) != UNSPEC
-	  || XVECLEN (term, 0) != 1
-	  || XINT (term, 1) !=  15)
+	  || XINT (term, 1) != UNSPEC_GOTPCREL)
 	return x;
 
       term = XVECEXP (term, 0, 0);
@@ -4637,8 +4627,7 @@ ix86_find_base_term (x)
     term = XEXP (term, 0);
 
   if (GET_CODE (term) != UNSPEC
-      || XVECLEN (term, 0) != 1
-      || XINT (term, 1) !=  7)
+      || XINT (term, 1) != UNSPEC_GOTOFF)
     return x;
 
   term = XVECEXP (term, 0, 0);
@@ -4683,8 +4672,7 @@ legitimate_pic_address_disp_p (disp)
       /* We are unsafe to allow PLUS expressions.  This limit allowed distance
          of GOT tables.  We should not need these anyway.  */
       if (GET_CODE (disp) != UNSPEC
-	  || XVECLEN (disp, 0) != 1
-	  || XINT (disp, 1) != 15)
+	  || XINT (disp, 1) != UNSPEC_GOTPCREL)
 	return 0;
 
       if (GET_CODE (XVECEXP (disp, 0, 0)) != SYMBOL_REF
@@ -4700,17 +4688,15 @@ legitimate_pic_address_disp_p (disp)
       disp = XEXP (disp, 0);
     }
 
-  if (GET_CODE (disp) != UNSPEC
-      || XVECLEN (disp, 0) != 1)
+  if (GET_CODE (disp) != UNSPEC)
     return 0;
 
   /* Must be @GOT or @GOTOFF.  */
   switch (XINT (disp, 1))
     {
-    case 6: /* @GOT */
+    case UNSPEC_GOT:
       return GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF;
-
-    case 7: /* @GOTOFF */
+    case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
     
@@ -4982,7 +4968,7 @@ legitimize_pic_address (orig, reg)
 	     base address (@GOTOFF).  */
 
 	  current_function_uses_pic_offset_table = 1;
-	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), 7);
+	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 
@@ -4998,7 +4984,7 @@ legitimize_pic_address (orig, reg)
       if (TARGET_64BIT)
 	{
 	  current_function_uses_pic_offset_table = 1;
-	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), 15);
+	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_MEM (Pmode, new);
 	  RTX_UNCHANGING_P (new) = 1;
@@ -5018,7 +5004,7 @@ legitimize_pic_address (orig, reg)
 	     Global Offset Table (@GOT).  */
 
 	  current_function_uses_pic_offset_table = 1;
-	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), 6);
+	  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new = gen_rtx_CONST (Pmode, new);
 	  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 	  new = gen_rtx_MEM (Pmode, new);
@@ -5059,7 +5045,8 @@ legitimize_pic_address (orig, reg)
 	      if (!TARGET_64BIT)
 		{
 		  current_function_uses_pic_offset_table = 1;
-		  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0), 7);
+		  new = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op0),
+					UNSPEC_GOTOFF);
 		  new = gen_rtx_PLUS (Pmode, new, op1);
 		  new = gen_rtx_CONST (Pmode, new);
 		  new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
@@ -5378,16 +5365,16 @@ output_pic_addr_const (file, x, code)
        output_pic_addr_const (file, XVECEXP (x, 0, 0), code);
        switch (XINT (x, 1))
 	{
-	case 6:
+	case UNSPEC_GOT:
 	  fputs ("@GOT", file);
 	  break;
-	case 7:
+	case UNSPEC_GOTOFF:
 	  fputs ("@GOTOFF", file);
 	  break;
-	case 8:
+	case UNSPEC_PLT:
 	  fputs ("@PLT", file);
 	  break;
-	case 15:
+	case UNSPEC_GOTPCREL:
 	  fputs ("@GOTPCREL(%RIP)", file);
 	  break;
 	default:
@@ -5440,7 +5427,7 @@ i386_simplify_dwarf_addr (orig_x)
     {
       if (GET_CODE (x) != CONST
 	  || GET_CODE (XEXP (x, 0)) != UNSPEC
-	  || XINT (XEXP (x, 0), 1) != 15
+	  || XINT (XEXP (x, 0), 1) != UNSPEC_GOTPCREL
 	  || GET_CODE (orig_x) != MEM)
 	return orig_x;
       return XVECEXP (XEXP (x, 0), 0, 0);
@@ -5476,8 +5463,8 @@ i386_simplify_dwarf_addr (orig_x)
 
   x = XEXP (XEXP (x, 1), 0);
   if (GET_CODE (x) == UNSPEC
-      && ((XINT (x, 1) == 6 && GET_CODE (orig_x) == MEM)
-	  || (XINT (x, 1) == 7 && GET_CODE (orig_x) != MEM)))
+      && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
+	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
     {
       if (y)
 	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
@@ -5487,8 +5474,9 @@ i386_simplify_dwarf_addr (orig_x)
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == UNSPEC
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == 6 && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == 7 && GET_CODE (orig_x) != MEM)))
+      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
+	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
+	      && GET_CODE (orig_x) != MEM)))
     {
       x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
       if (y)
@@ -7476,7 +7464,7 @@ ix86_expand_fp_compare (code, op0, op1, scratch, second_test, bypass_test)
       else
 	{
 	  tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
-	  tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), 9);
+	  tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), UNSPEC_FNSTSW);
 	  if (!scratch)
 	    scratch = gen_reg_rtx (HImode);
 	  emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp2));
@@ -7499,7 +7487,7 @@ ix86_expand_fp_compare (code, op0, op1, scratch, second_test, bypass_test)
     {
       /* Sadness wrt reg-stack pops killing fpsr -- gotta get fnstsw first.  */
       tmp = gen_rtx_COMPARE (fpcmp_mode, op0, op1);
-      tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), 9);
+      tmp2 = gen_rtx_UNSPEC (HImode, gen_rtvec (1, tmp), UNSPEC_FNSTSW);
       if (!scratch)
 	scratch = gen_reg_rtx (HImode);
       emit_insn (gen_rtx_SET (VOIDmode, scratch, tmp2));
@@ -10290,36 +10278,6 @@ static union
   } ppro;
 } ix86_sched_data;
 
-static int
-ix86_safe_length (insn)
-     rtx insn;
-{
-  if (recog_memoized (insn) >= 0)
-    return get_attr_length (insn);
-  else
-    return 128;
-}
-
-static int
-ix86_safe_length_prefix (insn)
-     rtx insn;
-{
-  if (recog_memoized (insn) >= 0)
-    return get_attr_length (insn);
-  else
-    return 0;
-}
-
-static enum attr_memory
-ix86_safe_memory (insn)
-     rtx insn;
-{
-  if (recog_memoized (insn) >= 0)
-    return get_attr_memory (insn);
-  else
-    return MEMORY_UNKNOWN;
-}
-
 static enum attr_ppro_uops
 ix86_safe_ppro_uops (insn)
      rtx insn;
@@ -10550,6 +10508,28 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
       return --ix86_sched_data.ppro.issued_this_cycle;
     }
 }
+
+static int
+ia32_use_dfa_pipeline_interface ()
+{
+  if (ix86_cpu == PROCESSOR_PENTIUM)
+    return 1;
+  return 0;
+}
+
+/* How many alternative schedules to try.  This should be as wide as the
+   scheduling freedom in the DFA, but no wider.  Making this value too
+   large results extra work for the scheduler.  */
+
+static int
+ia32_multipass_dfa_lookahead ()
+{
+  if (ix86_cpu == PROCESSOR_PENTIUM)
+    return 2;
+  else
+   return 0;
+}
+
 
 /* Walk through INSNS and look for MEM references whose address is DSTREG or
    SRCREG and set the memory attribute to those of DSTREF and SRCREF, as

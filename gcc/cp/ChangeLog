@@ -1,3 +1,38 @@
+2002-05-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp-tree.h (struct lang_type): Added non_zero_init.
+	(CLASS_NON_ZERO_INIT_P): New macro.
+	(zero_init_p, force_store_init_value, build_forced_zero_init): Declare.
+	* class.c (check_field_decls): Test non_zero_init.
+	* cvt.c (convert_to_pointer_force): Use cp_convert_to_pointer for
+	zero-to-NULL conversions.
+	* decl.c (obscure_complex_init): Don't reset DECL_INITIAL of a
+	type that needs zero-initialization without zeros.
+	(check_initializer_decl): Compute zero-initializer for types
+	that require a non-trivial one.
+	* init.c (build_forced_zero_init): New function.
+	(build_default_init): Use it.
+	* tree.c (zero_init_p): New function.
+	* typeck2.c (force_store_init_value): New function.
+	(process_init_constructor): Create non-trivial zero-initializers
+	for array members and class fields.
+
+2002-05-14  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* lang-specs.h: Remove redundant -lang-c++.
+
+2002-05-13  Jason Merrill  <jason@redhat.com>
+
+	* class.c (build_vtbl_ref_1): Use fixed_type_or_null.
+	(fixed_type_or_null): See through reference vars.
+	(build_base_path): Vtable contents are constant.
+	* typeck.c (get_member_function_from_ptrfunc): Likewise.
+
+2002-05-12  Jason Merrill  <jason@redhat.com>
+
+	* cp-lang.c (ok_to_generate_alias_set_for_type): Backend-created
+	structs are safe.
+
 2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* cp-tree.h (flag_ansi): Remove.
