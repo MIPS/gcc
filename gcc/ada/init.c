@@ -386,7 +386,6 @@ __gnat_initialize (void)
    exclude this case in the above test.  */
 
 #include <signal.h>
-#include <setjmp.h>
 #include <sys/siginfo.h>
 
 static void __gnat_error_handler (int, siginfo_t *, struct sigcontext *);
@@ -404,7 +403,6 @@ __gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
   static int recurse = 0;
   struct sigcontext *mstate;
   const char *msg;
-  jmp_buf handler_jmpbuf;
 
   /* If this was an explicit signal from a "kill", just resignal it.  */
   if (SI_FROMUSER (sip))
@@ -414,43 +412,6 @@ __gnat_error_handler (int sig, siginfo_t *sip, struct sigcontext *context)
     }
 
   /* Otherwise, treat it as something we handle.  */
-
-  /* We are now going to raise the exception corresponding to the signal we
-     caught, which may eventually end up resuming the application code if the
-     exception is handled.
-
-     When the exception is handled, merely arranging for the *exception*
-     handler's context (stack pointer, program counter, other registers, ...)
-     to be installed is *not* enough to let the kernel think we've left the
-     *signal* handler.  This has annoying implications if an alternate stack
-     has been setup for this *signal* handler, because the kernel thinks we
-     are still running on that alternate stack even after the jump, which
-     causes trouble at least as soon as another signal is raised.
-
-     We deal with this by forcing a "local" longjmp within the signal handler
-     below, forcing the "on alternate stack" indication to be reset (kernel
-     wise) on the way.  If no alternate stack has been setup, this should be a
-     neutral operation. Otherwise, we will be in a delicate situation for a
-     short while because we are going to run the exception propagation code
-     within the alternate stack area (that is, with the stack pointer inside
-     the alternate stack bounds), but with the corresponding flag off from the
-     kernel's standpoint.  We expect this to be ok as long as the propagation
-     code does not trigger a signal itself, which is expected.
-
-     ??? A better approach would be to at least delay this operation until the
-     last second, that is, until just before we jump to the exception handler,
-     if any.  */
-
-  if (setjmp (handler_jmpbuf) == 0)
-    {
-#define JB_ONSIGSTK 0
-
-      /* Arrange for the "on alternate stack" flag to be reset.  See the
-	 comments around "jmp_buf offsets" in /usr/include/setjmp.h.  */
-      handler_jmpbuf [JB_ONSIGSTK] = 0;
-      longjmp (handler_jmpbuf, 1);
-    }
-
   switch (sig)
     {
     case SIGSEGV:
@@ -510,36 +471,12 @@ __gnat_install_handler (void)
 {
   struct sigaction act;
 
-  /* stack-checking on this platform is performed by the back-end and conforms
-     to what the ABI *mandates* (DEC OSF/1 Calling standard for AXP systems,
-     chapter 6: Stack Limits in Multihtreaded Execution Environments).  This
-     does not include a "stack reserve" region, so nothing guarantees that
-     enough room remains on the current stack to propagate an exception when
-     a stack-overflow is signaled.  We deal with this by requesting the use of
-     an alternate stack region for signal handlers.
-
-     ??? The actual use of this alternate region depends on the act.sa_flags
-     including SA_ONSTACK below.  Care should be taken to update s-intman if
-     we want this to happen for tasks also.  */
-
-  static char sig_stack [8*1024];
-  /* 8K is a mininum to be able to propagate an exception using the GCC/ZCX
-     scheme.  */
-
-  struct sigaltstack ss;
-
-  ss.ss_sp = (void *) sig_stack;
-  ss.ss_size = sizeof (sig_stack);
-  ss.ss_flags = 0;
-
-  sigaltstack (&ss, 0);
-
   /* Setup signal handler to map synchronous signals to appropriate
      exceptions. Make sure that the handler isn't interrupted by another
      signal that might cause a scheduling event! */
 
   act.sa_handler = (void (*) (int)) __gnat_error_handler;
-  act.sa_flags = SA_ONSTACK | SA_RESTART | SA_NODEFER | SA_SIGINFO;
+  act.sa_flags = SA_RESTART | SA_NODEFER | SA_SIGINFO;
   sigemptyset (&act.sa_mask);
 
   /* Do not install handlers if interrupt state is "System" */
@@ -1344,11 +1281,24 @@ __gnat_initialize (void)
 
 #elif defined (VMS)
 
+#ifdef __IA64
+#define lib_get_curr_invo_context LIB$I64_GET_CURR_INVO_CONTEXT
+#define lib_get_prev_invo_context LIB$I64_GET_PREV_INVO_CONTEXT
+#define lib_get_invo_handle LIB$I64_GET_INVO_HANDLE
+#else
+#define lib_get_curr_invo_context LIB$GET_CURR_INVO_CONTEXT
+#define lib_get_prev_invo_context LIB$GET_PREV_INVO_CONTEXT
+#define lib_get_invo_handle LIB$GET_INVO_HANDLE
+#endif
+
+#if defined (IN_RTS) && !defined (__IA64)
+
 /* The prehandler actually gets control first on a condition. It swaps the
    stack pointer and calls the handler (__gnat_error_handler). */
 extern long __gnat_error_prehandler (void);
 
 extern char *__gnat_error_prehandler_stack;   /* Alternate signal stack */
+#endif
 
 /* Conditions that don't have an Ada exception counterpart must raise
    Non_Ada_Error.  Since this is defined in s-auxdec, it should only be
@@ -1524,10 +1474,10 @@ __gnat_error_handler (int *sigargs, void *mechargs)
   mstate = (long *) (*Get_Machine_State_Addr) ();
   if (mstate != 0)
     {
-      LIB$GET_CURR_INVO_CONTEXT (&curr_icb);
-      LIB$GET_PREV_INVO_CONTEXT (&curr_icb);
-      LIB$GET_PREV_INVO_CONTEXT (&curr_icb);
-      curr_invo_handle = LIB$GET_INVO_HANDLE (&curr_icb);
+      lib_get_curr_invo_context (&curr_icb);
+      lib_get_prev_invo_context (&curr_icb);
+      lib_get_prev_invo_context (&curr_icb);
+      curr_invo_handle = lib_get_invo_handle (&curr_icb);
       *mstate = curr_invo_handle;
     }
   Raise_From_Signal_Handler (exception, msg);
@@ -1537,6 +1487,7 @@ void
 __gnat_install_handler (void)
 {
   long prvhnd;
+#if defined (IN_RTS) && !defined (__IA64)
   char *c;
 
   c = (char *) xmalloc (2049);
@@ -1545,6 +1496,9 @@ __gnat_install_handler (void)
 
   /* __gnat_error_prehandler is an assembly function.  */
   SYS$SETEXV (1, __gnat_error_prehandler, 3, &prvhnd);
+#else
+  SYS$SETEXV (1, __gnat_error_handler, 3, &prvhnd);
+#endif
   __gnat_handler_installed = 1;
 }
 

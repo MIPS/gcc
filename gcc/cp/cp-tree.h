@@ -1401,7 +1401,7 @@ struct lang_type GTY(())
    way or the other.  */
 #define CLASSTYPE_INTERFACE_KNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown == 0)
-/* The opposite of CLASSTYPE_INTERFANCE_KNOWN.  */
+/* The opposite of CLASSTYPE_INTERFACE_KNOWN.  */
 #define CLASSTYPE_INTERFACE_UNKNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown)
 
@@ -3719,7 +3719,7 @@ extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, bool, int);
-extern tree check_classfn (tree, tree, bool);
+extern tree check_classfn (tree, tree, tree);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);

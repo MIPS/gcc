@@ -38,10 +38,7 @@ exception statement from your version. */
 
 package java.text;
 
-import java.util.Set;
-import java.util.Map;
-import java.util.HashSet;
-import java.util.HashMap;
+import gnu.java.text.FormatCharacterIterator;
 import java.io.Serializable;
 
 /**

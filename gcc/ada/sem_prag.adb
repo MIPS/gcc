@@ -888,7 +888,7 @@ package body Sem_Prag is
               ("argument of pragma% must be entity name", Arg1);
 
          elsif Prag_Id = Pragma_Interrupt_Handler then
-            Check_Restriction (No_Dynamic_Interrupts, N);
+            Check_Restriction (No_Dynamic_Attachment, N);
          end if;
 
          declare
@@ -3276,10 +3276,61 @@ package body Sem_Prag is
                   Error_Pragma_Arg
                     ("invalid form for restriction", Arg);
 
+               --  Deal with synonyms. This should be done more cleanly ???
+
                else
+                  --  Boolean_Entry_Barriers is a synonym of Simple_Barriers
+
+                  if Chars (Expr) = Name_Boolean_Entry_Barriers then
+                     Check_Restriction
+                       (No_Implementation_Restrictions, Arg);
+                     Set_Restriction (Simple_Barriers, N);
+                     Set_Warning (Simple_Barriers);
+
+                  --  Max_Entry_Queue_Depth is a synonym of
+                  --  Max_Entry_Queue_Length
+
+                  elsif Chars (Expr) = Name_Max_Entry_Queue_Depth then
+                     Analyze_And_Resolve (Expr, Any_Integer);
+
+                     if not Is_OK_Static_Expression (Expr) then
+                        Flag_Non_Static_Expr
+                          ("value must be static expression!", Expr);
+                        raise Pragma_Exit;
+
+                     elsif not Is_Integer_Type (Etype (Expr))
+                       or else Expr_Value (Expr) < 0
+                     then
+                        Error_Pragma_Arg
+                          ("value must be non-negative integer", Arg);
+
+                     --  Restriction pragma is active
+
+                     else
+                        Val := Expr_Value (Expr);
+
+                        if not UI_Is_In_Int_Range (Val) then
+                           Error_Pragma_Arg
+                             ("pragma ignored, value too large?", Arg);
+                        else
+                           Set_Restriction (Max_Entry_Queue_Length, N,
+                                            Integer (UI_To_Int (Val)));
+                           Set_Warning (Max_Entry_Queue_Length);
+                        end if;
+                     end if;
+
+                  --  No_Dynamic_Interrupts is a synonym for
+                  --  No_Dynamic_Attachment
+
+                  elsif Chars (Expr) = Name_No_Dynamic_Interrupts then
+                     Check_Restriction
+                       (No_Implementation_Restrictions, Arg);
+                     Set_Restriction (No_Dynamic_Attachment, N);
+                     Set_Warning (No_Dynamic_Attachment);
+
                   --  No_Requeue is a synonym for No_Requeue_Statements
 
-                  if Chars (Expr) = Name_No_Requeue then
+                  elsif Chars (Expr) = Name_No_Requeue then
                      Check_Restriction
                        (No_Implementation_Restrictions, Arg);
                      Set_Restriction (No_Requeue_Statements, N);
@@ -9865,7 +9916,6 @@ package body Sem_Prag is
 
          when Unknown_Pragma =>
             raise Program_Error;
-
       end case;
 
    exception
@@ -9897,7 +9947,7 @@ package body Sem_Prag is
         and then
           (Is_Generic_Instance (Result)
             or else Nkind (Parent (Declaration_Node (Result))) =
-              N_Subprogram_Renaming_Declaration)
+                    N_Subprogram_Renaming_Declaration)
         and then Present (Alias (Result))
       loop
          Result := Alias (Result);
@@ -9905,6 +9955,65 @@ package body Sem_Prag is
 
       return Result;
    end Get_Base_Subprogram;
+
+   -----------------------------
+   -- Is_Config_Static_String --
+   -----------------------------
+
+   function Is_Config_Static_String (Arg : Node_Id) return Boolean is
+
+      function Add_Config_Static_String (Arg : Node_Id) return Boolean;
+      --  This is an internal recursive function that is just like the
+      --  outer function except that it adds the string to the name buffer
+      --  rather than placing the string in the name buffer.
+
+      ------------------------------
+      -- Add_Config_Static_String --
+      ------------------------------
+
+      function Add_Config_Static_String (Arg : Node_Id) return Boolean is
+         N : Node_Id;
+         C : Char_Code;
+
+      begin
+         N := Arg;
+
+         if Nkind (N) = N_Op_Concat then
+            if Add_Config_Static_String (Left_Opnd (N)) then
+               N := Right_Opnd (N);
+            else
+               return False;
+            end if;
+         end if;
+
+         if Nkind (N) /= N_String_Literal then
+            Error_Msg_N ("string literal expected for pragma argument", N);
+            return False;
+
+         else
+            for J in 1 .. String_Length (Strval (N)) loop
+               C := Get_String_Char (Strval (N), J);
+
+               if not In_Character_Range (C) then
+                  Error_Msg
+                    ("string literal contains invalid wide character",
+                     Sloc (N) + 1 + Source_Ptr (J));
+                  return False;
+               end if;
+
+               Add_Char_To_Name_Buffer (Get_Character (C));
+            end loop;
+         end if;
+
+         return True;
+      end Add_Config_Static_String;
+
+   --  Start of prorcessing for Is_Config_Static_String
+
+   begin
+      Name_Len := 0;
+      return Add_Config_Static_String (Arg);
+   end Is_Config_Static_String;
 
    -----------------------------------------
    -- Is_Non_Significant_Pragma_Reference --

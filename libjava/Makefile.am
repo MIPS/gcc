@@ -103,7 +103,7 @@ JAVAC = $(GCJ_WITH_FLAGS) -C
 
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
-WARNINGS = -W -Wall
+WARNINGS = -Wextra -Wall
 ## We need _GNU_SOURCE defined for some Linux builds.  It doesn't hurt
 ## to always define it.
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
@@ -191,6 +191,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c \
@@ -199,6 +200,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c \
@@ -2469,10 +2471,14 @@ gnu/java/security/x509/X500DistinguishedName.java \
 gnu/java/security/x509/X509Certificate.java \
 gnu/java/security/x509/X509CRLEntry.java \
 gnu/java/security/x509/X509CRL.java \
+gnu/java/text/AttributedFormatBuffer.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/FormatBuffer.java \
+gnu/java/text/FormatCharacterIterator.java \
 gnu/java/text/LineBreakIterator.java \
 gnu/java/text/SentenceBreakIterator.java \
+gnu/java/text/StringFormatBuffer.java \
 gnu/java/text/WordBreakIterator.java \
 gnu/java/util/DoubleEnumeration.java \
 gnu/java/util/EmptyEnumeration.java \
@@ -2812,7 +2818,6 @@ java/text/DecimalFormat.java \
 java/text/DecimalFormatSymbols.java \
 java/text/FieldPosition.java \
 java/text/Format.java \
-java/text/FormatCharacterIterator.java \
 java/text/MessageFormat.java \
 java/text/NumberFormat.java \
 java/text/ParseException.java \

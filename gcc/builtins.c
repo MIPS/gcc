@@ -1676,6 +1676,10 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_EXP2F:
     case BUILT_IN_EXP2L:
       errno_set = true; builtin_optab = exp2_optab; break;
+    case BUILT_IN_EXPM1:
+    case BUILT_IN_EXPM1F:
+    case BUILT_IN_EXPM1L:
+      errno_set = true; builtin_optab = expm1_optab; break;
     case BUILT_IN_LOGB:
     case BUILT_IN_LOGBF:
     case BUILT_IN_LOGBL:
@@ -1696,6 +1700,10 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_LOG2F:
     case BUILT_IN_LOG2L:
       errno_set = true; builtin_optab = log2_optab; break;
+    case BUILT_IN_LOG1P:
+    case BUILT_IN_LOG1PF:
+    case BUILT_IN_LOG1PL:
+      errno_set = true; builtin_optab = log1p_optab; break;
     case BUILT_IN_ASIN:
     case BUILT_IN_ASINF:
     case BUILT_IN_ASINL:
@@ -1865,6 +1873,14 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_ATAN2F:
     case BUILT_IN_ATAN2L:
       builtin_optab = atan2_optab; break;
+    case BUILT_IN_FMOD:
+    case BUILT_IN_FMODF:
+    case BUILT_IN_FMODL:
+      builtin_optab = fmod_optab; break;
+    case BUILT_IN_DREM:
+    case BUILT_IN_DREMF:
+    case BUILT_IN_DREML:
+      builtin_optab = drem_optab; break;
     default:
       abort ();
     }
@@ -5322,7 +5338,7 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
 
   /* Otherwise call the wrapper.  This should be equivalent for the rest of
      compiler, so the code does not diverge, and the wrapper may run the
-     code neccesary for keeping the profiling sane.  */
+     code necessary for keeping the profiling sane.  */
 
   switch (DECL_FUNCTION_CODE (fn))
     {
@@ -5480,6 +5496,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EXP2:
     case BUILT_IN_EXP2F:
     case BUILT_IN_EXP2L:
+    case BUILT_IN_EXPM1:
+    case BUILT_IN_EXPM1F:
+    case BUILT_IN_EXPM1L:
     case BUILT_IN_LOGB:
     case BUILT_IN_LOGBF:
     case BUILT_IN_LOGBL:
@@ -5495,6 +5514,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOG2:
     case BUILT_IN_LOG2F:
     case BUILT_IN_LOG2L:
+    case BUILT_IN_LOG1P:
+    case BUILT_IN_LOG1PF:
+    case BUILT_IN_LOG1PL:
     case BUILT_IN_TAN:
     case BUILT_IN_TANF:
     case BUILT_IN_TANL:
@@ -5545,6 +5567,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ATAN2:
     case BUILT_IN_ATAN2F:
     case BUILT_IN_ATAN2L:
+    case BUILT_IN_FMOD:
+    case BUILT_IN_FMODF:
+    case BUILT_IN_FMODL:
+    case BUILT_IN_DREM:
+    case BUILT_IN_DREMF:
+    case BUILT_IN_DREML:
       if (! flag_unsafe_math_optimizations)
 	break;
       target = expand_builtin_mathfn_2 (exp, target, subtarget);
@@ -6329,6 +6357,45 @@ fold_trunc_transparent_mathfn (tree exp)
   return 0;
 }
 
+/* EXP is assumed to be builtin call which can narrow the FP type of
+   the argument, for instance lround((double)f) -> lroundf (f).  */
+
+static tree
+fold_fixed_mathfn (tree exp)
+{
+  tree fndecl = get_callee_fndecl (exp);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arg;
+
+  if (! validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If argument is already integer valued, and we don't need to worry
+     about setting errno, there's no need to perform rounding.  */
+  if (! flag_errno_math && integer_valued_real_p (arg))
+    return fold (build1 (FIX_TRUNC_EXPR, TREE_TYPE (exp), arg));
+
+  if (optimize)
+    {
+      tree ftype = TREE_TYPE (arg);
+      tree arg0 = strip_float_extensions (arg);
+      tree newtype = TREE_TYPE (arg0);
+      tree decl;
+
+      if (TYPE_PRECISION (newtype) < TYPE_PRECISION (ftype)
+	  && (decl = mathfn_built_in (newtype, fcode)))
+	{
+	  arglist =
+	    build_tree_list (NULL_TREE, fold_convert (newtype, arg0));
+	  return build_function_call_expr (decl, arglist);
+	}
+    }
+  return 0;
+}
+
 /* Fold function call to builtin cabs, cabsf or cabsl.  ARGLIST
    is the argument list and TYPE is the return type.  Return
    NULL_TREE if no if no simplification can be made.  */
@@ -6508,7 +6575,7 @@ fold_builtin_round (tree exp)
   if (! validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
     return 0;
 
-  /* Optimize ceil of constant value.  */
+  /* Optimize round of constant value.  */
   arg = TREE_VALUE (arglist);
   if (TREE_CODE (arg) == REAL_CST && ! TREE_CONSTANT_OVERFLOW (arg))
     {
@@ -6526,6 +6593,42 @@ fold_builtin_round (tree exp)
     }
 
   return fold_trunc_transparent_mathfn (exp);
+}
+
+/* Fold function call to builtin lround, lroundf or lroundl (or the
+   corresponding long long versions).  Return NULL_TREE if no
+   simplification can be made.  */
+
+static tree
+fold_builtin_lround (tree exp)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg;
+
+  if (! validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  /* Optimize lround of constant value.  */
+  arg = TREE_VALUE (arglist);
+  if (TREE_CODE (arg) == REAL_CST && ! TREE_CONSTANT_OVERFLOW (arg))
+    {
+      const REAL_VALUE_TYPE x = TREE_REAL_CST (arg);
+
+      if (! REAL_VALUE_ISNAN (x) && ! REAL_VALUE_ISINF (x))
+	{
+	  tree itype = TREE_TYPE (exp), ftype = TREE_TYPE (arg), result;
+	  HOST_WIDE_INT hi, lo;
+	  REAL_VALUE_TYPE r;
+
+	  real_round (&r, TYPE_MODE (ftype), &x);
+	  REAL_VALUE_TO_INT (&lo, &hi, r);
+	  result = build_int_2 (lo, hi);
+	  if (int_fits_type_p (result, itype))
+	    return fold_convert (itype, result);
+	}
+    }
+
+  return fold_fixed_mathfn (exp);
 }
 
 /* Fold function call to builtin ffs, clz, ctz, popcount and parity
@@ -7641,6 +7744,22 @@ fold_builtin_1 (tree exp)
     case BUILT_IN_RINTF:
     case BUILT_IN_RINTL:
       return fold_trunc_transparent_mathfn (exp);
+
+    case BUILT_IN_LROUND:
+    case BUILT_IN_LROUNDF:
+    case BUILT_IN_LROUNDL:
+    case BUILT_IN_LLROUND:
+    case BUILT_IN_LLROUNDF:
+    case BUILT_IN_LLROUNDL:
+      return fold_builtin_lround (exp);
+
+    case BUILT_IN_LRINT:
+    case BUILT_IN_LRINTF:
+    case BUILT_IN_LRINTL:
+    case BUILT_IN_LLRINT:
+    case BUILT_IN_LLRINTF:
+    case BUILT_IN_LLRINTL:
+      return fold_fixed_mathfn (exp);
 
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:

@@ -2549,7 +2549,7 @@ delete_tree_cfg (void)
   if (n_basic_blocks > 0)
     free_blocks_annotations ();
 
-  free_basic_block_vars (0);
+  free_basic_block_vars ();
   basic_block_info = NULL;
   label_to_block_map = NULL;
   free_rbi_pool ();

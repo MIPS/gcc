@@ -37,16 +37,14 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.ComponentOrientation;
-import java.awt.MenuContainer;
 import java.awt.Dimension;
+import java.awt.MenuContainer;
 import java.awt.image.ImageObserver;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.Hashtable;
+
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -54,7 +52,6 @@ import javax.accessibility.AccessibleStateSet;
 import javax.accessibility.AccessibleValue;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.EventListenerList;
 import javax.swing.plaf.SliderUI;
 
 
@@ -414,7 +411,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    * This method returns a name to identify which look and feel class will be
    * the UI delegate for the slider.
    *
-   * @return The L&F classID. "SliderUI"
+   * @return The Look and Feel classID. "SliderUI"
    */
   public String getUIClassID()
   {

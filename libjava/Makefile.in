@@ -211,7 +211,7 @@ JAVAC = $(GCJ_WITH_FLAGS) -C
 
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
-WARNINGS = -W -Wall
+WARNINGS = -Wextra -Wall
 AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
 	-fdollars-in-identifiers \
 	-Wswitch-enum \
@@ -282,6 +282,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c \
@@ -290,6 +291,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c \
@@ -2141,10 +2143,14 @@ gnu/java/security/x509/X500DistinguishedName.java \
 gnu/java/security/x509/X509Certificate.java \
 gnu/java/security/x509/X509CRLEntry.java \
 gnu/java/security/x509/X509CRL.java \
+gnu/java/text/AttributedFormatBuffer.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
+gnu/java/text/FormatBuffer.java \
+gnu/java/text/FormatCharacterIterator.java \
 gnu/java/text/LineBreakIterator.java \
 gnu/java/text/SentenceBreakIterator.java \
+gnu/java/text/StringFormatBuffer.java \
 gnu/java/text/WordBreakIterator.java \
 gnu/java/util/DoubleEnumeration.java \
 gnu/java/util/EmptyEnumeration.java \
@@ -2484,7 +2490,6 @@ java/text/DecimalFormat.java \
 java/text/DecimalFormatSymbols.java \
 java/text/FieldPosition.java \
 java/text/Format.java \
-java/text/FormatCharacterIterator.java \
 java/text/MessageFormat.java \
 java/text/NumberFormat.java \
 java/text/ParseException.java \
@@ -2856,6 +2861,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
@@ -2864,6 +2870,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
@@ -2938,6 +2945,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
@@ -2946,6 +2954,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
@@ -3009,7 +3018,7 @@ libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -3410,10 +3419,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/security/x509/X509CRL.P \
 .deps/gnu/java/security/x509/X509CRLEntry.P \
 .deps/gnu/java/security/x509/X509Certificate.P \
+.deps/gnu/java/text/AttributedFormatBuffer.P \
 .deps/gnu/java/text/BaseBreakIterator.P \
 .deps/gnu/java/text/CharacterBreakIterator.P \
+.deps/gnu/java/text/FormatBuffer.P \
+.deps/gnu/java/text/FormatCharacterIterator.P \
 .deps/gnu/java/text/LineBreakIterator.P \
 .deps/gnu/java/text/SentenceBreakIterator.P \
+.deps/gnu/java/text/StringFormatBuffer.P \
 .deps/gnu/java/text/WordBreakIterator.P \
 .deps/gnu/java/util/DoubleEnumeration.P \
 .deps/gnu/java/util/EmptyEnumeration.P \
@@ -4148,7 +4161,6 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/text/DateFormat.P .deps/java/text/DateFormatSymbols.P \
 .deps/java/text/DecimalFormat.P .deps/java/text/DecimalFormatSymbols.P \
 .deps/java/text/FieldPosition.P .deps/java/text/Format.P \
-.deps/java/text/FormatCharacterIterator.P \
 .deps/java/text/MessageFormat.P .deps/java/text/NumberFormat.P \
 .deps/java/text/ParseException.P .deps/java/text/ParsePosition.P \
 .deps/java/text/RuleBasedCollator.P .deps/java/text/SimpleDateFormat.P \
@@ -4691,6 +4703,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.P \
@@ -4699,6 +4712,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.P \

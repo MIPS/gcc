@@ -109,7 +109,7 @@
     %{mmedia} %{mno-media} \
     %{mmuladd} %{mno-muladd} \
     %{mpack} %{mno-pack} \
-    %{mfdpic} \
+    %{mno-fdpic:-mnopic} %{mfdpic} \
     %{fpic|fpie: -mpic} %{fPIC|fPIE: -mPIC} %{mlibrary-pic}}"
 
 /* Another C string constant used much like `LINK_SPEC'.  The difference
@@ -151,7 +151,7 @@
 %{mcpu=tomcat: %(cpp_fr500)} \
 %{mcpu=simple: %(cpp_simple)} \
 %{!mcpu*: %(cpp_cpu_default)} \
-%{mno-media: -D__FRV_ACC__=0 %{msoft-float: -D__FRV_FPR__=0}} \
+%{mno-media: -U__FRV_ACC__ -D__FRV_ACC__=0 %{msoft-float: -U__FRV_FPR__ -D__FRV_FPR__=0}} \
 %{mhard-float: -D__FRV_HARD_FLOAT__} \
 %{msoft-float: -U__FRV_HARD_FLOAT__} \
 %{mgpr-32: -U__FRV_GPR__ -D__FRV_GPR__=32} \
@@ -203,7 +203,7 @@
 -D__FRV_GPR__=32 \
 -D__FRV_FPR__=0 \
 -D__FRV_ACC__=0 \
-%{mmedia: -D__FRV_ACC__=8} \
+%{mmedia: -U__FRV_ACC__ -D__FRV_ACC__=8} \
 %{mhard-float|mmedia: -D__FRV_FPR__=64}"
 
 #define MASK_DEFAULT_FRV	\
@@ -931,7 +931,7 @@ extern int target_flags;
 #define LAST_ARG_REGNUM		(FIRST_ARG_REGNUM + FRV_NUM_ARG_REGS - 1)
 
 /* Registers used by the exception handling functions.  These should be
-   registers that are not otherwised used by the calling sequence.  */
+   registers that are not otherwise used by the calling sequence.  */
 #define FIRST_EH_REGNUM		14
 #define LAST_EH_REGNUM		15
 
@@ -3110,8 +3110,10 @@ do {                                                                    \
   { "odd_fpr_operand",			{ REG, SUBREG }},		\
   { "dbl_memory_one_insn_operand",	{ MEM }},			\
   { "dbl_memory_two_insn_operand",	{ MEM }},			\
-  { "call_operand",			{ REG, SUBREG, PLUS, CONST_INT,	\
-					  SYMBOL_REF, LABEL_REF, CONST }}, \
+  { "call_operand",			{ REG, SUBREG, CONST_INT,	\
+					  CONST, SYMBOL_REF }}, 	\
+  { "sibcall_operand",			{ REG, SUBREG, CONST_INT,	\
+					  CONST }}, 			\
   { "upper_int16_operand",		{ CONST_INT }},			\
   { "uint16_operand",			{ CONST_INT }},			\
   { "relational_operator",		{ EQ, NE, LE, LT, GE, GT,	\

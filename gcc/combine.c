@@ -4994,23 +4994,23 @@ simplify_set (rtx x)
       rtx op0, op1, tmp;
       int other_changed = 0;
       enum machine_mode compare_mode = GET_MODE (dest);
-      enum machine_mode tmp_mode;
 
       if (GET_CODE (src) == COMPARE)
 	op0 = XEXP (src, 0), op1 = XEXP (src, 1);
       else
 	op0 = src, op1 = const0_rtx;
 
-      /* Check whether the comparison is known at compile time.  */
-      if (GET_MODE (op0) != VOIDmode)
-	tmp_mode = GET_MODE (op0);
-      else if (GET_MODE (op1) != VOIDmode)
-	tmp_mode = GET_MODE (op1);
+      tmp = simplify_relational_operation (old_code, compare_mode, VOIDmode,
+					   op0, op1);
+      if (!tmp)
+        new_code = old_code;
+      else if (!CONSTANT_P (tmp))
+        {
+          new_code = GET_CODE (tmp);
+          op0 = XEXP (tmp, 0);
+          op1 = XEXP (tmp, 1);
+        }
       else
-	tmp_mode = compare_mode;
-      tmp = simplify_const_relational_operation (old_code, tmp_mode,
-						 op0, op1);
-      if (tmp != NULL_RTX)
 	{
 	  rtx pat = PATTERN (other_insn);
 	  undobuf.other_insn = other_insn;
@@ -5031,12 +5031,15 @@ simplify_set (rtx x)
 	}
 
       /* Simplify our comparison, if possible.  */
-      new_code = simplify_comparison (old_code, &op0, &op1);
+      new_code = simplify_comparison (new_code, &op0, &op1);
 
 #ifdef SELECT_CC_MODE
       /* If this machine has CC modes other than CCmode, check to see if we
 	 need to use a different CC mode here.  */
-      compare_mode = SELECT_CC_MODE (new_code, op0, op1);
+      if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
+	compare_mode = GET_MODE (op0);
+      else
+	compare_mode = SELECT_CC_MODE (new_code, op0, op1);
 
 #ifndef HAVE_cc0
       /* If the mode changed, we have to change SET_DEST, the mode in the

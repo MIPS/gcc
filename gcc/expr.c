@@ -4590,7 +4590,10 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 			 tree exp, tree type, int cleared, int alias_set)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
+      /* We can only call store_constructor recursively if the size and
+	 bit position are on a byte boundary.  */
       && bitpos % BITS_PER_UNIT == 0
+      && (bitsize > 0 && bitsize % BITS_PER_UNIT == 0)
       /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
@@ -4814,7 +4817,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       tree elt;
       int i;
       int need_to_clear;
-      tree domain = TYPE_DOMAIN (type);
+      tree domain;
       tree elttype = TREE_TYPE (type);
       int const_bounds_p;
       HOST_WIDE_INT minelt = 0;
@@ -4824,13 +4827,14 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       int elt_size = 0;
       unsigned n_elts = 0;
 
-      /* Vectors are like arrays, but the domain is stored via an array
-	 type indirectly.  */
-      if (TREE_CODE (type) == VECTOR_TYPE)
+      if (TREE_CODE (type) == ARRAY_TYPE)
+	domain = TYPE_DOMAIN (type);
+      else
+	/* Vectors do not have domains; look up the domain of
+	   the array embedded in the debug representation type.
+	   FIXME Would probably be more efficient to treat vectors
+	   separately from arrays.  */
 	{
-	  /* Note that although TYPE_DEBUG_REPRESENTATION_TYPE uses
-	     the same field as TYPE_DOMAIN, we are not guaranteed that
-	     it always will.  */
 	  domain = TYPE_DEBUG_REPRESENTATION_TYPE (type);
 	  domain = TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (domain)));
 	  if (REG_P (target) && VECTOR_MODE_P (GET_MODE (target)))
@@ -8802,8 +8806,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    else
 	      {
 		target = assign_temp (type, 2, 0, 1);
-		/* All temp slots at this level must not conflict.  */
-		preserve_temp_slots (target);
 		SET_DECL_RTL (slot, target);
 		if (TREE_ADDRESSABLE (slot))
 		  put_var_into_stack (slot, /*rescan=*/false);

@@ -1308,16 +1308,17 @@ debug procedures in the middle of declarations.
 Syntax:
 
 @smallexample @c ada
-pragma Elaboration_Checks (RM | Static);
+pragma Elaboration_Checks (Dynamic | Static);
 @end smallexample
 
 @noindent
 This is a configuration pragma that provides control over the
 elaboration model used by the compilation affected by the
-pragma.  If the parameter is RM, then the dynamic elaboration
+pragma.  If the parameter is @code{Dynamic},
+then the dynamic elaboration
 model described in the Ada Reference Manual is used, as though
 the @code{-gnatE} switch had been specified on the command
-line.  If the parameter is Static, then the default GNAT static
+line.  If the parameter is @code{Static}, then the default GNAT static
 model is used.  This configuration pragma overrides the setting
 of the command line.  For full details on the elaboration models
 used by the GNAT compiler, see section ``Elaboration Order
@@ -1355,10 +1356,12 @@ FUNCTION_PROFILE ::= [Parameter_Types => PARAMETER_TYPES,]
                       Result_Type => result_SUBTYPE_NAME]
 
 PARAMETER_TYPES ::= (SUBTYPE_NAME @{, SUBTYPE_NAME@})
-SUBTYPE_NAME    ::= STRING_LITERAL
+SUBTYPE_NAME    ::= STRING_VALUE
 
 SOURCE_LOCATION ::= Source_Location => SOURCE_TRACE
-SOURCE_TRACE    ::= STRING_LITERAL
+SOURCE_TRACE    ::= STRING_VALUE
+
+STRING_VALUE ::= STRING_LITERAL @{& STRING_LITERAL@}
 @end smallexample
 
 @noindent
@@ -1387,7 +1390,7 @@ subprograms denoted by the first two parameters.
 Use PARAMETER_AND_RESULT_TYPE_PROFILE to specify the profile of the subprogram
 to be eliminated in a manner similar to that used for the extended
 @code{Import} and @code{Export} pragmas, except that the subtype names are
-always given as string literals. At the moment, this form of distinguishing
+always given as strings. At the moment, this form of distinguishing
 overloaded subprograms is implemented only partially, so we do not recommend
 using it for practical subprogram elimination.
 
@@ -1397,8 +1400,8 @@ as @code{Parameter_Types => ("")}
 Alternatively, the @code{Source_Location} parameter is used to specify
 which overloaded alternative is to be eliminated by pointing to the
 location of the DEFINING_PROGRAM_UNIT_NAME of this subprogram in the
-source text. The string literal submitted as SOURCE_TRACE should have
-the following format:
+source text. The string literal (or concatenation of string literals)
+given as SOURCE_TRACE must have the following format:
 
 @smallexample @c ada
 SOURCE_TRACE ::= SOURCE_LOCATION@{LBRACKET SOURCE_LOCATION RBRACKET@}
@@ -2969,14 +2972,13 @@ There are no semantic dependencies on the package Ada.Calendar.
 @item No_Relative_Delay
 There are no delay_relative_statements.
 
-@item No_Task_Attributes
-There are no semantic dependencies on the Ada.Task_Attributes package and
-there are no references to the attributes Callable and Terminated [RM 9.9].
+@item No_Task_Attributes_Package
+There are no semantic dependencies on the Ada.Task_Attributes package.
 
-@item Boolean_Entry_Barriers
-Entry barrier condition expressions shall be boolean
-objects which are declared in the protected type
-which contains the entry.
+@item Simple_Barriers
+Entry barrier condition expressions shall be either static
+boolean expressions or boolean objects which are declared in
+the protected type which contains the entry.
 
 @item Max_Asynchronous_Select_Nesting = 0
 [RM D.7] Specifies the maximum dynamic nesting level of asynchronous_selects.
@@ -3022,7 +3024,7 @@ and whose most recent description is available at
 
 The above set is a superset of the restrictions provided by pragma
 @code{Restricted_Run_Time}, it includes five additional restrictions
-(@code{Boolean_Entry_Barriers}, @code{No_Select_Statements},
+(@code{Simple_Barriers}, @code{No_Select_Statements},
 @code{No_Calendar},
 @code{No_Relative_Delay} and @code{No_Task_Termination}).  This means
 that pragma @code{Ravenscar}, like the pragma @code{Restricted_Run_Time},
@@ -3053,7 +3055,7 @@ A configuration pragma that establishes the following set of restrictions:
 @item No_Protected_Type_Allocators
 @item No_Local_Protected_Objects
 @item No_Requeue_Statements
-@item No_Task_Attributes
+@item No_Task_Attributes_Package
 @item Max_Asynchronous_Select_Nesting =  0
 @item Max_Task_Entries =  0
 @item Max_Protected_Entries = 1
@@ -6846,13 +6848,14 @@ then all compilation units in the partition must obey the restriction.
 
 @table @code
 
-@item Boolean_Entry_Barriers
-@findex Boolean_Entry_Barriers
+@item Simple_Barriers
+@findex Simple_Barriers
 This restriction ensures at compile time that barriers in entry declarations
-for protected types are restricted to references to simple boolean variables
-defined in the private part of the protected type.  No other form of entry
-barriers is permitted.  This is one of the restrictions of the Ravenscar
-profile for limited tasking (see also pragma @code{Ravenscar}).
+for protected types are restricted to either static boolean expressions or
+references to simple boolean variables defined in the private part of the
+protected type.  No other form of entry barriers is permitted.  This is one
+of the restrictions of the Ravenscar profile for limited tasking (see also
+pragma @code{Ravenscar}).
 
 @item Max_Entry_Queue_Depth => Expr
 @findex Max_Entry_Queue_Depth
@@ -6989,8 +6992,8 @@ user-defined storage pool.
 This restriction ensures at compile time that there are no implicit or
 explicit dependencies on the package @code{Ada.Streams}.
 
-@item No_Task_Attributes
-@findex No_Task_Attributes
+@item No_Task_Attributes_Package
+@findex No_Task_Attributes_Package
 This restriction ensures at compile time that there are no implicit or
 explicit dependencies on the package @code{Ada.Task_Attributes}.
 

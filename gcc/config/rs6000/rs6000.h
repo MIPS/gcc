@@ -718,7 +718,8 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY ((TARGET_32BIT && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define STACK_BOUNDARY \
+  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -997,25 +998,9 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define ALTIVEC_REGNO_P(N) ((N) >= FIRST_ALTIVEC_REGNO && (N) <= LAST_ALTIVEC_REGNO)
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
+   to hold something of mode MODE.  */
 
-   For the SPE, GPRs are 64 bits but only 32 bits are visible in
-   scalar instructions.  The upper 32 bits are only available to the
-   SIMD instructions.
-
-   POWER and PowerPC GPRs hold 32 bits worth;
-   PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (FP_REGNO_P (REGNO)							\
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-   : (SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE))   \
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
-   : ALTIVEC_REGNO_P (REGNO)						\
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD) \
-   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs ((REGNO), (MODE))
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
@@ -1042,26 +1027,10 @@ extern const char *rs6000_warn_altivec_long_switch;
         ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
-/* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-   For POWER and PowerPC, the GPRs can hold any mode, but values bigger
-   than one register cannot go past R31.  The float
-   registers only can hold floating modes and DImode, and CR register only
-   can hold CC modes.  We cannot put TImode anywhere except general
-   register and it must be able to fit within the register set.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (INT_REGNO_P (REGNO) ?						\
-     INT_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1)	        \
-   : FP_REGNO_P (REGNO) ?						\
-     ((GET_MODE_CLASS (MODE) == MODE_FLOAT				\
-       && FP_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1))	\
-      || (GET_MODE_CLASS (MODE) == MODE_INT				\
-	  && GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))		\
-   : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_VECTOR_MODE (MODE)		\
-   : SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE) ? 1 \
-   : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
-   : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
-   : GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)
+/* Value is TRUE if hard register REGNO can hold a value of
+   machine-mode MODE.  */
+#define HARD_REGNO_MODE_OK(REGNO, MODE) \
+  rs6000_hard_regno_mode_ok_p[(int)(MODE)][REGNO]
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1128,59 +1097,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 
 #define FIXED_SCRATCH (TARGET_SPE ? 14 : 11)
 
-/* Define this macro to change register usage conditional on target flags.
-   Set MQ register fixed (already call_used) if not POWER architecture
-   (RIOS1, RIOS2, RSC, and PPC601) so that it will not be allocated.
-   64-bit AIX reserves GPR13 for thread-private data.
-   Conditionally disable FPRs.  */
+/* Define this macro to change register usage conditional on target
+   flags.  */
 
-#define CONDITIONAL_REGISTER_USAGE					\
-{									\
-  int i;								\
-  if (! TARGET_POWER)							\
-    fixed_regs[64] = 1;							\
-  if (TARGET_64BIT)							\
-    fixed_regs[13] = call_used_regs[13]					\
-      = call_really_used_regs[13] = 1; 					\
-  if (TARGET_SOFT_FLOAT || !TARGET_FPRS)				\
-    for (i = 32; i < 64; i++)						\
-      fixed_regs[i] = call_used_regs[i]					\
-        = call_really_used_regs[i] = 1;					\
-  if (DEFAULT_ABI == ABI_V4						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM			\
-      && flag_pic == 2)							\
-    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;			\
-  if (DEFAULT_ABI == ABI_V4						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM			\
-      && flag_pic == 1)							\
-    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
-  if (DEFAULT_ABI == ABI_DARWIN						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
-    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
-  if (TARGET_ALTIVEC)                                                   \
-    global_regs[VSCR_REGNO] = 1;                                        \
-  if (TARGET_SPE)							\
-    {                                                                   \
-      global_regs[SPEFSCR_REGNO] = 1;					\
-      fixed_regs[FIXED_SCRATCH]						\
-        = call_used_regs[FIXED_SCRATCH]					\
-	= call_really_used_regs[FIXED_SCRATCH] = 1; 			\
-    }                                                                   \
-  if (! TARGET_ALTIVEC)							\
-    {									\
-      for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)	\
-	fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1; \
-      call_really_used_regs[VRSAVE_REGNO] = 1;				\
-    }									\
-  if (TARGET_ALTIVEC_ABI)						\
-    for (i = FIRST_ALTIVEC_REGNO; i < FIRST_ALTIVEC_REGNO + 20; ++i)	\
-      call_used_regs[i] = call_really_used_regs[i] = 1;			\
-}
+#define CONDITIONAL_REGISTER_USAGE rs6000_conditional_register_usage ()
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */

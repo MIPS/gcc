@@ -204,7 +204,7 @@
 ;; ??? A simple alu insn issued on an LS unit has 0 cycle latency to an EX
 ;; insn, to a store (for data), and to an xfer insn.  It has 1 cycle latency to
 ;; another LS insn (excluding store data).  A simple alu insn issued on an EX
-;; unit has a latency of 5 cycles when the results goes to a LS unit (exluding
+;; unit has a latency of 5 cycles when the results goes to a LS unit (excluding
 ;; store data), otherwise a latency of 1 cycle.
 
 ;; ??? We can not handle latencies properly for simple alu instructions
@@ -269,13 +269,13 @@
 (define_insn_reservation "ir_sb1_mfhi" 1
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "mfhilo")
-	    (not (match_operand 1 "lo_operand" ""))))
+	    (not (match_operand 1 "lo_operand"))))
   "sb1_ex1")
 
 (define_insn_reservation "ir_sb1_mflo" 1
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "mfhilo")
-	    (match_operand 1 "lo_operand" "")))
+	    (match_operand 1 "lo_operand")))
   "sb1_ex1")
 
 ;; mt{hi,lo} to mul/div is 4 cycles.
@@ -390,7 +390,7 @@
 (define_insn_reservation "ir_sb1_mtxfer" 5
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "xfer")
-	    (match_operand 0 "fp_register_operand" "")))
+	    (match_operand 0 "fp_register_operand")))
   "sb1_fp0")
 
 ;; mfc1 latency 1 cycle.  
@@ -398,7 +398,7 @@
 (define_insn_reservation "ir_sb1_mfxfer" 1
   (and (eq_attr "cpu" "sb1")
        (and (eq_attr "type" "xfer")
-	    (not (match_operand 0 "fp_register_operand" ""))))
+	    (not (match_operand 0 "fp_register_operand"))))
   "sb1_fp0")
 
 ;; ??? Can deliver at most 1 result per every 6 cycles because of issue

@@ -1,3 +1,131 @@
+2004-05-11  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.c-torture/compile/20010518-1.c: Force enum size.
+
+2004-05-10  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/sibcall-3.c: Remove xfail for mips*-*-elf.
+	* gcc.dg/sibcall-4.c: Ditto.
+
+2004-05-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* g++.dg/ext/altivec-8.C: New test case.
+	* gcc.dg/altivec-13.c: New test case.
+
+2004-05-08  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/divcmp-1.c: New test case.
+	* gcc.c-torture/execute/divcmp-2.c: New test case.
+	* gcc.c-torture/execute/divcmp-3.c: New test case.
+
+2004-05-07  Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/pragma-re-2.C: New test.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/i386-387-1.c: Add new test for __builtin_fmod.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+	* gcc.dg/i386-387-5.c: Add new tests for __builtin_log1p and
+	__builtin_drem.
+	* gcc.dg/i386-387-6.c: Likewise.
+
+2004-05-07  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-33.c:  Also check log1p*.
+
+2004-05-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR optimization/15296
+	* gcc.c-torture/execute/pr15296.c: New test.
+
+2004-05-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-40.c: New test.
+
+2004-05-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: Provide dummy __mips16 version.
+
+2004-05-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	* g++.dg/ext/spe1.C: New testcase.
+
+2004-05-04  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/image-info.m: Allow additional attributes
+	for __image_info section.
+
+2004-05-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-hilo-2.c: New test.
+
+2004-05-03  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14389
+	* g++.dg/template/member5.C: New test.
+
+2004-05-03  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-34.c: Also check expm1*.
+
+2004-05-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-integral-1.c: Reorg and add more cases.
+	* gcc.dg/torture/builtin-convert-3.c: New test.
+
+2004-05-01  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR middle-end/15054
+	* g++.dg/opt/pr15054.C: New test.
+
+2004-04-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-rounding-1.c: New test.
+	* gcc.dg/builtins-25.c: Delete.
+	* gcc.dg/builtins-29.c: Delete.
+
+2004-04-29  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/sibcall-3.c: Delete s390 from expected fail list.
+	* gcc.dg/sibcall-4.c: Likewise.
+	* gcc.dg/sibcall-6.c: Enable s390 as test platform.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040331-1.c: Don't use too wide a
+	bit-field on 16-bit targets.
+
+2004-04-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20040409-2.c: Fix constants used on
+	16-bit targets.
+
+2004-04-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change to compile only.
+	* gcc.dg/rs6000-power2-2.c: Likewise.
+
+2004-04-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: Change the options to be more correct.
+	* gcc.dg/rs6000-power2-2.c: Change the options to be more correct.
+	Change the asm registers to be in form of frN instead of fN.
+
+2004-04-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-convert-2.c: New test.
+
+2004-04-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/rs6000-power2-1.c: New test.
+	* gcc.dg/rs6000-power2-2.c: New test.
+
+2004-04-28  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/unused-6.c: New test.
+
 2004-04-24  Laurent GUERBY  <laurent@guerby.net>
             Ulrich Weigand  <uweigand@de.ibm.com>
 
@@ -7,7 +135,7 @@
 
 	PR c++/15119
 	* g++.dg/other/vararg-1.C: New test.
-	
+
 	PR c++/4794
 	* g++.dg/eh/cleanup3.C: New test.
 
@@ -17,7 +145,7 @@
 	and ad8011a (target_insn).
 	* ada/acats/support/macro.dfs: Likewise.
 	* ada/acats/support/impbit.adb: New file.
-	
+
 2004-04-23  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc.dg/const-elim-1.c: XFAIL on s390*-*-*.

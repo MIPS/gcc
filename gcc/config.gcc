@@ -1820,7 +1820,7 @@ sparc-*-rtems*)
 	extra_parts="crti.o crtn.o crtbegin.o crtend.o"
 	;;
 sparc64-*-solaris2* | sparcv9-*-solaris2*)
-	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h sparc/sol2.h sparc/sol2-64.h sparc/sol2-bi.h"
+	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h sparc/sol2.h sparc/sol2-64.h sparc/sol2-bi.h tm-dwarf2.h"
 	if test x$gnu_ld = xyes; then
 		tm_file="${tm_file} sparc/sol2-gld.h sparc/sol2-gld-bi.h"
 	fi
@@ -1859,7 +1859,7 @@ sparc-*-solaris2*)
 		fi
 		;;
 	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
-		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h"
+		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h tm-dwarf2.h"
 		if test x$gnu_ld = xyes; then
 			tm_file="${tm_file} sparc/sol2-gld-bi.h"
 		fi
@@ -2173,6 +2173,15 @@ if test x$with_cpu = x ; then
   esac
 fi
 
+# Similarly for --with-float
+if test x$with_float = x; then
+	case ${target} in
+	ep9312-*-*)
+		with_float=hard
+		;;
+	esac
+fi
+
 	# Similarly for --with-schedule.
 	if test x$with_schedule = x; then
 		case ${target} in
@@ -2212,27 +2221,18 @@ fi
 	arm*-*-*)
 		supported_defaults="arch cpu float tune fpu abi"
 		for which in cpu tune; do
+			# See if it matches any of the entries in arm-cores.def
 			eval "val=\$with_$which"
-			case "$val" in
-			"" \
-			| arm[236789] | arm250 | arm[67][01]0 \
-			| arm60 | arm620 | arm7d | arm7di \
-			| arm7m | arm7dm | arm7dmi | arm[79]tdmi \
-			| arm70 | arm700i | arm710t | arm720 \
-			| arm720t | arm740t | arm710c | arm920 \
-			| arm920t | arm926ejs | arm940t | arm9e | arm10tdmi \
-			| arm7100 | arm7500 | arm7500fe | arm810 \
-			| arm1026ejs | arm1020t | arm1136js | arm1136jfs \
-			| xscale | iwmmxt \
-			| ep9312 \
-			| strongarm | strongarm110 | strongarm11[01]0)
-				# OK
-				;;
-			*)
-				echo "Unknown CPU used in --with-$which=$val" 1>&2
-				exit 1
-				;;
-			esac
+			if [ x"$val" = x ] \
+			    || grep "^ARM_CORE($val," \
+				    ${srcdir}/config/arm/arm-cores.def \
+				    > /dev/null; then
+			  # Ok
+			  true
+			else
+			  echo "Unknown CPU used in --with-$which=$val" 1>&2
+			  exit 1
+			fi
 		done
 
 		case "$with_arch" in
@@ -2580,10 +2580,6 @@ fi
 		;;
 
 	powerpc*-*-* | rs6000-*-*)
-		if test x$enable_altivec = xyes
-		then
-			tm_file="$tm_file rs6000/altivec-defs.h"
-		fi
 		# FIXME: The PowerPC port uses the value set at compile time,
 		# although it's only cosmetic.
 		if test "x$with_cpu" != x

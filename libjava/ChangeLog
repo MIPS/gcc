@@ -1,3 +1,420 @@
+2004-05-10  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_invoke): Add new argument
+	ld_library_additions. Adjust all calls to libjava_invoke to match
+	the new argument.
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_test_one): Pass stdc++
+	path to cxxflagslist.
+	Pass path of libstdc++ to libjava_invoke.
+
+	* testsuite/libjava.jar/jar.exp (gcj_jar_inerpret): Adjust
+	libjava_invoke arguments.
+
+2004-05-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Update to reflect the current
+	reality.
+
+2004-05-07  Ranjit Mathew  <rmathew@gmail.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_test_one): Don't link the
+	main binary against the JNI shared library.
+
+2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/util/SimpleTimeZone.java (startTimeMode, endTimeMode,
+        WALL_TIME, STANDARD_TIME, UTC_TIME): New members.
+	(SimpleTimeZone): Tweak docs.  Add new variation.
+	(setStartRule,setEndRule): Add new variations.  Use
+        startTimeMode and endTimeMode.
+
+2004-05-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/util/Calendar.java (getActualMinimum,
+        getActualMaximum):  Remove abstract.  Implement.
+
+2004-05-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Run the jni tests using the interpreter.
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Append
+	options_cxx to shared lib compile command.
+	(gcj_jni_test_one): Pass cxxflags to gcj_jni_compile_c_to_so, so
+	they are used to link the shared lib, not the main binary.
+	Use libjava_invoke to run gij.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/logging/Level.java
+	(parse): Use == instead of String.equals().
+
+2004-05-06  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* defineclass.cc (_Jv_ClassReader::prepare_pool_entry): Use 
+	verify_field_signature and verify_method_signature, not 
+	_Jv_VerifyFieldSignature and _Jv_VerifyMethodSigntature.
+	(_Jv_ClassReader::handleField): Likewise.
+	(_Jv_ClassReader::handleMethod): Likewise.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/table/TableColumn.java:
+	Reformated.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* javax/imageio/spi/ImageReaderWriterSpi.java
+	(ImageReaderWriterSpi): Made it public.
+	* javax/imageio/stream/ImageInputStream.java:
+	Clean up imports.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Removed empty line.
+
+2004-05-06  Michael Koch  <konqueror@gmx.de>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c:
+	New files.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c:
+	Include gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c:
+	Moved GtkCheckboxGroupPeer_dispose and GtkCheckboxGroupPeer_remove to
+	their own source file.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	Moved GtkGenericPeer_dispose and GtkComponentPeer_requestFocus to
+	their own source file. Removed GtkComponentPeer_gtkWidgetSetUsize.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c
+	(create): Define variable on top of function.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c
+	(menu_pos): Prototyped.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(setTitle): Removed.
+	* jni/gtk-peer/gthread-jni.c
+	(gdk_threads_wake): Removed.
+	* Makefile.am (gtk_c_source_files): Added new files
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxGroupPeer.c and
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c.
+	* Makefile.in: Regenerated.
+
+2004-05-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.jni/pr11951.java: Add missing System.loadLibrary()
+	call.
+
+2004-05-05  Mark Wielaard  <mark@klomp.org>
+
+	* javax/swing/AbstractButton.java: Replace special HTML entities with
+	ASCII equivalent.
+	* javax/swing/DefaultBoundedRangeModel.java: Likewise.
+	* javax/swing/DefaultButtonModel.java: Likewise.
+	* javax/swing/DefaultListModel.java: Likewise.
+	* javax/swing/JList.java: Likewise.
+	* javax/swing/JSlider.java: Likewise.
+	* javax/swing/ListModel.java: Likewise.
+	* javax/swing/Popup.java: Likewise.
+	* javax/swing/SwingUtilities.java: Likewise.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java,
+	javax/swing/ActionMap.java,
+	javax/swing/DefaultButtonModel.java,
+	javax/swing/DefaultListModel.java,
+	javax/swing/ImageIcon.java,
+	javax/swing/JComboBox.java,
+	javax/swing/JComponent.java,
+	javax/swing/JFrame.java,
+	javax/swing/JInternalFrame.java,
+	javax/swing/JMenuBar.java,
+	javax/swing/JMenuItem.java,
+	javax/swing/JOptionPane.java,
+	javax/swing/JProgressBar.java,
+	javax/swing/JRootPane.java,
+	javax/swing/JScrollBar.java,
+	javax/swing/JScrollPane.java,
+	javax/swing/JSeparator.java,
+	javax/swing/JSlider.java,
+	javax/swing/JTabbedPane.java,
+	javax/swing/JTable.java,
+	javax/swing/JTextField.java,
+	javax/swing/JToolBar.java,
+	javax/swing/JToolTip.java,
+	javax/swing/JTree.java,
+	javax/swing/JViewport.java,
+	javax/swing/JWindow.java,
+	javax/swing/KeyStroke.java,
+	javax/swing/LookAndFeel.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/Timer.java,
+	javax/swing/ToolTipManager.java,
+	javax/swing/UIDefaults.java,
+	javax/swing/border/TitledBorder.java,
+	javax/swing/filechooser/FileSystemView.java,
+	javax/swing/plaf/basic/BasicButtonListener.java,
+	javax/swing/plaf/basic/BasicButtonUI.java,
+	javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java,
+	javax/swing/plaf/basic/BasicGraphicsUtils.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicMenuItemUI.java,
+	javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java,
+	javax/swing/plaf/basic/BasicRootPaneUI.java,
+	javax/swing/plaf/basic/BasicScrollBarUI.java,
+	javax/swing/plaf/basic/BasicScrollPaneUI.java,
+	javax/swing/plaf/basic/BasicSliderUI.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicToggleButtonUI.java,
+	javax/swing/table/JTableHeader.java,
+	javax/swing/text/AbstractDocument.java,
+	javax/swing/text/DefaultCaret.java,
+	javax/swing/text/StyledEditorKit.java,
+	javax/swing/tree/DefaultTreeCellEditor.java:
+	Cleaned up imports.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/prefs/AbstractPreferences.java
+	(AbstractPreferences): Added parenthesis for clarity.
+	Closes classpath bug #7940.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/CompoundName.java (endsWith): Look at correct
+	element of source name.
+
+2004-05-05  Mark Wielaard  <mark@klomp.org>
+
+	Reported by f.haeglsperger@gmx.de [classpath patch #2485]
+	* java/util/HashMap.java (rehash): Add entry at start of bucket.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/BufferedReader.java (skip): Removed unused
+	variable.
+
+2004-05-05  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/FileDialog.java: Import java.io.Serializable explicitly.
+
+2004-05-05  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/text/AttributedString.java,
+	java/text/AttributedStringIterator.java,
+	java/text/Collator.java,
+	java/text/DecimalFormatSymbols.java,
+	java/text/NumberFormat.java,
+	java/text/RuleBasedCollator.java:
+	Cleaned up imports.
+
+2004-05-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/Format.java: Cleaned up imports.
+	* java/text/DecimalFormat.java: Cleaned up imports.
+	* java/security/SecureRandom.java: Cleaned up imports.
+	(SecureRandom): Removed unused variable.
+	* java/security/UnresolvedPermission.java: Cleaned up imports.
+	* java/util/Date.java (parse): Removed unused variable.
+	* java/util/ResourceBundle.java: Cleaned up imports.
+	(getBundle): Removed unused variable.
+	(tryBundle): Likewise.
+	* java/util/regex/Pattern.java (Pattern): Removed unused constructor.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/SimpleDateFormat.java:
+	(formatWithAttribute): New method. It implements
+	the formatting process with attributes.
+	(format): Use formatWithAttribute.
+	(formatToCharacterIterator): New method. Use
+	formatWithAttribute.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/MessageFormat.java:
+	(class Field): New class.
+	(formatToCharacterIterator): New method.
+	(format): Use formatInternal now.
+	(formatInternal): New method. String formatter should
+	be done here (with attributes). Attributes merging supported.
+	(parse): More documentation.
+	(getFormatsByArgumentIndex): New method.
+	(setFormatByArgumentIndex): New method.
+	(setFormatsByArgumentIndex): New method.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/DecimalFormat.java
+	(MAXIMUM_INTEGER_DIGITS): New constant to keep the numeric value 309.
+	(applyPatternWithSymbols): Use MAXIMUM_INTEGER_DIGITS.
+	(parse): Fixed handling of exponentiation notation and grouping.
+
+2004-05-05  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* java/text/DecimalFormat.java
+	(scanFix): Build attribute array. Fixed error reporting.
+	(applyPatternWithSymbols): Store attributes for the prefix and
+	suffix.
+	(formatInternal): New method. Changed the way the string is
+	computed. Implemented attributes. Cleant up rounding in
+	exponential notation.
+	(format): Use formatInternal.
+	(formatToCharacterIterator): New method.
+	(exponentRound, negativePrefixRanges, positivePrefixRanges,
+	negativePrefixAttrs, positivePrefixAttrs, negativeSuffixRanges,
+	positiveSuffixRanges, negativeSuffixAttrs, positiveSuffixAttrs):
+	New fields.
+
+2004-05-04  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/security/interfaces/DSAKeyPairGenerator.java,
+	java/security/interfaces/DSAPrivateKey.java,
+	java/security/interfaces/DSAPublicKey.java,
+	java/security/interfaces/RSAPrivateKey.java,
+	java/security/interfaces/RSAPublicKey.java:
+	Cleaned up imports.
+
+2004-05-04  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java,
+	java/nio/CharBuffer.java,
+	java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java:
+	(compareTo): Fixed bogus implementation in all buffer classes.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/image/ColorModel.java (getRGBdefault): Default ColorModel has
+        32 bit pixels not 8 bit pixels.
+	(isCompatibleRaster): Added javadoc comment.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/image/ComponentSampleModel.java (setDataSamples):Do not reset
+	scanline stride.
+
+2004-05-04  Ingo Proetel  <proetel@aicas.com>
+
+	* java/awt/ColorPaintContext.java (<init>): Added ColorModel to signature.
+	(getColorModel): Return the actual color model.
+	(getRaster): Implemented.
+	(ColorRaster): New inner class.
+	* java/awt/SystemColor.java (createContext): Use ColorModel when creating
+	a PaintContext.
+	* java/awt/Color.java (<init>): Make exception more verbose.
+	(createContext): Use ColorModel when creating a PaintContext.
+
+2004-05-04  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/text/CharacterBreakIterator.java
+	(previous): Removed unused variable.
+
+2004-05-04  Guilhem Lavaux <guilhem@kaffe.org>
+
+	* gnu/java/text/FormatBuffer.java,
+	gnu/java/text/AttributedFormatBuffer.java,
+	gnu/java/text/StringFormatBuffer.java: New classes to implement
+	attributed iterators in java.text.
+	* gnu/java/text/FormatCharacterIterator.java: Moved 
+	from java/text as it is an internal class.
+	* java/text/FormatCharacterIterator.java: Removed.
+	* java/text/Format.java:
+	Import gnu.java.text.FormatCharacterIterator.
+	* Makefile.am (java_source_files): Added new files.
+	* Makefile.in: Regenerated.
+	
+
+2004-05-04  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/nio/channels/FileChannelImpl.java (finalize): New method.
+
+2004-05-03  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am (WARNINGS): Replace -W with the more speaking -Wextra.
+	* Makefile.in: Rebuilt.
+
+2004-05-03  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/der/DERReader.java: Call static methods staticly.
+	* java/awt/TextComponent.java (select): Use selectionEnd parameter.
+	* java/net/URL.java
+	(set(String, String, int, String, String, String, String, String)):
+	Assign this.file to path or path + "?" + query.
+	* java/util/Arrays.java: Call static methods staticly.
+	* java/util/zip/ZipEntry.java: Likewise.
+	* javax/swing/plaf/basic/BasicArrowButton.java (setDirection): Assign
+	dir to this.direction.
+	* javax/swing/table/DefaultTableCellRenderer.java (noFocusBorder):
+	Assign static field only once.
+	(DefaultTableCellRenderer): Don't reassign noFocusBorder each time.
+
+2004-05-03  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java (minimumSize): Removed
+	unused variables hScrollbarHeight and vScrollbarWidth.
+	(preferredSize): Likewise.
+	* gnu/java/security/provider/DSAParameters.java (engineToString):
+	Removed unused call to System.getProperty("line.seperator");
+	* java/security/Security.java (loadProviders): Return result.
+
+2004-05-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLStreamHandler.java (toExternalForm): Removed
+	unused variables.
+	unused constructor.
+	* java/math/BigDecimal.java (divide): Removed unused variable.
+	* java/lang/Throwable.java: Cleaned up imports.
+	* java/lang/ClassLoader.java: Cleaned up imports.
+	* java/io/FilePermission.java (implies): Removed unused
+	variable.
+	* java/awt/TextComponent.java: Removed unused import.
+	* gnu/java/util/prefs/NodeReader.java: Cleaned up imports.
+	* gnu/java/util/DoubleEnumeration.java: Removed unused import.
+	* gnu/java/text/WordBreakIterator.java: Removed unused import.
+	* gnu/java/text/SentenceBreakIterator.java: Removed unused
+	import.
+	* gnu/java/text/LineBreakIterator.java: Removed unused import.
+	* gnu/java/text/CharacterBreakIterator.java: Removed
+	unused import.
+	* gnu/java/security/provider/DSAKeyPairGenerator.java:
+	Cleaned up imports.
+	* gnu/java/security/der/DERWriter.java: Cleaned up imports.
+	* gnu/java/nio/charset/UTF_16Decoder.java (put): Removed
+	unused method.
+	* gnu/java/nio/SocketChannelImpl.java: Cleaned up imports.
+	* gnu/java/nio/FileLockImpl.java: Cleaned up imports.
+	* gnu/java/io/Base64InputStream.java: Cleaned up imports.
+	* gnu/java/beans/info/ComponentBeanInfo.java: Cleaned up imports.
+	* gnu/classpath/ServiceFactory.java: Cleaned up imports.
+	(lookupProviders): Removed unused variable.
+	(loadNextServiceProvider): Likewise.
+	* gnu/java/beans/BeanInfoEmbryo.java: Cleaned up imports.
+
+2004-05-03  Michael Koch  <konqueror@gmx.de>
+
+	Fixes PR libgcj/14695:
+	* java/net/NetworkInterface.java
+	(getByName): Return null when no interface was found.
+
+2004-04-30  Ranjit Mathew  <rmathew@hotmail.com>
+            Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	additional option "-Wmissing-prototypes" for compiling C sources.
+	Print actual filename for pass/fail rather than $name.c.
+	* testsuite/libjava.jni/PR15133.java: New testcase file.
+	* testsuite/libjava.jni/PR15133.c: Likewise.
+	* testsuite/libjava.jni/PR15133.out: Likewise.
+
+2004-04-30  Roger Sayle  <roger@eyesopen.com>
+
+	* testsuite/libjava.lang/MathBuiltin.java: Add tests for acos, asin,
+	ceil and floor.
+
 2004-04-25  Ranjit Mathew  <rmathew@hotmail.com>
 	
 	* testsuite/libjava.jacks/jacks.exp (gcj_jacks_write): Explicitly

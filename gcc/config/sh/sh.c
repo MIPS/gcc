@@ -272,7 +272,6 @@ struct save_schedule_s;
 static struct save_entry_s *sh5_schedule_saves (HARD_REG_SET *,
 						struct save_schedule_s *, int);
 
-static bool sh_promote_prototypes (tree);
 static rtx sh_struct_value_rtx (tree, int);
 static bool sh_return_in_memory (tree, tree);
 static rtx sh_builtin_saveregs (void);
@@ -339,7 +338,7 @@ static tree sh_build_builtin_va_list (void);
    TARGET_SCHED_INIT_GLOBAL: Added a new target hook in the generic
    scheduler; it is called inside the sched_init function just after
    find_insn_reg_weights function call. It is used to calculate the SImode
-   and SFmode weights of insns of basic blocks; much similiar to what
+   and SFmode weights of insns of basic blocks; much similar to what
    find_insn_reg_weights does. 
    TARGET_SCHED_FINISH_GLOBAL: Corresponding cleanup hook.
 
@@ -4631,8 +4630,9 @@ static int extra_push;
 
 /* Adjust the stack by SIZE bytes.  REG holds the rtl of the register to be
    adjusted.  If epilogue_p is zero, this is for a prologue; otherwise, it's
-   for an epilogue.  If LIVE_REGS_MASK is nonzero, it points to a HARD_REG_SET
-   of all the registers that are about to be restored, and hence dead.  */
+   for an epilogue and a negative value means that it's for a sibcall
+   epilogue.  If LIVE_REGS_MASK is nonzero, it points to a HARD_REG_SET of
+   all the registers that are about to be restored, and hence dead.  */
 
 static void
 output_stack_adjust (int size, rtx reg, int epilogue_p,
@@ -4667,17 +4667,27 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	  /* If TEMP is invalid, we could temporarily save a general
 	     register to MACL.  However, there is currently no need
 	     to handle this case, so just abort when we see it.  */
-	  if (current_function_interrupt
+	  if (epilogue_p < 0
+	      || current_function_interrupt
 	      || ! call_used_regs[temp] || fixed_regs[temp])
 	    temp = -1;
-	  if (temp < 0 && ! current_function_interrupt)
+	  if (temp < 0 && ! current_function_interrupt
+	      && (TARGET_SHMEDIA || epilogue_p >= 0))
 	    {
 	      HARD_REG_SET temps;
 	      COPY_HARD_REG_SET (temps, call_used_reg_set);
 	      AND_COMPL_HARD_REG_SET (temps, call_fixed_reg_set);
-	      if (epilogue_p)
+	      if (epilogue_p > 0)
 		{
-		  for (i = 0; i < HARD_REGNO_NREGS (FIRST_RET_REG, DImode); i++)
+		  int nreg = 0;
+		  if (current_function_return_rtx)
+		    {
+		      enum machine_mode mode;
+		      mode = GET_MODE (current_function_return_rtx);
+		      if (BASE_RETURN_VALUE_REG (mode) == FIRST_RET_REG)
+			nreg = HARD_REGNO_NREGS (FIRST_RET_REG, mode);
+		    }
+		  for (i = 0; i < nreg; i++)
 		    CLEAR_HARD_REG_BIT (temps, FIRST_RET_REG + i);
 		  if (current_function_calls_eh_return)
 		    {
@@ -4686,7 +4696,10 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 			CLEAR_HARD_REG_BIT (temps, EH_RETURN_DATA_REGNO (i));
 		    }
 		}
-	      else
+	      if (TARGET_SHMEDIA && epilogue_p < 0)
+		for (i = FIRST_TARGET_REG; i <= LAST_TARGET_REG; i++)
+		  CLEAR_HARD_REG_BIT (temps, i);
+	      if (epilogue_p <= 0)
 		{
 		  for (i = FIRST_PARM_REG;
 		       i < FIRST_PARM_REG + NPARM_REGS (SImode); i++)
@@ -4699,7 +4712,55 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	  if (temp < 0 && live_regs_mask)
 	    temp = scavenge_reg (live_regs_mask);
 	  if (temp < 0)
-	    abort ();
+	    {
+	      /* If we reached here, the most likely case is the (sibcall)
+		 epilogue for non SHmedia.  Put a special push/pop sequence
+		 for such case as the last resort.  This looks lengthy but
+		 would not be problem because it seems to be very rare.  */
+	      if (! TARGET_SHMEDIA && epilogue_p)
+		{
+		  rtx adj_reg, tmp_reg, mem;
+
+		  /* ??? There is still the slight possibility that r4 or r5
+		     have been reserved as fixed registers or assigned as
+		     global registers, and they change during an interrupt.
+		     There are possible ways to handle this:
+		     - If we are adjusting the frame pointer (r14), we can do
+		       with a single temp register and an ordinary push / pop
+		       on the stack.
+		     - Grab any call-used or call-saved registers (i.e. not
+		       fixed or globals) for the temps we need.  We might
+		       also grab r14 if we are adjusting the stack pointer.
+		       If we can't find enough available registers, issue
+		       a diagnostic and abort - the user must have reserved
+		       way too many registers.
+		     But since all this is rather unlikely to happen and
+		     would require extra testing, we just abort if r4 / r5
+		     are not available.  */
+		  if (fixed_regs[4] || fixed_regs[5]
+		      || global_regs[4] || global_regs[5])
+		    abort ();
+
+		  adj_reg = gen_rtx_REG (GET_MODE (reg), 4);
+		  tmp_reg = gen_rtx_REG (GET_MODE (reg), 5);
+		  emit_move_insn (gen_rtx_MEM (Pmode, reg), adj_reg);
+		  emit_insn (GEN_MOV (adj_reg, GEN_INT (size)));
+		  emit_insn (GEN_ADD3 (adj_reg, adj_reg, reg));
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+		  emit_move_insn (mem, tmp_reg);
+		  emit_move_insn (tmp_reg, gen_rtx_MEM (Pmode, reg));
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_PRE_DEC (Pmode, adj_reg));
+		  emit_move_insn (mem, tmp_reg);
+		  emit_move_insn (reg, adj_reg);
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
+		  emit_move_insn (adj_reg, mem);
+		  mem = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, reg));
+		  emit_move_insn (tmp_reg, mem);
+		  return;
+		}
+	      else
+		abort ();
+	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
 
 	  /* If SIZE is negative, subtract the positive value.
@@ -5539,7 +5600,7 @@ sh_expand_prologue (void)
 }
 
 void
-sh_expand_epilogue (void)
+sh_expand_epilogue (bool sibcall_p)
 {
   HARD_REG_SET live_regs_mask;
   int d, i;
@@ -5548,6 +5609,7 @@ sh_expand_epilogue (void)
   int save_flags = target_flags;
   int frame_size, save_size;
   int fpscr_deferred = 0;
+  int e = sibcall_p ? -1 : 1;
 
   d = calc_live_regs (&live_regs_mask);
 
@@ -5582,7 +5644,7 @@ sh_expand_epilogue (void)
 
   if (frame_pointer_needed)
     {
-      output_stack_adjust (frame_size, frame_pointer_rtx, 1, &live_regs_mask);
+      output_stack_adjust (frame_size, frame_pointer_rtx, e, &live_regs_mask);
 
       /* We must avoid moving the stack pointer adjustment past code
 	 which reads from the local frame, else an interrupt could
@@ -5598,7 +5660,7 @@ sh_expand_epilogue (void)
 	 occur after the SP adjustment and clobber data in the local
 	 frame.  */
       emit_insn (gen_blockage ());
-      output_stack_adjust (frame_size, stack_pointer_rtx, 1, &live_regs_mask);
+      output_stack_adjust (frame_size, stack_pointer_rtx, e, &live_regs_mask);
     }
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
@@ -5771,7 +5833,7 @@ sh_expand_epilogue (void)
   output_stack_adjust (extra_push + current_function_pretend_args_size
 		       + save_size + d_rounding
 		       + current_function_args_info.stack_regs * 8,
-		       stack_pointer_rtx, 1, NULL);
+		       stack_pointer_rtx, e, NULL);
 
   if (current_function_calls_eh_return)
     emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -5799,7 +5861,7 @@ sh_need_epilogue (void)
       rtx epilogue;
 
       start_sequence ();
-      sh_expand_epilogue ();
+      sh_expand_epilogue (0);
       epilogue = get_insns ();
       end_sequence ();
       sh_need_epilogue_known = (epilogue == NULL ? -1 : 1);
@@ -6352,7 +6414,7 @@ sh_va_arg (tree valist, tree type)
   return result;
 }
 
-static bool
+bool
 sh_promote_prototypes (tree type)
 {
   if (TARGET_HITACHI)
@@ -9483,7 +9545,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
       /* Release all memory allocated by flow.  */
-      free_basic_block_vars (0);
+      free_basic_block_vars ();
 
       /* Release all memory held by regsets now.  */
       regset_release_memory ();
