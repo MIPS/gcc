@@ -572,6 +572,11 @@ convert_move (to, from, unsignedp)
   if (to_real != from_real)
     abort ();
 
+  /* If the source and destination are already the same, then there's
+     nothing to do.  */
+  if (to == from)
+    return;
+
   /* If FROM is a SUBREG that indicates that we have already done at least
      the required extension, strip it.  We don't handle such SUBREGs as
      TO here.  */
@@ -7178,7 +7183,12 @@ expand_expr (exp, target, tmode, modifier)
 	    expand_decl_init (var);
 	  }
 
-	temp = expand_expr (BIND_EXPR_BODY (exp), target, tmode, modifier);
+	/* TARGET was clobbered early in this function.  The correct
+	   indicator or whether or not we need the value of this 
+	   expression is the IGNORE variable.  */
+	temp = expand_expr (BIND_EXPR_BODY (exp),
+			    ignore ? const0_rtx : target,
+			    tmode, modifier);
 
 	expand_end_bindings (BIND_EXPR_VARS (exp), mark_ends, 0);
 
