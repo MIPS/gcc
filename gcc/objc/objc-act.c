@@ -2173,6 +2173,8 @@ generate_static_references (void)
       expr = objc_build_constructor (TREE_TYPE (decl), nreverse (initlist));
       finish_decl (decl, expr, NULL_TREE);
       TREE_USED (decl) = 1;
+      /* Ensure that this declaration actually gets output.  */
+      mark_decl_referenced (decl);
 
       type = build_array_type (build_pointer_type (void_type_node), 0);
       decl = build_decl (VAR_DECL, ident, type);
