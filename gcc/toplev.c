@@ -3074,6 +3074,7 @@ rest_of_compilation (decl)
 #endif
     }
 
+#if 0
   /* Perform global cse.  */
 
   if (optimize > 0 && flag_gcse)
@@ -3098,6 +3099,7 @@ rest_of_compilation (decl)
       verify_flow_info ();
 #endif
     }
+#endif
 
   /* Lower into lowlevel RTL now.  */
   cfun->rtl_form = RTL_FORM_MIDLOW;
