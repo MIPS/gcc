@@ -634,17 +634,81 @@ calculate_live_on_entry (var_map map)
    /* Check for live on entry partitions and report those with a DEF in
       the program. This will typically mean an optimization has done
       something wrong.  */
-  for (num=0, i = 0; i < num_var_partitions (map); i++)
+
+  bb = ENTRY_BLOCK_PTR;
+  num = 0;
+  for (e = bb->succ; e; e = e->succ_next)
     {
-      if (TEST_BIT (live_entry_blocks (live, i), 0))
-        {
+      int entry_block = e->dest->index;
+      if (e->dest == EXIT_BLOCK_PTR)
+        continue;
+      for (i = 0; i < num_var_partitions (map); i++)
+	{
+	  basic_block tmp;
+	  tree d;
 	  var = partition_to_var (map, i);
-	  if (!IS_EMPTY_STMT (SSA_NAME_DEF_STMT (var)))
+	  stmt = SSA_NAME_DEF_STMT (var);
+	  tmp = bb_for_stmt (stmt);
+	  d = default_def (SSA_NAME_VAR (var));
+
+	  if (TEST_BIT (live_entry_blocks (live, i), entry_block))
 	    {
-	      num++;
-	      print_generic_expr (stderr, var, TDF_SLIM);
-	      fprintf (stderr, " is defined, but is also live on entry.\n");
+	      if (!IS_EMPTY_STMT (stmt))
+		{
+		  num++;
+		  print_generic_expr (stderr, var, TDF_SLIM);
+		  fprintf (stderr, " is defined ");
+		  if (tmp)
+		    fprintf (stderr, " in BB%d, ", tmp->index);
+		  fprintf (stderr, "by:\n");
+		  print_generic_expr (stderr, stmt, TDF_SLIM);
+		  fprintf (stderr, "\nIt is also live-on-entry to entry BB %d", 
+			   entry_block);
+		  fprintf (stderr, " So it appears to have multiple defs.\n");
+		}
+	      else
+	        {
+		  if (d != var)
+		    {
+		      num++;
+		      print_generic_expr (stderr, var, TDF_SLIM);
+		      fprintf (stderr, " is live-on-entry to BB%d ",entry_block);
+		      if (d)
+		        {
+			  fprintf (stderr, " but is not the default def of ");
+			  print_generic_expr (stderr, d, TDF_SLIM);
+			  fprintf (stderr, "\n");
+			}
+		      else
+			fprintf (stderr, " and there is no default def.\n");
+		    }
+		}
 	    }
+	  else
+	    if (d == var)
+	      {
+		/* The only way this var shouldn't be marked live on entry to 
+		   this block is if it occurs in a PHI argument of the block.  */
+		int z, ok = 0;
+		for (phi = phi_nodes (e->dest); 
+		     phi && !ok; 
+		     phi = TREE_CHAIN (phi))
+		  {
+		    for (z = 0; z < PHI_NUM_ARGS (phi); z++)
+		      if (var == PHI_ARG_DEF (phi, z))
+			{
+			  ok = 1;
+			  break;
+			}
+		  }
+		if (ok)
+		  continue;
+	        num++;
+		print_generic_expr (stderr, var, TDF_SLIM);
+		fprintf (stderr, " is not marked live-on-entry to entry BB%d ", 
+			 entry_block);
+		fprintf (stderr, "but it is the default def so it should be.\n");
+	      }
 	}
     }
   if (num > 0)

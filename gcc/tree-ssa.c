@@ -184,6 +184,8 @@ static void eliminate_extraneous_phis (var_map);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
 			 const char *);
+static void print_exprs_edge (FILE *, edge, const char *, tree, const char *, 
+			      tree);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.  VARS is an sbitmap representing variables that need to be
@@ -1208,6 +1210,14 @@ print_exprs (FILE *f, const char *str1, tree expr1, const char *str2,
   fprintf (f, "%s", str3);
 }
 
+static void
+print_exprs_edge (FILE *f, edge e, const char *str1, tree expr1, 
+		  const char *str2, tree expr2)
+{
+  print_exprs (f, str1, expr1, str2, expr2, " across an abnormal edge");
+  fprintf (f, " from BB%d->BB%d\n", e->src->index,
+	       e->dest->index);
+}
 
 /* Coalesce partitions which are live across abnormal edges. Since code 
    cannot be inserted on these edges, failure to coalesce something across
@@ -1243,9 +1253,9 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	    tmp = PHI_ARG_DEF (phi, y);
 	    if (TREE_CONSTANT (tmp))
 	      {
-	        print_exprs (stderr,
-			     "\nConstant argument in PHI. Can't insert :",
-			     var, " = ", tmp, "' across an abnormal edge\n");
+	        print_exprs_edge (stderr, e,
+				  "\nConstant argument in PHI. Can't insert :",
+				  var, " = ", tmp);
 		abort ();
 	      }
 	    y = var_to_partition (map, tmp);
@@ -1253,10 +1263,9 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	      abort ();
 	    if (root_var_find (rv, x) != root_var_find (rv, y))
 	      {
-		print_exprs (stderr, "\nDifferent root vars '\n",
-			     root_var (rv, root_var_find (rv, x)), "' and '",
-			     root_var (rv, root_var_find (rv, y)),
-			     "' across an abnormal edge\n");
+		print_exprs_edge (stderr, e, "\nDifferent root vars: ",
+				  root_var (rv, root_var_find (rv, x)), 
+				  " and ", root_var (rv, root_var_find (rv, y)));
 		abort ();
 	      }
 
@@ -1270,24 +1279,23 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 		    if (dump_file 
 			&& (dump_flags & TDF_DETAILS))
 		      {
-			print_exprs (dump_file, "ABNORMAL: Coalescing ", var,
-				     " and ", tmp, " over abnormal edge.\n");
+			print_exprs_edge (dump_file, e, "ABNORMAL: Coalescing ",
+					  var, " and ", tmp);
 		      }
 		    if (var_union (map, var, tmp) == NO_PARTITION)
 		      {
-			print_exprs (stderr, "\nUnable to coalesce", 
-				     partition_to_var (map, x), " and ", 
-				     partition_to_var (map, y),
-				     " across an abnormal edge\n");
+			print_exprs_edge (stderr, e, "\nUnable to coalesce", 
+					  partition_to_var (map, x), " and ", 
+					  partition_to_var (map, y));
 			abort ();
 		      }
 		    conflict_graph_merge_regs (graph, x, y);
 		  }
 		else
 		  {
-		    print_exprs (stderr, "\n", partition_to_var (map, x),
-				 " and ", partition_to_var (map, y),
-				 " conflict across an abnormal edge\n");
+		    print_exprs_edge (stderr, e, "\n Conflict ", 
+				      partition_to_var (map, x),
+				      " and ", partition_to_var (map, y));
 		    abort ();
 		  }
 	      }
@@ -1310,7 +1318,6 @@ coalesce_ssa_name (var_map map)
   tree var;
   root_var_p rv;
   tree_live_info_p liveinfo;
-  edge e;
   var_ann_t ann;
   conflict_graph graph;
 
@@ -1340,12 +1347,11 @@ coalesce_ssa_name (var_map map)
 
   num = num_var_partitions (map);
   for (x = 0 ; x < num; x++)
-    for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
-      if (e->dest != EXIT_BLOCK_PTR)
-	{
-	  if (TEST_BIT (live_entry_blocks (liveinfo, x), e->dest->index))
-	    SET_BIT (live, x);
-	}
+    {
+      var = partition_to_var (map, x);
+      if (default_def (SSA_NAME_VAR (var)) == var)
+	SET_BIT (live, x);
+    }
 
   if (!flag_tree_combine_temps)
     {

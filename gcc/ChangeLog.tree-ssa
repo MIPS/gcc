@@ -1,3 +1,12 @@
+2003-09-12  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (calculate_live_on_entry): Use default_def to add 
+	addition checks to live on entry calculations.
+	* tree-ssa.c (print_exprs_edge): New debug output function.
+	(coalesce_abnormal_edges): Add basic block information to output.
+	(coalesce_ssa_name): Use default_def instead of trying to compute live
+	on entry variables.
+
 2003-09-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (tree_rest_of_compilation): Set TREE_ASM_WRITTEN
