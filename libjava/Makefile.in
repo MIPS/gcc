@@ -1137,6 +1137,7 @@ javax/swing/DefaultListSelectionModel.java \
 javax/swing/Icon.java \
 javax/swing/ImageIcon.java \
 javax/swing/InputMap.java \
+javax/swing/InternalFrameFocusTraversalPolicy.java \
 javax/swing/JApplet.java \
 javax/swing/JButton.java \
 javax/swing/JCheckBox.java \
@@ -3338,7 +3339,8 @@ javax/swing/ButtonModel.lo javax/swing/ComponentInputMap.lo \
 javax/swing/DefaultButtonModel.lo javax/swing/DefaultCellRenderer.lo \
 javax/swing/DefaultListModel.lo \
 javax/swing/DefaultListSelectionModel.lo javax/swing/Icon.lo \
-javax/swing/ImageIcon.lo javax/swing/InputMap.lo javax/swing/JApplet.lo \
+javax/swing/ImageIcon.lo javax/swing/InputMap.lo \
+javax/swing/InternalFrameFocusTraversalPolicy.lo javax/swing/JApplet.lo \
 javax/swing/JButton.lo javax/swing/JCheckBox.lo \
 javax/swing/JComponent.lo javax/swing/JDialog.lo \
 javax/swing/JEditorPane.lo javax/swing/JFormattedTextField.lo \
@@ -5360,12 +5362,14 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/DesktopManager.P .deps/javax/swing/FocusManager.P \
 .deps/javax/swing/GrayFilter.P .deps/javax/swing/Icon.P \
 .deps/javax/swing/ImageIcon.P .deps/javax/swing/InputMap.P \
-.deps/javax/swing/InputVerifier.P .deps/javax/swing/JApplet.P \
-.deps/javax/swing/JButton.P .deps/javax/swing/JCheckBox.P \
-.deps/javax/swing/JCheckBoxMenuItem.P .deps/javax/swing/JColorChooser.P \
-.deps/javax/swing/JComboBox.P .deps/javax/swing/JComponent.P \
-.deps/javax/swing/JDesktopPane.P .deps/javax/swing/JDialog.P \
-.deps/javax/swing/JEditorPane.P .deps/javax/swing/JFileChooser.P \
+.deps/javax/swing/InputVerifier.P \
+.deps/javax/swing/InternalFrameFocusTraversalPolicy.P \
+.deps/javax/swing/JApplet.P .deps/javax/swing/JButton.P \
+.deps/javax/swing/JCheckBox.P .deps/javax/swing/JCheckBoxMenuItem.P \
+.deps/javax/swing/JColorChooser.P .deps/javax/swing/JComboBox.P \
+.deps/javax/swing/JComponent.P .deps/javax/swing/JDesktopPane.P \
+.deps/javax/swing/JDialog.P .deps/javax/swing/JEditorPane.P \
+.deps/javax/swing/JFileChooser.P \
 .deps/javax/swing/JFormattedTextField.P .deps/javax/swing/JFrame.P \
 .deps/javax/swing/JInternalFrame.P .deps/javax/swing/JLabel.P \
 .deps/javax/swing/JLayeredPane.P .deps/javax/swing/JList.P \

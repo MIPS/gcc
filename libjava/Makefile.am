@@ -1541,6 +1541,7 @@ javax/swing/DefaultListSelectionModel.java \
 javax/swing/Icon.java \
 javax/swing/ImageIcon.java \
 javax/swing/InputMap.java \
+javax/swing/InternalFrameFocusTraversalPolicy.java \
 javax/swing/JApplet.java \
 javax/swing/JButton.java \
 javax/swing/JCheckBox.java \
