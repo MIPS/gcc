@@ -731,12 +731,12 @@ flow_loops_find (loops, flags)
 	    {
 	      basic_block header = e->dest;
 
-	      /* Look for forward edges where this block is dominated
-		 by a successor of this block.  A natural loop has a
-		 single entry node (header) that dominates all the
-		 nodes in the loop.  It also has single back edge to
-		 the header from a latch node.  Note that multiple
-		 natural loops may share the same header.  */
+	      /* Look for forward edges where this block is dominated by
+		 a successor of this block.  A natural loop has a single
+		 entry node (header) that dominates all the nodes in the
+		 loop.  It also has single back edge to the header from a
+		 latch node.  Note that multiple natural loops may share
+		 the same header.  */
 	      if (header != EXIT_BLOCK_PTR
 		  && TEST_BIT (dom[latch->index], header->index))
 		{

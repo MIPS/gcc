@@ -489,9 +489,6 @@ CPP_CROSS_NAME = `echo cpp|sed '$(program_transform_cross_name)'`
 PROTOIZE_CROSS_NAME = `echo protoize|sed '$(program_transform_cross_name)'`
 UNPROTOIZE_CROSS_NAME = `echo unprotoize|sed '$(program_transform_cross_name)'`
 
-# Choose the real default target.
-ALL=all.internal
-
 # Set by autoconf to "all.internal" for a native build, or
 # "all.cross" to build a cross compiler.
 ALL = @ALL@
@@ -2896,7 +2893,6 @@ check-g++: $(TESTSUITEDIR)/site.exp
 check-gcc: $(TESTSUITEDIR)/site.exp
 	-(rootme=`pwd`; export rootme; \
 	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
-	compiler="${srcdir}/xgcc -B ${srcdir}"; export compiler ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \

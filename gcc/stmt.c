@@ -863,7 +863,6 @@ expand_goto (label)
     }
   else
     expand_goto_internal (label, label_rtx (label), NULL_RTX);
-
 }
 
 /* Generate RTL code for a `goto' statement with target label BODY.
@@ -1796,6 +1795,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       const char *constraint;
       tree val, type;
       rtx op;
+
       constraint = constraints[i + noutputs];
       if (! parse_input_constraint (&constraint, i, ninputs, noutputs, ninout,
 				    constraints, &allows_mem, &allows_reg))
