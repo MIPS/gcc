@@ -1,3 +1,8 @@
+Thu Feb  6 12:31:34 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* regrename.c (do_replace, find_oldest_value_reg,
+	copyprop_hardreg_forward_1): Update register attributes.
+
 2003-02-05  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (MEM_HASH_VAL): Argument is DECL, not MEM.
