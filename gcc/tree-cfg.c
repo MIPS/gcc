@@ -1151,11 +1151,273 @@ cleanup_tree_cfg (void)
    BIND_EXPR, or TRY block, we will need to repeat this optimization pass
    to ensure we eliminate all the useless code.  */
 
-int
-remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
+struct rusv_data
+{
+  bool repeat;
+  bool remove_unused_vars;
+};
+
+static void remove_useless_stmts_and_vars_1 (tree *, struct rusv_data *);
+
+static void
+remove_useless_stmts_and_vars_cond (tree *stmt_p, struct rusv_data *data)
+{
+  tree then_clause, else_clause, cond;
+
+  remove_useless_stmts_and_vars_1 (&COND_EXPR_THEN (*stmt_p), data);
+  remove_useless_stmts_and_vars_1 (&COND_EXPR_ELSE (*stmt_p), data);
+
+  then_clause = COND_EXPR_THEN (*stmt_p);
+  else_clause = COND_EXPR_ELSE (*stmt_p);
+  cond = COND_EXPR_COND (*stmt_p);
+
+  /* We may not have been able to completely optimize away the condition
+     previously due to the existence of a label in one arm.  If the label
+     has since become unreachable then we may be able to zap the entire
+     conditional here.  If so, replace the COND_EXPR and set up to repeat
+     this optimization pass.  */
+  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
+    {
+      *stmt_p = then_clause;
+       data->repeat = true;
+    }
+  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
+    {
+      *stmt_p = else_clause;
+      data->repeat = true;
+    }
+
+  /* Notice branches to a common destination.  */
+  else if (TREE_CODE (then_clause) == GOTO_EXPR
+	   && TREE_CODE (else_clause) == GOTO_EXPR
+	   && (GOTO_DESTINATION (then_clause)
+	       == GOTO_DESTINATION (else_clause)))
+    {
+      *stmt_p = then_clause;
+      data->repeat = true;
+    }
+
+  /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
+     which is already known to contain that value, then remove the useless
+     THEN/ELSE clause.  */
+  else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
+    {
+      if (TREE_CODE (else_clause) == MODIFY_EXPR
+	  && TREE_OPERAND (else_clause, 0) == cond
+	  && integer_zerop (TREE_OPERAND (else_clause, 1)))
+	COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
+    }
+  else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	   && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
+    {
+      tree clause = (TREE_CODE (cond) == EQ_EXPR
+		     ? then_clause : else_clause);
+      tree *location = (TREE_CODE (cond) == EQ_EXPR
+			? &COND_EXPR_THEN (*stmt_p)
+			: &COND_EXPR_ELSE (*stmt_p));
+
+      if (TREE_CODE (clause) == MODIFY_EXPR
+	  && TREE_OPERAND (clause, 0) == TREE_OPERAND (cond, 0)
+	  && TREE_OPERAND (clause, 1) == TREE_OPERAND (cond, 1))
+	*location = build_empty_stmt ();
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
+{
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+
+  /* If the body is empty, then we can emit the FINALLY block without
+     the enclosing TRY_FINALLY_EXPR.  */
+  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 1);
+      data->repeat = true;
+    }
+
+  /* If the handler is empty, then we can emit the TRY block without
+     the enclosing TRY_FINALLY_EXPR.  */
+  else if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+      data->repeat = true;
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
+{
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+
+  /* If the body is empty, then we can throw away the
+     entire TRY_CATCH_EXPR.  */
+  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+    {
+      *stmt_p = build_empty_stmt ();
+      data->repeat = true;
+      return;
+    }
+
+  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+
+  /* If the handler is empty, then we can emit the TRY block without
+     the enclosing TRY_CATCH_EXPR.  */
+  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+    {
+      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+      data->repeat = true;
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_bind (tree *stmt_p, struct rusv_data *data)
+{
+  tree block;
+
+  /* First remove anything underneath the BIND_EXPR.  */
+  remove_useless_stmts_and_vars_1 (&BIND_EXPR_BODY (*stmt_p), data);
+
+  /* If the BIND_EXPR has no variables, then we can pull everything
+     up one level and remove the BIND_EXPR, unless this is the toplevel
+     BIND_EXPR for the current function or an inlined function.
+
+     When this situation occurs we will want to apply this
+     optimization again.  */
+  block = BIND_EXPR_BLOCK (*stmt_p);
+  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+      && (! block
+	  || ! BLOCK_ABSTRACT_ORIGIN (block)
+	  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+	      != FUNCTION_DECL)))
+    {
+      *stmt_p = BIND_EXPR_BODY (*stmt_p);
+      data->repeat = true;
+    }
+  else if (data->remove_unused_vars)
+    {
+      /* If we were unable to completely eliminate the BIND_EXPR,
+	 go ahead and prune out any unused variables.  We do not
+	 want to expand them as that is a waste of time.  If we
+	 happen to remove all the variables, then we may be able
+	 to eliminate the BIND_EXPR as well.  */
+      tree vars, prev_var;
+
+      /* Walk all the variables associated with the BIND_EXPR.  */
+      for (prev_var = NULL, vars = BIND_EXPR_VARS (*stmt_p);
+	   vars;
+	   vars = TREE_CHAIN (vars))
+	{
+	  struct var_ann_d *ann;
+
+	  /* We could have function declarations and the like
+	     on this list.  Ignore them.  */
+	  if (TREE_CODE (vars) != VAR_DECL)
+	    {
+	      prev_var = vars;
+	      continue;
+	    }
+
+	  /* Remove all unused, unaliased temporaries.  Also remove
+	     unused, unaliased local variables during highly
+	     optimizing compilations.  */
+	  ann = var_ann (vars);
+	  if (ann
+	      && ! ann->may_aliases
+	      && ! ann->used
+	      && ! ann->has_hidden_use
+	      && ! TREE_ADDRESSABLE (vars)
+	      && (DECL_ARTIFICIAL (vars) || optimize >= 2))
+	    {
+	      /* Remove the variable from the BLOCK structures.  */
+	      if (block)
+		remove_decl (vars,
+			     (block
+			      ? block
+			      : DECL_INITIAL (current_function_decl)));
+
+	      /* And splice the variable out of BIND_EXPR_VARS.  */
+	      if (prev_var)
+		TREE_CHAIN (prev_var) = TREE_CHAIN (vars);
+	      else
+		BIND_EXPR_VARS (*stmt_p) = TREE_CHAIN (vars);
+	    }
+	  else
+	    prev_var = vars;
+	}
+
+      /* If there are no variables left after removing unused
+	 variables, then go ahead and remove this BIND_EXPR.  */
+      if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+	  && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+	  && (! block
+	      || ! BLOCK_ABSTRACT_ORIGIN (block)
+	      || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+		  != FUNCTION_DECL)))
+	{
+	  *stmt_p = BIND_EXPR_BODY (*stmt_p);
+	  data->repeat = true;
+	}
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
+				    struct rusv_data *data)
+{
+  tree_stmt_iterator tsi = i;
+
+  /* Step past the GOTO_EXPR statement.  */
+  tsi_next (&tsi);
+  if (! tsi_end_p (tsi))
+    {
+      /* If we are not at the end of this tree, then see if
+	 we are at the target label.  If so, then this jump
+	 is not needed.  */
+      tree label;
+
+      label = tsi_stmt (tsi);
+      if (TREE_CODE (label) == LABEL_EXPR
+	  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
+	{
+	  data->repeat = true;
+	  *stmt_p = build_empty_stmt ();
+	}
+    }
+  else
+    {
+      /* We are at the end of this tree, we may still have
+	 an unnecessary GOTO_EXPR if NEXT_BLOCK_LINK
+	 points to the target label.  */
+      tree next_block_link = NEXT_BLOCK_LINK (*stmt_p);
+
+      if (next_block_link)
+	{
+	  tree next_stmt;
+
+	  /* Get the statement at NEXT_BLOCK_LINK and see if it
+	     is our target label.  */
+	  next_stmt = tsi_stmt (tsi_start (&next_block_link));
+	  if (next_stmt
+	      && TREE_CODE (next_stmt) == LABEL_EXPR
+	      && (LABEL_EXPR_LABEL (next_stmt)
+		  == GOTO_DESTINATION (*stmt_p)))
+	    {
+	      data->repeat = true;
+	      *stmt_p = build_empty_stmt ();
+	    }
+	}
+    }
+}
+
+static void
+remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 {
   tree_stmt_iterator i;
-  int repeat = 0;
 
   for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
     {
@@ -1163,9 +1425,7 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
       tree *stmt_p;
       enum tree_code code;
 
-      while (TREE_CODE (*container_p) == COMPOUND_EXPR
-	     && (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0))
-		 || IS_EMPTY_STMT (TREE_OPERAND (*container_p, 1))))
+      while (TREE_CODE (*container_p) == COMPOUND_EXPR)
 	{
 	  /* If either operand of a COMPOUND_EXPR is an empty statement,
 	     then remove the empty statement and the COMPOUND_EXPR itself.  */
@@ -1173,257 +1433,41 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	    *container_p = TREE_OPERAND (*container_p, 0);
 	  else if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0)))
 	    *container_p = TREE_OPERAND (*container_p, 1);
+	  else
+	    break;
 	}
 
       /* Dive into control structures.  */
       stmt_p = tsi_stmt_ptr (i);
       code = TREE_CODE (*stmt_p);
-      if (code == COND_EXPR)
+      switch (code)
 	{
-	  tree then_clause, else_clause, cond;
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p),
-						   remove_unused_vars);
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p),
-						   remove_unused_vars);
-
-	  then_clause = COND_EXPR_THEN (*stmt_p);
-	  else_clause = COND_EXPR_ELSE (*stmt_p);
-	  cond = COND_EXPR_COND (*stmt_p);
-
-	  /* We may not have been able to completely optimize away
-	     the condition previously due to the existence of a
-	     label in one arm.  If the label has since become unreachable
-	     then we may be able to zap the entire conditional here.
-
-	     If so, replace the COND_EXPR and set up to repeat this
-	     optimization pass.  */
-	  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
-	    {
-	      *stmt_p = then_clause;
-	       repeat = 1;
-	    }
-	  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
-	    {
-	      *stmt_p = else_clause;
-	       repeat = 1;
-	    }
-	  else if (TREE_CODE (then_clause) == GOTO_EXPR
-	      && TREE_CODE (else_clause) == GOTO_EXPR
-	      && (GOTO_DESTINATION (then_clause)
-		  == GOTO_DESTINATION (else_clause)))
-	    {
-	      *stmt_p = then_clause;
-	      repeat = 1;
-	    }
-	  /* If the THEN/ELSE clause merely assigns a value to
-	     a variable/parameter which is already known to contain
-	     that value, then remove the useless THEN/ELSE clause.  */
-	  else if (TREE_CODE (cond) == VAR_DECL
-		   || TREE_CODE (cond) == PARM_DECL)
-	    {
-	      if (TREE_CODE (else_clause) == MODIFY_EXPR
-		  && TREE_OPERAND (else_clause, 0) == cond
-		  && integer_zerop (TREE_OPERAND (else_clause, 1)))
-		COND_EXPR_ELSE (*stmt_p) = build_empty_stmt ();
-	    }
-	  else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
-		   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-		       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-		   && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
-	    {
-	      tree clause = (TREE_CODE (cond) == EQ_EXPR
-			     ? then_clause : else_clause);
-	      tree *location = (TREE_CODE (cond) == EQ_EXPR
-				? &COND_EXPR_THEN (*stmt_p)
-				: &COND_EXPR_ELSE (*stmt_p));
-
-	      if (TREE_CODE (clause) == MODIFY_EXPR
-		  && TREE_OPERAND (clause, 0) == TREE_OPERAND (cond, 0)
-		  && TREE_OPERAND (clause, 1) == TREE_OPERAND (cond, 1))
-		*location = build_empty_stmt ();
-	    }
-	}
-      else if (code == SWITCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p),
-						 remove_unused_vars);
-      else if (code == CATCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p),
-						 remove_unused_vars);
-      else if (code == EH_FILTER_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p),
-						 remove_unused_vars);
-      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
-	{
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0),
-						   remove_unused_vars);
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1),
-						   remove_unused_vars);
-
-	  /* If the handler of a TRY_CATCH or TRY_FINALLY is empty, then
-	     we can emit the TRY block without the enclosing TRY_CATCH_EXPR
-	     or TRY_FINALLY_EXPR.  */
-	  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
-	    {
-	      *stmt_p = TREE_OPERAND (*stmt_p, 0);
-	      repeat = 1;
-	    }
-
-	  /* If the body of a TRY_FINALLY is empty, then we can emit
-	     the FINALLY block without the enclosing TRY_FINALLY_EXPR.  */
-
-	  else if (code == TRY_FINALLY_EXPR
-		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
-	    {
-	      *stmt_p = TREE_OPERAND (*stmt_p, 1);
-	      repeat = 1;
-	    }
-
-	  /* If the body of a TRY_CATCH_EXPR is empty, then we can
-	     throw away the entire TRY_CATCH_EXPR.  */
-	  else if (code == TRY_CATCH_EXPR
-		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
-	    {
-	      *stmt_p = build_empty_stmt ();
-	      repeat = 1;
-	    }
-	}
-      else if (code == BIND_EXPR)
-	{
-	  tree block;
-	  /* First remove anything underneath the BIND_EXPR.  */
-	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p),
-						   remove_unused_vars);
-
-	  /* If the BIND_EXPR has no variables, then we can pull everything
-	     up one level and remove the BIND_EXPR, unless this is the
-	     toplevel BIND_EXPR for the current function or an inlined
-	     function.
-
-	     When this situation occurs we will want to apply this
-	     optimization again.  */
-	  block = BIND_EXPR_BLOCK (*stmt_p);
-	  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-	      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
-	      && (! block
-		  || ! BLOCK_ABSTRACT_ORIGIN (block)
-		  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-		      != FUNCTION_DECL)))
-	    {
-	      *stmt_p = BIND_EXPR_BODY (*stmt_p);
-	      repeat = 1;
-	    }
-	  else if (remove_unused_vars)
-	    {
-	      /* If we were unable to completely eliminate the BIND_EXPR,
-		 go ahead and prune out any unused variables.  We do not
-		 want to expand them as that is a waste of time.  If we
-		 happen to remove all the variables, then we may be able
-		 to eliminate the BIND_EXPR as well.  */
-	      tree vars, prev_var;
-
-	      /* Walk all the variables associated with the BIND_EXPR.  */
-	      for (prev_var = NULL, vars = BIND_EXPR_VARS (*stmt_p);
-		   vars;
-		   vars = TREE_CHAIN (vars))
-		{
-		  struct var_ann_d *ann;
-
-		  /* We could have function declarations and the like
-		     on this list.  Ignore them.  */
-		  if (TREE_CODE (vars) != VAR_DECL)
-		    {
-		      prev_var = vars;
-		      continue;
-		    }
-
-		  /* Remove all unused, unaliased temporaries.  Also remove
-		     unused, unaliased local variables during highly
-		     optimizing compilations.  */
-		  ann = var_ann (vars);
-		  if (ann
-		      && ! ann->may_aliases
-		      && ! ann->used
-		      && ! ann->has_hidden_use
-		      && ! TREE_ADDRESSABLE (vars)
-		      && (DECL_ARTIFICIAL (vars) || optimize >= 2))
-		    {
-		      /* Remove the variable from the BLOCK structures.  */
-		      if (block)
-			remove_decl (vars,
-				     (block
-				      ? block
-				      : DECL_INITIAL (current_function_decl)));
-
-		      /* And splice the variable out of BIND_EXPR_VARS.  */
-		      if (prev_var)
-			TREE_CHAIN (prev_var) = TREE_CHAIN (vars);
-		      else
-			BIND_EXPR_VARS (*stmt_p) = TREE_CHAIN (vars);
-		    }
-		  else
-		    prev_var = vars;
-		}
-
-	      /* If there are no variables left after removing unused
-		 variables, then go ahead and remove this BIND_EXPR.  */
-	      if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-		  && *stmt_p != DECL_SAVED_TREE (current_function_decl)
-		  && (! block
-		      || ! BLOCK_ABSTRACT_ORIGIN (block)
-		      || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
-			  != FUNCTION_DECL)))
-		{
-		  *stmt_p = BIND_EXPR_BODY (*stmt_p);
-		  repeat = 1;
-		}
-	    }
-	}
-      else if (code == GOTO_EXPR)
-	{
-	  tree_stmt_iterator tsi = i;
-
-	  /* Step past the GOTO_EXPR statement.  */
-	  tsi_next (&tsi);
-	  if (! tsi_end_p (tsi))
-	    {
-	      /* If we are not at the end of this tree, then see if
-		 we are at the target label.  If so, then this jump
-		 is not needed.  */
-	      tree label;
-
-	      label = tsi_stmt (tsi);
-	      if (TREE_CODE (label) == LABEL_EXPR
-		  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
-		{
-		  repeat = 1;
-		  *stmt_p = build_empty_stmt ();
-		}
-	    }
-	  else
-	    {
-	      /* We are at the end of this tree, we may still have
-		 an unnecessary GOTO_EXPR if NEXT_BLOCK_LINK
-		 points to the target label.  */
-	      tree next_block_link = NEXT_BLOCK_LINK (*stmt_p);
-
-	      if (next_block_link)
-		{
-		  tree next_stmt;
-
-		  /* Get the statement at NEXT_BLOCK_LINK and see if it
-		     is our target label.  */
-		  next_stmt = tsi_stmt (tsi_start (&next_block_link));
-		  if (next_stmt
-		      && TREE_CODE (next_stmt) == LABEL_EXPR
-		      && (LABEL_EXPR_LABEL (next_stmt)
-			  == GOTO_DESTINATION (*stmt_p)))
-		    {
-		      repeat = 1;
-		      *stmt_p = build_empty_stmt ();
-		    }
-		}
-
-	    }
+	case COND_EXPR:
+	  remove_useless_stmts_and_vars_cond (stmt_p, data);
+	  break;
+	case SWITCH_EXPR:
+	  remove_useless_stmts_and_vars_1 (&SWITCH_BODY (*stmt_p), data);
+	  break;
+	case CATCH_EXPR:
+	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (*stmt_p), data);
+	  break;
+	case EH_FILTER_EXPR:
+	  remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (*stmt_p), data);
+	  break;
+	case TRY_FINALLY_EXPR:
+	  remove_useless_stmts_and_vars_tf (stmt_p, data);
+	  break;
+	case TRY_CATCH_EXPR:
+	  remove_useless_stmts_and_vars_tc (stmt_p, data);
+	  break;
+	case BIND_EXPR:
+	  remove_useless_stmts_and_vars_bind (stmt_p, data);
+	  break;
+	case GOTO_EXPR:
+	  remove_useless_stmts_and_vars_goto (i, stmt_p, data);
+	  break;
+	default:
+	  break;
 	}
 
       /* We need to keep the tree in gimple form, so we may have to
@@ -1432,7 +1476,20 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	  && TREE_CODE (TREE_OPERAND (*container_p, 0)) == COMPOUND_EXPR)
 	*container_p = rationalize_compound_expr (*container_p);
     }
-  return repeat;
+}
+
+void
+remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
+{
+  struct rusv_data data;
+  do
+    {
+      data.repeat = false;
+      data.remove_unused_vars = remove_unused_vars;
+      remove_unused_vars = false;
+      remove_useless_stmts_and_vars_1 (first_p, &data);
+    }
+  while (data.repeat);
 }
 
 /* Delete all unreachable basic blocks.  Return true if any unreachable

@@ -1,5 +1,18 @@
 2003-09-18  Richard Henderson  <rth@redhat.com>
 
+	* tree-cfg (remove_useless_stmts_and_vars_cond,
+	remove_useless_stmts_and_vars_tf,
+	remove_useless_stmts_and_vars_tc,
+	remove_useless_stmts_and_vars_bind,
+	remove_useless_stmts_and_vars_goto): Break out of ...
+	(remove_useless_stmts_and_vars_1): ... here.  Rename to _1;
+	take and use struct rusv_data.
+	(remove_useless_stmts_and_vars): New.  Loop until no change.
+	* tree-flow.h (remove_useless_stmts_and_vars): Update decl.
+	* tree-ssa.c (rewrite_out_of_ssa): Don't loop here.
+
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-pretty-print.c (dump_generic_node): Don't double indent asms.
 
 2003-09-18  Richard Henderson  <rth@redhat.com>
