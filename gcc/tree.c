@@ -5005,6 +5005,8 @@ build_function_type (value_type, arg_types)
       tree type = TREE_VALUE (arg_types);
       if (type == void_type_node)
 	break;
+      if (type == error_mark_node)
+	continue;
       if (TREE_CODE (type) == INTEGER_CST)
 	{
 	  boundedp |= TREE_INT_CST_LOW (type);

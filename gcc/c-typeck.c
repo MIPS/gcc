@@ -1996,8 +1996,11 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 	parmval = default_conversion (val);
 
       result = tree_cons (NULL_TREE, parmval, result);
-      depth = MAX (depth, TYPE_POINTER_DEPTH (TREE_TYPE (parmval)));
-      boundedp |= TYPE_BOUNDED (TREE_TYPE (parmval));
+      if (parmval != error_mark_node)
+	{
+	  depth = MAX (depth, TYPE_POINTER_DEPTH (TREE_TYPE (parmval)));
+	  boundedp |= TYPE_BOUNDED (TREE_TYPE (parmval));
+	}
 
       if (typetail)
 	typetail = TREE_CHAIN (typetail);
