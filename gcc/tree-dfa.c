@@ -492,7 +492,7 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       tree op;
 
       for (op = expr; op; op = TREE_CHAIN (op))
-	add_stmt_operand (&TREE_VALUE (op), stmt, flags, prev_vops);
+        get_expr_operands (stmt, &TREE_VALUE (op), flags, prev_vops);
 
       return;
     }
