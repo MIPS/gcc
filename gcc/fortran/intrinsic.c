@@ -69,7 +69,7 @@ gfc_type_letter (bt type)
       c = 'l';
       break;
     case BT_CHARACTER:
-      c = 'c';
+      c = 's';
       break;
     case BT_INTEGER:
       c = 'i';
@@ -78,7 +78,7 @@ gfc_type_letter (bt type)
       c = 'r';
       break;
     case BT_COMPLEX:
-      c = 'z';
+      c = 'c';
       break;
 
     default:

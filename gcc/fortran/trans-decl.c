@@ -434,7 +434,6 @@ gfc_allocate_lang_decl (tree decl)
     ggc_alloc_cleared (sizeof (struct lang_decl));
 }
 
-
 /* Remember a symbol to generate initialization/cleanup code at function
    entry/exit.  */
 
@@ -715,6 +714,22 @@ gfc_get_symbol_decl (gfc_symbol * sym)
     }
 
   gfc_finish_var_decl (decl, sym);
+
+  if (sym->attr.assign)
+    {
+      gfc_allocate_lang_decl (decl);
+      GFC_DECL_ASSIGN (decl) = 1;
+      GFC_DECL_STRING_LENGTH (decl) =
+        gfc_create_var (gfc_strlen_type_node, sym->name);
+      GFC_DECL_ASSIGN_ADDR (decl) = gfc_create_var (pvoid_type_node, sym->name);
+      TREE_STATIC (GFC_DECL_STRING_LENGTH (decl)) = 1;
+      /*  STRING_LENGTH is also used as flag. Less than -1 means that
+          ASSIGN_ADDR can not be used. Equal -1 means that ASSIGN_ADDR is the
+          target label's address. Other value is the length of format string
+          and ASSIGN_ADDR is the address of format string.  */
+      DECL_INITIAL (GFC_DECL_STRING_LENGTH (decl)) =
+        build_int_2 (-2, -1);
+    }
 
   /* TODO: Initialization of pointer variables.  */
   switch (sym->ts.type)

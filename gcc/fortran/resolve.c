@@ -3364,8 +3364,8 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
 }
 
 
-/* Resolve lists of blocks found in IF, SELECT CASE, WHERE, FORALL and DO code
-   nodes.  */
+/* Resolve lists of blocks found in IF, SELECT CASE, WHERE, FORALL ,GOTO and
+   DO code nodes.  */
 
 static void resolve_code (gfc_code *, gfc_namespace *);
 
@@ -3399,6 +3399,10 @@ resolve_blocks (gfc_code * b, gfc_namespace * ns)
 	      ("WHERE/ELSEWHERE clause at %L requires a LOGICAL array",
 	       &b->expr->where);
 	  break;
+
+        case EXEC_GOTO:
+          resolve_branch (b->label, b);
+          break;
 
 	case EXEC_SELECT:
 	case EXEC_FORALL:
@@ -3468,7 +3472,11 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  break;
 
 	case EXEC_GOTO:
-	  resolve_branch (code->label, code);
+          if (code->expr != NULL && code->expr->ts.type != BT_INTEGER)
+            gfc_error ("ASSIGNED GOTO statement at %L requires an INTEGER "
+                       "variable", &code->expr->where);
+          else
+            resolve_branch (code->label, code);
 	  break;
 
 	case EXEC_RETURN:
@@ -3506,6 +3514,15 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	    }
 
 	  gfc_check_assign (code->expr, code->expr2, 1);
+	  break;
+
+	case EXEC_LABEL_ASSIGN:
+          if (code->label->defined == ST_LABEL_UNKNOWN)
+            gfc_error ("Label %d referenced at %L is never defined",
+                       code->label->value, &code->label->where);
+          if (t == SUCCESS && code->expr->ts.type != BT_INTEGER)
+	    gfc_error ("ASSIGN statement at %L requires an INTEGER "
+		       "variable", &code->expr->where);
 	  break;
 
 	case EXEC_POINTER_ASSIGN:

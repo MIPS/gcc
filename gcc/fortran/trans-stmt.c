@@ -83,13 +83,99 @@ gfc_trans_label_here (gfc_code * code)
   return build1_v (LABEL_EXPR, gfc_get_label_decl (code->here));
 }
 
+/* Translate a label assignment statement.  */
+tree
+gfc_trans_label_assign (gfc_code * code)
+{
+  tree label_tree;
+  gfc_se se;
+  tree len;
+  tree addr;
+  tree len_tree;
+  char *label_str;
+  int label_len;
 
-/* Translate a normal GOTO statement.  */
+  /* Start a new block.  */
+  gfc_init_se (&se, NULL);
+  gfc_start_block (&se.pre);
+  gfc_conv_expr (&se, code->expr);
+  len = GFC_DECL_STRING_LENGTH (se.expr);
+  addr = GFC_DECL_ASSIGN_ADDR (se.expr);
+
+  label_tree = gfc_get_label_decl (code->label);
+
+  if (code->label->defined == ST_LABEL_TARGET)
+    {
+      label_tree = gfc_build_addr_expr (pvoid_type_node, label_tree);
+      len_tree = integer_minus_one_node;
+    }
+  else
+    {
+      label_str = code->label->format->value.character.string;
+      label_len = code->label->format->value.character.length;
+      len_tree = build_int_2 (label_len, 0);
+      label_tree = gfc_build_string_const (label_len + 1, label_str);
+      label_tree = gfc_build_addr_expr (pchar_type_node, label_tree);
+    }
+
+  gfc_add_modify_expr (&se.pre, len, len_tree);
+  gfc_add_modify_expr (&se.pre, addr, label_tree);
+
+  return gfc_finish_block (&se.pre);
+}
+
+/* Translate a GOTO statement.  */
 
 tree
 gfc_trans_goto (gfc_code * code)
 {
-  return build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
+  tree assigned_goto;
+  tree target;
+  tree tmp;
+  tree assign_error;
+  tree range_error;
+  gfc_se se;
+
+
+  if (code->label != NULL)
+    return build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
+
+  /* ASSIGNED GOTO.  */
+  gfc_init_se (&se, NULL);
+  gfc_start_block (&se.pre);
+  gfc_conv_expr (&se, code->expr);
+  assign_error =
+    gfc_build_string_const (37, "Assigned label is not a target label");
+  tmp = GFC_DECL_STRING_LENGTH (se.expr);
+  tmp = build (NE_EXPR, boolean_type_node, tmp, integer_minus_one_node);
+  gfc_trans_runtime_check (tmp, assign_error, &se.pre);
+
+  assigned_goto = GFC_DECL_ASSIGN_ADDR (se.expr);
+  target = build1 (GOTO_EXPR, void_type_node, assigned_goto);
+
+  code = code->block;
+  if (code == NULL)
+    {
+      gfc_add_expr_to_block (&se.pre, target);
+      return gfc_finish_block (&se.pre);
+    }
+
+  /* Check the label list.  */
+  range_error =
+    gfc_build_string_const (34, "Assigned label is not in the list");
+
+  do
+    {
+      tmp = gfc_get_label_decl (code->label);
+      tmp = gfc_build_addr_expr (pvoid_type_node, tmp);
+      tmp = build (EQ_EXPR, boolean_type_node, tmp, assigned_goto);
+      tmp = build_v (COND_EXPR, tmp, target, build_empty_stmt ());
+      gfc_add_expr_to_block (&se.pre, tmp);
+      code = code->block;
+    }
+  while (code != NULL);
+  gfc_trans_runtime_check (boolean_true_node, range_error, &se.pre);
+  return gfc_finish_block (&se.pre); 
 }
 
 

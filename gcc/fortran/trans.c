@@ -465,6 +465,10 @@ gfc_trans_code (gfc_code * code)
 	  res = gfc_trans_assign (code);
 	  break;
 
+        case EXEC_LABEL_ASSIGN:
+          res = gfc_trans_label_assign (code);
+          break;
+
 	case EXEC_POINTER_ASSIGN:
 	  res = gfc_trans_pointer_assign (code);
 	  break;

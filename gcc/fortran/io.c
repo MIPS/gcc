@@ -913,9 +913,13 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 
   if (e->ts.type != tag->type)
     {
-      gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		 gfc_basic_typename (tag->type));
-      return FAILURE;
+      /* Format label can be integer varibale.  */
+      if (tag != &tag_format)
+        {
+          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
+          gfc_basic_typename (tag->type));
+          return FAILURE;
+        }
     }
 
   if (tag == &tag_format)
@@ -1471,6 +1475,8 @@ match_dt_format (gfc_dt * dt)
 	  gfc_free_expr (e);
 	  goto conflict;
 	}
+      if (e->ts.type == BT_INTEGER && e->rank == 0)
+        e->symtree->n.sym->attr.assign = 1;
 
       dt->format_expr = e;
       return MATCH_YES;
