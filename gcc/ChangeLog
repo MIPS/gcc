@@ -1,3 +1,8 @@
+2003-03-05  Michael Matz  <matz@suse.de>
+
+	* unwind.h: Add the GPL exception.
+	* Makefile.in (USER_H): Add unwind.h.
+
 Tue Mar  4 11:25:22 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* calls.c (rtx_for_function_call): Take the address as an argument
