@@ -29,7 +29,8 @@ __FRAME_BEGIN__:
       .4byte    .LASFDE1-__FRAME_BEGIN__         /*  FDE CIE offset */
       .4byte    .LFB1    /*  FDE initial location */
       .4byte    .LFE1-.LFB1      /*  FDE address range */
-      .byte     0x4      /*  DW_CFA_advance_loc4 */
+#ifndef __powerpc64__
+	.globl ffi_prep_args_SYSV
       .4byte    .LCFI0-.LFB1
       .byte     0xd      /*  DW_CFA_def_cfa_register */
       .byte     0x08     /*  uleb128 0x08 */
@@ -52,3 +53,37 @@ __FRAME_BEGIN__:
       .byte     0x1c     /*  uleb128 0x1c */
       .align 2
 .LEFDE1:
+	/* Call ffi_prep_args_SYSV.  */
+	bl	JUMPTARGET(ffi_prep_args_SYSV)
+      .section	".eh_frame",EH_FRAME_FLAGS,@progbits
+.Lframe1:
+#if defined _RELOCATABLE || defined __PIC__
+      .ascii	"zR\0"   /*  CIE Augmentation */
+#else
+      .ascii	"\0"	 /*  CIE Augmentation */
+#endif
+      .uleb128  0x1      /*  CIE Code Alignment Factor */
+      .sleb128  -4	 /*  CIE Data Alignment Factor */
+#if defined _RELOCATABLE || defined __PIC__
+      .uleb128  0x1      /*  Augmentation size */
+      .byte	0x1b	 /*  FDE Encoding (pcrel sdata4) */
+#endif
+      .uleb128  0x1
+      .uleb128  0x0
+      .4byte    .LASFDE1-.Lframe1         /*  FDE CIE offset */
+#if defined _RELOCATABLE || defined __PIC__
+      .4byte    .LFB1-.  /*  FDE initial location */
+#else
+#endif
+#if defined _RELOCATABLE || defined __PIC__
+      .uleb128  0x0	 /*  Augmentation size */
+#endif
+      .uleb128  0x08
+      .uleb128  0x41
+      .uleb128  0x1
+      .uleb128  0x1
+      .uleb128  0x2
+      .uleb128  0x3
+      .uleb128  0x4
+      .uleb128  0x1c
+#endif

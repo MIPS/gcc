@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------
-   ffitest.c - Copyright (c) 1996, 1997, 1998  Cygnus Solutions
+   ffitest.c - Copyright (c) 1996, 1997, 1998, 2002, 2003  Red Hat, Inc.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -48,6 +48,13 @@ static size_t my_strlen(char *s)
 {
   return (strlen(s));
 }
+
+#ifdef X86_WIN32
+static size_t __attribute__((stdcall)) my_stdcall_strlen(char *s)
+{
+  return (strlen(s));
+}
+#endif /* X86_WIN32 */
 
 static int promotion(signed char sc, signed short ss, 
 		     unsigned char uc, unsigned short us)
@@ -111,6 +118,25 @@ static float many(float f1,
 
   return ((f1/f2+f3/f4+f5/f6+f7/f8+f9/f10+f11/f12) * f13);
 }
+
+#ifdef X86_WIN32
+static float __attribute__((stdcall)) stdcall_many(float f1,
+						   float f2,
+						   float f3,
+						   float f4,
+						   float f5,
+						   float f6,
+						   float f7,
+						   float f8,
+						   float f9,
+						   float f10,
+						   float f11,
+						   float f12,
+						   float f13)
+{
+  return ((f1/f2+f3/f4+f5/f6+f7/f8+f9/f10+f11/f12) * f13);
+}
+#endif /* X86_WIN32 */
 
 static double dblit(float f)
 {
@@ -262,10 +288,121 @@ static test_structure_9 struct9 (test_structure_9 ts)
 static void
 closure_test_fn(ffi_cif* cif,void* resp,void** args, void* userdata)
 {
-  *(ffi_arg*)resp = *(int*)args[0] + (int)(*(float*)args[1]) + (int)(long)userdata;
+  *(ffi_arg*)resp =
+    (int)*(unsigned long long *)args[0] + (int)(*(int *)args[1]) +
+    (int)(*(unsigned long long *)args[2]) + (int)*(int *)args[3] +
+    (int)(*(signed short *)args[4]) +
+    (int)(*(unsigned long long *)args[5]) +
+    (int)*(int *)args[6] + (int)(*(int *)args[7]) +
+    (int)(*(double *)args[8]) + (int)*(int *)args[9] +
+    (int)(*(int *)args[10]) + (int)(*(float *)args[11]) +
+    (int)*(int *)args[12] + (int)(*(int *)args[13]) +
+    (int)(*(int *)args[14]) +  *(int *)args[15] + (int)(long)userdata;
+
+    	printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d: %d\n",
+	       (int)*(unsigned long long *)args[0], (int)(*(int *)args[1]), 
+	       (int)(*(unsigned long long *)args[2]),
+	       (int)*(int *)args[3], (int)(*(signed short *)args[4]), 
+	       (int)(*(unsigned long long *)args[5]),
+	       (int)*(int *)args[6], (int)(*(int *)args[7]), 
+	       (int)(*(double *)args[8]), (int)*(int *)args[9],
+	       (int)(*(int *)args[10]), (int)(*(float *)args[11]),
+	       (int)*(int *)args[12], (int)(*(int *)args[13]), 
+	       (int)(*(int *)args[14]),*(int *)args[15],
+	       (int)(long)userdata, (int)*(ffi_arg *)resp);
 }
 
-typedef int (*closure_test_type)(int, float);
+typedef int (*closure_test_type)(unsigned long long, int, unsigned long long, 
+				 int, signed short, unsigned long long, int, 
+				 int, double, int, int, float, int, int, 
+				 int, int);
+
+static void closure_test_fn1(ffi_cif* cif,void* resp,void** args, 
+			     void* userdata)
+ {
+    *(ffi_arg*)resp =
+      (int)*(float *)args[0] +(int)(*(float *)args[1]) + 
+      (int)(*(float *)args[2]) + (int)*(float *)args[3] +
+      (int)(*(signed short *)args[4]) + (int)(*(float *)args[5]) +
+      (int)*(float *)args[6] + (int)(*(int *)args[7]) + 
+      (int)(*(double*)args[8]) + (int)*(int *)args[9] + 
+      (int)(*(int *)args[10]) + (int)(*(float *)args[11]) + 
+      (int)*(int *)args[12] + (int)(*(int *)args[13]) + 
+      (int)(*(int *)args[14]) + *(int *)args[15] + (int)(long)userdata;
+
+    printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d: %d\n",
+	   (int)*(float *)args[0], (int)(*(float *)args[1]), 
+	   (int)(*(float *)args[2]), (int)*(float *)args[3], 
+	   (int)(*(signed short *)args[4]), (int)(*(float *)args[5]),
+	   (int)*(float *)args[6], (int)(*(int *)args[7]),
+	   (int)(*(double *)args[8]), (int)*(int *)args[9],
+	   (int)(*(int *)args[10]), (int)(*(float *)args[11]),
+	   (int)*(int *)args[12], (int)(*(int *)args[13]),
+	   (int)(*(int *)args[14]), *(int *)args[15],
+	   (int)(long)userdata, (int)*(ffi_arg *)resp);
+}
+
+typedef int (*closure_test_type1)(float, float, float, float, signed short, 
+				  float, float, int, double, int, int, float,
+				  int, int, int, int);
+
+static void closure_test_fn2(ffi_cif* cif,void* resp,void** args, 
+			     void* userdata)
+ {
+    *(ffi_arg*)resp =
+      (int)*(double *)args[0] +(int)(*(double *)args[1]) + 
+      (int)(*(double *)args[2]) + (int)*(double *)args[3] +
+      (int)(*(signed short *)args[4]) + (int)(*(double *)args[5]) +
+      (int)*(double *)args[6] + (int)(*(int *)args[7]) + 
+      (int)(*(double *)args[8]) + (int)*(int *)args[9] +
+      (int)(*(int *)args[10]) + (int)(*(float *)args[11]) + 
+      (int)*(int *)args[12] + (int)(*(float *)args[13]) +
+      (int)(*(int *)args[14]) + *(int *)args[15] + (int)(long)userdata;
+
+    printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d: %d\n",
+	   (int)*(double *)args[0], (int)(*(double *)args[1]), 
+	   (int)(*(double *)args[2]), (int)*(double *)args[3], 
+	   (int)(*(signed short *)args[4]), (int)(*(double *)args[5]),
+	   (int)*(double *)args[6], (int)(*(int *)args[7]), 
+	   (int)(*(double*)args[8]), (int)*(int *)args[9], 
+	   (int)(*(int *)args[10]), (int)(*(float *)args[11]),
+	   (int)*(int *)args[12], (int)(*(float *)args[13]), 
+	   (int)(*(int *)args[14]), *(int *)args[15], (int)(long)userdata, 
+	   (int)*(ffi_arg *)resp);
+ }
+
+typedef int (*closure_test_type2)(double, double, double, double, signed short,
+				  double, double, int, double, int, int, float,
+				  int, float, int, int);
+
+static void closure_test_fn3(ffi_cif* cif,void* resp,void** args,
+			     void* userdata)
+ {
+    *(ffi_arg*)resp =
+      (int)*(float *)args[0] +(int)(*(float *)args[1]) + 
+      (int)(*(float *)args[2]) + (int)*(float *)args[3] +
+      (int)(*(float *)args[4]) + (int)(*(float *)args[5]) +
+      (int)*(float *)args[6] + (int)(*(float *)args[7]) + 
+      (int)(*(double *)args[8]) + (int)*(int *)args[9] +
+      (int)(*(float *)args[10]) + (int)(*(float *)args[11]) + 
+      (int)*(int *)args[12] + (int)(*(float *)args[13]) +
+      (int)(*(float *)args[14]) +  *(int *)args[15] + (int)(long)userdata;
+
+    printf("%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d: %d\n",
+	   (int)*(float *)args[0], (int)(*(float *)args[1]), 
+	   (int)(*(float *)args[2]), (int)*(float *)args[3], 
+	   (int)(*(float *)args[4]), (int)(*(float *)args[5]),
+	   (int)*(float *)args[6], (int)(*(float *)args[7]), 
+	   (int)(*(double *)args[8]), (int)*(int *)args[9], 
+	   (int)(*(float *)args[10]), (int)(*(float *)args[11]),
+	   (int)*(int *)args[12], (int)(*(float *)args[13]), 
+	   (int)(*(float *)args[14]), *(int *)args[15], (int)(long)userdata,
+	   (int)*(ffi_arg *)resp);
+ }
+
+typedef int (*closure_test_type3)(float, float, float, float, float, float,
+				  float, float, double, int, float, float, int,
+				  float, float, int);
 #endif
 
 int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
@@ -288,6 +425,15 @@ int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
 
   ffi_arg rint;
   long long rlonglong;
+
+# if FFI_CLOSURES
+  /* The closure must not be an automatic variable on
+     platforms (Solaris) that forbid stack execution by default. */
+  static ffi_closure cl;
+  ffi_closure *pcl = &cl;
+#endif
+
+  ffi_type * cl_arg_types[17];
 
   ffi_type ts1_type;
   ffi_type ts2_type;
@@ -696,8 +842,8 @@ int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
     ts2_arg.d1 = 5.55;
     ts2_arg.d2 = 6.66;
 
-    printf ("%g\n", ts2_result->d1);
-    printf ("%g\n", ts2_result->d2);
+    printf ("%g\n", ts2_arg.d1);
+    printf ("%g\n", ts2_arg.d2);
 
     ffi_call(&cif, FFI_FN(struct2), ts2_result, values);
 
@@ -954,25 +1100,208 @@ int main(/*@unused@*/ int argc, /*@unused@*/ char *argv[])
   printf("Structure passing doesn't work on Win32.\n");
 #endif /* X86_WIN32 */
 
+#ifdef X86_WIN32
+  /* stdcall strlen tests */
+  {
+    args[0] = &ffi_type_pointer;
+    values[0] = (void*) &s;
+
+    /* Initialize the cif */
+    CHECK(ffi_prep_cif(&cif, FFI_STDCALL, 1,
+		       &ffi_type_sint, args) == FFI_OK);
+
+    s = "a";
+    ffi_call(&cif, FFI_FN(my_stdcall_strlen), &rint, values);
+    CHECK(rint == 1);
+
+    s = "1234567";
+    ffi_call(&cif, FFI_FN(my_stdcall_strlen), &rint, values);
+    CHECK(rint == 7);
+
+    s = "1234567890123456789012345";
+    ffi_call(&cif, FFI_FN(my_stdcall_strlen), &rint, values);
+    CHECK(rint == 25);
+
+    printf("stdcall strlen tests passed\n");
+  }
+
+  /* stdcall many arg tests */
+  {
+    float ff;
+    float fa[13];
+
+    for (ul = 0; ul < 13; ul++)
+      {
+	args[ul] = &ffi_type_float;
+	values[ul] = &fa[ul];
+	fa[ul] = (float) ul;
+      }
+
+    /* Initialize the cif */
+    CHECK(ffi_prep_cif(&cif, FFI_STDCALL, 13,
+		       &ffi_type_float, args) == FFI_OK);
+
+    /*@-usedef@*/
+    ff =  stdcall_many(fa[0], fa[1],
+	       fa[2], fa[3],
+	       fa[4], fa[5],
+	       fa[6], fa[7],
+	       fa[8], fa[9],
+	       fa[10],fa[11],fa[12]);
+    /*@=usedef@*/
+
+    ffi_call(&cif, FFI_FN(stdcall_many), &f, values);
+
+    /*@-realcompare@*/
+    if (f - ff < FLT_EPSILON)
+    /*@=realcompare@*/
+	printf("stdcall many arg tests ok!\n");
+    else
+        CHECK(0);
+  }
+#endif /* X86_WIN32 */
+
 # if FFI_CLOSURES
+#  if __GNUC__ >= 2
+   /* Hide before the compiler that pcl is &cl, since on
+      some architectures it is not possible to call a data
+      object using direct function call.  */
+   asm ("" : "=g" (pcl) : "0" (pcl));
+#  endif
+
   /* A simple closure test */
     {
-      ffi_closure cl;
-      ffi_type * cl_arg_types[3];
+      (void) puts("\nEnter FFI_CLOSURES\n");
 
-      cl_arg_types[0] = &ffi_type_sint;
+      cl_arg_types[0] = &ffi_type_uint64;
+      cl_arg_types[1] = &ffi_type_uint;
+      cl_arg_types[2] = &ffi_type_uint64;
+      cl_arg_types[3] = &ffi_type_uint;
+      cl_arg_types[4] = &ffi_type_sshort;
+      cl_arg_types[5] = &ffi_type_uint64;
+      cl_arg_types[6] = &ffi_type_uint;
+      cl_arg_types[7] = &ffi_type_uint;
+      cl_arg_types[8] = &ffi_type_double;
+      cl_arg_types[9] = &ffi_type_uint;
+      cl_arg_types[10] = &ffi_type_uint;
+      cl_arg_types[11] = &ffi_type_float;
+      cl_arg_types[12] = &ffi_type_uint;
+      cl_arg_types[13] = &ffi_type_uint;
+      cl_arg_types[14] = &ffi_type_uint;
+      cl_arg_types[15] = &ffi_type_uint;
+      cl_arg_types[16] = NULL;   
+
+      /* Initialize the cif */
+      CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 16,
+			 &ffi_type_sint, cl_arg_types) == FFI_OK);
+
+      CHECK(ffi_prep_closure(pcl, &cif, closure_test_fn,
+			     (void *) 3 /* userdata */) == FFI_OK);
+      
+      CHECK((*((closure_test_type)pcl))
+	    (1LL, 2, 3LL, 4, 127, 429LL, 7, 8, 9.5, 10, 11, 12, 13, 
+	     19, 21, 1) == 680);
+    }
+
+    {
+
+      cl_arg_types[0] = &ffi_type_float;
       cl_arg_types[1] = &ffi_type_float;
-      cl_arg_types[2] = NULL;
+      cl_arg_types[2] = &ffi_type_float;
+      cl_arg_types[3] = &ffi_type_float;
+      cl_arg_types[4] = &ffi_type_sshort;
+      cl_arg_types[5] = &ffi_type_float;
+      cl_arg_types[6] = &ffi_type_float;
+      cl_arg_types[7] = &ffi_type_uint;
+      cl_arg_types[8] = &ffi_type_double;
+      cl_arg_types[9] = &ffi_type_uint;
+      cl_arg_types[10] = &ffi_type_uint;
+      cl_arg_types[11] = &ffi_type_float;
+      cl_arg_types[12] = &ffi_type_uint;
+      cl_arg_types[13] = &ffi_type_uint;
+      cl_arg_types[14] = &ffi_type_uint;
+      cl_arg_types[15] = &ffi_type_uint;
+      cl_arg_types[16] = NULL;
       
       /* Initialize the cif */
-      CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 2, 
-	    	         &ffi_type_sint, cl_arg_types) == FFI_OK);
+      CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 16,
+			 &ffi_type_sint, cl_arg_types) == FFI_OK);
 
-      CHECK(ffi_prep_closure(&cl, &cif, closure_test_fn,
-			     (void *) 3 /* userdata */)
-	    == FFI_OK);
-      CHECK((*((closure_test_type)(&cl)))(1, 2.0) == 6);
+      CHECK(ffi_prep_closure(pcl, &cif, closure_test_fn1,
+			     (void *) 3 /* userdata */)  == FFI_OK);
+      
+      CHECK((*((closure_test_type1)pcl))
+	    (1.1, 2.2, 3.3, 4.4, 127, 5.5, 6.6, 8, 9, 10, 11, 12.0, 13,
+	     19, 21, 1) == 255);
     }
+
+    {
+
+      cl_arg_types[0] = &ffi_type_double;
+      cl_arg_types[1] = &ffi_type_double;
+      cl_arg_types[2] = &ffi_type_double;
+      cl_arg_types[3] = &ffi_type_double;
+      cl_arg_types[4] = &ffi_type_sshort;
+      cl_arg_types[5] = &ffi_type_double;
+      cl_arg_types[6] = &ffi_type_double;
+      cl_arg_types[7] = &ffi_type_uint;
+      cl_arg_types[8] = &ffi_type_double;
+      cl_arg_types[9] = &ffi_type_uint;
+      cl_arg_types[10] = &ffi_type_uint;
+      cl_arg_types[11] = &ffi_type_float;
+      cl_arg_types[12] = &ffi_type_uint;
+      cl_arg_types[13] = &ffi_type_float;
+      cl_arg_types[14] = &ffi_type_uint;
+      cl_arg_types[15] = &ffi_type_uint;
+      cl_arg_types[16] = NULL;
+      
+      /* Initialize the cif */
+      CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 16,
+			 &ffi_type_sint, cl_arg_types) == FFI_OK);
+
+      CHECK(ffi_prep_closure(pcl, &cif, closure_test_fn2,
+			     (void *) 3 /* userdata */) == FFI_OK);
+
+      CHECK((*((closure_test_type2)pcl))
+	    (1, 2, 3, 4, 127, 5, 6, 8, 9, 10, 11, 12.0, 13,
+	     19.0, 21, 1) == 255);
+
+    }
+
+    {
+
+      cl_arg_types[0] = &ffi_type_float;
+      cl_arg_types[1] = &ffi_type_float;
+      cl_arg_types[2] = &ffi_type_float;
+      cl_arg_types[3] = &ffi_type_float;
+      cl_arg_types[4] = &ffi_type_float;
+      cl_arg_types[5] = &ffi_type_float;
+      cl_arg_types[6] = &ffi_type_float;
+      cl_arg_types[7] = &ffi_type_float;
+      cl_arg_types[8] = &ffi_type_double;
+      cl_arg_types[9] = &ffi_type_uint;
+      cl_arg_types[10] = &ffi_type_float;
+      cl_arg_types[11] = &ffi_type_float;
+      cl_arg_types[12] = &ffi_type_uint;
+      cl_arg_types[13] = &ffi_type_float;
+      cl_arg_types[14] = &ffi_type_float;
+      cl_arg_types[15] = &ffi_type_uint;
+      cl_arg_types[16] = NULL;
+      
+      /* Initialize the cif */
+      CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 16,
+			 &ffi_type_sint, cl_arg_types) == FFI_OK);
+
+      CHECK(ffi_prep_closure(pcl, &cif, closure_test_fn3,
+			     (void *) 3 /* userdata */)  == FFI_OK);
+      
+      CHECK((*((closure_test_type3)pcl))
+	    (1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9, 10, 11.11, 12.0, 13,
+	     19.19, 21.21, 1) == 135);
+    }
+
+    (void) puts("\nFinished FFI_CLOSURES\n");
+
 # endif
 
   /* If we arrived here, all is good */

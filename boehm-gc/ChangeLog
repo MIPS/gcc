@@ -1,3 +1,239 @@
+2003-10-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure: Rebuild.
+
+2003-10-03  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* configure.in: Remove NO_GETENV definition for win32.
+	* mach_dep.c (GC_generic_push_regs): Prevent tail call optimization.
+	* misc.c (GC_init_inner): Call GC_thr_init for win32.
+	  (GC_set_warn_proc): Add assertion.
+	* win32_threads.c: Import 6.3alpha2 version.
+	* include/private/gc_priv.h: Add support for EMPTY_GETENV_RESULTS.
+
+2003-09-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Remove wildcard from Solaris 8-9/Intel and Solaris
+	2.3/SPARC, there are no micro versions.
+	Treat Solaris 10 and up alike.
+	* configure: Regenerate.
+
+2003-09-22  Anthony Green  <green@redhat.com>
+
+	* os_dep.c: Fix GC_get_stack_base build problem for vanilla elf
+	"NOSYS" targets.
+
+2003-09-20    <green@redhat.com>
+
+	* include/private/gcconfig.h: Don't check for __XSCALE__.  Instead
+	check for __arm__ or __thumb__.
+
+2003-09-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure: Regenerate.
+
+2003-08-07  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+	    Roger Sayle <roger@eyesopen.com>
+
+	* configure.in: Set INCLUDES to absolute path.
+	Save $INCLUDES in boehm-cflags, too.
+	Set INCLUDES so it's available to config.status.
+	* configure: Regenerate.
+
+2003-07-31  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* include/gc.h (GC_CreateThread): Declare with WINAPI
+	attribute. 
+	* win32_threads.c (GC_CreateThread): Make definitions consistent
+	with declaration.  Cast &thread_table[i].handle to PHANDLE
+	in call to DuplicateHandle
+	(thread_start): Declare as static.
+
+2003-07-30  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* dyn_load.c: Define __private_extern__ to match Apple's system 
+	header.
+ 
+2003-07-28  Loren J. Rittle  <ljrittle@acm.org>
+
+	* os_dep.c: Remove redundancy introduced in last merge.
+
+2003-07-28  Jeff Sturm  <jsturm@one-point.com>
+
+	Import GC 6.3alpha1.
+	* BCC_MAKEFILE: Merge with GC 6.3alpha1 release.
+	* ChangeLog: Likewise.
+	* Makefile.am: Likewise.
+	* Makefile.direct: Likewise.
+	* Makefile.dj: Likewise.
+	* allchblk.c: Likewise.
+	* alloc.c: Likewise.
+	* backgraph.c: Likewise.
+	* configure.host: Likewise.
+	* configure.in: Likewise.
+	* dbg_mlc.c: Likewise.
+	* dyn_load.c: Likewise.
+	* finalize.c: Likewise.
+	* gc_cpp.cc: Likewise.
+	* gc_dlopen.c: Likewise.
+	* gcj_mlc.c: Likewise.
+	* if_mach.c: Likewise.
+	* mach_dep.c: Likewise.
+	* malloc.c: Likewise.
+	* mallocx.c: Likewise.
+	* mark.c: Likewise.
+	* mark_rts.c: Likewise.
+	* misc.c: Likewise.
+	* os_dep.c: Likewise.
+	* ptr_chck.c: Likewise.
+	* reclaim.c: Likewise.
+	* solaris_pthreads.c: Likewise.
+	* solaris_threads.c: Likewise.
+	* sparc_mach_dep.S: Likewise.
+	* threadlibs.c: Likewise.
+	* typd_mlc.c: Likewise.
+	* version.h: Likewise.
+	* win32_threads.c: Likewise.
+	* Mac_files/MacOS_Test_config.h: Likewise.
+	* Mac_files/MacOS_config.h: Likewise.
+	* cord/cordbscs.c: Likewise.
+	* cord/cordprnt.c: Likewise.
+	* cord/de_win.c: Likewise.
+	* doc/README: Likewise.
+	* doc/README.MacOSX: Likewise.
+	* doc/README.changes: Likewise.
+	* doc/README.environment: Likewise.
+	* doc/README.ews4800: Likewise.
+	* doc/README.linux: Likewise.
+	* doc/README.macros: Likewise.
+	* doc/README.win32: Likewise.
+	* doc/debugging.html: Likewise.
+	* doc/gcdescr.html: Likewise.
+	* doc/tree.html: Likewise.
+	* include/Makefile.in: Likewise.
+	* include/gc.h: Likewise.
+	* include/gc_cpp.h: Likewise.
+	* include/gc_local_alloc.h: Likewise.
+	* include/gc_mark.h: Likewise.
+	* include/gc_pthread_redirects.h: Likewise.
+	* include/gc_typed.h: Likewise.
+	* include/new_gc_alloc.h: Likewise.
+	* include/private/dbg_mlc.h: Likewise.
+	* include/private/gc_hdrs.h: Likewise.
+	* include/private/gc_locks.h: Likewise.
+	* include/private/gc_pmark.h: Likewise.
+	* include/private/gc_priv.h: Likewise.
+	* include/private/gcconfig.h: Likewise.
+	* include/private/solaris_threads.h: Likewise.
+	* include/private/specific.h: Likewise.
+	* tests/test.c: Likewise.
+	* tests/test_cpp.cc: Likewise.
+	
+	* configure: Rebuild.
+	* Makefile.in: Rebuild.
+	
+	* mips_sgi_mach_dep.s: Add.
+	
+	* alpha_mach_dep.s: Remove.
+	* irix_threads.c: Remove.
+	* linux_threads.c: Remove.
+	* mips_sgi_mach_dep.S: Remove.
+	* missing: Remove.
+	* powerpc_macosx_mach_dep.s: Remove.
+	* doc/Makefile.am: Remove.
+	* doc/Makefile.in: Remove.
+
+2003-07-25  Roger Sayle  <roger@eyesopen.com>
+
+	* configure.host: Only use +ESdbgasm when using the HPUX native
+	compiler on PA-Risc.  It isn't recognized by GCC and is silently
+	ignored by HP's compilers on ia64.
+
+2003-04-28  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* configure.in: define GC_DLL under mingw if --enable-shared
+	* configure: rebuilt
+	* win32_threads.c: add #ifdef GC_DLL around DllMain
+
+2003-04-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* include/private/gcconfig.h: Add support for arm-netbsdelf.
+
+2003-04-09  Tom Tromey  <tromey@redhat.com>
+
+	* include/private/gcconfig.h (LINUX_STACKBOTTOM): Define for
+	POWERPC.
+	(STACK_GRAN, HEURISTIC1): Don't define for POWERPC.
+
+2003-03-22  Richard Henderson  <rth@redhat.com>
+
+	* include/private/gc_locks.h [IA64]: Include ia64intrin.h.
+	(GC_test_and_set): Use __sync_lock_test_and_set.
+	(GC_clear): Use volatile assignment.
+	(GC_compare_and_exchange): Use __sync_bool_compare_and_swap.
+	(GC_memory_write_barrier): Use __sync_synchronize.
+
+2003-03-12  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: Avoid trailing /. in toolexeclibdir.
+	* configure: Rebuilt.
+
+2003-03-04  Hans Boehm <Hans.Boehm@hp.com>
+	* include/private/gcconfig.h (GC_data_start): declare when needed.
+	* include/private/gc_priv.h: Include gcconfig.h after ptr_t
+	declaration.
+	* dyn_load.c (GC_register_dynamic_libraries_dl_iterate_phdr,
+	GC_register_dynlib_callback): Register main data for static
+	executable if dl_iterate_phdr() didn't.
+	* misc.c (GC_init_inner): Call GC_init_linux_data_start() even
+	if we don't expect to register main static data.
+
+2003-03-03  Hans Boehm  <Hans.Boehm@hp.com>
+	* mark_rts.c (GC_cond_register_dynamic_libraries): add.
+	(GC_push_roots): explicitly mark free list headers, register
+	dynamic libraries only if !REGISTER_LIBRARIES_EARLY.
+	* alloc.c (GC_stopped_mark): Conditionally call
+	GC_cond_register_dynamic_libraries().
+	(GC_collect_a_little_inner, GC_try_to_collect_inner): Check GC_dont_gc.
+	* dyn_load.c (GC_register_main_static_data): define.
+	(GC_register_dyn_libraries (Linux /proc, Linux ELF versions)):
+	no longer skip main data.
+	* misc.c (GC_REGISTER_MAIN_STATIC_DATA): define.
+	(GC_init_inner): Make main data registration conditional.
+	* include/private/gc_priv.h (GC_register_main_static_data): declare.
+	* include/private/gcconfig.h (REGISTER_LIBRARIES_EARLY): define
+	for LINUX.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/private/gcconfig.h: undefine MPROTECT_VDB for MACOSX
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (toolexecdir, toolexeclibdir): Set and AC_SUBST.
+	Remove USE_LIBDIR conditional.
+	* Makefile.am (toolexecdir, toolexeclibdir): Don't override.
+	* Makefile.in, configure: Rebuilt.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/8933:
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am (noinst_HEADERS): Renamed from
+	include_HEADERS.
+
+2002-11-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* ltconfig (osf[345]): Append $major to soname_spec.
+	Reflect this in library_names_spec.
+	* ltmain.sh (osf): Prefix $major with . for use as extension.
+
 2002-10-02  Andreas Jaeger  <aj@suse.de>
 
 	* include/private/gcconfig.h (HBLKSIZE): Define for x86-64.

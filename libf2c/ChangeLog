@@ -1,3 +1,100 @@
+2003-09-21  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR libf2c/11918
+	* fstat_.c: Call f_init().
+	* isatty_.c: Ditto.
+	* fnum_.c: Check file descriptor before handing it back.
+
+Tue Sep  9 15:22:57 2003  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure: Regenerate.
+
+2003-07-04  H.J. Lu <hongjiu.lu@intel.com>
+
+	* Makefile.in: Replace PWD with PWD_COMMAND.
+
+2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* libU77/bes.c, libU77/dbes.c: Remove.
+	* libU77/Makefile.in: Remove references to bes.c, dbes.c
+
+2003-04-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* libI77/configure.in (_XOPEN_SOURCE): Bump to 600.
+	* libI77/configure: Regenerate. 
+	* libU77/configure.in (_XOPEN_SOURCE): Bump to 600.
+	* libU77/configure: Regenerate. 
+
+2003-04-11  Bud Davis <bdavis9659@comcast.net>
+
+	PR Fortran/1832
+	* libf2c/libI77/iio.c (z_putc): Check for overflowing length
+	of output string.
+
+2003-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/10197
+	* libI77/open.c (f_open): A DIRECT ACCESS file is
+	UNFORMATTED by default.
+
+Wed Mar 12 22:27:14 2003  Andreas Schwab  <schwab@suse.de>
+
+	* aclocal.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Avoid trailing /. in
+	glibcpp_toolexeclibdir.
+	* configure: Rebuilt.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-03  Andreas Jaeger  <aj@suse.de>
+
+	* libU77/configure.in (AC_PROG_CC_WORKS): Define _GNU_SOURCE.
+	* libU77/config.hin: Regenerated.
+	* libU77/configure: Regenerated.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in ($(LIBG2C)): -rpath is glibcpp_toolexeclibdir.
+	* aclocal.m4 (glibcpp_toolexeclibdir): Instead of
+	$(MULTISUBDIR), use `$CC -print-multi-os-directory`, unless
+	version_specific_libs is enabled.
+	* configure: Rebuilt.
+
+2003-01-09  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.in (FLAGS_TO_PASS): Also pass DESTDIR.
+	(install, uninstall): Prepend $(DESTDIR) to destination
+	paths in all (un)installation commands.
+
+Wed Dec 18 11:33:35 2002  Jason Merrill  <jason@redhat.com>
+
+	* libU77/date_.c (G77_date_y2kbuggy_0): Declare G77_abort_0 noreturn.
+	* libU77/vxtidate_.c (G77_vxtidate_y2kbuggy_0): Likewise.
+
+2002-11-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Remove skip-this-dir support.
+	* configure: Regenerate.
+
+2002-11-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/8587
+	* libF77/pow_zz.c: Handle (0.0, 0.0) ** power.
+
+2002-10-18  Krister Walfridsson  <cato@df.lth.se>
+
+	* libU77/configure.in (_XOPEN_SOURCE, _XOPEN_SOURCE_EXTENDED,
+	__EXTENSIONS__, _FILE_OFFSET_BITS): Check that _XOPEN_SOURCE 500L
+	may be defined before defining these.
+	* libU77/configure: Regenerate.
+	* libI77/configure.in (_XOPEN_SOURCE, _XOPEN_SOURCE_EXTENDED,
+	__EXTENSIONS__, _FILE_OFFSET_BITS): Check that _XOPEN_SOURCE 500L
+	may be defined before defining these.
+	* libI77/configure: Regenerate.
+
 2002-09-23  Zack Weinberg  <zack@codesourcery.com>
 
 	* libF77/Version.c: Rename junk to __LIBF77_VERSION__.  Add

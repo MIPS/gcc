@@ -57,8 +57,13 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+build_alias = @build_alias@
+build_triplet = @build@
 host_alias = @host_alias@
 host_triplet = @host@
+target_alias = @target_alias@
+target_triplet = @target@
+AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
 AS = @AS@
 CC = @CC@
 CXX = @CXX@
@@ -81,6 +86,8 @@ TARGET = @TARGET@
 TARGETDIR = @TARGETDIR@
 VERSION = @VERSION@
 libffi_basedir = @libffi_basedir@
+toolexecdir = @toolexecdir@
+toolexeclibdir = @toolexeclibdir@
 
 AUTOMAKE_OPTIONS = foreign
 
@@ -89,7 +96,7 @@ EXTRA_DIST = ffi.h.in ffi_common.h ffi_mips.h
 hackdir = $(includedir)
 
 hack_DATA = fficonfig.h ffi.h ffi_mips.h
-mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
+mkinstalldirs = $(SHELL) $(top_srcdir)/${libffi_basedir}../mkinstalldirs
 CONFIG_HEADER = ../fficonfig.h
 CONFIG_CLEAN_FILES =  ffi.h
 DATA =  $(hack_DATA)
@@ -99,7 +106,7 @@ DIST_COMMON =  Makefile.am Makefile.in ffi.h.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:

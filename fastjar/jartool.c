@@ -274,7 +274,8 @@ int consume(pb_file *, int);
 int list_jar(int, char**, int);
 int extract_jar(int, char**, int);
 int add_file_to_jar(int, int, const char*, struct stat*);
-int add_to_jar(int, const char*, const char*);
+int add_to_jar(int, const char*);
+int add_to_jar_with_dir(int, const char*, const char*);
 int create_central_header(int);
 int make_manifest(int, const char*);
 static void init_args(char **, int);
@@ -327,7 +328,6 @@ int main(int argc, char **argv){
   int manifest = TRUE;
   int opt;
   
-  int j;
   int jarfd = -1;
   
   /* These are used to collect file names and `-C' options for the
@@ -344,8 +344,6 @@ int main(int argc, char **argv){
   
   if(argc < 2)
     usage(argv[0]);
-  
-  j = strlen(argv[1]);
   
   new_argc = 0;
   new_argv = (char **) malloc (argc * sizeof (char *));
@@ -510,15 +508,19 @@ int main(int argc, char **argv){
       if(!strcmp(arg, "-C")){
 	const char *dir_to_change = get_next_arg ();
 	const char *file_to_add = get_next_arg ();
-        if(!dir_to_change 
-	   || !file_to_add
-	   || add_to_jar(jarfd, dir_to_change, file_to_add)){
-          printf("Error adding %s to jar archive!\n", arg);
+        if (!dir_to_change || !file_to_add) {
+          fprintf(stderr, "Error: missing argument for -C.\n");
+          exit(1);
+        }
+	if (add_to_jar_with_dir(jarfd, dir_to_change, file_to_add)) {
+          fprintf(stderr,
+                 "Error adding %s (in directory %s) to jar archive!\n",
+                 file_to_add, dir_to_change);
           exit(1);
         }
       } else {
-        if(add_to_jar(jarfd, NULL, arg)){
-          printf("Error adding %s to jar archive!\n", arg);
+        if(add_to_jar(jarfd, arg)){
+          fprintf(stderr, "Error adding %s to jar archive!\n", arg);
           exit(1);
         }
       }
@@ -814,14 +816,37 @@ int make_manifest(int jfd, const char *mf_name){
   return 0;
 }
 
-int add_to_jar(int fd, const char *new_dir, const char *file){
+/* Implements -C by wrapping add_to_jar.  new_dir is the directory 
+   to switch to. */
+int 
+add_to_jar_with_dir (int fd, const char* new_dir, const char* file)
+{
+  int retval;
+  char old_dir[MAXPATHLEN]; 
+  if (getcwd(old_dir, MAXPATHLEN) == NULL) {
+    perror("getcwd");
+    return 1;
+  }
+  if (chdir(new_dir) == -1) {
+    perror(new_dir);
+    return 1;
+  }
+  retval=add_to_jar(fd, file);
+  if (chdir(old_dir) == -1) {
+    perror(old_dir);
+    return 1;
+  }
+  return retval;
+}
+
+int 
+add_to_jar (int fd, const char *file) {
   struct stat statbuf;
   DIR *dir;
   struct dirent *de;
   zipentry *ze;
   int stat_return;
-  char *old_dir = NULL;
-  
+
   /* This is a quick compatibility fix -- Simon Weijgers <simon@weijgers.com> 
    * It fixes this:
    *   "normal" jar : org/apache/java/io/LogRecord.class
@@ -832,17 +857,6 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
   while (*file=='.' && *(file+1)=='/')
     file+=2;
   
-  /* If new_dir isn't null, we need to change to that directory.  However,
-     we also need to return to the old directory when we're done */
-  if(new_dir != NULL){
-    old_dir = getcwd(NULL, 0);
-
-    if(chdir(new_dir) == -1){
-      perror(new_dir);
-      return 1;
-    }
-  }
-
   if(jarfile && !strcmp(file, jarfile)){
     if(verbose)
       printf("skipping: %s\n", file);
@@ -933,7 +947,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
 
       strcpy(t_ptr, de->d_name);
 
-      if(add_to_jar(fd, NULL, fullname)){
+      if (add_to_jar(fd, fullname)) {
         fprintf(stderr, "Error adding file to jar!\n");
         return 1;
       }
@@ -948,7 +962,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
     add_fd = open(file, O_RDONLY | O_BINARY);
     if(add_fd < 0){
       fprintf(stderr, "Error opening %s.\n", file);
-      return 0;
+      return 1;
     }
     
     if(add_file_to_jar(fd, add_fd, file, &statbuf)){
@@ -959,14 +973,6 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
   } else {
     fprintf(stderr, "Illegal file specified: %s\n", file);
   }
-  
-  if(old_dir != NULL){
-    if(chdir(old_dir))
-      perror(old_dir);
-    
-    free(old_dir);
-  }
-
   return 0;
 }
 
@@ -1121,12 +1127,9 @@ int create_central_header(int fd){
   ub1 end_header[22];
   int start_offset;
   int dir_size;
-  int *iheader;
   int total_in = 0, total_out = 22;
 
   zipentry *ze;
-
-  iheader = (int*)header;
 
   /* magic number */
   header[0] = 'P';
@@ -1455,7 +1458,8 @@ int extract_jar(int fd, char **files, int file_num){
     }
 
     if(f_fd != -1 && handle){
-      f_fd = creat((const char *)filename, 00644);
+      f_fd = open((const char *)filename,
+                  O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
 
       if(f_fd < 0){
         fprintf(stderr, "Error extracting JAR archive!\n");
@@ -1470,9 +1474,6 @@ int extract_jar(int fd, char **files, int file_num){
     }
 
     if(method == 8 || flags & 0x0008){
-      if(seekable)
-        lseek(fd, eflen, SEEK_CUR);
-      else
         consume(&pbf, eflen);
       
       inflate_file(&pbf, f_fd, &ze);
@@ -1507,9 +1508,6 @@ int extract_jar(int fd, char **files, int file_num){
 #endif
       }
 
-      if(seekable)
-        lseek(fd, eflen, SEEK_CUR);
-      else
         consume(&pbf, eflen);
     }
 
@@ -1550,7 +1548,6 @@ int extract_jar(int fd, char **files, int file_num){
 }
 
 int list_jar(int fd, char **files, int file_num){
-  int rdamt;
   ub4 signature;
   ub4 csize;
   ub4 usize;
@@ -1570,7 +1567,7 @@ int list_jar(int fd, char **files, int file_num){
   int i, j;
   time_t tdate;
   struct tm *s_tm;
-  char ascii_date[30];
+  char ascii_date[31];
   zipentry ze;
 
 #ifdef DEBUG
@@ -1661,6 +1658,7 @@ int list_jar(int fd, char **files, int file_num){
         tdate = dos2unixtime(mdate);
         s_tm = localtime(&tdate);
         strftime(ascii_date, 30, "%a %b %d %H:%M:%S %Z %Y", s_tm);
+        ascii_date[30] = '\0';
       }
 
       if(filename_len < fnlen + 1){
@@ -1712,7 +1710,7 @@ int list_jar(int fd, char **files, int file_num){
     init_inflation();
 
     for(;;){
-      if((rdamt = pb_read(&pbf, scratch, 4)) != 4){
+      if(pb_read(&pbf, scratch, 4) != 4){
         perror("read");
         break;
       }
@@ -1741,7 +1739,7 @@ int list_jar(int fd, char **files, int file_num){
         break;
       }
       
-      if((rdamt = pb_read(&pbf, (file_header + 4), 26)) != 26){
+      if(pb_read(&pbf, (file_header + 4), 26) != 26){
         perror("read");
         break;
       }
@@ -1787,6 +1785,7 @@ int list_jar(int fd, char **files, int file_num){
           free(filename);
         
         filename = malloc(sizeof(ub1) * (fnlen + 1));
+        ascii_date[30] = '\0';
         filename_len = fnlen + 1;
       }
       
@@ -1853,6 +1852,14 @@ int consume(pb_file *pbf, int amt){
   printf("Consuming %d bytes\n", amt);
 #endif
 
+  if (seekable){
+    if (amt <= (int)pbf->buff_amt)
+      pb_read(pbf, buff, amt);
+    else {
+      lseek(pbf->fd, amt - pbf->buff_amt, SEEK_CUR);
+      pb_read(pbf, buff, pbf->buff_amt); /* clear pbf */
+    }
+  } else
   while(tc < amt){
     rdamt = pb_read(pbf, buff, ((amt - tc) < RDSZ ? (amt - tc) : RDSZ));
 #ifdef DEBUG
@@ -1862,7 +1869,7 @@ int consume(pb_file *pbf, int amt){
   }
 
 #ifdef DEBUG
-  printf("%d bytes consumed\n", tc);
+  printf("%d bytes consumed\n", amt);
 #endif
 
   return 0;

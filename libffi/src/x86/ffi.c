@@ -1,5 +1,8 @@
   // closures.  This should be implemented by a separate assembly language
-  if (ecif->cif->rtype->type == FFI_TYPE_STRUCT)
+   ffi.c - Copyright (c) 1996, 1998, 1999, 2001  Red Hat, Inc.
+           Copyright (c) 2002  Ranjit Mathew
+           Copyright (c) 2002  Bo Thorsen
+           Copyright (c) 2002  Roger Sayle
     {
       *(void **) argp = ecif->rvalue;
       argp += 4;
@@ -54,3 +57,56 @@
       argp += z;
 
 #endif /* __x86_64__  */
+#ifdef X86_WIN32
+/*@-declundef@*/
+/*@-exportheader@*/
+extern void ffi_call_STDCALL(void (*)(char *, extended_cif *),
+			  /*@out@*/ extended_cif *,
+			  unsigned, unsigned,
+			  /*@out@*/ unsigned *,
+			  void (*fn)());
+/*@=declundef@*/
+/*@=exportheader@*/
+#endif /* X86_WIN32 */
+
+#ifdef X86_WIN32
+    case FFI_STDCALL:
+      /*@-usedef@*/
+      ffi_call_STDCALL(ffi_prep_args, &ecif, cif->bytes,
+		    cif->flags, ecif.rvalue, fn);
+      /*@=usedef@*/
+      break;
+#endif /* X86_WIN32 */
+static void ffi_closure_SYSV (ffi_closure *)
+     __attribute__ ((regparm(1)));
+static void ffi_closure_raw_SYSV (ffi_raw_closure *)
+     __attribute__ ((regparm(1)));
+/* This function is jumped to by the trampoline */
+ffi_closure_SYSV (closure)
+     ffi_closure *closure;
+  void *args = __builtin_dwarf_cfa ();
+   unsigned int  __dis = __fun - ((unsigned int) __tramp + FFI_TRAMPOLINE_SIZE); \
+   *(unsigned char*) &__tramp[0] = 0xb8; \
+   *(unsigned int*)  &__tramp[1] = __ctx; /* movl __ctx, %eax */ \
+   *(unsigned char *)  &__tramp[5] = 0xe9; \
+   *(unsigned int*)  &__tramp[6] = __dis; /* jmp __fun  */ \
+ffi_closure_raw_SYSV (closure)
+     ffi_raw_closure *closure;
+  raw_args = (ffi_raw*) __builtin_dwarf_cfa ();
+#ifdef X86_WIN32
+extern void
+ffi_call_STDCALL(void (*)(char *, extended_cif *),
+	      /*@out@*/ extended_cif *,
+	      unsigned, unsigned,
+	      /*@out@*/ unsigned *,
+	      void (*fn)());
+#endif /* X86_WIN32 */
+
+#ifdef X86_WIN32
+    case FFI_STDCALL:
+      /*@-usedef@*/
+      ffi_call_STDCALL(ffi_prep_args_raw, &ecif, cif->bytes,
+		    cif->flags, ecif.rvalue, fn);
+      /*@=usedef@*/
+      break;
+#endif /* X86_WIN32 */

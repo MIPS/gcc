@@ -1,3 +1,96 @@
+2003-08-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_build: Fix handling of -t option.  Add -x option.
+
+2003-07-31  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* texi2pod.pl: Remove extra line.
+
+2003-07-15  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* texi2pod.pl: Default @itemize's parameter to @bullet.
+
+2003-07-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc_update: gcc/acconfig.h no longer exists.
+
+2003-07-11  Matthias Klose  <doko@debian.org>
+
+	* test_installed: Add options to run objc tests.
+	In generated site.exp, initialize rootme, CFLAGS, CXXFLAGS.
+
+2003-07-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc_update: Remove gcc/intl/plural.c from list.
+	Add new generated files intl/plural.c, intl/configure,
+	intl/config.h.in.
+
+2003-06-13  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc_update (files_and_dependencies): Add
+	gcc/testsuite/gcc.dg/cpp/_Pragma3.c depends on
+	gcc/testsuite/gcc.dg/cpp/mi1c.h.
+
+2003-05-23  Nathanael Nerode <neroden@gcc.gnu.org>
+
+	* paranoia.cc: Fix spelling error.
+
+	* analyze_brprob, gcc_build, gennews, texi2pod.pl: Change GNU CC
+	to GCC.
+
+2003-04-04  Mike Stump  <mrs@apple.com>
+
+	* compare_tests: Fix exit status and be more flexible with spacing.
+
+2003-03-08  Phil Edwards  <pme@gcc.gnu.org>
+
+	* test_summary:  Add -h, print existing comments as help.
+
+2003-03-03  H.J. Lu <hjl@gnu.org>
+
+	* gcc_build: Use $GCC_CVS/$CVS instead of cvs.
+	* gcc_update: Likewise.
+
+2003-01-19  Alexandre Oliva  <aoliva@redhat.com>
+
+	* test_summary (configflags): Only use the first match.  Remove
+	excess space.  Use sub instead of gsub where possible.  Use `none'
+	if no configure flags were given.
+
+2003-01-10  Loren J. Rittle  <ljrittle@acm.org>
+
+	* test_summary (configflags): awk portability.
+
+2003-01-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* test_summary (configflags): Compute correctly with both
+	autoconfiscated and Cygnus-style top-level.
+
+2003-01-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc_update (files_and_dependencies): Add gcc/cp/cfns.h depends
+	on gcc/cp/cfns.gperf and gcc/java/keyword.h depends on
+	gcc/java/keyword.gperf
+
+2002-12-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_update (files_and_dependencies): Add gcc/intl/plural.c as
+	depending on gcc/intl/plural.y.
+
+2002-12-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc_update (configure): Depend on config/acx.m4 as well.
+
+	* gcc_update (configure): Depend on configure.in.
+
+2002-12-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* texi2pod.pl: Skip contents of @copying.
+
+2002-11-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* gthr_supp_vxw_5x.c: New file.
+
 2002-10-21  Richard Henderson  <rth@redhat.com>
 
 	* paranoia.cc (real_c_float::image): Accomodate size of
@@ -181,7 +274,7 @@ Mon Jul 23 15:47:19 CEST 2001  Jan Hubicka  <jh@suse.cz>
 
 2001-06-14  Albert Chin-A-Young  <china@thewrittenword.com>
 
-        * contrib/gcc_update: Fix timestamp on gcc/f/intdoc.texi.
+	* contrib/gcc_update: Fix timestamp on gcc/f/intdoc.texi.
 
 2001-06-13  Mark Mitchell  <mark@codesourcery.com>
 
@@ -513,7 +606,7 @@ Sun Nov 28 00:41:44 1999  William Bader (william@nscs.fast.net)
 	* test_summary: Replace egcs with gcc.  Update e-mail address.
 
 1999-07-05  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
-            Jerry Quinn <jquinn@nortelnetworks.com>
+	    Jerry Quinn <jquinn@nortelnetworks.com>
 
 	* egcs_update (touch_files, apply_patch): New functions.
 	Use them.  New command-line option --patch.  Split test of local
@@ -668,7 +761,7 @@ Wed Aug 12 19:59:36 1998  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 	* egcs_update: Assigned copyright to FSF.
 
 Tue Aug 11 17:55:53 1998  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
-                          Alexandre Oliva  <oliva@dcc.unicamp.br>
+			  Alexandre Oliva  <oliva@dcc.unicamp.br>
 
 	* egcs_update: New switch --nostdflags and documentation
 	enhancements.

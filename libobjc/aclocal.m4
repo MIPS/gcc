@@ -196,7 +196,7 @@ if test $version_specific_libs = yes; then
   # and header files if --enable-version-specific-runtime-libs option
   # is selected.
   changequote(,)dnl
-  glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  glibcpp_toolexecdir='$(libdir)/gcc/$(target_alias)'
   glibcpp_toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
   changequote([,])dnl
 fi
@@ -207,11 +207,16 @@ if test x"$glibcpp_toolexecdir" = x"no"; then
   if test -n "$with_cross_host" &&
      test x"$with_cross_host" != x"no"; then
     glibcpp_toolexecdir='$(exec_prefix)/$(target_alias)'
-    glibcpp_toolexeclibdir='$(toolexecdir)/lib$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(toolexecdir)/lib'
   else
     glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
-    glibcpp_toolexeclibdir='$(libdir)$(MULTISUBDIR)'
+    glibcpp_toolexeclibdir='$(libdir)'
   fi
+  multi_os_directory=`$CC -print-multi-os-directory`
+  case $multi_os_directory in
+  .) ;; # Avoid trailing /.
+  *) glibcpp_toolexeclibdir=$glibcpp_toolexeclibdir/$multi_os_directory ;;
+  esac
 fi
 
 AC_SUBST(glibcpp_prefixdir)

@@ -2,9 +2,9 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>. 
 
-   This file is part of GNU CC.
+   This file is part of the libiberty library, which is part of GCC.
 
-   This program is free software; you can redistribute it and/or modify
+   This file is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
    (at your option) any later version.
@@ -3398,7 +3398,7 @@ demangle_substitution (dm, template_p)
 	    }
 	  else
 	    {
-	      RETURN_IF_ERROR (result_add (dm, "std::basic_istream<char, std::char_traints<char> >"));
+	      RETURN_IF_ERROR (result_add (dm, "std::basic_istream<char, std::char_traits<char> >"));
 	      new_last_source_name = "basic_istream";
 	    }
 	  *template_p = 0;

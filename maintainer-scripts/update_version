@@ -1,7 +1,10 @@
 #!/bin/sh 
 
-# Run this from /tmp.
 CVSROOT=${CVSROOT:-/cvs/gcc}
+IGNORE_BRANCHES='gcc-(2_95|3_0|3_1|3_2)-branch'
+ADD_BRANCHES='HEAD tree-ssa-20020619-branch'
+
+# Run this from /tmp.
 export CVSROOT
 /bin/rm -rf /tmp/$$
 /bin/mkdir /tmp/$$
@@ -14,15 +17,16 @@ CVS=${CVS:-/usr/local/bin/cvs}
 $CVS co gcc/ChangeLog
 BRANCHES=`$CVS status -v gcc/ChangeLog \
           | awk '{print $1;}' \
-          | egrep 'gcc-[0-9]+_[0-9]+-branch$'`
+          | egrep 'gcc-[0-9]+_[0-9]+-branch$' \
+          | egrep -v $IGNORE_BRANCHES`
 # Always update the mainline.
-BRANCHES="${BRANCHES} HEAD"
+BRANCHES="${BRANCHES} ${ADD_BRANCHES}"
 
 # ARGS is passed to 'cvs co'
 CURR_DATE=`/bin/date +"%Y%m%d"`
 
 # version is contained within a char*
-textstring_FILES="gcc/gcc/version.c gcc/gcc/ada/gnatvsn.ads gcc/gcc/f/version.c gcc/libf2c/libF77/Version.c gcc/libf2c/libI77/Version.c gcc/libf2c/libU77/Version.c"
+textstring_FILES="gcc/gcc/version.c"
 
 # version is contained within a #define
 cppdefine_FILES="gcc/libstdc++-v3/include/bits/c++config"
@@ -31,6 +35,7 @@ cppdefine_FILES="gcc/libstdc++-v3/include/bits/c++config"
 RESULT=0
 
 for BRANCH in $BRANCHES; do
+  echo "Working on \"$BRANCH\"."
   # Check out the files on the branch.  HEAD is a special case; if
   # you check out files with -r HEAD, CVS will not let you check 
   # in changes.
@@ -83,4 +88,3 @@ done
 
 /bin/rm -rf /tmp/$$
 exit $RESULT
-

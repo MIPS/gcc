@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------*-C-*-
-   libffi @VERSION@ - Copyright (c) 1996-2002  Cygnus Solutions
+   libffi @VERSION@ - Copyright (c) 1996-2003  Cygnus Solutions
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -158,6 +158,12 @@ extern "C" {
 #define SIZEOF_ARG SIZEOF_VOID_P
 #endif
 
+#ifdef POWERPC
+#if defined (__powerpc64__)
+#define POWERPC64
+#endif
+#endif
+
 #ifdef SPARC
 #if defined(__arch64__) || defined(__sparcv9)
 #define SPARC64
@@ -170,7 +176,22 @@ extern "C" {
 #endif
 #endif
 
-#ifndef LIBFFI_ASM
+#ifdef X86_64
+#if defined (__i386__)
+#undef X86_64
+#define X86
+#endif
+#endif
+
+#ifdef LIBFFI_ASM
+
+#ifdef HAVE_RO_EH_FRAME
+#define EH_FRAME_FLAGS "a"
+#else
+#define EH_FRAME_FLAGS "aw"
+#endif
+
+#else
 
 /* ---- Generic type definitions ----------------------------------------- */
 
@@ -198,6 +219,8 @@ typedef enum ffi_abi {
   /* ---- Intel x86 Win32 ---------- */
 #ifdef X86_WIN32
   FFI_SYSV,
+  FFI_STDCALL,
+  /* TODO: Add fastcall support for the sake of completeness */
   FFI_DEFAULT_ABI = FFI_SYSV,
 #endif
 
@@ -241,7 +264,12 @@ typedef enum ffi_abi {
 #ifdef POWERPC
   FFI_SYSV,
   FFI_GCC_SYSV,
+  FFI_LINUX64,
+# ifdef POWERPC64
+  FFI_DEFAULT_ABI = FFI_LINUX64,
+# else
   FFI_DEFAULT_ABI = FFI_GCC_SYSV,
+# endif
 #endif
 
 #ifdef POWERPC_AIX
@@ -274,6 +302,12 @@ typedef enum ffi_abi {
   FFI_DEFAULT_ABI = FFI_SYSV,
 #endif
 
+  /* ---- SuperH - SHmedia --------- */
+#ifdef SH64
+  FFI_SYSV,
+  FFI_DEFAULT_ABI = FFI_SYSV,
+#endif
+
   /* Leave this for debugging purposes */
   FFI_LAST_ABI
 
@@ -287,7 +321,7 @@ typedef struct _ffi_type
   /*@null@*/ struct _ffi_type **elements;
 } ffi_type;
 
-/* These are defined in ffi.c */
+/* These are defined in types.c */
 extern ffi_type ffi_type_void;
 extern ffi_type ffi_type_uint8;
 extern ffi_type ffi_type_sint8;
@@ -326,6 +360,10 @@ typedef struct {
 #if _MIPS_SIM == _ABIN32
   unsigned rstruct_flag;
 #endif
+#endif
+
+#ifdef SH64
+  long long flags2;
 #endif
 
 } ffi_cif;
@@ -426,7 +464,11 @@ struct ffi_ia64_trampoline_struct {
 #elif defined(POWERPC)
 
 #define FFI_CLOSURES 1
+#ifdef POWERPC64
+#define FFI_TRAMPOLINE_SIZE 24
+#else
 #define FFI_TRAMPOLINE_SIZE 40
+#endif
 #define FFI_NATIVE_RAW_API 0
 
 #elif defined(POWERPC_DARWIN)
@@ -439,6 +481,18 @@ struct ffi_ia64_trampoline_struct {
 
 #define FFI_CLOSURES 1
 #define FFI_TRAMPOLINE_SIZE 24 /* see struct below */ 
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(SPARC64)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(SPARC)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 16
 #define FFI_NATIVE_RAW_API 0
 
 #elif defined(S390)
@@ -455,6 +509,18 @@ struct ffi_ia64_trampoline_struct {
 
 #define FFI_CLOSURES 1
 #define FFI_TRAMPOLINE_SIZE 16
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(SH64)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 32
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(__x86_64__)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24
 #define FFI_NATIVE_RAW_API 0
 
 #else 

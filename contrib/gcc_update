@@ -29,7 +29,7 @@
 # contrib/gcc_update --list
 #
 #
-# (C) 1998, 1999, 2000, 2001 Free Software Foundation
+# (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation
 # Originally by Gerald Pfeifer <pfeifer@dbai.tuwien.ac.at>, August 1998.
 #
 # This script is Free Software, and it can be copied, distributed and
@@ -37,6 +37,8 @@
 # its license can be downloaded from http://www.gnu.org/copyleft/gpl.html
 
 
+# CVS command
+GCC_CVS=${GCC_CVS-${CVS-cvs}}
 # Default options used when updating via CVS.
 UPDATE_OPTIONS=-Pd
 # Use -P to prune empty directories.
@@ -64,13 +66,19 @@ texinfo/stamp-h.in: texinfo/configure.in texinfo/aclocal.m4 texinfo/acconfig.h
 texinfo/lib/Makefile.in: texinfo/lib/Makefile.am texinfo/configure.in texinfo/aclocal.m4
 texinfo/makeinfo/Makefile.in: texinfo/makeinfo/Makefile.am texinfo/configure.in texinfo/aclocal.m4
 texinfo/util/Makefile.in: texinfo/util/Makefile.am texinfo/configure.in texinfo/aclocal.m4
+# intl library
+intl/plural.c: intl/plural.y
+intl/configure: intl/configure.in intl/aclocal.m4
+intl/config.h.in: intl/configure.in intl/aclocal.m4
 # Now, proceed to gcc automatically generated files
 gcc/configure: gcc/configure.in
-gcc/cstamp-h.in: gcc/configure.in gcc/acconfig.h
+gcc/cstamp-h.in: gcc/configure.in
 gcc/config.in: gcc/cstamp-h.in
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
 # And then, language-specific files
 gcc/f/intdoc.texi: gcc/f/intdoc.in gcc/f/intdoc.c gcc/f/intrin.h gcc/f/intrin.def
+gcc/cp/cfns.h: gcc/cp/cfns.gperf
+gcc/java/keyword.h: gcc/java/keyword.gperf
 gcc/ada/treeprs.ads: gcc/ada/treeprs.adt gcc/ada/sinfo.ads gcc/ada/xtreeprs.adb
 gcc/ada/einfo.h: gcc/ada/einfo.ads gcc/ada/einfo.adb gcc/ada/xeinfo.adb
 gcc/ada/sinfo.h: gcc/ada/sinfo.ads gcc/ada/xsinfo.adb
@@ -80,6 +88,9 @@ gcc/ada/gnat_ug_unx.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_wo
 gcc/ada/gnat_ug_vms.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
 gcc/ada/gnat_ug_vxw.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
 gcc/ada/gnat_ug_w32.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
+# testsuite
+# Without this, _Pragma3.c can have a false negative.
+gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
 # And libraries, at last
 libf2c/configure: libf2c/configure.in
 libf2c/libF77/configure: libf2c/libF77/configure.in
@@ -106,6 +117,7 @@ libjava/libltdl/configure: libjava/libltdl/configure.in libjava/libltdl/aclocal.
 libjava/libltdl/stamp-h.in: libjava/libltdl/configure.in libjava/libltdl/aclocal.m4 libjava/libltdl/acconfig.h
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
+configure: configure.in config/acx.m4
 EOF
 }
 
@@ -217,7 +229,7 @@ else
 fi
 
 echo "Updating CVS tree"
-cvs -q update ${1+"$@"}
+$GCC_CVS -q update ${1+"$@"}
 if [ $? -ne 0 ]; then
     (touch_files_reexec)
     echo "CVS update of full tree failed." >&2

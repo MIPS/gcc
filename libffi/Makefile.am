@@ -2,7 +2,8 @@
 
 AUTOMAKE_OPTIONS = cygnus
 
-SUBDIRS = include
+SUBDIRS = include testsuite
+
 
 EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/mips/n32.s src/mips/o32.S src/mips/o32.s \
@@ -12,13 +13,15 @@ EXTRA_DIST = LICENSE ChangeLog.v1 src/mips/ffi.c src/mips/n32.S \
 		src/alpha/ffi.c src/alpha/osf.S \
 		src/m68k/ffi.c src/m68k/sysv.S \
 		src/powerpc/ffi.c src/powerpc/sysv.S \
+		src/powerpc/linux64.S src/powerpc/linux64_closure.S \
 		src/powerpc/ppc_closure.S src/powerpc/asm.h \
 		src/powerpc/ffi_darwin.c \
 		src/powerpc/darwin.S src/powerpc/aix.S \
-		src/powerpc/darwin_closure.S src/powerpc/aix_closures.S \
+		src/powerpc/darwin_closure.S src/powerpc/aix_closure.S \
 		src/arm/ffi.c src/arm/sysv.S \
 		src/s390/ffi.c src/s390/sysv.S \
-		src/sh/ffi.c src/sh/sysv.S
+		src/sh/ffi.c src/sh/sysv.S \
+		src/sh64/ffi.c src/sh64/sysv.S
 
 VPATH = @srcdir@:@srcdir@/src:@srcdir@/src/@TARGETDIR@
 
@@ -50,6 +53,7 @@ AM_MAKEFLAGS = \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"PICFLAG=$(PICFLAG)" \
 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
 	"SHELL=$(SHELL)" \
 	"exec_prefix=$(exec_prefix)" \
 	"infodir=$(infodir)" \
@@ -76,23 +80,10 @@ MULTISUBDIR =
 MULTIDO = true
 MULTICLEAN = true
 
-## Install a library built with a cross compiler in tooldir, not
-## libdir.
-if USE_LIBDIR
-toolexeclibdir = $(libdir)$(MULTISUBDIR)
-else
-toolexecdir = $(exec_prefix)/$(target_alias)
-toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
-endif
-
 toolexeclib_LTLIBRARIES = libffi.la
 noinst_LTLIBRARIES = libffi_convenience.la
 
-noinst_PROGRAMS = ffitest
 
-ffitest_OBJECTS = ffitest.lo
-ffitest_LDADD = libffi.la
-ffitest_LDFLAGS = -shared-libgcc
 
 TARGET_SRC_MIPS_GCC = src/mips/ffi.c src/mips/o32.S src/mips/n32.S
 TARGET_SRC_MIPS_LINUX = src/mips/ffi.c src/mips/o32.S
@@ -103,13 +94,14 @@ TARGET_SRC_SPARC = src/sparc/ffi.c src/sparc/v8.S src/sparc/v9.S
 TARGET_SRC_ALPHA = src/alpha/ffi.c src/alpha/osf.S
 TARGET_SRC_IA64 = src/ia64/ffi.c src/ia64/unix.S
 TARGET_SRC_M68K = src/m68k/ffi.c src/m68k/sysv.S
-TARGET_SRC_POWERPC = src/powerpc/ffi.c src/powerpc/sysv.S src/powerpc/ppc_closure.S
-TARGET_SRC_POWERPC_AIX = src/powerpc/ffi_darwin.c src/powerpc/aix.S src/powerpc/aix_closures.S
+TARGET_SRC_POWERPC = src/powerpc/ffi.c src/powerpc/sysv.S src/powerpc/ppc_closure.S src/powerpc/linux64.S src/powerpc/linux64_closure.S
+TARGET_SRC_POWERPC_AIX = src/powerpc/ffi_darwin.c src/powerpc/aix.S src/powerpc/aix_closure.S
 TARGET_SRC_POWERPC_DARWIN = src/powerpc/ffi_darwin.c src/powerpc/darwin.S src/powerpc/darwin_closure.S
 TARGET_SRC_ARM =  src/arm/sysv.S src/arm/ffi.c
 TARGET_SRC_S390 =  src/s390/sysv.S src/s390/ffi.c
 TARGET_SRC_X86_64 = src/x86/ffi64.c src/x86/unix64.S src/x86/ffi.c src/x86/sysv.S
 TARGET_SRC_SH =  src/sh/sysv.S src/sh/ffi.c
+TARGET_SRC_SH64 =  src/sh64/sysv.S src/sh64/ffi.c
 
 ##libffi_la_SOURCES = src/debug.c src/prep_cif.c src/types.c $(TARGET_SRC_@TARGET@)
 ## Work around automake deficiency
@@ -177,10 +169,14 @@ libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_X86_64)
 endif
 if SH
 libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH)
-libfficonvenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH)
+endif
+if SH64
+libffi_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH64)
+libffi_convenience_la_SOURCES = $(libffi_la_common_SOURCES) $(TARGET_SRC_SH64)
 endif
 
-AM_CFLAGS = -fexceptions
+AM_CFLAGS = -Wall -g -fexceptions
 
 libffi_la_LDFLAGS = -release $(VERSION) 
 
@@ -233,3 +229,7 @@ maintainer-clean-multi:
 
 ## ################################################################
 
+CLEANFILES = $(libffi_convenience_la_OBJECTS)		\
+	     $(libffi_la_OBJECTS) 			\
+	     $(libffi_convenience_la_OBJECTS:.lo=.o)	\
+	     $(libffi_la_OBJECTS:.lo=.o)
