@@ -787,23 +787,7 @@ emit_pre_reload_insns (insn)
 
       in = rld[r].in;
       out = rld[r].out;
-      if (!in)
-	rld[r].reg_rtx = gen_reg_rtx (GET_MODE (out));
-      else if (!out)
-	{
-	  rld[r].reg_rtx = gen_reg_rtx (rld[r].mode);
-	}
-      else if (GET_MODE (in) != GET_MODE (out)
-	       && INTEGRAL_MODE_P (GET_MODE (in))
-	       && INTEGRAL_MODE_P (GET_MODE (out)))
-	{
-	  if (GET_MODE_SIZE (GET_MODE (in)) > GET_MODE_SIZE (GET_MODE (out)))
-	    rld[r].reg_rtx = gen_reg_rtx (GET_MODE (in));
-	  else
-	    rld[r].reg_rtx = gen_reg_rtx (GET_MODE (out));
-	}
-      else
-	rld[r].reg_rtx = gen_reg_rtx (GET_MODE (out));
+      rld[r].reg_rtx = gen_reg_rtx (rld[r].mode);
     }
 
   for (j = 0; j < reload_n_operands; j++)
@@ -1381,6 +1365,7 @@ push_pre_reload (in, out, inloc, outloc, class,
 	  && GET_MODE_SIZE (GET_MODE (out)) > GET_MODE_SIZE (outmode))
 	abort ();
 #endif
+      general_mode = outmode;
       outmode = GET_MODE (out);
     }
 
@@ -3295,10 +3280,14 @@ collect_insn_info (insn, def_refs, use_refs, n_defs, n_uses)
 	{
 	  if (rld[i].mode == VOIDmode)
 	    {
-	      rld[i].mode = (rld[i].out
-			     && (GET_MODE_SIZE (rld[i].outmode)
-				 > GET_MODE_SIZE (rld[i].inmode)))
-		? rld[i].outmode : rld[i].inmode;
+	      if (!rld[i].out)
+		rld[i].mode = rld[i].inmode;
+	      else if (!rld[i].in)
+		rld[i].mode = rld[i].outmode;
+	      else
+		rld[i].mode = (GET_MODE_SIZE (rld[i].outmode)
+			       > GET_MODE_SIZE (rld[i].inmode)
+			       ? rld[i].outmode : rld[i].inmode);
 	    }
 	}
       return;

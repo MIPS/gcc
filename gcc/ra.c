@@ -477,6 +477,8 @@ static void splits_init PARAMS ((void));
 static void setup_renumber PARAMS ((int));
 static void check_df PARAMS ((struct df *));
 static void remove_suspicious_death_notes PARAMS ((void));
+static void dump_web_conflicts PARAMS ((struct web *));
+static void dump_web_insns PARAMS ((struct web*));
 void reg_alloc PARAMS ((void));
 
 /* XXX use Daniels compressed bitmaps here.  */
@@ -7874,7 +7876,15 @@ emit_colors (df)
 	continue;
       if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
-      web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+
+      /* Special case for i386 'fix_truncdi_nomemory' insn.
+	 We must choose mode from insns not from PSEUDO_REGNO_MODE.
+	 Actual only for clobbered register.  */
+      if (web->num_uses == 0 && web->num_defs == 1)
+	web->reg_rtx = gen_reg_rtx (GET_MODE (DF_REF_REG (web->defs[0])));
+      else
+	web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+      
       /* Remember the different parts directly coalesced to a hardreg.  */
       if (web->type == COALESCED)
 	bitmap_set_bit (regnos_coalesced_to_hardregs, REGNO (web->reg_rtx));
@@ -9434,7 +9444,7 @@ reg_alloc (void)
 	     free our own version.  reg_renumber[] will again be destroyed
 	     later.  We right now need it in dump_constraints() for
 	     constrain_operands(1) whose subproc sometimes reference
-	     it (because we are cehcking strictly, i.e. as if
+	     it (because we are checking strictly, i.e. as if
 	     after reload).  */
 	  setup_renumber (0);
 	  delete_moves ();
@@ -9543,8 +9553,33 @@ web_conflicts_p (web1, web2)
     
   return hard_regs_intersect_p (&web1->usable_regs, &web2->usable_regs);
 }
+
+/* Dump all insns from one web.  */
+static void
+dump_web_insns (web)
+     struct web* web;
+{
+  unsigned int i;
+  
+  debug_msg (DUMP_EVER, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
+	     web->id, web->regno, web->add_hardregs,
+	     reg_class_names[web->regclass],
+	     web->num_freedom, web->num_conflicts);
+  debug_msg (DUMP_EVER, "   def insns:");
+  
+  for (i = 0; i < web->num_defs; ++i)
+    {
+      debug_msg (DUMP_EVER, " %d ", INSN_UID (web->defs[i]->insn));
+    }
 
-static void dump_web_conflicts PARAMS ((struct web *));
+  debug_msg (DUMP_EVER, "\n   use insns:");
+  for (i = 0; i < web->num_uses; ++i)
+    {
+      debug_msg (DUMP_EVER, " %d ", INSN_UID (web->uses[i]->insn));
+    }
+  debug_msg (DUMP_EVER, "\n");
+}
+
 
 /* Dump conflicts for web WEB.  */
 static void
