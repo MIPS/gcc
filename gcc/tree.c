@@ -3418,14 +3418,7 @@ type_hash_eq (const void *va, const void *vb)
       return 1;
 
     case ENUMERAL_TYPE:
-      if (TYPE_VALUES (a->type) != TYPE_VALUES (b->type)
-	  && !(TYPE_VALUES (a->type)
-	       && TREE_CODE (TYPE_VALUES (a->type)) == TREE_LIST
-	       && TYPE_VALUES (b->type)
-	       && TREE_CODE (TYPE_VALUES (b->type)) == TREE_LIST
-	       && type_list_equal (TYPE_VALUES (a->type),
-				   TYPE_VALUES (b->type))))
-	return 0;
+      return TYPE_VALUES (a->type) == TYPE_VALUES (b->type);
 
       /* ... fall through ... */
 

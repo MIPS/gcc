@@ -1,3 +1,33 @@
+2004-10-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-aux-info.c (gen_type): Update for change to TYPE_VALUES.
+	* c-common.c (c_type_hash): Likewise.
+	(match_case_to_enum): Likewise.
+	(c_do_switch_warnings): Likewise.
+	* c-decl.c (start_enum): Use NULL not 0.
+	(finish_enum): Build TYPE_VALUES as a vector.
+	* c-pretty-print.c (pp_c_enumeration_constant): Update for change
+	to TYPE_VALUES.
+	* c-typeck.c (tagged_types_tu_compatible_p): Likewise.
+	* dbxout.c (dbxout_type): Likewise.
+	* dwarf2out.c (gen_enumeration_type_die): Likewise.
+	* fold-const.c (fold_checksum_tree): Don't checksum TYPE_VALUES.
+	* print-tree.c (print_node): Update for change to TYPE_VALUES.
+	* sdbout.c (sdbout_one_type): Likewise.
+	* tree-browser.c (browse_tree): Don't try to browse into TYPE_VALUES.
+	* tree-dump.c (dequeue_and_dump): Update for change to TYPE_VALUES.
+	* tree.c (type_hash_eq): Compare TYPE_VALUES by value.
+	* tree.def: Update comment for ENUMERAL_TYPE.
+	* tree.h (TYPE_VALUES): Update for change to type.values.
+	(TYPE_DOMAIN): Likewise.
+	(TYPE_FIELDS): Likewise.
+	(TYPE_CACHED_VALUES): Likewise.
+	(TYPE_ARG_TYPES): Likewise.
+	(TYPE_DEBUG_REPRESENTATION_TYPE): Likewise.
+	(struct tree_type): Make field 'values' a union holding either a tree
+	or a pointer to a vector of trees.
+	* doc/c-tree.texi (ENUMERAL_TYPE): Update for change to TYPE_VALUES.
+
 2004-10-04  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-decl.c (get_parm_info): Don't save b->id in the TREE_PURPOSE

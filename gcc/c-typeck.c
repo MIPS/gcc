@@ -846,35 +846,46 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
     {
     case ENUMERAL_TYPE:
       {
+	size_t i, len;
 
-        /* Speed up the case where the type values are in the same order.  */
-        tree tv1 = TYPE_VALUES (t1);
-        tree tv2 = TYPE_VALUES (t2);
+        VEC (tree) * tv1 = TYPE_VALUES (t1);
+        VEC (tree) * tv2 = TYPE_VALUES (t2);
 
         if (tv1 == tv2)
           return 1;
 
-        for (;tv1 && tv2; tv1 = TREE_CHAIN (tv1), tv2 = TREE_CHAIN (tv2))
-          {
-            if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
-              break;
-            if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
-              return 0;
-          }
-
-        if (tv1 == NULL_TREE && tv2 == NULL_TREE)
-          return 1;
-        if (tv1 == NULL_TREE || tv2 == NULL_TREE)
-          return 0;
-
-	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
+	len = VEC_length (tree, tv1);
+	if (len != VEC_length (tree, tv2))
 	  return 0;
 
-	for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
+        /* Speed up the case where the type values are in the same order.  */
+	for (i = 0; i < len; i++)
 	  {
-	    s2 = purpose_member (TREE_PURPOSE (s1), TYPE_VALUES (t2));
-	    if (s2 == NULL
-		|| simple_cst_equal (TREE_VALUE (s1), TREE_VALUE (s2)) != 1)
+	    tree v1 = VEC_index (tree, tv1, i);
+	    tree v2 = VEC_index (tree, tv2, i);
+	    
+	    if (DECL_NAME (v1) != DECL_NAME (v2))
+	      break;
+	    if (simple_cst_equal (DECL_INITIAL (v1), DECL_INITIAL (v2)) != 1)
+	      return 0;
+	  }
+	for (; i < len; i++)
+	  {
+	    tree v1 = VEC_index (tree, tv1, i);
+	    size_t i2;
+	    for (i2 = 0; i2 < len; i2++)
+	      {
+		tree v2 = VEC_index (tree, tv2, i);
+		if (DECL_NAME (v1) == DECL_NAME (v2))
+		  {
+		    if (simple_cst_equal (DECL_INITIAL (v1), DECL_INITIAL (v2))
+			!= 1)
+		      return 0;
+		    else
+		      continue;
+		  }
+	      }
+	    if (i2 == len)
 	      return 0;
 	  }
 	return 1;

@@ -1184,11 +1184,12 @@ sdbout_one_type (tree type)
 
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
-	    for (tem = TYPE_VALUES (type); tem; tem = TREE_CHAIN (tem))
-	      if (host_integerp (TREE_VALUE (tem), 0))
+	    unsigned i;
+	    for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, tem); i++)
+	      if (host_integerp (DECL_INITIAL (tem), 0))
 		{
-		  PUT_SDB_DEF (IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
-		  PUT_SDB_INT_VAL (tree_low_cst (TREE_VALUE (tem), 0));
+		  PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_NAME (tem)));
+		  PUT_SDB_INT_VAL (tree_low_cst (DECL_INITIAL (tem), 0));
 		  PUT_SDB_SCL (C_MOE);
 		  PUT_SDB_TYPE (T_MOE);
 		  PUT_SDB_ENDEF;

@@ -430,7 +430,16 @@ dequeue_and_dump (dump_info_p di)
       dump_child ("max", TYPE_MAX_VALUE (t));
 
       if (code == ENUMERAL_TYPE)
-	dump_child ("csts", TYPE_VALUES (t));
+	{
+	  unsigned i;
+	  tree t;
+	  for (i = 0; VEC_iterate (tree, TYPE_VALUES (t), i, t); i++)
+	    {
+	      char buffer[16];
+	      sprintf (buffer, "cst%u", i);
+	      dump_child (buffer, t);
+	    }
+	}
       break;
 
     case REAL_TYPE:

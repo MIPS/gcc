@@ -1515,9 +1515,10 @@ static tree cp_parser_elaborated_type_specifier
   (cp_parser *, bool, bool);
 static tree cp_parser_enum_specifier
   (cp_parser *);
+struct enumeration_builder_data;
 static void cp_parser_enumerator_list
-  (cp_parser *, tree);
-static void cp_parser_enumerator_definition
+  (cp_parser *, struct enumeration_builder_data *);
+static tree cp_parser_enumerator_definition
   (cp_parser *, tree);
 static tree cp_parser_namespace_name
   (cp_parser *);
@@ -9829,6 +9830,24 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
   return type;
 }
 
+/* This is used to construct the array of enumeration CONST_DECLs.  We
+   expect that most of the time, there will be less (much less!) than
+   125 constants.  USED holds the number of entries in *ENUMS that
+   have been used, SIZE holds the maximum number of entries in *ENUMS.
+   If SIZE is insufficient, ENUMS must be enlarged by using xrealloc,
+   or using xmemdup if ENUMS points to INIT_ENUMS.  
+
+   Although this does cause an extra copy, compared to using a
+   VEC (tree) directly, it's faster because it saves on allocation and
+   garbage generation.  */
+struct enumeration_builder_data {
+  tree lastvalue;
+  tree *enums;
+  size_t size;
+  size_t used;
+  tree init_enums[125];
+};
+
 /* Parse an enum-specifier.
 
    enum-specifier:
@@ -9839,8 +9858,10 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 static tree
 cp_parser_enum_specifier (cp_parser* parser)
 {
+  struct enumeration_builder_data ebd;
   tree identifier;
   tree type;
+  VEC (tree) * decls;
 
   /* Caller guarantees that the current token is 'enum', an identifier
      possibly follows, and the token after that is an opening brace.
@@ -9861,18 +9882,31 @@ cp_parser_enum_specifier (cp_parser* parser)
      'enum' keyword, if there is no tag).  */
   type = start_enum (identifier);
 
+  /* Set up the builder structure.  */
+  ebd.lastvalue = NULL_TREE;
+  ebd.enums = ebd.init_enums;
+  ebd.size = ARRAY_SIZE (ebd.init_enums);
+  ebd.used = 0;
+
   /* Consume the opening brace.  */
   cp_lexer_consume_token (parser->lexer);
 
   /* If the next token is not '}', then there are some enumerators.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
-    cp_parser_enumerator_list (parser, type);
+    cp_parser_enumerator_list (parser, &ebd);
 
   /* Consume the final '}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
 
+  /* Build the vector of enumeration constants.  */
+  decls = VEC_alloc (tree, ebd.used);
+  memcpy (VEC_address (tree, decls), ebd.enums, ebd.used * sizeof (tree));
+  decls->num = ebd.used;
+  if (ebd.enums != ebd.init_enums)
+    free (ebd.enums);
+
   /* Finish up the enumeration.  */
-  finish_enum (type);
+  finish_enum (type, decls);
 
   return type;
 }
@@ -9885,12 +9919,33 @@ cp_parser_enum_specifier (cp_parser* parser)
      enumerator-list , enumerator-definition  */
 
 static void
-cp_parser_enumerator_list (cp_parser* parser, tree type)
+cp_parser_enumerator_list (cp_parser* parser, 
+			   struct enumeration_builder_data * ebd)
 {
   while (true)
     {
+      tree decl;
+      
       /* Parse an enumerator-definition.  */
-      cp_parser_enumerator_definition (parser, type);
+      decl = cp_parser_enumerator_definition (parser, ebd->lastvalue);
+
+      /* Insert it into the list.  */
+      if (decl)
+	{
+	  ebd->lastvalue = DECL_INITIAL (decl);
+	  /* Make room for more enumerators if necessary.  */
+	  if (ebd->size == ebd->used)
+	    {
+	      ebd->size *= 2;
+	      if (ebd->enums == ebd->init_enums)
+		ebd->enums = xmemdup (ebd->enums,
+				      ebd->used * sizeof (tree),
+				      ebd->size * sizeof (tree));
+	      else
+		ebd->enums = xrealloc (ebd->enums, ebd->size * sizeof (tree));
+	    }
+	  ebd->enums[ebd->used++] = decl;
+	}
 
       /* If the next token is not a ',', we've reached the end of
 	 the list.  */
@@ -9909,7 +9964,7 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
 }
 
 /* Parse an enumerator-definition.  The enumerator has the indicated
-   TYPE.
+   TYPE.  Returns the resulting CONST_DECL.
 
    enumerator-definition:
      enumerator
@@ -9918,8 +9973,8 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
    enumerator:
      identifier  */
 
-static void
-cp_parser_enumerator_definition (cp_parser* parser, tree type)
+static tree
+cp_parser_enumerator_definition (cp_parser* parser, tree lastvalue)
 {
   tree identifier;
   tree value;
@@ -9927,7 +9982,7 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
   /* Look for the identifier.  */
   identifier = cp_parser_identifier (parser);
   if (identifier == error_mark_node)
-    return;
+    return NULL_TREE;
 
   /* If the next token is an '=', then there is an explicit value.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
@@ -9943,7 +9998,7 @@ cp_parser_enumerator_definition (cp_parser* parser, tree type)
     value = NULL_TREE;
 
   /* Create the enumerator.  */
-  build_enumerator (identifier, value, type);
+  return build_enumerator (identifier, value, lastvalue);
 }
 
 /* Parse a namespace-name.

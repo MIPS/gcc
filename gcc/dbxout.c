@@ -1872,23 +1872,27 @@ dbxout_type (tree type, int full)
 
       putc ('e', asmfile);
       CHARS (1);
-      for (tem = TYPE_VALUES (type); tem; tem = TREE_CHAIN (tem))
-	{
-	  fprintf (asmfile, "%s:", IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
-	  CHARS (IDENTIFIER_LENGTH (TREE_PURPOSE (tem)) + 1);
-	  if (TREE_INT_CST_HIGH (TREE_VALUE (tem)) == 0)
-	    print_wide_int (TREE_INT_CST_LOW (TREE_VALUE (tem)));
-	  else if (TREE_INT_CST_HIGH (TREE_VALUE (tem)) == -1
-		   && (HOST_WIDE_INT) TREE_INT_CST_LOW (TREE_VALUE (tem)) < 0)
-	    print_wide_int (TREE_INT_CST_LOW (TREE_VALUE (tem)));
-	  else
-	    print_int_cst_octal (TREE_VALUE (tem));
-
-	  putc (',', asmfile);
-	  CHARS (1);
-	  if (TREE_CHAIN (tem) != 0)
-	    CONTIN;
-	}
+      {
+	unsigned i;
+	for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, tem); i++)
+	  {
+	    fprintf (asmfile, "%s:", IDENTIFIER_POINTER (DECL_NAME (tem)));
+	    CHARS (IDENTIFIER_LENGTH (DECL_NAME (tem)) + 1);
+	    if (TREE_INT_CST_HIGH (DECL_INITIAL (tem)) == 0)
+	      print_wide_int (TREE_INT_CST_LOW (DECL_INITIAL (tem)));
+	    else if (TREE_INT_CST_HIGH (DECL_INITIAL (tem)) == -1
+		     && ((HOST_WIDE_INT) TREE_INT_CST_LOW (DECL_INITIAL (tem))
+			 < 0))
+	      print_wide_int (TREE_INT_CST_LOW (DECL_INITIAL (tem)));
+	    else
+	      print_int_cst_octal (DECL_INITIAL (tem));
+	    
+	    putc (',', asmfile);
+	    CHARS (1);
+	    if (i < VEC_length (tree, TYPE_VALUES (type)) - 1)
+	      CONTIN;
+	  }
+      }
 
       putc (';', asmfile);
       CHARS (1);

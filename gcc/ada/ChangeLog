@@ -1,3 +1,7 @@
+2004-10-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl.c (gnat_to_gnu_entity): Update for change to TYPE_VALUES.
+
 2004-09-30  Geoffrey Keating  <geoffk@apple.com>
 
 	* gigi.h (builtin_function): Update parameters.

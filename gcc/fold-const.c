@@ -9134,8 +9134,6 @@ fold_checksum_tree (tree expr, struct md5_ctx *ctx, htab_t ht)
       fold_checksum_tree (DECL_VINDEX (expr), ctx, ht);
       break;
     case tcc_type:
-      if (TREE_CODE (expr) == ENUMERAL_TYPE)
-        fold_checksum_tree (TYPE_VALUES (expr), ctx, ht);
       fold_checksum_tree (TYPE_SIZE (expr), ctx, ht);
       fold_checksum_tree (TYPE_SIZE_UNIT (expr), ctx, ht);
       fold_checksum_tree (TYPE_ATTRIBUTES (expr), ctx, ht);

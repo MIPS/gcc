@@ -2563,7 +2563,7 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
 static hashval_t
 c_type_hash (const void *p)
 {
-  int i = 0;
+  int i;
   int shift, size;
   tree t = (tree)p;
   tree t2;
@@ -2574,9 +2574,7 @@ c_type_hash (const void *p)
       return c_type_hash (TREE_TYPE (t)) ^ 0x3003003;
     /* Hash on number of elements and total size.  */
     case ENUMERAL_TYPE:
-      shift = 3;
-      t2 = TYPE_VALUES (t);
-      break;
+      return VEC_length (tree, TYPE_VALUES (t)) << 3;
     case RECORD_TYPE:
       shift = 0;
       t2 = TYPE_FIELDS (t);
@@ -2592,8 +2590,7 @@ c_type_hash (const void *p)
     default:
       gcc_unreachable ();
     }
-  for (; t2; t2 = TREE_CHAIN (t2))
-    i++;
+  i = list_length (t2);
   size = TREE_INT_CST_LOW (TYPE_SIZE (t));
   return ((size << 24) | (i << shift));
 }
@@ -3702,13 +3699,13 @@ match_case_to_enum (splay_tree_node node, void *data)
      the range either, just the endpoints.  */
   if (CASE_HIGH (label))
     {
-      tree chain, key = CASE_HIGH (label);
-
-      for (chain = TYPE_VALUES (type);
-	   chain && !tree_int_cst_equal (key, TREE_VALUE (chain));
-	   chain = TREE_CHAIN (chain))
-	continue;
-      if (!chain)
+      tree decl, key = CASE_HIGH (label);
+      unsigned i;
+      
+      for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, decl); i++)
+	if (tree_int_cst_equal (key, DECL_INITIAL (decl)))
+	  break;
+      if (i == VEC_length (tree, TYPE_VALUES (type)))
 	match_case_to_enum_1 (key, type, label);
     }
 
@@ -3753,17 +3750,18 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
       && type && TREE_CODE (type) == ENUMERAL_TYPE
       && TREE_CODE (SWITCH_COND (switch_stmt)) != INTEGER_CST)
     {
-      tree chain;
+      tree decl;
+      unsigned i;
 
       /* The time complexity here is O(N*lg(N)) worst case, but for the
 	 common case of monotonically increasing enumerators, it is
 	 O(N), since the nature of the splay tree will keep the next
 	 element adjacent to the root at all times.  */
 
-      for (chain = TYPE_VALUES (type); chain; chain = TREE_CHAIN (chain))
+      for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, decl); i++)
 	{
 	  splay_tree_node node
-	    = splay_tree_lookup (cases, (splay_tree_key) TREE_VALUE (chain));
+	    = splay_tree_lookup (cases, (splay_tree_key) DECL_INITIAL (decl));
 
 	  if (node)
 	    {
@@ -3777,8 +3775,8 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
 	    {
 	      /* Warn if there are enumerators that don't correspond to
 		 case expressions.  */
-	      warning ("%Henumeration value %qE not handled in switch",
-		       &switch_location, TREE_PURPOSE (chain));
+	      warning ("%Henumeration value %qD not handled in switch",
+		       &switch_location, decl);
 	    }
 	}
 

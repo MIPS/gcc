@@ -10860,6 +10860,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
   if (TYPE_SIZE (type))
     {
       tree link;
+      unsigned i;
 
       TREE_ASM_WRITTEN (type) = 1;
       add_byte_size_attribute (type_die, type);
@@ -10871,14 +10872,13 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
       if (type_die->die_parent == NULL)
 	add_child_die (scope_die_for (type, context_die), type_die);
 
-      for (link = TYPE_VALUES (type);
-	   link != NULL; link = TREE_CHAIN (link))
+      for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, link); i++)
 	{
 	  dw_die_ref enum_die = new_die (DW_TAG_enumerator, type_die, link);
-	  tree value = TREE_VALUE (link);
+	  tree value = DECL_INITIAL (link);
 
 	  add_name_attribute (enum_die,
-			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
+			      IDENTIFIER_POINTER (DECL_NAME (link)));
 
 	  if (host_integerp (value, TYPE_UNSIGNED (TREE_TYPE (value))))
 	    /* DWARF2 does not provide a way of indicating whether or

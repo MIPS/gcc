@@ -1148,17 +1148,15 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       /* Normal case of non-character type, or non-Standard character type */
       {
 	/* Here we have a list of enumeral constants in First_Literal.
-	   We make a CONST_DECL for each and build into GNU_LITERAL_LIST
-	   the list to be places into TYPE_FIELDS.  Each node in the list
-	   is a TREE_LIST node whose TREE_VALUE is the literal name
-	   and whose TREE_PURPOSE is the value of the literal.
+	   We make a CONST_DECL for each and build a list of them
+	   into GNU_LITERAL_LIST to be placed in the TYPE_VALUES field.
 
 	   Esize contains the number of bits needed to represent the enumeral
 	   type, Type_Low_Bound also points to the first literal and
 	   Type_High_Bound points to the last literal.  */
 
 	Entity_Id gnat_literal;
-	tree gnu_literal_list = NULL_TREE;
+	VEC (tree) * gnu_literal_list = VEC_alloc (tree, -1);
 
 	if (Is_Unsigned_Type (gnat_entity))
 	  gnu_type = make_unsigned_type (esize);
@@ -1179,11 +1177,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				 false, NULL, gnat_literal);
 
 	    save_gnu_tree (gnat_literal, gnu_literal, false);
-	    gnu_literal_list = tree_cons (DECL_NAME (gnu_literal),
-					  gnu_value, gnu_literal_list);
+	    VEC_push (tree, gnu_literal_list, gnu_lititeral);
 	  }
 
-	TYPE_VALUES (gnu_type) = nreverse (gnu_literal_list);
+	TYPE_VALUES (gnu_type) = gnu_literal_list;
 
 	/* Note that the bounds are updated at the end of this function
 	   because to avoid an infinite recursion when we get the bounds of

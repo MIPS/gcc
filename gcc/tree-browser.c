@@ -319,10 +319,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_VALUES:
-	  if (head && TREE_CODE (head) == ENUMERAL_TYPE)
-	    TB_SET_HEAD (TYPE_VALUES (head));
-	  else
-	    TB_WF;
+	  TB_WF;
 	  break;
 
 	case TB_ARG_TYPE_AS_WRITTEN:

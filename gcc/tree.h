@@ -1506,16 +1506,16 @@ struct tree_block GTY(())
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type.size)
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
-#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values)
-#define TYPE_FIELDS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.values)
-#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK(NODE)->type.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values.enum_values)
+#define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values.t)
+#define TYPE_FIELDS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.values.t)
+#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK(NODE)->type.values.t)
 #define TYPE_ORIG_SIZE_TYPE(NODE)			\
-  (INTEGER_TYPE_CHECK (NODE)->type.values		\
-  ? TREE_TYPE ((NODE)->type.values) : NULL_TREE)
+  (INTEGER_TYPE_CHECK (NODE)->type.values.t		\
+  ? TREE_TYPE ((NODE)->type.values.t) : NULL_TREE)
 #define TYPE_METHODS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.maxval)
 #define TYPE_VFIELD(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.minval)
-#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.values)
+#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.values.t)
 #define TYPE_METHOD_BASETYPE(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.maxval)
 #define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->type.maxval)
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->type.pointer_to)
@@ -1537,7 +1537,7 @@ struct tree_block GTY(())
 /* For a VECTOR_TYPE node, this describes a different type which is emitted
    in the debugging output.  We use this to describe a vector as a
    structure containing an array.  */
-#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values)
+#define TYPE_DEBUG_REPRESENTATION_TYPE(NODE) (VECTOR_TYPE_CHECK (NODE)->type.values.t)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
@@ -1685,7 +1685,10 @@ struct die_struct;
 struct tree_type GTY(())
 {
   struct tree_common common;
-  tree values;
+  union tree_type_values {
+    tree GTY ((tag ("0"))) t;
+    VEC (tree) * GTY ((tag ("1"))) enum_values;
+  } GTY ((desc ("TREE_CODE ((tree) &%0) == ENUMERAL_TYPE"))) values;
   tree size;
   tree size_unit;
   attribute_list attributes;

@@ -407,14 +407,15 @@ gen_type (const char *ret_val, tree t, formals_style style)
 	    data_type = IDENTIFIER_POINTER (TYPE_NAME (t));
 	  else
 	    {
+	      VEC (tree) * values = TYPE_VALUES (t);
+	      unsigned i;
 	      data_type = "";
-	      chain_p = TYPE_VALUES (t);
-	      while (chain_p)
+
+	      for (i = 0; VEC_iterate (tree, values, i, chain_p); i++)
 		{
 		  data_type = concat (data_type,
-			IDENTIFIER_POINTER (TREE_PURPOSE (chain_p)), NULL);
-		  chain_p = TREE_CHAIN (chain_p);
-		  if (chain_p)
+			IDENTIFIER_POINTER (DECL_NAME (chain_p)), NULL);
+		  if (i < VEC_length (tree, values) - 1)
 		    data_type = concat (data_type, ", ", NULL);
 		}
 	      data_type = concat ("{ ", data_type, " }", NULL);

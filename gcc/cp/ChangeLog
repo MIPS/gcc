@@ -1,3 +1,22 @@
+2004-10-07  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (TYPENAME_TYPE_FULLNAME): Update for change to 
+	tree_type.values.
+	(TYPEOF_TYPE_EXPR): Likewise.
+	(TEMPLATE_TYPE_PARM_INDEX): Likewise.
+	(finish_enum): Update prototype.
+	(build_enumerator): Update prototype.
+	* decl.c (start_enum): Use NULL for TYPE_VALUES, not NULL_TREE.
+	(finish_enum): Update for change to TYPE_VALUES.
+	(build_enumerator): Change arguments, return built type.
+	* parser.c (struct enumeration_builder_data): New.
+	(cp_parser_enum_specifier): Update for changes to TYPE_VALUES.
+	(cp_parser_enumerator_list): Likewise.
+	(cp_parser_enumerator_definition): Update to match change to
+	build_enumerator.
+	* pt.c (tsubst_enum): Update for changes to TYPE_VALUES.
+	(tsubst_copy): Likewise.
+
 2004-09-30  Geoffrey Keating  <geoffk@apple.com>
 
 	General changes that apply to every file listed:

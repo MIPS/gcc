@@ -463,13 +463,8 @@ with @code{TYPE_MIN_VALUE} and @code{TYPE_MAX_VALUE}, respectively; each
 of these macros returns an @code{INTEGER_CST}.
 
 The actual enumeration constants themselves may be obtained by looking
-at the @code{TYPE_VALUES}.  This macro will return a @code{TREE_LIST},
-containing the constants.  The @code{TREE_PURPOSE} of each node will be
-an @code{IDENTIFIER_NODE} giving the name of the constant; the
-@code{TREE_VALUE} will be an @code{INTEGER_CST} giving the value
-assigned to that constant.  These constants will appear in the order in
-which they were declared.  The @code{TREE_TYPE} of each of these
-constants will be the type of enumeration type itself.
+at the @code{TYPE_VALUES}, a vector of the corresponding
+@code{CONST_DECL}s.
 
 @item BOOLEAN_TYPE
 Used to represent the @code{bool} type.

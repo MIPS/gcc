@@ -554,7 +554,15 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	}
 
       if (TREE_CODE (node) == ENUMERAL_TYPE)
-	print_node (file, "values", TYPE_VALUES (node), indent + 4);
+	{
+	  unsigned i;
+	  tree t;
+	  fputs (" values <", file);
+	  if (TYPE_VALUES (node))
+	    for (i = 0; VEC_iterate (tree, TYPE_VALUES (node), i, t); i++)
+	      print_node_brief (file, "", t, indent + 4);
+	  fputc ('>', file);
+	}
       else if (TREE_CODE (node) == ARRAY_TYPE || TREE_CODE (node) == SET_TYPE)
 	print_node (file, "domain", TYPE_DOMAIN (node), indent + 4);
       else if (TREE_CODE (node) == VECTOR_TYPE)

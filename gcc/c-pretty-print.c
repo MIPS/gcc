@@ -858,26 +858,21 @@ pp_c_bool_constant (c_pretty_printer *pp, tree b)
 static bool
 pp_c_enumeration_constant (c_pretty_printer *pp, tree e)
 {
-  bool value_is_named = true;
   tree type = TREE_TYPE (e);
   tree value;
+  unsigned i;
 
   /* Find the name of this constant.  */
-  for (value = TYPE_VALUES (type);
-       value != NULL_TREE && !tree_int_cst_equal (TREE_VALUE (value), e);
-       value = TREE_CHAIN (value))
-    ;
+  for (i = 0; VEC_iterate (tree, TYPE_VALUES (type), i, value); i++)
+    if (tree_int_cst_equal (DECL_INITIAL (value), e))
+      {
+	pp_id_expression (pp, DECL_NAME (value));
+	return true;
+      }
 
-  if (value != NULL_TREE)
-    pp_id_expression (pp, TREE_PURPOSE (value));
-  else
-    {
-      /* Value must have been cast.  */
-      pp_c_type_cast (pp, type);
-      value_is_named = false;
-    }
-
-  return value_is_named;
+  /* Value must have been cast.  */
+  pp_c_type_cast (pp, type);
+  return false;
 }
 
 /* Print out a REAL value as a decimal-floating-constant.  */

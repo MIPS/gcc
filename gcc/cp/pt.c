@@ -7469,6 +7469,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree enum_type;
 	tree v;
+	unsigned i;
 
 	if (DECL_TEMPLATE_PARM_P (t))
 	  return tsubst_copy (DECL_INITIAL (t), args, complain, in_decl);
@@ -7494,11 +7495,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  = tsubst_aggr_type (TREE_TYPE (t), args, complain, in_decl, 
 			      /*entering_scope=*/0);
 
-	for (v = TYPE_VALUES (enum_type); 
-	     v != NULL_TREE; 
-	     v = TREE_CHAIN (v))
-	  if (TREE_PURPOSE (v) == DECL_NAME (t))
-	    return TREE_VALUE (v);
+	for (i = 0; VEC_iterate (tree, TYPE_VALUES (enum_type), i, v); i++)
+	  if (DECL_NAME (v) == DECL_NAME (t))
+	    return decl_constant_value (v);
 
 	  /* We didn't find the name.  That should never happen; if
 	     name-lookup found it during preliminary parsing, we
@@ -11386,14 +11385,24 @@ set_current_access_from_decl (tree decl)
 static void
 tsubst_enum (tree tag, tree newtag, tree args)
 {
-  tree e;
+  tree decl;
+  unsigned i;
+  VEC (tree) * values;
+  unsigned len = VEC_length (tree, TYPE_VALUES (tag));
+  tree prev_value = NULL_TREE;
+  
+  values = VEC_alloc (tree, len);
 
-  for (e = TYPE_VALUES (tag); e; e = TREE_CHAIN (e))
+  /* Because tsubst_copy can't call lookup_name and has to look up
+     names in the partially-created enum type, the type needs to refer
+     to the decls created so far.  */
+  TYPE_VALUES (newtag) = values;
+
+  for (i = 0; VEC_iterate (tree, TYPE_VALUES (tag), i, decl); i++)
     {
       tree value;
-      tree decl;
+      tree enu;
 
-      decl = TREE_VALUE (e);
       /* Note that in a template enum, the TREE_VALUE is the
 	 CONST_DECL, not the corresponding INTEGER_CST.  */
       value = tsubst_expr (DECL_INITIAL (decl), 
@@ -11404,10 +11413,12 @@ tsubst_enum (tree tag, tree newtag, tree args)
       set_current_access_from_decl (decl);
 
       /* Actually build the enumerator itself.  */
-      build_enumerator (DECL_NAME (decl), value, newtag); 
+      enu = build_enumerator (DECL_NAME (decl), value, prev_value);
+      VEC_quick_push (tree, values, enu);
+      prev_value = DECL_INITIAL (enu);
     }
 
-  finish_enum (newtag);
+  finish_enum (newtag, values);
   DECL_SOURCE_LOCATION (TYPE_NAME (newtag))
     = DECL_SOURCE_LOCATION (TYPE_NAME (tag));
 }

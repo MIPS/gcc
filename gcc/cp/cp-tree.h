@@ -2221,7 +2221,8 @@ struct lang_decl GTY(())
    this is an IDENTIFIER_NODE, and the same as the DECL_NAME on the
    corresponding TYPE_DECL.  However, this may also be a
    TEMPLATE_ID_EXPR if we had something like `typename X::Y<T>'.  */
-#define TYPENAME_TYPE_FULLNAME(NODE) (TYPENAME_TYPE_CHECK (NODE))->type.values
+#define TYPENAME_TYPE_FULLNAME(NODE) \
+  (TYPENAME_TYPE_CHECK (NODE))->type.values.t
 
 /* Nonzero in INTEGER_CST means that this int is negative by dint of
    using a twos-complement negated operand.  */
@@ -2477,7 +2478,7 @@ struct lang_decl GTY(())
 #define PTRMEM_CST_MEMBER(NODE) (((ptrmem_cst_t)PTRMEM_CST_CHECK (NODE))->member)
 
 /* The expression in question for a TYPEOF_TYPE.  */
-#define TYPEOF_TYPE_EXPR(NODE) (TYPEOF_TYPE_CHECK (NODE))->type.values
+#define TYPEOF_TYPE_EXPR(NODE) (TYPEOF_TYPE_CHECK (NODE))->type.values.t
 
 /* Nonzero for VAR_DECL and FUNCTION_DECL node means that `extern' was
    specified in its declaration.  This can also be set for an
@@ -3309,7 +3310,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    TEMPLATE_TEMPLATE_PARM and BOUND_TEMPLATE_TEMPLATE_PARM nodes.  */
 #define TEMPLATE_TYPE_PARM_INDEX(NODE)					 \
   (TREE_CHECK3 ((NODE), TEMPLATE_TYPE_PARM, TEMPLATE_TEMPLATE_PARM,	\
-		BOUND_TEMPLATE_TEMPLATE_PARM))->type.values
+		BOUND_TEMPLATE_TEMPLATE_PARM))->type.values.t
 #define TEMPLATE_TYPE_IDX(NODE) \
   (TEMPLATE_PARM_IDX (TEMPLATE_TYPE_PARM_INDEX (NODE)))
 #define TEMPLATE_TYPE_LEVEL(NODE) \
@@ -3708,8 +3709,8 @@ extern tree xref_tag				(enum tag_types, tree, bool, bool);
 extern tree xref_tag_from_type			(tree, tree, int);
 extern void xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
-extern void finish_enum				(tree);
-extern void build_enumerator			(tree, tree, tree);
+extern void finish_enum				(tree, VEC (tree) *);
+extern tree build_enumerator			(tree, tree, tree);
 extern void start_preparsed_function            (tree, attribute_list, int);
 extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, attribute_list);
 extern tree begin_function_body			(void);

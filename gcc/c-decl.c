@@ -5368,7 +5368,7 @@ start_enum (tree name)
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
-  if (TYPE_VALUES (enumtype) != 0)
+  if (TYPE_VALUES (enumtype) != NULL)
     {
       /* This enum is a named one that has been declared already.  */
       error ("redeclaration of %<enum %s%>", IDENTIFIER_POINTER (name));
@@ -5401,6 +5401,7 @@ finish_enum (tree enumtype, tree values, attribute_list attributes)
   int precision, unsign;
   bool toplevel = (file_scope == current_scope);
   struct lang_type *lt;
+  size_t veclen = 1;
 
   decl_attributes (&enumtype, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 
@@ -5418,6 +5419,7 @@ finish_enum (tree enumtype, tree values, attribute_list attributes)
 	    maxnode = value;
 	  if (tree_int_cst_lt (value, minnode))
 	    minnode = value;
+	  veclen++;
 	}
     }
 
@@ -5460,13 +5462,17 @@ finish_enum (tree enumtype, tree values, attribute_list attributes)
 
   if (values != error_mark_node)
     {
+      VEC (tree) * vec_values;
+      
+      vec_values = VEC_alloc (tree, veclen);
+
       /* Change the type of the enumerators to be the enum type.  We
 	 need to do this irrespective of the size of the enum, for
 	 proper type checking.  Replace the DECL_INITIALs of the
 	 enumerators, and the value slots of the list, with copies
 	 that have the enum type; they cannot be modified in place
 	 because they may be shared (e.g.  integer_zero_node) Finally,
-	 change the purpose slots to point to the names of the decls.  */
+	 put the decls into a VEC.  */
       for (pair = values; pair; pair = TREE_CHAIN (pair))
 	{
 	  tree enu = TREE_PURPOSE (pair);
@@ -5488,11 +5494,10 @@ finish_enum (tree enumtype, tree values, attribute_list attributes)
 	  ini = convert (tem, ini);
 
 	  DECL_INITIAL (enu) = ini;
-	  TREE_PURPOSE (pair) = DECL_NAME (enu);
-	  TREE_VALUE (pair) = ini;
+	  VEC_quick_push (tree, vec_values, enu);
 	}
 
-      TYPE_VALUES (enumtype) = values;
+      TYPE_VALUES (enumtype) = vec_values;
     }
 
   /* Record the min/max values so that we can warn about bit-field

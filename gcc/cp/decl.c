@@ -9419,7 +9419,7 @@ start_enum (tree name)
       error ("multiple definition of `%#T'", enumtype);
       error ("%Jprevious definition here", TYPE_MAIN_DECL (enumtype));
       /* Clear out TYPE_VALUES, and start again.  */
-      TYPE_VALUES (enumtype) = NULL_TREE;
+      TYPE_VALUES (enumtype) = NULL;
     }
   else
     {
@@ -9432,13 +9432,11 @@ start_enum (tree name)
 
 /* After processing and defining all the values of an enumeration type,
    install their decls in the enumeration type and finish it off.
-   ENUMTYPE is the type object and VALUES a list of name-value pairs.  */
+   ENUMTYPE is the type object and VALUES the CONST_DECLs.  */
 
 void
-finish_enum (tree enumtype)
+finish_enum (tree enumtype, VEC (tree) * values)
 {
-  tree values;
-  tree decl;
   tree value;
   tree minnode;
   tree maxnode;
@@ -9449,44 +9447,40 @@ finish_enum (tree enumtype)
   int precision;
   integer_type_kind itk;
   tree underlying_type = NULL_TREE;
+  size_t i;
+  size_t numvalues = VEC_length (tree, values);
 
-  /* We built up the VALUES in reverse order.  */
-  TYPE_VALUES (enumtype) = nreverse (TYPE_VALUES (enumtype));
-
+  /* List the CONST_DECLs in TYPE_VALUES of the type.  */
+  TYPE_VALUES (enumtype) = values;
+  
   /* For an enum defined in a template, just set the type of the values;
      all further processing is postponed until the template is
      instantiated.  We need to set the type so that tsubst of a CONST_DECL
      works.  */
   if (processing_template_decl)
     {
-      for (values = TYPE_VALUES (enumtype);
-	   values;
-	   values = TREE_CHAIN (values))
-	TREE_TYPE (TREE_VALUE (values)) = enumtype;
+      for (i = 0; i < numvalues; i++)
+	TREE_TYPE (VEC_index (tree, values, i)) = enumtype;
       if (at_function_scope_p ())
 	add_stmt (build_min (TAG_DEFN, enumtype));
       return;
     }
 
   /* Determine the minimum and maximum values of the enumerators.  */
-  if (TYPE_VALUES (enumtype))
+  if (numvalues > 0)
     {
       minnode = maxnode = NULL_TREE;
 
-      for (values = TYPE_VALUES (enumtype);
-	   values;
-	   values = TREE_CHAIN (values))
+      for (i = 0; i < numvalues; i++)
 	{
-	  decl = TREE_VALUE (values);
-
 	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
 	     each enumerator has the type of its enumeration.  Prior to the
 	     closing brace, the type of each enumerator is the type of its
 	     initializing value.  */
-	  TREE_TYPE (decl) = enumtype;
+	  TREE_TYPE (VEC_index (tree, values, i)) = enumtype;
 
 	  /* Update the minimum and maximum values, if appropriate.  */
-	  value = DECL_INITIAL (decl);
+	  value = DECL_INITIAL (VEC_index (tree, values, i));
 	  /* Figure out what the minimum and maximum values of the
 	     enumerators are.  */
 	  if (!minnode)
@@ -9581,18 +9575,18 @@ finish_enum (tree enumtype)
 
   /* Convert each of the enumerators to the type of the underlying
      type of the enumeration.  */
-  for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
+  for (i = 0; i < numvalues; i++)
     {
-      decl = TREE_VALUE (values);
       value = perform_implicit_conversion (underlying_type,
-					   DECL_INITIAL (decl));
+					   DECL_INITIAL (VEC_index (tree,
+								    values,
+								    i)));
 
       /* Do not clobber shared ints.  */
       value = copy_node (value);
       
       TREE_TYPE (value) = enumtype;
-      DECL_INITIAL (decl) = value;
-      TREE_VALUE (values) = value;
+      DECL_INITIAL (VEC_index (tree, values, i)) = value;
     }
 
   /* Fix up all variant types of this enum type.  */
@@ -9614,12 +9608,12 @@ finish_enum (tree enumtype)
   rest_of_type_compilation (enumtype, namespace_bindings_p ());
 }
 
-/* Build and install a CONST_DECL for an enumeration constant of the
+/* Build and return a CONST_DECL for an enumeration constant of the
    enumeration type ENUMTYPE whose NAME and VALUE (if any) are provided.
    Assignment of sequential values by default is handled here.  */
 
-void
-build_enumerator (tree name, tree value, tree enumtype)
+tree
+build_enumerator (tree name, tree value, tree lastvalue)
 {
   tree decl;
   tree context;
@@ -9651,23 +9645,21 @@ build_enumerator (tree name, tree value, tree enumtype)
       /* Default based on previous value.  */
       if (value == NULL_TREE)
 	{
-	  if (TYPE_VALUES (enumtype))
+	  if (lastvalue)
 	    {
 	      HOST_WIDE_INT hi;
 	      unsigned HOST_WIDE_INT lo;
-	      tree prev_value;
 	      bool overflowed;
 
 	      /* The next value is the previous value plus one.  We can
 	         safely assume that the previous value is an INTEGER_CST.
 		 add_double doesn't know the type of the target expression,
 		 so we must check with int_fits_type_p as well.  */
-	      prev_value = DECL_INITIAL (TREE_VALUE (TYPE_VALUES (enumtype)));
-	      overflowed = add_double (TREE_INT_CST_LOW (prev_value),
-				       TREE_INT_CST_HIGH (prev_value),
+	      overflowed = add_double (TREE_INT_CST_LOW (lastvalue),
+				       TREE_INT_CST_HIGH (lastvalue),
 				       1, 0, &lo, &hi);
-	      value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
-	      overflowed |= !int_fits_type_p (value, TREE_TYPE (prev_value));
+	      value = build_int_cst_wide (TREE_TYPE (lastvalue), lo, hi);
+	      overflowed |= !int_fits_type_p (value, TREE_TYPE (lastvalue));
 
 	      if (overflowed)
 		error ("overflow in enumeration values at `%D'", name);
@@ -9722,9 +9714,7 @@ build_enumerator (tree name, tree value, tree enumtype)
     finish_member_declaration (decl);
   else
     pushdecl (decl);
-
-  /* Add this enumeration constant to the list for this type.  */
-  TYPE_VALUES (enumtype) = tree_cons (name, decl, TYPE_VALUES (enumtype));
+  return decl;
 }
 
 
