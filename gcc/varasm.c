@@ -458,7 +458,7 @@ named_section (tree decl, const char *name, int reloc)
       && !unlikely_text_section_name)
     {
       unlikely_text_section_name = xmalloc 
-      /* APPLE LOCAL begin hot/cold partitioning  */
+      /* APPLE LOCAL hot/cold partitioning  */
       /* MERGE FIXME put into FSF, or remove sizeof (char) as it _is_ 1 */
 	     ((strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME) + 1)
 	      * sizeof (char));
