@@ -87,7 +87,7 @@ srctrigger=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.46.6.5 $"
+version="$Revision: 1.46.6.8 $"
 x11=default
 bindir='${exec_prefix}/bin'
 sbindir='${exec_prefix}/sbin'
@@ -585,28 +585,6 @@ case "${exec_prefixoption}" in
 *) ;;
 esac
 
-# Define the trigger file to make sure configure will re-run whenever
-# the gcc version number changes.
-if [ "${with_gcc_version_trigger+set}" = set ]; then
-    gcc_version_trigger="$with_gcc_version_trigger"
-    gcc_version=`grep version_string ${with_gcc_version_trigger} | sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
-else
-    # If gcc's sources are available, define the trigger file.
-    if [ -f ${topsrcdir}/gcc/version.c ] ; then
-	gcc_version_trigger=${topsrcdir}/gcc/version.c
-	gcc_version=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
-	case "$arguments" in
-	  *--with-gcc-version-trigger=$gcc_version_trigger* )
-	    ;;
-	  * )
-	    # Make sure configure.in knows about this.
-	    arguments="--with-gcc-version-trigger=$gcc_version_trigger $arguments"
-	    ;;
-	esac
-	withoptions="--with-gcc-version-trigger=$gcc_version_trigger $withoptions"
-    fi
-fi
-
 ### break up ${srcdir}/configure.in.
 case "`grep '^# per\-host:' ${srcdir}/configure.in`" in
 "")
@@ -682,23 +660,7 @@ fi
 
 ### do common part of configure.in
 
-# If the language specific compiler does not exist, but the "gcc" directory does,
-# we will skip this directory; in this case the sub-directory's common part
-# of configure.in will create a small shell script "skip-this-dir" containing
-# commands to completely clean up any temporary or created files.
-
 . ${tmpfile}.com
-
-if test -f skip-this-dir; then
-	# Perform the same cleanup as the trap handler, minus the "exit 1" of course,
-	# and reset the trap handler.
-	trap 0
-	rm -rf Makefile* ${tmpdir}
-	# Execute the final clean-up actions
-	${config_shell} skip-this-dir
-	# and stop configuring this directory.
-	exit 0
-fi
 
 # some sanity checks on configure.in
 case "${srctrigger}" in
@@ -1107,12 +1069,6 @@ export CXX
 export CFLAGS
 export CXXFLAGS
 
-all_build_modules=
-if test x"${build_alias}" != x"${host_alias}"
-then
-  all_build_modules='$(ALL_BUILD_MODULES_LIST)'
-fi
-
 # FIXME Should this be done recursively ??? (Useful for e.g. gdbtest)
 # Set up the list of links to be made.
 # ${links} is the list of link names, and ${files} is the list of names to link to.
@@ -1323,7 +1279,6 @@ if [ -f ${srcdir}/${Makefile_in} ] ; then
       -e "s|@oldincludedir@|${oldincludedir}|" \
       -e "s|@infodir@|${infodir}|" \
       -e "s|@mandir@|${mandir}|" \
-      -e "s|@all_build_modules@|${all_build_modules}|" \
       -e "/^CC[ 	]*=/{
           :loop1
           /\\\\$/ N
@@ -1362,8 +1317,6 @@ if [ -f ${srcdir}/${Makefile_in} ] ; then
       -e "s:@DEFAULT_LEX@:${DEFAULT_LEX}:" \
       -e "s:@DEFAULT_M4@:${DEFAULT_M4}:" \
           ./Makefile.tem > ${Makefile}
-  sed -e "s:@GDB_TK@:${GDB_TK}:" ${Makefile} >${Makefile}.tem
-  mv -f ${Makefile}.tem ${Makefile}
 
   # If this is a Canadian Cross, preset the values of many more
   # tools.

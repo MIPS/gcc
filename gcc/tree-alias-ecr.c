@@ -21,11 +21,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "ggc.h"
 #include "varray.h"
 #include "tree-alias-ecr.h"
 #include "splay-tree.h"
 #include "bitmap.h"
+
 static unsigned int ECR_num = 0;
 /*static  GTY((param_is (struct ECR_def)))*/ 
 static splay_tree ECR_mapping = NULL;

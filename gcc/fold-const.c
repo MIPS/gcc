@@ -44,6 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "flags.h"
 #include "tree.h"
 #include "real.h"
@@ -4179,10 +4181,10 @@ extract_muldiv (t, c, code, wide_type)
       t2 = extract_muldiv (op1, c, code, wide_type);
       if (t1 != 0 && t2 != 0
 	  && (code == MULT_EXPR
-	      /* If not multiplication, we can only do this if either operand
-		 is divisible by c.  */
-	      || multiple_of_p (ctype, op0, c)
-	      || multiple_of_p (ctype, op1, c)))
+	      /* If not multiplication, we can only do this if both operands
+		 are divisible by c.  */
+	      || (multiple_of_p (ctype, op0, c)
+	          && multiple_of_p (ctype, op1, c))))
 	return fold (build (tcode, ctype, convert (ctype, t1),
 			    convert (ctype, t2)));
 

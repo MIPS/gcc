@@ -1342,7 +1342,7 @@
   ""
   "
 {
-  rtx first = 0, last;
+  rtx first, last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -1359,8 +1359,8 @@
     {
       operands[1] = force_reg (SImode, operands[1]);
       operands[2] = force_reg (SImode, operands[2]);
-      last = gen_udivsi3_i4_media (operands[0], operands[1], operands[2]);
-      first = last;
+      emit_insn (gen_udivsi3_i4_media (operands[0], operands[1], operands[2]));
+      DONE;
     }
   else if (TARGET_SH5)
     {
@@ -1387,11 +1387,8 @@
 		      gen_rtx_SYMBOL_REF (SImode, \"__udivsi3\"));
       last = gen_udivsi3_i1 (operands[0], operands[3]);
     }
-  if (! first)
-    {
-      first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
-      emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-    }
+  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
   last = emit_insn (last);
   /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
      invariant code motion can move it.  */
@@ -1495,7 +1492,7 @@
   ""
   "
 {
-  rtx first = 0, last;
+  rtx first, last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -1512,8 +1509,8 @@
     {
       operands[1] = force_reg (SImode, operands[1]);
       operands[2] = force_reg (SImode, operands[2]);
-      last = gen_divsi3_i4_media (operands[0], operands[1], operands[2]);
-      first = last;
+      emit_insn (gen_divsi3_i4_media (operands[0], operands[1], operands[2]));
+      DONE;
     }
   else if (TARGET_SH5)
     {
@@ -1539,11 +1536,8 @@
       emit_move_insn (operands[3], gen_rtx_SYMBOL_REF (SImode, \"__sdivsi3\"));
       last = gen_divsi3_i1 (operands[0], operands[3]);
     }
-  if (! first)
-    {
-      first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
-      emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
-    }
+  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+  emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
   last = emit_insn (last);
   /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
      invariant code motion can move it.  */
@@ -2695,7 +2689,7 @@
 	(and:SI (ashift:SI (match_operand:SI 1 "register_operand" "")
 			   (match_operand:SI 2 "const_int_operand" ""))
 		(match_operand:SI 3 "const_int_operand" "")))]
-  "TARGET_SH1 && (unsigned)INTVAL (operands[2]) < 32"
+  "TARGET_SH1 && reload_completed && (unsigned)INTVAL (operands[2]) < 32"
   [(use (reg:SI R0_REG))]
   "if (gen_shl_and (operands[0], operands[2], operands[3], operands[1])) FAIL;
    DONE;")
@@ -2706,7 +2700,7 @@
 			   (match_operand:SI 2 "const_int_operand" ""))
 		(match_operand:SI 3 "const_int_operand" "")))
    (clobber (reg:SI T_REG))]
-  "TARGET_SH1 && (unsigned)INTVAL (operands[2]) < 32"
+  "TARGET_SH1 && reload_completed && (unsigned)INTVAL (operands[2]) < 32"
   [(use (reg:SI R0_REG))]
   "if (gen_shl_and (operands[0], operands[2], operands[3], operands[1])) FAIL;
    DONE;")
@@ -3573,9 +3567,8 @@
 {
   rtx sfun, tramp;
 
+  tramp = force_reg (Pmode, operands[0]);
   sfun = force_reg (Pmode, gen_rtx_SYMBOL_REF (Pmode, \"__init_trampoline\"));
-  tramp = gen_rtx_REG (SImode, R0_REG);
-  emit_move_insn (tramp, operands[0]);
   emit_move_insn (gen_rtx_REG (SImode, R2_REG), operands[1]);
   emit_move_insn (gen_rtx_REG (SImode, R3_REG), operands[2]);
 
@@ -3869,14 +3862,7 @@
    && MOVI_SHORI_BASE_OPERAND_P (operands[1])"
   "
 {
-  if (GET_CODE (operands[1]) == LABEL_REF
-      && GET_CODE (XEXP (operands[1], 0)) == CODE_LABEL)
-    LABEL_NUSES (XEXP (operands[1], 0)) += 4;
-  else if (GOTOFF_P (operands[1])
-	   && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == LABEL_REF
-	   && (GET_CODE (XEXP (XVECEXP (XEXP (operands[1], 0), 0, 0), 0))
-	       == CODE_LABEL))
-    LABEL_NUSES (XEXP (XVECEXP (XEXP (operands[1], 0), 0, 0), 0)) += 4;
+  sh_mark_label (operands[1], 4);
 }")
 
 (define_expand "movdi_const_32bit"
@@ -3898,14 +3884,7 @@
    && MOVI_SHORI_BASE_OPERAND_P (operands[1])"
   "
 {
-  if (GET_CODE (operands[1]) == LABEL_REF
-      && GET_CODE (XEXP (operands[1], 0)) == CODE_LABEL)
-    LABEL_NUSES (XEXP (operands[1], 0)) += 2;
-  else if (GOTOFF_P (operands[1])
-	   && GET_CODE (XVECEXP (XEXP (operands[1], 0), 0, 0)) == LABEL_REF
-	   && (GET_CODE (XEXP (XVECEXP (XEXP (operands[1], 0), 0, 0), 0))
-	       == CODE_LABEL))
-    LABEL_NUSES (XEXP (XVECEXP (XEXP (operands[1], 0), 0, 0), 0)) += 2;
+  sh_mark_label (operands[1], 2);
 }")
 
 (define_expand "movdi_const_16bit"

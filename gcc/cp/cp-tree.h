@@ -101,6 +101,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
+      DECL_MAYBE_TEMPLATE (in a FUNCTION_DECL)
    5: DECL_INTERFACE_KNOWN.
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
@@ -1158,6 +1159,7 @@ struct lang_type_class GTY(())
   tree vfields;
   tree vcall_indices;
   tree vtables;
+  tree typeinfo_var;
   tree vbases;
   tree tags;
   tree as_base;
@@ -1635,6 +1637,12 @@ struct lang_type GTY(())
    first, followed by the construction vtables and VTT, if any.  */
 #define CLASSTYPE_VTABLES(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->vtables)
+
+/* The std::type_info variable representing this class, or NULL if no
+   such variable has been created.  This field is only set for the
+   TYPE_MAIN_VARIANT of the class.  */
+#define CLASSTYPE_TYPEINFO_VAR(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->typeinfo_var)
 
 /* Accessor macros for the vfield slots in structures.  */
 
@@ -3943,20 +3951,20 @@ extern void cxx_finish PARAMS ((void));
 extern void cxx_init_options PARAMS ((void));
 
 /* in method.c */
-extern void init_method				PARAMS ((void));
-extern void set_mangled_name_for_decl           PARAMS ((tree));
-extern tree build_opfncall			PARAMS ((enum tree_code, int, tree, tree, tree));
-extern tree hack_identifier			PARAMS ((tree, tree));
-extern tree make_thunk				PARAMS ((tree, tree, tree));
-extern void use_thunk				PARAMS ((tree, int));
-extern void synthesize_method			PARAMS ((tree));
-extern tree implicitly_declare_fn               PARAMS ((special_function_kind, tree, int));
-extern tree skip_artificial_parms_for		PARAMS ((tree, tree));
+extern void init_method	(void);
+extern void set_mangled_name_for_decl (tree);
+extern tree build_opfncall (enum tree_code, int, tree, tree, tree);
+extern tree hack_identifier (tree, tree);
+extern tree make_thunk (tree, tree, tree);
+extern void use_thunk (tree, bool);
+extern void synthesize_method (tree);
+extern tree implicitly_declare_fn (special_function_kind, tree, bool);
+extern tree skip_artificial_parms_for (tree, tree);
 
 /* In optimize.c */
-extern void optimize_function                   PARAMS ((tree));
-extern int calls_setjmp_p                       PARAMS ((tree));
-extern int maybe_clone_body                     PARAMS ((tree));
+extern void optimize_function (tree);
+extern bool calls_setjmp_p (tree);
+extern bool maybe_clone_body (tree);
 
 /* in pt.c */
 extern void check_template_shadow		PARAMS ((tree));
@@ -3999,7 +4007,6 @@ extern int push_tinst_level			PARAMS ((tree));
 extern void pop_tinst_level			PARAMS ((void));
 extern int more_specialized_class		PARAMS ((tree, tree));
 extern int is_member_template                   PARAMS ((tree));
-extern int template_parms_equal                 PARAMS ((tree, tree));
 extern int comp_template_parms                  PARAMS ((tree, tree));
 extern int template_class_depth                 PARAMS ((tree));
 extern int is_specialization_of                 PARAMS ((tree, tree));

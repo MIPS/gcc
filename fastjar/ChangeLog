@@ -1,3 +1,20 @@
+2002-11-23  H.J. Lu <hjl@gnu.org>
+
+	* acinclude.m4: Include ../config/accross.m4.
+	(gcc_AC_COMPILE_CHECK_SIZEOF): Removed.
+	(gcc_AC_EXAMINE_OBJECT): Removed.
+	(gcc_AC_C_COMPILE_ENDIAN): Removed.
+	* aclocal.m4; Rebuild.
+
+	* configure.in: Replace AC_C_BIGENDIAN with AC_C_BIGENDIAN_CROSS.
+	Replace AC_CHECK_SIZEOF with AC_COMPILE_CHECK_SIZEOF.
+	* configure: Likewise.
+
+2002-11-21  Ranjit Mathew <rmathew@hotmail.com>
+
+	* jartool.c (extract_jar): Use "open" with O_BINARY instead of
+	"creat" to create extracted files.
+
 2002-11-11  Tom Tromey  <tromey@redhat.com>
 
 	* dostime.c (dos2unixtime): Mask for seconds is 0x1f.  Correctly

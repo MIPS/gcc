@@ -72,6 +72,8 @@ compilation is specified by a string called a "spec".  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include <signal.h>
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
 #  define SIGCHLD SIGCLD
@@ -277,11 +279,6 @@ static struct rusage rus, prus;
 struct path_prefix;
 
 static void init_spec		PARAMS ((void));
-#ifndef VMS
-static char **split_directories	PARAMS ((const char *, int *));
-static void free_split_directories PARAMS ((char **));
-static char *make_relative_prefix PARAMS ((const char *, const char *, const char *));
-#endif /* VMS */
 static void store_arg		PARAMS ((const char *, int, int));
 static char *load_specs		PARAMS ((const char *));
 static void read_specs		PARAMS ((const char *, int));
@@ -313,6 +310,9 @@ static inline void mark_matching_switches PARAMS ((const char *,
 static inline void process_marked_switches PARAMS ((void));
 static const char *process_brace_body PARAMS ((const char *, const char *,
 					       const char *, int, int));
+static const struct spec_function *lookup_spec_function PARAMS ((const char *));
+static const char *eval_spec_function	PARAMS ((const char *, const char *));
+static const char *handle_spec_function PARAMS ((const char *));
 static char *save_string	PARAMS ((const char *, int));
 static void set_collect_gcc_options PARAMS ((void));
 static int do_spec_1		PARAMS ((const char *, int, const char *));
@@ -339,6 +339,7 @@ static void add_assembler_option	PARAMS ((const char *, int));
 static void add_linker_option		PARAMS ((const char *, int));
 static void process_command		PARAMS ((int, const char *const *));
 static int execute			PARAMS ((void));
+static void alloc_args			PARAMS ((void));
 static void clear_args			PARAMS ((void));
 static void fatal_error			PARAMS ((int));
 #ifdef ENABLE_SHARED_LIBGCC
@@ -349,6 +350,9 @@ static void init_gcc_specs              PARAMS ((struct obstack *,
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 static const char *convert_filename	PARAMS ((const char *, int, int));
 #endif
+
+static const char *if_exists_spec_function PARAMS ((int, const char **));
+static const char *if_exists_else_spec_function PARAMS ((int, const char **));
 
 /* The Specs Language
 
@@ -483,6 +487,12 @@ or with constant text in a single argument.
         spec string after this one will not.
  %<S*	remove all occurrences of all switches beginning with -S from the
         command line.
+ %:function(args)
+	Call the named function FUNCTION, passing it ARGS.  ARGS is
+	first processed as a nested spec string, then split into an
+	argument vector in the usual fashion.  The function returns
+	a string which is processed as if it had appeared literally
+	as part of the current spec.
  %{S}   substitutes the -S switch, if that switch was given to CC.
 	If that switch was not specified, this substitutes nothing.
 	Here S is a metasyntactic variable.
@@ -1524,6 +1534,17 @@ static struct spec_list *extra_specs = (struct spec_list *) 0;
 
 static struct spec_list *specs = (struct spec_list *) 0;
 
+/* List of static spec functions.  */
+
+static const struct spec_function static_spec_functions[] =
+{
+  { "if-exists",		if_exists_spec_function },
+  { "if-exists-else",		if_exists_else_spec_function },
+  { 0, 0 }
+};
+
+static int processing_spec_function;
+
 /* Add appropriate libgcc specs to OBSTACK, taking into account
    various permutations of -shared-libgcc, -shared, and such.  */
 
@@ -1798,6 +1819,15 @@ static int signal_count;
 
 static const char *programname;
 
+/* Allocate the argument vector.  */
+
+static void
+alloc_args ()
+{
+  argbuf_length = 10;
+  argbuf = (const char **) xmalloc (argbuf_length * sizeof (const char *));
+}
+
 /* Clear out the vector of arguments (after a command is executed).  */
 
 static void
@@ -2338,244 +2368,6 @@ putenv_from_prefixes (paths, env_var)
   putenv (build_search_list (paths, env_var, 1));
 }
 
-#ifndef VMS
-
-/* FIXME: the location independence code for VMS is hairier than this,
-   and hasn't been written.  */
-
-/* Split a filename into component directories.  */
-
-static char **
-split_directories (name, ptr_num_dirs)
-     const char *name;
-     int *ptr_num_dirs;
-{
-  int num_dirs = 0;
-  char **dirs;
-  const char *p, *q;
-  int ch;
-
-  /* Count the number of directories.  Special case MSDOS disk names as part
-     of the initial directory.  */
-  p = name;
-#ifdef HAVE_DOS_BASED_FILE_SYSTEM
-  if (name[1] == ':' && IS_DIR_SEPARATOR (name[2]))
-    {
-      p += 3;
-      num_dirs++;
-    }
-#endif /* HAVE_DOS_BASED_FILE_SYSTEM */
-
-  while ((ch = *p++) != '\0')
-    {
-      if (IS_DIR_SEPARATOR (ch))
-	{
-	  num_dirs++;
-	  while (IS_DIR_SEPARATOR (*p))
-	    p++;
-	}
-    }
-
-  dirs = (char **) xmalloc (sizeof (char *) * (num_dirs + 2));
-
-  /* Now copy the directory parts.  */
-  num_dirs = 0;
-  p = name;
-#ifdef HAVE_DOS_BASED_FILE_SYSTEM
-  if (name[1] == ':' && IS_DIR_SEPARATOR (name[2]))
-    {
-      dirs[num_dirs++] = save_string (p, 3);
-      p += 3;
-    }
-#endif /* HAVE_DOS_BASED_FILE_SYSTEM */
-
-  q = p;
-  while ((ch = *p++) != '\0')
-    {
-      if (IS_DIR_SEPARATOR (ch))
-	{
-	  while (IS_DIR_SEPARATOR (*p))
-	    p++;
-
-	  dirs[num_dirs++] = save_string (q, p - q);
-	  q = p;
-	}
-    }
-
-  if (p - 1 - q > 0)
-    dirs[num_dirs++] = save_string (q, p - 1 - q);
-
-  dirs[num_dirs] = NULL;
-  if (ptr_num_dirs)
-    *ptr_num_dirs = num_dirs;
-
-  return dirs;
-}
-
-/* Release storage held by split directories.  */
-
-static void
-free_split_directories (dirs)
-     char **dirs;
-{
-  int i = 0;
-
-  while (dirs[i] != NULL)
-    free (dirs[i++]);
-
-  free ((char *) dirs);
-}
-
-/* Given three strings PROGNAME, BIN_PREFIX, PREFIX, return a string that gets
-   to PREFIX starting with the directory portion of PROGNAME and a relative
-   pathname of the difference between BIN_PREFIX and PREFIX.
-
-   For example, if BIN_PREFIX is /alpha/beta/gamma/gcc/delta, PREFIX is
-   /alpha/beta/gamma/omega/, and PROGNAME is /red/green/blue/gcc, then this
-   function will return /red/green/blue/../omega.
-
-   If no relative prefix can be found, return NULL.  */
-
-static char *
-make_relative_prefix (progname, bin_prefix, prefix)
-     const char *progname;
-     const char *bin_prefix;
-     const char *prefix;
-{
-  char **prog_dirs, **bin_dirs, **prefix_dirs;
-  int prog_num, bin_num, prefix_num;
-  int i, n, common;
-
-  prog_dirs = split_directories (progname, &prog_num);
-  bin_dirs = split_directories (bin_prefix, &bin_num);
-
-  /* If there is no full pathname, try to find the program by checking in each
-     of the directories specified in the PATH environment variable.  */
-  if (prog_num == 1)
-    {
-      char *temp;
-
-      GET_ENVIRONMENT (temp, "PATH");
-      if (temp)
-	{
-	  char *startp, *endp, *nstore;
-	  size_t prefixlen = strlen (temp) + 1;
-	  if (prefixlen < 2)
-	    prefixlen = 2;
-
-	  nstore = (char *) alloca (prefixlen + strlen (progname) + 1);
-
-	  startp = endp = temp;
-	  while (1)
-	    {
-	      if (*endp == PATH_SEPARATOR || *endp == 0)
-		{
-		  if (endp == startp)
-		    {
-		      nstore[0] = '.';
-		      nstore[1] = DIR_SEPARATOR;
-		      nstore[2] = '\0';
-		    }
-		  else
-		    {
-		      strncpy (nstore, startp, endp - startp);
-		      if (! IS_DIR_SEPARATOR (endp[-1]))
-			{
-			  nstore[endp - startp] = DIR_SEPARATOR;
-			  nstore[endp - startp + 1] = 0;
-			}
-		      else
-			nstore[endp - startp] = 0;
-		    }
-		  strcat (nstore, progname);
-		  if (! access (nstore, X_OK)
-#ifdef HAVE_HOST_EXECUTABLE_SUFFIX
-                      || ! access (strcat (nstore, HOST_EXECUTABLE_SUFFIX), X_OK)
-#endif
-		      )
-		    {
-		      free_split_directories (prog_dirs);
-		      progname = nstore;
-		      prog_dirs = split_directories (progname, &prog_num);
-		      break;
-		    }
-
-		  if (*endp == 0)
-		    break;
-		  endp = startp = endp + 1;
-		}
-	      else
-		endp++;
-	    }
-	}
-    }
-
-  /* Remove the program name from comparison of directory names.  */
-  prog_num--;
-
-  /* Determine if the compiler is installed in the standard location, and if
-     so, we don't need to specify relative directories.  Also, if argv[0]
-     doesn't contain any directory specifiers, there is not much we can do.  */
-  if (prog_num == bin_num)
-    {
-      for (i = 0; i < bin_num; i++)
-	{
-	  if (strcmp (prog_dirs[i], bin_dirs[i]) != 0)
-	    break;
-	}
-
-      if (prog_num <= 0 || i == bin_num)
-	{
-	  free_split_directories (prog_dirs);
-	  free_split_directories (bin_dirs);
-	  prog_dirs = bin_dirs = (char **) 0;
-	  return NULL;
-	}
-    }
-
-  prefix_dirs = split_directories (prefix, &prefix_num);
-
-  /* Find how many directories are in common between bin_prefix & prefix.  */
-  n = (prefix_num < bin_num) ? prefix_num : bin_num;
-  for (common = 0; common < n; common++)
-    {
-      if (strcmp (bin_dirs[common], prefix_dirs[common]) != 0)
-	break;
-    }
-
-  /* If there are no common directories, there can be no relative prefix.  */
-  if (common == 0)
-    {
-      free_split_directories (prog_dirs);
-      free_split_directories (bin_dirs);
-      free_split_directories (prefix_dirs);
-      return NULL;
-    }
-
-  /* Build up the pathnames in argv[0].  */
-  for (i = 0; i < prog_num; i++)
-    obstack_grow (&obstack, prog_dirs[i], strlen (prog_dirs[i]));
-
-  /* Now build up the ..'s.  */
-  for (i = common; i < n; i++)
-    {
-      obstack_grow (&obstack, DIR_UP, sizeof (DIR_UP) - 1);
-      obstack_1grow (&obstack, DIR_SEPARATOR);
-    }
-
-  /* Put in directories to move over to prefix.  */
-  for (i = common; i < prefix_num; i++)
-    obstack_grow (&obstack, prefix_dirs[i], strlen (prefix_dirs[i]));
-
-  free_split_directories (prog_dirs);
-  free_split_directories (bin_dirs);
-  free_split_directories (prefix_dirs);
-
-  obstack_1grow (&obstack, '\0');
-  return obstack_finish (&obstack);
-}
-#endif /* VMS */
-
 /* Check whether NAME can be accessed in MODE.  This is like access,
    except that it never considers directories to be executable.  */
 
@@ -2866,6 +2658,9 @@ execute ()
 
   struct command *commands;	/* each command buffer with above info.  */
 
+  if (processing_spec_function)
+    abort ();
+
   /* Count # of piped commands.  */
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -2955,6 +2750,33 @@ execute ()
 	return 0;
 #endif /* DEBUG */
     }
+
+#ifdef ENABLE_VALGRIND_CHECKING
+  /* Run the each command through valgrind.  To simplifiy prepending the
+     path to valgrind and the option "-q" (for quiet operation unless
+     something triggers), we allocate a separate argv array.  */
+
+  for (i = 0; i < n_commands; i++)
+    {
+      const char **argv;
+      int argc;
+      int j;
+
+      for (argc = 0; commands[i].argv[argc] != NULL; argc++)
+	;
+
+      argv = alloca ((argc + 3) * sizeof (char *));
+
+      argv[0] = VALGRIND_PATH;
+      argv[1] = "-q";
+      for (j = 2; j < argc + 2; j++)
+	argv[j] = commands[i].argv[j - 2];
+      argv[j] = NULL;
+
+      commands[i].argv = argv;
+      commands[i].prog = argv[0];
+    }
+#endif
 
   /* Run each piped subprocess.  */
 
@@ -4874,6 +4696,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 			    obstack_grow (&obstack, temp_filename,
 			    			    temp_filename_length);
 			    arg_going = 1;
+			    delete_this_arg = 0;
 			    break;
 			  }
 		      }
@@ -5309,6 +5132,12 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      return -1;
 	    break;
 
+	  case ':':
+	    p = handle_spec_function (p);
+	    if (p == 0)
+	      return -1;
+	    break;
+
 	  case '%':
 	    obstack_1grow (&obstack, '%');
 	    break;
@@ -5523,8 +5352,177 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	arg_going = 1;
       }
 
-  /* End of string.  */
+  /* End of string.  If we are processing a spec function, we need to
+     end any pending argument.  */
+  if (processing_spec_function && arg_going)
+    {
+      obstack_1grow (&obstack, 0);
+      string = obstack_finish (&obstack);
+      if (this_is_library_file)
+        string = find_file (string);
+      store_arg (string, delete_this_arg, this_is_output_file);
+      if (this_is_output_file)
+        outfiles[input_file_number] = string;
+      arg_going = 0;
+    }
+
   return 0;
+}
+
+/* Look up a spec function.  */
+
+static const struct spec_function *
+lookup_spec_function (name)
+     const char *name;
+{
+  static const struct spec_function * const spec_function_tables[] =
+  {
+    static_spec_functions,
+    lang_specific_spec_functions,
+  };
+  const struct spec_function *sf;
+  unsigned int i;
+
+  for (i = 0; i < ARRAY_SIZE (spec_function_tables); i++)
+    {
+      for (sf = spec_function_tables[i]; sf->name != NULL; sf++)
+	if (strcmp (sf->name, name) == 0)
+	  return sf;
+    }
+
+  return NULL;
+}
+
+/* Evaluate a spec function.  */
+
+static const char *
+eval_spec_function (func, args)
+     const char *func, *args;
+{
+  const struct spec_function *sf;
+  const char *funcval;
+
+  /* Saved spec processing context.  */
+  int save_argbuf_index;
+  int save_argbuf_length;
+  const char **save_argbuf;
+
+  int save_arg_going;
+  int save_delete_this_arg;
+  int save_this_is_output_file;
+  int save_this_is_library_file;
+  int save_input_from_pipe;
+  const char *save_suffix_subst;
+
+
+  sf = lookup_spec_function (func);
+  if (sf == NULL)
+    fatal ("unknown spec function `%s'", func);
+
+  /* Push the spec processing context.  */
+  save_argbuf_index = argbuf_index;
+  save_argbuf_length = argbuf_length;
+  save_argbuf = argbuf;
+
+  save_arg_going = arg_going;
+  save_delete_this_arg = delete_this_arg;
+  save_this_is_output_file = this_is_output_file;
+  save_this_is_library_file = this_is_library_file;
+  save_input_from_pipe = input_from_pipe;
+  save_suffix_subst = suffix_subst;
+
+  /* Create a new spec processing context, and build the function
+     arguments.  */
+
+  alloc_args ();
+  if (do_spec_2 (args) < 0)
+    fatal ("error in args to spec function `%s'", func);
+
+  /* argbuf_index is an index for the next argument to be inserted, and
+     so contains the count of the args already inserted.  */
+
+  funcval = (*sf->func) (argbuf_index, argbuf);
+
+  /* Pop the spec processing context.  */
+  argbuf_index = save_argbuf_index;
+  argbuf_length = save_argbuf_length;
+  free (argbuf);
+  argbuf = save_argbuf;
+
+  arg_going = save_arg_going;
+  delete_this_arg = save_delete_this_arg;
+  this_is_output_file = save_this_is_output_file;
+  this_is_library_file = save_this_is_library_file;
+  input_from_pipe = save_input_from_pipe;
+  suffix_subst = save_suffix_subst;
+
+  return funcval;
+}
+
+/* Handle a spec function call of the form:
+
+   %:function(args)
+
+   ARGS is processed as a spec in a separate context and split into an
+   argument vector in the normal fashion.  The function returns a string
+   containing a spec which we then process in the caller's context, or
+   NULL if no processing is required.  */
+
+static const char *
+handle_spec_function (p)
+     const char *p;
+{
+  char *func, *args;
+  const char *endp, *funcval;
+  int count;
+
+  processing_spec_function++;
+
+  /* Get the function name.  */
+  for (endp = p; *endp != '\0'; endp++)
+    {
+      if (*endp == '(')		/* ) */
+        break;
+      /* Only allow [A-Za-z0-9], -, and _ in function names.  */
+      if (!ISALNUM (*endp) && !(*endp == '-' || *endp == '_'))
+	fatal ("malformed spec function name");
+    }
+  if (*endp != '(')		/* ) */
+    fatal ("no arguments for spec function");
+  func = save_string (p, endp - p);
+  p = ++endp;
+
+  /* Get the arguments.  */
+  for (count = 0; *endp != '\0'; endp++)
+    {
+      /* ( */
+      if (*endp == ')')
+	{
+	  if (count == 0)
+	    break;
+	  count--;
+	}
+      else if (*endp == '(')	/* ) */
+	count++;
+    }
+  /* ( */
+  if (*endp != ')')
+    fatal ("malformed spec function arguments");
+  args = save_string (p, endp - p);
+  p = ++endp;
+
+  /* p now points to just past the end of the spec function expression.  */
+
+  funcval = eval_spec_function (func, args);
+  if (funcval != NULL && do_spec_1 (funcval, 0, NULL) < 0)
+    p = NULL;
+
+  free (func);
+  free (args);
+
+  processing_spec_function--;
+
+  return p;
 }
 
 /* Inline subroutine of handle_braces.  Returns true if the current
@@ -6134,8 +6132,8 @@ main (argc, argv)
   signal (SIGCHLD, SIG_DFL);
 #endif
 
-  argbuf_length = 10;
-  argbuf = (const char **) xmalloc (argbuf_length * sizeof (const char *));
+  /* Allocate the argument vector.  */
+  alloc_args ();
 
   obstack_init (&obstack);
 
@@ -7504,4 +7502,44 @@ print_multilib_info ()
 
       ++p;
     }
+}
+
+/* if-exists built-in spec function.
+
+   Checks to see if the file specified by the absolute pathname in
+   ARGS exists.  Returns that pathname if found.
+
+   The usual use for this function is to check for a library file
+   (whose name has been expanded with %s).  */
+
+static const char *
+if_exists_spec_function (argc, argv)
+     int argc;
+     const char **argv;
+{
+  /* Must have only one argument.  */
+  if (argc == 1 && IS_ABSOLUTE_PATHNAME (argv[0]) && ! access (argv[0], R_OK))
+    return argv[0];
+
+  return NULL;
+}
+
+/* if-exists-else built-in spec function.
+
+   This is like if-exists, but takes an additional argument which
+   is returned if the first argument does not exist.  */
+
+static const char *
+if_exists_else_spec_function (argc, argv)
+     int argc;
+     const char **argv;
+{
+  /* Must have exactly two arguments.  */
+  if (argc != 2)
+    return NULL;
+
+  if (IS_ABSOLUTE_PATHNAME (argv[0]) && ! access (argv[0], R_OK))
+    return argv[0];
+
+  return argv[1];
 }

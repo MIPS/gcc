@@ -1,3 +1,83 @@
+2002-12-02  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/8740:
+	* parse.y (do_resolve_class): Handle qualified name via
+	recursion.
+
+2002-11-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* boehm.c, buffer.c, builtins.c, check-init.c, class.c,
+	constants.c, decl.c, except.c, expr.c, gjavah.c, jcf-depend.c,
+	jcf-dump.c, jcf-io.c, jcf-parse.c, jcf-path.c, jcf-write.c,
+	jv-scan.c, jvgenmain.c, jvspec.c, lang.c, mangle.c, mangle_name.c,
+	parse-scan.y, parse.y, typeck.c, verify.c, xref.c, zextract.c:
+	Include coretypes.h and tm.h.
+	* Make-lang.in: Update dependencies.
+
+2002-11-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl.c (java_init_decl_processing): Use `LL' on 64-bit constant.
+
+2002-11-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* jcf-reader.c: Don't expand JCF_readu4 inside the
+	expansion of JCF_SKIP.
+
+2002-11-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* jcf-reader.c: Don't expand JCF_readu4 inside the
+	expansion of JCF_SKIP.
+
+2002-11-22  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (patch_binop): Cast right hand side of shift expression
+	to `int'.  Fixes PR java/8676.
+
+2002-11-22  Ranjit Mathew <rmathew@hotmail.com>
+	    Andrew Haley <aph@redhat.com>
+
+	* gcc/java/jcf-write.c (write_classfile): Remove target
+	class file, if it exists, before renaming the temporary
+	class file to it.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* jvspec.c (lang_specific_spec_functions): New.
+
+2002-11-18  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/7912:
+	* expr.c (can_widen_reference_to): Allow cast of array to
+	Cloneable or Serializable.
+	* java-tree.h (java_lang_cloneable_identifier_node): Declare.
+	(java_io_serializable_identifier_node): Likewise.
+	* parse.y (java_lang_cloneable, java_io_serializable): Removed.
+	(valid_ref_assignconv_cast_p): Use new identifier nodes.
+	* lex.c (java_init_lex): Don't initialize java_lang_cloneable and
+	java_io_serializable.
+	* decl.c (java_init_decl_processing): Initialize
+	java_lang_cloneable_identifier_node and
+	java_io_serializable_identifier_node.
+	(java_lang_cloneable_identifier_node): New global.
+	(java_io_serializable_identifier_node): Likewise.
+
+2002-11-14  Jens-Michael Hoffmann  <jensmh@gmx.de>
+
+	* buffer.c: Remove unnecessary casts.
+	* check-init.c: Likewise.
+	* class.c: Likewise.
+	* constants.c: Likewise.
+	* decl.c: Likewise.
+	* except.c: Likewise.
+	* gjavah.c: Likewise.
+	* jcf-io.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* jcf-path.c: Likewise.
+	* jvspec.c: Likewise.
+	* lang.c: Likewise.
+	* lex.c: Likewise.
+	* verify.c: Likewise.
+
 2002-11-06  Tom Tromey  <tromey@redhat.com>
 
 	* gjavah.c (print_stub_or_jni): Include JNIEXPORT and JNICALL in

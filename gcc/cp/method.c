@@ -25,6 +25,8 @@ Boston, MA 02111-1307, USA.  */
 /* Handle method declarations.  */
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "rtl.h"
@@ -54,17 +56,17 @@ enum mangling_flags
 
 typedef enum mangling_flags mangling_flags;
 
-static void do_build_assign_ref PARAMS ((tree));
-static void do_build_copy_constructor PARAMS ((tree));
-static tree synthesize_exception_spec PARAMS ((tree, tree (*) (tree, void *), void *));
-static tree locate_dtor PARAMS ((tree, void *));
-static tree locate_ctor PARAMS ((tree, void *));
-static tree locate_copy PARAMS ((tree, void *));
+static void do_build_assign_ref (tree);
+static void do_build_copy_constructor (tree);
+static tree synthesize_exception_spec (tree, tree (*) (tree, void *), void *);
+static tree locate_dtor (tree, void *);
+static tree locate_ctor (tree, void *);
+static tree locate_copy (tree, void *);
 
 /* Called once to initialize method.c.  */
 
 void
-init_method ()
+init_method (void)
 {
   init_mangle ();
 }
@@ -73,8 +75,7 @@ init_method ()
 /* Set the mangled name (DECL_ASSEMBLER_NAME) for DECL.  */
 
 void
-set_mangled_name_for_decl (decl)
-     tree decl;
+set_mangled_name_for_decl (tree decl)
 {
   if (processing_template_decl)
     /* There's no need to mangle the name of a template function.  */
@@ -108,10 +109,8 @@ set_mangled_name_for_decl (decl)
 
 /* NOSTRICT */
 tree
-build_opfncall (code, flags, xarg1, xarg2, arg3)
-     enum tree_code code;
-     int flags;
-     tree xarg1, xarg2, arg3;
+build_opfncall (enum tree_code code, int flags,
+                tree xarg1, tree xarg2, tree arg3)
 {
   return build_new_op (code, flags, xarg1, xarg2, arg3);
 }
@@ -136,8 +135,7 @@ build_opfncall (code, flags, xarg1, xarg2, arg3)
    compiler faster).  */
 
 tree
-hack_identifier (value, name)
-     tree value, name;
+hack_identifier (tree value, tree name)
 {
   tree type;
 
@@ -271,10 +269,7 @@ request for member `%D' is ambiguous in multiple inheritance lattice",
    DELTA is the offset to this and VCALL_INDEX is NULL.  */
 
 tree
-make_thunk (function, delta, vcall_index)
-     tree function;
-     tree delta;
-     tree vcall_index;
+make_thunk (tree function, tree delta, tree vcall_index)
 {
   tree thunk_id;
   tree thunk;
@@ -355,9 +350,7 @@ make_thunk (function, delta, vcall_index)
    EMIT_P is nonzero, the thunk is emitted immediately.  */
 
 void
-use_thunk (thunk_fndecl, emit_p)
-     tree thunk_fndecl;
-     int emit_p;
+use_thunk (tree thunk_fndecl, bool emit_p)
 {
   tree fnaddr;
   tree function;
@@ -528,8 +521,7 @@ use_thunk (thunk_fndecl, emit_p)
 /* Generate code for default X(X&) constructor.  */
 
 static void
-do_build_copy_constructor (fndecl)
-     tree fndecl;
+do_build_copy_constructor (tree fndecl)
 {
   tree parm = FUNCTION_FIRST_USER_PARM (fndecl);
   tree t;
@@ -632,8 +624,7 @@ do_build_copy_constructor (fndecl)
 }
 
 static void
-do_build_assign_ref (fndecl)
-     tree fndecl;
+do_build_assign_ref (tree fndecl)
 {
   tree parm = TREE_CHAIN (DECL_ARGUMENTS (fndecl));
   tree compound_stmt;
@@ -735,12 +726,11 @@ do_build_assign_ref (fndecl)
 }
 
 void
-synthesize_method (fndecl)
-     tree fndecl;
+synthesize_method (tree fndecl)
 {
-  int nested = (current_function_decl != NULL_TREE);
+  bool nested = (current_function_decl != NULL_TREE);
   tree context = decl_function_context (fndecl);
-  int need_body = 1;
+  bool need_body = true;
   tree stmt;
 
   if (at_eof)
@@ -777,7 +767,7 @@ synthesize_method (fndecl)
   if (DECL_OVERLOADED_OPERATOR_P (fndecl) == NOP_EXPR)
     {
       do_build_assign_ref (fndecl);
-      need_body = 0;
+      need_body = false;
     }
   else if (DECL_CONSTRUCTOR_P (fndecl))
     {
@@ -814,10 +804,8 @@ synthesize_method (fndecl)
    variants yet, so we need to look at the main one.  */
 
 static tree
-synthesize_exception_spec (type, extractor, client)
-     tree type;
-     tree (*extractor) (tree, void *);
-     void *client;
+synthesize_exception_spec (tree type, tree (*extractor) (tree, void*),
+                           void *client)
 {
   tree raises = empty_except_spec;
   tree fields = TYPE_FIELDS (type);
@@ -861,9 +849,7 @@ synthesize_exception_spec (type, extractor, client)
 /* Locate the dtor of TYPE.  */
 
 static tree
-locate_dtor (type, client)
-     tree type;
-     void *client ATTRIBUTE_UNUSED;
+locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   tree fns;
   
@@ -877,9 +863,7 @@ locate_dtor (type, client)
 /* Locate the default ctor of TYPE.  */
 
 static tree
-locate_ctor (type, client)
-     tree type;
-     void *client ATTRIBUTE_UNUSED;
+locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   tree fns;
   
@@ -910,15 +894,13 @@ struct copy_data
    and desired qualifiers of the source operand.  */
 
 static tree
-locate_copy (type, client_)
-     tree type;
-     void *client_;
+locate_copy (tree type, void *client_)
 {
   struct copy_data *client = (struct copy_data *)client_;
   tree fns;
   int ix = -1;
   tree best = NULL_TREE;
-  int excess_p = 0;
+  bool excess_p = false;
   
   if (client->name)
     {
@@ -971,16 +953,13 @@ locate_copy (type, client_)
    reference argument or a non-const reference.  */
 
 tree
-implicitly_declare_fn (kind, type, const_p)
-     special_function_kind kind;
-     tree type;
-     int const_p;
+implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree declspecs = NULL_TREE;
   tree fn, args = NULL_TREE;
   tree raises = empty_except_spec;
-  int retref = 0;
-  int has_parm = 0;
+  bool retref = false;
+  bool has_parm = false;
   tree name = constructor_name (TYPE_IDENTIFIER (type));
 
   switch (kind)
@@ -1004,12 +983,12 @@ implicitly_declare_fn (kind, type, const_p)
       struct copy_data data;
       tree argtype = type;
       
-      has_parm = 1;
+      has_parm = true;
       data.name = NULL;
       data.quals = 0;
       if (kind == sfk_assignment_operator)
         {
-          retref = 1;
+          retref = true;
           declspecs = build_tree_list (NULL_TREE, type);
 
           name = ansi_assopname (NOP_EXPR);
@@ -1061,8 +1040,7 @@ implicitly_declare_fn (kind, type, const_p)
    as there are artificial parms in FN.  */
 
 tree
-skip_artificial_parms_for (fn, list)
-     tree fn, list;
+skip_artificial_parms_for (tree fn, tree list)
 {
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
     list = TREE_CHAIN (list);

@@ -53,6 +53,12 @@
 	 (and (eq_attr "type" "rotate")
 	      (match_operand 2 "const_int_1_operand" ""))
 	   (const_string "pu")
+	 (and (eq_attr "type" "ishift1")
+	      (match_operand 1 "const_int_operand" ""))
+	   (const_string "pu")
+	 (and (eq_attr "type" "rotate1")
+	      (match_operand 1 "const_int_1_operand" ""))
+	   (const_string "pu")
 	 (and (eq_attr "type" "call")
 	      (match_operand 0 "constant_call_address_operand" ""))
 	   (const_string "pv")
@@ -188,7 +194,7 @@
 
 (define_insn_reservation "pent_pop" 1
   (and (eq_attr "cpu" "pentium")
-       (eq_attr "type" "pop"))
+       (eq_attr "type" "pop,leave"))
   "pentium-firstuv")
 
 ;; Call and branch instruction can execute in either pipe, but

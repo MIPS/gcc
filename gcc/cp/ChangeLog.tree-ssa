@@ -1,3 +1,7 @@
+2002-12-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-simplify.c: Include coretypes.h and tm.h.
+
 2002-11-24  Jason Merrill  <jason@redhat.com>
 
 	Gimplify C++ cleanups.

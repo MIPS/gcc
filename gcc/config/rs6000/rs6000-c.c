@@ -23,6 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "cpplib.h"
 #include "tree.h"
 #include "c-pragma.h"
@@ -100,18 +102,10 @@ rs6000_cpu_cpp_builtins (pfile)
   /* Used by lwarx/stwcx. errata work-around.  */
   if (rs6000_cpu == PROCESSOR_PPC405)
     builtin_define ("__PPC405__");
-  if (BYTES_BIG_ENDIAN)
-    {
-      builtin_define ("__BIG_ENDIAN__");
-      builtin_define ("_BIG_ENDIAN");
-      builtin_assert ("machine=bigendian");
-    }
-  else
-    {
-      builtin_define ("__LITTLE_ENDIAN__");
-      builtin_define ("_LITTLE_ENDIAN");
-      builtin_assert ("machine=littleendian");
-    }
+
+  /* May be overridden by target configuration.  */
+  RS6000_CPU_CPP_ENDIAN_BUILTINS();
+
   if (TARGET_LONG_DOUBLE_128)
     builtin_define ("__LONG_DOUBLE_128__");
 

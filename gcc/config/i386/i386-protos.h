@@ -41,6 +41,9 @@ extern int ix86_aligned_p PARAMS ((rtx));
 extern int standard_80387_constant_p PARAMS ((rtx));
 extern int standard_sse_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
+extern bool extended_reg_mentioned_p PARAMS ((rtx));
+extern bool x86_extended_QIreg_mentioned_p PARAMS ((rtx));
+extern bool x86_extended_reg_mentioned_p PARAMS ((rtx));
 
 extern int any_fp_register_operand PARAMS ((rtx, enum machine_mode));
 extern int register_and_not_any_fp_reg_operand PARAMS ((rtx, enum machine_mode));
@@ -154,7 +157,7 @@ extern int ix86_attr_length_address_default PARAMS ((rtx));
 
 extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
-extern int x86_64_sign_extended_value PARAMS ((rtx, int));
+extern int x86_64_sign_extended_value PARAMS ((rtx));
 extern int x86_64_zero_extended_value PARAMS ((rtx));
 extern rtx ix86_libcall_value PARAMS ((enum machine_mode));
 extern bool ix86_function_value_regno_p PARAMS ((int));

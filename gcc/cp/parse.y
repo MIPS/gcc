@@ -31,6 +31,8 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "tree.h"
 #include "input.h"
@@ -2525,6 +2527,8 @@ class_head_defn:
 							 make_anon_name (), 
 							 0));
 		  $$.new_type_flag = 0;
+		  CLASSTYPE_DECLARED_CLASS (TREE_TYPE ($$.t))
+		    = $1 == class_type_node;
 		  yyungetc ('{', 1);
 		}
 	;

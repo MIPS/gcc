@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -1031,6 +1033,7 @@ place_field (rli, field)
 	      if (rli->remaining_in_alignment < bitsize)
 		{
 		  /* out of bits; bump up to next 'word'.  */
+		  rli->offset = DECL_FIELD_OFFSET (rli->prev_field);
 		  rli->bitpos = size_binop (PLUS_EXPR,
 				      type_size,
 				      DECL_FIELD_BIT_OFFSET(rli->prev_field));

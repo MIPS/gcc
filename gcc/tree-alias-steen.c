@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "ggc.h"
 #include "tree-alias-type.h"
 #include "tree-alias-ecr.h"
@@ -46,6 +48,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-simple.h"
 #include "hashtab.h"
 #include "splay-tree.h"
+
 /* Steensgaard's almost-linear interprocedural points-to analysis.
    This is a flow-insensitive, context insensitive algorithm.  It
    also does not distinguish structure fields, or direction of

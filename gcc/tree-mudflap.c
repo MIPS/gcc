@@ -24,6 +24,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "errors.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "tree-inline.h"
 #include "c-tree.h"
@@ -809,7 +811,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	check_size = fold (build (MULT_EXPR, 
 				  integer_type_node,
 				  TYPE_SIZE_UNIT (base_obj_type),
-				  fold (build (PLUS_EXPR, c_size_type_node,
+				  fold (build (PLUS_EXPR, size_type_node,
 					       integer_one_node,
 					       offset_expr))));
 
@@ -888,7 +890,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 					     build_int_2 (BITS_PER_UNIT - 1, 0))),
 			convert (bitsizetype, build_int_2 (BITS_PER_UNIT, 0)))
 	    : size_in_bytes (TREE_TYPE (TREE_OPERAND (*t, 1)));
-	  tree check_size = fold (build (PLUS_EXPR, c_size_type_node,
+	  tree check_size = fold (build (PLUS_EXPR, size_type_node,
 					 field_offset, field_size));
 
 	  *pointer = 
@@ -913,10 +915,10 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	  tree bitsize = TREE_OPERAND (*t, 1);
 	  tree bitpos = TREE_OPERAND (*t, 2);
 	  tree check_size =
-	    fold (build (TRUNC_DIV_EXPR, c_size_type_node,
-			 fold (build (PLUS_EXPR, c_size_type_node,
+	    fold (build (TRUNC_DIV_EXPR, size_type_node,
+			 fold (build (PLUS_EXPR, size_type_node,
 				      bitsize, 
-				      fold (build (PLUS_EXPR, c_size_type_node, 
+				      fold (build (PLUS_EXPR, size_type_node, 
 						   bitpos,
 						   build_int_2 (BITS_PER_UNIT - 1, 0))))),
 			 build_int_2 (BITS_PER_UNIT, 0)));

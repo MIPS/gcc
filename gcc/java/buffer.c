@@ -22,6 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "buffer.h"
 
 /* Grow BUFP so there is room for at least SIZE more bytes. */
@@ -37,14 +39,14 @@ buffer_grow (bufp, size)
     {
       if (size < 120)
 	size = 120;
-      bufp->data = (unsigned char*) xmalloc (size);
+      bufp->data = xmalloc (size);
       bufp->ptr = bufp->data;
     }
   else
     {
       int index = bufp->ptr - bufp->data;
       size += 2 * (bufp->limit - bufp->data);
-      bufp->data = (unsigned char *) xrealloc (bufp->data, size);
+      bufp->data = xrealloc (bufp->data, size);
       bufp->ptr = bufp->data + index;
     }
   bufp->limit = bufp->data + size;
