@@ -784,10 +784,11 @@ vars_copy_1 (slot, data)
 
   for (i = 0; i < var->n_var_parts; i++)
     {
-      location_chain last, node;
+      location_chain node;
+      location_chain *nextp;
 
       var->var_part[i].offset = src->var_part[i].offset;
-      last = NULL;
+      nextp = &var->var_part[i].loc_chain;
       for (node = src->var_part[i].loc_chain; node; node = node->next)
 	{
 	  location_chain new_lc;
@@ -796,11 +797,8 @@ vars_copy_1 (slot, data)
 	  new_lc->next = NULL;
 	  new_lc->loc = node->loc;
 
-	  if (last)
-	    last->next = new_lc;
-	  else
-	    var->var_part[i].loc_chain = new_lc;
-	  last = new_lc;
+	  *nextp = new_lc;
+	  nextp = &new_lc->next;
 	}
 
       /* We are at the basic block boundary when copying variable description
@@ -834,33 +832,29 @@ var_reg_delete_and_set (set, loc)
      dataflow_set *set;
      rtx loc;
 {
-  attrs *reg = &set->regs[REGNO (loc)];
   tree decl = REG_EXPR (loc);
   HOST_WIDE_INT offset = REG_OFFSET (loc);
-  attrs node, prev, next;
+  attrs node, next;
+  attrs *nextp;
 
-  prev = NULL;
-  for (node = *reg; node; node = next)
+  nextp = &set->regs[REGNO (loc)];
+  for (node = *nextp; node; node = next)
     {
       next = node->next;
       if (node->decl != decl || node->offset != offset)
 	{
 	  delete_variable_part (set, node->loc, node->decl, node->offset);
-
-	  if (prev)
-	    prev->next = next;
-	  else
-	    *reg = next;
 	  pool_free (attrs_pool, node);
+	  *nextp = next;
 	}
       else
 	{
 	  node->loc = loc;
-	  prev = node;
+	  nextp = &node->next;
 	}
     }
-  if (*reg == NULL)
-    attrs_list_insert (reg, decl, offset, loc);
+  if (set->regs[REGNO (loc)] == NULL)
+    attrs_list_insert (&set->regs[REGNO (loc)], decl, offset, loc);
   set_variable_part (set, loc, decl, offset);
 }
 
@@ -1165,9 +1159,10 @@ variable_union (slot, data)
 		&& src->var_part[i].offset > dst->var_part[j].offset)
 	       || j < 0)
 	{
-	  location_chain last = NULL;
+	  location_chain *nextp;
 
 	  /* Copy the chain from SRC.  */
+	  nextp = &dst->var_part[k].loc_chain;
 	  for (node = src->var_part[i].loc_chain; node; node = node->next)
 	    {
 	      location_chain new_lc;
@@ -1176,11 +1171,8 @@ variable_union (slot, data)
 	      new_lc->next = NULL;
 	      new_lc->loc = node->loc;
 
-	      if (last)
-		last->next = new_lc;
-	      else
-		dst->var_part[k].loc_chain = new_lc;
-	      last = new_lc;
+	      *nextp = new_lc;
+	      nextp = &new_lc->next;
 	    }
 
 	  dst->var_part[k].offset = src->var_part[i].offset;
@@ -1935,7 +1927,8 @@ set_variable_part (set, loc, decl, offset)
      HOST_WIDE_INT offset;
 {
   int pos, low, high;
-  location_chain node, prev, next;
+  location_chain node, next;
+  location_chain *nextp;
   variable var;
   void **slot;
   
@@ -1994,7 +1987,7 @@ set_variable_part (set, loc, decl, offset)
     }
 
   /* Delete the location from list.  */
-  prev = NULL;
+  nextp = &var->var_part[pos].loc_chain;
   for (node = var->var_part[pos].loc_chain; node; node = next)
     {
       next = node->next;
@@ -2002,15 +1995,12 @@ set_variable_part (set, loc, decl, offset)
 	   && REGNO (node->loc) == REGNO (loc))
 	  || rtx_equal_p (node->loc, loc))
 	{
-	  if (prev)
-	    prev->next = next;
-	  else
-	    var->var_part[pos].loc_chain = next;
 	  pool_free (loc_chain_pool, node);
+	  *nextp = next;
 	  break;
 	}
       else
-	prev = node;
+	nextp = &node->next;
     }
 
   /* Add the location to the beginning.  */
@@ -2062,27 +2052,25 @@ delete_variable_part (set, loc, decl, offset)
 
       if (pos < var->n_var_parts && var->var_part[pos].offset == offset)
 	{
-	  location_chain node, prev, next;
+	  location_chain node, next;
+	  location_chain *nextp;
 	  bool changed;
 
 	  /* Delete the location part.  */
-	  prev = NULL;
-	  for (node = var->var_part[pos].loc_chain; node; node = next)
+	  nextp = &var->var_part[pos].loc_chain;
+	  for (node = *nextp; node; node = next)
 	    {
 	      next = node->next;
 	      if ((GET_CODE (node->loc) == REG && GET_CODE (loc) == REG
 		   && REGNO (node->loc) == REGNO (loc))
 		  || rtx_equal_p (node->loc, loc))
 		{
-		  if (prev)
-		    prev->next = next;
-		  else
-		    var->var_part[pos].loc_chain = next;
 		  pool_free (loc_chain_pool, node);
+		  *nextp = next;
 		  break;
 		}
 	      else
-		prev = node;
+		nextp = &node->next;
 	    }
 
 	  /* If we have deleted the location which was last emitted

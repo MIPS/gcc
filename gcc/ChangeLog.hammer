@@ -1,3 +1,11 @@
+2004-03-07  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (vars_copy_1): Cleanup and speedup chain operations.
+	(vars_copy): Likewise.
+	(variable_union): Likewise.
+	(set_variable_part): Likewise.
+	(delete_variable_part): Likewise.
+
 2004-03-06  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	Backport from the 3.3 branch:
