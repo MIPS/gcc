@@ -392,7 +392,8 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  if (best_edge->dest != bb && best_edge->dest->index != 0)
 		    {
 		      if (EDGE_FREQUENCY (best_edge) 
-			  > 4 * best_edge->dest->frequency / 5)
+			  > 4 * best_edge->dest->frequency / 5
+			  || cfg_layout_can_duplicate_bb_p (bb))
 			{
 			   /* The loop has at least 4 iterations.  */
 			  edge e;
