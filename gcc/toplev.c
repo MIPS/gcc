@@ -70,6 +70,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
+#include "cfglayout.h"
+
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif
@@ -85,10 +87,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifdef HALF_PIC_DEBUG
-#include "halfpic.h"
 #endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
@@ -2566,6 +2564,12 @@ rest_of_compilation (decl)
       rtx insn;
       optimize_sibling_and_tail_recursive_calls ();
 
+      /* Recompute the CFG as sibling optimization clobbers it randomly.  */
+      free_bb_for_insn ();
+      find_exception_handler_labels ();
+      rebuild_jump_labels (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+
       /* There is pass ordering problem - we must lower NOTE_INSN_PREDICTION
          notes before simplifying cfg and we must do lowering after sibcall
          that unhides parts of RTL chain and cleans up the CFG.
@@ -2577,11 +2581,11 @@ rest_of_compilation (decl)
 	    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
 	  delete_insn (insn);
     }
-   close_dump_file (DFI_sibling, print_rtl, get_insns ());
-   timevar_pop (TV_JUMP);
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+  timevar_pop (TV_JUMP);
 
+  scope_to_insns_initialize ();
   /* Complete generation of exception handling code.  */
-  find_exception_handler_labels ();
   if (doing_eh (0))
     {
       timevar_push (TV_JUMP);
@@ -5048,9 +5052,6 @@ lang_independent_init ()
 {
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
-  ggc_add_rtx_root (&stack_limit_rtx, 1);
-  ggc_add_tree_root (&current_function_decl, 1);
-  ggc_add_tree_root (&current_function_func_begin_label, 1);
 
   init_stringpool ();
   init_obstacks ();
@@ -5065,13 +5066,10 @@ lang_independent_init ()
 		    || warn_notreached);
   init_regs ();
   init_alias_once ();
-  init_stmt ();
   init_loop ();
   init_reload ();
   init_function_once ();
-  init_stor_layout_once ();
   init_varasm_once ();
-  init_EXPR_INSN_LIST_cache ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

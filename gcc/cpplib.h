@@ -515,7 +515,7 @@ extern void cpp_set_callbacks PARAMS ((cpp_reader *, cpp_callbacks *));
    structure reliable.  Options processing is not completed until you
    call cpp_finish_options.  */
 extern int cpp_handle_options PARAMS ((cpp_reader *, int, char **));
-extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **, int));
+extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **));
 extern void cpp_post_options PARAMS ((cpp_reader *));
 
 /* This function reads the file, but does not start preprocessing.  It
@@ -624,6 +624,10 @@ extern unsigned cpp_classify_number PARAMS ((cpp_reader *, const cpp_token *));
 /* Evaluate a token classified as category CPP_N_INTEGER.  */
 extern cpp_num cpp_interpret_integer PARAMS ((cpp_reader *, const cpp_token *,
 					      unsigned int type));
+
+/* Sign extend a number, with PRECISION significant bits and all
+   others assumed clear, to fill out a cpp_num structure.  */
+cpp_num cpp_num_sign_extend PARAMS ((cpp_num, size_t));
 
 /* Diagnostic levels.  To get a dianostic without associating a
    position in the translation unit with it, use cpp_error_with_line

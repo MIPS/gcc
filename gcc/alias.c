@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "target.h"
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
@@ -151,7 +152,7 @@ static int nonlocal_set_p               PARAMS ((rtx));
    current function performs nonlocal memory memory references for the
    purposes of marking the function as a constant function.  */
 
-static rtx *reg_base_value;
+static GTY((length ("reg_base_value_size"))) rtx *reg_base_value;
 static rtx *new_reg_base_value;
 static unsigned int reg_base_value_size; /* size of reg_base_value array */
 
@@ -2021,7 +2022,7 @@ nonoverlapping_memrefs_p (x, y)
 
   /* If we don't know the size of the lower-offset value, we can't tell
      if they conflict.  Otherwise, we do the test.  */
-  return sizex >= 0 && offsety > offsetx + sizex;
+  return sizex >= 0 && offsety >= offsetx + sizex;
 }
 
 /* True dependence: X is read after store in MEM takes place.  */
@@ -2572,12 +2573,12 @@ mark_constant_function ()
   rtx insn;
   int nonlocal_memory_referenced;
 
-  if (TREE_PUBLIC (current_function_decl)
-      || TREE_READONLY (current_function_decl)
+  if (TREE_READONLY (current_function_decl)
       || DECL_IS_PURE (current_function_decl)
       || TREE_THIS_VOLATILE (current_function_decl)
       || TYPE_MODE (TREE_TYPE (current_function_decl)) == VOIDmode
-      || current_function_has_nonlocal_goto)
+      || current_function_has_nonlocal_goto
+      || !(*targetm.binds_local_p) (current_function_decl))
     return;
 
   /* A loop might not return which counts as a side effect.  */
@@ -2662,8 +2663,8 @@ init_alias_analysis ()
      optimization.  Loop unrolling can create a large number of
      registers.  */
   reg_base_value_size = maxreg * 2;
-  reg_base_value = (rtx *) xcalloc (reg_base_value_size, sizeof (rtx));
-  ggc_add_rtx_root (reg_base_value, reg_base_value_size);
+  reg_base_value = (rtx *) ggc_alloc_cleared (reg_base_value_size
+					      * sizeof (rtx));
 
   new_reg_base_value = (rtx *) xmalloc (reg_base_value_size * sizeof (rtx));
   reg_seen = (char *) xmalloc (reg_base_value_size);
@@ -2877,12 +2878,7 @@ end_alias_analysis ()
   reg_known_value_size = 0;
   free (reg_known_equiv_p + FIRST_PSEUDO_REGISTER);
   reg_known_equiv_p = 0;
-  if (reg_base_value)
-    {
-      ggc_del_root (reg_base_value);
-      free (reg_base_value);
-      reg_base_value = 0;
-    }
+  reg_base_value = 0;
   reg_base_value_size = 0;
   if (alias_invariant)
     {
@@ -2890,3 +2886,5 @@ end_alias_analysis ()
       alias_invariant = 0;
     }
 }
+
+#include "gt-alias.h"

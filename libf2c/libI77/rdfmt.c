@@ -25,16 +25,16 @@ rd_Z (Uint * n, int w, ftnlen len)
   if (!hex['0'])
     {
       s = "0123456789";
-      while (ch = *s++)
+      while ((ch = *s++))
 	hex[ch] = ch - '0' + 1;
       s = "ABCDEF";
-      while (ch = *s++)
+      while ((ch = *s++))
 	hex[ch] = hex[ch + 'a' - 'A'] = ch - 'A' + 11;
     }
   s = s0 = (char *) x;
   s1 = (char *) &x[4];
   se = (char *) &x[8];
-  if (len > 4 * sizeof (long))
+  if (len > 4 * (ftnlen) sizeof (long))
     return errno = 117;
   while (w)
     {
@@ -60,7 +60,7 @@ rd_Z (Uint * n, int w, ftnlen len)
     return errno = 115;
   w = (int) len;
   w1 = s - s0;
-  w2 = w1 + 1 >> 1;
+  w2 = (w1 + 1) >> 1;
   t = (char *) n;
   if (*(char *) &one)
     {
@@ -85,7 +85,7 @@ rd_Z (Uint * n, int w, ftnlen len)
     }
   do
     {
-      *t = hex[*s0 & 0xff] - 1 << 4 | hex[s0[1] & 0xff] - 1;
+      *t = (hex[*s0 & 0xff] - 1) << 4 | (hex[s0[1] & 0xff] - 1);
       t += i;
       s0 += 2;
     }
@@ -96,7 +96,7 @@ rd_Z (Uint * n, int w, ftnlen len)
 static int
 rd_I (Uint * n, int w, ftnlen len, register int base)
 {
-  int bad, ch, sign;
+  int ch, sign;
   longint x = 0;
 
   if (w <= 0)
@@ -510,6 +510,7 @@ rd_POS (char *s)
   return (1);
 }
 
+int
 rd_ed (struct syl * p, char *ptr, ftnlen len)
 {
   int ch;
@@ -584,6 +585,7 @@ rd_ed (struct syl * p, char *ptr, ftnlen len)
   return (errno);
 }
 
+int
 rd_ned (struct syl * p)
 {
   switch (p->op)

@@ -277,7 +277,7 @@ init_expr_once ()
     {
       enum machine_mode srcmode;
       for (srcmode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); srcmode != mode;
-           srcmode = GET_MODE_WIDER_MODE (srcmode))
+	   srcmode = GET_MODE_WIDER_MODE (srcmode))
 	{
 	  enum insn_code ic;
 
@@ -286,7 +286,7 @@ init_expr_once ()
 	    continue;
 
 	  PUT_MODE (mem, srcmode);
-	  
+
 	  if ((*insn_data[ic].operand[1].predicate) (mem, srcmode))
 	    float_extend_from_mem[mode][srcmode] = true;
 	}
@@ -298,7 +298,7 @@ init_expr_once ()
 void
 init_expr ()
 {
-  cfun->expr = (struct expr_status *) xmalloc (sizeof (struct expr_status));
+  cfun->expr = (struct expr_status *) ggc_alloc (sizeof (struct expr_status));
 
   pending_chain = 0;
   pending_stack_adjust = 0;
@@ -307,26 +307,6 @@ init_expr ()
   saveregs_value = 0;
   apply_args_value = 0;
   forced_labels = 0;
-}
-
-void
-mark_expr_status (p)
-     struct expr_status *p;
-{
-  if (p == NULL)
-    return;
-
-  ggc_mark_rtx (p->x_saveregs_value);
-  ggc_mark_rtx (p->x_apply_args_value);
-  ggc_mark_rtx (p->x_forced_labels);
-}
-
-void
-free_expr_status (f)
-     struct function *f;
-{
-  free (f->expr);
-  f->expr = NULL;
 }
 
 /* Small sanity check that the queue is empty at the end of a function.  */
@@ -1650,6 +1630,7 @@ move_by_pieces_1 (genfun, mode, data)
    Return the address of the new block, if memcpy is called and returns it,
    0 otherwise.  */
 
+static GTY(()) tree block_move_fn;
 rtx
 emit_block_move (x, y, size)
      rtx x, y;
@@ -1657,7 +1638,6 @@ emit_block_move (x, y, size)
 {
   rtx retval = 0;
 #ifdef TARGET_MEM_FUNCTIONS
-  static tree fn;
   tree call_expr, arg_list;
 #endif
   unsigned int align = MIN (MEM_ALIGN (x), MEM_ALIGN (y));
@@ -1781,23 +1761,22 @@ emit_block_move (x, y, size)
 
 	 So instead of using a libcall sequence we build up a suitable
 	 CALL_EXPR and expand the call in the normal fashion.  */
-      if (fn == NULL_TREE)
+      if (block_move_fn == NULL_TREE)
 	{
 	  tree fntype;
 
 	  /* This was copied from except.c, I don't know if all this is
 	     necessary in this context or not.  */
-	  fn = get_identifier ("memcpy");
+	  block_move_fn = get_identifier ("memcpy");
 	  fntype = build_pointer_type (void_type_node);
 	  fntype = build_function_type (fntype, NULL_TREE);
-	  fn = build_decl (FUNCTION_DECL, fn, fntype);
-	  ggc_add_tree_root (&fn, 1);
-	  DECL_EXTERNAL (fn) = 1;
-	  TREE_PUBLIC (fn) = 1;
-	  DECL_ARTIFICIAL (fn) = 1;
-	  TREE_NOTHROW (fn) = 1;
-	  make_decl_rtl (fn, NULL);
-	  assemble_external (fn);
+	  block_move_fn = build_decl (FUNCTION_DECL, block_move_fn, fntype);
+	  DECL_EXTERNAL (block_move_fn) = 1;
+	  TREE_PUBLIC (block_move_fn) = 1;
+	  DECL_ARTIFICIAL (block_move_fn) = 1;
+	  TREE_NOTHROW (block_move_fn) = 1;
+	  make_decl_rtl (block_move_fn, NULL);
+	  assemble_external (block_move_fn);
 	}
 
       /* We need to make an argument list for the function call.
@@ -1815,8 +1794,10 @@ emit_block_move (x, y, size)
       TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arg_list))) = NULL_TREE;
 
       /* Now we have to build up the CALL_EXPR itself.  */
-      call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-      call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
+      call_expr = build1 (ADDR_EXPR, 
+			  build_pointer_type (TREE_TYPE (block_move_fn)), 
+			  block_move_fn);
+      call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (block_move_fn)),
 			 call_expr, arg_list, NULL_TREE);
       TREE_SIDE_EFFECTS (call_expr) = 1;
 
@@ -2312,7 +2293,7 @@ use_regs (call_fusage, regno, nregs)
     abort ();
 
   for (i = 0; i < nregs; i++)
-    use_reg (call_fusage, gen_rtx_REG (reg_raw_mode[regno + i], regno + i));
+    use_reg (call_fusage, regno_reg_rtx[regno + i]);
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each REG contained in the
@@ -2606,13 +2587,13 @@ store_by_pieces_2 (genfun, mode, data)
 /* Write zeros through the storage of OBJECT.  If OBJECT has BLKmode, SIZE is
    its length in bytes.  */
 
+static GTY(()) tree block_clear_fn;
 rtx
 clear_storage (object, size)
      rtx object;
      rtx size;
 {
 #ifdef TARGET_MEM_FUNCTIONS
-  static tree fn;
   tree call_expr, arg_list;
 #endif
   rtx retval = 0;
@@ -2725,23 +2706,23 @@ clear_storage (object, size)
 
 	     So instead of using a libcall sequence we build up a suitable
 	     CALL_EXPR and expand the call in the normal fashion.  */
-	  if (fn == NULL_TREE)
+	  if (block_clear_fn == NULL_TREE)
 	    {
 	      tree fntype;
 
 	      /* This was copied from except.c, I don't know if all this is
 		 necessary in this context or not.  */
-	      fn = get_identifier ("memset");
+	      block_clear_fn = get_identifier ("memset");
 	      fntype = build_pointer_type (void_type_node);
 	      fntype = build_function_type (fntype, NULL_TREE);
-	      fn = build_decl (FUNCTION_DECL, fn, fntype);
-	      ggc_add_tree_root (&fn, 1);
-	      DECL_EXTERNAL (fn) = 1;
-	      TREE_PUBLIC (fn) = 1;
-	      DECL_ARTIFICIAL (fn) = 1;
-	      TREE_NOTHROW (fn) = 1;
-	      make_decl_rtl (fn, NULL);
-	      assemble_external (fn);
+	      block_clear_fn = build_decl (FUNCTION_DECL, block_clear_fn,
+					   fntype);
+	      DECL_EXTERNAL (block_clear_fn) = 1;
+	      TREE_PUBLIC (block_clear_fn) = 1;
+	      DECL_ARTIFICIAL (block_clear_fn) = 1;
+	      TREE_NOTHROW (block_clear_fn) = 1;
+	      make_decl_rtl (block_clear_fn, NULL);
+	      assemble_external (block_clear_fn);
 	    }
 
 	  /* We need to make an argument list for the function call.
@@ -2762,8 +2743,9 @@ clear_storage (object, size)
 
 	  /* Now we have to build up the CALL_EXPR itself.  */
 	  call_expr = build1 (ADDR_EXPR,
-			      build_pointer_type (TREE_TYPE (fn)), fn);
-	  call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
+			      build_pointer_type (TREE_TYPE (block_clear_fn)),
+			      block_clear_fn);
+	  call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (block_clear_fn)),
 			     call_expr, arg_list, NULL_TREE);
 	  TREE_SIDE_EFFECTS (call_expr) = 1;
 
@@ -3054,7 +3036,7 @@ emit_move_insn_1 (x, y)
 	{
 	  rtx temp;
 	  enum rtx_code code;
-	  
+
 	  /* Do not use anti_adjust_stack, since we don't want to update
 	     stack_pointer_delta.  */
 	  temp = expand_binop (Pmode,
@@ -3069,18 +3051,18 @@ emit_move_insn_1 (x, y)
 				  (GET_MODE_SIZE (GET_MODE (x)))),
 			       stack_pointer_rtx, 0, OPTAB_LIB_WIDEN);
 
-          if (temp != stack_pointer_rtx)
-            emit_move_insn (stack_pointer_rtx, temp);
+	  if (temp != stack_pointer_rtx)
+	    emit_move_insn (stack_pointer_rtx, temp);
 
 	  code = GET_CODE (XEXP (x, 0));
 
 	  /* Just hope that small offsets off SP are OK.  */
 	  if (code == POST_INC)
-	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, 
+	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 				GEN_INT (-((HOST_WIDE_INT)
 					   GET_MODE_SIZE (GET_MODE (x)))));
 	  else if (code == POST_DEC)
-	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, 
+	    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 				GEN_INT (GET_MODE_SIZE (GET_MODE (x))));
 	  else
 	    temp = stack_pointer_rtx;
@@ -3357,7 +3339,7 @@ emit_single_push_insn (mode, x, type)
 void
 emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 		args_addr, args_so_far, reg_parm_stack_space,
-                alignment_pad)
+		alignment_pad)
      rtx x;
      enum machine_mode mode;
      tree type;
@@ -3384,7 +3366,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
      Default is below for small data on big-endian machines; else above.  */
   enum direction where_pad = FUNCTION_ARG_PADDING (mode, type);
 
-  /* Invert direction if stack is post-decrement. 
+  /* Invert direction if stack is post-decrement.
      FIXME: why?  */
   if (STACK_PUSH_CODE == POST_DEC)
     if (where_pad != none)
@@ -4174,7 +4156,7 @@ store_expr (exp, target, want_value)
 	    {
 	      temp = gen_lowpart_SUBREG (GET_MODE (target), temp);
 	      SUBREG_PROMOTED_VAR_P (temp) = 1;
-	      SUBREG_PROMOTED_UNSIGNED_SET (temp, 
+	      SUBREG_PROMOTED_UNSIGNED_SET (temp,
 		SUBREG_PROMOTED_UNSIGNED_P (target));
 	    }
 	  else
@@ -6456,7 +6438,7 @@ expand_expr (exp, target, tmode, modifier)
 	  /* Get the signedness used for this variable.  Ensure we get the
 	     same mode we got when the variable was declared.  */
 	  if (GET_MODE (DECL_RTL (exp))
-	      != promote_mode (type, DECL_MODE (exp), &unsignedp, 
+	      != promote_mode (type, DECL_MODE (exp), &unsignedp,
 			       (TREE_CODE (exp) == RESULT_DECL ? 1 : 0)))
 	    abort ();
 
@@ -6773,9 +6755,9 @@ expand_expr (exp, target, tmode, modifier)
 			&& (! MOVE_BY_PIECES_P
 			    (tree_low_cst (TYPE_SIZE_UNIT (type), 1),
 			     TYPE_ALIGN (type)))
- 			&& ((TREE_CODE (type) == VECTOR_TYPE
- 			     && !is_zeros_p (exp))
- 			    || ! mostly_zeros_p (exp)))))
+			&& ((TREE_CODE (type) == VECTOR_TYPE
+			     && !is_zeros_p (exp))
+			    || ! mostly_zeros_p (exp)))))
 	       || (modifier == EXPAND_INITIALIZER && TREE_CONSTANT (exp)))
 	{
 	  rtx constructor = output_constant_def (exp, 1);
@@ -6812,14 +6794,14 @@ expand_expr (exp, target, tmode, modifier)
 	tree string = string_constant (exp1, &index);
 
 	/* Try to optimize reads from const strings.  */
- 	if (string
- 	    && TREE_CODE (string) == STRING_CST
- 	    && TREE_CODE (index) == INTEGER_CST
+	if (string
+	    && TREE_CODE (string) == STRING_CST
+	    && TREE_CODE (index) == INTEGER_CST
 	    && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0
- 	    && GET_MODE_CLASS (mode) == MODE_INT
- 	    && GET_MODE_SIZE (mode) == 1
+	    && GET_MODE_CLASS (mode) == MODE_INT
+	    && GET_MODE_SIZE (mode) == 1
 	    && modifier != EXPAND_WRITE)
- 	  return gen_int_mode (TREE_STRING_POINTER (string)
+	  return gen_int_mode (TREE_STRING_POINTER (string)
 			       [TREE_INT_CST_LOW (index)], mode);
 
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
@@ -7429,7 +7411,7 @@ expand_expr (exp, target, tmode, modifier)
 	  && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == FUNCTION_DECL)
 	  && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
-        {
+	{
 	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == BUILT_IN_FRONTEND)
 	    return (*lang_hooks.expand_expr)
@@ -7512,7 +7494,7 @@ expand_expr (exp, target, tmode, modifier)
 	  tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 	  enum machine_mode inner_mode = TYPE_MODE (inner_type);
 
-          if (modifier == EXPAND_INITIALIZER)
+	  if (modifier == EXPAND_INITIALIZER)
 	    return simplify_gen_subreg (mode, op0, inner_mode,
 					subreg_lowpart_offset (mode,
 							       inner_mode));
@@ -7599,7 +7581,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	      op0 = new;
 	    }
-      
+
 	  op0 = adjust_address (op0, TYPE_MODE (type), 0);
 	}
 
@@ -7646,7 +7628,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	 If this is an EXPAND_SUM call, always return the sum.  */
       if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER
-          || (mode == ptr_mode && (unsignedp || ! flag_trapv)))
+	  || (mode == ptr_mode && (unsignedp || ! flag_trapv)))
 	{
 	  if (TREE_CODE (TREE_OPERAND (exp, 0)) == INTEGER_CST
 	      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
@@ -7995,9 +7977,9 @@ expand_expr (exp, target, tmode, modifier)
     case NEGATE_EXPR:
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
       temp = expand_unop (mode,
-                          ! unsignedp && flag_trapv
-                          && (GET_MODE_CLASS(mode) == MODE_INT)
-                          ? negv_optab : neg_optab, op0, target, 0);
+			  ! unsignedp && flag_trapv
+			  && (GET_MODE_CLASS(mode) == MODE_INT)
+			  ? negv_optab : neg_optab, op0, target, 0);
       if (temp == 0)
 	abort ();
       return temp;
@@ -8173,7 +8155,7 @@ expand_expr (exp, target, tmode, modifier)
 	      enum machine_mode mode1 = GET_MODE (temp);
 	      if (mode1 == VOIDmode)
 		mode1 = tmode != VOIDmode ? tmode : mode;
-	      
+
 	      temp = copy_to_mode_reg (mode1, temp);
 	    }
 
@@ -8353,13 +8335,13 @@ expand_expr (exp, target, tmode, modifier)
 	  {
 	    rtx result;
 	    optab boptab = (TREE_CODE (binary_op) == PLUS_EXPR
-                            ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
-                               ? addv_optab : add_optab)
-                            : TREE_CODE (binary_op) == MINUS_EXPR
-                              ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
-                                 ? subv_optab : sub_optab)
-                            : TREE_CODE (binary_op) == BIT_IOR_EXPR ? ior_optab
-                            : xor_optab);
+			    ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
+			       ? addv_optab : add_optab)
+			    : TREE_CODE (binary_op) == MINUS_EXPR
+			    ? (TYPE_TRAP_SIGNED (TREE_TYPE (binary_op))
+			       ? subv_optab : sub_optab)
+			    : TREE_CODE (binary_op) == BIT_IOR_EXPR ? ior_optab
+			    : xor_optab);
 
 	    /* If we had X ? A : A + 1, do this as A + (X == 0).
 
@@ -8674,7 +8656,7 @@ expand_expr (exp, target, tmode, modifier)
 	  }
 
 	temp = expand_assignment (lhs, rhs, ! ignore, original_target != 0);
-	
+
 	return temp;
       }
 
@@ -8763,11 +8745,11 @@ expand_expr (exp, target, tmode, modifier)
 		    /* Handle calls that pass values in multiple
 		       non-contiguous locations.  The Irix 6 ABI has examples
 		       of this.  */
-		    emit_group_store (memloc, op0, 
+		    emit_group_store (memloc, op0,
 				      int_size_in_bytes (inner_type));
 		  else
 		    emit_move_insn (memloc, op0);
-		  
+
 		  op0 = memloc;
 		}
 	    }
@@ -8905,9 +8887,9 @@ expand_expr (exp, target, tmode, modifier)
 
 	imag_t = gen_imagpart (partmode, target);
 	temp = expand_unop (partmode,
-                            ! unsignedp && flag_trapv
-                            && (GET_MODE_CLASS(partmode) == MODE_INT)
-                            ? negv_optab : neg_optab,
+			    ! unsignedp && flag_trapv
+			    && (GET_MODE_CLASS(partmode) == MODE_INT)
+			    ? negv_optab : neg_optab,
 			    gen_imagpart (partmode, op0), imag_t, 0);
 	if (temp != imag_t)
 	  emit_move_insn (imag_t, temp);
@@ -9738,7 +9720,7 @@ do_jump (exp, if_false_label, if_true_label)
 		|| rcmp == UNORDERED))
 	  do_rev = 1;
 
-        if (! do_rev)
+	if (! do_rev)
 	  do_compare_and_jump (exp, cmp, cmp, if_false_label, if_true_label);
 	else
 	  do_compare_and_jump (exp, rcmp, rcmp, if_true_label, if_false_label);
@@ -9771,7 +9753,7 @@ do_jump (exp, if_false_label, if_true_label)
 	goto unordered_bcc;
 
       unordered_bcc:
-        mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 	if (can_compare_p (rcode1, mode, ccp_jump))
 	  do_compare_and_jump (exp, rcode1, rcode1, if_false_label,
 			       if_true_label);
@@ -9840,7 +9822,7 @@ do_jump (exp, if_false_label, if_true_label)
       /* Do any postincrements in the expression that was tested.  */
       emit_queue ();
 
-      if (GET_CODE (temp) == CONST_INT 
+      if (GET_CODE (temp) == CONST_INT
 	  || (GET_CODE (temp) == CONST_DOUBLE && GET_MODE (temp) == VOIDmode)
 	  || GET_CODE (temp) == LABEL_REF)
 	{
@@ -10786,3 +10768,5 @@ try_tablejump (index_type, index_expr, minval, range,
 		table_label, default_label);
   return 1;
 }
+
+#include "gt-expr.h"

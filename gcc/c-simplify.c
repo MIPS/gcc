@@ -1229,8 +1229,6 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
       tree *dim_p = (tree *)VARRAY_TOP_GENERIC_PTR (dim_stack);
       simplify_expr (dim_p, pre_p, post_p, is_simple_val, stmt);
     }
-
-  VARRAY_FREE (dim_stack);
 }
 
 /* }}} */

@@ -13,7 +13,10 @@ extern int atexit (void (*)(void));
 
 extern void f_init (void);
 extern int MAIN__ (void);
+extern void f_setarg (int, char **);
+extern void f_setsig (void);
 
+int
 main (int argc, char **argv)
 {
   f_setarg (argc, argv);

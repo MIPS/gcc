@@ -74,7 +74,7 @@ extern struct obstack permanent_obstack;
    before static field references.  */
 extern int always_initialize_class_p;
 
-static tree parse_roots[3] = { NULL_TREE, NULL_TREE, NULL_TREE };
+static GTY(()) tree parse_roots[3];
 
 /* The FIELD_DECL for the current field.  */
 #define current_field parse_roots[0]
@@ -193,9 +193,7 @@ set_source_filename (jcf, index)
   DECL_LINENUMBERS_OFFSET (current_method) = 0)
 
 #define HANDLE_END_METHODS() \
-{ tree handle_type = CLASS_TO_HANDLE_TYPE (current_class); \
-  if (handle_type != current_class) layout_type (handle_type); \
-  current_method = NULL_TREE; }
+{ current_method = NULL_TREE; }
 
 #define HANDLE_CODE_ATTRIBUTE(MAX_STACK, MAX_LOCALS, CODE_LENGTH) \
 { DECL_MAX_STACK (current_method) = (MAX_STACK); \
@@ -745,12 +743,12 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for (field = TYPE_FIELDS (CLASS_TO_HANDLE_TYPE (current_class));
+  for (field = TYPE_FIELDS (current_class);
        field != NULL_TREE; field = TREE_CHAIN (field))
     if (FIELD_STATIC (field))
       DECL_EXTERNAL (field) = 0;
 
-  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+  for (method = TYPE_METHODS (current_class);
        method != NULL_TREE; method = TREE_CHAIN (method))
     {
       JCF *jcf = current_jcf;
@@ -1270,9 +1268,9 @@ void
 init_jcf_parse ()
 {
   /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (parse_roots, ARRAY_SIZE (parse_roots));
-
   ggc_add_root (&current_jcf, 1, sizeof (JCF), (void (*)(void *))ggc_mark_jcf);
 
   init_src_parse ();
 }
+
+#include "gt-java-jcf-parse.h"

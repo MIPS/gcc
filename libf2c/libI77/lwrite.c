@@ -148,7 +148,7 @@ l_g (char *buf, double n)
 	    while (*++b);
 	    goto f__ret;
 	  case 'E':
-	    for (c1 = '.', c = 'E'; *b = c1; c1 = c, c = *++b);
+	    for (c1 = '.', c = 'E'; (*b = c1); c1 = c, c = *++b);
 	    goto f__ret;
 	  }
     }
@@ -163,7 +163,7 @@ l_put (register char *s)
   register void (*pn) (int) = f__putn;
   register int c;
 
-  while (c = *s++)
+  while ((c = *s++))
     (*pn) (c);
 }
 
@@ -207,6 +207,8 @@ lwrt_C (double a, double b)
   l_put (bb);
   PUT (')');
 }
+
+int
 l_write (ftnint * number, char *ptr, ftnlen len, ftnint type)
 {
 #define Ptr ((flex *)ptr)

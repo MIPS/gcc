@@ -4,6 +4,7 @@
 #include "fio.h"
 #include "fmt.h"
 
+int
 xrd_SL (void)
 {
   int ch;
@@ -18,6 +19,7 @@ xrd_SL (void)
   return (1);
 }
 
+int
 x_getc (void)
 {
   int ch;
@@ -43,12 +45,14 @@ x_getc (void)
   return (-1);
 }
 
+int
 x_endp (void)
 {
   xrd_SL ();
   return f__curunit->uend == 1 ? EOF : 0;
 }
 
+int
 x_rev (void)
 {
   (void) xrd_SL ();
@@ -66,7 +70,7 @@ s_rsfe (cilist * a)		/* start */
   f__sequential = 1;
   f__formatted = 1;
   f__external = 1;
-  if (n = c_sfe (a))
+  if ((n = c_sfe (a)))
     return (n);
   f__elist = a;
   f__cursor = f__recpos = 0;

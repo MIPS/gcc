@@ -1,3 +1,4 @@
+#if 0
 /* Goto statement elimination for Simple.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
@@ -1105,4 +1106,4 @@ debug_label_hash_entry (entry)
 }
 
 #endif
-
+#endif

@@ -6,6 +6,7 @@ char *f__icend;
 extern icilist *f__svic;
 int f__icnum;
 extern int f__hiwater;
+int
 z_getc (void)
 {
   if (f__recpos++ < f__svic->icirlen)
@@ -23,6 +24,7 @@ z_putc (int c)
   if (f__icptr < f__icend && f__recpos++ < f__svic->icirlen)
     *f__icptr++ = c;
 }
+int
 z_rnew (void)
 {
   f__icptr = f__svic->iciunit + (++f__icnum) * f__svic->icirlen;
@@ -39,6 +41,7 @@ z_endp (void)
   return 0;
 }
 
+int
 c_si (icilist * a)
 {
   if (f__init & 2)
@@ -76,7 +79,7 @@ integer
 s_rsfi (icilist * a)
 {
   int n;
-  if (n = c_si (a))
+  if ((n = c_si (a)))
     return (n);
   f__reading = 1;
   f__doed = rd_ed;
@@ -88,6 +91,7 @@ s_rsfi (icilist * a)
   return (0);
 }
 
+int
 z_wnew (void)
 {
   if (f__recpos < f__hiwater)
@@ -108,7 +112,7 @@ integer
 s_wsfi (icilist * a)
 {
   int n;
-  if (n = c_si (a))
+  if ((n = c_si (a)))
     return (n);
   f__reading = 0;
   f__doed = w_ed;

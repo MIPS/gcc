@@ -199,7 +199,7 @@ f_open (olist * a)
       if (!env)
 	env = "/tmp";
       len = strlen (env);
-      if (len > 256 - sizeof "/tmp.FXXXXXX")
+      if (len > 256 - (int) sizeof ("/tmp.FXXXXXX"))
 	err (a->oerr, 132, "open");
       strcpy (buf, env);
       strcat (buf, "/tmp.FXXXXXX");
@@ -239,7 +239,7 @@ f_open (olist * a)
     case 'r':			/* Fortran 90 replace option */
     case 'R':
     replace:
-      if (tf = fopen (buf, f__w_mode[0]))
+      if ((tf = fopen (buf, f__w_mode[0])))
 	fclose (tf);
     }
 
@@ -251,9 +251,9 @@ f_open (olist * a)
     ufmt = 0;
   if (!(tf = fopen (buf, f__w_mode[ufmt | 2])))
     {
-      if (tf = fopen (buf, f__r_mode[ufmt]))
+      if ((tf = fopen (buf, f__r_mode[ufmt])))
 	b->urw = 1;
-      else if (tf = fopen (buf, f__w_mode[ufmt]))
+      else if ((tf = fopen (buf, f__w_mode[ufmt])))
 	{
 	  b->uwrt = 1;
 	  b->urw = 2;
@@ -267,14 +267,17 @@ f_open (olist * a)
     opnerr (a->oerr, 108, "open");
 #endif
   if (b->useek)
-    if (a->orl)
-      FSEEK (b->ufd, 0, SEEK_SET);
-    else if ((s = a->oacc) && (*s == 'a' || *s == 'A')
-	     && FSEEK (b->ufd, 0, SEEK_END))
-      opnerr (a->oerr, 129, "open");
+    {
+      if (a->orl)
+	FSEEK (b->ufd, 0, SEEK_SET);
+      else if ((s = a->oacc) && (*s == 'a' || *s == 'A')
+	       && FSEEK (b->ufd, 0, SEEK_END))
+	opnerr (a->oerr, 129, "open");
+    }
   return (0);
 }
 
+int
 fk_open (int seq, int fmt, ftnint n)
 {
   char nbuf[10];

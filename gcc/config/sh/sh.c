@@ -3796,6 +3796,7 @@ machine_dependent_reorg (first)
 
 		      /* Remove the clobber of r0.  */
 		      XEXP (clobber, 0) = gen_rtx_SCRATCH (Pmode);
+		      RTX_UNCHANGING_P (newsrc) = 1;
 		    }
 		  /* This is a mova needing a label.  Create it.  */
 		  else if (GET_CODE (src) == UNSPEC
@@ -3813,8 +3814,8 @@ machine_dependent_reorg (first)
 		      lab = add_constant (src, mode, 0);
 		      newsrc = gen_rtx_MEM (mode,
 					    gen_rtx_LABEL_REF (VOIDmode, lab));
+		      RTX_UNCHANGING_P (newsrc) = 1;
 		    }
-		  RTX_UNCHANGING_P (newsrc) = 1;
 		  *patp = gen_rtx_SET (VOIDmode, dst, newsrc);
 		  INSN_CODE (scan) = -1;
 		}
@@ -6230,16 +6231,14 @@ reg_unused_after (reg, insn)
 
 #include "ggc.h"
 
+static GTY(()) rtx fpscr_rtx;
 rtx
 get_fpscr_rtx ()
 {
-  static rtx fpscr_rtx;
-
   if (! fpscr_rtx)
     {
       fpscr_rtx = gen_rtx (REG, PSImode, FPSCR_REG);
       REG_USERVAR_P (fpscr_rtx) = 1;
-      ggc_add_rtx_root (&fpscr_rtx, 1);
       mark_user_reg (fpscr_rtx);
     }
   if (! reload_completed || mdep_reorg_phase != SH_AFTER_MDEP_REORG)
@@ -6819,3 +6818,5 @@ sh_strip_name_encoding (str)
   str += *str == '*';
   return str;
 }
+
+#include "gt-sh.h"

@@ -593,7 +593,7 @@ remove_bb_ann (bb)
       ann->parent = NULL;
       /* There is no need to delete the arrays in each of the reference.
 	 That is done by delete_ssa().  */
-      VARRAY_FREE (ann->refs);
+      ann->refs = NULL;
     }
   bb->aux = NULL;
 }

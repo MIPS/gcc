@@ -264,6 +264,18 @@ elif test x$withval != xno; then
   cpp_install_dir=$withval
 fi])
 
+# Enable __cxa_atexit for C++.
+AC_ARG_ENABLE(__cxa_atexit,
+[  --enable-__cxa_atexit   enable __cxa_atexit for C++],
+[], [])
+if test x$enable___cxa_atexit = xyes; then
+  AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
+  [Define if you want to use __cxa_atexit, rather than atexit, to
+   register C++ destructors for local statics and global objects.
+   This is essential for fully standards-compliant handling of
+   destructors, but requires __cxa_atexit in libc.])
+fi
+  
 # Enable Multibyte Characters for C/C++
 AC_ARG_ENABLE(c-mbchar,
 [  --enable-c-mbchar       enable multibyte characters for C and C++],
@@ -719,6 +731,7 @@ objext='.o'
 AC_SUBST(manext)
 AC_SUBST(objext)
 
+config_gtfiles=
 build_xm_file=
 build_xm_defines=
 build_install_headers_dir=install-headers-tar
@@ -1062,7 +1075,7 @@ for f in $tm_file; do
     ansidecl.h )
        tm_file_list="${tm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
     defaults.h )
-       tm_file_list="${tm_file_list} $f" ;;
+       tm_file_list="${tm_file_list} \$(srcdir)/$f" ;;
     *) tm_file_list="${tm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done
@@ -1077,8 +1090,10 @@ for f in $host_xm_file; do
   case $f in
     ansidecl.h )
        host_xm_file_list="${host_xm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
-    auto-host.h | defaults.h )
+    auto-host.h )
        host_xm_file_list="${host_xm_file_list} $f" ;;
+    defaults.h )
+       host_xm_file_list="${host_xm_file_list} \$(srcdir)/$f" ;;
     *) host_xm_file_list="${host_xm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done
@@ -1088,8 +1103,10 @@ for f in $build_xm_file; do
   case $f in
     ansidecl.h )
        build_xm_file_list="${build_xm_file_list} \$(srcdir)/../include/ansidecl.h" ;;
-    auto-build.h | auto-host.h | defaults.h )
+    auto-build.h | auto-host.h )
        build_xm_file_list="${build_xm_file_list} $f" ;;
+    defaults.h )
+       host_xm_file_list="${host_xm_file_list} \$(srcdir)/$f" ;;
     *) build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f" ;;
   esac
 done
@@ -2326,6 +2343,8 @@ all_stagestuff=
 all_outputs='Makefile intl/Makefile fixinc/Makefile gccbug mklibgcc mkheaders'
 # List of language makefile fragments.
 all_lang_makefiles=
+# Files for gengtype
+all_gtfiles="$config_gtfiles"
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2346,6 +2365,7 @@ do
 		compilers=
 		stagestuff=
 		outputs=
+		gtfiles=
 		. ${srcdir}/$s/config-lang.in
 		if test "x$language" = x
 		then
@@ -2364,6 +2384,7 @@ do
 		all_compilers="$all_compilers $compilers"
 		all_stagestuff="$all_stagestuff $stagestuff"
 		all_outputs="$all_outputs $outputs"
+		all_gtfiles="$all_gtfiles $gtfiles"
 	fi
 done
 
@@ -2496,6 +2517,7 @@ ${CONFIG_SHELL-/bin/sh} $srcdir/configure.frag $srcdir "$subdirs" "$dep_host_xma
 AC_SUBST(subdirs)
 AC_SUBST(all_boot_languages)
 AC_SUBST(all_compilers)
+AC_SUBST(all_gtfiles)
 AC_SUBST(all_lang_makefiles)
 AC_SUBST(all_languages)
 AC_SUBST(all_stagestuff)

@@ -13,7 +13,6 @@ extern int f__fmtlen;
 
 #ifdef Allow_TYQUAD
 static longint f__llx;
-static int quad_read;
 #endif
 
 #undef abs
@@ -65,6 +64,7 @@ un_getc (int x, FILE * f__cf)
 extern int ungetc (int, FILE *);	/* for systems with a buggy stdio.h */
 #endif
 
+int
 t_getc (void)
 {
   int ch;
@@ -98,7 +98,7 @@ flag f__lquit;
 int f__lcount, f__ltype, nml_read;
 char *f__lchar;
 double f__lx, f__ly;
-#define ERR(x) if(n=(x)) {f__init &= ~2; return(n);}
+#define ERR(x) if((n=(x))) {f__init &= ~2; return(n);}
 #define GETC(x) (x=(*l_getc)())
 #define Ungetc(x,y) (*l_ungetc)(x,y)
 
@@ -304,10 +304,12 @@ l_C (void)
 	  return 0;
 	}
       if (rd_count (ch))
-	if (!f__cf || !feof (f__cf))
-	  errfl (f__elist->cierr, 112, "complex format");
-	else
-	  err (f__elist->cierr, (EOF), "lread");
+        {
+	  if (!f__cf || !feof (f__cf))
+	    errfl (f__elist->cierr, 112, "complex format");
+	  else
+	    err (f__elist->cierr, (EOF), "lread");
+	}
       if (GETC (ch) != '*')
 	{
 	  if (!f__cf || !feof (f__cf))
@@ -327,7 +329,7 @@ l_C (void)
   Ungetc (ch, f__cf);
   nml_save = nml_read;
   nml_read = 0;
-  if (ch = l_R (1, 0))
+  if ((ch = l_R (1, 0)))
     return ch;
   if (!f__ltype)
     errfl (f__elist->cierr, 112, "no real part");
@@ -340,7 +342,7 @@ l_C (void)
     }
   while (iswhit (GETC (ch)));
   (void) Ungetc (ch, f__cf);
-  if (ch = l_R (1, 0))
+  if ((ch = l_R (1, 0)))
     return ch;
   if (!f__ltype)
     errfl (f__elist->cierr, 112, "no imaginary part");
@@ -364,7 +366,7 @@ static int
 nmL_getc (void)
 {
   int rv;
-  if (rv = *nmL_next++)
+  if ((rv = *nmL_next++))
     return rv;
   l_getc = nmL_getc_save;
   l_ungetc = nmL_ungetc_save;
@@ -441,10 +443,12 @@ l_L (void)
     {
       rd_count (ch);
       if (GETC (ch) != '*')
-	if (!f__cf || !feof (f__cf))
-	  errfl (f__elist->cierr, 112, "no star");
-	else
-	  err (f__elist->cierr, (EOF), "lread");
+        {
+	  if (!f__cf || !feof (f__cf))
+	    errfl (f__elist->cierr, 112, "no star");
+	  else
+	    err (f__elist->cierr, (EOF), "lread");
+	}
       GETC (ch);
     }
   sawdot = 0;
@@ -658,6 +662,7 @@ have_lcount:
     }
 }
 
+int
 c_le (cilist * a)
 {
   if (f__init != 1)
@@ -678,6 +683,7 @@ c_le (cilist * a)
   return (0);
 }
 
+int
 l_read (ftnint * number, char *ptr, ftnlen len, ftnint type)
 {
 #define Ptr ((flex *)ptr)
@@ -822,7 +828,7 @@ s_rsle (cilist * a)
   f__reading = 1;
   f__external = 1;
   f__formatted = 1;
-  if (n = c_le (a))
+  if ((n = c_le (a)))
     return (n);
   f__lioproc = l_read;
   f__lquit = 0;

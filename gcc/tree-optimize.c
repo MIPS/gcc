@@ -38,7 +38,6 @@ Boston, MA 02111-1307, USA.  */
 /* Local functions.  */
 static void init_tree_flow PARAMS ((void));
 
-
 /* {{{ optimize_function_tree ()
 
    Main entry point to the tree SSA transformation routines.  */
@@ -75,7 +74,7 @@ optimize_function_tree (fndecl)
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
   delete_ssa ();
-  VARRAY_FREE (referenced_symbols);
+  referenced_symbols = NULL;
 }
 
 /* }}} */

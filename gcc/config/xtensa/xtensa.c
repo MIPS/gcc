@@ -44,8 +44,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "output.h"
 #include "libfuncs.h"
+#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -85,7 +87,7 @@ const char *xtensa_st_opcodes[(int) MAX_MACHINE_MODE];
 #define LARGEST_MOVE_RATIO 15
 
 /* Define the structure for the machine field in struct function.  */
-struct machine_function
+struct machine_function GTY(())
 {
   int accesses_prev_frame;
 };
@@ -193,8 +195,7 @@ static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
 static rtx gen_conditional_move PARAMS ((rtx));
 static rtx fixup_subreg_mem PARAMS ((rtx x));
 static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
-static void xtensa_init_machine_status PARAMS ((struct function *p));
-static void xtensa_free_machine_status PARAMS ((struct function *p));
+static struct machine_function * xtensa_init_machine_status PARAMS ((void));
 static void printx PARAMS ((FILE *, signed int));
 static void xtensa_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					       unsigned HOST_WIDE_INT));
@@ -1381,7 +1382,7 @@ xtensa_expand_block_move (operands)
   if (num_pieces >= move_ratio)
     return 0;
 
-   /* make sure the memory addresses are valid */
+  /* make sure the memory addresses are valid */
   operands[0] = validize_mem (dest);
   operands[1] = validize_mem (src);
 
@@ -1549,21 +1550,10 @@ xtensa_expand_nonlocal_goto (operands)
 }
 
 
-static void
-xtensa_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+xtensa_init_machine_status ()
 {
-  p->machine = (struct machine_function *)
-    xcalloc (1, sizeof (struct machine_function));
-}
-
-
-static void
-xtensa_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 
@@ -1846,7 +1836,6 @@ override_options ()
     }
 
   init_machine_status = xtensa_init_machine_status;
-  free_machine_status = xtensa_free_machine_status;
 
   /* Check PIC settings.  There's no need for -fPIC on Xtensa and
      some targets need to always use PIC.  */
@@ -2315,9 +2304,10 @@ xtensa_function_epilogue (file, size)
 tree
 xtensa_build_va_list (void)
 {
-  tree f_stk, f_reg, f_ndx, record;
+  tree f_stk, f_reg, f_ndx, record, type_decl;
 
-  record = make_node (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
   f_stk = build_decl (FIELD_DECL, get_identifier ("__va_stk"),
 		      ptr_type_node);
@@ -2330,6 +2320,8 @@ xtensa_build_va_list (void)
   DECL_FIELD_CONTEXT (f_reg) = record;
   DECL_FIELD_CONTEXT (f_ndx) = record;
 
+  TREE_CHAIN (record) = type_decl;
+  TYPE_NAME (record) = type_decl;
   TYPE_FIELDS (record) = f_stk;
   TREE_CHAIN (f_stk) = f_reg;
   TREE_CHAIN (f_reg) = f_ndx;
@@ -2356,9 +2348,7 @@ xtensa_builtin_saveregs ()
   /* allocate the general-purpose register space */
   gp_regs = assign_stack_local
     (BLKmode, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, -1);
-  MEM_IN_STRUCT_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (XEXP (gp_regs, 0)) = 1;
+  set_mem_alias_set (gp_regs, get_varargs_alias_set ());
 
   /* Now store the incoming registers.  */
   dest = change_address (gp_regs, SImode,
@@ -2759,3 +2749,5 @@ xtensa_encode_section_info (decl, first)
   if (TREE_CODE (decl) == FUNCTION_DECL && ! TREE_PUBLIC (decl))
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
+
+#include "gt-xtensa.h"

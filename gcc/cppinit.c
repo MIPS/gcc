@@ -995,12 +995,10 @@ cpp_finish_options (pfile)
       struct pending_option *p;
 
       _cpp_do_file_change (pfile, LC_RENAME, _("<built-in>"), 1, 0);
-      if (!CPP_OPTION (pfile, traditional) /* REMOVEME */)
-	init_builtins (pfile);
+      init_builtins (pfile);
       _cpp_do_file_change (pfile, LC_RENAME, _("<command line>"), 1, 0);
-      if (!CPP_OPTION (pfile, traditional) /* REMOVEME */)
-	for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
-	  (*p->handler) (pfile, p->arg);
+      for (p = CPP_OPTION (pfile, pending)->directive_head; p; p = p->next)
+	(*p->handler) (pfile, p->arg);
 
       /* Scan -imacros files after -D, -U, but before -include.
 	 pfile->next_include_file is NULL, so _cpp_pop_buffer does not
@@ -1154,7 +1152,25 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("MT",                       no_tgt, OPT_MT)                         \
   DEF_OPT("P",                        0,      OPT_P)                          \
   DEF_OPT("U",                        no_mac, OPT_U)                          \
-  DEF_OPT("W",                        no_arg, OPT_W)  /* arg optional */      \
+  DEF_OPT("Wall",                     0,      OPT_Wall)                       \
+  DEF_OPT("Wcomment",                 0,      OPT_Wcomment)                   \
+  DEF_OPT("Wcomments",                0,      OPT_Wcomments)                  \
+  DEF_OPT("Wendif-labels",            0,      OPT_Wendif_labels)              \
+  DEF_OPT("Werror",                   0,      OPT_Werror)                     \
+  DEF_OPT("Wimport",                  0,      OPT_Wimport)                    \
+  DEF_OPT("Wno-comment",              0,      OPT_Wno_comment)                \
+  DEF_OPT("Wno-comments",             0,      OPT_Wno_comments)               \
+  DEF_OPT("Wno-endif-labels",         0,      OPT_Wno_endif_labels)           \
+  DEF_OPT("Wno-error",                0,      OPT_Wno_error)                  \
+  DEF_OPT("Wno-import",               0,      OPT_Wno_import)                 \
+  DEF_OPT("Wno-system-headers",       0,      OPT_Wno_system_headers)         \
+  DEF_OPT("Wno-traditional",          0,      OPT_Wno_traditional)            \
+  DEF_OPT("Wno-trigraphs",            0,      OPT_Wno_trigraphs)              \
+  DEF_OPT("Wno-undef",                0,      OPT_Wno_undef)                  \
+  DEF_OPT("Wsystem-headers",          0,      OPT_Wsystem_headers)            \
+  DEF_OPT("Wtraditional",             0,      OPT_Wtraditional)               \
+  DEF_OPT("Wtrigraphs",               0,      OPT_Wtrigraphs)                 \
+  DEF_OPT("Wundef",                   0,      OPT_Wundef)                     \
   DEF_OPT("d",                        no_arg, OPT_d)                          \
   DEF_OPT("fno-operator-names",       0,      OPT_fno_operator_names)         \
   DEF_OPT("fno-preprocessed",         0,      OPT_fno_preprocessed)           \
@@ -1195,7 +1211,6 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("traditional-cpp",	      0,      OPT_traditional_cpp)            \
   DEF_OPT("trigraphs",                0,      OPT_trigraphs)                  \
   DEF_OPT("v",                        0,      OPT_v)                          \
-  DEF_OPT("version",                  0,      OPT_version)                    \
   DEF_OPT("w",                        0,      OPT_w)
 
 #define DEF_OPT(text, msg, code) code,
@@ -1230,10 +1245,7 @@ static const struct cl_option cl_options[] =
    command-line matches.  Returns its index in the option array,
    negative on failure.  Complications arise since some options can be
    suffixed with an argument, and multiple complete matches can occur,
-   e.g. -iwithprefix and -iwithprefixbefore.  Moreover, we need to
-   accept options beginning with -W that we do not recognise, but not
-   to swallow any subsequent command line argument; this is handled as
-   special cases in cpp_handle_option.  */
+   e.g. -pedantic and -pedantic-errors.  */
 static int
 parse_option (input)
      const char *input;
@@ -1292,14 +1304,12 @@ parse_option (input)
 
 /* Handle one command-line option in (argc, argv).
    Can be called multiple times, to handle multiple sets of options.
-   If ignore is non-zero, this will ignore unrecognized -W* options.
    Returns number of strings consumed.  */
 int
-cpp_handle_option (pfile, argc, argv, ignore)
+cpp_handle_option (pfile, argc, argv)
      cpp_reader *pfile;
      int argc;
      char **argv;
-     int ignore;
 {
   int i = 0;
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
@@ -1331,11 +1341,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
       if (cl_options[opt_index].msg)
 	{
 	  arg = &argv[i][cl_options[opt_index].opt_len + 1];
-
-	  /* Yuk. Special case for -W as it must not swallow
-	     up any following argument.  If this becomes common, add
-	     another field to the cl_options table.  */
-	  if (arg[0] == '\0' && opt_code != OPT_W)
+	  if (arg[0] == '\0')
 	    {
 	      arg = argv[++i];
 	      if (!arg)
@@ -1382,26 +1388,15 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	case OPT_h:
 	case OPT__help:
 	  print_help ();
-	  CPP_OPTION (pfile, help_only) = 1;
-	  break;
+	  /* fall through */
 	case OPT_target__help:
-	  /* Print if any target specific options. cpplib has none, but
-	     make sure help_only gets set.  */
-	  CPP_OPTION (pfile, help_only) = 1;
-	  break;
-
-	  /* --version inhibits compilation, -version doesn't. -v means
-	     verbose and -version.  Historical reasons, don't ask.  */
 	case OPT__version:
+	  /* Nothing to do for these cases, but we need to be sure
+	     help_only is set.  */
 	  CPP_OPTION (pfile, help_only) = 1;
-	  pfile->print_version = 1;
 	  break;
 	case OPT_v:
 	  CPP_OPTION (pfile, verbose) = 1;
-	  pfile->print_version = 1;
-	  break;
-	case OPT_version:
-	  pfile->print_version = 1;
 	  break;
 
 	case OPT_C:
@@ -1667,51 +1662,68 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  /* Add directory to end of path for includes.  */
 	  append_include_chain (pfile, xstrdup (arg), AFTER, 0);
 	  break;
-	case OPT_W:
-	  /* Silently ignore unrecognised options.  */
-	  if (!strcmp (argv[i], "-Wall"))
-	    {
-	      CPP_OPTION (pfile, warn_trigraphs) = 1;
-	      CPP_OPTION (pfile, warn_comments) = 1;
-	    }
-	  else if (!strcmp (argv[i], "-Wtraditional"))
-	    CPP_OPTION (pfile, warn_traditional) = 1;
-	  else if (!strcmp (argv[i], "-Wtrigraphs"))
-	    CPP_OPTION (pfile, warn_trigraphs) = 1;
-	  else if (!strcmp (argv[i], "-Wcomment"))
-	    CPP_OPTION (pfile, warn_comments) = 1;
-	  else if (!strcmp (argv[i], "-Wcomments"))
-	    CPP_OPTION (pfile, warn_comments) = 1;
-	  else if (!strcmp (argv[i], "-Wundef"))
-	    CPP_OPTION (pfile, warn_undef) = 1;
-	  else if (!strcmp (argv[i], "-Wimport"))
-	    CPP_OPTION (pfile, warn_import) = 1;
-	  else if (!strcmp (argv[i], "-Werror"))
-	    CPP_OPTION (pfile, warnings_are_errors) = 1;
-	  else if (!strcmp (argv[i], "-Wsystem-headers"))
-	    CPP_OPTION (pfile, warn_system_headers) = 1;
-	  else if (!strcmp (argv[i], "-Wendif-labels"))
-	    CPP_OPTION (pfile, warn_endif_labels) = 1;
-	  else if (!strcmp (argv[i], "-Wno-traditional"))
-	    CPP_OPTION (pfile, warn_traditional) = 0;
-	  else if (!strcmp (argv[i], "-Wno-trigraphs"))
-	    CPP_OPTION (pfile, warn_trigraphs) = 0;
-	  else if (!strcmp (argv[i], "-Wno-comment"))
-	    CPP_OPTION (pfile, warn_comments) = 0;
-	  else if (!strcmp (argv[i], "-Wno-comments"))
-	    CPP_OPTION (pfile, warn_comments) = 0;
-	  else if (!strcmp (argv[i], "-Wno-undef"))
-	    CPP_OPTION (pfile, warn_undef) = 0;
-	  else if (!strcmp (argv[i], "-Wno-import"))
-	    CPP_OPTION (pfile, warn_import) = 0;
-	  else if (!strcmp (argv[i], "-Wno-error"))
-	    CPP_OPTION (pfile, warnings_are_errors) = 0;
-	  else if (!strcmp (argv[i], "-Wno-system-headers"))
-	    CPP_OPTION (pfile, warn_system_headers) = 0;
-	  else if (!strcmp (argv[i], "-Wno-endif-labels"))
-	    CPP_OPTION (pfile, warn_endif_labels) = 0;
-	  else if (! ignore)
-	    return i;
+
+	case OPT_Wall:
+	  CPP_OPTION (pfile, warn_trigraphs) = 1;
+	  CPP_OPTION (pfile, warn_comments) = 1;
+	  break;
+
+	case OPT_Wtraditional:
+	  CPP_OPTION (pfile, warn_traditional) = 1;
+	  break;
+	case OPT_Wno_traditional:
+	  CPP_OPTION (pfile, warn_traditional) = 0;
+	  break;
+
+	case OPT_Wtrigraphs:
+	  CPP_OPTION (pfile, warn_trigraphs) = 1;
+	  break;
+	case OPT_Wno_trigraphs:
+	  CPP_OPTION (pfile, warn_trigraphs) = 0;
+	  break;
+
+	case OPT_Wcomment:
+	case OPT_Wcomments:
+	  CPP_OPTION (pfile, warn_comments) = 1;
+	  break;
+	case OPT_Wno_comment:
+	case OPT_Wno_comments:
+	  CPP_OPTION (pfile, warn_comments) = 0;
+	  break;
+
+	case OPT_Wundef:
+	  CPP_OPTION (pfile, warn_undef) = 1;
+	  break;
+	case OPT_Wno_undef:
+	  CPP_OPTION (pfile, warn_undef) = 0;
+	  break;
+
+	case OPT_Wimport:
+	  CPP_OPTION (pfile, warn_import) = 1;
+	  break;
+	case OPT_Wno_import:
+	  CPP_OPTION (pfile, warn_import) = 0;
+	  break;
+
+	case OPT_Wendif_labels:
+	  CPP_OPTION (pfile, warn_endif_labels) = 1;
+	  break;
+	case OPT_Wno_endif_labels:
+	  CPP_OPTION (pfile, warn_endif_labels) = 0;
+	  break;
+
+	case OPT_Werror:
+	  CPP_OPTION (pfile, warnings_are_errors) = 1;
+	  break;
+	case OPT_Wno_error:
+	  CPP_OPTION (pfile, warnings_are_errors) = 0;
+	  break;
+
+	case OPT_Wsystem_headers:
+	  CPP_OPTION (pfile, warn_system_headers) = 1;
+	  break;
+	case OPT_Wno_system_headers:
+	  CPP_OPTION (pfile, warn_system_headers) = 0;
 	  break;
 	}
     }
@@ -1733,7 +1745,7 @@ cpp_handle_options (pfile, argc, argv)
 
   for (i = 0; i < argc; i += strings_processed)
     {
-      strings_processed = cpp_handle_option (pfile, argc - i, argv + i, 1);
+      strings_processed = cpp_handle_option (pfile, argc - i, argv + i);
       if (strings_processed == 0)
 	break;
     }
@@ -1747,15 +1759,6 @@ void
 cpp_post_options (pfile)
      cpp_reader *pfile;
 {
-  if (pfile->print_version)
-    {
-      fprintf (stderr, _("GNU CPP version %s (cpplib)"), version_string);
-#ifdef TARGET_VERSION
-      TARGET_VERSION;
-#endif
-      fputc ('\n', stderr);
-    }
-
   /* Canonicalize in_fname and out_fname.  We guarantee they are not
      NULL, and that the empty string represents stdin / stdout.  */
   if (CPP_OPTION (pfile, in_fname) == NULL
@@ -1770,6 +1773,8 @@ cpp_post_options (pfile)
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
 
+  /* The compiler front ends override this, but I think this is the
+     appropriate setting for the library.  */
   CPP_OPTION (pfile, warn_long_long) = (CPP_OPTION (pfile, pedantic)
 					&& !CPP_OPTION (pfile, c99));
 

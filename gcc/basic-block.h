@@ -33,7 +33,7 @@ typedef bitmap_head regset_head;
 typedef bitmap regset;
 
 /* Initialize a new regset.  */
-#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD)
+#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, 1)
 
 /* Clear a register set by freeing up the linked list.  */
 #define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
@@ -99,7 +99,7 @@ do {									\
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
 
 /* Initialize a register set.  Returns the new register set.  */
-#define INITIALIZE_REG_SET(HEAD) bitmap_initialize (&HEAD)
+#define INITIALIZE_REG_SET(HEAD) bitmap_initialize (&HEAD, 1)
 
 /* Do any cleanup needed on a regset when it is no longer used.  */
 #define FREE_REG_SET(REGSET) BITMAP_FREE(REGSET)
@@ -309,14 +309,12 @@ extern struct basic_block_def entry_exit_blocks[2];
 #define ENTRY_BLOCK_PTR	(&entry_exit_blocks[0])
 #define EXIT_BLOCK_PTR	(&entry_exit_blocks[1])
 
-extern varray_type basic_block_for_insn;
-#define BLOCK_FOR_INSN(INSN)  VARRAY_BB (basic_block_for_insn, INSN_UID (INSN))
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
+#define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
 
 extern void compute_bb_for_insn		PARAMS ((int));
 extern void free_bb_for_insn		PARAMS ((void));
 extern void update_bb_for_insn		PARAMS ((basic_block));
-extern void set_block_for_insn		PARAMS ((rtx, basic_block));
 
 extern void free_basic_block_vars	PARAMS ((int));
 

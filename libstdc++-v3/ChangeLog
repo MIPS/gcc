@@ -1,12 +1,126 @@
+2002-06-08  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/backwards/strstream_members.cc: New.
+
+2002-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/backwards/strstream: Format.
+	* src/strstream.cc: Format.
+	
+2002-06-08  Andreas Schwab  <schwab@suse.de>
+
+	* src/strstream.cc (strstreambuf::overflow): Set _M_buf,
+	_M_buf_size and _M_buf_size_opt to the new buffer and size.
+
+2002-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/os/generic/bits/ctype_noninline.h: Tweak format.
+
+2002-06-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* src/locale-inst.cc (__codecvt_abstract_base):
+	Put inside _GLIBCPP_USE_WCHAR_T ifdef.
+	* include/bits/istream.tcc (basic_istream): Ditto.
+	(ws) Ditto.
+	(operator>>) Ditto.
+	* include/bits/ostream.tcc (basic_ostream): Ditto. 
+	(endl): Ditto.
+	(ends): Ditto.
+	(flush): Ditto.
+	(operator<<): Ditto.
+
+2002-06-07  Phil Edwards  <pme@gcc.gnu.org>
+
+	* mkcheck.in:  Link against local testsuite library.
+	* testsuite/testsuite_hooks.h (__set_testsuite_memlimit):  Move null
+	implementation out...
+	* testsuite/testsuite_hooks.cc:  ...to here.
+
+2002-06-06  Loren J. Rittle <ljrittle@acm.org>
+
+	* src/Makefile.am (AUTOMAKE_OPTIONS): Use cygnus-style generation.
+	* include/Makefile.am (AUTOMAKE_OPTIONS): Likewise.
+	* testsuite/Makefile.am (AUTOMAKE_OPTIONS): Likewise.
+	* src/Makefile.in: Regenerate (explicitly with --cygnus option).
+	* testsuite/Makefile.in: Likewise.
+
+2002-06-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/bits/ctype_noninline.h (do_toupper,do_tolower):
+	Call external symbol.
+
+2002-06-04  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3_target_compile):
+	Search correct multilib testsuite dir for libv3test.
+
+2002-06-04  Paolo Carlini  <pcarlini@unitus.it>
+            Gaby Dos Reis  <gdr@codesourcery.com>
+
+	* include/bits/basic_string.tcc
+	(basic_string::_S_construct(forward_iterator_tag):
+	Fix typo in null pointer check.
+	* testsuite/21_strings/ctor_copy_dtor.cc: Add test04.
+
+2002-06-04  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/money_get_members_char.cc
+	(test02): Add decimal point to long double constants.
+	* testsuite/22_locale/money_get_members_wchar_t.cc
+	(test02): Likewise.
+	* testsuite/22_locale/money_put_members_char.cc
+	(test02, test03, test06): Likewise.
+	* testsuite/22_locale/money_put_members_wchar_t.cc:
+	(test02, test03, test06): Likewise.
+	* testsuite/22_locale/num_get_members_char.cc:
+	(test02, test01): Likewise; suffix long long constants with LL.	
+	* testsuite/22_locale/num_get_members_wchar_t.cc:
+	(test02, test01): Likewise.
+	* testsuite/22_locale/num_put_members_char.cc:
+	(test02, test01): Likewise.
+	* testsuite/22_locale/num_put_members_wchar_t.cc:
+	(test02, test01): Likewise.
+
+2002-06-03  Marc Espie  <espie@openbsd.org>
+
+	* config/cpu/m68k/bits/atomicity.h(__exchange_and_add): Fix inline
+	assembly for old assemblers.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_bvector.h (swap(_Bit_reference,_Bit_reference)):
+	Move/rename...
+	(vector<bool>::swap(reference,reference)): ...to this.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/TODO:  Update.
+	* docs/doxygen/user.cfg.in (SORT_MEMBER_DOCS):  Set to off, now that
+	some class members are in 14882 order.
+	* docs/html/ext/howto.html:  3.1 is in the past now, not the future.
+
+	* include/std/std_bitset.h:  Update comment.
+	* src/bitset.cc:  Update comments, clean up spacing.
+
+	* src/Makefile.am (sources):  Alphabetize for convenience.
+	* src/Makefile.in:  Regenerate.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_deque.h, include/bits/stl_list.h,
+	include/bits/stl_vector.h:  Reformat to (mostly) match C++STYLE.
+	Reorder to match 14882.  Doxygen blocks for all public members.
+
 2002-05-31  Marcus Meissner  <meissner@suse.de>
 
 	PR libstdc++/6886
 	* include/bits/stl_bvector.h:  Use UL suffix for unsigned longs.
 	* testsuite/23_containers/vector_bool.cc (test02):  New test.
 
-2002-05-30	Marc Espie <espie@openbsd.org>
-	* configure.in:  Always check for sys/types.h
-	* configure:  Regenerate.
+2002-05-30  Marc Espie  <espie@openbsd.org>
+
+	* configure.in: Always check for sys/types.h
+	* configure: Regenerate.
 
 2002-05-28  Nick Clifton  <nickc@cambridge.redhat.com>
 

@@ -1,3 +1,47 @@
+2002-06-07  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/20020607-2.c: New test case.
+
+2002-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020604-1.c: New test.
+
+2002-06-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/alpha-base-1.c: Add ext/ins/msk/umulh cases.
+	* gcc.dg/alpha-max-1.c, gcc.dg/alpha-max-2.c: Use -mcpu=ev67.
+	* gcc.dg/alpha-cix-1.c, gcc.dg/alpha-cix-2.c: New.
+
+2002-06-04  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-2.c: Remove test for invalid vector type V2DF.
+
+2002-06-03  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/alpha-base-1.c, gcc.dg/alpha-base-2.c: New.
+	* gcc.dg/alpha-max-1.c, gcc.dg/alpha-max-2.c: New.
+
+2002-06-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/pure-1.c: Don't mark any of the 
+	test functions static.
+
+2002-06-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/loop-3c.x: Remove, the test should pass
+	now.
+
+2002-06-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/wtr-int-type-1.c, gcc.dg/wtr-suffix-1.c,
+	gcc.dg/cpp/paste4.c, gcc.dg/cpp/sysmac2.c:
+	Update for mofified diagnostics.
+	* gcc.dg/c99-intconst-1.c: No longer fail.
+
+2002-06-02  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/uninit-A.c: Remove xfail markers.
+
 2002-06-01  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/fnegate-1.c: New test case.
@@ -8,7 +52,7 @@
 
 2002-05-29  Neil Booth  <neil@daikokuya.demon.co.uk>
 
-	* gcc.dg/cpp/c++98-pedantic.c, gcc.dg/cpp/c89-pedantic.c, 
+	* gcc.dg/cpp/c++98-pedantic.c, gcc.dg/cpp/c89-pedantic.c,
 	gcc.dg/cpp/c94-pedantic.c, gcc.dg/cpp/gnuc89-pedantic.c,
 	gcc.dg/cpp/if-1.c: Update for modified diagnostics.
 

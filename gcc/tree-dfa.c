@@ -526,8 +526,8 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
     {
       varray_type refs = BB_REFS (bb);
       char *src = refs->data.c;
-      char *dest = refs->data.c + refs->element_size;
-      size_t n = (refs->elements_used - 1) * refs->element_size;
+      char *dest = refs->data.c + sizeof (ref);
+      size_t n = (refs->elements_used - 1) * sizeof (ref);
 
       memmove (dest, src, n);
       VARRAY_GENERIC_PTR (refs, 0) = ref;

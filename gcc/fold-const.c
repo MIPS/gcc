@@ -1376,21 +1376,21 @@ size_int_wide (number, kind)
 
 /* Likewise, but the desired type is specified explicitly.  */
 
+static GTY (()) tree new_const;
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t size_htab;
+
 tree
 size_int_type_wide (number, type)
      HOST_WIDE_INT number;
      tree type;
 {
-  static htab_t size_htab = 0;
-  static tree new_const = 0;
   PTR *slot;
 
   if (size_htab == 0)
     {
       size_htab = htab_create (1024, size_htab_hash, size_htab_eq, NULL);
-      ggc_add_deletable_htab (size_htab, NULL, NULL);
       new_const = make_node (INTEGER_CST);
-      ggc_add_tree_root (&new_const, 1);
     }
 
   /* Adjust NEW_CONST to be the constant we want.  If it's already in the
@@ -5814,6 +5814,20 @@ fold (expr)
     case GT_EXPR:
     case LE_EXPR:
     case GE_EXPR:
+      /* If one arg is a real or integer constant, put it last.  */
+      if ((TREE_CODE (arg0) == INTEGER_CST
+	   && TREE_CODE (arg1) != INTEGER_CST)
+	  || (TREE_CODE (arg0) == REAL_CST
+	      && TREE_CODE (arg0) != REAL_CST))
+	{
+	  TREE_OPERAND (t, 0) = arg1;
+	  TREE_OPERAND (t, 1) = arg0;
+	  arg0 = TREE_OPERAND (t, 0);
+	  arg1 = TREE_OPERAND (t, 1);
+	  code = swap_tree_comparison (code);
+	  TREE_SET_CODE (t, code);
+	}
+
       if (FLOAT_TYPE_P (TREE_TYPE (arg0)))
 	{
 	  /* (-a) CMP (-b) -> b CMP a  */
@@ -5835,18 +5849,21 @@ fold (expr)
 	      && REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (arg1)))
 	    return fold (build (code, type, arg0,
 				build_real (TREE_TYPE (arg1), dconst0)));
-	}
 
-      /* If one arg is a constant integer, put it last.  */
-      if (TREE_CODE (arg0) == INTEGER_CST
-	  && TREE_CODE (arg1) != INTEGER_CST)
-	{
-	  TREE_OPERAND (t, 0) = arg1;
-	  TREE_OPERAND (t, 1) = arg0;
-	  arg0 = TREE_OPERAND (t, 0);
-	  arg1 = TREE_OPERAND (t, 1);
-	  code = swap_tree_comparison (code);
-	  TREE_SET_CODE (t, code);
+	  /* If this is a comparison of a real constant with a PLUS_EXPR
+	     or a MINUS_EXPR of a real constant, we can convert it into a
+	     comparison with a revised real constant as long as no overflow
+	     occurs when unsafe_math_optimizations are enabled.  */
+	  if (flag_unsafe_math_optimizations
+	      && TREE_CODE (arg1) == REAL_CST
+	      && (TREE_CODE (arg0) == PLUS_EXPR
+		  || TREE_CODE (arg0) == MINUS_EXPR)
+	      && TREE_CODE (TREE_OPERAND (arg0, 1)) == REAL_CST
+	      && 0 != (tem = const_binop (TREE_CODE (arg0) == PLUS_EXPR
+					  ? MINUS_EXPR : PLUS_EXPR,
+					  arg1, TREE_OPERAND (arg0, 1), 0))
+	      && ! TREE_CONSTANT_OVERFLOW (tem))
+	    return fold (build (code, type, TREE_OPERAND (arg0, 0), tem));
 	}
 
       /* Convert foo++ == CONST into ++foo == CONST + INCR.
@@ -7236,3 +7253,5 @@ rtl_expr_nonnegative_p (r)
       return 0;
     }
 }
+
+#include "gt-fold-const.h"

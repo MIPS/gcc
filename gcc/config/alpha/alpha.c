@@ -142,6 +142,10 @@ static void alpha_expand_unaligned_load_words
   PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
 static void alpha_expand_unaligned_store_words
   PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
+static void alpha_init_builtins
+  PARAMS ((void));
+static rtx alpha_expand_builtin
+  PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static void alpha_sa_mask
   PARAMS ((unsigned long *imaskP, unsigned long *fmaskP));
 static int find_lo_sum
@@ -184,12 +188,8 @@ static void alpha_elf_select_rtx_section
   PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
 #endif
 
-static void alpha_init_machine_status
-  PARAMS ((struct function *p));
-static void alpha_mark_machine_status
-  PARAMS ((struct function *p));
-static void alpha_free_machine_status
-  PARAMS ((struct function *p));
+static struct machine_function * alpha_init_machine_status
+  PARAMS ((void));
 
 static void unicosmk_output_deferred_case_vectors PARAMS ((FILE *));
 static void unicosmk_gen_dsib PARAMS ((unsigned long *imaskP));
@@ -277,6 +277,11 @@ static void unicosmk_unique_section PARAMS ((tree, int));
 
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS HAVE_AS_TLS
+
+#undef  TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS alpha_init_builtins
+#undef  TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN alpha_expand_builtin
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -553,8 +558,6 @@ override_options ()
 
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
-  mark_machine_status = alpha_mark_machine_status;
-  free_machine_status = alpha_free_machine_status;
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -581,7 +584,7 @@ reg_or_0_operand (op, mode)
       register rtx op;
       enum machine_mode mode;
 {
-  return op == const0_rtx || register_operand (op, mode);
+  return op == CONST0_RTX (mode) || register_operand (op, mode);
 }
 
 /* Return 1 if OP is a constant in the range of 0-63 (for a shift) or
@@ -608,6 +611,16 @@ reg_or_8bit_operand (op, mode)
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100)
 	  || register_operand (op, mode));
+}
+
+/* Return 1 if OP is a constant or any register.  */
+
+int
+reg_or_const_int_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  return GET_CODE (op) == CONST_INT || register_operand (op, mode);
 }
 
 /* Return 1 if OP is an 8-bit constant.  */
@@ -716,24 +729,26 @@ mode_mask_operand (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-#if HOST_BITS_PER_WIDE_INT == 32
-  if (GET_CODE (op) == CONST_DOUBLE)
-    return (CONST_DOUBLE_LOW (op) == -1
-	    && (CONST_DOUBLE_HIGH (op) == -1
-		|| CONST_DOUBLE_HIGH (op) == 0));
-#else
-  if (GET_CODE (op) == CONST_DOUBLE)
-    return (CONST_DOUBLE_LOW (op) == -1 && CONST_DOUBLE_HIGH (op) == 0);
-#endif
+  if (GET_CODE (op) == CONST_INT)
+    {
+      HOST_WIDE_INT value = INTVAL (op);
 
-  return (GET_CODE (op) == CONST_INT
-	  && (INTVAL (op) == 0xff
-	      || INTVAL (op) == 0xffff
-	      || INTVAL (op) == (HOST_WIDE_INT)0xffffffff
-#if HOST_BITS_PER_WIDE_INT == 64
-	      || INTVAL (op) == -1
-#endif
-	      ));
+      if (value == 0xff)
+	return 1;
+      if (value == 0xffff)
+	return 1;
+      if (value == 0xffffffff)
+	return 1;
+      if (value == -1)
+	return 1;
+    }
+  else if (HOST_BITS_PER_WIDE_INT == 32 && GET_CODE (op) == CONST_DOUBLE)
+    {
+      if (CONST_DOUBLE_LOW (op) == 0xffffffff && CONST_DOUBLE_HIGH (op) == 0)
+	return 1;
+    }
+
+  return 0;
 }
 
 /* Return 1 if OP is a multiple of 8 less than 64.  */
@@ -748,25 +763,14 @@ mul8_operand (op, mode)
 	  && (INTVAL (op) & 7) == 0);
 }
 
-/* Return 1 if OP is the constant zero in floating-point.  */
+/* Return 1 if OP is the zero constant for MODE.  */
 
 int
-fp0_operand (op, mode)
+const0_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (GET_MODE (op) == mode
-	  && GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode));
-}
-
-/* Return 1 if OP is the floating-point constant zero or a register.  */
-
-int
-reg_or_fp0_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
-{
-  return fp0_operand (op, mode) || register_operand (op, mode);
+  return op == CONST0_RTX (mode);
 }
 
 /* Return 1 if OP is a hard floating-point register.  */
@@ -824,8 +828,15 @@ some_operand (op, mode)
 
   switch (GET_CODE (op))
     {
-    case REG:  case MEM:  case CONST_DOUBLE:  case CONST_INT:  case LABEL_REF:
-    case SYMBOL_REF:  case CONST:  case HIGH:
+    case REG:
+    case MEM:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST:
+    case HIGH:
       return 1;
 
     case SUBREG:
@@ -904,7 +915,8 @@ input_operand (op, mode)
 	      && general_operand (op, mode));
 
     case CONST_DOUBLE:
-      return GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode);
+    case CONST_VECTOR:
+      return op == CONST0_RTX (mode);
 
     case CONST_INT:
       return mode == QImode || mode == HImode || add_operand (op, mode);
@@ -1626,7 +1638,9 @@ alpha_extra_constraint (value, c)
       return GET_CODE (value) == HIGH;
     case 'U':
       return TARGET_ABI_UNICOSMK && symbolic_operand (value, VOIDmode);
-
+    case 'W':
+      return (GET_CODE (value) == CONST_VECTOR
+	      && value == CONST0_RTX (GET_MODE (value)));
     default:
       return false;
     }
@@ -4236,17 +4250,13 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 	  emit_insn (gen_mskxl_be (dsth, dsth, GEN_INT (0xffff), addr));
 	  break;
 	case 4:
-	  emit_insn (gen_mskxl_be (dsth, dsth, GEN_INT (0xffffffff), addr));
-	  break;
-	case 8:
 	  {
-#if HOST_BITS_PER_WIDE_INT == 32
-	    rtx msk = immed_double_const (0xffffffff, 0xffffffff, DImode);
-#else
-	    rtx msk = constm1_rtx;
-#endif
+	    rtx msk = immed_double_const (0xffffffff, 0, DImode);
 	    emit_insn (gen_mskxl_be (dsth, dsth, msk, addr));
+	    break;
 	  }
+	case 8:
+	  emit_insn (gen_mskxl_be (dsth, dsth, constm1_rtx, addr));
 	  break;
 	}
 
@@ -4283,17 +4293,13 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 	  emit_insn (gen_mskxl_le (dstl, dstl, GEN_INT (0xffff), addr));
 	  break;
 	case 4:
-	  emit_insn (gen_mskxl_le (dstl, dstl, GEN_INT (0xffffffff), addr));
-	  break;
-	case 8:
 	  {
-#if HOST_BITS_PER_WIDE_INT == 32
-	    rtx msk = immed_double_const (0xffffffff, 0xffffffff, DImode);
-#else
-	    rtx msk = constm1_rtx;
-#endif
+	    rtx msk = immed_double_const (0xffffffff, 0, DImode);
 	    emit_insn (gen_mskxl_le (dstl, dstl, msk, addr));
+	    break;
 	  }
+	case 8:
+	  emit_insn (gen_mskxl_le (dstl, dstl, constm1_rtx, addr));
 	  break;
 	}
     }
@@ -4419,11 +4425,6 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
 {
   rtx const im8 = GEN_INT (-8);
   rtx const i64 = GEN_INT (64);
-#if HOST_BITS_PER_WIDE_INT == 32
-  rtx const im1 = immed_double_const (0xffffffff, 0xffffffff, DImode);
-#else
-  rtx const im1 = constm1_rtx;
-#endif
   rtx ins_tmps[MAX_MOVE_WORDS];
   rtx st_tmp_1, st_tmp_2, dreg;
   rtx st_addr_1, st_addr_2, dmema;
@@ -4487,13 +4488,13 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
   /* Split and merge the ends with the destination data.  */
   if (WORDS_BIG_ENDIAN)
     {
-      emit_insn (gen_mskxl_be (st_tmp_2, st_tmp_2, im1, dreg));
+      emit_insn (gen_mskxl_be (st_tmp_2, st_tmp_2, constm1_rtx, dreg));
       emit_insn (gen_mskxh (st_tmp_1, st_tmp_1, i64, dreg));
     }
   else
     {
       emit_insn (gen_mskxh (st_tmp_2, st_tmp_2, i64, dreg));
-      emit_insn (gen_mskxl_le (st_tmp_1, st_tmp_1, im1, dreg));
+      emit_insn (gen_mskxl_le (st_tmp_1, st_tmp_1, constm1_rtx, dreg));
     }
 
   if (data_regs != NULL)
@@ -5158,6 +5159,75 @@ alpha_expand_block_clear (operands)
 
   return 1;
 }
+
+/* Returns a mask so that zap(x, value) == x & mask.  */
+
+rtx
+alpha_expand_zap_mask (value)
+     HOST_WIDE_INT value;
+{
+  rtx result;
+  int i;
+
+  if (HOST_BITS_PER_WIDE_INT >= 64)
+    {
+      HOST_WIDE_INT mask = 0;
+
+      for (i = 7; i >= 0; --i)
+	{
+	  mask <<= 8;
+	  if (!((value >> i) & 1))
+	    mask |= 0xff;
+	}
+
+      result = gen_int_mode (mask, DImode);
+    }
+  else if (HOST_BITS_PER_WIDE_INT == 32)
+    {
+      HOST_WIDE_INT mask_lo = 0, mask_hi = 0;
+
+      for (i = 7; i >= 4; --i)
+	{
+	  mask_hi <<= 8;
+	  if (!((value >> i) & 1))
+	    mask_hi |= 0xff;
+	}
+
+      for (i = 3; i >= 0; --i)
+	{
+	  mask_lo <<= 8;
+	  if (!((value >> i) & 1))
+	    mask_lo |= 0xff;
+	}
+
+      result = immed_double_const (mask_lo, mask_hi, DImode);
+    }
+  else
+    abort ();
+
+  return result;
+}
+
+void
+alpha_expand_builtin_vector_binop (gen, mode, op0, op1, op2)
+     rtx (*gen) PARAMS ((rtx, rtx, rtx));
+     enum machine_mode mode;
+     rtx op0, op1, op2;
+{
+  op0 = gen_lowpart (mode, op0);
+
+  if (op1 == const0_rtx)
+    op1 = CONST0_RTX (mode);
+  else
+    op1 = gen_lowpart (mode, op1);
+
+  if (op2 == const0_rtx)
+    op2 = CONST0_RTX (mode);
+  else
+    op2 = gen_lowpart (mode, op2);
+
+  emit_insn ((*gen) (op0, op1, op2));
+}
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
@@ -5225,9 +5295,9 @@ alpha_multipass_dfa_lookahead ()
 
 /* Machine-specific function data.  */
 
-struct machine_function
+struct machine_function GTY(())
 {
-#if TARGET_ABI_UNICOSMK
+  /* For unicosmk. */
   /* List of call information words for calls from this function.  */
   struct rtx_def *first_ciw;
   struct rtx_def *last_ciw;
@@ -5235,58 +5305,18 @@ struct machine_function
 
   /* List of deferred case vectors.  */
   struct rtx_def *addr_list;
-#else
-#if TARGET_ABI_OSF
+
+  /* For OSF. */
   const char *some_ld_name;
-#else
-  /* Non-empty struct.  */
-  char dummy;
-#endif
-#endif
 };
 
-/* Register global variables and machine-specific functions with the
-   garbage collector.  */
+/* How to allocate a 'struct machine_function'.  */
 
-static void
-alpha_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+alpha_init_machine_status ()
 {
-  p->machine =
-    (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
-
-#if TARGET_ABI_UNICOSMK
-  p->machine->first_ciw = NULL_RTX;
-  p->machine->last_ciw = NULL_RTX;
-  p->machine->ciw_count = 0;
-  p->machine->addr_list = NULL_RTX;
-#endif
-#if TARGET_ABI_OSF
-  p->machine->some_ld_name = NULL;
-#endif
-}
-
-static void
-alpha_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  if (machine)
-    {
-#if TARGET_ABI_UNICOSMK
-      ggc_mark_rtx (machine->first_ciw);
-      ggc_mark_rtx (machine->addr_list);
-#endif
-    }
-}
-
-static void
-alpha_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
+  return ((struct machine_function *) 
+		ggc_alloc_cleared (sizeof (struct machine_function)));
 }
 
 /* Functions to save and restore alpha_return_addr_rtx.  */
@@ -5663,31 +5693,40 @@ print_operand (file, x, code)
 
     case 'U':
       /* Similar, except do it from the mask.  */
-      if (GET_CODE (x) == CONST_INT && INTVAL (x) == 0xff)
-	fprintf (file, "b");
-      else if (GET_CODE (x) == CONST_INT && INTVAL (x) == 0xffff)
-	fprintf (file, "w");
-      else if (GET_CODE (x) == CONST_INT && INTVAL (x) == 0xffffffff)
-	fprintf (file, "l");
-#if HOST_BITS_PER_WIDE_INT == 32
-      else if (GET_CODE (x) == CONST_DOUBLE
-	       && CONST_DOUBLE_HIGH (x) == 0
-	       && CONST_DOUBLE_LOW (x) == -1)
-	fprintf (file, "l");
-      else if (GET_CODE (x) == CONST_DOUBLE
-	       && CONST_DOUBLE_HIGH (x) == -1
-	       && CONST_DOUBLE_LOW (x) == -1)
-	fprintf (file, "q");
-#else
-      else if (GET_CODE (x) == CONST_INT && INTVAL (x) == -1)
-	fprintf (file, "q");
-      else if (GET_CODE (x) == CONST_DOUBLE
-	       && CONST_DOUBLE_HIGH (x) == 0
-	       && CONST_DOUBLE_LOW (x) == -1)
-	fprintf (file, "q");
-#endif
-      else
-	output_operand_lossage ("invalid %%U value");
+      if (GET_CODE (x) == CONST_INT)
+	{
+	  HOST_WIDE_INT value = INTVAL (x);
+
+	  if (value == 0xff)
+	    {
+	      fputc ('b', file);
+	      break;
+	    }
+	  if (value == 0xffff)
+	    {
+	      fputc ('w', file);
+	      break;
+	    }
+	  if (value == 0xffffffff)
+	    {
+	      fputc ('l', file);
+	      break;
+	    }
+	  if (value == -1)
+	    {
+	      fputc ('q', file);
+	      break;
+	    }
+	}
+      else if (HOST_BITS_PER_WIDE_INT == 32
+	       && GET_CODE (x) == CONST_DOUBLE
+	       && CONST_DOUBLE_LOW (x) == 0xffffffff
+	       && CONST_DOUBLE_HIGH (x) == 0)
+	{
+	  fputc ('l', file);
+	  break;
+	}
+      output_operand_lossage ("invalid %%U value");
       break;
 
     case 's':
@@ -6270,6 +6309,286 @@ alpha_va_arg (valist, type)
     }
 
   return addr;
+}
+
+/* Builtins.  */
+
+enum alpha_builtin
+{
+  ALPHA_BUILTIN_CMPBGE,
+  ALPHA_BUILTIN_EXTBL,
+  ALPHA_BUILTIN_EXTWL,
+  ALPHA_BUILTIN_EXTLL,
+  ALPHA_BUILTIN_EXTQL,
+  ALPHA_BUILTIN_EXTWH,
+  ALPHA_BUILTIN_EXTLH,
+  ALPHA_BUILTIN_EXTQH,
+  ALPHA_BUILTIN_INSBL,
+  ALPHA_BUILTIN_INSWL,
+  ALPHA_BUILTIN_INSLL,
+  ALPHA_BUILTIN_INSQL,
+  ALPHA_BUILTIN_INSWH,
+  ALPHA_BUILTIN_INSLH,
+  ALPHA_BUILTIN_INSQH,
+  ALPHA_BUILTIN_MSKBL,
+  ALPHA_BUILTIN_MSKWL,
+  ALPHA_BUILTIN_MSKLL,
+  ALPHA_BUILTIN_MSKQL,
+  ALPHA_BUILTIN_MSKWH,
+  ALPHA_BUILTIN_MSKLH,
+  ALPHA_BUILTIN_MSKQH,
+  ALPHA_BUILTIN_UMULH,
+  ALPHA_BUILTIN_ZAP,
+  ALPHA_BUILTIN_ZAPNOT,
+  ALPHA_BUILTIN_AMASK,
+  ALPHA_BUILTIN_IMPLVER,
+  ALPHA_BUILTIN_RPCC,
+
+  /* TARGET_MAX */
+  ALPHA_BUILTIN_MINUB8,
+  ALPHA_BUILTIN_MINSB8,
+  ALPHA_BUILTIN_MINUW4,
+  ALPHA_BUILTIN_MINSW4,
+  ALPHA_BUILTIN_MAXUB8,
+  ALPHA_BUILTIN_MAXSB8,
+  ALPHA_BUILTIN_MAXUW4,
+  ALPHA_BUILTIN_MAXSW4,
+  ALPHA_BUILTIN_PERR,
+  ALPHA_BUILTIN_PKLB,
+  ALPHA_BUILTIN_PKWB,
+  ALPHA_BUILTIN_UNPKBL,
+  ALPHA_BUILTIN_UNPKBW,
+
+  /* TARGET_CIX */
+  ALPHA_BUILTIN_CTTZ,
+  ALPHA_BUILTIN_CTLZ,
+  ALPHA_BUILTIN_CTPOP,
+
+  ALPHA_BUILTIN_max
+};
+
+static unsigned int const code_for_builtin[ALPHA_BUILTIN_max] = {
+  CODE_FOR_builtin_cmpbge,
+  CODE_FOR_builtin_extbl,
+  CODE_FOR_builtin_extwl,
+  CODE_FOR_builtin_extll,
+  CODE_FOR_builtin_extql,
+  CODE_FOR_builtin_extwh,
+  CODE_FOR_builtin_extlh,
+  CODE_FOR_builtin_extqh,
+  CODE_FOR_builtin_insbl,
+  CODE_FOR_builtin_inswl,
+  CODE_FOR_builtin_insll,
+  CODE_FOR_builtin_insql,
+  CODE_FOR_builtin_inswh,
+  CODE_FOR_builtin_inslh,
+  CODE_FOR_builtin_insqh,
+  CODE_FOR_builtin_mskbl,
+  CODE_FOR_builtin_mskwl,
+  CODE_FOR_builtin_mskll,
+  CODE_FOR_builtin_mskql,
+  CODE_FOR_builtin_mskwh,
+  CODE_FOR_builtin_msklh,
+  CODE_FOR_builtin_mskqh,
+  CODE_FOR_umuldi3_highpart,
+  CODE_FOR_builtin_zap,
+  CODE_FOR_builtin_zapnot,
+  CODE_FOR_builtin_amask,
+  CODE_FOR_builtin_implver,
+  CODE_FOR_builtin_rpcc,
+
+  /* TARGET_MAX */
+  CODE_FOR_builtin_minub8,
+  CODE_FOR_builtin_minsb8,
+  CODE_FOR_builtin_minuw4,
+  CODE_FOR_builtin_minsw4,
+  CODE_FOR_builtin_maxub8,
+  CODE_FOR_builtin_maxsb8,
+  CODE_FOR_builtin_maxuw4,
+  CODE_FOR_builtin_maxsw4,
+  CODE_FOR_builtin_perr,
+  CODE_FOR_builtin_pklb,
+  CODE_FOR_builtin_pkwb,
+  CODE_FOR_builtin_unpkbl,
+  CODE_FOR_builtin_unpkbw,
+
+  /* TARGET_CIX */
+  CODE_FOR_builtin_cttz,
+  CODE_FOR_builtin_ctlz,
+  CODE_FOR_builtin_ctpop
+};
+
+struct alpha_builtin_def
+{
+  const char *name;
+  enum alpha_builtin code;
+  unsigned int target_mask;
+};
+
+static struct alpha_builtin_def const zero_arg_builtins[] = {
+  { "__builtin_alpha_implver",	ALPHA_BUILTIN_IMPLVER,	0 },
+  { "__builtin_alpha_rpcc",	ALPHA_BUILTIN_RPCC,	0 }
+};
+
+static struct alpha_builtin_def const one_arg_builtins[] = {
+  { "__builtin_alpha_amask",	ALPHA_BUILTIN_AMASK,	0 },
+  { "__builtin_alpha_pklb",	ALPHA_BUILTIN_PKLB,	MASK_MAX },
+  { "__builtin_alpha_pkwb",	ALPHA_BUILTIN_PKWB,	MASK_MAX },
+  { "__builtin_alpha_unpkbl",	ALPHA_BUILTIN_UNPKBL,	MASK_MAX },
+  { "__builtin_alpha_unpkbw",	ALPHA_BUILTIN_UNPKBW,	MASK_MAX },
+  { "__builtin_alpha_cttz",	ALPHA_BUILTIN_CTTZ,	MASK_CIX },
+  { "__builtin_alpha_ctlz",	ALPHA_BUILTIN_CTLZ,	MASK_CIX },
+  { "__builtin_alpha_ctpop",	ALPHA_BUILTIN_CTPOP,	MASK_CIX }
+};
+
+static struct alpha_builtin_def const two_arg_builtins[] = {
+  { "__builtin_alpha_cmpbge",	ALPHA_BUILTIN_CMPBGE,	0 },
+  { "__builtin_alpha_extbl",	ALPHA_BUILTIN_EXTBL,	0 },
+  { "__builtin_alpha_extwl",	ALPHA_BUILTIN_EXTWL,	0 },
+  { "__builtin_alpha_extll",	ALPHA_BUILTIN_EXTLL,	0 },
+  { "__builtin_alpha_extql",	ALPHA_BUILTIN_EXTQL,	0 },
+  { "__builtin_alpha_extwh",	ALPHA_BUILTIN_EXTWH,	0 },
+  { "__builtin_alpha_extlh",	ALPHA_BUILTIN_EXTLH,	0 },
+  { "__builtin_alpha_extqh",	ALPHA_BUILTIN_EXTQH,	0 },
+  { "__builtin_alpha_insbl",	ALPHA_BUILTIN_INSBL,	0 },
+  { "__builtin_alpha_inswl",	ALPHA_BUILTIN_INSWL,	0 },
+  { "__builtin_alpha_insll",	ALPHA_BUILTIN_INSLL,	0 },
+  { "__builtin_alpha_insql",	ALPHA_BUILTIN_INSQL,	0 },
+  { "__builtin_alpha_inswh",	ALPHA_BUILTIN_INSWH,	0 },
+  { "__builtin_alpha_inslh",	ALPHA_BUILTIN_INSLH,	0 },
+  { "__builtin_alpha_insqh",	ALPHA_BUILTIN_INSQH,	0 },
+  { "__builtin_alpha_mskbl",	ALPHA_BUILTIN_MSKBL,	0 },
+  { "__builtin_alpha_mskwl",	ALPHA_BUILTIN_MSKWL,	0 },
+  { "__builtin_alpha_mskll",	ALPHA_BUILTIN_MSKLL,	0 },
+  { "__builtin_alpha_mskql",	ALPHA_BUILTIN_MSKQL,	0 },
+  { "__builtin_alpha_mskwh",	ALPHA_BUILTIN_MSKWH,	0 },
+  { "__builtin_alpha_msklh",	ALPHA_BUILTIN_MSKLH,	0 },
+  { "__builtin_alpha_mskqh",	ALPHA_BUILTIN_MSKQH,	0 },
+  { "__builtin_alpha_umulh",	ALPHA_BUILTIN_UMULH,	0 },
+  { "__builtin_alpha_zap",	ALPHA_BUILTIN_ZAP,	0 },
+  { "__builtin_alpha_zapnot",	ALPHA_BUILTIN_ZAPNOT,	0 },
+  { "__builtin_alpha_minub8",	ALPHA_BUILTIN_MINUB8,	MASK_MAX },
+  { "__builtin_alpha_minsb8",	ALPHA_BUILTIN_MINSB8,	MASK_MAX },
+  { "__builtin_alpha_minuw4",	ALPHA_BUILTIN_MINUW4,	MASK_MAX },
+  { "__builtin_alpha_minsw4",	ALPHA_BUILTIN_MINSW4,	MASK_MAX },
+  { "__builtin_alpha_maxub8",	ALPHA_BUILTIN_MAXUB8,	MASK_MAX },
+  { "__builtin_alpha_maxsb8",	ALPHA_BUILTIN_MAXSB8,	MASK_MAX },
+  { "__builtin_alpha_maxuw4",	ALPHA_BUILTIN_MAXUW4,	MASK_MAX },
+  { "__builtin_alpha_maxsw4",	ALPHA_BUILTIN_MAXSW4,	MASK_MAX },
+  { "__builtin_alpha_perr",	ALPHA_BUILTIN_PERR,	MASK_MAX }
+};
+
+static void
+alpha_init_builtins ()
+{
+  const struct alpha_builtin_def *p;
+  tree ftype;
+  size_t i;
+
+  ftype = build_function_type (long_integer_type_node, void_list_node);
+
+  p = zero_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (long_integer_type_node,
+			       tree_cons (NULL_TREE,
+					  long_integer_type_node,
+					  void_list_node));
+
+  p = one_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (long_integer_type_node,
+			       tree_cons (NULL_TREE,
+					  long_integer_type_node,
+					  tree_cons (NULL_TREE,
+						     long_integer_type_node,
+						     void_list_node)));
+
+  p = two_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+}
+
+/* Expand an expression EXP that calls a built-in function,
+   with result going to TARGET if that's convenient
+   (and in mode MODE if that's convenient).
+   SUBTARGET may be used as the target for computing one of EXP's operands.
+   IGNORE is nonzero if the value is to be ignored.  */
+
+static rtx
+alpha_expand_builtin (exp, target, subtarget, mode, ignore)
+     tree exp;
+     rtx target;
+     rtx subtarget ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     int ignore ATTRIBUTE_UNUSED;
+{
+#define MAX_ARGS 2
+
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum insn_code icode;
+  rtx op[MAX_ARGS], pat;
+  int arity;
+  enum machine_mode tmode;
+
+  if (fcode >= ALPHA_BUILTIN_max)
+    internal_error ("bad builtin fcode");
+  icode = code_for_builtin[fcode];
+  if (icode == 0)
+    internal_error ("bad builtin fcode");
+
+  for (arglist = TREE_OPERAND (exp, 1), arity = 0;
+       arglist;
+       arglist = TREE_CHAIN (arglist), arity++)
+    {
+      const struct insn_operand_data *insn_op;
+
+      tree arg = TREE_VALUE (arglist);
+      if (arg == error_mark_node)
+	return NULL_RTX;
+      if (arity > MAX_ARGS)
+	return NULL_RTX;
+
+      op[arity] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+
+      insn_op = &insn_data[icode].operand[arity + 1];
+      if (!(*insn_op->predicate) (op[arity], insn_op->mode))
+	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
+    }
+
+  tmode = insn_data[icode].operand[0].mode;
+  if (!target
+      || GET_MODE (target) != tmode
+      || !(*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  switch (arity)
+    {
+    case 0:
+      pat = GEN_FCN (icode) (target);
+      break;
+    case 1:
+      pat = GEN_FCN (icode) (target, op[0]);
+      break;
+    case 2:
+      pat = GEN_FCN (icode) (target, op[0], op[1]);
+      break;
+    default:
+      abort ();
+    }
+  if (!pat)
+    return NULL_RTX;
+  emit_insn (pat);
+
+  return target;
 }
 
 /* This page contains routines that are used to determine what the function
@@ -9622,3 +9941,6 @@ unicosmk_need_dex (x)
 }
 
 #endif /* TARGET_ABI_UNICOSMK */
+
+#include "gt-alpha.h"
+

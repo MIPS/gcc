@@ -397,9 +397,6 @@ apply_change_group ()
       for (i = 0; i < num_changes; i++)
 	if (changes[i].object
 	    && INSN_P (changes[i].object)
-	    && basic_block_for_insn
-	    && ((unsigned int)INSN_UID (changes[i].object)
-		< basic_block_for_insn->num_elements)
 	    && (bb = BLOCK_FOR_INSN (changes[i].object)))
 	  bb->flags |= BB_DIRTY;
 
@@ -3136,7 +3133,8 @@ peephole2_optimize (dump_file)
 					REG_EH_REGION, NULL_RTX);
 
 		  /* Replace the old sequence with the new.  */
-		  try = emit_insn_after (try, peep2_insn_data[i].insn);
+		  try = emit_insn_after_scope (try, peep2_insn_data[i].insn,
+					       INSN_SCOPE (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
 		  delete_insn_chain (insn, peep2_insn_data[i].insn);
 

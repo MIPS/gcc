@@ -1,3 +1,4 @@
+#if 0
 /* Break and continue statement elimination for Simple.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
@@ -1291,6 +1292,4 @@ eval_bool_condition (expr)
       return EVAL_DONT_KNOW;
     }
 }
-
-
-
+#endif

@@ -226,10 +226,6 @@ insert_phi_terms (dfs)
 	    });
 	}
     }
-
-  VARRAY_FREE (added);
-  VARRAY_FREE (in_work);
-  VARRAY_FREE (work_stack);
 }
 
 /* }}} */
@@ -418,21 +414,19 @@ delete_refs (refs)
 
       if (VARREF_TYPE (ref) == VARDEF)
 	{
-	  VARRAY_FREE (VARDEF_IMM_USES (ref));
-	  VARRAY_FREE (VARDEF_RUSES (ref));
-	  VARRAY_FREE (VARDEF_PHI_CHAIN (ref));
-	  VARRAY_FREE (VARDEF_PHI_CHAIN_BB (ref));
+	  VARDEF_IMM_USES (ref) = NULL;
+	  VARDEF_RUSES (ref) = NULL;
+	  VARDEF_PHI_CHAIN (ref) = NULL;
+	  VARDEF_PHI_CHAIN_BB (ref) = NULL;
 	}
       else if (VARREF_TYPE (ref) == VARUSE)
-	VARRAY_FREE (VARUSE_RDEFS (ref));
+	VARUSE_RDEFS (ref) = NULL;
       else if (VARREF_TYPE (ref) == EXPRPHI)
 	{
 	  BITMAP_XFREE (EXPRPHI_PROCESSED (ref));
-	  VARRAY_FREE (EXPRPHI_PHI_CHAIN (ref));	  
+	  EXPRPHI_PHI_CHAIN (ref) = NULL;
 	}
     }
-
-  VARRAY_FREE (refs);
 }
 
 /* }}} */

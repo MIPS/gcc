@@ -49,6 +49,15 @@
    (UNSPEC_DTPREL	19)
    (UNSPEC_TPREL	20)
    (UNSPEC_TP		21)
+
+   ;; Builtins
+   (UNSPEC_CMPBGE	22)
+   (UNSPEC_ZAP		23)
+   (UNSPEC_AMASK	24)
+   (UNSPEC_IMPLVER	25)
+   (UNSPEC_PERR		26)
+   (UNSPEC_CTLZ		27)
+   (UNSPEC_CTPOP	28)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -67,6 +76,7 @@
    (UNSPECV_LDGP1	10)
    (UNSPECV_PLDGP2	11)	; prologue ldgp
    (UNSPECV_SET_TP	12)
+   (UNSPECV_RPCC	13)
   ])
 
 ;; Where necessary, the suffixes _le and _be are used to distinguish between
@@ -2096,35 +2106,35 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "abssf2"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(abs:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")))]
+	(abs:SF (match_operand:SF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cpys $f31,%R1,%0"
   [(set_attr "type" "fcpys")])
 
 (define_insn "*nabssf2"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(neg:SF (abs:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG"))))]
+	(neg:SF (abs:SF (match_operand:SF 1 "reg_or_0_operand" "fG"))))]
   "TARGET_FP"
   "cpysn $f31,%R1,%0"
   [(set_attr "type" "fadd")])
 
 (define_insn "absdf2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(abs:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(abs:DF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cpys $f31,%R1,%0"
   [(set_attr "type" "fcpys")])
 
 (define_insn "*nabsdf2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(neg:DF (abs:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG"))))]
+	(neg:DF (abs:DF (match_operand:DF 1 "reg_or_0_operand" "fG"))))]
   "TARGET_FP"
   "cpysn $f31,%R1,%0"
   [(set_attr "type" "fadd")])
 
 (define_expand "abstf2"
   [(parallel [(set (match_operand:TF 0 "register_operand" "")
-		   (neg:TF (match_operand:TF 1 "reg_or_fp0_operand" "")))
+		   (neg:TF (match_operand:TF 1 "reg_or_0_operand" "")))
 	      (use (match_dup 2))])]
   "TARGET_HAS_XFLOATING_LIBS"
 {
@@ -2137,7 +2147,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*abstf_internal"
   [(set (match_operand:TF 0 "register_operand" "=r")
-	(abs:TF (match_operand:TF 1 "reg_or_fp0_operand" "rG")))
+	(abs:TF (match_operand:TF 1 "reg_or_0_operand" "rG")))
    (use (match_operand:DI 2 "register_operand" "r"))]
   "TARGET_HAS_XFLOATING_LIBS"
   "#"
@@ -2147,21 +2157,21 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "negsf2"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(neg:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")))]
+	(neg:SF (match_operand:SF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cpysn %R1,%R1,%0"
   [(set_attr "type" "fadd")])
 
 (define_insn "negdf2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(neg:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(neg:DF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cpysn %R1,%R1,%0"
   [(set_attr "type" "fadd")])
 
 (define_expand "negtf2"
   [(parallel [(set (match_operand:TF 0 "register_operand" "")
-		   (neg:TF (match_operand:TF 1 "reg_or_fp0_operand" "")))
+		   (neg:TF (match_operand:TF 1 "reg_or_0_operand" "")))
 	      (use (match_dup 2))])]
   "TARGET_HAS_XFLOATING_LIBS"
 {
@@ -2174,7 +2184,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*negtf_internal"
   [(set (match_operand:TF 0 "register_operand" "=r")
-	(neg:TF (match_operand:TF 1 "reg_or_fp0_operand" "rG")))
+	(neg:TF (match_operand:TF 1 "reg_or_0_operand" "rG")))
    (use (match_operand:DI 2 "register_operand" "r"))]
   "TARGET_HAS_XFLOATING_LIBS"
   "#"
@@ -2184,8 +2194,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*addsf_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(plus:SF (match_operand:SF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(plus:SF (match_operand:SF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "add%,%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2195,8 +2205,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "addsf3"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(plus:SF (match_operand:SF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(plus:SF (match_operand:SF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "add%,%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2206,8 +2216,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*adddf_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
-	(plus:DF (match_operand:DF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(plus:DF (match_operand:DF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "add%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2217,8 +2227,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "adddf3"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(plus:DF (match_operand:DF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(plus:DF (match_operand:DF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "add%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2229,8 +2239,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*adddf_ext1"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(plus:DF (float_extend:DF
-		  (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+		  (match_operand:SF 1 "reg_or_0_operand" "fG"))
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "add%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2241,9 +2251,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*adddf_ext2"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(plus:DF (float_extend:DF
-		  (match_operand:SF 1 "reg_or_fp0_operand" "%fG"))
+		  (match_operand:SF 1 "reg_or_0_operand" "%fG"))
 		 (float_extend:DF
-		  (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+		  (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "add%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2269,7 +2279,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*cvtql"
   [(set (match_operand:SI 0 "register_operand" "=f")
-	(unspec:SI [(match_operand:DI 1 "reg_or_fp0_operand" "fG")]
+	(unspec:SI [(match_operand:DI 1 "reg_or_0_operand" "fG")]
 		   UNSPEC_CVTQL))]
   "TARGET_FP"
   "cvtql%/ %R1,%0"
@@ -2279,7 +2289,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*fix_truncdfsi_ieee"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_fp0_operand" "fG")) 0))
+	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")) 0))
    (clobber (match_scratch:DI 2 "=&f"))
    (clobber (match_scratch:SI 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
@@ -2294,7 +2304,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn_and_split "*fix_truncdfsi_internal"
   [(set (match_operand:SI 0 "memory_operand" "=m")
-	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_fp0_operand" "fG")) 0))
+	(subreg:SI (fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")) 0))
    (clobber (match_scratch:DI 2 "=f"))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "#"
@@ -2309,7 +2319,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*fix_truncdfdi_ieee"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=&f")
-	(fix:DI (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2319,7 +2329,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "fix_truncdfdi2"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=f")
-	(fix:DI (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(fix:DI (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2332,7 +2342,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn_and_split "*fix_truncsfsi_ieee"
   [(set (match_operand:SI 0 "memory_operand" "=m")
 	(subreg:SI (fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_fp0_operand" "fG"))) 0))
+		 (match_operand:SF 1 "reg_or_0_operand" "fG"))) 0))
    (clobber (match_scratch:DI 2 "=&f"))
    (clobber (match_scratch:SI 3 "=&f"))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
@@ -2348,7 +2358,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn_and_split "*fix_truncsfsi_internal"
   [(set (match_operand:SI 0 "memory_operand" "=m")
 	(subreg:SI (fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_fp0_operand" "fG"))) 0))
+		 (match_operand:SF 1 "reg_or_0_operand" "fG"))) 0))
    (clobber (match_scratch:DI 2 "=f"))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "#"
@@ -2364,7 +2374,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*fix_truncsfdi_ieee"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=&f")
 	(fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_fp0_operand" "fG"))))]
+		 (match_operand:SF 1 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2375,7 +2385,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "fix_truncsfdi2"
   [(set (match_operand:DI 0 "reg_no_subreg_operand" "=f")
 	(fix:DI (float_extend:DF
-		 (match_operand:SF 1 "reg_or_fp0_operand" "fG"))))]
+		 (match_operand:SF 1 "reg_or_0_operand" "fG"))))]
   "TARGET_FP"
   "cvt%-q%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2502,7 +2512,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*truncdfsf2_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(float_truncate:SF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(float_truncate:SF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cvt%-%,%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2512,7 +2522,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "truncdfsf2"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(float_truncate:SF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(float_truncate:SF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "cvt%-%,%/ %R1,%0"
   [(set_attr "type" "fadd")
@@ -2554,8 +2564,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*divsf3_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(div:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")
-		(match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(div:SF (match_operand:SF 1 "reg_or_0_operand" "fG")
+		(match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "div%,%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2566,8 +2576,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "divsf3"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(div:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")
-		(match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(div:SF (match_operand:SF 1 "reg_or_0_operand" "fG")
+		(match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "div%,%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2578,8 +2588,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*divdf3_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
-	(div:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
-		(match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(div:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
+		(match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "div%-%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2589,8 +2599,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "divdf3"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
-		(match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(div:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
+		(match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "div%-%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2600,8 +2610,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*divdf_ext1"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
-		(match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(div:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG"))
+		(match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "div%-%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2611,9 +2621,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*divdf_ext2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
+	(div:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
 		(float_extend:DF
-		 (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+		 (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "div%-%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2623,8 +2633,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*divdf_ext3"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
-		(float_extend:DF (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+	(div:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG"))
+		(float_extend:DF (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "div%-%/ %R1,%R2,%0"
   [(set_attr "type" "fdiv")
@@ -2641,8 +2651,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*mulsf3_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(mult:SF (match_operand:SF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(mult:SF (match_operand:SF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "mul%,%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2652,8 +2662,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "mulsf3"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(mult:SF (match_operand:SF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(mult:SF (match_operand:SF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "mul%,%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2663,8 +2673,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*muldf3_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
-	(mult:DF (match_operand:DF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(mult:DF (match_operand:DF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "mul%-%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2674,8 +2684,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "muldf3"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(mult:DF (match_operand:DF 1 "reg_or_fp0_operand" "%fG")
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(mult:DF (match_operand:DF 1 "reg_or_0_operand" "%fG")
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "mul%-%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2686,8 +2696,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*muldf_ext1"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(mult:DF (float_extend:DF
-		  (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
-		 (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+		  (match_operand:SF 1 "reg_or_0_operand" "fG"))
+		 (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "mul%-%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2698,9 +2708,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*muldf_ext2"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(mult:DF (float_extend:DF
-		  (match_operand:SF 1 "reg_or_fp0_operand" "%fG"))
+		  (match_operand:SF 1 "reg_or_0_operand" "%fG"))
 		 (float_extend:DF
-		  (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+		  (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "mul%-%/ %R1,%R2,%0"
   [(set_attr "type" "fmul")
@@ -2717,8 +2727,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*subsf3_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(minus:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")
-		  (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(minus:SF (match_operand:SF 1 "reg_or_0_operand" "fG")
+		  (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "sub%,%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2728,8 +2738,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "subsf3"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(minus:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")
-		  (match_operand:SF 2 "reg_or_fp0_operand" "fG")))]
+	(minus:SF (match_operand:SF 1 "reg_or_0_operand" "fG")
+		  (match_operand:SF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "sub%,%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2739,8 +2749,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*subdf3_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
-	(minus:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
-		  (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(minus:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
+		  (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "sub%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2750,8 +2760,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "subdf3"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(minus:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
-		  (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+	(minus:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
+		  (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP"
   "sub%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2762,8 +2772,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*subdf_ext1"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(minus:DF (float_extend:DF
-		   (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
-		  (match_operand:DF 2 "reg_or_fp0_operand" "fG")))]
+		   (match_operand:SF 1 "reg_or_0_operand" "fG"))
+		  (match_operand:DF 2 "reg_or_0_operand" "fG")))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "sub%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2773,9 +2783,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*subdf_ext2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(minus:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")
+	(minus:DF (match_operand:DF 1 "reg_or_0_operand" "fG")
 		  (float_extend:DF
-		   (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+		   (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "sub%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2786,9 +2796,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*subdf_ext3"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(minus:DF (float_extend:DF
-		   (match_operand:SF 1 "reg_or_fp0_operand" "fG"))
+		   (match_operand:SF 1 "reg_or_0_operand" "fG"))
 		  (float_extend:DF
-		   (match_operand:SF 2 "reg_or_fp0_operand" "fG"))))]
+		   (match_operand:SF 2 "reg_or_0_operand" "fG"))))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "sub%-%/ %R1,%R2,%0"
   [(set_attr "type" "fadd")
@@ -2805,7 +2815,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*sqrtsf2_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
-	(sqrt:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")))]
+	(sqrt:SF (match_operand:SF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && TARGET_FIX && alpha_fptm >= ALPHA_FPTM_SU"
   "sqrt%,%/ %R1,%0"
   [(set_attr "type" "fsqrt")
@@ -2816,7 +2826,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "sqrtsf2"
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(sqrt:SF (match_operand:SF 1 "reg_or_fp0_operand" "fG")))]
+	(sqrt:SF (match_operand:SF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && TARGET_FIX"
   "sqrt%,%/ %R1,%0"
   [(set_attr "type" "fsqrt")
@@ -2827,7 +2837,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "*sqrtdf2_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
-	(sqrt:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(sqrt:DF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && TARGET_FIX && alpha_fptm >= ALPHA_FPTM_SU"
   "sqrt%-%/ %R1,%0"
   [(set_attr "type" "fsqrt")
@@ -2837,7 +2847,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_insn "sqrtdf2"
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(sqrt:DF (match_operand:DF 1 "reg_or_fp0_operand" "fG")))]
+	(sqrt:DF (match_operand:DF 1 "reg_or_0_operand" "fG")))]
   "TARGET_FP && TARGET_FIX"
   "sqrt%-%/ %1,%0"
   [(set_attr "type" "fsqrt")
@@ -3397,8 +3407,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*cmpdf_ieee"
   [(set (match_operand:DF 0 "register_operand" "=&f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
-			   [(match_operand:DF 2 "reg_or_fp0_operand" "fG")
-			    (match_operand:DF 3 "reg_or_fp0_operand" "fG")]))]
+			   [(match_operand:DF 2 "reg_or_0_operand" "fG")
+			    (match_operand:DF 3 "reg_or_0_operand" "fG")]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3408,8 +3418,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*cmpdf_internal"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
-			   [(match_operand:DF 2 "reg_or_fp0_operand" "fG")
-			    (match_operand:DF 3 "reg_or_fp0_operand" "fG")]))]
+			   [(match_operand:DF 2 "reg_or_0_operand" "fG")
+			    (match_operand:DF 3 "reg_or_0_operand" "fG")]))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3420,8 +3430,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=&f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
 			   [(float_extend:DF
-			     (match_operand:SF 2 "reg_or_fp0_operand" "fG"))
-			    (match_operand:DF 3 "reg_or_fp0_operand" "fG")]))]
+			     (match_operand:SF 2 "reg_or_0_operand" "fG"))
+			    (match_operand:DF 3 "reg_or_0_operand" "fG")]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3432,8 +3442,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
 			   [(float_extend:DF
-			     (match_operand:SF 2 "reg_or_fp0_operand" "fG"))
-			    (match_operand:DF 3 "reg_or_fp0_operand" "fG")]))]
+			     (match_operand:SF 2 "reg_or_0_operand" "fG"))
+			    (match_operand:DF 3 "reg_or_0_operand" "fG")]))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3443,9 +3453,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*cmpdf_ieee_ext2"
   [(set (match_operand:DF 0 "register_operand" "=&f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
-			   [(match_operand:DF 2 "reg_or_fp0_operand" "fG")
+			   [(match_operand:DF 2 "reg_or_0_operand" "fG")
 			    (float_extend:DF
-			     (match_operand:SF 3 "reg_or_fp0_operand" "fG"))]))]
+			     (match_operand:SF 3 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3455,9 +3465,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 (define_insn "*cmpdf_ext2"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
-			   [(match_operand:DF 2 "reg_or_fp0_operand" "fG")
+			   [(match_operand:DF 2 "reg_or_0_operand" "fG")
 			    (float_extend:DF
-			     (match_operand:SF 3 "reg_or_fp0_operand" "fG"))]))]
+			     (match_operand:SF 3 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3468,9 +3478,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=&f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
 			   [(float_extend:DF
-			     (match_operand:SF 2 "reg_or_fp0_operand" "fG"))
+			     (match_operand:SF 2 "reg_or_0_operand" "fG"))
 			    (float_extend:DF
-			     (match_operand:SF 3 "reg_or_fp0_operand" "fG"))]))]
+			     (match_operand:SF 3 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP && alpha_fptm >= ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3481,9 +3491,9 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=f")
 	(match_operator:DF 1 "alpha_fp_comparison_operator"
 			   [(float_extend:DF
-			     (match_operand:SF 2 "reg_or_fp0_operand" "fG"))
+			     (match_operand:SF 2 "reg_or_0_operand" "fG"))
 			    (float_extend:DF
-			     (match_operand:SF 3 "reg_or_fp0_operand" "fG"))]))]
+			     (match_operand:SF 3 "reg_or_0_operand" "fG"))]))]
   "TARGET_FP && alpha_fptm < ALPHA_FPTM_SU"
   "cmp%-%C1%/ %R2,%R3,%0"
   [(set_attr "type" "fadd")
@@ -3494,10 +3504,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=f,f")
 	(if_then_else:DF
 	 (match_operator 3 "signed_comparison_operator"
-			 [(match_operand:DF 4 "reg_or_fp0_operand" "fG,fG")
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (match_operand:DF 1 "reg_or_fp0_operand" "fG,0")
-	 (match_operand:DF 5 "reg_or_fp0_operand" "0,fG")))]
+			 [(match_operand:DF 4 "reg_or_0_operand" "fG,fG")
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (match_operand:DF 1 "reg_or_0_operand" "fG,0")
+	 (match_operand:DF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3508,10 +3518,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:SF 0 "register_operand" "=f,f")
 	(if_then_else:SF
 	 (match_operator 3 "signed_comparison_operator"
-			 [(match_operand:DF 4 "reg_or_fp0_operand" "fG,fG")
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (match_operand:SF 1 "reg_or_fp0_operand" "fG,0")
-	 (match_operand:SF 5 "reg_or_fp0_operand" "0,fG")))]
+			 [(match_operand:DF 4 "reg_or_0_operand" "fG,fG")
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (match_operand:SF 1 "reg_or_0_operand" "fG,0")
+	 (match_operand:SF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3522,10 +3532,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:DF 0 "register_operand" "=f,f")
 	(if_then_else:DF
 	 (match_operator 3 "signed_comparison_operator"
-			 [(match_operand:DF 4 "reg_or_fp0_operand" "fG,fG")
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" "fG,0"))
-	 (match_operand:DF 5 "reg_or_fp0_operand" "0,fG")))]
+			 [(match_operand:DF 4 "reg_or_0_operand" "fG,fG")
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG,0"))
+	 (match_operand:DF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3537,10 +3547,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(if_then_else:DF
 	 (match_operator 3 "signed_comparison_operator"
 			 [(float_extend:DF
-			   (match_operand:SF 4 "reg_or_fp0_operand" "fG,fG"))
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (match_operand:DF 1 "reg_or_fp0_operand" "fG,0")
-	 (match_operand:DF 5 "reg_or_fp0_operand" "0,fG")))]
+			   (match_operand:SF 4 "reg_or_0_operand" "fG,fG"))
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (match_operand:DF 1 "reg_or_0_operand" "fG,0")
+	 (match_operand:DF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3552,10 +3562,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(if_then_else:SF
 	 (match_operator 3 "signed_comparison_operator"
 			 [(float_extend:DF
-			   (match_operand:SF 4 "reg_or_fp0_operand" "fG,fG"))
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (match_operand:SF 1 "reg_or_fp0_operand" "fG,0")
-	 (match_operand:SF 5 "reg_or_fp0_operand" "0,fG")))]
+			   (match_operand:SF 4 "reg_or_0_operand" "fG,fG"))
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (match_operand:SF 1 "reg_or_0_operand" "fG,0")
+	 (match_operand:SF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3567,10 +3577,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(if_then_else:DF
 	 (match_operator 3 "signed_comparison_operator"
 			 [(float_extend:DF
-			   (match_operand:SF 4 "reg_or_fp0_operand" "fG,fG"))
-			  (match_operand:DF 2 "fp0_operand" "G,G")])
-	 (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" "fG,0"))
-	 (match_operand:DF 5 "reg_or_fp0_operand" "0,fG")))]
+			   (match_operand:SF 4 "reg_or_0_operand" "fG,fG"))
+			  (match_operand:DF 2 "const0_operand" "G,G")])
+	 (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" "fG,0"))
+	 (match_operand:DF 5 "reg_or_0_operand" "0,fG")))]
   "TARGET_FP"
   "@
    fcmov%C3 %R4,%R1,%0
@@ -3579,8 +3589,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_expand "maxdf3"
   [(set (match_dup 3)
-	(le:DF (match_operand:DF 1 "reg_or_fp0_operand" "")
-	       (match_operand:DF 2 "reg_or_fp0_operand" "")))
+	(le:DF (match_operand:DF 1 "reg_or_0_operand" "")
+	       (match_operand:DF 2 "reg_or_0_operand" "")))
    (set (match_operand:DF 0 "register_operand" "")
 	(if_then_else:DF (eq (match_dup 3) (match_dup 4))
 			 (match_dup 1) (match_dup 2)))]
@@ -3592,8 +3602,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_expand "mindf3"
   [(set (match_dup 3)
-	(lt:DF (match_operand:DF 1 "reg_or_fp0_operand" "")
-	       (match_operand:DF 2 "reg_or_fp0_operand" "")))
+	(lt:DF (match_operand:DF 1 "reg_or_0_operand" "")
+	       (match_operand:DF 2 "reg_or_0_operand" "")))
    (set (match_operand:DF 0 "register_operand" "")
 	(if_then_else:DF (ne (match_dup 3) (match_dup 4))
 			 (match_dup 1) (match_dup 2)))]
@@ -3605,8 +3615,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_expand "maxsf3"
   [(set (match_dup 3)
-	(le:DF (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" ""))
-	       (float_extend:DF (match_operand:SF 2 "reg_or_fp0_operand" ""))))
+	(le:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))
+	       (float_extend:DF (match_operand:SF 2 "reg_or_0_operand" ""))))
    (set (match_operand:SF 0 "register_operand" "")
 	(if_then_else:SF (eq (match_dup 3) (match_dup 4))
 			 (match_dup 1) (match_dup 2)))]
@@ -3618,8 +3628,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 
 (define_expand "minsf3"
   [(set (match_dup 3)
-	(lt:DF (float_extend:DF (match_operand:SF 1 "reg_or_fp0_operand" ""))
-	       (float_extend:DF (match_operand:SF 2 "reg_or_fp0_operand" ""))))
+	(lt:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))
+	       (float_extend:DF (match_operand:SF 2 "reg_or_0_operand" ""))))
    (set (match_operand:SF 0 "register_operand" "")
 	(if_then_else:SF (ne (match_dup 3) (match_dup 4))
 		      (match_dup 1) (match_dup 2)))]
@@ -3633,8 +3643,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "signed_comparison_operator"
-			 [(match_operand:DF 2 "reg_or_fp0_operand" "fG")
-			  (match_operand:DF 3 "fp0_operand" "G")])
+			 [(match_operand:DF 2 "reg_or_0_operand" "fG")
+			  (match_operand:DF 3 "const0_operand" "G")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "TARGET_FP"
@@ -3646,8 +3656,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(if_then_else
 	 (match_operator 1 "signed_comparison_operator"
 			 [(float_extend:DF
-			   (match_operand:SF 2 "reg_or_fp0_operand" "fG"))
-			  (match_operand:DF 3 "fp0_operand" "G")])
+			   (match_operand:SF 2 "reg_or_0_operand" "fG"))
+			  (match_operand:DF 3 "const0_operand" "G")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "TARGET_FP"
@@ -3658,8 +3668,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 ;; and compares.
 
 (define_expand "cmpdf"
-  [(set (cc0) (compare (match_operand:DF 0 "reg_or_fp0_operand" "")
-		       (match_operand:DF 1 "reg_or_fp0_operand" "")))]
+  [(set (cc0) (compare (match_operand:DF 0 "reg_or_0_operand" "")
+		       (match_operand:DF 1 "reg_or_0_operand" "")))]
   "TARGET_FP"
 {
   alpha_compare.op0 = operands[0];
@@ -4904,7 +4914,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:SF 1 "input_operand" "fG,m,*rG,m,fG,*r"))]
   "TARGET_FPREGS && ! TARGET_FIX
    && (register_operand (operands[0], SFmode)
-       || reg_or_fp0_operand (operands[1], SFmode))"
+       || reg_or_0_operand (operands[1], SFmode))"
   "@
    cpys %R1,%R1,%0
    ld%, %0,%1
@@ -4919,7 +4929,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:SF 1 "input_operand" "fG,m,*rG,m,fG,*r,*r,f"))]
   "TARGET_FPREGS && TARGET_FIX
    && (register_operand (operands[0], SFmode)
-       || reg_or_fp0_operand (operands[1], SFmode))"
+       || reg_or_0_operand (operands[1], SFmode))"
   "@
    cpys %R1,%R1,%0
    ld%, %0,%1
@@ -4936,7 +4946,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:SF 1 "input_operand" "rG,m,r"))]
   "! TARGET_FPREGS
    && (register_operand (operands[0], SFmode)
-       || reg_or_fp0_operand (operands[1], SFmode))"
+       || reg_or_0_operand (operands[1], SFmode))"
   "@
    bis $31,%r1,%0
    ldl %0,%1
@@ -4948,7 +4958,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:DF 1 "input_operand" "fG,m,*rG,m,fG,*r"))]
   "TARGET_FPREGS && ! TARGET_FIX
    && (register_operand (operands[0], DFmode)
-       || reg_or_fp0_operand (operands[1], DFmode))"
+       || reg_or_0_operand (operands[1], DFmode))"
   "@
    cpys %R1,%R1,%0
    ld%- %0,%1
@@ -4963,7 +4973,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:DF 1 "input_operand" "fG,m,*rG,m,fG,*r,*r,f"))]
   "TARGET_FPREGS && TARGET_FIX
    && (register_operand (operands[0], DFmode)
-       || reg_or_fp0_operand (operands[1], DFmode))"
+       || reg_or_0_operand (operands[1], DFmode))"
   "@
    cpys %R1,%R1,%0
    ld%- %0,%1
@@ -4980,7 +4990,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
 	(match_operand:DF 1 "input_operand" "rG,m,r"))]
   "! TARGET_FPREGS
    && (register_operand (operands[0], DFmode)
-       || reg_or_fp0_operand (operands[1], DFmode))"
+       || reg_or_0_operand (operands[1], DFmode))"
   "@
    bis $31,%r1,%0
    ldq %0,%1
@@ -4994,7 +5004,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   [(set (match_operand:TF 0 "nonimmediate_operand" "=r,o")
 	(match_operand:TF 1 "input_operand" "roG,rG"))]
   "register_operand (operands[0], TFmode)
-   || reg_or_fp0_operand (operands[1], TFmode)"
+   || reg_or_0_operand (operands[1], TFmode)"
   "#"
   "reload_completed"
   [(set (match_dup 0) (match_dup 2))
@@ -5015,7 +5025,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
 {
   if (GET_CODE (operands[0]) == MEM
-      && ! reg_or_fp0_operand (operands[1], SFmode))
+      && ! reg_or_0_operand (operands[1], SFmode))
     operands[1] = force_reg (SFmode, operands[1]);
 })
 
@@ -5025,7 +5035,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
 {
   if (GET_CODE (operands[0]) == MEM
-      && ! reg_or_fp0_operand (operands[1], DFmode))
+      && ! reg_or_0_operand (operands[1], DFmode))
     operands[1] = force_reg (DFmode, operands[1]);
 })
 
@@ -5035,7 +5045,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   ""
 {
   if (GET_CODE (operands[0]) == MEM
-      && ! reg_or_fp0_operand (operands[1], TFmode))
+      && ! reg_or_0_operand (operands[1], TFmode))
     operands[1] = force_reg (TFmode, operands[1]);
 })
 
@@ -6111,6 +6121,195 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   DONE;
 })
 
+;; Vector operations
+
+(define_expand "movv8qi"
+  [(set (match_operand:V8QI 0 "nonimmediate_operand" "")
+        (match_operand:V8QI 1 "general_operand" ""))]
+  ""
+{
+  if (alpha_expand_mov (V8QImode, operands))
+    DONE;
+})
+
+(define_insn "*movv8qi_fix"
+  [(set (match_operand:V8QI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m,r,*f")
+	(match_operand:V8QI 1 "input_operand" "rW,m,rW,*fW,m,*f,*f,r"))]
+  "TARGET_FIX
+   && (register_operand (operands[0], V8QImode)
+       || reg_or_0_operand (operands[1], V8QImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0
+   ftoit %1,%0
+   itoft %1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst,ftoi,itof")])
+
+(define_insn "*movv8qi_nofix"
+  [(set (match_operand:V8QI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m")
+	(match_operand:V8QI 1 "input_operand" "rW,m,rW,*fW,m,*f"))]
+  "! TARGET_FIX
+   && (register_operand (operands[0], V8QImode)
+       || reg_or_0_operand (operands[1], V8QImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst")])
+
+(define_expand "movv4hi"
+  [(set (match_operand:V4HI 0 "nonimmediate_operand" "")
+        (match_operand:V4HI 1 "general_operand" ""))]
+  ""
+{
+  if (alpha_expand_mov (V4HImode, operands))
+    DONE;
+})
+
+(define_insn "*movv4hi_fix"
+  [(set (match_operand:V4HI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m,r,*f")
+	(match_operand:V4HI 1 "input_operand" "rW,m,rW,*fW,m,*f,*f,r"))]
+  "TARGET_FIX
+   && (register_operand (operands[0], V4HImode)
+       || reg_or_0_operand (operands[1], V4HImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0
+   ftoit %1,%0
+   itoft %1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst,ftoi,itof")])
+
+(define_insn "*movv4hi_nofix"
+  [(set (match_operand:V4HI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m")
+	(match_operand:V4HI 1 "input_operand" "rW,m,rW,*fW,m,*f"))]
+  "! TARGET_FIX
+   && (register_operand (operands[0], V4HImode)
+       || reg_or_0_operand (operands[1], V4HImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst")])
+
+(define_expand "movv2si"
+  [(set (match_operand:V2SI 0 "nonimmediate_operand" "")
+        (match_operand:V2SI 1 "general_operand" ""))]
+  ""
+{
+  if (alpha_expand_mov (V2SImode, operands))
+    DONE;
+})
+
+(define_insn "*movv2si_fix"
+  [(set (match_operand:V2SI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m,r,*f")
+	(match_operand:V2SI 1 "input_operand" "rW,m,rW,*fW,m,*f,*f,r"))]
+  "TARGET_FIX
+   && (register_operand (operands[0], V2SImode)
+       || reg_or_0_operand (operands[1], V2SImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0
+   ftoit %1,%0
+   itoft %1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst,ftoi,itof")])
+
+(define_insn "*movv2si_nofix"
+  [(set (match_operand:V2SI 0 "nonimmediate_operand" "=r,r,m,*f,*f,m")
+	(match_operand:V2SI 1 "input_operand" "rW,m,rW,*fW,m,*f"))]
+  "! TARGET_FIX
+   && (register_operand (operands[0], V2SImode)
+       || reg_or_0_operand (operands[1], V2SImode))"
+  "@
+   bis $31,%r1,%0
+   ldq %0,%1
+   stq %r1,%0
+   cpys %R1,%R1,%0
+   ldt %0,%1
+   stt %R1,%0"
+  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst")])
+
+(define_insn "uminv8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(umin:V8QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V8QI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "minub8 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "sminv8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(smin:V8QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V8QI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "minsb8 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "uminv4hi3"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(umin:V4HI (match_operand:V4HI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V4HI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "minuw4 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "sminv4hi3"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(smin:V4HI (match_operand:V4HI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V4HI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "minsw4 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "umaxv8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(umax:V8QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V8QI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "maxub8 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "smaxv8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(smax:V8QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V8QI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "maxsb8 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "umaxv4hi3"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(umax:V4HI (match_operand:V4HI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V4HI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "maxuw4 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "smaxv4hi3"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(smax:V4HI (match_operand:V4HI 1 "reg_or_0_operand" "rW")
+		   (match_operand:V4HI 2 "reg_or_0_operand" "rW")))]
+  "TARGET_MAX"
+  "maxsw4 %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
 ;; Bit field extract patterns which use ext[wlq][lh]
 
 (define_expand "extv"
@@ -6779,7 +6978,687 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi,none"
   else
     return ".align %0 #realign";
 })
+
+;; Instructions to be emitted from __builtins.
 
+(define_insn "builtin_cmpbge"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "reg_or_0_operand" "rJ")
+		    (match_operand:DI 2 "reg_or_8bit_operand" "rI")]
+		   UNSPEC_CMPBGE))]
+  ""
+  "cmpbge %r1,%2,%0"
+  ;; The EV6 data sheets list this as ILOG.  OTOH, EV6 doesn't 
+  ;; actually differentiate between ILOG and ICMP in the schedule.
+  [(set_attr "type" "icmp")])
+
+(define_expand "builtin_extbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (8), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extwl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extql"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extxl_be;
+  else
+    gen = gen_extxl_le;
+  emit_insn ((*gen) (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extwh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extwh_be;
+  else
+    gen = gen_extwh_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extlh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extlh_be;
+  else
+    gen = gen_extlh_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_extqh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_extqh_be;
+  else
+    gen = gen_extqh_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insbl_be;
+  else
+    gen = gen_insbl_le;
+  operands[1] = gen_lowpart (QImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inswl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_inswl_be;
+  else
+    gen = gen_inswl_le;
+  operands[1] = gen_lowpart (HImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insll_be;
+  else
+    gen = gen_insll_le;
+  operands[1] = gen_lowpart (SImode, operands[1]);
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insql"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx));
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_insql_be;
+  else
+    gen = gen_insql_le;
+  emit_insn ((*gen) (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inswh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_inslh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_insqh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_insxh (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskbl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = GEN_INT (0xff);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskwl"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = GEN_INT (0xffff);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskll"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = immed_double_const (0xffffffff, 0, DImode);
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskql"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  rtx (*gen) PARAMS ((rtx, rtx, rtx, rtx));
+  rtx mask;
+  if (WORDS_BIG_ENDIAN)
+    gen = gen_mskxl_be;
+  else
+    gen = gen_mskxl_le;
+  mask = constm1_rtx;
+  emit_insn ((*gen) (operands[0], operands[1], mask, operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskwh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (16), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_msklh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (32), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_mskqh"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "register_operand" "")
+   (match_operand:DI 2 "reg_or_8bit_operand" "")]
+  ""
+{
+  emit_insn (gen_mskxh (operands[0], operands[1], GEN_INT (64), operands[2]));
+  DONE;
+})
+
+(define_expand "builtin_zap"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(and:DI (unspec:DI
+		  [(match_operand:DI 2 "reg_or_const_int_operand" "")]
+		  UNSPEC_ZAP)
+		(match_operand:DI 1 "reg_or_const_int_operand" "")))]
+  ""
+{
+  if (GET_CODE (operands[2]) == CONST_INT)
+    {
+      rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
+
+      if (operands[1] == const0_rtx)
+	{
+	  emit_move_insn (operands[0], const0_rtx);
+	  DONE;
+	}
+      if (operands[1] == constm1_rtx)
+	{
+	  emit_move_insn (operands[0], operands[1]);
+	  DONE;
+	}
+
+      operands[1] = force_reg (DImode, operands[1]);
+      emit_insn (gen_anddi3 (operands[0], operands[1], mask));
+      DONE;
+    }
+
+  operands[1] = force_reg (DImode, operands[1]);
+  operands[2] = gen_lowpart (QImode, operands[2]);
+})
+
+(define_insn "*builtin_zap_1"
+  [(set (match_operand:DI 0 "register_operand" "=r,r,r,r")
+	(and:DI (unspec:DI
+		  [(match_operand:QI 2 "reg_or_const_int_operand" "n,n,r,r")]
+		  UNSPEC_ZAP)
+		(match_operand:DI 1 "reg_or_const_int_operand" "n,r,J,r")))]
+  ""
+  "@
+   #
+   #
+   bis $31,$31,%0
+   zap %r1,%2,%0"
+  [(set_attr "type" "shift,shift,ilog,shift")])
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(and:DI (unspec:DI
+		  [(match_operand:QI 2 "const_int_operand" "")]
+		  UNSPEC_ZAP)
+		(match_operand:DI 1 "const_int_operand" "")))]
+  ""
+  [(const_int 0)]
+{
+  rtx mask = alpha_expand_zap_mask (INTVAL (operands[2]));
+  if (HOST_BITS_PER_WIDE_INT >= 64 || GET_CODE (mask) == CONST_INT)
+    operands[1] = gen_int_mode (INTVAL (operands[1]) & INTVAL (mask), DImode);
+  else
+    {
+      HOST_WIDE_INT c_lo = INTVAL (operands[1]);
+      HOST_WIDE_INT c_hi = (c_lo < 0 ? -1 : 0);
+      operands[1] = immed_double_const (c_lo & CONST_DOUBLE_LOW (mask),
+					c_hi & CONST_DOUBLE_HIGH (mask),
+					DImode);
+    }
+  emit_move_insn (operands[0], operands[1]);
+  DONE;
+})
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(and:DI (unspec:DI
+		  [(match_operand:QI 2 "const_int_operand" "")]
+		  UNSPEC_ZAP)
+		(match_operand:DI 1 "register_operand" "")))]
+  ""
+  [(set (match_dup 0)
+	(and:DI (match_dup 1) (match_dup 2)))]
+{
+  operands[2] = alpha_expand_zap_mask (INTVAL (operands[2]));
+  if (operands[2] == const0_rtx)
+    {
+      emit_move_insn (operands[0], const0_rtx);
+      DONE;
+    }
+  if (operands[2] == constm1_rtx)
+    {
+      emit_move_insn (operands[0], operands[1]);
+      DONE;
+    }
+})
+
+(define_expand "builtin_zapnot"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(and:DI (unspec:DI
+		  [(not:QI (match_operand:QI 2 "reg_or_const_int_operand" ""))]
+		  UNSPEC_ZAP)
+		(match_operand:DI 1 "reg_or_const_int_operand" "")))]
+  ""
+{
+  if (GET_CODE (operands[2]) == CONST_INT)
+    {
+      rtx mask = alpha_expand_zap_mask (~ INTVAL (operands[2]));
+
+      if (operands[1] == const0_rtx)
+	{
+	  emit_move_insn (operands[0], const0_rtx);
+	  DONE;
+	}
+      if (operands[1] == constm1_rtx)
+	{
+	  emit_move_insn (operands[0], operands[1]);
+	  DONE;
+	}
+
+      operands[1] = force_reg (DImode, operands[1]);
+      emit_insn (gen_anddi3 (operands[0], operands[1], mask));
+      DONE;
+    }
+
+  operands[1] = force_reg (DImode, operands[1]);
+  operands[2] = gen_lowpart (QImode, operands[2]);
+})
+
+(define_insn "*builtin_zapnot_1"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(and:DI (unspec:DI
+                  [(not:QI (match_operand:QI 2 "register_operand" "r"))]
+                  UNSPEC_ZAP)
+		(match_operand:DI 1 "reg_or_0_operand" "rJ")))]
+  ""
+  "zapnot %r1,%2,%0"
+  [(set_attr "type" "shift")])
+
+(define_insn "builtin_amask"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "reg_or_8bit_operand" "rI")]
+		   UNSPEC_AMASK))]
+  ""
+  "amask %1,%0"
+  [(set_attr "type" "ilog")])
+
+(define_insn "builtin_implver"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+  	(unspec:DI [(const_int 0)] UNSPEC_IMPLVER))]
+  ""
+  "implver %0"
+  [(set_attr "type" "ilog")])
+
+(define_insn "builtin_rpcc"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+  	(unspec_volatile:DI [(const_int 0)] UNSPECV_RPCC))]
+  ""
+  "rpcc %0"
+  [(set_attr "type" "ilog")])
+
+(define_expand "builtin_minub8"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_uminv8qi3, V8QImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_minsb8"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_sminv8qi3, V8QImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_minuw4"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_uminv4hi3, V4HImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_minsw4"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_sminv4hi3, V4HImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_maxub8"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_umaxv8qi3, V8QImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_maxsb8"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_smaxv8qi3, V8QImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_maxuw4"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_umaxv4hi3, V4HImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "builtin_maxsw4"
+  [(match_operand:DI 0 "register_operand" "")
+   (match_operand:DI 1 "reg_or_0_operand" "")
+   (match_operand:DI 2 "reg_or_0_operand" "")]
+  "TARGET_MAX"
+{
+  alpha_expand_builtin_vector_binop (gen_smaxv4hi3, V4HImode, operands[0],
+				     operands[1], operands[2]);
+  DONE;
+})
+
+(define_insn "builtin_perr"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "reg_or_0_operand" "%rJ")
+		    (match_operand:DI 2 "reg_or_8bit_operand" "rJ")]
+		   UNSPEC_PERR))]
+  "TARGET_MAX"
+  "perr %r1,%r2,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_pklb"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(vec_concat:V8QI
+	  (vec_concat:V4QI
+	    (truncate:V2QI (match_operand:DI 1 "register_operand" ""))
+	    (match_dup 2))
+	  (match_dup 3)))]
+  "TARGET_MAX"
+{
+  operands[0] = gen_lowpart (V8QImode, operands[0]);
+  operands[1] = gen_lowpart (V2SImode, operands[1]);
+  operands[2] = CONST0_RTX (V2QImode);
+  operands[3] = CONST0_RTX (V4QImode);
+})
+
+(define_insn "*pklb"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(vec_concat:V8QI
+	  (vec_concat:V4QI
+	    (truncate:V2QI (match_operand:V2SI 1 "register_operand" "r"))
+	    (match_operand:V2QI 2 "const0_operand" ""))
+	  (match_operand:V4QI 3 "const0_operand" "")))]
+  "TARGET_MAX"
+  "pklb %r1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_pkwb"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(vec_concat:V8QI
+	  (truncate:V4QI (match_operand:DI 1 "register_operand" ""))
+	  (match_dup 2)))]
+  "TARGET_MAX"
+{
+  operands[0] = gen_lowpart (V8QImode, operands[0]);
+  operands[1] = gen_lowpart (V4HImode, operands[1]);
+  operands[2] = CONST0_RTX (V4QImode);
+})
+
+(define_insn "*pkwb"
+  [(set (match_operand:V8QI 0 "register_operand" "")
+	(vec_concat:V8QI
+	  (truncate:V4QI (match_operand:V4HI 1 "register_operand" ""))
+	  (match_operand:V4QI 2 "const0_operand" "")))]
+  "TARGET_MAX"
+  "pkwb %r1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_unpkbl"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(zero_extend:V2SI
+	  (vec_select:V2QI (match_operand:DI 1 "register_operand" "")
+			   (parallel [(const_int 0) (const_int 1)]))))]
+  "TARGET_MAX"
+{
+  operands[0] = gen_lowpart (V2SImode, operands[0]);
+  operands[1] = gen_lowpart (V8QImode, operands[1]);
+})
+
+(define_insn "*unpkbl"
+  [(set (match_operand:V2SI 0 "register_operand" "=r")
+	(zero_extend:V2SI
+	  (vec_select:V2QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+			   (parallel [(const_int 0) (const_int 1)]))))]
+  "TARGET_MAX"
+  "unpkbl %r1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_unpkbw"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(zero_extend:V4HI
+	  (vec_select:V4QI (match_operand:DI 1 "register_operand" "")
+			   (parallel [(const_int 0)
+				      (const_int 1)
+				      (const_int 2)
+				      (const_int 3)]))))]
+  "TARGET_MAX"
+{
+  operands[0] = gen_lowpart (V4HImode, operands[0]);
+  operands[1] = gen_lowpart (V8QImode, operands[1]);
+})
+
+(define_insn "*unpkbw"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(zero_extend:V4HI
+	  (vec_select:V4QI (match_operand:V8QI 1 "reg_or_0_operand" "rW")
+			   (parallel [(const_int 0)
+				      (const_int 1)
+				      (const_int 2)
+				      (const_int 3)]))))]
+  "TARGET_MAX"
+  "unpkbw %r1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_expand "builtin_cttz"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "")]
+		   UNSPEC_CTTZ))]
+  "TARGET_CIX"
+  "")
+
+(define_insn "builtin_ctlz"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
+		   UNSPEC_CTLZ))]
+  "TARGET_CIX"
+  "ctlz %1,%0"
+  [(set_attr "type" "mvi")])
+
+(define_insn "builtin_ctpop"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")]
+		   UNSPEC_CTPOP))]
+  "TARGET_CIX"
+  "ctpop %1,%0"
+  [(set_attr "type" "mvi")])
+
 ;; The call patterns are at the end of the file because their
 ;; wildcard operand0 interferes with nice recognition.
 
