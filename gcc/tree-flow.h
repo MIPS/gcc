@@ -699,9 +699,6 @@ extern enum move_pos movement_possibility (tree);
 bool tree_if_conversion (struct loop *, bool);
 
 /* APPLE LOCAL begin lno */
-/* In tree-ssa-dce.c.  */
-void tree_ssa_dce_no_cfg_changes (void);
-
 /* In tree-ssa-loop*.c  */
 struct loops *tree_loop_optimizer_init (FILE *, bool);
 void tree_ssa_prefetch_arrays (struct loops *);
