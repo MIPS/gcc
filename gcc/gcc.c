@@ -1565,6 +1565,9 @@ init_spec ()
 #else
 			    "-lgcc_s%M"
 #endif
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
 			    ,
 			    "-lgcc",
 			    "-lgcc_eh");

@@ -1,3 +1,12 @@
+2003-08-08  Kean Johnston  <jkj@sco.com>
+
+	* configure.in: Add support for sco3.2v5.0*
+	* configure: Regenerated
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
 2003-07-11  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* README: Note that libffi is not part of GCC.  Update the project
@@ -94,14 +103,6 @@
 
 	* src/s390/ffi.c (ffi_closure_helper_SYSV): Add hidden visibility
 	attribute.
-
-2003-05-13  Release Manager
-
-	* GCC 3.3 Released.
-
-2003-05-13  Release Manager
-
-	* GCC 3.3 Released.
 
 2003-05-13  Release Manager
 
