@@ -129,8 +129,10 @@ lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix,
 void print_lambda_body_vector (FILE *, lambda_body_vector);
 struct loop;
 lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loop *,
+						 varray_type *,
 						 varray_type *);
 void lambda_loopnest_to_gcc_loopnest (struct loop *, varray_type,
+				      varray_type,
 				      lambda_loopnest, 
 				      lambda_trans_matrix);
 
