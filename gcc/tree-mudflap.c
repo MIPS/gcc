@@ -1169,6 +1169,23 @@ mudflap_enqueue_decl (obj, label)
   if (TREE_MUDFLAPPED_P (obj))
     return;
 
+  /* We don't need to process variable decls that are internally
+     generated extern.  If we did, we'd end up with warnings for them
+     during mudflap_finish_file ().  That would confuse the user,
+     since the text would refer to variables that don't show up in the
+     user's source code.
+  */
+  if (DECL_P (obj) &&
+      DECL_EXTERNAL (obj) &&
+      DECL_ARTIFICIAL (obj))
+    {
+#if 0
+	warning_with_decl (obj, "ignoring system extern decl `%s'",
+			   IDENTIFIER_POINTER (DECL_NAME (obj)));
+#endif
+      return;
+    }
+
   /*
   fprintf (stderr, "enqueue_decl obj=`");
   print_generic_expr (stderr, obj, 0);

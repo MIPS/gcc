@@ -6,14 +6,12 @@ dg-init
 global srcdir
 
 # XXX: As of 2003-02-25, non-static linking of libstdc++ doesn't work with -fmudflap.
-foreach flags [list {} {-static} {-O2} {-O3}] {
+# libstdc++ startup routines call into hooked str*/mem* functions, which fail due
+# to the disabled heuristics.
+foreach flags [list {-static} {-O3 -static}] {
     foreach srcfile [lsort [glob -nocomplain ${srcdir}/libmudflap.c++/*.cxx]] {
 	set bsrc [file tail $srcfile]
-	
-	# XXX: The following hack makes instrumented programs run anyway
-	setenv MUDFLAP_OPTIONS "-heur-proc-map -no-heur-argv-environ -viol-segv"
-	# setenv MUDFLAP_OPTIONS "-no-heur-proc-map -no-heur-argv-environ -viol-segv"
-
+	setenv MUDFLAP_OPTIONS "-no-heur-proc-map -no-heur-argv-environ -viol-segv"
 	dg-runtest $srcfile $flags "-fmudflap"
     }
 }

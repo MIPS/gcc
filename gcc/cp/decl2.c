@@ -2575,10 +2575,6 @@ finish_file ()
 
   emit_support_tinfos ();
 
-  /* Emit mudflap static registration function.  */
-  if (flag_mudflap)
-    mudflap_finish_file ();
-  
   do 
     {
       tree t;
@@ -2788,6 +2784,10 @@ finish_file ()
       
     }
   
+  /* Emit mudflap static registration function.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
+
   /* We give C linkage to static constructors and destructors.  */
   push_lang_context (lang_name_c);
 

@@ -1,3 +1,10 @@
+2003-02-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/fail23-frag.c, pass30-frag.c: New tests
+	for global array registration.
+	* testsuite/libmudflap.c++/fail24-frag.cxx, pass31-frag.cxx: Ditto.
+	* testsuite/libmudflap.c++/c++frags.exp: Tweak -static multilib hack.
+
 2003-02-27  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am: Add gross make bug workarounds.  Tweaked
