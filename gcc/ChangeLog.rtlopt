@@ -1,3 +1,9 @@
+2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-unroll.c (decide_unroll_constant_iterations,
+	decide_unroll_runtime_iterations, decide_peel_simple,
+	decide_unroll_stupid): Fix.
+
 2002-11-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.c (flow_loop_dump, flow_loops_free, flow_loop_exit_edges_find,

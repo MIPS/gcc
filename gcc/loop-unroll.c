@@ -411,7 +411,7 @@ decide_unroll_constant_iterations (loops, loop, flags)
 {
   unsigned nunroll, best_copies, best_unroll, n_copies, i;
 
-  if (!flags & UAP_UNROLL)
+  if (!(flags & UAP_UNROLL))
     {
       /* We were not asked to, just return back silently.  */
       return;
@@ -603,7 +603,7 @@ decide_unroll_runtime_iterations (loops, loop, flags)
 {
   unsigned nunroll, i;
 
-  if (!flags & UAP_UNROLL)
+  if (!(flags & UAP_UNROLL))
     {
       /* We were not asked to, just return back silently.  */
       return;
@@ -873,7 +873,7 @@ decide_peel_simple (loops, loop, flags)
 {
   unsigned npeel, i;
 
-  if (!flags & UAP_PEEL)
+  if (!(flags & UAP_PEEL))
     {
       /* We were not asked to, just return back silently.  */
       return;
@@ -1001,7 +1001,7 @@ decide_unroll_stupid (loops, loop, flags)
 {
   unsigned nunroll;
 
-  if (!flags & UAP_UNROLL_ALL)
+  if (!(flags & UAP_UNROLL_ALL))
     {
       /* We were not asked to, just return back silently.  */
       return;
