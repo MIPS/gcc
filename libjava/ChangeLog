@@ -1,5 +1,14 @@
 2004-06-29  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JButton.java,
+	javax/swing/text/DefaultEditorKit.java,
+	javax/swing/text/EditorKit.java,
+	javax/swing/text/Segment.java,
+	javax/swing/text/StyledEditorKit.java:
+	Reformatted.
+
+2004-06-29  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JEditorPane.java
 	(createDefaultEditorKit): Use javax.swing.text.DefaultEditorKit.
 	(createEditorKitForContentType): Likewise.

@@ -1,4 +1,4 @@
-/* EditorKit.java -- 
+/* EditorKit.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -44,32 +44,42 @@ import java.io.Writer;
 import javax.swing.Action;
 import javax.swing.JEditorPane;
 
-public abstract class EditorKit implements Cloneable
+
+public abstract class EditorKit
+  implements Cloneable
 {
-    EditorKit()
-    {
-    }
+  EditorKit()
+  {
+  }
 
-    EditorKit(EditorKit kit)
-    {
-    }
+  EditorKit(EditorKit kit)
+  {
+  }
 
-    void deinstall(JEditorPane c)
-    {
-	//      Called when the kit is being removed from the JEditorPane. 
-    }
-    void install(JEditorPane c)
-    {
-    }
+  void deinstall(JEditorPane c)
+  {
+    //      Called when the kit is being removed from the JEditorPane. 
+  }
 
-    abstract  Caret createCaret();
-    abstract  Document createDefaultDocument();
-    abstract  Action[] getActions();
-    abstract  String getContentType();
-    abstract  ViewFactory getViewFactory();
-    abstract  void read(InputStream in, Document doc, int pos);
-    abstract  void read(Reader in, Document doc, int pos);
-    abstract  void write(OutputStream out, Document doc, int pos, int len);
-    abstract  void write(Writer out, Document doc, int pos, int len);    
+  void install(JEditorPane c)
+  {
+  }
+
+  abstract Caret createCaret();
+
+  abstract Document createDefaultDocument();
+
+  abstract Action[] getActions();
+
+  abstract String getContentType();
+
+  abstract ViewFactory getViewFactory();
+
+  abstract void read(InputStream in, Document doc, int pos);
+
+  abstract void read(Reader in, Document doc, int pos);
+
+  abstract void write(OutputStream out, Document doc, int pos, int len);
+
+  abstract void write(Writer out, Document doc, int pos, int len);
 }
-

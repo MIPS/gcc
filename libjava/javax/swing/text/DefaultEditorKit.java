@@ -1,4 +1,4 @@
-/* DefaultEditorKit.java -- 
+/* DefaultEditorKit.java --
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -44,10 +44,10 @@ import java.io.Writer;
 import javax.swing.Action;
 import javax.swing.JEditorPane;
 
+
 public class DefaultEditorKit extends EditorKit
 {
   private static final long serialVersionUID = 9017245433028523428L;
-  
   public static final String backwardAction = "caret-backward";
   public static final String beepAction = "beep";
   public static final String beginAction = "caret-begin";
@@ -79,16 +79,19 @@ public class DefaultEditorKit extends EditorKit
   public static final String selectionBackwardAction = "selection-backward";
   public static final String selectionBeginAction = "selection-begin";
   public static final String selectionBeginLineAction = "selection-begin-line";
-  public static final String selectionBeginParagraphAction = "selection-begin-paragraph";
+  public static final String selectionBeginParagraphAction =
+    "selection-begin-paragraph";
   public static final String selectionBeginWordAction = "selection-begin-word";
   public static final String selectionDownAction = "selection-down";
   public static final String selectionEndAction = "selection-end";
   public static final String selectionEndLineAction = "selection-end-line";
-  public static final String selectionEndParagraphAction = "selection-end-paragraph";
+  public static final String selectionEndParagraphAction =
+    "selection-end-paragraph";
   public static final String selectionEndWordAction = "selection-end-word";
   public static final String selectionForwardAction = "selection-forward";
   public static final String selectionNextWordAction = "selection-next-word";
-  public static final String selectionPreviousWordAction = "selection-previous-word";
+  public static final String selectionPreviousWordAction =
+    "selection-previous-word";
   public static final String selectionUpAction = "selection-up";
   public static final String selectLineAction = "select-line";
   public static final String selectParagraphAction = "select-paragraph";
@@ -99,49 +102,54 @@ public class DefaultEditorKit extends EditorKit
   public DefaultEditorKit()
   {
   }
-  
-    void deinstall(JEditorPane c)
-    {
-	//      Called when the kit is being removed from the JEditorPane. 
-    }
-    void install(JEditorPane c)
-    {
-    }
 
-    Caret createCaret()
-    {
-	return null;
-    }
-    Document createDefaultDocument()
-    {
-        return new PlainDocument();
-    }
+  void deinstall(JEditorPane c)
+  {
+    //      Called when the kit is being removed from the JEditorPane. 
+  }
 
-    Action[] getActions()
-    {
-	return null;
-    }
+  void install(JEditorPane c)
+  {
+  }
 
-    String getContentType()
-    {
-	return "text/plain";
-    }
-    
-    ViewFactory getViewFactory()
-    {
-	return null;
-    }
-    void read(InputStream in, Document doc, int pos)
-    {
-    }
-    void read(Reader in, Document doc, int pos)
-    {
-    }
-    void write(OutputStream out, Document doc, int pos, int len)
-    {
-    }
-    void write(Writer out, Document doc, int pos, int len)
-    {
-    }
+  Caret createCaret()
+  {
+    return null;
+  }
+
+  Document createDefaultDocument()
+  {
+    return new PlainDocument();
+  }
+
+  Action[] getActions()
+  {
+    return null;
+  }
+
+  String getContentType()
+  {
+    return "text/plain";
+  }
+
+  ViewFactory getViewFactory()
+  {
+    return null;
+  }
+
+  void read(InputStream in, Document doc, int pos)
+  {
+  }
+
+  void read(Reader in, Document doc, int pos)
+  {
+  }
+
+  void write(OutputStream out, Document doc, int pos, int len)
+  {
+  }
+
+  void write(Writer out, Document doc, int pos, int len)
+  {
+  }
 }
-
