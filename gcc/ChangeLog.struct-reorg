@@ -1,3 +1,12 @@
+2004-10-04  Caroline Tice <ctice@apple.com>
+
+	* struct-reorg.c (opts.h): New include statement.
+	(whole_program_p): New function.
+	(build_data_structure_list):  Update code to correctly find
+	local variable declarations.
+	(peel_structs):  Add call to whole_program_p; add code to avoid
+	re-analyzing same function multiple times (avoid analyzing clones).
+
 2004-10-04  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* struct-reorg.c (peel_structs): Handle data structures of

@@ -47,6 +47,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "struct-reorg.h"
+#include "opts.h"
 
 /* Not used yet.  Commented it out so we can bootstrap.  */
 #if 0 
@@ -408,6 +409,101 @@ verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl,
 }
 #endif 
 
+/* This function checks to see if cc1 has been passed all the
+   non-library source files for the program or not.  It does this by
+   going through all the cgraph nodes (assuming there will be at least
+   one for every function called), and making sure the cgraph node
+   function is "ok".  A function is "ok" if: 1). We have the source
+   for it (it is not external, and we have a size count for it; or
+   2). It is a library function (i.e. it's source file name contains
+   either "/usr/include" or "/include/stdlib.h"); or 3). It's source
+   file name is one of the input source files passed to cc1.  */
+
+/* NB:  I have discovered that function calls made through a variable
+   (where the function being called is assigned to the variable) do NOT
+   get cgraph nodes.  I need to use some other mechanism to discover the
+   existence of these functions and verify that we've got the source
+   for them.  I believe such function calls are recorded in cgraph edges
+   out of the function that calls them. (In other words, this function
+   isn't completely right yet.)  */
+
+static bool
+whole_program_p (void)
+{
+  struct cgraph_node *c_node;
+  char *filename;
+  char *fileroot;
+  char *cptr;
+  int i;
+  int len;
+  int rootlen;
+  bool okay;
+
+  for (c_node = cgraph_nodes; c_node; c_node = c_node->next)
+    {
+      okay = false;
+      if (DECL_EXTERNAL (c_node->decl)
+	  || (c_node->local.self_insns == 0))
+	{
+	  filename = DECL_SOURCE_FILE (c_node->decl);
+
+	  if (strstr (filename, "/usr/include")
+	      || strstr (filename, "/include/stdlib.h")
+	      || strcmp (filename, "<built-in>") == 0)
+	    okay = true;
+	  else
+	    {
+	  
+	      cptr = strrchr (filename, '/');
+	      if (cptr)
+		{
+		  len = strlen (cptr) + 1;
+		  fileroot = xmalloc (len * sizeof (char));
+		  strcpy (fileroot, cptr);
+		}
+	      else
+		{
+		  len = strlen (filename) + 1;
+		  fileroot = xmalloc (len * sizeof (char));
+		  strcpy (fileroot, filename);
+		}
+	      
+	      cptr = strrchr (fileroot, '.');
+	      if (strcmp (cptr, ".h") == 0)
+		okay = false;
+	      else
+		{
+		  cptr[0] = '\0';
+	      
+		  rootlen = strlen (fileroot);
+		  
+		  for (i = 0; i < num_in_fnames; i++)
+		    {
+		      if (strncmp (in_fnames[i], fileroot, rootlen) == 0)
+			{
+			  cptr = strrchr (in_fnames[i], '.');
+			  if (cptr 
+			      && (strcmp (cptr, ".c") == 0
+				  || strcmp (cptr, ".i") == 0))
+			    {
+			      okay = true;
+			      i = num_in_fnames;
+			    }
+			}
+		    }
+		}
+	    }
+
+	}
+      else
+	okay = true;
+
+      if (! okay)
+	return false;
+    }
+
+  return true;
+}
 
 /* Search the data structure list DS_LIST for a data structure with 
    SDECL declaration return it if found and return NULL otherwise.  */
@@ -423,6 +519,7 @@ get_data_struct_by_decl (struct struct_list *ds_list, tree sdecl)
 
 /* This should free up all the memory allocated for the information 
    about the data structure DS.  */
+
 static
 void free_data_struct (ATTRIBUTE_UNUSED struct data_structure *ds)
 {
@@ -431,6 +528,7 @@ void free_data_struct (ATTRIBUTE_UNUSED struct data_structure *ds)
 
 /* Given a VAR_DECL it checks its type and create an appropriate
    STRUCT_LIST node if it is of a record type.  */
+
 static struct struct_list *
 make_data_struct_node (struct struct_list *s_list, tree var_decl)
 {
@@ -480,7 +578,9 @@ make_data_struct_node (struct struct_list *s_list, tree var_decl)
 static struct struct_list *
 build_data_structure_list (void)
 {
+  char *cptr;
   tree var_decl;
+  tree var_list;
   struct struct_list *tmp; 
   struct struct_list *data_struct_list = NULL;
   struct cgraph_varpool_node *current_varpool;
@@ -522,11 +622,31 @@ build_data_structure_list (void)
       if (! func)
 	continue;
 
-      /* Function local variables. ??? is this the correct way?   */
-      for (var_decl = func->unexpanded_var_list; var_decl; var_decl = TREE_CHAIN (var_decl))
-	if (TREE_CODE (var_decl) == VAR_DECL)
-	  if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
-	    data_struct_list = tmp;
+      /* Function local variables.  */
+      for (var_list = func->unexpanded_var_list; var_list; 
+	   var_list = TREE_CHAIN (var_list))
+	{
+	  var_decl = TREE_VALUE (var_list);
+	  if (TREE_CODE (var_decl) == VAR_DECL)
+	    {
+	      /* Eliminate non-local variables referenced.  Non-local
+		 variables have the form <var_name>.<number>  */
+
+	      cptr = strrchr (IDENTIFIER_POINTER (DECL_NAME (var_decl)), '.');
+	      if (cptr)
+		{
+		  cptr++;
+		  while (isdigit (cptr[0]))
+		    {
+		      cptr++;
+		    }
+		  if (cptr != '\0')
+		    break;
+		}
+	      if ((tmp = make_data_struct_node (data_struct_list, var_decl)))
+		data_struct_list = tmp;
+	    }
+	}
     }
   return data_struct_list;
 }
@@ -541,8 +661,15 @@ peel_structs (void)
   bool reordering_only = false;
   bool success;
 
-  /* Make sure compiler invocation is of type to use this opt. Not Done yet.  */
-
+  /* Verify that this compiler invocation was passed *all* the user-written
+     code for this program.  */
+  
+  if (!whole_program_p ())
+    {
+      inform 
+	("Whole program not passed to compiler: Can't perform struct peeling.");
+      return;
+    }
   /* Stage 1: Build DATA_STRUCTURE list of the data structures that are valid
      for the transformation.  */
   data_struct_list = build_data_structure_list ();
@@ -566,11 +693,17 @@ peel_structs (void)
         {
           struct function *func = DECL_STRUCT_FUNCTION (c_node->decl);
 
-          /* Build the access sites list for fields and also the field
-	     access lists for basic blocks.  */
-	  build_bb_access_list_for_struct (crr_ds, func);
-          update_cpg_for_structure (crr_ds, func);
-	  free_bb_access_list_for_struct (crr_ds, func);
+	  /* There's no point in re-analyzing the same function definition
+	     more than once... */
+
+	  if (!c_node->next_clone)
+	    {	      
+	      /* Build the access sites list for fields and also the field
+		 access lists for basic blocks.  */
+	      build_bb_access_list_for_struct (crr_ds, func);
+	      update_cpg_for_structure (crr_ds, func);
+	      free_bb_access_list_for_struct (crr_ds, func);
+	    }
 	}
 
       success = cache_aware_data_reorganization (crr_ds, reordering_only);
