@@ -484,7 +484,7 @@ struct df * dataflowAnalyser;
   2 = lots of spew 
   Amazingly useful for debugging this allocator.
 */
-static int debug_new_regalloc=2;
+static int debug_new_regalloc=0;
 
 /* Determine if regno is a candidate for this pass of register
    allocation. */
