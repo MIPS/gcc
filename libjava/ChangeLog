@@ -1,5 +1,17 @@
 2004-12-29  Michael Koch  <konqueror@gmx.de>
 
+	* java/awt/Button.java,
+	javax/swing/JApplet.java,
+	javax/swing/JFormattedTextField.java,
+	javax/swing/JWindow.java,
+	javax/swing/JTree.java,
+	javax/swing/plaf/basic/BasicEditorPaneUI.java,
+	javax/swing/plaf/basic/BasicTextPaneUI.java,
+	javax/swing/plaf/basic/BasicTreeUI.java:
+	Reworked import statements.
+
+2004-12-29  Michael Koch  <konqueror@gmx.de>
+
 	* Makefile.am: Put javax.imageio into its own library and link it
 	against lib-org-w3c-dom.la to fix bootstrapping.
 	* Makefile.in: Regenerated.
