@@ -1,3 +1,37 @@
+2004-12-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/18179
+	* tree-vectorizer.h (struct _stmt_vec_info): Add new fields:
+	initial_offset, step, misalignment and base_aligned_p and macros
+	to access them.
+	* tree-vectorizer.c (vect_analyze_offset_expr): New function.
+	(new_stmt_vec_info): Initialize the new fields of stmt_vec_info.
+	(vect_create_data_ref_ptr): Fix printings.
+	(vect_get_base_and_offset): Call get_inner_reference and
+	vect_analyze_offset_expr. Renamed (previous name
+	vect_get_base_and_bit_offset).
+	(vect_create_addr_base_for_vector_ref): Build address_base by
+	combining base and initial_offset fields of vect_stmt_info.
+	(vect_update_inits_of_dr): Update offset of data-ref instead of its
+	access-fn. Remove argument.
+	(vect_update_inits_of_drs): Call vect_update_inits_of_dr with new
+	arguments.
+	(vect_compute_data_ref_alignment): Check misalignment info in
+	vect_stmt_info. Remove argument.
+	(vect_compute_data_refs_alignment): Call
+	vect_compute_data_ref_alignment with correct argument.
+	(vect_analyze_data_ref_access): Check access info in vect_stmt_info.
+	(vect_analyze_pointer_ref_access): Update step and initial_offset
+	fields of vect_stmt_info.
+	(vect_get_memtag_and_dr): Call vect_get_base_and_offset and set the
+	fields of stmt_vec_info. Reorganize. Add memtag retrieval. Renamed
+	(previous name vect_get_symb_and_dr).
+	(vect_analyze_data_refs): Find vectype and pass it to
+	vect_get_memtag_and_dr. Remove memtag retrieval.
+	(vect_get_first_index): Remove.
+	(vect_compute_array_base_alignment): Remove.
+	(vect_compute_array_ref_alignment): Remove.
+
 2004-12-14  Dorit Naishlos  <dorit@il.ibm.com>
 
 	Merge from mainline (autovect-merge-20041213).

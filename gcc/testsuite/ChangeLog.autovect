@@ -1,3 +1,9 @@
+2004-12-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/18179
+	* gcc.dg/vect/vect-90.c: New test.
+	* gcc.dg/vect/vect-91.c: New test.
+
 2004-11-15  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-none.c: Now two tests are vectorized.
