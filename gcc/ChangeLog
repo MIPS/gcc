@@ -1,3 +1,22 @@
+2002-09-03  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (build_function_call_expr): Remove prototype, export
+	as non-static and add a comment above function definition.
+	(builtin_mathfn_code): New function to check for math builtins.
+	(fold_builtin): Optimize sqrt(0.0) as 0.0, sqrt(1.0) as 1.0,
+	exp(0.0) as 1.0, and log(1.0) as 0.0.  Optimize exp(log(x)) and
+	log(exp(x)) as x.  Optimize sqrt(exp(x)) as exp(x/2.0) and
+	log(sqrt(x)) as log(x)/2.0.
+
+	* tree.h: Prototype build_function_call_expr and builtin_mathfn_code
+	in new "builtins.c" section.  Place the build_range_type prototype
+	with the other prototypes from "tree.c".
+
+	* fold-const.c (fold) [ABS_EXPR]: Fold fabs(sqrt(x)) as sqrt(x)
+	and fabs(exp(x)) as exp(x).  [MULT_EXPR]: Fold sqrt(x)*sqrt(y)
+	as sqrt(x*y) and exp(x)*exp(y) as exp(x+y). [RDIV_EXPR]: Fold
+	x/exp(y) as x*exp(-y).
+
 2002-09-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* stor-layout (finish_builtin_struct): Renamed and moved from c++

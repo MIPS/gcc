@@ -2851,9 +2851,10 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-extern tree fold_builtin		PARAMS ((tree));
-
-extern tree build_range_type PARAMS ((tree, tree, tree));
+/* In builtins.c */
+extern tree fold_builtin				PARAMS ((tree));
+extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
+extern tree build_function_call_expr			PARAMS ((tree, tree));
 
 /* In alias.c */
 extern void record_component_aliases		PARAMS ((tree));
@@ -2900,6 +2901,7 @@ extern void gcc_obstack_init		PARAMS ((struct obstack *));
 extern void init_ttree			PARAMS ((void));
 extern void build_common_tree_nodes	PARAMS ((int));
 extern void build_common_tree_nodes_2	PARAMS ((int));
+extern tree build_range_type		PARAMS ((tree, tree, tree));
 
 /* In function.c */
 extern void setjmp_protect_args		PARAMS ((void));
