@@ -59,12 +59,10 @@ Boston, MA 02111-1307, USA.  */
    want to profile or debug the GNU/Linux C library, please add
    -lc_p or -ggdb to LDFLAGS at the link time, respectively.  */
 #define LIB_SPEC \
-"%{fbounded-pointer-thunks:-lgccbp}\
- %{mieee-fp:-lieee} %{p:-lgmon} %{pg:-lgmon} %{!ggdb:-lc} %{ggdb:-lg}"
+"%{mieee-fp:-lieee} %{p:-lgmon} %{pg:-lgmon} %{!ggdb:-lc} %{ggdb:-lg}"
 #else    
 #define LIB_SPEC \
-"%{fbounded-pointer-thunks:-lgccbp}\
- %{mieee-fp:-lieee} %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
+"%{mieee-fp:-lieee} %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} \
  %{fbounded-pointers:-lc_b} \
  %{!p:%{!pg:%{!g*:%{!fbounded-pointers:-lc}} %{g*:-lg -static}}}" 
 #endif

@@ -913,14 +913,6 @@ ffe_terminate_4 ()
   ffewhere_terminate_4 ();
 }
 
-void
-compile_bounded_pointer_thunk (decl)
-     tree decl;
-{
-  error ("bounded pointer thunks are unsupported");
-  abort ();
-}
-
 tree
 build_bounded_ptr_field_ref (bp, field_number)
      tree bp;

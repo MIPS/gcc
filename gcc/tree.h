@@ -2828,9 +2828,6 @@ extern struct rtx_def *emit_line_note_force	PARAMS ((const char *, int));
 
 extern int setjmp_call_p		PARAMS ((tree));
 
-/* Tree list of FUNCTION_DECL nodes that might need bounded-pointer thunks.  */
-extern tree bounded_pointer_thunk_decls;
-
 /* In front end.  */
 
 extern int mark_addressable		PARAMS ((tree));
@@ -2848,8 +2845,6 @@ extern void print_lang_identifier	PARAMS ((FILE *, tree, int));
 #endif
 extern int global_bindings_p		PARAMS ((void));
 extern void insert_block		PARAMS ((tree));
-extern void push_decl_for_bounded_pointer_thunk PARAMS ((tree));
-extern void compile_bounded_pointer_thunk PARAMS ((tree));
 
 /* In integrate.c */
 extern void save_for_inline_nocopy	PARAMS ((tree));

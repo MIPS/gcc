@@ -97,22 +97,19 @@ Boston, MA 02111-1307, USA.  */
 #if 1
 #ifdef USE_GNULIBC_1
 #define LIB_SPEC \
-  "%{fbounded-pointer-thunks:-lgccbp}\
-   %{!shared: %{p:-lgmon} %{pg:-lgmon} %{profile:-lgmon -lc_p} \
+  "%{!shared: %{p:-lgmon} %{pg:-lgmon} %{profile:-lgmon -lc_p} \
      %{fbounded-pointers:-lc_b} \
      %{!profile:%{!ggdb:%{!fbounded-pointers:-lc}} %{ggdb:-lg}}}"
 #else
 #define LIB_SPEC \
-  "%{fbounded-pointer-thunks:-lgccbp}\
-   %{shared: -lc} \
+  "%{shared: -lc} \
    %{!shared: %{mieee-fp:-lieee} %{pthread:-lpthread} \
 	%{fbounded-pointers:-lc_b} \
 	%{profile:-lc_p} %{!profile:%{!fbounded-pointers:-lc}}}"
 #endif
 #else
 #define LIB_SPEC \
-  "%{fbounded-pointer-thunks:-lgccbp}\
-   %{!shared: \
+  "%{!shared: \
      %{p:-lgmon -lc_p} %{pg:-lgmon -lc_p} %{fbounded-pointers:-lc_b} \
        %{!p:%{!pg:%{!g*:%{!fbounded-pointers:-lc}} %{g*:-lg}}}}"
 #endif

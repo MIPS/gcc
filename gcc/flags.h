@@ -510,14 +510,6 @@ extern int flag_bounded_pointers;
    __bounded and __unbounded attributes.  */
 extern int default_pointer_boundedness;
 
-/* -fbounded-pointer-thunks causes gcc to generate thunks that
-   translate between the bounded-pointer and non-bounded-pointer
-   versions of functions that have argument type(s) or return type
-   that are pointers.  This allows code compiled with bounded pointers
-   to be mixed with code compiled without bounded pointers.  See the
-   comment above the TREE_BOUNDED macro definition for full details.  */
-extern int flag_bounded_pointer_thunks;
-
 /* -fcheck-bounds causes gcc to generate array bounds checks.
    For C, C++: defaults to value of flag_bounded_pointers.
    For ObjC: defaults to off.

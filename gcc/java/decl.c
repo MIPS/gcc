@@ -1931,14 +1931,6 @@ end_java_method ()
   asynchronous_exceptions = flag_asynchronous_exceptions;
 }
 
-void
-compile_bounded_pointer_thunk (decl)
-     tree decl;
-{
-  error ("bounded pointer thunks are unsupported");
-  abort ();
-}
-
 tree
 build_bounded_ptr_field_ref (bp, field_number)
      tree bp;

@@ -862,14 +862,6 @@ int flag_bounded_pointers = 0;
    __bounded and __unbounded attributes.  */
 int default_pointer_boundedness;
 
-/* -fbounded-pointer-thunks causes gcc to generate thunks that
-   translate between the bounded-pointer and non-bounded-pointer
-   versions of functions that have argument type(s) or return type
-   that are pointers.  This allows code compiled with bounded pointers
-   to be mixed with code compiled without bounded pointers.  See the
-   comment above the TREE_BOUNDED macro definition for full details.  */
-int flag_bounded_pointer_thunks = 0;
-
 /* -fcheck-bounds causes gcc to generate array bounds checks.
    For C, C++: defaults to value of flag_bounded_pointers.
    For ObjC: defaults to off.
@@ -1133,8 +1125,6 @@ lang_independent_options f_options[] =
    "Set errno after built-in math functions"},
   {"bounded-pointers", &flag_bounded_pointers, 1,
    "Compile pointers as triples: value, base & end" },
-  {"bounded-pointer-thunks", &flag_bounded_pointer_thunks, 1,
-   "Generate thunks to translate between BP and non-BP function signatures" },
   {"bounds-check", &flag_bounds_check, 1,
    "Generate code to check bounds before dereferencing pointers and arrays" },
   {"single-precision-constant", &flag_single_precision_constant, 1,
@@ -2142,7 +2132,6 @@ compile_file (name)
   init_function_once ();
   init_stor_layout_once ();
   init_varasm_once ();
-  init_calls ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
@@ -2387,26 +2376,6 @@ compile_file (name)
     /* Clean up.  */
     free (vec);
   }
-
-  /* Genreate bounded pointer thunks for all extern functions called
-     that have pointer-depth == 1.  */
-     
-  if (flag_bounded_pointer_thunks)
-    {
-      int save_flag_inline_functions = flag_inline_functions;
-      tree list = bounded_pointer_thunk_decls;
-      flag_inline_functions = 0;
-      bounded_pointer_thunk_decls = NULL_TREE; 
-      for (; list; list = TREE_CHAIN (list))
-	{
-	  tree decl = TREE_VALUE (list);
-	  if (TREE_PUBLIC (decl) && DECL_EXTERNAL (decl) && !TREE_STATIC (decl)
-	      && (TREE_BOUNDED (decl) || TYPE_BOUNDED (TREE_TYPE (decl)))
-	      && DECL_POINTER_DEPTH (decl) == 1)
-	    compile_bounded_pointer_thunk (decl);
-	}
-      flag_inline_functions = save_flag_inline_functions;
-    }
 
   /* Write out any pending weak symbol declarations.  */
 

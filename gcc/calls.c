@@ -2197,11 +2197,6 @@ expand_call (exp, target, ignore)
 	    }
 
 	  mark_addressable (fndecl);
-
-	  if (flag_bounded_pointer_thunks
-	      && !is_integrable && !DECL_INLINE (fndecl))
-	    bounded_pointer_thunk_decls
-	      = perm_tree_cons (NULL_TREE, fndecl, bounded_pointer_thunk_decls);
 	}
 
       flags |= flags_from_decl_or_type (fndecl);
@@ -4566,16 +4561,4 @@ store_one_arg (arg, argblock, flags, variable_size,
   pop_temp_slots ();
 
   return sibcall_failure;
-}
-
-/* Tree list of FUNCTION_DECL nodes that might need bounded-pointer thunks.  */
-
-tree bounded_pointer_thunk_decls;
-
-/* This function is run once to initialize calls.c.  */
-
-void
-init_calls ()
-{
-  ggc_add_tree_root (&bounded_pointer_thunk_decls, 1);
 }

@@ -15111,12 +15111,3 @@ lang_mark_tree (t)
 	ggc_mark_tree ((tree) lt);
     }
 }
-
-void
-compile_bounded_pointer_thunk (decl)
-     tree decl;
-{
-  /* GKM FIXME */
-  error ("bounded pointer thunks are unsupported");
-  abort ();
-}
