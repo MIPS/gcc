@@ -260,6 +260,22 @@ static void restore_vars_to_original_value (varray_type locals,
 static void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 static void register_definitions_for_stmt (tree, varray_type *);
 
+/* Local version of fold that doesn't introduce cruft.  */
+
+static tree
+local_fold (tree t)
+{
+  t = fold (t);
+
+  /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR that
+     may have been added by fold, and "useless" type conversions that might
+     now be apparent due to propagation.  */
+  STRIP_MAIN_TYPE_NOPS (t);
+  STRIP_USELESS_TYPE_CONVERSION (t);
+
+  return t;
+}
+
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the operand pointed by OP_P.  */
 
@@ -830,7 +846,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* If the conditional folds to an invariant, then we are done,
 	     otherwise look it up in the hash tables.  */
-	  cached_lhs = fold (COND_EXPR_COND (dummy_cond));
+	  cached_lhs = local_fold (COND_EXPR_COND (dummy_cond));
 	  if (! is_gimple_min_invariant (cached_lhs))
 	    cached_lhs = lookup_avail_expr (dummy_cond, NULL, false);
  	  if (!cached_lhs || ! is_gimple_min_invariant (cached_lhs))
@@ -1700,7 +1716,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		  tree t;
 
 		  /* Build and fold (Y OP C2) OP C1.  */
-		  t = fold (build (rhs_code, type, rhs_def_rhs, outer_const));
+		  t = build (rhs_code, type, rhs_def_rhs, outer_const);
+		  t = local_fold (t);
 
 		  /* If the result is a suitable looking gimple expression,
 		     then use it instead of the original for STMT.  */
@@ -1758,8 +1775,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		       build_int_2 (tree_log2 (op1), 0));
 	  else
 	    t = build (BIT_AND_EXPR, TREE_TYPE (op0), op0,
-		       fold (build (MINUS_EXPR, TREE_TYPE (op1),
-				    op1, integer_one_node)));
+		       local_fold (build (MINUS_EXPR, TREE_TYPE (op1),
+					  op1, integer_one_node)));
 
 	  result = update_rhs_and_lookup_avail_expr (stmt, t,
 						     &bd->avail_exprs,
@@ -1877,8 +1894,8 @@ find_equivalent_equality_comparison (tree cond)
 	     If that is true, the build and return new equivalent
 	     condition which uses the source of the typecast and the
 	     new constant (which has only changed its type).  */
-	  new = fold (build1 (TREE_CODE (def_rhs),
-			      def_rhs_inner_type, op1));
+	  new = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
+	  new = local_fold (new);
 	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
 	    return build (TREE_CODE (cond), TREE_TYPE (cond),
 			  def_rhs_inner, new);
