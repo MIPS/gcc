@@ -1,3 +1,16 @@
+2004-12-02  Dale Johannesen  <dalej@apple.com>
+
+        * basic-block.h (scale_bbs_frequencies_int):  New declaration.
+        (scale_bbs_frequencies_gcov_type):  New declaration.
+        * cfgloopmanip.c (scale_bbs_frequencies):  Renamed to
+        scale_bbs_frequencies_int and moved to cfg.c.
+        (scale_loop_frequencies):  Adjust call to it.
+        (duplicate_loop_to_header_edge):  Adjust calls to it.
+        * cfg.c (RDIV): New (copied from cfgloopmanip.c).
+        (scale_bbs_frequencies_int):  Moved from cfgloopmanip.c.
+        (scale_bbs_frequencies_gcov_type):  New.
+        * tree-ssa-loop-ch.c (copy_loop_headers):  Propagate profiling info.
+
 2004-12-05  Dale Johannesen  <dalej@apple.com>
 
         * except.c (get_maybe_saved_eh_throw_stmt_table):  Remove.
@@ -9,7 +22,6 @@
         (copy_cfg_body):  Set and use it.
         (clone_body):  Set it.
         (save_body):  Set it.
-
 
 2004-12-05  Andrew Pinski  <pinskia@physics.uc.edu>
 

@@ -72,6 +72,8 @@ static char *flow_firstobj;
 void debug_flow_info (void);
 static void free_edge (edge);
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Called once at initialization time.  */
 
 void
@@ -924,4 +926,42 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
   taken_edge->count -= count;
   if (taken_edge->count < 0)
     taken_edge->count = 0;
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in int arithmetic.  May lose some accuracy.  */
+void
+scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
+{
+  int i;
+  edge e;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
+   function but considerably slower.  */
+void
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
+			         gcov_type den)
+{
+  int i;
+  edge e;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
 }
