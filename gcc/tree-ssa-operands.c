@@ -1077,17 +1077,15 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case RESULT_DECL:
     case CONST_DECL:
       {
-	VEC(tree_on_heap) *vars = NULL;      
+	subvar_t svars;
 	
 	if (AGGREGATE_TYPE_P (TREE_TYPE (expr))
 	    && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE
-	    && (vars = get_fake_vars_for_var (expr)))
+	    && (svars = get_subvars_for_var (expr)))
 	  {
-	    tree v;
-	    int i;
-	    for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	      add_stmt_operand (&v, s_ann, flags);
-	    VEC_free (tree_on_heap, vars);
+	    subvar_t sv;
+	    for (sv = svars; sv; sv = sv->next)
+	      add_stmt_operand (&sv->var, s_ann, flags);
 	  }
 	else
 	  {
@@ -1129,21 +1127,26 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       {
-	bool okay_for_killdef;
+	tree ref;
+	HOST_WIDE_INT offset, size;
 	/* This becomes an access to all of the fake variables, but *NOT* the
 	   real one.  */
-	VEC(tree_on_heap) *vars = NULL;
-	vars = get_fake_vars_for_component_ref (expr, &okay_for_killdef);
-	if (vars)
+	ref = okay_component_ref_for_subvars (expr, &offset, &size);
+	if (ref)
 	  {	  
-	    tree v;
-	    int i;
-	    if (!okay_for_killdef)
-	      flags &= ~opf_kill_def;
-	    for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	      add_stmt_operand (&v, s_ann, flags);
-	    VEC_free (tree_on_heap, vars);
-	    
+	    subvar_t svars = get_subvars_for_var (ref);
+	    subvar_t sv;
+	    for (sv = svars; sv; sv = sv->next)
+	      {
+		if (offset == sv->offset && size == sv->size)
+		  add_stmt_operand (&sv->var, s_ann, flags);
+		else if (offset >= sv->offset 
+			 && offset < (sv->offset + sv->size))
+		  add_stmt_operand (&sv->var, s_ann, flags & ~opf_kill_def);
+		else if (offset < sv->offset
+			 && (offset + size > sv->offset))
+		  add_stmt_operand (&sv->var, s_ann, flags & ~opf_kill_def);
+	      }
 	  }
 
 	/* XXXX: Check this
@@ -1638,32 +1641,41 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
     }
 }
 
-
+  
 /* Record that VAR had its address taken in the statement with annotations
    S_ANN.  */
 
 static void
 note_addressable (tree var, stmt_ann_t s_ann)
 {
-  VEC(tree_on_heap) *vars = NULL;      
+  tree ref;
+  subvar_t svars;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT size;
 
   if (!s_ann)
     return;
   
   /* We take the address of all the fake variables, plus the real ones.  */
   if (TREE_CODE (var) == COMPONENT_REF 
-      && (vars = get_fake_vars_for_component_ref (var, NULL)))
+      && (ref = okay_component_ref_for_subvars (var, &offset, &size)))
     {
-      tree v;
-      int i;
+      subvar_t sv;
+      svars = get_subvars_for_var (ref);
       
       if (s_ann->addresses_taken == NULL)
 	s_ann->addresses_taken = BITMAP_GGC_ALLOC ();      
       
-      for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	bitmap_set_bit (s_ann->addresses_taken, var_ann (v)->uid);
-
-      VEC_free (tree_on_heap, vars);
+      for (sv = svars; sv; sv = sv->next)
+	{
+	  if (offset == sv->offset && size == sv->size)
+	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	  else if (offset >= sv->offset && offset < (sv->offset + sv->size))
+	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	  else if (offset < sv->offset 
+		   && (offset + size > sv->offset))
+	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
+	}
     }
   
   var = get_base_address (var);
@@ -1675,15 +1687,11 @@ note_addressable (tree var, stmt_ann_t s_ann)
       bitmap_set_bit (s_ann->addresses_taken, var_ann (var)->uid);
       if (AGGREGATE_TYPE_P (TREE_TYPE (var))
 	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-	  && (vars = get_fake_vars_for_var (var)))
+	  && (svars = get_subvars_for_var (var)))
 	{
-	  tree v;
-	  int i;
-	  
-	  for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	    bitmap_set_bit (s_ann->addresses_taken, var_ann (v)->uid);
-	  
-	  VEC_free (tree_on_heap, vars);
+	  subvar_t sv;
+	  for (sv = svars; sv; sv = sv->next)
+	    bitmap_set_bit (s_ann->addresses_taken, var_ann (sv->var)->uid);
 	}
     }
 }

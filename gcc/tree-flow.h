@@ -140,6 +140,22 @@ enum mem_tag_kind {
   /* This variable represents a structure field.  */
   STRUCT_FIELD
 };
+struct subvar;
+typedef struct subvar *subvar_t;
+
+/* This structure represents a fake sub-variable for a structure field.  */
+
+struct subvar GTY(())
+{
+  /* Fake variable name */
+  tree var;
+  /* Offset inside structure.  */
+  HOST_WIDE_INT offset;
+  /* Size of field.  */
+  HOST_WIDE_INT size;
+  /* Next subvar for this structure.  */
+  subvar_t next;
+};
 
 struct var_ann_d GTY(())
 {
@@ -211,6 +227,8 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+  
+  subvar_t subvars;
 };
 
 
@@ -568,9 +586,9 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
-extern VEC(tree_on_heap) *get_fake_vars_for_component_ref (tree, bool *);
-extern VEC(tree_on_heap) *get_fake_vars_for_var (tree);
-
+static inline subvar_t get_subvars_for_var (tree);
+static inline tree okay_component_ref_for_subvars (tree, HOST_WIDE_INT *,
+						   HOST_WIDE_INT *);
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);

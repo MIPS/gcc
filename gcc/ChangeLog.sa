@@ -1,3 +1,24 @@
+2005-01-08  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-flow-inline.h (ref_contains_array_ref): Move from 
+	tree-ssa-alias.c
+	(lookup_subvars_for_var): Ditto.  Rewrite to use variable
+	annotation.
+	(get_subvars_for_var): Ditto on moving.
+	(okay_component_ref_for_subvars): New function.
+	* tree-flow.h (subvar_t): Move from tree-ssa-alias.c.
+	(struct subvar): Ditto.
+	(struct var_ann_d): Add subvars field.
+	(get_subvars_for_var): Replaces get_fake_vars_for_var.
+	(get_fake_vars_for_component_ref): Removed.
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Use new
+	functions, iterate through subvars list. 
+	(setup_pointers_and_addressables): Ditto.
+	(maybe_create_global_var): Ditto.
+	(add_pointed_to_var): Ditto.
+	* tree-ssa-operands.c (get_expr_operands): Ditto.
+	(note_addressable): Ditto.
+
 2004-12-22 Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-alias.c (fieldoff_t): Make offset HOST_WIDE_INT.

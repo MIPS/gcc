@@ -877,4 +877,87 @@ op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill,
   op_iter_init (ptr, stmt, SSA_OP_VMUSTDEFKILL);
   op_iter_next_mustdef (kill, def, ptr);
 }
+
+/* Return true if REF, a component_ref, has an ARRAY_REF somewhere in it.  */
+
+static bool
+ref_contains_array_ref (tree ref)
+{
+  while (handled_component_p (ref))
+    {
+      ref = TREE_OPERAND (ref, 0);
+      if (TREE_CODE (ref) == ARRAY_REF)
+	return true;
+    }
+  return false;
+}
+
+/* Given a real variable VAR, lookup and return the list of fake variables for
+   it, or NULL, if there are none.  */
+
+static inline subvar_t *
+lookup_subvars_for_var (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  gcc_assert (ann);
+  return &ann->subvars;
+}
+
+/* Given a real variable VAR, return a linked list of subvariables for VAR, or
+   NULL, if there are no subvariables.  */
+
+static inline subvar_t
+get_subvars_for_var (tree var)
+{
+  subvar_t subvars;
+
+  gcc_assert (SSA_VAR_P (var));  
+
+  subvars = *(lookup_subvars_for_var (var));
+  return subvars;
+}
+
+/* Return the underlying variable for REF, if REF is something we can create
+   subvars for.  If the return value is a SSA_VAR_P, POFFSET will be the
+   offset, in bits, of REF inside the return value.  If the return value is a
+   SSA_VAR_P, PSIZE will be the size, in bits, of REF inside the return
+   value.  */
+
+static inline tree
+okay_component_ref_for_subvars (tree ref, HOST_WIDE_INT *poffset,
+				HOST_WIDE_INT *psize)
+{
+  tree result = NULL;
+  HOST_WIDE_INT bitsize;
+  HOST_WIDE_INT bitpos;
+  tree offset;
+  enum machine_mode mode;
+  int unsignedp;
+  int volatilep;
+
+  gcc_assert (!SSA_VAR_P (ref));
+  *poffset = 0;  
+  *psize = (unsigned int) -1;
+  
+  if (ref_contains_array_ref (ref))
+    return result;
+  ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
+			     &unsignedp, &volatilep, false);
+  if (TREE_CODE (ref) == INDIRECT_REF)
+    return result;
+  else if (offset == NULL && bitsize != -1)
+    {
+      *poffset = bitpos;      
+      *psize = bitsize;
+      if (get_subvars_for_var (ref) != NULL)
+	return ref;
+    }
+  else if (SSA_VAR_P (ref))
+    {
+      if (get_subvars_for_var (ref) != NULL)
+	return ref;
+    }
+  return NULL_TREE;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

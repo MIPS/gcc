@@ -993,7 +993,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	     
 	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
 	    {
-	      VEC(tree_on_heap) *vars;
+	      subvar_t svars;
 	      size_t num_tag_refs, num_var_refs;
 
 	      num_tag_refs = VARRAY_UINT (ai->num_references, tag_ann->uid);
@@ -1005,15 +1005,12 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 		 that need to be pointed to.  */
 	      if (AGGREGATE_TYPE_P (TREE_TYPE (var))
 		  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-		  && (vars = get_fake_vars_for_var (var)))
+		  && (svars = get_subvars_for_var (var)))
 		{
-		  tree v;
-		  int i;
-		  
-		  for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-		    add_may_alias (tag, v);
-		  VEC_free (tree_on_heap, vars);
-		  
+		  subvar_t sv;
+
+		  for (sv = svars; sv; sv = sv->next)
+		    add_may_alias (tag, sv->var);
 		}
 	      else
 		{
@@ -1427,7 +1424,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
-	      VEC(tree_on_heap) *vars;
+	      subvar_t svars;
 	      /* The address of VAR is not needed, remove the
 		 addressable bit, so that it can be optimized as a
 		 regular variable.  */
@@ -1439,14 +1436,12 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
 	      if (AGGREGATE_TYPE_P (TREE_TYPE (var))
 		  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-		  && (vars = get_fake_vars_for_var (var)))
+		  && (svars = get_subvars_for_var (var)))
 		{
-		  tree v;
-		  int i;
+		  subvar_t sv;
 		  
-		  for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-		    bitmap_set_bit (vars_to_rename, var_ann (v)->uid);
-		  VEC_free (tree_on_heap, vars);		 
+		  for (sv = svars; sv; sv = sv->next)
+		    bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
 		}
 	    }
 	  else
@@ -1463,20 +1458,18 @@ setup_pointers_and_addressables (struct alias_info *ai)
          entry in ADDRESSABLE_VARS for VAR.  */
       if (may_be_aliased (var))
 	{
-	  VEC(tree_on_heap) *vars;
+	  subvar_t svars;
 	  
 	  create_alias_map_for (var, ai);
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	  if (AGGREGATE_TYPE_P (TREE_TYPE (var))
 	      && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-	      && (vars = get_fake_vars_for_var (var)))
+	      && (svars = get_subvars_for_var (var)))
 	    {
-	      tree v;
-	      int i;
-	      
-	      for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-		bitmap_set_bit (vars_to_rename, var_ann (v)->uid);
-	      VEC_free (tree_on_heap, vars);		 
+	      subvar_t sv;
+
+	      for (sv = svars; sv; sv = sv->next)
+		bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
 	    }
 	  
 	}
@@ -1620,19 +1613,16 @@ maybe_create_global_var (struct alias_info *ai)
 	tree var = referenced_var (i);
 	if (var != global_var)
 	  {
-	    VEC(tree_on_heap) *vars = NULL;
+	    subvar_t svars;
 	    add_may_alias (var, global_var);
 	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	    if (AGGREGATE_TYPE_P (TREE_TYPE (var))
 		&& TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
-		&& (vars = get_fake_vars_for_var (var)))
+		&& (svars = get_subvars_for_var (var)))
 	      {
-		tree v;
-		int i;
-		
-		for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-		  bitmap_set_bit (vars_to_rename, var_ann (v)->uid);
-		VEC_free (tree_on_heap, vars);		 
+		subvar_t sv;
+		for (sv = svars; sv; sv = sv->next)
+		  bitmap_set_bit (vars_to_rename, var_ann (sv->var)->uid);
 	      }
 	  }
       }
@@ -1942,10 +1932,12 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 {
   struct ptr_info_def *pi = get_ptr_info (ptr);
   tree pt_var = NULL_TREE;
+  HOST_WIDE_INT offset, size;
   tree addrop;
   size_t uid;
-  VEC(tree_on_heap) *vars = NULL;      
-  
+  tree ref;
+  subvar_t svars;
+
   gcc_assert (TREE_CODE (value) == ADDR_EXPR);
 
   addrop = TREE_OPERAND (value, 0);
@@ -1957,46 +1949,53 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
   /* If this is a component_ref, see if we can get a smaller number of
      variables to take the address of.  */
   if (TREE_CODE (addrop) == COMPONENT_REF
-      && (vars = get_fake_vars_for_component_ref (addrop, NULL)))
+      && (ref = okay_component_ref_for_subvars (addrop, &offset ,&size)))
     {    
-      tree v;
-      int i;
+      subvar_t sv;
+      svars = get_subvars_for_var (ref);
+
       uid = var_ann (pt_var)->uid;
       bitmap_set_bit (ai->addresses_needed, uid);
       if (pi->pt_vars == NULL)
 	pi->pt_vars = BITMAP_GGC_ALLOC ();
-      
-      for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	    bitmap_set_bit (pi->pt_vars, var_ann (v)->uid);
-      VEC_free (tree_on_heap, vars);
-      /* If the variable is a global, mark the pointer as pointing to
+       /* If the variable is a global, mark the pointer as pointing to
 	 global memory (which will make its tag a global variable).  */
       if (is_global_var (pt_var))
 	pi->pt_global_mem = 1;     
+
+      for (sv = svars; sv; sv = sv->next)
+	{
+	  if (offset == sv->offset && size == sv->size)
+	    bitmap_set_bit (pi->pt_vars, var_ann (sv->var)->uid);
+	  else if (offset >= sv->offset && offset < (sv->offset + sv->size))
+	    bitmap_set_bit (pi->pt_vars, var_ann (sv->var)->uid);
+	  else if (offset < sv->offset 
+		   && (offset + size > sv->offset))
+	    bitmap_set_bit (pi->pt_vars, var_ann (sv->var)->uid);
+	}
     }
   else if (pt_var && SSA_VAR_P (pt_var))
     {
     
       uid = var_ann (pt_var)->uid;
       bitmap_set_bit (ai->addresses_needed, uid);
+
       if (pi->pt_vars == NULL)
 	pi->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_set_bit (pi->pt_vars, uid);	  
 
       /* If this is an aggregate, we may have fake variables for it that need
 	 to be pointed to.  */
       if (AGGREGATE_TYPE_P (TREE_TYPE (pt_var))
 	  && TREE_CODE (TREE_TYPE (pt_var)) != ARRAY_TYPE
-	  && (vars = get_fake_vars_for_var (pt_var)))
+	  && (svars = get_subvars_for_var (pt_var)))
 	{
-	  tree v;
-	  int i;
-
-	  for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	    bitmap_set_bit (pi->pt_vars, var_ann (v)->uid);
-	  VEC_free (tree_on_heap, vars);
-	  
+	  subvar_t sv;
+	  for (sv = svars; sv; sv = sv->next)
+	    bitmap_set_bit (pi->pt_vars, var_ann (sv->var)->uid);
 	}
+      else	
+	bitmap_set_bit (pi->pt_vars, uid);	  
+
       /* If the variable is a global, mark the pointer as pointing to
 	 global memory (which will make its tag a global variable).  */
       if (is_global_var (pt_var))
@@ -2702,105 +2701,6 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_t) **fieldstack,
     }
 }
 
-/* This structure represents a fake variable used to represent some part of a
-   structure or aggregate. All the fake variables for a given aggregate are
-   linked together in a single linked list.  */
-
-typedef struct subvar
-{
-  tree var;
-  HOST_WIDE_INT offset;
-  HOST_WIDE_INT size;
-  struct subvar *next;
-} *subvar_t;
-
-/* This structure is used in the hash table that maps between variables and
-   their associated fake variables.  */
-typedef struct var_subvar
-{
-  tree var;
-  subvar_t subvars;
-} *var_subvar_t;
-
-/* Hash table that maps between the variables and the fake variables */
-static htab_t subvars_for_var;
-
-/* Hash P and return the hash value.  */
-
-static hashval_t
-var_subvar_hash (const void *p)
-{
-  const var_subvar_t vs = (var_subvar_t) p;
-  return htab_hash_pointer (vs->var);
-}
-
-/* Free a given var_subvar structure, including all of it's subvars.   */
-
-static void
-var_subvar_free (void *p)
-{
-  var_subvar_t vs = (var_subvar_t) p;
-  if (vs->subvars != NULL)
-    {
-      subvar_t curr, next;
-      curr = vs->subvars;
-      next = curr->next;
-      while (curr)
-	{
-	  free (curr);
-	  curr = next;
-	  next = curr->next;
-	}
-    }
-  free (vs);  
-}
-
-/* Return true if P! and P2 are for the same fake variable.  */  
-
-static int
-var_subvar_eq (const void *p1, const void *p2)
-{
-  const var_subvar_t vs1 = (var_subvar_t) p1;
-  const var_subvar_t vs2 = (var_subvar_t) p2;
-  return vs1->var == vs2->var;
-}
-
-/* Given a real variable VAR, lookup and return the list of fake variables for
-   it, or NULL, if there are none.  */
-
-static subvar_t
-lookup_subvars_for_var (tree var)
-{
-  var_subvar_t pair;
-  struct var_subvar finder;
-  finder.var = var;
-  pair = htab_find (subvars_for_var, &finder);
-  if (pair)
-    return pair->subvars;  
-  return NULL;
-}
-
-/* Given a real variable VAR, lookup or create the list of fake variables for
-   it.
-   Return a pointer to the list of fake variables.  */
-
-static subvar_t *
-get_subvars_for_var (tree var)
-{
-  void **slot;
-  struct var_subvar finder;
-  var_subvar_t new_pair;
-  
-  finder.var = var;
-  slot = htab_find_slot (subvars_for_var, &finder, INSERT);
-  if (*slot != NULL)
-    abort ();
-  new_pair = xmalloc (sizeof (struct var_subvar));
-  new_pair->var = var;
-  new_pair->subvars = NULL;
-  *slot = (void *)new_pair;
-  return &new_pair->subvars;    
-}
 
 typedef struct used_part
 {
@@ -2873,12 +2773,12 @@ create_overlap_variables_for (tree var)
 	  return;
 	}
       /* Otherwise, create the variables.  */
-      subvars = get_subvars_for_var (var);
+      subvars = lookup_subvars_for_var (var);
       up = used_portions[uid];
       
       while (VEC_length (fieldoff_t, fieldstack) != 0)
 	{
-	  subvar_t sv = xmalloc (sizeof (struct subvar));
+	  subvar_t sv = ggc_alloc (sizeof (struct subvar));
 	  char *name;
 	  HOST_WIDE_INT fosize;
 	  var_ann_t ann;
@@ -3036,8 +2936,6 @@ create_structure_vars (void)
   old_referenced_vars = num_referenced_vars;
   used_portions = xcalloc (num_referenced_vars, sizeof (used_part_t));
   
-  subvars_for_var = htab_create (10, var_subvar_hash, var_subvar_eq, 
-				 var_subvar_free);
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
@@ -3065,109 +2963,6 @@ create_structure_vars (void)
 
   free (used_portions);
 }
-
-/* Return true if REF, a component_ref, has an ARRAY_REF somewhere in it.  */
-
-static bool
-ref_contains_array_ref (tree ref)
-{
-  while (handled_component_p (ref))
-    {
-      ref = TREE_OPERAND (ref, 0);
-      if (TREE_CODE (ref) == ARRAY_REF)
-	return true;
-    }
-  return false;
-}
-
-/* Given a real variable VAR, return a vector of trees containing the fake
-   variables for VAR.  */
-
-VEC(tree_on_heap) *
-get_fake_vars_for_var (tree var)
-{
-  VEC(tree_on_heap) *result = NULL;
-  subvar_t subvars;
-  subvar_t sv;
-
-  gcc_assert (SSA_VAR_P (var));  
-
-  if (subvars_for_var == NULL)
-    return NULL;
-  subvars = lookup_subvars_for_var (var);
-  sv = subvars;
-  while (sv)
-    {
-      VEC_safe_push (tree_on_heap, result, sv->var);
-      sv = sv->next;
-    }
-  return result;
-}
-
-/* Given a REF, return the list of fake variables it can access.
-   OKAY_FOR_KILLDEF is a boolean that will be set to true if we know exactly
-   what variables this component_ref is going to touch.  This isn't true if we
-   have overlaps, or return the conservative answer of every fake
-   variable.  */
-
-VEC(tree_on_heap) *
-get_fake_vars_for_component_ref (tree ref, bool *okay_for_killdef)
-{
-  VEC(tree_on_heap) *result = NULL;
-  HOST_WIDE_INT bitsize;
-  HOST_WIDE_INT bitpos;
-  tree offset;
-  enum machine_mode mode;
-  int unsignedp;
-  int volatilep;
-  if (subvars_for_var == NULL)
-    return NULL;
-  
-  gcc_assert (!SSA_VAR_P (ref));
-  if (okay_for_killdef)
-    *okay_for_killdef = false;
-
-  if (ref_contains_array_ref (ref))
-    return result;
-    
-  ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
-			     &unsignedp, &volatilep, false);
-  if (TREE_CODE (ref) == INDIRECT_REF)
-    return result;
-  else if (offset == NULL && bitsize != -1)
-    {
-      subvar_t subvars = lookup_subvars_for_var (ref);
-      subvar_t sv = subvars;
-      bool overlap = false;
-      while (sv)
-	{
-	  if (bitpos == sv->offset && bitsize == sv->size)
-	    {
-	      VEC_safe_push (tree_on_heap, result, sv->var);
-	    }	 
-	  else if (bitpos >= sv->offset && bitpos < (sv->offset + sv->size))
-	    {
-	      VEC_safe_push (tree_on_heap, result, sv->var);
-	      overlap = true;
-	    }
-	  else if (bitpos < sv->offset 
-		   && (bitpos + bitsize > sv->offset))
-	    {
-	      VEC_safe_push (tree_on_heap, result, sv->var);
-	      overlap = true;
-	    }
-	    
-	  sv = sv->next;
-	}
-      if (!overlap && okay_for_killdef)
-	*okay_for_killdef = true;
-    }
-  else if (SSA_VAR_P (ref))    
-    return get_fake_vars_for_var (ref);
-
-  return result;
-}
-
 struct tree_opt_pass pass_create_structure_vars = 
 {
   "svars",		 /* name */
