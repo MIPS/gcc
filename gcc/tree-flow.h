@@ -232,10 +232,6 @@ struct stmt_ann_d GTY(())
   /* Dataflow information.  */
   dataflow_t df;
 
-  /* Control flow parent.  This is the entry statement to the control
-     structure to which this statement belongs to.  */
-  tree parent_stmt;
-
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
 
@@ -287,7 +283,6 @@ static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
 static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
-static inline tree parent_stmt (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
 
@@ -322,7 +317,6 @@ typedef struct bb_ann_d *bb_ann_t;
 
 /* Accessors for basic block annotations.  */
 static inline bb_ann_t bb_ann (basic_block);
-static inline basic_block parent_block (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void add_dom_child (basic_block, basic_block);
 static inline bitmap dom_children (basic_block);
@@ -415,7 +409,6 @@ extern GTY(()) varray_type call_clobbered_vars;
 /* In tree-cfg.c  */
 extern void build_tree_cfg (tree);
 extern void delete_tree_cfg (void);
-extern bool is_ctrl_structure (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool is_computed_goto (tree);

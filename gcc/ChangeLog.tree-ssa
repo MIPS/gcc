@@ -1,3 +1,30 @@
+2003-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (BB_CONTROL_STRUCTURE): Removed.
+	* tree-cfg.c (struct cfg_stats_d): Field num_merged_cases removed.
+	(make_blocks, make_bind_expr_blocks, append_stmt_to_bb, bsi_link_after,
+	build_tree_cfg, factor_computed_gotos, prepend_stmt_to_bb,
+	remove_stmt, replace_stmt): Don't set parent.
+	(set_parent_stmt, add_stmt_to_bb, find_contained_blocks,
+	blocks_unreachable_p, remove_blocks, remove_unreachable_block,
+	move_outgoing_edges, merge_tree_blocks, remap_stmts): Removed.
+	(REMOVE_ALL_STMTS, REMOVE_NO_STMTS, REMOVE_NON_CONTROL_STRUCTS,
+	REMOVE_CONTROL_STRUCTS): Removed.
+	(remove_bb): Code to handle control structures removed.
+	(tree_block_forwards_to): Don't stop due to CASE_LABEL_EXPRs.
+	(tree_dump_bb): Don't print parent.  Print only BIND_EXPRs in slim
+	form.
+	(dump_tree_cfg): Don't count merged case labels.
+	(is_ctrl_structure): Removed.
+	(stmt_starts_bb_p): Don't handle CASE_LABEL_EXPRs.
+	(tree_verify_flow_info): Don't check BB_CONTROL_STRUCTURE.
+	* tree-flow-inline.h (parent_block, parent_stmt): Removed.
+	* tree-flow.h (struct stmt_ann_d): Remove parent_stmt field.
+	(parent_stmt, parent_block, is_ctrl_structure): Declarations removed.
+	* tree-pretty-print.c (dump_generic_node): Don't handle lowered
+	COND_EXPRs specially.
+	* tree-ssa-ccp.c (visit_stmt): Don't check is_ctrl_structure.
+
 2003-10-31  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (record_equivalences_from_stmt): Restore lost code

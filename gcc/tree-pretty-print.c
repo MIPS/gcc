@@ -693,12 +693,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	  pp_string (buffer, "if (");
 	  dump_generic_node (buffer, COND_EXPR_COND (node), spc, flags);
 	  pp_character (buffer, ')');
-	  if (!(flags & TDF_SLIM)
-	      /* The lowered cond_exprs should always be printed in full.  */
-	      || (COND_EXPR_THEN (node)
-		  && TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
-		  && COND_EXPR_ELSE (node)
-		  && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR))
+	  if (!(flags & TDF_SLIM))
 	    {
 	      /* Output COND_EXPR_THEN.  */
 	      if (COND_EXPR_THEN (node))

@@ -62,7 +62,6 @@ static varray_type label_to_block_map;
 /* CFG statistics.  */
 struct cfg_stats_d
 {
-  long num_merged_cases;
   long num_merged_labels;
   long num_failed_bind_expr_merges;
 };
@@ -91,12 +90,10 @@ static void create_blocks_annotations (void);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
-static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
-static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
-					  tree);
-static inline void add_stmt_to_bb (tree *, basic_block, tree);
-static inline void append_stmt_to_bb (tree *, basic_block, tree);
-static inline void set_parent_stmt (tree *, tree);
+static basic_block make_blocks (tree *, tree, basic_block, tree);
+static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree);
+static inline void append_stmt_to_bb (tree *, basic_block);
+static inline void prepend_stmt_to_bb (tree *, basic_block);
 static void factor_computed_gotos (void);
 
 /* Edges.  */
@@ -113,7 +110,6 @@ static basic_block successor_block (basic_block);
 static tree *first_exec_stmt (tree *);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
-static void find_contained_blocks (tree *, bitmap, tree **);
 static int tree_verify_flow_info (void);
 static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
 static struct loops *tree_loop_optimizer_init (FILE *);
@@ -123,35 +119,22 @@ static bool tree_forwarder_block_p (basic_block);
 
 /* Flowgraph optimization and cleanup.  */
 
-/* Flags to pass to remove_bb to indicate which (if any) statements
-   should be removed.  */
-#define REMOVE_ALL_STMTS -1
-#define REMOVE_NO_STMTS 0
-#define REMOVE_NON_CONTROL_STRUCTS 0x1
-#define REMOVE_CONTROL_STRUCTS 0x2
-
-static void remove_unreachable_block (basic_block);
-static void remove_bb (basic_block, int);
+static void remove_bb (basic_block);
 static void remove_stmt (tree *, bool);
-static bool blocks_unreachable_p (bitmap);
-static void remove_blocks (bitmap);
 static bool cleanup_control_flow (void);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 static void replace_stmt (tree *, tree *);
-static void move_outgoing_edges (basic_block, basic_block);
-static void merge_tree_blocks (basic_block, basic_block) ATTRIBUTE_UNUSED;
 static int phi_alternatives_equal (basic_block, edge, edge);
-static bool remap_stmts (basic_block, basic_block, tree *);
 
 /* Block iterator helpers.  */
 static void remove_bsi_from_block (block_stmt_iterator *, bool);
 static block_stmt_iterator bsi_init (tree *, basic_block);
-static inline void bsi_update_from_tsi
-		(block_stmt_iterator *, tree_stmt_iterator);
-static tree_stmt_iterator bsi_link_after
-		(tree_stmt_iterator *, tree, basic_block, tree);
+static inline void bsi_update_from_tsi (block_stmt_iterator *,
+					tree_stmt_iterator);
+static tree_stmt_iterator bsi_link_after (tree_stmt_iterator *, tree,
+					  basic_block);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -247,7 +230,7 @@ build_tree_cfg (tree fnbody)
   if (first_p)
     {
       found_computed_goto = 0;
-      make_blocks (first_p, NULL_TREE, NULL, NULL, fnbody);
+      make_blocks (first_p, NULL_TREE, NULL, fnbody);
 
       /* Computed gotos are hell to deal with, especially if there are
 	 lots of them with a large number of destinations.  So we factor
@@ -379,7 +362,7 @@ factor_computed_gotos (void)
 
 	      /* Put the new statements into a new basic block.  This must
 		 be done before we link them into the statement chain!  */
-	      make_blocks (&TREE_OPERAND (compound, 0), NULL, NULL, NULL, NULL);
+	      make_blocks (&TREE_OPERAND (compound, 0), NULL, NULL, NULL);
 
 	      /* Now it is safe to link in the new statements.  */
 	      tsi_link_chain_after (&tsi,
@@ -462,9 +445,6 @@ clear_blocks_annotations (void)
 /* Build a flowgraph for the statements starting at the statement pointed
    by FIRST_P.
 
-   PARENT_STMT is the entry statement for the control structure immediately
-      enclosing the new sub-graph.
-
    BB is the block where the statements should be added to.  If BB is NULL,
       a new basic block will be created for the statements.
 
@@ -475,8 +455,7 @@ clear_blocks_annotations (void)
    more statements or not.  */
 
 static basic_block
-make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
-	     basic_block bb, tree scope)
+make_blocks (tree *first_p, tree next_block_link, basic_block bb, tree scope)
 {
   tree_stmt_iterator i;
   tree stmt, last;
@@ -511,7 +490,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
-      append_stmt_to_bb (stmt_p, bb, parent_stmt);
+      append_stmt_to_bb (stmt_p, bb);
       get_stmt_ann (stmt)->scope = scope;
 
       if (is_computed_goto (*stmt_p))
@@ -533,8 +512,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 	  get_stmt_ann (stmt)->scope_level =
 		  get_stmt_ann (scope)->scope_level + 1;
 
-	  last_bb = make_bind_expr_blocks (stmt_p, next_block_link, bb,
-	                                   parent_stmt, stmt);
+	  last_bb = make_bind_expr_blocks (stmt_p, next_block_link, bb, stmt);
 	  if (last_bb)
 	    {
 	      bb = last_bb;
@@ -599,8 +577,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 /* Create the blocks for the BIND_EXPR node pointed by BIND_P.  In contrast
    with the other make_*_blocks functions, this function will not start a
    new basic block for the statements in the BIND_EXPR body.  Rather, the
-   statements in the BIND_EXPR body are added to the block ENTRY and use
-   the same PARENT_STMT.
+   statements in the BIND_EXPR body are added to the block ENTRY.
 
    NEXT_BLOCK_LINK is the first statement of the successor basic block for
       the block holding *BIND_P.  If *BIND_P is the last statement inside a
@@ -617,8 +594,8 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
    *BIND_P).  */
 
 static basic_block
-make_bind_expr_blocks (tree *bind_p, tree next_block_link,
-		       basic_block entry, tree parent_stmt, tree scope)
+make_bind_expr_blocks (tree *bind_p, tree next_block_link, basic_block entry,
+		       tree scope)
 {
   tree_stmt_iterator si;
   tree bind = *bind_p;
@@ -641,61 +618,17 @@ make_bind_expr_blocks (tree *bind_p, tree next_block_link,
      will start a new basic block only if the body of the BIND_EXPR node
      ends with a block terminating statement.  */
   STRIP_CONTAINERS (bind);
-  return make_blocks (&BIND_EXPR_BODY (bind), next_block_link, parent_stmt,
-		      entry, scope);
-}
-
-
-/* Set PARENT_STMT to be the control structure that contains the statement
-   pointed by STMT_P.  */
-
-static inline void
-set_parent_stmt (tree *stmt_p, tree parent_stmt)
-{
-  tree t;
-
-  if (parent_stmt
-      && TREE_CODE (parent_stmt) == COND_EXPR)
-    abort ();
-
-  /* Associate *STMT_P (and the trees it contains) to its control parent.  */
-  t = *stmt_p;
-  do
-    {
-      stmt_ann_t ann = stmt_ann (t);
-      ann->parent_stmt = parent_stmt;
-      t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
-    }
-  while (t);
-}
-
-
-/* Add statement pointed by STMT_P to basic block BB.  PARENT_STMT is the
-   entry statement to the control structure holding *STMT_P.  If parent
-   is passed a NULL, this routine will try to pick up the parent from the
-   first statement in the block.  */
-
-static inline void
-add_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
-{
-  set_bb_for_stmt (*stmt_p, bb);
-
-  /* Try to determine the parent if there isn't one.  */
-  if (parent == NULL_TREE && bb->head_tree_p != NULL)
-    parent = parent_stmt (*bb->head_tree_p);
-
-  set_parent_stmt (stmt_p, parent);
+  return make_blocks (&BIND_EXPR_BODY (bind), next_block_link, entry, scope);
 }
 
 
 /* Add statement pointed by STMT_P to basic block BB and update BB's
-   boundaries accordingly.  PARENT_STMT is the entry statement to the
-   control structure holding *STMT_P.  */
+   boundaries accordingly.  */
 
 static inline void
-append_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
+append_stmt_to_bb (tree *stmt_p, basic_block bb)
 {
-  add_stmt_to_bb (stmt_p, bb, parent);
+  set_bb_for_stmt (*stmt_p, bb);
 
   /* Update the head and tail of the block.  */
   if (bb->head_tree_p == NULL)
@@ -706,13 +639,12 @@ append_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
 
 
 /* Add statement pointed by STMT_P to basic block BB and update BB's
-   boundaries accordingly.  PARENT_STMT is the entry statement to the
-   control structure holding *STMT_P.  */
+   boundaries accordingly.  */
 
 static inline void
-prepend_stmt_to_bb (tree *stmt_p, basic_block bb, tree parent)
+prepend_stmt_to_bb (tree *stmt_p, basic_block bb)
 {
-  add_stmt_to_bb (stmt_p, bb, parent);
+  set_bb_for_stmt (*stmt_p, bb);
 
   /* Update the head and tail of the block.  */
   bb->head_tree_p = stmt_p;
@@ -799,49 +731,6 @@ make_edges (void)
   /* Clean up the graph and warn for unreachable code.  */
   cleanup_tree_cfg ();
 }
-
-/* Find all the basic blocks contained within *STMT_P and its children
-   and mark them in MY_BLOCKS.  For each outgoing edge in MY_BLOCKS,
-   mark the destination of the edge in MY_TARGETS.  Also record the
-   last statement processed in *last_p.  */
-
-static void
-find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
-{
-  tree_stmt_iterator tsi;
-
-  for (tsi = tsi_start (stmt_p); !tsi_end_p (tsi); tsi_next (&tsi))
-    {
-      tree stmt;
-      enum tree_code code;
-      basic_block bb;
-
-      stmt = tsi_stmt (tsi);
-      if (!stmt || ! stmt_ann (stmt))
-	break;
-
-      /* Keep track of the last statement we've processed.  */
-      *last_p = tsi_stmt_ptr (tsi);
-
-      /* Mark this statement's block as being contained.  */
-      bb = bb_for_stmt (stmt);
-      if (bb)
-	bitmap_set_bit (my_blocks, bb->index);
-
-      /* And recurse down into control structures.  */
-      code = TREE_CODE (stmt);
-      if (code == COMPOUND_EXPR)
-	{
-	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);
-	  find_contained_blocks (&TREE_OPERAND (stmt, 1), my_blocks, last_p);
-	}
-      else if (code == BIND_EXPR)
-	{
-	  find_contained_blocks (&BIND_EXPR_BODY (stmt), my_blocks, last_p);
-	}
-    }
-}
-
 
 /* Create edges for control statement at basic block BB.  */
 
@@ -1598,56 +1487,13 @@ remove_unreachable_blocks (void)
 
       if (!(bb->flags & BB_REACHABLE))
 	{
-	  remove_unreachable_block (bb);
+	  remove_bb (bb);
 	  ret = true;
 	}
     }
 
   return ret;
 }
-
-
-/* Helper for remove_unreachable_blocks.  */
-
-static void
-remove_unreachable_block (basic_block bb)
-{
-  if (bb->flags & BB_CONTROL_STRUCTURE)
-    {
-      tree *last_p = last_stmt_ptr (bb);
-      tree *dummy_p;
-      bitmap subblocks = BITMAP_XMALLOC ();
-
-      /* Before removing an entry block for a compound structure,
-         make sure that all its subblocks are unreachable as well.
-	 FIXME: This is lame.  We should linearize this control
-	 structure.  The problem is that we do need to remove the entry
-	 block.  Otherwise, we will fail when computing dominance
-	 information.  This is usually caused by unstructured control flow.
-	 E.g. (from real.c),
-
-		    1	goto start;
-		    2	do
-		    3	  {
-		    4	    s1;
-		    5	  start:
-		    6	    s2;
-		    7	    s3;
-		    8	  } while (...);
-
-	 The entry block (line 2) is unreachable but its body isn't.  */
-      find_contained_blocks (last_p, subblocks, &dummy_p);
-      if (blocks_unreachable_p (subblocks))
-	remove_blocks (subblocks);
-      else
-	remove_bb (bb, REMOVE_NON_CONTROL_STRUCTS);
-
-      BITMAP_XFREE (subblocks);
-    }
-  else
-    remove_bb (bb, REMOVE_ALL_STMTS);
-}
-
 
 /* Remove PHI nodes associated with basic block BB and all edges into
    and out of BB.  */
@@ -1677,17 +1523,10 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
     ssa_remove_edge (bb->succ);
 }
 
-/* Remove block BB and its statements from the flowgraph.  REMOVE_STMTS is
-   nonzero if the statements in BB should also be removed.
-
-   Note that if REMOVE_STMTS is nonzero and BB is the entry block for a
-   compound statement (control structures or blocks of code), removing BB
-   will effectively remove the whole structure from the program.  The
-   caller is responsible for making sure that all the blocks in the
-   compound structure are also removed.  */
+/* Remove block BB and its statements from the flowgraph.  */
 
 static void
-remove_bb (basic_block bb, int remove_stmt_flags)
+remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
   bsi_list_p stack;
@@ -1711,31 +1550,25 @@ remove_bb (basic_block bb, int remove_stmt_flags)
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
-      if (remove_stmt_flags)
-        {
-	  int ctrl_struct = is_ctrl_structure (stmt);
 
-	  if (get_lineno (stmt) != -1
-	      /* Don't warn for removed gotos.  Gotos are often removed due to jump threading,
-		 thus resulting into bogus warnings.  Not great, since this way we lose warnings
-		 for gotos in the original program that are indeed unreachable.  */
-	      && TREE_CODE (stmt) != GOTO_EXPR)
-	    {
-	      loc.file = get_filename (stmt);
-	      loc.line = get_lineno (stmt);
-	      empty = false;
-	    }
-	  if ((ctrl_struct && (remove_stmt_flags & REMOVE_CONTROL_STRUCTS))
-	      || (!ctrl_struct && (remove_stmt_flags & REMOVE_NON_CONTROL_STRUCTS)))
-	    bsi_remove (&i);
-        }
+      if (get_lineno (stmt) != -1
+	  /* Don't warn for removed gotos.  Gotos are often removed due to jump threading,
+	     thus resulting into bogus warnings.  Not great, since this way we lose warnings
+	     for gotos in the original program that are indeed unreachable.  */
+	  && TREE_CODE (stmt) != GOTO_EXPR)
+	{
+	  loc.file = get_filename (stmt);
+	  loc.line = get_lineno (stmt);
+	  empty = false;
+	}
+      bsi_remove (&i);
     }
 
   /* If requested, give a warning that the first statement in the
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-  if (remove_stmt_flags && warn_notreached && !empty)
+  if (warn_notreached && !empty)
     warning ("%Hwill never be executed", &loc);
 
   if (bb->head_tree_p)
@@ -1753,42 +1586,6 @@ remove_bb (basic_block bb, int remove_stmt_flags)
 
   /* Remove the basic block from the array.  */
   expunge_block (bb);
-}
-
-
-/* Remove all the blocks in bitmap BLOCKS.  */
-
-static void
-remove_blocks (bitmap blocks)
-{
-  size_t i;
-
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-    {
-      basic_block bb = BASIC_BLOCK (i);
-
-      if (bb && bb->index != INVALID_BLOCK)     
-	remove_bb (bb, REMOVE_ALL_STMTS);
-    });
-}
-
-
-/* Return true if all the blocks in bitmap BLOCKS are unreachable.  */
-
-static bool
-blocks_unreachable_p (bitmap blocks)
-{
-  size_t i;
-
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-    {
-      basic_block bb = BASIC_BLOCK (i);
-
-      if (bb && bb->index != INVALID_BLOCK && bb->flags & BB_REACHABLE)
-	return false;
-    });
-
-  return true;
 }
 
 /* Remove statement pointed by iterator I.
@@ -1901,14 +1698,8 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
   varray_type defs;
   tree stmt = *stmt_p;
   basic_block bb = bb_for_stmt (stmt);
-  tree parent = parent_stmt (stmt);
   int update_head = 0;
   int update_end = 0;
-
-  /* If the statement is a control structure, clear the appropriate BB_*
-     flags from the basic block.  */
-  if (bb && is_ctrl_structure (stmt))
-    bb->flags &= ~BB_CONTROL_STRUCTURE;
 
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
@@ -1989,7 +1780,7 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
   /* Replace STMT with an empty statement.  */
   *stmt_p = build_empty_stmt ();
   if (bb)
-    add_stmt_to_bb (stmt_p, bb, parent);
+    set_bb_for_stmt (*stmt_p, bb);
 
   if (update_head)
     bb->head_tree_p = stmt_p;
@@ -2066,11 +1857,7 @@ tree_block_forwards_to (basic_block bb)
           if (bsi_end_p (bsi))
 	    return NULL;
 
-	  /* This really should not be necessary, but inserting a goto label
-	     before a case label can cause bogus error messages.  */
 	  stmt = bsi_stmt (bsi);
-	  if (TREE_CODE (stmt) == CASE_LABEL_EXPR)
-	    return NULL;
 
 	  /* If our new destination does not start with a label,
 	     then add one.  */
@@ -2415,12 +2202,6 @@ tree_dump_bb (basic_block bb, FILE *outf, int indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  fprintf (outf, ";;%s parent:     ", s_indent);
-  if (bb->tree_annotations && parent_block (bb))
-    fprintf (outf, "%d\n", parent_block (bb)->index);
-  else
-    fputs ("nil\n", outf);
-
   if (bb->tree_annotations)
     for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
       {
@@ -2431,7 +2212,10 @@ tree_dump_bb (basic_block bb, FILE *outf, int indent)
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
       fprintf (outf, "%s%d  ", s_indent, get_lineno (bsi_stmt (si)));
-      print_generic_stmt (outf, bsi_stmt (si), TDF_SLIM);
+      print_generic_stmt (outf, bsi_stmt (si),
+			  (TREE_CODE (bsi_stmt (si)) == BIND_EXPR
+			   ? TDF_SLIM
+			   : 0));
     }
 }
 
@@ -2505,7 +2289,6 @@ dump_tree_cfg (FILE *file, int flags)
 void
 dump_cfg_stats (FILE *file)
 {
-  static long max_num_merged_cases = 0;
   static long max_num_merged_labels = 0;
   unsigned long size, total = 0;
   long n_edges;
@@ -2557,12 +2340,6 @@ dump_cfg_stats (FILE *file)
   fprintf (file, "Coalesced label blocks: %ld (Max so far: %ld)\n",
 	   cfg_stats.num_merged_labels, max_num_merged_labels);
 
-
-  if (cfg_stats.num_merged_cases > max_num_merged_cases)
-    max_num_merged_cases = cfg_stats.num_merged_cases;
-
-  fprintf (file, "Coalesced case label blocks: %ld (Max so far: %ld)\n",
-	   cfg_stats.num_merged_cases, max_num_merged_cases);
 
   fprintf (file, "Number of unnecessary blocks created due to lexical scopes: %ld (%.0f%%)\n",
 	   cfg_stats.num_failed_bind_expr_merges,
@@ -2715,15 +2492,6 @@ successor_block (basic_block bb)
     return EXIT_BLOCK_PTR;
 }
 
-
-/* Return true if T represents a control structure.  */
-
-bool
-is_ctrl_structure (tree t ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
 /* Return true if T represents a stmt that always transfers control.  */
 
 bool
@@ -2824,12 +2592,11 @@ stmt_starts_bb_p (tree t, tree prev_t)
   if (t == NULL_TREE)
     return false;
 
-  /* LABEL_EXPRs and CASE_LABEL_EXPRs start a new basic block only if the
-     preceding statement wasn't a label of the same type.  This prevents
-     the creation of consecutive blocks that have nothing but a single
-     label.  */
+  /* LABEL_EXPRs start a new basic block only if the preceding statement wasn't
+     a label of the same type.  This prevents the creation of consecutive
+     blocks that have nothing but a single label.  */
   code = TREE_CODE (t);
-  if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+  if (code == LABEL_EXPR)
     {
       /* Nonlocal and computed GOTO targets always start a new block.  */
       if (code == LABEL_EXPR
@@ -2839,10 +2606,7 @@ stmt_starts_bb_p (tree t, tree prev_t)
 
       if (prev_t && TREE_CODE (prev_t) == code)
 	{
-	  if (code == LABEL_EXPR)
-	    cfg_stats.num_merged_labels++;
-	  else
-	    cfg_stats.num_merged_cases++;
+	  cfg_stats.num_merged_labels++;
 
 	  return false;
 	}
@@ -3268,8 +3032,7 @@ set_bb_for_stmt (tree t, basic_block bb)
    which is updated to point to the new stmt.  */
 
 static tree_stmt_iterator
-bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
-		basic_block curr_bb, tree parent)
+bsi_link_after (tree_stmt_iterator *this_tsi, tree t, basic_block curr_bb)
 {
   enum link_after_cases { NO_UPDATE,
 			  END_OF_CHAIN,
@@ -3315,11 +3078,11 @@ bsi_link_after (tree_stmt_iterator *this_tsi, tree t,
 	 created a new CE node to be a container for what use to be the
 	 last stmt in the chain.  This container needs to have the BB info
 	 set for it as well.  */
-      add_stmt_to_bb (tsi_container (same_tsi), curr_bb, parent);
+      set_bb_for_stmt (*tsi_container (same_tsi), curr_bb);
     }
   *this_tsi = same_tsi;
   tsi_next (this_tsi);
-  add_stmt_to_bb (tsi_container (*this_tsi), curr_bb, parent);
+  set_bb_for_stmt (*tsi_container (*this_tsi), curr_bb);
 
   switch (update_form)
     {
@@ -3371,19 +3134,16 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
   basic_block curr_bb;
   tree *curr_container;
   tree curr_stmt, inserted_stmt;
-  tree parent;
 
   curr_container = bsi_container (*curr_bsi);
   if (curr_container)
     {
       curr_stmt = bsi_stmt (*curr_bsi);
       curr_bb = bb_for_stmt (curr_stmt);
-      parent = parent_stmt (curr_stmt);
     }
   else
     {
       curr_stmt = NULL_TREE;
-      parent = NULL_TREE;
 
       /* bsi_start () will initialize the context pointer to the basic block
          if the the block is completely devoid of instructions, except
@@ -3398,22 +3158,9 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
      node in those cases only.  */
   if (curr_stmt == NULL_TREE)
     {
-      /* An empty block should have only one successor, so try to find the
-         parent block from it.  */
-      edge succ;
-
-      succ = curr_bb->succ;
-      if (succ->succ_next != NULL)
-        abort ();
-
-      if (curr_bb->head_tree_p == NULL)
-        abort ();
-      if (succ->dest != EXIT_BLOCK_PTR)
-	parent = parent_stmt (*(succ->dest->head_tree_p));
-
       inserted_tsi = tsi_start (curr_bb->head_tree_p);
       tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
-      prepend_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
+      prepend_stmt_to_bb (tsi_container (inserted_tsi), curr_bb);
 
       /* In this case, we will *always* return the new stmt since BSI_SAME_STMT
          doesn't really exist.  */
@@ -3423,7 +3170,7 @@ bsi_insert_after (block_stmt_iterator *curr_bsi, tree t,
     {
       inserted_tsi = tsi_from_bsi (*curr_bsi);
 
-      same_tsi = bsi_link_after (&inserted_tsi, t, curr_bb, parent);
+      same_tsi = bsi_link_after (&inserted_tsi, t, curr_bb);
       bsi_update_from_tsi (curr_bsi, same_tsi);
       if (mode == BSI_NEW_STMT)
         bsi_next (curr_bsi);
@@ -3450,7 +3197,6 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   basic_block curr_bb;
   tree *curr_container;
   tree curr_stmt, inserted_stmt;
-  tree parent;
 
   curr_container = bsi_container (*curr_bsi);
 
@@ -3460,14 +3206,13 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
 
   curr_stmt = bsi_stmt (*curr_bsi);
   curr_bb = bb_for_stmt (curr_stmt);
-  parent = parent_stmt (curr_stmt);
   inserted_tsi = tsi_from_bsi (*curr_bsi);
 
   /* The only case that needs attention is when the insert is before
      the last stmt in a block. In this case, we have to update the
      container of the end pointer.  */
   tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
-  add_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
+  set_bb_for_stmt (*tsi_container (inserted_tsi), curr_bb);
 
   same_tsi = inserted_tsi;
   tsi_next (&same_tsi);
@@ -3510,7 +3255,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
   int num_exit, num_entry;
-  tree last, parent, label, gto, old_gto;
+  tree last, label, gto, old_gto;
   bb_ann_t ann;
   edge e2;
 
@@ -3648,7 +3393,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
     *created_block = new_bb;
 
   bsi = bsi_last (src);
-  parent = NULL;
   if (!bsi_end_p (bsi))
     {
       bool fixup;
@@ -3727,7 +3471,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	  src->end_tree_p = tsi_container (tsi);
 	  fixup = true;
 	  tsi_next (&tsi);
-          append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+          append_stmt_to_bb (tsi_container (tsi), new_bb);
 	}
 
       tsi_link_after (&tsi, stmt, fixup ? TSI_NEW_STMT : TSI_SAME_STMT);
@@ -3737,12 +3481,12 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	  fixup = true;
 	  tsi_next (&tsi);
 	}
-      append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+      append_stmt_to_bb (tsi_container (tsi), new_bb);
 
       if (old_gto)
 	{
           tsi_link_after (&tsi, old_gto, TSI_NEW_STMT);
-          append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+          append_stmt_to_bb (tsi_container (tsi), new_bb);
 	}
 
       /* For the same reason of new containers, we have to wait until the
@@ -3912,176 +3656,13 @@ replace_stmt (tree *tp1, tree *tp2)
 
   /* Relocate annotations for the replacement statement.  */
   SET_EXPR_LOCUS (t, EXPR_LOCUS (*tp1));
-  add_stmt_to_bb (&t, bb_for_stmt (*tp1), NULL_TREE);
+  set_bb_for_stmt (t, bb_for_stmt (*tp1));
 
   /* Don't replace COMPOUND_EXPRs.  Only their operands.  */
   if (TREE_CODE (*tp1) == COMPOUND_EXPR)
     TREE_OPERAND (*tp1, 0) = t;
   else
     *tp1 = t;
-}
-
-/* Move all outgoing edges from BB2 to BB1 and keep PHI nodes and
-   dominator information up to date.  */
-
-static void
-move_outgoing_edges (basic_block bb1, basic_block bb2)
-{
-
-  while (bb2->succ)
-    {
-      tree phi;
-      edge new_edge, old_edge;
-
-      old_edge = bb2->succ;
-      new_edge = make_edge (bb1, old_edge->dest, old_edge->flags);
-
-      /* If make_edge created a new edge, then we need to update the PHI
-	 node at BB2's successor.  The arguments that used to come from
-	 BB2 now come from BB1.
-
-	 If make_edge did not create a new edge, then we already had an
-	 edge from BB1 to BB2's successor.  In this case we want to
-	 remove the edge and remove its alternative from BB2's successor's
-	 PHI nodes, hence we use ssa_remove_edge.  */
-      if (new_edge)
-	{
-	  for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
-	    {
-	      int i;
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		if (PHI_ARG_EDGE (phi, i) == old_edge)
-		  PHI_ARG_EDGE (phi, i) = new_edge;
-	    }
-
-	  /* Note that we shouldn't call ssa_remove_edge here because we've
-	     already dealt with PHI nodes.  */
-	  remove_edge (old_edge);
-	}
-      else
-	{
-	  ssa_remove_edge (old_edge);
-	}
-
-    }
-
-  /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
-     dominator child of BB1.  */
-  if (dom_children (bb1))
-    {
-      bitmap dom1 = dom_children (bb1);
-      bitmap dom2 = dom_children (bb2);
-      bitmap_clear_bit (dom1, bb2->index);
-      if (dom2)
-	bitmap_a_or_b (dom1, dom1, dom2);
-    }
-}
-
-/* Given two blocks BB1 and BB2, merge the two blocks by moving all the
-   statements in BB2 after the last statement of BB1.
-   Note that no error checking is done, if there is more than one edges
-   coming into BB2 this function will happily munge the CFG.  */
-
-static void
-merge_tree_blocks (basic_block bb1, basic_block bb2)
-{
-  tree t1;
-
-  /* Step 1.  Chain all the statements in BB2 at the end of BB1.  */
-  t1 = last_stmt (bb1);
-  if (is_ctrl_structure (t1))
-    {
-      /* If BB1 ends in a control statement C, BB2 is the first block of
-	 C's body.  In this case we don't need to insert statements from
-	 BB2 into BB1, we can simply replace C with the first statement of
-	 BB2.  */
-      if (TREE_CODE (t1) == COND_EXPR)
-	replace_stmt (bb1->end_tree_p, bb2->head_tree_p);
-      else if (TREE_CODE (t1) == SWITCH_EXPR)
-	{
-	  /* Skip over all the CASE labels.  */
-	  block_stmt_iterator bi2 = bsi_start (bb2);
-	  while (!bsi_end_p (bi2)
-	         && TREE_CODE (bsi_stmt (bi2)) == CASE_LABEL_EXPR)
-	    bsi_next (&bi2);
-
-	  if (!bsi_end_p (bi2))
-	    replace_stmt (bb1->end_tree_p, bsi_container (bi2));
-	}
-      else
-	abort ();
-    }
-  else
-    {
-      /* Insert the first statement of BB2 after the last statement of BB1.  */
-      block_stmt_iterator bi1 = bsi_from_tsi (tsi_start (bb1->end_tree_p));
-      bsi_insert_after (&bi1, *(bb2->head_tree_p), BSI_SAME_STMT);
-    }
-
-  /* Step 2.  After chaining the statements from BB2 at the end of BB1, we
-     need to map all the statements between BB1->END_TREE_P and
-     BB2->END_TREE_P to BB1.  */
-  remap_stmts (bb1, bb2, bb1->end_tree_p);
-
-  /* Step 3.  Update edges and dominator children for BB1, and remove BB2.  */
-
-  /* BB2's successors are now BB1's.  */
-  while (bb1->succ)
-    ssa_remove_edge (bb1->succ);
-
-  /* Now relocate all the outgoing edges from BB2 to BB1.  */
-  move_outgoing_edges (bb1, bb2);
-
-  /* BB1 may no longer be a control expression after merging with BB2.
-     Copy BB2's flags into BB1.  */
-  bb1->flags &= ~BB_CONTROL_STRUCTURE;
-  bb1->flags |= bb2->flags;
-
-  /* Before removing BB2, clear out its predecessors, successors and
-     head/tail statements, otherwise remove_bb will try to remove
-     statements and edges that now belong to BB1.  */
-  bb2->head_tree_p = NULL;
-  bb2->end_tree_p = NULL;
-  bb2->pred = NULL;
-  bb2->succ = NULL;
-  remove_bb (bb2, REMOVE_NO_STMTS);
-}
-
-
-/* Map all the statements from block BB2 to block BB1 starting at the
-   statement pointed by FIRST_P.  Note that we cannot use block iterators
-   here.  This would confuse bsi_end_p() because, when moving from one
-   statement s1 to its successor s2, both s1 and s2 will be in different
-   blocks and bsi_end_p will stop the iteration.
-
-   Return true after mapping the last statement.  */
-
-static bool
-remap_stmts (basic_block bb1, basic_block bb2, tree *first_p)
-{
-  tree_stmt_iterator ti;
-  tree parent = parent_stmt (*(bb1->head_tree_p));
-
-  for (ti = tsi_start (first_p); !tsi_end_p (ti); tsi_next (&ti))
-    {
-      tree stmt;
-      tree *container = tsi_container (ti);
-      basic_block bb = bb_for_stmt (*container);
-
-      /* If we have gone past the end of BB2, we're done.  */
-      if (bb != bb1 && bb != bb2)
-	return true;
-
-      append_stmt_to_bb (container, bb1, parent);
-
-      /* Recurse into BIND_EXPR bodies.  */
-      stmt = tsi_stmt (ti);
-      if (stmt && TREE_CODE (stmt) == BIND_EXPR)
-	if (remap_stmts (bb1, bb2, &BIND_EXPR_BODY (stmt)))
-	  return true;
-    }
-
-  return false;
 }
 
 /*---------------------------------------------------------------------------
@@ -4150,12 +3731,6 @@ tree_verify_flow_info (void)
 	      || TREE_CODE (COND_EXPR_ELSE (stmt)) != GOTO_EXPR)
 	    {
 	      fprintf (stderr, "Structured COND_EXPR at end of bb %d\n",
-		       bb->index);
-	      err = 1;
-	    }
-	  if (bb->flags & BB_CONTROL_STRUCTURE)
-	    {
-	      fprintf (stderr, "COND_EXPR in BB_CONTROL_STRUCTURE bb %d\n",
 		       bb->index);
 	      err = 1;
 	    }
@@ -4373,14 +3948,6 @@ tree_forwarder_block_p (basic_block bb)
 
   /* It's not clear if we can safely insert the label in this case.  */
   if (bsi_end_p (bsi))
-    {
-      bb_ann (bb)->forwardable = 0;
-      return false; 
-    }
-
-  /* This really should not be necessary, but inserting a goto label
-     before a case label can cause bogus error messages.  */
-  if (TREE_CODE (bsi_stmt (bsi)) == CASE_LABEL_EXPR)
     {
       bb_ann (bb)->forwardable = 0;
       return false; 

@@ -270,20 +270,6 @@ bb_ann (basic_block bb)
   return (bb_ann_t)bb->tree_annotations;
 }
 
-static inline basic_block
-parent_block (basic_block bb)
-{
-  tree parent = (bb->head_tree_p) ? parent_stmt (*bb->head_tree_p) : NULL_TREE;
-  return parent ? bb_for_stmt (parent) : NULL;
-}
-
-static inline tree
-parent_stmt (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-  return (ann) ? ann->parent_stmt : NULL_TREE;
-}
-
 static inline tree
 phi_nodes (basic_block bb)
 {

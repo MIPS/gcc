@@ -606,9 +606,9 @@ visit_stmt (tree stmt)
     {
       DONT_SIMULATE_AGAIN (stmt) = 1;
 
-      /* If STMT is a control structure or a computed goto, then mark all
-	 the output edges executable.  */
-      if (is_ctrl_structure (stmt) || is_computed_goto (stmt))
+      /* If STMT is a computed goto, then mark all the output edges
+	 executable.  */
+      if (is_computed_goto (stmt))
 	add_outgoing_control_edges (bb_for_stmt (stmt));
     }
 
