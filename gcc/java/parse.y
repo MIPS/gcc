@@ -9358,7 +9358,7 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
 {
   int is_static = 0;
   tree field_ref;
-  tree decl, where_found, type_found;
+  tree decl = NULL, where_found, type_found;
 
   if (resolve_qualified_expression_name (qual_wfl, &decl,
 					 &where_found, &type_found))
