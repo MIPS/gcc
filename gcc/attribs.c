@@ -76,6 +76,9 @@ static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
 							     bool *));
+static tree handle_no_profile_attribute	PARAMS ((tree *, tree,
+						 tree, int,
+						 bool *));
 static tree handle_malloc_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_no_limit_stack_attribute PARAMS ((tree *, tree, tree, int,
@@ -132,6 +135,8 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_alias_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
+  { "no_profile",             0, 0, true,  false, false,
+			      handle_no_profile_attribute },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute },
   { "no_stack_limit",         0, 0, true,  false, false,
@@ -1048,6 +1053,37 @@ handle_no_instrument_function_attribute (node, name, args, flags, no_add_attrs)
     }
   else
     DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
+
+  return NULL_TREE;
+}
+
+/* Handle a "no_profile" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_no_profile_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    {
+      error_with_decl (decl,
+		       "`%s' attribute applies only to functions",
+		       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (DECL_INITIAL (decl))
+    {
+      error_with_decl (decl,
+		       "can't set `%s' attribute after definition",
+		       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
 
   return NULL_TREE;
 }

@@ -177,6 +177,11 @@ extern int profile_flag;
 
 extern int profile_arc_flag;
 
+/* Nonzero if we should not attempt to generate thread-safe
+   code to profile program flow graph arcs.  */
+
+extern int flag_unsafe_profile_arcs;
+
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
 extern int flag_test_coverage;

@@ -382,6 +382,9 @@ struct function
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
 
+  /* Where is adress of arc counters placed to?  */
+  rtx arc_counters_adress;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -433,6 +436,9 @@ struct function
   /* Nonzero if instrumentation calls for function entry and exit should be
      generated.  */
   unsigned int instrument_entry_exit : 1;
+
+  /* Nonzero if no profiling should be done for the function.  */
+  unsigned int no_profile : 1;
 
   /* Nonzero if stack limit checking should be enabled in the current
      function.  */

@@ -50,6 +50,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gcov-io.h"
 #include "target.h"
 #include "profile.h"
+#include "libfuncs.h"
+#include "gthr.h"
 
 /* Additional information about the edges we need.  */
 struct edge_info
@@ -117,11 +119,89 @@ static gcov_type * get_exec_counts PARAMS ((void));
 static long compute_checksum PARAMS ((void));
 static basic_block find_group PARAMS ((basic_block));
 static void union_groups PARAMS ((basic_block, basic_block));
+static void insert_profiler_initialization PARAMS ((void));
 
 /* If non-zero, we need to output a constructor to set up the
    per-object-file data.  */
 static int need_func_profiler = 0;
 
+/* Add code to find adress of arc counters.  */
+static void
+insert_profiler_initialization ()
+{
+  char buf[20];
+  rtx seq, tmp, tmpu, fix;
+  rtx static_table, offset, offset_m;
+  rtx use_global, use_global_m;
+  rtx label_no_threads;
+  edge e = ENTRY_BLOCK_PTR->succ;
+
+  for ( ; e; e = e->succ_next)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+        break;
+    }
+  if (!e)
+    abort ();
+ 
+  cfun->arc_counters_adress =
+    assign_stack_local (Pmode,
+                        GET_MODE_SIZE (Pmode),
+                        GET_MODE_ALIGNMENT (Pmode));
+ 
+  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBF", 0);
+  offset = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+  offset_m = gen_rtx_MEM (SImode, offset);
+  
+  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
+  static_table = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+
+  use_global = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup("__global_counters"));
+  use_global_m = gen_rtx_MEM (SImode, use_global);
+
+  label_no_threads = gen_label_rtx ();
+  
+  start_sequence ();
+
+  /* Store static table adress.  */
+
+  emit_move_insn (copy_rtx (cfun->arc_counters_adress),
+                  copy_rtx (static_table));
+
+  /* If threads are not active, that is all.  */
+
+  do_compare_rtx_and_jump (use_global_m, const0_rtx, EQ, 0, SImode,
+                           NULL_RTX, NULL_RTX, label_no_threads);
+  fix = get_last_insn ();
+  if (GET_CODE (fix) != JUMP_INSN)
+    abort ();
+  JUMP_LABEL (fix) = label_no_threads;
+ 
+  /* Otherwise, find where arc counters are.  */
+  
+  tmp = emit_library_call_value (find_arc_counters_libfunc,
+                                 NULL,
+                                 LCT_CONST,
+                                 Pmode,
+                                 0);
+  /* Add offset.  */
+  tmpu = expand_simple_binop (Pmode, PLUS,
+                              tmp, offset_m,
+                              cfun->arc_counters_adress, 0, OPTAB_DIRECT);
+  /* And store it.  */
+  if (tmpu != cfun->arc_counters_adress)
+    emit_move_insn (copy_rtx (cfun->arc_counters_adress), tmpu);
+
+  /* Now the label. */
+  fix = emit_label (label_no_threads);
+  LABEL_NUSES (fix) = 1;
+
+  seq = gen_sequence ();
+  end_sequence ();
+  
+  insert_insn_on_edge (seq, e);
+}
+
 /* Add edge instrumentation code to the entire insn chain.
 
    F is the first insn of the chain.
@@ -145,6 +225,8 @@ instrument_edges (el)
 	  struct edge_info *inf = EDGE_INFO (e);
 	  if (!inf->ignore && !inf->on_tree)
 	    {
+	      rtx edge_profiler;
+              
 	      if (e->flags & EDGE_ABNORMAL)
 		abort ();
 	      if (rtl_dump_file)
@@ -152,9 +234,10 @@ instrument_edges (el)
 			 e->src->index, e->dest->index,
 			 EDGE_CRITICAL_P (e) ? " (and split)" : "");
 	      need_func_profiler = 1;
-	      insert_insn_on_edge (
-			 gen_edge_profiler (total_num_edges_instrumented
-					    + num_instr_edges++), e);
+
+	      edge_profiler = gen_edge_profiler (total_num_edges_instrumented
+					         + num_instr_edges++);
+	      insert_insn_on_edge (edge_profiler, e);
 	    }
 	  e = e->succ_next;
 	}
@@ -168,7 +251,7 @@ instrument_edges (el)
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "%d edges instrumented\n", num_instr_edges);
 
-  commit_edge_insertions ();
+  commit_edge_insertions_watch_calls ();
 }
 
 /* Output STRING to bb_file, surrounded by DELIMITER.  */
@@ -718,7 +801,7 @@ branch_prob ()
   int i;
   int num_edges, ignored_edges;
   struct edge_list *el;
-  
+
   profile_info.current_function_cfg_checksum = compute_checksum ();
 
   if (rtl_dump_file)
@@ -997,6 +1080,12 @@ branch_prob ()
 
   if (profile_arc_flag)
     {
+#ifdef __GTHREADS
+      if (!flag_unsafe_profile_arcs)
+        {
+          insert_profiler_initialization ();
+        }
+#endif
       instrument_edges (el);
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
     }
@@ -1072,14 +1161,21 @@ find_spanning_tree (el)
   /* Add fake edge exit to entry we can't instrument.  */
   union_groups (EXIT_BLOCK_PTR, ENTRY_BLOCK_PTR);
 
-  /* First add all abnormal edges to the tree unless they form an cycle.  */
+  /* First add all abnormal edges to the tree unless they form an cycle. Also
+     add all edges to EXIT_BLOCK_PTR to avoid inserting profiling code behind
+     setting return value from function.  */
   for (i = 0; i < num_edges; i++)
     {
       edge e = INDEX_EDGE (el, i);
-      if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_FAKE))
+      if (((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_FAKE))
+           || e->dest == EXIT_BLOCK_PTR
+          )
 	  && !EDGE_INFO (e)->ignore
 	  && (find_group (e->src) != find_group (e->dest)))
 	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Abnormal edge %d to %d put to tree\n",
+                     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
 	}
@@ -1093,6 +1189,9 @@ find_spanning_tree (el)
 	  && !EDGE_INFO (e)->ignore
 	  && (find_group (e->src) != find_group (e->dest)))
 	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Critical edge %d to %d put to tree\n",
+                     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
 	}
@@ -1105,6 +1204,9 @@ find_spanning_tree (el)
       if (find_group (e->src) != find_group (e->dest)
 	  && !EDGE_INFO (e)->ignore)
 	{
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Normal edge %d to %d put to tree\n",
+                     e->src->index, e->dest->index);
 	  EDGE_INFO (e)->on_tree = 1;
 	  union_groups (e->src, e->dest);
 	}
@@ -1193,11 +1295,8 @@ end_branch_prob ()
       fclose (bbg_file);
     }
 
-  if (flag_branch_probabilities)
-    {
-      if (da_file)
-	fclose (da_file);
-    }
+  if (flag_branch_probabilities && da_file)
+    fclose (da_file);
 
   if (rtl_dump_file)
     {
@@ -1261,9 +1360,17 @@ gen_edge_profiler (edgeno)
 
   start_sequence ();
 
-  tmp = force_reg (Pmode, profiler_label);
+#ifdef __GTHREADS
+  if (!flag_unsafe_profile_arcs)
+    tmp = force_reg (Pmode, cfun->arc_counters_adress);
+  else
+#endif
+    tmp = force_reg (Pmode, profiler_label);
+
   tmp = plus_constant (tmp, GCOV_TYPE_SIZE / BITS_PER_UNIT * edgeno);
   mem_ref = validize_mem (gen_rtx_MEM (mode, tmp));
+
+  set_mem_alias_set (mem_ref, new_alias_set ());
 
   tmp = expand_simple_binop (mode, PLUS, mem_ref, const1_rtx,
 			     mem_ref, 0, OPTAB_WIDEN);
@@ -1284,14 +1391,11 @@ output_func_start_profiler ()
 {
   tree fnname, fndecl;
   char *name;
-  char buf[20];
+  char buf[20], buf1[20] ATTRIBUTE_UNUSED;
   const char *cfnname;
-  rtx table_address;
+  rtx table_address, offset_address;
   enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   int save_flag_inline_functions = flag_inline_functions;
-  int save_flag_test_coverage = flag_test_coverage;
-  int save_profile_arc_flag = profile_arc_flag;
-  int save_flag_branch_probabilities = flag_branch_probabilities;
 
   /* It's either already been output, or we don't need it because we're
      not doing profile-edges.  */
@@ -1334,13 +1438,26 @@ output_func_start_profiler ()
   init_function_start (fndecl, input_filename, lineno);
   pushlevel (0);
   expand_function_start (fndecl, 0);
+  cfun->no_profile = 1;
 
   /* Actually generate the code to call __bb_init_func.  */
   ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 0);
   table_address = force_reg (Pmode,
 			     gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_init_func"), LCT_NORMAL,
-		     mode, 1, table_address, Pmode);
+#ifdef __GTHREADS
+  if (!flag_unsafe_profile_arcs)
+    {
+      ASM_GENERATE_INTERNAL_LABEL (buf1, "LPBF", 0);
+      offset_address = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf1));
+    }
+  else
+#endif
+    {
+      offset_address = gen_rtx_CONST_INT (Pmode, 0);
+    }
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_init_func"), 0,
+		     mode, 2, table_address, Pmode,
+		     offset_address, Pmode);
 
   expand_function_end (input_filename, lineno, 0);
   poplevel (1, 0, 1);
@@ -1350,20 +1467,10 @@ output_func_start_profiler ()
      flag_inline_functions.  */
   flag_inline_functions = 0;
 
-  /* Don't instrument the function that turns on instrumentation.  Which
-     is also handy since we'd get silly warnings about not consuming all
-     of our da_file input.  */
-  flag_test_coverage = 0;
-  profile_arc_flag = 0;
-  flag_branch_probabilities = 0;
-
   rest_of_compilation (fndecl);
 
   /* Reset flag_inline_functions to its original value.  */
   flag_inline_functions = save_flag_inline_functions;
-  flag_test_coverage = save_flag_test_coverage;
-  profile_arc_flag = save_profile_arc_flag;
-  flag_branch_probabilities = save_flag_branch_probabilities;
 
   if (! quiet_flag)
     fflush (asm_out_file);

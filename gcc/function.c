@@ -59,6 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tm_p.h"
 #include "integrate.h"
+#include "gthr.h"
 
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
@@ -6338,6 +6339,20 @@ expand_main_function ()
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, NAME__MAIN), LCT_NORMAL,
 		     VOIDmode, 0);
 #endif
+
+#ifdef __GTHREADS
+  if (profile_arc_flag && !flag_unsafe_profile_arcs)
+    {
+      rtx globc =
+        gen_rtx_MEM (SImode,
+                     gen_rtx_SYMBOL_REF (Pmode, "__global_counters"));
+      rtx gthr_act =
+        gen_rtx_MEM (SImode,
+                     gen_rtx_SYMBOL_REF (Pmode, "__gthreads_active"));
+
+      emit_move_insn (globc, gthr_act);
+    }
+#endif
 }
 
 extern struct obstack permanent_obstack;
@@ -6385,6 +6400,10 @@ expand_function_start (subr, parms_have_cleanups)
   current_function_instrument_entry_exit
     = (flag_instrument_function_entry_exit
        && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
+
+  cfun->no_profile
+    = (lookup_attribute ("no_profile", DECL_ATTRIBUTES (current_function_decl))
+       != NULL);
 
   current_function_limit_stack
     = (stack_limit_rtx != NULL_RTX && ! DECL_NO_LIMIT_STACK (subr));

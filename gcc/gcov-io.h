@@ -24,15 +24,24 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <stdio.h>
 #include <sys/types.h>
 
-static int __fetch_long	PARAMS ((long *, char *, size_t)) ATTRIBUTE_UNUSED;
-static int __read_long  PARAMS ((long *, FILE *, size_t)) ATTRIBUTE_UNUSED;
-static int __write_long PARAMS ((long, FILE *, size_t)) ATTRIBUTE_UNUSED;
-static int __fetch_gcov_type PARAMS ((gcov_type *, char *, size_t)) ATTRIBUTE_UNUSED;
-static int __store_gcov_type PARAMS ((gcov_type, char *, size_t)) ATTRIBUTE_UNUSED;
-static int __read_gcov_type  PARAMS ((gcov_type *, FILE *, size_t)) ATTRIBUTE_UNUSED;
-static int __write_gcov_type PARAMS ((gcov_type, FILE *, size_t)) ATTRIBUTE_UNUSED;
-static int __write_gcov_string PARAMS ((const char *, size_t, FILE*, long)) ATTRIBUTE_UNUSED;
-static int __read_gcov_string PARAMS ((char *, size_t, FILE*, long)) ATTRIBUTE_UNUSED;
+static int __fetch_long	PARAMS ((long *, char *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __read_long  PARAMS ((long *, FILE *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __write_long PARAMS ((long, FILE *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __fetch_gcov_type PARAMS ((gcov_type *, char *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __store_gcov_type PARAMS ((gcov_type, char *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __read_gcov_type  PARAMS ((gcov_type *, FILE *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __write_gcov_type PARAMS ((gcov_type, FILE *, size_t))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __write_gcov_string PARAMS ((const char *, size_t, FILE*, long))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
+static int __read_gcov_string PARAMS ((char *, size_t, FILE*, long))
+  ATTRIBUTE_UNUSED ATTRIBUTE_NO_PROFILE;
 
 /* These routines only work for signed values.  */
 

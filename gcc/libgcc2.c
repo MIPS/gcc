@@ -49,7 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #if defined (L_divdi3) || defined (L_moddi3)
 static inline
 #endif
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __negdi2 (DWtype u)
 {
   DWunion w;
@@ -65,7 +65,7 @@ __negdi2 (DWtype u)
 #endif
 
 #ifdef L_addvsi3
-Wtype
+Wtype __attribute__ ((__no_profile__))
 __addvsi3 (Wtype a, Wtype b)
 {
   Wtype w;
@@ -80,7 +80,7 @@ __addvsi3 (Wtype a, Wtype b)
 #endif
 
 #ifdef L_addvdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __addvdi3 (DWtype a, DWtype b)
 {
   DWtype w;
@@ -95,7 +95,7 @@ __addvdi3 (DWtype a, DWtype b)
 #endif
 
 #ifdef L_subvsi3
-Wtype
+Wtype __attribute__ ((__no_profile__))
 __subvsi3 (Wtype a, Wtype b)
 {
 #ifdef L_addvsi3
@@ -114,7 +114,7 @@ __subvsi3 (Wtype a, Wtype b)
 #endif
 
 #ifdef L_subvdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __subvdi3 (DWtype a, DWtype b)
 {
 #ifdef L_addvdi3
@@ -133,7 +133,7 @@ __subvdi3 (DWtype a, DWtype b)
 #endif
 
 #ifdef L_mulvsi3
-Wtype
+Wtype __attribute__ ((__no_profile__))
 __mulvsi3 (Wtype a, Wtype b)
 {
   DWtype w;
@@ -148,7 +148,7 @@ __mulvsi3 (Wtype a, Wtype b)
 #endif
 
 #ifdef L_negvsi2
-Wtype
+Wtype __attribute__ ((__no_profile__))
 __negvsi2 (Wtype a)
 {
    Wtype w;
@@ -163,7 +163,7 @@ __negvsi2 (Wtype a)
 #endif
 
 #ifdef L_negvdi2
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __negvdi2 (DWtype a)
 {
    DWtype w;
@@ -178,7 +178,7 @@ __negvdi2 (DWtype a)
 #endif
 
 #ifdef L_absvsi2
-Wtype
+Wtype __attribute__ ((__no_profile__))
 __absvsi2 (Wtype a)
 {
    Wtype w = a;
@@ -198,7 +198,7 @@ __absvsi2 (Wtype a)
 #endif
 
 #ifdef L_absvdi2
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __absvdi2 (DWtype a)
 {
    DWtype w = a;
@@ -218,7 +218,7 @@ __absvdi2 (DWtype a)
 #endif
 
 #ifdef L_mulvdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __mulvdi3 (DWtype u, DWtype v)
 {
    DWtype w;
@@ -236,7 +236,7 @@ __mulvdi3 (DWtype u, DWtype v)
 /* Unless shift functions are defined whith full ANSI prototypes,
    parameter b will be promoted to int if word_type is smaller than an int.  */
 #ifdef L_lshrdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __lshrdi3 (DWtype u, word_type b)
 {
   DWunion w;
@@ -267,7 +267,7 @@ __lshrdi3 (DWtype u, word_type b)
 #endif
 
 #ifdef L_ashldi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __ashldi3 (DWtype u, word_type b)
 {
   DWunion w;
@@ -298,7 +298,7 @@ __ashldi3 (DWtype u, word_type b)
 #endif
 
 #ifdef L_ashrdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __ashrdi3 (DWtype u, word_type b)
 {
   DWunion w;
@@ -330,7 +330,7 @@ __ashrdi3 (DWtype u, word_type b)
 #endif
 
 #ifdef L_ffsdi2
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __ffsdi2 (DWtype u)
 {
   DWunion uu;
@@ -350,7 +350,7 @@ __ffsdi2 (DWtype u)
 #endif
 
 #ifdef L_muldi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __muldi3 (DWtype u, DWtype v)
 {
   DWunion w;
@@ -369,7 +369,7 @@ __muldi3 (DWtype u, DWtype v)
 
 #ifdef L_udiv_w_sdiv
 #if defined (sdiv_qrnnd)
-UWtype
+UWtype __attribute__ ((__no_profile__))
 __udiv_w_sdiv (UWtype *rp, UWtype a1, UWtype a0, UWtype d)
 {
   UWtype q, r;
@@ -467,7 +467,7 @@ __udiv_w_sdiv (UWtype *rp, UWtype a1, UWtype a0, UWtype d)
 }
 #else
 /* If sdiv_qrnnd doesn't exist, define dummy __udiv_w_sdiv.  */
-UWtype
+UWtype __attribute__ ((__no_profile__))
 __udiv_w_sdiv (UWtype *rp __attribute__ ((__unused__)),
 	       UWtype a1 __attribute__ ((__unused__)),
 	       UWtype a0 __attribute__ ((__unused__)),
@@ -503,7 +503,7 @@ const UQItype __clz_tab[] =
      defined (L_umoddi3) || defined (L_moddi3))
 static inline
 #endif
-UDWtype
+UDWtype __attribute__ ((__no_profile__))
 __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 {
   DWunion ww;
@@ -722,7 +722,7 @@ __udivmoddi4 (UDWtype n, UDWtype d, UDWtype *rp)
 #endif
 
 #ifdef L_divdi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __divdi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
@@ -748,7 +748,7 @@ __divdi3 (DWtype u, DWtype v)
 #endif
 
 #ifdef L_moddi3
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __moddi3 (DWtype u, DWtype v)
 {
   word_type c = 0;
@@ -773,7 +773,7 @@ __moddi3 (DWtype u, DWtype v)
 #endif
 
 #ifdef L_umoddi3
-UDWtype
+UDWtype __attribute__ ((__no_profile__))
 __umoddi3 (UDWtype u, UDWtype v)
 {
   UDWtype w;
@@ -785,7 +785,7 @@ __umoddi3 (UDWtype u, UDWtype v)
 #endif
 
 #ifdef L_udivdi3
-UDWtype
+UDWtype __attribute__ ((__no_profile__))
 __udivdi3 (UDWtype n, UDWtype d)
 {
   return __udivmoddi4 (n, d, (UDWtype *) 0);
@@ -793,7 +793,7 @@ __udivdi3 (UDWtype n, UDWtype d)
 #endif
 
 #ifdef L_cmpdi2
-word_type
+word_type __attribute__ ((__no_profile__))
 __cmpdi2 (DWtype a, DWtype b)
 {
   DWunion au, bu;
@@ -813,7 +813,7 @@ __cmpdi2 (DWtype a, DWtype b)
 #endif
 
 #ifdef L_ucmpdi2
-word_type
+word_type __attribute__ ((__no_profile__))
 __ucmpdi2 (DWtype a, DWtype b)
 {
   DWunion au, bu;
@@ -836,7 +836,7 @@ __ucmpdi2 (DWtype a, DWtype b)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixunstfDI (TFtype a)
 {
   TFtype b;
@@ -865,7 +865,7 @@ __fixunstfDI (TFtype a)
 #endif
 
 #if defined(L_fixtfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixtfdi (TFtype a)
 {
   if (a < 0)
@@ -878,7 +878,7 @@ __fixtfdi (TFtype a)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixunsxfDI (XFtype a)
 {
   XFtype b;
@@ -907,7 +907,7 @@ __fixunsxfDI (XFtype a)
 #endif
 
 #if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixxfdi (XFtype a)
 {
   if (a < 0)
@@ -920,7 +920,7 @@ __fixxfdi (XFtype a)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixunsdfDI (DFtype a)
 {
   DFtype b;
@@ -949,7 +949,7 @@ __fixunsdfDI (DFtype a)
 #endif
 
 #ifdef L_fixdfdi
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixdfdi (DFtype a)
 {
   if (a < 0)
@@ -962,7 +962,7 @@ __fixdfdi (DFtype a)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixunssfDI (SFtype original_a)
 {
   /* Convert the SFtype to a DFtype, because that is surely not going
@@ -995,7 +995,7 @@ __fixunssfDI (SFtype original_a)
 #endif
 
 #ifdef L_fixsfdi
-DWtype
+DWtype __attribute__ ((__no_profile__))
 __fixsfdi (SFtype a)
 {
   if (a < 0)
@@ -1009,7 +1009,7 @@ __fixsfdi (SFtype a)
 #define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-XFtype
+XFtype __attribute__ ((__no_profile__))
 __floatdixf (DWtype u)
 {
   XFtype d;
@@ -1028,7 +1028,7 @@ __floatdixf (DWtype u)
 #define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-TFtype
+TFtype __attribute__ ((__no_profile__))
 __floatditf (DWtype u)
 {
   TFtype d;
@@ -1047,7 +1047,7 @@ __floatditf (DWtype u)
 #define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
-DFtype
+DFtype __attribute__ ((__no_profile__))
 __floatdidf (DWtype u)
 {
   DFtype d;
@@ -1095,7 +1095,7 @@ __floatdidf (DWtype u)
 #define SF_SIZE 24
 #endif
 
-SFtype
+SFtype __attribute__ ((__no_profile__))
 __floatdisf (DWtype u)
 {
   /* Do the calculation in DFmode
@@ -1142,7 +1142,7 @@ __floatdisf (DWtype u)
 #undef MAX
 #include <limits.h>
 
-UWtype
+UWtype __attribute__ ((__no_profile__))
 __fixunsxfSI (XFtype a)
 {
   if (a >= - (DFtype) Wtype_MIN)
@@ -1164,7 +1164,7 @@ __fixunsxfSI (XFtype a)
 #undef MAX
 #include <limits.h>
 
-UWtype
+UWtype __attribute__ ((__no_profile__))
 __fixunsdfSI (DFtype a)
 {
   if (a >= - (DFtype) Wtype_MIN)
@@ -1186,7 +1186,7 @@ __fixunsdfSI (DFtype a)
 #undef MAX
 #include <limits.h>
 
-UWtype
+UWtype __attribute__ ((__no_profile__))
 __fixunssfSI (SFtype a)
 {
   if (a >= - (SFtype) Wtype_MIN)
@@ -1263,13 +1263,6 @@ __eprintf (const char *string, const char *expression,
 
 #ifdef L_bb
 
-#if LONG_TYPE_SIZE == GCOV_TYPE_SIZE
-typedef long gcov_type;
-#else
-typedef long long gcov_type;
-#endif
-
-
 struct bb_function_info {
   long checksum;
   int arc_count;
@@ -1310,9 +1303,55 @@ BLOCK_PROFILER_CODE
 #include <errno.h>
 #endif
 
+#include <gthr.h>
+
+#ifdef __GTHREADS
+
+#ifdef __GTHREAD_MUTEX_INIT
+#define DECLARE_ARC_COUNTERS_LOCK \
+ static __gthread_mutex_t arc_counters_lock = __GTHREAD_MUTEX_INIT
+#define INIT_ARC_COUNTERS_LOCK
+#else
+#define DECLARE_ARC_COUNTERS_LOCK \
+ static __gthread_mutex_t arc_counters_lock;
+#define INIT_ARC_COUNTERS_LOCK\
+ __GTHREAD_MUTEX_INIT_FUNCTION (&arc_counters_lock)
+#endif
+
+#define LOCK_ARC_COUNTERS __gthread_mutex_lock (&arc_counters_lock)
+#define UNLOCK_ARC_COUNTERS __gthread_mutex_unlock (&arc_counters_lock)
+
+#define DECLARE_ARC_COUNTERS_TSD static __gthread_key_t arc_counters_key
+
+#ifndef THREAD_LIB_SUPPORT
+#define INIT_ARC_COUNTERS_TSD\
+ __gthread_key_create (&arc_counters_key, __bb_thread_end_func)
+#else
+#define INIT_ARC_COUNTERS_TSD\
+ __gthread_key_create (&arc_counters_key, NULL)
+#endif
+
+#define SET_ARC_COUNTERS_TSD(x)\
+ __gthread_setspecific(arc_counters_key, (x))
+#define GET_ARC_COUNTERS_TSD\
+ __gthread_getspecific(arc_counters_key)
+
+DECLARE_ARC_COUNTERS_LOCK;
+DECLARE_ARC_COUNTERS_TSD;
+
+#endif
+
 static struct bb *bb_head;
 
-void
+#ifdef __GTHREADS
+
+int __global_counters = 0, __gthreads_active = 0;
+static int aofs = 0, moved_static_counters = 0;
+static gcov_type *arc_counters = (gcov_type *) 0;
+
+#endif
+
+void __attribute__ ((__no_profile__))
 __bb_exit_func (void)
 {
   FILE *da_file;
@@ -1342,6 +1381,40 @@ __bb_exit_func (void)
 	}
     }
 
+#ifdef __GTHREADS
+      if (arc_counters)
+        {
+          int laofs = aofs; 
+
+          /* propagate counters of main thread to global ones.  */
+          __bb_thread_end_func (GET_ARC_COUNTERS_TSD);
+
+          /* If we are here for the first time (could be more times due
+             to forking), move results from static counters.  */
+          LOCK_ARC_COUNTERS;
+          if (!moved_static_counters)
+            {
+              for (ptr = bb_head; ptr; ptr = ptr->next)
+                {
+                  int i;
+                  laofs -= ptr->ncounts;
+                  for (i = 0; i < ptr->ncounts; i++)
+                    arc_counters[laofs + i] += ptr->counts[i];
+                  ptr->counts = arc_counters + laofs;
+                }
+              moved_static_counters = 1;
+            }
+          UNLOCK_ARC_COUNTERS;
+        }
+
+#endif
+
+#ifdef __GTHREADS
+      if (arc_counters)
+        {
+        LOCK_ARC_COUNTERS;
+        }
+#endif
 
   for (ptr = bb_head; ptr != (struct bb *) 0; ptr = ptr->next)
     {
@@ -1471,33 +1544,128 @@ __bb_exit_func (void)
 		 ptr->filename);
     }
 
-  return;
+#ifdef __GTHREADS
+  if (arc_counters)
+    {
+      UNLOCK_ARC_COUNTERS;
+    }
+#endif
 }
 
+/* Called on entry into each profiled function.  Returns (thread-specific)
+   adress of arc counters.  */
+gcov_type * __attribute__ ((__no_profile__))
+__bb_find_arc_counters (void)
+{
+#ifdef __GTHREADS
+   void *arc_counters_tsd = GET_ARC_COUNTERS_TSD;
+   if (!arc_counters_tsd)
+     {
+       arc_counters_tsd = __bb_thread_start_func ();
+     }
+   return ((gcov_type *) arc_counters_tsd);
+#else
+  return (gcov_type *) 0;
+#endif
+}
 
-void
-__bb_init_func (struct bb *blocks)
+#ifdef __GTHREADS
+
+/* Called in a new thread after its creation (from the first attempt to find
+   adress of counter table).  Allocates thread specific counter table.  */
+
+void * __attribute__ ((__no_profile__))
+__bb_thread_start_func (void)
+{
+  gcov_type *ret;
+
+  if (arc_counters && __gthreads_active)
+    {
+      ret = calloc (aofs, sizeof (gcov_type));
+      SET_ARC_COUNTERS_TSD (ret);
+
+      return ret;
+    }
+
+  return (void *) 0;
+}
+
+/* Called in a thread immediatelly before its termination (and after any
+   attempt to modify any counters -- i.e. preferably from thread library
+   (if not supported we use it as a destructor for thread specific data;
+   this would not work if other profiled destructors are called afterwards,
+   so in this case all other destructors must be declared no_profile)).
+   Propagates changes to global counters.  */
+void __attribute__ ((__no_profile__))
+__bb_thread_end_func (void *data)
+{
+  gcov_type *tsd = data;
+  int i;
+
+  if (!data) return;
+ 
+  LOCK_ARC_COUNTERS;
+  for (i=0; i<aofs; i++)
+    arc_counters[i] += tsd[i];
+  UNLOCK_ARC_COUNTERS;
+
+  free(tsd);
+}
+
+#else
+
+void * __attribute__ ((__no_profile__))
+__bb_thread_start_func (void)
+{
+  return (void *) 0;
+}
+
+#endif
+
+void __attribute__ ((__no_profile__))
+__bb_init_func (struct bb *blocks, int *offset)
 {
   /* User is supposed to check whether the first word is non-0,
      but just in case....  */
 
   if (blocks->zero_word)
     return;
-
-  /* Initialize destructor.  */
+  
+  /* Initialize destructor and per-thread data.  */
   if (!bb_head)
-    atexit (__bb_exit_func);
+    {
+      atexit (__bb_exit_func);
+#ifdef __GTHREADS
+      if (offset && __gthread_active_p ())
+        {
+          INIT_ARC_COUNTERS_TSD;
+          INIT_ARC_COUNTERS_LOCK;
+          __gthreads_active = 1;
+        }
+#endif
+    }
 
   /* Set up linked list.  */
   blocks->zero_word = 1;
   blocks->next = bb_head;
   bb_head = blocks;
+
+#ifdef __GTHREADS
+  if (offset && __gthreads_active)
+    {
+      *offset = aofs;
+      aofs += blocks->ncounts;
+      arc_counters = realloc (arc_counters, aofs * sizeof (gcov_type));
+      memset (arc_counters + aofs - blocks->ncounts, 0,
+              blocks->ncounts * sizeof (gcov_type));
+    }
+#endif
 }
 
 /* Called before fork or exec - write out profile information gathered so
    far and reset it to zero.  This avoids duplication or loss of the
    profile information gathered so far.  */
-void
+void __attribute__ ((__no_profile__))
 __bb_fork_func (void)
 {
   struct bb *ptr;

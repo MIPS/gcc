@@ -2966,7 +2966,8 @@ rest_of_compilation (decl)
 
      life_analyzis rarely eliminates modification of external memory.  */
   mark_constant_function ();
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+  if ((profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+      && !cfun->no_profile)
     branch_prob ();
 
   if (optimize)

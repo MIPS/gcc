@@ -299,6 +299,7 @@ extern edge split_block			PARAMS ((basic_block, rtx));
 extern basic_block split_edge		PARAMS ((edge));
 extern void insert_insn_on_edge		PARAMS ((rtx, edge));
 extern void commit_edge_insertions	PARAMS ((void));
+extern void commit_edge_insertions_watch_calls	PARAMS ((void));
 extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
 extern void connect_infinite_loops_to_exit	PARAMS ((void));

@@ -5056,6 +5056,10 @@ init_optabs ()
   profile_function_exit_libfunc
     = init_one_libfunc ("__cyg_profile_func_exit");
 
+  /* For thread-safe arc profiling.  */
+  find_arc_counters_libfunc
+    = init_one_libfunc ("__bb_find_arc_counters");
+
 #ifdef HAVE_conditional_trap
   init_traps ();
 #endif

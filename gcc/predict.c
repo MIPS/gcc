@@ -45,10 +45,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "expr.h"
 #include "predict.h"
+#include "profile.h"
 
 /* Minimal number of executions of the basic block per execution
    of program to make it "hot".  */
-#define MIN_COUNT	100
+#define MIN_COUNT_FRACTION	10000
 
 /* Minimal frequency of the basic block to make it "hot".  */
 #define MIN_FREQUENCY	BB_FREQ_MAX/1000
@@ -113,7 +114,8 @@ bool
 maybe_hot_bb_p (bb)
 	basic_block bb;
 {
-  if (flag_branch_probabilities && bb->count < MIN_COUNT)
+  if (flag_branch_probabilities
+      && bb->count < profile_info.max_counter_in_program / MIN_COUNT_FRACTION)
     return false;
   if (bb->frequency < MIN_FREQUENCY)
     return false;
@@ -126,7 +128,8 @@ bool
 probably_cold_bb_p (bb)
      basic_block bb;
 {
-  if (flag_branch_probabilities && bb->count < MIN_COUNT)
+  if (flag_branch_probabilities
+      && bb->count <= profile_info.max_counter_in_program / MIN_COUNT_FRACTION)
     return true;
   if (bb->frequency < MIN_FREQUENCY)
     return true;
@@ -139,7 +142,8 @@ probably_never_executed_bb_p (bb)
 	basic_block bb;
 {
   if (flag_branch_probabilities)
-    return bb->count == 0;
+    return ((bb->count + profile_info.count_profiles_merged)
+	    / profile_info.count_profiles_merged) == 0;
   return false;
 }
 

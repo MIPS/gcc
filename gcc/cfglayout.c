@@ -459,7 +459,6 @@ fixup_reorder_chain ()
   basic_block bb, last_bb;
   int index;
   rtx insn;
-  int old_n_basic_blocks = n_basic_blocks;
 
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */

@@ -237,7 +237,7 @@ extern void __cxa_finalize (void *) TARGET_ATTRIBUTE_WEAK;
    the list we left off processing, and we resume at that point,
    should we be re-invoked.  */
 
-static void
+static void __attribute__ ((__no_profile__))
 __do_global_dtors_aux (void)
 {
   static func_ptr *p = __DTOR_LIST__ + 1;
@@ -276,7 +276,7 @@ __do_global_dtors_aux (void)
 
 /* Stick a call to __do_global_dtors_aux into the .fini section.  */
 
-static void __attribute__ ((__unused__))
+static void __attribute__ ((__unused__)) __attribute__ ((__no_profile__))
 fini_dummy (void)
 {
   asm (FINI_SECTION_ASM_OP);
@@ -292,7 +292,7 @@ fini_dummy (void)
    reason calls with no arguments work more reliably in .init, so stick the
    call in another function.  */
 
-static void
+static void __attribute__ ((__no_profile__))
 frame_dummy (void)
 {
 #ifdef USE_EH_FRAME_REGISTRY
@@ -322,7 +322,7 @@ frame_dummy (void)
 #endif /* JCR_SECTION_NAME */
 }
 
-static void __attribute__ ((__unused__))
+static void __attribute__ ((__unused__)) __attribute__ ((__no_profile__))
 init_dummy (void)
 {
   asm (INIT_SECTION_ASM_OP);
@@ -343,8 +343,8 @@ init_dummy (void)
    INVOKE__main is defined.  This has the additional effect of forcing cc1
    to switch to the .text section.  */
 
-static void __do_global_ctors_aux (void);
-void
+static void __do_global_ctors_aux (void) __attribute__ ((__no_profile__));
+void __attribute__ ((__no_profile__))
 __do_global_ctors (void)
 {
 #ifdef INVOKE__main
@@ -373,7 +373,7 @@ asm (INIT_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
    such a thing) so that we can properly perform the construction of
    file-scope static-storage C++ objects within shared libraries.  */
 
-static void
+static void __attribute__ ((__no_profile__))
 __do_global_ctors_aux (void)	/* prologue goes in .init section */
 {
 #ifdef FORCE_INIT_SECTION_ALIGN
@@ -392,7 +392,7 @@ __do_global_ctors_aux (void)	/* prologue goes in .init section */
    not an SVR4-style .fini section.  __do_global_dtors can be non-static
    in this case because we protect it with -hidden_symbol.  */
 
-void
+void __attribute__ ((__no_profile__))
 __do_global_dtors (void)
 {
   func_ptr *p, f;
@@ -410,7 +410,7 @@ __do_global_dtors (void)
    in crtbegin.o, we can reference a couple of symbols not visible there.
    Plus, since we're before libgcc.a, we have no problems referencing
    functions from there.  */
-void
+void __attribute__ ((__no_profile__))
 __do_global_ctors_1(void)
 {
 #ifdef USE_EH_FRAME_REGISTRY
@@ -487,7 +487,7 @@ STATIC void *__JCR_END__[1]
 
 #ifdef OBJECT_FORMAT_ELF
 
-static void
+static void __attribute__ ((__no_profile__))
 __do_global_ctors_aux (void)
 {
   func_ptr *p;
@@ -497,7 +497,7 @@ __do_global_ctors_aux (void)
 
 /* Stick a call to __do_global_ctors_aux into the .init section.  */
 
-static void __attribute__ ((__unused__))
+static void __attribute__ ((__unused__)) __attribute__ ((__no_profile__))
 init_dummy (void)
 {
   asm (INIT_SECTION_ASM_OP);
@@ -534,7 +534,7 @@ init_dummy (void)
    the state of the floating-point coprocessor, etc.) which should be done
    before we start to execute any of the user's code.  */
 
-static void
+static void __attribute__ ((__no_profile__))
 __do_global_ctors_aux (void)	/* prologue goes in .text section */
 {
   asm (INIT_SECTION_ASM_OP);
@@ -556,7 +556,7 @@ asm (TEXT_SECTION_ASM_OP);
    not an SVR4-style .init section.  __do_global_ctors can be non-static
    in this case because we protect it with -hidden_symbol.  */
 extern void __do_global_ctors_1(void);
-void
+void __attribute__ ((__no_profile__))
 __do_global_ctors (void)
 {
   func_ptr *p;
@@ -602,7 +602,7 @@ extern const struct section *
 
 static void __reg_frame_ctor (void) __attribute__ ((constructor));
 
-static void
+static void __attribute__ ((__no_profile__))
 __reg_frame_ctor (void)
 {
   static struct object object;
@@ -617,7 +617,7 @@ __reg_frame_ctor (void)
 
 static void __dereg_frame_dtor (void) __attribute__ ((destructor));
 
-static void
+static void __attribute__ ((__no_profile__))
 __dereg_frame_dtor (void)
 {
   const struct section *eh_frame;

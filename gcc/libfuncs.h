@@ -141,6 +141,8 @@ enum libfunc_index
 
   LTI_profile_function_entry,
   LTI_profile_function_exit,
+  
+  LTI_find_arc_counters,
 
   LTI_MAX
 };
@@ -268,5 +270,7 @@ extern rtx libfunc_table[LTI_MAX];
 
 #define profile_function_entry_libfunc	(libfunc_table[LTI_profile_function_entry])
 #define profile_function_exit_libfunc	(libfunc_table[LTI_profile_function_exit])
+
+#define find_arc_counters_libfunc	(libfunc_table[LTI_find_arc_counters])
 
 #endif /* GCC_LIBFUNCS_H */

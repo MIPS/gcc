@@ -28,16 +28,26 @@ extern void __eprintf (const char *, const char *, unsigned int, const char *)
   __attribute__ ((__noreturn__));
 
 struct bb;
-extern void __bb_exit_func (void);
-extern void __bb_init_func (struct bb *);
-extern void __bb_fork_func (void);
-extern void __bb_trace_func (void);
-extern void __bb_trace_ret (void);
-extern void __bb_init_trace_func (struct bb *, unsigned long);
+extern void __bb_exit_func (void) __attribute__ ((__no_profile__));
+extern void __bb_init_func (struct bb *, int *) __attribute__ ((__no_profile__));
+extern void *__bb_thread_start_func (void) __attribute__ ((__no_profile__));
+extern void __bb_thread_end_func (void *) __attribute__ ((__no_profile__));
+extern void __bb_fork_func (void) __attribute__ ((__no_profile__));
+extern void __bb_trace_func (void) __attribute__ ((__no_profile__));
+extern void __bb_trace_ret (void) __attribute__ ((__no_profile__));
+extern void __bb_init_trace_func (struct bb *, unsigned long) __attribute__ ((__no_profile__));
+
+#if LONG_TYPE_SIZE == GCOV_TYPE_SIZE
+typedef long gcov_type;
+#else
+typedef long long gcov_type;
+#endif
+
+extern gcov_type *__bb_find_arc_counters (void) __attribute__ ((__no_profile__));
 
 struct exception_descriptor;
-extern short int __get_eh_table_language (struct exception_descriptor *);
-extern short int __get_eh_table_version (struct exception_descriptor *);
+extern short int __get_eh_table_language (struct exception_descriptor *) __attribute__ ((__no_profile__));
+extern short int __get_eh_table_version (struct exception_descriptor *) __attribute__ ((__no_profile__));
 
 /* Permit the tm.h file to select the endianness to use just for this
    file.  This is used when the endianness is determined when the
@@ -211,69 +221,69 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __fixunsdfSI	__NW(fixunsdf,)
 #define __fixunssfSI	__NW(fixunssf,)
 
-extern DWtype __muldi3 (DWtype, DWtype);
-extern DWtype __divdi3 (DWtype, DWtype);
-extern UDWtype __udivdi3 (UDWtype, UDWtype);
-extern UDWtype __umoddi3 (UDWtype, UDWtype);
-extern DWtype __moddi3 (DWtype, DWtype);
+extern DWtype __muldi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern DWtype __divdi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern UDWtype __udivdi3 (UDWtype, UDWtype) __attribute__ ((__no_profile__));
+extern UDWtype __umoddi3 (UDWtype, UDWtype) __attribute__ ((__no_profile__));
+extern DWtype __moddi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
 
 /* __udivmoddi4 is static inline when building other libgcc2 portions.  */
 #if (!defined (L_udivdi3) && !defined (L_divdi3) && \
      !defined (L_umoddi3) && !defined (L_moddi3))
-extern UDWtype __udivmoddi4 (UDWtype, UDWtype, UDWtype *);
+extern UDWtype __udivmoddi4 (UDWtype, UDWtype, UDWtype *) __attribute__ ((__no_profile__));
 #endif
 
 /* __negdi2 is static inline when building other libgcc2 portions.  */
 #if !defined(L_divdi3) && !defined(L_moddi3)
-extern DWtype __negdi2 (DWtype);
+extern DWtype __negdi2 (DWtype) __attribute__ ((__no_profile__));
 #endif
 
-extern DWtype __lshrdi3 (DWtype, word_type);
-extern DWtype __ashldi3 (DWtype, word_type);
-extern DWtype __ashrdi3 (DWtype, word_type);
-extern DWtype __ffsdi2 (DWtype);
+extern DWtype __lshrdi3 (DWtype, word_type) __attribute__ ((__no_profile__));
+extern DWtype __ashldi3 (DWtype, word_type) __attribute__ ((__no_profile__));
+extern DWtype __ashrdi3 (DWtype, word_type) __attribute__ ((__no_profile__));
+extern DWtype __ffsdi2 (DWtype) __attribute__ ((__no_profile__));
 
 /* __udiv_w_sdiv is static inline when building other libgcc2 portions.  */
 #if (!defined(L_udivdi3) && !defined(L_divdi3) && \
      !defined(L_umoddi3) && !defined(L_moddi3))
-extern UWtype __udiv_w_sdiv (UWtype *, UWtype, UWtype, UWtype);
+extern UWtype __udiv_w_sdiv (UWtype *, UWtype, UWtype, UWtype) __attribute__ ((__no_profile__));
 #endif
 
-extern word_type __cmpdi2 (DWtype, DWtype);
-extern word_type __ucmpdi2 (DWtype, DWtype);
+extern word_type __cmpdi2 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern word_type __ucmpdi2 (DWtype, DWtype) __attribute__ ((__no_profile__));
 
-extern Wtype __absvsi2 (Wtype);
-extern DWtype __absvdi2 (DWtype);
-extern Wtype __addvsi3 (Wtype, Wtype);
-extern DWtype __addvdi3 (DWtype, DWtype);
-extern Wtype __subvsi3 (Wtype, Wtype);
-extern DWtype __subvdi3 (DWtype, DWtype);
-extern Wtype __mulvsi3 (Wtype, Wtype);
-extern DWtype __mulvdi3 (DWtype, DWtype);
-extern Wtype __negvsi2 (Wtype);
-extern DWtype __negvdi2 (DWtype);
+extern Wtype __absvsi2 (Wtype) __attribute__ ((__no_profile__));
+extern DWtype __absvdi2 (DWtype) __attribute__ ((__no_profile__));
+extern Wtype __addvsi3 (Wtype, Wtype) __attribute__ ((__no_profile__));
+extern DWtype __addvdi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern Wtype __subvsi3 (Wtype, Wtype) __attribute__ ((__no_profile__));
+extern DWtype __subvdi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern Wtype __mulvsi3 (Wtype, Wtype) __attribute__ ((__no_profile__));
+extern DWtype __mulvdi3 (DWtype, DWtype) __attribute__ ((__no_profile__));
+extern Wtype __negvsi2 (Wtype) __attribute__ ((__no_profile__));
+extern DWtype __negvdi2 (DWtype) __attribute__ ((__no_profile__));
 
 #if BITS_PER_UNIT == 8
-extern DWtype __fixdfdi (DFtype);
-extern DWtype __fixsfdi (SFtype);
-extern DFtype __floatdidf (DWtype);
-extern SFtype __floatdisf (DWtype);
-extern UWtype __fixunsdfSI (DFtype);
-extern UWtype __fixunssfSI (SFtype);
-extern DWtype __fixunsdfDI (DFtype);
-extern DWtype __fixunssfDI (SFtype);
+extern DWtype __fixdfdi (DFtype) __attribute__ ((__no_profile__));
+extern DWtype __fixsfdi (SFtype) __attribute__ ((__no_profile__));
+extern DFtype __floatdidf (DWtype) __attribute__ ((__no_profile__));
+extern SFtype __floatdisf (DWtype) __attribute__ ((__no_profile__));
+extern UWtype __fixunsdfSI (DFtype) __attribute__ ((__no_profile__));
+extern UWtype __fixunssfSI (SFtype) __attribute__ ((__no_profile__));
+extern DWtype __fixunsdfDI (DFtype) __attribute__ ((__no_profile__));
+extern DWtype __fixunssfDI (SFtype) __attribute__ ((__no_profile__));
 
 #if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
-extern DWtype __fixxfdi (XFtype);
-extern DWtype __fixunsxfDI (XFtype);
-extern XFtype __floatdixf (DWtype);
-extern UWtype __fixunsxfSI (XFtype);
+extern DWtype __fixxfdi (XFtype) __attribute__ ((__no_profile__));
+extern DWtype __fixunsxfDI (XFtype) __attribute__ ((__no_profile__));
+extern XFtype __floatdixf (DWtype) __attribute__ ((__no_profile__));
+extern UWtype __fixunsxfSI (XFtype) __attribute__ ((__no_profile__));
 #endif
 
 #if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
-extern DWtype __fixunstfDI (TFtype);
-extern DWtype __fixtfdi (TFtype);
-extern TFtype __floatditf (DWtype);
+extern DWtype __fixunstfDI (TFtype) __attribute__ ((__no_profile__));
+extern DWtype __fixtfdi (TFtype) __attribute__ ((__no_profile__));
+extern TFtype __floatditf (DWtype) __attribute__ ((__no_profile__));
 #endif
 #endif /* BITS_PER_UNIT == 8 */
 

@@ -346,6 +346,14 @@ end_final (filename)
       assemble_integer (gen_rtx_SYMBOL_REF (Pmode, name),
 	  pointer_bytes, align2, 1);
 
+      /* Offset to table of arc counters.  */
+      if (profile_arc_flag)
+        {
+          ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LPBF", 0);
+          assemble_integer (const0_rtx, long_bytes, align2, 1);
+        }
+
+
       /* Output the file name changing the suffix to .d for
 	 Sun tcov compatibility.  */
       ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LPBX", 1);
