@@ -48,6 +48,11 @@
 #define PRE_GCC3_DWARF_FRAME_REGISTERS DWARF_FRAME_REGISTERS
 #endif
 
+/* A target can do some update context frobbing.  */
+#ifndef MD_FROB_UPDATE_CONTEXT
+#define MD_FROB_UPDATE_CONTEXT(CTX, FS) do { } while (0)
+#endif
+
 /* This is the register and unwind state for a particular frame.  */
 struct _Unwind_Context
 {
@@ -1259,6 +1264,8 @@ uw_update_context_1 (struct _Unwind_Context *context, _Unwind_FrameState *fs)
 	}
 	break;
       }
+
+  MD_FROB_UPDATE_CONTEXT (context, fs);
 }
 
 static void
