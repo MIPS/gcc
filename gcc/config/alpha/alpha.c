@@ -79,18 +79,10 @@ char *alpha_mlat_string;	/* -mmemory-latency= */
 rtx alpha_compare_op0, alpha_compare_op1;
 int alpha_compare_fp_p;
 
-/* Define the information needed to modify the epilogue for EH.  */
-
-rtx alpha_eh_epilogue_sp_ofs;
-
 /* Non-zero if inside of a function, because the Alpha asm can't
    handle .files inside of functions.  */
 
 static int inside_function = FALSE;
-
-/* If non-null, this rtx holds the return address for the function.  */
-
-static rtx alpha_return_addr_rtx;
 
 /* The number of cycles of latency we should assume on memory reads.  */
 
@@ -2416,34 +2408,24 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
   return cost;
 }
 
-/* Functions to save and restore alpha_return_addr_rtx.  */
-
-struct machine_function
-{
-  rtx ra_rtx;
-};
+/* Functions to init and restore machine specific function state.  */
 
 static void
-alpha_save_machine_status (p)
+alpha_init_machine_status (p)
      struct function *p;
 {
   struct machine_function *machine =
     (struct machine_function *) xmalloc (sizeof (struct machine_function));
-
   p->machine = machine;
-  machine->ra_rtx = alpha_return_addr_rtx;
+
+  machine->return_address_rtx = NULL_RTX;
+  machine->eh_epilogue_sp_ofs = NULL_RTX;
 }
 
 static void
 alpha_restore_machine_status (p)
      struct function *p;
 {
-  struct machine_function *machine = p->machine;
-
-  alpha_return_addr_rtx = machine->ra_rtx;
-
-  free (machine);
-  p->machine = (struct machine_function *)0;
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -2451,11 +2433,8 @@ alpha_restore_machine_status (p)
 void
 alpha_init_expanders ()
 {
-  alpha_return_addr_rtx = NULL_RTX;
-  alpha_eh_epilogue_sp_ofs = NULL_RTX;
-
   /* Arrange to save and restore machine status around nested functions.  */
-  save_machine_status = alpha_save_machine_status;
+  init_machine_status = alpha_init_machine_status;
   restore_machine_status = alpha_restore_machine_status;
 }
 
@@ -2466,25 +2445,25 @@ alpha_return_addr (count, frame)
      int count;
      rtx frame ATTRIBUTE_UNUSED;
 {
-  rtx init;
+  rtx init, *addrp;
 
   if (count != 0)
     return const0_rtx;
 
-  if (alpha_return_addr_rtx)
-    return alpha_return_addr_rtx;
+  addrp = &current_function->machine->return_address_rtx;
+  if (*addrp)
+    return *addrp;
 
   /* No rtx yet.  Invent one, and initialize it from $26 in the prologue.  */
-  alpha_return_addr_rtx = gen_reg_rtx (Pmode);
-  init = gen_rtx_SET (VOIDmode, alpha_return_addr_rtx,
-		      gen_rtx_REG (Pmode, REG_RA));
+  *addrp = gen_reg_rtx (Pmode);
+  init = gen_rtx_SET (VOIDmode, *addrp, gen_rtx_REG (Pmode, REG_RA));
 
   /* Emit the insn to the prologue with the other argument copies.  */
   push_topmost_sequence ();
   emit_insn_after (init, get_insns ());
   pop_topmost_sequence ();
 
-  return alpha_return_addr_rtx;
+  return *addrp;
 }
 
 static int
@@ -2496,7 +2475,7 @@ alpha_ra_ever_killed ()
   if (current_function_is_thunk)
     return 0;
 #endif
-  if (!alpha_return_addr_rtx)
+  if (!current_function->machine->return_address_rtx)
     return regs_ever_live[REG_RA];
 
   push_topmost_sequence ();
@@ -3698,6 +3677,7 @@ alpha_expand_epilogue ()
   int fp_is_frame_pointer, fp_offset;
   rtx sa_reg, sa_reg_exp = NULL;
   rtx sp_adj1, sp_adj2, mem;
+  rtx eh_epilogue_sp_ofs;
   int i;
 
   sa_size = alpha_sa_size ();
@@ -3723,6 +3703,8 @@ alpha_expand_epilogue ()
 
   fp_is_frame_pointer = ((TARGET_OPEN_VMS && vms_is_stack_procedure)
 			 || (!TARGET_OPEN_VMS && frame_pointer_needed));
+
+  eh_epilogue_sp_ofs = current_function->machine->eh_epilogue_sp_ofs;
 
   if (sa_size)
     {
@@ -3754,7 +3736,7 @@ alpha_expand_epilogue ()
 	  
       /* Restore registers in order, excepting a true frame pointer. */
 
-      if (! alpha_eh_epilogue_sp_ofs)
+      if (! eh_epilogue_sp_ofs)
 	{
 	  mem = gen_rtx_MEM (DImode, plus_constant(sa_reg, reg_offset));
 	  MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
@@ -3787,16 +3769,16 @@ alpha_expand_epilogue ()
 	  }
     }
 
-  if (frame_size || alpha_eh_epilogue_sp_ofs)
+  if (frame_size || eh_epilogue_sp_ofs)
     {
       sp_adj1 = stack_pointer_rtx;
 
-      if (alpha_eh_epilogue_sp_ofs)
+      if (eh_epilogue_sp_ofs)
 	{
 	  sp_adj1 = gen_rtx_REG (DImode, 23);
 	  emit_move_insn (sp_adj1,
 			  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-					alpha_eh_epilogue_sp_ofs));
+					eh_epilogue_sp_ofs));
 	}
 
       /* If the stack size is large, begin computation into a temporary
