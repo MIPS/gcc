@@ -1,3 +1,7 @@
+2004-06-17  Jon Ziegler  <jonz@apple.com>
+	Radar 3691917
+	* Revert version string in gcc/version.c to as of apple-gcc-1762.
+
 2004-06-16  Jon Ziegler  <jonz@apple.com>
 	Radar 3619941
 	* Revert to apple-gcc-1762 plus Dorit/Devang's 2004-06-15 patch.
