@@ -1,3 +1,15 @@
+2003-11-23  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.h (SSANORM_PERFORM_TER, SSANORM_COMBINE_TEMPS,
+	SSANORM_REMOVE_ALL_PHIS): New flag macros.
+	* tree-ssa.c (replace_variable): Return true if var was rewritten.
+	(eliminate_extraneous_phis): Dump var map to file if checking triggers
+	an abort.
+	(rewrite_trees): Set modified_stmt if stmt was changed.
+	(remove_ssa_form): Move more of rewrite_out_of_ssa to make it serve
+	all the same functions based on new flags in tree-ssa-live.h.
+	(rewrite_out_of_ssa): Call remove_ssa_form.
+
 2003-11-23  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (tree_verify_flow_info): Check that ENTRY/EXIT block

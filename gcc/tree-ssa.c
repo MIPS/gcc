@@ -222,7 +222,7 @@ static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
 static tree_live_info_p coalesce_ssa_name (var_map);
 static void assign_vars (var_map);
-static void replace_variable (var_map, tree *, tree *);
+static bool replace_variable (var_map, tree *, tree *);
 static void eliminate_extraneous_phis (var_map);
 static void coalesce_abnormal_edges (var_map, conflict_graph, root_var_p);
 static void print_exprs (FILE *, const char *, tree, const char *, tree,
@@ -1653,9 +1653,10 @@ assign_vars (var_map map)
   root_var_delete (rv);
 }
 
-/* Replace *p with whatever variable it has been rewritten to.  */
+/* Replace *p with whatever variable it has been rewritten to.  If it changes
+   the stmt, return true.  */
 
-static inline void
+static inline bool
 replace_variable (var_map map, tree *p, tree *expr)
 {
   tree new_var;
@@ -1671,7 +1672,7 @@ replace_variable (var_map map, tree *p, tree *expr)
 	  *p = new_expr;
 	  /* Clear the stmt's RHS, or GC might bite us.  */
 	  TREE_OPERAND (expr[version], 1) = NULL_TREE;
-	  return;
+	  return true;
 	}
     }
 
@@ -1680,7 +1681,9 @@ replace_variable (var_map map, tree *p, tree *expr)
     {
       *p = new_var;
       set_is_used (new_var);
+      return true;
     }
+  return false;
 }
 
 
@@ -1712,6 +1715,8 @@ eliminate_extraneous_phis (var_map map)
 		      print_generic_expr (stderr, arg, TDF_SLIM);
 		      fprintf (stderr, "), but the result is not :");
 		      print_generic_stmt (stderr, phi, TDF_SLIM);
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+		        dump_var_map (dump_file, map);
 		      abort();
 		    }
 		}
@@ -2407,6 +2412,7 @@ rewrite_trees (var_map map, tree *values)
   block_stmt_iterator si;
   edge e;
   tree phi;
+  bool changed;
 
   /* Replace PHI nodes with any required copies.  */
   g = new_elim_graph (map->num_partitions);
@@ -2424,6 +2430,7 @@ rewrite_trees (var_map map, tree *values)
 
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
+	  changed = false;
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
@@ -2435,7 +2442,8 @@ rewrite_trees (var_map map, tree *values)
 	  for (i = 0; i < num_uses; i++)
 	    {
 	      use_p = VARRAY_TREE_PTR (ops, i);
-	      replace_variable (map, use_p, values);
+	      if (replace_variable (map, use_p, values))
+	        changed = true;
 	    }
 
 	  ops = def_ops (ann);
@@ -2450,19 +2458,24 @@ rewrite_trees (var_map map, tree *values)
 		remove = 1;
 	    }
 	  if (!remove)
-	    for (i = 0; i < num_defs; i++)
-	      {
-		tree *def_p = VARRAY_TREE_PTR (ops, i);
-		*def_p = var_to_partition_to_var (map, *def_p);
-		replace_variable (map, def_p, NULL);
+	    {
+	      for (i = 0; i < num_defs; i++)
+		{
+		  tree *def_p = VARRAY_TREE_PTR (ops, i);
+		  *def_p = var_to_partition_to_var (map, *def_p);
+		  if (replace_variable (map, def_p, NULL))
+		    changed = true;
 
-		if (is_copy
-		    && num_uses == 1
-		    && use_p
-		    && def_p
-		    && (*def_p == *use_p))
-		  remove = 1;
-	      }
+		  if (is_copy
+		      && num_uses == 1
+		      && use_p
+		      && def_p
+		      && (*def_p == *use_p))
+		    remove = 1;
+		}
+	      if (changed)
+		modify_stmt (stmt);
+	    }
 
 	  /* Remove copies of the form 'var = var'.  */
 	  if (remove)
@@ -2488,23 +2501,72 @@ rewrite_trees (var_map map, tree *values)
 
 /* Remove the variables specified in a var map from SSA form.  */
 void
-remove_ssa_form (var_map map)
+remove_ssa_form (FILE *dump, var_map map, int flags)
 {
   tree_live_info_p liveinfo;
   basic_block bb;
   tree phi, next;
   FILE *save;
+  tree *values = NULL;
 
   save = dump_file;
-  dump_file = NULL;
+  dump_file = dump;
 
-  compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
+  /* If we are not combining temps, dont calculate live ranges fo variables
+     with only one SSA version.  */
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
+    compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
+  else
+    compact_var_map (map, VARMAP_NORMAL);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_var_map (dump_file, map);
+
   liveinfo = coalesce_ssa_name (map);
-  compact_var_map (map, VARMAP_NORMAL);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "After Coalescing:\n");
+      dump_var_map (dump_file, map);
+    }
+
+  /* Make sure even single occurence variables are in the list now.  */
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
+    compact_var_map (map, VARMAP_NORMAL);
+
+  /* Assign real variables to the partitions now.  */
   assign_vars (map);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "After Root variable replacement:\n");
+      dump_var_map (dump_file, map);
+    }
+
+  if (flags & SSANORM_PERFORM_TER)
+    {
+      values = find_replaceable_exprs (map);
+      if (values && dump_file && (dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (dump_file, values);
+    }
+   
+  if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
+    {
+      coalesce_vars (map, liveinfo);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "After variable memory coalescing:\n");
+	  dump_var_map (dump_file, map);
+	}
+    }
+  
   if (liveinfo)
     delete_tree_live_info (liveinfo);
-  rewrite_trees (map, NULL);
+
+  rewrite_trees (map, values);
+
+  if (values)
+    free (values);
 
   /* Remove phi nodes which have been translated back to real variables.  */
   FOR_EACH_BB (bb)
@@ -2512,7 +2574,8 @@ remove_ssa_form (var_map map)
       for (phi = phi_nodes (bb); phi; phi = next)
 	{
 	  next = TREE_CHAIN (phi);
-	  if (var_to_partition (map, PHI_RESULT (phi)) != NO_PARTITION)
+	  if ((flags & SSANORM_REMOVE_ALL_PHIS) 
+	      || var_to_partition (map, PHI_RESULT (phi)) != NO_PARTITION)
 	    remove_phi_node (phi, NULL_TREE, bb);
 	}
     }
@@ -2528,12 +2591,9 @@ remove_ssa_form (var_map map)
 void
 rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 {
-  basic_block bb;
   var_map map;
-  tree phi, next;
-  tree_live_info_p liveinfo;
-  tree *values = NULL;
   int var_flags = 0;
+  int ssa_flags = SSANORM_REMOVE_ALL_PHIS;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
@@ -2544,74 +2604,18 @@ rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 
   if (flag_tree_ter)
     var_flags = SSA_VAR_MAP_REF_COUNT;
+
   map = create_ssa_var_map (var_flags);
 
-  /* Shrink the map to include only referenced variables.  */
   compact_var_map (map, VARMAP_NORMAL);
-
   eliminate_extraneous_phis (map);
 
-  /* Dont build live range info for single def variables.  */
-  if (!flag_tree_combine_temps)
-    compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
-
-  liveinfo = coalesce_ssa_name (map);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "After Coalescing:\n");
-      dump_var_map (dump_file, map);
-    }
-
-  if (!flag_tree_combine_temps)
-    compact_var_map (map, VARMAP_NORMAL);
-
-  /* This is the final var list, so assign real variables to the different
-     partitions.  */
-  assign_vars (map);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "After Root variable replacement:\n");
-      dump_var_map (dump_file, map);
-    }
-
+  if (flag_tree_combine_temps)
+    ssa_flags |= SSANORM_COMBINE_TEMPS;
   if (flag_tree_ter)
-    {
-      values = find_replaceable_exprs (map);
-      if (values && dump_file && (dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (dump_file, values);
-    }
+    ssa_flags |= SSANORM_PERFORM_TER;
 
-  if (flag_tree_combine_temps && liveinfo)
-    {
-      coalesce_vars (map, liveinfo);
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "After variable memory coalescing:\n");
-	  dump_var_map (dump_file, map);
-	}
-    }
-
-  if (liveinfo)
-    delete_tree_live_info (liveinfo);
-
-  rewrite_trees (map, values);
-
-  if (values)
-    free (values);
-
-  FOR_EACH_BB (bb)
-    {
-      for (phi = phi_nodes (bb); phi; phi = next)
-	{
-	  next = TREE_CHAIN (phi);
-	  remove_phi_node (phi, NULL_TREE, bb);
-	}
-    }
+  remove_ssa_form (dump_file, map, ssa_flags);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
