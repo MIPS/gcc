@@ -5,6 +5,9 @@
 
 2003-07-16  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_bb): Remove statements in reverse order.
+	Simplify code to issue warnings for unreachable code.
+
 	* tree-ssa-dom.c (get_eq_expr_value): Also enter expressions
 	into the available expression hash table.  Callers changed to
 	pass in the block_avail_exprs varray and const_and_copies hash

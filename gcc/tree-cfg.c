@@ -1777,7 +1777,8 @@ static void
 remove_bb (basic_block bb, int remove_stmts)
 {
   block_stmt_iterator i;
-  int already_warned;
+  bsi_list_p stack;
+  location_t loc;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -1789,28 +1790,29 @@ remove_bb (basic_block bb, int remove_stmts)
       dump_file = NULL;
     }
 
-  /* Remove all the instructions in the block.  */
-  already_warned = 0;
-  for (i = bsi_start (bb); !bsi_end_p (i); )
+  /* Remove all the instructions in the block.  Do so in reverse order
+     so that we remove all the containing COMPOUND_EXPRs as well.  */
+  FOR_EACH_BSI_IN_REVERSE (stack, bb, i)
     {
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmts)
         {
-	  if (! already_warned && warn_notreached)
-	    {
-	      location_t loc;
-	      loc.file = get_filename (stmt);
-	      loc.line = get_lineno (stmt);
-	      warning ("%Hwill never be executed", &loc);
-	      already_warned = 1;
-	    }
+	  loc.file = get_filename (stmt);
+	  loc.line = get_lineno (stmt);
 	  bsi_remove (&i);
         }
       else
-        bsi_next (&i);
+	bsi_next (&i);
     }
+
+  /* If requested, give a warning that the first statement in the
+     block is unreachable.  We walk statements backwards in the
+     loop above, so the last statement we process is the first statement
+     in the block.  */
+  if (remove_stmts && warn_notreached)
+    warning ("%Hwill never be executed", &loc);
 
   if (bb->head_tree_p)
     set_bb_for_stmt (*bb->head_tree_p, NULL);
