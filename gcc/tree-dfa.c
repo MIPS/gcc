@@ -2481,7 +2481,6 @@ static void
 add_referenced_var (tree var, struct walk_state *walk_state)
 {
   void **slot;
-  htab_t vars_found = walk_state->vars_found;
   var_ann_t v_ann;
 
   v_ann = get_var_ann (var);
@@ -2491,15 +2490,20 @@ add_referenced_var (tree var, struct walk_state *walk_state)
   if (v_ann->has_hidden_use)
     return;
 
-  slot = htab_find_slot (vars_found, (void *) var, INSERT);
-  if (*slot == NULL)
+  if (walk_state)
+    slot = htab_find_slot (walk_state->vars_found, (void *) var, INSERT);
+  else
+    slot = NULL;
+
+  if (slot == NULL || *slot == NULL)
     {
       bool is_addressable;
 
       /* This is the first time we find this variable, add it to the
          REFERENCED_VARS array and annotate it with attributes that are
 	 intrinsic to the variable.  */
-      *slot = (void *) var;
+      if (slot)
+	*slot = (void *) var;
       v_ann->uid = num_referenced_vars;
       VARRAY_PUSH_TREE (referenced_vars, var);
 
@@ -2546,6 +2550,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
     }
 
   /* Now, set attributes that depend on WALK_STATE.  */
+  if (walk_state == NULL)
+    return;
 
   /* Remember if the variable has been written to.  This is important for
      alias analysis.  If a variable and its aliases are never modified, it
@@ -2787,6 +2793,20 @@ create_global_var (void)
   DECL_CONTEXT (global_var) = current_function_decl;
   TREE_THIS_VOLATILE (global_var) = 1;
   TREE_ADDRESSABLE (global_var) = 0;
+}
+
+
+/* Add a temporary variable to REFERENCED_VARS.  This is similar to
+   add_referenced_var, but is used by passes that need to add new temps to
+   the REFERENCED_VARS array after the program has been scanned for
+   variables.  In particular, none of the annotations that depend on struct
+   walk_state will be set.  The variable will just receive a new UID and be
+   added to the REFERENCED_VARS array without checking for duplicates.  */
+
+void
+add_referenced_tmp_var (tree var)
+{
+  add_referenced_var (var, NULL);
 }
 
 #include "gt-tree-dfa.h"

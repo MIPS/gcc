@@ -468,6 +468,7 @@ extern void debug_alias_info (void);
 extern tree get_virtual_var (tree);
 extern void add_vuse (tree, tree, voperands_t);
 extern void create_global_var (void);
+extern void add_referenced_tmp_var (tree var);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0

@@ -324,8 +324,20 @@ create_ssa_var_map (void)
   varray_type ops;
   unsigned x;
   var_map map;
+#if defined ENABLE_CHECKING
+  sbitmap used_in_real_ops;
+  sbitmap used_in_virtual_ops;
+#endif
 
   map = init_var_map (next_ssa_version + 1);
+
+#if defined ENABLE_CHECKING
+  used_in_real_ops = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (used_in_real_ops);
+
+  used_in_virtual_ops = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (used_in_virtual_ops);
+#endif
 
   FOR_EACH_BB (bb)
     {
@@ -340,6 +352,9 @@ create_ssa_var_map (void)
 	    {
 	      use = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *use);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*use))->uid);
+#endif
 	    }
 
 	  ops = def_ops (stmt);
@@ -347,6 +362,9 @@ create_ssa_var_map (void)
 	    {
 	      dest = VARRAY_TREE_PTR (ops, x);
 	      register_ssa_partition (map, *dest);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*dest))->uid);
+#endif
 	    }
 
 	  /* While we do not care about virtual operands for
@@ -354,13 +372,44 @@ create_ssa_var_map (void)
 	     we mark all the variables which are used.  */
 	  ops = vuse_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
-	    set_is_used (VARRAY_TREE (ops, x));
+	    {
+	      tree var = VARRAY_TREE (ops, x);
+	      set_is_used (var);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+#endif
+	    }
 
 	  ops = vdef_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
-	    set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
+	    {
+	      tree var = VDEF_OP (VARRAY_TREE (ops, x));
+	      set_is_used (var);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+#endif
+	    }
 	}
     }
+
+#if defined ENABLE_CHECKING
+  {
+    unsigned i;
+    sbitmap both = sbitmap_alloc (num_referenced_vars);
+    sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
+    if (sbitmap_first_set_bit (both) >= 0)
+      {
+	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
+	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
+		   get_name (referenced_var (i))));
+	abort ();
+      }
+
+    sbitmap_free (used_in_real_ops);
+    sbitmap_free (used_in_virtual_ops);
+    sbitmap_free (both);
+  }
+#endif
 
   return map;
 }

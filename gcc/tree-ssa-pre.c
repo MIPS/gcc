@@ -2682,7 +2682,7 @@ pre_expression (struct expr_info *slot, void *data)
     return 0;
 
   ei->temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
-  create_var_ann (ei->temp);
+  add_referenced_tmp_var (ei->temp);
   bitmap_clear (created_phi_preds);
   if (!expr_phi_insertion ((bitmap *)data, ei))
     goto cleanup;

@@ -1,3 +1,13 @@
+2003-09-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_referenced_var): Handle cases when argument
+	walk_state is NULL.
+	(add_referenced_tmp_var): New function.
+	* tree-flow.h (add_referenced_tmp_var): Declare it.
+	* tree-ssa-pre.c (pre_expression): Call it.
+	* tree-ssa-live.c (create_ssa_var_map): Add checking for variables
+	being in real and virtual operands.
+
 2003-09-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	    Jeff Law  <law@redhat.com>
 
