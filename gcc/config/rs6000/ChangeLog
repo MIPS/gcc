@@ -1,3 +1,8 @@
+2000-03-15  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* t-aix43 (AR_FOR_TARGET): Deleted.  Moved `-X32_64'...
+	(AR_FLAGS_FOR_TARGET): here.  New macro.
+
 2000-03-05  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* config/rs6000/rs6000.c (rs6000_fpmem_offset, rs6000_fpmem_size,
