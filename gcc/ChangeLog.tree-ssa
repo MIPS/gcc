@@ -1,3 +1,11 @@
+2003-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-cfg.o): Add gt-tree-cfg.h dependency.
+	(GTFILES): Add tree-cfg.c.
+	* tree-cfg.c: Include gt-tree-cfg.h.
+	(factored_computed_goto_label, factored_computed_goto):
+	Mark gc roots.
+
 2003-12-08  Steven Bosscher  <stevenb@suse.de>
 	    Jan Hubicka  <jh@suse.de>
 
