@@ -1,3 +1,13 @@
+2004-09-02  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTextArea.java
+	(lineWrap): Renamed from "wrapping".
+	(wrapStyleWord): NEw field.
+	(getLineWrap): Re-edited javadoc comment.
+	(setLineWrap): Likewise.
+	(getWrapStyleWord): New method.
+	(setWrapStyleWord): Likewise.
+
 2004-08-30  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/basic/BasicTextAreaUI.java
