@@ -38,7 +38,7 @@ extern void free_hash_table		PARAMS ((struct hash_table *));
 extern void dump_hash_table		PARAMS ((FILE *, const char *,
 					  struct hash_table *));
 extern struct expr *lookup_expr		PARAMS ((rtx, struct hash_table *));
-extern struct expr *lookup_set		PARAMS ((unsigned int, rtx,
+extern struct expr *lookup_set		PARAMS ((unsigned int,
 					  struct hash_table *));
 extern struct expr *next_set		PARAMS ((unsigned int, struct expr *));
 

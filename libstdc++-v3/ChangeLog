@@ -1,3 +1,73 @@
+2003-02-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (stamp-std-precompile): Add rule.
+	* include/Makefile.in: Regenerated.
+	
+2003-02-11 Jerry Quinn  <jlquinn@optonline.net>
+           Benjamin Kosnik  <benjamin@redhat.com>
+	
+	* include/bits/locale_facets.h (__num_base): Add _S_atoms_out.
+	Add indexes into this array.
+	(__num_base::_S_atoms): To _S_atoms_in.
+	(num_put::_M_insert): Rename to _M_pad.
+	(num_put::_M_convert_int): Adjust remove __mod, __modl arguments.
+	(num_put::_M_widen_int): Rename to _M_group_int.
+	(num_put::_M_widen_float): Rename to _M_group_float.	
+	* include/bits/locale_facets.tcc (__int_to_char): New inline
+	function and adapter functions.
+	(num_put::_M_group_int): Streamline.
+	(num_put::_M_group_float): Streamline.	
+	(num_put::_M_convert_int): Remove unused parameter names. Choose
+	large enough buffer for text.  Use __int_to_char instead of
+	__convert_from_v.  Formatted text is now at the end of the buffer.
+	(num_put::_M_convert_float): Preliminary fixups.
+	* src/locale-inst.cc (__convert_from_v<long long>): Add ifdef.
+	(__int_to_char<unsigned long long>): Same.
+	(__int_to_char<char, unsigned long>): New.
+	(__int_to_char<char, unsigned long long>): New.
+	(__int_to_char<wchar_t, unsigned long>): New.
+	(__int_to_char<wchar_t, unsigned long long>): New.
+	
+2003-02-11  Scott Snyder  <snyder@fnal.gov>
+
+	PR libstdc++/9659
+	* include/bits/fstream.tcc (seekoff): Avoid operator+
+	for pos_type.
+
+2003-02-11  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9320
+	* include/ext/stdio_filebuf.h
+	(stdio_filebuf(int, std::ios_base::openmode, bool, int_type),
+	stdio_filebuf(std::__c_file*, std::ios_base::openmode, int_type)):
+	Change to take a __size parameter of type size_t, not
+	of type (template parameter dependent) int_type.
+	* src/ios.cc (ios_base::Init::_S_ios_create): Change type of
+	size vars to size_t.
+	* testsuite/ext/stdio_filebuf.cc: Add.
+
+2003-02-11  Paolo Carlini  <pcarlini@unitus.it>
+            Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9318
+	* include/bits/streambuf.tcc (__copy_streambufs):
+	Don't conditionalize the copy to __testput.
+	* testsuite/27_io/streambuf_members.cc (test09, test10): Add.
+
+2002-02-11  DJ Delorie  <dj@redhat.com>
+
+	* acinclude.m4: Check for native targets that can't link at
+	this point in the build.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-02-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* hppa/atomicity.h (__Atomicity_lock<__inst>::_S_atomicity_lock):
+	Correct alignment.
+	(__exchange_and_add, __atomic_add): Use PA 2.0 ordered store to reset
+	lock.
+
 2003-02-07  Paolo Carlini  <pcarlini@unitus.it>
 
 	* testsuite/27_io/filebuf_virtuals.cc (test08): Fix for

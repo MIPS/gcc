@@ -1,3 +1,441 @@
+2003-02-11  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Specific): Update AVR- and Darwin-related URLs.
+
+Wed Feb 12 15:19:42 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (estimate_probability):  Fix roundoff error.
+
+2003-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (a peephole2): Don't handle 65535.
+	(two peephole2): New.
+
+2003-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (several peephole2): Replace
+	find_regno_note with peep2_reg_dead_p.
+
+2003-02-11  Richard Henderson  <rth@redhat.com>
+
+	* gcse.c (lookup_set): Remove unused argument PAT.  Update
+	both callers.
+
+2003-02-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* diagnostic.c (real_abort): New.
+	(diagnostic_report_diagnostic): Call real_abort on error.
+	* diagnostic.h (diagnostic_abort_on_error): New.
+	(struct diagnostic_context): Add abort_on_error field.
+	* toplev.c (setup_core_dumping): New.
+	(decode_d_option): Handle 'H' case.
+	* doc/invoke.texi (Debugging Options): Document -dH.
+
+2003-02-11  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Remove pointless setting of CXXFLAGS for dejagnu
+	which refers to obsolete directories.
+
+2003-02-11  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/linux.h (TARGET_C99_FUNCTIONS): New.
+
+Mon Oct 21 17:07:47 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (contains_128bit_aligned_vector_p): New function.
+	(ix86_function_arg_boundary): Properly align vector modes.
+
+2003-02-11  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.md (set_frame_ptr): Change rtl to set reg a7.
+	* config/xtensa/xtensa.c (xtensa_reorg): Search for UNSPECV_SET_FP
+	as a SET pattern.
+
+2003-02-11  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c:  Fix failure caused by commiting wrong patch.
+
+2003-02-11  Dale Johannesen  <dalej@apple.com>
+	* ra-build.c (compare_and_free_webs):  Relax checking.
+	* config/rs6000/darwin.h (HOT_TEXT_SECTION_NAME):  Define.
+	(UNLIKELY_EXECUTED_TEXT_SECTION_NAME):  Define.
+
+2003-02-11  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
+
+	PR optimization/9651
+	* rtlanal.c (may_trap_p): Handle FIX.
+
+2003-02-11  Dave Jones <davej@codemonkey.org.uk>
+
+	* config/i386/i386.c (override_options): Define c3-2 as a 686 with SSE.
+	* doc/invoke.texi: Extra alias.
+
+2003-02-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/host-darwin.c: Fix comment.
+
+2003-02-11  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (divmodsi4): Use register_operand
+	predicate for mod result.
+
+2003-02-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* inclhack.def (hpux_long_double, hpux10_ctype_declarations1,
+	hpux10_ctype_declarations2, hpux_ctype_macros): New hacks.
+	* fixincl.x: Rebuilt.
+	* tests/base/stdlib.h: Update.
+	* tests/base/ctype.h: New file.
+
+Tue Feb 11 20:44:45 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* emit-rtl.c (emit_copy_of_insn_after): Copy insn recog cache too.
+
+2003-02-11  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_movstr): Fail if esi or edi
+	appropriated as globals.
+	(ix86_expand_clrstr): Similarly.
+	* config/i386/i386.md (cmpstrsi): Similarly.
+
+2003-02-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (a peephole2): Add a case of 255.
+
+2003-02-11  Roger Sayle  <roger@eyesopen.com>
+
+	* optabs.h (enum optab_index): Add new OTI_pow and OTI_atan2.
+	(pow_optab, atan2_optab): Define corresponding macros.
+	* optabs.c (init_optabs): Initialize pow_optab and atan2_optab.
+	* genopinit.c (optabs): Implement pow_optab and atan2_optab
+	using pow?f3 and atan2?f3 patterns.
+	* builtins.c (expand_errno_check): New function to update errno
+	if necessary, split out from expand_builtin_mathfn.
+	(expand_builtin_mathfn): Use expand_errno_check.
+	(expand_builtin_mathfn_2): New function to handle expanding binary
+	math functions, reusing the code in expand_errno_check.
+	(expand_builtin): Handle the pow and atan2 math built-ins,
+	BUILT_IN_{POW,POWF,POWL,ATAN2,ATAN2F,ATAN2L} via the new function
+	expand_builtin_mathfn_2.
+
+	* doc/md.texi: Document new pow?f3 and atan2?f3 patterns.
+
+Tue Feb 11 19:03:22 MET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* combine.c (combine_simplify_rtx): Fix folding of
+	nested float_truncates.
+
+2003-02-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (a peephole2): Fix a typo.
+
+2003-02-11  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.mc (return_address_mask): Use CC_REGNUM for the condition code
+	register number.
+
+2003-02-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Add a prototype for
+	gtuleu_operator.
+	* config/h8300/h8300.c (gtuleu_operator): New.
+	* config/h8300/h8300.h (PREDICATE_CODES): Add gtuleu_operator.
+	* config/h8300/h8300.md (a peephole2): New.
+
+Tue Feb 11 13:32:12 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* sched-ebb.c (schedule_ebbs): Do not verify_flow_info.
+
+Tue Feb 11 10:02:54 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (choose_function_section): Choose sections correctly.
+
+2003-02-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* reload1.c (first_label_num): New.
+	(reload): Index offsets_known_at and offsets_at using difference of
+	label number and first label number.  Don't use offset pointers.
+	(set_label_offsets, set_initial_label_offsets): Likewise.
+
+2003-02-10  Roger Sayle  <roger@eyesopen.com>
+
+	* mips-tfile.c (init_file): Add missing initializers in the
+	"#ifdef __alpha" case.
+	(file_offset, max_file_offset): Declare as unsigned long.
+	(write_varray): Cast to "unsigned long" in comparisons against
+	either file_offset or max_file_offset.
+	(write_object): Likewise.
+	(read_seek): Likewise.
+	(copy_object): Likewise. Declare "ifd" as int to match its use
+	in add_ext_symbol, and avoid signed/unsigned conditional warning.
+
+2003-02-10  Nick Clifton  <nickc@redhat.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/eabispe.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Do not
+        override options which have been specified on the command line.
+
+2003-02-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (abssf2): New.
+	(*abssf2_h8300): Likewise.
+	(*abssf2_h8300hs): Likewise.
+
+2003-02-10  Phil Edwards  <pme@gcc.gnu.org>
+
+	* tree.c (build_tree_list):  Fix parameter names in comment.
+
+2003-02-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* config/rs6000/ppc64-fp.c: New file.
+	* config/rs6000/t-linux64 (LIB2FUNCS_EXTRA): Add ppc64-fp.c.
+
+2003-02-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* Makefile.in (bb-reorder.o): Add dependency on $(FIBHEAP_H).
+	* bb-reorder.c (make_reorder_chain): Deleted.  
+	(make_reorder_chain_1): Deleted.
+	(find_traces): New function.
+	(rotate_loop): New function.
+	(mark_bb_visited): New function.
+	(find_traces_1_round): New function.
+	(copy_bb): New function.
+	(bb_to_key): New function.
+	(better_edge_p): New function.
+	(connect_traces): New function.
+	(copy_bb_p): New function.
+	(get_uncond_jump_length): New function.
+	(reorder_basic_blocks): Use new functions (Software Trace Cache).
+	* cfgcleanup.c (outgoing_edges_match): Enable crossjumping across loop
+	boundaries.
+
+2003-02-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Change spe_evxor to xorv2si3.
+
+2003-02-09  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* tree.h (struct tree_decl): Remove unused live_range_rtl field.
+	(DECL_LIVE_RANGE_RTL): Remove. 
+
+2003-02-10  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/aof.h, config/arm/aout.h, config/arm/arm-modes.def,
+	config/arm/arm-protos.h, config/arm/arm.c, config/arm/arm.h,
+	config/arm/arm.md, config/arm/cirrus.md, config/arm/coff.h,
+	config/arm/conix-elf.h, config/arm/ecos-elf.h, config/arm/elf.h,
+	config/arm/freebsd.h, config/arm/linux-elf.h,
+	config/arm/linux-gas.h, config/arm/netbsd-elf.h,
+	config/arm/netbsd.h, config/arm/pe.c, config/arm/pe.h,
+	config/arm/rtems-elf.h, config/arm/semi.h, config/arm/semiaof.h,
+	config/arm/strongarm-coff.h, config/arm/strongarm-elf.h,
+	config/arm/strongarm-pe.h, config/arm/uclinux-elf.h,
+	config/arm/unknown-elf-oabi.h, config/arm/unknown-elf.h,
+	config/arm/xscale-elf.h: Replace occurances of "GNU CC" with "GCC"
+	and reformat as appropriate.
+
+2003-02-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/clzsi2.c: Remove.
+	* config/h8300/ctzsi2.c: Likewise.
+	* config/h8300/paritysi2.c: Likewise.
+	* config/h8300/popcountsi2.c: Likewise.
+	* config/h8300/t-h8300 (LIB2FUNCS_EXTRA): Remove clzsi2,
+	ctzsi2, paritysi2, and popcountsi2.
+
+2003-02-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR c/7741
+	* c-decl.c (duplicate_decls): Discard the initializer of the
+	new decl when the types are conflicting.
+
+2003-02-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	* Makefile.in (sreal.o): Added.
+	(predict.o): Depends on sreal.h instead of real.h.
+	* sreal.c: New file.
+	* sreal.h: New file.
+	* predict.c: Use sreal.c instead of real.c.
+
+2003-02-10  Nick Clifton  <nickc@redhat.com>
+
+	* Contributed support for the Cirrus EP9312 "Maverick"
+	floating point co-processor.  Written by Aldy Hernandez
+	<aldyh@redhat.com>. 
+	(config/arm/arm.c): Add Cirrus support.
+	(config/arm/arm.h): Likewise.
+	(config/arm/aout.h): Likewise.
+	(config/arm/arm.md): Likewise.
+	(config/arm/arm-protos.h): Likewise.
+	(config.gcc): Likewise.
+	(doc/invoke.texi): Describe new -mcpu value and new
+	-mcirrus-fix-invalid-insns switch,
+	(cirrus.md): New file.
+
+Mon Feb 10 11:40:18 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* combine.c (combine_simplify_rtx): Simplify using
+	(float_truncate (float x)) is (float x)
+	(float_extend (float_extend x)) is (float_extend x).
+
+2003-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* calls.c (try_to_integrate): Tidy stack_usage_map access.
+	(emit_library_call_value_1): Likewise.	Formatting.
+	(store_one_arg): Likewise.
+
+2003-02-09  Nick Clifton  <nickc@redhat.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/spe.md: spe_evlhhesplat, spe_evlhhossplat,
+        spe_evlhhousplat, spe_evlwhsplat, spe_evlwwsplat, spe_evldd,
+        spe_evldh, spe_evldw, spe_evlwhe, spe_evlwhos, spe_evlwhou,
+        spe_evstdd, spe_evstdh, spe_evstdw, spe_evstdwx, spe_evstwhe,
+        spe_evstwho, spe_evstwwe, spe_evstwwo: Fix syntax to match newest
+        docs.  Add range test for immediate value.
+
+2003-02-09  Aldy Hernandez  <aldyh@redhat.com>
+
+        Rename spe_evxor to xorv2si3.
+        (xorv4hi3): New.
+        (xorv1di3): New.
+
+2003-02-10  Glen Nakamura  <glen@imodulo.com>
+		
+	* doc/extend.texi (C++98 Thread-Local Edits): Add missing @item
+	tag.
+
+Mon Feb 10 00:29:17 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (vector_move_operand): New predicate.
+	(ix86_expand_vector_move): Be happy about 0.
+	* i386.h (PREDICATE_CODES): Add sse-move_operand.
+	* i386.md (mov*_internal): Add 'C' alternative.
+
+Sun Feb  9 23:58:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (floathi*): Deal with SSE.
+
+Sun Feb  9 23:54:59 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* simplify-rtx.c (simplify_unary_operation,
+	simplify_binary_operation):  Deal with vector modes
+	(simplify_ternary_operation):  Deal with no-op VEC_MERGE.
+
+2002-02-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* toplev.c (rest_of_compilation): Recompute register usage after
+	split_all_insns.
+
+2003-02-09  Richard Henderson  <rth@redhat.com>
+
+	* libgcc-std.ver (__clztf2): New.
+	(__ctztf2, __popcounttf2, __paritytf2): New.
+	* libgcc2.c (__clzSI2, __clzDI2, __ctzSI2, __ctzDI2, __popcountSI2,
+	__popcountDI2, __paritySI2, __parityDI2): Use UWmode and UDWmode;
+	adjust code to match the different type sizes.
+	* libgcc2.h (__clzSI2, __ctzSI2, __popcountSI2, __paritySI2,
+	__clzDI2, __ctzDI2, __popcountDI2, __parityDI2): New macros.
+
+	* optabs.c (init_integral_libfuncs): Don't hard-code SImode and
+	TImode; select word_mode and twice that.
+	(init_floating_libfuncs): Don't hard-code SFmode and TFmode;
+	select the modes from float, double, and long double.
+	(init_optabs): Remove duplicate initializations.
+
+2003-02-09  Wolfgang Bangerth  <bangerth@ticam.utexas.edu>
+
+	* doc/install.texi: Squeeze and streamline section on
+	testing and regression checking.
+
+Sun Feb  9 13:33:34 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (ahi?v*3): Set third operand type to TImode.
+	* i386.c (ix86_expand_binop_builtin): Extend operand when needed.
+
+	* simplify-rtx.c (simplify_subreg): Fix conversion from vector into
+	integer mode.
+
+	* rtl.def (VEC_MERGE, VEC_SELECT, VEC_CONCAT, VEC_DUPLICATE):
+	Change code so they are arithmetic expressions now.
+	* simplify-rtx.c (simplify_unary_operation, simplify_binary_operation,
+	simplify_ternary_operation): Deal with VEC_* expressions.
+
+	* i386.md (vmaskcmp, pinsrw, movd patterns):  Fix RTL representation.
+
+Sat Feb  8 00:21:22 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* cfgrtl.c (verify_flow_info):  Use control_flow_insn_p.
+	* reload1.c (fixup_abnormal_edges):  Split basic blocks when EH edges
+	possibly got duplicated.
+
+2003-02-08  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (override_options): Turn off explicit
+	relocs until post-peep2 code duplication resolved.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* optabs.c (expand_unop): Widen clz properly when clz is done
+	via libcall.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/clzsi2.c: Replace "GNU CC" with "GCC".
+	* config/h8300/crti.asm: Likewise.
+	* config/h8300/crtn.asm: Likewise.
+	* config/h8300/ctzsi2.c: Likewise.
+	* config/h8300/fixunssfsi.c: Likewise.
+	* config/h8300/h8300-protos.h: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/h8300/h8300.h: Likewise.
+	* config/h8300/h8300.md: Likewise.
+	* config/h8300/paritysi2.c: Likewise.
+	* config/h8300/popcountsi2.c: Likewise.
+	* config/h8300/rtems.h: Likewise.
+
+2003-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* doc/invoke.texi: Documentation for my previous commit.
+	* doc/passes.texi: Ditto.
+
+2003-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (fix_loop_placement, can_duplicate_loop_p,
+	duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+	Declare.
+	(DLTHE_FLAG_UPDATE_FREQ): New.
+	* cfgloopmanip.c (duplicate_loop, duplicate_subloops, copy_loops_to,
+	loop_redirect_edge, loop_delete_branch_edge, copy_bbs, remove_bbs,
+	rpe_enum_p, find_branch, alp_enum_p, add_loop, fix_loop_placements,
+	fix_bb_placement, fix_bb_placements, place_new_loop,
+	scale_loop_frequencies, scale_bbs_frequencies, record_exit_edges):
+	New static functions.
+	(fix_loop_placement, can_duplicate_loop_p,
+	duplicate_loop_to_header_edge, loopify, remove_path, split_loop_bb):
+	New functions.
+
+	* cfgloop.h (loop_optimizer_init, loop_optimizer_finalize,
+	unswitch_loops): Declare.
+	* loop-init.c: New file.
+	* loop-unswitch.c: New file.
+	* Makefile.in (loop-init.o, loop-unswitch.o): New.
+	* params.def (PARAM_MAX_UNSWITCH_INSNS, PARAM_MAX_UNSWITCH_LEVEL): New.
+	* toplev.c (DFI_loop2): New dump.
+	(flag_unswitch_loops): New.
+	(lang_independent_options): Add it.
+	(rest_of_compilation): Call new loop optimizer.
+	(parse_options_and_default_flags): Turn flag_unswitch_loops on with -O3.
+
+2003-02-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/clzsi2.c: New.
+	* config/h8300/ctzsi2.c: Likewise.
+	* config/h8300/paritysi2.c: Likewise.
+	* config/h8300/popcountsi2.c: Likewise.
+	* config/h8300/t-h8300 (LIB2FUNCS_EXTRA): Add above files.
+
 2003-02-07  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/rs6000.h (CLZ_DEFINED_VALUE_AT_ZERO): Define.

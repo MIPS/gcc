@@ -387,6 +387,7 @@ in the following sections.
 -msingle-pic-base  -mno-single-pic-base @gol
 -mpic-register=@var{reg} @gol
 -mnop-fun-dllimport @gol
+-mcirrus-fix-invalid-insns -mno-cirrus-fix-invalid-insns @gol
 -mpoke-function-name @gol
 -mthumb  -marm @gol
 -mtpcs-frame  -mtpcs-leaf-frame @gol
@@ -3218,6 +3219,9 @@ Dump after the peephole pass, to @file{@var{file}.27.peephole2}.
 @item a
 @opindex da
 Produce all the dumps listed above.
+@item H
+@opindex dH
+Produce a core dump whenever an error occurs.
 @item m
 @opindex dm
 Print statistics on memory usage, at the end of the run, to
@@ -4373,6 +4377,11 @@ Unroll all loops, even if their number of iterations is uncertain when
 the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
 @option{-funroll-loops},
+
+@item -funswitch-loops
+@opindex funswitch-loops
+Move branches with loop invariant conditions out of the loop, with duplicates
+of the loop on both branches (modified according to result of the condition).
 
 @item -fprefetch-loop-arrays
 @opindex fprefetch-loop-arrays
@@ -6266,7 +6275,7 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
 @samp{arm8}, @samp{arm810}, @samp{arm9}, @samp{arm9e}, @samp{arm920},
 @samp{arm920t}, @samp{arm940t}, @samp{arm9tdmi}, @samp{arm10tdmi},
-@samp{arm1020t}, @samp{xscale}.
+@samp{arm1020t}, @samp{xscale}, @samp{ep9312}.
 
 @itemx -mtune=@var{name}
 @opindex mtune
@@ -6286,7 +6295,7 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}.
+@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{ep9312}.
 
 @item -mfpe=@var{number}
 @itemx -mfp=@var{number}
@@ -6357,6 +6366,18 @@ before execution begins.
 @opindex mpic-register
 Specify the register to be used for PIC addressing.  The default is R10
 unless stack-checking is enabled, when R9 is used.
+
+@item -mcirrus-fix-invalid-insns
+@opindex -mcirrus-fix-invalid-insns
+@opindex -mno-cirrus-fix-invalid-insns
+Insert NOPs into the instruction stream to in order to work around
+problems with invalid Maverick instruction combinations.  This option
+is only valid if the @option{-mcpu=ep9312} option has been used to
+enable generation of instructions for the Cirrus Maverick floating
+point co-processor.  This option is not enabled by default, since the
+problem is only present in older Maverick implemenations.  The default
+can be re-enabled by use of the @option{-mno-cirrus-fix-invalid-insns}
+switch.
 
 @item -mpoke-function-name
 @opindex mpoke-function-name
@@ -8014,7 +8035,8 @@ for the ABI and the set of available instructions.  The choices for
 @samp{pentium}, @samp{pentium-mmx}, @samp{pentiumpro}, @samp{pentium2},
 @samp{pentium3}, @samp{pentium4}, @samp{k6}, @samp{k6-2}, @samp{k6-3},
 @samp{athlon}, @samp{athlon-tbird}, @samp{athlon-4}, @samp{athlon-xp},
-@samp{athlon-mp}, @samp{winchip-c6}, @samp{winchip2}, @samp{k8} and @samp{c3}.
+@samp{athlon-mp}, @samp{winchip-c6}, @samp{winchip2}, @samp{k8}, @samp{c3}
+and @samp{c3-2}.
 
 While picking a specific @var{cpu-type} will schedule things appropriately
 for that particular chip, the compiler will not generate any code that

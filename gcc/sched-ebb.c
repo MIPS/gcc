@@ -311,15 +311,15 @@ fix_basic_block_boundaries (bb, last, head, tail)
 	      else
 		{
 		  rtx next = next_nonnote_insn (insn);
-		  delete_insn_chain (head, insn);
-		  /* We keep some notes in the way that may split barrier from the
-		     jump.  */
+
+		  last = curr_bb = create_basic_block (head, insn, bb->prev_bb);
+		  /* We emit unnecesary BB note.  */
+		  delete_insn (head);
+		  /* Place barrier both before and after unreachable block.  */
 		  if (GET_CODE (next) == BARRIER)
 		     {
 		       emit_barrier_after (prev_nonnote_insn (head));
-		       delete_insn (next);
 		     }
-		  insn = NULL;
 		}
 	    }
 	  else
@@ -504,8 +504,4 @@ schedule_ebbs (dump_file)
     rm_redundant_line_notes ();
 
   sched_finish ();
-
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
 }

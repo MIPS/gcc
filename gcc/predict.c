@@ -449,14 +449,19 @@ estimate_probability (loops_info)
       if (simple_loop_p (loops_info, loop, &desc)
 	  && desc.const_iter)
 	{
+	  int prob;
 	  niter = desc.niter + 1;
 	  if (niter == 0)        /* We might overflow here.  */
 	    niter = desc.niter;
 
+	  prob = (REG_BR_PROB_BASE
+		  - (REG_BR_PROB_BASE + niter /2) / niter);
+	  /* Branch prediction algorithm gives 0 frequency for everything
+	     after the end of loop for loop having 0 probability to finish.  */
+	  if (prob == REG_BR_PROB_BASE)
+	    prob = REG_BR_PROB_BASE - 1;
 	  predict_edge (desc.in_edge, PRED_LOOP_ITERATIONS,
-			REG_BR_PROB_BASE
-			- (REG_BR_PROB_BASE + niter /2)
-			/ niter);
+			prob);
 	}
 
       bbs = get_loop_body (loop);
@@ -1279,7 +1284,7 @@ choose_function_section ()
  	 but this requires more work as the frequency needs to match
 	 for all generated objects so we need to merge the frequency
 	 of all instances.  For now just never set frequency for these.  */
-      || !DECL_ONE_ONLY (current_function_decl))
+      || DECL_ONE_ONLY (current_function_decl))
     return;
   if (cfun->function_frequency == FUNCTION_FREQUENCY_HOT)
     DECL_SECTION_NAME (current_function_decl) =

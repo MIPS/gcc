@@ -239,7 +239,7 @@ find_avail_set (regno, insn, cprop_data)
   while (1)
     {
       rtx src;
-      struct expr *set = lookup_set (regno, NULL_RTX, &cprop_data->set_hash_table);
+      struct expr *set = lookup_set (regno, &cprop_data->set_hash_table);
 
       /* Find a set that is available at the start of the block
 	 which contains INSN.  */
@@ -857,7 +857,7 @@ find_bypass_set (regno, bb, cprop_data)
   for (;;)
     {
       rtx src;
-      struct expr *set = lookup_set (regno, NULL_RTX, &cprop_data->set_hash_table);
+      struct expr *set = lookup_set (regno, &cprop_data->set_hash_table);
 
       while (set)
 	{

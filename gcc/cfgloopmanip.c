@@ -1217,7 +1217,7 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
 /* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
    CP_SIMPLE_PREHEADERS is set in FLAGS, we only force LOOP to have single
    entry; otherwise we also force preheader block to have only one successor.
-   */
+   The function also updates dominators stored in DOM.  */
 static basic_block
 create_preheader (loop, dom, flags)
      struct loop *loop;
@@ -1313,8 +1313,8 @@ create_preheader (loop, dom, flags)
   return dummy;
 }
 
-/* Create preheaders for each loop; for meaning of flags see
-   create_preheader.  */
+/* Create preheaders for each loop from loop tree stored in LOOPS; for meaning
+   of FLAGS see create_preheader.  */
 void
 create_preheaders (loops, flags)
      struct loops *loops;
@@ -1326,7 +1326,8 @@ create_preheaders (loops, flags)
   loops->state |= LOOPS_HAVE_PREHEADERS;
 }
 
-/* Forces all loop latches to have only single successor.  */
+/* Forces all loop latches of loops from loop tree LOOPS to have only single
+   successor.  */
 void
 force_single_succ_latches (loops)
      struct loops *loops;
@@ -1349,9 +1350,10 @@ force_single_succ_latches (loops)
   loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }
 
-/* A quite stupid function to put INSNS on E. They are supposed to form
-   just one basic block. Jumps out are not handled, so cfg do not have to
-   be ok after this function.  */
+/* A quite stupid function to put INSNS on edge E. They are supposed to form
+   just one basic block.  Jumps in INSNS are not handled, so cfg do not have to
+   be ok after this function.  The created block is placed on correct place
+   in LOOPS structure and its dominator is set.  */
 basic_block
 loop_split_edge_with (e, insns, loops)
      edge e;

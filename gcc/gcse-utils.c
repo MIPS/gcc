@@ -1238,14 +1238,12 @@ lookup_expr (pat, table)
   return expr;
 }
 
-/* Lookup REGNO in the set TABLE.  If PAT is non-NULL look for the entry that
-   matches it, otherwise return the first entry for REGNO.  The result is a
-   pointer to the table entry, or NULL if not found.  */
+/* Lookup REGNO in the set TABLE.  The result is a pointer to the
+   table entry, or NULL if not found.  */
 
 struct expr *
-lookup_set (regno, pat, table)
+lookup_set (regno, table)
      unsigned int regno;
-     rtx pat;
      struct hash_table *table;
 {
   unsigned int hash = hash_set (regno, table->size);
@@ -1253,16 +1251,8 @@ lookup_set (regno, pat, table)
 
   expr = table->table[hash];
 
-  if (pat)
-    {
-      while (expr && ! expr_equiv_p (expr->expr, pat))
-	expr = expr->next_same_hash;
-    }
-  else
-    {
-      while (expr && REGNO (SET_DEST (expr->expr)) != regno)
-	expr = expr->next_same_hash;
-    }
+  while (expr && REGNO (SET_DEST (expr->expr)) != regno)
+    expr = expr->next_same_hash;
 
   return expr;
 }
