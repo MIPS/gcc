@@ -109,7 +109,7 @@ static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
-static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p, bool);
+static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
@@ -232,7 +232,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     {
       tree *use_p = USE_OP_PTR (uses, i);
 
-      if (prepare_operand_for_rename (use_p, &uid, true)
+      if (prepare_operand_for_rename (use_p, &uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (*use_p, bb);
     }
@@ -243,7 +243,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     {
       tree *use_p = VUSE_OP_PTR (vuses, i);
 
-      if (prepare_operand_for_rename (use_p, &uid, true))
+      if (prepare_operand_for_rename (use_p, &uid))
 	set_livein_block (*use_p, bb);
     }
 
@@ -255,12 +255,12 @@ mark_def_sites (struct dom_walk_data *walk_data,
   vdefs = VDEF_OPS (ann);
   for (i = 0; i < NUM_VDEFS (vdefs); i++)
     {
-      if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid, true))
+      size_t dummy;
+
+      if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
+	  && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), &dummy))
 	{
-	  /* If we do not already have an SSA_NAME for our destination,
-	     then set the destination to the source.  */
-	  if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	    VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
+	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
 
 	  set_livein_block (VDEF_OP (vdefs, i), bb);
 	  set_def_block (VDEF_RESULT (vdefs, i), bb);
@@ -274,7 +274,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     {
       tree *def_p = DEF_OP_PTR (defs, i);
 
-      if (prepare_operand_for_rename (def_p, &uid, false))
+      if (prepare_operand_for_rename (def_p, &uid))
 	{
 	  set_def_block (*def_p, bb);
 	  SET_BIT (kills, uid);
@@ -289,12 +289,8 @@ static void
 set_def_block (tree var, basic_block bb)
 {
   struct def_blocks_d *db_p;
-  enum need_phi_state state;
+  enum need_phi_state state = var_ann (var)->need_phi_state;
 
-  if (TREE_CODE (var) == SSA_NAME)
-    var = SSA_NAME_VAR (var);
-
-  state = var_ann (var)->need_phi_state;
   db_p = get_def_blocks_for (var);
 
   /* Set the bit corresponding to the block where VAR is defined.  */
@@ -352,19 +348,12 @@ set_livein_block (tree var, basic_block bb)
 }
 
 
-/* If the operand pointed to by OP_P needs to be renamed, then
-
-     1. If OP_P is used (rather than set), then strip away any SSA_NAME
-        wrapping the operand.
-
-     2. Set *UID_P to the underlying variable's uid.
-
-     3. Return true.
-
-   Otherwise return false.  */
+/* If the operand pointed by OP_P needs to be renamed, strip away SSA_NAME
+   wrappers (if needed) and return true.  The unique ID for the operand's
+   variable will be stored in *UID_P.  */
 
 static bool
-prepare_operand_for_rename (tree *op_p, size_t *uid_p, bool is_use)
+prepare_operand_for_rename (tree *op_p, size_t *uid_p)
 {
   tree var = (TREE_CODE (*op_p) != SSA_NAME) ? *op_p : SSA_NAME_VAR (*op_p);
   *uid_p = var_ann (var)->uid;
@@ -373,14 +362,15 @@ prepare_operand_for_rename (tree *op_p, size_t *uid_p, bool is_use)
   if (vars_to_rename && !bitmap_bit_p (vars_to_rename, *uid_p))
     return false;
 
-  /* The variable needs to be renamed.  If this is a use which already
-     has an SSA_NAME, then strip it off.
-
-     By not throwing away SSA_NAMEs on assignments, we avoid a lot of 
-     useless churn of SSA_NAMEs without having to overly complicate the
-     renamer.  */
-  if (TREE_CODE (*op_p) == SSA_NAME && is_use)
-    *op_p = var;
+  /* The variable needs to be renamed.  If it already had an
+     SSA_NAME, strip it off.  This way, the SSA rename pass
+     doesn't need to deal with existing SSA names.  */
+  if (TREE_CODE (*op_p) == SSA_NAME)
+    {
+      if (default_def (SSA_NAME_VAR (*op_p)) != *op_p)
+	release_ssa_name (*op_p);
+      *op_p = var;
+    }
 
   return true;
 }
@@ -580,7 +570,7 @@ dump_tree_ssa (FILE *file)
 {
   basic_block bb;
   const char *funcname
-    = lang_hooks.decl_printable_name (current_function_decl, 2);
+    = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
   fprintf (file, "SSA information for %s\n\n", funcname);
 

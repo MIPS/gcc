@@ -368,6 +368,7 @@ private:
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
   friend void _Jv_LinkSymbolTable (jclass);
+  friend void _Jv_LayoutInterfaceMethods (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
@@ -413,7 +414,6 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
-  friend class _Jv_StackTrace;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 

@@ -862,6 +862,9 @@ java::lang::Class::initializeClass (void)
 	}
     }
 
+  if (isInterface ())
+    _Jv_LayoutInterfaceMethods (this);
+
   _Jv_PrepareConstantTimeTables (this);
   
   // Assign storage to fields
@@ -1921,6 +1924,20 @@ static void
 _Jv_abstractMethodError (void)
 {
   throw new java::lang::AbstractMethodError();
+}
+
+// Set itable method indexes for members of interface IFACE.
+void
+_Jv_LayoutInterfaceMethods (jclass iface)
+{
+  if (! iface->isInterface())
+    return;
+  
+  // itable indexes start at 1. 
+  // FIXME: Static initalizers currently get a NULL placeholder entry in the
+  // itable so they are also assigned an index here.
+  for (int i = 0; i < iface->method_count; i++)
+    iface->methods[i].index = i + 1;
 }
 
 // Prepare virtual method declarations in KLASS, and any superclasses as 

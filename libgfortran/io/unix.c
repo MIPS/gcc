@@ -86,11 +86,11 @@ typedef struct
   stream st;
 
   int fd;
-  gfc_offset buffer_offset;	/* File offset of the start of the buffer */
-  gfc_offset physical_offset;	/* Current physical file offset */
-  gfc_offset logical_offset;	/* Current logical file offset */
-  gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
-  gfc_offset file_length;		/* Length of the file, -1 if not seekable. */
+  offset_t buffer_offset;	/* File offset of the start of the buffer */
+  offset_t physical_offset;	/* Current physical file offset */
+  offset_t logical_offset;	/* Current logical file offset */
+  offset_t dirty_offset;	/* Start of modified bytes in buffer */
+  offset_t file_length;		/* Length of the file, -1 if not seekable. */
 
   char *buffer;
   int len;			/* Physical length of the current buffer */
@@ -293,7 +293,7 @@ fd_flush (unix_stream * s)
  * to come next. */
 
 static void
-fd_alloc (unix_stream * s, gfc_offset where, int *len)
+fd_alloc (unix_stream * s, offset_t where, int *len)
 {
   char *new_buffer;
   int n, read_len;
@@ -344,9 +344,9 @@ fd_alloc (unix_stream * s, gfc_offset where, int *len)
  * NULL on I/O error. */
 
 static char *
-fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
+fd_alloc_r_at (unix_stream * s, int *len, offset_t where)
 {
-  gfc_offset m;
+  offset_t m;
   int n;
 
   if (where == -1)
@@ -389,9 +389,9 @@ fd_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
  * we've already buffered the data or we need to load it. */
 
 static char *
-fd_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
+fd_alloc_w_at (unix_stream * s, int *len, offset_t where)
 {
-  gfc_offset n;
+  offset_t n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -444,7 +444,7 @@ fd_sfree (unix_stream * s)
 
 
 static int
-fd_seek (unix_stream * s, gfc_offset offset)
+fd_seek (unix_stream * s, offset_t offset)
 {
 
   s->physical_offset = s->logical_offset = offset;
@@ -551,9 +551,9 @@ mmap_flush (unix_stream * s)
  * guaranteed to be mappable. */
 
 static try
-mmap_alloc (unix_stream * s, gfc_offset where, int *len)
+mmap_alloc (unix_stream * s, offset_t where, int *len)
 {
-  gfc_offset offset;
+  offset_t offset;
   int length;
   char *p;
 
@@ -578,9 +578,9 @@ mmap_alloc (unix_stream * s, gfc_offset where, int *len)
 
 
 static char *
-mmap_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
+mmap_alloc_r_at (unix_stream * s, int *len, offset_t where)
 {
-  gfc_offset m;
+  offset_t m;
 
   if (where == -1)
     where = s->logical_offset;
@@ -605,7 +605,7 @@ mmap_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 
 
 static char *
-mmap_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
+mmap_alloc_w_at (unix_stream * s, int *len, offset_t where)
 {
   if (where == -1)
     where = s->logical_offset;
@@ -632,7 +632,7 @@ mmap_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
 
 
 static int
-mmap_seek (unix_stream * s, gfc_offset offset)
+mmap_seek (unix_stream * s, offset_t offset)
 {
 
   s->logical_offset = offset;
@@ -719,9 +719,9 @@ mmap_open (unix_stream * s)
 
 
 static char *
-mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
+mem_alloc_r_at (unix_stream * s, int *len, offset_t where)
 {
-  gfc_offset n;
+  offset_t n;
 
   if (where == -1)
     where = s->logical_offset;
@@ -743,9 +743,9 @@ mem_alloc_r_at (unix_stream * s, int *len, gfc_offset where)
 
 
 static char *
-mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
+mem_alloc_w_at (unix_stream * s, int *len, offset_t where)
 {
-  gfc_offset m;
+  offset_t m;
 
   if (where == -1)
     where = s->logical_offset;
@@ -762,7 +762,7 @@ mem_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
 
 
 static int
-mem_seek (unix_stream * s, gfc_offset offset)
+mem_seek (unix_stream * s, offset_t offset)
 {
 
   if (offset > s->file_length)
@@ -1112,11 +1112,11 @@ compare_file_filename (stream * s, const char *name, int len)
 
 /* find_file0()-- Recursive work function for find_file() */
 
-static gfc_unit *
-find_file0 (gfc_unit * u, struct stat *st1)
+static unit_t *
+find_file0 (unit_t * u, struct stat *st1)
 {
   struct stat st2;
-  gfc_unit *v;
+  unit_t *v;
 
   if (u == NULL)
     return NULL;
@@ -1140,7 +1140,7 @@ find_file0 (gfc_unit * u, struct stat *st1)
 /* find_file()-- Take the current filename and see if there is a unit
  * that has the file already open.  Returns a pointer to the unit if so. */
 
-gfc_unit *
+unit_t *
 find_file (void)
 {
   char path[PATH_MAX + 1];
@@ -1194,7 +1194,7 @@ stream_at_eof (stream * s)
  * with the unit.  Returns nonzero if something went wrong. */
 
 int
-delete_file (gfc_unit * u)
+delete_file (unit_t * u)
 {
   char path[PATH_MAX + 1];
 
@@ -1366,7 +1366,7 @@ inquire_readwrite (const char *string, int len)
 
 /* file_length()-- Return the file length in bytes, -1 if unknown */
 
-gfc_offset
+offset_t
 file_length (stream * s)
 {
 
@@ -1376,7 +1376,7 @@ file_length (stream * s)
 
 /* file_position()-- Return the current position of the file */
 
-gfc_offset
+offset_t
 file_position (stream * s)
 {
 
@@ -1392,12 +1392,6 @@ is_seekable (stream * s)
 {
 
   return ((unix_stream *) s)->mmaped;
-}
-
-try
-flush (stream *s)
-{
-  return fd_flush( (unix_stream *) s);
 }
 
 

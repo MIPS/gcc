@@ -310,7 +310,10 @@ poplevel (int keep, int reverse, int functionbody)
 	&& DECL_INITIAL (decl_node) != 0)
       {
 	push_function_context ();
+	/* ??? This is temporary.  */
+	ggc_push_context ();
 	output_inline_function (decl_node);
+	ggc_pop_context ();
 	pop_function_context ();
       }
 
@@ -684,6 +687,18 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
 
   DECL_BUILT_IN_CLASS (setjmp_decl) = BUILT_IN_NORMAL;
   DECL_FUNCTION_CODE (setjmp_decl) = BUILT_IN_SETJMP;
+
+  /* update_setjmp_buf updates a setjmp buffer from the current stack pointer
+     address.  */
+  update_setjmp_buf_decl
+    = create_subprog_decl
+      (get_identifier ("__builtin_update_setjmp_buf"), NULL_TREE,
+       build_function_type (void_type_node,
+			    tree_cons (NULL_TREE,  jmpbuf_ptr_type, endlink)),
+       NULL_TREE, 0, 1, 1, 0);
+
+  DECL_BUILT_IN_CLASS (update_setjmp_buf_decl) = BUILT_IN_NORMAL;
+  DECL_FUNCTION_CODE (update_setjmp_buf_decl) = BUILT_IN_UPDATE_SETJMP_BUF;
 
   main_identifier_node = get_identifier ("main");
 }
@@ -1333,7 +1348,6 @@ create_var_decl (tree var_name,
 	       || (static_flag && ! init_const)))
     assign_init = var_init, var_init = 0;
 
-  DECL_COMMON   (var_decl) = !flag_no_common;
   DECL_INITIAL  (var_decl) = var_init;
   TREE_READONLY (var_decl) = const_flag;
   DECL_EXTERNAL (var_decl) = extern_flag;
@@ -1606,7 +1620,6 @@ process_attributes (tree decl, struct attrib *attr_list)
 	    DECL_SECTION_NAME (decl)
 	      = build_string (IDENTIFIER_LENGTH (attr_list->name),
 			      IDENTIFIER_POINTER (attr_list->name));
-	    DECL_COMMON (decl) = 0;
 	  }
 	else
 	  post_error ("?section attributes are not supported for this target",
@@ -1838,9 +1851,7 @@ static int function_nesting_depth;
 void
 begin_subprog_body (tree subprog_decl)
 {
-  tree param_decl_list;
   tree param_decl;
-  tree next_param;
 
   if (function_nesting_depth++ != 0)
     push_function_context ();
@@ -1856,32 +1867,14 @@ begin_subprog_body (tree subprog_decl)
      the C sense!  */
   TREE_STATIC (subprog_decl)   = 1;
 
-  /* Enter a new binding level.  */
+  /* Enter a new binding level and show that all the parameters belong to
+     this function.  */
   current_function_decl = subprog_decl;
   pushlevel (0);
 
-  /* Push all the PARM_DECL nodes onto the current scope (i.e. the scope of the
-     subprogram body) so that they can be recognized as local variables in the
-     subprogram.
-
-     The list of PARM_DECL nodes is stored in the right order in
-     DECL_ARGUMENTS.  Since ..._DECL nodes get stored in the reverse order in
-     which they are transmitted to `pushdecl' we need to reverse the list of
-     PARM_DECLs if we want it to be stored in the right order. The reason why
-     we want to make sure the PARM_DECLs are stored in the correct order is
-     that this list will be retrieved in a few lines with a call to `getdecl'
-     to store it back into the DECL_ARGUMENTS field.  */
-    param_decl_list = nreverse (DECL_ARGUMENTS (subprog_decl));
-
-    for (param_decl = param_decl_list; param_decl; param_decl = next_param)
-      {
-	next_param = TREE_CHAIN (param_decl);
-	TREE_CHAIN (param_decl) = NULL;
-	pushdecl (param_decl);
-      }
-
-  /* Store back the PARM_DECL nodes. They appear in the right order. */
-  DECL_ARGUMENTS (subprog_decl) = getdecls ();
+  for (param_decl = DECL_ARGUMENTS (subprog_decl); param_decl;
+       param_decl = TREE_CHAIN (param_decl))
+    DECL_CONTEXT (param_decl) = subprog_decl;
 
   init_function_start (subprog_decl);
   expand_function_start (subprog_decl, 0);
@@ -2222,12 +2215,12 @@ max_size (tree exp, int max_p)
 	  if (code == SAVE_EXPR)
 	    return exp;
 	  else if (code == COND_EXPR)
-	    return fold (build (MAX_EXPR, type,
+	    return fold (build (max_p ? MAX_EXPR : MIN_EXPR, type,
 				max_size (TREE_OPERAND (exp, 1), max_p),
 				max_size (TREE_OPERAND (exp, 2), max_p)));
 	  else if (code == CALL_EXPR && TREE_OPERAND (exp, 1) != 0)
 	    return build (CALL_EXPR, type, TREE_OPERAND (exp, 0),
-			  max_size (TREE_OPERAND (exp, 1), max_p));
+			  max_size (TREE_OPERAND (exp, 1), max_p), NULL);
 	}
     }
 
@@ -2451,13 +2444,12 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
 
   field_list
     = chainon (field_list,
-	       make_descriptor_field ("POINTER",
-				      build_pointer_type (type),
-				      record_type,
-				      build1 (ADDR_EXPR,
-					      build_pointer_type (type),
-					      build (PLACEHOLDER_EXPR,
-						     type))));
+	       make_descriptor_field
+	       ("POINTER",
+		build_pointer_type_for_mode (type, SImode, false), record_type,
+		build1 (ADDR_EXPR,
+			build_pointer_type_for_mode (type, SImode, false),
+			build (PLACEHOLDER_EXPR, type))));
 
   switch (mech)
     {
@@ -2527,8 +2519,13 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
       field_list
 	= chainon (field_list,
 		   make_descriptor_field
-		   ("A0", build_pointer_type (inner_type), record_type,
-		    build1 (ADDR_EXPR, build_pointer_type (inner_type), tem)));
+		   ("A0",
+		    build_pointer_type_for_mode (inner_type, SImode, false),
+		    record_type,
+		    build1 (ADDR_EXPR,
+			    build_pointer_type_for_mode (inner_type, SImode,
+							 false),
+			    tem)));
 
       /* Next come the addressing coefficients.  */
       tem = size_int (1);
@@ -2991,11 +2988,13 @@ convert (tree type, tree expr)
     case STRING_CST:
     case CONSTRUCTOR:
       /* If we are converting a STRING_CST to another constrained array type,
-	 just make a new one in the proper type.  Likewise for a
-	 CONSTRUCTOR.  */
+	 just make a new one in the proper type.  Likewise for
+	 CONSTRUCTOR if the alias sets are the same.  */
       if (code == ecode && AGGREGATE_TYPE_P (etype)
 	  && ! (TREE_CODE (TYPE_SIZE (etype)) == INTEGER_CST
-		&& TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
+		&& TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	  && (TREE_CODE (expr) == STRING_CST
+	      || get_alias_set (etype) == get_alias_set (type)))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
@@ -3011,7 +3010,8 @@ convert (tree type, tree expr)
       if (code == ecode && TYPE_MODE (type) == TYPE_MODE (etype)
 	  && AGGREGATE_TYPE_P (type) && AGGREGATE_TYPE_P (etype)
 	  && TYPE_ALIGN (type) == TYPE_ALIGN (etype)
-	  && operand_equal_p (TYPE_SIZE (type), TYPE_SIZE (etype), 0))
+	  && operand_equal_p (TYPE_SIZE (type), TYPE_SIZE (etype), 0)
+	  && get_alias_set (type) == get_alias_set (etype))
 	return build (COMPONENT_REF, type, TREE_OPERAND (expr, 0),
 		      TREE_OPERAND (expr, 1));
 
@@ -3436,7 +3436,8 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
   /* If the sizes of the types differ and this is an VIEW_CONVERT_EXPR,
      show no longer constant.  */
   if (TREE_CODE (expr) == VIEW_CONVERT_EXPR
-      && ! operand_equal_p (TYPE_SIZE_UNIT (type), TYPE_SIZE_UNIT (etype), 1))
+      && ! operand_equal_p (TYPE_SIZE_UNIT (type), TYPE_SIZE_UNIT (etype),
+			    OEP_ONLY_CONST))
     TREE_CONSTANT (expr) = 0;
 
   return expr;

@@ -50,9 +50,9 @@ The callgraph:
     Intraprocedural information:
 
       Callgraph is place to store data needed for intraprocedural optimization.
-      All datastructures are divided into three components: local_info that
+      All data structures are divided into three components: local_info that
       is produced while analyzing the function, global_info that is result
-      of global walkking of the callgraph on the end of compilation and
+      of global walking of the callgraph on the end of compilation and
       rtl_info used by RTL backend to propagate data from already compiled
       functions to their callers.
 
@@ -60,16 +60,16 @@ The callgraph:
 
       The function inlining information is decided in advance and maintained
       in the callgraph as so called inline plan.
-      For each inlined call, the calle's node is clonned to represent the
+      For each inlined call, the callee's node is cloned to represent the
       new function copy produced by inlininer.
-      Each inlined call gets unque corresponding clone node of the callee
-      and the datastructure is updated while inlining is performed, so
-      the clones are elliminated and their callee edges redirected to the
+      Each inlined call gets a unique corresponding clone node of the callee
+      and the data structure is updated while inlining is performed, so
+      the clones are eliminated and their callee edges redirected to the
       caller. 
 
       Each edge has "inline_failed" field.  When the field is set to NULL,
-      the call will be inlined.  When it is non-NULL it contains an reason
-      why inlining wasn't performaned.
+      the call will be inlined.  When it is non-NULL it contains a reason
+      why inlining wasn't performed.
 
 
 The varpool data structure:
@@ -99,8 +99,8 @@ The varpool data structure:
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
 
-/* We destructivly update callgraph during inlining and thus we need to
-   keep information on whether inlining happent separately.  */
+/* We destructively update callgraph during inlining and thus we need to
+   keep information on whether inlining happened separately.  */
 htab_t cgraph_inline_hash;
 
 /* The linked list of cgraph nodes.  */
@@ -152,7 +152,7 @@ eq_node (const void *p1, const void *p2)
 	  (tree) p2);
 }
 
-/* Allocate new callgraph node and insert it into basic datastructures.  */
+/* Allocate new callgraph node and insert it into basic data structures.  */
 static struct cgraph_node *
 cgraph_create_node (void)
 {
@@ -209,7 +209,7 @@ cgraph_edge (struct cgraph_node *node, tree call_expr)
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
-     sollution.  It is not good idea to add pointer into CALL_EXPR itself
+     solution.  It is not good idea to add pointer into CALL_EXPR itself
      because we want to make possible having multiple cgraph nodes representing
      different clones of the same body before the body is actually cloned.  */
   for (e = node->callees; e; e= e->next_callee)
@@ -407,16 +407,6 @@ cgraph_mark_reachable_node (struct cgraph_node *node)
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
-
-      /* At the moment frontend automatically emits all nested functions.  */
-      if (node->nested)
-	{
-	  struct cgraph_node *node2;
-
-	  for (node2 = node->nested; node2; node2 = node2->next_nested)
-	    if (!node2->reachable)
-	      cgraph_mark_reachable_node (node2);
-	}
     }
 }
 

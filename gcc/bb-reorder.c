@@ -78,6 +78,7 @@
 #include "fibheap.h"
 #include "target.h"
 #include "function.h"
+#include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
 #include "regs.h"
@@ -86,6 +87,15 @@
    when partitioning hot and cold basic blocks into separate sections of
    the .o file there will be an extra round.*/
 #define N_ROUNDS 5
+
+/* Stubs in case we don't have a return insn.
+   We have to check at runtime too, not only compiletime.  */  
+
+#ifndef HAVE_return
+#define HAVE_return 0
+#define gen_return() NULL_RTX
+#endif
+
 
 /* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0, 0};
@@ -739,7 +749,7 @@ copy_bb (basic_block old_bb, edge e, basic_block bb, int trace)
 {
   basic_block new_bb;
 
-  new_bb = cfg_layout_duplicate_bb (old_bb, e);
+  new_bb = duplicate_block (old_bb, e);
   if (e->dest != new_bb)
     abort ();
   if (e->dest->rbi->visited)
@@ -891,7 +901,7 @@ connect_traces (int n_traces, struct trace *traces)
   last_trace = -1;
 
   /* If we are partitioning hot/cold basic blocks, mark the cold
-     traces as already connnected, to remove them from consideration
+     traces as already connected, to remove them from consideration
      for connection to the hot traces.  After the hot traces have all
      been connected (determined by "unconnected_hot_trace_count"), we
      will go back and connect the cold traces.  */
@@ -1149,6 +1159,7 @@ connect_traces (int n_traces, struct trace *traces)
     }
 
   FREE (connected);
+  FREE (cold_traces);
 }
 
 /* Return true when BB can and should be copied. CODE_MAY_GROW is true
@@ -1167,7 +1178,7 @@ copy_bb_p (basic_block bb, int code_may_grow)
     return false;
   if (!bb->pred || !bb->pred->pred_next)
     return false;
-  if (!cfg_layout_can_duplicate_bb_p (bb))
+  if (!can_duplicate_block_p (bb))
     return false;
 
   /* Avoid duplicating blocks which have many successors (PR/13430).  */
@@ -1399,7 +1410,7 @@ fix_up_fall_thru_edges (void)
   edge succ1;
   edge succ2;
   edge fall_thru;
-  edge cond_jump;
+  edge cond_jump = NULL;
   edge e;
   bool cond_jump_crosses;
   int invert_worked;
@@ -1684,11 +1695,10 @@ fix_crossing_conditional_branches (void)
 						       (old_label), 
 						       BB_END (new_bb));
 		    }
-#ifdef HAVE_return
-		  else if (GET_CODE (old_label) == RETURN)
+		  else if (HAVE_return
+			   && GET_CODE (old_label) == RETURN)
 		    new_jump = emit_jump_insn_after (gen_return (), 
 						     BB_END (new_bb));
-#endif
 		  else
 		    abort ();
 		  
@@ -1771,7 +1781,7 @@ fix_crossing_unconditional_branches (void)
 		 reference of label, as target for jump.  */
 	      
 	      label = JUMP_LABEL (last_insn);
-	      label_addr = gen_rtx_LABEL_REF (VOIDmode, label);
+	      label_addr = gen_rtx_LABEL_REF (Pmode, label);
 	      LABEL_NUSES (label) += 1;
 	      
 	      /* Get a register to use for the indirect jump.  */

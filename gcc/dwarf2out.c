@@ -3785,7 +3785,7 @@ static bool is_subrange_type (tree);
 static dw_die_ref subrange_type_die (tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
 static int type_is_enum (tree);
-static unsigned int reg_number (rtx);
+static unsigned int dbx_reg_number (rtx);
 static dw_loc_descr_ref reg_loc_descriptor (rtx);
 static dw_loc_descr_ref one_reg_loc_descriptor (unsigned int);
 static dw_loc_descr_ref multiple_reg_loc_descriptor (rtx, rtx);
@@ -5070,7 +5070,9 @@ is_fortran (void)
 {
   unsigned int lang = get_AT_unsigned (comp_unit_die, DW_AT_language);
 
-  return lang == DW_LANG_Fortran77 || lang == DW_LANG_Fortran90;
+  return (lang == DW_LANG_Fortran77
+	  || lang == DW_LANG_Fortran90
+	  || lang == DW_LANG_Fortran95);
 }
 
 /* Return TRUE if the language is Java.  */
@@ -8240,10 +8242,10 @@ type_is_enum (tree type)
   return TREE_CODE (type) == ENUMERAL_TYPE;
 }
 
-/* Return the register number described by a given RTL node.  */
+/* Return the DBX register number described by a given RTL node.  */
 
 static unsigned int
-reg_number (rtx rtl)
+dbx_reg_number (rtx rtl)
 {
   unsigned regno = REGNO (rtl);
 
@@ -8265,10 +8267,10 @@ reg_loc_descriptor (rtx rtl)
   if (REGNO (rtl) >= FIRST_PSEUDO_REGISTER)
     return 0;
 
-  reg = reg_number (rtl);
+  reg = dbx_reg_number (rtl);
   regs = targetm.dwarf_register_span (rtl);
 
-  if (hard_regno_nregs[reg][GET_MODE (rtl)] > 1
+  if (hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)] > 1
       || regs)
     return multiple_reg_loc_descriptor (rtl, regs);
   else
@@ -8297,8 +8299,8 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   unsigned reg;
   dw_loc_descr_ref loc_result = NULL;
 
-  reg = reg_number (rtl);
-  nregs = hard_regno_nregs[reg][GET_MODE (rtl)];
+  reg = dbx_reg_number (rtl);
+  nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
   if (regs == NULL_RTX)
@@ -8435,6 +8437,7 @@ static dw_loc_descr_ref
 mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
 {
   dw_loc_descr_ref mem_loc_result = NULL;
+  enum dwarf_location_atom op;
 
   /* Note that for a dynamically sized array, the location we will generate a
      description of here will be the lowest numbered location which is
@@ -8478,7 +8481,8 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
 	 memory) so DWARF consumers need to be aware of the subtle
 	 distinction between OP_REG and OP_BASEREG.  */
       if (REGNO (rtl) < FIRST_PSEUDO_REGISTER)
-	mem_loc_result = based_loc_descr (reg_number (rtl), 0, can_use_fbreg);
+	mem_loc_result = based_loc_descr (dbx_reg_number (rtl), 0,
+					  can_use_fbreg);
       break;
 
     case MEM:
@@ -8549,7 +8553,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
     case PLUS:
     plus:
       if (is_based_loc (rtl))
-	mem_loc_result = based_loc_descr (reg_number (XEXP (rtl, 0)),
+	mem_loc_result = based_loc_descr (dbx_reg_number (XEXP (rtl, 0)),
 					  INTVAL (XEXP (rtl, 1)),
 					  can_use_fbreg);
       else
@@ -8575,10 +8579,26 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
 	}
       break;
 
+    /* If a pseudo-reg is optimized away, it is possible for it to
+       be replaced with a MEM containing a multiply or shift.  */
     case MULT:
+      op = DW_OP_mul;
+      goto do_binop;
+
+    case ASHIFT:
+      op = DW_OP_shl;
+      goto do_binop;
+      
+    case ASHIFTRT:
+      op = DW_OP_shra;
+      goto do_binop;
+
+    case LSHIFTRT:
+      op = DW_OP_shr;
+      goto do_binop;
+
+    do_binop:
       {
-	/* If a pseudo-reg is optimized away, it is possible for it to
-	   be replaced with a MEM containing a multiply.  */
 	dw_loc_descr_ref op0 = mem_loc_descriptor (XEXP (rtl, 0), mode,
 						   can_use_fbreg);
 	dw_loc_descr_ref op1 = mem_loc_descriptor (XEXP (rtl, 1), mode,
@@ -8589,7 +8609,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
 
 	mem_loc_result = op0;
 	add_loc_descr (&mem_loc_result, op1);
-	add_loc_descr (&mem_loc_result, new_loc_descr (DW_OP_mul, 0, 0));
+	add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
 	break;
       }
 
@@ -8811,6 +8831,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
       /* Fall through.  */
 
     case PARM_DECL:
+    case RESULT_DECL:
       {
 	rtx rtl = rtl_for_decl_location (loc);
 
@@ -9098,9 +9119,6 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	jump_node->dw_loc_oprnd1.v.val_loc = tmp;
       }
       break;
-
-    case EXPR_WITH_FILE_LOCATION:
-      return loc_descriptor_from_tree (EXPR_WFL_NODE (loc), addressp);
 
     default:
       /* Leave front-end specific codes as simply unknown.  This comes
@@ -9678,10 +9696,7 @@ rtl_for_decl_location (tree decl)
      This happens (for example) for inlined-instances of inline function formal
      parameters which are never referenced.  This really shouldn't be
      happening.  All PARM_DECL nodes should get valid non-NULL
-     DECL_INCOMING_RTL values, but integrate.c doesn't currently generate these
-     values for inlined instances of inline function parameters, so when we see
-     such cases, we are just out-of-luck for the time being (until integrate.c
-     gets fixed).  */
+     DECL_INCOMING_RTL values.  FIXME.  */
 
   /* Use DECL_RTL as the "location" unless we find something better.  */
   rtl = DECL_RTL_IF_SET (decl);
@@ -9755,6 +9770,25 @@ rtl_for_decl_location (tree decl)
 	  rtl = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (decl)),
 			     plus_constant (XEXP (rtl, 0), offset));
 	}
+    }
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && rtl
+	   && GET_CODE (rtl) == MEM
+	   && GET_MODE (rtl) != TYPE_MODE (TREE_TYPE (decl))
+	   && BYTES_BIG_ENDIAN)
+    {
+      int rsize = GET_MODE_SIZE (GET_MODE (rtl));
+      int dsize = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl)));
+
+      /* If a variable is declared "register" yet is smaller than
+	 a register, then if we store the variable to memory, it
+	 looks like we're storing a register-sized value, when in
+	 fact we are not.  We need to adjust the offset of the
+	 storage location to reflect the actual value's bytes,
+	 else gdb will not be able to display it.  */
+      if (rsize > dsize)
+	rtl = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (decl)),
+			   plus_constant (XEXP (rtl, 0), rsize-dsize));
     }
 
   if (rtl != NULL_RTX)
@@ -9838,7 +9872,8 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 
   if (TREE_CODE (decl) == ERROR_MARK)
     return;
-  else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL)
+  else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL
+	   && TREE_CODE (decl) != RESULT_DECL)
     abort ();
 
   /* See if we possibly have multiple locations for this variable.  */
@@ -10146,6 +10181,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
       {
 	dw_die_ref decl_die = lookup_decl_die (bound);
 
@@ -11306,13 +11342,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  add_AT_loc (subr_die, DW_AT_frame_base, reg_loc_descriptor (fp_reg));
 	}
 
-#if 0
-      /* ??? This fails for nested inline functions, because context_display
-	 is not part of the state saved/restored for inline functions.  */
-      if (current_function_needs_context)
+      if (cfun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
-			     loc_descriptor (lookup_static_chain (decl)));
-#endif
+		 loc_descriptor_from_tree (cfun->static_chain_decl, 0));
     }
 
   /* Now output descriptions of the arguments for this function. This gets
@@ -11388,6 +11420,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      constructor function.  */
   if (! declaration && TREE_CODE (outer_scope) != ERROR_MARK)
     {
+      /* Emit a DW_TAG_variable DIE for a named return value.  */
+      if (DECL_NAME (DECL_RESULT (decl)))
+	gen_decl_die (DECL_RESULT (decl), subr_die);
+
       current_function_has_inlines = 0;
       decls_for_scope (outer_scope, subr_die, 0);
 
@@ -11732,6 +11768,8 @@ gen_compile_unit_die (const char *filename)
     language = DW_LANG_Ada95;
   else if (strcmp (language_string, "GNU F77") == 0)
     language = DW_LANG_Fortran77;
+  else if (strcmp (language_string, "GNU F95") == 0)
+    language = DW_LANG_Fortran95;
   else if (strcmp (language_string, "GNU Pascal") == 0)
     language = DW_LANG_Pascal83;
   else if (strcmp (language_string, "GNU Java") == 0)
@@ -12541,6 +12579,14 @@ gen_decl_die (tree decl, dw_die_ref context_die)
 	  && (current_function_decl == NULL_TREE || DECL_ARTIFICIAL (decl)))
 	break;
 
+#if 0
+      /* FIXME */
+      /* This doesn't work because the C frontend sets DECL_ABSTRACT_ORIGIN
+	 on local redeclarations of global functions.  That seems broken.  */
+      if (current_function_decl != decl)
+	/* This is only a declaration.  */;
+#endif
+
       /* If we're emitting a clone, emit info for the abstract instance.  */
       if (DECL_ORIGIN (decl) != decl)
 	dwarf2out_abstract_function (DECL_ABSTRACT_ORIGIN (decl));
@@ -12614,6 +12660,7 @@ gen_decl_die (tree decl, dw_die_ref context_die)
       break;
 
     case VAR_DECL:
+    case RESULT_DECL:
       /* If we are in terse mode, don't generate any DIEs to represent any
 	 variable declarations or definitions.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
@@ -12744,8 +12791,8 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
   else
     scope_die = force_decl_die (context);
 
-  /* For TYPE_DECL, lookup TREE_TYPE.  */
-  if (TREE_CODE (decl) == TYPE_DECL)
+  /* For TYPE_DECL or CONST_DECL, lookup TREE_TYPE.  */
+  if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
     at_import_die = force_type_die (TREE_TYPE (decl));
   else
     at_import_die = force_decl_die (decl);

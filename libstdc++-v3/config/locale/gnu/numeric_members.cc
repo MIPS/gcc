@@ -58,14 +58,16 @@ namespace std
 	  for (size_t __i = 0; __i < __num_base::_S_oend; ++__i)
 	    _M_data->_M_atoms_out[__i] = __num_base::_S_atoms_out[__i];
 
-	  for (size_t __i = 0; __i < __num_base::_S_iend; ++__i)
-	    _M_data->_M_atoms_in[__i] = __num_base::_S_atoms_in[__i];
+	  for (size_t __j = 0; __j < __num_base::_S_iend; ++__j)
+	    _M_data->_M_atoms_in[__j] = __num_base::_S_atoms_in[__j];
 	}
       else
 	{
 	  // Named locale.
-	  _M_data->_M_decimal_point = *(__nl_langinfo_l(DECIMAL_POINT, __cloc));
-	  _M_data->_M_thousands_sep = *(__nl_langinfo_l(THOUSANDS_SEP, __cloc));
+	  _M_data->_M_decimal_point = *(__nl_langinfo_l(DECIMAL_POINT, 
+							__cloc));
+	  _M_data->_M_thousands_sep = *(__nl_langinfo_l(THOUSANDS_SEP, 
+							__cloc));
 
 	  // Check for NULL, which implies no grouping.
 	  if (_M_data->_M_thousands_sep == '\0')
@@ -78,10 +80,10 @@ namespace std
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);
       _M_data->_M_truename = "true";
-      _M_data->_M_truename_size = strlen(_M_data->_M_truename);
+      _M_data->_M_truename_size = 4;
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_data->_M_falsename = "false";
-      _M_data->_M_falsename_size = strlen(_M_data->_M_falsename);
+      _M_data->_M_falsename_size = 5;
     }
  
   template<> 
@@ -107,18 +109,13 @@ namespace std
 	  _M_data->_M_thousands_sep = L',';
 
 	  // Use ctype::widen code without the facet...
-	  unsigned char uc;
 	  for (size_t __i = 0; __i < __num_base::_S_oend; ++__i)
-	    {
-	      uc = static_cast<unsigned char>(__num_base::_S_atoms_out[__i]);
-	      _M_data->_M_atoms_out[__i] = btowc(uc);
-	    }
+	    _M_data->_M_atoms_out[__i] =
+	      static_cast<wchar_t>(__num_base::_S_atoms_out[__i]);
 
-	  for (size_t __i = 0; __i < __num_base::_S_iend; ++__i)
-	    {
-	      uc = static_cast<unsigned char>(__num_base::_S_atoms_in[__i]);
-	      _M_data->_M_atoms_in[__i] = btowc(uc);
-	    }
+	  for (size_t __j = 0; __j < __num_base::_S_iend; ++__j)
+	    _M_data->_M_atoms_in[__j] =
+	      static_cast<wchar_t>(__num_base::_S_atoms_in[__j]);
 	}
       else
 	{
@@ -140,10 +137,10 @@ namespace std
       // NB: There is no way to extact this info from posix locales.
       // _M_truename = __nl_langinfo_l(YESSTR, __cloc);
       _M_data->_M_truename = L"true";
-      _M_data->_M_truename_size = wcslen(_M_data->_M_truename);
+      _M_data->_M_truename_size = 4;
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_data->_M_falsename = L"false";
-      _M_data->_M_falsename_size = wcslen(_M_data->_M_falsename);
+      _M_data->_M_falsename_size = 5;
     }
 
   template<> 

@@ -82,7 +82,6 @@ char *alloca ();
    ugly to look at and a pain to type when you add the prefix by hand,
    so we hide it behind a macro.  */
 #define PREFIX(x) "_gfortran_" x
-#define PREFIX_LEN 10
 
 /* Macro to initialize an mstring structure.  */
 #define minit(s, t) { s, NULL, t }
@@ -414,40 +413,35 @@ typedef struct
 symbol_attribute;
 
 
-/* The following three structures are used to identify a location in
-   the sources. 
-   
-   gfc_file is used to maintain a tree of the source files and how
-   they include each other
-
-   gfc_linebuf holds a single line of source code and information
-   which file it resides in
-
-   locus point to the sourceline and the character in the source
-   line.  
-*/
-
-typedef struct gfc_file 
-{
-  struct gfc_file *included_by, *next, *up;
-  int inclusion_line, line;
-  char *filename;
-} gfc_file;
-
-typedef struct gfc_linebuf 
-{
-  int linenum;
-  struct gfc_file *file;
-  struct gfc_linebuf *next;
-
-  char line[];
-} gfc_linebuf;
-  
-typedef struct 
+typedef struct
 {
   char *nextc;
-  gfc_linebuf *lb;
-} locus;
+  int line;			/* line within the lp structure */
+  struct linebuf *lp;
+  struct gfc_file *file;
+}
+locus;
+
+/* The linebuf structure deserves some explanation.  This is the
+   primary structure for holding lines.  A source file is stored in a
+   singly linked list of these structures.  Each structure holds an
+   integer number of lines.  The line[] member is actually an array of
+   pointers that point to the NULL-terminated lines.  This list grows
+   upwards, and the actual lines are stored at the top of the
+   structure and grow downward.  Each structure is packed with as many
+   lines as it can hold, then another linebuf is allocated.  */
+
+/* Chosen so that sizeof(linebuf) = 4096 on most machines */
+#define LINEBUF_SIZE 4080
+
+typedef struct linebuf
+{
+  int start_line, lines;
+  struct linebuf *next;
+  char *line[1];
+  char buf[LINEBUF_SIZE];
+}
+linebuf;
 
 
 #include <limits.h>
@@ -455,6 +449,17 @@ typedef struct
 # include <sys/param.h>
 # define PATH_MAX MAXPATHLEN
 #endif
+
+
+typedef struct gfc_file
+{
+  char filename[PATH_MAX + 1];
+  gfc_source_form form;
+  struct gfc_file *included_by, *next;
+  locus loc;
+  struct linebuf *start;
+}
+gfc_file;
 
 
 extern int gfc_suppress_error;
@@ -1303,9 +1308,7 @@ void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
 try gfc_new_file (const char *, gfc_source_form);
 
-extern gfc_source_form gfc_current_form;
-extern char *gfc_source_file;
-/* extern locus gfc_current_locus; */
+extern gfc_file *gfc_current_file;
 
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;
@@ -1545,8 +1548,6 @@ try gfc_check_conformance (const char *, gfc_expr *, gfc_expr *);
 try gfc_check_assign (gfc_expr *, gfc_expr *, int);
 try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
-
-gfc_expr *gfc_default_initializer (gfc_typespec *);
 
 /* st.c */
 extern gfc_code new_st;

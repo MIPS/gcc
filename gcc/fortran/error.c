@@ -118,9 +118,8 @@ error_string (const char *p)
 static void error_printf (const char *, ...) ATTRIBUTE_PRINTF_1;
 
 static void
-show_locus (int offset, locus * loc)
+show_locus (int offset, locus * l)
 {
-  gfc_linebuf *lb;
   gfc_file *f;
   char c, *p;
   int i, m;
@@ -128,25 +127,20 @@ show_locus (int offset, locus * loc)
   /* TODO: Either limit the total length and number of included files
      displayed or add buffering of arbitrary number of characters in
      error messages.  */
+  f = l->file;
+  error_printf ("In file %s:%d\n", f->filename, l->lp->start_line + l->line);
 
-  lb = loc->lb;
-  f = lb->file;
-  error_printf ("In file %s:%d\n", f->filename, lb->linenum);
-
-  for (;;)
+  f = f->included_by;
+  while (f != NULL)
     {
-      i = f->inclusion_line;
-
+      error_printf ("    Included at %s:%d\n", f->filename,
+		    f->loc.lp->start_line + f->loc.line);
       f = f->included_by;
-      if (f == NULL) break;
-
-      error_printf ("    Included at %s:%d\n", f->filename, i);
     }
 
   /* Show the line itself, taking care not to print more than what can
      show up on the terminal.  Tabs are converted to spaces.  */
-
-  p = lb->line + offset;
+  p = l->lp->line[l->line] + offset;
   i = strlen (p);
   if (i > terminal_width)
     i = terminal_width - 1;
@@ -196,12 +190,12 @@ show_loci (locus * l1, locus * l2)
       return;
     }
 
-  c1 = l1->nextc - l1->lb->line;
+  c1 = l1->nextc - l1->lp->line[l1->line];
   c2 = 0;
   if (l2 == NULL)
     goto separate;
 
-  c2 = l2->nextc - l2->lb->line;
+  c2 = l2->nextc - l2->lp->line[l2->line];
 
   if (c1 < c2)
     m = c2 - c1;
@@ -209,7 +203,7 @@ show_loci (locus * l1, locus * l2)
     m = c1 - c2;
 
 
-  if (l1->lb != l2->lb || m > terminal_width - 10)
+  if (l1->lp != l2->lp || l1->line != l2->line || m > terminal_width - 10)
     goto separate;
 
   offset = 0;

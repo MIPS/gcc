@@ -64,10 +64,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "target.h"
 
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
-#endif
-
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
 #endif
@@ -132,18 +128,12 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Nonzero if at least one trampoline has been created.  */
-int trampolines_created;
-
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
 static GTY(()) int funcdef_no;
 
 /* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) (void);
-
-/* The FUNCTION_DECL for an inline function currently being expanded.  */
-tree inline_function_decl;
 
 /* The currently compiled function.  */
 struct function *cfun = 0;
@@ -236,7 +226,7 @@ static rtx assign_stack_local_1 (enum machine_mode, HOST_WIDE_INT, int,
 				 struct function *);
 static struct temp_slot *find_temp_slot_from_address (rtx);
 static void put_reg_into_stack (struct function *, rtx, tree, enum machine_mode,
-				enum machine_mode, int, unsigned int, int, htab_t);
+				unsigned int, bool, bool, bool, htab_t);
 static void schedule_fixup_var_refs (struct function *, rtx, tree, enum machine_mode,
 				     htab_t);
 static void fixup_var_refs (rtx, enum machine_mode, int, rtx, htab_t);
@@ -256,16 +246,11 @@ static void instantiate_decls_1 (tree, int);
 static void instantiate_decl (rtx, HOST_WIDE_INT, int);
 static rtx instantiate_new_reg (rtx, HOST_WIDE_INT *);
 static int instantiate_virtual_regs_1 (rtx *, rtx, int);
-static void delete_handlers (void);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
-static rtx round_trampoline_addr (rtx);
-static rtx adjust_trampoline_addr (rtx);
 static tree *identify_blocks_1 (rtx, tree *, tree *, tree *);
-static void reorder_blocks_0 (tree);
 static void reorder_blocks_1 (rtx, tree, varray_type *);
 static void reorder_fix_fragments (tree);
-static tree blocks_nreverse (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -446,10 +431,7 @@ free_after_compilation (struct function *f)
   f->arg_offset_rtx = NULL;
   f->return_rtx = NULL;
   f->internal_arg_pointer = NULL;
-  f->x_nonlocal_labels = NULL;
-  f->x_nonlocal_goto_handler_slots = NULL;
   f->x_nonlocal_goto_handler_labels = NULL;
-  f->x_nonlocal_goto_stack_level = NULL;
   f->x_cleanup_label = NULL;
   f->x_return_label = NULL;
   f->x_naked_return_label = NULL;
@@ -461,9 +443,6 @@ free_after_compilation (struct function *f)
   f->x_tail_recursion_label = NULL;
   f->x_tail_recursion_reentry = NULL;
   f->x_arg_pointer_save_area = NULL;
-  f->x_clobber_return_insn = NULL;
-  f->x_context_display = NULL;
-  f->x_trampoline_list = NULL;
   f->x_parm_birth_insn = NULL;
   f->x_last_parm_insn = NULL;
   f->x_parm_reg_stack_loc = NULL;
@@ -506,6 +485,7 @@ get_frame_size (void)
    ALIGN controls the amount of alignment for the address of the slot:
    0 means according to MODE,
    -1 means use BIGGEST_ALIGNMENT and round size to multiple of that,
+   -2 means use BITS_PER_UNIT,
    positive specifies alignment boundary in bits.
 
    We do not round to stack_boundary here.
@@ -543,6 +523,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
       alignment = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
       size = CEIL_ROUND (size, alignment);
     }
+  else if (align == -2)
+    alignment = 1; /* BITS_PER_UNIT / BITS_PER_UNIT */
   else
     alignment = align / BITS_PER_UNIT;
 
@@ -780,7 +762,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
   if (keep == 2)
     {
       p->level = target_temp_slot_level;
-      p->keep = 0;
+      p->keep = 1;
     }
   else if (keep == 3)
     {
@@ -841,7 +823,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
 {
   tree type, decl;
   enum machine_mode mode;
-#ifndef PROMOTE_FOR_CALL_ONLY
+#ifdef PROMOTE_MODE
   int unsignedp;
 #endif
 
@@ -851,7 +833,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
     decl = NULL, type = type_or_decl;
 
   mode = TYPE_MODE (type);
-#ifndef PROMOTE_FOR_CALL_ONLY
+#ifdef PROMOTE_MODE
   unsignedp = TYPE_UNSIGNED (type);
 #endif
 
@@ -889,7 +871,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
       return tmp;
     }
 
-#ifndef PROMOTE_FOR_CALL_ONLY
+#ifdef PROMOTE_MODE
   if (! dont_promote)
     mode = promote_mode (type, mode, &unsignedp, 0);
 #endif
@@ -1291,9 +1273,9 @@ put_var_into_stack (tree decl, int rescan)
   enum machine_mode promoted_mode, decl_mode;
   struct function *function = 0;
   tree context;
-  int can_use_addressof;
-  int volatilep = TREE_CODE (decl) != SAVE_EXPR && TREE_THIS_VOLATILE (decl);
-  int usedp = (TREE_USED (decl)
+  bool can_use_addressof_p;
+  bool volatile_p = TREE_CODE (decl) != SAVE_EXPR && TREE_THIS_VOLATILE (decl);
+  bool used_p = (TREE_USED (decl)
 	       || (TREE_CODE (decl) != SAVE_EXPR && DECL_INITIAL (decl) != 0));
 
   context = decl_function_context (decl);
@@ -1320,7 +1302,7 @@ put_var_into_stack (tree decl, int rescan)
      because it might not be in any active function.
      FIXME: Is that really supposed to happen?
      It does in ObjC at least.  */
-  if (context != current_function_decl && context != inline_function_decl)
+  if (context != current_function_decl)
     for (function = outer_function_chain; function; function = function->outer)
       if (function->decl == context)
 	break;
@@ -1340,7 +1322,7 @@ put_var_into_stack (tree decl, int rescan)
   /* If this variable lives in the current function and we don't need to put it
      in the stack for the sake of setjmp or the non-locality, try to keep it in
      a register until we know we actually need the address.  */
-  can_use_addressof
+  can_use_addressof_p
     = (function == 0
        && ! (TREE_CODE (decl) != SAVE_EXPR && DECL_NONLOCAL (decl))
        && optimize > 0
@@ -1353,7 +1335,8 @@ put_var_into_stack (tree decl, int rescan)
 
   /* If we can't use ADDRESSOF, make sure we see through one we already
      generated.  */
-  if (! can_use_addressof && GET_CODE (reg) == MEM
+  if (! can_use_addressof_p
+      && GET_CODE (reg) == MEM
       && GET_CODE (XEXP (reg, 0)) == ADDRESSOF)
     reg = XEXP (XEXP (reg, 0), 0);
 
@@ -1361,11 +1344,11 @@ put_var_into_stack (tree decl, int rescan)
 
   if (GET_CODE (reg) == REG)
     {
-      if (can_use_addressof)
+      if (can_use_addressof_p)
 	gen_mem_addressof (reg, decl, rescan);
       else
-	put_reg_into_stack (function, reg, TREE_TYPE (decl), promoted_mode,
-			    decl_mode, volatilep, 0, usedp, 0);
+	put_reg_into_stack (function, reg, TREE_TYPE (decl), decl_mode,
+			    0, volatile_p, used_p, false, 0);
 
 	  /* If this was previously a MEM but we've removed the ADDRESSOF,
 	     set this address into that MEM so we always use the same
@@ -1387,14 +1370,14 @@ put_var_into_stack (tree decl, int rescan)
 #ifdef FRAME_GROWS_DOWNWARD
       /* Since part 0 should have a lower address, do it second.  */
       put_reg_into_stack (function, hipart, part_type, part_mode,
-			  part_mode, volatilep, 0, 0, 0);
+			  0, volatile_p, false, false, 0);
       put_reg_into_stack (function, lopart, part_type, part_mode,
-			  part_mode, volatilep, 0, 0, 0);
+			  0, volatile_p, false, true, 0);
 #else
       put_reg_into_stack (function, lopart, part_type, part_mode,
-			  part_mode, volatilep, 0, 0, 0);
+			  0, volatile_p, false, false, 0);
       put_reg_into_stack (function, hipart, part_type, part_mode,
-			  part_mode, volatilep, 0, 0, 0);
+			  0, volatile_p, false, true, 0);
 #endif
 
       /* Change the CONCAT into a combined MEM for both parts.  */
@@ -1415,7 +1398,7 @@ put_var_into_stack (tree decl, int rescan)
       /* Prevent sharing of rtl that might lose.  */
       if (GET_CODE (XEXP (reg, 0)) == PLUS)
 	XEXP (reg, 0) = copy_rtx (XEXP (reg, 0));
-      if (usedp && rescan)
+      if (used_p && rescan)
 	{
 	  schedule_fixup_var_refs (function, reg, TREE_TYPE (decl),
 				   promoted_mode, 0);
@@ -1429,20 +1412,24 @@ put_var_into_stack (tree decl, int rescan)
 
 /* Subroutine of put_var_into_stack.  This puts a single pseudo reg REG
    into the stack frame of FUNCTION (0 means the current function).
+   TYPE is the user-level data type of the value hold in the register.
    DECL_MODE is the machine mode of the user-level data type.
-   PROMOTED_MODE is the machine mode of the register.
-   VOLATILE_P is nonzero if this is for a "volatile" decl.
-   USED_P is nonzero if this reg might have already been used in an insn.  */
+   ORIGINAL_REGNO must be set if the real regno is not visible in REG.
+   VOLATILE_P is true if this is for a "volatile" decl.
+   USED_P is true if this reg might have already been used in an insn.
+   CONSECUTIVE_P is true if the stack slot assigned to reg must be
+   consecutive with the previous stack slot.  */
 
 static void
 put_reg_into_stack (struct function *function, rtx reg, tree type,
-		    enum machine_mode promoted_mode,
-		    enum machine_mode decl_mode, int volatile_p,
-		    unsigned int original_regno, int used_p, htab_t ht)
+		    enum machine_mode decl_mode, unsigned int original_regno,
+		    bool volatile_p, bool used_p, bool consecutive_p,
+		    htab_t ht)
 {
   struct function *func = function ? function : cfun;
-  rtx new = 0;
+  enum machine_mode mode = GET_MODE (reg);
   unsigned int regno = original_regno;
+  rtx new = 0;
 
   if (regno == 0)
     regno = REGNO (reg);
@@ -1455,7 +1442,8 @@ put_reg_into_stack (struct function *function, rtx reg, tree type,
     }
 
   if (new == 0)
-    new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode), 0, func);
+    new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode),
+				consecutive_p ? -2 : 0, func);
 
   PUT_CODE (reg, MEM);
   PUT_MODE (reg, decl_mode);
@@ -1477,7 +1465,7 @@ put_reg_into_stack (struct function *function, rtx reg, tree type,
     }
 
   if (used_p)
-    schedule_fixup_var_refs (function, reg, type, promoted_mode, ht);
+    schedule_fixup_var_refs (function, reg, type, mode, ht);
 }
 
 /* Make sure that all refs to the variable, previously made
@@ -2918,7 +2906,7 @@ static void
 put_addressof_into_stack (rtx r, htab_t ht)
 {
   tree decl, type;
-  int volatile_p, used_p;
+  bool volatile_p, used_p;
 
   rtx reg = XEXP (r, 0);
 
@@ -2937,12 +2925,12 @@ put_addressof_into_stack (rtx r, htab_t ht)
   else
     {
       type = NULL_TREE;
-      volatile_p = 0;
-      used_p = 1;
+      volatile_p = false;
+      used_p = true;
     }
 
-  put_reg_into_stack (0, reg, type, GET_MODE (reg), GET_MODE (reg),
-		      volatile_p, ADDRESSOF_REGNO (r), used_p, ht);
+  put_reg_into_stack (0, reg, type, GET_MODE (reg), ADDRESSOF_REGNO (r),
+		      volatile_p, used_p, false, ht);
 }
 
 /* List of replacements made below in purge_addressof_1 when creating
@@ -4159,59 +4147,6 @@ instantiate_virtual_regs_1 (rtx *loc, rtx object, int extra_insns)
   return 1;
 }
 
-/* Optimization: assuming this function does not receive nonlocal gotos,
-   delete the handlers for such, as well as the insns to establish
-   and disestablish them.  */
-
-static void
-delete_handlers (void)
-{
-  rtx insn;
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      /* Delete the handler by turning off the flag that would
-	 prevent jump_optimize from deleting it.
-	 Also permit deletion of the nonlocal labels themselves
-	 if nothing local refers to them.  */
-      if (GET_CODE (insn) == CODE_LABEL)
-	{
-	  tree t, last_t;
-
-	  LABEL_PRESERVE_P (insn) = 0;
-
-	  /* Remove it from the nonlocal_label list, to avoid confusing
-	     flow.  */
-	  for (t = nonlocal_labels, last_t = 0; t;
-	       last_t = t, t = TREE_CHAIN (t))
-	    if (DECL_RTL (TREE_VALUE (t)) == insn)
-	      break;
-	  if (t)
-	    {
-	      if (! last_t)
-		nonlocal_labels = TREE_CHAIN (nonlocal_labels);
-	      else
-		TREE_CHAIN (last_t) = TREE_CHAIN (t);
-	    }
-	}
-      if (GET_CODE (insn) == INSN)
-	{
-	  int can_delete = 0;
-	  rtx t;
-	  for (t = nonlocal_goto_handler_slots; t != 0; t = XEXP (t, 1))
-	    if (reg_mentioned_p (t, PATTERN (insn)))
-	      {
-		can_delete = 1;
-		break;
-	      }
-	  if (can_delete
-	      || (nonlocal_goto_stack_level != 0
-		  && reg_mentioned_p (nonlocal_goto_stack_level,
-				      PATTERN (insn))))
-	    delete_related_insns (insn);
-	}
-    }
-}
-
 /* Return the first insn following those generated by `assign_parms'.  */
 
 rtx
@@ -4310,12 +4245,7 @@ assign_parms (tree fndecl)
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
-  int stdarg
-    = (TYPE_ARG_TYPES (fntype) != 0
-       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   != void_type_node));
-
-  current_function_stdarg = stdarg;
+  int stdarg = current_function_stdarg;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -5267,6 +5197,12 @@ assign_parms (tree fndecl)
 	    {
 	      SET_DECL_RTL (parm, DECL_RTL (fnargs));
 	      set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs));
+
+	      /* Set MEM_EXPR to the original decl, i.e. to PARM,
+		 instead of the copy of decl, i.e. FNARGS.  */
+	      if (DECL_INCOMING_RTL (parm)
+		  && GET_CODE (DECL_INCOMING_RTL (parm)) == MEM)
+		set_mem_expr (DECL_INCOMING_RTL (parm), parm);
 	    }
 	  fnargs = TREE_CHAIN (fnargs);
 	}
@@ -5699,49 +5635,30 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
 }
 
 /* Walk the tree of blocks describing the binding levels within a function
-   and warn about uninitialized variables.
+   and warn about variables the might be killed by setjmp or vfork.
    This is done after calling flow_analysis and before global_alloc
    clobbers the pseudo-regs to hard regs.  */
 
 void
-uninitialized_vars_warning (tree block)
+setjmp_vars_warning (tree block)
 {
   tree decl, sub;
+
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
-      if (warn_uninitialized
-	  && TREE_CODE (decl) == VAR_DECL
-	  /* These warnings are unreliable for and aggregates
-	     because assigning the fields one by one can fail to convince
-	     flow.c that the entire aggregate was initialized.
-	     Unions are troublesome because members may be shorter.  */
-	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL_SET_P (decl)
-	  && GET_CODE (DECL_RTL (decl)) == REG
-	  /* Global optimizations can make it difficult to determine if a
-	     particular variable has been initialized.  However, a VAR_DECL
-	     with a nonzero DECL_INITIAL had an initializer, so do not
-	     claim it is potentially uninitialized.
-
-	     When the DECL_INITIAL is NULL call the language hook to tell us
-	     if we want to warn.  */
-	  && (DECL_INITIAL (decl) == NULL_TREE || lang_hooks.decl_uninit (decl))
-	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
-	warning ("%J'%D' might be used uninitialized in this function",
-		 decl, decl);
-      if (extra_warnings
-	  && TREE_CODE (decl) == VAR_DECL
+      if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
 		 decl, decl);
     }
+
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    uninitialized_vars_warning (sub);
+    setjmp_vars_warning (sub);
 }
 
-/* Do the appropriate part of uninitialized_vars_warning
+/* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
 void
@@ -5815,33 +5732,6 @@ setjmp_protect_args (void)
       put_var_into_stack (decl, /*rescan=*/true);
 }
 
-/* Return the context-pointer register corresponding to DECL,
-   or 0 if it does not need one.  */
-
-rtx
-lookup_static_chain (tree decl)
-{
-  tree context = decl_function_context (decl);
-  tree link;
-
-  if (context == 0
-      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_NO_STATIC_CHAIN (decl)))
-    return 0;
-
-  /* We treat inline_function_decl as an alias for the current function
-     because that is the inline function whose vars, types, etc.
-     are being merged into the current function.
-     See expand_inline_function.  */
-  if (context == current_function_decl || context == inline_function_decl)
-    return virtual_stack_vars_rtx;
-
-  for (link = context_display; link; link = TREE_CHAIN (link))
-    if (TREE_PURPOSE (link) == context)
-      return RTL_EXPR_RTL (TREE_VALUE (link));
-
-  abort ();
-}
-
 /* Convert a stack slot address ADDR for variable VAR
    (from a containing function)
    into an address valid in this function (using a static chain).  */
@@ -5856,7 +5746,7 @@ fix_lexical_addr (rtx addr, tree var)
   rtx base = 0;
 
   /* If this is the present function, we need not do anything.  */
-  if (context == current_function_decl || context == inline_function_decl)
+  if (context == current_function_decl)
     return addr;
 
   fp = find_function_data (context);
@@ -5872,155 +5762,12 @@ fix_lexical_addr (rtx addr, tree var)
   else
     abort ();
 
-  /* We accept vars reached via the containing function's
-     incoming arg pointer and via its stack variables pointer.  */
-  if (basereg == fp->internal_arg_pointer)
-    {
-      /* If reached via arg pointer, get the arg pointer value
-	 out of that function's stack frame.
-
-	 There are two cases:  If a separate ap is needed, allocate a
-	 slot in the outer function for it and dereference it that way.
-	 This is correct even if the real ap is actually a pseudo.
-	 Otherwise, just adjust the offset from the frame pointer to
-	 compensate.  */
-
-#ifdef NEED_SEPARATE_AP
-      rtx addr;
-
-      addr = get_arg_pointer_save_area (fp);
-      addr = fix_lexical_addr (XEXP (addr, 0), var);
-      addr = memory_address (Pmode, addr);
-
-      base = gen_rtx_MEM (Pmode, addr);
-      set_mem_alias_set (base, get_frame_alias_set ());
-      base = copy_to_reg (base);
-#else
-      displacement += (FIRST_PARM_OFFSET (context) - STARTING_FRAME_OFFSET);
-      base = lookup_static_chain (var);
-#endif
-    }
-
-  else if (basereg == virtual_stack_vars_rtx)
-    {
-      /* This is the same code as lookup_static_chain, duplicated here to
-	 avoid an extra call to decl_function_context.  */
-      tree link;
-
-      for (link = context_display; link; link = TREE_CHAIN (link))
-	if (TREE_PURPOSE (link) == context)
-	  {
-	    base = RTL_EXPR_RTL (TREE_VALUE (link));
-	    break;
-	  }
-    }
-
   if (base == 0)
     abort ();
 
   /* Use same offset, relative to appropriate static chain or argument
      pointer.  */
   return plus_constant (base, displacement);
-}
-
-/* Return the address of the trampoline for entering nested fn FUNCTION.
-   If necessary, allocate a trampoline (in the stack frame)
-   and emit rtl to initialize its contents (at entry to this function).  */
-
-rtx
-trampoline_address (tree function)
-{
-  tree link;
-  tree rtlexp;
-  rtx tramp;
-  struct function *fp;
-  tree fn_context;
-
-  /* Find an existing trampoline and return it.  */
-  for (link = trampoline_list; link; link = TREE_CHAIN (link))
-    if (TREE_PURPOSE (link) == function)
-      return
-	adjust_trampoline_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0));
-
-  for (fp = outer_function_chain; fp; fp = fp->outer)
-    for (link = fp->x_trampoline_list; link; link = TREE_CHAIN (link))
-      if (TREE_PURPOSE (link) == function)
-	{
-	  tramp = fix_lexical_addr (XEXP (RTL_EXPR_RTL (TREE_VALUE (link)), 0),
-				    function);
-	  return adjust_trampoline_addr (tramp);
-	}
-
-  /* None exists; we must make one.  */
-
-  /* Find the `struct function' for the function containing FUNCTION.  */
-  fp = 0;
-  fn_context = decl_function_context (function);
-  if (fn_context != current_function_decl
-      && fn_context != inline_function_decl)
-    fp = find_function_data (fn_context);
-
-  /* Allocate run-time space for this trampoline.  */
-  /* If rounding needed, allocate extra space
-     to ensure we have TRAMPOLINE_SIZE bytes left after rounding up.  */
-#define TRAMPOLINE_REAL_SIZE \
-  (TRAMPOLINE_SIZE + (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT) - 1)
-  tramp = assign_stack_local_1 (BLKmode, TRAMPOLINE_REAL_SIZE, 0,
-				fp ? fp : cfun);
-  /* Record the trampoline for reuse and note it for later initialization
-     by expand_function_end.  */
-  if (fp != 0)
-    {
-      rtlexp = make_node (RTL_EXPR);
-      RTL_EXPR_RTL (rtlexp) = tramp;
-      fp->x_trampoline_list = tree_cons (function, rtlexp,
-					 fp->x_trampoline_list);
-    }
-  else
-    {
-      /* Make the RTL_EXPR node temporary, not momentary, so that the
-	 trampoline_list doesn't become garbage.  */
-      rtlexp = make_node (RTL_EXPR);
-
-      RTL_EXPR_RTL (rtlexp) = tramp;
-      trampoline_list = tree_cons (function, rtlexp, trampoline_list);
-    }
-
-  tramp = fix_lexical_addr (XEXP (tramp, 0), function);
-  return adjust_trampoline_addr (tramp);
-}
-
-/* Given a trampoline address,
-   round it to multiple of TRAMPOLINE_ALIGNMENT.  */
-
-static rtx
-round_trampoline_addr (rtx tramp)
-{
-  /* Round address up to desired boundary.  */
-  rtx temp = gen_reg_rtx (Pmode);
-  rtx addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
-  rtx mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
-
-  temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
-			       temp, 0, OPTAB_LIB_WIDEN);
-  tramp = expand_simple_binop (Pmode, AND, temp, mask,
-			       temp, 0, OPTAB_LIB_WIDEN);
-
-  return tramp;
-}
-
-/* Given a trampoline address, round it then apply any
-   platform-specific adjustments so that the result can be used for a
-   function call .  */
-
-static rtx
-adjust_trampoline_addr (rtx tramp)
-{
-  tramp = round_trampoline_addr (tramp);
-#ifdef TRAMPOLINE_ADJUST_ADDRESS
-  TRAMPOLINE_ADJUST_ADDRESS (tramp);
-#endif
-  return tramp;
 }
 
 /* Put all this function's BLOCK nodes including those that are chained
@@ -6142,7 +5889,7 @@ reorder_blocks (void)
   VARRAY_TREE_INIT (block_stack, 10, "block_stack");
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
-  reorder_blocks_0 (block);
+  clear_block_marks (block);
 
   /* Prune the old trees away, so that they don't get in the way.  */
   BLOCK_SUBBLOCKS (block) = NULL_TREE;
@@ -6158,13 +5905,13 @@ reorder_blocks (void)
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
 
-static void
-reorder_blocks_0 (tree block)
+void
+clear_block_marks (tree block)
 {
   while (block)
     {
       TREE_ASM_WRITTEN (block) = 0;
-      reorder_blocks_0 (BLOCK_SUBBLOCKS (block));
+      clear_block_marks (BLOCK_SUBBLOCKS (block));
       block = BLOCK_CHAIN (block);
     }
 }
@@ -6295,7 +6042,7 @@ reorder_fix_fragments (tree block)
 /* Reverse the order of elements in the chain T of blocks,
    and return the new head of the chain (old last element).  */
 
-static tree
+tree
 blocks_nreverse (tree t)
 {
   tree prev = 0, decl, next;
@@ -6413,6 +6160,7 @@ void
 allocate_struct_function (tree fndecl)
 {
   tree result;
+  tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
@@ -6449,9 +6197,11 @@ allocate_struct_function (tree fndecl)
 
   current_function_returns_pointer = POINTER_TYPE_P (TREE_TYPE (result));
 
-  current_function_needs_context
-    = (decl_function_context (current_function_decl) != 0
-       && ! DECL_NO_STATIC_CHAIN (current_function_decl));
+  current_function_stdarg
+    = (fntype
+       && TYPE_ARG_TYPES (fntype) != 0
+       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	   != void_type_node));
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
@@ -6624,16 +6374,9 @@ expand_pending_sizes (tree pending_sizes)
 void
 expand_function_start (tree subr, int parms_have_cleanups)
 {
-  tree tem;
-  rtx last_ptr = NULL_RTX;
-
   /* Make sure volatile mem refs aren't considered
      valid operands of arithmetic insns.  */
   init_recog_no_volatile ();
-
-  current_function_instrument_entry_exit
-    = (flag_instrument_function_entry_exit
-       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
 
   current_function_profile
     = (profile_flag
@@ -6641,19 +6384,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
 
   current_function_limit_stack
     = (stack_limit_rtx != NULL_RTX && ! DECL_NO_LIMIT_STACK (subr));
-
-  /* If function gets a static chain arg, store it in the stack frame.
-     Do this first, so it gets the first stack slot offset.  */
-  if (current_function_needs_context)
-    {
-      last_ptr = assign_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0);
-
-      /* Delay copying static chain if it is not a register to avoid
-	 conflicts with regs used for parameters.  */
-      if (! SMALL_REGISTER_CLASSES
-	  || GET_CODE (static_chain_incoming_rtx) == REG)
-	emit_move_insn (last_ptr, static_chain_incoming_rtx);
-    }
 
   /* If the parameters of this function need cleaning up, get a label
      for the beginning of the code which executes those cleanups.  This must
@@ -6735,15 +6465,37 @@ expand_function_start (tree subr, int parms_have_cleanups)
 
   /* Initialize rtx for parameters and local variables.
      In some cases this requires emitting insns.  */
-
   assign_parms (subr);
 
-  /* Copy the static chain now if it wasn't a register.  The delay is to
-     avoid conflicts with the parameter passing registers.  */
+  /* If function gets a static chain arg, store it.  */
+  if (cfun->static_chain_decl)
+    {
+      rtx x;
 
-  if (SMALL_REGISTER_CLASSES && current_function_needs_context)
-    if (GET_CODE (static_chain_incoming_rtx) != REG)
-      emit_move_insn (last_ptr, static_chain_incoming_rtx);
+      expand_var (cfun->static_chain_decl);
+      x = expand_expr (cfun->static_chain_decl, NULL_RTX,
+		       VOIDmode, EXPAND_WRITE);
+      emit_move_insn (x, static_chain_incoming_rtx);
+    }
+
+  /* If the function receives a non-local goto, then store the
+     bits we need to restore the frame pointer.  */
+  if (cfun->nonlocal_goto_save_area)
+    {
+      tree t_save;
+      rtx r_save;
+
+      /* ??? We need to do this save early.  Unfortunately here is
+	 before the frame variable gets declared.  Help out...  */
+      expand_var (TREE_OPERAND (cfun->nonlocal_goto_save_area, 0));
+
+      t_save = build (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
+		      integer_zero_node);
+      r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+      emit_move_insn (r_save, virtual_stack_vars_rtx);
+      update_nonlocal_goto_save_area ();
+    }
 
   /* The following was moved from init_function_start.
      The move is supposed to make sdb output more accurate.  */
@@ -6754,67 +6506,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
   if (GET_CODE (get_last_insn ()) != NOTE)
     emit_note (NOTE_INSN_DELETED);
   parm_birth_insn = get_last_insn ();
-
-  context_display = 0;
-  if (current_function_needs_context)
-    {
-      /* Fetch static chain values for containing functions.  */
-      tem = decl_function_context (current_function_decl);
-      /* Copy the static chain pointer into a pseudo.  If we have
-	 small register classes, copy the value from memory if
-	 static_chain_incoming_rtx is a REG.  */
-      if (tem)
-	{
-	  /* If the static chain originally came in a register, put it back
-	     there, then move it out in the next insn.  The reason for
-	     this peculiar code is to satisfy function integration.  */
-	  if (SMALL_REGISTER_CLASSES
-	      && GET_CODE (static_chain_incoming_rtx) == REG)
-	    emit_move_insn (static_chain_incoming_rtx, last_ptr);
-	  last_ptr = copy_to_reg (static_chain_incoming_rtx);
-	}
-
-      while (tem)
-	{
-	  tree rtlexp = make_node (RTL_EXPR);
-
-	  RTL_EXPR_RTL (rtlexp) = last_ptr;
-	  context_display = tree_cons (tem, rtlexp, context_display);
-	  tem = decl_function_context (tem);
-	  if (tem == 0)
-	    break;
-	  /* Chain through stack frames, assuming pointer to next lexical frame
-	     is found at the place we always store it.  */
-#ifdef FRAME_GROWS_DOWNWARD
-	  last_ptr = plus_constant (last_ptr,
-				    -(HOST_WIDE_INT) GET_MODE_SIZE (Pmode));
-#endif
-	  last_ptr = gen_rtx_MEM (Pmode, memory_address (Pmode, last_ptr));
-	  set_mem_alias_set (last_ptr, get_frame_alias_set ());
-	  last_ptr = copy_to_reg (last_ptr);
-
-	  /* If we are not optimizing, ensure that we know that this
-	     piece of context is live over the entire function.  */
-	  if (! optimize)
-	    save_expr_regs = gen_rtx_EXPR_LIST (VOIDmode, last_ptr,
-						save_expr_regs);
-	}
-    }
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_entry_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
-    }
 
   if (current_function_profile)
     {
@@ -6913,6 +6604,19 @@ use_return_register (void)
   diddle_return_value (do_use_return_reg, NULL);
 }
 
+/* Possibly warn about unused parameters.  */
+void
+do_warn_unused_parameter (tree fn)
+{
+  tree decl;
+
+  for (decl = DECL_ARGUMENTS (fn);
+       decl; decl = TREE_CHAIN (decl))
+    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
+	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
+      warning ("%Junused parameter '%D'", decl, decl);
+}
+
 static GTY(()) rtx initial_trampoline;
 
 /* Generate RTL for the end of the current function.  */
@@ -6920,7 +6624,6 @@ static GTY(()) rtx initial_trampoline;
 void
 expand_function_end (void)
 {
-  tree link;
   rtx clobber_after;
 
   finish_expr_for_function ();
@@ -6942,45 +6645,6 @@ expand_function_end (void)
     }
 #endif
 
-  /* Initialize any trampolines required by this function.  */
-  for (link = trampoline_list; link; link = TREE_CHAIN (link))
-    {
-      tree function = TREE_PURPOSE (link);
-      rtx context ATTRIBUTE_UNUSED = lookup_static_chain (function);
-      rtx tramp = RTL_EXPR_RTL (TREE_VALUE (link));
-#ifdef TRAMPOLINE_TEMPLATE
-      rtx blktramp;
-#endif
-      rtx seq;
-
-#ifdef TRAMPOLINE_TEMPLATE
-      /* First make sure this compilation has a template for
-	 initializing trampolines.  */
-      if (initial_trampoline == 0)
-	{
-	  initial_trampoline
-	    = gen_rtx_MEM (BLKmode, assemble_trampoline_template ());
-	  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
-	}
-#endif
-
-      /* Generate insns to initialize the trampoline.  */
-      start_sequence ();
-      tramp = round_trampoline_addr (XEXP (tramp, 0));
-#ifdef TRAMPOLINE_TEMPLATE
-      blktramp = replace_equiv_address (initial_trampoline, tramp);
-      emit_block_move (blktramp, initial_trampoline,
-		       GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
-#endif
-      trampolines_created = 1;
-      INITIALIZE_TRAMPOLINE (tramp, XEXP (DECL_RTL (function), 0), context);
-      seq = get_insns ();
-      end_sequence ();
-
-      /* Put those insns at entry to the containing function (this one).  */
-      emit_insn_before (seq, tail_recursion_reentry);
-    }
-
   /* If we are doing stack checking and this function makes calls,
      do a stack probe at the start of the function to ensure we have enough
      space for another stack frame.  */
@@ -7001,22 +6665,12 @@ expand_function_end (void)
 	  }
     }
 
-  /* Possibly warn about unused parameters.  */
-  if (warn_unused_parameter)
-    {
-      tree decl;
-
-      for (decl = DECL_ARGUMENTS (current_function_decl);
-	   decl; decl = TREE_CHAIN (decl))
-	if (! TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-          warning ("%Junused parameter '%D'", decl, decl);
-    }
-
-  /* Delete handlers for nonlocal gotos if nothing uses them.  */
-  if (nonlocal_goto_handler_slots != 0
-      && ! current_function_has_nonlocal_label)
-    delete_handlers ();
+  /* Possibly warn about unused parameters.
+     When frontend does unit-at-a-time, the warning is already
+     issued at finalization time.  */
+  if (warn_unused_parameter
+      && !lang_hooks.callgraph.expand_function)
+    do_warn_unused_parameter (current_function_decl);
 
   /* End any sequences that failed to be closed due to syntax errors.  */
   while (in_sequence_p ())
@@ -7072,21 +6726,6 @@ expand_function_end (void)
      structure returning.  */
   if (return_label)
     emit_label (return_label);
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_exit_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
-    }
 
   /* Let except.c know where it should emit the call to unregister
      the function context for sjlj exceptions.  */
@@ -7210,9 +6849,6 @@ expand_function_end (void)
     end_sequence ();
 
     after = emit_insn_after (seq, clobber_after);
-
-    if (clobber_after != after)
-      cfun->x_clobber_return_insn = after;
   }
 
   /* Output the label for the naked return from the function, if one is
@@ -8136,6 +7772,59 @@ init_function_once (void)
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
+}
+
+/* Resets insn_block_boundaries array.  */
+
+void
+reset_block_changes (void)
+{
+  VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
+}
+
+/* Record the boundary for BLOCK.  */
+void
+record_block_change (tree block)
+{
+  int i, n;
+  tree last_block;
+
+  if (!block)
+    return;
+
+  last_block = VARRAY_TOP_TREE (cfun->ib_boundaries_block);
+  VARRAY_POP (cfun->ib_boundaries_block);
+  n = get_max_uid ();
+  for (i = VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block); i < n; i++)
+    VARRAY_PUSH_TREE (cfun->ib_boundaries_block, last_block);
+
+  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, block);
+}
+
+/* Finishes record of boundaries.  */
+void finalize_block_changes (void)
+{
+  record_block_change (DECL_INITIAL (current_function_decl));
+}
+
+/* For INSN return the BLOCK it belongs to.  */ 
+void
+check_block_change (rtx insn, tree *block)
+{
+  unsigned uid = INSN_UID (insn);
+
+  if (uid >= VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block))
+    return;
+
+  *block = VARRAY_TREE (cfun->ib_boundaries_block, uid);
+}
+
+/* Releases the ib_boundaries_block records.  */
+void
+free_block_changes (void)
+{
+  cfun->ib_boundaries_block = NULL;
 }
 
 /* Returns the name of the current function.  */

@@ -255,12 +255,9 @@ match_boz_constant (gfc_expr ** result)
       rname = "octal";
       break;
     case 'x':
-      if (pedantic
-         && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
-                            "constant at %C uses non-standard syntax.")
-             == FAILURE))
-       goto backup;
-
+      if (pedantic)
+       gfc_warning_now ("Hexadecimal constant at %C uses non-standard "
+                        "syntax. Use \"Z\" instead.");
       /* Fall through.  */
     case 'z':
       radix = 16;
@@ -1750,8 +1747,8 @@ gfc_expr_attr (gfc_expr * e)
 /* Match a structure constructor.  The initial symbol has already been
    seen.  */
 
-match
-gfc_match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
+static match
+match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
 {
   gfc_constructor *head, *tail;
   gfc_component *comp;
@@ -1911,7 +1908,7 @@ gfc_match_rvalue (gfc_expr ** result)
       if (sym == NULL)
 	m = MATCH_ERROR;
       else
-        m = gfc_match_structure_constructor (sym, &e);
+        m = match_structure_constructor (sym, &e);
       break;
 
     /* If we're here, then the name is known to be the name of a

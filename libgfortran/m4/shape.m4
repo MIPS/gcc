@@ -23,7 +23,11 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"'
-include(iparm.m4)dnl
+include(types.m4)dnl
+define(rtype_kind, regexp(file, `_i\([0-9]+\)\.', `\1'))dnl
+define(rtype_code,`i'rtype_name)dnl
+define(rtype,get_arraytype(i,rtype_kind))dnl
+define(rtype_name, get_typename(i, rtype_kind))dnl
 
 void
 `__shape_'rtype_kind (rtype * ret, const rtype * array)

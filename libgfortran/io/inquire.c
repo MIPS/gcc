@@ -32,7 +32,7 @@ static char undefined[] = "UNDEFINED";
 /* inquire_via_unit()-- Inquiry via unit number.  The unit might not exist. */
 
 static void
-inquire_via_unit (gfc_unit * u)
+inquire_via_unit (unit_t * u)
 {
   const char *p;
 
@@ -352,7 +352,7 @@ inquire_via_filename (void)
 void
 st_inquire (void)
 {
-  gfc_unit *u;
+  unit_t *u;
 
   library_start ();
 

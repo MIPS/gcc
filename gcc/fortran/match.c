@@ -77,7 +77,7 @@ gfc_match_space (void)
   locus old_loc;
   int c;
 
-  if (gfc_current_form == FORM_FIXED)
+  if (gfc_current_file->form == FORM_FIXED)
     return MATCH_YES;
 
   old_loc = *gfc_current_locus ();
@@ -337,7 +337,7 @@ gfc_match_strings (mstring * a)
 	  if (*p->mp == ' ')
 	    {
 	      /* Space matches 1+ whitespace(s).  */
-	      if ((gfc_current_form == FORM_FREE)
+	      if ((gfc_current_file->form == FORM_FREE)
 		  && gfc_is_whitespace (c))
 		continue;
 
@@ -2338,19 +2338,6 @@ gfc_match_common (void)
 	      goto cleanup;
 	    }
 
-	  if (sym->value != NULL
-	      && (common_name == NULL || !sym->attr.data))
-	    {
-	      if (common_name == NULL)
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "blank COMMON block at %C", sym->name);
-	      else
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "COMMON block '%s' at %C", sym->name,
-			   common_name->name);
-	      goto cleanup;
-	    }
-
 	  if (gfc_add_in_common (&sym->attr, NULL) == FAILURE)
 	    goto cleanup;
 
@@ -2827,7 +2814,6 @@ static match
 var_element (gfc_data_variable * new)
 {
   match m;
-  gfc_symbol *sym, *t;
 
   memset (new, '\0', sizeof (gfc_data_variable));
 
@@ -2838,27 +2824,14 @@ var_element (gfc_data_variable * new)
   if (m != MATCH_YES)
     return m;
 
-  sym = new->expr->symtree->n.sym;
-
-  if(sym->value != NULL)
+  if (new->expr->symtree->n.sym->value != NULL)
     {
       gfc_error ("Variable '%s' at %C already has an initialization",
-		 sym->name);
+		 new->expr->symtree->n.sym->name);
       return MATCH_ERROR;
     }
 
-  if (sym->attr.in_common)
-    /* See if sym is in the blank common block.  */
-    for (t = sym->ns->blank_common; t; t = t->common_next)
-      if (sym == t)
-	{
-	  gfc_error ("DATA statement at %C may not initialize variable "
-		     "'%s' from blank COMMON", sym->name);
-	  return MATCH_ERROR;
-	}
-
-  sym->attr.data = 1;
-
+  new->expr->symtree->n.sym->attr.data = 1;
   return MATCH_YES;
 }
 
@@ -2934,15 +2907,12 @@ match_data_constant (gfc_expr ** result)
   if (gfc_find_symbol (name, NULL, 1, &sym))
     return MATCH_ERROR;
 
-  if (sym == NULL
-      || (sym->attr.flavor != FL_PARAMETER && sym->attr.flavor != FL_DERIVED))
+  if (sym == NULL || sym->attr.flavor != FL_PARAMETER)
     {
       gfc_error ("Symbol '%s' must be a PARAMETER in DATA statement at %C",
 		 name);
       return MATCH_ERROR;
     }
-  else if (sym->attr.flavor == FL_DERIVED)
-    return gfc_match_structure_constructor (sym, result);
 
   *result = gfc_copy_expr (sym->value);
   return MATCH_YES;

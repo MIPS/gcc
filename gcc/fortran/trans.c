@@ -366,7 +366,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
     }
   else
     {
-      /* Tell the compiler that this isn't likely.  */
+      /* Tell the compiler that this isn't likley.  */
       tmp = gfc_chainon_list (NULL_TREE, cond);
       tmp = gfc_chainon_list (tmp, integer_zero_node);
       cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
@@ -377,7 +377,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
 }
 
 
-/* Add a statement to a block.  */
+/* Add a statement to a bock.  */
 
 void
 gfc_add_expr_to_block (stmtblock_t * block, tree expr)
@@ -409,14 +409,13 @@ gfc_add_block_to_block (stmtblock_t * block, stmtblock_t * append)
 
 
 /* Get the current locus.  The structure may not be complete, and should
-   only be used with gfc_set_backend_locus.  */
+   only be used with gfc_set_current_locus.  */
 
 void
 gfc_get_backend_locus (locus * loc)
 {
-  loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
-  loc->lb->linenum = input_line - 1;
-  loc->lb->file = gfc_current_backend_file;
+  loc->line = input_line - 1;
+  loc->file = gfc_current_backend_file;
 }
 
 
@@ -425,9 +424,9 @@ gfc_get_backend_locus (locus * loc)
 void
 gfc_set_backend_locus (locus * loc)
 {
-  input_line = loc->lb->linenum;
-  gfc_current_backend_file = loc->lb->file;
-  input_filename = loc->lb->file->filename;
+  input_line = loc->line + 1;
+  gfc_current_backend_file = loc->file;
+  input_filename = loc->file->filename;
 }
 
 

@@ -599,6 +599,20 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
+/* mudflap specs */
+#ifndef MFWRAP_SPEC
+/* XXX: valid only for GNU ld */
+/* XXX: should exactly match hooks provided by libmudflap.a */
+#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
+ --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
+ --wrap=mmap --wrap=munmap --wrap=alloca\
+} %{fmudflapth: --wrap=pthread_create --wrap=pthread_join --wrap=pthread_exit\
+}} %{fmudflap|fmudflapth: --wrap=main}"
+#endif
+#ifndef MFLIB_SPEC
+#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "
+#endif
+
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
@@ -683,7 +697,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov}\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
+    %{fprofile-arcs|fprofile-generate:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
@@ -719,6 +734,8 @@ static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
+static const char *mfwrap_spec = MFWRAP_SPEC;
+static const char *mflib_spec = MFLIB_SPEC;
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
@@ -753,6 +770,8 @@ static const char *cpp_unique_options =
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
  %{trigraphs} %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
+ %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -778,7 +797,8 @@ static const char *cc1_options =
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
- %{fsyntax-only:-o %j} %{-param*}";
+ %{fsyntax-only:-o %j} %{-param*}\
+ %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -901,6 +921,9 @@ static const struct compiler default_compilers[] =
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
   {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0}, 
+  {".F", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
+  {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran 95", 0, 0, 0}, {".f95", "#Fortran 95", 0, 0, 0},
   {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0}, 
   {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
@@ -1490,6 +1513,8 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
+  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
+  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
@@ -1543,6 +1568,11 @@ static int processing_spec_function;
    various permutations of -shared-libgcc, -shared, and such.  */
 
 #if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
+
+#ifndef USE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 0
+#endif
+
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1551,7 +1581,7 @@ init_gcc_specs (struct obstack *obstack, const char *shared_name,
 
   buf = concat ("%{static|static-libgcc:", static_name, " ", eh_name,
 		"}%{!static:%{!static-libgcc:",
-#ifdef HAVE_LD_AS_NEEDED
+#if USE_LD_AS_NEEDED
 		"%{!shared-libgcc:", static_name,
 		" --as-needed ", shared_name, " --no-as-needed}"
 		"%{shared-libgcc:", shared_name, "%{!shared: ", static_name,
@@ -2240,6 +2270,17 @@ record_temp_file (const char *filename, int always_delete, int fail_delete)
 
 /* Delete all the temporary files whose names we previously recorded.  */
 
+#ifndef DELETE_IF_ORDINARY
+#define DELETE_IF_ORDINARY(NAME,ST,VERBOSE_FLAG)        \
+do                                                      \
+  {                                                     \
+    if (stat (NAME, &ST) >= 0 && S_ISREG (ST.st_mode))  \
+      if (unlink (NAME) < 0)                            \
+	if (VERBOSE_FLAG)                               \
+	  perror_with_name (NAME);                      \
+  } while (0)
+#endif
+
 static void
 delete_if_ordinary (const char *name)
 {
@@ -2256,10 +2297,7 @@ delete_if_ordinary (const char *name)
 
   if (i == 'y' || i == 'Y')
 #endif /* DEBUG */
-    if (stat (name, &st) >= 0 && S_ISREG (st.st_mode))
-      if (unlink (name) < 0)
-	if (verbose_flag)
-	  perror_with_name (name);
+  DELETE_IF_ORDINARY (name, st, verbose_flag);
 }
 
 static void
@@ -6909,20 +6947,21 @@ used_arg (const char *p, int len)
 	= xmalloc (sizeof (struct mswitchstr)
 		   * (n_mdswitches + (n_switches ? n_switches : 1)));
       for (i = 0; i < n_switches; i++)
-	{
-	  int xlen = strlen (switches[i].part1);
-	  for (j = 0; j < cnt; j++)
-	    if (xlen == matches[j].len
-		&& ! strncmp (switches[i].part1, matches[j].str, xlen))
-	      {
-		mswitches[n_mswitches].str = matches[j].replace;
-		mswitches[n_mswitches].len = matches[j].rep_len;
-		mswitches[n_mswitches].replace = (char *) 0;
-		mswitches[n_mswitches].rep_len = 0;
-		n_mswitches++;
-		break;
-	      }
-	}
+	if (switches[i].live_cond != SWITCH_IGNORE)
+	  {
+	    int xlen = strlen (switches[i].part1);
+	    for (j = 0; j < cnt; j++)
+	      if (xlen == matches[j].len
+		  && ! strncmp (switches[i].part1, matches[j].str, xlen))
+		{
+		  mswitches[n_mswitches].str = matches[j].replace;
+		  mswitches[n_mswitches].len = matches[j].rep_len;
+		  mswitches[n_mswitches].replace = (char *) 0;
+		  mswitches[n_mswitches].rep_len = 0;
+		  n_mswitches++;
+		  break;
+		}
+	  }
 
       /* Add MULTILIB_DEFAULTS switches too, as long as they were not present
 	 on the command line nor any options mutually incompatible with

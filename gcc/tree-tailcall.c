@@ -260,16 +260,10 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
   tree dest = TREE_OPERAND (ass, 0);
   tree src = TREE_OPERAND (ass, 1);
   enum tree_code code = TREE_CODE (src);
-  tree src_var = src;
 
-  /* See if this is a simple copy operation of an SSA name to the function
-     result.  In that case we may have a simple tail call.  Ignore type
-     conversions that can never produce extra code between the function
-     call and the function return.  */
-  STRIP_NOPS (src_var);
-  if (TREE_CODE (src_var) == SSA_NAME)
+  if (code == SSA_NAME)
     {
-      if (src_var != *ass_var)
+      if (src != *ass_var)
 	return false;
 
       *ass_var = dest;
@@ -301,7 +295,7 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
   else
     return false;
 
-  switch (code)
+  switch (TREE_CODE (src))
     {
     case PLUS_EXPR:
       /* There should be no previous addition.  TODO -- it should be fairly
@@ -469,15 +463,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	return;
     }
 
-  /* See if this is a tail call we can handle.  */
   ret_var = TREE_OPERAND (stmt, 0);
   if (ret_var
       && TREE_CODE (ret_var) == MODIFY_EXPR)
     {
-      tree ret_op = TREE_OPERAND (ret_var, 1);
-      STRIP_NOPS (ret_op);
       if (!tail_recursion
-	  && TREE_CODE (ret_op) != SSA_NAME)
+	  && TREE_CODE (TREE_OPERAND (ret_var, 1)) != SSA_NAME)
 	return;
 
       if (!process_assignment (ret_var, stmt, bsi, &m, &a, &ass_var))

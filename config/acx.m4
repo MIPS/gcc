@@ -177,16 +177,50 @@ acx_cv_cc_gcc_supports_ada=no
 # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
 # Therefore we must check for the error message as well as an
 # unsuccessful exit.
+# Other compilers, like HP Tru64 UNIX cc, exit successfully when
+# given a .adb file, but produce no object file.  So we must check
+# if an object file was really produced to guard against this.
 errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
-if test x"$errors" = x; then
+if test x"$errors" = x && test -f conftest.$ac_objext; then
   acx_cv_cc_gcc_supports_ada=yes
   break
 fi
 rm -f conftest.*])
 
-if test x$GNATBIND != xno && test x$acx_cv_gcc_supports_ada != xno; then
+if test x$GNATBIND != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
 fi
+])
+
+dnl 'make compare' can be significantly faster, if cmp itself can
+dnl skip bytes instead of using tail.  The test being performed is
+dnl "if cmp --ignore-initial=2 t1 t2 && ! cmp --ignore-initial=1 t1 t2"
+dnl but we need to sink errors and handle broken shells.  We also test
+dnl for the parameter format "cmp file1 file2 skip1 skip2" which is
+dnl accepted by cmp on some systems.
+AC_DEFUN([ACX_PROG_CMP_IGNORE_INITIAL],
+[AC_CACHE_CHECK([how to compare bootstrapped objects], gcc_cv_prog_cmp_skip,
+[ echo abfoo >t1
+  echo cdfoo >t2
+  gcc_cv_prog_cmp_skip='tail +16c $$f1 > tmp-foo1; tail +16c $$f2 > tmp-foo2; cmp tmp-foo1 tmp-foo2'
+  if cmp t1 t2 2 2 > /dev/null 2>&1; then
+    if cmp t1 t2 1 1 > /dev/null 2>&1; then
+      :
+    else
+      gcc_cv_prog_cmp_skip='cmp $$f1 $$f2 16 16'
+    fi
+  fi
+  if cmp --ignore-initial=2 t1 t2 > /dev/null 2>&1; then
+    if cmp --ignore-initial=1 t1 t2 > /dev/null 2>&1; then
+      :
+    else
+      gcc_cv_prog_cmp_skip='cmp --ignore-initial=16 $$f1 $$f2'
+    fi
+  fi
+  rm t1 t2
+])
+do_compare="$gcc_cv_prog_cmp_skip"
+AC_SUBST(do_compare)
 ])

@@ -1,5 +1,5 @@
 /* gtkmenupeer.c -- Native implementation of GtkMenuPeer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -89,7 +89,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_setupAccelGroup
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   (JNIEnv *env, jobject obj, jstring label)
 {
-  GtkWidget *menu_title, *menu;
+  GtkWidget *menu_title, *menu, *toplevel;
   const char *str;
 
   /* Create global reference and save it for future use */
@@ -101,10 +101,21 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_create
   
   menu = gtk_menu_new ();
   
-  menu_title = gtk_menu_item_new_with_label (str);
+  if (str != NULL)
+    menu_title = gtk_menu_item_new_with_label (str);
+  else
+    menu_title = gtk_menu_item_new();
+
   gtk_menu_item_set_submenu (GTK_MENU_ITEM (menu_title), menu);
 
-  gtk_widget_show (menu);
+  /* Allow this menu to grab the pointer. */
+  toplevel = gtk_widget_get_toplevel (menu);
+  if (GTK_IS_WINDOW (toplevel))
+    {
+      gtk_window_group_add_window (global_gtk_window_group,
+                                   GTK_WINDOW(toplevel));
+    }
+
   gtk_widget_show (menu_title);
 
   NSA_SET_PTR (env, obj, menu_title);
@@ -125,8 +136,8 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkMenuPeer_addItem
 
   gdk_threads_enter ();
 
-  menu = GTK_MENU (GTK_MENU_ITEM (ptr1)->submenu);
-  gtk_menu_append (menu, GTK_WIDGET (ptr2));
+  menu = gtk_menu_item_get_submenu(GTK_MENU_ITEM(ptr1));
+  gtk_menu_shell_append (GTK_MENU_SHELL(menu), GTK_WIDGET (ptr2));
 
   if (key)
     {

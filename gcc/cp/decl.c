@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "debug.h"
 #include "timevar.h"
+#include "tree-flow.h"
 
 static tree grokparms (tree, tree *);
 static const char *redeclaration_error_message (tree, tree);
@@ -114,7 +115,6 @@ static tree check_special_function_return_type
 static tree push_cp_library_fn (enum tree_code, tree);
 static tree build_cp_library_fn (tree, enum tree_code, tree);
 static void store_parm_decls (tree);
-static int cp_missing_noreturn_ok_p (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
@@ -498,28 +498,6 @@ poplevel (int keep, int reverse, int functionbody)
       = decls = nreverse (current_binding_level->names);
   else
     decls = current_binding_level->names;
-
-  /* Output any nested inline functions within this block
-     if they weren't already output.  */
-  for (decl = decls; decl; decl = TREE_CHAIN (decl))
-    if (TREE_CODE (decl) == FUNCTION_DECL
-	&& ! TREE_ASM_WRITTEN (decl)
-	&& DECL_INITIAL (decl) != NULL_TREE
-	&& TREE_ADDRESSABLE (decl)
-	&& decl_function_context (decl) == current_function_decl)
-      {
-	/* If this decl was copied from a file-scope decl
-	   on account of a block-scope extern decl,
-	   propagate TREE_ADDRESSABLE to the file-scope decl.  */
-	if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
-	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
-	else
-	  {
-	    push_function_context ();
-	    output_inline_function (decl);
-	    pop_function_context ();
-	  }
-      }
 
   /* When not in function-at-a-time mode, expand_end_bindings will
      warn about unused variables.  But, in function-at-a-time mode
@@ -2406,9 +2384,11 @@ push_switch (tree switch_stmt)
 void
 pop_switch (void)
 {
-  struct cp_switch *cs;
+  struct cp_switch *cs = switch_stack;
 
-  cs = switch_stack;
+  /* Emit warnings as needed.  */
+  c_do_switch_warnings (cs->cases, cs->switch_stmt);
+
   splay_tree_delete (cs->cases);
   switch_stack = switch_stack->next;
   free (cs);
@@ -2878,9 +2858,6 @@ cxx_init_decl_processing (void)
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
 
-  /* Fill in back-end hooks.  */
-  lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
-
   /* Create the global variables.  */
   push_to_top_level ();
 
@@ -3060,7 +3037,8 @@ cxx_init_decl_processing (void)
   start_fname_decls ();
 
   /* Show we use EH for cleanups.  */
-  using_eh_for_cleanups ();
+  if (flag_exceptions)
+    using_eh_for_cleanups ();
 }
 
 /* Generate an initializer for a function naming variable from
@@ -3099,7 +3077,7 @@ cp_fname_init (const char* name, tree *type_p)
    decl, NAME is the initialization string and TYPE_DEP indicates whether
    NAME depended on the type of the function. We make use of that to detect
    __PRETTY_FUNCTION__ inside a template fn. This is being done
-   lazily at the point of first use, so we musn't push the decl now.  */
+   lazily at the point of first use, so we mustn't push the decl now.  */
 
 static tree
 cp_make_fname_decl (tree id, int type_dep)
@@ -3727,8 +3705,10 @@ start_decl (tree declarator,
       else
 	{
 	  tree field = check_classfn (context, decl,
-				      processing_template_decl
-				      > template_class_depth (context));
+				      (processing_template_decl
+				       > template_class_depth (context))
+				      ? current_template_parms
+				      : NULL_TREE);
 	  if (field && duplicate_decls (decl, field))
 	    decl = field;
 	}
@@ -4151,8 +4131,7 @@ reshape_init (tree type, tree *initp)
      enclosed elements.  Advance past the brace-enclosed initializer
      now.  */
   if (TREE_CODE (old_init_value) == CONSTRUCTOR
-      && TREE_TYPE (old_init_value) == NULL_TREE
-      && TREE_HAS_CONSTRUCTOR (old_init_value))
+      && BRACE_ENCLOSED_INITIALIZER_P (old_init_value))
     {
       *initp = TREE_CHAIN (old_init);
       TREE_CHAIN (old_init) = NULL_TREE;
@@ -4222,8 +4201,7 @@ reshape_init (tree type, tree *initp)
   else
     {
       /* Build a CONSTRUCTOR to hold the contents of the aggregate.  */  
-      new_init = build_constructor (type, NULL_TREE);
-      TREE_HAS_CONSTRUCTOR (new_init) = 1;
+      new_init = build_constructor (NULL_TREE, NULL_TREE);
 
       if (CLASS_TYPE_P (type))
 	{
@@ -4283,15 +4261,30 @@ reshape_init (tree type, tree *initp)
 		}
 	    }
 	}
-      else if ((TREE_CODE (type) == ARRAY_TYPE)|| (TREE_CODE (type) == VECTOR_TYPE))
+      else if (TREE_CODE (type) == ARRAY_TYPE
+	       || TREE_CODE (type) == VECTOR_TYPE)
 	{
 	  tree index;
 	  tree max_index;
 
 	  /* If the bound of the array is known, take no more initializers
 	     than are allowed.  */
-	  max_index = ((TYPE_DOMAIN (type) && (TREE_CODE (type) == ARRAY_TYPE))
-		       ? array_type_nelts (type) : NULL_TREE);
+	  max_index = NULL_TREE;
+	  if (TREE_CODE (type) == ARRAY_TYPE)
+	    {
+	      if (TYPE_DOMAIN (type))
+		max_index = array_type_nelts (type);
+	    }
+	  else
+	    {
+	      /* For a vector, the representation type is a struct
+		 containing a single member which is an array of the
+		 appropriate size.  */
+	      tree rtype = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+	      if (rtype && TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (rtype))))
+		max_index = array_type_nelts (TREE_TYPE (TYPE_FIELDS (rtype)));
+	    }
+
 	  /* Loop through the array elements, gathering initializers.  */
 	  for (index = size_zero_node;
 	       *initp && (!max_index || !tree_int_cst_lt (max_index, index));
@@ -4399,7 +4392,8 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     init = grok_reference_init (decl, type, init, cleanup);
   else if (init)
     {
-      if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
+      if (TREE_CODE (init) == CONSTRUCTOR 
+	  && BRACE_ENCLOSED_INITIALIZER_P (init))
 	{
 	  /* [dcl.init] paragraph 13,
 	     If T is a scalar type, then a declaration of the form
@@ -4424,15 +4418,13 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	 array size from the initializer.  */
       maybe_deduce_size_from_array_init (decl, init);
       type = TREE_TYPE (decl);
-      if (TREE_CODE (init) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (init))
-	TREE_TYPE (init) = type;
 
       if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
 	{
 	  if (TREE_CODE (type) == ARRAY_TYPE)
 	    goto initialize_aggr;
 	  else if (TREE_CODE (init) == CONSTRUCTOR
-		   && TREE_HAS_CONSTRUCTOR (init))
+		   && BRACE_ENCLOSED_INITIALIZER_P (init))
 	    {
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
@@ -4530,7 +4522,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	 asm-specification, indicates that the variable should be
 	 placed in a particular register.  */
       if (DECL_REGISTER (decl))
-	DECL_C_HARD_REGISTER (decl) = 1;
+	DECL_HARD_REGISTER (decl) = 1;
     }
 
   /* We don't create any RTL for local variables.  */
@@ -5679,8 +5671,10 @@ grokfndecl (tree ctype,
       tree old_decl;
 
       old_decl = check_classfn (ctype, decl,
-				processing_template_decl
-				> template_class_depth (ctype));
+				(processing_template_decl
+				 > template_class_depth (ctype))
+				? current_template_parms
+				: NULL_TREE);
 
       if (old_decl && TREE_CODE (old_decl) == TEMPLATE_DECL)
 	/* Because grokfndecl is always supposed to return a
@@ -7267,6 +7261,13 @@ grokdeclarator (tree declarator,
 
 	    type = create_array_type_for_decl (dname, type, size);
 
+	    if (declarator
+		&& (TREE_CODE (declarator) == INDIRECT_REF
+		    || TREE_CODE (declarator) == ADDR_EXPR))
+	      /* We can never complete an array type which is the target of a
+		 pointer, so go ahead and lay it out.  */
+	      layout_type (type);
+
 	    ctype = NULL_TREE;
 	  }
 	  break;
@@ -7752,6 +7753,7 @@ grokdeclarator (tree declarator,
     }
 
   if (declarator == NULL_TREE
+      || TREE_CODE (declarator) == ERROR_MARK
       || TREE_CODE (declarator) == IDENTIFIER_NODE
       || (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
 	  && (TREE_CODE (type) == FUNCTION_TYPE
@@ -9919,7 +9921,9 @@ build_enumerator (tree name, tree value, tree enumtype)
     decl = build_decl (CONST_DECL, name, type);
 
   DECL_CONTEXT (decl) = FROB_CONTEXT (context);
-  TREE_CONSTANT (decl) = TREE_READONLY (decl) = 1;
+  TREE_CONSTANT (decl) = 1;
+  TREE_INVARIANT (decl) = 1;
+  TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
   if (context && context == current_class_type)
@@ -10714,10 +10718,8 @@ finish_function (int flags)
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
 
-  /* Set up the named return value optimization, if we can.  Here, we
-     eliminate the copy from the nrv into the RESULT_DECL and any cleanup
-     for the nrv.  genrtl_start_function and declare_return_variable
-     handle making the nrv and RESULT_DECL share space.  */
+  /* Set up the named return value optimization, if we can.  Candidate
+     variables are selected in check_return_value.  */
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
@@ -10734,16 +10736,9 @@ finish_function (int flags)
 	  /* Skip the artificial function body block.  */
 	  && (outer = BLOCK_SUBBLOCKS (BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl))),
 	      chain_member (r, BLOCK_VARS (outer))))
-	{
-	  
-	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fndecl));
-	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					nullify_returns_r, r);
-	}
-      else
-	/* Clear it so genrtl_start_function and declare_return_variable
-	   know we're not optimizing.  */
-	current_function_return_value = NULL_TREE;
+	finalize_nrv (&DECL_SAVED_TREE (fndecl), r, DECL_RESULT (fndecl));
+
+      current_function_return_value = NULL_TREE;
     }
 
   /* Remember that we were in class scope.  */
@@ -10786,9 +10781,21 @@ finish_function (int flags)
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
 
-  /* We're leaving the context of this function, so zap cfun.
-     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
-     tree_rest_of_compilation.  */
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
+  /* Genericize before inlining.  */
+  if (!processing_template_decl)
+    {
+      c_genericize (fndecl);
+
+      /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
+      c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+    }
+
+  /* We're leaving the context of this function, so zap cfun.  It's still in
+     DECL_STRUCT_FUNCTION, and we'll restore it in tree_rest_of_compilation.  */
   cfun = NULL;
   current_function_decl = NULL;
 
@@ -11162,7 +11169,7 @@ build_void_list_node (void)
   return t;
 }
 
-static int
+bool
 cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */

@@ -101,16 +101,22 @@ package body Prj.Proc is
    --  recursively for all imported projects and a extended project, if any.
    --  Then process the declarative items of the project.
 
-   procedure Check (Project : in out Project_Id; Trusted_Mode : Boolean);
+   procedure Check
+     (Project           : in out Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean);
    --  Set all projects to not checked, then call Recursive_Check for the
    --  main project Project. Project is set to No_Project if errors occurred.
-   --  See Prj.Nmsc.Ada_Check for information on Trusted_Mode.
+   --  See Prj.Nmsc.Ada_Check for information on Follow_Links.
 
-   procedure Recursive_Check (Project : Project_Id; Trusted_Mode : Boolean);
+   procedure Recursive_Check
+     (Project           : Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean);
    --  If Project is not marked as checked, mark it as checked, call
    --  Check_Naming_Scheme for the project, then call itself for a
    --  possible extended project and all the imported projects of Project.
-   --  See Prj.Nmsc.Ada_Check for information on Trusted_Mode
+   --  See Prj.Nmsc.Ada_Check for information on Follow_Links
 
    ---------
    -- Add --
@@ -176,7 +182,8 @@ package body Prj.Proc is
                         Kind     => Single,
                         Location => No_Location,
                         Default  => True,
-                        Value    => Empty_String);
+                        Value    => Empty_String,
+                        Index    => 0);
 
                   --  List attributes have a default value of nil list
 
@@ -207,7 +214,10 @@ package body Prj.Proc is
    -- Check --
    -----------
 
-   procedure Check (Project : in out Project_Id; Trusted_Mode : Boolean) is
+   procedure Check
+     (Project           : in out Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean) is
    begin
       --  Make sure that all projects are marked as not checked
 
@@ -215,7 +225,8 @@ package body Prj.Proc is
          Projects.Table (Index).Checked := False;
       end loop;
 
-      Recursive_Check (Project, Trusted_Mode);
+      Recursive_Check (Project, Process_Languages, Follow_Links);
+
    end Check;
 
    ----------------
@@ -265,6 +276,7 @@ package body Prj.Proc is
 
                   when Single =>
                      Add (Result.Value, String_Value_Of (The_Current_Term));
+                     Result.Index := Source_Index_Of (The_Current_Term);
 
                   when List =>
 
@@ -285,6 +297,7 @@ package body Prj.Proc is
                      Last := String_Elements.Last;
                      String_Elements.Table (Last) :=
                        (Value    => String_Value_Of (The_Current_Term),
+                        Index    => Source_Index_Of (The_Current_Term),
                         Display_Value => No_Name,
                         Location => Location_Of (The_Current_Term),
                         Flag     => False,
@@ -332,7 +345,8 @@ package body Prj.Proc is
                         Display_Value => No_Name,
                         Location => Value.Location,
                         Flag     => False,
-                        Next     => Nil_String);
+                        Next     => Nil_String,
+                        Index    => Value.Index);
 
                      loop
                         --  Add the other element of the literal string list
@@ -360,7 +374,8 @@ package body Prj.Proc is
                            Display_Value => No_Name,
                            Location => Value.Location,
                            Flag     => False,
-                           Next     => Nil_String);
+                           Next     => Nil_String,
+                           Index    => Value.Index);
                      end loop;
 
                   end if;
@@ -550,7 +565,8 @@ package body Prj.Proc is
                                  Kind     => Single,
                                  Location => No_Location,
                                  Default  => True,
-                                 Value    => Empty_String);
+                                 Value    => Empty_String,
+                                 Index    => 0);
                            end if;
                         end if;
                      end;
@@ -613,7 +629,8 @@ package body Prj.Proc is
                                  Display_Value => No_Name,
                                  Location => Location_Of (The_Current_Term),
                                  Flag     => False,
-                                 Next     => Nil_String);
+                                 Next     => Nil_String,
+                                 Index    => 0);
 
                            when List =>
 
@@ -643,7 +660,8 @@ package body Prj.Proc is
                                        Location => Location_Of
                                                           (The_Current_Term),
                                        Flag     => False,
-                                       Next     => Nil_String);
+                                       Next     => Nil_String,
+                                       Index    => 0);
                                     The_List :=
                                       String_Elements.Table (The_List).Next;
                                  end loop;
@@ -715,7 +733,8 @@ package body Prj.Proc is
                            Display_Value => No_Name,
                            Location => Location_Of (The_Current_Term),
                            Flag     => False,
-                           Next     => Nil_String);
+                           Next     => Nil_String,
+                           Index    => 0);
 
                   end case;
                end;
@@ -817,7 +836,8 @@ package body Prj.Proc is
       Success           : out Boolean;
       From_Project_Node : Project_Node_Id;
       Report_Error      : Put_Line_Access;
-      Trusted_Mode      : Boolean := False)
+      Process_Languages : Languages_Processed := Ada_Language;
+      Follow_Links      : Boolean := True)
    is
       Obj_Dir    : Name_Id;
       Extending  : Project_Id;
@@ -841,7 +861,7 @@ package body Prj.Proc is
          Extended_By       => No_Project);
 
       if Project /= No_Project then
-         Check (Project, Trusted_Mode);
+         Check (Project, Process_Languages, Follow_Links);
       end if;
 
       --  If main project is an extending all project, set the object
@@ -1571,6 +1591,7 @@ package body Prj.Proc is
 
                               Array_Elements.Table (The_Array_Element) :=
                                 (Index  => Index_Name,
+                                 Src_Index => Source_Index_Of (Current_Item),
                                  Index_Case_Sensitive =>
                                  not Case_Insensitive (Current_Item),
                                  Value  => New_Value,
@@ -1755,7 +1776,11 @@ package body Prj.Proc is
    -- Recursive_Check --
    ---------------------
 
-   procedure Recursive_Check (Project : Project_Id; Trusted_Mode : Boolean) is
+   procedure Recursive_Check
+     (Project           : Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean)
+   is
       Data                  : Project_Data;
       Imported_Project_List : Project_List := Empty_Project_List;
 
@@ -1776,7 +1801,7 @@ package body Prj.Proc is
          --  Call itself for a possible extended project.
          --  (if there is no extended project, then nothing happens).
 
-         Recursive_Check (Data.Extends, Trusted_Mode);
+         Recursive_Check (Data.Extends, Process_Languages, Follow_Links);
 
          --  Call itself for all imported projects
 
@@ -1784,7 +1809,7 @@ package body Prj.Proc is
          while Imported_Project_List /= Empty_Project_List loop
             Recursive_Check
               (Project_Lists.Table (Imported_Project_List).Project,
-               Trusted_Mode);
+               Process_Languages, Follow_Links);
             Imported_Project_List :=
               Project_Lists.Table (Imported_Project_List).Next;
          end loop;
@@ -1795,7 +1820,13 @@ package body Prj.Proc is
             Write_Line ("""");
          end if;
 
-         Prj.Nmsc.Ada_Check (Project, Error_Report, Trusted_Mode);
+         case Process_Languages is
+            when Ada_Language =>
+               Prj.Nmsc.Ada_Check (Project, Error_Report, Follow_Links);
+
+            when Other_Languages =>
+               Prj.Nmsc.Other_Languages_Check (Project, Error_Report);
+         end case;
       end if;
    end Recursive_Check;
 

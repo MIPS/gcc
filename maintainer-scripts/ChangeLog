@@ -1,3 +1,43 @@
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs: Also remove old .gz files from subdirectories
+	on the 15th of the month.
+
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs (MANUALS): Add gfortran.
+
+2004-05-13  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* update_web_docs: Fix generation of Ada docs.
+
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_version (ADD_BRANCHES): Remove tree-ssa-20020619-branch.
+
+	* gcc_release (DIFF): Remove -3 option.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* gcc_release: Add gcc-fortran.
+	* snapshot-README: Ditto.
+	* snapshot-index.html: Ditto.
+
+2004-05-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Move GCC 3.4 snapshots from Wednesday afternoon to
+	Friday night, where gcc.gnu.org has less load.
+	
+2004-05-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Adjust temporary directory used for snapshot generation.
+	Move GCC 3.3 snapshots to Wednesday 22:32, where gcc.gnu.org has 
+	less load.
+
+2004-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_sources): Do not use "-F" to tag sources.
+
 2004-04-07  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc_release (build_sources): Do not use "-r" and "-D" at the

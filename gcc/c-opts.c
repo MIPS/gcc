@@ -101,7 +101,7 @@ static size_t deferred_count;
 /* Number of deferred options scanned for -include.  */
 static size_t include_cursor;
 
-/* Permit Fotran front-end options.  */
+/* Permit Fortran front-end options.  */
 static bool permit_fortran_options;
 
 static void set_Wimplicit (int);
@@ -162,6 +162,7 @@ c_common_missing_argument (const char *opt, size_t code)
     case OPT_idirafter:
     case OPT_isysroot:
     case OPT_isystem:
+    case OPT_iquote:
       error ("missing path after \"%s\"", opt);
       break;
 
@@ -303,6 +304,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	    error ("-I- specified twice");
 	  quote_chain_split = true;
 	  split_quote_chain ();
+	  inform ("obsolete option -I- used, please use -iquote instead");
 	}
       break;
 
@@ -731,11 +733,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->dollars_in_ident = value;
       break;
 
-    case OPT_fdump_:
-      if (!dump_switch_p (arg))
-	result = 0;
-      break;
-
     case OPT_ffreestanding:
       value = !value;
       /* Fall through....  */
@@ -954,6 +951,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       iprefix = arg;
       break;
 
+    case OPT_iquote:
+      add_path (xstrdup (arg), QUOTE, 0);
+      break;
+
     case OPT_isysroot:
       sysroot = arg;
       break;
@@ -1094,17 +1095,13 @@ c_common_post_options (const char **pfilename)
 
   flag_inline_trees = 1;
 
-  /* Use tree inlining if possible.  Function instrumentation is only
-     done in the RTL level, so we disable tree inlining.  */
-  if (! flag_instrument_function_entry_exit)
+  /* Use tree inlining.  */
+  if (!flag_no_inline)
+    flag_no_inline = 1;
+  if (flag_inline_functions)
     {
-      if (!flag_no_inline)
-	flag_no_inline = 1;
-      if (flag_inline_functions)
-	{
-	  flag_inline_trees = 2;
-	  flag_inline_functions = 0;
-	}
+      flag_inline_trees = 2;
+      flag_inline_functions = 0;
     }
 
   /* -Wextra implies -Wsign-compare, but not if explicitly
@@ -1171,8 +1168,12 @@ c_common_post_options (const char **pfilename)
 
   *pfilename = this_input_filename
     = cpp_read_main_file (parse_in, in_fnames[0]);
+  /* Don't do any compilation or preprocessing if there is no input file.  */
   if (this_input_filename == NULL)
-    return true;
+    {
+      errorcount++;
+      return false;
+    }
 
   if (flag_working_directory
       && flag_preprocess_only && ! flag_no_line_commands)

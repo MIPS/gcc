@@ -48,16 +48,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
+#include "tree-mudflap.h"
 #include "cgraph.h"
 #include "cfglayout.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
 
 #ifndef ASM_STABS_OP
@@ -228,7 +225,6 @@ unlikely_text_section (void)
 	{
 	  in_section = in_unlikely_executed_text;
 	  fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-	  ASM_OUTPUT_ALIGN (asm_out_file, 2);
 	}
       
       if (!unlikely_section_label_printed)
@@ -236,6 +232,10 @@ unlikely_text_section (void)
 	  fprintf (asm_out_file, "__%s_unlikely_section:\n", 
 		   current_function_name ());
 	  unlikely_section_label_printed = true;
+
+	  /* Make sure that we have appropriate alignment for instructions
+	     in this section.  */
+	  assemble_align (FUNCTION_BOUNDARY);
 	}
     }
 }
@@ -779,6 +779,11 @@ make_decl_rtl (tree decl, const char *asmspec)
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
       targetm.encode_section_info (decl, DECL_RTL (decl), false);
+
+      /* Make this function static known to the mudflap runtime.  */
+      if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+	mudflap_enqueue_decl (decl);
+
       return;
     }
 
@@ -879,6 +884,10 @@ make_decl_rtl (tree decl, const char *asmspec)
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
   targetm.encode_section_info (decl, DECL_RTL (decl), true);
+
+  /* Make this function static known to the mudflap runtime.  */
+  if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+    mudflap_enqueue_decl (decl);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -1771,6 +1780,8 @@ assemble_static_space (unsigned HOST_WIDE_INT size)
    This is done at most once per compilation.
    Returns an RTX for the address of the template.  */
 
+static GTY(()) rtx initial_trampoline;
+
 #ifdef TRAMPOLINE_TEMPLATE
 rtx
 assemble_trampoline_template (void)
@@ -1779,6 +1790,9 @@ assemble_trampoline_template (void)
   const char *name;
   int align;
   rtx symbol;
+
+  if (initial_trampoline)
+    return initial_trampoline;
 
   /* By default, put trampoline templates in read-only data section.  */
 
@@ -1804,7 +1818,10 @@ assemble_trampoline_template (void)
   symbol = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
 
-  return symbol;
+  initial_trampoline = gen_rtx_MEM (BLKmode, symbol);
+  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
+
+  return initial_trampoline;
 }
 #endif
 
@@ -2299,6 +2316,7 @@ compare_constant (const tree t1, const tree t2)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:
@@ -2403,6 +2421,10 @@ build_constant_desc (tree exp)
 
   desc = ggc_alloc (sizeof (*desc));
   desc->value = copy_constant (exp);
+
+  /* Propagate marked-ness to copied constant. */
+  if (flag_mudflap && mf_marked_p (exp))
+    mf_mark (desc->value);
 
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
@@ -2549,15 +2571,8 @@ output_constant_def_contents (rtx symbol)
 
   /* Output the value of EXP.  */
   output_constant (exp, size, align);
-}
-
-/* A constant which was deferred in its original location has been
-   inserted by the RTL inliner into a different function.  The
-   current function's deferred constant count must be incremented.  */
-void
-notice_rtl_inlining_of_deferred_constant (void)
-{
-  n_deferred_constants++;
+  if (flag_mudflap)
+    mudflap_enqueue_constant (exp);
 }
 
 /* Look up EXP in the table of constant descriptors.  Return the rtl
@@ -4591,7 +4606,12 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
-    return SECCAT_RODATA_MERGE_STR;
+    {
+      if (flag_mudflap) /* or !flag_merge_constants */
+        return SECCAT_RODATA;
+      else
+	return SECCAT_RODATA_MERGE_STR;
+    }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL
@@ -5016,6 +5036,9 @@ default_file_start (void)
    which emits a special section directive used to indicate whether or
    not this object file needs an executable stack.  This is primarily
    a GNU extension to ELF but could be used on other targets.  */
+
+int trampolines_created;
+
 void
 file_end_indicate_exec_stack (void)
 {

@@ -767,6 +767,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
 
+  /* Free uid_shuid before reallocating it.   */
+  free (uid_shuid);
+  
   uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
 
   if (max_labelno != max_label_num ())
@@ -1409,7 +1412,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   int sval = current_function_returns_struct;
   rtx svrtx = targetm.calls.struct_value_rtx (TREE_TYPE (current_function_decl), 1);
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) || defined(STATIC_CHAIN_REGNUM)
-  int cxt = current_function_needs_context;
+  int cxt = cfun->static_chain_decl != NULL;
 #endif
 #endif /* ASM_OUTPUT_REG_PUSH */
 
@@ -1516,11 +1519,9 @@ final (rtx first, FILE *file, int optimize, int prescan)
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
 	  {
-	    if ((RTX_INTEGRATED_P (insn)
-		 && strcmp (NOTE_SOURCE_FILE (insn), main_input_filename) != 0)
-		|| (last != 0
-		    && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
-		    && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)))
+	    if (last != 0
+		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
+		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last))
 	      {
 		delete_insn (insn);	/* Use delete_note.  */
 		continue;
@@ -1713,7 +1714,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  
 	case NOTE_INSN_BASIC_BLOCK:
 	  
-	  /* If we are performing the optimization that paritions
+	  /* If we are performing the optimization that partitions
 	     basic blocks into hot & cold sections of the .o file,
 	     then at the start of each new basic block, before
 	     beginning to write code for the basic block, we need to

@@ -74,10 +74,14 @@ static GTY(()) struct builtin_record java_builtins[] =
   { { "java.lang.Math" }, { "min" }, min_builtin, 0 },
   { { "java.lang.Math" }, { "max" }, max_builtin, 0 },
   { { "java.lang.Math" }, { "abs" }, abs_builtin, 0 },
+  { { "java.lang.Math" }, { "acos" }, NULL, BUILT_IN_ACOS },
+  { { "java.lang.Math" }, { "asin" }, NULL, BUILT_IN_ASIN },
   { { "java.lang.Math" }, { "atan" }, NULL, BUILT_IN_ATAN },
   { { "java.lang.Math" }, { "atan2" }, NULL, BUILT_IN_ATAN2 },
+  { { "java.lang.Math" }, { "ceil" }, NULL, BUILT_IN_CEIL },
   { { "java.lang.Math" }, { "cos" }, NULL, BUILT_IN_COS },
   { { "java.lang.Math" }, { "exp" }, NULL, BUILT_IN_EXP },
+  { { "java.lang.Math" }, { "floor" }, NULL, BUILT_IN_FLOOR },
   { { "java.lang.Math" }, { "log" }, NULL, BUILT_IN_LOG },
   { { "java.lang.Math" }, { "pow" }, NULL, BUILT_IN_POW },
   { { "java.lang.Math" }, { "sin" }, NULL, BUILT_IN_SIN },
@@ -120,7 +124,7 @@ java_build_function_call_expr (tree fn, tree arglist)
 
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
-		     call_expr, arglist);
+		     call_expr, arglist, NULL_TREE);
   TREE_SIDE_EFFECTS (call_expr) = 1;
   return fold (call_expr);
 }
@@ -186,14 +190,22 @@ initialize_builtins (void)
   define_builtin (BUILT_IN_FMODF, "__builtin_fmodf",
 		  float_ftype_float_float, "fmodf");
 
+  define_builtin (BUILT_IN_ACOS, "__builtin_acos",
+		  double_ftype_double, "_ZN4java4lang4Math4acosEd");
+  define_builtin (BUILT_IN_ASIN, "__builtin_asin",
+		  double_ftype_double, "_ZN4java4lang4Math4asinEd");
   define_builtin (BUILT_IN_ATAN, "__builtin_atan",
 		  double_ftype_double, "_ZN4java4lang4Math4atanEd");
   define_builtin (BUILT_IN_ATAN2, "__builtin_atan2",
 		  double_ftype_double_double, "_ZN4java4lang4Math5atan2Edd");
+  define_builtin (BUILT_IN_CEIL, "__builtin_ceil",
+		  double_ftype_double, "_ZN4java4lang4Math4ceilEd");
   define_builtin (BUILT_IN_COS, "__builtin_cos",
 		  double_ftype_double, "_ZN4java4lang4Math3cosEd");
   define_builtin (BUILT_IN_EXP, "__builtin_exp",
 		  double_ftype_double, "_ZN4java4lang4Math3expEd");
+  define_builtin (BUILT_IN_FLOOR, "__builtin_floor",
+		  double_ftype_double, "_ZN4java4lang4Math5floorEd");
   define_builtin (BUILT_IN_LOG, "__builtin_log",
 		  double_ftype_double, "_ZN4java4lang4Math3logEd");
   define_builtin (BUILT_IN_POW, "__builtin_pow",

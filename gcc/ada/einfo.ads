@@ -2633,6 +2633,12 @@ package Einfo is
 --       Applies to subprograms and subprogram types. Yields the number of
 --       formals as a value of type Pos.
 
+--    Original_Access_Type (Node21)
+--       Present in access to subprogram types. Anonymous access to protected
+--       subprogram types are replaced by an occurrence of an internal access
+--       to subprogram type. This field links the replacement entity with the
+--       original entity.
+
 --    Original_Array_Type (Node21)
 --       Present in modular types and array types and subtypes. Set only
 --       if the Is_Packed_Array_Type flag is set, indicating that the type
@@ -3113,7 +3119,11 @@ package Einfo is
    --  The following three entity kinds are introduced by the corresponding
    --  type definitions:
 
-   --    E_Access_Type,  E_General_Access_Type,  E_Anonymous_Access_Type.
+   --    E_Access_Type,
+   --    E_General_Access_Type,
+   --    E_Anonymous_Access_Subprogram_Type,
+   --    E_Anonymous_Access_Protected_Subprogram_Type
+   --    E_Anonymous_Access_Type.
 
    --  In addition, we define the kind E_Allocator_Type to label
    --  allocators. This is because special resolution rules apply to this
@@ -3321,6 +3331,14 @@ package Einfo is
       --  and a protected operation within, and have different compile-time
       --  and run-time properties than other access to subprograms.
 
+      E_Anonymous_Access_Subprogram_Type,
+      --  An anonymous access to subprogram type, created by an access to
+      --  subprogram declaration.
+
+      E_Anonymous_Access_Protected_Subprogram_Type,
+      --  An anonymous access to protected subprogram type, created by an
+      --  access to subprogram declaration.
+
       E_Anonymous_Access_Type,
       --  An anonymous access type created by an access parameter or access
       --  discriminant.
@@ -3365,18 +3383,19 @@ package Einfo is
       --  A record subtype, created by a record subtype declaration.
 
       E_Record_Type_With_Private,
-      --  Used for types defined by a private extension declaration. Includes
-      --  the fields for both private types and for record types (with the
-      --  sole exception of Corresponding_Concurrent_Type which is obviously
-      --  not needed). This entity is considered to be both a record type and
+      --  Used for types defined by a private extension declaration, and
+      --  for tagged private types. Includes the fields for both private
+      --  types and for record types (with the sole exception of
+      --  Corresponding_Concurrent_Type which is obviously not needed).
+      --  This entity is considered to be both a record type and
       --  a private type.
 
       E_Record_Subtype_With_Private,
       --  A subtype of a type defined by a private extension declaration.
 
       E_Private_Type,
-      --  A private type, created by a private type declaration that does
-      --  not have the keyword limited.
+      --  A private type, created by a private type declaration
+      --  that has neither the keyword limited nor the keyword tagged.
 
       E_Private_Subtype,
       --  A subtype of a private type, created by a subtype declaration used
@@ -3384,7 +3403,7 @@ package Einfo is
 
       E_Limited_Private_Type,
       --  A limited private type, created by a private type declaration that
-      --  has the keyword limited.
+      --  has the keyword limited, but not the keyword tagged.
 
       E_Limited_Private_Subtype,
       --  A subtype of a limited private type, created by a subtype declaration
@@ -3542,6 +3561,8 @@ package Einfo is
    --  E_General_Access_Type
    --  E_Access_Subprogram_Type
    --  E_Access_Protected_Subprogram_Type
+   --  E_Anonymous_Access_Subprogram_Type
+   --  E_Anonymous_Access_Protected_Subprogram_Type
        E_Anonymous_Access_Type;
 
    subtype Array_Kind                  is Entity_Kind range
@@ -3637,6 +3658,8 @@ package Einfo is
    --  E_General_Access_Type
    --  E_Access_Subprogram_Type
    --  E_Access_Protected_Subprogram_Type
+   --  E_Anonymous_Access_Subprogram_Type
+   --  E_Anonymous_Access_Protected_Subprogram_Type
        E_Anonymous_Access_Type;
 
    subtype Enumeration_Kind            is Entity_Kind range
@@ -3809,6 +3832,8 @@ package Einfo is
    --  E_General_Access_Type
    --  E_Access_Subprogram_Type,
    --  E_Access_Protected_Subprogram_Type
+   --  E_Anonymous_Access_Subprogram_Type
+   --  E_Anonymous_Access_Protected_Subprogram_Type
    --  E_Anonymous_Access_Type
    --  E_Array_Type
    --  E_Array_Subtype
@@ -3994,12 +4019,14 @@ package Einfo is
    --  E_Access_Protected_Subprogram_Type
    --    Equivalent_Type               (Node18)
    --    Directly_Designated_Type      (Node20)
+   --    Original_Access_Type          (Node21)
    --    Needs_No_Actuals              (Flag22)
    --    (plus type attributes)
 
    --  E_Access_Subprogram_Type
    --    Equivalent_Type               (Node18)   (remote types only)
    --    Directly_Designated_Type      (Node20)
+   --    Original_Access_Type          (Node21)
    --    Needs_No_Actuals              (Flag22)
    --    (plus type attributes)
 
@@ -4025,6 +4052,8 @@ package Einfo is
    --    Directly_Designated_Type      (Node20)
    --    (plus type attributes)
 
+   --  E_Anonymous_Access_Subprogram_Type
+   --  E_Anonymous_Access_Protected_Subprogram_Type
    --  E_Anonymous_Access_Type
    --    Storage_Size_Variable         (Node15)   ??? is this needed ???
    --    Directly_Designated_Type      (Node20)
@@ -5180,6 +5209,7 @@ package Einfo is
    function Normalized_Position                (Id : E) return U;
    function Normalized_Position_Max            (Id : E) return U;
    function Object_Ref                         (Id : E) return E;
+   function Original_Access_Type               (Id : E) return E;
    function Original_Array_Type                (Id : E) return E;
    function Original_Record_Component          (Id : E) return E;
    function Packed_Array_Type                  (Id : E) return E;
@@ -5653,6 +5683,7 @@ package Einfo is
    procedure Set_Normalized_Position           (Id : E; V : U);
    procedure Set_Normalized_Position_Max       (Id : E; V : U);
    procedure Set_Object_Ref                    (Id : E; V : E);
+   procedure Set_Original_Access_Type          (Id : E; V : E);
    procedure Set_Original_Array_Type           (Id : E; V : E);
    procedure Set_Original_Record_Component     (Id : E; V : E);
    procedure Set_Packed_Array_Type             (Id : E; V : E);
@@ -6180,6 +6211,7 @@ package Einfo is
    pragma Inline (Normalized_Position);
    pragma Inline (Normalized_Position_Max);
    pragma Inline (Object_Ref);
+   pragma Inline (Original_Access_Type);
    pragma Inline (Original_Array_Type);
    pragma Inline (Original_Record_Component);
    pragma Inline (Packed_Array_Type);
@@ -6486,6 +6518,7 @@ package Einfo is
    pragma Inline (Set_Normalized_Position);
    pragma Inline (Set_Normalized_Position_Max);
    pragma Inline (Set_Object_Ref);
+   pragma Inline (Set_Original_Access_Type);
    pragma Inline (Set_Original_Array_Type);
    pragma Inline (Set_Original_Record_Component);
    pragma Inline (Set_Packed_Array_Type);

@@ -801,9 +801,6 @@ input_operand (rtx op, enum machine_mode mode)
     case CONST_INT:
       return mode == QImode || mode == HImode || add_operand (op, mode);
 
-    case CONSTANT_P_RTX:
-      return 1;
-
     default:
       break;
     }
@@ -2156,7 +2153,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
 	       && const48_operand (XEXP (XEXP (x, 0), 1), VOIDmode))
 	{
 	  *total = (rtx_cost (XEXP (XEXP (x, 0), 0), outer_code)
-		    + rtx_cost (XEXP (x, 1), outer_code) + 2);
+		    + rtx_cost (XEXP (x, 1), outer_code) + COSTS_N_INSNS (1));
 	  return true;
 	}
       return false;
@@ -7855,6 +7852,10 @@ alpha_expand_epilogue (void)
 void
 alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
 {
+#if TARGET_ABI_OPEN_VMS
+  alpha_write_linkage (file, fnname, decl);
+#endif
+
   /* End the function.  */
   if (!TARGET_ABI_UNICOSMK && !flag_inhibit_size_directive)
     {
@@ -7863,10 +7864,6 @@ alpha_end_function (FILE *file, const char *fnname, tree decl ATTRIBUTE_UNUSED)
       putc ('\n', file);
     }
   inside_function = FALSE;
-
-#if TARGET_ABI_OPEN_VMS
-  alpha_write_linkage (file, fnname, decl);
-#endif
 
   /* Output jump tables and the static subroutine information block.  */
   if (TARGET_ABI_UNICOSMK)

@@ -125,19 +125,23 @@ gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
 AC_SUBST(gcc_version)
 
 # Calculate toolexeclibdir
+# Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
   yes)
     # Need the gcc compiler version to know where to install libraries
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
+    toolexecdir='$(libdir)/gcc/$(target_noncanonical)'
     toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
        test x"$with_cross_host" != x"no"; then
       # Install a library built with a cross compiler in tooldir, not libdir.
+      toolexecdir='$(exec_prefix)/$(target_noncanonical)'
       toolexeclibdir='$(toolexecdir)/lib'
     else
+      toolexecdir='$(libdir)/gcc-lib/$(target_noncanonical)'
       toolexeclibdir='$(libdir)'
     fi
     multi_os_directory=`$CC -print-multi-os-directory`
@@ -147,6 +151,7 @@ case ${version_specific_libs} in
     esac
     ;;
 esac
+AC_SUBST(toolexecdir)
 AC_SUBST(toolexeclibdir)
 
 # --------
@@ -154,7 +159,16 @@ AC_SUBST(toolexeclibdir)
 # --------
 
 GCC_NO_EXECUTABLES
+
+# We must force CC to /not/ be a precious variable; otherwise
+# the wrong, non-multilib-adjusted value will be used in multilibs.
+# As a side effect, we have to subst CFLAGS ourselves.
+m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
+m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
+m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+
+AC_SUBST(CFLAGS)
 
 AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(AR, ar)

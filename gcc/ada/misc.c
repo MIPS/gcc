@@ -320,6 +320,9 @@ gnat_init_options (unsigned int argc, const char **argv)
   save_argc = argc;
   save_argv = argv;
 
+  /* Uninitialized really means uninitialized in Ada.  */
+  flag_zero_initialized_in_bss = 0;
+
   return CL_Ada;
 }
 
@@ -671,40 +674,6 @@ make_transform_expr (Node_Id gnat_node)
   return gnu_result;
 }
 
-/* Update the setjmp buffer BUF with the current stack pointer.  We assume
-   here that a __builtin_setjmp was done to BUF.  */
-
-void
-update_setjmp_buf (tree buf)
-{
-  enum machine_mode sa_mode = Pmode;
-  rtx stack_save;
-
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
-    sa_mode = insn_data[(int) CODE_FOR_save_stack_nonlocal].operand[0].mode;
-#endif
-#ifdef STACK_SAVEAREA_MODE
-  sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
-#endif
-
-  stack_save
-    = gen_rtx_MEM (sa_mode,
-		   memory_address
-		   (sa_mode,
-		    plus_constant (expand_expr
-				   (build_unary_op (ADDR_EXPR, NULL_TREE, buf),
-				    NULL_RTX, VOIDmode, 0),
-				   2 * GET_MODE_SIZE (Pmode))));
-
-#ifdef HAVE_setjmp
-  if (HAVE_setjmp)
-    emit_insn (gen_setjmp ());
-#endif
-
-  emit_stack_save (SAVE_NONLOCAL, &stack_save, NULL_RTX);
-}
-
 /* These routines are used in conjunction with GCC exception handling.  */
 
 /* Map compile-time to run-time tree for GCC exception handling scheme.  */
@@ -1006,4 +975,3 @@ fp_size_to_prec (int size)
 
   abort ();
 }
-

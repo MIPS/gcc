@@ -693,14 +693,27 @@ package body Sprint is
 
          when N_Access_Definition =>
 
-            --  Ada 0Y (AI-231)
+            --  Ada 0Y (AI-254)
 
-            if Null_Exclusion_Present (Node) then
-               Write_Str ("not null ");
+            if Present (Access_To_Subprogram_Definition (Node)) then
+               Sprint_Node (Access_To_Subprogram_Definition (Node));
+            else
+               --  Ada 0Y (AI-231)
+
+               if Null_Exclusion_Present (Node) then
+                  Write_Str ("not null ");
+               end if;
+
+               Write_Str_With_Col_Check_Sloc ("access ");
+
+               if All_Present (Node) then
+                  Write_Str ("all ");
+               elsif Constant_Present (Node) then
+                  Write_Str ("constant ");
+               end if;
+
+               Sprint_Node (Subtype_Mark (Node));
             end if;
-
-            Write_Str_With_Col_Check_Sloc ("access ");
-            Sprint_Node (Subtype_Mark (Node));
 
          when N_Access_Function_Definition =>
 
@@ -1001,9 +1014,9 @@ package body Sprint is
                end if;
 
                Sprint_Node (Subtype_Indication (Node));
+
             else
-               pragma Assert (False);
-               null;
+               Write_Str (" ??? ");
             end if;
 
          when N_Component_Declaration =>
@@ -1769,8 +1782,7 @@ package body Sprint is
                Sprint_Node (Subtype_Mark (Node));
 
             else
-               pragma Assert (False);
-               null;
+               Write_Str (" ??? ");
             end if;
 
             Write_Str_With_Col_Check (" renames ");
@@ -2588,8 +2600,15 @@ package body Sprint is
 
                   --  Ada 0Y (AI-50217): Print limited with_clauses
 
-                  if Limited_Present (Node) then
+                  if Private_Present (Node) and Limited_Present (Node) then
+                     Write_Indent_Str ("limited private with ");
+
+                  elsif Private_Present (Node) then
+                     Write_Indent_Str ("private with ");
+
+                  elsif Limited_Present (Node) then
                      Write_Indent_Str ("limited with ");
+
                   else
                      Write_Indent_Str ("with ");
                   end if;

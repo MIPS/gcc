@@ -262,6 +262,10 @@
    skip when using the GAS .p2align command. */
 #undef HAVE_GAS_MAX_SKIP_P2ALIGN
 
+/* Define if your assembler and linker support 32-bit section relative relocs
+   via '.secrel32 label'. */
+#undef HAVE_GAS_PE_SECREL32_RELOC
+
 /* Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.
    */
 #undef HAVE_GAS_SHF_MERGE
@@ -563,6 +567,15 @@
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef ssize_t
+
+/* Define if your linker supports -pie option. */
+#undef HAVE_LD_PIE
+
+/* Define if BANSHEE is available */
+#undef HAVE_BANSHEE
+
+/* Define to PREFIX/include if cpp should also search that directory. */
+#undef PREFIX_INCLUDE_DIR
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef uid_t

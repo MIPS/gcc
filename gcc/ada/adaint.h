@@ -70,19 +70,23 @@ extern long   __gnat_named_file_length             (char *);
 extern void   __gnat_tmp_name			   (char *);
 extern char  *__gnat_readdir                       (DIR *, char *);
 extern int    __gnat_readdir_is_thread_safe        (void);
-extern time_t __gnat_file_time_name                (char *);
-extern time_t __gnat_file_time_fd                  (int);
+
+extern OS_Time __gnat_file_time_name                (char *);
+extern OS_Time __gnat_file_time_fd                  (int);
+/* return -1 in case of error */
+
 extern void   __gnat_set_file_time_name		   (char *, time_t);
 extern void   __gnat_get_env_value_ptr             (char *, int *,
 						    char **);
 extern int    __gnat_file_exists		   (char *);
 extern int    __gnat_is_regular_file               (char *);
-extern int    __gnat_is_absolute_path              (char *);
+extern int    __gnat_is_absolute_path              (char *,int);
 extern int    __gnat_is_directory		   (char *);
 extern int    __gnat_is_writable_file		   (char *);
 extern int    __gnat_is_readable_file		   (char *name);
 extern void   __gnat_set_readonly                  (char *name);
 extern void   __gnat_set_writable                  (char *name);
+extern void   __gnat_set_executable                (char *name);
 extern int    __gnat_is_symbolic_link		   (char *name);
 extern int    __gnat_portable_spawn                (char *[]);
 extern int    __gnat_portable_no_block_spawn       (char *[]);

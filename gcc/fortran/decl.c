@@ -275,15 +275,6 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       return FAILURE;
     }
 
-  if (attr.in_common
-      && !attr.data
-      && *initp != NULL)
-    {
-      gfc_error ("Initializer not allowed for COMMON variable '%s' at %C",
-		 sym->name);
-      return FAILURE;
-    }
-
   if (init == NULL)
     {
       /* An initializer is required for PARAMETER declarations.  */
@@ -296,7 +287,7 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
   else
     {
       /* If a variable appears in a DATA block, it cannot have an
-	 initializer.  */
+         initializer.  */
       if (sym->attr.data)
 	{
 	  gfc_error
@@ -430,6 +421,47 @@ gfc_match_null (gfc_expr ** result)
   *result = e;
 
   return MATCH_YES;
+}
+
+
+/* Get an expression for a default initializer.  */
+static gfc_expr *
+default_initializer (void)
+{
+  gfc_constructor *tail;
+  gfc_expr *init;
+  gfc_component *c;
+
+  init = NULL;
+
+  /* First see if we have a default initializer.  */
+  for (c = current_ts.derived->components; c; c = c->next)
+    {
+      if (c->initializer && init == NULL)
+        init = gfc_get_expr ();
+    }
+
+  if (init == NULL)
+    return NULL;
+
+  init->expr_type = EXPR_STRUCTURE;
+  init->ts = current_ts;
+  init->where = current_ts.derived->declared_at;
+  tail = NULL;
+  for (c = current_ts.derived->components; c; c = c->next)
+    {
+      if (tail == NULL)
+        init->value.constructor = tail = gfc_get_constructor ();
+      else
+        {
+          tail->next = gfc_get_constructor ();
+          tail = tail->next;
+        }
+
+      if (c->initializer)
+        tail->expr = gfc_copy_expr (c->initializer);
+    }
+  return init;
 }
 
 
@@ -587,19 +619,19 @@ variable_decl (void)
 	  if (m != MATCH_YES)
 	    goto cleanup;
 	}
+      else if (current_ts.type == BT_DERIVED)
+        {
+          initializer = default_initializer ();
+        }
     }
 
-  /* Add the initializer.  Note that it is fine if initializer is
+  /* Add the initializer.  Note that it is fine if &initializer is
      NULL here, because we sometimes also need to check if a
      declaration *must* have an initialization expression.  */
   if (gfc_current_state () != COMP_DERIVED)
     t = add_init_expr_to_sym (name, &initializer, &var_locus);
   else
-    {
-      if (current_ts.type == BT_DERIVED && !initializer)
-	initializer = gfc_default_initializer (&current_ts);
-      t = build_struct (name, cl, &initializer, &as);
-    }
+    t = build_struct (name, cl, &initializer, &as);
 
   m = (t == SUCCESS) ? MATCH_YES : MATCH_ERROR;
 

@@ -1065,7 +1065,6 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
   _Jv_ThreadWait ();
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
-  java::lang::Runtime::securityManager = NULL;
   runtime->exit (status);
 }
 

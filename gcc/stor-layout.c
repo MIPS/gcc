@@ -67,8 +67,6 @@ static int excess_unit_span (HOST_WIDE_INT, HOST_WIDE_INT, HOST_WIDE_INT,
 			     HOST_WIDE_INT, tree);
 #endif
 static void force_type_save_exprs_1 (tree);
-static unsigned int update_alignment_for_field (record_layout_info, tree,
-						unsigned int);
 extern void debug_rli (record_layout_info);
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
@@ -161,6 +159,11 @@ variable_size (tree size)
   if (TREE_CODE (save) == SAVE_EXPR)
     SAVE_EXPR_PERSISTENT_P (save) = 1;
 
+  if (!immediate_size_expand && cfun && cfun->x_dont_save_pending_sizes_p)
+    /* The front-end doesn't want us to keep a list of the expressions
+       that determine sizes for variable size objects.  Trust it.  */
+    return size;
+
   if (lang_hooks.decls.global_bindings_p ())
     {
       if (TREE_CONSTANT (size))
@@ -173,10 +176,6 @@ variable_size (tree size)
 
   if (immediate_size_expand)
     expand_expr (save, const0_rtx, VOIDmode, 0);
-  else if (cfun != 0 && cfun->x_dont_save_pending_sizes_p)
-    /* The front-end doesn't want us to keep a list of the expressions
-       that determine sizes for variable size objects.  */
-    ;
   else
     put_pending_size (save);
 
@@ -512,10 +511,7 @@ layout_decl (tree decl, unsigned int known_align)
 	      || TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST))
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
 
-      /* Should this be controlled by DECL_USER_ALIGN, too?  */
-      if (maximum_field_alignment != 0)
-	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
-      if (! DECL_USER_ALIGN (decl))
+      if (! DECL_USER_ALIGN (decl) && ! DECL_PACKED (decl))
 	{
 	  /* Some targets (i.e. i386, VMS) limit struct field alignment
 	     to a lower boundary than alignment of variables unless
@@ -528,6 +524,10 @@ layout_decl (tree decl, unsigned int known_align)
 	  DECL_ALIGN (decl) = ADJUST_FIELD_ALIGN (decl, DECL_ALIGN (decl));
 #endif
 	}
+
+      /* Should this be controlled by DECL_USER_ALIGN, too?  */
+      if (maximum_field_alignment != 0)
+	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
     }
 
   /* Evaluate nonconstant size only once, either now or as soon as safe.  */
@@ -721,7 +721,7 @@ rli_size_so_far (record_layout_info rli)
    variable alignment fields in RLI, and return the alignment to give
    the FIELD.  */
 
-static unsigned int
+unsigned int
 update_alignment_for_field (record_layout_info rli, tree field,
 			    unsigned int known_align)
 {
@@ -771,8 +771,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   else if (is_bitfield && PCC_BITFIELD_TYPE_MATTERS)
     {
       /* Named bit-fields cause the entire structure to have the
-	 alignment implied by their type.  */
-      if (DECL_NAME (field) != 0)
+	 alignment implied by their type.  Some targets also apply the same
+	 rules to unnamed bitfields.  */
+      if (DECL_NAME (field) != 0
+	  || targetm.align_anon_bitfield ())
 	{
 	  unsigned int type_align = TYPE_ALIGN (type);
 
@@ -1557,6 +1559,9 @@ layout_type (tree type)
 {
   if (type == 0)
     abort ();
+
+  if (type == error_mark_node)
+    return;
 
   /* Do nothing if type has been laid out before.  */
   if (TYPE_SIZE (type))

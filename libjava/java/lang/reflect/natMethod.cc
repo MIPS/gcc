@@ -485,17 +485,7 @@ _Jv_CallAnyMethodA (jobject obj,
       if (iface == NULL)
 	ncode = vtable->get_method (meth->index);
       else
-	{
-	  /* Okay, here's how it goes.  We want to know the method
-	     offset in the list of methods declared by an interface,
-	     starting at 1.  The offset in the method is the vtable
-	     offset, not the offset in the interface, so we subtract
-	     that.  We add 1 because we count interface methods
-	     beginning at 1.  I think this is because of the initial
-	     gc descriptor in the vtable.  */
-	  jint offset = meth->index - JvGetFirstMethod (iface)->index + 1;
-	  ncode = _Jv_LookupInterfaceMethodIdx (vtable->clas, iface, offset);
-	}
+	ncode = _Jv_LookupInterfaceMethodIdx (vtable->clas, iface, meth->index);
     }
   else
     {

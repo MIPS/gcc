@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 void
 st_endfile (void)
 {
-  gfc_unit *u;
+  unit_t *u;
 
   library_start ();
 

@@ -1,3 +1,122 @@
+2004-05-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.
+
+	* Makefile.def: Add libbanshee, libmudflap and libgfortran.
+	* Makefile.tpl (BUILD_CONFIGDIRS): Add libbanshee.
+	(HOST_GMPLIBS): Define.
+	(HOST_GMPINC): Define.
+	(TARGET_LIB_PATH): Add libmudflap.
+	(GFORTRAN_FOR_TARGET): Define.
+	(configure-build*): Export GFORTRAN.
+	(configure-gcc): Export GMPLIBS and GMPINC.
+	(all-gcc): Add maybe-all-libbanshee.
+	(configure-target-libgfortran): Define.
+	* Makefile.in: Regenerate.
+	* configure.in (host_libs): Add libbanshee.
+	(target_libraries): Add target-libmudflap and target-libgfortran.
+	Add --with-libbanshee.
+	Handle --disable-libmudflap.
+	(*-*-freebsd*): Use with_gmp.
+	Add $(libgcj) to noconfigdirs.
+	* configure: Regenerate.
+	* depcomp: New file.
+	* MAINTAINERS: Add tree-ssa maintainers.
+
+2004-05-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+        * MAINTAINERS (Various Maintainers): Add myself.
+
+2004-04-30  Brian Ford  <ford@vss.fsi.com>
+
+        * MAINTAINERS (Write After Approval): Add myself.
+
+2004-04-29  Uros Bizjak  <uros@kss-loka.si>
+
+        * MAINTAINERS (Write After Approval): Add myself.
+
+2004-04-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/acx.m4: Fix fastcompare support for new-bootstrap.
+	* configure: Regenerate.
+
+2004-04-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert:
+	2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (flags_to_pass): Remove *dir variables that
+	are passed to the modules via TOPLEVEL_CONFIGURE_ARGUMENTS,
+	as well as prefix and exec_prefix.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Robert Millan  <robertmh@gnu.org>
+
+	Add patches from libtool CVS.
+	* libtool.m4: Add kfreebsd*-gnu and knetbsd*-gnu.
+	* ltconfig: Likewise.
+	* ltcf-c.sh: Likewise.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (host_modules): Mark with the bootstrap
+	flag packages on which gcc depends.
+	* Makefile.tpl (all-bootstrap): Use it.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (flags_to_pass): Remove *dir variables that
+	are passed to the modules via TOPLEVEL_CONFIGURE_ARGUMENTS,
+	as well as prefix and exec_prefix.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+        * configure.in: Invoke ACX_PROG_CMP_IGNORE_INITIAL.
+        * configure: Regenerate.
+        * config/acx.m4: Mutuate ACX_PROG_CMP_IGNORE_INITIAL from gcc.
+        * gcc/Makefile.tpl (compare): Use the result of the test.
+        * gcc/Makefile.in: Regenerate.
+
+2004-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all-stage1-gcc, all-stage2-gcc, all-stage3-gcc):
+	Always relocate gcc and prev-gcc to the original names, even
+	if the build fails.
+	(new-cleanstrap, new-restage1, new-restage2, new-restage3):
+	New targets.
+
+2004-04-23  Laurent GUERBY <laurent@guerby.net>
+
+	* MAINTAINERS: Update my email address.
+	
+2004-04-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (mips*-*-irix5*): Enable ld.
+	* configure: Regenerate.
+
+2004-04-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure: Regenerate.
+
+2004-04-15  James E Wilson  <wilson@specifixinc.com>
+
+	* Makefile.tpl (configure-[+module+], configure-gcc,
+	configure-stage1-gcc, configure-stage2-gcc, configure-stage3-gcc):
+	Set and export LDFLAGS.
+	* Makefile.in: Regenerate.
+
+2004-04-12  Michael Chastain  <mec.gnu@mindspring.com>
+
+        * MAINTAINERS: Add myself to write-after-approval.
+
 2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	PR bootstrap/14871

@@ -91,7 +91,7 @@ pp_clear_state (pretty_printer *pp)
 }
 
 /* Flush the formatted text of PRETTY-PRINTER onto the attached stream.  */
-static inline void
+void
 pp_write_text_to_stream (pretty_printer *pp)
 {
   const char *text = pp_formatted_text (pp);
@@ -178,7 +178,7 @@ pp_base_indent (pretty_printer *pp)
    %p: pointer.
    %m: strerror(text->err_no) - does not consume a value from args_ptr.
    %%: `%'.
-   %*.s: a substring the length of which is specified by an integer.
+   %.*s: a substring the length of which is specified by an integer.
    %H: location_t.  */
 void
 pp_base_format_text (pretty_printer *pp, text_info *text)

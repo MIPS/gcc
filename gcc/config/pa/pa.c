@@ -592,9 +592,6 @@ move_src_operand (rtx op, enum machine_mode mode)
   if (register_operand (op, mode))
     return 1;
 
-  if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
-
   if (GET_CODE (op) == CONST_INT)
     return cint_ok_for_move (INTVAL (op));
 
@@ -8419,7 +8416,7 @@ pa_reorg (void)
 	 markers disables output of the branch table to readonly memory,
 	 and any alignment directives that might be needed.  Possibly,
 	 the begin_brtab insn should be output before the label for the
-	 table.  This doesn matter at the moment since the tables are
+	 table.  This doesn't matter at the moment since the tables are
 	 always output in the text section.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{

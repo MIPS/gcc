@@ -46,8 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "target.h"
 #include "c-common.h"
+#include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
+
 extern cpp_reader *parse_in;
 
 /* This structure contains information about the initializations
@@ -612,15 +614,19 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   CNAME is the same here as it is for grokclassfn above.
-   TEMPLATE_HEADER_P is true when this declaration comes with a
-   template header.  */
+   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   template passed as FUNCTION_DECL. If the member template is passed as a 
+   TEMPLATE_DECL, it can be NULL since the parameters can be extracted
+   from the declaration. If the function is not a function template, it
+   must be NULL.
+   It returns the original declaration for the function, or NULL_TREE
+   if no declaration was found (and an error was emitted).  */
 
 tree
-check_classfn (tree ctype, tree function, bool template_header_p)
+check_classfn (tree ctype, tree function, tree template_parms)
 {
   int ix;
-  int is_template;
+  bool is_template;
   
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
@@ -638,9 +644,20 @@ check_classfn (tree ctype, tree function, bool template_header_p)
        find the method, but we don't complain.  */
     return NULL_TREE;
 
+  /* Basic sanity check: for a template function, the template parameters
+     either were not passed, or they are the same of DECL_TEMPLATE_PARMS.  */
+  if (TREE_CODE (function) == TEMPLATE_DECL)
+    {
+      my_friendly_assert (!template_parms 
+			  || comp_template_parms 
+			      (template_parms, 
+			       DECL_TEMPLATE_PARMS (function)),
+			  20040303);
+      template_parms = DECL_TEMPLATE_PARMS (function);
+    }
+
   /* OK, is this a definition of a member template?  */
-  is_template = (TREE_CODE (function) == TEMPLATE_DECL
-		 || template_header_p);
+  is_template = (template_parms != NULL_TREE);
 
   ix = lookup_fnfields_1 (complete_type (ctype),
 			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
@@ -684,6 +701,9 @@ check_classfn (tree ctype, tree function, bool template_header_p)
 	  if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
 			   TREE_TYPE (TREE_TYPE (fndecl)))
 	      && compparms (p1, p2)
+	      && (!is_template
+		  || comp_template_parms (template_parms, 
+					  DECL_TEMPLATE_PARMS (fndecl)))
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
@@ -2292,7 +2312,7 @@ do_static_initialization (tree decl, tree init)
   if (flag_use_cxa_atexit)
     register_dtor_fn (decl);
 
-  /* Finsh up.  */
+  /* Finish up.  */
   finish_static_initialization_or_destruction (guard_if_stmt);
 }
 
@@ -2569,7 +2589,7 @@ finish_file (void)
   timevar_push (TV_VARCONST);
 
   emit_support_tinfos ();
-  
+
   do 
     {
       tree t;
@@ -2854,6 +2874,11 @@ finish_file (void)
       cgraph_optimize ();
     }
 
+  /* Emit mudflap static registration function.  This must be done
+     after all the user functions have been expanded.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
+
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */
   walk_namespaces (wrapup_globals_for_namespace, /*data=*/&reconsider);
@@ -2867,12 +2892,12 @@ finish_file (void)
      to a file.  */
   {
     int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
+    FILE *stream = dump_begin (TDI_tu, &flags);
 
     if (stream)
       {
 	dump_node (global_namespace, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
+	dump_end (TDI_tu, stream);
       }
   }
   
@@ -2914,7 +2939,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 			  20030708);
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
-	return build_min_nt (CALL_EXPR, fn, args);
+	return build_min_nt (CALL_EXPR, fn, args, NULL_TREE);
 
       /* Transform the arguments and add the implicit "this"
 	 parameter.  That must be done before the FN is transformed
@@ -2944,7 +2969,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 
   expr = build_function_call (fn, args);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args);
+    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args, NULL_TREE);
   return expr;
 }
   

@@ -1301,6 +1301,13 @@ Like @code{PCC_BITFIELD_TYPE_MATTERS} except that its effect is limited
 to aligning a bit-field within the structure.
 @end defmac
 
+@deftypefn {Target Hook} bool TARGET_ALIGN_ANON_BITFIELDS (void)
+When @code{PCC_BITFIELD_TYPE_MATTERS} is true this hook will determine
+whether unnamed bitfields affect the alignment of the containing
+structure.  The hook should return true if the structure should inherit
+the alignment requirements of an unnamed bitfield's type.
+@end deftypefn
+
 @defmac MEMBER_TYPE_FORCES_BLK (@var{field}, @var{mode})
 Return 1 if a structure or array containing @var{field} should be accessed using
 @code{BLKMODE}.
@@ -1787,13 +1794,16 @@ of words in each data entry.
 @section Target Character Escape Sequences
 @cindex escape sequences
 
-By default, GCC assumes that the C character escape sequences take on
-their ASCII values for the target.  If this is not correct, you must
-explicitly define all of the macros below.  All of them must evaluate
-to constants; they are used in @code{case} statements.
+By default, GCC assumes that the C character escape sequences and other
+characters take on their ASCII values for the target.  If this is not
+correct, you must explicitly define all of the macros below.  All of
+them must evaluate to constants; they are used in @code{case}
+statements.
 
 @findex TARGET_BELL
+@findex TARGET_BS
 @findex TARGET_CR
+@findex TARGET_DIGIT0
 @findex TARGET_ESC
 @findex TARGET_FF
 @findex TARGET_NEWLINE
@@ -1802,7 +1812,9 @@ to constants; they are used in @code{case} statements.
 @multitable {@code{TARGET_NEWLINE}} {Escape} {ASCII character}
 @item Macro                 @tab Escape             @tab ASCII character
 @item @code{TARGET_BELL}    @tab @kbd{\a}           @tab @code{07}, @code{BEL}
+@item @code{TARGET_BS}      @tab @kbd{\b}           @tab @code{08}, @code{BS}
 @item @code{TARGET_CR}      @tab @kbd{\r}           @tab @code{0D}, @code{CR}
+@item @code{TARGET_DIGIT0}  @tab @kbd{0}            @tab @code{30}, @code{ZERO}
 @item @code{TARGET_ESC}     @tab @kbd{\e}, @kbd{\E} @tab @code{1B}, @code{ESC}
 @item @code{TARGET_FF}      @tab @kbd{\f}           @tab @code{0C}, @code{FF}
 @item @code{TARGET_NEWLINE} @tab @kbd{\n}           @tab @code{0A}, @code{LF}
@@ -8774,16 +8786,6 @@ to @code{Pmode}.
 An alias for the machine mode used for memory references to functions
 being called, in @code{call} RTL expressions.  On most machines this
 should be @code{QImode}.
-@end defmac
-
-@defmac INTEGRATE_THRESHOLD (@var{decl})
-A C expression for the maximum number of instructions above which the
-function @var{decl} should not be inlined.  @var{decl} is a
-@code{FUNCTION_DECL} node.
-
-The default definition of this macro is 64 plus 8 times the number of
-arguments that the function accepts.  Some people think a larger
-threshold should be used on RISC machines.
 @end defmac
 
 @defmac STDC_0_IN_SYSTEM_HEADERS

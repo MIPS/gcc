@@ -1302,6 +1302,13 @@ struct lang_type GTY(())
 
 #define CLASSTYPE_AS_BASE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->as_base)
 
+/* True iff NODE is the CLASSTYPE_AS_BASE version of some type.  */
+
+#define IS_FAKE_BASE_TYPE(NODE)					\
+  (TREE_CODE (NODE) == RECORD_TYPE				\
+   && TYPE_CONTEXT (NODE) && CLASS_TYPE_P (TYPE_CONTEXT (NODE))	\
+   && CLASSTYPE_AS_BASE (TYPE_CONTEXT (NODE)) == (NODE))
+
 /* These are the size and alignment of the type without its virtual
    base classes, for when we use this type as a base itself.  */
 #define CLASSTYPE_SIZE(NODE) TYPE_SIZE (CLASSTYPE_AS_BASE (NODE))
@@ -1394,7 +1401,7 @@ struct lang_type GTY(())
    way or the other.  */
 #define CLASSTYPE_INTERFACE_KNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown == 0)
-/* The opposite of CLASSTYPE_INTERFANCE_KNOWN.  */
+/* The opposite of CLASSTYPE_INTERFACE_KNOWN.  */
 #define CLASSTYPE_INTERFACE_UNKNOWN(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->interface_unknown)
 
@@ -2408,12 +2415,16 @@ struct lang_decl GTY(())
    When appearing in a SAVE_EXPR, it means that underneath
    is a call to a constructor.
 
-   When appearing in a CONSTRUCTOR, it means that it was
-   a GNU C constructor expression.
+   When appearing in a CONSTRUCTOR, the expression is a
+   compound literal.
 
    When appearing in a FIELD_DECL, it means that this field
    has been duly initialized in its constructor.  */
 #define TREE_HAS_CONSTRUCTOR(NODE) (TREE_LANG_FLAG_4 (NODE))
+
+/* True if NODE is a brace-enclosed initializer.  */
+#define BRACE_ENCLOSED_INITIALIZER_P(NODE) \
+  (TREE_CODE (NODE) == CONSTRUCTOR && !TREE_TYPE (NODE))
 
 #define EMPTY_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == CONSTRUCTOR	   \
 				   && CONSTRUCTOR_ELTS (NODE) == NULL_TREE \
@@ -3126,12 +3137,9 @@ typedef enum unification_kind_t {
   DEDUCE_ORDER
 } unification_kind_t;
 
-/* Macros for operating on a template instantiation level node, represented
-   by an EXPR_WITH_FILE_LOCATION.  */
+/* Macros for operating on a template instantiation level node.  */
 
-#define TINST_DECL(NODE) EXPR_WFL_NODE (NODE)
-#define TINST_LINE(NODE) EXPR_WFL_LINENO (NODE)
-#define TINST_FILE(NODE) EXPR_WFL_FILENAME (NODE)
+#define TINST_DECL(NODE) TREE_OPERAND (NODE, 0)
 
 /* in class.c */
 
@@ -3698,6 +3706,7 @@ extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *, tree *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static (tree, tree);
+extern bool cp_missing_noreturn_ok_p		(tree);
 
 extern bool have_extern_spec;
 
@@ -3710,7 +3719,7 @@ extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, bool, int);
-extern tree check_classfn (tree, tree, bool);
+extern tree check_classfn (tree, tree, tree);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
 extern tree grokbitfield (tree, tree, tree);
@@ -4036,7 +4045,7 @@ extern void finish_handler                      (tree);
 extern void finish_cleanup                      (tree, tree);
 extern tree begin_compound_stmt                 (bool);
 extern tree finish_compound_stmt                (tree);
-extern tree finish_asm_stmt                     (tree, tree, tree, tree, tree);
+extern tree finish_asm_stmt                     (int, tree, tree, tree, tree);
 extern tree finish_label_stmt                   (tree);
 extern void finish_label_decl                   (tree);
 extern void finish_subobject                    (tree);
@@ -4076,7 +4085,6 @@ extern void finish_decl_cleanup                 (tree, tree);
 extern void finish_eh_cleanup                   (tree);
 extern void expand_body                         (tree);
 extern void cxx_expand_function_start		(void);
-extern tree nullify_returns_r		      (tree *, int *, void *);
 extern void do_pushlevel                        (scope_kind);
 extern tree do_poplevel                         (void);
 extern void finish_mem_initializers             (tree);
@@ -4087,11 +4095,14 @@ extern void expand_or_defer_fn			(tree);
 extern void check_accessibility_of_qualified_id (tree, tree, tree);
 extern tree finish_qualified_id_expr            (tree, tree, bool, bool);
 extern void simplify_aggr_init_expr		(tree *);
+extern void finalize_nrv			(tree *, tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
 							 const char *);
 extern tree stabilize_expr			(tree, tree *);
+extern void stabilize_call			(tree, tree *);
+extern bool stabilize_init			(tree, tree *);
 extern tree cxx_unsave_expr_now			(tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree			        (void);
@@ -4155,6 +4166,7 @@ extern tree find_tree                           (tree, tree);
 extern linkage_kind decl_linkage                (tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 				      void*, void*);
+extern int cp_tree_chain_matters_p		(tree);
 extern int cp_cannot_inline_tree_fn (tree*);
 extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_is_overload_p (tree);
@@ -4271,6 +4283,10 @@ extern tree mangle_ref_init_variable            (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
+
+/* in cp-simplify.c */
+extern int cp_gimplify_expr		        (tree *, tree *, tree *);
+extern int cp_gimplify_stmt		        (tree *, tree *);
 
 /* -- end of C++ */
 

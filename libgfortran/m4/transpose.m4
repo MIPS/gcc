@@ -22,7 +22,12 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include <assert.h>
 #include "libgfortran.h"'
-include(iparm.m4)dnl
+include(types.m4)dnl
+define(rtype_kind, regexp(file, `_.\([0-9]+\)\.', `\1'))dnl
+define(rtype_letter, regexp(file, `_\(.\)[0-9]+\.', `\1'))dnl
+define(rtype_code,rtype_letter`'rtype_name)dnl
+define(rtype,get_arraytype(rtype_letter,rtype_kind))dnl
+define(rtype_name, get_typename(rtype_letter, rtype_kind))dnl
 
 void
 `__transpose_'rtype_kind (rtype * ret, rtype * source)

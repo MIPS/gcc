@@ -394,7 +394,7 @@ _Jv_PrepareMissingMethods (jclass base, jclass iface_class)
 
       for (int j = 0; j < interface->method_count; ++j)
 	{
-	  _Jv_Method *meth = &interface->methods[j];
+ 	  _Jv_Method *meth = &interface->methods[j];
 	  // Don't bother with <clinit>.
 	  if (meth->name->data[0] == '<')
 	    continue;
@@ -469,7 +469,7 @@ _Jv_PrepareClass(jclass klass)
   // the super class, so we use the Java method resolveClass, which
   // will unlock it properly, should an exception happen.  If there's
   // no superclass, do nothing -- Object will already have been
-  // resolved
+  // resolved.
 
   if (klass->superclass)
     java::lang::VMClassLoader::resolveClass (klass->getSuperclass());

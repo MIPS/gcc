@@ -1244,7 +1244,7 @@ c4x_emit_move_sequence (rtx *operands, enum machine_mode mode)
       && dp_reg_operand (XEXP (op1, 0), mode))
     {
       /* expand_increment will sometimes create a LO_SUM immediate
-	 address.  Undo this sillyness.  */
+	 address.  Undo this silliness.  */
       op1 = XEXP (op1, 1);
     }
   
@@ -2940,9 +2940,6 @@ const_operand (register rtx op, register enum machine_mode mode)
     case Pmode:
 #endif
     case QImode:
-      if (GET_CODE (op) == CONSTANT_P_RTX)
-	return 1;
-
       if (GET_CODE (op) != CONST_INT
 	  || (GET_MODE (op) != VOIDmode && GET_MODE (op) != mode)
 	  || GET_MODE_CLASS (mode) != MODE_INT)

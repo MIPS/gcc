@@ -3023,7 +3023,7 @@ static int
 dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		    basic_block other_bb, basic_block new_dest, int reversep)
 {
-  rtx head, end, jump, earliest, old_dest, new_label = NULL_RTX;
+  rtx head, end, jump, earliest = NULL_RTX, old_dest, new_label = NULL_RTX;
 
   jump = BB_END (test_bb);
 
@@ -3290,10 +3290,6 @@ if_convert (int x_life_data_ok)
   if ((! targetm.cannot_modify_jumps_p ())
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos))
     mark_loop_exit_edges ();
-
-  /* Free up basic_block_for_insn so that we don't have to keep it
-     up to date, either here or in merge_blocks.  */
-  free_basic_block_vars (1);
 
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution || life_data_ok)

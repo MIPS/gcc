@@ -2488,7 +2488,6 @@ cris_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2550,7 +2549,6 @@ cris_gotless_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2595,7 +2593,6 @@ cris_got_symbol (rtx x)
 
     case CONST_INT:
     case CONST_DOUBLE:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2947,7 +2944,7 @@ cris_split_movdx (rtx *operands)
 	  int reverse
 	    = (refers_to_regno_p (dregno, dregno + 1, addr, NULL) != 0);
 
-	  /* The original code imples that we can't do
+	  /* The original code implies that we can't do
 	     move.x [rN+],rM  move.x [rN],rM+1
 	     when rN is dead, because of REG_NOTES damage.  That is
 	     consistent with what I've seen, so don't try it.

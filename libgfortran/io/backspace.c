@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 static void
 formatted_backspace (void)
 {
-  gfc_offset base;
+  offset_t base;
   char *p;
   int n;
 
@@ -92,12 +92,12 @@ io_error:
 static void
 unformatted_backspace (void)
 {
-  gfc_offset *p, new;
+  offset_t *p, new;
   int length;
 
-  length = sizeof (gfc_offset);
+  length = sizeof (offset_t);
 
-  p = (gfc_offset *) salloc_r_at (current_unit->s, &length,
+  p = (offset_t *) salloc_r_at (current_unit->s, &length,
 				file_position (current_unit->s) - length);
   if (p == NULL)
     goto io_error;
@@ -117,7 +117,7 @@ io_error:
 void
 st_backspace (void)
 {
-  gfc_unit *u;
+  unit_t *u;
 
   library_start ();
 

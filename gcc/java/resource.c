@@ -79,6 +79,7 @@ compile_resource_data (const char *name, const char *buffer, int length)
   PUSH_FIELD_VALUE (rinit, "data", data);
   FINISH_RECORD_CONSTRUCTOR (rinit);
   TREE_CONSTANT (rinit) = 1;
+  TREE_INVARIANT (rinit) = 1;
 
   /* Generate a unique-enough identifier.  */
   sprintf (buf, "_Jr%d", ++Jr_count);
@@ -129,6 +130,9 @@ write_resource_constructor (void)
      to scan the object file to find its ctor/dtor routine.  */
   TREE_PUBLIC (init_decl) = ! targetm.have_ctors_dtors;
 
+  /* Suppress spurious warnings.  */
+  TREE_USED (init_decl) = 1;
+
   pushlevel (0);
   make_decl_rtl (init_decl, NULL);
   init_function_start (init_decl);
@@ -156,8 +160,9 @@ write_resource_constructor (void)
     flag_inline_functions = saved_flag;
   }
   current_function_decl = NULL_TREE;
-  (* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
-				   DEFAULT_INIT_PRIORITY);
+  if (targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (init_decl), 0),
+				 DEFAULT_INIT_PRIORITY);
   input_location = saved_loc;
 }
 

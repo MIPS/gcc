@@ -476,6 +476,7 @@ set_super_info (int access_flags, tree this_class,
   if (super_class)
     total_supers++;
 
+  TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
   TYPE_BINFO_BASETYPES (this_class) = make_tree_vec (total_supers);
   if (super_class)
     {
@@ -893,6 +894,7 @@ build_utf8_ref (tree name)
   PUSH_FIELD_VALUE (cinit, "data", string);
   FINISH_RECORD_CONSTRUCTOR (cinit);
   TREE_CONSTANT (cinit) = 1;
+  TREE_INVARIANT (cinit) = 1;
 
   /* Generate a unique-enough identifier.  */
   sprintf(buf, "_Utf%d", ++utf8_count);
@@ -943,8 +945,7 @@ build_indirect_class_ref (tree type)
   tree cl;
   index = alloc_class_constant (type);
   cl = build_ref_from_constant_pool (index); 
-  TREE_TYPE (cl) = promote_type (class_ptr_type);
-  return cl;
+  return convert (promote_type (class_ptr_type), cl);
 }
 
 /* Build a reference to the class TYPE.
@@ -1253,13 +1254,16 @@ make_method_value (tree mdecl)
   tree minit;
   tree index;
   tree code;
+  tree class_decl;
 #define ACC_TRANSLATED          0x4000
   int accflags = get_access_flags_from_decl (mdecl) | ACC_TRANSLATED;
 
-  if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (mdecl)))
-      || (!flag_indirect_dispatch 
-	  && DECL_VINDEX (mdecl) != NULL_TREE))
-    index = DECL_VINDEX (mdecl);
+  class_decl = DECL_CONTEXT (mdecl);
+  /* For interfaces, the index field contains the dispatch index. */
+  if (CLASS_INTERFACE (TYPE_NAME (class_decl)))
+    index = build_int_2 (get_interface_method_index (mdecl, class_decl), 0);
+  else if (!flag_indirect_dispatch && get_method_index (mdecl) != NULL_TREE)
+    index = get_method_index (mdecl);
   else
     index = integer_minus_one_node;
 
@@ -1347,10 +1351,12 @@ get_dispatch_vector (tree type)
 
       for (method = TYPE_METHODS (type);  method != NULL_TREE;
 	   method = TREE_CHAIN (method))
-	if (DECL_VINDEX (method) != NULL_TREE
-	    && host_integerp (DECL_VINDEX (method), 0))
-	  TREE_VEC_ELT (vtable, tree_low_cst (DECL_VINDEX (method), 0))
-	    = method;
+	{
+	  tree method_index = get_method_index (method);
+	  if (method_index != NULL_TREE
+	      && host_integerp (method_index, 0))
+	    TREE_VEC_ELT (vtable, tree_low_cst (method_index, 0)) = method;
+	}
     }
 
   return vtable;
@@ -1392,6 +1398,7 @@ get_dispatch_table (tree type, tree this_class_addr)
 		tree fdesc = build (FDESC_EXPR, nativecode_ptr_type_node, 
 				    method, build_int_2 (j, 0));
 		TREE_CONSTANT (fdesc) = 1;
+		TREE_INVARIANT (fdesc) = 1;
 	        list = tree_cons (NULL_TREE, fdesc, list);
 	      }
 	  else
@@ -1427,6 +1434,42 @@ get_dispatch_table (tree type, tree this_class_addr)
   arraysize += 2;
   return build_constructor (build_prim_array_type (nativecode_ptr_type_node,
 						   arraysize), list);
+}
+
+
+/* Set the method_index for a method decl.  */
+void
+set_method_index (tree decl, tree method_index)
+{
+  method_index = fold (convert (sizetype, method_index));
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    /* Add one to skip bogus descriptor for class and GC descriptor. */
+    method_index = size_binop (PLUS_EXPR, method_index, size_int (1));
+  else
+    /* Add 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
+    method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
+
+  DECL_VINDEX (decl) = method_index;
+}
+
+/* Get the method_index for a method decl.  */
+tree
+get_method_index (tree decl)
+{
+  tree method_index = DECL_VINDEX (decl);
+
+  if (! method_index)
+    return NULL;
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    /* Sub one to skip bogus descriptor for class and GC descriptor. */
+    method_index = size_binop (MINUS_EXPR, method_index, size_int (1));
+  else
+    /* Sub 1 to skip "class" field of dtable, and 1 to skip GC descriptor.  */
+    method_index = size_binop (MINUS_EXPR, method_index, size_int (2));
+
+  return method_index;
 }
 
 static int
@@ -1707,7 +1750,8 @@ make_class_data (tree type)
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
 				TYPE_OTABLE_SYMS_DECL (type)));
       TREE_CONSTANT (TYPE_OTABLE_DECL (type)) = 1;
-    } 
+      TREE_INVARIANT (TYPE_OTABLE_DECL (type)) = 1;
+    }
   if (TYPE_ATABLE_METHODS(type) == NULL_TREE)
     {
       PUSH_FIELD_VALUE (cons, "atable", null_pointer_node);
@@ -1721,6 +1765,7 @@ make_class_data (tree type)
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
 				TYPE_ATABLE_SYMS_DECL (type)));
       TREE_CONSTANT (TYPE_ATABLE_DECL (type)) = 1;
+      TREE_INVARIANT (TYPE_ATABLE_DECL (type)) = 1;
     }
  
   PUSH_FIELD_VALUE (cons, "catch_classes",
@@ -1758,37 +1803,6 @@ make_class_data (tree type)
 void
 finish_class (void)
 {
-  tree method;
-  tree type_methods = TYPE_METHODS (current_class);
-  int saw_native_method = 0;
-
-  /* Find out if we have any native methods.  We use this information
-     later.  */
-  for (method = type_methods;
-       method != NULL_TREE;
-       method = TREE_CHAIN (method))
-    {
-      if (METHOD_NATIVE (method))
-	{
-	  saw_native_method = 1;
-	  break;
-	}
-    }
-
-  /* Emit deferred inline methods. */  
-  for (method = type_methods; method != NULL_TREE; )
-    {
-      if (! TREE_ASM_WRITTEN (method) && DECL_STRUCT_FUNCTION (method) != 0)
-	{
-	  output_inline_function (method);
-	  /* Scan the list again to see if there are any earlier
-	     methods to emit. */
-	  method = type_methods;
-	  continue;
-	}
-      method = TREE_CHAIN (method);
-    }
-
   java_expand_catch_classes (current_class);
 
   current_function_decl = NULL_TREE;
@@ -2158,6 +2172,23 @@ layout_class_methods (tree this_class)
   TYPE_NVIRTUALS (this_class) = dtable_count;
 }
 
+/* Return the index of METHOD in INTERFACE.  This index begins at 1 and is used as an
+   argument for _Jv_LookupInterfaceMethodIdx(). */
+int
+get_interface_method_index (tree method, tree interface)
+{
+  tree meth;
+  int i = 1;
+
+  for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
+    {
+      if (meth == method)
+	return i;
+      if (meth == NULL_TREE)
+	abort ();
+    }
+}
+
 /* Lay METHOD_DECL out, returning a possibly new value of
    DTABLE_COUNT. Also mangle the method's name. */
 
@@ -2204,8 +2235,9 @@ layout_class_method (tree this_class, tree super_class,
       if (super_method != NULL_TREE && ! METHOD_PRIVATE (super_method)
 	  && ! DECL_ARTIFICIAL (super_method))
 	{
-	  DECL_VINDEX (method_decl) = DECL_VINDEX (super_method);
-	  if (DECL_VINDEX (method_decl) == NULL_TREE 
+	  tree method_index = get_method_index (super_method);
+	  set_method_index (method_decl, method_index);
+	  if (method_index == NULL_TREE 
 	      && !CLASS_FROM_SOURCE_P (this_class))
 	    error ("%Jnon-static method '%D' overrides static method",
                    method_decl, method_decl);
@@ -2215,7 +2247,7 @@ layout_class_method (tree this_class, tree super_class,
 	       && ! CLASS_FINAL (TYPE_NAME (this_class))
 	       && dtable_count)
 	{
-	  DECL_VINDEX (method_decl) = dtable_count;
+	  set_method_index (method_decl, dtable_count);
 	  dtable_count = fold (build (PLUS_EXPR, integer_type_node,
 				      dtable_count, integer_one_node));
 	}
@@ -2339,6 +2371,7 @@ build_symbol_entry (tree decl)
   PUSH_FIELD_VALUE (sym, "signature", signature);
   FINISH_RECORD_CONSTRUCTOR (sym);
   TREE_CONSTANT (sym) = 1;
+  TREE_INVARIANT (sym) = 1;
 
   return sym;
 } 
@@ -2377,6 +2410,7 @@ emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl
   PUSH_FIELD_VALUE (null_symbol, "signature", null_pointer_node);
   FINISH_RECORD_CONSTRUCTOR (null_symbol);
   TREE_CONSTANT (null_symbol) = 1;  
+  TREE_INVARIANT (null_symbol) = 1;  
   list = tree_cons (NULL_TREE, null_symbol, list);
 
   /* Put the list in the right order and make it a constructor. */

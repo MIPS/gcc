@@ -1,3 +1,24 @@
+2004-05-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* archive.c (objc_read_class): Initialize class_name.
+	(objc_read_selector): Initialize selector_name.
+
+2004-05-09  Richard Sandiford  <rsandifo@redhat.com>
+
+	* Makefile.in (toolexecdir): Remove trailing space.
+
+2004-04-15  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR libobjc/14948
+	* configure.ac: De-precious CC so multilibs work.
+	* configure: Regenerate.
+
+2004-04-14  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.ac: Restore toolexecdir.
+	* Makefile.in: Restore toolexecdir.
+	* configure: Regenerate.
+
 2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.ac: Remove (unused) glibcpp_prefixdir.

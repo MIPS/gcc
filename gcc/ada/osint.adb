@@ -520,7 +520,7 @@ package body Osint is
    -- Add_File --
    --------------
 
-   procedure Add_File (File_Name : String) is
+   procedure Add_File (File_Name : String; Index : Int := No_Index) is
    begin
       Number_File_Names := Number_File_Names + 1;
 
@@ -530,9 +530,12 @@ package body Osint is
 
       if Number_File_Names > File_Names'Last then
          File_Names := new File_Name_Array'(File_Names.all & File_Names.all);
+         File_Indexes :=
+           new File_Index_Array'(File_Indexes.all & File_Indexes.all);
       end if;
 
-      File_Names (Number_File_Names) := new String'(File_Name);
+      File_Names   (Number_File_Names) := new String'(File_Name);
+      File_Indexes (Number_File_Names) := Index;
    end Add_File;
 
    ------------------------
@@ -669,6 +672,15 @@ package body Osint is
          Fail ("Cannot create: ", Name_Buffer (1 .. Name_Len));
       end if;
    end Create_File_And_Check;
+
+   ------------------------
+   -- Current_File_Index --
+   ------------------------
+
+   function Current_File_Index return Int is
+   begin
+      return File_Indexes (Current_File_Name_Index);
+   end Current_File_Index;
 
    --------------------------------
    -- Current_Library_File_Stamp --
@@ -1017,13 +1029,12 @@ package body Osint is
 
       if Command_Name (Cindex2) in '0' .. '9' then
          for J in reverse Cindex1 .. Cindex2 loop
-
-            exit when Command_Name (J) not in '0' .. '9';
-
             if Command_Name (J) = '.' or Command_Name (J) = ';' then
                Cindex2 := J - 1;
                exit;
             end if;
+
+            exit when Command_Name (J) not in '0' .. '9';
          end loop;
       end if;
 

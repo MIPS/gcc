@@ -42,6 +42,7 @@ with Nmake;    use Nmake;
 with Output;   use Output;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rtsfind; use Rtsfind;
 with Scans;    use Scans;
 with Scn;      use Scn;
 with Sem;      use Sem;
@@ -135,9 +136,10 @@ package body Sem_Util is
          Rtyp := Typ;
       end if;
 
-      if No (Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn))
-        or else not Rep
-      then
+      Discard_Node (
+        Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn));
+
+      if not Rep then
          return;
       end if;
 
@@ -2674,6 +2676,24 @@ package body Sem_Util is
       return Task_Body_Procedure (Declaration_Node (Root_Type (E)));
    end Get_Task_Body_Procedure;
 
+   ----------------------
+   -- Has_Declarations --
+   ----------------------
+
+   function Has_Declarations (N : Node_Id) return Boolean is
+      K : constant Node_Kind := Nkind (N);
+   begin
+      return    K = N_Accept_Statement
+        or else K = N_Block_Statement
+        or else K = N_Compilation_Unit_Aux
+        or else K = N_Entry_Body
+        or else K = N_Package_Body
+        or else K = N_Protected_Body
+        or else K = N_Subprogram_Body
+        or else K = N_Task_Body
+        or else K = N_Package_Specification;
+   end Has_Declarations;
+
    --------------------
    -- Has_Infinities --
    --------------------
@@ -3132,6 +3152,31 @@ package body Sem_Util is
       end if;
    end Is_Aliased_View;
 
+   -------------------------
+   -- Is_Ancestor_Package --
+   -------------------------
+
+   function Is_Ancestor_Package
+     (E1  : Entity_Id;
+      E2  : Entity_Id) return Boolean
+   is
+      Par : Entity_Id;
+
+   begin
+      Par := E2;
+      while Present (Par)
+        and then Par /= Standard_Standard
+      loop
+         if Par = E1 then
+            return True;
+         end if;
+
+         Par := Scope (Par);
+      end loop;
+
+      return False;
+   end Is_Ancestor_Package;
+
    ----------------------
    -- Is_Atomic_Object --
    ----------------------
@@ -3290,9 +3335,21 @@ package body Sem_Util is
                   P_Aliased := True;
                end if;
 
+            --  A discriminant check on a selected component may be
+            --  expanded into a dereference when removing side-effects.
+            --  Recover the original node and its type, which may be
+            --  unconstrained.
+
+            elsif Nkind (P) = N_Explicit_Dereference
+              and then not (Comes_From_Source (P))
+            then
+               P := Original_Node (P);
+               Prefix_Type := Etype (P);
+
             else
                --  Check for prefix being an aliased component ???
                null;
+
             end if;
 
             if Is_Access_Type (Prefix_Type)
@@ -3361,6 +3418,88 @@ package body Sem_Util is
           Nkind (P) = N_Slice)
         and then Prefix (P) = N;
    end Is_Dereferenced;
+
+   ----------------------
+   -- Is_Descendent_Of --
+   ----------------------
+
+   function Is_Descendent_Of (T1 : Entity_Id; T2 : Entity_Id) return Boolean is
+      T    : Entity_Id;
+      Etyp : Entity_Id;
+
+   begin
+      pragma Assert (Nkind (T1) in N_Entity);
+      pragma Assert (Nkind (T2) in N_Entity);
+
+      T := Base_Type (T1);
+
+      --  Immediate return if the types match
+
+      if T = T2 then
+         return True;
+
+      --  Comment needed here ???
+
+      elsif Ekind (T) = E_Class_Wide_Type then
+         return Etype (T) = T2;
+
+      --  All other cases
+
+      else
+         loop
+            Etyp := Etype (T);
+
+            --  Done if we found the type we are looking for
+
+            if Etyp = T2 then
+               return True;
+
+            --  Done if no more derivations to check
+
+            elsif T = T1 then
+               return False;
+
+            --  Following test catches error cases resulting from prev errors
+
+            elsif No (Etyp) then
+               return False;
+
+            elsif Is_Private_Type (T) and then Etyp = Full_View (T) then
+               return False;
+
+            elsif Is_Private_Type (Etyp) and then Full_View (Etyp) = T then
+               return False;
+            end if;
+
+            --  Return if no further entries to check
+
+            if T = Base_Type (T1) or else T = T1 then
+               return False;
+            end if;
+         end loop;
+      end if;
+
+      raise Program_Error;
+   end Is_Descendent_Of;
+
+   ------------------------------
+   -- Is_Descendent_Of_Address --
+   ------------------------------
+
+   function Is_Descendent_Of_Address (T1 : Entity_Id) return Boolean is
+   begin
+      --  If Address has not been loaded, answer must be False
+
+      if not RTU_Loaded (System) then
+         return False;
+
+      --  Otherwise we can get the entity we are interested in without
+      --  causing an unwanted dependency on System, and do the test.
+
+      else
+         return Is_Descendent_Of (T1, Base_Type (RTE (RE_Address)));
+      end if;
+   end Is_Descendent_Of_Address;
 
    --------------
    -- Is_False --
@@ -5487,11 +5626,8 @@ package body Sem_Util is
 
    function Rep_To_Pos_Flag (E : Entity_Id; Loc : Source_Ptr) return Node_Id is
    begin
-      if Range_Checks_Suppressed (E) then
-         return New_Occurrence_Of (Standard_False, Loc);
-      else
-         return New_Occurrence_Of (Standard_True, Loc);
-      end if;
+      return New_Occurrence_Of
+               (Boolean_Literals (not Range_Checks_Suppressed (E)), Loc);
    end Rep_To_Pos_Flag;
 
    --------------------
@@ -6083,9 +6219,16 @@ package body Sem_Util is
       --  declared at the library level to ensure that names such as
       --  X.all'access don't fail static accessibility checks.
 
+      --  Ada 0Y (AI-230): In case of anonymous access types that are
+      --  component_definition or discriminants of a nonlimited type,
+      --  the level is the same as that of the enclosing component type.
+
       Btyp := Base_Type (Typ);
       if Ekind (Btyp) in Access_Kind then
-         if Ekind (Btyp) = E_Anonymous_Access_Type then
+         if Ekind (Btyp) = E_Anonymous_Access_Type
+           and then not Is_Array_Type (Scope (Btyp))      --  Ada 0Y (AI-230)
+           and then Ekind (Scope (Btyp)) /= E_Record_Type --  Ada 0Y (AI-230)
+         then
             return Scope_Depth (Standard_Standard);
          end if;
 

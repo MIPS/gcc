@@ -29,8 +29,8 @@ Boston, MA 02111-1307, USA.  */
 include(iparm.m4)dnl
 include(ifunction.m4)dnl
 ARRAY_FUNCTION(0,
-`  atype_name minval;
-  minval = atype_max;
+`  type_name minval;
+  minval = type_max;
   result = 1;',
 `  if (*src < minval)
     {
@@ -39,8 +39,8 @@ ARRAY_FUNCTION(0,
     }')
 
 MASKED_ARRAY_FUNCTION(0,
-`  atype_name minval;
-  minval = atype_max;
+`  type_name minval;
+  minval = type_max;
   result = 1;',
 `  if (*msrc && *src < minval)
     {

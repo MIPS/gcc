@@ -60,26 +60,21 @@ gfc_directorylist;
 /* List of include file search directories.  */
 static gfc_directorylist *include_dirs;
 
-static gfc_file *file_head, *current_file;
-
+static gfc_file *first_file, *first_duplicated_file;
 static int continue_flag, end_flag;
 
-gfc_source_form gfc_current_form;
-static gfc_linebuf *line_head, *line_tail;
-       
-locus gfc_current_locus1;
-char *gfc_source_file;
-      
+gfc_file *gfc_current_file;
+
 
 /* Main scanner initialization.  */
 
 void
 gfc_scanner_init_1 (void)
 {
-  file_head = NULL;
-  line_head = NULL;
-  line_tail = NULL;
 
+  gfc_current_file = NULL;
+  first_file = NULL;
+  first_duplicated_file = NULL;
   end_flag = 0;
 }
 
@@ -89,24 +84,36 @@ gfc_scanner_init_1 (void)
 void
 gfc_scanner_done_1 (void)
 {
-  gfc_linebuf *lb;
-  gfc_file *f;
 
-  while(line_head != NULL) 
+  linebuf *lp, *lp2;
+  gfc_file *fp, *fp2;
+
+  for (fp = first_file; fp; fp = fp2)
     {
-      lb = line_head->next;
-      gfc_free(line_head);
-      line_head = lb;
-    }
-     
-  while(file_head != NULL) 
-    {
-      f = file_head->next;
-      gfc_free(file_head->filename);
-      gfc_free(file_head);
-      file_head = f;    
+
+      if (fp->start != NULL)
+	{
+	  /* Free linebuf blocks */
+	  for (fp2 = fp->next; fp2; fp2 = fp2->next)
+	    if (fp->start == fp2->start)
+	      fp2->start = NULL;
+
+	  for (lp = fp->start; lp; lp = lp2)
+	    {
+	      lp2 = lp->next;
+	      gfc_free (lp);
+	    }
+	}
+
+      fp2 = fp->next;
+      gfc_free (fp);
     }
 
+  for (fp = first_duplicated_file; fp; fp = fp2)
+    {
+      fp2 = fp->next;
+      gfc_free (fp);
+    }
 }
 
 
@@ -161,6 +168,7 @@ gfc_release_include_path (void)
     }
 }
 
+
 /* Opens file for reading, searching through the include directories
    given if necessary.  */
 
@@ -198,9 +206,10 @@ locus *
 gfc_current_locus (void)
 {
 
-  return &gfc_current_locus1;
+  if (gfc_current_file == NULL)
+    return NULL;
+  return &gfc_current_file->loc;
 }
-
 
 
 /* Let a caller move the current read pointer (backwards).  */
@@ -209,7 +218,7 @@ void
 gfc_set_locus (locus * lp)
 {
 
-  gfc_current_locus1 = *lp;
+  gfc_current_file->loc = *lp;
 }
 
 
@@ -232,10 +241,10 @@ gfc_at_eof (void)
   if (gfc_at_end ())
     return 1;
 
-  if (line_head == NULL)
+  if (gfc_current_file->start->lines == 0)
     return 1;			/* Null file */
 
-  if (gfc_current_locus1.lb == NULL)
+  if (gfc_current_file->loc.lp == NULL)
     return 1;
 
   return 0;
@@ -247,10 +256,14 @@ gfc_at_eof (void)
 int
 gfc_at_bol (void)
 {
+  int i;
+
   if (gfc_at_eof ())
     return 1;
 
-  return (gfc_current_locus1.nextc == gfc_current_locus1.lb->line);
+  i = gfc_current_file->loc.line;
+
+  return gfc_current_file->loc.nextc == gfc_current_file->loc.lp->line[i];
 }
 
 
@@ -263,7 +276,7 @@ gfc_at_eol (void)
   if (gfc_at_eof ())
     return 1;
 
-  return (*gfc_current_locus1.nextc == '\0');
+  return *gfc_current_file->loc.nextc == '\0';
 }
 
 
@@ -272,24 +285,27 @@ gfc_at_eol (void)
 void
 gfc_advance_line (void)
 {
+  locus *locp;
+  linebuf *lp;
+
   if (gfc_at_end ())
     return;
 
-  if (gfc_current_locus1.lb == NULL) 
-    {
-      end_flag = 1;
-      return;
-    } 
+  locp = &gfc_current_file->loc;
+  lp = locp->lp;
+  if (lp == NULL)
+    return;
 
-  gfc_current_locus1.lb = gfc_current_locus1.lb->next;
-
-  if (gfc_current_locus1.lb != NULL)         
-    gfc_current_locus1.nextc = gfc_current_locus1.lb->line;
-  else 
+  if (++locp->line >= lp->lines)
     {
-      gfc_current_locus1.nextc = NULL;
-      end_flag = 1;
-    }       
+      locp->lp = lp = lp->next;
+      if (lp == NULL)
+	return;	  /* End of this file */
+
+      locp->line = 0;
+    }
+
+  locp->nextc = lp->line[locp->line];
 }
 
 
@@ -305,20 +321,103 @@ gfc_advance_line (void)
 static int
 next_char (void)
 {
+  locus *locp;
   int c;
-  
-  if (gfc_current_locus1.nextc == NULL)
+
+  /* End the current include level, but not if we're in the middle
+     of processing a continuation. */
+  if (gfc_at_eof ())
+    {
+      if (continue_flag != 0 || gfc_at_end ())
+	return '\n';
+
+      if (gfc_current_file->included_by == NULL)
+	end_flag = 1;
+
+      return '\n';
+    }
+
+  locp = &gfc_current_file->loc;
+  if (locp->nextc == NULL)
     return '\n';
 
-  c = *gfc_current_locus1.nextc++;
+  c = *locp->nextc++;
   if (c == '\0')
     {
-      gfc_current_locus1.nextc--; /* Remain on this line.  */
+      locp->nextc--;	/* Stay stuck on this line */
       c = '\n';
     }
 
   return c;
 }
+
+
+/* Checks the current line buffer to see if it is an include line.  If
+   so, we load the new file and prepare to read from it.  Include
+   lines happen at a lower level than regular parsing because the
+   string-matching subroutine is far simpler than the normal one.
+
+   We never return a syntax error because a statement like "include = 5"
+   is perfectly legal.  We return zero if no include was processed or
+   nonzero if we matched an include.  */
+
+int
+gfc_check_include (void)
+{
+  char c, quote, path[PATH_MAX + 1];
+  const char *include;
+  locus start;
+  int i;
+
+  include = "include";
+
+  start = *gfc_current_locus ();
+  gfc_gobble_whitespace ();
+
+  /* Match the 'include' */
+  while (*include != '\0')
+    if (*include++ != gfc_next_char ())
+      goto no_include;
+
+  gfc_gobble_whitespace ();
+
+  quote = next_char ();
+  if (quote != '"' && quote != '\'')
+    goto no_include;
+
+  /* Copy the filename */
+  for (i = 0;;)
+    {
+      c = next_char ();
+      if (c == '\n')
+	goto no_include;	/* No close quote */
+      if (c == quote)
+	break;
+
+  /* This shouldn't happen-- PATH_MAX should be way longer than the
+     max line length.  */
+
+      if (i >= PATH_MAX)
+	gfc_internal_error ("Pathname of include file is too long at %C");
+
+      path[i++] = c;
+    }
+
+  path[i] = '\0';
+  if (i == 0)
+    goto no_include;	/* No filename! */
+
+  /* At this point, we've got a filename to be included.  The rest
+     of the include line is ignored */
+
+  gfc_new_file (path, gfc_current_file->form);
+  return 1;
+
+no_include:
+  gfc_set_locus (&start);
+  return 0;
+}
+
 
 /* Skip a comment.  When we come here the parse pointer is positioned
    immediately after the comment character.  If we ever implement
@@ -351,7 +450,7 @@ skip_free_comments (void)
 
   for (;;)
     {
-      start = gfc_current_locus1;
+      start = *gfc_current_locus ();
       if (gfc_at_eof ())
 	break;
 
@@ -393,7 +492,7 @@ skip_fixed_comments (void)
 
   for (;;)
     {
-      start = gfc_current_locus1;
+      start = *gfc_current_locus ();
       if (gfc_at_eof ())
 	break;
 
@@ -444,7 +543,7 @@ void
 gfc_skip_comments (void)
 {
 
-  if (!gfc_at_bol () || gfc_current_form == FORM_FREE)
+  if (!gfc_at_bol () || gfc_current_file->form == FORM_FREE)
     skip_free_comments ();
   else
     skip_fixed_comments ();
@@ -471,7 +570,7 @@ restart:
   if (gfc_at_end ())
     return c;
 
-  if (gfc_current_form == FORM_FREE)
+  if (gfc_current_file->form == FORM_FREE)
     {
 
       if (!in_string && c == '!')
@@ -491,7 +590,7 @@ restart:
 
       /* If the next nonblank character is a ! or \n, we've got a
          continuation line. */
-      old_loc = gfc_current_locus1;
+      old_loc = gfc_current_file->loc;
 
       c = next_char ();
       while (gfc_is_whitespace (c))
@@ -602,7 +701,7 @@ gfc_next_char (void)
     {
       c = gfc_next_char_literal (0);
     }
-  while (gfc_current_form == FORM_FIXED && gfc_is_whitespace (c));
+  while (gfc_current_file->form == FORM_FIXED && gfc_is_whitespace (c));
 
   return TOLOWER (c);
 }
@@ -614,7 +713,7 @@ gfc_peek_char (void)
   locus old_loc;
   int c;
 
-  old_loc = gfc_current_locus1;
+  old_loc = *gfc_current_locus ();
   c = gfc_next_char ();
   gfc_set_locus (&old_loc);
 
@@ -684,7 +783,7 @@ gfc_gobble_whitespace (void)
 
   do
     {
-      old_loc = gfc_current_locus1;
+      old_loc = *gfc_current_locus ();
       c = gfc_next_char_literal (0);
     }
   while (gfc_is_whitespace (c));
@@ -699,13 +798,12 @@ gfc_gobble_whitespace (void)
    character in the source region.  */
 
 static void
-load_line (FILE * input, char *buffer, char *filename, int linenum)
+load_line (FILE * input, gfc_source_form form, char *buffer,
+	   char *filename, int linenum)
 {
   int c, maxlen, i, trunc_flag;
 
-  maxlen = (gfc_current_form == FORM_FREE) 
-    ? 132 
-    : gfc_option.fixed_line_length;
+  maxlen = (form == FORM_FREE) ? 132 : gfc_option.fixed_line_length;
 
   i = 0;
 
@@ -719,19 +817,12 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 	break;
 
       if (c == '\r')
-	continue;		/* Gobble characters.  */
+	continue;		/* Gobble characters */
       if (c == '\0')
 	continue;
 
-      if (c == '\032')
-	{
-	  /* Ctrl-Z ends the file.  */
-	  while (fgetc (input) != EOF);
-	  break;
-	}
-
-      if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
-	{			/* Tab expandsion.  */
+      if (form == FORM_FIXED && c == '\t' && i <= 6)
+	{			/* Tab expandsion */
 	  while (i <= 6)
 	    {
 	      *buffer++ = ' ';
@@ -745,7 +836,7 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
       i++;
 
       if (i >= maxlen)
-	{			/* Truncate the rest of the line.  */
+	{			/* Truncate the rest of the line */
 	  trunc_flag = 1;
 
 	  for (;;)
@@ -772,247 +863,51 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 }
 
 
-/* Get a gfc_file structure, initialize it and add it to
-   the file stack.  */
-
-static gfc_file *
-get_file (char *name)
-{
-  gfc_file *f;
-
-  f = gfc_getmem (sizeof (gfc_file));
-
-  f->filename = gfc_getmem (strlen (name) + 1);
-  strcpy (f->filename, name);
-
-  f->next = file_head;
-  file_head = f;
-
-  f->included_by = current_file;
-  if (current_file != NULL)
-    f->inclusion_line = current_file->line;
-
-  return f;
-}
-
-/* Deal with a line from the C preprocessor. The
-   initial octothorp has already been seen.  */
-
-static void
-preprocessor_line (char *c)
-{
-  bool flag[5];
-  int i, line;
-  char *filename;
-  gfc_file *f;
-
-  c++;
-  while (*c == ' ' || *c == '\t')
-    c++;
-
-  if (*c < '0' || *c > '9')
-    {
-      gfc_warning_now ("%s:%d Unknown preprocessor directive", 
-		       current_file->filename, current_file->line);
-      current_file->line++;
-      return;
-    }
-
-  line = atoi (c);
-
-  c = strchr (c, ' ') + 2; /* Skip space and quote.  */
-  filename = c;
-
-  c = strchr (c, '"'); /* Make filename end at quote.  */
-  *c++ = '\0';
-
-  /* Get flags.  */
-  
-  flag[1] = flag[2] = flag[3] = flag[4] = flag[5] = false;
-
-  for (;;)
-    {
-      c = strchr (c, ' ');
-      if (c == NULL)
-	break;
-
-      c++;
-      i = atoi (c);
-
-      if (1 <= i && i <= 4)
-	flag[i] = true;
-    }
-     
-  /* Interpret flags.  */
-  
-  if (flag[1] || flag[3]) /* Starting new file.  */
-    {
-      f = get_file (filename);
-      f->up = current_file;
-      current_file = f;
-    }
-  
-  if (flag[2]) /* Ending current file.  */
-    {
-      current_file = current_file->up;
-    }
-  
-  current_file->line = line;
-  
-  /* The name of the file can be a temporary file produced by
-     cpp. Replace the name if it is different.  */
-  
-  if (strcmp (current_file->filename, filename) != 0)
-    {
-      gfc_free (current_file->filename);
-      current_file->filename = gfc_getmem (strlen (filename) + 1);
-      strcpy (current_file->filename, filename);
-    }
-}
-
-
-static try load_file (char *, bool);
-
-/* include_line()-- Checks a line buffer to see if it is an include
-   line.  If so, we call load_file() recursively to load the included
-   file.  We never return a syntax error because a statement like
-   "include = 5" is perfectly legal.  We return false if no include was
-   processed or true if we matched an include.  */
-
-static bool
-include_line (char *line)
-{
-  char quote, *c, *begin, *stop;
-  
-  c = line;
-  while (*c == ' ' || *c == '\t')
-    c++;
-
-  if (strncasecmp (c, "include", 7))
-      return false;
-
-  c += 7;
-  while (*c == ' ' || *c == '\t')
-    c++;
-
-  /* Find filename between quotes.  */
-  
-  quote = *c++;
-  if (quote != '"' && quote != '\'')
-    return false;
-
-  begin = c;
-
-  while (*c != quote && *c != '\0')
-    c++;
-
-  if (*c == '\0')
-    return false;
-
-  stop = c++;
-  
-  while (*c == ' ' || *c == '\t')
-    c++;
-
-  if (*c != '\0' && *c != '!')
-    return false;
-
-  /* We have an include line at this point. */
-
-  *stop = '\0'; /* It's ok to trash the buffer, as this line won't be
-		   read by anything else.  */
-
-  load_file (begin, false);
-  return true;
-}
-
 /* Load a file into memory by calling load_line until the file ends.  */
 
-static try
-load_file (char *filename, bool initial)
+static void
+load_file (FILE * input, gfc_file * fp)
 {
-  char line[GFC_MAX_LINE+1];
-  gfc_linebuf *b;
-  gfc_file *f;
-  FILE *input;
-  int len;
+  char *linep, line[GFC_MAX_LINE + 1];
+  int len, linenum;
+  linebuf *lp;
 
-  for (f = current_file; f; f = f->up)
-    if (strcmp (filename, f->filename) == 0)
-      {
-	gfc_error_now ("File '%s' is being included recursively", filename);
-	return FAILURE;
-      }
+  fp->start = lp = gfc_getmem (sizeof (linebuf));
 
-  if (initial)
-    {
-      input = gfc_open_file (filename);
-      if (input == NULL)
-	{
-	  gfc_error_now ("Can't open file '%s'", filename);
-	  return FAILURE;
-	}
-    }
-  else
-    {
-      input = gfc_open_included_file (filename);
-      if (input == NULL)
-	{
-	  gfc_error_now ("Can't open included file '%s'", filename);
-	  return FAILURE;
-	}
-    }
+  linenum = 1;
+  lp->lines = 0;
+  lp->start_line = 1;
+  lp->next = NULL;
+
+  linep = (char *) (lp + 1);
 
   /* Load the file.  */
-
-  f = get_file (filename);
-  f->up = current_file;
-  current_file = f;
-  current_file->line = 1;
-
-  for (;;) 
+  for (;;)
     {
-      load_line (input, line, filename, current_file->line);
+      load_line (input, fp->form, line, fp->filename, linenum);
+      linenum++;
 
       len = strlen (line);
+
       if (feof (input) && len == 0)
 	break;
 
-      /* There are three things this line can be: a line of Fortran
-	 source, an include line or a C preprocessor directive.  */
-
-      if (line[0] == '#')
+      /* See if we need another linebuf.  */
+      if (((char *) &lp->line[lp->lines + 2]) > linep - len - 1)
 	{
-	  preprocessor_line (line);
-	  continue;
+	  lp->next = gfc_getmem (sizeof (linebuf));
+
+	  lp->next->start_line = lp->start_line + lp->lines;
+	  lp = lp->next;
+	  lp->lines = 0;
+
+	  linep = (char *) (lp + 1);
 	}
 
-      if (include_line (line))
-	{
-	  current_file->line++;
-	  continue;
-	}
-
-      /* Add line.  */
-
-      b = gfc_getmem (sizeof (gfc_linebuf) + len + 1);
-
-      b->linenum = current_file->line++;
-      b->file = current_file;
-      strcpy (b->line, line);
-
-      if (line_head == NULL)
-	line_head = b;
-      else
-	line_tail->next = b;
-
-      line_tail = b;
+      linep = linep - len - 1;
+      lp->line[lp->lines++] = linep;
+      strcpy (linep, line);
     }
-
-  fclose (input);
-
-  current_file = current_file->up;
-  return SUCCESS;
 }
 
 
@@ -1087,52 +982,92 @@ form_from_filename (const char *filename)
 }
 
 
-/* Open a new file and start scanning from that file. Returns SUCCESS
-   if everything went OK, FAILURE otherwise.  If form == FORM_UKNOWN
-   it tries to determine the source form from the filename, defaulting
-   to free form.  */
+/* Open a new file and start scanning from that file.  Every new file
+   gets a gfc_file node, even if it is a duplicate file.  Returns SUCCESS
+   if everything went OK, FAILURE otherwise.  */
 
 try
 gfc_new_file (const char *filename, gfc_source_form form)
 {
-  try result;
+  gfc_file *fp, *fp2;
+  FILE *input;
+  int len;
 
-  if (filename != NULL)
+  len = strlen (filename);
+  if (len > PATH_MAX)
     {
-      gfc_source_file = gfc_getmem (strlen (filename) + 1);
-      strcpy (gfc_source_file, filename);
+      gfc_error_now ("Filename '%s' is too long- ignoring it", filename);
+      return FAILURE;
     }
+
+  fp = gfc_getmem (sizeof (gfc_file));
+
+  /* Make sure this file isn't being included recursively.  */
+  for (fp2 = gfc_current_file; fp2; fp2 = fp2->included_by)
+    if (strcmp (filename, fp2->filename) == 0)
+      {
+	gfc_error_now ("Recursive inclusion of file '%s' at %C- ignoring it",
+		       filename);
+	gfc_free (fp);
+	return FAILURE;
+      }
+
+  /* See if the file has already been included.  */
+  for (fp2 = first_file; fp2; fp2 = fp2->next)
+    if (strcmp (filename, fp2->filename) == 0)
+      {
+	*fp = *fp2;
+	fp->next = first_duplicated_file;
+	first_duplicated_file = fp;
+	goto init_fp;
+      }
+
+  strcpy (fp->filename, filename);
+
+  if (gfc_current_file == NULL)
+    input = gfc_open_file (filename);
   else
-    gfc_source_file = NULL;
+    input = gfc_open_included_file (filename);
+
+  if (input == NULL)
+    {
+      if (gfc_current_file == NULL)
+	gfc_error_now ("Can't open file '%s'", filename);
+      else
+	gfc_error_now ("Can't open file '%s' included at %C", filename);
+
+      gfc_free (fp);
+      return FAILURE;
+    }
 
   /* Decide which form the file will be read in as.  */
-
   if (form != FORM_UNKNOWN)
-    gfc_current_form = form;
+    fp->form = form;
   else
     {
-      gfc_current_form = form_from_filename (filename);
+      fp->form = form_from_filename (filename);
 
-      if (gfc_current_form == FORM_UNKNOWN)
+      if (fp->form == FORM_UNKNOWN)
 	{
-	  gfc_current_form = FORM_FREE;
-	  gfc_warning_now ("Reading file '%s' as free form.", 
-			   (filename[0] == '\0') ? "<stdin>" : filename); 
+	  fp->form = FORM_FREE;
+	  gfc_warning_now ("Reading file %s as free form", filename);
 	}
     }
 
-  result = load_file (gfc_source_file, true);
+  fp->next = first_file;
+  first_file = fp;
 
-  gfc_current_locus1.lb = line_head;
-  gfc_current_locus1.nextc = (line_head == NULL) ? NULL : line_head->line;
+  load_file (input, fp);
+  fclose (input);
 
-#if 0 /* Debugging aid.  */
-  for (; line_head; line_head = line_head->next)
-    gfc_status ("%s:%3d %s\n", line_head->file->filename, 
-		line_head->linenum, line_head->line);
+init_fp:
+  fp->included_by = gfc_current_file;
+  gfc_current_file = fp;
 
-  exit (0);
-#endif
+  fp->loc.line = 0;
+  fp->loc.lp = fp->start;
+  fp->loc.nextc = fp->start->line[0];
+  fp->loc.file = fp;
 
-  return result;
+  return SUCCESS;
 }

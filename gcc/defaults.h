@@ -39,12 +39,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
 #  define TARGET_BS 010
-#  define TARGET_TAB 011
-#  define TARGET_NEWLINE 012
-#  define TARGET_VT 013
-#  define TARGET_FF 014
 #  define TARGET_CR 015
+#  define TARGET_DIGIT0 060
 #  define TARGET_ESC 033
+#  define TARGET_FF 014
+#  define TARGET_NEWLINE 012
+#  define TARGET_TAB 011
+#  define TARGET_VT 013
 #endif
 
 /* Store in OUTPUT a string (made with alloca) containing an
@@ -620,7 +621,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 #ifndef HOT_TEXT_SECTION_NAME
-#define HOT_TEXT_SECTION_NAME "text.hot"
+#define HOT_TEXT_SECTION_NAME ".text.hot"
 #endif
 
 #ifndef NORMAL_TEXT_SECTION_NAME
@@ -628,7 +629,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
 #endif
 
 #ifndef HAS_LONG_COND_BRANCH
@@ -740,6 +741,11 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
 #define CASE_VECTOR_PC_RELATIVE 0
+#endif
+
+/* Assume that trampolines need function alignment.  */
+#ifndef TRAMPOLINE_ALIGNMENT
+#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
 
 /* Register mappings for target machines without register windows.  */

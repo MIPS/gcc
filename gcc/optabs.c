@@ -1089,7 +1089,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       /* If TARGET is the same as one of the operands, the REG_EQUAL note
 	 won't be accurate, so use a new target. Do this also if target is not
 	 a REG, first because having a register instead may open optimization
-	 oportunities, and second because if target and op0 happen to be MEMs
+	 opportunities, and second because if target and op0 happen to be MEMs
 	 designating the same location, we would risk clobbering it too early
 	 in the code sequence we generate below.  */
       if (target == 0 || target == op0 || target == op1 || ! REG_P (target))
@@ -2159,7 +2159,7 @@ sign_expand_binop (enum machine_mode mode, optab uoptab, optab soptab,
    Returns 1 if this operation can be performed; 0 if not.  */
 
 int
-expand_twoval_unop (optab unoptab, rtx targ0, rtx targ1, rtx op0,
+expand_twoval_unop (optab unoptab, rtx op0, rtx targ0, rtx targ1,
 		    int unsignedp)
 {
   enum machine_mode mode = GET_MODE (targ0 ? targ0 : targ1);
@@ -2234,7 +2234,7 @@ expand_twoval_unop (optab unoptab, rtx targ0, rtx targ1, rtx op0,
 	      rtx t1 = gen_reg_rtx (wider_mode);
 	      rtx cop0 = convert_modes (wider_mode, mode, op0, unsignedp);
 
-	      if (expand_twoval_unop (unoptab, t0, t1, cop0, unsignedp))
+	      if (expand_twoval_unop (unoptab, cop0, t0, t1, unsignedp))
 		{
 		  convert_move (targ0, t0, unsignedp);
 		  convert_move (targ1, t1, unsignedp);
@@ -5328,6 +5328,8 @@ init_optabs (void)
   udivmod_optab = init_optab (UNKNOWN);
   smod_optab = init_optab (MOD);
   umod_optab = init_optab (UMOD);
+  fmod_optab = init_optab (UNKNOWN);
+  drem_optab = init_optab (UNKNOWN);
   ftrunc_optab = init_optab (UNKNOWN);
   and_optab = init_optab (AND);
   ior_optab = init_optab (IOR);
@@ -5380,13 +5382,19 @@ init_optabs (void)
   nearbyint_optab = init_optab (UNKNOWN);
   sincos_optab = init_optab (UNKNOWN);
   sin_optab = init_optab (UNKNOWN);
+  asin_optab = init_optab (UNKNOWN);
   cos_optab = init_optab (UNKNOWN);
+  acos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
   exp10_optab = init_optab (UNKNOWN);
   exp2_optab = init_optab (UNKNOWN);
+  expm1_optab = init_optab (UNKNOWN);
+  logb_optab = init_optab (UNKNOWN);
+  ilogb_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
   log10_optab = init_optab (UNKNOWN);
   log2_optab = init_optab (UNKNOWN);
+  log1p_optab = init_optab (UNKNOWN);
   tan_optab = init_optab (UNKNOWN);
   atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);

@@ -50,8 +50,8 @@ write_a (fnode * f, const char *source, int len)
     memcpy (p, source, wlen);
   else
     {
-      memset (p, ' ', wlen - len);
-      memcpy (p + wlen - len, source, len);
+      memcpy (p, source, len);
+      memset (p + len, ' ', wlen - len);
     }
 }
 
@@ -875,10 +875,12 @@ write_char (char c)
 
 
 /* write_logical()-- Write a list-directed logical value */
-
+/* Default logical output should be L2
+  according to DEC fortran Manual. */
 static void
 write_logical (const char *source, int length)
 {
+  write_char (' ');
   write_char (extract_int (source, length) ? 'T' : 'F');
 }
 
@@ -891,32 +893,9 @@ write_integer (const char *source, int length)
   char *p;
   const char *q;
   int digits;
-  int width;
+  int width = 12;
 
   q = itoa (extract_int (source, length));
-
-  switch (length)
-    {
-    case 1:
-      width = 4;
-      break;
-
-    case 2:
-      width = 6;
-      break;
-
-    case 4:
-      width = 11;
-      break;
-
-    case 8:
-      width = 20;
-      break;
-
-    default:
-      width = 0;
-      break;
-    }
 
   digits = strlen (q);
 
@@ -986,7 +965,8 @@ write_character (const char *source, int length)
 
 
 /* Output the Real number with default format.
-   REAL(4) is 1PG14.7E2, and REAL(8) is 1PG23.15E3  */
+   According to DEC fortran LRM, default format for
+   REAL(4) is 1PG15.7E2, and for REAL(8) is 1PG25.15E3  */
 
 static void
 write_real (const char *source, int length)
@@ -997,13 +977,13 @@ write_real (const char *source, int length)
   g.scale_factor = 1;
   if (length < 8)
     {
-      f.u.real.w = 14;
+      f.u.real.w = 15;
       f.u.real.d = 7;
       f.u.real.e = 2;
     }
   else
     {
-      f.u.real.w = 23;
+      f.u.real.w = 24;
       f.u.real.d = 15;
       f.u.real.e = 3;
     }
@@ -1059,7 +1039,6 @@ list_formatted_write (bt type, void *p, int len)
     {
       g.first_item = 0;
       char_flag = 0;
-      write_char (' ');
     }
   else
     {

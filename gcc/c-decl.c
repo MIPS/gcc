@@ -49,6 +49,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "langhooks.h"
+#include "tree-mudflap.h"
+#include "tree-gimple.h"
+#include "diagnostic.h"
+#include "tree-dump.h"
 #include "cgraph.h"
 #include "hashtab.h"
 #include "libfuncs.h"
@@ -108,9 +113,11 @@ static GTY(()) tree c_scope_stmt_stack;
 int c_in_iteration_stmt;
 int c_in_case_stmt;
 
-/* A DECL for the current file-scope context.  */
+/* Linked list of TRANSLATION_UNIT_DECLS for the translation units
+   included in this invocation.  Note that the current translation
+   unit is not included in this list.  */
 
-static GTY(()) tree current_file_decl;
+static GTY(()) tree all_translation_units;
 
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
@@ -649,7 +656,12 @@ pop_scope (void)
   if (scope->function_body)
     context = current_function_decl;
   else if (scope == file_scope)
-    context = current_file_decl;
+    {
+      tree file_decl = build_decl (TRANSLATION_UNIT_DECL, 0, 0);
+      TREE_CHAIN (file_decl) = all_translation_units;
+      all_translation_units = file_decl;
+      context = file_decl;
+    }
   else
     context = block;
 
@@ -736,6 +748,9 @@ pop_scope (void)
 	      TREE_CHAIN (p) = BLOCK_VARS (block);
 	      BLOCK_VARS (block) = p;
 	    }
+	  /* If this is the file scope, must set DECL_CONTEXT on these.  */
+	  if (!C_DECL_IN_EXTERNAL_SCOPE (p) && scope == file_scope)
+	    DECL_CONTEXT (p) = context;
 
 	  /* Fall through.  */
 	  /* Parameters go in DECL_ARGUMENTS, not BLOCK_VARS, and have
@@ -795,9 +810,6 @@ void
 push_file_scope (void)
 {
   tree decl;
-  tree file_decl = build_decl (TRANSLATION_UNIT_DECL, 0, 0);
-  TREE_CHAIN (file_decl) = current_file_decl;
-  current_file_decl = file_decl;
 
   push_scope ();
   file_scope = current_scope;
@@ -1657,7 +1669,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 static bool
 duplicate_decls (tree newdecl, tree olddecl)
 {
-  tree newtype, oldtype;
+  tree newtype = NULL, oldtype = NULL;
 
   if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
     return false;
@@ -1796,14 +1808,12 @@ pushdecl (tree x)
   if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_LANG_SPECIFIC (x))
     DECL_LANG_SPECIFIC (x) = ggc_alloc_cleared (sizeof (struct lang_decl));
 
-  /* A local extern declaration for a function doesn't constitute nesting.
-     A local auto declaration does, since it's a forward decl
-     for a nested function coming later.  */
-  if (current_function_decl == NULL
-      || ((TREE_CODE (x) == FUNCTION_DECL || TREE_CODE (x) == VAR_DECL)
-	  && DECL_INITIAL (x) == 0 && DECL_EXTERNAL (x)))
-    DECL_CONTEXT (x) = current_file_decl;
-  else
+  /* Must set DECL_CONTEXT for everything not at file scope or
+     DECL_FILE_SCOPE_P won't work.  Local externs don't count
+     unless they have initializers (which generate code).  */
+  if (current_function_decl
+      && ((TREE_CODE (x) != FUNCTION_DECL && TREE_CODE (x) != VAR_DECL)
+	  || DECL_INITIAL (x) || !DECL_EXTERNAL (x)))
     DECL_CONTEXT (x) = current_function_decl;
 
   /* Anonymous decls are just inserted in the scope.  */
@@ -1927,7 +1937,6 @@ pushdecl_top_level (tree x)
   if (I_SYMBOL_BINDING (name))
     abort ();
 
-  DECL_CONTEXT (x) = current_file_decl;
   if (DECL_EXTERNAL (x) || TREE_PUBLIC (x))
     {
       C_DECL_IN_EXTERNAL_SCOPE (x) = 1;
@@ -2108,10 +2117,6 @@ lookup_label (tree name)
 /* Make a label named NAME in the current function, shadowing silently
    any that may be inherited from containing functions or containing
    scopes.  This is called for __label__ declarations.  */
-
-/* Note that valid use, if the label being shadowed comes from another
-   scope in the same function, requires calling declare_nonlocal_label
-   right away.  (Is this still true?  -zw 2003-07-17)  */
 
 tree
 declare_label (tree name)
@@ -2932,7 +2937,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		 in a particular register.  */
 	      if (C_DECL_REGISTER (decl))
 		{
-		  DECL_C_HARD_REGISTER (decl) = 1;
+		  DECL_HARD_REGISTER (decl) = 1;
 		  /* This cannot be done for a structure with volatile
 		     fields, on which DECL_REGISTER will have been
 		     reset.  */
@@ -3300,11 +3305,14 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   else
     w = tree_low_cst (*width, 1);
 
-  if (TREE_CODE (*type) == ENUMERAL_TYPE
-      && (w < min_precision (TYPE_MIN_VALUE (*type), TYPE_UNSIGNED (*type))
-	  || w < min_precision (TYPE_MAX_VALUE (*type),
-				TYPE_UNSIGNED (*type))))
-    warning ("`%s' is narrower than values of its type", name);
+  if (TREE_CODE (*type) == ENUMERAL_TYPE)
+    {
+      struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
+      if (!lt 
+          || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
+	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
+	warning ("`%s' is narrower than values of its type", name);
+    }
 }
 
 /* Given declspecs and a declarator,
@@ -4055,6 +4063,11 @@ grokdeclarator (tree declarator, tree declspecs,
 	      TYPE_SIZE (type) = bitsize_zero_node;
 	      TYPE_SIZE_UNIT (type) = size_zero_node;
 	    }
+	  else if (declarator && TREE_CODE (declarator) == INDIRECT_REF)
+	    /* We can never complete an array type which is the target of a
+	       pointer, so go ahead and lay it out.  */
+	    layout_type (type);
+
 	  if (decl_context != PARM
 	      && (array_ptr_quals != NULL_TREE || array_parm_static))
 	    {
@@ -4798,9 +4811,9 @@ get_parm_info (bool ellipsis)
 	    }
 	  break;
 
-	case ENUMERAL_TYPE: keyword = "struct"; goto tag;
+	case ENUMERAL_TYPE: keyword = "enum"; goto tag;
 	case UNION_TYPE:    keyword = "union"; goto tag;
-	case RECORD_TYPE:   keyword = "enum"; goto tag;
+	case RECORD_TYPE:   keyword = "struct"; goto tag;
 	tag:
 	  /* Types may not have tag-names, in which case the type
 	     appears in the bindings list with b->id NULL.  */
@@ -5247,7 +5260,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
           ensure that this lives as long as the rest of the struct decl.
           All decls in an inline function need to be saved.  */
 
-        space = ggc_alloc (sizeof (struct lang_type));
+        space = ggc_alloc_cleared (sizeof (struct lang_type));
         space2 = ggc_alloc (sizeof (struct sorted_fields_type) + len * sizeof (tree));
 
         len = 0;
@@ -5382,9 +5395,10 @@ tree
 finish_enum (tree enumtype, tree values, tree attributes)
 {
   tree pair, tem;
-  tree minnode = 0, maxnode = 0, enum_value_type;
+  tree minnode = 0, maxnode = 0;
   int precision, unsign;
   bool toplevel = (file_scope == current_scope);
+  struct lang_type *lt;
 
   decl_attributes (&enumtype, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 
@@ -5414,27 +5428,20 @@ finish_enum (tree enumtype, tree values, tree attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = c_common_type_for_size (precision, unsign);
-      if (narrowest == 0)
+      tem = c_common_type_for_size (precision, unsign);
+      if (tem == NULL)
 	{
 	  warning ("enumeration values exceed range of largest integer");
-	  narrowest = long_long_integer_type_node;
+	  tem = long_long_integer_type_node;
 	}
-
-      precision = TYPE_PRECISION (narrowest);
     }
   else
-    precision = TYPE_PRECISION (integer_type_node);
+    tem = unsign ? unsigned_type_node : integer_type_node;
 
-  if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = c_common_type_for_size (precision, 0);
-  else
-    enum_value_type = enumtype;
-
-  TYPE_MIN_VALUE (enumtype) = minnode;
-  TYPE_MAX_VALUE (enumtype) = maxnode;
-  TYPE_PRECISION (enumtype) = precision;
-  TYPE_UNSIGNED (enumtype) = unsign;
+  TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
+  TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
+  TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
+  TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
   TYPE_SIZE (enumtype) = 0;
   layout_type (enumtype);
 
@@ -5450,6 +5457,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       for (pair = values; pair; pair = TREE_CHAIN (pair))
 	{
 	  tree enu = TREE_PURPOSE (pair);
+	  tree ini = DECL_INITIAL (enu);
 
 	  TREE_TYPE (enu) = enumtype;
 
@@ -5460,17 +5468,26 @@ finish_enum (tree enumtype, tree values, tree attributes)
 	     when comparing integers with enumerators that fit in the
 	     int range.  When -pedantic is given, build_enumerator()
 	     would have already taken care of those that don't fit.  */
-	  if (int_fits_type_p (DECL_INITIAL (enu), enum_value_type))
-	    DECL_INITIAL (enu) = convert (enum_value_type, DECL_INITIAL (enu));
+	  if (int_fits_type_p (ini, integer_type_node))
+	    tem = integer_type_node;
 	  else
-	    DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
+	    tem = enumtype;
+	  ini = convert (tem, ini);
 
+	  DECL_INITIAL (enu) = ini;
 	  TREE_PURPOSE (pair) = DECL_NAME (enu);
-	  TREE_VALUE (pair) = DECL_INITIAL (enu);
+	  TREE_VALUE (pair) = ini;
 	}
 
       TYPE_VALUES (enumtype) = values;
     }
+
+  /* Record the min/max values so that we can warn about bit-field
+     enumerations that are too small for the values.  */
+  lt = ggc_alloc_cleared (sizeof (struct lang_type));
+  lt->enum_min = minnode;
+  lt->enum_max = maxnode;
+  TYPE_LANG_SPECIFIC (enumtype) = lt;
 
   /* Fix up all variant types of this enum type.  */
   for (tem = TYPE_MAIN_VARIANT (enumtype); tem; tem = TYPE_NEXT_VARIANT (tem))
@@ -5487,6 +5504,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
       TYPE_UNSIGNED (tem) = TYPE_UNSIGNED (enumtype);
+      TYPE_LANG_SPECIFIC (tem) = TYPE_LANG_SPECIFIC (enumtype);
     }
 
   /* Finish debugging output for this type.  */
@@ -5824,8 +5842,7 @@ store_parm_decls_newstyle (tree fndecl, tree arg_info)
      warning if we got here because ARG_INFO_TYPES was error_mark_node
      (this happens when a function definition has just an ellipsis in
      its parameter list).  */
-  else if (warn_traditional && !in_system_header
-	   && DECL_CONTEXT (fndecl) == current_file_decl
+  else if (warn_traditional && !in_system_header && !current_function_scope
 	   && ARG_INFO_TYPES (arg_info) != error_mark_node)
     warning ("%Jtraditional C rejects ISO C style function definitions",
 	     fndecl);
@@ -6082,6 +6099,25 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
     }
 }
 
+/* A subroutine of store_parm_decls called via walk_tree.  Mark all
+   decls non-local.  */
+
+static tree
+set_decl_nonlocal (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  if (DECL_P (t))
+    {
+      DECL_NONLOCAL (t) = 1;
+      *walk_subtrees = 0;
+    }
+  else if (TYPE_P (t))
+    *walk_subtrees = 0;
+
+  return NULL;
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -6139,7 +6175,14 @@ store_parm_decls (void)
       for (t = DECL_LANG_SPECIFIC (fndecl)->pending_sizes;
 	   t;
 	   t = TREE_CHAIN (t))
-	SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
+	{
+	  /* We will have a nonlocal use of whatever variables are
+	     buried inside here.  */
+	  walk_tree (&TREE_OPERAND (TREE_VALUE (t), 0),
+		     set_decl_nonlocal, NULL, NULL);
+
+	  SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
+	}
     }
 
   /* This function is being processed in whole-function mode.  */
@@ -6153,6 +6196,32 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
+/* Give FNDECL and all its nested functions to cgraph for compilation.  */
+
+static void
+c_finalize (tree fndecl)
+{
+  struct cgraph_node *cgn;
+
+  /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
+  c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+
+  /* ??? Objc emits functions after finalizing the compilation unit.
+     This should be cleaned up later and this conditional removed.  */
+  if (cgraph_global_info_ready)
+    {
+      c_expand_body (fndecl);
+      return;
+    }
+
+  /* Finalize all nested functions now.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    c_finalize (cgn->decl);
+
+  cgraph_finalize_function (fndecl, false);
+}
+
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage
    for the function definition.
@@ -6250,17 +6319,44 @@ finish_function (void)
       && current_function_returns_null)
     warning ("this function may return with or without a value");
 
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
+  /* If we don't have ctors/dtors sections, and this is a static
+     constructor or destructor, it must be recorded now.  */
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && !targetm.have_ctors_dtors)
+    static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
+
+  /* Genericize before inlining.  Delay genericizing nested functions
+     until their parent function is genericized.  Since finalizing
+     requires GENERIC, delay that as well.  */
+     
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
+    {
+      if (!decl_function_context (fndecl))
+        {
+          c_genericize (fndecl);
+	  lower_nested_functions (fndecl);
+          c_finalize (fndecl);
+        }
+      else
+        {
+          /* Register this function with cgraph just far enough to get it
+            added to our parent's nested function list.  Handy, since the
+            C front end doesn't have such a list.  */
+          (void) cgraph_node (fndecl);
+        }
+    }
+
   /* We're leaving the context of this function, so zap cfun.
-     It's still in DECL_STRUCT_FUNCTION , and we'll restore it in
+     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
      tree_rest_of_compilation.  */
   cfun = NULL;
-
-  /* ??? Objc emits functions after finalizing the compilation unit.
-     This should be cleaned up later and this conditional removed.  */
-  if (!cgraph_global_info_ready)
-    cgraph_finalize_function (fndecl, false);
-  else
-    c_expand_body (fndecl);
   current_function_decl = NULL;
 }
 
@@ -6287,23 +6383,14 @@ c_expand_body_1 (tree fndecl, int nested_p)
     /* Return to the enclosing function.  */
     pop_function_context ();
 
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
-				     DEFAULT_INIT_PRIORITY);
-      else
-	static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
-    }
-
-  if (DECL_STATIC_DESTRUCTOR (fndecl))
-    {
-      if (targetm.have_ctors_dtors)
-	targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
-				    DEFAULT_INIT_PRIORITY);
-      else
-	static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
-    }
+  if (DECL_STATIC_CONSTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (fndecl), 0),
+				 DEFAULT_INIT_PRIORITY);
+  if (DECL_STATIC_DESTRUCTOR (fndecl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (fndecl), 0),
+				DEFAULT_INIT_PRIORITY);
 }
 
 /* Like c_expand_body_1 but only for unnested functions.  */
@@ -6509,19 +6596,32 @@ c_begin_compound_stmt (void)
   return stmt;
 }
 
-/* Expand T (a DECL_STMT) if it declares an entity not handled by the
+/* Expand DECL if it declares an entity not handled by the
    common code.  */
 
-void
-c_expand_decl_stmt (tree t)
+int
+c_expand_decl (tree decl)
 {
-  tree decl = DECL_STMT_DECL (t);
-
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+	emit_local_var (decl);
+      else
+	expand_anon_union_decl (decl, NULL_TREE, 
+				DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
   /* Expand nested functions.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_CONTEXT (decl) == current_function_decl
-      && DECL_SAVED_TREE (decl))
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_CONTEXT (decl) == current_function_decl
+	   && DECL_SAVED_TREE (decl))
     c_expand_body_1 (decl, 1);
+  else
+    return 0;
+
+  return 1;
 }
 
 /* Return the global value of T as a symbol.  */
@@ -6625,7 +6725,7 @@ c_write_global_declarations (void)
     return;
 
   /* Process all file scopes in this compilation.  */
-  for (t = current_file_decl; t; t = TREE_CHAIN (t))
+  for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
 
   /* Now do the same for the externals scope.  */

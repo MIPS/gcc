@@ -42,11 +42,11 @@ try;
 
 typedef struct stream
 {
-  char *(*alloc_w_at) (struct stream *, int *, gfc_offset);
-  char *(*alloc_r_at) (struct stream *, int *, gfc_offset);
+  char *(*alloc_w_at) (struct stream *, int *, offset_t);
+  char *(*alloc_r_at) (struct stream *, int *, offset_t);
     try (*sfree) (struct stream *);
     try (*close) (struct stream *);
-    try (*seek) (struct stream *, gfc_offset);
+    try (*seek) (struct stream *, offset_t);
     try (*truncate) (struct stream *);
 }
 stream;
@@ -254,13 +254,13 @@ unit_flags;
 #define DEFAULT_RECL 10000
 
 
-typedef struct gfc_unit
+typedef struct unit_t
 {
   int unit_number;
 
   stream *s;
 
-  struct gfc_unit *left, *right;	/* Treap links.  */
+  struct unit_t *left, *right;	/* Treap links.  */
   int priority;
 
   int read_bad, current_record;
@@ -269,7 +269,7 @@ typedef struct gfc_unit
   endfile;
 
   unit_flags flags;
-  gfc_offset recl, last_record, maxrec, bytes_left;
+  offset_t recl, last_record, maxrec, bytes_left;
 
   /* recl           -- Record length of the file.
      last_record    -- Last record number read or written
@@ -279,7 +279,7 @@ typedef struct gfc_unit
   int file_len;
   char file[1];	      /* Filename is allocated at the end of the structure.  */
 }
-gfc_unit;
+unit_t;
 
 /* Global variables.  Putting these in a structure makes it easier to
    maintain, particularly with the constraint of a prefix.  */
@@ -288,12 +288,12 @@ typedef struct
 {
   int in_library;       /* Nonzero if a library call is being processed.  */
   int size;	/* Bytes processed by the current data-transfer statement.  */
-  gfc_offset max_offset;	/* Maximum file offset.  */
+  offset_t max_offset;	/* Maximum file offset.  */
   int item_count;	/* Item number in a formatted data transfer.  */
   int reversion_flag;	/* Format reversion has occurred.  */
   int first_item;
 
-  gfc_unit *unit_root;
+  unit_t *unit_root;
   int seen_dollar;
 
   enum {READING, WRITING} mode;
@@ -311,7 +311,7 @@ extern global_t g;
 
 
 #define current_unit prefix(current_unit)
-extern gfc_unit *current_unit;
+extern unit_t *current_unit;
 
 /* Format tokens.  Only about half of these can be stored in the
    format nodes.  */
@@ -409,7 +409,7 @@ stream *output_stream (void);
 int compare_file_filename (stream *, const char *, int);
 
 #define find_file prefix(find_file)
-gfc_unit *find_file (void);
+unit_t *find_file (void);
 
 #define stream_at_bof prefix(stream_at_bof)
 int stream_at_bof (stream *);
@@ -418,7 +418,7 @@ int stream_at_bof (stream *);
 int stream_at_eof (stream *);
 
 #define delete_file prefix(delete_file)
-int delete_file (gfc_unit *);
+int delete_file (unit_t *);
 
 #define file_exists prefix(file_exists)
 int file_exists (void);
@@ -445,10 +445,10 @@ const char *inquire_write (const char *, int);
 const char *inquire_readwrite (const char *, int);
 
 #define file_length prefix(file_length)
-gfc_offset file_length (stream *);
+offset_t file_length (stream *);
 
 #define file_position prefix(file_position)
-gfc_offset file_position (stream *);
+offset_t file_position (stream *);
 
 #define is_seekable prefix(is_seekable)
 int is_seekable (stream *);
@@ -456,31 +456,28 @@ int is_seekable (stream *);
 #define empty_internal_buffer prefix(empty_internal_buffer)
 void empty_internal_buffer(stream *);
 
-#define flush prefix(flush)
-try flush (stream *);
-
 
 /* unit.c */
 
 #define insert_unit prefix(insert_unix)
-void insert_unit (gfc_unit *);
+void insert_unit (unit_t *);
 
 #define close_unit prefix(close_unit)
-int close_unit (gfc_unit *);
+int close_unit (unit_t *);
 
 #define is_internal_unit prefix(is_internal_unit)
 int is_internal_unit (void);
 
 #define find_unit prefix(find_unit)
-gfc_unit *find_unit (int);
+unit_t *find_unit (int);
 
 #define get_unit prefix(get_unit)
-gfc_unit *get_unit (int);
+unit_t *get_unit (int);
 
 /* open.c */
 
 #define test_endfile prefix(test_endfile)
-void test_endfile (gfc_unit *);
+void test_endfile (unit_t *);
 
 #define new_unit prefix(new_unit)
 void new_unit (unit_flags *);
