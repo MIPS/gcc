@@ -2145,8 +2145,13 @@ compute_loop_end_values (loop, values)
 
   EXECUTE_IF_SET_IN_SBITMAP (modified_regs[loop->num], 0, regno,
     {
-      if (!TEST_BIT (invalid, regno) && found_def[regno])
-	values[regno] = found_def[regno]->aux;
+      if (!TEST_BIT (invalid, regno))
+	{
+	  if (found_def[regno])
+	    values[regno] = found_def[regno]->aux;
+	  else
+	    values[regno] = gen_initial_value (regno);
+  	}
       else
 	values[regno] = NULL_RTX;
     });
@@ -2265,11 +2270,8 @@ analyse_induction_variables (loops)
 	continue;
 
       compute_loop_end_values (loop, loop_end_values[i]);
-/*      EXECUTE_IF_SET_IN_SBITMAP (modified_regs[i], 0, regno,*/
-      for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
+      EXECUTE_IF_SET_IN_SBITMAP (modified_regs[i], 0, regno,
 	{
-	  if (!TEST_BIT (modified_regs[i], regno))
-	      continue;
 	  value = loop_end_values[i][regno];
 	  if (!value)
 	    eq = NULL_RTX;
@@ -2328,7 +2330,7 @@ analyse_induction_variables (loops)
 	  if (!eq)
 	    eq = gen_value_at (regno, loop->header->head, false);
 	  loop_entry_values[i][regno] = eq;
-	}/*);*/
+	});
     }
 
   /* Compute register values again, now including the ITERATION marks.  */

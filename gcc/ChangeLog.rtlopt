@@ -1,3 +1,8 @@
+2003-05-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c (compute_loop_end_values): One more fix.
+	(analyse_induction_variables): Remove debugging tweak.
+
 2003-05-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-iv.c (compute_loop_end_values): Fix.
