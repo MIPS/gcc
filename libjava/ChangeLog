@@ -1,5 +1,19 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AbstractDocument.java:
+	Fixed some typos in comments.
+	(insertString): Reimplemented.
+	(remove): Likewise.
+	(replace): New method.
+	(children): Dont use fully qualified class name.
+	(DefaultDocumentEvent.offset): Renamed from off.
+	(DefaultDocumentEvent.length): Renamed from len.
+	(DefaultDocumentEvent.type): New field.
+	(DefaultDocumentEvent.DefaultDocumentEvent): New constructor.
+	(DefaultDocumentEvent.getType): Implemented.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicTextUI.java
 	(RootView.textComponent): Removed.
 	(RootView.RootView): Don't initialize textComponent.

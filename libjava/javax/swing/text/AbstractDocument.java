@@ -38,6 +38,7 @@ exception statement from your version. */
 package javax.swing.text;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.EventListener;
@@ -79,7 +80,7 @@ public abstract class AbstractDocument
     context = ctx;
   }
 
-  // these still need to be implemented by a derived class:
+  // These still need to be implemented by a derived class:
   public abstract Element getParagraphElement(int pos);
 
   public abstract Element getDefaultRootElement();
@@ -230,10 +231,19 @@ public abstract class AbstractDocument
     txt.array = chars;
   }
 
-  public void insertString(int offs, String str, AttributeSet a)
+  public void insertString(int offset, String text, AttributeSet attributes)
     throws BadLocationException
   {
-    content.insertString(offs, str);
+    // Just return when no text to insert was given.
+    if (text == null || text.length() == 0)
+      return;
+    
+    DefaultDocumentEvent event =
+      new DefaultDocumentEvent(offset, text.length(),
+			       DocumentEvent.EventType.INSERT);
+    content.insertString(offset, text);
+    insertUpdate(event, attributes);
+    fireInsertUpdate(event);
   }
 
   protected void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr)
@@ -258,6 +268,26 @@ public abstract class AbstractDocument
 
   public void remove(int offset, int length) throws BadLocationException
   {
+    DefaultDocumentEvent event =
+      new DefaultDocumentEvent(offset, length,
+			       DocumentEvent.EventType.REMOVE);
+    removeUpdate(event);
+    content.remove(offset, length);
+    postRemoveUpdate(event);
+    fireRemoveUpdate(event);
+  }
+
+  /**
+   * Replaces some text in the document.
+   *
+   * @since 1.4
+   */
+  public void replace(int offset, int length, String text,
+		      AttributeSet attributes)
+    throws BadLocationException
+  {
+    remove(offset, length);
+    insertString(offset, text, attributes);
   }
 
   /**
@@ -402,7 +432,7 @@ public abstract class AbstractDocument
 
     public Enumeration children()
     {
-      return java.util.Collections.enumeration(tree_children);
+      return Collections.enumeration(tree_children);
     }
       
     public boolean getAllowsChildren()
@@ -433,7 +463,7 @@ public abstract class AbstractDocument
     public abstract boolean isLeaf();
 
 
-    // MutableAttributeSet suppoer
+    // MutableAttributeSet support
 
     public void addAttribute(Object name, Object value)
     {
@@ -645,8 +675,18 @@ public abstract class AbstractDocument
     implements DocumentEvent
   {
     private static final long serialVersionUID = -7406103236022413522L;
-    public int len;
-    public int off;
+    
+    private int offset;
+    private int length;
+    private DocumentEvent.EventType type;
+
+    public DefaultDocumentEvent(int offset, int length,
+				DocumentEvent.EventType type)
+    {
+      this.offset = offset;
+      this.length = length;
+      this.type = type;
+    }
 
     public Document getDocument()
     {
@@ -655,17 +695,17 @@ public abstract class AbstractDocument
 
     public int getLength()
     {
-      return len;
+      return length;
     }
 
     public int getOffset()
     {
-      return off;
+      return offset;
     }
 
     public DocumentEvent.EventType getType()
     {
-      return null;
+      return type;
     }
 
     public DocumentEvent.ElementChange getChange(Element elem)
