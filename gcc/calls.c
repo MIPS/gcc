@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
+#include "function.h"
 #include "flags.h"
 #include "expr.h"
 #include "regs.h"
@@ -183,8 +184,7 @@ calls_function_1 (exp, which)
 	  if ((DECL_BUILT_IN (fndecl)
 	       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
 	      || (DECL_SAVED_INSNS (fndecl)
-		  && (FUNCTION_FLAGS (DECL_SAVED_INSNS (fndecl))
-		      & FUNCTION_FLAGS_CALLS_ALLOCA)))
+		  && DECL_SAVED_INSNS (fndecl)->func->calls_alloca))
 	    return 1;
 	}
 
@@ -613,7 +613,7 @@ expand_call (exp, target, ignore)
 	      && fndecl != current_function_decl
 	      && DECL_INLINE (fndecl)
 	      && DECL_SAVED_INSNS (fndecl)
-	      && RTX_INTEGRATED_P (DECL_SAVED_INSNS (fndecl)))
+	      && DECL_SAVED_INSNS (fndecl)->inlinable)
 	    is_integrable = 1;
 	  else if (! TREE_ADDRESSABLE (fndecl))
 	    {
@@ -754,7 +754,7 @@ expand_call (exp, target, ignore)
 		 nonzero then there is a call and it is not necessary
 		 to scan the insns.  */
 
-	      if (OUTGOING_ARGS_SIZE (DECL_SAVED_INSNS (fndecl)) == 0)
+	      if (DECL_SAVED_INSNS (fndecl)->func->outgoing_args_size == 0)
 		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
 		  if (GET_CODE (insn) == CALL_INSN)
 		    break;
@@ -778,8 +778,9 @@ expand_call (exp, target, ignore)
 		     value of reg_parm_stack_space is wrong, but gives
 		     correct results on all supported machines.  */
 
-		  int adjust = (OUTGOING_ARGS_SIZE (DECL_SAVED_INSNS (fndecl))
-				+ reg_parm_stack_space);
+		  int adjust =
+		    (DECL_SAVED_INSNS (fndecl)->func->outgoing_args_size
+		     + reg_parm_stack_space);
 
 		  start_sequence ();
 		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);

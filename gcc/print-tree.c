@@ -401,7 +401,9 @@ print_node (file, prefix, node, indent)
       if (TREE_CODE (node) != FUNCTION_DECL)
 	fprintf (file, " align %d", DECL_ALIGN (node));
       else if (DECL_INLINE (node))
-	fprintf (file, " frame_size %d", DECL_FRAME_SIZE (node));
+	{
+	  /* print various information here...   */
+	}
       else if (DECL_BUILT_IN (node))
 	fprintf (file, " built-in code %d", DECL_FUNCTION_CODE (node));
       if (TREE_CODE (node) == FIELD_DECL)

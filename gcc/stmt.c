@@ -63,71 +63,12 @@ struct obstack stmt_obstack;
 #define CASE_VECTOR_PC_RELATIVE 0
 #endif
 
-/* Filename and line number of last line-number note,
-   whether we actually emitted it or not.  */
-char *emit_filename;
-int emit_lineno;
-
-/* Nonzero if within a ({...}) grouping, in which case we must
-   always compute a value for each expr-stmt in case it is the last one.  */
-
-int expr_stmts_for_value;
-
-/* Each time we expand an expression-statement,
-   record the expr's type and its RTL value here.  */
-
-static tree last_expr_type;
-static rtx last_expr_value;
-
 /* Each time we expand the end of a binding contour (in `expand_end_bindings')
    and we emit a new NOTE_INSN_BLOCK_END note, we save a pointer to it here.
    This is used by the `remember_end_note' function to record the endpoint
    of each generated block in its associated BLOCK node.  */
 
 static rtx last_block_end_note;
-
-/* Number of binding contours started so far in this function.  */
-
-int block_start_count;
-
-/* Nonzero if function being compiled needs to
-   return the address of where it has put a structure value.  */
-
-extern int current_function_returns_pcc_struct;
-
-/* Label that will go on parm cleanup code, if any.
-   Jumping to this label runs cleanup code for parameters, if
-   such code must be run.  Following this code is the logical return label.  */
-
-extern rtx cleanup_label;
-
-/* Label that will go on function epilogue.
-   Jumping to this label serves as a "return" instruction
-   on machines which require execution of the epilogue on all returns.  */
-
-extern rtx return_label;
-
-/* Offset to end of allocated area of stack frame.
-   If stack grows down, this is the address of the last stack slot allocated.
-   If stack grows up, this is the address for the next slot.  */
-extern int frame_offset;
-
-/* Label to jump back to for tail recursion, or 0 if we have
-   not yet needed one for this function.  */
-extern rtx tail_recursion_label;
-
-/* Place after which to insert the tail_recursion_label if we need one.  */
-extern rtx tail_recursion_reentry;
-
-/* Location at which to save the argument pointer if it will need to be
-   referenced.  There are two cases where this is done: if nonlocal gotos
-   exist, or if vars whose is an offset from the argument pointer will be
-   needed by inner routines.  */
-
-extern rtx arg_pointer_save_area;
-
-/* Chain of all RTL_EXPRs that have insns in them.  */
-extern tree rtl_expr_chain;
 
 /* Functions and data structures for expanding case statements.  */
 
@@ -263,7 +204,7 @@ struct nesting
 	     For contours that have stack levels or cleanups.  */
 	  struct label_chain *label_chain;
 	  /* Number of function calls seen, as of start of this block.  */
-	  int function_call_count;
+	  int n_function_calls;
 	  /* Nonzero if this is associated with a EH region.  */
 	  int exception_region;
 	  /* The saved target_temp_slot_level from our outer block.
@@ -271,7 +212,7 @@ struct nesting
 	     this block, if that is done, target_temp_slot_level
 	     reverts to the saved target_temp_slot_level at the very
 	     end of the block.  */
-	  int target_temp_slot_level;
+	  int block_target_temp_slot_level;
 	  /* True if we are currently emitting insns in an area of
 	     output code that is controlled by a conditional
 	     expression.  This is used by the cleanup handling code to
@@ -315,31 +256,6 @@ struct nesting
 	} case_stmt;
     } data;
 };
-
-/* Chain of all pending binding contours.  */
-struct nesting *block_stack;
-
-/* If any new stacks are added here, add them to POPSTACKS too.  */
-
-/* Chain of all pending binding contours that restore stack levels
-   or have cleanups.  */
-struct nesting *stack_block_stack;
-
-/* Chain of all pending conditional statements.  */
-struct nesting *cond_stack;
-
-/* Chain of all pending loops.  */
-struct nesting *loop_stack;
-
-/* Chain of all pending case or switch statements.  */
-struct nesting *case_stack;
-
-/* Separate chain including all of the above,
-   chained through the `all' field.  */
-struct nesting *nesting_stack;
-
-/* Number of entries on nesting_stack now.  */
-int nesting_depth;
 
 /* Allocate and return a new `struct nesting'.  */
 
@@ -409,8 +325,6 @@ struct goto_fixup
   tree cleanup_list_list;
 };
 
-static struct goto_fixup *goto_fixup_chain;
-
 /* Within any binding contour that must restore a stack level,
    all labels are recorded with a chain of these structures.  */
 
@@ -420,6 +334,68 @@ struct label_chain
   struct label_chain *next;
   tree label;
 };
+
+struct stmt_status
+{
+  /* Chain of all pending binding contours.  */
+  struct nesting *x_block_stack;
+
+  /* If any new stacks are added here, add them to POPSTACKS too.  */
+
+  /* Chain of all pending binding contours that restore stack levels
+     or have cleanups.  */
+  struct nesting *x_stack_block_stack;
+
+  /* Chain of all pending conditional statements.  */
+  struct nesting *x_cond_stack;
+
+  /* Chain of all pending loops.  */
+  struct nesting *x_loop_stack;
+
+  /* Chain of all pending case or switch statements.  */
+  struct nesting *x_case_stack;
+
+  /* Separate chain including all of the above,
+     chained through the `all' field.  */
+  struct nesting *x_nesting_stack;
+
+  /* Number of entries on nesting_stack now.  */
+  int x_nesting_depth;
+
+  /* Number of binding contours started so far in this function.  */
+  int x_block_start_count;
+
+  /* Each time we expand an expression-statement,
+     record the expr's type and its RTL value here.  */
+  tree x_last_expr_type;
+  rtx x_last_expr_value;
+
+  /* Nonzero if within a ({...}) grouping, in which case we must
+     always compute a value for each expr-stmt in case it is the last one.  */
+  int x_expr_stmts_for_value;
+
+  /* Filename and line number of last line-number note,
+     whether we actually emitted it or not.  */
+  char *x_emit_filename;
+  int x_emit_lineno;
+
+  struct goto_fixup *x_goto_fixup_chain;
+};
+
+#define block_stack (current_function->stmt->x_block_stack)
+#define stack_block_stack (current_function->stmt->x_stack_block_stack)
+#define cond_stack (current_function->stmt->x_cond_stack)
+#define loop_stack (current_function->stmt->x_loop_stack)
+#define case_stack (current_function->stmt->x_case_stack)
+#define nesting_stack (current_function->stmt->x_nesting_stack)
+#define nesting_depth (current_function->stmt->x_nesting_depth)
+#define current_block_start_count (current_function->stmt->x_block_start_count)
+#define last_expr_type (current_function->stmt->x_last_expr_type)
+#define last_expr_value (current_function->stmt->x_last_expr_value)
+#define expr_stmts_for_value (current_function->stmt->x_expr_stmts_for_value)
+#define emit_filename (current_function->stmt->x_emit_filename)
+#define emit_lineno (current_function->stmt->x_emit_lineno)
+#define goto_fixup_chain (current_function->stmt->x_goto_fixup_chain)
 
 
 /* Non-zero if we are using EH to handle cleanus.  */
@@ -454,91 +430,7 @@ using_eh_for_cleanups ()
   using_eh_for_cleanups_p = 1;
 }
 
-void
-init_stmt ()
-{
-  gcc_obstack_init (&stmt_obstack);
-  init_eh ();
-
-  ggc_add_root (&cond_stack, 1, sizeof(cond_stack), mark_cond_nesting);
-  ggc_add_root (&loop_stack, 1, sizeof(loop_stack), mark_loop_nesting);
-  ggc_add_root (&block_stack, 1, sizeof(block_stack), mark_block_nesting);
-  ggc_add_root (&case_stack, 1, sizeof(case_stack), mark_case_nesting);
-  ggc_add_root (&goto_fixup_chain, 1, sizeof(goto_fixup_chain),
-		mark_goto_fixup);
-
-  ggc_add_tree_root (&nonlocal_labels, 1);
-  ggc_add_rtx_root (&nonlocal_goto_handler_slot, 1);
-  ggc_add_rtx_root (&nonlocal_goto_stack_level, 1);
-}
-
-void
-init_stmt_for_function ()
-{
-  /* We are not currently within any block, conditional, loop or case.  */
-  block_stack = 0;
-  stack_block_stack = 0;
-  loop_stack = 0;
-  case_stack = 0;
-  cond_stack = 0;
-  nesting_stack = 0;
-  nesting_depth = 0;
-
-  block_start_count = 0;
-
-  /* No gotos have been expanded yet.  */
-  goto_fixup_chain = 0;
-
-  /* We are not processing a ({...}) grouping.  */
-  expr_stmts_for_value = 0;
-  last_expr_type = 0;
-
-  init_eh_for_function ();
-}
-
-void
-save_stmt_status (p)
-     struct function *p;
-{
-  p->block_stack = block_stack;
-  p->stack_block_stack = stack_block_stack;
-  p->cond_stack = cond_stack;
-  p->loop_stack = loop_stack;
-  p->case_stack = case_stack;
-  p->nesting_stack = nesting_stack;
-  p->nesting_depth = nesting_depth;
-  p->block_start_count = block_start_count;
-  p->last_expr_type = last_expr_type;
-  p->last_expr_value = last_expr_value;
-  p->expr_stmts_for_value = expr_stmts_for_value;
-  p->emit_filename = emit_filename;
-  p->emit_lineno = emit_lineno;
-  p->goto_fixup_chain = goto_fixup_chain;
-  save_eh_status (p);
-}
-
-void
-restore_stmt_status (p)
-     struct function *p;
-{
-  block_stack = p->block_stack;
-  stack_block_stack = p->stack_block_stack;
-  cond_stack = p->cond_stack;
-  loop_stack = p->loop_stack;
-  case_stack = p->case_stack;
-  nesting_stack = p->nesting_stack;
-  nesting_depth = p->nesting_depth;
-  block_start_count = p->block_start_count;
-  last_expr_type = p->last_expr_type;
-  last_expr_value = p->last_expr_value;
-  expr_stmts_for_value = p->expr_stmts_for_value;
-  emit_filename = p->emit_filename;
-  emit_lineno = p->emit_lineno;
-  goto_fixup_chain = p->goto_fixup_chain;
-  restore_eh_status (p);
-}
-
-void
+static void
 mark_cond_nesting (arg)
      void *arg;
 {
@@ -554,7 +446,7 @@ mark_cond_nesting (arg)
     }
 }
 
-void
+static void
 mark_loop_nesting (arg)
      void *arg;
 {
@@ -572,7 +464,7 @@ mark_loop_nesting (arg)
     }
 }
 
-void
+static void
 mark_block_nesting (arg)
      void *arg;
 {
@@ -599,7 +491,7 @@ mark_block_nesting (arg)
     }
 }
 
-void
+static void
 mark_case_nesting (arg)
      void *arg;
 {
@@ -629,7 +521,7 @@ mark_case_nesting (arg)
     }
 }
 
-void
+static void
 mark_goto_fixup (arg)
      void *arg;
 {
@@ -647,7 +539,71 @@ mark_goto_fixup (arg)
       g = g->next;
     }
 }
+
+void
+mark_stmt_state (arg)
+     void *arg;
+{
+  struct stmt_status *p = *(struct stmt_status **)arg;
+
+  if (p == 0)
+    return;
+
+  mark_block_nesting (&p->x_block_stack);
+  mark_cond_nesting (&p->x_cond_stack);
+  mark_loop_nesting (&p->x_loop_stack);
+  mark_case_nesting (&p->x_case_stack);
+
+  ggc_mark_tree (p->x_last_expr_type);
+  /* last_epxr_value is only valid if last_expr_type is nonzero.  */
+  if (p->x_last_expr_type)
+    ggc_mark_rtx (p->x_last_expr_value);
+
+  mark_goto_fixup (&p->x_goto_fixup_chain);
+}
+
+void
+init_stmt ()
+{
+  gcc_obstack_init (&stmt_obstack);
+  init_eh ();
+}
+
+void
+init_stmt_for_function ()
+{
+  current_function->stmt = (struct stmt_status *) xmalloc (sizeof (struct stmt_status));
+
+  /* We are not currently within any block, conditional, loop or case.  */
+  block_stack = 0;
+  stack_block_stack = 0;
+  loop_stack = 0;
+  case_stack = 0;
+  cond_stack = 0;
+  nesting_stack = 0;
+  nesting_depth = 0;
+
+  current_block_start_count = 0;
+
+  /* No gotos have been expanded yet.  */
+  goto_fixup_chain = 0;
+
+  /* We are not processing a ({...}) grouping.  */
+  expr_stmts_for_value = 0;
+  last_expr_type = 0;
+
+  init_eh_for_function ();
+}
 
+void
+set_file_and_line_for_stmt (file, line)
+     char *file;
+     int line;
+{
+  emit_filename = file;
+  emit_lineno = line;
+}
+
 /* Emit a no-op instruction.  */
 
 void
@@ -783,7 +739,7 @@ expand_goto (label)
       rtx label_ref = gen_rtx_LABEL_REF (Pmode, label_rtx (label));
       rtx temp;
 
-      p->has_nonlocal_label = 1;
+      p->func->has_nonlocal_label = 1;
       current_function_has_nonlocal_goto = 1;
       LABEL_REF_NONLOCAL_P (label_ref) = 1;
 
@@ -794,8 +750,8 @@ expand_goto (label)
 #if HAVE_nonlocal_goto
       if (HAVE_nonlocal_goto)
 	emit_insn (gen_nonlocal_goto (lookup_static_chain (label),
-				      copy_rtx (p->nonlocal_goto_handler_slot),
-				      copy_rtx (p->nonlocal_goto_stack_level),
+				      copy_rtx (p->func->saved_nonlocal_goto_handler_slot),
+				      copy_rtx (p->func->saved_nonlocal_goto_stack_level),
 				      label_ref));
       else
 #endif
@@ -816,12 +772,12 @@ expand_goto (label)
 
 	  /* Get addr of containing function's current nonlocal goto handler,
 	     which will do any cleanups and then jump to the label.  */
-	  addr = copy_rtx (p->nonlocal_goto_handler_slot);
+	  addr = copy_rtx (p->func->saved_nonlocal_goto_handler_slot);
 	  temp = copy_to_reg (replace_rtx (addr, virtual_stack_vars_rtx,
 					   hard_frame_pointer_rtx));
 	  
 	  /* Restore the stack pointer.  Note this uses fp just restored.  */
-	  addr = p->nonlocal_goto_stack_level;
+	  addr = p->func->saved_nonlocal_goto_stack_level;
 	  if (addr)
 	    addr = replace_rtx (copy_rtx (addr),
 				virtual_stack_vars_rtx,
@@ -1022,7 +978,7 @@ expand_fixup (tree_label, rtl_label, last_insn)
         emit_insns_after (fixup->before_jump, original_before_jump);
       }
 
-      fixup->block_start_count = block_start_count;
+      fixup->block_start_count = current_block_start_count;
       fixup->stack_level = 0;
       fixup->cleanup_list_list
 	= ((block->data.block.outer_cleanups
@@ -2315,10 +2271,10 @@ expand_exit_loop_if_false (whichloop, cond)
     whichloop = loop_stack;
   if (whichloop == 0)
     return 0;
+
   /* In order to handle fixups, we actually create a conditional jump
      around a unconditional branch to exit the loop.  If fixups are
      necessary, they go before the unconditional branch.  */
-
 
   do_jump (cond, NULL_RTX, label);
   last_insn = get_last_insn ();
@@ -2346,7 +2302,7 @@ preserve_subexpressions_p ()
   if (flag_expensive_optimizations)
     return 1;
 
-  if (optimize == 0 || loop_stack == 0)
+  if (optimize == 0 || current_function == 0 || loop_stack == 0)
     return 0;
 
   insn = get_last_insn_anywhere ();
@@ -2562,7 +2518,7 @@ expand_return (retval)
      conditional expressions when it would help.  */
 
   if (optimize && retval_rhs != 0
-      && frame_offset == 0
+      && get_frame_size () == 0
       && TREE_CODE (retval_rhs) == COND_EXPR
       && (TREE_CODE (TREE_OPERAND (retval_rhs, 1)) == CALL_EXPR
 	  || TREE_CODE (TREE_OPERAND (retval_rhs, 2)) == CALL_EXPR))
@@ -2592,7 +2548,7 @@ expand_return (retval)
      has its address taken; for simplicity,
      require stack frame to be empty.  */
   if (optimize && retval_rhs != 0
-      && frame_offset == 0
+      && get_frame_size () == 0
       && TREE_CODE (retval_rhs) == CALL_EXPR
       && TREE_CODE (TREE_OPERAND (retval_rhs, 0)) == ADDR_EXPR
       && TREE_OPERAND (TREE_OPERAND (retval_rhs, 0), 0) == current_function_decl
@@ -2904,9 +2860,9 @@ expand_start_bindings (exit_flag)
   thisblock->depth = ++nesting_depth;
   thisblock->data.block.stack_level = 0;
   thisblock->data.block.cleanups = 0;
-  thisblock->data.block.function_call_count = 0;
+  thisblock->data.block.n_function_calls = 0;
   thisblock->data.block.exception_region = 0;
-  thisblock->data.block.target_temp_slot_level = target_temp_slot_level;
+  thisblock->data.block.block_target_temp_slot_level = target_temp_slot_level;
 
   thisblock->data.block.conditional_code = 0;
   thisblock->data.block.last_unconditional_cleanup = note;
@@ -2923,7 +2879,7 @@ expand_start_bindings (exit_flag)
   thisblock->data.block.label_chain = 0;
   thisblock->data.block.innermost_stack_block = stack_block_stack;
   thisblock->data.block.first_insn = note;
-  thisblock->data.block.block_start_count = ++block_start_count;
+  thisblock->data.block.block_start_count = ++current_block_start_count;
   thisblock->exit_label = exit_flag ? gen_label_rtx () : 0;
   block_stack = thisblock;
   nesting_stack = thisblock;
@@ -3081,7 +3037,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 
   /* If necessary, make a handler for nonlocal gotos taking
      place in the function calls in this block.  */
-  if (function_call_count != thisblock->data.block.function_call_count
+  if (function_call_count != thisblock->data.block.n_function_calls
       && nonlocal_labels
       /* Make handler for outermost block
 	 if there were any nonlocal gotos to this function.  */
@@ -3293,7 +3249,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
       }
 
   /* Restore the temporary level of TARGET_EXPRs.  */
-  target_temp_slot_level = thisblock->data.block.target_temp_slot_level;
+  target_temp_slot_level = thisblock->data.block.block_target_temp_slot_level;
 
   /* Restore block_stack level for containing block.  */
 
@@ -3303,8 +3259,6 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
   /* Pop the stack slot nesting and free any slots at this level.  */
   pop_temp_slots ();
 }
-
-
 
 /* Generate RTL for the automatic variable declaration DECL.
    (Other kinds of declarations are simply ignored if seen here.)  */
@@ -3313,7 +3267,7 @@ void
 expand_decl (decl)
      register tree decl;
 {
-  struct nesting *thisblock = block_stack;
+  struct nesting *thisblock;
   tree type;
 
   type = TREE_TYPE (decl);
@@ -3328,6 +3282,8 @@ expand_decl (decl)
     return;
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
     return;
+
+  thisblock = block_stack;
 
   /* Create the RTL representation for the variable.  */
 

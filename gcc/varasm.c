@@ -3168,6 +3168,19 @@ restore_varasm_status (p)
   const_double_chain = p->const_double_chain;
 }
 
+/* Clear out all parts of our state in F that can safely be discarded
+   after the function has been compiled, or after it has been saved for
+   inlining, to let garbage collection reclaim the memory.  */
+void
+free_varasm_status (f)
+     struct function *f;
+{
+  f->first_pool = f->last_pool = 0;
+  f->const_rtx_hash_table = 0;
+  f->const_rtx_sym_hash_table = 0;
+  f->const_double_chain = 0;
+}
+
 void 
 mark_pool_constant (arg)
      void *arg;

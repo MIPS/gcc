@@ -58,6 +58,8 @@ lang_init ()
   save_lang_status = &push_c_function_context;
   restore_lang_status = &pop_c_function_context;
   mark_lang_status = &mark_c_function_context;
+
+  c_parse_init ();
 }
 
 void

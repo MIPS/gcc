@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
+#include "function.h"
 #include "flags.h"
 #include "insn-flags.h"
 #include "insn-codes.h"
@@ -30,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "recog.h"
 #include "reload.h"
+#include "ggc.h"
 
 /* Each optab contains info on how this target machine
    can perform a particular operation

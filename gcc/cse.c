@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include <setjmp.h>
 
 #include "rtl.h"
+#include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"

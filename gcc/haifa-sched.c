@@ -158,6 +158,7 @@
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "function.h"
 #include "basic-block.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -491,11 +492,6 @@ static int *out_edges;
 
 #define IN_EDGES(block) (in_edges[block])
 #define OUT_EDGES(block) (out_edges[block])
-
-/* List of labels which cannot be deleted, needed for control
-   flow graph construction.  */
-extern rtx forced_labels;
-
 
 static int is_cfg_nonregular PROTO ((void));
 static int build_control_flow PROTO ((int_list_ptr *, int_list_ptr *,

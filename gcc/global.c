@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
+#include "function.h"
 #include "flags.h"
 #include "basic-block.h"
 #include "regs.h"

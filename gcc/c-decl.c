@@ -2019,9 +2019,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	      DECL_FUNCTION_CODE (newdecl) = DECL_FUNCTION_CODE (olddecl);
 	    }
 	}
-      /* Also preserve various other info from the definition.  */
-      else if (! new_is_definition)
-	DECL_FRAME_SIZE (newdecl) = DECL_FRAME_SIZE (olddecl);
+
       if (! new_is_definition)
 	{
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
@@ -2393,7 +2391,6 @@ pushdecl (x)
 		      DECL_INITIAL (x) = (current_function_decl == oldglobal
 					  ? 0 : DECL_INITIAL (oldglobal));
 		      DECL_SAVED_INSNS (x) = DECL_SAVED_INSNS (oldglobal);
-		      DECL_FRAME_SIZE (x) = DECL_FRAME_SIZE (oldglobal);
 		      DECL_ARGUMENTS (x) = DECL_ARGUMENTS (oldglobal);
 		      DECL_RESULT (x) = DECL_RESULT (oldglobal);
 		      TREE_ASM_WRITTEN (x) = TREE_ASM_WRITTEN (oldglobal);
@@ -7388,6 +7385,7 @@ pop_c_function_context (f)
   current_binding_level = p->binding_level;
 
   free (p);
+  f->language = 0;
 }
 
 void
@@ -7395,6 +7393,10 @@ mark_c_function_context (f)
      struct function *f;
 {
   struct language_function *p = f->language;
+
+  if (p == 0)
+    return;
+
   ggc_mark_tree (p->shadowed_labels);
   ggc_mark_tree (p->named_labels);
   mark_binding_level (&p->binding_level);

@@ -111,6 +111,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "function.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -130,9 +131,6 @@ Boston, MA 02111-1307, USA.  */
    Separate obstacks are made for nested functions.  */
 
 extern struct obstack *function_obstack;
-
-/* List of labels that must never be deleted.  */
-extern rtx forced_labels;
 
 /* Get the basic block number of an insn.
    This info should not be expected to remain available

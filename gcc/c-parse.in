@@ -265,6 +265,15 @@ end ifobjc
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
 extern void yyprint			PROTO ((FILE *, int, YYSTYPE));
+
+void
+c_parse_init ()
+{
+  ggc_add_tree_root (&declspec_stack, 1);
+  ggc_add_tree_root (&current_declspecs, 1);
+  ggc_add_tree_root (&prefix_attributes, 1);
+}
+
 %}
 
 %%

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
+#include "function.h"
 #include "obstack.h"
 #include "insn-config.h"
 #include "insn-flags.h"
@@ -290,9 +291,6 @@ char *reload_firstobj;
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
-
-/* List of labels that must never be deleted.  */
-extern rtx forced_labels;
 
 /* List of insn_chain instructions, one for every insn that reload needs to
    examine.  */

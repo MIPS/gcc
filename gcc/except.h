@@ -91,19 +91,6 @@ struct eh_queue {
   struct eh_node *tail;
 };
 
-/* Used to save exception handling status for nested functions.  */
-struct eh_function
-{
-  struct eh_stack ehstack;
-  struct eh_stack catchstack;
-  struct eh_queue ehqueue;
-  rtx catch_clauses;
-  struct label_node *false_label_stack;
-  struct label_node *caught_return_label_stack;
-  tree protect_list;
-  rtx ehc;
-};
-
 /* Start an exception handling region.  All instructions emitted after
    this point are considered to be part of the region until
    expand_eh_region_end () is invoked.  */
@@ -325,19 +312,10 @@ extern int is_exception_handler_label           PROTO((int));
 
 extern void check_exception_handler_labels	PROTO((void));
 
-/* A stack used to keep track of the label used to resume normal program
-   flow out of the current exception handler region.  */
-
-extern struct label_node *caught_return_label_stack;
-
 /* Keeps track of the label used as the context of a throw to rethrow an
    exception to the outer exception region.  */
 
 extern struct label_node *outer_context_label_stack;
-
-/* A random area used for purposes elsewhere.  */
-
-extern struct label_node *false_label_stack;
 
 /* A list of labels used for exception handlers. It is created by
    find_exception_handler_labels for the optimization passes.  */

@@ -205,22 +205,6 @@ static void
 ggc_free_rtx (r)
      struct ggc_rtx *r;
 {
-  switch (GET_CODE (&r->rtx))
-    {
-    case INLINE_HEADER: 
-#if 0
-      /* These are currently allocated off an obstack.  This will change.  */
-      free (INLINE_REGNO_REG_RTX (&r->rtx));
-      free (INLINE_REGNO_POINTER_FLAG (&r->rtx));
-      free (INLINE_REGNO_POINTER_ALIGN (&r->rtx));
-      free (PARMREG_STACK_LOC (&r->rtx));
-#endif
-      break;
-
-    default:
-      break;
-    }
-
 #ifdef GGC_DUMP
   fprintf (dump, "collect rtx %p\n", &r->rtx);
 #endif
@@ -321,26 +305,6 @@ ggc_mark_rtx (r)
       ggc_mark_tree (ADDRESSOF_DECL (r));
       break;
 
-    case INLINE_HEADER: 
-      {
-	rtx *tmp;
-	int i;
-
-	ggc_mark_tree (ORIGINAL_DECL_INITIAL (r));
-
-	tmp = INLINE_REGNO_REG_RTX (r);
-	i = MAX_REGNUM (r);
-	while (--i >= 0) 
-	  ggc_mark_rtx (*tmp++);
-
-	tmp = PARMREG_STACK_LOC (r);
-	i = MAX_PARMREG (r);
-	while (--i >= 0)
-	  ggc_mark_rtx (*tmp++);
-
-	break;
-      }
-
     default:
       break;
     }
@@ -406,6 +370,7 @@ ggc_mark_tree (t)
       }
 
     case SAVE_EXPR:
+      ggc_mark_tree (TREE_OPERAND (t, 0));
       ggc_mark_tree (SAVE_EXPR_CONTEXT (t));
       ggc_mark_rtx (SAVE_EXPR_RTL (t));
       return;
@@ -432,10 +397,6 @@ ggc_mark_tree (t)
 
     case PARM_DECL:
       ggc_mark_rtx (DECL_INCOMING_RTL (t));
-      break;
-
-    case FUNCTION_DECL:
-      ggc_mark_rtx (DECL_SAVED_INSNS (t));
       break;
 
     case IDENTIFIER_NODE:

@@ -427,69 +427,12 @@ int protect_cleanup_actions_with_terminate;
 
 rtx exception_handler_labels;
 
-/* The EH context.  Nonzero if the function has already
-   fetched a pointer to the EH context  for exception handling.  */
-
-rtx current_function_ehc;
-
-/* A stack used for keeping track of the currently active exception
-   handling region.  As each exception region is started, an entry
-   describing the region is pushed onto this stack.  The current
-   region can be found by looking at the top of the stack, and as we
-   exit regions, the corresponding entries are popped. 
-
-   Entries cannot overlap; they can be nested. So there is only one
-   entry at most that corresponds to the current instruction, and that
-   is the entry on the top of the stack.  */
-
-static struct eh_stack ehstack;
-
-
-/* This stack is used to represent what the current eh region is
-   for the catch blocks beings processed */
-
-static struct eh_stack catchstack;
-
-/* A queue used for tracking which exception regions have closed but
-   whose handlers have not yet been expanded. Regions are emitted in
-   groups in an attempt to improve paging performance.
-
-   As we exit a region, we enqueue a new entry. The entries are then
-   dequeued during expand_leftover_cleanups and expand_start_all_catch,
-
-   We should redo things so that we either take RTL for the handler,
-   or we expand the handler expressed as a tree immediately at region
-   end time.  */
-
-static struct eh_queue ehqueue;
-
-/* Insns for all of the exception handlers for the current function.
-   They are currently emitted by the frontend code.  */
-
-rtx catch_clauses;
-
-/* A TREE_CHAINed list of handlers for regions that are not yet
-   closed. The TREE_VALUE of each entry contains the handler for the
-   corresponding entry on the ehstack.  */
-
-static tree protect_list;
-
 /* Stacks to keep track of various labels.  */
-
-/* Keeps track of the label to resume to should one want to resume
-   normal control flow out of a handler (instead of, say, returning to
-   the caller of the current function or exiting the program).  */
-
-struct label_node *caught_return_label_stack = NULL;
 
 /* Keeps track of the label used as the context of a throw to rethrow an
    exception to the outer exception region.  */
 
 struct label_node *outer_context_label_stack = NULL;
-
-/* A random data area for the front end's own use.  */
-
-struct label_node *false_label_stack = NULL;
 
 /* Pseudos used to hold exception return data in the interim between
    __builtin_eh_return and the end of the function.  */
@@ -503,26 +446,94 @@ static rtx eh_return_handler;
 
 rtx eh_return_stub_label;
 
+/* Used to save exception handling status for nested functions.  */
+struct eh_status
+{
+  /* A stack used for keeping track of the currently active exception
+     handling region.  As each exception region is started, an entry
+     describing the region is pushed onto this stack.  The current
+     region can be found by looking at the top of the stack, and as we
+     exit regions, the corresponding entries are popped. 
+
+     Entries cannot overlap; they can be nested. So there is only one
+     entry at most that corresponds to the current instruction, and that
+     is the entry on the top of the stack.  */
+  struct eh_stack x_ehstack;
+
+  /* This stack is used to represent what the current eh region is
+     for the catch blocks beings processed */
+  struct eh_stack x_catchstack;
+
+  /* A queue used for tracking which exception regions have closed but
+     whose handlers have not yet been expanded. Regions are emitted in
+     groups in an attempt to improve paging performance.
+
+     As we exit a region, we enqueue a new entry. The entries are then
+     dequeued during expand_leftover_cleanups and expand_start_all_catch,
+
+     We should redo things so that we either take RTL for the handler,
+     or we expand the handler expressed as a tree immediately at region
+     end time.  */
+  struct eh_queue x_ehqueue;
+  /* Insns for all of the exception handlers for the current function.
+     They are currently emitted by the frontend code.  */
+  rtx x_catch_clauses;
+  
+  /* A random data area for the front end's own use.  */
+  struct label_node *x_false_label_stack;
+
+  /* Keeps track of the label to resume to should one want to resume
+     normal control flow out of a handler (instead of, say, returning to
+     the caller of the current function or exiting the program).  */
+  struct label_node *x_caught_return_label_stack;
+
+  /* A TREE_CHAINed list of handlers for regions that are not yet
+     closed. The TREE_VALUE of each entry contains the handler for the
+     corresponding entry on the ehstack.  */
+  tree x_protect_list;
+
+  /* The EH context.  Nonzero if the function has already
+     fetched a pointer to the EH context  for exception handling.  */
+  rtx ehc;
+};
+
+#define ehstack (current_function->eh->x_ehstack)
+#define catchstack (current_function->eh->x_catchstack)
+#define ehqueue (current_function->eh->x_ehqueue)
+#define catch_clauses (current_function->eh->x_catch_clauses)
+#define false_label_stack (current_function->eh->x_false_label_stack)
+#define caught_return_label_stack (current_function->eh->x_caught_return_label_stack)
+#define protect_list (current_function->eh->x_protect_list)
+#define current_function_ehc (current_function->eh->ehc)
+
 /* Prototypes for local functions.  */
 
-static void push_eh_entry	PROTO((struct eh_stack *));
+static void mark_eh_node			PROTO((struct eh_node *));
+static void mark_eh_stack			PROTO((void *));
+static void mark_eh_queue			PROTO((void *));
+static void mark_tree_label_node		PROTO((void *));
+static void mark_rtx_label_node			PROTO((void *));
+static void push_eh_entry			PROTO((struct eh_stack *));
 static struct eh_entry * pop_eh_entry		PROTO((struct eh_stack *));
-static void enqueue_eh_entry	PROTO((struct eh_queue *, struct eh_entry *));
+static void enqueue_eh_entry			PROTO((struct eh_queue *,
+						       struct eh_entry *));
 static struct eh_entry * dequeue_eh_entry	PROTO((struct eh_queue *));
-static rtx call_get_eh_context	PROTO((void));
+static rtx call_get_eh_context			PROTO((void));
 static void start_dynamic_cleanup		PROTO((tree, tree));
 static void start_dynamic_handler		PROTO((void));
-static void expand_rethrow	PROTO((rtx));
+static void expand_rethrow			PROTO((rtx));
 static void output_exception_table_entry	PROTO((FILE *, int));
-static int can_throw		PROTO((rtx));
-static rtx scan_region		PROTO((rtx, int, int *));
-static void eh_regs		PROTO((rtx *, rtx *, rtx *, int));
-static void set_insn_eh_region	PROTO((rtx *, int));
+static int can_throw				PROTO((rtx));
+static rtx scan_region				PROTO((rtx, int, int *));
+static void eh_regs				PROTO((rtx *, rtx *, rtx *,
+						       int));
+static void set_insn_eh_region			PROTO((rtx *, int));
 #ifdef DONT_USE_BUILTIN_SETJMP
-static void jumpif_rtx		PROTO((rtx, rtx));
+static void jumpif_rtx				PROTO((rtx, rtx));
 #endif
 
-rtx expand_builtin_return_addr	PROTO((enum built_in_function, int, rtx));
+rtx expand_builtin_return_addr			PROTO((enum built_in_function,
+						       int, rtx));
 
 /* Various support routines to manipulate the various data structures
    used by the exception handling code.  */
@@ -2185,59 +2196,8 @@ check_exception_handler_labels ()
 }
 
 /* This group of functions initializes the exception handling data
-   structures at the start of the compilation, initializes the data
-   structures at the start of a function, and saves and restores the
-   exception handling data structures for the start/end of a nested
-   function.  */
-
-/* Save some of the per-function EH info into the save area denoted by
-   P. 
-
-   This is currently called from save_stmt_status.  */
-
-void
-save_eh_status (f)
-     struct function *f;
-{
-  struct eh_function *p;
-
-  p = (struct eh_function *) xmalloc (sizeof (struct eh_function));
-  f->eh = p;
-
-  p->ehstack = ehstack;
-  p->catchstack = catchstack;
-  p->ehqueue = ehqueue;
-  p->catch_clauses = catch_clauses;
-  p->false_label_stack = false_label_stack;
-  p->caught_return_label_stack = caught_return_label_stack;
-  p->protect_list = protect_list;
-  p->ehc = current_function_ehc;
-
-  init_eh_for_function ();
-}
-
-/* Restore the per-function EH info saved into the area denoted by P.  
-
-   This is currently called from restore_stmt_status.  */
-
-void
-restore_eh_status (f)
-     struct function *f;
-{
-  struct eh_function *p = f->eh;
-
-  protect_list = p->protect_list;
-  caught_return_label_stack = p->caught_return_label_stack;
-  false_label_stack = p->false_label_stack;
-  catch_clauses	= p->catch_clauses;
-  ehqueue = p->ehqueue;
-  ehstack = p->ehstack;
-  catchstack = p->catchstack;
-  current_function_ehc = p->ehc;
-
-  free (p);
-}
-
+   structures at the start of the compilation and at the start of
+   each function.  */
 static void
 mark_eh_node (node)
      struct eh_node *node;
@@ -2254,7 +2214,7 @@ mark_eh_node (node)
     }
 }
 
-void
+static void
 mark_eh_stack (arg)
      void *arg;
 {
@@ -2263,7 +2223,7 @@ mark_eh_stack (arg)
     mark_eh_node (s->top);
 }
 
-void
+static void
 mark_eh_queue (arg)
      void *arg;
 {
@@ -2272,7 +2232,7 @@ mark_eh_queue (arg)
     mark_eh_node (q->head);
 }
 
-void
+static void
 mark_tree_label_node (arg)
      void *arg;
 {
@@ -2285,7 +2245,7 @@ mark_tree_label_node (arg)
     }
 }
 
-void
+static void
 mark_rtx_label_node (arg)
      void *arg;
 {
@@ -2302,16 +2262,16 @@ void
 mark_eh_state (arg)
      void *arg;
 {
-  struct eh_function *eh = *(struct eh_function **) arg;
+  struct eh_status *eh = *(struct eh_status **) arg;
 
-  mark_eh_stack (&eh->ehstack);
-  mark_eh_queue (&eh->ehqueue);
-  ggc_mark_rtx (eh->catch_clauses);
+  mark_eh_stack (&eh->x_ehstack);
+  mark_eh_queue (&eh->x_ehqueue);
+  ggc_mark_rtx (eh->x_catch_clauses);
 
-  lang_mark_false_label_stack (&eh->false_label_stack);
-  mark_tree_label_node (&eh->caught_return_label_stack);
+  lang_mark_false_label_stack (&eh->x_false_label_stack);
+  mark_tree_label_node (&eh->x_caught_return_label_stack);
 
-  ggc_mark_tree (eh->protect_list);
+  ggc_mark_tree (eh->x_protect_list);
   ggc_mark_rtx (eh->ehc);
 }
 
@@ -2320,12 +2280,6 @@ mark_eh_state (arg)
 void
 init_eh ()
 {
-  ggc_add_root (&caught_return_label_stack, 1,
-		sizeof(caught_return_label_stack), mark_tree_label_node);
-  ggc_add_root (&ehstack, 1, sizeof(ehstack), mark_eh_stack);
-  ggc_add_root (&ehqueue, 1, sizeof(ehqueue), mark_eh_queue);
-  ggc_add_rtx_root (&catch_clauses, 1);
-  ggc_add_tree_root (&protect_list, 1);
 }
 
 /* Initialize the per-function EH information.  */
@@ -2333,6 +2287,8 @@ init_eh ()
 void
 init_eh_for_function ()
 {
+  current_function->eh = (struct eh_status *) xmalloc (sizeof (struct eh_status));
+
   ehstack.top = 0;
   catchstack.top = 0;
   ehqueue.head = ehqueue.tail = 0;

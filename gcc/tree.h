@@ -1070,10 +1070,7 @@ struct tree_type
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (DECL_CHECK (NODE)->decl.saved_insns.r)
 /* For FUNCTION_DECL, if it is inline, holds the saved insn chain.  */
-#define DECL_SAVED_INSNS(NODE) (DECL_CHECK (NODE)->decl.saved_insns.r)
-/* For FUNCTION_DECL, if it is inline,
-   holds the size of the stack frame, as an integer.  */
-#define DECL_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.frame_size.i)
+#define DECL_SAVED_INSNS(NODE) (DECL_CHECK (NODE)->decl.saved_insns.f)
 /* For FUNCTION_DECL, if it is built-in,
    this identifies which built-in operation it is.  */
 #define DECL_FUNCTION_CODE(NODE) (DECL_CHECK (NODE)->decl.frame_size.f)
@@ -1312,6 +1309,7 @@ struct tree_decl
   union {
     struct rtx_def *r;
     HOST_WIDE_INT i;
+    struct function *f;
   } saved_insns;
   union tree_node *vindex;
   /* Points to a structure whose details depend on the language in use.  */
@@ -1836,14 +1834,6 @@ extern int immediate_size_expand;
 /* Points to the FUNCTION_DECL of the function whose body we are reading. */
 
 extern tree current_function_decl;
-
-/* Nonzero if function being compiled can call setjmp.  */
-
-extern int current_function_calls_setjmp;
-
-/* Nonzero if function being compiled can call longjmp.  */
-
-extern int current_function_calls_longjmp;
 
 /* Nonzero means all ..._TYPE nodes should be allocated permanently.  */
 

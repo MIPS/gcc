@@ -43,15 +43,17 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "tree.h"
+#include "function.h"
 #include "flags.h"
 #include "insn-flags.h"
 #include "insn-config.h"
 #include "output.h"
 #include "regs.h"
-#include "tree.h"
 #include "output.h"
 #include "gcov-io.h"
 #include "toplev.h"
+#include "ggc.h"
 
 extern char * xmalloc ();
 
@@ -1544,6 +1546,7 @@ init_arc_profiler ()
   char *name = xmalloc (20);
   ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 2);
   profiler_label = gen_rtx_SYMBOL_REF (Pmode, name);
+  ggc_add_rtx_root (&profiler_label, 1);
 }
 
 /* Output instructions as RTL to increment the arc execution count.  */
@@ -1647,10 +1650,6 @@ output_func_start_profiler ()
 
   need_func_profiler = 0;
 
-  /* Synthesize a constructor function to invoke __bb_init_func with a
-     pointer to this object file's profile block. */
-  start_sequence ();
-
   /* Try and make a unique name given the "file function name".
 
      And no, I don't like this either. */
@@ -1673,6 +1672,10 @@ output_func_start_profiler ()
   make_function_rtl (fndecl);
   init_function_start (fndecl, input_filename, lineno);
   expand_function_start (fndecl, 0);
+
+  /* Synthesize a constructor function to invoke __bb_init_func with a
+     pointer to this object file's profile block. */
+  start_sequence ();
 
   /* Actually generate the code to call __bb_init_func. */
   name = xmalloc (20);

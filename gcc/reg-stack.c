@@ -161,6 +161,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "rtl.h"
+#include "function.h"
 #include "insn-config.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -231,8 +232,6 @@ static rtx
 #define BLOCK_NUM(INSN)  \
   ((INSN_UID (INSN) > max_uid)	\
    ? (abort() , -1) : block_number[INSN_UID (INSN)])
-
-extern rtx forced_labels;
 
 /* Forward declarations */
 

@@ -23,6 +23,10 @@
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
+/* Startup */
+
+extern void init_ggc PROTO ((void));
+
 /* Allocation.  */
 
 struct rtx_def *ggc_alloc_rtx PROTO ((int nslots));
@@ -60,16 +64,10 @@ void lang_cleanup_tree PROTO ((union tree_node *));
 /* Mark functions for various structs scattered about.  */
 
 void mark_binding_level PROTO ((void *));
-void mark_sequence_stack PROTO ((void *));
 void mark_temp_slot PROTO ((void *));
 void mark_function_chain PROTO ((void *));
-void mark_cond_nesting PROTO ((void *));
-void mark_loop_nesting PROTO ((void *));
-void mark_block_nesting PROTO ((void *));
-void mark_case_nesting PROTO ((void *));
-void mark_goto_fixup PROTO ((void *));
-void mark_tree_label_node PROTO ((void *));
-void mark_rtx_label_node PROTO ((void *));
 void mark_eh_state PROTO ((void *));
+void mark_stmt_state PROTO ((void *));
+void mark_emit_state PROTO ((void *));
 void mark_pool_constant PROTO ((void *));
 void mark_optab PROTO ((void *));

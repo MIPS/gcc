@@ -1,3 +1,393 @@
+Tue Nov  3 20:14:33 1998  Richard Henderson  <rth@cygnus.com>
+
+	* alpha.h (alpha_eh_epilogue_sp_ofs): Remove.
+	(struct machine_function): Define here.  Add eh epilogue bits.
+	* alpha.c (struct machine_function): Remove.
+	(alpha_return_addr_rtx, alpha_eh_epilogue_sp_ofs): Remove.
+	(alpha_init_machine_status): Create from corpse of save_machine_status.
+	(alpha_restore_machine_status): Do nothing.
+	(alpha_init_expanders): Update for save->init change.
+	(alpha_return_addr): Use current_function->machine directly.
+	(alpha_ra_ever_killed): Likewise.
+	(alpha_expand_epilogue): Likewise.
+	* alpha.md (eh_epilogue): Likewise.
+
+Tue Nov  3 20:13:06 1998  Bernd Schmidt <crux@pool.informatik.rwth-aachen.de>
+
+	* function.h (struct var_refs_queue): Delete definition.
+	(struct function_status): New structure, broken out of struct
+	function.
+	(struct emit_status): Likewise.
+	(struct expr_status): Likewise.
+	(struct function): Break out most elements into separate structures.
+	Add next_global, func, stmt, emit, expr, inlinable, max_label_num,
+	original_arg_vector, original_decl_initial and can_garbage_collect
+	elements.
+	(current_function): Declare variable.
+	(cur_f_s): Declare variable.
+	Add many accessor macros for previously global variables which now
+	live in struct function and its sub-structures.
+	(return_label): Delete declaration.
+	(stack_slot_list): Delete declaration.
+	(REGNO_POINTER_ALIGN): Define here, not in regs.h.
+	(REGNO_POINTER_FLAG): Likewise.
+	(get_func_frame_size): Declare new function.
+	(init_machine_status): Renamed from save_machine_status.
+	(save_eh_status, restore_eh_status, save_stmt_status,
+	restore_stmt_status, save_expr_status, restore_expr_status,
+	save_emit_status, save_storage_status, restore_storage_status):
+	Delete declarations.
+	(free_varasm_status): Declare new function.
+	(free_emit_status): Likewise.
+	(free_after_compilation): Likewise.
+
+	* stmt.c (emit_filename, emit_lineno, expr_stmts_for_value,
+	last_expr_type, last_expr_value, block_start_count, block_stack,
+	stack_block_stack, cond_stack, loop_stack, case_stack, nesting_stack,
+	nesting_depth, goto_fixup_chain): Delete global	vars; now allocated
+	dynamically in stmt elt of struct function for each function.
+	(current_function_returns_pcc_struct, cleanup_label, return_label,
+	frame_offset, tail_recursion_label, tail_recursion_reentry,
+	arg_pointer_save_area, rtl_expr_chain): Delete extern declarations.
+	(struct nesting): Rename function_call_count elt to n_function_calls,
+	target_temp_slot_level to block_target_temp_slot_level.  All users
+	changed.
+	(struct stmt_status): New structure definition.
+	Add many accessor macros for stmt_status elements which previously
+	were global variables.
+	(init_stmt): Don't set any roots.
+	(init_stmt_for_function): Allocate stmt elt for current_function.
+	(save_stmt_status, restore_stmt_status): Delete functions.
+	(mark_cond_nesting, mark_loop_nesting, mark_case_nesting,
+	mark_block_nesting): Now static.
+	(mark_stmt_state): New function.
+	(set_file_and_line_for_stmt): New function.
+	(expand_goto): Match changes in organization of struct function.
+	(preserve_subexpressions_p): Don't access loop_stack when outside
+	a function.
+	(expand_return): Use get_frame_size instead of testing frame_offset.
+	(expand_start_bindings): Reflect that block_start_count was renamed to
+	current_block_start_count.
+	(expand_end_bindings): Likewise.
+	(expand_decl): Don't access block_stack when outside a function.
+
+	* except.c (current_function_ehc, ehstack, catchstack, ehqueue,
+	catch_clauses, protect_list, caught_return_label_stack,
+	false_label_stack): Delete global vars; now allocated dynamically
+	in eh elt of struct function for each function.
+	(struct eh_status): New structure definition.
+	Add many accessor macros for eh_status elements which previously
+	were global variables.
+	(mark_eh_node, mark_eh_stack, mark_eh_queue, mark_tree_label_node,
+	mark_rtx_label_node): Now static.
+	(save_eh_status, restore_eh_status): Delete.
+	(mark_eh_state): Match changes in organization of struct function.
+	(init_eh): Don't set any roots.
+	(init_eh_for_function): Allocate eh elt for current_function.
+	* except.h (struct eh_function): Deleted; now defined in except.c
+	as struct eh_status.
+	(caught_return_label_stack, false_label_stack): Delete declarations.
+
+	* emit-rtl.c (reg_rtx_no, first_label_num, first_insn, last_insn,
+	sequence_rtl_expr, cur_insn_uid, last_linenum, last_filename,
+	regno_pointer_flag, regno_pointer_flag_length, regno_pointer_align,
+	regno_reg_rtx, sequence_stack): Delete global vars; now allocated
+	dynamically in emit elt of struct function for each function.
+	Add many accessor macros for emit_status elements which previously
+	were global variables.
+	(emit_filename, emit_lineno): Delete extern declarations.
+	(save_emit_status): Delete.
+	(restore_emit_status): Just clear last_label_num.
+	(free_emit_status): New function.
+	(set_new_last_label_num): New function.
+	(get_last_insn_anywhere): sequence_stack was renamed to seq_stack.
+	(add_insn_after): Likewise.
+	(add_insn_before): Likewise.
+	(start_sequence): Likewise.
+	(start_sequence_for_rtl_expr): Likewise.
+	(push_topmost_sequence): Likewise.
+	(end_sequence): Likewise.
+	(in_sequence_p): Likewise.
+	(emit_line_note): Don't set emit_filename/emit_lineno; call
+	set_file_and_line_for_stmt.
+	(init_emit): Allocate emit elt for current_function.
+	sequence_rtl_expr was renamed to seq_rtl_expr.
+	sequence_stack was renamed to seq_stack.
+	Allocate regno_pointer_flag, regno_pointer_align, regno_reg_rtx with
+	xcalloc.
+	(mark_sequence_stack): Now static.
+	(mark_regno_reg_rtx): Delete function.
+	(mark_emit_state): New function.
+	(init_emit_once): Don't clear sequence_stack; done in init_emit.
+	Don't add roots for first_insn, sequence_rtl_expr, sequence_stack,
+	regno_reg_rtx.
+
+	* varasm.c (free_varasm_status): New function.
+
+	* expr.c (pending_stack_adjust, inhibit_defer_pop, saveregs_value,
+	apply_args_value): Delete global vars; now allocated
+	dynamically in expr elt of struct function for each function.
+	Add many accessor macros for expr_status elements which previously
+	were global variables.
+	(arg_pointer_save_area): Delete extern declaration.
+	(init_expr): Allocate expr elt for current_function.
+	(save_expr_status, restore_expr_status): Delete functions.
+	(expand_expr): Match changes in organization of struct function.
+	Delete extern declaration for temp_slot_level.
+
+	* function.c: Include ggc.h.
+	(current_function_pops_args, current_function_returns_struct,
+	current_function_returns_pcc_struct, current_function_needs_context,
+	current_function_calls_setjmp, current_function_calls_longjmp,
+	current_function_has_nonlocal_label, current_function_is_thunk,
+	current_function_epilogue_delay_list, current_function_args_size,
+	current_function_returns_pointer, current_function_contains_functions,
+	current_function_calls_alloca, current_function_pretend_args_size,
+	current_function_outgoing_args_size, current_function_arg_offset_rtx,
+	current_function_return_rtx, current_function_uses_const_pool,
+	current_function_uses_pic_offset_table, current_function_stdarg,
+	current_function_internal_arg_pointer, current_function_varargs,
+	current_function_cannot_inline, current_function_args_info,
+	current_function_instrument_entry_exit, current_function_name,
+	function_call_count, nonlocal_labels, nonlocal_goto_handler_slot,
+	nonlocal_goto_stack_level, cleanup_label, return_label,
+	save_expr_regs, stack_slot_list, rtl_expr_chain, tail_recursion_label,
+	tail_recursion_reentry, arg_pointer_save_area, context_display,
+	trampoline_list, parm_birth_insn, invalid_stack_slot, last_parm_insn,
+	parm_reg_stack_loc, temp_slots, temp_slot_level, var_temp_slot_level,
+	target_temp_slot_level): Delete global vars; now allocated dynamically
+	in func elt of struct function for each function.
+	(sequence_rtl_expr): Delete extern declaration.
+	(current_function): New variable.
+	(cur_f_s): New variable.
+	(init_machine_status): Renamed from save_machine_status.
+	(struct var_refs_queue): Declare here.
+	(all_functions): New global variable.
+	(push_function_context_to): Don't allocate a struct function.
+	Don't copy around a million variables.
+	Don't call save_emit_status, save_expr_status, save_storage_status,
+	save_machine_status or save_stmt_status.
+	(pop_function_context_from): Lose test for inline_obstacks.
+	Don't copy around a million variables.
+	Set current_function and cur_f_s; don't free the struct function.
+	Don't call restore_expr_status, restore_storage_status,
+	restore_machine_status or restore_stmt_status.
+	Free elements found on the fixup_var_refs_queue.
+	(free_after_compilation): New function.
+	(get_func_frame_size): New function.
+	(assign_outer_stack_local): Accept a struct function_status arg
+	instead of struct function arg.  All callers changed.  Adjust the
+	code appropriately.
+	Delete obstack juggling code.
+	(assign_stack_temp): sequence_rtl_expr was renamed to seq_rtl_expr.
+	(put_reg_into_stack): Match changes in organization of struct
+	function.  Allocate var_refs_queue with xmalloc.  Delete obstack
+	juggling code.
+	(fixup_var_refs): sequence_stack was renamed to seq_stack.
+	Rename variable first_insn to first.
+	(assign_parms): Allocate parm_reg_stack_loc with xcalloc/xrealloc.
+	(fix_lexical_addr): Match changes in organization of struct function.
+	(trampoline_address): Likewise.  Delete obstack juggling code.
+	(prepare_function_start): New function, mostly broken out of
+	init_function_start.
+	(init_function_start): Call it.  Put current_function on the
+	chain of all functions ever seen.
+	(init_dummy_function_start): New function.
+	(expand_dummy_function_end): New function.
+	(mark_function_state): New function, mostly broken out of
+	mark_function_chain.
+	(mark_function_chain): Walk through the next_global elt of struct
+	function, not the next elt.  Don't process functions which have the
+	can_garbage_collect flag set.
+	Call mark_function_state, mark_stmt_state, mark_eh_state,
+	mark_emit_state instead of doing the work here.
+	Mark the fields reserved for function inlining as roots.
+	(init_functino_once): Use all_functions instead of
+	outer_function_chain as root.
+	Delete temp_slots and parm_reg_stack_loc roots.
+
+	* integrate.c (initialize_for_inline): Lose all args except FNDECL.
+	Return the generated argvec.  All callers changed.
+	Don't compute function_flags; lose the code for copying; don't
+	generate an INLINE_HEADER rtx.  
+	(finish_inline, adjust_copied_decl_tree, save_for_inline_copying,
+	copy_decl_list, copy_decl_tree, copy_decl_rtls, copy_for_inline):
+	Delete unused functions.
+	(reg_map, label_map, insn_map, orig_asm_operands_vector,
+	copy_asm_operands_vector, copy_asm_constraints_vector,
+	in_nonparm_insn): Delete unused static vars.
+	(max_parm_reg, parm_reg_stack_loc): Delete extern declarations.
+	(save_for_inline_nocopy): in_nonparm_insns is now local to this
+	function.
+	Instead of calling finish_inline, put the necessary information
+	into current_function, and set DECL_SAVED_INSNS for the fndecl
+	to current_function.
+	Call free_varasm_status at the end.
+	(note_modified_parmregs): Don't test in_nonparm_insn.
+	(expand_inline_function): Get information from function structure,
+	not from an inline header rtx.
+	Adjust to match renamed fields in in struct inline_remap.
+	(copy_rtx_and_substitute): Likewise.
+	(output_inline_function): Lose code to extract the necessary
+	information from an inline header; simply put back the function
+	structure into current_function.  Clear its inlinable elt.
+	Don't clear current_function_decl when done.
+	* integrate.h (struct inline_remap): Prefix regno_pointer_flag
+	and regno_pointer_align elts with "x_" to avoid name clashes
+	with global macros.
+
+	* toplev.c: Include function.h.
+	(compile_file): When calling initialization functions that need
+	to generate rtl, make sure we don't crash by calling
+	init_dummy_function_start/expand_dummy_function_end around those
+	calls to set up an initialized environment.
+	(rest_of_compilation): Lose code to save inline functions by
+	copying them.
+	Adjust for the fact that DECL_SAVED_INSNS points to a struct
+	function.
+	When done, but before calling ggc_collect, call
+	free_after_compilation and clear current_function and cur_f_s.
+
+	* calls.c: Include function.h.
+	(calls_function_1): Adjust for the fact that DECL_SAVED_INSNS points
+	to a struct function.
+	(expand_call): Likewise.
+
+	* ggc-simple.c (ggc_free_rtx): Delete INLINE_HEADER special case.
+	(ggc_mark_rtx): Likewise.
+	(ggc_mark_tree): Mark first operand of a SAVE_EXPR.
+	Lose special case for FUNCTION_DECL.
+	* ggc.h (mark_cond_nesting, mark_sequence_stack, mark_loop_nesting,
+	mark_block_nesting, mark_case_nesting, mark_goto_fixup,
+	mark_tree_label_node): Delete declarations.
+	(mark_stmt_state, mark_emit_state): Add declarations.
+
+	* tree.h (struct tree_decl): Add struct function pointer to
+	saved_insns union.
+	(DECL_SAVED_INSNS): Use it.
+	(current_function_calls_setjmp, current_function_calls_longjmp):
+	Delete delcarations.
+	* rtl.h (FIRST_FUNCTION_INSN, FIRST_PARM_INSN, FIRST_LABELNO,
+	LAST_LABELNO, MAX_PARMREG, MAX_REGNUM, FUNCTION_ARGS_SIZE,
+	POPS_ARGS, STACK_SLOT_LIST, FORCED_LABELS, FUNCTION_FLAGS,
+	OUTGOING_ARGS_SIZE, ORIGINAL_ARG_VECTOR, ORIGINAL_DECL_INITIAL,
+	INLINE_REGNO_REG_RTX, INLINE_REGNO_POINTER_FLAG,
+	INLINE_REGNO_POINTER_ALIGN, PARMREG_STACK_LOC,
+	FUNCTION_FLAGS_CALLS_ALLOCA, FUNCTION_FLAGS_CALLS_SETJMP,
+	FUNCTION_FLAGS_RETURNS_STRUCT, FUNCTION_FLAGS_RETURNS_PCC_STRUCT,
+	FUNCTION_FLAGS_NEEDS_CONTEXT, FUNCTION_FLAGS_HAS_NONLOCAL_LABEL,
+	FUNCTION_FLAGS_RETURNS_POINTER, FUNCTION_FLAGS_USES_CONST_POOL,
+	FUNCTION_FLAGS_CALLS_LONGJMP, FUNCTION_FLAGS_USES_PIC_OFFSET_TABLE):
+	Delete macros.
+	(regno_reg_rtx, regno_pointer_align): Delete declarations.
+	(REGNO_POINTER_ALIGN): Delete macro.
+	(set_new_last_label_num, set_file_and_line_for_stmt): Declare
+	functions.
+
+	* expr.h (forced_labels, save_expr_regs, function_call_count,
+	current_function_outgoing_args_size, current_function_calls_alloca,
+	current_function_arg_offset_rtx, current_function_uses_const_pool,
+	current_function_uses_pic_offset_table,
+	current_function_internal_arg_pointer, inhibit_defer_pop,
+	nonlocal_goto_handler_slot, nonlocal_goto_stack_level,
+	nonlocal_labels, pending_stack_adjust, target_temp_slot_level,
+	temp_slot_level): Delete extern declarations.
+	(init_storage_once): Declare function.
+	* output.h (current_function_pops_args,
+	current_function_returns_struct, current_function_returns_pcc_struct,
+	current_function_needs_context, current_function_calls_setjmp,
+	current_function_calls_longjmp, current_function_calls_alloca,
+	current_function_has_nonlocal_label, current_function_returns_pointer,
+	current_function_contains_functions, current_function_args_size,
+	current_function_pretend_args_size, current_function_varargs,
+	current_function_outgoing_args_size, current_function_stdarg,
+	current_function_args_info, current_function_name,
+	current_function_return_rtx, current_function_epilogue_delay_list,
+	current_function_uses_pic_offset_table,
+	current_function_uses_const_pool, current_function_cannot_inline):
+	Delete extern declarations.
+	* flags.h (current_function_has_nonlocal_label,
+	current_function_has_nonlocal_gotom, current_function_is_thunk):
+	Delete extern declarations.
+
+	
+	* i386.c (pic_label_rtx, pic_label_name, i386_stack_locals): Delete
+	global vars; now allocated dynamically in machine elt of struct
+	function for each function.
+	(struct machine_function): Prefix element names with "_x".
+	Add accessor macros for machine_function elements which previously
+	were global variables.
+	(clear_386_stack_locals): Move most of the code to
+	init_386_machine_status.  Initialize init_machine_status, not
+	save_machine_status.
+	(init_386_machine_status): Renamed from save_386_machine_status.
+	Perform initialization of status previously done in
+	clear_386_stack_locals.	
+	(restore_386_machine_status): Don't do anything.
+
+	* explow.c: Include function.h.
+	* alias.c: Include function.h.
+	* loop.c: Include function.h.
+	* global.c: Include function.h.
+	* final.c: Include function.h.
+	* gcse.c: Include function.h.
+	(current_function_name): Delete declaration.
+	(current_function_calls_setjmp): Likewise.
+	(current_function_calls_longjmp): Likewise.
+	* stupid.c: Include function.h.
+	* local-alloc.c: Include function.h.
+	* regmove.c: Include function.h.
+	* cse.c: Include function.h.
+	* combine.c: Include function.h.
+	* reload.c: Include function.h.
+	* reload1.c: Include function.h.
+	(forced_labels): Delete declaration.
+	* flow.c: Include function.h.
+	(forced_labels): Delete declaration.
+	* jump.c: Include function.h.
+	(forced_labels): Delete declaration.
+	* reg-stack.c: Include function.h.
+	(forced_labels): Delete declaration.
+	* haifa-sched.c: Include function.h.
+	(forced_labels): Delete declaration.
+	* optabs.c: Include function.h and ggc.h.
+
+	* genemit.c (main): Write include of function.h.
+
+	* unroll.c: Include function.h.
+	(unroll_loop): Adjust to match renamed fields in in struct
+	inline_remap.
+
+	* profile.c: Include function.h and ggc.h.
+	(init_arc_profiler): profiler_label is a root.
+	(output_func_start_profiler): Call start_sequence after
+	calling init_function_start.
+
+	* c-decl.c (duplicate_decls): Don't refer to DECL_FRAME_SIZE.
+	(pushdecl): Nor here.
+	(pop_c_function_context): Clear out language-specific elt in
+	struct function; data becomes invalid hereafter.
+	(mark_c_function_context): Don't crash if language-specific elt
+	is NULL.
+	* c-parse.in (c_parse_init): New function.
+	* c-tree.h: Declare it.
+	* c-lang.c (lang_init): Call it.
+
+	* stor-layout.c (save_storage_status, restore_storage_status):
+	Delete functions.
+	(init_storage_once): New function.
+
+	* print-tree.c (print_node): Don't refer to DECL_FRAME_SIZE.
+
+	* i386.h (FINALIZE_PIC): Delete extern declaration of
+	current_function_uses_pic_offset_table.
+
+	* Makefile.in (toplev.o, calls.o, explow.o, optabs.o, jump.o,
+	stupid.o, cse.o, gcse.o, profile.o, loop.o, flow.o, combine.o,
+	regclass.o, local-alloc.o, global.o, reload.o, reload1.o,
+	caller-save.o, alias.o, regmove.o, (haifa-)sched.o, final.o,
+	recog.o, reg-stack.o, insn-emit.o: Adjust dependencies.
+
 Sun Nov  1 11:30:21 1998  Bernd Schmidt <crux@pool.informatik.rwth-aachen.de>
 
 	* tree.c (get_identifier): Use ggc_alloc_string, not obstack_copy0, to

@@ -68,74 +68,8 @@ enum memory_use_mode {MEMORY_USE_BAD = 0, MEMORY_USE_RO = 1,
 		      MEMORY_USE_WO = 2, MEMORY_USE_RW = 3,
 		      MEMORY_USE_TW = 6, MEMORY_USE_DONT = 99};
 
-/* List of labels that must never be deleted.  */
-extern rtx forced_labels;
-
-/* List (chain of EXPR_LISTs) of pseudo-regs of SAVE_EXPRs.
-   So we can mark them all live at the end of the function, if stupid.  */
-extern rtx save_expr_regs;
-
-extern int current_function_calls_alloca;
-extern int current_function_outgoing_args_size;
-
-/* This is the offset from the arg pointer to the place where the first
-   anonymous arg can be found, if there is one.  */
-extern rtx current_function_arg_offset_rtx;
-
-/* This is nonzero if the current function uses the constant pool.  */
-extern int current_function_uses_const_pool;
-
-/* This is nonzero if the current function uses pic_offset_table_rtx.  */
-extern int current_function_uses_pic_offset_table;
-
-/* The arg pointer hard register, or the pseudo into which it was copied.  */
-extern rtx current_function_internal_arg_pointer;
-
-/* Nonzero means stack pops must not be deferred, and deferred stack
-   pops must not be output.  It is nonzero inside a function call,
-   inside a conditional expression, inside a statement expression,
-   and in other cases as well.  */
-extern int inhibit_defer_pop;
-
-/* Number of function calls seen so far in current function.  */
-
-extern int function_call_count;
-
-/* RTX for stack slot that holds the current handler for nonlocal gotos.
-   Zero when function does not have nonlocal labels.  */
-
-extern rtx nonlocal_goto_handler_slot;
-
-/* RTX for stack slot that holds the stack pointer value to restore
-   for a nonlocal goto.
-   Zero when function does not have nonlocal labels.  */
-
-extern rtx nonlocal_goto_stack_level;
-
-/* List (chain of TREE_LIST) of LABEL_DECLs for all nonlocal labels
-   (labels to which there can be nonlocal gotos from nested functions)
-   in this function.  */
-
-#ifdef TREE_CODE   /* Don't lose if tree.h not included.  */
-extern tree nonlocal_labels;
-#endif
-
 #define NO_DEFER_POP (inhibit_defer_pop += 1)
 #define OK_DEFER_POP (inhibit_defer_pop -= 1)
-
-/* Number of units that we should eventually pop off the stack.
-   These are the arguments to function calls that have already returned.  */
-extern int pending_stack_adjust;
-
-/* When temporaries are created by TARGET_EXPRs, they are created at
-   this level of temp_slot_level, so that they can remain allocated
-   until no longer needed.  CLEANUP_POINT_EXPRs define the lifetime
-   of TARGET_EXPRs.  */
-extern int target_temp_slot_level;
-
-/* Current level for normal temporaries.  */
-
-extern int temp_slot_level;
 
 #ifdef TREE_CODE /* Don't lose if tree.h not included.  */
 /* Structure to record the size of a sequence of arguments
@@ -709,6 +643,9 @@ extern void init_expr_once PROTO((void));
 
 /* This is run at the start of compiling a function.  */
 extern void init_expr PROTO((void));
+
+/* This is run once per compilation to set GC roots in stor-layout.c.  */
+extern void init_storage_once PROTO((void));
 
 /* Use protect_from_queue to convert a QUEUED expression
    into something that you can put immediately into an instruction.  */

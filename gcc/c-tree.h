@@ -158,6 +158,8 @@ extern tree maybe_objc_method_name		PROTO((tree));
 extern int recognize_objc_keyword		PROTO((void));
 extern tree build_objc_string			PROTO((int, char *));
 
+/* in c-parse.in */
+extern void c_parse_init			PROTO((void));
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PROTO((tree, int, int, int));
 

@@ -86,24 +86,6 @@ int cse_not_expected;
    Nowadays this is never zero.  */
 int do_preexpand_calls = 1;
 
-/* Number of units that we should eventually pop off the stack.
-   These are the arguments to function calls that have already returned.  */
-int pending_stack_adjust;
-
-/* Nonzero means stack pops must not be deferred, and deferred stack
-   pops must not be output.  It is nonzero inside a function call,
-   inside a conditional expression, inside a statement expression,
-   and in other cases as well.  */
-int inhibit_defer_pop;
-
-/* Nonzero means __builtin_saveregs has already been done in this function.
-   The value is the pseudoreg containing the value __builtin_saveregs
-   returned.  */
-static rtx saveregs_value;
-
-/* Similarly for __builtin_apply_args.  */
-static rtx apply_args_value;
-
 /* Nonzero if the machine description has been fixed to accept
    CONSTANT_P_RTX patterns.  We will emit a warning and continue
    if we find we must actually use such a beast.  */
@@ -149,7 +131,6 @@ struct clear_by_pieces
 };
 
 extern struct obstack permanent_obstack;
-extern rtx arg_pointer_save_area;
 
 static rtx get_push_address	PROTO ((int));
 
@@ -326,6 +307,8 @@ init_expr_once ()
 void
 init_expr ()
 {
+  current_function->expr = (struct expr_status *) xmalloc (sizeof (struct expr_status));
+
   init_queue ();
 
   pending_stack_adjust = 0;
@@ -333,43 +316,6 @@ init_expr ()
   saveregs_value = 0;
   apply_args_value = 0;
   forced_labels = 0;
-}
-
-/* Save all variables describing the current status into the structure *P.
-   This is used before starting a nested function.  */
-
-void
-save_expr_status (p)
-     struct function *p;
-{
-  /* Instead of saving the postincrement queue, empty it.  */
-  emit_queue ();
-
-  p->pending_stack_adjust = pending_stack_adjust;
-  p->inhibit_defer_pop = inhibit_defer_pop;
-  p->saveregs_value = saveregs_value;
-  p->apply_args_value = apply_args_value;
-  p->forced_labels = forced_labels;
-
-  pending_stack_adjust = 0;
-  inhibit_defer_pop = 0;
-  saveregs_value = 0;
-  apply_args_value = 0;
-  forced_labels = 0;
-}
-
-/* Restore all variables describing the current status from the structure *P.
-   This is used after a nested function.  */
-
-void
-restore_expr_status (p)
-     struct function *p;
-{
-  pending_stack_adjust = p->pending_stack_adjust;
-  inhibit_defer_pop = p->inhibit_defer_pop;
-  saveregs_value = p->saveregs_value;
-  apply_args_value = p->apply_args_value;
-  forced_labels = p->forced_labels;
 }
 
 /* Manage the queue of increment instructions to be output
@@ -5546,9 +5492,9 @@ expand_expr (exp, target, tmode, modifier)
 	    push_obstacks (p->function_obstack,
 			   p->function_maybepermanent_obstack);
 
-	    p->forced_labels = gen_rtx_EXPR_LIST (VOIDmode,
-						  label_rtx (exp),
-						  p->forced_labels);
+	    p->expr->x_forced_labels = gen_rtx_EXPR_LIST (VOIDmode,
+							  label_rtx (exp),
+							  p->expr->x_forced_labels);
 	    pop_obstacks ();
 	  }
 	else if (modifier == EXPAND_INITIALIZER)
@@ -6682,7 +6628,6 @@ expand_expr (exp, target, tmode, modifier)
 
     case CLEANUP_POINT_EXPR:
       {
-	extern int temp_slot_level;
 	/* Start a new binding layer that will keep track of all cleanup
 	   actions to be performed.  */
 	expand_start_bindings (0);

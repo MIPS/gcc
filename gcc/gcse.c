@@ -144,6 +144,7 @@ yyy
 #include "system.h"
 
 #include "rtl.h"
+#include "function.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -502,10 +503,6 @@ static int gcse_create_count;
 static int const_prop_count;
 /* Number of copys propagated.  */
 static int copy_prop_count;
-
-extern char *current_function_name;
-extern int current_function_calls_setjmp;
-extern int current_function_calls_longjmp;
 
 /* These variables are used by classic GCSE.
    Normally they'd be defined a bit later, but `rd_gen' needs to

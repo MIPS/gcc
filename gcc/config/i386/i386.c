@@ -1925,8 +1925,20 @@ ix86_unary_operator_ok (code, mode, operands)
   return TRUE;
 }
 
-static rtx pic_label_rtx;
-static char pic_label_name [256];
+#define MAX_386_STACK_LOCALS 2
+
+/* Define the structure for the machine field in struct function.  */
+struct machine_function
+{
+  rtx x_i386_stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
+  rtx x_pic_label_rtx;
+  char x_pic_label_name[256];
+};
+
+#define i386_stack_locals (current_function->machine->x_i386_stack_locals)
+#define pic_label_rtx (current_function->machine->x_pic_label_rtx)
+#define pic_label_name (current_function->machine->x_pic_label_name)
+
 static int pic_label_no = 0;
 
 /* This function generates code for -fpic that loads %ebx with
@@ -4521,44 +4533,33 @@ output_fp_cc0_set (insn)
   return "";
 }
 
-#define MAX_386_STACK_LOCALS 2
-
-static rtx i386_stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
-
-/* Define the structure for the machine field in struct function.  */
-struct machine_function
-{
-  rtx i386_stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
-  rtx pic_label_rtx;
-  char pic_label_name[256];
-};
-
 /* Functions to save and restore i386_stack_locals.
    These will be called, via pointer variables,
    from push_function_context and pop_function_context.  */
 
 void
-save_386_machine_status (p)
+init_386_machine_status (p)
      struct function *p;
 {
+  enum machine_mode mode;
+  int n;
+
   p->machine
     = (struct machine_function *) xmalloc (sizeof (struct machine_function));
-  bcopy ((char *) i386_stack_locals, (char *) p->machine->i386_stack_locals,
-	 sizeof i386_stack_locals);
-  p->machine->pic_label_rtx = pic_label_rtx;
-  bcopy (pic_label_name, p->machine->pic_label_name, 256);
+
+  for (mode = VOIDmode; (int) mode < (int) MAX_MACHINE_MODE;
+       mode = (enum machine_mode) ((int) mode + 1))
+    for (n = 0; n < MAX_386_STACK_LOCALS; n++)
+      i386_stack_locals[(int) mode][n] = NULL_RTX;
+
+  pic_label_rtx = NULL_RTX;
+  bzero (pic_label_name, 256);
 }
 
 void
 restore_386_machine_status (p)
      struct function *p;
 {
-  bcopy ((char *) p->machine->i386_stack_locals, (char *) i386_stack_locals,
-	 sizeof i386_stack_locals);
-  pic_label_rtx = p->machine->pic_label_rtx;
-  bcopy (p->machine->pic_label_name, pic_label_name, 256);
-  free (p->machine);
-  p->machine = NULL;
 }
 
 /* Clear stack slot assignments remembered from previous functions.
@@ -4568,18 +4569,8 @@ restore_386_machine_status (p)
 void
 clear_386_stack_locals ()
 {
-  enum machine_mode mode;
-  int n;
-
-  for (mode = VOIDmode; (int) mode < (int) MAX_MACHINE_MODE;
-       mode = (enum machine_mode) ((int) mode + 1))
-    for (n = 0; n < MAX_386_STACK_LOCALS; n++)
-      i386_stack_locals[(int) mode][n] = NULL_RTX;
-
-  pic_label_rtx = NULL_RTX;
-  bzero (pic_label_name, 256);
   /* Arrange to save and restore i386_stack_locals around nested functions.  */
-  save_machine_status = save_386_machine_status;
+  init_machine_status = init_386_machine_status;
   restore_machine_status = restore_386_machine_status;
 }
 
