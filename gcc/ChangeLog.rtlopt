@@ -1,3 +1,9 @@
+2003-04-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c (expr_mentions_iteration_p): New.
+	(substitute_into_expr, iv_split, clear_reg_values,
+	compute_register_values, compute_initial_values): Speed up.
+
 2003-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfglayout.c (cfg_layout_delete_block): New.

@@ -97,6 +97,14 @@ static sbitmap suitable_code;		/* Bitmap of rtl codes we are able
   (GET_CODE (EXPR) == CONST_INT \
    || GET_CODE (EXPR) == SYMBOL_REF)
 
+#define expr_mentions_iteration_p(EXPR) 		\
+  (GET_CODE(EXPR) == ITERATION				\
+   || (GET_RTX_CLASS (GET_CODE (EXPR)) == 'c'		\
+       && GET_CODE(XEXP (EXPR, 1)) == ITERATION)	\
+   || (!good_constant_p (EXPR)				\
+       && GET_CODE(EXPR) != VALUE_AT			\
+       && expr_mentions_code_p ((EXPR), ITERATION)))
+     
 static rtx gen_initial_value		PARAMS ((unsigned));
 static rtx gen_iteration		PARAMS ((enum machine_mode));
 static rtx gen_value_at			PARAMS ((unsigned, rtx, int));
@@ -120,7 +128,7 @@ static rtx compare_with_mode_bounds	PARAMS ((enum rtx_code,
 						 enum machine_mode));
 static rtx iv_simplify_relational	PARAMS ((rtx, enum machine_mode));
 static void simplify_ivs_using_values	PARAMS ((rtx *, rtx *));
-static void clear_reg_values		PARAMS ((rtx));
+static void clear_reg_values		PARAMS ((int));
 static rtx earliest_value_at_for	PARAMS ((basic_block, int));
 static rtx get_reg_value_at		PARAMS ((basic_block, rtx,
 						 struct ref *));
@@ -1241,7 +1249,19 @@ substitute_into_expr (expr, substitution, simplify)
       val = substitution[regno];
       if (!val)
 	return NULL_RTX;
-      return copy_rtx (val);
+
+      /* Optimize some common cases that may be shared.  */
+      switch (GET_CODE (val))
+	{
+	case INITIAL_VALUE:
+	case VALUE_AT:
+	case CONST_INT:
+	case SYMBOL_REF:
+	  return val;
+
+	default:
+	  return copy_rtx (val);
+	}
     }
   
   /* Just ignore the codes that do not seem to be good for further
@@ -1323,7 +1343,8 @@ iv_omit_initial_values (expr)
 }
 
 /* Splits expression for induction variable into BASE and STEP.  We expect
-   EXPR to come from iv_simplify_rtx.  */
+   EXPR to come from iv_simplify_rtx.  EXPR is not modified, but part of
+   it may be shared as BASE or STEP.  */
 void
 iv_split (expr, base, step)
      rtx expr;
@@ -1331,25 +1352,53 @@ iv_split (expr, base, step)
      rtx *step;
 {
   rtx abase, astep, *pabase = &abase, *pastep = &astep;
-  rtx next, *act;
+  rtx next, *act, tmp;
   enum machine_mode mode;
 
   *base = *step = NULL_RTX;
   if (!expr)
     return;
   mode = GET_MODE (expr);
-  expr = copy_rtx (expr);
 
   if (good_constant_p (expr)
       || GET_CODE (expr) == VALUE_AT
       || GET_CODE (expr) == INITIAL_VALUE
-      || !expr_mentions_code_p (expr, ITERATION))
+      || !expr_mentions_iteration_p (expr))
     {
       *base = expr;
       *step = const0_rtx;
       return;
     }
 
+  /* Avoid copying in the most common cases:  */
+  if (GET_CODE (expr) != PLUS
+      || !expr_mentions_iteration_p (XEXP (expr, 0)))
+    {
+      if (GET_CODE (expr) == PLUS)
+	{
+	  *base = XEXP (expr, 0);
+	  tmp = XEXP (expr, 1);
+	}
+      else
+	{
+	  *base = const0_rtx;
+	  tmp = expr;
+	}
+
+      if (GET_CODE (tmp) == ITERATION)
+	*step = const1_rtx;
+      else if (GET_CODE (tmp) == MULT
+	       && GET_CODE (XEXP (tmp, 0)) == CONST_INT
+	       && GET_CODE (XEXP (tmp, 1)) == ITERATION)
+	*step = XEXP (tmp, 0);
+      else
+	*base = NULL_RTX;
+
+      if (*base)
+	return;
+    }
+
+  expr = copy_rtx (expr);
   while (GET_CODE (expr) == PLUS)
     {
       next = XEXP (expr, 0);
@@ -1387,8 +1436,8 @@ iv_split (expr, base, step)
       *pabase = expr;
     }
 
-  if (expr_mentions_code_p (astep, ITERATION)
-      || expr_mentions_code_p (abase, ITERATION))
+  if (expr_mentions_iteration_p (astep)
+      || expr_mentions_iteration_p (abase))
     return;
 
   *base = iv_simplify_rtx (abase);
@@ -1659,22 +1708,30 @@ iv_simplify_using_initial_values (op, expr, loop)
   return expr;
 }
 
-/* Clears values of registers stored at INSN.  */
+/* Clears stored values of registers (unless INCLUDING_TOP, ignore values
+   in the fake outermost loop).  */
 static void
-clear_reg_values (insn)
-     rtx insn;
+clear_reg_values (including_top)
+     int including_top;
 {
-  struct df_link *def = DF_INSN_DEFS (df, insn);
-  struct df_link *use = DF_INSN_USES (df, insn);
+  unsigned i;
+  struct ref *ref;
 
-  if (!INSN_P (insn))
-    return;
+  for (i = 0; i < df->n_defs; i++)
+    {
+      ref = df->defs[i];
+      if (!including_top && !DF_REF_BB (ref)->loop_father->outer)
+	continue;
+      ref->aux = NULL_RTX;
+    }
 
-  for (; def; def = def->next)
-    def->ref->aux = NULL_RTX;
-
-  for (; use; use = use->next)
-    use->ref->aux = NULL_RTX;
+  for (i = 0; i < df->n_uses; i++)
+    {
+      ref = df->uses[i];
+      if (!including_top && !DF_REF_BB (ref)->loop_father->outer)
+	continue;
+      ref->aux = NULL_RTX;
+    }
 }
 
 /* Generates VALUE_AT for register REGNO as near to entry as possible, startin
@@ -1819,7 +1876,7 @@ compute_reg_values (bb, insn)
 /* Computes value of registers used/defined in all insns wrto the innermost
    loop they belong to; values of registers at loop entries are assumed
    to be stored in loop_entry_values.  Unless INCLUDING_TOP, fake loop
-   around the function is ignored*/
+   around the function is ignored.  */
 static void
 compute_register_values (including_top)
      int including_top;
@@ -1827,20 +1884,14 @@ compute_register_values (including_top)
   basic_block bb;
   rtx insn;
 
+  clear_reg_values (including_top);
+
+  sbitmap_zero (insn_processed);
   FOR_EACH_BB (bb)
     {
       if (!including_top && !bb->loop_father->outer)
 	continue;
 
-      for (insn = bb->head;
-	   insn != NEXT_INSN (bb->end);
-	   insn = NEXT_INSN (insn))
-	clear_reg_values (insn);
-    }
-
-  sbitmap_zero (insn_processed);
-  FOR_EACH_BB (bb)
-    {
       for (insn = bb->head;
 	   insn != NEXT_INSN (bb->end);
 	   insn = NEXT_INSN (insn))
@@ -2159,13 +2210,13 @@ compute_initial_values (loop)
       else if (def)
 	{
 	  if (DF_REF_BB (def)->loop_father != outer
-	      && expr_mentions_code_p (def->aux, ITERATION))
+	      && expr_mentions_iteration_p ((rtx) def->aux))
 	    values[regno] = gen_value_at (regno, def->insn, true);
 	  else
 	    values[regno] = def->aux;
 	}
       else if (outer_values[regno]
-	       && expr_mentions_code_p (outer_values[regno], ITERATION))
+	       && expr_mentions_iteration_p (outer_values[regno]))
 	values[regno] = gen_value_at (regno, outer_preheader_end,
 				      outer_preheader_end_after);
       else
