@@ -1,3 +1,7 @@
+2004-03-04  Michael Matz  <matz@suse.de>
+
+	* sta.c (ffesta_save_): Don't break aliasing rules.
+
 2004-01-22  Josef Zlomek  <zlomekj@suse.cz>
 
 	Backport from mainline
