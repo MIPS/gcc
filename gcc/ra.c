@@ -915,8 +915,16 @@ live_out_1 (df, use, insn)
 	      {
 		if (lap == -1)
 		  /* Same regnos but non-overlapping or already defined bits,
-		     so ignore this DEF.  */
-		  continue;
+		     so ignore this DEF, or better said make the yet undefined
+		     part and this DEF conflicting.  */
+		  {
+		    unsigned HOST_WIDE_INT undef;
+		    undef = use->undefined;
+		    while (undef)
+		      bitmap_set_bit (undef_to_bitmap (wp, &undef),
+				      DF_REF_ID (link->ref));
+		    continue;
+		  }
 		if ((lap & 1) != 0)
 		  /* The current DEF completely covers the USE, so we can
 		     stop traversing the code looking for further DEFs.  */
@@ -928,6 +936,20 @@ live_out_1 (df, use, insn)
 		      /* Now the USE is completely defined, which means, that
 			 we can stop looking for former DEFs.  */
 		      defined = 1;
+		    /* If this is a partial overlap, which left some bits
+		       in USE undefined, we normally would need to create
+		       conflicts between that undefined part and the part of
+		       this DEF which overlapped with some of the formerly
+		       undfined bits.  We don't need to do this, because both
+		       parts of this DEF (that which overlaps, and that which
+		       doesn't) are written together in this one DEF, and can
+		       not be colored in a way which would conflict with
+		       the USE.  This is only true for partial overlap,
+		       because only then the DEF and USE have bits in common,
+		       which makes the DEF move, if the USE moves.
+		       If they have no bits in common (lap == -1), they are
+		       really independent.  Therefore we there make a
+		       conflict.  */
 		  }
 		/* This is at least a partial overlap, so we need to union
 		   the web parts.  */
@@ -941,6 +963,7 @@ live_out_1 (df, use, insn)
 		struct web_part *cwp;
 		unsigned HOST_WIDE_INT undef;
 
+#if 0
 		if (find_regno_note (insn, REG_NO_CONFLICT, regno))
 		  {
 		    /* The current use don't conflict with the DEF in this
@@ -954,6 +977,7 @@ live_out_1 (df, use, insn)
 		    && GET_CODE (PATTERN (insn)) == CLOBBER
 		    && find_reg_note (insn, REG_LIBCALL, NULL_RTX) != 0)
 		  continue;
+#endif
 
 		/* XXX Beware, for SUBREG tracking we can't use the IDs of the
 		   webroots unconditionally to identify conflicts.  We need a
@@ -1606,6 +1630,14 @@ add_conflict_edge (from, to)
       struct sub_conflict *sl;
       struct conflict_link *cl = pfrom->conflict_list;
       int may_delete = 1;
+      
+      /* This can happen when subwebs of one web conflict with each
+	 other.  In live_out_1() we created such conflicts between yet
+	 undefined webparts and defs of parts which didn't overlap with the
+	 undefined bits.  Then later they nevertheless could have merged into
+	 one web, and then we land here.  */
+      if (pfrom == pto)
+	return;
       if (!TEST_BIT (sup_igraph, (pfrom->id*num_webs + pto->id)))
 	{
 	  cl = (struct conflict_link *) xmalloc (sizeof (*cl));
@@ -1672,8 +1704,9 @@ record_conflict (web1, web2)
   if ((web1->regno < FIRST_PSEUDO_REGISTER && fixed_regs[web1->regno])
       || (web2->regno < FIRST_PSEUDO_REGISTER && fixed_regs[web2->regno]))
     return;
-  /* Conflicts between two hardregs, which are not even a candidate
-     for this pseudo are also pointless.  */
+  /* Conflicts with hardregs, which are not even a candidate
+     for this pseudo are also pointless.  The same if the set of allowed
+     hardregs for two pseudos have no hardreg in common.  */
   if (! ((web1->type == PRECOLORED 
 	  && TEST_HARD_REG_BIT (web2->usable_regs, web1->regno))
 	 || (web2->type == PRECOLORED
@@ -3102,6 +3135,9 @@ colorize_one_web (web)
   struct web *fat_neighbor = NULL;
   struct web *fats_parent = NULL;
   int num_fat = 0;
+  int long_blocks = 0;
+  int best_long_blocks = -1;
+  HARD_REG_SET fat_colors;
   
   /* The bits set in conflict_colors correspond to the hardregs, at which
      WEB may not begin.  This differs from the set of _all_ hardregs which
@@ -3161,7 +3197,9 @@ colorize_one_web (web)
 		    SET_HARD_REG_BIT (conflict_colors, c1);
 		}
 	    }
-	  else if (ptarget->was_spilled < 0 && w->add_hardregs >= neighbor_needs)
+	  else if (ptarget->was_spilled < 0
+		   && find_web_for_subweb (w)->type != COALESCED
+		   && w->add_hardregs >= neighbor_needs)
 	    {
 	      neighbor_needs = w->add_hardregs;
 	      fat_neighbor = w;
@@ -3180,9 +3218,22 @@ colorize_one_web (web)
 
   debug_msg (0, "trying to color web %d [don't begin at %s]\n", web->id,
              hardregset_to_string (conflict_colors));
+  if (num_fat)
+    {
+      if (fats_parent->use_my_regs)
+        COPY_HARD_REG_SET (fat_colors, fats_parent->usable_regs);
+      else
+        {
+          COPY_HARD_REG_SET (fat_colors, usable_regs
+			     [reg_preferred_class (fats_parent->regno)]);
+          IOR_HARD_REG_SET (fat_colors, usable_regs
+			    [reg_alternate_class (fats_parent->regno)]);
+        }
+      long_blocks = count_long_blocks (fat_colors, neighbor_needs + 1);
+    }
+
   while (1)
     {
-      int long_blocks;
       HARD_REG_SET call_clobbered;
 	
       /* Here we choose a hard-reg for the current web.  For non spill
@@ -3228,7 +3279,8 @@ colorize_one_web (web)
 	}
       if (c < 0)
 	break;
-      bestc = c;
+      if (bestc < 0)
+        bestc = c;
       /* If one of the yet uncolored neighbors, which is not a potential
 	 spill needs a block of hardregs be sure, not to destroy such a block
 	 by coloring one reg in the middle.  */
@@ -3236,23 +3288,22 @@ colorize_one_web (web)
 	{
 	  int i;
 	  int new_long;
-	  if (fats_parent->use_my_regs)
-	    COPY_HARD_REG_SET (colors, fats_parent->usable_regs);
-	  else
-	    {
-	      COPY_HARD_REG_SET (colors, usable_regs
-			         [reg_preferred_class (fats_parent->regno)]);
-	      IOR_HARD_REG_SET (colors, usable_regs
-		                [reg_alternate_class (fats_parent->regno)]);
-	    }
-	  long_blocks = count_long_blocks (colors, neighbor_needs + 1);
+	  HARD_REG_SET colors1;
+	  COPY_HARD_REG_SET (colors1, fat_colors);
 	  for (i = 0; i < 1 + web->add_hardregs; i++)
-	    CLEAR_HARD_REG_BIT (colors, c + i);
-	  new_long = count_long_blocks (colors, neighbor_needs + 1);
+	    CLEAR_HARD_REG_BIT (colors1, c + i);
+	  new_long = count_long_blocks (colors1, neighbor_needs + 1);
 	  /* If we changed the number of long blocks, and it's now smaller
 	     than needed, we try to avoid this color.  */
 	  if (long_blocks != new_long && new_long < num_fat)
-	    SET_HARD_REG_BIT (conflict_colors, c);
+	    {
+	      if (new_long > best_long_blocks)
+		{
+		  best_long_blocks = new_long;
+		  bestc = c;
+		}
+	      SET_HARD_REG_BIT (conflict_colors, c);
+	    }
 	  else
 	    /* We found a color which doesn't destroy a block.  */
 	    break;
@@ -3264,8 +3315,10 @@ colorize_one_web (web)
     {
       /* This is a non-potential-spill web, which got a color, which did
 	 destroy a hardreg block for one of it's neighbors.  We color
-	 this web anyway and hope for the best for the neighbor.  */
-      //c = bestc;
+	 this web anyway and hope for the best for the neighbor, if we are
+	 a spill temp.  */
+      if (1 || web->spill_temp)
+        c = bestc;
       debug_msg (0, "  *** Non-spill web %d colored with %d, constrains"
 		 " it's neighbors\n", web->id, c);
     }

@@ -1,3 +1,16 @@
+2001-07-03  Michael Matz  <matzmich@cs.tu-berlin.de>
+ 
+        * ra.c : (live_out_1): Make conflicts of yet undefined parts to
+        the def even, if that def covers the same regno but no undefined
+        bits.
+        #if 0 NO_CONFLICT support.
+        (add_conflict_edge): Early out if parent webs are the same.
+        (colorize_one_web): New locals long_blocks, best_long_blocks,
+        fat_colors.
+        Only look at non-coalesced conflict webs for fat neighbors.
+        Choose color which destroys the fewest long blocks.
+        Color web, even if constraining.
+
 2001-07-03  Michael Matz <matzmich@cs.tu-berlin.de>
  
         First naive version of spill coalescing.
