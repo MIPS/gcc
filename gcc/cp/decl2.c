@@ -1188,51 +1188,34 @@ cplus_decl_attributes (decl, attributes, flags)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
 }
 
-/* CONSTRUCTOR_NAME:
-   Return the name for the constructor (or destructor) for the
-   specified class.  Argument can be RECORD_TYPE, TYPE_DECL, or
-   IDENTIFIER_NODE.  When given a template, this routine doesn't
+/* Return the name for the constructor (or destructor) for the
+   specified class TYPE.  When given a template, this routine doesn't
    lose the specialization.  */
 
 tree
-constructor_name_full (thing)
-     tree thing;
+constructor_name_full (tree type)
 {
-  if (TREE_CODE (thing) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (thing) == BOUND_TEMPLATE_TEMPLATE_PARM
-      || TREE_CODE (thing) == TYPENAME_TYPE)
-    thing = TYPE_NAME (thing);
-  else if (IS_AGGR_TYPE_CODE (TREE_CODE (thing)))
-    {
-      if (TYPE_WAS_ANONYMOUS (thing) && TYPE_HAS_CONSTRUCTOR (thing))
-	thing = DECL_NAME (OVL_CURRENT (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (thing), 0)));
-      else
-	thing = TYPE_NAME (thing);
-    }
-  if (TREE_CODE (thing) == TYPE_DECL
-      || (TREE_CODE (thing) == TEMPLATE_DECL
-	  && TREE_CODE (DECL_TEMPLATE_RESULT (thing)) == TYPE_DECL))
-    thing = DECL_NAME (thing);
-  my_friendly_assert (TREE_CODE (thing) == IDENTIFIER_NODE, 197);
-  return thing;
+  type = TYPE_MAIN_VARIANT (type);
+  if (CLASS_TYPE_P (type) && TYPE_WAS_ANONYMOUS (type) 
+      && TYPE_HAS_CONSTRUCTOR (type))
+    return DECL_NAME (OVL_CURRENT (CLASSTYPE_CONSTRUCTORS (type)));
+  else
+    return TYPE_IDENTIFIER (type);
 }
 
-/* CONSTRUCTOR_NAME:
-   Return the name for the constructor (or destructor) for the
-   specified class.  Argument can be RECORD_TYPE, TYPE_DECL, or
-   IDENTIFIER_NODE.  When given a template, return the plain
+/* Return the name for the constructor (or destructor) for the
+   specified class.  When given a template, return the plain
    unspecialized name.  */
 
 tree
-constructor_name (thing)
-     tree thing;
+constructor_name (type)
+     tree type;
 {
-  tree t;
-  thing = constructor_name_full (thing);
-  t = IDENTIFIER_TEMPLATE (thing);
-  if (!t)
-    return thing;
-  return t;
+  tree name;
+  name = constructor_name_full (type);
+  if (IDENTIFIER_TEMPLATE (name))
+    name = IDENTIFIER_TEMPLATE (name);
+  return name;
 }
 
 /* Returns TRUE if NAME is the name for the constructor for TYPE.  */
@@ -3416,6 +3399,7 @@ build_expr_from_tree (t)
 	return get_typeid (TREE_OPERAND (t, 0));
       return build_typeid (build_expr_from_tree (TREE_OPERAND (t, 0)));
 
+    case PARM_DECL:
     case VAR_DECL:
       return convert_from_reference (t);
 

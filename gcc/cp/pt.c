@@ -164,6 +164,7 @@ static tree copy_default_args_to_explicit_spec_1 PARAMS ((tree, tree));
 static void copy_default_args_to_explicit_spec PARAMS ((tree));
 static int invalid_nontype_parm_type_p PARAMS ((tree, tsubst_flags_t));
 static int eq_local_specializations (const void *, const void *);
+static tree template_for_substitution (tree);
 
 /* Do any processing required when DECL (a member template
    declaration) is finished.  Returns the TEMPLATE_DECL corresponding
@@ -7015,7 +7016,9 @@ tsubst_copy (t, args, complain, in_decl)
   switch (code)
     {
     case PARM_DECL:
-      return retrieve_local_specialization (t);
+      r = retrieve_local_specialization (t);
+      my_friendly_assert (r != NULL, 20020903);
+      return r;
 
     case CONST_DECL:
       {
@@ -9915,6 +9918,65 @@ regenerate_decl_from_template (decl, tmpl)
   register_specialization (decl, gen_tmpl, args);
 }
 
+/* Return the TEMPLATE_DECL into which DECL_TI_ARGS(DECL) should be
+   substituted to get DECL.  */
+
+static tree
+template_for_substitution (tree decl)
+{
+  tree tmpl = DECL_TI_TEMPLATE (decl);
+
+  /* Set TMPL to the template whose DECL_TEMPLATE_RESULT is the pattern
+     for the instantiation.  This is not always the most general
+     template.  Consider, for example:
+
+        template <class T>
+	struct S { template <class U> void f();
+	           template <> void f<int>(); };
+
+     and an instantiation of S<double>::f<int>.  We want TD to be the
+     specialization S<T>::f<int>, not the more general S<T>::f<U>.  */
+  while (/* An instantiation cannot have a definition, so we need a
+	    more general template.  */
+	 DECL_TEMPLATE_INSTANTIATION (tmpl)
+	   /* We must also deal with friend templates.  Given:
+
+		template <class T> struct S { 
+		  template <class U> friend void f() {};
+		};
+
+	      S<int>::f<U> say, is not an instantiation of S<T>::f<U>,
+	      so far as the language is concerned, but that's still
+	      where we get the pattern for the instantiation from.  On
+	      other hand, if the definition comes outside the class, say:
+
+		template <class T> struct S { 
+		  template <class U> friend void f();
+		};
+		template <class U> friend void f() {}
+
+	      we don't need to look any further.  That's what the check for
+	      DECL_INITIAL is for.  */
+	  || (TREE_CODE (decl) == FUNCTION_DECL
+	      && DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (tmpl)
+	      && !DECL_INITIAL (DECL_TEMPLATE_RESULT (tmpl))))
+    {
+      /* The present template, TD, should not be a definition.  If it
+	 were a definition, we should be using it!  Note that we
+	 cannot restructure the loop to just keep going until we find
+	 a template with a definition, since that might go too far if
+	 a specialization was declared, but not defined.  */
+      my_friendly_assert (!(TREE_CODE (decl) == VAR_DECL
+			    && !DECL_IN_AGGR_P (DECL_TEMPLATE_RESULT (tmpl))), 
+			  0); 
+      
+      /* Fetch the more general template.  */
+      tmpl = DECL_TI_TEMPLATE (tmpl);
+    }
+
+  return tmpl;
+}
+
 /* Produce the definition of D, a _DECL generated from a template.  If
    DEFER_OK is non-zero, then we don't have to actually do the
    instantiation now; we just have to do it sometime.  */
@@ -9970,54 +10032,8 @@ instantiate_decl (d, defer_ok)
   timevar_push (TV_PARSE);
 
   /* Set TD to the template whose DECL_TEMPLATE_RESULT is the pattern
-     for the instantiation.  This is not always the most general
-     template.  Consider, for example:
-
-        template <class T>
-	struct S { template <class U> void f();
-	           template <> void f<int>(); };
-
-     and an instantiation of S<double>::f<int>.  We want TD to be the
-     specialization S<T>::f<int>, not the more general S<T>::f<U>.  */
-  td = tmpl;
-  while (/* An instantiation cannot have a definition, so we need a
-	    more general template.  */
-	 DECL_TEMPLATE_INSTANTIATION (td)
-	   /* We must also deal with friend templates.  Given:
-
-		template <class T> struct S { 
-		  template <class U> friend void f() {};
-		};
-
-	      S<int>::f<U> say, is not an instantiation of S<T>::f<U>,
-	      so far as the language is concerned, but that's still
-	      where we get the pattern for the instantiation from.  On
-	      other hand, if the definition comes outside the class, say:
-
-		template <class T> struct S { 
-		  template <class U> friend void f();
-		};
-		template <class U> friend void f() {}
-
-	      we don't need to look any further.  That's what the check for
-	      DECL_INITIAL is for.  */
-	  || (TREE_CODE (d) == FUNCTION_DECL
-	      && DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (td)
-	      && !DECL_INITIAL (DECL_TEMPLATE_RESULT (td))))
-    {
-      /* The present template, TD, should not be a definition.  If it
-	 were a definition, we should be using it!  Note that we
-	 cannot restructure the loop to just keep going until we find
-	 a template with a definition, since that might go too far if
-	 a specialization was declared, but not defined.  */
-      my_friendly_assert (!(TREE_CODE (d) == VAR_DECL
-			    && !DECL_IN_AGGR_P (DECL_TEMPLATE_RESULT (td))), 
-			  0); 
-      
-      /* Fetch the more general template.  */
-      td = DECL_TI_TEMPLATE (td);
-    }
-
+     for the instantiation.  */
+  td = template_for_substitution (d);
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
   if (TREE_CODE (d) == FUNCTION_DECL)
@@ -10166,6 +10182,7 @@ instantiate_decl (d, defer_ok)
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
+      tree subst_decl;
       tree tmpl_parm;
       tree spec_parm;
 
@@ -10183,14 +10200,14 @@ instantiate_decl (d, defer_ok)
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
 
       /* Create substitution entries for the parameters.  */
-      tmpl_parm = DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (tmpl));
+      subst_decl = DECL_TEMPLATE_RESULT (template_for_substitution (d));
+      tmpl_parm = DECL_ARGUMENTS (subst_decl);
       spec_parm = DECL_ARGUMENTS (d);
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (d))
 	{
 	  register_local_specialization (spec_parm, tmpl_parm);
 	  spec_parm = skip_artificial_parms_for (d, spec_parm);
-	  tmpl_parm = skip_artificial_parms_for (DECL_TEMPLATE_RESULT (tmpl),
-						 tmpl_parm);
+	  tmpl_parm = skip_artificial_parms_for (subst_decl, tmpl_parm);
 	}
       while (tmpl_parm)
 	{

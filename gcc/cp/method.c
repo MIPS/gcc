@@ -965,7 +965,7 @@ implicitly_declare_fn (kind, type, const_p)
   tree raises = empty_except_spec;
   int retref = 0;
   int has_parm = 0;
-  tree name = constructor_name (TYPE_IDENTIFIER (type));
+  tree name = constructor_name (type);
 
   switch (kind)
     {

@@ -8990,7 +8990,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
   if (check < 0)
     return decl;
 
-  if (flags == NO_SPECIAL && ctype && constructor_name (ctype) == declarator)
+  if (flags == NO_SPECIAL && ctype && constructor_name_p (declarator, ctype))
     DECL_CONSTRUCTOR_P (decl) = 1;
 
   /* Function gets the ugly name, field gets the nice one.  This call
@@ -9715,7 +9715,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      flags = DTOR_FLAG;
 	      sfk = sfk_destructor;
 	      if (TREE_CODE (name) == TYPE_DECL)
-		TREE_OPERAND (decl, 0) = name = constructor_name (name);
+		TREE_OPERAND (decl, 0) = name 
+		  = constructor_name (TREE_TYPE (name));
 	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE, 153);
 	      if (ctype == NULL_TREE)
 		{
@@ -9726,7 +9727,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    }
 		  else
 		    {
-		      tree t = constructor_name (current_class_name);
+		      tree t = constructor_name (current_class_type);
 		      if (t != name)
 			rename = t;
 		    }
@@ -9812,7 +9813,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    decl = *next;
 	    if (ctype != NULL_TREE
 		&& decl != NULL_TREE && flags != DTOR_FLAG
-		&& decl == constructor_name (ctype))
+		&& constructor_name_p (decl, ctype))
 	      {
 		sfk = sfk_constructor;
 		ctor_return_type = ctype;
@@ -9921,7 +9922,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      if (ctype)
 		{
 		  if (TREE_CODE (decl) == IDENTIFIER_NODE
-		      && constructor_name (ctype) == decl)
+		      && constructor_name_p (decl, ctype))
 		    {
 		      sfk = sfk_constructor;
 		      ctor_return_type = ctype;
@@ -10710,7 +10711,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	    if (ctype && sfk == sfk_conversion)
 	      TYPE_HAS_CONVERSION (ctype) = 1;
-	    if (ctype && constructor_name (ctype) == dname)
+	    if (ctype && constructor_name_p (dname, ctype))
 	      {
 		/* We are within a class's scope. If our declarator name
 		   is the same as the class name, and we are defining
@@ -11185,7 +11186,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
       if (decl_context == FIELD)
 	{
-	  if (declarator == constructor_name (current_class_type))
+	  if (constructor_name_p (declarator, current_class_type))
 	    pedwarn ("ISO C++ forbids nested type `%D' with same name as enclosing class",
 			declarator);
 	  decl = build_lang_decl (TYPE_DECL, declarator, type);
@@ -11662,7 +11663,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	      }
 
 	    /* 9.2p13 [class.mem] */
-	    if (declarator == constructor_name (current_class_type)
+	    if (constructor_name_p (declarator, current_class_type)
 		/* The standard does not allow non-static data members
 		   here either, but we agreed at the 10/99 meeting
 		   to change that in TC 1 so that they are allowed in

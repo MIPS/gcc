@@ -2826,7 +2826,7 @@ finish_struct_anon (t)
 		      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
 		continue;
 
-	      if (DECL_NAME (elt) == constructor_name (t))
+	      if (constructor_name_p (DECL_NAME (elt), t))
 		cp_pedwarn_at ("ISO C++ forbids member `%D' with same name as enclosing class",
 			       elt);
 
@@ -3385,8 +3385,7 @@ check_field_decls (t, access_decls, empty_p,
       /* Core issue 80: A nonstatic data member is required to have a
 	 different name from the class iff the class has a
 	 user-defined constructor.  */
-      if (DECL_NAME (x) == constructor_name (t)
-	  && TYPE_HAS_CONSTRUCTOR (t))
+      if (constructor_name_p (x, t) && TYPE_HAS_CONSTRUCTOR (t))
 	cp_pedwarn_at ("field `%#D' with same name as class", x);
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.

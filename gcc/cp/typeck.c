@@ -2179,10 +2179,10 @@ finish_class_member_access_expr (tree object, tree name)
       else if (TREE_CODE (name) == BIT_NOT_EXPR)
 	{
 	  /* A destructor.  */
-	  if (TYPE_IDENTIFIER (object_type) != TREE_OPERAND (name, 0))
+	  if (!constructor_name_p (TREE_OPERAND (name, 0), object_type))
 	    {
-	      error ("destructor specifier `%T::~%T' must have matching names",
-		     object_type, TREE_OPERAND (name, 0));
+	      error ("destructor name `%D' does not match type `%T' of expression",
+		     TREE_OPERAND (name, 0), object_type);
 	      return error_mark_node;
 	    }
 	  if (! TYPE_HAS_DESTRUCTOR (object_type))
@@ -2190,7 +2190,8 @@ finish_class_member_access_expr (tree object, tree name)
 	      error ("type `%T' has no destructor", object_type);
 	      return error_mark_node;
 	    }
-	  member = CLASSTYPE_DESTRUCTORS (object_type);
+	  member = lookup_member (object_type, complete_dtor_identifier,
+				  /*protect=*/1, /*want_type=*/0);
 	}
       else if (TREE_CODE (name) == IDENTIFIER_NODE)
 	{
