@@ -1,3 +1,10 @@
+Thu Nov  5 14:28:43 1998  Richard Henderson  <rth@cygnus.com>
+
+	* ggc-simple.c (ggc_collect): Lose the `ignore_after' argument.
+	Disable rate-limiting check if ENABLE_CHECKING.
+	* ggc.h (ggc_collect): Update prototype.
+	* toplev.c (rest_of_compilation): Call ggc_collect after every pass.
+
 Wed Nov  4 13:34:13 1998  Ken Raeburn  <raeburn@raeburn.org>
 
 	* expr.c (emit_block_move): Add "memcpy" node to the tree root list.

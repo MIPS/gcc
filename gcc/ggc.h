@@ -37,7 +37,7 @@ char *ggc_alloc_string PROTO ((const char *contents, int length));
 /* Invoke the collector.  This is really just a hint, but in the case of
    the simple collector, the only time it will happen.  */
 
-void ggc_collect PROTO ((int ignore_after));
+void ggc_collect PROTO ((void));
 
 /* Manipulate global roots that are needed between calls to gc.  */
 void ggc_add_root PROTO ((void *base, int nelt, int size,

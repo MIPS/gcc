@@ -3417,6 +3417,8 @@ rest_of_compilation (decl)
   if (jump_opt_dump)
     dump_rtl (".jump", decl, print_rtl, insns);
 
+  ggc_collect ();
+
   /* Perform common subexpression elimination.
      Nonzero value from `cse_main' means that jumps were simplified
      and some code may now be unreachable, so do
@@ -3446,6 +3448,8 @@ rest_of_compilation (decl)
       
       if (cse_dump)
 	close_dump_file (print_rtl, insns);
+
+      ggc_collect ();
     }
 
   purge_addressof (insns);
@@ -3454,6 +3458,8 @@ rest_of_compilation (decl)
   if (addressof_dump)
     dump_rtl (".addressof", decl, print_rtl, insns);
   
+  ggc_collect ();
+
   /* Perform global cse.  */
 
   if (optimize > 0 && flag_gcse)
@@ -3465,6 +3471,8 @@ rest_of_compilation (decl)
 
       if (gcse_dump)
 	close_dump_file (print_rtl, insns);
+
+      ggc_collect ();
     }
   /* Move constant computations out of loops.  */
 
@@ -3500,6 +3508,8 @@ rest_of_compilation (decl)
       
       if (loop_dump)
 	close_dump_file (print_rtl, insns);
+
+      ggc_collect ();
     }
 
   if (optimize > 0)
@@ -3540,6 +3550,8 @@ rest_of_compilation (decl)
       
       if (cse2_dump)
 	close_dump_file (print_rtl, insns);
+
+      ggc_collect ();
     }
   
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
@@ -3555,6 +3567,8 @@ rest_of_compilation (decl)
       
       if (branch_prob_dump)
 	close_dump_file (print_rtl, insns);
+
+      ggc_collect ();
     }
   
   /* We are no longer anticipating cse in this function, at least.  */
@@ -3609,6 +3623,8 @@ rest_of_compilation (decl)
   if (flow_dump)
     close_dump_file (print_rtl_with_bb, insns);
   
+  ggc_collect ();
+
   /* If -opt, try combining insns through substitution.  */
 
   if (optimize > 0)
@@ -3619,6 +3635,8 @@ rest_of_compilation (decl)
       
       if (combine_dump)
 	dump_rtl (".combine", decl, print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 
   /* Register allocation pre-pass, to reduce number of moves
@@ -3633,6 +3651,8 @@ rest_of_compilation (decl)
       
       if (regmove_dump)
 	close_dump_file (print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 
   /* Print function header into sched dump now
@@ -3652,6 +3672,8 @@ rest_of_compilation (decl)
       
       if (sched_dump)
 	close_dump_file (print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 
   /* Unless we did stupid register allocation,
@@ -3677,6 +3699,8 @@ rest_of_compilation (decl)
       close_dump_file (print_rtl_with_bb, insns);
     }
 
+  ggc_collect ();
+
   if (global_reg_dump)
     open_dump_file (".greg", decl_printable_name (decl, 2));
 
@@ -3700,6 +3724,7 @@ rest_of_compilation (decl)
   if (failure)
     goto exit_rest_of_compilation;
 
+  ggc_collect ();
   reload_completed = 1;
 
   /* Do a very simple CSE pass over just the hard registers.  */
@@ -3732,6 +3757,8 @@ rest_of_compilation (decl)
 
       if (sched2_dump)
 	close_dump_file (print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 
 #ifdef LEAF_REGISTERS
@@ -3755,6 +3782,8 @@ rest_of_compilation (decl)
 
       if (jump2_opt_dump)
 	dump_rtl (".jump2", decl, print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 
   /* If a machine dependent reorganization is needed, call it.  */
@@ -3763,6 +3792,7 @@ rest_of_compilation (decl)
 
    if (mach_dep_reorg_dump)
      dump_rtl (".mach", decl, print_rtl_with_bb, insns);
+   ggc_collect ();
 #endif
 
   /* If a scheduling pass for delayed branches is to be done,
@@ -3775,6 +3805,8 @@ rest_of_compilation (decl)
       
       if (dbr_sched_dump)
 	dump_rtl (".dbr", decl, print_rtl_with_bb, insns);
+
+      ggc_collect ();
     }
 #endif
 
@@ -3792,6 +3824,7 @@ rest_of_compilation (decl)
 
   if (stack_reg_dump)
     dump_rtl (".stack", decl, print_rtl_with_bb, insns);
+  ggc_collect ();
 #endif
 
   /* Now turn the rtl into assembler code.  */
@@ -3824,6 +3857,7 @@ rest_of_compilation (decl)
 	     /* Release all memory held by regsets now */
 	     regset_release_memory ();
 	   });
+  ggc_collect ();
 
   /* Write DBX symbols if requested */
 
@@ -3909,13 +3943,12 @@ rest_of_compilation (decl)
   current_function = 0;
   cur_f_s = 0;
 
-  ggc_collect (0);
+  ggc_collect ();
 
   /* The parsing time is all the time spent in yyparse
      *except* what is spent in this function.  */
 
   parse_time -= get_run_time () - start_time;
-
 }
 
 static void

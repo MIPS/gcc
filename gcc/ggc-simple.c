@@ -486,8 +486,7 @@ ggc_mark_string (s)
 /* The top level mark-and-sweep routine.  */
 
 void
-ggc_collect (ignore_after)
-     int ignore_after;
+ggc_collect ()
 {
   struct ggc_rtx *r, **rp;
   struct ggc_rtvec *v, **vp;
@@ -496,9 +495,11 @@ ggc_collect (ignore_after)
   struct ggc_root *x;
   int time, n_rtxs, n_trees, n_vecs, n_strings;
 
+#ifndef ENABLE_CHECKING
   /* See if it's even worth our while.  */
-  if (!ignore_after && bytes_alloced_since_gc < 64*1024)
+  if (bytes_alloced_since_gc < 64*1024)
     return;
+#endif
 
   if (!quiet_flag)
     fputs (" {GC ", stderr);
@@ -595,14 +596,6 @@ ggc_collect (ignore_after)
     }
   *sp = NULL;
   n_strings_collected += n_strings;
-
-  if (ignore_after)
-    {
-      rtxs = NULL;
-      vecs = NULL;
-      trees = NULL;
-      strings = NULL;
-    }
 
   gc_time += time = get_run_time () - time;
 
