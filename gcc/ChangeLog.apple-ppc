@@ -1,3 +1,8 @@
+2004-04-30  Dale Johannesen  <dalej@apple.com>
+
+	* cse.c (cse_insn):  Don't add REG_EQUAL note for
+	(CONST (MINUS (LABEL_REF) (0))).
+
 2004-04-30  Caroline Tice  <ctice@apple.com>
 
         * varasm.c (unlikely_section_label): New global variable.
