@@ -1,3 +1,8 @@
+Tue Oct 27 17:46:01 1998  Geoffrey Noer  <noer@cygnus.com>
+
+	* i386/cygwin32.h: add -mno-cygwin flag that links in Mingw libs,
+	define __CYGWIN__ as well as __CYGWIN32__.
+
 Fri Mar 13 17:54:04 1998  Michael Meissner  <meissner@cygnus.com>
 
         * gcc.c (DIR_UP): If not defined, define as "..".
