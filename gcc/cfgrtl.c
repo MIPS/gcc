@@ -1711,8 +1711,7 @@ verify_flow_info ()
       if (INSN_P (bb->end)
 	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX)))
 	{
-	  if (!bb->succ || !bb->succ->succ_next
-	      || bb->succ->succ_next->succ_next)
+	  if (!any_condjump_p (bb->end))
 	    {
 	      error ("verify_flow_info: REG_BR_PROB on non-condjump",
 		     bb->index);
@@ -2011,9 +2010,19 @@ purge_dead_edges (bb)
 	  && !simplejump_p (insn))
 	return false;
 
+      /* Branch probability/prediction notes are defined only for
+	 condjumps.  We've possibly turned condjump into simplejump.  */
+      if (simplejump_p (insn))
+	{
+	  note = find_reg_note (insn, REG_BR_PROB, NULL);
+	  if (note)
+	    remove_note (insn, note);
+	  while ((note = find_reg_note (insn, REG_BR_PRED, NULL)))
+	    remove_note (insn, note);
+	}
+
       for (e = bb->succ; e; e = next)
 	{
-	  rtx note;
 	  next = e->succ_next;
 
 	  /* Avoid abnormal flags to leak from computed jumps turned
@@ -2032,11 +2041,6 @@ purge_dead_edges (bb)
 		   && returnjump_p (insn))
 	    continue;
 
-	  note = find_reg_note (insn, REG_BR_PROB, NULL);
-	  if (note)
-	    remove_note (insn, note);
-	  while ((note = find_reg_note (insn, REG_BR_PRED, NULL)))
-	    remove_note (insn, note);
 	  purged = true;
 	  remove_edge (e);
 	}
