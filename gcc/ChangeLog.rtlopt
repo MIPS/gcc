@@ -1,5 +1,11 @@
 2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-iv.c (get_reg_value_at): Prevent warning.
+	* loop-ivopts.c (schedule_autoinc): Prevent moving set of the
+	preserved biv before its use.
+
+2003-07-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-ivopts.c (struct fval_repl): New field initialize_before.
 	(kill_old_global_iv): Set it.
 	(replace_final_value): Place initialization according to it.

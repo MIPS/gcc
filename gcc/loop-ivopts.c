@@ -415,6 +415,8 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
   int size, step;
   rtx last_insn;
   basic_block bb;
+  edge e;
+  struct df_link *def, *use, *ddef;
 
   for (; reds; reds = reds->next)
     {
@@ -492,6 +494,65 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
 
       if (repl)
 	continue;
+
+      if (reds->equal_to)
+	{
+	  /* If this variable already existed, we must also be sure about
+	     that we do not change a position of its increment wrto other
+	     uses and if it is used outside of loop, also wrto loop exits.
+	     ??? The condition on loop exits could be eliminated if the
+	     final value can be computed.  */
+	  for (def = DF_INSN_DEFS (loop_df, reds->increment_after);
+	       def;
+	       def = def->next)
+	    if (DF_REF_REGNO (def->ref) == REGNO (reds->equal_to))
+	      break;
+
+	  for (use = loop_df->regs[REGNO (reds->equal_to)].uses;
+	       use;
+	       use = use->next)
+	    {
+	      for (ddef = DF_REF_CHAIN (use->ref); ddef; ddef = ddef->next)
+		if (ddef->ref == def->ref)
+		  break;
+
+	      if (!ddef)
+		continue;
+
+	      if (flow_bb_inside_loop_p (loop, DF_REF_BB (use->ref)))
+		{
+		  if (DF_REF_INSN (use->ref) != reds->increment_after
+		      && INSN_DOMINATED_BY_P (DF_REF_INSN (use->ref),
+					      last_repl->insn)
+		      && !INSN_DOMINATED_BY_P (DF_REF_INSN (use->ref),
+					       reds->increment_after))
+		    break;
+
+		  continue;
+		}
+
+	      if (BLOCK_FOR_INSN (reds->increment_after)
+		  == BLOCK_FOR_INSN (last_repl->insn))
+		continue;
+
+	      /* ??? This is pure laziness; we should instead look up the
+		 exits other way.  */
+	      if (!loop->landing_pad)
+		break;
+
+	      for (e = loop->landing_pad->pred; e; e = e->pred_next)
+		if (fast_dominated_by_p (e->src,
+					 BLOCK_FOR_INSN (last_repl->insn))
+		    && !fast_dominated_by_p (e->src,
+					     BLOCK_FOR_INSN (reds->increment_after)))
+		  break;
+	      if (e)
+		break;
+	    }
+
+	  if (use)
+	    continue;
+	}
 
       reds->increment_after = last_repl->insn;
     }

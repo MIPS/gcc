@@ -881,7 +881,7 @@ get_reg_value_at (basic_block bb, rtx insn, struct ref *ref)
   struct df_link *def;
   struct loop *loop = bb->loop_father, *def_loop;
   basic_block def_bb;
-  rtx def_insn;
+  rtx def_insn = NULL_RTX;
   unsigned regno = DF_REF_REGNO (ref);
   unsigned defno;
 
