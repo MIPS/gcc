@@ -1,5 +1,9 @@
 2004-02-11  Mark Mitchell  <mark@codesourcery.com>
 
+	* collect2.c (collect_wait): Check return code from pwait.
+	(collect_execute): Pass third argument to open.  Check return code
+	from open.  Redirect both stdout and stderr when redirecting.
+
 	* system.h (WIFSIGNALED, WTERMSIG, WIFEXITED, WEXITSTATUS,
 	WSTOPSIG, SCOREDUMP, WCOREFLG): Remove definitions.
 

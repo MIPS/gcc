@@ -1526,7 +1526,8 @@ collect_wait (const char *prog)
 {
   int status;
 
-  pwait (pid, &status, 0);
+  if (pwait (pid, &status, 0) < 0)
+    fatal ("could not obtain exit status for `%s'", prog);
   if (status)
     {
       if (WIFSIGNALED (status))
@@ -1586,9 +1587,13 @@ collect_execute (const char *prog, char **argv, const char *redir)
     fatal ("cannot find `%s'", prog);
 
   if (redir)
-    redir_handle = open (redir, O_WRONLY | O_TRUNC | O_CREAT);
+    {
+      redir_handle = open (redir, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR);
+      if (redir_handle == -1)
+	fatal ("cannot open `%s' for writing", redir);
+    }
 
-  pid = pexec (argv[0], argv, 1, -1, redir_handle, -1);
+  pid = pexec (argv[0], argv, 1, -1, redir_handle, redir_handle);
 
   if (pid == -1)
    fatal_perror ("pexec");
