@@ -1,10 +1,16 @@
-1999-08007  Bruce Korb  <autogen@linuxbox.com>
+1999-08-07  Bruce Korb  <autogen@linuxbox.com>
 
 	* fixinc/server.c(server_setup): Do not prefix function used as
 	parameter with `&'.
 	* fixinc/inclhack.def: merge changes from main line
 	* fixinc/inclhack.sh: regen
 	* fixinc/fixincl.x: regen
+
+1999-07-06  Bruce Korb  <ddsinc09@ix.netcom.com>
+
+	* fixinc/inclhack.tpl: only install assert.h conditionally
+	* fixinc/inclhack.sh: regen
+	* fixinc/fixincl.sh: regen
 
 1999-07-01  Bruce Korb  <ddsinc09@ix.netcom.com>
 
