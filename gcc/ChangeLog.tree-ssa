@@ -1,3 +1,7 @@
+2004-01-04  Andreas Jaeger  <aj@suse.de>
+
+	* common.opt: Re-order some options in ASCII collating orders.
+
 2004-01-03  Richard Henderson  <rth@redhat.com>
 
 	* toplev.c (rest_of_compilation): Fixup merge error wrt
@@ -25,13 +29,13 @@
 	* c-objc-common.c (c_objc_common_finish_file): Use expand_expr.
 	* c-semantics.c (lang_expand_stmt, lang_expand_decl_stmt,
 	expand_cond, genrtl_do_pushlevel, genrtl_goto_stmt, genrtl_expr_stmt,
-	genrtl_expr_stmt_value, genrtl_decl_stmt, genrtl_if_stmt, 
+	genrtl_expr_stmt_value, genrtl_decl_stmt, genrtl_if_stmt,
 	genrtl_while_stmt, genrtl_do_stmt_1, genrtl_do_stmt,
 	genrtl_return_stmt, genrtl_for_stmt, genrtl_break_stmt,
 	genrtl_continue_stmt, genrtl_scope_stmt, genrtl_switch_stmt,
 	genrtl_case_label, genrtl_compound_stmt, genrtl_asm_stmt,
 	genrtl_cleanup_stmt, expand_stmt, find_reachable_label,
-	find_reachable_label_1, expand_unreachable_if_stmt, 
+	find_reachable_label_1, expand_unreachable_if_stmt,
 	expand_unreachable_stmt): Remove.
 	* c-common.h: Update.
 
@@ -58,15 +62,15 @@
 
 2003-12-26  Sebastian Pop  <s.pop@laposte.net>
 
-	* tree-cfg.c (print_loop, print_pred_bbs, print_succ_bbs, 
+	* tree-cfg.c (print_loop, print_pred_bbs, print_succ_bbs,
 	debug_loop_ir, print_loop_ir): New.
 	* tree-flow.h (debug_loop_ir, print_loop_ir): Declare.
-	
+
 2003-12-23  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (tree_find_edge_insert_loc): Do not use the target
 	block as an insertion location if the target block has PHI nodes.
- 
+
 2003-12-23  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_mark_inline): Accept argument edge; return
@@ -288,7 +292,7 @@
 	saved block.  Mark variables appearing in PHIs at the jump thread
 	destination to be taken out of SSA form.
 	(thread_across_edge): Save the edge into the destination block
-	rather than the destination block itself.  Twiddle based on 
+	rather than the destination block itself.  Twiddle based on
 	combining varrays of jump threading information.
 	* tree-flow.h (tree_block_forwards_to): Returns an edge rather than
 	a block.
@@ -299,7 +303,7 @@
 
 	* tree-dfa.c (get_memory_tag_for): Don't put things with different
 	points-to sets in the same memory tag.
-	
+
 2003-12-18  Jan Hubicka  <jh@suse.cz>
 
 	* c-common.c (handle_nonnull_attribute, check_function_nonnull):
@@ -378,22 +382,22 @@
 
 2003-12-16  Andrew MacLeod  <amacleod@redhat.com>
 
-	* tree-flow-inline.h (free_vuse, free_vdefs): Moved to 
+	* tree-flow-inline.h (free_vuse, free_vdefs): Moved to
 	tree-ssa-operands.c
-	(get_def_ops, get_use_ops, get_vdef_ops, get_vuse_ops): Use the new 
+	(get_def_ops, get_use_ops, get_vdef_ops, get_vuse_ops): Use the new
 	more direct structure pointer.
 	(get_use_op_ptr, get_def_op_ptr): Cast is no longer necessary.
-	* tree-flow.h (struct stmt_ann_d): Replace operands and voperands 
+	* tree-flow.h (struct stmt_ann_d): Replace operands and voperands
 	pointers with pointers directly to the operand types.
-	* tree-ssa-dom.c (cprop_into_stmt): Use new stmt based interface to 
+	* tree-ssa-dom.c (cprop_into_stmt): Use new stmt based interface to
 	free virtual operands.  Check virtual bases of both VUSE and VDEF.
 	* tree-ssa-operands.c (struct voperands_d): Declare here, used only
 	for previous_vops during stmt operand construction.
 	(struct vecmanage_d, vecmanage_add_segmen, vecmanage_add_special,
 	vecmanage_init, vecmanage_tree_ptr_init, vecmanage_fini, check_free,
-	vecmanage_new_vector, vecmanage_new_tree_ptr_vector, 
+	vecmanage_new_vector, vecmanage_new_tree_ptr_vector,
 	vecmanage_free_vector): Remove.
-	(allocate_ssa_op_vec, free_ssa_op_vec, allocate_ssa_virtual_op_vec, 
+	(allocate_ssa_op_vec, free_ssa_op_vec, allocate_ssa_virtual_op_vec,
 	allocate_operands_t, allocate_voperands_t): Remove.
 	(finalize_new_ssa_operands, inalize_new_ssa_virtual_operand): Remove.
 	(struct freelist_d): New. List of free operand structures.
@@ -407,7 +411,7 @@
 	(remove_vuses, remove_vdefs): New.  External interface to remove virtual
 	operands.
 	(init_ssa_operands, fini_ssa_operands): Ensure the free list is empty.
-	(finalize_ssa_defs, finalize_ssa_use, finalize_ssa_vdefs, 
+	(finalize_ssa_defs, finalize_ssa_use, finalize_ssa_vdefs,
 	finalize_ssa_vuses): Use new direct pointers from the stmt annotation.
 	(append_vdef, append_vuse): No need to hack prev_vops pointer now.
 	(get_stmt_operands): use new freeing interface, keep previous vops in
@@ -468,7 +472,7 @@
 	(tree-ssa-operands.o): Add dependencies.
 	(GTFILES): Add tree-ssa-operands.[ch].
 	* tree-dfa.c (get_stmt_operands, get_expr_operands, add_stmt_operand,
-	note_addressable, add_def, add_use, add_vde, add_vuse, 
+	note_addressable, add_def, add_use, add_vde, add_vuse,
 	add_call_clobber_ops, add_call_read_ops): Moved to tree-ssa-operands.c.
 	(compute_immediate_uses_for_stmt): Use new optypes interface.
 	(cleanup_operand_arrays): Delete.
@@ -484,7 +488,7 @@
 	(get_vdef_result_ptr): New. Get address of a use op.
 	(get_vdef_op_ptr): New. Get address of a use op.
 	(get_vuse_op_ptr): New. Get address of a use op.
-	(start_ssa_stmt_operands): New. Entry point to start processing stmt 
+	(start_ssa_stmt_operands): New. Entry point to start processing stmt
 	operands.
 	* tree-flow.h (struct operands_d, struct voperands_d): Move to
 	tree-ssa-operands.h
@@ -496,15 +500,15 @@
 	likely_value, set_rhs): Use optypes interface.
 	* tree-ssa-dce.c (find_useful_stmts, stmt_useful_p, process_worklist):
 	Use optypes interface.
-	* tree-ssa-dom.c (thread_across_edge, thread_jumps_walk_stmts): Use 
+	* tree-ssa-dom.c (thread_across_edge, thread_jumps_walk_stmts): Use
 	optypes interface.
 	(cprop_into_stmt): Rewrite using new interface.
 	(eliminate_redundant_computations, record_equivalences_from_stmt,
 	optimize_stmt, avail_expr_hash, avail_expr_eq): Use optypes interface.
 	* tree-ssa-live.c (create_ssa_var_map, calculate_live_on_entry,
-	build_tree_conflict_graph,register_ssa_partitions_for_vars): Use 
+	build_tree_conflict_graph,register_ssa_partitions_for_vars): Use
 	optypes interface.
-	* tree-ssa-pre.c (names_match_p, maybe_find_rhs_use_for_var, 
+	* tree-ssa-pre.c (names_match_p, maybe_find_rhs_use_for_var,
 	expr_phi_insertion, same_e_version_real_occ_real_occ, opnum_of_phi,
 	generate_expr_as_of_bb, generate_vops_as_of_bb, subst_phis,
 	load_modified_real_occ_real_occ, same_e_version_phi_result, can_insert,
@@ -526,7 +530,7 @@
 	access stmt uses.
 	(DEF_OPS, STMT_DEF_OPS, NUM_DEFS, DEF_OP_PTR, DEF_OP): Macros to
 	access stmt defs.
-	(VDEF_OPS, STMT_VDEF_OPS, NUM_VDEFS, VDEF_RESULT_PTR, VDEF_RESULT, 
+	(VDEF_OPS, STMT_VDEF_OPS, NUM_VDEFS, VDEF_RESULT_PTR, VDEF_RESULT,
 	VDEF_OP_PTR, VDEF_OP): Macros to access stmt vdefs.
 	(VUSE_OPS, STMT_VUSE_OPS, NUM_VUSES, VUSE_OP_PTR, VUSE_OP): Macros to
 	access stmt vuses.
@@ -567,9 +571,9 @@
 	(append_vuse): Renamed from add_def, and moved from tree-dfa.c.
 	(add_vuse): New. Entry point to add a vuse to a stmt.
 	(get_call_flags): Moved from tree-dfa.c
-	(get_stmt_operands, get_expr_operands, add_stmt_operand): Moved from 
+	(get_stmt_operands, get_expr_operands, add_stmt_operand): Moved from
 	tree-dfa.c, and use new optype interface.
-	(note_addressabe, add_call_clobber_ops, add_call_read_ops): Moved from 
+	(note_addressabe, add_call_clobber_ops, add_call_read_ops): Moved from
 	tree-dfa.c
 
 2003-12-15  Diego Novillo  <dnovillo@redhat.com>

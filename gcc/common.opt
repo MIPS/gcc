@@ -1,5 +1,5 @@
 ; Options for the language- and target-independent parts of the compiler.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -703,17 +703,13 @@ ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
-ftree-dce
-Common
-Enable SSA dead code elimination optimization on trees
-
 ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
 
-ftree-ter
+ftree-dce
 Common
-Replace temporary expressions in the SSA->normal pass
+Enable SSA dead code elimination optimization on trees
 
 ftree-dominator-opts
 Common
@@ -727,16 +723,20 @@ ftree-must-alias
 Common
 Detect must-alias relations to remove pointer de-references
 
-ftree-sra
-Common
-Perform scalar replacement of aggregates
-
 ftree-points-to=
 Common Joined RejectNegative
 
 ftree-pre
 Common
 Enable SSA-PRE optimization on trees
+
+ftree-sra
+Common
+Perform scalar replacement of aggregates
+
+ftree-ter
+Common
+Replace temporary expressions in the SSA->normal pass
 
 funit-at-a-time
 Common
