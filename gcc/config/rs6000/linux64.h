@@ -142,6 +142,16 @@ Boston, MA 02111-1307, USA.  */
 	  flag_pic = 0;						\
 	  error ("-m32 and -maddr32 are incompatible");		\
 	}							\
+      if (TARGET_32BIT && TARGET_POWERPC64)			\
+        {							\
+          error ("-mpowerpc64 can't be used for 32-bit compilation"); \
+          target_flags &= ~MASK_POWERPC64;			\
+        }							\
+      else if (TARGET_64BIT && !TARGET_POWERPC64)		\
+        {							\
+          error ("-mno-powerpc64 can't be used for 64-bit compilation"); \
+          target_flags |= MASK_POWERPC64 | MASK_POWERPC;	\
+        }							\
     }								\
   while (0)
 

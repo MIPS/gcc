@@ -1,3 +1,8 @@
+2004-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Disallow
+	-m32 -mpowerpc64 and -m64 -mno-powerpc64.
+
 2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
 
 	PR 11591
