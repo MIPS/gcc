@@ -238,8 +238,7 @@ extern GTY(()) tree c_global_trees[CTI_MAX];
 
 typedef enum c_language_kind
 {
-  clk_c,           /* A dialect of C: K&R C, ANSI/ISO C89, C2000,
-		       etc.  */
+  clk_c = 0,      /* A dialect of C: K&R C, ANSI/ISO C89, C2000, etc.  */
   clk_cplusplus   /* ANSI/ISO C++ */
 }
 c_language_kind;
@@ -482,10 +481,6 @@ extern int warn_conversion;
 
 extern int warn_unknown_pragmas; /* Tri state variable.  */  
 
-/* Nonzero means warn about use of multicharacter literals.  */
-
-extern int warn_multichar;
-
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
 
@@ -611,7 +606,7 @@ extern int print_struct_values;
 
 /* ???.  Undocumented.  */
 
-const char *constant_string_class_name;
+extern const char *constant_string_class_name;
 
 /* Warn if multiple methods are seen for the same selector, but with
    different argument types.  */
@@ -794,6 +789,11 @@ extern int warn_deprecated;
    infinite template instantiations.  */
 
 extern int max_tinst_depth;
+
+/* Nonzero means the expression being parsed will never be evaluated.
+   This is a count, since unevaluated expressions can nest.  */
+
+extern int skip_evaluation;
 
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
@@ -1209,6 +1209,8 @@ extern int c_staticp                            PARAMS ((tree));
 extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
 extern const char *init_c_lex			PARAMS ((const char *));
+
+extern void cb_register_builtins		PARAMS ((cpp_reader *));
 
 /* Information recorded about each file examined during compilation.  */
 

@@ -1181,9 +1181,11 @@ reload (first, global)
   /* Make a pass over all the insns and delete all USEs which we inserted
      only to tag a REG_EQUAL note on them.  Remove all REG_DEAD and REG_UNUSED
      notes.  Delete all CLOBBER insns that don't refer to the return value
-     and simplify (subreg (reg)) operands.  Also remove all REG_RETVAL and
-     REG_LIBCALL notes since they are no longer useful or accurate.  Strip
-     and regenerate REG_INC notes that may have been moved around.  */
+     or to memory (mem:BLK CLOBBERs must be retained to prevent the scheduler
+     from misarranging variable-array code) and simplify (subreg (reg))
+     operands.  Also remove all REG_RETVAL and REG_LIBCALL notes since they
+     are no longer useful or accurate.  Strip and regenerate REG_INC notes
+     that may have been moved around.  */
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -1200,6 +1202,8 @@ reload (first, global)
 	     && (GET_MODE (insn) == QImode
 		 || find_reg_note (insn, REG_EQUAL, NULL_RTX)))
 	    || (GET_CODE (PATTERN (insn)) == CLOBBER
+		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != MEM
+		    || GET_MODE (XEXP (PATTERN (insn), 0)) != BLKmode)
 		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != REG
 		    || ! REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))))
 	  {
@@ -1380,8 +1384,12 @@ maybe_fix_stack_asms ()
 		  break;
 
 		default:
-		  cls = (int) reg_class_subunion[cls][(int) REG_CLASS_FROM_LETTER (c)];
-
+		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		    cls = (int) reg_class_subunion[cls]
+		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		  else
+		    cls = (int) reg_class_subunion[cls]
+		      [(int) REG_CLASS_FROM_LETTER (c)];
 		}
 	    }
 	}
@@ -8044,7 +8052,8 @@ reload_cse_simplify (insn, testreg)
 	    {
 	      if (! reload_cse_noop_set_p (part))
 		break;
-	      if (REG_FUNCTION_VALUE_P (SET_DEST (part)))
+	      if (REG_P (SET_DEST (part))
+		  && REG_FUNCTION_VALUE_P (SET_DEST (part)))
 		{
 		  if (value)
 		    break;

@@ -1,3 +1,38 @@
+2002-08-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/stdio_filebuf.h (stdio_filebuf): Explicitly set
+	_M_buf_size_opt to zero when unbuffering.
+	* include/bits/fstream.tcc (filebuf::showmanyc): Simplify.
+	Consistency checks for _M_buf_size_opt.
+
+	Revert PR libstdc++/7445
+	* src/locale.cc (locale::classic): Revert.
+	
+	* docs/html/17_intro/TODO: Add.
+	
+2002-08-15  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Update doxygen links for 3.2.
+
+2002-08-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* libsupc++/unwind-cxx.h (__cxa_exception): Change catchTemp
+	type from void* to _Unwind_Ptr.
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION):
+	Do not cast landing_pad or base_of_encoded_value to (void *).
+	* libsupc++/eh_throw.cc (__gxx_exception_cleanup):
+	Accept _URC_NO_REASON as a valid reason code.
+
+2002-08-14  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/22_locale/messages.html:  Use HTML entities for
+	punctuation.
+
+2002-08-13  Jonathan Wakely  <jw@kayari.org>
+            Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Use HTML entities for punctuation.
+
 2002-08-09  Phil Edwards  <pme@gcc.gnu.org>
 
 	* include/bits/deque.tcc, include/bits/list.tcc,

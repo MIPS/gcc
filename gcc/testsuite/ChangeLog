@@ -1,3 +1,33 @@
+2002-08-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-flex-array-1.c, gcc.dg/c99-flex-array-3.c,
+	gcc.dg/c99-flex-array-4.c: New tests.
+
+2002-08-16  Stan Shebs  <shebs@apple.com>
+
+	* objc/execute/selector-1.m: Add __NEXT_RUNTIME__ case.
+
+2002-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/typeof-1.c: New test.
+	* g++.dg/ext/typeof2.C: New test.
+
+2002-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/offsetof1.C: New test.
+
+2002-08-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tls/diag-3.c: Fix expected message strings.
+
+2002-08-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma3.c: New test.
+
+2002-08-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/inherit3: New test.
+
 2002-08-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc.dg/bitfld-4.c: Add blank options.

@@ -25,7 +25,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpphash.h"
 #include "prefix.h"
 #include "intl.h"
-#include "version.h"
 #include "mkdeps.h"
 #include "cppdefault.h"
 
@@ -102,14 +101,13 @@ static void merge_include_chains	PARAMS ((cpp_reader *));
 static bool push_include		PARAMS ((cpp_reader *,
 						 struct pending_option *));
 static void free_chain			PARAMS ((struct pending_option *));
-static void init_dependency_output	PARAMS ((cpp_reader *));
 static void init_standard_includes	PARAMS ((cpp_reader *));
 static void read_original_filename	PARAMS ((cpp_reader *));
 static void new_pending_directive	PARAMS ((struct cpp_pending *,
 						 const char *,
 						 cl_directive_handler));
-static void output_deps			PARAMS ((cpp_reader *));
 static int parse_option			PARAMS ((const char *));
+static void post_options		PARAMS ((cpp_reader *));
 
 /* Fourth argument to append_include_chain: chain to use.
    Note it's never asked to append to the quote chain.  */
@@ -180,7 +178,7 @@ path_include (pfile, list, path)
 	  name[q - p] = 0;
 	}
 
-      append_include_chain (pfile, name, path, 0);
+      append_include_chain (pfile, name, path, path == SYSTEM);
 
       /* Advance past this name.  */
       if (*q == 0)
@@ -479,6 +477,7 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
+  CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
@@ -491,10 +490,6 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
   CPP_OPTION (pfile, unsigned_char) = 0;
   CPP_OPTION (pfile, unsigned_wchar) = 1;
-
-  /* It's simplest to just create this struct whether or not it will
-     be needed.  */
-  pfile->deps = deps_init ();
 
   /* Initialise the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
@@ -537,11 +532,10 @@ cpp_create_reader (lang)
 
 /* Free resources used by PFILE.  Accessing PFILE after this function
    returns leads to undefined behaviour.  Returns the error count.  */
-int
+void
 cpp_destroy (pfile)
      cpp_reader *pfile;
 {
-  int result;
   struct search_path *dir, *dirn;
   cpp_context *context, *contextn;
   tokenrun *run, *runn;
@@ -563,7 +557,8 @@ cpp_destroy (pfile)
       pfile->macro_buffer_len = 0;
     }
 
-  deps_free (pfile->deps);
+  if (pfile->deps)
+    deps_free (pfile->deps);
   obstack_free (&pfile->buffer_ob, 0);
 
   _cpp_destroy_hashtable (pfile);
@@ -595,11 +590,7 @@ cpp_destroy (pfile)
     }
 
   free_line_maps (&pfile->line_maps);
-
-  result = pfile->errors;
   free (pfile);
-
-  return result;
 }
 
 /* This structure defines one built-in identifier.  A node will be
@@ -882,6 +873,21 @@ static void sanity_checks (pfile)
 # define sanity_checks(PFILE)
 #endif
 
+/* Add a dependency target.  Can be called any number of times before
+   cpp_read_main_file().  If no targets have been added before
+   cpp_read_main_file(), then the default target is used.  */
+void
+cpp_add_dependency_target (pfile, target, quote)
+     cpp_reader *pfile;
+     const char *target;
+     int quote;
+{
+  if (!pfile->deps)
+    pfile->deps = deps_init ();
+
+  deps_add_target (pfile->deps, target, quote);
+}
+
 /* This is called after options have been parsed, and partially
    processed.  Setup for processing input from the file named FNAME,
    or stdin if it is the empty string.  Return the original filename
@@ -893,6 +899,8 @@ cpp_read_main_file (pfile, fname, table)
      hash_table *table;
 {
   sanity_checks (pfile);
+
+  post_options (pfile);
 
   /* The front ends don't set up the hash table until they have
      finished processing the command line options, so initializing the
@@ -919,27 +927,28 @@ cpp_read_main_file (pfile, fname, table)
       fprintf (stderr, _("End of search list.\n"));
     }
 
-  if (CPP_OPTION (pfile, print_deps))
-    /* Set the default target (if there is none already).  */
-    deps_add_default_target (pfile->deps, fname);
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
+    {
+      if (!pfile->deps)
+	pfile->deps = deps_init ();
+
+      /* Set the default target (if there is none already).  */
+      deps_add_default_target (pfile->deps, fname);
+    }
 
   /* Open the main input file.  */
   if (!_cpp_read_file (pfile, fname))
     return NULL;
 
-  /* Set this after cpp_post_options so the client can change the
-     option if it wishes, and after stacking the main file so we don't
-     trace the main file.  */
+  /* Set this here so the client can change the option if it wishes,
+     and after stacking the main file so we don't trace the main
+     file.  */
   pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */
   if (CPP_OPTION (pfile, preprocessed))
     read_original_filename (pfile);
-  /* Overlay an empty buffer to seed traditional preprocessing.  */
-  else if (CPP_OPTION (pfile, traditional)
-	   && !CPP_OPTION (pfile, preprocess_only))
-    _cpp_overlay_buffer (pfile, U"", 0);
 
   return pfile->map->to_file;
 }
@@ -1039,48 +1048,16 @@ _cpp_maybe_push_include_file (pfile)
     }
 }
 
-/* Use mkdeps.c to output dependency information.  */
-static void
-output_deps (pfile)
+/* This is called at the end of preprocessing.  It pops the last
+   buffer and writes dependency output, and returns the number of
+   errors.
+ 
+   Maybe it should also reset state, such that you could call
+   cpp_start_read with a new filename to restart processing.  */
+int
+cpp_finish (pfile, deps_stream)
      cpp_reader *pfile;
-{
-  /* Stream on which to print the dependency information.  */
-  FILE *deps_stream = 0;
-  const char *const deps_mode =
-    CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
-
-  if (CPP_OPTION (pfile, deps_file)[0] == '\0')
-    deps_stream = stdout;
-  else
-    {
-      deps_stream = fopen (CPP_OPTION (pfile, deps_file), deps_mode);
-      if (deps_stream == 0)
-	{
-	  cpp_errno (pfile, DL_ERROR, CPP_OPTION (pfile, deps_file));
-	  return;
-	}
-    }
-
-  deps_write (pfile->deps, deps_stream, 72);
-
-  if (CPP_OPTION (pfile, deps_phony_targets))
-    deps_phony_targets (pfile->deps, deps_stream);
-
-  /* Don't close stdout.  */
-  if (deps_stream != stdout)
-    {
-      if (ferror (deps_stream) || fclose (deps_stream) != 0)
-	cpp_error (pfile, DL_ERROR, "I/O error on output");
-    }
-}
-
-/* This is called at the end of preprocessing.  It pops the
-   last buffer and writes dependency output.  It should also
-   clear macro definitions, such that you could call cpp_start_read
-   with a new filename to restart processing.  */
-void
-cpp_finish (pfile)
-     cpp_reader *pfile;
+     FILE *deps_stream;
 {
   /* Warn about unused macros before popping the final buffer.  */
   if (CPP_OPTION (pfile, warn_unused_macros))
@@ -1094,13 +1071,21 @@ cpp_finish (pfile)
   while (pfile->buffer)
     _cpp_pop_buffer (pfile);
 
-  /* Don't write the deps file if preprocessing has failed.  */
-  if (CPP_OPTION (pfile, print_deps) && pfile->errors == 0)
-    output_deps (pfile);
+  /* Don't write the deps file if there are errors.  */
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE
+      && deps_stream && pfile->errors == 0)
+    {
+      deps_write (pfile->deps, deps_stream, 72);
+
+      if (CPP_OPTION (pfile, deps.phony_targets))
+	deps_phony_targets (pfile->deps, deps_stream);
+    }
 
   /* Report on headers that could use multiple include guards.  */
   if (CPP_OPTION (pfile, print_include_names))
     _cpp_report_missing_guards (pfile);
+
+  return pfile->errors;
 }
 
 /* Add a directive to be handled later in the initialization phase.  */
@@ -1127,7 +1112,6 @@ new_pending_directive (pend, text, handler)
 #define no_fil N_("file name missing after %s")
 #define no_mac N_("macro name missing after %s")
 #define no_pth N_("path name missing after %s")
-#define no_tgt N_("target missing after %s")
 
 /* This is the list of all command line options, with the leading
    "-" removed.  It must be sorted in ASCII collating order.  */
@@ -1135,15 +1119,6 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("A",                        no_ass, OPT_A)                          \
   DEF_OPT("D",                        no_mac, OPT_D)                          \
   DEF_OPT("I",                        no_dir, OPT_I)                          \
-  DEF_OPT("M",                        0,      OPT_M)                          \
-  DEF_OPT("MD",                       no_fil, OPT_MD)                         \
-  DEF_OPT("MF",                       no_fil, OPT_MF)                         \
-  DEF_OPT("MG",                       0,      OPT_MG)                         \
-  DEF_OPT("MM",                       0,      OPT_MM)                         \
-  DEF_OPT("MMD",                      no_fil, OPT_MMD)                        \
-  DEF_OPT("MP",                       0,      OPT_MP)                         \
-  DEF_OPT("MQ",                       no_tgt, OPT_MQ)                         \
-  DEF_OPT("MT",                       no_tgt, OPT_MT)                         \
   DEF_OPT("U",                        no_mac, OPT_U)                          \
   DEF_OPT("idirafter",                no_dir, OPT_idirafter)                  \
   DEF_OPT("imacros",                  no_fil, OPT_imacros)                    \
@@ -1151,9 +1126,7 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("iprefix",                  no_pth, OPT_iprefix)                    \
   DEF_OPT("isystem",                  no_dir, OPT_isystem)                    \
   DEF_OPT("iwithprefix",              no_dir, OPT_iwithprefix)                \
-  DEF_OPT("iwithprefixbefore",        no_dir, OPT_iwithprefixbefore)          \
-  DEF_OPT("o",                        no_fil, OPT_o)                          \
-  DEF_OPT("remap",                    0,      OPT_remap)
+  DEF_OPT("iwithprefixbefore",        no_dir, OPT_iwithprefixbefore)
 
 #define DEF_OPT(text, msg, code) code,
 enum opt_code
@@ -1256,19 +1229,6 @@ cpp_handle_option (pfile, argc, argv)
   int i = 0;
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
 
-  /* Interpret "-" or a non-option as a file name.  */
-  if (argv[i][0] != '-' || argv[i][1] == '\0')
-    {
-      if (CPP_OPTION (pfile, in_fname) == NULL)
-	CPP_OPTION (pfile, in_fname) = argv[i];
-      else if (CPP_OPTION (pfile, out_fname) == NULL)
-	CPP_OPTION (pfile, out_fname) = argv[i];
-      else
-	cpp_error (pfile, DL_ERROR,
-		   "too many filenames. Type %s --help for usage info",
-		   progname);
-    }
-  else
     {
       enum opt_code opt_code;
       int opt_index;
@@ -1303,59 +1263,9 @@ cpp_handle_option (pfile, argc, argv)
 	case OPT_D:
 	  new_pending_directive (pend, arg, cpp_define);
 	  break;
-	case OPT_remap:
-	  CPP_OPTION (pfile, remap) = 1;
-	  break;
 	case OPT_iprefix:
 	  CPP_OPTION (pfile, include_prefix) = arg;
 	  CPP_OPTION (pfile, include_prefix_len) = strlen (arg);
-	  break;
-	case OPT_o:
-	  if (CPP_OPTION (pfile, out_fname) == NULL)
-	    CPP_OPTION (pfile, out_fname) = arg;
-	  else
-	    {
-	      cpp_error (pfile, DL_ERROR, "output filename specified twice");
-	      return argc;
-	    }
-	  break;
-
-	case OPT_MG:
-	  CPP_OPTION (pfile, print_deps_missing_files) = 1;
-	  break;
-	case OPT_M:
-	  /* When doing dependencies with -M or -MM, suppress normal
-	     preprocessed output, but still do -dM etc. as software
-	     depends on this.  Preprocessed output occurs if -MD, -MMD
-	     or environment var dependency generation is used.  */
-	  CPP_OPTION (pfile, print_deps) = 2;
-	  CPP_OPTION (pfile, no_output) = 1;
-	  CPP_OPTION (pfile, inhibit_warnings) = 1;
-	  break;
-	case OPT_MM:
-	  CPP_OPTION (pfile, print_deps) = 1;
-	  CPP_OPTION (pfile, no_output) = 1;
-	  CPP_OPTION (pfile, inhibit_warnings) = 1;
-	  break;
-	case OPT_MF:
-	  CPP_OPTION (pfile, deps_file) = arg;
-	  break;
-	case OPT_MP:
-	  CPP_OPTION (pfile, deps_phony_targets) = 1;
-	  break;
-	case OPT_MQ:
-	case OPT_MT:
-	  /* Add a target.  -MQ quotes for Make.  */
-	  deps_add_target (pfile->deps, arg, opt_code == OPT_MQ);
-	  break;
-
-	case OPT_MD:
-	  CPP_OPTION (pfile, print_deps) = 2;
-	  CPP_OPTION (pfile, deps_file) = arg;
-	  break;
-	case OPT_MMD:
-	  CPP_OPTION (pfile, print_deps) = 1;
-	  CPP_OPTION (pfile, deps_file) = arg;
 	  break;
 
 	case OPT_A:
@@ -1494,31 +1404,13 @@ cpp_handle_options (pfile, argc, argv)
   return i;
 }
 
-/* Extra processing when all options are parsed, after all calls to
-   cpp_handle_option[s].  Consistency checks etc.  */
-void
-cpp_post_options (pfile)
+static void
+post_options (pfile)
      cpp_reader *pfile;
 {
-  /* Canonicalize in_fname and out_fname.  We guarantee they are not
-     NULL, and that the empty string represents stdin / stdout.  */
-  if (CPP_OPTION (pfile, in_fname) == NULL
-      || !strcmp (CPP_OPTION (pfile, in_fname), "-"))
-    CPP_OPTION (pfile, in_fname) = "";
-
-  if (CPP_OPTION (pfile, out_fname) == NULL
-      || !strcmp (CPP_OPTION (pfile, out_fname), "-"))
-    CPP_OPTION (pfile, out_fname) = "";
-
   /* -Wtraditional is not useful in C++ mode.  */
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
-
-  /* The compiler front ends override this, but I think this is the
-     appropriate setting for the library.  */
-  CPP_OPTION (pfile, warn_long_long)
-     = ((CPP_OPTION (pfile, pedantic) && !CPP_OPTION (pfile, c99))
-	|| CPP_OPTION (pfile, warn_traditional));
 
   /* Permanently disable macro expansion if we are rescanning
      preprocessed text.  Read preprocesed source in ISO mode.  */
@@ -1531,83 +1423,4 @@ cpp_post_options (pfile)
   /* Traditional CPP does not accurately track column information.  */
   if (CPP_OPTION (pfile, traditional))
     CPP_OPTION (pfile, show_column) = 0;
-
-  /* -dM and dependencies suppress normal output; do it here so that
-     the last -d[MDN] switch overrides earlier ones.  */
-  if (CPP_OPTION (pfile, dump_macros) == dump_only)
-    CPP_OPTION (pfile, no_output) = 1;
-
-  /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
-     -dM since at least glibc relies on -M -dM to work.  */
-  if (CPP_OPTION (pfile, no_output))
-    {
-      if (CPP_OPTION (pfile, dump_macros) != dump_only)
-	CPP_OPTION (pfile, dump_macros) = dump_none;
-      CPP_OPTION (pfile, dump_includes) = 0;
-    }
-
-  /* Intialize, and check environment variables for, dependency
-     output.  */
-  init_dependency_output (pfile);
-
-  /* If we're not outputting dependencies, complain if other -M
-     options have been given.  */
-  if (!CPP_OPTION (pfile, print_deps)
-      && (CPP_OPTION (pfile, print_deps_missing_files)
-	  || CPP_OPTION (pfile, deps_file)
-	  || CPP_OPTION (pfile, deps_phony_targets)))
-    cpp_error (pfile, DL_ERROR,
-	       "you must additionally specify either -M or -MM");
-}
-
-/* Set up dependency-file output.  On exit, if print_deps is non-zero
-   then deps_file is not NULL; stdout is the empty string.  */
-static void
-init_dependency_output (pfile)
-     cpp_reader *pfile;
-{
-  char *spec, *s, *output_file;
-
-  /* Either of two environment variables can specify output of deps.
-     Its value is either "OUTPUT_FILE" or "OUTPUT_FILE DEPS_TARGET",
-     where OUTPUT_FILE is the file to write deps info to
-     and DEPS_TARGET is the target to mention in the deps.  */
-
-  if (CPP_OPTION (pfile, print_deps) == 0)
-    {
-      spec = getenv ("DEPENDENCIES_OUTPUT");
-      if (spec)
-	CPP_OPTION (pfile, print_deps) = 1;
-      else
-	{
-	  spec = getenv ("SUNPRO_DEPENDENCIES");
-	  if (spec)
-	    CPP_OPTION (pfile, print_deps) = 2;
-	  else
-	    return;
-	}
-
-      /* Find the space before the DEPS_TARGET, if there is one.  */
-      s = strchr (spec, ' ');
-      if (s)
-	{
-	  /* Let the caller perform MAKE quoting.  */
-	  deps_add_target (pfile->deps, s + 1, 0);
-	  output_file = (char *) xmalloc (s - spec + 1);
-	  memcpy (output_file, spec, s - spec);
-	  output_file[s - spec] = 0;
-	}
-      else
-	output_file = spec;
-
-      /* Command line -MF overrides environment variables and default.  */
-      if (CPP_OPTION (pfile, deps_file) == 0)
-	CPP_OPTION (pfile, deps_file) = output_file;
-
-      CPP_OPTION (pfile, print_deps_append) = 1;
-    }
-  else if (CPP_OPTION (pfile, deps_file) == 0)
-    /* If -M or -MM was seen without -MF, default output to wherever
-       was specified with -o.  out_fname is non-NULL here.  */
-    CPP_OPTION (pfile, deps_file) = CPP_OPTION (pfile, out_fname);
 }

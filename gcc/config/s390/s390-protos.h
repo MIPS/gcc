@@ -31,6 +31,7 @@ extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
 
 #ifdef RTX_CODE
+extern int q_constraint PARAMS ((rtx));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
 extern int larl_operand PARAMS ((rtx, enum machine_mode));
@@ -46,6 +47,7 @@ extern int s390_single_qi PARAMS ((rtx, enum machine_mode, int));
 extern int s390_extract_qi PARAMS ((rtx, enum machine_mode, int));
 
 extern int s390_match_ccmode PARAMS ((rtx, enum machine_mode));
+extern enum machine_mode s390_tm_ccmode PARAMS ((rtx, rtx, int));
 extern enum machine_mode s390_select_ccmode PARAMS ((enum rtx_code, rtx, rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 extern int legitimate_la_operand_p PARAMS ((rtx));

@@ -67,6 +67,7 @@ definitions and other extensions.  */
 #include "except.h"
 #include "ggc.h"
 #include "debug.h"
+#include "tree-inline.h"
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
@@ -7478,6 +7479,8 @@ source_end_java_method ()
      patched.  Dump it to a file if the user requested it.  */
   dump_java_tree (TDI_original, fndecl);
 
+  java_optimize_inline (fndecl); 
+
   /* Generate function's code */
   if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))
       && ! flag_emit_class_files
@@ -7539,6 +7542,10 @@ static tree
 add_stmt_to_compound (existing, type, stmt)
      tree existing, type, stmt;
 {
+  /* Keep track of this for inlining.  */
+  if (current_function_decl)
+    ++DECL_NUM_STMTS (current_function_decl);
+
   if (existing)
     return build (COMPOUND_EXPR, type, existing, stmt);
   else
@@ -8128,6 +8135,11 @@ java_expand_method_bodies (class)
 
       current_function_decl = decl;
 
+      /* Save the function for inlining.  */
+      if (flag_inline_trees)
+	DECL_SAVED_TREE (decl) = 
+	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
+      
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
 	 are definitely initializing. This should be flagged. */
@@ -15352,6 +15364,12 @@ build_assertion (location, condition, value)
       id = build_wfl_node (get_identifier ("desiredAssertionStatus"));
       call = build (CALL_EXPR, NULL_TREE, id, NULL_TREE, NULL_TREE);
       call = make_qualified_primary (classdollar, call, location);
+      TREE_SIDE_EFFECTS (call) = 1;
+
+      /* Invert to obtain !CLASS.desiredAssertionStatus().  This may
+	 seem odd, but we do it to generate code identical to that of
+	 the JDK.  */
+      call = build1 (TRUTH_NOT_EXPR, NULL_TREE, call);
       TREE_SIDE_EFFECTS (call) = 1;
       DECL_INITIAL (field) = call;
 

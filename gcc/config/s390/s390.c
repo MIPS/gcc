@@ -172,19 +172,22 @@ s390_match_ccmode_set (set, req_mode)
   switch (set_mode)
     {
     case CCSmode:
-      if (req_mode != CCSmode)
-        return 0;
-      break;
+    case CCSRmode:
     case CCUmode:
-      if (req_mode != CCUmode)
-        return 0;
-      break;
+    case CCURmode:
     case CCLmode:
-      if (req_mode != CCLmode)
+    case CCL1mode:
+    case CCL2mode:
+    case CCT1mode:
+    case CCT2mode:
+    case CCT3mode:
+      if (req_mode != set_mode)
         return 0;
       break;
+
     case CCZmode:
-      if (req_mode != CCSmode && req_mode != CCUmode && req_mode != CCTmode)
+      if (req_mode != CCSmode && req_mode != CCUmode && req_mode != CCTmode
+	  && req_mode != CCSRmode && req_mode != CCURmode)
         return 0;
       break;
  
@@ -197,7 +200,8 @@ s390_match_ccmode_set (set, req_mode)
 
 /* Return true if every SET in INSN that sets the CC register 
    has source and destination with matching CC modes and that 
-   CC mode is at least as constrained as REQ_MODE.  */
+   CC mode is at least as constrained as REQ_MODE.  
+   If REQ_MODE is VOIDmode, always return false.  */
  
 int
 s390_match_ccmode (insn, req_mode)
@@ -205,6 +209,10 @@ s390_match_ccmode (insn, req_mode)
      enum machine_mode req_mode;
 {
   int i;
+
+  /* s390_tm_ccmode returns VOIDmode to indicate failure.  */
+  if (req_mode == VOIDmode)
+    return 0;
 
   if (GET_CODE (PATTERN (insn)) == SET)
     return s390_match_ccmode_set (PATTERN (insn), req_mode);
@@ -219,6 +227,45 @@ s390_match_ccmode (insn, req_mode)
         }
 
   return 1;
+}
+
+/* If a test-under-mask instruction can be used to implement 
+   (compare (and ... OP1) OP2), return the CC mode required
+   to do that.  Otherwise, return VOIDmode.  
+   MIXED is true if the instruction can distinguish between
+   CC1 and CC2 for mixed selected bits (TMxx), it is false
+   if the instruction cannot (TM).  */
+
+enum machine_mode
+s390_tm_ccmode (op1, op2, mixed)
+     rtx op1;
+     rtx op2;
+     int mixed;
+{
+  int bit0, bit1;
+
+  /* ??? Fixme: should work on CONST_DOUBLE as well.  */
+  if (GET_CODE (op1) != CONST_INT || GET_CODE (op2) != CONST_INT)
+    return VOIDmode;
+
+  /* Selected bits all zero: CC0.  */
+  if (INTVAL (op2) == 0)
+    return CCTmode;
+
+  /* Selected bits all one: CC3.  */
+  if (INTVAL (op2) == INTVAL (op1))
+    return CCT3mode;
+
+  /* Exactly two bits selected, mixed zeroes and ones: CC1 or CC2.  */
+  if (mixed)
+    {
+      bit1 = exact_log2 (INTVAL (op2));
+      bit0 = exact_log2 (INTVAL (op1) ^ INTVAL (op2));
+      if (bit0 != -1 && bit1 != -1)
+        return bit0 > bit1 ? CCT1mode : CCT2mode;
+    }
+
+  return VOIDmode;
 }
 
 /* Given a comparison code OP (EQ, NE, etc.) and the operands 
@@ -239,6 +286,28 @@ s390_select_ccmode (code, op0, op1)
 	    || GET_CODE (op1) == NEG)
 	  return CCLmode;
 
+	if (GET_CODE (op0) == AND)
+	  {
+	    /* Check whether we can potentially do it via TM.  */
+	    enum machine_mode ccmode;
+	    ccmode = s390_tm_ccmode (XEXP (op0, 1), op1, 1);
+	    if (ccmode != VOIDmode)
+	      {
+		/* Relax CCTmode to CCZmode to allow fall-back to AND
+		   if that turns out to be beneficial.  */
+	        return ccmode == CCTmode ? CCZmode : ccmode;
+	      }
+	  }
+
+	if (register_operand (op0, HImode) 
+	    && GET_CODE (op1) == CONST_INT
+	    && (INTVAL (op1) == -1 || INTVAL (op1) == 65535))
+	  return CCT3mode;
+	if (register_operand (op0, QImode) 
+	    && GET_CODE (op1) == CONST_INT
+	    && (INTVAL (op1) == -1 || INTVAL (op1) == 255))
+	  return CCT3mode;
+
 	return CCZmode;
 
       case LE:
@@ -253,12 +322,29 @@ s390_select_ccmode (code, op0, op1)
       case UNGE:
       case UNGT:
       case LTGT:
+	if ((GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+	    && GET_CODE (op1) != CONST_INT)
+	  return CCSRmode;
 	return CCSmode;
 
-      case LEU:
       case LTU:
       case GEU:
+	if (GET_CODE (op0) == PLUS)
+	  return CCL1mode;
+
+	if ((GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+	    && GET_CODE (op1) != CONST_INT)
+	  return CCURmode;
+	return CCUmode;
+
+      case LEU:
       case GTU:
+	if (GET_CODE (op0) == MINUS)
+	  return CCL2mode;
+
+	if ((GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+	    && GET_CODE (op1) != CONST_INT)
+	  return CCURmode;
 	return CCUmode;
 
       default:
@@ -295,13 +381,61 @@ s390_branch_condition_mask (code)
         }
       break;
 
+    case CCT1mode:
+      switch (GET_CODE (code))
+        {
+        case EQ:	return CC1;
+	case NE:	return CC0 | CC2 | CC3;
+	default:
+	  abort ();
+        }
+      break;
+
+    case CCT2mode:
+      switch (GET_CODE (code))
+        {
+        case EQ:	return CC2;
+	case NE:	return CC0 | CC1 | CC3;
+	default:
+	  abort ();
+        }
+      break;
+
+    case CCT3mode:
+      switch (GET_CODE (code))
+        {
+        case EQ:	return CC3;
+	case NE:	return CC0 | CC1 | CC2;
+	default:
+	  abort ();
+        }
+      break;
+
     case CCLmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0 | CC2;
 	case NE:	return CC1 | CC3;
-	case UNORDERED:	return CC2 | CC3;  /* carry */
-	case ORDERED:	return CC0 | CC1;  /* no carry */
+	default:
+	  abort ();
+        }
+      break;
+
+    case CCL1mode:
+      switch (GET_CODE (code))
+        {
+	case LTU:	return CC2 | CC3;  /* carry */
+	case GEU:	return CC0 | CC1;  /* no carry */
+	default:
+	  abort ();
+        }
+      break;
+
+    case CCL2mode:
+      switch (GET_CODE (code))
+        {
+	case GTU:	return CC0 | CC1;  /* borrow */
+	case LEU:	return CC2 | CC3;  /* no borrow */
 	default:
 	  abort ();
         }
@@ -316,6 +450,20 @@ s390_branch_condition_mask (code)
         case GTU:	return CC2;
         case LEU:	return CC0 | CC1;
         case GEU:	return CC0 | CC2;
+	default:
+	  abort ();
+        }
+      break;
+
+    case CCURmode:
+      switch (GET_CODE (code))
+        {
+        case EQ:	return CC0;
+        case NE:	return CC2 | CC1 | CC3;
+        case LTU:	return CC2;
+        case GTU:	return CC1;
+        case LEU:	return CC0 | CC2;
+        case GEU:	return CC0 | CC1;
 	default:
 	  abort ();
         }
@@ -341,6 +489,29 @@ s390_branch_condition_mask (code)
 	default:
 	  abort ();
         }
+      break;
+
+    case CCSRmode:
+      switch (GET_CODE (code))
+        {
+        case EQ:	return CC0;
+        case NE:	return CC2 | CC1 | CC3;
+        case LT:	return CC2;
+        case GT:	return CC1;
+        case LE:	return CC0 | CC2;
+        case GE:	return CC0 | CC1;
+	case UNORDERED:	return CC3;
+	case ORDERED:	return CC0 | CC2 | CC1;
+	case UNEQ:	return CC0 | CC3;
+        case UNLT:	return CC2 | CC3;
+        case UNGT:	return CC1 | CC3;
+        case UNLE:	return CC0 | CC2 | CC3;
+        case UNGE:	return CC0 | CC1 | CC3;
+	case LTGT:	return CC2 | CC1;
+	default:
+	  abort ();
+        }
+      break;
 
     default:
       abort ();
@@ -824,6 +995,28 @@ s_imm_operand (op, mode)
   return general_s_operand (op, mode, 1);
 }
 
+/* Return true if OP is a valid operand for a 'Q' constraint.
+   This differs from s_operand in that only memory operands
+   without index register are accepted, nothing else.  */
+
+int
+q_constraint (op)
+     register rtx op;
+{
+  struct s390_address addr;
+
+  if (GET_CODE (op) != MEM)
+    return 0;
+
+  if (!s390_decompose_address (XEXP (op, 0), &addr, FALSE))
+    return 0;
+
+  if (addr.indx)
+    return 0;
+
+  return 1;
+}
+
 /* Return true if OP is a valid operand for the BRAS instruction.
    OP is the current operation.
    MODE is the current operation mode.  */
@@ -1214,6 +1407,15 @@ s390_expand_plus_operand (target, src, scratch_in)
      float registers occur in an address.  */
   sum1 = find_replacement (&XEXP (src, 0));
   sum2 = find_replacement (&XEXP (src, 1));
+
+  /* Accept already valid addresses.  */
+  src = gen_rtx_PLUS (Pmode, sum1, sum2);
+  if (s390_decompose_address (src, NULL, 1))
+    {
+      src = legitimize_la_operand (src);
+      emit_insn (gen_rtx_SET (VOIDmode, target, src));
+      return;
+    }
 
   /* If one of the two operands is equal to the target,
      make it the first one.  If one is a constant, make
@@ -1882,6 +2084,31 @@ legitimize_address (x, oldx, mode)
 
   x = eliminate_constant_term (x, &constant_term);
 
+  /* Optimize loading of large displacements by splitting them
+     into the multiple of 4K and the rest; this allows the
+     former to be CSE'd if possible. 
+
+     Don't do this if the displacement is added to a register
+     pointing into the stack frame, as the offsets will
+     change later anyway.  */
+
+  if (GET_CODE (constant_term) == CONST_INT
+      && (INTVAL (constant_term) < 0
+          || INTVAL (constant_term) >= 4096)
+      && !(REG_P (x) && REGNO_PTR_FRAME_P (REGNO (x))))
+    {
+      HOST_WIDE_INT lower = INTVAL (constant_term) & 0xfff;
+      HOST_WIDE_INT upper = INTVAL (constant_term) ^ lower;
+
+      rtx temp = gen_reg_rtx (Pmode);
+      rtx val  = force_operand (GEN_INT (upper), temp);
+      if (val != temp)
+	emit_move_insn (temp, val);
+
+      x = gen_rtx_PLUS (Pmode, x, temp);
+      constant_term = GEN_INT (lower);
+    }
+
   if (GET_CODE (x) == PLUS)
     {
       if (GET_CODE (XEXP (x, 0)) == REG)
@@ -2401,7 +2628,7 @@ s390_adjust_priority (insn, priority)
 /* Split all branches that exceed the maximum distance.  */
 
 static void 
-s390_split_branches (void)
+s390_split_branches ()
 {
   rtx temp_reg = gen_rtx_REG (Pmode, RETURN_REGNUM);
   rtx insn, pat, label, target, jump, tmp;
@@ -2819,7 +3046,7 @@ int s390_pool_overflow = 0;
 #define S390_POOL_CHUNK_MAX	0xe00
 
 static void 
-s390_chunkify_pool (void)
+s390_chunkify_pool ()
 {
   rtx base_reg = gen_rtx_REG (Pmode, 
 			      TARGET_64BIT? BASE_REGISTER : RETURN_REGNUM);

@@ -90,9 +90,6 @@ static void mdr_try_wreg_elim PARAMS ((rtx));
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Commands count in the compiled file.  */
-static int commands_in_file;
-
 /* Commands in the functions prologues in the compiled file.  */
 static int commands_in_prologues;
 
@@ -304,7 +301,6 @@ function_epilogue (file, size)
 {
   int leaf_func_p;
   int reg,savelimit;
-  int function_size;
   rtx operands[2];		/* Dummy used by OUT_ASn  */
   int need_ret = 1;
 
@@ -324,9 +320,6 @@ function_epilogue (file, size)
     }
 
   leaf_func_p = leaf_function_p ();
-  function_size = (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
-		   - INSN_ADDRESSES (INSN_UID (get_insns ())));
-  
   epilogue_size = 0;
   fprintf (file, "/* epilogue: frame size=%d */\n", size);
 
@@ -508,9 +501,6 @@ function_epilogue (file, size)
     }
   
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name,
-	   prologue_size + function_size + epilogue_size, function_size);
-  commands_in_file += prologue_size + function_size + epilogue_size;
   commands_in_prologues += prologue_size;
   commands_in_epilogues += epilogue_size;
 }
@@ -1090,8 +1080,8 @@ ip2k_set_compare (x, y)
   if (GET_MODE (x) == DImode && GET_CODE (y) == CONST_INT)
     {
       rtx value;
-      int i;
-      
+      size_t i;
+
       value = rtx_alloc (CONST_DOUBLE);
       PUT_MODE (value, VOIDmode);
 
@@ -1101,7 +1091,7 @@ ip2k_set_compare (x, y)
       for (i = 2; i < (sizeof CONST_DOUBLE_FORMAT - 1); i++)
 	XWINT (value, i) = 0;
       
-      y = lookup_const_double (value);
+      y = value;
     }
   
   ip2k_compare_operands[0] = x;
@@ -3196,7 +3186,6 @@ asm_file_start (file)
 {
   output_file_directive (file, main_input_filename);
   
-  commands_in_file = 0;
   commands_in_prologues = 0;
   commands_in_epilogues = 0;
 }
@@ -3210,12 +3199,8 @@ asm_file_end (file)
 {
   fprintf
     (file,
-     "/* File %s: code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
-     main_input_filename,
-     commands_in_file,
-     commands_in_file,
-     commands_in_file - commands_in_prologues - commands_in_epilogues,
-     commands_in_prologues, commands_in_epilogues);
+     "/* File %s: prologues %3d, epilogues %3d */\n",
+     main_input_filename, commands_in_prologues, commands_in_epilogues);
 }
 
 /* Cost functions.  */
@@ -3370,7 +3355,7 @@ ip2k_address_cost (x)
    much cheaper and the move from this to the original source operand will be
    no more expensive than the original move.  */
 
-void
+static void
 mdr_resequence_xy_yx (first_insn)
      rtx first_insn;
 {
@@ -3622,7 +3607,7 @@ mdr_propagate_reg_equivs_sequence (first_insn, orig, equiv)
    holds the same value and thus allow one or more register loads to
    be eliminated.  */
 
-void
+static void
 mdr_propagate_reg_equivs (first_insn)
      rtx first_insn;
 {
@@ -4028,7 +4013,7 @@ mdr_try_dp_reload_elim (first_insn)
    that we can move to earlier points within the file.
    Moving these out of the way allows more peepholes to match.  */
 
-void
+static void
 mdr_try_move_dp_reload (first_insn)
      rtx first_insn;
 {
@@ -4119,7 +4104,7 @@ mdr_try_move_dp_reload (first_insn)
 /* Look to see if the expression, x, can have any stack references offset by
    a fixed constant, offset.  If it definitely can then returns non-zero.  */
 
-int
+static int
 ip2k_check_can_adjust_stack_ref (x, offset)
      rtx x;
      int offset;
@@ -4167,7 +4152,7 @@ ip2k_check_can_adjust_stack_ref (x, offset)
 /* Adjusts all of the stack references in the expression pointed to by x by
    a fixed offset.  */
 
-void
+static void
 ip2k_adjust_stack_ref (x, offset)
      rtx *x;
      int offset;
@@ -4212,7 +4197,7 @@ ip2k_adjust_stack_ref (x, offset)
    to earlier points within the file.  Moving these out of the way allows more
    peepholes to match.  */
 
-void
+static void
 mdr_try_move_pushes (first_insn)
      rtx first_insn;
 {
@@ -4625,7 +4610,7 @@ mdr_try_propagate_clr_sequence (first_insn, regno)
    actually change some instruction patterns when we're doing this whereas
    move propagation is just about doing a search and replace.  */
 
-void
+static void
 mdr_try_propagate_clr (first_insn)
      rtx first_insn;
 {
@@ -4656,7 +4641,7 @@ mdr_try_propagate_clr (first_insn)
    via the specified register.  This is very conservative and only returns
    non-zero if we definitely don't have such a memory ref.  */
 
-int
+static int
 ip2k_xexp_not_uses_reg_for_mem (x, regno)
      rtx x;
      unsigned int regno;
@@ -4848,7 +4833,7 @@ mdr_try_propagate_move_sequence (first_insn, orig, equiv)
    holds the same value and thus allow one or more register loads to
    be eliminated.  */
 
-void
+static void
 mdr_try_propagate_move (first_insn)
      rtx first_insn;
 {
@@ -4897,7 +4882,7 @@ mdr_try_propagate_move (first_insn)
 
 /* Try to remove redundant instructions.  */
 
-void
+static void
 mdr_try_remove_redundant_insns (first_insn)
      rtx first_insn;
 {
@@ -4993,7 +4978,7 @@ struct we_jump_targets *ip2k_we_jump_targets;
 
 /* WREG equivalence tracking used within DP reload elimination.  */
 
-int
+static int
 track_w_reload (insn, w_current, w_current_ok, modifying)
      rtx insn;
      rtx *w_current;
@@ -5083,7 +5068,7 @@ track_w_reload (insn, w_current, w_current_ok, modifying)
 /* As part of the machine-dependent reorg we scan moves into w and track them
    to see where any are redundant.  */
 
-void
+static void
 mdr_try_wreg_elim (first_insn)
      rtx first_insn;
 {

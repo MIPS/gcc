@@ -1,0 +1,4 @@
+2002-08-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.in (target-libmudflap): Add libmudflap-related targets.
+	* configure.in (target_libs): Ditto.

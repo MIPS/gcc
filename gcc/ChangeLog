@@ -1,3 +1,708 @@
+2002-08-18  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7602
+	* cppinit.c (path_include): Treat the system environment
+	variables as being cxx_aware.
+
+2002-08-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-decl.c (flexible_array_type_p): New function.
+	(grokdeclarator, finish_struct): Use it.
+	* doc/extend.texi: Document constraints on use of structures with
+	flexible array members.
+
+2002-08-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/t-coff, config/mips/t-elf, config/mips/t-isa3264,
+	config/mips/t-r3900 (MULTILIB_MATCHES): Define.
+	* config/mips/mips.h (ASM_SPEC): Use %(endian_spec).
+
+2002-08-16  Stan Shebs  <shebs@apple.com>
+
+	* c-common.c (cb_register_builds): Define __NEXT_RUNTIME__
+	for ObjC with -fnext-runtime.
+	* doc/cpp.texi: Document it.
+
+2002-08-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (Final installation): Replace links to individual
+	build status pages with a link to a common page that lists them all.
+
+2002-08-16  Sylvain Pion <pion@cs.nyu.edu>
+
+	* doc/invoke.texi: Fix typo.
+
+2002-08-16  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi (*-ibm-aix*): Explain AIX shared object versioning.
+
+2002-08-16  Andrew Haley  <aph@redhat.com>
+
+	* tree-inline.c: Add includes for Java inliner.
+	(remap_decl): Don't handle anonymous types for Java.
+	(remap_block): Add handling for Java trees.
+	(copy_scope_stmt): Conditionalize for non-Java use only.
+	(copy_body_r): Handle Java trees.  Add handling for
+	LABELED_BLOCK_EXPR, EXIT_BLOCK_EXPR, Java blocks.
+	(initialize_inlined_parameters):  Handle Java trees.
+	(declare_return_variable): Likewise.
+	(expand_call_inline): Handle Java trees.
+	(walk_tree): Likewise.
+	(copy_tree_r): Don't handle SCOPE_STMTs for Java.
+	(add_stmt_to_compound): New function.
+
+2002-08-15  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (LOOSE_WARN): Remove -fno-common.
+	(NOCOMMON_FLAG): New substitution point.
+	(GCC_WARN_CFLAGS): Include it.
+	* configure.in (ac_checking): Set nocommon_flag.
+	(nocommon_flag): New substitution point.
+
+2002-08-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-tree.h (skip_evaluation): Move declaration...
+	* c-common.h: ... here.
+	* c-typeck.c (build_external_ref): Don't assemble_external nor
+	mark a tree as used if skip_evaluation is set.
+	* c-parse.in (typeof): New non-terminal to set skip_evaluation
+	around TYPEOF.
+	(typespec_nonreserved_nonattr): Use it.
+
+2002-08-15  Douglas B Rupp  <rupp@gnat.com>
+
+	* dbxout.c (dbx_debug_hooks): Update end_prologue, end_epilogue.
+	(xcoff_debug_hooks): Update end_prologue.
+	* debug.c (do_nothing_debug_hooks): Update end_prologue, end_epilogue.
+	* debug.h (end_prologue): Add file arg.
+	(end_epilogue): Add line and file args.
+	(dwarf2out_end_epilogue): Add line and file args.
+	(vmsdbgout_after_prologue): Remove.
+	* dwarf2out.c (dwarf2out_end_epilogue): Add line and file args.
+	(dwarf2_debug_hooks): Update end_prologue.
+	* dwarfout.c (dwarfout_end_epilogue): Add line and file args.
+	(dwarfout_end_prologue): Add file arg.
+	* final.c (vmsdbgout_after_prologue): Remove
+	(final_end_function): Update end_epilogue call.
+	(final_scan_insn): Update end_prologue call.
+	* sdbout.c (sdbout_end_epilogue): Add line and file args.
+	(sdbout_end_prologue): Add file arg.
+	(sdb_debug_hooks): Update end_prologue.
+	(sdb_begin_prologue): Update sdbout_end_prologue call.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Add vmsdbgout_end_prologue,
+	vmsdbgout_end_function.
+	(vmsdbgout_end_prologue): New function renamed from
+	vmsdbgout_after_prologue. Call vmsdbgout_source_line.
+	(vmsdbgout_end_function): New function.
+	(vmsdbgout_end_epilogue): Add line and file args. Call
+	vmsdbgout_source_line.
+	(write_pclines): Write only valid line numbers.
+	(write_srccorr): Don't write source correlation records if 0 lines.
+	* xcoffout.c (xcoffout_end_epilogue): Add line and file args.
+
+2002-08-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc/unwind.h (_Unwind_Ptr): Make 64 bits on IA64 HP-UX.
+	(_Unwind_Internal_Ptr): 32 bit version for use in
+	read_encoded_value_with_base.
+	* gcc/unwind-pe.h (read_encoded_value_with_base): Use
+	_Unwind_Internal_Ptr instead of _Unwind_Ptr in order to get the
+	right size.
+
+2002-08-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* loop.c (scan_loop, move_movables, count_one_set): Cast to avoid
+	signed/unsigned warnings.
+
+	* regclass.c (init_reg_sets_1, choose_hard_reg_mode,
+	record_reg_classes): Likewise.
+
+	* reload.c (reload_inner_reg_of_subreg, push_reload,
+	find_reloads_address_1): Likewise.
+
+2002-08-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.c (output_mi_thunk): Return to function section on
+	TARGET_ELF.
+
+	* rs6000-c.c (rs6000_cpu_cpp_builtins): Define __PPC405__ if PPC405.
+
+2002-08-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (legitimize_address): Optimize loading
+	of large displacements.
+
+2002-08-14  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha-protos.h: Update.
+
+	* config/alpha/alpha.c: (LINKAGE_SYMBOL_REF_P): New macro.
+	(alpha_legitimate_address_p): Test LINKAGE_SYMBOL_REF_P.
+	(alpha_linkage_symbol_p): New static function.
+	(print_operand_address): Print linkage operand.
+
+	(alpha_funcs_num, alpha_funcs_tree, alpha_links_tree): New static
+	variables.
+	(reloc_kind): New enum.
+	(struct alpha_funcs): New struct.
+	(struct alpha_links): Add reloc_kind field. Rename links_kind field.
+
+	(alpha_need_linkage): Rewrite.
+	(alpha_use_linkage): New global function.
+	(alpha_write_linkage): Rewrite and make static.
+	(alpha_write_one_linkage): Rewrite
+
+	(alpha_start_function): Remove procedure descriptor output.
+	(alpha_end_function): Write linkages at end of each function.
+
+	* config/alpha/alpha.md (call_vms, call_value_vms): Rewrite.
+	(call_vms_1, call_value_vms_1): Rewrite.
+
+	* config/alpha/vms.h (ASM_FILE_END): Remove.
+
+2002-08-14  Richard Henderson  <rth@redhat.com>
+
+	* ggc-page.c (RTL_SIZE): New.
+	(extra_order_size_table): Add specializations for 2 and 10 rtl slots.
+	* rtl.def (BARRIER, NOTE): Pad to 9 slots.
+
+2002-08-14  Richard Henderson  <rth@redhat.com>
+
+	* calls.c: Include target.h.
+	* Makefile.in (calls.o): Update.
+
+	* config/alpha/alpha.c (alpha_end_function): Use targetm.binds_local_p.
+	* config/alpha/alpha.h (FUNCTION_OK_FOR_SIBCALL): Likewise.
+
+2002-08-14  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (LOOSE_WARN): Add -fno-common.
+	* c-common.h (constant_string_class_name): Add missing extern.
+
+2002-08-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7358
+	* c-opts.c (check_deps_environment_vars): Ignore main file
+	for SUNPRO_DEPENDENCIES.
+	* cppfiles.c (stack_include_file): Ignore main file if
+	appropriate.
+	* cpplib.h (struct cpp_options): New member in deps.
+	* doc/cppenv.texi: Update.
+
+2002-08-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/7526
+	* cpplib.c (run_directive): Kludge so _Pragma dependency works.
+
+2002-08-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* doc/invoke.texi (-a): Remove documentation.
+	(-fprofile-arcs): Remove reference to -a, -ax options.
+	* doc/gcov.texi (Gcov Data Files): Data might be merged.
+
+2002-08-14  Gabriel Dos Reis  <gdr@nerim.net>
+
+	Fix PR/7566
+	* c-semantics.c (genrtl_case_label): Don't (mis)use
+	warning_with_decl. 
+
+2002-08-14  Dale Johannesen  <dalej@apple.com>
+
+        * explow.c (emit_stack_restore):  Emit memory clobbers
+	preceding the stack pop, to prevent the scheduler from
+	moving refs to variable arrays below this pop.
+	* reload1.c (reload):  Preserve these clobbers for sched2.
+	* doc/rtl.texi:  Document clobber (mem:BLK (scratch)).
+
+2002-08-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (c_common_post_options): Correct test.
+
+2002-08-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* m88k.h (ASM_OUTPUT_SOURCE_FILENAME): Fix incorrect argument
+	order in call to fprintf.
+
+2002-08-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/sparc/sol2.h (SUBTARGET_EXTRA_SPECS): Define.
+
+2002-08-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload.c (find_reloads): Handle constraint letters marked by 
+	EXTRA_ADDRESS_CONSTRAINT and EXTRA_MEMORY_CONSTRAINT.
+	(alternative_allows_memconst): Likewise.
+	* reload1.c (maybe_fix_stack_asms): Likewise.
+	* recog.c (asm_operand_ok, preprocess_constraints, 
+	constrain_operands): Likewise.
+	* regclass.c (record_operand_costs, record_reg_classes): Likewise.
+	* local-alloc.c (block_alloc, requires_inout): Likewise.
+	* stmt.c (parse_output_constraint, parse_input_constraint): Likewise.
+
+	* defaults.h (EXTRA_MEMORY_CONSTRAINT): Provide a default.
+	(EXTRA_ADDRESS_CONSTRAINT): Likewise.
+	* doc/tm.texi: Document these two new target macros.
+
+	* config/s390/s390.c (s390_expand_plus_operand): Accept already
+	valid operands.
+	(q_constraint): New function.
+	config/s390/s390-protos.h (q_constraint): Declare it.
+	config/s390/s390.h (EXTRA_CONSTRAINT): Use it.
+	(EXTRA_MEMORY_CONSTRAINT): New macro.
+
+	* config/s390/s390.md: Throughout the machine description,
+	replace all instances of the constraint combinations 'Qo'
+	or 'oQ' with simply 'Q'.
+
+2002-08-14  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (LINK_SPEC): Support -mrelax.
+	* config/m68hc11/t-m68hc11-gas (LIBGCC2_DEBUG_CFLAGS): Can use -g now.
+	(LIBGCC2_CFLAGS): Compile with -mrelax.
+
+2002-08-14  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* doc/invoke.texi: Document -minmax for 68HC12.
+
+	* config/m68hc11/m68hc11.md ("umaxqi3"): Use TARGET_MIN_MAX.
+	("uminqi3"): Likewise.
+	("uminhi3", "umaxhi3"): Likewise.
+
+	* config/m68hc11/m68hc11.h (MASK_MIN_MAX): Define.
+	(TARGET_MIN_MAX): Define.
+	(TARGET_SWITCHES): New option -minmax/-mnominmax.
+
+2002-08-14  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/t-m68hc11-gas (LIB1ASMFUNCS): Build __far_trampoline.
+	(MULTILIB_OPTIONS): Must also generate for -mlong-calls.
+
+	* config/m68hc11/larith.asm: Put a mode for ELF ABI flags.
+	(ret, declare, farsym): New gas macros.
+	(__premain, exit, abort, _cleanup, memcpy, memset, ___adddi3,
+	___subdi3, ___notdi2, __mulhi32, __mulsi3): Use them to use 'rtc'
+	and declare the symbol far when compiled with -mlong-calls.
+	(__far_trampoline): New for 68HC12 trampoline code to invoke a 
+	far handler using jsr/bsr.
+
+	* config/m68hc11/m68hc11-crt0.S: Put a mode for ELF ABI flags.
+	(jsr): New macro to transform a 'jsr' into a 'call'.
+
+2002-08-14  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* doc/invoke.texi: Document -mlong-calls for 68HC12.
+
+	* config/m68hc11/m68hc11.h (CPP_SPEC): Pass -D__USE_RTC__ when
+	-mlong-calls is specified.
+	(ASM_DECLARE_FUNCTION_NAME): Define to generate .far and .interrupt 
+	assembler directives.
+	(TARGET_LONG_CALL, MASK_LONG_CALL): Declare.
+	(TARGET_SWITCHES): Add -mlong-calls options.
+	(current_function_far): Declare.
+
+	* config/m68hc11/m68hc11.c (m68hc11_initial_elimination_offset): Take
+	into account the page register saved on the stack.
+	(m68hc11_override_options): Take into account -mlong-calls option.
+	(m68hc11_asm_file_start): Put a mode for the ELF flags ABI.
+
+	* config/m68hc11/m68hc11.md ("*return_32bit"): Return rtc
+	if the function is going to be in 68HC12 banked memory (-mlong-calls).
+	("*return_16bit"): Likewise.
+	("*return_void"): Likewise.
+	("call", "call_value"): Use call for a far function call.
+
+2002-08-14  Neil Booth  <neil@daikokuya.co.uk>
+
+	* toplev.c (parse_options_and_default_flags): Don't call
+	post_options here.
+	(general_init): Initialize GC, pools and tree hash here,
+	instead of lang_independent_init.
+	(lang_independent_init): Rename backend_init.
+	(do_compile): Call post_options hook; exit early if there
+	have been errors after switch processing.
+	(toplev_main): Update.
+
+2002-08-14  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* c-pretty-print.h: Guard against multiple inclusion.
+	Robustify macros.
+	(pp_c_attributes): Declare.
+	* c-pretty-print.c (pp_c_attributes): New function.
+
+2002-08-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* m68k.c (m68k_output_function_prologue,
+	m68k_output_function_epilogue): Delete versions for DPX2/MOTOROLA
+	and NEWS/MOTOROLA.
+	* genattrtab.c: Remove dpx2 comment.
+	* libgcc2.c (__enable_execute_stack): Delete versions for
+	NeXT/__MACH__, __convex__, __sysV88__, __pyr__ and
+	sony_news/SYSTYPE_BSD.
+	* longlong.h: Delete code for __a29k__, _AM29K, __clipper__,
+	__gmicro__, __i860__, __NeXT__ and __pyr__.
+	* rtl.h: Remove convex comment.
+	* varasm.c: Likewise.
+
+2002-08-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-opts.c (lang_flags): Const-ify.
+	* ra-build.c (undef_table): Likewise.
+	* ra.c (eliminables): Likewise.
+
+2002-08-14  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* tree.h: Guard against multiple inclusion.
+
+2002-08-14  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* reload1.c (reload_cse_simplify): Before checking
+	REG_FUNCTION_VALUE_P, check REG_P.
+
+2002-08-13  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (attribs.o): Remove $(OBSTACK_H) dependency.
+
+2002-08-13  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (c_common_init_options): Extra braces needed.
+
+Tue Aug 13 17:40:25 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_init_builtins): Add PARAMS to declaration.
+	(sh_media_init_builtins, sh_expand_builtin): Likewise.
+	(sh_expand_unop_v2sf): Use PARAMS for variable declaration.
+	(sh_expand_binop_v2sf): Likewise.
+	* sh-protos.h (sh_expand_unop_v2sf): Add PARAMS to declaration.
+	(sh_expand_binop_v2sf, sh_cfun_interrupt_handler_p): Likewise.
+	(sh_initialize_trampoline): Likewise.
+
+2002-08-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* s390-modes.def [CCL1, CCL2, CCT1, CCT2, CCT3, CCUR, CCSR]: Declare
+	new condition code modes.
+	s390.c (s390_match_ccmode_set): Handle those new CC modes.
+	(s390_select_ccmode): Likewise.
+	(s390_branch_condition_mask): Likewise.
+
+	* s390-protos.h (s390_tm_ccmode): Declare.
+	s390.c (s390_tm_ccmode): New function.
+	(s390_match_ccmode): Allow VOIDmode as REQ_MODE.
+
+	* s390.md ("*cmpdi_tm2"): Rename to "*tmdi_ext".
+	("*cmpsi_tm2"): Rename to "*tmsi_ext".
+	("*cmpqi_tm2"): Rename to "*tmqi_ext".
+
+	("*cmpdi_tm_reg", "*cmpdi_tm_mem", "*cmpsi_tm_reg", "*cmpsi_tm_mem",
+	"*cmphi_tm_sub","*cmphi_cct_0",  "*cmpqi_tm", "*cmpqi_tm_sub",
+	"*cmpqi_cct_0", "*tm_0"): Remove, replace by ...
+	("*tmdi_reg", "*tmsi_reg", "*tmdi_mem", "*tmsi_mem", "*tmhi_mem",
+	"*tmqi_mem", "*tmhi_full", "*tmqi_full"): ... these new patterns.
+
+	("*ltgr", "*cmpdi_ccs_0_64", "*cmpdi_ccs_0_31", "*ltr", "*icm15",
+	"*icm15_cconly", "*cmpsi_ccs_0", "*icm3", "*cmphi_ccs_0", "*icm1", 
+	"*cmpqi_ccs_0"): Remove, replace by ...
+	("*tstdi_sign", "*tstdi", "*tstdi_cconly", "*tstdi_cconly_31",
+	"*tstsi", "*tstsi_cconly", "*tstsi_cconly2", "*tsthi", "*tsthi_cconly", 
+	"*tstqi", "*tstqi_cconly"): ... these new patterns.
+
+	("*cmpsidi_ccs"): Remove, replace by ...
+	("*cmpsi_ccs_sign"): ... this new pattern.
+	("*cmpdi_ccs_sign", "*cmpdi_ccu_zero"): New patterns.
+
+	("*cmpqi_ccu_0", "*cmpqi_ccu_immed"): Remove, replace by ...
+	("*cli"): ... this new pattern.
+
+	("*adddi3_sign", "*adddi3_zero_cc", "*adddi3_zero_cconly",
+	"*adddi3_zero", "*adddi3_cc", "*adddi3_cconly", "*adddi3_cconly2"):
+	New patterns.
+	("adddi3_64"): Rename to "*adddi3_64".
+	("adddi3_31"): Replace by insn and splitter "*adddi3_31".
+	("adddi3"): Adapt expander.
+
+	("*addsi3_cc"): Allow "general_operand" for operand 2.
+	("*addsi3_carry1_cc", "*addsi3_carry1_cconly", 
+	"*addsi3_carry2_cc", "*addsi3_carry2_cconly"): New patterns.
+
+	("addhi3", "addqi3"): Remove, replace by ...
+	("*addsi3_sign", "*addsi3_sub"): ... these new patterns.
+
+	("*subdi3_sign", "*subdi3_zero_cc", "*subdi3_zero_cconly",
+	"*subdi3_zero", "*subdi3_cc", "*subdi3_cconly"): New patterns.
+	("subdi3"): Replace by insn and splitter "*subdi3_31".
+	("subdi3"): New expander.
+
+	("*subsi3_borrow_cc", "*subsi3_borrow_cconly"): New patterns.
+
+	("subhi3", "subqi3"): Remove, replace by ...
+	("*subsi3_sign", "*subsi3_sub"): ... these new patterns.
+
+	("*muldi3_sign"): New pattern.
+	("muldi3"): Do not clobber CC.
+	("mulsi3"): Likewise.
+	("mulsi_6432"): Likewise.
+
+2002-08-13  Denis Chertykov  <denisc@overta.ru>
+
+	* config/avr/avr.md: Call CC_STATUS_INIT in all peepnoles
+        which can change CC0.
+
+Tue Aug 13 14:49:20 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcse.c (adjust_libcall_notes): New function.
+	(do_local_cprop): Use it.  Add fourth parameter.  Changed caller.
+
+2002-08-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libgcc2.c (L_bb): Remove unneeded #includes.
+	(__global_counters, __gthreads_active): Remove unused globals.
+	(__bb_exit_func): Merge counts into files rather than appending.
+	* Makefile.in (INTERNAL_CFLAGS): Move COVERAGE_FLAGS from here ...
+	(ALL_CFLAGS): ... to here.
+
+2002-08-13  Denis Chertykov  <denisc@overta.ru>
+
+	* config/ip2k/ip2k.c (commands_in_file): Variable removed.
+	(function_epilogue): Don't calculate function size.
+	(ip2k_set_compare): Don't use lookup_const_double.
+	(asm_file_start): Initialization of commands_in_file removed.
+	(asm_file_end): Output of commands_in_file removed.
+	
+	* config/ip2k/ip2k.c (CPP_PREDEFINES): Remove definition of
+	__INT_MAX__.
+
+2002-08-13  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (c_common_init_options): Check option array is
+	sorted if checking enabled.
+
+2002-08-13  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* c-pretty-print.c: #include "c-tree.h".
+	(pp_c_simple_type_specifier): Tweak.
+	(pp_c_storage_class_specifier): New.
+	(pp_c_function_specifier): Likewise.
+	(pp_c_declaration_specifiers): Likewise.
+	(pp_c_init_declarator): Likewise.
+	(pp_c_declaration): Likewise.
+	(pp_c_direct_declarator): Stub.
+	(pp_c_declarator): Likewise.
+	(pp_c_parameter_declaration): Likewise.
+
+2002-08-13  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (deps_seen, deps_file, deferred_count, deferred_size,
+	handle_deferred_opts, sanitize_cpp_opts, defer_opt,
+	struct deferred_opt): New.
+	(COMMAND_LINE_OPTIONS): Add -M*.
+	(missing_arg): Update.
+	(c_common_decode_option): Handle -M*.
+	(c_common_post_options): Handle -M*.  Use sanitize_cpp_opts;
+	don't call cpp_post_options.
+	(c_common_finish, check_deps_environment_vars): Update.
+	* cppfiles.c (stack_include_file, handle_missing_header): Update.
+	* cpphash.h (CPP_PRINT_DEPS): Remove.
+	* cppinit.c: Don't include version.h.
+	(cpp_create_reader): Don't call deps_init.  Initialize
+	warn_long_long.
+	(cpp_read_main_file): Init deps if necessary.
+	(cpp_destroy): Conditionally free deps.
+	(cpp_finish): Update.
+	(no_tgt): Remove.
+	(COMMAND_LINE_OPTIONS, cpp_handle_option): Remove -M*.
+	(cpp_post_options): Rename post_options.
+	* cpplib.h (struct cpp_options): Remove some dependency options;
+	move others to a new structure.
+	(cpp_post_options): Remove.
+	(cpp_finish): Comment.
+	* fix-header.c (read_scan_file): Don't call cpp_post_options.
+
+2002-08-12  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.md (define_constants): Add MMIX_rR_REGNUM.
+	("divdi3", "*divdi3_nonknuth", "moddi3", "*moddi3_nonknuth"): Mark
+	MMIX_rR_REGNUM as clobbered.
+	* config/mmix/mmix.h (MMIX_REMAINDER_REGNUM): Use MMIX_rR_REGNUM.
+
+2002-08-12  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* diagnostic.h (output_formatted_scalar): Rename from
+	output_formatted_integer. 
+	* diagnostic.def: Add DK_DEBUG.
+	* diagnostic.c (output_decimal): Adjust.
+	(output_long_decimal): Likewise.
+	(output_unsigned_decimal): Likewise.
+	(output_octal): Likewise.
+	(output_long_octal): Likewise.
+	(output_hexadecimal): Likewise.
+	(output_long_hexadecimal): Likewise.
+	* c-pretty-print.c (pp_c_type_specifier): New function.
+	(pp_c_specifier_qualifier_list): Likewise.
+	(pp_c_abstract_declarator): Likewise.
+	(pp_c_char): Replace pp_format_integer with pp_format_scalar.
+
+2002-08-12  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/trouble.texi (Disappointments): Add static constructor and
+	destructor dependency information for AIX.
+
+2002-08-12  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpphash.h (struct printer): New from cppmain.c.
+	(cpp_reader): New member.
+	* cppmain.c (struct printer): Move to cpphash.h.
+	(options, print): Remove.
+	(account_for_newlines, print_line, maybe_print_line,
+	cpp_preprocess_file, setup_callbacks, scan_translation_unit,
+	scan_translation_unit_trad, cb_line_change, cb_ident,
+	cb_define, cb_undef, cb_include, cb_file_change, dump_macro,
+	cb_def_pragma): Make reentrant.
+
+2002-08-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* real.c (ieee_64): Always define.
+	(ieee_113): Guard with INTEL_EXTENDED_IEEE_FORMAT == 0.
+	(dec_h): Not used yet, hide it.
+	(emdnorm): Mark parameter in ATTRIBUTE_UNUSED.  Guard label with
+	macro controlling use.
+	(TFbignan, TFlittlenan): Guard with INTEL_EXTENDED_IEEE_FORMAT == 0.
+
+Mon Aug 12 12:48:20 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (tablejump): Sign extend the operand.
+	* i386.c (classify_argument): Fix missed case from previous patch.
+
+2002-08-12  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-common.c (STDC_0_IN_SYSTEM_HEADERS, c_common_init): Move
+	to c-copts.c.
+	(warn_multichar): Die.
+	(cb_register_builtins): Export.
+	* c-common.h (warn_multichar, preprocess_file): Remove.
+	(cb_register_builtins): New.
+	* c-lang.c (c_init): Remove.
+	(LANG_HOOKS_INIT): Use c_objc_common_init.
+	* c-lex.c (init_c_lex): Don't canonicalize filename.
+	* c-opts.c (in_fname, STDC_0_IN_SYSTEM_HEADERS): New.
+	(preprocess_file): Make static.  Update for cpplib.
+	(c_common_decode_option): Remove warn_multichar.  Use in_fname.
+	(c_common_post_options): Set some cpp options here.
+	(c_common_init): Move from c-common.c.
+	* cppinit.c (cpp_post_options): Don't canonicalize in_fname.
+	* cpplib.h (struct cpp_options): Remove in_fname.
+	(cpp_preprocess_file): Update.
+	* cppmain.c (cpp_preprocess_file): Update for new prototypes.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config.gcc (mips*-*-netbsd*): Include ${tm_file}.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* i370.h (TARGET_CPU_CPP_BUILTINS): Remove spurious trailing
+	backslash in comment preceeding macro definition.
+	* i370/linux.h (TARGET_OS_CPP_BUILTINS): Likewise.
+	* i370/mvs.h (TARGET_OS_CPP_BUILTINS): Likewise.
+	* i370/oe.h (TARGET_OS_CPP_BUILTINS): Likewise.
+
+2002-08-12  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* expr.c (store_expr): In condition for checking if value is
+	generated in TARGET, move call to expr_size last.
+
+2002-08-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-common.c (c_common_init): Call preprocess_file instead.
+	(c_common_finish): Move to c-opts.c.
+	* c-common.h (preprocess_file): new.
+	* c-opts.c (out_fname, out_stream, deps_append, preprocess_file,
+	check_deps_environment_vars, c_common_finish): New.
+	(c_common_decode_option): Update for out_fname and dependencies.
+	* cppinit.c (init_dependency_output, output_deps): Remove.
+	(cpp_destroy): Update prototype.
+	(cpp_add_dependency_target): New.
+	(cpp_read_main_file): Don't overlay a buffer.
+	(cpp_finish): Take a deps output stream and write deps to it.
+	Return the error count.
+	(cpp_post_options): Don't canonicalize out_fname, or do anything
+	with dependencies.
+	* cpplib.h (struct cpp_options): Remove out_fname and
+	preprocess_only.
+	(cpp_add_dependency_target): New.
+	(cpp_destroy, cpp_finish, cpp_preprocess_file): Update.
+	* cppmain.c (cpp_preprocess_file): Update prototype.  Don't
+	set preprocess_only.  Don't handle the output stream directly.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* dsp16xx.c (print_operand): Fix format specifier.
+	* dsp16xx.md: Avoid automatic aggregate initialization.
+	* frv.h (REG_CLASS_FROM_LETTER): Avoid char as array index.
+	* h8300.c (emit_a_rotate, h8300_adjust_insn_length): Avoid U
+	integer constant modifier.
+	* ip2k.c (ip2k_set_compare): Avoid signed/unsigned warning.
+	* mmix-protos.h (mmix_use_simple_return): Move outside TREE_CODE
+	guards.
+	* sh/netbsd-elf.h (FUNCTION_PROFILER): Fix format specifier.
+	* v850.c (v850_select_section): Mark parameter with
+	ATTRIBUTE_UNUSED.
+	* global.c (global_alloc): Const-ify.
+	* ra-colorize.c (hardregset_to_string): Fix format specifier.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* darwin-c.c (darwin_pragma_options): Const-ify.
+	* darwin.c (machopic_non_lazy_ptr_name,
+	machopic_validate_stub_or_non_lazy_ptr): Likewise.
+	(machopic_indirect_data_reference): Wrap variables in macros
+	controlling their use.
+	(machopic_finish, update_non_lazy_ptrs, update_stubs): Const-ify.
+	(machopic_select_section): Use parentheses around && within ||.
+	* i386/darwin.h (ASM_OUTPUT_ALIGN): Avoid ambiguous-else.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ip2k.c (mdr_resequence_xy_yx, mdr_propagate_reg_equivs,
+	mdr_try_move_dp_reload, ip2k_check_can_adjust_stack_ref,
+	ip2k_adjust_stack_ref, mdr_try_move_pushes, mdr_try_propagate_clr,
+	ip2k_xexp_not_uses_reg_for_mem, mdr_try_propagate_move,
+	mdr_try_remove_redundant_insns, track_w_reload,
+	mdr_try_wreg_elim): Make function static to match prototype.
+	* mmix.c (mmix_target_asm_function_epilogue): Likewise.  Mark
+	parameter with ATTRIBUTE_UNUSED.
+
+2002-08-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* arc.c (arc_init): Don't use ISO C style function definitions.
+	* arm.c (count_insns_for_constant, thumb_far_jump_used_p,
+	arm_get_strip_length, arm_strip_name_encoding): Likewise.
+	* avr.h (progmem_section): Likewise.
+	* h8300.c h8300_asm_insn_count): Likewise.
+	* m32r.c (init_idents): Likewise.
+	* s390.c (s390_split_branches, s390_chunkify_pool): Likewise.
+	* sh.c (sh_cfun_interrupt_handler_p): Likewise.
+	* xtensa.c (xtensa_build_va_list): Likewise.
+
+2002-08-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-common.h (enum c_language_kind): Emphasize that clk_c is 0.
+	* c-opts.c (parse_option): Rename find_opt.
+	(set_std_c99): New function.
+	(COMMAND_LINE_OPTIONS): Handle -remap and -o.  Remove OPT_std_bad.
+	(missing_arg): Remove OPT_std_bad.  Handle -o.
+	(c_common_decode_option): Handle input and output file names,
+	-o and -remap.	Clean up -std= handling.
+	* cppinit.c (COMMAND_LINE_OPTIONS): Remove OPT_o and OPT_remap.
+	(cpp_handle_option): Similarly.  Don't handle filenames.
+
+Sun Aug 11 14:43:17 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Fix computing of field's offsets.
+
+2002-08-11  Andreas Jaeger  <aj@suse.de>
+
+	PR target/7531:
+	* doc/invoke.texi (i386 and x86-64 Options): Document -mcmodel.
+
 2002-08-10  Ziemowit Laski  <zlaski@apple.com>
 
 	* config/alpha/alpha.h (TARGET_CPU_CPP_BUILTINS): Replace
@@ -57,7 +762,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(finish_struct): Likewise.
 	* c-lang.c (maybe_objc_check_decl): Rename to objc_check_decl.
 	(maybe_objc_comptypes): Rename to objc_comptypes.
-	(maybe_building_objc_message_expr): Rename to 
+	(maybe_building_objc_message_expr): Rename to
 	objc_message_selector.
 	* c-lex.c (lex_charconst): Remove uses of clk_objective_c,
 	replace with flag_objc as needed.
@@ -66,7 +771,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* c-parse.in (init_reswords): Likewise.
 	* c-tree.h (maybe_objc_check_decl): Rename to objc_check_decl.
 	(maybe_objc_comptypes): Rename to objc_comptypes.
-	(maybe_building_objc_message_expr): Rename to       
+	(maybe_building_objc_message_expr): Rename to
 	objc_message_selector.
 	* c-typeck.c (comptypes): Call objc_comptypes instead of
 	maybe_objc_comptypes, and/or objc_message_selector instead of
@@ -78,7 +783,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	independently of those for other languages.
 	* objc/objc-act.c (maybe_objc_comptypes): Delete.
 	(maybe_objc_check_decl): Delete.
-	(maybe_building_objc_message_expr): Rename to 
+	(maybe_building_objc_message_expr): Rename to
 	objc_message_selector.
 	* objc/objc-lang.c (objc_init_options): Use clk_c instead of
 	clk_objective_c; set flag_objc flag.
@@ -103,7 +808,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(end_branch_prob): Remove da file.
 
 	* Makefile.in (stage1_build): Pass empty COVERAGE_FLAGS.
-	* configure.in (coverage_flags) default to nothing.
+	* configure.in (coverage_flags): Default to nothing.
 	* configure: Rebuilt.
 
 2002-08-09  Neil Booth  <neil@daikokuya.co.uk>
@@ -135,15 +840,15 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-08-08  Devang Patel  <dpatel@apple.com>
 
-	* objc/objc-act.c (build_selector_translation_table): Issue warning, 
-	when  -Wselector is used,if method for which selector is being 
+	* objc/objc-act.c (build_selector_translation_table): Issue warning,
+	when  -Wselector is used,if method for which selector is being
 	created does not exist.
-	
+
 2002-08-08  Stephen Clarke <stephen.clarke@superh.com>
 
 	* config/sh/sh.c (prepare_move_operands): Only call
 	target_reg_operand if TARGET_SHMEDIA.
-	
+
 2002-08-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.h, config/rs6000/aix.h,
@@ -190,7 +895,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* objc/Make-lang.in (objc.mostlyclean): Remove coverage files.
 	* treelang/Make-lang.in (treelang.mostlyclean): Remove coverage
 	files.
-	
+
 2002-08-08  Neil Booth  <neil@daikokuya.co.uk>
 
 	* c-opts.c (cpp_opts): New.
@@ -513,7 +1218,7 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	OBJECT_DIRECTORY. Use format_hwint. Adjust gcov file name
 	mangling. Adjust output format to make it more machine readable.
 	* doc/gcov.texi: Document & clarify semantics.
-	
+
 2002-08-04  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* doc/include/gcc-common.texi (version-GCC): Increase to 3.3.
@@ -540,10 +1245,10 @@ Sat Aug 10 19:59:43 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	of TARGET_ALIGN_DOUBLE.
 
 2002-08-04  Gabriel Dos Reis  <gdr@nerim.net>
-	
+
 	* diagnostic.c (inform): New function.
 	* diagnostic.h (inform): Declare.
-	
+
 2002-08-03  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/rs6000.md (movsi_internal1): Add nop mnemonic.
