@@ -30,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
-#include "integrate.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -362,7 +361,7 @@ lhd_tree_inlining_copy_res_decl_for_inlining (tree res, tree fn, tree caller,
     return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (return_slot_addr)),
                    return_slot_addr);
   else
-    return copy_decl_for_inlining (res, fn, caller);
+    return copy_decl_for_dup (res, fn, caller, false);
 }
 
 /* lang_hooks.tree_inlining.anon_aggr_type_p determines whether T is a

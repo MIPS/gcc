@@ -1,3 +1,51 @@
+2005-02-09  Razya Ladelsky  <razya@il.ibm.com>
+
+ 	* ipa_prop.c: Change/add comments and adjust to GNU standards.
+        (hashtab.h, toplev.h, flags.h, debug.h, target.h, varray.h,
+ 	tree-gimple.h): Remove dependency.
+        (ipa_node_create, ipcp_method_is_cloned, ipcp_method_set_orig_node,
+        ipcp_method_orig_node, ipa_cloned_create, ipcp_method_dont_insert_const,
+	ipa_cloned_create, ipcp_update_callgraph, ipcp_redirect, ipcp_propagate_stage
+	ipa_edges_create, ipcp_type_is_const, ipcp_asm_walk_tree_1, ipcp_after_propagate): New functions.
+        (ipcp_cs_get_first, ipcp_cs_get_next,
+	ipcp_cs_not_last): Remove functions.
+        (ipcp_stage1, ipcp_stage2, ipcp_stage3): Rename to -
+        (ipcp_init_stage, ipcp_iterate_stage, ipcp_insert_stage) Respectively.
+        (ipcp_method_dont_insert_const): Rename to (ipcp_method_dont_propagate).
+        (ipcp_method_compute_modify): check DECL_UNINLINABLE
+        instead of calling tree_inlinable_function_p to find out if a given
+	function is inlinable.
+        (ipcp_driver): Update.
+ 	* ipa_prop.h: Change Comment.
+        (struct ipa_node): Add new fields.
+	* cgraph.h:  (varray.h): New include.
+	(update_call_expr, cgraph_copy_node_for_versioning,
+ 	cgraph_function_versioning): New declarations.
+	* Makefile.in (CGRAPH_H): Add dependency to varray.h.
+ 	* common.opt: Remove fipa-no-cloning flag.
+	* cgraphunit.c (cgraph_optimize):
+	Support for IPA constant propagation.
+	(update_call_expr, cgraph_copy_node_for_versioning,
+	cgraph_function_versioning): New functions to support versioning.
+	* integrate.c: (copy_decl_for_inlining): renamed and removed to tree-inline.c.
+        * integrate.h: (copy_decl_for_inlining): renamed and removed to tree-inline.h.
+	* gimplify.c: (create_function_name): New function.
+	* tree-gimple.h: (create_function_name): New declaration.
+	* tree-inline.c: (struct inline_data): New fields to support versioning.
+	(copy_arguments_for_versioning, copy_static_chain, function_versionable_p,
+	tree_function_versioning, replace_ref_tree):
+	New functions to support tree function versioning.
+        (copy_decl_for_inling): moved from integrate.c and renamed to copy_decl_for_dup.
+	(remap_decl, copy_body_r, copy_tree_r, copy_cfg_body): Support function versioning.
+        (copy_cfg_body): a fix to the copying of the edge between the EXIT block and its 
+        predecessor in the case of saving_or_cloning.
+	* tree-inline.h: (tree_versionable_function_p,
+	tree_function_versioning): New declarations.
+        *langhooks.c: (lhd_tree_inlining_copy_res_decl_for_inlining): change call to 
+	copy_decl_for_inlining.
+        * common.opt: (fipa-no-cloning): Remove fipa-no-cloning flag.
+        * doc/invoke.texi: (fipa-no-cloning): Same.
+
 2005-02-03  Razya Ladelsky  <razya@il.ibm.com>
 
 	* tree-eh.c (duplicate_stmt_eh_region_mapping): Use ggc_free to free

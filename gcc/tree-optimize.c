@@ -392,6 +392,7 @@ init_tree_optimization_passes (void)
 
   /* Intraprocedural optimization passes.  */
   p = &all_ipa_passes;
+  NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_static);
   *p = NULL;

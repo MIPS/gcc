@@ -2111,7 +2111,7 @@ cp_copy_res_decl_for_inlining (tree result,
     }
   /* Otherwise, make an appropriate copy.  */
   else
-    var = copy_decl_for_inlining (result, fn, caller);
+    var = copy_decl_for_dup (result, fn, caller, false);
 
   return var;
 }

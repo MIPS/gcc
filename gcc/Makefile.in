@@ -1599,7 +1599,7 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(RTL_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h insn-config.h \
    $(INTEGRATE_H) $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h \
    langhooks.h $(C_COMMON_H) tree-inline.h $(CGRAPH_H) intl.h function.h \
-   pointer-set.h $(TREE_GIMPLE_H) $(TREE_FLOW_H) except.h debug.h
+   pointer-set.h $(TREE_GIMPLE_H) $(TREE_FLOW_H) except.h debug.h  ipa_prop.h real.h
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(GGC_H) langhooks.h real.h tree-iterator.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1929,9 +1929,9 @@ simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RT
 cgraph.o : cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) $(CGRAPH_H) gt-cgraph.h \
    output.h intl.h tree-inline.h $(TREE_FLOW_H)
-ipa_prop.o : ipa_prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-   langhooks.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) cgraph.h gt-cgraph.h \
-   output.h intl.h ipa_prop.h tree.h tree-iterator.h tree-gimple.h tree-inline.h
+ipa_prop.o : ipa_prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
+   langhooks.h $(GGC_H) target.h $(CGRAPH_H) output.h ipa_prop.h tree-iterator.h \
+   tree-inline.h function.h tree-flow.h real.h $(TM_H)
 ipa-static-vars-anal.o : ipa-static-vars-anal.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) tree-inline.h langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_STATIC_H) $(C_COMMON_H) $(TREE_GIMPLE_H) \
@@ -1942,7 +1942,7 @@ ipa-inline.o : ipa-inline.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H
    $(COVERAGE_H)
 cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    langhooks.h tree-inline.h toplev.h $(FLAGS_H) $(GGC_H)  $(TARGET_H) $(CGRAPH_H) intl.h \
-   pointer-set.h function.h $(TREE_GIMPLE_H) $(TREE_FLOW_H) ipa_prop.h \
+   pointer-set.h function.h $(TREE_GIMPLE_H) $(TREE_FLOW_H) ipa_prop.h real.h\
    $(COVERAGE_H)
 coverage.o : coverage.c gcov-io.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) function.h \

@@ -1,6 +1,6 @@
-/* Callgraph handling code.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
-   Contributed by Razya Ladelsky.
+/* Interprocedural constant propagation
+   Copyright (C) 2004 Free Software Foundation, Inc.
+   Contributed by Razya Ladelsky <RAZYA@il.ibm.com>
 
 This file is part of GCC.
 
@@ -23,28 +23,40 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define IPA_PROP_H
 
 #include "tree.h"
+#include "real.h"
 /* The following definitions are used by 
    IPA Constant Propagation algorithm.  */
 typedef struct tree_int_cst_lowhi ipcp_int;
 enum Jfunc_type {
             UNKNOWN_IPATYPE,
-            CONST_IPATYPE,
+            CONST_IPATYPE_INT,
+            CONST_IPATYPE_FLOAT,
+            CONST_IPATYPE_INT_REF,
+	    CONST_IPATYPE_FLOAT_REF,
             FORMAL_IPATYPE
 };
 enum Cvalue_type {
             BOTTOM,
-            CONST_VALUE,
+            CONST_VALUE_INT,
+            CONST_VALUE_FLOAT,
+	    CONST_VALUE_INT_REF,
+	    CONST_VALUE_FLOAT_REF,
             TOP
 };
+union info{
+  ipcp_int int_value;
+  unsigned int formal_id;
+  REAL_VALUE_TYPE float_value;
+}; 
 struct ipcp_jump_func
 {
   enum Jfunc_type type; 
-  ipcp_int info_type;
+  union info info_type;
 };
 struct ipcp_formal
 { 
   enum Cvalue_type cvalue_type;
-  ipcp_int cvalue;
+  union info cvalue;
 }; 
 struct ipcp_tree_map
 {
@@ -54,22 +66,38 @@ struct ipcp_modify
 {
   bool mod;
 };
-
+struct ipcp_replace_map
+{
+  tree old_tree;
+  tree new_tree;
+  bool replace_p;
+  bool ref_p;
+};
 struct ipa_node
 {
+  /* Number of formal parameters of this method.  When set to 0,
+   this method's parameters would not be analyzed by the different 
+   stages of IPA CP.  */
+  int ipcp_arg_num;
   /* Array of cvals.  */
   struct ipcp_formal* GTY ((skip (""))) ipcp_cval;
-  int ipcp_arg_num;
   /* Mapping each parameter to its PARM_DECL tree.  */
   struct ipcp_tree_map* GTY ((skip (""))) ipcp_param_tree;
   /* Indicating which parameter is modified in its method.  */
   struct ipcp_modify* GTY ((skip (""))) ipcp_mod;
+   /* Only for cloned nodes this field would not be NULL, 
+  it points to the node that IPA cp cloned from.  */ 
+  struct cgraph_node *ipcp_orig_node;
 };
 
 struct ipa_edge
 {
-  struct ipcp_jump_func* GTY ((skip (""))) ipcp_param_map;
+  /* Number of actual arguments in this callsite.  When set to 0,
+   this callsite's parameters would not be analyzed by the different 
+   stages of IPA CP.  */
   int ipcp_param_num;
+  /* Array of the callsite's jump function of each parameter.  */
+  struct ipcp_jump_func* GTY ((skip (""))) ipcp_param_map; 
 };
 void ipcp_driver (void);
 

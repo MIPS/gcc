@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);
+extern tree create_function_name (const char *);
 extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
 extern void declare_tmp_vars (tree, tree);

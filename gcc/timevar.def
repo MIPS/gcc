@@ -42,6 +42,7 @@ DEFTIMEVAR (TV_DUMP                  , "dump files")
 DEFTIMEVAR (TV_CGRAPH                , "callgraph construction")
 DEFTIMEVAR (TV_IPA_OPT               , "ipa optimization")
 DEFTIMEVAR (TV_IPA_ANALYSIS          , "ipa analysis")
+DEFTIMEVAR (TV_IPA_CONSTANT_PROP     , "ipa cp")
 DEFTIMEVAR (TV_IPA_STATIC_VAR        , "ipa static vars")
 /* Time spent by constructing CFG.  */
 DEFTIMEVAR (TV_CFG                   , "cfg construction")

@@ -1,6 +1,6 @@
-/* Callgraph based intraprocedural optimizations.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
-   Contributed by Razya Ladelsky.
+/* Interprocedural constant propagation
+   Copyright (C) 2004 Free Software Foundation, Inc.
+   Contributed by Razya Ladelsky <RAZYA@il.ibm.com>
 
 This file is part of GCC.
 
@@ -20,8 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Interprocedural constant propagation.
-The aim of IPA constant propagation is to find which function's argument
-has the same constant value in each invocation throughout the whole program.
+The aim of interprocedural constant propagation (IPCP) is to find which function's 
+argument has the same constant value in each invocation throughout the whole program.
 For example, for an application consisting of two files, foo1.c, foo2.c:
 
 foo1.c contains :
@@ -47,8 +47,11 @@ int g (int y)
   printf ("value is %d",y);
 }
 
-The IPCP algorithm should find that g's formal argument y
+The IPCP algorithm will find that g's formal argument y
 is always called with the value 3. 
+
+The algorithm used is based on "Interprocedural Constant Propagation",
+by Challahan David, Keith D Cooper, Ken Kennedy, Linda Torczon, Comp86, pg 152-161
 
 The optimization is divided into three stages:
 
@@ -56,87 +59,92 @@ First stage - intraprocedural analysis
 =======================================
 This phase computes jump_function and modify information. 
 
-Jump functions represent the value that is passes to each actual argument 
-by this callsite.
-there are three values :
-  Formal - the caller's formal parameter is passed as a parameter.
-  Constant - a constant is passed as a parameter.
+A jump function for a callsite represents the values passed as actual arguments 
+of the callsite. There are three types of values :
+  Formal - the caller's formal parameter is passed as an actual argument.
+  Constant - a constant is passed as a an actual argument.
   Unknown - neither of the above.
 
-Modify is true for a formal parameter if it is modified in its function.
+In order to compute the jump functions, we need the modify information for the formal
+parameters of methods.
 
-In the case that the formal parameter passed in the callsite is 
-modified, the jump fumction value for this parameter turns to UNKOWN.
-
-The jump function structure, ipcp_jump_func, is defined in ipa_edge
+The jump function info, ipcp_jump_func, is defined in ipa_edge
 structure (defined in ipa_prop.h and pointed to by cgraph_node->aux)
 The modify info, ipcp_modify, is defined in ipa_node structure
 (defined in ipa_prop.h and pointed to by cgraph_edge->aux).
 
-The ipcp_tree_map (a mapping from the PARAM_DECL tree to the inner
-representation of formals) and ipcp_formal (explained below) structures
-are also pointed to by cgraph_node->aux and also initialized 
-in this phase.
-
--ipcp_stage1() is the first stage driver.
+-ipcp_init_stage() is the first stage driver.
 
 Second stage - interprocedural analysis
 ========================================
-This phase solves the interprocedural constant propagation problem.
-The algorithm is based on a paper by Challahan David, 
-Keith D Cooper, Ken Kennedy, Linda Torczon, 
-Interprocedural Constant Propagation, Comp86.
+This phase does the interprocedural constant propagation.
+It computes for all formal parameters in the program 
+their cval value that may be:
+  TOP - unknown. 
+  BOTTOM - non constant. 
+  CONSTANT_TYPE - constant value.
 
-Each formal has cval info (denoted as ipcp_formal) which represents its 
-value computed so far. 
-possible values : 
-  TOP - not known yet. 
-  BOTTOM - considered as not constant. 
-  CONSTANT_TYPE - has constant value.
-
-The algoritm computes for all formal parameters in the program 
-their cval value.
 Cval of formal f will have a constant value if all callsites to this 
-function have the same constant value passed to f 
-and will have BOTTOM value otherwise.
+function have the same constant value passed to f. 
 
-This stage propagates the constant information from formal paranmeters
-to the actual parameters.
+The cval info, ipcp_formal, is defined in ipa_node structure
+(defined in ipa_prop.h and pointed to by cgraph_edge->aux). 
 
--ipcp_stage2() is the second stage driver.
+-ipcp_iterate_stage() is the second stage driver.
 
-Third phase 
-============
+Third phase - transformation of methods code
+============================================
 Propagates the constant-valued formals into the function.
+For each method mt, whose parameters are consts, we create a clone.
 
--ipcp_stage3() is the third phase driver.
+We insert an assignment statement 'parameter = const' at the beginning 
+of the cloned method.
+
+We also need to modify some callsites to call to the cloned methods instead 
+of the original ones. For a callsite passing an argument found to be a constant 
+by IPCP, there are two different cases to handle:
+1. A constant is passed as an argument.
+2. A parameter (of the caller) passed as an argument (pass through argument).
+
+In the first case, the callsite in the original caller should be redirected 
+to call the cloned callee.
+In the second case, both the caller and the callee have clones
+and the callsite of the cloned caller would be redirected to call to 
+the cloned callee.
+
+The callgraph is updated accordingly.
+
+This update is done in two stages: 
+First all cloned methods are created during a traversal of the callgraph, 
+during which all callsites are redirected to call the cloned method.
+Then the callsites are traversed and updated as described above.
+
+-ipcp_insert_stage() is the third phase driver.
    
 */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
 #include "tree.h"
 #include "langhooks.h"
-#include "hashtab.h"
-#include "toplev.h"
-#include "flags.h"
 #include "ggc.h"
-#include "debug.h"
 #include "target.h"  
 #include "cgraph.h"
-#include "varray.h"
 #include "output.h"  
 #include "tree-iterator.h"
-#include "tree-gimple.h"
 #include "tree-inline.h"
 #include "ipa_prop.h"
+#include "function.h"
+#include "tree-flow.h"
+#include "tree-pass.h"
+#include "flags.h"
+#include "timevar.h"
 
 typedef struct cgraph_node *ipcp_method ;
 typedef  struct cgraph_edge *ipcp_callsite;
 
-struct ipcp_methodlist
+struct ipcp_methodlist GTY(())
 {
   ipcp_method method_p;
   struct ipcp_methodlist *next_method;
@@ -144,7 +152,7 @@ struct ipcp_methodlist
 
 typedef struct ipcp_methodlist *ipcp_methodlist_p;
 
-/* WorlList Interface.  */
+/* ipcp_worlList Interface.  */
 static inline ipcp_methodlist_p ipcp_create_methodlist_node (void); 
 static inline bool ipcp_methodlist_not_empty (ipcp_methodlist_p);
 static inline ipcp_method ipcp_methodlist_method (ipcp_methodlist_p); 
@@ -163,8 +171,11 @@ static inline struct ipcp_jump_func *ipcp_callsite_param (ipcp_callsite, int);
 static inline ipcp_method ipcp_callsite_callee (ipcp_callsite);
 static inline void ipcp_callsite_param_set_type (ipcp_callsite, int, 
 						 enum Jfunc_type);
-static inline void ipcp_callsite_param_set_info_type (ipcp_callsite, int, 
-						      ipcp_int *); 
+static inline void ipcp_callsite_param_set_info_type_formal (ipcp_callsite cs, 
+							     int i, 
+							     unsigned int formal) ;
+static inline void ipcp_callsite_param_set_info_type_int (ipcp_callsite cs, int i, 
+							  ipcp_int *info_type1) ;
 static inline void ipcp_callsite_param_map_create (ipcp_callsite);
 static inline tree ipcp_callsite_tree (ipcp_callsite);
 static inline ipcp_method ipcp_callsite_caller (ipcp_callsite);
@@ -172,6 +183,10 @@ static void ipcp_callsite_compute_param (ipcp_callsite);
 static void ipcp_callsite_compute_count (ipcp_callsite);
 
 /* ipcp_method interface.  */
+static inline void ipa_node_create (ipcp_method);
+static inline bool ipcp_method_is_cloned (ipcp_method);
+static inline void ipcp_method_set_orig_node (ipcp_method, ipcp_method);
+static inline ipcp_method ipcp_method_orig_node (ipcp_method);
 static inline void ipcp_formal_create (ipcp_method); 
 static inline int ipcp_method_formal_count (ipcp_method);
 static inline void ipcp_method_formal_count_set (ipcp_method, int); 
@@ -184,26 +199,25 @@ static inline tree ipcp_method_get_tree (ipcp_method, int);
 static inline void ipcp_method_tree_map_create (ipcp_method);
 static inline void ipcp_method_modify_create (ipcp_method); 
 static inline void ipcp_method_modify_set (ipcp_method, int, bool);
-static inline ipcp_callsite ipcp_cs_get_first (ipcp_method);
-static inline ipcp_callsite ipcp_cs_get_next (ipcp_callsite);
-static inline bool ipcp_cs_not_last (ipcp_callsite); 
+static void ipa_cloned_create (ipcp_method orig_node, ipcp_method new_node);
 static int  ipcp_method_tree_map (ipcp_method, tree);
 static void ipcp_method_compute_tree_map (ipcp_method);
 static void ipcp_cval_meet (struct ipcp_formal *, struct ipcp_formal *,
 			    struct ipcp_formal *);
 static void ipcp_cval_compute (struct ipcp_formal *, ipcp_method,
-			       enum Jfunc_type, ipcp_int *);
+			       enum Jfunc_type, union info *);
 static bool ipcp_cval_changed (struct ipcp_formal *, struct ipcp_formal *);
+static bool ipcp_type_is_const (enum Cvalue_type);
 static void ipcp_method_formal_compute_count (ipcp_method);
 static void ipcp_method_cval_init (ipcp_method);
-static tree ipcp_modify_walk_tree (tree *, void *);
+static tree ipcp_modify_walk_tree (tree *, int *, void *);
+static void ipcp_modify_walk_tree_1 (tree *, void *);
 static void ipcp_method_modify_init (ipcp_method);
 static void ipcp_method_compute_modify (ipcp_method);
 
 /* jump function interface.  */
 static inline enum Jfunc_type get_type (struct ipcp_jump_func *);
-static inline ipcp_int *ipcp_jf_get_info_type (struct ipcp_jump_func *);
-static inline void ipcp_jf_set_info_type (struct ipcp_jump_func *, ipcp_int *);
+static inline union info *ipcp_jf_get_info_type (struct ipcp_jump_func *);
 
 static inline void ipcp_int2ipcp_int (ipcp_int *, int);
 static inline int ipcp_get_int (ipcp_int *);
@@ -211,22 +225,28 @@ static inline int ipcp_get_int (ipcp_int *);
 /* cval interface.  */
 static inline void ipcp_cval_set_cvalue_type (struct ipcp_formal *, 
 					      enum Cvalue_type);
-static inline void ipcp_cval_set_cvalue (struct ipcp_formal *, ipcp_int *); 
-static inline ipcp_int *ipcp_cval_get_cvalue (struct ipcp_formal *);
+static inline void ipcp_cval_set_cvalue (struct ipcp_formal *, union info *, enum Cvalue_type); 
+static inline union info *ipcp_cval_get_cvalue (struct ipcp_formal *);
 static inline enum Cvalue_type ipcp_cval_get_cvalue_type (struct ipcp_formal *);
-static inline bool ipcp_cval_equal_cvalues (ipcp_int *, ipcp_int *);
+static inline bool ipcp_cval_equal_cvalues (union info *const_val1, union info *const_val2, 
+					    enum Cvalue_type type1, enum Cvalue_type type2);
 
-static void ipcp_stage1 (void);
-static void ipcp_stage2 (void);
-static void ipcp_stage3 (void);
+static void ipcp_init_stage (void);
+static void ipcp_iterate_stage (void);
+static bool ipcp_after_propagate (void);
+static void ipcp_propagate_stage (void);
+static void ipcp_insert_stage (void);
+static void ipcp_update_callgraph (void);
+static bool ipcp_redirect (ipcp_callsite);
 static void ipcp_free (void);
 static void ipa_nodes_create (void);
+static void ipa_edges_create (void);
 
-static bool ipcp_method_dont_propagate (ipcp_method);
+static bool ipcp_method_dont_insert_const (ipcp_method);
 static tree ipcp_asm_walk_tree (tree *, int *, void *);
+static tree ipcp_asm_walk_tree_1 (tree *);
 static bool ipcp_method_contains_asm (ipcp_method);
-static void ipcp_walk_statements (ipcp_method, tree *);
-static void ipcp_propagate_const (ipcp_method, int, ipcp_int *);
+static void ipcp_propagate_const (ipcp_method, int, union info *, enum Cvalue_type);
 static void constant_val_insert (tree, tree, tree);
 
 /* Debugging interface.  */
@@ -238,36 +258,42 @@ static void ipcp_callsite_param_print (FILE *f);
 
 /* WorlList Interface.  */
 
+/* Creates the worklist for ipcp_iterate_stage().  */
 static inline ipcp_methodlist_p
 ipcp_create_methodlist_node (void) 
 {
   return ggc_alloc (sizeof (struct ipcp_methodlist));
 }
 
+/* Checks that worklist is not empty.  */
 static inline bool
 ipcp_methodlist_not_empty (ipcp_methodlist_p wl)
 {
   return (wl != NULL);
 }
 
+/* Gets method from worklist's node.  */
 static inline ipcp_method
 ipcp_methodlist_method (ipcp_methodlist_p wl) 
 {
   return wl->method_p;   
 }
 
+/* Sets worklist's node to point to mt.  */
 static inline void
 ipcp_methodlist_method_set (ipcp_methodlist_p wl, ipcp_method mt)
 {
   wl->method_p = mt;
 }
 
+/* Gets next worklist's node.  */
 static inline ipcp_methodlist_p
 ipcp_methodlist_next_method (ipcp_methodlist_p wl) 
 { 
   return wl->next_method;    
 }
 
+/* Sets worklist node wl1 to point to  worklist node wl2.  */
 static inline void
 ipcp_methodlist_next_method_set (ipcp_methodlist_p wl1, ipcp_methodlist_p wl2) 
 { 
@@ -283,9 +309,8 @@ ipcp_methodlist_init(void)
 
   wl = NULL;
   for (node = cgraph_nodes; node; node = node->next)
-    {
-      ipcp_add_method (&wl, node);
-    }
+    ipcp_add_method (&wl, node);
+  
   return wl;
 }
 
@@ -312,45 +337,70 @@ ipcp_remove_method (ipcp_methodlist_p *wl)
   return ipcp_methodlist_method (first);
 }
 
-/* callsite interface.  */
+/* ipcp_callsite interface.  */
+
+/* Gets how many arguments the callsite has.  */
 static inline int 
 ipcp_callsite_param_count (ipcp_callsite cs) 
 { 
   return ((struct ipa_edge *)cs->aux)->ipcp_param_num;
 }
 
+/* Sets how many arguments the callsite has.  */
 static inline void 
 ipcp_callsite_param_count_set (ipcp_callsite cs, int i) 
 {
   ((struct ipa_edge *)cs->aux)->ipcp_param_num = i;
 }
 
+/* Gets the jump function for argument i of callsite cs.  */
 static inline struct ipcp_jump_func *
 ipcp_callsite_param (ipcp_callsite cs, int i) 
 {
   return &(((struct ipa_edge *)cs->aux)->ipcp_param_map[i]);
 }
 
+/* Gets the callee of callsite cs.  */
 static inline ipcp_method 
 ipcp_callsite_callee (ipcp_callsite cs)
 {
   return cs->callee;
 }
 
-
+/* Sets the jump function's type for argument i of callsite cs.  */
 static inline void
 ipcp_callsite_param_set_type (ipcp_callsite cs, int i,  enum Jfunc_type type1) 
 {
   ((struct ipa_edge *)cs->aux)->ipcp_param_map[i].type = type1;
 }
 
+/* Sets formal to the callsite's info type (for argument i).  */
 static inline void
-ipcp_callsite_param_set_info_type (ipcp_callsite cs, int i, 
-				   ipcp_int *info_type1) 
+ipcp_callsite_param_set_info_type_formal (ipcp_callsite cs, int i, 
+					  unsigned int formal) 
 {
-  ipcp_jf_set_info_type (ipcp_callsite_param (cs, i), info_type1);
+  ipcp_callsite_param (cs, i)->info_type.formal_id = formal;
 }
 
+/* Sets int value to the callsite's info type (for argument i).  */
+static inline void
+ipcp_callsite_param_set_info_type_int (ipcp_callsite cs, int i, 
+				       ipcp_int *info_type1) 
+{
+  ipcp_callsite_param (cs, i)->info_type.int_value.high = info_type1->high;
+  ipcp_callsite_param (cs, i)->info_type.int_value.low = info_type1->low;
+}
+
+/* Sets float value to the callsite's info type (for argument i).  */
+static inline void
+ipcp_callsite_param_set_info_type_float (ipcp_callsite cs, int i, 
+				       REAL_VALUE_TYPE *info_type1) 
+{ 
+  ipcp_callsite_param (cs, i)->info_type.float_value = *info_type1; 
+}
+
+
+/* Allocates space for the jump functions.  */
 static inline void
 ipcp_callsite_param_map_create (ipcp_callsite cs) 
 {
@@ -358,12 +408,14 @@ ipcp_callsite_param_map_create (ipcp_callsite cs)
     xcalloc (ipcp_callsite_param_count (cs), sizeof (struct ipcp_jump_func));   
 }
 
+/* Returns the call expr tree realted to callsite cs.  */
 static inline tree
 ipcp_callsite_tree (ipcp_callsite cs) 
 {
   return cs->call_expr;
 }
 
+/* Gets the caller of callsite cs.  */
 static inline ipcp_method 
 ipcp_callsite_caller (ipcp_callsite cs) 
 {
@@ -384,9 +436,7 @@ ipcp_callsite_compute_count (ipcp_callsite cs)
   arg = TREE_OPERAND (callTree, 1);
   arg_num=0;
   for (; arg != NULL_TREE; arg = TREE_CHAIN (arg))
-    {
-      arg_num++;
-    }
+    arg_num++;
   ipcp_callsite_param_count_set (cs,arg_num);
 }
 
@@ -396,11 +446,10 @@ static void
 ipcp_callsite_compute_param (ipcp_callsite cs)
 {
   tree callTree;
-  tree arg;
+  tree arg, cst_decl;
   int arg_num;
   int i;
   ipcp_method mt;
-  ipcp_int info_type;
 
   if (ipcp_callsite_param_count(cs) == 0)
     return;
@@ -418,33 +467,86 @@ ipcp_callsite_compute_param (ipcp_callsite cs)
 	  mt = ipcp_callsite_caller (cs);
 	  i =  ipcp_method_tree_map (mt, TREE_VALUE (arg));
 	  if (ipcp_method_is_modified (mt, i))
-	    {
-	      ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
-	    }
+            ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
 	  else
 	    {
 	      ipcp_callsite_param_set_type (cs, arg_num, FORMAL_IPATYPE);
-	      ipcp_int2ipcp_int (&info_type, i);
-	      ipcp_callsite_param_set_info_type (cs, arg_num, &info_type);
+	      ipcp_callsite_param_set_info_type_formal (cs, arg_num, i);
 	    }
 	}
       else if (TREE_CODE (TREE_VALUE (arg)) == INTEGER_CST)
 	{
-	  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE);
-	  ipcp_callsite_param_set_info_type (cs, arg_num,
+	  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_INT);
+	  ipcp_callsite_param_set_info_type_int (cs, arg_num,
 					     &TREE_INT_CST (TREE_VALUE (arg)));
   	}
-      else
-	{
-	  ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
+      else if (TREE_CODE (TREE_VALUE (arg)) == REAL_CST)
+        {
+          ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_FLOAT);
+	  ipcp_callsite_param_set_info_type_float (cs, arg_num,
+					     TREE_REAL_CST_PTR (TREE_VALUE (arg)));
+ 				
 	}
-	arg_num++;
+      else if (TREE_CODE (TREE_VALUE (arg)) == ADDR_EXPR)
+	{ 
+	  if( TREE_CODE (TREE_OPERAND (TREE_VALUE (arg), 0)) == CONST_DECL )
+	    {
+	      cst_decl = TREE_OPERAND (TREE_VALUE (arg), 0);
+	      if (TREE_CODE (DECL_INITIAL (cst_decl)) == INTEGER_CST)
+		{
+		  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_INT_REF);
+		  ipcp_callsite_param_set_info_type_int (cs, arg_num,
+						      &TREE_INT_CST (DECL_INITIAL (cst_decl)));
+		}
+	      else if (TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST)
+		{
+		  cst_decl =  TREE_OPERAND (TREE_VALUE (arg), 0);
+		  ipcp_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_FLOAT_REF);
+		  ipcp_callsite_param_set_info_type_float (cs, arg_num,
+							   TREE_REAL_CST_PTR (DECL_INITIAL (cst_decl)));  
+		}
+	      else
+		ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
+	    }
+	}
+      else
+        ipcp_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
+      arg_num++;
     }
 }
 
 
 /* ipcp_method interface.  */
 
+/* Allocate and initialize ipa_node structure.  */
+static inline void
+ipa_node_create (ipcp_method node)
+{
+   node->aux = xcalloc (1, sizeof (struct ipa_node));
+}
+
+/* Returns true if node is a cloned/versioned node.  */
+static inline bool
+ipcp_method_is_cloned (ipcp_method node)
+{
+  return (ipcp_method_orig_node (node) != NULL);
+}
+
+/* Get orig node of method mt.  */
+static inline ipcp_method
+ipcp_method_orig_node (ipcp_method mt)
+{
+  return ((struct ipa_node *)mt->aux)->ipcp_orig_node;
+}
+
+/* Sets orig node of method node.  */
+static inline void
+ipcp_method_set_orig_node (ipcp_method node, ipcp_method orig_node)
+{
+  ((struct ipa_node *)node->aux)->ipcp_orig_node = orig_node;
+}
+
+/* Create cval structure for method mt.  */
 static inline void
 ipcp_formal_create (ipcp_method mt) 
 {
@@ -452,31 +554,37 @@ ipcp_formal_create (ipcp_method mt)
     xcalloc (ipcp_method_formal_count (mt), sizeof (struct ipcp_formal));
 }
 
+/* Get number of formals of method mt.  */
 static inline int
 ipcp_method_formal_count (ipcp_method mt)
 {
   return ((struct ipa_node *)mt->aux)->ipcp_arg_num;
 }
 
+/* Set number of formals of method mt.  */
 static inline void 
 ipcp_method_formal_count_set (ipcp_method mt, int i) 
 {
   ((struct ipa_node *)mt->aux)->ipcp_arg_num = i;
 }
 
+/* Set cval structure of i-th formal of mt to cval.  */
 static inline void 
 ipcp_method_cval_set (ipcp_method mt, int i, struct ipcp_formal *cval)             
 {
   ((struct ipa_node *)mt->aux)->ipcp_cval[i].cvalue_type = cval->cvalue_type;   
-  ipcp_cval_set_cvalue ( ipcp_method_cval (mt, i), ipcp_cval_get_cvalue (cval));     
+  ipcp_cval_set_cvalue ( ipcp_method_cval (mt, i), 
+			 ipcp_cval_get_cvalue (cval), cval->cvalue_type);     
 }
 
+/* Get cval structure of i-th formal of mt.  */
 static inline struct ipcp_formal *
 ipcp_method_cval (ipcp_method mt, int info_type) 
 {
   return &(((struct ipa_node *)mt->aux)->ipcp_cval[info_type]);
 }
 
+/* Set type of cval structure of formal i of mt to cval_type.  */
 static inline void 
 ipcp_method_cval_set_cvalue_type (ipcp_method mt, int i, 
 				  enum Cvalue_type cval_type)  
@@ -484,18 +592,21 @@ ipcp_method_cval_set_cvalue_type (ipcp_method mt, int i,
   ((struct ipa_node *)mt->aux)->ipcp_cval[i].cvalue_type = cval_type;
 }
 
+/* Returns whether i-th formal of mt is modified in mt.  */
 static inline bool 
 ipcp_method_is_modified (ipcp_method mt, int i)
 {
   return ((struct ipa_node *)mt->aux)->ipcp_mod[i].mod;
 }
 
+/* Get param tree of i-th formal of mt.  */
 static inline tree 
 ipcp_method_get_tree (ipcp_method mt, int i)
 {
   return ((struct ipa_node *)mt->aux)->ipcp_param_tree[i].param_tree;
 }
 
+/* Create tree map structure of mt.  */
 static inline void 
 ipcp_method_tree_map_create (ipcp_method mt)
 { 
@@ -503,6 +614,7 @@ ipcp_method_tree_map_create (ipcp_method mt)
     xcalloc (ipcp_method_formal_count (mt), sizeof (struct ipcp_tree_map));
 }
 
+/* Create modify structure of mt.  */
 static inline void  
 ipcp_method_modify_create (ipcp_method mt) 
 { 
@@ -510,41 +622,33 @@ ipcp_method_modify_create (ipcp_method mt)
     xcalloc (ipcp_method_formal_count (mt), sizeof (struct ipcp_modify));
 }
 
+/* Set modify of i-th formal of mt.  */
 static inline void  
 ipcp_method_modify_set (ipcp_method mt, int i, bool val)
 {
   ((struct ipa_node *)mt->aux)->ipcp_mod[i].mod = val;
 }
 
-static inline ipcp_callsite
-ipcp_cs_get_first (ipcp_method mt)
+static void
+ipa_cloned_create (ipcp_method orig_node, ipcp_method new_node)
 {
-  return mt->callees;
-}
-
-static inline ipcp_callsite
-ipcp_cs_get_next (ipcp_callsite cs)
-{
-  return cs->next_callee;
-}
-
-static inline bool 
-ipcp_cs_not_last (ipcp_callsite cs) 
-{
-  return (cs != NULL);
+  ipa_node_create (new_node);
+  ipcp_method_set_orig_node (new_node, orig_node);
+  ipcp_method_formal_compute_count (new_node);
+  ipcp_method_compute_tree_map (new_node);  
 }
 
 /* Returning the parameter index of the ptree.  */
 static int  
 ipcp_method_tree_map (ipcp_method mt, tree ptree)
 {
-  int i;
-
-  for (i =0; i < ipcp_method_formal_count (mt); i++)
-    {
-      if (((struct ipa_node *)mt->aux)->ipcp_param_tree[i].param_tree == ptree)
-	return i;
-    }
+  int i, count;
+  
+  count = ipcp_method_formal_count (mt);
+  for (i = 0; i < count; i++)
+    if (((struct ipa_node *)mt->aux)->ipcp_param_tree[i].param_tree == ptree)
+      return i;
+  
   return -1;
 }
 
@@ -585,45 +689,64 @@ ipcp_cval_meet (struct ipcp_formal *cval, struct ipcp_formal *cval1,
   if (ipcp_cval_get_cvalue_type (cval1) == TOP)
     {
       ipcp_cval_set_cvalue_type (cval, ipcp_cval_get_cvalue_type (cval2));
-      ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval2));
+      ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval2), 
+			    ipcp_cval_get_cvalue_type (cval2));
       return;
     }
   if (ipcp_cval_get_cvalue_type (cval2) == TOP)
     {
       ipcp_cval_set_cvalue_type (cval, ipcp_cval_get_cvalue_type (cval1));
-      ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval1));
+      ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval1), 
+			    ipcp_cval_get_cvalue_type (cval1));
       return;
     }
   if (!ipcp_cval_equal_cvalues (ipcp_cval_get_cvalue (cval1), 
-				ipcp_cval_get_cvalue (cval2)))
+				ipcp_cval_get_cvalue (cval2), 
+				ipcp_cval_get_cvalue_type (cval1),
+				ipcp_cval_get_cvalue_type (cval2)))
     {
       ipcp_cval_set_cvalue_type(cval, BOTTOM);
       return;
     }
   ipcp_cval_set_cvalue_type (cval, ipcp_cval_get_cvalue_type (cval1));
-  ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval1));
+  ipcp_cval_set_cvalue (cval, ipcp_cval_get_cvalue (cval1), 
+			ipcp_cval_get_cvalue_type (cval1));
 }
 
 /* Given the jump function, computes the  value of cval.  */
 static void 
 ipcp_cval_compute (struct ipcp_formal *cval,ipcp_method mt,
-                     enum Jfunc_type type, ipcp_int *info_type)
+                     enum Jfunc_type type, union info *info_type)
 {
   if (type == UNKNOWN_IPATYPE)
     ipcp_cval_set_cvalue_type (cval, BOTTOM);
-  else if (type == CONST_IPATYPE)
+  else if (type == CONST_IPATYPE_INT)
     {
-      ipcp_cval_set_cvalue_type (cval, CONST_VALUE);
-      ipcp_cval_set_cvalue (cval, info_type);
+      ipcp_cval_set_cvalue_type (cval, CONST_VALUE_INT);
+      ipcp_cval_set_cvalue (cval, info_type, CONST_VALUE_INT);
+    }
+  else if (type == CONST_IPATYPE_FLOAT)
+    {
+      ipcp_cval_set_cvalue_type (cval, CONST_VALUE_FLOAT);
+      ipcp_cval_set_cvalue (cval, info_type, CONST_VALUE_FLOAT);
+    }
+  else if (type == CONST_IPATYPE_INT_REF)
+    {
+      ipcp_cval_set_cvalue_type (cval, CONST_VALUE_INT_REF);
+      ipcp_cval_set_cvalue (cval, info_type, CONST_VALUE_INT_REF);
+    }
+  else if (type == CONST_IPATYPE_FLOAT_REF)
+    {
+      ipcp_cval_set_cvalue_type (cval, CONST_VALUE_FLOAT_REF);
+      ipcp_cval_set_cvalue (cval, info_type, CONST_VALUE_FLOAT_REF);
     }
   else if (type == FORMAL_IPATYPE)
     {
-      ipcp_cval_set_cvalue_type (cval, 
-				 ipcp_cval_get_cvalue_type (ipcp_method_cval (mt, 
-									      ipcp_get_int (info_type))));
+      enum Cvalue_type type = ipcp_cval_get_cvalue_type (ipcp_method_cval (mt, info_type->formal_id));
+      ipcp_cval_set_cvalue_type (cval, type);
+				 
       ipcp_cval_set_cvalue (cval, 
-			    ipcp_cval_get_cvalue (ipcp_method_cval (mt, 
-								    ipcp_get_int (info_type))));
+			    ipcp_cval_get_cvalue (ipcp_method_cval (mt, info_type->formal_id)), type);
     }
 }
 
@@ -631,17 +754,31 @@ ipcp_cval_compute (struct ipcp_formal *cval,ipcp_method mt,
 static bool 
 ipcp_cval_changed (struct ipcp_formal *cval1, struct ipcp_formal *cval2)
 {
-  
- 
-    if (ipcp_cval_get_cvalue_type (cval1) == ipcp_cval_get_cvalue_type (cval2))
-      {
-        if (ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE)
-          return false;
-        if (ipcp_cval_equal_cvalues (ipcp_cval_get_cvalue (cval1), 
-				     ipcp_cval_get_cvalue (cval2)))
-           return false;
-      }
+  if (ipcp_cval_get_cvalue_type (cval1) == ipcp_cval_get_cvalue_type (cval2))
+    {
+      if (ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_INT &&
+          ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_FLOAT &&
+	  ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_INT_REF &&
+	  ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_FLOAT_REF)
+	return false;
+      if (ipcp_cval_equal_cvalues (ipcp_cval_get_cvalue (cval1), 
+				   ipcp_cval_get_cvalue (cval2), 
+				   ipcp_cval_get_cvalue_type (cval1),
+				   ipcp_cval_get_cvalue_type (cval2)))
+	return false;
+    }
   return true;
+}
+
+/* Returns whether the type is a constant type.  */
+static bool 
+ipcp_type_is_const (enum Cvalue_type type)
+{
+  if (type == CONST_VALUE_INT || type ==  CONST_VALUE_FLOAT 
+      || type == CONST_VALUE_INT_REF || type == CONST_VALUE_FLOAT_REF)
+    return true;
+  else 
+    return false;
 }
 
 /* Counts how many parameters a method has.  */
@@ -657,9 +794,7 @@ ipcp_method_formal_compute_count (ipcp_method mt)
   fnargs = DECL_ARGUMENTS (fndecl);
   param_num = 0;
   for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
-    {
-      param_num++;
-    }
+    param_num++;
   ipcp_method_formal_count_set (mt, param_num);
 }
 
@@ -669,24 +804,26 @@ ipcp_method_cval_init (ipcp_method mt)
 {
   int i;
   tree parm_tree;
-
+ 
   ipcp_formal_create (mt);
   for(i = 0; i < ipcp_method_formal_count (mt); i++)
     {
       parm_tree = ipcp_method_get_tree (mt, i);
-      if (TREE_CODE (TREE_TYPE (parm_tree)) == INTEGER_TYPE
-          && !get_qualified_type (TREE_TYPE (parm_tree),TYPE_QUAL_CONST))
-	ipcp_method_cval_set_cvalue_type (mt, i, TOP);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (parm_tree)) ||
+          SCALAR_FLOAT_TYPE_P(TREE_TYPE (parm_tree)) ||
+	  POINTER_TYPE_P (TREE_TYPE (parm_tree)))
+        ipcp_method_cval_set_cvalue_type (mt, i, TOP);
       else 
 	ipcp_method_cval_set_cvalue_type (mt, i, BOTTOM);     
     }
 }
 
-/* Called by ipcp_walk_statements(). In the case a paramer 
-   is modified within the method,
-   the appropriate entry is updated in the ipcp_mod array.  */
+/* Called by walk_tree. In the case a paramer 
+   is modified within the method,the appropriate entry is 
+   updated in the ipcp_mod array.  */
 static tree 
-ipcp_modify_walk_tree (tree *tp, void *data)
+ipcp_modify_walk_tree (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, 
+		    void *data)
 {
   tree t = *tp;
   int i, j;
@@ -699,21 +836,23 @@ ipcp_modify_walk_tree (tree *tp, void *data)
 	{
 	  i = ipcp_method_tree_map (mt, TREE_OPERAND (t, 0));
           ipcp_method_modify_set (mt, i, true);
-	}
+	}     
       break;
     case ADDR_EXPR:
+      /* If the parameter's address is taken, 
+         it could be modified.  */
+     
       if( TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL )
         {
 	  i = ipcp_method_tree_map (mt, TREE_OPERAND (t, 0));
           ipcp_method_modify_set (mt, i, true);
         }
       break;
-    case ASM_EXPR:   
+    case ASM_EXPR:  
+      /* Asm code could modify any of the parameters.  */
       for (j = 0; j < ipcp_method_formal_count (mt); j++)
-	{
-	  ipcp_method_modify_set (mt, j, true);
-	}
-	break;
+        ipcp_method_modify_set (mt, j, true);
+      break;
     default:
       break;
     }
@@ -724,13 +863,12 @@ ipcp_modify_walk_tree (tree *tp, void *data)
 static void 
 ipcp_method_modify_init (ipcp_method mt)
 {
-  int i;
- 
+  int i, count;
+  
   ipcp_method_modify_create (mt);
-  for(i = 0; i < ipcp_method_formal_count (mt); i++)
-    {
-      ipcp_method_modify_set (mt, i, false);
-    }
+  count = ipcp_method_formal_count (mt);
+  for(i = 0; i < count; i++)
+    ipcp_method_modify_set (mt, i, false);
 }
 
 /* The modify computation driver.  */
@@ -739,72 +877,63 @@ ipcp_method_compute_modify (ipcp_method mt)
 {
   tree decl;
   tree body;
-  int j;
+  int j, count;
+  basic_block bb;
+  struct function *func;
+  block_stmt_iterator bsi;
+  tree stmt;
 
   ipcp_method_modify_init (mt);
   decl = mt->decl;
-  if (!tree_inlinable_function_p (decl))
+  /* ??? Handle pending sizes case. Set all parameters 
+     of the method to be modified.  */  
+  if (DECL_UNINLINABLE (decl))
     {
-      for (j = 0; j < ipcp_method_formal_count (mt); j++)
-	{
-	  ipcp_method_modify_set (mt, j, true);
-	}
+      count = ipcp_method_formal_count (mt);
+      for (j = 0; j < count; j++)
+        ipcp_method_modify_set (mt, j, true);
       return;
     }
   body = DECL_SAVED_TREE (decl);
   if (body !=NULL)
-    if (TREE_CODE (body) == BIND_EXPR)
-      ipcp_walk_statements (mt, &body);
-}
-
-/* Walk over all statements of the method 
-   and compute modify.  */ 
-static void
-ipcp_walk_statements (ipcp_method mt, tree *stmt_p)
-{
-  tree stmt = *stmt_p;
-  enum tree_code code = TREE_CODE (stmt); 
-  tree_stmt_iterator i;
-
-  switch (code)
     {
-    case STATEMENT_LIST:
-      for (i = tsi_start (stmt); !tsi_end_p (i); )
-	  {
-            ipcp_walk_statements (mt, tsi_stmt_ptr (i));
-	      tsi_next (&i);
-	  }     
-      break;
-    case BIND_EXPR:
-      ipcp_walk_statements (mt, &BIND_EXPR_BODY (stmt));
-      break;
-    default:
-      ipcp_modify_walk_tree (&stmt, (void *)mt);
-      break;
+      func = DECL_STRUCT_FUNCTION (decl);
+      FOR_EACH_BB_FN (bb, func)
+	{
+	  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
+	    {
+	      stmt = bsi_stmt (bsi);
+	      ipcp_modify_walk_tree_1 (&stmt, (void *)mt);
+	    }
+	}
     }
 }
 
-/* jump function interface.  */
+/* Walks tp to find if there's modification to any of the parameters.  */
+static void
+ipcp_modify_walk_tree_1 (tree *tp, void *data)
+{
+   walk_tree (tp, ipcp_modify_walk_tree, data, NULL);
+}
 
+
+/* ipcp_jump_func interface.  */
+
+/* Get type of jump function jf.  */
 static inline enum Jfunc_type
 get_type (struct ipcp_jump_func *jf)
 {
   return jf->type;
 }
 
-static inline ipcp_int *
+/* Get info type of jump function jf.  */
+static inline union info *
 ipcp_jf_get_info_type (struct ipcp_jump_func *jf) 
 {
   return &(jf->info_type);
 }
 
-static inline void 
-ipcp_jf_set_info_type (struct ipcp_jump_func *jf, ipcp_int *info_type)
-{
-  jf->info_type.low = info_type->low;
-  jf->info_type.high = info_type->high;
-}
-
+/* Transform const_val to an ipcp_int type.  */
 static inline void 
 ipcp_int2ipcp_int (ipcp_int *info_type, int const_val)
 {
@@ -812,6 +941,7 @@ ipcp_int2ipcp_int (ipcp_int *info_type, int const_val)
   info_type->high = 0;
 }
 
+/* Returns low part of info_type as an int.  */
 static inline int
 ipcp_get_int (ipcp_int *info_type)
 {
@@ -820,37 +950,59 @@ ipcp_get_int (ipcp_int *info_type)
 
 /* cval interface.  */
 
+/* Sets type to cval.  */
 static inline void 
 ipcp_cval_set_cvalue_type (struct ipcp_formal *cval, enum Cvalue_type type)
 {
   cval->cvalue_type = type;
 }
 
+/* Sets value to cval.  */
 static inline void
-ipcp_cval_set_cvalue (struct ipcp_formal *cval, ipcp_int *value) 
+ipcp_cval_set_cvalue (struct ipcp_formal *cval, union info *value, 
+		      enum Cvalue_type type) 
 {
-  cval->cvalue.low = value->low;
-  cval->cvalue.high = value->high;
+  if (type == CONST_VALUE_INT || type == CONST_VALUE_INT_REF)
+    {
+      cval->cvalue.int_value.low = value->int_value.low;
+      cval->cvalue.int_value.high = value->int_value.high;
+    }
+  else if (type == CONST_VALUE_FLOAT || type == CONST_VALUE_FLOAT_REF)
+    cval->cvalue.float_value =  value->float_value;
 }
 
-static inline ipcp_int *
+/* Returns value part of cval.  */
+static inline union info *
 ipcp_cval_get_cvalue (struct ipcp_formal *cval)
 {
   return &(cval->cvalue);
 }
 
+/* Returns type part of cval.  */
 static inline enum Cvalue_type
 ipcp_cval_get_cvalue_type (struct ipcp_formal *cval)
 {
   return cval->cvalue_type;
 }
 
+/* Returns true if const_val1 and const_val2 are equal.  */
 static inline bool 
-ipcp_cval_equal_cvalues (ipcp_int *const_val1, ipcp_int *const_val2)
+ipcp_cval_equal_cvalues (union info *const_val1, union info *const_val2, 
+			 enum Cvalue_type type1, enum Cvalue_type type2)
 {
-  if ((const_val1->low == const_val2->low) 
-      && (const_val1->high == const_val2->high)) 
-    return true; 
+  gcc_assert (ipcp_type_is_const (type1) && ipcp_type_is_const (type2));
+  if (type1 != type2) 
+     return false;
+  
+  if (type1 == CONST_VALUE_INT  || type1 == CONST_VALUE_INT_REF) 
+  {
+    if ((const_val1->int_value.low == const_val2->int_value.low) 
+        && (const_val1->int_value.high == const_val2->int_value.high)) 
+      return true; 
+   }
+   else if(REAL_VALUES_EQUAL (const_val1->float_value, const_val2->float_value))
+       return true;  
+ 
   return false;
 }
 
@@ -858,138 +1010,178 @@ ipcp_cval_equal_cvalues (ipcp_int *const_val1, ipcp_int *const_val2)
    it the first statemant in the function FN
    parse tree.
    PARM1 is the lhs of the assignment and
-   is the rhs. */
+   val is the rhs. */
 static void 
 constant_val_insert (tree fn, tree parm1, tree val)
 {
-  tree_stmt_iterator i; 
-  tree init_stmts = NULL_TREE;
-  tree init_stmt;
-  tree stmt_list_body;
-  tree body;
+  struct function *func;
+  basic_block bb;
+  block_stmt_iterator new_bsi;
+  tree init_stmt, stmt;
   
-  tree rhs = convert (TREE_TYPE (parm1), val);
-  if (rhs == error_mark_node)
-    return;
-  init_stmt = build (MODIFY_EXPR, TREE_TYPE (parm1), parm1, rhs);
-  append_to_statement_list (init_stmt, &init_stmts);
-  /* Find the first statment in the tree. */
-  body = DECL_SAVED_TREE (fn);
-  if (body == NULL)
-    return;  
-  if (TREE_CODE (body) != BIND_EXPR)
-    return;
-  stmt_list_body =  BIND_EXPR_BODY (body);
-  if (stmt_list_body == NULL)
-    return;
-  i = tsi_start (stmt_list_body);
-  tsi_link_before (&i, init_stmts, TSI_NEW_STMT);  
+  /* Temporary, until it is debugged completely.  */  
+  return;
+  init_stmt = build2 (MODIFY_EXPR, void_type_node, parm1, val);
+  func = DECL_STRUCT_FUNCTION (fn);
+  bb = ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->next_bb;
+  new_bsi = bsi_start (bb);
+  if (empty_block_p (bb))
+     {
+        bsi_insert_before (&new_bsi, init_stmt, BSI_NEW_STMT);
+      }
+  else
+  {
+  stmt = bsi_stmt (new_bsi);
+  if (TREE_CODE (stmt) == LABEL_EXPR)
+  {
+    new_bsi = bsi_after_labels (bb);
+    bsi_insert_after (&new_bsi, init_stmt, BSI_NEW_STMT);
+  } 
+  else
+    {
+    
+    bsi_insert_before (&new_bsi, init_stmt, BSI_NEW_STMT);
+    }
+  }
 }
+
+static tree 
+build_const_val (union info *cvalue, enum Cvalue_type type)
+{
+  tree const_val;
+ 
+  if (type == CONST_VALUE_INT ||  type ==  CONST_VALUE_INT_REF)
+    const_val = build_int_cst_wide (NULL_TREE, cvalue->int_value.low, 
+				    cvalue->int_value.high);  
+  else if (type == CONST_VALUE_FLOAT || type == CONST_VALUE_FLOAT_REF)
+    const_val = build_real ( float_type_node, cvalue->float_value);
+  else
+    abort (); 
+  return const_val;
+}
+
 
 /* Build the constant tree and call constant_val_insert().  */
 static void 
-ipcp_propagate_const (ipcp_method mt, int param, ipcp_int *cvalue)
+ipcp_propagate_const (ipcp_method mt, int param, union info *cvalue, 
+		      enum Cvalue_type type)
 {
   tree fndecl;
   tree const_val;
   tree parm_tree;
 
+  if (dump_file)
+    fprintf (dump_file, "propagating const to %s\n",
+             cgraph_node_name (mt));
   fndecl = mt->decl;
   parm_tree = ipcp_method_get_tree (mt, param);
-  const_val = build_int_cst_wide (NULL_TREE, cvalue->low, cvalue->high);   
+  if (type == CONST_VALUE_INT)
+    const_val = build_int_cst_wide (NULL_TREE, cvalue->int_value.low, 
+				    cvalue->int_value.high);  
+  else if (type == CONST_VALUE_FLOAT)
+    const_val = build_real ( TREE_TYPE (parm_tree), cvalue->float_value);
+  else
+    abort ();
   if (parm_tree != NULL)
-    if (const_val != NULL)
-      if(fndecl != NULL)
-	constant_val_insert (fndecl, parm_tree, const_val);   
+    if(fndecl != NULL)
+      constant_val_insert (fndecl, parm_tree, const_val);   
 }
 
-/* Propagates the constant parameters found by ipcp_stage2()
-   to the function's code.  */
-static void 
-ipcp_stage3 (void)
-{
-  ipcp_method node;
-  int i;
-  ipcp_int *cvalue;
- 
-  for (node = cgraph_nodes; node; node = node->next)
-    {  
-      /* Propagation of the constant is forbidden in 
-         certain conditions.  */
-      if (ipcp_method_dont_propagate (node))
-        continue;
-      for(i=0; i < ipcp_method_formal_count (node); i++)
-	{
-	  if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
-	      == CONST_VALUE) 
-	    {
-	      cvalue = ipcp_cval_get_cvalue (ipcp_method_cval (node, i));
-              ipcp_propagate_const (node, i, cvalue);                       
-	    }
-	}
-    }
-}
-
-/* Initialization and computation of IPA Constant
-   Propagation data structures. It is an IntraProcedural
+/* Initialization and computation of IPCP data structures. 
+   It is an intraprocedural
    analysis of methods,which gathers information to be propagated
    later on.  */
 static void 
-ipcp_stage1 (void)
+ipcp_init_stage (void)
 {
-   ipcp_method node;
-   ipcp_callsite cs;
-     
-   for (node = cgraph_nodes; node; node = node->next)
-     {
-       ipcp_method_formal_compute_count (node);
-       ipcp_method_compute_tree_map (node);
-       ipcp_method_cval_init (node);
-       ipcp_method_compute_modify (node);      
-     }
-   for (node = cgraph_nodes; node; node = node->next)
-     {
-       /* building jump functions  */
-       for (cs = ipcp_cs_get_first (node); ipcp_cs_not_last (cs);
-            cs = ipcp_cs_get_next (cs))
-         {
-           ipcp_callsite_compute_count (cs);
-           if (ipcp_callsite_param_count (cs) 
-	       != ipcp_method_formal_count (cs->callee))
-             {
-               ipcp_callsite_param_count_set (cs, 0);
-               ipcp_method_formal_count_set (cs->callee, 0);
-             }
-           else
-             ipcp_callsite_compute_param (cs);
-         }       
-     }
+  ipcp_method node;
+  ipcp_callsite cs;
+  
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      ipcp_method_formal_compute_count (node);
+      ipcp_method_compute_tree_map (node);
+      ipcp_method_cval_init (node);   
+      ipcp_method_compute_modify (node);  
+    }
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      /* building jump functions  */
+      for (cs =  node->callees; cs; cs = cs->next_callee)
+        {
+          ipcp_callsite_compute_count (cs);
+          if (ipcp_callsite_param_count (cs) 
+              != ipcp_method_formal_count (cs->callee))
+            {
+              /* Handles the cases of functions with 
+                 a variable number of parameters.  */
+              ipcp_callsite_param_count_set (cs, 0);
+              ipcp_method_formal_count_set (cs->callee, 0);
+            }
+          else
+            ipcp_callsite_compute_param (cs);
+        }       
+    }
+}
+
+/* Calls the constant propagation algorithm and recalls it if necessary
+   (if there are undetermined values left).  */
+static void 
+ipcp_iterate_stage (void)
+{
+  ipcp_propagate_stage ();
+  if (ipcp_after_propagate ())
+    ipcp_propagate_stage (); 
+}
+
+/* Returns true if there are some parameters whose value is TOP.
+   Changes their values to BOTTOM, since they weren't determined.  */
+static bool
+ipcp_after_propagate (void)
+{
+  int i, count;
+  ipcp_method node;
+  bool prop_again;
+  
+  prop_again = false;
+  for (node = cgraph_nodes; node; node = node->next)
+    {  
+      count = ipcp_method_formal_count (node);
+      for(i = 0; i < count; i++)
+	if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) == TOP)
+	  {
+	    prop_again = true;
+	    ipcp_method_cval_set_cvalue_type (node, i, BOTTOM); 
+	  }
+    }
+  return prop_again;
 }
 
 /* Interprocedural analysis. The algorithm propagates constants from
    the caller's parameters to the callee's arguments.  */
 static void 
-ipcp_stage2 (void)
+ipcp_propagate_stage (void)
 {
   int i;
-  struct ipcp_formal cval1 = {0, {0, 0}}, cval = {0, {0, 0}};
+  struct ipcp_formal cval1 = {0, {{0, 0}}}, cval = {0, {{0, 0}}};
   struct ipcp_formal *cval2;
-  ipcp_method mt,callee;
+  ipcp_method mt, callee;
   ipcp_callsite cs;
   struct ipcp_jump_func *jump_func;
   enum Jfunc_type type;
-  ipcp_int *info_type;
+  union info *info_type;
   ipcp_methodlist_p wl;
+  int count;
 
   wl = ipcp_methodlist_init ();
   while (ipcp_methodlist_not_empty (wl))
     {
       mt = ipcp_remove_method (&wl);
-      for (cs = ipcp_cs_get_first (mt); ipcp_cs_not_last (cs); 
-	   cs = ipcp_cs_get_next (cs))
+      for (cs = mt->callees; cs; cs = cs->next_callee)
 	{
 	  callee = ipcp_callsite_callee (cs);
-	  for (i = 0; i < ipcp_callsite_param_count (cs); i++)
+          count = ipcp_callsite_param_count (cs);
+	  for (i = 0; i < count; i++)
 	    {
 	      jump_func = ipcp_callsite_param (cs, i);
 	      type = get_type (jump_func);
@@ -1006,22 +1198,138 @@ ipcp_stage2 (void)
 	    }
 	}
     }
+ 
 }
 
-/* Allocate and initialize ipa_node structure.  */
+/* Builds and initializes ipcp_replace_map struct 
+   according to type. This struct is read by versioning, which 
+   operates according to the flags sent.  */
+static struct ipcp_replace_map*
+ipcp_replace_map_create (enum Cvalue_type type, tree parm_tree, 
+			 union info *cvalue)
+{
+  struct ipcp_replace_map* replace_map;
+  tree const_val;
+
+  replace_map = xcalloc (1, sizeof (struct ipcp_replace_map));  
+  gcc_assert (ipcp_type_is_const (type));
+  if (type == CONST_VALUE_INT_REF || type == CONST_VALUE_FLOAT_REF)
+    {
+      const_val = build_const_val (cvalue, type);
+      replace_map->old_tree = parm_tree;
+      replace_map->new_tree = const_val;
+      replace_map->replace_p = true;
+      replace_map->ref_p = true;
+    }
+  else if (TREE_READONLY (parm_tree) && !TREE_ADDRESSABLE (parm_tree))
+    {
+      const_val = build_const_val (cvalue, type);
+      replace_map->old_tree = parm_tree;
+      replace_map->new_tree = const_val;
+      replace_map->replace_p = true;
+      replace_map->ref_p = false;
+    }
+  else
+    {
+      replace_map->old_tree = NULL;
+      replace_map->new_tree = NULL;
+      replace_map->replace_p = false;
+      replace_map->ref_p = false;
+    }
+
+  return replace_map;
+  
+}
+
+/* Propagates the constant parameters found by ipcp_iterate_stage()
+   to the function's code.  */
+static void 
+ipcp_insert_stage (void)
+{
+  ipcp_method node, node1 = NULL;
+  int i, const_param;
+  union info *cvalue;
+  varray_type redirect_callers, replace_trees;
+  ipcp_callsite cs;
+  int node_callers, count;
+  tree parm_tree;
+  enum Cvalue_type type;
+  struct ipcp_replace_map *replace_param;
+  
+  for (node = cgraph_nodes; node; node = node->next)
+    {  
+      /* Propagation of the constant is forbidden in 
+         certain conditions.  */
+      if (ipcp_method_dont_insert_const (node))
+        continue;
+      const_param=0;
+      count = ipcp_method_formal_count (node);
+      for(i = 0; i < count; i++)
+	{
+	  type = ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i));
+	  if (ipcp_type_is_const (type)) 
+	    const_param++;	   
+	}
+      if (const_param == 0)
+	continue;
+      VARRAY_GENERIC_PTR_INIT (replace_trees, const_param, "replace_trees");
+      for(i = 0; i < count; i++)
+	{
+	  type = ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i));
+	  if (ipcp_type_is_const (type)) 
+	    {
+	      cvalue = ipcp_cval_get_cvalue (ipcp_method_cval (node, i));
+	      parm_tree = ipcp_method_get_tree (node, i);
+	      replace_param = ipcp_replace_map_create (type, parm_tree, cvalue);
+	      VARRAY_PUSH_GENERIC_PTR (replace_trees, replace_param);
+	    }
+	}          
+      /* Compute how many callers node has.  */
+      node_callers = 0;
+      for (cs = node->callers; cs != NULL;
+	   cs = cs->next_caller)
+	node_callers++;  
+      VARRAY_GENERIC_PTR_INIT (redirect_callers, node_callers, "redirect_callers");
+      for (cs = node->callers; cs != NULL;
+	   cs = cs->next_caller)
+	VARRAY_PUSH_GENERIC_PTR (redirect_callers, cs);
+      /* Redirecting all the callers of the node to the 
+	 new versioned node.  */
+      node1 =  cgraph_function_versioning (node, redirect_callers, replace_trees);
+      
+      VARRAY_CLEAR (redirect_callers);
+      VARRAY_CLEAR (replace_trees);
+      if (node1 == NULL)
+	continue;
+      if (dump_file)
+	fprintf (dump_file, "versioned function %s\n", cgraph_node_name (node));
+      ipa_cloned_create (node, node1);     
+      for(i = 0; i < count; i++)
+	{
+	  type = ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i));
+	  if (ipcp_type_is_const (type))
+	    {
+	      cvalue = ipcp_cval_get_cvalue (ipcp_method_cval (node, i));
+	      parm_tree = ipcp_method_get_tree (node, i);
+	      if ( type != CONST_VALUE_INT_REF && type != CONST_VALUE_FLOAT_REF 
+		   && !TREE_READONLY (parm_tree))
+		ipcp_propagate_const (node1, i, cvalue, type);
+    
+	    }
+	}
+    }
+  ipcp_update_callgraph ();
+}
+
+/* Allocate and initialize ipa_node structure for all
+   nodes in callgraph.  */
 static void
 ipa_nodes_create (void)
 {
   ipcp_method node;
   
   for (node = cgraph_nodes; node; node = node->next)
-     {
-       node->aux = xcalloc (1, sizeof (struct ipa_node));     
-       ((struct ipa_node *)node->aux)->ipcp_cval = NULL;
-       ((struct ipa_node *)node->aux)->ipcp_arg_num =0;
-       ((struct ipa_node *)node->aux)-> ipcp_param_tree = NULL;
-       ((struct ipa_node *)node->aux)->ipcp_mod = NULL;
-     }
+    ipa_node_create (node);
 }
 
 /* Allocate and initialize ipa_edge structure.  */
@@ -1032,16 +1340,8 @@ ipa_edges_create (void)
   ipcp_callsite cs;
   
   for (node = cgraph_nodes; node; node = node->next)
-     {
-        for (cs = ipcp_cs_get_first (node); ipcp_cs_not_last (cs);
-	     cs = ipcp_cs_get_next (cs))
-	  {
-	    cs->aux = xcalloc (1, sizeof (struct ipa_edge));
-	    ((struct ipa_edge *)cs->aux)->ipcp_param_map = NULL;
-	    ((struct ipa_edge *)cs->aux)->ipcp_param_num = 0;
-	  }
-     
-     }
+    for (cs = node->callees; cs; cs = cs->next_callee)
+      cs->aux = xcalloc (1, sizeof (struct ipa_edge));
 }
 
 /* Frees ipa_node structure.  */
@@ -1065,49 +1365,48 @@ ipa_edges_free (void)
   ipcp_callsite cs;
   
   for (node = cgraph_nodes; node; node = node->next)
-     {
-        for (cs = ipcp_cs_get_first (node); ipcp_cs_not_last (cs);
-	     cs = ipcp_cs_get_next (cs))
-	  {
-	   
-	    free (cs->aux);
-	    cs->aux = NULL;
-	  }
-     
-     }
+    for (cs = node->callees; cs; cs = cs->next_callee)
+      {
+        free (cs->aux);
+        cs->aux = NULL;
+      }
 }
 
-/* The IPA constant propagation driver.  */
+/* The IPCP driver.  */
 void 
 ipcp_driver (void)
 {
-  /* FIXME: Temporary hack until per-pass dump files are at place.  */
-  FILE *cgraph_dump_file = NULL;
-  if (cgraph_dump_file)
-     fprintf (cgraph_dump_file, "\nIPA constant propagation start:\n");
+  if (dump_file)
+     fprintf (dump_file, "\nIPA constant propagation start:\n");
   ipa_nodes_create ();
   ipa_edges_create ();
-  ipcp_stage1 ();
-  if (cgraph_dump_file)
+  /* 1. Call the init stage to initialize 
+     the ipa_node and ipa_edge structures.  */
+  ipcp_init_stage ();
+  if (dump_file)
     {
-      fprintf (cgraph_dump_file, "\nIPA structures before propagation:\n");
-      ipcp_structures_print (cgraph_dump_file); 
+      fprintf (dump_file, "\nIPA structures before propagation:\n");
+      ipcp_structures_print (dump_file); 
     }
-  ipcp_stage2 ();
-  if (cgraph_dump_file)
+  /* 2. Do the interprocedural propagation.  */
+  ipcp_iterate_stage ();
+  if (dump_file)
     {
-      fprintf (cgraph_dump_file, "\nIPA structures after propagation:\n");
-      ipcp_structures_print (cgraph_dump_file);      
+      fprintf (dump_file, "\nIPA structures after propagation:\n");
+      ipcp_structures_print (dump_file);      
     }
-  ipcp_stage3 ();  
+  /* 3. Insert the constants found to the functions.  */
+  ipcp_insert_stage ();
+  /* Free all IPCP structures.  */
   ipcp_free (); 
   ipa_nodes_free ();
   ipa_edges_free ();
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nIPA constant propagation end\n");
+  if (dump_file)
+    fprintf (dump_file, "\nIPA constant propagation end\n");
+  cgraph_remove_unreachable_nodes (true, NULL);
 }
 
-/* Frees the ipcp_method's IPA data structures.  */
+/* Frees the ipcp_method's IPCP data structures.  */
 static void 
 ipcp_free (void)
 {
@@ -1115,28 +1414,38 @@ ipcp_free (void)
   ipcp_callsite cs;
 
   for (node = cgraph_nodes; node; node = node->next)
-     {
-       free (((struct ipa_node *)node->aux)->ipcp_cval);
-       free (((struct ipa_node *)node->aux)->ipcp_param_tree);
-       free (((struct ipa_node *)node->aux)->ipcp_mod); 
-       for (cs = ipcp_cs_get_first (node); ipcp_cs_not_last (cs);
-            cs = ipcp_cs_get_next (cs))
-         free (((struct ipa_edge *)cs->aux)->ipcp_param_map);
-     }
+    {
+      if (node->aux == NULL)
+        continue;
+      if (((struct ipa_node *)node->aux)->ipcp_cval)
+        free (((struct ipa_node *)node->aux)->ipcp_cval);      
+      if (((struct ipa_node *)node->aux)->ipcp_param_tree)
+        free (((struct ipa_node *)node->aux)->ipcp_param_tree);      
+      if (((struct ipa_node *)node->aux)->ipcp_mod)
+        free (((struct ipa_node *)node->aux)->ipcp_mod); 
+      for (cs = node->callees; cs; cs = cs->next_callee)
+        {        
+          if (cs->aux)
+            if (((struct ipa_edge *)cs->aux)->ipcp_param_map)
+              free (((struct ipa_edge *)cs->aux)->ipcp_param_map);
+        }
+    }
 }
 
-/* Check conditions to forbid constant propagation.  */
+/* Check conditions to forbid constant insertion to the function.  */
 static bool
-ipcp_method_dont_propagate (ipcp_method mt)
+ipcp_method_dont_insert_const (ipcp_method mt)
 {
-  if (!tree_inlinable_function_p (mt->decl))
+  /* ??? Handle pending sizes case.  */  
+  if (DECL_UNINLINABLE (mt->decl))
     return true;
+  /* Prevent propagation in the case of ASM calls.  */  
   if (ipcp_method_contains_asm (mt))
     return true;
   return false;
 }
 
-/* Called by walk_tree to find. Returns true if an asm expr was found  */
+/* Called by walk_tree. Returns an asm expr if one was found.  */
 static tree 
 ipcp_asm_walk_tree (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, 
 		    void *data ATTRIBUTE_UNUSED)
@@ -1160,18 +1469,41 @@ ipcp_method_contains_asm (ipcp_method mt)
 {
   tree decl;
   tree body;
-
+  block_stmt_iterator bsi;
+  tree stmt;
+  struct function *func;
+  basic_block bb;
+ 
   decl = mt->decl;
   body = DECL_SAVED_TREE (decl);
-  if (body != NULL)
-    if (walk_tree (&body, ipcp_asm_walk_tree, NULL, NULL))
-      return true;
+  if (body !=NULL)
+  {
+    func = DECL_STRUCT_FUNCTION (decl);
+    FOR_EACH_BB_FN (bb, func)
+      {
+	for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    stmt = bsi_stmt (bsi);
+	    if (ipcp_asm_walk_tree_1 (&stmt))
+	      return true;
+	  }
+      }
+  }
   return false;
 }
 
-/* Debuffing interface.  */
+/* Walks tp to find if there's an asm exp. 
+   Returns an asm expr if one was found.  */
+static tree
+ipcp_asm_walk_tree_1 (tree *tp)
+{
+  return walk_tree (tp, ipcp_asm_walk_tree, NULL, NULL);
+}
 
-/* Prints all IPA constant propagation data structures.  */
+
+/* Debugging interface.  */
+
+/* Prints all IPCP data structures.  */
 static void 
 ipcp_structures_print (FILE *f)
 {
@@ -1181,40 +1513,55 @@ ipcp_structures_print (FILE *f)
   ipcp_callsite_param_print (f);
 }
 
+/* Prints ipcp_cval data structures.  */
 static void 
 ipcp_method_cval_print (FILE *f)
 {
   ipcp_method node;
-  int i;
+  int i, count;
   ipcp_int* cvalue;
 
   fprintf(f, "\nCVAL PRINT\n");
-   for (node = cgraph_nodes; node; node = node->next)
-     {
-       fprintf (f, "printing cvals %s:\n", cgraph_node_name (node));
-       for(i=0; i < ipcp_method_formal_count (node); i++)
-	 {
-	   if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
-               == CONST_VALUE) 
-	     {
-               fprintf (f, " param [%d]: ", i);
-	       fprintf (f, "type is CONST ");
-               cvalue = ipcp_cval_get_cvalue (ipcp_method_cval (node, i));
-	       fprintf (f, "value is  %d %d\n",(int)cvalue->high, 
-                        (int)cvalue->low);
-	     }
-	   else if (ipcp_method_cval (node, i)->cvalue_type == TOP)
-	     fprintf(f, "param [%d]: type is TOP  \n", i);           
-	   else	     
-	     fprintf(f, "param [%d]: type is BOTTOM  \n", i);
-	 }
-     }
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      fprintf (f, "printing cvals %s:\n", cgraph_node_name (node));
+      count = ipcp_method_formal_count (node);
+      for(i = 0; i < count; i++)
+        {
+          if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
+              == CONST_VALUE_INT) 
+            {
+              fprintf (f, " param [%d]: ", i);
+              fprintf (f, "type is CONST_INT ");
+              cvalue = &(ipcp_cval_get_cvalue (ipcp_method_cval (node, i))->int_value);
+              fprintf (f, "value is  "HOST_WIDE_INT_PRINT_DEC
+                       " "HOST_WIDE_INT_PRINT_DEC" \n", 
+                       cvalue->high, cvalue->low);
+            }
+          else if (ipcp_cval_get_cvalue_type (ipcp_method_cval (node, i)) 
+              == CONST_VALUE_FLOAT)
+	    { 
+	      char string[100];
+              REAL_VALUE_TYPE d;
+	      fprintf (f, " param [%d]: ", i);
+              fprintf (f, "type is CONST_FLOAT ");
+              d = (ipcp_cval_get_cvalue (ipcp_method_cval (node, i)))->float_value;            
+	      real_to_decimal (string, &d, sizeof (string), 0, 1);
+	      fprintf (f, "value is %s\n", string);
+	    }
+          else if (ipcp_method_cval (node, i)->cvalue_type == TOP)
+            fprintf(f, "param [%d]: type is TOP  \n", i);           
+          else	     
+            fprintf(f, "param [%d]: type is BOTTOM  \n", i);
+        }
+    }
 }
 
+/* Prints ipcp_tree_map data structures.  */
 static void  
 ipcp_method_tree_print (FILE *f) 
 {
-  int i;
+  int i, count;
   tree temp;
   ipcp_method node;
 
@@ -1222,7 +1569,8 @@ ipcp_method_tree_print (FILE *f)
   for (node = cgraph_nodes; node; node = node->next)
     {
       fprintf (f, "method  %s Trees :: \n", cgraph_node_name (node));
-      for (i =0; i < ipcp_method_formal_count (node); i++)
+      count = ipcp_method_formal_count (node);
+      for (i = 0; i < count; i++)
 	{
 	  temp = ipcp_method_get_tree (node, i);
 	  if (TREE_CODE (temp) == PARM_DECL)
@@ -1238,10 +1586,11 @@ ipcp_method_tree_print (FILE *f)
     }
 }
 
+/* Printf ipcp_modify data structures.  */
 static void  
 ipcp_method_modify_print (FILE *f) 
 {
-  int i;
+  int i, count;
   bool temp;
   ipcp_method node;
 
@@ -1249,56 +1598,156 @@ ipcp_method_modify_print (FILE *f)
   for (node = cgraph_nodes; node; node = node->next)
     {
       fprintf (f, "method  %s :: \n", cgraph_node_name (node));
-      for (i =0; i < ipcp_method_formal_count (node); i++)
+      count = ipcp_method_formal_count (node);
+      for (i = 0; i < count; i++)
 	{
 	  temp = ipcp_method_is_modified (node, i);
           if (temp)
             fprintf (f, " param [%d] true \n", i);
           else
             fprintf (f, " param [%d] false \n", i);
-	}
-      
+	}      
     }
 }
- 
+
+/* Prints ipcp_jump_func data structures.  */ 
 static void  
 ipcp_callsite_param_print (FILE *f)
 {
   ipcp_method node;
-  int i;
+  int i, count;
   ipcp_callsite cs;
   struct ipcp_jump_func *jump_func;
   enum Jfunc_type type;
-  ipcp_int* info_type;
+  ipcp_int* info_type_int;
+  REAL_VALUE_TYPE info_type_float;
   
   fprintf(f, "\nCALLSITE PARAM PRINT\n");
   for (node = cgraph_nodes; node; node = node->next)
     {    
-      for (cs = ipcp_cs_get_first (node); ipcp_cs_not_last (cs);
-            cs = ipcp_cs_get_next (cs))
-         {
-           fprintf (f, "callsite  %s ", cgraph_node_name (node));
-           fprintf (f, "-> %s :: \n", cgraph_node_name (cs->callee));
-            for (i = 0; i < ipcp_callsite_param_count (cs); i++)
+      for (cs = node->callees; cs; cs = cs->next_callee)
+        {
+          fprintf (f, "callsite  %s ", cgraph_node_name (node));
+          fprintf (f, "-> %s :: \n", cgraph_node_name (cs->callee));
+	  count = ipcp_callsite_param_count (cs);
+	  for (i = 0; i < count; i++)
 	    {
               jump_func = ipcp_callsite_param (cs, i);
 	      type = get_type(jump_func);
-	      info_type = ipcp_jf_get_info_type (jump_func);
+	     
               fprintf (f, " param %d: ", i);
               if (type == UNKNOWN_IPATYPE)
                 fprintf (f, "UNKNOWN\n");
-              else if (type == CONST_IPATYPE)
+              else if (type == CONST_IPATYPE_INT)
                 {
-                  fprintf (f, "CONST : ");
-                  fprintf (f, "high: %d low: %d\n",(int)info_type->high, 
-                           (int)info_type->low);
+		  info_type_int = &((ipcp_jf_get_info_type (jump_func))->int_value);
+                  fprintf (f, "CONST INT : ");
+                  fprintf (f, " "HOST_WIDE_INT_PRINT_DEC
+                           " "HOST_WIDE_INT_PRINT_DEC" \n", 
+                           info_type_int->high, info_type_int->low);
                 }
+              else if (type == CONST_IPATYPE_FLOAT)
+		{
+		  char string[100];
+		  info_type_float = (ipcp_jf_get_info_type (jump_func))->float_value; 
+		 
+		  fprintf (f, "CONST FLOAT ");   
+		  real_to_decimal (string, &info_type_float, sizeof (string), 0, 1);
+		  fprintf (f, " %s\n", string);
+		 
+		}
+                 
               else if (type == FORMAL_IPATYPE)
                 {
                   fprintf (f, "FORMAL : ");
-                  fprintf (f, "%d\n", ipcp_get_int (info_type));
+                  fprintf (f, "%d\n", ipcp_jf_get_info_type (jump_func)->formal_id );
                 }
             }
          }
     }
 }
+
+/* Fix the callsites and the callgraph after function cloning was done.  */
+static void 
+ipcp_update_callgraph (void)
+{
+  ipcp_method node, orig_callee;
+  ipcp_callsite cs;
+  
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      /* want to fix only original nodes  */
+      if (ipcp_method_is_cloned (node))
+	continue;
+      for (cs = node->callees;  cs; cs = cs->next_callee)
+	if (ipcp_method_is_cloned (cs->callee))
+	  {
+	    /* Callee is a cloned node  */
+	    orig_callee = ipcp_method_orig_node (cs->callee);
+	    if (ipcp_redirect (cs))
+	      {
+		cgraph_redirect_edge_callee (cs, orig_callee);
+		TREE_OPERAND (TREE_OPERAND (cs->call_expr, 0), 0) = orig_callee->decl;
+	      }
+	  }
+    }
+}
+
+/* Retruns true if this callsite should be redirected to 
+   the orig callee (instead of the cloned one).  */
+static bool
+ipcp_redirect (ipcp_callsite  cs)
+{
+  ipcp_method caller, callee, orig_callee;
+  int i, count;
+  struct ipcp_jump_func *jump_func;
+  enum Jfunc_type type;
+  enum Cvalue_type cval_type;
+  
+  caller = cs->caller;
+  callee = cs->callee;
+  orig_callee =  ipcp_method_orig_node (callee);
+  count = ipcp_method_formal_count (orig_callee); 
+  for (i = 0; i < count; i++)
+    {
+      cval_type = ipcp_cval_get_cvalue_type (ipcp_method_cval (orig_callee, i));
+      if (ipcp_type_is_const (cval_type)) 
+	{
+	  jump_func = ipcp_callsite_param (cs, i);
+	  type = get_type (jump_func);
+	  if (type != CONST_IPATYPE_INT && type != CONST_IPATYPE_FLOAT 
+	      && type != CONST_IPATYPE_INT_REF && type != CONST_IPATYPE_FLOAT_REF)
+          return true;
+	}
+    }
+  
+  return false;
+}
+
+static bool
+cgraph_gate_cp (void)
+{
+  return flag_ipa_cp;
+}
+
+struct tree_opt_pass pass_ipa_cp =
+{
+  "cp",                                 /* name */
+  cgraph_gate_cp,                       /* gate */
+  NULL,                                 /* function analysis */
+  NULL,                                 /* variable analysis */
+  ipcp_driver,                          /* execute */
+  NULL,                                 /* function modification */
+  NULL,                                 /* variable modification */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_IPA_CONSTANT_PROP,                 /* tv_id */
+  0,                                    /* properties_required */
+  PROP_trees,                           /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_cgraph | TODO_dump_func,    /* todo_flags_finish */
+  0                                     /* letter */
+};
+

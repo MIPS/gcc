@@ -464,8 +464,6 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 		       visited_nodes);
 	    *walk_subtrees = 0;
 	  }
-        if (flag_ipa_cp && decl == NULL_TREE)
-          flag_ipa_cp = 0;
 	break;
       }
 
@@ -1186,8 +1184,6 @@ cgraph_optimize (void)
     if (!vnode->non_ipa)
       ipa_analyze_variable (vnode);
 
-  if (flag_ipa_cp && flag_ipa_no_cloning)
-    ipcp_driver ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Marked ");
@@ -1332,3 +1328,141 @@ init_cgraph (void)
 {
   cgraph_dump_file = dump_begin (TDI_cgraph, NULL);
 }
+
+/* Update the CALL_EXPR in NEW_VERSION node callers edges.  */
+
+void
+update_call_expr (struct cgraph_node *new_version, 
+  		  varray_type redirect_callers)
+{
+  struct cgraph_edge *e;
+  unsigned i;
+  
+  if (new_version == NULL)
+    abort ();
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++)
+    {
+      e = VARRAY_GENERIC_PTR (redirect_callers, i);
+      
+      /* Update the call expr on the edges
+	 to the new version. */ 
+       TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;
+    }
+  for (e = new_version->callers; e; e = e->next_caller)
+    { 
+      /* Update the call expr on the edges
+          of recursive calls. */
+      if (e->caller == new_version)
+	TREE_OPERAND (TREE_OPERAND (e->call_expr, 0), 0) = new_version->decl;            
+    }           
+}
+ 
+
+/* Create a new cgraph node which is the new version of 
+   OLD_VERSION node.  REDIRECT_CALLERS holds the callers
+    of OLD_VERSION which should be redirected to point to  
+    NEW_VERSION.  ALL the callees edges of OLD_VERSION 
+    are cloned to the new version node.  Return the new 
+    version node.  */
+ 
+struct cgraph_node *
+cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
+  				 tree new_decl, varray_type redirect_callers)
+ {
+   struct cgraph_node *new_version;
+   struct cgraph_edge *e;
+   struct cgraph_edge *next_callee;
+   unsigned i;
+   
+   if (old_version == NULL)
+     abort ();
+  
+   new_version = cgraph_node (new_decl);
+   
+   new_version->analyzed = true;
+   new_version->local = old_version->local;
+   new_version->global = old_version->global;
+   new_version->rtl = new_version->rtl;
+   new_version->reachable = true;
+   new_version->static_vars_info = old_version->static_vars_info;
+ 
+   /* Clone the old node callees.  Recursive calls are
+      also cloned.  */
+   for (e = old_version->callees;e; e=e->next_callee)
+     cgraph_clone_edge (e, new_version, e->call_expr, REG_BR_PROB_BASE, e->loop_nest);
+   
+   /* Fix recursive calls. 
+      If old_version has a recursive call after the 
+      previous cloning the new version will have an edge
+      pointing to the old version which is wrong;
+      so redirect it to point to the new version. */
+   for (e = new_version->callees ; e; e = next_callee)
+     {
+       next_callee = e->next_callee;
+       if (e->callee == old_version)
+         {
+           cgraph_redirect_edge_callee (e, new_version);
+         }
+       if (!next_callee)
+	 break;
+     }
+   for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++) 
+     {
+       e = VARRAY_GENERIC_PTR (redirect_callers, i); 
+       /* Redirect calls to the old version node
+	  to point to it's new version.  */ 
+       cgraph_redirect_edge_callee (e, new_version);
+     }
+   
+   allocate_struct_function (new_decl);
+   cfun->function_end_locus = DECL_SOURCE_LOCATION (new_decl);
+   
+   return new_version;
+ }
+
+ /* Perform function versioning. 
+    Function versioning includes:
+    1) Generating a new cgraph node for the new version
+    and redirect it's edges respectively. 
+    2) Copying the old version tree to the new
+    version.  
+    The function gets :
+    - REDIRECT_CALLERS varray, the edges to be redirected 
+      to the new version.
+    - tree_map, a mapping of tree nodes we want to replace with
+      new ones (according to results of prior analysis)
+    - the old version's cgraph node. 
+    It returns the new version's cgraph node.  */ 
+
+struct cgraph_node *
+cgraph_function_versioning (struct cgraph_node *old_version_node, 
+                            varray_type redirect_callers, varray_type tree_map) 
+{
+  tree old_decl = old_version_node->decl;
+  struct cgraph_node *new_version_node = NULL;
+  tree new_decl;
+  
+  if (!tree_versionable_function_p (old_decl))
+    return NULL;
+  
+  /* Make a new FUNCTION_DECL tree node for the
+     new version. */
+  new_decl = copy_node (old_decl);
+  
+  /* Create the new version's call-graph node. 
+     and update the edges of the new node. */
+  new_version_node = 
+    cgraph_copy_node_for_versioning (old_version_node, new_decl,
+                                     redirect_callers);  
+  
+  /* Copy the old version's function tree to the new
+     version.  */
+  tree_function_versioning (old_decl, new_decl, tree_map);
+  /* Update the call_expr on the edges
+     to the new version node. */
+  update_call_expr (new_version_node, redirect_callers);
+  return new_version_node;
+}
+
+

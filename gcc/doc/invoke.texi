@@ -4084,7 +4084,6 @@ also turns on the following optimization flags:
 -fstrict-aliasing @gol
 -funit-at-a-time @gol
 -fipa-cp @gol
--fipa-no-cloning @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
 -fcrossjumping}
@@ -4978,10 +4977,6 @@ Enabled at levels @option{-O2}, @option{-O3}.
 @opindex fipa-cp
 Perform Interprocedural constant propagation.
 It is a part of the cgraph optimization (enabled with funit-at-a-time).
-
-@item -fipa-no-cloning
-@opindex fipa-no-cloning
-Perform Interprocedural constant propagation without cloning.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 

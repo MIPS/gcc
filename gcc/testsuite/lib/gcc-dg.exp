@@ -19,6 +19,7 @@ load_lib file-format.exp
 load_lib target-supports.exp
 load_lib scanasm.exp
 load_lib scantree.exp
+load_lib scancgraph.exp
 load_lib prune.exp
 load_lib libgloss.exp
 load_lib target-libpath.exp

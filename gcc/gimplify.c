@@ -319,6 +319,31 @@ create_tmp_var_name (const char *prefix)
   return get_identifier (tmp_name);
 }
 
+/* Create a new function name with PREFIX.  Returns an identifier.  */
+tree
+create_function_name (const char *prefix)
+{
+  char *tmp_name;
+  unsigned i, len;
+  
+  if (prefix)
+    {
+      char *preftmp = ASTRDUP (prefix);
+
+      remove_suffix (preftmp, strlen (preftmp));
+      prefix = preftmp;
+    }
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix ? prefix : "F", tmp_var_id_num++);
+  len = strlen (tmp_name);
+  for (i=0; i < len; i++)
+    {
+      if (tmp_name[i] == '.')
+        tmp_name[i] = '_';
+    }
+  
+  return get_identifier (tmp_name);
+}
+
 
 /* Create a new temporary variable declaration of type TYPE.
    Does NOT push it into the current binding.  */
