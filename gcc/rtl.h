@@ -2111,7 +2111,7 @@ extern int function_invariant_p		PARAMS ((rtx));
 extern void init_branch_prob		PARAMS ((const char *));
 extern void branch_prob			PARAMS ((void));
 extern void end_branch_prob		PARAMS ((void));
-extern void output_func_start_profiler	PARAMS ((void));
+extern void create_profiler		PARAMS ((void));
 
 /* In reg-stack.c */
 #ifdef BUFSIZ

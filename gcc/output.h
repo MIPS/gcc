@@ -26,10 +26,6 @@ extern void compute_alignments  PARAMS ((void));
 /* Initialize data in final at the beginning of a compilation.  */
 extern void init_final		PARAMS ((const char *));
 
-/* Called at end of source file,
-   to output the block-profiling table for this entire compilation.  */
-extern void end_final		PARAMS ((const char *));
-
 /* Enable APP processing of subsequent output.
    Used before the output from an `asm' statement.  */
 extern void app_enable		PARAMS ((void));

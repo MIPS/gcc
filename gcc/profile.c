@@ -107,6 +107,17 @@ struct bb_info {
   gcov_type pred_count;
 };
 
+struct function_list
+{
+  struct function_list *next; 	/* next function */
+  const char *name; 		/* function name */
+  unsigned cfg_checksum;	/* function checksum */
+  unsigned count_edges;	        /* number of intrumented edges  */
+};
+
+static struct function_list *functions_head = 0;
+static struct function_list **functions_tail = &functions_head;
+
 #define EDGE_INFO(e)  ((struct edge_info *) (e)->aux)
 #define BB_INFO(b)  ((struct bb_info *) (b)->aux)
 
@@ -136,6 +147,9 @@ static FILE *bb_file;
 
 static char *last_bb_file_name;
 
+/* The name of the count table. Used by the edge profiling code.  */
+static GTY(()) rtx profiler_label;
+
 /* Collect statistics on the performance of this pass for the entire source
    file.  */
 
@@ -152,19 +166,15 @@ static int total_num_branches;
 
 /* Forward declarations.  */
 static void find_spanning_tree PARAMS ((struct edge_list *));
-static void init_edge_profiler PARAMS ((void));
 static rtx gen_edge_profiler PARAMS ((int));
 static void instrument_edges PARAMS ((struct edge_list *));
 static void output_gcov_string PARAMS ((const char *, long));
 static void compute_branch_probabilities PARAMS ((void));
 static gcov_type * get_exec_counts PARAMS ((void));
-static long compute_checksum PARAMS ((void));
+static unsigned compute_checksum PARAMS ((void));
 static basic_block find_group PARAMS ((basic_block));
 static void union_groups PARAMS ((basic_block, basic_block));
 
-/* If non-zero, we need to output a constructor to set up the
-   per-object-file data.  */
-static int need_func_profiler = 0;
 
 /* Add edge instrumentation code to the entire insn chain.
 
@@ -194,7 +204,6 @@ instrument_edges (el)
 		fprintf (rtl_dump_file, "Edge %d to %d instrumented%s\n",
 			 e->src->index, e->dest->index,
 			 EDGE_CRITICAL_P (e) ? " (and split)" : "");
-	      need_func_profiler = 1;
 	      insert_insn_on_edge (
 			 gen_edge_profiler (total_num_edges_instrumented
 					    + num_instr_edges++), e);
@@ -359,7 +368,8 @@ get_exec_counts ()
 		}
 	    }
 	  else if (arc_count != num_edges
-		   || chksum != profile_info.current_function_cfg_checksum)
+		   || ((unsigned)chksum
+		       != profile_info.current_function_cfg_checksum))
 	    okay = 0, mismatch = 1;
 	  else
 	    {
@@ -667,10 +677,11 @@ compute_branch_probabilities ()
 	      num_branches++;
 	    }
 	}
-      /* Otherwise distribute the probabilities evenly so we get sane sum.
-	 Use simple heuristics that if there are normal edges, give all abnormals
-	 frequency of 0, otherwise distribute the frequency over abnormals
-	 (this is the case of noreturn calls).  */
+      /* Otherwise distribute the probabilities evenly so we get sane
+	 sum.  Use simple heuristics that if there are normal edges,
+	 give all abnormals frequency of 0, otherwise distribute the
+	 frequency over abnormals (this is the case of noreturn
+	 calls).  */
       else
 	{
 	  for (e = bb->succ; e; e = e->succ_next)
@@ -723,30 +734,43 @@ compute_branch_probabilities ()
     free (exec_counts);
 }
 
-/* Compute checksum for the current function.  */
+/* Compute checksum for the current function.  We generate a CRC32.  */
 
-#define CHSUM_HASH	500000003
-#define CHSUM_SHIFT	2
-
-static long
+static unsigned
 compute_checksum ()
 {
-  long chsum = 0;
+  unsigned chksum = 0;
   basic_block bb;
-
+  
   FOR_EACH_BB (bb)
     {
-      edge e;
-
-      for (e = bb->succ; e; e = e->succ_next)
+      edge e = NULL;
+      
+      do
 	{
-	  chsum = ((chsum << CHSUM_SHIFT) + (BB_TO_GCOV_INDEX (e->dest) + 1)) % CHSUM_HASH;
-	}
+	  unsigned value = BB_TO_GCOV_INDEX (e ? e->dest : bb);
+	  unsigned ix;
 
-      chsum = (chsum << CHSUM_SHIFT) % CHSUM_HASH;
+	  /* No need to use all bits in value identically, nearly all
+	     functions have less than 256 blocks.  */
+	  value ^= value << 16;
+	  value ^= value << 8;
+	  
+	  for (ix = 8; ix--; value <<= 1)
+	    {
+	      unsigned feedback;
+
+	      feedback = (value ^ chksum) & 0x80000000 ? 0x04c11db7 : 0;
+	      chksum <<= 1;
+	      chksum ^= feedback;
+	    }
+	  
+	  e = e ? e->succ_next : bb->succ;
+	}
+      while (e);
     }
 
-  return chsum;
+  return chksum;
 }
 
 /* Instrument and/or analyze program behavior based on program flow graph.
@@ -776,12 +800,8 @@ branch_prob ()
   profile_info.current_function_cfg_checksum = compute_checksum ();
 
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, "CFG checksum is %ld\n",
+    fprintf (rtl_dump_file, "CFG checksum is %u\n",
 	profile_info.current_function_cfg_checksum);
-
-  /* Start of a function.  */
-  if (flag_test_coverage)
-    output_gcov_string (current_function_name, (long) -2);
 
   total_num_times_called++;
 
@@ -895,6 +915,8 @@ branch_prob ()
      GCOV utility.  */
   if (flag_test_coverage)
     {
+      output_gcov_string (current_function_name, (long) -2);
+      
       FOR_EACH_BB (bb)
 	{
 	  rtx insn = bb->head;
@@ -1049,10 +1071,23 @@ branch_prob ()
 
   /* For each edge not on the spanning tree, add counting code as rtl.  */
 
-  if (profile_arc_flag)
+  if (cfun->arc_profile && profile_arc_flag)
     {
+      struct function_list *item;
+      
       instrument_edges (el);
       allocate_reg_info (max_reg_num (), FALSE, FALSE);
+
+      /* ??? Probably should re-use the existing struct function.  */
+      item = xmalloc (sizeof (struct function_list));
+      
+      *functions_tail = item;
+      functions_tail = &item->next;
+      
+      item->next = 0;
+      item->name = xstrdup (current_function_name);
+      item->cfg_checksum = profile_info.current_function_cfg_checksum;
+      item->count_edges = profile_info.count_edges_instrumented_now;
     }
 
   remove_fake_edges ();
@@ -1225,8 +1260,14 @@ init_branch_prob (filename)
     }
 
   if (profile_arc_flag)
-    init_edge_profiler ();
-
+    {
+      /* Generate and save a copy of this so it can be shared.  */
+      char buf[20];
+      
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
+      profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+    }
+  
   total_num_blocks = 0;
   total_num_edges = 0;
   total_num_edges_ignored = 0;
@@ -1289,22 +1330,328 @@ end_branch_prob ()
 	}
     }
 }
-
-/* The label used by the edge profiling code.  */
 
-static GTY(()) rtx profiler_label;
+/* Write out the structure which libgcc uses to locate all the arc
+   counters.  The structures used here must match those defined in
+   libgcc2.c.  Write out the constructor to call __bb_init.  */
 
-/* Initialize the profiler_label.  */
-
-static void
-init_edge_profiler ()
+void
+create_profiler ()
 {
-  /* Generate and save a copy of this so it can be shared.  */
-  char buf[20];
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 2);
-  profiler_label = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-}
+  char name[20];
+  tree string_type, string_cst;
+  tree structure_decl, structure_value, structure_pointer_type;
+  tree field_decl, decl_chain, value_chain;
+  tree sizeof_field_value, domain_type;
+  tree fndecl;
+  char *fnname;
+  rtx table_address;
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
+  int save_flag_inline_functions = flag_inline_functions;
 
+  if (!profile_info.count_instrumented_edges)
+    return;
+  
+  /* Build types.  */
+  string_type = build_pointer_type (char_type_node);
+  
+  /* Libgcc2 bb structure.  */
+  structure_decl = make_node (RECORD_TYPE);
+  structure_pointer_type = build_pointer_type (structure_decl);
+
+  /* Output the main header, of 7 words:
+     0:  1 if this file is initialized, else 0.
+     1:  address of file name
+     2:  address of table of counts (LPBX2).
+     3:  number of counts in the table.
+     4:  always 0, libgcc2 uses this as a pointer to next ``struct bb''
+     
+     The following are GNU extensions:
+
+     5:  Number of bytes in this header.
+     6:  address of table of function checksums.  */
+
+  /* The zero word.  */
+  decl_chain =
+    build_decl (FIELD_DECL, get_identifier ("zero_word"),
+		long_integer_type_node);
+  value_chain = build_tree_list (decl_chain,
+				 convert (long_integer_type_node,
+					  integer_zero_node));
+
+  /* Address of filename.  */
+  {
+    char *fullname;
+    int fullname_len;
+    
+    field_decl =
+      build_decl (FIELD_DECL, get_identifier ("filename"), string_type);
+    TREE_CHAIN (field_decl) = decl_chain;
+    decl_chain = field_decl;
+    
+    fullname = concat (getpwd (), "/", da_file_name, NULL);
+    fullname_len = strlen (fullname);
+    
+    string_cst = build_string (fullname_len + 1, fullname);
+    free (fullname);
+    
+    domain_type = build_index_type (build_int_2 (fullname_len, 0));
+    TREE_TYPE (string_cst)
+      = build_array_type (char_type_node, domain_type);
+    value_chain = tree_cons (field_decl,
+			     build1 (ADDR_EXPR, string_type, string_cst),
+			     value_chain);
+  }
+  
+  /* Table of counts.  */
+  {
+    tree gcov_type_type = make_unsigned_type (GCOV_TYPE_SIZE);
+    tree gcov_type_pointer_type = build_pointer_type (gcov_type_type);
+    tree domain_tree
+      = build_index_type (build_int_2 (profile_info.
+				       count_instrumented_edges - 1, 0));
+    tree gcov_type_array_type
+      = build_array_type (gcov_type_type, domain_tree);
+    tree gcov_type_array_pointer_type
+      = build_pointer_type (gcov_type_array_type);
+    tree counts_table;
+    
+    field_decl =
+      build_decl (FIELD_DECL, get_identifier ("counts"),
+		  gcov_type_pointer_type);
+    TREE_CHAIN (field_decl) = decl_chain;
+    decl_chain = field_decl;
+    
+    /* No values.  */
+    counts_table
+      = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
+    TREE_STATIC (counts_table) = 1;
+    DECL_NAME (counts_table) = get_identifier (XSTR (profiler_label, 0));
+    assemble_variable (counts_table, 0, 0, 0);
+    
+    value_chain = tree_cons (field_decl,
+			     build1 (ADDR_EXPR,
+				     gcov_type_array_pointer_type,
+				     counts_table), value_chain);
+  }
+
+  /* Count of the # of instrumented arcs.  */
+  field_decl = build_decl (FIELD_DECL, get_identifier ("ncounts"),
+			   long_integer_type_node);
+  TREE_CHAIN (field_decl) = decl_chain;
+  decl_chain = field_decl;
+  
+  value_chain = tree_cons (field_decl,
+			   convert (long_integer_type_node,
+				    build_int_2 (profile_info.
+						 count_instrumented_edges,
+						 0)), value_chain);
+  /* Pointer to the next bb.  */
+  field_decl = build_decl (FIELD_DECL, get_identifier ("next"),
+			   structure_pointer_type);
+  TREE_CHAIN (field_decl) = decl_chain;
+  decl_chain = field_decl;
+  
+  value_chain = tree_cons (field_decl, null_pointer_node, value_chain);
+  
+  /* sizeof(struct bb).  We'll set this after entire structure is laid
+     out.  */
+  field_decl = build_decl (FIELD_DECL, get_identifier ("sizeof_bb"),
+			   long_integer_type_node);
+  TREE_CHAIN (field_decl) = decl_chain;
+  decl_chain = field_decl;
+  
+  sizeof_field_value = tree_cons (field_decl, NULL, value_chain);
+  value_chain = sizeof_field_value;
+
+  /* struct bb_function [].  */
+  {
+    struct function_list *item;
+    int num_nodes;
+    tree checksum_field, arc_count_field, name_field;
+    tree domain;
+    tree array_value_chain = NULL_TREE;
+    tree bb_fn_struct_type;
+    tree bb_fn_struct_array_type;
+    tree bb_fn_struct_array_pointer_type;
+    tree bb_fn_struct_pointer_type;
+    tree field_value, field_value_chain;
+    
+    bb_fn_struct_type = make_node (RECORD_TYPE);
+    
+    checksum_field = build_decl (FIELD_DECL, get_identifier ("checksum"),
+				 long_integer_type_node);
+    
+    arc_count_field
+      = build_decl (FIELD_DECL, get_identifier ("arc_count"),
+		    integer_type_node);
+    TREE_CHAIN (checksum_field) = arc_count_field;
+    
+    name_field = build_decl (FIELD_DECL, get_identifier ("name"), string_type);
+    TREE_CHAIN (arc_count_field) = name_field;
+    
+    TYPE_FIELDS (bb_fn_struct_type) = checksum_field;
+    
+    num_nodes = 0;
+    
+    for (item = functions_head; item != 0; item = item->next)
+      num_nodes++;
+
+    /* Note that the array contains a terminator, hence no - 1.  */
+    domain = build_index_type (build_int_2 (num_nodes, 0));
+    
+    bb_fn_struct_pointer_type = build_pointer_type (bb_fn_struct_type);
+    bb_fn_struct_array_type
+      = build_array_type (bb_fn_struct_type, domain);
+    bb_fn_struct_array_pointer_type
+      = build_pointer_type (bb_fn_struct_array_type);
+    
+    layout_type (bb_fn_struct_type);
+    layout_type (bb_fn_struct_pointer_type);
+    layout_type (bb_fn_struct_array_type);
+    layout_type (bb_fn_struct_array_pointer_type);
+    
+    for (item = functions_head; item != 0; item = item->next)
+      {
+	size_t name_len;
+	
+	/* create constructor for structure.  */
+	field_value_chain
+	  = build_tree_list (checksum_field,
+			     convert (long_integer_type_node,
+				      build_int_2 (item->cfg_checksum, 0)));
+	field_value_chain
+	  = tree_cons (arc_count_field,
+		       convert (integer_type_node,
+				build_int_2 (item->count_edges, 0)),
+		       field_value_chain);
+	
+	name_len = strlen (item->name);
+	string_cst = build_string (name_len + 1, item->name);
+	domain_type = build_index_type (build_int_2 (name_len, 0));
+	TREE_TYPE (string_cst)
+	  = build_array_type (char_type_node, domain_type);
+	field_value_chain = tree_cons (name_field,
+				       build1 (ADDR_EXPR, string_type,
+					       string_cst),
+				       field_value_chain);
+
+	/* Add to chain.  */
+	array_value_chain
+	  = tree_cons (NULL_TREE, build (CONSTRUCTOR,
+					 bb_fn_struct_type, NULL_TREE,
+					 nreverse (field_value_chain)),
+		       array_value_chain);
+      }
+    
+    /* Add terminator.  */
+    field_value = build_tree_list (arc_count_field,
+				   convert (integer_type_node,
+					    build_int_2 (-1, 0)));
+    
+    array_value_chain = tree_cons (NULL_TREE,
+				   build (CONSTRUCTOR, bb_fn_struct_type,
+					  NULL_TREE, field_value),
+				   array_value_chain);
+    
+    /* Create constructor for array.  */
+    field_decl = build_decl (FIELD_DECL, get_identifier ("function_infos"),
+			     bb_fn_struct_pointer_type);
+    value_chain = tree_cons (field_decl,
+			     build1 (ADDR_EXPR,
+				     bb_fn_struct_array_pointer_type,
+				     build (CONSTRUCTOR,
+					    bb_fn_struct_array_type,
+					    NULL_TREE,
+					    nreverse
+					    (array_value_chain))),
+			     value_chain);
+    TREE_CHAIN (field_decl) = decl_chain;
+    decl_chain = field_decl;
+  }
+
+  /* Finish structure.  */
+  TYPE_FIELDS (structure_decl) = nreverse (decl_chain);
+  layout_type (structure_decl);
+  
+  structure_value
+    = build (VAR_DECL, structure_decl, NULL_TREE, NULL_TREE);
+  DECL_INITIAL (structure_value)
+    = build (CONSTRUCTOR, structure_decl, NULL_TREE, nreverse (value_chain));
+  TREE_STATIC (structure_value) = 1;
+  ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 0);
+  DECL_NAME (structure_value) = get_identifier (name);
+  
+  /* Size of this structure.  */
+  TREE_VALUE (sizeof_field_value)
+    = convert (long_integer_type_node,
+	       build_int_2 (int_size_in_bytes (structure_decl), 0));
+  
+  /* Build structure.  */
+  assemble_variable (structure_value, 0, 0, 0);
+
+  /* Synthesize a constructor function to invoke __bb_init_func with a
+     pointer to this object file's profile block.  */
+
+  /* Try and make a unique name given the "file function name".
+
+     And no, I don't like this either.  */
+
+  fnname = concat (IDENTIFIER_POINTER (get_file_function_name ('I')),
+		   "GCOV", NULL);
+  fndecl = build_decl (FUNCTION_DECL, get_identifier (fnname),
+		       build_function_type (void_type_node, NULL_TREE));
+  free (fnname);
+  DECL_EXTERNAL (fndecl) = 0;
+
+  /* It can be a static function as long as collect2 does not have
+     to scan the object file to find its ctor/dtor routine.  */
+  TREE_PUBLIC (fndecl) = ! targetm.have_ctors_dtors;
+
+  TREE_USED (fndecl) = 1;
+
+  DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+
+  fndecl = (*lang_hooks.decls.pushdecl) (fndecl);
+  rest_of_decl_compilation (fndecl, 0, 1, 0);
+  announce_function (fndecl);
+  current_function_decl = fndecl;
+  DECL_INITIAL (fndecl) = error_mark_node;
+  make_decl_rtl (fndecl, NULL);
+  init_function_start (fndecl, input_filename, lineno);
+  (*lang_hooks.decls.pushlevel) (0);
+  expand_function_start (fndecl, 0);
+  cfun->arc_profile = 0;
+
+  /* Actually generate the code to call __bb_init_func.  */
+  table_address = force_reg (Pmode, gen_rtx_SYMBOL_REF
+			     (Pmode, IDENTIFIER_POINTER
+			      (DECL_NAME (structure_value))));
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_init_func"), LCT_NORMAL,
+		     mode, 1, table_address, Pmode);
+
+  expand_function_end (input_filename, lineno, 0);
+  (*lang_hooks.decls.poplevel) (1, 0, 1);
+
+  /* Since fndecl isn't in the list of globals, it would never be emitted
+     when it's considered to be 'safe' for inlining, so turn off
+     flag_inline_functions.  */
+  flag_inline_functions = 0;
+
+  rest_of_compilation (fndecl);
+
+  /* Reset flag_inline_functions to its original value.  */
+  flag_inline_functions = save_flag_inline_functions;
+
+  if (! quiet_flag)
+    fflush (asm_out_file);
+  current_function_decl = NULL_TREE;
+
+  if (targetm.have_ctors_dtors)
+    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
+				     DEFAULT_INIT_PRIORITY);
+}
+
 /* Output instructions as RTL to increment the edge execution count.  */
 
 static rtx
@@ -1332,92 +1679,6 @@ gen_edge_profiler (edgeno)
   sequence = get_insns ();
   end_sequence ();
   return sequence;
-}
-
-/* Output code for a constructor that will invoke __bb_init_func, if
-   this has not already been done.  */
-
-void
-output_func_start_profiler ()
-{
-  tree fnname, fndecl;
-  char *name;
-  char buf[20];
-  const char *cfnname;
-  rtx table_address;
-  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
-  int save_flag_inline_functions = flag_inline_functions;
-
-  /* It's either already been output, or we don't need it because we're
-     not doing profile-edges.  */
-  if (! need_func_profiler)
-    return;
-
-  need_func_profiler = 0;
-
-  /* Synthesize a constructor function to invoke __bb_init_func with a
-     pointer to this object file's profile block.  */
-
-  /* Try and make a unique name given the "file function name".
-
-     And no, I don't like this either.  */
-
-  fnname = get_file_function_name ('I');
-  cfnname = IDENTIFIER_POINTER (fnname);
-  name = concat (cfnname, "GCOV", NULL);
-  fnname = get_identifier (name);
-  free (name);
-
-  fndecl = build_decl (FUNCTION_DECL, fnname,
-		       build_function_type (void_type_node, NULL_TREE));
-  DECL_EXTERNAL (fndecl) = 0;
-
-  /* It can be a static function as long as collect2 does not have
-     to scan the object file to find its ctor/dtor routine.  */
-  TREE_PUBLIC (fndecl) = ! targetm.have_ctors_dtors;
-
-  TREE_USED (fndecl) = 1;
-
-  DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
-
-  fndecl = (*lang_hooks.decls.pushdecl) (fndecl);
-  rest_of_decl_compilation (fndecl, 0, 1, 0);
-  announce_function (fndecl);
-  current_function_decl = fndecl;
-  DECL_INITIAL (fndecl) = error_mark_node;
-  make_decl_rtl (fndecl, NULL);
-  init_function_start (fndecl, input_filename, lineno);
-  (*lang_hooks.decls.pushlevel) (0);
-  expand_function_start (fndecl, 0);
-  cfun->arc_profile = 0;
-
-  /* Actually generate the code to call __bb_init_func.  */
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 0);
-  table_address = force_reg (Pmode,
-			     gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf)));
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__bb_init_func"), LCT_NORMAL,
-		     mode, 1, table_address, Pmode);
-
-  expand_function_end (input_filename, lineno, 0);
-  (*lang_hooks.decls.poplevel) (1, 0, 1);
-
-  /* Since fndecl isn't in the list of globals, it would never be emitted
-     when it's considered to be 'safe' for inlining, so turn off
-     flag_inline_functions.  */
-  flag_inline_functions = 0;
-
-  rest_of_compilation (fndecl);
-
-  /* Reset flag_inline_functions to its original value.  */
-  flag_inline_functions = save_flag_inline_functions;
-
-  if (! quiet_flag)
-    fflush (asm_out_file);
-  current_function_decl = NULL_TREE;
-
-  if (targetm.have_ctors_dtors)
-    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
-				     DEFAULT_INIT_PRIORITY);
 }
 
 #include "gt-profile.h"

@@ -1,3 +1,31 @@
+2002-09-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* basic_block.h (gcov_type): Explain why it is signed.
+	* final.c: Don't include profile.h.
+	(struct function_list, functions_head, functions_tail,
+	end_final): Moved to profile.c
+	(final): Move arc chaining code to profile.c.
+	* function.c (prepare_function_start): Remove duplicate line.
+	* output.h (end_final): Remove prototype.
+	* predict.c (estimate_loops_at_level): Use gcov_type.
+	* profile.c (struct function_list, functions_head,
+	functions_tail): Moved from final.c
+	(need_func_profiler): Remove.
+	(instrument_edges): Don't set need_func_profiler.
+	(get_exec_counts): Avoid signed/unsigned warning.
+	(compute_checksum): Use crc32.
+	(branch_prob): Adjust. Chain onto functions_head.
+	(init_branch_prob): Absorb init_edge_profiler.
+	(init_edge_profiler): Remove.
+	(create_profiler): Moved and renamed from final.c:end_final.
+	Emit data and constructor.
+	(output_func_start_profiler): Remove.
+	* profile.h (struct profile_info): checksum is unsigned.
+	* rtl.h (output_func_start_profiler): Remove prototype.
+	(create_profiler): Declare.
+	* toplev.c (compile_file): Call create_profiler, if instrumenting
+	arcs. Don't call end_final.
+	
 2002-09-07  Igor Shevlyakov <igor@microunity.com>
 
 	* machmode.def: Add modes for half-float vectors.
