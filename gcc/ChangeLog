@@ -1,5 +1,22 @@
 2003-07-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* optabs.c (prepare_cmp_insn): Try cmpmemM first if it exists,
+	then fall back to cmpstrM.
+	* builtins.c (expand_builtin_memcmp): Likewise.
+	* config/s390/s390.md (cmpmemdi, cmpmemsi, cmpmem_const,
+	cmpmem_64, cmpmem_31): Renamed from cmpstr* patterns.
+	* config/i370/i370.md (cmpmemsi, cmpmemsi_1): Renamed from
+	cmpstr* patterns.
+	* doc/md.texi (cmpstrM): Describe as String compare insn, not
+	Block compare insn.
+	(cmpmemM): Add.
+
+2003-04-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/md.texi (cmpstr): Document additional restrictions.
+
+2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
 	* builtins.def (BUILT_IN_SPRINTF): New.
 	* builtin-types.def (BT_FN_INT_STRING_CONST_STRING_VAR): New.
 
