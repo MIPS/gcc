@@ -1,5 +1,38 @@
 2002-12-03  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in: Add dependencies on $(TM_H) and coretypes.h for the
+	files mentioned below.
+	* old-tree-inline.c: Include tm.h and coretypes.h.
+	* c-pretty-print.c: Likewise.
+	* disjoint-set.c: Likewise.
+	* tree-alias-ecr.c: Likewise.
+	* tree-alias-type.c: Likewise.
+	* tree-alias-ander.c: Likewise.
+	* tree-alias-steen.c: Likewise.
+	* tree-alias-common.c: Likewise.
+	* tree-ssa.c: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-cfg.c: Likewise.
+	* tree-dfa.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* c-simplify.c: Likewise.
+	* gimplify.c: Likewise.
+	* tree-browser.c: Likewise.
+	* simple-break-elim.c: Likewise.
+	* simple-goto-elim.c: Likewise.
+	* tree-dchain.c: Likewise.
+	* c-call-graph.c: Likewise.
+	* tree-simple.c: Likewise.
+	* tree-nomudflap.c: Likewise.
+	* tree-pretty-print.c: Likewise.
+	* tree-ssa-dce.c: Likewise.
+	* tree-ssa-ccp.c: Likewise.
+	* dependence.c: Likewise.
+	* tree-mudflap.c: Likewise
+	(mx_xfn_indirect_ref): Use size_type_node instead of c_size_type_node.
+
+2002-12-03  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c: Undo this change that causes bootstrap
 	failures:
 
