@@ -203,6 +203,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkGenericPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
