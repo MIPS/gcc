@@ -1,3 +1,8 @@
+2004-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/Window.java: Fixed whitespace difference with GNU
+	classpath.
+
 2004-09-23  Mark Wielaard  <mark@klomp.org>
 
 	* Makefile.am: Add javax/swing/SpinnerListModel.java.
