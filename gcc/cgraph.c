@@ -462,7 +462,7 @@ cgraph_varpool_remove_node (node)
 			      DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
 						     (node->decl)), 1);
-  htab_clear_slot (cgraph_hash, slot);
+  htab_clear_slot (cgraph_varpool_hash, slot);
 }
 
 /* Try to find existing function for identifier ID.  */
