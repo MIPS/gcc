@@ -68,10 +68,6 @@ Boston, MA 02111-1307, USA.  */
 #include "integrate.h"
 #include "debug.h"
 
-#ifdef DWARF_DEBUGGING_INFO
-#include "dwarfout.h"
-#endif
-
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif
@@ -386,8 +382,6 @@ int optimize = 0;
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
-
-/* Number of error messages and warning messages so far.  */
 
 /* Nonzero if we should exit after parsing options.  */
 static int exit_after_options = 0;
@@ -2067,47 +2061,7 @@ check_global_declarations (vec, len)
 	warning_with_decl (decl, "`%s' defined but not used");
 
       timevar_push (TV_SYMOUT);
-#ifdef SDB_DEBUGGING_INFO
-      /* The COFF linker can move initialized global vars to the end.
-	 And that can screw up the symbol ordering.
-	 By putting the symbols in that order to begin with,
-	 we avoid a problem.  mcsun!unido!fauern!tumuc!pes@uunet.uu.net.  */
-      if (write_symbols == SDB_DEBUG && TREE_CODE (decl) == VAR_DECL
-	  && TREE_PUBLIC (decl) && DECL_INITIAL (decl)
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_RTL (decl) != 0)
-	sdbout_symbol (decl, 0);
-
-      /* Output COFF information for non-global
-	 file-scope initialized variables.  */
-      if (write_symbols == SDB_DEBUG
-	  && TREE_CODE (decl) == VAR_DECL
-	  && DECL_INITIAL (decl)
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_RTL (decl) != 0
-	  && GET_CODE (DECL_RTL (decl)) == MEM)
-	sdbout_toplevel_data (decl);
-#endif /* SDB_DEBUGGING_INFO  */
-#ifdef DWARF_DEBUGGING_INFO
-      /* Output DWARF information for file-scope tentative data object
-	 declarations, file-scope (extern) function declarations (which
-	 had no corresponding body) and file-scope tagged type declarations
-	 and definitions which have not yet been forced out.  */
-
-      if (write_symbols == DWARF_DEBUG
-	  && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl)))
-	dwarfout_file_scope_decl (decl, 1);
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-      /* Output DWARF2 information for file-scope tentative data object
-	 declarations, file-scope (extern) function declarations (which
-	 had no corresponding body) and file-scope tagged type declarations
-	 and definitions which have not yet been forced out.  */
-
-      if (write_symbols == DWARF2_DEBUG
-	  && (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl)))
-	dwarf2out_decl (decl);
-#endif
+      (*debug_hooks->global_decl) (decl);
       timevar_pop (TV_SYMOUT);
     }
 }
@@ -2243,31 +2197,6 @@ compile_file (name)
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
 	fatal_io_error ("can't open %s", aux_info_file_name);
-    }
-
-  /* Open assembler code output file.  Do this even if -fsyntax-only is on,
-     because then the driver will have provided the name of a temporary
-     file or bit bucket for us.  */
-
-  if (! name_specified && asm_file_name == 0)
-    asm_out_file = stdout;
-  else
-    {
-      if (asm_file_name == 0)
-        {
-          int len = strlen (dump_base_name);
-          char *dumpname = (char *) xmalloc (len + 6);
-          memcpy (dumpname, dump_base_name, len + 1);
-          strip_off_ending (dumpname, len);
-          strcat (dumpname, ".s");
-          asm_file_name = dumpname;
-        }
-      if (!strcmp (asm_file_name, "-"))
-        asm_out_file = stdout;
-      else
-        asm_out_file = fopen (asm_file_name, "w");
-      if (asm_out_file == 0)
-	fatal_io_error ("can't open %s for writing", asm_file_name);
     }
 
 #ifdef IO_BUFFER_SIZE
@@ -2668,46 +2597,6 @@ rest_of_type_compilation (type, toplev)
   timevar_pop (TV_SYMOUT);
 }
 
-/* DECL is an inline function, whose body is present, but which is not
-   being output at this point.  (We're putting that off until we need
-   to do it.)  If there are any actions that need to take place,
-   including the emission of debugging information for the function,
-   this is where they should go.  This function may be called by
-   language-dependent code for front-ends that do not even generate
-   RTL for functions that don't need to be put out.  */
-
-void
-note_deferral_of_defined_inline_function (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-#ifdef DWARF_DEBUGGING_INFO
-  /* Generate the DWARF info for the "abstract" instance of a function
-     which we may later generate inlined and/or out-of-line instances
-     of.  */
-  if (write_symbols == DWARF_DEBUG
-      && (DECL_INLINE (decl) || DECL_ABSTRACT (decl))
-      && ! DECL_ABSTRACT_ORIGIN (decl))
-    {
-      /* The front-end may not have set CURRENT_FUNCTION_DECL, but the
-	 DWARF code expects it to be set in this case.  Intuitively,
-	 DECL is the function we just finished defining, so setting
-	 CURRENT_FUNCTION_DECL is sensible.  */
-      tree saved_cfd = current_function_decl;
-      int was_abstract = DECL_ABSTRACT (decl);
-      current_function_decl = decl;
-
-      /* Let the DWARF code do its work.  */
-      set_decl_abstract_flags (decl, 1);
-      dwarfout_file_scope_decl (decl, 0);
-      if (! was_abstract)
-	set_decl_abstract_flags (decl, 0);
-
-      /* Reset CURRENT_FUNCTION_DECL.  */
-      current_function_decl = saved_cfd;
-    }
-#endif
-}
-
 /* FNDECL is an inline function which is about to be emitted out of line.
    Do any preparation, such as emitting abstract debug info for the inline
    before it gets mangled by optimization.  */
@@ -2856,7 +2745,7 @@ rest_of_compilation (decl)
 	   declared inline but not inlined, and those inlined even
 	   though they weren't declared inline.  Conveniently, that's
 	   what DECL_INLINE means at this point.  */
-	note_deferral_of_defined_inline_function (decl);
+	(*debug_hooks->deferred_inline_function) (decl);
 
       if (DECL_DEFER_OUTPUT (decl))
 	{
@@ -3878,20 +3767,7 @@ rest_of_compilation (decl)
      generated.  During that call, we *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
-#ifdef DBX_DEBUGGING_INFO
-  if (write_symbols == DBX_DEBUG)
-    dbxout_function (decl);
-#endif
-
-#ifdef DWARF_DEBUGGING_INFO
-  if (write_symbols == DWARF_DEBUG)
-    dwarfout_file_scope_decl (decl, 0);
-#endif
-
-#ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_decl (decl);
-#endif
+  (*debug_hooks->function_decl) (decl);
   timevar_pop (TV_SYMOUT);
 
  exit_rest_of_compilation:

@@ -3022,6 +3022,7 @@ static void dwarf2out_start_source_file	PARAMS ((unsigned, const char *));
 static void dwarf2out_end_source_file	PARAMS ((unsigned));
 static void dwarf2out_begin_block	PARAMS ((unsigned, unsigned));
 static void dwarf2out_end_block		PARAMS ((unsigned, unsigned));
+static void dwarf2out_global_decl	PARAMS ((tree));
 
 /* The debug hooks structure.  */
 
@@ -3040,7 +3041,10 @@ struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_int,		/* end_prologue */
   dwarf2out_end_epilogue,
   debug_nothing_tree,		/* begin_function */
-  debug_nothing_int		/* end_function */
+  debug_nothing_int,		/* end_function */
+  dwarf2out_decl,		/* function_decl */
+  dwarf2out_global_decl,
+  debug_nothing_tree		/* deferred_inline_function */
 };
 
 /* NOTE: In the comments in this file, many references are made to
@@ -3578,6 +3582,7 @@ static void gen_tagged_type_instantiation_die PARAMS ((tree, dw_die_ref));
 static void gen_block_die		PARAMS ((tree, dw_die_ref, int));
 static void decls_for_scope		PARAMS ((tree, dw_die_ref, int));
 static int is_redundant_typedef		PARAMS ((tree));
+static void gen_namespace_die           PARAMS ((tree, dw_die_ref));
 static void gen_decl_die		PARAMS ((tree, dw_die_ref));
 static unsigned lookup_filename		PARAMS ((const char *));
 static void init_file_table		PARAMS ((void));
@@ -3850,6 +3855,8 @@ dwarf_tag_name (tag)
       return "DW_TAG_namelist";
     case DW_TAG_namelist_item:
       return "DW_TAG_namelist_item";
+    case DW_TAG_namespace:
+      return "DW_TAG_namespace";
     case DW_TAG_packed_type:
       return "DW_TAG_packed_type";
     case DW_TAG_subprogram:
@@ -9036,9 +9043,13 @@ scope_die_for (t, context_die)
 
   containing_scope = TYPE_CONTEXT (t);
 
-  /* Ignore namespaces for the moment.  */
+  /* Handle namespaces properly */
   if (containing_scope && TREE_CODE (containing_scope) == NAMESPACE_DECL)
-    containing_scope = NULL_TREE;
+    {
+      context_die = lookup_decl_die (containing_scope);
+      if (!context_die)
+	abort();
+    }
 
   /* Ignore function type "scopes" from the C frontend.  They mean that
      a tagged type is local to a parmlist of a function declarator, but
@@ -9634,10 +9645,13 @@ dwarf2out_abstract_function (decl)
 
   /* Be sure we've emitted the in-class declaration DIE (if any) first, so
      we don't get confused by DECL_ABSTRACT.  */
-  context = decl_class_context (decl);
-  if (context)
-    gen_type_die_for_member
-      (context, decl, decl_function_context (decl) ? NULL : comp_unit_die);
+  if (debug_info_level > DINFO_LEVEL_TERSE)
+    {
+      context = decl_class_context (decl);
+      if (context)
+	gen_type_die_for_member
+	  (context, decl, decl_function_context (decl) ? NULL : comp_unit_die);
+    }
  
   /* Pretend we've just finished compiling this function.  */
   save_fn = current_function_decl;
@@ -10836,6 +10850,44 @@ is_redundant_typedef (decl)
   return 0;
 }
 
+/* Generate a DIE for a namespace or namespace alias */
+static void
+gen_namespace_die (decl, context_die)
+     register tree decl;
+     register dw_die_ref context_die;
+{
+  /* Namespace aliases have a DECL_ABSTRACT_ORIGIN of the namespace
+     they are an alias of.*/
+  if (DECL_ABSTRACT_ORIGIN (decl) == NULL)
+    {
+      /* Output a real namespace */
+      dw_die_ref namespace_die = new_die (DW_TAG_namespace, context_die);
+      add_name_and_src_coords_attributes (namespace_die, decl);
+      equate_decl_number_to_die (decl, namespace_die);
+    }
+  else
+    {
+      /* Output a namespace alias */
+      dw_die_ref namespace_die;
+      
+      /* Force out the namespace we are an alias of, if necessary */
+      dw_die_ref origin_die = lookup_decl_die  (DECL_ABSTRACT_ORIGIN (decl));
+      if (!origin_die)
+	{
+	  /* Attempt to force out origin. */
+	  dwarf2out_decl (DECL_ABSTRACT_ORIGIN (decl));
+	  origin_die = lookup_decl_die (DECL_ABSTRACT_ORIGIN (decl));
+	  if (!origin_die)
+	    abort();
+	}
+      /* Now create the namespace alias DIE. */
+      namespace_die = new_die (DW_TAG_imported_declaration, context_die);
+      add_name_and_src_coords_attributes (namespace_die, decl);
+      add_AT_die_ref (namespace_die, DW_AT_import, origin_die);
+      equate_decl_number_to_die (decl, namespace_die);
+    }
+}
+
 /* Generate Dwarf debug information for a decl described by DECL.  */
 
 static void
@@ -10884,18 +10936,34 @@ gen_decl_die (decl, context_die)
       /* Otherwise we're emitting the primary DIE for this decl.  */
       else if (debug_info_level > DINFO_LEVEL_TERSE)
 	{
+	  /* Force out the namespace */
+	  if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	    {
+	      dw_die_ref newcontext;
+	      newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	      if (!newcontext)
+		{
+		  gen_decl_die (DECL_CONTEXT (decl), context_die);
+		  newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+		  if (!newcontext)
+		    abort();
+		}
+	      context_die = newcontext;
+	    }
+
 	  /* Before we describe the FUNCTION_DECL itself, make sure that we
 	     have described its return type.  */
 	  gen_type_die (TREE_TYPE (TREE_TYPE (decl)), context_die);
-
+	 
 	  /* And its virtual context.  */
 	  if (DECL_VINDEX (decl) != NULL_TREE)
 	    gen_type_die (DECL_CONTEXT (decl), context_die);
 
 	  /* And its containing type.  */
 	  origin = decl_class_context (decl);
+
 	  if (origin != NULL_TREE)
-	    gen_type_die_for_member (origin, decl, context_die);
+	    gen_type_die_for_member (origin, decl, context_die);	
 	}
 
       /* Now output a DIE to represent the function itself.  */
@@ -10907,6 +10975,20 @@ gen_decl_die (decl, context_die)
          actual typedefs.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
 	break;
+      /* Force out the namespace. */
+      if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	{
+	  dw_die_ref newcontext;
+	  newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	  if (!newcontext)
+	    {
+	      gen_decl_die (DECL_CONTEXT (decl), context_die);
+	      newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	      if (!newcontext)
+		abort();
+	    }
+	  context_die = newcontext;
+	}
 
       /* In the special case of a TYPE_DECL node representing the
          declaration of some type tag, if the given TYPE_DECL is marked as
@@ -10938,6 +11020,20 @@ gen_decl_die (decl, context_die)
          variable declarations or definitions.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
 	break;
+      /* Force out the namespace */
+      if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	{
+	  dw_die_ref newcontext;
+	  newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	  if (!newcontext)
+	    {
+	      gen_decl_die (DECL_CONTEXT (decl), context_die);
+	      newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	      if (!newcontext)
+		abort();
+	    }
+	  context_die = newcontext;
+	}
 
       /* Output any DIEs that are needed to specify the type of this data
          object.  */
@@ -10965,6 +11061,20 @@ gen_decl_die (decl, context_die)
       if (DECL_NAME (decl) != NULL_TREE
 	  || TREE_CODE (TREE_TYPE (decl)) == UNION_TYPE)
 	{
+	  /* Force out the namespace */
+	  if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	    {
+	      dw_die_ref newcontext;
+	      newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	      if (!newcontext)
+		{
+		  gen_decl_die (DECL_CONTEXT (decl), context_die);
+		  newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+		  if (!newcontext)
+		    abort();
+		}
+	      context_die = newcontext;
+	    }
 	  gen_type_die (member_declared_type (decl), context_die);
 	  gen_field_die (decl, context_die);
 	}
@@ -10976,7 +11086,21 @@ gen_decl_die (decl, context_die)
       break;
 
     case NAMESPACE_DECL:
-      /* Ignore for now.  */
+      /* Force out the namespace */
+      if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	{
+	  dw_die_ref newcontext;
+	  newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	  if (!newcontext)
+	    {
+	      gen_decl_die (DECL_CONTEXT (decl), context_die);
+	      newcontext = lookup_decl_die (DECL_CONTEXT (decl));
+	      if (!newcontext)
+		abort();
+	    }
+	  context_die = newcontext;
+	}
+      gen_namespace_die (decl, context_die);
       break;
 
     default:
@@ -11006,6 +11130,21 @@ dwarf2out_add_library_unit_info (filename, context_list)
       add_AT_unsigned (unit_die, DW_AT_decl_file, file_index);
       add_pubname (context_list_decl, unit_die);
     }
+}
+
+/* Debug information for a global DECL.  Called from toplev.c after
+   compilation proper has finished.  */
+static void
+dwarf2out_global_decl (decl)
+     tree decl;
+{
+  /* Output DWARF2 information for file-scope tentative data object
+     declarations, file-scope (extern) function declarations (which
+     had no corresponding body) and file-scope tagged type
+     declarations and definitions which have not yet been forced out.  */
+
+  if (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+    dwarf2out_decl (decl);
 }
 
 /* Write the debugging output for DECL.  */
@@ -11115,7 +11254,14 @@ dwarf2out_decl (decl)
 	context_die = NULL;
 
       break;
-
+      
+    case NAMESPACE_DECL:
+      if (debug_info_level <= DINFO_LEVEL_TERSE)
+	return;
+      if (lookup_decl_die (decl) != NULL)
+        return;
+      break;
+      
     default:
       return;
     }
