@@ -1,5 +1,9 @@
 2003-02-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* dbxout.c (xcoff_debug_hooks): Initialize var location hook.
+
+2003-02-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* gcse-globals.h (struct ls_expr): New pattern_regs field.
 	* gcse-store.c (store_killed_after, store_killed_before,
 	store_ops_ok): Improve speed.
