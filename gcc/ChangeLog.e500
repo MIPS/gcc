@@ -1,5 +1,10 @@
 2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
 
+	* expr.c (emit_group_store): Do not treat floats as BLKmode.
+	(emit_group_load): Same.
+
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
 	* config/rs6000/rs6000.h (MEMBER_TYPE_FORCES_BLK): Adjust for e500
 	doubles.
 

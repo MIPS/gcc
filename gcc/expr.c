@@ -1846,11 +1846,12 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, src;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_src);
 
   if (GET_CODE (dst) != PARALLEL)
     abort ();
 
-  if (!SCALAR_INT_MODE_P (GET_MODE (orig_src)))
+  if (!SCALAR_INT_MODE_P (m) && m != BLKmode)
     {
       enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_src));
       if (imode == BLKmode)
@@ -2023,11 +2024,12 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, dst;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_dst);
 
   if (GET_CODE (src) != PARALLEL)
     abort ();
 
-  if (!SCALAR_INT_MODE_P (GET_MODE (orig_dst)))
+  if (!SCALAR_INT_MODE_P (m) && m != BLKmode)
     {
       enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_dst));
       if (imode == BLKmode)
