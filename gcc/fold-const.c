@@ -5593,9 +5593,18 @@ fold (tree expr)
 	  return tem;
 	}
       else if (TREE_CODE_CLASS (TREE_CODE (arg0)) == '<')
-	return fold (build (COND_EXPR, type, arg0,
-			    fold (build1 (code, type, integer_one_node)),
-			    fold (build1 (code, type, integer_zero_node))));
+	{
+	  if (TREE_CODE (type) == BOOLEAN_TYPE)
+	    {
+	      arg0 = copy_node (arg0);
+	      TREE_TYPE (arg0) = type;
+	      return arg0;
+	    }
+	  else if (TREE_CODE (type) != INTEGER_TYPE)
+	    return fold (build (COND_EXPR, type, arg0,
+				fold (build1 (code, type, integer_one_node)),
+				fold (build1 (code, type, integer_zero_node))));
+	}
    }
   else if (TREE_CODE_CLASS (code) == '<'
 	   && TREE_CODE (arg0) == COMPOUND_EXPR)
@@ -7166,6 +7175,9 @@ fold (tree expr)
 	return non_lvalue (fold_convert (type, invert_truthvalue (arg1)));
       if (integer_onep (arg1))
 	return non_lvalue (fold_convert (type, invert_truthvalue (arg0)));
+      /* Identical arguments cancel to zero.  */
+      if (operand_equal_p (arg0, arg1, 0))
+	return omit_one_operand (type, integer_zero_node, arg0);
       return t;
 
     case EQ_EXPR:

@@ -1,3 +1,7 @@
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040210-1.c: Tweak scan pattern to look for ifs.
+
 2004-05-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* g++.dg/parse/stack1.C: Remove XFAIL.
