@@ -79,6 +79,10 @@ struct __mf_options
   /* Support multiple threads. */
   unsigned multi_threaded;
 
+  /* Wipe stack/heap objects upon unwind.  */
+  unsigned wipe_stack;
+  unsigned wipe_heap;
+
   /* Maintain a queue of this many deferred free()s, 
      to trap use of freed memory. */
   unsigned free_queue_length;
@@ -93,7 +97,6 @@ struct __mf_options
   unsigned backtrace;
 
   /* Major operation mode */
-
   enum
   {
     mode_nop,        /* mudflaps do nothing */

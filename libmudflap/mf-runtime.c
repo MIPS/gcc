@@ -83,6 +83,8 @@ struct __mf_dynamic __mf_dynamic;
 static void
 __mf_set_default_options ()
 {
+  memset (& __mf_opts, 0, sizeof (__mf_opts));
+
   __mf_opts.trace_mf_calls = 0;
   __mf_opts.verbose_trace = 0;
   __mf_opts.collect_stats = 0;
@@ -172,6 +174,12 @@ options [] =
     {"multi-threaded", 
      "support multiple threads",
      set_option, 1, &__mf_opts.multi_threaded},
+    {"wipe-stack",
+     "wipe stack objects at unwind",
+     set_option, 1, &__mf_opts.wipe_stack},
+    {"wipe-heap",
+     "wipe heap objects at free",
+     set_option, 1, &__mf_opts.wipe_heap},
     {"heur-proc-map", 
      "support /proc/self/map heuristics",
      set_option, 1, &__mf_opts.heur_proc_map},
@@ -256,12 +264,17 @@ __mf_usage ()
 }
 
 
-static int 
-__mf_process_opts (char *optstr)
+int 
+__mf_set_options (const char *optstr)
 {
   struct option *opts = 0;
   char *nxt = 0;
   long tmp = 0;
+  int rc = 0;
+  const char *saved_optstr = optstr;
+  DECLARE (size_t, strlen, const char *s);
+  DECLARE (int, strncmp, const char *s1, const char *s2, size_t n);
+  DECLARE (void *, memset, void *s, int c, size_t n);
 
   while (*optstr)
     {
@@ -280,8 +293,9 @@ __mf_process_opts (char *optstr)
 
 	    if (*optstr == '?' || strcmp (optstr, "help") == 0)
 	      {
-		__mf_usage ();
-		exit (0);
+		/* Caller will print help and exit.  */
+		rc = -1;
+		break;
 	      }
 	    
 	    if (strncmp (optstr, "no-", 3) == 0)
@@ -292,10 +306,10 @@ __mf_process_opts (char *optstr)
 	    
 	    for (opts = options; opts->name; opts++)
 	      {
-		if (strncmp (optstr, opts->name, 
-			     strlen (opts->name)) == 0)
+		if (CALL_REAL (strncmp , optstr, opts->name, 
+			       CALL_REAL (strlen, opts->name)) == 0)
 		  {
-		    optstr += strlen (opts->name);
+		    optstr += CALL_REAL (strlen, opts->name);
 		    assert (opts->target);
 		    switch (opts->type) 
 		      {
@@ -329,7 +343,8 @@ __mf_process_opts (char *optstr)
 	fprintf (stderr, 
 		 "warning: unrecognized string '%s' in mudflap options\n",
 		 optstr);
-	return 0;
+	optstr += CALL_REAL (strlen, optstr);
+	rc = -1;
 	break;
       }
     }
@@ -338,7 +353,14 @@ __mf_process_opts (char *optstr)
   __mf_lc_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
   __mf_opts.free_queue_length &= (__MF_FREEQ_MAX - 1);
 
-  return 1;
+  /* Clear the lookup cache, in case the parameters got changed.  */
+  CALL_REAL (memset, __mf_lookup_cache, 0, sizeof(__mf_lookup_cache));
+  /* void slot 0 */
+  __mf_lookup_cache[0].low = MAXPTR;
+
+  TRACE ("mf: set options from `%s'\n", saved_optstr);
+
+  return rc;
 }
 
 #define CTOR  __attribute__ ((constructor))
@@ -496,11 +518,9 @@ void __mf_init ()
   ov = getenv ("MUDFLAP_OPTIONS");
   if (ov)
     {
-      if (__mf_process_opts (ov) == 0)
+      int rc = __mf_set_options (ov);
+      if (rc < 0)
 	{
-	  fprintf (stderr, 
-		   "mudflap error: unknown options in "
-		   "environment variable MUDFLAP_OPTIONS\n");
 	  __mf_usage ();
 	  exit (1);
 	}
@@ -776,13 +796,13 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
 
 
 static void 
-__mf_uncache_object (__mf_object_tree_t *old_obj)
+__mf_uncache_object (__mf_object_t *old_obj)
 {
   /* Remove any low/high pointers for this object from the lookup cache.  */
-  if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
+  if (LIKELY (old_obj->check_count)) /* Can it possibly exist in the cache?  */
     {
-      uintptr_t low = old_obj->data.low;
-      uintptr_t high = old_obj->data.high;
+      uintptr_t low = old_obj->low;
+      uintptr_t high = old_obj->high;
       unsigned idx_low = __MF_CACHE_INDEX (low);
       unsigned idx_high = __MF_CACHE_INDEX (high);
       unsigned i;
@@ -1045,8 +1065,18 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	old_obj = objs[0];
 
 	__mf_unlink_object (old_obj);
-	__mf_uncache_object (old_obj);
+	__mf_uncache_object (& old_obj->data);
+
+	/* Wipe buffer contents if desired.  */
+	if ((__mf_opts.wipe_stack && old_obj->data.type == __MF_TYPE_STACK) ||
+	    (__mf_opts.wipe_heap && old_obj->data.type == __MF_TYPE_HEAP))
+	  {
+	    memset ((void *) old_obj->data.low,
+		    0,
+		    (size_t) (old_obj->data.high - old_obj->data.low + 1));
+	  }
 	
+	/* Manage the object cemetary.  */
 	if (__mf_opts.persistent_count > 0 && 
 	    old_obj->data.type != __MF_TYPE_GUESS)
 	  {

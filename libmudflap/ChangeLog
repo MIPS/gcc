@@ -1,3 +1,17 @@
+2002-11-08  Frank Ch. Eigler  <fche@redhat.com>
+	
+	* mf-runtime.c (options): Add new "wipe-heap", "wipe-stack"
+	options.
+	(__mf_unregister): Implement stack/heap object wiping.
+	(__mf_set_options): Renamed from __mf_process_opts.
+	(__mf_uncache_object): Change arg type, correct callers. 
+	* mf-impl.h: Corresponding changes.
+	* mf-hooks.c (realloc): Save/restore heap-wiping flag.
+	* mf-runtime.h.in (__mf_set_options): Extend public API.
+	* test/pass26-frag.c: New test for stack wiping.
+	* Makefile.am (TESTS): Run it.
+	* Makefile.in: Regenerated.
+	
 2002-11-07  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.h.in (__mf_watch, __mf_unwatch): Extend public API.

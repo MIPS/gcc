@@ -125,6 +125,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
   DECLARE(void * , realloc, void *, size_t);
   size_t size_with_crumple_zones;
   char *base = buf;
+  unsigned saved_wipe_heap;
 
   BEGIN_PROTECT (char *, realloc, buf, c);
 
@@ -138,6 +139,11 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
   __mf_state = old_state;      
 
+  /* Ensure heap wiping doesn't occur during this peculiar
+     unregister/reregister pair.  */
+  saved_wipe_heap = __mf_opts.wipe_heap;
+  __mf_opts.wipe_heap = 0;
+
   if (LIKELY(buf))
     __mf_unregister ((uintptr_t) buf, 0);
   
@@ -147,6 +153,9 @@ WRAPPER(void *, realloc, void *buf, size_t c)
       __mf_register ((uintptr_t) result, c, 
 		     __MF_TYPE_HEAP, "realloc region");
     }
+
+  /* Restore previous setting.  */
+  __mf_opts.wipe_heap = saved_wipe_heap;
 
   return result;
 }
