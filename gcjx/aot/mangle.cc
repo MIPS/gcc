@@ -249,3 +249,11 @@ mangler::mangler (model_field *f)
   update (f->get_name ());
   result += "E";
 }
+
+mangler::mangler (model_class *declaring, const std::string &fieldname)
+  : result ("_Z")
+{
+  update (declaring, false);
+  update (fieldname);
+  result += "E";
+}

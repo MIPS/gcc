@@ -1,5 +1,12 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (make_decl): Set decl assembler name on class
+	record.
+	* builtins.cc (get_class_object_name): New method.
+	* builtins.hh (tree_builtins::get_class_object_name): Declare.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* decl.cc (build_class_type): Register itable, itable_syms,
 	assertion_table, engine.
 	* builtins.cc (map_utf8const): New method.

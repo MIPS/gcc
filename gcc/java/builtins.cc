@@ -21,6 +21,7 @@
 
 // This include must come first.
 #include "java/glue.hh"
+#include "aot/mangle.hh"
 
 tree_builtins::tree_builtins ()
   : aot_class_factory ()
@@ -469,4 +470,11 @@ tree_builtins::find_decl (tree type, const char *name)
 	return field;
     }
   abort ();
+}
+
+std::string
+tree_builtins::get_class_object_name (model_class *klass)
+{
+  mangler m (klass, "class$");
+  return m.get ();
 }

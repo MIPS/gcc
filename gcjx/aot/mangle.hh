@@ -53,6 +53,10 @@ public:
 
   mangler (model_field *);
 
+  // This is a way to create a mangled name for a non-existing field,
+  // given its declaring class.
+  mangler (model_class *, const std::string &);
+
   std::string get () const
   {
     return result;

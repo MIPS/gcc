@@ -89,6 +89,8 @@ class_object_creator::make_decl (tree type, tree value)
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
+  SET_DECL_ASSEMBLER_NAME (decl,
+			   get_identifier (builtins->get_class_object_name (klass->get ()).c_str ()));
   rest_of_decl_compilation (decl, 1, 0);
 
   return build1 (ADDR_EXPR, build_pointer_type (type), decl);

@@ -278,6 +278,10 @@ X implement the write-to-temp file thing that bytecode uses?
 
 Tree generation
 
+the verifier needs a mode to be more lazy
+but not always...
+in this situation should put a type assertion in the class
+
 we should factor out things like object layout, etc, so that
 we can reuse the bulk of this code with LLVM
   [ done ]

@@ -97,6 +97,9 @@ public:
   void initialize_type_map ();
 
   gcj_abi *find_abi (model_type *);
+
+  /// Return the mangled name of the class object for a given class.
+  std::string get_class_object_name (model_class *);
 };
 
 #endif // GCC_TREE_BUILTINS_HH
