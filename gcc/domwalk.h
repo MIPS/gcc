@@ -25,6 +25,18 @@ Boston, MA 02111-1307, USA.  */
 
 struct dom_walk_data
 {
+  /* Function to initialize block local data.
+
+     Note that the dominator walker infrastructure may provide a new
+     fresh, and zero'd block local data structure, or it may re-use an
+     existing block local data structure.
+
+     If the block local structure has items such as virtual arrays, then
+     that allows your optimizer to re-use those arrays rather than
+     creating new ones.  */
+  void (*initialize_block_local_data) (struct dom_walk_data *,
+				       basic_block, tree);
+
   /* Function to call before the statement walk occurring before the
      recursive walk of the dominator children. 
 
@@ -64,8 +76,22 @@ struct dom_walk_data
   /* Global data for a walk through the dominator tree.  */
   void *global_data;
 
-  /* Stack of any data we need to keep on a per-block basis.  */
+  /* Stack of any data we need to keep on a per-block basis.
+
+     If you have no local data, then BLOCK_DATA_STACK will be NULL.  */
   varray_type block_data_stack;
+
+  /* Size of the block local data.   If this is zero, then it is assumed
+     you have no local data and thus no BLOCK_DATA_STACK as well.  */
+  size_t block_local_data_size;
+
+  /* From here below are private data.  Please do not use this
+     information/data outside domwalk.c.  */
+
+  /* Stack of available block local structures.   */
+  varray_type free_block_data;
 };
 
 void walk_dominator_tree (struct dom_walk_data *, basic_block, tree);
+void init_walk_dominator_tree (struct dom_walk_data *);
+void fini_walk_dominator_tree (struct dom_walk_data *);

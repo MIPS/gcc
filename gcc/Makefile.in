@@ -1559,7 +1559,7 @@ tree-ssa-dom.o : tree-ssa-dom.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssanames.o : tree-ssanames.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TREE_H) varray.h
 domwalk.o : domwalk.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TREE_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) domwalk.h
+   $(TREE_H) $(BASIC_BLOCK_H) $(TREE_FLOW_H) domwalk.h $(GGC_H)
 tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \

@@ -224,6 +224,8 @@ static void record_equivalences_from_stmt (tree, varray_type *, varray_type *,
 					   int, stmt_ann_t);
 static void thread_across_edge (edge);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
+static void dom_opt_initialize_block_local_data (struct dom_walk_data *,
+						 basic_block, tree);
 static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
@@ -349,15 +351,16 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
   VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
   VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
-  VARRAY_GENERIC_PTR_INIT (walk_data.block_data_stack, 2, "block_data");
 
 
   /* Setup callbacks for the generic dominator tree walker.  */
+  walk_data.initialize_block_local_data = dom_opt_initialize_block_local_data;
   walk_data.before_dom_children_before_stmts = dom_opt_initialize_block;
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_after_stmts = dom_opt_finalize_block;
   walk_data.global_data = NULL;
+  walk_data.block_local_data_size = sizeof (struct dom_walk_block_data);
 
   /* Customize walker based on whether or not we are threading jumps
      through blocks with PHI nodes or not.  */
@@ -372,6 +375,14 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
       walk_data.before_dom_children_after_stmts = cprop_into_phis;
     }
 
+  /* Now initialize the dominator walker.  */
+  init_walk_dominator_tree (&walk_data);
+
+  /* Reset block_forwardable in each block's annotation.  We use that
+     attribute when threading through COND_EXPRs.  */
+  FOR_EACH_BB (bb)
+    bb_ann (bb)->forwardable = 1;
+
   /* Build the dominator tree if necessary. 
 
      We don't have a flag indicating if the dominator tree is available,
@@ -381,11 +392,6 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     if (dom_children (e->dest))
       break;
-
-  /* Reset block_forwardable in each block's annotation.  We use that
-     attribute when threading through COND_EXPRs.  */
-  FOR_EACH_BB (bb)
-    bb_ann (bb)->forwardable = 1;
 
   /* If we did not find any dominator children in the successors of the
      entry block, then rebuild the dominator tree.  */
@@ -512,6 +518,9 @@ tree_ssa_dominator_optimize_1 (tree fndecl,
   VARRAY_FREE (edges_to_redirect);
   VARRAY_FREE (redirection_targets);
 
+  /* And finalize the dominator walker.  */
+  fini_walk_dominator_tree (&walk_data);
+
   timevar_pop (timevar);
 }
 
@@ -593,6 +602,65 @@ thread_across_edge (edge e)
     }
 }
 
+
+/* Initialize the local stacks.
+     
+   AVAIL_EXPRS stores all the expressions made available in this block.
+
+   TRUE_EXPRS stores all expressions with a true value made in this block.
+
+   FALSE_EXPRS stores all expressions with a false value made in this block.
+
+   CONST_AND_COPIES stores var/value pairs to restore at the end of this
+   block.
+
+   NONZERO_VARS stores the vars which have a nonzero value made in this
+   block.
+
+   STMTS_TO_RESCAN is a list of statements we will rescan for operands.
+
+   VRP_VARIABLES is the list of variables which have had their values
+   constrained by an operation in this block.
+
+   These stacks are cleared in the finalization routine run for each
+   block.  */
+
+static void
+dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
+				     basic_block bb ATTRIBUTE_UNUSED,
+			             tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  struct dom_walk_block_data *bd
+    = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+
+  /* We get cleared memory from the allocator, so if the memory is not
+     cleared, then we are re-using a previously allocated entry.  In
+     that case, we can also re-use the underlying virtual arrays.  Just
+     make sure we clear them before using them!  */
+  if (bd->avail_exprs)
+    {
+      VARRAY_CLEAR (bd->avail_exprs);
+      VARRAY_CLEAR (bd->true_exprs);
+      VARRAY_CLEAR (bd->false_exprs);
+      VARRAY_CLEAR (bd->const_and_copies);
+      VARRAY_CLEAR (bd->nonzero_vars);
+      VARRAY_CLEAR (bd->stmts_to_rescan);
+      VARRAY_CLEAR (bd->vrp_variables);
+    }
+  else
+    {
+      /* The allocator gave us a new block data structure, so we must
+	 initialize new arrays.  */
+      VARRAY_TREE_INIT (bd->avail_exprs, 20, "block_avail_exprs");
+      VARRAY_TREE_INIT (bd->true_exprs, 2, "block_true_exprs");
+      VARRAY_TREE_INIT (bd->false_exprs, 2, "block_false_exprs");
+      VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
+      VARRAY_TREE_INIT (bd->nonzero_vars, 2, "block_nonzero_vars");
+      VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
+      VARRAY_TREE_INIT (bd->vrp_variables, 2, "vrp_variables");
+    }
+}
+
 /* Initialize local stacks for this optimizer and record equivalences
    upon entry to BB.  Equivalences can come from the edge traversed to
    reach BB or they may come from PHI nodes at the start of BB.  */
@@ -602,36 +670,8 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data,
 			  basic_block bb,
 			  tree parent_block_last_stmt)
 {
-  struct dom_walk_block_data *bd;
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
-
-  /* Initialize the local stacks.
-     
-     AVAIL_EXPRS stores all the expressions made available in this block.
-
-     CONST_AND_COPIES stores var/value pairs to restore at the end of this
-     block.
-
-     STMTS_TO_RESCAN is a list of statements we will rescan for operands.
-
-     VRP_VARIABLES is the list of variables which have had their values
-     constrained by an operation in this block.
-
-     These stacks are cleared in the finalization routine run for each
-     block.  */
-  bd = ggc_alloc (sizeof (struct dom_walk_block_data));
-  VARRAY_TREE_INIT (bd->avail_exprs, 20, "block_avail_exprs");
-  VARRAY_TREE_INIT (bd->true_exprs, 2, "block_true_exprs");
-  VARRAY_TREE_INIT (bd->false_exprs, 2, "block_false_exprs");
-  VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
-  VARRAY_TREE_INIT (bd->nonzero_vars, 2, "block_nonzero_vars");
-  VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
-  VARRAY_TREE_INIT (bd->vrp_variables, 2, "vrp_variables");
-
-  /* Push this block record onto the stack of block records.  */
-  VARRAY_PUSH_GENERIC_PTR (walk_data->block_data_stack, bd);
 
   record_equivalences_from_incoming_edge (walk_data, bb,
 					  parent_block_last_stmt);
@@ -831,9 +871,6 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
       VARRAY_POP (stmts_to_rescan);
       mark_new_vars_to_rename (stmt, vars_to_rename);
     }
-
-  /* And finally pop the record off the block local data.  */
-  VARRAY_POP (walk_data->block_data_stack);
 }
 
 /* PHI nodes can create equivalences too.

@@ -22,6 +22,38 @@
 
 2003-11-21  Jeff Law  <law@redhat.com>
 
+	* Makefile.in (domwalk.o): Depend on $(GGC_H).
+	* domwalk.c: Include ggc.h.
+	(walk_dominator_tree): Manage allocation/deallocation and
+	pushing/popping of the toplevel block data pointer here.
+	Use callback to initialize the block local data.
+	(init_walk_dominator_tree): New function.
+	(fini_walk_dominator_tree): Likewise.
+	* domwalk.h (struct dom_walk_data): Add callback to initialize
+	block local data.  Add field for sizeof block local data.
+	Add "private" field free_block_data.
+	(init_dominator_tree, fini_dominator_tree): Prototype.
+	* tree-ssa-dom.c (dom_opt_initialize_local_data): New function.
+	(tree_ssa_dominator_optimize_1): Initialize new fields in the
+	dominator walker structure.  Initialize and finalize the dominator
+	walker.  Slightly reorder code to make it more readable..
+	(dom_opt_initialize_block): No longer deal with allocation and
+	initialization of block local data.
+	(dom_opt_finalize_block): Similarly for deallocation of block
+	local data.
+	* tree-ssa.c (rewrite_block_data): New structure.
+	(rewrite_initialize_block_local_data): New function.
+	(rewrite_initialize_block): No longer deal with allocation and
+	initialization of block local data.
+	(rewrite_into_ssa): Initialize new fields in the dominator walker
+	structure.  Initialize and finalize the dominator walker.
+	(rewrite_initialize_block): No longer deal with allocation and
+	initialization of block local data.
+	(rewrite_optimize_stmts): Deal with changes in the dominator
+	walker structure.
+	(rewrite_finalize_block): No longer with deallocation of block
+	local data.
+
         * tree-dfa.c (add_vdef, cleanup_voperand_arrays): Use NUM_VDEFS.
         (mark_new_vars_to_rename, collect_dfa_status_r): Likewise.
         * tree-pretty-print.c (dump_vops): Likewise.

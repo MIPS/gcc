@@ -160,6 +160,11 @@ struct ssa_stats_d
   long num_stmts;
 };
 
+struct rewrite_block_data
+{
+  varray_type block_defs;
+};
+
 static struct ssa_stats_d ssa_stats;
 
 /* Bitmap representing variables that need to be renamed into SSA form.  */
@@ -168,6 +173,8 @@ static sbitmap vars_to_rename;
 
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
+static void rewrite_initialize_block_local_data (struct dom_walk_data *,
+						 basic_block, tree);
 static void rewrite_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
@@ -391,13 +398,14 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
-  walk_data.block_data_stack = NULL;
+  walk_data.initialize_block_local_data = NULL;
   walk_data.before_dom_children_before_stmts = NULL;
   walk_data.before_dom_children_walk_stmts = mark_def_sites;
   walk_data.before_dom_children_after_stmts = NULL; 
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  NULL;
+
   /* Notice that this bitmap is indexed using variable UIDs, so it must be
      large enough to accommodate all the variables referenced in the
      function, not just the ones we are renaming.  */
@@ -405,8 +413,17 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   mark_def_sites_global_data.idom = idom;
   walk_data.global_data = &mark_def_sites_global_data;
 
+  /* We do not have any local data.  */
+  walk_data.block_local_data_size = 0;
+
+  /* Initialize the dominator walker.  */
+  init_walk_dominator_tree (&walk_data);
+
   /* Recursively walk the dominator tree.  */
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+
+  /* Finalize the dominator walker.  */
+  fini_walk_dominator_tree (&walk_data);
 
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
@@ -421,7 +438,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Setup callbacks for the generic dominator tree walker.  */
-  VARRAY_GENERIC_PTR_INIT (walk_data.block_data_stack, 2, "block_data");
+  walk_data.initialize_block_local_data = rewrite_initialize_block_local_data;
   walk_data.before_dom_children_before_stmts = rewrite_initialize_block;
   walk_data.before_dom_children_walk_stmts = rewrite_walk_stmts;
   walk_data.before_dom_children_after_stmts = rewrite_add_phi_arguments; 
@@ -429,10 +446,18 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
   walk_data.global_data = NULL;
+  walk_data.block_local_data_size = sizeof (struct rewrite_block_data);
+
+  /* Initialize the dominator walker.  */
+  init_walk_dominator_tree (&walk_data);
 
   /* Recursively walk the dominator tree rewriting each statement in
      each basic block.  */
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+
+  /* Finalize the dominator walker.  */
+  fini_walk_dominator_tree (&walk_data);
+
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
@@ -798,6 +823,31 @@ insert_phi_nodes (bitmap *dfs)
       definitions are restored to the names that were valid in the
       dominator parent of BB.  */
 
+/* Initialize the local stacks.
+     
+   BLOCK_DEFS is used to save all the existing reaching definitions for
+   the new SSA names introduced in this block.  Before registering a
+   new definition for a variable, the existing reaching definition is
+   pushed into this stack so that we can restore it in Step 5.  */
+
+static void
+rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
+				     basic_block bb ATTRIBUTE_UNUSED,
+				     tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  struct rewrite_block_data *bd
+    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+                                                                                
+  /* We get cleared memory from the allocator, so if the memory is
+     not cleared, then we are re-using a previously allocated entry.  In
+     that case, we can also re-use the underlying virtal arrays.  Just
+     make sure we clear them before using them!  */
+  if (bd->block_defs)
+    VARRAY_CLEAR (bd->block_defs);
+  else
+    VARRAY_TREE_INIT (bd->block_defs, 20, "block_defs");
+}
+
 /* SSA Rewriting Step 1.  Initialization, create a block local stack
    of reaching definitions for new SSA names produced in this block
    (BLOCK_DEFS).  Register new definitions for every PHI node in the
@@ -808,28 +858,12 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
 			  basic_block bb,
 			  tree parent_block_last_stmt ATTRIBUTE_UNUSED)
 {
-  varray_type block_defs;
-  varray_type *block_defs_p;
   tree phi;
+  struct rewrite_block_data *bd
+    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
-
-  /* Initialize the local stacks.
-     
-     BLOCK_DEFS is used to save all the existing reaching definitions for
-     the new SSA names introduced in this block.  Before registering a
-     new definition for a variable, the existing reaching definition is
-     pushed into this stack so that we can restore it in Step 5.  */
-  VARRAY_TREE_INIT (block_defs, 20, "block_defs");
-
-  /* Now push this block's BLOCK_DEFs onto the stack of block local data.  */
-  VARRAY_PUSH_GENERIC_PTR (walk_data->block_data_stack, block_defs);
-
-  /* We want a pointer to BLOCK_DEFS as stored in BLOCK_DATA_STACK, not the
-     address of the local variable BLOCK_DEFS.  */
-  block_defs_p
-    = (varray_type *) &VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -838,7 +872,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result, block_defs_p);
+      register_new_def (SSA_NAME_VAR (result), result, &bd->block_defs);
     }
 }
 
@@ -852,11 +886,11 @@ rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		    tree parent_block_last_stmt ATTRIBUTE_UNUSED)
 {
   block_stmt_iterator si;
-  varray_type *block_defs_p
-    = (varray_type *) &VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+  struct rewrite_block_data *bd
+    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (si, block_defs_p);
+    rewrite_stmt (si, &bd->block_defs);
 }
 
 
@@ -900,32 +934,29 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
 			basic_block bb ATTRIBUTE_UNUSED,
 			tree parent_block_last_stmt ATTRIBUTE_UNUSED)
 {
-  varray_type block_defs
-    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+  struct rewrite_block_data *bd
+    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
-  while (VARRAY_ACTIVE_SIZE (block_defs) > 0)
+  while (VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     {
       tree var;
-      tree saved_def = VARRAY_TOP_TREE (block_defs);
-      VARRAY_POP (block_defs);
+      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
+      VARRAY_POP (bd->block_defs);
       
       /* If SAVED_DEF is NULL, then the next slot in the stack contains the
 	 variable associated with SAVED_DEF.  */
       if (saved_def == NULL_TREE)
 	{
-	  var = VARRAY_TOP_TREE (block_defs);
-	  VARRAY_POP (block_defs);
+	  var = VARRAY_TOP_TREE (bd->block_defs);
+	  VARRAY_POP (bd->block_defs);
 	}
       else
 	var = SSA_NAME_VAR (saved_def);
 
       set_value_for (var, saved_def, currdefs);
     }
-
-  /* And remove this block's local data off BLOCK_DATA_STACK.  */
-  VARRAY_POP (walk_data->block_data_stack);
 }
 
 /* This function will create a temporary for a partition based on the
