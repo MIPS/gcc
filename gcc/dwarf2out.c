@@ -344,15 +344,17 @@ static void def_cfa_1		 	PARAMS ((const char *,
 
 #ifdef SET_ASM_OP
 #ifndef ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)    	\
- do {									\
-  fprintf (FILE, "%s", SET_ASM_OP);					\
-  assemble_name (FILE, SY);						\
-  fputc (',', FILE);							\
-  assemble_name (FILE, HI);						\
-  fputc ('-', FILE);							\
-  assemble_name (FILE, LO);						\
- } while (0)
+#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)	\
+  do									\
+    {									\
+      fprintf (FILE, "%s", SET_ASM_OP);					\
+      assemble_name (FILE, SY);						\
+      fputc (',', FILE);						\
+      assemble_name (FILE, HI);						\
+      fputc ('-', FILE);						\
+      assemble_name (FILE, LO);						\
+    }									\
+  while (0)
 #endif
 #endif
 
@@ -1814,6 +1816,10 @@ output_call_frame_info (for_eh)
   int per_encoding = DW_EH_PE_absptr;
   int lsda_encoding = DW_EH_PE_absptr;
 
+  /* Don't emit a CIE if there won't be any FDEs.  */
+  if (fde_table_in_use == 0)
+    return;
+
   /* If we don't have any functions we'll want to unwind out of, don't emit any
      EH unwind information.  */
   if (for_eh)
@@ -1962,7 +1968,8 @@ output_call_frame_info (for_eh)
       fde = &fde_table[i];
 
       /* Don't emit EH unwind info for leaf functions that don't need it.  */
-      if (for_eh && fde->nothrow && ! fde->uses_eh_lsda)
+      if (!flag_asynchronous_unwind_tables && for_eh && fde->nothrow
+	  && !  fde->uses_eh_lsda)
 	continue;
 
       ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, FDE_LABEL, for_eh + i * 2);
@@ -9092,15 +9099,17 @@ rtl_for_decl_location (decl)
 		  == strlen (TREE_STRING_POINTER (init)) + 1))
 	    rtl = gen_rtx_CONST_STRING (VOIDmode, TREE_STRING_POINTER (init));
 	}
-
-      if (rtl == NULL)
+      /* If the initializer is something that we know will expand into an
+	 immediate RTL constant, expand it now.  Expanding anything else
+	 tends to produce unresolved symbols; see debug/5770 and c++/6381.  */
+      else if (TREE_CODE (DECL_INITIAL (decl)) == INTEGER_CST
+	       || TREE_CODE (DECL_INITIAL (decl)) == REAL_CST)
 	{
 	  rtl = expand_expr (DECL_INITIAL (decl), NULL_RTX, VOIDmode,
 			     EXPAND_INITIALIZER);
-	  /* If expand_expr returned a MEM, we cannot use it, since
-	     it won't be output, leading to unresolved symbol.  */
+	  /* If expand_expr returns a MEM, it wasn't immediate.  */
 	  if (rtl && GET_CODE (rtl) == MEM)
-	    rtl = NULL;
+	    abort ();
 	}
     }
 
@@ -11260,6 +11269,10 @@ gen_type_die (type, context_die)
   if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
       && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
     {
+      /* Prevent broken recursion; we can't hand off to the same type.  */
+      if (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) == type)
+	abort ();
+
       TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), context_die);
       return;

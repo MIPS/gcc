@@ -1,3 +1,72 @@
+2002-05-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc: Don't include sys/time.h and time.h.
+	* java/util/natTimeZone.cc: Include sys/time.h and time.h here.
+	Include platform.h.
+
+	Fixes PR libgcj/6389:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_source_files): Added natTimeZone.cc.
+	* java/util/natTimeZone.cc: New file.
+	* java/util/TimeZone.java (getDefaultTimeZoneId): New method.
+	* java/lang/System.java: Merged with Classpath.
+	* java/lang/Runtime.java: Merged with Classpath.
+	* java/lang/natSystem.cc (setErr0): Renamed from setErr; don't run
+	security check.
+	(setIn0): Renamed from setIn; don't run security check.
+	(setOut0): Renamed from setOut; don't run security check.
+	(file_encoding, getpwuid_adaptor, getSystemTimeZone,
+	init_properties): Moved to natRuntime.cc.
+	Moved many includes to natRuntime.cc.
+	(isWordsBigEndian): New method.
+	* java/lang/natRuntime.cc: Include Long.h, also other includes
+	previously in natSystem.cc.
+	(maxMemory): New function.
+	(exitInternal): Renamed from `_exit'.
+	(exit): Removed.
+	(init): Don't set finalize_on_exit.
+	(exitInternal): Use `finalizeOnExit'.
+	(file_encoding, getpwuid_adaptor): New functions from
+	natSystem.cc.
+	(insertSystemProperties): New method, renamed from
+	System::init_properties.  Don't set user.timezone.
+	(_load): Don't call checkLink.
+	(execInternal): New method.
+	(availableProcessors): Likewise.
+	(nativeGetLibname): Likewise.
+
+2002-05-11  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/text/SentenceBreakIterator.java (next): Skip all java white
+	space characters.
+	(previous_internal): Likewise.
+
+2002-05-09  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNIFunctions): Fixed typo.
+
+	* java/util/ResourceBundle.java: New version from Classpath.
+	* java/util/Locale.java: Likewise.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Append all
+	multilib dirs containing libgcc_s*.so.1 below gcc object dir to
+	LD_LIBRARY_PATH.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* libjava/Makefile.am (all_java_source_files): New variable.
+	(all_java_class_files): Likewise.
+	.java.class: New rule.
+	(CLEANFILES): Remove tmp-list.
+	* libjava/Makefile.in: Regenerated.
+	
+2002-05-09  David.Billinghurst  <David.Billinghurst@riotinto.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_javac):
+	Append .exe to executable names.  Fix for cygwin.
+
 2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
 
 	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at

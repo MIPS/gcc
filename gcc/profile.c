@@ -80,6 +80,10 @@ struct bb_info
 			       : ((bb) == EXIT_BLOCK_PTR		\
 				  ? n_basic_blocks + 1 : (bb)->index + 1))
 
+/* Instantiate the profile info structure.  */
+
+struct profile_info profile_info;
+
 /* Name and file pointer of the output file for the basic block graph.  */
 
 static FILE *bbg_file;
@@ -286,7 +290,6 @@ output_gcov_string (string, delimiter)
   __write_long (delimiter, bb_file, 4);
 }
 
-
 /* Computes hybrid profile for all matching entries in da_file. 
    Sets max_counter_in_program as a side effect.  */
 
@@ -301,16 +304,16 @@ get_exec_counts ()
   char *function_name_buffer;
   int function_name_buffer_len;
   gcov_type max_counter_in_run;
-  
+
   profile_info.max_counter_in_program = 0;
   profile_info.count_profiles_merged = 0;
-  
+
   /* No .da file, no execution counts.  */
   if (!da_file)
     return 0;
 
   /* Count the edges to be (possibly) instrumented.  */
-  
+
   for (i = 0; i < n_basic_blocks + 2; i++)
     {
       basic_block bb = GCOV_INDEX_TO_BB (i);
@@ -329,118 +332,124 @@ get_exec_counts ()
   function_name_buffer_len = strlen (current_function_name) + 1;
   function_name_buffer = xmalloc (function_name_buffer_len + 1);
 
-  for (i = 0; i < num_edges ; i++)
+  for (i = 0; i < num_edges; i++)
     profile[i] = 0;
 
-  while (1) {
-    long magic, extra_bytes;
-    long func_count;
-    int i;
+  while (1)
+    {
+      long magic, extra_bytes;
+      long func_count;
+      int i;
 
-    if (__read_long (&magic, da_file, 4) != 0)
-      break;
-
-    if (magic != -123) 
-      {
-	okay = 0;
+      if (__read_long (&magic, da_file, 4) != 0)
 	break;
-      }
 
-    if (__read_long (&func_count, da_file, 4) != 0)
-      {
-	okay = 0;
-	break;
-      }
+      if (magic != -123)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    if (__read_long (&extra_bytes, da_file, 4) != 0)
-      {
-	okay = 0;
-	break;
-      }
+      if (__read_long (&func_count, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    fseek (da_file, 4 + 8, SEEK_CUR);
+      if (__read_long (&extra_bytes, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    __read_gcov_type (&max_counter_in_run, da_file, 8);  /* read the maximal counter.  */
-    
-    /* skip the rest of "statistics" emited by __bb_exit_func.  */
-    fseek (da_file, extra_bytes - (4 + 8 + 8), SEEK_CUR);
+      fseek (da_file, 4 + 8, SEEK_CUR);
 
-    for (i = 0; i < func_count; i++)
-      {
-	long arc_count;
-	long chksum;
-	int j;
-	
-	if (__read_gcov_string (function_name_buffer, function_name_buffer_len, da_file, -1) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+      /* read the maximal counter.  */
+      __read_gcov_type (&max_counter_in_run, da_file, 8);
 
-	if (__read_long (&chksum, da_file, 4) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+      /* skip the rest of "statistics" emited by __bb_exit_func.  */
+      fseek (da_file, extra_bytes - (4 + 8 + 8), SEEK_CUR);
 
-	if (__read_long (&arc_count, da_file, 4) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+      for (i = 0; i < func_count; i++)
+	{
+	  long arc_count;
+	  long chksum;
+	  int j;
 
-	if (strcmp (function_name_buffer, current_function_name) != 0)
-	  {
-	    /* skip */
-	    if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0) 
-	      {
-		okay = 0;
-		break;
-	      }
-	  } 
-	else if (arc_count != num_edges 
-		 || chksum != profile_info.current_function_cfg_checksum)  
-	  okay = 0, mismatch = 1;
-	else 
-	  {
-	    gcov_type tmp;
-	    
-	    profile_info.max_counter_in_program += max_counter_in_run;
-	    profile_info.count_profiles_merged ++;
-	      
-	    for (j = 0; j < arc_count; j++)
-	      if (__read_gcov_type (&tmp, da_file, 8) != 0)
-	        {
+	  if (__read_gcov_string
+	      (function_name_buffer, function_name_buffer_len, da_file,
+	       -1) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (__read_long (&chksum, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (__read_long (&arc_count, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (strcmp (function_name_buffer, current_function_name) != 0)
+	    {
+	      /* skip */
+	      if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0)
+		{
 		  okay = 0;
 		  break;
-	        } 
-	      else
-	        {
-		  profile[j] += tmp;
 		}
-	  }
-      }
+	    }
+	  else if (arc_count != num_edges
+		   || chksum != profile_info.current_function_cfg_checksum)
+	    okay = 0, mismatch = 1;
+	  else
+	    {
+	      gcov_type tmp;
 
-    if (!okay)
-      break;
-    
-  }
+	      profile_info.max_counter_in_program += max_counter_in_run;
+	      profile_info.count_profiles_merged++;
+
+	      for (j = 0; j < arc_count; j++)
+		if (__read_gcov_type (&tmp, da_file, 8) != 0)
+		  {
+		    okay = 0;
+		    break;
+		  }
+		else
+		  {
+		    profile[j] += tmp;
+		  }
+	    }
+	}
+
+      if (!okay)
+	break;
+
+    }
 
   free (function_name_buffer);
 
-  if (!okay) {
-    if (mismatch)
-      error ("Profile does not match flowgraph of function %s (out of date?)", current_function_name);
-    else
-      error (".da file corrupted");
-    free (profile);
-    return 0;
-  }
+  if (!okay)
+    {
+      if (mismatch)
+	error
+	  ("Profile does not match flowgraph of function %s (out of date?)",
+	   current_function_name);
+      else
+	error (".da file corrupted");
+      free (profile);
+      return 0;
+    }
 
   return profile;
 }
 
-
 /* Compute the branch probabilities for the various branches.
    Annotate them accordingly.  */
 
@@ -1031,7 +1040,8 @@ branch_prob ()
     {
       int flag_bits;
 
-      __write_gcov_string (current_function_name, strlen (current_function_name), bbg_file, -1);
+      __write_gcov_string (current_function_name,
+		           strlen (current_function_name), bbg_file, -1);
 
       /* write checksum.  */
       __write_long (profile_info.current_function_cfg_checksum, bbg_file, 4);
@@ -1382,6 +1392,8 @@ gen_edge_profiler (edgeno)
   tmp = expand_simple_binop (mode, PLUS, mem_ref, const1_rtx,
 			     mem_ref, 0, OPTAB_WIDEN);
 
+  set_mem_alias_set (mem_ref, new_alias_set ());
+
   if (tmp != mem_ref)
     emit_move_insn (copy_rtx (mem_ref), tmp);
 
@@ -1445,7 +1457,7 @@ output_func_start_profiler ()
   init_function_start (fndecl, input_filename, lineno);
   (*lang_hooks.decls.pushlevel) (0);
   expand_function_start (fndecl, 0);
-  cfun->no_profile = 1;
+  cfun->arc_profile = 0;
 
   /* Actually generate the code to call __bb_init_func.  */
   ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", 0);

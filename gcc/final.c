@@ -252,119 +252,133 @@ void
 end_final (filename)
      const char *filename;
 {
-  if (profile_arc_flag)
+  if (profile_arc_flag && profile_info.count_instrumented_edges)
     {
       char name[20];
-      tree char_pointer_type, char_array_type, string_type, string_cst;
+      tree string_type, string_cst;
       tree structure_decl, structure_value, structure_pointer_type;
-      tree field_decl, field_value, decl_chain, value_chain;
-      tree nwords_field_value;
+      tree field_decl, decl_chain, value_chain;
+      tree sizeof_field_value, domain_type;
 
       /* Build types.  */
-      char_pointer_type = build_pointer_type (char_type_node);
-      char_array_type = build_array_type (char_type_node, integer_type_node);
-      string_type = build_pointer_type (char_array_type);
+      string_type = build_pointer_type (char_type_node);
 
       /* Libgcc2 bb structure.  */
       structure_decl = make_node (RECORD_TYPE);
-      TYPE_PACKED (structure_decl) = flag_pack_struct;
       structure_pointer_type = build_pointer_type (structure_decl);
 
       /* Output the main header, of 7 words:
-	 0:  1 if this file is initialized, else 0.
-	 1:  address of file name (LPBX1).
-	 2:  address of table of counts (LPBX2).
-	 3:  number of counts in the table.
-	 4:  always 0, libgcc2 uses this as a pointer to next ``struct bb''
+         0:  1 if this file is initialized, else 0.
+         1:  address of file name (LPBX1).
+         2:  address of table of counts (LPBX2).
+         3:  number of counts in the table.
+         4:  always 0, libgcc2 uses this as a pointer to next ``struct bb''
 
          The following are GNU extensions:
 
-	 5:  Number of bytes in this header.
-	 6:  address of table of function checksums (LPBX7).  */
+         5:  Number of bytes in this header.
+         6:  address of table of function checksums (LPBX7).  */
 
       /* The zero word.  */
-      decl_chain = build_decl (FIELD_DECL, get_identifier ("zero_word"), long_integer_type_node);
-      value_chain = make_node (TREE_LIST);
-      TREE_TYPE (value_chain) = long_integer_type_node;
-      TREE_PURPOSE (value_chain) = decl_chain;
-      TREE_VALUE (value_chain) = integer_zero_node;
+      decl_chain =
+	build_decl (FIELD_DECL, get_identifier ("zero_word"),
+		    long_integer_type_node);
+      value_chain = build_tree_list (decl_chain,
+				     convert (long_integer_type_node,
+					      integer_zero_node));
 
       /* Address of filename.  */
-	{
-	  char *cwd = getpwd ();
-	  int da_filename_len = strlen (filename) + strlen (cwd) + 4 + 1;
-	  char *da_filename = (char *) alloca (da_filename_len);
+      {
+	char *cwd, *da_filename;
+	int da_filename_len;
 
-	  strcpy (da_filename, cwd);
-	  strcat (da_filename, "/");
-	  strcat (da_filename, filename);
-	  strip_off_ending (da_filename, da_filename_len - 3);
-	  strcat (da_filename, ".da");
-	  field_decl = build_decl (FIELD_DECL, get_identifier ("filename"), char_pointer_type);
-	  field_value = make_node (TREE_LIST);
-	  TREE_TYPE (field_value) = char_pointer_type;
-	  TREE_PURPOSE (field_value) = field_decl;
-	  string_cst = build_string (strlen (da_filename) + 1, da_filename);
-	  TREE_TYPE (string_cst) = char_array_type;
-	  TREE_VALUE (field_value) = build1 (ADDR_EXPR, string_type, string_cst);
-	  chainon (value_chain, field_value);
-	  chainon (decl_chain, field_decl);
-	}
+	field_decl =
+	  build_decl (FIELD_DECL, get_identifier ("filename"), string_type);
+	TREE_CHAIN (field_decl) = decl_chain;
+	decl_chain = field_decl;
+
+	cwd = getpwd ();
+	da_filename_len = strlen (filename) + strlen (cwd) + 4 + 1;
+	da_filename = (char *) alloca (da_filename_len);
+	strcpy (da_filename, cwd);
+	strcat (da_filename, "/");
+	strcat (da_filename, filename);
+	strip_off_ending (da_filename, da_filename_len - 3);
+	strcat (da_filename, ".da");
+	da_filename_len = strlen (da_filename);
+	string_cst = build_string (da_filename_len + 1, da_filename);
+	domain_type = build_index_type (build_int_2 (da_filename_len, 0));
+	TREE_TYPE (string_cst)
+	  = build_array_type (char_type_node, domain_type);
+	value_chain = tree_cons (field_decl,
+				 build1 (ADDR_EXPR, string_type, string_cst),
+				 value_chain);
+      }
 
       /* Table of counts.  */
-	{
-	  tree gcov_type_type = make_unsigned_type (GCOV_TYPE_SIZE);
-	  tree gcov_type_pointer_type = build_pointer_type (gcov_type_type);
-	  tree gcov_type_array_type, gcov_type_array_pointer_type;
-	  tree domain_tree = make_node (INTEGER_TYPE);
-	  tree counts_table;
+      {
+	tree gcov_type_type = make_unsigned_type (GCOV_TYPE_SIZE);
+	tree gcov_type_pointer_type = build_pointer_type (gcov_type_type);
+	tree domain_tree
+	  = build_index_type (build_int_2 (profile_info.
+					   count_instrumented_edges - 1, 0));
+	tree gcov_type_array_type
+	  = build_array_type (gcov_type_type, domain_tree);
+	tree gcov_type_array_pointer_type
+	  = build_pointer_type (gcov_type_array_type);
+	tree counts_table;
 
-	  TYPE_MIN_VALUE (domain_tree) = integer_zero_node;
-	  TYPE_MAX_VALUE (domain_tree) = build_int_2 (profile_info.count_instrumented_edges - 1, 0);
-	  gcov_type_array_type = build_array_type (gcov_type_type, domain_tree);
-	  gcov_type_array_pointer_type = build_pointer_type (gcov_type_array_type);
+	field_decl =
+	  build_decl (FIELD_DECL, get_identifier ("counts"),
+		      gcov_type_pointer_type);
+	TREE_CHAIN (field_decl) = decl_chain;
+	decl_chain = field_decl;
 
-	  /* No values.  */
-	  counts_table = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
-	  TREE_STATIC (counts_table) = 1;
-          ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 2);
-	  DECL_NAME (counts_table) = get_identifier (name);
-	  assemble_variable (counts_table, 0, 0, 0);
+	/* No values.  */
+	counts_table
+	  = build (VAR_DECL, gcov_type_array_type, NULL_TREE, NULL_TREE);
+	TREE_STATIC (counts_table) = 1;
+	ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 2);
+	DECL_NAME (counts_table) = get_identifier (name);
+	assemble_variable (counts_table, 0, 0, 0);
 
-	  field_decl = build_decl (FIELD_DECL, get_identifier ("counts"), gcov_type_pointer_type);
-	  field_value = make_node (TREE_LIST);
-	  TREE_TYPE (field_value) = gcov_type_pointer_type;
-	  TREE_PURPOSE (field_value) = field_decl;
-	  TREE_VALUE (field_value) = build1 (ADDR_EXPR, gcov_type_array_pointer_type, counts_table);
-	  chainon (value_chain, field_value);
-	  chainon (decl_chain, field_decl);
-	}
+	value_chain = tree_cons (field_decl,
+				 build1 (ADDR_EXPR,
+					 gcov_type_array_pointer_type,
+					 counts_table), value_chain);
+      }
 
       /* Count of the # of instrumented arcs.  */
-      field_decl = build_decl (FIELD_DECL, get_identifier ("ncounts"), long_integer_type_node);
-      field_value = make_node (TREE_LIST);
-      TREE_TYPE (field_value) = long_integer_type_node;
-      TREE_PURPOSE (field_value) = field_decl;
-      TREE_VALUE (field_value) = build_int_2 (profile_info.count_instrumented_edges, 0);
-      chainon (value_chain, field_value);
-      chainon (decl_chain, field_decl);
+      field_decl
+	= build_decl (FIELD_DECL, get_identifier ("ncounts"),
+		      long_integer_type_node);
+      TREE_CHAIN (field_decl) = decl_chain;
+      decl_chain = field_decl;
 
+      value_chain = tree_cons (field_decl,
+			       convert (long_integer_type_node,
+					build_int_2 (profile_info.
+						     count_instrumented_edges,
+						     0)), value_chain);
       /* Pointer to the next bb.  */
-      field_decl = build_decl (FIELD_DECL, get_identifier ("next"), structure_pointer_type);
-      field_value = make_node (TREE_LIST);
-      TREE_TYPE (field_value) = structure_pointer_type;
-      TREE_PURPOSE (field_value) = field_decl;
-      TREE_VALUE (field_value) = integer_zero_node;
-      chainon (value_chain, field_value);
-      chainon (decl_chain, field_decl);
+      field_decl
+	= build_decl (FIELD_DECL, get_identifier ("next"),
+		      structure_pointer_type);
+      TREE_CHAIN (field_decl) = decl_chain;
+      decl_chain = field_decl;
 
-      /* Number of words. We'll set this after entire structure is laid out.  */
-      field_decl = build_decl (FIELD_DECL, get_identifier ("nwords"), long_integer_type_node);
-      nwords_field_value = field_value = make_node (TREE_LIST);
-      TREE_TYPE (field_value) = long_integer_type_node;
-      TREE_PURPOSE (field_value) = field_decl;
-      chainon (value_chain, field_value);
-      chainon (decl_chain, field_decl);
+      value_chain = tree_cons (field_decl, null_pointer_node, value_chain);
+
+      /* sizeof(struct bb).  We'll set this after entire structure
+	 is laid out.  */
+      field_decl
+	= build_decl (FIELD_DECL, get_identifier ("sizeof_bb"),
+		      long_integer_type_node);
+      TREE_CHAIN (field_decl) = decl_chain;
+      decl_chain = field_decl;
+
+      sizeof_field_value = tree_cons (field_decl, NULL, value_chain);
+      value_chain = sizeof_field_value;
 
       /* struct bb_function [].  */
       {
@@ -378,37 +392,36 @@ end_final (filename)
 	tree bb_fn_struct_array_pointer_type;
 	tree bb_fn_struct_pointer_type;
 	tree field_value, field_value_chain;
-	tree array_field;
 
 	bb_fn_struct_type = make_node (RECORD_TYPE);
-	TYPE_PACKED (bb_fn_struct_type) = flag_pack_struct;
 
 	checksum_field = build_decl (FIELD_DECL, get_identifier ("checksum"),
 				     long_integer_type_node);
-	arc_count_field = build_decl (FIELD_DECL, get_identifier ("arc_count"),
-				      integer_type_node);
-	name_field = build_decl (FIELD_DECL, get_identifier ("name"),
-				 char_pointer_type);
-	chainon (checksum_field, arc_count_field);
-	chainon (checksum_field, name_field);
+
+	arc_count_field
+	  = build_decl (FIELD_DECL, get_identifier ("arc_count"),
+		        integer_type_node);
+	TREE_CHAIN (checksum_field) = arc_count_field;
+
+	name_field
+	  = build_decl (FIELD_DECL, get_identifier ("name"), string_type);
+	TREE_CHAIN (arc_count_field) = name_field;
 
 	TYPE_FIELDS (bb_fn_struct_type) = checksum_field;
 
 	num_nodes = 0;
 
-	for ((item = functions_head); item != 0; (item = item->next))
-	  num_nodes ++;
+	for (item = functions_head; item != 0; item = item->next)
+	  num_nodes++;
 
-	domain = make_node (INTEGER_TYPE);
-	TYPE_MIN_VALUE (domain) = integer_zero_node;
 	/* Note that the array contains a terminator, hence no - 1.  */
-	TYPE_MAX_VALUE (domain) = build_int_2 (num_nodes, 0);
+	domain = build_index_type (build_int_2 (num_nodes, 0));
 
 	bb_fn_struct_pointer_type = build_pointer_type (bb_fn_struct_type);
-	bb_fn_struct_array_type = build_array_type (bb_fn_struct_type, 
-						    domain);
-	bb_fn_struct_array_pointer_type = 
-	  build_pointer_type (bb_fn_struct_array_type);
+	bb_fn_struct_array_type
+	  = build_array_type (bb_fn_struct_type, domain);
+	bb_fn_struct_array_pointer_type
+	  = build_pointer_type (bb_fn_struct_array_type);
 
 	layout_type (bb_fn_struct_type);
 	layout_type (bb_fn_struct_pointer_type);
@@ -417,98 +430,85 @@ end_final (filename)
 
 	for (item = functions_head; item != 0; item = item->next)
 	  {
+	    size_t name_len;
+
 	    /* create constructor for structure.  */
-	    field_value_chain = make_node (TREE_LIST);
-	    TREE_TYPE (field_value_chain) = long_integer_type_node;
-	    TREE_PURPOSE (field_value_chain) = checksum_field;
-	    TREE_VALUE (field_value_chain) = build_int_2 (item->cfg_checksum,
-							  0);
-	    field_value = make_node (TREE_LIST);
-	    TREE_TYPE (field_value) = integer_type_node;
-	    TREE_PURPOSE (field_value) = arc_count_field;
-	    TREE_VALUE (field_value) = build_int_2 (item->count_edges, 0);
-	    chainon (field_value_chain, field_value);
+	    field_value_chain
+	      = build_tree_list (checksum_field,
+				 convert (long_integer_type_node,
+					  build_int_2 (item->cfg_checksum, 0)));
+	    field_value_chain
+	      = tree_cons (arc_count_field,
+			   convert (integer_type_node,
+				    build_int_2 (item->count_edges, 0)),
+			   field_value_chain);
 
-	    field_value = make_node (TREE_LIST);
-	    TREE_TYPE (field_value) = string_type;
-	    TREE_PURPOSE (field_value) = name_field;
-	    string_cst = build_string (strlen (item->name) + 1, item->name);
-	    TREE_TYPE (string_cst) = char_array_type;
-	    TREE_VALUE (field_value) = build1 (ADDR_EXPR, string_type, string_cst);
-	    chainon (field_value_chain, field_value);
+	    name_len = strlen (item->name);
+	    string_cst = build_string (name_len + 1, item->name);
+	    domain_type = build_index_type (build_int_2 (name_len, 0));
+	    TREE_TYPE (string_cst)
+	      = build_array_type (char_type_node, domain_type);
+	    field_value_chain = tree_cons (name_field,
+					   build1 (ADDR_EXPR, string_type,
+						   string_cst),
+					   field_value_chain);
 
-	    array_field = make_node (TREE_LIST);
-	    TREE_TYPE (array_field) = bb_fn_struct_type;
-	    TREE_VALUE (array_field) = build (CONSTRUCTOR, bb_fn_struct_type,
-					      NULL_TREE, field_value_chain);
 	    /* Add to chain.  */
-
-	    if (array_value_chain == NULL_TREE)
-	      array_value_chain = array_field;
-	    else
-	      chainon (array_value_chain, array_field);
+	    array_value_chain
+	      = tree_cons (NULL_TREE, build (CONSTRUCTOR,
+					     bb_fn_struct_type, NULL_TREE,
+					     nreverse (field_value_chain)),
+			   array_value_chain);
 	  }
 
 	/* Add terminator.  */
-	field_value = make_node (TREE_LIST);
-	TREE_TYPE (field_value) = integer_type_node;
-	TREE_PURPOSE (field_value) = arc_count_field;
-	TREE_VALUE (field_value) = build_int_2 (-1, 0);
+	field_value = build_tree_list (arc_count_field,
+				       convert (integer_type_node,
+						build_int_2 (-1, 0)));
 
-	array_field = make_node (TREE_LIST);
-	TREE_TYPE (array_field) = bb_fn_struct_type;
-	TREE_VALUE (array_field) = build (CONSTRUCTOR, bb_fn_struct_type,
-					  NULL_TREE, field_value);
+	array_value_chain = tree_cons (NULL_TREE,
+				       build (CONSTRUCTOR, bb_fn_struct_type,
+					      NULL_TREE, field_value),
+				       array_value_chain);
 
-	if (array_value_chain == NULL_TREE)
-	  array_value_chain = array_field;
-	else
-	  chainon (array_value_chain, array_field);
 
 	/* Create constructor for array.  */
-	
-	field_decl = build_decl (FIELD_DECL, get_identifier ("function_infos"),
-				 bb_fn_struct_pointer_type);
-	field_value = make_node (TREE_LIST);
-	TREE_TYPE (field_value) = bb_fn_struct_pointer_type;
-	TREE_PURPOSE (field_value) = field_decl;
-	TREE_VALUE (field_value) = build1 (ADDR_EXPR,
-					   bb_fn_struct_array_pointer_type,
-					   build (CONSTRUCTOR,
-						  bb_fn_struct_array_type,
-						  NULL_TREE,
-						  array_value_chain));
-	chainon (value_chain, field_value);
-	chainon (decl_chain, field_decl);
+	field_decl
+	  = build_decl (FIELD_DECL, get_identifier ("function_infos"),
+		        bb_fn_struct_pointer_type);
+	value_chain = tree_cons (field_decl,
+				 build1 (ADDR_EXPR,
+					 bb_fn_struct_array_pointer_type,
+					 build (CONSTRUCTOR,
+						bb_fn_struct_array_type,
+						NULL_TREE,
+						nreverse
+						(array_value_chain))),
+				 value_chain);
+	TREE_CHAIN (field_decl) = decl_chain;
+	decl_chain = field_decl;
       }
 
-
       /* Finish structure.  */
-      TYPE_FIELDS (structure_decl) = decl_chain;
+      TYPE_FIELDS (structure_decl) = nreverse (decl_chain);
       layout_type (structure_decl);
 
-      structure_value = build (VAR_DECL, structure_decl, NULL_TREE, NULL_TREE);
-      DECL_INITIAL (structure_value) = build (CONSTRUCTOR, structure_decl, NULL_TREE, value_chain);
+      structure_value
+	= build (VAR_DECL, structure_decl, NULL_TREE, NULL_TREE);
+      DECL_INITIAL (structure_value)
+	= build (CONSTRUCTOR, structure_decl, NULL_TREE,
+	         nreverse (value_chain));
       TREE_STATIC (structure_value) = 1;
       ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 0);
       DECL_NAME (structure_value) = get_identifier (name);
 
-      /* Set number of words in this structure. */
-      TREE_VALUE (nwords_field_value) = build_int_2 (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (structure_decl)) / 
-						     (INT_TYPE_SIZE / BITS_PER_UNIT), 0);
+      /* Size of this structure. */
+      TREE_VALUE (sizeof_field_value)
+	= convert (long_integer_type_node,
+		   build_int_2 (int_size_in_bytes (structure_decl), 0));
 
       /* Build structure.  */
       assemble_variable (structure_value, 0, 0, 0);
-
-      /* Offset to table of arc counters for thread-safe profiling.  */
-	{
-	  tree table_offset_var = make_node (VAR_DECL);
-	  TREE_TYPE (table_offset_var) = build_pointer_type (integer_type_node);
-	  DECL_INITIAL (table_offset_var) = integer_zero_node;
-	  DECL_NAME (table_offset_var) = get_identifier (".LPBF0");
-	  TREE_STATIC (table_offset_var) = 1;
-	  assemble_variable (table_offset_var, 0, 0, 0);
-	}
     }
 }
 
@@ -1926,22 +1926,20 @@ final (first, file, optimize, prescan)
     }
 
   /* Store function names for edge-profiling.  */
+  /* ??? Probably should re-use the existing struct function.  */
 
-  if (profile_arc_flag)
-  {
-    struct function_list *new_item = xmalloc (sizeof (struct function_list));
+  if (cfun->arc_profile)
+    {
+      struct function_list *new_item = xmalloc (sizeof (struct function_list));
 
-    /* Add function to linked list.  */
-    new_item->next = 0;
-    *functions_tail = new_item;
-    functions_tail = &new_item->next;
+      *functions_tail = new_item;
+      functions_tail = &new_item->next;
 
-    /* Set values.  */
-    new_item->cfg_checksum = profile_info.current_function_cfg_checksum;
-    new_item->count_edges = profile_info.count_edges_instrumented_now;
-    new_item->name = xstrdup (current_function_name);
-    
-  }
+      new_item->next = 0;
+      new_item->name = xstrdup (current_function_name);
+      new_item->cfg_checksum = profile_info.current_function_cfg_checksum;
+      new_item->count_edges = profile_info.count_edges_instrumented_now;
+    }
   
   free (line_note_exists);
   line_note_exists = NULL;

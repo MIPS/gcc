@@ -6315,6 +6315,12 @@ prepare_function_start ()
 
   current_function_outgoing_args_size = 0;
 
+  cfun->arc_profile = profile_arc_flag || flag_test_coverage;
+
+  cfun->arc_profile = profile_arc_flag || flag_test_coverage;
+
+  cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
+
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
     (*init_machine_status) (cfun);
@@ -6517,9 +6523,9 @@ expand_function_start (subr, parms_have_cleanups)
     = (flag_instrument_function_entry_exit
        && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
 
-  cfun->no_profile
+  cfun->arc_profile
     = (lookup_attribute ("no_profile", DECL_ATTRIBUTES (current_function_decl))
-       != NULL);
+       == NULL);
 
   current_function_profile
     = (profile_flag

@@ -440,8 +440,8 @@ struct function
      generated.  */
   unsigned int instrument_entry_exit : 1;
 
-  /* Nonzero if no profiling should be done for the function.  */
-  unsigned int no_profile : 1;
+  /* Nonzero if arc profiling should be done for the function.  */
+  unsigned int arc_profile : 1;
 
   /* Nonzero if profiling code should be generated.  */
   unsigned int profile : 1;
@@ -485,10 +485,17 @@ struct function
   /* Nonzero if code to initialize arg_pointer_save_area has been emited.  */
   unsigned int arg_pointer_save_area_init : 1;
 
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
   enum function_frequency {
-    FUNCTION_FREQUENCY_COLD,
-    FUNCTION_FREQUENCY_HOT,
-    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+    /* This function most likely won't be executed at all.
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+    /* The default value.  */
+    FUNCTION_FREQUENCY_NORMAL,
+    /* Optimize this function hard
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_HOT
   } function_frequency;
 
   /* Record current form of RTL during at current compilation phase.

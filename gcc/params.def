@@ -173,6 +173,14 @@ DEFPARAM(PARAM_MAX_UNSWITCH_LEVEL,
 	"max-unswitch-level",
 	"The maximum number of unswitchings in a single loop",
 	3)
+DEFPARAM(HOT_BB_COUNT_FRACTION,
+	 "hot-bb-count-fraction",
+	 "Select fraction of the maximal count of repetitions of basic block in program given basic block needs to have to be considered hot",
+	 10000)
+DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
+	 "hot-bb-frequency-fraction",
+	 "Select fraction of the maximal frequency of executions of basic block in function given basic block needs to have to be considered hot",
+	 1000)
 /*
 Local variables:
 mode:c

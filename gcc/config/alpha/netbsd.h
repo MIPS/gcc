@@ -22,10 +22,13 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_FP | MASK_FPREGS | MASK_GAS)
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES							\
-  "-D__NetBSD__ -D_LP64 -Asystem=unix -Asystem=NetBSD"
-
+#define TARGET_OS_CPP_BUILTINS()		\
+    do {					\
+	builtin_define ("__NetBSD__");		\
+	builtin_define ("_LP64");		\
+	builtin_assert ("system=unix");		\
+	builtin_assert ("system=NetBSD");	\
+    } while (0)
 
 /* Show that we need a GP when profiling.  */
 #undef TARGET_PROFILING_NEEDS_GP
@@ -36,11 +39,7 @@ Boston, MA 02111-1307, USA.  */
    the standard NetBSD specs, we also handle Alpha FP mode indications.  */
 
 #undef CPP_SPEC
-#define CPP_SPEC							\
-  "%{mieee:-D_IEEE_FP}							\
-   %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT}			\
-   %{posix:-D_POSIX_SOURCE}						\
-   %(cpp_cpu) %(cpp_subtarget)"
+#define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %(cpp_subtarget)"
 
 /* Provide a LINK_SPEC appropriate for a NetBSD/alpha ELF target.
    This is a copy of LINK_SPEC from <netbsd-elf.h> tweaked for

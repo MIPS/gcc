@@ -1127,8 +1127,6 @@ static const lang_independent_options f_options[] =
    N_("Support synchronous non-call exceptions") },
   {"profile-arcs", &profile_arc_flag, 1,
    N_("Insert arc based program profiling code") },
-  {"unsafe-profile-arcs", &flag_unsafe_profile_arcs, 1,
-   N_("Do not attempt to generate thread-safe profiling code") },
   {"test-coverage", &flag_test_coverage, 1,
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
@@ -1140,7 +1138,7 @@ static const lang_independent_options f_options[] =
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
   {"reorder-functions", &flag_reorder_functions, 1,
-   N_("Reorder functions to improve code locality") },
+   N_("Reorder functions to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
    N_("Do the register renaming optimization pass") },
   {"cprop-registers", &flag_cprop_registers, 1,
@@ -3005,12 +3003,11 @@ rest_of_compilation (decl)
   close_dump_file (DFI_cfg, print_rtl_with_bb, get_insns ());
 
   /* Do branch profiling and static profile estimation passes.  */
-  if (optimize > 0 || profile_arc_flag || flag_test_coverage
-      || flag_branch_probabilities)
+  if (optimize > 0 || cfun->arc_profile || flag_branch_probabilities)
     {
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
-      if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+      if (cfun->arc_profile || flag_branch_probabilities)
 	branch_prob ();
 
       /* Discover and record the loop depth at the head of each basic
@@ -3747,10 +3744,6 @@ rest_of_compilation (decl)
   /* Clear out the insn_length contents now that they are no
      longer valid.  */
   init_insn_lengths ();
-
-  /* Clear out the real_constant_chain before some of the rtx's
-     it runs through become garbage.  */
-  clear_const_double_mem ();
 
   /* Show no temporary slots allocated.  */
   init_temp_slots ();

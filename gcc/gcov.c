@@ -552,110 +552,114 @@ read_profile (function_name, cfg_checksum, instr_arcs)
   gcov_type *profile;
   char *function_name_buffer;
   int function_name_buffer_len;
-  
+
   profile = xmalloc (sizeof (gcov_type) * instr_arcs);
   rewind (da_file);
   function_name_buffer_len = strlen (function_name) + 1;
   function_name_buffer = xmalloc (function_name_buffer_len + 1);
 
-  for (i = 0; i < instr_arcs ; i++)
+  for (i = 0; i < instr_arcs; i++)
     profile[i] = 0;
 
-  if (!da_file)   
+  if (!da_file)
     return profile;
 
-  while (1) {
-    long magic, extra_bytes;
-    long func_count;
-    int i;
+  while (1)
+    {
+      long magic, extra_bytes;
+      long func_count;
+      int i;
 
-    if (__read_long (&magic, da_file, 4) != 0)
-      break;
-
-    if (magic != -123) 
-      {
-	okay = 0;
+      if (__read_long (&magic, da_file, 4) != 0)
 	break;
-      }
 
-    if (__read_long (&func_count, da_file, 4) != 0)
-      {
-	okay = 0;
-	break;
-      }
+      if (magic != -123)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    if (__read_long (&extra_bytes, da_file, 4) != 0)
-      {
-	okay = 0;
-	break;
-      }
+      if (__read_long (&func_count, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    /* skip extra data emited by __bb_exit_func.  */
-    fseek (da_file, extra_bytes, SEEK_CUR);
+      if (__read_long (&extra_bytes, da_file, 4) != 0)
+	{
+	  okay = 0;
+	  break;
+	}
 
-    for (i = 0; i < func_count; i++)
-      {
-	long arc_count;
-	long chksum;
-	int j;
-	
-	if (__read_gcov_string (function_name_buffer, function_name_buffer_len, da_file, -1) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+      /* skip extra data emited by __bb_exit_func.  */
+      fseek (da_file, extra_bytes, SEEK_CUR);
 
-	if (__read_long (&chksum, da_file, 4) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+      for (i = 0; i < func_count; i++)
+	{
+	  long arc_count;
+	  long chksum;
+	  int j;
 
-	if (__read_long (&arc_count, da_file, 4) != 0)
-	  {
-	    okay = 0;
-	    break;
-	  }
+	  if (__read_gcov_string
+	      (function_name_buffer, function_name_buffer_len, da_file,
+	       -1) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
 
-	if (strcmp (function_name_buffer, function_name) != 0 || arc_count != instr_arcs
-	    || chksum != cfg_checksum)  
-	  {
-	    /* skip */
-	    if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0) 
-	      {
-		okay = 0;
-		break;
-	      }
-	  } 
-	else 
-	  {
-	    gcov_type tmp;
-	    
-	    for (j = 0; j < arc_count; j++)
-	      if (__read_gcov_type (&tmp, da_file, 8) != 0)
-	        {
+	  if (__read_long (&chksum, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (__read_long (&arc_count, da_file, 4) != 0)
+	    {
+	      okay = 0;
+	      break;
+	    }
+
+	  if (strcmp (function_name_buffer, function_name) != 0
+	      || arc_count != instr_arcs || chksum != cfg_checksum)
+	    {
+	      /* skip */
+	      if (fseek (da_file, arc_count * 8, SEEK_CUR) < 0)
+		{
 		  okay = 0;
 		  break;
-	        } 
-	      else
-	        {
-		  profile[j] += tmp;
 		}
-	  }
-      }
+	    }
+	  else
+	    {
+	      gcov_type tmp;
 
-    if (!okay)
-      break;
-    
-  }
+	      for (j = 0; j < arc_count; j++)
+		if (__read_gcov_type (&tmp, da_file, 8) != 0)
+		  {
+		    okay = 0;
+		    break;
+		  }
+		else
+		  {
+		    profile[j] += tmp;
+		  }
+	    }
+	}
+
+      if (!okay)
+	break;
+
+    }
 
   free (function_name_buffer);
 
-  if (!okay) {
-    fprintf (stderr,".da file corrupted!\n");
-    free (profile);
-    abort ();
-  }
+  if (!okay)
+    {
+      fprintf (stderr, ".da file corrupted!\n");
+      free (profile);
+      abort ();
+    }
 
   return profile;
 }

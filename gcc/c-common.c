@@ -38,10 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "langhooks.h"
+#include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
 cpp_reader *parse_in;		/* Declared in c-lex.h.  */
-
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE TYPE_PRECISION (wchar_type_node)
 
 /* We let tm.h override the types used here, to handle trivial differences
    such as the choice of unsigned int or long unsigned int for size_t.
@@ -56,6 +54,10 @@ cpp_reader *parse_in;		/* Declared in c-lex.h.  */
 #ifndef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 #endif
+
+/* WCHAR_TYPE gets overridden by -fshort-wchar.  */
+#define MODIFIED_WCHAR_TYPE \
+	(flag_short_wchar ? "short unsigned int" : WCHAR_TYPE)
 
 #ifndef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
@@ -184,6 +186,14 @@ tree c_global_trees[CTI_MAX];
 /* Nonzero if prepreprocessing only.  */
 int flag_preprocess_only;
 
+/* Nonzero if an ISO standard was selected.  It rejects macros in the
+   user's namespace.  */
+int flag_iso;
+
+/* Nonzero if -undef was given.  It suppresses target built-in macros
+   and assertions.  */
+int flag_undef;
+
 /* Nonzero means don't recognize the non-ANSI builtin functions.  */
 
 int flag_no_builtin;
@@ -274,6 +284,8 @@ static int if_stack_space = 0;
 
 /* Stack pointer.  */
 static int if_stack_pointer = 0;
+
+static void cb_register_builtins PARAMS ((cpp_reader *));
 
 static tree handle_packed_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
@@ -796,7 +808,8 @@ combine_strings (strings)
 	}
       else
 	{
-	  const int nzeros = (WCHAR_TYPE_SIZE / BITS_PER_UNIT) - 1;
+	  const int nzeros = (TYPE_PRECISION (wchar_type_node)
+			      / BITS_PER_UNIT) - 1;
 	  int j, k;
 
 	  if (BYTES_BIG_ENDIAN)
@@ -2866,9 +2879,7 @@ c_common_nodes_and_builtins ()
   (*targetm.init_builtins) ();
 
   /* This is special for C++ so functions can be overloaded.  */
-  wchar_type_node = get_identifier (flag_short_wchar
-				    ? "short unsigned int"
-				    : WCHAR_TYPE);
+  wchar_type_node = get_identifier (MODIFIED_WCHAR_TYPE);
   wchar_type_node = TREE_TYPE (identifier_global_value (wchar_type_node));
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   if (c_language == clk_cplusplus)
@@ -4303,6 +4314,103 @@ c_common_post_options ()
     warning ("-Wmissing-format-attribute ignored without -Wformat");
 }
 
+/* Hook that registers front end and target-specific built-ins.  */
+static void
+cb_register_builtins (pfile)
+     cpp_reader *pfile;
+{
+  /* -undef turns off target-specific built-ins.  */
+  if (flag_undef)
+    return;
+
+  if (c_language == clk_cplusplus)
+    {
+      if (SUPPORTS_ONE_ONLY)
+	cpp_define (pfile, "__GXX_WEAK__=1");
+      else
+	cpp_define (pfile, "__GXX_WEAK__=0");
+    }
+
+  /* libgcc needs to know this.  */
+  if (USING_SJLJ_EXCEPTIONS)
+    cpp_define (pfile, "__USING_SJLJ_EXCEPTIONS__");
+
+  /* stddef.h needs to know these.  */
+  builtin_define_with_value ("__SIZE_TYPE__", SIZE_TYPE);
+  builtin_define_with_value ("__PTRDIFF_TYPE__", PTRDIFF_TYPE);
+  builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE);
+  builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE);
+
+  /* A straightforward target hook doesn't work, because of problems
+     linking that hook's body when part of non-C front ends.  */
+  TARGET_CPU_CPP_BUILTINS ();
+  TARGET_OS_CPP_BUILTINS ();
+}
+
+/* Pass an object-like macro.  If it doesn't lie in the user's
+   namespace, defines it unconditionally.  Otherwise define a version
+   with two leading underscores, and another version with two leading
+   and trailing underscores, and define the original only if an ISO
+   standard was not nominated.
+
+   e.g. passing "unix" defines "__unix", "__unix__" and possibly
+   "unix".  Passing "_mips" defines "__mips", "__mips__" and possibly
+   "_mips".  */
+void
+builtin_define_std (macro)
+     const char *macro;
+{
+  size_t len = strlen (macro);
+  char *buff = alloca (len + 5);
+  char *p = buff + 2;
+  char *q = p + len;
+
+  /* prepend __ (or maybe just _) if in user's namespace.  */
+  memcpy (p, macro, len + 1);
+  if (*p != '_')
+    *--p = '_';
+  if (p[1] != '_' && !ISUPPER (p[1]))
+    *--p = '_';
+  cpp_define (parse_in, p);
+
+  /* If it was in user's namespace...  */
+  if (p != buff + 2)
+    {
+      /* Define the original macro if permitted.  */
+      if (!flag_iso)
+	cpp_define (parse_in, macro);
+
+      /* Define the macro with leading and following __.  */
+      if (q[-1] != '_')
+	*q++ = '_';
+      if (q[-2] != '_')
+	*q++ = '_';
+      *q = '\0';
+      cpp_define (parse_in, p);
+    }
+}
+
+/* Pass an object-like macro and a value to define it to.  */
+void
+builtin_define_with_value (macro, expansion)
+     const char *macro;
+     const char *expansion;
+{
+  char *buf, *q;
+  size_t mlen = strlen (macro);
+  size_t elen = strlen (expansion);
+
+  q = buf = alloca (mlen + elen + 2);
+  memcpy (q, macro, mlen);
+  q += mlen;
+  *q++ = '=';
+  memcpy (q, expansion, elen);
+  q += elen;
+  *q = '\0';
+
+  cpp_define (parse_in, buf);
+}
+
 /* Front end initialization common to C, ObjC and C++.  */
 const char *
 c_common_init (filename)
@@ -4326,6 +4434,10 @@ c_common_init (filename)
      options->unsigned_char = !flag_signed_char; */
 
   options->warn_multichar = warn_multichar;
+
+  /* Register preprocessor built-ins before calls to
+     cpp_main_file.  */
+  cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
 
   /* NULL is passed up to toplev.c and we exit quickly.  */
   if (flag_preprocess_only)

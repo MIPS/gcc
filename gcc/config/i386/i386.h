@@ -554,27 +554,12 @@ extern int ix86_arch;
 #endif
 #endif /* CPP_CPU_DEFAULT_SPEC */
 
-#ifdef TARGET_BI_ARCH
-#define NO_BUILTIN_SIZE_TYPE
-#define NO_BUILTIN_PTRDIFF_TYPE
-#endif
-
-#ifdef NO_BUILTIN_SIZE_TYPE
-#define CPP_CPU32_SIZE_TYPE_SPEC \
-  " -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
-#define CPP_CPU64_SIZE_TYPE_SPEC \
-  " -D__SIZE_TYPE__=unsigned\\ long\\ int -D__PTRDIFF_TYPE__=long\\ int"
-#else
-#define CPP_CPU32_SIZE_TYPE_SPEC ""
-#define CPP_CPU64_SIZE_TYPE_SPEC ""
-#endif
-
 #define CPP_CPU32_SPEC \
   "-Acpu=i386 -Amachine=i386 %{!ansi:%{!std=c*:%{!std=i*:-Di386}}} -D__i386 \
--D__i386__ %(cpp_cpu32sizet)"
+-D__i386__"
 
 #define CPP_CPU64_SPEC \
-  "-Acpu=x86_64 -Amachine=x86_64 -D__x86_64 -D__x86_64__ %(cpp_cpu64sizet)"
+  "-Acpu=x86_64 -Amachine=x86_64 -D__x86_64 -D__x86_64__"
 
 #define CPP_CPUCOMMON_SPEC "\
 %{march=i386:%{!mcpu*:-D__tune_i386__ }}\
@@ -619,7 +604,7 @@ extern int ix86_arch;
 |march=athlon-mp: -D__3dNOW__ }\
 %{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW_A__ }\
-%{msse2: -D__SSE2_BUILTINS__ }\
+%{msse2: -D__SSE2__ }\
 %{march=pentium4: -D__SSE2__ }\
 %{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 
@@ -662,8 +647,6 @@ extern int ix86_arch;
   { "cpp_cpu",	CPP_CPU_SPEC },						\
   { "cpp_cpu32", CPP_CPU32_SPEC },					\
   { "cpp_cpu64", CPP_CPU64_SPEC },					\
-  { "cpp_cpu32sizet", CPP_CPU32_SIZE_TYPE_SPEC },			\
-  { "cpp_cpu64sizet", CPP_CPU64_SIZE_TYPE_SPEC },			\
   { "cpp_cpucommon", CPP_CPUCOMMON_SPEC },				\
   { "cc1_cpu",  CC1_CPU_SPEC },						\
   SUBTARGET_EXTRA_SPECS
@@ -2595,16 +2578,21 @@ do {							\
     return flag_pic && SYMBOLIC_CONST (RTX) ? 1 : 0;		\
 								\
   case CONST_DOUBLE:						\
-    {								\
-      int code;							\
-      if (GET_MODE (RTX) == VOIDmode)				\
-	return 0;						\
-								\
-      code = standard_80387_constant_p (RTX);			\
-      return code == 1 ? 1 :					\
-	     code == 2 ? 2 :					\
-			 3;					\
-    }
+    if (GET_MODE (RTX) == VOIDmode)				\
+      return 0;							\
+    switch (standard_80387_constant_p (RTX))			\
+      {								\
+      case 1: /* 0.0 */						\
+	return 1;						\
+      case 2: /* 1.0 */						\
+	return 2;						\
+      default:							\
+	/* Start with (MEM (SYMBOL_REF)), since that's where	\
+	   it'll probably end up.  Add a penalty for size.  */	\
+	return (COSTS_N_INSNS (1) + (flag_pic != 0)		\
+		+ (GET_MODE (RTX) == SFmode ? 0			\
+		   : GET_MODE (RTX) == DFmode ? 1 : 2));	\
+      }
 
 /* Delete the definition here when TOPLEVEL_COSTS_N_INSNS gets added to cse.c */
 #define TOPLEVEL_COSTS_N_INSNS(N) \
@@ -2765,6 +2753,9 @@ do {							\
     if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->add * 2);			\
     TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);				\
+									\
+  case FLOAT_EXTEND:							\
+    TOPLEVEL_COSTS_N_INSNS (0);						\
 									\
   egress_rtx_costs:							\
     break;

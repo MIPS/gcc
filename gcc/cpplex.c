@@ -930,7 +930,7 @@ _cpp_lex_direct (pfile)
       /* EOF.  */
       buffer->cur--;
       buffer->saved_flags = BOL;
-      if (!pfile->state.parsing_args && !pfile->state.in_directive)
+      if (!pfile->state.parsing_args)
 	{
 	  if (buffer->cur != buffer->line_base)
 	    {
@@ -942,7 +942,7 @@ _cpp_lex_direct (pfile)
 	    }
 
 	  /* Don't pop the last buffer.  */
-	  if (buffer->prev)
+	  if (!pfile->state.in_directive && buffer->prev)
 	    {
 	      unsigned char stop = buffer->return_at_eof;
 
@@ -1954,16 +1954,18 @@ cpp_interpret_charconst (pfile, token, pchars_seen, unsignedp)
 	cpp_error (pfile, DL_WARNING, "multi-character character constant");
     }
 
-  /* Sign-extend the constant.  */
-  if (!unsigned_p)
+  /* Sign-extend or truncate the constant to cppchar_t.  The value is
+     in WIDTH bits, but for multi-char charconsts it's value is the
+     full target type's width.  */
+  if (chars_seen > 1)
+    width *= max_chars;
+  if (width < BITS_PER_CPPCHAR_T)
     {
-      size_t precision = width;
-
-      if (chars_seen > 1)
-	precision *= max_chars;
-      if (precision < BITS_PER_CPPCHAR_T
-	  && (result & ((cppchar_t) 1 << (precision - 1))))
-	result |= ~(((cppchar_t) 1 << precision) - 1);
+      mask = ((cppchar_t) 1 << width) - 1;
+      if (unsigned_p || !(result & (1 << (width - 1))))
+	result &= mask;
+      else
+	result |= ~mask;
     }
 
   *pchars_seen = chars_seen;

@@ -204,7 +204,6 @@ __read_long (dest, file, bytes)
     return __fetch_long (dest, c, bytes);
 }
 
-
 /* Writes string in gcov format.  */
 
 static int
@@ -291,6 +290,4 @@ __read_gcov_string (string, max_length, file, delim)
 
   return 0;
 }
-
-
 #endif /* ! GCC_GCOV_IO_H */

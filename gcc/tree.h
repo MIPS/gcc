@@ -2080,9 +2080,7 @@ extern size_t tree_size			PARAMS ((tree));
 
 extern tree make_node			PARAMS ((enum tree_code));
 
-/* Make a copy of a node, with all the same contents except
-   for TREE_PERMANENT.  (The copy is permanent
-   iff nodes being made now are permanent.)  */
+/* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node			PARAMS ((tree));
 
@@ -2824,9 +2822,6 @@ extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern int tree_log2			PARAMS ((tree));
 extern int tree_floor_log2		PARAMS ((tree));
-extern void preserve_data		PARAMS ((void));
-extern int object_permanent_p		PARAMS ((tree));
-extern int type_precision		PARAMS ((tree));
 extern int simple_cst_equal		PARAMS ((tree, tree));
 extern int compare_tree_int		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT));

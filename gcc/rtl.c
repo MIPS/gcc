@@ -418,7 +418,7 @@ get_mode_alignment (mode)
     alignment = GET_MODE_UNIT_SIZE (mode);
   else
     alignment = GET_MODE_SIZE (mode);
-  
+
   /* Extract the LSB of the size.  */
   alignment = alignment & -alignment;
   alignment *= BITS_PER_UNIT;
@@ -642,14 +642,15 @@ rtvec_check_failed_bounds (r, n, file, line, func)
 
 #if defined ENABLE_RTL_FLAG_CHECKING
 void
-rtl_check_failed_flag (r, file, line, func)
+rtl_check_failed_flag (name, r, file, line, func)
+    const char *name;
     rtx r;
     const char *file;
     int line;
     const char *func;
 {
   internal_error
-    ("RTL flag check: access macro used with unexpected rtx code `%s' in %s, at %s:%d",
-     GET_RTX_NAME (GET_CODE (r)), func, trim_filename (file), line);
+    ("RTL flag check: %s used with unexpected rtx code `%s' in %s, at %s:%d",
+     name, GET_RTX_NAME (GET_CODE (r)), func, trim_filename (file), line);
 }
 #endif /* ENABLE_RTL_FLAG_CHECKING */

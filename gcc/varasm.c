@@ -95,10 +95,6 @@ struct varasm_status
   /* Current offset in constant pool (does not include any machine-specific
      header).  */
   HOST_WIDE_INT x_pool_offset;
-
-  /* Chain of all CONST_DOUBLE rtx's constructed for the current function.
-     They are chained through the CONST_DOUBLE_CHAIN.  */
-  rtx x_const_double_chain;
 };
 
 #define const_rtx_hash_table (cfun->varasm->x_const_rtx_hash_table)
@@ -106,7 +102,6 @@ struct varasm_status
 #define first_pool (cfun->varasm->x_first_pool)
 #define last_pool (cfun->varasm->x_last_pool)
 #define pool_offset (cfun->varasm->x_pool_offset)
-#define const_double_chain (cfun->varasm->x_const_double_chain)
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
@@ -188,12 +183,10 @@ static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
 static void const_str_htab_del		PARAMS ((void *));
 static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
-static void resolve_unique_section	PARAMS ((tree, int));
-static void unlikely_executed_text_section PARAMS ((void));
-static void hot_text_section		PARAMS ((void));
+static void resolve_unique_section	PARAMS ((tree, int, int));
+static void mark_weak                   PARAMS ((tree));
 
-static enum in_section { no_section, in_text, in_text_hot, in_text_unlikely,
-  in_data, in_named
+static enum in_section { no_section, in_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
 #endif
@@ -247,46 +240,6 @@ text_section ()
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
 #endif
       in_section = in_text;
-    }
-}
-
-/* Tell assembler to switch to text section.  */
-
-static void
-hot_text_section ()
-{
-  if (in_section != in_text_hot)
-    {
-#ifdef HOT_TEXT_SECTION
-      HOT_TEXT_SECTION ();
-      in_section = in_text_het;
-#else
-#ifdef HOT_TEXT_SECTION_ASM_OP
-      fprintf (asm_out_file, "%s\n", HOT_TEXT_SECTION_ASM_OP);
-      in_section = in_text_hot;
-#else
-      text_section ();
-#endif
-#endif
-    }
-}
-
-static void
-unlikely_executed_text_section ()
-{
-  if (in_section != in_text_unlikely)
-    {
-#ifdef UNLIKELY_EXECUTED_TEXT_SECTION
-      UNLIKELY_EXECUTED_TEXT_SECTION ();
-      in_section = in_text_unlikely;
-#else
-#ifdef UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP
-      fprintf (asm_out_file, "%s\n", UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP);
-      in_section = in_text_unlikely;
-#else
-      text_section ();
-#endif
-#endif
     }
 }
 
@@ -506,12 +459,13 @@ named_section (decl, name, reloc)
 /* If required, set DECL_SECTION_NAME to a unique name.  */
 
 static void
-resolve_unique_section (decl, reloc)
+resolve_unique_section (decl, reloc, flag_function_or_data_sections)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
+     int flag_function_or_data_sections;
 {
   if (DECL_SECTION_NAME (decl) == NULL_TREE
-      && (flag_function_sections
+      && (flag_function_or_data_sections
 	  || (targetm.have_named_sections
 	      && DECL_ONE_ONLY (decl))))
     UNIQUE_SECTION (decl, reloc);
@@ -609,24 +563,6 @@ function_section (decl)
   if (decl != NULL_TREE
       && DECL_SECTION_NAME (decl) != NULL_TREE)
     named_section (decl, (char *) 0, 0);
-  else if (decl == current_function_decl)
-    {
-      if (!flag_reorder_functions)
-	text_section ();
-      else
-	switch (cfun->function_frequency)
-	  {
-	    case FUNCTION_FREQUENCY_HOT:
-	      hot_text_section ();
-	      break;
-	    case FUNCTION_FREQUENCY_COLD:
-	      text_section ();
-	      break;
-	    case FUNCTION_FREQUENCY_UNLIKELY_EXECUTED:
-	      unlikely_executed_text_section ();
-	      break;
-	  }
-    }
   else
     text_section ();
 }
@@ -1248,13 +1184,12 @@ assemble_start_function (decl, fnname)
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
 
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_function_sections);
   function_section (decl);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  if (align > 0
-      && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
+  if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
@@ -1262,7 +1197,8 @@ assemble_start_function (decl, fnname)
   /* Handle a user-specified function alignment.
      Note that we still need to align to FUNCTION_BOUNDARY, as above,
      because ASM_OUTPUT_MAX_SKIP_ALIGN might not do any alignment at all.  */
-  if (align_functions_log > align)
+  if (align_functions_log > align
+      && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
       ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
@@ -1460,7 +1396,7 @@ asm_emit_uninitialised (decl, name, size, rounded)
 
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1661,7 +1597,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
   else if (DECL_INITIAL (decl))
     reloc = output_addressed_constants (DECL_INITIAL (decl));
-  resolve_unique_section (decl, reloc);
+  resolve_unique_section (decl, reloc, flag_data_sections);
 
   /* Handle uninitialized definitions.  */
 
@@ -2163,190 +2099,6 @@ assemble_real (d, mode, align)
     default:
       abort ();
     }
-}
-
-/* Here we combine duplicate floating constants to make
-   CONST_DOUBLE rtx's, and force those out to memory when necessary.  */
-
-/* Return a CONST_DOUBLE or CONST_INT for a value specified as a pair of ints.
-   For an integer, I0 is the low-order word and I1 is the high-order word.
-   For a real number, I0 is the word with the low address
-   and I1 is the word with the high address.  */
-
-rtx
-immed_double_const (i0, i1, mode)
-     HOST_WIDE_INT i0, i1;
-     enum machine_mode mode;
-{
-  rtx r;
-
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-    {
-      /* We clear out all bits that don't belong in MODE, unless they and our
-	 sign bit are all one.  So we get either a reasonable negative value
-	 or a reasonable unsigned value for this mode.  */
-      int width = GET_MODE_BITSIZE (mode);
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && ((i0 & ((HOST_WIDE_INT) (-1) << (width - 1)))
-	      != ((HOST_WIDE_INT) (-1) << (width - 1))))
-	i0 &= ((HOST_WIDE_INT) 1 << width) - 1, i1 = 0;
-      else if (width == HOST_BITS_PER_WIDE_INT
-	       && ! (i1 == ~0 && i0 < 0))
-	i1 = 0;
-      else if (width > 2 * HOST_BITS_PER_WIDE_INT)
-	/* We cannot represent this value as a constant.  */
-	abort ();
-
-      /* If this would be an entire word for the target, but is not for
-	 the host, then sign-extend on the host so that the number will look
-	 the same way on the host that it would on the target.
-
-	 For example, when building a 64 bit alpha hosted 32 bit sparc
-	 targeted compiler, then we want the 32 bit unsigned value -1 to be
-	 represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-	 The later confuses the sparc backend.  */
-
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && (i0 & ((HOST_WIDE_INT) 1 << (width - 1))))
-	i0 |= ((HOST_WIDE_INT) (-1) << width);
-
-      /* If MODE fits within HOST_BITS_PER_WIDE_INT, always use a CONST_INT.
-
-	 ??? Strictly speaking, this is wrong if we create a CONST_INT
-	 for a large unsigned constant with the size of MODE being
-	 HOST_BITS_PER_WIDE_INT and later try to interpret that constant in a
-	 wider mode.  In that case we will mis-interpret it as a negative
-	 number.
-
-	 Unfortunately, the only alternative is to make a CONST_DOUBLE
-	 for any constant in any mode if it is an unsigned constant larger
-	 than the maximum signed integer in an int on the host.  However,
-	 doing this will break everyone that always expects to see a CONST_INT
-	 for SImode and smaller.
-
-	 We have always been making CONST_INTs in this case, so nothing new
-	 is being broken.  */
-
-      if (width <= HOST_BITS_PER_WIDE_INT)
-	i1 = (i0 < 0) ? ~(HOST_WIDE_INT) 0 : 0;
-
-      /* If this integer fits in one word, return a CONST_INT.  */
-      if ((i1 == 0 && i0 >= 0)
-	  || (i1 == ~0 && i0 < 0))
-	return GEN_INT (i0);
-
-      /* We use VOIDmode for integers.  */
-      mode = VOIDmode;
-    }
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (CONST_DOUBLE_LOW (r) == i0 && CONST_DOUBLE_HIGH (r) == i1
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.  */
-  r = gen_rtx_CONST_DOUBLE (mode, i0, i1);
-
-  /* Don't touch const_double_chain if not inside any function.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE for a specified `double' value
-   and machine mode.  */
-
-rtx
-immed_real_const_1 (d, mode)
-     REAL_VALUE_TYPE d;
-     enum machine_mode mode;
-{
-  rtx r;
-
-  /* Detect special cases.  Check for NaN first, because some ports
-     (specifically the i386) do not emit correct ieee-fp code by default, and
-     thus will generate a core dump here if we pass a NaN to REAL_VALUES_EQUAL
-     and if REAL_VALUES_EQUAL does a floating point comparison.  */
-  if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_IDENTICAL (dconst0, d))
-    return CONST0_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
-    return CONST1_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst2, d))
-    return CONST2_RTX (mode);
-
-  if (sizeof (REAL_VALUE_TYPE) == sizeof (HOST_WIDE_INT))
-    return immed_double_const (d.r[0], 0, mode);
-  if (sizeof (REAL_VALUE_TYPE) == 2 * sizeof (HOST_WIDE_INT))
-    return immed_double_const (d.r[0], d.r[1], mode);
-
-  /* The rest of this function handles the case where
-     a float value requires more than 2 ints of space.
-     It will be deleted as dead code on machines that don't need it.  */
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (! memcmp ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d)
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.
-
-     We may be called by an optimizer which may be discarding any memory
-     allocated during its processing (such as combine and loop).  However,
-     we will be leaving this constant on the chain, so we cannot tolerate
-     freed memory.  */
-  r = rtx_alloc (CONST_DOUBLE);
-  PUT_MODE (r, mode);
-  memcpy ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d);
-
-  /* If we aren't inside a function, don't put r on the
-     const_double_chain.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-  else
-    CONST_DOUBLE_CHAIN (r) = NULL_RTX;
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE rtx for a value specified by EXP,
-   which must be a REAL_CST tree node.  */
-
-rtx
-immed_real_const (exp)
-     tree exp;
-{
-  return immed_real_const_1 (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)));
-}
-
-/* At the end of a function, forget the memory-constants
-   previously made for CONST_DOUBLEs.  Mark them as not on real_constant_chain.
-   Also clear out real_constant_chain and clear out all the chain-pointers.  */
-
-void
-clear_const_double_mem ()
-{
-  rtx r, next;
-
-  for (r = const_double_chain; r; r = next)
-    {
-      next = CONST_DOUBLE_CHAIN (r);
-      CONST_DOUBLE_CHAIN (r) = 0;
-    }
-  const_double_chain = 0;
 }
 
 /* Given an expression EXP with a constant value,
@@ -3531,7 +3283,6 @@ init_varasm_status (f)
 
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
-  p->x_const_double_chain = 0;
 }
 
 /* Mark PC for GC.  */
@@ -3559,7 +3310,6 @@ mark_varasm_status (p)
     return;
 
   mark_pool_constant (p->x_first_pool);
-  ggc_mark_rtx (p->x_const_double_chain);
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -5055,6 +4805,21 @@ output_constructor (exp, size, align)
    to be emitted.  */
 static tree weak_decls;
 
+/* Mark DECL as weak.  */
+
+static void
+mark_weak (decl)
+     tree decl;
+{
+  DECL_WEAK (decl) = 1;
+
+  if (DECL_RTL_SET_P (decl)
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && XEXP (DECL_RTL (decl), 0)
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
+    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+ 
 /* Merge weak status between NEWDECL and OLDDECL.  */
 
 void
@@ -5062,22 +4827,54 @@ merge_weak (newdecl, olddecl)
      tree newdecl;
      tree olddecl;
 {
-  tree decl;
-
   if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
     return;
 
-  decl = DECL_WEAK (olddecl) ? newdecl : olddecl;
-
   if (SUPPORTS_WEAK
+      && DECL_WEAK (newdecl) 
       && DECL_EXTERNAL (newdecl) && DECL_EXTERNAL (olddecl)
-      && (TREE_CODE (decl) != VAR_DECL
-	  || ! TREE_STATIC (decl))
-      && TREE_USED (decl)
-      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-    warning_with_decl (decl, "weak declaration of `%s' after first use results in unspecified behavior");
+      && (TREE_CODE (olddecl) != VAR_DECL || ! TREE_STATIC (olddecl))
+      && TREE_USED (olddecl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
+    warning_with_decl (newdecl, "weak declaration of `%s' after first use results in unspecified behavior");
 
-  declare_weak (decl);
+  if (DECL_WEAK (newdecl))
+    {
+      tree wd;
+      
+      /* NEWDECL is weak, but OLDDECL is not.  */
+
+      /* If we already output the OLDDECL, we're in trouble; we can't
+	 go back and make it weak.  This error cannot caught in
+	 declare_weak because the NEWDECL and OLDDECL was not yet
+	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
+      if (TREE_CODE (olddecl) == FUNCTION_DECL && TREE_ASM_WRITTEN (olddecl))
+	error_with_decl (newdecl, 
+			 "weak declaration of `%s' must precede definition");
+      
+      if (SUPPORTS_WEAK)
+	{
+	  /* We put the NEWDECL on the weak_decls list at some point.
+	     Replace it with the OLDDECL.  */
+	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
+	    if (TREE_VALUE (wd) == newdecl)
+	      {
+		TREE_VALUE (wd) = olddecl;
+		break;
+	      }
+	  /* We may not find the entry on the list.  If NEWDECL is a
+	     weak alias, then we will have already called
+	     globalize_decl to remove the entry; in that case, we do
+	     not need to do anything.  */
+	}
+
+      /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
+      mark_weak (olddecl);
+    }
+  else
+    /* OLDDECL was weak, but NEWDECL was not explicitly marked as
+       weak.  Just update NEWDECL to indicate that it's weak too.  */
+    mark_weak (newdecl);
 }
 
 /* Declare DECL to be a weak symbol.  */
@@ -5098,13 +4895,7 @@ declare_weak (decl)
   else
     warning_with_decl (decl, "weak declaration of `%s' not supported");
 
-  DECL_WEAK (decl) = 1;
-
-  if (DECL_RTL_SET_P (decl)
-      && GET_CODE (DECL_RTL (decl)) == MEM
-      && XEXP (DECL_RTL (decl), 0)
-      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
-    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
+  mark_weak (decl);
 }
 
 /* Emit any pending weak declarations.  */

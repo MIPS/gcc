@@ -1,3 +1,49 @@
+2002-05-14  Jason Merrill  <jason@redhat.com>, Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/init/pm1.C: New test.
+
+2002-05-12  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/conversion.c (ldnear): Use long double
+	types.
+
+2002-05-10  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020510-1.c: New test case.
+
+2002-05-10  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/execute/conversion.c: Test long double too.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/g77.exp (g77_link_flags): Append all multilib dirs containing
+	libgcc_s*.so.1 below gcc object dir to LD_LIBRARY_PATH.
+	* lib/g++.exp (g++_link_flags): Likewise.
+	* lib/objc.exp (objc_target_compile): Likewise.
+
+2002-05-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/poison.c: Update.
+	* gcc.dg/cpp/20000625-2.c: Remove.
+	* gcc.dg/cpp/direct2s.c: Remove final test.
+
+2002-05-08  Tom Rix  <trix@redhat.com>
+
+	* gcc.c-torture/execute/20020508-1.c: New test.
+	* gcc.c-torture/execute/20020508-2.c: New test.
+	* gcc.c-torture/execute/20020508-3.c: New test.
+
+2002-05-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-4.c: More tests.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c/6569
+	* gcc.dg/weak-3.c: Update location of warning messages.
+	* gcc.dg/weak-5.c: Likewise.
+
 2002-05-06  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/20020506-1.c: New test case.
@@ -470,6 +516,10 @@ Wed Apr 24 21:38:36 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* gcc.dg/weak-1.c: Fix typo in scan-assembler pattern.
 
 	* g++.old-deja/g++.law/bit-fields2.C: Skip on mmix-knuth-mmixware.
+
+Thu Mar 28 16:38:09 2002  Jeffrey A Law  (law@redhat.com)
+
+	* gcc.c-torture/execute/20020328-1.c: New test.
 
 2002-03-27  Richard Henderson  <rth@redhat.com>
 

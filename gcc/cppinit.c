@@ -28,7 +28,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "version.h"
 #include "mkdeps.h"
 #include "cppdefault.h"
-#include "except.h"	/* for USING_SJLJ_EXCEPTIONS */
 
 /* Predefined symbols, built-in macros, and the default include path.  */
 
@@ -663,22 +662,6 @@ static const struct builtin builtin_array[] =
   X("__USER_LABEL_PREFIX__",	ULP),
   C("__REGISTER_PREFIX__",	REGISTER_PREFIX),
   C("__HAVE_BUILTIN_SETJMP__",	"1"),
-#if USING_SJLJ_EXCEPTIONS
-  /* libgcc needs to know this.  */
-  C("__USING_SJLJ_EXCEPTIONS__","1"),
-#endif
-#ifndef NO_BUILTIN_SIZE_TYPE
-  C("__SIZE_TYPE__",		SIZE_TYPE),
-#endif
-#ifndef NO_BUILTIN_PTRDIFF_TYPE
-  C("__PTRDIFF_TYPE__",		PTRDIFF_TYPE),
-#endif
-#ifndef NO_BUILTIN_WCHAR_TYPE
-  C("__WCHAR_TYPE__",		WCHAR_TYPE),
-#endif
-#ifndef NO_BUILTIN_WINT_TYPE
-  C("__WINT_TYPE__",		WINT_TYPE),
-#endif
 #ifdef STDC_0_IN_SYSTEM_HEADERS
   B("__STDC__",		 BT_STDC),
 #else
