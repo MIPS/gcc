@@ -1,3 +1,10 @@
+2003-08-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (handle_switch_fallthru): Do not abort when the last
+	statement of the case block needs to be the last statement of the
+	block.
+	(find_insert_location): Fix typo.
+
 2003-08-06  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-dfa.c (remove_phi_arg):  When the PHI no longer has

@@ -3920,8 +3920,10 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
 	    SET_PENDING_STMT (e, NULL_TREE);
 	    bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &tmp_bb);
 	    SET_PENDING_STMT (e, tmp);
-	    /* Insertion should never cause a new block.  */
-	    if (tmp_bb)
+	    /* Insertion should never cause a new block, unless STMT needs
+	       to be the last statement in E->SRC (e.g., STMT is a
+	       CALL_EXPR that may throw).  */
+	    if (tmp_bb && !stmt_ends_bb_p (stmt))
 	      abort ();
 	  }
       }
@@ -4192,7 +4194,7 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
    stmt is added to the new block.  An iterator to the new stmt is returned.
    If a pointer to a BSI is passed in, and the stmt is inserted before or after
    an existing stmt in a block, old_bsi will be returned with an iterator for
-   that stmt (The equivilent of BSI_SAME_STMT on an insert_before or after.
+   that stmt (The equivalent of BSI_SAME_STMT on an insert_before or after.
    If a created_block is passed in, and the edge is split, the new block is
    returned through this parameter.  */
 
