@@ -1432,6 +1432,7 @@ rewrite_out_of_ssa (fndecl)
   var_map map;
   tree phi;
   elim_graph g;
+  int repeat;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
@@ -1502,6 +1503,14 @@ rewrite_out_of_ssa (fndecl)
   /* If any copies were inserted on edges, actually insert them now.  */
   bsi_commit_edge_inserts (0, NULL);
 
+  /* Do some cleanups which reduce the amount of data the
+     tree->rtl expanders deal with.  */
+  do
+    {
+      repeat = remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl));
+    }
+  while (repeat);
+  
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fndecl);
   delete_tree_cfg ();

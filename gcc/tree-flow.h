@@ -409,7 +409,7 @@ extern tree *last_stmt_ptr		PARAMS ((basic_block));
 extern basic_block is_latch_block_for	PARAMS ((basic_block));
 extern edge find_taken_edge		PARAMS ((basic_block, tree));
 extern int call_expr_flags		PARAMS ((tree));
-
+extern int remove_useless_stmts_and_vars PARAMS ((tree *));
 
 /* In tree-dfa.c  */
 extern void get_stmt_operands		PARAMS ((tree));

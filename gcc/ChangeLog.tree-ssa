@@ -1,3 +1,11 @@
+2003-05-06  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (make_goto_expr_edges): Fix typo in comment.
+	(remove_useless_stmts_and_vars): New function.
+	* tree-flow.h (remove_useless_stmts_and_vars): Prototype.
+	* tree-ssa.c (rewrite_out_of_ssa): After returning to normal
+	form, call remove_useless_stmts_and_vars.
+
 2003-05-02  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (alias_get_name): Given unnamed result decls

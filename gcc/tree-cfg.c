@@ -1271,7 +1271,7 @@ make_goto_expr_edges (bb)
   goto_t = last_stmt (bb);
 
   /* If the last statement is not a GOTO (i.e., it is a RETURN_EXPR,
-     CALL_EXPR or MODIFY_EXPR, then the edge is an abnormal edge resulting
+     CALL_EXPR or MODIFY_EXPR), then the edge is an abnormal edge resulting
      from a nonlocal goto.  */
   if (TREE_CODE (goto_t) != GOTO_EXPR)
     {
@@ -1363,6 +1363,114 @@ cleanup_tree_cfg ()
   timevar_pop (TV_TREE_CLEANUP_CFG);
 }
 
+/* Walk the function tree removing unnecessary statements and
+   variables.
+
+     * Empty statement nodes are removed
+
+     * Some unnecessary BIND_EXPRs are removed
+
+   Clearly more work could be done.  The trick is doing the analysis
+   and removal fast enough to be a net improvement in compile times. 
+
+   Note that when we remove a control structure such as a COND_EXPR
+   or BIND_EXPR, we will need to repeat this optimization pass to
+   ensure we eliminate all the useless code.  */
+  
+int
+remove_useless_stmts_and_vars (first_p)
+     tree *first_p;
+{
+  tree_stmt_iterator i;
+  int repeat = 0;
+
+  for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree *container_p = tsi_container (i);
+      tree *stmt_p;
+      enum tree_code code;
+
+      while (TREE_CODE (*container_p) == COMPOUND_EXPR
+	     && (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0))
+		 || IS_EMPTY_STMT (TREE_OPERAND (*container_p, 1))))
+	{
+	  /* If either operand of a COMPOUND_EXPR is an empty statement,
+	     then remove the empty statement and the COMPOUND_EXPR itself.  */
+	  if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 1)))
+	    *container_p = TREE_OPERAND (*container_p, 0);
+	  else if (IS_EMPTY_STMT (TREE_OPERAND (*container_p, 0)))
+	    *container_p = TREE_OPERAND (*container_p, 1);
+	}
+
+      /* Dive into control structures.  */
+      stmt_p = tsi_stmt_ptr (i);
+      code = TREE_CODE (*stmt_p);
+      if (code == LOOP_EXPR)
+	repeat |= remove_useless_stmts_and_vars (&LOOP_EXPR_BODY (*stmt_p));
+      else if (code == COND_EXPR)
+	{
+	  tree then_clause, else_clause, cond;
+	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p));
+	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p));
+
+	  then_clause = COND_EXPR_THEN (*stmt_p);
+	  else_clause = COND_EXPR_ELSE (*stmt_p);
+	  cond = COND_EXPR_COND (*stmt_p);
+
+	  /* We may not have been able to completely optimize away
+	     the condition previously due to the existence of a
+	     label in one arm.  If the label has since become unreachable
+	     then we may be able to zap the entire conditional here.
+
+	     If this causes us to replace the COND_EXPR with an
+	     empty statement, then we will need to repeat this pass.  */
+	  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
+	    *stmt_p = then_clause;
+	  if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
+	    *stmt_p = else_clause;
+
+	  /* This can happen if both arms were ultimately empty.  */
+	  if (IS_EMPTY_STMT (*stmt_p))
+	    repeat = 1;
+	}
+      else if (code == SWITCH_EXPR)
+	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p));
+      else if (code == CATCH_EXPR)
+	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p));
+      else if (code == EH_FILTER_EXPR)
+	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p));
+      else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
+	{
+	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0));
+	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1));
+	}
+      else if (code == BIND_EXPR)
+	{
+	  /* First remove anything underneath the BIND_EXPR.  */
+	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p));
+
+	  /* If the BIND_EXPR has no variables, then we can pull everything
+	     up one level and remove the BIND_EXPR, unless this is the
+	     toplevel BIND_EXPR.  */
+	  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+	      && *stmt_p != DECL_SAVED_TREE (current_function_decl))
+	    *stmt_p = BIND_EXPR_BODY (*stmt_p);
+
+	  /* If we removed the BIND_EXPR completely and were left with
+	     an empty statement, then we'll need to repeat this
+	     optimization.  */
+	  if (IS_EMPTY_STMT (*stmt_p))
+	    repeat = 1;
+	}
+
+      /* We need to keep the tree in gimple form, so we may have to
+	 re-rationalize COMPOUND_EXPRs.  */
+      if (TREE_CODE (*container_p) == COMPOUND_EXPR
+	  && TREE_CODE (TREE_OPERAND (*container_p, 0)) == COMPOUND_EXPR)
+	*container_p = rationalize_compound_expr (*container_p);
+    }
+  return repeat;
+}
 
 /* Delete all unreachable basic blocks.   */
 
