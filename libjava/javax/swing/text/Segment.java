@@ -43,6 +43,8 @@ import java.text.CharacterIterator;
 public class Segment
   implements Cloneable, CharacterIterator
 {
+  private boolean partialReturn;
+  
   public char[] array;
   public int count;
   public int offset;
@@ -123,5 +125,21 @@ public class Segment
   public String toString()
   {
     return new String(array, offset, count);
+  }
+
+  /**
+   * @since 1.4
+   */
+  public void setPartialReturn(boolean p)
+  {
+    partialReturn = p;
+  }
+  
+  /**
+   * @since 1.4
+   */
+  public boolean isPartialReturn()
+  {
+    return partialReturn;
   }
 }
