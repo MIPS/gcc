@@ -1135,22 +1135,31 @@ compute_branch_probabilities ()
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
 		/* Function may return twice in the cased the called fucntion is
-		   setjmp or calls fork, but we can't represent this by extra edge
-		   from the entry, since extra edge from the exit is already
-		   present.  We get negative frequency from the entry point.  */
-		if (e->count < 0
-		    && e->dest == EXIT_BLOCK_PTR
-		    && GET_CODE (e->src->end) == CALL_INSN)
-		  e->count = 0;
-		if (e->count > total
-		    && GET_CODE (e->src->end) == CALL_INSN)
-		  e->count = total;
+		   setjmp or calls fork, but we can't represent this by extra
+		   edge from the entry, since extra edge from the exit is
+		   already present.  We get negative frequency from the entry
+		   point.  */
+		if ((e->count < 0
+		     && e->dest == EXIT_BLOCK_PTR)
+		    || (e->count > total
+		        && e->dest != EXIT_BLOCK_PTR))
+		  {
+		    rtx insn = bb->end;
+
+		    while (GET_CODE (insn) != CALL_INSN
+			   && insn != bb->head
+			   && keep_with_call_p (insn))
+		      insn = PREV_INSN (insn);
+		    if (GET_CODE (insn) == CALL_INSN)
+		      e->count = e->count < 0 ? 0 : total;
+		  }
 
 		e->probability = (e->count * REG_BR_PROB_BASE + total / 2) / total;
 		if (e->probability < 0 || e->probability > REG_BR_PROB_BASE)
 		  {
-		    error ("corrupted profile info: prob for %d-%d thought to be %d",
-			   e->src->index, e->dest->index, e->probability);
+		    error ("corrupted profile info: prob for %d-%d thought to be %f",
+			   e->src->index, e->dest->index,
+			   e->probability/(double) REG_BR_PROB_BASE);
 		    e->probability = REG_BR_PROB_BASE / 2;
 		  }
 	    }
