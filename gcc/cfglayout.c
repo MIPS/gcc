@@ -81,6 +81,7 @@ static void free_scope_tree		PARAMS ((scope));
 static void cleanup_unconditional_jumps	PARAMS ((void));
 void dump_scope_tree			PARAMS ((FILE *, scope));
 static void dump_scope_tree_1		PARAMS ((FILE *, scope, int));
+static basic_block fixup_fallthru_exit_predecesor PARAMS ((void));
 
 void verify_insn_chain			PARAMS ((void));
 void change_scope			PARAMS ((rtx, scope, scope));
@@ -771,6 +772,30 @@ cleanup_unconditional_jumps ()
 	}
     }
 }
+
+/* The block falling trought to exit must be last in the reordered
+   chain.  Make it happen so.  */
+static basic_block
+fixup_fallthru_exit_predecesor ()
+{
+  edge e;
+  basic_block bb = NULL;
+
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_FALLTHRU)
+      bb = e->src;
+  if (bb && RBI (bb)->next)
+    {
+      basic_block c = BASIC_BLOCK (0);
+      while (RBI (c)->next != bb)
+	c = RBI (c)->next;
+      RBI (c)->next = RBI (bb)->next;
+      while (RBI (c)->next)
+	c = RBI (c)->next;
+      RBI (c)->next = bb;
+      RBI (bb)->next = NULL;
+    }
+}
 
 /* Main entry point to this module - initialize the datastructures for
    CFG layout changes.  */
@@ -795,6 +820,7 @@ cfg_layout_initialize ()
 void
 cfg_layout_finalize ()
 {
+  fixup_fallthru_exit_predecesor ();
   fixup_reorder_chain ();
 #ifdef ENABLE_CHECKING
   verify_insn_chain ();
