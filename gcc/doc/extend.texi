@@ -1883,7 +1883,7 @@ attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{noreturn}, @code{noinline}, @code{always_inline},
-@code{pure}, @code{const},
+@code{pure}, @code{const}, @code{nothrow},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
@@ -2007,6 +2007,14 @@ extern const intfn square;
 This approach does not work in GNU C++ from 2.6.0 on, since the language
 specifies that the @samp{const} must be attached to the return value.
 
+@cindex @code{nothrow} function attribute
+@item nothrow
+The @code{nothrow} attribute is used to inform the compiler that a
+function cannot throw an exception.  For example, most functions in
+the standard C library can be guaranteed not to throw an exception
+with the notable exceptions of @code{qsort} and @code{bsearch} that
+take function pointer arguments.  The @code{nothrow} attribute is not
+implemented in GCC versions earlier than 3.2.
 
 @item format (@var{archetype}, @var{string-index}, @var{first-to-check})
 @cindex @code{format} function attribute
@@ -3141,10 +3149,11 @@ packed))}.
 The keyword @code{__attribute__} allows you to specify special
 attributes of @code{struct} and @code{union} types when you define such
 types.  This keyword is followed by an attribute specification inside
-double parentheses.  Five attributes are currently defined for types:
+double parentheses.  Six attributes are currently defined for types:
 @code{aligned}, @code{packed}, @code{transparent_union}, @code{unused},
-and @code{deprecated}.  Other attributes are defined for functions
-(@pxref{Function Attributes}) and for variables (@pxref{Variable Attributes}).
+@code{deprecated} and @code{may_alias}.  Other attributes are defined for
+functions (@pxref{Function Attributes}) and for variables
+(@pxref{Variable Attributes}).
 
 You may also specify any one of these attributes with @samp{__}
 preceding and following its keyword.  This allows you to use these
@@ -3355,6 +3364,36 @@ deprecated.  Similarly for line 6.
 The @code{deprecated} attribute can also be used for functions and
 variables (@pxref{Function Attributes}, @pxref{Variable Attributes}.)
 
+@item may_alias
+Accesses to objects with types with this attribute are not subjected to
+type-based alias analysis, but are instead assumed to be able to alias
+any other type of objects, just like the @code{char} type.  See
+@option{-fstrict-aliasing} for more information on aliasing issues.
+
+Example of use:
+
+@example
+typedef short __attribute__((__may_alias__)) short_a;
+
+int
+main (void)
+@{
+  int a = 0x12345678;
+  short_a *b = (short_a *) &a;
+
+  b[1] = 0;
+
+  if (a == 0x12345678)
+    abort();
+
+  exit(0);
+@}
+@end example
+
+If you replaced @code{short_a} with @code{short} in the variable
+declaration, the above program would abort when compiled with
+@option{-fstrict-aliasing}, which is on by default at @option{-O2} or
+above in recent GCC versions.
 @end table
 
 To specify multiple attributes, separate them by commas within the

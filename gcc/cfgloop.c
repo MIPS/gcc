@@ -33,8 +33,8 @@ static void flow_loops_cfg_dump		PARAMS ((const struct loops *,
 						 FILE *));
 static void flow_loop_entry_edges_find	PARAMS ((struct loop *));
 static void flow_loop_exit_edges_find	PARAMS ((struct loop *));
-static int flow_loop_nodes_find	PARAMS ((basic_block, struct loop *));
-static void flow_loop_pre_header_scan PARAMS ((struct loop *));
+static int flow_loop_nodes_find		PARAMS ((basic_block, struct loop *));
+static void flow_loop_pre_header_scan	PARAMS ((struct loop *));
 static basic_block flow_loop_pre_header_find PARAMS ((basic_block,
 						      const sbitmap *));
 static int flow_loop_level_compute	PARAMS ((struct loop *));
@@ -45,7 +45,6 @@ static void canonicalize_loop_headers   PARAMS ((void));
 static bool glb_enum_p PARAMS ((basic_block, void *));
 static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
 static void flow_loop_free PARAMS ((struct loop *));
-
 
 /* Dump loop related CFG information.  */
 
@@ -91,7 +90,7 @@ flow_loops_cfg_dump (loops, file)
     }
 }
 
-/* Return non-zero if the LOOP is a subset of OUTER.  */
+/* Return non-zero if the nodes of LOOP are a subset of OUTER.  */
 
 bool
 flow_loop_nested_p (outer, loop)
@@ -493,8 +492,7 @@ flow_loop_tree_node_remove (loop)
 }
 
 /* Helper function to compute loop nesting depth and enclosed loop level
-   for the natural loop specified by LOOP at the loop depth DEPTH.
-   Returns the loop level.  */
+   for the natural loop specified by LOOP.  Returns the loop level.  */
 
 static int
 flow_loop_level_compute (loop)
@@ -653,22 +651,19 @@ canonicalize_loop_headers ()
   sbitmap *dom;
   basic_block header;
   edge e;
-  int b;
   
   /* Compute the dominators.  */
-  dom = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dom = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   calculate_dominance_info (NULL, dom, CDI_DOMINATORS);
 
   alloc_aux_for_blocks (sizeof (int));
   alloc_aux_for_edges (sizeof (int));
 
   /* Split blocks so that each loop has only single latch.  */
-  for (b = 0; b < n_basic_blocks; b++)
+  FOR_EACH_BB (header)
     {
       int num_latches = 0;
       int have_abnormal_edge = 0;
-
-      header = BASIC_BLOCK (b);
 
       for (e = header->pred; e; e = e->pred_next)
 	{
@@ -677,7 +672,8 @@ canonicalize_loop_headers ()
 	  if (e->flags & EDGE_ABNORMAL)
 	    have_abnormal_edge = 1;
 
-	  if (latch != ENTRY_BLOCK_PTR && TEST_BIT (dom[latch->index], b))
+	  if (latch != ENTRY_BLOCK_PTR
+	      && TEST_BIT (dom[latch->index], header->index))
 	    {
 	      num_latches++;
 	      LATCH_EDGE (e) = 1;
@@ -694,8 +690,7 @@ canonicalize_loop_headers ()
       basic_block bb;
 
       /* We could not redirect edges freely here. On the other hand,
-	 we know that no abnormal edge enters this block, so we can simply
-	 split the edge from entry block.  */
+	 we can simply split the edge from entry block.  */
       bb = split_edge (ENTRY_BLOCK_PTR->succ);
  
       alloc_aux_for_edge (bb->succ, sizeof (int));
@@ -704,29 +699,22 @@ canonicalize_loop_headers ()
       HEADER_BLOCK (bb) = 0;
     }
 
-  for (b = 0; b < n_basic_blocks; )
+  FOR_EACH_BB (header)
     {
       int num_latch;
       int want_join_latch;
       int max_freq, is_heavy;
       edge heavy;
 
-      header = BASIC_BLOCK (b);
       if (!HEADER_BLOCK (header))
-	{
-	  b++;
-	  continue;
-	}
+	continue;
 
       num_latch = HEADER_BLOCK (header);
 
       want_join_latch = (num_latch > 1);
 
       if (!want_join_latch)
-	{
-	  b++;
-	  continue;
-	}
+	continue;
 
       /* Find a heavy edge.  */
       is_heavy = 1;
@@ -785,6 +773,7 @@ flow_loops_find (loops, flags)
   int *rc_order;
   basic_block header;
   int *imm_dom;
+  basic_block bb;
 
   /* This function cannot be repeatedly called with different
      flags to build up the loop information.  The loop tree
@@ -806,19 +795,19 @@ flow_loops_find (loops, flags)
   canonicalize_loop_headers ();
 
   /* Compute the dominators.  */
-  loops->cfg.dom = dom = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  imm_dom = xmalloc (n_basic_blocks * sizeof (int));
-  for (i = 0; i < n_basic_blocks; i++)
+  loops->cfg.dom = dom = dom = sbitmap_vector_alloc (last_basic_block, last_basic_block);
+  imm_dom = xmalloc (last_basic_block * sizeof (int));
+  for (i = 0; i < last_basic_block; i++)
     imm_dom[i] = -1;
   calculate_dominance_info (imm_dom, dom, CDI_DOMINATORS);
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->dominator =
-      imm_dom[i] < 0 ?  ENTRY_BLOCK_PTR : BASIC_BLOCK (imm_dom[i]);
+  FOR_EACH_BB (bb)
+    bb->dominator =
+      imm_dom[bb->index] < 0 ?  ENTRY_BLOCK_PTR : BASIC_BLOCK (imm_dom[bb->index]);
   free (imm_dom);
 
   /* Count the number of loop headers.  This should be the
      same as the number of natural loops.  */
-  headers = sbitmap_alloc (n_basic_blocks);
+  headers = sbitmap_alloc (last_basic_block);
   sbitmap_zero (headers);
 
   num_loops = 0;
@@ -836,7 +825,7 @@ flow_loops_find (loops, flags)
 	    {
 	      if (more_latches)
 		{
-		  RESET_BIT (headers, b);
+		  RESET_BIT (headers, header->index);
 		  num_loops--;
 		}
 	      break;
@@ -881,8 +870,8 @@ flow_loops_find (loops, flags)
   /* Find and record information about all the natural loops
      in the CFG.  */
   loops->num = 1;
-  for (b = 0; b<n_basic_blocks; b++)
-    BASIC_BLOCK (b)->loop_father = loops->tree_root;
+  FOR_EACH_BB (bb)
+    bb->loop_father = loops->tree_root;
 
   if (num_loops)
     {
@@ -952,7 +941,7 @@ flow_loops_find (loops, flags)
     }
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
-  verify_dominators ();
+  verify_loop_structure (loops, 0);
 #endif
 
   return loops->num;
@@ -1015,19 +1004,22 @@ basic_block *
 get_loop_body (loop)
      const struct loop *loop;
 {
-  basic_block *tovisit;
-  int tv = 0, i;
+  basic_block *tovisit, bb;
+  int tv = 0;
+
   if (!loop->num_nodes)
     abort ();
+
   tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
   tovisit[tv++] = loop->header;
+
   if (loop->latch == EXIT_BLOCK_PTR)
     {
       /* There may be blocks unreachable from EXIT_BLOCK.  */
       if (loop->num_nodes != n_basic_blocks + 2)
 	abort ();
-      for (i = 0; i < n_basic_blocks; i++)
-	tovisit[tv++] = BASIC_BLOCK(i);
+      FOR_EACH_BB (bb)
+	tovisit[tv++] = bb;
       tovisit[tv++] = EXIT_BLOCK_PTR;
     }
   else if (loop->latch != loop->header)
@@ -1036,6 +1028,7 @@ get_loop_body (loop)
 			       tovisit + 1, loop->num_nodes - 1,
 			       loop->header) + 1;
     }
+
   if (tv != loop->num_nodes)
     abort ();
   return tovisit;
@@ -1048,6 +1041,7 @@ add_bb_to_loop (bb, loop)
      struct loop *loop;
  {
    int i;
+ 
    bb->loop_father = loop;
    bb->loop_depth = loop->depth;
    loop->num_nodes++;
@@ -1062,6 +1056,7 @@ remove_bb_from_loops (bb)
  {
    int i;
    struct loop *loop = bb->loop_father;
+
    loop->num_nodes--;
    for (i = 0; i < loop->depth; i++)
      loop->pred[i]->num_nodes--;
@@ -1115,10 +1110,12 @@ find_common_loop (loop_s, loop_d)
 {
   if (!loop_s) return loop_d;
   if (!loop_d) return loop_s;
+  
   if (loop_s->depth < loop_d->depth)
     loop_d = loop_d->pred[loop_s->depth];
   else if (loop_s->depth > loop_d->depth)
     loop_s = loop_s->pred[loop_d->depth];
+
   while (loop_s != loop_d)
     {
       loop_s = loop_s->outer;
@@ -1132,14 +1129,14 @@ find_common_loop (loop_s, loop_d)
      -- results of get_loop_body really belong to the loop
      -- loop header have just single entry edge and single latch edge
      -- loop latches have only single successor that is header of their loop
-     -- sanity of frequencies  */
+  */
 void
 verify_loop_structure (loops, flags)
      struct loops *loops;
      int flags;
 {
   int *sizes, i, j;
-  basic_block *bbs;
+  basic_block *bbs, bb;
   struct loop *loop;
   int err = 0;
 
@@ -1147,8 +1144,8 @@ verify_loop_structure (loops, flags)
   sizes = xcalloc (loops->num, sizeof (int));
   sizes[0] = 2;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    for (loop = BASIC_BLOCK (i)->loop_father; loop; loop = loop->outer)
+  FOR_EACH_BB (bb)
+    for (loop = bb->loop_father; loop; loop = loop->outer)
       sizes[loop->num]++;
 
   for (i = 0; i < loops->num; i++)
@@ -1225,8 +1222,8 @@ verify_loop_structure (loops, flags)
     }
 
   /* Check frequencies.  */
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK(i)->frequency < 0)
+  FOR_EACH_BB (bb)
+    if (bb->frequency < 0)
       {
 	error ("Basic block %d has negative frequency.", i);
 	err = 1;
@@ -1298,6 +1295,7 @@ loop_latch_edge (loop)
   return e;
 }
 
+/* Returns preheader edge of LOOP.  */
 edge
 loop_preheader_edge (loop)
      struct loop *loop;

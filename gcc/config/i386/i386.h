@@ -192,7 +192,7 @@ extern int target_flags;
 #ifdef TARGET_BI_ARCH
 #define TARGET_64BIT (target_flags & MASK_64BIT)
 #else
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define TARGET_64BIT 1
 #else
 #define TARGET_64BIT 0
@@ -384,13 +384,14 @@ extern int x86_prefetch_sse;
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \
     N_("Do not use red-zone in the x86-64 code") },			      \
   SUBTARGET_SWITCHES							      \
-  { "", TARGET_DEFAULT, 0 }}
+  { "", TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT, 0 }}
 
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_DEFAULT (MASK_64BIT | TARGET_SUBTARGET_DEFAULT)
-#else
-#define TARGET_DEFAULT TARGET_SUBTARGET_DEFAULT
+#ifndef TARGET_64BIT_DEFAULT
+#define TARGET_64BIT_DEFAULT 0
 #endif
+
+#define TARGET_DEFAULT MASK_OMIT_LEAF_FRAME_POINTER
+
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
@@ -590,13 +591,13 @@ extern int x86_prefetch_sse;
 
 #ifndef CPP_CPU_SPEC
 #ifdef TARGET_BI_ARCH
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define CPP_CPU_SPEC "%{m32:%(cpp_cpu32)}%{!m32:%(cpp_cpu64)} %(cpp_cpucommon)"
 #else
 #define CPP_CPU_SPEC "%{m64:%(cpp_cpu64)}%{!m64:%(cpp_cpu32)} %(cpp_cpucommon)"
 #endif
 #else
-#ifdef TARGET_64BIT_DEFAULT
+#if TARGET_64BIT_DEFAULT
 #define CPP_CPU_SPEC "%(cpp_cpu64) %(cpp_cpucommon)"
 #else
 #define CPP_CPU_SPEC "%(cpp_cpu32) %(cpp_cpucommon)"
@@ -657,7 +658,7 @@ extern int x86_prefetch_sse;
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_LONG_TYPE_SIZE 64
 
-#if defined (TARGET_BI_ARCH) || defined (TARGET_64BIT_DEFAULT)
+#if defined (TARGET_BI_ARCH) || TARGET_64BIT_DEFAULT
 #define MAX_BITS_PER_WORD 64
 #define MAX_LONG_TYPE_SIZE 64
 #else
@@ -1086,9 +1087,18 @@ do {									\
 /* Register to hold the addressing base for position independent
    code access to data items.  We don't use PIC pointer for 64bit
    mode.  Define the regnum to dummy value to prevent gcc from
-   pessimizing code dealing with EBX.  */
-#define PIC_OFFSET_TABLE_REGNUM \
-  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM : 3)
+   pessimizing code dealing with EBX. 
+
+   To avoid clobbering a call-saved register unnecessarily, we renumber
+   the pic register when possible.  The change is visible after the
+   prologue has been emitted.  */
+
+#define REAL_PIC_OFFSET_TABLE_REGNUM  3
+
+#define PIC_OFFSET_TABLE_REGNUM				\
+  (TARGET_64BIT || !flag_pic ? INVALID_REGNUM		\
+   : reload_completed ? REGNO (pic_offset_table_rtx)	\
+   : REAL_PIC_OFFSET_TABLE_REGNUM)
 
 /* Register in which address to store a structure value
    arrives in the function.  On the 386, the prologue
@@ -2406,17 +2416,6 @@ enum ix86_builtins
       fputs (user_label_prefix, FILE);		\
     fputs (xname, FILE);			\
   } while (0)
-
-/* The `FINALIZE_PIC' macro serves as a hook to emit these special
-   codes once the function is being compiled into assembly code, but
-   not before.  (It is not done before, because in the case of
-   compiling an inline function, it would lead to multiple PIC
-   prologues being included in functions which used inline functions
-   and were compiled to assembly language.)  */
-
-#define FINALIZE_PIC \
-  (current_function_uses_pic_offset_table |= current_function_profile)
-
 
 /* Max number of args passed in registers.  If this is more than 3, we will
    have problems with ebx (register #4), since it is a caller save register and

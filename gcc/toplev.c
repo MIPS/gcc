@@ -1,3 +1,4 @@
+
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
@@ -723,7 +724,7 @@ int flag_pic;
 
 /* Set to the default thread-local storage (tls) model to use.  */
 
-enum tls_model flag_tls_default;
+enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -1775,13 +1776,12 @@ output_clean_symbol_name (file, name)
     const char *name;
 {
   /* Make a copy of NAME.  */
-  char *id = (char *)xmalloc (strlen (name) + 1);
-  strcpy (id, name);
+  char *id = xstrdup (name);
 
   /* Make it look like a valid identifier for an assembler.  */
   clean_symbol_name (id);
   
-  fputs (file, name);
+  fputs (id, file);
   free (id);
 }
 
@@ -4947,8 +4947,8 @@ parse_options_and_default_flags (argc, argv)
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
       flag_schedule_insns_after_reload = 1;
-      flag_trace_scheduling = 1;
-      flag_superblock_scheduling = 1;
+      //flag_trace_scheduling = 1;
+      //flag_superblock_scheduling = 1;
 #endif
       flag_regmove = 1;
       flag_strict_aliasing = 1;
@@ -5182,16 +5182,6 @@ process_options ()
   if (flag_delayed_branch)
     warning ("this target machine does not have delayed branches");
 #endif
-
-  /* Some operating systems do not allow profiling without a frame
-     pointer.  */
-  if (!TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-      && profile_flag
-      && flag_omit_frame_pointer)
-    {
-      error ("profiling does not work without a frame pointer");
-      flag_omit_frame_pointer = 0;
-    }
 
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)

@@ -242,6 +242,10 @@ typedef struct basic_block_def {
 
 extern int n_basic_blocks;
 
+/* First free basic block number.  */
+
+extern int last_basic_block;
+
 /* Number of edges in the current function.  */
 
 extern int n_edges;
@@ -599,7 +603,12 @@ enum update_life_extent
 					   by dead code removal.  */
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
 #define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
-#define PROP_FINAL		127	/* All of the above.  */
+#define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
+#define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
+				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_ALLOW_CFG_CHANGES \
+				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
 					   except for edge forwarding */
@@ -679,7 +688,7 @@ extern void allocate_bb_life_data	PARAMS ((void));
 extern void expunge_block		PARAMS ((basic_block));
 extern void link_block			PARAMS ((basic_block, basic_block));
 extern void unlink_block		PARAMS ((basic_block));
-extern void expunge_block_nocompact	PARAMS ((basic_block));
+extern void compact_blocks		PARAMS ((void));
 extern basic_block alloc_block		PARAMS ((void));
 extern void find_unreachable_blocks	PARAMS ((void));
 extern int delete_noop_moves		PARAMS ((rtx));
@@ -768,6 +777,9 @@ extern bool can_hoist_insn_p		PARAMS ((rtx, rtx, regset));
 extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
 extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
 extern void fixup_abnormal_edges	PARAMS ((void));
+extern bool can_hoist_insn_p		PARAMS ((rtx, rtx, regset));
+extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
+extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
 
 /* In dominance.c */
 

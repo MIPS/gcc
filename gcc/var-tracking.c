@@ -684,21 +684,20 @@ static void
 iterative_dataflow (bb_order)
      int *bb_order;
 {
-  int i;
   fibheap_t worklist;
   basic_block bb;
   sbitmap visited, pending;
 
-  pending = sbitmap_alloc (n_basic_blocks);
-  visited = sbitmap_alloc (n_basic_blocks);
+  pending = sbitmap_alloc (last_basic_block);
+  visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (pending);
   sbitmap_zero (visited);
   worklist = fibheap_new ();
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      fibheap_insert (worklist, bb_order[i], (void *) (size_t) i);
-      SET_BIT (pending, i);
+      fibheap_insert (worklist, bb_order[bb->index], bb);
+      SET_BIT (pending, bb->index);
     }
   while (sbitmap_first_set_bit (pending) != -1)
     {
@@ -706,16 +705,15 @@ iterative_dataflow (bb_order)
 	fprintf (rtl_dump_file, "Iterative dataflow\n");
       while (!fibheap_empty (worklist))
 	{
-	  i = (size_t) fibheap_extract_min (worklist);
-	  bb = BASIC_BLOCK (i);
+	  bb = fibheap_extract_min (worklist);
 	  if (!TEST_BIT (visited, bb->index))
 	    hybrid_search (bb, visited, pending);
 	}
       if (sbitmap_first_set_bit (pending) != -1)
 	{
-	  for (i = 0; i < n_basic_blocks; i++)
+	  FOR_EACH_BB (bb)
 	    {
-	      fibheap_insert (worklist, bb_order[i], (void *) (size_t) i);
+	      fibheap_insert (worklist, bb_order[bb->index], bb);
 	    }
 	  sbitmap_zero (visited);
 	}
@@ -734,13 +732,12 @@ iterative_dataflow (bb_order)
 static void
 dump_attrs_list_sets ()
 {
-  int i, j;
+  int j;
   basic_block bb;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      bb = BASIC_BLOCK (i);
-      fprintf (rtl_dump_file, "\nBasic block %d:\n", i);
+      fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
 
       fprintf (rtl_dump_file, "  IN: ");
       for (j = 0; j < IN_OUT_SIZE; j++)
@@ -1087,16 +1084,16 @@ process_bb (bb)
 static void
 var_tracking_emit_notes ()
 {
-  int i, j;
+  int j;
   attrs_list *last_out, *in;
   attrs_list empty[IN_OUT_SIZE];
+  basic_block bb;
 
   init_attrs_list_set (empty);
   last_out = empty;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       attrs_list l;
       emit_note_data emit_note_data;
 
@@ -1145,14 +1142,14 @@ var_tracking_emit_notes ()
 static void
 var_tracking_initialize ()
 {
-  int i;
+  basic_block bb;
+
   scan_for_locations_data data;
 
   alloc_aux_for_blocks (sizeof (struct var_tracking_info_def));
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx insn;
 
       /* Count the number of stores.  */
@@ -1235,12 +1232,12 @@ var_tracking_initialize ()
 static void
 var_tracking_finalize ()
 {
-  int i, j;
+  basic_block bb;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  int j;
+
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       free (VTI (bb)->locs);
 
       for (j = 0; j < IN_OUT_SIZE; j++)
@@ -1266,7 +1263,7 @@ variable_tracking_main ()
   /* Compute depth first search order of the CFG so that
      the dataflow run possibly faster.  */
   rc_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  bb_order = (int *) xmalloc (n_basic_blocks * sizeof (int));
+  bb_order = (int *) xmalloc (last_basic_block * sizeof (int));
   if (!rc_order || !bb_order)
     abort ();
   flow_depth_first_order_compute (NULL, rc_order);

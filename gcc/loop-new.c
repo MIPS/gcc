@@ -67,16 +67,18 @@ get_dominated_by (dom, bb, bbs)
      basic_block bb;
      basic_block **bbs;
 {
-  int i, n;
+  int n;
+  basic_block b;
   n = 0;
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK (i)->dominator == bb)
+
+  FOR_EACH_BB (b)
+    if (b->dominator == bb)
       n++;
   *bbs = xcalloc (n, sizeof (basic_block));
   n = 0;
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK (i)->dominator == bb)
-      (*bbs)[n++] = BASIC_BLOCK (i);
+  FOR_EACH_BB (b)
+    if (b->dominator == bb)
+      (*bbs)[n++] = b;
   return n;
 }
 
@@ -86,11 +88,11 @@ redirect_immediate_dominators (dom, bb, to)
      basic_block bb;
      basic_block to;
 {
-  int i;
+  basic_block b;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    if (BASIC_BLOCK (i)->dominator == bb)
-      BASIC_BLOCK (i)->dominator = to;
+  FOR_EACH_BB (b)
+    if (b->dominator == bb)
+      b->dominator = to;
 }
 
 basic_block
@@ -148,11 +150,13 @@ dominated_by_p (dom, bb1, bb2)
 void
 verify_dominators (void)
 {
-  int i, err = 0;
-  for (i = 0; i < n_basic_blocks; i++)
+  int err = 0;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
     {
-      basic_block bb, dom_bb;
-      bb = BASIC_BLOCK (i);
+      basic_block dom_bb;
+
       dom_bb = recount_dominator (NULL, bb);
       if (dom_bb != bb->dominator)
 	{
@@ -285,12 +289,13 @@ loop_optimizer_finalize (loops, dumpfile)
      struct loops *loops;
      FILE *dumpfile;
 {
-  int i;
+  basic_block bb;
 
   /* Finalize layout changes.  */
   /* Make chain.  */
-  for (i = 0; i < n_basic_blocks-1; i++)
-    RBI (BASIC_BLOCK (i))->next = BASIC_BLOCK (i+1);
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      RBI (bb)->next = bb->next_bb;
 
   /* Another dump.  */
   free (loops->cfg.rc_order);
@@ -307,8 +312,8 @@ loop_optimizer_finalize (loops, dumpfile)
   cfg_layout_finalize ();
 
   /* Remove dominators.  */
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->dominator = NULL;
+  FOR_EACH_BB (bb)
+    bb->dominator = NULL;
 
   /* Checking.  */
 #ifdef ENABLE_CHECKING
@@ -674,9 +679,8 @@ remove_path (loops, e)
   /* Find blocks whose immediate dominators may be affected.  */
   n_dom_bbs = 0;
   n_bord_bbs = 0;
-  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
   bord_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
-  seen = sbitmap_alloc (n_basic_blocks);
+  seen = sbitmap_alloc (last_basic_block);
   sbitmap_zero (seen);
 
   /* Find border hexes.  */
@@ -704,10 +708,10 @@ remove_path (loops, e)
     {
       free (rem_bbs);
       free (bord_bbs);
-      free (dom_bbs);
       free (seen);
       return false;
     }
+  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
 
   /* Now cancel contained loops.  */
   for (i = 0; i < nrem; i++)
@@ -881,7 +885,7 @@ loopify (loops, latch_edge, header_edge, switch_bb)
   /* Update dominators of outer blocks.  */
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
   n_dom_bbs = 0;
-  seen = sbitmap_alloc (n_basic_blocks);
+  seen = sbitmap_alloc (last_basic_block);
   sbitmap_zero (seen);
   body = get_loop_body (loop);
 
@@ -1320,7 +1324,7 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
     }
   else
     {
-      my_blocks = sbitmap_alloc (n_basic_blocks);
+      my_blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (my_blocks);
       for (i = 0; i < nbbs; i++)
         SET_BIT (my_blocks, bbs[i]->index);

@@ -83,8 +83,6 @@ static bool try_redirect_by_replacing_jump PARAMS ((edge, basic_block));
 static rtx last_loop_beg_note		PARAMS ((rtx));
 static bool back_edge_of_syntactic_loop_p PARAMS ((basic_block, basic_block));
 static basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
-static bool hoist_test_store		PARAMS ((rtx, rtx, regset));
-static void hoist_update_store		PARAMS ((rtx, rtx *, rtx, rtx));
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
@@ -342,22 +340,12 @@ create_basic_block (head, end, after)
      basic_block after;
 {
   basic_block bb;
-  int i;
-  int index = after->index + 1;
+  int index = last_basic_block++;
 
-  /* Place the new block just after the block being split.  */
-  VARRAY_GROW (basic_block_info, ++n_basic_blocks);
+  /* Place the new block just after the end.  */
+  VARRAY_GROW (basic_block_info, last_basic_block);
 
-  /* Some parts of the compiler expect blocks to be number in
-     sequential order so insert the new block immediately after the
-     block being split..  */
-  for (i = n_basic_blocks - 1; i > index; --i)
-    {
-      basic_block tmp = BASIC_BLOCK (i - 1);
-
-      BASIC_BLOCK (i) = tmp;
-      tmp->index = i;
-    }
+  n_basic_blocks++;
 
   bb = create_basic_block_structure (index, head, end, NULL, after);
   bb->aux = NULL;
@@ -446,7 +434,7 @@ flow_delete_block (b)
 {
   int deleted_handler = flow_delete_block_noexpunge (b);
 
-  /* Remove the basic block from the array, and compact behind it.  */
+  /* Remove the basic block from the array.  */
   expunge_block (b);
 
   return deleted_handler;
@@ -1218,11 +1206,18 @@ back_edge_of_syntactic_loop_p (bb1, bb2)
 {
   rtx insn;
   int count = 0;
+  basic_block bb;
 
-  if (bb1->index > bb2->index)
-    return false;
-  else if (bb1->index == bb2->index)
+  if (bb1 == bb2)
     return true;
+
+  /* ??? Could we guarantee that bb indices are monotone, so that we could
+     just compare them?  */
+  for (bb = bb1; bb && bb != bb2; bb = bb->next_bb)
+    continue;
+
+  if (!bb)
+    return false;
 
   for (insn = bb1->end; insn != bb2->head && count >= 0;
        insn = NEXT_INSN (insn))
@@ -1716,13 +1711,13 @@ verify_flow_info ()
   basic_block *bb_info, *last_visited;
   size_t *edge_checksum;
   rtx x;
-  int i, num_bb_notes, err = 0;
+  int num_bb_notes, err = 0;
   basic_block bb, last_bb_seen;
 
   bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
-  last_visited = (basic_block *) xcalloc (n_basic_blocks + 2,
+  last_visited = (basic_block *) xcalloc (last_basic_block + 2,
 					  sizeof (basic_block));
-  edge_checksum = (size_t *) xcalloc (n_basic_blocks + 2, sizeof (size_t));
+  edge_checksum = (size_t *) xcalloc (last_basic_block + 2, sizeof (size_t));
 
   /* Check bb chain & numbers.  */
   last_bb_seen = ENTRY_BLOCK_PTR;
@@ -1739,21 +1734,6 @@ verify_flow_info ()
 	{
 	  error ("prev_bb of %d should be %d, not %d",
 		 bb->index, last_bb_seen->index, bb->prev_bb->index);
-	  err = 1;
-	}
-
-      /* For now, also check that we didn't change the order.  */
-      if (bb != EXIT_BLOCK_PTR && bb->index != last_bb_seen->index + 1)
-	{
-	  error ("Wrong order of blocks %d and %d",
-		 last_bb_seen->index, bb->index);
-	  err = 1;
-	}
-
-      if (bb == EXIT_BLOCK_PTR && last_bb_seen->index != n_basic_blocks - 1)
-	{
-	  error ("Only %d of %d blocks in chain",
-		 last_bb_seen->index + 1, n_basic_blocks);
 	  err = 1;
 	}
 
@@ -2073,10 +2053,10 @@ verify_flow_info ()
       edge_checksum[e->dest->index + 2] -= (size_t) e;
   }
 
-  for (i = -2; i < n_basic_blocks; ++i)
-    if (edge_checksum[i + 2])
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    if (edge_checksum[bb->index + 2])
       {
-	error ("basic block %i edge lists are corrupted", i);
+	error ("basic block %i edge lists are corrupted", bb->index);
 	err = 1;
       }
 
@@ -2087,7 +2067,7 @@ verify_flow_info ()
     {
       if (NOTE_INSN_BASIC_BLOCK_P (x))
 	{
-	  basic_block bb = NOTE_BASIC_BLOCK (x);
+	  bb = NOTE_BASIC_BLOCK (x);
 
 	  num_bb_notes++;
 	  if (bb != last_bb_seen->next_bb)
@@ -2325,7 +2305,7 @@ purge_all_dead_edges (update_life_p)
 
   if (update_life_p)
     {
-      blocks = sbitmap_alloc (n_basic_blocks);
+      blocks = sbitmap_alloc (last_basic_block);
       sbitmap_zero (blocks);
     }
 
@@ -2346,254 +2326,4 @@ purge_all_dead_edges (update_life_p)
   if (update_life_p)
     sbitmap_free (blocks);
   return purged;
-}
-
-static bool
-hoist_test_store (x, val, live)
-     rtx x, val;
-     regset live;
-{
-  if (GET_CODE (x) == SCRATCH)
-    return true;
-
-  if (rtx_equal_p (x, val))
-    return true;
-
-  /* Allow subreg of X in case it is not writting just part of multireg pseudo.
-     Then we would need to update all users to care hoisting the store too.
-     Caller may represent that by specifying whole subreg as val.  */
-
-  if (GET_CODE (x) == SUBREG && rtx_equal_p (SUBREG_REG (x), val))
-    {
-      if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))) > UNITS_PER_WORD
-	  && GET_MODE_BITSIZE (GET_MODE (x)) <
-	  GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))))
-	return false;
-      return true;
-    }
-  if (GET_CODE (x) == SUBREG)
-    x = SUBREG_REG (x);
-
-  /* Anything except register store is not hoistable.  This includes the
-     partial stores to registers.  */
-
-  if (!REG_P (x))
-    return false;
-
-  /* Pseudo registers can be allways replaced by another pseudo to avoid
-     the side effect, for hard register we must ensure that they are dead.
-     Eventually we may want to add code to try turn pseudos to hards, but it
-     is unlikely usefull.  */
-
-  if (REGNO (x) < FIRST_PSEUDO_REGISTER)
-    {
-      int regno = REGNO (x);
-      int n = HARD_REGNO_NREGS (regno, GET_MODE (x));
-
-      if (!live)
-	return false;
-      if (REGNO_REG_SET_P (live, regno))
-	return false;
-      while (--n > 0)
-	if (REGNO_REG_SET_P (live, regno + n))
-	  return false;
-    }
-  return true;
-}
-
-bool
-can_hoist_insn_p (insn, val, live)
-     rtx insn, val;
-     regset live;
-{
-  rtx pat = PATTERN (insn);
-  int i;
-
-  /* It probably does not worth the complexity to handle multiple
-     set stores.  */
-  if (!single_set (insn))
-    return false;
-  /* We can move CALL_INSN, but we need to check that all caller clobbered
-     regs are dead.  */
-  if (GET_CODE (insn) == CALL_INSN)
-    return false;
-  /* In future we will handle hoisting of libcall sequences, but
-     give up for now.  */
-  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-    return false;
-  switch (GET_CODE (pat))
-    {
-    case SET:
-      if (!hoist_test_store (SET_DEST (pat), val, live))
-	return false;
-      break;
-    case USE:
-      /* USES do have sick semantics, so do not move them.  */
-      return false;
-      break;
-    case CLOBBER:
-      if (!hoist_test_store (XEXP (pat, 0), val, live))
-	return false;
-      break;
-    case PARALLEL:
-      for (i = 0; i < XVECLEN (pat, 0); i++)
-	{
-	  rtx x = XVECEXP (pat, 0, i);
-	  switch (GET_CODE (x))
-	    {
-	    case SET:
-	      if (!hoist_test_store (SET_DEST (x), val, live))
-		return false;
-	      break;
-	    case USE:
-	      /* We need to fix callers to really ensure availability
-	         of all values inisn uses, but for now it is safe to prohibit
-		 hoisting of any insn having such a hiden uses.  */
-	      return false;
-	      break;
-	    case CLOBBER:
-	      if (!hoist_test_store (SET_DEST (x), val, live))
-		return false;
-	      break;
-	    default:
-	      break;
-	    }
-	}
-      break;
-    default:
-      abort ();
-    }
-  return true;
-}
-
-static void
-hoist_update_store (insn, xp, val, new)
-     rtx insn, *xp, val, new;
-{
-  rtx x = *xp;
-
-  if (GET_CODE (x) == SCRATCH)
-    return;
-
-  if (GET_CODE (x) == SUBREG && SUBREG_REG (x) == val)
-    validate_change (insn, xp,
-		     simplify_gen_subreg (GET_MODE (x), new, GET_MODE (new),
-					  SUBREG_BYTE (x)), 1);
-  if (rtx_equal_p (x, val))
-    {
-      validate_change (insn, xp, new, 1);
-      return;
-    }
-  if (GET_CODE (x) == SUBREG)
-    {
-      xp = &SUBREG_REG (x);
-      x = *xp;
-    }
-
-  if (!REG_P (x))
-    abort ();
-
-  /* We've verified that hard registers are dead, so we may keep the side
-     effect.  Otherwise replace it by new pseudo.  */
-  if (REGNO (x) >= FIRST_PSEUDO_REGISTER)
-    validate_change (insn, xp, gen_reg_rtx (GET_MODE (x)), 1);
-  REG_NOTES (insn)
-    = alloc_EXPR_LIST (REG_UNUSED, *xp, REG_NOTES (insn));
-}
-
-/* Create a copy of INSN after AFTER replacing store of VAL to NEW
-   and each other side effect to pseudo register by new pseudo register.  */
-
-rtx
-hoist_insn_after (insn, after, val, new)
-     rtx insn, after, val, new;
-{
-  rtx pat;
-  int i;
-  rtx note;
-
-  insn = emit_copy_of_insn_after (insn, after);
-  pat = PATTERN (insn);
-
-  /* Remove REG_UNUSED notes as we will re-emit them.  */
-  while ((note = find_reg_note (insn, REG_UNUSED, NULL_RTX)))
-    remove_note (insn, note);
-
-  /* To get this working callers must ensure to move everything referenced
-     by REG_EQUAL/REG_EQUIV notes too.  Lets remove them, it is probably
-     easier.  */
-  while ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)))
-    remove_note (insn, note);
-  while ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)))
-    remove_note (insn, note);
-
-  /* Remove REG_DEAD notes as they might not be valid anymore in case
-     we create redundancy.  */
-  while ((note = find_reg_note (insn, REG_DEAD, NULL_RTX)))
-    remove_note (insn, note);
-  switch (GET_CODE (pat))
-    {
-    case SET:
-      hoist_update_store (insn, &SET_DEST (pat), val, new);
-      break;
-    case USE:
-      break;
-    case CLOBBER:
-      hoist_update_store (insn, &XEXP (pat, 0), val, new);
-      break;
-    case PARALLEL:
-      for (i = 0; i < XVECLEN (pat, 0); i++)
-	{
-	  rtx x = XVECEXP (pat, 0, i);
-	  switch (GET_CODE (x))
-	    {
-	    case SET:
-	      hoist_update_store (insn, &SET_DEST (x), val, new);
-	      break;
-	    case USE:
-	      break;
-	    case CLOBBER:
-	      hoist_update_store (insn, &SET_DEST (x), val, new);
-	      break;
-	    default:
-	      break;
-	    }
-	}
-      break;
-    default:
-      abort ();
-    }
-  if (!apply_change_group ())
-    abort ();
-
-  return insn;
-}
-
-rtx
-hoist_insn_to_edge (insn, e, val, new)
-     rtx insn, val, new;
-     edge e;
-{
-  rtx new_insn;
-
-  /* We cannot insert instructions on an abnormal critical edge.
-     It will be easier to find the culprit if we die now.  */
-  if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
-    abort ();
-
-  /* Do not use emit_insn_on_edge as we want to preserve notes and similar
-     stuff.  We also emit CALL_INSNS and firends.  */
-  if (e->insns == NULL_RTX)
-    {
-      start_sequence ();
-      emit_note (NULL, NOTE_INSN_DELETED);
-    }
-  else
-    push_to_sequence (e->insns);
-
-  new_insn = hoist_insn_after (insn, get_last_insn (), val, new);
-
-  e->insns = get_insns ();
-  end_sequence ();
-  return new_insn;
 }

@@ -578,7 +578,7 @@ combine_instructions (f, nregs)
 
   setup_incoming_promotions ();
 
-  refresh_blocks = sbitmap_alloc (n_basic_blocks);
+  refresh_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (refresh_blocks);
   need_refresh = 0;
 
@@ -660,7 +660,7 @@ combine_instructions (f, nregs)
 		      goto retry;
 		}
 
-    #ifdef HAVE_cc0
+#ifdef HAVE_cc0
 	      /* Try to combine a jump insn that uses CC0
 		 with a preceding insn that sets CC0, and maybe with its
 		 logical predecessor as well.
@@ -718,7 +718,7 @@ combine_instructions (f, nregs)
 		    && (next = try_combine (insn, XEXP (links, 0),
 					    prev, &new_direct_jump_p)) != 0)
 		  goto retry;
-    #endif
+#endif
 
 	      /* Try combining an insn with two different insns whose results it
 		 uses.  */
@@ -5159,6 +5159,30 @@ simplify_set (x)
 
       src = SET_SRC (x), dest = SET_DEST (x);
     }
+
+#ifdef HAVE_cc0
+  /* If we have (set (cc0) (subreg ...)), we try to remove the subreg
+     in SRC.  */
+  if (dest == cc0_rtx
+      && GET_CODE (src) == SUBREG
+      && subreg_lowpart_p (src)
+      && (GET_MODE_BITSIZE (GET_MODE (src))
+	  < GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (src)))))
+    {
+      rtx inner = SUBREG_REG (src);
+      enum machine_mode inner_mode = GET_MODE (inner);
+
+      /* Here we make sure that we don't have a sign bit on.  */
+      if (GET_MODE_BITSIZE (inner_mode) <= HOST_BITS_PER_WIDE_INT
+	  && (nonzero_bits (inner, inner_mode)
+	      < ((unsigned HOST_WIDE_INT) 1
+		 << (GET_MODE_BITSIZE (inner_mode) - 1))))
+	{
+	  SUBST (SET_SRC (x), inner);
+	  src = SET_SRC (x);
+	}
+    }
+#endif
 
 #ifdef LOAD_EXTEND_OP
   /* If we have (set FOO (subreg:M (mem:N BAR) 0)) with M wider than N, this

@@ -84,9 +84,10 @@ static cgraph
 build_cgraph ()
 {
   cgraph graph = sbitmap_vector_alloc (max_regno + 1, max_regno + 1);
-  int i;
   regset live;
   regset_head live_head;
+  basic_block bb;
+
   live = INITIALIZE_REG_SET (live_head);
 
   life_analysis (get_insns (), rtl_dump_file,
@@ -94,11 +95,10 @@ build_cgraph ()
 		 | PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
   graph = sbitmap_vector_alloc (max_regno + 1, max_regno + 1);
   sbitmap_vector_zero (graph, max_regno + 1);
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
       rtx insn;
       struct propagate_block_info *pbi;
-      basic_block bb = BASIC_BLOCK (i);
 
       COPY_REG_SET (live, bb->global_live_at_end);
       pbi = init_propagate_block_info (bb, live, NULL, NULL, PROP_EQUAL_NOTES);
@@ -141,8 +141,8 @@ void
 coalesce ()
 {
   cgraph graph = build_cgraph ();
-  int i;
   rtx *replace_reg_by = xcalloc (sizeof (rtx *), max_regno + 1);
+  basic_block bb;
 
 #if 0
   if (rtl_dump_file)
@@ -150,9 +150,8 @@ coalesce ()
 			 max_regno + 1);
 #endif
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx insn;
 
       for (insn = bb->head; insn != NEXT_INSN (bb->end);
@@ -205,9 +204,8 @@ coalesce ()
 		       regno1, regno2, INSN_UID (insn));
 	  }
     }
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx insn;
 
       for (insn = bb->head; insn != NEXT_INSN (bb->end);

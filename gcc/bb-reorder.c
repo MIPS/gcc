@@ -95,7 +95,7 @@ static unsigned int *copy_bb_p_visited;
 static int copy_bb_p_visited_size;
 
 /* Original number (before duplications) of basic blocks.  */
-static int original_n_basic_blocks;
+static int original_last_basic_block;
 
 /* Which trace is the bb start of (-1 means it is not a start of a trace).  */
 static int *start_of_trace;
@@ -134,7 +134,8 @@ find_traces ()
   int i;
   int n_traces;
   struct trace *traces;
-  basic_block bb0;
+  edge e;
+  int max_entry_frequency;
   fibheap_t heap;
   bool *connected;
   int last_trace;
@@ -145,22 +146,29 @@ find_traces ()
   n_traces = 0;
 
   /* We need to know fast whether the basic block is the start of a trace.  */
-  original_n_basic_blocks = n_basic_blocks;
-  start_of_trace = xmalloc (original_n_basic_blocks * sizeof(int));
-  for (i = 0; i < original_n_basic_blocks; i++)
+  original_last_basic_block = last_basic_block;
+  start_of_trace = xmalloc (original_last_basic_block * sizeof(int));
+  for (i = 0; i < original_last_basic_block; i++)
     start_of_trace[i] = -1;
 
-  /* Find the traces.  */
-  bb0 = BASIC_BLOCK (0);
+  /* Insert entry points of function into heap.  */
   heap = fibheap_new();
-  fibheap_insert (heap, bb_to_key (bb0), bb0);
+  max_entry_frequency = 0;
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    {
+      fibheap_insert (heap, bb_to_key (e->dest), e->dest);
+      if (e->dest->frequency > max_entry_frequency)
+	max_entry_frequency = e->dest->frequency;
+    }
+
+  /* Find the traces.  */
   for (i = 0; i < N_ROUNDS; i++)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "STC - round %d\n", i);
 
       find_traces_1_round (branch_threshold[i] * REG_BR_PROB_BASE / 1000,
-			   exec_threshold[i] * bb0->frequency / 1000,
+			   exec_threshold[i] * max_entry_frequency / 1000,
 			   traces, &n_traces, i, &heap,
 			   !optimize_size && i < N_CODEGROWING_ROUNDS);
     }
@@ -180,13 +188,13 @@ find_traces ()
     }
 
   /* Set the start_of_trace for new basic blocks.  */
-  if (n_basic_blocks > original_n_basic_blocks)
+  if (last_basic_block > original_last_basic_block)
     {
-      start_of_trace = xrealloc (start_of_trace, n_basic_blocks * sizeof(int));
-      for (i = original_n_basic_blocks; i < n_basic_blocks; i++)
+      start_of_trace = xrealloc (start_of_trace, last_basic_block * sizeof(int));
+      for (i = original_last_basic_block; i < last_basic_block; i++)
 	start_of_trace[i] = -1;
       for (i = 0; i < n_traces; i++)
-	if (traces[i].first->index >= original_n_basic_blocks)
+	if (traces[i].first->index >= original_last_basic_block)
 	  start_of_trace[traces[i].first->index] = i;
     }
   
@@ -197,7 +205,7 @@ find_traces ()
 	fprintf (rtl_dump_file, "%d pred %d succ %d\n", i, traces[i].pred,
 		 traces[i].succ);
       fprintf (rtl_dump_file, "Starts of traces: \n");
-      for (i = 0; i < n_basic_blocks; i++)
+      for (i = 0; i < last_basic_block; i++)
 	if (start_of_trace[i] >= 0)
 	  fprintf (rtl_dump_file, "bb %d trace %d\n", i, start_of_trace[i]);
     }
@@ -491,7 +499,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	      else if (RBI (best_edge->dest)->visited)
 		{
 		  if (best_edge->dest->index > 0 
-		      && best_edge->dest->index < original_n_basic_blocks
+		      && best_edge->dest->index < original_last_basic_block
 		      && start_of_trace[best_edge->dest->index] >= 0)
 		    {
 		      int succ = start_of_trace[best_edge->dest->index];
@@ -559,7 +567,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	    }
 	}
       while (best_edge);
-      if (trace->first->index < original_n_basic_blocks)
+      if (trace->first->index < original_last_basic_block)
 	start_of_trace[trace->first->index] = *n_traces - 1;
     }
 
@@ -595,12 +603,12 @@ duplicate_basic_block (old_bb, e, bb, n_traces)
   RBI (new_bb)->visited = n_traces;
   RBI (bb)->next = new_bb;
 
-  if (n_basic_blocks > copy_bb_p_visited_size)
+  if (last_basic_block > copy_bb_p_visited_size)
     {
       /* Realloc the COPY_BB_P_VISITED array, copying of data
 	 is not necessary.  */
       free (copy_bb_p_visited);
-      copy_bb_p_visited_size = 4 * n_basic_blocks / 3;
+      copy_bb_p_visited_size = 4 * last_basic_block / 3;
       copy_bb_p_visited = xcalloc (copy_bb_p_visited_size,
 				   sizeof (unsigned int));
       if (!copy_bb_p_visited)
@@ -665,7 +673,7 @@ better_edge_p (bb, e, prob, freq, prob_lower, prob_higher, freq_lower,
   else if (freq > *freq_higher)
     /* This successor has higher frequency so it is worse.  */
     is_better_edge = false;
-  else if (e->dest->index == bb->index + 1)
+  else if (e->dest->prev_bb == bb)
     /* The edges have equivalent probabilities and the successors
        have equivalent frequencies.  Select the previous successor.  */
     is_better_edge = true;
@@ -826,7 +834,7 @@ reorder_basic_blocks ()
 
   cfg_layout_initialize (NULL);
 
-  copy_bb_p_visited_size = MAX (4 * n_basic_blocks / 3, 10);
+  copy_bb_p_visited_size = MAX (4 * last_basic_block / 3, 10);
   copy_bb_p_visited = xcalloc (copy_bb_p_visited_size, sizeof (unsigned int));
   if (!copy_bb_p_visited)
     abort ();

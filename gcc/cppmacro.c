@@ -660,6 +660,8 @@ enter_macro_context (pfile, node)
   /* The presence of a macro invalidates a file's controlling macro.  */
   pfile->mi_valid = false;
 
+  pfile->state.angled_headers = false;
+
   /* Handle standard macros.  */
   if (! (node->flags & NODE_BUILTIN))
     {
@@ -1535,7 +1537,7 @@ cpp_macro_definition (pfile, node)
     }
 
   /* Calculate length.  */
-  len = NODE_LEN (node) + 1;			/* ' ' */
+  len = NODE_LEN (node) + 2;			/* ' ' and NUL.  */
   if (macro->fun_like)
     {
       len += 4;		/* "()" plus possible final ".." of named

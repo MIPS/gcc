@@ -434,7 +434,7 @@ FLOAT_H=@float_h_file@
 LIBCONVERT =
 
 # Control whether header files are installed.
-INSTALL_HEADERS=install-headers
+INSTALL_HEADERS=install-headers install-mkheaders
 
 # Control whether Info documentation is built and installed.
 BUILD_INFO = @BUILD_INFO@
@@ -556,7 +556,7 @@ MACHMODE_H = machmode.h machmode.def
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H)
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
-TREE_H = tree.h real.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def
+TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
@@ -569,7 +569,7 @@ GCC_H = gcc.h version.h
 GGC_H = ggc.h varray.h
 TIMEVAR_H = timevar.h timevar.def
 INSN_ATTR_H = insn-attr.h $(srcdir)/insn-addr.h $(srcdir)/varray.h
-C_COMMON_H = c-common.h $(SPLAY_TREE_H)
+C_COMMON_H = c-common.h $(SPLAY_TREE_H) $(CPPLIB_H)
 C_TREE_H = c-tree.h $(C_COMMON_H)
 SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
@@ -880,6 +880,9 @@ gccbug:	$(srcdir)/gccbug.in
 mklibgcc: $(srcdir)/mklibgcc.in
 	CONFIG_FILES=mklibgcc CONFIG_HEADERS= ./config.status
 
+mkheaders: $(srcdir)/mkheaders.in
+	CONFIG_FILES=mkheaders CONFIG_HEADERS= ./config.status
+
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
 # delete it.  A stamp file is needed as autoheader won't update the file if
@@ -1143,7 +1146,7 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) flags.h \
     diagnostic.h $(TM_P_H)
-c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) intl.h \
+c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) $(GGC_H) intl.h \
     $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h $(CPPLIB_H)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
@@ -1166,14 +1169,14 @@ $(srcdir)/c-parse.y: c-parse.in
 	$(SHELL) $(srcdir)/move-if-change tmp-c-parse.y $(srcdir)/c-parse.y
 
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) $(C_TREE_H) \
-    $(GGC_H) $(TARGET_H) c-lex.h flags.h function.h output.h $(EXPR_H) \
+    $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
     debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     langhooks.h $(LANGHOOKS_DEF_H) c-common.h
-c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
-    debug.h $(C_TREE_H) c-common.h \
+c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
+    debug.h $(C_TREE_H) c-common.h real.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
@@ -1230,7 +1233,7 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h except.h
+	diagnostic.h tree-inline.h except.h real.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1242,7 +1245,7 @@ c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) langhooks.h \
 	$(C_COMMON_H) flags.h toplev.h intl.h diagnostic.h
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
-	c-lex.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
+	flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(PREDICT_H)
 
 # Language-independent files.
@@ -1348,7 +1351,7 @@ langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h integrate.h langhooks.h \
    $(LANGHOOKS_DEF_H) flags.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h function.h toplev.h \
-   $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h
+   $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h real.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
    flags.h langhooks.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
    $(EXPR_H) $(SPLAY_TREE_H) tree-dump.h
@@ -1357,11 +1360,11 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
    $(VARRAY_H) $(HASHTAB_H) $(SPLAY_TREE_H) toplev.h langhooks.h \
    $(C_COMMON_H) tree-inline.h
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
-   langhooks.h
+   langhooks.h real.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H) \
    langhooks.h
-fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
+fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h real.h \
    toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H) langhooks.h
 diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
    $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_P_H) flags.h $(GGC_H) \
@@ -1412,11 +1415,11 @@ except.o : except.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) $(EXPR_H) $(OPTABS_H) libfuncs.h insn-attr.h insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H)
+   except.h reload.h $(GGC_H) langhooks.h intl.h $(TM_P_H) real.h
 builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(TARGET_H) function.h $(REGS_H) $(EXPR_H) $(OPTABS_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
-   except.h $(TM_P_H) $(PREDICT_H) libfuncs.h
+   except.h $(TM_P_H) $(PREDICT_H) libfuncs.h real.h
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(EXPR_H) langhooks.h \
    libfuncs.h $(REGS_H) toplev.h output.h function.h $(TIMEVAR_H) $(TM_P_H)
@@ -1441,7 +1444,7 @@ dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
    debug.h langhooks.h
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
-   debug.h flags.h insn-config.h reload.h output.h diagnostic.h \
+   debug.h flags.h insn-config.h reload.h output.h diagnostic.h real.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
    $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
@@ -2861,6 +2864,47 @@ install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # Install the include directory using cp.
 install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 	cp -p -r include $(libsubdir)
+
+itoolsdir = $(libsubdir)/install-tools
+# Don't install the headers.  Instead, install appropriate scripts
+# and supporting files for fixincludes to be run later.
+install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir \
+    mkheaders xlimits.h
+	-rm -rf $(itoolsdir)
+	$(SHELL) $(srcdir)/mkinstalldirs $(itoolsdir)/include
+	for file in $(USER_H); do \
+	  realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
+	  $(INSTALL_DATA) $$file \
+	    $(itoolsdir)/include/$$realfile ; \
+	done
+	if [ x$(FLOAT_H) != xMakefile.in ]; then \
+	  $(INSTALL_DATA) $(srcdir)/config/$(FLOAT_H) \
+	     $(itoolsdir)/include/float.h ; \
+	else :; fi
+	$(INSTALL_DATA) xlimits.h $(itoolsdir)/include/limits.h
+	if [ x$(STMP_FIXINC) != x ] ; then \
+	  $(INSTALL_DATA) $(srcdir)/README-fixinc \
+	    $(itoolsdir)/include/README ; \
+	  $(INSTALL_PROGRAM) fixinc.sh $(itoolsdir)/fixinc.sh ; \
+	  $(INSTALL_PROGRAM) fixinc/fixincl $(itoolsdir)/fixincl ; \
+	  $(INSTALL_DATA) $(srcdir)/gsyslimits.h $(itoolsdir)/gsyslimits.h ; \
+	else :; fi
+	if [ x$(STMP_FIXPROTO) != x ] ; then \
+	  $(INSTALL_PROGRAM) $(srcdir)/mkinstalldirs \
+		$(itoolsdir)/mkinstalldirs ; \
+	  $(INSTALL_PROGRAM) $(srcdir)/fixproto $(itoolsdir)/fixproto ; \
+	  $(INSTALL_PROGRAM) fix-header$(build_exeext) \
+		$(itoolsdir)/fix-header$(build_exeext) ; \
+	else :; fi
+	$(INSTALL_PROGRAM) mkheaders $(itoolsdir)/mkheaders
+	echo 'SYSTEM_HEADER_DIR="$(SYSTEM_HEADER_DIR)"' \
+		> $(itoolsdir)/mkheaders.conf
+	echo 'OTHER_FIXINCLUDES_DIRS="$(OTHER_FIXINCLUDES_DIRS)"' \
+		>> $(itoolsdir)/mkheaders.conf
+	echo 'FIXPROTO_DEFINES="$(FIXPROTO_DEFINES)"' \
+		>> $(itoolsdir)/mkheaders.conf
+	echo 'STMP_FIXPROTO="$(STMP_FIXPROTO)"' >> $(itoolsdir)/mkheaders.conf
+	echo 'STMP_FIXINC="$(STMP_FIXINC)"' >> $(itoolsdir)/mkheaders.conf
 
 # Use this target to install the program `collect2' under the name `collect2'.
 install-collect2: collect2 installdirs

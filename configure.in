@@ -633,6 +633,10 @@ case "${target}" in
     # Skip some stuff that's unsupported on some NetBSD configurations.
     case "${target}" in
       i*86-*-netbsdelf*) ;;
+      vax-*-netbsd*)
+	# gas is not yet supported on vax-netbsd.
+	noconfigdirs="gas $noconfigdirs ${libgcj}"
+	;;
       *)
 	noconfigdirs="$noconfigdirs ${libgcj}"
 	;;
@@ -730,6 +734,9 @@ case "${target}" in
     ;;
   arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld target-libgloss ${libgcj}"
+    ;;
+  avr-*-*)
+    noconfigdirs="$noconfigdirs target-libiberty ${libstdcxx_version} ${libgcj}"
     ;;
   c4x-*-*)
     noconfigdirs="$noconfigdirs ${libstdcxx_version} target-librx target-libgloss ${libgcj}"

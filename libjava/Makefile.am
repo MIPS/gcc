@@ -1084,6 +1084,7 @@ java/lang/SecurityException.java \
 java/lang/SecurityManager.java \
 java/lang/Short.java \
 java/lang/StackOverflowError.java \
+java/lang/StackTraceElement.java \
 java/lang/StrictMath.java \
 java/lang/String.java \
 java/lang/StringBuffer.java \
@@ -1418,9 +1419,10 @@ gnu/java/security/provider/SHA1PRNG.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
 gnu/java/text/LineBreakIterator.java \
-gnu/java/text/SentenceBreakIterator.java	\
+gnu/java/text/SentenceBreakIterator.java \
 gnu/java/text/WordBreakIterator.java \
 gnu/java/util/DoubleEnumeration.java \
+gnu/java/util/EmptyEnumeration.java \
 java/lang/ref/PhantomReference.java \
 java/lang/ref/Reference.java \
 java/lang/ref/ReferenceQueue.java \
@@ -1557,6 +1559,10 @@ java/security/cert/CertificateFactory.java \
 java/security/cert/CertificateFactorySpi.java \
 java/security/cert/CertificateNotYetValidException.java \
 java/security/cert/CertificateParsingException.java \
+java/security/cert/CertPath.java \
+java/security/cert/CertPathBuilderException.java \
+java/security/cert/CertPathValidatorException.java \
+java/security/cert/CertStoreException.java \
 java/security/cert/X509CRL.java \
 java/security/cert/X509CRLEntry.java \
 java/security/cert/X509Certificate.java \

@@ -69,7 +69,7 @@ static bool predicted_by_p		 PARAMS ((basic_block,
 static void combine_predictions_for_insn PARAMS ((rtx, basic_block));
 static void dump_prediction		 PARAMS ((enum br_predictor, int,
 						  basic_block, int));
-static void estimate_loops_at_level	 PARAMS ((struct loop *));
+static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
 static void propagate_freq		 PARAMS ((struct loop *));
 static void estimate_bb_frequencies	 PARAMS ((struct loops *));
 static void counts_to_freqs		 PARAMS ((void));
@@ -412,8 +412,8 @@ estimate_probability (loops_info)
   basic_block bb;
   int i;
 
-  dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
+  post_dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   calculate_dominance_info (NULL, dominators, CDI_DOMINATORS);
   calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
 
@@ -724,45 +724,48 @@ process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
 {
   edge e;
   int y;
-  int taken, ignore_in_last;
+  bool taken;
 
   taken = flags & IS_TAKEN;
-  ignore_in_last = flags & IGNORE_IN_LAST;
-  
+
   if (heads[bb->index] < 0)
     {
       /* This is first time we need this field in heads array; so
          find first dominator that we do not post-dominate (we are
          using already known members of heads array).  */
-      int ai = bb->index, next_ai = dominators[bb->index], head;
+      int ai = bb->index;
+      int next_ai = dominators[bb->index];
+      int head;
+
       while (heads[next_ai] < 0)
-        {
-          if (!TEST_BIT (post_dominators[next_ai], bb->index))
-            break;
-          heads[next_ai] = ai;
-          ai = next_ai;
-          next_ai = dominators[next_ai];
-        }
+	{
+	  if (!TEST_BIT (post_dominators[next_ai], bb->index))
+	    break;
+	  heads[next_ai] = ai;
+	  ai = next_ai;
+	  next_ai = dominators[next_ai];
+	}
       if (!TEST_BIT (post_dominators[next_ai], bb->index))
-        head = next_ai;
+	head = next_ai;
       else
-        head = heads[next_ai];
+	head = heads[next_ai];
       while (next_ai != bb->index)
-        {
-        next_ai = ai;
-        ai = heads[ai];
-        heads[next_ai] = head;
-        }
+	{
+	  next_ai = ai;
+	  ai = heads[ai];
+	  heads[next_ai] = head;
+	}
     }
   y = heads[bb->index];
 
   /* Now find the edge that leads to our branch and aply the prediction.  */
 
-  if (y == n_basic_blocks) return;
+  if (y == last_basic_block)
+    return;
   for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
     if (e->dest->index >= 0
-        && TEST_BIT (post_dominators[e->dest->index], bb->index))
-          predict_edge_def (e, pred, taken);
+	&& TEST_BIT (post_dominators[e->dest->index], bb->index))
+      predict_edge_def (e, pred, taken);
 }
 
 /* Gathers NOTE_INSN_PREDICTIONs in given basic block and turns them
@@ -777,10 +780,12 @@ process_note_predictions (bb, heads, dominators, post_dominators)
      sbitmap *post_dominators;
 {
   rtx insn;
+  edge e;
 
   /* Additionaly, we check here for blocks with no successors.  */
   int contained_noreturn_call = 0;
   int was_bb_head = 0;
+  int noreturn_block = 1;
 
   for (insn = bb->end; insn;
        was_bb_head |= (insn == bb->head), insn = PREV_INSN (insn))
@@ -810,10 +815,10 @@ process_note_predictions (bb, heads, dominators, post_dominators)
 				   alg, (int) NOTE_PREDICTION_FLAGS (insn));
 	  delete_insn (insn);
 	}
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN)
-	delete_insn (insn);
     }
-
+  for (e = bb->succ; e; e = e->succ_next)
+    if (!(e->flags & EDGE_FAKE))
+      noreturn_block = 0;
   if (contained_noreturn_call)
     {
       /* This block ended from other reasons than because of return.
@@ -840,15 +845,15 @@ note_prediction_to_br_prob ()
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
 
-  dominators = xmalloc (sizeof (int) * n_basic_blocks);
-  memset (dominators, -1, sizeof (int) * n_basic_blocks);
-  post_dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dominators = xmalloc (sizeof (int) * last_basic_block);
+  memset (dominators, -1, sizeof (int) * last_basic_block);
+  post_dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
   calculate_dominance_info (dominators, NULL, CDI_DOMINATORS);
 
-  heads = xmalloc (sizeof (int) * n_basic_blocks);
-  memset (heads, -1, sizeof (int) * n_basic_blocks);
-  heads[ENTRY_BLOCK_PTR->next_bb->index] = n_basic_blocks;
+  heads = xmalloc (sizeof (int) * last_basic_block);
+  memset (heads, -1, sizeof (int) * last_basic_block);
+  heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
   /* Process all prediction notes.  */
 
@@ -1041,7 +1046,7 @@ estimate_loops_at_level (first_loop)
       if (loop->latch->succ)  /* Do not do this for dummy function loop.  */
 	{
 	  /* Find current loop back edge and mark it.  */
-	  for (e = loop->latch->succ; e->dest != loop->header; e = e->succ_next);
+	  e = loop_latch_edge (loop);
 	  EDGE_INFO (e)->back_edge = 1;
        }
 
@@ -1188,13 +1193,6 @@ estimate_bb_frequencies (loops)
       /* First compute probabilities locally for each loop from innermost
          to outermost to examine probabilities for back edges.  */
       estimate_loops_at_level (loops->tree_root);
-
-      /* Now fake loop around whole function to finalize probabilities.  */
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-	BLOCK_INFO (bb)->tovisit = 1;
-
-      BLOCK_INFO (ENTRY_BLOCK_PTR)->tovisit = 1;
-      BLOCK_INFO (EXIT_BLOCK_PTR)->tovisit = 1;
 
       memcpy (&freq_max, &real_zero, sizeof (real_zero));
       FOR_EACH_BB (bb)

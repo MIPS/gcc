@@ -22,12 +22,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 
+#include "real.h"
 #include "rtl.h"
 #include "tree.h"
 #include "expr.h"
 #include "input.h"
 #include "output.h"
-#include "c-lex.h"
 #include "c-tree.h"
 #include "c-common.h"
 #include "flags.h"

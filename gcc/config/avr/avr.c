@@ -108,23 +108,40 @@ const char *avr_init_stack = "__stack";
 /* Default MCU name */
 const char *avr_mcu_name = "avr2";
 
+/* Preprocessor macros to define depending on MCU type.  */
+const char *avr_base_arch_macro;
+const char *avr_extra_arch_macro;
+
 /* More than 8K of program memory: use "call" and "jmp".  */
 int avr_mega_p = 0;
 
 /* Enhanced core: use "movw", "mul", ...  */
 int avr_enhanced_p = 0;
 
-enum avr_arch {
-  AVR1 = 1,
-  AVR2,
-  AVR3,
-  AVR4,
-  AVR5
+/* Assembler only.  */
+int avr_asm_only_p = 0;
+
+struct base_arch_s {
+  int asm_only;
+  int enhanced;
+  int mega;
+  const char *const macro;
+};
+
+static const struct base_arch_s avr_arch_types[] = {
+  { 1, 0, 0, NULL },  /* unknown device specified */
+  { 1, 0, 0, "__AVR_ARCH__=1" },
+  { 0, 0, 0, "__AVR_ARCH__=2" },
+  { 0, 0, 1, "__AVR_ARCH__=3" },
+  { 0, 1, 0, "__AVR_ARCH__=4" },
+  { 0, 1, 1, "__AVR_ARCH__=5" }
 };
 
 struct mcu_type_s {
   const char *const name;
-  const enum avr_arch arch;
+  int arch;  /* index in avr_arch_types[] */
+  /* Must lie outside user's namespace.  NULL == no macro.  */
+  const char *const macro;
 };
 
 /* List of all known AVR MCU types - if updated, it has to be kept
@@ -137,52 +154,52 @@ struct mcu_type_s {
 
 static const struct mcu_type_s avr_mcu_types[] = {
     /* Classic, <= 8K.  */
-  { "avr2",      AVR2 },
-  { "at90s2313", AVR2 },
-  { "at90s2323", AVR2 },
-  { "at90s2333", AVR2 },
-  { "at90s2343", AVR2 },
-  { "attiny22",  AVR2 },
-  { "attiny26",  AVR2 },
-  { "at90s4414", AVR2 },
-  { "at90s4433", AVR2 },
-  { "at90s4434", AVR2 },
-  { "at90s8515", AVR2 },
-  { "at90c8534", AVR2 },
-  { "at90s8535", AVR2 },
+  { "avr2",      2, NULL },
+  { "at90s2313", 2, "__AVR_AT90S2313__" },
+  { "at90s2323", 2, "__AVR_AT90S2323__" },
+  { "at90s2333", 2, "__AVR_AT90S2333__" },
+  { "at90s2343", 2, "__AVR_AT90S2343__" },
+  { "attiny22",  2, "__AVR_ATtiny22__" },
+  { "attiny26",  2, "__AVR_ATtiny26__" },
+  { "at90s4414", 2, "__AVR_AT90S4414__" },
+  { "at90s4433", 2, "__AVR_AT90S4433__" },
+  { "at90s4434", 2, "__AVR_AT90S4434__" },
+  { "at90s8515", 2, "__AVR_AT90S8515__" },
+  { "at90c8534", 2, "__AVR_AT90C8534__" },
+  { "at90s8535", 2, "__AVR_AT90S8535__" },
     /* Classic, > 8K.  */
-  { "avr3",      AVR3 },
-  { "atmega103", AVR3 },
-  { "atmega603", AVR3 },
-  { "at43usb320", AVR3 },
-  { "at43usb355", AVR3 },
-  { "at76c711",  AVR3 },
+  { "avr3",      3, NULL },
+  { "atmega103", 3, "__AVR_ATmega103__" },
+  { "atmega603", 3, "__AVR_ATmega603__" },
+  { "at43usb320", 3, "__AVR_AT43USB320__" },
+  { "at43usb355", 3, "__AVR_AT43USB355__" },
+  { "at76c711",  3, "__AVR_AT76C711__" },
     /* Enhanced, <= 8K.  */
-  { "avr4",      AVR4 },
-  { "atmega8",   AVR4 },
-  { "atmega83",  AVR4 },
-  { "atmega85",  AVR4 },
-  { "atmega8515", AVR4 },
+  { "avr4",      4, NULL },
+  { "atmega8",   4, "__AVR_ATmega8__" },
+  { "atmega83",  4, "__AVR_ATmega83__" },
+  { "atmega85",  4, "__AVR_ATmega85__" },
+  { "atmega8515", 4, "__AVR_ATmega8515__" },
     /* Enhanced, > 8K.  */
-  { "avr5",      AVR5 },
-  { "atmega16",  AVR5 },
-  { "atmega161", AVR5 },
-  { "atmega162", AVR5 },
-  { "atmega163", AVR5 },
-  { "atmega32",  AVR5 },
-  { "atmega323", AVR5 },
-  { "atmega64",  AVR5 },
-  { "atmega128", AVR5 },
-  { "at94k",     AVR5 },
+  { "avr5",      5, NULL },
+  { "atmega16",  5, "__AVR_ATmega16__" },
+  { "atmega161", 5, "__AVR_ATmega161__" },
+  { "atmega162", 5, "__AVR_ATmega162__" },
+  { "atmega163", 5, "__AVR_ATmega163__" },
+  { "atmega32",  5, "__AVR_ATmega32__" },
+  { "atmega323", 5, "__AVR_ATmega323__" },
+  { "atmega64",  5, "__AVR_ATmega64__" },
+  { "atmega128", 5, "__AVR_ATmega128__" },
+  { "at94k",     5, "__AVR_AT94K__" },
     /* Assembler only.  */
-  { "avr1",      AVR1 },
-  { "at90s1200", AVR1 },
-  { "attiny10",  AVR1 },
-  { "attiny11",  AVR1 },
-  { "attiny12",  AVR1 },
-  { "attiny15",  AVR1 },
-  { "attiny28",  AVR1 },
-  { NULL, 0 }
+  { "avr1",      1, NULL },
+  { "at90s1200", 1, "__AVR_AT90S1200__" },
+  { "attiny10",  1, "__AVR_ATtiny11__" }, /* Yes, tiny11.  */
+  { "attiny11",  1, "__AVR_ATtiny11__" },
+  { "attiny12",  1, "__AVR_ATtiny12__" },
+  { "attiny15",  1, "__AVR_ATtiny15__" },
+  { "attiny28",  1, "__AVR_ATtiny28__" },
+  { NULL,        0, NULL }
 };
 
 int avr_case_values_threshold = 30000;
@@ -210,6 +227,7 @@ void
 avr_override_options ()
 {
   const struct mcu_type_s *t;
+  const struct base_arch_s *base;
 
   for (t = avr_mcu_types; t->name; t++)
     if (strcmp (t->name, avr_mcu_name) == 0)
@@ -223,17 +241,12 @@ avr_override_options ()
 	fprintf (stderr,"   %s\n", t->name);
     }
 
-  switch (t->arch)
-    {
-    case AVR1:
-    default:
-      error ("MCU `%s' not supported", avr_mcu_name);
-      /* ... fall through ... */
-    case AVR2: avr_enhanced_p = 0; avr_mega_p = 0; break;
-    case AVR3: avr_enhanced_p = 0; avr_mega_p = 1; break;
-    case AVR4: avr_enhanced_p = 1; avr_mega_p = 0; break;
-    case AVR5: avr_enhanced_p = 1; avr_mega_p = 1; break;
-    }
+  base = &avr_arch_types[t->arch];
+  avr_asm_only_p = base->asm_only;
+  avr_enhanced_p = base->enhanced;
+  avr_mega_p = base->mega;
+  avr_base_arch_macro = base->macro;
+  avr_extra_arch_macro = t->macro;
 
   if (optimize && !TARGET_NO_TABLEJUMP)
     avr_case_values_threshold = (!AVR_MEGA || TARGET_CALL_PROLOGUES) ? 8 : 17;
@@ -4683,7 +4696,20 @@ avr_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
 {
   if (DECL_P (*node))
     {
-      if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
+      if (TREE_CODE (*node) == TYPE_DECL)
+	{
+	  /* This is really a decl attribute, not a type attribute,
+	     but try to handle it for GCC 3.0 backwards compatibility.  */
+
+	  tree type = TREE_TYPE (*node);
+	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
+	  tree newtype = build_type_attribute_variant (type, attr);
+
+	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
+	  TREE_TYPE (*node) = newtype;
+	  *no_add_attrs = true;
+	}
+      else if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
@@ -4779,6 +4805,9 @@ void
 asm_file_start (file)
      FILE *file;
 {
+  if (avr_asm_only_p)
+    error ("MCU `%s' supported for assembler only", avr_mcu_name);
+
   output_file_directive (file, main_input_filename);
   fprintf (file, "\t.arch %s\n", avr_mcu_name);
   fputs ("__SREG__ = 0x3f\n"
@@ -5214,7 +5243,7 @@ jump_over_one_insn_p (insn, dest)
 		      : dest);
   int jump_addr = INSN_ADDRESSES (INSN_UID (insn));
   int dest_addr = INSN_ADDRESSES (uid);
-  return dest_addr - jump_addr == 2;
+  return dest_addr - jump_addr == get_attr_length (insn) + 1;
 }
 
 /* Returns 1 if a value of mode MODE can be stored starting with hard
@@ -5431,4 +5460,77 @@ avr_peep2_scratch_safe (scratch)
 	}
     }
   return 1;
+}
+
+/* Output a branch that tests a single bit of a register (QI, HI or SImode)
+   or memory location in the I/O space (QImode only).
+
+   Operand 0: comparison operator (must be EQ or NE, compare bit to zero).
+   Operand 1: register operand to test, or CONST_INT memory address.
+   Operand 2: bit number (for QImode operand) or mask (HImode, SImode).
+   Operand 3: label to jump to if the test is true.  */
+
+const char *
+avr_out_sbxx_branch (insn, operands)
+     rtx insn;
+     rtx operands[];
+{
+  enum rtx_code comp = GET_CODE (operands[0]);
+  int long_jump = (get_attr_length (insn) >= 4);
+  int reverse = long_jump || jump_over_one_insn_p (insn, operands[3]);
+
+  if (comp == GE)
+    comp = EQ;
+  else if (comp == LT)
+    comp = NE;
+
+  if (reverse)
+    comp = reverse_condition (comp);
+
+  if (GET_CODE (operands[1]) == CONST_INT)
+    {
+      if (INTVAL (operands[1]) < 0x40)
+	{
+	  if (comp == EQ)
+	    output_asm_insn (AS2 (sbis,%1-0x20,%2), operands);
+	  else
+	    output_asm_insn (AS2 (sbic,%1-0x20,%2), operands);
+	}
+      else
+	{
+	  output_asm_insn (AS2 (in,__tmp_reg__,%1-0x20), operands);
+	  if (comp == EQ)
+	    output_asm_insn (AS2 (sbrs,__tmp_reg__,%2), operands);
+	  else
+	    output_asm_insn (AS2 (sbrc,__tmp_reg__,%2), operands);
+	}
+    }
+  else  /* GET_CODE (operands[1]) == REG */
+    {
+      if (GET_MODE (operands[1]) == QImode)
+	{
+	  if (comp == EQ)
+	    output_asm_insn (AS2 (sbrs,%1,%2), operands);
+	  else
+	    output_asm_insn (AS2 (sbrc,%1,%2), operands);
+	}
+      else  /* HImode or SImode */
+	{
+	  static char buf[] = "sbrc %A1,0";
+	  int bit_nr = exact_log2 (INTVAL (operands[2])
+				   & GET_MODE_MASK (GET_MODE (operands[1])));
+
+	  buf[3] = (comp == EQ) ? 's' : 'c';
+	  buf[6] = 'A' + (bit_nr >> 3);
+	  buf[9] = '0' + (bit_nr & 7);
+	  output_asm_insn (buf, operands);
+	}
+    }
+
+  if (long_jump)
+    return (AS1 (rjmp,_PC_+4) CR_TAB
+	    AS1 (jmp,%3));
+  if (!reverse)
+    return AS1 (rjmp,%3);
+  return "";
 }

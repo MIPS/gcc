@@ -151,9 +151,9 @@ __mulvsi3 (Wtype a, Wtype b)
 Wtype __attribute__ ((__no_profile__))
 __negvsi2 (Wtype a)
 {
-   Wtype w;
+  Wtype w;
 
-   w  = -a;
+  w  = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
@@ -166,14 +166,14 @@ __negvsi2 (Wtype a)
 DWtype __attribute__ ((__no_profile__))
 __negvdi2 (DWtype a)
 {
-   DWtype w;
+  DWtype w;
 
-   w  = -a;
+  w  = -a;
 
   if (a >= 0 ? w > 0 : w < 0)
     abort ();
 
-   return w;
+  return w;
 }
 #endif
 
@@ -181,16 +181,16 @@ __negvdi2 (DWtype a)
 Wtype __attribute__ ((__no_profile__))
 __absvsi2 (Wtype a)
 {
-   Wtype w = a;
+  Wtype w = a;
 
-   if (a < 0)
+  if (a < 0)
 #ifdef L_negvsi2
-     w = __negvsi2 (a);
+    w = __negvsi2 (a);
 #else
-     w = -a;
+    w = -a;
 
-   if (w < 0)
-     abort ();
+  if (w < 0)
+    abort ();
 #endif
 
    return w;
@@ -201,19 +201,19 @@ __absvsi2 (Wtype a)
 DWtype __attribute__ ((__no_profile__))
 __absvdi2 (DWtype a)
 {
-   DWtype w = a;
+  DWtype w = a;
 
-   if (a < 0)
+  if (a < 0)
 #ifdef L_negvsi2
-     w = __negvsi2 (a);
+    w = __negvsi2 (a);
 #else
-     w = -a;
+    w = -a;
 
-   if (w < 0)
-     abort ();
+  if (w < 0)
+    abort ();
 #endif
 
-   return w;
+  return w;
 }
 #endif
 
@@ -221,7 +221,7 @@ __absvdi2 (DWtype a)
 DWtype __attribute__ ((__no_profile__))
 __mulvdi3 (DWtype u, DWtype v)
 {
-   DWtype w;
+  DWtype w;
 
   w = u * v;
 
@@ -1459,15 +1459,21 @@ __bb_exit_func (void)
 	  /* length of extra data in bytes.  */
 	  __write_long ((4 + 8 + 8) + (4 + 8 + 8), da_file, 4);
 
-	  /* overall statistics. */
-	  __write_long (n_counters_p, da_file, 4);        /* number of counters.  */
-	  __write_gcov_type (sum_counters_p, da_file, 8); /* sum of counters.  */
-	  __write_gcov_type (max_counter_p, da_file, 8);  /* maximal counter.  */
+	  /* overall statistics.  */
+	  /* number of counters.  */
+	  __write_long (n_counters_p, da_file, 4);
+	  /* sum of counters.  */
+	  __write_gcov_type (sum_counters_p, da_file, 8);
+	  /* maximal counter.  */
+	  __write_gcov_type (max_counter_p, da_file, 8);
 
-	  /* per-object statistics. */
-	  __write_long (ptr->ncounts, da_file, 4);        /* number of counters.  */
-	  __write_gcov_type (sum_counters_o, da_file, 8); /* sum of counters.  */
-	  __write_gcov_type (max_counter_o, da_file, 8);  /* maximal counter.  */
+	  /* per-object statistics.  */
+	  /* number of counters.  */
+	  __write_long (ptr->ncounts, da_file, 4);
+	  /* sum of counters.  */
+	  __write_gcov_type (sum_counters_o, da_file, 8);
+	  /* maximal counter.  */
+	  __write_gcov_type (max_counter_o, da_file, 8);
 
 	  /* write execution counts for each function.  */
 	  
@@ -1601,7 +1607,7 @@ __bb_init_func (struct bb *blocks, int *offset)
 
   if (blocks->zero_word)
     return;
-  
+
   /* Initialize destructor and per-thread data.  */
   if (!bb_head)
     {
