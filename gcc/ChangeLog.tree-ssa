@@ -1,3 +1,8 @@
+2002-08-30  Graydon Hoare  <graydon@redhat.com>
+
+	* tree-mudflap.c (mx_register_decl): Mark declarations as
+	TREE_ADDRESSABLE when mudflap decides to register them.
+
 2002-08-29  Graydon Hoare  <graydon@redhat.com>
 
 	* tree-mudflap.c (mx_xfn_indirect_ref): Rewrite array references as

@@ -911,6 +911,10 @@ mx_register_decl (posn, decl, containing_stmt)
       (! TREE_STATIC (decl)) &&
       mf_find_addrof (containing_stmt, decl))
     {
+
+      /* Hint to inhibit any fancy register optimizations on this variable. */
+      TREE_ADDRESSABLE(decl) = 1;
+
       /* Synthesize, for this DECL_STMT, a CLEANUP_DECL for the same
 	 VAR_DECL.  Arrange to call the __mf_register function now, and the
 	 __mf_unregister function later.  */
