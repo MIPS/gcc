@@ -20,11 +20,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "cygming.h"
-
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
-
 /* Support the __declspec keyword by turning them into attributes.
    We currently only support: dllimport and dllexport.
    Note that the current way we do this may result in a collision with
@@ -105,7 +102,7 @@ Boston, MA 02111-1307, USA.  */
   %{shared|mdll: -e \
     %{mno-cygwin:_DllMainCRTStartup@12} \
     %{!mno-cygwin:__cygwin_dll_entry@12}}\
-  --dll-search-prefix=cyg"
+  %{!mno-cygwin:--dll-search-prefix=cyg}"
 
 /* Allocate space for all of the machine-spec-specific stuff.
    Allocate enough space for cygwin -> mingw32 munging. */
@@ -216,7 +213,7 @@ void mingw_scan PARAMS ((int, const char * const *, char **));
 #define GCC_DRIVER_HOST_INITIALIZATION \
 do \
 { \
-  mingw_scan(argc, argv, &spec_machine); \
+  mingw_scan(argc, argv, (char **) &spec_machine); \
   } \
 while (0)
 #else

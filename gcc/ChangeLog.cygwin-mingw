@@ -1,3 +1,14 @@
+2002-07-05  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/cygming.h (TARGET_SUBTARGET_DEFAULT): Default to
+	MASK_ALIGN_DOUBLE for MSVC compatibility.
+	* config/i386/mingw32.h: Remove cygming.h include.  Assume that it is
+	already included in config.h.
+	* config/i386/cygwin.h: Ditto.
+	(LINK_SPEC): Don't use cyg search prefix when -mno-cygwin.
+	(GCC_DRIVER_HOST_INITIALIZATION): Avoid a compiler warning.
+	* config.gcc: Add cygming.h to mingw32 and cygwin targets.
+
 2002-06-28  Christopher Faylor  <cgf@redhat.com>
 
 	* config.gcc: Use new common makefile stub for cygwin and mingw32.
