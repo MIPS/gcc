@@ -627,6 +627,7 @@ char __EH_FRAME_BEGIN__[]
      = { };
 
 static struct object obj;
+extern  void __w32_sharedptr_initialize(void);
 
 /* These will pull in references from libgcc.a(unwind-dw2-fde.o) */
 
@@ -636,6 +637,7 @@ void __do_frame_fini (void);
 void
 __do_frame_init (void)
 {
+  __w32_sharedptr_initialize();
   __register_frame_info (__EH_FRAME_BEGIN__, &obj);
 }
 

@@ -1,3 +1,22 @@
+2002-08-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	crtstuff.c (__do_frame_init): Call __w32_sharedptr_initialize.
+	config/i386/t-cygming (LIB2FUNCS_EXTRA): Add
+	__w32_sharedptr_initialize.c
+	config/i386/t-mingw32 (LIB2FUNCS_EXTRA): Adjust for common
+	component in t-cygming.
+	* config/i386/w32-shared-ptr.c (__w32_sharedptr_initialize):
+	Initialize default terminate and uncaught_exception handlers
+	to abort.
+	Remove dependency on windows.h.
+
+2002-08-16  Adriano dos Santos Fernandes  <adrianosf@uol.com.br>
+
+	* unwind-dw2-fde.c (unseen_objects, seen_objects): Support for
+	w32 catch exceptions across EXE/DLLs boundaries.
+	* config/i386/w32-shared-ptr.c: New file. Initialize shared
+	pointers.
+
 2002-07-31  Graham Stott  <graham.stott@btinternet.com>
 
 	* config/i386/i386.md ("femms"): Add "memory" attr "none".
@@ -107,7 +126,7 @@
 
 2002-05-16  Danny Smith  <dannysmith@users.sourceforge.net>
 
-	* ada/gnat_ug.texi (Replace @ifinfo with @ifnottex to allow
+	* ada/gnat_ug.texi: Replace @ifinfo with @ifnottex to allow
 	html output.
 
 2002-05-15  Danny Smith  <dannysmith@users.sourceforge.net>

@@ -10,6 +10,8 @@ LIMITS_H_TEST = true
 # first.
 LIBGCC2_INCLUDES = -I$(srcdir)/../winsup/w32api/include
 
+LIB2FUNCS_EXTRA = $(srcdir)/config/i386/w32-shared-ptr.c
+
 winnt.o: $(srcdir)/config/i386/winnt.c $(RTL_H) $(TREE_H) $(CONFIG_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(srcdir)/config/i386/winnt.c
 
