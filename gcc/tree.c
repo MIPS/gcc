@@ -254,7 +254,7 @@ make_node (code)
 
   /* We can't allocate a TREE_VEC or PHI_NODE without knowing how many elements
      it will have.  */
-  if (code == TREE_VEC || code == PHI_NODE)
+  if (code == TREE_VEC || code == PHI_NODE || code == EPHI_NODE)
     abort ();
 
   TREE_SET_CODE ((tree)&ttmp, code);
@@ -5376,6 +5376,16 @@ body_is_empty (t)
       return false;
 
   return true;
+}
+bool
+is_essa_node (t)
+  tree t;
+{
+  if (TREE_CODE (t) == ELEFT_NODE || TREE_CODE (t) == EPHI_NODE 
+      || TREE_CODE (t) == EUSE_NODE || TREE_CODE (t) == EEXIT_NODE
+      || TREE_CODE (t) == EKILL_NODE)
+    return true;
+  return false;
 }
 
 #include "gt-tree.h"

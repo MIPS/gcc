@@ -1057,10 +1057,16 @@ struct tree_eref_common GTY(())
   /* SSAPRE: Processed flag 2. */
   unsigned int processed2:1;
 
+  /* SSAPRE: True if delayed renaming is required on this reference.  */
   unsigned int delayed_rename:1;
 
-  tree temp;
+  /* SSAPRE: True if this referenced is injured.  */
+  unsigned int injured:1;
 
+  /* SSAPRE: Temporary assigned to this reference.  */
+  tree temp;
+   
+  /* SSAPRE: Uses of this reference.  */
   struct varray_head_tag *uses;
 };
 
@@ -1119,6 +1125,7 @@ struct tree_ephi_node GTY(())
 #define EREF_CLASS(NODE)        EREF_NODE_CHECK (NODE)->eref.class
 #define EREF_USES(NODE)         EREF_NODE_CHECK (NODE)->eref.uses
 #define EREF_DELAYED_RENAME(NODE) EREF_NODE_CHECK (NODE)->eref.delayed_rename
+#define EREF_INJURED(NODE)      EREF_NODE_CHECK (NODE)->eref.injured
 #define EREF_TEMP(NODE)         EREF_NODE_CHECK (NODE)->eref.temp
 
 /* In a EUSE_NODE node.  */
@@ -2991,6 +2998,7 @@ extern tree get_callee_fndecl                   PARAMS ((tree));
 extern void set_decl_assembler_name             PARAMS ((tree));
 extern int type_num_arguments                   PARAMS ((tree));
 extern tree lhd_unsave_expr_now		PARAMS ((tree));
+extern bool is_essa_node                        PARAMS ((tree));
 
 
 /* In stmt.c */

@@ -52,7 +52,7 @@ stmt_ann (t)
      tree t;
 {
 #if defined ENABLE_CHECKING
-  if (!is_gimple_stmt (t))
+  if (!is_gimple_stmt (t) && !is_essa_node (t))
     abort ();
 #endif
 

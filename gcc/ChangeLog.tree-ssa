@@ -1,3 +1,16 @@
+2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (struct tree_eref_common): Add injured flag.
+	Add EREF_INJURED macro.
+
+2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
+    
+	* tree-flow-inline.h (stmt_ann): We have stmt_ann on E*_NODE's as well,
+	so use is_essa_node as well.
+	* tree-dfa.c (create_stmt_ann): Ditto.
+	* tree.h (is_essa_node): Declare.
+	* tree.c (is_essa_node): Define.
+
 2003-07-01  Jason Merrill  <jason@redhat.com>
 
 	* tree-cfg.c (prepend_stmt_to_bb): New fn.
