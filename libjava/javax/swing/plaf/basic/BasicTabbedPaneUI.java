@@ -290,7 +290,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
 	  width = tabAreaWidth + componentWidth;
         }
 
-      return new Dimension(width, height);
+      return new Dimension(300, 200);
     }
 
     // if tab placement is LEFT OR RIGHT, they share width.
@@ -439,11 +439,11 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
 
       tabRuns[0] = 0;
       normalizeTabRuns(tabPlacement, tabCount, start, max);
-
+      selectedRun = getRunForTab(tabCount, tabPane.getSelectedIndex());
       if (shouldRotateTabRuns(tabPlacement))
 	rotateTabRuns(tabPlacement, selectedRun);
 
-      // Need to pad the runs and move them to the correct location.	
+      // Need to pad the runs and move them to the correct location.
       for (int i = 0; i < runCount; i++)
         {
 	  int first = lastTabInRun(tabCount, getPreviousTabRun(i)) + 1;

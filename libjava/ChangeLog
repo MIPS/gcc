@@ -1,5 +1,11 @@
 2004-03-23  Kim Ho  <kho@redhat.com>
 
+	* javax/swing/plaf/basic/BasicTabbedPaneUI.java
+	(calculateTabRects): Set the selectedRun before
+	trying to rotate tabs.
+
+2004-03-23  Kim Ho  <kho@redhat.com>
+
 	* Makefile.am: New file
 	* Makefile.in: Regenerate
 	* java/awt/Graphics.java: (drawRect):
