@@ -83,6 +83,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "hashtab.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -106,8 +107,8 @@ struct iv
    if needed?  */
 static struct loop *current_loop;
 
-/* The highest ssa name before optimizations.  */
-static unsigned old_highest_ssa_version;
+/* The size of version_info array allocated.  */
+static unsigned version_info_size;
 
 /* Per-ssa version information (induction variable descriptions, etc.).  */
 struct version_info
@@ -124,8 +125,20 @@ struct version_info
 /* The array of this information indexed by the ssa name version.  */
 static struct version_info *version_info;
 
+/* The bitmap of indices in version_info whose value was changed.  */
+static bitmap relevant;
+
 /* The maximum invariant id.  */
 static unsigned max_inv_id;
+
+/* Description of number of iterations of a loop.  */
+struct tree_niter_desc
+{
+  tree assumptions;	/* Assumptions for the number of iterations be valid.  */
+  tree may_be_zero;	/* Condition under that the loop exits in the first
+			   iteration.  */
+  tree niter;		/* Number of iterations.  */
+};
 
 /* Information attached to loop.  */
 struct loop_data
@@ -133,10 +146,8 @@ struct loop_data
   unsigned n_exits;	/* Number of exit edges.  */
   edge single_exit;	/* The exit edge in case there is exactly one and
 			   its source dominates the loops latch.  */
-  tree assumptions;	/* Assumptions for the number of iterations be valid.  */
-  tree may_be_zero;	/* Condition under that the loop exits in the first
-			   iteration.  */
-  tree niter;		/* Number of iterations.  */
+  struct tree_niter_desc niter;
+			/* Number of iterations.  */
 
   unsigned regs_used;	/* Number of registers used.  */
 };
@@ -893,8 +904,9 @@ tree_ssa_iv_optimize_init (struct loops *loops)
 {
   unsigned i;
 
-  old_highest_ssa_version = highest_ssa_version;
-  version_info = xcalloc (highest_ssa_version, sizeof (struct version_info));
+  version_info_size = 2 * highest_ssa_version;
+  version_info = xcalloc (version_info_size, sizeof (struct version_info));
+  relevant = BITMAP_XMALLOC ();
 
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
@@ -938,6 +950,7 @@ set_iv (tree iv, tree base, tree step)
   if (info->iv)
     abort ();
 
+  bitmap_set_bit (relevant, SSA_NAME_VERSION (iv));
   info->iv = alloc_iv (base, step);
   info->iv->ssa_name = iv;
 }
@@ -1293,12 +1306,13 @@ inverse (tree x, tree mask)
   return rslt;
 }
 
-/* Determine the number of iterations.  */
+/* Determine the number of iterations according to condition COND (for staying
+   inside loop).  Store the results to NITER.  */
 
 static void
-determine_number_of_iterations (void)
+number_of_iterations_cond (tree cond, struct tree_niter_desc *niter)
 {
-  tree stmt, cond, type, op0, op1;
+  tree type, op0, op1;
   enum tree_code code;
   tree base0, step0, base1, step1, step, delta, mmin, mmax;
   tree may_xform, bound, s, d, tmp;
@@ -1315,18 +1329,6 @@ determine_number_of_iterations (void)
        (but it is only conservative approximation, i.e. it only says that
        if !noloop_assumptions, then the loop does not end before the computed
        number of iterations)  */
-
-  if (!LOOP_DATA (current_loop)->single_exit)
-    return;
-
-  stmt = last_stmt (LOOP_DATA (current_loop)->single_exit->src);
-  if (!stmt || TREE_CODE (stmt) != COND_EXPR)
-    return;
-
-  /* We want the condition for staying inside loop.  */
-  cond = COND_EXPR_COND (stmt);
-  if (LOOP_DATA (current_loop)->single_exit->flags & EDGE_TRUE_VALUE)
-    cond = invert_truthvalue (cond);
 
   code = TREE_CODE (cond);
   switch (code)
@@ -1415,13 +1417,7 @@ determine_number_of_iterations (void)
 	  else
 	    assumption = boolean_true_node;
 	  if (integer_nonzerop (assumption))
-	    {
-	      /* We exit immediatelly.  */
-	      LOOP_DATA (current_loop)->assumptions = boolean_true_node;
-	      LOOP_DATA (current_loop)->may_be_zero = boolean_true_node;
-	      LOOP_DATA (current_loop)->niter = convert (type, integer_zero_node);
-	      return;
-	    }
+	    goto zero_iter;
 	  base0 = fold (build (PLUS_EXPR, type, base0, integer_one_node));
 	}
       else
@@ -1431,12 +1427,7 @@ determine_number_of_iterations (void)
 	  else
 	    assumption = boolean_true_node;
 	  if (integer_nonzerop (assumption))
-	    {
-	      LOOP_DATA (current_loop)->assumptions = boolean_true_node;
-	      LOOP_DATA (current_loop)->may_be_zero = boolean_true_node;
-	      LOOP_DATA (current_loop)->niter = convert (type, integer_zero_node);
-	      return;
-	    }
+	    goto zero_iter;
 	  base1 = fold (build (MINUS_EXPR, type, base1, integer_one_node));
 	}
       noloop_assumptions = assumption;
@@ -1578,13 +1569,12 @@ determine_number_of_iterations (void)
 	  
 	  s = EXEC_BINARY (RSHIFT_EXPR, type, s, integer_one_node);
 	  d = EXEC_BINARY (LSHIFT_EXPR, type, d, integer_one_node);
-	  bound = EXEC_BINARY (RSHIFT_EXPR, type, d, integer_one_node);
+	  bound = EXEC_BINARY (RSHIFT_EXPR, type, bound, integer_one_node);
 	}
 
       tmp = fold (build (EXACT_DIV_EXPR, type, base1, d));
       tmp = fold (build (MULT_EXPR, type, tmp, inverse (s, bound)));
-      LOOP_DATA (current_loop)->niter = fold (build (BIT_AND_EXPR, type,
-						     tmp, bound));
+      niter->niter = fold (build (BIT_AND_EXPR, type, tmp, bound));
     }
   else
     {
@@ -1632,11 +1622,40 @@ determine_number_of_iterations (void)
       noloop_assumptions = fold (build (TRUTH_OR_EXPR, boolean_type_node,
 					noloop_assumptions, assumption));
       delta = fold (build (FLOOR_DIV_EXPR, type, delta, step));
-      LOOP_DATA (current_loop)->niter = delta;
+      niter->niter = delta;
     }
 
-  LOOP_DATA (current_loop)->assumptions = assumptions;
-  LOOP_DATA (current_loop)->may_be_zero = noloop_assumptions;
+  niter->assumptions = assumptions;
+  niter->may_be_zero = noloop_assumptions;
+  return;
+
+zero_iter:
+  niter->assumptions = boolean_true_node;
+  niter->may_be_zero = boolean_true_node;
+  niter->niter = convert (type, integer_zero_node);
+  return;
+}
+
+/* Determine the number of iterations of the current loop.  */
+
+static void
+determine_number_of_iterations (void)
+{
+  tree stmt, cond;
+
+  if (!LOOP_DATA (current_loop)->single_exit)
+    return;
+
+  stmt = last_stmt (LOOP_DATA (current_loop)->single_exit->src);
+  if (!stmt || TREE_CODE (stmt) != COND_EXPR)
+    return;
+
+  /* We want the condition for staying inside loop.  */
+  cond = COND_EXPR_COND (stmt);
+  if (LOOP_DATA (current_loop)->single_exit->flags & EDGE_TRUE_VALUE)
+    cond = invert_truthvalue (cond);
+
+  number_of_iterations_cond (cond, &LOOP_DATA (current_loop)->niter);
 }
 
 /* For each ssa name defined in LOOP determines whether it is an induction
@@ -1659,20 +1678,23 @@ find_induction_variables (void)
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
-      if (LOOP_DATA (current_loop)->niter)
+      if (LOOP_DATA (current_loop)->niter.niter)
 	{
 	  fprintf (tree_dump_file, "  number of iterations ");
-	  print_generic_expr (tree_dump_file, LOOP_DATA (current_loop)->niter,
+	  print_generic_expr (tree_dump_file,
+			      LOOP_DATA (current_loop)->niter.niter,
 			      TDF_SLIM);
 	  fprintf (tree_dump_file, "\n");
 
     	  fprintf (tree_dump_file, "  may be zero if ");
-    	  print_generic_expr (tree_dump_file, LOOP_DATA (current_loop)->may_be_zero,
+    	  print_generic_expr (tree_dump_file,
+			      LOOP_DATA (current_loop)->niter.may_be_zero,
     			      TDF_SLIM);
     	  fprintf (tree_dump_file, "\n");
 
     	  fprintf (tree_dump_file, "  bogus unless ");
-    	  print_generic_expr (tree_dump_file, LOOP_DATA (current_loop)->assumptions,
+    	  print_generic_expr (tree_dump_file,
+			      LOOP_DATA (current_loop)->niter.assumptions,
     			      TDF_SLIM);
     	  fprintf (tree_dump_file, "\n");
     	  fprintf (tree_dump_file, "\n");
@@ -1680,9 +1702,11 @@ find_induction_variables (void)
  
       fprintf (tree_dump_file, "Induction variables:\n\n");
 
-      for (i = 0; i < highest_ssa_version; i++)
-	if (ver_info (i)->iv)
-	  dump_iv (tree_dump_file, ver_info (i)->iv);
+      EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
+	{
+	  if (ver_info (i)->iv)
+	    dump_iv (tree_dump_file, ver_info (i)->iv);
+	});
     }
 
   return true;
@@ -1731,6 +1755,7 @@ record_invariant (tree op, bool nonlinear_use)
   info->has_nonlin_use |= nonlinear_use;
   if (!info->inv_id)
     info->inv_id = ++max_inv_id;
+  bitmap_set_bit (relevant, SSA_NAME_VERSION (op));
 }
 
 /* Checks whether the use *OP_P is interesting and if so, records it.  */
@@ -2079,17 +2104,17 @@ find_interesting_uses (void)
     {
       fprintf (tree_dump_file, "\n");
 
-      for (i = 0; i < old_highest_ssa_version ; i++)
+      EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
 	{
 	  info = ver_info (i);
-	  if (!info->inv_id)
-	    continue;
-
-	  fprintf (tree_dump_file, "  ");
-	  print_generic_expr (tree_dump_file, info->name, TDF_SLIM);
-	  fprintf (tree_dump_file, " is invariant (%d)%s\n",
-		   info->inv_id, info->has_nonlin_use ? "" : ", eliminable");
-	}
+	  if (info->inv_id)
+	    {
+	      fprintf (tree_dump_file, "  ");
+	      print_generic_expr (tree_dump_file, info->name, TDF_SLIM);
+	      fprintf (tree_dump_file, " is invariant (%d)%s\n",
+		       info->inv_id, info->has_nonlin_use ? "" : ", eliminable");
+	    }
+	});
 
       fprintf (tree_dump_file, "\n");
     }
@@ -2214,14 +2239,12 @@ add_old_ivs_candidates (void)
   unsigned i;
   struct iv *iv;
 
-  for (i = 0; i < highest_ssa_version; i++)
+  EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
     {
       iv = ver_info (i)->iv;
-      if (!iv || !iv->biv_p || zero_p (iv->step))
-	continue;
-
-      add_old_iv_candidates (iv);
-    }
+      if (iv && iv->biv_p && !zero_p (iv->step))
+	add_old_iv_candidates (iv);
+    });
 }
 
 /* Adds candidates based on the value of the induction variable IV and USE.  */
@@ -2511,6 +2534,33 @@ computation_cost (tree expr)
   return cost;
 }
 
+/* Returns variable containing the value of candidate CAND at position
+   of USE.  */
+
+static tree
+var_at_use (struct iv_use *use, struct iv_cand *cand)
+{
+  switch (cand->pos)
+    {
+#if DISABLE_IP_START
+    case IP_START:
+      return cand->var_after;
+#endif
+
+    case IP_NORMAL:
+      if (stmt_after_ip_normal_pos (use->stmt))
+	return cand->var_after;
+      else
+	return cand->var_before;
+
+    case IP_END:
+      return cand->var_before;
+
+    default:
+      abort ();
+    }
+}
+
 /* Determines the expression by that USE is expressed from induction variable
    CAND.  */
 
@@ -2525,28 +2575,7 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
   unsigned HOST_WIDE_INT ustepi, cstepi;
   HOST_WIDE_INT ratioi;
 
-  switch (cand->pos)
-    {
-#if DISABLE_IP_START
-    case IP_START:
-      expr = cand->var_after;
-      break;
-#endif
-
-    case IP_NORMAL:
-      if (stmt_after_ip_normal_pos (use->stmt))
-	expr = cand->var_after;
-      else
-	expr = cand->var_before;
-      break;
-
-    case IP_END:
-      expr = cand->var_before;
-      break;
-
-    default:
-      abort ();
-    }
+  expr = var_at_use (use, cand);
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -2695,29 +2724,58 @@ add_cost (enum machine_mode mode)
   return cost;
 }
 
+/* Entry in a hashtable of already known costs for multiplication.  */
+struct mbc_entry
+{
+  HOST_WIDE_INT cst;		/* The constant to multiply by.  */
+  enum machine_mode mode;	/* In mode.  */
+  unsigned cost;		/* The cost.  */
+};
+
+/* Counts hash value for the ENTRY.  */
+
+static hashval_t
+mbc_entry_hash (const void *entry)
+{
+  const struct mbc_entry *e = entry;
+
+  return 57 * (hashval_t) e->mode + (hashval_t) (e->cst % 877);
+}
+
+/* Compares the hash table entries ENTRY1 and ENTRY2.  */
+
+static int
+mbc_entry_eq (const void *entry1, const void *entry2)
+{
+  const struct mbc_entry *e1 = entry1;
+  const struct mbc_entry *e2 = entry2;
+
+  return (e1->mode == e2->mode
+	  && e1->cst == e2->cst);
+}
+
 /* Returns cost of multiplication by constant CST in MODE.  */
 
-#define MAX_CACHED_VALUE 128
 static unsigned
 multiply_by_cost (HOST_WIDE_INT cst, enum machine_mode mode)
 {
-  static unsigned costs[TImode - QImode + 1][2 * MAX_CACHED_VALUE + 1];
+  static htab_t costs;
+  struct mbc_entry **cached, act;
   rtx seq;
-  unsigned cost, *cadd = NULL;
-  bool cached;
-  int idx;
+  unsigned cost;
 
-  cached = (-MAX_CACHED_VALUE <= cst && cst <= MAX_CACHED_VALUE);
+  if (!costs)
+    costs = htab_create (100, mbc_entry_hash, mbc_entry_eq, free);
 
-  idx = mode - QImode;
-  cached = cached && 0 <= idx && idx <= TImode - QImode;
+  act.mode = mode;
+  act.cst = cst;
+  cached = (struct mbc_entry **) htab_find_slot (costs, &act, INSERT);
+  if (*cached)
+    return (*cached)->cost;
 
-  if (cached)
-    {
-      cadd = &costs[idx][cst + MAX_CACHED_VALUE];
-      if (*cadd)
-	return *cadd;
-    }
+  *cached = xmalloc (sizeof (struct mbc_entry));
+  (*cached)->mode = mode;
+  (*cached)->cst = cst;
 
   start_sequence ();
   expand_mult (mode, gen_raw_REG (mode, FIRST_PSEUDO_REGISTER), GEN_INT (cst),
@@ -2726,15 +2784,13 @@ multiply_by_cost (HOST_WIDE_INT cst, enum machine_mode mode)
   end_sequence ();
   
   cost = seq_cost (seq);
-  if (!cost)
-    cost = 1;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     fprintf (tree_dump_file, "Multiplication by %d in %s costs %d\n",
 	     (int) cst, GET_MODE_NAME (mode), cost);
 
-  if (cached)
-    *cadd = cost;
+  (*cached)->cost = cost;
+
   return cost;
 }
 
@@ -3291,13 +3347,79 @@ determine_use_iv_cost_address (struct iv_use *use, struct iv_cand *cand)
   set_use_iv_cost (use, cand, cost, depends_on);
 }
 
+/* Computes value of candidate CAND at position USE in iteration NITER.  */
+
+static tree
+cand_value_at (struct iv_cand *cand, struct iv_use *use, tree niter)
+{
+  tree val;
+  tree type = TREE_TYPE (niter);
+
+  if (cand->pos == IP_NORMAL
+      && stmt_after_ip_normal_pos (use->stmt))
+    niter = fold (build (PLUS_EXPR, type, niter, integer_one_node));
+
+  val = fold (build (MULT_EXPR, type, cand->iv->step, niter));
+
+  return fold (build (PLUS_EXPR, type, cand->iv->base, val));
+}
+
+/* Check whether it is possible to express the condition in USE by comparison
+   of candidate CAND.  If so, store the comparison code to COMPARE and the
+   value compared with to BOUND.  */
+
+static bool
+may_eliminate_iv (struct iv_use *use, struct iv_cand *cand,
+		  enum tree_code *compare, tree *bound)
+{
+  edge exit;
+  struct tree_niter_desc *niter;
+
+  /* For now just very primitive -- we work just for the single exit condition,
+     and are quite conservative about the possible overflows.  TODO -- both of
+     these can be improved.  */
+  exit = LOOP_DATA (current_loop)->single_exit;
+  if (!exit)
+    return false;
+  if (use->stmt != last_stmt (exit->src))
+    return false;
+
+  niter = &LOOP_DATA (current_loop)->niter;
+  if (!niter->niter
+      || !operand_equal_p (niter->assumptions, boolean_true_node, 0)
+      || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
+    return false;
+
+  if (exit->flags & EDGE_TRUE_VALUE)
+    *compare = EQ_EXPR;
+  else
+    *compare = NE_EXPR;
+
+  *bound = cand_value_at (cand, use, niter->niter);
+
+  return true;
+}
+
 /* Determines cost of basing replacement of USE on CAND in a condition.  */
 
 static void
 determine_use_iv_cost_condition (struct iv_use *use, struct iv_cand *cand)
 {
-  /* TODO implement induction variable elimination.  */
+  tree bound;
+  enum tree_code compare;
 
+  if (may_eliminate_iv (use, cand, &compare, &bound))
+    {
+      bitmap depends_on = BITMAP_XMALLOC ();
+      unsigned cost = force_var_cost (bound, &depends_on);
+
+      set_use_iv_cost (use, cand, cost, depends_on);
+      return;
+    }
+
+  /* The induction variable elimination failed; just express the original
+     giv.  If it is compared with an invariant, note that we cannot get
+     rid of it.  */
   if (TREE_CODE (*use->op_p) == SSA_NAME)
     record_invariant (*use->op_p, true);
   else
@@ -3590,13 +3712,13 @@ determine_set_costs (void)
       n++;
     }
 
-  for (j = 0; j < old_highest_ssa_version; j++)
+  EXECUTE_IF_SET_IN_BITMAP (relevant, 0, j,
     {
       struct version_info *info = ver_info (j);
 
       if (info->inv_id && info->has_nonlin_use)
 	n++;
-    }
+    });
 
   LOOP_DATA (current_loop)->regs_used = n;
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -4054,11 +4176,28 @@ rewrite_use_address (struct iv_use *use, struct iv_cand *cand)
 static void
 rewrite_use_compare (struct iv_use *use, struct iv_cand *cand)
 {
-  tree comp = unshare_expr (get_computation (use, cand));
-  tree *op_p, cond, op, stmts;
+  tree comp;
+  tree *op_p, cond, op, stmts, bound;
   block_stmt_iterator bsi = stmt_bsi (use->stmt);
+  enum tree_code compare;
+  
+  if (may_eliminate_iv (use, cand, &compare, &bound))
+    {
+      op = force_gimple_operand (unshare_expr (bound), &stmts,
+				 NULL_TREE, false);
 
-  /* TODO -- induction variable elimination.  */
+      if (stmts)
+	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+
+      *use->op_p = build (compare, boolean_type_node,
+			  var_at_use (use, cand), op);
+      modify_stmt (use->stmt);
+      return;
+    }
+
+  /* The induction variable elimination failed; just express the original
+     giv.  */
+  comp = unshare_expr (get_computation (use, cand));
 
   cond = *use->op_p;
   op_p = &TREE_OPERAND (cond, 0);
@@ -4122,7 +4261,7 @@ free_loop_data (void)
 {
   unsigned i, j;
 
-  for (i = 0; i < old_highest_ssa_version; i++)
+  EXECUTE_IF_SET_IN_BITMAP (relevant, 0, i,
     {
       struct version_info *info;
 
@@ -4132,7 +4271,8 @@ free_loop_data (void)
       info->iv = NULL;
       info->has_nonlin_use = false;
       info->inv_id = 0;
-    }
+    });
+  bitmap_clear (relevant);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
@@ -4157,13 +4297,13 @@ free_loop_data (void)
     }
   VARRAY_POP_ALL (iv_candidates);
 
-  if (old_highest_ssa_version != highest_ssa_version)
-    version_info = xrealloc (version_info,
-			     (sizeof (struct version_info)
-			      * highest_ssa_version));
-  memset (version_info + old_highest_ssa_version, 0,
-	  ((highest_ssa_version - old_highest_ssa_version)
-	   * sizeof (struct version_info)));
+  if (version_info_size < highest_ssa_version)
+    {
+      version_info_size = 2 * highest_ssa_version;
+      free (version_info);
+      version_info = xcalloc (version_info_size, sizeof (struct version_info));
+    }
+
   max_inv_id = 0;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (decl_rtl_to_reset); i++)
@@ -4173,8 +4313,6 @@ free_loop_data (void)
       SET_DECL_RTL (obj, NULL_RTX);
     }
   VARRAY_POP_ALL (decl_rtl_to_reset);
-  
-  old_highest_ssa_version = highest_ssa_version;
 }
 
 /* Finalizes data structures used by the iv optimization pass.  LOOPS is the
@@ -4194,6 +4332,7 @@ tree_ssa_iv_optimize_finalize (struct loops *loops)
 
   free_loop_data ();
   free (version_info);
+  BITMAP_XFREE (relevant);
 
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (iv_uses);

@@ -1,3 +1,25 @@
+2004-03-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop-ivopts.o): Add HASHTAB_H dependency.
+	* tree-ssa-loop-ivopts.c: Include hashtab.h.
+	(old_highest_ssa_version): Rename to version_info_size.
+	(struct tree_niter_desc): Split from ...
+	(struct loop_data): ... here.
+	(relevant): New variable.
+	(tree_ssa_iv_optimize_init, set_iv, find_induction_variables,
+	record_invariant, find_interesting_uses, add_old_ivs_candidates,
+	determine_set_costs, free_loop_data, tree_ssa_iv_optimize_finalize):
+	Use bitmap of relevant ssa names.
+	(var_at_use): New function.
+	(get_computation): Use it.
+	(multiply_by_cost): Cache all results.
+	(mbc_entry_hash, mbc_entry_eq): New functions.
+	(number_of_iterations_cond): Split from ...
+	(determine_number_of_iterations): ... here.
+	(cand_value_at, may_eliminate_iv): New functions.
+	(determine_use_iv_cost_condition, rewrite_use_compare): Implement iv
+	elimination.
+
 2004-03-01  Devang Patel  <dpatel@apple.com>
 
 	* tree-dg.c (dg_delete_graph): Reset varrays.
