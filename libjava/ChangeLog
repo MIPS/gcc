@@ -1,5 +1,8 @@
 2004-11-10  Tom Tromey  <tromey@redhat.com>
 
+	* gij.cc (main): Treat -verbose the same as -verbose:class.
+	(help): Document -verbose and -verbose:class.
+
 	* link.cc (verbose_class_flag): Declare.
 	(wait_for_state): Print message when handling precompiled class.
 	* java/lang/natClass.cc (verbose_class_flag): Moved to link.cc.
