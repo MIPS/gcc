@@ -1,3 +1,7 @@
+2003-03-12  Jeff Law  <law@redhat.com>
+
+	* ssa.c (convert_to_ssa): Use last_basic_block, not n_basic_blocks.
+
 2003-03-11  Jeff Law  <law@redhat.com>
 
 	* builtins.c: Fix minor comment typo.

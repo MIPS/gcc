@@ -1239,8 +1239,8 @@ convert_to_ssa ()
 
   /* Compute dominance frontiers.  */
 
-  sparse_dfs = (bitmap *) xmalloc (sizeof (bitmap) * n_basic_blocks);
-  for (i = 0; i < n_basic_blocks; i++)
+  sparse_dfs = (bitmap *) xmalloc (sizeof (bitmap) * last_basic_block);
+  for (i = 0; i < last_basic_block; i++)
     sparse_dfs[i] = BITMAP_XMALLOC ();
   compute_dominance_frontiers (sparse_dfs, idom);
 
@@ -1250,7 +1250,7 @@ convert_to_ssa ()
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   sbitmap_vector_zero (dfs, last_basic_block);
 
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < last_basic_block; i++)
     {
       unsigned int bb_index;
 
@@ -1261,7 +1261,7 @@ convert_to_ssa ()
     }
 
   /* Release the SPARSE_DFS.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < last_basic_block; i++)
     BITMAP_XFREE (sparse_dfs[i]);
   free (sparse_dfs);
 
