@@ -4424,6 +4424,136 @@ create_TOC_reference(symbol)
 			ggc_alloc_string (toc_label_name, -1)))));
 }
 
+#if TARGET_AIX
+/* __throw will restore its own return address to be the same as the
+   return address of the function that the throw is being made to.
+   This is unfortunate, because we want to check the original
+   return address to see if we need to restore the TOC.
+   So we have to squirrel it away here.  
+   This is used only in compiling __throw and __rethrow. 
+
+   Most of this code should be removed by CSE.  */
+static rtx insn_after_throw;
+
+/* This does the saving... */
+void
+rs6000_aix_emit_builtin_unwind_init ()
+{
+  rtx mem;
+  rtx stack_top = gen_reg_rtx (Pmode);
+  rtx opcode_addr = gen_reg_rtx (Pmode);
+
+  insn_after_throw = gen_reg_rtx (SImode);
+
+  mem = gen_rtx_MEM (Pmode, hard_frame_pointer_rtx);
+  emit_move_insn (stack_top, mem);
+
+  mem = gen_rtx_MEM (Pmode, 
+		     gen_rtx_PLUS (Pmode, stack_top, 
+				   GEN_INT (2 * GET_MODE_SIZE (Pmode))));
+  emit_move_insn (opcode_addr, mem);
+  emit_move_insn (insn_after_throw, gen_rtx_MEM (SImode, opcode_addr));
+}
+
+/* Emit insns to _restore_ the TOC register, at runtime (specifically in _eh.o).
+   Only used on AIX.
+
+   The idea is that on AIX, function calls look like this:
+	bl  somefunction-trampoline
+	lwz r2,20(sp)
+
+    and later,
+	somefunction-trampoline:
+	stw r2,20(sp)
+	 ... load function address in the count register ...
+	bctr
+   or like this, if the linker determines that this is not a cross-module call
+   and so the TOC need not be restored:
+	bl  somefunction
+	nop
+   or like this, if the compiler could determine that this is not a
+   cross-module call:
+	bl  somefunction
+   now, the tricky bit here is that register 2 is saved and restored
+   by the _linker_, so we can't readily generate debugging information
+   for it.  So we need to go back up the call chain looking at the
+   insns at return addresses to see which calls saved the TOC register
+   and so see where it gets restored from.
+
+   Oh, and all this gets done in RTL inside the eh_epilogue pattern,
+   just before the actual epilogue.
+
+   On the bright side, this incurs no space or time overhead unless an
+   exception is thrown, except for the extra code in libgcc.a.  
+
+   The parameter STACKSIZE is a register containing (at runtime)
+   the amount to be popped off the stack in addition to the stack frame
+   of this routine (which will be __throw or __rethrow, and so is
+   guaranteed to have a stack frame).  */
+void
+rs6000_emit_eh_toc_restore (stacksize)
+     rtx stacksize;
+{
+  rtx top_of_stack;
+  rtx bottom_of_stack = gen_reg_rtx (Pmode);
+  rtx tocompare = gen_reg_rtx (SImode);
+  rtx opcode = gen_reg_rtx (SImode);
+  rtx opcode_addr = gen_reg_rtx (Pmode);
+  rtx mem, r2;
+  rtx loop_start = gen_label_rtx ();
+  rtx no_toc_restore_needed = gen_label_rtx ();
+  rtx loop_exit = gen_label_rtx ();
+  
+  mem = gen_rtx_MEM (Pmode, hard_frame_pointer_rtx);
+  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  emit_move_insn (bottom_of_stack, mem);
+
+  top_of_stack = expand_binop (Pmode, add_optab, 
+			       bottom_of_stack, stacksize,
+			       NULL_RTX, 1, OPTAB_WIDEN);
+
+  emit_move_insn (tocompare, 
+		  GEN_INT (trunc_int_for_mode (TARGET_32BIT 
+					       ? 0x80410014 
+					       : 0xE8410028, SImode)));
+
+  if (insn_after_throw == NULL_RTX)
+    abort();
+  emit_move_insn (opcode, insn_after_throw);
+  
+  emit_note (NULL_PTR, NOTE_INSN_LOOP_BEG);
+  emit_label (loop_start);
+  
+  do_compare_rtx_and_jump (opcode, tocompare, NE, 1,
+			   SImode, NULL_RTX, 0, NULL_RTX,
+			   no_toc_restore_needed);
+  
+  mem = gen_rtx_MEM (Pmode, 
+		     gen_rtx_PLUS (Pmode, bottom_of_stack, 
+				   GEN_INT (5 * GET_MODE_SIZE (Pmode))));
+  emit_move_insn (gen_rtx_REG (Pmode, 2), mem);
+
+  emit_label (no_toc_restore_needed);
+  do_compare_rtx_and_jump (top_of_stack, bottom_of_stack, EQ, 1,
+			   Pmode, NULL_RTX, 0, NULL_RTX,
+			   loop_exit);
+
+  mem = gen_rtx_MEM (Pmode, bottom_of_stack);
+  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  emit_move_insn (bottom_of_stack, mem);
+  
+  mem = gen_rtx_MEM (Pmode, 
+		     gen_rtx_PLUS (Pmode, bottom_of_stack, 
+				   GEN_INT (2 * GET_MODE_SIZE (Pmode))));
+  emit_move_insn (opcode_addr, mem);
+  emit_move_insn (opcode, gen_rtx_MEM (SImode, opcode_addr));
+
+  emit_note (NULL_PTR, NOTE_INSN_LOOP_CONT);
+  emit_jump (loop_start);
+  emit_note (NULL_PTR, NOTE_INSN_LOOP_END);
+  emit_label (loop_exit);
+}
+#endif /* TARGET_AIX */
 
 /* This ties together stack memory 
    (MEM with an alias set of rs6000_sr_alias_set)

@@ -471,3 +471,11 @@ toc_section ()						\
 
 /* dwarf2out keys off this, but we don't have to have a real definition.  */
 #define UNALIGNED_INT_ASM_OP bite_me
+
+/* __throw will restore its own return address to be the same as the
+   return address of the function that the throw is being made to.
+   This is unfortunate, because we want to check the original
+   return address to see if we need to restore the TOC.
+   So we have to squirrel it away with his.  */
+#define SETUP_FRAME_ADDRESSES() rs6000_aix_emit_builtin_unwind_init ()
+

@@ -197,7 +197,6 @@ do {									\
 #undef RS6000_CALL_GLUE
 #define RS6000_CALL_GLUE "{cror 31,31,31|nop}"
 
-#if 0
 /* AIX 4.2 and above provides initialization and finalization function
    support from linker command line.  */
 #undef HAS_INIT_SECTION
@@ -205,4 +204,3 @@ do {									\
 
 #undef LD_INIT_SWITCH
 #define LD_INIT_SWITCH "-binitfini"
-#endif

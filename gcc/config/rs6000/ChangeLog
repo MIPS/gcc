@@ -1,3 +1,21 @@
+2000-02-09  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (INCOMING_RETURN_ADDR_RTX): New macro.
+
+	* aix.h (SETUP_FRAME_ADDRESSES): Define.
+	* rs6000.c [TARGET_AIX] (insn_after_throw): New static variable.
+	[TARGET_AIX] (rs6000_aix_emit_builtin_unwind_init): New function.
+	[TARGET_AIX] (rs6000_emit_eh_toc_restore): New function.
+	* rs6000-protos.h: Prototype rs6000_emit_eh_toc_restore,
+	rs6000_aix_emit_builtin_unwind_init.
+	* rs6000.md (eh_epilogue) [TARGET_AIX]: Call 
+	rs6000_emit_eh_toc_restore on AIX.
+	(return_eh_si): Use r2.
+	(return_eh_di): Use r2.
+
+	* aix43.h: Turn on HAS_INIT_SECTION and LD_INIT_SWITCH,
+	since we're breaking binary compatibility anyway.
+
 2000-02-09  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* config/rs6000/rs6000-protos.h: (get_TOC_alias_set, uses_TOC,

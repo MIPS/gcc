@@ -92,7 +92,7 @@ extern void rs6000_fatal_bad_address PARAMS ((rtx));
 extern int stmw_operation PARAMS ((rtx, enum machine_mode));
 extern int mtcrf_operation PARAMS ((rtx, enum machine_mode));
 extern int lmw_operation PARAMS ((rtx, enum machine_mode));
-
+extern void rs6000_emit_eh_toc_restore PARAMS ((rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -149,5 +149,6 @@ extern int uses_TOC PARAMS ((void));
 extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
 extern void rs6000_emit_prologue PARAMS ((void));
 extern void rs6000_emit_load_toc_table PARAMS ((int));
+extern void rs6000_aix_emit_builtin_unwind_init PARAMS ((void));
 extern void rs6000_emit_epilogue PARAMS ((int));
 extern void debug_stack_info PARAMS ((rs6000_stack_t *));

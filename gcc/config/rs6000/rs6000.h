@@ -2790,6 +2790,12 @@ do {									\
 #define ASM_OPEN_PAREN "("
 #define ASM_CLOSE_PAREN ")"
 
+/* Pick up the return address upon entry to a procedure. Used for
+   dwarf2 unwind information.  This also enables the table driven
+   mechanism.  */
+
+#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
+
 /* Define results of standard character escape sequences.  */
 #define TARGET_BELL 007
 #define TARGET_BS 010
