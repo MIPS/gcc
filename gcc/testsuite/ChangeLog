@@ -1,3 +1,115 @@
+2003-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13262
+	* g++.dg/template/access13.C: New test.
+
+2003-12-16  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c-torture/compile/981223-1.x: Add -mb-step to command line
+	options on ia64-*-* instead of XFAILing the test case.
+
+2003-12-16  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* testsuite/gcc.dg/altivec-10.c: Test vec_cmple and vec_all_numeric.
+
+2003-12-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/13037
+	* g77.f-torture/execute/13037.f: New test case.
+
+2003-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/eh/ia64-1.C: New test.
+
+2003-12-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/13256
+	PR target/12598
+	Backport from mainline:
+	* gcc.dg/torture/dg-torture.exp: New directory.  New file.
+	* gcc.dg/torture/cris-volatile-1.c: New test.
+	* gcc.c-torture/execute/20031201-1.c: New test.
+
+2003-12-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* gcc.dg/cpp/trad/xwin1.c: Remove, breaks testsuite (and I don't
+	know how to make it work).
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Wolfgang Bangerth  <bangerth@dealii.org>
+
+	* gcc.dg/overflow-1.c: New test.
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g77.f-torture/compile/13060.f: New test.
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Falk Hueffner  <falk@debian.org>
+
+	* g++.dg/opt/noreturn-1.C: New test.
+
+2003-12-10  Robert Schiele  <rschiele@uni-mannheim.de>
+
+	PR other/10819
+	* lib/gcc.exp (default_gcc_version): Do not match NL/CR characters
+	to fix Bug 10819.
+	* lib/g++.exp (g++_version): Likewise.
+	* lib/g77.exp (g77_version): Likewise.
+	* lib/objc.exp (default_objc_version): Likewise.
+
+2003-12-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	Backport from mainline:
+	* gcc.dg/cpp/trad/xwin1.c: New test case.
+
+2003-12-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-11-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/uninit-C.c: XFAIL on non 64-bit Solaris versions.
+
+2003-12-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13323
+	* g++.dg/inherit/operator2.C: New test.
+
+2003-12-05  Stuart Menefy <stuart.menefy@st.com>
+	     J"orn Rennecke <joern.rennecke@superh.com>
+
+	 PR target/13302
+	 * g++.dg/other/struct-va_list.C: New test.
+
+2003-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20031202-1.c: New test.
+
+2003-12-03  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+
+	2003-10-31  Josef Zlomek  <zlomekj@suse.cz>
+
+		PR/10239
+		* gcc.c-torture/compile/20031031-2.c: New test.
+
+	2003-10-31  Josef Zlomek  <zlomekj@suse.cz>
+
+		PR/11640
+		* gcc.c-torture/compile/20031031-1.c: New test.
+
 2003-12-01  Roger Sayle  <roger@eyesopen.com>
 
 	PR optimization/11634

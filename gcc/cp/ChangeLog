@@ -1,3 +1,23 @@
+2003-12-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12253
+	* init.c (build_vec_init): Initialization of an element from
+	an initializer list is also a full-expression.
+
+2003-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13262
+	* pt.c (instantiate_decl): Wrap push_nested_class and
+	pop_nested_class around cp_finish_decl call for static member
+	variable.
+
+2003-12-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13323
+	* class.c (same_signature_p): Handle conversion operators
+	correctly.
+	(check_for_override): Likewise.
+
 2003-11-14  Bernardo Innocenti  <bernie@develer.com>
 
 	Backport from 3.4-branch.

@@ -1,3 +1,289 @@
+2003-12-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/sol2.h (LINK_ARCH32_SPEC): Define in terms of ...
+	(LINK_ARCH32_SPEC_BASE): ... this new macro.
+	* config/sparc/sol2-bi.h (LINK_ARCH64_SPEC): Define in terms of
+	...
+	(LINK_ARCH64_SPEC_BASE): ... this new macro.
+	* config/sparc/sol2-gld-bi.h (LINK_ARCH32_SPEC): New macro.
+	(LINK_ARCH64_SPEC): Likewise.
+
+2003-12-17  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/11992
+	* config/s390/s390.md ("*cmpmem_long_64"): Use CLCLE instruction
+	instead of CLCL.
+	("*cmpmem_long_31"): Likewise.
+
+2003-12-16  Zack Weinberg  <zack@codesourcery.com>
+
+	Backport the following patches from mainline.
+
+    2003-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/ia64/ia64.h (MUST_PASS_IN_STACK): Define.
+
+    2003-12-01  James E Wilson  <wilson@specifixinc.com>
+
+	* config/ia64/ia64.h (FUNCTION_ARG_REGNO_P): Use AR_REG_FIRST not
+	GR_ARG_FIRST.
+
+    2003-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ia64/ia64.md (cmpxchg_acq_si): Mark operand 3 as DImode.
+	* config/ia64/ia64.c (ia64_expand_fetch_and_op,
+	ia64_expand_op_and_fetch): Make sure the REG for ar.ccv is
+	DImode.   Use convert_move to load ar.ccv.
+	(ia64_expand_compare_and_swap): Likewise.
+	If expand_expr doesn't put 'old' and 'new' in the proper
+	modes, run them through convert_to_mode.
+
+    2003-10-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_expand_call): Force function address
+	to DImode.
+	* config/ia64/ia64.md (call_gp): Put DImode on operand 0.
+
+    2003-06-11  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.md (call_gp): Fix memory mode.
+
+    2003-05-14  Eric Christopher  <echristo@redhat.com>
+
+	* combine.c: Fix header comments.
+	(distribute_notes): Remove usage of elim_i1, elim_i2. Propagate
+	to all calls and prototype.
+
+2003-12-16  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/alpha/freebsd.h (FBSD_TARGET_CPU_CPP_BUILTINS): Add __LP64__.
+	* config/sparc/freebsd.h (FBSD_TARGET_CPU_CPP_BUILTINS): Likewise.
+	* config/i386/freebsd64.h (FBSD_TARGET_CPU_CPP_BUILTINS): Conditionally
+	add __LP64__.
+
+2003-12-16  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* altivec.h (vec_cmple, vec_all_numeric): Fix typo.
+	* testsuite/gcc.dg/altivec-10.c: Test for above.
+
+2003-12-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/13122
+	* config/h8300/h8300.md (pushqi1_h8300hs_normal): New.
+	(pushqi1): Call gen_pushqi1_h8300hs_normal in normal mode.
+	(pushhi1_h8300hs_normal): New.
+	(pushhi1): Call gen_pushqi1_h8300hs_normal in normal mode.
+
+	* config/h8300/h8300.h (LINK_SPEC): Support normal mode.
+	* config/h8300/h8300.c (asm_file_start): Correctly output
+	an architecture directive.
+	* config/h8300/lib1funcs.asm: Correctly specify an
+	architecture directive.
+
+2003-12-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/13037
+	* loop.c (update_giv_derive): Ignore redundant sets of a biv when
+	calculating how to derive a giv from a biv.
+
+2003-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/linux.h (IA64_GATE_AREA_END): Increase by 64K.
+	(MD_FALLBACK_FRAME_STATE_FOR): Set fpsr_loc, br_loc[6] and
+	br_loc[7].  Update comment.
+	(MD_HANDLE_UNWABI): Define.
+	* config/ia64/unwind-ia64.c (struct unw_state_record): Add
+	unwabi field.
+	(struct _Unwind_Context): Increase br_loc array size to 8 entries.
+	(desc_abi): Set unwabi.
+	(uw_update_reg_address): Allow br up to 7.
+	(uw_update_context): Invoke MD_HANDLE_UNWABI if defined.
+	(uw_install_context): Load b1..b5 from correct locations.
+	Fix insn loading ar.fpsr.
+	* doc/tm.texi: Document MD_HANDLE_UNWABI.
+
+2003-12-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/13256
+	Backport from mainline:
+	* resource.h (enum mark_resource_type): Remove member MARK_DEST.
+	The only user changed as follows:
+	* resource.c (mark_set_resources) <case SET>: Always recurse for
+	SET_SRC (x).
+	<case SIGN_EXTRACT, case ZERO_EXTRACT>: Always recurse on
+	operands.
+	<case STRICT_LOW_PART>: Delete, deferring to default code.
+
+	PR target/12598
+	Backport from mainline:
+	* config/cris/cris.md (define_split "*mov_sidesi_biap_mem"+1)
+	(define_splits "*mov_sidesi_mem"+1, "casesi"+9, +10, +11, +12):
+	Use cris_mem_op and replace_equiv_address, not gen_rtx_MEM.
+	("call", "call_value", define_split "*mov_sidesi_mem"+19, +20)
+	(define_split "*mov_sidesi_mem"+21, +22, +23, +24, +25, +26, +27)
+	(define_split "*mov_sidesi_mem"+28, +29, +30): Use
+	replace_equiv_address, not gen_rtx_MEM.
+	* config/cris/cris.c (cris_mem_op): New match_operator function.
+	(cris_notice_update_cc): Use replace_equiv_address, not
+	gen_rtx_MEM.
+	* config/cris/cris.h (PREDICATE_CODES): Add cris_mem_op.
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13318
+	* loop.c (express_from): Protect integer division from overflow.
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13060
+	* function.c (fixup_var_refs_1) [SUBREG]: Recognize even if a
+	replacement already exists.  Fix again the whole insn if that fails.
+
+2003-12-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+
+	2003-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12965
+	* caller-save.c (save_call_clobbered_regs): Do not save/restore
+	registers around no-return calls.
+
+2003-12-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* emit-rtl.c (copy_rtx_if_shared_1): Fix warning.
+
+2003-12-10  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	Backport from mainline (fixes unreported regression):
+	* cpptrad.c (_cpp_scan_out_logical_line): Improve test for
+	  whether directive begins at the beginning of a line.
+
+2003-12-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/13354
+	* config/sparc/sparc.c (sparc_output_mi_thunk): Load DELTA
+	manually if one can do that with only one instruction.
+
+2003-12-09  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	2003-06-04  Kelley Cook  <kelleycook@wideopenwest.com>
+	PR optimization/4490
+	* config/i386/i386.md: Don't use XFMode if TARGET_128BIT_LONG_DOUBLE.
+
+2003-12-08  David Edelsohn  <edelsohn@gnu.org>
+	    Graham Reed <greed@pobox.com>
+
+	PR target/13150
+	* collect2.c (GCC_OK_SYMBOL): Add support for AIX C_WEAKEXT.
+	(GCC_UNDEF_SYMBOL): Same.
+
+2003-12-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/10060
+	* emit-rtl.c (copy_rtx_if_shared): Split out into ...
+	(copy_rtx_if_shared_1): here and optimize the last one
+	in the sequence into tail-recursion.
+	(reset_used_flags): Optimize the last one
+	in the sequence into tail-recursion.
+
+2003-12-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_elf_section_type_flags): Don't
+	set SECTION_WRITE on TARGET_RELOCATABLE.
+
+2003-12-05  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR driver/13211
+	* gcc.c (execute) Increment execution_count when returning
+	early because verbose_only_flag is true.
+
+2003-12-05  Stuart Menefy <stuart.menefy@st.com>
+	    J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/13302
+	* sh.c (sh_build_builtin_va_list): Use (*lang_hooks.types.make_type).
+
+2003-12-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/11322
+	* config/sh/netbsd-elf.h (NO_PROFILE_COUNTERS): Define.
+
+	PR target/12467
+	* config/rs6000/altivec.md (altivec_vmsummbm): Fix typo.
+
+2003-12-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (stmp-fixinc): Don't bail out if SYSTEM_HEADER_DIR
+	does not exist and it's the default sys-include directory.
+
+2003-12-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/ia64/hpux.h (TARGET_HAVE_TLS): Define it to false.
+	* config/ia64/ia64.h (TARGET_HAVE_TLS): Define it to true if
+	HAVE_AS_TLS is true.
+	* config/ia64/ia64.c (TARGET_HAVE_TLS): Do not define it.
+
+2003-12-03  James E Wilson  <wilson@specifixinc.com>
+
+       2003-11-29  James E Wilson  <wilson@specifixinc.com>
+       * gcc.c (init_spec): Pass -lunwind to init_gcc_specs in eh_name
+       instead of in shared_name.
+
+2003-12-03 David Mosberger  <davidm@hpl.hp.com>
+
+       2003-11-20 David Mosberger  <davidm@hpl.hp.com>
+       * config/t-libunwind (LIB2ADDEH): Add unwind-c.c.
+       (SHLIB_LC): Define.
+       * unwind-libunwind.c (_Unwind_GetCFA): Implement.
+       (_Unwind_GetBSP) [UNW_TARGET_IA64]: New function.
+
+2003-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (store_constructor): Only set RTX_UNCHANGING_P for
+	read-only field if cleared is 0.
+
+2003-12-03  Kean Johnston  <jkj@sco.com>
+
+	PR 12969
+	* fixinc/inclhack.def (AAB_svr4_replace_byteorder): Revert the
+	change I made on 2003-08-11 that removes the mach lines.
+	Restore them to the same list thats in the head, as per
+	Nathanael Nerode's changes.
+	* fixinc/fixincl.x: Regenerated
+	* fixinc/tests/base/ansi/string.h: Fix test case
+
+2003-12-03  James E Wilson  <wilson@specifixinc.com>
+
+	2003-12-01  James E Wilson  <wilson@specifixinc.com>
+	PR target/8407
+	* config/ia64/ia64.c (ia64_function_arg): For single-reg HFA, call
+	gen_rtx_REG to create new reg with argument mode.
+
+2003-12-03  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+
+	2003-10-31  Josef Zlomek  <zlomekj@suse.cz>
+
+		PR/10239
+		* cfgrtl.c (delete_insn): Decrease LABEL_NUSES for all
+		REG_LABEL notes.
+
+	2003-10-31  Josef Zlomek  <zlomekj@suse.cz>
+
+		PR/11640
+		* cfgrtl.c (try_redirect_by_replacing_jump): Move jump
+		immediatelly before BARRIER.
+
 2003-12-01  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	Backport from mainline
@@ -5,7 +291,7 @@
 	2002-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config.gcc (sh*-*-linux*): Add t-slibgcc-elf-ver and t-linux.
-        to tmake_file.
+	to tmake_file.
 	* config/sh/libgcc-glibc.ver: New file.
 
 	Backport from mainline
@@ -19130,3 +19416,4 @@ cp:
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
+
