@@ -676,13 +676,13 @@ get_stmt_operands (tree stmt)
   if (TREE_CODE (stmt) == ERROR_MARK)
     return;
 
+  ann = get_stmt_ann (stmt);
+
   /* If the statement has not been modified, the operands are still valid.  */
-  if (!stmt_modified_p (stmt))
+  if (!ann->modified)
     return;
 
   timevar_push (TV_TREE_OPS);
-
-  ann = get_stmt_ann (stmt);
 
   /* Initially assume that the statement has no volatile operands.
      Statements marked with 'has_volatile_ops' are not processed by the

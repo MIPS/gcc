@@ -1,5 +1,19 @@
 2004-04-09  Jeff Law  <law@redhat.com>
 
+	* tree-ssa_dom.c (register_definitions_for_stmt): Accept a statement
+	annotation rather than the statement itself.  Callers changed.
+	Use [V]DEF_OPS rather than STMT_[V]DEF_OPS.
+	* tree-ssa-operands.c (get_stmt_operands): Slightly reorganize to
+	avoid unnecessary calls to stmt_ann.
+	* tree-ssa-pre.c (expr_phi_insertion): Get the statement's annotation
+	and use [V]USE_OPS rather than STMT_[V]USE_OPS.
+	(same_e_version_phi_result): Similarly
+	(process_left_occs_and_kills): Similarly for [V]DEF_OPS and
+	STMT_[V]DEF_OPS.
+	* tree-ssa.c (replace_immediate_uses): Similarly.
+	(verify_ssa): Similarly.  Also verify that VDEF_OPs uses are dominated
+	by their sets.
+
 	* tree-into-ssa.c (insert_phi_nodes_for): Use passed in worklist
 	varray instead of allocated one for every variable we rewrite into
 	SSA form.

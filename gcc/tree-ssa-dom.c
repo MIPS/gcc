@@ -254,7 +254,7 @@ static void restore_vars_to_original_value (varray_type locals,
 static void restore_currdefs_to_original_value (varray_type locals,
 						unsigned limit,
 						varray_type table);
-static void register_definitions_for_stmt (tree, varray_type *);
+static void register_definitions_for_stmt (stmt_ann_t, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
 
 /* Local version of fold that doesn't introduce cruft.  */
@@ -2579,7 +2579,7 @@ optimize_stmt (struct dom_walk_data *walk_data,
 				   may_optimize_p,
 				   ann);
 
-  register_definitions_for_stmt (stmt, &bd->block_defs);
+  register_definitions_for_stmt (ann, &bd->block_defs);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  If that is the case, then mark the CFG as altered.
@@ -3181,13 +3181,13 @@ avail_expr_eq (const void *p1, const void *p2)
    and CURRDEFS.  */
 
 static void
-register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
+register_definitions_for_stmt (stmt_ann_t ann, varray_type *block_defs_p)
 {
   def_optype defs;
   vdef_optype vdefs;
   unsigned int i;
 
-  defs = STMT_DEF_OPS (stmt);
+  defs = DEF_OPS (ann);
   for (i = 0; i < NUM_DEFS (defs); i++)
     {
       tree def = DEF_OP (defs, i);
@@ -3198,7 +3198,7 @@ register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
     }
 
   /* Register new virtual definitions made by the statement.  */
-  vdefs = STMT_VDEF_OPS (stmt);
+  vdefs = VDEF_OPS (ann);
   for (i = 0; i < NUM_VDEFS (vdefs); i++)
     {
       /* FIXME: We shouldn't be registering new defs if the variable
