@@ -261,6 +261,14 @@ So instead we use the macro below and test it against specific values.  */
 #define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 #endif /* ATTRIBUTE_UNUSED */
 
+#ifndef ATTRIBUTE_NO_PROFILE
+# if (GCC_VERSION >= 3001)
+#  define ATTRIBUTE_NO_PROFILE __attribute__ ((__no_profile__))
+# else
+#  define ATTRIBUTE_NO_PROFILE
+# endif /* GNUC >= 3.1 */
+#endif /* ATTRIBUTE_NO_PROFILE */
+
 #ifndef ATTRIBUTE_NORETURN
 #define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
 #endif /* ATTRIBUTE_NORETURN */
