@@ -5357,8 +5357,17 @@ new_insn_dead_notes (pat, insn, first, last, orig_first_insn, orig_last_insn)
 		    break;
 		}
 
+	      /* In case reg was not used later, it is dead store.
+	         add REG_UNUSED note.  */
 	      if (! TEST_HARD_REG_BIT (res.regs, REGNO (dest)))
-		abort ();
+	        {
+	          rtx note = rtx_alloc (EXPR_LIST);
+	          PUT_REG_NOTE_KIND (note, REG_UNUSED);
+	          XEXP (note, 0) = dest;
+	          XEXP (note, 1) = REG_NOTES (insn);
+	          REG_NOTES (insn) = note;
+	          return;
+	        }
 	    }
 	}
       if (insn != first)
