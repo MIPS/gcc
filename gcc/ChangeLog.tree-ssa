@@ -1,3 +1,8 @@
+2003-08-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-pretty-print.c (dump_vops): check bb->tree_annotations, not
+	bb->aux.
+	
 2003-08-08  Daniel Berlin  <dberlin@dberlin.org>
     
 	* tree-cfg.c (bsi_insert_on_edge_immediate): If there's only

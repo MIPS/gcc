@@ -1970,7 +1970,7 @@ dump_vops (output_buffer *buffer, tree stmt, int spc)
   varray_type vuses = vuse_ops (stmt);
 
   bb = bb_for_stmt (stmt);
-  if (bb && bb->index != last_bb && bb->aux)
+  if (bb && bb->index != last_bb && bb->tree_annotations)
     {
       tree phi;
 
