@@ -1,7 +1,7 @@
 /* APPLE LOCAL file Radar 3830232 */
-/* { dg-do compile { target *86-*-darwin* } } */
+/* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-O2" } */
-/* { dg-final { scan-assembler-not "jmp\[ \\t\]+_*init_iconv_desc" } } */
+/* { dg-final { scan-assembler-not "\(jmp|b\)\[ \\t\]+_*init_iconv_desc" } } */
 /* Contributed by Andrew Pinski 26 Oct 2004 <pinskia@gcc.gnu.org> */
 
 struct cset_converter { int func; int cd; };
