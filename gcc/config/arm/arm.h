@@ -2191,6 +2191,7 @@ typedef struct
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
+  || GET_CODE (X) == CONSTANT_P_RTX     \
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
