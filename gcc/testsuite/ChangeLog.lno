@@ -1,3 +1,8 @@
+2004-05-06  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-{10, 30-36, 52, 59, 60}.c.ddall: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-36.c: Remove comment.
+
 2004-04-15  Dorit Naishlos <dorit@il.ibm.com>
 
         * gcc.dg/tree-ssa-vect/tree-ssa-vect-26.c: New test.

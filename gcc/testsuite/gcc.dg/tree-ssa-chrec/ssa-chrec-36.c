@@ -23,13 +23,5 @@ int main ()
   return res + foo (c[12][13]);
 }
 
-/* This also exercises the case when, after a PRE, the loop phi node contains:
-   "  #   a_1 = PHI <1(0), T.1_11(1)>;
-   ...
-   T.1_11 = a_1 + 1;". 
-   In fact this creates a cycle:  a -> T.1 -> a.
-   The PRE has screwed up the case...
-   ...I really have to implement the mixers analyzers.  */
-
 /* { dg-final { diff-tree-dumps "ddall" } } */
 
