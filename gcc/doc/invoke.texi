@@ -53,7 +53,7 @@ Note that Apple's GCC includes a number of extensions to standard GCC
 options are available or supported on Darwin / Mac OS X.  In particular,
 Apple does not currently support the compilation of Fortran, Ada, or
 Java, although there are third parties who have made these work.
-@c APPLE LOCAL begin manual
+@c APPLE LOCAL end manual
 
 @c man end
 @c man begin SEEALSO
@@ -172,7 +172,7 @@ in the following sections.
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine -pipe  -pass-exit-codes  @gol
-@c APPLE LOCAL -ObjC 2001-08-03 sts **
+@c APPLE LOCAL -ObjC 2001-08-03 --sts **
 -ObjC (APPLE ONLY) -ObjC++ (APPLE ONLY) @gol
 @c APPLE LOCAL fat builds
 -arch @var{arch} (APPLE ONLY) @gol
@@ -187,24 +187,24 @@ in the following sections.
 -fhosted  -ffreestanding  -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
-@c APPLE LOCAL constant cfstrings mrs
+@c APPLE LOCAL constant cfstrings --mrs
 -fconstant-cfstrings (APPLE ONLY) @gol
-@c APPLE LOCAL pch distcc mrs
+@c APPLE LOCAL pch distcc --mrs
 -fpch-preprocess (APPLE ONLY) @gol
 -fsigned-bitfields  -fsigned-char @gol
-@c APPLE LOCAL Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL Pascal strings 2001-07-05 --zll **
 -fpascal-strings (APPLE ONLY) @gol
-@c APPLE LOCAL coalescing 2002-04-11 tur **
+@c APPLE LOCAL coalescing 2002-04-11 --tur **
 -fcoalesce (APPLE ONLY) -fweak-coalesced (APPLE ONLY) @gol
 @c APPLE LOCAL -Wno-#warnings
 -Wno-#warnings (APPLE ONLY) @gol
-@c APPLE LOCAL -Wextra-tokens 2001-08-02 sts **
+@c APPLE LOCAL -Wextra-tokens 2001-08-02 --sts **
 -Wextra-tokens (APPLE ONLY) @gol
-@c APPLE LOCAL -Wpragma-once 2001-08-01 sts **
+@c APPLE LOCAL -Wpragma-once 2001-08-01 --sts **
 -Wpragma-once (APPLE ONLY) @gol
-@c APPLE LOCAL -Wnewline-eof 2001-08-23 sts **
+@c APPLE LOCAL -Wnewline-eof 2001-08-23 --sts **
 -Wnewline-eof (APPLE ONLY) @gol
-@c APPLE LOCAL -Wno-altivec-long-deprecated ilr **
+@c APPLE LOCAL -Wno-altivec-long-deprecated --ilr **
 -Wno-altivec-long-deprecated (APPLE ONLY)
 -funsigned-bitfields  -funsigned-char}
 
@@ -218,11 +218,11 @@ in the following sections.
 -fno-implicit-templates @gol
 -fno-implicit-inline-templates @gol
 -fno-implement-inlines @gol
-@c APPLE LOCAL -findirect-virtual-calls 2001-10-30 sts **
+@c APPLE LOCAL -findirect-virtual-calls 2001-10-30 --sts **
 -findirect-virtual-calls (APPLE ONLY) @gol
 @c APPLE LOCAL -fapple-kext
 -fapple-kext (APPLE ONLY) @gol
-@c APPLE LOCAL coalescing 2002-04-11 tur **
+@c APPLE LOCAL coalescing 2002-04-11 --tur **
 -fcoalesce-templates (APPLE ONLY) @gol
 -fms-extensions @gol
 -fno-nonansi-builtins  -fno-operator-names @gol
@@ -402,7 +402,7 @@ in the following sections.
 @item Linker Options
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
-@c APPLE LOCAL radar 2466994 - -no-c++filt  ilr
+@c APPLE LOCAL radar 2466994 - -no-c++filt  --ilr
 -no-c++filt (APPLE ONLY)  @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie @gol
 -s  -static  -static-libgcc  -shared  -shared-libgcc  -symbolic @gol
@@ -931,7 +931,7 @@ Turn off any specification of a language, so that subsequent files are
 handled according to their file name suffixes (as they are if @option{-x}
 has not been used at all).
 
-@c APPLE LOCAL begin -ObjC 2001-08-03 sts **
+@c APPLE LOCAL begin -ObjC 2001-08-03 --sts **
 @item -ObjC
 @item -ObjC++
 @opindex ObjC
@@ -939,7 +939,7 @@ has not been used at all).
 These are similar in effect to @option{-x objective-c} and @option{-x
 objective-c++}, but affect only the choice of compiler for files already
 identified as source files. (APPLE ONLY)
-@c APPLE LOCAL end -ObjC 2001-08-03 sts **
+@c APPLE LOCAL end -ObjC 2001-08-03 --sts **
 
 @c APPLE LOCAL begin fat builds
 @item -arch @var{arch}
@@ -1336,11 +1336,11 @@ Allow conditional expressions with mismatched types in the second and
 third arguments.  The value of such an expression is void.  This option
 is not supported for C++.
 
-@c APPLE LOCAL BEGIN pch distcc mrs
+@c APPLE LOCAL BEGIN pch distcc --mrs
 @item -fpch-preprocess
 @opindex fpch-preprocess
 Enable PCH processing even when @option{-E} or @option{-save-temps} is used.
-@c APPLE LOCAL END pch distcc mrs
+@c APPLE LOCAL END pch distcc --mrs
 
 @item -funsigned-char
 @opindex funsigned-char
@@ -1390,16 +1390,16 @@ whenever a special builtin @code{__builtin__CFStringMakeConstantString}
 is called on a literal string.  (APPLE ONLY)
 @c APPLE LOCAL end constant cfstrings
 
-@c APPLE LOCAL begin Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL begin Pascal strings 2001-07-05 --zll **
 @item -fpascal-strings
 Allow Pascal-style string literals to be constructed.  (APPLE ONLY)
 
 @xref{Pascal Strings,,Constructing String Literals with a Pascal-style
 Length Byte}, for more information on the syntax and semantics of Pascal
 string literals.
-@c APPLE LOCAL end Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL end Pascal strings 2001-07-05 --zll **
 
-@c APPLE LOCAL begin coalescing 2002-04-11 turly **
+@c APPLE LOCAL begin coalescing 2002-04-11 --turly **
 @item -fcoalesce
 @opindex fcoalesce
 Coalesce duplicated functions and data. The linker will discard all
@@ -1410,7 +1410,7 @@ but one, saving space.  Enabled by default. (APPLE ONLY)
 Use the new OS X "weak_definitions" section attribute for coalesced items.
 A single "normal" definition will be chosen by the linker over any number
 of weakly-coalesced ones.  (APPLE ONLY)
-@c APPLE LOCAL end coalescing 2002-04-11 turly **
+@c APPLE LOCAL end coalescing 2002-04-11 --turly **
 
 @end table
 
@@ -1543,12 +1543,12 @@ To save space, do not emit out-of-line copies of inline functions
 controlled by @samp{#pragma implementation}.  This will cause linker
 errors if these functions are not inlined everywhere they are called.
 
-@c APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 sts **
+@c APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts **
 @item -findirect-virtual-calls
 @opindex findirect-virtual-calls
 Do not make direct calls to virtual functions; instead, always
 go through the vtable. (APPLE ONLY)
-@c APPLE LOCAL end -findirect-virtual-calls 2001-10-30 sts **
+@c APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts **
 
 @c APPLE LOCAL begin -fapple-kext
 @item -fapple-kext
@@ -1560,12 +1560,12 @@ extension.  @option{-fno-exceptions} and @option{-static} must also be
 used with this flag.  (APPLE ONLY)
 @c APPLE LOCAL end -fapple-kext
 
-@c APPLE LOCAL begin coalescing 2002-04-11 turly **
+@c APPLE LOCAL begin coalescing 2002-04-11 --turly **
 @item -fcoalesce-templates
 @opindex fcoalesce-templates
 Mark instantiated templates as "coalesced": the linker will discard
 all but one, thus saving space. (APPLE ONLY)
-@c APPLE LOCAL end coalescing 2002-04-11 turly **
+@c APPLE LOCAL end coalescing 2002-04-11 --turly **
 
 @item -fms-extensions
 @opindex fms-extensions
@@ -2270,30 +2270,30 @@ Inhibit warning messages about the use of @samp{#import}.
 Inhibit warning messages issued by @samp{#warning}.
 @c APPLE LOCAL end -Wno-#warnings
 
-@c APPLE LOCAL begin -Wpragma-once 2001-08-01 sts **
+@c APPLE LOCAL begin -Wpragma-once 2001-08-01 --sts **
 @item -Wpragma-once
 @opindex Wpragma-once
 Warn about the use of @samp{#pragma once}.  (APPLE ONLY)
-@c APPLE LOCAL end -Wpragma-once 2001-08-01 sts **
+@c APPLE LOCAL end -Wpragma-once 2001-08-01 --sts **
 
-@c APPLE LOCAL begin -Wextra-tokens 2001-08-02 sts **
+@c APPLE LOCAL begin -Wextra-tokens 2001-08-02 --sts **
 @item -Wextra-tokens
 @opindex Wextra-tokens
 Warn about extra tokens at the end of prepreprocessor directives.  (APPLE ONLY)
-@c APPLE LOCAL end -Wextra-tokens 2001-08-02 sts **
+@c APPLE LOCAL end -Wextra-tokens 2001-08-02 --sts **
 
-@c APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts **
+@c APPLE LOCAL begin -Wnewline-eof 2001-08-23 --sts **
 @item -Wnewline-eof
 @opindex Wnewline-eof
 Warn about files missing a newline at the end of the file.  (APPLE ONLY)
-@c APPLE LOCAL end -Wnewline-eof 2001-08-23 sts **
+@c APPLE LOCAL end -Wnewline-eof 2001-08-23 --sts **
 
-@c APPLE LOCAL begin -Wno-altivec-long-deprecated ilr **
+@c APPLE LOCAL begin -Wno-altivec-long-deprecated --ilr **
 @item -Wno-altivec-long-deprecated
 @opindex Wno-altivec-long-deprecated
 Do not warn about the use of the deprecated 'long' keyword in
 AltiVec data types.  (APPLE ONLY)
-@c APPLE LOCAL end -Wno-altivec-long-deprecated ilr **
+@c APPLE LOCAL end -Wno-altivec-long-deprecated --ilr **
 
 @item -Wchar-subscripts
 @opindex Wchar-subscripts
@@ -3243,13 +3243,13 @@ Warn if a symbol repository is found in the search path but can't be
 used.
 @c APPLE LOCAL End Symbol Separation
 
-@c APPLE LOCAL begin -Wlong-double dpatel
+@c APPLE LOCAL begin -Wlong-double --dpatel
 @item -Wlong-double
 @opindex Wlong-double
 Give a warning if the @samp{long double} type is used.  This is useful
 to spot code that changes abi between gcc-3.3 and gcc-3.5, or when
 -mlong-double-64/-mlong-double-128 is used.  (APPLE ONLY)
-@c APPLE LOCAL end -Wlong-double dpatel
+@c APPLE LOCAL end -Wlong-double --dpatel
 
 @item -Wlong-long
 @opindex Wlong-long
@@ -5837,11 +5837,11 @@ BSD environments.  These entries are usually resolved by entries in
 libc.  These entry points should be supplied through some other
 mechanism when this option is specified.
 
-@c APPLE LOCAL begin radar 2466994 - -no-c++filt  ilr
+@c APPLE LOCAL begin radar 2466994 - -no-c++filt  --ilr
 @item -no-c++filt
 By default all linker diagnostic output is piped through c++filt.
 This option suppresses that behavior. (APPLE ONLY)
-@c APPLE LOCAL end radar 2466994 - -no-c++filt  ilr
+@c APPLE LOCAL end radar 2466994 - -no-c++filt  --ilr
 
 @cindex @option{-lgcc}, use with @option{-nostdlib}
 @cindex @option{-nostdlib} and unresolved references

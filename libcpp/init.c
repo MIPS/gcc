@@ -139,14 +139,14 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   pfile = xcalloc (1, sizeof (cpp_reader));
 
   cpp_set_lang (pfile, lang);
-  /* APPLE LOCAL begin -Wextra-tokens 2001-08-01 sts */
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-01 --sts */
   /* Suppress warnings about extra tokens after #endif etc.  */
   CPP_OPTION (pfile, warn_extra_tokens) = 0;
-  /* APPLE LOCAL end -Wextra-tokens 2001-08-01 sts */
-  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-01 --sts */
+  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 --sts */
   /* Suppress warnings about missing newlines at ends of files.  */
   CPP_OPTION (pfile, warn_newline_at_eof) = 0;
-  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 --sts */
   /* APPLE LOCAL begin -Wfour-char-constants  */
   CPP_OPTION (pfile, warn_four_char_constants) = 1;
   /* APPLE LOCAL end -Wfour-char-constants  */
@@ -162,6 +162,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   /* APPLE LOCAL begin -Wextra-tokens */
   /* Suppress warnings about extra tokens after #endif etc.  */
   CPP_OPTION (pfile, warn_endif_labels) = 0;
+  /* APPLE LOCAL end -Wextra-tokens */
   /* APPLE LOCAL suppress useful warnings */
   CPP_OPTION (pfile, warn_deprecated) = 0;
   CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);

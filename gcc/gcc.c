@@ -350,7 +350,7 @@ static const char *eval_spec_function (const char *, const char *);
 static const char *handle_spec_function (const char *);
 static char *save_string (const char *, int);
 static void set_collect_gcc_options (void);
-/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 static const char *check_basename_derived_file (const char *string);
 static void do_spec_path (struct prefix_list *, const char *, int, int, int, const char *, const char *);
 static int do_spec_1 (const char *, int, const char *);
@@ -1042,7 +1042,7 @@ static const struct compiler default_compilers[] =
   {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0, 1, 0},
-  /* APPLE LOCAL preprocess .s files 2001-07-24 sts */
+  /* APPLE LOCAL preprocess .s files 2001-07-24 --sts */
   /* This is kind of lame; the purpose of having .s and .S be treated
      differently is so that we can control whether to run the
      preprocessor on assembly files.  The standard behavior would
@@ -1076,12 +1076,12 @@ static const struct compiler default_compilers[] =
 
 static const int n_default_compilers = ARRAY_SIZE (default_compilers) - 1;
 
-/* APPLE LOCAL begin -ObjC 2001-08-03 sts */
+/* APPLE LOCAL begin -ObjC 2001-08-03 --sts */
 /* -ObjC is not the same as -x objective-c, since it only affects the
    expectation of the language in files already thought to be source
    code.  */
 static char *default_language;
-/* APPLE LOCAL end -ObjC 2001-08-03 sts */
+/* APPLE LOCAL end -ObjC 2001-08-03 --sts */
 /* A vector of options to give to the linker.
    These options are accumulated by %x,
    and substituted into the linker command with %X.  */
@@ -2804,11 +2804,11 @@ execute (void)
 			      X_OK, 0);
 	if (string)
 	  commands[n_commands].argv[0] = string;
-	/* APPLE LOCAL begin radar 2466994 - pass linker output through c++filt  ilr */
+	/* APPLE LOCAL begin radar 2466994 - pass linker output through c++filt  --ilr */
 	else if (strcmp (commands[n_commands].prog, "c++filt3") == 0
 		 && access ("/usr/bin/c++filt3", X_OK) != 0)
 	  continue;
-	/* APPLE LOCAL end radar 2466994 - pass linker output through c++filt  ilr */
+	/* APPLE LOCAL end radar 2466994 - pass linker output through c++filt  --ilr */
 	n_commands++;
       }
 
@@ -4297,7 +4297,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	i++;
       else if (strncmp (argv[i], "-specs=", 7) == 0)
 	;
-      /* APPLE LOCAL begin -ObjC 2001-08-03 sts */
+      /* APPLE LOCAL begin -ObjC 2001-08-03 --sts */
       else if (!strcmp (argv[i], "-ObjC") || !strcmp (argv[i], "-fobjc"))
         {
 	  default_language = "objective-c";
@@ -4308,7 +4308,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  default_language = "objective-c++";
 	  add_linker_option ("-ObjC", 5);
 	}
-      /* APPLE LOCAL end -ObjC 2001-08-03 sts */
+      /* APPLE LOCAL end -ObjC 2001-08-03 --sts */
       else if (strcmp (argv[i], "-time") == 0)
 	;
       else if (strcmp (argv[i], "-###") == 0)
@@ -4555,13 +4555,13 @@ static int delete_this_arg;
    is the output file name of this compilation.  */
 static int this_is_output_file;
 
-/* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+/* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) --ilr */
 /* Nonzero if %b or %B has been seen; the next arg to be terminated
    is a temp file based on the input file's basename.  This has
    the potential to be the same as the input file itself so we
    need to take precautions if it is.  */
 static int this_is_basename_derived_file = 0;
-/* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+/* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 
 /* Nonzero means %s has been seen; the next arg to be terminated
    is the name of a library file and we should try the standard
@@ -4583,7 +4583,7 @@ do_spec (const char *spec)
 {
   int value;
 
-  /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+  /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
   this_is_basename_derived_file = 0;
 
   value = do_spec_2 (spec);
@@ -4604,7 +4604,7 @@ do_spec (const char *spec)
   return value;
 }
 
-/* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+/* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) --ilr */
 /* For %b and %B specs, which create a filename based on the input
    file's basename, there is a possibility that the resulting file
    is the same as the input file.  Assuming that such names are
@@ -4678,7 +4678,7 @@ check_basename_derived_file (string)
   delete_this_arg = 1;
   return t->filename;
 }
-/* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
+/* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 
 static int
 do_spec_2 (const char *spec)
@@ -4933,13 +4933,13 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  {
 	    obstack_1grow (&obstack, 0);
 	    string = obstack_finish (&obstack);
-	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    if (this_is_basename_derived_file)
 	      string = check_basename_derived_file (string);
 	    else if (this_is_library_file)
-	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
@@ -4974,7 +4974,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	arg_going = 0;
 	delete_this_arg = 0;
 	this_is_output_file = 0;
-	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	this_is_basename_derived_file = 0;
 	this_is_library_file = 0;
 	input_from_pipe = 0;
@@ -4986,13 +4986,13 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  {
 	    obstack_1grow (&obstack, 0);
 	    string = obstack_finish (&obstack);
-	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    if (this_is_basename_derived_file)
 	      string = check_basename_derived_file (string);
 	    else if (this_is_library_file)
-	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL radar 2871891 - %b/%B & -save-temps can clobber input file ilr */
+	    /* APPLE LOCAL radar 2871891 - %b/%B & -save-temps can clobber input file --ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
@@ -5011,13 +5011,13 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	  {
 	    obstack_1grow (&obstack, 0);
 	    string = obstack_finish (&obstack);
-	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL begin %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    if (this_is_basename_derived_file)
 	      string = check_basename_derived_file (string);
 	    else if (this_is_library_file)
-	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL end %b/save-temps can clobber input file (radar 2871891) --ilr */
 	      string = find_file (string);
-	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    store_arg (string, delete_this_arg, this_is_output_file 
 	    			                || this_is_basename_derived_file);
 	    if (this_is_output_file)
@@ -5027,7 +5027,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	arg_going = 0;
 	delete_this_arg = 0;
 	this_is_output_file = 0;
-	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	/* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	this_is_basename_derived_file = 0;
 	this_is_library_file = 0;
 	break;
@@ -5039,14 +5039,14 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    fatal ("invalid specification!  Bug in cc");
 
 	  case 'b':
-	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    this_is_basename_derived_file = 1;
 	    obstack_grow (&obstack, input_basename, basename_length);
 	    arg_going = 1;
 	    break;
 
 	  case 'B':
-	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) ilr */
+	    /* APPLE LOCAL %b/save-temps can clobber input file (radar 2871891) --ilr */
 	    obstack_grow (&obstack, input_basename, suffixed_basename_length);
 	    arg_going = 1;
 	    break;
@@ -7192,7 +7192,7 @@ lookup_compiler (const char *name, size_t length, const char *language)
 
   if (cp >= compilers)
     {
-      /* APPLE LOCAL begin -ObjC 2001-08-03 sts */
+      /* APPLE LOCAL begin -ObjC 2001-08-03 --sts */
       /* We found a language, but because we set a default language,
 	 override with the default.  */
       if (default_language)
@@ -7212,7 +7212,7 @@ lookup_compiler (const char *name, size_t length, const char *language)
 #endif
 	  return ncomp;
 	}
-      /* APPLE LOCAL end -ObjC 2001-08-03 sts */
+      /* APPLE LOCAL end -ObjC 2001-08-03 --sts */
       if (cp->spec[0] != '@')
 	/* A non-alias entry: return it.  */
 	return cp;

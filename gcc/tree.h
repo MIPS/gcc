@@ -185,7 +185,7 @@ struct tree_common GTY(())
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
 
-  /* APPLE LOCAL unavailable (Radar 2809697) ilr */
+  /* APPLE LOCAL unavailable (Radar 2809697) --ilr */
   unsigned unavailable_flag : 1;
 };
 
@@ -317,12 +317,12 @@ struct tree_common GTY(())
 	TREE_DEPRECATED in
 	   ..._DECL
 
-   APPLE LOCAL begin unavailable (Radar 2809697) ilr
+   APPLE LOCAL begin unavailable (Radar 2809697) --ilr
    unavailable_flag:
 
 	TREE_UNAVAILABLE in
 	   ..._DECL
-   APPLE LOCAL end unavailable ilr
+   APPLE LOCAL end unavailable --ilr
 
    visited:
 
@@ -883,11 +883,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
 
-/* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+/* APPLE LOCAL begin unavailable (Radar 2809697) --ilr */
 /* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
-/* APPLE LOCAL end unavailable ilr */
+/* APPLE LOCAL end unavailable --ilr */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -2163,12 +2163,12 @@ struct tree_type GTY(())
 /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
 
-/* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+/* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
 /* Used to indicate that this DECL has weak-import linkage.  */
 #define DECL_WEAK_IMPORT(NODE) (DECL_CHECK (NODE)->decl.weak_import_flag)
 /* The same information in IDENTIFIERs.  */
 #define IDENTIFIER_WEAK_IMPORT(NODE) (IDENTIFIER_NODE_CHECK (NODE)->common.unsigned_flag)
-/* APPLE LOCAL end weak_import (Radar 2809704) ilr */
+/* APPLE LOCAL end weak_import (Radar 2809704) --ilr */
 
 /* APPLE LOCAL handling duplicate decls across files */
 #define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
@@ -2330,7 +2330,7 @@ struct tree_decl GTY(())
   unsigned lang_flag_7 : 1;
 
   unsigned needs_to_live_in_memory : 1;
-  /* APPLE LOCAL weak_import (Radar 2809704) ilr */
+  /* APPLE LOCAL weak_import (Radar 2809704) --ilr */
   unsigned weak_import_flag : 1;
   /* APPLE LOCAL duplicate decls in different files */
   unsigned duplicate_decl : 1;
@@ -2932,10 +2932,10 @@ enum attribute_flags
      name indicates known behavior, and should be silently ignored if they
      are not in fact compatible with the function type.  */
   ATTR_FLAG_BUILT_IN = 16
-  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
   /* The attributes are being applied to a function definition.  */
   ,ATTR_FLAG_FUNCTION_DEF = 16
-  /* APPLE LOCAL end weak_import ilr */
+  /* APPLE LOCAL end weak_import --ilr */
 };
 
 /* Default versions of target-overridable functions.  */

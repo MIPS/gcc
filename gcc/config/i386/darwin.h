@@ -121,7 +121,7 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-/* APPLE LOCAL long double default size mrs */
+/* APPLE LOCAL long double default size --mrs */
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_128BIT_LONG_DOUBLE)
 
 /* TARGET_DEEP_BRANCH_PREDICTION is incompatible with Mach-O PIC.  */
@@ -173,7 +173,7 @@ Boston, MA 02111-1307, USA.  */
   fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 
-/* APPLE LOCAL begin Macintosh alignment 2002-2-19 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-2-19 --ff */
 #define MASK_ALIGN_NATURAL	0x40000000
 #define TARGET_ALIGN_NATURAL	(target_flags & MASK_ALIGN_NATURAL)
 #define rs6000_alignment_flags target_flags
@@ -191,7 +191,7 @@ Boston, MA 02111-1307, USA.  */
   {"dynamic-no-pic",    MASK_MACHO_DYNAMIC_NO_PIC,			\
 	N_("Generate code suitable for executables (NOT shared libs)")},\
   {"no-dynamic-no-pic", -MASK_MACHO_DYNAMIC_NO_PIC,  ""},
-/* APPLE LOCAL end Macintosh alignment 2002-2-19 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-2-19 --ff */
 
 /* Darwin profiling -- call mcount.  */
 #undef FUNCTION_PROFILER

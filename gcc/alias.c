@@ -113,7 +113,7 @@ static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
 static int nonoverlapping_memrefs_p (rtx, rtx);
 
-/* APPLE LOCAL */
+/* APPLE LOCAL begin aliasing improvement */
 static int overlapping_memrefs_p (rtx, rtx);
 /* APPLE LOCAL end */
 
@@ -2153,7 +2153,7 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   return sizex >= 0 && offsety >= offsetx + sizex;
 }
 
-/* APPLE LOCAL aliasing improvement */
+/* APPLE LOCAL begin aliasing improvement */
 /* Helper for the following.  Return 1 only if we're sure of overlap. */
 
 static int

@@ -153,7 +153,7 @@ extern unsigned char *_cpp_unaligned_alloc (cpp_reader *, size_t);
 #define BUFF_LIMIT(BUFF) ((BUFF)->limit)
 
 /* #include types.  */
-/* APPLE LOCAL pch distcc mrs */
+/* APPLE LOCAL pch distcc --mrs */
 enum include_type {IT_INCLUDE, IT_INCLUDE_PCH, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
 union utoken

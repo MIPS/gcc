@@ -209,7 +209,7 @@ static void hash_add_attr (hash, tree);
 static tree lookup_method (tree, tree);
 static tree lookup_method_static (tree, tree, int);
 static void add_method_to_hash_list (hash *, tree);
-/* APPLE LOCAL objc speedup dpatel */
+/* APPLE LOCAL objc speedup --dpatel */
 static tree add_class (tree, tree);
 static void add_category (tree, tree);
 static inline tree lookup_category (tree, tree);
@@ -2651,18 +2651,18 @@ lookup_interface (tree ident)
 {
 #if 0
 /* MERGE FAILURE due to c-decl.c change */
-  /* APPLE LOCAL objc speedup dpatel */
+  /* APPLE LOCAL objc speedup --dpatel */
   tree chain ATTRIBUTE_UNUSED;
 
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == TYPE_DECL)
     ident = DECL_NAME (ident);
 #endif
-  /* APPLE LOCAL begin objc speedup dpatel */
+  /* APPLE LOCAL begin objc speedup --dpatel */
   return (ident && TREE_CODE (ident) == IDENTIFIER_NODE
           ? IDENTIFIER_INTERFACE_VALUE (ident)
           : NULL_TREE);
-  /* APPLE LOCAL end objc speedup dpatel */
+  /* APPLE LOCAL end objc speedup --dpatel */
 #endif
 
   tree chain;
@@ -6419,7 +6419,7 @@ objc_add_method (tree class, tree method, int is_class)
   return method;
 }
 
-/* APPLE LOCAL begin objc speedup dpatel */
+/* APPLE LOCAL begin objc speedup --dpatel */
 /* New parameter, name */
 static tree
 add_class (tree class, tree name ATTRIBUTE_UNUSED)
@@ -6427,7 +6427,7 @@ add_class (tree class, tree name ATTRIBUTE_UNUSED)
 
 #if 0
   /* MERGE FAILURE! due to change to c-decl.c */
-  /* APPLE LOCAL end objc speedup dpatel */
+  /* APPLE LOCAL end objc speedup --dpatel */
   IDENTIFIER_INTERFACE_VALUE (name) = class;
 #endif
 
@@ -6901,7 +6901,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
         {
 	  warning ("cannot find interface declaration for `%s'",
 		   IDENTIFIER_POINTER (class_name));
-	  /* APPLE LOCAL objc speedup dpatel */
+	  /* APPLE LOCAL objc speedup --dpatel */
 	  /* Add second parameter class_name */
 	  add_class (implementation_template = objc_implementation_context, class_name);
         }
@@ -6937,7 +6937,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 #endif	
         IDENTIFIER_POINTER (class_name));
 	else
-	/* APPLE LOCAL objc speedup dpatel */
+	/* APPLE LOCAL objc speedup --dpatel */
 	/* Add second parameter, class_name */
           add_class (class, class_name);
 

@@ -440,7 +440,7 @@ static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 				    int *, int);
 /* APPLE LOCAL begin Altivec */
 static bool skip_vec_args (tree, int, int*);
-/* APPLE LOCAL begin Altivec */
+/* APPLE LOCAL end Altivec */
 #if TARGET_MACHO
 static void macho_branch_islands (void);
 static void add_compiler_branch_island (tree, tree, int);
@@ -1277,10 +1277,10 @@ rs6000_parse_alignment_option (void)
 {
   if (rs6000_alignment_string == 0)
     return;
-/* APPLE LOCAL begin Macintosh alignment 2002-2-26 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
   else if (! strcmp (rs6000_alignment_string, "mac68k"))
     rs6000_alignment_flags = MASK_ALIGN_MAC68K;
-/* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
   else if (! strcmp (rs6000_alignment_string, "power"))
     rs6000_alignment_flags = MASK_ALIGN_POWER;
   else if (! strcmp (rs6000_alignment_string, "natural"))
@@ -12728,7 +12728,7 @@ rs6000_emit_prologue (void)
   /* APPLE LOCAL special ObjC method use of R12 */
   objc_method_using_pic = 0;
   
-  /* APPLE LOCAL BEGIN fix-and-continue mrs  */
+  /* APPLE LOCAL BEGIN fix-and-continue --mrs  */
   if (TARGET_FIX_AND_CONTINUE)
     {
       emit_insn (gen_nop ());
@@ -12736,7 +12736,7 @@ rs6000_emit_prologue (void)
       emit_insn (gen_nop ());
       emit_insn (gen_nop ());
     }
-  /* APPLE LOCAL END fix-and-continue mrs  */
+  /* APPLE LOCAL END fix-and-continue --mrs  */
 
    if (TARGET_SPE_ABI && info->spe_64bit_regs_used != 0)
      {
@@ -13240,6 +13240,7 @@ rs6000_emit_prologue (void)
       /* APPLE LOCAL end */
     }
 #endif
+    /* APPLE LOCAL end Reduce code size / improve performance */
 }
 
 /* Write function prologue.  */
@@ -16589,7 +16590,7 @@ toc_section (void)
 
 #endif /* TARGET_MACHO */
 
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 /* Return the alignment of a struct based on the Macintosh PowerPC
    alignment rules.  In general the alignment of a struct is
    determined by the greatest alignment of its elements.  However, the
@@ -16710,7 +16711,7 @@ round_type_align (tree the_struct, unsigned computed, unsigned specified)
 
   return (MAX (computed, specified));
 }
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 #if TARGET_ELF
 static unsigned int

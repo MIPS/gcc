@@ -561,11 +561,11 @@ fpack-struct
 Common
 Pack structure members together without holes
 
-; APPLE LOCAL begin Pascal strings 2001-07-05 zll
+; APPLE LOCAL begin Pascal strings 2001-07-05 --zll
 fpascal-strings
 Common
 Allow Pascal-style string literals
-; APPLE LOCAL end Pascal strings 2001-07-05 zll
+; APPLE LOCAL end Pascal strings 2001-07-05 --zll
 
 fpcc-struct-return
 Common
@@ -591,11 +591,11 @@ fpie
 Common
 Generate position-independent code for executables if possible
 
-; APPLE LOCAL begin -ffppc 2001-08-01 sts
+; APPLE LOCAL begin -ffppc 2001-08-01 --sts
 fppc
 Common
 Perform floating-point precision-control pass
-; APPLE LOCAL end -ffppc 2001-08-01 sts
+; APPLE LOCAL end -ffppc 2001-08-01 --sts
 
 fprefetch-loop-arrays
 Common

@@ -497,15 +497,15 @@ c_register_pragma (const char *space, const char *name,
 void
 init_pragma (void)
 {
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 #if 0
 /* We disable the handling of pragma pack here because it is handled
    in config/darwin-c.c.  */
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 #ifdef HANDLE_PRAGMA_PACK
   c_register_pragma (0, "pack", handle_pragma_pack);
 #endif
-/* APPLE LOCAL Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL Macintosh alignment 2002-1-22 --ff */
 #endif /* 0 */
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);

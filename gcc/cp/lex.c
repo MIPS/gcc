@@ -397,7 +397,7 @@ init_reswords (void)
 	C_IS_RESERVED_WORD (id) = 1;
     }
     
-  /* APPLE LOCAL begin private extern  Radar 2872481 ilr */
+  /* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
   /* For C++ there is always a -D__private_extern__=extern on the
      command line.  However, if -fpreprocessed was specified then
      macros are not expanded so the -D is meaningless.  But this
@@ -414,7 +414,7 @@ init_reswords (void)
       id = get_identifier ("__private_extern__");
       C_RID_CODE (id) = RID_EXTERN;
     }
-  /* APPLE LOCAL end private extern  Radar 2872481 ilr */
+  /* APPLE LOCAL end private extern  Radar 2872481 --ilr */
 }
 
 static void

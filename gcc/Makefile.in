@@ -512,13 +512,13 @@ INSTALL_LIBGCC = install-libgcc
 # Options to use when compiling libgcc2.a.
 #
 LIBGCC2_DEBUG_CFLAGS = -g
-# APPLE LOCAL control opt level.  ilr
+# APPLE LOCAL control opt level.  --ilr
 LIBGCC2_CFLAGS = $(LIBGCC2_OPT) $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
 LIBGCC2_INCLUDES =
-# APPLE LOCAL control opt level.  ilr
+# APPLE LOCAL control opt level.  --ilr
 LIBGCC2_OPT = -O2
 
 # Additional target-dependent options for compiling libgcc2.a.
@@ -633,7 +633,7 @@ UNPROTOIZE_INSTALL_NAME := $(shell echo unprotoize|sed '$(program_transform_name
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
 GCCBUG_INSTALL_NAME := $(shell echo gccbug|sed '$(program_transform_name)')
 
-# APPLE LOCAL begin order files  ilr
+# APPLE LOCAL begin order files  --ilr
 # When configure --enable-build_gcc is specified then we know that the
 # makefile was created as a result of using build_gcc.  For such builds
 # we want to use the order files in the order-files directory.  The
@@ -649,7 +649,7 @@ CC1_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1.order ]; then \
 else
 CC1_ORDER_FLAGS =
 endif
-# APPLE LOCAL end order files  ilr
+# APPLE LOCAL end order files  --ilr
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
@@ -1195,7 +1195,7 @@ $(SPECS): xgcc$(exeext)
 gcc-cross: xgcc$(exeext)
 	cp xgcc$(exeext) gcc-cross$(exeext)
 
-# APPLE LOCAL order files  ilr
+# APPLE LOCAL order files  --ilr
 cc1$(exeext): $(C_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o cc1$(exeext) \
 		$(C_OBJS) $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
@@ -2986,7 +2986,7 @@ TEXI_CPPINT_FILES = cppinternals.texi
 # patterns.  To use them, put each of the specific targets with its
 # specific dependencies but no build commands.
 
-# APPLE LOCAL begin html mrs
+# APPLE LOCAL begin html --mrs
 htmldir = doc/HTML/gcc-$(version)
 .PHONY: html
 doc: html
@@ -3016,7 +3016,7 @@ $(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
 	$(SHELL) ${srcdir}/mkinstalldirs $(htmldir)/cppinternals
 	$(MAKEINFO) --html -I $(docdir) -I $(docdir)/include \
 	  -o $(htmldir)/cppinternals $(docdir)/cppinternals.texi
-# APPLE LOCAL end html mrs
+# APPLE LOCAL end html --mrs
 
 doc/cpp.info: $(TEXI_CPP_FILES)
 doc/gcc.info: $(TEXI_GCC_FILES)

@@ -551,21 +551,21 @@ digest_init (tree type, tree init, tree* tail)
 
 	  if ((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != char_type_node)
-	      /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+	      /* APPLE LOCAL begin Pascal strings 2001-07-05 --zll */
 	      && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       != unsigned_char_type_node) 
-	      /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
+	      /* APPLE LOCAL end Pascal strings 2001-07-05 --zll */
 	      && TYPE_PRECISION (typ1) == BITS_PER_UNIT)
 	    {
 	      error ("char-array initialized from wide string");
 	      return error_mark_node;
 	    }
-          /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+          /* APPLE LOCAL begin Pascal strings 2001-07-05 --zll */
 	  if (((TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == char_type_node)
 	      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string)))
 	       == unsigned_char_type_node))	       
-	      /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
+	      /* APPLE LOCAL end Pascal strings 2001-07-05 --zll */
 	      && TYPE_PRECISION (typ1) != BITS_PER_UNIT)
 	    {
 	      error ("int-array initialized from non-wide string");

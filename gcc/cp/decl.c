@@ -2853,7 +2853,7 @@ initialize_predefined_identifiers (void)
       if (pid->ctor_or_dtor_p)
 	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
     }
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
   if (flag_apple_kext)
     {
       /* This is snarfed from the 2.95 cp-tree.h.  The mechanism is
@@ -2891,7 +2891,7 @@ initialize_predefined_identifiers (void)
       index_identifier = get_identifier ("__index");
       pfn_or_delta2_identifier = get_identifier ("__pfn_or_delta2");
     }
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
 }
 
 /* Create the predefined scalar types of C,
@@ -2981,11 +2981,11 @@ cxx_init_decl_processing (void)
   record_builtin_type (RID_MAX, NULL, string_type_node);
 #endif
 
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
   if (flag_apple_kext)
     delta_type_node = short_integer_type_node;
   else
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
   delta_type_node = ptrdiff_type_node;
   vtable_index_type = ptrdiff_type_node;
 
@@ -4649,7 +4649,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
      isn't stored in the tree, yet)  */
   if (defer_p && asmspec)
     make_decl_rtl (decl, asmspec);
-  /* APPLE LOCAL begin static const members  turly 20020110  */
+  /* APPLE LOCAL begin static const members  20020110 --turly  */
   /* Static const members which require runtime initialisation should
      not be placed in readonly memory.  Avoid this by temporarily
      whacking the TREE_READONLY bit.  */
@@ -4659,7 +4659,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
       rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
       TREE_READONLY (decl) = 1;
     }
-  /* APPLE LOCAL end static const members  turly 20020110  */
+  /* APPLE LOCAL end static const members  20020110 --turly  */
   /* If we're not deferring, go ahead and assemble the variable.  */
   else if (!defer_p)
     rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
@@ -5985,7 +5985,7 @@ build_ptrmemfunc_type (tree type)
     unqualified_variant
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
-  /* APPLE LOCAL begin 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
   if (flag_apple_kext)
     {
       abort ();
@@ -6016,7 +6016,7 @@ build_ptrmemfunc_type (tree type)
     }
   else
     {
-  /* APPLE LOCAL end 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL end 2.95-ptmf-compatibility  20020313 --turly  */
 
   t = make_aggr_type (RECORD_TYPE);
   /* Let the front-end know this is a pointer to member function...  */
@@ -6024,7 +6024,7 @@ build_ptrmemfunc_type (tree type)
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
 
-  /* APPLE LOCAL 2.95-ptmf-compatibility  turly 20020313  */
+  /* APPLE LOCAL 2.95-ptmf-compatibility  20020313 --turly  */
     }
 
   field = build_decl (FIELD_DECL, pfn_identifier, type);
@@ -7023,7 +7023,7 @@ grokdeclarator (tree declarator,
       RIDBIT_RESET (RID_LONG, specbits);
       type = build_qualified_type (long_double_type_node,
 				   cp_type_quals (type));
-      /* APPLE LOCAL -Wlong-double dpatel */
+      /* APPLE LOCAL -Wlong-double --dpatel */
       warn_about_long_double ();
     }
 
@@ -10493,7 +10493,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   begin_scope (sk_function_parms, decl1);
 
-  /* APPLE LOCAL weak_import (Radar 2809704) ilr */
+  /* APPLE LOCAL weak_import (Radar 2809704) --ilr */
   cplus_decl_attributes (&decl1, attrs, (int)ATTR_FLAG_FUNCTION_DEF);
 
   ++function_depth;
@@ -11193,7 +11193,7 @@ cxx_maybe_build_cleanup (tree decl)
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
       tree rval;
-      /* APPLE LOCAL  begin double destructor  turly 20020214  */
+      /* APPLE LOCAL  begin double destructor  20020214 --turly  */
       special_function_kind dtor = sfk_complete_destructor;
       if (flag_apple_kext
 	  && has_apple_kext_compatibility_attr_p (type))
@@ -11211,7 +11211,7 @@ cxx_maybe_build_cleanup (tree decl)
 	    }
 	  dtor = sfk_deleting_destructor;
 	}
-      /* APPLE LOCAL  end double destructor  turly 20020214  */
+      /* APPLE LOCAL  end double destructor  20020214 --turly  */
  
 
       if (TREE_CODE (type) == ARRAY_TYPE)

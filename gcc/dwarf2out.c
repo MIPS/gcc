@@ -1592,7 +1592,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case PLUS:
 	case MINUS:
 	case LO_SUM:
-	  /* APPLE LOCAL  begin 'reg + index' reg case.  */
+	  /* APPLE LOCAL  begin 'reg + index' case.  */
 	  /* MERGE fixme 3537126 */
 	  offset = 0x696b6c6c;
 	  if (GET_CODE (XEXP (XEXP (dest, 0), 1)) == CONST_INT)

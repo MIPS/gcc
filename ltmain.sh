@@ -495,7 +495,7 @@ if test -z "$show_help"; then
     # Only attempt this if the compiler in the base compile
     # command doesn't match the default compiler.
     if test -n "$available_tags" && test -z "$tagname"; then
-      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 sts
+      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 --sts
       # Since CC may have args with shell metachars in them, add
       # doublequotes to args so it looks the same as $base_compile.
       qCC=
@@ -515,13 +515,13 @@ if test -z "$show_help"; then
 	  qCC="$qCC $argu"
         fi
       done
-      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 --sts 
       case $base_compile in
-      # APPLE LOCAL handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
       "$qCC "*) ;;
       # Blanks in the command may have been stripped by the calling shell,
       # but not from the CC environment variable when ltconfig was run.
-      # APPLE LOCAL handle ~ in pathnames 2002-01-14 sts 
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
       "`$echo $qCC` "*) ;;
       *)
         for z in $available_tags; do
@@ -4936,7 +4936,7 @@ relink_command=\"$relink_command\""
 
       # Do each command in the postinstall commands.
       eval cmds=\"$old_postinstall_cmds\"
-      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 sts
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
       IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='@'
       for cmd in $cmds; do
 	IFS="$save_ifs"

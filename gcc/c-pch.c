@@ -35,10 +35,10 @@ Boston, MA 02111-1307, USA.  */
 #include "hosthooks.h"
 #include "target.h"
 
-/* APPLE LOCAL BEGIN pch distcc mrs */
+/* APPLE LOCAL BEGIN pch distcc --mrs */
 #include "flags.h"
 #include "../libcpp/internal.h"
-/* APPLE LOCAL END pch distcc mrs */
+/* APPLE LOCAL END pch distcc --mrs */
 
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must
@@ -401,7 +401,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   unsigned long written;
   struct save_macro_data *smd;
   
-  /* APPLE LOCAL BEGIN pch distcc mrs */
+  /* APPLE LOCAL BEGIN pch distcc --mrs */
 #if 0
   /* MERGE FIXME: There is no 'print', and no 'outf'.  */
   if (flag_pch_preprocess
@@ -417,7 +417,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
        one here to match.  */
     /* MERGE FIXME: And there's no 'lineno'.  */
     (*debug_hooks->start_source_file) (lineno, orig_name);
-  /* APPLE LOCAL END pch distcc mrs */
+  /* APPLE LOCAL END pch distcc --mrs */
 #endif
   
   f = fdopen (fd, "rb");
@@ -441,13 +441,13 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
       long size = h.asm_size - written;
       if (size > 16384)
 	size = 16384;
-      /* APPLE LOCAL BEGIN pch distcc mrs */
+      /* APPLE LOCAL BEGIN pch distcc --mrs */
       if (fread (buf, size, 1, f) != 1)
 	cpp_errno (pfile, CPP_DL_ERROR, "reading");	
       else if (!flag_preprocess_only
 	       && fwrite (buf, size, 1, asm_out_file) != 1)
 	cpp_errno (pfile, CPP_DL_ERROR, "writing");
-      /* APPLE LOCAL END pch distcc mrs */
+      /* APPLE LOCAL END pch distcc --mrs */
       written += size;
     }
   free (buf);

@@ -1809,7 +1809,7 @@ import_export_tinfo (tree decl, tree type, bool is_in_library)
 	 the class, so go ahead and emit it now.  This can happen when
 	 a class is used in exception handling.  */
       && flag_rtti
-      /* APPLE LOCAL Jaguar C++ abi compat mrs */
+      /* APPLE LOCAL Jaguar C++ abi compat --mrs */
       && abi_version_at_least (1))
     {
       DECL_NOT_REALLY_EXTERN (decl) = !CLASSTYPE_INTERFACE_ONLY (type);
@@ -2894,7 +2894,7 @@ finish_file (void)
 	  import_export_decl (decl);
 	  if (DECL_NOT_REALLY_EXTERN (decl) && ! DECL_IN_AGGR_P (decl))
 	    DECL_EXTERNAL (decl) = 0;
-	  /* APPLE LOCAL begin  write used class statics  turly 20020226  */
+	  /* APPLE LOCAL begin  write used class statics  20020226 --turly  */
 #ifdef MACHOPIC_VAR_REFERRED_TO_P
 	  else
 	  if (TREE_USED (decl) && DECL_INITIAL (decl) != 0
@@ -2909,7 +2909,7 @@ finish_file (void)
 	      TREE_PUBLIC (decl) = 0;
 	    }
 #endif
-	  /* APPLE LOCAL end  write used class statics  turly 20020226  */
+	  /* APPLE LOCAL end  write used class statics  20020226 --turly  */
 	}
       if (pending_statics
 	  && wrapup_global_declarations (&VARRAY_TREE (pending_statics, 0),

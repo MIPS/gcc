@@ -660,7 +660,7 @@ Enable optional diagnostics
 fpch-deps
 C ObjC C++ ObjC++
 
-; APPLE LOCAL pch distcc mrs
+; APPLE LOCAL pch distcc --mrs
 fpch-preprocess
 C ObjC C++ ObjC++
 Enable PCH processing even when -E or -save-temps is used

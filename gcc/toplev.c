@@ -108,7 +108,7 @@ static void init_asm_output (const char *);
 static void finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
-/* APPLE LOCAL interrupt signal handler (radar 2941633)  ilr */
+/* APPLE LOCAL interrupt signal handler (radar 2941633)  --ilr */
 static void interrupt_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static void compile_file (void);
@@ -141,10 +141,8 @@ static const char **save_argv;
 
 const char *main_input_filename;
 
-/* APPLE LOCAL fat builds */
-/* for radar 2865464  ilr */
+/* APPLE LOCAL fat builds (radar #2865464) --ilr */
 static int arch_specified = 0;
-/* APPLE LOCAL end fat builds */
 
 /* Used to enable -fvar-tracking, -fweb and -frename-registers according
    to optimize and default_debug_hooks in process_options ().  */
@@ -345,11 +343,11 @@ int flag_fastcp = 0;
 
 int flag_caller_saves = 0;
 
-/* APPLE LOCAL begin -ffppc 2001-08-01 sts */
+/* APPLE LOCAL begin -ffppc 2001-08-01 --sts */
 /* Nonzero if the floating point precision control pass should
    be performed. (x86 only really, but we pretend it's generic)  */
 int flag_fppc = 0;
-/* APPLE LOCAL end -ffppc 2001-08-01 sts */
+/* APPLE LOCAL end -ffppc 2001-08-01 --sts */
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -910,11 +908,11 @@ int flag_loop_transpose = 0;
 
 int flag_unit_at_a_time = 0;
 
-/* APPLE LOCAL BEGIN pch distcc mrs */
+/* APPLE LOCAL BEGIN pch distcc --mrs */
 /* True if PCH should omit from the -E output all lines from PCH files
    found in PCH files.  */
 int flag_pch_preprocess = 0;
-/* APPLE LOCAL END pch distcc mrs */
+/* APPLE LOCAL END pch distcc --mrs */
 
 /* APPLE LOCAL begin predictive compilation */
 int predictive_compilation = -1;
@@ -1126,7 +1124,7 @@ static const lang_independent_options f_options[] =
   {"mem-report", &mem_report, 1 },
   { "trapv", &flag_trapv, 1 },
   { "wrapv", &flag_wrapv, 1 },
-  /* APPLE LOCAL -ffppc 2001-08-01 sts */
+  /* APPLE LOCAL -ffppc 2001-08-01 --sts */
   { "fppc", &flag_fppc, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
   { "var-tracking", &flag_var_tracking, 1},
@@ -1344,7 +1342,7 @@ floor_log2_wide (unsigned HOST_WIDE_INT x)
   return log;
 }
 
-/* APPLE LOCAL begin interrupt signal handler (radar 2941633)  ilr */
+/* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
 /* If the compilation is interrupted do some cleanup. Any files created
    by the compilation are deleted.  The compilation is terminated from
    here.  */
@@ -1691,7 +1689,7 @@ warn_deprecated_use (tree node)
     }
 }
 
-/* APPLE LOCAL begin unavailable ilr */
+/* APPLE LOCAL begin unavailable --ilr */
 /* Warn about a use of an identifier which was marked deprecated.  */
 void
 warn_unavailable_use (tree node)
@@ -1729,7 +1727,7 @@ warn_unavailable_use (tree node)
 	warning ("type is unavailable");
     }
 }
-/* APPLE LOCAL end unavailable ilr */
+/* APPLE LOCAL end unavailable --ilr */
 
 /* Save the current INPUT_LOCATION on the top entry in the
    INPUT_FILE_STACK.  Push a new entry for FILE and LINE, and set the
@@ -2403,7 +2401,7 @@ general_init (const char *argv0)
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
 #endif
-  /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  ilr */
+  /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  --ilr */
   /* Handle compilation interrupts.  */
   if (signal (SIGINT, SIG_IGN) != SIG_IGN)
     signal (SIGINT, interrupt_signal);

@@ -69,14 +69,14 @@ g++-cross$(exeext): g++$(exeext)
 	-rm -f g++-cross$(exeext)
 	cp g++$(exeext) g++-cross$(exeext)
 
-# APPLE LOCAL begin order files  ilr
+# APPLE LOCAL begin order files  --ilr
 ifeq ($(ORDER_FILES),yes)
 CC1PLUS_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1plus.order ]; then \
 		         echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1plus.order -e start ; fi`
 else
 CC1PLUS_ORDER_FLAGS =
 endif
-# APPLE LOCAL end order files  ilr
+# APPLE LOCAL end order files  --ilr
 
 # The compiler itself.
 # Shared with C front end:
@@ -103,7 +103,7 @@ CXX_OBJS = $(CXX_AND_OBJCP_OBJS) cp/cp-lang.o cp/cp-idebug.o \
 # Use strict warnings for this front end.
 cp-warn = $(STRICT_WARN) $(WERROR)
 
-# APPLE LOCAL order files  ilr
+# APPLE LOCAL order files  --ilr
 cc1plus$(exeext): $(CXX_OBJS) $(CXX_C_OBJS) $(BACKEND) \
 		  ../libcpp/libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \

@@ -442,7 +442,7 @@ handle_option (const char **argv, unsigned int lang_mask)
   return result;
 }
 
-/* APPLE LOCAL radar 2866081: Env. variable override  ilr */
+/* APPLE LOCAL radar 2866081: Env. variable override  --ilr */
 static int add_env_options PARAMS ((unsigned int *, const char ***));
 static int override_option PARAMS ((int, int, const char **));
 
@@ -454,14 +454,14 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 {
   unsigned int n, i;
 
-  /* APPLE LOCAL radar 2866081: Env. variable override  ilr */
+  /* APPLE LOCAL radar 2866081: Env. variable override  --ilr */
   do {
   
   for (i = 1; i < argc; i += n)
     {
       const char *opt = argv[i];
 
-      /* APPLE LOCAL begin radar 2866081: Env. variable override  ilr */
+      /* APPLE LOCAL begin radar 2866081: Env. variable override  --ilr */
       if (!override_option (i, argc, argv))
         {
           ++i;
@@ -469,7 +469,7 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 	  n = 0;
       	  continue;
         }
-      /* APPLE LOCAL end radar 2866081: Env. variable override  ilr */
+      /* APPLE LOCAL end radar 2866081: Env. variable override  --ilr */
 
       /* Interpret "-" or a non-switch as a file name.  */
       if (opt[0] != '-' || opt[1] == '\0')
@@ -490,11 +490,11 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 	}
     }
 
-  /* APPLE LOCAL radar 2866081: Env. variable override  ilr */
+  /* APPLE LOCAL radar 2866081: Env. variable override  --ilr */
   } while (add_env_options (&argc, &argv));
 }
 
-/* APPLE LOCAL begin radar 2866081: Env. variable override  ilr */
+/* APPLE LOCAL begin radar 2866081: Env. variable override  --ilr */
 /*--------------------------------------------------------------------*/
 
 /* The QA_OVERRIDE_GCC3_OPTIONS environment variable, if it exists,
@@ -999,7 +999,7 @@ add_env_options (unsigned int *argc, const char ***argv)
 
   return 0;
 }
-/* APPLE LOCAL end radar 2866081: Env. variable override  ilr */
+/* APPLE LOCAL end radar 2866081: Env. variable override  --ilr */
 
 /* Handle FILENAME from the command line.  */
 void
@@ -1064,7 +1064,7 @@ decode_options (unsigned int argc, const char **argv)
           else if (!strcmp(p, "astcp"))
             flag_fastcp = 1;
         }
-        /* APPLE LOCAL end -fast or -fastf */
+        /* APPLE LOCAL end -fast or -fastf or -fastcp */
     }
 
     /* APPLE LOCAL begin -fast or -fastf or -fastcp */
@@ -1079,7 +1079,7 @@ decode_options (unsigned int argc, const char **argv)
     }
     /* APPLE LOCAL end -fast or -fastf or -fastcp */
 
-  /* APPLE LOCAL radar 2866081: Env. variable -O override  ilr */
+  /* APPLE LOCAL radar 2866081: Env. variable -O override  --ilr */
   override_O_option ();
 
   if (!optimize)
@@ -2385,12 +2385,12 @@ static void
 set_debug_level (enum debug_info_type type, int extended, const char *arg)
 {
   static bool type_explicit;
-/* APPLE LOCAL gdb only used symbols ilr */
+/* APPLE LOCAL gdb only used symbols --ilr */
   int g_all_len = 0;
 
   use_gnu_debug_info_extensions = extended;
 
-/* APPLE LOCAL begin gdb only used symbols ilr */
+/* APPLE LOCAL begin gdb only used symbols --ilr */
 #ifdef DBX_ONLY_USED_SYMBOLS
   if (strncmp (arg, "full", 4) == 0 || strncmp (arg, "-full", 5) == 0)
     {
@@ -2411,7 +2411,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
       arg += g_all_len;
     }
 #endif
-/* APPLE LOCAL end gdb only used symbols ilr */
+/* APPLE LOCAL end gdb only used symbols --ilr */
 
 /* APPLE LOCAL begin Symbol Separation */
   if (strncmp (arg, "repository", 10) == 0 || strncmp (arg, "-repository", 11) == 0)

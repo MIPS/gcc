@@ -49,14 +49,14 @@ OBJECTIVE-C++ objective-c++: cc1objplus$(exeext)
 # not the C++ files, which have been compiled elsewhere).
 objc++-warn = $(STRICT_WARN)
 
-# APPLE LOCAL begin order files  ilr
+# APPLE LOCAL begin order files  --ilr
 ifeq ($(ORDER_FILES),yes)
 CC1OBJPLUS_ORDER_FLAGS = `if [ -f $(srcdir)/../order-files/cc1objplus.order ]; then \
 		           echo -sectorder __TEXT __text $(srcdir)/../order-files/cc1objplus.order -e start ; fi`
 else
 CC1OBJPLUS_ORDER_FLAGS =
 endif
-# APPLE LOCAL end order files  ilr
+# APPLE LOCAL end order files  --ilr
 
 # Language-specific object files for Objective C++.
 # APPLE LOCAL new tree dump
@@ -66,7 +66,7 @@ OBJCP_OBJS = $(CXX_AND_OBJCP_OBJS) $(CXX_C_OBJS) objcp/objcp-lang.o \
   objcp/objcp-parse.o objcp/objcp-decl.o objcp/objcp-act.o \
   objcp/objcp-idebug.o objcp/objcp-dmp-tree.o
 
-# APPLE LOCAL order files  ilr
+# APPLE LOCAL order files  --ilr
 cc1objplus$(exeext): $(OBJCP_OBJS) $(BACKEND) libcpp.a $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(OBJCP_OBJS) $(BACKEND) libcpp.a $(LIBS) \
 	$(CC1OBJPLUS_ORDER_FLAGS)

@@ -207,13 +207,13 @@ machopic_ident_defined_p (tree ident)
 static int
 machopic_data_defined_p (const char *name)
 {
-  /* APPLE LOCAL BEGIN fix-and-continue mrs  */
+  /* APPLE LOCAL BEGIN fix-and-continue --mrs  */
 #ifndef TARGET_INDIRECT_ALL_DATA
 #define TARGET_INDIRECT_ALL_DATA 0  
 #endif
   if (TARGET_INDIRECT_ALL_DATA)
     return 0;
-  /* APPLE LOCAL END fix-and-continue mrs  */
+  /* APPLE LOCAL END fix-and-continue --mrs  */
 
   switch (machopic_classify_ident (get_identifier (name)))
     {
@@ -1044,7 +1044,7 @@ machopic_finish (FILE *asm_out_file)
       if (! TREE_USED (temp))
 	continue;
 
-      /* APPLE LOCAL fix-and-continue mrs  */
+      /* APPLE LOCAL fix-and-continue --mrs  */
       if (! TARGET_INDIRECT_ALL_DATA
 	  && (machopic_ident_defined_p (TREE_VALUE (temp))
 	      /* APPLE LOCAL private extern */
@@ -1059,7 +1059,7 @@ machopic_finish (FILE *asm_out_file)
 	}
       else
 	{
-	  /* APPLE LOCAL fix-and-continue mrs  */
+	  /* APPLE LOCAL fix-and-continue --mrs  */
 	  rtx init = const0_rtx;
 
 	  /* APPLE LOCAL weak import */
@@ -1078,14 +1078,14 @@ machopic_finish (FILE *asm_out_file)
 	  assemble_name (asm_out_file, sym_name);
 	  fprintf (asm_out_file, "\n");
 
-	  /* APPLE LOCAL BEGIN fix-and-continue mrs  */
+	  /* APPLE LOCAL BEGIN fix-and-continue --mrs  */
 	  if (sym_name[3] == 's'
 	      && machopic_ident_defined_p (TREE_VALUE (temp)))
 	    init = gen_rtx_SYMBOL_REF (Pmode, sym_name);
 
 	  assemble_integer (init, GET_MODE_SIZE (Pmode),
 			    GET_MODE_ALIGNMENT (Pmode), 1);
-	  /* APPLE LOCAL END fix-and-continue mrs  */
+	  /* APPLE LOCAL END fix-and-continue --mrs  */
 	}
     }
 }
@@ -1195,11 +1195,11 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
       if (DECL_VISIBILITY (decl) == VISIBILITY_HIDDEN)
 	new_str[2] = 'p';
       new_str[3] = '_';
-      /* APPLE LOCAL BEGIN fix-and-continue mrs  */
+      /* APPLE LOCAL BEGIN fix-and-continue --mrs  */
       if (TARGET_INDIRECT_ALL_DATA
 	  && TREE_CODE (decl) == VAR_DECL && ! TREE_PUBLIC (decl))
 	new_str[3] = 's';
-      /* APPLE LOCAL END fix-and-continue mrs  */
+      /* APPLE LOCAL END fix-and-continue --mrs  */
       memcpy (new_str + 4, orig_str, len);
       XSTR (sym_ref, 0) = ggc_alloc_string (new_str, new_len);
     }
@@ -1517,7 +1517,7 @@ abort_assembly_and_exit (int status)
 }
 /* APPLE LOCAL end assembly "abort" directive  */
 
-/* APPLE LOCAL begin double destructor turly 20020214  */
+/* APPLE LOCAL begin double destructor 20020214 --turly  */
 #include "c-common.h"
 
 /* Handle __attribute__ ((apple_kext_compatibility)).
@@ -1552,9 +1552,9 @@ darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 
   return NULL_TREE;
 }
-/* APPLE LOCAL end  double destructor turly 20020214  */
+/* APPLE LOCAL end  double destructor 20020214 --turly  */
 
-/* APPLE LOCAL begin darwin_set_section_for_var_p  turly 20020226  */
+/* APPLE LOCAL begin darwin_set_section_for_var_p  20020226 --turly  */
 
 /* This is specifically for any initialised static class constants
    which may be output by the C++ front end at the end of compilation. 
@@ -1627,7 +1627,7 @@ darwin_set_section_for_var_p (tree exp, int reloc, int align)
     }
   return 0;
 }
-/* APPLE LOCAL end darwin_set_section_for_var_p  turly 20020226  */
+/* APPLE LOCAL end darwin_set_section_for_var_p  20020226 --turly  */
 
 void
 darwin_asm_named_section (const char *name, unsigned int flags ATTRIBUTE_UNUSED)

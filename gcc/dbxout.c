@@ -88,7 +88,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "target.h"
 #include "langhooks.h"
-/* APPLE LOCAL begin Constructors return THIS  turly 20020315  */
 /* FIXME: dbxout.c should not need language-specific headers.  */
 #include "c-common.h"
 
@@ -341,7 +340,7 @@ static void emit_pending_bincls         (void);
 #endif
 static inline void emit_pending_bincls_if_required (void);
 
-/* APPLE LOCAL begin Symbol Separtion */
+/* APPLE LOCAL begin Symbol Separation */
 static void dbxout_restore_write_symbols (void);
 static void dbxout_clear_write_symbols (const char *, unsigned long);
 static void dbxout_start_symbol_repository (unsigned int, const char *, unsigned long);
@@ -455,7 +454,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree,		         /* outlining_inline_function */
   debug_nothing_rtx,		         /* label */
   dbxout_handle_pch,		         /* handle_pch */
-  /* APPLE LOCAL begin Symbol Separtion */
+  /* APPLE LOCAL begin Symbol Separation */
   debug_nothing_void,           /* restore write_symbols */
   debug_nothing_void,           /* clear write_symbols */
   debug_nothing_void,           /* start repository */
@@ -3325,7 +3324,7 @@ dbxout_begin_function (tree decl)
 
   dbxout_parms (DECL_ARGUMENTS (decl));
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
-    /* APPLE LOCAL begin Constructors return THIS  turly 20020315  */
+    /* APPLE LOCAL begin Constructors return THIS  20020315 --turly  */
 #ifdef POSSIBLY_COMPILING_APPLE_KEXT_P
     /* We cheat with kext constructors: DECL_RESULT is "this", but "this"
        is actually the first parameter, so don't confuse matters by
@@ -3333,7 +3332,7 @@ dbxout_begin_function (tree decl)
     if (!(POSSIBLY_COMPILING_APPLE_KEXT_P ()
 	  && DECL_RESULT (decl) == DECL_ARGUMENTS (decl)))
 #endif
-    /* APPLE LOCAL end Constructors return THIS  turly 20020315  */
+    /* APPLE LOCAL end Constructors return THIS  20020315 --turly  */
     dbxout_symbol (DECL_RESULT (decl), 1);
 }
 #endif /* DBX_DEBUGGING_INFO */

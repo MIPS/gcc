@@ -1072,26 +1072,26 @@ enum machopic_addr_class {
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
-    /* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */  \
+    /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
     cpp_register_pragma (PFILE, 0, "pack", darwin_pragma_pack);  \
-    /* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */  \
-    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */ \
+    /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
+    /* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
     cpp_register_pragma (PFILE, 0, "CALL_ON_LOAD", \
 					darwin_pragma_call_on_load); \
     cpp_register_pragma (PFILE, 0, "CALL_ON_UNLOAD", \
 					darwin_pragma_call_on_unload); \
-    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */ \
-    /* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */  \
+    /* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */ \
+    /* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */  \
     cpp_register_pragma (PFILE, 0, "CALL_ON_MODULE_BIND", darwin_pragma_call_on_module_bind);  \
-    /* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */  \
-    /* APPLE LOCAL begin temporary pragmas 2001-07-05 sts */  \
+    /* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */  \
+    /* APPLE LOCAL begin temporary pragmas 2001-07-05 --sts */  \
     cpp_register_pragma (PFILE, 0, "CC_NO_MACH_TEXT_SECTIONS", darwin_pragma_cc_no_mach_text_sections);  \
     cpp_register_pragma (PFILE, 0, "CC_OPT_OFF", darwin_pragma_cc_opt_off);  \
     cpp_register_pragma (PFILE, 0, "CC_OPT_ON", darwin_pragma_cc_opt_on);  \
     cpp_register_pragma (PFILE, 0, "CC_OPT_RESTORE", darwin_pragma_cc_opt_restore);  \
     cpp_register_pragma (PFILE, 0, "CC_WRITABLE_STRINGS", darwin_pragma_cc_writable_strings);  \
     cpp_register_pragma (PFILE, 0, "CC_NON_WRITABLE_STRINGS", darwin_pragma_cc_non_writable_strings);  \
-    /* APPLE LOCAL end temporary pragmas 2001-07-05 sts */  \
+    /* APPLE LOCAL end temporary pragmas 2001-07-05 --sts */  \
   } while (0)
 
 extern int flag_coalescing_enabled,
@@ -1142,7 +1142,7 @@ extern int flag_export_coalesced;
 #define EXIT_FROM_FATAL_DIAGNOSTIC(status) abort_assembly_and_exit (status)
 extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 
-/* APPLE LOCAL begin Macintosh alignment 2002-2-13 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-2-13 --ff */
 #ifdef RS6000_VECTOR_ALIGNMENT
 /* When adjusting (lowering) the alignment of fields when in the
    mac68k alignment mode, the 128-bit alignment of vectors *MUST*
@@ -1154,9 +1154,9 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #else
 #define PEG_ALIGN_FOR_MAC68K(DESIRED)   MIN ((DESIRED), 16)
 #endif 
-/* APPLE LOCAL end Macintosh alignment 2002-2-13 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
 
-/* APPLE LOCAL begin double destructor turly 20020214  */
+/* APPLE LOCAL begin double destructor 20020214 --turly  */
 /* Handle __attribute__((apple_kext_compatibility)).  This shrinks the
    vtable for all classes with this attribute (and their descendants)
    back to 2.95 dimensions.  It causes only the deleting destructor to
@@ -1204,9 +1204,9 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
       if (POSSIBLY_COMPILING_APPLE_KEXT_P () && flag_apple_kext)	\
 	(IDX) = fold (build (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2))); \
     } while (0)
-/* APPLE LOCAL end double destructor turly 20020214  */
+/* APPLE LOCAL end double destructor 20020214 --turly  */
 
-/* APPLE LOCAL begin zerofill turly 20020218  */
+/* APPLE LOCAL begin zerofill 20020218 --turly  */
 /* This keeps uninitialized data from bloating the data when -fno-common.
    Radar 2863107.  */
 #define ASM_OUTPUT_ZEROFILL(FILE, NAME, SIZE, ALIGNMENT)		    \
@@ -1218,7 +1218,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 	     (HOST_WIDE_INT) (ALIGNMENT));				    \
     in_section = no_section;						    \
   } while (0)
-/* APPLE LOCAL end zerofill turly 20020218  */
+/* APPLE LOCAL end zerofill 20020218 --turly  */
 
 #undef ASM_APP_ON
 #define ASM_APP_ON ""

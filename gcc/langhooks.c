@@ -420,7 +420,7 @@ lhd_tree_inlining_anon_aggr_type_p (tree t ATTRIBUTE_UNUSED)
   return 0;
 }
 
-/* APPLE LOCAL new tree dump */
+/* APPLE LOCAL begin new tree dump */
 /* Do nothing language hooks for dmp_tree().  */
 void 
 lhd_dump_tree_do_nothing (FILE *file ATTRIBUTE_UNUSED,

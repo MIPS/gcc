@@ -5014,7 +5014,7 @@ loop_giv_reduce_benefit (struct loop *loop ATTRIBUTE_UNUSED,
      determining code size than run-time benefits.  */
   benefit -= add_cost * bl->biv_count;
 
-  /* APPLE LOCAL better induction variable selection */
+  /* APPLE LOCAL begin better induction variable selection */
 #ifdef TARGET_POWERPC
   /* Adjust this computation to allow for the likelihood that the
      original increment of the biv will be deleted.  This permits

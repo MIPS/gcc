@@ -285,14 +285,14 @@ struct cpp_options
   /* Nonzero means warn if there are any trigraphs.  */
   unsigned char warn_trigraphs;
 
-  /* APPLE LOCAL begin -Wextra-tokens 2001-08-02 sts */
+  /* APPLE LOCAL begin -Wextra-tokens 2001-08-02 --sts */
   /* Nonzero means warn if extra tokens at end of directives.  */
   unsigned char warn_extra_tokens;
-  /* APPLE LOCAL end -Wextra-tokens 2001-08-02 sts */
-  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL end -Wextra-tokens 2001-08-02 --sts */
+  /* APPLE LOCAL begin -Wnewline-eof 2001-08-23 --sts */
   /* Nonzero means warn if no newline at end of file.  */
   unsigned char warn_newline_at_eof;
-  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 sts */
+  /* APPLE LOCAL end -Wnewline-eof 2001-08-23 --sts */
   /* APPLE LOCAL begin -Wfour-char-constants  */
   /* Warn about four-char literals (e.g., MacOS-style OSTypes: 'APPL').  */
   unsigned char warn_four_char_constants;
@@ -396,11 +396,11 @@ struct cpp_options
   bool use_ss;
   /* APPLE LOCAL end Symbol Separation */
 
-  /* APPLE LOCAL BEGIN pch distcc mrs */
+  /* APPLE LOCAL BEGIN pch distcc --mrs */
   /* True if PCH should omit from the -E output all lines from PCH files
      found in PCH files.  */
   unsigned char pch_preprocess;
-  /* APPLE LOCAL END pch distcc mrs */
+  /* APPLE LOCAL END pch distcc --mrs */
 
   /* Dependency generation.  */
   struct
@@ -475,7 +475,7 @@ struct cpp_callbacks
   void (*end_symbol_repository) (unsigned int);
   int (*is_builtin_identifier) (cpp_hashnode *);
   /* APPLE LOCAL end Symbol Separation */
-  /* APPLE LOCAL - PCH distcc debugging mrs  */
+  /* APPLE LOCAL - PCH distcc debugging --mrs  */
   void (*set_working_directory)(const char *);
   /* APPLE LOCAL begin AltiVec */
   /* Context-sensitive macro support.  Returns macro (if any) that should

@@ -38,22 +38,22 @@ Boston, MA 02111-1307, USA.  */
 
 static bool using_frameworks = false;
 
-/* APPLE LOCAL CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */
+/* APPLE LOCAL CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 static void directive_with_named_function (const char *, void (*sec_f)(void));
 
 /* Maintain a small stack of alignments.  This is similar to pragma
    pack's stack, but simpler.  */
 
-/* APPLE LOCAL begin Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
 static void push_field_alignment (int, int, int);
-/* APPLE LOCAL end Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 static void pop_field_alignment (void);
 static const char *find_subframework_file (const char *, const char *);
 static void add_system_framework_path (char *);
 static const char *find_subframework_header (cpp_reader *pfile, const char *header,
 					     cpp_dir **dirp);
 
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 /* There are four alignment modes supported on the Apple Macintosh
    platform: power, mac68k, natural, and packed.  These modes are
    identified as follows:
@@ -75,11 +75,11 @@ typedef struct align_stack
   unsigned long natural;
   struct align_stack * prev;
 } align_stack;
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 static struct align_stack * field_align_stack = NULL;
 
-/* APPLE LOCAL begin Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
 static void
 push_field_alignment (int bit_alignment, 
 		      int mac68k_alignment, int natural_alignment)
@@ -102,7 +102,7 @@ push_field_alignment (int bit_alignment,
   else
     rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
 }
-/* APPLE LOCAL end Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
 
 static void
 pop_field_alignment (void)
@@ -112,7 +112,7 @@ pop_field_alignment (void)
       align_stack *entry = field_align_stack;
 
       maximum_field_alignment = entry->alignment;
-/* APPLE LOCAL begin Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL begin Macintosh alignment 2001-12-17 --ff */
       if (entry->mac68k)
 	rs6000_alignment_flags |= MASK_ALIGN_MAC68K;
       else
@@ -121,7 +121,7 @@ pop_field_alignment (void)
 	rs6000_alignment_flags |= MASK_ALIGN_NATURAL;
       else
 	rs6000_alignment_flags &= ~MASK_ALIGN_NATURAL;
-/* APPLE LOCAL end Macintosh alignment 2001-12-17 ff */
+/* APPLE LOCAL end Macintosh alignment 2001-12-17 --ff */
       field_align_stack = entry->prev;
       free (entry);
     }
@@ -159,7 +159,7 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
   if (!strcmp (arg, "mac68k"))
     push_field_alignment (0, 1, 0);
   else if (!strcmp (arg, "native"))	/* equivalent to power on PowerPC */
@@ -174,10 +174,10 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
     pop_field_alignment ();
   else
     warning ("malformed '#pragma options align={mac68k|power|natural|reset}', ignoring");
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 }
 
-/* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 /* #pragma pack ()
    #pragma pack (N)  
    
@@ -236,7 +236,7 @@ darwin_pragma_pack (cpp_reader *pfile ATTRIBUTE_UNUSED)
     case set:   				      break;
     }
 }
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */
 
 /* #pragma unused ([var {, var}*]) */
 
@@ -596,7 +596,7 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 
 struct target_c_incpath_s target_c_incpath = C_INCPATH_INIT;
 
-/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */
+/* APPLE LOCAL begin CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 extern void mod_init_section (void), mod_term_section (void);
 /* Grab the function name from the pragma line and output it to the
    assembly output file with the parameter DIRECTIVE.  Called by the
@@ -633,18 +633,18 @@ darwin_pragma_call_on_unload (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   directive_with_named_function ("CALL_ON_UNLOAD", mod_term_section);
 }
-/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 turly  */
+/* APPLE LOCAL end CALL_ON_LOAD/CALL_ON_UNLOAD pragmas  20020202 --turly  */
 
-/* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */
+/* APPLE LOCAL begin CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */
 void
 darwin_pragma_call_on_module_bind (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CALL_ON_MODULE_BIND is no longer supported, ignoring.  "
   	   "Use CALL_ON_LOAD instead.");
 }
-/* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 ff */
+/* APPLE LOCAL end CALL_ON_MODULE_BIND deprecated 2002-4-10 --ff */
 
-/* APPLE LOCAL begin temporary pragmas 2001-07-05 sts */
+/* APPLE LOCAL begin temporary pragmas 2001-07-05 --sts */
 /* These need to live only long enough to get their uses flushed out
    of the system.  */
 void
@@ -682,4 +682,4 @@ darwin_pragma_cc_non_writable_strings (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   warning ("#pragma CC_NON_WRITABLE_STRINGS is no longer supported, ignoring");
 }
-/* APPLE LOCAL end temporary pragmas 2001-07-05 sts */
+/* APPLE LOCAL end temporary pragmas 2001-07-05 --sts */

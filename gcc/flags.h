@@ -251,12 +251,12 @@ extern int flag_print_asm_name;
 
 extern int flag_signed_char;
 
-/* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
+/* APPLE LOCAL begin Pascal strings 2001-07-05 --zll */
 /* Nonzero means initial "\p" in string becomes a length byte and
    string type becomes _unsigned_ char* .  */
 
 extern int flag_pascal_strings;
-/* APPLE LOCAL end Pascal strings 2001-07-05 zll */
+/* APPLE LOCAL end Pascal strings 2001-07-05 --zll */
 
 /* Nonzero means give an enum type only as many bytes as it needs.  A value
    of 2 means it has not yet been initialized.  */
@@ -888,7 +888,7 @@ extern int flag_fast;
 extern int flag_fastf;
 /* Nonzero if we should perform SPEC oriented optimizations for C++.  */
 extern int flag_fastcp;
-/* APPLE LOCAL end -fast or -fastf -fastcp */
+/* APPLE LOCAL end -fast or -fastf or -fastcp */
 
 /* APPLE LOCAL gdb only used symbols */
 #ifdef DBX_ONLY_USED_SYMBOLS
@@ -896,11 +896,11 @@ extern int flag_fastcp;
 extern int flag_debug_only_used_symbols;
 #endif
 
-/* APPLE LOCAL BEGIN pch distcc mrs */
+/* APPLE LOCAL BEGIN pch distcc --mrs */
 /* True if PCH should omit from the -E output all lines from PCH files
    found in PCH files.  */
 extern int flag_pch_preprocess;
-/* APPLE LOCAL END pch distcc mrs */
+/* APPLE LOCAL END pch distcc --mrs */
 
 /* APPLE LOCAL begin loop transpose */
 /* Nonzero if we should perform automatic loop transposition. */

@@ -63,7 +63,7 @@
 #undef tolower
 #undef toupper
 
-/* APPLE LOCAL begin supply missing ctype.h decls 2001-07-11 sts */
+/* APPLE LOCAL begin supply missing ctype.h decls 2001-07-11 --sts */
 /* These are supposed be in ctype.h like the standard says!  We need
    this until Darwin ctype.h gets fixed and/or GCC has a fixincludes
    to supply these if they're missing.  */
@@ -82,7 +82,7 @@ extern int isupper(int c);
 extern int isxdigit(int c);
 }
 #endif
-/* APPLE LOCAL end supply missing ctype.h decls 2001-07-11 sts */
+/* APPLE LOCAL end supply missing ctype.h decls 2001-07-11 --sts */
 
 namespace std
 {

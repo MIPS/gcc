@@ -396,10 +396,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       set_Wimplicit (value);
       warn_char_subscripts = value;
       warn_missing_braces = value;
-      /* APPLE LOCAL begin -Wmost dpatel */
+      /* APPLE LOCAL begin -Wmost --dpatel */
       if (code != OPT_Wmost) 
 	warn_parentheses = value;
-      /* APPLE LOCAL end -Wmost dpatel */
+      /* APPLE LOCAL end -Wmost --dpatel */
       warn_return_type = value;
       warn_sequence_point = value;	/* Was C only.  */
       if (c_dialect_cxx ())
@@ -482,7 +482,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Werror:
-      /* APPLE LOCAL begin -Werror 2002-21-01 dpatel */
+      /* APPLE LOCAL begin -Werror 2002-21-01 --dpatel */
       if (getenv ("QA_DISABLE_WERROR"))
 	{
 	  warning ("-Werror ignored because QA_DISABLE_WERROR is set.");
@@ -490,7 +490,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	}
       else
 	cpp_opts->warnings_are_errors = value;
-      /* APPLE LOCAL end -Werror 2002-21-01 dpatel */
+      /* APPLE LOCAL end -Werror 2002-21-01 --dpatel */
       break;
 
       /* APPLE LOCAL begin -Wextra-tokens */
@@ -561,11 +561,11 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Silently ignore for now.  */
       break;
 
-      /* APPLE LOCAL begin -Wlong-double dpatel */
+      /* APPLE LOCAL begin -Wlong-double --dpatel */
     case OPT_Wlong_double:
       warn_long_double = value;
       break;
-      /* APPLE LOCAL end -Wlong-double dpatel */
+      /* APPLE LOCAL end -Wlong-double --dpatel */
 
       /* APPLE LOCAL begin Symbol Separation */
     case OPT_Winvalid_sr:
@@ -975,12 +975,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->restore_pch_deps = value;
       break;
 
-    /* APPLE LOCAL BEGIN pch distcc mrs */
+    /* APPLE LOCAL BEGIN pch distcc --mrs */
     case OPT_fpch_preprocess:
       flag_pch_preprocess = value;
       cpp_opts->pch_preprocess = value;
       break;
-    /* APPLE LOCAL END pch distcc mrs */
+    /* APPLE LOCAL END pch distcc --mrs */
 
     case OPT_fpermissive:
       flag_permissive = value;
@@ -988,7 +988,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fpreprocessed:
       cpp_opts->preprocessed = value;
-      /* APPLE LOCAL private extern  Radar 2872481 ilr */
+      /* APPLE LOCAL private extern  Radar 2872481 --ilr */
       flag_preprocessed = value;
       break;
 
@@ -1336,7 +1336,7 @@ c_common_init (void)
 
   if (flag_preprocess_only)
     {
-      /* APPLE LOCAL BEGIN pch distcc mrs */
+      /* APPLE LOCAL BEGIN pch distcc --mrs */
       if (flag_pch_preprocess)
 	{
 	  struct cpp_callbacks *cb;
@@ -1346,7 +1346,7 @@ c_common_init (void)
 	  cb->valid_pch = c_common_valid_pch;
 	  cb->read_pch = c_common_read_pch;
 	}
-      /* APPLE LOCAL END pch distcc mrs */
+      /* APPLE LOCAL END pch distcc --mrs */
 
       finish_options ();
       preprocess_file (parse_in);

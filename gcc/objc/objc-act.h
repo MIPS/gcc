@@ -126,7 +126,7 @@ tree build_encode_expr (tree);
 	 ? (TYPE)->type.context : NULL_TREE)
 #define SET_TYPE_PROTOCOL_LIST(TYPE, P) (TYPE_CHECK (TYPE)->type.context = (P))
 
-/* APPLE LOCAL objc speedup dpatel */
+/* APPLE LOCAL objc speedup --dpatel */
 #define IDENTIFIER_INTERFACE_VALUE(NODE) (((struct lang_identifier *) (NODE))->interface_value)
 
 /* Set by `continue_class' and checked by `is_public'.  */

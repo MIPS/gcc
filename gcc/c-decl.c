@@ -3661,7 +3661,7 @@ grokdeclarator (tree declarator, tree declspecs,
     {
       specbits &= ~(1 << (int) RID_LONG);
       type = long_double_type_node;
-      /* APPLE LOCAL -Wlong-double dpatel */
+      /* APPLE LOCAL -Wlong-double --dpatel */
       warn_about_long_double ();
     }
 
@@ -5730,9 +5730,9 @@ start_function (tree declspecs, tree declarator, tree attributes)
       return 0;
     }
 
-  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
   decl_attributes (&decl1, attributes, (int)ATTR_FLAG_FUNCTION_DEF);
-  /* APPLE LOCAL end weak_import ilr */
+  /* APPLE LOCAL end weak_import --ilr */
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)

@@ -85,7 +85,7 @@ do {									\
         warning ("-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
-    /* APPLE LOCAL long double default size mrs */			\
+    /* APPLE LOCAL long double default size --mrs */			\
     if (rs6000_long_double_size_string == 0)				\
       rs6000_long_double_type_size = 128;				\
   }									\
@@ -208,7 +208,6 @@ do {									\
    If -mlongcall is set, we use the indirect jumps (the macro below gets '0');
    otherwise we use unconditional branches (the macro below gets '1').  */
 #define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
-/* APPLE LOCAL end hot/cold partitioning  */
 
 #define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n"
 
@@ -362,7 +361,7 @@ do {									\
    ? GENERAL_REGS						\
    : (CLASS))
 
-/* APPLE LOCAL begin Macintosh alignment 2002-2-26 ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
 /* This now supports the Macintosh power, mac68k, and natural 
    alignment modes.  It now has one more parameter than the standard 
    version of the ADJUST_FIELD_ALIGN macro.  
@@ -392,7 +391,7 @@ union tree_node;
 extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs6000.c  */
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
   round_type_align(STRUCT, COMPUTED, SPECIFIED)
-/* APPLE LOCAL end Macintosh alignment 2002-2-26 ff */
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
 
 /* APPLE LOCAL begin alignment */
 /* Make sure local alignments come from the type node, not the mode;

@@ -147,7 +147,7 @@ enum c_tree_index
     CTI_WIDEST_UINT_LIT_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
-    /* APPLE LOCAL Pascal strings 2001-07-05 zll */
+    /* APPLE LOCAL Pascal strings 2001-07-05 --zll */
     CTI_PASCAL_STRING_TYPE,    /* for Pascal strings */
     CTI_WCHAR_ARRAY_TYPE,
     CTI_INT_ARRAY_TYPE,
@@ -778,12 +778,12 @@ extern int flag_enforce_eh_specs;
 /*  The version of the C++ ABI in use.  The following values are
     allowed:
 
-    APPLE LOCAL begin 10.2 C++ abi compat mrs
+    APPLE LOCAL begin 10.2 C++ abi compat --mrs
     -2: 2.95.2  Apple uses for kernel extensions.
 
     -1: gcc 3.1 20020420.  Apple uses for gcc3 compatible 10.2.
 
-    APPLE LOCAL end 10.2 C++ abi compat mrs
+    APPLE LOCAL end 10.2 C++ abi compat --mrs
     0: The version of the ABI believed most conformant with the 
        C++ ABI specification.  This ABI may change as bugs are
        discovered and fixed.  Therefore, 0 will not necessarily
@@ -796,12 +796,12 @@ extern int flag_enforce_eh_specs;
 
 extern int flag_abi_version;
 
-/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 sts */
+/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 --sts */
 /* Nonzero if all calls to virtual functions should cause indirection
    through a vtable.  */
 
 extern int flag_indirect_virtual_calls;
-/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 sts */
+/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 --sts */
 
 /* APPLE LOCAL begin -fterminated-vtables */
 /* Nonzero to terminate vtables with a unique value, currently zero.
@@ -811,14 +811,14 @@ extern int flag_indirect_virtual_calls;
 extern int flag_terminated_vtables;
 /* APPLE LOCAL end -fterminated-vtables */
 
-/* APPLE LOCAL begin 2.95-compatibility stuff turly */
+/* APPLE LOCAL begin 2.95-compatibility stuff --turly */
 /* Nonzero if we're compiling in a gcc2.95-compatibility mode.
    Implies -fterminated-vtables and -findirect-virtual-calls,
    only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
    constructors-returning-this...  */
  
 extern int flag_apple_kext;
-/* APPLE LOCAL end 2.95-compatibility stuff turly */
+/* APPLE LOCAL end 2.95-compatibility stuff --turly */
 
 /* APPLE LOCAL begin structor thunks */
 /* Nonzero if we prefer to clone con/de/structors.
@@ -826,16 +826,16 @@ extern int flag_apple_kext;
    call/jump to a unified con/de/structor.  This is a classic
    size/speed tradeoff.  */
 extern int flag_clone_structors;
-/* APPLE LOCAL begin structor thunks */
+/* APPLE LOCAL end structor thunks */
 
-/* APPLE LOCAL begin private extern  Radar 2872481 ilr */
+/* APPLE LOCAL begin private extern  Radar 2872481 --ilr */
 /* Nonzero if -fpreprocessed specified.  This is needed by init_reswords()
    so that it can make __private_extern__ have the same rid code as extern
    when -fpreprocessed is specified.  Normally there is a -D on the command
    line for this.  But if -fpreprocessed was specified then macros aren't
    expanded.  So we fake the token value out using the rid code.  */
 extern int flag_preprocessed;
-/* APPLE LOCAL end private extern  Radar 2872481 ilr */
+/* APPLE LOCAL end private extern  Radar 2872481 --ilr */
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */

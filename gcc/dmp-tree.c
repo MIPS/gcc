@@ -625,10 +625,10 @@ print_decl (file, annotation, node, indent)
 #endif
       if (DECL_WEAK (node))
         fputs (" weak", file);
-      /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+      /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
       if (DECL_WEAK_IMPORT (node))
 	fputs (" weak_import", file);
-      /* APPLE LOCAL end weak_import ilr */
+      /* APPLE LOCAL end weak_import --ilr */
       
       if (DECL_LANG_FLAG_0 (node)
           || DECL_LANG_FLAG_1 (node)
@@ -1106,10 +1106,10 @@ print_tree_flags (file, node)
     fputs (" bounded", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
-  /* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
+  /* APPLE LOCAL begin unavailable (Radar 2809697) --ilr */
   if (TREE_UNAVAILABLE (node))
     fputs (" unavailable", file);
-  /* APPLE LOCAL end unavailable ilr */
+  /* APPLE LOCAL end unavailable --ilr */
  
   if (TREE_LANG_FLAG_0 (node)
       || TREE_LANG_FLAG_1 (node)

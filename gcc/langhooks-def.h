@@ -54,7 +54,7 @@ extern int lhd_staticp (tree);
 extern int lhd_unsafe_for_reeval (tree);
 extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
-/* APPLE LOCAL new tree dump */
+/* APPLE LOCAL begin new tree dump */
 extern void lhd_dump_tree_do_nothing (FILE *, tree, int, int);
 extern int  lhd_dump_tree_blank_line_do_nothing (tree, tree);
 extern int  lhd_dump_tree_lineno_do_nothing (FILE *, tree);

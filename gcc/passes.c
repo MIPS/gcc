@@ -729,7 +729,6 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
     changed |= cleanup_cfg (CLEANUP_EXPENSIVE
 			    | (!HAVE_conditional_execution
 			       ? CLEANUP_UPDATE_LIFE : 0));
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* On conditional execution targets we can not update the life cheaply, so
      we deffer the updating to after both cleanups.  This may lose some cases
@@ -1639,7 +1638,6 @@ rest_of_compilation (tree decl)
 			PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
       no_new_pseudos = 1;
     }
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
     rest_of_handle_regmove (decl, insns);

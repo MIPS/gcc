@@ -71,11 +71,11 @@ struct pragma_entry
    means this directive should be handled even if -fpreprocessed is in
    effect (these are the directives with callback hooks).
 
-   APPLE LOCAL BEGIN pch distcc mrs
+   APPLE LOCAL BEGIN pch distcc --mrs
    IN_I_PCH means that this directive should be handled even if
    -fpreprocessed is in effect as long as pch_preprocess is also in
    effect.
-   APPLE LOCAL BEGIN pch distcc mrs
+   APPLE LOCAL END pch distcc --mrs
 
    EXPAND is set on directives that are always macro-expanded.  */
 #define COND		(1 << 0)
@@ -83,7 +83,7 @@ struct pragma_entry
 #define INCL		(1 << 2)
 #define IN_I		(1 << 3)
 #define EXPAND		(1 << 4)
-/* APPLE LOCAL pch distcc mrs */
+/* APPLE LOCAL pch distcc --mrs */
 #define IN_I_PCH        (1 << 5)
 
 /* Defines one #-directive, including how to handle it.  */
@@ -151,7 +151,7 @@ static void handle_assertion (cpp_reader *, const char *, int);
 #define DIRECTIVE_TABLE							\
 D(define,	T_DEFINE = 0,	KANDR,     IN_I)	   /* 270554 */ \
 D(include,	T_INCLUDE,	KANDR,     INCL | EXPAND)  /*  52262 */ \
-/* APPLE LOCAL pch distcc mrs */ \
+/* APPLE LOCAL pch distcc --mrs */ \
 D(include_pch,  T_INCLUDE_PCH,  KANDR,     INCL | IN_I_PCH)             \
 D(endif,	T_ENDIF,	KANDR,     COND)	   /*  45855 */ \
 D(ifdef,	T_IFDEF,	KANDR,     COND | IF_COND) /*  22000 */ \
@@ -224,7 +224,7 @@ skip_rest_of_line (cpp_reader *pfile)
 static void
 check_eol (cpp_reader *pfile)
 {
-  /* APPLE LOCAL -Wextra-tokens 2001-08-02 sts */
+  /* APPLE LOCAL -Wextra-tokens 2001-08-02 --sts */
   if (! SEEN_EOL () && _cpp_lex_token (pfile)->type != CPP_EOF
       && CPP_OPTION (pfile, warn_extra_tokens))
     cpp_error (pfile, CPP_DL_PEDWARN, "extra tokens at end of #%s directive",
@@ -394,11 +394,11 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 	 -fpreprocessed mode only if the # is in column 1.  cppmacro.c
 	 puts a space in front of any '#' at the start of a macro.  */
       if (CPP_OPTION (pfile, preprocessed)
-          /* APPLE LOCAL BEGIN pch distcc mrs */
+          /* APPLE LOCAL BEGIN pch distcc --mrs */
           && (indented || !(dir->flags & IN_I))
           && ! (CPP_OPTION (pfile, pch_preprocess)
                 && (dir->flags & IN_I_PCH)))
-          /* APPLE LOCAL END pch distcc mrs */
+          /* APPLE LOCAL END pch distcc --mrs */
 	{
 	  skip = 0;
 	  dir = 0;
@@ -720,13 +720,13 @@ do_include (cpp_reader *pfile)
   do_include_common (pfile, IT_INCLUDE);
 }
 
-/* APPLE LOCAL pch distcc mrs */
+/* APPLE LOCAL pch distcc --mrs */
 static void
 do_include_pch (cpp_reader *pfile)
 {
   do_include_common (pfile, IT_INCLUDE_PCH);
 }
-/* APPLE LOCAL pch distcc mrs */
+/* APPLE LOCAL pch distcc --mrs */
 
 static void
 do_import (cpp_reader *pfile)
@@ -967,14 +967,14 @@ static void
 do_warning (cpp_reader *pfile)
 {
   /* We want #warning diagnostics to be emitted in system headers too.  */
-  /* APPLE LOCAL begin handle -Wno-system-headers (2910306)  ilr */
+  /* APPLE LOCAL begin handle -Wno-system-headers (2910306)  --ilr */
   /* Unless explicitly suppressed with -Wno-system-headers or
      -Wno-#warning.  */
     if (!CPP_OPTION (pfile, no_pound_warnings)
         && (!CPP_IN_SYSTEM_HEADER (pfile)
             || CPP_OPTION (pfile, warn_system_headers)))
       do_diagnostic (pfile, CPP_DL_WARNING_SYSHDR, 1);
-  /* APPLE LOCAL end handle -Wno-system-headers (2910306)  ilr */
+  /* APPLE LOCAL end handle -Wno-system-headers (2910306)  --ilr */
 }
 
 /* Report program identification.  */

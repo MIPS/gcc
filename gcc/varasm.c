@@ -220,7 +220,7 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-      /* APPLE LOCAL begin hot/cold partitioning  */
+      /* APPLE LOCAL hot/cold partitioning  */
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
       ASM_OUTPUT_ALIGN (asm_out_file, 2);
     }
@@ -1620,7 +1620,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Switch to the appropriate section.  */
   variable_section (decl, reloc);
 
-  /* APPLE LOCAL begin zerofill turly 20020218  */
+  /* APPLE LOCAL begin zerofill 20020218 --turly  */
 #ifdef ASM_OUTPUT_ZEROFILL
   /* We need a ZEROFILL COALESCED option!  */
   if (flag_no_common
@@ -1639,7 +1639,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     }
 #endif
 
-  /* APPLE LOCAL end zerofill turly 20020218  */
+  /* APPLE LOCAL end zerofill 20020218 --turly  */
 
   /* dbxout.c needs to know this.  */
   /* APPLE LOCAL begin hot/cold partitioning  */
@@ -4194,7 +4194,7 @@ merge_weak (tree newdecl, tree olddecl)
        weak.  Just update NEWDECL to indicate that it's weak too.  */
     mark_weak (newdecl);
 
-  /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
+  /* APPLE LOCAL begin weak_import (Radar 2809704) --ilr */
   if (DECL_WEAK_IMPORT (olddecl) != DECL_WEAK_IMPORT (newdecl))
     {
       if (! DECL_EXTERNAL (olddecl) && ! DECL_EXTERNAL (newdecl))
@@ -4202,7 +4202,7 @@ merge_weak (tree newdecl, tree olddecl)
 		 "%Jinconsistent weak_import attribute with previous declaration of `%D'", newdecl, olddecl);
       DECL_WEAK_IMPORT (newdecl) = 1;
     }
-  /* APPLE LOCAL end weak_import ilr */
+  /* APPLE LOCAL end weak_import --ilr */
 }
 
 /* Declare DECL to be a weak symbol.  */

@@ -454,10 +454,10 @@ extensions, accepted by GCC in C89 mode and in C++.
 * C++ Comments::        C++ comments are recognized.
 * Dollar Signs::        Dollar sign is allowed in identifiers.
 * Character Escapes::   @samp{\e} stands for the character @key{ESC}.
-@c APPLE LOCAL begin Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL begin Pascal strings 2001-07-05 --zll **
 * Pascal Strings::      Constructing string literals with a Pascal-style 
                          length byte.
-@c APPLE LOCAL end Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL end Pascal strings 2001-07-05 --zll **
 * Variable Attributes::	Specifying attributes of variables.
 * Type Attributes::	Specifying attributes of types.
 * Alignment::           Inquiring about the alignment of a type or variable.
@@ -2971,7 +2971,7 @@ machines, typically because the target assembler does not allow them.
 You can use the sequence @samp{\e} in a string or character constant to
 stand for the ASCII character @key{ESC}.
 
-@c APPLE LOCAL begin Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL begin Pascal strings 2001-07-05 --zll **
 @node Pascal Strings
 @section Constructing String Literals with a Pascal-style Length Byte
 @cindex Pascal length byte
@@ -3025,7 +3025,7 @@ is undefined, unless the @w{@option{-fwritable-strings}} option is used.
 Pascal-style literals are useful for calling external routines that
 expect Pascal strings as arguments, as is true with some Apple MacOS
 Toolbox calls.
-@c APPLE LOCAL end Pascal strings 2001-07-05 zll **
+@c APPLE LOCAL end Pascal strings 2001-07-05 --zll **
 
 @node Alignment
 @section Inquiring on Alignment of Types or Variables
@@ -6508,11 +6508,11 @@ vector unsigned int vec_mulo (vector unsigned short,
 vector signed int vec_mulo (vector signed short, vector signed short);
 
 vector float vec_nmsub (vector float, vector float, vector float);
-@c APPLE LOCAL begin fixhtml mrs
+@c APPLE LOCAL begin fixhtml --mrs
 @end smallexample
 
 @smallexample
-@c APPLE LOCAL end fixhtml mrs
+@c APPLE LOCAL end fixhtml --mrs
 vector float vec_nor (vector float, vector float);
 vector signed int vec_nor (vector signed int, vector signed int);
 vector unsigned int vec_nor (vector unsigned int, vector unsigned int);
@@ -7078,11 +7078,11 @@ vector signed int vec_any_eq (vector signed char, vector unsigned char);
 
 vector signed int vec_any_eq (vector signed char, vector signed char);
 vector signed int vec_any_eq (vector unsigned char, vector signed char);
-@c APPLE LOCAL begin fixhtml mrs
+@c APPLE LOCAL begin fixhtml --mrs
 @end smallexample
 
 @smallexample
-@c APPLE LOCAL end fixhtml mrs
+@c APPLE LOCAL end fixhtml --mrs
 vector signed int vec_any_eq (vector unsigned char,
                               vector unsigned char);
 vector signed int vec_any_eq (vector signed short,

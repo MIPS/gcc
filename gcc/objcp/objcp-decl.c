@@ -70,12 +70,12 @@ objcp_start_struct (code, name)
      name = make_anon_name ();
   h = handle_class_head (record_type, 0, name, 0, 1, &new_scope);
 
-  /* APPLE LOCAL indexing dpatel */
+  /* APPLE LOCAL indexing --dpatel */
   flag_suppress_builtin_indexing = 1;
 
   s = begin_class_definition (TREE_TYPE (h));
 
-  /* APPLE LOCAL indexing dpatel */
+  /* APPLE LOCAL indexing --dpatel */
   flag_suppress_builtin_indexing = 0;
 
   return s;	
@@ -88,7 +88,7 @@ objcp_finish_struct (t, fieldlist, attributes)
 {
   tree s, field, next_field;
 
-  /* APPLE LOCAL indexing dpatel */
+  /* APPLE LOCAL indexing --dpatel */
   flag_suppress_builtin_indexing = 1;
 
   for (field = fieldlist; field; field = next_field) 
@@ -99,7 +99,7 @@ objcp_finish_struct (t, fieldlist, attributes)
   } 
   s = finish_class_definition (t, attributes, 1, 0);  
 
-  /* APPLE LOCAL indexing dpatel */
+  /* APPLE LOCAL indexing --dpatel */
   flag_suppress_builtin_indexing = 0;
 
   pop_lang_context ();
