@@ -731,6 +731,19 @@ ccp_fold (stmt)
 	  && really_constant_p (op1))
 	return build (code, TREE_TYPE (rhs), op0, op1);
     }
+
+  /* We may be able to fold away calls to builtin functions if their
+     arguments are constants. */
+  else if (code == CALL_EXPR
+	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+	   && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
+	       == FUNCTION_DECL)
+	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+    {
+      tree copy = copy_stmt (stmt);
+      replace_uses_in (copy);
+      retval = fold_builtin (get_rhs (copy));
+    }
   else
     return rhs;
 

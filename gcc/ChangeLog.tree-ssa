@@ -1,5 +1,8 @@
 2003-02-26  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-ccp.c (ccp_fold): Also handle folding of calls to
+	builtin functions.
+
 	* fold-const.c (nondestructive_fold_binary): Handle truth ops
 	when both arguments are constant (duh!).  Handle CONJ_EXPR.
 
