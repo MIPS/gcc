@@ -180,13 +180,6 @@ c_objc_common_init (void)
 	mesg_implicit_function_declaration = 0;
     }
 
-/* APPLE LOCAL gdb only used symbols */
-#ifdef DBX_ONLY_USED_SYMBOLS
-  /* By default we want to use -gused for C and Objective-C.  */
-  if (flag_debug_only_used_symbols == -1)
-    flag_debug_only_used_symbols = 1;
-#endif
-
   return true;
 }
 

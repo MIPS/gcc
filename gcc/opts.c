@@ -1675,33 +1675,8 @@ static void
 set_debug_level (enum debug_info_type type, int extended, const char *arg)
 {
   static bool type_explicit;
-/* APPLE LOCAL gdb only used symbols --ilr */
-  int g_all_len = 0;
 
   use_gnu_debug_info_extensions = extended;
-
-/* APPLE LOCAL begin gdb only used symbols --ilr */
-#ifdef DBX_ONLY_USED_SYMBOLS
-  if (strncmp (arg, "full", 4) == 0 || strncmp (arg, "-full", 5) == 0)
-    {
-      char *p = (char *)arg + (*(char *)arg == '-') + 4;
-      flag_debug_only_used_symbols = 0;
-      if (*p == '-')
-	++p;
-      g_all_len = p - arg;
-      arg += g_all_len;
-    }
-  if (strncmp (arg, "used", 4) == 0 || strncmp (arg, "-used", 5) == 0)
-    {
-      char *p = (char *)arg + (*(char *)arg == '-') + 4;
-      flag_debug_only_used_symbols = 1;
-      if (*p == '-')
-	++p;
-      g_all_len = p - arg;
-      arg += g_all_len;
-    }
-#endif
-/* APPLE LOCAL end gdb only used symbols --ilr */
 
 /* APPLE LOCAL begin Symbol Separation */
   if (strncmp (arg, "repository", 10) == 0 || strncmp (arg, "-repository", 11) == 0)

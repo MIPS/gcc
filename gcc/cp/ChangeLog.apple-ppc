@@ -1,3 +1,8 @@
+2004-08-08  Andrew Pinski  <apinski@apple.com>
+
+	* cp/lex.c (cxx_init): Remove APPLE LOCAL for setting -gused
+	by default as it is handled in CC1_SPECs now.
+
 2004-08-03  Stan Shebs  <shebs@apple.com>
 
 	Support for CodeWarrior-style assembly language blocks and
