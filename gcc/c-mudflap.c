@@ -55,7 +55,7 @@ mx_flag (t)
 {
   if (!t)
     abort ();
-#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_BOUNDED (tree) = 1; } while (0)
+#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_VISITED (tree) = 1; } while (0)
   MARK_TREE_MUDFLAPPED(t);
   return t;
 }

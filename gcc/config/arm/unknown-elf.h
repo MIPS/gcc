@@ -43,7 +43,7 @@
 /* The __USES_INITFINI__ define is tested in newlib/libc/sys/arm/crt0.S
    to see if it needs to invoked _init() and _fini().  */
 #undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC  "-D__ELF__ -D__USES_INITFINI__"
+#define SUBTARGET_CPP_SPEC  "-D__USES_INITFINI__"
 
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
@@ -66,7 +66,7 @@
 									\
       last_assemble_variable_decl = DECL;				\
       ASM_DECLARE_OBJECT_NAME (FILE, NAME, DECL);			\
-      ASM_OUTPUT_SKIP (FILE, SIZE ? SIZE : 1);				\
+      ASM_OUTPUT_SKIP (FILE, SIZE ? (int)(SIZE) : 1);			\
     } 									\
   while (0)
 
@@ -81,7 +81,7 @@
 									\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
-      fprintf (FILE, "\t.space\t%d\n", SIZE ? SIZE : 1);		\
+      fprintf (FILE, "\t.space\t%d\n", SIZE ? (int)(SIZE) : 1);		\
     }									\
   while (0)
 

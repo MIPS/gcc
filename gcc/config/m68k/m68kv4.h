@@ -21,6 +21,19 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* Target OS builtins.  */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define_std ("unix");		\
+	builtin_define_std ("m68k");		\
+	builtin_define ("__svr4__");		\
+	builtin_define ("__motorola__");	\
+	builtin_assert ("system=unix");		\
+	builtin_assert ("system=svr4");		\
+   }						\
+  while (0)
+
 /* Use SGS_* macros to control compilation in m68k.md */
 
 #define SGS_SWITCH_TABLES	/* Different switch table handling */
@@ -55,13 +68,6 @@ Boston, MA 02111-1307, USA.  */
    with the gcc default, so override the definition of this macro in m68k.h */
 
 #undef PCC_STATIC_STRUCT_RETURN
-
-/* Provide a set of pre-definitions and pre-assertions appropriate for
-   the m68k running svr4.  __svr4__ is our extension.  */
-
-#define CPP_PREDEFINES \
-  "-Dm68k -Dunix -D__svr4__ -D__motorola__ \
- -Asystem=unix -Asystem=svr4 -Acpu=m68k -Amachine=m68k"
 
 /* Test to see if the target includes a 68881 by default, and use CPP_SPEC
    to control whether or not __HAVE_68881__ is defined by default or not.
@@ -124,7 +130,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "%s%u\n", SPACE_ASM_OP, (SIZE))
+  fprintf (FILE, "%s%u\n", SPACE_ASM_OP, (int)(SIZE))
 
 /* 1 if N is a possible register number for a function value.
    For m68k/SVR4 allow d0, a0, or fp0 as return registers, for integral,
@@ -258,12 +264,12 @@ int switch_table_difference_label_flag;
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 
 /* Override the definition in svr4.h. In m68k svr4, using swbeg is the 
    standard way to do switch table.  */

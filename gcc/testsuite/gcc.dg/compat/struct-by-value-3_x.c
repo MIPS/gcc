@@ -123,51 +123,10 @@ testit##TYPE (void)						\
   DEBUG_NL;							\
 }
 
-typedef struct { char c; } Sc;
-typedef struct { short s; } Ss;
-typedef struct { int i; } Si;
-typedef struct { short s; char c; } Ssc;
-typedef struct { char c; short s; } Scs;
-typedef struct { int i; char c; } Sic;
-typedef struct { char c; int i; } Sci;
-typedef struct { short s; int i; } Ssi;
-typedef struct { int i; short s; } Sis;
-typedef struct { char c; short s; int i; } Scsi;
-typedef struct { char c; int i; short s; } Scis;
-typedef struct { short s; char c; int i; } Ssci;
-typedef struct { short s; int i; char c; } Ssic;
-typedef struct { int i; short s; char c; } Sisc;
-typedef struct { int i; char c; short s; } Sics;
-
 extern void abort (void);
 
-void checkSc (Sc x, int i) { if (x.c != (char)i) { DEBUG_NL; abort (); } }
-void checkSs (Ss x, int i) { if (x.s != i) { DEBUG_NL; abort (); } }
-void checkSi (Si x, int i) { if (x.i != i) { DEBUG_NL; abort (); } }
-void checkSsc (Ssc x, int i)
-{ if (x.s != i || x.c != (char)i+1) { DEBUG_NL; abort (); } }
-void checkScs (Scs x, int i)
-{ if (x.c != (char)i || x.s != i+1) { DEBUG_NL; abort (); } }
-void checkSsi (Ssi x, int i)
-{ if (x.s != i || x.i != i+1) { DEBUG_NL; abort (); } }
-void checkSis (Sis x, int i)
-{ if (x.i != i || x.s != i+1) { DEBUG_NL; abort (); } }
-void checkSic (Sic x, int i)
-{ if (x.i != i || x.c != (char)i+1) { DEBUG_NL; abort (); } }
-void checkSci (Sci x, int i)
-{ if (x.c != (char)i || x.i != i+1) { DEBUG_NL; abort (); } }
-void checkScsi (Scsi x, int i)
-{ if (x.c != (char)i || x.s != i+1 || x.i != i+2) { DEBUG_NL; abort (); } }
-void checkScis (Scis x, int i)
-{ if (x.c != (char)i || x.i != i+1 || x.s != i+2) { DEBUG_NL; abort (); } }
-void checkSsci (Ssci x, int i)
-{ if (x.s != i || x.c != (char)i+1 || x.i != i+2) { DEBUG_NL; abort (); } }
-void checkSsic (Ssic x, int i)
-{ if (x.s != i || x.i != i+1 || x.c != (char)i+2) { DEBUG_NL; abort (); } }
-void checkSisc (Sisc x, int i)
-{ if (x.i != i || x.s != i+1 || x.c != (char)i+2) { DEBUG_NL; abort (); } }
-void checkSics (Sics x, int i)
-{ if (x.i != i || x.c != (char)i+1 || x.s != i+2) { DEBUG_NL; abort (); } }
+#include "small-struct-defs.h"
+#include "small-struct-check.h"
 
 T(Sc)
 T(Ss)

@@ -30,13 +30,6 @@ Boston, MA 02111-1307, USA.
 
 	#include "?????.h"
 	#include "svr3.h"
-
-   followed by any really system-specific defines (or overrides of
-   defines) which you find that you need.  For example, CPP_PREDEFINES
-   is defined here with only the defined -Dunix and -DSVR3.  You should
-   probably override that in your target-specific ?????svr3.h file
-   with a set of defines that includes these, but also contains an
-   appropriate define for the type of hardware that you are targeting.
 */
 
 /* Define a symbol indicating that we are using svr3.h.  */
@@ -46,14 +39,7 @@ Boston, MA 02111-1307, USA.
    environment and assembler syntax we are targeting for.  */
 #define SVR3_target
 
-/* Cpp, assembler, linker, library, and startfile spec's.  */
-
-/* You should redefine CPP_PREDEFINES in any file which includes this one.
-   The definition should be appropriate for the type of target system
-   involved, and it should include any -A (assertion) options which are
-   appropriate for the given target system.  */
-
-#undef CPP_PREDEFINES
+/* Assembler, linker, library, and startfile spec's.  */
 
 /* Output at beginning of assembler file.  */
 /* The .file command should always begin the output.  */
@@ -93,7 +79,7 @@ Boston, MA 02111-1307, USA.
     data_section ();					\
     ASM_OUTPUT_ALIGN ((FILE), align == -1 ? 2 : align);	\
     ASM_OUTPUT_LABEL ((FILE), (NAME));			\
-    fprintf ((FILE), "\t.set .,.+%u\n", (ROUNDED));	\
+    fprintf ((FILE), "\t.set .,.+%u\n", (int)(ROUNDED));	\
   } while (0)
 
 #if 0 /* For now, let's leave these machine-specific.  */

@@ -264,13 +264,6 @@ int flag_no_asm;
 
 int flag_const_strings;
 
-/* Nonzero means `$' can be in an identifier.  */
-
-#ifndef DOLLARS_IN_IDENTIFIERS
-#define DOLLARS_IN_IDENTIFIERS 1
-#endif
-int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
@@ -619,6 +612,10 @@ int flag_abi_version = 1;
 
 int warn_abi = 0;
 
+/* Nonzero means warn about invalid uses of offsetof. */
+ 
+int warn_invalid_offsetof = 1;
+
 /* Nonzero means warn about implicit declarations.  */
 
 int warn_implicit = 1;
@@ -626,7 +623,7 @@ int warn_implicit = 1;
 /* Nonzero means warn when all ctors or dtors are private, and the class
    has no friends.  */
 
-int warn_ctor_dtor_privacy = 1;
+int warn_ctor_dtor_privacy = 0;
 
 /* Nonzero means warn in function declared in derived class has the
    same name as a virtual in the base class, but fails to match the

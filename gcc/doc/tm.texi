@@ -650,39 +650,17 @@ variable @code{flag_iso} can be used.  The function-like macro
 @code{preprocessing_trad_p()} can be used to check for traditional
 preprocessing.
 
-With @code{TARGET_OS_CPP_BUILTINS} this macro obsoletes the
-@code{CPP_PREDEFINES} target macro.
-
 @findex TARGET_OS_CPP_BUILTINS
 @item TARGET_OS_CPP_BUILTINS()
 Similarly to @code{TARGET_CPU_CPP_BUILTINS} but this macro is optional
 and is used for the target operating system instead.
 
-With @code{TARGET_CPU_CPP_BUILTINS} this macro obsoletes the
-@code{CPP_PREDEFINES} target macro.
-
-@findex CPP_PREDEFINES
-@item CPP_PREDEFINES
-Define this to be a string constant containing @option{-D} options to
-define the predefined macros that identify this machine and system.
-These macros will be predefined unless the @option{-ansi} option (or a
-@option{-std} option for strict ISO C conformance) is specified.
-
-In addition, a parallel set of macros are predefined, whose names are
-made by appending @samp{__} at the beginning and at the end.  These
-@samp{__} macros are permitted by the ISO standard, so they are
-predefined regardless of whether @option{-ansi} or a @option{-std} option
-is specified.
-
-For example, on the Sun, one can use the following value:
-
-@smallexample
-"-Dmc68000 -Dsun -Dunix"
-@end smallexample
-
-The result is to define the macros @code{__mc68000__}, @code{__sun__}
-and @code{__unix__} unconditionally, and the macros @code{mc68000},
-@code{sun} and @code{unix} provided @option{-ansi} is not specified.
+@findex TARGET_OBJFMT_CPP_BUILTINS
+@item TARGET_OBJFMT_CPP_BUILTINS()
+Similarly to @code{TARGET_CPU_CPP_BUILTINS} but this macro is optional
+and is used for the target object format.  @file{elfos.h} uses this
+macro to define @code{__ELF__}, so you probably do not need to define
+it yourself.
 
 @findex extern int target_flags
 @item extern int target_flags;
@@ -3613,7 +3591,7 @@ pushed, zero suffices as a definition.
 
 The value of the expression can also be a @code{parallel} RTX@.  This is
 used when an argument is passed in multiple locations.  The mode of the
-of the @code{parallel} should be the mode of the entire argument.  The
+@code{parallel} should be the mode of the entire argument.  The
 @code{parallel} holds any number of @code{expr_list} pairs; each one
 describes where part of the argument is passed.  In each
 @code{expr_list} the first operand must be a @code{reg} RTX for the hard
@@ -8426,7 +8404,7 @@ the FPSCR PR bit has to be cleared, while for a double precision
 operation, this bit has to be set.  Changing the PR bit requires a general
 purpose register as a scratch register, hence these FPSCR sets have to
 be inserted before reload, i.e.@: you can't put this into instruction emitting
-or @code{MACHINE_DEPENDENT_REORG}.
+or @code{TARGET_MACHINE_DEPENDENT_REORG}.
 
 You can have multiple entities that are mode-switched, and select at run time
 which entities actually need it.  @code{OPTIMIZE_MODE_SWITCHING} should
@@ -9064,10 +9042,10 @@ value.
 
 @findex DOLLARS_IN_IDENTIFIERS
 @item DOLLARS_IN_IDENTIFIERS
-Define this macro to control use of the character @samp{$} in identifier
-names.  0 means @samp{$} is not allowed by default; 1 means it is allowed.
-1 is the default; there is no need to define this macro in that case.
-This macro controls the compiler proper; it does not affect the preprocessor.
+Define this macro to control use of the character @samp{$} in
+identifier names for the C family of languages.  0 means @samp{$} is
+not allowed by default; 1 means it is allowed.  1 is the default;
+there is no need to define this macro in that case.
 
 @findex NO_DOLLAR_IN_LABEL
 @item NO_DOLLAR_IN_LABEL
@@ -9142,13 +9120,6 @@ instructions which copy arguments into the argument registers into the delay
 slot of @var{insn}.
 
 You need not define this macro if it would always return zero.
-
-@findex MACHINE_DEPENDENT_REORG
-@item MACHINE_DEPENDENT_REORG (@var{insn})
-In rare cases, correct code generation requires extra machine
-dependent processing between the second jump optimization pass and
-delayed branch scheduling.  On those machines, define this macro as a C
-statement to act on the code starting at @var{insn}.
 
 @findex MULTIPLE_SYMBOL_SPACES
 @item MULTIPLE_SYMBOL_SPACES
@@ -9253,6 +9224,21 @@ added to the @code{struct ce_if_block} structure.  These should be initialized
 by the @code{IFCVT_INIT_EXTRA_FIELDS} macro.
 
 @end table
+
+@findex TARGET_MACHINE_DEPENDENT_REORG
+@deftypefn {Target Hook} void TARGET_MACHINE_DEPENDENT_REORG ()
+If non-null, this hook performs a target-specific pass over the
+instruction stream.  The compiler will run it at all optimization levels,
+just before the point at which it normally does delayed-branch scheduling.
+
+The exact purpose of the hook varies from target to target.  Some use
+it to do transformations that are necessary for correctness, such as
+laying out in-function constant pools or avoiding hardware hazards.
+Others use it as an opportunity to do some machine-dependent optimizations.
+
+You need not implement the hook if it has nothing to do.  The default
+definition is null.
+@end deftypefn
 
 @deftypefn {Target Hook} void TARGET_INIT_BUILTINS ()
 Define this hook if you have any machine-specific built-in functions

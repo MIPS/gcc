@@ -1,3 +1,294 @@
+2003-05-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Kaveh R. Ghazi <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/compile/simd-5.x: XFAIL on SPARC64.
+
+2003-05-24  Andreas Tobler <a.tobler@schweiz.ch>
+
+        * gcc.dg/torture/builtin-noret-1.c: Add dg-option -multiply_defined
+        suppress for powerpc-*-darwin*.
+	* gcc.dg/torture/builtin-noret-2.c: Likewise.
+
+2003-05-24  Andreas Tobler <a.tobler@schweiz.ch>
+
+	* gcc.c-torture/execute/builtins/builtins.exp: Add -multiply_defined
+	suppress option for powerpc-*-darwin*.
+	
+2003-05-23  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-1.c: Add tests for tan and atan.
+	* gcc.dg/builtins-4.c: Add test for fmod.
+
+2003-05-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10682
+	* g++.dg/template/instantiate4.C: New test.
+
+2003-05-22  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/ieee/inf-2.c: New test case.
+
+2003-05-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/scalar-return-1_main.c: New file.
+	* gcc.dg/compat/scalar-return-1_x.c: New file.
+	* gcc.dg/compat/scalar-return-1_y.c: New file.
+	* gcc.dg/compat/scalar-return-2_main.c: New file.
+	* gcc.dg/compat/scalar-return-2_x.c: New file.
+	* gcc.dg/compat/scalar-return-2_y.c: New file.
+	* gcc.dg/compat/struct-return-3_main.c: New file.
+	* gcc.dg/compat/struct-return-3_y.c: New file.
+	* gcc.dg/compat/struct-return-3_x.c: New file.
+	* gcc.dg/compat/struct-return-2_main.c: New file.
+	* gcc.dg/compat/struct-return-2_x.c: New file.
+	* gcc.dg/compat/struct-return-2_y.c: New file.
+
+2003-05-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.old-deja/g++.law/profile1.C (dg-options): Add -static to options
+	for hppa*-hp-hpux*.
+	* gcc.dg/20021014-1.c (dg-options): Likewise.
+	* gcc.dg/nest.c (dg-options): Likewise.
+
+2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/9738
+	* g++.dg/ext/dllimport2.C: New file.
+	* g++.dg/ext/dllimport3.C: New file.
+
+2003-05-20  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/struct-by-value-3_x.c: Move common pieces to headers.
+	* gcc.dg/compat/struct-by-value-3_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-5_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_x.c: Ditto.
+	* gcc.dg/compat/struct-by-value-6_y.c: Ditto.
+	* gcc.dg/compat/struct-by-value-7_x.c Ditto.
+	* gcc.dg/compat/struct-by-value-7_y.c Ditto.
+	* gcc.dg/compat/small-struct-defs.h: New file.
+	* gcc.dg/compat/small-struct-init.h: New file.
+	* gcc.dg/compat/small-struct-check.h: New file.
+	* gcc.dg/compat/fp-struct-defs.h: New file.
+	* gcc.dg/compat/fp-struct-check.h: New file.
+	* gcc.dg/compat/fp-struct-init.h: New file.
+	* gcc.dg/compat/fp-struct-test-by-value-y.h: New file.
+	* gcc.dg/compat/fp-struct-test-by-value-x.h: New file.
+
+2003-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030225-2.c: New test.
+
+2003-05-18  Roger Sayle  <roger@eyesopen.com>
+	    Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/compile/20030518-1.c: New test case.
+
+2003-05-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (gcc-dg-debug-runtest): Add opt_opts parameter.
+	* gcc.dg/debug/debug.exp: Pass opt_opts parameter to
+	gcc-dg-debug-runtest.
+	* g++.dg/debug/debug.exp: Pass opt_opts parameter to
+	gcc-dg-debug-runtest.
+
+2003-05-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9022
+	* g++.dg/lookup/using6.C: New test.
+
+2003-05-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/parse/access2.C: New test.
+
+2003-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (gcc-dg-debug-runtest): New method.
+	* g++.dg/debug/debug.exp: Use gcc-dg-debug-runtest.
+	* gcc.dg/debug/debug.exp: Likewise.
+
+2003-05-17  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/dollar.c: New test.
+
+2003-05-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/compat/struct-by-value-4_main.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-4_x.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-4_y.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-5_main.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-5_x.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-5_y.c: Split into multiple tests.
+	* gcc.dg/compat/struct-by-value-6_main.c: New file.
+	* gcc.dg/compat/struct-by-value-6_x.c: New file.
+	* gcc.dg/compat/struct-by-value-6_y.c: New file.
+	* gcc.dg/compat/struct-by-value-7_main.c: New file.
+	* gcc.dg/compat/struct-by-value-7_x.c: New file.
+	* gcc.dg/compat/struct-by-value-7_y.c: New file.
+	* gcc.dg/compat/struct-by-value-8_main.c: New file.
+	* gcc.dg/compat/struct-by-value-8_x.c: New file.
+	* gcc.dg/compat/struct-by-value-8_y.c: New file.
+	* gcc.dg/compat/struct-by-value-9_main.c: New file.
+	* gcc.dg/compat/struct-by-value-9_x.c: New file.
+	* gcc.dg/compat/struct-by-value-9_y.c: New file.
+
+2003-05-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (gcc-dg-test): Rename to ...
+	(gcc-dg-test-1): ... this.  Add target_compile parameter.  Add
+	support for "repo" mode.
+	* lib/g++-dg.exp: Use gcc-dg.exp to implement all functionality.
+	* lib/g77-dg.exp: Likewise.
+	* lib/obj-dg.exp: Likewise.
+	
+2003-05-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Merge from gcc-3_2-rhl8-branch:
+	2003-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-6.c: New test.
+
+	2003-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030405-1.c: New test.
+
+	2003-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030309-1.c: New test.
+
+	2003-03-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030307-1.c: New test.
+
+	2003-02-20  Randolph Chung  <tausq@debian.org>
+
+	* gcc.c-torture/compile/20030220-1.c: New test.
+
+	2003-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030217-1.c: New test.
+
+	2003-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020129-1.c: New test.
+
+	2002-12-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/unroll-1.c: New test.
+
+	2002-11-16  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20020920-1.c: New test.
+
+	2002-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/7434
+	* gcc.c-torture/compile/20021008-1.c: New test.
+
+	2002-08-10  Gwenole Beauchesne  <gbeauchesne@mandrakesoft.com>
+
+	PR target/7559
+	* testsuite/gcc.c-torture/execute/20020810-1.c: New test.
+
+	2002-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20020807-1.c: New test.
+
+	2002-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/opt-1.c: New test.
+
+	2002-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020729-1.c: New test.
+
+	2002-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/life1.C: New test.
+
+	2002-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020525-1.c: New test.
+
+	2002-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/6794
+	* g++.dg/ext/pretty1.C: New test.
+	* g++.dg/ext/pretty2.C: New test.
+
+2003-05-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8385
+	* g++.dg/ext/typeof5.C: New test.
+
+2003-05-15  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/builtins/string-asm-1.c: Take
+	__USER_LABEL_PREFIX__ into account.
+	* gcc.c-torture/execute/builtins/string-asm-2.c: Likewise.
+
+2003-05-14  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-15.c: New test case.
+
+2003-05-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/const-elim-1.c: Tighten scan-assembler-not regexp.
+
+2003-05-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* lib/g++.exp: Tweak handling of additional source files.
+	* g++.dg/special/conpr-2.C: Use dg-gpp-additional-sources.
+	* g++.dg/special/conpr-2a.C: Rename to ...
+	* g++.dg/special/conpr-2a.cc: ... this.
+	* g++.dg/special/conpr-3.C: Use dg-gpp-additional-sources.
+	* g++.dg/special/conpr-3a.C: Rename to ...
+	* g++.dg/special/conpr-3a.cc: This.
+	* g++.dg/special/conpr-3b.C: Rename to ...
+	* g++.dg/special/conpr-3b.cc: This.
+	* g++.dg/special/conpr-4.C: New test.
+	* g++.dg/special/ecos.exp: Rewrite to use ordinary dg driver.
+
+2003-05-12  David Edelsohn  <edelsohn@gnu.org>
+
+	* debug/debug.exp: Skip debug-[12].c at -O3 on non-Dwarf targets.
+
+2003-05-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.old-deja/g++.brendan/ns1.C: Remove private member warning.
+	* g++.old-deja/g++.robertl/eb71.C: Likewise.
+	* g++.old-deja/g++.brendan/warnings1.C: Add -Wctor-dtor-privacy.
+	* g++.old-deja/g++.other/warn3.C: Likewise.
+
+2003-05-11  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/i386-387-1.c: Update to also test log.
+	* gcc.dg/i386-387-2.c: Likewise.
+
+2003-05-11  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.f-torture/execute/int8421.f: New test.
+
+2003-05-11  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10230, c++/10481
+	* g++.dg/lookup/scoped5.C: New test.
+
+2003-05-11  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10552
+	* g++.dg/template/ttp6.C: New test.
+
+2003-05-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/builtins: New directory.
+	* gcc.c-torture/execute/string-opt-{3,4,16,17,18,19}.c: Move into
+	gcc.c-torture/execute/builtins.
+	* gcc.c-torture/execute/string-opt-asm-{1,2}.c: Likewise.
+	* gcc.c-torture/execute/builtin-noret-{1,2}.c: Move to...
+	* gcc.dg/torture: ...this new directory.  Turn into link-only tests.
+	* gcc.dg/no-builtin-1.c: Move into gcc.c-torture/execute/builtins.
+
 2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/9252

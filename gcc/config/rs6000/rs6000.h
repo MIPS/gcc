@@ -211,6 +211,10 @@ extern int target_flags;
 #define TARGET_UPDATE		(! TARGET_NO_UPDATE)
 #define TARGET_FUSED_MADD	(! TARGET_NO_FUSED_MADD)
 
+#ifndef HAVE_AS_TLS
+#define HAVE_AS_TLS 0
+#endif
+
 #ifdef IN_LIBGCC2
 /* For libgcc2 we make sure this is a compile time constant */
 #if defined (__64BIT__) || defined (__powerpc64__)
@@ -398,6 +402,8 @@ extern enum processor_type rs6000_cpu;
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   {"align-", &rs6000_alignment_string,					\
+    N_("Specify alignment of structure fields default/natural"), 0},	\
    SUBTARGET_OPTIONS							\
 }
 
@@ -439,6 +445,25 @@ extern const char *rs6000_altivec_vrsave_string;
 extern int rs6000_altivec_vrsave;
 extern const char *rs6000_longcall_switch;
 extern int rs6000_default_long_calls;
+extern const char* rs6000_alignment_string;
+extern int rs6000_alignment_flags;
+
+/* Alignment options for fields in structures for sub-targets following
+   AIX-like ABI.
+   ALIGN_POWER word-aligns FP doubles (default AIX ABI).
+   ALIGN_NATURAL doubleword-aligns FP doubles (align to object size).
+
+   Override the macro definitions when compiling libobjc to avoid undefined
+   reference to rs6000_alignment_flags due to library's use of GCC alignment
+   macros which use the macros below.  */
+   
+#ifndef IN_TARGET_LIBS
+#define MASK_ALIGN_POWER   0x00000000
+#define MASK_ALIGN_NATURAL 0x00000001
+#define TARGET_ALIGN_NATURAL (rs6000_alignment_flags & MASK_ALIGN_NATURAL)
+#else
+#define TARGET_ALIGN_NATURAL 0
+#endif
 
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
@@ -1551,26 +1576,9 @@ typedef struct rs6000_stack {
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
-   otherwise, FUNC is 0.
+   otherwise, FUNC is 0.  */
 
-   On the SPE, both FPs and vectors are returned in r3.
-
-   On RS/6000 an integer value is in r3 and a floating-point value is in
-   fp1, unless -msoft-float.  */
-
-#define FUNCTION_VALUE(VALTYPE, FUNC)				\
-  gen_rtx_REG ((INTEGRAL_TYPE_P (VALTYPE)			\
-		&& TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-	       || POINTER_TYPE_P (VALTYPE)			\
-	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == VECTOR_TYPE		\
-	       && TARGET_ALTIVEC ? ALTIVEC_ARG_RETURN		\
-	       : TREE_CODE (VALTYPE) == REAL_TYPE		\
-	         && TARGET_SPE_ABI && !TARGET_FPRS		\
-	       ? GP_ARG_RETURN					\
-	       : TREE_CODE (VALTYPE) == REAL_TYPE		\
-		 && TARGET_HARD_FLOAT && TARGET_FPRS	        \
-               ? FP_ARG_RETURN : GP_ARG_RETURN)
+#define FUNCTION_VALUE(VALTYPE, FUNC) rs6000_function_value ((VALTYPE), (FUNC))
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -1675,6 +1683,8 @@ typedef struct machine_function GTY(())
   int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* Some local-dynamic symbol.  */
+  const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
   int insn_chain_scanned_p;
 } machine_function;
@@ -2012,9 +2022,10 @@ typedef struct rs6000_args
    acceptable.  */
 
 #define LEGITIMATE_CONSTANT_P(X)				\
-  (GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
-   || (TARGET_POWERPC64 && GET_MODE (X) == DImode)		\
-   || easy_fp_constant (X, GET_MODE (X)))
+  ((GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
+    || (TARGET_POWERPC64 && GET_MODE (X) == DImode)		\
+    || easy_fp_constant (X, GET_MODE (X)))			\
+   && !rs6000_tls_referenced_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2177,14 +2188,6 @@ do {								\
    generating position independent code.  */
 
 /* #define LEGITIMATE_PIC_OPERAND_P (X) */
-
-/* In rare cases, correct code generation requires extra machine
-   dependent processing between the second jump optimization pass and
-   delayed branch scheduling.  On those machines, define this macro
-   as a C statement to act on the code starting at INSN.  */
-
-/* #define MACHINE_DEPENDENT_REORG(INSN) */
-
 
 /* Define this if some processing needs to be done immediately before
    emitting code for an insn.  */
@@ -2643,7 +2646,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 /* Define which CODE values are valid.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)  \
-  ((CODE) == '.')
+  ((CODE) == '.' || (CODE) == '&')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
@@ -2674,6 +2677,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
+  {"rs6000_tls_symbol_ref", {SYMBOL_REF}},				   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
   {"easy_vector_constant", {CONST_VECTOR}},				   \
   {"easy_vector_constant_add_self", {CONST_VECTOR}},			   \
@@ -2697,6 +2701,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"count_register_operand", {REG}},					   \
   {"xer_operand", {REG}},						   \
   {"symbol_ref_operand", {SYMBOL_REF}},					   \
+  {"rs6000_tls_symbol_ref", {SYMBOL_REF}},				   \
   {"call_operand", {SYMBOL_REF, REG}},					   \
   {"current_file_function_operand", {SYMBOL_REF}},			   \
   {"input_operand", {SUBREG, MEM, REG, CONST_INT,			   \

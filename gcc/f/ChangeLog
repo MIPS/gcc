@@ -1,3 +1,52 @@
+2003-05-22  Bud Davis  <bdavis9659@comcast.net>
+
+	* com.c (ffecom_sym_transform_): Error out on unallocatable
+	storage after type is set.
+
+2003-05-18  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* intdoc.in: Fix documentation of IDATE.
+	* intdoc.texi: Regenerate.
+	* news.texi: Update due to also fixing it in 3.3.1.
+
+2003-05-16  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* g77.texi: Remove most of the of the preface of the
+	bugs section.
+
+2003-05-15  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* g77.texi: Remove most of the bug reporting instructions and
+	merge them into bugs.html.
+
+2003-05-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c: Replace all calls to fatal_io_error with calls to
+	fatal_error; add ": %m" to the end of all the affected error
+	messages.
+
+2003-05-12  Zack Weinberg  <zack@codesourcery.com>
+
+	* bad.c: Don't call diagnostic_count_diagnostic.
+
+2003-05-12  Roger Sayle  <roger@eyesopen.com>
+
+	* com.c (ffecom_init_0): Define built-in functions for atan2,
+	exp, floor, fmod, log and pow.
+	(duplicate_decls): Preserve assembler name when redeclaring a
+	built-in.
+	* com-rt.def: Implement using the built-in forms of the above
+	functions rather than calling the standard C library directly.
+	Correct some of the run-time prototype "codes".
+
+2003-05-11  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/10726
+	* intdoc.in: Fix documentation of IDATE.
+	* intdoc.texi: Regenerate.
+	* g77.texi: Document completion of INTEGER*n support.
+	* news.texi: Update due to the above.
+
 2003-05-08  Roger Sayle  <roger@eyesopen.com>
 
 	PR fortran/8485
@@ -60,7 +109,7 @@
 
 	* lex.c (ffelex_file_pop_): Rename parameter from input_filename.
 	(ffelex_file_push_): Likewise.
-	
+
 	* ste.c (struct gbe_block): Rename field from input_filename.
 	(ffeste_start_block_, ffeste_start_stmt_): Likewise.
 

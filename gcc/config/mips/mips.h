@@ -43,14 +43,6 @@ enum cmp_type {
   CMP_MAX				/* max comparison type */
 };
 
-/* types of delay slot */
-enum delay_type {
-  DELAY_NONE,				/* no delay slot */
-  DELAY_LOAD,				/* load from memory delay */
-  DELAY_HILO,				/* move from/to hi/lo registers */
-  DELAY_FCMP				/* delay after doing c.<xx>.{d,s} */
-};
-
 /* Which processor to schedule for.  Since there is no difference between
    a R2000 and R3000 in terms of the scheduler, we collapse them into
    just an R3000.  The elements of the enumeration must match exactly
@@ -139,7 +131,7 @@ extern int file_in_function_warning;	/* warning given about .file in func */
 extern int sdb_label_count;		/* block start/end next label # */
 extern int sdb_begin_function_line;     /* Starting Line of current function */
 extern int mips_section_threshold;	/* # bytes of data/sdata cutoff */
-extern int g_switch_value;		/* value of the -G xx switch */
+/* extern unsigned HOST_WIDE_INT  g_switch_value; */ /* value of the -G xx switch */
 extern int g_switch_set;		/* whether -G xx was passed.  */
 extern int sym_lineno;			/* sgi next label # for each stmt */
 extern int set_noreorder;		/* # of nested .set noreorder's  */
@@ -164,16 +156,6 @@ extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_entry_string;	/* for -mentry */
 extern const char *mips_no_mips16_string;/* for -mno-mips16 */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
-extern int dslots_load_total;		/* total # load related delay slots */
-extern int dslots_load_filled;		/* # filled load delay slots */
-extern int dslots_jump_total;		/* total # jump related delay slots */
-extern int dslots_jump_filled;		/* # filled jump delay slots */
-extern int dslots_number_nops;		/* # of nops needed by previous insn */
-extern int num_refs[3];			/* # 1/2/3 word references */
-extern GTY(()) rtx mips_load_reg;	/* register to check for load delay */
-extern GTY(()) rtx mips_load_reg2;	/* 2nd reg to check for load delay */
-extern GTY(()) rtx mips_load_reg3;	/* 3rd reg to check for load delay */
-extern GTY(()) rtx mips_load_reg4;	/* 4th reg to check for load delay */
 extern int mips_string_length;		/* length of strings for mips16 */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
@@ -202,7 +184,7 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_GPOPT	   0x00000008	/* Optimize for global pointer */
 #define MASK_GAS	   0x00000010	/* Gas used instead of MIPS as */
 #define MASK_NAME_REGS	   0x00000020	/* Use MIPS s/w reg name convention */
-#define MASK_STATS	   0x00000040	/* print statistics to stderr */
+#define MASK_EXPLICIT_RELOCS 0x00000040 /* Use relocation operators.  */
 #define MASK_MEMCPY	   0x00000080	/* call memcpy instead of inline code*/
 #define MASK_SOFT_FLOAT	   0x00000100	/* software floating point */
 #define MASK_FLOAT64	   0x00000200	/* fp registers are 64 bits */
@@ -228,7 +210,6 @@ extern void		sbss_section PARAMS ((void));
 					   multiply-add operations.  */
 #define MASK_BRANCHLIKELY  0x02000000   /* Generate Branch Likely
 					   instructions.  */
-#define MASK_EXPLICIT_RELOCS 0x04000000 /* Use relocation operators.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -273,9 +254,6 @@ extern void		sbss_section PARAMS ((void));
 
 					/* Optimize for Sdata/Sbss */
 #define TARGET_GP_OPT		(target_flags & MASK_GPOPT)
-
-					/* print program statistics */
-#define TARGET_STATS		(target_flags & MASK_STATS)
 
 					/* call memcpy instead of inline code */
 #define TARGET_MEMCPY		(target_flags & MASK_MEMCPY)
@@ -590,9 +568,9 @@ extern void		sbss_section PARAMS ((void));
      N_("Don't use GP relative sdata/sbss sections")},			\
   {"no-gpopt",		 -MASK_GPOPT,					\
      N_("Don't use GP relative sdata/sbss sections")},			\
-  {"stats",		  MASK_STATS,					\
-     N_("Output compiler statistics")},					\
-  {"no-stats",		 -MASK_STATS,					\
+  {"stats",		  0,						\
+     N_("Output compiler statistics (now ignored)")},			\
+  {"no-stats",		  0,						\
      N_("Don't output compiler statistics")},				\
   {"memcpy",		  MASK_MEMCPY,					\
      N_("Don't optimize block moves")},					\
@@ -966,6 +944,24 @@ extern void		sbss_section PARAMS ((void));
 #define ISA_HAS_SEB_SEH         (!TARGET_MIPS16                        \
                                  && (ISA_MIPS32R2                      \
                                      ))
+
+/* True if the result of a load is not available to the next instruction.
+   A nop will then be needed between instructions like "lw $4,..."
+   and "addiu $4,$4,1".  */
+#define ISA_HAS_LOAD_DELAY	(mips_isa == 1				\
+				 && !TARGET_MIPS3900			\
+				 && !TARGET_MIPS16)
+
+/* Likewise mtc1 and mfc1.  */
+#define ISA_HAS_XFER_DELAY	(mips_isa <= 3)
+
+/* Likewise floating-point comparisons.  */
+#define ISA_HAS_FCMP_DELAY	(mips_isa <= 3)
+
+/* True if mflo and mfhi can be immediately followed by instructions
+   which write to the HI and LO registers.  Most targets require a
+   two-instruction gap.  */
+#define ISA_HAS_HILO_INTERLOCKS	(TARGET_MIPS5500 || TARGET_SB1)
 
 /* CC1_SPEC causes -mips3 and -mips4 to set -mfp64 and -mgp64; -mips1 or
    -mips2 sets -mfp32 and -mgp32.  This can be overridden by an explicit
@@ -1360,9 +1356,8 @@ do {							\
 #define PUT_SDB_INT_VAL(a)				\
 do {							\
   extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.val\t");		\
-  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a)); \
-  fprintf (asm_out_text_file, ";");			\
+  fprintf (asm_out_text_file, "\t.val\t" HOST_WIDE_INT_PRINT_DEC ";", \
+	   (HOST_WIDE_INT)(a));			        \
 } while (0)
 
 #define PUT_SDB_VAL(a)					\
@@ -1404,9 +1399,8 @@ do {							\
 #define PUT_SDB_SIZE(a)					\
 do {							\
   extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.size\t");		\
-  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a)); \
-  fprintf (asm_out_text_file, ";");			\
+  fprintf (asm_out_text_file, "\t.size\t" HOST_WIDE_INT_PRINT_DEC ";", \
+	   (HOST_WIDE_INT)(a));			        \
 } while (0)
 
 #define PUT_SDB_DIM(a)					\
@@ -3398,33 +3392,14 @@ typedef struct mips_args {
 				  REG, MEM}},				\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
-  {"fcc_register_operand",	{ REG, SUBREG }},
+  {"fcc_register_operand",	{ REG, SUBREG }},			\
+  {"hilo_operand",		{ REG }},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
 
 #define SPECIAL_MODE_PREDICATES \
   "pc_or_label_operand",
-
-
-/* If defined, a C statement to be executed just prior to the
-   output of assembler code for INSN, to modify the extracted
-   operands so they will be output differently.
-
-   Here the argument OPVEC is the vector containing the operands
-   extracted from INSN, and NOPERANDS is the number of elements of
-   the vector which contain meaningful data for this insn.  The
-   contents of this vector are what will be used to convert the
-   insn template into assembler code, so you can change the
-   assembler output by changing the contents of the vector.
-
-   We use it to check if the current insn needs a nop in front of it
-   because of load delays, and also to update the delay slot
-   statistics.  */
-
-#define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)			\
-  final_prescan_insn (INSN, OPVEC, NOPERANDS)
-
 
 /* Control the assembler format that we output.  */
 
@@ -3818,7 +3793,6 @@ do									\
     if (set_noreorder > 0 && --set_noreorder == 0)			\
       fputs ("\t.set\treorder\n", STREAM);				\
 									\
-    dslots_jump_filled++;						\
     fputs ("\n", STREAM);						\
   }									\
 while (0)
@@ -3921,7 +3895,7 @@ while (0)
    linker).  */
 
 #define ASM_OUTPUT_LOCAL(STREAM, NAME, SIZE, ROUNDED)			\
-  mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (SIZE))
+  mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (int)(SIZE))
 
 
 /* This says how to output an external.  It would be possible not to
@@ -4025,7 +3999,7 @@ do {									\
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t%u\n", (SIZE))
+  fprintf (STREAM, "\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This is how to output a string.  */
 #undef ASM_OUTPUT_ASCII
@@ -4109,8 +4083,6 @@ do									\
     if (! set_noreorder)						\
       fprintf (STREAM, "\t.set\tnoreorder\n");				\
 									\
-    dslots_load_total++;						\
-    dslots_load_filled++;						\
     fprintf (STREAM, "\t%s\t%s,0(%s)\n\t%s\t%s,%s,8\n",			\
 	     TARGET_64BIT ? "ld" : "lw",				\
 	     reg_names[REGNO],						\
@@ -4161,10 +4133,6 @@ while (0)
 					 && mips_abi != ABI_32		\
 					 && mips_abi != ABI_O64)
 
-/* In mips16 mode, we need to look through the function to check for
-   PC relative loads that are out of range.  */
-#define MACHINE_DEPENDENT_REORG(X) machine_dependent_reorg (X)
-
 /* We need to use a special set of functions to handle hard floating
    point code in mips16 mode.  */
 

@@ -66,7 +66,7 @@ target_alias=@target_alias@
 
 # Sed command to transform gcc to installed name.
 program_transform_name = @program_transform_name@
-program_transform_cross_name = s,^,$(target_alias)-,
+program_transform_cross_name = @program_transform_name@
 
 # -----------------------------
 # Directories used during build
@@ -161,7 +161,6 @@ GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 varasm.o-warn = -Wno-error
 gcc.o-warn = -Wno-error
 insn-conditions.o-warn = -Wno-error
-@out_object_file@-warn = -Wno-error
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
 gengtype-yacc.o-warn = -Wno-error
 c-parse.o-warn = -Wno-error
@@ -1149,9 +1148,10 @@ LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
 	$(MACHMODE_H) longlong.h gbl-ctors.h config.status stmp-int-hdrs \
 	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
 	$(LIB2ADD_ST) $(LIB2ADDEH) $(LIB2ADDEHDEP) $(EXTRA_PARTS) \
-	$(srcdir)/config/$(LIB1ASMSRC) gcov-io.h gcov-io.c gcov-iov.h
+	$(srcdir)/config/$(LIB1ASMSRC) \
+	$(srcdir)/gcov-io.h $(srcdir)/gcov-io.c gcov-iov.h
 
-libgcov.a: $(LIBGCC_DEPS); @true
+libgcov.a: libgcc.a; @true
 
 libgcc.a: $(LIBGCC_DEPS)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
@@ -1293,10 +1293,10 @@ $(parsedir)/c-parse.y: c-parse.in
 c-incpath.o: c-incpath.c c-incpath.h $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) \
 		intl.h prefix.h coretypes.h $(TM_H) cppdefault.h
 
-c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
-    $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
-    debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
-    gt-c-decl.h cgraph.h $(TREE_DUMP_H)
+c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+    $(RTL_H) $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h \
+    $(EXPR_H) debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) \
+    c-pragma.h gt-c-decl.h cgraph.h $(HASHTAB_H) $(TREE_DUMP_H)
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
@@ -2566,8 +2566,8 @@ s-iov: gcov-iov$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-gcov-iov.h gcov-iov.h
 	$(STAMP) s-iov
 
-gcov.o: gcov.c gcov-io.h gcov-iov.h intl.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
-gcov-dump.o: gcov-dump.c gcov-io.h gcov-iov.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
+gcov.o: gcov.c gcov-io.h gcov-io.c gcov-iov.h intl.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
+gcov-dump.o: gcov-dump.c gcov-io.h gcov-io.c gcov-iov.h $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H)
 
 # Only one of 'gcov' or 'gcov.exe' is actually built, depending
 # upon whether $(exeext) is empty or not.
@@ -3632,7 +3632,7 @@ stage1_copy: stage1_build
 
 stage2_build: stage1_copy
 	@BANSHEEREBUILD@
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
+	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" BUILD_CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
 		 STAGE_PREFIX=stage1/ \
 		 $(STAGE2_FLAGS_TO_PASS)
 	$(STAMP) stage2_build
@@ -3644,7 +3644,7 @@ stage2_copy: stage2_build
 	echo stage3_build > stage_last
 
 stage3_build: stage2_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" \
+	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" BUILD_CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" \
 		 STAGE_PREFIX=stage2/ \
 		 $(STAGE2_FLAGS_TO_PASS)
 	$(STAMP) stage3_build
@@ -3657,7 +3657,7 @@ stage3_copy: stage3_build
 	echo stage4_build > stage_last
 
 stage4_build: stage3_copy
-	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage3/xgcc$(exeext) -Bstage3/ -B$(build_tooldir)/bin/" \
+	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage3/xgcc$(exeext) -Bstage3/ -B$(build_tooldir)/bin/" BUILD_CC="$(STAGE_CC_WRAPPER) stage3/xgcc$(exeext) -Bstage3/ -B$(build_tooldir)/bin/" \
 		 STAGE_PREFIX=stage3/ \
 		 $(STAGE2_FLAGS_TO_PASS)
 	$(STAMP) stage4_build

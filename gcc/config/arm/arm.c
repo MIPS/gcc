@@ -112,6 +112,7 @@ static int	 arm_barrier_cost		PARAMS ((rtx));
 static Mfix *    create_fix_barrier		PARAMS ((Mfix *, Hint));
 static void	 push_minipool_barrier	        PARAMS ((rtx, Hint));
 static void	 push_minipool_fix		PARAMS ((rtx, Hint, rtx *, Mmode, rtx));
+static void	 arm_reorg			PARAMS ((void));
 static bool	 note_invalid_constants	        PARAMS ((rtx, Hint, int));
 static int       current_file_function_operand	PARAMS ((rtx));
 static Ulong	 arm_compute_save_reg0_reg12_mask  PARAMS ((void));
@@ -218,6 +219,9 @@ static void	 aof_globalize_label		PARAMS ((FILE *, Ccstar));
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST arm_address_cost
 
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG arm_reorg
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Obstack for minipool constant handling.  */
@@ -299,7 +303,10 @@ int arm_ld_sched = 0;
 int arm_is_strong = 0;
 
 /* Nonzero if this chip is an XScale.  */
-int arm_is_xscale = 0;
+int arm_arch_xscale = 0;
+
+/* Nonzero if tuning for XScale  */
+int arm_tune_xscale = 0;
 
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 int arm_is_6_or_7 = 0;
@@ -714,13 +721,14 @@ arm_override_options ()
   arm_arch4         = (insn_flags & FL_ARCH4) != 0;
   arm_arch5         = (insn_flags & FL_ARCH5) != 0;
   arm_arch5e        = (insn_flags & FL_ARCH5E) != 0;
-  arm_is_xscale     = (insn_flags & FL_XSCALE) != 0;
+  arm_arch_xscale     = (insn_flags & FL_XSCALE) != 0;
 
   arm_ld_sched      = (tune_flags & FL_LDSCHED) != 0;
   arm_is_strong     = (tune_flags & FL_STRONG) != 0;
   thumb_code	    = (TARGET_ARM == 0);
   arm_is_6_or_7     = (((tune_flags & (FL_MODE26 | FL_MODE32))
 		       && !(tune_flags & FL_ARCH4))) != 0;
+  arm_tune_xscale       = (tune_flags & FL_XSCALE) != 0;
   arm_is_cirrus	    = (tune_flags & FL_CIRRUS) != 0;
 
   if (arm_is_cirrus)
@@ -809,7 +817,7 @@ arm_override_options ()
   if (optimize_size || (tune_flags & FL_LDSCHED))
     arm_constant_limit = 1;
   
-  if (arm_is_xscale)
+  if (arm_arch_xscale)
     arm_constant_limit = 2;
 
   /* If optimizing for size, bump the number of instructions that we
@@ -2838,13 +2846,13 @@ thumb_legitimate_address_p (mode, x, strict_p)
   else if (thumb_base_register_rtx_p (x, mode, strict_p))
     return 1;
 
-  /* This is PC relative data before MACHINE_DEPENDENT_REORG runs.  */
+  /* This is PC relative data before arm_reorg runs.  */
   else if (GET_MODE_SIZE (mode) >= 4 && CONSTANT_P (x)
 	   && GET_CODE (x) == SYMBOL_REF
            && CONSTANT_POOL_ADDRESS_P (x) && ! flag_pic)
     return 1;
 
-  /* This is PC relative data after MACHINE_DEPENDENT_REORG runs.  */
+  /* This is PC relative data after arm_reorg runs.  */
   else if (GET_MODE_SIZE (mode) >= 4 && reload_completed
 	   && (GET_CODE (x) == LABEL_REF
 	       || (GET_CODE (x) == CONST
@@ -3471,7 +3479,7 @@ arm_adjust_cost (insn, link, dep, cost)
 
   /* Some true dependencies can have a higher cost depending
      on precisely how certain input operands are used.  */
-  if (arm_is_xscale
+  if (arm_tune_xscale
       && REG_NOTE_KIND (link) == 0
       && recog_memoized (insn) >= 0
       && recog_memoized (dep) >= 0)
@@ -4567,6 +4575,12 @@ adjacent_mem_locations (a, b)
       else
 	reg1 = REGNO (XEXP (b, 0));
 
+      /* Don't accept any offset that will require multiple instructions to handle,
+	 since this would cause the arith_adjacentmem pattern to output an overlong
+	 sequence.  */
+      if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
+	return 0;
+      
       return (reg0 == reg1) && ((val1 - val0) == 4 || (val0 - val1) == 4);
     }
   return 0;
@@ -5177,7 +5191,7 @@ arm_gen_load_multiple (base_regno, count, from, up, write_back, unchanging_p,
 
      As a compromise, we use ldr for counts of 1 or 2 regs, and ldm
      for counts of 3 or 4 regs.  */
-  if (arm_is_xscale && count <= 2 && ! optimize_size)
+  if (arm_tune_xscale && count <= 2 && ! optimize_size)
     {
       rtx seq;
       
@@ -5244,7 +5258,7 @@ arm_gen_store_multiple (base_regno, count, to, up, write_back, unchanging_p,
 
   /* See arm_gen_load_multiple for discussion of
      the pros/cons of ldm/stm usage for XScale.  */
-  if (arm_is_xscale && count <= 2 && ! optimize_size)
+  if (arm_tune_xscale && count <= 2 && ! optimize_size)
     {
       rtx seq;
       
@@ -6977,9 +6991,13 @@ note_invalid_constants (insn, address, do_pushes)
   return result;
 }
 
-void
-arm_reorg (first)
-     rtx first;
+/* Gcc puts the pool in the wrong place for ARM, since we can only
+   load addresses a limited distance around the pc.  We do some
+   special munging to move the constant pool values to the correct
+   point in the code.  */
+
+static void
+arm_reorg ()
 {
   rtx insn;
   HOST_WIDE_INT address = 0;
@@ -6989,11 +7007,12 @@ arm_reorg (first)
 
   /* The first insn must always be a note, or the code below won't
      scan it properly.  */
-  if (GET_CODE (first) != NOTE)
+  insn = get_insns ();
+  if (GET_CODE (insn) != NOTE)
     abort ();
 
   /* Scan all the insns and record the operands that will need fixing.  */
-  for (insn = next_nonnote_insn (first); insn; insn = next_nonnote_insn (insn))
+  for (insn = next_nonnote_insn (insn); insn; insn = next_nonnote_insn (insn))
     {
       if (TARGET_CIRRUS_FIX_INVALID_INSNS
           && (arm_cirrus_insn_p (insn)
@@ -9532,10 +9551,7 @@ arm_print_operand (stream, x, code)
 	    if (val == -1)
 	      arm_print_operand (stream, XEXP (x, 1), 0);
 	    else
-	      {
-		fputc ('#', stream);
-		fprintf (stream, HOST_WIDE_INT_PRINT_DEC, val);
-	      }
+	      fprintf (stream, "#" HOST_WIDE_INT_PRINT_DEC, val);
 	  }
       }
       return;

@@ -1224,7 +1224,7 @@ extern int avr_reg_order[];
    data types, because none of the library functions returns such
    types.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == RET_REGISTER)
+#define FUNCTION_VALUE_REGNO_P(N) ((int) (N) == RET_REGISTER)
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which the values of called function may come back.
 
@@ -1803,7 +1803,7 @@ do {									   \
 do {									\
      fputs ("\t.lcomm ", (STREAM));					\
      assemble_name ((STREAM), (NAME));					\
-     fprintf ((STREAM), ",%d\n", (SIZE));				\
+     fprintf ((STREAM), ",%d\n", (int)(SIZE));				\
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM the assembler definition of a local-common-label named NAME
@@ -2200,7 +2200,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    of the jump-table.  */
 
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
-fprintf (STREAM, "\t.skip %d,0\n", N)
+fprintf (STREAM, "\t.skip %d,0\n", (int)N)
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to advance the location counter by NBYTES bytes.
    Those bytes should be zero when loaded.  NBYTES will be a C
@@ -2288,12 +2288,6 @@ extern int avr_case_values_threshold;
    `$' in label names.  By default constructors and destructors in
    G++ have `$' in the identifiers.  If this macro is defined, `.' is
    used instead.  */
-
-#define MACHINE_DEPENDENT_REORG(INSN) machine_dependent_reorg (INSN)
-/* In rare cases, correct code generation requires extra machine
-   dependent processing between the second jump optimization pass and
-   delayed branch scheduling.  On those machines, define this macro
-   as a C statement to act on the code starting at INSN.  */
 
 #define GIV_SORT_CRITERION(X, Y)	\
   if (GET_CODE ((X)->add_val) == CONST_INT		\

@@ -684,7 +684,6 @@ rtx
 stabilize (x)
      rtx x;
 {
-
   if (GET_CODE (x) != MEM
       || ! rtx_unstable_p (XEXP (x, 0)))
     return x;
@@ -1448,13 +1447,6 @@ allocate_dynamic_stack_space (size, target, known_align)
 			    GEN_INT (BIGGEST_ALIGNMENT / BITS_PER_UNIT),
 			    NULL_RTX, 1);
     }
-
-  /* Some systems require a particular insn to refer to the stack
-     to make the pages exist.  */
-#ifdef HAVE_probe
-  if (HAVE_probe)
-    emit_insn (gen_probe ());
-#endif
 
   /* Record the new stack level for nonlocal gotos.  */
   if (nonlocal_goto_handler_slots != 0)

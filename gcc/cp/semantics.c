@@ -235,7 +235,21 @@ void pop_to_parent_deferring_access_checks (void)
   pop_deferring_access_checks ();
 }
 
-/* Perform the deferred access checks.  */
+/* Perform the deferred access checks.
+
+   After performing the checks, we still have to keep the list
+   `deferred_access_stack->deferred_access_checks' since we may want
+   to check access for them again later in a different context.
+   For example:
+
+     class A {
+       typedef int X;
+       static X a;
+     };
+     A::X A::a, x;	// No error for `A::a', error for `x'
+
+   We have to perform deferred access of `A::X', first with `A::a',
+   next with `x'.  */
 
 void perform_deferred_access_checks (void)
 {
@@ -246,9 +260,6 @@ void perform_deferred_access_checks (void)
     /* Check access.  */
     enforce_access (TREE_PURPOSE (deferred_check), 
 		    TREE_VALUE (deferred_check));
-
-  /* No more deferred checks.  */
-  deferred_access_stack->deferred_access_checks = NULL_TREE;
 }
 
 /* Defer checking the accessibility of DECL, when looked up in
@@ -1270,11 +1281,20 @@ finish_non_static_data_member (tree decl, tree qualifying_scope)
       tree access_type = current_class_type;
       tree object = current_class_ref;
 
-      while (!DERIVED_FROM_P (context_for_name_lookup (decl), access_type))
+      while (access_type
+	     && !DERIVED_FROM_P (context_for_name_lookup (decl), access_type))
 	{
 	  access_type = TYPE_CONTEXT (access_type);
-	  while (DECL_P (access_type))
+	  while (access_type && DECL_P (access_type))
 	    access_type = DECL_CONTEXT (access_type);
+	}
+
+      if (!access_type)
+	{
+	  cp_error_at ("object missing in reference to `%D'",
+		       decl);
+	  error ("from this location");
+	  return error_mark_node;
 	}
 
       perform_or_defer_access_check (access_type, decl);
@@ -2148,7 +2168,7 @@ finish_typeof (expr)
 {
   tree type;
 
-  if (processing_template_decl)
+  if (type_dependent_expression_p (expr))
     {
       type = make_aggr_type (TYPEOF_TYPE);
       TYPE_FIELDS (type) = expr;

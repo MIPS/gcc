@@ -2160,6 +2160,14 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      break;
 	    final_sequence = body;
 
+	    /* Record the delay slots' frame information before the branch.
+	       This is needed for delayed calls: see execute_cfa_program().  */
+#if defined (DWARF2_UNWIND_INFO)
+	    if (dwarf2out_do_frame ())
+	      for (i = 1; i < XVECLEN (body, 0); i++)
+		dwarf2out_frame_debug (XVECEXP (body, 0, i));
+#endif
+
 	    /* The first insn in this SEQUENCE might be a JUMP_INSN that will
 	       force the restoration of a comparison that was previously
 	       thought unnecessary.  If that happens, cancel this sequence
@@ -2514,16 +2522,17 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	output_asm_insn (template, recog_data.operand);
 
+	/* If necessary, report the effect that the instruction has on
+	   the unwind info.   We've already done this for delay slots
+	   and call instructions.  */
 #if defined (DWARF2_UNWIND_INFO)
-#if defined (HAVE_prologue)
-	if (GET_CODE (insn) == INSN && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
-#else
-	if (!ACCUMULATE_OUTGOING_ARGS
-	    && GET_CODE (insn) == INSN
+	if (GET_CODE (insn) == INSN
+#if !defined (HAVE_prologue)
+	    && !ACCUMULATE_OUTGOING_ARGS
+#endif
+	    && final_sequence == 0
 	    && dwarf2out_do_frame ())
 	  dwarf2out_frame_debug (insn);
-#endif
 #endif
 
 #if 0
@@ -2826,13 +2835,14 @@ alter_cond (cond)
    In an `asm', it's the user's fault; otherwise, the compiler's fault.  */
 
 void
-output_operand_lossage VPARAMS ((const char *msgid, ...))
+output_operand_lossage (const char *msgid, ...)
 {
   char *fmt_string;
   char *new_message;
   const char *pfx_str;
-  VA_OPEN (ap, msgid);
-  VA_FIXEDARG (ap, const char *, msgid);
+  va_list ap;
+  
+  va_start (ap, msgid);
 
   pfx_str = this_is_asm_operands ? _("invalid `asm': ") : "output_operand: ";
   asprintf (&fmt_string, "%s%s", pfx_str, _(msgid));
@@ -2845,7 +2855,7 @@ output_operand_lossage VPARAMS ((const char *msgid, ...))
 
   free (fmt_string);
   free (new_message);
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 /* Output of assembler code from a template, and its subroutines.  */
@@ -3367,14 +3377,13 @@ output_addr_const (file, x)
    We handle alternate assembler dialects here, just like output_asm_insn.  */
 
 void
-asm_fprintf VPARAMS ((FILE *file, const char *p, ...))
+asm_fprintf (FILE *file, const char *p, ...)
 {
   char buf[10];
   char *q, c;
-
-  VA_OPEN (argptr, p);
-  VA_FIXEDARG (argptr, FILE *, file);
-  VA_FIXEDARG (argptr, const char *, p);
+  va_list argptr;
+  
+  va_start (argptr, p);
 
   buf[0] = '%';
 
@@ -3522,7 +3531,7 @@ asm_fprintf VPARAMS ((FILE *file, const char *p, ...))
       default:
 	fputc (c, file);
       }
-  VA_CLOSE (argptr);
+  va_end (argptr);
 }
 
 /* Split up a CONST_DOUBLE or integer constant rtx

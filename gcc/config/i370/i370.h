@@ -1181,7 +1181,8 @@ enum reg_class
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE)  					\
 {									\
-  int s, k;								\
+  unsigned HOST_WIDE_INT s;						\
+  int  k;								\
   for (s = (SIZE); s > 0; s -= MAX_CHUNK)				\
     {									\
       if (s > MAX_CHUNK)						\
@@ -1248,7 +1249,7 @@ enum reg_class
 	  if (CODE == 'O')						\
 	    {								\
 	      if (GET_CODE (addr) == PLUS)				\
-		fprintf (FILE, "%d", INTVAL (XEXP (addr, 1)));		\
+		fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, INTVAL (XEXP (addr, 1))); \
 	      else							\
 		fprintf (FILE, "0");					\
 	    }								\
@@ -1273,21 +1274,21 @@ enum reg_class
 	break;								\
       case CONST_INT:					        	\
 	if (CODE == 'B')						\
-	  fprintf (FILE, "%d", INTVAL (XV) & 0xff);			\
+	  fprintf (FILE, "%d", (int) (INTVAL (XV) & 0xff));		\
 	else if (CODE == 'X')						\
-	  fprintf (FILE, "%02X", INTVAL (XV) & 0xff);			\
+	  fprintf (FILE, "%02X", (int) (INTVAL (XV) & 0xff));		\
 	else if (CODE == 'h')						\
-	  fprintf (FILE, "%d", (INTVAL (XV) << 16) >> 16);		\
+	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (INTVAL (XV) << 16) >> 16); \
 	else if (CODE == 'H')						\
 	  {								\
 	    mvs_page_lit += 2;						\
-	    fprintf (FILE, "=H'%d'", (INTVAL (XV) << 16) >> 16);	\
+	    fprintf (FILE, "=H'" HOST_WIDE_INT_PRINT_DEC "'", (INTVAL (XV) << 16) >> 16); \
 	  }								\
 	else if (CODE == 'K')						\
 	  {								\
             /* auto sign-extension of signed 16-bit to signed 32-bit */	\
 	    mvs_page_lit += 4;						\
-	    fprintf (FILE, "=F'%d'", (INTVAL (XV) << 16) >> 16);	\
+	    fprintf (FILE, "=F'" HOST_WIDE_INT_PRINT_DEC "'", (INTVAL (XV) << 16) >> 16); \
 	  }								\
 	else if (CODE == 'W')						\
 	  {								\
@@ -1303,7 +1304,7 @@ enum reg_class
 	else								\
 	  {								\
 	    mvs_page_lit += 4;						\
-	    fprintf (FILE, "=F'%d'", INTVAL (XV));			\
+	    fprintf (FILE, "=F'" HOST_WIDE_INT_PRINT_DEC "'", INTVAL (XV)); \
 	  }								\
 	break;								\
       case CONST_DOUBLE:						\
@@ -1361,8 +1362,8 @@ enum reg_class
 		fprintf (FILE, "=V(");					\
 		ASM_OUTPUT_LABELREF (FILE,				\
 				  XSTR (XEXP (XEXP (XV, 0), 0), 0));	\
-		fprintf (FILE, ")\n\tA\t%s,=F'%d'", curreg,		\
-				  INTVAL (XEXP (XEXP (XV, 0), 1)));	\
+		fprintf (FILE, ")\n\tA\t%s,=F'" HOST_WIDE_INT_PRINT_DEC "'", \
+			 curreg, INTVAL (XEXP (XEXP (XV, 0), 1)));	\
 	      }								\
 	    else							\
 	      {								\
@@ -1542,7 +1543,7 @@ enum reg_class
 	  if (CODE == 'O')						\
 	    {								\
 	      if (GET_CODE (addr) == PLUS)				\
-		fprintf (FILE, "%d", INTVAL (XEXP (addr, 1)));		\
+		fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, INTVAL (XEXP (addr, 1))); \
 	      else							\
 		fprintf (FILE, "0");					\
 	    }								\
@@ -1567,21 +1568,23 @@ enum reg_class
 	break;								\
       case CONST_INT:					        	\
 	if (CODE == 'B')						\
-	  fprintf (FILE, "%d", INTVAL (XV) & 0xff);			\
+	  fprintf (FILE, "%d", (int) (INTVAL (XV) & 0xff));		\
 	else if (CODE == 'X')						\
-	  fprintf (FILE, "%02X", INTVAL (XV) & 0xff);			\
+	  fprintf (FILE, "%02X", (int) (INTVAL (XV) & 0xff));		\
 	else if (CODE == 'h')						\
-	  fprintf (FILE, "%d", (INTVAL (XV) << 16) >> 16);		\
+	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, (INTVAL (XV) << 16) >> 16); \
 	else if (CODE == 'H')						\
 	  {								\
 	    mvs_page_lit += 2;						\
-	    fprintf (FILE, "=H'%d'", (INTVAL (XV) << 16) >> 16);	\
+	    fprintf (FILE, "=H'" HOST_WIDE_INT_PRINT_DEC "'",		\
+		     (INTVAL (XV) << 16) >> 16);			\
 	  }								\
 	else if (CODE == 'K')						\
 	  {								\
             /* auto sign-extension of signed 16-bit to signed 32-bit */	\
 	    mvs_page_lit += 4;						\
-	    fprintf (FILE, "=F'%d'", (INTVAL (XV) << 16) >> 16);	\
+	    fprintf (FILE, "=F'" HOST_WIDE_INT_PRINT_DEC "'",		\
+		     (INTVAL (XV) << 16) >> 16);			\
 	  }								\
 	else if (CODE == 'W')						\
 	  {								\
@@ -1597,7 +1600,7 @@ enum reg_class
 	else								\
 	  {								\
 	    mvs_page_lit += 4;						\
-	    fprintf (FILE, "=F'%d'", INTVAL (XV));			\
+	    fprintf (FILE, "=F'" HOST_WIDE_INT_PRINT_DEC "'", INTVAL (XV)); \
 	  }								\
 	break;								\
       case CONST_DOUBLE:						\
@@ -1655,8 +1658,8 @@ enum reg_class
 		fprintf (FILE, "=V(");					\
 		ASM_OUTPUT_LABELREF (FILE,				\
 				  XSTR (XEXP (XEXP (XV, 0), 0), 0));	\
-		fprintf (FILE, ")\n\tA\t%s,=F'%d'", curreg,		\
-				  INTVAL (XEXP (XEXP (XV, 0), 1)));	\
+		fprintf (FILE, ")\n\tA\t%s,=F'" HOST_WIDE_INT_PRINT_DEC "'", \
+			 curreg, INTVAL (XEXP (XEXP (XV, 0), 1)));	\
 	      }								\
 	    else							\
 	      {								\
@@ -1864,7 +1867,7 @@ abort(); \
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),                     \
   assemble_name ((FILE), (NAME)),               \
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1872,7 +1875,7 @@ abort(); \
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".lcomm ", (FILE)),                    \
   assemble_name ((FILE), (NAME)),               \
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 #endif /* TARGET_ELF_ABI */
 #endif /* ! GCC_I370_H */

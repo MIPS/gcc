@@ -1,3 +1,11 @@
+2003-06-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-mudflap.c (MARK_TREE_MUDFLAPPED, TREE_MUDFLAPPED):
+	Use TREE_VISITED instead of TREE_BOUNDED.
+	* c-mudflap.c (TREE_MUDFLAPPED): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Remove
+	references to TYPE_QUAL_BOUNDED.
+
 2003-06-03  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (simplify_cond_expr): Call truthvalue_conversion
@@ -11,6 +19,7 @@
 	* tree-alias-common (ptr_may_alias_var): Cleanup determination of
 	global vars and whatnot.
 	
+
 2003-06-02  Diego Novillo  <dnovillo@redhat.com>
 
         * Makefile.in (tree-ssa.o, tree-cfg.o): Add dependency on cfgloop.h
@@ -307,6 +316,10 @@
 	* tree-ssa-ccp.c (get_rhs): Correctly handle MODIFY_EXPR embedded in
 	a RETURN_EXPR.
 	(set_rhs): Likewise.
+
+2003-05-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* Makefile.in (regmove.o-warn): Change to -Wno-error.
 
 2003-05-15  Andrew MacLeod  <amacleod@redhat.com>
 

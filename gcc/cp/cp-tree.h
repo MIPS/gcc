@@ -992,18 +992,19 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
 #define DERIVED_FROM_P(PARENT, TYPE) \
-  lookup_base ((TYPE), PARENT, ba_any, NULL)
+  (lookup_base ((TYPE), PARENT, ba_any, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is uniquely derived from PARENT. Ignores
    accessibility.  */
 #define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT), ba_ignore | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT), ba_ignore | ba_quiet, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is accessible in the current scope and uniquely
    derived from PARENT.  */
 #define ACCESSIBLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT), ba_check | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT), ba_check | ba_quiet, NULL) != NULL_TREE)
 /* Nonzero iff TYPE is publicly & uniquely derived from PARENT.  */
 #define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  lookup_base ((TYPE), (PARENT),  ba_not_special | ba_quiet, NULL)
+  (lookup_base ((TYPE), (PARENT),  ba_not_special | ba_quiet, NULL) \
+   != NULL_TREE)
 
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
@@ -1097,7 +1098,7 @@ struct lang_type_class GTY(())
   tree vtables;
   tree typeinfo_var;
   tree vbases;
-  tree tags;
+  binding_table nested_udts;
   tree as_base;
   tree pure_virtuals;
   tree friend_classes;
@@ -1309,11 +1310,11 @@ struct lang_type GTY(())
 #define SET_CLASSTYPE_MARKED6(NODE)   SET_CLASSTYPE_MARKED_N (NODE, 5)
 #define CLEAR_CLASSTYPE_MARKED6(NODE) CLEAR_CLASSTYPE_MARKED_N (NODE, 5)
 
-/* A list of the nested tag-types (class, struct, union, or enum)
-   found within this class.  The TREE_PURPOSE of each node is the name
-   of the type; the TREE_VALUE is the type itself.  This list includes
-   nested member class templates.  */
-#define CLASSTYPE_TAGS(NODE)		(LANG_TYPE_CLASS_CHECK (NODE)->tags)
+/* A dictionary of the nested user-defined-types (class-types, or enums)
+   found within this class.  This table includes nested member class
+   templates.  */
+#define CLASSTYPE_NESTED_UTDS(NODE) \
+   (LANG_TYPE_CLASS_CHECK (NODE)->nested_udts)
 
 /* Nonzero if NODE has a primary base class, i.e., a base class with
    which it shares the virtual function table pointer.  */
@@ -3007,12 +3008,10 @@ typedef enum tsubst_flags_t {
   tf_none = 0,               /* nothing special */
   tf_error = 1 << 0,         /* give error messages  */
   tf_warning = 1 << 1,       /* give warnings too  */
-  tf_no_attributes = 1 << 2, /* ignore attributes on comparisons
-				(instantiate_type use) */
-  tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
-  tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
+  tf_ignore_bad_quals = 1 << 2, /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 3,	/* retain typedef type decls
 				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
+  tf_ptrmem_ok = 1 << 4      /* pointers to member ok (internal
 				instantiate_type use) */
 } tsubst_flags_t;
 
@@ -3363,14 +3362,12 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 				   type is derived from the pointed to
 				   by the first.  */
 #define COMPARE_RELAXED       2 /* Like COMPARE_DERIVED, but in
-				   reverse.  Also treat enmeration
+				   reverse.  Also treat enumeration
 				   types as the same as integer types
 				   of the same width.  */
 #define COMPARE_REDECLARATION 4 /* The comparsion is being done when
 				   another declaration of an existing
 				   entity is seen.  */
-#define COMPARE_NO_ATTRIBUTES 8 /* The comparison should ignore
-				   extra-linguistic type attributes.  */
 
 /* Used with push_overloaded_decl.  */
 #define PUSH_GLOBAL          0  /* Push the DECL into namespace scope,

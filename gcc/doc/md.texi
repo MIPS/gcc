@@ -1934,12 +1934,6 @@ Data register
 @item f
 68881 floating-point register, if available
 
-@item x
-Sun FPA (floating-point) register, if available
-
-@item y
-First 16 Sun FPA registers, if available
-
 @item I
 Integer in the range 1 to 8
 
@@ -1957,9 +1951,6 @@ Signed number whose magnitude is greater than 0x100
 
 @item G
 Floating point constant that is not a 68881 constant
-
-@item H
-Floating point constant that can be used by Sun FPA
 @end table
 
 @item Motorola 68HC11 & 68HC12 families---@file{m68hc11.h}
@@ -3278,18 +3269,6 @@ Do not define this pattern if all that must be done is the subtraction.
 Some machines require other operations such as stack probes or
 maintaining the back chain.  Define this pattern to emit those
 operations in addition to updating the stack pointer.
-
-@cindex @code{probe} instruction pattern
-@item @samp{probe}
-Some machines require instructions to be executed after space is
-allocated from the stack, for example to generate a reference at
-the bottom of the stack.
-
-If you need to emit instructions before the stack has been adjusted,
-put them into the @samp{allocate_stack} pattern.  Otherwise, define
-this pattern to emit the required instructions.
-
-No operands are provided.
 
 @cindex @code{check_stack} instruction pattern
 @item @samp{check_stack}
@@ -5600,8 +5579,8 @@ in such processors and suggestions for their representation.
 @cindex automaton based pipeline description
 
 This section describes constructions of the automaton based processor
-pipeline description.  The order of all mentioned below constructions
-in the machine description file is not important.
+pipeline description.  The order of constructions within the machine
+description file is not important.
 
 @findex define_automaton
 @cindex pipeline hazard recognizer
@@ -5609,7 +5588,7 @@ The following optional construction describes names of automata
 generated and used for the pipeline hazards recognition.  Sometimes
 the generated finite state automaton used by the pipeline hazard
 recognizer is large.  If we use more than one automaton and bind functional
-units to the automata, the summary size of the automata usually is
+units to the automata, the total size of the automata is usually 
 less than the size of the single automaton.  If there is no one such
 construction, only one finite state automaton is generated.
 
@@ -5619,12 +5598,12 @@ construction, only one finite state automaton is generated.
 
 @var{automata-names} is a string giving names of the automata.  The
 names are separated by commas.  All the automata should have unique names.
-The automaton name is used in construction @code{define_cpu_unit} and
+The automaton name is used in the constructions @code{define_cpu_unit} and
 @code{define_query_cpu_unit}.
 
 @findex define_cpu_unit
 @cindex processor functional units
-Each processor functional unit used in description of instruction
+Each processor functional unit used in the description of instruction
 reservations should be described by the following construction.
 
 @smallexample

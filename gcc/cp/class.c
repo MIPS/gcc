@@ -5059,7 +5059,7 @@ finish_struct_1 (tree t)
   check_bases_and_members (t);
 
   /* Find the key method */
-    if (TYPE_CONTAINS_VPTR_P (t))
+  if (TYPE_CONTAINS_VPTR_P (t))
     {
       CLASSTYPE_KEY_METHOD (t) = key_method (t);
 
@@ -5226,7 +5226,6 @@ unreverse_member_declarations (tree t)
   /* The following lists are all in reverse order.  Put them in
      declaration order now.  */
   TYPE_METHODS (t) = nreverse (TYPE_METHODS (t));
-  CLASSTYPE_TAGS (t) = nreverse (CLASSTYPE_TAGS (t));
   CLASSTYPE_DECL_LIST (t) = nreverse (CLASSTYPE_DECL_LIST (t));
 
   /* Actually, for the TYPE_FIELDS, only the non TYPE_DECLs are in
@@ -5562,7 +5561,7 @@ pushclass (tree type, bool modify)
 	  unuse_fields (type);
 	}
 
-      storetags (CLASSTYPE_TAGS (type));
+      cxx_remember_type_decls (CLASSTYPE_NESTED_UTDS (type));
     }
 }
 
@@ -6018,8 +6017,6 @@ tree
 instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 {
   int complain = (flags & tf_error);
-  int strict = (flags & tf_no_attributes)
-               ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
   int allow_ptrmem = flags & tf_ptrmem_ok;
   
   flags &= ~tf_ptrmem_ok;
@@ -6033,7 +6030,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
 
   if (TREE_TYPE (rhs) != NULL_TREE && ! (type_unknown_p (rhs)))
     {
-      if (comptypes (lhstype, TREE_TYPE (rhs), strict))
+      if (same_type_p (lhstype, TREE_TYPE (rhs)))
 	return rhs;
       if (flag_ms_extensions 
 	  && TYPE_PTRMEMFUNC_P (lhstype)

@@ -330,7 +330,7 @@ enum graph_dump_types graph_dump_format;
 char *asm_file_name;
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
-int g_switch_value;
+unsigned HOST_WIDE_INT g_switch_value;
 int g_switch_set;
 
 /* Type(s) of debugging information we are producing (if any).
@@ -1807,10 +1807,10 @@ setup_core_dumping ()
   {
     struct rlimit rlim;
     if (getrlimit (RLIMIT_CORE, &rlim) != 0)
-      fatal_io_error ("getting core file size maximum limit");
+      fatal_error ("getting core file size maximum limit: %m");
     rlim.rlim_cur = rlim.rlim_max;
     if (setrlimit (RLIMIT_CORE, &rlim) != 0)
-      fatal_io_error ("setting core file size limit to maximum");
+      fatal_error ("setting core file size limit to maximum: %m");
   }
 #endif
   diagnostic_abort_on_error (global_dc);
@@ -1956,7 +1956,7 @@ open_dump_file (index, decl)
 
   rtl_dump_file = fopen (dump_name, open_arg);
   if (rtl_dump_file == NULL)
-    fatal_io_error ("can't open %s", dump_name);
+    fatal_error ("can't open %s: %m", dump_name);
 
   free (dump_name);
 
@@ -3133,13 +3133,14 @@ rest_of_compilation (decl)
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 
   /* Do branch profiling and static profile estimation passes.  */
-  if (optimize > 0 || cfun->arc_profile || flag_branch_probabilities)
+  if (optimize > 0
+      || profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       struct loops loops;
 
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
-      if (cfun->arc_profile || flag_branch_probabilities)
+      if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
 	branch_prob ();
 
       /* Discover and record the loop depth at the head of each basic
@@ -3698,17 +3699,18 @@ rest_of_compilation (decl)
   free_bb_for_insn ();
 
   /* If a machine dependent reorganization is needed, call it.  */
-#ifdef MACHINE_DEPENDENT_REORG
-  timevar_push (TV_MACH_DEP);
-  open_dump_file (DFI_mach, decl);
+  if (targetm.machine_dependent_reorg != 0)
+    {
+      timevar_push (TV_MACH_DEP);
+      open_dump_file (DFI_mach, decl);
 
-  MACHINE_DEPENDENT_REORG (insns);
+      (*targetm.machine_dependent_reorg) ();
 
-  close_dump_file (DFI_mach, print_rtl, insns);
-  timevar_pop (TV_MACH_DEP);
+      close_dump_file (DFI_mach, print_rtl, insns);
+      timevar_pop (TV_MACH_DEP);
 
-  ggc_collect ();
-#endif
+      ggc_collect ();
+    }
 
   purge_line_number_notes (insns);
   cleanup_barriers ();
@@ -4938,7 +4940,7 @@ init_asm_output (name)
       else
 	asm_out_file = fopen (asm_file_name, "w+");
       if (asm_out_file == 0)
-	fatal_io_error ("can't open %s for writing", asm_file_name);
+	fatal_error ("can't open %s for writing: %m", asm_file_name);
     }
 
 #ifdef IO_BUFFER_SIZE
@@ -5428,7 +5430,7 @@ process_options ()
     {
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
-	fatal_io_error ("can't open %s", aux_info_file_name);
+	fatal_error ("can't open %s: %m", aux_info_file_name);
     }
 
   if (! targetm.have_named_sections)
@@ -5587,9 +5589,9 @@ finalize ()
   if (asm_out_file)
     {
       if (ferror (asm_out_file) != 0)
-	fatal_io_error ("error writing to %s", asm_file_name);
+	fatal_error ("error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
-	fatal_io_error ("error closing %s", asm_file_name);
+	fatal_error ("error closing %s: %m", asm_file_name);
     }
 
   /* Do whatever is necessary to finish printing the graphs.  */

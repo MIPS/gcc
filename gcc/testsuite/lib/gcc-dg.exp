@@ -1,4 +1,4 @@
-#   Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 1999, 2000, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,8 +53,18 @@ foreach option $TORTURE_OPTIONS {
 
 # Define gcc callbacks for dg.exp.
 
-proc gcc-dg-test { prog do_what extra_tool_flags } {
+proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
     # Set up the compiler flags, based on what we're going to do.
+
+    set options [list]
+
+    # Tests should be able to use "dg-do repo".  However, the dg test
+    # driver checks the argument to dg-do against a list of acceptable
+    # options, and "repo" is not among them.  Therefore, we resort to
+    # this ugly approach.
+    if [string match "*-frepo*" $extra_tool_flags] then {
+	set do_what "repo"
+    }
 
     switch $do_what {
 	"preprocess" {
@@ -79,6 +89,10 @@ proc gcc-dg-test { prog do_what extra_tool_flags } {
 	    # The following line is needed for targets like the i960 where
 	    # the default output file is b.out.  Sigh.
 	}
+	"repo" {
+	    set compile_type "object"
+	    set output_file "[file rootname [file tail $prog]].o"
+	}
 	"run" {
 	    set compile_type "executable"
 	    # FIXME: "./" is to cope with "." not being in $PATH.
@@ -94,14 +108,25 @@ proc gcc-dg-test { prog do_what extra_tool_flags } {
 	    return ""
 	}
     }
-    set options ""
+
     if { $extra_tool_flags != "" } {
 	lappend options "additional_flags=$extra_tool_flags"
     }
 
-    set comp_output [gcc_target_compile "$prog" "$output_file" "$compile_type" $options];
+    set comp_output [$target_compile "$prog" "$output_file" "$compile_type" $options];
+
+    if { $do_what == "repo" } {
+	set object_file "$output_file"
+	set output_file "[file rootname [file tail $prog]].exe"
+	concat comp_output \
+	       [$target_compile "$object_file" "$output_file" "executable" $options]
+    }
 
     return [list $comp_output $output_file]
+}
+
+proc gcc-dg-test { prog do_what extra_tool_flags } {
+    return [gcc-dg-test-1 gcc_target_compile $prog $do_what $extra_tool_flags]
 }
 
 proc gcc-dg-prune { system text } {
@@ -161,6 +186,67 @@ proc gcc-dg-runtest { testcases default-extra-flags } {
 	foreach flags $option_list {
 	    verbose "Testing $nshort, $flags" 1
 	    dg-test $test $flags ${default-extra-flags}
+	}
+    }
+}
+
+proc gcc-dg-debug-runtest { target_compile trivial opt_opts testcases } {
+    global srcdir subdir
+
+    if ![info exists DEBUG_TORTURE_OPTIONS] {
+	set DEBUG_TORTURE_OPTIONS ""
+	foreach type {-gdwarf-2 -gstabs -gstabs+ -gxcoff -gxcoff+ -gcoff} {
+	    set comp_output [$target_compile \
+		    "$srcdir/$subdir/$trivial" "trivial.S" assembly \
+		    "additional_flags=$type"]
+	    if { ! [string match "*: unknown or unsupported -g option*" \
+		    $comp_output] } {
+		foreach level {1 "" 3} {
+		    lappend DEBUG_TORTURE_OPTIONS [list "${type}${level}"]
+		    foreach opt $opt_opts {
+			lappend DEBUG_TORTURE_OPTIONS \
+				[list "${type}${level}" "$opt" ]
+		    }
+		}
+	    }
+	}
+    }
+
+    verbose -log "Using options $DEBUG_TORTURE_OPTIONS"
+
+    global runtests
+
+    foreach test $testcases {
+	# If we're only testing specific files and this isn't one of 
+	# them, skip it.
+	if ![runtest_file_p $runtests $test] {
+	    continue
+	}
+
+	set nshort [file tail [file dirname $test]]/[file tail $test]
+
+	foreach flags $DEBUG_TORTURE_OPTIONS {
+	    set doit 1
+	    if { [string match {*/debug-[126].c} "$nshort"] \
+		    && [string match "*1" [lindex "$flags" 0] ] } { 
+		set doit 0
+	    }
+
+    # High optimization can remove the variable whose existence is tested.
+    # Dwarf debugging with commentary (-dA) preserves the symbol name in the
+    # assembler output, but stabs debugging does not.
+    # http://gcc.gnu.org/ml/gcc-regression/2003-04/msg00095.html
+	    if { [string match {*/debug-[12].c} "$nshort"] \
+		    && [string match "*O3*" "$flags"] \
+		    && ( [string match "*coff*" "$flags"] \
+			 || [string match "*stabs*" "$flags"] ) } {
+		set doit 0
+	    }
+
+	    if { $doit } {
+		verbose -log "Testing $nshort, $flags" 1
+		dg-test $test $flags ""
+	    }
 	}
     }
 }

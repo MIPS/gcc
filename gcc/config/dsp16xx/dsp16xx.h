@@ -130,7 +130,7 @@ extern GTY(()) rtx dsp16xx_lshrhi3_libcall;
 /* Include path is determined from the environment variable */
 #define INCLUDE_DEFAULTS     \
 {                            \
-  { 0, 0, 0 }                \
+  { 0, 0, 0, 0, 0 }          \
 }
 
 /* Names to predefine in the preprocessor for this target machine.  */
@@ -1703,7 +1703,7 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define ASM_NO_SKIP_IN_TEXT 1
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t%d * int 0\n", (SIZE))
+  fprintf (FILE, "\t%d * int 0\n", (int)(SIZE))
 
 /* CONTROLLING DEBUGGING INFORMATION FORMAT */
 

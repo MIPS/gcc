@@ -1828,13 +1828,11 @@ frv_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
     fprintf (file, "\taddi %s,#%d,%s\n", name_arg0, (int) delta, name_arg0);
   else
     {
-      const char *name_add = reg_names[TEMP_REGNO];
-      fprintf (file, "\tsethi%s #hi(", parallel);
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-      fprintf (file, "),%s\n", name_add);
-      fprintf (file, "\tsetlo #lo(");
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-      fprintf (file, "),%s\n", name_add);
+      const char *const name_add = reg_names[TEMP_REGNO];
+      fprintf (file, "\tsethi%s #hi(" HOST_WIDE_INT_PRINT_DEC "),%s\n",
+	       parallel, delta, name_add);
+      fprintf (file, "\tsetlo #lo(" HOST_WIDE_INT_PRINT_DEC "),%s\n",
+	       delta, name_add);
       fprintf (file, "\tadd %s,%s,%s\n", name_add, name_arg0, name_arg0);
     }
 
@@ -2564,7 +2562,8 @@ frv_print_operand_memory_reference (stream, x, addr_offset)
 	    {
 	      fputs ("#gprel12(", stream);
 	      assemble_name (stream, XSTR (XEXP (XEXP (x1, 0), 0), 0));
-	      fprintf (stream, "+%d)", INTVAL (XEXP (XEXP (x1, 0), 1)));
+	      fprintf (stream, "+"HOST_WIDE_INT_PRINT_DEC")",
+		       INTVAL (XEXP (XEXP (x1, 0), 1)));
 	    }
 	  else
 	    fatal_insn ("Bad insn to frv_print_operand_memory_reference:", x);
@@ -8609,11 +8608,6 @@ frv_registers_set_p (x, reg_state, modify_p)
 }
 
 
-/* In rare cases, correct code generation requires extra machine dependent
-   processing between the second jump optimization pass and delayed branch
-   scheduling.  On those machines, define this macro as a C statement to act on
-   the code starting at INSN.  */
-
 /* On the FR-V, this pass is used to rescan the insn chain, and pack
    conditional branches/calls/jumps, etc. with previous insns where it can.  It
    does not reorder the instructions.  We assume the scheduler left the flow
@@ -9720,7 +9714,7 @@ frv_in_small_data_p (decl)
     return false;
 
   size = int_size_in_bytes (TREE_TYPE (decl));
-  if (size > 0 && size <= g_switch_value)
+  if (size > 0 && (unsigned HOST_WIDE_INT) size <= g_switch_value)
     return true;
 
   /* If we already know which section the decl should be in, see if
@@ -9742,7 +9736,7 @@ frv_in_small_data_p (decl)
 static bool
 frv_rtx_costs (x, code, outer_code, total)
      rtx x;
-     int code, outer_code;
+     int code, outer_code ATTRIBUTE_UNUSED;
      int *total;
 {
   switch (code)

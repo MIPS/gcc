@@ -174,8 +174,10 @@ find_or_create_entry (pfile, fname)
   splay_tree_node node;
   struct include_file *file;
   char *name = xstrdup (fname);
+  int saved_errno;
 
   cpp_simplify_path (name);
+  saved_errno = errno;
   node = splay_tree_lookup (pfile->all_include_files, (splay_tree_key) name);
   if (node)
     free (name);
@@ -184,7 +186,7 @@ find_or_create_entry (pfile, fname)
       file = xcnew (struct include_file);
       file->name = name;
       file->header_name = name;
-      file->err_no = errno;
+      file->err_no = saved_errno;
       node = splay_tree_insert (pfile->all_include_files,
 				(splay_tree_key) file->name,
 				(splay_tree_value) file);
@@ -291,6 +293,13 @@ validate_pch (pfile, filename, pchname)
     return NULL;
   if ((file->pch & 2) == 0)
     file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+  if (CPP_OPTION (pfile, print_include_names))
+    {
+      unsigned int i;
+      for (i = 1; i < pfile->line_maps.depth; i++)
+	putc ('.', stderr);
+      fprintf (stderr, "%c %s\n", INCLUDE_PCH_P (file) ? '!' : 'x', pchname);
+    }
   if (INCLUDE_PCH_P (file))
     {
       char *f = xstrdup (filename);

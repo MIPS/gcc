@@ -1059,25 +1059,27 @@ tree
 chainon (op1, op2)
      tree op1, op2;
 {
-  if (op1)
-    {
-      tree t1;
+  tree t1;
+
+  if (!op1)
+    return op2;
+  if (!op2)
+    return op1;
+
+  for (t1 = op1; TREE_CHAIN (t1); t1 = TREE_CHAIN (t1))
+    continue;
+  TREE_CHAIN (t1) = op2;
+
 #ifdef ENABLE_TREE_CHECKING
-      tree t2;
+  {
+    tree t2;
+    for (t2 = op2; t2; t2 = TREE_CHAIN (t2))
+      if (t2 == t1)
+	abort ();  /* Circularity created.  */
+  }
 #endif
 
-      for (t1 = op1; TREE_CHAIN (t1); t1 = TREE_CHAIN (t1))
-	;
-      TREE_CHAIN (t1) = op2;
-#ifdef ENABLE_TREE_CHECKING
-      for (t2 = op2; t2; t2 = TREE_CHAIN (t2))
-	if (t2 == t1)
-	  abort ();  /* Circularity created.  */
-#endif
-      return op1;
-    }
-  else
-    return op2;
+  return op1;
 }
 
 /* Return the last node in a chain of nodes (chained through TREE_CHAIN).  */
@@ -1250,7 +1252,6 @@ tree
 bit_position (field)
      tree field;
 {
-
   return bit_from_pos (DECL_FIELD_OFFSET (field),
 		       DECL_FIELD_BIT_OFFSET (field));
 }
@@ -2274,17 +2275,16 @@ stabilize_reference_1 (e)
    Constants, decls, types and misc nodes cannot be.  */
 
 tree
-build VPARAMS ((enum tree_code code, tree tt, ...))
+build (enum tree_code code, tree tt, ...)
 {
   tree t;
   int length;
   int i;
   int fro;
   int constant;
+  va_list p;
 
-  VA_OPEN (p, tt);
-  VA_FIXEDARG (p, enum tree_code, code);
-  VA_FIXEDARG (p, tree, tt);
+  va_start (p, tt);
 
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
@@ -2361,7 +2361,7 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
 	    }
 	}
     }
-  VA_CLOSE (p);
+  va_end (p);
 
   TREE_CONSTANT (t) = constant;
   return t;
@@ -2462,14 +2462,14 @@ build1 (code, type, node)
    or even garbage if their values do not matter.  */
 
 tree
-build_nt VPARAMS ((enum tree_code code, ...))
+build_nt (enum tree_code code, ...)
 {
   tree t;
   int length;
   int i;
+  va_list p;
 
-  VA_OPEN (p, code);
-  VA_FIXEDARG (p, enum tree_code, code);
+  va_start (p, code);
 
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
@@ -2477,7 +2477,7 @@ build_nt VPARAMS ((enum tree_code code, ...))
   for (i = 0; i < length; i++)
     TREE_OPERAND (t, i) = va_arg (p, tree);
 
-  VA_CLOSE (p);
+  va_end (p);
   return t;
 }
 
@@ -3892,12 +3892,12 @@ build_function_type (value_type, arg_types)
    be terminated by NULL_TREE.  */
 
 tree
-build_function_type_list VPARAMS ((tree return_type, ...))
+build_function_type_list (tree return_type, ...)
 {
   tree t, args, last;
+  va_list p;
 
-  VA_OPEN (p, return_type);
-  VA_FIXEDARG (p, tree, return_type);
+  va_start (p, return_type);
 
   t = va_arg (p, tree);
   for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
@@ -3908,7 +3908,7 @@ build_function_type_list VPARAMS ((tree return_type, ...))
   TREE_CHAIN (last) = void_list_node;
   args = build_function_type (return_type, args);
 
-  VA_CLOSE (p);
+  va_end (p);
   return args;
 }
 

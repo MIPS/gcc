@@ -914,7 +914,7 @@ extern int flag_pic;
 
 /* Advance the location counter by SIZE bytes.  */
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf ((FILE), "\t.set\t.,.+%u\n", (SIZE))
+  fprintf ((FILE), "\t.set\t.,.+"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
 #define LOCAL_LABEL_PREFIX "."
@@ -1012,7 +1012,7 @@ extern int s390_nr_constants;
 	{								    \
 	  assemble_integer (EXP, GET_MODE_SIZE (MODE), ALIGN, 1);	    \
 	  if (GET_MODE_SIZE (MODE) == 1)				    \
-	    ASM_OUTPUT_SKIP ((FILE), 1);				    \
+	    ASM_OUTPUT_SKIP ((FILE), (unsigned HOST_WIDE_INT)1);	    \
 	}								    \
       break;								    \
 									    \
@@ -1065,11 +1065,5 @@ extern int s390_nr_constants;
 
 /* This macro definition sets up a default value for `main' to return.  */
 #define DEFAULT_MAIN_RETURN  c_expand_return (integer_zero_node)
-
-/* In rare cases, correct code generation requires extra machine dependent
-   processing between the second jump optimization pass and delayed branch
-   scheduling.  On those machines, define this macro as a C statement to act on
-   the code starting at INSN.  */
-#define MACHINE_DEPENDENT_REORG(INSN) s390_machine_dependent_reorg (INSN)
 
 #endif 

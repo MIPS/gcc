@@ -37,10 +37,24 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_SPEC
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LINK_SPEC \
-  "%{mhp-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}}"
+  "%{!shared:%{p:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{mhp-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}}"
 #else
 #define LINK_SPEC \
-  "%{!mgnu-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}}"
+  "%{!shared:%{p:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!mgnu-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}}"
 #endif
 
 /* Like the default, except no -lg.  */
@@ -48,9 +62,9 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC \
   "%{!shared:\
      %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
-     %{pg: -L/usr/lib/pa20_64/libp/ -lgprof -lc\
-       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}\
-     %{p: -L/usr/lib/pa20_64/libp/ -lprof -lc\
+     %{p:%{!pg:-lprof -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{pg:-lgprof -lc\
        %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
    /usr/lib/pa20_64/milli.a"
 
@@ -126,8 +140,8 @@ do {								\
 do {									\
   bss_section ();							\
   assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGN) / BITS_PER_UNIT)));	\
+  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   MAX ((SIZE), ((ALIGN) / BITS_PER_UNIT)));			\
 } while (0)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
@@ -136,7 +150,7 @@ do {									\
   bss_section ();							\
   fprintf ((FILE), "\t.align %d\n", ((ALIGN) / BITS_PER_UNIT));		\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));				\
+  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE));\
 } while (0)
 
 /* The define in pa.h doesn't work with the alias attribute.  The

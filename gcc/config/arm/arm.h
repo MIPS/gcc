@@ -610,7 +610,10 @@ extern int arm_is_strong;
 extern int arm_is_cirrus;
 
 /* Nonzero if this chip is an XScale.  */
-extern int arm_is_xscale;
+extern int arm_arch_xscale;
+
+/* Nonzero if tuning for XScale  */
+extern int arm_tune_xscale;
 
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 extern int arm_is_6_or_7;
@@ -728,7 +731,7 @@ extern int arm_is_6_or_7;
 #define BIGGEST_ALIGNMENT  32
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
-#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_is_xscale ? 1 : 2)
+#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_arch_xscale ? 1 : 2)
     
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
   ((TREE_CODE (EXP) == STRING_CST				\
@@ -2119,7 +2122,7 @@ do {							\
 #define MOVE_MAX 4
 
 #undef  MOVE_RATIO
-#define MOVE_RATIO (arm_is_xscale ? 4 : 2)
+#define MOVE_RATIO (arm_arch_xscale ? 4 : 2)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2242,14 +2245,6 @@ extern int making_const_table;
 /* The arm5 clz instruction returns 32.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
 
-
-/* Gcc puts the pool in the wrong place for ARM, since we can only
-   load addresses a limited distance around the pc.  We do some
-   special munging to move the constant pool values to the correct
-   point in the code.  */
-#define MACHINE_DEPENDENT_REORG(INSN)	\
-    arm_reorg (INSN);			\
-
 #undef  ASM_APP_OFF
 #define ASM_APP_OFF (TARGET_THUMB ? "\t.code\t16\n" : "")
 

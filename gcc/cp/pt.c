@@ -1041,7 +1041,12 @@ register_specialization (spec, tmpl, args)
 		}
 	      else if (DECL_TEMPLATE_SPECIALIZATION (fn))
 		{
-		  duplicate_decls (spec, fn);
+		  if (!duplicate_decls (spec, fn) && DECL_INITIAL (spec))
+		    /* Dup decl failed, but this is a new
+		       definition. Set the line number so any errors
+		       match this new definition. */
+		    TREE_LOCUS (fn) = TREE_LOCUS (spec);
+		  
 		  return fn;
 		}
 	    }
@@ -1851,6 +1856,12 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	    {
 	      SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
 	      DECL_INITIAL (DECL_TEMPLATE_RESULT (tmpl)) = NULL_TREE;
+	      if (have_def)
+		{
+		  TREE_LOCUS (tmpl) = TREE_LOCUS (decl);
+		  TREE_LOCUS (DECL_TEMPLATE_RESULT (tmpl))
+		    = TREE_LOCUS (decl);
+		}
 	      return tmpl;
 	    }
 
@@ -5395,7 +5406,7 @@ instantiate_class_template (type)
 	{
 	  if (TYPE_P (t))
 	    {
-	      /* Build new CLASSTYPE_TAGS.  */
+	      /* Build new CLASSTYPE_NESTED_UTDS.  */
 
 	      tree tag = t;
 	      tree name = TYPE_IDENTIFIER (tag);
@@ -5488,10 +5499,10 @@ instantiate_class_template (type)
 		  /* If it is a TYPE_DECL for a class-scoped ENUMERAL_TYPE,
 		     such a thing will already have been added to the field
 		     list by tsubst_enum in finish_member_declaration in the
-		     CLASSTYPE_TAGS case above.  */
+		     CLASSTYPE_NESTED_UTDS case above.  */
 		  if (!(TREE_CODE (r) == TYPE_DECL
 			&& TREE_CODE (TREE_TYPE (r)) == ENUMERAL_TYPE
-			&& TYPE_CONTEXT (TREE_TYPE (r)) == type))
+			&& DECL_ARTIFICIAL (r)))
 		    {
 		      set_current_access_from_decl (r);
 		      finish_member_declaration (r);
@@ -7296,7 +7307,29 @@ tsubst_copy (t, args, complain, in_decl)
 		       args, complain, in_decl);
       else if (is_member_template (t))
 	return tsubst (t, args, complain, in_decl);
+      else if (DECL_CLASS_SCOPE_P (t)
+	       && uses_template_parms (DECL_CONTEXT (t)))
+	{
+	  /* Template template argument like the following example need
+	     special treatment:
+
+	       template <template <class> class TT> struct C {};
+	       template <class T> struct D {
+		 template <class U> struct E {};
+	 	 C<E> c;				// #1
+	       };
+	       D<int> d;				// #2
+
+	     We are processing the template argument `E' in #1 for
+	     the template instantiation #2.  Originally, `E' is a
+	     TEMPLATE_DECL with `D<T>' as its DECL_CONTEXT.  Now we
+	     have to substitute this with one having context `D<int>'.  */
+
+	  tree context = tsubst (DECL_CONTEXT (t), args, complain, in_decl);
+	  return lookup_field (context, DECL_NAME(t), 0, false);
+	}
       else
+	/* Ordinary template template argument.  */
 	return t;
 
     case LOOKUP_EXPR:
@@ -10450,6 +10483,18 @@ mark_class_instantiated (t, extern_p)
     }
 }     
 
+/* Called from do_type_instantiation through binding_table_foreach to
+   do recursive instantiation for the type bound in ENTRY.   */
+static void
+bt_instantiate_type_proc (binding_entry entry, void *data)
+{
+  tree storage = *(tree *) data;
+
+  if (IS_AGGR_TYPE (entry->type)
+      && !uses_template_parms (CLASSTYPE_TI_ARGS (entry->type)))
+    do_type_instantiation (TYPE_MAIN_DECL (entry->type), storage, 0);
+}
+
 /* Perform an explicit instantiation of template class T.  STORAGE, if
    non-null, is the RID for extern, inline or static.  COMPLAIN is
    nonzero if this is called from the parser, zero if called recursively,
@@ -10590,10 +10635,9 @@ do_type_instantiation (t, storage, complain)
 	    instantiate_decl (tmp, /*defer_ok=*/1);
 	}
 
-    for (tmp = CLASSTYPE_TAGS (t); tmp; tmp = TREE_CHAIN (tmp))
-      if (IS_AGGR_TYPE (TREE_VALUE (tmp))
-	  && !uses_template_parms (CLASSTYPE_TI_ARGS (TREE_VALUE (tmp))))
-	do_type_instantiation (TYPE_MAIN_DECL (TREE_VALUE (tmp)), storage, 0);
+    if (CLASSTYPE_NESTED_UTDS (t))
+      binding_table_foreach (CLASSTYPE_NESTED_UTDS (t),
+                             bt_instantiate_type_proc, &storage);
   }
 }
 

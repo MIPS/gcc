@@ -648,9 +648,8 @@ test_for_iteration (desc, iter)
 
   if (rtl_dump_file)
     {
-      fprintf (rtl_dump_file, ";  Conditional to continue loop at ");
-      fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_UNSIGNED, iter);
-      fprintf (rtl_dump_file, "th iteration: ");
+      fprintf (rtl_dump_file, ";  Conditional to continue loop at "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "th iteration: ", iter);
       print_simple_rtl (rtl_dump_file, exp);
       fprintf (rtl_dump_file, "\n");
     }
@@ -1033,7 +1032,8 @@ num_loop_insns (loop)
       bb = bbs[i];
       ninsns++;
       for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
-	ninsns++;
+	if (INSN_P (insn))
+	  ninsns++;
     }
   free(bbs);
   
@@ -1057,7 +1057,8 @@ average_num_loop_insns (loop)
 
       binsns = 1;
       for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
-	binsns++;
+	if (INSN_P (insn))
+	  binsns++;
 
       ratio = loop->header->frequency == 0
 	      ? BB_FREQ_MAX

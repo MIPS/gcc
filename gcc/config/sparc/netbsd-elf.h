@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 	{						\
 	  builtin_define ("__sparc64__");		\
 	  builtin_define ("__sparc_v9__");		\
+	  builtin_define ("__sparcv9");			\
 	}						\
       else						\
 	builtin_define ("__sparc");			\
@@ -38,9 +39,6 @@ Boston, MA 02111-1307, USA.  */
 /* Make sure these are undefined.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-
-/* Make sure this is undefined.  */
-#undef CPP_PREDEFINES
 
 /* CPP defines used by all NetBSD targets.  */
 #undef CPP_SUBTARGET_SPEC

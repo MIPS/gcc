@@ -40,8 +40,11 @@ provided with a @option{-D} option.
 
 @item -undef
 @opindex undef
-Do not predefine any system-specific macros.  The common predefined
-macros remain defined.
+Do not predefine any system-specific or GCC-specific macros.  The
+standard predefined macros remain defined.
+@ifset cppmanual
+@xref{Standard Predefined Macros}.
+@end ifset
 
 @item -I @var{dir}
 @opindex I
@@ -465,6 +468,14 @@ is applied to the standard system directories.
 @xref{System Headers}.
 @end ifset
 
+@item -fdollars-in-identifiers
+@opindex fdollars-in-identifiers
+@anchor{fdollars-in-identifiers}
+Accept @samp{$} in identifiers.
+@ifset cppmanual
+  @xref{Identifier characters}.
+@end ifset
+
 @item -fpreprocessed
 @opindex fpreprocessed
 Indicate to the preprocessor that the input file has already been
@@ -633,7 +644,9 @@ execution, and report the final form of the include path.
 @opindex H
 Print the name of each header file used, in addition to other normal
 activities.  Each name is indented to show how deep in the
-@samp{#include} stack it is.
+@samp{#include} stack it is.  Precompiled header files are also
+printed, even if they are found to be invalid; an invalid precompiled
+header file is printed with @samp{...x} and a valid one with @samp{...!} .
 
 @item -version
 @itemx --version

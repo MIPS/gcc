@@ -4800,6 +4800,9 @@ assign_parms (fndecl)
 	      if (GET_CODE (entry_parm) == PARALLEL)
 		emit_group_store (mem, entry_parm, size);
 
+	      else if (size == 0)
+		;
+
 	      /* If SIZE is that of a mode no bigger than a word, just use
 		 that mode's store operation.  */
 	      else if (size <= UNITS_PER_WORD)
@@ -6433,8 +6436,6 @@ prepare_function_start ()
   current_function_outgoing_args_size = 0;
 
   current_function_funcdef_no = funcdef_no++;
-
-  cfun->arc_profile = profile_arc_flag || flag_test_coverage;
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 

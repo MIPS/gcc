@@ -100,14 +100,15 @@ hppa_fpstore_bypass_p (out_insn, in_insn)
 static int hppa_address_cost PARAMS ((rtx));
 static bool hppa_rtx_costs PARAMS ((rtx, int, int, int *));
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
-static void pa_combine_instructions PARAMS ((rtx));
+static void pa_reorg PARAMS ((void));
+static void pa_combine_instructions PARAMS ((void));
 static int pa_can_combine_p PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
 static int forward_branch_p PARAMS ((rtx));
 static int shadd_constant_p PARAMS ((int));
 static void compute_zdepwi_operands PARAMS ((unsigned HOST_WIDE_INT, unsigned *));
 static int compute_movstrsi_length PARAMS ((rtx));
 static bool pa_assemble_integer PARAMS ((rtx, unsigned int, int));
-static void remove_useless_addtr_insns PARAMS ((rtx, int));
+static void remove_useless_addtr_insns PARAMS ((int));
 static void store_reg PARAMS ((int, int, int));
 static void store_reg_modify PARAMS ((int, int, int));
 static void load_reg PARAMS ((int, int, int));
@@ -230,6 +231,9 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_RTX_COSTS hppa_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hppa_address_cost
+
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG pa_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2872,8 +2876,7 @@ output_ascii (file, p, size)
    when there's a 1:1 correspondence between fcmp and ftest/fbranch
    instructions.  */
 static void
-remove_useless_addtr_insns (insns, check_notes)
-     rtx insns;
+remove_useless_addtr_insns (check_notes)
      int check_notes;
 {
   rtx insn;
@@ -2887,8 +2890,7 @@ remove_useless_addtr_insns (insns, check_notes)
 
       /* Walk all the insns in this function looking for fcmp & fbranch
 	 instructions.  Keep track of how many of each we find.  */
-      insns = get_insns ();
-      for (insn = insns; insn; insn = next_insn (insn))
+      for (insn = get_insns (); insn; insn = next_insn (insn))
 	{
 	  rtx tmp;
 
@@ -2927,7 +2929,7 @@ remove_useless_addtr_insns (insns, check_notes)
 
       /* Find all floating point compare + branch insns.  If possible,
 	 reverse the comparison & the branch to avoid add,tr insns.  */
-      for (insn = insns; insn; insn = next_insn (insn))
+      for (insn = get_insns (); insn; insn = next_insn (insn))
 	{
 	  rtx tmp, next;
 
@@ -3345,7 +3347,7 @@ pa_output_function_prologue (file, size)
 
   fputs ("\n\t.ENTRY\n", file);
 
-  remove_useless_addtr_insns (get_insns (), 0);
+  remove_useless_addtr_insns (0);
 }
 
 void
@@ -3636,14 +3638,6 @@ hppa_expand_prologue ()
 	    }
 	}
     }
-
-  /* FIXME: expand_call and expand_millicode_call need to be fixed to
-     prevent insns with frame notes being scheduled in the delay slot
-     of calls.  This causes problems because the dwarf2 output code
-     processes the insn list serially.  For now, limit the migration
-     of prologue insns with a blockage.  */
-  if (DO_FRAME_NOTES)
-    emit_insn (gen_blockage ());
 }
 
 /* Emit RTL to load REG from the memory location specified by BASE+DISP.
@@ -5083,15 +5077,15 @@ output_div_insn (operands, unsignedp, insn)
 	}
       if (unsignedp)
 	{
-	  sprintf (buf, "$$divU_");
-	  sprintf (buf + 7, HOST_WIDE_INT_PRINT_DEC, INTVAL (operands[0]));
+	  sprintf (buf, "$$divU_" HOST_WIDE_INT_PRINT_DEC,
+		   INTVAL (operands[0]));
 	  return output_millicode_call (insn,
 					gen_rtx_SYMBOL_REF (SImode, buf));
 	}
       else
 	{
-	  sprintf (buf, "$$divI_");
-	  sprintf (buf + 7, HOST_WIDE_INT_PRINT_DEC, INTVAL (operands[0]));
+	  sprintf (buf, "$$divI_" HOST_WIDE_INT_PRINT_DEC,
+		   INTVAL (operands[0]));
 	  return output_millicode_call (insn,
 					gen_rtx_SYMBOL_REF (SImode, buf));
 	}
@@ -7201,25 +7195,20 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
 	      fprintf (file, "\tmtsp %%r1,%%sr0\n");
 	      fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
 	    }
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, "(%%r26),%%r26\n");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC "(%%r26),%%r26\n", delta);
 	}
       else
-	{
-	  fprintf (file, "\tb %s\n\tldo ", target_name);
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, "(%%r26),%%r26\n");
-	}
+	fprintf (file, "\tb %s\n\tldo " HOST_WIDE_INT_PRINT_DEC
+		 "(%%r26),%%r26\n",
+		 target_name, delta);
     }
   else
     {
       if (!TARGET_64BIT && !TARGET_PORTABLE_RUNTIME && flag_pic)
 	{
-	  fprintf (file, "\taddil L'");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, ",%%r26\n\tldo R'");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, "(%%r1),%%r26\n");
+	  fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
+		   ",%%r26\n\tldo R'" HOST_WIDE_INT_PRINT_DEC "(%%r1),%%r26\n",
+		   delta, delta);
 	  fprintf (file, "\taddil LT'%s,%%r19\n", lab);
 	  fprintf (file, "\tldw RT'%s(%%r1),%%r22\n", lab);
 	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
@@ -7237,13 +7226,9 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
 	    }
 	}
       else
-	{
-	  fprintf (file, "\taddil L'");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, ",%%r26\n\tb %s\n\tldo R'", target_name);
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
-	  fprintf (file, "(%%r1),%%r26\n");
-	}
+	fprintf (file, "\taddil L'" HOST_WIDE_INT_PRINT_DEC
+		 ",%%r26\n\tb %s\n\tldo R'" HOST_WIDE_INT_PRINT_DEC
+		 "(%%r1),%%r26\n", delta, target_name, delta);
     }
     
   fprintf (file, "\t.EXIT\n\t.PROCEND\n");
@@ -7721,24 +7706,22 @@ following_call (insn)
    insns mark where we should emit .begin_brtab and .end_brtab directives
    when using GAS (allows for better link time optimizations).  */
 
-void
-pa_reorg (insns)
-     rtx insns;
+static void
+pa_reorg ()
 {
   rtx insn;
 
-  remove_useless_addtr_insns (insns, 1);
+  remove_useless_addtr_insns (1);
 
   if (pa_cpu < PROCESSOR_8000)
-    pa_combine_instructions (get_insns ());
+    pa_combine_instructions ();
 
 
   /* This is fairly cheap, so always run it if optimizing.  */
   if (optimize > 0 && !TARGET_BIG_SWITCH)
     {
       /* Find and explode all ADDR_VEC or ADDR_DIFF_VEC insns.  */
-      insns = get_insns ();
-      for (insn = insns; insn; insn = NEXT_INSN (insn))
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  rtx pattern, tmp, location;
 	  unsigned int length, i;
@@ -7835,8 +7818,7 @@ pa_reorg (insns)
   else
     {
       /* Sill need an end_brtab insn.  */
-      insns = get_insns ();
-      for (insn = insns; insn; insn = NEXT_INSN (insn))
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  /* Find an ADDR_VEC insn.  */
 	  if (GET_CODE (insn) != JUMP_INSN
@@ -7896,8 +7878,7 @@ pa_reorg (insns)
       branch length restrictions.  */
 
 static void
-pa_combine_instructions (insns)
-     rtx insns ATTRIBUTE_UNUSED;
+pa_combine_instructions ()
 {
   rtx anchor, new;
 

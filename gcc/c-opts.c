@@ -36,6 +36,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-incpath.h"
 #include "debug.h"		/* For debug_hooks.  */
 
+#ifndef DOLLARS_IN_IDENTIFIERS
+# define DOLLARS_IN_IDENTIFIERS true
+#endif
+
 #ifndef TARGET_SYSTEM_ROOT
 # define TARGET_SYSTEM_ROOT NULL
 #endif
@@ -199,6 +203,7 @@ static void finish_options PARAMS ((void));
   OPT("Wimplicit-function-declaration",	CL_C, OPT_Wimplicit_function_decl)   \
   OPT("Wimplicit-int",		CL_C,	  OPT_Wimplicit_int)		     \
   OPT("Wimport",                CL_ALL,   OPT_Wimport)			     \
+  OPT("Winvalid-offsetof",      CL_CXX,   OPT_Winvalid_offsetof)             \
   OPT("Winvalid-pch",           CL_ALL,   OPT_Winvalid_pch)		     \
   OPT("Wlong-long",		CL_ALL,   OPT_Wlong_long)		     \
   OPT("Wmain",			CL_C,     OPT_Wmain)			     \
@@ -590,6 +595,7 @@ c_common_init_options (lang)
   parse_in = cpp_create_reader (lang == clk_c ? CLK_GNUC89 : CLK_GNUCXX,
 				ident_hash);
   cpp_opts = cpp_get_options (parse_in);
+  cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
   if (flag_objc)
     cpp_opts->objc = 1;
 
@@ -825,7 +831,6 @@ c_common_decode_option (argc, argv)
       else
 	{
 	  /* C++-specific warnings.  */
-	  warn_ctor_dtor_privacy = on;
 	  warn_nonvdtor = on;
 	  warn_reorder = on;
 	  warn_nontemplate_friend = on;
@@ -936,6 +941,10 @@ c_common_decode_option (argc, argv)
 
     case OPT_Wimport:
       cpp_opts->warn_import = on;
+      break;
+
+    case OPT_Winvalid_offsetof:
+      warn_invalid_offsetof = on;
       break;
 
     case OPT_Winvalid_pch:
@@ -1158,7 +1167,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_fdollars_in_identifiers:
-      dollars_in_ident = on;
+      cpp_opts->dollars_in_ident = on;
       break;
 
     case OPT_fdump:
@@ -1390,6 +1399,7 @@ c_common_decode_option (argc, argv)
 
     case OPT_lang_asm:
       cpp_set_lang (parse_in, CLK_ASM);
+      cpp_opts->dollars_in_ident = false;
       break;
 
     case OPT_lang_objc:
@@ -1557,7 +1567,7 @@ c_common_post_options (pfilename)
 
       if (out_stream == NULL)
 	{
-	  fatal_io_error ("opening output file %s", out_fname);
+	  fatal_error ("opening output file %s: %m", out_fname);
 	  return false;
 	}
 
@@ -1651,7 +1661,7 @@ c_common_finish ()
 	{
 	  deps_stream = fopen (deps_file, deps_append ? "a": "w");
 	  if (!deps_stream)
-	    fatal_io_error ("opening dependency file %s", deps_file);
+	    fatal_error ("opening dependency file %s: %m", deps_file);
 	}
     }
 
@@ -1661,10 +1671,10 @@ c_common_finish ()
 
   if (deps_stream && deps_stream != out_stream
       && (ferror (deps_stream) || fclose (deps_stream)))
-    fatal_io_error ("closing dependency file %s", deps_file);
+    fatal_error ("closing dependency file %s: %m", deps_file);
 
   if (out_stream && (ferror (out_stream) || fclose (out_stream)))
-    fatal_io_error ("when writing output to %s", out_fname);
+    fatal_error ("when writing output to %s: %m", out_fname);
 }
 
 /* Either of two environment variables can specify output of
@@ -1790,7 +1800,7 @@ finish_options ()
       size_t i;
 
       cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
-      cpp_init_builtins (parse_in);
+      cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
       cpp_change_file (parse_in, LC_RENAME, _("<command line>"));
       for (i = 0; i < deferred_count; i++)

@@ -1,4 +1,4 @@
- /* YACC parser for C syntax and for Objective C.  -*-c-*-
+/* YACC parser for C syntax and for Objective C.  -*-c-*-
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996,
    1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
@@ -434,11 +434,11 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls
-		{ store_parm_decls (); }
-	  save_filename save_lineno compstmt_or_error
-		{ annotate_with_file_line (current_function_decl, $7, $8);
-		  finish_function (0, 1);
+	  old_style_parm_decls  save_filename save_lineno
+		{ annotate_with_file_line (current_function_decl, $6, $7);
+		  store_parm_decls (); }
+	 compstmt_or_error
+		{ finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_ts setspecs declarator error
 		{ POP_DECLSPEC_STACK; }
@@ -447,11 +447,11 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls
-		{ store_parm_decls (); }
-	  save_filename save_lineno compstmt_or_error
-		{ annotate_with_file_line (current_function_decl, $7, $8);
-		  finish_function (0, 1);
+	  old_style_parm_decls save_filename save_lineno
+		{ annotate_with_file_line (current_function_decl, $6, $7);
+		  store_parm_decls (); }
+	  compstmt_or_error
+		{ finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| declspecs_nots setspecs notype_declarator error
 		{ POP_DECLSPEC_STACK; }
@@ -460,11 +460,11 @@ fndef:
 					all_prefix_attributes))
 		    YYERROR1;
 		}
-	  old_style_parm_decls
-		{ store_parm_decls (); }
-	  save_filename save_lineno compstmt_or_error
-		{ annotate_with_file_line (current_function_decl, $6, $7);
-		  finish_function (0, 1);
+	  old_style_parm_decls save_filename save_lineno
+		{ annotate_with_file_line (current_function_decl, $5, $6);
+		  store_parm_decls (); }
+	  compstmt_or_error
+		{ finish_function (0, 1);
 		  POP_DECLSPEC_STACK; }
 	| setspecs notype_declarator error
 		{ POP_DECLSPEC_STACK; }
@@ -1590,17 +1590,19 @@ nested_function:
 		    }
 		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
-	   old_style_parm_decls
-		{ store_parm_decls (); }
+	   old_style_parm_decls save_filename save_lineno
+		{ tree decl = current_function_decl;
+		  DECL_SOURCE_FILE (decl) = $4;
+		  DECL_SOURCE_LINE (decl) = $5;
+		  store_parm_decls (); }
 /* This used to use compstmt_or_error.
    That caused a bug with input `f(g) int g {}',
    where the use of YYERROR1 above caused an error
    which then was handled by compstmt_or_error.
    There followed a repeated execution of that same rule,
    which called YYERROR1 again, and so on.  */
-	  save_filename save_lineno compstmt
+	  compstmt
 		{ tree decl = current_function_decl;
-		  annotate_with_file_line (decl, $5, $6);
 		  finish_function (1, 1);
 		  pop_function_context ();
 		  add_decl_stmt (decl); }
@@ -1620,17 +1622,19 @@ notype_nested_function:
 		    }
 		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
-	  old_style_parm_decls
-		{ store_parm_decls (); }
+	  old_style_parm_decls save_filename save_lineno
+		{ tree decl = current_function_decl;
+		  DECL_SOURCE_FILE (decl) = $4;
+		  DECL_SOURCE_LINE (decl) = $5;
+		  store_parm_decls (); }
 /* This used to use compstmt_or_error.
    That caused a bug with input `f(g) int g {}',
    where the use of YYERROR1 above caused an error
    which then was handled by compstmt_or_error.
    There followed a repeated execution of that same rule,
    which called YYERROR1 again, and so on.  */
-	  save_filename save_lineno compstmt
+	  compstmt
 		{ tree decl = current_function_decl;
-		  annotate_with_file_line (decl, $5, $6);
 		  finish_function (1, 1);
 		  pop_function_context ();
 		  add_decl_stmt (decl); }
@@ -1754,18 +1758,20 @@ structsp_attr:
 		  /* Start scope of tag before parsing components.  */
 		}
 	  component_decl_list '}' maybe_attribute
-		{ $$ = finish_struct ($<ttype>4, $5, chainon ($1, $7)); }
+		{ $$ = finish_struct ($<ttype>4, nreverse ($5),
+				      chainon ($1, $7)); }
 	| struct_head '{' component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct (start_struct (RECORD_TYPE, NULL_TREE),
-				      $3, chainon ($1, $5));
+				      nreverse ($3), chainon ($1, $5));
 		}
 	| union_head identifier '{'
 		{ $$ = start_struct (UNION_TYPE, $2); }
 	  component_decl_list '}' maybe_attribute
-		{ $$ = finish_struct ($<ttype>4, $5, chainon ($1, $7)); }
+		{ $$ = finish_struct ($<ttype>4, nreverse ($5),
+				      chainon ($1, $7)); }
 	| union_head '{' component_decl_list '}' maybe_attribute
 		{ $$ = finish_struct (start_struct (UNION_TYPE, NULL_TREE),
-				      $3, chainon ($1, $5));
+				      nreverse ($3), chainon ($1, $5));
 		}
 	| enum_head identifier '{'
 		{ $$ = start_enum ($2); }
@@ -1804,18 +1810,30 @@ maybecomma_warn:
 		    pedwarn ("comma at end of enumerator list"); }
 	;
 
+/* We chain the components in reverse order.  They are put in forward
+   order in structsp_attr.
+
+   Note that component_declarator returns single decls, so components
+   and components_notype can use TREE_CHAIN directly, wheras components
+   and components_notype return lists (of comma separated decls), so
+   component_decl_list and component_decl_list2 must use chainon.
+
+   The theory behind all this is that there will be more semicolon
+   separated fields than comma separated fields, and so we'll be
+   minimizing the number of node traversals required by chainon.  */
+
 component_decl_list:
 	  component_decl_list2
 		{ $$ = $1; }
 	| component_decl_list2 component_decl
-		{ $$ = chainon ($1, $2);
+		{ $$ = chainon ($2, $1);
 		  pedwarn ("no semicolon at end of struct or union"); }
 	;
 
 component_decl_list2:	/* empty */
 		{ $$ = NULL_TREE; }
 	| component_decl_list2 component_decl ';'
-		{ $$ = chainon ($1, $2); }
+		{ $$ = chainon ($2, $1); }
 	| component_decl_list2 ';'
 		{ if (pedantic)
 		    pedwarn ("extra semicolon in struct or union specified"); }
@@ -1826,7 +1844,7 @@ ifobjc
 		  tree interface = lookup_interface ($3);
 
 		  if (interface)
-		    $$ = get_class_ivars (interface);
+		    $$ = nreverse (get_class_ivars (interface));
 		  else
 		    {
 		      error ("cannot find interface declaration for `%s'",
@@ -1869,13 +1887,13 @@ component_decl:
 components:
 	  component_declarator
 	| components ',' maybe_resetattrs component_declarator
-		{ $$ = chainon ($1, $4); }
+		{ TREE_CHAIN ($4) = $1; $$ = $4; }
 	;
 
 components_notype:
 	  component_notype_declarator
 	| components_notype ',' maybe_resetattrs component_notype_declarator
-		{ $$ = chainon ($1, $4); }
+		{ TREE_CHAIN ($4) = $1; $$ = $4; }
 	;
 
 component_declarator:
@@ -1905,9 +1923,7 @@ component_notype_declarator:
 	;
 
 /* We chain the enumerators in reverse order.
-   They are put in forward order where enumlist is used.
-   (The order used to be significant, but no longer is so.
-   However, we still maintain the order, just to be clean.)  */
+   They are put in forward order in structsp_attr.  */
 
 enumlist:
 	  enumerator
@@ -1915,7 +1931,7 @@ enumlist:
 		{ if ($1 == error_mark_node)
 		    $$ = $1;
 		  else
-		    $$ = chainon ($3, $1); }
+		    TREE_CHAIN ($3) = $1, $$ = $3; }
 	| error
 		{ $$ = error_mark_node; }
 	;
@@ -3309,8 +3325,6 @@ static const struct resword reswords[] =
   { "__asm__",		RID_ASM,	0 },
   { "__attribute",	RID_ATTRIBUTE,	0 },
   { "__attribute__",	RID_ATTRIBUTE,	0 },
-  { "__bounded",	RID_BOUNDED,	0 },
-  { "__bounded__",	RID_BOUNDED,	0 },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, 0 },
   { "__builtin_types_compatible_p", RID_TYPES_COMPATIBLE_P, 0 },
   { "__builtin_va_arg",	RID_VA_ARG,	0 },
@@ -3340,8 +3354,6 @@ static const struct resword reswords[] =
   { "__thread",		RID_THREAD,	0 },
   { "__typeof",		RID_TYPEOF,	0 },
   { "__typeof__",	RID_TYPEOF,	0 },
-  { "__unbounded",	RID_UNBOUNDED,	0 },
-  { "__unbounded__",	RID_UNBOUNDED,	0 },
   { "__volatile",	RID_VOLATILE,	0 },
   { "__volatile__",	RID_VOLATILE,	0 },
   { "asm",		RID_ASM,	D_EXT },
@@ -3430,8 +3442,6 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_RESTRICT */	TYPE_QUAL,
 
   /* C extensions */
-  /* RID_BOUNDED */	TYPE_QUAL,
-  /* RID_UNBOUNDED */	TYPE_QUAL,
   /* RID_COMPLEX */	TYPESPEC,
   /* RID_THREAD */	SCSPEC,
 

@@ -1,3 +1,27 @@
+2003-05-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* win32-host.c: Normalize copyright boilerplate.
+
+2003-05-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* parse.y (print_int_node): Use string concatentation on
+	HOST_WIDE_INT_PRINT_* format specifier to collapse multiple
+	function calls into one.
+
+2003-05-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* jcf-parse.c, jcf-write.c, lex.c: Replace all calls to
+	fatal_io_error with calls to fatal_error; add ": %m" to the end of
+	all the affected error messages.
+
+2003-05-13  Richard Henderson  <rth@redhat.com>
+
+	* class.c (layout_class_method): Set DECL_EXTERNAL.
+	* decl.c (java_mark_decl_local, java_mark_class_local): New.
+	* java-tree.h (java_mark_class_local): Declare.
+	* jcf-parse.c (parse_class_file): Use it.
+	* parse.y (java_expand_classes): Likewise.
+
 2003-05-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* Make-lang.in (java/parse.o, java/parse-scan.o): Depend on input.h.

@@ -1,8 +1,156 @@
+2003-05-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* lang-specs.h: Use -o to specify preprocessor's output file.
+	Make -no-integrated-cpp work when building PCH files.
+
+2003-05-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10682
+	* pt.c (instantiate_class_template): Use DECL_ARTIFICIAL to
+	check for implicitly created typedef to an enum.
+
 2003-05-21  Jason Merrill  <jason@redhat.com>
 
 	* init.c (build_vec_delete): Copy the address into a temporary
 	variable before calling build_vec_delete_1.
 	* decl2.c (delete_sanity): Don't call stabilize_reference.
+
+2003-05-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (register_specialization): Update the decl's location,
+	if necessary.
+	(check_explicit_specialization): Likewise.
+
+2003-05-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* error.c (dump_expr): Use HOST_WIDE_INT_PRINT_DOUBLE_HEX.
+
+2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR c++/9738
+	* decl.c (duplicate_decls): Re-invoke make_decl_rtl
+	if the old decl had instantiated DECL_RTL.
+	(Base on Richard Henderson 2003-05-13 patch to c-decl.c).
+
+2003-05-19  Matt Austern  <austern@apple.com>
+
+	* lang-options.h: Document -Wno-invalid-offsetof
+	* typeck.c (build_class_member_access_expr): Don't complain about
+	(Foo *)p->x for non-POD Foo if warn_invalid_offset is zero.
+	
+2003-05-18 Andrew Pinski <pinskia@physics.uc.edu>
+
+	* name-lookup.c (free_binding_entry): fix where the GTY markers are.
+	(binding_entry_make): Make entry->chain NULL after getting an entry.
+	fix the spelling of chain in a comment.
+	(binding_table_free): speed up by having temporary variable.
+	(binding_table_new): set table->chain to be NULL after allocating
+	a table. 
+	(cxx_binding_make): use gcc_alloc instead of ggc_alloc_cleared and set
+	binding->previous to NULL after getting an binding for speed.
+	
+2003-05-18  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (struct lang_type_class): Replace data member tags
+	with hash-table nested_udts.
+	(CLASSTYPE_NESTED_UTDS): Rename from CLASSTYPE_TAGS.
+	* class.c (unreverse_member_declarations): Don't touch
+	CLASSTYPE_TAGS. 
+	(pushclass): Use cxx_remember_type_decls.
+	* decl.c (struct cp_binding_level): Replace data member tags with
+	hash-table type_decls.
+	(pop_binding_level): Handle level->type_decls.
+	(kept_level_p): Adjust.
+	(poplevel): Remove unused local variable.
+	(bt_print_entry): New function.
+	(print_binding_level): Use it.
+	(push_namespace): Build current_binding_level->type_decls.
+	(maybe_process_template_type_declaration): Adjust.
+	(pushtag): Likewise.
+	(clear_anon_tags): Use binding_table_remove_anonymous_types.
+	(gettags): Remove.
+	(cxx_remember_type_decls):  Rename from storetags.  Adjust.
+	(lookup_tag): Use binding_table_find_anon_type.  Tidy.
+	(lookup_tag_reverse): Use binding_table_reverse_maybe_remap.
+	(cxx_init_decl_processing): Build global_binding_level->type_decls.
+	(store_parm_decls): Remove pointless code.
+	* name-lookup.c (free_binding_entry): New variable.
+	(ENTRY_INDEX): New macro.
+	(struct binding_table_s): New datatype.
+	(binding_entry_make): New function.
+	(binding_entry_free): Likewise.
+	(binding_table_construct): Likewise.
+	(binding_table_free): Likewise.
+	(binding_table_new): Likewise.
+	(binding_table_expand): Likewise.
+	(binding_table_insert): Likewise.
+	(binding_table_find): Likewise.
+	(binding_table_find_anon_type): Likewise.
+	(binding_table_reverse_maybe_remap): Likewise.
+	(binding_table_remove_anonymous_types): Likewise.
+	(binding_table_foreach): Likewise.
+	* name-lookup.h (binding_table): New type.
+	(binding_entry): Likewise.
+	(bt_foreach_proc): Likewise.
+	(struct binding_entry_s): New datatype.
+	(SCOPE_DEFAULT_HT_SIZE): New macro.
+	(CLASS_SCOPE_HT_SIZE): Likewise.
+	(NAMESPACE_ORDINARY_HT_SIZE): Likewise.
+	(NAMESPACE_STD_HT_SIZE): Likewise.
+	(GLOBAL_SCOPE_HT_SIZE): Likewise.
+	(binding_table_new): Declare.
+	(binding_table_free): Likewise.
+	(binding_table_insert): Likewise.
+	(binding_table_find_anon_type): Likewise.
+	(binding_table_reverse_maybe_remap): Likewise.
+	(binding_table_remove_anonymous_types): Likewise.
+	(binding_table_foreach): Likewise.
+	(binding_table_find): Likewise.
+	(cxx_remember_type_decls): Likewise.
+	* pt.c (bt_instantiate_type_proc): New function.
+	(do_type_instantiation): Use it.
+	* search.c (lookup_field_r): Use binding_table_find.
+
+2003-05-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* semantics.c (perform_deferred_access_checks): Don't discard
+	checked access.
+
+2003-05-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* error.c (cp_error_at, cp_warning_at, cp_pedwarn_at): Eliminate
+	libiberty VA_ macros, always use stdarg.
+	* rtti.c (create_pseudo_type_info): Likewise.
+	* tree.c (build_min_nt, build_min): Likewise.
+
+2003-05-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ptree.c (cxx_print_type, cxx_print_xnode): Use string
+	concatentation on HOST_WIDE_INT_PRINT_* format specifier to
+	collapse multiple function calls into one.
+	* tree.c (debug_binfo): Likewise.	
+
+2003-05-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/5388
+	* call.c (conditional_conversion): Don't consider implicit
+	conversions if T2 is a base of T1. 
+	* cp-tree.h (DERIVED_FROM_P, UNIQUELY_DERIVED_FROM_P): Make boolean.
+	(ACCESSIBLY_UNIQUELY_DERIVED_P, PUBLICLY_UNIQUELY_DERIVED_P): Likewise.
+
+	* parser.c (cp_parser_primary_expression): Convert a static data
+	member from reference.
+
+2003-05-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_op_delete_call): Avoid creating unnecessary types.
+	* class.c (instantiate_type): Remove tests for tf_no_attributes.
+	* cp-tree.h (tsubst_flags_t): Remove tf_no_attributes.
+	(COMPARE_NO_ATTRIBUTES): Remove.
+	* typeck.c (comptypes): Do not check COMPARE_NO_ATTRIBUTES.
+
+	PR c++/8385
+	* semantics.c (finish_typeof): Refine type-dependency check.
 
 2003-05-13  Jason Merrill  <jason@redhat.com>
 
@@ -12,6 +160,18 @@
 2003-05-11  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	* method.c (synthesize_method): Call push/pop_deferring_access_checks.
+
+2003-05-11  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10230, c++/10481
+	* semantics.c (finish_non_static_data_member): Handle when the
+	non-static member is not from a base of the current class type.
+
+2003-05-11  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10552
+	* pt.c (tsubst_copy): Handle TEMPLATE_DECL that is a member class
+	template and has dependent context.
 
 2003-05-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
@@ -81,10 +241,10 @@
 
 2003-05-07  Richard Henderson  <rth@redhat.com>
 
-        PR c++/10570
-        * cfns.gperf: Comment out POSIX thread cancellation points,
-        plus abort and raise.
-        * cfns.h: Regenerate.
+	PR c++/10570
+	* cfns.gperf: Comment out POSIX thread cancellation points,
+	plus abort and raise.
+	* cfns.h: Regenerate.
 
 2003-05-07  Jason Merrill  <jason@redhat.com>
 

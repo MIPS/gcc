@@ -40,15 +40,11 @@
 namespace std
 {
   template<typename _CharT, typename _Traits>
-    const size_t
-    basic_filebuf<_CharT, _Traits>::_S_pback_size;
-
-  template<typename _CharT, typename _Traits>
     void
     basic_filebuf<_CharT, _Traits>::
     _M_allocate_internal_buffer()
     {
-      if (!this->_M_buf && this->_M_buf_size)
+      if (!_M_buf_allocated && this->_M_buf_size)
 	{
 	  // Allocate internal buffer.
 	  this->_M_buf = new char_type[this->_M_buf_size];
@@ -78,8 +74,13 @@ namespace std
     _M_state_cur(__state_type()), _M_state_beg(__state_type()), 
     _M_buf(NULL), _M_buf_size(BUFSIZ), _M_buf_allocated(false),
     _M_last_overflowed(false), _M_pback_cur_save(0),
-    _M_pback_end_save(0), _M_pback_init(false)
-    { this->_M_buf_unified = true; }
+    _M_pback_end_save(0), _M_pback_init(false), _M_codecvt(0)
+    { 
+      this->_M_buf_unified = true; 	  
+      if (__builtin_expect(has_facet<__codecvt_type>(this->_M_buf_locale), 
+			                             true))
+	_M_codecvt = &use_facet<__codecvt_type>(this->_M_buf_locale);
+    }
 
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type* 
@@ -96,9 +97,9 @@ namespace std
 	      this->_M_mode = __mode;
 
 	      // Setup initial position of buffer.
-	      _M_set_indeterminate();
+	      _M_set_buffer(0);
 
-	      if ((__mode & ios_base::ate)
+	      if ((__mode & ios_base::ate) 
 		  && this->seekoff(0, ios_base::end, __mode) < 0)
 		// 27.8.1.3,4
 		this->close();
@@ -163,17 +164,14 @@ namespace std
     {
       streamsize __ret = -1;
       const bool __testin = this->_M_mode & ios_base::in;
-      const locale __loc = this->getloc();
-      const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
 
       if (__testin && this->is_open())
 	{
-	  __ret = this->_M_in_end - this->_M_in_cur;
-
 	  // For a stateful encoding (-1) the pending sequence might be just
 	  // shift and unshift prefixes with no actual character.
-	  if (__cvt.encoding() >= 0)
-	    __ret += _M_file.showmanyc() / __cvt.max_length();
+	  __ret = this->_M_in_end - this->_M_in_cur;
+	  if (__check_facet(_M_codecvt).encoding() >= 0)
+	    __ret += _M_file.showmanyc() / _M_codecvt->max_length();
 	}
 
       _M_last_overflowed = false;	
@@ -182,7 +180,8 @@ namespace std
   
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::int_type 
-    basic_filebuf<_CharT, _Traits>::_M_underflow(bool __bump)
+    basic_filebuf<_CharT, _Traits>::
+    _M_underflow(bool __bump)
     {
       int_type __ret = traits_type::eof();
       const bool __testin = this->_M_mode & ios_base::in;
@@ -193,8 +192,7 @@ namespace std
 	  // Check for pback madness, and if so swich back to the
 	  // normal buffers and jet outta here before expensive
 	  // fileops happen...
-	  if (_M_pback_init)
-	    _M_destroy_pback();
+	  _M_destroy_pback();
 
 	  if (this->_M_in_cur < this->_M_in_end)
 	    {
@@ -205,38 +203,31 @@ namespace std
 	    }
 
 	  // Sync internal and external buffers.
-	  // NB: __testget -> __testput as _M_buf_unified here.
-	  if (this->_M_in_cur > this->_M_in_beg)
-	    {
-	      if (__testout)
-		_M_overflow();
-	      else if (this->_M_in_cur != _M_filepos)
-		_M_file.seekoff(this->_M_in_cur - _M_filepos, ios_base::cur, 
-				ios_base::in);
-	    }
+	  if (__testout && this->_M_out_beg < this->_M_out_lim)
+	    _M_overflow();
 
-	  if (_M_buf_size)
+	  if (_M_buf_size > 1)
 	    {
 	      streamsize __elen = 0;
 	      streamsize __ilen = 0;
-	      const locale __loc = this->getloc();
-	      const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
-	      if (__cvt.always_noconv())
+
+	      if (__check_facet(_M_codecvt).always_noconv())
 		{
-		  __elen = _M_file.xsgetn(reinterpret_cast<char*>(this->_M_in_beg), _M_buf_size);
+		  __elen = _M_file.xsgetn(reinterpret_cast<char*>(this->_M_in_beg), _M_buf_size - 1);
 		  __ilen = __elen;
 		}
 	      else
 		{
-		  char* __buf = static_cast<char*>(__builtin_alloca(_M_buf_size));
-		  __elen = _M_file.xsgetn(__buf, _M_buf_size);
+		  char* __buf = static_cast<char*>(__builtin_alloca(_M_buf_size - 1));
+		  __elen = _M_file.xsgetn(__buf, _M_buf_size - 1);
 		  
 		  const char* __eend;
 		  char_type* __iend;
 		  codecvt_base::result __r;
-		  __r = __cvt.in(_M_state_cur, __buf, __buf + __elen, __eend, 
-				 this->_M_in_beg, 
-				 this->_M_in_beg + _M_buf_size, __iend);
+		  __r = _M_codecvt->in(_M_state_cur, __buf, __buf + __elen, 
+				       __eend, this->_M_in_beg, 
+				       this->_M_in_beg + _M_buf_size - 1, 
+				       __iend);
 		  if (__r == codecvt_base::ok)
 		    __ilen = __iend - this->_M_in_beg;
 		  else if (__r == codecvt_base::noconv)
@@ -256,7 +247,7 @@ namespace std
 
 	      if (0 < __ilen)
 		{
-		  _M_set_determinate(__ilen);
+		  _M_set_buffer(__ilen);
 		  __ret = traits_type::to_int_type(*this->_M_in_cur);
 		  if (__bump)
 		    _M_move_in_cur(1);
@@ -333,40 +324,77 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::int_type 
     basic_filebuf<_CharT, _Traits>::
+    _M_overflow(int_type __c)
+    {
+      int_type __ret = traits_type::eof();
+      const bool __testeof = traits_type::eq_int_type(__c, __ret);
+      const bool __testput = this->_M_out_beg < this->_M_out_lim;
+
+      if (__testput)
+ 	{
+ 	  // Need to restore current position. The position of the
+ 	  // external byte sequence (_M_file) corresponds to
+ 	  // _M_filepos, and we need to move it to _M_out_beg for the
+ 	  // write.
+	  if (_M_filepos != this->_M_out_beg)
+	    _M_file.seekoff(this->_M_out_beg - _M_filepos, ios_base::cur);
+
+	  // If appropriate, append the overflow char.
+	  if (!__testeof)
+	    *this->_M_out_lim++ = traits_type::to_char_type(__c);
+
+	  // Convert pending sequence to external representation,
+	  // output. 
+	  if (_M_convert_to_external(this->_M_out_beg,
+				     this->_M_out_lim - this->_M_out_beg)
+	      && (!__testeof || (__testeof && !_M_file.sync())))
+	    {
+	      _M_set_buffer(0);
+	      __ret = traits_type::not_eof(__c);
+	    }
+	}
+      _M_last_overflowed = true;	
+      return __ret;
+    }
+
+  template<typename _CharT, typename _Traits>
+    typename basic_filebuf<_CharT, _Traits>::int_type 
+    basic_filebuf<_CharT, _Traits>::
     overflow(int_type __c)
     {
       int_type __ret = traits_type::eof();
       const bool __testput = this->_M_out_cur < this->_M_out_end;
       const bool __testout = this->_M_mode & ios_base::out;
       
+      // Perhaps set below in _M_overflow.
+      _M_last_overflowed = false;
+
       if (__testout)
 	{
 	  if (traits_type::eq_int_type(__c, traits_type::eof()))
 	    __ret = traits_type::not_eof(__c);
 	  else if (__testput)
 	    {
-	      *this->_M_out_cur = traits_type::to_char_type(__c);
+ 	      *this->_M_out_cur = traits_type::to_char_type(__c);
 	      _M_move_out_cur(1);
 	      __ret = traits_type::not_eof(__c);
 	    }
 	  else 
 	    __ret = this->_M_overflow(__c);
 	}
-
-      _M_last_overflowed = false;    // Set in _M_overflow, below.
       return __ret;
     }
   
   template<typename _CharT, typename _Traits>
-    void
+    bool
     basic_filebuf<_CharT, _Traits>::
-    _M_convert_to_external(_CharT* __ibuf, streamsize __ilen,
-			   streamsize& __elen, streamsize& __plen)
+    _M_convert_to_external(_CharT* __ibuf, streamsize __ilen)
     {
-      const locale __loc = this->getloc();
-      const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
+      // Sizes of external and pending output.
+      streamsize __elen = 0;
+      streamsize __plen = 0;
 
-      if (__cvt.always_noconv() && __ilen)
+      if (__check_facet(_M_codecvt).always_noconv() && __ilen)
 	{
 	  __elen += _M_file.xsputn(reinterpret_cast<char*>(__ibuf), __ilen);
 	  __plen += __ilen;
@@ -374,7 +402,7 @@ namespace std
       else
 	{
 	  // Worst-case number of external bytes needed.
-	  int __ext_multiplier = __cvt.encoding();
+	  int __ext_multiplier = _M_codecvt->encoding();
 	  if (__ext_multiplier ==  -1 || __ext_multiplier == 0)
 	    __ext_multiplier = sizeof(char_type);
 	  streamsize __blen = __ilen * __ext_multiplier;
@@ -382,8 +410,8 @@ namespace std
 	  char* __bend;
 	  const char_type* __iend;
 	  codecvt_base::result __r;
-	  __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen,
-			  __iend, __buf, __buf + __blen, __bend);
+	  __r = _M_codecvt->out(_M_state_cur, __ibuf, __ibuf + __ilen,
+				__iend, __buf, __buf + __blen, __bend);
 	  
 	  if (__r == codecvt_base::ok || __r == codecvt_base::partial)
 	    __blen = __bend - __buf;
@@ -410,8 +438,9 @@ namespace std
 	    {
 	      const char_type* __iresume = __iend;
 	      streamsize __rlen = this->_M_out_lim - __iend;
-	      __r = __cvt.out(_M_state_cur, __iresume, __iresume + __rlen, 
-			      __iend, __buf, __buf + __blen, __bend);
+	      __r = _M_codecvt->out(_M_state_cur, __iresume,
+				    __iresume + __rlen, __iend, __buf, 
+				    __buf + __blen, __bend);
 	      if (__r != codecvt_base::error)
 		{
 		  __rlen = __bend - __buf;
@@ -420,67 +449,7 @@ namespace std
 		}
 	    }
 	}
-    }
-
-  template<typename _CharT, typename _Traits>
-    typename basic_filebuf<_CharT, _Traits>::int_type 
-    basic_filebuf<_CharT, _Traits>::
-    _M_overflow(int_type __c)
-    {
-      int_type __ret = traits_type::eof();
-      const bool __testput = this->_M_out_beg < this->_M_out_lim;
-      const bool __testunbuffered = _M_file.is_open() && !this->_M_buf_size;
-
-      if (__testput || __testunbuffered)
-	{
-	  // Sizes of external and pending output.
-	  streamsize __elen = 0;
-	  streamsize __plen = 0;
-
-	  // Need to restore current position. The position of the external
-	  // byte sequence (_M_file) corresponds to _M_filepos, and we need
-	  // to move it to _M_out_beg for the write.
-	  if (_M_filepos && _M_filepos != this->_M_out_beg)
-	    {
-	      off_type __off = this->_M_out_beg - _M_filepos;
-	      _M_file.seekoff(__off, ios_base::cur);
-	    }
-
-	  // Convert internal buffer to external representation, output.
-	  // NB: In the unbuffered case, no internal buffer exists. 
-	  if (!__testunbuffered)
-	    _M_convert_to_external(this->_M_out_beg,
-				   this->_M_out_lim - this->_M_out_beg, 
-				   __elen, __plen);
-
-	  // Checks for codecvt.out failures and _M_file.xsputn failures,
-	  // respectively, inside _M_convert_to_external.
-	  if (__testunbuffered || (__elen && __elen == __plen))
-	    {
-	      // Convert pending sequence to external representation, output.
-	      // If eof, then just attempt sync.
-	      if (!traits_type::eq_int_type(__c, traits_type::eof()))
-		{
-		  char_type __pending = traits_type::to_char_type(__c);
-		  _M_convert_to_external(&__pending, 1, __elen, __plen);
-
-		  // User code must flush when switching modes (thus
-		  // don't sync).
-		  if (__elen == __plen && __elen)
-		    {
-		      _M_set_indeterminate();
-		      __ret = traits_type::not_eof(__c);
-		    }
-		}
-	      else if (!_M_file.sync())
-		{
-		  _M_set_indeterminate();
-		  __ret = traits_type::not_eof(__c);
-		}
-	    }
-	}
-      _M_last_overflowed = true;	
-      return __ret;
+      return __elen && __elen == __plen;
     }
 
   template<typename _CharT, typename _Traits>
@@ -490,12 +459,15 @@ namespace std
     {
       if (!this->is_open() && __s == 0 && __n == 0)
 	this->_M_buf_size = 0;
-      else if (__s && __n)
+      else if (__s && __n > 1)
 	{
-	  // This is implementation-defined behavior, and assumes
-	  // that an external char_type array of length (__s + __n)
-	  // exists and has been pre-allocated. If this is not the
-	  // case, things will quickly blow up.
+	  // This is implementation-defined behavior, and assumes that
+	  // an external char_type array of length (__s + __n) exists
+	  // and has been pre-allocated. If this is not the case,
+	  // things will quickly blow up. The length argument __n must
+	  // be greater than 1 because __n - 1 positions will be used
+	  // for the get and put areas, and 1 position is needed to
+	  // host the overflow char of a full put area.
 
 	  // Step 1: Destroy the current internal array.
 	  _M_destroy_internal_buffer();
@@ -503,7 +475,7 @@ namespace std
 	  // Step 2: Use the external array.
 	  this->_M_buf = __s;
 	  this->_M_buf_size = __n;
-	  _M_set_indeterminate();
+	  _M_set_buffer(0);
 	}
       _M_last_overflowed = false;	
       return this; 
@@ -519,8 +491,8 @@ namespace std
       const bool __testout = (ios_base::out & this->_M_mode & __mode) != 0;
       
       int __width = 0;
-      if (has_facet<__codecvt_type>(this->_M_buf_locale))
-	  __width = use_facet<__codecvt_type>(this->_M_buf_locale).encoding();
+      if (_M_codecvt)
+	  __width = _M_codecvt->encoding();
       if (__width < 0)
 	__width = 0;
 
@@ -532,31 +504,30 @@ namespace std
 
 	  if (__way != ios_base::cur || __off != 0)
 	    { 
-	      off_type __computed_off = __width * __off;
-	      
+	      // Sync the internal and external streams.	      
 	      const bool __testget = this->_M_in_beg < this->_M_in_end;
 	      const bool __testput = this->_M_out_beg < this->_M_out_lim;
-	      // Sync the internal and external streams.
-	      // out
+	      off_type __computed_off = __width * __off;
+
 	      if (__testput || _M_last_overflowed)
 		{
 		  // Part one: update the output sequence.
 		  this->sync();
+
 		  // Part two: output unshift sequence.
 		  _M_output_unshift();
 		}
-	      //in
 	      else if (__testget && __way == ios_base::cur)
 		__computed_off += this->_M_in_cur - _M_filepos;
 
 	      // Return pos_type(off_type(-1)) in case of failure.
 	      __ret = _M_file.seekoff(__computed_off, __way, __mode);
-	      _M_set_indeterminate();
+	      _M_set_buffer(0);
 	    }
-	  // NB: Need to do this in case _M_file in indeterminate
-	  // state, ie _M_file._offset == -1
 	  else
 	    {
+	      // NB: Need to do this in case _M_file in indeterminate
+	      // state, ie _M_file._offset == -1
 	      pos_type __tmp = _M_file.seekoff(__off, ios_base::cur, __mode);
 	      if (__tmp >= 0)
 		{
@@ -593,16 +564,23 @@ namespace std
     basic_filebuf<_CharT, _Traits>::
     imbue(const locale& __loc)
     {
-      const bool __testbeg = this->_M_in_cur == this->_M_in_beg
-	                     && this->_M_out_cur == this->_M_out_beg;
+      const bool __testbeg = !this->seekoff(0, ios_base::cur, this->_M_mode);
+      const bool __teststate = __check_facet(_M_codecvt).encoding() == -1;
 
-      if (__testbeg && this->_M_buf_locale != __loc)
-	this->_M_buf_locale = __loc;
+      if (this->_M_buf_locale != __loc 
+	  && (!this->is_open() || (__testbeg && !__teststate)))
+	{
+	  this->_M_buf_locale = __loc;
+	  if (__builtin_expect(has_facet<__codecvt_type>(__loc), true))
+	    _M_codecvt = &use_facet<__codecvt_type>(__loc);
 
-      // NB this may require the reconversion of previously
-      // converted chars. This in turn may cause the reconstruction
-      // of the original file. YIKES!!
-      // XXX The part in the above comment is not done.
+	  // NB This may require the reconversion of previously
+	  // converted chars. This in turn may cause the
+	  // reconstruction of the original file. YIKES!!  This
+	  // implementation interprets this requirement as requiring
+	  // the file position be at the beginning, and a stateless
+	  // encoding, or that the filebuf be closed. Opinions may differ.
+	}
       _M_last_overflowed = false;	
     }
 

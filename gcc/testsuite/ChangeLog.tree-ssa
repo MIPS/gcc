@@ -1,3 +1,9 @@
+2003-06-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/builtins/string-4.x: Expect
+	execution failures.
+	* gcc.c-torture/execute/builtins/string-5.x: Likewise.
+
 2003-05-30  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/compile/20030530-1.c: New test.

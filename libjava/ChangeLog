@@ -1,3 +1,354 @@
+2003-05-22	Jeff Sturm	<jsturm@one-point.com>
+
+	PR libgcj/10838:
+	* java/io/ObjectInputStream (enableResolveObject):
+	Fixed spelling of permission name.
+
+2003-05-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataInputStream.java
+	(convertFromUTF): Merged comment from classpath.
+	* java/io/PrintStream.java
+	(error_occured): Renamed from error, merged comment from classpath.
+	(PrintStream): No need to initialized error.
+	(checkError): Replace error with error_occurred.
+	(setError): Likewise.
+
+2003-05-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/DataInputStream.java:
+	Reformatted, Replaced < and & with html entitites in documentation.
+	* java/io/File.java:
+	Reformatted.
+	* java/io/PrintWriter.java:
+	Moved class documentation.
+
+2003-05-20  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java,
+	gnu/java/nio/CharBufferImpl.java,
+	gnu/java/nio/CharViewBufferImpl.java,
+	gnu/java/nio/DirectByteBufferImpl.java,
+	gnu/java/nio/DoubleBufferImpl.java,
+	gnu/java/nio/DoubleViewBufferImpl.java,
+	gnu/java/nio/FloatBufferImpl.java,
+	gnu/java/nio/FloatViewBufferImpl.java,
+	gnu/java/nio/IntBufferImpl.java,
+	gnu/java/nio/IntViewBufferImpl.java,
+	gnu/java/nio/LongBufferImpl.java,
+	gnu/java/nio/LongViewBufferImpl.java,
+	gnu/java/nio/natDirectByteBufferImpl.cc,
+	gnu/java/nio/ShortBufferImpl.java,
+	gnu/java/nio/ShortViewBufferImpl.java:
+	Moved files to java/nio.
+	* gnu/java/nio/SocketChannelImpl.java
+	
+	* java/nio/ByteBuffer.java,
+	java/nio/CharBuffer.java,
+	java/nio/DoubleBuffer.java,
+	java/nio/FloatBuffer.java,
+	java/nio/IntBuffer.java,
+	java/nio/LongBuffer.java,
+	java/nio/ShortBuffer.java:
+	Dont import anything.
+	* java/nio/ByteBufferImpl.java,
+	java/nio/CharBufferImpl.java,
+	java/nio/CharViewBufferImpl.java,
+	java/nio/DirectByteBufferImpl.java,
+	java/nio/DoubleBufferImpl.java,
+	java/nio/DoubleViewBufferImpl.java,
+	java/nio/FloatBufferImpl.java,
+	java/nio/FloatViewBufferImpl.java,
+	java/nio/IntBufferImpl.java,
+	java/nio/IntViewBufferImpl.java,
+	java/nio/LongBufferImpl.java,
+	java/nio/LongViewBufferImpl.java,
+	java/nio/natDirectByteBufferImpl.cc,
+	java/nio/ShortBufferImpl.java,
+	java/nio/ShortViewBufferImpl.java:
+	Moved from gnu/java/nio.
+	* Makefile.am
+	(ordinary_java_source_files): Moved files from gnu/java/nio to
+	java/nio.
+	(nat_source_files): Moved natDirectByteBufferImpl.cc from gnu/java/nio
+	to java/nio.
+	* Makefile.in: Regenerated.
+
+2003-05-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/Calendar.java
+	(get): Not final anymore since JDK 1.4
+	(set): Likewise.
+
+2003-05-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/CollationKey.java:
+	Merged copyright and dat from classpath.
+	* java/text/RuleBasedCollator.java:
+	Merged class documentation from classpath.
+
+2003-05-19  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/CharBuffer.java
+	(toString): Compile fix.
+
+2003-05-19  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(putLong): Fixed conversion to bytes.
+	(putDouble): Fixed conversion to bytes.
+	* gnu/java/nio/DirectByteBufferImpl.java
+	(putLong): Fixed conversion to bytes.
+	(putDouble): Fixed conversion to bytes.
+	* gnu/java/nio/FileLockImpl.java
+	(isValid): Reformatted.
+	* java/nio/Buffer.java
+	(Buffer): Fixed off-by-one bug in handling mark.
+	* java/nio/ByteBuffer.java:
+	Added newline.
+	* java/nio/CharBuffer.java
+	(toString): Don't use relative get to get string data.
+
+2003-05-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/natFileDescriptorPosix.cc
+	(open): Commented out the O_SYNC and O_DSYNC usage until its better
+	tested.
+
+2003-05-14  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileLockImpl.java
+	(released): New member variable.
+	(FileLockImpl): Initialize released.
+	(releaseImpl): New native method.
+	(release): Implemented.
+	* gnu/java/nio/SelectorImpl.java: Reformatted.
+	* gnu/java/nio/SelectionKeyImpl.java: Reformatted.
+	* gnu/java/nio/ServerSocketChannelImpl.java: Reformatted.
+	(accept): Throws IOException.
+	* gnu/java/nio/SocketChannelImpl.java: Reformatted.
+	(implConfigureBlocking): Throws IOException.
+	(connect): Likewise.
+	(read): Likewise.
+	(write): Likewise.
+	* gnu/java/nio/natFileLockImpl.cc: New file.
+	* java/nio/channels/FileLock.java: Reformatted.
+	* Makefile.am:
+	(ordinary_java_source_files): Added gnu/java/nio/FileLockImpl.java.
+	(nat_source_files): Added gnu/java/nio/natFileLockImpl.cc.
+	* Makefile.in: Regenerated.
+
+2003-05-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/CharViewBufferImpl.java
+	(CharViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+	* gnu/java/nio/DoubleViewBufferImpl.java
+	(DoubleViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+	* gnu/java/nio/FloatViewBufferImpl.java
+	(FloatViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+	* gnu/java/nio/IntViewBufferImpl.java
+	(IntViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+	* gnu/java/nio/LongViewBufferImpl.java
+	(LongViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+	* gnu/java/nio/ShortViewBufferImpl.java
+	(ShortViewBufferImpl): Fixed super constructor call, initialize offset.
+	(get): Shift bits to the right direction.
+	(put): Likewise.
+
+2003-05-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/natDirectByteBufferImpl.cc
+	(allocateImpl): jlong -> RawData*.
+	(freeImpl): Likewise.
+
+2003-05-13  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/FileChannel.java
+	(MapMode.m): Made it package-private to match JDK 1.4.
+	* java/nio/charset/Charset.java
+	(decode): Made it final to match JDK 1.4.
+
+2003-05-13  Michael Koch  <konqueror@gmx.de>
+
+       * java/io/FileDescriptor.java
+       (SYNC): New constant.
+       (DSYNC): Likewise.
+       (getLength): Renamed from lenght() to match classpath's
+       FileDescriptor.java.
+       * java/io/RandomAccessFile.java
+       (RandomAccessFile): Removed unneeded mode check, implemented mode
+       "rws" and "rwd", merged documentation from classpath.
+       (setLength): Reformatted.
+       (length): Use new getLength() of FileDescriptor.
+       * java/io/natFileDescriptorEcos.cc
+       (getLength): Renamed from length().
+       * java/io/natFileDescriptorPosix.cc
+       (open): Implemented support for SYNC and DSYNC.
+       (seek): Use getLength() instead of length().
+       (getLength): Renamed from length().
+       * java/io/natFileDescriptorWin32.cc
+       (getLength): Renamed from length().
+       (seek): Use getLength() instead of length().
+       (available): Likewise.
+       * gnu/java/nio/natFileChannelImpl.cc
+       (size): Use getLength() instead of length().
+
+2003-05-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java
+	(ByteBufferImpl): All constructors revised.
+	(slice): Reimplemented.
+	(duplicate): Reimplemented.
+	(asReadOnlyBuffer): Reimplemented.
+	* java/nio/ByteBuffer.java:
+	Reformatted.
+	(array_offset): Renamed from "offset" to match all other buffer
+	classes.
+	(ByteBuffer): All constructors revised.
+	(allocateDirect): Implemented.
+	(allocate): New implementation, documentation reworked.
+	(wrap): Likewise.
+	(get): Documentation reworked.
+	(put): New implementation, documentation reworked.
+	(hasArray): Documentation reworked.
+	(arrayOffset): Likewise.
+	(hashCode): Likewise.
+	(equals): Likewise.
+	(compareTo): Likewise.
+	(order): Likewise.
+	(compact): Likewise.
+	(isDirect): Likewise.
+	(slice): Likewise.
+	(duplicate): Likewise.
+	(asReadOnlyBuffer): Likewise.
+	* Makefile.am
+	(ordinary_java_source_files):
+	Added gnu/java/nio/DirectByteBufferImpl.java.
+	(nat_source_files):
+	Added gnu/java/nio/natDirectByteBufferImpl.cc.
+	* Makefile.in: Regenerated.
+
+2003-05-12  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/ByteBufferImpl.java: Reformatted.
+	(nio_get_*): Removed.
+	(nio_put_*): Removed.
+	(as*Buffer): Implemented.
+	(compact): Implemented.
+	(get): Documentation added.
+	(put): Documentation added.
+	(get*): Newly implemented.
+	(put*): Newly implemented.
+	* gnu/java/nio/CharBufferImpl.java: Reformatted.
+	(CharBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* gnu/java/nio/DirectByteBufferImpl.java
+	(allocateDirect): objects can be null not 0.
+	* gnu/java/nio/DoubleBufferImpl.java: Reformatted.
+	(DoubleBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* gnu/java/nio/FloatBufferImpl.java: Reformatted.
+	(FloatBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* gnu/java/nio/IntBufferImpl.java: Reformatted.
+	(IntBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* gnu/java/nio/LongBufferImpl.java: Reformatted.
+	(LongBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* gnu/java/nio/ShortBufferImpl.java: Reformatted.
+	(ShortBufferImpl): Revised.
+	(slice): New implementation.
+	(duplicate): New implementation.
+	(compact): New implementation.
+	(asReadOnlyBuffer): New implementation.
+	(get): Documentation revised.
+	(order): Return native byte order.
+	* java/nio/CharBuffer.java: Reformatted, much documentation rewritten.
+	(CharBuffer): Revised.
+	(order): Removed.
+	* java/nio/DoubleBuffer.java: Reformatted, much documentation rewritten.
+	(DoubleBuffer): Revised.
+	(allocateDirect): Removed.
+	(order): Removed.
+	* java/nio/FloatBuffer.java: Reformatted, much documentation rewritten.
+	(FloatBuffer): Revised.
+	(allocateDirect): Removed.
+	(order): Removed.
+	* java/nio/IntBuffer.java: Reformatted, much documentation rewritten.
+	(IntBuffer): Revised.
+	(allocateDirect): Removed.
+	(order): Removed.
+	* java/nio/LongBuffer.java: Reformatted, much documentation rewritten.
+	(LongBuffer): Revised.
+	(allocateDirect): Removed.
+	(order): Removed.
+	* java/nio/ShortBuffer.java: Reformatted, much documentation rewritten.
+	(ShortBuffer): Revised.
+	(allocateDirect): Removed.
+	(order): Removed.
+	* gnu/java/nio/natByteBufferImpl.cc: Removed.
+	* gnu/java/nio/natCharBufferImpl.cc: Removed.
+	* Makefile.am
+	(ordinary_java_source_files): Added the following files:
+	gnu/java/nio/CharViewBufferImpl.java,
+	gnu/java/nio/DoubleViewBufferImpl.java,
+	gnu/java/nio/FloatViewBufferImpl.java,
+	gnu/java/nio/IntViewBufferImpl.java,
+	gnu/java/nio/LongViewBufferImpl.java,
+	gnu/java/nio/ShortViewBufferImpl.java
+	(nat_source_files): Removed the following files:
+	gnu/java/nio/natByteBufferImpl.cc,
+	gnu/java/nio/natCharBufferImpl.cc
+	* Makefile.in: Regenerated.
+
+2003-05-12  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/CharViewBufferImpl.java,
+	gnu/java/nio/DirectByteBufferImpl.java,
+	gnu/java/nio/DoubleViewBufferImpl.java,
+	gnu/java/nio/FloatViewBufferImpl.java,
+	gnu/java/nio/IntViewBufferImpl.java,
+	gnu/java/nio/LongViewBufferImpl.java,
+	gnu/java/nio/ShortViewBufferImpl.java,
+	gnu/java/nio/natDirectByteBufferImpl.cc:
+	New files, not yet to be compiled.
+
 2003-05-10  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/ButtonUI.java,

@@ -35,8 +35,13 @@ Boston, MA 02111-1307, USA.    */
 
 #undef ASM_FINAL_SPEC
 
-#undef  CPP_SUBTARGET_SPEC
-#define CPP_SUBTARGET_SPEC "-D__ELF__"
+/* alpha/ doesn't use elfos.h for some reason.  */
+#define TARGET_OBJFMT_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 #undef  CC1_SPEC
 #define CC1_SPEC  "%{G*}"
@@ -81,7 +86,7 @@ do {								\
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
+  fprintf (FILE, "%s"HOST_WIDE_INT_PRINT_UNSIGNED"\n", SKIP_ASM_OP, (SIZE))
 
 /* Output the label which precedes a jumptable.  Note that for all svr4
    systems where we actually generate jumptables (which is to say every

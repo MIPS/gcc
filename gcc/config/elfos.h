@@ -21,6 +21,12 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define TARGET_OBJFMT_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 /* Define a symbol indicating that we are using elfos.h.
    Some CPU specific configuration files use this.  */
@@ -108,7 +114,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
+   fprintf ((FILE), "%s"HOST_WIDE_INT_PRINT_UNSIGNED"\n",\
+	    SKIP_ASM_OP, (SIZE))
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -171,7 +178,8 @@ Boston, MA 02111-1307, USA.  */
     {									\
       fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), (ALIGN) / BITS_PER_UNIT);			\
     }									\
   while (0)
 

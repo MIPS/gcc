@@ -449,7 +449,7 @@ objc_init ()
       register char * const dumpname = concat (dump_base_name, ".decl", NULL);
       gen_declaration_file = fopen (dumpname, "w");
       if (gen_declaration_file == 0)
-	fatal_io_error ("can't open %s", dumpname);
+	fatal_error ("can't open %s: %m", dumpname);
       free (dumpname);
     }
 
@@ -3539,10 +3539,6 @@ error_with_ivar (message, decl, rawdecl)
      tree decl;
      tree rawdecl;
 {
-  diagnostic_count_diagnostic (global_dc, DK_ERROR);
-
-  diagnostic_report_current_function (global_dc);
-
   error ("%H%s `%s'", TREE_LOCUS (decl),
          message, gen_declaration (rawdecl, errbuf));
 
@@ -7108,11 +7104,6 @@ warn_with_method (message, mtype, method)
      int mtype;
      tree method;
 {
-  if (!diagnostic_count_diagnostic (global_dc, DK_WARNING))
-    return;
-
-  diagnostic_report_current_function (global_dc);
-
   /* Add a readable method name to the warning.  */
   warning ("%H%s `%c%s'", TREE_LOCUS (method),
            message, mtype, gen_method_decl (method, errbuf));

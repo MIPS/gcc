@@ -2828,7 +2828,12 @@ expand_call (exp, target, ignore)
 		  if (needed == 0)
 		    argblock = virtual_outgoing_args_rtx;
 		  else
-		    argblock = push_block (GEN_INT (needed), 0, 0);
+		    {
+		      argblock = push_block (GEN_INT (needed), 0, 0);
+#ifdef ARGS_GROW_DOWNWARD
+		      argblock = plus_constant (argblock, needed);
+#endif
+		    }
 
 		  /* We only really need to call `copy_to_reg' in the case
 		     where push insns are going to be used to pass ARGBLOCK
@@ -4171,18 +4176,14 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
    or other LCT_ value for other types of library calls.  */
 
 void
-emit_library_call VPARAMS((rtx orgfun, enum libcall_type fn_type,
-			   enum machine_mode outmode, int nargs, ...))
+emit_library_call (rtx orgfun, enum libcall_type fn_type,
+		   enum machine_mode outmode, int nargs, ...)
 {
-  VA_OPEN (p, nargs);
-  VA_FIXEDARG (p, rtx, orgfun);
-  VA_FIXEDARG (p, int, fn_type);
-  VA_FIXEDARG (p, enum machine_mode, outmode);
-  VA_FIXEDARG (p, int, nargs);
-
+  va_list p;
+  
+  va_start (p, nargs);
   emit_library_call_value_1 (0, orgfun, NULL_RTX, fn_type, outmode, nargs, p);
-
-  VA_CLOSE (p);
+  va_end (p);
 }
 
 /* Like emit_library_call except that an extra argument, VALUE,
@@ -4194,23 +4195,17 @@ emit_library_call VPARAMS((rtx orgfun, enum libcall_type fn_type,
    If VALUE is nonzero, VALUE is returned.  */
 
 rtx
-emit_library_call_value VPARAMS((rtx orgfun, rtx value,
-				 enum libcall_type fn_type,
-				 enum machine_mode outmode, int nargs, ...))
+emit_library_call_value (rtx orgfun, rtx value,
+			 enum libcall_type fn_type,
+			 enum machine_mode outmode, int nargs, ...)
 {
   rtx result;
+  va_list p;
   
-  VA_OPEN (p, nargs);
-  VA_FIXEDARG (p, rtx, orgfun);
-  VA_FIXEDARG (p, rtx, value);
-  VA_FIXEDARG (p, int, fn_type);
-  VA_FIXEDARG (p, enum machine_mode, outmode);
-  VA_FIXEDARG (p, int, nargs);
-
+  va_start (p, nargs);
   result = emit_library_call_value_1 (1, orgfun, value, fn_type, outmode,
 				      nargs, p);
-
-  VA_CLOSE (p);
+  va_end (p);
 
   return result;
 }

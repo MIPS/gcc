@@ -415,7 +415,6 @@ int required_other = 0;
 static void
 write_lbrac ()
 {
-
 #if ADD_MISSING_EXTERN_C
   if (missing_extern_C_count + required_unseen_count > 0)
     fprintf (outf, "#ifdef __cplusplus\nextern \"C\" {\n#endif\n");
@@ -636,7 +635,7 @@ read_scan_file (in_fname, argc, argv)
     exit (FATAL_EXIT_CODE);
 
   cpp_change_file (scan_in, LC_RENAME, "<built-in>");
-  cpp_init_builtins (scan_in);
+  cpp_init_builtins (scan_in, true);
   cpp_change_file (scan_in, LC_RENAME, in_fname);
 
   /* Process switches after builtins so -D can override them.  */
@@ -1355,11 +1354,11 @@ v_fatal (str, ap)
 }
 
 static void
-fatal VPARAMS ((const char *str, ...))
+fatal (const char *str, ...)
 {
-  VA_OPEN (ap, str);
-  VA_FIXEDARG (ap, const char *, str);
-
+  va_list ap;
+  
+  va_start (ap, str);
   v_fatal (str, ap);
-  VA_CLOSE (ap);
+  va_end (ap);
 }

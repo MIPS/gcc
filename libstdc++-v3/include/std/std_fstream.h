@@ -123,7 +123,9 @@ namespace std
 
       /**
        *  @if maint
-       *  Actual size of internal buffer.
+       *  Actual size of internal buffer. This number is equal to the size
+       *  of the put area + 1 position, reserved for the overflow char of
+       *  a full area.
        *  @endif
       */
       size_t			_M_buf_size;
@@ -156,12 +158,14 @@ namespace std
        *  @note pbacks of over one character are not currently supported.
        *  @endif
       */
-      static const size_t   	_S_pback_size = 1; 
-      char_type			_M_pback[_S_pback_size]; 
+      char_type			_M_pback[1]; 
       char_type*		_M_pback_cur_save;
       char_type*		_M_pback_end_save;
       bool			_M_pback_init; 
       //@}
+
+      // Cached codecvt facet.
+      const __codecvt_type* 	_M_codecvt;
 
       // Initializes pback buffers, and moves normal buffers to safety.
       // Assumptions:
@@ -171,12 +175,9 @@ namespace std
       {
 	if (!_M_pback_init)
 	  {
-	    size_t __dist = this->_M_in_end - this->_M_in_cur;
-	    size_t __len = std::min(_S_pback_size, __dist);
-	    traits_type::copy(_M_pback, this->_M_in_cur, __len);
 	    _M_pback_cur_save = this->_M_in_cur;
 	    _M_pback_end_save = this->_M_in_end;
-	    this->setg(_M_pback, _M_pback, _M_pback + __len);
+	    this->setg(_M_pback, _M_pback, _M_pback + 1);
 	    _M_pback_init = true;
 	  }
       }
@@ -190,17 +191,9 @@ namespace std
 	if (_M_pback_init)
 	  {
 	    // Length _M_in_cur moved in the pback buffer.
-	    size_t __off_cur = this->_M_in_cur - _M_pback;
-	    
-	    // For in | out buffers, the end can be pushed back...
-	    size_t __off_end = 0;
-	    size_t __pback_len = this->_M_in_end - _M_pback;
-	    size_t __save_len = _M_pback_end_save - this->_M_buf;
-	    if (__pback_len > __save_len)
-	      __off_end = __pback_len - __save_len;
-
+	    const size_t __off_cur = this->_M_in_cur - _M_pback;
 	    this->setg(this->_M_buf, _M_pback_cur_save + __off_cur, 
-		       _M_pback_end_save + __off_end);
+		       _M_pback_end_save);
 	    _M_pback_init = false;
 	  }
       }
@@ -353,8 +346,8 @@ namespace std
        *  @doctodo
        *  @endif
       */
-      void
-      _M_convert_to_external(char_type*, streamsize, streamsize&, streamsize&);
+      bool
+      _M_convert_to_external(char_type*, streamsize);
 
       /**
        *  @brief  Manipulates the buffer.
@@ -403,7 +396,6 @@ namespace std
 	  }
 	else
 	  _M_file.sync();
-
 	_M_last_overflowed = false;
 	return __ret;
       }
@@ -450,40 +442,29 @@ namespace std
       void
       _M_output_unshift();
 
-      // These two functions are used to clarify internal buffer
-      // maintenance. After an overflow, or after a seekoff call that
-      // started at beg or end, or possibly when the stream becomes
-      // unbuffered, and a myrid other obscure corner cases, the
-      // internal buffer does not truly reflect the contents of the
-      // external buffer. At this point, for whatever reason, it is in
-      // an indeterminate state.
-      /**
-       *  @if maint
-       *  @doctodo
-       *  @endif
-      */
+      // This function sets the pointers of the internal buffer, both get
+      // and put areas. Typically, __off == _M_in_end - _M_in_beg upon
+      // _M_underflow; __off == 0 upon _M_overflow, seekoff, open, setbuf.
+      // 
+      // NB: _M_out_end - _M_out_beg == _M_buf_size - 1, since _M_buf_size
+      // reflects the actual allocated memory and the last cell is reserved
+      // for the overflow char of a full put area.
       void
-      _M_set_indeterminate(void)
-      { _M_set_determinate(off_type(0)); }
-
-      /**
-       *  @if maint
-       *  @doctodo
-       *  @endif
-      */
-      void
-      _M_set_determinate(off_type __off)
+      _M_set_buffer(streamsize __off)
       {
-	const bool __testin = this->_M_mode & ios_base::in;
-	const bool __testout = this->_M_mode & ios_base::out;
-	if (__testin)
-	  this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
-	if (__testout)
+ 	const bool __testin = this->_M_mode & ios_base::in;
+ 	const bool __testout = this->_M_mode & ios_base::out;
+	if (_M_buf_size)
 	  {
-	    this->setp(this->_M_buf, this->_M_buf + this->_M_buf_size);
-	    this->_M_out_lim += __off;
+	    if (__testin)
+	      this->setg(this->_M_buf, this->_M_buf, this->_M_buf + __off);
+	    if (__testout)
+	      {
+		this->setp(this->_M_buf, this->_M_buf + this->_M_buf_size - 1);
+		this->_M_out_lim += __off;
+	      }
+	    _M_filepos = this->_M_buf + __off;
 	  }
-	_M_filepos = this->_M_buf + __off;
       }
     };
 

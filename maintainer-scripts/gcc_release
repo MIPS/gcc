@@ -11,20 +11,20 @@
 #
 # Copyright (c) 2001, 2002 Free Software Foundation.
 #
-# This file is part of GNU CC.
+# This file is part of GCC.
 #
-# GNU CC is free software; you can redistribute it and/or modify
+# GCC is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
 # any later version.
 #
-# GNU CC is distributed in the hope that it will be useful,
+# GCC is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GNU CC; see the file COPYING.  If not, write to
+# along with GCC; see the file COPYING.  If not, write to
 # the Free Software Foundation, 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 #
@@ -64,12 +64,21 @@ inform() {
 
 usage() {
 cat <<EOF
-gcc_release     [-d destination]
-                [-u username]
-		[-r release]
-		[-t tag]
-		[-p previous-tarball]
-		[-s] [-f] [-l]
+gcc_release -r release [further options]
+gcc_release -s [further options]
+
+Options:
+
+  -r release           Version of the form X.Y or X.Y.Z.
+  -s                   Create a snapshot, not a real release.
+
+  -d destination       Local working directory where we will build the release
+                       (default=${HOME}).
+  -f                   Create a final release (and update ChangeLogs,...).
+  -l                   Indicate that we are running on gcc.gnu.org.
+  -p previous-tarball  Location of a previous tarball (to generate diff files).
+  -t tag               Tag to mark the release in CVS.
+  -u username          Username for upload operations.
 EOF
     exit 1
 }
@@ -113,17 +122,22 @@ build_sources() {
            -r ${BRANCH} gcc || \
            error "Could not check out release sources"
     for x in `find ${SOURCE_DIRECTORY} -name ChangeLog`; do
-      cat - ${x} > ${x}.new <<EOF
+      # Update this ChangeLog file only if it does not yet contain the
+      # entry we are going to add.  (This is a safety net for repeated
+      # runs of this script for the same release.)
+      if ! grep "GCC ${RELEASE} released." ${x} > /dev/null ; then       
+        cat - ${x} > ${x}.new <<EOF
 ${LONG_DATE}  Release Manager
 
-	* GCC ${RELEASE} Released.
+	* GCC ${RELEASE} released.
 
 EOF
-      mv ${x}.new ${x} || \
-        error "Could not update ${x}"
-      (changedir `dirname ${x}` && \
-        ${CVS} ci -m 'Mark ChangeLog' `basename ${x}`) || \
-        error "Could not commit ${x}"
+        mv ${x}.new ${x} || \
+            error "Could not update ${x}"
+        (changedir `dirname ${x}` && \
+            ${CVS} ci -m 'Mark ChangeLog' `basename ${x}`) || \
+            error "Could not commit ${x}"
+      fi
     done
 
     # Update `gcc/version.c'.
@@ -326,20 +340,30 @@ upload_files() {
 
   # Make sure the directory exists on the server.
   if [ $LOCAL -eq 0 ]; then
-    ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} mkdir ${FTP_PATH}
+    ${SSH} -l ${GCC_USERNAME} ${GCC_HOSTNAME} \
+      mkdir -p "${FTP_PATH}/diffs"
     UPLOAD_PATH="${GCC_USERNAME}@${GCC_HOSTNAME}:${FTP_PATH}"
   else
-    mkdir -p "${FTP_PATH}" \
+    mkdir -p "${FTP_PATH}/diffs" \
       || error "Could not create \`${FTP_PATH}'"
     UPLOAD_PATH=${FTP_PATH}
   fi
 
+  # Then copy files to their respective (sub)directories.
   for x in gcc*.gz gcc*.bz2; do
     if [ -e ${x} ]; then
       # Make sure the file will be readable on the server.
       chmod a+r ${x}
       # Copy it.
-      ${SCP} ${x} ${UPLOAD_PATH} || error "Could not upload ${x}"
+      case ${x} in
+        *.diff.*)
+          SUBDIR="diffs/";
+          ;;
+        *)
+          SUBDIR="";
+      esac
+      ${SCP} ${x} ${UPLOAD_PATH}/${SUBDIR} \
+        || error "Could not upload ${x}"
     fi
   done
 }

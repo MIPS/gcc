@@ -1,7 +1,74 @@
+2003-05-21  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+
+	* configure.in: Use curly braces in the definition of tooldir.
+	* configure: Regenerate.
+
+2003-05-21  DJ Delorie  <dj@redhat.com>
+	
+	* Makefile.tpl (configure-target-libiberty): Depend only on gcc, not
+	newlib or libgloss.
+	* Makefile.in: Regenerate.
+
+2003-05-21  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.tpl: Add missing empty maybe-check-gcc target.
+	* Makefile.in: Regenerate.
+
+2003-05-20  Ian Lance Taylor  <ian@airs.com>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2003-05-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Switch more things to use maybe dependencies.
+	* Makefile.tpl: Switch more things to use maybe dependencies.  
+	Factor out common code from autogen IF statements.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2003-05-14  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* configure.in: Accept i[3456789]86 for machine type.
+	* configure: Regenerate.
+
+2003-05-18  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Switch more things to use maybe dependencies.
+	Rearrange a little.  Use GCC_TOPLEV_SUBDIRS.
+	* configure: Regenerate.
+	* Makefile.tpl: Switch more things to use maybe dependencies.
+	* Makefile.in: Regenerate.
+
+2003-05-16  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.tpl (install-opcodes): Define.
+	* Makefile.in: Rebuild.
+
+2003-05-13  Andreas Jaeger  <aj@suse.de>
+
+	* config.guess: Update to 2003-05-09 version.
+	* config.sub: Update to 2003-05-09 version.
+
+2003-05-13  Michael Eager <eager@mvista.com>
+
+	* configure.in: Correct sed script so that options in quotes are not
+	deleted.
+	* configure: Rebuild.
+
+2003-05-12  Corinna Vinschen  <corinna@vinschen.de>
+
+	* configure.in (FLAGS_FOR_TARGET): Remove $$s/newlib/libc/sys/cygwin
+	and $$s/newlib/libc/sys/cygwin32 include paths.
+	* configure: Ditto.
+
+2003-05-12  Michael Meissner  <gnu@the-meissners.org>
+
+	* MAINTAINERS: Update my email addresses.
+
 2003-05-06  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* config-ml.in: Propagate INSTALL variables.
-	
+
 2003-05-04  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* MAINTAINERS: Remove duplicate entries in Write After Approval.
@@ -92,7 +159,7 @@
 2003-03-17  Olivier Hainque  <hainque@act-europe.fr>
 
 	* MAINTAINERS (Write After Approval): Add myself.
- 	
+
 2003-03-14  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl: Move .NOEXPORT, MAKEOVERRIDES back down.

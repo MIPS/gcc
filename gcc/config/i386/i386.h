@@ -517,7 +517,8 @@ extern int x86_prefetch_sse;
       if (TARGET_64BIT)						\
 	{							\
 	  builtin_assert ("cpu=x86_64");			\
-	  builtin_assert ("machine=x86_64");			\
+	  builtin_define ("__amd64");				\
+	  builtin_define ("__amd64__");				\
 	  builtin_define ("__x86_64");				\
 	  builtin_define ("__x86_64__");			\
 	  builtin_define ("__amd64");				\
@@ -3194,8 +3195,6 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
    ((SRC) < FIRST_STACK_REG || (SRC) > LAST_STACK_REG)
 
 
-#define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
-
 #define DLL_IMPORT_EXPORT_PREFIX '#'
 
 #define FASTCALL_PREFIX '@'

@@ -152,6 +152,7 @@ extern int function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
 extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    enum machine_mode, tree,
 					    int *, int));
+extern rtx rs6000_function_value (tree, tree);
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
 extern int function_ok_for_sibcall PARAMS ((tree));
 #ifdef ARGS_SIZE_RTX
@@ -195,6 +196,8 @@ extern int rs6000_register_move_cost PARAMS ((enum machine_mode,
 					      enum reg_class, enum reg_class));
 extern int rs6000_memory_move_cost PARAMS ((enum machine_mode,
 					    enum reg_class, int));
+extern bool rs6000_tls_referenced_p PARAMS ((rtx));
+extern int rs6000_tls_symbol_ref PARAMS ((rtx, enum machine_mode));
 
 /* Declare functions in rs6000-c.c */
 

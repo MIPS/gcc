@@ -8986,21 +8986,15 @@ java_expand_classes (void)
 
   /* Now things are stable, go for generation of the class data. */
 
-  /* We pessimistically marked all fields external until we knew
-     what set of classes we were planning to compile.  Now mark
+  /* We pessimistically marked all methods and fields external until
+     we knew what set of classes we were planning to compile.  Now mark
      those that will be generated locally as not external.  */
   for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
     {
       tree current;
       ctxp = cur_ctxp;
       for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
-	{
-	  tree class = TREE_TYPE (current);
-	  tree field;
-	  for (field = TYPE_FIELDS (class); field ; field = TREE_CHAIN (field))
-	    if (FIELD_STATIC (field))
-	      DECL_EXTERNAL (field) = 0;
-	}
+	java_mark_class_local (TREE_TYPE (current));
     }
 
   /* Compile the classes.  */
@@ -12584,11 +12578,8 @@ print_int_node (tree node)
 	     TREE_INT_CST_LOW (node));
   else if (TREE_INT_CST_HIGH (node) == -1
 	   && TREE_INT_CST_LOW (node) != 0)
-    {
-      buffer [0] = '-';
-      sprintf (&buffer [1], HOST_WIDE_INT_PRINT_UNSIGNED,
-	       -TREE_INT_CST_LOW (node));
-    }
+    sprintf (buffer, "-" HOST_WIDE_INT_PRINT_UNSIGNED,
+	     -TREE_INT_CST_LOW (node));
   else
     sprintf (buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 	     TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));

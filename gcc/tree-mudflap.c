@@ -66,10 +66,10 @@ static void mx_register_decls PARAMS ((tree, tree *));
 
 
 /* These macros are used to mark tree nodes, so that they are not
-   repeatedly transformed.  The `bounded' flag is not otherwise used.  */
+   repeatedly transformed.  */
 
-#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_BOUNDED (tree) = 1; } while (0)
-#define TREE_MUDFLAPPED_P(tree)  TREE_BOUNDED (tree)
+#define MARK_TREE_MUDFLAPPED(tree)  do { TREE_VISITED (tree) = 1; } while (0)
+#define TREE_MUDFLAPPED_P(tree)  TREE_VISITED (tree)
 
 /* extern mudflap functions */
 
@@ -219,7 +219,7 @@ mx_flag (t)
 {
   if (!t)
     abort ();
-  MARK_TREE_MUDFLAPPED(t);
+  MARK_TREE_MUDFLAPPED (t);
   return t;
 }
 

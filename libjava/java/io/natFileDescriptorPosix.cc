@@ -105,6 +105,14 @@ java::io::FileDescriptor::open (jstring path, jint jflags)
 	}
     }
 
+/* FIXME: comment this out until its better tested/implemented
+  if ((jflags & SYNC))
+    flags |= O_SYNC;
+
+  if ((jflags & DSYNC))
+    flags |= O_DSYNC;
+*/
+
   int fd = ::open (buf, flags, mode);
   if (fd == -1 && errno == EMFILE)
     {
@@ -233,7 +241,7 @@ java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 
   if (eof_trunc)
     {
-      jlong len = length ();
+      jlong len = getLength ();
       if (whence == SET)
 	{
 	  if (pos > len)
@@ -258,7 +266,7 @@ java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 }
 
 jlong
-java::io::FileDescriptor::length (void)
+java::io::FileDescriptor::getLength (void)
 {
   struct stat sb;
   if (::fstat (fd, &sb))

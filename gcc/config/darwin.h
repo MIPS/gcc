@@ -287,9 +287,6 @@ Boston, MA 02111-1307, USA.  */
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
 
-#undef	DOLLARS_IN_IDENTIFIERS
-#define DOLLARS_IN_IDENTIFIERS 2
-
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
@@ -346,7 +343,7 @@ do { text_section ();							\
   } while (0)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", SIZE)
+  fprintf (FILE, "\t.space "HOST_WIDE_INT_PRINT_UNSIGNED"\n", SIZE)
 
 /* Give ObjC methods pretty symbol names.  */
 
@@ -454,7 +451,7 @@ do { text_section ();							\
   do {									\
     fputs (".lcomm ", (FILE));						\
     assemble_name ((FILE), (NAME));					\
-    fprintf ((FILE), ",%u,%u\n", (SIZE),				\
+    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
 	     floor_log2 ((ALIGN) / BITS_PER_UNIT));			\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\

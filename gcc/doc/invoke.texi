@@ -172,7 +172,7 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
--fconserve-space  -fno-const-strings  -fdollars-in-identifiers @gol
+-fconserve-space  -fno-const-strings @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs  -fexternal-templates @gol
 -falt-external-templates @gol
@@ -215,6 +215,7 @@ in the following sections.
 -Wimplicit-function-declaration @gol
 -Werror-implicit-function-declaration @gol
 -Wimport  -Winline  -Winvalid-pch  -Wno-endif-labels @gol
+-Wno-invalid-offsetof @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
@@ -298,7 +299,7 @@ in the following sections.
 
 @item Preprocessor Options
 @xref{Preprocessor Options,,Options Controlling the Preprocessor}.
-@gccoptlist{-$  -A@var{question}=@var{answer} @gol
+@gccoptlist{-A@var{question}=@var{answer} @gol
 -A-@var{question}@r{[}=@var{answer}@r{]} @gol
 -C  -dD  -dI  -dM  -dN @gol
 -D@var{macro}@r{[}=@var{defn}@r{]}  -E  -H @gol
@@ -337,7 +338,7 @@ in the following sections.
 @emph{M680x0 Options}
 @gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
 -m68060  -mcpu32  -m5200  -m68881  -mbitfield  -mc68000  -mc68020   @gol
--mfpa  -mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
+-mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
 -malign-int  -mstrict-align}
 
 @emph{M68hc1x Options}
@@ -421,6 +422,7 @@ in the following sections.
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
 -m64  -m32  -mxl-call  -mno-xl-call  -mpe @gol
+-malign-power  -malign-natural @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align @gol
@@ -480,7 +482,7 @@ in the following sections.
 -mno-memcpy  -mno-mips-tfile  -mno-rnames  -mno-stats @gol
 -mrnames  -msoft-float @gol
 -m4650  -msingle-float  -mmad @gol
--mstats  -EL  -EB  -G @var{num}  -nocpp @gol
+-EL  -EB  -G @var{num}  -nocpp @gol
 -mabi=32  -mabi=n32  -mabi=64  -mabi=eabi  -mabi-fake-default @gol
 -mfix7000  -mno-crt0 -mflush-func=@var{func} -mno-flush-func @gol
 -mbranch-likely -mno-branch-likely}
@@ -640,6 +642,9 @@ in the following sections.
 @emph{Xtensa Options}
 @gccoptlist{-mbig-endian  -mlittle-endian @gol
 -mdensity  -mno-density @gol
+-mconst16 -mno-const16 @gol
+-mabs -mno-abs @gol
+-maddx -mno-addx @gol
 -mmac16  -mno-mac16 @gol
 -mmul16  -mno-mul16 @gol
 -mmul32  -mno-mul32 @gol
@@ -649,7 +654,6 @@ in the following sections.
 -mbooleans  -mno-booleans @gol
 -mhard-float  -msoft-float @gol
 -mfused-madd  -mno-fused-madd @gol
--mserialize-volatile  -mno-serialize-volatile @gol
 -mtext-section-literals  -mno-text-section-literals @gol
 -mtarget-align  -mno-target-align @gol
 -mlongcalls  -mno-longcalls}
@@ -1320,14 +1324,6 @@ This option might be removed in a future release of G++.  For maximum
 portability, you should structure your code so that it works with
 string constants that have type @code{const char *}.
 
-@item -fdollars-in-identifiers
-@opindex fdollars-in-identifiers
-Accept @samp{$} in identifiers.  You can also explicitly prohibit use of
-@samp{$} with the option @option{-fno-dollars-in-identifiers}.  (GNU C allows
-@samp{$} by default on most target systems, but there are a few exceptions.)
-Traditional C allowed the character @samp{$} to form part of
-identifiers.  However, ISO C and C++ forbid @samp{$} in identifiers.
-
 @item -fno-elide-constructors
 @opindex fno-elide-constructors
 The C++ standard allows an implementation to omit creating a temporary
@@ -1605,7 +1601,7 @@ Instantiations of these templates may be mangled incorrectly.
 @opindex Wctor-dtor-privacy
 Warn when a class seems unusable, because all the constructors or
 destructors in a class are private and the class has no friends or
-public static member functions.  This warning is enabled by default.
+public static member functions.
 
 @item -Wnon-virtual-dtor @r{(C++ only)}
 @opindex Wnon-virtual-dtor
@@ -2822,6 +2818,21 @@ code is to provide behavior which is selectable at compile-time.
 @item -Winline
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
+
+@item -Wno-invalid-offsetof @r{(C++ only)}
+@opindex Wno-invalid-offsetof
+Suppress warnings from applying the @samp{offsetof} macro to a non-POD
+type.  According to the 1998 ISO C++ standard, applying @samp{offsetof}
+to a non-POD type is undefined.  In existing C++ implementations,
+however, @samp{offsetof} typically gives meaningful results even when
+applied to certain kinds of non-POD types. (Such as a simple
+@samp{struct} that fails to be a POD type only by virtue of having a
+constructor.)  This flag is for users who are aware that they are
+writing nonportable code and who have deliberately chosen to ignore the
+warning about it.
+
+The restrictions on @samp{offsetof} may be relaxed in a future version
+of the C++ standard.
 
 @item -Winvalid-pch
 @opindex Winvalid-pch
@@ -5849,10 +5860,6 @@ This results in code which can run relatively efficiently on either a
 68020/68881 or a 68030 or a 68040.  The generated code does use the
 68881 instructions that are emulated on the 68060.
 
-@item -mfpa
-@opindex mfpa
-Generate output containing Sun FPA instructions for floating point.
-
 @item -msoft-float
 @opindex msoft-float
 Generate output containing library calls for floating point.
@@ -7249,6 +7256,16 @@ appropriate directory location.  The Parallel Environment does not
 support threads, so the @option{-mpe} option and the @option{-pthread}
 option are incompatible.
 
+@item -malign-natural
+@itemx -malign-power
+@opindex malign-natural
+@opindex malign-power
+On AIX, Darwin, and 64-bit PowerPC Linux, the option
+@option{-malign-natural} overrides the ABI-defined alignment of larger
+types, such as floating-point doubles, on their natural size-based boundary.
+The option @option{-malign-power} instructs GCC to follow the ABI-specified
+alignment rules.  GCC defaults to the standard alignment defined in the ABI.
+
 @item -msoft-float
 @itemx -mhard-float
 @opindex msoft-float
@@ -8023,15 +8040,6 @@ before the instructions in the text section, this allows the MIPS
 assembler to generate one word memory references instead of using two
 words for short global or static data items.  This is on by default if
 optimization is selected.
-
-@item -mstats
-@itemx -mno-stats
-@opindex mstats
-@opindex mno-stats
-For each non-inline function processed, the @option{-mstats} switch
-causes the compiler to emit one line to the standard error file to
-print statistics about the program (number of registers saved, stack
-size, etc.).
 
 @item -mmemcpy
 @itemx -mno-memcpy
@@ -10799,6 +10807,31 @@ processor.
 @opindex mno-density
 Enable or disable use of the optional Xtensa code density instructions.
 
+@item -mconst16
+@itemx -mno-const16
+@opindex mconst16
+@opindex mno-const16
+Enable or disable use of @code{CONST16} instructions for loading
+constant values.  The @code{CONST16} instruction is currently not a
+standard option from Tensilica.  When enabled, @code{CONST16}
+instructions are always used in place of the standard @code{L32R}
+instructions.  The use of @code{CONST16} is enabled by default only if
+the @code{L32R} instruction is not available.
+
+@item -mabs
+@itemx -mno-abs
+@opindex mabs
+@opindex mno-abs
+Enable or disable use of the Xtensa @code{ABS} instruction for absolute
+value operations.
+
+@item -maddx
+@itemx -mno-addx
+@opindex maddx
+@opindex mno-addx
+Enable or disable use of the Xtensa @code{ADDX} and @code{SUBX}
+instructions.
+
 @item -mmac16
 @itemx -mno-mac16
 @opindex mmac16
@@ -10890,15 +10923,6 @@ precision than specified by the IEEE standard.  Disabling fused multiply
 add/subtract instructions also ensures that the program output is not
 sensitive to the compiler's ability to combine multiply and add/subtract
 operations.
-
-@item -mserialize-volatile
-@itemx -mno-serialize-volatile
-@opindex mserialize-volatile
-@opindex mno-serialize-volatile
-When this option is enabled, GCC inserts @code{MEMW} instructions before
-@code{volatile} memory references to guarantee sequential consistency.
-The default is @option{-mserialize-volatile}.  Use
-@option{-mno-serialize-volatile} to omit the @code{MEMW} instructions.
 
 @item -mtext-section-literals
 @itemx -mno-text-section-literals

@@ -3161,6 +3161,7 @@ conditional_conversion (tree e1, tree e2)
   tree t1 = non_reference (TREE_TYPE (e1));
   tree t2 = non_reference (TREE_TYPE (e2));
   tree conv;
+  bool good_base;
 
   /* [expr.cond]
 
@@ -3192,10 +3193,9 @@ conditional_conversion (tree e1, tree e2)
      FIXME we can't express an rvalue that refers to the original object;
      we have to create a new one.  */
   if (CLASS_TYPE_P (t1) && CLASS_TYPE_P (t2)
-      && same_or_base_type_p (TYPE_MAIN_VARIANT (t2), 
-			      TYPE_MAIN_VARIANT (t1)))
+      && ((good_base = DERIVED_FROM_P (t2, t1)) || DERIVED_FROM_P (t1, t2)))
     {
-      if (at_least_as_qualified_p (t2, t1))
+      if (good_base && at_least_as_qualified_p (t2, t1))
 	{
 	  conv = build1 (IDENTITY_CONV, t1, e1);
 	  if (!same_type_p (TYPE_MAIN_VARIANT (t1), 
@@ -3211,13 +3211,13 @@ conditional_conversion (tree e1, tree e2)
       else
 	return NULL_TREE;
     }
+  else
+    /* [expr.cond]
 
-  /* [expr.cond]
-
-     E1 can be converted to match E2 if E1 can be implicitly converted
-     to the type that expression E2 would have if E2 were converted to
-     an rvalue (or the type it has, if E2 is an rvalue).  */
-  return implicit_conversion (t2, t1, e1, LOOKUP_NORMAL);
+       Otherwise: E1 can be converted to match E2 if E1 can be implicitly
+       converted to the type that expression E2 would have if E2 were
+       converted to an rvalue (or the type it has, if E2 is an rvalue).  */
+    return implicit_conversion (t2, t1, e1, LOOKUP_NORMAL);
 }
 
 /* Implement [expr.cond].  ARG1, ARG2, and ARG3 are the three
@@ -3952,7 +3952,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
                       int flags, tree placement)
 {
   tree fn = NULL_TREE;
-  tree fns, fnname, fntype, argtypes, args, type;
+  tree fns, fnname, argtypes, args, type;
   int pass;
 
   if (addr == error_mark_node)
@@ -4018,16 +4018,6 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
      the second pass we look for a two-argument delete.  */
   for (pass = 0; pass < (placement ? 1 : 2); ++pass) 
     {
-      if (pass == 0)
-	argtypes = tree_cons (NULL_TREE, ptr_type_node, argtypes);
-      else 
-	/* Normal delete; now try to find a match including the size
-	   argument.  */
-	argtypes = tree_cons (NULL_TREE, ptr_type_node,
-			      tree_cons (NULL_TREE, sizetype, 
-					 void_list_node));
-      fntype = build_function_type (void_type_node, argtypes);
-
       /* Go through the `operator delete' functions looking for one
 	 with a matching type.  */
       for (fn = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns; 
@@ -4036,13 +4026,30 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	{
 	  tree t;
 
-	  /* Exception specifications on the `delete' operator do not
-	     matter.  */
-	  t = build_exception_variant (TREE_TYPE (OVL_CURRENT (fn)),
-				       NULL_TREE);
-	  /* We also don't compare attributes.  We're really just
-	     trying to check the types of the first two parameters.  */
-	  if (comptypes (t, fntype, COMPARE_NO_ATTRIBUTES))
+	  /* The first argument must be "void *".  */
+	  t = TYPE_ARG_TYPES (TREE_TYPE (OVL_CURRENT (fn)));
+	  if (!same_type_p (TREE_VALUE (t), ptr_type_node))
+	    continue;
+	  t = TREE_CHAIN (t);
+	  /* On the first pass, check the rest of the arguments.  */
+	  if (pass == 0)
+	    {
+	      while (argtypes && t)
+		{
+		  if (!same_type_p (TREE_VALUE (argtypes),
+				    TREE_VALUE (t)))
+		    break;
+		  argtypes = TREE_CHAIN (argtypes);
+		  t = TREE_CHAIN (t);
+		}
+	      if (!argtypes && !t)
+		break;
+	    }
+	  /* On the second pass, the second argument must be
+	     "size_t".  */
+	  else if (pass == 1
+		   && same_type_p (TREE_VALUE (t), sizetype)
+		   && TREE_CHAIN (t) == void_list_node)
 	    break;
 	}
 

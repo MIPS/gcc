@@ -185,10 +185,11 @@ static bool ia64_function_ok_for_sibcall PARAMS ((tree, tree));
 static bool ia64_rtx_costs PARAMS ((rtx, int, int, int *));
 static void fix_range PARAMS ((const char *));
 static struct machine_function * ia64_init_machine_status PARAMS ((void));
-static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
-static void emit_all_insn_group_barriers PARAMS ((FILE *, rtx));
+static void emit_insn_group_barriers PARAMS ((FILE *));
+static void emit_all_insn_group_barriers PARAMS ((FILE *));
 static void final_emit_insn_group_barriers PARAMS ((FILE *));
 static void emit_predicate_relation_info PARAMS ((void));
+static void ia64_reorg PARAMS ((void));
 static bool ia64_in_small_data_p PARAMS ((tree));
 static void process_epilogue PARAMS ((void));
 static int process_set PARAMS ((FILE *, rtx));
@@ -355,6 +356,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_RTX_COSTS ia64_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG ia64_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1095,6 +1099,13 @@ ia64_expand_load_address (dest, src)
   if (GET_CODE (dest) != REG)
     abort ();
 
+  /* ILP32 mode still loads 64-bits of data from the GOT.  This avoids
+     having to pointer-extend the value afterward.  Other forms of address
+     computation below are also more natural to compute as 64-bit quantities.
+     If we've been given an SImode destination register, change it.  */
+  if (GET_MODE (dest) != Pmode)
+    dest = gen_rtx_REG (Pmode, REGNO (dest));
+
   if (TARGET_AUTO_PIC)
     {
       emit_insn (gen_load_gprel64 (dest, src));
@@ -1125,11 +1136,20 @@ ia64_expand_load_address (dest, src)
       lo = ((ofs & 0x3fff) ^ 0x2000) - 0x2000;
       hi = ofs - lo;
 
-      emit_insn (gen_load_symptr (dest, plus_constant (sym, hi), dest));
+      ia64_expand_load_address (dest, plus_constant (sym, hi));
       emit_insn (gen_adddi3 (dest, dest, GEN_INT (lo)));
     }
   else
-    emit_insn (gen_load_symptr (dest, src, dest));
+    {
+      rtx tmp;
+
+      tmp = gen_rtx_HIGH (Pmode, src);
+      tmp = gen_rtx_PLUS (Pmode, tmp, pic_offset_table_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+
+      tmp = gen_rtx_LO_SUM (GET_MODE (dest), dest, src);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+    }
 }
 
 static GTY(()) rtx gen_tls_tga;
@@ -3609,7 +3629,8 @@ ia64_function_arg_pass_by_reference (cum, mode, type, named)
    this is an indirect call.  */
 static bool
 ia64_function_ok_for_sibcall (decl, exp)
-     tree decl, exp;
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
 {
   /* Direct calls are always ok.  */
   if (decl)
@@ -3919,9 +3940,7 @@ ia64_print_operand (file, x, code)
 	    break;
 	  }
 
-	putc (',', file);
-	putc (' ', file);
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC, value);
+	fprintf (file, ", " HOST_WIDE_INT_PRINT_DEC, value);
 	return;
       }
 
@@ -5357,17 +5376,16 @@ safe_group_barrier_needed_p (insn)
   return t;
 }
 
-/* INSNS is a chain of instructions.  Scan the chain, and insert stop bits
-   as necessary to eliminate dependencies.  This function assumes that
-   a final instruction scheduling pass has been run which has already
-   inserted most of the necessary stop bits.  This function only inserts
-   new ones at basic block boundaries, since these are invisible to the
-   scheduler.  */
+/* Scan the current function and insert stop bits as necessary to
+   eliminate dependencies.  This function assumes that a final
+   instruction scheduling pass has been run which has already
+   inserted most of the necessary stop bits.  This function only
+   inserts new ones at basic block boundaries, since these are
+   invisible to the scheduler.  */
 
 static void
-emit_insn_group_barriers (dump, insns)
+emit_insn_group_barriers (dump)
      FILE *dump;
-     rtx insns;
 {
   rtx insn;
   rtx last_label = 0;
@@ -5375,7 +5393,7 @@ emit_insn_group_barriers (dump, insns)
 
   init_insn_group_barriers ();
 
-  for (insn = insns; insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (GET_CODE (insn) == CODE_LABEL)
 	{
@@ -5423,15 +5441,14 @@ emit_insn_group_barriers (dump, insns)
    This function has to emit all necessary group barriers.  */
 
 static void
-emit_all_insn_group_barriers (dump, insns)
+emit_all_insn_group_barriers (dump)
      FILE *dump ATTRIBUTE_UNUSED;
-     rtx insns;
 {
   rtx insn;
 
   init_insn_group_barriers ();
 
-  for (insn = insns; insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (GET_CODE (insn) == BARRIER)
 	{
@@ -6554,7 +6571,7 @@ bundling (dump, verbose, prev_head_insn, tail)
   rtx insn, next_insn;
   int insn_num;
   int i, bundle_end_p, only_bundle_end_p, asm_p;
-  int pos, max_pos, template0, template1;
+  int pos = 0, max_pos, template0, template1;
   rtx b;
   rtx nop;
   enum attr_type type;
@@ -7181,9 +7198,8 @@ emit_predicate_relation_info ()
 
 /* Perform machine dependent operations on the rtl chain INSNS.  */
 
-void
-ia64_reorg (insns)
-     rtx insns;
+static void
+ia64_reorg ()
 {
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
@@ -7282,13 +7298,13 @@ ia64_reorg (insns)
 	  free (clocks);
 	}
       free (stops_p);
-      emit_insn_group_barriers (rtl_dump_file, insns);
+      emit_insn_group_barriers (rtl_dump_file);
 
       ia64_final_schedule = 0;
       timevar_pop (TV_SCHED2);
     }
   else
-    emit_all_insn_group_barriers (rtl_dump_file, insns);
+    emit_all_insn_group_barriers (rtl_dump_file);
 
   /* A call must not be the last instruction in a function, so that the
      return address is still within the function, so that unwinding works
@@ -7494,12 +7510,8 @@ process_set (asm_out_file, pat)
 	  if (op0 == dest && GET_CODE (op1) == CONST_INT)
 	    {
 	      if (INTVAL (op1) < 0)
-		{
-		  fputs ("\t.fframe ", asm_out_file);
-		  fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC,
-			   -INTVAL (op1));
-		  fputc ('\n', asm_out_file);
-		}
+		fprintf (asm_out_file, "\t.fframe "HOST_WIDE_INT_PRINT_DEC"\n",
+			 -INTVAL (op1));
 	      else
 		process_epilogue ();
 	    }
@@ -8151,7 +8163,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arglist = TREE_OPERAND (exp, 1);
-  enum machine_mode rmode;
+  enum machine_mode rmode = VOIDmode;
 
   switch (fcode)
     {
@@ -8527,8 +8539,8 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
+  emit_all_insn_group_barriers (NULL);
   insn = get_insns ();
-  emit_all_insn_group_barriers (NULL, insn);
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1, 0);

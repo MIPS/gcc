@@ -418,10 +418,6 @@ do {								\
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
-
-/* Machine dependent reorg pass.  */
-#define MACHINE_DEPENDENT_REORG(X) pa_reorg(X)
-
 
 /* target machine storage layout */
 
@@ -1752,7 +1748,7 @@ do { 									\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.blockz %d\n", (SIZE))
+  fprintf (FILE, "\t.blockz "HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* This says how to output an assembler line to define a global common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1760,8 +1756,8 @@ do { 									\
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNED)  		\
 { bss_section ();							\
   assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
+  fprintf ((FILE), "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",		\
+	   MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
 
 /* This says how to output an assembler line to define a local common symbol
    with size SIZE (in bytes) and alignment ALIGN (in bits).  */
@@ -1769,8 +1765,9 @@ do { 									\
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGNED)		\
 { bss_section ();							\
   fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
-  assemble_name ((FILE), (NAME));				\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));}
+  assemble_name ((FILE), (NAME));					\
+  fprintf ((FILE), "\n\t.block "HOST_WIDE_INT_PRINT_UNSIGNED"\n",	\
+	   (SIZE));}
   
 #define ASM_PN_FORMAT "%s___%lu"
 
@@ -1830,8 +1827,7 @@ do { 									\
       fputs (")", FILE);						\
       break;								\
     case CONST_INT:							\
-      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, INTVAL (addr));		\
-      fprintf (FILE, "(%%r0)");						\
+      fprintf (FILE, HOST_WIDE_INT_PRINT_DEC "(%%r0)", INTVAL (addr));	\
       break;								\
     default:								\
       output_addr_const (FILE, addr);					\

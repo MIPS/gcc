@@ -223,8 +223,6 @@ dump_generic_node (buffer, node, spc, flags)
 	  output_add_string (buffer, "volatile ");
 	else if (quals & TYPE_QUAL_RESTRICT)
 	  output_add_string (buffer, "restrict ");
-	else if (quals & TYPE_QUAL_BOUNDED)
-	  output_add_string (buffer, "bounded ");
 
 	class = TREE_CODE_CLASS (TREE_CODE (node));
 
@@ -305,8 +303,6 @@ dump_generic_node (buffer, node, spc, flags)
 	    output_add_string (buffer,  "volatile");
 	  else if (quals & TYPE_QUAL_RESTRICT)
 	    output_add_string (buffer, " restrict");
-	  else if (quals & TYPE_QUAL_BOUNDED)
-	    output_add_string (buffer, " bounded");
 	}
       break;
 

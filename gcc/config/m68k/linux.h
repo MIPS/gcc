@@ -1,6 +1,6 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -80,25 +80,10 @@ Boston, MA 02111-1307, USA.  */
 
 #undef REGISTER_NAMES
 
-#ifndef SUPPORT_SUN_FPA
-
 #define REGISTER_NAMES \
 {"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7", \
  "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%a6", "%sp", \
  "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7" }
-
-#else /* SUPPORTED_SUN_FPA */
-
-#define REGISTER_NAMES \
-{"%d0", "%d1", "%d2", "%d3", "%d4", "%d5", "%d6", "%d7", \
- "%a0", "%a1", "%a2", "%a3", "%a4", "%a5", "%a6", "%sp", \
- "%fp0", "%fp1", "%fp2", "%fp3", "%fp4", "%fp5", "%fp6", "%fp7", \
- "%fpa0", "%fpa1", "%fpa2", "%fpa3", "%fpa4", "%fpa5", "%fpa6", "%fpa7", \
- "%fpa8", "%fpa9", "%fpa10","%fpa11","%fpa12","%fpa13","%fpa14","%fpa15", \
- "%fpa16","%fpa17","%fpa18","%fpa19","%fpa20","%fpa21","%fpa22","%fpa23", \
- "%fpa24","%fpa25","%fpa26","%fpa27","%fpa28","%fpa29","%fpa30","%fpa31" }
-
-#endif /* defined SUPPORT_SUN_FPA */
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -112,8 +97,26 @@ Boston, MA 02111-1307, USA.  */
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 
-#define CPP_PREDEFINES \
-  "-D__ELF__ -Dunix -Dmc68000 -Dmc68020 -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=m68k -Amachine=m68k"
+/* Target OS builtins.  */
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define_std ("mc68000");		\
+	builtin_define_std ("mc68020");		\
+	builtin_define_std ("linux");		\
+	builtin_define_std ("unix");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_assert ("system=unix");		\
+	builtin_assert ("system=posix");	\
+   }						\
+  while (0)
+
+#define TARGET_OBJFMT_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+    }						\
+  while (0)
 
 #undef CPP_SPEC
 #ifdef USE_GNULIBC_1

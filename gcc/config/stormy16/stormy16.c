@@ -3,20 +3,20 @@
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -1127,10 +1127,7 @@ xstormy16_expand_prologue ()
   /* It's just possible that the SP here might be what we need for
      the new FP...  */
   if (frame_pointer_needed && layout.sp_minus_fp == layout.locals_size)
-    {
-      insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
-      RTX_FRAME_RELATED_P (insn) = 1;
-    }
+    emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
 
   /* Allocate space for local variables.  */
   if (layout.locals_size)
@@ -1144,14 +1141,11 @@ xstormy16_expand_prologue ()
   if (frame_pointer_needed && layout.sp_minus_fp != layout.locals_size)
     {
       insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
-      RTX_FRAME_RELATED_P (insn) = 1;
+
       if (layout.sp_minus_fp)
-	{
-	  insn = emit_addhi3_postreload (hard_frame_pointer_rtx,
-					 hard_frame_pointer_rtx,
-					 GEN_INT (-layout.sp_minus_fp));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	}
+	emit_addhi3_postreload (hard_frame_pointer_rtx,
+				hard_frame_pointer_rtx,
+				GEN_INT (-layout.sp_minus_fp));
     }
 }
 
@@ -1175,7 +1169,7 @@ void
 xstormy16_expand_epilogue ()
 {
   struct xstormy16_stack_layout layout;
-  rtx mem_pop_rtx;
+  rtx mem_pop_rtx, insn;
   int regno;
   const int ifun = xstormy16_interrupt_function_p ();
   
@@ -1190,19 +1184,36 @@ xstormy16_expand_epilogue ()
       if (frame_pointer_needed && layout.sp_minus_fp == layout.locals_size)
 	emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
       else
-	emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
-				GEN_INT (- layout.locals_size));
+        {
+	  insn = emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
+					 GEN_INT (- layout.locals_size));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
     }
 
   /* Restore any call-saved registers.  */
   for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
     if (REG_NEEDS_SAVE (regno, ifun))
-      emit_move_insn (gen_rtx_REG (HImode, regno), mem_pop_rtx);
+      {
+        rtx dwarf;
+
+	insn = emit_move_insn (gen_rtx_REG (HImode, regno), mem_pop_rtx);
+	RTX_FRAME_RELATED_P (insn) = 1;
+	dwarf = gen_rtx_SET (Pmode, stack_pointer_rtx,
+			     plus_constant (stack_pointer_rtx,
+					    -GET_MODE_SIZE (Pmode)));
+	REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					      dwarf,
+					      REG_NOTES (insn));
+      }
   
   /* Pop the stack for the stdarg save area.  */
   if (layout.stdarg_save_size)
-    emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
-			    GEN_INT (- layout.stdarg_save_size));
+    {
+      insn = emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
+				     GEN_INT (- layout.stdarg_save_size));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
 
   /* Return.  */
   if (ifun)
@@ -1557,9 +1568,9 @@ xstormy16_asm_output_mi_thunk (file, thunk_fndecl, delta,
 
 /* Output constructors and destructors.  Just like 
    default_named_section_asm_out_* but don't set the sections writable.  */
-#undef TARGET_ASM_CONSTRUCTOR
+#undef  TARGET_ASM_CONSTRUCTOR
 #define TARGET_ASM_CONSTRUCTOR xstormy16_asm_out_constructor
-#undef TARGET_ASM_DESTRUCTOR
+#undef  TARGET_ASM_DESTRUCTOR
 #define TARGET_ASM_DESTRUCTOR xstormy16_asm_out_destructor
 
 static void
@@ -1661,10 +1672,7 @@ xstormy16_print_operand_address (file, address)
   if (post_inc)
     fputs ("++", file);
   if (offset != 0)
-    {
-      fputc (',', file);
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset);
-    }
+    fprintf (file, "," HOST_WIDE_INT_PRINT_DEC, offset);
   fputc (')', file);
 }
 
@@ -1695,8 +1703,7 @@ xstormy16_print_operand (file, x, code)
 	if (l == -1)
 	  output_operand_lossage ("`B' operand has multiple bits set");
 	
-	fputs (IMMEDIATE_PREFIX, file);
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC, l);
+	fprintf (file, IMMEDIATE_PREFIX HOST_WIDE_INT_PRINT_DEC, l);
 	return;
       }
 
@@ -1725,8 +1732,7 @@ xstormy16_print_operand (file, x, code)
 	if (code == 'O')
 	  xx = -xx;
 	
-	fputs (IMMEDIATE_PREFIX, file);
-	fprintf (file, HOST_WIDE_INT_PRINT_DEC, xx - 1);
+	fprintf (file, IMMEDIATE_PREFIX HOST_WIDE_INT_PRINT_DEC, xx - 1);
 	return;
       }
 
@@ -2098,19 +2104,19 @@ xstormy16_output_shift (mode, code, x, size_r, temp)
     case ASHIFT:
       sprintf (r, 
 	       "mov %s,%s | shl %s,#%d | shl %s,#%d | shr %s,#%d | or %s,%s", 
-	       rt, r0, r0, (int) size, r1, (int) size, rt, (int) 16-size,
+	       rt, r0, r0, (int) size, r1, (int) size, rt, (int) (16-size),
 	       r1, rt);
       break;
     case ASHIFTRT:
       sprintf (r, 
 	       "mov %s,%s | asr %s,#%d | shr %s,#%d | shl %s,#%d | or %s,%s", 
-	       rt, r1, r1, (int) size, r0, (int) size, rt, (int) 16-size,
+	       rt, r1, r1, (int) size, r0, (int) size, rt, (int) (16-size),
 	       r0, rt);
       break;
     case LSHIFTRT:
       sprintf (r, 
 	       "mov %s,%s | shr %s,#%d | shr %s,#%d | shl %s,#%d | or %s,%s", 
-	       rt, r1, r1, (int) size, r0, (int) size, rt, (int) 16-size,
+	       rt, r1, r1, (int) size, r0, (int) size, rt, (int) (16-size),
 	       r0, rt);
       break;
     default:

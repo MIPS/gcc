@@ -79,17 +79,15 @@ extern enum rs6000_sdata_type rs6000_sdata;
 /* Strings provided by SUBTARGET_OPTIONS */
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
+extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 /* Override rs6000.h definition.  */
 #undef	SUBTARGET_OPTIONS
 #define	SUBTARGET_OPTIONS							\
   { "call-",  &rs6000_abi_name, N_("Select ABI calling convention"), 0},	\
-  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling"), 0}
-
-/* Max # of bytes for variables to automatically be put into the .sdata
-   or .sdata2 sections.  */
-extern int g_switch_value;		/* Value of the -G xx switch.  */
-extern int g_switch_set;		/* Whether -G xx was passed.  */
+  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling"), 0},	\
+  { "tls-size=", &rs6000_tls_size_string,					\
+   N_("Specify bit size of immediate TLS offsets"), 0 }
 
 #define SDATA_DEFAULT_SIZE 8
 
@@ -168,6 +166,9 @@ extern int g_switch_set;		/* Whether -G xx was passed.  */
 
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
+  extern unsigned HOST_WIDE_INT g_switch_value;				\
+  extern int g_switch_set;						\
+									\
   if (!g_switch_set)							\
     g_switch_value = SDATA_DEFAULT_SIZE;				\
 									\
@@ -662,6 +663,8 @@ extern int rs6000_pic_labelno;
 #undef	ASM_OUTPUT_ALIGNED_LOCAL
 #define	ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
+  extern unsigned HOST_WIDE_INT g_switch_value;				\
+									\
   if (rs6000_sdata != SDATA_NONE && (SIZE) > 0				\
       && (SIZE) <= g_switch_value)					\
     {									\
@@ -676,7 +679,8 @@ do {									\
     {									\
       fprintf (FILE, "%s", LCOMM_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), (ALIGN) / BITS_PER_UNIT);			\
     }									\
   ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
 } while (0)
@@ -1067,7 +1071,7 @@ extern int fixuplabelno;
 /* FreeBSD support.  */
 
 #define CPP_OS_FREEBSD_SPEC	"\
-  -D__ELF__ -D__PPC__ -D__ppc__ -D__PowerPC__ -D__powerpc__ \
+  -D__PPC__ -D__ppc__ -D__PowerPC__ -D__powerpc__ \
   -Acpu=powerpc -Amachine=powerpc"
 
 #define	STARTFILE_FREEBSD_SPEC	FBSD_STARTFILE_SPEC
@@ -1186,7 +1190,7 @@ ncrtn.o%s"
   %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}}"
 
 #define CPP_OS_NETBSD_SPEC "\
--D__powerpc__ -D__NetBSD__ -D__ELF__ -D__KPRINTF_ATTRIBUTE__"
+-D__powerpc__ -D__NetBSD__ -D__KPRINTF_ATTRIBUTE__"
 
 /* WindISS support.  */
 

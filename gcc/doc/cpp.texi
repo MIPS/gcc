@@ -264,15 +264,14 @@ complete support for international character sets in a future release.
 
 Different systems use different conventions to indicate the end of a
 line.  GCC accepts the ASCII control sequences @kbd{LF}, @kbd{@w{CR
-LF}}, @kbd{CR}, and @kbd{@w{LF CR}} as end-of-line markers.  The first
-three are the canonical sequences used by Unix, DOS and VMS, and the
+LF}} and @kbd{CR} as end-of-line markers.  These
+are the canonical sequences used by Unix, DOS and VMS, and the
 classic Mac OS (before OSX) respectively.  You may therefore safely copy
 source code written on any of those systems to a different one and use
 it without conversion.  (GCC may lose track of the current line number
 if a file doesn't consistently use one convention, as sometimes happens
 when it is edited on computers with different conventions that share a
-network file system.)  @kbd{@w{LF CR}} is included because it has been
-reported as an end-of-line marker under exotic conditions.
+network file system.)
 
 If the last line of any input file lacks an end-of-line marker, the end
 of the file is considered to implicitly supply one.  The C standard says
@@ -1733,7 +1732,7 @@ predefined macros, but you cannot undefine them.
 @subsection Standard Predefined Macros
 @cindex standard predefined macros.
 
-The standard predefined macros are specified by the C and/or C++
+The standard predefined macros are specified by the relevant
 language standards, so they are available with all compilers that
 implement those standards.  Older compilers may not provide all of
 them.  Their names all start with double underscores.
@@ -1852,6 +1851,15 @@ of the 1998 C++ standard will define this macro to @code{199711L}.  The
 GNU C++ compiler is not yet fully conforming, so it uses @code{1}
 instead.  We hope to complete our implementation in the near future.
 
+@item __OBJC__
+This macro is defined, with value 1, when the Objective-C compiler is in
+use.  You can use @code{__OBJC__} to test whether a header is compiled
+by a C compiler or a Objective-C compiler.
+
+@item __ASSEMBLER__
+This macro is defined with value 1 when preprocessing assembly
+language.
+
 @end table
 
 @node Common Predefined Macros
@@ -1913,11 +1921,6 @@ calculate a single number, then compare that against a threshold:
 @noindent
 Many people find this form easier to understand.
 
-@item __OBJC__
-This macro is defined, with value 1, when the Objective-C compiler is in
-use.  You can use @code{__OBJC__} to test whether a header is compiled
-by a C compiler or a Objective-C compiler.
-
 @item __GNUG__
 The GNU C++ compiler defines this.  Testing it is equivalent to
 testing @code{@w{(__GNUC__ && __cplusplus)}}.
@@ -1941,6 +1944,9 @@ depth of nesting in include files.  The value of this macro is
 incremented on every @samp{#include} directive and decremented at the
 end of every included file.  It starts out at 0, it's value within the
 base file specified on the command line.
+
+@item __ELF__
+This macro is defined if the target uses the ELF object format.
 
 @item __VERSION__
 This macro expands to a string constant which describes the version of
@@ -3702,6 +3708,27 @@ execution character set.
 
 Currently, GNU cpp only supports character sets that are strict supersets
 of ASCII, and performs no translation of characters.
+
+@item Identifier characters.
+@anchor{Identifier characters}
+
+The C and C++ standards allow identifiers to be composed of @samp{_}
+and the alphanumeric characters.  C++ and C99 also allow universal
+character names (not implemented in GCC), and C99 further permits
+implementation-defined characters.
+
+GCC allows the @samp{$} character in identifiers as an extension for
+most targets.  This is true regardless of the @option{std=} switch,
+since this extension cannot conflict with standards-conforming
+programs.  When preprocessing assembler, however, dollars are not
+identifier characters by default.
+
+Currently the targets that by default do not permit @samp{$} are AVR,
+IP2K, MMIX, MIPS Irix 3, ARM aout, and PowerPC targets for the AIX and
+BeOS operating systems.
+
+You can override the default with @option{-fdollars-in-identifiers} or
+@option{fno-dollars-in-identifiers}.  @xref{fdollars-in-identifiers}.
 
 @item Non-empty sequences of whitespace characters.
 

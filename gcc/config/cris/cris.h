@@ -254,14 +254,6 @@ extern const char *cris_elinux_stacksize_str;
     }						\
   while (0)
 
-#define TARGET_OS_CPP_BUILTINS()		\
-  do						\
-    {						\
-      builtin_define ("__ELF__");		\
-    }						\
-  while (0)
-
-
 /* This needs to be at least 32 bits.  */
 extern int target_flags;
 
@@ -1474,7 +1466,7 @@ call_ ## FUNC (void)						\
 	    }								\
 	  fprintf ((FILE), "%s", COMMON_ASM_OP);			\
 	  assemble_name ((FILE), (NAME));				\
-	  fprintf ((FILE), ",%u,%u\n", (SIZE), align_);			\
+	  fprintf ((FILE), ",%u,%u\n", (int)(SIZE), align_);		\
 	}								\
       else								\
 	{								\
@@ -1485,7 +1477,7 @@ call_ ## FUNC (void)						\
 	  fputs ("\t.lcomm ", (FILE));					\
 	  assemble_name ((FILE), (NAME));				\
 	  fprintf ((FILE), ",%u\n",					\
-		   ((SIZE) + (align_ - 1)) & ~(align_ - 1));		\
+		   ((int)(SIZE) + (align_ - 1)) & ~(align_ - 1));	\
 	}								\
     }									\
   while (0)

@@ -1468,7 +1468,7 @@ convert_modes (mode, oldmode, x, unsignedp)
    If PUSH_ROUNDING is defined and TO is NULL, emit_single_push_insn is
    used to push FROM to the stack.
 
-   ALIGN is maximum alignment we can assume.  */
+   ALIGN is maximum stack alignment we can assume.  */
 
 void
 move_by_pieces (to, from, len, align)
@@ -1481,6 +1481,8 @@ move_by_pieces (to, from, len, align)
   unsigned int max_size = MOVE_MAX_PIECES + 1;
   enum machine_mode mode = VOIDmode, tmode;
   enum insn_code icode;
+
+  align = MIN (to ? MEM_ALIGN (to) : align, MEM_ALIGN (from));
 
   data.offset = 0;
   data.from_addr = from_addr;
@@ -3854,6 +3856,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	  && PUSH_ARGS
 	  && GET_CODE (size) == CONST_INT
 	  && skip == 0
+	  && MEM_ALIGN (xinner) >= align
 	  && (MOVE_BY_PIECES_P ((unsigned) INTVAL (size) - used, align))
 	  /* Here we avoid the case of a structure whose weak alignment
 	     forces many pushes of a small amount of data,
@@ -5801,8 +5804,7 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
 	     made during type construction.  */
 	  if (this_offset == 0)
 	    break;
-	  else if (! TREE_CONSTANT (this_offset)
-		   && contains_placeholder_p (this_offset))
+	  else if (contains_placeholder_p (this_offset))
 	    this_offset = build (WITH_RECORD_EXPR, sizetype, this_offset, exp);
 
 	  offset = size_binop (PLUS_EXPR, offset, this_offset);
@@ -5832,11 +5834,9 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
 	  /* If the index has a self-referential type, pass it to a
 	     WITH_RECORD_EXPR; if the component size is, pass our
 	     component to one.  */
-	  if (! TREE_CONSTANT (index)
-	      && contains_placeholder_p (index))
+	  if (contains_placeholder_p (index))
 	    index = build (WITH_RECORD_EXPR, TREE_TYPE (index), index, exp);
-	  if (! TREE_CONSTANT (unit_size)
-	      && contains_placeholder_p (unit_size))
+	  if (contains_placeholder_p (unit_size))
 	    unit_size = build (WITH_RECORD_EXPR, sizetype, unit_size, array);
 
 	  offset = size_binop (PLUS_EXPR, offset,
@@ -7260,7 +7260,9 @@ expand_expr (exp, target, tmode, modifier)
 			&& ((TREE_CODE (type) == VECTOR_TYPE
 			     && !is_zeros_p (exp))
 			    || ! mostly_zeros_p (exp)))))
-	       || (modifier == EXPAND_INITIALIZER && TREE_CONSTANT (exp)))
+	       || ((modifier == EXPAND_INITIALIZER
+		    || modifier == EXPAND_CONST_ADDRESS)
+		   && TREE_CONSTANT (exp)))
 	{
 	  rtx constructor = output_constant_def (exp, 1);
 

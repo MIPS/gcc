@@ -247,6 +247,7 @@ static rtx add_constant				PARAMS ((struct constant **,
 static void dump_constants			PARAMS ((struct constant *,
 							rtx));
 static rtx mips_find_symbol			PARAMS ((rtx));
+static void mips_reorg				PARAMS ((void));
 static void abort_with_insn			PARAMS ((rtx, const char *))
   ATTRIBUTE_NORETURN;
 static int symbolic_expression_p                PARAMS ((rtx));
@@ -483,21 +484,6 @@ int set_volatile;
 
 /* The next branch instruction is a branch likely, not branch normal.  */
 int mips_branch_likely;
-
-/* Count of delay slots and how many are filled.  */
-int dslots_load_total;
-int dslots_load_filled;
-int dslots_jump_total;
-int dslots_jump_filled;
-
-/* # of nops needed by previous insn */
-int dslots_number_nops;
-
-/* Number of 1/2/3 word references to data items (ie, not jal's).  */
-int num_refs[3];
-
-/* registers to check for load delay */
-rtx mips_load_reg, mips_load_reg2, mips_load_reg3, mips_load_reg4;
 
 /* Cached operands, and operator to compare for use in set/branch/trap
    on condition codes.  */
@@ -881,6 +867,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
+
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG mips_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1516,6 +1505,18 @@ const_float_1_operand (op, mode)
   REAL_VALUE_FROM_CONST_DOUBLE (d, op);
 
   return REAL_VALUES_EQUAL (d, dconst1);
+}
+
+/* Return true if OP is either the HI or LO register.  */
+
+int
+hilo_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return ((mode == VOIDmode || mode == GET_MODE (op))
+	  && REG_P (op)
+	  && (REGNO (op) == HI_REGNUM || REGNO (op) == LO_REGNUM));
 }
 
 /* Return nonzero if the code of this rtx pattern is EQ or NE.  */
@@ -2420,93 +2421,6 @@ m16_usym5_4 (op, mode)
   return 0;
 }
 
-/* Returns an operand string for the given instruction's delay slot,
-   after updating filled delay slot statistics.
-
-   We assume that operands[0] is the target register that is set.
-
-   In order to check the next insn, most of this functionality is moved
-   to FINAL_PRESCAN_INSN, and we just set the global variables that
-   it needs.  */
-
-/* ??? This function no longer does anything useful, because final_prescan_insn
-   now will never emit a nop.  */
-
-const char *
-mips_fill_delay_slot (ret, type, operands, cur_insn)
-     const char *ret;		/* normal string to return */
-     enum delay_type type;	/* type of delay */
-     rtx operands[];		/* operands to use */
-     rtx cur_insn;		/* current insn */
-{
-  register rtx set_reg;
-  register enum machine_mode mode;
-  register rtx next_insn = cur_insn ? NEXT_INSN (cur_insn) : NULL_RTX;
-  register int num_nops;
-
-  if (type == DELAY_LOAD || type == DELAY_FCMP)
-    num_nops = 1;
-
-  else if (type == DELAY_HILO)
-    num_nops = 2;
-
-  else
-    num_nops = 0;
-
-  /* Make sure that we don't put nop's after labels.  */
-  next_insn = NEXT_INSN (cur_insn);
-  while (next_insn != 0 && GET_CODE (next_insn) == NOTE)
-    next_insn = NEXT_INSN (next_insn);
-
-  dslots_load_total += num_nops;
-  if (TARGET_DEBUG_F_MODE
-      || !optimize
-      || type == DELAY_NONE
-      || operands == 0
-      || cur_insn == 0
-      || next_insn == 0
-      || GET_CODE (next_insn) == CODE_LABEL
-      || (set_reg = operands[0]) == 0)
-    {
-      dslots_number_nops = 0;
-      mips_load_reg  = 0;
-      mips_load_reg2 = 0;
-      mips_load_reg3 = 0;
-      mips_load_reg4 = 0;
-      return ret;
-    }
-
-  set_reg = operands[0];
-  if (set_reg == 0)
-    return ret;
-
-  while (GET_CODE (set_reg) == SUBREG)
-    set_reg = SUBREG_REG (set_reg);
-
-  mode = GET_MODE (set_reg);
-  dslots_number_nops = num_nops;
-  mips_load_reg = set_reg;
-  if (GET_MODE_SIZE (mode)
-      > (unsigned) (FP_REG_P (REGNO (set_reg)) ? UNITS_PER_FPREG : UNITS_PER_WORD))
-    mips_load_reg2 = gen_rtx_REG (SImode, REGNO (set_reg) + 1);
-  else
-    mips_load_reg2 = 0;
-
-  if (type == DELAY_HILO)
-    {
-      mips_load_reg3 = gen_rtx_REG (SImode, MD_REG_FIRST);
-      mips_load_reg4 = gen_rtx_REG (SImode, MD_REG_FIRST+1);
-    }
-  else
-    {
-      mips_load_reg3 = 0;
-      mips_load_reg4 = 0;
-    }
-
-  return ret;
-}
-
-
 static bool
 mips_rtx_costs (x, code, outer_code, total)
      rtx x;
@@ -2790,123 +2704,6 @@ mips_address_cost (addr)
 {
   return mips_address_insns (addr, SImode);
 }
-
-/* Determine whether a memory reference takes one (based off of the GP
-   pointer), two (normal), or three (label + reg) instructions, and bump the
-   appropriate counter for -mstats.  */
-
-void
-mips_count_memory_refs (op, num)
-     rtx op;
-     int num;
-{
-  int additional = 0;
-  int n_words = 0;
-  rtx addr, plus0, plus1;
-  enum rtx_code code0, code1;
-  int looping;
-
-  if (TARGET_DEBUG_B_MODE)
-    {
-      fprintf (stderr, "\n========== mips_count_memory_refs:\n");
-      debug_rtx (op);
-    }
-
-  /* Skip MEM if passed, otherwise handle movsi of address.  */
-  addr = (GET_CODE (op) != MEM) ? op : XEXP (op, 0);
-
-  /* Loop, going through the address RTL.  */
-  do
-    {
-      looping = FALSE;
-      switch (GET_CODE (addr))
-	{
-	case REG:
-	case CONST_INT:
-	case LO_SUM:
-	  break;
-
-	case PLUS:
-	  plus0 = XEXP (addr, 0);
-	  plus1 = XEXP (addr, 1);
-	  code0 = GET_CODE (plus0);
-	  code1 = GET_CODE (plus1);
-
-	  if (code0 == REG)
-	    {
-	      additional++;
-	      addr = plus1;
-	      looping = 1;
-	      continue;
-	    }
-
-	  if (code0 == CONST_INT)
-	    {
-	      addr = plus1;
-	      looping = 1;
-	      continue;
-	    }
-
-	  if (code1 == REG)
-	    {
-	      additional++;
-	      addr = plus0;
-	      looping = 1;
-	      continue;
-	    }
-
-	  if (code1 == CONST_INT)
-	    {
-	      addr = plus0;
-	      looping = 1;
-	      continue;
-	    }
-
-	  if (code0 == SYMBOL_REF || code0 == LABEL_REF || code0 == CONST)
-	    {
-	      addr = plus0;
-	      looping = 1;
-	      continue;
-	    }
-
-	  if (code1 == SYMBOL_REF || code1 == LABEL_REF || code1 == CONST)
-	    {
-	      addr = plus1;
-	      looping = 1;
-	      continue;
-	    }
-
-	  break;
-
-	case LABEL_REF:
-	  n_words = 2;		/* always 2 words */
-	  break;
-
-	case CONST:
-	  addr = XEXP (addr, 0);
-	  looping = 1;
-	  continue;
-
-	case SYMBOL_REF:
-	  n_words = SYMBOL_REF_FLAG (addr) ? 1 : 2;
-	  break;
-
-	default:
-	  break;
-	}
-    }
-  while (looping);
-
-  if (n_words == 0)
-    return;
-
-  n_words += additional;
-  if (n_words > 3)
-    n_words = 3;
-
-  num_refs[n_words-1] += num;
-}
-
 
 /* Return a pseudo that points to the address of the current function.
    The first time it is called for a function, an initializer for the
@@ -4163,9 +3960,6 @@ output_block_move (insn, operands, num_regs, move_type)
     {
       if (CONSTANT_P (src_reg))
 	{
-	  if (TARGET_STATS)
-	    mips_count_memory_refs (operands[1], 1);
-
 	  src_reg = operands[3 + num_regs--];
 	  if (move_type != BLOCK_MOVE_LAST)
 	    {
@@ -4180,9 +3974,6 @@ output_block_move (insn, operands, num_regs, move_type)
 
       if (CONSTANT_P (dest_reg))
 	{
-	  if (TARGET_STATS)
-	    mips_count_memory_refs (operands[0], 1);
-
 	  dest_reg = operands[3 + num_regs--];
 	  if (move_type != BLOCK_MOVE_LAST)
 	    {
@@ -4345,18 +4136,6 @@ output_block_move (insn, operands, num_regs, move_type)
 	  bytes--;
 	}
 
-      if (TARGET_STATS && move_type != BLOCK_MOVE_LAST)
-	{
-	  dslots_load_total++;
-	  dslots_load_filled++;
-
-	  if (CONSTANT_P (src_reg))
-	    mips_count_memory_refs (src_reg, 1);
-
-	  if (CONSTANT_P (dest_reg))
-	    mips_count_memory_refs (dest_reg, 1);
-	}
-
       /* Emit load/stores now if we have run out of registers or are
 	 at the end of the move.  */
 
@@ -4364,11 +4143,7 @@ output_block_move (insn, operands, num_regs, move_type)
 	{
 	  /* If only load/store, we need a NOP after the load.  */
 	  if (num == 1)
-	    {
-	      load_store[0].load = load_store[0].load_nop;
-	      if (TARGET_STATS && move_type != BLOCK_MOVE_LAST)
-		dslots_load_filled--;
-	    }
+	    load_store[0].load = load_store[0].load_nop;
 
 	  if (move_type != BLOCK_MOVE_LAST)
 	    {
@@ -5677,6 +5452,13 @@ override_options ()
       target_flags &= ~MASK_EXPLICIT_RELOCS;
     }
 
+  /* Explicit relocations for "old" ABIs are a GNU extension.  Unless
+     the user has said otherwise, assume that they are not available
+     with assemblers other than gas.  */
+  if (!TARGET_NEWABI && !TARGET_GAS
+      && (target_flags_explicit & MASK_EXPLICIT_RELOCS) == 0)
+    target_flags &= ~MASK_EXPLICIT_RELOCS;
+
   /* -mrnames says to use the MIPS software convention for register
      names instead of the hardware names (ie, $a0 instead of $4).
      We do this by switching the names in mips_reg_names, which the
@@ -6122,9 +5904,6 @@ print_operand (file, op, letter)
 	case '#':
 	  if (set_noreorder != 0)
 	    fputs ("\n\tnop", file);
-	  else if (TARGET_STATS)
-	    fputs ("\n\t#nop", file);
-
 	  break;
 
 	case '(':
@@ -6680,59 +6459,6 @@ mips_output_ascii (stream, string_param, len)
   fprintf (stream, "\"\n");
 }
 
-/* If defined, a C statement to be executed just prior to the output of
-   assembler code for INSN, to modify the extracted operands so they will be
-   output differently.
-
-   Here the argument OPVEC is the vector containing the operands extracted
-   from INSN, and NOPERANDS is the number of elements of the vector which
-   contain meaningful data for this insn.  The contents of this vector are
-   what will be used to convert the insn template into assembler code, so you
-   can change the assembler output by changing the contents of the vector.
-
-   We use it to check if the current insn needs a nop in front of it because
-   of load delays, and also to update the delay slot statistics.  */
-
-/* ??? There is no real need for this function, because it never actually
-   emits a NOP anymore.  */
-
-void
-final_prescan_insn (insn, opvec, noperands)
-     rtx insn;
-     rtx opvec[] ATTRIBUTE_UNUSED;
-     int noperands ATTRIBUTE_UNUSED;
-{
-  if (dslots_number_nops > 0)
-    {
-      rtx pattern = PATTERN (insn);
-      int length = get_attr_length (insn);
-
-      /* Do we need to emit a NOP? */
-      if (length == 0
-	  || (mips_load_reg != 0 && reg_mentioned_p (mips_load_reg,  pattern))
-	  || (mips_load_reg2 != 0 && reg_mentioned_p (mips_load_reg2, pattern))
-	  || (mips_load_reg3 != 0 && reg_mentioned_p (mips_load_reg3, pattern))
-	  || (mips_load_reg4 != 0
-	      && reg_mentioned_p (mips_load_reg4, pattern)))
-	fputs ("\t#nop\n", asm_out_file);
-
-      else
-	dslots_load_filled++;
-
-      while (--dslots_number_nops > 0)
-	fputs ("\t#nop\n", asm_out_file);
-
-      mips_load_reg = 0;
-      mips_load_reg2 = 0;
-      mips_load_reg3 = 0;
-      mips_load_reg4 = 0;
-    }
-
-  if (TARGET_STATS
-      && (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == CALL_INSN))
-    dslots_jump_total++;
-}
-
 /* Output at beginning of assembler file.
 
    If we are optimizing to use the global pointer, create a temporary file to
@@ -6871,17 +6597,17 @@ copy_file_data (to, from)
   size_t len;
   rewind (from);
   if (ferror (from))
-    fatal_io_error ("can't rewind temp file");
+    fatal_error ("can't rewind temp file: %m");
 
   while ((len = fread (buffer, 1, sizeof (buffer), from)) > 0)
     if (fwrite (buffer, 1, len, to) != len)
-      fatal_io_error ("can't write to output file");
+      fatal_error ("can't write to output file: %m");
 
   if (ferror (from))
-    fatal_io_error ("can't read from temp file");
+    fatal_error ("can't read from temp file: %m");
 
   if (fclose (from))
-    fatal_io_error ("can't close temp file");
+    fatal_error ("can't close temp file: %m");
 }
 
 /* Emit either a label, .comm, or .lcomm directive, and mark that the symbol
@@ -8075,62 +7801,26 @@ mips_output_function_epilogue (file, size)
      FILE *file ATTRIBUTE_UNUSED;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
-  const char *fnname = "";	/* FIXME: Correct initialisation?  */
   rtx string;
 
 #ifndef FUNCTION_NAME_ALREADY_DECLARED
-  /* Get the function name the same way that toplev.c does before calling
-     assemble_start_function.  This is needed so that the name used here
-     exactly matches the name used in ASM_DECLARE_FUNCTION_NAME.  */
-  fnname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
-
   if (!flag_inhibit_size_directive)
     {
+      const char *fnname;
+
+      /* Get the function name the same way that toplev.c does before calling
+	 assemble_start_function.  This is needed so that the name used here
+	 exactly matches the name used in ASM_DECLARE_FUNCTION_NAME.  */
+      fnname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
       fputs ("\t.end\t", file);
       assemble_name (file, fnname);
       fputs ("\n", file);
     }
 #endif
 
-  if (TARGET_STATS)
-    {
-      int num_gp_regs = cfun->machine->frame.gp_reg_size / 4;
-      int num_fp_regs = cfun->machine->frame.fp_reg_size / 8;
-      int num_regs = num_gp_regs + num_fp_regs;
-      const char *name = fnname;
-
-      if (name[0] == '*')
-	name++;
-
-      dslots_load_total += num_regs;
-
-      fprintf (stderr,
-	       "%-20s fp=%c leaf=%c alloca=%c setjmp=%c stack=%4ld arg=%3d reg=%2d/%d delay=%3d/%3dL %3d/%3dJ refs=%3d/%3d/%3d",
-	       name, frame_pointer_needed ? 'y' : 'n',
-	       (cfun->machine->frame.mask & RA_MASK) != 0 ? 'n' : 'y',
-	       current_function_calls_alloca ? 'y' : 'n',
-	       current_function_calls_setjmp ? 'y' : 'n',
-	       cfun->machine->frame.total_size,
-	       current_function_outgoing_args_size, num_gp_regs, num_fp_regs,
-	       dslots_load_total, dslots_load_filled,
-	       dslots_jump_total, dslots_jump_filled,
-	       num_refs[0], num_refs[1], num_refs[2]);
-
-      fputc ('\n', stderr);
-    }
-
   /* Reset state info for each function.  */
   inside_function = 0;
   ignore_line_number = 0;
-  dslots_load_total = 0;
-  dslots_jump_total = 0;
-  dslots_load_filled = 0;
-  dslots_jump_filled = 0;
-  num_refs[0] = 0;
-  num_refs[1] = 0;
-  num_refs[2] = 0;
-  mips_load_reg = 0;
-  mips_load_reg2 = 0;
 
   while (string_constants != NULL)
     {
@@ -9003,18 +8693,19 @@ mips_secondary_reload_class (class, mode, x, in_p)
   return NO_REGS;
 }
 
-/* This function returns the maximum number of consecutive registers
-   needed to represent mode MODE in registers of class CLASS.  */
+/* Implement CLASS_MAX_NREGS.
+
+   Usually all registers are word-sized.  The only supported exception
+   is -mgp64 -msingle-float, which has 64-bit words but 32-bit float
+   registers.  A word-based calculation is correct even in that case,
+   since -msingle-float disallows multi-FPR values.  */
 
 int
 mips_class_max_nregs (class, mode)
-     enum reg_class class;
+     enum reg_class class ATTRIBUTE_UNUSED;
      enum machine_mode mode;
 {
-  if (class == FP_REGS)
-    return FP_INC;
-  else
-    return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
 bool
@@ -9898,21 +9589,20 @@ mips_find_symbol (addr)
   return NULL_RTX;
 }
 
-/* Exported to toplev.c.
+/* In mips16 mode, we need to look through the function to check for
+   PC relative loads that are out of range.  */
 
-   Do a final pass over the function, just before delayed branch
-   scheduling.  */
-
-void
-machine_dependent_reorg (first)
-     rtx first;
+static void
+mips_reorg ()
 {
   int insns_len, max_internal_pool_size, pool_size, addr, first_constant_ref;
-  rtx insn;
+  rtx first, insn;
   struct constant *constants;
 
   if (! TARGET_MIPS16)
     return;
+
+  first = get_insns ();
 
   /* If $gp is used, try to remove stores, and replace loads with
      copies from $gp.  */
@@ -10218,6 +9908,22 @@ mips_adjust_insn_length (insn, length)
       || (!TARGET_MIPS16  && (GET_CODE (insn) == JUMP_INSN
 			      || GET_CODE (insn) == CALL_INSN)))
     length += 4;
+
+  /* See how many nops might be needed to avoid hardware hazards.  */
+  if (INSN_CODE (insn) >= 0)
+    switch (get_attr_hazard (insn))
+      {
+      case HAZARD_NONE:
+	break;
+
+      case HAZARD_DELAY:
+	length += 4;
+	break;
+
+      case HAZARD_HILO:
+	length += 8;
+	break;
+      }
 
   /* All MIPS16 instructions are a measly two bytes.  */
   if (TARGET_MIPS16)

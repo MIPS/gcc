@@ -551,8 +551,90 @@ EXTRA_GCC_FLAGS = \
 
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 
-configure-host: @configure_host_modules@
-configure-target: @configure_target_modules@
+.PHONY: configure-host
+configure-host: maybe-configure-gcc  \
+    maybe-configure-ash \
+    maybe-configure-autoconf \
+    maybe-configure-automake \
+    maybe-configure-bash \
+    maybe-configure-bfd \
+    maybe-configure-opcodes \
+    maybe-configure-binutils \
+    maybe-configure-bison \
+    maybe-configure-byacc \
+    maybe-configure-bzip2 \
+    maybe-configure-dejagnu \
+    maybe-configure-diff \
+    maybe-configure-dosutils \
+    maybe-configure-etc \
+    maybe-configure-fastjar \
+    maybe-configure-fileutils \
+    maybe-configure-findutils \
+    maybe-configure-find \
+    maybe-configure-flex \
+    maybe-configure-gas \
+    maybe-configure-gawk \
+    maybe-configure-gettext \
+    maybe-configure-gnuserv \
+    maybe-configure-gprof \
+    maybe-configure-gzip \
+    maybe-configure-hello \
+    maybe-configure-indent \
+    maybe-configure-intl \
+    maybe-configure-tcl \
+    maybe-configure-itcl \
+    maybe-configure-ld \
+    maybe-configure-libgui \
+    maybe-configure-libiberty \
+    maybe-configure-libtool \
+    maybe-configure-m4 \
+    maybe-configure-make \
+    maybe-configure-mmalloc \
+    maybe-configure-patch \
+    maybe-configure-perl \
+    maybe-configure-prms \
+    maybe-configure-rcs \
+    maybe-configure-readline \
+    maybe-configure-release \
+    maybe-configure-recode \
+    maybe-configure-sed \
+    maybe-configure-send-pr \
+    maybe-configure-shellutils \
+    maybe-configure-sid \
+    maybe-configure-sim \
+    maybe-configure-tar \
+    maybe-configure-texinfo \
+    maybe-configure-textutils \
+    maybe-configure-time \
+    maybe-configure-uudecode \
+    maybe-configure-wdiff \
+    maybe-configure-zip \
+    maybe-configure-zlib \
+    maybe-configure-gdb \
+    maybe-configure-expect \
+    maybe-configure-guile \
+    maybe-configure-tk \
+    maybe-configure-tix \
+    maybe-configure-libtermcap \
+    maybe-configure-utils
+.PHONY: configure-target
+configure-target:  \
+    maybe-configure-target-libstdc++-v3 \
+    maybe-configure-target-newlib \
+    maybe-configure-target-libf2c \
+    maybe-configure-target-libobjc \
+    maybe-configure-target-libtermcap \
+    maybe-configure-target-winsup \
+    maybe-configure-target-libgloss \
+    maybe-configure-target-libiberty \
+    maybe-configure-target-gperf \
+    maybe-configure-target-examples \
+    maybe-configure-target-libffi \
+    maybe-configure-target-libjava \
+    maybe-configure-target-zlib \
+    maybe-configure-target-boehm-gc \
+    maybe-configure-target-qthreads \
+    maybe-configure-target-rda
 
 # This is a list of the targets for which we can do a clean-{target}.
 CLEAN_MODULES = \
@@ -644,14 +726,93 @@ CLEAN_X11_MODULES = \
 	clean-tix 
 
 # The target built for a native build.
-# This list only includes modules actually being configured and built.
 .PHONY: all.normal
-all.normal: @all_build_modules@ \
-	@all_host_modules@ \
-	@all_target_modules@
+all.normal: @all_build_modules@ all-host all-target
 
-all-host: @all_host_modules@
-all-target: @all_target_modules@
+.PHONY: all-host
+all-host: maybe-all-gcc  \
+    maybe-all-ash \
+    maybe-all-autoconf \
+    maybe-all-automake \
+    maybe-all-bash \
+    maybe-all-bfd \
+    maybe-all-opcodes \
+    maybe-all-binutils \
+    maybe-all-bison \
+    maybe-all-byacc \
+    maybe-all-bzip2 \
+    maybe-all-dejagnu \
+    maybe-all-diff \
+    maybe-all-dosutils \
+    maybe-all-etc \
+    maybe-all-fastjar \
+    maybe-all-fileutils \
+    maybe-all-findutils \
+    maybe-all-find \
+    maybe-all-flex \
+    maybe-all-gas \
+    maybe-all-gawk \
+    maybe-all-gettext \
+    maybe-all-gnuserv \
+    maybe-all-gprof \
+    maybe-all-gzip \
+    maybe-all-hello \
+    maybe-all-indent \
+    maybe-all-intl \
+    maybe-all-tcl \
+    maybe-all-itcl \
+    maybe-all-ld \
+    maybe-all-libgui \
+    maybe-all-libiberty \
+    maybe-all-libtool \
+    maybe-all-m4 \
+    maybe-all-make \
+    maybe-all-mmalloc \
+    maybe-all-patch \
+    maybe-all-perl \
+    maybe-all-prms \
+    maybe-all-rcs \
+    maybe-all-readline \
+    maybe-all-release \
+    maybe-all-recode \
+    maybe-all-sed \
+    maybe-all-send-pr \
+    maybe-all-shellutils \
+    maybe-all-sid \
+    maybe-all-sim \
+    maybe-all-tar \
+    maybe-all-texinfo \
+    maybe-all-textutils \
+    maybe-all-time \
+    maybe-all-uudecode \
+    maybe-all-wdiff \
+    maybe-all-zip \
+    maybe-all-zlib \
+    maybe-all-gdb \
+    maybe-all-expect \
+    maybe-all-guile \
+    maybe-all-tk \
+    maybe-all-tix \
+    maybe-all-libtermcap \
+    maybe-all-utils
+.PHONY: all-target
+all-target:  \
+    maybe-all-target-libstdc++-v3 \
+    maybe-all-target-newlib \
+    maybe-all-target-libf2c \
+    maybe-all-target-libobjc \
+    maybe-all-target-libtermcap \
+    maybe-all-target-winsup \
+    maybe-all-target-libgloss \
+    maybe-all-target-libiberty \
+    maybe-all-target-gperf \
+    maybe-all-target-examples \
+    maybe-all-target-libffi \
+    maybe-all-target-libjava \
+    maybe-all-target-zlib \
+    maybe-all-target-boehm-gc \
+    maybe-all-target-qthreads \
+    maybe-all-target-rda
 
 # Do a target for all the subdirectories.  A ``make do-X'' will do a
 # ``make X'' in all subdirectories (because, in general, there is a
@@ -1172,8 +1333,87 @@ check:
 	$(MAKE) do-check NOTPARALLEL=parallel-ok
 
 # Only include modules actually being configured and built.
-do-check: @check_host_modules@ \
-	@check_target_modules@
+do-check: maybe-check-gcc  \
+    maybe-check-ash \
+    maybe-check-autoconf \
+    maybe-check-automake \
+    maybe-check-bash \
+    maybe-check-bfd \
+    maybe-check-opcodes \
+    maybe-check-binutils \
+    maybe-check-bison \
+    maybe-check-byacc \
+    maybe-check-bzip2 \
+    maybe-check-dejagnu \
+    maybe-check-diff \
+    maybe-check-dosutils \
+    maybe-check-etc \
+    maybe-check-fastjar \
+    maybe-check-fileutils \
+    maybe-check-findutils \
+    maybe-check-find \
+    maybe-check-flex \
+    maybe-check-gas \
+    maybe-check-gawk \
+    maybe-check-gettext \
+    maybe-check-gnuserv \
+    maybe-check-gprof \
+    maybe-check-gzip \
+    maybe-check-hello \
+    maybe-check-indent \
+    maybe-check-intl \
+    maybe-check-tcl \
+    maybe-check-itcl \
+    maybe-check-ld \
+    maybe-check-libgui \
+    maybe-check-libiberty \
+    maybe-check-libtool \
+    maybe-check-m4 \
+    maybe-check-make \
+    maybe-check-mmalloc \
+    maybe-check-patch \
+    maybe-check-perl \
+    maybe-check-prms \
+    maybe-check-rcs \
+    maybe-check-readline \
+    maybe-check-release \
+    maybe-check-recode \
+    maybe-check-sed \
+    maybe-check-send-pr \
+    maybe-check-shellutils \
+    maybe-check-sid \
+    maybe-check-sim \
+    maybe-check-tar \
+    maybe-check-texinfo \
+    maybe-check-textutils \
+    maybe-check-time \
+    maybe-check-uudecode \
+    maybe-check-wdiff \
+    maybe-check-zip \
+    maybe-check-zlib \
+    maybe-check-gdb \
+    maybe-check-expect \
+    maybe-check-guile \
+    maybe-check-tk \
+    maybe-check-tix \
+    maybe-check-libtermcap \
+    maybe-check-utils \
+    maybe-check-target-libstdc++-v3 \
+    maybe-check-target-newlib \
+    maybe-check-target-libf2c \
+    maybe-check-target-libobjc \
+    maybe-check-target-libtermcap \
+    maybe-check-target-winsup \
+    maybe-check-target-libgloss \
+    maybe-check-target-libiberty \
+    maybe-check-target-gperf \
+    maybe-check-target-examples \
+    maybe-check-target-libffi \
+    maybe-check-target-libjava \
+    maybe-check-target-zlib \
+    maybe-check-target-boehm-gc \
+    maybe-check-target-qthreads \
+    maybe-check-target-rda
 
 # Automated reporting of test results.
 
@@ -1199,9 +1439,160 @@ mail-report-with-warnings.log: warning.log
 # Installation targets.
 
 .PHONY: install uninstall
-install: installdirs @install_host_modules@ @install_target_modules@
+install: installdirs install-host install-target
 
-install-target: @install_target_modules@
+.PHONY: install-host-nogcc
+install-host-nogcc:  \
+    maybe-install-ash \
+    maybe-install-autoconf \
+    maybe-install-automake \
+    maybe-install-bash \
+    maybe-install-bfd \
+    maybe-install-opcodes \
+    maybe-install-binutils \
+    maybe-install-bison \
+    maybe-install-byacc \
+    maybe-install-bzip2 \
+    maybe-install-dejagnu \
+    maybe-install-diff \
+    maybe-install-dosutils \
+    maybe-install-etc \
+    maybe-install-fastjar \
+    maybe-install-fileutils \
+    maybe-install-findutils \
+    maybe-install-find \
+    maybe-install-flex \
+    maybe-install-gas \
+    maybe-install-gawk \
+    maybe-install-gettext \
+    maybe-install-gnuserv \
+    maybe-install-gprof \
+    maybe-install-gzip \
+    maybe-install-hello \
+    maybe-install-indent \
+    maybe-install-intl \
+    maybe-install-tcl \
+    maybe-install-itcl \
+    maybe-install-ld \
+    maybe-install-libgui \
+    maybe-install-libiberty \
+    maybe-install-libtool \
+    maybe-install-m4 \
+    maybe-install-make \
+    maybe-install-mmalloc \
+    maybe-install-patch \
+    maybe-install-perl \
+    maybe-install-prms \
+    maybe-install-rcs \
+    maybe-install-readline \
+    maybe-install-release \
+    maybe-install-recode \
+    maybe-install-sed \
+    maybe-install-send-pr \
+    maybe-install-shellutils \
+    maybe-install-sid \
+    maybe-install-sim \
+    maybe-install-tar \
+    maybe-install-texinfo \
+    maybe-install-textutils \
+    maybe-install-time \
+    maybe-install-uudecode \
+    maybe-install-wdiff \
+    maybe-install-zip \
+    maybe-install-zlib \
+    maybe-install-gdb \
+    maybe-install-expect \
+    maybe-install-guile \
+    maybe-install-tk \
+    maybe-install-tix \
+    maybe-install-libtermcap \
+    maybe-install-utils
+
+.PHONY: install-host
+install-host: maybe-install-gcc  \
+    maybe-install-ash \
+    maybe-install-autoconf \
+    maybe-install-automake \
+    maybe-install-bash \
+    maybe-install-bfd \
+    maybe-install-opcodes \
+    maybe-install-binutils \
+    maybe-install-bison \
+    maybe-install-byacc \
+    maybe-install-bzip2 \
+    maybe-install-dejagnu \
+    maybe-install-diff \
+    maybe-install-dosutils \
+    maybe-install-etc \
+    maybe-install-fastjar \
+    maybe-install-fileutils \
+    maybe-install-findutils \
+    maybe-install-find \
+    maybe-install-flex \
+    maybe-install-gas \
+    maybe-install-gawk \
+    maybe-install-gettext \
+    maybe-install-gnuserv \
+    maybe-install-gprof \
+    maybe-install-gzip \
+    maybe-install-hello \
+    maybe-install-indent \
+    maybe-install-intl \
+    maybe-install-tcl \
+    maybe-install-itcl \
+    maybe-install-ld \
+    maybe-install-libgui \
+    maybe-install-libiberty \
+    maybe-install-libtool \
+    maybe-install-m4 \
+    maybe-install-make \
+    maybe-install-mmalloc \
+    maybe-install-patch \
+    maybe-install-perl \
+    maybe-install-prms \
+    maybe-install-rcs \
+    maybe-install-readline \
+    maybe-install-release \
+    maybe-install-recode \
+    maybe-install-sed \
+    maybe-install-send-pr \
+    maybe-install-shellutils \
+    maybe-install-sid \
+    maybe-install-sim \
+    maybe-install-tar \
+    maybe-install-texinfo \
+    maybe-install-textutils \
+    maybe-install-time \
+    maybe-install-uudecode \
+    maybe-install-wdiff \
+    maybe-install-zip \
+    maybe-install-zlib \
+    maybe-install-gdb \
+    maybe-install-expect \
+    maybe-install-guile \
+    maybe-install-tk \
+    maybe-install-tix \
+    maybe-install-libtermcap \
+    maybe-install-utils
+
+.PHONY: install-target
+install-target:  \
+    maybe-install-target-libstdc++-v3 \
+    maybe-install-target-newlib \
+    maybe-install-target-libf2c \
+    maybe-install-target-libobjc \
+    maybe-install-target-libtermcap \
+    maybe-install-target-winsup \
+    maybe-install-target-libgloss \
+    maybe-install-target-libiberty \
+    maybe-install-target-gperf \
+    maybe-install-target-examples \
+    maybe-install-target-libffi \
+    maybe-install-target-libjava \
+    maybe-install-target-zlib \
+    maybe-install-target-boehm-gc \
+    maybe-install-target-qthreads \
+    maybe-install-target-rda
 
 uninstall:
 	@echo "the uninstall target is not supported in this tree"
@@ -1220,8 +1611,8 @@ install.all: install-no-fixedincludes
 # install-no-fixedincludes is used because Cygnus can not distribute
 # the fixed header files.
 .PHONY: install-no-fixedincludes
-install-no-fixedincludes: installdirs @install_host_modules_nogcc@ \
-	@install_target_modules@ gcc-no-fixedincludes
+install-no-fixedincludes: installdirs install-host-nogcc \
+	install-target gcc-no-fixedincludes
 
 ### other supporting targets
 
@@ -1379,8 +1770,9 @@ all-ash: configure-ash
 	$(SET_LIB_PATH) \
 	(cd ash && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-ash maybe-check-ash
+maybe-check-ash:
 
-.PHONY: check-ash
 check-ash:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1388,9 +1780,9 @@ check-ash:
 	(cd ash && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-ash maybe-install-ash
 maybe-install-ash:
+
 install-ash: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1446,8 +1838,9 @@ all-autoconf: configure-autoconf
 	$(SET_LIB_PATH) \
 	(cd autoconf && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-autoconf maybe-check-autoconf
+maybe-check-autoconf:
 
-.PHONY: check-autoconf
 check-autoconf:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1455,9 +1848,9 @@ check-autoconf:
 	(cd autoconf && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-autoconf maybe-install-autoconf
 maybe-install-autoconf:
+
 install-autoconf: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1513,8 +1906,9 @@ all-automake: configure-automake
 	$(SET_LIB_PATH) \
 	(cd automake && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-automake maybe-check-automake
+maybe-check-automake:
 
-.PHONY: check-automake
 check-automake:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1522,9 +1916,9 @@ check-automake:
 	(cd automake && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-automake maybe-install-automake
 maybe-install-automake:
+
 install-automake: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1580,8 +1974,9 @@ all-bash: configure-bash
 	$(SET_LIB_PATH) \
 	(cd bash && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-bash maybe-check-bash
+maybe-check-bash:
 
-.PHONY: check-bash
 check-bash:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1589,9 +1984,9 @@ check-bash:
 	(cd bash && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-bash maybe-install-bash
 maybe-install-bash:
+
 install-bash: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1647,8 +2042,9 @@ all-bfd: configure-bfd
 	$(SET_LIB_PATH) \
 	(cd bfd && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-bfd maybe-check-bfd
+maybe-check-bfd:
 
-.PHONY: check-bfd
 check-bfd:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1656,9 +2052,9 @@ check-bfd:
 	(cd bfd && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-bfd maybe-install-bfd
 maybe-install-bfd:
+
 install-bfd: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1714,8 +2110,9 @@ all-opcodes: configure-opcodes
 	$(SET_LIB_PATH) \
 	(cd opcodes && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-opcodes maybe-check-opcodes
+maybe-check-opcodes:
 
-.PHONY: check-opcodes
 check-opcodes:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1723,9 +2120,9 @@ check-opcodes:
 	(cd opcodes && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-opcodes maybe-install-opcodes
 maybe-install-opcodes:
+
 install-opcodes: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1781,8 +2178,9 @@ all-binutils: configure-binutils
 	$(SET_LIB_PATH) \
 	(cd binutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-binutils maybe-check-binutils
+maybe-check-binutils:
 
-.PHONY: check-binutils
 check-binutils:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1790,9 +2188,9 @@ check-binutils:
 	(cd binutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-binutils maybe-install-binutils
 maybe-install-binutils:
+
 install-binutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1848,8 +2246,9 @@ all-bison: configure-bison
 	$(SET_LIB_PATH) \
 	(cd bison && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-bison maybe-check-bison
+maybe-check-bison:
 
-.PHONY: check-bison
 # This module is only tested in a native toolchain.
 check-bison:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
@@ -1860,9 +2259,9 @@ check-bison:
 	fi
 
 
-
 .PHONY: install-bison maybe-install-bison
 maybe-install-bison:
+
 install-bison: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1918,8 +2317,9 @@ all-byacc: configure-byacc
 	$(SET_LIB_PATH) \
 	(cd byacc && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-byacc maybe-check-byacc
+maybe-check-byacc:
 
-.PHONY: check-byacc
 # This module is only tested in a native toolchain.
 check-byacc:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
@@ -1930,9 +2330,9 @@ check-byacc:
 	fi
 
 
-
 .PHONY: install-byacc maybe-install-byacc
 maybe-install-byacc:
+
 install-byacc: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1988,8 +2388,9 @@ all-bzip2: configure-bzip2
 	$(SET_LIB_PATH) \
 	(cd bzip2 && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-bzip2 maybe-check-bzip2
+maybe-check-bzip2:
 
-.PHONY: check-bzip2
 check-bzip2:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1997,9 +2398,9 @@ check-bzip2:
 	(cd bzip2 && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-bzip2 maybe-install-bzip2
 maybe-install-bzip2:
+
 install-bzip2: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2055,8 +2456,9 @@ all-dejagnu: configure-dejagnu
 	$(SET_LIB_PATH) \
 	(cd dejagnu && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-dejagnu maybe-check-dejagnu
+maybe-check-dejagnu:
 
-.PHONY: check-dejagnu
 check-dejagnu:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2064,9 +2466,9 @@ check-dejagnu:
 	(cd dejagnu && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-dejagnu maybe-install-dejagnu
 maybe-install-dejagnu:
+
 install-dejagnu: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2122,8 +2524,9 @@ all-diff: configure-diff
 	$(SET_LIB_PATH) \
 	(cd diff && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-diff maybe-check-diff
+maybe-check-diff:
 
-.PHONY: check-diff
 check-diff:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2131,9 +2534,9 @@ check-diff:
 	(cd diff && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-diff maybe-install-diff
 maybe-install-diff:
+
 install-diff: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2189,14 +2592,15 @@ all-dosutils: configure-dosutils
 	$(SET_LIB_PATH) \
 	(cd dosutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-dosutils maybe-check-dosutils
+maybe-check-dosutils:
 
-.PHONY: check-dosutils
 check-dosutils:
-
 
 
 .PHONY: install-dosutils maybe-install-dosutils
 maybe-install-dosutils:
+
 install-dosutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2252,8 +2656,9 @@ all-etc: configure-etc
 	$(SET_LIB_PATH) \
 	(cd etc && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-etc maybe-check-etc
+maybe-check-etc:
 
-.PHONY: check-etc
 check-etc:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2261,9 +2666,9 @@ check-etc:
 	(cd etc && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-etc maybe-install-etc
 maybe-install-etc:
+
 install-etc: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2319,8 +2724,9 @@ all-fastjar: configure-fastjar
 	$(SET_LIB_PATH) \
 	(cd fastjar && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-fastjar maybe-check-fastjar
+maybe-check-fastjar:
 
-.PHONY: check-fastjar
 # This module is only tested in a native toolchain.
 check-fastjar:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
@@ -2331,9 +2737,9 @@ check-fastjar:
 	fi
 
 
-
 .PHONY: install-fastjar maybe-install-fastjar
 maybe-install-fastjar:
+
 install-fastjar: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2389,8 +2795,9 @@ all-fileutils: configure-fileutils
 	$(SET_LIB_PATH) \
 	(cd fileutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-fileutils maybe-check-fileutils
+maybe-check-fileutils:
 
-.PHONY: check-fileutils
 check-fileutils:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2398,9 +2805,9 @@ check-fileutils:
 	(cd fileutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-fileutils maybe-install-fileutils
 maybe-install-fileutils:
+
 install-fileutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2456,8 +2863,9 @@ all-findutils: configure-findutils
 	$(SET_LIB_PATH) \
 	(cd findutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-findutils maybe-check-findutils
+maybe-check-findutils:
 
-.PHONY: check-findutils
 check-findutils:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2465,9 +2873,9 @@ check-findutils:
 	(cd findutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-findutils maybe-install-findutils
 maybe-install-findutils:
+
 install-findutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2523,8 +2931,9 @@ all-find: configure-find
 	$(SET_LIB_PATH) \
 	(cd find && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-find maybe-check-find
+maybe-check-find:
 
-.PHONY: check-find
 check-find:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2532,9 +2941,9 @@ check-find:
 	(cd find && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-find maybe-install-find
 maybe-install-find:
+
 install-find: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2590,8 +2999,9 @@ all-flex: configure-flex
 	$(SET_LIB_PATH) \
 	(cd flex && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-flex maybe-check-flex
+maybe-check-flex:
 
-.PHONY: check-flex
 # This module is only tested in a native toolchain.
 check-flex:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
@@ -2602,9 +3012,9 @@ check-flex:
 	fi
 
 
-
 .PHONY: install-flex maybe-install-flex
 maybe-install-flex:
+
 install-flex: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2660,8 +3070,9 @@ all-gas: configure-gas
 	$(SET_LIB_PATH) \
 	(cd gas && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gas maybe-check-gas
+maybe-check-gas:
 
-.PHONY: check-gas
 check-gas:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2669,9 +3080,9 @@ check-gas:
 	(cd gas && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gas maybe-install-gas
 maybe-install-gas:
+
 install-gas: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2727,8 +3138,9 @@ all-gawk: configure-gawk
 	$(SET_LIB_PATH) \
 	(cd gawk && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gawk maybe-check-gawk
+maybe-check-gawk:
 
-.PHONY: check-gawk
 check-gawk:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2736,9 +3148,9 @@ check-gawk:
 	(cd gawk && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gawk maybe-install-gawk
 maybe-install-gawk:
+
 install-gawk: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2794,8 +3206,9 @@ all-gettext: configure-gettext
 	$(SET_LIB_PATH) \
 	(cd gettext && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gettext maybe-check-gettext
+maybe-check-gettext:
 
-.PHONY: check-gettext
 check-gettext:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2803,9 +3216,9 @@ check-gettext:
 	(cd gettext && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gettext maybe-install-gettext
 maybe-install-gettext:
+
 install-gettext: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2861,8 +3274,9 @@ all-gnuserv: configure-gnuserv
 	$(SET_LIB_PATH) \
 	(cd gnuserv && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gnuserv maybe-check-gnuserv
+maybe-check-gnuserv:
 
-.PHONY: check-gnuserv
 check-gnuserv:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2870,9 +3284,9 @@ check-gnuserv:
 	(cd gnuserv && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gnuserv maybe-install-gnuserv
 maybe-install-gnuserv:
+
 install-gnuserv: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2928,8 +3342,9 @@ all-gprof: configure-gprof
 	$(SET_LIB_PATH) \
 	(cd gprof && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gprof maybe-check-gprof
+maybe-check-gprof:
 
-.PHONY: check-gprof
 check-gprof:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2937,9 +3352,9 @@ check-gprof:
 	(cd gprof && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gprof maybe-install-gprof
 maybe-install-gprof:
+
 install-gprof: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -2995,8 +3410,9 @@ all-gzip: configure-gzip
 	$(SET_LIB_PATH) \
 	(cd gzip && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-gzip maybe-check-gzip
+maybe-check-gzip:
 
-.PHONY: check-gzip
 check-gzip:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3004,9 +3420,9 @@ check-gzip:
 	(cd gzip && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gzip maybe-install-gzip
 maybe-install-gzip:
+
 install-gzip: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3062,8 +3478,9 @@ all-hello: configure-hello
 	$(SET_LIB_PATH) \
 	(cd hello && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-hello maybe-check-hello
+maybe-check-hello:
 
-.PHONY: check-hello
 check-hello:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3071,9 +3488,9 @@ check-hello:
 	(cd hello && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-hello maybe-install-hello
 maybe-install-hello:
+
 install-hello: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3129,8 +3546,9 @@ all-indent: configure-indent
 	$(SET_LIB_PATH) \
 	(cd indent && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-indent maybe-check-indent
+maybe-check-indent:
 
-.PHONY: check-indent
 check-indent:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3138,9 +3556,9 @@ check-indent:
 	(cd indent && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-indent maybe-install-indent
 maybe-install-indent:
+
 install-indent: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3196,8 +3614,9 @@ all-intl: configure-intl
 	$(SET_LIB_PATH) \
 	(cd intl && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-intl maybe-check-intl
+maybe-check-intl:
 
-.PHONY: check-intl
 check-intl:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3205,9 +3624,9 @@ check-intl:
 	(cd intl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-intl maybe-install-intl
 maybe-install-intl:
+
 install-intl: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3263,8 +3682,9 @@ all-tcl: configure-tcl
 	$(SET_LIB_PATH) \
 	(cd tcl && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-tcl maybe-check-tcl
+maybe-check-tcl:
 
-.PHONY: check-tcl
 check-tcl:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3272,9 +3692,9 @@ check-tcl:
 	(cd tcl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-tcl maybe-install-tcl
 maybe-install-tcl:
+
 install-tcl: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3330,8 +3750,9 @@ all-itcl: configure-itcl
 	$(SET_LIB_PATH) \
 	(cd itcl && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-itcl maybe-check-itcl
+maybe-check-itcl:
 
-.PHONY: check-itcl
 check-itcl:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3339,9 +3760,9 @@ check-itcl:
 	(cd itcl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-itcl maybe-install-itcl
 maybe-install-itcl:
+
 install-itcl: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3397,8 +3818,9 @@ all-ld: configure-ld
 	$(SET_LIB_PATH) \
 	(cd ld && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-ld maybe-check-ld
+maybe-check-ld:
 
-.PHONY: check-ld
 check-ld:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3406,9 +3828,9 @@ check-ld:
 	(cd ld && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-ld maybe-install-ld
 maybe-install-ld:
+
 install-ld: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3464,8 +3886,9 @@ all-libgui: configure-libgui
 	$(SET_LIB_PATH) \
 	(cd libgui && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-libgui maybe-check-libgui
+maybe-check-libgui:
 
-.PHONY: check-libgui
 check-libgui:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3473,9 +3896,9 @@ check-libgui:
 	(cd libgui && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-libgui maybe-install-libgui
 maybe-install-libgui:
+
 install-libgui: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3595,8 +4018,9 @@ all-libiberty: configure-libiberty
 	$(SET_LIB_PATH) \
 	(cd libiberty && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-libiberty maybe-check-libiberty
+maybe-check-libiberty:
 
-.PHONY: check-libiberty
 check-libiberty:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3604,9 +4028,9 @@ check-libiberty:
 	(cd libiberty && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-libiberty maybe-install-libiberty
 maybe-install-libiberty:
+
 install-libiberty: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3662,8 +4086,9 @@ all-libtool: configure-libtool
 	$(SET_LIB_PATH) \
 	(cd libtool && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-libtool maybe-check-libtool
+maybe-check-libtool:
 
-.PHONY: check-libtool
 check-libtool:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3671,9 +4096,9 @@ check-libtool:
 	(cd libtool && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-libtool maybe-install-libtool
 maybe-install-libtool:
+
 install-libtool: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3729,8 +4154,9 @@ all-m4: configure-m4
 	$(SET_LIB_PATH) \
 	(cd m4 && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-m4 maybe-check-m4
+maybe-check-m4:
 
-.PHONY: check-m4
 check-m4:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3738,9 +4164,9 @@ check-m4:
 	(cd m4 && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-m4 maybe-install-m4
 maybe-install-m4:
+
 install-m4: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3796,8 +4222,9 @@ all-make: configure-make
 	$(SET_LIB_PATH) \
 	(cd make && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-make maybe-check-make
+maybe-check-make:
 
-.PHONY: check-make
 check-make:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3805,9 +4232,9 @@ check-make:
 	(cd make && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-make maybe-install-make
 maybe-install-make:
+
 install-make: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3863,14 +4290,15 @@ all-mmalloc: configure-mmalloc
 	$(SET_LIB_PATH) \
 	(cd mmalloc && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-mmalloc maybe-check-mmalloc
+maybe-check-mmalloc:
 
-.PHONY: check-mmalloc
 check-mmalloc:
-
 
 
 .PHONY: install-mmalloc maybe-install-mmalloc
 maybe-install-mmalloc:
+
 install-mmalloc: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3926,8 +4354,9 @@ all-patch: configure-patch
 	$(SET_LIB_PATH) \
 	(cd patch && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-patch maybe-check-patch
+maybe-check-patch:
 
-.PHONY: check-patch
 check-patch:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3935,9 +4364,9 @@ check-patch:
 	(cd patch && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-patch maybe-install-patch
 maybe-install-patch:
+
 install-patch: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -3993,8 +4422,9 @@ all-perl: configure-perl
 	$(SET_LIB_PATH) \
 	(cd perl && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-perl maybe-check-perl
+maybe-check-perl:
 
-.PHONY: check-perl
 check-perl:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4002,9 +4432,9 @@ check-perl:
 	(cd perl && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-perl maybe-install-perl
 maybe-install-perl:
+
 install-perl: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4060,8 +4490,9 @@ all-prms: configure-prms
 	$(SET_LIB_PATH) \
 	(cd prms && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-prms maybe-check-prms
+maybe-check-prms:
 
-.PHONY: check-prms
 check-prms:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4069,9 +4500,9 @@ check-prms:
 	(cd prms && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-prms maybe-install-prms
 maybe-install-prms:
+
 install-prms: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4127,8 +4558,9 @@ all-rcs: configure-rcs
 	$(SET_LIB_PATH) \
 	(cd rcs && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-rcs maybe-check-rcs
+maybe-check-rcs:
 
-.PHONY: check-rcs
 check-rcs:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4136,9 +4568,9 @@ check-rcs:
 	(cd rcs && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-rcs maybe-install-rcs
 maybe-install-rcs:
+
 install-rcs: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4194,8 +4626,9 @@ all-readline: configure-readline
 	$(SET_LIB_PATH) \
 	(cd readline && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-readline maybe-check-readline
+maybe-check-readline:
 
-.PHONY: check-readline
 check-readline:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4203,9 +4636,9 @@ check-readline:
 	(cd readline && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-readline maybe-install-readline
 maybe-install-readline:
+
 install-readline: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4261,14 +4694,15 @@ all-release: configure-release
 	$(SET_LIB_PATH) \
 	(cd release && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-release maybe-check-release
+maybe-check-release:
 
-.PHONY: check-release
 check-release:
-
 
 
 .PHONY: install-release maybe-install-release
 maybe-install-release:
+
 install-release:
 
 
@@ -4320,8 +4754,9 @@ all-recode: configure-recode
 	$(SET_LIB_PATH) \
 	(cd recode && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-recode maybe-check-recode
+maybe-check-recode:
 
-.PHONY: check-recode
 check-recode:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4329,9 +4764,9 @@ check-recode:
 	(cd recode && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-recode maybe-install-recode
 maybe-install-recode:
+
 install-recode: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4387,8 +4822,9 @@ all-sed: configure-sed
 	$(SET_LIB_PATH) \
 	(cd sed && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-sed maybe-check-sed
+maybe-check-sed:
 
-.PHONY: check-sed
 check-sed:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4396,9 +4832,9 @@ check-sed:
 	(cd sed && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-sed maybe-install-sed
 maybe-install-sed:
+
 install-sed: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4454,8 +4890,9 @@ all-send-pr: configure-send-pr
 	$(SET_LIB_PATH) \
 	(cd send-pr && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-send-pr maybe-check-send-pr
+maybe-check-send-pr:
 
-.PHONY: check-send-pr
 check-send-pr:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4463,9 +4900,9 @@ check-send-pr:
 	(cd send-pr && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-send-pr maybe-install-send-pr
 maybe-install-send-pr:
+
 install-send-pr: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4521,8 +4958,9 @@ all-shellutils: configure-shellutils
 	$(SET_LIB_PATH) \
 	(cd shellutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-shellutils maybe-check-shellutils
+maybe-check-shellutils:
 
-.PHONY: check-shellutils
 check-shellutils:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4530,9 +4968,9 @@ check-shellutils:
 	(cd shellutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-shellutils maybe-install-shellutils
 maybe-install-shellutils:
+
 install-shellutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4588,8 +5026,9 @@ all-sid: configure-sid
 	$(SET_LIB_PATH) \
 	(cd sid && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-sid maybe-check-sid
+maybe-check-sid:
 
-.PHONY: check-sid
 check-sid:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4597,9 +5036,9 @@ check-sid:
 	(cd sid && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-sid maybe-install-sid
 maybe-install-sid:
+
 install-sid: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4655,8 +5094,9 @@ all-sim: configure-sim
 	$(SET_LIB_PATH) \
 	(cd sim && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-sim maybe-check-sim
+maybe-check-sim:
 
-.PHONY: check-sim
 check-sim:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4664,9 +5104,9 @@ check-sim:
 	(cd sim && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-sim maybe-install-sim
 maybe-install-sim:
+
 install-sim: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4722,8 +5162,9 @@ all-tar: configure-tar
 	$(SET_LIB_PATH) \
 	(cd tar && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-tar maybe-check-tar
+maybe-check-tar:
 
-.PHONY: check-tar
 check-tar:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4731,9 +5172,9 @@ check-tar:
 	(cd tar && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-tar maybe-install-tar
 maybe-install-tar:
+
 install-tar: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4789,8 +5230,9 @@ all-texinfo: configure-texinfo
 	$(SET_LIB_PATH) \
 	(cd texinfo && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-texinfo maybe-check-texinfo
+maybe-check-texinfo:
 
-.PHONY: check-texinfo
 check-texinfo:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4798,9 +5240,9 @@ check-texinfo:
 	(cd texinfo && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-texinfo maybe-install-texinfo
 maybe-install-texinfo:
+
 install-texinfo:
 
 
@@ -4852,8 +5294,9 @@ all-textutils: configure-textutils
 	$(SET_LIB_PATH) \
 	(cd textutils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-textutils maybe-check-textutils
+maybe-check-textutils:
 
-.PHONY: check-textutils
 check-textutils:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4861,9 +5304,9 @@ check-textutils:
 	(cd textutils && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-textutils maybe-install-textutils
 maybe-install-textutils:
+
 install-textutils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4919,8 +5362,9 @@ all-time: configure-time
 	$(SET_LIB_PATH) \
 	(cd time && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-time maybe-check-time
+maybe-check-time:
 
-.PHONY: check-time
 check-time:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4928,9 +5372,9 @@ check-time:
 	(cd time && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-time maybe-install-time
 maybe-install-time:
+
 install-time: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4986,8 +5430,9 @@ all-uudecode: configure-uudecode
 	$(SET_LIB_PATH) \
 	(cd uudecode && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-uudecode maybe-check-uudecode
+maybe-check-uudecode:
 
-.PHONY: check-uudecode
 check-uudecode:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -4995,9 +5440,9 @@ check-uudecode:
 	(cd uudecode && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-uudecode maybe-install-uudecode
 maybe-install-uudecode:
+
 install-uudecode: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5053,8 +5498,9 @@ all-wdiff: configure-wdiff
 	$(SET_LIB_PATH) \
 	(cd wdiff && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-wdiff maybe-check-wdiff
+maybe-check-wdiff:
 
-.PHONY: check-wdiff
 check-wdiff:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5062,9 +5508,9 @@ check-wdiff:
 	(cd wdiff && $(MAKE) $(FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-wdiff maybe-install-wdiff
 maybe-install-wdiff:
+
 install-wdiff: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5120,8 +5566,9 @@ all-zip: configure-zip
 	$(SET_LIB_PATH) \
 	(cd zip && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-zip maybe-check-zip
+maybe-check-zip:
 
-.PHONY: check-zip
 # This module is only tested in a native toolchain.
 check-zip:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
@@ -5132,9 +5579,9 @@ check-zip:
 	fi
 
 
-
 .PHONY: install-zip maybe-install-zip
 maybe-install-zip:
+
 install-zip: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5190,14 +5637,15 @@ all-zlib: configure-zlib
 	$(SET_LIB_PATH) \
 	(cd zlib && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-zlib maybe-check-zlib
+maybe-check-zlib:
 
-.PHONY: check-zlib
 check-zlib:
-
 
 
 .PHONY: install-zlib maybe-install-zlib
 maybe-install-zlib:
+
 install-zlib:
 
 
@@ -5249,8 +5697,9 @@ all-gdb: configure-gdb
 	$(SET_LIB_PATH) \
 	(cd gdb && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
+.PHONY: check-gdb maybe-check-gdb
+maybe-check-gdb:
 
-.PHONY: check-gdb
 check-gdb:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5258,9 +5707,9 @@ check-gdb:
 	(cd gdb && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-gdb maybe-install-gdb
 maybe-install-gdb:
+
 install-gdb: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5316,8 +5765,9 @@ all-expect: configure-expect
 	$(SET_LIB_PATH) \
 	(cd expect && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
+.PHONY: check-expect maybe-check-expect
+maybe-check-expect:
 
-.PHONY: check-expect
 check-expect:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5325,9 +5775,9 @@ check-expect:
 	(cd expect && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-expect maybe-install-expect
 maybe-install-expect:
+
 install-expect: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5383,8 +5833,9 @@ all-guile: configure-guile
 	$(SET_LIB_PATH) \
 	(cd guile && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
+.PHONY: check-guile maybe-check-guile
+maybe-check-guile:
 
-.PHONY: check-guile
 check-guile:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5392,9 +5843,9 @@ check-guile:
 	(cd guile && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-guile maybe-install-guile
 maybe-install-guile:
+
 install-guile: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5450,8 +5901,9 @@ all-tk: configure-tk
 	$(SET_LIB_PATH) \
 	(cd tk && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
+.PHONY: check-tk maybe-check-tk
+maybe-check-tk:
 
-.PHONY: check-tk
 check-tk:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5459,9 +5911,9 @@ check-tk:
 	(cd tk && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-tk maybe-install-tk
 maybe-install-tk:
+
 install-tk: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5517,8 +5969,9 @@ all-tix: configure-tix
 	$(SET_LIB_PATH) \
 	(cd tix && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all)
 
+.PHONY: check-tix maybe-check-tix
+maybe-check-tix:
 
-.PHONY: check-tix
 check-tix:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5526,9 +5979,9 @@ check-tix:
 	(cd tix && $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check)
 
 
-
 .PHONY: install-tix maybe-install-tix
 maybe-install-tix:
+
 install-tix: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5584,14 +6037,15 @@ all-libtermcap: configure-libtermcap
 	$(SET_LIB_PATH) \
 	(cd libtermcap && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-libtermcap maybe-check-libtermcap
+maybe-check-libtermcap:
 
-.PHONY: check-libtermcap
 check-libtermcap:
-
 
 
 .PHONY: install-libtermcap maybe-install-libtermcap
 maybe-install-libtermcap:
+
 install-libtermcap: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5647,14 +6101,15 @@ all-utils: configure-utils
 	$(SET_LIB_PATH) \
 	(cd utils && $(MAKE) $(FLAGS_TO_PASS) all)
 
+.PHONY: check-utils maybe-check-utils
+maybe-check-utils:
 
-.PHONY: check-utils
 check-utils:
-
 
 
 .PHONY: install-utils maybe-install-utils
 maybe-install-utils:
+
 install-utils: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5749,7 +6204,9 @@ all-target-libstdc++-v3: configure-target-libstdc++-v3
 	(cd $(TARGET_SUBDIR)/libstdc++-v3 && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  all)
 
-.PHONY: check-target-libstdc++-v3
+.PHONY: check-target-libstdc++-v3 maybe-check-target-libstdc++-v3
+maybe-check-target-libstdc++-v3:
+
 check-target-libstdc++-v3:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5760,6 +6217,7 @@ check-target-libstdc++-v3:
 
 .PHONY: install-target-libstdc++-v3 maybe-install-target-libstdc++-v3
 maybe-install-target-libstdc++-v3:
+
 install-target-libstdc++-v3: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5948,7 +6406,9 @@ all-target-newlib: configure-target-newlib
 	(cd $(TARGET_SUBDIR)/newlib && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-newlib
+.PHONY: check-target-newlib maybe-check-target-newlib
+maybe-check-target-newlib:
+
 check-target-newlib:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -5959,6 +6419,7 @@ check-target-newlib:
 
 .PHONY: install-target-newlib maybe-install-target-newlib
 maybe-install-target-newlib:
+
 install-target-newlib: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6048,7 +6509,9 @@ all-target-libf2c: configure-target-libf2c
 	(cd $(TARGET_SUBDIR)/libf2c && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-libf2c
+.PHONY: check-target-libf2c maybe-check-target-libf2c
+maybe-check-target-libf2c:
+
 check-target-libf2c:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6059,6 +6522,7 @@ check-target-libf2c:
 
 .PHONY: install-target-libf2c maybe-install-target-libf2c
 maybe-install-target-libf2c:
+
 install-target-libf2c: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6148,7 +6612,9 @@ all-target-libobjc: configure-target-libobjc
 	(cd $(TARGET_SUBDIR)/libobjc && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-libobjc
+.PHONY: check-target-libobjc maybe-check-target-libobjc
+maybe-check-target-libobjc:
+
 check-target-libobjc:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6159,6 +6625,7 @@ check-target-libobjc:
 
 .PHONY: install-target-libobjc maybe-install-target-libobjc
 maybe-install-target-libobjc:
+
 install-target-libobjc: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6248,13 +6715,16 @@ all-target-libtermcap: configure-target-libtermcap
 	(cd $(TARGET_SUBDIR)/libtermcap && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
+.PHONY: check-target-libtermcap maybe-check-target-libtermcap
+maybe-check-target-libtermcap:
+
 # Dummy target for uncheckable module.
-.PHONY: check-target-libtermcap
 check-target-libtermcap:
 
 
 .PHONY: install-target-libtermcap maybe-install-target-libtermcap
 maybe-install-target-libtermcap:
+
 install-target-libtermcap: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6344,7 +6814,9 @@ all-target-winsup: configure-target-winsup
 	(cd $(TARGET_SUBDIR)/winsup && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-winsup
+.PHONY: check-target-winsup maybe-check-target-winsup
+maybe-check-target-winsup:
+
 check-target-winsup:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6355,6 +6827,7 @@ check-target-winsup:
 
 .PHONY: install-target-winsup maybe-install-target-winsup
 maybe-install-target-winsup:
+
 install-target-winsup: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6444,13 +6917,16 @@ all-target-libgloss: configure-target-libgloss
 	(cd $(TARGET_SUBDIR)/libgloss && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
+.PHONY: check-target-libgloss maybe-check-target-libgloss
+maybe-check-target-libgloss:
+
 # Dummy target for uncheckable module.
-.PHONY: check-target-libgloss
 check-target-libgloss:
 
 
 .PHONY: install-target-libgloss maybe-install-target-libgloss
 maybe-install-target-libgloss:
+
 install-target-libgloss: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6540,7 +7016,9 @@ all-target-libiberty: configure-target-libiberty
 	(cd $(TARGET_SUBDIR)/libiberty && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-libiberty
+.PHONY: check-target-libiberty maybe-check-target-libiberty
+maybe-check-target-libiberty:
+
 check-target-libiberty:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6551,6 +7029,7 @@ check-target-libiberty:
 
 .PHONY: install-target-libiberty maybe-install-target-libiberty
 maybe-install-target-libiberty:
+
 install-target-libiberty: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6640,7 +7119,9 @@ all-target-gperf: configure-target-gperf
 	(cd $(TARGET_SUBDIR)/gperf && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-gperf
+.PHONY: check-target-gperf maybe-check-target-gperf
+maybe-check-target-gperf:
+
 check-target-gperf:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6651,6 +7132,7 @@ check-target-gperf:
 
 .PHONY: install-target-gperf maybe-install-target-gperf
 maybe-install-target-gperf:
+
 install-target-gperf: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6740,13 +7222,16 @@ all-target-examples: configure-target-examples
 	(cd $(TARGET_SUBDIR)/examples && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
+.PHONY: check-target-examples maybe-check-target-examples
+maybe-check-target-examples:
+
 # Dummy target for uncheckable module.
-.PHONY: check-target-examples
 check-target-examples:
 
 
 .PHONY: install-target-examples maybe-install-target-examples
 maybe-install-target-examples:
+
 # Dummy target for uninstallable.
 install-target-examples:
 
@@ -6832,7 +7317,9 @@ all-target-libffi: configure-target-libffi
 	(cd $(TARGET_SUBDIR)/libffi && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-libffi
+.PHONY: check-target-libffi maybe-check-target-libffi
+maybe-check-target-libffi:
+
 check-target-libffi:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6843,6 +7330,7 @@ check-target-libffi:
 
 .PHONY: install-target-libffi maybe-install-target-libffi
 maybe-install-target-libffi:
+
 install-target-libffi: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6933,7 +7421,9 @@ all-target-libjava: configure-target-libjava
 	(cd $(TARGET_SUBDIR)/libjava && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'  all)
 
-.PHONY: check-target-libjava
+.PHONY: check-target-libjava maybe-check-target-libjava
+maybe-check-target-libjava:
+
 check-target-libjava:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -6944,6 +7434,7 @@ check-target-libjava:
 
 .PHONY: install-target-libjava maybe-install-target-libjava
 maybe-install-target-libjava:
+
 install-target-libjava: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7033,7 +7524,9 @@ all-target-zlib: configure-target-zlib
 	(cd $(TARGET_SUBDIR)/zlib && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-zlib
+.PHONY: check-target-zlib maybe-check-target-zlib
+maybe-check-target-zlib:
+
 check-target-zlib:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7044,6 +7537,7 @@ check-target-zlib:
 
 .PHONY: install-target-zlib maybe-install-target-zlib
 maybe-install-target-zlib:
+
 install-target-zlib: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7133,7 +7627,9 @@ all-target-boehm-gc: configure-target-boehm-gc
 	(cd $(TARGET_SUBDIR)/boehm-gc && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-boehm-gc
+.PHONY: check-target-boehm-gc maybe-check-target-boehm-gc
+maybe-check-target-boehm-gc:
+
 check-target-boehm-gc:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7144,6 +7640,7 @@ check-target-boehm-gc:
 
 .PHONY: install-target-boehm-gc maybe-install-target-boehm-gc
 maybe-install-target-boehm-gc:
+
 install-target-boehm-gc: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7233,7 +7730,9 @@ all-target-qthreads: configure-target-qthreads
 	(cd $(TARGET_SUBDIR)/qthreads && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-qthreads
+.PHONY: check-target-qthreads maybe-check-target-qthreads
+maybe-check-target-qthreads:
+
 check-target-qthreads:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7244,6 +7743,7 @@ check-target-qthreads:
 
 .PHONY: install-target-qthreads maybe-install-target-qthreads
 maybe-install-target-qthreads:
+
 install-target-qthreads: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7333,7 +7833,9 @@ all-target-rda: configure-target-rda
 	(cd $(TARGET_SUBDIR)/rda && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS)  all)
 
-.PHONY: check-target-rda
+.PHONY: check-target-rda maybe-check-target-rda
+maybe-check-target-rda:
+
 check-target-rda:
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7344,6 +7846,7 @@ check-target-rda:
 
 .PHONY: install-target-rda maybe-install-target-rda
 maybe-install-target-rda:
+
 install-target-rda: installdirs
 	@r=`${PWD}`; export r; \
 	s=`cd $(srcdir); ${PWD}`; export s; \
@@ -7479,6 +7982,7 @@ cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 	  LANGUAGES="c c++" all
 
 .PHONY: check-gcc
+maybe-check-gcc:
 check-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -7574,6 +8078,8 @@ all-binutils: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-flex
 # binutils might be on PATH, and they might need the shared opcodes
 # library.
 install-binutils: maybe-install-opcodes
+# libopcodes depends on libbfd
+install-opcodes: maybe-install-bfd
 all-gas: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-intl
 all-gprof: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-intl
 all-ld: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-bison maybe-all-byacc maybe-all-flex maybe-all-intl
@@ -7640,7 +8146,7 @@ configure-target-zlib: $(ALL_GCC_C)
 configure-target-examples: $(ALL_GCC_C)
 configure-target-libgloss: $(ALL_GCC)
 all-target-libgloss: maybe-configure-target-newlib
-configure-target-libiberty: $(ALL_GCC_C)
+configure-target-libiberty: $(ALL_GCC)
 configure-target-libtermcap: $(ALL_GCC_C)
 configure-target-newlib: $(ALL_GCC)
 configure-target-rda: $(ALL_GCC_C)

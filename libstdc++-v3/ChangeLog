@@ -1,3 +1,267 @@
+2003-05-24  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* libsupc++/Makefile.am, libsupc++/cxxabi.h, libsupc++/del_op.cc,
+	libsupc++/del_opnt.cc, libsupc++/del_opv.cc, libsupc++/del_opvnt.cc,
+	libsupc++/eh_alloc.cc, libsupc++/eh_aux_runtime.cc,
+	libsupc++/eh_catch.cc, libsupc++/eh_exception.cc,
+	libsupc++/eh_globals.cc, libsupc++/eh_personality.cc,
+	libsupc++/eh_term_handler.cc, libsupc++/eh_terminate.cc,
+	libsupc++/eh_throw.cc, libsupc++/eh_type.cc,
+	libsupc++/eh_unex_handler.cc, libsupc++/exception,
+	libsupc++/new, libsupc++/new_handler.cc, libsupc++/new_op.cc,
+	libsupc++/new_opnt.cc, libsupc++/new_opv.cc, libsupc++/new_opvnt.cc,
+	libsupc++/pure.cc, libsupc++/tinfo.cc, libsupc++/tinfo2.cc,
+	libsupc++/typeinfo, libsupc++/unwind-cxx.h, libsupc++/vec.cc:
+	Replace "GNU CC" with "GCC".
+
+	* include/backward/new.h: Replace "GNU CC" with "GCC".
+
+2003-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/3066.
+	* configure.in: Switch target to host, don't assume newlib.
+	(target_alias): Remove.
+	* configure: Regenerate.
+	* acinclude.m4: Same.
+	* aclocal.m4: Regenerate.
+	* configure.target: Same. Rename to...
+	* configure.host: This.
+	
+2003-05-22  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_fstream.h (_S_pback_size): Remove definition.
+	(_M_create_pback(), _M_destroy_pback()): Simplify for a single-char
+	pback buffer.
+	* include/bits/fstream.tcc (_S_pback_size): Remove declaration.
+	* testsuite/27_io/basic_filebuf/3.cc: Remove explicit instantiation
+	of _S_pback_size for systems with no COMDAT or weak support.
+	* testsuite/27_io/basic_filebuf/seekoff/10132-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekpos/10132-3.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/10096.cc: Likewise.
+	* testsuite/27_io/basic_fstream/3.cc: Likewise.
+	* testsuite/27_io/basic_ifstream/3.cc: Likewise.
+	* testsuite/27_io/basic_istream/sentry/char/3983-fstream.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/3.cc: Likewise.
+	* testsuite/27_io/basic_ostream/sentry/char/3983-fstream.cc: Likewise.
+	* testsuite/27_io/basic_streambuf/3.cc: Likewise.
+
+2003-05-22  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/fstream.tcc (_M_underflow): Simplify:
+	!__testout implies _M_filepos == _M_in_end, therefore
+	the first _M_file.seekoff call is never issued.
+
+2003-05-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in: Sort cross table.
+	* configure: Regenerate.
+
+2003-05-22  Brad Spencer  <spencer@infointeractive.com>
+
+	* configure.in: Add Solaris cross bits.
+
+2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libstdc++-v3/config/os/mingw32/os_defines.h
+	(__GTHREAD_HIDE_WIN32API): Define to 1 by defualt.
+	(NOMINMAX): Define.  Update copyright year.
+
+2003-05-21  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_fstream.h (_M_set_buffer): Fix indentation.
+
+2003-05-21  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/faq/index.html: Fix typo.
+	* docs/html/faq/index.txt: Regenerate.
+
+2003-05-21  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/test.html: Fix markup.
+
+2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libmath/stubs.c (hypot, hypotf, hypotl): Don't divide by
+	zero.
+	Update copyright year.
+
+2003-05-20  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/basic_filebuf/close/char/4.cc: Fix typo.
+
+2003-05-20  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/basic_filebuf/close/char/5.cc: New file,
+	further testing that upon filebuf::close() 27.8.1.1,3 is enforced.
+
+2003-05-20  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* include/bits/stl_alloc.h (__default_alloc_template::_S_chunk_alloc):
+	Cast via void* to avoid -Wcast-align warnings.
+	(__default_alloc_template::_S_refill): Likewise.
+
+2003-05-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/README: Move to...
+	* docs/html/test.html: ...here. Add documentation.
+	* docs/html/install.html: Move testing bits out..
+	* docs/html/documentation.html: Add separate testing link.
+        * testsuite/performance: Add.
+        * testsuite/performance/allocator.cc: New.
+        * testsuite/performance/complex_norm.cc: New.
+        * testsuite/performance/cout_insert_int.cc: New.
+        * testsuite/performance/fstream_seek_write.cc: New.
+        * testsuite/performance/ifstream_getline.cc: New.
+        * testsuite/performance/map_create_fill.cc: New.
+        * testsuite/performance/ofstream_insert_float.cc: New.
+        * testsuite/performance/ofstream_insert_int.cc: New.
+        * testsuite/performance/string_append.cc: New.
+	* testsuite/lib/libstdc++-v3-dg.exp (v3-compute-tests): Filter
+	performance tests.
+ 
+2003-05-20  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	PR libstdc++/10689
+	* include/std/std_complex.h (pow): Tidy.
+	
+2003-05-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/basic_filebuf/close/char/4.cc: New file, testing
+	that upon filebuf::close() 27.8.1.1,3 is enforced.
+
+2003-05-15  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/thread/pthread4.cc: Further tweak to avoid fini race.
+
+2003-05-15  Paolo Carlini  <pcarlini@unitus.it>
+	    Nathan Myers  <ncm@cantrip.org>
+
+	* include/bits/fstream.tcc (_M_overflow): Rewrote to call
+	_M_convert_to_external only once (_M_buf_size is now the size of
+	the put area + 1 for the overflow char of a full area); call
+	_M_set_buffer instead of _M_set_indeterminate.
+	(setbuf): Don't accept a buffer smaller than 2 chars.
+	(_M_underflow): Refill _M_buf_size - 1 chars; call _M_set_buffer,
+	instead of _M_set_determinate.
+	(open): Call _M_set_buffer, instead of _M_set_indeterminate.
+	(seekoff): Likewise.
+	* include/ext/stdio_filebuf.h (stdio_filebuf(int,
+	std::ios_base::openmode, bool, size_t),
+	stdio_filebuf(std::__c_file*, std::ios_base::openmode, size_t):
+	Likewise.
+	* include/std/std_fstream.h (_M_set_indeterminate): Remove.
+	(_M_set_determinate): Rename as _M_set_buffer, _M_buf_size ->
+	_M_buf_size - 1.
+	* include/std/std_streambuf.h: Tweak _M_out_lim comment.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1.cc: Tweak, taking
+	into account that, for _M_buf_size == BUFSIZ == 8192, the size of
+	the put area is now BUFSIZ - 1.
+	* testsuite/ext/stdio_filebuf_2.cc: Tweak, taking into account
+	that now the smallest _M_buf_size is 2 (still fails, for the same
+	reason, with 3.2.3)
+
+2003-05-14  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/thread/pthread4.cc: Tweak test.
+
+2003-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Remove
+	excess errors dg marker, use dg-errors instead.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Same.
+	* testsuite/20_util/auto_ptr_neg.cc: Same.
+	
+2003-05-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/std_fstream.h (basic_filebuf::_M_codecvt): Add
+	cached member.
+	* include/bits/fstream.tcc (basic_filebuf::basic_filebuf):
+	Initialize _M_codecvt.
+	(basic_filebuf::imbue): Same.
+	(basic_filebuf::showmanyc): Use it.
+	(basic_filebuf::underflow): Use it.
+	(basic_filebuf::_M_convert_to_external): Use it.
+	(basic_filebuf::seekoff): Use it.
+	(basic_filebuf::imbue): Use it, tweaks.
+	* include/bits/localefwd.h (__check_facet): New.
+	* include/bits/locale_classes.h: Tweaks.
+	* include/bits/locale_facets.tcc: Tweaks.	
+	* include/bits/basic_ios.h (basic_ios::_M_check_facet): Remove.
+	_M_fctype to _M_ctype, _M_fnumput to _M_num_put, _M_fnumget to
+	_M_num_get. Change _M_check_facet to __check_facet. Tweaks.
+	* include/bits/basic_ios.tcc: Same.	
+	* include/bits/istream.tcc: Same.
+	* include/bits/ostream.tcc: Same.
+	* include/std/std_streambuf.h: Same.
+	* testsuite/27_io/basic_filebuf/imbue/char/2.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/char/3.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/1.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/2.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/3.cc: New.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/9322.cc: New.
+	
+2003-05-12  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/27_io/basic_filebuf/sgetc/char/1.cc: Remove
+	unnecessary includes and unused string literals.
+	* testsuite/27_io/basic_filebuf/sputbackc/char/1.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/sputc/char/1.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/sputn/char/1.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/sungetc/char/1.cc: Likewise.
+
+2003-05-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/fstream.tcc (_M_overflow): Remove unbuffered bits.
+
+2003-05-12  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_fstream.h (_M_convert_to_external): Change
+	to return bool, take two less streamsize parameters.
+	* include/bits/fstream.tcc (_M_convert_to_external): Tweak
+	consistently definition.
+	(_M_overflow): Adjust call points.
+
+2003-05-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/basic_filebuf/underflow/10096.cc: Add weak bits.
+
+2003-05-11  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/Makefile.am:  Properly quote /both/ LD_RUN_PATHs.
+	* testsuite/Makefile.in:  Regenerate.
+
+2003-05-11  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/Makefile.am:  Properly quote LD_RUN_PATH.
+	* testsuite/Makefile.in:  Regenerate.
+
+2003-05-11  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	PR libstdc++/3181
+	* include/c_std/std_cmath.h: #include <bits/cpp_type_traits.h>
+	(acos): Handle integer argument.
+	(asin): Likewise.
+	(atan): Likewise.
+	(atan2): Likewise.
+	(ceil): Likewise.
+	(cos): Likewise.
+	(cosh): Likewise.
+	(exp): Likewise.
+	(fabs): Likewise.
+	(floor): Likewise.
+	(frexp): Likewise.
+	(ldexp): Likewise.
+	(log): Likewise.
+	(log10): Likewise.
+	(sin): Likewise.
+	(sinh): Likewise.
+	(sqrt): Likewise.
+	(tan): Likewise.
+	(tanh): Likewise.
+	* include/bits/cpp_type_traits.h (__are_same<>): New traits.
+	(__enable_if): Likewise.
+	* testsuite/26_numerics/cmath/overloads.C: New test.
+	
 2003-05-10  Petur Runolfsson  <peturr02@ru.is>
 
 	PR libstdc++/9027

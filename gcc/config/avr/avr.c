@@ -69,6 +69,7 @@ static void   avr_unique_section PARAMS ((tree, int));
 static void   avr_insert_attributes PARAMS ((tree, tree *));
 static unsigned int avr_section_type_flags PARAMS ((tree, const char *, int));
 
+static void avr_reorg PARAMS ((void));
 static void   avr_asm_out_ctor PARAMS ((rtx, int));
 static void   avr_asm_out_dtor PARAMS ((rtx, int));
 static int default_rtx_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
@@ -234,6 +235,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_RTX_COSTS avr_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST avr_address_cost
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG avr_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -647,7 +650,8 @@ avr_output_function_prologue (file, size)
   last_insn_address = 0;
   jump_tables_size = 0;
   prologue_size = 0;
-  fprintf (file, "/* prologue: frame size=%d */\n", size);
+  fprintf (file, "/* prologue: frame size=" HOST_WIDE_INT_PRINT_DEC " */\n",
+	   size);
 
   if (avr_naked_function_p (current_function_decl))
     {
@@ -680,8 +684,8 @@ avr_output_function_prologue (file, size)
   if (main_p)
     {
       fprintf (file, ("\t" 
-		      AS2 (ldi,r28,lo8(%s - %d)) CR_TAB
-		      AS2 (ldi,r29,hi8(%s - %d)) CR_TAB
+		      AS1 (ldi,r28) ",lo8(%s - " HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
+		      AS1 (ldi,r29) ",hi8(%s - " HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS2 (out,__SP_H__,r29)     CR_TAB
 		      AS2 (out,__SP_L__,r28) "\n"),
 	       avr_init_stack, size, avr_init_stack, size);
@@ -691,8 +695,8 @@ avr_output_function_prologue (file, size)
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
       fprintf (file, ("\t"
-		      AS2 (ldi, r26, lo8(%d)) CR_TAB
-		      AS2 (ldi, r27, hi8(%d)) CR_TAB), size, size);
+		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
+		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
       fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
 		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB)
@@ -786,7 +790,7 @@ avr_output_function_epilogue (file, size)
       function_size += get_attr_length (last);
     }
 
-  fprintf (file, "/* epilogue: frame size=%d */\n", size);
+  fprintf (file, "/* epilogue: frame size=" HOST_WIDE_INT_PRINT_DEC " */\n", size);
   epilogue_size = 0;
 
   if (avr_naked_function_p (current_function_decl))
@@ -1127,7 +1131,7 @@ print_operand (file, x, code)
 	fprintf (file, reg_names[true_regnum (x) + abcd]);
     }
   else if (GET_CODE (x) == CONST_INT)
-    fprintf (file, "%d", INTVAL (x) + abcd);
+    fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x) + abcd);
   else if (GET_CODE (x) == MEM)
     {
       rtx addr = XEXP (x,0);
@@ -1492,7 +1496,7 @@ init_cumulative_args (cum, fntype, libname, fndecl)
      CUMULATIVE_ARGS *cum;
      tree fntype;
      rtx libname;
-     tree fndecl;
+     tree fndecl ATTRIBUTE_UNUSED;
 {
   cum->nregs = 18;
   cum->regno = FIRST_CUM_REG;
@@ -5187,13 +5191,12 @@ avr_normalize_condition (condition)
 
 /* This fnction optimizes conditional jumps */
 
-void
-machine_dependent_reorg (first_insn)
-     rtx first_insn;
+static void
+avr_reorg ()
 {
   rtx insn, pattern;
   
-  for (insn = first_insn; insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (! (GET_CODE (insn) == INSN
 	     || GET_CODE (insn) == CALL_INSN

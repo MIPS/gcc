@@ -1496,6 +1496,16 @@ mathfn_built_in (type, fn)
       case BUILT_IN_LOGL:
 	fcode = BUILT_IN_LOG;
 	break;
+      case BUILT_IN_TAN:
+      case BUILT_IN_TANF:
+      case BUILT_IN_TANL:
+	fcode = BUILT_IN_TAN;
+	break;
+      case BUILT_IN_ATAN:
+      case BUILT_IN_ATANF:
+      case BUILT_IN_ATANL:
+	fcode = BUILT_IN_ATAN;
+	break;
       case BUILT_IN_FLOOR:
       case BUILT_IN_FLOORF:
       case BUILT_IN_FLOORL:
@@ -1552,6 +1562,16 @@ mathfn_built_in (type, fn)
       case BUILT_IN_LOGL:
 	fcode = BUILT_IN_LOGF;
 	break;
+      case BUILT_IN_TAN:
+      case BUILT_IN_TANF:
+      case BUILT_IN_TANL:
+	fcode = BUILT_IN_TANF;
+	break;
+      case BUILT_IN_ATAN:
+      case BUILT_IN_ATANF:
+      case BUILT_IN_ATANL:
+	fcode = BUILT_IN_ATANF;
+	break;
       case BUILT_IN_FLOOR:
       case BUILT_IN_FLOORF:
       case BUILT_IN_FLOORL:
@@ -1607,6 +1627,16 @@ mathfn_built_in (type, fn)
       case BUILT_IN_LOGF:
       case BUILT_IN_LOGL:
 	fcode = BUILT_IN_LOGL;
+	break;
+      case BUILT_IN_TAN:
+      case BUILT_IN_TANF:
+      case BUILT_IN_TANL:
+	fcode = BUILT_IN_TANL;
+	break;
+      case BUILT_IN_ATAN:
+      case BUILT_IN_ATANF:
+      case BUILT_IN_ATANL:
+	fcode = BUILT_IN_ATANL;
 	break;
       case BUILT_IN_FLOOR:
       case BUILT_IN_FLOORF:
@@ -2086,10 +2116,15 @@ expand_builtin_memcpy (arglist, target, mode, endp)
 #endif
 	  if (endp)
 	    {
-	      rtx result = gen_rtx_PLUS (GET_MODE (dest_mem), dest_mem, len_rtx);
+	      rtx result;
+	      rtx delta = len_rtx;
+
 	      if (endp == 2)
-		result = simplify_gen_binary (MINUS, GET_MODE (result), result, const1_rtx);
-	      return result;
+		delta = GEN_INT (INTVAL (delta) - 1);
+
+	      result = simplify_gen_binary (PLUS, GET_MODE (dest_mem),
+					    dest_mem, delta);
+	      return force_operand (result, NULL_RTX);
 	    }
 	  else
 	    return dest_mem;
@@ -2113,10 +2148,18 @@ expand_builtin_memcpy (arglist, target, mode, endp)
 
       if (endp)
         {
-	  rtx result = gen_rtx_PLUS (GET_MODE (dest_addr), dest_addr, len_rtx);
+	  rtx result = force_operand (len_rtx, NULL_RTX);
+
 	  if (endp == 2)
-	    result = simplify_gen_binary (MINUS, GET_MODE (result), result, const1_rtx);
-	  return result;
+	    {
+	      result = simplify_gen_binary (MINUS, GET_MODE (dest_addr),
+					    result, const1_rtx);
+	      result = force_operand (result, NULL_RTX);
+	    }
+
+	  result = simplify_gen_binary (PLUS, GET_MODE (dest_addr),
+					dest_addr, result);
+	  return force_operand (result, NULL_RTX);
 	}
       else
 	return dest_addr;
@@ -3500,6 +3543,12 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       case BUILT_IN_LOG:
       case BUILT_IN_LOGF:
       case BUILT_IN_LOGL:
+      case BUILT_IN_TAN:
+      case BUILT_IN_TANF:
+      case BUILT_IN_TANL:
+      case BUILT_IN_ATAN:
+      case BUILT_IN_ATANF:
+      case BUILT_IN_ATANL:
       case BUILT_IN_POW:
       case BUILT_IN_POWF:
       case BUILT_IN_POWL:
@@ -4546,13 +4595,13 @@ build_function_call_expr (fn, arglist)
    ellipses, otherwise the last specifier must be a VOID_TYPE.  */
 
 static int
-validate_arglist VPARAMS ((tree arglist, ...))
+validate_arglist (tree arglist, ...)
 {
   enum tree_code code;
   int res = 0;
-
-  VA_OPEN (ap, arglist);
-  VA_FIXEDARG (ap, tree, arglist);
+  va_list ap;
+  
+  va_start (ap, arglist);
 
   do
     {
@@ -4584,7 +4633,7 @@ validate_arglist VPARAMS ((tree arglist, ...))
   /* We need gotos here since we can only have one VA_CLOSE in a
      function.  */
  end: ;
-  VA_CLOSE (ap);
+  va_end (ap);
 
   return res;
 }
