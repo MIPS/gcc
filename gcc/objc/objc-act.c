@@ -3615,6 +3615,10 @@ objc_begin_try_stmt (location_t try_locus, tree body)
   cur_try_context = c;
 
   objc_init_exceptions ();
+  /* APPLE LOCAL begin Objective-C */
+  if (flag_objc_sjlj_exceptions)
+    objc_mark_locals_volatile (NULL);
+  /* APPLE LOCAL end Objective-C */
 }
 
 /* Called just after parsing "@catch (parm)".  Open a binding level, 
