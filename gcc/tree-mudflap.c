@@ -104,25 +104,36 @@ mf_marked_p (t)
 
 
 
-/* Perform the mudflap tree transforms on the given function.  */
+/* Perform the mudflap tree transforms on the given function.  Return
+   the modified function body.  */
  
-void 
+tree
 mudflap_c_function (t)
      tree t;
 {
+  tree original, result;
+
   mf_init_extern_trees ();
+
+  result = DECL_SAVED_TREE (t);
+  original = result;
+  walk_tree (& result, mf_mostly_copy_tree_r, NULL, NULL);
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
   if (! (flag_mudflap > 1))
-    mf_decl_cache_locals (& DECL_SAVED_TREE (t));
+    mf_decl_cache_locals (& result);
 
-  mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
-  mf_xform_derefs (DECL_SAVED_TREE (t));
+  mf_xform_decls (result, DECL_ARGUMENTS (t));
+  mf_xform_derefs (result);
 
-  /* Gimplify mudflap instrumentation.  FIXME  It definitely would be good
-     if mudflap didn't require another gimplification pass.  Gimplification
-     is the single most expensive part of the tree-ssa path! */
+  if (! (flag_mudflap > 1))
+    mf_decl_clear_locals ();
+
+  /* Gimplify the resulting function, mainly so that tree
+     pretty-printing works.  It's expensive though.  */
+  DECL_SAVED_TREE (t) = result;
   gimplify_function_tree (t);
+  result = DECL_SAVED_TREE (t);
 
   {
     FILE *dump_file;
@@ -130,13 +141,18 @@ mudflap_c_function (t)
     dump_file = dump_begin (TDI_mudflap, &dump_flags);
     if (dump_file)
       {
-	dump_function (TDI_mudflap, t);
+	fprintf (dump_file, "\n\n;;; Function %s\n", IDENTIFIER_POINTER (DECL_NAME (t)));
+	print_generic_expr (dump_file, result, 0);
+	fprintf (dump_file, "\n");
 	dump_end (TDI_mudflap, dump_file);
       }
   }
 
-  if (! (flag_mudflap > 1))
-    mf_decl_clear_locals ();
+  /* Restore original tree to function body, in case it is used
+     for inlining later.  */
+  DECL_SAVED_TREE (t) = original;
+
+  return result;
 }
 
 
@@ -876,9 +892,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	tree value_ptr, check_ptr, check_size;
 	tree check_decls = NULL_TREE;
 
-	/* Unshare the whole darned tree.  */
-	walk_tree (t, mf_mostly_copy_tree_r, NULL, NULL);
-
 	offset_expr = mf_offset_expr_of_array_ref (TREE_OPERAND (*t,0), 
 						   & TREE_OPERAND (*t,1), 
 						   & base_array,
@@ -937,7 +950,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	value_ptr = mf_mark (build1 (ADDR_EXPR,
 				     base_ptr_type,
 				     mf_mark (*t)));
-	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
 
 	/* As an optimization, omit checking if the base object is
 	   known to be large enough.  Only certain kinds of

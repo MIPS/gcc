@@ -32,6 +32,7 @@
 #include "tree.h"
 #include "cp-tree.h"
 #include "tree-inline.h"
+#include "tree-mudflap.h"
 #include "except.h"
 #include "lex.h"
 #include "toplev.h"
@@ -2379,6 +2380,7 @@ expand_body (fn)
 {
   location_t saved_loc;
   tree saved_function;
+  tree saved_tree;
 
   /* When the parser calls us after finishing the body of a template
      function, we don't really want to expand the body.  When we're
@@ -2482,16 +2484,23 @@ expand_body (fn)
   genrtl_start_function (fn);
   current_function_is_thunk = DECL_THUNK_P (fn);
 
+
+  /* Add mudflap instrumentation to a copy of the function body.  */
+  if (flag_mudflap)
+    saved_tree = mudflap_c_function (fn);
+  else
+    saved_tree = DECL_SAVED_TREE (fn);
+
   /* Expand the body.  */
-  if (STATEMENT_CODE_P (TREE_CODE (DECL_SAVED_TREE (fn))))
+  if (STATEMENT_CODE_P (TREE_CODE (saved_tree)))
     {
       if (flag_disable_gimple)
-	expand_stmt (DECL_SAVED_TREE (fn));
+	expand_stmt (saved_tree);
       else
 	abort ();
     }
   else
-    expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
+    expand_expr_stmt_value (saved_tree, 0, 0);
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */

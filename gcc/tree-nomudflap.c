@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
 
 This file is part of GCC.
@@ -45,11 +45,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    (e.g. Fortran).  */
 
  
-void 
+tree
 mudflap_c_function (t)
      tree t ATTRIBUTE_UNUSED;
 {
   abort ();
+  return NULL;
 }
 
 

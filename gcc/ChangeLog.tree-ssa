@@ -1,3 +1,13 @@
+2003-06-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mudflap_c_function): Change calling conventions so
+	as to return the instrumented function body rather than changing the
+	given fndecl in place.  Gimplify at the very end, for cosmetic
+	reasons.
+	* tree-mudflap.h, tree-nomudflap.c: Corresponding changes.
+	* c-decl.c (c_expand_body_1): Call mudflap_c_function just before
+	rtl expansion of function body; don't interfere with inlining.
+
 2003-06-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c: Fix typo in previous change.

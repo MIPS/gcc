@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define TREE_MUDFLAP_H
 
 /* Instrumentation. */
-extern void mudflap_c_function PARAMS ((tree));
+extern tree mudflap_c_function PARAMS ((tree));
 extern void mudflap_enqueue_decl PARAMS ((tree, const char *));
 extern void mudflap_enqueue_constant PARAMS ((tree, const char *));
 extern void mudflap_finish_file PARAMS ((void));

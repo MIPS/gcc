@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GCC.
@@ -35,7 +35,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
-#include "tree-mudflap.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "diagnostic.h"
@@ -87,16 +86,6 @@ optimize_function (tree fn)
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fn);
-
-      if (flag_mudflap)
-	{
-	  mudflap_c_function (fn);
-
-	  /* Gimplify mudflap instrumentation.  FIXME  Long term: Would it
-	     be better for mudflap to gimplify each tree as it generates
-	     them?  */
-	  gimplify_function_tree (fn);
-	}
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1)

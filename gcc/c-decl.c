@@ -6394,6 +6394,8 @@ c_expand_body_1 (fndecl, nested_p)
 {
   const char *saved_input_filename = input_filename;
   int saved_lineno = input_line;
+  tree saved_tree;
+
   timevar_push (TV_EXPAND);
 
   if (nested_p)
@@ -6433,10 +6435,6 @@ c_expand_body_1 (fndecl, nested_p)
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fndecl);
-
-      /* Add mudflap instrumentation.  */
-      if (flag_mudflap)
-	mudflap_c_function (fndecl);
     }
 
   timevar_push (TV_EXPAND);
@@ -6460,11 +6458,17 @@ c_expand_body_1 (fndecl, nested_p)
       && DECL_CONTEXT (fndecl) == NULL_TREE)
     expand_main_function ();
 
-  /* Generate the RTL for this function.  */
-  if (STATEMENT_CODE_P (TREE_CODE (DECL_SAVED_TREE (fndecl))))
-    expand_stmt (DECL_SAVED_TREE (fndecl));
+  /* Add mudflap instrumentation to a copy of the function body.  */
+  if (flag_mudflap)
+    saved_tree = mudflap_c_function (fndecl);
   else
-    expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
+    saved_tree = DECL_SAVED_TREE (fndecl);
+
+  /* Generate the RTL for this function.  */
+  if (STATEMENT_CODE_P (TREE_CODE (saved_tree)))
+    expand_stmt (saved_tree);
+  else
+    expand_expr_stmt_value (saved_tree, 0, 0);
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
