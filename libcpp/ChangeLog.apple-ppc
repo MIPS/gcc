@@ -1,3 +1,9 @@
+2005-02-21  Devang Patel  <dpatel@apple.com>
+
+	Radar 4007432
+	* charset.c (_cpp_convert_input): Check '\r' before inserting
+	'\n' at the end.
+
 2005-02-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 3958387
