@@ -345,13 +345,13 @@
 ;;=========================================================================
 ;; move string (like memcpy)
 
-(define_expand "movstrhi"
+(define_expand "movmemhi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (match_operand:BLK 1 "memory_operand" ""))
 	      (use (match_operand:HI 2 "const_int_operand" ""))
 	      (use (match_operand:HI 3 "const_int_operand" ""))
-	      (clobber (match_dup 4))
-	      (clobber (match_dup 5))
+	      (clobber (match_scratch:HI 4 ""))
+	      (clobber (match_scratch:HI 5 ""))
 	      (clobber (match_dup 6))])]
   ""
   "{
@@ -363,27 +363,24 @@
     FAIL;
   cnt8 = byte_immediate_operand (operands[2], GET_MODE (operands[2]));
   mode = cnt8 ? QImode : HImode;
+  operands[6] = gen_rtx_SCRATCH (mode);
   operands[2] = copy_to_mode_reg (mode,
                                   gen_int_mode (INTVAL (operands[2]), mode));
-  operands[4] = operands[2];
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
   addr1 = copy_to_mode_reg (Pmode, XEXP (operands[1], 0));
-
-  operands[5] = addr0;
-  operands[6] = addr1;
 
   operands[0] = gen_rtx_MEM (BLKmode, addr0);
   operands[1] = gen_rtx_MEM (BLKmode, addr1);
 }")
 
-(define_insn "*movstrqi_insn"
+(define_insn "*movmemqi_insn"
   [(set (mem:BLK (match_operand:HI 0 "register_operand" "e"))
 	(mem:BLK (match_operand:HI 1 "register_operand" "e")))
    (use (match_operand:QI 2 "register_operand" "r"))
    (use (match_operand:QI 3 "const_int_operand" "i"))
-   (clobber (match_dup 2))
-   (clobber (match_dup 0))
-   (clobber (match_dup 1))]
+   (clobber (match_scratch:HI 4 "=0"))
+   (clobber (match_scratch:HI 5 "=1"))
+   (clobber (match_scratch:QI 6 "=2"))]
   ""
   "ld __tmp_reg__,%a1+
 	st %a0+,__tmp_reg__
@@ -392,14 +389,14 @@
   [(set_attr "length" "4")
    (set_attr "cc" "clobber")])
 
-(define_insn "*movstrhi"
+(define_insn "*movmemhi"
   [(set (mem:BLK (match_operand:HI 0 "register_operand" "e,e"))
 	(mem:BLK (match_operand:HI 1 "register_operand" "e,e")))
    (use (match_operand:HI 2 "register_operand" "!w,d"))
    (use (match_operand:HI 3 "const_int_operand" ""))
-   (clobber (match_dup 2))
-   (clobber (match_dup 0))
-   (clobber (match_dup 1))]
+   (clobber (match_scratch:HI 4 "=0,0"))
+   (clobber (match_scratch:HI 5 "=1,1"))
+   (clobber (match_scratch:HI 6 "=2,2"))]
   ""
   "*{
      if (which_alternative==0)
@@ -420,12 +417,12 @@
 ;; =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0 =0
 ;; memset (%0, 0, %1)
 
-(define_expand "clrstrhi"
+(define_expand "clrmemhi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (const_int 0))
 	      (use (match_operand:HI 1 "const_int_operand" ""))
 	      (use (match_operand:HI 2 "const_int_operand" "n"))
-	      (clobber (match_dup 3))
+	      (clobber (match_scratch:HI 3 ""))
 	      (clobber (match_dup 4))])]
   ""
   "{
@@ -438,23 +435,20 @@
 
   cnt8 = byte_immediate_operand (operands[1], GET_MODE (operands[1]));
   mode = cnt8 ? QImode : HImode;
+  operands[4] = gen_rtx_SCRATCH (mode);
   operands[1] = copy_to_mode_reg (mode,
                                   gen_int_mode (INTVAL (operands[1]), mode));
-  operands[3] = operands[1];
-
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
-  operands[4] = addr0;
-  
   operands[0] = gen_rtx_MEM (BLKmode, addr0);
 }")
 
-(define_insn "*clrstrqi"
+(define_insn "*clrmemqi"
   [(set (mem:BLK (match_operand:HI 0 "register_operand" "e"))
 	(const_int 0))
    (use (match_operand:QI 1 "register_operand" "r"))
    (use (match_operand:QI 2 "const_int_operand" "n"))
-   (clobber (match_dup 1))
-   (clobber (match_dup 0))]
+   (clobber (match_scratch:HI 3 "=0"))
+   (clobber (match_scratch:QI 4 "=1"))]
   ""
   "st %a0+,__zero_reg__
         dec %1
@@ -462,13 +456,13 @@
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
-(define_insn "*clrstrhi"
+(define_insn "*clrmemhi"
   [(set (mem:BLK (match_operand:HI 0 "register_operand" "e,e"))
 	(const_int 0))
    (use (match_operand:HI 1 "register_operand" "!w,d"))
    (use (match_operand:HI 2 "const_int_operand" "n,n"))
-   (clobber (match_dup 1))
-   (clobber (match_dup 0))]
+   (clobber (match_scratch:HI 3 "=0,0"))
+   (clobber (match_scratch:HI 4 "=1,1"))]
   ""
   "*{
      if (which_alternative==0)

@@ -142,7 +142,7 @@ extern int avr_asm_only_p;
 #define INT_TYPE_SIZE (TARGET_INT8 ? 8 : 16)
 #define SHORT_TYPE_SIZE (INT_TYPE_SIZE == 8 ? INT_TYPE_SIZE : 16)
 #define LONG_TYPE_SIZE (INT_TYPE_SIZE == 8 ? 16 : 32)
-#define LONG_LONG_TYPE_SIZE 64
+#define LONG_LONG_TYPE_SIZE (INT_TYPE_SIZE == 8 ? 32 : 64)
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 32
 #define LONG_DOUBLE_TYPE_SIZE 32
@@ -509,8 +509,6 @@ do {									    \
 
 #define NO_FUNCTION_CSE
 
-#define NO_RECURSIVE_FUNCTION_CSE
-
 #define TEXT_SECTION_ASM_OP "\t.text"
 
 #define DATA_SECTION_ASM_OP "\t.data"
@@ -804,8 +802,6 @@ extern int avr_case_values_threshold;
 
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) (LENGTH =\
 					  adjust_insn_length (INSN, LENGTH))
-
-#define TARGET_MEM_FUNCTIONS
 
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE}"
 

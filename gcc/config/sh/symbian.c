@@ -559,7 +559,8 @@ symbian_possibly_export_base_class (tree base_class)
   tree methods;
   int len;
 
-  if (! (TYPE_CONTAINS_VPTR_P (base_class)))
+  if (! (TYPE_POLYMORPHIC_P (base_class)
+	 || TYPE_USES_VIRTUAL_BASECLASSES (base_class)))
     return;
 
   methods = CLASSTYPE_METHOD_VEC (base_class);

@@ -26,6 +26,25 @@
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
+;; Uses of UNSPEC in this file:
+
+(define_constants
+  [(UNSPEC_CFFC		0)	; canonicalize_funcptr_for_compare
+   (UNSPEC_GOTO		1)	; indirect_goto
+   (UNSPEC_DLTIND14R	2)	; 
+  ])
+
+;; UNSPEC_VOLATILE:
+
+(define_constants
+  [(UNSPECV_BLOCKAGE	0)	; blockage
+   (UNSPECV_DCACHE	1)	; dcacheflush
+   (UNSPECV_ICACHE	2)	; icacheflush
+   (UNSPECV_OPC		3)	; outline_prologue_call
+   (UNSPECV_OEC		4)	; outline_epilogue_call
+   (UNSPECV_LONGJMP	5)	; builtin_longjmp
+  ])
+
 ;; Insn type.  Used to default other attribute values.
 
 ;; type "unary" insns have one input operand (1) and one output operand (0)
@@ -2308,6 +2327,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:SI (plus:SI (mult:SI (match_dup 1) (const_int 4)) (match_dup 2)))
@@ -2324,6 +2344,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:SI (plus:SI (mult:SI (match_dup 1) (const_int 4)) (match_dup 2)))
@@ -2340,6 +2361,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -2357,6 +2379,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -2373,6 +2396,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
        || (!REG_POINTER (operands[1]) && REG_POINTER (operands[2])))
@@ -2389,6 +2413,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
        || (REG_POINTER (operands[1]) && !REG_POINTER (operands[2])))
@@ -2405,6 +2430,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
@@ -2422,6 +2448,7 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
@@ -2624,6 +2651,7 @@
   /* If we're trying to load the address of a label that happens to be
      close, then we can use a shorter sequence.  */
   if (GET_CODE (operands[1]) == LABEL_REF
+      && !LABEL_REF_NONLOCAL_P (operands[1])
       && INSN_ADDRESSES_SET_P ()
       && abs (INSN_ADDRESSES (INSN_UID (XEXP (operands[1], 0)))
 	        - INSN_ADDRESSES (INSN_UID (insn))) < 8100)
@@ -2658,6 +2686,7 @@
   /* If we're trying to load the address of a label that happens to be
      close, then we can use a shorter sequence.  */
   if (GET_CODE (operands[1]) == LABEL_REF
+      && !LABEL_REF_NONLOCAL_P (operands[1])
       && INSN_ADDRESSES_SET_P ()
       && abs (INSN_ADDRESSES (INSN_UID (XEXP (operands[1], 0)))
 	        - INSN_ADDRESSES (INSN_UID (insn))) < 8100)
@@ -2880,7 +2909,7 @@
    ldh%M1 %1,%0
    sth%M0 %r1,%0
    mtsar %r1
-   mfctr %sar,%0
+   {mfctl|mfctl,w} %sar,%0
    fcpy,sgl %f1,%0"
   [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu")
    (set_attr "pa_combine_type" "addmove")
@@ -3111,9 +3140,9 @@
 
 ;; The definition of this insn does not really explain what it does,
 ;; but it should suffice that anything generated as this insn will be
-;; recognized as a movstrsi operation, and that it will not successfully
+;; recognized as a movmemsi operation, and that it will not successfully
 ;; combine with anything.
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (match_operand:BLK 1 "" ""))
 	      (clobber (match_dup 4))
@@ -3193,7 +3222,7 @@
 ;; operands 0 and 1 are both equivalent to symbolic MEMs.  Thus, we are
 ;; forced to internally copy operands 0 and 1 to operands 7 and 8,
 ;; respectively.  We then split or peephole optimize after reload.
-(define_insn "movstrsi_prereload"
+(define_insn "movmemsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:SI 1 "register_operand" "r,r")))
    (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3286,7 +3315,7 @@
     }
 }")
 
-(define_insn "movstrsi_postreload"
+(define_insn "movmemsi_postreload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
 	(mem:BLK (match_operand:SI 1 "register_operand" "+r,r")))
    (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3301,7 +3330,7 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "movstrdi"
+(define_expand "movmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (match_operand:BLK 1 "" ""))
 	      (clobber (match_dup 4))
@@ -3381,7 +3410,7 @@
 ;; operands 0 and 1 are both equivalent to symbolic MEMs.  Thus, we are
 ;; forced to internally copy operands 0 and 1 to operands 7 and 8,
 ;; respectively.  We then split or peephole optimize after reload.
-(define_insn "movstrdi_prereload"
+(define_insn "movmemdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:DI 1 "register_operand" "r,r")))
    (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3474,7 +3503,7 @@
     }
 }")
 
-(define_insn "movstrdi_postreload"
+(define_insn "movmemdi_postreload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
 	(mem:BLK (match_operand:DI 1 "register_operand" "+r,r")))
    (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3489,7 +3518,7 @@
   "* return output_block_move (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrstrsi"
+(define_expand "clrmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (const_int 0))
 	      (clobber (match_dup 3))
@@ -3525,7 +3554,7 @@
   operands[4] = gen_reg_rtx (SImode);
 }")
 
-(define_insn "clrstrsi_prereload"
+(define_insn "clrmemsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(const_int 0))
    (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3587,7 +3616,7 @@
     }
 }")
 
-(define_insn "clrstrsi_postreload"
+(define_insn "clrmemsi_postreload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
 	(const_int 0))
    (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3599,7 +3628,7 @@
   "* return output_block_clear (operands, !which_alternative);"
   [(set_attr "type" "multi,multi")])
 
-(define_expand "clrstrdi"
+(define_expand "clrmemdi"
   [(parallel [(set (match_operand:BLK 0 "" "")
 		   (const_int 0))
 	      (clobber (match_dup 3))
@@ -3635,7 +3664,7 @@
   operands[4] = gen_reg_rtx (DImode);
 }")
 
-(define_insn "clrstrdi_prereload"
+(define_insn "clrmemdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(const_int 0))
    (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3697,7 +3726,7 @@
     }
 }")
 
-(define_insn "clrstrdi_postreload"
+(define_insn "clrmemdi_postreload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
 	(const_int 0))
    (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
@@ -3818,6 +3847,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:DF (plus:SI (mult:SI (match_dup 1) (const_int 8)) (match_dup 2)))
@@ -3834,6 +3864,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:DF (plus:SI (mult:SI (match_dup 1) (const_int 8)) (match_dup 2)))
@@ -3850,6 +3881,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -3867,6 +3899,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -3883,6 +3916,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
        || (!REG_POINTER (operands[1]) && REG_POINTER (operands[2])))
@@ -3899,6 +3933,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
        || (REG_POINTER (operands[1]) && !REG_POINTER (operands[2])))
@@ -3915,6 +3950,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
@@ -3932,6 +3968,7 @@
    (set (mem:DF (match_dup 0))
         (match_operand:DF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
@@ -3960,9 +3997,9 @@
 
 (define_insn ""
   [(set (match_operand:DF 0 "move_dest_operand"
-			  "=!*r,*r,*r,*r,*r,Q,!*q,!r,f,f,T")
+			  "=!*r,*r,*r,*r,*r,Q,f,f,T")
 	(match_operand:DF 1 "move_src_operand"
-			  "!*r,J,N,K,RQ,*rM,!*rM,!*q,fM,RT,f"))]
+			  "!*r,J,N,K,RQ,*rM,fM,RT,f"))]
   "(register_operand (operands[0], DFmode)
     || reg_or_0_operand (operands[1], DFmode))
    && !TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -3973,14 +4010,12 @@
    depdi,z %z1,%0
    ldd%M1 %1,%0
    std%M0 %r1,%0
-   mtsar %r1
-   {mfctl|mfctl,w} %%sar,%0
    fcpy,dbl %f1,%0
    fldd%F1 %1,%0
    fstd%F0 %1,%0"
-  [(set_attr "type" "move,move,move,shift,load,store,move,move,fpalu,fpload,fpstore")
+  [(set_attr "type" "move,move,move,shift,load,store,fpalu,fpload,fpstore")
    (set_attr "pa_combine_type" "addmove")
-   (set_attr "length" "4,4,4,4,4,4,4,4,4,4,4")])
+   (set_attr "length" "4,4,4,4,4,4,4,4,4")])
 
 
 (define_expand "movdi"
@@ -4128,6 +4163,7 @@
    (set (mem:DI (match_dup 0))
         (match_operand:DI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -4145,6 +4181,7 @@
    (set (mem:DI (match_dup 0))
         (match_operand:DI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -4161,6 +4198,7 @@
    (set (mem:DI (match_dup 0))
         (match_operand:DI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
@@ -4178,6 +4216,7 @@
    (set (mem:DI (match_dup 0))
         (match_operand:DI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
@@ -4323,6 +4362,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:SF (plus:SI (mult:SI (match_dup 1) (const_int 4)) (match_dup 2)))
@@ -4339,6 +4379,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
   [(set (mem:SF (plus:SI (mult:SI (match_dup 1) (const_int 4)) (match_dup 2)))
@@ -4355,6 +4396,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -4372,6 +4414,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -4388,6 +4431,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
        || (!REG_POINTER (operands[1]) && REG_POINTER (operands[2])))
@@ -4404,6 +4448,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
        || (REG_POINTER (operands[1]) && !REG_POINTER (operands[2])))
@@ -4420,6 +4465,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[1])
    && (TARGET_NO_SPACE_REGS
@@ -4437,6 +4483,7 @@
    (set (mem:SF (match_dup 0))
         (match_operand:SF 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
+   && !TARGET_DISABLE_INDEXING
    && TARGET_64BIT
    && REG_OK_FOR_BASE_P (operands[2])
    && (TARGET_NO_SPACE_REGS
@@ -6761,7 +6808,7 @@
    (set_attr "length" "4")])
 
 (define_insn "blockage"
-  [(unspec_volatile [(const_int 2)] 0)]
+  [(unspec_volatile [(const_int 2)] UNSPECV_BLOCKAGE)]
   ""
   ""
   [(set_attr "length" "0")])
@@ -6797,6 +6844,62 @@
 ;;; Hope this is only within a function...
 (define_insn "indirect_jump"
   [(set (pc) (match_operand 0 "register_operand" "r"))]
+  "GET_MODE (operands[0]) == word_mode"
+  "bv%* %%r0(%0)"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+;;; An indirect jump can be optimized to a direct jump.  GAS for the
+;;; SOM target doesn't allow branching to a label inside a function.
+;;; We also don't correctly compute branch distances for labels
+;;; outside the current function.  Thus, we use an indirect jump can't
+;;; be optimized to a direct jump for all targets.  We assume that
+;;; the branch target is in the same space (i.e., nested function
+;;; jumping to a label in an outer function in the same translation
+;;; unit).
+(define_expand "nonlocal_goto"
+  [(use (match_operand 0 "general_operand" ""))
+   (use (match_operand 1 "general_operand" ""))
+   (use (match_operand 2 "general_operand" ""))
+   (use (match_operand 3 "general_operand" ""))]
+  ""
+{
+  rtx lab = operands[1];
+  rtx stack = operands[2];
+  rtx fp = operands[3];
+
+  lab = copy_to_reg (lab);
+
+  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+			      gen_rtx_MEM (BLKmode,
+					   gen_rtx_SCRATCH (VOIDmode))));
+  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+			      gen_rtx_MEM (BLKmode,
+					   hard_frame_pointer_rtx)));
+
+  /* Restore the frame pointer.  The virtual_stack_vars_rtx is saved
+     instead of the hard_frame_pointer_rtx in the save area.  As a
+     result, an extra instruction is needed to adjust for the offset
+     of the virtual stack variables and the frame pointer.  */
+  if (GET_CODE (fp) != REG)
+    fp = force_reg (Pmode, fp);
+  emit_move_insn (virtual_stack_vars_rtx, fp);
+
+  emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
+
+  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+
+  /* Nonlocal goto jumps are only used between functions in the same
+     translation unit.  Thus, we can avoid the extra overhead of an
+     interspace jump.  */
+  emit_jump_insn (gen_indirect_goto (lab));
+  emit_barrier ();
+  DONE;
+})
+
+(define_insn "indirect_goto"
+  [(unspec [(match_operand 0 "register_operand" "=r")] UNSPEC_GOTO)]
   "GET_MODE (operands[0]) == word_mode"
   "bv%* %%r0(%0)"
   [(set_attr "type" "branch")
@@ -8222,7 +8325,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set (pc) (match_operand 0 "pmode_register_operand" "a"))
   (clobber (reg:SI 2))]
   "!TARGET_64BIT"
-  "ldsid (%%sr0,%0),%%r2\; mtsp %%r2,%%sr0\; be%* 0(%%sr0,%0)"
+  "ldsid (%%sr0,%0),%%r2\;mtsp %%r2,%%sr0\;be%* 0(%%sr0,%0)"
    [(set_attr "type" "branch")
     (set_attr "length" "12")])
 
@@ -8235,7 +8338,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     (set_attr "length" "4")])
 
 (define_expand "builtin_longjmp"
-  [(unspec_volatile [(match_operand 0 "register_operand" "r")] 3)]
+  [(unspec_volatile [(match_operand 0 "register_operand" "r")] UNSPECV_LONGJMP)]
   ""
   "
 {
@@ -8247,8 +8350,26 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 			   (POINTER_SIZE * 2) / BITS_PER_UNIT));
   rtx pv = gen_rtx_REG (Pmode, 1);
 
+  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+			      gen_rtx_MEM (BLKmode,
+					   gen_rtx_SCRATCH (VOIDmode))));
+  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+			      gen_rtx_MEM (BLKmode,
+					   hard_frame_pointer_rtx)));
+
+  /* Restore the frame pointer.  The virtual_stack_vars_rtx is saved
+     instead of the hard_frame_pointer_rtx in the save area.  We need
+     to adjust for the offset between these two values when we have
+     a nonlocal_goto pattern.  When we don't have a nonlocal_goto
+     pattern, the receiver performs the adjustment.  */
+#ifdef HAVE_nonlocal_goto
+  if (HAVE_nonlocal_goto)
+    emit_move_insn (virtual_stack_vars_rtx, force_reg (Pmode, fp));
+  else
+#endif
+    emit_move_insn (hard_frame_pointer_rtx, fp);
+
   /* This bit is the same as expand_builtin_longjmp.  */
-  emit_move_insn (hard_frame_pointer_rtx, fp);
   emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
   emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
@@ -8838,82 +8959,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set_attr "type" "fpalu")
    (set_attr "length" "4")])
 
-;; Clean up turds left by reload.
-(define_peephole
-  [(set (match_operand 0 "move_dest_operand" "")
-	(match_operand 1 "register_operand" "fr"))
-   (set (match_operand 2 "register_operand" "fr")
-	(match_dup 0))]
-  "!TARGET_SOFT_FLOAT
-   && GET_CODE (operands[0]) == MEM
-   && ! MEM_VOLATILE_P (operands[0])
-   && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[2])
-   && GET_MODE (operands[0]) == DFmode
-   && GET_CODE (operands[1]) == REG
-   && GET_CODE (operands[2]) == REG
-   && ! side_effects_p (XEXP (operands[0], 0))
-   && REGNO_REG_CLASS (REGNO (operands[1]))
-      == REGNO_REG_CLASS (REGNO (operands[2]))"
-  "*
-{
-  rtx xoperands[2];
-
-  if (FP_REG_P (operands[1]))
-    output_asm_insn (output_fp_move_double (operands), operands);
-  else
-    output_asm_insn (output_move_double (operands), operands);
-
-  if (rtx_equal_p (operands[1], operands[2]))
-    return \"\";
-
-  xoperands[0] = operands[2];
-  xoperands[1] = operands[1];
-      
-  if (FP_REG_P (xoperands[1]))
-    output_asm_insn (output_fp_move_double (xoperands), xoperands);
-  else
-    output_asm_insn (output_move_double (xoperands), xoperands);
-
-  return \"\";
-}")
-
-(define_peephole
-  [(set (match_operand 0 "register_operand" "fr")
-	(match_operand 1 "move_src_operand" ""))
-   (set (match_operand 2 "register_operand" "fr")
-	(match_dup 1))]
-  "!TARGET_SOFT_FLOAT
-   && GET_CODE (operands[1]) == MEM
-   && ! MEM_VOLATILE_P (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[1])
-   && GET_MODE (operands[0]) == GET_MODE (operands[2])
-   && GET_MODE (operands[0]) == DFmode
-   && GET_CODE (operands[0]) == REG
-   && GET_CODE (operands[2]) == REG
-   && ! side_effects_p (XEXP (operands[1], 0))
-   && REGNO_REG_CLASS (REGNO (operands[0]))
-      == REGNO_REG_CLASS (REGNO (operands[2]))"
-  "*
-{
-  rtx xoperands[2];
-
-  if (FP_REG_P (operands[0]))
-    output_asm_insn (output_fp_move_double (operands), operands);
-  else
-    output_asm_insn (output_move_double (operands), operands);
-
-  xoperands[0] = operands[2];
-  xoperands[1] = operands[0];
-      
-  if (FP_REG_P (xoperands[1]))
-    output_asm_insn (output_fp_move_double (xoperands), xoperands);
-  else
-    output_asm_insn (output_move_double (xoperands), xoperands);
-
-  return \"\";
-}")
-
 ;; Flush the I and D cache lines from the start address (operand0)
 ;; to the end address (operand1).  No lines are flushed if the end
 ;; address is less than the start address (unsigned).
@@ -8933,7 +8978,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Operands 3 and 4 (icacheflush) are clobbered scratch registers.
 (define_insn "dcacheflush"
   [(const_int 1)
-   (unspec_volatile [(mem:BLK (scratch))] 0)
+   (unspec_volatile [(mem:BLK (scratch))] UNSPECV_DCACHE)
    (use (match_operand 0 "pmode_register_operand" "r"))
    (use (match_operand 1 "pmode_register_operand" "r"))
    (use (match_operand 2 "pmode_register_operand" "r"))
@@ -8951,7 +8996,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 
 (define_insn "icacheflush"
   [(const_int 2)
-   (unspec_volatile [(mem:BLK (scratch))] 0)
+   (unspec_volatile [(mem:BLK (scratch))] UNSPECV_ICACHE)
    (use (match_operand 0 "pmode_register_operand" "r"))
    (use (match_operand 1 "pmode_register_operand" "r"))
    (use (match_operand 2 "pmode_register_operand" "r"))
@@ -8971,7 +9016,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 
 ;; An out-of-line prologue.
 (define_insn "outline_prologue_call"
-  [(unspec_volatile [(const_int 0)] 0)
+  [(unspec_volatile [(const_int 0)] UNSPECV_OPC)
    (clobber (reg:SI 31))
    (clobber (reg:SI 22))
    (clobber (reg:SI 21))
@@ -9021,7 +9066,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 
 ;; An out-of-line epilogue.
 (define_insn "outline_epilogue_call"
-  [(unspec_volatile [(const_int 1)] 0)
+  [(unspec_volatile [(const_int 1)] UNSPECV_OEC)
    (use (reg:SI 29))
    (use (reg:SI 28))
    (clobber (reg:SI 31))
@@ -9080,7 +9125,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; reliably compared to another function pointer.  */
 (define_expand "canonicalize_funcptr_for_compare"
   [(set (reg:SI 26) (match_operand:SI 1 "register_operand" ""))
-   (parallel [(set (reg:SI 29) (unspec:SI [(reg:SI 26)] 0))
+   (parallel [(set (reg:SI 29) (unspec:SI [(reg:SI 26)] UNSPEC_CFFC))
 	      (clobber (match_dup 2))
 	      (clobber (reg:SI 26))
 	      (clobber (reg:SI 22))
@@ -9110,8 +9155,8 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     }
 }")
 
-(define_insn ""
-  [(set (reg:SI 29) (unspec:SI [(reg:SI 26)] 0))
+(define_insn "*$$sh_func_adrs"
+  [(set (reg:SI 29) (unspec:SI [(reg:SI 26)] UNSPEC_CFFC))
    (clobber (match_operand:SI 0 "register_operand" "=a"))
    (clobber (reg:SI 26))
    (clobber (reg:SI 22))
@@ -9231,3 +9276,141 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     }
   DONE;
 }")
+
+(define_expand "prefetch"
+  [(match_operand 0 "address_operand" "")
+   (match_operand 1 "const_int_operand" "")
+   (match_operand 2 "const_int_operand" "")]
+  "TARGET_PA_20"
+{
+  /* The PA 2.0 prefetch instructions only support short displacements
+     when a cache control completer needs to be supplied.  Thus, we
+     can't use LO_SUM DLT addresses with the spatial locality completer.  */
+  if (operands[2] == const0_rtx && IS_LO_SUM_DLT_ADDR_P (operands[0]))
+    FAIL;
+
+  /* We change operand0 to a MEM as we don't have the infrastructure to
+     output all the supported address modes for ldw/ldd but we do have
+     it for MEMs.  */
+  operands[0] = gen_rtx_MEM (Pmode, operands[0]);
+
+  if (!TARGET_NO_SPACE_REGS
+      && !cse_not_expected
+      && GET_CODE (XEXP (operands[0], 0)) == PLUS
+      && REG_P (XEXP (XEXP (operands[0], 0), 0))
+      && REG_P (XEXP (XEXP (operands[0], 0), 1)))
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       copy_to_mode_reg (Pmode,
+					 	 XEXP (operands[0], 0)));
+
+  if (TARGET_64BIT)
+    emit_insn (gen_prefetch_64 (operands[0], operands[1], operands[2]));
+  else
+    emit_insn (gen_prefetch_32 (operands[0], operands[1], operands[2]));
+  DONE;
+})
+
+(define_insn "prefetch_64"
+  [(prefetch (match_operand:DI 0 "prefetch_operand" "A,RQ")
+	     (match_operand:DI 1 "const_int_operand" "n,n")
+	     (match_operand:DI 2 "const_int_operand" "n,n"))]
+  "TARGET_64BIT
+   && (operands[2] != const0_rtx
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+{
+  /* The SL completor indicates good spatial locality but poor temporal
+     locality.  The ldw instruction with a target of general register 0
+     prefetches a cache line for a read.  The ldd instruction prefetches
+     a cache line for a write.  */
+  static const char * const instr[2][2][2] = {
+    {
+      {
+	"",
+	"ldw RT'%A0,%%r0",
+      },
+      {
+	"",
+	"ldd RT'%A0,%%r0",
+      },
+    },
+    {
+      {
+	"ldw%M0,sl %0,%%r0",
+	"ldw%M0 %0,%%r0",
+      },
+      {
+	"ldd%M0,sl %0,%%r0",
+	"ldd%M0 %0,%%r0",
+      }
+    }
+  };
+  int read_or_write = INTVAL (operands[1]);
+  int locality = INTVAL (operands[2]);
+
+  if ((which_alternative != 0 && which_alternative != 1)
+      || (read_or_write != 0 && read_or_write != 1)
+      || (locality < 0 || locality > 3))
+    abort ();
+
+  if (which_alternative == 0 && locality == 0)
+    abort ();
+
+  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])
+
+(define_insn "prefetch_32"
+  [(prefetch (match_operand:SI 0 "prefetch_operand" "A,RQ")
+	     (match_operand:SI 1 "const_int_operand" "n,n")
+	     (match_operand:SI 2 "const_int_operand" "n,n"))]
+  "TARGET_PA_20
+   && (operands[2] != const0_rtx
+       || GET_CODE (XEXP (operands[0], 0)) != PLUS
+       || GET_CODE (XEXP (XEXP (operands[0], 0), 1)) != CONST_INT
+       || VAL_5_BITS_P (XEXP (XEXP (operands[0], 0), 1)))"
+{
+  /* The SL completor indicates good spatial locality but poor temporal
+     locality.  The ldw instruction with a target of general register 0
+     prefetches a cache line for a read.  The ldd instruction prefetches
+     a cache line for a write.  */
+  static const char * const instr[2][2][2] = {
+    {
+      {
+	"",
+	"ldw RT'%A0,%%r0",
+      },
+      {
+	"",
+	"ldd RT'%A0,%%r0",
+      },
+    },
+    {
+      {
+	"ldw%M0,sl %0,%%r0",
+	"ldw%M0 %0,%%r0",
+      },
+      {
+	"ldd%M0,sl %0,%%r0",
+	"ldd%M0 %0,%%r0",
+      }
+    }
+  };
+  int read_or_write = INTVAL (operands[1]);
+  int locality = INTVAL (operands[2]);
+
+  if ((which_alternative != 0 && which_alternative != 1)
+      || (read_or_write != 0 && read_or_write != 1)
+      || (locality < 0 || locality > 3))
+    abort ();
+
+  if (which_alternative == 0 && locality == 0)
+    abort ();
+
+  return instr [which_alternative][read_or_write][locality == 0 ? 0 : 1];
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "4")])

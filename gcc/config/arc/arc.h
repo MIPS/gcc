@@ -696,27 +696,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    registers.  */
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-/* All aggregates and arguments greater than 8 bytes are passed this way.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-(TYPE					\
- && (AGGREGATE_TYPE_P (TYPE)		\
-     || int_size_in_bytes (TYPE) > 8))
-
-/* A C expression that indicates when it is the called function's
-   responsibility to make copies of arguments passed by reference.
-   If the callee can determine that the argument won't be modified, it can
-   avoid the copy.  */
-/* ??? We'd love to be able to use NAMED here.  Unfortunately, it doesn't
-   include the last named argument so we keep track of the args ourselves.  */
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
-FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
@@ -801,11 +780,6 @@ do { \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 12)), FNADDR); \
   emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)))); \
 } while (0)
-
-/* Library calls.  */
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -951,12 +925,6 @@ arc_select_cc_mode (OP, X, Y)
    function address than to call an address kept in a register.  */
 /* On the ARC, calling through registers is slow.  */
 #define NO_FUNCTION_CSE
-
-/* Define this macro if it is as good or better for a function to call
-   itself with an explicit address than to call an address kept in a
-   register.  */
-/* On the ARC, calling through registers is slow.  */
-#define NO_RECURSIVE_FUNCTION_CSE
 
 /* Section selection.  */
 /* WARNING: These section names also appear in dwarfout.c.  */
@@ -1178,7 +1146,7 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Max number of bytes we can move from memory to memory
@@ -1228,7 +1196,3 @@ enum arc_function_type {
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   arc_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arc_va_arg (valist, type)

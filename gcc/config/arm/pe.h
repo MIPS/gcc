@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM with PE obj format.
-   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
    
    This file is part of GCC.
@@ -39,17 +40,10 @@
 
 /* Get tree.c to declare a target-specific specialization of
    merge_decl_attributes.  */
-#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
 
-/* Support the __declspec keyword by turning them into attributes.
-   We currently only support: naked, dllimport, and dllexport.
-   Note that the current way we do this may result in a collision with
-   predefined attributes later on.  This can be solved by using one attribute,
-   say __declspec__, and passing args to it.  The problem with that approach
-   is that args are not accumulated: each new appearance would clobber any
-   existing args.  */
 #undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "-D__pe__ -D__declspec(x)=__attribute__((x))"
+#define SUBTARGET_CPP_SPEC "-D__pe__"
 
 
 /* Experimental addition for pr 7885.
@@ -65,18 +59,12 @@
   N_("Ignore dllimport attribute for functions") },		\
 { "no-nop-fun-dllimport",	- TARGET_FLAG_NOP_FUN, "" },
 
-/* Defaulting to APCS-26 support is a legacy issue.   It has been done
-   that way for a long time, so changing it will probably break some
-   people's worlds.  Support for APCS-32 is now enabled as a multilib,
-   and at some point in the future APCS-32 may become the default.
-   Possibly when chips that support APCS-26 are no longer made.  */
-
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT	(ARM_FLAG_SOFT_FLOAT | TARGET_FLAG_NOP_FUN)
 
 #undef  MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
-  { "marm", "mlittle-endian", "msoft-float", "mapcs-26", "mno-thumb-interwork" }  
+  { "marm", "mlittle-endian", "msoft-float", "mno-thumb-interwork" }  
 
 #undef  WCHAR_TYPE
 #define WCHAR_TYPE 	"short unsigned int"
@@ -90,13 +78,11 @@
   call_used_regs [11] = 1;
 
 
-/* Define this macro if in some cases global symbols from one translation
-   unit may not be bound to undefined symbols in another translation unit
-   without user intervention.  For instance, under Microsoft Windows
-   symbols must be explicitly imported from shared libraries (DLLs).  */
-#define MULTIPLE_SYMBOL_SPACES
+/* PE/COFF uses explicit import from shared libraries.  */
+#define MULTIPLE_SYMBOL_SPACES 1
 
 #define TARGET_ASM_UNIQUE_SECTION arm_pe_unique_section
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 
 #define SUPPORTS_ONE_ONLY 1
 
@@ -209,6 +195,7 @@ switch_to_section (enum in_section section, tree decl)		\
   switch (section)						\
     {								\
       case in_text: text_section (); break;			\
+      case in_unlikely_executed_text: unlikely_text_section (); break; \
       case in_data: data_section (); break;			\
       case in_named: named_section (decl, NULL, 0); break;	\
       case in_readonly_data: readonly_data_section (); break;	\
