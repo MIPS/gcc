@@ -1158,7 +1158,7 @@ next_record_r (int done)
 
     case FORMATTED_SEQUENTIAL:
       length = 1;
-      if ((!done) || (sf_seen_eor && done))
+      if (sf_seen_eor && done)
          break;
 
       do

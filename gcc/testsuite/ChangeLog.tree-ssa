@@ -1,5 +1,10 @@
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
 
+	PR gfortran/14762
+	* gfortran.fortran-torture/execute/slash_edit.f90: New test.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
 	PR gfortran/14386
 	* gfortran.fortran-torture/execute/inquire_3.f90: New test.
 

@@ -1,5 +1,10 @@
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
 
+	PR gfortran/14762
+	* io/transfer.c (next_record_r) : Skip to next record.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
 	PR gfortran/14836
 	* io/transfer.c (next_record): Update last_record for DIRECT
 
