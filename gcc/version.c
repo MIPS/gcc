@@ -14,4 +14,4 @@ const char version_string[] = "3.4.3 (release) (CodeSourcery ARM Q3cvs 2004)";
    forward us bugs reported to you, if you determine that they are
    not bugs in your modifications.)  */
 
-const char bug_report_url[] = "arm-gcc@codesourcery.com";
+const char bug_report_url[] = "arm-gnu@codesourcery.com";
