@@ -1,3 +1,11 @@
+2005-01-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Update.
+	* config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Simplify.
+	(SYSROOT_SUFFIX_LINK_SPEC): Remove.
+	* config/mips/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Simplify.
+	(SYSROOT_SUFFIX_LINK_SPEC): Remove.
+
 2005-01-25  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc.c (SYSROOT_SPEC): New macro.

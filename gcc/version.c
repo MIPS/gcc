@@ -5,7 +5,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.4.3 (release) (CodeSourcery ARM Q3cvs 2004)";
+const char version_string[] = "3.4.3 (Wind River Linux) (built 20050127)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,
@@ -14,4 +14,4 @@ const char version_string[] = "3.4.3 (release) (CodeSourcery ARM Q3cvs 2004)";
    forward us bugs reported to you, if you determine that they are
    not bugs in your modifications.)  */
 
-const char bug_report_url[] = "arm-gnu@codesourcery.com";
+const char bug_report_url[] = "support@windriver.com";

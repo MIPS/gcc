@@ -22,7 +22,4 @@ Boston, MA 02111-1307, USA.  */
 /* Look for little-endian libraries in the "mel" subdirectory.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
-  "/" WRS_TARGET_SUBDIR "/libc%{mel:/mel}"
-#undef SYSROOT_SUFFIX_LINK_SPEC
-#define SYSROOT_SUFFIX_LINK_SPEC \
-  "--sysroot-suffix /" WRS_TARGET_SUBDIR "/libc%{mel:/mel} "
+  "/%{mel:/mel}"
