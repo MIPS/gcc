@@ -1,3 +1,123 @@
+2004-01-16  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/13608
+	* i386.c (ix86_compute_frame_layout): Fix for alloca on leaf function.
+
+2004-01-16  Segher Boessenkool  <boessen@de.ibm.com>
+
+        PR target/11793
+	* config/rs6000/rs6000.h (LEGITIMATE_CONSTANT_P): Handle
+	vectors.
+	
+2004-01-16  Jan Hubicka  <jh@suse.cz>
+
+        PR opt/11350
+        * cfgcleanup.c (try_optimize_cfg): Suppress tablejump removal
+	after reload.
+        * cfgrtl.c (try_redirect_by_replacing_branch): Likewise.
+
+2004-01-15  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR optimization/10392
+	* reload.c (can_reload_into): New function.
+	(push_reload): Use it.
+
+2004-01-14  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/9365
+	* sh.c (gen_block_redirect): Add special handling of RETURN.
+	(gen_far_branch) Don't call gen_stuff_delay_slot if there is no
+	far branch target (i.e. it's a return).
+
+2004-01-14  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (rs6000_stack_info)
+	Calculate always vrsave_mask if TARGET_ALTIVEC.
+	(rs6000_emit_prologue): Emit code for vrsave
+	only if TARGET_ALTIVEC_VRSAVE.
+	(rs6000_emit_epilogue): Likewise.
+ 
+2003-01-14  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	PR objc/7993
+        * objc-act.c (is_private): Do not emit the 'instance variable %s
+        is declared private' error.
+        (is_public): Emit the error after calling is_private.
+        (lookup_objc_ivar): If the instance variable is private, return 0
+        - the instance variable is invisible here.
+       
+2004-01-12  Marc Espie <espie@openbsd.org>
+
+	* system.h: handle YYBYACC like YYBISON.
+
+2004-01-12  Matthias Klose  <doko@debian.org>
+
+        Backport from mainline
+
+        2003-12-08 Stuart Hastings <stuart@apple.com>
+        * config/i386/i386.md: Typo in split of fp-valued if_then_else.
+
+2004-01-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/11397
+	* varasm.c (assemble_alias): Remove weak aliases from weak_decls.
+
+2004-01-12  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/13585
+	* sh-protos.h (check_use_sfunc_addr): Declare.
+	* sh.c (extract_sfunc_addr, check_use_sfunc_addr): New functions.
+	* sh.md (use_sfunc_addr): Use check_use_sfunc_addr in insn predicate.
+
+2004-01-12  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline
+
+	2004-01-11  Richard Henderson  <rth@redhat.com>
+	PR opt/12441
+	Revert: Sat Mar 30 14:08:55 CET 2002  Jan Hubicka  <jh@suse.cz>
+	* i386.c (aligned_operand): Be prepared for SUBREGed registers.
+	(ix86_decompose_address): Use REG_P instead of GET_CODE (...) == REG.
+	(ix86_address_cost): Be prepared for SUBREGed registers.
+	(legitimate_address_p): Accept SUBREGed registers.
+
+2004-01-11  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Use 'I'
+	for TLS_MODEL_INITIAL_EXEC.
+	(tls_symbolic_operand_1): Update to match.
+	(tls_symbolic_operand_type): Likewise.
+
+2004-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/13392
+	* builtins.c (expand_builtin_expect_jump): Handle conditional jumps
+	to drop through label.  Don't fall back to SCC even when conditional
+	jump has not been found.
+
+2004-01-09  Jeff Bailey  <jbailey@nisa.net>
+
+	PR target/12561
+	* config/t-gnu: Rename SYSTEM_HEADER_DIR to NATIVE_SYSTEM_HEADER_DIR.
+
+2004-01-09  Richard Henderson  <rth@redhat.com>
+
+	* recog.c (constrain_operands): Validate mem operands.
+
+2004-01-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR target/13069
+	Backport the following from mainline: 
+
+	2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
+        * config/sh/rtemself.h (TARGET_OS_CPP_BUILTINS): Use instead of
+        CPP_PREDEFINES.
+        * config/sh/rtems.h (TARGET_OS_CPP_BUILTINS): Use instead of
+        CPP_PREDEFINES.
+
+	2003-09-27  Kelley Cook  <kcook@gcc.gnu.org>
+	* config/sh/rtemself.h, config/sh/rtems.h: GNU CC -> GCC.
+
 2003-12-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/unwind-ia64.c (ia64_copy_rbs): New function.
