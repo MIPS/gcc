@@ -1,5 +1,12 @@
 2002-11-26  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure: Remove skip-this-dir support.
+	* Makefile.tpl: Remove skip-this-dir support.
+
+	* Makefile.tpl: Remove leftover support for non-autoconfiscated
+	subdirectories.
+	* Makefile.in: Regenerate.
+
 	* Makefile.tpl: Strip out useless setting of 'dir'.
 	* Makefile.in: Regenerate.
 	

@@ -864,24 +864,11 @@ configure-build-[+module+]:
 	      srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	      libsrcdir="$$s/[+module+]"; \
 	    fi; \
-	    if [ -f $${libsrcdir}/configure ] ; then \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-		$(BUILD_CONFIGARGS) $${srcdiroption} \
-		--with-build-subdir="$(BUILD_SUBDIR)"; \
-	    else \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $$s/configure \
-		$(BUILD_CONFIGARGS) $${srcdiroption} \
-		--with-build-subdir="$(BUILD_SUBDIR)"; \
-	    fi || exit 1; \
-	    if [ -f skip-this-dir ] ; then \
-	      sh skip-this-dir; \
-	      rm -f skip-this-dir; \
-	      cd ..; rmdir [+module+] || true; \
-	    else \
-	      true; \
-	    fi; \
+	    rm -f no-such-file || : ; \
+	    CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	      $(BUILD_CONFIGARGS) $${srcdiroption} \
+	      --with-build-subdir="$(BUILD_SUBDIR)" \
+	      || exit 1; \
 	  else \
 	    true; \
 	  fi; \
@@ -1029,24 +1016,11 @@ configure-target-[+module+]:
 	      srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	      libsrcdir="$$s/[+module+]"; \
 	    fi; \
-	    if [ -f $${libsrcdir}/configure ] ; then \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-		$(TARGET_CONFIGARGS) $${srcdiroption} \
-		--with-target-subdir="$(TARGET_SUBDIR)"; \
-	    else \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $$s/configure \
-		$(TARGET_CONFIGARGS) $${srcdiroption} \
-		--with-target-subdir="$(TARGET_SUBDIR)"; \
-	    fi || exit 1; \
-	    if [ -f skip-this-dir ] ; then \
-	      sh skip-this-dir; \
-	      rm -f skip-this-dir; \
-	      cd ..; rmdir [+module+] || true; \
-	    else \
-	      true; \
-	    fi; \
+	    rm -f no-such-file || : ; \
+	    CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	      $(TARGET_CONFIGARGS) $${srcdiroption} \
+	      --with-target-subdir="$(TARGET_SUBDIR)" \
+	      || exit 1; \
 	  else \
 	    true; \
 	  fi

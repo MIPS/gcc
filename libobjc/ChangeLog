@@ -1,3 +1,8 @@
+2002-11-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Remove skip-this-dir support.
+	* configure: Regenerate.
+
 2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Makefile.in (all): Fix multilib parallel build.
