@@ -1,3 +1,26 @@
+2003-01-31  Loren J. Rittle <ljrittle@acm.org>
+
+	* gcc.dg/struct-ret-libc.c: New test.
+
+2003-01-31  Paolo Carlini  <pcarlini@unitus.it>
+
+	Further tweaks for Bison-1.875.
+	* gcc.dg/cpp/assert_trad2.c: Test for "(parse|syntax) error".
+	* gcc.dg/cpp/direct2s.c: Likewise.
+	* g++.dg/lookup/using2.C: Likewise.
+	* g++.dg/parse/angle-bracket.C: Likewise.
+	* g++.dg/template/typename3.C: Likewise.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9433
+	* g++.dg/abi/dcast1.C: New test.
+
+2003-01-27  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/47
+	* g++.old-deja/g++.other/lookup24.C: New test.
+
 2003-01-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/compile/20020129-1.c: New test.

@@ -1,3 +1,19 @@
+2003-01-28  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* include/Makefile.am (install-data-local): Prepend
+	$(DESTDIR) to destination paths in all (un)installation
+	commands.  Use ${c_base_builddir} and ${std_builddir}
+	as destination subdirectories to achieve consistency with
+	preceding mkinstalldirs commands.  No effect because both
+	variables contain "." only.
+	* include/Makefile.in: Regenerate.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9433
+	* libsupc++/tinfo.cc (__vmi_class_type_info::__do_dyncast): Cope
+	with bases which are very ambiguous.
+
 2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
 
 	* acinclude.m4 (glibcpp_toolexeclibdir): Instead of

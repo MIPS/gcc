@@ -1,3 +1,45 @@
+2003-01-29	Joel Sherrill <joel@OARcorp.com>
+
+	* 5rosinte.ads: Add SIGXCPU.
+	* 5rtpopsp.adb: New file.
+	* Make-lang.in: Do not build gnatpsta and gnatpsys when cross.
+	* Makefile.in: Recognize more RTEMS targets and add the RTEMS
+	specific file 5rtpopsp.adb.
+	* adaint.h: Add include of <stdio.h> when target is RTEMS.  This
+	is likely needed for all newlib targets.
+	* init.c: Add RTEMS specific version of __gnat_initialize().
+
+2003-01-29  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (gnattools, ada.install-common):
+	Complete indentation fixes.
+	(ada.install-common): Now really remove the erroneous and
+	redundant gnatchop installation commands.
+
+2003-01-28  Laurent Guerby <guerby@acm.org>
+
+	PR ada/8344
+	* final.c: rename to adafinal.c to avoid file name conflicts with gcc file.
+        * Makefile.in: match previous change. 
+	
+2003-01-28  Christian Cornelssen <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-common): Let $(DESTDIR)$(bindir)
+	be created if necessary.  Remove erroneous and redundant
+	gnatchop installation commands.  Test for gnatdll before
+	attempting to install it.  Use initial tab instead of spaces
+	in continuation lines.
+	(ada.uninstall): Uninstall gnat instead of gnatcmd.
+	Also uninstall gnatfind, gnatxref, gnatlbr, and gnatdll
+	from all plausible locations.
+
+	* Make-lang.in (ada.install-common, ada.uninstall):
+	Prepend $(DESTDIR) to the destination directory in all
+	(un)installation commands.
+	* Makefile.in (install-gnatlib): Ditto.  Rewrite $(LN)
+	commands to support DESTDIR with "ln" as well as with
+	"ln -s".
+
 2002-05-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* Make-lang.in (ada.stage[1-4]): Depend on stage?-start.
@@ -2715,3 +2757,14 @@ Thu Nov 15 18:16:17 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2001-10-02  Geert Bosch  <bosch@gnat.com>
 
 	* misc.c (insert_default_attributes): Add dummy version.
+2003-01-27  Christian Cornelssen <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (ada.install-common): Let $(DESTDIR)$(bindir)
+	be created if necessary.  Remove erroneous and redundant
+	gnatchop installation commands.  Test for gnatdll before
+	attempting to install it.  Use initial tab instead of spaces
+	in continuation lines.
+	(ada.uninstall): Uninstall gnat instead of gnatcmd.
+	Also uninstall gnatfind, gnatxref, gnatlbr, and gnatdll
+	from all plausible locations.
+
