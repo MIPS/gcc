@@ -1,3 +1,16 @@
+2004-12-05  Dale Johannesen  <dalej@apple.com>
+
+        * except.c (get_maybe_saved_eh_throw_stmt_table):  Remove.
+        * except.h (get_maybe_saved_eh_throw_stmt_table):  Remove.
+        * tree-eh.c (duplicate_stmt_eh_region_mapping):   Call
+        get_eh_throw_stmt_table instead of above.
+        * tree-inline.c (struct inline_data):  Add callee_cfun.
+        (copy_body_r):  Use it.
+        (copy_cfg_body):  Set and use it.
+        (clone_body):  Set it.
+        (save_body):  Set it.
+
+
 2004-12-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* c-typeck.c (tagged_tu_seen): Add val field.
