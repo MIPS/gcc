@@ -50,7 +50,7 @@ MAKEOVERRIDES =
 # This must come before the language makefile fragments to allow them to
 # add suffixes and rules of their own.
 .SUFFIXES:
-.SUFFIXES: .c .o .po .pox .gmo
+.SUFFIXES: .c .s .o .po .pox .gmo
 
 # -------------------------------
 # Standard autoconf-set variables
@@ -728,8 +728,11 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/config -I$(srcdir)/../include @INCINTL@
 
 # Always use -I$(srcdir)/config when compiling.
+CC_MAYBE_SERVER = $(CC)
 .c.o:
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
+	$(CC_MAYBE_SERVER) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
+.c.s:
+	$(CC_MAYBE_SERVER) -S $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 #
 # Support for additional languages (other than C).
@@ -4038,3 +4041,62 @@ po/$(PACKAGE).pot: force
 	$(MAKE) po-generated
 	AWK=$(AWK) $(SHELL) $(srcdir)/po/exgettext \
 		$(XGETTEXT) $(PACKAGE) $(srcdir)
+
+XTEST_TARGET = $(LIBCPP_OBJS)
+TEST_TARGET = cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
+ cpphash.o cpperror.o cppinit.o cppcharset.o hashtable.o line-map.o \
+ mkdeps.o cpppch.o \
+ alias.o bb-reorder.o builtins.o caller-save.o calls.o	  	   \
+ cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
+ cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o \
+ cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
+ dbxout.o debug.o df.o diagnostic.o dojump.o doloop.o dominance.o	   \
+ dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
+ expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
+ ggc-common.o global.o graph.o haifa-sched.o hooks.o ifcvt.o		   \
+ integrate.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
+ loop.o optabs.o opts.o params.o postreload.o predict.o	   \
+ print-rtl.o print-tree.o value-prof.o					   \
+ profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
+ real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
+ reload.o reload1.o reorg.o resource.o rtlanal.o rtl-error.o	   \
+ sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
+ sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
+ stor-layout.o stringpool.o timevar.o tracer.o tree.o tree-dump.o \
+ unroll.o varasm.o varray.o version.o xcoffout.o		   \
+ alloc-pool.o et-forest.o cfghooks.o bt-load.o pretty-print.o
+#bitmap.o insn-attrtab.o insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o rtl.o intl.o
+#vmsdbgout.o
+
+test-clean: source.list
+	rm -f $(TEST_TARGET) ./cc1-server
+
+start-server:
+	stage2/cc1 -fserver $(BOOT_CFLAGS) -Werror $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES)  -isystem include -isystem stage2/include -quiet
+
+source.list: Makefile
+	rm -f source.list
+	for file in $(TEST_TARGET); do \
+	  echo $(srcdir)/$$file|sed -e 's|[.]o|.c|' >>source.list; done
+
+recompile-with-server: source.list
+	$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) --server -Bstage2/ -B$(build_tooldir)/bin/ -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  `cat source.list`
+	stage2/xgcc --kill-server
+
+recompile-without-server: source.list
+	$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/ -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  `cat source.list`
+	   
+remake-with-server:
+	$(MAKE) $(TEST_TARGET) CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" CC_MAYBE_SERVER="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) --server -Bstage2/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" \
+		 STAGE_PREFIX=stage2/ \
+		 $(POSTSTAGE1_FLAGS_TO_PASS) \
+		 $(STAGE2_FLAGS_TO_PASS)
+	stage2/xgcc --kill-server
+
+remake-without-server:
+	$(MAKE) $(TEST_TARGET) CC="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" CC_MAYBE_SERVER="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage2/xgcc$(exeext) -Bstage2/ -B$(build_tooldir)/bin/" \
+		 STAGE_PREFIX=stage2/ \
+		 $(POSTSTAGE1_FLAGS_TO_PASS) \
+		 $(STAGE2_FLAGS_TO_PASS)

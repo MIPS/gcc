@@ -1,5 +1,10 @@
 2003-12-01  Per Bothner  <pbothner@apple.com>
 
+	* Makefile.in:  New rules to help testing the compile-server by
+	using it to (re-)compile parts of gcc.
+
+2003-12-01  Per Bothner  <pbothner@apple.com>
+
 	* cppfiles.c (_cpp_pop_file_buffer):  Free buffer if main file.
 
 2003-12-01  Per Bothner  <pbothner@apple.com>
