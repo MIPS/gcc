@@ -1,3 +1,9 @@
+2003-12-08  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-must-alias.c (tree_compute_must_alias): Use
+	num_call_clobbered_vars and call_clobbered_var() instead of
+        poking in the call_clobbered_vars varray directly.
+
 2003-12-11  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (cgraph_function_possibly_inlined_p): Fix syntax error on

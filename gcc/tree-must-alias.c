@@ -87,9 +87,9 @@ tree_compute_must_alias (tree fndecl, bitmap vars_to_rename,
 
   /* Now traverse the original list of addressable variables and remove
      those whose addresses are not needed anymore.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (call_clobbered_vars); i++)
+  for (i = 0; i < num_call_clobbered_vars; i++)
     {
-      tree var = VARRAY_TREE (call_clobbered_vars, i);
+      tree var = call_clobbered_var (i);
       var_ann_t ann = var_ann (var);
       
       /* We are only interested in disambiguating addressable locals.  */
