@@ -40,8 +40,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* APPLE LOCAL dynamic-no-pic */
+/* APPLE LOCAL begin dynamic-no-pic */
 extern int machopic_symbol_defined_p (rtx);
+/* APPLE LOCAL end dynamic-no-pic */
 
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""

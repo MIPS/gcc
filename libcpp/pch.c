@@ -223,7 +223,7 @@ count_defs (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn, void *ss_p)
       {
 	struct cpp_string news;
 	void **slot;
-
+	
 	news.len = NODE_LEN (hn);
 	news.text = NODE_NAME (hn);
 	slot = htab_find (ss->definedhash, &news);
@@ -474,7 +474,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
 	  || h->type != NT_MACRO
 	  || h->flags & NODE_POISONED)
 	{
-          if (CPP_OPTION (r, warn_invalid_pch))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 		       "%s: not used because `%.*s' not defined",
 		       name, m.name_length, namebuf);

@@ -1685,6 +1685,6 @@ store_init_value (tree decl ATTRIBUTE_UNUSED, tree init ATTRIBUTE_UNUSED)
 {
   gcc_assert(0);
 }
-/* APPLE LOCAL begin AltiVec */
+/* APPLE LOCAL end AltiVec */
 
 #include "gt-fortran-trans-types.h"

@@ -159,7 +159,7 @@ extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_output_stub (FILE *, const char *, const char *);
-/* APPLE LOCAL begin deep branch prediction.  */
+/* APPLE LOCAL deep branch prediction.  */
 extern void darwin_textcoal_nt_section (void);
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);

@@ -105,15 +105,13 @@ extern void darwin_x86_file_end (void);
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | (0 & MASK_128BIT_LONG_DOUBLE) | MASK_ALIGN_DOUBLE)
 /* APPLE LOCAL end mainline 2005-03-23 long double & align double */
 
-/* APPLE LOCAL deletion dynamic-no-pic */
-
 /* APPLE LOCAL begin dynamic-no-pic */
 /* Darwin switches.  */
 /* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
 #define MASK_MACHO_DYNAMIC_NO_PIC (0x00800000)
-/* APPLE LOCAL end dynamic-no-pic */
 
 #define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+/* APPLE LOCAL end dynamic-no-pic */
 
 /* Define the syntax of pseudo-ops, labels and comments.  */
 

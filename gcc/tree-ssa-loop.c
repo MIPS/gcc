@@ -58,15 +58,14 @@ tree_loop_optimizer_init (FILE *dump)
   if (!loops)
     return NULL;
 
-  /* Creation of preheaders may create redundant phi nodes (if the loop is
+  /* Creation of preheaders may create redundant phi nodes if the loop is
      entered by more than one edge, but the initial value of the induction
-     variable is the same on all of them).  */
+     variable is the same on all of them.  */
   kill_redundant_phi_nodes ();
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
 
   rewrite_into_loop_closed_ssa ();
-
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif

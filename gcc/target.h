@@ -472,7 +472,7 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
- /* Gimplifies a VA_ARG_EXPR.  */
+  /* Gimplifies a VA_ARG_EXPR.  */
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
 				 tree *post_p);
 

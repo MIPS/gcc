@@ -102,19 +102,16 @@ proc check_weak_available { } {
     }
 }
 
+# APPLE LOCAL begin mainline 4.0 2005-03-25
 ###############################
-/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
 # proc check_visibility_available { what_kind }
-/* APPLE LOCAL end mainline 4.0 2005-03-25 */
 ###############################
 
 # The visibility attribute is only support in some object formats
 # This proc returns 1 if it is supported, 0 if not.
-/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
 # The argument is the kind of visibility, default/protected/hidden/internal.
 
 proc check_visibility_available { what_kind } {
-/* APPLE LOCAL end mainline 4.0 2005-03-25 */
     global visibility_available_saved
     global tool
     global target_triplet
@@ -124,7 +121,6 @@ proc check_visibility_available { what_kind } {
         return 0
     }
 
-/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
     if [string match "" $what_kind] { set what_kind "hidden" }
 
     if { [info exists visibility_available_saved] } {
@@ -133,10 +129,8 @@ proc check_visibility_available { what_kind } {
 	    return 1
 	} elseif { [ lsearch -exact $visibility_available_saved "!$what_kind" ] != -1 } {
 	    return 0
-/* APPLE LOCAL end mainline 4.0 2005-03-25 */
 	}
     }
-/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
 
     set lines [get_compiler_messages visibility object "
 	void f() __attribute__((visibility(\"$what_kind\")));
@@ -150,8 +144,8 @@ proc check_visibility_available { what_kind } {
 	lappend visibility_available_saved "!$what_kind"
     }
     return $answer
-/* APPLE LOCAL end mainline 4.0 2005-03-25 */
 }
+# APPLE LOCAL end mainline 4.0 2005-03-25
 
 ###############################
 # proc check_alias_available { }

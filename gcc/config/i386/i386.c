@@ -4089,14 +4089,14 @@ output_set_got (rtx dest)
       /* APPLE LOCAL end deep branch prediction pic-base */
     }
 
-  /* APPLE LOCAL deep branch prediction pic-base */
+  /* APPLE LOCAL begin deep branch prediction pic-base */
 #if !TARGET_MACHO
   if (!flag_pic || TARGET_DEEP_BRANCH_PREDICTION)
     output_asm_insn ("add{l}\t{%1, %0|%0, %1}", xops);
   else if (!TARGET_MACHO)
     output_asm_insn ("add{l}\t{%1+[.-%a2], %0|%0, %a1+(.-%a2)}", xops);
 #endif	/* !TARGET_MACHO */
-  /* APPLE LOCAL deep branch prediction pic-base */
+  /* APPLE LOCAL end deep branch prediction pic-base */
 
   return "";
 }
@@ -5107,10 +5107,8 @@ legitimate_constant_p (rtx x)
       /* APPLE LOCAL begin dynamic-no-pic */
       if (TARGET_MACHO && TARGET_DYNAMIC_NO_PIC)
 	return machopic_symbol_defined_p (x);
-      /* APPLE LOCAL end dynamic-no-pic */
       break;
 
-      /* APPLE LOCAL begin dynamic-no-pic */
     case PLUS:
       {
 	rtx left = XEXP (x, 0);
@@ -5450,7 +5448,6 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	      reason = "displacement is an invalid pic construct";
 	      goto report_error;
 	    }
-	  /* APPLE LOCAL begin dynamic-no-pic */
 	  else if (TARGET_DYNAMIC_NO_PIC && !legitimate_constant_p (disp))
 	    {
 	      reason = "displacment must be referenced via non_lazy_pointer";

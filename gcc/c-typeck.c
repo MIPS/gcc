@@ -2861,7 +2861,6 @@ lvalue_p (tree ref)
       return 0;
     }
 }
-
 
 /* Give an error for storing in something that is 'const'.  */
 
