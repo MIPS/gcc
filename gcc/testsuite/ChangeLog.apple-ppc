@@ -1,3 +1,7 @@
+2005-03-31  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-55.c:  Include stdio.h.
+
 2005-03-30  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.dg/tree-ssa-chrec/ssa-chrec-[30|31|
