@@ -1377,7 +1377,7 @@ ix86_function_ok_for_sibcall (decl, exp)
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
-  if (flag_pic && (!decl || !TREE_PUBLIC (decl)))
+  if (flag_pic && (!decl || TREE_PUBLIC (decl)))
     return false;
 
   /* If we are returning floats on the 80387 register stack, we cannot
