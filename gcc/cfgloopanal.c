@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "expr.h"
 #include "output.h"
+
+#define EL_RTX
 #include "algebraic.h"
 
 struct unmark_altered_insn_data;
@@ -932,14 +934,14 @@ iv_simple_condition_p (loop, condition, values, desc)
   op0 = XEXP (scond, 0);
   op1 = XEXP (scond, 1);
 
-  if (!fast_expr_mentions_code_p (op0, ITERATION))
+  if (!fast_expr_mentions_operator_p (op0, ITERATION))
     {
       tmp = op0; op0 = op1; op1 = tmp;
       cond = swap_condition (cond);
     }
   /* This condition is invariant in the loop; this is a work for unswitching,
      not for us.  */
-  if (!fast_expr_mentions_code_p (op0, ITERATION))
+  if (!fast_expr_mentions_operator_p (op0, ITERATION))
     return false;
 
   /* If one of the operands is {SIGN,ZERO}_EXTEND, we work in the narrower
@@ -955,7 +957,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  && (GET_CODE (op0) != GET_CODE (op1)
 	      || GET_MODE (XEXP (op1, 0)) != extend_mode))
 	{
-	  if (fast_expr_mentions_code_p (op1, ITERATION))
+	  if (fast_expr_mentions_operator_p (op1, ITERATION))
 	    {
 	      /* We might try to handle this case if the comparison
 		 is NE; it of course would not work.  */
@@ -971,8 +973,8 @@ iv_simple_condition_p (loop, condition, values, desc)
 
   if (extend_mode != mode)
     {
-      op0 = simplify_alg_expr_subreg (op0, mode, extend_mode);
-      op1 = simplify_alg_expr_subreg (op1, mode, extend_mode);
+      op0 = simplify_alg_expr_shorten (op0, mode, extend_mode);
+      op1 = simplify_alg_expr_shorten (op1, mode, extend_mode);
     }
   mode = extend_mode;
   desc->mode = mode;

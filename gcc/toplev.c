@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "vpt.h"
 #include "hosthooks.h"
 #include "cgraph.h"
+#define EL_RTX
 #include "algebraic.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)

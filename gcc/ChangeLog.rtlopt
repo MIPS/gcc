@@ -1,3 +1,18 @@
+2003-06-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* el-rtx.h: New.
+	* Makefile.in (toplev.o, cfgloopanal.o, loop-iv.o, algebraic.o):
+	Add el-rtx.h dependency.
+	(gt-algebraic.h): Cancel.
+	* algebraic.c: Use generic algebraic expression hooks.
+	* algebraic.h: Use generic algebraic expression hooks.
+	* cfgloopanal.c: Define EL_RTX.
+	(iv_simple_condition_p): Adapt for renamed functions.
+	* loop-iv.c: Define EL_RTX.
+	(iv_make_initial_value, record_iv_occurences): Adapt for renamed
+	functions.
+	* toplev.c: Define EL_RTX.
+
 2003-06-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (algebraic.o): Add ggc.h dependency.

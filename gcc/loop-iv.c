@@ -32,6 +32,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "function.h"
 #include "df.h"
+
+#define EL_RTX
 #include "algebraic.h"
 
 /* We perform induction variable analysis here.  We expect the loops to be
@@ -1167,7 +1169,7 @@ iv_make_initial_value (loop, insn, expr, regno)
 {
   int original = true;
 
-  if (fast_expr_mentions_code_p (expr, INITIAL_VALUE))
+  if (fast_expr_mentions_operator_p (expr, INITIAL_VALUE))
     {
       expr = substitute_into_expr (expr, iv_interesting_reg,
 				   initial_values[loop->num], SIE_SIMPLIFY);
@@ -1181,7 +1183,7 @@ iv_make_initial_value (loop, insn, expr, regno)
 
   if (original)
     {
-      if (!fast_expr_mentions_code_p (expr, ITERATION))
+      if (!fast_expr_mentions_operator_p (expr, ITERATION))
 	return expr;
       expr = copy_rtx (expr);
     }
@@ -1411,13 +1413,13 @@ record_iv_occurences (to, insn)
   for (; use; use = use->next)
     if (DF_REF_REG_MEM_P (use->ref)
 	&& TEST_BIT (iv_interesting_reg, DF_REF_REGNO (use->ref))
-	&& fast_expr_mentions_code_p ((rtx) use->ref->aux, ITERATION))
+	&& fast_expr_mentions_operator_p ((rtx) use->ref->aux, ITERATION))
       break;
   if (!use)
     {
       for (; def; def = def->next)
 	if (TEST_BIT (iv_interesting_reg, DF_REF_REGNO (def->ref))
-	    && fast_expr_mentions_code_p ((rtx) def->ref->aux, ITERATION))
+	    && fast_expr_mentions_operator_p ((rtx) def->ref->aux, ITERATION))
 	  break;
       if (!def)
 	return;
