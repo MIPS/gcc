@@ -3630,14 +3630,16 @@ build_bounded_ptr_constructor (addr)
 }
 
 /* Return nonzero if type is an array type, or is a struct or union
-   type (possibly nested) that possesses a final member of array type.
-   An array, or a struct with a final array member migth have variable
-   length, so we must refer to its bounds-checking high_bound symbolically.  */
+   type (possibly nested) that possesses a flexible array member.  An
+   array, or a struct with a flexible array member might have variable
+   length, so we must refer to its bounds-checking high_bound
+   symbolically.  */
 
 int
 variable_high_bound_p (type)
      tree type;
 {
+  /* GKM FIXME: This is too permissive: only zero-length array members are FAMs.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
     return 1;
   else if (TREE_CODE (type) == RECORD_TYPE
@@ -6242,11 +6244,15 @@ pop_init_level (implicit)
 	assemble_zeros (size - tree_low_cst (filled, 1));
     }
 
-  /* If the final field of an initialized struct is a variable-length
-     array, increment the decl's size according to the number of
+  /* If the final field of an initialized struct is a flexible array
+     member, increment the decl's size according to the number of
      excess array elements.  */
   if (constructor_decl && constructor_depth == 2
       && constructor_fields && FINAL_FIELD_P (constructor_fields)
+      && TREE_CODE (p->type) != ARRAY_TYPE
+      /* GKM FIXME: the array could be nested deeper, but then we'd
+	 need to dig deeper to find eltype.  */
+      && TREE_CODE (constructor_type) == ARRAY_TYPE
       && constructor_index && variable_high_bound_p (constructor_type))
     {
       tree eltype = TREE_TYPE (constructor_type);
