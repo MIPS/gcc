@@ -61,9 +61,6 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_connectSignals
 
   if (GTK_IS_ENTRY(ptr))
     {
-      g_signal_connect (GTK_ENTRY (ptr)->im_context, "commit",
-                        G_CALLBACK (textcomponent_commit_cb), *gref);
-
       g_signal_connect (GTK_EDITABLE (ptr), "changed",
                         G_CALLBACK (textcomponent_changed_cb), *gref);
 
@@ -85,9 +82,6 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_connectSignals
 
       if (text)
 	{
-          g_signal_connect (text->im_context, "commit",
-                            G_CALLBACK (textcomponent_commit_cb), *gref);
-
           buf = gtk_text_view_get_buffer (text);
           if (buf)
             g_signal_connect (buf, "changed",
@@ -112,8 +106,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getCaretPosition
 {
   void *ptr;
   int pos = 0;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextMark *mark;
   GtkTextIter iter;
@@ -157,8 +151,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setCaretPosition
   (JNIEnv *env, jobject obj, jint pos)
 {
   void *ptr;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextIter iter;
 
@@ -198,8 +192,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionStart
 {
   void *ptr;
   int pos = 0;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextIter start;
   GtkTextIter end;
@@ -255,8 +249,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getSelectionEnd
 {
   void *ptr;
   int pos = 0;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextIter start;
   GtkTextIter end;
@@ -311,8 +305,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_select
   (JNIEnv *env, jobject obj, jint start, jint end)
 {
   void *ptr;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextIter iter;
 
@@ -357,8 +351,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setEditable
   (JNIEnv *env, jobject obj, jboolean state)
 {
   void *ptr;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
 
   ptr = NSA_GET_PTR (env, obj);
 
@@ -396,8 +390,8 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_getText
   void *ptr;
   char *contents = NULL;
   jstring jcontents;
-  GtkEditable *editable;    // type of GtkEntry    (TextField)
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkEditable *editable;
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
   GtkTextIter start, end;
 
@@ -444,7 +438,7 @@ Java_gnu_java_awt_peer_gtk_GtkTextComponentPeer_setText
 {
   void *ptr;
   const char *str;
-  GtkWidget *text = NULL;   // type of GtkTextView (TextArea)
+  GtkWidget *text = NULL;
   GtkTextBuffer *buf;
 
   ptr = NSA_GET_PTR (env, obj);

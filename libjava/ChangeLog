@@ -1,5 +1,16 @@
 2004-05-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
+	(gtkWidgetRequestFocus): New method.
+	* java/awt/TextArea.java (TextArea): Set focus traversal keys to
+	disable Tab and Shift-Tab keystrokes.
+	(addNotify, appendText, insertText, replaceText): Simplify peer
+	retrieval code.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c
+	(connectSignals): Remove connections to "commit" signals.
+	Remove C++-style comments.
+
 	* gnu/java/awt/peer/gtk/GtkButtonPeer.java,
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
 	(handleEvent): Activate GTK button when the space bar key is

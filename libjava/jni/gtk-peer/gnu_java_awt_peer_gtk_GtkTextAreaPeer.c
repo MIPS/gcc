@@ -173,6 +173,24 @@ Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_gtkSetFont
   (*env)->ReleaseStringUTFChars (env, name, font_name);
 }
 
+JNIEXPORT void JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_gtkWidgetRequestFocus
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  GtkWidget *text;
+
+  ptr = NSA_GET_PTR (env, obj);
+  
+  gdk_threads_enter ();
+
+  text = GTK_WIDGET (TEXT_FROM_SW (ptr));
+
+  gtk_widget_grab_focus (text);
+
+  gdk_threads_leave ();
+}
+
 JNIEXPORT jint JNICALL
 Java_gnu_java_awt_peer_gtk_GtkTextAreaPeer_getHScrollbarHeight
   (JNIEnv *env, jobject obj)
