@@ -4834,7 +4834,7 @@ get_parm_info (bool ellipsis)
 		}
 	    }
 
-	  tags = tree_cons (b->id, decl, tags);
+	  tags = tree_cons (NULL_TREE, decl, tags);
 	  break;
 
 	case CONST_DECL:
@@ -5873,8 +5873,8 @@ store_parm_decls_newstyle (tree fndecl, const struct c_arg_info *arg_info)
 
   /* And all the tag declarations.  */
   for (decl = arg_info->tags; decl; decl = TREE_CHAIN (decl))
-    if (TREE_PURPOSE (decl))
-      bind (TREE_PURPOSE (decl), TREE_VALUE (decl), current_scope,
+    if (TYPE_NAME (TREE_VALUE (decl)))
+      bind (TYPE_NAME (TREE_VALUE (decl)), TREE_VALUE (decl), current_scope,
 	    /*invisible=*/false, /*nested=*/false);
 }
 

@@ -1,3 +1,10 @@
+2004-10-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-decl.c (get_parm_info): Don't save b->id in the TREE_PURPOSE
+	of the list element.
+	(store_parm_decls_newstyle): Use TYPE_NAME of the type rather than
+	* c-tree.h (struct c_arg_info): Correct comment for field 'tags'.
+
 2004-09-30  Geoffrey Keating  <geoffk@apple.com>
 
 	General changes that apply to every file listed:

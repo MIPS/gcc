@@ -230,7 +230,7 @@ enum c_declarator_kind {
 struct c_arg_info {
   /* A list of parameter decls.  */
   tree parms;
-  /* A list of structure, union and enum tags defined.  */
+  /* A list of structure, union and enum types defined.  */
   tree tags;
   /* A list of argument types to go in the FUNCTION_TYPE.  */
   tree types;
