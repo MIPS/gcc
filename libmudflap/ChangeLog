@@ -1,3 +1,7 @@
+2002-12-19  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.h.in (HAVE_UINTPTR_T): Define unconditionally.
+
 2002-11-08  Frank Ch. Eigler  <fche@redhat.com>
 	
 	* mf-runtime.c (options): Add new "wipe-heap", "wipe-stack"

@@ -7,10 +7,15 @@
 #include <stdint.h>
 #else
 # if !defined (HAVE_UINTPTR_T)
-# define HAVE_UINTPTR_T
 typedef unsigned long uintptr_t;
 # endif
 #endif
+/* Define this here, in case an autoconf application was run without CFLAGS=-fmudflap
+   but is being compiled with -fmudflap.  */
+#define HAVE_UINTPTR_T 1
+
+
+/* XXX: these macros should be in an __MF*-like namespace. */
 
 #define MINPTR ((uintptr_t) 0)
 #define MAXPTR (~ (uintptr_t) 0)
