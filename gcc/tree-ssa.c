@@ -2393,4 +2393,48 @@ get_def_blocks_for (tree var)
   return (struct def_blocks_d *) htab_find (def_blocks, &dm);
 }
 
+/* Return true if EXPR is a useless type conversion, otherwise return
+   false.  */
+
+bool
+tree_ssa_useless_type_conversion (tree expr)
+{
+  /* If we have an assignment that merely uses a NOP_EXPR to change
+     the top of the RHS to the type of the LHS and the type conversion
+     is "safe", then strip away the type conversion so that we can
+     enter LHS = RHS into the const_and_copies table.  */
+  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
+    {
+      tree outer_type = TREE_TYPE (expr);
+      tree inner_type = TREE_TYPE (TREE_OPERAND (expr, 0));
+
+      /* If the inner and outer types are effectively the same, then
+         strip the type conversion and enter the equivalence into
+         the table.  */
+      if (inner_type == outer_type
+	  || TYPE_MAIN_VARIANT (inner_type) == TYPE_MAIN_VARIANT (outer_type))
+        return true;
+
+      /* If the outer type is a (void *), then we can enter the
+         equivalence into the table.  The opposite is not true since
+         that conversion would result in a loss of information if
+         the equivalence was used.  Consider an indirect function call
+         where we need to know the exact type of the function to
+         correctly implement the ABI.  */
+      else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+	       && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
+	return true;
+
+      /* If both the inner and outer types are integral types, then
+         we can enter the equivalence if they have the same mode
+         and signedness.  */
+      else if (INTEGRAL_TYPE_P (inner_type) && INTEGRAL_TYPE_P (outer_type)
+	       && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
+	       && TREE_UNSIGNED (inner_type) == TREE_UNSIGNED (outer_type))
+	return true;
+    }
+
+  return false;
+}
+
 #include "gt-tree-ssa.h"

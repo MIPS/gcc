@@ -732,45 +732,11 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   if (TREE_CODE (stmt) == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
     {
-      tree rhs;
+      tree rhs = TREE_OPERAND (stmt, 1);
 
-      rhs = TREE_OPERAND (stmt, 1);
-
-      /* Some NOP_EXPRs are totally uninteresting and get in the way
-	 to optimizing as they prevent equivalences from being recognized.
-
-	 If we have an assignment that merely uses a NOP_EXPR to change
-	 the top of the RHS to the type of the LHS and the type conversion
-	 is "safe", then strip away the type conversion so that we can
-	 enter LHS = RHS into the const_and_copies table.  */
-      if (TREE_CODE (rhs) == NOP_EXPR)
-	{
-	  tree outer_type = TREE_TYPE (rhs);
-	  tree inner_type = TREE_TYPE (TREE_OPERAND (rhs, 0));
-
-	  /* If the inner and outer types are effectively the same, then
-	     strip the type conversion and enter the equivalence into
-	     the table.  */
-	  if (TYPE_MAIN_VARIANT (inner_type) == TYPE_MAIN_VARIANT (outer_type)
-	      || outer_type == inner_type)
-	    STRIP_MAIN_TYPE_NOPS (rhs);
-	  /* If the outer type is a (void *), then we can enter the
-	     equivalence into the table.  The opposite is not true since
-	     that conversion would result in a loss of information if
-	     the equivalence was used.  Consider an indirect function call
-	     where we need to know the exact type of the function to
-	     correctly implement the ABI.  */
-	  else if (POINTER_TYPE_P (outer_type) && POINTER_TYPE_P (inner_type))
-	    {
-	      if (TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
-		rhs = TREE_OPERAND (rhs, 0);
-	    }
-	  /* If both the inner and outer types are integral types, then
-	     we can enter the equivalence if they have the same mode
-	     and signedness.  */
-	  else if (INTEGRAL_TYPE_P (outer_type) && INTEGRAL_TYPE_P (inner_type))
-	    STRIP_SIGN_NOPS (rhs);
-	}
+      /* Strip away any useless type conversions.  */
+      while (tree_ssa_useless_type_conversion (rhs))
+	rhs = TREE_OPERAND (rhs, 0);
 
       if (may_optimize_p)
 	{

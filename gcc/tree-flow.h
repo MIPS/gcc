@@ -470,6 +470,7 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern void set_is_used (tree);
+extern bool tree_ssa_useless_type_conversion (tree);
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree);

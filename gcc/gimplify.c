@@ -43,10 +43,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 
 static void gimplify_constructor (tree, tree *, tree *);
-static void gimplify_array_ref (tree *, tree *, tree *);
+static void gimplify_array_ref (tree *, tree *, tree *, int);
 static void gimplify_array_ref_to_plus (tree *, tree *, tree *);
-static void gimplify_compound_lval (tree *, tree *, tree *);
-static void gimplify_component_ref (tree *, tree *, tree *);
+static void gimplify_compound_lval (tree *, tree *, tree *, int);
+static void gimplify_component_ref (tree *, tree *, tree *, int);
 static void gimplify_call_expr (tree *, tree *, tree *, int (*) (tree));
 static void gimplify_tree_list (tree *, tree *, tree *);
 static void gimplify_modify_expr (tree *, tree *, tree *, int);
@@ -409,11 +409,11 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case ARRAY_REF:
-	  gimplify_array_ref (expr_p, pre_p, post_p);
+	  gimplify_array_ref (expr_p, pre_p, post_p, fallback & fb_lvalue);
 	  break;
 
 	case COMPONENT_REF:
-	  gimplify_component_ref (expr_p, pre_p, post_p);
+	  gimplify_component_ref (expr_p, pre_p, post_p, fallback & fb_lvalue);
 	  break;
 
 	case COND_EXPR:
@@ -477,15 +477,42 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	      *expr_p = TREE_OPERAND (*expr_p, 0);
 	      break;
 	    }
-	  /* Only keep the outermost NOP/CONVERT.  */
-	  STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
-	  /* And not even that if it's useless.  */
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
+
+	  /* If a NOP conversion is changing the type of a COMPONENT_REF
+	     expression, then it is safe to force the type of the
+	     COMPONENT_REF to be the same as the type of the field the
+	     COMPONENT_REF is accessing.
+
+	     This is a profitable thing to do as canonicalization of
+	     types on COMPONENT_REFs exposes more redundant COMPONENT_REFs.  */
+	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == COMPONENT_REF)
 	    {
-	      *expr_p = TREE_OPERAND (*expr_p, 0);
-	      break;
+	      TREE_TYPE (TREE_OPERAND (*expr_p, 0))
+		= TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 1));
 	    }
+
+	  /* Strip away as many useless type conversions as possible
+	     at the toplevel.  */
+	  while (tree_ssa_useless_type_conversion (*expr_p))
+	    *expr_p = TREE_OPERAND (*expr_p, 0);
+
+	  /* If we still have a conversion at the toplevel, then strip
+	     away all but the outermost conversion.  */
+	  if (TREE_CODE (*expr_p) == NOP_EXPR
+	      || TREE_CODE (*expr_p) == CONVERT_EXPR)
+	    {
+	      STRIP_SIGN_NOPS (TREE_OPERAND (*expr_p, 0));
+
+	      /* And remove the outermost conversion if it's useless.  */
+	      if (TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p))
+		  == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
+		{
+		  *expr_p = TREE_OPERAND (*expr_p, 0);
+		  break;
+		}
+	    }
+	  else
+	    break;
 
 	case FIX_TRUNC_EXPR:
 	case FIX_CEIL_EXPR:
@@ -1287,7 +1314,8 @@ build_addr_expr (tree t)
     ARRAY_REF should be extended.  */
 
 static void
-gimplify_array_ref (tree *expr_p, tree *pre_p, tree *post_p)
+gimplify_array_ref (tree *expr_p, tree *pre_p,
+		    tree *post_p, int want_lvalue)
 {
 #if 1
   tree elttype = TREE_TYPE (TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
@@ -1298,7 +1326,7 @@ gimplify_array_ref (tree *expr_p, tree *pre_p, tree *post_p)
   else
     /* Handle array and member refs together for now.  When alias analysis
        improves, we may want to go back to handling them separately.  */
-    gimplify_compound_lval (expr_p, pre_p, post_p);
+    gimplify_compound_lval (expr_p, pre_p, post_p, want_lvalue);
 #else
   tree *p;
   varray_type dim_stack;
@@ -1362,7 +1390,8 @@ gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
      *EXPR_P should be stored.  */
 
 static void
-gimplify_compound_lval (tree *expr_p, tree *pre_p, tree *post_p)
+gimplify_compound_lval (tree *expr_p, tree *pre_p,
+			tree *post_p, int want_lvalue)
 {
   tree *p;
   enum tree_code code;
@@ -1414,6 +1443,26 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p, tree *post_p)
 		       fb_rvalue);
       /* Update TREE_SIDE_EFFECTS.  */
       recalculate_side_effects (t);
+    }
+
+  /* Now look at the toplevel expression.  If it is a COMPONENT_REF and
+     the type of the COMPONENT_REF is different than the field being
+     referenced, then wrap the whole thing inside a NOP_EXPR and force
+     the type of the COMPONENT_REF to be the same as the field being
+     referenced.  */
+  if (! want_lvalue
+      && TREE_CODE (*expr_p) == COMPONENT_REF
+      && TREE_TYPE (*expr_p) != TREE_TYPE (TREE_OPERAND (*expr_p, 1)))
+    {
+      tree type_for_nop_expr = TREE_TYPE (*expr_p);
+
+      /* Set the type of the COMPONENT_REF to the type of the field
+	 being referenced.  */
+      TREE_TYPE (*expr_p) = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
+
+      /* And wrap the whole thing inside a NOP_EXPR.  */
+      *expr_p = build1 (NOP_EXPR, type_for_nop_expr, *expr_p);
+      recalculate_side_effects (*expr_p);
     }
 }
 
@@ -1498,12 +1547,13 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
         *EXPR_P should be stored.  */
 
 static void
-gimplify_component_ref (tree *expr_p, tree *pre_p, tree *post_p)
+gimplify_component_ref (tree *expr_p, tree *pre_p,
+			tree *post_p, int want_lvalue)
 {
 #if 1
   /* Handle array and member refs together for now.  When alias analysis
      improves, we may want to go back to handling them separately.  */
-  gimplify_compound_lval (expr_p, pre_p, post_p);
+  gimplify_compound_lval (expr_p, pre_p, post_p, want_lvalue);
 #else
   tree *p;
 
@@ -1999,9 +2049,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 
      FIXME this should be handled by the is_gimple_rhs predicate.  */
   if (! is_gimple_tmp_var (*to_p)
-      && ((TREE_CODE (*from_p) == CALL_EXPR
-	   && ((flag_exceptions && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
-	       || FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)))
+      && (TREE_CODE (*from_p) == CALL_EXPR
 	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
     gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
@@ -2323,6 +2371,7 @@ create_tmp_var (tree type, const char *prefix)
   char *tmp_name;
   char *preftmp = NULL;
   tree tmp_var;
+  tree new_type;
 
   if (prefix)
     {
@@ -2343,7 +2392,8 @@ create_tmp_var (tree type, const char *prefix)
 #endif
 
   /* Make the type of the variable writable.  */
-  type = build_type_variant (type, 0, 0);
+  new_type = build_type_variant (type, 0, 0);
+  TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
 
   tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
 

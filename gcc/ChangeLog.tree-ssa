@@ -5,6 +5,28 @@
 
 2003-08-15  Jeff Law  <law@redhat.com>
 
+	* gimplify.c (gimplify_expr, cases NOP_EXPR, CONVERT_EXPR): If a
+	COMPONENT_REF is wrapped with a NOP_EXPR, then force the type of
+	the COMPONENT_REF to match the accessed field.  Strip away
+	unnecessary type conversions and handle the case where all type
+	conversions were removed.
+	(case ARRAY_REF, COMPONENT_REF): Indicate to gimplify_array_ref
+	and gimplify_component_ref if we want an lvalue or not.
+	(gimplify_array_ref, gimplify_component_ref): Pass new argument
+	WANT_LVALUE through to gimplify_compound_lval.
+	(gimplify_compound_lval): If we do not want an lvalue and the
+	toplevel COMPONENT_REF's type does not match its field's type,
+	then wrap the COMPONENT_REF in a NOP_EXPR and force the 
+	COMPONENT_REF's type to match its field's type.
+	(gimplify_modify_expr): If the RHS is a CALL_EXPR and the LHS
+	is not a gimple temporary, then force the RHS through a gimple
+	temporary, even if the call can not throw.
+	(create_tmp_var): Make sure not to lose the type's attributes
+	for the new variable.
+	* tree-ssa.c (tree_ssa_useless_type_conversion): New function.
+	* tree-flow.h (tree_ssa_useless_type_conversion): Prototype.
+	* tree-ssa-dom.c (optimize_stmt): Use tree_ssa_useless_type_conversion.
+
 	* tree-cfg.c (remove_useless_stmts_and_vars): Catch more
 	useless statements created during the out-of-ssa pass.
 
