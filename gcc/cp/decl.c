@@ -6973,8 +6973,6 @@ check_tag_decl (declspecs)
 	      return NULL_TREE;
 	    }
 
-	  if (TREE_CODE (value) == TYPE_DECL)
-	    value = TREE_TYPE (value);
 	  if (TYPE_P (value)
 	      && (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE))
 	    {
@@ -7010,7 +7008,12 @@ check_tag_decl (declspecs)
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  if (t == NULL_TREE && ! saw_friend && !error_p)
+  /* If the `friend' keyword was present, but no TYPEs appeared among
+     the decl-specifiers, then either there was no type at all, or it
+     was not named as an elaborated-type-specifier/class-specifier.  */
+  if (saw_friend && !t)
+    error ("a class-key must be used when declaring a friend");
+  else if (t == NULL_TREE && ! saw_friend && !error_p)
     pedwarn ("declaration does not declare anything");
 
   /* Check for an anonymous union.  */

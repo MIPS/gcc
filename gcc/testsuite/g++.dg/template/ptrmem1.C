@@ -9,12 +9,12 @@
 template <class C, class T, T C::*M>
 struct Closure
 {
-  T operator() (C & c) const { return (c.*M); } // { dg-error "convert" }
+  T operator() (C & c) const { return (c.*M); }
 };
 
 template <class C, class T, T (C::* M)()>
 struct Closure<C, T (), M>
-{ // { dg-error "involves template parameter" }
+{
   T operator()(C & c) const { return (c.*M)(); }
 };
 
@@ -29,5 +29,5 @@ static Closure<A, int (), & A::get> get_closure;
 void Foo ()
 {
   A a;
-  get_closure (a); // { dg-error "instantiated from here" }
+  get_closure (a);
 }

@@ -1249,6 +1249,10 @@ typedef struct cp_parser GTY(())
      declaration'.  */
   bool in_unbraced_linkage_specification_p;
 
+  /* TRUE if we are presently parsing a declarator, after the
+     direct-declarator.  */
+  bool in_declarator_p;
+
   /* If non-NULL, then we are parsing a construct where new type
      definitions are not permitted.  The string stored here will be
      issued as an error message if a type is defined.  */
@@ -1429,7 +1433,7 @@ static void cp_parser_block_declaration
 static void cp_parser_simple_declaration
   PARAMS ((cp_parser *, bool));
 static tree cp_parser_decl_specifier_seq 
-  PARAMS ((cp_parser *, cp_parser_flags, tree *, bool *, bool *));
+  PARAMS ((cp_parser *, cp_parser_flags, tree *, bool *));
 static tree cp_parser_storage_class_specifier_opt
   PARAMS ((cp_parser *));
 static tree cp_parser_function_specifier_opt
@@ -2375,6 +2379,9 @@ cp_parser_new ()
 
   /* We are not procesing an `extern "C"' declaration.  */
   parser->in_unbraced_linkage_specification_p = false;
+
+  /* We are not processing a declarator.  */
+  parser->in_declarator_p = false;
 
   /* There are no default args to process.  */
   parser->default_arg_types = NULL;
@@ -3418,6 +3425,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
      form a pointer-to-member.  In that case, QUALIFYING_CLASS is the
      class used to qualify the member.  */
   tree qualifying_class = NULL_TREE;
+  bool done;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -3635,15 +3643,15 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
+  done = (token->type != CPP_OPEN_SQUARE
+	  && token->type != CPP_OPEN_PAREN
+	  && token->type != CPP_DOT
+	  && token->type != CPP_DEREF
+	  && token->type != CPP_PLUS_PLUS
+	  && token->type != CPP_MINUS_MINUS);
 
   /* If the postfix expression is complete, finish up.  */
-  if (address_p && qualifying_class
-      && token->type != CPP_OPEN_SQUARE
-      && token->type != CPP_OPEN_PAREN
-      && token->type != CPP_DOT
-      && token->type != CPP_DEREF
-      && token->type != CPP_PLUS_PLUS
-      && token->type != CPP_MINUS_MINUS)
+  if (address_p && qualifying_class && done)
     {
       if (TREE_CODE (postfix_expression) == SCOPE_REF)
 	postfix_expression = TREE_OPERAND (postfix_expression, 1);
@@ -3673,14 +3681,19 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 	  for (fn = fns; fn; fn = OVL_NEXT (fn))
 	    if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
 	      break;
-	  /* If so, the expression is relative to the current class.  */
-	  if (fn)
+	  /* If so, the expression may be relative to the current
+	     class.  */
+	  if (fn && current_class_type 
+	      && DERIVED_FROM_P (qualifying_class, current_class_type))
 	    postfix_expression 
 	      = (build_class_member_access_expr 
 		 (maybe_dummy_object (qualifying_class, NULL),
 		  postfix_expression,
 		  BASELINK_ACCESS_BINFO (postfix_expression),
 		  /*preserve_reference=*/false));
+	  else if (done)
+	    return build_offset_ref (qualifying_class,
+				     postfix_expression);
 	}
     }
 
@@ -6298,8 +6311,7 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
     = cp_parser_decl_specifier_seq (parser, 
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum,
-				    /*friend_is_not_class_p=*/NULL);
+				    &declares_class_or_enum);
   /* We no longer need to defer access checks.  */
   access_checks = cp_parser_stop_deferring_access_checks (parser);
 
@@ -6412,13 +6424,11 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
 
 static tree
 cp_parser_decl_specifier_seq (parser, flags, attributes,
-			      declares_class_or_enum,
-			      friend_is_not_class_p)
+			      declares_class_or_enum)
      cp_parser *parser;
      cp_parser_flags flags;
      tree *attributes;
      bool *declares_class_or_enum;
-     bool *friend_is_not_class_p;
 {
   tree decl_specs = NULL_TREE;
   bool friend_p = false;
@@ -6428,10 +6438,6 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 
   /* Assume there are no attributes.  */
   *attributes = NULL_TREE;
-
-  /* Assume that the object to which friendship can be a class.  */
-  if (friend_is_not_class_p)
-    *friend_is_not_class_p = FALSE;
 
   /* Keep reading specifiers until there are no more to read.  */
   while (true)
@@ -6464,18 +6470,6 @@ cp_parser_decl_specifier_seq (parser, flags, attributes,
 	  decl_spec = token->value;
 	  /* Consume the token.  */
 	  cp_lexer_consume_token (parser->lexer);
-	  /* If friendship is going to be granted to a class, the
-	     standard says that you have to use an
-	     elaborated-type-specifier.  It is not valid to say:
-	        
-	       class A {};
-	       class B { friend A; };  
-
-	     You must write `friend class A' instead.  */
-	  if (friend_is_not_class_p
-	      && !cp_parser_token_is_class_key (cp_lexer_peek_token
-						(parser->lexer)))
-	    *friend_is_not_class_p = true;
 	  break;
 
 	  /* function-specifier:
@@ -7960,8 +7954,7 @@ cp_parser_explicit_instantiation (parser)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum,
-				    /*friend_is_not_class_p=*/NULL);
+				    &declares_class_or_enum);
   /* If there was exactly one decl-specifier, and it declared a class,
      and there's no declarator, then we have an explicit type
      instantiation.  */
@@ -8065,7 +8058,8 @@ cp_parser_explicit_specialization (parser)
    Returns a representation of the type-specifier.  If the
    type-specifier is a keyword (like `int' or `const', or
    `__complex__') then the correspoding IDENTIFIER_NODE is returned.
-   Otherwise, a TYPE_DECL or TREE_TYPE is returned.
+   For a class-specifier, enum-specifier, or elaborated-type-specifier
+   a TREE_TYPE is returned; otherwise, a TYPE_DECL is returned.
 
    If IS_FRIEND is TRUE then this type-specifier is being declared a
    `friend'.  If IS_DECLARATION is TRUE, then this type-specifier is
@@ -9544,7 +9538,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   tree declarator;
   tree scope = NULL_TREE;
   bool saved_default_arg_ok_p = parser->default_arg_ok_p;
-  
+  bool saved_in_declarator_p = parser->in_declarator_p;
+
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* Find the initial direct-declarator.  It might be a parenthesized
@@ -9676,7 +9671,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
     push_scope (scope);
   else
     scope = NULL_TREE;
-  
+  parser->in_declarator_p = true;
+
   /* Now, parse function-declarators and array-declarators until there
      are no more.  */
   while (true)
@@ -9783,6 +9779,7 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
     pop_scope (scope);
 
   parser->default_arg_ok_p = saved_default_arg_ok_p;
+  parser->in_declarator_p = saved_in_declarator_p;
   
   return declarator;
 }
@@ -10272,8 +10269,7 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_NONE,
 				    &attributes,
-				    &declares_class_or_enum,
-				    /*friend_is_not_class_p=*/NULL);
+				    &declares_class_or_enum);
   /* If an error occurred, there's no reason to attempt to parse the
      rest of the declaration.  */
   if (cp_parser_error_occurred (parser))
@@ -10518,8 +10514,7 @@ cp_parser_function_definition (parser, friend_p)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum,
-				    /*friend_is_not_class_p=*/NULL);
+				    &declares_class_or_enum);
   /* Figure out whether this declaration is a `friend'.  */
   if (friend_p)
     *friend_p = cp_parser_friend_p (decl_specifiers);
@@ -11539,7 +11534,6 @@ cp_parser_member_declaration (parser)
   tree decl;
   bool declares_class_or_enum;
   bool friend_p;
-  bool friend_is_not_class_p;
   cp_token *token;
   int saved_pedantic;
 
@@ -11581,8 +11575,7 @@ cp_parser_member_declaration (parser)
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &prefix_attributes,
-				    &declares_class_or_enum,
-				    &friend_is_not_class_p);
+				    &declares_class_or_enum);
   /* If there is no declarator, then the decl-specifier-seq should
      specify a type.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
@@ -11610,17 +11603,14 @@ cp_parser_member_declaration (parser)
 	  /* If there were decl-specifiers, check to see if there was
 	     a class-declaration.  */
 	  type = check_tag_decl (decl_specifiers);
-	  /* If not, the user should have had a declarator.  */
-	  if (!type || !declares_class_or_enum)
-	    error ("expected declarator");
+	  /* If there was no TYPE, an error message will have been
+	     issued if appropriate.  */
+	  if (!type)
+	    ;
 	  /* Nested classes have already been added to the class, but
 	     a `friend' needs to be explicitly registered.  */
 	  else if (friend_p)
-	    {
-	      if (friend_is_not_class_p)
-		error ("friend declaration requires class-key");
-	      make_friend_class (current_class_type, type);
-	    }
+	    make_friend_class (current_class_type, type);
 	  /* An anonymous aggregate has to be handled specially; such
 	     a declaration really declares a data member (with a
 	     particular type), as opposed to a nested class.  */
@@ -12823,7 +12813,9 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	 looking up names in uninstantiated templates.  Even then, we
 	 cannot look up the name if the scope is not a class type; it
 	 might, for example, be a template type parameter.  */
-      dependent_type_p = (TYPE_P (parser->scope) 
+      dependent_type_p = (TYPE_P (parser->scope)
+			  && !(parser->in_declarator_p
+			       && currently_open_class (parser->scope))
 			  && cp_parser_dependent_type_p (parser->scope));
       if ((check_dependency || !CLASS_TYPE_P (parser->scope))
 	   && dependent_type_p)
@@ -13602,8 +13594,7 @@ cp_parser_single_declaration (parser,
     = cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
-				    &declares_class_or_enum,
-				    /*friend_is_not_class_p=*/NULL);
+				    &declares_class_or_enum);
   /* Gather up the access checks that occurred the
      decl-specifier-seq.  */
   access_checks = cp_parser_stop_deferring_access_checks (parser);
