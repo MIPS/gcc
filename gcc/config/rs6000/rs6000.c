@@ -3010,8 +3010,11 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
       if (GET_MODE_BITSIZE (mode) > 32
-          && !(TARGET_HARD_FLOAT && TARGET_FPRS && mode == DFmode))
+          && !(TARGET_HARD_FLOAT && TARGET_FPRS
+               && (mode == DFmode ||
+                   (TARGET_LONG_DOUBLE_128 && mode == DImode))))
 	return false;
+
       return CONSTANT_P (x);
     }
 
@@ -11520,7 +11523,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	     If we use one of the registers to address memory, 
 	     we have change that register last.  */
 
-	  breg = (GET_CODE (XEXP (src, 0)) == PLUS
+	  breg = ((GET_CODE (XEXP (src, 0)) == PLUS 
+		  || GET_CODE (XEXP (src, 0)) == LO_SUM)
 		  ? XEXP (XEXP (src, 0), 0)
 		  : XEXP (src, 0));
 
