@@ -1,3 +1,16 @@
+2003-02-03  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (add_referenced_var): Annotate each item in the
+	REFERENCED_VARS varray with a unique id.
+	* tree-flow.h (struct var_ann_d): Add new uid field.
+	* tree-ssa.c (mark_def_sites): Compute the set of variables
+	live across basic blocks and return them in an sbitmap.
+	(insert_phi_nodes): Use the set of nonlocal variables computed
+	by mark_def_sites to reduce the number of PHI nodes inserted.
+	(rewrite_into_ssa): Updated to deal with changes in
+	insert_phi_nodes and mark_def_sites.  Free the sbitmap returned
+	by mark_def_sites.
+
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-common.h (GOTO_DESTINATION): Remove.  Fix botched

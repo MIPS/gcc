@@ -99,9 +99,9 @@ struct currdef_d
 /* Local functions.  */
 static void init_tree_ssa		PARAMS ((void));
 static void delete_tree_ssa		PARAMS ((tree));
-static void mark_def_sites		PARAMS ((dominance_info));
+static sbitmap mark_def_sites		PARAMS ((dominance_info));
 static void set_def_block		PARAMS ((tree, basic_block));
-static void insert_phi_nodes		PARAMS ((sbitmap *));
+static void insert_phi_nodes		PARAMS ((sbitmap *, sbitmap));
 static void rewrite_block		PARAMS ((basic_block));
 static void rewrite_stmts		PARAMS ((basic_block, varray_type *));
 static void rewrite_stmt		PARAMS ((tree, varray_type *));
@@ -209,6 +209,7 @@ rewrite_into_ssa (fndecl)
      tree fndecl;
 {
   sbitmap *dfs;
+  sbitmap nonlocal_vars;
   dominance_info idom;
   
   timevar_push (TV_TREE_SSA_OTHER);
@@ -228,10 +229,10 @@ rewrite_into_ssa (fndecl)
   compute_may_aliases ();
 
   /* Find variable references and mark definition sites.  */
-  mark_def_sites (idom);
+  nonlocal_vars = mark_def_sites (idom);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs);
+  insert_phi_nodes (dfs, nonlocal_vars);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -239,6 +240,7 @@ rewrite_into_ssa (fndecl)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Free allocated memory.  */
+  free (nonlocal_vars);
   sbitmap_vector_free (dfs);
   free_dominance_info (idom);
   htab_delete (def_blocks);
@@ -267,14 +269,25 @@ rewrite_into_ssa (fndecl)
 
    Also, compute the set of dominator children for each block in the
    flowgraph.  This will be used by rewrite_block when traversing the
-   flowgraph.  */
+   flowgraph.
 
-static void
+   Return a bitmap for the set of referenced variables which are
+   "nonlocal", ie those which are live across block boundaries.
+   This information is used to reduce the number of PHI nodes
+   we create.  */
+
+static sbitmap
 mark_def_sites (idom)
      dominance_info idom;
 {
   basic_block bb;
   gimple_stmt_iterator si;
+  sbitmap nonlocal_vars;
+  sbitmap killed_vars;
+
+  nonlocal_vars = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (nonlocal_vars);
+  killed_vars = sbitmap_alloc (num_referenced_vars);
 
   /* Mark all the blocks that have definitions for each variable referenced
      in the function.  */
@@ -286,25 +299,65 @@ mark_def_sites (idom)
       if (idom_bb)
 	add_dom_child (idom_bb, bb);
 
+      /* We're interested in finding the variables which are used before
+         they are defined in this block.  So at the start of each block
+	 zero out KILLED_VARS.  */
+      sbitmap_zero (killed_vars);
+
       for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
 	{
 	  varray_type ops;
 	  size_t i;
 	  tree stmt;
-	  
+	  tree *dest;
+
 	  stmt = gsi_stmt (si);
 	  STRIP_NOPS (stmt);
 
 	  get_stmt_operands (stmt);
 
-	  if (def_op (stmt))
-	    set_def_block (*(def_op (stmt)), bb);
+	  dest = def_op (stmt);
+	  if (dest)
+	    set_def_block (*dest, bb);
+
+	  /* If a variable is used before being set, then the variable
+	     is live across a block boundary, so add it to NONLOCAL_VARS.  */
+	  ops = use_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree *use = VARRAY_GENERIC_PTR (ops, i);
+	      int uid = var_ann (*use)->uid;
+
+	      if (! TEST_BIT (killed_vars, uid))
+	        SET_BIT (nonlocal_vars, uid);
+	    }
+	  
+	  /* Similarly for virtual uses.  */
+	  ops = vuse_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree use = VARRAY_GENERIC_PTR (ops, i);
+	      int uid = var_ann (use)->uid;
+
+	      if (! TEST_BIT (killed_vars, uid))
+	        SET_BIT (nonlocal_vars, uid);
+	    }
+
+	  /* Now process the single destination of this statement. 
+
+	     Note that virtual definitions are irrelavent for
+	     computing NONLOCAL_VARs and KILLED_VARS, so they are
+	     ignored here.  */
+	  if (dest)
+	    SET_BIT (killed_vars, var_ann (*dest)->uid);
 
 	  ops = vdef_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
 	}
     }
+  free (killed_vars);
+  return nonlocal_vars;
 }
 
 
@@ -338,11 +391,16 @@ set_def_block (var, bb)
 
 /* Insert PHI nodes at the dominance frontier of blocks with variable
    definitions.  DFS contains the dominance frontier information for the
-   flowgraph.  */
+   flowgraph.
+   
+   NONLOCAL_VARs is a bitmap representing the set of variables which are
+   live across basic block boundaries.  Only variables in NONLOCAL_VARs
+   need PHI nodes.  */
 
 static void
-insert_phi_nodes (dfs)
+insert_phi_nodes (dfs, nonlocal_vars)
      sbitmap *dfs;
+     sbitmap nonlocal_vars;
 {
   size_t i;
 
@@ -367,7 +425,8 @@ insert_phi_nodes (dfs)
      for the variable.  PHI nodes will be added to the dominance frontier
      blocks of each definition block.  */
   for (i = 0; i < num_referenced_vars; i++)
-    insert_phi_nodes_for (referenced_var (i), dfs);
+    if (TEST_BIT (nonlocal_vars, i))
+      insert_phi_nodes_for (referenced_var (i), dfs);
 
   added = NULL;
   in_work = NULL;

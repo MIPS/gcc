@@ -2095,11 +2095,16 @@ add_referenced_var (var, data)
   slot = htab_find_slot (vars_found, (void *) var, INSERT);
   if (*slot == NULL)
     {
+      var_ann_t ann;
+
       /* This is the first time we find this variable, add it to the
-         REFERENCED_VARS array.  */
+         REFERENCED_VARS array, also annotate it with its unique id.  */
       *slot = (void *) var;
       VARRAY_PUSH_TREE (referenced_vars, var);
-      num_referenced_vars++;
+      ann = var_ann (var);
+      if (! ann)
+	ann = create_var_ann (var);
+      ann->uid = num_referenced_vars++;
     }
 }
 

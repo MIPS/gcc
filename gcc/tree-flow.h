@@ -62,6 +62,9 @@ struct var_ann_d GTY(())
 
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
+  
+  /* Unique ID of this variable.  */
+  int uid;
 };
 
 
