@@ -1,3 +1,7 @@
+2003-01-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* filter_params.pl: Change most comments to start with /**.
+
 2002-12-23  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
 
 	* filter_params.pl: Filter ATTRIBUTE_UNUSED.

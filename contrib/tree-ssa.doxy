@@ -20,7 +20,7 @@
 # If a relative path is entered, it will be relative to the location 
 # where doxygen was started. If left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = /home/dnovillo/public_html/tree-ssa-doc
+OUTPUT_DIRECTORY       = /home/dnovillo/public_html/pub/tree-ssa-doc
 
 # The INPUT_FILTER tag can be used to specify a program that doxygen should 
 # invoke to filter for each input file. Doxygen will invoke the filter program 

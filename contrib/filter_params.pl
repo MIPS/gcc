@@ -4,9 +4,10 @@
 # - GTY(()) marks declarations for gengtype.c
 # - PARAMS(()) is used for K&R compatibility. See ansidecl.h.
 
-undef $/;
-$a = <>;
-$a =~ s/GTY[ \t]*\(\(.*\)\)//g;
-$a =~ s/[ \t]ATTRIBUTE_UNUSED//g;
-$a =~ s/PARAMS[ \t]*\(\((.*?)\)\);/\($1\);/sg;
-print $a;
+while (<>) {
+    s/^\/\* /\/\*\* /;
+    s/GTY[ \t]*\(\(.*\)\)//g;
+    s/[ \t]ATTRIBUTE_UNUSED//g;
+    s/PARAMS[ \t]*\(\((.*?)\)\)/\($1\)/sg;
+    print;
+}
