@@ -41,22 +41,22 @@
 #define __DOUBLE_INF_REP { 0, 0, 0, 0x7ff0 }
 #define __DOUBLE_QNAN_REP { 0, 0, 0, 0xfff8 }  // { 0, 0, 0, 0x7ff8 }
 #define __DOUBLE_SNAN_REP { 0, 0, 0, 0xfff0 }  // { 1, 0, 0, 0x7ff0 }
-#define __DOUBLE_DENORM_REP {1, 0, 0, 0}
+#define __DOUBLE_DENORM_REP {1, 0, 0, 0 }
 
 /* This assumes no implicit (hidden) bit in extended mode */
 
-#define __LONG_DOUBLE_INF_REP { 0, 0, 0, 0x8000, 0x7fff }
-#define __LONG_DOUBLE_QNAN_REP { 0, 0, 0, 0xc000, 0xffff } 
-#define __LONG_DOUBLE_SNAN_REP { 0, 0, 0, 0x8000, 0xffff }
-#define __LONG_DOUBLE_DENORM_REP {1, 0, 0, 0, 0}
+#define __LONG_DOUBLE_INF_REP { 0, 0, 0, 0x8000, 0x7fff, 0 }
+#define __LONG_DOUBLE_QNAN_REP { 0, 0, 0, 0xc000, 0xffff, 0 }
+#define __LONG_DOUBLE_SNAN_REP { 0, 0, 0, 0x8000, 0xffff, 0 }
+#define __LONG_DOUBLE_DENORM_REP {1, 0, 0, 0, 0, 0 }
 
 template <class __dummy>
 class _iec559_consts
 {
   public:
-    union _rep
+  union _rep
     {
-      unsigned short word[5];
+      unsigned short word[6];
       float float_val;
       double double_val;
       long double ldouble_val;	

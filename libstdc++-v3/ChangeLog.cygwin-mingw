@@ -1,3 +1,8 @@
+2002-08-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/bits/cpu_limits.h: Pad long double constants
+	to 96 bits,
+
 2002-08-16  Adriano dos Santos Fernandes  <adrianosf@uol.com.br>
 
 	* libsupc++/unwind-cxx.h (__terminate_handler,
@@ -34,9 +39,9 @@
 
 2002-07-29  Danny Smith  <dannysmith@users.sourceforge.net>
 
-	*config/os/mingw32/bits/os_defines.h
+	* config/os/mingw32/bits/os_defines.h
 	(_GLIBCPP_NO_LONG_DOUBLE_IO): Define.
-	*include/bits/locale_facets.tcc (num_get::do_get):
+	* include/bits/locale_facets.tcc (num_get::do_get):
 	Use it. Cast long double to double.
 	(num_put::do_put): Likewise.
 	(money_get::do_get): Likewise.
