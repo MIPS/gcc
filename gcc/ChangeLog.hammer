@@ -1,3 +1,8 @@
+2003-07-08  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfgcleanup.c (merge_blocks_move_successor_nojumps): Skip
+	BARRIER when finding a jump table.
+
 2003-07-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopmanip.c (force_single_succ_latches): Force latch to be

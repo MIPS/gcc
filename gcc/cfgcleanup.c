@@ -743,6 +743,10 @@ merge_blocks_move_successor_nojumps (a, b)
   real_b_end = b->end;
   barrier = NEXT_INSN (b->end);
 
+  /* Skip the barrier if there is one after the end of block B.  */
+  if (barrier && GET_CODE (barrier) == BARRIER)
+    barrier = NEXT_INSN (barrier);
+
   /* Recognize a jump table following block B.  */
   if (barrier
       && GET_CODE (barrier) == CODE_LABEL
