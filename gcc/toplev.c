@@ -258,6 +258,7 @@ enum dump_file_index
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
+  DFI_vartrack,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -269,7 +270,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q         "
-	"       H JK   OPQ  TUV  YZ"
+      "       H JK   OPQ   U   YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -310,6 +311,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
+  { "vartrack", 'V', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -379,6 +381,10 @@ tree current_function_func_begin_label;
 /* Nonzero if doing dwarf2 duplicate elimination.  */
 
 int flag_eliminate_dwarf2_dups = 0;
+
+/* Nonzero if we should track variables.  */
+
+int flag_var_tracking = 0;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -1015,6 +1021,8 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
+  {"var-tracking", &flag_var_tracking, 1,
+   N_("Perform variable tracking") },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
   {"float-store", &flag_float_store, 1,
@@ -3661,6 +3669,20 @@ rest_of_compilation (decl)
     }
   compute_alignments ();
 
+  /* Is the condition correct?  */
+  if (debug_info_level >= DINFO_LEVEL_NORMAL && flag_var_tracking)
+    {
+      /* Track the variables, ie. compute where the variable is stored
+       in each position in function.  */
+      timevar_push (TV_VAR_TRACKING);
+      open_dump_file (DFI_vartrack, decl);
+
+      variable_tracking_main ();
+
+      close_dump_file (DFI_vartrack, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_VAR_TRACKING);
+    }
+ 
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
@@ -4981,6 +5003,7 @@ parse_options_and_default_flags (argc, argv)
 
   if (optimize >= 1)
     {
+      flag_var_tracking = 1;
       flag_defer_pop = 1;
       flag_thread_jumps = 1;
 #ifdef DELAY_SLOTS

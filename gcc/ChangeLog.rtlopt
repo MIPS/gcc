@@ -1,3 +1,28 @@
+2003-01-14  Josef Zlomek  <zlomekj@suse.cz>
+
+	(Variable tracking was updated from cfg-branch:)
+	* Makefile.in (var-tracking.o): New.
+	* flags.h (flag_var_tracking): New flag.
+	* final.c (final_scan_insn): NOTE_INSN_VAR_LOCATION was added.
+	* gengtype.c (adjust_field_rtx_def): Likewise.
+	* print-rtl.c (print_rtx): Likewise.
+	* rtl.c (note_insn_name): Likewise.
+	* rtl.def (VAR_LOCATION): New.
+	* rtl.h (NOTE_VAR_LOCATION): New.
+	(NOTE_VAR_LOCATION_DECL): New.
+	(NOTE_VAR_LOCATION_LOC): New.
+	(insn_note): NOTE_INSN_VAR_LOCATION was added.
+	(variable_tracking_main): New exported function.
+	* timevar.def (TV_VAR_TRACKING): New.
+	* toplev.c (DFI_vartrack): New.
+	(dump_file): "vartrack" was added (-dV).
+	(flag_var_tracking): New.
+	(f_options): "var-tracking" was added.
+	(rest_of_compilation): Run variable tracking.
+	(parse_options_and_default_flags): Variable tarcking is enabled by
+	default when compiling with optimize >= 1.
+	* var-tracking.c: New file.
+
 Sun Jan 12 13:01:31 CET 2003  Josef Zlomek <zlomekj@suse.cz>
 
 	* predict.c (propagate_freq): Do not divide by 1.

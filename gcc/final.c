@@ -1813,6 +1813,9 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  ASM_OUTPUT_DEBUG_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 	  break;
 
+	case NOTE_INSN_VAR_LOCATION:
+	  break;
+
 	case 0:
 	  break;
 
