@@ -961,7 +961,8 @@ enum lvalue_use {
   lv_asm
 };
 
-extern int lvalue_or_else (tree, enum lvalue_use);
+/* APPLE LOCAL non-lvalue assign */
+extern int lvalue_or_else (tree *, enum lvalue_use);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

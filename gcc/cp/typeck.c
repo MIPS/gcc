@@ -3984,9 +3984,12 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  }
 
 	/* Complain about anything else that is not a true lvalue.  */
-	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
-				    || code == POSTINCREMENT_EXPR)
-				   ? lv_increment : lv_decrement)))
+	/* APPLE LOCAL begin non-lvalue assign */
+	if (!lvalue_or_else (&arg, ((code == PREINCREMENT_EXPR
+				     || code == POSTINCREMENT_EXPR)
+				    ? lv_increment
+				    : lv_decrement)))
+	/* APPLE LOCAL end non-lvalue assign */
 	  return error_mark_node;
 
 	/* Forbid using -- on `bool'.  */
@@ -4130,7 +4133,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && !lvalue_or_else (arg, lv_addressof))
+	       /* APPLE LOCAL non-lvalue assign */
+	       && !lvalue_or_else (&arg, lv_addressof))
 	return error_mark_node;
 
       if (argtype != error_mark_node)
@@ -5375,7 +5379,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
     case MAX_EXPR:
       /* MIN_EXPR and MAX_EXPR are currently only permitted as lvalues,
 	 when neither operand has side-effects.  */
-      if (!lvalue_or_else (lhs, lv_assign))
+      /* APPLE LOCAL non-lvalue assign */
+      if (!lvalue_or_else (&lhs, lv_assign))
 	return error_mark_node;
 
       gcc_assert (!TREE_SIDE_EFFECTS (TREE_OPERAND (lhs, 0))
@@ -5403,7 +5408,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	
 	/* Check this here to avoid odd errors when trying to convert
 	   a throw to the type of the COND_EXPR.  */
-	if (!lvalue_or_else (lhs, lv_assign))
+	/* APPLE LOCAL non-lvalue assign */
+	if (!lvalue_or_else (&lhs, lv_assign))
 	  return error_mark_node;
 
 	cond = build_conditional_expr
@@ -5497,7 +5503,8 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
     }
 
   /* The left-hand side must be an lvalue.  */
-  if (!lvalue_or_else (lhs, lv_assign))
+  /* APPLE LOCAL non-lvalue assign */
+  if (!lvalue_or_else (&lhs, lv_assign))
     return error_mark_node;
 
   /* Warn about modifying something that is `const'.  Don't warn if

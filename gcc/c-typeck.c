@@ -101,8 +101,6 @@ static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static void readonly_error (tree, enum lvalue_use);
 static void record_maybe_used_decl (tree);
-/* APPLE LOCAL non lvalue assign */
-static int apple_lvalue_or_else (tree *ref, enum lvalue_use use);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
@@ -2728,11 +2726,12 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	inc = convert (argtype, inc);
 
 	/* Complain about anything else that is not a true lvalue.  */
-	/* APPLE LOCAL non lvalue assign */
-	if (!apple_lvalue_or_else (&arg, ((code == PREINCREMENT_EXPR
-				    || code == POSTINCREMENT_EXPR)
-				   ? lv_increment
-				   : lv_decrement)))
+	/* APPLE LOCAL begin non lvalue assign */
+	if (!lvalue_or_else (&arg, ((code == PREINCREMENT_EXPR
+				     || code == POSTINCREMENT_EXPR)
+				    ? lv_increment
+				    : lv_decrement)))
+	/* APPLE LOCAL end non lvalue assign */
 	  return error_mark_node;
 
 	/* Report a read-only lvalue.  */
@@ -2778,7 +2777,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	 or a non-lvalue array is an error.  */
       else if (typecode != FUNCTION_TYPE && !flag
 	       /* APPLE LOCAL non lvalue assign */
-	       && !apple_lvalue_or_else (&arg, lv_addressof))
+	       && !lvalue_or_else (&arg, lv_addressof))
 	return error_mark_node;
 
       /* Ordinary case; arg is a COMPONENT_REF or a decl.  */
@@ -2862,107 +2861,6 @@ lvalue_p (tree ref)
       return 0;
     }
 }
-
-/* APPLE LOCAL begin non lvalue assign */
-/* Return nonzero if the expression pointed to by REF is an lvalue
-   valid for this language; otherwise, print an error message and return
-   zero.  USE says how the lvalue is being used and so selects the error
-   message.  If -fnon-lvalue-assign has been specified, certain
-   non-lvalue expression shall be rewritten as lvalues and stored back
-   at the location pointed to by REF.  */
-
-static int
-apple_lvalue_or_else (tree *ref, enum lvalue_use use)
-{
-  tree r = *ref;
-  int win = lvalue_p (r);
-
-  /* If -fnon-lvalue-assign is specified, we shall allow assignments
-     to certain constructs that are not (stricly speaking) lvalues.  */
-  if (!win && flag_non_lvalue_assign)
-    {
-      /* (1) Assignment to casts of lvalues, as long as both the lvalue and
-	     the cast are POD types with identical size and alignment.  */
-      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
-	   || TREE_CODE (r) == NON_LVALUE_EXPR)
-	  && (use == lv_assign || use == lv_increment || use == lv_decrement
-	      || use == lv_addressof)
-	  /* APPLE LOCAL non lvalue assign */
-	  && apple_lvalue_or_else (&TREE_OPERAND (r, 0), use))
-	{
-	  tree cast_to = TREE_TYPE (r);
-	  tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
-
-	  if (simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
-	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
-	    {
-	      /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
-		 that the back-end need not think too hard...  */
-	      *ref
-		= build_indirect_ref
-		  (convert (build_pointer_type (cast_to),
-			    build_unary_op
-			    (ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
-
-	      goto allow_as_lvalue;
-	    }
-	}
-      /* (2) Assignment to conditional expressions, as long as both
-	     alternatives are already lvalues.  */
-      else if (TREE_CODE (r) == COND_EXPR
-	       /* APPLE LOCAL non lvalue assign */
-	       && apple_lvalue_or_else (&TREE_OPERAND (r, 1), use)
-	       /* APPLE LOCAL non lvalue assign */
-	       && apple_lvalue_or_else (&TREE_OPERAND (r, 2), use))
-	{
-	  /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
-	     placate the back-end.  */
-	  *ref
-	    = build_indirect_ref
-	      (build_conditional_expr
-	       (TREE_OPERAND (r, 0),
-		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
-		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
-	       0);
-
-	 allow_as_lvalue:
-	  win = 1;
-	  if (warn_non_lvalue_assign)
-	    warning ("%s not really an lvalue; "
-		     "this will be a hard error in the future",
-		     (use == lv_addressof
-		      ? "argument to '&'"
-		      : "target of assignment"));
-	}
-    } 
-
-  if (!win)
-    {
-      switch (use)
-	{
-	case lv_assign:
-	  error ("invalid lvalue in assignment");
-	  break;
-	case lv_increment:
-	  error ("invalid lvalue in increment");
-	  break;
-	case lv_decrement:
-	  error ("invalid lvalue in decrement");
-	  break;
-	case lv_addressof:
-	  error ("invalid lvalue in unary %<&%>");
-	  break;
-	case lv_asm:
-	  error ("invalid lvalue in asm statement");
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-  return win;
-}
-/* APPLE LOCAL end non lvalue assign */
 
 
 /* Give an error for storing in something that is 'const'.  */
@@ -3565,7 +3463,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
     }
 
   /* APPLE LOCAL non lvalue assign */
-  if (!apple_lvalue_or_else (&lhs, lv_assign))
+  if (!lvalue_or_else (&lhs, lv_assign))
     return error_mark_node;
 
   /* Give an error for storing in something that is 'const'.  */
@@ -6654,7 +6552,7 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
       STRIP_NOPS (output);
 
       /* APPLE LOCAL non lvalue assign */
-      if (!apple_lvalue_or_else (&output, lv_asm))
+      if (!lvalue_or_else (&output, lv_asm))
 	output = error_mark_node;
 
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));

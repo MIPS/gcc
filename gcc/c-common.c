@@ -5869,14 +5869,79 @@ fold_offsetof (tree expr)
   return convert (size_type_node, fold_offsetof_1 (expr));
 }
 
-/* Return nonzero if REF is an lvalue valid for this language;
-   otherwise, print an error message and return zero.  USE says
-   how the lvalue is being used and so selects the error message.  */
+/* APPLE LOCAL begin non lvalue assign */
+/* Return nonzero if the expression pointed to by REF is an lvalue
+   valid for this language; otherwise, print an error message and return
+   zero.  USE says how the lvalue is being used and so selects the error
+   message.  If -fnon-lvalue-assign has been specified, certain
+   non-lvalue expression shall be rewritten as lvalues and stored back
+   at the location pointed to by REF.  */
 
 int
-lvalue_or_else (tree ref, enum lvalue_use use)
+lvalue_or_else (tree *ref, enum lvalue_use use)
 {
-  int win = lvalue_p (ref);
+  tree r = *ref;
+  int win = lvalue_p (r);
+
+  /* If -fnon-lvalue-assign is specified, we shall allow assignments
+     to certain constructs that are not (stricly speaking) lvalues.  */
+  if (!win && flag_non_lvalue_assign)
+    {
+      /* (1) Assignment to casts of lvalues, as long as both the lvalue and
+	     the cast are POD types with identical size and alignment.  */
+      if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
+	   || TREE_CODE (r) == NON_LVALUE_EXPR)
+	  && (use == lv_assign || use == lv_increment || use == lv_decrement
+	      || use == lv_addressof)
+	  /* APPLE LOCAL non lvalue assign */
+	  && lvalue_or_else (&TREE_OPERAND (r, 0), use))
+	{
+	  tree cast_to = TREE_TYPE (r);
+	  tree cast_from = TREE_TYPE (TREE_OPERAND (r, 0));
+
+	  if (simple_cst_equal (TYPE_SIZE (cast_to), TYPE_SIZE (cast_from))
+	      && TYPE_ALIGN (cast_to) == TYPE_ALIGN (cast_from))
+	    {
+	      /* Rewrite '(cast_to)ref' as '*(cast_to *)&ref' so
+		 that the back-end need not think too hard...  */
+	      *ref
+		= build_indirect_ref
+		  (convert (build_pointer_type (cast_to),
+			    build_unary_op
+			    (ADDR_EXPR, TREE_OPERAND (r, 0), 0)), 0);
+
+	      goto allow_as_lvalue;
+	    }
+	}
+      /* (2) Assignment to conditional expressions, as long as both
+	     alternatives are already lvalues.  */
+      else if (TREE_CODE (r) == COND_EXPR
+	       /* APPLE LOCAL non lvalue assign */
+	       && lvalue_or_else (&TREE_OPERAND (r, 1), use)
+	       /* APPLE LOCAL non lvalue assign */
+	       && lvalue_or_else (&TREE_OPERAND (r, 2), use))
+	{
+	  /* Rewrite 'cond ? lv1 : lv2' as '*(cond ? &lv1 : &lv2)' to
+	     placate the back-end.  */
+	  *ref
+	    = build_indirect_ref
+	      (build_conditional_expr
+	       (TREE_OPERAND (r, 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 1), 0),
+		build_unary_op (ADDR_EXPR, TREE_OPERAND (r, 2), 0)),
+	       0);
+
+	 allow_as_lvalue:
+	  win = 1;
+	  if (warn_non_lvalue_assign)
+	    warning ("%s not really an lvalue; "
+		     "this will be a hard error in the future",
+		     (use == lv_addressof
+		      ? "argument to '&'"
+		      : "target of assignment"));
+	}
+    } 
+/* APPLE LOCAL end non-lvalue assign */
 
   if (!win)
     {

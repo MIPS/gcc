@@ -401,7 +401,8 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+/* APPLE LOCAL Objective-C++ */
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -1166,7 +1167,8 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	     otherwise we'll get an error.  Gross, but ...  */
 	  STRIP_NOPS (operand);
 
-	  if (!lvalue_or_else (operand, lv_asm))
+	  /* APPLE LOCAL non-lvalue assign */
+	  if (!lvalue_or_else (&operand, lv_asm))
 	    operand = error_mark_node;
 
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));

@@ -79,42 +79,46 @@ enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
    the LANG_SPECIFIC structures, which may itself need allocating first.  */
+
+/* APPLE LOCAL begin Objective-C++ */
+/* The following three macros must be overridden (in objcp/objcp-decl.h)
+   for Objective-C++.  */
 #define TYPE_OBJC_INFO(TYPE) TYPE_LANG_SPECIFIC (TYPE)->objc_info
+#define SIZEOF_OBJC_TYPE_LANG_SPECIFIC sizeof (struct lang_type)
+#define ALLOC_OBJC_TYPE_LANG_SPECIFIC(NODE)				\
+  do {									\
+    TYPE_LANG_SPECIFIC (NODE) = GGC_CNEW (struct lang_type);		\
+  } while (0)
+
 #define TYPE_HAS_OBJC_INFO(TYPE)				\
-	(TYPE_LANG_SPECIFIC (TYPE)				\
-	 && TYPE_LANG_SPECIFIC (TYPE)->objc_info)
+	(TYPE_LANG_SPECIFIC (TYPE) && TYPE_OBJC_INFO (TYPE))
 #define TYPE_OBJC_INTERFACE(TYPE) TREE_VEC_ELT (TYPE_OBJC_INFO (TYPE), 0)
 #define TYPE_OBJC_PROTOCOL_LIST(TYPE) TREE_VEC_ELT (TYPE_OBJC_INFO (TYPE), 1)
+
 
 #define INIT_TYPE_OBJC_INFO(TYPE)				\
 	do							\
 	  {							\
 	    if (!TYPE_LANG_SPECIFIC (TYPE))			\
-	      TYPE_LANG_SPECIFIC (TYPE)				\
-		= ALLOC_OBJC_TYPE_LANG_SPECIFIC;			\
-	    if (!TYPE_LANG_SPECIFIC (TYPE)->objc_info)		\
-	      TYPE_LANG_SPECIFIC (TYPE)->objc_info		\
+	      ALLOC_OBJC_TYPE_LANG_SPECIFIC(TYPE);		\
+	    if (!TYPE_OBJC_INFO (TYPE))				\
+	      TYPE_OBJC_INFO (TYPE)				\
 		= make_tree_vec (OBJC_INFO_SLOT_ELTS);		\
 	  }							\
 	while (0)
 #define DUP_TYPE_OBJC_INFO(DST, SRC)				\
 	do							\
 	  {							\
-	    TYPE_LANG_SPECIFIC (DST)				\
-	      = ALLOC_OBJC_TYPE_LANG_SPECIFIC;			\
+	    ALLOC_OBJC_TYPE_LANG_SPECIFIC(DST);			\
 	    if (TYPE_LANG_SPECIFIC (SRC))			\
 	      memcpy (TYPE_LANG_SPECIFIC (DST),			\
 		      TYPE_LANG_SPECIFIC (SRC),			\
 		      SIZEOF_OBJC_TYPE_LANG_SPECIFIC);		\
-	    TYPE_LANG_SPECIFIC (DST)->objc_info			\
+	    TYPE_OBJC_INFO (DST)				\
 	      = make_tree_vec (OBJC_INFO_SLOT_ELTS);		\
 	  }							\
 	while (0)
-
-/* The following two macros must be overridden (in objcp/objcp-decl.h)
-   for Objective-C++.  */
-#define ALLOC_OBJC_TYPE_LANG_SPECIFIC	GGC_CNEW (struct lang_type)
-#define SIZEOF_OBJC_TYPE_LANG_SPECIFIC	sizeof (struct lang_type)
+/* APPLE LOCAL end Objective-C++ */
 
 #define TYPED_OBJECT(TYPE)					\
 	(TREE_CODE (TYPE) == RECORD_TYPE			\
@@ -252,6 +256,11 @@ enum objc_tree_index
     OCTI_UUCLS_SUPER_REF,
     OCTI_METH_TEMPL,
     OCTI_IVAR_TEMPL,
+    /* APPLE LOCAL begin Objective-C++ */
+    OCTI_METH_LIST_TEMPL,
+    OCTI_METH_PROTO_LIST_TEMPL,
+    OCTI_IVAR_LIST_TEMPL,
+    /* APPLE LOCAL end Objective-C++ */
     OCTI_SYMTAB_TEMPL,
     OCTI_MODULE_TEMPL,
     OCTI_SUPER_TEMPL,
@@ -439,6 +448,12 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]
+/* APPLE LOCAL begin Objective-C++ */
+#define objc_method_list_ptr	objc_global_trees[OCTI_METH_LIST_TEMPL]
+#define objc_method_proto_list_ptr		\
+				objc_global_trees[OCTI_METH_PROTO_LIST_TEMPL]
+#define objc_ivar_list_ptr	objc_global_trees[OCTI_IVAR_LIST_TEMPL]
+/* APPLE LOCAL end Objective-C++ */
 #define objc_symtab_template	objc_global_trees[OCTI_SYMTAB_TEMPL]
 #define objc_module_template	objc_global_trees[OCTI_MODULE_TEMPL]
 #define objc_super_template	objc_global_trees[OCTI_SUPER_TEMPL]

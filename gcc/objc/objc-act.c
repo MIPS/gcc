@@ -1506,6 +1506,19 @@ synth_module_prologue (void)
   objc_super_type = build_pointer_type (xref_tag (RECORD_TYPE,
 						  get_identifier (TAG_SUPER)));
 
+  /* APPLE LOCAL begin Objective-C++ */
+  /* Declare pointers to method and ivar lists.  */
+  objc_method_list_ptr = build_pointer_type
+			 (xref_tag (RECORD_TYPE,
+				    get_identifier (UTAG_METHOD_LIST)));
+  objc_method_proto_list_ptr
+    = build_pointer_type (xref_tag (RECORD_TYPE,
+				    get_identifier (UTAG_METHOD_PROTOTYPE_LIST)));
+  objc_ivar_list_ptr = build_pointer_type
+		       (xref_tag (RECORD_TYPE,
+				  get_identifier (UTAG_IVAR_LIST)));
+  /* APPLE LOCAL end Objective-C++ */
+
   if (flag_next_runtime)
     {
       /* NB: In order to call one of the ..._stret (struct-returning)
@@ -3969,35 +3982,24 @@ build_objc_exception_stuff (void)
 static void
 build_private_template (tree class)
 {
-  /* APPLE LOCAL begin Objective-C++ */
-  if (CLASS_STATIC_TEMPLATE (class))
-    uprivate_record = CLASS_STATIC_TEMPLATE (class);
-  else
+  if (!CLASS_STATIC_TEMPLATE (class))
     {
-      uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
+      tree record = start_struct (RECORD_TYPE, CLASS_NAME (class));
+
+      finish_struct (record, get_class_ivars (class), NULL_TREE);
+      /* mark this record as class template - for class type checking */
+      INIT_TYPE_OBJC_INFO (record);
+      TYPE_OBJC_INTERFACE (record) = class;
+      CLASS_STATIC_TEMPLATE (class) = record;
 
       /* APPLE LOCAL begin NSFoundation classes not included in -gused (radar #3261135) */
       /* FSF Candidate */
       /* Set the TREE_USED bit for this struct, so that stab generator can emit
 	 stabs for this struct type.  */
-      if (flag_debug_only_used_symbols && TYPE_STUB_DECL (uprivate_record))
-	TREE_USED (TYPE_STUB_DECL (uprivate_record)) = 1;
+      if (flag_debug_only_used_symbols && TYPE_STUB_DECL (record))
+	TREE_USED (TYPE_STUB_DECL (record)) = 1;
       /* APPLE LOCAL end NSFoundation classes not included in -gused (radar #3261135) */
-
-      finish_struct (uprivate_record, get_class_ivars (class), NULL_TREE);
-
-      CLASS_STATIC_TEMPLATE (class) = uprivate_record;
-
-      finish_struct (uprivate_record, get_class_ivars (class), NULL_TREE);
-      /* mark this record as class template - for class type checking */
-      INIT_TYPE_OBJC_INFO (uprivate_record);
-      TYPE_OBJC_INTERFACE (uprivate_record) = class;
-      CLASS_STATIC_TEMPLATE (class) = uprivate_record;
     }
-
-  objc_instance_type = build_pointer_type (uprivate_record);
-
-  /* APPLE LOCAL end Objective-C++ */
 }
 
 /* Begin code generation for protocols...  */
@@ -4036,20 +4038,18 @@ build_protocol_template (void)
 				  "protocol_list");
   chainon (field_decl_chain, field_decl);
 
-  /* struct objc_method_list *instance_methods; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_PROTOTYPE_LIST))),
+  /* APPLE LOCAL begin Objective-C++ */
+  /* struct _objc__method_prototype_list *instance_methods; */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
 				  "instance_methods");
+  /* APPLE LOCAL end Objective-C++ */
   chainon (field_decl_chain, field_decl);
 
-  /* struct objc_method_list *class_methods; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_PROTOTYPE_LIST))),
+  /* APPLE LOCAL begin Objective-C++ */
+  /* struct _objc__method_prototype_list *class_methods; */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
 				  "class_methods");
+  /* APPLE LOCAL end Objective-C++ */
   chainon (field_decl_chain, field_decl);
 
   finish_struct (objc_protocol_template, field_decl_chain, NULL_TREE);
@@ -4592,7 +4592,10 @@ build_protocol_initializer (tree type, tree protocol_name,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, instance_methods, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_method_proto_list_ptr,
+		      build_unary_op (ADDR_EXPR, instance_methods, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
 
@@ -4600,7 +4603,10 @@ build_protocol_initializer (tree type, tree protocol_name,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, class_methods, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_method_proto_list_ptr,
+		      build_unary_op (ADDR_EXPR, class_methods, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
 
@@ -4632,18 +4638,14 @@ build_category_template (void)
   chainon (field_decl_chain, field_decl);
 
   /* struct _objc_method_list *instance_methods; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_LIST))),
+  /* APPLE LOCAL Objective-C++ */
+  field_decl = create_field_decl (objc_method_list_ptr,
 				  "instance_methods");
   chainon (field_decl_chain, field_decl);
 
   /* struct _objc_method_list *class_methods; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_LIST))),
+  /* APPLE LOCAL Objective-C++ */
+  field_decl = create_field_decl (objc_method_list_ptr,
 				  "class_methods");
   chainon (field_decl_chain, field_decl);
 
@@ -4745,18 +4747,14 @@ build_class_template (void)
   chainon (field_decl_chain, field_decl);
 
   /* struct _objc_ivar_list *ivars; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_IVAR_LIST))),
+  /* APPLE LOCAL Objective-C++ */
+  field_decl = create_field_decl (objc_ivar_list_ptr,
 				  "ivars");
   chainon (field_decl_chain, field_decl);
 
   /* struct _objc_method_list *methods; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_LIST))),
+  /* APPLE LOCAL Objective-C++ */
+  field_decl = create_field_decl (objc_method_list_ptr,
 				  "methods");
   chainon (field_decl_chain, field_decl);
 
@@ -5007,10 +5005,8 @@ build_method_list_template (tree list_type, int size)
   objc_ivar_list_record = start_struct (RECORD_TYPE, NULL_TREE);
 
   /* struct _objc__method_prototype_list *method_next; */
-  field_decl = create_field_decl (build_pointer_type
-				  (xref_tag (RECORD_TYPE,
-					     get_identifier
-					     (UTAG_METHOD_PROTOTYPE_LIST))),
+  /* APPLE LOCAL Objective-C++ */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
 				  "method_next");
   field_decl_chain = field_decl;
 
@@ -5409,14 +5405,20 @@ build_category_initializer (tree type, tree cat_name, tree class_name,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, instance_methods, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_method_list_ptr,
+		      build_unary_op (ADDR_EXPR, instance_methods, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
   if (!class_methods)
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, class_methods, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_method_list_ptr,
+		      build_unary_op (ADDR_EXPR, class_methods, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
 
@@ -5492,7 +5494,10 @@ build_shared_structure_initializer (tree type, tree isa, tree super,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, ivar_list, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_ivar_list_ptr,
+		      build_unary_op (ADDR_EXPR, ivar_list, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
 
@@ -5501,7 +5506,10 @@ build_shared_structure_initializer (tree type, tree isa, tree super,
     initlist = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 0), initlist);
   else
     {
-      expr = build_unary_op (ADDR_EXPR, dispatch_table, 0);
+      /* APPLE LOCAL begin Objective-C++ */
+      expr = convert (objc_method_list_ptr,
+		      build_unary_op (ADDR_EXPR, dispatch_table, 0));
+      /* APPLE LOCAL end Objective-C++ */
       initlist = tree_cons (NULL_TREE, expr, initlist);
     }
 
@@ -9288,7 +9296,14 @@ objc_lookup_ivar (tree other, tree id)
   /* In an instance method, a local variable (or parameter) may hide the
      instance variable.  */
   if (TREE_CODE (objc_method_context) == INSTANCE_METHOD_DECL
-      && other && other != error_mark_node && !DECL_FILE_SCOPE_P (other))
+      && other && other != error_mark_node
+      /* APPLE LOCAL begin Objective-C++ */
+#ifdef OBJCPLUS
+      && CP_DECL_CONTEXT (other) != global_namespace)
+#else
+      && !DECL_FILE_SCOPE_P (other))
+#endif
+      /* APPLE LOCAL end Objective-C++ */
     {
       warning ("local declaration of %qs hides instance variable",
 	       IDENTIFIER_POINTER (id));

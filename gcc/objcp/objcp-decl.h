@@ -73,6 +73,18 @@ extern tree objcp_end_compound_stmt (tree, int);
   else \
     TYPE_NAME (type) = name;
 
+#undef TYPE_OBJC_INFO
+#define TYPE_OBJC_INFO(TYPE) LANG_TYPE_CLASS_CHECK (TYPE)->objc_info
+#undef SIZEOF_OBJC_TYPE_LANG_SPECIFIC
+#define SIZEOF_OBJC_TYPE_LANG_SPECIFIC sizeof (struct lang_type_class)
+#undef ALLOC_OBJC_TYPE_LANG_SPECIFIC
+#define ALLOC_OBJC_TYPE_LANG_SPECIFIC(NODE)				\
+  do {									\
+    TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR	                        \
+      (struct lang_type, sizeof (struct lang_type_class));		\
+    TYPE_LANG_SPECIFIC (NODE)->u.c.h.is_lang_type_class = 1;		\
+  } while (0)
+
 #define OBJCP_ORIGINAL_FUNCTION(name, args) 	(name)args
 
 /* C++ marks ellipsis-free function parameters differently from C.  */

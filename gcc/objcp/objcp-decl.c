@@ -54,7 +54,7 @@ objcp_start_struct (enum tree_code code ATTRIBUTE_UNUSED, tree name)
   push_lang_context (lang_name_c);
   if (!name)
     name = make_anon_name ();
-  s = xref_tag (record_type, name, false, 0);
+  s = xref_tag (record_type, name, ts_current, 0);
   CLASSTYPE_DECLARED_CLASS (s) = 0;  /* this is a 'struct', not a 'class'.  */
   xref_basetypes (s, NULL_TREE);     /* no base classes here!  */
 
