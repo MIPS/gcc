@@ -5515,6 +5515,28 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       maybe_emit_sprintf_chk_warning (exp, fcode);
       break;
 
+    case BUILT_IN_PRINTF_CHK:
+    case BUILT_IN_VPRINTF_CHK:
+      if (target == const0_rtx)
+	{
+	  tree tem = fold_builtin_printf (exp, fcode);
+
+	  if (tem)
+	    return expand_expr (tem, target, mode, EXPAND_NORMAL);
+	}
+      break;
+
+    case BUILT_IN_FPRINTF_CHK:
+    case BUILT_IN_VFPRINTF_CHK:
+      if (target == const0_rtx)
+	{
+	  tree tem = fold_builtin_fprintf (exp, fcode);
+
+	  if (tem)
+	    return expand_expr (tem, target, mode, EXPAND_NORMAL);
+	}
+      break;
+
     default:	/* just do library call, if unknown builtin */
       if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))
 	error ("built-in function `%s' not currently supported",
@@ -7005,20 +7027,6 @@ fold_builtin (tree exp)
     case BUILT_IN_VSNPRINTF_CHK:
       return fold_builtin_snprintf_chk (arglist, NULL_TREE,
 				      DECL_FUNCTION_CODE (fndecl));
-
-    case BUILT_IN_PRINTF:
-    case BUILT_IN_PRINTF_UNLOCKED:
-    case BUILT_IN_VPRINTF:
-    case BUILT_IN_PRINTF_CHK:
-    case BUILT_IN_VPRINTF_CHK:
-      return fold_builtin_printf (exp, DECL_FUNCTION_CODE (fndecl));
-
-    case BUILT_IN_FPRINTF:
-    case BUILT_IN_FPRINTF_UNLOCKED:
-    case BUILT_IN_VFPRINTF:
-    case BUILT_IN_FPRINTF_CHK:
-    case BUILT_IN_VFPRINTF_CHK:
-      return fold_builtin_fprintf (exp, DECL_FUNCTION_CODE (fndecl));
 
     default:
       break;

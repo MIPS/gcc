@@ -1,3 +1,14 @@
+2004-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/printf-1.c: New test.
+	* gcc.c-torture/execute/fprintf-1.c: New test.
+	* gcc.c-torture/execute/vprintf-1.c: New test.
+	* gcc.c-torture/execute/vfprintf-1.c: New test.
+	* gcc.c-torture/execute/printf-chk-1.c: New test.
+	* gcc.c-torture/execute/fprintf-chk-1.c: New test.
+	* gcc.c-torture/execute/vprintf-chk-1.c: New test.
+	* gcc.c-torture/execute/vfprintf-chk-1.c: New test.
+
 2004-12-07  Volker Reichelt  <reichelt@gcc.gnu.org>
 
 	* g++.dg/other/unreachable-1.C: New test.
