@@ -13,12 +13,162 @@ This chapter describes some aspects of the design and implementation
 of the @code{g77} front end.
 
 @menu
+* Overview of Translation Process::
 * Philosophy of Code Generation::
 * Two-pass Design::
 * Challenges Posed::
 * Transforming Statements::
 * Transforming Expressions::
 @end menu
+
+@node Overview of Translation Process
+@section Overview of Translation Process
+
+The order of phases translating source code to the form accepted
+by the GBE is:
+
+@enumerate
+@item
+Lexing (@file{lex.c})
+
+@item
+Stand-alone statement identification (@file{sta.c})
+
+@item
+Parsing (@file{stb.c} and @file{expr.c})
+
+@item
+Constructing (@file{stc.c})
+
+@item
+Collecting (@file{std.c})
+
+@item
+Expanding (@file{ste.c})
+@end enumerate
+
+To get a rough idea of how a particularly twisted Fortran statement
+gets treated by the passes, consider:
+
+@smallexample
+      FORMAT(I2 4H)=(J/
+     &   I3)
+@end smallexample
+
+The job of @file{lex.c} is to know enough about Fortran syntax rules
+to break the statement up into distinct lexemes without requiring
+any feedback from subsequent phases:
+
+@smallexample
+`FORMAT'
+`('
+`I24H'
+`)'
+`='
+`('
+`J'
+`/'
+`I3'
+`)'
+@end smallexample
+
+The job of @file{sta.c} is to figure out the kind of statement,
+or, at least, statement form, that sequence of lexemes represent.
+
+The sooner it can do this (in terms of using the smallest number of
+lexemes, starting with the first for each statement), the better,
+because that leaves diagnostics for problems beyond the recognition
+of the statement form to subsequent phases,
+which can usually better describe the nature of the problem.
+
+In this case, the @samp{=} at ``level zero''
+(not nested within parentheses)
+tells @file{sta.c} that this is an @emph{assignment-form},
+not @code{FORMAT}, statement.
+
+An assignment-form statement might be a statement-function
+definition or an executable assignment statement.
+
+To make that determination,
+@file{sta.c} looks at the first two lexemes.
+
+Since the second lexeme is @samp{(},
+the first must represent an array for this to be an assignment statement,
+else it's a statement function.
+
+Either way, @file{sta.c} hands off the statement to @file{stb.c}
+(either its statement-function parser or its assignment-statement parser).
+
+@file{stb.c} forms a
+statement-specific record containing the pertinent information.
+That information includes a source expression and,
+for an assignment statement, a destination expression.
+Expressions are parsed by @file{expr.c}.
+
+This record is passed to @file{stc.c},
+which copes with the implications of the statement
+within the context established by previous statements.
+
+For example, if it's the first statement in the file
+or after an @code{END} statement,
+@file{stc.c} recognizes that, first of all,
+a main program unit is now being lexed
+(and tells that to @file{std.c}
+before telling it about the current statement).
+
+@file{stc.c} attaches whatever information it can,
+usually derived from the context established by the preceding statements,
+and passes the information to @file{std.c}.
+
+@file{std.c} saves this information away,
+since the GBE cannot cope with information
+that might be incomplete at this stage.
+
+For example, @samp{I3} might later be determined
+to be an argument to an alternate @code{ENTRY} point.
+
+When @file{std.c} is told about the end of an external (top-level)
+program unit,
+it passes all the information it has saved away
+on statements in that program unit
+to @file{ste.c}.
+
+@file{ste.c} ``expands'' each statement, in sequence, by
+constructing the appropriate GBE information and calling
+the appropriate GBE routines.
+
+Details on the transformational phases follow.
+
+@menu
+* lex.c::
+* sta.c::
+* stb.c::
+* expr.c::
+* stc.c::
+* std.c::
+* ste.c::
+@end menu
+
+@node lex.c
+@subsection lex.c
+
+@node sta.c
+@subsection sta.c
+
+@node stb.c
+@subsection stb.c
+
+@node expr.c
+@subsection expr.c
+
+@node stc.c
+@subsection stc.c
+
+@node std.c
+@subsection std.c
+
+@node ste.c
+@subsection ste.c
 
 @node Philosophy of Code Generation
 @section Philosophy of Code Generation
