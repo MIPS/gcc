@@ -1,3 +1,11 @@
+2004-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Fix whitespace problems introduced by previous patch.
+	* cgraphunit.c: Kill bogues FIXME comment introduced by previous
+	patch; re-enable cgraph checking
+	* ipa.c (cgraph_remove_unreachable_nodes): Kill hack brought in by
+	previous patch.
+
 2004-12-02  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
 
 	Removal of const and pure detection from rtl level:	

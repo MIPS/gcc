@@ -988,13 +988,6 @@ cgraph_expand_function (struct cgraph_node *node)
     }
 }
 
-/* FIXME this needs to be enhanced.  If we are compiling a single
-   module this returns true if the variable is a module level static,
-   but if we are doing whole program compilation, this could return
-   true if TREE_PUBLIC is true. */
-/* Return true if the variable T is the right kind of static variable to
-   perform compilation unit scope escape analysis.  */
-
 /* Expand all functions that must be output.
 
    Attempt to topologically sort the nodes so function is output when
@@ -1137,8 +1130,6 @@ cgraph_optimize (void)
       cgraph_varpool_assemble_pending_decls ();
       return;
     }
-  cgraph_varpool_analyze_pending_decls ();
-
   timevar_push (TV_IPA_OPT);
 
   /* Frontend may output common variables after the unit has been finalized.
@@ -1188,29 +1179,29 @@ cgraph_optimize (void)
       fprintf (cgraph_dump_file, "\nFinal ");
       dump_cgraph (cgraph_dump_file);
     }
-/* #ifdef ENABLE_CHECK */
-/*   verify_cgraph (); */
-     /* Double check that all inline clones are gone and that all 
-        function bodies have been released from memory.  */ 
-/*   if (flag_unit_at_a_time */
-/*       && !dump_enabled_p (TDI_tree_all) */
-/*       && !(sorrycount || errorcount)) */
-/*     { */
-/*       struct cgraph_node *node; */
-/*       bool error_found = false; */
+#ifdef ENABLE_CHECKING
+  verify_cgraph ();
+  /* Double check that all inline clones are gone and that all
+     function bodies have been released from memory.  */
+  if (flag_unit_at_a_time
+      && !dump_enabled_p (TDI_tree_all)
+      && !(sorrycount || errorcount))
+    {
+      struct cgraph_node *node;
+      bool error_found = false;
 
-/*       for (node = cgraph_nodes; node; node = node->next) */
-/* 	if (node->analyzed */
-/* 	    && (node->global.inlined_to */
-/* 	        || DECL_SAVED_TREE (node->decl))) */
-/* 	  { */
-/* 	    error_found = true; */
-/* 	    dump_cgraph_node (stderr, node); */
-/*  	  } */
-/*       if (error_found) */
-/* 	internal_error ("Nodes with no released memory found."); */
-/*     } */
-/* #endif */
+      for (node = cgraph_nodes; node; node = node->next)
+	if (node->analyzed
+	    && (node->global.inlined_to
+	        || DECL_SAVED_TREE (node->decl)))
+	  {
+	    error_found = true;
+	    dump_cgraph_node (stderr, node);
+ 	  }
+      if (error_found)
+	internal_error ("Nodes with no released memory found.");
+    }
+#endif
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must be
