@@ -76,9 +76,6 @@
 /* The number of rounds.  */
 #define N_ROUNDS 4
 
-/* The number of rounds which the code can grow in.  */
-#define N_CODEGROWING_ROUNDS 3
-
 /* Branch thresholds in thousandths (per milles) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0};
 
@@ -132,7 +129,7 @@ static fibheapkey_t bb_to_key		PARAMS ((basic_block));
 static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
 						 int, int));
 static void connect_traces		PARAMS ((int, struct trace *));
-static bool copy_bb_p			PARAMS ((basic_block, int));
+static bool copy_bb_p			PARAMS ((basic_block));
 static int get_uncond_jump_length	PARAMS ((void));
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
@@ -873,7 +870,7 @@ connect_traces (n_traces, traces)
 		      }
 		  if (best)
 		    {
-		      if (copy_bb_p (best->dest, !optimize_size))
+		      if (copy_bb_p (best->dest))
 			{
 			  basic_block new_bb;
 
@@ -935,14 +932,11 @@ connect_traces (n_traces, traces)
   free (start_of_trace);
 }
 
-/* Return true when BB can and should be copied.  The trace with number TRACE
-   is now being built.  SIZE_CAN_GROW is the flag whether the code is permited
-   to grow.  */
+/* Return true when BB can and should be copied.  */
 
 static bool
-copy_bb_p (bb, size_can_grow)
+copy_bb_p (bb)
      basic_block bb;
-     int size_can_grow;
 {
   int size = 0;
   int max_size = uncond_jump_length;
@@ -955,7 +949,7 @@ copy_bb_p (bb, size_can_grow)
   if (!cfg_layout_can_duplicate_bb_p (bb))
     return false;
 
-  if (size_can_grow && maybe_hot_bb_p (bb))
+  if (!optimize_size && maybe_hot_bb_p (bb))
     max_size *= 8;
 
   for (insn = bb->head; insn != NEXT_INSN (bb->end);

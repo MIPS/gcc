@@ -1,3 +1,8 @@
+Thu Dec  5 14:11:43 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (N_CODEGROWING_ROUNDS): Deleted.
+	(copy_bb_p): Removed parameter size_can_grow.
+
 Wed Dec  4 20:35:20 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* alias.c (memory_modified_1): New static function.
