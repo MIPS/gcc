@@ -997,8 +997,8 @@ namespace std
       ios_base::fmtflags __flags = __io.flags();
       if ((__flags & ios_base::boolalpha) == 0)
         {
-          unsigned long __uv = __v;
-          __s = _M_convert_int(__s, __io, __fill, __uv);
+          const long __l = __v;
+          __s = _M_convert_int(__s, __io, __fill, __l);
         }
       else
         {

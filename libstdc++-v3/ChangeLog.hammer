@@ -1,3 +1,8 @@
+2004-08-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_put<>::do_put(bool)): Cast
+	to a signed type, long according to the resolution of DR 359.
+
 2004-08-16  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/12750
