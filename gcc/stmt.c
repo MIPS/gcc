@@ -133,16 +133,22 @@ static int cost_table_initialized;
    The construct is visible if the `exit_label' field is non-null.
    In that case, the value should be a CODE_LABEL rtx.  */
 
-struct nesting
+struct nesting GTY(())
 {
   struct nesting *all;
   struct nesting *next;
   int depth;
   rtx exit_label;
-  union
+  enum nesting_desc {
+    COND_NESTING,
+    LOOP_NESTING,
+    BLOCK_NESTING,
+    CASE_NESTING
+  } desc;
+  union nesting_u
     {
       /* For conds (if-then and if-then-else statements).  */
-      struct
+      struct nesting_cond
 	{
 	  /* Label for the end of the if construct.
 	     There is none if EXITFLAG was not set
@@ -151,9 +157,9 @@ struct nesting
 	  /* Label for the end of this alternative.
 	     This may be the end of the if or the next else/elseif.  */
 	  rtx next_label;
-	} cond;
+	} GTY ((tag ("COND_NESTING"))) cond;
       /* For loops.  */
-      struct
+      struct nesting_loop
 	{
 	  /* Label at the top of the loop; place to loop back to.  */
 	  rtx start_label;
@@ -165,9 +171,9 @@ struct nesting
 	  /* Label for `continue' statement to jump to;
 	     this is in front of the stepper of the loop.  */
 	  rtx continue_label;
-	} loop;
+	} GTY ((tag ("LOOP_NESTING"))) loop;
       /* For variable binding contours.  */
-      struct
+      struct nesting_block
 	{
 	  /* Sequence number of this binding contour within the function,
 	     in order of entry.  */
@@ -217,14 +223,10 @@ struct nesting
 	     the start of the last unconditional cleanup, and before any
 	     conditional branch points.  */
 	  rtx last_unconditional_cleanup;
-	  /* When in a conditional context, this is the specific
-	     cleanup list associated with last_unconditional_cleanup,
-	     where we place the conditionalized cleanups.  */
-	  tree *cleanup_ptr;
-	} block;
+	} GTY ((tag ("BLOCK_NESTING"))) block;
       /* For switch (C) or case (Pascal) statements,
 	 and also for dummies (see `expand_start_case_dummy').  */
-      struct
+      struct nesting_case
 	{
 	  /* The insn after which the case dispatch should finally
 	     be emitted.  Zero for a dummy.  */
@@ -245,8 +247,8 @@ struct nesting
 	     We set this to -1 when we see the first case label in this
 	     case statement.  */
 	  int line_number_status;
-	} case_stmt;
-    } data;
+	} GTY ((tag ("CASE_NESTING"))) case_stmt;
+    } GTY ((desc ("%1.desc"))) data;
 };
 
 /* Allocate and return a new `struct nesting'.  */
@@ -329,26 +331,26 @@ struct label_chain GTY(())
 struct stmt_status GTY(())
 {
   /* Chain of all pending binding contours.  */
-  struct nesting * GTY ((really("nesting_block"))) x_block_stack;
+  struct nesting * x_block_stack;
 
   /* If any new stacks are added here, add them to POPSTACKS too.  */
 
   /* Chain of all pending binding contours that restore stack levels
      or have cleanups.  */
-  struct nesting * GTY ((skip(""))) x_stack_block_stack;
+  struct nesting * x_stack_block_stack;
 
   /* Chain of all pending conditional statements.  */
-  struct nesting * GTY ((really("nesting_cond"))) x_cond_stack;
+  struct nesting * x_cond_stack;
 
   /* Chain of all pending loops.  */
-  struct nesting * GTY ((really("nesting_loop"))) x_loop_stack;
+  struct nesting * x_loop_stack;
 
   /* Chain of all pending case or switch statements.  */
-  struct nesting * GTY ((really("nesting_case_stmt"))) x_case_stack;
+  struct nesting * x_case_stack;
 
   /* Separate chain including all of the above,
      chained through the `all' field.  */
-  struct nesting * GTY ((skip(""))) x_nesting_stack;
+  struct nesting * x_nesting_stack;
 
   /* Number of entries on nesting_stack now.  */
   int x_nesting_depth;
@@ -423,98 +425,11 @@ static int node_is_bounded		PARAMS ((case_node_ptr, tree));
 static void emit_jump_if_reachable	PARAMS ((rtx));
 static void emit_case_nodes		PARAMS ((rtx, case_node_ptr, rtx, tree));
 static struct case_node *case_tree2list	PARAMS ((case_node *, case_node *));
-static void gt_ggc_mr_nesting_cond           PARAMS ((struct nesting *));
-static void gt_ggc_mr_nesting_loop           PARAMS ((struct nesting *));
-static void gt_ggc_mr_nesting_block          PARAMS ((struct nesting *));
-static void gt_ggc_mr_nesting_case_stmt           PARAMS ((struct nesting *));
 
 void
 using_eh_for_cleanups ()
 {
   using_eh_for_cleanups_p = 1;
-}
-
-/* Mark N (known to be a cond-nesting) for GC.  */
-
-static void
-gt_ggc_mr_nesting_cond (n)
-     struct nesting *n;
-{
-  while (n)
-    {
-      ggc_set_mark (n);
-      gt_ggc_m_rtx_def (n->exit_label);
-      gt_ggc_m_rtx_def (n->data.cond.endif_label);
-      gt_ggc_m_rtx_def (n->data.cond.next_label);
-
-      n = n->next;
-    }
-}
-
-/* Mark N (known to be a loop-nesting) for GC.  */
-
-static void
-gt_ggc_mr_nesting_loop (n)
-     struct nesting *n;
-{
-
-  while (n)
-    {
-      ggc_set_mark (n);
-      gt_ggc_m_rtx_def (n->exit_label);
-      gt_ggc_m_rtx_def (n->data.loop.start_label);
-      gt_ggc_m_rtx_def (n->data.loop.end_label);
-      gt_ggc_m_rtx_def (n->data.loop.alt_end_label);
-      gt_ggc_m_rtx_def (n->data.loop.continue_label);
-
-      n = n->next;
-    }
-}
-
-/* Mark N (known to be a block-nesting) for GC.  */
-
-static void
-gt_ggc_mr_nesting_block (n)
-     struct nesting *n;
-{
-  while (n)
-    {
-      ggc_set_mark (n);
-      gt_ggc_m_rtx_def (n->exit_label);
-      gt_ggc_m_rtx_def (n->data.block.stack_level);
-      gt_ggc_m_rtx_def (n->data.block.first_insn);
-      gt_ggc_m_tree_node (n->data.block.cleanups);
-      gt_ggc_m_tree_node (n->data.block.outer_cleanups);
-
-      gt_ggc_m_label_chain (n->data.block.label_chain);
-
-      gt_ggc_m_rtx_def (n->data.block.last_unconditional_cleanup);
-
-      /* ??? cleanup_ptr never points outside the stack, does it?  */
-
-      n = n->next;
-    }
-}
-
-/* Mark N (known to be a case-nesting) for GC.  */
-
-static void
-gt_ggc_mr_nesting_case_stmt (n)
-     struct nesting *n;
-{
-  while (n)
-    {
-      ggc_set_mark (n);
-      gt_ggc_m_rtx_def (n->exit_label);
-      gt_ggc_m_rtx_def (n->data.case_stmt.start);
-
-      gt_ggc_m_tree_node (n->data.case_stmt.default_label);
-      gt_ggc_m_tree_node (n->data.case_stmt.index_expr);
-      gt_ggc_m_tree_node (n->data.case_stmt.nominal_type);
-
-      gt_ggc_m_case_node (n->data.case_stmt.case_list);
-      n = n->next;
-    }
 }
 
 void
@@ -2395,6 +2310,7 @@ expand_start_cond (cond, exitflag)
 
   /* Make an entry on cond_stack for the cond we are entering.  */
 
+  thiscond->desc = COND_NESTING;
   thiscond->next = cond_stack;
   thiscond->all = nesting_stack;
   thiscond->depth = ++nesting_depth;
@@ -2483,6 +2399,7 @@ expand_start_loop (exit_flag)
 
   /* Make an entry on loop_stack for the loop we are entering.  */
 
+  thisloop->desc = LOOP_NESTING;
   thisloop->next = loop_stack;
   thisloop->all = nesting_stack;
   thisloop->depth = ++nesting_depth;
@@ -2524,6 +2441,7 @@ expand_start_null_loop ()
 
   /* Make an entry on loop_stack for the loop we are entering.  */
 
+  thisloop->desc = LOOP_NESTING;
   thisloop->next = loop_stack;
   thisloop->all = nesting_stack;
   thisloop->depth = ++nesting_depth;
@@ -3306,6 +3224,7 @@ expand_start_bindings_and_block (flags, block)
 
   /* Make an entry on block_stack for the block we are entering.  */
 
+  thisblock->desc = BLOCK_NESTING;
   thisblock->next = block_stack;
   thisblock->all = nesting_stack;
   thisblock->depth = ++nesting_depth;
@@ -3324,7 +3243,6 @@ expand_start_bindings_and_block (flags, block)
      instructions inserted after the last unconditional cleanup are
      never the last instruction.  */
   emit_note (NULL, NOTE_INSN_DELETED);
-  thisblock->data.block.cleanup_ptr = &thisblock->data.block.cleanups;
 
   if (block_stack
       && !(block_stack->data.block.cleanups == NULL_TREE
@@ -4031,7 +3949,7 @@ expand_decl_cleanup (decl, cleanup)
 			   cleanup, integer_zero_node);
 	  cleanup = fold (cleanup);
 
-	  cleanups = thisblock->data.block.cleanup_ptr;
+	  cleanups = &thisblock->data.block.cleanups;
 	}
 
       cleanup = unsave_expr (cleanup);
@@ -4072,7 +3990,6 @@ expand_decl_cleanup (decl, cleanup)
 	     instructions inserted after the last unconditional cleanup are
 	     never the last instruction.  */
 	  emit_note (NULL, NOTE_INSN_DELETED);
-	  thisblock->data.block.cleanup_ptr = &thisblock->data.block.cleanups;
 	}
     }
   return 1;
@@ -4319,6 +4236,7 @@ expand_start_case (exit_flag, expr, type, printname)
 
   /* Make an entry on case_stack for the case we are entering.  */
 
+  thiscase->desc = CASE_NESTING;
   thiscase->next = case_stack;
   thiscase->all = nesting_stack;
   thiscase->depth = ++nesting_depth;
@@ -4356,6 +4274,7 @@ expand_start_case_dummy ()
 
   /* Make an entry on case_stack for the dummy.  */
 
+  thiscase->desc = CASE_NESTING;
   thiscase->next = case_stack;
   thiscase->all = nesting_stack;
   thiscase->depth = ++nesting_depth;

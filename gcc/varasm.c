@@ -2377,8 +2377,8 @@ struct rtx_const GTY(())
     } GTY ((tag ("0"))) di;
 
     /* The max vector size we have is 8 wide.  This should be enough.  */
-    HOST_WIDE_INT GTY ((skip (""))) veclo[16];
-    HOST_WIDE_INT GTY ((skip (""))) vechi[16];
+    HOST_WIDE_INT veclo[16];
+    HOST_WIDE_INT vechi[16];
   } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
 };
 

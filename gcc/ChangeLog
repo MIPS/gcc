@@ -1,3 +1,30 @@
+2002-04-25  Geoffrey Keating  <geoffk@redhat.com>
+
+	* stringpool.c (mark_ident): Replace ggc_mark_nonnull_tree with
+	ggc_mark_tree.
+	* dwarf2asm.c (mark_indirect_pool_entry): Likewise.
+
+	* varasm.c (struct rtx_const): Remove 'skip' tags for scalar arrays.
+
+	* stmt.c (struct nesting): Add discriminator.  Use gengtype to
+	mark. Remove 'data.block.cleanup_ptr' field.
+	(struct stmt_status): Use usual technique to mark struct nesting.
+	(gt_ggc_mr_nesting_cond): Delete.
+	(gt_ggc_mr_nesting_loop): Delete.
+	(gt_ggc_mr_nesting_block): Delete.
+	(gt_ggc_mr_nesting_case_stmt): Delete.
+	(expand_start_cond): Set discriminator.
+	(expand_start_loop): Likewise.
+	(expand_start_null_loop): Likewise.
+	(expand_start_bindings_and_block): Set discriminator.  Don't set
+	deleted fields.
+	(expand_decl_cleanup): Replace 'cleanup_ptr' with
+	&thisblock->data.block.cleanups.
+	(expand_start_case): Set discriminator.
+	(expand_start_case_dummy): Set discriminator.
+
+	* ggc-callbacks.c: Remove.
+
 2002-04-11  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gengtype.h (struct type): Add 'u.s.bitmap' field.
