@@ -190,22 +190,42 @@ finish_stmt_tree (tree *t)
 tree
 build_stmt (enum tree_code code, ...)
 {
-  tree t;
-  int length;
-  int i;
+  tree ret;
+  int length, i;
   va_list p;
+  bool side_effects;
 
   va_start (p, code);
 
-  t = make_node (code);
+  ret = make_node (code);
   length = TREE_CODE_LENGTH (code);
-  STMT_LINENO (t) = input_line;
+  STMT_LINENO (ret) = input_line;
+
+  /* Most statements have implicit side effects all on their own, 
+     such as control transfer.  For those that do, we'll compute
+     the real value of TREE_SIDE_EFFECTS from its arguments.  */
+  switch (code)
+    {
+    case EXPR_STMT:
+      side_effects = false;
+      break;
+    default:
+      side_effects = true;
+      break;
+    }
 
   for (i = 0; i < length; i++)
-    TREE_OPERAND (t, i) = va_arg (p, tree);
+    {
+      tree t = va_arg (p, tree);
+      if (t)
+        side_effects |= TREE_SIDE_EFFECTS (t);
+      TREE_OPERAND (ret, i) = t;
+    }
+
+  TREE_SIDE_EFFECTS (ret) = side_effects;
 
   va_end (p);
-  return t;
+  return ret;
 }
 
 /* Some statements, like for-statements or if-statements, require a

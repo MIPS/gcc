@@ -80,6 +80,7 @@ void foreach_stmt (tree *, foreach_stmt_fn *);
 
 void append_to_statement_list (tree, tree *);
 void append_to_statement_list_force (tree, tree *);
+void append_to_compound_expr (tree, tree *);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

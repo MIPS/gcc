@@ -184,9 +184,12 @@ append_to_statement_list_1 (tree stmt, tree *list_p, bool side_effects)
 {
   tree existing = *list_p;
 
-  /* If we previously had nothing, allow an empty statement.  */
-  if (!existing && stmt && IS_EMPTY_STMT (stmt))
-    ;
+  /* If we previously had nothing, force a statement of some sort.  */
+  if (!existing)
+    {
+      if (!stmt || (!side_effects && !IS_EMPTY_STMT (stmt)))
+	stmt = build_empty_stmt ();
+    }
   /* If side effects say to discard the new statement, do so.  */
   else if (!side_effects)
     return;
@@ -212,6 +215,20 @@ void
 append_to_statement_list_force (tree t, tree *list_p)
 {
   append_to_statement_list_1 (t, list_p, t != NULL);
+}
+
+/* Add T to the end of a COMPOUND_EXPR pointed by LIST_P.  The type
+   of the result is the type of T.  */
+
+void
+append_to_compound_expr (tree t, tree *list_p)
+{
+  if (!t)
+    return;
+  if (!*list_p)
+    *list_p = t;
+  else
+    *list_p = build (COMPOUND_EXPR, TREE_TYPE (t), *list_p, t);
 }
 
 /* Strip off a legitimate source ending from the input string NAME of

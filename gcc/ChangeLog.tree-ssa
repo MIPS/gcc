@@ -1,5 +1,30 @@
 2003-11-11  Richard Henderson  <rth@redhat.com>
 
+	* c-semantics.c (build_stmt): Set TREE_SIDE_EFFECTS.
+	* c-simplify.c (c_gimplify_stmt): Return a gimplify_status;
+	mind the status from subroutines to avoid re-gimplification.
+	(c_build_bind_expr): Do not call gimplify_stmt.
+	(gimplify_c_loop): Don't create a loop_expr; fully gimplify.
+	(gimplify_block, gimplify_cleanup, gimplify_expr_stmt,
+	gimplify_for_stmt, gimplify_while_stmt, gimplify_do_stmt,
+	gimplify_if_stmt, gimplify_switch_stmt, gimplify_return_stmt,
+	gimplify_decl_stmt, gimplify_compound_literal_expr,
+	gimplify_stmt_expr): Return a gimplify_status.  In most cases,
+	don't do local gimplification of sub-structures.
+	(gimplify_decl_stmt): Use append_to_compound_expr when we care
+	about the result value.
+	(gimplify_stmt_expr): Use append_to_statement_list_force and
+	re-gimplify so that voidify_wrapper_expr can work.
+	(finish_bc_block): Don't append to a non-list.
+	(c_gimplify_expr): Pass back the gimplify_status of subroutines.
+	* c-common.h (c_gimplify_stmt): Update decl.
+	* gimplify.c (append_to_statement_list_1): Make sure list_p is
+	never null after call.
+	(append_to_compound_expr): New.
+	* tree-simple.h (append_to_compound_expr): Declare.
+
+2003-11-11  Richard Henderson  <rth@redhat.com>
+
 	* gimplify.c (gimplify_addr_expr): Clear, not copy, TREE_SIDE_EFFECTS.
 
 2003-11-11  Richard Henderson  <rth@redhat.com>

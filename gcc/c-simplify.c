@@ -70,23 +70,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Local declarations.  */
 
-void c_gimplify_stmt (tree *);
-static void gimplify_expr_stmt (tree *);
-static void gimplify_decl_stmt (tree *);
-static void gimplify_for_stmt (tree *, tree *);
-static void gimplify_while_stmt (tree *);
-static void gimplify_do_stmt (tree *);
-static void gimplify_if_stmt (tree *);
-static void gimplify_switch_stmt (tree *);
-static void gimplify_return_stmt (tree *);
-static void gimplify_stmt_expr (tree *);
-static void gimplify_compound_literal_expr (tree *);
+static enum gimplify_status gimplify_expr_stmt (tree *);
+static enum gimplify_status gimplify_decl_stmt (tree *);
+static enum gimplify_status gimplify_for_stmt (tree *, tree *);
+static enum gimplify_status gimplify_while_stmt (tree *);
+static enum gimplify_status gimplify_do_stmt (tree *);
+static enum gimplify_status gimplify_if_stmt (tree *);
+static enum gimplify_status gimplify_switch_stmt (tree *);
+static enum gimplify_status gimplify_return_stmt (tree *);
+static enum gimplify_status gimplify_stmt_expr (tree *);
+static enum gimplify_status gimplify_compound_literal_expr (tree *);
 #if defined ENABLE_CHECKING
 static int is_last_stmt_of_scope (tree);
 #endif
-static void gimplify_block (tree *, tree *);
-static void gimplify_cleanup (tree *, tree *);
-static tree gimplify_c_loop (tree, tree, tree, int);
+static enum gimplify_status gimplify_block (tree *, tree *);
+static enum gimplify_status gimplify_cleanup (tree *, tree *);
+static tree gimplify_c_loop (tree, tree, tree, bool);
 static void push_context (void);
 static void pop_context (void);
 static tree c_build_bind_expr (tree, tree);
@@ -167,7 +166,7 @@ c_genericize (tree fndecl)
 /*  Entry point for the tree lowering pass.  Recursively scan
     *STMT_P and convert it to a GIMPLE tree.  */
 
-void
+int
 c_gimplify_stmt (tree *stmt_p)
 {
   tree stmt, next;
@@ -190,6 +189,7 @@ c_gimplify_stmt (tree *stmt_p)
       tree pre, post;
       int saved_stmts_are_full_exprs_p;
       location_t stmt_locus;
+      enum gimplify_status ret;
 
       /* Set up context appropriately for handling this statement.  */
       saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
@@ -204,52 +204,54 @@ c_gimplify_stmt (tree *stmt_p)
       switch (TREE_CODE (stmt))
 	{
 	case COMPOUND_STMT:
-	  c_gimplify_stmt (&COMPOUND_BODY (stmt));
 	  stmt = COMPOUND_BODY (stmt);
+	  ret = GS_OK;
 	  break;
 
 	case SCOPE_STMT:
-	  gimplify_block (&stmt, &next);
+	  ret = gimplify_block (&stmt, &next);
 	  break;
 
 	case FOR_STMT:
-	  gimplify_for_stmt (&stmt, &pre);
+	  ret = gimplify_for_stmt (&stmt, &pre);
 	  break;
 
 	case WHILE_STMT:
-	  gimplify_while_stmt (&stmt);
+	  ret = gimplify_while_stmt (&stmt);
 	  break;
 
 	case DO_STMT:
-	  gimplify_do_stmt (&stmt);
+	  ret = gimplify_do_stmt (&stmt);
 	  break;
 
 	case IF_STMT:
-	  gimplify_if_stmt (&stmt);
+	  ret = gimplify_if_stmt (&stmt);
 	  break;
 
 	case SWITCH_STMT:
-	  gimplify_switch_stmt (&stmt);
+	  ret = gimplify_switch_stmt (&stmt);
 	  break;
 
 	case EXPR_STMT:
-	  gimplify_expr_stmt (&stmt);
+	  ret = gimplify_expr_stmt (&stmt);
 	  break;
 
 	case RETURN_STMT:
-	  gimplify_return_stmt (&stmt);
+	  ret = gimplify_return_stmt (&stmt);
 	  break;
 
 	case DECL_STMT:
-	  gimplify_decl_stmt (&stmt);
+	  ret = gimplify_decl_stmt (&stmt);
 	  break;
 
 	case LABEL_STMT:
 	  stmt = build1 (LABEL_EXPR, void_type_node, LABEL_STMT_LABEL (stmt));
+	  ret = GS_OK;
 	  break;
 
 	case GOTO_STMT:
 	  stmt = build1 (GOTO_EXPR, void_type_node, GOTO_DESTINATION (stmt));
+	  ret = GS_OK;
 	  break;
 
 	case CASE_LABEL:
@@ -257,19 +259,22 @@ c_gimplify_stmt (tree *stmt_p)
 	    tree label = create_artificial_label ();
 	    stmt = build (CASE_LABEL_EXPR, void_type_node,
 			  CASE_LOW (stmt), CASE_HIGH (stmt), label);
+	    ret = GS_OK;
 	  }
 	  break;
 
 	case CONTINUE_STMT:
 	  stmt = build_bc_goto (bc_continue);
+	  ret = GS_OK;
 	  break;
 
 	case BREAK_STMT:
 	  stmt = build_bc_goto (bc_break);
+	  ret = GS_OK;
 	  break;
 
 	case CLEANUP_STMT:
-	  gimplify_cleanup (&stmt, &next);
+	  ret = gimplify_cleanup (&stmt, &next);
 	  break;
 
 	case ASM_STMT:
@@ -280,6 +285,7 @@ c_gimplify_stmt (tree *stmt_p)
 	    ASM_INPUT_P (new_stmt) = ASM_INPUT_P (stmt);
 	    ASM_VOLATILE_P (new_stmt) = ASM_VOLATILE_P (stmt);
 	    stmt = new_stmt;
+	    ret = GS_OK;
 	  }
 	  break;
 
@@ -289,12 +295,28 @@ c_gimplify_stmt (tree *stmt_p)
 
 	default:
 	  if (lang_gimplify_stmt && (*lang_gimplify_stmt) (&stmt, &next))
-	    break;
+	    {
+	      ret = GS_OK;
+	      break;
+	    }
 
-	  fprintf (stderr, "unhandled statement node in c_gimplify_stmt ():\n");
+	  fprintf (stderr, "unhandled statement node in c_gimplify_stmt:\n");
 	  debug_tree (stmt);
 	  abort ();
 	  break;
+	}
+
+      switch (ret)
+	{
+	case GS_ERROR:
+	  goto cont;
+	case GS_OK:
+          gimplify_stmt (&stmt);
+	  break;
+	case GS_ALL_DONE:
+	  break;
+	default:
+	  abort ();
 	}
 
       /* PRE and POST now contain a list of statements for all the
@@ -302,7 +324,6 @@ c_gimplify_stmt (tree *stmt_p)
 
       append_to_statement_list (stmt, &pre);
       append_to_statement_list (post, &pre);
-      pre = rationalize_compound_expr (pre);
       annotate_all_with_locus (&pre, stmt_locus);
 
       append_to_statement_list (pre, &outer_pre);
@@ -312,7 +333,9 @@ c_gimplify_stmt (tree *stmt_p)
 	= saved_stmts_are_full_exprs_p;
     }
   append_to_statement_list (stmt, &outer_pre);
-  *stmt_p = rationalize_compound_expr (outer_pre);
+  *stmt_p = outer_pre;
+
+  return GS_ALL_DONE;
 }
 
 static void
@@ -363,7 +386,6 @@ c_build_bind_expr (tree block, tree body)
 
   bind = build (BIND_EXPR, void_type_node, decls, body, block);
   TREE_SIDE_EFFECTS (bind) = 1;
-  gimplify_stmt (&bind);
 
   return bind;
 }
@@ -373,7 +395,7 @@ c_build_bind_expr (tree block, tree body)
    that matching SCOPE_STMTs will always appear in the same statement
    sequence.  */
 
-static void
+static enum gimplify_status
 gimplify_block (tree *stmt_p, tree *next_p)
 {
   tree *p;
@@ -388,7 +410,7 @@ gimplify_block (tree *stmt_p, tree *next_p)
       if (!errorcount && !sorrycount)
 	abort ();
       *stmt_p = NULL;
-      return;
+      return GS_ERROR;
     }
 
   block = SCOPE_STMT_BLOCK (*stmt_p);
@@ -427,13 +449,15 @@ gimplify_block (tree *stmt_p, tree *next_p)
   bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
   input_line = stmt_lineno;
+
+  return GS_OK;
 }
 
 /* Genericize a CLEANUP_STMT.  Just wrap everything from here to the end of
    the block in a TRY_FINALLY_EXPR.  Or a TRY_CATCH_EXPR, if it's an
    EH-only cleanup.  */
 
-static void
+static enum gimplify_status
 gimplify_cleanup (tree *stmt_p, tree *next_p)
 {
   tree stmt = *stmt_p;
@@ -442,10 +466,15 @@ gimplify_cleanup (tree *stmt_p, tree *next_p)
   enum tree_code code
     = (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR);
 
-  c_gimplify_stmt (&body);
+  if (!body)
+    body = build_empty_stmt ();
+  if (!cleanup)
+    cleanup = build_empty_stmt ();
 
   *stmt_p = build (code, void_type_node, body, cleanup);
   *next_p = NULL_TREE;
+
+  return GS_OK;
 }
 
 /*  Gimplify an EXPR_STMT node.
@@ -458,7 +487,7 @@ gimplify_cleanup (tree *stmt_p, tree *next_p)
     POST_P points to the list where side effects that must happen after
 	STMT should be stored.  */
 
-static void
+static enum gimplify_status
 gimplify_expr_stmt (tree *stmt_p)
 {
   tree stmt = EXPR_STMT_EXPR (*stmt_p);
@@ -494,6 +523,8 @@ gimplify_expr_stmt (tree *stmt_p)
     stmt = build1 (CLEANUP_POINT_EXPR, void_type_node, stmt);
 
   *stmt_p = stmt;
+
+  return GS_OK;
 }
 
 /* If the condition for a loop (or the like) is a decl, it will be a
@@ -543,10 +574,15 @@ finish_bc_block (tree label, tree body)
 
   if (TREE_USED (label))
     {
-      tree expr = build1 (LABEL_EXPR, void_type_node, label);
+      tree t, sl = NULL;
+
       /* Clear the name so flow can delete the label.  */
       DECL_NAME (label) = NULL_TREE;
-      append_to_statement_list (expr, &body);
+      t = build1 (LABEL_EXPR, void_type_node, label);
+
+      append_to_statement_list (body, &sl);
+      append_to_statement_list (t, &sl);
+      body = sl;
     }
 
   ctxp->current_bc_label = TREE_CHAIN (label);
@@ -593,93 +629,78 @@ build_bc_goto (enum bc_t bc)
    loop body as in do-while loops.  */
 
 static tree
-gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
+gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
 {
-  tree exit, cont_block, break_block, loop;
+  tree top, entry, exit, cont_block, break_block, stmt_list, t;
   location_t stmt_locus;
-  tree stuff, entry = NULL_TREE;
 
   stmt_locus = input_location;
 
+  /* Detect do { ... } while (0) and don't generate loop construct.  */
+  if (!cond_is_first && cond && integer_zerop (cond))
+    top = cond = NULL;
+  else
+    {
+      /* If we use a LOOP_EXPR here, we have to feed the whole thing
+	 back through the main gimplifier to lower it.  Given that we
+	 have to gimplify the loop body NOW so that we can resolve
+	 break/continue stmts, seems easier to just expand to gotos.  */
+      top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+    }
+
   break_block = begin_bc_block (bc_break);
 
-  loop = build (LOOP_EXPR, void_type_node, NULL_TREE);
-
-  if (cond)
+  if (top)
     {
-      gimplify_condition (&cond);
-      exit = build_bc_goto (bc_break);
-      exit = build (COND_EXPR, void_type_node, cond, build_empty_stmt (), exit);
-      exit = fold (exit);
+      /* If we have an exit condition, then we build an IF with gotos either
+	 out of the loop, or to the top of it.  If there's no exit condition,
+	 then we just build a jump back to the top.  */
+      exit = build_and_jump (&LABEL_EXPR_LABEL (top));
+      if (cond)
+	{
+	  gimplify_condition (&cond);
+	  t = build_bc_goto (bc_break);
+	  exit = build (COND_EXPR, void_type_node, cond, exit, t);
+	  exit = fold (exit);
+	  gimplify_stmt (&exit);
+	}
     }
   else
     exit = NULL_TREE;
 
   cont_block = begin_bc_block (bc_continue);
 
-  c_gimplify_stmt (&body);
+  gimplify_stmt (&body);
+  gimplify_stmt (&incr);
 
   body = finish_bc_block (cont_block, body);
 
-  stuff = NULL_TREE;
-  if (cond_is_first)
+  stmt_list = NULL;
+
+  if (cond_is_first && cond)
     {
-      if (exit)
-	{
-	  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	  append_to_statement_list (body, &stuff);
-	  append_to_statement_list (incr, &stuff);
-	  append_to_statement_list (entry, &stuff);
-	  append_to_statement_list (exit, &stuff);
-	}
-      else
-	{
-	  append_to_statement_list (body, &stuff);
-	  append_to_statement_list (incr, &stuff);
-	}
+      entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      t = build_and_jump (&LABEL_EXPR_LABEL (entry));
+      append_to_statement_list (t, &stmt_list);
     }
   else
-    {
-      append_to_statement_list (body, &stuff);
-      append_to_statement_list (incr, &stuff);
-      append_to_statement_list (exit, &stuff);
-    }
+    entry = NULL_TREE;
 
-  annotate_all_with_locus (&stuff, stmt_locus);
+  append_to_statement_list (top, &stmt_list);
+  append_to_statement_list (body, &stmt_list);
+  append_to_statement_list (incr, &stmt_list);
+  append_to_statement_list (entry, &stmt_list);
+  append_to_statement_list (exit, &stmt_list);
 
-  LOOP_EXPR_BODY (loop) = rationalize_compound_expr (stuff);
+  annotate_all_with_locus (&stmt_list, stmt_locus);
 
-  loop = finish_bc_block (break_block, loop);
-  if (entry)
-    {
-      stuff = build_and_jump (&LABEL_EXPR_LABEL (entry));
-      append_to_statement_list (loop, &stuff);
-      loop = stuff;
-    }
-
-  /* This catches do ... while (0) loops and eliminates their looping
-     structure.  Conditions for detecting these loops:
-
-	1. The condition must be last.
-	2. We must have exit code.
-	3. The exit code must be an unconditional jump to the 'break'
-	   label.  The way we construct the exit code above assures that
-	   if the exit code is an unconditional jump, then it will
-	   have the 'break' label as its target.
-	4. The 'continue' label must be unused.  */
-  if (! cond_is_first
-      && exit
-      && TREE_CODE (exit) == GOTO_EXPR
-      && ! TREE_USED (cont_block))
-    TREE_OPERAND (loop, 0) = TREE_OPERAND (TREE_OPERAND (loop, 0), 0);
-
-  return loop;
+  return finish_bc_block (break_block, stmt_list);
 }
 
 /* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
    prequeue and hand off to gimplify_c_loop.  */
 
-static void
+static enum gimplify_status
 gimplify_for_stmt (tree *stmt_p, tree *pre_p)
 {
   tree stmt = *stmt_p;
@@ -690,48 +711,56 @@ gimplify_for_stmt (tree *stmt_p, tree *pre_p)
 
   *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
 			     FOR_EXPR (stmt), 1);
+
+  return GS_ALL_DONE;
 }
 
 /* Gimplify a WHILE_STMT node.  */
 
-static void
+static enum gimplify_status
 gimplify_while_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
 			     NULL_TREE, 1);
+  return GS_ALL_DONE;
 }
 
 /* Gimplify a DO_STMT node.  */
 
-static void
+static enum gimplify_status
 gimplify_do_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
 			     NULL_TREE, 0);
+  return GS_ALL_DONE;
 }
 
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
-static void
+static enum gimplify_status
 gimplify_if_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   tree then_ = THEN_CLAUSE (stmt);
   tree else_ = ELSE_CLAUSE (stmt);
-  tree cond = IF_COND (stmt);
 
-  gimplify_condition (&cond);
-  c_gimplify_stmt (&then_);
-  c_gimplify_stmt (&else_);
+  if (!then_)
+    then_ = build_empty_stmt ();
+  if (!else_)
+    else_ = build_empty_stmt ();
 
-  *stmt_p = build (COND_EXPR, void_type_node, cond, then_, else_);
+  stmt = build (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
+  gimplify_condition (& TREE_OPERAND (stmt, 0));
+
+  *stmt_p = stmt;
+  return GS_OK;
 }
 
 /* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
 
-static void
+static enum gimplify_status
 gimplify_switch_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
@@ -752,11 +781,12 @@ gimplify_switch_stmt (tree *stmt_p)
   gimplify_stmt (stmt_p);
 
   *stmt_p = finish_bc_block (break_block, *stmt_p);
+  return GS_ALL_DONE;
 }
 
 /* Genericize a RETURN_STMT by turning it into a RETURN_EXPR.  */
 
-static void
+static enum gimplify_status
 gimplify_return_stmt (tree *stmt_p)
 {
   tree expr = RETURN_STMT_EXPR (*stmt_p);
@@ -764,6 +794,7 @@ gimplify_return_stmt (tree *stmt_p)
   if (stmts_are_full_exprs_p ())
     expr = build1 (CLEANUP_POINT_EXPR, void_type_node, expr);
   *stmt_p = expr;
+  return GS_OK;
 }
 
 /* walk_tree helper function for gimplify_decl_stmt.  */
@@ -795,7 +826,7 @@ mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
    Usually these last two will be the same, but they may need to be
    different if the DECL_STMT is somehow embedded in an expression.  */
 
-static void
+static enum gimplify_status
 gimplify_decl_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
@@ -806,7 +837,7 @@ gimplify_decl_stmt (tree *stmt_p)
   if (TREE_TYPE (decl) == error_mark_node)
     {
       *stmt_p = NULL;
-      return;
+      return GS_ERROR;
     }
 
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
@@ -828,7 +859,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	     tree_cons (NULL_TREE,
 			build1 (ADDR_EXPR, pt_type, decl),
 			tree_cons (NULL_TREE, size, NULL_TREE)));
-	  append_to_statement_list (alloc, &pre);
+	  append_to_compound_expr (alloc, &pre);
 	}
 
       if (init && init != error_mark_node)
@@ -839,8 +870,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	      init = build (MODIFY_EXPR, void_type_node, decl, init);
 	      if (stmts_are_full_exprs_p ())
 		init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
-	      /* FIXME: Shouldn't we gimplify here?  */
-	      append_to_statement_list (init, &pre);
+	      append_to_compound_expr (init, &pre);
 	    }
 	  else
 	    {
@@ -857,8 +887,9 @@ gimplify_decl_stmt (tree *stmt_p)
 	gimple_add_tmp_var (decl);
     }
 
-  append_to_statement_list (post, &pre);
+  append_to_compound_expr (post, &pre);
   *stmt_p = pre;
+  return GS_OK;
 }
 
 /* Gimplification of expression trees.  */
@@ -867,7 +898,7 @@ gimplify_decl_stmt (tree *stmt_p)
    DECL_STMT before the current EXPR_STMT and using its anonymous decl
    instead.  */
 
-static void
+static enum gimplify_status
 gimplify_compound_literal_expr (tree *expr_p)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
@@ -875,6 +906,7 @@ gimplify_compound_literal_expr (tree *expr_p)
 
   gimplify_decl_stmt (&decl_s);
   *expr_p = decl_s ? decl_s : decl;
+  return GS_OK;
 }
 
 /* Do C-specific gimplification.  Args are as for gimplify_expr.  */
@@ -886,22 +918,19 @@ c_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
   enum tree_code code = TREE_CODE (*expr_p);
 
   if (STATEMENT_CODE_P (code))
-    c_gimplify_stmt (expr_p);
-  else switch (code)
+    return c_gimplify_stmt (expr_p);
+
+  switch (code)
     {
     case COMPOUND_LITERAL_EXPR:
-      gimplify_compound_literal_expr (expr_p);
-      break;
+      return gimplify_compound_literal_expr (expr_p);
 
     case STMT_EXPR:
-      gimplify_stmt_expr (expr_p);
-      break;
+      return gimplify_stmt_expr (expr_p);
 
     default:
       return GS_UNHANDLED;
     }
-
-  return GS_OK;
 }
 
 /* Gimplify a STMT_EXPR.  EXPR_P points to the expression to gimplify.
@@ -912,17 +941,19 @@ c_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
    PRE_P points to the list where side effects that must happen before
      *EXPR_P should be stored.  */
 
-static void
+static enum gimplify_status
 gimplify_stmt_expr (tree *expr_p)
 {
   tree body = STMT_EXPR_STMT (*expr_p);
+
   if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
-    c_gimplify_stmt (&body);
+    {
+      *expr_p = body;
+      return c_gimplify_stmt (expr_p);
+    }
   else
     {
-      tree substmt, last_stmt, last_expr, bind;
-
-      bind = NULL_TREE;	/* [GIMPLE] Avoid uninitialized use warning.  */
+      tree last_stmt, last_expr, substmt;
 
       /* Splice the last expression out of the STMT chain.  */
       last_stmt = NULL_TREE;
@@ -938,7 +969,8 @@ gimplify_stmt_expr (tree *expr_p)
 	  location_t loc;
 	  loc.file = input_filename;
 	  loc.line = STMT_LINENO (last_stmt);
-	  warning ("%Hstatement-expressions should end with a non-void expression", &loc);
+	  warning ("%Hstatement-expressions should end with a "
+		   "non-void expression", &loc);
 	  last_expr = NULL_TREE;
 	}
       else
@@ -962,31 +994,28 @@ gimplify_stmt_expr (tree *expr_p)
       /* Now retrofit that last expression into the BIND_EXPR.  */
       if (last_expr)
 	{
-	  if (!STMT_EXPR_NO_SCOPE (*expr_p))
-	    {
-	      bind = body;
-	      substmt = BIND_EXPR_BODY (bind);
-	    }
-	  else
-	    substmt = body;
-
-	  if (IS_EMPTY_STMT (substmt))
-	    substmt = last_expr;
-	  else
-	    substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
-			    substmt, last_expr);
+	  tree *sub_p;
 
 	  if (!STMT_EXPR_NO_SCOPE (*expr_p))
 	    {
-	      BIND_EXPR_BODY (bind) = substmt;
-	      TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
+	      /* Our BIND_EXPR will always be hidden within
+		 a STATEMENT_LIST.  Discard that.  */
+	      body = expr_first (body);
+	      sub_p = &BIND_EXPR_BODY (body);
+
+	      /* Append the last expression to the end of the BIND_EXPR.
+		 We'll now re-process this, and let voidify_wrapper_expr
+		 do its job.  */
+	      append_to_statement_list_force (last_expr, sub_p);
+	      TREE_TYPE (body) = TREE_TYPE (last_expr);
 	    }
 	  else
-	    body = substmt;
+	    append_to_compound_expr (last_expr, &body);
 	}
-    }
 
-  *expr_p = body;
+      *expr_p = body;
+      return GS_OK;
+    }
 }
 
 /* Code generation.  */

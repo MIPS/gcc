@@ -1290,7 +1290,7 @@ extern void c_warn_unused_result (tree *);
 
 /* In c-simplify.c  */
 extern void c_genericize (tree);
-extern void c_gimplify_stmt (tree *);
+extern int c_gimplify_stmt (tree *);
 
 extern void pch_init (void);
 extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);
