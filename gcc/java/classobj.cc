@@ -198,7 +198,8 @@ class_object_creator::create_one_method_record (model_method *method)
 		  builtins->map_utf8const (method->get_descriptor ()));
   inst.set_field ("accflags",
 		  build_int_cst (type_jushort, method->get_modifiers ()));
-  inst.set_field ("index", integer_minus_one_node); // FIXME
+  gcj_abi *abi = builtins->find_abi ();
+  inst.set_field ("index", abi->get_vtable_index (klass, method));
   inst.set_field ("ncode", build_address_of (mdecl));
   inst.set_field ("throws", create_method_throws (method));
   return inst.finish_record ();

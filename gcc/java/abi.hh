@@ -113,6 +113,10 @@ public:
   /// KLASS and need a fully-filled-in vtable, not just a decl.
   virtual tree get_vtable (tree_builtins *builtins, model_class *klass,
 			   bool lay_out = false) = 0;
+
+  /// Return tree representing index into vtable where this method can
+  /// be found.  Should return -1 for a static method or constructor.
+  virtual tree get_vtable_index (aot_class *klass, model_method *method) = 0;
 };
 
 /// This class handles C++ ABI code.
@@ -151,6 +155,8 @@ public:
   }
 
   tree get_vtable (tree_builtins *, model_class *, bool);
+
+  tree get_vtable_index (aot_class *klass, model_method *method);
 };
 
 /// This class handles the binary compatibility ABI.
@@ -192,6 +198,11 @@ public:
   {
     // The BC ABI lays out all vtables at runtime.
     return null_pointer_node;
+  }
+
+  tree get_vtable_index (aot_class *, model_method *)
+  {
+    return integer_minus_one_node;
   }
 };
 

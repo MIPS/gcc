@@ -1,5 +1,14 @@
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.cc (create_one_method_record): Correctly compute
+	"index" field.
+	* abi.cc (get_vtable_index): New method.
+	* abi.hh (gcj_abi::get_vtable_index): New method.
+	(cxx_abi::get_vtable_index): Declare.
+	(bc_abi::get_vtable_index): New method.
+
+2005-02-21  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (map_utf8const): Use 'type', not 'type_utf8const'.
 
 	* abi.cc (build_class_reference): Wrote.

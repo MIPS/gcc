@@ -201,6 +201,15 @@ cxx_abi::get_vtable (tree_builtins *builtins, model_class *klass,
   return build_address_of (builtins->get_vtable_decl (klass, lay_out));
 }
 
+tree
+cxx_abi::get_vtable_index (aot_class *klass, model_method *method)
+{
+  assert (method->get_declaring_class () == klass->get ());
+  if (method->static_p () || method->constructor_p ())
+    return integer_minus_one_node;
+  return build_int_cst (type_jint, klass->find_in_vtable (method));
+}
+
 
 
 tree
