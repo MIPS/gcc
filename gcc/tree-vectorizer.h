@@ -168,6 +168,10 @@ vinfo_for_stmt (tree stmt)
 /* Info on data references alignment.                              */
 /*-----------------------------------------------------------------*/
 
+/* FORNOW: the number of alignment checks may change in the future to
+   a target specific compilation flag.  */
+#define MAX_RUNTIME_ALIGNMENT_CHECKS 6
+
 /* Reflects actual alignment of first access in the vectorized loop,
    taking into account peeling/versioning if applied.  */
 #define DR_MISALIGNMENT(DR) (DR)->aux  
@@ -224,11 +228,18 @@ typedef struct _loop_vec_info {
 		 unaligned_dr.  */
   int peeling_for_alignment;
 
+  /* The mask used to check the alignment of pointers or arrays.  */
+  int ptr_mask;
+
   /* All data references in the loop that are being written to.  */
   varray_type data_ref_writes;
 
   /* All data references in the loop that are being read from.  */
   varray_type data_ref_reads;
+
+  /* Statements in the loop that have data references that are candidates for a
+     runtime (loop versioning) misalignment check.  */
+  varray_type may_misalign_stmts;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -238,11 +249,13 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_NITERS(L)         (L)->num_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
 #define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
+#define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
 #define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
 #define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
 #define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))       
 #define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
 #define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
+#define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
   
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \

@@ -1,3 +1,26 @@
+2005-02-02  Keith Besaw  <kbesaw@us.ibm.com> 
+	    Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (new_loop_vec_info): Initialize
+	LOOP_VINFO_MAY_MISALIGN_STMTS.
+	(destroy_loop_vec_info); varray_clear of LOOP_VINFO_MAY_MISALIGN_STMTS.
+	(vect_create_cond_for_align_checks): New function.
+	(vect_transform_loop): Add calls to tree_ssa_loop_version and
+	vect_create_cond_for_align_checks.
+	(vect_build_dist_vector): Change loop_info to loop_vinfo as it is
+	called elsewhere.
+	(vect_update_misalignment_for_peel): New function.
+	(vect_enhance_data_refs_alignment): Decide when to do loop
+	versioning and update data structcures.
+	(vect_analyze_data_refs_alignment): Fix comment.
+	(vect_pattern_recog): Fix comment.
+	(vectorize_loops): Tmporarily move call to rewrite_into_loop_closed_ssa
+	so it's done each time it's needed rather than once at the end.
+	(vect_verify_datarefs_alignment): New function.
+	* tree-vectorizer.h (struct _loop_vec_info): Add fields ptr_mask and
+	may_misalign_stmts.
+	(MAX_RUNTIME_ALIGNMENT_CHECKS): New named constant.
+
 2005-01-31  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (datadep_stats): Add the following fields:
