@@ -7,8 +7,6 @@
  * Macintosh compiler alignment test for alignment extensions in GCC 3.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-1-22.
  */
  
  /* Check whether we are testing GCC 3 or later.  */

@@ -8,8 +8,6 @@
  * This came up initially as an alignment problem in the kernel.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-2-18.
  */
  
  /* Check whether we are testing GCC 3 or later.  */

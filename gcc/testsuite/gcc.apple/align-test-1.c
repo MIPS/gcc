@@ -7,8 +7,6 @@
  * Macintosh compiler alignment test for C.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-4-29
  */
 
 #include <stdio.h>
@@ -375,7 +373,7 @@ typedef struct M68K6 {
 } M68K6;
 
 #pragma options align=reset
-#endif
+#endif /* __VEC__ */
 
 #pragma options align=mac68k
 
@@ -589,7 +587,7 @@ int main(int argc, char *argv[])
     check(Q(sizeof(M68K3)), 32, 32, "mac68k struct with vector as 1st field");
     check(Q(sizeof(M68K4)), 48, 48, "embedding mac68k struct with vector as 1st field in a mac68k struct");
     check(Q(sizeof(M68K5)), 48, 48, "embedding mac68k struct with vector as 1st field in a power struct");
-    check(Q(offsetof(M68K6, f2)), f2)), 16, "offset of vector as 2nd field in a mac68k struct");
+    check(Q(offsetof(M68K6, f2)), 16, 16, "offset of vector as 2nd field in a mac68k struct");
 #endif
     check(Q(sizeof(M68K7)), 2, 2, "padding of mac68k struct with one char");
     check(Q(sizeof(M68K8)), 2, 2, "padding of mac68k union with one char");
