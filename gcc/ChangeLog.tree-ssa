@@ -1,3 +1,14 @@
+2002-09-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (M_ADDRESSOF): Define.
+	(find_refs_in_expr): Create addressof-use references for ADDR_EXPR
+	nodes.
+	Don't create references for FUNCTION_DECL nodes.
+	(ref_type_name): Handle M_ADDRESSOF.
+	(validate_ref_type): Ditto.
+	(clobber_vars_r): Don't clobber FUNCTION_DECL nodes.
+	* tree-flow.h (M_ADDRESSOF): Declare.
+
 2002-09-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* doc/invoke.texi: Document -ftree-ssa-dce and -fdump-tree-dce.

@@ -101,6 +101,7 @@ const HOST_WIDE_INT M_PARTIAL	= 1 << 11;
 const HOST_WIDE_INT M_INITIAL	= 1 << 12;
 const HOST_WIDE_INT M_INDIRECT	= 1 << 13;
 const HOST_WIDE_INT M_VOLATILE	= 1 << 14;
+const HOST_WIDE_INT M_ADDRESSOF	= 1 << 15;
 
 
 /* Look for variable references in every block of the flowgraph.  */
@@ -308,8 +309,8 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
   if (class == 'c'
       || class == 't'
       || class == 'b'
-      || code == ADDR_EXPR
       || code == RESULT_DECL
+      || code == FUNCTION_DECL
       || code == LABEL_DECL)
     return;
 
@@ -327,7 +328,7 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
     }
 
   /* If we found a _DECL node, create a reference to it and return.  */
-  if (code == VAR_DECL || code == PARM_DECL || code == FUNCTION_DECL)
+  if (code == VAR_DECL || code == PARM_DECL)
     {
       tree_ref ref = create_ref (expr, ref_type, bb, parent_stmt, parent_expr,
 	                         expr_p, true);
@@ -433,6 +434,15 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt, parent_expr)
 	                true);
       add_ref_to_list_end (call_sites, ref);
 
+      return;
+    }
+
+  /* ADDR_EXPR nodes create an address-of use of their operand.  This means
+     that the variable is not read, but its address is needed.  */
+  if (code == ADDR_EXPR)
+    {
+      find_refs_in_expr (&TREE_OPERAND (expr, 0), V_USE|M_ADDRESSOF, bb,
+			 parent_stmt, parent_expr);
       return;
     }
 
@@ -1316,6 +1326,9 @@ ref_type_name (type)
   if (type & M_VOLATILE)
     strncat (str, "/volatile", max - strlen (str));
 
+  if (type & M_ADDRESSOF)
+    strncat (str, "/addressof", max - strlen (str));
+
   return str;
 }
 
@@ -1336,7 +1349,7 @@ validate_ref_type (type)
     }
   else if (type & V_USE)
     {
-      type &= ~(M_MAY | M_PARTIAL | M_INDIRECT);
+      type &= ~(M_DEFAULT | M_MAY | M_PARTIAL | M_INDIRECT | M_ADDRESSOF);
       return type == V_USE;
     }
   else if (type & V_PHI)
@@ -1380,7 +1393,7 @@ clobber_vars_r (tp, walk_subtrees, data)
   struct clobber_data_d *clobber = (struct clobber_data_d *)data;
 
   /* Create may-use and clobber references for every *_DECL in sight.  */
-  if (code == VAR_DECL || code == PARM_DECL || code == FUNCTION_DECL)
+  if (code == VAR_DECL || code == PARM_DECL)
     {
       create_ref (*tp, V_USE | M_MAY, clobber->bb, clobber->parent_stmt,
 		  clobber->parent_expr, NULL, true);

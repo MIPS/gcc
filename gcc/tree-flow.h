@@ -156,6 +156,11 @@ extern const HOST_WIDE_INT M_INDIRECT;
    value 5.  */
 extern const HOST_WIDE_INT M_VOLATILE;
 
+/* M_ADDRESSOF modifies a V_USE reference to indicate that the address of
+   the variable is needed.  This is not a memory load operation, just an
+   indication that we need the address of the variable being referenced.  */
+extern const HOST_WIDE_INT M_ADDRESSOF;
+
 
 /*---------------------------------------------------------------------------
 		 Doubly linked list of variable references
