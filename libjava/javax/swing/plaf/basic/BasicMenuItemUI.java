@@ -63,7 +63,9 @@ import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
 import javax.swing.Icon;
 import javax.swing.JComponent;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenuItem;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
@@ -222,6 +224,14 @@ public class BasicMenuItemUI extends MenuItemUI
         if (d.height < rect.height)
           d.height = rect.height;
       }
+
+    if (checkIcon != null)
+      {
+        d.width = d.width + checkIcon.getIconWidth() + defaultTextIconGap;
+        if (checkIcon.getIconHeight() > d.height)
+          d.height = checkIcon.getIconHeight();
+      }
+      
     return d;
   }
 
@@ -249,7 +259,6 @@ public class BasicMenuItemUI extends MenuItemUI
     acceleratorForeground = defaults.getColor("MenuItem.acceleratorForeground");
     acceleratorSelectionForeground = defaults.getColor("MenuItem.acceleratorSelectionForeground");
     arrowIcon = defaults.getIcon("MenuItem.arrowIcon");
-    checkIcon = defaults.getIcon("MenuItem.checkIcon");
     selectionBackground = defaults.getColor("MenuItem.selectionBackground");
     selectionForeground = defaults.getColor("MenuItem.selectionForeground");
     acceleratorDelimiter = defaults.getString("MenuItem.acceleratorDelimiter");
@@ -277,19 +286,41 @@ public class BasicMenuItemUI extends MenuItemUI
 
   public void paint(Graphics g, JComponent c)
   {
-    AbstractButton b = (AbstractButton) c;
+    paintMenuItem(g, c, checkIcon, arrowIcon, c.getBackground(), 
+                  c.getForeground(), defaultTextIconGap);
+  }
 
+  protected void paintBackground(Graphics g, JMenuItem menuItem, Color bgColor)
+  {
+    Dimension size = getPreferredSize(menuItem);
+    Color foreground = g.getColor();
+    g.setColor(bgColor);
+    g.drawRect(0, 0, size.width, size.height);
+    g.setColor(foreground);
+  }
+
+  protected void paintMenuItem(Graphics g, JComponent c, Icon checkIcon,
+                               Icon arrowIcon, Color background,
+                               Color foreground, int defaultTextIconGap)
+  {
+    AbstractButton b = (AbstractButton) c;
     Rectangle tr = new Rectangle(); // text rectangle
     Rectangle ir = new Rectangle(); // icon rectangle
     Rectangle vr = new Rectangle(); // view rectangle
     Rectangle br = new Rectangle(); // border rectangle
     Rectangle ar = new Rectangle(); // accelerator rectangle
+    Rectangle cr = new Rectangle(); // checkIcon rectangle
+    
+    int vertAlign = b.getVerticalAlignment();
+    int horAlign = b.getHorizontalAlignment();
+    int vertTextPos = b.getVerticalTextPosition();
+    int horTextPos = b.getHorizontalTextPosition();
 
     Font f = c.getFont();
     g.setFont(f);
+    FontMetrics fm = g.getFontMetrics(f);    
     SwingUtilities.calculateInnerArea(b, br);
-    SwingUtilities.calculateInsetArea(br, b.getMargin(), vr);
-
+    SwingUtilities.calculateInsetArea(br, b.getMargin(), vr);        
     paintBackground(g, (JMenuItem) c, c.getBackground());
     
     if ((b.getModel().isArmed() && b.getModel().isPressed()) || b.isSelected())
@@ -310,6 +341,36 @@ public class BasicMenuItemUI extends MenuItemUI
       }
     
     
+    if (checkIcon != null)
+      {
+        SwingUtilities.layoutCompoundLabel(c, fm, null, checkIcon, vertAlign,
+                                           horAlign, vertTextPos, horTextPos,
+                                           vr, cr, tr, defaultTextIconGap);
+        checkIcon.paintIcon(c, g, cr.x, cr.y);
+
+        // We need to calculate position of the menu text and position of
+        // user menu icon if there exists one relative to the check icon.
+	// So we need to adjust view rectangle s.t. its starting point is at
+	// checkIcon.width + defaultTextIconGap. 
+	 
+	 vr.x = cr.x + cr.width + defaultTextIconGap;
+      }
+
+    if (arrowIcon != null)
+      {
+        // FIXME: if this menu contains a submenu, we need to draw arrow icon 
+        // here as well
+      }
+
+
+    // paint text and user menu icon if it exists	     
+    SwingUtilities.layoutCompoundLabel(c, fm, b.getText(), b.getIcon(),
+                                       vertAlign, horAlign, vertTextPos,
+                                       horTextPos, vr, ir, tr,
+                                       defaultTextIconGap);
+
+    paintText(g, (JMenuItem) c, tr, b.getText());   
+    
     // paint icon
     // FIXME: should paint different icon at different button state's.
     // i.e disabled icon when button is disabled.. etc.
@@ -324,47 +385,25 @@ public class BasicMenuItemUI extends MenuItemUI
       }
     */
         
-    // paint text     
-    String text = SwingUtilities.layoutCompoundLabel(c, g.getFontMetrics(f),
-                                                     b.getText(), b.getIcon(),
-                                                     b.getVerticalAlignment(),
-                                                     b.getHorizontalAlignment(),
-                                                     b.getVerticalTextPosition(),
-                                                     b.getHorizontalTextPosition(),
-                                                     vr, ir, tr,
-                                                     defaultTextIconGap);
-
-    paintText(g, (JMenuItem) c, tr, b.getText());
-
     // paint accelerator    
     String acceleratorText = "";
     if (((JMenuItem) c).getAccelerator() != null)
       {
         acceleratorText = getAcceleratorText(((JMenuItem) c).getAccelerator());
-        FontMetrics fm = g.getFontMetrics(acceleratorFont);
+        fm = g.getFontMetrics(acceleratorFont);
         ar.width = fm.stringWidth(acceleratorText);
-        ar.height = fm.getHeight();
-        ar.x = br.width - ar.width;
-        ar.y = tr.y;
+        ar.x = br.width - ar.width;      
+        vr.x = br.width - ar.width;
+	
+        SwingUtilities.layoutCompoundLabel(c, fm, acceleratorText, null,
+                                          vertAlign, horAlign, vertTextPos,
+                                          horTextPos, vr, ir, ar,
+                                          defaultTextIconGap); 
+	
         paintAccelerator(g, (JMenuItem) c, ar, acceleratorText);
 	
       }          
-  }
 
-  protected void paintBackground(Graphics g, JMenuItem menuItem, Color bgColor)
-  {
-    Dimension size = getPreferredSize(menuItem);
-    Color foreground = g.getColor();
-    g.setColor(bgColor);
-    g.drawRect(0, 0, size.width, size.height);
-    g.setColor(foreground);
-  }
-
-  protected void paintMenuItem(Graphics g, JComponent c, Icon checkIcon,
-                               Icon arrowIcon, Color background,
-                               Color foreground, int defaultTextIconGap)
-  {
-     // TODO
   }
 
   protected void paintText(Graphics g, JMenuItem menuItem, Rectangle textRect,
@@ -399,7 +438,6 @@ public class BasicMenuItemUI extends MenuItemUI
     acceleratorForeground = null;
     acceleratorSelectionForeground = null;
     arrowIcon = null;
-    checkIcon = null;
     selectionBackground = null;
     selectionForeground = null;
     acceleratorDelimiter = null;

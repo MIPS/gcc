@@ -1,3 +1,24 @@
+2004-03-31  Olga Rodimina  <rodimina@redhat.com>
+
+	* Makefile.am: Added new file.
+	* Makefile.in: Regenerate.
+	* javax/swing/JRadioButtonMenuItem.java:
+	Implemented.
+	* javax/swing/plaf/basic/BasicIconFactory.java:
+	(getRadioButtonMenuItemIcon): Return
+	radio button icon.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(getPreferredSize): Add size of checkIcon if it
+	exists.
+	(installDefaults): Don't initialize checkIcon.
+	It's value will be set in subclasses. 
+	(uninstallDefaults): remove uninstallation of 
+	checkIcon.
+	(paint): Moved code to paintMenuItem().
+	(paintMenuItem): Implemented.
+	* javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java:
+	UI delegate for JRadioButtonMenuItem.
+	
 2004-03-29  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/plaf/basic/BasicMenuItemUI.java:
