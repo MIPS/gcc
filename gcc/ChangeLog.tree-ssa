@@ -1,3 +1,10 @@
+2004-04-08  Brian Booth  <bbooth@redhat.com>
+            Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (invalidate_name_tags): New function.
+	Mark aliases of invalidated name tags for renaming.
+	(rewrite_into_ssa): Call invalidate_name_tags.
+
 2004-04-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Remove argument POST_P.

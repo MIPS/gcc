@@ -971,6 +971,54 @@ get_def_blocks_for (tree var)
   return db_p;
 }
 
+/* If a variable V in VARS_TO_RENAME is a pointer, the renaming
+   process will cause us to lose the name memory tags that may have
+   been associated with the various SSA_NAMEs of V.  This means that
+   the variables aliased to those name tags also need to be renamed
+   again.
+
+   FIXME 1- We should either have a better scheme for renaming
+	    pointers that doesn't lose name tags or re-run alias
+	    analysis to recover points-to information.
+
+	 2- Currently we just invalidate *all* the name tags.  This
+	    should be more selective.  */
+
+static void
+invalidate_name_tags (bitmap vars_to_rename)
+{
+  size_t i;
+  bool rename_name_tags_p;
+
+  rename_name_tags_p = false;
+  EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+      if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
+	{
+	  rename_name_tags_p = true;
+	  break;
+	});
+
+  if (rename_name_tags_p)
+    for (i = 0; i < num_referenced_vars; i++)
+      {
+	var_ann_t ann = var_ann (referenced_var (i));
+
+	if (ann->mem_tag_kind == NAME_TAG)
+	  {
+	    size_t j;
+	    varray_type may_aliases = ann->may_aliases;
+
+	    bitmap_set_bit (vars_to_rename, ann->uid);
+	    if (ann->may_aliases)
+	      for (j = 0; j < VARRAY_ACTIVE_SIZE (may_aliases); j++)
+		{
+		  tree var = VARRAY_TREE (may_aliases, j);
+		  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+		}
+	  }
+      }
+}
+
 
 /* Main entry point into the SSA builder.  The renaming process
    proceeds in five main phases:
@@ -1008,29 +1056,7 @@ rewrite_into_ssa (void)
   /* Initialize the array of variables to rename.  */
   if (vars_to_rename != NULL)
     {
-      size_t i;
-      bool rename_name_tags_p;
-
-      /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
-	 invalidate all the name memory tags associated with the variables
-	 that we are about to rename.  FIXME: Currently we just invalidate
-	 *all* the NMTs.  Make this more selective.  */
-      rename_name_tags_p = false;
-      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
-	  if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
-	    {
-	      rename_name_tags_p = true;
-	      break;
-	    });
-
-      if (rename_name_tags_p)
-	for (i = 0; i < num_referenced_vars; i++)
-	  {
-	    var_ann_t ann = var_ann (referenced_var (i));
-
-	    if (ann->mem_tag_kind == NAME_TAG)
-	      bitmap_set_bit (vars_to_rename, ann->uid);
-	  }
+      invalidate_name_tags (vars_to_rename);
 
       /* Now remove all the existing PHI nodes (if any) for the variables
 	 that we are about to rename into SSA.  */
