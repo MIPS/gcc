@@ -1,3 +1,180 @@
+2003-03-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030305-1.c
+
+Wed Mar  5 02:05:19 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-local.c: New.
+
+Tue Mar  4 19:39:18 2003  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/sh-relax.c: Disable for sh64-*-*.
+
+2003-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/switch-2.c: New test.
+	* gcc.dg/switch-3.c: New test.
+	* gcc.dg/Wswitch.c: Adjust line numbers.
+	* gcc.dg/Wswitch-default.c: Likewise.
+	* gcc.dg/Wswitch-enum.c: Likewise.
+
+2003-03-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/20030222-1.c: New test.
+
+2003-03-03  James E Wilson  <wilson@tuliptree.org>
+
+	* gcc.dg/m68k-slp-ice.c: New test for PR c/7872.
+
+2003-03-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9878
+	* g++.dg/init/ref1.C: New test.
+
+Mon Mar  3 20:42:04 2003  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/sh-relax.c: New SH-only test.
+
+2003-03-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.c-torture/compile/20010327-1.c: Back out last change.  Add
+	comment explaining purpose of testcase.
+
+2003-03-02  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gcc.c-torture/execute/960312-1.x: New file, must pass -mshort
+	for HC11/HC12 (asm needs two int registers).
+	* gcc.c-torture/compile/20020312-1.x: New file, don't execute on
+	HC11/HC12 because the test uses an asm which needs two 32-bit
+	registers.
+
+2003-03-02  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gcc.c-torture/compile/920501-12.x: New file, must pass -mshort
+	for HC11/HC12 (array is too large otherwise).
+	* gcc.c-torture/compile/920501-4.x: New file, likewise.
+	* gcc.c-torture/compile/20010518-2.x: Likewise.
+	* gcc.c-torture/compile/980506-1.x: Don't execute this test on
+	HC11/HC12 (array is too large).
+
+2003-03-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* lib/gcc-dg.exp (gcc-dg-test): Change .pch to .gch.
+	* lib/g++-dg.exp (g++-dg-test): Likewise.
+
+2003-03-01  Roger Sayle  <roger@eyesopen.com>
+
+	* g++.old-deja/g++.other/builtins10.C: New test for PR 9367.
+	* gcc.dg/format/attr-5.c: Handle new conflicting types warning.
+
+2003-03-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* g++.dg/warn/implicit-typename1.C: Remove warning.
+
+2003-02-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/noreturn-1.c: Move noreturn warning line.
+	* gcc.dg/return-type-1.c: Move control reaches end warning line.
+
+2003-02-28  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Change .pch to .gch.
+	* g++.dg/pch/pch.exp: Likewise.
+
+2003-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9879
+	* testsuite/g++.dg/init/new4.C: New test.
+
+2003-02-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.dg/arm-asm.c: Enable for StrongARM and XScale targets.
+
+2003-02-28  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/compile/20010327-1.c: Use __SIZE_TYPE__ instead of
+	unsigned long.
+
+	* gcc.c-torture/compile/simd-3.c: Do nothing if double is not
+	wider than float.
+
+2003-02-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* lib/scanasm.exp: Add support for counting numbers of
+	occurences.
+	* gcc.dg/unswitch-1.c, gcc.dg/peel-1.c, gcc.dg/unroll-1.c,
+	gcc.dg/unroll-2.c, gcc.dg/unroll-3.c: New tests.
+
+2003-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9683
+	* g++.dg/template/static3.C: New test.
+
+	PR c++/9829
+	* g++.dg/parse/namespace6.C: New test.
+	
+2003-02-25  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR target/9732
+	* gcc.dg/20030225-1.c: New test.
+
+2003-02-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* README: Remove out-of-date information.
+
+	PR c++/9836
+	* g++.dg/template/spec6.C: New test.
+
+2003-02-24  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20030224-1.c: New test for ia32 backend bug.
+
+2003-02-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* g++.dg/other/pragma-ep-1.C: Test for __PRAGMA_EXTERN_PREFIX.
+	* gcc.dg/pragma-ep-1.c: Likewise.
+
+2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9602
+	* g++.dg/template/friend16.C: New test.
+
+2003-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5333
+	* g++.dg/parse/fused-params1.C: Adjust error messages.
+	* g++.dg/template/nested3.C: New test.
+	
+2003-02-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* g++.dg/abi/param1.C: New test.
+
+2003-02-23  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7982
+	* g++.dg/warn/implicit-typename1.C: New test.
+
+2003-02-22  Kelley Cook <kelleycook@comcast.net>
+
+        * g++.old-deja/g++.other/store-expr1.C: Replace "mcpu" 
+        with "mtune".
+        * g++.old-deja/g++.other/store-expr2.C: Likewise.
+        * gcc.c-torture/execute/20010129-1.x: Likewise.
+        * gcc.dg/20011107-1.c: Likewise.
+        * gcc.dg/20020108-1.c: Likewise.
+        * gcc.dg/20020122-3.c: Likewise.
+        * gcc.dg/20020206-1.c: Likewise.
+        * gcc.dg/20020310-1.c: Likewise.
+        * gcc.dg/20020426-2.c: Likewise.
+        * gcc.dg/20020517-1.c: Likewise.
+        * gcc.dg/991230-1.c: Likewise.
+        * gcc.dg/i386-unroll-1.c: Likewise.
+        * gcc.misc-tests/i386-prefetch.exp: Likewise.
+
+Sat Feb 22 20:14:12 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-mul.c: New test.
+
 2003-02-21  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.dg/builtins-5.c: New test case.

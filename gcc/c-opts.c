@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -32,6 +32,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "diagnostic.h"
 #include "intl.h"
+#include "cppdefault.h"
+#include "c-incpath.h"
+
+#ifndef TARGET_SYSTEM_ROOT
+# define TARGET_SYSTEM_ROOT NULL
+#endif
 
 /* CPP's options.  */
 static cpp_options *cpp_opts;
@@ -49,8 +55,26 @@ static bool deps_append;
 /* If dependency switches (-MF etc.) have been given.  */
 static bool deps_seen;
 
+/* If -v seen.  */
+static bool verbose;
+
 /* Dependency output file.  */
 static const char *deps_file;
+
+/* The prefix given by -iprefix, if any.  */
+static const char *iprefix;
+
+/* The system root, if any.  Overridden by -isysroot.  */
+static const char *sysroot = TARGET_SYSTEM_ROOT;
+
+/* Zero disables all standard directories for headers.  */
+static bool std_inc = true;
+
+/* Zero disables the C++-specific standard directories for headers.  */
+static bool std_cxx_inc = true;
+
+/* If the quote chain has been split by -I-.  */
+static bool quote_chain_split;
 
 /* Number of deferred options, deferred options array size.  */
 static size_t deferred_count, deferred_size;
@@ -66,9 +90,9 @@ static void set_std_cxx98 PARAMS ((int));
 static void set_std_c89 PARAMS ((int, int));
 static void set_std_c99 PARAMS ((int));
 static void check_deps_environment_vars PARAMS ((void));
-static void preprocess_file PARAMS ((void));
 static void handle_deferred_opts PARAMS ((void));
 static void sanitize_cpp_opts PARAMS ((void));
+static void add_prefixed_path PARAMS ((const char *, size_t));
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -117,6 +141,7 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("CC",                     CL_ALL,   OPT_CC)			     \
   OPT("E",			CL_ALL,   OPT_E)			     \
   OPT("H",                      CL_ALL,   OPT_H)			     \
+  OPT("I",                      CL_ALL | CL_ARG, OPT_I)			     \
   OPT("M",                      CL_ALL,   OPT_M)			     \
   OPT("MD",                     CL_ALL | CL_SEPARATE, OPT_MD)		     \
   OPT("MF",                     CL_ALL | CL_ARG, OPT_MF)		     \
@@ -260,6 +285,12 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("fweak",			CL_CXX,   OPT_fweak)			     \
   OPT("fxref",			CL_CXX,   OPT_fxref)			     \
   OPT("gen-decls",		CL_OBJC,  OPT_gen_decls)		     \
+  OPT("idirafter",              CL_ALL | CL_ARG, OPT_idirafter)              \
+  OPT("iprefix",		CL_ALL | CL_ARG, OPT_iprefix)		     \
+  OPT("isysroot",               CL_ALL | CL_ARG, OPT_isysroot)               \
+  OPT("isystem",                CL_ALL | CL_ARG, OPT_isystem)                \
+  OPT("iwithprefix",            CL_ALL | CL_ARG, OPT_iwithprefix)            \
+  OPT("iwithprefixbefore",      CL_ALL | CL_ARG, OPT_iwithprefixbefore)	     \
   OPT("lang-asm",		CL_C_ONLY, OPT_lang_asm)		     \
   OPT("lang-objc",              CL_ALL,   OPT_lang_objc)		     \
   OPT("nostdinc",               CL_ALL,   OPT_nostdinc)			     \
@@ -357,12 +388,22 @@ missing_arg (opt_index)
     case OPT_fname_mangling:
     case OPT_ftabstop:
     case OPT_ftemplate_depth:
+    case OPT_iprefix:
+    case OPT_iwithprefix:
+    case OPT_iwithprefixbefore:
     default:
       error ("missing argument to \"-%s\"", opt_text);
       break;
 
     case OPT_fconstant_string_class:
       error ("no class name specified with \"-%s\"", opt_text);
+      break;
+
+    case OPT_I:
+    case OPT_idirafter:
+    case OPT_isysroot:
+    case OPT_isystem:
+      error ("missing path after \"-%s\"", opt_text);
       break;
 
     case OPT_MF:
@@ -654,6 +695,18 @@ c_common_decode_option (argc, argv)
       cpp_opts->print_include_names = 1;
       break;
 
+    case OPT_I:
+      if (strcmp (arg, "-"))
+	add_path (xstrdup (arg), BRACKET, 0);
+      else
+	{
+	  if (quote_chain_split)
+	    error ("-I- specified twice");
+	  quote_chain_split = true;
+	  split_quote_chain ();
+	}
+      break;
+
     case OPT_M:
     case OPT_MM:
       /* When doing dependencies with -M or -MM, suppress normal
@@ -661,7 +714,7 @@ c_common_decode_option (argc, argv)
 	 depends on this.  Preprocessed output does occur if -MD, -MMD
 	 or environment var dependency generation is used.  */
       cpp_opts->deps.style = (code == OPT_M ? DEPS_SYSTEM: DEPS_USER);
-      cpp_opts->no_output = 1;
+      flag_no_output = 1;
       cpp_opts->inhibit_warnings = 1;
       break;
 
@@ -693,7 +746,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_P:
-      cpp_opts->no_line_commands = 1;
+      flag_no_line_commands = 1;
       break;
 
     case OPT_Wabi:
@@ -1264,6 +1317,30 @@ c_common_decode_option (argc, argv)
       flag_gen_declaration = 1;
       break;
 
+    case OPT_idirafter:
+      add_path (xstrdup (arg), AFTER, 0);
+      break;
+
+    case OPT_iprefix:
+      iprefix = arg;
+      break;
+
+    case OPT_isysroot:
+      sysroot = arg;
+      break;
+
+    case OPT_isystem:
+      add_path (xstrdup (arg), SYSTEM, 0);
+      break;
+
+    case OPT_iwithprefix:
+      add_prefixed_path (arg, SYSTEM);
+      break;
+
+    case OPT_iwithprefixbefore:
+      add_prefixed_path (arg, BRACKET);
+      break;
+
     case OPT_lang_asm:
       cpp_set_lang (parse_in, CLK_ASM);
       break;
@@ -1273,14 +1350,11 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_nostdinc:
-      /* No default include directories.  You must specify all
-	 include-file directories with -I.  */
-      cpp_opts->no_standard_includes = 1;
+      std_inc = false;
       break;
 
     case OPT_nostdincplusplus:
-      /* No default C++-specific include directories.  */
-      cpp_opts->no_standard_cplusplus_includes = 1;
+      std_cxx_inc = false;
       break;
 
     case OPT_o:
@@ -1356,7 +1430,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_v:
-      cpp_opts->verbose = 1;
+      verbose = true;
       break;
     }
 
@@ -1383,6 +1457,10 @@ c_common_post_options ()
   handle_deferred_opts ();
 
   sanitize_cpp_opts ();
+
+  register_include_chains (parse_in, sysroot, iprefix,
+			   std_inc, std_cxx_inc && c_language == clk_cplusplus,
+			   verbose);
 
   flag_inline_trees = 1;
 
@@ -1421,24 +1499,6 @@ c_common_post_options ()
   return flag_preprocess_only;
 }
 
-/* Preprocess the input file to out_stream.  */
-static void
-preprocess_file ()
-{
-  /* Open the output now.  We must do so even if no_output is on,
-     because there may be other output than from the actual
-     preprocessing (e.g. from -dM).  */
-  if (out_fname[0] == '\0')
-    out_stream = stdout;
-  else
-    out_stream = fopen (out_fname, "w");
-
-  if (out_stream == NULL)
-    fatal_io_error ("opening output file %s", out_fname);
-  else
-    cpp_preprocess_file (parse_in, in_fname, out_stream);
-}
-
 /* Front end initialization common to C, ObjC and C++.  */
 const char *
 c_common_init (filename)
@@ -1456,18 +1516,35 @@ c_common_init (filename)
      cpp_main_file.  */
   cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
 
-  /* NULL is passed up to toplev.c and we exit quickly.  */
   if (flag_preprocess_only)
     {
-      preprocess_file ();
+      /* Open the output now.  We must do so even if flag_no_output is
+	 on, because there may be other output than from the actual
+	 preprocessing (e.g. from -dM).  */
+      if (out_fname[0] == '\0')
+	out_stream = stdout;
+      else
+	out_stream = fopen (out_fname, "w");
+
+      if (out_stream == NULL)
+	fatal_io_error ("opening output file %s", out_fname);
+      else
+	/* Preprocess the input file to out_stream.  */
+	preprocess_file (parse_in, in_fname, out_stream);
+
+      /* Exit quickly in toplev.c.  */
       return NULL;
     }
 
-  /* Do this before initializing pragmas, as then cpplib's hash table
-     has been set up.  NOTE: we are using our own file name here, not
-     the one supplied.  */
-  filename = init_c_lex (in_fname);
+  init_c_lex ();
 
+  /* Start it at 0.  */
+  lineno = 0;
+
+  /* NOTE: we use in_fname here, not the one supplied.  */
+  filename = cpp_read_main_file (parse_in, in_fname, ident_hash);
+
+  /* Has to wait until now so that cpplib has its hash table.  */
   init_pragma ();
 
   return filename;
@@ -1586,16 +1663,16 @@ sanitize_cpp_opts ()
 
   /* -dM and dependencies suppress normal output; do it here so that
      the last -d[MDN] switch overrides earlier ones.  */
-  if (cpp_opts->dump_macros == dump_only)
-    cpp_opts->no_output = 1;
+  if (flag_dump_macros == 'M')
+    flag_no_output = 1;
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
-  if (cpp_opts->no_output)
+  if (flag_no_output)
     {
-      if (cpp_opts->dump_macros != dump_only)
-	cpp_opts->dump_macros = dump_none;
-      cpp_opts->dump_includes = 0;
+      if (flag_dump_macros != 'M')
+	flag_dump_macros = 0;
+      flag_dump_includes = 0;
     }
 
   cpp_opts->unsigned_char = !flag_signed_char;
@@ -1605,6 +1682,18 @@ sanitize_cpp_opts ()
      and/or -Wtraditional, whatever the ordering.  */
   cpp_opts->warn_long_long
     = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
+}
+
+/* Add include path with a prefix at the front of its name.  */
+static void
+add_prefixed_path (suffix, chain)
+     const char *suffix;
+     size_t chain;
+{
+  const char *prefix;
+
+  prefix = iprefix ? iprefix: cpp_GCC_INCLUDE_DIR;
+  add_path (concat (prefix, suffix), chain, 0);
 }
 
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU
@@ -1678,20 +1767,14 @@ handle_OPT_d (arg)
   while ((c = *arg++) != '\0')
     switch (c)
       {
-      case 'M':
-	cpp_opts->dump_macros = dump_only;
-	break;
-
-      case 'N':
-	cpp_opts->dump_macros = dump_names;
-	break;
-
-      case 'D':
-	cpp_opts->dump_macros = dump_definitions;
+      case 'M':			/* Dump macros only.  */
+      case 'N':			/* Dump names.  */
+      case 'D':			/* Dump definitions.  */
+	flag_dump_macros = c;
 	break;
 
       case 'I':
-	cpp_opts->dump_includes = 1;
+	flag_dump_includes = 1;
 	break;
       }
 }
@@ -1808,6 +1891,7 @@ Switches:\n\
   fputs (_("\
   -f[no-]preprocessed       Treat the input file as already preprocessed\n\
   -ftabstop=<number>        Distance between tab stops for column reporting\n\
+  -isysroot <dir>           Set <dir> to be the system root directory\n\
   -P                        Do not generate #line directives\n\
   -remap                    Remap file names when including files\n\
   --help                    Display this information\n\

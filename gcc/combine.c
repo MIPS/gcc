@@ -4494,10 +4494,7 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	 with it.  */
       if (GET_CODE (XEXP (x, 0)) == COMPARE
 	  || (GET_MODE_CLASS (GET_MODE (XEXP (x, 0))) != MODE_CC
-#ifdef HAVE_cc0
-	      && XEXP (x, 0) != cc0_rtx
-#endif
-	      ))
+	      && ! CC0_P (XEXP (x, 0))))
 	{
 	  rtx op0 = XEXP (x, 0);
 	  rtx op1 = XEXP (x, 1);
@@ -9434,12 +9431,12 @@ simplify_shift_const (x, code, result_mode, varop, orig_count)
       if (code == LSHIFTRT
 	  && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
 	  && !(nonzero_bits (varop, shift_mode) >> count))
-	return const0_rtx;
+	varop = const0_rtx;
       if (code == ASHIFT
 	  && GET_MODE_BITSIZE (shift_mode) <= HOST_BITS_PER_WIDE_INT
 	  && !((nonzero_bits (varop, shift_mode) << count)
 	       & GET_MODE_MASK (shift_mode)))
-	return const0_rtx;
+	varop = const0_rtx;
 
       switch (GET_CODE (varop))
 	{
@@ -10204,8 +10201,9 @@ gen_lowpart_for_combine (mode, x)
       && GET_CODE (result) == SUBREG
       && GET_CODE (SUBREG_REG (result)) == REG
       && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER)
-    SET_REGNO_REG_SET (&subregs_of_mode[GET_MODE (result)],
-		       REGNO (SUBREG_REG (result)));
+    bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (result))
+				      * MAX_MACHINE_MODE
+				      + GET_MODE (result));
 #endif
 
   if (result)
@@ -11010,9 +11008,7 @@ simplify_comparison (code, pop0, pop1)
 	  /* We can't do anything if OP0 is a condition code value, rather
 	     than an actual data value.  */
 	  if (const_op != 0
-#ifdef HAVE_cc0
-	      || XEXP (op0, 0) == cc0_rtx
-#endif
+	      || CC0_P (XEXP (op0, 0))
 	      || GET_MODE_CLASS (GET_MODE (XEXP (op0, 0))) == MODE_CC)
 	    break;
 
@@ -11135,6 +11131,9 @@ simplify_comparison (code, pop0, pop1)
 	     represents the low part, permute the SUBREG and the AND and
 	     try again.  */
 	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
+	      /* Require an integral mode, to avoid creating something like
+		 (AND:SF ...).  */
+	      && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (XEXP (op0, 0))))
 	      /* It is unsafe to commute the AND into the SUBREG if the SUBREG
 		 is paradoxical and WORD_REGISTER_OPERATIONS is not defined.
 		 As originally written the upper bits have a defined value

@@ -533,7 +533,7 @@ get_vtable_decl (tree type, int complete)
   if (CLASSTYPE_VTABLES (type))
     return CLASSTYPE_VTABLES (type);
   
-  decl = build_vtable (type, get_vtable_name (type), void_type_node);
+  decl = build_vtable (type, get_vtable_name (type), vtbl_type_node);
   CLASSTYPE_VTABLES (type) = decl;
 
   /* At one time the vtable info was grabbed 2 words at a time.  This
@@ -594,8 +594,7 @@ build_primary_vtable (tree binfo, tree type)
     }
   else
     {
-      my_friendly_assert (TREE_CODE (TREE_TYPE (decl)) == VOID_TYPE,
-                          20000118);
+      my_friendly_assert (TREE_TYPE (decl) == vtbl_type_node, 20000118);
       virtuals = NULL_TREE;
     }
 
@@ -4648,7 +4647,7 @@ end_of_class (tree t, int include_virtuals_p)
 
       if (!include_virtuals_p
 	  && TREE_VIA_VIRTUAL (binfo) 
-	  && !BINFO_PRIMARY_P (binfo))
+	  && BINFO_PRIMARY_BASE_OF (binfo) != TYPE_BINFO (t))
 	continue;
 
       offset = end_of_base (binfo);
@@ -7923,22 +7922,20 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
 
   /* The second entry is the address of the typeinfo object.  */
   if (flag_rtti)
-    decl = build_unary_op (ADDR_EXPR, get_tinfo_decl (t), 0);
+    decl = build_address (get_tinfo_decl (t));
   else
     decl = integer_zero_node;
   
   /* Convert the declaration to a type that can be stored in the
      vtable.  */
-  init = build1 (NOP_EXPR, vfunc_ptr_type_node, decl);
-  TREE_CONSTANT (init) = 1;
+  init = build_nop (vfunc_ptr_type_node, decl);
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 
   /* Add the offset-to-top entry.  It comes earlier in the vtable that
      the the typeinfo entry.  Convert the offset to look like a
      function pointer, so that we can put it in the vtable.  */
-  init = build1 (NOP_EXPR, vfunc_ptr_type_node, offset);
-  TREE_CONSTANT (init) = 1;
+  init = build_nop (vfunc_ptr_type_node, offset);
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
 }

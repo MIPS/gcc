@@ -166,7 +166,7 @@ in the following sections.
 -ansi  -std=@var{standard}  -aux-info @var{filename} @gol
 -fno-asm  -fno-builtin -fno-builtin-@var{function} @gol
 -fhosted  -ffreestanding  -fms-extensions @gol
--trigraphs  -traditional  -traditional-cpp @gol
+-trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char @gol
@@ -258,6 +258,7 @@ in the following sections.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
+-feliminate-unused-debug-types @gol
 -save-temps  -time}
 
 @item Optimization Options
@@ -499,7 +500,7 @@ in the following sections.
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{
--mcpu=@var{cpu-type}  -march=@var{cpu-type} -mfpmath=@var{unit} @gol
+-mtune=@var{cpu-type}  -march=@var{cpu-type} -mfpmath=@var{unit} @gol
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
@@ -1196,6 +1197,17 @@ Accept some non-standard constructs used in Microsoft header files.
 @opindex trigraphs
 Support ISO C trigraphs.  The @option{-ansi} option (and @option{-std}
 options for strict ISO C conformance) implies @option{-trigraphs}.
+
+@item -no-integrated-cpp
+@opindex no-integrated-cpp
+Performs a compilation in two passes: preprocessing and compiling.  This
+option allows a user supplied "cc1", "cc1plus", or "cc1obj" via the
+@option{-B} option. The user supplied compilation step can then add in
+an additional preprocessing step after normal preprocessing but before
+compiling. The default is to use the integrated cpp (internal cpp)
+
+The semantics of this option will change if "cc1", "cc1plus", and
+"cc1obj" are merged.
 
 @cindex traditional C language
 @cindex C language, traditional
@@ -3417,6 +3429,18 @@ anything else.
 @opindex dumpspecs
 Print the compiler's built-in specs---and don't do anything else.  (This
 is used when GCC itself is being built.)  @xref{Spec Files}.
+
+@item -feliminate-unused-debug-types
+@opindex feliminate-unused-debug-types
+Normally, when producing DWARF2 output, GCC will emit debugging
+information for all types declared in a compilation
+unit, regardless of whether or not they are actually used
+in that compilation unit.  Sometimes this is useful, such as
+if, in the debugger, you want to cast a value to a type that is
+not actually used in your program (but is declared).  More often,
+however, this results in a significant amount of wasted space.
+With this option, GCC will avoid producing debug symbol output
+for types that are nowhere used in the source file being compiled.
 @end table
 
 @node Optimize Options
@@ -3502,8 +3526,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @item -O3
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
-@option{-O2} and also turns on the @option{-finline-functions} and
-@option{-frename-registers} options.
+@option{-O2} and also turns on the @option{-finline-functions},
+@option{-funit-at-a-time} and @option{-frename-registers} options.
 
 @item -O0
 @opindex O0
@@ -3623,6 +3647,28 @@ the cost of compilation time and memory consumption.  Decreasing usually makes
 the compilation faster and less code will be inlined (which presumably
 means slower programs).  This option is particularly useful for programs that
 use inlining heavily such as those based on recursive templates with C++.
+
+Inlining is actually controlled by a number of parameters, which may be
+specified individually by using @option{--param @var{name}=@var{value}}.
+The @option{-finline-limit=@var{n}} option sets some of these parameters 
+as follows:
+
+@table @gcctabopt
+ @item max-inline-insns
+  is set to @var{n}.
+ @item max-inline-insns-single
+  is set to @var{n}/2.
+ @item max-inline-insns-single-auto
+  is set to @var{n}/2.
+ @item min-inline-insns
+  is set to 130 or @var{n}/4, whichever is smaller.
+ @item max-inline-insns-rtl
+  is set to @var{n}.
+@end table
+
+Using @option{-finline-limit=600} thus results in the default settings
+for these parameters.  See below for a documentation of the individual
+parameters controlling inlining.
 
 @emph{Note:} pseudo instruction represents, in this particular context, an
 abstract measurement of function's size.  In no way, it represents a count
@@ -4395,17 +4441,50 @@ extra optimizations to take place but consumes more memory.
 
 @item -funroll-loops
 @opindex funroll-loops
-Unroll loops whose number of iterations can be determined at compile
-time or upon entry to the loop.  @option{-funroll-loops} implies both
-@option{-fstrength-reduce} and @option{-frerun-cse-after-loop}.  This
-option makes code larger, and may or may not make it run faster.
+Unroll loops whose number of iterations can be determined at compile time or
+upon entry to the loop.  @option{-funroll-loops} implies
+@option{-frerun-cse-after-loop}.  It also turns on complete loop peeling
+(i.e. complete removal of loops with small constant number of iterations).
+This option makes code larger, and may or may not make it run faster.
 
 @item -funroll-all-loops
 @opindex funroll-all-loops
 Unroll all loops, even if their number of iterations is uncertain when
 the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
-@option{-funroll-loops},
+@option{-funroll-loops}.
+
+@item -fpeel-loops
+@opindex fpeel-loops
+Peels the loops for that there is enough information that they do not
+roll much (from profile feedback).  It also turns on complete loop peeling
+(i.e. complete removal of loops with small constant number of iterations).
+
+@item -funswitch-loops
+@opindex funswitch-loops
+Move branches with loop invariant conditions out of the loop, with duplicates
+of the loop on both branches (modified according to result of the condition).
+
+@item -fold-unroll-loops
+@opindex fold-unroll-loops
+Unroll loops whose number of iterations can be determined at compile
+time or upon entry to the loop, using the old loop unroller whose loop
+recognition is based on notes from frontend.  @option{-fold-unroll-loops} implies
+both @option{-fstrength-reduce} and @option{-frerun-cse-after-loop}.  This
+option makes code larger, and may or may not make it run faster.
+
+@item -fold-unroll-all-loops
+@opindex fold-unroll-all-loops
+Unroll all loops, even if their number of iterations is uncertain when
+the loop is entered. This is done using the old loop unroller whose loop
+recognition is based on notes from frontend.  This usually makes programs run more slowly.
+@option{-fold-unroll-all-loops} implies the same options as
+@option{-fold-unroll-loops}.
+ 
+@item -funswitch-loops
+@opindex funswitch-loops
+Move branches with loop invariant conditions out of the loop, with duplicates
+of the loop on both branches (modified according to result of the condition).
 
 @item -funswitch-loops
 @opindex funswitch-loops
@@ -4519,10 +4598,53 @@ before flushing the current state and starting over.  Large functions
 with few branches or calls can create excessively large lists which
 needlessly consume memory and resources.
 
+@item max-inline-insns-single
+Several parameters control the tree inliner used in gcc.
+This number sets the maximum number of instructions (counted in gcc's
+internal representation) in a single function that the tree inliner 
+will consider for inlining.  This only affects functions declared
+inline and methods implemented in a class declaration (C++).
+The default value is 300.
+
+@item max-inline-insns-auto
+When you use @option{-finline-functions} (included in @option{-O3}),
+a lot of functions that would otherwise not be considered for inlining
+by the compiler will be investigated.  To those functions, a different
+(more restrictive) limit compared to functions declared inline can
+be applied.
+The default value is 300.
+
 @item max-inline-insns
-If an function contains more than this many instructions, it
-will not be inlined.  This option is precisely equivalent to
-@option{-finline-limit}.
+The tree inliner does decrease the allowable size for single functions 
+to be inlined after we already inlined the number of instructions
+given here by repeated inlining.  This number should be a factor of 
+two or more larger than the single function limit.
+Higher numbers result in better runtime performance, but incur higher
+compile-time resource (CPU time, memory) requirements and result in
+larger binaries.  Very high values are not advisable, as too large
+binaries may adversely affect runtime performance.
+The default value is 600.
+
+@item max-inline-slope
+After exceeding the maximum number of inlined instructions by repeated
+inlining, a linear function is used to decrease the allowable size
+for single functions.  The slope of that function is the negative
+reciprocal of the number specified here.
+The default value is 32.
+
+@item min-inline-insns
+The repeated inlining is throttled more and more by the linear function
+after exceeding the limit.  To avoid too much throttling, a minimum for
+this function is specified here to allow repeated inlining for very small
+functions even when a lot of repeated inlining already has been done.
+The default value is 130.
+
+@item max-inline-insns-rtl
+For languages that use the RTL inliner (this happens at a later stage
+than tree inlining), you can set the maximum allowable size (counted 
+in RTL instructions) for the RTL inliner with this parameter.
+The default value is 600.
+
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -4613,8 +4735,10 @@ Tuning this may improve compilation speed; it has no effect on code
 generation.
 
 The default is 30% + 70% * (RAM/1GB) with an upper bound of 100% when
-RAM >= 1GB.  If GCC is not able to calculate RAM on a particular
-platform, the lower bound of 30% is used.  Setting this parameter and
+RAM >= 1GB.  If @code{getrlimit} is available, the notion of "RAM" is
+the smallest of actual RAM, RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If
+GCC is not able to calculate RAM on a particular platform, the lower
+bound of 30% is used.  Setting this parameter and
 @option{ggc-min-heapsize} to zero causes a full collection to occur at
 every opportunity.  This is extremely slow, but can be useful for
 debugging.
@@ -4628,7 +4752,9 @@ tuning this may improve compilation speed, and has no effect on code
 generation.
 
 The default is RAM/8, with a lower bound of 4096 (four megabytes) and an
-upper bound of 131072 (128 megabytes).  If GCC is not able to calculate
+upper bound of 131072 (128 megabytes).  If @code{getrlimit} is
+available, the notion of "RAM" is the smallest of actual RAM,
+RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If GCC is not able to calculate
 RAM on a particular platform, the lower bound is used.  Setting this
 parameter very large effectively disables garbage collection.  Setting
 this parameter and @option{ggc-min-expand} to zero causes a full
@@ -8070,8 +8196,8 @@ These @samp{-m} options are defined for the i386 and x86-64 family of
 computers:
 
 @table @gcctabopt
-@item -mcpu=@var{cpu-type}
-@opindex mcpu
+@item -mtune=@var{cpu-type}
+@opindex mtune
 Tune to @var{cpu-type} everything applicable about the generated code, except
 for the ABI and the set of available instructions.  The choices for
 @var{cpu-type} are @samp{i386}, @samp{i486}, @samp{i586}, @samp{i686},
@@ -8091,8 +8217,12 @@ AMD chips as opposed to the Intel ones.
 @item -march=@var{cpu-type}
 @opindex march
 Generate instructions for the machine type @var{cpu-type}.  The choices
-for @var{cpu-type} are the same as for @option{-mcpu}.  Moreover,
-specifying @option{-march=@var{cpu-type}} implies @option{-mcpu=@var{cpu-type}}.
+for @var{cpu-type} are the same as for @option{-mtune}.  Moreover,
+specifying @option{-march=@var{cpu-type}} implies @option{-mtune=@var{cpu-type}}.
+
+@item -mcpu=@var{cpu-type}
+@opindex mcpu
+A deprecated synonym for @option{-mtune}.
 
 @item -m386
 @itemx -m486
@@ -8102,8 +8232,8 @@ specifying @option{-march=@var{cpu-type}} implies @option{-mcpu=@var{cpu-type}}.
 @opindex m486
 @opindex mpentium
 @opindex mpentiumpro
-These options are synonyms for @option{-mcpu=i386}, @option{-mcpu=i486},
-@option{-mcpu=pentium}, and @option{-mcpu=pentiumpro} respectively.
+These options are synonyms for @option{-mtune=i386}, @option{-mtune=i486},
+@option{-mtune=pentium}, and @option{-mtune=pentiumpro} respectively.
 These synonyms are deprecated.
 
 @item -mfpmath=@var{unit}
@@ -11326,11 +11456,11 @@ seen in the compilation.  As it searches for the included file
 (@pxref{Search Path,,Search Path,cpp.info,The C Preprocessor}) the
 compiler looks for a precompiled header in each directory just before it
 looks for the include file in that directory.  The name searched for is
-the name specified in the @code{#include} with @samp{.pch} appended.  If
+the name specified in the @code{#include} with @samp{.gch} appended.  If
 the precompiled header file can't be used, it is ignored.
 
 For instance, if you have @code{#include "all.h"}, and you have
-@file{all.h.pch} in the same directory as @file{all.h}, then the
+@file{all.h.gch} in the same directory as @file{all.h}, then the
 precompiled header file will be used if possible, and the original
 header will be used otherwise.
 
@@ -11351,7 +11481,7 @@ they've already been included (in the precompiled header).
 
 If you need to precompile the same header file for different
 languages, targets, or compiler options, you can instead make a
-@emph{directory} named like @file{all.h.pch}, and put each precompiled
+@emph{directory} named like @file{all.h.gch}, and put each precompiled
 header in the directory.  (It doesn't matter what you call the files
 in the directory, every precompiled header in the directory will be
 considered.)  The first precompiled header encountered in the

@@ -461,11 +461,12 @@ do {								\
 /* Boundary (in *bits*) on which stack pointer is always aligned;
    certain optimizations in combine depend on this.
 
-   GCC for the PA always rounds its stacks to a 8 * STACK_BOUNDARY
-   boundary, but that happens late in the compilation process.  */
+   The HP-UX runtime documents mandate 64-byte and 16-byte alignment for
+   the stack on the 32 and 64-bit ports, respectively.  However, we
+   are only guaranteed that the stack is aligned to BIGGEST_ALIGNMENT
+   in main.  Thus, we treat the former as the preferred alignment.  */
 #define STACK_BOUNDARY BIGGEST_ALIGNMENT
-
-#define PREFERRED_STACK_BOUNDARY (8 * STACK_BOUNDARY)
+#define PREFERRED_STACK_BOUNDARY (TARGET_64BIT ? 128 : 512)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY BITS_PER_WORD
@@ -675,10 +676,17 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
-   of the first local allocated.  The start of the locals must lie on
-   a STACK_BOUNDARY or else the frame size of leaf functions will not
-   be zero.  */
-#define STARTING_FRAME_OFFSET (TARGET_64BIT ? 16 : 8)
+   of the first local allocated.
+
+   On the 32-bit ports, we reserve one slot for the previous frame
+   pointer and one fill slot.  The fill slot is for compatibility
+   with HP compiled programs.  On the 64-bit ports, we reserve one
+   slot for the previous frame pointer.  */
+#define STARTING_FRAME_OFFSET 8
+
+/* Define STACK_ALIGNMENT_NEEDED to zero to disable final alignment
+   of the stack.  The default is to align it to STACK_BOUNDARY.  */
+#define STACK_ALIGNMENT_NEEDED 0
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.

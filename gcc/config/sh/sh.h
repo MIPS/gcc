@@ -359,9 +359,21 @@ extern int target_flags;
   { "subtarget_link_emul_suffix", SUBTARGET_LINK_EMUL_SUFFIX },	\
   { "subtarget_link_spec", SUBTARGET_LINK_SPEC },		\
   { "subtarget_asm_endian_spec", SUBTARGET_ASM_ENDIAN_SPEC },	\
+  { "subtarget_asm_relax_spec", SUBTARGET_ASM_RELAX_SPEC },	\
+  { "subtarget_asm_isa_spec", SUBTARGET_ASM_ISA_SPEC },	\
   SUBTARGET_EXTRA_SPECS
 
-#define ASM_SPEC  "%(subtarget_asm_endian_spec) %{mrelax:-relax}"
+#if TARGET_CPU_DEFAULT & HARD_SH4_BIT
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m[1235]*:-isa=sh4}"
+#else
+#define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4}"
+#endif
+
+#define SH_ASM_SPEC \
+ "%(subtarget_asm_endian_spec) %{mrelax:-relax %(subtarget_asm_relax_spec)}\
+%(subtarget_asm_isa_spec)"
+
+#define ASM_SPEC SH_ASM_SPEC
 
 #ifndef SUBTARGET_ASM_ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == LITTLE_ENDIAN_BIT
@@ -370,6 +382,8 @@ extern int target_flags;
 #define SUBTARGET_ASM_ENDIAN_SPEC "%{ml:-little} %{!ml:-big}"
 #endif
 #endif
+
+#define SUBTARGET_ASM_ISA_SPEC ""
 
 #define LINK_EMUL_PREFIX "sh%{ml:l}"
 
@@ -489,6 +503,13 @@ do {									\
       flag_schedule_insns = 0;						\
     }									\
 									\
+  if (align_loops == 0)							\
+    align_loops =  1 << (TARGET_SH5 ? 3 : 2);				\
+  if (align_jumps == 0)							\
+    align_jumps = 1 << CACHE_LOG;					\
+  else if (align_jumps <= 1)						\
+    align_jumps = 2;							\
+									\
   /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
      fetched as a pair from a longword boundary.			\
@@ -496,6 +517,20 @@ do {									\
   if (align_functions == 0)						\
     align_functions							\
       = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
+  /* The linker relaxation code breaks when a function contains		\
+     alignments that are larger than that at the start of a		\
+     compilation unit.  */						\
+  if (TARGET_RELAX)							\
+    {									\
+      int min_align							\
+	= align_loops > align_jumps ? align_loops : align_jumps;	\
+									\
+      /* Also take possible .long constants / mova tables int account.	*/\
+      if (min_align < 4)						\
+	min_align = 4;							\
+      if (align_functions < min_align)					\
+	align_functions = min_align;					\
+    }									\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -2752,6 +2787,20 @@ while (0)
 ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == LABEL_REF)	\
   && nonpic_symbol_mentioned_p (X))
 
+/* TLS.  */
+
+/* The prefix used to mark SYMBOL_REFs that refer to TLS symbols.  */
+#define SH_TLS_ENCODING "@"
+
+/* Return true if SYM_NAME starts with SH_TLS_ENCODING.  */
+#define TLS_SYMNAME_P(SYM_NAME) \
+  ((SYM_NAME)[0] == SH_TLS_ENCODING[0])
+
+/* Skip an optional SH_TLS_ENCODING in the beginning of SYM_NAME.  */
+#define STRIP_TLS_ENCODING(VAR, SYM_NAME) \
+  (VAR) = (SYM_NAME) + (TLS_SYMNAME_P (SYM_NAME) \
+			? strlen (SH_TLS_ENCODING) + 1 : 0)
+
 /* Compute extra cost of moving data between one register class
    and another.  */
 
@@ -2915,6 +2964,7 @@ while (0)
       const char * lname;				\
 							\
       STRIP_DATALABEL_ENCODING (lname, (NAME));		\
+      STRIP_TLS_ENCODING (lname, lname);		\
       if (lname[0] == '*')				\
 	fputs (lname + 1, (FILE));			\
       else						\
@@ -3052,6 +3102,18 @@ while (0)
 	  case UNSPEC_GOTPLT:						\
 	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
 	    fputs ("@GOTPLT", (STREAM));				\
+	    break;							\
+	  case UNSPEC_DTPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@DTPOFF", (STREAM));				\
+	    break;							\
+	  case UNSPEC_GOTTPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@GOTTPOFF", (STREAM));				\
+	    break;							\
+	  case UNSPEC_TPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@TPOFF", (STREAM));					\
 	    break;							\
 	  case UNSPEC_CALLER:						\
 	    {								\

@@ -89,6 +89,11 @@ public class DatagramSocket
   private int remotePort = -1;
 
   /**
+   * Indicates when the socket is closed.
+   */
+  private boolean closed = false;
+
+  /**
    * Creates a DatagramSocket from a specified DatagramSocketImpl instance
    *
    * @param impl The DatagramSocketImpl the socket will be created from
@@ -201,9 +206,13 @@ public class DatagramSocket
    */
   public void close()
   {
-    impl.close();
-    remoteAddress = null;
-    remotePort = -1;
+    if (!closed)
+      {
+        impl.close();
+        remoteAddress = null;
+        remotePort = -1;
+        closed = true;
+      }
   }
 
   /**
@@ -217,9 +226,6 @@ public class DatagramSocket
    */
   public InetAddress getInetAddress()
   {
-    if (!isConnected ())
-      return null;
-
     return remoteAddress;
   }
 
@@ -234,9 +240,6 @@ public class DatagramSocket
    */
   public int getPort()
   {
-    if (!isConnected ())
-      return -1;
-    
     return remotePort;
   }
 
@@ -265,7 +268,7 @@ public class DatagramSocket
     //   s.checkConnect("localhost", -1);
     try
       {
-	return (InetAddress)impl.getOption(SocketOptions.SO_BINDADDR);
+        return (InetAddress)impl.getOption(SocketOptions.SO_BINDADDR);
       }
     catch (SocketException ex)
       {
@@ -273,12 +276,11 @@ public class DatagramSocket
 
     try
       {
-	return InetAddress.getLocalHost();
+        return InetAddress.getLocalHost();
       }
     catch (UnknownHostException ex)
       {
-	// FIXME: This should never happen, so how can we avoid this construct?
-	return null;
+        return null;
       }
   }
 
@@ -464,12 +466,13 @@ public class DatagramSocket
       }
     catch (SocketException e)
       {
+        // This means simply not connected.
       }
   }
 
   /**
    * This method disconnects this socket from the address/port it was
-   * conencted to.  If the socket was not connected in the first place,
+   * connected to.  If the socket was not connected in the first place,
    * this method does nothing.
    * 
    * @since 1.2
@@ -477,6 +480,8 @@ public class DatagramSocket
   public void disconnect()
   {
     impl.disconnect();
+    remoteAddress = null;
+    remotePort = -1;
   }
 
   /**
@@ -484,9 +489,9 @@ public class DatagramSocket
    * will block until a packet is received from the network.  On return,
    * the passed in <code>DatagramPacket</code> is populated with the data
    * received and all the other information about the packet.
-   * 
-   * @param p The datagram packet to put the incoming data into.
-   * 
+   *
+   * @param p A <code>DatagramPacket</code> for storing the data
+   *
    * @exception IOException If an error occurs.
    * @exception SocketTimeoutException If setSoTimeout was previously called
    * and the timeout has expired.
@@ -596,7 +601,7 @@ public class DatagramSocket
    */
   public boolean isClosed()
   {
-    return !impl.getFileDescriptor().valid();
+    return closed;
   }
 
   /**

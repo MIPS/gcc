@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "langhooks.h"
 #include "sched-int.h"
+#include "cgraph.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -690,18 +691,6 @@ struct stack_local_entry GTY(())
   struct stack_local_entry *next;
 };
 
-
-struct machine_function GTY(())
-{
-  struct stack_local_entry *stack_locals;
-  const char *some_ld_name;
-  int save_varrargs_registers;
-  int accesses_prev_frame;
-};
-
-#define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
-
 /* Structure describing stack frame layout.
    Stack grows downward:
 
@@ -755,12 +744,12 @@ enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
 enum fpmath_unit ix86_fpmath;
 
 /* Which cpu are we scheduling for.  */
-enum processor_type ix86_cpu;
+enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
 /* Strings to hold which cpu and instruction set architecture  to use.  */
-const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
+const char *ix86_tune_string;		/* for -mtune=<xxx> */
 const char *ix86_arch_string;		/* for -march=<xxx> */
 const char *ix86_fpmath_string;		/* for -mfpmath=<xxx> */
 
@@ -1028,6 +1017,12 @@ static void init_ext_80387_constants PARAMS ((void));
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* The svr4 ABI for the i386 says that records and unions are returned
+   in memory.  */
+#ifndef DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 1
+#endif
+
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -1149,10 +1144,10 @@ override_options ()
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
-  if (!ix86_cpu_string && ix86_arch_string)
-    ix86_cpu_string = ix86_arch_string;
-  if (!ix86_cpu_string)
-    ix86_cpu_string = cpu_names [TARGET_CPU_DEFAULT];
+  if (!ix86_tune_string && ix86_arch_string)
+    ix86_tune_string = ix86_arch_string;
+  if (!ix86_tune_string)
+    ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "k8" : "i386";
 
@@ -1202,7 +1197,7 @@ override_options ()
       {
 	ix86_arch = processor_alias_table[i].processor;
 	/* Default cpu tuning to the architecture.  */
-	ix86_cpu = ix86_arch;
+	ix86_tune = ix86_arch;
 	if (processor_alias_table[i].flags & PTA_MMX
 	    && !(target_flags_explicit & MASK_MMX))
 	  target_flags |= MASK_MMX;
@@ -1229,9 +1224,9 @@ override_options ()
     error ("bad value (%s) for -march= switch", ix86_arch_string);
 
   for (i = 0; i < pta_size; i++)
-    if (! strcmp (ix86_cpu_string, processor_alias_table[i].name))
+    if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
       {
-	ix86_cpu = processor_alias_table[i].processor;
+	ix86_tune = processor_alias_table[i].processor;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  error ("CPU you selected does not support x86-64 instruction set");
 	break;
@@ -1239,14 +1234,14 @@ override_options ()
   if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
     x86_prefetch_sse = true;
   if (i == pta_size)
-    error ("bad value (%s) for -mcpu= switch", ix86_cpu_string);
+    error ("bad value (%s) for -mtune= switch", ix86_tune_string);
 
   if (optimize_size)
     ix86_cost = &size_cost;
   else
-    ix86_cost = processor_target_table[ix86_cpu].cost;
-  target_flags |= processor_target_table[ix86_cpu].target_enable;
-  target_flags &= ~processor_target_table[ix86_cpu].target_disable;
+    ix86_cost = processor_target_table[ix86_tune].cost;
+  target_flags |= processor_target_table[ix86_tune].target_enable;
+  target_flags &= ~processor_target_table[ix86_tune].target_disable;
 
   /* Arrange to set up i386_stack_locals for all functions.  */
   init_machine_status = ix86_init_machine_status;
@@ -1309,17 +1304,17 @@ override_options ()
   /* Default align_* from the processor table.  */
   if (align_loops == 0)
     {
-      align_loops = processor_target_table[ix86_cpu].align_loop;
-      align_loops_max_skip = processor_target_table[ix86_cpu].align_loop_max_skip;
+      align_loops = processor_target_table[ix86_tune].align_loop;
+      align_loops_max_skip = processor_target_table[ix86_tune].align_loop_max_skip;
     }
   if (align_jumps == 0)
     {
-      align_jumps = processor_target_table[ix86_cpu].align_jump;
-      align_jumps_max_skip = processor_target_table[ix86_cpu].align_jump_max_skip;
+      align_jumps = processor_target_table[ix86_tune].align_jump;
+      align_jumps_max_skip = processor_target_table[ix86_tune].align_jump_max_skip;
     }
   if (align_functions == 0)
     {
-      align_functions = processor_target_table[ix86_cpu].align_func;
+      align_functions = processor_target_table[ix86_tune].align_func;
     }
 
   /* Validate -mpreferred-stack-boundary= value, or provide default.
@@ -1340,7 +1335,7 @@ override_options ()
     }
 
   /* Validate -mbranch-cost= value, or provide default.  */
-  ix86_branch_cost = processor_target_table[ix86_cpu].cost->branch_cost;
+  ix86_branch_cost = processor_target_table[ix86_tune].cost->branch_cost;
   if (ix86_branch_cost_string)
     {
       i = atoi (ix86_branch_cost_string);
@@ -1439,7 +1434,7 @@ override_options ()
       if (x86_3dnow_a & (1 << ix86_arch))
 	target_flags |= MASK_3DNOW_A;
     }
-  if ((x86_accumulate_outgoing_args & CPUMASK)
+  if ((x86_accumulate_outgoing_args & TUNEMASK)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
@@ -1772,13 +1767,15 @@ ix86_function_arg_regno_p (regno)
    For a library call, FNTYPE is 0.  */
 
 void
-init_cumulative_args (cum, fntype, libname)
+init_cumulative_args (cum, fntype, libname, fndecl)
      CUMULATIVE_ARGS *cum;	/* Argument info to initialize */
      tree fntype;		/* tree ptr for function decl */
      rtx libname;		/* SYMBOL_REF of library name or 0 */
+     tree fndecl;
 {
   static CUMULATIVE_ARGS zero_cum;
   tree param, next_param;
+  bool user_convention = false;
 
   if (TARGET_DEBUG_ARG)
     {
@@ -1804,7 +1801,10 @@ init_cumulative_args (cum, fntype, libname)
       tree attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (fntype));
 
       if (attr)
-	cum->nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	{
+	  cum->nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  user_convention = true;
+	}
     }
   cum->maybe_vaarg = false;
 
@@ -1815,6 +1815,23 @@ init_cumulative_args (cum, fntype, libname)
 	{
 	  cum->nregs = 2;
 	  cum->fastcall = 1;
+	  user_convention = true;
+	}
+    }
+
+  /* Use register calling convention for local functions when possible.  */
+  if (!TARGET_64BIT && !user_convention && fndecl
+      && flag_unit_at_a_time)
+    {
+      struct cgraph_local_info *i = cgraph_local_info (fndecl);
+      if (i && i->local)
+	{
+	  /* We can't use regparm(3) for nested functions as these use
+	     static chain pointer in third argument.  */
+	  if (DECL_CONTEXT (fndecl) && !DECL_NO_STATIC_CHAIN (fndecl))
+	    cum->nregs = 2;
+	  else
+	    cum->nregs = 3;
 	}
     }
 
@@ -1919,6 +1936,10 @@ classify_argument (mode, type, classes, bit_offset)
 
   /* Variable sized entities are always passed/returned in memory.  */
   if (bytes < 0)
+    return 0;
+
+  if (mode != VOIDmode
+      && MUST_PASS_IN_STACK (mode, type))
     return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
@@ -2481,6 +2502,9 @@ function_arg (cum, mode, type, named)
 	break;
 
       case BLKmode:
+	if (bytes < 0)
+	  break;
+	/* FALLTHRU */
       case DImode:
       case SImode:
       case HImode:
@@ -4005,7 +4029,7 @@ promotable_binary_operator (op, mode)
     case MULT:
       /* Modern CPUs have same latency for HImode and SImode multiply,
          but 386 and 486 do HImode multiply faster.  */
-      return ix86_cpu > PROCESSOR_I486;
+      return ix86_tune > PROCESSOR_I486;
     case PLUS:
     case AND:
     case IOR:
@@ -4265,7 +4289,7 @@ standard_80387_constant_p (x)
   /* For XFmode constants, try to find a special 80387 instruction on
      those CPUs that benefit from them.  */
   if (GET_MODE (x) == XFmode
-      && x86_ext_80387_constants & CPUMASK)
+      && x86_ext_80387_constants & TUNEMASK)
     {
       REAL_VALUE_TYPE r;
       int i;
@@ -4804,7 +4828,8 @@ ix86_save_reg (regno, maybe_eh_return)
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
 	  || current_function_profile
-	  || current_function_calls_eh_return))
+	  || current_function_calls_eh_return
+	  || current_function_uses_const_pool))
     {
       if (ix86_select_alt_pic_regnum () != INVALID_REGNUM)
 	return 0;
@@ -5469,7 +5494,7 @@ ix86_decompose_address (addr, out)
 
   /* Special case: on K6, [%esi] makes the instruction vector decoded.
      Avoid this by transforming to [%esi+0].  */
-  if (ix86_cpu == PROCESSOR_K6 && !optimize_size
+  if (ix86_tune == PROCESSOR_K6 && !optimize_size
       && base && !index && !disp
       && REG_P (base)
       && REGNO_REG_CLASS (REGNO (base)) == SIREG)
@@ -11911,7 +11936,7 @@ ix86_attr_length_address_default (insn)
 static int
 ix86_issue_rate ()
 {
-  switch (ix86_cpu)
+  switch (ix86_tune)
     {
     case PROCESSOR_PENTIUM:
     case PROCESSOR_K6:
@@ -12039,7 +12064,7 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
   insn_type = get_attr_type (insn);
   dep_insn_type = get_attr_type (dep_insn);
 
-  switch (ix86_cpu)
+  switch (ix86_tune)
     {
     case PROCESSOR_PENTIUM:
       /* Address Generation Interlock adds a cycle of latency.  */
@@ -12336,7 +12361,7 @@ ix86_sched_reorder (dump, sched_verbose, ready, n_readyp, clock_var)
       goto out;
     }
 
-  switch (ix86_cpu)
+  switch (ix86_tune)
     {
     default:
       break;
@@ -12361,7 +12386,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
      int can_issue_more;
 {
   int i;
-  switch (ix86_cpu)
+  switch (ix86_tune)
     {
     default:
       return can_issue_more - 1;
@@ -12428,7 +12453,7 @@ ia32_use_dfa_pipeline_interface ()
 static int
 ia32_multipass_dfa_lookahead ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM)
+  if (ix86_tune == PROCESSOR_PENTIUM)
     return 2;
   else
    return 0;
@@ -15648,6 +15673,17 @@ x86_emit_floatuns (operands)
   emit_insn (gen_rtx_SET (VOIDmode, out, gen_rtx_PLUS (mode, f0, f0)));
 
   emit_label (donelab);
+}
+
+/* Return if we do not know how to pass TYPE solely in registers.  */
+bool
+ix86_must_pass_in_stack (mode, type)
+	enum machine_mode mode;
+	tree type;
+{
+   if (default_must_pass_in_stack (mode, type))
+     return true;
+   return (!TARGET_64BIT && type && mode == TImode);
 }
 
 #include "gt-i386.h"

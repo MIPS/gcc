@@ -576,7 +576,8 @@ comptypes (type1, type2)
 
     case VECTOR_TYPE:
       /* The target might allow certain vector types to be compatible.  */
-      val = (*targetm.vector_types_compatible) (t1, t2);
+      val = (*targetm.vector_opaque_p) (t1)
+	|| (*targetm.vector_opaque_p) (t2);
       break;
 
     default:
@@ -4071,7 +4072,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     }
   /* Some types can interconvert without explicit casts.  */
   else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
-	   && (*targetm.vector_types_compatible) (type, rhstype))
+	   && ((*targetm.vector_opaque_p) (type)
+	       || (*targetm.vector_opaque_p) (rhstype)))
     return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE 
@@ -5158,6 +5160,9 @@ really_start_incremental_init (type)
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
 
+  if ((*targetm.vector_opaque_p) (type))
+    error ("opaque vector types cannot be initialized");
+
   p->type = constructor_type;
   p->fields = constructor_fields;
   p->index = constructor_index;
@@ -5268,6 +5273,7 @@ push_init_level (implicit)
 	  && constructor_fields == 0)
 	process_init_element (pop_init_level (1));
       else if (TREE_CODE (constructor_type) == ARRAY_TYPE
+	       && constructor_max_index 
 	       && tree_int_cst_lt (constructor_max_index, constructor_index))
 	process_init_element (pop_init_level (1));
       else
@@ -7179,11 +7185,19 @@ do_case (low_value, high_value)
 
   if (switch_stack)
     {
+      bool switch_was_empty_p = (SWITCH_BODY (switch_stack->switch_stmt) == NULL_TREE);
+
       label = c_add_case_label (switch_stack->cases, 
 				SWITCH_COND (switch_stack->switch_stmt), 
 				low_value, high_value);
       if (label == error_mark_node)
 	label = NULL_TREE;
+      else if (switch_was_empty_p)
+	{
+	  /* Attach the first case label to the SWITCH_BODY.  */
+	  SWITCH_BODY (switch_stack->switch_stmt) = TREE_CHAIN (switch_stack->switch_stmt);
+	  TREE_CHAIN (switch_stack->switch_stmt) = NULL_TREE;
+	}
     }
   else if (low_value)
     error ("case label not within a switch statement");
@@ -7200,7 +7214,8 @@ c_finish_case ()
 {
   struct c_switch *cs = switch_stack;
 
-  RECHAIN_STMTS (cs->switch_stmt, SWITCH_BODY (cs->switch_stmt)); 
+  /* Rechain the next statements to the SWITCH_STMT.  */
+  last_tree = cs->switch_stmt;
 
   /* Pop the stack.  */
   switch_stack = switch_stack->next;

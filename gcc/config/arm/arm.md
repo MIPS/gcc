@@ -167,9 +167,12 @@
 ; store2	store 2 words
 ; store3	store 3 words
 ; store4	store 4 words
+;  Additions for Cirrus Maverick co-processor:
+; mav_farith	Floating point arithmetic (4 cycle)
+; mav_dmult	Double multiplies (7 cycle)
 ;
 (define_attr "type"
-	"normal,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,call,load,store1,store2,store3,store4" 
+	"normal,mult,block,float,fdivx,fdivd,fdivs,fmul,ffmul,farith,ffarith,float_em,f_load,f_store,f_mem_r,r_mem_f,f_2_r,r_2_f,call,load,store1,store2,store3,store4,mav_farith,mav_dmult" 
 	(const_string "normal"))
 
 ; Load scheduling, set from the arm_ld_sched variable
@@ -1326,9 +1329,50 @@
 		  (match_operand:HI 1 "s_register_operand" "%r"))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "s_register_operand" "r"))))]
-  "TARGET_ARM && arm_is_xscale"
+  "TARGET_ARM && arm_arch5e"
   "smulbb%?\\t%0, %1, %2"
-  [(set_attr "type" "mult")]
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")]
+)
+
+(define_insn "*mulhisi3tb"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(mult:SI (ashiftrt:SI
+		  (match_operand:SI 1 "s_register_operand" "r")
+		  (const_int 16))
+		 (sign_extend:SI
+		  (match_operand:HI 2 "s_register_operand" "r"))))]
+  "TARGET_ARM && arm_arch5e"
+  "smultb%?\\t%0, %1, %2"
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")]
+)
+
+(define_insn "*mulhisi3bt"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(mult:SI (sign_extend:SI
+		  (match_operand:HI 1 "s_register_operand" "r"))
+		 (ashiftrt:SI
+		  (match_operand:SI 2 "s_register_operand" "r")
+		  (const_int 16))))]
+  "TARGET_ARM && arm_arch5e"
+  "smulbt%?\\t%0, %1, %2"
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")]
+)
+
+(define_insn "*mulhisi3tt"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(mult:SI (ashiftrt:SI
+		  (match_operand:SI 1 "s_register_operand" "r")
+		  (const_int 16))
+		 (ashiftrt:SI
+		  (match_operand:SI 2 "s_register_operand" "r")
+		  (const_int 16))))]
+  "TARGET_ARM && arm_arch5e"
+  "smultt%?\\t%0, %1, %2"
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*mulhisi3addsi"
@@ -1338,9 +1382,10 @@
 			   (match_operand:HI 2 "s_register_operand" "%r"))
 			  (sign_extend:SI
 			   (match_operand:HI 3 "s_register_operand" "r")))))]
-  "TARGET_ARM && arm_is_xscale"
+  "TARGET_ARM && arm_arch5e"
   "smlabb%?\\t%0, %2, %3, %1"
-  [(set_attr "type" "mult")]
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*mulhidi3adddi"
@@ -1351,9 +1396,10 @@
 	 	    (match_operand:HI 2 "s_register_operand" "%r"))
 		   (sign_extend:DI
 		    (match_operand:HI 3 "s_register_operand" "r")))))]
-  "TARGET_ARM && arm_is_xscale"
+  "TARGET_ARM && arm_arch5e"
   "smlalbb%?\\t%Q0, %R0, %2, %3"
-[(set_attr "type" "mult")])
+  [(set_attr "type" "mult")
+   (set_attr "predicable" "yes")])
 
 (define_insn "*arm_mulsf3"
   [(set (match_operand:SF 0 "s_register_operand" "=f")
@@ -3690,6 +3736,13 @@
    (set_attr "pool_range" "32,32")]
 )
 
+(define_expand "extendsfdf2"
+  [(set (match_operand:DF                  0 "s_register_operand" "")
+	(float_extend:DF (match_operand:SF 1 "s_register_operand"  "")))]
+  "TARGET_ARM && TARGET_ANY_HARD_FLOAT"
+  ""
+)
+
 (define_insn "*arm_extendsfdf2"
   [(set (match_operand:DF                  0 "s_register_operand" "=f")
 	(float_extend:DF (match_operand:SF 1 "s_register_operand"  "f")))]
@@ -5576,11 +5629,6 @@
    (set_attr "type" "f_2_r")]
 )
 
-;; There is no CCFPE or CCFP modes in the code below so we can have
-;; one pattern to match either one.  Besides, we're pretty sure we
-;; have either CCFPE or CCFP because we made the patterns
-;; (arm_gen_compare_reg).
-
 ;; Cirrus SF compare instruction
 (define_insn "*cirrus_cmpsf"
   [(set (reg:CCFP CC_REGNUM)
@@ -5588,7 +5636,7 @@
 		      (match_operand:SF 1 "cirrus_fp_register" "v")))]
   "TARGET_ARM && TARGET_CIRRUS"
   "cfcmps%?\\tr15, %V0, %V1"
-  [(set_attr "cirrus_type" "farith")
+  [(set_attr "type"   "mav_farith")
    (set_attr "cirrus" "compare")]
 )
 
@@ -5599,7 +5647,7 @@
 		      (match_operand:DF 1 "cirrus_fp_register" "v")))]
   "TARGET_ARM && TARGET_CIRRUS"
   "cfcmpd%?\\tr15, %V0, %V1"
-  [(set_attr "cirrus_type" "farith")
+  [(set_attr "type"   "mav_farith")
    (set_attr "cirrus" "compare")]
 )
 
@@ -5620,18 +5668,7 @@
 		    (match_operand:DI 1 "cirrus_fp_register" "v")))]
   "TARGET_ARM && TARGET_CIRRUS"
   "cfcmp64%?\\tr15, %V0, %V1"
-  [(set_attr "cirrus_type" "farith")
-   (set_attr "cirrus" "compare")]
-)
-
-;; Cirrus SI compare instruction
-(define_insn "*cirrus_cmpsi_1"
-  [(set (reg:CC CC_REGNUM)
-	(compare:CC (match_operand:SI 0 "cirrus_fp_register" "v")
-		    (match_operand:SI 1 "cirrus_fp_register" "v")))]
-  "TARGET_ARM && TARGET_CIRRUS && 0"
-  "cfcmp32%?\\tr15, %V0, %V1"
-  [(set_attr "cirrus_type" "farith")
+  [(set_attr "type"   "mav_farith")
    (set_attr "cirrus" "compare")]
 )
 

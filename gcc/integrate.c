@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
-   Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -159,11 +159,13 @@ function_cannot_inline_p (fndecl)
   tree last = tree_last (TYPE_ARG_TYPES (TREE_TYPE (fndecl)));
 
   /* For functions marked as inline increase the maximum size to
-     MAX_INLINE_INSNS (-finline-limit-<n>).  For regular functions
-     use the limit given by INTEGRATE_THRESHOLD.  */
+     MAX_INLINE_INSNS_RTL (--param max-inline-insn-rtl=<n>). For
+     regular functions use the limit given by INTEGRATE_THRESHOLD.
+     Note that the RTL inliner is not used by the languages that use
+     the tree inliner (C, C++).  */
 
   int max_insns = (DECL_INLINE (fndecl))
-		   ? (MAX_INLINE_INSNS
+		   ? (MAX_INLINE_INSNS_RTL
 		      + 8 * list_length (DECL_ARGUMENTS (fndecl)))
 		   : INTEGRATE_THRESHOLD (fndecl);
 
@@ -2611,10 +2613,7 @@ subst_constants (loc, insn, map, memonly)
 	  {
 	    src = SET_SRC (x);
 	    if (GET_MODE_CLASS (GET_MODE (src)) == MODE_CC
-#ifdef HAVE_cc0
-		|| dest == cc0_rtx
-#endif
-		)
+		|| CC0_P (dest))
 	      {
 		compare_mode = GET_MODE (XEXP (src, 0));
 		if (compare_mode == VOIDmode)
@@ -2666,9 +2665,7 @@ subst_constants (loc, insn, map, memonly)
 			|| REGNO (XEXP (src, 0)) == VIRTUAL_STACK_VARS_REGNUM)
 		    && CONSTANT_P (XEXP (src, 1)))
 		|| GET_CODE (src) == COMPARE
-#ifdef HAVE_cc0
-		|| dest == cc0_rtx
-#endif
+		|| CC0_P (dest)
 		|| (dest == pc_rtx
 		    && (src == pc_rtx || GET_CODE (src) == RETURN
 			|| GET_CODE (src) == LABEL_REF))))
@@ -2682,10 +2679,7 @@ subst_constants (loc, insn, map, memonly)
 	    if (compare_mode != VOIDmode
 		&& GET_CODE (src) == COMPARE
 		&& (GET_MODE_CLASS (GET_MODE (src)) == MODE_CC
-#ifdef HAVE_cc0
-		    || dest == cc0_rtx
-#endif
-		    )
+		    || CC0_P (dest))
 		&& GET_MODE (XEXP (src, 0)) == VOIDmode
 		&& GET_MODE (XEXP (src, 1)) == VOIDmode)
 	      {

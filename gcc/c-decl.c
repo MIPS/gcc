@@ -4567,6 +4567,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	   needed, and let dwarf2 know that the function is inlinable.  */
 	else if (flag_inline_trees == 2 && initialized)
 	  {
+	    if (!DECL_INLINE (decl))
+		DID_INLINE_FUNC (decl) = 1;
 	    DECL_INLINE (decl) = 1;
 	    DECL_DECLARED_INLINE_P (decl) = 0;
 	  }
@@ -6413,7 +6415,7 @@ finish_function (nested, can_defer_p)
   free_after_compilation (cfun);
   cfun = NULL;
 
-  if (flag_unit_at_a_time)
+  if (flag_unit_at_a_time && can_defer_p)
     {
       cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
       current_function_decl = NULL;

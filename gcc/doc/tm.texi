@@ -1452,10 +1452,12 @@ floating-point arithmetic.
 The default definition of this macro returns false for all sizes.
 @end table
 
-@deftypefn {Target Hook} bool TARGET_VECTOR_TYPES_COMPATIBLE (tree @var{type1}, tree @var{type2})
-This target hook should return @code{true} if no cast is needed when
-copying a vector value of type @var{type1} into a vector lvalue of
-type @var{type2}.  The default is that there are no such types.
+@deftypefn {Target Hook} bool TARGET_VECTOR_OPAQUE_P (tree @var{type})
+This target hook should return @code{true} a vector is opaque.  That
+is, if no cast is needed when copying a vector value of type
+@var{type} into another vector lvalue of the same size.  Vector opaque
+types cannot be initialized.  The default is that there are no such
+types.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_MS_BITFIELD_LAYOUT_P (tree @var{record_type})
@@ -2813,6 +2815,16 @@ Otherwise, it is found by adding the length of the first slot to the
 value @code{STARTING_FRAME_OFFSET}.
 @c i'm not sure if the above is still correct.. had to change it to get
 @c rid of an overfull.  --mew 2feb93
+
+@findex STACK_ALIGNMENT_NEEDED
+@item STACK_ALIGNMENT_NEEDED
+Define to zero to disable final alignment of the stack during reload.
+The non-zero default for this macro is suitable for most ports.
+
+On ports where @code{STARTING_FRAME_OFFSET} is non-zero or where there
+is a register save block following the local block that doesn't require
+alignment to @code{STACK_BOUNDARY}, it may be beneficial to disable
+stack alignment and do it in the backend.
 
 @findex STACK_POINTER_OFFSET
 @item STACK_POINTER_OFFSET

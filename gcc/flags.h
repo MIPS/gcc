@@ -290,12 +290,12 @@ extern int flag_strength_reduce;
    UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
    unrolled.  */
 
-extern int flag_unroll_loops;
+extern int flag_old_unroll_loops;
 
 /* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
    This is generally not a win.  */
 
-extern int flag_unroll_all_loops;
+extern int flag_old_unroll_all_loops;
 
 /* Nonzero forces all invariant computations in loops to be moved
    outside the loop.  */
@@ -656,6 +656,10 @@ extern int flag_eliminate_dwarf2_dups;
 
 /* Nonzero means we should track variable locations.  */
 extern int flag_var_tracking;
+
+/* Nonzero means we should do unused type elimination.  */
+
+extern int flag_eliminate_unused_debug_types;
 
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */

@@ -67,7 +67,7 @@ static void storedecls (tree);
 static void require_complete_types_for_parms (tree);
 static int ambi_op_p (enum tree_code);
 static int unary_op_p (enum tree_code);
-static tree store_bindings (tree, tree);
+static cxx_saved_binding *store_bindings (tree, cxx_saved_binding *);
 static tree lookup_tag_reverse (tree, tree);
 static void push_local_name (tree);
 static void warn_extern_redeclared_static (tree, tree);
@@ -935,6 +935,7 @@ add_binding (tree id, tree decl)
   tree binding = IDENTIFIER_BINDING (id);
   int ok = 1;
 
+  timevar_push (TV_NAME_LOOKUP);
   if (TREE_CODE (decl) == TYPE_DECL && DECL_ARTIFICIAL (decl))
     /* The new name is the type name.  */
     BINDING_TYPE (binding) = decl;
@@ -991,7 +992,7 @@ add_binding (tree id, tree decl)
       ok = 0;
     }
 
-  return ok;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, ok);
 }
 
 /* Add DECL to the list of things declared in B.  */
@@ -1071,6 +1072,7 @@ push_class_binding (tree id, tree decl)
   tree binding = IDENTIFIER_BINDING (id);
   tree context;
 
+  timevar_push (TV_NAME_LOOKUP);
   /* Note that we declared this value so that we can issue an error if
      this is an invalid redeclaration of a name already used for some
      other purpose.  */
@@ -1113,7 +1115,7 @@ push_class_binding (tree id, tree decl)
        in this class.  */
     INHERITED_VALUE_BINDING_P (binding) = 1;
 
-  return result;
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, result);
 }
 
 /* Remove the binding for DECL which should be the innermost binding
@@ -2114,6 +2116,7 @@ set_namespace_binding (tree name, tree scope, tree val)
 {
   tree b;
 
+  timevar_push (TV_NAME_LOOKUP);
   if (scope == NULL_TREE)
     scope = global_namespace;
 
@@ -2123,11 +2126,12 @@ set_namespace_binding (tree name, tree scope, tree val)
       if (b == NULL_TREE || TREE_CODE (b) != CPLUS_BINDING)
 	{
 	  IDENTIFIER_NAMESPACE_BINDINGS (name) = val;
-	  return;
+          POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, (void)0);
 	}
     }
   b = binding_for_name (name, scope);
   BINDING_VALUE (b) = val;
+  timevar_pop (TV_NAME_LOOKUP);
 }
 
 /* Push into the scope of the NAME namespace.  If NAME is NULL_TREE, then we
@@ -2248,6 +2252,22 @@ pop_nested_namespace (tree ns)
 }
 
 
+/* Allocate storage for saving a C++ binding.  */
+#define cxx_saved_binding_make() \
+  (ggc_alloc (sizeof (cxx_saved_binding)))
+
+struct cxx_saved_binding GTY(())
+{
+  /* Link that chains saved C++ bindings for a given name into a stack.  */
+  cxx_saved_binding *previous;
+  /* The name of the current binding.  */
+  tree identifier;
+  /* The binding we're saving.  */
+  tree binding;
+  tree class_value;
+  tree real_type_value;
+};
+
 /* Subroutines for reverting temporarily to top-level for instantiation
    of templates and such.  We actually need to clear out the class- and
    local-value slots of all identifiers, so that only the global values
@@ -2255,16 +2275,18 @@ pop_nested_namespace (tree ns)
    scope isn't enough, because more binding levels may be pushed.  */
 struct saved_scope *scope_chain;
 
-static tree
-store_bindings (tree names, tree old_bindings)
+static cxx_saved_binding *
+store_bindings (tree names, cxx_saved_binding *old_bindings)
 {
   tree t;
-  tree search_bindings = old_bindings;
+  cxx_saved_binding *search_bindings = old_bindings;
 
   timevar_push (TV_NAME_LOOKUP);
   for (t = names; t; t = TREE_CHAIN (t))
     {
-      tree binding, t1, id;
+      tree id;
+      cxx_saved_binding *saved;
+      cxx_saved_binding *t1;
 
       if (TREE_CODE (t) == TREE_LIST)
 	id = TREE_PURPOSE (t);
@@ -2278,20 +2300,20 @@ store_bindings (tree names, tree old_bindings)
 	  || !(IDENTIFIER_BINDING (id) || IDENTIFIER_CLASS_VALUE (id)))
 	continue;
 
-      for (t1 = search_bindings; t1; t1 = TREE_CHAIN (t1))
-	if (TREE_VEC_ELT (t1, 0) == id)
+      for (t1 = search_bindings; t1; t1 = t1->previous)
+	if (t1->identifier == id)
 	  goto skip_it;
 
       my_friendly_assert (TREE_CODE (id) == IDENTIFIER_NODE, 135);
-      binding = make_tree_vec (4);
-      TREE_VEC_ELT (binding, 0) = id;
-      TREE_VEC_ELT (binding, 1) = REAL_IDENTIFIER_TYPE_VALUE (id);
-      TREE_VEC_ELT (binding, 2) = IDENTIFIER_BINDING (id);
-      TREE_VEC_ELT (binding, 3) = IDENTIFIER_CLASS_VALUE (id);
+      saved = cxx_saved_binding_make ();
+      saved->previous = old_bindings;
+      saved->identifier = id;
+      saved->binding = IDENTIFIER_BINDING (id);
+      saved->class_value = IDENTIFIER_CLASS_VALUE (id);;
+      saved->real_type_value = REAL_IDENTIFIER_TYPE_VALUE (id);
       IDENTIFIER_BINDING (id) = NULL_TREE;
       IDENTIFIER_CLASS_VALUE (id) = NULL_TREE;
-      TREE_CHAIN (binding) = old_bindings;
-      old_bindings = binding;
+      old_bindings = saved;
     skip_it:
       ;
     }
@@ -2303,7 +2325,7 @@ maybe_push_to_top_level (int pseudo)
 {
   struct saved_scope *s;
   struct cp_binding_level *b;
-  tree old_bindings;
+  cxx_saved_binding *old_bindings;
   int need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
@@ -2320,7 +2342,7 @@ maybe_push_to_top_level (int pseudo)
   else
     need_pop = 0;
 
-  old_bindings = NULL_TREE;
+  old_bindings = NULL;
   if (scope_chain && previous_class_type)
     old_bindings = store_bindings (previous_class_values, old_bindings);
 
@@ -2373,7 +2395,7 @@ void
 pop_from_top_level (void)
 {
   struct saved_scope *s = scope_chain;
-  tree t;
+  cxx_saved_binding *saved;
 
   timevar_push (TV_NAME_LOOKUP); 
   /* Clear out class-level bindings cache.  */
@@ -2383,13 +2405,13 @@ pop_from_top_level (void)
   current_lang_base = 0;
 
   scope_chain = s->prev;
-  for (t = s->old_bindings; t; t = TREE_CHAIN (t))
+  for (saved = s->old_bindings; saved; saved = saved->previous)
     {
-      tree id = TREE_VEC_ELT (t, 0);
+      tree id = saved->identifier;
 
-      SET_IDENTIFIER_TYPE_VALUE (id, TREE_VEC_ELT (t, 1));
-      IDENTIFIER_BINDING (id) = TREE_VEC_ELT (t, 2);
-      IDENTIFIER_CLASS_VALUE (id) = TREE_VEC_ELT (t, 3);
+      IDENTIFIER_BINDING (id) = saved->binding;
+      IDENTIFIER_CLASS_VALUE (id) = saved->class_value;
+      SET_IDENTIFIER_TYPE_VALUE (id, saved->real_type_value);
     }
 
   /* If we were in the middle of compiling a function, restore our
@@ -2977,19 +2999,19 @@ duplicate_decls (tree newdecl, tree olddecl)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning_with_decl (newdecl,
-			     "function `%s' redeclared as inline");
-	  warning_with_decl (olddecl,
-			     "previous declaration of function `%s' with attribute noinline");
+	  warning ("%Hfunction '%D' redeclared as inline",
+                   &DECL_SOURCE_LOCATION (newdecl), newdecl);
+	  warning ("%Hprevious declaration of '%D' with attribute noinline",
+                   &DECL_SOURCE_LOCATION (olddecl), olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning_with_decl (newdecl,
-			     "function `%s' redeclared with attribute noinline");
-	  warning_with_decl (olddecl,
-			     "previous declaration of function `%s' was inline");
+	  warning ("%Hfunction '%D' redeclared with attribute noinline",
+                   &DECL_SOURCE_LOCATION (newdecl), newdecl);
+	  warning ("%Hprevious declaration of '%D' was inline",
+                   &DECL_SOURCE_LOCATION (olddecl), olddecl);
 	}
     }
 
@@ -7086,8 +7108,8 @@ start_decl (tree declarator,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning_with_decl (decl,
-		       "inline function `%s' given attribute noinline");
+    warning ("%Hinline function '%D' given attribute noinline",
+             &DECL_SOURCE_LOCATION (decl), decl);
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -7284,10 +7306,7 @@ grok_reference_init (tree decl, tree type, tree init)
      DECL_INITIAL for local references (instead assigning to them
      explicitly); we need to allow the temporary to be initialized
      first.  */
-  tmp = convert_to_reference
-    (type, init, CONV_IMPLICIT,
-     LOOKUP_ONLYCONVERTING|LOOKUP_SPECULATIVELY|LOOKUP_NORMAL|DIRECT_BIND,
-     decl);
+  tmp = initialize_reference (type, init, decl);
 
   if (tmp == error_mark_node)
     return NULL_TREE;
@@ -7768,6 +7787,12 @@ check_initializer (tree decl, tree init, int flags)
 	     scalar, so just don't call it.  */
 	  if (CP_AGGREGATE_TYPE_P (type))
 	    init = reshape_init (type, &init);
+
+	  if ((*targetm.vector_opaque_p) (type))
+	    {
+	      error ("opaque vector types cannot be initialized");
+	      init = error_mark_node;
+	    }
 	}
 
       /* If DECL has an array type without a specific bound, deduce the
@@ -8205,6 +8230,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	     necessary zero-initialization has already been performed.  */
 	  if (TREE_STATIC (decl) && !DECL_INITIAL (decl))
 	    DECL_INITIAL (decl) = build_zero_init (TREE_TYPE (decl),
+						   /*nelts=*/NULL_TREE,
 						   /*static_storage_p=*/true);
 	  /* Remember that the initialization for this variable has
 	     taken place.  */
@@ -8950,13 +8976,19 @@ grokfndecl (tree ctype,
       DECL_NOT_REALLY_EXTERN (decl) = 1;
     }
 
+  DID_INLINE_FUNC (decl) = 0;
   /* If the declaration was declared inline, mark it as such.  */
   if (inlinep)
     DECL_DECLARED_INLINE_P (decl) = 1;
   /* We inline functions that are explicitly declared inline, or, when
      the user explicitly asks us to, all functions.  */
-  if (DECL_DECLARED_INLINE_P (decl) || flag_inline_trees == 2)
+  if (DECL_DECLARED_INLINE_P (decl))
     DECL_INLINE (decl) = 1;
+  if (flag_inline_trees == 2 && !DECL_INLINE (decl))
+    {
+      DID_INLINE_FUNC (decl) = 1;
+      DECL_INLINE (decl) = 1;
+    }
 
   DECL_EXTERNAL (decl) = 1;
   if (quals != NULL_TREE && TREE_CODE (type) == FUNCTION_TYPE)
@@ -13058,44 +13090,56 @@ finish_enum (tree enumtype)
   /* We built up the VALUES in reverse order.  */
   TYPE_VALUES (enumtype) = nreverse (TYPE_VALUES (enumtype));
 
-  /* [dcl.enum]
-
-     Following the closing brace of an enum-specifier, each
-     enumerator has the type of its enumeration.  Prior to the
-     closing brace, the type of each enumerator is the type of
-     its initializing value.  */
-  for (pair = TYPE_VALUES (enumtype); pair; pair = TREE_CHAIN (pair))
-    TREE_TYPE (TREE_VALUE (pair)) = enumtype;
-  
-  /* For an enum defined in a template, all further processing is
-     postponed until the template is instantiated.  */
+  /* For an enum defined in a template, just set the type of the values;
+     all further processing is postponed until the template is
+     instantiated.  We need to set the type so that tsubst of a CONST_DECL
+     works.  */
   if (processing_template_decl)
     {
+      for (pair = TYPE_VALUES (enumtype); pair; pair = TREE_CHAIN (pair))
+	TREE_TYPE (TREE_VALUE (pair)) = enumtype;
       if (at_function_scope_p ())
 	add_stmt (build_min (TAG_DEFN, enumtype));
       return;
     }
 
-  /* Figure out what the minimum and maximum values of the enumerators
-     are.  */
   if (TYPE_VALUES (enumtype))
     {
       minnode = maxnode = NULL_TREE;
 
-      for (pair = TYPE_VALUES (enumtype);
-	   pair;
-	   pair = TREE_CHAIN (pair))
+      for (pair = TYPE_VALUES (enumtype); pair; pair = TREE_CHAIN (pair))
 	{
-	  tree value;
+	  tree decl = TREE_VALUE (pair);
+	  tree value = DECL_INITIAL (decl);
 
-	  value = DECL_INITIAL (TREE_VALUE (pair));
+	  /* [dcl.enum]: Following the closing brace of an enum-specifier,
+	     each enumerator has the type of its enumeration.  Prior to the
+	     closing brace, the type of each enumerator is the type of its
+	     initializing value.  */
+	  TREE_TYPE (decl) = enumtype;
 
+	  /* Figure out what the minimum and maximum values of the
+	     enumerators are.  */
 	  if (!minnode)
 	    minnode = maxnode = value;
 	  else if (tree_int_cst_lt (maxnode, value))
 	    maxnode = value;
 	  else if (tree_int_cst_lt (value, minnode))
 	    minnode = value;
+
+	  /* Set the TREE_TYPE for the values as well.  That's so that when
+	     we call decl_constant_value we get an entity of the right type
+	     (but with the constant value).  But first make a copy so we
+	     don't clobber shared INTEGER_CSTs.  */
+	  if (TREE_TYPE (value) != enumtype)
+	    {
+	      value = DECL_INITIAL (decl) = copy_node (value);
+	      TREE_TYPE (value) = enumtype;
+	    }
+
+	  /* In addition, transform the TYPE_VALUES list to contain the
+	     values, rather than the CONST_DECLs for them.  */
+	  TREE_VALUE (pair) = value;
 	}
     }
   else
@@ -13109,18 +13153,6 @@ finish_enum (tree enumtype)
   lowprec = min_precision (minnode, unsignedp);
   highprec = min_precision (maxnode, unsignedp);
   precision = MAX (lowprec, highprec);
-
-  /* Set the TREE_TYPE for the values as well.  That's so that when we
-     call decl_constant_value we get an entity of the right type (but
-     with the constant value).  In addition, transform the TYPE_VALUES
-     list to contain the values, rather than the CONST_DECLs for them.  */
-  for (pair = TYPE_VALUES (enumtype); pair; pair = TREE_CHAIN (pair))
-    {
-      tree value = DECL_INITIAL (TREE_VALUE (pair));
-
-      TREE_TYPE (value) = enumtype;
-      TREE_VALUE (pair) = value;
-    }
 
   /* Set TYPE_MIN_VALUE and TYPE_MAX_VALUE according to `precision'.  */
   TYPE_SIZE (enumtype) = NULL_TREE;
@@ -13170,7 +13202,6 @@ build_enumerator (tree name, tree value, tree enumtype)
   tree decl;
   tree context;
   tree type;
-  tree values;
 
   /* Remove no-op casts from the value.  */
   if (value)
@@ -13217,25 +13248,8 @@ build_enumerator (tree name, tree value, tree enumtype)
 	}
 
       /* Remove no-op casts from the value.  */
-      if (value)
-	STRIP_TYPE_NOPS (value);
-#if 0
-      /* To fix MAX_VAL enum consts. (bkoz)  */
-      TREE_TYPE (value) = integer_type_node;
-#endif
+      STRIP_TYPE_NOPS (value);
     }
-
-  /* We always have to copy here; not all INTEGER_CSTs are unshared.
-     Even in other cases, we will later (in finish_enum) be setting
-     the type of VALUE.  But, we don't need to make a copy if this
-     VALUE is one of the enumeration constants for this same
-     enumeration type.  */
-  for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
-    if (TREE_VALUE (values) == value)
-      break;
-  /* If we didn't break out of the loop, then we do need a copy.  */
-  if (!values && value)
-    value = copy_node (value);
 
   /* C++ associates enums with global, function, or class declarations.  */
   context = current_scope ();
@@ -13435,8 +13449,8 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
-    warning_with_decl (decl1,
-		       "inline function `%s' given attribute noinline");
+    warning ("%Hinline function '%D' given attribute noinline",
+             &DECL_SOURCE_LOCATION (decl1), decl1);
 
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
     /* This is a constructor, we must ensure that any default args
@@ -13542,6 +13556,9 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   /* Start the statement-tree, start the tree now.  */
   begin_stmt_tree (&DECL_SAVED_TREE (decl1));
+
+  /* Don't double-count statements in templates.  */
+  DECL_NUM_STMTS (decl1) = 0;
 
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
@@ -14218,6 +14235,7 @@ start_method (tree declspecs, tree declarator, tree attrlist)
 
   DECL_DECLARED_INLINE_P (fndecl) = 1;
 
+  DID_INLINE_FUNC (fndecl) = 0;
   if (flag_default_inline)
     DECL_INLINE (fndecl) = 1;
 

@@ -357,10 +357,9 @@ extern void unswitch_loops		PARAMS ((struct loops *));
 
 enum
 {
-  UAP_PEEL = 1,
-  UAP_UNROLL = 2,
-  UAP_UNROLL_ALL = 4
+  UAP_PEEL = 1,		/* Enables loop peeling.  */
+  UAP_UNROLL = 2,	/* Enables peeling of loops if it seems profitable.  */
+  UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
 };
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
-

@@ -1,3 +1,68 @@
+2003-03-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java.tags): New target.
+
+2003-03-01  Roger Sayle  <roger@eyesopen.com>
+
+	* java/builtins.c (builtin_type): Handle DEF_FUNCTION_TYPE_VAR_3.
+	(initialize_builtins): Handle DEF_FUNCTION_TYPE_VAR_3.
+
+2003-03-01  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (jdep_resolve_class): Only check deprecation if we found
+	a decl.
+
+2003-02-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/9695:
+	* class.c (maybe_layout_super_class): Always pass a WFL to
+	do_resolve_class.
+	* parse.y (do_resolve_class): Updated comment to explain
+	parameters.
+
+2003-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_classfile): Check whether class is
+	deprecated before writing attribute count.
+
+2003-02-25  Roger Sayle  <roger@eyesopen.com>
+
+	* java/decl.c (java_init_decl_processing): Get soft_fmod_node from
+	built_in_decls[BUILT_IN_FMOD] rather than define it ourselves.
+ 
+2003-02-23  Tom Tromey  <tromey@redhat.com>
+
+	* lang-options.h: Added -Wdeprecated.
+	* gcj.texi (Warnings): Document -Wdeprecated.
+	* java-tree.h (flag_deprecated): Declare.
+	* lang.c (lang_W_options): Added deprecated.
+	(flag_deprecated): New global.
+	* chartables.h: Rebuilt.
+	* gen-table.pl (process_one): Look at whitespace.
+	(print_tables): Define LETTER_SPACE, LETTER_MASK.
+	* parse.h (CLEAR_DEPRECATED): New macro.
+	(CHECK_DEPRECATED_NO_RESET): New macro.
+	* jcf-parse.c (handle_deprecated): New function.
+	(HANDLE_DEPRECATED_ATTRIBUTE): New define.
+	* jcf-reader.c (get_attribute): Handle Deprecated attribute.
+	* parse.y (resolve_type_during_patch): Check deprecation.
+	(jdep_resolve_class): Likewise.
+	(process_imports): Likewise.
+	(resolve_expression_name): Likewise.
+	(check_deprecation): Strip arrays from decl.  Check
+	flag_deprecated.
+	(patch_method_invocation): Also check the particular constructor
+	for deprecation.
+	(register_fields): Use CHECK_DEPRECATED_NO_RESET in loop.
+	* jcf-write.c (append_deprecated_attribute): New function.
+	(generate_classfile): Generate deprecated attribute when
+	appropriate.
+	* lex.c (java_parse_doc_section): Return type now void.  Rewrote.
+	(java_lex) [case '*']: Simplify logic.
+	(java_start_char_p): Use LETTER_MASK.
+	(java_part_char_p): Likewise.
+	(java_space_char_p): New function.
+
 2003-02-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Change base class access representation.

@@ -105,7 +105,7 @@ extern void reg_alloc PARAMS ((void));
 
 static void general_init PARAMS ((char *));
 static void parse_options_and_default_flags PARAMS ((int, char **));
-static void do_compile PARAMS ((void));
+static void do_compile PARAMS ((int));
 static void process_options PARAMS ((void));
 static void backend_init PARAMS ((void));
 static int lang_dependent_init PARAMS ((const char *));
@@ -179,7 +179,7 @@ const char *dump_base_name;
 
 /* Name to use as a base for auxiliary output files.  */
 
-const char *aux_base_name;
+static const char *aux_base_name;
 
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
@@ -330,7 +330,7 @@ static void close_dump_file PARAMS ((enum dump_file_index,
 int rtl_dump_and_exit;
 int flag_print_asm_name;
 static int version_flag;
-static char *filename;
+static const char *filename;
 enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
@@ -393,6 +393,10 @@ int flag_eliminate_dwarf2_dups = 0;
 
 #define AUTODETECT_FLAG_VAR_TRACKING 2
 int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+
+/* Nonzero if doing unused type elimination.  */
+
+int flag_eliminate_unused_debug_types = 1;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -1050,6 +1054,8 @@ static const lang_independent_options f_options[] =
    N_("Perform variable tracking") },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
+  {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1,
+   N_("Perform unused type elimination in debug info") },
   {"float-store", &flag_float_store, 1,
    N_("Do not store floats in registers") },
   {"defer-pop", &flag_defer_pop, 1,
@@ -2540,12 +2546,16 @@ rest_of_compilation (decl)
 		  goto exit_rest_of_compilation;
 		}
 	    }
-	  else
-	    /* ??? Note that this has the effect of making it look
-		 like "inline" was specified for a function if we choose
-		 to inline it.  This isn't quite right, but it's
-		 probably not worth the trouble to fix.  */
+	  else {
+	    /* ??? Note that we used to just make it look like if
+	         the "inline" keyword was specified when we decide
+	         to inline it (because of -finline-functions).
+	         garloff@suse.de, 2002-04-24: Add another flag to
+	         actually record this piece of information.  */
+	    if (!DECL_INLINE (decl))
+	       DID_INLINE_FUNC (decl) = 1;
 	    inlinable = DECL_INLINE (decl) = 1;
+	  }
 	}
 
       insns = get_insns ();
@@ -2573,6 +2583,7 @@ rest_of_compilation (decl)
 
       if (inlinable
 	  || (DECL_INLINE (decl)
+	      && flag_inline_functions
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
 		   && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 		   && ! flag_keep_inline_functions)
@@ -2867,7 +2878,8 @@ rest_of_compilation (decl)
     }
 
   timevar_push (TV_JUMP);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP: 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
   /* Try to identify useless null pointer tests and delete them.  */
   if (flag_delete_null_pointer_checks)
@@ -3030,7 +3042,10 @@ rest_of_compilation (decl)
       /* CFG is no longer maintained up-to-date.  */
       free_bb_for_insn ();
 
-      do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+      if (flag_unroll_loops)
+	do_unroll = 0;		/* Having two unrollers is useless.  */
+      else
+	do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
       do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
       if (flag_rerun_loop_opt)
 	{
@@ -3107,8 +3122,9 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
      eliminated by life_analysis, but we need to do it early, as -fprofile-arcs
@@ -3591,10 +3607,13 @@ rest_of_compilation (decl)
 #endif
 
   /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
   if (optimize > 0)
+#endif
     split_all_insns (0);
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3652,21 +3671,6 @@ rest_of_compilation (decl)
       timevar_pop (TV_RENAME_REGISTERS);
     }
 
-  if (flag_if_conversion2)
-    {
-      timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce3, decl);
-
-      if_convert (1);
-
-      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
-      timevar_pop (TV_IFCVT2);
-    }
-#ifdef STACK_REGS
-  if (optimize)
-    split_all_insns (1);
-#endif
-
   if (optimize > 0)
     {
       timevar_push (TV_REORDER_BLOCKS);
@@ -3687,6 +3691,17 @@ rest_of_compilation (decl)
 
       close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
       timevar_pop (TV_REORDER_BLOCKS);
+    }
+
+  if (flag_if_conversion2)
+    {
+      timevar_push (TV_IFCVT2);
+      open_dump_file (DFI_ce3, decl);
+
+      if_convert (1);
+
+      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
+      timevar_pop (TV_IFCVT2);
     }
 
 #ifdef INSN_SCHEDULING
@@ -3735,7 +3750,7 @@ rest_of_compilation (decl)
 	  && flag_reorder_blocks)
 	{
 	  reorder_basic_blocks ();
-	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
 	}
     }
 
@@ -4228,6 +4243,16 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+      set_param_value ("max-inline-insns-single", val/2);
+      set_param_value ("max-inline-insns-auto", val/2);
+      set_param_value ("max-inline-insns-rtl", val);
+      if (val/4 < MIN_INLINE_INSNS)
+	{
+	  if (val/4 > 10)
+	    set_param_value ("min-inline-insns", val/4);
+	  else
+	    set_param_value ("min-inline-insns", 10);
+	}
     }
   else if ((option_value = skip_leading_substring (arg, "tls-model=")))
     {
@@ -4794,8 +4819,6 @@ print_version (file, indent)
      FILE *file;
      const char *indent;
 {
-  fnotice (file, "GGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
-	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
 #endif
@@ -4808,6 +4831,9 @@ print_version (file, indent)
 	   , indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
+  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+	   indent, *indent != 0 ? " " : "",
+	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
 /* Print an option value and return the adjusted position in the line.
@@ -5151,6 +5177,7 @@ parse_options_and_default_flags (argc, argv)
 #ifdef INSN_SCHEDULING
       flag_trace_scheduling = 1;
 #endif
+      flag_unit_at_a_time = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -5294,6 +5321,19 @@ process_options ()
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  /* Set aux_base_name if not already set.  */
+  if (aux_base_name)
+    ;
+  else if (filename)
+    {
+      char *name = xstrdup (lbasename (filename));
+      
+      strip_off_ending (name, strlen (name));
+      aux_base_name = name;
+    }
+  else
+    aux_base_name = "gccaux";
 
   /* Set up the align_*_log variables, defaulting them to 1 if they
      were still unset.  */
@@ -5541,8 +5581,6 @@ lang_dependent_init (name)
   if (name == NULL)
     return 0;
 
-  /* Is this duplication necessary?  */
-  name = ggc_strdup (name);
   main_input_filename = input_filename = name;
   init_asm_output (name);
 
@@ -5659,31 +5697,9 @@ print_structure_statistics ()
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile ()
+do_compile (no_backend)
+     int no_backend;
 {
-  /* All command line options have been parsed; allow the front end to
-     perform consistency checks, etc.  */
-  bool no_backend = (*lang_hooks.post_options) ();
-
-  /* The bulk of command line switch processing.  */
-  process_options ();
-
-  /* If an error has already occurred, give up.  */
-  if (errorcount)
-    return;
-
-  if (aux_base_name)
-    /*NOP*/;
-  else if (filename)
-    {
-      char *name = xstrdup (lbasename (filename));
-
-      aux_base_name = name;
-      strip_off_ending (name, strlen (name));
-    }
-  else
-    aux_base_name = "gccaux";
-
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */
   init_timevar ();
@@ -5725,7 +5741,18 @@ toplev_main (argc, argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    {
+      /* All command line options have been parsed; allow the front
+	 end to perform consistency checks, etc.  */
+      bool no_backend = (*lang_hooks.post_options) ();
+
+      /* The bulk of command line switch processing.  */
+      process_options ();
+
+      /* Don't do any more if an error has already occurred.  */
+      if (!errorcount)
+	do_compile (no_backend);
+    }
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

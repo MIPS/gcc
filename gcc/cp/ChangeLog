@@ -1,3 +1,187 @@
+2003-03-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (end_of_class): Correct thinko.
+
+2003-03-04  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* config-lang.in: Replace ${libstdcxx_version} by its value.
+
+2003-03-04  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+        * cp-tree.h (cxx_saved_binding): Declare.
+        (struct saved_scope): Adjust type of field 'old_binding'.
+        * decl.c (cxx_saved_binding_make): New macro.
+        (struct cxx_saved_binding): Define.
+        (store_bindings): Adjust prototype.  Use cxx_saved_binding to save
+        C++ bindings. 
+        (maybe_push_to_top_level): Adjust local variable type.
+        (pop_from_top_level): Likewise.
+	
+2003-03-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (c++.tags): New target.
+
+2003-03-04  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in: Update.
+
+2003-03-03  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (finish_enum): Do set the type in a template. Simplify.
+	* pt.c (tsubst_enum, tsubst_copy): Revert last patch.
+
+2003-03-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9878
+	* call.c (convert_class_to_reference): Correct conversion
+	sequences.
+	(reference_binding): Add ref_bound_directly_to_rvalue_p parameter.
+	(implicit_conversion): Adjust call to reference_binding.
+	(add_candidate): Change type of candidates parameter.
+	(add_function_candidate): Likewise.
+	(add_conv_candidate): Likewise.
+	(build_builtin_candidate): Likewise.
+	(add_builtin_candidate): Likewise.
+	(add_builtin_candidates): Likewise.
+	(add_template_candidate_real): Likewise.
+	(add_template_candidate): Likewise.
+	(add_template_conv_candidate): Likewise.
+	(build_user_type_conversion_1): Adjust accordingly.
+	(build_object_call): Likewise.
+	(build_conditional_expr): Likewise.
+	(add_candidates): Likewise.
+	(build_new_op): Likewise.
+	(convert_like_real): Use USER_CONV_CAND.  Use build_nop.
+	(build_new_method_call): Adjust calls to add_function_candidate.
+	(make_temporary_var_for_ref_to_temp): New function.
+	(initialize_reference): Add decl parameter.
+	* class.c (build_rtti_vtbl_entries): Use build_address and
+	build_nop.
+	* cp-tree.h (initialize_reference): Change prototype.
+	(make_temporary_var_for_ref_to_temp): New function.
+	(build_type_conversion): Change prototype.
+	(build_address): New function.
+	(build_nop): Likewise.
+	* cvt.c (cp_convert_to_pointer): Adjust call to
+	build_type_conversion.  Avoid indicating redundant NOP_EXPRs.
+	Use build_nop.
+	(convert_to_pointer_force): Use build_nop.
+	(build_up_reference): Use make_temporary_var_for_ref_to_temp.
+	(convert_to_reference): Adjust call to build_type_conversion.
+	(ocp_convert): Likewise.
+	(build_type_conversion): Remove for_sure parameter.
+	* decl.c (grok_reference_init): Use initialize_reference.
+	* typeck.c (build_address): New function.
+	(build_nop): Likewise.
+	(build_unary_op): Use them.
+	(build_ptrmemfunc): Tidy slightly.
+	(convert_for_initialization): Adjust call to
+	initialize_reference.
+	* typeck2.c (store_init_value): Remove #if 0'd code.
+	
+2003-03-03  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (start_function): Clear DECL_NUM_STMTS.
+
+	* class.c (get_vtable_decl): Use vtbl_type_node.
+	(build_primary_vtable): Check for it.
+
+2003-03-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* decl.c (check_initializer): Check for vector_opaque_p.
+
+2003-03-02  Ashif Harji  <asharji@uwaterloo.ca>
+
+	* lang-specs.h (default_compilers): Add -no-integrated-cpp flag to
+	  invoke an external cpp during compilation.
+
+2003-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (duplicate_decls): Convert use of warning_with_decl() to
+	that of warning().
+	(start_decl): Likewise.
+	(start_function): Likewise.
+
+2003-03-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (CXX_C_OBJS): Update.
+
+2003-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9892
+	* pt.c (instantiate_decl): Clear DECL_RTL for a VAR_DECL when
+	instantiating it.
+
+2003-02-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * parser.c (cp_parser_init_declarator): Revert opaque
+        vector_opaque_p change.
+        Do not include target.h.
+
+2003-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9879
+	* cp-tree.h (build_zero_init): Add parameter.
+	* decl.c (cp_finish_decl): Adjust call.
+	* init.c (build_zero_init): Add nelts parameter.  Adjust recursive
+	calls.
+	(build_default_init): Add nelts parameter.  Adjust calls to
+	build_zero_init.
+	(build_new_1): Adjust call to build_default_init.
+	* typeck2.c (process_init_constructor): Adjust call to build_zero_init.
+	
+2003-02-26  Devang Patel  <dpatel@apple.com>
+
+	* decl.c (finish_enum): Merge two 'for' loops. Copy value node if required.
+	Postpone enum setting for template decls.
+	(build_enumerator): Delay copying value node until finish_enum (). Remove
+	#if 0'ed code.
+	* pt.c (tsubst_enum): Set TREE_TYPE and copy value node.
+	(tsubst_copy): Add check for enum type.
+	
+2003-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9683
+	* decl2.c (prune_vars_needing_no_initialization): Do not throw
+	away initializations for DECL_EXTERNAL VAR_DECLs.
+	(finish_file): Adjust accordingly.
+	* pt.c (instantiate_decl): Do not defer VAR_DECLs.
+
+2003-02-24 Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (add_binding): Time TV_NAME_LOOKUP.
+	(push_class_binding): Likewise.
+	(set_namespace_binding): Likewise.
+
+2003-02-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9836
+	* cp-tree.h (CLASSTYPE_PRIMARY_TEMPLATE): Do not skip from
+	specializations back to the main template.
+	* parser.c (cp_parser_diagnose_invalid_type_name):Adjust use.
+	* pt.c (resolve_typename_type): Likewise.
+
+2003-02-24  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/9778
+	* pt.c (tsubst_copy_and_build): For a templated function inside a
+	scope, process template arguments.
+
+2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9602
+	* typeck2.c (abstract_virtuals_error): Don't check when
+	TYPE is still template parameter dependent.
+
+2003-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5333
+	* cp-tree.h (CLASSTYPE_PRIMARY_TEMPLATE): New macro.
+	* parser.c (cp_parser_diagnose_invalid_type_name): Use it.
+	* pt.c (instantiate_class_template): Don't try to instantiate
+	dependent types.
+	(resolve_typename_type): Use CLASSTYPE_PRIMARY_TEMPLATE.
+	
 2003-02-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9749
@@ -176,6 +360,10 @@
 
 	PR c++/9623
 	* decl.c (reshape_init): Don't mess with initializer labels.
+
+	PR c++/9485
+	* parser.c (cp_parser_postfix_expression): Set idk properly for
+	object->scope::member.
 
 2003-02-18  Ben Elliston  <bje@redhat.com>
 

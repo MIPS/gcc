@@ -198,7 +198,25 @@ int allow_pch = 1;
 /* Switches common to the C front ends.  */
 
 /* Nonzero if prepreprocessing only.  */
+
 int flag_preprocess_only;
+
+/* Nonzero means don't output line number information.  */
+
+char flag_no_line_commands;
+
+/* Nonzero causes -E output not to be done, but directives such as
+   #define that have side effects are still obeyed.  */
+
+char flag_no_output;
+
+/* Nonzero means dump macros in some fashion.  */
+
+char flag_dump_macros;
+
+/* Nonzero means pass #include lines through to the output.  */
+
+char flag_dump_includes;
 
 /* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
@@ -3203,6 +3221,7 @@ c_common_nodes_and_builtins ()
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
+#define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -3214,6 +3233,7 @@ c_common_nodes_and_builtins ()
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
+#undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_POINTER_TYPE
     BT_LAST
   };
@@ -3533,6 +3553,19 @@ c_common_nodes_and_builtins ()
 		  tree_cons (NULL_TREE,				\
 			     builtin_types[(int) ARG2],		\
 			     NULL_TREE)));
+
+#define DEF_FUNCTION_TYPE_VAR_3(ENUM, RETURN, ARG1, ARG2, ARG3)		\
+   builtin_types[(int) ENUM]						\
+    = build_function_type 						\
+      (builtin_types[(int) RETURN],					\
+       tree_cons (NULL_TREE,						\
+		  builtin_types[(int) ARG1],				\
+		  tree_cons (NULL_TREE,					\
+			     builtin_types[(int) ARG2],			\
+			     tree_cons (NULL_TREE,			\
+					builtin_types[(int) ARG3],	\
+					NULL_TREE))));
+
 #define DEF_POINTER_TYPE(ENUM, TYPE)			\
   builtin_types[(int) ENUM]				\
     = build_pointer_type (builtin_types[(int) TYPE]);
@@ -3544,6 +3577,8 @@ c_common_nodes_and_builtins ()
 #undef DEF_FUNCTION_TYPE_4
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
+#undef DEF_FUNCTION_TYPE_VAR_2
+#undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_POINTER_TYPE
 
   if (!c_attrs_initialized)

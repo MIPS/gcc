@@ -280,6 +280,11 @@ static int sh_address_cost PARAMS ((rtx));
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST sh_address_cost
 
+#ifdef HAVE_AS_TLS
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS true
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Print the operand address in x to the stream.  */
@@ -708,7 +713,10 @@ prepare_move_operands (operands, mode)
      rtx operands[];
      enum machine_mode mode;
 {
-  if ((mode == SImode || mode == DImode) && flag_pic)
+  if ((mode == SImode || mode == DImode)
+      && flag_pic
+      && ! ((mode == Pmode || mode == ptr_mode)
+	    && tls_symbolic_operand (operands[1], Pmode) != 0))
     {
       rtx temp;
       if (SYMBOLIC_CONST_P (operands[1]))
@@ -756,6 +764,73 @@ prepare_move_operands (operands, mode)
 	       && GET_CODE (XEXP (operands[0], 0)) == PLUS
 	       && GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == REG)
 	operands[1] = copy_to_mode_reg (mode, operands[1]);
+    }
+
+  if (mode == Pmode || mode == ptr_mode)
+    {
+      rtx op0, op1;
+      enum tls_model tls_kind;
+
+      op0 = operands[0];
+      op1 = operands[1];
+      if ((tls_kind = tls_symbolic_operand (op1, Pmode)))
+	{
+	  rtx tga_op1, tga_ret, tmp, tmp2;
+
+	  
+	  switch (tls_kind)
+	    {
+	    case TLS_MODEL_GLOBAL_DYNAMIC:
+	      tga_ret = gen_rtx_REG (Pmode, R0_REG);
+	      emit_insn (gen_tls_global_dynamic (tga_ret, op1));
+	      op1 = tga_ret;
+	      break;
+
+	    case TLS_MODEL_LOCAL_DYNAMIC:
+	      tga_ret = gen_rtx_REG (Pmode, R0_REG);
+	      emit_insn (gen_tls_local_dynamic (tga_ret, op1));
+
+	      tmp = gen_reg_rtx (Pmode);
+	      emit_move_insn (tmp, tga_ret);
+
+	      if (register_operand (op0, Pmode))
+		tmp2 = op0;
+	      else
+		tmp2 = gen_reg_rtx (Pmode);
+
+	      emit_insn (gen_symDTPOFF2reg (tmp2, op1, tmp));
+	      op1 = tmp2;
+	      break;
+
+	    case TLS_MODEL_INITIAL_EXEC:
+	      if (! flag_pic)
+		emit_insn (gen_GOTaddr2picreg ());
+	      tga_op1 = gen_reg_rtx (Pmode);
+	      tmp = gen_sym2GOTTPOFF (op1);
+	      emit_insn (gen_tls_initial_exec (tga_op1, tmp));
+	      op1 = tga_op1;
+	      break;
+
+	    case TLS_MODEL_LOCAL_EXEC:
+	      tmp2 = gen_reg_rtx (Pmode);
+	      emit_insn (gen_load_gbr (tmp2));
+	      tmp = gen_reg_rtx (Pmode);
+	      emit_insn (gen_symTPOFF2reg (tmp, op1));
+	      RTX_UNCHANGING_P (tmp) = 1;
+
+	      if (register_operand (op0, Pmode))
+		op1 = op0;
+	      else
+		op1 = gen_reg_rtx (Pmode);
+
+	      emit_insn (gen_addsi3 (op1, tmp, tmp2));
+	      break;
+
+	    default:
+	      abort ();
+	    }
+	  operands[1] = op1;
+	}
     }
 
   return 0;
@@ -973,6 +1048,7 @@ output_far_jump (insn, op)
   const char *jump;
   int far;
   int offset = branch_dest (insn) - INSN_ADDRESSES (INSN_UID (insn));
+  rtx prev;
 
   this.lab = gen_label_rtx ();
 
@@ -997,10 +1073,10 @@ output_far_jump (insn, op)
 	jump = "mov.l	%O0,%1; jmp	@%1";
     }
   /* If we have a scratch register available, use it.  */
-  if (GET_CODE (PREV_INSN (insn)) == INSN
-      && INSN_CODE (PREV_INSN (insn)) == CODE_FOR_indirect_jump_scratch)
+  if (GET_CODE ((prev = prev_nonnote_insn (insn))) == INSN
+      && INSN_CODE (prev) == CODE_FOR_indirect_jump_scratch)
     {
-      this.reg = SET_DEST (PATTERN (PREV_INSN (insn)));
+      this.reg = SET_DEST (XVECEXP (PATTERN (prev), 0, 0));
       if (REGNO (this.reg) == R0_REG && flag_pic && ! TARGET_SH2)
 	jump = "mov.l	r1,@-r15; mova	%O0,r0; mov.l	@r0,r1; add	r1,r0; mov.l	@r15+,r1; jmp	@%1";
       output_asm_insn (jump, &this.lab);
@@ -2941,7 +3017,7 @@ find_barrier (num_mova, mova, from)
 	{
 	  if (num_mova)
 	    num_mova--;
-	  if (barrier_align (next_real_insn (from)) == CACHE_LOG)
+	  if (barrier_align (next_real_insn (from)) == align_jumps_log)
 	    {
 	      /* We have just passed the barrier in front of the
 		 ADDR_DIFF_VEC, which is stored in found_barrier.  Since
@@ -3379,6 +3455,13 @@ gen_block_redirect (jump, addr, need_block)
       rtx insn = emit_insn_before (gen_indirect_jump_scratch
 				   (reg, GEN_INT (INSN_UID (JUMP_LABEL (jump))))
 				   , jump);
+      /* ??? We would like this to have the scope of the jump, but that
+	 scope will change when a delay slot insn of an inner scope is added.
+	 Hence, after delay slot scheduling, we'll have to expect
+	 NOTE_INSN_BLOCK_END notes between the indirect_jump_scratch and
+	 the jump.  */
+	 
+      INSN_SCOPE (insn) = INSN_SCOPE (jump);
       INSN_CODE (insn) = CODE_FOR_indirect_jump_scratch;
       return insn;
     }
@@ -3521,14 +3604,14 @@ barrier_align (barrier_or_label)
       return ((TARGET_SMALLCODE
 	       || ((unsigned) XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
 		   <= (unsigned)1 << (CACHE_LOG - 2)))
-	      ? 1 << TARGET_SHMEDIA : CACHE_LOG);
+	      ? 1 << TARGET_SHMEDIA : align_jumps_log);
     }
 
   if (TARGET_SMALLCODE)
     return 0;
 
   if (! TARGET_SH2 || ! optimize)
-    return CACHE_LOG;
+    return align_jumps_log;
 
   /* When fixing up pcloads, a constant table might be inserted just before
      the basic block that ends with the barrier.  Thus, we can't trust the
@@ -3604,7 +3687,7 @@ barrier_align (barrier_or_label)
 	}
     }
   
-  return CACHE_LOG;
+  return align_jumps_log;
 }
 
 /* If we are inside a phony loop, almost any kind of label can turn up as the
@@ -3629,10 +3712,7 @@ sh_loop_align (label)
       || recog_memoized (next) == CODE_FOR_consttable_2)
     return 0;
 
-  if (TARGET_SH5)
-    return 3;
-
-  return 2;
+  return align_loops_log;
 }
 
 /* Exported to toplev.c.
@@ -4342,9 +4422,6 @@ split_branches (first)
 
    If relaxing, output the label and pseudo-ops used to link together
    calls and the instruction which set the registers.  */
-
-/* ??? This is unnecessary, and probably should be deleted.  This makes
-   the insn_addresses declaration above unnecessary.  */
 
 /* ??? The addresses printed by this routine for insns are nonsense for
    insns which are inside of a sequence where none of the inner insns have
@@ -6429,6 +6506,36 @@ symbol_ref_operand (op, mode)
   return (GET_CODE (op) == SYMBOL_REF);
 }
 
+/* Return the TLS type for TLS symbols, 0 for otherwise.  */
+int
+tls_symbolic_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  const char *str;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+
+  str = XSTR (op, 0);
+  STRIP_DATALABEL_ENCODING(str, str);  
+  if (! TLS_SYMNAME_P (str))
+    return 0;
+
+  switch (str[1])
+    {
+    case 'G':
+      return TLS_MODEL_GLOBAL_DYNAMIC;
+    case 'L':
+      return TLS_MODEL_LOCAL_DYNAMIC;
+    case 'i':
+      return TLS_MODEL_INITIAL_EXEC;
+    case 'l':
+      return TLS_MODEL_LOCAL_EXEC;
+    }
+  return 0;
+}
+
 int
 commutative_float_operator (op, mode)
      rtx op;
@@ -7174,6 +7281,8 @@ nonpic_symbol_mentioned_p (x)
 	  || XINT (x, 1) == UNSPEC_GOT
 	  || XINT (x, 1) == UNSPEC_GOTOFF
 	  || XINT (x, 1) == UNSPEC_GOTPLT
+	  || XINT (x, 1) == UNSPEC_GOTTPOFF
+	  || XINT (x, 1) == UNSPEC_DTPOFF
 	  || XINT (x, 1) == UNSPEC_PLT))
       return 0;
 
@@ -7203,6 +7312,9 @@ legitimize_pic_address (orig, mode, reg)
      enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx reg;
 {
+  if (tls_symbolic_operand (orig, Pmode))
+    return orig;
+
   if (GET_CODE (orig) == LABEL_REF
       || (GET_CODE (orig) == SYMBOL_REF
 	  && (CONSTANT_POOL_ADDRESS_P (orig)
@@ -7555,6 +7667,60 @@ sh_encode_section_info (decl, first)
   if (flag_pic)
     SYMBOL_REF_FLAG (symbol) = (*targetm.binds_local_p) (decl);
 
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      const char *symbol_str, *orig_str;
+      bool is_local;
+      enum tls_model kind;
+      char encoding;
+      char *newstr;
+      size_t len, dlen;
+
+      orig_str = XSTR (symbol, 0);
+      is_local = (*targetm.binds_local_p) (decl);
+
+      if (! flag_pic)
+	{
+	  if (is_local)
+	    kind = TLS_MODEL_LOCAL_EXEC;
+	  else
+	    kind = TLS_MODEL_INITIAL_EXEC;
+	}
+      else if (is_local)
+	kind = TLS_MODEL_LOCAL_DYNAMIC;
+      else
+	kind = TLS_MODEL_GLOBAL_DYNAMIC;
+      if (kind < flag_tls_default)
+	kind = flag_tls_default;
+
+      STRIP_DATALABEL_ENCODING (symbol_str, orig_str);
+      dlen = symbol_str - orig_str;
+
+      encoding = " GLil"[kind];
+      if (TLS_SYMNAME_P (symbol_str))
+	{
+	  if (encoding == symbol_str[1])
+	    return;
+	  /* Handle the changes from initial-exec to local-exec and
+	     from global-dynamic to local-dynamic.  */
+	  if ((encoding == 'l' && symbol_str[1] == 'i')
+	      || (encoding == 'L' && symbol_str[1] == 'G'))
+	    symbol_str += 2;
+	  else
+	    abort ();
+	}
+
+      len = strlen (symbol_str);
+      newstr = alloca (dlen + len + 3);
+      if (dlen)
+	memcpy (newstr, orig_str, dlen);
+      newstr[dlen + 0] = SH_TLS_ENCODING[0];
+      newstr[dlen + 1] = encoding;
+      memcpy (newstr + dlen + 2, symbol_str, len + 1);
+
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, dlen + len + 2);
+    }
+
   if (TARGET_SH5 && first && TREE_CODE (decl) != FUNCTION_DECL)
     XEXP (rtl, 0) = gen_datalabel_ref (symbol);
 }
@@ -7566,6 +7732,7 @@ sh_strip_name_encoding (str)
      const char *str;
 {
   STRIP_DATALABEL_ENCODING (str, str);
+  STRIP_TLS_ENCODING (str, str);
   str += *str == '*';
   return str;
 }

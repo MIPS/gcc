@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -130,26 +130,6 @@ extern unsigned char *_cpp_unaligned_alloc PARAMS ((cpp_reader *, size_t));
 #define BUFF_FRONT(BUFF) ((BUFF)->cur)
 #define BUFF_LIMIT(BUFF) ((BUFF)->limit)
 
-/* List of directories to look for include files in.  */
-struct search_path
-{
-  struct search_path *next;
-
-  /* NOTE: NAME may not be null terminated for the case of the current
-     file's directory!  */
-  const char *name;
-  unsigned int len;
-  /* We use these to tell if the directory mentioned here is a duplicate
-     of an earlier directory on the search path.  */
-  ino_t ino;
-  dev_t dev;
-  /* Nonzero if it is a system include directory.  */
-  int sysp;
-  /* Mapping of file names for this directory.  Only used on MS-DOS
-     and related platforms.  */
-  struct file_name_map *name_map;
-};
-
 /* #include types.  */
 enum include_type {IT_INCLUDE, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
@@ -260,18 +240,6 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
-/* Encapsulates state used to convert a stream of tokens into a text
-   file.  */
-struct printer
-{
-  FILE *outf;			/* Stream to write to.  */
-  const struct line_map *map;	/* Logical to physical line mappings.  */
-  const cpp_token *prev;	/* Previous token.  */
-  const cpp_token *source;	/* Source token for spacing.  */
-  unsigned int line;		/* Line currently being written.  */
-  unsigned char printed;	/* Nonzero if something output at line.  */
-};
-
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
@@ -324,7 +292,7 @@ struct cpp_buffer
 
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
-  struct search_path dir;
+  struct cpp_path dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
   const uchar *saved_cur, *saved_rlimit;
@@ -368,6 +336,10 @@ struct cpp_reader
      points to NULL, the last one is in progress, and
      _cpp_maybe_push_include_file has yet to restore the line map.  */
   struct pending_option **next_include_file;
+
+  /* Search paths for include files.  */
+  struct cpp_path *quote_include;	/* "" */
+  struct cpp_path *bracket_include;	/* <> */
 
   /* Multiple include optimisation.  */
   const cpp_hashnode *mi_cmacro;
@@ -438,8 +410,9 @@ struct cpp_reader
      preprocessor.  */
   struct spec_nodes spec_nodes;
 
-  /* Used when doing preprocessed output.  */
-  struct printer print;
+  /* Nonzero means don't look for #include "foo" the source-file
+     directory.  */
+  unsigned char quote_ignores_source_dir;
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
@@ -521,7 +494,6 @@ extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
 /* In cppfiles.c */
 extern void _cpp_fake_include		PARAMS ((cpp_reader *, const char *));
 extern void _cpp_never_reread		PARAMS ((struct include_file *));
-extern char *_cpp_simplify_pathname	PARAMS ((char *));
 extern bool _cpp_read_file		PARAMS ((cpp_reader *, const char *));
 extern bool _cpp_execute_include	PARAMS ((cpp_reader *,
 						 const cpp_token *,

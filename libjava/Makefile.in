@@ -65,6 +65,7 @@ target_alias = @target_alias@
 target_triplet = @target@
 AR = @AR@
 AS = @AS@
+BACKTRACESPEC = @BACKTRACESPEC@
 CC = @CC@
 CHECKREFSPEC = @CHECKREFSPEC@
 COMPPATH = @COMPPATH@
@@ -91,6 +92,7 @@ GTK_CFLAGS = @GTK_CFLAGS@
 GTK_CONFIG = @GTK_CONFIG@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
+IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
@@ -195,7 +197,7 @@ AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions \
 @USING_GCC_FALSE@AM_CFLAGS = @USING_GCC_FALSE@@LIBGCJ_CFLAGS@
 
 JCFLAGS = -g
-JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
+JC1FLAGS = @LIBGCJ_JAVAFLAGS@ -Wno-deprecated $(GCJFLAGS)
 
 LIBFFIINCS = @LIBFFIINCS@
 
@@ -801,7 +803,9 @@ java/awt/Stroke.java \
 java/awt/TexturePaint.java \
 java/awt/dnd/peer/DragSourceContextPeer.java \
 java/awt/dnd/peer/DropTargetContextPeer.java \
+java/awt/dnd/peer/DropTargetPeer.java \
 java/awt/dnd/DnDConstants.java \
+java/awt/dnd/DnDEventMulticaster.java \
 java/awt/dnd/DragGestureEvent.java \
 java/awt/dnd/DragGestureListener.java \
 java/awt/dnd/DragGestureRecognizer.java	\
@@ -1830,6 +1834,7 @@ gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FloatBufferImpl.java \
 gnu/java/nio/IntBufferImpl.java \
 gnu/java/nio/LongBufferImpl.java \
+gnu/java/nio/MappedByteFileBuffer.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
 gnu/java/nio/SelectorImpl.java \
@@ -2249,13 +2254,13 @@ gnu/java/nio/natFileChannelImpl.cc \
 gnu/java/nio/natFloatBufferImpl.cc \
 gnu/java/nio/natIntBufferImpl.cc \
 gnu/java/nio/natLongBufferImpl.cc \
+gnu/java/nio/natMappedByteFileBuffer.cc \
 gnu/java/nio/natSelectorImpl.cc \
 gnu/java/nio/natShortBufferImpl.cc \
 gnu/java/nio/natSocketChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
-java/io/natObjectOutputStream.cc \
 java/io/natVMObjectStreamClass.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
@@ -2425,14 +2430,12 @@ gnu/gcj/runtime/natNameFinder.lo gnu/gcj/runtime/natSharedLibLoader.lo \
 gnu/gcj/runtime/natStackTrace.lo gnu/gcj/runtime/natStringBuffer.lo \
 gnu/gcj/runtime/natVMClassLoader.lo gnu/java/nio/natByteBufferImpl.lo \
 gnu/java/nio/natCharBufferImpl.lo gnu/java/nio/natDoubleBufferImpl.lo \
-gnu/java/nio/natFileChannelImpl.lo \
-gnu/java/nio/natFloatBufferImpl.lo gnu/java/nio/natIntBufferImpl.lo \
-gnu/java/nio/natLongBufferImpl.lo \
-gnu/java/nio/natSelectorImpl.lo \
+gnu/java/nio/natFileChannelImpl.lo gnu/java/nio/natFloatBufferImpl.lo \
+gnu/java/nio/natIntBufferImpl.lo gnu/java/nio/natLongBufferImpl.lo \
+gnu/java/nio/natMappedByteFileBuffer.lo gnu/java/nio/natSelectorImpl.lo \
 gnu/java/nio/natShortBufferImpl.lo gnu/java/nio/natSocketChannelImpl.lo \
 java/io/natFile.lo java/io/natFileDescriptor.lo \
-java/io/natObjectInputStream.lo \
-java/io/natObjectOutputStream.lo java/io/natVMObjectStreamClass.lo \
+java/io/natObjectInputStream.lo java/io/natVMObjectStreamClass.lo \
 java/lang/natCharacter.lo java/lang/natClass.lo \
 java/lang/natClassLoader.lo java/lang/natConcreteProcess.lo \
 java/lang/natDouble.lo java/lang/natFloat.lo java/lang/natMath.lo \
@@ -2895,7 +2898,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/DoubleBufferImpl.P \
 .deps/gnu/java/nio/FileChannelImpl.P \
 .deps/gnu/java/nio/FloatBufferImpl.P .deps/gnu/java/nio/IntBufferImpl.P \
-.deps/gnu/java/nio/LongBufferImpl.P .deps/gnu/java/nio/PipeImpl.P \
+.deps/gnu/java/nio/LongBufferImpl.P \
+.deps/gnu/java/nio/MappedByteFileBuffer.P .deps/gnu/java/nio/PipeImpl.P \
 .deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
@@ -2917,6 +2921,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/natFloatBufferImpl.P \
 .deps/gnu/java/nio/natIntBufferImpl.P \
 .deps/gnu/java/nio/natLongBufferImpl.P \
+.deps/gnu/java/nio/natMappedByteFileBuffer.P \
 .deps/gnu/java/nio/natSelectorImpl.P \
 .deps/gnu/java/nio/natShortBufferImpl.P \
 .deps/gnu/java/nio/natSocketChannelImpl.P \
@@ -3042,6 +3047,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/datatransfer/Transferable.P \
 .deps/java/awt/datatransfer/UnsupportedFlavorException.P \
 .deps/java/awt/dnd/Autoscroll.P .deps/java/awt/dnd/DnDConstants.P \
+.deps/java/awt/dnd/DnDEventMulticaster.P \
 .deps/java/awt/dnd/DragGestureEvent.P \
 .deps/java/awt/dnd/DragGestureListener.P \
 .deps/java/awt/dnd/DragGestureRecognizer.P \
@@ -3062,6 +3068,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/dnd/MouseDragGestureRecognizer.P \
 .deps/java/awt/dnd/peer/DragSourceContextPeer.P \
 .deps/java/awt/dnd/peer/DropTargetContextPeer.P \
+.deps/java/awt/dnd/peer/DropTargetPeer.P \
 .deps/java/awt/event/AWTEventListener.P \
 .deps/java/awt/event/AWTEventListenerProxy.P \
 .deps/java/awt/event/ActionEvent.P \
@@ -3270,7 +3277,6 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/io/WriteAbortedException.P .deps/java/io/Writer.P \
 .deps/java/io/natFile.P .deps/java/io/natFileDescriptor.P \
 .deps/java/io/natObjectInputStream.P \
-.deps/java/io/natObjectOutputStream.P \
 .deps/java/io/natVMObjectStreamClass.P \
 .deps/java/lang/AbstractMethodError.P \
 .deps/java/lang/ArithmeticException.P \

@@ -143,6 +143,11 @@ abstract_virtuals_error (decl, type)
        CLASSTYPE_PURE_VIRTUALS holds the inline friends.  */
     return 0;
 
+  if (dependent_type_p (type))
+    /* For a dependent type, we do not yet know which functions are pure
+       virtuals.  */
+    return 0;
+
   u = CLASSTYPE_PURE_VIRTUALS (type);
   if (decl)
     {
@@ -383,32 +388,8 @@ store_init_value (decl, init)
     return value;
   else if (TREE_STATIC (decl)
 	   && (! TREE_CONSTANT (value)
-	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))
-#if 0
-	       /* A STATIC PUBLIC int variable doesn't have to be
-		  run time inited when doing pic.  (mrs) */
-	       /* Since ctors and dtors are the only things that can
-		  reference vtables, and they are always written down
-		  the vtable definition, we can leave the
-		  vtables in initialized data space.
-		  However, other initialized data cannot be initialized
-		  this way.  Instead a global file-level initializer
-		  must do the job.  */
-	       || (flag_pic && !DECL_VIRTUAL_P (decl) && TREE_PUBLIC (decl))
-#endif
-	       ))
-
+	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
     return value;
-#if 0 /* No, that's C.  jason 9/19/94 */
-  else
-    {
-      if (pedantic && TREE_CODE (value) == CONSTRUCTOR)
-	{
-	  if (! TREE_CONSTANT (value) || ! TREE_STATIC (value))
-	    pedwarn ("ISO C++ forbids non-constant aggregate initializer expressions");
-	}
-    }
-#endif
   
   /* Store the VALUE in DECL_INITIAL.  If we're building a
      statement-tree we will actually expand the initialization later
@@ -728,6 +709,7 @@ process_init_constructor (type, init, elts)
 	    }
 	  else if (! zero_init_p (TREE_TYPE (type)))
 	    next1 = build_zero_init (TREE_TYPE (type),
+				     /*nelts=*/NULL_TREE,
 				     /*static_storage_p=*/false);
 	  else
 	    /* The default zero-initialization is fine for us; don't
@@ -846,6 +828,7 @@ process_init_constructor (type, init, elts)
 
 	      if (! zero_init_p (TREE_TYPE (field)))
 		next1 = build_zero_init (TREE_TYPE (field),
+					 /*nelts=*/NULL_TREE,
 					 /*static_storage_p=*/false);
 	      else
 		/* The default zero-initialization is fine for us; don't

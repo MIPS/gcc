@@ -1953,11 +1953,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser)
 		  /* Go from a particular instantiation of the
 		     template (which will have an empty TYPE_FIELDs),
 		     to the main version.  */
-		  if (CLASSTYPE_USE_TEMPLATE (base_type))
-		    base_type = (TREE_TYPE
-				 (DECL_TEMPLATE_RESULT 
-				  (DECL_PRIMARY_TEMPLATE
-				   (CLASSTYPE_TI_TEMPLATE (base_type)))));
+		  base_type = CLASSTYPE_PRIMARY_TEMPLATE_TYPE (base_type);
 		  for (field = TYPE_FIELDS (base_type);
 		       field;
 		       field = TREE_CHAIN (field))
@@ -4526,6 +4522,7 @@ cp_parser_unary_operator (cp_token* token)
 
 /* Parse a new-expression.
 
+   new-expression:
      :: [opt] new new-placement [opt] new-type-id new-initializer [opt]
      :: [opt] new new-placement [opt] ( type-id ) new-initializer [opt]
 
@@ -9506,7 +9503,7 @@ cp_parser_asm_definition (cp_parser* parser)
      declarator asm-specification [opt] attributes [opt] initializer [opt]
 
    The DECL_SPECIFIERS and PREFIX_ATTRIBUTES apply to this declarator.
-   Returns a reprsentation of the entity declared.  If MEMBER_P is TRUE,
+   Returns a representation of the entity declared.  If MEMBER_P is TRUE,
    then this declarator appears in a class scope.  The new DECL created
    by this declarator is returned.
 
@@ -9705,8 +9702,7 @@ cp_parser_init_declarator (cp_parser* parser,
 
   /* Parse the initializer.  */
   if (is_initialized)
-    initializer = cp_parser_initializer (parser, 
-					 &is_parenthesized_init);
+    initializer = cp_parser_initializer (parser, &is_parenthesized_init);
   else
     {
       initializer = NULL_TREE;

@@ -341,6 +341,9 @@ ada.all.cross:
 
 ada.start.encap: 
 ada.rest.encap:
+
+ada.tags: force
+	cd $(srcdir)/ada; etags *.c *.h *.ads *.adb
 
 # Generate documentation.
 #
@@ -695,7 +698,7 @@ ada.install-common:
 	fi
 
 install-gnatlib:
-	$(MAKE) -f ada/Makefile $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) install-gnatlib
+	cd ada && $(MAKE) $(FLAGS_TO_PASS) $(ADA_FLAGS_TO_PASS) install-gnatlib
 
 ada.install-info:
 ada.install-man:

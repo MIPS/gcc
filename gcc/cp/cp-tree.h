@@ -222,6 +222,10 @@ struct diagnostic_context;
   (flag_abi_version == 0 || flag_abi_version >= (N))
 
 
+/* Datatype used to temporarily save C++ bindings (for implicit
+   instantiations purposes and like).  Implemented in decl.c.  */
+typedef struct cxx_saved_binding cxx_saved_binding;
+
 /* Language-dependent contents of an identifier.  */
 
 struct lang_identifier GTY(())
@@ -755,7 +759,7 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 struct saved_scope GTY(())
 {
-  tree old_bindings;
+  cxx_saved_binding *old_bindings;
   tree old_namespace;
   tree decl_ns_list;
   tree class_name;
@@ -2316,6 +2320,14 @@ struct lang_decl GTY(())
 #define ENUM_TI_ARGS(NODE)			\
   TI_ARGS (ENUM_TEMPLATE_INFO (NODE))
 
+/* For a template instantiation TYPE, returns the TYPE corresponding
+   to the primary template.  Otherwise returns TYPE itself.  */
+#define CLASSTYPE_PRIMARY_TEMPLATE_TYPE(TYPE)						\
+  ((CLASSTYPE_USE_TEMPLATE ((TYPE)) && !CLASSTYPE_TEMPLATE_SPECIALIZATION ((TYPE)))	\
+   ? TREE_TYPE (DECL_TEMPLATE_RESULT (DECL_PRIMARY_TEMPLATE				\
+				      (CLASSTYPE_TI_TEMPLATE ((TYPE)))))		\
+   : (TYPE))
+
 /* Like DECL_TI_TEMPLATE, but for an ENUMERAL_, RECORD_, or UNION_TYPE.  */
 #define TYPE_TI_TEMPLATE(NODE)			\
   (TI_TEMPLATE (TYPE_TEMPLATE_INFO (NODE)))
@@ -3568,7 +3580,8 @@ extern tree type_passed_as (tree);
 extern tree convert_for_arg_passing (tree, tree);
 extern tree cp_convert_parm_for_inlining        (tree, tree, tree);
 extern bool is_properly_derived_from (tree, tree);
-extern tree initialize_reference (tree, tree);
+extern tree initialize_reference (tree, tree, tree);
+extern tree make_temporary_var_for_ref_to_temp (tree);
 extern tree strip_top_quals (tree);
 extern tree perform_implicit_conversion (tree, tree);
 extern tree in_charge_arg_for_name (tree);
@@ -3630,7 +3643,7 @@ extern tree ocp_convert (tree, tree, int, int);
 extern tree cp_convert (tree, tree);
 extern tree convert_to_void (tree, const char */*implicit context*/);
 extern tree convert_force (tree, tree, int);
-extern tree build_type_conversion (tree, tree, int);
+extern tree build_type_conversion (tree, tree);
 extern tree build_expr_type_conversion (int, tree, bool);
 extern tree type_promotes_to (tree);
 extern tree perform_qualification_conversions (tree, tree);
@@ -3904,7 +3917,7 @@ extern tree build_init				(tree, tree, int);
 extern int is_aggr_type				(tree, int);
 extern tree get_aggr_from_typedef		(tree, int);
 extern tree get_type_value			(tree);
-extern tree build_zero_init       		(tree, bool);
+extern tree build_zero_init       		(tree, tree, bool);
 extern tree build_member_call			(tree, tree, tree);
 extern tree build_offset_ref			(tree, tree);
 extern tree resolve_offset_ref			(tree);
@@ -4347,6 +4360,8 @@ extern tree check_return_expr                   (tree);
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
 #define cxx_alignof(T) cxx_sizeof_or_alignof_type (T, ALIGNOF_EXPR, true)
 extern tree build_ptrmemfunc_access_expr       (tree, tree);
+extern tree build_address                       (tree);
+extern tree build_nop                           (tree, tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);

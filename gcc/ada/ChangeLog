@@ -1,3 +1,43 @@
+2003-03-05  Olivier Hainque  <hainque@gnat.com>
+
+	ada/9961
+        * raise.c (__gnat_Unwind_RaiseException): Add prototype to avoid
+        warning, and fix return type for the IN_RTS && !SJLJ case.
+
+2003-03-04  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (ada.tags): New target.
+
+2003-03-04  Olivier Hainque  <hainque@act-europe.fr>
+
+	ada/9911
+	* a-except.adb (Unwind_RaiseException): Import a GNAT specific
+	wrapper, which name remains constant whatever underlying GCC
+	scheme.
+
+	* raise.c (__gnat_Unwind_RaiseException): New wrappers, providing
+	the stable interface needed for a-except.
+
+2003-03-02  Andreas Jaeger  <aj@suse.de>
+
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2003-03-02  Laurent Guerby <guerby@acm.org>
+
+	* Makefile.in (install-gnatlib): Match previous change there
+	so it works.
+
+2003-02-28  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (install-gnatlib): Change to ada directory before
+	running make instead of using ada/Makefile directly.
+
+2003-02-18  Ben Elliston  <bje@redhat.com>
+
+	Part of fix for PR ada/9406
+	* gnat_ug.texi (Binder output file): Grammar fix.
+
 2003-02-18  Ben Elliston  <bje@redhat.com>
 
 	PR other/7350
@@ -30,8 +70,8 @@
 
         PR ada/8344
         * final.c: rename to adafinal.c to avoid file name conflicts with gcc file.
-        * Makefile.in: match previous change. 
-        * Make-lang.in: match previous change. 
+        * Makefile.in: match previous change.
+        * Make-lang.in: match previous change.
 
 2003-01-29	Joel Sherrill <joel@OARcorp.com>
 
@@ -449,9 +489,9 @@
 	(REAL_VALUE_RNDZINT, REAL_VALUE_UNSIGNED_RNDZINT): Remove.
 
 2002-08-25  Andre Leis <a.leis@gmx.net>
- 	    David Billinghurst (David.Billinghurst@riotinto.com>
+	    David Billinghurst (David.Billinghurst@riotinto.com>
 
- 	* sysdep.c (__gnat_ttyname): include <termios.h> on cygwin
+	* sysdep.c (__gnat_ttyname): include <termios.h> on cygwin
 
 2002-08-13  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 

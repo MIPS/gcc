@@ -201,17 +201,17 @@ extern int target_flags;
 #endif
 #endif
 
-#define TARGET_386 (ix86_cpu == PROCESSOR_I386)
-#define TARGET_486 (ix86_cpu == PROCESSOR_I486)
-#define TARGET_PENTIUM (ix86_cpu == PROCESSOR_PENTIUM)
-#define TARGET_PENTIUMPRO (ix86_cpu == PROCESSOR_PENTIUMPRO)
-#define TARGET_K6 (ix86_cpu == PROCESSOR_K6)
-#define TARGET_ATHLON (ix86_cpu == PROCESSOR_ATHLON)
-#define TARGET_PENTIUM4 (ix86_cpu == PROCESSOR_PENTIUM4)
-#define TARGET_K8 (ix86_cpu == PROCESSOR_K8)
+#define TARGET_386 (ix86_tune == PROCESSOR_I386)
+#define TARGET_486 (ix86_tune == PROCESSOR_I486)
+#define TARGET_PENTIUM (ix86_tune == PROCESSOR_PENTIUM)
+#define TARGET_PENTIUMPRO (ix86_tune == PROCESSOR_PENTIUMPRO)
+#define TARGET_K6 (ix86_tune == PROCESSOR_K6)
+#define TARGET_ATHLON (ix86_tune == PROCESSOR_ATHLON)
+#define TARGET_PENTIUM4 (ix86_tune == PROCESSOR_PENTIUM4)
+#define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 
-#define CPUMASK (1 << ix86_cpu)
+#define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
 extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
@@ -233,57 +233,57 @@ extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
 extern const int x86_inter_unit_moves;
 extern int x86_prefetch_sse;
 
-#define TARGET_USE_LEAVE (x86_use_leave & CPUMASK)
-#define TARGET_PUSH_MEMORY (x86_push_memory & CPUMASK)
-#define TARGET_ZERO_EXTEND_WITH_AND (x86_zero_extend_with_and & CPUMASK)
-#define TARGET_USE_BIT_TEST (x86_use_bit_test & CPUMASK)
-#define TARGET_UNROLL_STRLEN (x86_unroll_strlen & CPUMASK)
+#define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
+#define TARGET_PUSH_MEMORY (x86_push_memory & TUNEMASK)
+#define TARGET_ZERO_EXTEND_WITH_AND (x86_zero_extend_with_and & TUNEMASK)
+#define TARGET_USE_BIT_TEST (x86_use_bit_test & TUNEMASK)
+#define TARGET_UNROLL_STRLEN (x86_unroll_strlen & TUNEMASK)
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
-#define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & CPUMASK)
-#define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & CPUMASK)
-#define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & CPUMASK)
-#define TARGET_USE_SAHF ((x86_use_sahf & CPUMASK) && !TARGET_64BIT)
-#define TARGET_MOVX (x86_movx & CPUMASK)
-#define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & CPUMASK)
-#define TARGET_USE_LOOP (x86_use_loop & CPUMASK)
-#define TARGET_USE_FIOP (x86_use_fiop & CPUMASK)
-#define TARGET_USE_MOV0 (x86_use_mov0 & CPUMASK)
-#define TARGET_USE_CLTD (x86_use_cltd & CPUMASK)
-#define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & CPUMASK)
-#define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & CPUMASK)
-#define TARGET_READ_MODIFY (x86_read_modify & CPUMASK)
-#define TARGET_PROMOTE_QImode (x86_promote_QImode & CPUMASK)
-#define TARGET_FAST_PREFIX (x86_fast_prefix & CPUMASK)
-#define TARGET_SINGLE_STRINGOP (x86_single_stringop & CPUMASK)
-#define TARGET_QIMODE_MATH (x86_qimode_math & CPUMASK)
-#define TARGET_HIMODE_MATH (x86_himode_math & CPUMASK)
-#define TARGET_PROMOTE_QI_REGS (x86_promote_qi_regs & CPUMASK)
-#define TARGET_PROMOTE_HI_REGS (x86_promote_hi_regs & CPUMASK)
-#define TARGET_ADD_ESP_4 (x86_add_esp_4 & CPUMASK)
-#define TARGET_ADD_ESP_8 (x86_add_esp_8 & CPUMASK)
-#define TARGET_SUB_ESP_4 (x86_sub_esp_4 & CPUMASK)
-#define TARGET_SUB_ESP_8 (x86_sub_esp_8 & CPUMASK)
-#define TARGET_INTEGER_DFMODE_MOVES (x86_integer_DFmode_moves & CPUMASK)
-#define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & CPUMASK)
+#define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
+#define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
+#define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
+#define TARGET_USE_SAHF ((x86_use_sahf & TUNEMASK) && !TARGET_64BIT)
+#define TARGET_MOVX (x86_movx & TUNEMASK)
+#define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
+#define TARGET_USE_LOOP (x86_use_loop & TUNEMASK)
+#define TARGET_USE_FIOP (x86_use_fiop & TUNEMASK)
+#define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
+#define TARGET_USE_CLTD (x86_use_cltd & TUNEMASK)
+#define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & TUNEMASK)
+#define TARGET_READ_MODIFY_WRITE (x86_read_modify_write & TUNEMASK)
+#define TARGET_READ_MODIFY (x86_read_modify & TUNEMASK)
+#define TARGET_PROMOTE_QImode (x86_promote_QImode & TUNEMASK)
+#define TARGET_FAST_PREFIX (x86_fast_prefix & TUNEMASK)
+#define TARGET_SINGLE_STRINGOP (x86_single_stringop & TUNEMASK)
+#define TARGET_QIMODE_MATH (x86_qimode_math & TUNEMASK)
+#define TARGET_HIMODE_MATH (x86_himode_math & TUNEMASK)
+#define TARGET_PROMOTE_QI_REGS (x86_promote_qi_regs & TUNEMASK)
+#define TARGET_PROMOTE_HI_REGS (x86_promote_hi_regs & TUNEMASK)
+#define TARGET_ADD_ESP_4 (x86_add_esp_4 & TUNEMASK)
+#define TARGET_ADD_ESP_8 (x86_add_esp_8 & TUNEMASK)
+#define TARGET_SUB_ESP_4 (x86_sub_esp_4 & TUNEMASK)
+#define TARGET_SUB_ESP_8 (x86_sub_esp_8 & TUNEMASK)
+#define TARGET_INTEGER_DFMODE_MOVES (x86_integer_DFmode_moves & TUNEMASK)
+#define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
-				      (x86_sse_partial_reg_dependency & CPUMASK)
-#define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & CPUMASK)
+				      (x86_sse_partial_reg_dependency & TUNEMASK)
+#define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS \
-				(x86_sse_partial_regs_for_cvtsd2ss & CPUMASK)
-#define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & CPUMASK)
-#define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & CPUMASK)
-#define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & CPUMASK)
-#define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & CPUMASK)
-#define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & CPUMASK)
-#define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & CPUMASK)
-#define TARGET_DECOMPOSE_LEA (x86_decompose_lea & CPUMASK)
+				(x86_sse_partial_regs_for_cvtsd2ss & TUNEMASK)
+#define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & TUNEMASK)
+#define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & TUNEMASK)
+#define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & TUNEMASK)
+#define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
+#define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
+#define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & TUNEMASK)
+#define TARGET_DECOMPOSE_LEA (x86_decompose_lea & TUNEMASK)
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
-#define TARGET_SHIFT1 (x86_shift1 & CPUMASK)
-#define TARGET_USE_FFREEP (x86_use_ffreep & CPUMASK)
-#define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & CPUMASK)
-#define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & CPUMASK)
+#define TARGET_SHIFT1 (x86_shift1 & TUNEMASK)
+#define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
+#define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & TUNEMASK)
+#define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -432,7 +432,7 @@ extern int x86_prefetch_sse;
    option if the fixed part matches.  The actual option name is made
    by appending `-m' to the specified name.  */
 #define TARGET_OPTIONS						\
-{ { "cpu=",		&ix86_cpu_string,			\
+{ { "tune=",		&ix86_tune_string,			\
     N_("Schedule code for given CPU")},				\
   { "fpmath=",		&ix86_fpmath_string,			\
     N_("Generate floating point mathematics using given instruction set")},\
@@ -487,15 +487,18 @@ extern int x86_prefetch_sse;
 
 #ifndef CC1_CPU_SPEC
 #define CC1_CPU_SPEC "\
-%{!mcpu*: \
-%{m386:-mcpu=i386 \
-%n`-m386' is deprecated. Use `-march=i386' or `-mcpu=i386' instead.\n} \
-%{m486:-mcpu=i486 \
-%n`-m486' is deprecated. Use `-march=i486' or `-mcpu=i486' instead.\n} \
-%{mpentium:-mcpu=pentium \
-%n`-mpentium' is deprecated. Use `-march=pentium' or `-mcpu=pentium' instead.\n} \
-%{mpentiumpro:-mcpu=pentiumpro \
-%n`-mpentiumpro' is deprecated. Use `-march=pentiumpro' or `-mcpu=pentiumpro' instead.\n}} \
+%{!mtune*: \
+%{m386:mtune=i386 \
+%n`-m386' is deprecated. Use `-march=i386' or `-mtune=i386' instead.\n} \
+%{m486:-mtune=i486 \
+%n`-m486' is deprecated. Use `-march=i486' or `-mtune=i486' instead.\n} \
+%{mpentium:-mtune=pentium \
+%n`-mpentium' is deprecated. Use `-march=pentium' or `-mtune=pentium' instead.\n} \
+%{mpentiumpro:-mtune=pentiumpro \
+%n`-mpentiumpro' is deprecated. Use `-march=pentiumpro' or `-mtune=pentiumpro' instead.\n} \
+%{mcpu=*:-mtune=%* \
+%n`-mcpu=' is deprecated. Use `-mtune=' or '-march=' instead.\n}} \
+%<mcpu=* \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
@@ -507,9 +510,9 @@ extern int x86_prefetch_sse;
   do								\
     {								\
       size_t arch_len = strlen (ix86_arch_string);		\
-      size_t cpu_len = strlen (ix86_cpu_string);		\
+      size_t tune_len = strlen (ix86_tune_string);		\
       int last_arch_char = ix86_arch_string[arch_len - 1];	\
-      int last_cpu_char = ix86_cpu_string[cpu_len - 1];		\
+      int last_tune_char = ix86_tune_string[tune_len - 1];		\
 								\
       if (TARGET_64BIT)						\
 	{							\
@@ -525,8 +528,8 @@ extern int x86_prefetch_sse;
 	  builtin_define_std ("i386");				\
 	}							\
 								\
-      /* Built-ins based on -mcpu= (or -march= if no		\
-	 CPU given).  */					\
+      /* Built-ins based on -mtune= (or -march= if no		\
+	 -mtune= given).  */					\
       if (TARGET_386)						\
 	builtin_define ("__tune_i386__");			\
       else if (TARGET_486)					\
@@ -535,14 +538,14 @@ extern int x86_prefetch_sse;
 	{							\
 	  builtin_define ("__tune_i586__");			\
 	  builtin_define ("__tune_pentium__");			\
-	  if (last_cpu_char == 'x')				\
+	  if (last_tune_char == 'x')				\
 	    builtin_define ("__tune_pentium_mmx__");		\
 	}							\
       else if (TARGET_PENTIUMPRO)				\
 	{							\
 	  builtin_define ("__tune_i686__");			\
 	  builtin_define ("__tune_pentiumpro__");		\
-	  switch (last_cpu_char)				\
+	  switch (last_tune_char)				\
 	    {							\
 	    case '3':						\
 	      builtin_define ("__tune_pentium3__");		\
@@ -555,16 +558,16 @@ extern int x86_prefetch_sse;
       else if (TARGET_K6)					\
 	{							\
 	  builtin_define ("__tune_k6__");			\
-	  if (last_cpu_char == '2')				\
+	  if (last_tune_char == '2')				\
 	    builtin_define ("__tune_k6_2__");			\
-	  else if (last_cpu_char == '3')			\
+	  else if (last_tune_char == '3')			\
 	    builtin_define ("__tune_k6_3__");			\
 	}							\
       else if (TARGET_ATHLON)					\
 	{							\
 	  builtin_define ("__tune_athlon__");			\
 	  /* Only plain "athlon" lacks SSE.  */			\
-	  if (last_cpu_char != 'n')				\
+	  if (last_tune_char != 'n')				\
 	    builtin_define ("__tune_athlon_sse__");		\
 	}							\
       else if (TARGET_K8)					\
@@ -1661,18 +1664,7 @@ enum reg_class
    definition that is usually appropriate, refer to expr.h for additional
    documentation. If `REG_PARM_STACK_SPACE' is defined, the argument will be
    computed in the stack and then loaded into a register.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)				\
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)				\
-       || ((MODE) == TImode)					\
-       || ((MODE) == BLKmode 					\
-	   && ! ((TYPE) != 0					\
-		 && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST \
-		 && 0 == (int_size_in_bytes (TYPE)		\
-			  % (PARM_BOUNDARY / BITS_PER_UNIT)))	\
-	   && (FUNCTION_ARG_PADDING (MODE, TYPE)		\
-	       == (BYTES_BIG_ENDIAN ? upward : downward)))))
+#define MUST_PASS_IN_STACK(MODE, TYPE)  ix86_must_pass_in_stack ((MODE), (TYPE))
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -1740,8 +1732,8 @@ typedef struct ix86_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
-  init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME))
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+  init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -3071,8 +3063,8 @@ enum processor_type
   PROCESSOR_max
 };
 
-extern enum processor_type ix86_cpu;
-extern const char *ix86_cpu_string;
+extern enum processor_type ix86_tune;
+extern const char *ix86_tune_string;
 
 extern enum processor_type ix86_arch;
 extern const char *ix86_arch_string;
@@ -3163,7 +3155,7 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 /* Define this macro if the port needs extra instructions inserted
    for mode switching in an optimizing compilation.  */
 
-#define OPTIMIZE_MODE_SWITCHING(ENTITY) 1
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) ix86_optimize_mode_switching
 
 /* If you define `OPTIMIZE_MODE_SWITCHING', you have to define this as
    initializer for an array of integers.  Each initializer element N
@@ -3220,6 +3212,19 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 #define DLL_IMPORT_EXPORT_PREFIX '#'
 
 #define FASTCALL_PREFIX '@'
+
+struct machine_function GTY(())
+{
+  struct stack_local_entry *stack_locals;
+  const char *some_ld_name;
+  int save_varrargs_registers;
+  int accesses_prev_frame;
+  int optimize_mode_switching;
+};
+
+#define ix86_stack_locals (cfun->machine->stack_locals)
+#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
+#define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
 
 /*
 Local variables:
