@@ -42,6 +42,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
@@ -70,6 +71,8 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
     public AffineTransformOp (AffineTransform xform, int interpolationType)
     {
       this.transform = xform;
+      if (xform.getDeterminant() == 0)
+        throw new ImagingOpException(null);
 
       if (interpolationType == 0) 
         hints = new RenderingHints (RenderingHints.KEY_INTERPOLATION, 
@@ -91,6 +94,8 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
     {
       this.transform = xform;
       this.hints = hints;
+      if (xform.getDeterminant() == 0)
+        throw new ImagingOpException(null);
     }
 
     /**
@@ -183,7 +188,47 @@ public class AffineTransformOp implements BufferedImageOp, RasterOp
      */
     public WritableRaster filter (Raster src, WritableRaster dst)
     {
-      throw new UnsupportedOperationException ("not implemented yet");	
+      if (dst == src)
+        throw new IllegalArgumentException("src image cannot be the same as"
+					   + " the dst image");
+
+      if (dst == null)
+        dst = createCompatibleDestRaster(src);
+
+      if (src.getNumBands() != dst.getNumBands())
+        throw new IllegalArgumentException("src and dst must have same number"
+					   + " of bands");
+      
+      Rectangle srcbounds = src.getBounds();
+      for (int y = dst.getMinY(); y < dst.getMinY() + dst.getHeight(); y++)
+      {
+        double[] pts = new double[dst.getWidth() * 2];
+        for (int x = 0; x < dst.getWidth(); x++)
+        {
+          pts[2 * x] = x + dst.getMinX();
+          pts[2 * x + 1] = y;
+        }
+        try {
+          transform.inverseTransform(pts, 0, pts, 0, dst.getWidth() * 2);
+        } catch (NoninvertibleTransformException e) {
+          // Can't happen since the constructor traps this
+          e.printStackTrace();
+        }
+        
+        // FIXME: nearest neighbor is hardwired here.  In fact, these should
+        // be rounded properly.
+        for (int x = 0; x < dst.getWidth(); x++)
+        {
+          if (!srcbounds.contains(pts[2 * x], pts[2 * x + 1]))
+            continue;
+          dst.setDataElements(x + dst.getMinX(), y,
+			      src.getDataElements((int)pts[2 * x],
+						  (int)pts[2 * x + 1],
+						  null));
+        }
+      }
+      
+      return dst;  
     }
 
     /**

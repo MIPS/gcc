@@ -1,5 +1,10 @@
 2004-11-02  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/AffineTransformOp.java (filter): Implement Raster
+	filtering.
+
+2004-11-02  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/ComponentSampleModel.java (getDataElements,
 	setDataElements): Implement SHORT, FLOAT, and INT transfer types.
 
