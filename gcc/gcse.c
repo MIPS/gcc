@@ -874,7 +874,7 @@ gcse_main (f, file)
 	 them bigger if we did partial redundancy elimination (when optimizing
 	 for space, we use a classic gcse algorithm instead of partial
 	 redundancy algorithms).  */
-      if (optimize_size || 1)
+      if (optimize_size)
         {
 	  max_gcse_regno = max_reg_num ();
 	  alloc_gcse_mem (f);
