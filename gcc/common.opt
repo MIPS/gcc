@@ -301,6 +301,12 @@ fcprop-registers
 Common
 Perform a register copy-propagation optimization pass
 
+; APPLE LOCAL begin new profiling flag
+fcreate-profile
+Common
+Enable common options for generating profile info for profile feedback directed optimizations
+; APPLE LOCAL end new profiling flag
+
 fcrossjumping
 Common
 Perform cross-jumping optimization
@@ -875,6 +881,12 @@ Perform loop unswitching
 funwind-tables
 Common
 Just generate unwind tables for exception handling
+
+; APPLE LOCAL begin new profiling flag
+fuse-profile
+Common
+Enable common options for performing profile feedback directed optimizations
+; APPLE LOCAL end new profiling flag
 
 fvar-tracking
 Common

@@ -337,7 +337,8 @@ in the following sections.
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
--fcaller-saves  -fcprop-registers @gol
+@c APPLE LOCAL add fcreate-profile below
+-fcaller-saves  -fcprop-registers -fcreate-profile @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -372,7 +373,8 @@ in the following sections.
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-loop-optimize -ftree-sra @gol
 -fscalar-evolutions -fall-data-deps @gol
--ftree-vectorize @gol
+@c APPLE LOCAL add fuse-profile below
+-ftree-vectorize -fuse-profile @gol
 -ftree-sra -ftree-ter -ftree-lrs @gol
 --param @var{name}=@var{value}
 @c APPLE LOCAl -fast 
@@ -5078,6 +5080,27 @@ generally profitable only with profile feedback available.
 
 The following options are enabled: @code{-fbranch-probabilities},
 @code{-fvpt}, @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}.
+
+@item -fcreate-profile
+@opindex fcreate-profile
+Enable options usually used for instrumenting application to produce profile usefull
+for later recompilation profile feedback based optimization.
+
+The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}
+
+This flag is obsolete, and use of it is strongly discouraged.  Use 
+@code{-fprofile-generate} instead.  
+
+@item -fuse-profile
+@opindex fuse-profile
+Enable profile feedback directed optimizations, and optimizations
+generally profitable only with profile feedback available.
+
+The following options are enabled: @code{-fbranch-probabilities},
+@code{-fvpt}, @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}.
+
+This flag is obsolete, and use of it is strongly discouraged.  Use 
+@code{-fprofile-use} instead.
 
 @end table
 

@@ -1852,6 +1852,9 @@ common_handle_option (size_t scode, const char *arg,
       profile_arc_flag = value;
       break;
 
+    /* APPLE LOCAL begin add fuse-profile */
+    case OPT_fuse_profile:
+    /* APPLE LOCAL end add fuse-profile */
     case OPT_fprofile_use:
       if (!flag_branch_probabilities_set)
         flag_branch_probabilities = value;
@@ -1867,6 +1870,9 @@ common_handle_option (size_t scode, const char *arg,
         flag_value_profile_transformations = value;
       break;
 
+    /* APPLE LOCAL begin add fcreate-profile */
+    case OPT_fcreate_profile:
+    /* APPLE LOCAL end add fcreate-profile */
     case OPT_fprofile_generate:
       if (!profile_arc_flag_set)
         profile_arc_flag = value;
