@@ -192,7 +192,7 @@ typedef stmt_operands_t *stmt_operands_p;
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-extern void get_stmt_operands (tree);
+extern void update_stmt_operands (tree);
 extern void test_imm_links(FILE *);
 extern void verify_imm_links (ssa_imm_use_t *list);
 

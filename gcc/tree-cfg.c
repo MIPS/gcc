@@ -2662,12 +2662,12 @@ update_new_stmt (tree t)
         {
 	  stmt = tsi_stmt (i);
 	  if (stmt_modified_p (stmt))
-	    get_stmt_operands (stmt);
+	    update_stmt_operands (stmt);
 	}
     }
   else
     if (stmt_modified_p (t))
-      get_stmt_operands (t);
+      update_stmt_operands (t);
 }
 
 /* Insert statement (or statement list) T before the statement

@@ -447,6 +447,7 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags)
           && !(pass->properties_destroyed & PROP_ssa))
       {
 	test_imm_links (dump_file);
+	verify_ssa  (true);
       }
 #endif
 
