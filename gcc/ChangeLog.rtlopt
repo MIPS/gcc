@@ -1,5 +1,10 @@
 2003-07-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* loop-ivopts.c (schedule_autoinc): Don't put increment after
+	the insn with REG_EH_REGION note.
+
+2003-07-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* doloop.c (doloop_optimize): Pass correct loop level to
 	gen_doloop_end.
 

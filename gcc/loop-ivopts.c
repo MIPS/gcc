@@ -495,6 +495,13 @@ schedule_autoinc (struct loops *loops, struct loop *loop, struct str_red *reds,
       if (repl)
 	continue;
 
+      /* We cannot place the increment after the insn, as then the
+	 REG_EH_REGION would occur inside a basic block.  We could
+	 put it to the start of the next bb, but flow.c is too stupid
+	 to find it there.  */
+      if (find_reg_note (last_repl->insn, REG_EH_REGION, NULL_RTX))
+	continue;
+
       if (reds->equal_to)
 	{
 	  /* If this variable already existed, we must also be sure about
