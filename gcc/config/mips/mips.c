@@ -5761,19 +5761,31 @@ override_options ()
       mips_section_threshold = 0x7fffffff;
     }
 
-  /* This optimization requires a linker that can support a R_MIPS_LO16
-     relocation which is not immediately preceded by a R_MIPS_HI16 relocation.
-     GNU ld has this support, but not all other MIPS linkers do, so we enable
-     this optimization only if the user requests it, or if GNU ld is the
-     standard linker for this configuration.  */
-  /* ??? This does not work when target addresses are DImode.
-     This is because we are missing DImode high/lo_sum patterns.  */
-  if (TARGET_GAS && ! TARGET_MIPS16 && TARGET_SPLIT_ADDRESSES
-      && optimize && ! flag_pic
+  /* mips_split_addresses is a half-way house between explicit
+     relocations and the traditional assembler macros.  It can
+     split absolute 32-bit symbolic constants into a high/lo_sum
+     pair but uses macros for other sorts of access.
+
+     Like explicit relocation support for REL targets, it relies
+     on GNU extensions in the assembler and the linker.
+
+     Although this code should work for -O0, it has traditionally
+     been treated as an optimization.  */
+  if (TARGET_GAS && !TARGET_MIPS16 && TARGET_SPLIT_ADDRESSES
+      && optimize && !flag_pic
       && !ABI_HAS_64BIT_SYMBOLS)
     mips_split_addresses = 1;
   else
     mips_split_addresses = 0;
+
+  /* -mexplicit-relocs doesn't yet support non-PIC n64.  We don't know
+     how to generate %highest/%higher/%hi/%lo sequences.  */
+  if (mips_abi == ABI_64 && !TARGET_ABICALLS)
+    {
+      if ((target_flags_explicit & target_flags & MASK_EXPLICIT_RELOCS) != 0)
+	sorry ("non-PIC n64 with explicit relocations");
+      target_flags &= ~MASK_EXPLICIT_RELOCS;
+    }
 
   /* -mrnames says to use the MIPS software convention for register
      names instead of the hardware names (ie, $a0 instead of $4).

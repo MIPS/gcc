@@ -163,7 +163,6 @@ extern const char *mips_abi_string;	/* for -mabi={32,n32,64} */
 extern const char *mips_entry_string;	/* for -mentry */
 extern const char *mips_no_mips16_string;/* for -mno-mips16 */
 extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
-extern int mips_split_addresses;	/* perform high/lo_sum support */
 extern int dslots_load_total;		/* total # load related delay slots */
 extern int dslots_load_filled;		/* # filled load delay slots */
 extern int dslots_jump_total;		/* total # jump related delay slots */
@@ -228,6 +227,7 @@ extern void		sbss_section PARAMS ((void));
 					   multiply-add operations.  */
 #define MASK_BRANCHLIKELY  0x02000000   /* Generate Branch Likely
 					   instructions.  */
+#define MASK_EXPLICIT_RELOCS 0x04000000 /* Use relocation operators.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -319,6 +319,8 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_CHECK_RANGE_DIV  (target_flags & MASK_CHECK_RANGE_DIV)
 
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
+#define TARGET_EXPLICIT_RELOCS	(target_flags & MASK_EXPLICIT_RELOCS)
+
 
 /* This is true if we must enable the assembly language file switching
    code.  */
@@ -375,8 +377,6 @@ extern void		sbss_section PARAMS ((void));
 #define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
-
-#define TARGET_EXPLICIT_RELOCS	    TARGET_NEWABI
 
 /* Define preprocessor macros for the -march and -mtune options.
    PREFIX is either _MIPS_ARCH or _MIPS_TUNE, INFO is the selected
@@ -627,6 +627,10 @@ extern void		sbss_section PARAMS ((void));
       N_("Use Branch Likely instructions, overriding default for arch")}, \
   { "no-branch-likely",  -MASK_BRANCHLIKELY,				\
       N_("Don't use Branch Likely instructions, overriding default for arch")}, \
+  {"explicit-relocs",	  MASK_EXPLICIT_RELOCS,				\
+     N_("Use NewABI-style %reloc() assembly operators")},		\
+  {"no-explicit-relocs", -MASK_EXPLICIT_RELOCS,				\
+     N_("Use assembler macros instead of relocation operators")},	\
   {"debug",		  MASK_DEBUG,					\
      NULL},								\
   {"debuga",		  MASK_DEBUG_A,					\

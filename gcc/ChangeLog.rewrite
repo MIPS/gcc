@@ -1,5 +1,15 @@
 2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
 
+	* config/mips/mips.h (TARGET_SWITCHES): Add -mexplicit-relocs
+	and -mno-explicit-relocs.
+	(MASK_EXPLICIT_RELOCS): Define.
+	(TARGET_EXPLICIT_RELOCS): Use it.
+	(mips_split_addresses): Remove declaration.
+	* config/mips/mips.c (override_options): Update comment for
+	mips_split_addresses.  Clear MASK_EXPLICIT_RELOCS for non-PIC n64.
+
+2003-03-13  Richard Sandiford  <rsandifo@redhat.com>
+
 	* combine.c (gen_lowpart_for_combine): Treat the lowpart Pmode of
 	a CONST as identity.  Check the return value of gen_lowpart_common.
 
