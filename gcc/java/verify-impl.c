@@ -1057,6 +1057,7 @@ init_state_with_stack (state *s, int max_stack, int max_locals)
   s->locals = (type *) vfy_alloc (max_locals * sizeof (type));
   for (i = 0; i < max_locals; ++i)
     init_type_from_tag (&s->locals[i], unsuitable_type);
+  init_type_from_tag (&s->this_type, unsuitable_type);
   s->pc = NO_NEXT;
   s->next = INVALID_STATE;
 }
@@ -3342,7 +3343,7 @@ verify_instructions (void)
 
       /* Tell the compiler about each local variable.  */
       for (j = 0; j < vfr->current_method->max_locals; ++j)
-	vfy_note_stack_type (vfr->current_method, i, j,
+	vfy_note_local_type (vfr->current_method, i, j,
 			     collapse_type (&curr->locals[j]));
       /* Tell the compiler about each stack slot.  */
       for (j = 0; j < curr->stackdepth; ++j)
@@ -3426,8 +3427,8 @@ free_verifier_context (void)
 int
 verify_method (vfy_method *meth)
 {
-  printf ("verify_method (%s) %i\n", vfy_string_bytes (meth->name),
-	  meth->code_length);
+  debug_print ("verify_method (%s) %i\n", vfy_string_bytes (meth->name),
+	       meth->code_length);
   
   if (vfr != NULL)
     verify_fail ("verifier re-entered");

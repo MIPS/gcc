@@ -1,5 +1,13 @@
 2004-10-19  Tom Tromey  <tromey@redhat.com>
 
+	* verify-impl.c (verify_instructions): Call vfy_note_local_type.
+	(init_state_with_stack): Initialize `this_type' in state.
+	(verify_method): Use debug_print.
+	* verify-glue.c (vfy_is_primitive): Removed debugging print.
+	(vfy_note_stack_depth): Reverted last patch.
+	(vfy_note_stack_type): Note pointer to Object, not Object.
+	(vfy_note_local_type): Likewise.
+
 	* verify.h (vfy_note_instruction_seen): Declare.
 	* verify-glue.c (verify_jvm_instructions_new): Set
 	BCODE_EXCEPTION_TARGET on target instruction.

@@ -266,7 +266,6 @@ vfy_is_interface (vfy_jclass klass)
 bool
 vfy_is_primitive (vfy_jclass klass)
 {
-  printf ("debug: vfy_is_primitive()\n");
   return JPRIMITIVE_TYPE_P (klass);
 }
 
@@ -382,13 +381,16 @@ void
 vfy_note_stack_depth (vfy_method *method, int pc, int depth)
 {
   tree label = lookup_label (pc);
-  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth + 1);
+  LABEL_TYPE_STATE (label) = make_tree_vec (method->max_locals + depth);
 }
 
 void
 vfy_note_stack_type (vfy_method *method, int pc, int slot, vfy_jclass type)
 {
   slot += method->max_locals;
+
+  if (type == object_type_node)
+    type = object_ptr_type_node;
 
   tree label = lookup_label (pc);
   tree vec = LABEL_TYPE_STATE (label);
@@ -399,6 +401,9 @@ void
 vfy_note_local_type (vfy_method *method ATTRIBUTE_UNUSED, int pc, int slot,
 		     vfy_jclass type)
 {
+  if (type == object_type_node)
+    type = object_ptr_type_node;
+
   tree label = lookup_label (pc);
   tree vec = LABEL_TYPE_STATE (label);
   TREE_VEC_ELT (vec, slot) = type;
