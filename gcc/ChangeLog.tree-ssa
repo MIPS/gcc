@@ -1,3 +1,9 @@
+2003-02-04  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c (get_alias_var_decl): If it's a global var,
+	make sure it doesn't get added to local_alias_vars.
+	(get_name): Return the right name for FUNCTION_DECL's.
+
 2003-02-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_stmt_operand): Do not add a VUSE for a pointer

@@ -166,7 +166,7 @@ get_alias_var_decl (decl)
   else
     {
       if (decl_function_context (decl) == NULL && decl != global_var)
-	newvar = get_alias_var (global_var);
+	return get_alias_var (global_var);
       else
 	newvar = create_alias_var (decl);
     }
@@ -1118,7 +1118,12 @@ alias_get_name (t)
     }
   else
 #endif
+    {
+      if (TREE_CODE (t) == FUNCTION_DECL)
+	name = IDENTIFIER_POINTER (DECL_NAME (t));
+      else
     name = get_name (t);
+    }
 
   if (!name)
     return name;
