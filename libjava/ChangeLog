@@ -1,5 +1,12 @@
 2004-10-06  Tom Tromey  <tromey@redhat.com>
 
+	* include/java-interp.h (class _Jv_JNIMethod): Added
+	JV_MARKOBJ_DECL as a friend.
+	* interpret.cc (ncode): Allocate jni_arg_types field with GC.
+	* boehm.cc (_Jv_MarkObj): Skip abstract methods when marking
+	interpreter method structures.  Mark jni_arg_types of JNI
+	methods.
+
 	* defineclass.cc (parse): Use JV_STATE_READ.
 	* java/lang/Class.h (JV_STATE_READ): New enum value.
 

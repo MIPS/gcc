@@ -244,12 +244,40 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 
 	  for (int i = 0; i < c->method_count; i++)
 	    {
+	      // The interpreter installs a heap-allocated trampoline
+	      // here, so we'll mark it.
+	      p = (ptr_t) c->methods[i].ncode;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+	      using namespace java::lang::reflect;
+
+	      // Mark the direct-threaded code.  Note a subtlety here:
+	      // when we add Miranda methods to a class, we don't
+	      // resize its interpreted_methods array.  If we try to
+	      // reference one of these methods, we may crash.
+	      // However, we know these are all abstract, and we know
+	      // that abstract methods have nothing useful in this
+	      // array.  So, we skip all abstract methods to avoid the
+	      // problem.  FIXME: this is pretty obscure, it may be
+	      // better to add a methods to the execution engine and
+	      // resize the array.
+	      if ((c->methods[i].accflags & Modifier::ABSTRACT) != 0)
+		continue;
+
 	      p = (ptr_t) ic->interpreted_methods[i];
 	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 
-	      // Mark the direct-threaded code.
-	      if ((c->methods[i].accflags
-		   & java::lang::reflect::Modifier::NATIVE) == 0)
+	      if ((c->methods[i].accflags & Modifier::NATIVE) != 0)
+		{
+		  _Jv_JNIMethod *jm
+		    = (_Jv_JNIMethod *) ic->interpreted_methods[i];
+		  if (jm)
+		    {
+		      p = (ptr_t) jm->jni_arg_types;
+		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, p);
+		    }
+		}
+	      else
 		{
 		  _Jv_InterpMethod *im
 		    = (_Jv_InterpMethod *) ic->interpreted_methods[i];
@@ -259,11 +287,6 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 		    }
 		}
-
-	      // The interpreter installs a heap-allocated trampoline
-	      // here, so we'll mark it.
-	      p = (ptr_t) c->methods[i].ncode;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 
 	  p = (ptr_t) ic->field_initializers;

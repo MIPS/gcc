@@ -209,6 +209,10 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   friend class _Jv_ClassReader;
   friend class _Jv_InterpreterEngine;
 
+#ifdef JV_MARKOBJ_DECL
+  friend JV_MARKOBJ_DECL;
+#endif
+
 public:
   // FIXME: this is ugly.
   void set_function (void *f)

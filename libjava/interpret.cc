@@ -3629,8 +3629,8 @@ _Jv_JNIMethod::ncode ()
   int extra_args = 1;
   if ((self->accflags & Modifier::STATIC))
     ++extra_args;
-  jni_arg_types = (ffi_type **) _Jv_Malloc ((extra_args + arg_count)
-					    * sizeof (ffi_type *));
+  jni_arg_types = (ffi_type **) _Jv_AllocBytes ((extra_args + arg_count)
+						* sizeof (ffi_type *));
   int offset = 0;
   jni_arg_types[offset++] = &ffi_type_pointer;
   if ((self->accflags & Modifier::STATIC))
