@@ -32,18 +32,9 @@ AC_CONFIG_HEADER(auto-host.h:config.in)
 # Determine the host, build, and target systems
 AC_CANONICAL_SYSTEM
 
-# Define variables host_canonical and build_canonical
-build_canonical=${build}
-host_canonical=${host}
-AC_SUBST(build_canonical)
-AC_SUBST(host_canonical)
+# Determine the target- and build-specific subdirectories
+GCC_TOPLEV_SUBDIRS
 
-target_subdir=
-if test "${host}" != "${target}" ; then
-    target_subdir=${target_alias}/
-fi
-AC_SUBST(target_subdir)
-	
 # Set program_transform_name
 AC_ARG_PROGRAM
 
@@ -800,7 +791,7 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
 	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
-        scandir alphasort gettimeofday mbstowcs wcswidth mmap)
+        scandir alphasort gettimeofday mbstowcs wcswidth mmap mincore)
 
 if test x$ac_cv_func_mbstowcs = xyes; then
   AC_CACHE_CHECK(whether mbstowcs works, gcc_cv_func_mbstowcs_works,
@@ -989,7 +980,6 @@ build_exeext=
 host_xm_file=
 host_xm_defines=
 host_xmake_file=
-host_truncate_target=
 host_exeext=
 
 # Decode the host machine, then the target machine.
@@ -1145,7 +1135,6 @@ fi
 if test x$host = x$build
 then
 	build_auto=auto-host.h
-	FORBUILD=../build-$build_alias
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new
@@ -1171,8 +1160,8 @@ else
 	cd ..
 	rm -rf $tempdir
 	build_auto=auto-build.h
-	FORBUILD=../build-$build_alias
 fi
+FORBUILD=../$(build_subdir)
 AC_SUBST(FORBUILD)
 
 tm_file="${tm_file} defaults.h"
@@ -1186,11 +1175,6 @@ xm_file="ansidecl.h ${xm_file}"
 # --------
 # UNSORTED
 # --------
-
-# Truncate the target if necessary
-if test x$host_truncate_target != x; then
-	target=`echo $target | sed -e 's/\(..............\).*/\1/'`
-fi
 
 # Get the version trigger filename from the toplevel
 if test "${with_gcc_version_trigger+set}" = set; then
@@ -2594,10 +2578,10 @@ if test $in_tree_ld = yes ; then
     gcc_cv_ld_ro_rw_mix=read-write
   fi
 elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
-  echo '.section "myfoosect", "a"' > conftest1.s
-  echo '.section "myfoosect", "aw"' > conftest2.s
+  echo '.section myfoosect, "a"' > conftest1.s
+  echo '.section myfoosect, "aw"' > conftest2.s
   echo '.byte 1' >> conftest2.s
-  echo '.section "myfoosect", "a"' > conftest3.s
+  echo '.section myfoosect, "a"' > conftest3.s
   echo '.byte 0' >> conftest3.s
   if $gcc_cv_as -o conftest1.o conftest1.s > /dev/null 2>&1 \
      && $gcc_cv_as -o conftest2.o conftest2.s > /dev/null 2>&1 \
@@ -2692,7 +2676,11 @@ case "$target" in
     AC_MSG_CHECKING(whether the assembler has explicit relocation support)
     if test x$gcc_cv_mips_explicit_relocs = x; then
       gcc_cv_mips_explicit_relocs=no
-      if test x$gcc_cv_as != x; then
+      if test $in_tree_gas = yes; then
+        gcc_GAS_VERSION_GTE_IFELSE(2,14,0,[
+	  gcc_cv_mips_explicit_relocs=yes
+	])
+      elif test x$gcc_cv_as != x; then
 	echo '  lw $4,%gp_rel(foo)($4)' > conftest.s
 	if $gcc_cv_as conftest.s -o conftest.o > /dev/null 2>&1; then
 	  gcc_cv_mips_explicit_relocs=yes
@@ -3201,11 +3189,6 @@ echo "Links are now set up to build a ${str1}compiler for ${target}$str4" 1>&2
 if test "x$str2" != x || test "x$str3" != x
 then
 	echo " ${str2}${str3}." 1>&2
-fi
-
-# Truncate the target if necessary
-if test x$host_truncate_target != x; then
-	target=`echo $target | sed -e 's/\(..............\).*/\1/'`
 fi
 
 # Configure the subdirectories
