@@ -1149,6 +1149,9 @@ cgraph_optimize (void)
     }
 
   ipa_passes ();
+  /* FIXME: this should be unnecesary if inliner took care of removing dead
+     functions.  */
+  cgraph_remove_unreachable_nodes (false, dump_file);  
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {

@@ -860,7 +860,13 @@ cgraph_decide_inlining (void)
   /* We will never output extern functions we didn't inline. 
      ??? Perhaps we can prevent accounting of growth of external
      inline functions.  */
-  cgraph_remove_unreachable_nodes (false, dump_file);
+
+  /* FIXME: at the moment we don't want to remove nodes here
+     or we confuse aliasing code.  This needs to be dealt with
+     better later by reorganizing the order of analysis.  
+
+     Uncommenting this should make same call in cgraph_optimize unnecesary.
+  cgraph_remove_unreachable_nodes (false, dump_file);  */
 
   if (dump_file)
     fprintf (dump_file,

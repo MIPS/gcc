@@ -1,5 +1,12 @@
 2004-12-02  Jan Hubicka  <jh@suse.cz>
 
+	Temporarily avoid unreachable node removal for IPA stuff.
+	* cgraphunit.c (cgraph_optimize): Remove unreachable nodes.
+	* ipa-inline.c (cgraph_decide_inlining): Do not remove unreachable
+	nodes.
+
+2004-12-02  Jan Hubicka  <jh@suse.cz>
+
 	* cgraph.h (cgraph_varpool_node): Add non_ipa field.
 	* cgraphunit.c (cgraph-varpool_analyze_pending_decls): Set noipa flag
 	for declarations comming late.
