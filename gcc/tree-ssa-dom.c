@@ -74,6 +74,9 @@ struct expr_hash_elt
 
   /* The annotation if this element corresponds to a statement.  */
   stmt_ann_t ann;
+
+  /* The hash value for RHS/ann.  */
+  hashval_t hash;
 };
 
 /* Table of constant values and copies indexed by SSA name.  When the
@@ -378,20 +381,21 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	  def_optype defs;
 	  vdef_optype vdefs;
 	  tree stmt = bsi_stmt (bsi);
+	  stmt_ann_t ann = stmt_ann (stmt);
 
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    break;
 
 	  get_stmt_operands (stmt);
 
-	  defs = STMT_DEF_OPS (stmt);
+	  defs = DEF_OPS (ann);
 	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    {
 	      tree op = SSA_NAME_VAR (DEF_OP (defs, j));
 	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
 	    }
 
-	  vdefs = STMT_VDEF_OPS (stmt);
+	  vdefs = VDEF_OPS (ann);
 	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
@@ -604,10 +608,6 @@ tree_ssa_dominator_optimize (void)
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
       /* Wipe the hash tables.  */
-      htab_empty (avail_exprs);
-
-      VARRAY_CLEAR (const_and_copies);
-      bitmap_clear (nonzero_vars);
 
       if (VARRAY_ACTIVE_SIZE (redirection_edges) > 0)
 	redirect_edges_and_update_ssa_graph (redirection_edges);
@@ -632,14 +632,23 @@ tree_ssa_dominator_optimize (void)
 	{
 	  rewrite_into_ssa ();
 	  bitmap_clear (vars_to_rename);
+
+	  /* The out-of SSA translation may have created new variables which
+	     affects the size of CURRDEFS.  */
+	  VARRAY_GROW (currdefs, num_referenced_vars);
+
+	  /* The into SSA translation may have created new SSA_NAMES whic
+	     affect the size of CONST_AND_COPIES and VRP_DATA.  */
 	  VARRAY_GROW (const_and_copies, highest_ssa_version);
 	  VARRAY_GROW (vrp_data, highest_ssa_version);
-	  VARRAY_GROW (currdefs, num_referenced_vars);
-	  VARRAY_CLEAR (const_and_copies);
-	  VARRAY_CLEAR (vrp_data);
-	  bitmap_clear (nonzero_vars);
-	  VARRAY_CLEAR (currdefs);
 	}
+
+      /* Reinitialize the various tables.  */
+      bitmap_clear (nonzero_vars);
+      htab_empty (avail_exprs);
+      VARRAY_CLEAR (const_and_copies);
+      VARRAY_CLEAR (vrp_data);
+      VARRAY_CLEAR (currdefs);
     }
   while (cfg_altered);
 
@@ -650,12 +659,12 @@ tree_ssa_dominator_optimize (void)
   if (dump_file && (dump_flags & TDF_STATS))
     dump_dominator_optimization_stats (dump_file);
 
+  /* We emptyed the hash table earlier, now delete it completely.  */
   htab_delete (avail_exprs);
 
-  VARRAY_CLEAR (redirection_edges);
-  VARRAY_CLEAR (currdefs);
-
-  BITMAP_XFREE (nonzero_vars);
+  /* It is not nocessary to clear CURRDEFS, REDIRECTION_EDGES, VRP_DATA,
+     CONST_AND_COPIES, and NONZERO_VARS as they all get cleared at the bottom
+     of the do-while loop above.  */
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -1024,7 +1033,7 @@ dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
    initialize the hash table element pointed by by ELEMENT.  */
 
 static void
-initialize_hash_element (tree expr, struct expr_hash_elt *element)
+initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
 {
   /* Hash table elements may be based on conditional expressions or statements.
 
@@ -1058,7 +1067,8 @@ initialize_hash_element (tree expr, struct expr_hash_elt *element)
       element->rhs = TREE_OPERAND (expr, 1);
     }
 
-  element->lhs = NULL;
+  element->lhs = lhs;
+  element->hash = avail_expr_hash (element);
 }
 
 /* Remove all the expressions in LOCALS from TABLE, stopping when there are
@@ -1079,8 +1089,8 @@ remove_local_expressions_from_table (varray_type locals,
       tree expr = VARRAY_TOP_TREE (locals);
       VARRAY_POP (locals);
 
-      initialize_hash_element (expr, &element);
-      htab_remove_elt (table, &element);
+      initialize_hash_element (expr, NULL, &element);
+      htab_remove_elt_with_hash (table, &element, element.hash);
     }
 }
 
@@ -1570,11 +1580,10 @@ record_cond (tree cond, tree value, varray_type *block_avail_exprs_p)
   struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
   void **slot;
 
-  element->rhs = cond;
-  element->lhs = value;
-  element->ann = NULL;
+  initialize_hash_element (cond, value, element);
 
-  slot = htab_find_slot (avail_exprs, (void *)element, true);
+  slot = htab_find_slot_with_hash (avail_exprs, (void *)element,
+				   element->hash, true);
   if (*slot == NULL)
     {
       *slot = (void *) element;
@@ -2663,8 +2672,8 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs,
     {
       struct expr_hash_elt element;
 
-      initialize_hash_element (stmt, &element);
-      htab_remove_elt (avail_exprs, &element);
+      initialize_hash_element (stmt, NULL, &element);
+      htab_remove_elt_with_hash (avail_exprs, &element, element.hash);
     }
 
   /* Now update the RHS of the assignment.  */
@@ -2724,8 +2733,9 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
   tree temp;
   struct expr_hash_elt *element = xcalloc (sizeof (struct expr_hash_elt), 1);
 
+  lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
 
-  initialize_hash_element (stmt, element);
+  initialize_hash_element (stmt, lhs, element);
 
   /* Don't bother remembering constant assignments and copy operations.
      Constants and copy operations are handled by the constant/copy propagator
@@ -2736,10 +2746,6 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
       free (element);
       return NULL_TREE;
     }
-
-  /* If STMT is a MODIFY_EXPR, then we want to record its LHS as well.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
-    element->lhs = TREE_OPERAND (stmt, 0);
 
   /* If this is an equality test against zero, see if we have recorded a
      nonzero value for the variable in question.  */
@@ -2762,7 +2768,8 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
     }
 
   /* Finally try to find the expression in the main expression hash table.  */
-  slot = htab_find_slot (avail_exprs, element, (insert ? INSERT : NO_INSERT));
+  slot = htab_find_slot_with_hash (avail_exprs, element, element->hash,
+				   (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
     {
       free (element);
@@ -3108,7 +3115,8 @@ avail_expr_eq (const void *p1, const void *p2)
 	  return false;
 
 #ifdef ENABLE_CHECKING
-      if (avail_expr_hash (p1) != avail_expr_hash (p2))
+      if (((struct expr_hash_elt *)p1)->hash
+	  != ((struct expr_hash_elt *)p2)->hash)
 	abort ();
 #endif
       return true;

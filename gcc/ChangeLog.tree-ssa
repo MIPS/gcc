@@ -1,3 +1,23 @@
+2004-04-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (struct expr_hash_elt): Add new field for hash value.
+	(initialize_hash_element): New LHS argument.  Callers changed.
+	Initialize the hash value field.
+	(remove_local_expressions_from_table): Use htab_remove_elt_with_hash.
+	(update_rhs_and_lookup_avail_expr): Similary.
+	(lookup_avail_expr): Use htab_find_slot_with_hash.  Simplify slightly
+	and pass LHS to initialize_hash_element.
+	(record_cond): Also use htab_find_slot_with_hash.  Initialize the
+	hash table entry with initialize_hash_element.
+	(avail_expr_eq): Use the saved hash value rather than calling into
+	the hash functions again.
+ 
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Slightly rearrange
+	code to clear tables before each iteration to be clearer.
+ 
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Use
+	DEF_OPS and VDEF_OPS instead of STMT_DEF_OPS and STMT_VDEF_OPS.
+ 
 2004-04-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* flags.h (flag_tree_loop): Remove.  Update all users.
