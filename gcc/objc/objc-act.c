@@ -6017,8 +6017,11 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
       tree method;
 
       /* Avoid trouble since we may evaluate each of these twice.  */
-      object = save_expr (object);
+      lookup_object = save_expr (lookup_object);
       selector = save_expr (selector);
+
+      if (!supper_flag)
+        object = lookup_object;
 
       lookup_object = build_c_cast (rcv_p, lookup_object);
 
