@@ -2,7 +2,6 @@
 
 	* tree-dfa.c (find_refs_in_expr): Change type of second argument to
 	enum tree_ref_type.  Add third argument ref_mod.  Update all users.
-	(unsigned):
 	(create_ref): Add third argument ref_mod.  Decode bitmask to set
 	the individual bitfields in the new reference.
 	* tree-flow-inline.h (is_may_ref): New function.
