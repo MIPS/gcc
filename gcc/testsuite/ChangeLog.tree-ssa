@@ -2,6 +2,9 @@
 
 	* gcc.dg/tree-ssa/20030731-1.c: XFAIL.
 
+	* gcc.dg/i386-ssetype-1.c: XFAIL.
+	* gcc.dg/i386-ssetype-3.c: XFAIL.
+
 2004-02-03  Steven Bosscher  <stevenb@suse.de>
 
 	* gcc.dg/tree-ssa/20030709-2.c: Replace `dce4' with `cddce' for
