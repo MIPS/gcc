@@ -1,5 +1,12 @@
 2005-02-22  Jakub Jelinek  <jakub@redhat.com>
 
+	PR target/18371
+	2004-12-19  Steven Bosscher  <stevenb@suse.de>
+	* config/i386/i386.c (ix86_split_to_parts): Use an array with
+	four elements for decoding a CONST_DOUBLE on 64 bits targets.
+
+2005-02-22  Jakub Jelinek  <jakub@redhat.com>
+
 	Revert:
 	2004-02-23  Alexandre Oliva  <aoliva@redhat.com>
 	Fixed PR/14236
