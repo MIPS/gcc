@@ -1,3 +1,12 @@
+2004-04-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in (stage2_build): Remove support for
+	rebuilding libbanshee.
+	* configure.ac: Remove support for rebuilding
+	libbanshee.
+	* config.gcc (powerpc-*-darwin*): Do not rebuild
+	libbanshee.
+
 2004-04-01  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* tree-ssa-forwprop.c: Add a comment about forward propagation

@@ -2807,16 +2807,10 @@ if test x"$libbanshee" = xyes; then
 	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
 	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
 	ANDER="tree-alias-ander.o"
-	if test x$rebuild_banshee = xyes; then
-		BANSHEEREBUILD="s=\${PWD}; export s && cd ../libbanshee && echo \${PWD} && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
-	else
-		BANSHEEREBUILD=""
-	fi
 	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
 else
 	BANSHEELIB=""
 	BANSHEEINC=""
-	BANSHEEREBUILD=""
 	ANDER=""
 fi
 AC_MSG_RESULT($with_libbanshee)
@@ -2824,7 +2818,6 @@ AC_MSG_RESULT($with_libbanshee)
 AC_SUBST(ANDER)
 AC_SUBST(BANSHEEINC)
 AC_SUBST(BANSHEELIB)
-AC_SUBST(BANSHEEREBUILD)
 
 # --------------
 # Language hooks

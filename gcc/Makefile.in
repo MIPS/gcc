@@ -3585,7 +3585,6 @@ stage1_copy: stage1_build
 	echo stage2_build > stage_last
 
 stage2_build: stage1_copy
-	@BANSHEEREBUILD@
 	$(MAKE) CC="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" CC_FOR_BUILD="$(STAGE_CC_WRAPPER) stage1/xgcc$(exeext) -Bstage1/ -B$(build_tooldir)/bin/" \
 		 STAGE_PREFIX=stage1/ \
 		 $(POSTSTAGE1_FLAGS_TO_PASS) \
