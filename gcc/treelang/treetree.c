@@ -326,13 +326,13 @@ tree_code_create_function_initial (tree prev_saved,
   current_function_decl = fn_decl;
   DECL_INITIAL (fn_decl) = error_mark_node;
 
-  annotate_with_file_line_column (fn_decl, filename, lineno, 0);
+  annotate_with_file_line (fn_decl, filename, lineno);
 
   /* Prepare creation of rtl for a new function.  */
   
   resultdecl = DECL_RESULT (fn_decl) = build_decl (RESULT_DECL, NULL_TREE, TREE_TYPE (TREE_TYPE (fn_decl)));
   DECL_CONTEXT (DECL_RESULT (fn_decl)) = fn_decl;
-  annotate_with_file_line_column (resultdecl, filename, lineno, 0);
+  annotate_with_file_line (resultdecl, filename, lineno);
   /* Work out the size. ??? is this needed.  */
   layout_decl (DECL_RESULT (fn_decl), 0);
 
@@ -351,7 +351,7 @@ tree_code_create_function_initial (tree prev_saved,
       if (!fn_decl)
         abort ();
       DECL_CONTEXT (parm_decl) = fn_decl;
-      annotate_with_file_line_column (parm_decl, filename, lineno, 0);
+      annotate_with_file_line (parm_decl, filename, lineno);
       parm_list = chainon (parm_decl, parm_list);
     }
 
@@ -522,7 +522,7 @@ tree_code_create_variable (unsigned int storage_class,
 
   DECL_CONTEXT (var_decl) = current_function_decl;
 
-  annotate_with_file_line_column (var_decl, filename, lineno, 0);
+  annotate_with_file_line (var_decl, filename, lineno);
 
   /* Set the storage mode and whether only visible in the same file.  */
   switch (storage_class)

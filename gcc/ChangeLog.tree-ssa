@@ -1,3 +1,10 @@
+2003-04-06  Andreas Jaeger  <aj@suse.de>
+
+	* treelang/treetree.c (tree_code_create_function_initial): Replace
+	calls to non-existent function annotate_with_file_line_column with
+	calls to annotate_with_file_line.
+	(tree_code_create_variable): Likewise.
+
 2003-04-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (get_expr_operands): Do not clobber readonly operands
