@@ -1,3 +1,7 @@
+2003-08-11  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-5.c: New test.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/compile/allocate.f90: Also test memebers of
