@@ -746,6 +746,9 @@ void insert_edge_copies (tree, basic_block);
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
 
+/* In tree-elim-checks.c  */
+extern void eliminate_redundant_checks (struct loops *);
+
 /* In tree-ssa-loop-ivopts.c  */
 extern bool expr_invariant_in_loop_p (struct loop *, tree);
 /* In gimplify.c  */

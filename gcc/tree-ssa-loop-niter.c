@@ -778,6 +778,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     case GT_EXPR:
     case GE_EXPR:
     case NE_EXPR:
+    case EQ_EXPR:
     case LT_EXPR:
     case LE_EXPR:
       break;
@@ -798,6 +799,23 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     return false;
   if (!simple_iv (loop, stmt, op1, &base1, &step1))
     return false;
+
+  if (code == EQ_EXPR)
+    {
+      tree diff = fold (build2 (MINUS_EXPR, type, base0, base1));
+
+      /* The loop is exited directly when bases differ.  */
+      if (diff != NULL_TREE 
+	  && TREE_CODE (diff) == INTEGER_CST
+	  && !integer_zerop (diff))
+	{
+	  niter->may_be_zero = boolean_true_node;
+	  niter->niter = fold_convert (type, integer_zero_node);
+	  return true;
+	}
+      else
+	return false;
+    }
 
   niter->niter = NULL_TREE;
   number_of_iterations_cond (type, base0, step0, code, base1, step1,

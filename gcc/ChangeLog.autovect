@@ -1,3 +1,20 @@
+2004-12-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (OBJS-common): Add tree-elim-check.o.
+	(tree-elim-check.o): New.
+	* common.opt (ftree-elim-checks): New.
+	* timevar.def (TV_TREE_ELIM_CHECKS): New.
+	* tree-flow.h (eliminate_redundant_checks): Declared.
+	* tree-optimize.c (init_tree_optimization_passes): Execute 
+	pass_elim_checks.
+	* tree-pass.h (pass_elim_checks): Declare.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Handle a 
+	special case of EQ_EXPR.
+	* tree-ssa-loop.c (tree_elim_checks, gate_tree_elim_checks): New.
+	(pass_elim_checks): Defined.
+	* doc/invoke.texi (-ftree-elim-checks): Document the flag.
+	* tree-elim-check.c: New file, adapted from LNO-branch.
+
 2004-12-16  Devang Patel  <dpatel@apple.com>
 
 	* tree-ssa-forwprop.c (replacable_use_in_cond_expr): Add SSA_NAME check

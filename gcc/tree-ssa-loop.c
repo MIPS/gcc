@@ -430,3 +430,37 @@ struct tree_opt_pass pass_loop_done =
   0					/* letter */
 };
 
+/* Elimination of redundant checks.  */
+
+static void
+tree_elim_checks (void)
+{
+  if (!current_loops)
+    return;
+
+  eliminate_redundant_checks (current_loops);
+}
+
+static bool
+gate_tree_elim_checks (void)
+{
+  return flag_tree_elim_checks != 0;
+}
+
+struct tree_opt_pass pass_elim_checks =
+{
+  "elimchk",				/* name */
+  gate_tree_elim_checks,		/* gate */
+  tree_elim_checks,       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_ELIM_CHECKS,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                	/* todo_flags_finish */
+  0				        /* letter */	
+};
+
