@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
-   Copyright (C) 1987, 88, 89, 92, 94-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92, 94-98, 1999 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -87,7 +87,7 @@ enum cmodel {
 };
 
 /* Value of -mcmodel specified by user.  */
-extern char *sparc_cmodel_string;
+extern const char *sparc_cmodel_string;
 /* One of CM_FOO.  */
 extern enum cmodel sparc_cmodel;
 
@@ -106,18 +106,24 @@ extern enum cmodel sparc_cmodel;
 /* Values of TARGET_CPU_DEFAULT, set via -D in the Makefile,
    and specified by the user via --with-cpu=foo.
    This specifies the cpu implementation, not the architecture size.  */
+/* Note that TARGET_CPU_v9 is assumed to start the list of 64-bit 
+   capable cpu's.  */
 #define TARGET_CPU_sparc	0
 #define TARGET_CPU_v7		0	/* alias for previous */
 #define TARGET_CPU_sparclet	1
 #define TARGET_CPU_sparclite	2
 #define TARGET_CPU_v8		3	/* generic v8 implementation */
 #define TARGET_CPU_supersparc	4
-#define TARGET_CPU_v9		5	/* generic v9 implementation */
-#define TARGET_CPU_sparcv9	5	/* alias */
-#define TARGET_CPU_sparc64	5	/* alias */
-#define TARGET_CPU_ultrasparc	6
+#define TARGET_CPU_hypersparc   5
+#define TARGET_CPU_sparc86x	6
+#define TARGET_CPU_sparclite86x	6
+#define TARGET_CPU_v9		7	/* generic v9 implementation */
+#define TARGET_CPU_sparcv9	7	/* alias */
+#define TARGET_CPU_sparc64	7	/* alias */
+#define TARGET_CPU_ultrasparc	8
 
-#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
+#if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
+ || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
 
 #define CPP_CPU32_DEFAULT_SPEC ""
 #define ASM_CPU32_DEFAULT_SPEC ""
@@ -140,17 +146,35 @@ extern enum cmodel sparc_cmodel;
 #define CPP_CPU64_DEFAULT_SPEC ""
 #define ASM_CPU64_DEFAULT_SPEC ""
 
-#if TARGET_CPU_DEFAULT == TARGET_CPU_sparc || TARGET_CPU_DEFAULT == TARGET_CPU_v8 || TARGET_CPU_DEFAULT == TARGET_CPU_supersparc
+#if TARGET_CPU_DEFAULT == TARGET_CPU_sparc \
+ || TARGET_CPU_DEFAULT == TARGET_CPU_v8
 #define CPP_CPU32_DEFAULT_SPEC ""
 #define ASM_CPU32_DEFAULT_SPEC ""
 #endif
+
 #if TARGET_CPU_DEFAULT == TARGET_CPU_sparclet
 #define CPP_CPU32_DEFAULT_SPEC "-D__sparclet__"
 #define ASM_CPU32_DEFAULT_SPEC "-Asparclet"
 #endif
+
 #if TARGET_CPU_DEFAULT == TARGET_CPU_sparclite
 #define CPP_CPU32_DEFAULT_SPEC "-D__sparclite__"
 #define ASM_CPU32_DEFAULT_SPEC "-Asparclite"
+#endif
+
+#if TARGET_CPU_DEFAULT == TARGET_CPU_supersparc
+#define CPP_CPU32_DEFAULT_SPEC "-D__supersparc__ -D__sparc_v8__"
+#define ASM_CPU32_DEFAULT_SPEC ""
+#endif
+
+#if TARGET_CPU_DEFAULT == TARGET_CPU_hypersparc
+#define CPP_CPU32_DEFAULT_SPEC "-D__hypersparc__ -D__sparc_v8__"
+#define ASM_CPU32_DEFAULT_SPEC ""
+#endif
+
+#if TARGET_CPU_DEFAULT == TARGET_CPU_sparclite86x
+#define CPP_CPU32_DEFAULT_SPEC "-D__sparclite86x__ -D__sparc_v8__"
+#define ASM_CPU32_DEFAULT_SPEC "-Av8"
 #endif
 
 #endif
@@ -208,6 +232,8 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{mcpu=f930:-D__sparclite__} %{mcpu=f934:-D__sparclite__} \
 %{mcpu=v8:-D__sparc_v8__} \
 %{mcpu=supersparc:-D__supersparc__ -D__sparc_v8__} \
+%{mcpu=hypersparc:-D__hypersparc__ -D__sparc_v8__} \
+%{mcpu=sparclite86x:-D__sparclite86x__ -D__sparc_v8__} \
 %{mcpu=v9:-D__sparc_v9__} \
 %{mcpu=ultrasparc:-D__sparc_v9__} \
 %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:%(cpp_cpu_default)}}}}}}} \
@@ -243,7 +269,9 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 "
 
 /* Macros to distinguish endianness.  */
-#define CPP_ENDIAN_SPEC "%{mlittle-endian:-D__LITTLE_ENDIAN__}"
+#define CPP_ENDIAN_SPEC "\
+%{mlittle-endian:-D__LITTLE_ENDIAN__} \
+%{mlittle-endian-data:-D__LITTLE_ENDIAN_DATA__}"
 
 /* Macros to distinguish the particular subtarget.  */
 #define CPP_SUBTARGET_SPEC ""
@@ -316,20 +344,20 @@ Unrecognized value in TARGET_CPU_DEFAULT.
    Do not define this macro if it does not need to do anything.  */
 
 #define EXTRA_SPECS \
-  { "cpp_cpu",		CPP_CPU_SPEC },			\
-  { "cpp_cpu_default",	CPP_CPU_DEFAULT_SPEC },		\
-  { "cpp_arch32",	CPP_ARCH32_SPEC },		\
-  { "cpp_arch64",	CPP_ARCH64_SPEC },		\
-  { "cpp_arch_default",	CPP_ARCH_DEFAULT_SPEC },	\
-  { "cpp_arch",		CPP_ARCH_SPEC },		\
-  { "cpp_endian",	CPP_ENDIAN_SPEC },		\
-  { "cpp_subtarget",	CPP_SUBTARGET_SPEC },		\
-  { "asm_cpu",		ASM_CPU_SPEC },			\
-  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
-  { "asm_arch32",	ASM_ARCH32_SPEC },		\
-  { "asm_arch64",	ASM_ARCH64_SPEC },		\
-  { "asm_arch_default",	ASM_ARCH_DEFAULT_SPEC },	\
-  { "asm_arch",		ASM_ARCH_SPEC },		\
+  { "cpp_cpu",		CPP_CPU_SPEC },		\
+  { "cpp_cpu_default",	CPP_CPU_DEFAULT_SPEC },	\
+  { "cpp_arch32",	CPP_ARCH32_SPEC },	\
+  { "cpp_arch64",	CPP_ARCH64_SPEC },	\
+  { "cpp_arch_default",	CPP_ARCH_DEFAULT_SPEC },\
+  { "cpp_arch",		CPP_ARCH_SPEC },	\
+  { "cpp_endian",	CPP_ENDIAN_SPEC },	\
+  { "cpp_subtarget",	CPP_SUBTARGET_SPEC },	\
+  { "asm_cpu",		ASM_CPU_SPEC },		\
+  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },	\
+  { "asm_arch32",	ASM_ARCH32_SPEC },	\
+  { "asm_arch64",	ASM_ARCH64_SPEC },	\
+  { "asm_arch_default",	ASM_ARCH_DEFAULT_SPEC },\
+  { "asm_arch",		ASM_ARCH_SPEC },	\
   SUBTARGET_EXTRA_SPECS
 
 #define SUBTARGET_EXTRA_SPECS
@@ -361,7 +389,7 @@ void sparc_override_options ();
       {									\
 	if (flag_pic)							\
 	  {								\
-	    char *pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";	\
+	    const char *pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
 	    warning ("%s and profiling conflict: disabling %s",		\
 		     pic_string, pic_string);				\
 	    flag_pic = 0;						\
@@ -541,44 +569,44 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES  \
-  { {"fpu", MASK_FPU | MASK_FPU_SET},	\
-    {"no-fpu", -MASK_FPU},		\
-    {"no-fpu", MASK_FPU_SET},		\
-    {"hard-float", MASK_FPU | MASK_FPU_SET}, \
-    {"soft-float", -MASK_FPU},		\
-    {"soft-float", MASK_FPU_SET},	\
-    {"epilogue", MASK_EPILOGUE},	\
-    {"no-epilogue", -MASK_EPILOGUE},	\
-    {"unaligned-doubles", MASK_UNALIGNED_DOUBLES}, \
-    {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES}, \
-    {"impure-text", MASK_IMPURE_TEXT},	\
-    {"no-impure-text", -MASK_IMPURE_TEXT}, \
-    {"flat", MASK_FLAT},		\
-    {"no-flat", -MASK_FLAT},		\
-    {"app-regs", MASK_APP_REGS},	\
-    {"no-app-regs", -MASK_APP_REGS},	\
-    {"hard-quad-float", MASK_HARD_QUAD}, \
-    {"soft-quad-float", -MASK_HARD_QUAD}, \
-    {"v8plus", MASK_V8PLUS},		\
-    {"no-v8plus", -MASK_V8PLUS},	\
-    {"vis", MASK_VIS},			\
-    {"no-vis", -MASK_VIS},		\
+  { {"fpu", MASK_FPU | MASK_FPU_SET,			"Use hardware fp" },		\
+    {"no-fpu", -MASK_FPU,				"Do not use hardware fp" },	\
+    {"no-fpu", MASK_FPU_SET,				"Do not use hardware fp" },	\
+    {"hard-float", MASK_FPU | MASK_FPU_SET,		"Use hardware fp" },		\
+    {"soft-float", -MASK_FPU,				"Do not use hardware fp" },	\
+    {"soft-float", MASK_FPU_SET,			"Do not use hardware fp" },	\
+    {"epilogue", MASK_EPILOGUE,				"Use FUNCTION_EPILOGUE" },	\
+    {"no-epilogue", -MASK_EPILOGUE,			"Do not use FUNCTION_EPILOGUE" }, 	\
+    {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,	"Assume possible double misalignment" },\
+    {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES,	"Assume all doubles are aligned" }, \
+    {"impure-text", MASK_IMPURE_TEXT,			"Pass -assert pure-text to linker" }, \
+    {"no-impure-text", -MASK_IMPURE_TEXT,		"Do not pass -assert pure-text to linker" }, \
+    {"flat", MASK_FLAT,					"Use flat register window model" }, \
+    {"no-flat", -MASK_FLAT,				"Do not use flat register window model" }, \
+    {"app-regs", MASK_APP_REGS,				"Use ABI reserved registers" },	\
+    {"no-app-regs", -MASK_APP_REGS,			"Do not use ABI reserved registers" }, \
+    {"hard-quad-float", MASK_HARD_QUAD,			"Use hardware quad fp instructions" }, \
+    {"soft-quad-float", -MASK_HARD_QUAD,		"Do not use hardware quad fp instructions" }, \
+    {"v8plus", MASK_V8PLUS,				"Compile for v8plus ABI" },	\
+    {"no-v8plus", -MASK_V8PLUS,				"Do not compile for v8plus ABI" }, \
+    {"vis", MASK_VIS,					"Utilize Visual Instruction Set" }, \
+    {"no-vis", -MASK_VIS,				"Do not utilize Visual Instruction Set" }, \
     /* ??? These are deprecated, coerced to -mcpu=.  Delete in 2.9.  */ \
-    {"cypress", 0},			\
-    {"sparclite", 0},			\
-    {"f930", 0},			\
-    {"f934", 0},			\
-    {"v8", 0},				\
-    {"supersparc", 0},			\
+    {"cypress", 0,					"Optimize for Cypress processors" }, \
+    {"sparclite", 0,					"Optimize for SparcLite processors" }, \
+    {"f930", 0,						"Optimize for F930 processors" }, \
+    {"f934", 0,						"Optimize for F934 processors" }, \
+    {"v8", 0,						"Use V8 Sparc ISA" }, \
+    {"supersparc", 0,					"Optimize for SuperSparc processors" }, \
     /* End of deprecated options.  */	\
-    {"ptr64", MASK_PTR64},		\
-    {"ptr32", -MASK_PTR64},		\
-    {"32", -MASK_64BIT},		\
-    {"64", MASK_64BIT},			\
-    {"stack-bias", MASK_STACK_BIAS},	\
-    {"no-stack-bias", -MASK_STACK_BIAS}, \
+    {"ptr64", MASK_PTR64,				"Pointers are 64-bit" }, \
+    {"ptr32", -MASK_PTR64,				"Pointers are 32-bit" }, \
+    {"32", -MASK_64BIT,					"Use 32-bit ABI" }, \
+    {"64", MASK_64BIT,					"Use 64-bit ABI" }, \
+    {"stack-bias", MASK_STACK_BIAS,			"Use stack bias" }, \
+    {"no-stack-bias", -MASK_STACK_BIAS,			"Do not use stack bias" }, \
     SUBTARGET_SWITCHES			\
-    { "", TARGET_DEFAULT}}
+    { "", TARGET_DEFAULT, ""}}
 
 /* MASK_APP_REGS must always be the default because that's what
    FIXED_REGISTERS is set to and -ffixed- is processed before
@@ -598,6 +626,8 @@ enum processor_type {
   PROCESSOR_SPARCLITE,
   PROCESSOR_F930,
   PROCESSOR_F934,
+  PROCESSOR_HYPERSPARC,
+  PROCESSOR_SPARCLITE86X,
   PROCESSOR_SPARCLET,
   PROCESSOR_TSC701,
   PROCESSOR_V9,
@@ -630,12 +660,12 @@ extern enum processor_type sparc_cpu;
 
 #define TARGET_OPTIONS \
 {							\
-  { "cpu=",  &sparc_select[1].string },			\
-  { "tune=", &sparc_select[2].string },			\
-  { "cmodel=", &sparc_cmodel_string },			\
-  { "align-loops=",	&sparc_align_loops_string },	\
-  { "align-jumps=",	&sparc_align_jumps_string },	\
-  { "align-functions=",	&sparc_align_funcs_string },	\
+  { "cpu=",  &sparc_select[1].string, "Use features of and schedule code for given CPU" }, \
+  { "tune=", &sparc_select[2].string, "Schedule code for given CPU" }, \
+  { "cmodel=", &sparc_cmodel_string, "Use given Sparc code model" }, \
+  { "align-loops=",	&sparc_align_loops_string, "Loop code aligned to this power of 2" }, \
+  { "align-jumps=",	&sparc_align_jumps_string, "Jump targets are aligned to this power of 2" }, \
+  { "align-functions=",	&sparc_align_funcs_string, "Function starts are aligned to this power of 2" }, \
   SUBTARGET_OPTIONS 					\
 }
 
@@ -645,8 +675,8 @@ extern enum processor_type sparc_cpu;
 /* sparc_select[0] is reserved for the default cpu.  */
 struct sparc_cpu_select
 {
-  char *string;
-  char *name;
+  const char *string;
+  const char *name;
   int set_tune_p;
   int set_arch_p;
 };
@@ -654,9 +684,9 @@ struct sparc_cpu_select
 extern struct sparc_cpu_select sparc_select[];
 
 /* Variables to record values the user passes.  */
-extern char *sparc_align_loops_string;
-extern char *sparc_align_jumps_string;
-extern char *sparc_align_funcs_string;
+extern const char *sparc_align_loops_string;
+extern const char *sparc_align_jumps_string;
+extern const char *sparc_align_funcs_string;
 /* Parsed values as a power of two.  */
 extern int sparc_align_loops;
 extern int sparc_align_jumps;
@@ -684,7 +714,7 @@ extern int sparc_align_funcs;
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
-#if defined (__LITTLE_ENDIAN__)
+#if defined (__LITTLE_ENDIAN__) || defined(__LITTLE_ENDIAN_DATA__)
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #else
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
@@ -973,6 +1003,11 @@ if (TARGET_ARCH64				\
 #define CONDITIONAL_REGISTER_USAGE				\
 do								\
   {								\
+    if (flag_pic)						\
+      {								\
+	fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
+	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
+      }								\
     if (TARGET_ARCH32)						\
       {								\
 	fixed_regs[5] = 1;					\
@@ -1410,15 +1445,23 @@ extern char leaf_reg_remap[];
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
    in some cases it is preferable to use a more restrictive class.  */
-/* We can't load constants into FP registers.  We can't load any FP constant
-   if an 'E' constraint fails to match it.  */
+/* - We can't load constants into FP registers.  We can't load any FP
+     constant if an 'E' constraint fails to match it.
+   - Try and reload integer constants (symbolic or otherwise) back into
+     registers directly, rather than having them dumped to memory.  */
+
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
   (CONSTANT_P (X)					\
-   && (FP_REG_CLASS_P (CLASS)				\
+   ? ((FP_REG_CLASS_P (CLASS)				\
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
 	   && (HOST_FLOAT_FORMAT != IEEE_FLOAT_FORMAT	\
 	       || HOST_BITS_PER_INT != BITS_PER_WORD)))	\
-   ? NO_REGS : (CLASS))
+      ? NO_REGS						\
+      : (!FP_REG_CLASS_P (CLASS)			\
+         && GET_MODE_CLASS (GET_MODE (X)) == MODE_INT)	\
+      ? GENERAL_REGS					\
+      : (CLASS))					\
+   : (CLASS))
 
 /* Return the register class of a scratch register needed to load IN into
    a register of class CLASS in MODE.
@@ -2271,11 +2314,11 @@ extern struct rtx_def *sparc_builtin_saveregs ();
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -2514,6 +2557,33 @@ extern struct rtx_def *legitimize_pic_address ();
     (X) = copy_to_suggested_reg (X, NULL_RTX, Pmode); 		\
   if (memory_address_p (MODE, X))				\
     goto WIN; }
+
+/* Try a machine-dependent way of reloading an illegitimate address
+   operand.  If we find one, push the reload and jump to WIN.  This
+   macro is used in only one place: `find_reloads_address' in reload.c.
+
+   For Sparc 32, we wish to handle addresses by splitting them into
+   HIGH+LO_SUM pairs, retaining the LO_SUM in the memory reference. 
+   This cuts the number of extra insns by one.  */
+   
+#define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)     \
+do {                                                                    \
+  /* Decompose SImode constants into hi+lo_sum.  We do have to 		\
+     rerecognize what we produce, so be careful.  */			\
+  if (CONSTANT_P (X)							\
+      && (MODE != TFmode || TARGET_V9)					\
+      && GET_MODE (X) == SImode						\
+      && GET_CODE (X) != LO_SUM && GET_CODE (X) != HIGH)		\
+    {									\
+      X = gen_rtx_LO_SUM (GET_MODE (X),					\
+			  gen_rtx_HIGH (GET_MODE (X), X), X);		\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+                   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	\
+                   OPNUM, TYPE);					\
+      goto WIN;								\
+    }									\
+  /* ??? 64-bit reloads.  */						\
+} while (0)
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
@@ -2803,12 +2873,8 @@ extern struct rtx_def *legitimize_pic_address ();
 #define ISSUE_RATE  sparc_issue_rate()
 
 /* Adjust the cost of dependencies.  */
-#define ADJUST_COST(INSN,LINK,DEP,COST)				\
-  if (sparc_cpu == PROCESSOR_SUPERSPARC)			\
-    (COST) = supersparc_adjust_cost (INSN, LINK, DEP, COST);	\
-  else if (sparc_cpu == PROCESSOR_ULTRASPARC)			\
-    (COST) = ultrasparc_adjust_cost (INSN, LINK, DEP, COST);	\
-  else
+#define ADJUST_COST(INSN,LINK,DEP,COST) \
+  sparc_adjust_cost(INSN, LINK, DEP, COST)
 
 extern void ultrasparc_sched_reorder ();
 extern void ultrasparc_sched_init ();
@@ -3029,6 +3095,7 @@ extern int ultrasparc_variable_issue ();
 
 /* This is how we hook in and defer the case-vector until the end of
    the function.  */
+extern void sparc_defer_case_vector ();
 
 #define ASM_OUTPUT_ADDR_VEC(LAB,VEC) \
   sparc_defer_case_vector ((LAB),(VEC), 0)
@@ -3275,50 +3342,49 @@ do {									\
 
 /* Define the codes that are matched by predicates in sparc.c.  */
 
-#define PREDICATE_CODES								    \
-{"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},			    \
-{"fp_zero_operand", {CONST_DOUBLE}},						    \
-{"intreg_operand", {SUBREG, REG}},						    \
-{"fcc_reg_operand", {REG}},							    \
-{"icc_or_fcc_reg_operand", {REG}},						    \
-{"restore_operand", {REG}},							    \
-{"call_operand", {MEM}},							    \
-{"call_operand_address", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE, ADDRESSOF,    \
-                          SUBREG, REG, PLUS, LO_SUM, CONST_INT}},		    \
-{"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE}},		    \
-{"symbolic_memory_operand", {SUBREG, MEM}},					    \
-{"label_ref_operand", {LABEL_REF}},						    \
-{"sp64_medium_pic_operand", {CONST}},						    \
-{"data_segment_operand", {SYMBOL_REF, PLUS, CONST}},				    \
-{"text_segment_operand", {LABEL_REF, SYMBOL_REF, PLUS, CONST}},			    \
-{"reg_or_nonsymb_mem_operand", {SUBREG, REG, MEM}},				    \
-{"splittable_symbolic_memory_operand", {MEM}},					    \
-{"splittable_immediate_memory_operand", {MEM}},					    \
-{"eq_or_neq", {EQ, NE}},							    \
-{"normal_comp_operator", {GE, GT, LE, LT, GTU, LEU}},				    \
-{"noov_compare_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},		    \
-{"v9_regcmp_op", {EQ, NE, GE, LT, LE, GT}},					    \
-{"extend_op", {SIGN_EXTEND, ZERO_EXTEND}},					    \
-{"cc_arithop", {AND, IOR, XOR}},						    \
-{"cc_arithopn", {AND, IOR}},							    \
-{"arith_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT}},			    \
-{"arith_add_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT}},		    \
-{"arith11_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT}},			    \
-{"arith10_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT}},			    \
-{"arith_double_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, CONST_DOUBLE}},   \
-{"arith_double_add_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, CONST_DOUBLE}},\
-{"arith11_double_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, CONST_DOUBLE}}, \
-{"arith10_double_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, CONST_DOUBLE}}, \
-{"small_int", {CONST_INT, CONSTANT_P_RTX}},					    \
-{"small_int_or_double", {CONST_INT, CONST_DOUBLE, CONSTANT_P_RTX}},		    \
-{"uns_small_int", {CONST_INT, CONSTANT_P_RTX}},					    \
-{"uns_arith_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		    \
-{"clobbered_register", {REG}},							    \
-{"input_operand", {SUBREG, REG, CONSTANT_P_RTX, CONST_INT, MEM}},		    \
-{"zero_operand", {CONST_INT, CONSTANT_P_RTX}},					    \
-{"const64_operand", {CONST_INT, CONST_DOUBLE, CONSTANT_P_RTX}},			    \
-{"const64_high_operand", {CONST_INT, CONST_DOUBLE, CONSTANT_P_RTX}},
-
+#define PREDICATE_CODES							\
+{"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
+{"fp_zero_operand", {CONST_DOUBLE}},					\
+{"intreg_operand", {SUBREG, REG}},					\
+{"fcc_reg_operand", {REG}},						\
+{"icc_or_fcc_reg_operand", {REG}},					\
+{"restore_operand", {REG}},						\
+{"call_operand", {MEM}},						\
+{"call_operand_address", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE,	\
+	ADDRESSOF, SUBREG, REG, PLUS, LO_SUM, CONST_INT}},		\
+{"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE}},	\
+{"symbolic_memory_operand", {SUBREG, MEM}},				\
+{"label_ref_operand", {LABEL_REF}},					\
+{"sp64_medium_pic_operand", {CONST}},					\
+{"data_segment_operand", {SYMBOL_REF, PLUS, CONST}},			\
+{"text_segment_operand", {LABEL_REF, SYMBOL_REF, PLUS, CONST}},		\
+{"reg_or_nonsymb_mem_operand", {SUBREG, REG, MEM}},			\
+{"splittable_symbolic_memory_operand", {MEM}},				\
+{"splittable_immediate_memory_operand", {MEM}},				\
+{"eq_or_neq", {EQ, NE}},						\
+{"normal_comp_operator", {GE, GT, LE, LT, GTU, LEU}},			\
+{"noov_compare_op", {NE, EQ, GE, GT, LE, LT, GEU, GTU, LEU, LTU}},	\
+{"v9_regcmp_op", {EQ, NE, GE, LT, LE, GT}},				\
+{"extend_op", {SIGN_EXTEND, ZERO_EXTEND}},				\
+{"cc_arithop", {AND, IOR, XOR}},					\
+{"cc_arithopn", {AND, IOR}},						\
+{"arith_operand", {SUBREG, REG, CONST_INT}},				\
+{"arith_add_operand", {SUBREG, REG, CONST_INT}},			\
+{"arith11_operand", {SUBREG, REG, CONST_INT}},				\
+{"arith10_operand", {SUBREG, REG, CONST_INT}},				\
+{"arith_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+{"arith_double_add_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+{"arith11_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+{"arith10_double_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+{"small_int", {CONST_INT}},						\
+{"small_int_or_double", {CONST_INT, CONST_DOUBLE}},			\
+{"uns_small_int", {CONST_INT}},						\
+{"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
+{"clobbered_register", {REG}},						\
+{"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
+{"zero_operand", {CONST_INT}},						\
+{"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
+{"const64_high_operand", {CONST_INT, CONST_DOUBLE}},
 
 /* The number of Pmode words for the setjmp buffer.  */
 #define JMP_BUF_SIZE 12
@@ -3334,7 +3400,7 @@ extern int sparc_splitdi_legitimate ();
 extern int sparc_absnegfloat_split_legitimate ();
 
 extern char *output_cbranch ();
-extern char *output_return ();
+extern const char *output_return ();
 extern char *output_v9branch ();
 
 extern void emit_v9_brxx_insn ();
@@ -3394,11 +3460,10 @@ extern int sparc_flat_epilogue_delay_slots ();
 extern int sparc_issue_rate ();
 extern int splittable_immediate_memory_operand ();
 extern int splittable_symbolic_memory_operand ();
-extern int supersparc_adjust_cost ();
+extern int sparc_adjust_cost ();
 extern int symbolic_memory_operand ();
 extern int symbolic_operand ();
 extern int text_segment_operand ();
-extern int ultrasparc_adjust_cost ();
 extern int uns_small_int ();
 extern int v9_regcmp_op ();
 extern int v9_regcmp_p ();

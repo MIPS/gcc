@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -185,26 +185,30 @@ extern enum alpha_fp_trap_mode alpha_fptm;
    where VALUE is the bits to set or minus the bits to clear.
    An empty string NAME is used to identify the default VALUE.  */
 
-#define TARGET_SWITCHES				\
-  { {"no-soft-float", MASK_FP},			\
-    {"soft-float", - MASK_FP},			\
-    {"fp-regs", MASK_FPREGS},			\
-    {"no-fp-regs", - (MASK_FP|MASK_FPREGS)},	\
-    {"alpha-as", -MASK_GAS},			\
-    {"gas", MASK_GAS},				\
-    {"ieee-conformant", MASK_IEEE_CONFORMANT},	\
-    {"ieee", MASK_IEEE|MASK_IEEE_CONFORMANT},	\
-    {"ieee-with-inexact", MASK_IEEE_WITH_INEXACT|MASK_IEEE_CONFORMANT}, \
-    {"build-constants", MASK_BUILD_CONSTANTS},  \
-    {"float-vax", MASK_FLOAT_VAX},		\
-    {"float-ieee", -MASK_FLOAT_VAX},		\
-    {"bwx", MASK_BWX},				\
-    {"no-bwx", -MASK_BWX},			\
-    {"cix", MASK_CIX},				\
-    {"no-cix", -MASK_CIX},			\
-    {"max", MASK_MAX},				\
-    {"no-max", -MASK_MAX},			\
-    {"", TARGET_DEFAULT | TARGET_CPU_DEFAULT} }
+#define TARGET_SWITCHES							\
+  { {"no-soft-float", MASK_FP, "Use hardware fp"},			\
+    {"soft-float", - MASK_FP, "Do not use hardware fp"},		\
+    {"fp-regs", MASK_FPREGS, "Use fp registers"},			\
+    {"no-fp-regs", - (MASK_FP|MASK_FPREGS), "Do not use fp registers"},	\
+    {"alpha-as", -MASK_GAS, "Do not assume GAS"},			\
+    {"gas", MASK_GAS, "Assume GAS"},					\
+    {"ieee-conformant", MASK_IEEE_CONFORMANT,				\
+     "Request IEEE-conformant math library routines (OSF/1)"},		\
+    {"ieee", MASK_IEEE|MASK_IEEE_CONFORMANT,				\
+     "Emit IEEE-conformant code, without inexact exceptions"},		\
+    {"ieee-with-inexact", MASK_IEEE_WITH_INEXACT|MASK_IEEE_CONFORMANT,	\
+     "Emit IEEE-conformant code, with inexact exceptions"},		\
+    {"build-constants", MASK_BUILD_CONSTANTS,				\
+     "Do not emit complex integer constants to read-only memory"},	\
+    {"float-vax", MASK_FLOAT_VAX, "Use VAX fp"},			\
+    {"float-ieee", -MASK_FLOAT_VAX, "Do not use VAX fp"},		\
+    {"bwx", MASK_BWX, "Emit code for the byte/word ISA extension"},	\
+    {"no-bwx", -MASK_BWX, ""},						\
+    {"cix", MASK_CIX, "Emit code for the counting ISA extension"},	\
+    {"no-cix", -MASK_CIX, ""},						\
+    {"max", MASK_MAX, "Emit code for the motion video ISA extension"},	\
+    {"no-max", -MASK_MAX, ""},						\
+    {"", TARGET_DEFAULT | TARGET_CPU_DEFAULT, ""} }
 
 #define TARGET_DEFAULT MASK_FP|MASK_FPREGS
 
@@ -229,19 +233,24 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 	extern char *m88k_short_data;
 	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
-extern char *alpha_cpu_string;  /* For -mcpu= */
-extern char *alpha_fprm_string;	/* For -mfp-rounding-mode=[n|m|c|d] */
-extern char *alpha_fptm_string;	/* For -mfp-trap-mode=[n|u|su|sui]  */
-extern char *alpha_tp_string;	/* For -mtrap-precision=[p|f|i] */
-extern char *alpha_mlat_string;	/* For -mmemory-latency= */
+extern const char *alpha_cpu_string;	/* For -mcpu= */
+extern const char *alpha_fprm_string;	/* For -mfp-rounding-mode=[n|m|c|d] */
+extern const char *alpha_fptm_string;	/* For -mfp-trap-mode=[n|u|su|sui]  */
+extern const char *alpha_tp_string;	/* For -mtrap-precision=[p|f|i] */
+extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
-#define TARGET_OPTIONS				\
-{						\
-  {"cpu=",		&alpha_cpu_string},	\
-  {"fp-rounding-mode=",	&alpha_fprm_string},	\
-  {"fp-trap-mode=",	&alpha_fptm_string},	\
-  {"trap-precision=",	&alpha_tp_string},	\
-  {"memory-latency=",	&alpha_mlat_string},	\
+#define TARGET_OPTIONS					\
+{							\
+  {"cpu=",		&alpha_cpu_string,		\
+   "Generate code for a given CPU"},			\
+  {"fp-rounding-mode=",	&alpha_fprm_string,		\
+   "Control the generated fp rounding mode"},		\
+  {"fp-trap-mode=",	&alpha_fptm_string,		\
+   "Control the IEEE trap mode"},			\
+  {"trap-precision=",	&alpha_tp_string,		\
+   "Control the precision given to fp exceptions"},	\
+  {"memory-latency=",	&alpha_mlat_string,		\
+   "Tune expected memory latency"},			\
 }
 
 /* Attempt to describe CPU characteristics to the preprocessor.  */
@@ -611,18 +620,23 @@ extern void override_options ();
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On Alpha, the integer registers can hold any mode.  The floating-point
    registers can hold 32-bit and 64-bit integers as well, but not 16-bit
-   or 8-bit values.  If we only allowed the larger integers into FP registers,
-   we'd have to say that QImode and SImode aren't tiable, which is a
-   pain.  So say all registers can hold everything and see how that works.  */
+   or 8-bit values.  */
 
-#define HARD_REGNO_MODE_OK(REGNO, MODE) 1
+#define HARD_REGNO_MODE_OK(REGNO, MODE) 				\
+  ((REGNO) >= 32 && (REGNO) <= 62 					\
+   ? GET_MODE_UNIT_SIZE (MODE) == 8 || GET_MODE_UNIT_SIZE (MODE) == 4	\
+   : 1)
 
-/* Value is 1 if it is a good idea to tie two pseudo registers
-   when one has mode MODE1 and one has mode MODE2.
-   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output.  */
+/* A C expression that is nonzero if a value of mode
+   MODE1 is accessible in mode MODE2 without copying.
 
-#define MODES_TIEABLE_P(MODE1, MODE2) 1
+   This asymmetric test is true when MODE1 could be put
+   in an FP register but MODE2 could not.  */
+
+#define MODES_TIEABLE_P(MODE1, MODE2) 				\
+  (HARD_REGNO_MODE_OK (32, (MODE1))				\
+   ? HARD_REGNO_MODE_OK (32, (MODE2))				\
+   : 1)
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -769,11 +783,12 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
    'S' is a 6-bit constant (valid for a shift insn).  */
 
 #define EXTRA_CONSTRAINT(OP, C)				\
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) != AND	\
+  ((C) == 'Q' ? normal_memory_operand (OP, VOIDmode)			\
    : (C) == 'R' ? current_file_function_operand (OP, Pmode)		\
    : (C) == 'S' ? (GET_CODE (OP) == CONST_INT				\
 		   && (unsigned HOST_WIDE_INT) INTVAL (OP) < 64)	\
    : 0)
+extern int normal_memory_operand ();
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1312,11 +1327,11 @@ extern void alpha_init_expanders ();
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1504,6 +1519,18 @@ extern void alpha_init_expanders ();
    
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	\
 do {									\
+  /* We must recognize output that we have already generated ourselves.  */ \
+  if (GET_CODE (X) == PLUS						\
+      && GET_CODE (XEXP (X, 0)) == PLUS					\
+      && GET_CODE (XEXP (XEXP (X, 0), 0)) == REG			\
+      && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
+      && GET_CODE (XEXP (X, 1)) == CONST_INT)				\
+    {									\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+		   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	\
+		   OPNUM, TYPE);					\
+      goto WIN;								\
+    }									\
   if (GET_CODE (X) == PLUS						\
       && GET_CODE (XEXP (X, 0)) == REG					\
       && REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER			\
@@ -1968,7 +1995,7 @@ literal_section ()						\
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*$%s%d", PREFIX, NUM)
+  sprintf ((LABEL), "*$%s%ld", (PREFIX), (long)(NUM))
 
 /* Check a floating-point value for validity for a particular machine mode.  */
 
@@ -2261,15 +2288,15 @@ do {									\
 
 #define PREDICATE_CODES 						\
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
-  {"reg_or_6bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-  {"reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-  {"cint8_operand", {CONST_INT, CONSTANT_P_RTX}},                       \
-  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-  {"add_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
-  {"sext_add_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"reg_or_6bit_operand", {SUBREG, REG, CONST_INT}},			\
+  {"reg_or_8bit_operand", {SUBREG, REG, CONST_INT}},			\
+  {"cint8_operand", {CONST_INT}},					\
+  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			\
+  {"add_operand", {SUBREG, REG, CONST_INT}},				\
+  {"sext_add_operand", {SUBREG, REG, CONST_INT}},			\
   {"const48_operand", {CONST_INT}},					\
-  {"and_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
-  {"or_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
+  {"and_operand", {SUBREG, REG, CONST_INT}},				\
+  {"or_operand", {SUBREG, REG, CONST_INT}},				\
   {"mode_mask_operand", {CONST_INT}},					\
   {"mul8_operand", {CONST_INT}},					\
   {"mode_width_operand", {CONST_INT}},					\
@@ -2282,14 +2309,15 @@ do {									\
   {"current_file_function_operand", {SYMBOL_REF}},			\
   {"call_operand", {REG, SYMBOL_REF}},					\
   {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		     SYMBOL_REF, CONST, LABEL_REF, CONSTANT_P_RTX}},	\
+		     SYMBOL_REF, CONST, LABEL_REF}},			\
   {"some_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		    SYMBOL_REF, CONST, LABEL_REF, CONSTANT_P_RTX}},	\
+		    SYMBOL_REF, CONST, LABEL_REF}},			\
   {"aligned_memory_operand", {MEM}},					\
   {"unaligned_memory_operand", {MEM}},					\
   {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},			\
   {"any_memory_operand", {MEM}},					\
-  {"hard_fp_register_operand", {SUBREG, REG}},
+  {"hard_fp_register_operand", {SUBREG, REG}},				\
+  {"reg_not_elim_operand", {SUBREG, REG}},
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF
@@ -2480,6 +2508,7 @@ extern int divmod_operator ();
 extern int call_operand ();
 extern int reg_or_cint_operand ();
 extern int hard_fp_register_operand ();
+extern int reg_not_elim_operand ();
 extern void alpha_set_memflags ();
 extern int aligned_memory_operand ();
 extern void get_aligned_mem ();

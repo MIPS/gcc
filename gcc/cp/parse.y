@@ -1,5 +1,5 @@
 /* YACC parser for C++ syntax.
-   Copyright (C) 1988, 89, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1988, 89, 93-98, 1999 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -59,9 +59,10 @@ extern int end_of_file;
 
 /* Contains the statement keyword (if/while/do) to include in an
    error message if the user supplies an empty conditional expression.  */
-static char *cond_stmt_keyword;
+static const char *cond_stmt_keyword;
 
 static tree empty_parms PROTO((void));
+static int parse_decl PROTO((tree, tree, tree, int, tree *));
 
 /* Nonzero if we have an `extern "C"' acting as an extern specifier.  */
 int have_extern_spec;
@@ -202,6 +203,7 @@ empty_parms ()
 %type <ttype> compstmt implicitly_scoped_stmt
 
 %type <ttype> declarator notype_declarator after_type_declarator
+%type <ttype> notype_declarator_intern
 %type <ttype> direct_notype_declarator direct_after_type_declarator
 %type <itype> components notype_components
 %type <ttype> component_decl component_decl_1 
@@ -215,7 +217,8 @@ empty_parms ()
 %type <ttype> xexpr parmlist parms bad_parm 
 %type <ttype> identifiers_or_typenames
 %type <ttype> fcast_or_absdcl regcast_or_absdcl
-%type <ttype> expr_or_declarator complex_notype_declarator
+%type <ttype> expr_or_declarator expr_or_declarator_intern
+%type <ttype> complex_notype_declarator
 %type <ttype> notype_unqualified_id unqualified_id qualified_id
 %type <ttype> template_id do_id object_template_id notype_template_declarator
 %type <ttype> overqualified_id notype_qualified_id any_id
@@ -233,7 +236,7 @@ empty_parms ()
 %token <ttype> PRE_PARSED_CLASS_DECL DEFARG DEFARG_MARKER
 %type <ttype> component_constructor_declarator
 %type <ttype> fn.def2 return_id fn.defpen constructor_declarator
-%type <itype> ctor_initializer_opt
+%type <itype> ctor_initializer_opt function_try_block
 %type <ttype> named_class_head named_class_head_sans_basetype
 %type <ttype> named_complex_class_head_sans_basetype
 %type <ttype> unnamed_class_head
@@ -250,6 +253,7 @@ empty_parms ()
 %type <ttype> template_header template_parm_list template_parm
 %type <ttype> template_type_parm template_template_parm
 %type <code>  template_close_bracket
+%type <ttype> apparent_template_type
 %type <ttype> template_type template_arg_list template_arg_list_opt
 %type <ttype> template_arg
 %type <ttype> condition xcond paren_cond_or_null
@@ -644,7 +648,11 @@ fndef:
 	  fn.def1 maybe_return_init ctor_initializer_opt compstmt_or_error
 		{ finish_function (lineno, (int)$3, 0); }
 	| fn.def1 maybe_return_init function_try_block
-		{ }
+		{ 
+		  int nested = (hack_decl_function_context
+				(current_function_decl) != NULL_TREE);
+		  finish_function (lineno, (int)$3, nested); 
+		}
 	| fn.def1 maybe_return_init error
 		{ }
 	;
@@ -717,8 +725,10 @@ component_constructor_declarator:
    reduce/reduce conflict introduced by these rules.  */
 fn.def2:
 	  declmods component_constructor_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2);
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs);
 		 rest_of_mdef:
 		  if (! $$)
 		    YYERROR1;
@@ -726,20 +736,29 @@ fn.def2:
 		    yychar = YYLEX;
 		  reinit_parse_for_method (yychar, $$); }
 	| component_constructor_declarator
-		{ $$ = start_method (NULL_TREE, $1); goto rest_of_mdef; }
+		{ $$ = start_method (NULL_TREE, $1, NULL_TREE); 
+		  goto rest_of_mdef; }
 	| typed_declspecs declarator
-		{ tree specs = strip_attrs ($1.t);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1.t, &specs, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| declmods notype_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| notype_declarator
-		{ $$ = start_method (NULL_TREE, $$); goto rest_of_mdef; }
+		{ $$ = start_method (NULL_TREE, $$, NULL_TREE); 
+		  goto rest_of_mdef; }
 	| declmods constructor_declarator
-		{ tree specs = strip_attrs ($1);
-		  $$ = start_method (specs, $2); goto rest_of_mdef; }
+		{ tree specs, attrs;
+		  split_specs_attrs ($1, &specs, &attrs);
+		  attrs = build_tree_list (attrs, NULL_TREE);
+		  $$ = start_method (specs, $2, attrs); goto rest_of_mdef; }
 	| constructor_declarator
-		{ $$ = start_method (NULL_TREE, $$); goto rest_of_mdef; }
+		{ $$ = start_method (NULL_TREE, $$, NULL_TREE); 
+		  goto rest_of_mdef; }
 	;
 
 return_id:
@@ -903,6 +922,12 @@ template_type:
 	| self_template_type
 	;
 
+apparent_template_type:
+	  template_type
+	| identifier '<' template_arg_list_opt '>'
+	    .finish_template_type
+		{ $$ = $5; }
+
 self_template_type:
 	  SELFNAME  '<' template_arg_list_opt template_close_bracket
 	    .finish_template_type
@@ -1016,7 +1041,7 @@ condition:
 		{ 
 		  cp_finish_decl ($<ttype>6, $7, $4, 1, LOOKUP_ONLYCONVERTING);
 		  resume_momentary ($<itype>5);
-		  $$ = $<ttype>6; 
+		  $$ = convert_from_reference ($<ttype>6); 
 		  if (TREE_CODE (TREE_TYPE ($$)) == ARRAY_TYPE)
 		    cp_error ("definition of array `%#D' in condition", $$); 
 		}
@@ -1081,7 +1106,8 @@ unary_expr:
 	| SIZEOF unary_expr  %prec UNARY
 		{ $$ = expr_sizeof ($2); }
 	| SIZEOF '(' type_id ')'  %prec HYPERUNARY
-		{ $$ = c_sizeof (groktypename ($3.t)); }
+		{ $$ = c_sizeof (groktypename ($3.t));
+		  check_for_new_type ("sizeof", $3); }
 	| ALIGNOF unary_expr  %prec UNARY
 		{ $$ = grok_alignof ($2); }
 	| ALIGNOF '(' type_id ')'  %prec HYPERUNARY
@@ -1300,7 +1326,16 @@ notype_unqualified_id:
 	;
 
 do_id:
-		{ $$ = do_identifier ($<ttype>-1, 1, NULL_TREE); }
+		{
+		  /* If lastiddecl is a TREE_LIST, it's a baselink, which
+		     means that we're in an expression like S::f<int>, so
+		     don't do_identifier; we only do that for unqualified
+		     identifiers.  */
+		  if (lastiddecl && TREE_CODE (lastiddecl) != TREE_LIST)
+		    $$ = do_identifier ($<ttype>-1, 1, NULL_TREE);
+		  else
+		    $$ = $<ttype>-1;
+		}
 
 template_id:
           PFUNCNAME '<' do_id template_arg_list_opt template_close_bracket 
@@ -1325,13 +1360,23 @@ unqualified_id:
 	| SELFNAME
 	;
 
+expr_or_declarator_intern:
+	  expr_or_declarator
+	| attributes expr_or_declarator
+		{
+		  /* Provide support for '(' attributes '*' declarator ')'
+		     etc */
+		  $$ = decl_tree_cons ($1, $2, NULL_TREE);
+		}
+	;
+
 expr_or_declarator:
 	  notype_unqualified_id
-	| '*' expr_or_declarator  %prec UNARY
+	| '*' expr_or_declarator_intern  %prec UNARY
 		{ $$ = build_parse_node (INDIRECT_REF, $2); }
-	| '&' expr_or_declarator  %prec UNARY
+	| '&' expr_or_declarator_intern  %prec UNARY
 		{ $$ = build_parse_node (ADDR_EXPR, $2); }
-	| '(' expr_or_declarator ')'
+	| '(' expr_or_declarator_intern ')'
 		{ $$ = $2; }
 	;
 
@@ -1348,8 +1393,8 @@ direct_notype_declarator:
 	   to the Koenig lookup shift in primary, below.  I hate yacc.  */
 	| notype_unqualified_id %prec '('
 	| notype_template_declarator
-	| '(' expr_or_declarator ')'
-		{ $$ = finish_decl_parsing ($2); }
+	| '(' expr_or_declarator_intern ')'
+                { $$ = finish_decl_parsing ($2); }
 	;
 
 primary:
@@ -1378,7 +1423,7 @@ primary:
 		}
 	| '(' expr ')'
 		{ $$ = finish_parenthesized_expr ($2); }
-	| '(' expr_or_declarator ')'
+	| '(' expr_or_declarator_intern ')'
 		{ $2 = reparse_decl_as_expr (NULL_TREE, $2);
 		  $$ = finish_parenthesized_expr ($2); }
 	| '(' error ')'
@@ -1418,47 +1463,20 @@ primary:
 		{ $$ = finish_this_expr (); }
 	| CV_QUALIFIER '(' nonnull_exprlist ')'
 		{
-		  tree type = NULL_TREE;
-		  tree id = $$;
+		  /* This is a C cast in C++'s `functional' notation
+		     using the "implicit int" extension so that:
+		     `const (3)' is equivalent to `const int (3)'.  */
+		  tree type;
 
-		  /* This is a C cast in C++'s `functional' notation.  */
 		  if ($3 == error_mark_node)
 		    {
 		      $$ = error_mark_node;
 		      break;
 		    }
-#if 0
-		  if ($3 == NULL_TREE)
-		    {
-		      error ("cannot cast null list to type `%s'",
-		             IDENTIFIER_POINTER (TYPE_NAME (id)));
-		      $$ = error_mark_node;
-		      break;
-		    }
-#endif
-#if 0
-		  /* type is not set! (mrs) */
-		  if (type == error_mark_node)
-		    $$ = error_mark_node;
-		  else
-#endif
-		    {
-		      if (id == ridpointers[(int) RID_CONST])
-		        type = build_type_variant (integer_type_node, 1, 0);
-		      else if (id == ridpointers[(int) RID_VOLATILE])
-		        type = build_type_variant (integer_type_node, 0, 1);
-#if 0
-		      /* should not be able to get here (mrs) */
-		      else if (id == ridpointers[(int) RID_FRIEND])
-		        {
-		          error ("cannot cast expression to `friend' type");
-		          $$ = error_mark_node;
-		          break;
-		        }
-#endif
-		      else my_friendly_abort (79);
-		      $$ = build_c_cast (type, build_compound_expr ($3));
-		    }
+
+		  type = cp_build_qualified_type (integer_type_node,
+						  cp_type_qual_from_rid ($1));
+		  $$ = build_c_cast (type, build_compound_expr ($3));
 		}
 	| functional_cast
 	| DYNAMIC_CAST '<' type_id '>' '(' expr ')'
@@ -1801,7 +1819,7 @@ typespec:
 	| complete_type_name
 		{ $$.t = $1; $$.new_type_flag = 0; }
 	| TYPEOF '(' expr ')'
-		{ $$.t = TREE_TYPE ($3);
+		{ $$.t = finish_typeof ($3);
 		  $$.new_type_flag = 0; }
 	| TYPEOF '(' type_id ')'
 		{ $$.t = groktypename ($3.t);
@@ -2032,7 +2050,7 @@ initlist:
 fn.defpen:
 	PRE_PARSED_FUNCTION_DECL
 		{ start_function (NULL_TREE, TREE_VALUE ($1),
-				  NULL_TREE, 1);
+				  NULL_TREE, 2);
 		  reinit_parse_for_function (); }
 
 pending_inline:
@@ -2040,11 +2058,16 @@ pending_inline:
 		{
 		  int nested = (hack_decl_function_context
 				(current_function_decl) != NULL_TREE);
-		  finish_function (lineno, (int)$3, nested);
+		  finish_function (lineno, (int)$3 | 2, nested);
 		  process_next_inline ($1);
 		}
 	| fn.defpen maybe_return_init function_try_block
-		{ process_next_inline ($1); }
+		{ 
+		  int nested = (hack_decl_function_context
+				(current_function_decl) != NULL_TREE);
+		  finish_function (lineno, (int)$3 | 2, nested); 
+                  process_next_inline ($1);
+		}
 	| fn.defpen maybe_return_init error
 		{ process_next_inline ($1); }
 	;
@@ -2094,7 +2117,7 @@ structsp:
                 { TYPE_VALUES (current_enum_type) = $4;
 		  $$.t = finish_enum (current_enum_type);
 		  $$.new_type_flag = 1;
-		  current_enum_type = $<ttype>4;
+		  current_enum_type = $<ttype>3;
 		  resume_momentary ((int) $<itype>1);
 		  check_for_missing_semicolon ($$.t); }
 	| ENUM '{' '}'
@@ -2209,9 +2232,9 @@ named_complex_class_head_sans_basetype:
 		  current_aggr = $1;
 		  $$ = handle_class_head ($1, NULL_TREE, $3);
 		}
-	| aggr template_type
+	| aggr apparent_template_type
 		{ current_aggr = $$; $$ = $2; }
-	| aggr nested_name_specifier template_type
+	| aggr nested_name_specifier apparent_template_type
 		{ current_aggr = $$; $$ = $3; }
 	;
 
@@ -2220,25 +2243,41 @@ named_class_head:
 		{ $$ = xref_tag (current_aggr, $1, 1); }
 	| named_class_head_sans_basetype_defn 
                 { $<ttype>$ = xref_tag (current_aggr, $1, 0); }
+          /* Class name is unqualified, so we look for base classes
+             in the current scope.  */
           maybe_base_class_list  %prec EMPTY
 		{ 
 		  $$ = $<ttype>2;
 		  if ($3)
                     xref_basetypes (current_aggr, $1, $<ttype>2, $3); 
 		}
-	| named_complex_class_head_sans_basetype maybe_base_class_list
+	| named_complex_class_head_sans_basetype 
+                { 
+		  if ($1 != error_mark_node)
+		    push_scope (CP_DECL_CONTEXT ($1)); 
+		}
+	  maybe_base_class_list
 		{ 
-		  $$ = TREE_TYPE ($1);
-		  if (TREE_INT_CST_LOW (current_aggr) == union_type 
-		      && TREE_CODE ($$) != UNION_TYPE)
-		    cp_pedwarn ("`union' tag used in declaring `%#T'", $$);
-		  else if (TREE_CODE ($$) == UNION_TYPE
-			   && TREE_INT_CST_LOW (current_aggr) != union_type)
-		    cp_pedwarn ("non-`union' tag used in declaring `%#T'", $$);
-		  if ($2)
+		  if ($1 != error_mark_node)
 		    {
-		      maybe_process_partial_specialization ($$);
-		      xref_basetypes (current_aggr, $1, $$, $2); 
+		      pop_scope (CP_DECL_CONTEXT ($1));
+		      $$ = TREE_TYPE ($1);
+		      if (current_aggr == union_type_node
+			  && TREE_CODE ($$) != UNION_TYPE)
+			cp_pedwarn ("`union' tag used in declaring `%#T'", $$);
+		      else if (TREE_CODE ($$) == UNION_TYPE
+			       && current_aggr != union_type_node)
+			cp_pedwarn ("non-`union' tag used in declaring `%#T'", $$);
+		      else if (TREE_CODE ($$) == RECORD_TYPE)
+			/* We might be specializing a template with a different
+			   class-key; deal.  */
+			CLASSTYPE_DECLARED_CLASS ($$) = (current_aggr
+							 == class_type_node);
+		      if ($3)
+			{
+			  maybe_process_partial_specialization ($$);
+			  xref_basetypes (current_aggr, $1, $$, $3); 
+			}
 		    }
 		}
 	;
@@ -2364,16 +2403,8 @@ left_curly:
                 { $<ttype>0 = begin_class_definition ($<ttype>0); }
 	;
 
-self_reference:
-	  /* empty */
-		{
-		  finish_member_declaration (build_self_reference ());
-		}
-	;
-
 opt.component_decl_list:
-	  self_reference
-	| self_reference component_decl_list
+	| component_decl_list
 	| opt.component_decl_list access_specifier component_decl_list
 	| opt.component_decl_list access_specifier 
 	;
@@ -2774,16 +2805,26 @@ direct_after_type_declarator:
 /* A declarator allowed whether or not there has been
    an explicit typespec.  These cannot redeclare a typedef-name.  */
 
+notype_declarator_intern:
+	  notype_declarator
+	| attributes notype_declarator
+                {
+		  /* Provide support for '(' attributes '*' declarator ')'
+		     etc */
+		  $$ = decl_tree_cons ($1, $2, NULL_TREE);
+		}
+	;
+	
 notype_declarator:
-	  '*' nonempty_cv_qualifiers notype_declarator  %prec UNARY
+	  '*' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
 		{ $$ = make_pointer_declarator ($2.t, $3); }
-	| '&' nonempty_cv_qualifiers notype_declarator  %prec UNARY
+	| '&' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
 		{ $$ = make_reference_declarator ($2.t, $3); }
-	| '*' notype_declarator  %prec UNARY
+	| '*' notype_declarator_intern  %prec UNARY
 		{ $$ = make_pointer_declarator (NULL_TREE, $2); }
-	| '&' notype_declarator  %prec UNARY
+	| '&' notype_declarator_intern  %prec UNARY
 		{ $$ = make_reference_declarator (NULL_TREE, $2); }
-	| ptr_to_mem cv_qualifiers notype_declarator
+	| ptr_to_mem cv_qualifiers notype_declarator_intern
 		{ tree arg = make_pointer_declarator ($2, $3);
 		  $$ = build_parse_node (SCOPE_REF, $1, arg);
 		}
@@ -2791,15 +2832,15 @@ notype_declarator:
 	;
 
 complex_notype_declarator:
-	  '*' nonempty_cv_qualifiers notype_declarator  %prec UNARY
+	  '*' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
 		{ $$ = make_pointer_declarator ($2.t, $3); }
-	| '&' nonempty_cv_qualifiers notype_declarator  %prec UNARY
+	| '&' nonempty_cv_qualifiers notype_declarator_intern  %prec UNARY
 		{ $$ = make_reference_declarator ($2.t, $3); }
 	| '*' complex_notype_declarator  %prec UNARY
 		{ $$ = make_pointer_declarator (NULL_TREE, $2); }
 	| '&' complex_notype_declarator  %prec UNARY
 		{ $$ = make_reference_declarator (NULL_TREE, $2); }
-	| ptr_to_mem cv_qualifiers notype_declarator
+	| ptr_to_mem cv_qualifiers notype_declarator_intern
 		{ tree arg = make_pointer_declarator ($2, $3);
 		  $$ = build_parse_node (SCOPE_REF, $1, arg);
 		}
@@ -2851,7 +2892,7 @@ overqualified_id:
 functional_cast:
 	  typespec '(' nonnull_exprlist ')'
 		{ $$ = build_functional_cast ($1.t, $3); }
-	| typespec '(' expr_or_declarator ')'
+	| typespec '(' expr_or_declarator_intern ')'
 		{ $$ = reparse_decl_as_expr ($1.t, $3); }
 	| typespec fcast_or_absdcl  %prec EMPTY
 		{ $$ = reparse_absdcl_as_expr ($1.t, $2); }
@@ -3314,10 +3355,8 @@ function_try_block:
                 }
 	  handler_seq
 		{
-		  int nested = (hack_decl_function_context
-				(current_function_decl) != NULL_TREE);
 		  expand_end_all_catch ();
-		  finish_function (lineno, (int)$3, nested);
+		  $$ = $3;
 		}
 	;
 

@@ -1,6 +1,6 @@
    Copyright (C) 1995-1998 Free Software Foundation, Inc.
    Contributed by James Craig Burley (burley@gnu.org).
-	      ffetargetOffset new_size;
+   Contributed by James Craig Burley.
 		  /* Increase size of equiv area to start for lower offset
 		     relative to root symbol.  */
 		  if (! ffetarget_offset_add (&new_size,

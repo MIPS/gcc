@@ -197,6 +197,9 @@ struct function
   /* Nonzero if function being compiled contains nested functions.  */
   int contains_functions;
 
+  /* Nonzero if the function being compiled issues a computed jump.  */
+  int has_computed_jump;
+
   /* Nonzero if the current function is a thunk (a lightweight function that
      just adjusts one of its arguments and forwards to another function), so
      we should try to cut corners where we can.  */
@@ -207,8 +210,9 @@ struct function
      May affect compilation of return insn or of function epilogue.  */
   int args_size;
   
-  /* # bytes the prologue should push and pretend that the caller pushed them.
-     The prologue must do this, but only if parms can be passed in registers.  */
+  /* # bytes the prologue should push and pretend that the caller pushed
+     them.  The prologue must do this, but only if parms can be passed in
+     registers.  */
   int pretend_args_size;
 
   /* This is the offset from the arg pointer to the place where the first
@@ -226,7 +230,8 @@ struct function
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 
-  /* Language-specific reason why the current function cannot be made inline.  */
+  /* Language-specific reason why the current function cannot be made
+     inline.  */
   char *cannot_inline;
   
   /* # of bytes of outgoing arguments.  If ACCUMULATE_OUTGOING_ARGS is
@@ -319,7 +324,8 @@ struct function
 
   /* List (chain of TREE_LISTs) of trampolines for nested functions.
      The trampoline sets up the static chain and jumps to the function.
-     We supply the trampoline's address when the function's address is requested.
+     We supply the trampoline's address when the function's address is
+     requested.
 
      Each link has a FUNCTION_DECL in the TREE_PURPOSE and a reg rtx
      in an RTL_EXPR in the TREE_VALUE.  */
@@ -368,6 +374,11 @@ struct function
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   int has_nonlocal_goto;
+
+  rtx nonlocal_goto_handler_slots;
+  rtx nonlocal_goto_handler_labels;
+  rtx nonlocal_goto_stack_level;
+  tree nonlocal_labels;
 
   struct stmt_status *stmt;
   struct eh_status *eh;
@@ -465,6 +476,7 @@ extern struct function *current_function;
 #define nonlocal_labels (current_function->saved_nonlocal_labels)
 #define nonlocal_goto_handler_slot (current_function->saved_nonlocal_goto_handler_slot)
 #define nonlocal_goto_stack_level (current_function->saved_nonlocal_goto_stack_level)
+#define current_function_has_computed_jump (current_function->has_computed_jump)
 
 /* The FUNCTION_DECL for an inline function currently being expanded.  */
 extern tree inline_function_decl;

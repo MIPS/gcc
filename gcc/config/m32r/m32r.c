@@ -203,6 +203,35 @@ init_reg_tables ()
 	Grep for MODEL in m32r.h for more info.
 */
 
+static tree interrupt_ident1;
+static tree interrupt_ident2;
+static tree model_ident1;
+static tree model_ident2;
+static tree small_ident1;
+static tree small_ident2;
+static tree medium_ident1;
+static tree medium_ident2;
+static tree large_ident1;
+static tree large_ident2;
+
+static void
+init_idents PROTO ((void))
+{
+  if (interrupt_ident1 == 0)
+    {
+      interrupt_ident1 = get_identifier ("interrupt");
+      interrupt_ident2 = get_identifier ("__interrupt__");
+      model_ident1 = get_identifier ("model");
+      model_ident2 = get_identifier ("__model__");
+      small_ident1 = get_identifier ("small");
+      small_ident2 = get_identifier ("__small__");
+      medium_ident1 = get_identifier ("medium");
+      medium_ident2 = get_identifier ("__medium__");
+      large_ident1 = get_identifier ("large");
+      large_ident2 = get_identifier ("__large__");
+    }
+}
+
 /* Return nonzero if IDENTIFIER is a valid decl attribute.  */
 
 int
@@ -212,27 +241,22 @@ m32r_valid_machine_decl_attribute (type, attributes, identifier, args)
      tree identifier;
      tree args;
 {
-  static tree interrupt_ident, model_ident;
-  static tree small_ident, medium_ident, large_ident;
+  init_idents ();
 
-  if (interrupt_ident == 0)
-    {
-      interrupt_ident = get_identifier ("__interrupt__");
-      model_ident = get_identifier ("__model__");
-      small_ident = get_identifier ("__small__");
-      medium_ident = get_identifier ("__medium__");
-      large_ident = get_identifier ("__large__");
-    }
-
-  if (identifier == interrupt_ident
+  if ((identifier == interrupt_ident1
+       || identifier == interrupt_ident2)
       && list_length (args) == 0)
     return 1;
 
-  if (identifier == model_ident
+  if ((identifier == model_ident1
+       || identifier == model_ident2)
       && list_length (args) == 1
-      && (TREE_VALUE (args) == small_ident
-	  || TREE_VALUE (args) == medium_ident
-	  || TREE_VALUE (args) == large_ident))
+      && (TREE_VALUE (args) == small_ident1
+	  || TREE_VALUE (args) == small_ident2
+	  || TREE_VALUE (args) == medium_ident1
+	  || TREE_VALUE (args) == medium_ident2
+	  || TREE_VALUE (args) == large_ident1
+	  || TREE_VALUE (args) == large_ident2))
     return 1;
 
   return 0;
@@ -371,11 +395,17 @@ m32r_encode_section_info (decl)
     {
       if (model)
 	{
-	  if (TREE_VALUE (TREE_VALUE (model)) == get_identifier ("__small__"))
+	  tree id;
+	  
+	  init_idents ();
+
+	  id = TREE_VALUE (TREE_VALUE (model));
+
+	  if (id == small_ident1 || id == small_ident2)
 	    ; /* don't mark the symbol specially */
-	  else if (TREE_VALUE (TREE_VALUE (model)) == get_identifier ("__medium__"))
+	  else if (id == medium_ident1 || id == medium_ident2)
 	    prefix = MEDIUM_FLAG_CHAR;
-	  else if (TREE_VALUE (TREE_VALUE (model)) == get_identifier ("__large__"))
+	  else if (id == large_ident1 || id == large_ident2)
 	    prefix = LARGE_FLAG_CHAR;
 	  else
 	    abort (); /* shouldn't happen */
@@ -1123,16 +1153,29 @@ gen_split_move_double (operands)
   rtx src  = operands[1];
   rtx val;
 
+  /* We might have (SUBREG (MEM)) here, so just get rid of the
+     subregs to make this code simpler.  It is safe to call
+     alter_subreg any time after reload.  */
+  if (GET_CODE (dest) == SUBREG)
+    dest = alter_subreg (dest);
+  if (GET_CODE (src) == SUBREG)
+    src = alter_subreg (src);
+
   start_sequence ();
-  if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG)
+  if (GET_CODE (dest) == REG)
     {
+      int dregno = REGNO (dest);
+
       /* reg = reg */
-      if (GET_CODE (src) == REG || GET_CODE (src) == SUBREG)
+      if (GET_CODE (src) == REG)
 	{
+	  int sregno = REGNO (src);
+
+	  int reverse = (dregno == sregno + 1);
+
 	  /* We normally copy the low-numbered register first.  However, if
 	     the first register operand 0 is the same as the second register of
 	     operand 1, we must copy in the opposite order.  */
-	  int reverse = (REGNO (operands[0]) == REGNO (operands[1]) + 1);
 	  emit_insn (gen_rtx_SET (VOIDmode,
 				  operand_subword (dest, reverse, TRUE, mode),
 				  operand_subword (src,  reverse, TRUE, mode)));
@@ -1162,8 +1205,7 @@ gen_split_move_double (operands)
 	  /* If the high-address word is used in the address, we must load it
 	     last.  Otherwise, load it first.  */
 	  rtx addr = XEXP (src, 0);
-	  int reverse = (refers_to_regno_p (REGNO (dest), REGNO (dest)+1,
-					    addr, 0) != 0);
+	  int reverse = (refers_to_regno_p (dregno, dregno+1, addr, 0) != 0);
 
 	  /* We used to optimize loads from single registers as
 
@@ -1205,8 +1247,7 @@ gen_split_move_double (operands)
 	st r1,r3; st r2,+r3; addi r3,-4
 
      which saves 2 bytes and doesn't force longword alignment.  */
-  else if (GET_CODE (dest) == MEM
-	   && (GET_CODE (src) == REG || GET_CODE (src) == SUBREG))
+  else if (GET_CODE (dest) == MEM && GET_CODE (src) == REG)
     {
       rtx addr = XEXP (dest, 0);
 
@@ -1540,9 +1581,14 @@ m32r_expand_prologue ()
 
   /* Allocate space for register arguments if this is a variadic function.  */
   if (current_frame_info.pretend_size != 0)
-    emit_insn (gen_addsi3 (stack_pointer_rtx,
-			   stack_pointer_rtx,
-			   GEN_INT (-current_frame_info.pretend_size)));
+    {
+      /* Use a HOST_WIDE_INT temporary, since negating an unsigned int gives
+	 the wrong result on a 64-bit host.  */
+      HOST_WIDE_INT pretend_size = current_frame_info.pretend_size;
+      emit_insn (gen_addsi3 (stack_pointer_rtx,
+			     stack_pointer_rtx,
+			     GEN_INT (-pretend_size)));
+    }
 
   /* Save any registers we need to and set up fp.  */
 
@@ -2311,8 +2357,8 @@ m32r_expand_block_move (operands)
     {
       rtx label;
       rtx final_src;
-      
-      bytes_rtx = GEN_INT (MAX_MOVE_BYTES);
+      rtx at_a_time = GEN_INT (MAX_MOVE_BYTES);
+      rtx rounded_total = GEN_INT (bytes);
 
       /* If we are going to have to perform this loop more than
 	 once, then generate a label and compute the address the
@@ -2323,10 +2369,10 @@ m32r_expand_block_move (operands)
 	  final_src = gen_reg_rtx (Pmode);
 
 	  if (INT16_P(bytes))
-	    emit_insn (gen_addsi3 (final_src, src_reg, bytes_rtx));
+	    emit_insn (gen_addsi3 (final_src, src_reg, rounded_total));
 	  else
 	    {
-	      emit_insn (gen_movsi (final_src, bytes_rtx));
+	      emit_insn (gen_movsi (final_src, rounded_total));
 	      emit_insn (gen_addsi3 (final_src, final_src, src_reg));
 	    }
 
@@ -2338,7 +2384,7 @@ m32r_expand_block_move (operands)
 	 to the word after the end of the source block, and dst_reg to point
 	 to the last word of the destination block, provided that the block
 	 is MAX_MOVE_BYTES long.  */
-      emit_insn (gen_movstrsi_internal (dst_reg, src_reg, bytes_rtx));
+      emit_insn (gen_movstrsi_internal (dst_reg, src_reg, at_a_time));
       emit_insn (gen_addsi3 (dst_reg, dst_reg, GEN_INT (4)));
       
       if (bytes > MAX_MOVE_BYTES)
@@ -2424,7 +2470,13 @@ m32r_output_block_move (insn, operands)
 	  /* Get the entire next word, even though we do not want all of it.
 	     The saves us from doing several smaller loads, and we assume that
 	     we cannot cause a page fault when at least part of the word is in
-	     valid memory.  If got_extra is true then we have already loaded
+	     valid memory [since we don't get called if things aren't properly
+	     aligned].  */
+	  int dst_offset = first_time ? 0 : 4;
+	  int last_shift;
+	  rtx my_operands[3];
+
+	  /* If got_extra is true then we have already loaded
 	     the next word as part of loading and storing the previous word.  */
 	  if (! got_extra)
 	    output_asm_insn ("ld\t%4, @%1", operands);
@@ -2433,21 +2485,36 @@ m32r_output_block_move (insn, operands)
 	    {
 	      bytes -= 2;
 
-	      output_asm_insn ("sth\t%4, @%0", operands);
+	      output_asm_insn ("sra3\t%3, %4, #16", operands);
+	      my_operands[0] = operands[3];
+	      my_operands[1] = GEN_INT (dst_offset);
+	      my_operands[2] = operands[0];
+	      output_asm_insn ("sth\t%0, @(%1,%2)", my_operands);
 	      
 	      /* If there is a byte left to store then increment the
 		 destination address and shift the contents of the source
-		 register down by 16 bits.  We could not do the address
+		 register down by 8 bits.  We could not do the address
 		 increment in the store half word instruction, because it does
 		 not have an auto increment mode.  */
 	      if (bytes > 0)  /* assert (bytes == 1) */
 		{
-		  output_asm_insn ("srai\t%4, #16", operands);
-		  output_asm_insn ("addi\t%0, #2", operands);
+		  dst_offset += 2;
+		  last_shift = 8;
 		}
 	    }
-	  
-	  output_asm_insn ("stb\t%4, @%0", operands);
+	  else
+	    last_shift = 24;
+
+	  if (bytes > 0)
+	    {
+	      my_operands[0] = operands[4];
+	      my_operands[1] = GEN_INT (last_shift);
+	      output_asm_insn ("srai\t%0, #%1", my_operands);
+	      my_operands[0] = operands[4];
+	      my_operands[1] = GEN_INT (dst_offset);
+	      my_operands[2] = operands[0];
+	      output_asm_insn ("stb\t%0, @(%1,%2)", my_operands);
+	    }
 	  
 	  bytes = 0;
 	}

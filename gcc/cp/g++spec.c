@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the C++ front-end.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,10 +19,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
-
 #include "system.h"
-
-#include "gansidecl.h"
 
 /* This bit is set if we saw a `-xfoo' language specification.  */
 #define LANGSPEC	(1<<1)
@@ -35,7 +32,9 @@ Boston, MA 02111-1307, USA.  */
 #define MATH_LIBRARY "-lm"
 #endif
 
-extern char *xmalloc PROTO((size_t));
+#ifndef LIBSTDCXX
+#define LIBSTDCXX "-lstdc++"
+#endif
 
 void
 lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
@@ -237,7 +236,7 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library)
     {
-      arglist[j++] = "-lstdc++";
+      arglist[j++] = LIBSTDCXX;
       added_libraries++;
     }
   if (saw_math)

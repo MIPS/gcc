@@ -1,5 +1,5 @@
 /* Parser grammar for quick source code scan of Java(TM) language programs.
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -37,13 +37,11 @@ definitions and other extensions.  */
 %{
 #define JC1_LITE
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "config.h"
+#include "system.h"
 
-/* Definitions for PROTO and VPROTO macros */
-#include "gansidecl.h"
 #include "obstack.h"
+#include "toplev.h"
 
 extern char *input_filename;
 extern FILE *finput, *out;
@@ -74,6 +72,10 @@ static int previous_output;
 /* Record modifier uses  */
 static int modifier_value;
 
+/* Keep track of number of bracket pairs after a variable declarator
+   id.  */
+static int bracket_count; 
+
 /* Record a method declaration  */
 struct method_declarator {
   char *method_name;
@@ -90,10 +92,6 @@ struct method_declarator {
 /* Two actions for this grammar */
 static void report_class_declaration PROTO ((char *));
 static void report_main_declaration PROTO ((struct method_declarator *));
-
-/* Other extern functions */
-char *xmalloc PROTO ((unsigned));
-char *xstrdup PROTO ((char *));
 
 #include "lex.h"
 #include "parse.h"
@@ -257,7 +255,7 @@ qualified_name:
 	name DOT_TK identifier
 		{ 
 		  char *n = xmalloc (strlen ($1)+strlen ($3)+2);
-		  sprintf (n, "%s.s", $1, $3);
+		  sprintf (n, "%s.%s", $1, $3);
 		  $$ = n;
 		}
 ;
@@ -406,8 +404,9 @@ variable_declarator:
 
 variable_declarator_id:
 	identifier
-		{ USE_ABSORBER; }
+		{ bracket_count = 0; USE_ABSORBER; }
 |	variable_declarator_id OSB_TK CSB_TK
+		{ ++bracket_count; }
 ;
 
 variable_initializer:
@@ -463,10 +462,32 @@ formal_parameter:
 	type variable_declarator_id
 		{ 
 		  USE_ABSORBER;
-		  $$ = $1;
+		  if (bracket_count)
+		    {
+		      int i;
+		      char *n = xmalloc (bracket_count + 1 + strlen ($$));
+		      for (i = 0; i < bracket_count; ++i)
+			n[i] = '[';
+		      strcpy (n + bracket_count, $$);
+		      $$ = n;
+		    }
+		  else
+		    $$ = $1;
 		}
 |	modifiers type variable_declarator_id /* Added, JDK1.1 final locals */
-		{ $$ = $2; }
+		{
+		  if (bracket_count)
+		    {
+		      int i;
+		      char *n = xmalloc (bracket_count + 1 + strlen ($$));
+		      for (i = 0; i < bracket_count; ++i)
+			n[i] = '[';
+		      strcpy (n + bracket_count, $$);
+		      $$ = n;
+		    }
+		  else
+		    $$ = $2;
+		}
 ;
 
 throws:
@@ -1133,7 +1154,8 @@ report_main_declaration (declarator)
       && !strcmp (declarator->method_name, "main") 
       && declarator->args 
       && declarator->args [0] == '[' 
-      && !strcmp( declarator->args+1, "String")
+      && (! strcmp (declarator->args+1, "String")
+	  || ! strcmp (declarator->args + 1, "java.lang.String"))
       && current_class)
     {
       if (!previous_output)
@@ -1157,6 +1179,17 @@ void reset_report ()
 
 void
 yyerror (msg)
-     char *msg;
+     char *msg ATTRIBUTE_UNUSED;
 {
+}
+
+char *
+xstrdup (s)
+     const char *s;
+{
+  char *ret;
+
+  ret = xmalloc (strlen (s) + 1);
+  strcpy (ret, s);
+  return ret;
 }

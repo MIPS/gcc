@@ -1,5 +1,5 @@
 /* Definitions for specs for C++.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1995, 96-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -37,21 +37,24 @@ Boston, MA 02111-1307, USA.  */
 	%{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
 	%{!fno-exceptions:-D__EXCEPTIONS}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}} %{trigraphs}\
+	%{ffast-math:-D__FAST_MATH__}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}}\n}\
       %{!E:%{!M:%{!MM:cc1plus %i %1 %2\
                             -lang-c++ %{nostdinc*} %{C} %{A*} %{I*} %{P} %I\
+                            %{MD:-MD %b.d} %{MMD:-MMD %b.d} %{MG}\
                             -undef -D__GNUC__=%v1 -D__GNUG__=%v1 -D__cplusplus\
                             -D__GNUC_MINOR__=%v2\
                             %{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
                             %{!fno-exceptions:-D__EXCEPTIONS}\
                             %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
+			    %{ffast-math:-D__FAST_MATH__}\
                             %{trigraphs}\
 			    %{!Q:-quiet} -dumpbase %b.cc %{d*} %{m*} %{a}\
 			    %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi}\
                             %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
 			    %{v:-version} %{pg:-p} %{p}\
-			    %{f*} %{+e*} %{aux-info*}\
+			    %{f*} %{+e*} %{aux-info*} %{Qn:-fno-ident}\
 			    %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			    %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}}|\n\
               %{!S:as %a %Y\
@@ -65,13 +68,14 @@ Boston, MA 02111-1307, USA.  */
 	%{ansi:-trigraphs -D__STRICT_ANSI__} %{!undef:%{!ansi:%p} %P}\
 	%{!fno-exceptions:-D__EXCEPTIONS}\
         %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}} %{trigraphs}\
+	%{ffast-math:-D__FAST_MATH__}\
 	%{g*} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*} %{U*} %{i*} %Z\
         %i %{!M:%{!MM:%{!E:%{!pipe:%g.ii}}}}%{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}} |\n",
     "%{!M:%{!MM:%{!E:cc1plus %{!pipe:%g.ii} %1 %2\
 			    %{!Q:-quiet} -dumpbase %b.cc %{d*} %{m*} %{a}\
 			    %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi}\
 			    %{v:-version} %{pg:-p} %{p}\
-			    %{f*} %{+e*} %{aux-info*}\
+			    %{f*} %{+e*} %{aux-info*} %{Qn:-fno-ident}\
 			    %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			    %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}}|\n\
               %{!S:as %a %Y\
@@ -83,7 +87,7 @@ Boston, MA 02111-1307, USA.  */
    {"%{!M:%{!MM:%{!E:cc1plus %i %1 %2 %{!Q:-quiet} %{d*} %{m*} %{a}\
 			    %{g*} %{O*} %{W*} %{w} %{pedantic*} %{ansi}\
 			    %{v:-version} %{pg:-p} %{p}\
-			    %{f*} %{+e*} %{aux-info*}\
+			    %{f*} %{+e*} %{aux-info*} %{Qn:-fno-ident}\
 			    %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
 			    %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
 	            %{!S:as %a %Y\

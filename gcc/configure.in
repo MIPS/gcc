@@ -1,7 +1,7 @@
 # configure.in for GNU CC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+# Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -21,6 +21,7 @@
 #Boston, MA 02111-1307, USA.
 
 # Initialization and defaults
+AC_PREREQ(2.12.1)
 AC_INIT(tree.c)
 AC_CONFIG_HEADER(auto-host.h:config.in)
 
@@ -93,14 +94,14 @@ gnu_ld_flag=no)
 # With pre-defined ld
 AC_ARG_WITH(ld,
 [  --with-ld               arrange to use the specified ld (full pathname).],
-LD="$with_ld")
-if test x"${LD+set}" = x"set"; then
-  if test ! -x "$LD"; then
-    AC_MSG_WARN([cannot execute: $LD: check --with-ld or env. var. LD])
-  elif test "GNU" = `$LD -v </dev/null 2>&1 | sed '1s/^GNU.*/GNU/;q'`; then
+DEFAULT_LINKER="$with_ld")
+if test x"${DEFAULT_LINKER+set}" = x"set"; then
+  if test ! -x "$DEFAULT_LINKER"; then
+    AC_MSG_WARN([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
+  elif test "GNU" = `$DEFAULT_LINKER -v </dev/null 2>&1 | sed '1s/^GNU.*/GNU/;q'`; then
     gnu_ld_flag=yes
   fi
-  AC_DEFINE_UNQUOTED(DEFAULT_LINKER,"$LD")
+  AC_DEFINE_UNQUOTED(DEFAULT_LINKER,"$DEFAULT_LINKER")
 fi
 
 # With GNU as
@@ -111,14 +112,14 @@ gas_flag=no)
 
 AC_ARG_WITH(as,
 [  --with-as               arrange to use the specified as (full pathname).],
-AS="$with_as")
-if test x"${AS+set}" = x"set"; then
-  if test ! -x "$AS"; then
-    AC_MSG_WARN([cannot execute: $AS: check --with-as or env. var. AS])
-  elif test "GNU" = `$AS -v </dev/null 2>&1 | sed '1s/^GNU.*/GNU/;q'`; then
+DEFAULT_ASSEMBLER="$with_as")
+if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
+  if test ! -x "$DEFAULT_ASSEMBLER"; then
+    AC_MSG_WARN([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
+  elif test "GNU" = `$DEFAULT_ASSEMBLER -v </dev/null 2>&1 | sed '1s/^GNU.*/GNU/;q'`; then
     gas_flag=yes
   fi
-  AC_DEFINE_UNQUOTED(DEFAULT_ASSEMBLER,"$AS")
+  AC_DEFINE_UNQUOTED(DEFAULT_ASSEMBLER,"$DEFAULT_ASSEMBLER")
 fi
 
 # With stabs
@@ -148,7 +149,10 @@ if test x$local_prefix = x; then
 	local_prefix=/usr/local
 fi
 
-gxx_include_dir=
+# Don't set gcc_gxx_include_dir to gxx_include_dir since that's only
+# passed in by the toplevel make and thus we'd get different behavior
+# depending on where we built the sources.
+gcc_gxx_include_dir=
 # Specify the g++ header file directory
 AC_ARG_WITH(gxx-include-dir,
 [  --with-gxx-include-dir=DIR
@@ -156,15 +160,17 @@ AC_ARG_WITH(gxx-include-dir,
 [case "${withval}" in
 yes)	AC_MSG_ERROR(bad value ${withval} given for g++ include directory) ;;
 no)	;;
-*)	gxx_include_dir=$with_gxx_include_dir ;;
+*)	gcc_gxx_include_dir=$with_gxx_include_dir ;;
 esac])
 
-if test x${gxx_include_dir} = x; then
+if test x${gcc_gxx_include_dir} = x; then
   if test x${enable_version_specific_runtime_libs} = xyes; then
-    gxx_include_dir='${libsubdir}/include/g++'
+    gcc_gxx_include_dir='${libsubdir}/include/g++'
   else
     topsrcdir=${srcdir}/.. . ${srcdir}/../config.if
-    gxx_include_dir='${prefix}/include/g++'-${libstdcxx_interface}
+changequote(<<, >>)dnl
+    gcc_gxx_include_dir="\$(libsubdir)/\$(unlibsubdir)/..\`echo \$(exec_prefix) | sed -e 's|^\$(prefix)||' -e 's|/[^/]*|/..|g'\`/include/g++"-${libstdcxx_interface}
+changequote([, ])dnl
   fi
 fi
 
@@ -190,10 +196,9 @@ AC_ARG_ENABLE(c-cpplib,
 [  --enable-c-cpplib       link cpplib directly into C and C++ compilers
                           (implies --enable-cpplib).],
 if test x$enable_c_cpplib != xno; then
-  extra_c_objs="${extra_c_objs} cpplib.o cppexp.o cpphash.o cpperror.o"
-  extra_c_objs="${extra_c_objs} prefix.o"
-  extra_cxx_objs="${extra_cxx_objs} ../cpplib.o ../cppexp.o ../cpphash.o ../cpperror.o ../prefix.o"
-  extra_c_flags=-DUSE_CPPLIB=1
+  extra_c_objs="${extra_c_objs} libcpp.a"
+  extra_cxx_objs="${extra_cxx_objs} ../libcpp.a"
+  extra_c_flags="${extra_c_flags} -DUSE_CPPLIB=1"
   cpp_main=cppmain
 fi)
 
@@ -209,23 +214,6 @@ AC_ARG_ENABLE(haifa,
 [  --enable-haifa          use the experimental scheduler.
   --disable-haifa         don't use the experimental scheduler for the
                           targets which normally enable it.])
-# Fast fixincludes
-#
-# This is a work in progress...
-AC_ARG_WITH(fast-fixincludes,
-[  --with-fast-fixincludes    use a faster fixinclude program (experimental)],
-fast_fixinc="$with_fast_fixincludes",
-fast_fixinc=no)
-
-# Enable init_priority.
-AC_ARG_ENABLE(init-priority,
-[  --enable-init-priority  use attributes to assign initialization order
-			  for static objects.
-  --disable-init-priority conform to ISO C++ rules for ordering static objects
-			  (i.e. initialized in order of declaration). ],
-if test x$enable_init_priority != xno; then
-  extra_c_flags=-DUSE_INIT_PRIORITY
-fi)
 
 # Enable threads
 # Pass with no value to take the default
@@ -269,6 +257,18 @@ else
 fi,
 objc_boehm_gc='')
 
+AC_ARG_ENABLE(java-gc,
+changequote(<<,>>)dnl
+<<  --enable-java-gc=TYPE   choose garbage collector [boehm]>>,
+changequote([,])
+  JAVAGC=$enableval,
+  JAVAGC=boehm)
+
+AC_ARG_WITH(dwarf2,
+[  --enable-dwarf2	  enable DWARF2 debugging as default.],
+dwarf2="$with_dwarf2",
+dwarf2=no)
+
 # Determine the host, build, and target systems
 AC_CANONICAL_SYSTEM
 
@@ -288,22 +288,22 @@ AC_SUBST(stage1_warn_cflags)
 AC_PROG_MAKE_SET
 
 AC_MSG_CHECKING([whether a default assembler was specified])
-if test x"${AS+set}" = x"set"; then
+if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
     if test x"$with_gas" = x"no"; then
-    	AC_MSG_RESULT([yes ($AS)])
+    	AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER)])
     else
-	AC_MSG_RESULT([yes ($AS - GNU as)])
+	AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER - GNU as)])
     fi
 else
     AC_MSG_RESULT(no)
 fi
 
 AC_MSG_CHECKING([whether a default linker was specified])
-if test x"${LD+set}" = x"set"; then
+if test x"${DEFAULT_LINKER+set}" = x"set"; then
     if test x"$with_gnu_ld" = x"no"; then
-	AC_MSG_RESULT([yes ($LD)])
+	AC_MSG_RESULT([yes ($DEFAULT_LINKER)])
     else
-	AC_MSG_RESULT([yes ($LD - GNU ld)])
+	AC_MSG_RESULT([yes ($DEFAULT_LINKER - GNU ld)])
     fi
 else
     AC_MSG_RESULT(no)
@@ -322,7 +322,8 @@ EGCS_PROG_INSTALL
 AC_HEADER_STDC
 AC_HEADER_TIME
 GCC_HEADER_STRING
-AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h fcntl.h unistd.h stab.h sys/file.h sys/time.h sys/resource.h sys/param.h sys/times.h wait.h sys/wait.h)
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h fcntl.h unistd.h stab.h sys/file.h sys/time.h sys/resource.h sys/param.h sys/times.h sys/stat.h)
 
 # Check for thread headers.
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
@@ -352,14 +353,17 @@ AC_CACHE_VAL(gcc_cv_header_inttypes_h,
   [#include <sys/types.h>
 #include <inttypes.h>],
   [intmax_t i = -1;],
-  [AC_DEFINE_UNQUOTED(HAVE_INTTYPES_H)
-   gcc_cv_header_inttypes_h=yes],
+  [gcc_cv_header_inttypes_h=yes],
   gcc_cv_header_inttypes_h=no)])
 AC_MSG_RESULT($gcc_cv_header_inttypes_h)
+if test $gcc_cv_header_inttypes_h = yes; then
+  AC_DEFINE(HAVE_INTTYPES_H)
+fi
 
 AC_CHECK_FUNCS(strtoul bsearch strerror putenv popen bcopy bzero bcmp \
 	index rindex strchr strrchr kill getrlimit setrlimit atoll atoq \
-	sysconf isascii gettimeofday strsignal)
+	sysconf isascii gettimeofday strsignal putc_unlocked fputc_unlocked \
+	fputs_unlocked)
 
 # Make sure wchar_t is available
 #AC_CHECK_TYPE(wchar_t, unsigned int)
@@ -367,9 +371,19 @@ AC_CHECK_FUNCS(strtoul bsearch strerror putenv popen bcopy bzero bcmp \
 GCC_FUNC_VFPRINTF_DOPRNT
 GCC_FUNC_PRINTF_PTR
 
+case "${host}" in
+*-*-uwin*)
+  # Under some versions of uwin, vfork is notoriously buggy and the test 
+  # can hang configure; on other versions, vfork exists just as a stub.
+  # FIXME: This should be removed once vfork in uwin's runtime is fixed.
+  ac_cv_func_vfork_works=no
+  ;;
+esac
+AC_FUNC_VFORK
+
 GCC_NEED_DECLARATIONS(malloc realloc calloc free bcopy bzero bcmp \
 	index rindex getenv atol sbrk abort atof strerror getcwd getwd \
-	strsignal)
+	strsignal putc_unlocked fputs_unlocked)
 
 GCC_NEED_DECLARATIONS(getrlimit setrlimit, [
 #include <sys/types.h>
@@ -396,6 +410,9 @@ host_xmake_file=
 host_truncate_target=
 host_exeext=
 
+# It is relative to $prefix.
+cpp_install_dir=
+
 # Decode the host machine, then the target machine.
 # For the host machine, we save the xm_file variable as host_xm_file;
 # then we decode the target machine and forget everything else
@@ -418,10 +435,6 @@ for machine in $build $host $target; do
 	use_collect2=
 	# Set this to override the default target model.
 	target_cpu_default=
-	# Set this to control which fixincludes program to use.
-	if test x$fast_fixinc != xyes; then
-		fixincludes=fixincludes
-	else fixincludes=fixinc.sh ; fi
 	# Set this to control how the header file directory is installed.
 	install_headers_dir=install-headers-tar
 	# Set this to a non-empty list of args to pass to cpp if the target
@@ -483,10 +496,22 @@ changequote([,])dnl
 	tm_file=${cpu_type}/${cpu_type}.h
 	xm_file=${cpu_type}/xm-${cpu_type}.h
 	
-	# Set the default macros to define for GNU/Linux systems.
+	# Common parts for linux-gnu and openbsd systems
 	case $machine in
 	*-*-linux-gnu*)
 		xm_defines="HAVE_ATEXIT POSIX BSTRING"
+		;;
+	*-*-openbsd*)
+		tm_file=${cpu_type}/openbsd.h
+		# On OpenBSD systems, the headers are okay
+		fixincludes=Makefile.in
+		tmake_file="t-libc-ok t-openbsd"
+		# avoid surprises, always provide an xm-openbsd file 
+		xm_file=${cpu_type}/xm-openbsd.h
+ 		if test x$enable_threads = xyes; then
+ 			thread_file='posix'
+			tmake_file="${tmake_file} t-openbsd-thread"
+		fi
 		;;
 	esac
 
@@ -539,7 +564,6 @@ changequote([,])dnl
 		target_cpu_default="MASK_GAS"
 		tmake_file="t-linux t-linux-gnulibc1 alpha/t-linux alpha/t-crtbe"
 		extra_parts="crtbegin.o crtend.o"
-		fixincludes=fixinc.wrap
 		xmake_file=none
 		gas=yes gnu_ld=yes
  		if test x$enable_threads = xyes; then
@@ -552,20 +576,24 @@ changequote([,])dnl
 		tmake_file="t-linux alpha/t-linux alpha/t-crtbe"
 		extra_parts="crtbegin.o crtend.o"
 		xmake_file=none
-		fixincludes=Makefile.in
 		gas=yes gnu_ld=yes
  		if test x$enable_threads = xyes; then
  			thread_file='posix'
  		fi
 		;;
 	alpha*-*-netbsd*)
-		tm_file="${tm_file} alpha/elf.h alpha/netbsd.h alpha/netbsdl-elf.h"
+		tm_file="${tm_file} alpha/elf.h alpha/netbsd.h alpha/netbsd-elf.h"
 		target_cpu_default="MASK_GAS"
 		tmake_file="alpha/t-crtbe"
 		extra_parts="crtbegin.o crtend.o"
 		xmake_file=none
-		fixincludes=fixinc.wrap
 		gas=yes gnu_ld=yes
+		;;
+
+	alpha*-*-openbsd*)
+		# default x-alpha is only appropriate for dec-osf.
+		target_cpu_default="MASK_GAS"
+		xmake_file=none
 		;;
 		
 	alpha*-dec-osf*)
@@ -617,7 +645,6 @@ changequote([,])dnl
 		xmake_file=winnt/x-winnt
 		extra_host_objs=oldnames.o
 		extra_gcc_objs="spawnv.o oldnames.o"
-		fixincludes=fixinc.winnt
 		if test x$gnu_ld != xyes
 		then
 			extra_programs=ld.exe
@@ -630,13 +657,16 @@ changequote([,])dnl
 		tm_file=alpha/vms.h
 		xm_file="${xm_file} alpha/xm-vms.h"
 		tmake_file=alpha/t-vms
-		fixincludes=Makefile.in
 		;;
 	arc-*-elf*)
 		extra_parts="crtinit.o crtfini.o"
 		;;
 	arm-*-coff* | armel-*-coff*)
 		tm_file=arm/coff.h
+		tmake_file=arm/t-bare
+		;;
+	arm-*-vxworks*)
+		tm_file=arm/vxarm.h
 		tmake_file=arm/t-bare
 		;;
 changequote(,)dnl
@@ -659,56 +689,78 @@ changequote([,])dnl
 	arm-semi-aout | armel-semi-aout)
 		tm_file=arm/semi.h
 		tmake_file=arm/t-semi
-		fixincludes=Makefile.in # There is nothing to fix
 		;;
 	arm-semi-aof | armel-semi-aof)
 		tm_file=arm/semiaof.h
 		tmake_file=arm/t-semiaof
-		fixincludes=Makefile.in # There is nothing to fix
 		;;
 	arm*-*-netbsd*)
 		tm_file=arm/netbsd.h
 		xm_file="arm/xm-netbsd.h ${xm_file}"
 		tmake_file="t-netbsd arm/t-netbsd"
-		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		;;
-	arm-*-linux-gnuaout*)		# ARM GNU/Linux
+	arm*-*-linux-gnuaout*)		# ARM GNU/Linux with a.out
 		cpu_type=arm
 		xmake_file=x-linux
-		tm_file=arm/linux-gas.h
+		tm_file=arm/linux-aout.h
 		tmake_file=arm/t-linux
-		fixincludes=Makefile.in
 		gnu_ld=yes
 		;;
-	arm-*-aout)
+	arm*-*-linux-gnu*)		# ARM GNU/Linux with ELF
+		xm_file=arm/xm-linux.h
+		xmake_file=x-linux
+		case $machine in
+		armv2*-*-*)
+			tm_file=arm/linux-elf26.h
+			;;
+		*)
+			tm_file=arm/linux-elf.h
+			;;
+		esac
+		tmake_file="t-linux arm/t-linux"
+		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+		gnu_ld=yes
+		case x${enable_threads} in
+		x | xyes | xpthreads | xposix)
+			thread_file='posix'
+			;;
+		esac
+		;;
+	arm*-*-aout)
 		tm_file=arm/aout.h
 		tmake_file=arm/t-bare
+		;;
+        arm*-*-ecos-elf)
+		tm_file=arm/ecos-elf.h
+		tmake_file=arm/t-elf
+		;; 
+	arm*-*-elf)
+		tm_file=arm/unknown-elf.h
+		tmake_file=arm/t-arm-elf
+		;;
+        arm*-*-oabi)
+		tm_file=arm/unknown-elf-oabi.h
+		tmake_file=arm/t-arm-elf
 		;;
 	c1-convex-*)			# Convex C1
 		target_cpu_default=1
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	c2-convex-*)			# Convex C2
 		target_cpu_default=2
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	c32-convex-*)
 		target_cpu_default=4
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	c34-convex-*)
 		target_cpu_default=8
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	c38-convex-*)
 		target_cpu_default=16		
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
  	c4x-*)
  		cpu_type=c4x
@@ -733,16 +785,19 @@ changequote([,])dnl
 	h8300-*-*)
 		float_format=i32
 		;;
+	hppa*-*-openbsd*)
+		target_cpu_default="MASK_SNAKE"
+		tmake_file=pa/t-openbsd
+		;;
 	hppa1.1-*-pro*)
 		tm_file="pa/pa-pro.h ${tm_file} pa/pa-pro-end.h libgloss.h"
 		xm_file=pa/xm-papro.h
 		tmake_file=pa/t-pro
 		;;
 	hppa1.1-*-osf*)
-		target_cpu_default=1
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-osf.h"
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	hppa1.1-*-rtems*)
 		tm_file="pa/pa-pro.h ${tm_file} pa/pa-pro-end.h libgloss.h pa/rtems.h"
@@ -752,16 +807,13 @@ changequote([,])dnl
 	hppa1.0-*-osf*)
 		tm_file="${tm_file} pa/pa-osf.h"
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	hppa1.1-*-bsd*)
-		target_cpu_default=1
+		target_cpu_default="MASK_SNAKE"
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	hppa1.0-*-bsd*)
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	hppa1.0-*-hpux7*)
 		tm_file="pa/pa-oldas.h ${tm_file} pa/pa-hpux7.h"
@@ -792,7 +844,7 @@ changequote([,])dnl
 changequote(,)dnl
 	hppa1.1-*-hpux8.0[0-2]*)
 changequote([,])dnl
-		target_cpu_default=1
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-hpux.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
@@ -806,7 +858,7 @@ changequote([,])dnl
 		use_collect2=yes
 		;;
 	hppa1.1-*-hpux8*)
-		target_cpu_default=1
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-hpux.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
@@ -828,8 +880,8 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hpux10*)
-		target_cpu_default=1
+	hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hpux10.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
@@ -852,6 +904,7 @@ changequote([,])dnl
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hpux10.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
+		tmake_file=pa/t-pa
 		if test x$gas = xyes
 		then
 			tm_file="${tm_file} pa/pa-gas.h"
@@ -866,8 +919,8 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hpux*)
-		target_cpu_default=1
+	hppa1.1-*-hpux* | hppa2*-*-hpux*)
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hpux9.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
@@ -889,8 +942,8 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
-	hppa1.1-*-hiux*)
-		target_cpu_default=1
+	hppa1.1-*-hiux* | hppa2*-*-hiux*)
+		target_cpu_default="MASK_SNAKE"
 		tm_file="${tm_file} pa/pa-hpux.h pa/pa-hiux.h"
 		xm_file=pa/xm-pahpux.h
 		xmake_file=pa/x-pa-hpux
@@ -913,9 +966,8 @@ changequote([,])dnl
 		use_collect2=yes
 		;;
 	hppa*-*-lites*)
-		target_cpu_default=1
+		target_cpu_default="MASK_SNAKE"
 		use_collect2=yes
-		fixincludes=Makefile.in
 		;;
 	i370-*-mvs*)
 		;;
@@ -981,7 +1033,6 @@ changequote([,])dnl
 		xmake_file=i386/x-sysv3
 		tm_file=i386/seq-sysv3.h
 		tmake_file=i386/t-crtstuff
-		fixincludes=fixinc.ptx
 		extra_parts="crtbegin.o crtend.o"
 		install_headers_dir=install-headers-cpio
 		;;
@@ -993,7 +1044,6 @@ changequote([,])dnl
 		tm_file=i386/seq2-sysv3.h
 		tmake_file=i386/t-crtstuff
 		extra_parts="crtbegin.o crtend.o"
-		fixincludes=fixinc.ptx
 		install_headers_dir=install-headers-cpio
 		;;
 changequote(,)dnl
@@ -1005,7 +1055,6 @@ changequote([,])dnl
 		tm_file=i386/ptx4-i.h
 		tmake_file=t-svr4
 		extra_parts="crtbegin.o crtend.o"
-		fixincludes=fixinc.ptx
 		install_headers_dir=install-headers-cpio
 		;;
 	i386-sun-sunos*)		# Sun i386 roadrunner
@@ -1045,6 +1094,7 @@ changequote([,])dnl
 		tm_file="i386/i386.h i386/att.h linux.h i386/freebsd-elf.h i386/perform.h"
 		# On FreeBSD, the headers are already ok, except for math.h.
 		fixincludes=fixinc.wrap
+		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		tmake_file=i386/t-freebsd
 		gas=yes
 		gnu_ld=yes
@@ -1054,19 +1104,20 @@ changequote(,)dnl
 	i[34567]86-*-freebsd*)
 changequote([,])dnl
 		tm_file=i386/freebsd.h
-		# On FreeBSD, the headers are already ok, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=i386/t-freebsd
 		;;
-	# We are hoping OpenBSD is still close enough to NetBSD that we can
-	# share the configurations.
 changequote(,)dnl
-	i[34567]86-*-netbsd* | i[34567]86-*-openbsd*)
+	i[34567]86-*-netbsd*)
 changequote([,])dnl
 		tm_file=i386/netbsd.h
-		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
+		;;
+changequote(,)dnl
+	i[34567]86-*-openbsd*)
+changequote([,])dnl
+		# Remove when the math emulator is fixed
+		# we need collect2 until our bug is fixed...
+		use_collect2=yes
 		;;
 changequote(,)dnl
 	i[34567]86-*-coff*)
@@ -1108,7 +1159,6 @@ changequote([,])dnl			# with a.out format using
 		xmake_file=x-linux-aout
 		tmake_file="t-linux-aout i386/t-crtstuff"
 		tm_file=i386/linux-oldld.h
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		float_format=i386
 		;;
@@ -1118,7 +1168,6 @@ changequote([,])dnl			# with a.out format
 		xmake_file=x-linux-aout
 		tmake_file="t-linux-aout i386/t-crtstuff"
 		tm_file=i386/linux-aout.h
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		float_format=i386
 		;;
@@ -1130,7 +1179,6 @@ changequote([,])dnl			# with ELF format using the
 		tm_file=i386/linux.h	
 		tmake_file="t-linux t-linux-gnulibc1 i386/t-crtstuff"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		float_format=i386
  		if test x$enable_threads = xyes; then
@@ -1145,7 +1193,6 @@ changequote([,])dnl			# with ELF format using glibc 2
 		tm_file=i386/linux.h
 		tmake_file="t-linux i386/t-crtstuff"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		float_format=i386
  		if test x$enable_threads = xyes; then
@@ -1156,30 +1203,35 @@ changequote([,])dnl			# with ELF format using glibc 2
 		;;
 changequote(,)dnl
 	i[34567]86-*-gnu*)
+		float_format=i386
 changequote([,])dnl
 		;;
 changequote(,)dnl
 	i[34567]86-go32-msdos | i[34567]86-*-go32*)
 changequote([,])dnl
-		xm_file=i386/xm-go32.h
-		tm_file=i386/go32.h
-		tmake_file=i386/t-go32
+		echo "GO32/DJGPP V1.X is no longer supported. Use *-pc-msdosdjgpp for DJGPP V2.X instead."
+		exit 1
 		;;
 changequote(,)dnl
 	i[34567]86-pc-msdosdjgpp*)
 changequote([,])dnl
-		xm_file=i386/xm-go32.h
-		tm_file=i386/go32.h
-		tmake_file=i386/t-go32
+		xm_file=i386/xm-djgpp.h
+		tm_file=i386/djgpp.h
+		tmake_file=i386/t-djgpp
+		xmake_file=i386/x-djgpp
 		gnu_ld=yes
 		gas=yes
+		exeext=.exe
+		case $host in *pc-msdosdjgpp*)
+			target_alias=djgpp
+			;;
+		esac
 		;;
 changequote(,)dnl
 	i[34567]86-moss-msdos* | i[34567]86-*-moss*)
 changequote([,])dnl
 		tm_file=i386/moss.h
 		tmake_file=t-libc-ok
-		fixincludes=Makefile.in
 		gnu_ld=yes
 		gas=yes
 		;;
@@ -1247,7 +1299,6 @@ changequote([,])dnl
 		xm_file="xm-siglist.h xm-alloca.h ${xm_file} i386/xm-sco5.h"
 		xm_defines="USG SVR3"
 		xmake_file=i386/x-sco5
-		fixincludes=fixinc.sco
 		install_headers_dir=install-headers-cpio
 		tm_file=i386/sco5.h
 		if test x$gas = xyes
@@ -1257,7 +1308,7 @@ changequote([,])dnl
 		else
 			tmake_file=i386/t-sco5
 		fi
-		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
+		extra_parts="crti.o crtbegin.o crtend.o crtbeginS.o crtendS.o"
 		;;
 changequote(,)dnl
 	i[34567]86-*-sco3.2v4*) 	# 80386 running SCO 3.2v4 system
@@ -1265,7 +1316,6 @@ changequote([,])dnl
 		xm_file="${xm_file} i386/xm-sco.h"
 		xm_defines="USG SVR3 BROKEN_LDEXP SMALL_ARG_MAX NO_SYS_SIGLIST"
 		xmake_file=i386/x-sco4
-		fixincludes=fixinc.sco
 		install_headers_dir=install-headers-cpio
                 if test x$stabs = xyes
 		then
@@ -1311,14 +1361,6 @@ changequote([,])dnl
 		tmake_file=i386/t-sol2
 		extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
 		xmake_file=x-svr4
-		case $machine in
-changequote(,)dnl
-		*-*-solaris2.[0-4])
-changequote([,])dnl
-			fixincludes=fixinc.svr4;;
-		*)
-			fixincludes=fixinc.wrap;;
-		esac
  		if test x$enable_threads = xyes; then
 			thread_file='solaris'
 		fi
@@ -1336,7 +1378,6 @@ changequote([,])dnl
                tmake_file=i386/t-crtpic
                xmake_file=x-svr4
                extra_parts="crtbegin.o crtend.o"
-               fixincludes=fixinc.svr4
                ;;
 changequote(,)dnl
 	i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
@@ -1361,7 +1402,6 @@ changequote([,])dnl
 		tmake_file="i386/t-crtpic i386/t-udk"
 		xmake_file=x-svr4
 		extra_parts="crtbegin.o crtend.o"
-		fixincludes="fixinc.svr4"
 		;;
 changequote(,)dnl
 	i[34567]86-*-osf1*)		# Intel 80386's running OSF/1 1.3+
@@ -1369,7 +1409,6 @@ changequote([,])dnl
 		cpu_type=i386
 		xm_file="${xm_file} xm-svr4.h i386/xm-sysv4.h i386/xm-osf1elf.h"
 		xm_defines="USE_C_ALLOCA SMALL_ARG_MAX"
-		fixincludes=Makefile.in #Don't do it on OSF/1
 		if test x$stabs = xyes
 		then
 			tm_file=i386/osf1elfgdb.h
@@ -1412,26 +1451,24 @@ changequote([,])dnl
 changequote(,)dnl
 	i[34567]86-*-win32)
 changequote([,])dnl
-		xm_file="${xm_file} i386/xm-cygwin32.h"
-		tmake_file=i386/t-cygwin32
+		xm_file="${xm_file} i386/xm-cygwin.h"
+		tmake_file=i386/t-cygwin
 		tm_file=i386/win32.h
-		xmake_file=i386/x-cygwin32
+		xmake_file=i386/x-cygwin
 		extra_objs=winnt.o
-		fixincludes=Makefile.in
  		if test x$enable_threads = xyes; then
 			thread_file='win32'
 		fi
 		exeext=.exe
 		;;
 changequote(,)dnl
-	i[34567]86-*-pe | i[34567]86-*-cygwin32)
+	i[34567]86-*-pe | i[34567]86-*-cygwin*)
 changequote([,])dnl
-		xm_file="${xm_file} i386/xm-cygwin32.h"
-		tmake_file=i386/t-cygwin32
-		tm_file=i386/cygwin32.h
-		xmake_file=i386/x-cygwin32
+		xm_file="${xm_file} i386/xm-cygwin.h"
+		tmake_file=i386/t-cygwin
+		tm_file=i386/cygwin.h
+		xmake_file=i386/x-cygwin
 		extra_objs=winnt.o
-		fixincludes=Makefile.in
  		if test x$enable_threads = xyes; then
 			thread_file='win32'
 		fi
@@ -1442,10 +1479,9 @@ changequote(,)dnl
 changequote([,])dnl
 		tm_file=i386/mingw32.h
 		xm_file="${xm_file} i386/xm-mingw32.h"
-		tmake_file="i386/t-cygwin32 i386/t-mingw32"
+		tmake_file="i386/t-cygwin i386/t-mingw32"
 		extra_objs=winnt.o
-		xmake_file=i386/x-cygwin32
-		fixincludes=Makefile.in
+		xmake_file=i386/x-cygwin
  		if test x$enable_threads = xyes; then
 			thread_file='win32'
 		fi
@@ -1459,6 +1495,38 @@ changequote([,])dnl
 		esac
 		;;
 changequote(,)dnl
+	i[34567]86-*-uwin*)
+changequote([,])dnl
+		tm_file=i386/uwin.h
+		xm_file="${xm_file} i386/xm-uwin.h"
+		xm_defines="USG NO_STAB_H NO_SYS_SIGLIST"
+		tmake_file="i386/t-cygwin i386/t-uwin"
+		extra_objs=winnt.o
+		xmake_file=i386/x-cygwin
+		fixincludes=Makefile.in
+ 		if test x$enable_threads = xyes; then
+			thread_file='win32'
+		fi
+		exeext=.exe
+		;;
+changequote(,)dnl
+	i[34567]86-*-interix*)
+changequote([,])dnl
+		tm_file=i386/interix.h
+		xm_file="${xm_file} xm-interix.h"
+		xm_defines="USG NO_SYS_SIGLIST"
+		tmake_file="i386/t-interix"
+		extra_objs=interix.o
+		xmake_file=x-interix
+		fixincludes=fixinc.interix
+ 		if [[ x$enable_threads = xyes ]]; then
+			thread_file='posix'
+		fi
+ 		if [[ x$stabs = xyes ]]; then
+			tm_file="${tm_file} dbxcoff.h"
+		fi
+		;;
+changequote(,)dnl
 	i[34567]86-*-winnt3*)
 changequote([,])dnl
 		tm_file=i386/win-nt.h
@@ -1468,7 +1536,6 @@ changequote([,])dnl
 		tmake_file=i386/t-winnt
 		extra_host_objs="winnt.o oldnames.o"
 		extra_gcc_objs="spawnv.o oldnames.o"
-		fixincludes=fixinc.winnt
 		if test x$gnu_ld != xyes
 		then
 			extra_programs=ld.exe
@@ -1486,7 +1553,6 @@ changequote([,])dnl
 		tm_file=i386/dgux.h
 		tmake_file=i386/t-dgux
 		xmake_file=i386/x-dgux
-		fixincludes=fixinc.dgux
 		install_headers_dir=install-headers-cpio
               ;;
 	i860-alliant-*)		# Alliant FX/2800
@@ -1899,6 +1965,12 @@ changequote([,])dnl
 		extra_headers=math-68881.h
 		float_format=m68k
 		;;
+	m68020-*-elf* | m68k-*-elf*)
+		tm_file="m68k/m68020-elf.h libgloss.h"
+		xm_file=m68k/xm-m68kv.h
+		tmake_file=m68k/t-m68kelf
+		header_files=math-68881.h
+		;;
 	m68k-*-lynxos*)
 		if test x$gas = xyes
 		then
@@ -1914,10 +1986,13 @@ changequote([,])dnl
 		;;
 	m68k*-*-netbsd*)
 		tm_file=m68k/netbsd.h
-		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
 		float_format=m68k
+		;;
+	m68k*-*-openbsd*)
+		float_format=m68k
+		# we need collect2 until our bug is fixed...
+		use_collect2=yes
 		;;
 	m68k-*-sysv3*)			# Motorola m68k's running system V.3
 		xm_file="xm-alloca.h ${xm_file}"
@@ -1941,7 +2016,6 @@ changequote([,])dnl
 		xmake_file=x-linux
 		tm_file=m68k/linux-aout.h
 		tmake_file="t-linux-aout m68k/t-linux-aout"
-		fixincludes=Makefile.in # The headers are ok already.
 		extra_headers=math-68881.h
 		float_format=m68k
 		gnu_ld=yes
@@ -1953,7 +2027,6 @@ changequote([,])dnl
 		tm_file=m68k/linux.h
 		tmake_file="t-linux t-linux-gnulibc1 m68k/t-linux"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in # The headers are ok already.
 		extra_headers=math-68881.h
 		float_format=m68k
 		gnu_ld=yes
@@ -1965,7 +2038,6 @@ changequote([,])dnl
 		tm_file=m68k/linux.h
 		tmake_file="t-linux m68k/t-linux"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in # The headers are ok already.
 		extra_headers=math-68881.h
 		float_format=m68k
 		gnu_ld=yes
@@ -2003,7 +2075,6 @@ changequote([,])dnl
 		then
 			tmake_file=m88k/t-dgux-gas
 		fi
-		fixincludes=fixinc.dgux
 		;;
 	m88k-dolphin-sysv3*)
 		tm_file=m88k/dolph.h
@@ -2042,6 +2113,9 @@ changequote([,])dnl
 			tmake_file=m88k/t-luna
 		fi
 		;;
+	m88k-*-openbsd*)
+		tmake_file="${tmake_file} m88k/t-luna-gas"
+		;;
 	m88k-*-sysv3*)
 		tm_file=m88k/sysv3.h
 		extra_parts="crtbegin.o crtend.o"
@@ -2061,7 +2135,6 @@ changequote([,])dnl
 	mips-sgi-irix6*)		# SGI System V.4., IRIX 6
 		tm_file=mips/iris6.h
 		xm_file=mips/xm-iris6.h
-		fixincludes=fixinc.irix
 		xmake_file=mips/x-iris6
 		tmake_file=mips/t-iris6
 # 		if test x$enable_threads = xyes; then
@@ -2074,13 +2147,12 @@ changequote([,])dnl
  		gas=yes
 		gnu_ld=yes
  		extra_parts="crtbegin.o crtend.o"
-#		thread_file='vxworks'
+		thread_file='vxworks'
  		;;
 	mips-sgi-irix5cross64)		# Irix5 host, Irix 6 target, cross64
 		tm_file="mips/iris6.h mips/cross64.h"
 		xm_defines=USG
 		xm_file="mips/xm-iris5.h"
-		fixincludes=Makefile.in
 		xmake_file=mips/x-iris
 		tmake_file=mips/t-cross64
 		# See comment in mips/iris[56].h files.
@@ -2122,7 +2194,6 @@ changequote([,])dnl
 		fi
 		xm_defines=USG
 		xm_file="mips/xm-iris5.h"
-		fixincludes=fixinc.irix
 		xmake_file=mips/x-iris
 		# mips-tfile doesn't work yet
 		tmake_file=mips/t-mips-gas
@@ -2222,7 +2293,6 @@ changequote([,])dnl
 		;;
 	mips-dec-bsd*)                  # Decstation running 4.4 BSD
               tm_file=mips/dec-bsd.h
-              fixincludes=
 	      if test x$gas = xyes
 	      then
 		   	tmake_file=mips/t-mips-gas
@@ -2238,8 +2308,29 @@ changequote([,])dnl
 	mipsel-*-netbsd* | mips-dec-netbsd*)    # Decstation running NetBSD
 		tm_file=mips/netbsd.h
 		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
+		;;
+       mips*-*-linux*)                         # Linux MIPS, either endian.
+		xmake_file=x-linux
+		xm_file="xm-siglist.h ${xm_file}"
+               case $machine in
+                       mipsel-*)  tm_file="mips/elfl.h mips/linux.h" ;;
+                       *)         tm_file="mips/elf.h mips/linux.h" ;;
+               esac
+		extra_parts="crtbegin.o crtend.o"
+		gnu_ld=yes
+		gas=yes
+		fixincludes=Makefile.in 
+		;;
+	mips*el-*-openbsd*)	# mips little endian
+		target_cpu_default="MASK_GAS|MASK_ABICALLS"
+		tm_file=mips/openbsd.h
+		xmake_file=none
+		;;
+	mips*-*-openbsd*)		# mips big endian
+		target_cpu_default="MASK_GAS|MASK_ABICALLS"
+		tm_file=mips/openbsd-be.h
+		xmake_file=none
 		;;
 	mips-sony-bsd* | mips-sony-newsos*)	# Sony NEWS 3600 or risc/news.
 		tm_file="mips/news4.h ${tm_file}"
@@ -2583,13 +2674,15 @@ changequote([,])dnl
 		tm_file=ns32k/netbsd.h
 		xm_file="ns32k/xm-netbsd.h ${xm_file}"
 		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
 		;;
         pdp11-*-bsd)
 		tm_file="${tm_file} pdp11/2bsd.h"
                 ;;
         pdp11-*-*)
+		;;
+	ns32k-*-openbsd*)
+		# Nothing special
 		;;
 	pyramid-*-*)
 		cpu_type=pyr
@@ -2602,6 +2695,13 @@ changequote([,])dnl
 	romp-*-mach*)
 		xmake_file=romp/x-mach
 		use_collect2=yes
+		;;
+	romp-*-openbsd*)
+		# Nothing special
+		;;
+	powerpc-*-openbsd*)
+		tmake_file="${tmake_file} rs6000/t-rs6000 rs6000/t-openbsd"
+		xmake_file=none
 		;;
 	powerpc-*-beos*)
 		cpu_type=rs6000
@@ -2626,13 +2726,11 @@ changequote([,])dnl
 	powerpc-*-eabiaix*)
 		tm_file=rs6000/eabiaix.h
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-eabisim*)
 		tm_file=rs6000/eabisim.h
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-eabi*)
@@ -2643,7 +2741,6 @@ changequote([,])dnl
 		else
 			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
 		fi
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-rtems*)
@@ -2654,7 +2751,6 @@ changequote([,])dnl
 		else
 		     tmake_file="rs6000/t-ppc t-rtems rs6000/t-ppccomm"
 		fi
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-linux-gnulibc1)
@@ -2668,7 +2764,6 @@ changequote([,])dnl
 			tmake_file="rs6000/t-ppc t-linux t-linux-gnulibc1 rs6000/t-ppccomm"
 		fi
 		xmake_file=x-linux
-		fixincludes=Makefile.in
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		extra_headers=ppc-asm.h
 		if test x$enable_threads = xyes; then
@@ -2687,7 +2782,6 @@ changequote([,])dnl
 			tmake_file="rs6000/t-ppc t-linux rs6000/t-ppccomm"
 		fi
 		xmake_file=x-linux
-		fixincludes=Makefile.in
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		extra_headers=ppc-asm.h
 		if test x$enable_threads = xyes; then
@@ -2719,7 +2813,6 @@ changequote([,])dnl
 	powerpcle-*-eabisim*)
 		tm_file=rs6000/eabilesim.h
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
 	powerpcle-*-eabi*)
@@ -2730,26 +2823,23 @@ changequote([,])dnl
 		else
 			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
 		fi
-		fixincludes=Makefile.in
 		extra_headers=ppc-asm.h
 		;;
         powerpcle-*-winnt* )
                 tm_file=rs6000/win-nt.h
                 tmake_file=rs6000/t-winnt
 #               extra_objs=pe.o
-		fixincludes=Makefile.in
  		if test x$enable_threads = xyes; then
 			thread_file='win32'
 		fi
 		extra_headers=ppc-asm.h
 		;;
-	powerpcle-*-pe | powerpcle-*-cygwin32)
-		tm_file=rs6000/cygwin32.h
-		xm_file="rs6000/xm-cygwin32.h ${xm_file}"
+	powerpcle-*-pe | powerpcle-*-cygwin*)
+		tm_file=rs6000/cygwin.h
+		xm_file="rs6000/xm-cygwin.h ${xm_file}"
 		tmake_file=rs6000/t-winnt
-		xmake_file=rs6000/x-cygwin32
+		xmake_file=rs6000/x-cygwin
 #		extra_objs=pe.o
-		fixincludes=Makefile.in
  		if test x$enable_threads = xyes; then
 			thread_file='win32'
 		fi
@@ -2767,14 +2857,6 @@ changequote([,])dnl
 			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
 		fi
 		xmake_file=rs6000/x-sysv4
-		case $machine in
-changequote(,)dnl
-		*-*-solaris2.[0-4])
-changequote([,])dnl
-			fixincludes=fixinc.svr4;;
-		*)
-			fixincludes=fixinc.wrap;;
-		esac
 		extra_headers=ppc-asm.h
 		;;
 changequote(,)dnl
@@ -2782,6 +2864,7 @@ changequote(,)dnl
 changequote([,])dnl
 		tm_file=rs6000/aix31.h
 		xmake_file=rs6000/x-aix31
+		float_format=none
 		use_collect2=yes
 		;;
 changequote(,)dnl
@@ -2794,12 +2877,18 @@ changequote([,])dnl
 		else
 			tmake_file=rs6000/t-newas
 		fi
+		float_format=none
 		use_collect2=yes
 		;;
 changequote(,)dnl
 	rs6000-ibm-aix4.[12]* | powerpc-ibm-aix4.[12]*)
 changequote([,])dnl
-		tm_file=rs6000/aix41.h
+		if test "$gnu_ld" = yes
+		then
+			tm_file=rs6000/aix41-gld.h
+		else
+			tm_file=rs6000/aix41.h
+		fi
 		if test x$host != x$target
 		then
 			tmake_file=rs6000/t-xnewas
@@ -2807,6 +2896,7 @@ changequote([,])dnl
 			tmake_file=rs6000/t-newas
 		fi
 		xmake_file=rs6000/x-aix41
+		float_format=none
 		use_collect2=yes
 		;;
 changequote(,)dnl
@@ -2820,6 +2910,7 @@ changequote([,])dnl
 			tmake_file=rs6000/t-aix43
 		fi
 		xmake_file=rs6000/x-aix43
+		float_format=none
 		use_collect2=yes
 		;;
 changequote(,)dnl
@@ -2833,12 +2924,15 @@ changequote([,])dnl
 			tmake_file=rs6000/t-aix43
 		fi
 		xmake_file=rs6000/x-aix43
+		float_format=none
 		use_collect2=yes
 		;;
 	rs6000-ibm-aix*)
+		float_format=none
 		use_collect2=yes
 		;;
 	rs6000-bull-bosx)
+		float_format=none
 		use_collect2=yes
 		;;
 	rs6000-*-mach*)
@@ -2888,9 +2982,11 @@ changequote([,])dnl
 		;;
 	sparc-*-netbsd*)
 		tm_file=sparc/netbsd.h
-		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
+		;;
+	sparc-*-openbsd*)
+		# we need collect2 until our bug is fixed...
+		use_collect2=yes
 		;;
 	sparc-*-bsd*)
 		tm_file=sparc/bsd.h
@@ -2906,7 +3002,6 @@ changequote([,])dnl
 		xm_file="${xm_file} sparc/xm-linux.h"
 		tm_file=sparc/linux-aout.h
 		xmake_file=x-linux
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		;;
 	sparc-*-linux-gnulibc1*)	# Sparc's running GNU/Linux, libc5
@@ -2915,7 +3010,6 @@ changequote([,])dnl
 		tm_file=sparc/linux.h
 		tmake_file="t-linux t-linux-gnulibc1"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
 		;;
 	sparc-*-linux-gnu*)		# Sparc's running GNU/Linux, libc6
@@ -2924,7 +3018,6 @@ changequote([,])dnl
 		tm_file=sparc/linux.h
 		tmake_file="t-linux"
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
-		fixincludes=Makefile.in #On Linux, the headers are ok already.
 		gnu_ld=yes
  		if test x$enable_threads = xyes; then
  			thread_file='posix'
@@ -2952,8 +3045,7 @@ changequote([,])dnl
 		tmake_file="sparc/t-sol2 sparc/t-sol2-64"
 		xmake_file=sparc/x-sysv4
 		extra_parts="crt1.o crti.o crtn.o gcrt1.o crtbegin.o crtend.o"
-		fixincludes=fixinc.wrap
-		float_format=i128
+		float_format=none
 		if test x${enable_threads} = x ; then
 		    enable_threads=$have_pthread_h
 		    if test x${enable_threads} = x ; then
@@ -2968,6 +3060,15 @@ changequote([,])dnl
 		    fi
 		fi
 		;;
+        sparc-hal-solaris2*)
+                xm_file=sparc/xm-sol2.h
+                tm_file="sparc/sol2.h sparc/hal.h"
+                tmake_file="sparc/t-halos sparc/t-sol2"
+                xmake_file=sparc/x-sysv4
+                extra_parts="crt1.o crti.o crtn.o gmon.o crtbegin.o crtend.o"
+                fixincludes=fixinc.svr4
+                broken_install=yes
+                ;;
 	sparc-*-solaris2*)
 		if test x$gnu_ld = xyes
 		then
@@ -2984,11 +3085,12 @@ changequote([,])dnl
 changequote(,)dnl
 		*-*-solaris2.[0-4])
 changequote([,])dnl
-			fixincludes=fixinc.svr4;;
+			float_format=i128
+			;;
 		*)
-			fixincludes=fixinc.wrap;;
+			float_format=none
+			;;
 		esac
-		float_format=i128
 		if test x${enable_threads} = x; then
 		    enable_threads=$have_pthread_h
 		    if test x${enable_threads} = x; then
@@ -3061,7 +3163,6 @@ changequote([,])dnl
 		xm_file="sparc/xm-sp64.h sparc/xm-linux.h"
 		tm_file=sparc/linux64.h
 		xmake_file=x-linux
-		fixincludes=Makefile.in	# The headers are ok already.
 		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		gnu_ld=yes
 		;;
@@ -3077,7 +3178,6 @@ changequote([,])dnl
 		xm_file=arm/xm-thumb.h
 		md_file=arm/thumb.md
 		tmake_file=arm/t-thumb
-		fixincludes=Makefile.in # There is nothing to fix
 		;;
 # This hasn't been upgraded to GCC 2.
 #	tron-*-*)
@@ -3106,10 +3206,11 @@ changequote([,])dnl
 		;;
 	vax-*-netbsd*)
 		tm_file="${tm_file} netbsd.h vax/netbsd.h"
-		# On NetBSD, the headers are already okay, except for math.h.
-		fixincludes=fixinc.wrap
 		tmake_file=t-netbsd
 		float_format=vax
+		;;
+	vax-*-openbsd*)
+		tmake_file="${tm_file} vax/t-openbsd"
 		;;
 	vax-*-ultrix*)			# vaxen running ultrix
 		tm_file="${tm_file} vax/ultrix.h"
@@ -3149,13 +3250,10 @@ changequote([,])dnl
 		# GNU tools are the only tools.
 		gnu_ld=yes
 		gas=yes
-		# On GNU, the headers are already okay.
-		fixincludes=Makefile.in
 		xmake_file=x-linux	# These details are the same as Linux.
 		tmake_file=t-gnu	# These are not.
 		;;
 	*-*-sysv4*)
-		fixincludes=fixinc.svr4
 		xmake_try_sysv=x-sysv
 		install_headers_dir=install-headers-cpio
 		;;
@@ -3181,7 +3279,7 @@ changequote([,])dnl
 	alpha*-*-*)
 		case $machine in
 			alphaev6*)
-				target_cpu_default2="MASK_CPU_EV6|MASK_BXW|MASK_CIX|MASK_MAX"
+				target_cpu_default2="MASK_CPU_EV6|MASK_BWX|MASK_CIX|MASK_MAX"
 				;;
 			alphapca56*)
 				target_cpu_default2="MASK_CPU_EV5|MASK_BWX|MASK_MAX"
@@ -3216,7 +3314,7 @@ changequote([,])dnl
 			xarm[23678] | xarm250 | xarm[67][01]0 \
 			| xarm7m | xarm7dm | xarm7dmi | xarm7tdmi \
 			| xarm7100 | xarm7500 | xarm7500fe | xarm810 \
-			| xstrongarm | xstrongarm110)
+			| xstrongarm | xstrongarm110 | xstrongarm1100)
 				target_cpu_default2="TARGET_CPU_$with_cpu"
 				;;
 
@@ -3260,6 +3358,7 @@ changequote([,])dnl
 			xcommon | xpower | xpower2 | xpowerpc | xrios \
 			  | xrios1 | xrios2 | xrsc | xrsc1 \
 			  | x601 | x602 | x603 | x603e | x604 | x604e | x620 \
+			  | xec603e | x740 | x750 | x401 \
 			  | x403 | x505 | x801 | x821 | x823 | x860)
 				target_cpu_default2="\"$with_cpu\""
 				;;
@@ -3283,7 +3382,7 @@ changequote([,])dnl
 			.)
 				target_cpu_default2=TARGET_CPU_"`echo $machine | sed 's/-.*$//'`"
 				;;
-			.supersparc | .ultrasparc | .v7 | .v8 | .v9)
+			.supersparc | .hypersparc | .ultrasparc | .v7 | .v8 | .v9)
 				target_cpu_default2="TARGET_CPU_$with_cpu"
 				;;
 			*)
@@ -3371,16 +3470,31 @@ if test x"$tmake_file" = x
 then tmake_file=$cpu_type/t-$cpu_type
 fi
 
+if test x"$dwarf2" = xyes
+then tm_file="tm-dwarf2.h $tm_file"
+fi
+
 if test x$float_format = x
 then float_format=i64
+fi
+
+if test $float_format = none
+then float_h_file=Makefile.in
+else float_h_file=float-$float_format.h
 fi
 
 if test x$enable_haifa = x
 then
   case $target in
-    alpha*-* | hppa1.?-* | powerpc*-* | rs6000-* | *sparc*-* | m32r*-*)
+    alpha*-* | hppa*-* | powerpc*-* | rs6000-* | *sparc*-* | m32r*-*)
       enable_haifa=yes;;
   esac
+fi
+
+# Handle cpp installation.
+if [[ x$enable_cpp != x ]]
+then
+  tmake_file="$tmake_file t-install-cpp"
 fi
 
 # Say what files are being used for the output code and MD file.
@@ -3442,14 +3556,14 @@ fi
 # auto-host.h is the file containing items generated by autoconf and is
 # the first file included by config.h.
 null_defines=
-host_xm_file="auto-host.h ${host_xm_file}"
+host_xm_file="auto-host.h gansidecl.h ${host_xm_file}"
 
 # If host=build, it is correct to have hconfig include auto-host.h
 # as well.  If host!=build, we are in error and need to do more 
 # work to find out the build config parameters.
 if test x$host = x$build
 then
-	build_xm_file="auto-host.h ${build_xm_file}"
+	build_xm_file="auto-host.h gansidecl.h ${build_xm_file}"
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new
@@ -3471,8 +3585,11 @@ else
 	mv auto-host.h ../auto-build.h
 	cd ..
 	rm -rf $tempdir
-	build_xm_file="auto-build.h ${build_xm_file}"
+	build_xm_file="auto-build.h gansidecl.h ${build_xm_file}"
 fi
+
+xm_file="gansidecl.h ${xm_file}"
+tm_file="gansidecl.h ${tm_file}"
 
 vars="host_xm_file tm_file xm_file build_xm_file"
 links="config.h tm.h tconfig.h hconfig.h"
@@ -3498,7 +3615,21 @@ do
 	fi
 
 	for file in `eval echo '$'$var`; do
+		case $file in
+		auto-config.h)
+			;;
+		*)
+			echo '#ifdef IN_GCC' >>$link
+			;;
+		esac
 		echo "#include \"$file\"" >>$link
+		case $file in
+		auto-config.h)
+			;;
+		*)
+			echo '#endif' >>$link
+			;;
+		esac
 	done
 
 	for def in `eval echo '$'$define`; do
@@ -3522,6 +3653,24 @@ fi
 changequote(,)dnl
 gcc_version=`sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/' < ${gcc_version_trigger}`
 changequote([,])dnl
+
+# Internationalization
+PACKAGE=gcc
+VERSION="$gcc_version"
+AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE")
+AC_DEFINE_UNQUOTED(VERSION, "$VERSION")
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+
+ALL_LINGUAS="en_UK"
+
+# NLS support is still experimental, so disable it by default for now.
+AC_ARG_ENABLE(nls,
+  [  --enable-nls            use Native Language Support (disabled by default)],
+  , enable_nls=no)
+
+AM_GNU_GETTEXT
+XGETTEXT="AWK='$AWK' \$(SHELL) \$(top_srcdir)/exgettext $XGETTEXT"
 
 # Get an absolute path to the GCC top-level source directory
 holddir=`pwd`
@@ -3580,28 +3729,28 @@ out_object_file=`basename $out_file .c`.o
 
 tm_file_list=
 for f in $tm_file; do
-	tm_file_list="${tm_file_list} \$(srcdir)/config/$f"
+	if test $f != "gansidecl.h" ; then
+		tm_file_list="${tm_file_list} \$(srcdir)/config/$f"
+	else
+		tm_file_list="${tm_file_list} $f"
+	fi
 done
 
 host_xm_file_list=
 for f in $host_xm_file; do
-	if test $f != "auto-host.h"; then
+	if test $f != "auto-host.h" -a $f != "gansidecl.h" ; then
 		host_xm_file_list="${host_xm_file_list} \$(srcdir)/config/$f"
 	else
-		host_xm_file_list="${host_xm_file_list} auto-host.h"
+		host_xm_file_list="${host_xm_file_list} $f"
 	fi
 done
 
 build_xm_file_list=
 for f in $build_xm_file; do
-	if test $f != "auto-build.h"; then
-		if test $f != "auto-host.h"; then
-			build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f"
-		else
-			build_xm_file_list="${build_xm_file_list} auto-host.h"
-		fi
+	if test $f != "auto-build.h" -a $f != "auto-host.h" -a $f != "gansidecl.h" ; then
+		build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f"
 	else
-		build_xm_file_list="${build_xm_file_list} auto-build.h"
+		build_xm_file_list="${build_xm_file_list} $f"
 	fi
 done
 
@@ -3692,12 +3841,14 @@ AC_MSG_CHECKING(assembler alignment features)
 gcc_cv_as=
 gcc_cv_as_alignment_features=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
-if test -x "$AS"; then
-	gcc_cv_as=$AS
+if test -x "$DEFAULT_ASSEMBLER"; then
+	gcc_cv_as="$DEFAULT_ASSEMBLER"
+elif test -x "$AS"; then
+	gcc_cv_as="$AS"
 elif test -x as$host_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$host_exeext
-elif test -f $gcc_cv_as_gas_srcdir/configure.in; then
+elif test -f $gcc_cv_as_gas_srcdir/configure.in -a -f ../gas/Makefile; then
 	# Single tree build which includes gas.
 	for f in $gcc_cv_as_gas_srcdir/configure $gcc_cv_as_gas_srcdir/configure.in $gcc_cv_as_gas_srcdir/Makefile.in
 	do
@@ -3787,6 +3938,16 @@ fi
 AC_MSG_RESULT($gcc_cv_as_subsections)
 
 # Figure out what language subdirectories are present.
+# Look if the user specified --enable-languages="..."; if not, use
+# the environment variable $LANGUAGES if defined. $LANGUAGES might
+# go away some day.
+if test x"${enable_languages+set}" != xset; then
+	if test x"${LANGUAGES+set}" = xset; then
+		enable_languages="`echo ${LANGUAGES} | tr ' ' ','`"
+	else
+		enable_languages=all
+	fi
+fi
 subdirs=
 for lang in ${srcdir}/*/config-lang.in ..
 do
@@ -3795,13 +3956,39 @@ do
 	# The odd quoting in the next line works around
 	# an apparent bug in bash 1.12 on linux.
 changequote(,)dnl
-	${srcdir}/ada/config-lang.in)
-	  if test x$gnat = xyes ; then
-		subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-	  fi
-	;;
 	${srcdir}/[*]/config-lang.in) ;;
-	*) subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`" ;;
+	*)
+	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
+	  if test "x$lang_alias" = x
+	  then
+		echo "$lang doesn't set \$language." 1>&2
+		exit 1
+	  fi
+	  if test x"${enable_languages}" = xall; then
+	  	add_this_lang=yes
+	  else
+		case "${enable_languages}" in
+		    ${lang_alias} | "${lang_alias},"* | *",${lang_alias},"* | *",${lang_alias}" )
+			add_this_lang=yes
+			;;
+		    * )
+			add_this_lang=no
+			;;
+		esac
+	  fi
+	  if test x"${add_this_lang}" = xyes; then
+		case $lang in
+		    ${srcdir}/ada/config-lang.in)
+			if test x$gnat = xyes ; then
+				subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
+			fi
+			;;
+		    *)
+			subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
+			;;
+		esac
+	  fi
+	  ;;
 changequote([,])dnl
 	esac
 done
@@ -3846,7 +4033,7 @@ all_boot_languages=
 all_compilers=
 all_stagestuff=
 all_diff_excludes=
-all_outputs=Makefile
+all_outputs='Makefile intl/Makefile po/Makefile.in fixinc/Makefile'
 # List of language makefile fragments.
 all_lang_makefiles=
 all_headers=
@@ -3914,10 +4101,10 @@ target_list="all.build all.cross start.encap rest.encap \
 for t in $target_list
 do
 	x=
-	for l in .. $all_languages
+	for lang in .. $all_languages
 	do
-		if test $l != ".."; then
-			x="$x $l.$t"
+		if test $lang != ".."; then
+			x="$x $lang.$t"
 		fi
 	done
 	echo "lang.$t: $x" >> Make-hooks
@@ -3975,7 +4162,7 @@ AC_SUBST(sched_prefix)
 AC_SUBST(sched_cflags)
 if test x$enable_haifa != x; then
     # Explicitly remove files that need to be recompiled for the Haifa scheduler.
-    for x in genattrtab.o toplev.o loop.o unroll.o *sched.o; do
+    for x in genattrtab.o toplev.o *sched.o; do
 	if test -f $x; then
 	    echo "Removing $x"
 	    rm -f $x
@@ -3983,12 +4170,44 @@ if test x$enable_haifa != x; then
     done
 fi
 
-# Warn if using init_priority.
-AC_MSG_CHECKING(whether to enable init_priority by default)
-if test x$enable_init_priority != xyes; then
-  enable_init_priority=no
+# If $(exec_prefix) exists and is not the same as $(prefix), then compute an
+# absolute path for gcc_tooldir based on inserting the number of up-directory
+# movements required to get from $(exec_prefix) to $(prefix) into the basic
+# $(libsubdir)/@(unlibsubdir) based path.
+# Don't set gcc_tooldir to tooldir since that's only passed in by the toplevel
+# make and thus we'd get different behavior depending on where we built the
+# sources.
+if test x$exec_prefix = xNONE -o x$exec_prefix = x$prefix; then
+    gcc_tooldir='$(libsubdir)/$(unlibsubdir)/../$(target_alias)'
+else
+changequote(<<, >>)dnl
+# An explanation of the sed strings:
+#  -e 's|^\$(prefix)||'   matches and eliminates 'prefix' from 'exec_prefix'
+#  -e 's|/$||'            match a trailing forward slash and eliminates it
+#  -e 's|^[^/]|/|'        forces the string to start with a forward slash (*)
+#  -e 's|/[^/]*|../|g'    replaces each occurance of /<directory> with ../
+#
+# (*) Note this pattern overwrites the first character of the string
+# with a forward slash if one is not already present.  This is not a
+# problem because the exact names of the sub-directories concerned is
+# unimportant, just the number of them matters.
+#
+# The practical upshot of these patterns is like this:
+#
+#  prefix     exec_prefix        result
+#  ------     -----------        ------
+#   /foo        /foo/bar          ../
+#   /foo/       /foo/bar          ../
+#   /foo        /foo/bar/         ../
+#   /foo/       /foo/bar/         ../
+#   /foo        /foo/bar/ugg      ../../
+#
+    dollar='$$'
+    gcc_tooldir="\$(libsubdir)/\$(unlibsubdir)/\`echo \$(exec_prefix) | sed -e 's|^\$(prefix)||' -e 's|/\$(dollar)||' -e 's|^[^/]|/|' -e 's|/[^/]*|../|g'\`\$(target_alias)"
+changequote([, ])dnl
 fi
-AC_MSG_RESULT($enable_init_priority)
+AC_SUBST(gcc_tooldir)
+AC_SUBST(dollar)
 
 # Nothing to do for FLOAT_H, float_format already handled.
 objdir=`pwd`
@@ -3999,53 +4218,56 @@ ${CONFIG_SHELL-/bin/sh} $srcdir/configure.frag $srcdir "$subdirs" "$dep_host_xma
 
 # Substitute configuration variables
 AC_SUBST(subdirs)
-AC_SUBST(all_languages)
 AC_SUBST(all_boot_languages)
 AC_SUBST(all_compilers)
-AC_SUBST(all_lang_makefiles)
-AC_SUBST(all_stagestuff)
 AC_SUBST(all_diff_excludes)
-AC_SUBST(all_lib2funcs)
 AC_SUBST(all_headers)
+AC_SUBST(all_lang_makefiles)
+AC_SUBST(all_languages)
+AC_SUBST(all_lib2funcs)
+AC_SUBST(all_stagestuff)
+AC_SUBST(build_exeext)
+AC_SUBST(build_install_headers_dir)
+AC_SUBST(build_xm_file_list)
+AC_SUBST(cc_set_by_configure)
+AC_SUBST(cpp_install_dir)
 AC_SUBST(cpp_main)
-AC_SUBST(extra_passes)
-AC_SUBST(extra_programs)
-AC_SUBST(extra_parts)
-AC_SUBST(extra_c_objs)
-AC_SUBST(extra_cxx_objs)
-AC_SUBST(extra_cpp_objs)
-AC_SUBST(extra_c_flags)
-AC_SUBST(extra_objs)
-AC_SUBST(host_extra_gcc_objs)
-AC_SUBST(extra_headers_list)
 AC_SUBST(dep_host_xmake_file)
 AC_SUBST(dep_tmake_file)
-AC_SUBST(out_file)
-AC_SUBST(out_object_file)
-AC_SUBST(md_file)
-AC_SUBST(tm_file_list)
-AC_SUBST(build_xm_file_list)
-AC_SUBST(host_xm_file_list)
-AC_SUBST(lang_specs_files)
-AC_SUBST(lang_options_files)
-AC_SUBST(lang_tree_files)
-AC_SUBST(thread_file)
-AC_SUBST(objc_boehm_gc)
+AC_SUBST(extra_c_flags)
+AC_SUBST(extra_c_objs)
+AC_SUBST(extra_cpp_objs)
+AC_SUBST(extra_cxx_objs)
+AC_SUBST(extra_headers_list)
+AC_SUBST(extra_objs)
+AC_SUBST(extra_parts)
+AC_SUBST(extra_passes)
+AC_SUBST(extra_programs)
+AC_SUBST(fixinc_defs)
+AC_SUBST(float_h_file)
+AC_SUBST(gcc_gxx_include_dir)
 AC_SUBST(gcc_version)
 AC_SUBST(gcc_version_trigger)
-AC_SUBST(local_prefix)
-AC_SUBST(gxx_include_dir)
-AC_SUBST(fixincludes)
-AC_SUBST(build_install_headers_dir)
-AC_SUBST(build_exeext)
 AC_SUBST(host_exeext)
-AC_SUBST(float_format)
-AC_SUBST(will_use_collect2)
-AC_SUBST(maybe_use_collect2)
-AC_SUBST(cc_set_by_configure)
-AC_SUBST(stage_prefix_set_by_configure)
+AC_SUBST(host_extra_gcc_objs)
+AC_SUBST(host_xm_file_list)
 AC_SUBST(install)
+AC_SUBST(JAVAGC)
+AC_SUBST(lang_options_files)
+AC_SUBST(lang_specs_files)
+AC_SUBST(lang_tree_files)
+AC_SUBST(local_prefix)
+AC_SUBST(maybe_use_collect2)
+AC_SUBST(md_file)
+AC_SUBST(objc_boehm_gc)
+AC_SUBST(out_file)
+AC_SUBST(out_object_file)
+AC_SUBST(stage_prefix_set_by_configure)
 AC_SUBST(symbolic_link)
+AC_SUBST(thread_file)
+AC_SUBST(tm_file_list)
+AC_SUBST(will_use_collect2)
+
 
 AC_SUBST_FILE(target_overrides)
 AC_SUBST_FILE(host_overrides)
@@ -4118,6 +4340,11 @@ if test "$symbolic_link" = "ln -s"; then
    fi
  done
 else true ; fi
+# Avoid having to add intl to our include paths.
+if test -f intl/libintl.h; then
+  echo creating libintl.h
+  echo '#include "intl/libintl.h"' >libintl.h
+fi
 ],
 [
 host='${host}'
@@ -4150,4 +4377,5 @@ host_overrides='${host_overrides}'
 cross_defines='${cross_defines}'
 cross_overrides='${cross_overrides}'
 build_overrides='${build_overrides}'
+cpp_install_dir='${cpp_install_dir}'
 ])

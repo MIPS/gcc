@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987, 88, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 #include "flags.h"
 #include "tree.h"
 #include "except.h"
@@ -226,7 +225,7 @@ int tree_node_counts[(int)all_kinds];
 int tree_node_sizes[(int)all_kinds];
 int id_string_size = 0;
 
-char *tree_node_kind_names[] = {
+const char *tree_node_kind_names[] = {
   "decls",
   "types",
   "blocks",
@@ -265,6 +264,10 @@ int (*lang_get_alias_set) PROTO((tree));
    codes are made.  */
 #define TYPE_HASH(TYPE) ((unsigned long) (TYPE) & 0777777)
 
+static void set_type_quals PROTO((tree, int));
+static void append_random_chars PROTO((char *));
+static void build_real_from_int_cst_1 PROTO((PTR));
+
 extern char *mode_name[];
 
 void gcc_obstack_init ();
@@ -289,8 +292,11 @@ gcc_obstack_init (obstack)
 		  (void (*) ()) OBSTACK_CHUNK_FREE);
 }
 
-/* Save all variables describing the current status into the structure *P.
-   This is used before starting a nested function.
+/* Save all variables describing the current status into the structure
+   *P.  This function is called whenever we start compiling one
+   function in the midst of compiling another.  For example, when
+   compiling a nested function, or, in C++, a template instantiation
+   that is required by the function we are currently compiling.
 
    CONTEXT is the decl_function_context for the function we're about to
    compile; if it isn't current_function_decl, we have to play some games.  */
@@ -314,7 +320,7 @@ save_tree_status (p, context)
   p->rtl_obstack = rtl_obstack;
   p->inline_obstacks = inline_obstacks;
 
-  if (context == current_function_decl)
+  if (current_function_decl && context == current_function_decl)
     /* Objects that need to be saved in this function can be in the nonsaved
        obstack of the enclosing function since they can't possibly be needed
        once it has returned.  */
@@ -718,10 +724,10 @@ void
 print_obstack_name (object, file, prefix)
      char *object;
      FILE *file;
-     char *prefix;
+     const char *prefix;
 {
   struct obstack *obstack = NULL;
-  char *obstack_name = NULL;
+  const char *obstack_name = NULL;
   struct function *p;
 
   for (p = outer_function_chain; p; p = p->next)
@@ -915,7 +921,6 @@ make_node (code)
   register int type = TREE_CODE_CLASS (code);
   register int length = 0;
   register struct obstack *obstack = current_obstack;
-  register int i;
 #ifdef GATHER_STATISTICS
   register tree_node_kind kind;
 #endif
@@ -1071,6 +1076,9 @@ make_node (code)
       DECL_SOURCE_LINE (t) = lineno;
       DECL_SOURCE_FILE (t) = (input_filename) ? input_filename : "<built-in>";
       DECL_UID (t) = next_decl_uid++;
+      /* Note that we have not yet computed the alias set for this
+	 declaration.  */
+      DECL_POINTER_ALIAS_SET (t) = -1;
       break;
 
     case 't':
@@ -1105,7 +1113,6 @@ copy_node (node)
   register tree t;
   register enum tree_code code = TREE_CODE (node);
   register int length = 0;
-  register int i;
 
   switch (TREE_CODE_CLASS (code))
     {
@@ -1154,12 +1161,7 @@ copy_node (node)
     }
 
   t = ggc_alloc_tree (length);
-
-  for (i = (length / sizeof (int)) - 1; i >= 0; i--)
-    ((int *) t)[i] = ((int *) node)[i];
-  /* Clear any extra bytes.  */
-  for (i = length / sizeof (int) * sizeof (int); i < length; i++)
-    ((char *) t)[i] = ((char *) node)[i];
+  memcpy (t, node, length);
 
   /* EXPR_WITH_FILE_LOCATION must keep filename info stored in TREE_CHAIN */
   if (TREE_CODE (node) != EXPR_WITH_FILE_LOCATION)
@@ -1219,7 +1221,7 @@ copy_list (list)
 
 tree
 get_identifier (text)
-     register char *text;
+     register const char *text;
 {
   register int hi;
   register int i;
@@ -1231,7 +1233,7 @@ get_identifier (text)
 
   /* Decide how much of that length to hash on */
   hash_len = len;
-  if (warn_id_clash && len > id_clash_len)
+  if (warn_id_clash && (unsigned)len > id_clash_len)
     hash_len = id_clash_len;
 
   /* Compute hash code */
@@ -1250,7 +1252,7 @@ get_identifier (text)
       return idp;		/* <-- return if found */
 
   /* Not found; optionally warn about a similar identifier */
-  if (warn_id_clash && do_identifier_warnings && len >= id_clash_len)
+  if (warn_id_clash && do_identifier_warnings && (unsigned)len >= id_clash_len)
     for (idp = hash_table[hi]; idp; idp = TREE_CHAIN (idp))
       if (!strncmp (IDENTIFIER_POINTER (idp), text, id_clash_len))
 	{
@@ -1282,7 +1284,7 @@ get_identifier (text)
 
 tree
 maybe_get_identifier (text)
-     register char *text;
+     register const char *text;
 {
   register int hi;
   register int i;
@@ -1290,11 +1292,11 @@ maybe_get_identifier (text)
   register int len, hash_len;
 
   /* Compute length of text in len.  */
-  for (len = 0; text[len]; len++);
+  len = strlen (text);
 
   /* Decide how much of that length to hash on */
   hash_len = len;
-  if (warn_id_clash && len > id_clash_len)
+  if (warn_id_clash && (unsigned)len > id_clash_len)
     hash_len = id_clash_len;
 
   /* Compute hash code */
@@ -1425,6 +1427,29 @@ real_value_from_int_cst (type, i)
   return d;
 }
 
+struct brfic_args
+{
+  /* Input */
+  tree type, i;
+  /* Output */
+  REAL_VALUE_TYPE d;
+};
+
+static void
+build_real_from_int_cst_1 (data)
+  PTR data;
+{
+  struct brfic_args * args = (struct brfic_args *) data;
+  
+#ifdef REAL_ARITHMETIC
+  args->d = real_value_from_int_cst (args->type, args->i);
+#else
+  args->d =
+    REAL_VALUE_TRUNCATE (TYPE_MODE (args->type),
+			 real_value_from_int_cst (args->type, args->i));
+#endif
+}
+
 /* This function can't be implemented if we can't do arithmetic
    on the float representation.  */
 
@@ -1436,31 +1461,28 @@ build_real_from_int_cst (type, i)
   tree v;
   int overflow = TREE_OVERFLOW (i);
   REAL_VALUE_TYPE d;
-  jmp_buf float_error;
+  struct brfic_args args;
 
   v = make_node (REAL_CST);
   TREE_TYPE (v) = type;
 
-  if (setjmp (float_error))
+  /* Setup input for build_real_from_int_cst_1() */
+  args.type = type;
+  args.i = i;
+
+  if (do_float_handler (build_real_from_int_cst_1, (PTR) &args))
     {
+      /* Receive output from build_real_from_int_cst_1() */
+      d = args.d;
+    }
+  else
+    {
+      /* We got an exception from build_real_from_int_cst_1() */
       d = dconst0;
       overflow = 1;
-      goto got_it;
     }
-
-  set_float_handler (float_error);
-
-#ifdef REAL_ARITHMETIC
-  d = real_value_from_int_cst (type, i);
-#else
-  d = REAL_VALUE_TRUNCATE (TYPE_MODE (type),
-			   real_value_from_int_cst (type, i));
-#endif
-
+  
   /* Check for valid float value for this type on this target machine.  */
-
- got_it:
-  set_float_handler (NULL_PTR);
 
 #ifdef CHECK_FLOAT_VALUE
   CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
@@ -1480,7 +1502,7 @@ build_real_from_int_cst (type, i)
 tree
 build_string (len, str)
      int len;
-     char *str;
+     const char *str;
 {
   /* Put the string in saveable_obstack since it will be placed in the RTL
      for an "asm" statement and will also be kept around a while if
@@ -1522,7 +1544,6 @@ make_tree_vec (len)
   register tree t;
   register int length = (len-1) * sizeof (tree) + sizeof (struct tree_vec);
   register struct obstack *obstack = current_obstack;
-  register int i;
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)vec_kind]++;
@@ -2359,6 +2380,7 @@ first_rtl_op (code)
     {
     case SAVE_EXPR:
       return 2;
+    case GOTO_SUBROUTINE_EXPR:
     case RTL_EXPR:
       return 0;
     case CALL_EXPR:
@@ -2552,6 +2574,7 @@ has_cleanups (exp)
   switch (TREE_CODE (exp))
     {
     case TARGET_EXPR:
+    case GOTO_SUBROUTINE_EXPR:
     case WITH_CLEANUP_EXPR:
       return 1;
 
@@ -2942,7 +2965,7 @@ stabilize_reference_1 (e)
 tree
 build VPROTO((enum tree_code code, tree tt, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   enum tree_code code;
   tree tt;
 #endif
@@ -2953,7 +2976,7 @@ build VPROTO((enum tree_code code, tree tt, ...))
 
   VA_START (p, tt);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   code = va_arg (p, enum tree_code);
   tt = va_arg (p, tree);
 #endif
@@ -3017,7 +3040,7 @@ build1 (code, type, node)
      tree node;
 {
   register struct obstack *obstack = expression_obstack;
-  register int i, length;
+  register int length;
 #ifdef GATHER_STATISTICS
   register tree_node_kind kind;
 #endif
@@ -3065,7 +3088,7 @@ build1 (code, type, node)
 tree
 build_nt VPROTO((enum tree_code code, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   enum tree_code code;
 #endif
   va_list p;
@@ -3075,7 +3098,7 @@ build_nt VPROTO((enum tree_code code, ...))
 
   VA_START (p, code);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   code = va_arg (p, enum tree_code);
 #endif
 
@@ -3095,7 +3118,7 @@ build_nt VPROTO((enum tree_code code, ...))
 tree
 build_parse_node VPROTO((enum tree_code code, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   enum tree_code code;
 #endif
   register struct obstack *ambient_obstack = expression_obstack;
@@ -3106,7 +3129,7 @@ build_parse_node VPROTO((enum tree_code code, ...))
 
   VA_START (p, code);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   code = va_arg (p, enum tree_code);
 #endif
 
@@ -3194,10 +3217,10 @@ build_block (vars, tags, subblocks, supercontext, chain)
 tree
 build_expr_wfl (node, file, line, col)
      tree node;
-     char *file;
+     const char *file;
      int line, col;
 {
-  static char *last_file = 0;
+  static const char *last_file = 0;
   static tree  last_filenode = NULL_TREE;
   register tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
 
@@ -3256,7 +3279,7 @@ build_type_attribute_variant (ttype, attribute)
       /* Create a new main variant of TYPE.  */
       TYPE_MAIN_VARIANT (ntype) = ntype;
       TYPE_NEXT_VARIANT (ntype) = 0;
-      TYPE_READONLY (ntype) = TYPE_VOLATILE (ntype) = 0;
+      set_type_quals (ntype, TYPE_UNQUALIFIED);
 
       hashcode = TYPE_HASH (TREE_CODE (ntype))
 		 + TYPE_HASH (TREE_TYPE (ntype))
@@ -3281,8 +3304,7 @@ build_type_attribute_variant (ttype, attribute)
         }
 
       ntype = type_hash_canon (hashcode, ntype);
-      ttype = build_type_variant (ntype, TYPE_READONLY (ttype),
-				  TYPE_VOLATILE (ttype));
+      ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
     }
 
   return ttype;
@@ -3294,11 +3316,12 @@ build_type_attribute_variant (ttype, attribute)
 
 int
 valid_machine_attribute (attr_name, attr_args, decl, type)
-     tree attr_name, attr_args;
-     tree decl;
-     tree type;
+  tree attr_name;
+  tree attr_args ATTRIBUTE_UNUSED;
+  tree decl ATTRIBUTE_UNUSED;
+  tree type ATTRIBUTE_UNUSED;
 {
-  int valid = 0;
+  int validated = 0;
 #ifdef VALID_MACHINE_DECL_ATTRIBUTE
   tree decl_attr_list = decl != 0 ? DECL_MACHINE_ATTRIBUTES (decl) : 0;
 #endif
@@ -3328,12 +3351,12 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 	  decl = build_decl_attribute_variant (decl, decl_attr_list);
 	}
 
-      valid = 1;
+      validated = 1;
     }
 #endif
 
 #ifdef VALID_MACHINE_TYPE_ATTRIBUTE
-  if (valid)
+  if (validated)
     /* Don't apply the attribute to both the decl and the type.  */;
   else if (VALID_MACHINE_TYPE_ATTRIBUTE (type, type_attr_list, attr_name,
 					 attr_args))
@@ -3362,7 +3385,7 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 	}
       if (decl != 0)
 	TREE_TYPE (decl) = type;
-      valid = 1;
+      validated = 1;
     }
 
   /* Handle putting a type attribute on pointer-to-function-type by putting
@@ -3389,11 +3412,11 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
       if (decl != 0)
 	TREE_TYPE (decl) = build_pointer_type (inner_type);
 
-      valid = 1;
+      validated = 1;
     }
 #endif
 
-  return valid;
+  return validated;
 }
 
 /* Return non-zero if IDENT is a valid name for attribute ATTR,
@@ -3406,7 +3429,7 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 
 int
 is_attribute_p (attr, ident)
-     char *attr;
+     const char *attr;
      tree ident;
 {
   int ident_len, attr_len;
@@ -3451,7 +3474,7 @@ is_attribute_p (attr, ident)
 
 tree
 lookup_attribute (attr_name, list)
-     char *attr_name;
+     const char *attr_name;
      tree list;
 {
   tree l;
@@ -3537,45 +3560,44 @@ merge_machine_decl_attributes (olddecl, newdecl)
 #endif
 }
 
-/* Return a type like TYPE except that its TYPE_READONLY is CONSTP
-   and its TYPE_VOLATILE is VOLATILEP.
+/* Set the type qualifiers for TYPE to TYPE_QUALS, which is a bitmask
+   of the various TYPE_QUAL values.  */
 
-   Such variant types already made are recorded so that duplicates
-   are not made.
+static void
+set_type_quals (type, type_quals)
+     tree type;
+     int  type_quals;
+{
+  TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
+  TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
+  TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+}
 
-   A variant types should never be used as the type of an expression.
-   Always copy the variant information into the TREE_READONLY
-   and TREE_THIS_VOLATILE of the expression, and then give the expression
-   as its type the "main variant", the variant whose TYPE_READONLY
-   and TYPE_VOLATILE are zero.  Use TYPE_MAIN_VARIANT to find the
-   main variant.  */
+/* Given a type node TYPE and a TYPE_QUALIFIER_SET, return a type for
+   the same kind of data as TYPE describes.  Variants point to the
+   "main variant" (which has no qualifiers set) via TYPE_MAIN_VARIANT,
+   and it points to a chain of other variants so that duplicate
+   variants are never made.  Only main variants should ever appear as
+   types of expressions.  */
 
 tree
-build_type_variant (type, constp, volatilep)
+build_qualified_type (type, type_quals)
      tree type;
-     int constp, volatilep;
+     int type_quals;
 {
   register tree t;
-
-  /* Treat any nonzero argument as 1.  */
-  constp = !!constp;
-  volatilep = !!volatilep;
-
+  
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
 
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (constp == TYPE_READONLY (t) && volatilep == TYPE_VOLATILE (t)
-	&& TYPE_NAME (t) == TYPE_NAME (type))
+    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
       return t;
 
   /* We need a new one.  */
-
   t = build_type_copy (type);
-  TYPE_READONLY (t) = constp;
-  TYPE_VOLATILE (t) = volatilep;
-
+  set_type_quals (t, type_quals);
   return t;
 }
 
@@ -4387,8 +4409,7 @@ build_complex_type (component_type)
   t = make_node (COMPLEX_TYPE);
 
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (component_type);
-  TYPE_VOLATILE (t) = TYPE_VOLATILE (component_type);
-  TYPE_READONLY (t) = TYPE_READONLY (component_type);
+  set_type_quals (t, TYPE_QUALS (component_type));
 
   /* If we already have such a type, use the old one and free this one.  */
   hashcode = TYPE_HASH (component_type);
@@ -4710,7 +4731,7 @@ print_inline_obstack_statistics ()
 
 void
 print_obstack_statistics (str, o)
-     char *str;
+     const char *str;
      struct obstack *o;
 {
   struct _obstack_chunk *chunk = o->chunk;
@@ -4783,24 +4804,83 @@ dump_tree_statistics ()
 extern char * first_global_object_name;
 extern char * weak_global_object_name;
 
-/* TYPE is some string to identify this function to the linker or
-   collect2.  */
+/* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
+   clashes in cases where we can't reliably choose a unique name.
+
+   Derived from mkstemp.c in libiberty.  */
+
+static void
+append_random_chars (template)
+     char *template;
+{
+  static const char letters[]
+    = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  static unsigned HOST_WIDE_INT value;
+  unsigned HOST_WIDE_INT v;
+
+#ifdef HAVE_GETTIMEOFDAY
+  struct timeval tv;
+#endif
+
+  template += strlen (template);
+
+#ifdef HAVE_GETTIMEOFDAY
+  /* Get some more or less random data.  */
+  gettimeofday (&tv, NULL);
+  value += ((unsigned HOST_WIDE_INT) tv.tv_usec << 16) ^ tv.tv_sec ^ getpid ();
+#else
+  value += getpid ();
+#endif
+
+  v = value;
+
+  /* Fill in the random bits.  */
+  template[0] = letters[v % 62];
+  v /= 62;
+  template[1] = letters[v % 62];
+  v /= 62;
+  template[2] = letters[v % 62];
+  v /= 62;
+  template[3] = letters[v % 62];
+  v /= 62;
+  template[4] = letters[v % 62];
+  v /= 62;
+  template[5] = letters[v % 62];
+
+  template[6] = '\0';
+}
+
+/* Generate a name for a function unique to this translation unit.
+   TYPE is some string to identify the purpose of this function to the
+   linker or collect2.  */
 
 tree
 get_file_function_name_long (type)
-     char *type;
+     const char *type;
 {
   char *buf;
   register char *p;
 
   if (first_global_object_name)
     p = first_global_object_name;
-  else if (weak_global_object_name)
-    p = weak_global_object_name;
-  else if (main_input_filename)
-    p = main_input_filename;
   else
-    p = input_filename;
+    {
+      /* We don't have anything that we know to be unique to this translation
+	 unit, so use what we do have and throw in some randomness.  */
+
+      const char *name = weak_global_object_name;
+      const char *file = main_input_filename;
+
+      if (! name)
+	name = "";
+      if (! file)
+	file = input_filename;
+
+      p = (char *) alloca (7 + strlen (name) + strlen (file));
+
+      sprintf (p, "%s%s", name, file);
+      append_random_chars (p);
+    }
 
   buf = (char *) alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p)
 			 + strlen (type));
@@ -5005,7 +5085,7 @@ tree
 tree_check (node, code, file, line, nofatal)
      tree node;
      enum tree_code code;
-     char *file;
+     const char *file;
      int line;
      int nofatal;
 {
@@ -5025,7 +5105,7 @@ tree
 tree_class_check (node, cl, file, line, nofatal)
      tree node;
      char cl;
-     char *file;
+     const char *file;
      int line;
      int nofatal;
 {
@@ -5044,7 +5124,7 @@ tree
 expr_check (node, ignored, file, line, nofatal)
      tree node;
      int ignored;
-     char *file;
+     const char *file;
      int line;
      int nofatal;
 {
@@ -5091,5 +5171,8 @@ int
 new_alias_set ()
 {
   static int last_alias_set;
-  return ++last_alias_set;
+  if (flag_strict_aliasing)
+    return ++last_alias_set;
+  else
+    return 0;
 }

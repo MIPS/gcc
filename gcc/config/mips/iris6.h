@@ -187,6 +187,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,VALUE)	\
  do {						\
+  ASM_GLOBALIZE_LABEL (FILE, NAME);		\
   fputs ("\t.weakext\t", FILE);			\
   assemble_name (FILE, NAME);			\
   if (VALUE)					\
@@ -262,9 +263,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* If we are included from varasm.c, these need to depend on -mabi.  */
 #define CTORS_SECTION_ASM_OP \
-  (TARGET_LONG64 ? ".section\t.ctors,1,2,0,8" : ".section\t.ctors,1,2,0,4")
+  (Pmode == DImode ? ".section\t.ctors,1,2,0,8" : ".section\t.ctors,1,2,0,4")
 #define DTORS_SECTION_ASM_OP \
-  (TARGET_LONG64 ? ".section\t.dtors,1,2,0,8" : ".section\t.dtors,1,2,0,4")
+  (Pmode == DImode ? ".section\t.dtors,1,2,0,8" : ".section\t.dtors,1,2,0,4")
 #endif /* defined (CRT_BEGIN) || defined (CRT_END) */
 
 /* dwarf2out will handle padding this data properly.  We definitely don't
@@ -302,7 +303,7 @@ rdata_section ()							\
 {									\
   if (in_section != in_rdata)						\
     {									\
-      if (mips_abi != ABI_32)						\
+      if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
 	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_64);	\
       else								\
 	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_32);	\
@@ -340,7 +341,7 @@ dtors_section ()							\
   do {									\
     ctors_section ();							\
     fprintf (FILE, "\t%s\t ",						\
-	     TARGET_LONG64 ? ".dword" : ".word");			\
+	     (Pmode == DImode) ? ".dword" : ".word");			\
     assemble_name (FILE, NAME);						\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -351,7 +352,7 @@ dtors_section ()							\
   do {									\
     dtors_section ();                   				\
     fprintf (FILE, "\t%s\t ",						\
-	     TARGET_LONG64 ? ".dword" : ".word");			\
+	     (Pmode == DImode) ? ".dword" : ".word");			\
     assemble_name (FILE, NAME);              				\
     fprintf (FILE, "\n");						\
   } while (0)
@@ -393,7 +394,7 @@ while (0)
 #define ASM_OUTPUT_ALIGNED_LOCAL(STREAM, NAME, SIZE, ALIGN)		   \
 do									   \
   {									   \
-    if (mips_abi != ABI_32)						   \
+    if (mips_abi != ABI_32 && mips_abi != ABI_O64)			   \
       {									   \
 	fprintf (STREAM, "%s\n", BSS_SECTION_ASM_OP);			   \
 	mips_declare_object (STREAM, NAME, "", ":\n", 0);		   \
@@ -454,7 +455,8 @@ do {									 \
    } while (0)
 
 #undef LOCAL_LABEL_PREFIX
-#define LOCAL_LABEL_PREFIX (mips_abi == ABI_32 ? "$" : ".")
+#define LOCAL_LABEL_PREFIX ((mips_abi == ABI_32 || mips_abi == ABI_O64) \
+			    ? "$" : ".")
 
 /* Profiling is supported via libprof1.a not -lc_p as in Irix 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend

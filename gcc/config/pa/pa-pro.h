@@ -15,7 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* Global constructor and destructor support.  */
 /* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
@@ -74,5 +75,5 @@ dtors_section ()							\
     fputs ("\n", FILE);						\
   } while (0)
 
-/* JUMP_IN_DELAY + PORTABLE_RUNTIME + GAS + NO_SPACE_REGS + SOFT_FLOAT */
-#define TARGET_DEFAULT (4 + 8 + 64 + 128 + 256)
+#define TARGET_DEFAULT (MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | \
+MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT )

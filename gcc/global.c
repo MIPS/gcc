@@ -1,5 +1,5 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
-   Copyright (C) 1987, 88, 91, 94, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 91, 94, 96-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -262,7 +262,7 @@ static void expand_preferences	PROTO((void));
 static void prune_preferences	PROTO((void));
 static void find_reg		PROTO((int, HARD_REG_SET, int, int, int));
 static void record_one_conflict PROTO((int));
-static void record_conflicts	PROTO((short *, int));
+static void record_conflicts	PROTO((int *, int));
 static void mark_reg_store	PROTO((rtx, rtx));
 static void mark_reg_clobber	PROTO((rtx, rtx));
 static void mark_reg_conflicts	PROTO((rtx));
@@ -364,7 +364,7 @@ global_alloc (file)
       SET_HARD_REG_BIT (regs_used_so_far, i);
 #endif
 
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_renumber[i] >= 0)
       SET_HARD_REG_BIT (regs_used_so_far, reg_renumber[i]);
 
@@ -390,7 +390,7 @@ global_alloc (file)
 	reg_may_share[r2] = r1;
     }
 
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     /* Note that reg_live_length[i] < 0 indicates a "constant" reg
        that we are supposed to refrain from putting in a hard reg.
        -2 means do make an allocno but don't allocate it.  */
@@ -420,7 +420,7 @@ global_alloc (file)
   bzero ((char *) allocno_n_refs, max_allocno * sizeof (int));
   bzero ((char *) allocno_live_length, max_allocno * sizeof (int));
 
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_allocno[i] >= 0)
       {
 	int allocno = reg_allocno[i];
@@ -437,7 +437,7 @@ global_alloc (file)
      override it.  */
   bzero ((char *) local_reg_live_length, sizeof local_reg_live_length);
   bzero ((char *) local_reg_n_refs, sizeof local_reg_n_refs);
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_renumber[i] >= 0)
       {
 	int regno = reg_renumber[i];
@@ -508,7 +508,7 @@ global_alloc (file)
 	 So in either case, we can ignore the conflict.  Likewise for
 	 preferences.  */
 
-      for (i = 0; i < max_allocno; i++)
+      for (i = 0; i < (size_t) max_allocno; i++)
 	{
 	  AND_COMPL_HARD_REG_SET (hard_reg_conflicts[i], eliminable_regset);
 	  AND_COMPL_HARD_REG_SET (hard_reg_copy_preferences[i],
@@ -523,7 +523,7 @@ global_alloc (file)
       /* Determine the order to allocate the remaining pseudo registers.  */
 
       allocno_order = (int *) alloca (max_allocno * sizeof (int));
-      for (i = 0; i < max_allocno; i++)
+      for (i = 0; i < (size_t) max_allocno; i++)
 	allocno_order[i] = i;
 
       /* Default the size to 1, since allocno_compare uses it to divide by.
@@ -533,7 +533,7 @@ global_alloc (file)
 	 allocate it.  So avoid the divide-by-zero and set it to a low
 	 priority.  */
 
-      for (i = 0; i < max_allocno; i++)
+      for (i = 0; i < (size_t) max_allocno; i++)
 	{
 	  if (allocno_size[i] == 0)
 	    allocno_size[i] = 1;
@@ -551,7 +551,7 @@ global_alloc (file)
       /* Try allocating them, one by one, in that order,
 	 except for parameters marked with reg_live_length[regno] == -2.  */
 
-      for (i = 0; i < max_allocno; i++)
+      for (i = 0; i < (size_t) max_allocno; i++)
 	if (reg_renumber[allocno_reg[allocno_order[i]]] < 0
 	    && REG_LIVE_LENGTH (allocno_reg[allocno_order[i]]) >= 0)
 	  {
@@ -622,12 +622,12 @@ global_conflicts ()
 {
   register int b, i;
   register rtx insn;
-  short *block_start_allocnos;
+  int *block_start_allocnos;
 
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
   regs_set = (rtx *) alloca (max_parallel * sizeof (rtx) * 2);
 
-  block_start_allocnos = (short *) alloca (max_allocno * sizeof (short));
+  block_start_allocnos = (int *) alloca (max_allocno * sizeof (int));
 
   for (b = 0; b < n_basic_blocks; b++)
     {
@@ -647,7 +647,7 @@ global_conflicts ()
 	 are explicitly marked in basic_block_live_at_start.  */
 
       {
-	register regset old = basic_block_live_at_start[b];
+	register regset old = BASIC_BLOCK (b)->global_live_at_start;
 	int ax = 0;
 
 	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
@@ -670,16 +670,26 @@ global_conflicts ()
 	record_conflicts (block_start_allocnos, ax);
 
 #ifdef STACK_REGS
-	/* Pseudos can't go in stack regs at the start of a basic block
-	   that can be reached through a computed goto, since reg-stack
-	   can't handle computed gotos.  */
-	if (basic_block_computed_jump_target[b])
-	  for (ax = FIRST_STACK_REG; ax <= LAST_STACK_REG; ax++)
-	    record_one_conflict (ax);
+	{
+	  /* Pseudos can't go in stack regs at the start of a basic block
+	     that can be reached through a computed goto, since reg-stack
+	     can't handle computed gotos.  */
+	  /* ??? Seems more likely that reg-stack can't handle any abnormal
+	     edges, critical or not, computed goto or otherwise.  */
+
+	  edge e;
+	  for (e = BASIC_BLOCK (b)->pred; e ; e = e->pred_next)
+	    if (e->flags & EDGE_ABNORMAL)
+	      break;
+
+	  if (e != NULL)
+	    for (ax = FIRST_STACK_REG; ax <= LAST_STACK_REG; ax++)
+	      record_one_conflict (ax);
+	}
 #endif
       }
 
-      insn = basic_block_head[b];
+      insn = BLOCK_HEAD (b);
 
       /* Scan the code of this basic block, noting which allocnos
 	 and hard regs are born or die.  When one is born,
@@ -738,9 +748,16 @@ global_conflicts ()
 
 	      /* If INSN has multiple outputs, then any reg that dies here
 		 and is used inside of an output
-		 must conflict with the other outputs.  */
+		 must conflict with the other outputs.
 
-	      if (GET_CODE (PATTERN (insn)) == PARALLEL && !single_set (insn))
+		 It is unsafe to use !single_set here since it will ignore an
+		 unused output.  Just because an output is unused does not mean
+		 the compiler can assume the side effect will not occur.
+		 Consider if REG appears in the address of an output and we
+		 reload the output.  If we allocate REG to the same hard
+		 register as an unused output we could set the hard register
+		 before the output reload insn.  */
+	      if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
 		for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 		  if (REG_NOTE_KIND (link) == REG_DEAD)
 		    {
@@ -769,7 +786,7 @@ global_conflicts ()
 		  mark_reg_death (regs_set[n_regs_set]);
 	    }
 
-	  if (insn == basic_block_end[b])
+	  if (insn == BLOCK_END (b))
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
@@ -1290,7 +1307,7 @@ record_one_conflict (regno)
 
 static void
 record_conflicts (allocno_vec, len)
-     register short *allocno_vec;
+     register int *allocno_vec;
      register int len;
 {
   register int allocno;
@@ -1590,11 +1607,14 @@ mark_elimination (from, to)
   int i;
 
   for (i = 0; i < n_basic_blocks; i++)
-    if (REGNO_REG_SET_P (basic_block_live_at_start[i], from))
-      {
-	CLEAR_REGNO_REG_SET (basic_block_live_at_start[i], from);
-	SET_REGNO_REG_SET (basic_block_live_at_start[i], to);
-      }
+    {
+      register regset r = BASIC_BLOCK (i)->global_live_at_start; 
+      if (REGNO_REG_SET_P (r, from))
+	{
+	  CLEAR_REGNO_REG_SET (r, from);
+	  SET_REGNO_REG_SET (r, to);
+	}
+    }
 }
 
 /* Used for communication between the following functions.  Holds the
@@ -1659,18 +1679,18 @@ build_insn_chain (first)
     {
       struct insn_chain *c;
 
-      if (first == basic_block_head[b])
+      if (first == BLOCK_HEAD (b))
 	{
 	  int i;
 	  CLEAR_REG_SET (live_relevant_regs);
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (REGNO_REG_SET_P (basic_block_live_at_start[b], i)
+	    if (REGNO_REG_SET_P (BASIC_BLOCK (b)->global_live_at_start, i)
 		&& ! TEST_HARD_REG_BIT (eliminable_regset, i))
 	      SET_REGNO_REG_SET (live_relevant_regs, i);
 
 	  for (; i < max_regno; i++)
 	    if (reg_renumber[i] >= 0
-		&& REGNO_REG_SET_P (basic_block_live_at_start[b], i))
+		&& REGNO_REG_SET_P (BASIC_BLOCK (b)->global_live_at_start, i))
 	      SET_REGNO_REG_SET (live_relevant_regs, i);
 	}
 
@@ -1719,8 +1739,22 @@ build_insn_chain (first)
 	    }
 	}
 
-      if (first == basic_block_end[b])
+      if (first == BLOCK_END (b))
 	b++;
+
+      /* Stop after we pass the end of the last basic block.  Verify that
+	 no real insns are after the end of the last basic block.
+
+	 We may want to reorganize the loop somewhat since this test should
+	 always be the right exit test.  */
+      if (b == n_basic_blocks)
+	{
+	  for (first = NEXT_INSN (first) ; first; first = NEXT_INSN (first))
+	    if (GET_RTX_CLASS (GET_CODE (first)) == 'i'
+		&& GET_CODE (PATTERN (first)) != USE)
+	      abort ();
+	  break;
+	}
     }
   FREE_REG_SET (live_relevant_regs);
   *p = 0;

@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 1987, 91-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 91-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -142,6 +142,17 @@ enum direction {none, upward, downward};  /* Value has this type.  */
 /* Provide a default value for STRICT_ARGUMENT_NAMING.  */
 #ifndef STRICT_ARGUMENT_NAMING
 #define STRICT_ARGUMENT_NAMING 0
+#endif
+
+/* Provide a default value for PRETEND_OUTGOING_VARARGS_NAMED.  */
+#ifdef SETUP_INCOMING_VARARGS
+#ifndef PRETEND_OUTGOING_VARARGS_NAMED
+#define PRETEND_OUTGOING_VARARGS_NAMED 1
+#endif
+#else
+/* It is an error to define PRETEND_OUTGOING_VARARGS_NAMED without
+   defining SETUP_INCOMING_VARARGS.  */
+#define PRETEND_OUTGOING_VARARGS_NAMED 0
 #endif
 
 /* Nonzero if we do not know how to pass TYPE solely in registers.
@@ -528,7 +539,7 @@ extern int expand_twoval_binop PROTO((optab, rtx, rtx, rtx, rtx, int));
 extern rtx expand_unop PROTO((enum machine_mode, optab, rtx, rtx, int));
 
 /* Expand the absolute value operation.  */
-extern rtx expand_abs PROTO((enum machine_mode, rtx, rtx, int, int));
+extern rtx expand_abs PROTO((enum machine_mode, rtx, rtx, int));
 
 /* Expand the complex absolute value operation.  */
 extern rtx expand_complex_abs PROTO((enum machine_mode, rtx, rtx, int));
@@ -553,6 +564,11 @@ extern void emit_0_to_1_insn PROTO((rtx));
 /* Emit one rtl insn to compare two rtx's.  */
 extern void emit_cmp_insn PROTO((rtx, rtx, enum rtx_code, rtx,
 				 enum machine_mode, int, int));
+
+/* Emit a pair of rtl insns to compare two rtx's and to jump 
+   to a label if the comparison is true.  */
+extern void emit_cmp_and_jump_insns PROTO((rtx, rtx, enum rtx_code, rtx,
+					   enum machine_mode, int, int, rtx));
 
 /* Nonzero if a compare of mode MODE can be done straightforwardly
    (without splitting it into pieces).  */
@@ -653,6 +669,9 @@ extern rtx protect_from_queue PROTO((rtx, int));
 
 /* Perform all the pending incrementations.  */
 extern void emit_queue PROTO((void));
+
+/* Tell if something has a queued subexpression.  */
+extern int queued_subexp_p PROTO((rtx));
 
 /* Emit some rtl insns to move data between rtx's, converting machine modes.
    Both modes must be floating or both fixed.  */

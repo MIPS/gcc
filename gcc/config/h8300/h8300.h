@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler. 
    Hitachi H8/300 version generating coff 
-   Copyright (C) 1992, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999 Free SoftwareFoundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -98,19 +98,19 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES  \
-  { {"s",1 },			\
-    {"no-s",-1},		\
-    {"int32",8},		\
-    {"addresses",64 },		\
-    {"quickcall",128},  	\
-    {"no-quickcall",-128},	\
-    {"slowbyte",256},		\
-    {"relax",1024},		\
-    {"rtl-dump",2048},		\
-    {"h",4096},			\
-    {"no-h",-4096},		\
-    {"align-300",8192},	\
-    { "", TARGET_DEFAULT}}
+  { {"s",		1,     "Generate H8/S code"},			\
+    {"no-s",		-1,    "Do not generate H8/S code"},		\
+    {"int32",		8,     "Make integers 32 bits wide"},		\
+    {"addresses",	64,    NULL},					\
+    {"quickcall",	128,   "Use registers for argument passing"},  	\
+    {"no-quickcall",	-128,  "Do not use registers for argument passing"},\
+    {"slowbyte",	256,   "Consider access to byte sized memory slow"},\
+    {"relax",		1024,  "Enable linker relaxing"},		\
+    {"rtl-dump",	2048,  NULL},					\
+    {"h",		4096,  "Generate H8/300H code"},		\
+    {"no-h",		-4096, "Do not generate H8/300H code"},		\
+    {"align-300",	8192,  "Use H8/300 alignment rules"},		\
+    { "", TARGET_DEFAULT, NULL}}
 
 /* Do things that must be done once at start up.  */
 
@@ -721,11 +721,11 @@ struct rtx_def *function_arg();
 
 /* Addressing modes, and classification of registers for them.  */
 
-#define HAVE_POST_INCREMENT
-/*#define HAVE_POST_DECREMENT */
+#define HAVE_POST_INCREMENT 1
+/*#define HAVE_POST_DECREMENT 0 */
 
-#define HAVE_PRE_DECREMENT
-/*#define HAVE_PRE_INCREMENT */
+#define HAVE_PRE_DECREMENT 1
+/*#define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -878,11 +878,6 @@ struct rtx_def *function_arg();
    table.
    Do not define this if the table should contain absolute addresses. */
 /*#define CASE_VECTOR_PC_RELATIVE 1 */
-
-/* Define this if the case instruction drops through after the table
-   when the index is out of range.  Don't define it if the case insn
-   jumps to the default label instead.  */
-#define CASE_DROPS_THROUGH
 
 /* Specify the tree operation to be used to convert reals to integers.  */
 #define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
@@ -1185,6 +1180,9 @@ readonly_data() 						\
 
 #define ASM_OUTPUT_LABEL(FILE, NAME)	\
   do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
+
+#define ASM_OUTPUT_LABELREF(FILE,NAME)  \
+  asm_fprintf ((FILE), "%U%s", (NAME) + (TINY_DATA_NAME_P (NAME) ? 1 : 0))
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) 
 

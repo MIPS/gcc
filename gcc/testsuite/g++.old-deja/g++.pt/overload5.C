@@ -1,8 +1,6 @@
 // Build don't link:
 
-// crash test - XFAIL *-*-*
-
-template <class T> void foo();
+template <class T> void foo();	// ERROR - candidate
 
 void (*bar)() = foo<void>;
 void (*baz)() = foo; // ERROR - can't deduce T

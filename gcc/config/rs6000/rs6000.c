@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991, 93-7, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1991, 93-8, 1999 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -54,10 +54,10 @@ extern int profile_block_flag;
 enum processor_type rs6000_cpu;
 struct rs6000_cpu_select rs6000_select[3] =
 {
-  /* switch	name,			tune	arch */
-  { (char *)0,	"--with-cpu=",		1,	1 },
-  { (char *)0,	"-mcpu=",		1,	1 },
-  { (char *)0,	"-mtune=",		1,	0 },
+  /* switch		name,			tune	arch */
+  { (const char *)0,	"--with-cpu=",		1,	1 },
+  { (const char *)0,	"-mcpu=",		1,	1 },
+  { (const char *)0,	"-mtune=",		1,	0 },
 };
 
 /* Set to non-zero by "fix" operation to indicate that itrunc and
@@ -84,13 +84,13 @@ int rs6000_pic_labelno;
 int rs6000_pic_func_labelno;
 
 /* Which abi to adhere to */
-char *rs6000_abi_name = RS6000_ABI_NAME;
+const char *rs6000_abi_name = RS6000_ABI_NAME;
 
 /* Semantics of the small data area */
 enum rs6000_sdata_type rs6000_sdata = SDATA_DATA;
 
 /* Which small data model to use */
-char *rs6000_sdata_name = (char *)0;
+const char *rs6000_sdata_name = (char *)0;
 #endif
 
 /* Whether a System V.4 varargs area was created.  */
@@ -105,7 +105,7 @@ int rs6000_fpmem_offset;
 int rs6000_fpmem_size;
 
 /* Debug flags */
-char *rs6000_debug_name;
+const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
 
@@ -234,6 +234,12 @@ rs6000_override_options (default_cpu)
 	 {"620", PROCESSOR_PPC620,
 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | MASK_PPC_GPOPT},
+	 {"740", PROCESSOR_PPC750,
+ 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+ 	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
+	 {"750", PROCESSOR_PPC750,
+ 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+ 	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
 	 {"801", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -297,9 +303,12 @@ rs6000_override_options (default_cpu)
   if (TARGET_STRING_SET)
     target_flags = (target_flags & ~MASK_STRING) | string;
 
-  /* Don't allow -mmultiple or -mstring on little endian systems, because the
-     hardware doesn't support the instructions used in little endian mode */
-  if (!BYTES_BIG_ENDIAN)
+  /* Don't allow -mmultiple or -mstring on little endian systems unless the cpu
+     is a 750, because the hardware doesn't support the instructions used in
+     little endian mode, and causes an alignment trap.  The 750 does not cause
+     an alignment trap (except when the target is unaligned).  */
+
+  if (!BYTES_BIG_ENDIAN && rs6000_cpu != PROCESSOR_PPC750)
     {
       if (TARGET_MULTIPLE)
 	{
@@ -353,7 +362,7 @@ optimization_options (level, size)
      int level;
      int size ATTRIBUTE_UNUSED;
 {
-#ifdef HAIFA
+#ifdef HAVE_decrement_and_branch_on_count
   /* When optimizing, enable use of BCT instruction.  */
   if (level >= 1)
       flag_branch_on_count_reg = 1;
@@ -497,8 +506,7 @@ short_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) < 0x10000)
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+	   && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) < 0x10000));
 }
 
 /* Similar for a unsigned D field.  */
@@ -508,9 +516,8 @@ u_short_cint_operand (op, mode)
      register rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  return ((GET_CODE (op) == CONST_INT
-	   && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) == 0)
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+  return (GET_CODE (op) == CONST_INT
+	   && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) == 0);
 }
 
 /* Return 1 if OP is a CONST_INT that cannot fit in a signed D field.  */
@@ -550,6 +557,20 @@ cc_reg_operand (op, mode)
 	  && (GET_CODE (op) != REG
 	      || REGNO (op) >= FIRST_PSEUDO_REGISTER
 	      || CR_REGNO_P (REGNO (op))));
+}
+
+/* Returns 1 if OP is either a pseudo-register or a register denoting a
+   CR field that isn't CR0.  */
+
+int
+cc_reg_not_cr0_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  return (register_operand (op, mode)
+	  && (GET_CODE (op) != REG
+	      || REGNO (op) >= FIRST_PSEUDO_REGISTER
+	      || CR_REGNO_NOT_CR0_P (REGNO (op))));
 }
 
 /* Returns 1 if OP is either a constant integer valid for a D-field or a
@@ -598,7 +619,6 @@ reg_or_cint_operand (op, mode)
     enum machine_mode mode;
 {
      return (GET_CODE (op) == CONST_INT
-	     || GET_CODE (op) == CONSTANT_P_RTX
 	     || gpc_reg_operand (op, mode));
 }
 
@@ -826,15 +846,16 @@ volatile_mem_operand (op, mode)
   return memory_address_p (mode, XEXP (op, 0));
 }
 
-/* Return 1 if the operand is an offsettable memory address.  */
+/* Return 1 if the operand is an offsettable memory operand.  */
 
 int
-offsettable_addr_operand (op, mode)
+offsettable_mem_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return offsettable_address_p (reload_completed | reload_in_progress,
-				mode, op);
+  return ((GET_CODE (op) == MEM)
+	  && offsettable_address_p (reload_completed | reload_in_progress,
+				    mode, XEXP (op, 0)));
 }
 
 /* Return 1 if the operand is either an easy FP constant (see above) or
@@ -857,7 +878,8 @@ add_operand (op, mode)
     enum machine_mode mode;
 {
   return (reg_or_short_operand (op, mode)
-	  || (GET_CODE (op) == CONST_INT && (INTVAL (op) & 0xffff) == 0));
+	  || (GET_CODE (op) == CONST_INT
+	      && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0));
 }
 
 /* Return 1 if OP is a constant but not a valid add_operand.  */
@@ -869,7 +891,7 @@ non_add_cint_operand (op, mode)
 {
   return (GET_CODE (op) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) >= 0x10000
-	  && (INTVAL (op) & 0xffff) != 0);
+	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
 }
 
 /* Return 1 if the operand is a non-special register or a constant that
@@ -883,8 +905,7 @@ logical_operand (op, mode)
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
 	      && ((INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) == 0
-		  || (INTVAL (op) & 0xffff) == 0))
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+		  || (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0)));
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -897,7 +918,7 @@ non_logical_cint_operand (op, mode)
 {
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff)) != 0
-	  && (INTVAL (op) & 0xffff) != 0);
+	  && (INTVAL (op) & (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
 }
 
 /* Return 1 if C is a constant that can be encoded in a mask on the
@@ -1020,8 +1041,10 @@ and64_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
-  return (logical_operand (op, mode)
-	  || mask64_operand (op, mode));
+  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+    return (gpc_reg_operand (op, mode) || mask64_operand (op, mode));
+
+  return (logical_operand (op, mode) || mask64_operand (op, mode));
 }
 
 /* Return 1 if the operand is either a non-special register or a
@@ -1032,8 +1055,10 @@ and_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
-  return (logical_operand (op, mode)
-	  || mask_operand (op, mode));
+  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+    return (gpc_reg_operand (op, mode) || mask_operand (op, mode));
+
+  return (logical_operand (op, mode) || mask_operand (op, mode));
 }
 
 /* Return 1 if the operand is a general register or memory operand.  */
@@ -1110,6 +1135,10 @@ input_operand (op, mode)
   if (memory_operand (op, mode))
     return 1;
 
+  /* Only a tiny bit of handling for CONSTANT_P_RTX is necessary.  */
+  if (GET_CODE (op) == CONSTANT_P_RTX)
+    return 1;
+
   /* For floating-point, easy constants are valid.  */
   if (GET_MODE_CLASS (mode) == MODE_FLOAT
       && CONSTANT_P (op)
@@ -1119,7 +1148,6 @@ input_operand (op, mode)
   /* Allow any integer constant.  */
   if (GET_MODE_CLASS (mode) == MODE_INT
       && (GET_CODE (op) == CONST_INT
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || GET_CODE (op) == CONST_DOUBLE))
     return 1;
 
@@ -1159,13 +1187,8 @@ input_operand (op, mode)
 
 int
 small_data_operand (op, mode)
-#if TARGET_ELF
-     rtx op;
-     enum machine_mode mode;
-#else
      rtx op ATTRIBUTE_UNUSED;
      enum machine_mode mode ATTRIBUTE_UNUSED;
-#endif
 {
 #if TARGET_ELF
   rtx sym_ref, const_part;
@@ -1702,8 +1725,7 @@ expand_block_move_mem (mode, addr, orig_mem)
   rtx mem = gen_rtx_MEM (mode, addr);
 
   RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (orig_mem);
-  MEM_VOLATILE_P (mem) = MEM_VOLATILE_P (orig_mem);
-  MEM_IN_STRUCT_P (mem) = MEM_IN_STRUCT_P (orig_mem);
+  MEM_COPY_ATTRIBUTES (mem, orig_mem);
 #ifdef MEM_UNALIGNED_P
   MEM_UNALIGNED_P (mem) = MEM_UNALIGNED_P (orig_mem);
 #endif
@@ -2752,15 +2774,15 @@ print_operand (file, x, code)
       /* If the high bit is set and the low bit is not, the value is zero.
 	 If the high bit is zero, the value is the first 1 bit we find from
 	 the left.  */
-      if (val < 0 && (val & 1) == 0)
+      if ((val & 0x80000000) && ((val & 1) == 0))
 	{
 	  putc ('0', file);
 	  return;
 	}
-      else if (val >= 0)
+      else if ((val & 0x80000000) == 0)
 	{
 	  for (i = 1; i < 32; i++)
-	    if ((val <<= 1) < 0)
+	    if ((val <<= 1) & 0x80000000)
 	      break;
 	  fprintf (file, "%d", i);
 	  return;
@@ -2787,7 +2809,7 @@ print_operand (file, x, code)
       /* If the low bit is set and the high bit is not, the value is 31.
 	 If the low bit is zero, the value is the first 1 bit we find from
 	 the right.  */
-      if ((val & 1) && val >= 0)
+      if ((val & 1) && ((val & 0x80000000) == 0))
 	{
 	  fputs ("31", file);
 	  return;
@@ -2807,7 +2829,7 @@ print_operand (file, x, code)
       /* Otherwise, look for the first 0 bit from the left.  The result is its
 	 number minus 1. We know the high-order bit is one.  */
       for (i = 0; i < 32; i++)
-	if ((val <<= 1) >= 0)
+	if (((val <<= 1) & 0x80000000) == 0)
 	  break;
 
       fprintf (file, "%d", i);
@@ -3207,14 +3229,46 @@ first_reg_to_save ()
     if (regs_ever_live[first_reg])
       break;
 
-  /* If profiling, then we must save/restore every register that contains
-     a parameter before/after the .__mcount call.  Use registers from 30 down
-     to 23 to do this.  Don't use the frame pointer in reg 31.
+  if (profile_flag)
+    {
+      /* AIX must save/restore every register that contains a parameter
+	 before/after the .__mcount call plus an additional register
+	 for the static chain, if needed; use registers from 30 down to 22
+	 to do this.  */
+      if (DEFAULT_ABI == ABI_AIX)
+	{
+	  int last_parm_reg, profile_first_reg;
 
-     For now, save enough room for all of the parameter registers.  */
-  if (DEFAULT_ABI == ABI_AIX && profile_flag)
-    if (first_reg > 23)
-      first_reg = 23;
+	  /* Figure out last used parameter register.  The proper thing
+	     to do is to walk incoming args of the function.  A function
+	     might have live parameter registers even if it has no
+	     incoming args.  */
+	  for (last_parm_reg = 10;
+	       last_parm_reg > 2 && ! regs_ever_live [last_parm_reg];
+	       last_parm_reg--)
+	    ;
+
+	  /* Calculate first reg for saving parameter registers
+	     and static chain.
+	     Skip reg 31 which may contain the frame pointer.  */
+	  profile_first_reg = (33 - last_parm_reg
+			       - (current_function_needs_context ? 1 : 0));
+	  /* Do not save frame pointer if no parameters needs to be saved.  */
+	  if (profile_first_reg == 31)
+	    profile_first_reg = 32;
+
+	  if (first_reg > profile_first_reg)
+	    first_reg = profile_first_reg;
+	}
+
+      /* SVR4 may need one register to preserve the static chain.  */
+      else if (current_function_needs_context)
+	{
+	  /* Skip reg 31 which may contain the frame pointer.  */
+	  if (first_reg > 30)
+	    first_reg = 30;
+	}
+    }
 
   return first_reg;
 }
@@ -3453,7 +3507,6 @@ rs6000_stack_info ()
 	}
     }
 
-
   /* Determine if we need to save the link register */
   if (regs_ever_live[65]
       || (DEFAULT_ABI == ABI_AIX && profile_flag)
@@ -3480,13 +3533,6 @@ rs6000_stack_info ()
 	info_ptr->cr_size = reg_size;
     }
 
-  /* Ensure that fp_save_offset will be aligned to an 8-byte boundary. */
-  if (info_ptr->fpmem_p)
-    {
-      info_ptr->gp_size = RS6000_ALIGN (info_ptr->gp_size, 8);
-      info_ptr->main_size = RS6000_ALIGN (info_ptr->main_size, 8);
-    }
-
   /* Determine various sizes */
   info_ptr->reg_size     = reg_size;
   info_ptr->fixed_size   = RS6000_SAVE_AREA;
@@ -3500,40 +3546,6 @@ rs6000_stack_info ()
 				  + info_ptr->lr_size
 				  + info_ptr->toc_size
 				  + info_ptr->main_size, 8);
-
-  total_raw_size	 = (info_ptr->vars_size
-			    + info_ptr->parm_size
-			    + info_ptr->fpmem_size
-			    + info_ptr->save_size
-			    + info_ptr->varargs_size
-			    + info_ptr->fixed_size);
-
-  info_ptr->total_size   = RS6000_ALIGN (total_raw_size, ABI_STACK_BOUNDARY / BITS_PER_UNIT);
-
-  /* Determine if we need to allocate any stack frame:
-
-     For AIX we need to push the stack if a frame pointer is needed (because
-     the stack might be dynamically adjusted), if we are debugging, if we
-     make calls, or if the sum of fp_save, gp_save, fpmem, and local variables
-     are more than the space needed to save all non-volatile registers:
-     32-bit: 18*8 + 19*4 = 220 or 64-bit: 18*8 + 19*8 = 296
-
-     For V.4 we don't have the stack cushion that AIX uses, but assume that
-     the debugger can handle stackless frames.  */
-
-  if (info_ptr->calls_p)
-    info_ptr->push_p = 1;
-
-  else if (abi == ABI_V4 || abi == ABI_NT || abi == ABI_SOLARIS)
-    info_ptr->push_p = (total_raw_size > info_ptr->fixed_size
-			|| (abi == ABI_NT ? info_ptr->lr_save_p
-			    : info_ptr->calls_p));
-
-  else
-    info_ptr->push_p = (frame_pointer_needed
-			|| write_symbols != NO_DEBUG
-			|| ((total_raw_size - info_ptr->fixed_size)
-			    > (TARGET_32BIT ? 220 : 296)));
 
   /* Calculate the offsets */
   switch (abi)
@@ -3573,6 +3585,45 @@ rs6000_stack_info ()
       info_ptr->main_save_offset = info_ptr->fp_save_offset - info_ptr->main_size;
       break;
     }
+
+  /* Ensure that fpmem_offset will be aligned to an 8-byte boundary. */
+  if (info_ptr->fpmem_p
+      && (info_ptr->main_save_offset - info_ptr->fpmem_size) % 8)
+    info_ptr->fpmem_size += reg_size;
+
+  total_raw_size	 = (info_ptr->vars_size
+			    + info_ptr->parm_size
+			    + info_ptr->fpmem_size
+			    + info_ptr->save_size
+			    + info_ptr->varargs_size
+			    + info_ptr->fixed_size);
+
+  info_ptr->total_size   = RS6000_ALIGN (total_raw_size, ABI_STACK_BOUNDARY / BITS_PER_UNIT);
+
+  /* Determine if we need to allocate any stack frame:
+
+     For AIX we need to push the stack if a frame pointer is needed (because
+     the stack might be dynamically adjusted), if we are debugging, if we
+     make calls, or if the sum of fp_save, gp_save, fpmem, and local variables
+     are more than the space needed to save all non-volatile registers:
+     32-bit: 18*8 + 19*4 = 220 or 64-bit: 18*8 + 19*8 = 296
+
+     For V.4 we don't have the stack cushion that AIX uses, but assume that
+     the debugger can handle stackless frames.  */
+
+  if (info_ptr->calls_p)
+    info_ptr->push_p = 1;
+
+  else if (abi == ABI_V4 || abi == ABI_NT || abi == ABI_SOLARIS)
+    info_ptr->push_p = (total_raw_size > info_ptr->fixed_size
+			|| (abi == ABI_NT ? info_ptr->lr_save_p
+			    : info_ptr->calls_p));
+
+  else
+    info_ptr->push_p = (frame_pointer_needed
+			|| write_symbols != NO_DEBUG
+			|| ((total_raw_size - info_ptr->fixed_size)
+			    > (TARGET_32BIT ? 220 : 296)));
 
   if (info_ptr->fpmem_p)
     {
@@ -4479,7 +4530,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
      int delta;
      tree function;
 {
-  char *this_reg = reg_names[ aggregate_value_p (TREE_TYPE (function)) ? 3 : 4 ];
+  char *this_reg = reg_names[ aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) ? 4 : 3 ];
   char *r0	 = reg_names[0];
   char *sp	 = reg_names[1];
   char *toc	 = reg_names[2];
@@ -4564,7 +4615,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   fprintf (file, "\n");
 
 #else
-  if (TREE_ASM_WRITTEN (function)
+  if (current_file_function_operand (XEXP (DECL_RTL (function), 0))
       && !lookup_attribute ("longcall", TYPE_ATTRIBUTES (TREE_TYPE (function))))
     {
       fprintf (file, "\tb %s", prefix);
@@ -5032,13 +5083,20 @@ output_function_profiler (file, labelno)
 	  asm_fprintf (file, "\t{liu|lis} %s,", reg_names[12]);
 	  assemble_name (file, buf);
 	  fputs ("@ha\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n", reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+		       reg_names[0], reg_names[1]);
 	  asm_fprintf (file, "\t{cal|la} %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@l(%s)\n", reg_names[12]);
 	}
 
+      if (current_function_needs_context)
+	asm_fprintf (file, "\tmr %s,%s\n",
+		     reg_names[30], reg_names[STATIC_CHAIN_REGNUM]);
       fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
+      if (current_function_needs_context)
+	asm_fprintf (file, "\tmr %s,%s\n",
+		     reg_names[STATIC_CHAIN_REGNUM], reg_names[30]);
       break;
 
     case ABI_AIX:
@@ -5070,11 +5128,13 @@ output_function_profiler (file, labelno)
 	   last_parm_reg--)
 	;
 
-  /* Save parameter registers in regs 23-30.  Don't overwrite reg 31, since
-     it might be set up as the frame pointer.  */
+  /* Save parameter registers in regs 23-30 and static chain in r22.
+     Don't overwrite reg 31, since it might be set up as the frame pointer.  */
 
       for (i = 3, j = 30; i <= last_parm_reg; i++, j--)
 	asm_fprintf (file, "\tmr %d,%d\n", j, i);
+      if (current_function_needs_context)
+	asm_fprintf (file, "\tmr %d,%d\n", j, STATIC_CHAIN_REGNUM);
 
   /* Load location address into r3, and call mcount.  */
 
@@ -5085,10 +5145,13 @@ output_function_profiler (file, labelno)
       asm_fprintf (file, "(%s)\n\tbl %s\n\t%s\n",
 		   reg_names[2], RS6000_MCOUNT, RS6000_CALL_GLUE);
 
-  /* Restore parameter registers.  */
+  /* Restore parameter registers and static chain.  */
 
       for (i = 3, j = 30; i <= last_parm_reg; i++, j--)
 	asm_fprintf (file, "\tmr %d,%d\n", i, j);
+      if (current_function_needs_context)
+	asm_fprintf (file, "\tmr %d,%d\n", STATIC_CHAIN_REGNUM, j);
+
       break;
     }
 }
@@ -5127,6 +5190,48 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
   return cost;
 }
 
+/* A C statement (sans semicolon) to update the integer scheduling priority
+   INSN_PRIORITY (INSN).  Reduce the priority to execute the INSN earlier,
+   increase the priority to execute INSN later.  Do not define this macro if
+   you do not need to adjust the scheduling priorities of insns.  */
+
+int
+rs6000_adjust_priority (insn, priority)
+     rtx insn;
+     int priority;
+{
+  /* On machines (like the 750) which have asymetric integer units, where one
+     integer unit can do multiply and divides and the other can't, reduce the
+     priority of multiply/divide so it is scheduled before other integer
+     operationss.  */
+
+#if 0
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    return priority;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return priority;
+
+  switch (rs6000_cpu_attr) {
+  case CPU_PPC750:
+    switch (get_attr_type (insn))
+      {
+      default:
+	break;
+
+      case TYPE_IMUL:
+      case TYPE_IDIV:
+	fprintf (stderr, "priority was %#x (%d) before adjustment\n", priority, priority);
+	if (priority >= 0 && priority < 0x01000000)
+	  priority >>= 3;
+	break;
+      }
+  }
+#endif
+
+  return priority;
+}
+
 /* Return how many instructions the machine can issue per cycle */
 int get_issue_rate()
 {
@@ -5139,7 +5244,11 @@ int get_issue_rate()
     return 3;       /* ? */
   case CPU_PPC603:
     return 2; 
+  case CPU_PPC750:
+    return 2; 
   case CPU_PPC604:
+    return 4;
+  case CPU_PPC604E:
     return 4;
   case CPU_PPC620:
     return 4;
@@ -5147,7 +5256,6 @@ int get_issue_rate()
     return 1;
   }
 }
-
 
 
 /* Output assembler code for a block containing the constant parts

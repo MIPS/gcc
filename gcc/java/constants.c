@@ -23,16 +23,22 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "jcf.h"
 #include "tree.h"
 #include "java-tree.h"
-#include "jcf.h"
 #include "toplev.h"
 
 extern struct obstack permanent_obstack;
 
+static void set_constant_entry PROTO ((CPool *, int, int, jword));
+static int find_class_or_string_constant PROTO ((CPool *, int, tree));
+static int find_name_and_type_constant PROTO ((CPool *, tree, tree));
+static tree get_tag_node PROTO ((int));
+static tree build_constant_data_ref PROTO ((void));
+
 /* Set the INDEX'th constant in CPOOL to have the given TAG and VALUE. */
 
-void
+static void
 set_constant_entry (cpool, index, tag, value)
      CPool *cpool;
      int index;
@@ -113,7 +119,7 @@ find_utf8_constant (cpool, name)
   return find_constant1 (cpool, CONSTANT_Utf8, (jword) name);
 }
 
-int
+static int
 find_class_or_string_constant (cpool, tag, name)
      CPool *cpool;
      int tag;
@@ -123,7 +129,7 @@ find_class_or_string_constant (cpool, tag, name)
   int i;
   for (i = cpool->count;  --i > 0; )
     {
-      if (cpool->tags[i] == tag && cpool->data[i] == j)
+      if (cpool->tags[i] == tag && cpool->data[i] == (jword) j)
 	return i;
     }
   i = cpool->count;
@@ -140,10 +146,22 @@ find_class_constant (cpool, type)
 					build_internal_class_name (type));
 }
 
+/* Allocate a CONSTANT_string entry given a STRING_CST. */
+
+int
+find_string_constant (cpool, string)
+     CPool *cpool;
+     tree string;
+{
+  string = get_identifier (TREE_STRING_POINTER (string));
+  return find_class_or_string_constant (cpool, CONSTANT_String, string);
+
+}
+
 /* Find (or create) a CONSTANT_NameAndType matching NAME and TYPE.
    Return its index in the constant pool CPOOL. */
 
-int
+static int
 find_name_and_type_constant (cpool, name, type)
      CPool *cpool;
      tree name;
@@ -178,13 +196,16 @@ find_methodref_index (cpool, decl)
      CPool *cpool;
      tree decl;
 {
-  int class_index = find_class_constant (cpool, DECL_CONTEXT (decl));
+  tree mclass = DECL_CONTEXT (decl);
+  int class_index = find_class_constant (cpool, mclass);
   tree name = DECL_CONSTRUCTOR_P (decl) ? init_identifier_node
     : DECL_NAME (decl);
   int name_type_index
     = find_name_and_type_constant (cpool, name, TREE_TYPE (decl));
-  /* Methodref or INterfacemethodRef - FIXME */
-  return find_constant1 (cpool, CONSTANT_Methodref,
+  return find_constant1 (cpool,
+			 CLASS_INTERFACE (TYPE_NAME (mclass))
+			 ? CONSTANT_InterfaceMethodref
+			 : CONSTANT_Methodref,
 			 (class_index << 16) | name_type_index);
 }
 
@@ -202,8 +223,7 @@ count_constant_pool_bytes (cpool)
 {
   int size = 2;
   int i = 1;
-  jword *datap = &cpool->data[1];;
-  for ( ;  i < cpool->count;  i++, datap++)
+  for ( ;  i < cpool->count;  i++)
     {
       size++;
       switch (cpool->tags[i])
@@ -222,15 +242,19 @@ count_constant_pool_bytes (cpool)
 	  break;
 	case CONSTANT_Long:
 	case CONSTANT_Double:
-	  size += 4;
+	  size += 8;
+	  i++;
 	  break;
 	case CONSTANT_Utf8:
 	  {
-	    tree t = (tree) *datap;
+	    tree t = (tree) cpool->data[i];
 	    int len = IDENTIFIER_LENGTH (t);
 	    size += len + 2;
 	  }
 	  break;
+	default:
+	  /* Second word of CONSTANT_Long and  CONSTANT_Double. */
+	  size--;
 	}
     }
   return size;
@@ -298,7 +322,7 @@ tree current_constant_pool_data_ref;
 /* A Cache for build_int_2 (CONSTANT_XXX, 0). */
 static tree tag_nodes[13];
 
-tree
+static tree
 get_tag_node (tag)
      int tag;
 {
@@ -350,14 +374,17 @@ int
 alloc_class_constant (clas)
      tree clas;
 {
-
+  tree class_name = build_internal_class_name (clas);
+  
   return alloc_name_constant (CONSTANT_Class,
-			      build_internal_class_name (clas));
+			      (unmangle_classname 
+			       (IDENTIFIER_POINTER(class_name),
+				IDENTIFIER_LENGTH(class_name))));
 }
 
 /* Return a reference to the data array of the current constant pool. */
 
-tree
+static tree
 build_constant_data_ref ()
 {
   if (current_constant_pool_data_ref == NULL_TREE)

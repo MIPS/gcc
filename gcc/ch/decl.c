@@ -1,5 +1,5 @@
 /* Process declarations and variables for GNU CHILL compiler.
-   Copyright (C) 1992, 93, 1994 Free Software Foundation, Inc. 
+   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc. 
    
    This file is part of GNU CC.
    
@@ -15,7 +15,8 @@
    
    You should have received a copy of the GNU General Public License
    along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 
 /* Process declarations and symbol lookup for CHILL front end.
@@ -353,13 +354,17 @@ tree intQI_type_node;
 tree intHI_type_node;
 tree intSI_type_node;
 tree intDI_type_node;
+#if HOST_BITS_PER_WIDE_INT >= 64
 tree intTI_type_node;
+#endif
 
 tree unsigned_intQI_type_node;
 tree unsigned_intHI_type_node;
 tree unsigned_intSI_type_node;
 tree unsigned_intDI_type_node;
+#if HOST_BITS_PER_WIDE_INT >= 64
 tree unsigned_intTI_type_node;
+#endif
 
 /* a VOID_TYPE node.  */
 
@@ -591,10 +596,6 @@ int flag_allow_single_precision = 0;
 int flag_signed_bitfields = 1;
 int explicit_flag_signed_bitfields = 0;
 
-/* Nonzero means handle `#ident' directives.  0 means ignore them.  */
-
-int flag_no_ident = 0;
-
 /* Nonzero means warn about implicit declarations.  */
 
 int warn_implicit;
@@ -793,10 +794,6 @@ c_decode_option (argc, argv)
     flag_no_builtin = 0;
   else if (!strcmp (p, "-fno-builtin"))
     flag_no_builtin = 1;
-  else if (!strcmp (p, "-fno-ident"))
-    flag_no_ident = 1;
-  else if (!strcmp (p, "-fident"))
-    flag_no_ident = 0;
   else if (!strcmp (p, "-ansi"))
     flag_no_asm = 1, flag_no_nonansi_builtin = 1, dollars_in_ident = 0;
   else if (!strcmp (p, "-Wimplicit"))
@@ -2935,7 +2932,7 @@ poplevel (keep, reverse, functionbody)
   tree subblocks;
   tree block = 0;
   tree decl;
-  int block_previously_created;
+  int block_previously_created = 0;
 
   if (current_scope == NULL)
     return error_mark_node;
@@ -3531,12 +3528,16 @@ init_decl_processing ()
   intHI_type_node = make_signed_type (GET_MODE_BITSIZE (HImode));
   intSI_type_node = make_signed_type (GET_MODE_BITSIZE (SImode));
   intDI_type_node = make_signed_type (GET_MODE_BITSIZE (DImode));
+#if HOST_BITS_PER_WIDE_INT >= 64
   intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
+#endif
   unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
   unsigned_intHI_type_node = make_unsigned_type (GET_MODE_BITSIZE (HImode));
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
+#if HOST_BITS_PER_WIDE_INT >= 64
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+#endif
 
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;

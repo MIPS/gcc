@@ -1,5 +1,5 @@
 /* Language lexer definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -26,20 +26,14 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef JV_LEX_H
 #define JV_LEX_H
 
+#include <setjmp.h>		/* set_float_handler argument uses it */
+
 /* Extern global variables declarations  */
 extern FILE *finput;
 extern int   lineno;
-extern char *classpath;
 
 /* A Unicode character, as read from the input file  */
 typedef unsigned short unicode_t;
-
-/* Function declaration  */
-static int java_lineterminator ();
-static char *java_sprint_unicode ();
-static void java_unicode_2_utf8 ();
-static void java_lex_error ();
-static void java_store_unicode ();
 
 /* Debug macro to print-out what we match  */
 #ifdef JAVA_LEX_DEBUG
@@ -98,14 +92,15 @@ struct java_error {
 
 typedef struct _java_lc {
   int line;
+  int prev_col;
   int col;
 } java_lc;
 
 
 #define JAVA_LINE_MAX 80
 
-/* Macro to read and unread chars */
-#define UNGETC(c) ctxp->unget_utf8_value = (c);
+/* Macro to read and unread bytes */
+#define UNGETC(c) ungetc(c, finput)
 #define GETC()    getc(finput)
 
 /* Build a location compound integer */
@@ -140,7 +135,7 @@ typedef struct _java_lc {
 
 #else
 
-static tree build_wfl_node ();
+extern void set_float_handler PROTO((jmp_buf));
 #define SET_FLOAT_HANDLER(H) set_float_handler ((H))
 #define DCONST0 dconst0
 #define GET_IDENTIFIER(S) get_identifier ((S))

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992, 93-7, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-8, 1999 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -81,6 +81,9 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=604: -D_ARCH_PPC} \
 %{mcpu=604e: -D_ARCH_PPC} \
 %{mcpu=620: -D_ARCH_PPC} \
+%{mcpu=740: -D_ARCH_PPC} \
+%{mcpu=750: -D_ARCH_PPC} \
+%{mcpu=801: -D_ARCH_PPC} \
 %{mcpu=821: -D_ARCH_PPC} \
 %{mcpu=823: -D_ARCH_PPC} \
 %{mcpu=860: -D_ARCH_PPC}"
@@ -134,6 +137,9 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=604: -mppc} \
 %{mcpu=604e: -mppc} \
 %{mcpu=620: -mppc} \
+%{mcpu=740: -mppc} \
+%{mcpu=750: -mppc} \
+%{mcpu=801: -mppc} \
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc}"
@@ -391,15 +397,18 @@ extern int target_flags;
 
 /* Processor type.  Order must match cpu attribute in MD file.  */
 enum processor_type
- {PROCESSOR_RIOS1,
-  PROCESSOR_RIOS2,
-  PROCESSOR_MPCCORE,
-  PROCESSOR_PPC403,
-  PROCESSOR_PPC601,
-  PROCESSOR_PPC603,
-  PROCESSOR_PPC604,
-  PROCESSOR_PPC604e,
-  PROCESSOR_PPC620};
+ {
+   PROCESSOR_RIOS1,
+   PROCESSOR_RIOS2,
+   PROCESSOR_MPCCORE,
+   PROCESSOR_PPC403,
+   PROCESSOR_PPC601,
+   PROCESSOR_PPC603,
+   PROCESSOR_PPC604,
+   PROCESSOR_PPC604e,
+   PROCESSOR_PPC620,
+   PROCESSOR_PPC750
+};
 
 extern enum processor_type rs6000_cpu;
 
@@ -452,8 +461,8 @@ extern enum processor_type rs6000_cpu;
 /* rs6000_select[0] is reserved for the default cpu defined via --with-cpu */
 struct rs6000_cpu_select
 {
-  char *string;
-  char *name;
+  const char *string;
+  const char *name;
   int set_tune_p;
   int set_arch_p;
 };
@@ -461,7 +470,7 @@ struct rs6000_cpu_select
 extern struct rs6000_cpu_select rs6000_select[];
 
 /* Debug support */
-extern char *rs6000_debug_name;		/* Name for -mdebug-xxxx option */
+extern const char *rs6000_debug_name;		/* Name for -mdebug-xxxx option */
 extern int rs6000_debug_stack;		/* debug stack applications */
 extern int rs6000_debug_arg;		/* debug argument handling */
 
@@ -756,6 +765,12 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* True if register is a condition register.  */
 #define CR_REGNO_P(N) ((N) >= 68 && (N) <= 75)
 
+/* True if register is condition register 0.  */
+#define CR0_REGNO_P(N) ((N) == 68)
+
+/* True if register is a condition register, but not cr0.  */
+#define CR_REGNO_NOT_CR0_P(N) ((N) >= 69 && (N) <= 75)
+
 /* True if register is an integer register.  */
 #define INT_REGNO_P(N) ((N) <= 31 || (N) == 67)
 
@@ -854,6 +869,14 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 #define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
   (COST) = rs6000_adjust_cost (INSN,LINK,DEP_INSN,COST)
+
+/* A C statement (sans semicolon) to update the integer scheduling priority
+   INSN_PRIORITY (INSN).  Reduce the priority to execute the INSN earlier,
+   increase the priority to execute INSN later.  Do not define this macro if
+   you do not need to adjust the scheduling priorities of insns.  */
+
+#define ADJUST_PRIORITY(INSN)						\
+  INSN_PRIORITY (INSN) = rs6000_adjust_priority (INSN, INSN_PRIORITY (INSN))
 
 /* Define this macro to change register usage conditional on target flags.
    Set MQ register fixed (already call_used) if not POWER architecture
@@ -1075,7 +1098,7 @@ enum reg_class
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)					\
    ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & 0xffff) == 0				\
+   : (C) == 'J' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0	\
    : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
    : (C) == 'L' ? mask_constant (VALUE)					\
    : (C) == 'M' ? (VALUE) > 31						\
@@ -1232,8 +1255,10 @@ typedef struct rs6000_stack {
 /* Size of the fixed area on the stack */
 #define RS6000_SAVE_AREA (TARGET_32BIT ? 24 : 48)
 
-/* Address to save the TOC register */
-#define RS6000_SAVE_TOC plus_constant (stack_pointer_rtx, (TARGET_32BIT ? 20 : 40))
+/* MEM representing address to save the TOC register */
+#define RS6000_SAVE_TOC gen_rtx_MEM (Pmode, \
+				     plus_constant (stack_pointer_rtx, \
+						    (TARGET_32BIT ? 20 : 40)))
 
 /* Offset & size for fpmem stack locations used for converting between
    float and integral types.  */
@@ -1755,11 +1780,11 @@ typedef struct rs6000_args
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-#define HAVE_PRE_DECREMENT
-#define HAVE_PRE_INCREMENT
+#define HAVE_PRE_DECREMENT 1
+#define HAVE_PRE_INCREMENT 1
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1997,6 +2022,7 @@ typedef struct rs6000_args
       rtx reg = gen_reg_rtx (Pmode);					\
       emit_insn (gen_elf_high (reg, (X)));				\
       (X) = gen_rtx_LO_SUM (Pmode, reg, (X));				\
+      goto WIN;								\
     }									\
 }
 
@@ -2010,6 +2036,18 @@ typedef struct rs6000_args
    
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)     \
 do {                                                                    \
+  /* We must recognize output that we have already generated ourselves.  */ \
+  if (GET_CODE (X) == PLUS						\
+      && GET_CODE (XEXP (X, 0)) == PLUS					\
+      && GET_CODE (XEXP (XEXP (X, 0), 0)) == REG			\
+      && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
+      && GET_CODE (XEXP (X, 1)) == CONST_INT)				\
+    {									\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,       \
+                   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,        \
+                   OPNUM, TYPE);                                        \
+      goto WIN;                                                         \
+    }									\
   if (GET_CODE (X) == PLUS                                              \
       && GET_CODE (XEXP (X, 0)) == REG                                  \
       && REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER                    \
@@ -2274,10 +2312,12 @@ do {                                                                    \
 		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
       case PROCESSOR_RIOS2:						\
       case PROCESSOR_MPCCORE:						\
+      case PROCESSOR_PPC604e:						\
         return COSTS_N_INSNS (2);					\
       case PROCESSOR_PPC601:						\
         return COSTS_N_INSNS (5);					\
       case PROCESSOR_PPC603:						\
+      case PROCESSOR_PPC750:						\
         return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
 		? COSTS_N_INSNS (5)					\
 		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
@@ -2310,8 +2350,11 @@ do {                                                                    \
       case PROCESSOR_PPC603:						\
 	return COSTS_N_INSNS (37);					\
       case PROCESSOR_PPC604:						\
+      case PROCESSOR_PPC604e:						\
       case PROCESSOR_PPC620:						\
 	return COSTS_N_INSNS (20);					\
+      case PROCESSOR_PPC750:						\
+        return COSTS_N_INSNS (19);					\
       }									\
   case FFS:								\
     return COSTS_N_INSNS (4);						\
@@ -2957,43 +3000,21 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
 
 /* This is how to output an assembler line defining a `double' constant.  */
 
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t[2];							\
-	REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n",		\
-		t[0] & 0xffffffff, t[1] & 0xffffffff);			\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL (VALUE, "%.20e", str);			\
-	fprintf (FILE, "\t.double 0d%s\n", str);			\
-      }									\
+#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
+  {							\
+    long t[2];						\
+    REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);		\
+    fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n",	\
+	     t[0] & 0xffffffff, t[1] & 0xffffffff);	\
   }
 
 /* This is how to output an assembler line defining a `float' constant.  */
 
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)					\
-  {									\
-    if (REAL_VALUE_ISINF (VALUE)					\
-        || REAL_VALUE_ISNAN (VALUE)					\
-	|| REAL_VALUE_MINUS_ZERO (VALUE))				\
-      {									\
-	long t;								\
-	REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);			\
-	fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);		\
-      }									\
-    else								\
-      {									\
-	char str[30];							\
-	REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);			\
-	fprintf (FILE, "\t.float 0d%s\n", str);				\
-      }									\
+#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
+  {							\
+    long t;						\
+    REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
+    fprintf (FILE, "\t.long 0x%lx\n", t & 0xffffffff);	\
   }
 
 /* This is how to output an assembler line defining an `int' constant.  */
@@ -3041,32 +3062,6 @@ do {									\
    at P to FILE.  */
 
 #define ASM_OUTPUT_ASCII(FILE, P, N)  output_ascii ((FILE), (P), (N))
-
-/* This is how to output code to push a register on the stack.
-   It need not be very fast code.
-
-   On the rs6000, we must keep the backchain up to date.  In order
-   to simplify things, always allocate 16 bytes for a push (System V
-   wants to keep stack aligned to a 16 byte boundary).  */
-
-#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)					\
-do {									\
-  extern char *reg_names[];						\
-  asm_fprintf (FILE, "\t{stu|stwu} %s,-16(%s)\n\t{st|stw} %s,8(%s)\n",	\
-	       reg_names[1], reg_names[1], reg_names[REGNO],		\
-	       reg_names[1]);						\
-} while (0)
-
-/* This is how to output an insn to pop a register from the stack.
-   It need not be very fast code.  */
-
-#define ASM_OUTPUT_REG_POP(FILE,REGNO)					\
-do {									\
-  extern char *reg_names[];						\
-  asm_fprintf (FILE, "\t{l|lwz} %s,8(%s)\n\t{ai|addic} %s,%s,16\n",	\
-	       reg_names[REGNO], reg_names[1], reg_names[1],		\
-	       reg_names[1]);						\
-} while (0)
 
 /* This is how to output an element of a case-vector that is absolute.
    (RS/6000 does not use such vectors, but we must define this macro
@@ -3166,29 +3161,29 @@ do {									\
 /* Define the codes that are matched by predicates in rs6000.c.  */
 
 #define PREDICATE_CODES						\
-  {"short_cint_operand", {CONST_INT, CONSTANT_P_RTX}},		\
-  {"u_short_cint_operand", {CONST_INT, CONSTANT_P_RTX}},	\
+  {"short_cint_operand", {CONST_INT}},				\
+  {"u_short_cint_operand", {CONST_INT}},			\
   {"non_short_cint_operand", {CONST_INT}},			\
   {"gpc_reg_operand", {SUBREG, REG}},				\
   {"cc_reg_operand", {SUBREG, REG}},				\
-  {"reg_or_short_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
+  {"cc_reg_not_cr0_operand", {SUBREG, REG}},			\
+  {"reg_or_short_operand", {SUBREG, REG, CONST_INT}}, 		\
   {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},	\
-  {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
+  {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}}, 	\
+  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}}, 		\
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},		\
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},		\
   {"easy_fp_constant", {CONST_DOUBLE}},				\
   {"reg_or_mem_operand", {SUBREG, MEM, REG}},			\
   {"lwa_operand", {SUBREG, MEM, REG}},				\
   {"volatile_mem_operand", {MEM}},				\
-  {"offsettable_addr_operand", {REG, SUBREG, PLUS}},		\
+  {"offsettable_mem_operand", {MEM}},				\
   {"mem_or_easy_const_operand", {SUBREG, MEM, CONST_DOUBLE}},	\
-  {"add_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"add_operand", {SUBREG, REG, CONST_INT}},			\
   {"non_add_cint_operand", {CONST_INT}},			\
-  {"and_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-  {"and64_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX,	\
-		     CONST_DOUBLE}},				\
-  {"logical_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
+  {"and_operand", {SUBREG, REG, CONST_INT}},			\
+  {"and64_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+  {"logical_operand", {SUBREG, REG, CONST_INT}}, 		\
   {"non_logical_cint_operand", {CONST_INT}},			\
   {"mask_operand", {CONST_INT}},				\
   {"mask64_operand", {CONST_INT, CONST_DOUBLE}},		\
@@ -3196,7 +3191,7 @@ do {									\
   {"fpmem_operand", {REG}},					\
   {"call_operand", {SYMBOL_REF, REG}},				\
   {"current_file_function_operand", {SYMBOL_REF}},		\
-  {"input_operand", {SUBREG, MEM, REG, CONST_INT, CONSTANT_P_RTX, \
+  {"input_operand", {SUBREG, MEM, REG, CONST_INT, 		\
 		     CONST_DOUBLE, SYMBOL_REF}}, 		\
   {"load_multiple_operation", {PARALLEL}},			\
   {"store_multiple_operation", {PARALLEL}},			\
@@ -3236,6 +3231,7 @@ extern int u_short_cint_operand ();
 extern int non_short_cint_operand ();
 extern int gpc_reg_operand ();
 extern int cc_reg_operand ();
+extern int cc_reg_not_cr0_operand ();
 extern int reg_or_short_operand ();
 extern int reg_or_neg_short_operand ();
 extern int reg_or_u_short_operand ();
@@ -3304,6 +3300,7 @@ extern void output_ascii ();
 extern void rs6000_gen_section_name ();
 extern void output_function_profiler ();
 extern int rs6000_adjust_cost ();
+extern int rs6000_adjust_priority ();
 extern void rs6000_trampoline_template ();
 extern int rs6000_trampoline_size ();
 extern void rs6000_initialize_trampoline ();

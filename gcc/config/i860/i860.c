@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Intel 860
-   Copyright (C) 1989, 1991, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1989, 91, 97, 98, 1999 Free Software Foundation, Inc.
    Derived from sparc.c.
 
    Written by Richard Stallman (rms@ai.mit.edu).
@@ -312,7 +312,7 @@ single_insn_src_p (op, mode)
 	  if (CONSTANT_P (arg)
 	      && !(GET_CODE (arg) == CONST_INT
 		   && (SMALL_INT (arg)
-		       || INTVAL (arg) & 0xffff == 0)))
+		       || (INTVAL (arg) & 0xffff) == 0)))
 	    return 0;
 	}
     case IOR:
@@ -322,7 +322,7 @@ single_insn_src_p (op, mode)
       if (CONSTANT_P (XEXP (op, 1))
 	  && !(GET_CODE (XEXP (op, 1)) == CONST_INT
 	       && (SMALL_INT (XEXP (op, 1))
-		   || INTVAL (XEXP (op, 1)) & 0xffff == 0)))
+		   || (INTVAL (XEXP (op, 1)) & 0xffff) == 0)))
 	return 0;
 
     case ASHIFT:
@@ -1447,7 +1447,7 @@ output_delayed_branch (template, operands, insn)
 	}
 
       insn_extract (delay_insn);
-      if (! constrain_operands (insn_code_number, 1))
+      if (! constrain_operands (1))
 	fatal_insn_not_found (delay_insn);
 
       template = insn_template[insn_code_number];
@@ -1490,7 +1490,7 @@ output_delay_insn (delay_insn)
     }
 
 #ifdef REGISTER_CONSTRAINTS
-  if (! constrain_operands (insn_code_number, 1))
+  if (! constrain_operands (1))
     abort ();
 #endif
 

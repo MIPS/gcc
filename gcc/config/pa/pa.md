@@ -1,5 +1,5 @@
 ;;- Machine description for HP PA-RISC architecture for GNU C compiler
-;;   Copyright (C) 1992, 93-97, 1998 Free Software Foundation, Inc.
+;;   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -43,7 +43,7 @@
 ;;
 ;; FIXME: Add 800 scheduling for completeness?
 
-(define_attr "cpu" "700,7100,7100LC,7200" (const (symbol_ref "pa_cpu_attr")))
+(define_attr "cpu" "700,7100,7100LC,7200,8000" (const (symbol_ref "pa_cpu_attr")))
 
 ;; Length (in # of insns).
 (define_attr "length" ""
@@ -349,6 +349,56 @@
 ;; I don't have detailed information on the PA7200 FP pipeline, so I
 ;; treat it just like the 7100LC pipeline.
 ;; Similarly for the multi-issue fake units.
+
+;; 
+;; Scheduling for the PA8000 is somewhat different than scheduling for a
+;; traditional architecture.
+;;
+;; The PA8000 has a large (56) entry reorder buffer that is split between
+;; memory and non-memory operations.
+;;
+;; The PA800 can issue two memory and two non-memory operations per cycle to
+;; the function units.  Similarly, the PA8000 can retire two memory and two
+;; non-memory operations per cycle.
+;;
+;; Given the large reorder buffer, the processor can hide most latencies.
+;; According to HP, they've got the best results by scheduling for retirement
+;; bandwidth with limited latency scheduling for floating point operations.
+;; Latency for integer operations and memory references is ignored.
+;;
+;; We claim floating point operations have a 2 cycle latency and are
+;; fully pipelined, except for div and sqrt which are not pipelined.
+;;
+;; It is not necessary to define the shifter and integer alu units.
+;;
+;; These first two define_unit_unit descriptions model retirement from
+;; the reorder buffer.
+(define_function_unit "pa8000lsu" 2 1
+  (and
+    (eq_attr "type" "load,fpload,store,fpstore")
+    (eq_attr "cpu" "8000")) 1 1)
+
+(define_function_unit "pa8000alu" 2 1
+  (and
+    (eq_attr "type" "!load,fpload,store,fpstore")
+    (eq_attr "cpu" "8000")) 1 1)
+
+;; Claim floating point ops have a 2 cycle latency, excluding div and
+;; sqrt, which are not pipelined and issue to different units.
+(define_function_unit "pa8000fmac" 2 0
+  (and
+    (eq_attr "type" "fpcc,fpalu,fpmulsgl,fpmuldbl")
+    (eq_attr "cpu" "8000")) 2 1)
+
+(define_function_unit "pa8000fdiv" 2 1
+  (and
+    (eq_attr "type" "fpdivsgl,fpsqrtsgl")
+    (eq_attr "cpu" "8000")) 17 17)
+
+(define_function_unit "pa8000fdiv" 2 1
+  (and
+    (eq_attr "type" "fpdivdbl,fpsqrtdbl")
+    (eq_attr "cpu" "8000")) 31 31)
 
 
 ;; Compare instructions.
@@ -1031,7 +1081,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 3 "comparison_operator"
-			 [(match_operand:SI 1 "register_operand" "r")
+			 [(match_operand:SI 1 "reg_or_0_operand" "rM")
 			  (match_operand:SI 2 "arith5_operand" "rL")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
@@ -1059,7 +1109,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 3 "comparison_operator"
-			 [(match_operand:SI 1 "register_operand" "r")
+			 [(match_operand:SI 1 "reg_or_0_operand" "rM")
 			  (match_operand:SI 2 "arith5_operand" "rL")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
@@ -3649,6 +3699,45 @@
   [(set_attr "type" "multi")
    (set_attr "length" "8")])
 
+;; This anonymous pattern and splitter wins because it reduces the latency
+;; of the shadd sequence without increasing the latency of the shift.
+;;
+;; We want to make sure and split up the operations for the scheduler since
+;; these instructions can (and should) schedule independently.
+;;
+;; It would be clearer if combine used the same operator for both expressions,
+;; it's somewhat confusing to have a mult in ine operation and an ashift
+;; in the other.
+;;
+;; If this pattern is not split before register allocation, then we must expose
+;; the fact that operand 4 is set before operands 1, 2 and 3 have been read.
+(define_insn ""
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(plus:SI (mult:SI (match_operand:SI 2 "register_operand" "r")
+			  (match_operand:SI 3 "shadd_operand" ""))
+		 (match_operand:SI 1 "register_operand" "r")))
+   (set (match_operand:SI 4 "register_operand" "=&r")
+	(ashift:SI (match_dup 2)
+		   (match_operand:SI 5 "const_int_operand" "i")))]
+  "INTVAL (operands[5]) == exact_log2 (INTVAL (operands[3]))"
+  "#"
+  [(set_attr "type" "binary")
+   (set_attr "length" "8")])
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(plus:SI (mult:SI (match_operand:SI 2 "register_operand" "r")
+			  (match_operand:SI 3 "shadd_operand" ""))
+		 (match_operand:SI 1 "register_operand" "r")))
+   (set (match_operand:SI 4 "register_operand" "=&r")
+	(ashift:SI (match_dup 2)
+		   (match_operand:SI 5 "const_int_operand" "i")))]
+  "INTVAL (operands[5]) == exact_log2 (INTVAL (operands[3]))"
+  [(set (match_dup 4) (ashift:SI (match_dup 2) (match_dup 5)))
+   (set (match_dup 0) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
+			       (match_dup 1)))]
+  "")
+
 (define_expand "ashlsi3"
   [(set (match_operand:SI 0 "register_operand" "")
 	(ashift:SI (match_operand:SI 1 "lhs_lshift_operand" "")
@@ -3808,6 +3897,36 @@
     }
   else
     return \"vshd %1,%1,%0\";
+}"
+  [(set_attr "type" "shift")
+   (set_attr "length" "4")])
+
+(define_expand "rotlsi3"
+  [(set (match_operand:SI 0 "register_operand" "")
+        (rotate:SI (match_operand:SI 1 "register_operand" "")
+                   (match_operand:SI 2 "arith32_operand" "")))]
+  ""
+  "
+{
+  if (GET_CODE (operands[2]) != CONST_INT)
+    {
+      rtx temp = gen_reg_rtx (SImode);
+      emit_insn (gen_subsi3 (temp, GEN_INT (32), operands[2]));
+      emit_insn (gen_rotrsi3 (operands[0], operands[1], temp));
+      DONE;
+    }
+  /* Else expand normally.  */
+}")
+
+(define_insn ""
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (rotate:SI (match_operand:SI 1 "register_operand" "r")
+                   (match_operand:SI 2 "const_int_operand" "n")))]
+  ""
+  "*
+{
+  operands[2] = GEN_INT ((32 - INTVAL (operands[2])) & 31);
+  return \"shd %1,%1,%2,%0\";
 }"
   [(set_attr "type" "shift")
    (set_attr "length" "4")])
@@ -4111,7 +4230,7 @@
   "*
 {
   output_arg_descriptor (insn);
-  return output_call (insn, operands[0], gen_rtx_REG (SImode, 2));
+  return output_call (insn, operands[0]);
 }"
   [(set_attr "type" "call")
    (set (attr "length")
@@ -4270,7 +4389,7 @@
   "*
 {
   output_arg_descriptor (insn);
-  return output_call (insn, operands[1], gen_rtx_REG (SImode, 2));
+  return output_call (insn, operands[1]);
 }"
   [(set_attr "type" "call")
    (set (attr "length")

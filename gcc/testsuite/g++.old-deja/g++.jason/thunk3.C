@@ -1,1 +1,4 @@
-// excess errors test - XFAIL mips*-*-* alpha*-*-* rs6000-*-* powerpc-*-eabi m68k-*-coff m68k-motorola-sysv m88k-motorola-sysv3
+// Test that variadic function calls using thunks work right.
+// Note that this will break on any target that uses the generic thunk
+//  support, because it doesn't support variadic functions.
+

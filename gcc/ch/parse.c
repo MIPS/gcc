@@ -1,5 +1,5 @@
 /* Parser for GNU CHILL (CCITT High-Level Language)  -*- C -*-
-   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -15,7 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA. */          
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */          
 
 /*
  * This is a two-pass parser.  In pass 1, we collect declarations,
@@ -72,6 +73,11 @@ char *language_string = "GNU CHILL";
 extern struct rtx_def* gen_label_rtx	      PROTO((void));
 extern void emit_jump                         PROTO((struct rtx_def *));
 extern struct rtx_def* emit_label             PROTO((struct rtx_def *));
+
+/* This is a hell of a lot easier than getting expr.h included in
+   by parse.c.  */
+extern struct rtx_def *expand_expr  	PROTO((tree, struct rtx_def *,
+					       enum machine_mode, int));
 
 static int parse_action				PROTO((void));
 
@@ -544,8 +550,9 @@ static void
 parse_spec_module (label)
      tree label;
 {
-  tree module_name = push_module (set_module_name (label), 1);
   int save_ignoring = ignoring;
+
+  push_module (set_module_name (label), 1);
   ignoring = pass == 2;
   FORWARD_TOKEN(); /* SKIP SPEC */
   expect (MODULE, "expected 'MODULE' here");
@@ -1669,7 +1676,7 @@ static void
 parse_multi_dimension_case_action (selector)
      tree selector;
 {
-  struct rtx_def *begin_test_label = 0, *end_case_label, *new_label;
+  struct rtx_def *begin_test_label = 0, *end_case_label = 0, *new_label;
   tree action_labels = NULL_TREE;
   tree tests = NULL_TREE;
   int  save_lineno = lineno;
@@ -2205,7 +2212,7 @@ parse_delay_case_action (label)
     }
   expect (ESAC, "missing 'ESAC' in DELAY CASE'");
   if (! ignoring)
-    build_delay_case_end (label_cnt, combined_event_list);
+    build_delay_case_end (combined_event_list);
   possibly_define_exit_label (label);
   poplevel (0, 0, 0); 
 }
@@ -2436,8 +2443,7 @@ parse_receive_case_action (label)
   expect (ESAC, "missing 'ESAC' matching 'RECEIVE CASE'");
   if (! ignoring)
     {
-      build_receive_case_end (instance_location, nreverse (alt_list),
-			      have_else_actions);
+      build_receive_case_end (nreverse (alt_list), have_else_actions);
     }
   possibly_define_exit_label (label);
   poplevel (0, 0, 0); 
@@ -3145,7 +3151,7 @@ parse_operand6 ()
 {
   if (check_token (RECEIVE))
     {
-      tree location = parse_primval ();
+      tree location ATTRIBUTE_UNUSED = parse_primval ();
       sorry ("RECEIVE expression");
       return integer_one_node;
     }

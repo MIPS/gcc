@@ -1,6 +1,6 @@
 /* Definitions for exception handling for use by the GNU compiler
    for the Java(TM) language compiler.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -65,3 +65,10 @@ extern void method_init_exceptions PROTO ((void));
 
 extern void emit_handlers PROTO ((void));
 
+extern void maybe_start_try PROTO ((int));
+
+extern void maybe_end_try PROTO ((int));
+
+extern int add_handler PROTO ((int, int, tree, tree));
+
+extern void expand_resume_after_catch PROTO ((void));

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Intel X86.
-   Copyright (C) 1988, 92, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988, 92, 94-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -622,9 +622,19 @@ i386_valid_type_attribute_p (type, attributes, identifier, args)
 
 int
 i386_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
+     tree type1;
+     tree type2;
 {
+  /* Check for mismatch of non-default calling convention. */
+  char *rtdstr = TARGET_RTD ? "cdecl" : "stdcall";
+
+  if (TREE_CODE (type1) != FUNCTION_TYPE)
+    return 1;
+
+  /* Check for mismatched return types (cdecl vs stdcall).  */
+  if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
+      != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
+    return 0;
   return 1;
 }
 
@@ -2079,6 +2089,62 @@ load_pic_register (do_rtl)
     emit_insn (gen_blockage ());
 }
 
+/* Compute the size of local storage taking into consideration the
+   desired stack alignment which is to be maintained.  Also determine
+   the number of registers saved below the local storage.  */
+
+HOST_WIDE_INT
+ix86_compute_frame_size (size, nregs_on_stack)
+     HOST_WIDE_INT size;
+     int *nregs_on_stack;
+{
+  int limit;
+  int nregs;
+  int regno;
+  int padding;
+  int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
+				  || current_function_uses_const_pool);
+  HOST_WIDE_INT total_size;
+
+  limit = frame_pointer_needed
+	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
+
+  nregs = 0;
+
+  for (regno = limit - 1; regno >= 0; regno--)
+    if ((regs_ever_live[regno] && ! call_used_regs[regno])
+	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
+      nregs++;
+
+  padding = 0;
+  total_size = size + (nregs * UNITS_PER_WORD);
+
+#ifdef PREFERRED_STACK_BOUNDARY
+  {
+    int offset;
+    int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+
+    offset = 4;
+    if (frame_pointer_needed)
+      offset += UNITS_PER_WORD;
+
+    total_size += offset;
+    
+    padding = ((total_size + preferred_alignment - 1)
+	       & -preferred_alignment) - total_size;
+
+    if (padding < (((offset + preferred_alignment - 1)
+		    & -preferred_alignment) - offset))
+      padding += preferred_alignment;
+  }
+#endif
+
+  if (nregs_on_stack)
+    *nregs_on_stack = nregs;
+
+  return size + padding;
+}
+
 static void
 ix86_prologue (do_rtl)
      int do_rtl;
@@ -2088,7 +2154,7 @@ ix86_prologue (do_rtl)
   rtx xops[4];
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
-  long tsize = get_frame_size ();
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), (int *)0);
   rtx insn;
   int cfa_offset = INCOMING_FRAME_SP_OFFSET, cfa_store_offset = cfa_offset;
 
@@ -2301,32 +2367,18 @@ ix86_epilogue (do_rtl)
      int do_rtl;
 {
   register int regno;
-  register int nregs, limit;
-  int offset;
+  register int limit;
+  int nregs;
   rtx xops[3];
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
 				  || current_function_uses_const_pool);
-  long tsize = get_frame_size ();
+  int sp_valid = !frame_pointer_needed || current_function_sp_is_unchanging;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (), &nregs);
 
-  /* Compute the number of registers to pop */
+  /* sp is often unreliable so we may have to go off the frame pointer. */
 
-  limit = (frame_pointer_needed ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM);
-
-  nregs = 0;
-
-  for (regno = limit - 1; regno >= 0; regno--)
-    if ((regs_ever_live[regno] && ! call_used_regs[regno])
-	|| (regno == PIC_OFFSET_TABLE_REGNUM && pic_reg_used))
-      nregs++;
-
-  /* sp is often  unreliable so we must go off the frame pointer.
-
-     In reality, we may not care if sp is unreliable, because we can restore
-     the register relative to the frame pointer.  In theory, since each move
-     is the same speed as a pop, and we don't need the leal, this is faster.
-     For now restore multiple registers the old way. */
-
-  offset = - tsize - (nregs * UNITS_PER_WORD);
+  offset = -(tsize + nregs * UNITS_PER_WORD);
 
   xops[2] = stack_pointer_rtx;
 
@@ -2341,9 +2393,17 @@ ix86_epilogue (do_rtl)
   if (flag_pic || profile_flag || profile_block_flag)
     emit_insn (gen_blockage ());
 
-  if (nregs > 1 || ! frame_pointer_needed)
+  /* If we're only restoring one register and sp is not valid then
+     using a move instruction to restore the register since it's
+     less work than reloading sp and popping the register.  Otherwise,
+     restore sp (if necessary) and pop the registers. */
+
+  limit = frame_pointer_needed
+	  ? FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM;
+
+  if (nregs > 1 || sp_valid)
     {
-      if (frame_pointer_needed)
+      if ( !sp_valid )
 	{
 	  xops[0] = adj_offsettable_operand (AT_BP (QImode), offset);
 	  if (do_rtl)
@@ -2550,7 +2610,7 @@ do {									\
     }									\
 } while (0)
 
-static int
+int
 legitimate_pic_address_disp_p (disp)
      register rtx disp;
 {
@@ -2602,7 +2662,7 @@ legitimate_address_p (mode, addr, strict)
     }
 
   if (GET_CODE (addr) == REG || GET_CODE (addr) == SUBREG)
-      base = addr;
+    base = addr;
 
   else if (GET_CODE (addr) == PLUS)
     {
@@ -2692,6 +2752,12 @@ legitimate_address_p (mode, addr, strict)
 	  return FALSE;
 	}
 
+      if (GET_MODE (base) != Pmode)
+	{
+	  ADDR_INVALID ("Base is not in Pmode.\n", base);
+	  return FALSE;
+	}
+
       if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
 	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
 	{
@@ -2710,6 +2776,12 @@ legitimate_address_p (mode, addr, strict)
       if (GET_CODE (indx) != REG)
 	{
 	  ADDR_INVALID ("Index is not a register.\n", indx);
+	  return FALSE;
+	}
+
+      if (GET_MODE (indx) != Pmode)
+	{
+	  ADDR_INVALID ("Index is not in Pmode.\n", indx);
 	  return FALSE;
 	}
 
@@ -5423,12 +5495,6 @@ output_fp_conditional_move (which_alternative, operands)
       output_asm_insn (AS2 (fcmov%f1,%3,%0), operands);
       break;
 
-    case 2:
-      /* r <- cond ? r : arg */
-      output_asm_insn (AS2 (fcmov%F1,%2,%0), operands);
-      output_asm_insn (AS2 (fcmov%f1,%3,%0), operands);
-      break;
-
     default:
       abort ();
     }
@@ -5486,17 +5552,6 @@ output_int_conditional_move (which_alternative, operands)
       output_asm_insn (AS2 (cmov%c1,%3,%0), operands);
       if (mode == DImode)
 	output_asm_insn (AS2 (cmov%c1,%3,%0), xops);
-      break;
-
-    case 2:
-      /* rm <- cond ? arg1 : arg2 */
-      output_asm_insn (AS2 (cmov%C1,%2,%0), operands);
-      output_asm_insn (AS2 (cmov%c1,%3,%0), operands);
-      if (mode == DImode)
-	{
-	  output_asm_insn (AS2 (cmov%C1,%2,%0), xops);
-	  output_asm_insn (AS2 (cmov%c1,%3,%0), xops);
-	}
       break;
 
     default:

@@ -27,6 +27,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "obstack.h"
+#include "gansidecl.h"
+#include "jcf.h"
+#include "tree.h"
+#include "java-tree.h"
 
 const char main_method_prefix[] = "main__";
 const char main_method_suffix[] = "Pt6JArray1ZPQ34java4lang6String";
@@ -34,24 +38,25 @@ const char class_mangling_prefix[] = "_CL_";
 
 struct obstack name_obstack;
 
-void
-error (const char *str)
-{
-  fprintf (stderr, "%s\n", str);
-  exit (-1);
-}
+extern void error			PVPROTO ((const char *, ...))
+  ATTRIBUTE_PRINTF_1;
 
-void *
-xmalloc (size)
-     size_t size;
+void
+error VPROTO((const char *msgid, ...))
 {
-  void *ptr = malloc (size);
-  if (ptr == NULL)
-    {
-      fprintf (stderr, "Not enough memory!\n");
-      exit (-1);
-    }
-  return ptr;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
+#endif
+  va_list ap;
+ 
+  VA_START (ap, msgid);
+ 
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
+#endif
+ 
+  vfprintf (stderr, msgid, ap);
+  va_end (ap);
 }
 
 void
@@ -120,4 +125,18 @@ main (int argc, const char **argv)
       exit (-1);
     }
   return 0;
+}
+
+PTR
+xmalloc (size)
+  size_t size;
+{
+  register PTR val = (PTR) malloc (size);
+ 
+  if (val == 0)
+    {
+      fprintf(stderr, "jvgenmain: virtual memory exhausted");
+      exit(FATAL_EXIT_CODE);
+    }
+  return val;
 }

@@ -20,9 +20,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* This goes away when the math-emulator is fixed */
-#define TARGET_CPU_DEFAULT 0400		/* TARGET_NO_FANCY_MATH_387 */
-
 /* This is tested by i386gas.h.  */
 #define YES_UNDERSCORES
 
@@ -33,6 +30,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Get perform_* macros to build libgcc.a.  */
 #include "i386/perform.h"
+
+/* This goes away when the math-emulator is fixed */
+#undef TARGET_DEFAULT
+#define TARGET_DEFAULT \
+  (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_NO_FANCY_MATH_387)
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-Dunix -Di386 -D__FreeBSD__ -Asystem(unix) -Asystem(FreeBSD) -Acpu(i386) -Amachine(i386)"
@@ -86,9 +88,13 @@ Boston, MA 02111-1307, USA.  */
 
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* Don't default to pcc-struct-return, because gcc is the only compiler, and
-   we want to retain compatibility with older gcc versions.  */
+/* Don't default to pcc-struct-return, because in FreeBSD we prefer the
+   superior nature of the older gcc way.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
+
+/* Ensure we the configuration knows our system correctly so we can link with
+   libraries compiled with the native cc. */
+#undef NO_DOLLAR_IN_LABEL
 
 /* i386 freebsd still uses old binutils that don't insert nops by default
    when the .align directive demands to insert extra space in the text

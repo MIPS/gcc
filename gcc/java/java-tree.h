@@ -1,6 +1,6 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -49,16 +49,27 @@ struct JCF;
       MODIFY_EXPR_FROM_INITIALIZATION_P (in MODIFY_EXPR)
    3: IS_AN_IMPORT_ON_DEMAND_P (in IDENTIFIER_NODE)
       RESOLVE_PACKAGE_NAME_P (in EXPR_WITH_FILE_LOCATION)
-   4: RESOLVE_TYPE_NAME_P (in EXPR_WITH_FILE_LOCATION)
-   5: IS_BREAK_STMT_P (in EXPR_WITH_FILE_LOCATION)
+      SWITCH_HAS_DEFAULT (in SWITCH_EXPR)
+   4: IS_A_COMMAND_LINE_FILENAME_P (in IDENTIFIER_NODE)
+      RESOLVE_TYPE_NAME_P (in EXPR_WITH_FILE_LOCATION)
+      CALL_USING_SUPER (in CALL_EXPR)
+   5: HAS_BEEN_ALREADY_PARSED_P (in IDENTIFIER_NODE)
+      IS_BREAK_STMT_P (in EXPR_WITH_FILE_LOCATION)
+      IS_CRAFTED_STRING_BUFFER_P (in CALL_EXPR)
+   6: CAN_COMPLETE_NORMALLY (in statement nodes).
 
    Usage of TYPE_LANG_FLAG_?:
    1: TYPE_ARRAY_P (in RECORD_TYPE).
    2: CLASS_LOADED_P (in RECORD_TYPE).
    3: CLASS_FROM_SOURCE_P (in RECORD_TYPE).
    4: CLASS_P (in RECORD_TYPE).
+   5: CLASS_FROM_CURRENTLY_COMPILED_SOURCE_P (in RECORD_TYPE)
+   6: CLASS_HAS_FINIT_P (in RECORD_TYPE)
 
    Usage of DECL_LANG_FLAG_?:
+   0: METHOD_DEPRECATED (in FUNCTION_DECL).
+      FIELD_DEPRECATED (in FIELD_DECL).
+      CLASS_DEPRECATED (in TYPE_DECL).
    1: METHOD_PUBLIC (in FUNCTION_DECL).
       FIELD_PUBLIC (in FIELD_DECL).
       CLASS_PUBLIC (in TYPE_DECL).
@@ -79,8 +90,7 @@ struct JCF;
    6: METHOD_TRANSIENT (in FUNCTION_DECL)
       LABEL_CHANGED (in LABEL_DECL)
       CLASS_SUPER (in TYPE_DECL, ACC_SUPER flag)
-      INITIALIZED_P (in FIELD_DECL, VAR_DECL, PARM_DECL)
-   7: DECL_CONSTRUCTOR_P (in FUNCTION_DECL)
+   7: DECL_CONSTRUCTOR_P (in FUNCTION_DECL).
 */
 
 /* True if the class whose TYPE_BINFO this is has a superclass.
@@ -102,6 +112,9 @@ extern tree main_class;
 /* The class we are currently processing. */
 extern tree current_class;
 
+/* List of all class DECLs seen so far.  */
+extern tree all_class_list;
+
 /* Nonzero if we want to automatically do array bounds checking;
    on by default.  Use -fno-bounds-check to disable.  */
 
@@ -113,6 +126,17 @@ extern int flag_bounds_check;
 extern int flag_assume_compiled;
 
 extern int flag_emit_class_files;
+
+/* When non zero, we emit xref strings. Values of the flag for xref
+   backends are defined in xref.h.  */
+
+extern int flag_emit_xref;
+
+/* Turned to 1 if -Wall was encountered. See lang.c for their meanings.  */
+extern int flag_wall;
+extern int flag_redundant;
+extern int flag_not_overriding;
+extern int flag_static_local_jdk1_1;
 
 /* The Java .class file that provides main_class;  the main input file. */
 extern struct JCF main_jcf[1], *current_jcf;
@@ -171,9 +195,12 @@ extern tree float_type_node;
 extern tree double_type_node;
 
 extern tree object_type_node;
+extern tree unqualified_object_id_node;
 extern tree object_ptr_type_node;
 extern tree string_type_node;
 extern tree throwable_type_node;
+extern tree runtime_exception_type_node;
+extern tree error_exception_type_node;
 
 extern tree byte_array_type_node;
 extern tree short_array_type_node;
@@ -189,11 +216,12 @@ extern tree string_array_type_node;
 extern tree TYPE_identifier_node;      /* "TYPE" */
 extern tree init_identifier_node;      /* "<init>" */
 extern tree clinit_identifier_node;      /* "<clinit>" */
+extern tree finit_identifier_node;      /* "$finit$" */
 extern tree void_signature_node;       /* "()V" */
-extern tree finalize_identifier_node;  /* "finalize" */
 extern tree length_identifier_node;  /* "length" */
 extern tree this_identifier_node;  /* "this" */
 extern tree super_identifier_node;  /* "super" */
+extern tree continue_identifier_node;  /* "continue" */
 extern tree one_elt_array_domain_type;
 extern tree void_type_node;
 extern tree ptr_type_node;
@@ -204,9 +232,13 @@ extern tree return_address_type_node;
 extern tree boolean_true_node, boolean_false_node;
 
 /* Integer constants not declared in tree.h. */
+extern tree long_zero_node;
+extern tree float_zero_node;
+extern tree double_zero_node;
 extern tree integer_negative_one_node;
 extern tree integer_two_node;
 extern tree integer_four_node;
+extern tree empty_stmt_node;
 
 /* The type for struct methodtable. */
 extern tree methodtable_type;
@@ -226,6 +258,8 @@ extern tree method_type_node;
 extern tree method_ptr_type_node;
 #define nativecode_ptr_type_node ptr_type_node
 
+extern tree end_params_node;
+
 /* References to internal libjava functions we use. */
 extern tree alloc_object_node;
 extern tree soft_instanceof_node;
@@ -241,6 +275,7 @@ extern tree soft_monitorenter_node;
 extern tree soft_monitorexit_node;
 extern tree soft_lookupinterfacemethod_node;
 extern tree soft_fmod_node;
+extern tree soft_exceptioninfo_call_node;
 
 extern tree access_flags_type_node;
 
@@ -250,6 +285,7 @@ extern tree class_dtable_decl;
 extern struct CPool *outgoing_cpool; 
 extern tree current_constant_pool_data_ref;
 
+extern tree wfl_operator;
 
 struct lang_identifier
 {
@@ -315,8 +351,19 @@ struct lang_identifier
 #define DECL_MAX_STACK(DECL) (DECL_LANG_SPECIFIC(DECL)->max_stack)
 /* Number of local variable slots needed for the arguments of this function. */
 #define DECL_ARG_SLOT_COUNT(DECL) (DECL_LANG_SPECIFIC(DECL)->arg_slot_count)
-/* Pointer to the function's COMPOUND_EXPR tree */
+/* List of checked thrown exceptions, as specified with the `throws'
+   keyword */
+#define DECL_FUNCTION_THROWS(DECL) (DECL_LANG_SPECIFIC(DECL)->throws_list)
+/* List of other constructors of the same class that this constructor
+   calls */
+#define DECL_CONSTRUCTOR_CALLS(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->called_constructor)
+/* Pointer to the function's current's COMPOUND_EXPR tree (while
+   completing its body) or the function's block */
 #define DECL_FUNCTION_BODY(DECL) (DECL_LANG_SPECIFIC(DECL)->function_decl_body)
+/* How specific the function is (for method selection - Java source
+   code front-end */
+#define DECL_SPECIFIC_COUNT(DECL) DECL_ARG_SLOT_COUNT(DECL)
 
 /* In a LABEL_DECL, a TREE_VEC that saves the type_map at that point. */
 #define LABEL_TYPE_STATE(NODE) (DECL_INITIAL (NODE))
@@ -388,7 +435,10 @@ struct lang_decl
   long localvariables_offset;
   int arg_slots;
   int max_locals, max_stack, arg_slot_count;
+  tree throws_list;		/* Exception specified by `throws' */
   tree function_decl_body;	/* Hold all function's statements */
+  tree called_constructor;	/* When decl is a constructor, the
+				   list of other constructor it calls. */
 };
 
 /* DECL_LANG_SPECIFIC for VAR_DECL and PARM_DECL. */
@@ -434,21 +484,22 @@ extern tree get_constant PROTO ((struct JCF*, int));
 extern tree get_name_constant PROTO ((struct JCF*, int));
 extern tree get_class_constant PROTO ((struct JCF*, int));
 extern tree parse_signature PROTO ((struct JCF *jcf, int sig_index));
-extern int jcf_parse PROTO ((struct JCF*));
+extern void jcf_parse PROTO ((struct JCF*));
 extern tree add_field PROTO ((tree, tree, tree, int));
 extern tree add_method PROTO ((tree, int, tree, tree));
 extern tree add_method_1 PROTO ((tree, int, tree, tree));
-extern tree make_class ();
+extern tree make_class PROTO ((void));
 extern tree push_class PROTO ((tree, tree));
 extern tree unmangle_classname PROTO ((const char *name, int name_length));
 extern tree parse_signature_string PROTO ((const unsigned char *, int));
 extern tree get_type_from_signature PROTO ((tree));
 extern void layout_class PROTO ((tree));
-extern tree make_class ();
+extern tree layout_class_method PROTO ((tree, tree, tree, tree));
+extern void layout_class_methods PROTO ((tree));
 extern tree build_class_ref PROTO ((tree));
 extern tree build_dtable_decl PROTO ((tree));
 extern tree build_internal_class_name PROTO ((tree));
-extern tree build_constants_constructor ();
+extern tree build_constants_constructor PROTO ((void));
 extern tree build_ref_from_constant_pool PROTO ((int));
 extern tree build_utf8_ref PROTO ((tree));
 extern tree ident_subst PROTO ((const char*, int,
@@ -465,7 +516,7 @@ extern tree find_stack_slot PROTO ((int index, tree type));
 extern tree build_prim_array_type PROTO ((tree, HOST_WIDE_INT));
 extern tree build_java_array_type PROTO ((tree, HOST_WIDE_INT));
 extern int is_compiled_class PROTO ((tree));
-extern tree mangled_classname PROTO ((char*, tree));
+extern tree mangled_classname PROTO ((const char*, tree));
 extern tree lookup_label PROTO ((int));
 extern tree pop_type PROTO ((tree));
 extern void pop_argument_types PROTO ((tree));
@@ -473,26 +524,112 @@ extern tree decode_newarray_type PROTO ((int));
 extern tree lookup_field PROTO ((tree*, tree));
 extern int is_array_type_p PROTO ((tree));
 extern HOST_WIDE_INT java_array_type_length PROTO ((tree));
+extern int read_class PROTO ((tree));
 extern void load_class PROTO ((tree, int));
 
 extern tree lookup_name PROTO ((tree));
 extern tree build_known_method_ref PROTO ((tree, tree, tree, tree, tree));
 extern tree build_class_init PROTO ((tree, tree));
 extern tree build_invokevirtual PROTO ((tree, tree));
+extern tree build_invokeinterface PROTO ((tree, tree, tree));
 extern tree invoke_build_dtable PROTO ((int, tree));
-extern tree match_java_method PROTO ((tree, tree, tree));
 extern tree build_field_ref PROTO ((tree, tree, tree));
 extern void pushdecl_force_head PROTO ((tree));
 extern tree build_java_binop PROTO ((enum tree_code, tree, tree, tree));
 extern tree binary_numeric_promotion PROTO ((tree, tree, tree *, tree *));
-extern tree build_decl_no_layout PROTO ((enum tree_code, tree, tree));
 extern tree build_java_arrayaccess PROTO ((tree, tree, tree));
 extern tree build_newarray PROTO ((int, tree));
 extern tree build_anewarray PROTO ((tree, tree));
+extern tree build_new_array PROTO ((tree, tree));
 extern tree build_java_array_length_access PROTO ((tree));
 extern tree build_java_arraynull_check PROTO ((tree, tree, tree));
 extern tree create_label_decl PROTO ((tree));
 extern void push_labeled_block PROTO ((tree));
+extern tree prepare_eh_table_type PROTO ((tree));
+extern void java_set_exception_lang_code PROTO ((void));
+extern tree generate_name PROTO ((void));
+extern void pop_labeled_block PROTO ((void));
+extern char *lang_printable_name PROTO ((tree, int));
+extern tree maybe_add_interface PROTO ((tree, tree));
+extern void set_super_info PROTO ((int, tree, tree, int));
+extern int get_access_flags_from_decl PROTO ((tree));
+extern int interface_of_p PROTO ((tree, tree));
+extern int inherits_from_p PROTO ((tree, tree));
+extern void complete_start_java_method PROTO ((tree));
+extern tree build_result_decl PROTO ((tree));
+extern void emit_handlers PROTO ((void));
+extern void init_outgoing_cpool PROTO ((void));
+extern void make_class_data PROTO ((tree));
+extern void register_class PROTO ((void));
+extern int alloc_name_constant PROTO ((int, tree));
+extern void emit_register_classes PROTO ((void));
+extern void lang_init_source PROTO ((int));
+extern void write_classfile PROTO ((tree));
+extern char *print_int_node PROTO ((tree));
+extern void parse_error_context PVPROTO ((tree cl, const char *, ...))
+  ATTRIBUTE_PRINTF_2;
+extern tree build_primtype_type_ref PROTO ((char *));
+extern tree java_get_real_method_name PROTO ((tree));
+extern void finish_class PROTO ((tree));
+extern void java_layout_seen_class_methods PROTO ((void));
+extern void check_for_initialization PROTO ((tree));
+
+extern tree pushdecl_top_level PROTO ((tree));
+extern int alloc_class_constant PROTO ((tree));
+extern int unicode_mangling_length PROTO ((const char *, int));
+extern void init_expr_processing PROTO ((void));
+extern void push_super_field PROTO ((tree, tree));
+extern void init_class_processing PROTO ((void));
+extern int can_widen_reference_to PROTO ((tree, tree));
+extern int class_depth PROTO ((tree));
+extern int verify_jvm_instructions PROTO ((struct JCF *, unsigned char *, long));
+extern void maybe_pushlevels PROTO ((int));
+extern void maybe_poplevels PROTO ((int));
+extern int process_jvm_instruction PROTO ((int, unsigned char *, long));
+extern void set_local_type PROTO ((int, tree));
+extern int merge_type_state PROTO ((tree));
+extern void push_type PROTO ((tree));
+extern void load_type_state PROTO ((tree));
+extern void add_interface PROTO ((tree, tree));
+extern void append_gpp_mangled_name PROTO ((struct obstack *, const char *, int));
+extern void append_gpp_mangled_classtype PROTO ((struct obstack *, const char *));
+extern void emit_unicode_mangled_name PROTO ((struct obstack *, const char *, int));
+extern tree force_evaluation_order PROTO ((tree));
+extern int verify_constant_pool PROTO ((struct JCF *));
+extern void start_java_method PROTO ((tree));
+extern void end_java_method PROTO ((void));
+extern void give_name_to_locals PROTO ((struct JCF *));
+extern void expand_byte_code PROTO ((struct JCF *, tree));
+extern int open_in_zip PROTO ((struct JCF *, const char *, const char *, int));
+extern void set_constant_value PROTO ((tree, tree));
+#ifdef jword
+extern int find_constant1 PROTO ((struct CPool *, int, jword));
+extern int find_constant2 PROTO ((struct CPool *, int, jword, jword));
+#endif
+extern int find_utf8_constant PROTO ((struct CPool *, tree));
+extern int find_string_constant PROTO ((struct CPool *, tree));
+extern int find_class_constant PROTO ((struct CPool *, tree));
+extern int find_fieldref_index PROTO ((struct CPool *, tree));
+extern int find_methodref_index PROTO ((struct CPool *, tree));
+extern void write_constant_pool PROTO ((struct CPool *, unsigned char *, int));
+extern int count_constant_pool_bytes PROTO ((struct CPool *));
+extern int encode_newarray_type PROTO ((tree));
+#ifdef uint64
+extern void format_int PROTO ((char *, jlong, int));
+extern void format_uint PROTO ((char *, uint64, int));
+#endif
+extern void jcf_trim_old_input PROTO ((struct JCF *));
+#ifdef BUFSIZ
+extern void jcf_print_utf8 PROTO ((FILE *, const unsigned char *, int));
+extern void jcf_print_char PROTO ((FILE *, int));
+extern void jcf_print_utf8_replace PROTO ((FILE *, const unsigned char *,
+					   int, int, int));
+# if JCF_USE_STDIO
+extern char* open_class PROTO ((char *, struct JCF *, FILE *, const char *));
+# else
+extern char* open_class PROTO ((char *, struct JCF *, int, const char *));
+# endif /* JCF_USE_STDIO */
+#endif
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
 
@@ -518,10 +655,6 @@ extern void push_labeled_block PROTO ((tree));
 #define FIELD_VOLATILE(DECL) DECL_LANG_FLAG_4 (DECL)
 #define FIELD_TRANSIENT(DECL) DECL_LANG_FLAG_5 (DECL)
 
-/* Initialized flag on variable/field/parm decl */
-
-#define INITIALIZED_P(DECL) DECL_LANG_FLAG_6 (DECL)
-
 /* Access flags etc for a class (a TYPE_DECL): */
 
 #define CLASS_PUBLIC(DECL) DECL_LANG_FLAG_1 (DECL)
@@ -529,6 +662,13 @@ extern void push_labeled_block PROTO ((tree));
 #define CLASS_INTERFACE(DECL) DECL_LANG_FLAG_4 (DECL)
 #define CLASS_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define CLASS_SUPER(DECL) DECL_LANG_FLAG_6 (DECL)
+
+/* @deprecated marker flag on methods, fields and classes */
+
+#define METHOD_DEPRECATED(DECL) DECL_LANG_FLAG_0 (DECL)
+#define FIELD_DEPRECATED(DECL) DECL_LANG_FLAG_0 (DECL)
+#define CLASS_DEPRECATED(DECL) DECL_LANG_FLAG_0 (DECL)
+#define DECL_DEPRECATED(DECL) DECL_LANG_FLAG_0 (DECL)
 
 /* The number of virtual methods in this class's dispatch table.
  Does not include initial two dummy entries (one points to the
@@ -539,8 +679,6 @@ extern void push_labeled_block PROTO ((tree));
    virtual methods. */
 #define TYPE_VTABLE(TYPE) TYPE_BINFO_VTABLE(TYPE)
 
-/* True of a RECORD_TYPE of a class/interface type (not array type) */
-#define CLASS_P(TYPE) TYPE_LANG_FLAG_4 (TYPE)
 /* Use CLASS_LOADED_P? FIXME */
 #define CLASS_COMPLETE_P(DECL) DECL_LANG_FLAG_2 (DECL) 
 
@@ -625,6 +763,16 @@ extern tree *type_map;
 /* True if class TYPE was defined in Java source code. */
 #define CLASS_FROM_SOURCE_P(TYPE) TYPE_LANG_FLAG_3 (TYPE)
 
+/* True of a RECORD_TYPE of a class/interface type (not array type) */
+#define CLASS_P(TYPE) TYPE_LANG_FLAG_4 (TYPE)
+
+/* True if class TYPE was defined in a Java source file compiled. */
+#define CLASS_FROM_CURRENTLY_COMPILED_SOURCE_P(TYPE) \
+  TYPE_LANG_FLAG_5 (TYPE)
+
+/* True if class TYPE has a field initializer $finit$ function */
+#define CLASS_HAS_FINIT_P(TYPE) TYPE_LANG_FLAG_6 (TYPE)
+
 /* True if identifier ID was seen while processing a single type import stmt */
 #define IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P(ID) TREE_LANG_FLAG_0 (ID)
 
@@ -637,8 +785,17 @@ extern tree *type_map;
 /* True if ID is an already processed import on demand */
 #define IS_AN_IMPORT_ON_DEMAND_P(ID) TREE_LANG_FLAG_3 (ID)
 
+/* True if ID is a command-line specified filename */
+#define IS_A_COMMAND_LINE_FILENAME_P(ID) TREE_LANG_FLAG_4 (ID)
+
+/* True if filename ID has already been parsed */
+#define HAS_BEEN_ALREADY_PARSED_P(ID) TREE_LANG_FLAG_5 (ID)
+
 /* True if EXPR is RHS sub-tree of a compound assign expression */
 #define COMPOUND_ASSIGN_P(EXPR) TREE_LANG_FLAG_1 (EXPR)
+
+/* True if a SWITCH_EXPR has a DEFAULT_EXPR. */
+#define SWITCH_HAS_DEFAULT(NODE) TREE_LANG_FLAG_3 (NODE)
 
 /* True if EXPR (a WFL in that case) was created after the
    reduction of PRIMARY . XXX */
@@ -662,6 +819,15 @@ extern tree *type_map;
 
 /* True if STMT (a WFL in that case) holds a BREAK statement */
 #define IS_BREAK_STMT_P(WFL) TREE_LANG_FLAG_5 (WFL)
+
+/* True if EXPR (a CALL_EXPR in that case) is a crafted StringBuffer */
+#define IS_CRAFTED_STRING_BUFFER_P(EXPR) TREE_LANG_FLAG_5 (EXPR)
+
+/* If set in CALL_EXPR, the receiver is 'super'. */
+#define CALL_USING_SUPER(EXPR) TREE_LANG_FLAG_4 (EXPR)
+
+/* True if NODE (a statement) can complete normally. */
+#define CAN_COMPLETE_NORMALLY(NODE) TREE_LANG_FLAG_6(NODE)
 
 /* Add a FIELD_DECL to RECORD_TYPE RTYPE.
    The field has name NAME (a char*), and type FTYPE.
@@ -709,12 +875,57 @@ extern tree *type_map;
 #define FINISH_RECORD_CONSTRUCTOR(CONS) \
   CONSTRUCTOR_ELTS(CONS) = nreverse (CONSTRUCTOR_ELTS(CONS))
 
-/* New tree code for expression, so we can expand then individually. */
-#define JAVA_UNARY_PLUS_EXPR ((int)LAST_AND_UNUSED_TREE_CODE + 2)
-#define JAVA_NEW_ARRAY_EXPR  ((int)LAST_AND_UNUSED_TREE_CODE + 3)
-#define JAVA_NEW_CLASS_EXPR  ((int)LAST_AND_UNUSED_TREE_CODE + 4)
-#define JAVA_THIS_EXPR       ((int)LAST_AND_UNUSED_TREE_CODE + 5)
+/* Macros on constructors invocations.  */
+#define CALL_CONSTRUCTOR_P(NODE)		\
+  (TREE_CODE (NODE) == NEW_CLASS_EXPR || CALL_EXPLICIT_CONSTRUCTOR_P (NODE))
 
-/* Macro(s) using the definitions above */
-#define CALL_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == JAVA_NEW_CLASS_EXPR)
+#define CALL_EXPLICIT_CONSTRUCTOR_P(NODE)				\
+  (CALL_THIS_CONSTRUCTOR_P (NODE) || CALL_SUPER_CONSTRUCTOR_P (NODE))
 
+#define CALL_THIS_CONSTRUCTOR_P(NODE)					\
+  (TREE_CODE (NODE) == CALL_EXPR					\
+   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == this_identifier_node)
+
+#define CALL_SUPER_CONSTRUCTOR_P(NODE)					\
+  (TREE_CODE (NODE) == CALL_EXPR					\
+   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == super_identifier_node)
+
+/* Using a FINALLY_EXPR node */
+#define FINALLY_EXPR_LABEL(NODE) TREE_OPERAND ((NODE), 0)
+#define FINALLY_EXPR_BLOCK(NODE) TREE_OPERAND ((NODE), 1)
+
+#define BLOCK_EXPR_DECLS(NODE)  BLOCK_VARS(NODE)
+#define BLOCK_EXPR_BODY(NODE)   BLOCK_SUBBLOCKS(NODE)
+
+#define BUILD_MONITOR_ENTER(WHERE, ARG)				\
+  {								\
+    (WHERE) = build (CALL_EXPR, int_type_node,			\
+		     build_address_of (soft_monitorenter_node),	\
+		     build_tree_list (NULL_TREE, (ARG)), 	\
+		     NULL_TREE);				\
+    TREE_SIDE_EFFECTS (WHERE) = 1;				\
+  }
+
+#define BUILD_MONITOR_EXIT(WHERE, ARG)				\
+  {								\
+    (WHERE) = build (CALL_EXPR, int_type_node,			\
+		     build_address_of (soft_monitorexit_node),	\
+		     build_tree_list (NULL_TREE, (ARG)),	\
+		     NULL_TREE);				\
+    TREE_SIDE_EFFECTS (WHERE) = 1;				\
+  }
+
+/* Non zero if TYPE is an unchecked exception */
+#define IS_UNCHECKED_EXCEPTION_P(TYPE)				\
+  (inherits_from_p ((TYPE), runtime_exception_type_node)	\
+   || inherits_from_p ((TYPE), error_exception_type_node))
+
+extern int java_error_count;					\
+
+/* Make the current function where this macro is invoked report error
+   messages and and return, if any */
+#define java_parse_abort_on_error()					\
+  {									\
+     if (java_error_count > save_error_count)				\
+       return;								\
+   }

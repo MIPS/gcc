@@ -79,8 +79,10 @@ Boston, MA 02111-1307, USA.  */
 /* None of these is actually used in cc1.  If we don't define them in target
    switches cc1 complains about them.  For the sake of argument lets allocate
    bit 31 of target flags for such options.  */
-#define SUBTARGET_SWITCHES \
-{"bsd", 0x80000000}, {"xopen", 0x80000000}, {"no-symrename", 0x80000000},
+#define SUBTARGET_SWITCHES 		\
+{"bsd", 0x80000000, ""},		\
+{"xopen", 0x80000000, ""},		\
+{"no-symrename", 0x80000000, ""},
     
 
 /* Run-time Target Specification.  */
@@ -119,6 +121,11 @@ Boston, MA 02111-1307, USA.  */
 
 /* Override the normal default CPU */
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm2
+
+/* r10 is reserved by RISCiX  */
+#define SUBTARGET_CONDITIONAL_REGISTER_USAGE 	\
+  fixed_regs[10] = 1;				\
+  call_used_regs[10] = 1;
 
 #include "arm/aout.h"
 

@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on AMD Am29000.
-   Copyright (C) 1987, 88, 90-94, 1995, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 90-94, 1995, 1997, 1999 Free Software
+   Foundation, Inc. 
    Contributed by Richard Kenner (kenner@nyu.edu)
 
 This file is part of GNU CC.
@@ -480,9 +481,9 @@ a29k_get_reloaded_address (op)
    found in part of X.  */
 
 static void
-a29k_set_memflags_1 (x, in_struct_p, volatile_p, unchanging_p)
+a29k_set_memflags_1 (x, in_struct_p, scalar_p, volatile_p, unchanging_p)
      rtx x;
-     int in_struct_p, volatile_p, unchanging_p;
+     int in_struct_p, scalar_p, volatile_p, unchanging_p;
 {
   int i;
 
@@ -508,6 +509,7 @@ a29k_set_memflags_1 (x, in_struct_p, volatile_p, unchanging_p)
 
     case MEM:
       MEM_IN_STRUCT_P (x) = in_struct_p;
+      MEM_SCALAR_P (x) = scalar_p;
       MEM_VOLATILE_P (x) = volatile_p;
       RTX_UNCHANGING_P (x) = unchanging_p;
       break;
@@ -528,6 +530,7 @@ a29k_set_memflags (insn, ref)
   /* Note that it is always safe to get these flags, though they won't
      be what we think if REF is not a MEM.  */
   int in_struct_p = MEM_IN_STRUCT_P (ref);
+  int scalar_p = MEM_SCALAR_P (ref);
   int volatile_p = MEM_VOLATILE_P (ref);
   int unchanging_p = RTX_UNCHANGING_P (ref);
 
@@ -535,7 +538,7 @@ a29k_set_memflags (insn, ref)
       || (! in_struct_p && ! volatile_p && ! unchanging_p))
     return;
 
-  a29k_set_memflags_1 (insn, in_struct_p, volatile_p, unchanging_p);
+  a29k_set_memflags_1 (insn, in_struct_p, scalar_p, volatile_p, unchanging_p);
 }
 
 /* Return 1 if OP is a comparison operator that we have in floating-point.  */

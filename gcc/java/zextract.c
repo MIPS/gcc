@@ -2,7 +2,7 @@
    This extracts a member from a .zip file, but does not handle
    uncompression (since that is not needed for classes.zip).
 
-   Copyright (C) 1996  Free Software Foundation, Inc.
+   Copyright (C) 1996, 97-98, 1999  Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,18 +25,13 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 /* Written by Per Bothner <bothner@cygnus.com>, February 1996. */
 
+#include "config.h"
+#include "system.h"
 #include "zipfile.h"
-
 
 /* This stuff is partly based on the 28 August 1994 public release of the
 Info-ZIP group's portable UnZip zipfile-extraction program (and related
 utilities). */
-
-#include <stdio.h>
-#ifdef __STDC__
-#include <stdlib.h>
-#endif
-#include <errno.h>       /* used in mapname() */
 
 /*************/
 /*  Defines  */

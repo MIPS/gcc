@@ -1,5 +1,5 @@
 ;;- Machine description for SPARC chip for GNU C compiler
-;;  Copyright (C) 1987, 88, 89, 92-96, 1997 Free Software Foundation, Inc.
+;;  Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -65,7 +65,7 @@
 
 ;; Attribute for cpu type.
 ;; These must match the values for enum processor_type in sparc.h.
-(define_attr "cpu" "v7,cypress,v8,supersparc,sparclite,f930,f934,sparclet,tsc701,v9,ultrasparc"
+(define_attr "cpu" "v7,cypress,v8,supersparc,sparclite,f930,f934,hypersparc,sparclite86x,sparclet,tsc701,v9,ultrasparc"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -344,6 +344,53 @@
   (and (eq_attr "cpu" "supersparc")
     (eq_attr "type" "imul"))
   4 4)
+
+;; ----- hypersparc/sparclite86x scheduling
+;; The Hypersparc can issue 1 - 2 insns per cycle.  The dual issue cases are:
+;; L-Ld/St I-Int F-Float B-Branch LI/LF/LB/II/IF/IB/FF/FB
+;; II/FF case is only when loading a 32 bit hi/lo constant
+;; Single issue insns include call, jmpl, u/smul, u/sdiv, lda, sta, fcmp
+;; Memory delivers its result in one cycle to IU
+
+(define_function_unit "memory" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "load,sload,fpload"))
+  1 1)
+
+(define_function_unit "memory" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "store,fpstore"))
+  2 1)
+
+(define_function_unit "fp_alu" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "fp,fpmove,fpcmp"))
+  1 1)
+
+(define_function_unit "fp_mds" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "fpmul"))
+  1 1)
+
+(define_function_unit "fp_mds" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "fpdivs"))
+  8 6)
+
+(define_function_unit "fp_mds" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "fpdivd"))
+  12 10)
+
+(define_function_unit "fp_mds" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "fpsqrt"))
+  17 15)
+
+(define_function_unit "fp_mds" 1 0
+  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
+    (eq_attr "type" "imul"))
+  17 15)
 
 ;; ----- sparclet tsc701 scheduling
 ;; The tsc701 issues 1 insn per cycle.
@@ -2238,10 +2285,10 @@
 {
   /* Where possible, convert CONST_DOUBLE into a CONST_INT.  */
   if (GET_CODE (operands[1]) == CONST_DOUBLE
-#if HOST_BITS_PER_WIDE_INT != 64
+#if HOST_BITS_PER_WIDE_INT == 32
       && ((CONST_DOUBLE_HIGH (operands[1]) == 0
 	   && (CONST_DOUBLE_LOW (operands[1]) & 0x80000000) == 0)
-	  || (CONST_DOUBLE_HIGH (operands[1]) == 0xffffffff
+	  || (CONST_DOUBLE_HIGH (operands[1]) == (HOST_WIDE_INT) 0xffffffff
 	      && (CONST_DOUBLE_LOW (operands[1]) & 0x80000000) != 0))
 #endif
       )
@@ -2949,15 +2996,13 @@
   [(set_attr "type" "move")
    (set_attr "length" "1,2,2")])
 
-;; ?? This and split disabled on sparc64... When I change the destination
-;; ?? reg to be DImode to emit the constant formation code, the instruction
-;; ?? scheduler does not want to believe that it is the same as the DFmode
-;; ?? subreg we started with...  See the SFmode version of this above to
-;; ?? see how it can be handled.
+;; Now that we redo life analysis with a clean slate after
+;; instruction splitting for sched2 this can work.
 (define_insn "*movdf_const_intreg_sp64"
   [(set (match_operand:DF 0 "general_operand" "=e,e,r")
         (match_operand:DF 1 ""                 "m,o,F"))]
-  "0 && TARGET_FPU && TARGET_ARCH64
+  "TARGET_FPU
+   && TARGET_ARCH64
    && GET_CODE (operands[1]) == CONST_DOUBLE
    && GET_CODE (operands[0]) == REG"
   "*
@@ -2973,8 +3018,7 @@
 (define_split
   [(set (match_operand:DF 0 "register_operand" "")
         (match_operand:DF 1 "const_double_operand" ""))]
-  "! TARGET_ARCH64
-   && TARGET_FPU
+  "TARGET_FPU
    && GET_CODE (operands[1]) == CONST_DOUBLE
    && (GET_CODE (operands[0]) == REG
        && REGNO (operands[0]) < 32)
@@ -7557,7 +7601,8 @@
 (define_insn "blockage"
   [(unspec_volatile [(const_int 0)] 0)]
   ""
-  "")
+  ""
+  [(set_attr "length" "0")])
 
 ;; Prepare to return any type including a structure value.
 
@@ -7659,7 +7704,9 @@
   ""
   "
 {
+#if 0
   rtx chain = operands[0];
+#endif
   rtx fp = operands[1];
   rtx stack = operands[2];
   rtx lab = operands[3];
@@ -7689,6 +7736,8 @@
      really needed.  */
   /*emit_insn (gen_rtx_USE (VOIDmode, frame_pointer_rtx));*/
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+
+#if 0
   /* Return, restoring reg window and jumping to goto handler.  */
   if (TARGET_V9 && GET_CODE (chain) == CONST_INT
       && ! (INTVAL (chain) & ~(HOST_WIDE_INT)0xffffffff))
@@ -7700,6 +7749,8 @@
     }
   /* Put in the static chain register the nonlocal label address.  */
   emit_move_insn (static_chain_rtx, chain);
+#endif
+
   emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
   emit_insn (gen_goto_handler_and_restore (labreg));
   emit_barrier ();
@@ -7721,27 +7772,27 @@
   [(set_attr "type" "misc")
    (set_attr "length" "2")])
 
-(define_insn "goto_handler_and_restore_v9"
-  [(unspec_volatile [(match_operand:SI 0 "register_operand" "=r,r")
-		     (match_operand:SI 1 "register_operand" "=r,r")
-		     (match_operand:SI 2 "const_int_operand" "I,n")] 3)]
-  "TARGET_V9 && ! TARGET_ARCH64"
-  "@
-   return\\t%0+0\\n\\tmov\\t%2, %Y1
-   sethi\\t%%hi(%2), %1\\n\\treturn\\t%0+0\\n\\tor\\t%Y1, %%lo(%2), %Y1"
-  [(set_attr "type" "misc")
-   (set_attr "length" "2,3")])
-
-(define_insn "*goto_handler_and_restore_v9_sp64"
-  [(unspec_volatile [(match_operand:DI 0 "register_operand" "=r,r")
-		     (match_operand:DI 1 "register_operand" "=r,r")
-		     (match_operand:SI 2 "const_int_operand" "I,n")] 3)]
-  "TARGET_V9 && TARGET_ARCH64"
-  "@
-   return\\t%0+0\\n\\tmov\\t%2, %Y1
-   sethi\\t%%hi(%2), %1\\n\\treturn\\t%0+0\\n\\tor\\t%Y1, %%lo(%2), %Y1"
-  [(set_attr "type" "misc")
-   (set_attr "length" "2,3")])
+;;(define_insn "goto_handler_and_restore_v9"
+;;  [(unspec_volatile [(match_operand:SI 0 "register_operand" "=r,r")
+;;		     (match_operand:SI 1 "register_operand" "=r,r")
+;;		     (match_operand:SI 2 "const_int_operand" "I,n")] 3)]
+;;  "TARGET_V9 && ! TARGET_ARCH64"
+;;  "@
+;;   return\\t%0+0\\n\\tmov\\t%2, %Y1
+;;   sethi\\t%%hi(%2), %1\\n\\treturn\\t%0+0\\n\\tor\\t%Y1, %%lo(%2), %Y1"
+;;  [(set_attr "type" "misc")
+;;   (set_attr "length" "2,3")])
+;;
+;;(define_insn "*goto_handler_and_restore_v9_sp64"
+;;  [(unspec_volatile [(match_operand:DI 0 "register_operand" "=r,r")
+;;		     (match_operand:DI 1 "register_operand" "=r,r")
+;;		     (match_operand:SI 2 "const_int_operand" "I,n")] 3)]
+;;  "TARGET_V9 && TARGET_ARCH64"
+;;  "@
+;;   return\\t%0+0\\n\\tmov\\t%2, %Y1
+;;   sethi\\t%%hi(%2), %1\\n\\treturn\\t%0+0\\n\\tor\\t%Y1, %%lo(%2), %Y1"
+;;  [(set_attr "type" "misc")
+;;   (set_attr "length" "2,3")])
 
 ;; Pattern for use after a setjmp to store FP and the return register
 ;; into the stack area.
@@ -8139,7 +8190,8 @@
 (define_insn "nonlocal_goto_receiver"
   [(unspec_volatile [(const_int 0)] 5)]
   "flag_pic"
-  "")
+  ""
+  [(set_attr "length" "0")])
 
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 5))]
@@ -8172,4 +8224,3 @@
   "t%C0\\t%%xcc, %1"
   [(set_attr "type" "misc")
    (set_attr "length" "1")])
-

@@ -20,7 +20,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 
 #include "rtl.h"
 #include "tree.h"
@@ -32,6 +31,14 @@ Boston, MA 02111-1307, USA.  */
 #include "c-parse.h"
 #include "c-pragma.h"
 #include "toplev.h"
+#include "intl.h"
+
+/* MULTIBYTE_CHARS support only works for native compilers.
+   ??? Ideally what we want is to model widechar support after
+   the current floating point support.  */
+#ifdef CROSS_COMPILE
+#undef MULTIBYTE_CHARS
+#endif
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
@@ -59,11 +66,11 @@ tree ridpointers[(int) RID_MAX];
 
 #if USE_CPPLIB
 extern unsigned char *yy_cur, *yy_lim;
-  
+
 extern int yy_get_token ();
-  
+
 #define GETC() (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ())
-#define UNGETC(c) ((c), yy_cur--)
+#define UNGETC(c) ((c) == EOF ? 0 : yy_cur--)
 #else
 #define GETC() getc (finput)
 #define UNGETC(c) ungetc (c, finput)
@@ -116,8 +123,9 @@ static int handle_generic_pragma	PROTO((int));
 static int whitespace_cr		PROTO((int));
 static int skip_white_space		PROTO((int));
 static int skip_white_space_on_line	PROTO((void));
-static char *extend_token_buffer	PROTO((char *));
+static char *extend_token_buffer	PROTO((const char *));
 static int readescape			PROTO((int *));
+static void parse_float			PROTO((PTR));
 
 /* Do not insert generated code into the source, instead, include it.
    This allows us to build gcc automatically even for targets that
@@ -164,8 +172,10 @@ remember_protocol_qualifiers ()
       wordlist[i].name = "inout";
     else if (wordlist[i].rid == RID_BYCOPY)
       wordlist[i].name = "bycopy";
+    else if (wordlist[i].rid == RID_BYREF)
+      wordlist[i].name = "byref";
     else if (wordlist[i].rid == RID_ONEWAY)
-      wordlist[i].name = "oneway";   
+      wordlist[i].name = "oneway";
 }
 
 char *
@@ -187,18 +197,21 @@ init_parse (filename)
 #ifdef IO_BUFFER_SIZE
   setvbuf (finput, (char *) xmalloc (IO_BUFFER_SIZE), _IOFBF, IO_BUFFER_SIZE);
 #endif
-#endif /* !USE_CPPLIB */
-
-  init_lex ();
-
-#if USE_CPPLIB
-  yy_cur = "\n";
-  yy_lim = yy_cur+1;
-
+#else /* !USE_CPPLIB */
   parse_in.show_column = 1;
   if (! cpp_start_read (&parse_in, filename))
     abort ();
+
+  if (filename == 0 || !strcmp (filename, "-"))
+    filename = "stdin";
+
+  /* cpp_start_read always puts at least one line directive into the
+     token buffer.  We must arrange to read it out here. */
+  yy_cur = parse_in.token_buffer;
+  yy_lim = CPP_PWRITTEN (&parse_in);
 #endif
+
+  init_lex ();
 
   return filename;
 }
@@ -243,6 +256,7 @@ init_lex ()
   ridpointers[(int) RID_SIGNED] = get_identifier ("signed");
   ridpointers[(int) RID_INLINE] = get_identifier ("inline");
   ridpointers[(int) RID_CONST] = get_identifier ("const");
+  ridpointers[(int) RID_RESTRICT] = get_identifier ("restrict");
   ridpointers[(int) RID_VOLATILE] = get_identifier ("volatile");
   ridpointers[(int) RID_AUTO] = get_identifier ("auto");
   ridpointers[(int) RID_STATIC] = get_identifier ("static");
@@ -256,6 +270,7 @@ init_lex ()
   ridpointers[(int) RID_OUT] = get_identifier ("out");
   ridpointers[(int) RID_INOUT] = get_identifier ("inout");
   ridpointers[(int) RID_BYCOPY] = get_identifier ("bycopy");
+  ridpointers[(int) RID_BYREF] = get_identifier ("byref");
   ridpointers[(int) RID_ONEWAY] = get_identifier ("oneway");
   forget_protocol_qualifiers();
 
@@ -271,6 +286,7 @@ init_lex ()
   if (flag_traditional)
     {
       UNSET_RESERVED_WORD ("const");
+      UNSET_RESERVED_WORD ("restrict");
       UNSET_RESERVED_WORD ("volatile");
       UNSET_RESERVED_WORD ("typeof");
       UNSET_RESERVED_WORD ("signed");
@@ -278,6 +294,9 @@ init_lex ()
       UNSET_RESERVED_WORD ("iterator");
       UNSET_RESERVED_WORD ("complex");
     }
+  else if (!flag_isoc9x)
+    UNSET_RESERVED_WORD ("restrict");
+
   if (flag_no_asm)
     {
       UNSET_RESERVED_WORD ("asm");
@@ -465,7 +484,7 @@ skip_white_space_on_line ()
 
 static char *
 extend_token_buffer (p)
-     char *p;
+     const char *p;
 {
   int offset = p - token_buffer;
 
@@ -475,7 +494,7 @@ extend_token_buffer (p)
   return token_buffer + offset;
 }
 
-#if defined HANDLE_PRAGMA 
+#if defined HANDLE_PRAGMA
 /* Local versions of these macros, that can be passed as function pointers.  */
 static int
 pragma_getc ()
@@ -549,7 +568,7 @@ check_newline ()
 	      if (token != IDENTIFIER)
 		goto skipline;
 #endif /* HANDLE_PRAGMA || HANDLE_GENERIC_PRAGMAS */
-	      
+
 #ifdef HANDLE_PRAGMA
 	      /* We invoke HANDLE_PRAGMA before HANDLE_GENERIC_PRAGMAS (if
 		 both are defined), in order to give the back end a chance to
@@ -561,7 +580,7 @@ check_newline ()
 		  UNGETC (c);
 		}
 #endif /* !USE_CPPLIB */
-	      
+
 	      if (TREE_CODE (yylval.ttype) != IDENTIFIER_NODE)
 		goto skipline;
 
@@ -569,19 +588,19 @@ check_newline ()
 				 IDENTIFIER_POINTER (yylval.ttype)))
 		return GETC ();
 #endif /* HANDLE_PRAGMA */
-	      
+
 #ifdef HANDLE_GENERIC_PRAGMAS
 	      if (handle_generic_pragma (token))
 		return GETC ();
 #endif /* HANDLE_GENERIC_PRAGMAS */
-	      
+
 	      /* Issue a warning message if we have been asked to do so.
 		 Ignoring unknown pragmas in system header file unless
 		 an explcit -Wunknown-pragmas has been given. */
 	      if (warn_unknown_pragmas > 1
 		  || (warn_unknown_pragmas && ! in_system_header))
 		warning ("ignoring pragma: %s", token_buffer);
-	      
+
 	      goto skipline;
 	    }
 	}
@@ -771,7 +790,7 @@ linenum:
 		  struct file_stack *p = input_file_stack;
 		  if (indent_level != p->indent_level)
 		    {
-		      warning_with_file_and_line 
+		      warning_with_file_and_line
 			(p->name, old_lineno,
 			 "This file contains more `%c's than `%c's.",
 			 indent_level > p->indent_level ? '{' : '}',
@@ -878,7 +897,7 @@ handle_generic_pragma (token)
       while (c == ' ' || c == '\t')
 	c = GETC ();
       UNGETC (c);
-      
+
       if (c == '\n' || c == EOF)
 	return handle_pragma_token (NULL, NULL);
 
@@ -947,7 +966,7 @@ readescape (ignore_ptr)
 	;
       else if ((count - 1) * 4 >= TYPE_PRECISION (integer_type_node)
 	       || (count > 1
-		   && ((1 << (TYPE_PRECISION (integer_type_node) - (count - 1) * 4))
+		   && (((unsigned)1 << (TYPE_PRECISION (integer_type_node) - (count - 1) * 4))
 		       <= firstdig)))
 	pedwarn ("hex escape out of range");
       return code;
@@ -1029,30 +1048,25 @@ readescape (ignore_ptr)
 }
 
 void
-yyerror (string)
-     char *string;
+yyerror (msgid)
+     const char *msgid;
 {
-  char buf[200];
-
-  strcpy (buf, string);
+  const char *string = _(msgid);
 
   /* We can't print string and character constants well
      because the token_buffer contains the result of processing escapes.  */
   if (end_of_file)
-    strcat (buf, " at end of input");
+    error ("%s at end of input", string);
   else if (token_buffer[0] == 0)
-    strcat (buf, " at null character");
+    error ("%s at null character", string);
   else if (token_buffer[0] == '"')
-    strcat (buf, " before string constant");
+    error ("%s before string constant", string);
   else if (token_buffer[0] == '\'')
-    strcat (buf, " before character constant");
+    error ("%s before character constant", string);
   else if (token_buffer[0] < 040 || (unsigned char) token_buffer[0] >= 0177)
-    sprintf (buf + strlen (buf), " before character 0%o",
-	     (unsigned char) token_buffer[0]);
+    error ("%s before character 0%o", string, (unsigned char) token_buffer[0]);
   else
-    strcat (buf, " before `%s'");
-
-  error (buf, token_buffer);
+    error ("%s before `%s'", string, token_buffer);
 }
 
 #if 0
@@ -1065,7 +1079,7 @@ struct try_type
   char long_long_flag;
 };
 
-struct try_type type_sequence[] = 
+struct try_type type_sequence[] =
 {
   { &integer_type_node, 0, 0, 0},
   { &unsigned_type_node, 1, 0, 0},
@@ -1076,6 +1090,120 @@ struct try_type type_sequence[] =
 };
 #endif /* 0 */
 
+struct pf_args
+{
+  /* Input */
+  int base;
+  char * p;
+  /* I/O */
+  int c;
+  int imag;
+  tree type;
+  int conversion_errno;
+  /* Output */
+  REAL_VALUE_TYPE value;
+};
+ 
+static void
+parse_float (data)
+  PTR data;
+{
+  struct pf_args * args = (struct pf_args *) data;
+  int fflag = 0, lflag = 0;
+  /* Copy token_buffer now, while it has just the number
+     and not the suffixes; once we add `f' or `i',
+     REAL_VALUE_ATOF may not work any more.  */
+  char *copy = (char *) alloca (args->p - token_buffer + 1);
+  bcopy (token_buffer, copy, args->p - token_buffer + 1);
+
+  while (1)
+    {
+      int lose = 0;
+
+      /* Read the suffixes to choose a data type.  */
+      switch (args->c)
+	{
+	case 'f': case 'F':
+	  if (fflag)
+	    error ("more than one `f' in numeric constant");
+	  fflag = 1;
+	  break;
+
+	case 'l': case 'L':
+	  if (lflag)
+	    error ("more than one `l' in numeric constant");
+	  lflag = 1;
+	  break;
+
+	case 'i': case 'I':
+	  if (args->imag)
+	    error ("more than one `i' or `j' in numeric constant");
+	  else if (pedantic)
+	    pedwarn ("ANSI C forbids imaginary numeric constants");
+	  args->imag = 1;
+	  break;
+
+	default:
+	  lose = 1;
+	}
+
+      if (lose)
+	break;
+
+      if (args->p >= token_buffer + maxtoken - 3)
+	args->p = extend_token_buffer (args->p);
+      *(args->p++) = args->c;
+      *(args->p) = 0;
+      args->c = GETC();
+    }
+
+  /* The second argument, machine_mode, of REAL_VALUE_ATOF
+     tells the desired precision of the binary result
+     of decimal-to-binary conversion.  */
+
+  if (fflag)
+    {
+      if (lflag)
+	error ("both `f' and `l' in floating constant");
+
+      args->type = float_type_node;
+      errno = 0;
+      if (args->base == 16)
+	args->value = REAL_VALUE_HTOF (copy, TYPE_MODE (args->type));
+      else
+	args->value = REAL_VALUE_ATOF (copy, TYPE_MODE (args->type));
+      args->conversion_errno = errno;
+      /* A diagnostic is required here by some ANSI C testsuites.
+	 This is not pedwarn, because some people don't want
+	 an error for this.  */
+      if (REAL_VALUE_ISINF (args->value) && pedantic)
+	warning ("floating point number exceeds range of `float'");
+    }
+  else if (lflag)
+    {
+      args->type = long_double_type_node;
+      errno = 0;
+      if (args->base == 16)
+	args->value = REAL_VALUE_HTOF (copy, TYPE_MODE (args->type));
+      else
+	args->value = REAL_VALUE_ATOF (copy, TYPE_MODE (args->type));
+      args->conversion_errno = errno;
+      if (REAL_VALUE_ISINF (args->value) && pedantic)
+	warning ("floating point number exceeds range of `long double'");
+    }
+  else
+    {
+      errno = 0;
+      if (args->base == 16)
+	args->value = REAL_VALUE_HTOF (copy, TYPE_MODE (args->type));
+      else
+	args->value = REAL_VALUE_ATOF (copy, TYPE_MODE (args->type));
+      args->conversion_errno = errno;
+      if (REAL_VALUE_ISINF (args->value) && pedantic)
+	warning ("floating point number exceeds range of `double'");
+    }
+}
+ 
 int
 yylex ()
 {
@@ -1186,8 +1314,6 @@ yylex ()
       while (ISALNUM (c) || c == '_' || c == '$' || c == '@')
 	{
 	  /* Make sure this char really belongs in an identifier.  */
-	  if (c == '@' && ! doing_objc_thang)
-	    break;
 	  if (c == '$')
 	    {
 	      if (! dollars_in_ident)
@@ -1267,7 +1393,7 @@ yylex ()
 		   && TREE_CODE (DECL_INITIAL (lastiddecl)) == STRING_CST)
 	    {
 	      tree stringval = DECL_INITIAL (lastiddecl);
-	      
+
 	      /* Copy the string value so that we won't clobber anything
 		 if we put something in the TREE_CHAIN of this one.  */
 	      yylval.ttype = build_string (TREE_STRING_LENGTH (stringval),
@@ -1322,8 +1448,8 @@ yylex ()
 	int parts[TOTAL_PARTS];
 	int overflow = 0;
 
-	enum anon1 { NOT_FLOAT, AFTER_POINT, TOO_MANY_POINTS} floatflag
-	  = NOT_FLOAT;
+	enum anon1 { NOT_FLOAT, AFTER_POINT, TOO_MANY_POINTS, AFTER_EXPON}
+	  floatflag = NOT_FLOAT;
 
 	for (count = 0; count < TOTAL_PARTS; count++)
 	  parts[count] = 0;
@@ -1359,12 +1485,12 @@ yylex ()
 	  {
 	    if (c == '.')
 	      {
-		if (base == 16)
+		if (base == 16 && pedantic)
 		  error ("floating constant may not be in radix 16");
 		if (floatflag == TOO_MANY_POINTS)
 		  /* We have already emitted an error.  Don't need another.  */
 		  ;
-		else if (floatflag == AFTER_POINT)
+		else if (floatflag == AFTER_POINT || floatflag == AFTER_EXPON)
 		  {
 		    error ("malformed floating constant");
 		    floatflag = TOO_MANY_POINTS;
@@ -1375,7 +1501,8 @@ yylex ()
 		else
 		  floatflag = AFTER_POINT;
 
-		base = 10;
+		if (base == 8)
+		  base = 10;
 		*p++ = c = GETC();
 		/* Accept '.' as the start of a floating-point number
 		   only when it is followed by a digit.
@@ -1414,11 +1541,16 @@ yylex ()
 		    if (c == 'e' || c == 'E')
 		      {
 			base = 10;
-			floatflag = AFTER_POINT;
+			floatflag = AFTER_EXPON;
 			break;   /* start of exponent */
 		      }
 		    error ("nondigits in number and not hexadecimal");
 		    c = 0;
+		  }
+		else if (base == 16 && (c == 'p' || c == 'P'))
+		  {
+		    floatflag = AFTER_EXPON;
+		    break;   /* start of exponent */
 		  }
 		else if (c >= 'a')
 		  {
@@ -1472,11 +1604,12 @@ yylex ()
 	    int imag = 0;
 	    int conversion_errno = 0;
 	    REAL_VALUE_TYPE value;
-	    jmp_buf handler;
+	    struct pf_args args;
 
 	    /* Read explicit exponent if any, and put it in tokenbuf.  */
 
-	    if ((c == 'e') || (c == 'E'))
+	    if ((base == 10 && ((c == 'e') || (c == 'E')))
+		|| (base == 16 && (c == 'p' || c == 'P')))
 	      {
 		if (p >= token_buffer + maxtoken - 3)
 		  p = extend_token_buffer (p);
@@ -1487,9 +1620,10 @@ yylex ()
 		    *p++ = c;
 		    c = GETC();
 		  }
+		/* Exponent is decimal, even if string is a hex float.  */
 		if (! ISDIGIT (c))
 		  error ("floating constant exponent has no digits");
-	        while (ISDIGIT (c))
+		while (ISDIGIT (c))
 		  {
 		    if (p >= token_buffer + maxtoken - 3)
 		      p = extend_token_buffer (p);
@@ -1497,106 +1631,38 @@ yylex ()
 		    c = GETC();
 		  }
 	      }
+	    if (base == 16 && floatflag != AFTER_EXPON)
+	      error ("hexadecimal floating constant has no exponent");
 
 	    *p = 0;
 
+	    /* Setup input for parse_float() */
+	    args.base = base;
+	    args.p = p;
+	    args.c = c;
+	    args.imag = imag;
+	    args.type = type;
+	    args.conversion_errno = conversion_errno;
+
 	    /* Convert string to a double, checking for overflow.  */
-	    if (setjmp (handler))
+	    if (do_float_handler (parse_float, (PTR) &args))
 	      {
-		error ("floating constant out of range");
-		value = dconst0;
+		/* Receive output from parse_float() */
+		value = args.value;
 	      }
 	    else
 	      {
-		int fflag = 0, lflag = 0;
-		/* Copy token_buffer now, while it has just the number
-		   and not the suffixes; once we add `f' or `i',
-		   REAL_VALUE_ATOF may not work any more.  */
-		char *copy = (char *) alloca (p - token_buffer + 1);
-		bcopy (token_buffer, copy, p - token_buffer + 1);
+		/* We got an exception from parse_float() */
+		error ("floating constant out of range");
+		value = dconst0;
+	      }
 
-		set_float_handler (handler);
-
-		while (1)
-		  {
-		    int lose = 0;
-
-		    /* Read the suffixes to choose a data type.  */
-		    switch (c)
-		      {
-		      case 'f': case 'F':
-			if (fflag)
-			  error ("more than one `f' in numeric constant");
-			fflag = 1;
-			break;
-
-		      case 'l': case 'L':
-			if (lflag)
-			  error ("more than one `l' in numeric constant");
-			lflag = 1;
-			break;
-
-		      case 'i': case 'I':
-			if (imag)
-			  error ("more than one `i' or `j' in numeric constant");
-			else if (pedantic)
-			  pedwarn ("ANSI C forbids imaginary numeric constants");
-			imag = 1;
-			break;
-
-		      default:
-			lose = 1;
-		      }
-
-		    if (lose)
-		      break;
-
-		    if (p >= token_buffer + maxtoken - 3)
-		      p = extend_token_buffer (p);
-		    *p++ = c;
-		    *p = 0;
-		    c = GETC();
-		  }
-
-		/* The second argument, machine_mode, of REAL_VALUE_ATOF
-		   tells the desired precision of the binary result
-		   of decimal-to-binary conversion.  */
-
-		if (fflag)
-		  {
-		    if (lflag)
-		      error ("both `f' and `l' in floating constant");
-
-		    type = float_type_node;
-		    errno = 0;
-		    value = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
-		    conversion_errno = errno;
-		    /* A diagnostic is required here by some ANSI C testsuites.
-		       This is not pedwarn, become some people don't want
-		       an error for this.  */
-		    if (REAL_VALUE_ISINF (value) && pedantic)
-		      warning ("floating point number exceeds range of `float'");
-		  }
-		else if (lflag)
-		  {
-		    type = long_double_type_node;
-		    errno = 0;
-		    value = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
-		    conversion_errno = errno;
-		    if (REAL_VALUE_ISINF (value) && pedantic)
-		      warning ("floating point number exceeds range of `long double'");
-		  }
-		else
-		  {
-		    errno = 0;
-		    value = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
-		    conversion_errno = errno;
-		    if (REAL_VALUE_ISINF (value) && pedantic)
-		      warning ("floating point number exceeds range of `double'");
-		  }
-
-		set_float_handler (NULL_PTR);
-	    }
+	    /* Receive output from parse_float() */
+	    c = args.c;
+	    imag = args.imag;
+	    type = args.type;
+	    conversion_errno = args.conversion_errno;
+	    
 #ifdef ERANGE
 	    /* ERANGE is also reported for underflow,
 	       so test the value to distinguish overflow from that.  */
@@ -1628,7 +1694,7 @@ yylex ()
 	    int spec_long = 0;
 	    int spec_long_long = 0;
 	    int spec_imag = 0;
-	    int bytes, warn, i;
+	    int warn, i;
 
 	    traditional_type = ansi_type = type = NULL_TREE;
 	    while (1)
@@ -1667,20 +1733,10 @@ yylex ()
 		c = GETC();
 	      }
 
-	    /* If the constant won't fit in an unsigned long long,
-	       then warn that the constant is out of range.  */
-
-	    /* ??? This assumes that long long and long integer types are
-	       a multiple of 8 bits.  This better than the original code
-	       though which assumed that long was exactly 32 bits and long
-	       long was exactly 64 bits.  */
-
-	    bytes = TYPE_PRECISION (long_long_integer_type_node) / 8;
+	    /* If it won't fit in the host's representation for integers,
+	       then pedwarn. */
 
 	    warn = overflow;
-	    for (i = bytes; i < TOTAL_PARTS; i++)
-	      if (parts[i])
-		warn = 1;
 	    if (warn)
 	      pedwarn ("integer constant out of range");
 
@@ -1696,7 +1752,7 @@ yylex ()
 			 << (i * HOST_BITS_PER_CHAR));
 		low |= (HOST_WIDE_INT) parts[i] << (i * HOST_BITS_PER_CHAR);
 	      }
-	    
+
 	    yylval.ttype = build_int_2 (low, high);
 	    TREE_TYPE (yylval.ttype) = long_long_unsigned_type_node;
 
@@ -1771,7 +1827,10 @@ yylex ()
 	    if (pedantic && !flag_traditional && !spec_long_long && !warn
 		&& (TYPE_PRECISION (long_integer_type_node)
 		    < TYPE_PRECISION (type)))
-	      pedwarn ("integer constant out of range");
+	      {
+		warn = 1;
+		pedwarn ("integer constant out of range");
+	      }
 
 	    if (base == 10 && ! spec_unsigned && TREE_UNSIGNED (type))
 	      warning ("decimal constant is so large that it is unsigned");
@@ -1799,6 +1858,15 @@ yylex ()
 	      }
 	    else
 	      TREE_TYPE (yylval.ttype) = type;
+
+
+	    /* If it's still an integer (not a complex), and it doesn't
+	       fit in the type we choose for it, then pedwarn. */
+
+	    if (! warn
+		&& TREE_CODE (TREE_TYPE (yylval.ttype)) == INTEGER_TYPE
+		&& ! int_fits_type_p (yylval.ttype, TREE_TYPE (yylval.ttype)))
+	      pedwarn ("integer constant out of range");
 	  }
 
 	UNGETC (c);
@@ -1845,7 +1913,7 @@ yylex ()
 		if (ignore)
 		  goto tryagain;
 		if (width < HOST_BITS_PER_INT
-		    && (unsigned) c >= (1 << width))
+		    && (unsigned) c >= ((unsigned)1 << width))
 		  pedwarn ("escape sequence out of range for character");
 #ifdef MAP_CHARACTER
 		if (ISPRINT (c))
@@ -2000,7 +2068,7 @@ yylex ()
 		if (ignore)
 		  goto skipnewline;
 		if (width < HOST_BITS_PER_INT
-		    && (unsigned) c >= (1 << width))
+		    && (unsigned) c >= ((unsigned)1 << width))
 		  pedwarn ("escape sequence out of range for character");
 	      }
 	    else if (c == '\n')
@@ -2033,15 +2101,13 @@ yylex ()
 		    /* mbtowc sometimes needs an extra char before accepting */
 		    if (char_len <= i)
 		      UNGETC (c);
-		    if (wide_flag)
+		    if (! wide_flag)
 		      {
-			*(wchar_t *)p = wc;
-			p += sizeof (wc);
+			p += (i + 1);
+			c = GETC ();
+			continue;
 		      }
-		    else
-		      p += (i + 1);
-		    c = GETC ();
-		    continue;
+		    c = wc;
 		  }
 #endif /* MULTIBYTE_CHARS */
 	      }
@@ -2060,7 +2126,7 @@ yylex ()
 		for (byte = 0; byte < WCHAR_BYTES; ++byte)
 		  {
 		    int value;
-		    if (byte >= sizeof (c))
+		    if (byte >= (int) sizeof (c))
 		      value = 0;
 		    else
 		      value = (c >> (byte * width)) & bytemask;

@@ -7,7 +7,7 @@
 
 class A { };
 
-main()  {
+int main()  {
   A a = a;
-  A b(b); // ERROR - 
+  A b(b); // gets bogus error - XFAIL *-*-*
 }

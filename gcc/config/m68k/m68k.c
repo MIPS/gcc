@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Motorola 68000 family.
-   Copyright (C) 1987, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 93-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -58,11 +58,11 @@ rtx legitimize_pic_address ();
 
 /* Alignment to use for loops and jumps */
 /* Specify power of two alignment used for loops. */
-char *m68k_align_loops_string;
+const char *m68k_align_loops_string;
 /* Specify power of two alignment used for non-loop jumps. */
-char *m68k_align_jumps_string;
+const char *m68k_align_jumps_string;
 /* Specify power of two alignment used for functions. */
-char *m68k_align_funcs_string;
+const char *m68k_align_funcs_string;
 
 /* Specify power of two alignment used for loops. */
 int m68k_align_loops;
@@ -3176,7 +3176,19 @@ print_operand_address (file, addr)
 	  }
 	else
 	  {
-	    output_addr_const (file, addr);
+	    /* Special case for SYMBOL_REF if the symbol name ends in
+	       `.<letter>', this can be mistaken as a size suffix.  Put
+	       the name in parentheses.  */
+	    if (GET_CODE (addr) == SYMBOL_REF
+		&& strlen (XSTR (addr, 0)) > 2
+		&& XSTR (addr, 0)[strlen (XSTR (addr, 0)) - 2] == '.')
+	      {
+		putc ('(', file);
+		output_addr_const (file, addr);
+		putc (')', file);
+	      }
+	    else
+	      output_addr_const (file, addr);
 	  }
 	break;
     }
@@ -3250,8 +3262,6 @@ const_uint32_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
 #if HOST_BITS_PER_WIDE_INT > 32
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
@@ -3271,8 +3281,6 @@ const_sint32_operand (op, mode)
      rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) >= (-0x7fffffff - 1) && INTVAL (op) <= 0x7fffffff));

@@ -39,9 +39,9 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES		\
-  { { "c400", 1 },		\
-    { "c300", -1 },		\
-    { "", TARGET_DEFAULT} }
+  { { "c400", 1, "Generate code for the C400" },		\
+    { "c300", -1, "Generate code for the C300" },		\
+    { "", TARGET_DEFAULT, NULL} }
 
 #define TARGET_C400 1
 #define TARGET_C300 0
@@ -639,9 +639,9 @@ do									      \
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

@@ -1,7 +1,7 @@
 /* libgcc1 routines for the Texas Instruments TMS320C[34]x
-   Copyright (C) 1997,98 Free Software Foundation, Inc.
+   Copyright (C) 1997,98, 1999 Free Software Foundation, Inc.
 
- Contributed by Michael Hayes (m.hayes@elec.canterbury.cri.nz)
+ Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
             and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
 
 	
@@ -958,7 +958,7 @@ ___divhi3:
 	ldi     *-ar2(4),r0
 	ldi     *-ar2(3),r1
 	bge	div1
-	negi	ir0
+	not	ir0
 	negi	r0
 	negb	r1
 div1:
@@ -967,7 +967,7 @@ div1:
 	ldi     *-ar2(2),r0
 	ldi     *-ar2(1),r1
 	bge	div2
-	negi	ir0
+	not	ir0
 	negi	r0
 	negb	r1
 div2:
@@ -995,7 +995,7 @@ ___modhi3:
 	ldi     *-ar2(4),r0
 	ldi     *-ar2(3),r1
 	bge	mod1
-	negi	ir0
+	not	ir0
 	negi	r0
 	negb	r1
 mod1:
@@ -1004,7 +1004,7 @@ mod1:
 	ldi     *-ar2(2),r0
 	ldi     *-ar2(1),r1
 	bge	mod2
-	negi	ir0
+	not	ir0
 	negi	r0
 	negb	r1
 mod2:

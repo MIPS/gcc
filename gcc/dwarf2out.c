@@ -1,5 +1,5 @@
 /* Output Dwarf2 format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 93, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 95-98, 1999 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -18,7 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* The first part of this file deals with the DWARF 2 frame unwind
    information, which is also used by the GCC efficient exception handling
@@ -70,10 +71,6 @@ dwarf2out_do_frame ()
 }
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
-
-#ifndef __GNUC__
-#define inline
-#endif
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -663,7 +660,7 @@ expand_builtin_dwarf_reg_size (reg_tree, target)
 	  t = fold (build (COND_EXPR, integer_type_node, t2,
 			   build_int_2 (ranges[n_ranges].size, 0), t));
 	}
-      while (--n_ranges > 0);
+      while (--n_ranges >= 0);
     }
   return expand_expr (t, target, Pmode, 0);
 }
@@ -1040,7 +1037,7 @@ static void
 initial_return_save (rtl)
      register rtx rtl;
 {
-  unsigned reg = -1;
+  unsigned int reg = (unsigned int) -1;
   long offset = 0;
 
   switch (GET_CODE (rtl))
@@ -1189,6 +1186,230 @@ dwarf2out_stack_adjust (insn)
   dwarf2out_args_size (label, args_size);
 }
 
+/* A temporary register used in adjusting SP or setting up the store_reg.  */
+static unsigned cfa_temp_reg;
+
+/* A temporary value used in adjusting SP or setting up the store_reg.  */
+static long cfa_temp_value;
+
+/* Record call frame debugging information for an expression, which either
+   sets SP or FP (adjusting how we calculate the frame address) or saves a
+   register to the stack. */
+
+static void
+dwarf2out_frame_debug_expr (expr, label)
+     rtx expr;
+     char *label;
+{
+  rtx src, dest;
+  long offset;
+    
+  /* If RTX_FRAME_RELATED_P is set on a PARALLEL, process each member of 
+     the PARALLEL independantly. The first element is always processed if 
+     it is a SET. This is for backward compatability.   Other elements 
+     are processed only if they are SETs and the RTX_FRAME_RELATED_P 
+     flag is set in them. */
+
+  if (GET_CODE (expr) == PARALLEL)
+    { 
+      int par_index;
+      int limit = XVECLEN (expr, 0);
+
+      for (par_index = 0; par_index < limit; par_index++)
+        {
+          rtx x = XVECEXP (expr, 0, par_index);
+          
+          if (GET_CODE (x) == SET &&
+	      (RTX_FRAME_RELATED_P (x) || par_index == 0))
+	      dwarf2out_frame_debug_expr (x, label);
+        }
+      return;
+    }
+  
+  if (GET_CODE (expr) != SET)
+    abort ();
+
+  src = SET_SRC (expr);
+  dest = SET_DEST (expr);
+
+  switch (GET_CODE (dest))
+    {
+    case REG:
+      /* Update the CFA rule wrt SP or FP.  Make sure src is
+         relative to the current CFA register.  */
+      switch (GET_CODE (src))
+        {
+          /* Setting FP from SP.  */
+        case REG:
+          if (cfa_reg != (unsigned) REGNO (src))
+            abort ();
+          if (REGNO (dest) != STACK_POINTER_REGNUM
+      	&& !(frame_pointer_needed
+      	     && REGNO (dest) == HARD_FRAME_POINTER_REGNUM))
+            abort ();
+          cfa_reg = REGNO (dest);
+          break;
+
+        case PLUS:
+        case MINUS:
+          if (dest == stack_pointer_rtx)
+            {
+      	/* Adjusting SP.  */
+      	switch (GET_CODE (XEXP (src, 1)))
+      	  {
+      	  case CONST_INT:
+      	    offset = INTVAL (XEXP (src, 1));
+      	    break;
+      	  case REG:
+      	    if ((unsigned) REGNO (XEXP (src, 1)) != cfa_temp_reg)
+      	      abort ();
+      	    offset = cfa_temp_value;
+      	    break;
+      	  default:
+      	    abort ();
+      	  }
+
+      	if (XEXP (src, 0) == hard_frame_pointer_rtx)
+      	  {
+      	    /* Restoring SP from FP in the epilogue.  */
+      	    if (cfa_reg != (unsigned) HARD_FRAME_POINTER_REGNUM)
+      	      abort ();
+      	    cfa_reg = STACK_POINTER_REGNUM;
+      	  }
+      	else if (XEXP (src, 0) != stack_pointer_rtx)
+      	  abort ();
+
+      	if (GET_CODE (src) == PLUS)
+      	  offset = -offset;
+      	if (cfa_reg == STACK_POINTER_REGNUM)
+      	  cfa_offset += offset;
+      	if (cfa_store_reg == STACK_POINTER_REGNUM)
+      	  cfa_store_offset += offset;
+            }
+          else if (dest == hard_frame_pointer_rtx)
+            {
+      	/* Either setting the FP from an offset of the SP,
+      	   or adjusting the FP */
+      	if (! frame_pointer_needed
+      	    || REGNO (dest) != HARD_FRAME_POINTER_REGNUM)
+      	  abort ();
+
+      	if (XEXP (src, 0) == stack_pointer_rtx
+      	    && GET_CODE (XEXP (src, 1)) == CONST_INT)
+      	  {
+      	    if (cfa_reg != STACK_POINTER_REGNUM)
+      	      abort ();
+      	    offset = INTVAL (XEXP (src, 1));
+      	    if (GET_CODE (src) == PLUS)
+      	      offset = -offset;
+      	    cfa_offset += offset;
+      	    cfa_reg = HARD_FRAME_POINTER_REGNUM;
+      	  }
+      	else if (XEXP (src, 0) == hard_frame_pointer_rtx
+      		 && GET_CODE (XEXP (src, 1)) == CONST_INT)
+      	  {
+      	    if (cfa_reg != (unsigned) HARD_FRAME_POINTER_REGNUM)
+      	      abort ();
+      	    offset = INTVAL (XEXP (src, 1));
+      	    if (GET_CODE (src) == PLUS)
+      	      offset = -offset;
+      	    cfa_offset += offset;
+      	  }
+
+      	else 
+      	  abort();
+            }
+          else
+            {
+      	if (GET_CODE (src) != PLUS
+      	    || XEXP (src, 1) != stack_pointer_rtx)
+      	  abort ();
+      	if (GET_CODE (XEXP (src, 0)) != REG
+      	    || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp_reg)
+      	  abort ();
+      	if (cfa_reg != STACK_POINTER_REGNUM)
+      	  abort ();
+      	cfa_store_reg = REGNO (dest);
+      	cfa_store_offset = cfa_offset - cfa_temp_value;
+            }
+          break;
+
+        case CONST_INT:
+          cfa_temp_reg = REGNO (dest);
+          cfa_temp_value = INTVAL (src);
+          break;
+
+        case IOR:
+          if (GET_CODE (XEXP (src, 0)) != REG
+      	|| (unsigned) REGNO (XEXP (src, 0)) != cfa_temp_reg
+      	|| (unsigned) REGNO (dest) != cfa_temp_reg
+      	|| GET_CODE (XEXP (src, 1)) != CONST_INT)
+            abort ();
+          cfa_temp_value |= INTVAL (XEXP (src, 1));
+          break;
+
+        default:
+          abort ();
+        }
+      dwarf2out_def_cfa (label, cfa_reg, cfa_offset);
+    break;
+
+  case MEM:
+    /* Saving a register to the stack.  Make sure dest is relative to the
+       CFA register.  */
+    if (GET_CODE (src) != REG)
+      abort ();
+    switch (GET_CODE (XEXP (dest, 0)))
+      {
+        /* With a push.  */
+      case PRE_INC:
+      case PRE_DEC:
+        offset = GET_MODE_SIZE (GET_MODE (dest));
+        if (GET_CODE (XEXP (dest, 0)) == PRE_INC)
+          offset = -offset;
+
+        if (REGNO (XEXP (XEXP (dest, 0), 0)) != STACK_POINTER_REGNUM
+            || cfa_store_reg != STACK_POINTER_REGNUM)
+          abort ();
+        cfa_store_offset += offset;
+        if (cfa_reg == STACK_POINTER_REGNUM)
+          cfa_offset = cfa_store_offset;
+
+        offset = -cfa_store_offset;
+        break;
+
+        /* With an offset.  */
+      case PLUS:
+      case MINUS:
+        offset = INTVAL (XEXP (XEXP (dest, 0), 1));
+        if (GET_CODE (XEXP (dest, 0)) == MINUS)
+          offset = -offset;
+
+        if (cfa_store_reg != (unsigned) REGNO (XEXP (XEXP (dest, 0), 0)))
+          abort ();
+        offset -= cfa_store_offset;
+        break;
+
+        /* Without an offset.  */
+      case REG:
+        if (cfa_store_reg != (unsigned) REGNO (XEXP (dest, 0)))
+          abort();
+        offset = -cfa_store_offset;
+        break;
+
+      default:
+        abort ();
+      }
+    dwarf2out_def_cfa (label, cfa_reg, cfa_offset);
+    dwarf2out_reg_save (label, REGNO (src), offset);
+    break;
+
+  default:
+    abort ();
+  }
+}
+
+
 /* Record call frame debugging information for INSN, which either
    sets SP or FP (adjusting how we calculate the frame address) or saves a
    register to the stack.  If INSN is NULL_RTX, initialize our state.  */
@@ -1198,12 +1419,7 @@ dwarf2out_frame_debug (insn)
      rtx insn;
 {
   char *label;
-  rtx src, dest;
-  long offset;
-
-  /* A temporary register used in adjusting SP or setting up the store_reg.  */
-  static unsigned cfa_temp_reg;
-  static long cfa_temp_value;
+  rtx src;
 
   if (insn == NULL_RTX)
     {
@@ -1230,194 +1446,10 @@ dwarf2out_frame_debug (insn)
   src = find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX);
   if (src)
     insn = XEXP (src, 0);
-  else
+  else 
     insn = PATTERN (insn);
 
-  /* Assume that in a PARALLEL prologue insn, only the first elt is
-     significant.  Currently this is true.  */
-  if (GET_CODE (insn) == PARALLEL)
-    insn = XVECEXP (insn, 0, 0);
-  if (GET_CODE (insn) != SET)
-    abort ();
-
-  src = SET_SRC (insn);
-  dest = SET_DEST (insn);
-
-  switch (GET_CODE (dest))
-    {
-    case REG:
-      /* Update the CFA rule wrt SP or FP.  Make sure src is
-	 relative to the current CFA register.  */
-      switch (GET_CODE (src))
-	{
-	  /* Setting FP from SP.  */
-	case REG:
-	  if (cfa_reg != REGNO (src))
-	    abort ();
-	  if (REGNO (dest) != STACK_POINTER_REGNUM
-	      && !(frame_pointer_needed
-		   && REGNO (dest) == HARD_FRAME_POINTER_REGNUM))
-	    abort ();
-	  cfa_reg = REGNO (dest);
-	  break;
-
-	case PLUS:
-	case MINUS:
-	  if (dest == stack_pointer_rtx)
-	    {
-	      /* Adjusting SP.  */
-	      switch (GET_CODE (XEXP (src, 1)))
-		{
-		case CONST_INT:
-		  offset = INTVAL (XEXP (src, 1));
-		  break;
-		case REG:
-		  if (REGNO (XEXP (src, 1)) != cfa_temp_reg)
-		    abort ();
-		  offset = cfa_temp_value;
-		  break;
-		default:
-		  abort ();
-		}
-
-	      if (XEXP (src, 0) == hard_frame_pointer_rtx)
-		{
-		  /* Restoring SP from FP in the epilogue.  */
-		  if (cfa_reg != HARD_FRAME_POINTER_REGNUM)
-		    abort ();
-		  cfa_reg = STACK_POINTER_REGNUM;
-		}
-	      else if (XEXP (src, 0) != stack_pointer_rtx)
-		abort ();
-
-	      if (GET_CODE (src) == PLUS)
-		offset = -offset;
-	      if (cfa_reg == STACK_POINTER_REGNUM)
-		cfa_offset += offset;
-	      if (cfa_store_reg == STACK_POINTER_REGNUM)
-		cfa_store_offset += offset;
-	    }
-          else if (dest == hard_frame_pointer_rtx)
-            {
-              /* Either setting the FP from an offset of the SP,
-                 or adjusting the FP */
-	      if (! frame_pointer_needed
-		  || REGNO (dest) != HARD_FRAME_POINTER_REGNUM)
-		abort ();
-
-              if (XEXP (src, 0) == stack_pointer_rtx
-                  && GET_CODE (XEXP (src, 1)) == CONST_INT)
-                {
-		  if (cfa_reg != STACK_POINTER_REGNUM)
-		    abort ();
-                  offset = INTVAL (XEXP (src, 1));
-                  if (GET_CODE (src) == PLUS)
-                    offset = -offset;
-                  cfa_offset += offset;
-                  cfa_reg = HARD_FRAME_POINTER_REGNUM;
-                }
-              else if (XEXP (src, 0) == hard_frame_pointer_rtx
-                       && GET_CODE (XEXP (src, 1)) == CONST_INT)
-                {
-		  if (cfa_reg != HARD_FRAME_POINTER_REGNUM)
-		    abort ();
-                  offset = INTVAL (XEXP (src, 1));
-                  if (GET_CODE (src) == PLUS)
-                    offset = -offset;
-                  cfa_offset += offset;
-                }
-
-              else 
-                abort();
-            }
-	  else
-	    {
-	      if (GET_CODE (src) != PLUS
-		  || XEXP (src, 1) != stack_pointer_rtx)
-		abort ();
-	      if (GET_CODE (XEXP (src, 0)) != REG
-		  || REGNO (XEXP (src, 0)) != cfa_temp_reg)
-		abort ();
-	      if (cfa_reg != STACK_POINTER_REGNUM)
-		abort ();
-	      cfa_store_reg = REGNO (dest);
-	      cfa_store_offset = cfa_offset - cfa_temp_value;
-	    }
-	  break;
-
-	case CONST_INT:
-	  cfa_temp_reg = REGNO (dest);
-	  cfa_temp_value = INTVAL (src);
-	  break;
-
-	case IOR:
-	  if (GET_CODE (XEXP (src, 0)) != REG
-	      || REGNO (XEXP (src, 0)) != cfa_temp_reg
-	      || REGNO (dest) != cfa_temp_reg
-	      || GET_CODE (XEXP (src, 1)) != CONST_INT)
-	    abort ();
-	  cfa_temp_value |= INTVAL (XEXP (src, 1));
-	  break;
-
-	default:
-	  abort ();
-	}
-      dwarf2out_def_cfa (label, cfa_reg, cfa_offset);
-      break;
-
-    case MEM:
-      /* Saving a register to the stack.  Make sure dest is relative to the
-         CFA register.  */
-      if (GET_CODE (src) != REG)
-	abort ();
-      switch (GET_CODE (XEXP (dest, 0)))
-	{
-	  /* With a push.  */
-	case PRE_INC:
-	case PRE_DEC:
-	  offset = GET_MODE_SIZE (GET_MODE (dest));
-	  if (GET_CODE (XEXP (dest, 0)) == PRE_INC)
-	    offset = -offset;
-
-	  if (REGNO (XEXP (XEXP (dest, 0), 0)) != STACK_POINTER_REGNUM
-	      || cfa_store_reg != STACK_POINTER_REGNUM)
-	    abort ();
-	  cfa_store_offset += offset;
-	  if (cfa_reg == STACK_POINTER_REGNUM)
-	    cfa_offset = cfa_store_offset;
-
-	  offset = -cfa_store_offset;
-	  break;
-
-	  /* With an offset.  */
-	case PLUS:
-	case MINUS:
-	  offset = INTVAL (XEXP (XEXP (dest, 0), 1));
-	  if (GET_CODE (src) == MINUS)
-	    offset = -offset;
-
-	  if (cfa_store_reg != REGNO (XEXP (XEXP (dest, 0), 0)))
-	    abort ();
-	  offset -= cfa_store_offset;
-	  break;
-
-	  /* Without an offset.  */
-	case REG:
-	  if (cfa_store_reg != REGNO (XEXP (dest, 0)))
-	    abort();
-	  offset = -cfa_store_offset;
-	  break;
-
-	default:
-	  abort ();
-	}
-      dwarf2out_def_cfa (label, cfa_reg, cfa_offset);
-      dwarf2out_reg_save (label, REGNO (src), offset);
-      break;
-
-    default:
-      abort ();
-    }
+  dwarf2out_frame_debug_expr (insn, label);
 }
 
 /* Return the size of an unsigned LEB128 quantity.  */
@@ -1691,7 +1723,7 @@ output_call_frame_info (for_eh)
 #else
       tree label = get_file_function_name ('F');
 
-      data_section ();
+      force_data_section ();
       ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
       ASM_GLOBALIZE_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
       ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
@@ -1829,8 +1861,16 @@ output_call_frame_info (for_eh)
       fputc ('\n', asm_out_file);
       ASM_OUTPUT_LABEL (asm_out_file, l1);
 
+      /* ??? This always emits a 4 byte offset when for_eh is true, but it
+	 emits a target dependent sized offset when for_eh is not true.
+	 This inconsistency may confuse gdb.  The only case where we need a
+	 non-4 byte offset is for the Irix6 N64 ABI, so we may lose SGI
+	 compatibility if we emit a 4 byte offset.  We need a 4 byte offset
+	 though in order to be compatible with the dwarf_fde struct in frame.c.
+	 If the for_eh case is changed, then the struct in frame.c has
+	 to be adjusted appropriately.  */
       if (for_eh)
-	ASM_OUTPUT_DWARF_DELTA (asm_out_file, l1, "__FRAME_BEGIN__");
+	ASM_OUTPUT_DWARF_DELTA4 (asm_out_file, l1, "__FRAME_BEGIN__");
       else
 	ASM_OUTPUT_DWARF_OFFSET (asm_out_file, stripattributes (FRAME_SECTION));
       if (flag_debug_asm)
@@ -2006,7 +2046,7 @@ typedef enum
   dw_val_class_die_ref,
   dw_val_class_fde_ref,
   dw_val_class_lbl_id,
-  dw_val_class_section_offset,
+  dw_val_class_lbl_offset,
   dw_val_class_str
 }
 dw_val_class;
@@ -2085,7 +2125,6 @@ typedef struct dw_val_struct
       unsigned val_fde_index;
       char *val_str;
       char *val_lbl_id;
-      char *val_section;
       unsigned char val_flag;
     }
   v;
@@ -2444,7 +2483,7 @@ static void add_AT_addr			PROTO((dw_die_ref,
 					       enum dwarf_attribute, char *));
 static void add_AT_lbl_id		PROTO((dw_die_ref,
 					       enum dwarf_attribute, char *));
-static void add_AT_section_offset	PROTO((dw_die_ref,
+static void add_AT_lbl_offset		PROTO((dw_die_ref,
 					       enum dwarf_attribute, char *));
 static int is_extern_subr_die		PROTO((dw_die_ref));
 static dw_attr_ref get_AT		PROTO((dw_die_ref,
@@ -2617,6 +2656,22 @@ static unsigned lookup_filename		PROTO((char *));
 #define BSS_SECTION		".bss"
 #endif
 
+/* Labels we insert at beginning sections we can reference instead of
+   the section names themselves. */
+
+#ifndef TEXT_SECTION_LABEL
+#define TEXT_SECTION_LABEL	 "Ltext"
+#endif
+#ifndef DEBUG_LINE_SECTION_LABEL
+#define DEBUG_LINE_SECTION_LABEL "Ldebug_line"
+#endif
+#ifndef DEBUG_INFO_SECTION_LABEL
+#define DEBUG_INFO_SECTION_LABEL "Ldebug_info"
+#endif
+#ifndef ABBREV_SECTION_LABEL
+#define ABBREV_SECTION_LABEL     "Ldebug_abbrev"
+#endif
+
 
 /* Definitions of defaults for formats and names of various special
    (artificial) labels which may be generated within this file (when the -g
@@ -2625,6 +2680,10 @@ static unsigned lookup_filename		PROTO((char *));
    typically, overriding these defaults is unnecessary.  */
 
 static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char text_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char abbrev_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char debug_info_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char debug_line_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 
 #ifndef TEXT_END_LABEL
 #define TEXT_END_LABEL		"Letext"
@@ -2661,13 +2720,16 @@ static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
    macro has the same effect as ASM_OUTPUT_LABELREF, but copies to
    a string rather than writing to a file.  */
 #ifndef ASM_NAME_TO_STRING
-#define ASM_NAME_TO_STRING(STR, NAME) \
-  do {									      \
-      if ((NAME)[0] == '*')						      \
-	dyn_string_append (STR, NAME + 1);				      \
-      else								      \
-	dyn_string_append (STR, NAME);                                        \
-  }                                                                           \
+#define ASM_NAME_TO_STRING(STR, NAME)			\
+  do {							\
+      if ((NAME)[0] == '*')				\
+	dyn_string_append (STR, NAME + 1);		\
+      else						\
+	{						\
+	  dyn_string_append (STR, user_label_prefix);	\
+	  dyn_string_append (STR, NAME);		\
+	}						\
+  }							\
   while (0)
 #endif
 
@@ -3821,17 +3883,17 @@ add_AT_lbl_id (die, attr_kind, lbl_id)
 /* Add a section offset attribute value to a DIE.  */
 
 static inline void
-add_AT_section_offset (die, attr_kind, section)
+add_AT_lbl_offset (die, attr_kind, label)
      register dw_die_ref die;
      register enum dwarf_attribute attr_kind;
-     register char *section;
+     register char *label;
 {
   register dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_section_offset;
-  attr->dw_attr_val.v.val_section = section;
+  attr->dw_attr_val.val_class = dw_val_class_lbl_offset;
+  attr->dw_attr_val.v.val_lbl_id = label;
   add_dwarf_attr (die, attr);
   
 }
@@ -4294,10 +4356,8 @@ print_die (die, outfile)
 	    fprintf (outfile, "die -> <null>");
 	  break;
 	case dw_val_class_lbl_id:
+	case dw_val_class_lbl_offset:
 	  fprintf (outfile, "label: %s", a->dw_attr_val.v.val_lbl_id);
-	  break;
-	case dw_val_class_section_offset:
-	  fprintf (outfile, "section: %s", a->dw_attr_val.v.val_section);
 	  break;
 	case dw_val_class_str:
 	  if (a->dw_attr_val.v.val_str != NULL)
@@ -4662,7 +4722,7 @@ size_of_die (die)
 	case dw_val_class_lbl_id:
 	  size += PTR_SIZE;
 	  break;
-	case dw_val_class_section_offset:
+	case dw_val_class_lbl_offset:
 	  size += DWARF_OFFSET_SIZE;
 	  break;
 	case dw_val_class_str:
@@ -4975,7 +5035,7 @@ value_format (v)
       return DW_FORM_data;
     case dw_val_class_lbl_id:
       return DW_FORM_addr;
-    case dw_val_class_section_offset:
+    case dw_val_class_lbl_offset:
       return DW_FORM_data;
     case dw_val_class_str:
       return DW_FORM_string;
@@ -5197,7 +5257,6 @@ output_die (die)
   register unsigned long ref_offset;
   register unsigned long size;
   register dw_loc_descr_ref loc;
-  register int i;
 
   output_uleb128 (die->die_abbrev);
   if (flag_debug_asm)
@@ -5300,24 +5359,27 @@ output_die (die)
 	  break;
 
 	case dw_val_class_float:
-	  ASM_OUTPUT_DWARF_DATA1 (asm_out_file,
-				  a->dw_attr_val.v.val_float.length * 4);
-	  if (flag_debug_asm)
-	    fprintf (asm_out_file, "\t%s %s",
-		     ASM_COMMENT_START, dwarf_attr_name (a->dw_attr));
+	  {
+	    register unsigned int i;
+	    ASM_OUTPUT_DWARF_DATA1 (asm_out_file,
+				    a->dw_attr_val.v.val_float.length * 4);
+	    if (flag_debug_asm)
+	      fprintf (asm_out_file, "\t%s %s",
+		       ASM_COMMENT_START, dwarf_attr_name (a->dw_attr));
 
-	  fputc ('\n', asm_out_file);
-	  for (i = 0; i < a->dw_attr_val.v.val_float.length; ++i)
-	    {
-	      ASM_OUTPUT_DWARF_DATA4 (asm_out_file,
-				      a->dw_attr_val.v.val_float.array[i]);
-	      if (flag_debug_asm)
-		fprintf (asm_out_file, "\t%s fp constant word %d",
-			 ASM_COMMENT_START, i);
+	    fputc ('\n', asm_out_file);
+	    for (i = 0; i < a->dw_attr_val.v.val_float.length; ++i)
+	      {
+		ASM_OUTPUT_DWARF_DATA4 (asm_out_file,
+					a->dw_attr_val.v.val_float.array[i]);
+		if (flag_debug_asm)
+		  fprintf (asm_out_file, "\t%s fp constant word %u",
+			   ASM_COMMENT_START, i);
 
-	      fputc ('\n', asm_out_file);
-	    }
+		fputc ('\n', asm_out_file);
+	      }
 	  break;
+	  }
 
 	case dw_val_class_flag:
 	  ASM_OUTPUT_DWARF_DATA1 (asm_out_file, a->dw_attr_val.v.val_flag);
@@ -5348,10 +5410,8 @@ output_die (die)
 	  ASM_OUTPUT_DWARF_ADDR (asm_out_file, a->dw_attr_val.v.val_lbl_id);
 	  break;
 
-	case dw_val_class_section_offset:
-	  ASM_OUTPUT_DWARF_OFFSET (asm_out_file,
-				   stripattributes
-				   (a->dw_attr_val.v.val_section));
+	case dw_val_class_lbl_offset:
+	  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, a->dw_attr_val.v.val_lbl_id);
 	  break;
 
 	case dw_val_class_str:
@@ -5360,7 +5420,7 @@ output_die (die)
 	  else
 	    ASM_OUTPUT_ASCII (asm_out_file,
 			      a->dw_attr_val.v.val_str,
-			      strlen (a->dw_attr_val.v.val_str) + 1);
+			      (int) strlen (a->dw_attr_val.v.val_str) + 1);
 	  break;
 
 	default:
@@ -5411,7 +5471,7 @@ output_compilation_unit_header ()
     fprintf (asm_out_file, "\t%s DWARF version number", ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, stripattributes (ABBREV_SECTION));
+  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, abbrev_section_label);
   if (flag_debug_asm)
     fprintf (asm_out_file, "\t%s Offset Into Abbrev. Section",
 	     ASM_COMMENT_START);
@@ -5484,7 +5544,7 @@ output_pubnames ()
     fprintf (asm_out_file, "\t%s DWARF Version", ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, stripattributes (DEBUG_INFO_SECTION));
+  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, debug_info_section_label);
   if (flag_debug_asm)
     fprintf (asm_out_file, "\t%s Offset of Compilation Unit Info.",
 	     ASM_COMMENT_START);
@@ -5512,7 +5572,8 @@ output_pubnames ()
 	}
       else
 	{
-	  ASM_OUTPUT_ASCII (asm_out_file, pub->name, strlen (pub->name) + 1);
+	  ASM_OUTPUT_ASCII (asm_out_file, pub->name,
+			    (int) strlen (pub->name) + 1);
 	}
 
       fputc ('\n', asm_out_file);
@@ -5564,7 +5625,7 @@ output_aranges ()
     fprintf (asm_out_file, "\t%s DWARF Version", ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, stripattributes (DEBUG_INFO_SECTION));
+  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, debug_info_section_label);
   if (flag_debug_asm)
     fprintf (asm_out_file, "\t%s Offset of Compilation Unit Info.",
 	     ASM_COMMENT_START);
@@ -5590,13 +5651,13 @@ output_aranges ()
 	     ASM_COMMENT_START, 2 * PTR_SIZE);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_ADDR (asm_out_file, stripattributes (TEXT_SECTION));
+  ASM_OUTPUT_DWARF_ADDR (asm_out_file, text_section_label);
   if (flag_debug_asm)
     fprintf (asm_out_file, "\t%s Address", ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
   ASM_OUTPUT_DWARF_ADDR_DELTA (asm_out_file, text_end_label,
-			       stripattributes (TEXT_SECTION));
+			       text_section_label);
   if (flag_debug_asm)
     fprintf (asm_out_file, "%s Length", ASM_COMMENT_START);
 
@@ -5749,7 +5810,7 @@ output_line_info ()
 	{
 	  ASM_OUTPUT_ASCII (asm_out_file,
 			    file_table[ft_index],
-			    strlen (file_table[ft_index]) + 1);
+			    (int) strlen (file_table[ft_index]) + 1);
 	}
 
       fputc ('\n', asm_out_file);
@@ -5781,14 +5842,14 @@ output_line_info ()
   fputc ('\n', asm_out_file);
   ASM_OUTPUT_DWARF_DATA1 (asm_out_file, DW_LNE_set_address);
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_ADDR (asm_out_file, stripattributes (TEXT_SECTION));
+  ASM_OUTPUT_DWARF_ADDR (asm_out_file, text_section_label);
   fputc ('\n', asm_out_file);
 
   /* Generate the line number to PC correspondence table, encoded as
      a series of state machine operations.  */
   current_file = 1;
   current_line = 1;
-  strcpy (prev_line_label, stripattributes (TEXT_SECTION));
+  strcpy (prev_line_label, text_section_label);
   for (lt_index = 1; lt_index < line_info_table_in_use; ++lt_index)
     {
       register dw_line_info_ref line_info;
@@ -7071,6 +7132,38 @@ add_location_or_const_value_attribute (die, decl)
 		   && TYPE_SIZE (declared_type) <= TYPE_SIZE (passed_type))
 		rtl = DECL_INCOMING_RTL (decl);
 	}
+
+      /* If the parm was passed in registers, but lives on the stack, then
+	 make a big endian correction if the mode of the type of the
+	 parameter is not the same as the mode of the rtl.  */
+      /* ??? This is the same series of checks that are made in dbxout.c before
+	 we reach the big endian correction code there.  It isn't clear if all
+	 of these checks are necessary here, but keeping them all is the safe
+	 thing to do.  */
+      else if (GET_CODE (rtl) == MEM
+	       && XEXP (rtl, 0) != const0_rtx
+	       && ! CONSTANT_P (XEXP (rtl, 0))
+	       /* Not passed in memory.  */
+	       && GET_CODE (DECL_INCOMING_RTL (decl)) != MEM
+	       /* Not passed by invisible reference.  */
+	       && (GET_CODE (XEXP (rtl, 0)) != REG
+		   || REGNO (XEXP (rtl, 0)) == HARD_FRAME_POINTER_REGNUM
+		   || REGNO (XEXP (rtl, 0)) == STACK_POINTER_REGNUM
+#if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+		   || REGNO (XEXP (rtl, 0)) == ARG_POINTER_REGNUM
+#endif
+		     )
+	       /* Big endian correction check.  */
+	       && BYTES_BIG_ENDIAN
+	       && TYPE_MODE (TREE_TYPE (decl)) != GET_MODE (rtl)
+	       && (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl)))
+		   < UNITS_PER_WORD))
+	{
+	  int offset = (UNITS_PER_WORD
+			- GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (decl))));
+	  rtl = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (decl)),
+			     plus_constant (XEXP (rtl, 0), offset));
+	}
     }
 
   if (rtl == NULL_RTX)
@@ -7543,7 +7636,7 @@ push_decl_scope (scope)
      subtype.  In such a case, we need to search the decl_scope_table to
      find the parent of this subtype.  */
 
-  if (TREE_CODE_CLASS (TREE_CODE (scope)) == 't')
+  if (AGGREGATE_TYPE_P (scope))
     containing_scope = TYPE_CONTEXT (scope);
   else
     containing_scope = NULL_TREE;
@@ -7595,6 +7688,12 @@ scope_die_for (t, context_die)
   if (containing_scope && TREE_CODE (containing_scope) == NAMESPACE_DECL)
     containing_scope = NULL_TREE;
 
+  /* Ignore function type "scopes" from the C frontend.  They mean that
+     a tagged type is local to a parmlist of a function declarator, but
+     that isn't useful to DWARF.  */
+  if (containing_scope && TREE_CODE (containing_scope) == FUNCTION_TYPE)
+    containing_scope = NULL_TREE;
+
   /* Function-local tags and functions get stuck in limbo until they are
      fixed up by decls_for_scope.  */
   if (context_die == NULL && containing_scope != NULL_TREE
@@ -7631,12 +7730,14 @@ scope_die_for (t, context_die)
 
       if (i < 0)
 	{
-	  if (scope_die != comp_unit_die
-	      || TREE_CODE_CLASS (TREE_CODE (containing_scope)) != 't')
+	  if (TREE_CODE_CLASS (TREE_CODE (containing_scope)) != 't')
 	    abort ();
 	  if (debug_info_level > DINFO_LEVEL_TERSE
 	      && !TREE_ASM_WRITTEN (containing_scope))
 	    abort ();
+
+	  /* If none of the current dies are suitable, we get file scope.  */
+	  scope_die = comp_unit_die;
 	}
     }
 
@@ -8515,7 +8616,13 @@ gen_label_die (decl, context_die)
   else
     {
       insn = DECL_RTL (decl);
-      if (GET_CODE (insn) == CODE_LABEL)
+
+      /* Deleted labels are programmer specified labels which have been
+	 eliminated because of various optimisations.  We still emit them
+	 here so that it is possible to put breakpoints on them.  */
+      if (GET_CODE (insn) == CODE_LABEL
+	  || ((GET_CODE (insn) == NOTE
+	       && NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL)))
 	{
 	  /* When optimization is enabled (via -O) some parts of the compiler 
 	     (e.g. jump.c and cse.c) may try to delete CODE_LABEL insns which 
@@ -8822,7 +8929,7 @@ gen_struct_or_union_type_die (type, context_die)
     return;
 
   if (TYPE_CONTEXT (type) != NULL_TREE
-      && TREE_CODE_CLASS (TREE_CODE (TYPE_CONTEXT (type))) == 't')
+      && AGGREGATE_TYPE_P (TYPE_CONTEXT (type)))
     nested = 1;
 
   scope_die = scope_die_for (type, context_die);
@@ -9035,7 +9142,7 @@ gen_type_die (type, context_die)
       /* If this is a nested type whose containing class hasn't been
 	 written out yet, writing it out will cover this one, too.  */
       if (TYPE_CONTEXT (type)
-	  && TREE_CODE_CLASS (TREE_CODE (TYPE_CONTEXT (type))) == 't'
+	  && AGGREGATE_TYPE_P (TYPE_CONTEXT (type))
 	  && ! TREE_ASM_WRITTEN (TYPE_CONTEXT (type)))
 	{
 	  gen_type_die (TYPE_CONTEXT (type), context_die);
@@ -9054,7 +9161,7 @@ gen_type_die (type, context_die)
 	gen_struct_or_union_type_die (type, context_die);
 
       if (TYPE_CONTEXT (type)
-	  && TREE_CODE_CLASS (TREE_CODE (TYPE_CONTEXT (type))) == 't'
+	  && AGGREGATE_TYPE_P (TYPE_CONTEXT (type))
 	  && ! TREE_ASM_WRITTEN (TYPE_CONTEXT (type)))
 	pop_decl_scope ();
 
@@ -9791,6 +9898,21 @@ dwarf2out_init (asm_out_file, main_input_filename)
   gen_compile_unit_die (main_input_filename);
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label, ABBREV_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label, 
+			       DEBUG_INFO_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_line_section_label, 
+			       DEBUG_LINE_SECTION_LABEL, 0);
+
+  ASM_OUTPUT_SECTION (asm_out_file, ABBREV_SECTION);
+  ASM_OUTPUT_LABEL (asm_out_file, abbrev_section_label);
+  ASM_OUTPUT_SECTION (asm_out_file, TEXT_SECTION);
+  ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
+  ASM_OUTPUT_SECTION (asm_out_file, DEBUG_INFO_SECTION);
+  ASM_OUTPUT_LABEL (asm_out_file, debug_info_section_label);
+  ASM_OUTPUT_SECTION (asm_out_file, DEBUG_LINE_SECTION);
+  ASM_OUTPUT_LABEL (asm_out_file, debug_line_section_label);
 }
 
 /* Output stuff that dwarf requires at the end of every file,
@@ -9858,12 +9980,12 @@ dwarf2out_finish ()
 	 was in .text.  */
       if (separate_line_info_table_in_use == 0)
 	{
-	  add_AT_lbl_id (comp_unit_die, DW_AT_low_pc,
-			 stripattributes (TEXT_SECTION));
+	  add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
 	  add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);
 	}
 
-      add_AT_section_offset (comp_unit_die, DW_AT_stmt_list, DEBUG_LINE_SECTION);
+      add_AT_lbl_offset (comp_unit_die, DW_AT_stmt_list,
+			 debug_line_section_label);
     }
 
   /* Output the abbreviation table.  */

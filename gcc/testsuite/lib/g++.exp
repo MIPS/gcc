@@ -125,7 +125,6 @@ proc g++_init { args } {
     if ![is_remote host] {
 	lappend ALWAYS_CXXFLAGS "additional_flags=[g++_include_flags]";
 	lappend ALWAYS_CXXFLAGS "ldflags=[g++_link_flags]";
-	lappend ALWAYS_CXXFLAGS "incdir=$base_dir/../include"
     }
 
     if [info exists TOOL_OPTIONS] {
@@ -156,6 +155,12 @@ proc g++_target_compile { source dest type options } {
     set options [concat $options $gpp_compile_options]
 
     set options [concat $options "$ALWAYS_CXXFLAGS"];
+
+    if { [regexp "(^| )-frepo( |$)" $options] && \
+	 [regexp "\.o(|bj)$" $dest] } then {
+	regsub "\.o(|bj)$" $dest ".rpo" rponame
+	exec rm -f $rponame
+    }
 
     return [target_compile $source $dest $type $options]
 }

@@ -1126,9 +1126,9 @@ do { \
 /* We have post-inc load and pre-dec,pre-inc store,
    but only for 4 byte vals.  */
 #if 0
-#define HAVE_PRE_DECREMENT
-#define HAVE_PRE_INCREMENT
-#define HAVE_POST_INCREMENT
+#define HAVE_PRE_DECREMENT 1
+#define HAVE_PRE_INCREMENT 1
+#define HAVE_POST_INCREMENT 1
 #endif
 
 /* Recognize any constant value that is a valid address.  */
@@ -1660,7 +1660,7 @@ do {				\
 do {							\
   char * real_name;					\
   STRIP_NAME_ENCODING (real_name, (NAME));		\
-  fprintf (FILE, "%s%s", USER_LABEL_PREFIX, real_name);	\
+  asm_fprintf (FILE, "%U%s", real_name);		\
 } while (0)           
 
 /* If -Os, don't force line number labels to begin at the beginning of
@@ -2076,9 +2076,6 @@ extern int  zero_and_one			PROTO((Rtx, Rtx));
 extern int  conditional_move_operand		PROTO((Rtx, int));
 extern int  carry_compare_operand		PROTO((Rtx, int));
 extern char *emit_cond_move			PROTO((Rtx *, Rtx));
-
-/* Needed by a peephole optimisation.  */
-#define PRESERVE_DEATH_INFO_REGNO_P(regno) (regno < FIRST_PSEUDO_REGISTER)
 
 extern char * m32r_output_block_move PROTO((Rtx, Rtx *));
 extern int    m32r_block_immediate_operand PROTO((Rtx, int));

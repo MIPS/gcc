@@ -1,6 +1,6 @@
 /* Convert language-specific tree expression to rtl instructions,
    for GNU CHILL compiler.
-   Copyright (C) 1992, 93, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 1994, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -16,7 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
@@ -316,7 +317,7 @@ chill_expand_expr (exp, target, tmode, modifier)
       {
 	tree exp0 = TREE_OPERAND (exp, 0);
 	tree exp1 = TREE_OPERAND (exp, 1);
-	rtx size0, size1;
+	rtx size0 = NULL_RTX, size1 = NULL_RTX;
 	rtx targetx;
 
 	if (TREE_CODE (exp1) == UNDEFINED_EXPR)
@@ -1372,7 +1373,8 @@ build_chill_card (powerset)
 	{ int size;
 
 	  /* Do constant folding, if possible. */
-	  if (TREE_CODE (powerset) == CONSTRUCTOR & TREE_CONSTANT (powerset)
+	  if (TREE_CODE (powerset) == CONSTRUCTOR
+	      && TREE_CONSTANT (powerset)
 	      && (size = int_size_in_bytes (TREE_TYPE (powerset))) >= 0)
 	    {
 	      int bit_size = size * BITS_PER_UNIT;
@@ -3028,7 +3030,7 @@ fold_set_expr (code, op0, op1)
      tree op0, op1;
 {
   tree temp;
-  char *buffer0, *buffer1, *bufferr;
+  char *buffer0, *buffer1 = NULL, *bufferr;
   int i, size0, size1, first_unused_bit;
 
   if (! TREE_CONSTANT (op0) || TREE_CODE (op0) != CONSTRUCTOR)

@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987, 88, 89, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -164,7 +164,7 @@ tree last_assemble_variable_decl;
 
 static int function_defined;
 
-static char *strip_reg_name		PROTO((char *));
+static const char *strip_reg_name	PROTO((const char *));
 static int contains_pointers_p		PROTO((tree));
 static void decode_addr_const		PROTO((tree, struct addr_const *));
 static int const_hash			PROTO((tree));
@@ -255,6 +255,15 @@ data_section ()
       in_section = in_data;
     }
 }
+/* Tell assembler to ALWAYS switch to data section, in case
+   it's not sure where it it.  */
+
+void
+force_data_section ()
+{
+  in_section = no_section;
+  data_section ();
+}
 
 /* Tell assembler to switch to read-only data section.  This is normally
    the text section.  */
@@ -293,8 +302,8 @@ in_data_section ()
 void
 named_section (decl, name, reloc)
      tree decl;
-     char *name;
-     int reloc;
+     const char *name;
+     int reloc ATTRIBUTE_UNUSED;
 {
   if (decl != NULL_TREE
       && TREE_CODE_CLASS (TREE_CODE (decl)) != 'd')
@@ -579,9 +588,9 @@ make_function_rtl (decl)
 
 /* Given NAME, a putative register name, discard any customary prefixes.  */
 
-static char *
+static const char *
 strip_reg_name (name)
-     char *name;
+  const char *name;
 {
 #ifdef REGISTER_PREFIX
   if (!strncmp (name, REGISTER_PREFIX, strlen (REGISTER_PREFIX)))
@@ -602,7 +611,7 @@ strip_reg_name (name)
 
 int
 decode_reg_name (asmspec)
-     char *asmspec;
+  const char *asmspec;
 {
   if (asmspec != 0)
     {
@@ -631,10 +640,10 @@ decode_reg_name (asmspec)
 
 #ifdef ADDITIONAL_REGISTER_NAMES
       {
-	static struct { char *name; int number; } table[]
+	static struct { const char *name; int number; } table[]
 	  = ADDITIONAL_REGISTER_NAMES;
 
-	for (i = 0; i < sizeof (table) / sizeof (table[0]); i++)
+	for (i = 0; i < (int)(sizeof (table) / sizeof (table[0])); i++)
 	  if (! strcmp (asmspec, table[i].name))
 	    return table[i].number;
       }
@@ -663,7 +672,7 @@ decode_reg_name (asmspec)
 void
 make_decl_rtl (decl, asmspec, top_level)
      tree decl;
-     char *asmspec;
+     const char *asmspec;
      int top_level;
 {
   register char *name = 0;
@@ -799,13 +808,17 @@ make_decl_rtl (decl, asmspec, top_level)
 	  if (flag_volatile_global && TREE_CODE (decl) == VAR_DECL
 	      && TREE_PUBLIC (decl))
 	    TREE_SIDE_EFFECTS (decl) = 1;
+	  else if (flag_volatile_static && TREE_CODE (decl) == VAR_DECL
+	       && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))
+	    TREE_SIDE_EFFECTS (decl) = 1;
+
 	  if (TREE_SIDE_EFFECTS (decl))
 	    MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
 
 	  if (TREE_READONLY (decl))
 	    RTX_UNCHANGING_P (DECL_RTL (decl)) = 1;
-	  MEM_IN_STRUCT_P (DECL_RTL (decl))
-	    = AGGREGATE_TYPE_P (TREE_TYPE (decl));
+	  MEM_SET_IN_STRUCT_P (DECL_RTL (decl),
+			       AGGREGATE_TYPE_P (TREE_TYPE (decl)));
 
 	  /* Optionally set flags or add text to the name to record information
 	     such as that it is a function name.
@@ -1044,11 +1057,12 @@ assemble_start_function (decl, fnname)
 	  strcpy (*name, p);
 	}
 
-      ASM_GLOBALIZE_LABEL (asm_out_file, fnname);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, fnname);
+      else
 #endif
+      ASM_GLOBALIZE_LABEL (asm_out_file, fnname);
     }
 
   /* Do any machine/system dependent processing of the function name */
@@ -1087,6 +1101,10 @@ void
 assemble_zeros (size)
      int size;
 {
+  /* Do no output if -fsyntax-only.  */
+  if (flag_syntax_only)
+    return;
+
 #ifdef ASM_NO_SKIP_IN_TEXT
   /* The `space' pseudo in the text section outputs nop insns rather than 0s,
      so we must output 0s explicitly in the text section.  */
@@ -1137,7 +1155,7 @@ assemble_align (align)
 
 void
 assemble_string (p, size)
-     char *p;
+     const char *p;
      int size;
 {
   int pos = 0;
@@ -1172,7 +1190,7 @@ assemble_string (p, size)
 void
 assemble_variable (decl, top_level, at_end, dont_output_data)
      tree decl;
-     int top_level;
+     int top_level ATTRIBUTE_UNUSED;
      int at_end;
      int dont_output_data;
 {
@@ -1192,6 +1210,10 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       if (TREE_ASM_WRITTEN (decl))
 	return;
       TREE_ASM_WRITTEN (decl) = 1;
+
+      /* Do no output if -fsyntax-only.  */
+      if (flag_syntax_only)
+	return;
 
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
       /* File-scope global variables are output here.  */
@@ -1259,6 +1281,10 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     return;
 
   TREE_ASM_WRITTEN (decl) = 1;
+
+  /* Do no output if -fsyntax-only.  */
+  if (flag_syntax_only)
+    return;
 
   app_disable ();
 
@@ -1343,6 +1369,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 #if ! defined (ASM_OUTPUT_BSS) && ! defined (ASM_OUTPUT_ALIGNED_BSS)
       && DECL_COMMON (decl)
 #endif
+      && DECL_SECTION_NAME (decl) == 0
       && ! dont_output_data)
     {
       int size = TREE_INT_CST_LOW (size_tree);
@@ -1464,11 +1491,12 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   /* First make the assembler name(s) global if appropriate.  */
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     {
-      ASM_GLOBALIZE_LABEL (asm_out_file, name);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, name);
+      else
 #endif
+      ASM_GLOBALIZE_LABEL (asm_out_file, name);
     }
 #if 0
   for (d = equivalents; d; d = TREE_CHAIN (d))
@@ -1622,7 +1650,7 @@ contains_pointers_p (type)
 
 void
 assemble_external (decl)
-     tree decl;
+     tree decl ATTRIBUTE_UNUSED;
 {
 #ifdef ASM_OUTPUT_EXTERNAL
   if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd'
@@ -1645,7 +1673,7 @@ assemble_external (decl)
 
 void
 assemble_external_libcall (fun)
-     rtx fun;
+     rtx fun ATTRIBUTE_UNUSED;
 {
 #ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
   /* Declare library function name external when first used, if nec.  */
@@ -1739,9 +1767,11 @@ assemble_static_space (size)
   {
     /* Round size up to multiple of BIGGEST_ALIGNMENT bits
        so that each uninitialized object starts on such a boundary.  */
-    int rounded = ((size + (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1)
-		   / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-		   * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
+    /* Variable `rounded' might or might not be used in ASM_OUTPUT_LOCAL. */
+    int rounded ATTRIBUTE_UNUSED
+      = ((size + (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1)
+	 / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
+	 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
     ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded);
   }
 #endif
@@ -2954,7 +2984,7 @@ output_constant_def (exp)
     = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)), def);
   RTX_UNCHANGING_P (TREE_CST_RTL (exp)) = 1;
   if (AGGREGATE_TYPE_P (TREE_TYPE (exp)))
-    MEM_IN_STRUCT_P (TREE_CST_RTL (exp)) = 1;
+    MEM_SET_IN_STRUCT_P (TREE_CST_RTL (exp), 1);
 
   pop_obstacks ();
 
@@ -3000,7 +3030,12 @@ output_constant_def (exp)
 	    }
 	}
       else
-	output_constant_def_contents (exp, reloc, const_labelno++);
+	{
+	  /* Do no output if -fsyntax-only.  */
+	  if (! flag_syntax_only)
+	    output_constant_def_contents (exp, reloc, const_labelno);
+	  ++const_labelno;
+	}
     }
 
   return TREE_CST_RTL (exp);
@@ -3569,8 +3604,8 @@ get_pool_size ()
 
 void
 output_constant_pool (fnname, fndecl)
-     char *fnname;
-     tree fndecl;
+  char *fnname ATTRIBUTE_UNUSED;
+  tree fndecl ATTRIBUTE_UNUSED;
 {
   struct pool_constant *pool;
   rtx x;
@@ -3620,7 +3655,7 @@ output_constant_pool (fnname, fndecl)
 #endif
 
       if (pool->align > 1)
-	ASM_OUTPUT_ALIGN (asm_out_file, exact_log2 (pool->align));
+	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (pool->align));
 
       /* Output the label.  */
       ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
@@ -3976,7 +4011,11 @@ output_constructor (exp, size)
      FIELD goes through the structure fields, if the constant is a structure.
      if the constant is a union, then we override this,
      by getting the field from the TREE_LIST element.
-     But the constant could also be an array.  Then FIELD is zero.  */
+     But the constant could also be an array.  Then FIELD is zero.
+
+     There is always a maximum of one element in the chain LINK for unions
+     (even if the initializer in a source program incorrectly contains
+     more one). */
   for (link = CONSTRUCTOR_ELTS (exp);
        link;
        link = TREE_CHAIN (link),
@@ -4226,6 +4265,31 @@ output_constructor (exp, size)
     assemble_zeros (size - total_bytes);
 }
 
+#ifdef HANDLE_PRAGMA_WEAK
+/* Add function NAME to the weak symbols list.  VALUE is a weak alias
+   associatd with NAME.  */
+   
+int
+add_weak (name, value)
+     char *name;
+     char *value;
+{
+  struct weak_syms *weak;
+
+  weak = (struct weak_syms *) permalloc (sizeof (struct weak_syms));
+
+  if (weak == NULL)
+    return 0;
+
+  weak->next = weak_decls;
+  weak->name = name;
+  weak->value = value;
+  weak_decls = weak;
+
+  return 1;
+}
+#endif /* HANDLE_PRAGMA_WEAK */
+
 /* Declare DECL to be a weak symbol.  */
 
 void
@@ -4238,6 +4302,9 @@ declare_weak (decl)
     error_with_decl (decl, "weak declaration of `%s' must precede definition");
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
+#ifdef HANDLE_PRAGMA_WEAK
+   add_weak (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), NULL);
+#endif
 }
 
 /* Emit any pending weak declarations.  */
@@ -4255,7 +4322,6 @@ weak_finish ()
       struct weak_syms *t;
       for (t = weak_decls; t; t = t->next)
 	{
-	  ASM_GLOBALIZE_LABEL (asm_out_file, t->name);
 	  ASM_WEAKEN_LABEL (asm_out_file, t->name);
 	  if (t->value)
 	    ASM_OUTPUT_DEF (asm_out_file, t->name, t->value);
@@ -4266,7 +4332,7 @@ weak_finish ()
 
 void
 assemble_alias (decl, target)
-     tree decl, target;
+     tree decl, target ATTRIBUTE_UNUSED;
 {
   char *name;
 
@@ -4278,11 +4344,12 @@ assemble_alias (decl, target)
 
   if (TREE_PUBLIC (decl))
     {
-      ASM_GLOBALIZE_LABEL (asm_out_file, name);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, name);
+      else
 #endif
+	ASM_GLOBALIZE_LABEL (asm_out_file, name);
     }
 
   ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));

@@ -1,5 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -276,11 +276,11 @@ gencode (f)
 }
 
 #if defined(USE_C_ALLOCA)
-char *
+PTR
 xmalloc (nbytes)
-     int nbytes;
+  size_t nbytes;
 {
-  char *tmp = (char *) malloc (nbytes);
+  register PTR tmp = (PTR) malloc (nbytes);
 
   if (!tmp)
     {

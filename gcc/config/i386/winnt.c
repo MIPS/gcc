@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -493,7 +493,7 @@ i386_pe_unique_section (decl, reloc)
 }
 
 /* The Microsoft linker requires that every function be marked as
-   DT_FCN.  When using gas on cygwin32, we must emit appropriate .type
+   DT_FCN.  When using gas on cygwin, we must emit appropriate .type
    directives.  */
 
 #include "gsyms.h"

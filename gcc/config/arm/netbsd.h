@@ -16,7 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* Run-time Target Specification.  */
 #define TARGET_VERSION fputs (" (ARM/NetBSD)", stderr);
@@ -115,6 +116,15 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    for .type directives.  */
 #undef TYPE_OPERAND_FMT
 #define TYPE_OPERAND_FMT "%%%s"
+
+/* NetBSD uses the old PCC style aggregate returning conventions. */
+#undef DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 1
+
+/* Although not normally relevant (since by default, all aggregates
+   are returned in memory) compiling some parts of libc requires
+   non-APCS style struct returns.  */
+#undef RETURN_IN_MEMORY
 
 /* VERY BIG NOTE : Change of structure alignment for RiscBSD.
    There are consequences you should be aware of...

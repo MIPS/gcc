@@ -26,8 +26,13 @@ Boston, MA 02111-1307, USA.  */
 
 /* The svr4 ABI for the i386 says that records and unions are returned
    in memory.  */
+/* On FreeBSD, we do not. */
 #undef DEFAULT_PCC_STRUCT_RETURN
-#define DEFAULT_PCC_STRUCT_RETURN 1
+#define DEFAULT_PCC_STRUCT_RETURN 0
+
+/* This gets defined in tm.h->linux.h->svr4.h, and keeps us from using
+   libraries compiled with the native cc, so undef it. */
+#undef NO_DOLLAR_IN_LABEL
 
 /* This is how to output an element of a case-vector that is relative.
    This is only used for PIC code.  See comments by the `casesi' insn in
@@ -194,7 +199,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
 #define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP) \
-  if ((LOG)!=0) \
-    if ((MAX_SKIP)==0) fprintf ((FILE), "\t.p2align %d\n", (LOG)); \
+  if ((LOG) != 0) \
+    if ((MAX_SKIP) == 0) fprintf ((FILE), "\t.p2align %d\n", (LOG)); \
     else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP))
 #endif

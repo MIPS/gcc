@@ -7,7 +7,7 @@
 
 namespace {
   void foo() {
-    extern int xx; // causes linker error - XFAIL *-*-*
+    extern int xx;
     xx = 0;
   }
   int xx = 1;

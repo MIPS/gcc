@@ -1,3 +1,58 @@
+Mon Mar 22 14:55:58 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* execute/bf-sign-2.c (main): Replace struct sizeof test with 4.
+
+Wed Mar 17 12:22:39 1999  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/ieee/980619-1.x: New.  Expected fail on x86.
+
+Fri Mar 12 16:17:28 1999  Jim Wilson  <wilson@cygnus.com>
+
+	* execute/970312-1.c, execute/980605-1.c (f): Change printf to sprintf.
+	* execute/bf-sign-2.c (struct X): Add u15 field.
+	(main): Add check for u15.  Conditionalize u31 check depending on
+	whether ints are <32 bits or >=32 bits.
+	
+1999-03-01 Zack Weinberg  <zack@rabi.columbia.edu>
+
+	* noncompile/noncompile.exp (951025-1.c): Accept an error
+	message on line 1 or line 2; cccp and cpplib do this differently.
+
+1999-02-03  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/memcheck/blkarg.c (foo): Use 10 leading arguments in
+	order to force structure S onto the stack even on the alpha.
+	(test): Pass 10 leading arguments to function foo as well as the
+	structure S.
+
+	* execute/memcheck/blkarg.x: New file: Expected failure for all
+	targets. 
+
+	* execute/memcheck/driver.c (main): Use exit or abort to terminate
+	program execution.
+
+1999-01-28  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/990128-1.c: New test.
+
+1999-01-27  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/990127-{1,2}.c: New tests.
+
+1998-12-14  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/920501-4.c (main): Fix typo: replace | with ||.
+
+1998-11-30  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/981130-1.c: New test.
+	* execute/981130-1.x: New test failure expectations.
+
+Sun Oct 11 05:04:28 1998  Ken Raeburn  <raeburn@cygnus.com>
+
+	* execute/memcheck: New directory of tests for
+	-fcheck-memory-usage.
+
 1998-10-06  Ken Raeburn  <raeburn@cygnus.com>
 
 	* special/981006-1.c: New test.  Make sure gcc doesn't lose track
@@ -9,6 +64,10 @@ Thu Oct  1 17:15:26 1998  Nick Clifton  <nickc@cygnus.com>
 	* compile/981001-1.c: New test.
 	* execute/981001-1.c: New test.
 	
+Mon Aug 31 12:00:00 1998  Catherine Moore  <clm@cygnus.com>
+
+	* execute/941014-1.x:  New file.
+
 Wed Aug 26 16:10:00 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* execute/loop-4b.c: New test.

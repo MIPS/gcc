@@ -46,7 +46,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "gansidecl.h"
 #include <f/version.h>
 
 #ifndef MATH_LIBRARY
@@ -92,8 +91,6 @@ static void (*g77_fn)();
 /* The new argument list will be built here.  */
 static int g77_newargc;
 static char **g77_newargv;
-
-extern char *xmalloc PROTO((size_t));
 
 extern char *version_string;
 

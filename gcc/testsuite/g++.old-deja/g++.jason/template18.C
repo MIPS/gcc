@@ -1,16 +1,9 @@
-// Build don't link: 
-// Special g++ Options: -g -fexternal-templates
-// GROUPS passed templates
-// Bug: g++ emits template instances when it shouldn't.
-// Special g++ Options: -g -fexternal-templates
+// We mark this XFAIL because we can't test for expected linker errors.
+// If we get an XPASS for this testcase, that's a bug.
+// (OK) excess errors test - XFAIL *-*-*
 
-#pragma implementation "irrelevant_file"
-#line 1 "wa.h"
-#pragma interface		// ERROR - , XFAIL *-*-*
-template <class T> inline T min (T a, T b) { return a<b?a:b; }
-#line 3 "wa.C" 
-
-main()
-{
-  min (1, 1); 
-}// UNKNOWN "min"
+#line 1 "template18.h"
+#pragma interface
+#line 13 "template18.C"
+  min (1, 1); 		// should produce an undefined symbol error.
+}

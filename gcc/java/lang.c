@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1996, 97-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,6 +31,46 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include "jcf.h"
 #include "toplev.h"
+#include "flags.h"
+#include "xref.h"
+
+#ifndef OBJECT_SUFFIX
+# define OBJECT_SUFFIX ".o"
+#endif
+
+/* Table indexed by tree code giving a string containing a character
+   classifying the tree code.  Possibilities are
+   t, d, s, c, r, <, 1 and 2.  See java/java-tree.def for details.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
+
+char java_tree_code_type[] = {
+  'x',
+#include "java-tree.def"
+};
+#undef DEFTREECODE
+
+/* Table indexed by tree code giving number of expression
+   operands beyond the fixed part of the node structure.
+   Not used for types or decls.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
+
+int java_tree_code_length[] = {
+  0,
+#include "java-tree.def"
+};
+#undef DEFTREECODE
+
+/* Names of tree components.
+   Used for printing out the tree and error messages.  */
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
+
+const char *java_tree_code_name[] = {
+  "@@dummy",
+#include "java-tree.def"
+};
+#undef DEFTREECODE
 
 int compiling_from_source;
 
@@ -48,7 +88,24 @@ int flag_assume_compiled = 1;
 
 int flag_emit_class_files = 0;
 
-/* From gcc/flags.h, and idicates if exceptions are turned on or not. */
+/* When non zero, we emit xref strings. Values of the flag for xref
+   backends are defined in xref_flag_table, xref.c.  */
+
+int flag_emit_xref = 0;
+
+/* When non zero, -Wall was turned on.  */
+int flag_wall = 0;
+
+/* When non zero,  check for redundant modifier uses.  */
+int flag_redundant = 0;
+
+/* When non zero, warns about overridings that don't occur.  */
+int flag_not_overriding = 0;
+
+/* When non zero, warns that final local are treated as non final.  */
+int flag_static_local_jdk1_1 = 0;
+
+/* From gcc/flags.h, and indicates if exceptions are turned on or not.  */
 
 extern int flag_new_exceptions;
 extern int flag_exceptions;
@@ -59,7 +116,8 @@ extern int flag_exceptions;
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-static struct { char *string; int *variable; int on_value;} lang_f_options[] =
+static struct { const char *string; int *variable; int on_value;}
+lang_f_options[] =
 {
   {"bounds-check", &flag_bounds_check, 1},
   {"assume-compiled", &flag_assume_compiled, 1},
@@ -70,15 +128,62 @@ static struct { char *string; int *variable; int on_value;} lang_f_options[] =
 JCF main_jcf[1];
 JCF *current_jcf;
 
+/* Variable controlling how dependency tracking is enabled in
+   init_parse.  */
+static int dependency_tracking = 0;
+
+/* Flag values for DEPENDENCY_TRACKING.  */
+#define DEPEND_SET_FILE 1
+#define DEPEND_ENABLE   2
+
 /*
  * process java-specific compiler command-line options
  */
 int
 lang_decode_option (argc, argv)
-     int argc;
+     int argc __attribute__ ((__unused__));
      char **argv;
 {
   char *p = argv[0];
+
+#define CLARG "-fclasspath="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_classpath_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
+#define CLARG "-fCLASSPATH="
+  else if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      jcf_path_CLASSPATH_arg (p + sizeof (CLARG) - 1);
+      return 1;
+    }
+#undef CLARG
+  else if (strncmp (p, "-I", 2) == 0)
+    {
+      jcf_path_include_arg (p + 2);
+      return 1;
+    }
+
+#define ARG "-foutput-class-dir="
+  if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
+    {
+      jcf_write_base_directory = p + sizeof (ARG) - 1;
+      return 1;
+    }
+#undef ARG
+
+#define XARG "-fxref="
+  if (strncmp (p, XARG, sizeof (XARG) - 1) == 0)
+    {
+      if (!(flag_emit_xref = xref_flag_value (p + sizeof (XARG) - 1)))
+	{
+	  error ("Unkown xref format `%s'", p + sizeof (XARG) - 1);
+	}
+    }
+#undef XARG
+
   if (p[0] == '-' && p[1] == 'f')
     {
       /* Some kind of -f option.
@@ -89,8 +194,9 @@ lang_decode_option (argc, argv)
       p += 2;
 
       for (j = 0;
-		!found && j < sizeof (lang_f_options) / sizeof (lang_f_options[0]);
-		j++)
+	   !found 
+	   && j < (int)(sizeof (lang_f_options) / sizeof (lang_f_options[0]));
+	   j++)
 	{
 	  if (!strcmp (p, lang_f_options[j].string))
 	    {
@@ -106,7 +212,41 @@ lang_decode_option (argc, argv)
 	      found = 1;
 	    }
 	}
+
       return found;
+    }
+
+  if (strcmp (p, "-Wall") == 0)
+    {
+      flag_wall = 1;
+      flag_redundant = 1;
+      flag_not_overriding = 1;
+      flag_static_local_jdk1_1 = 1;
+    }
+
+  if (strcmp (p, "-MD") == 0)
+    {
+      jcf_dependency_init (1);
+      dependency_tracking |= DEPEND_SET_FILE | DEPEND_ENABLE;
+      return 1;
+    }
+  else if (strcmp (p, "-MMD") == 0)
+    {
+      jcf_dependency_init (0);
+      dependency_tracking |= DEPEND_SET_FILE | DEPEND_ENABLE;
+      return 1;
+    }
+  else if (strcmp (p, "-M") == 0)
+    {
+      jcf_dependency_init (1);
+      dependency_tracking |= DEPEND_ENABLE;
+      return 1;
+    }
+  else if (strcmp (p, "-MM") == 0)
+    {
+      jcf_dependency_init (0);
+      dependency_tracking |= DEPEND_ENABLE;
+      return 1;
     }
 
   return 0;
@@ -123,15 +263,48 @@ init_parse (filename)
     {
       finput = stdin;
       filename = "stdin";
+
+      if (dependency_tracking)
+	error ("can't do dependency tracking with input from stdin");
     }
   else
-    finput = fopen (filename, "r");
-  if (finput == 0)
-    pfatal_with_name (filename);
+    {
+      if (dependency_tracking)
+	{
+	  char *dot;
+	  dot = strrchr (filename, '.');
+	  if (dot == NULL)
+	    error ("couldn't determine target name for dependency tracking");
+	  else
+	    {
+	      char *buf = (char *) xmalloc (dot - filename +
+					    3 + sizeof (OBJECT_SUFFIX));
+	      strncpy (buf, filename, dot - filename);
 
-#ifdef IO_BUFFER_SIZE
-  setvbuf (finput, (char *) xmalloc (IO_BUFFER_SIZE), _IOFBF, IO_BUFFER_SIZE);
-#endif
+	      /* If emitting class files, we might have multiple
+		 targets.  The class generation code takes care of
+		 registering them.  Otherwise we compute the target
+		 name here.  */
+	      if (flag_emit_class_files)
+		jcf_dependency_set_target (NULL);
+	      else
+		{
+		  strcpy (buf + (dot - filename), OBJECT_SUFFIX);
+		  jcf_dependency_set_target (buf);
+		}
+
+	      if ((dependency_tracking & DEPEND_SET_FILE))
+		{
+		  strcpy (buf + (dot - filename), ".d");
+		  jcf_dependency_set_dep_file (buf);
+		}
+	      else
+		jcf_dependency_set_dep_file ("-");
+
+	      free (buf);
+	    }
+	}
+    }
   init_lex ();
 
   return filename;
@@ -141,6 +314,7 @@ void
 finish_parse ()
 {
   fclose (finput);
+  jcf_dependency_write ();
 }
 
 /* Buffer used by lang_printable_name. */
@@ -201,7 +375,12 @@ put_decl_node (node)
 	  put_decl_string (".", 1);
 	}
 #endif
-      put_decl_node (DECL_NAME (node));
+      if (TREE_CODE (node) == FUNCTION_DECL
+	  && DECL_NAME (node) == init_identifier_node
+	  && !DECL_ARTIFICIAL (node) && current_class)
+	put_decl_node (TYPE_NAME (current_class));
+      else
+	put_decl_node (DECL_NAME (node));
       if (TREE_CODE (node) == FUNCTION_DECL && TREE_TYPE (node) != NULL_TREE)
 	{
 	  int i = 0;
@@ -209,7 +388,7 @@ put_decl_node (node)
 	  if (TREE_CODE (TREE_TYPE (node)) == METHOD_TYPE)
 	    args = TREE_CHAIN (args);
 	  put_decl_string ("(", 1);
-	  for ( ; args != NULL_TREE;  args = TREE_CHAIN (args), i++)
+	  for ( ; args != end_params_node;  args = TREE_CHAIN (args), i++)
 	    {
 	      if (i > 0)
 		put_decl_string (",", 1);
@@ -253,7 +432,7 @@ put_decl_node (node)
 char *
 lang_printable_name (decl, v)
      tree decl;
-     int v;
+     int v  __attribute__ ((__unused__));
 {
   decl_bufpos = 0;
   put_decl_node (decl);
@@ -279,7 +458,7 @@ lang_print_error (file)
 
       last_error_function_context = DECL_CONTEXT (current_function_decl);
       fprintf (stderr, "In class `%s':\n",
-	       lang_printable_name (last_error_function_context));
+	       lang_printable_name (last_error_function_context, 0));
     }
   if (last_error_function != current_function_decl)
     {
@@ -310,16 +489,30 @@ lang_init ()
   flag_minimal_debug = 0;
 #endif
 
+  jcf_path_init ();
+  jcf_path_seal ();
+
   decl_printable_name = lang_printable_name;
   print_error_function = lang_print_error;
   lang_expand_expr = java_lang_expand_expr;
 
-  JCF_ZERO (main_jcf);
-  main_jcf->read_state = finput;
-  main_jcf->filbuf = jcf_filbuf_from_stdio;
-  current_jcf = main_jcf;
-
   flag_exceptions = 1;
+
+  /* Append to Gcc tree node definition arrays */
+
+  bcopy (java_tree_code_type,
+	 tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
+	 (int)LAST_JAVA_TREE_CODE - (int)LAST_AND_UNUSED_TREE_CODE);
+  bcopy ((char *)java_tree_code_length,
+	 (char *)(tree_code_length + (int) LAST_AND_UNUSED_TREE_CODE),
+	 (LAST_JAVA_TREE_CODE - 
+	  (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (int));
+  bcopy ((char *)java_tree_code_name,
+	 (char *)(tree_code_name + (int) LAST_AND_UNUSED_TREE_CODE),
+	 (LAST_JAVA_TREE_CODE - 
+	  (int)LAST_AND_UNUSED_TREE_CODE) * sizeof (char *));
+
+  using_eh_for_cleanups ();
 }
 
 /* This doesn't do anything on purpose. It's used to satisfy the
@@ -327,7 +520,7 @@ lang_init ()
    function prototypes.  */
 
 void java_dummy_print (s)
-     char *s;
+     char *s __attribute__ ((__unused__));
 {
 }
 
@@ -369,25 +562,25 @@ lang_identify ()
 
 void
 print_lang_decl (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file __attribute ((__unused__));
+     tree node __attribute ((__unused__));
+     int indent __attribute ((__unused__));
 {
 }
 
 void
 print_lang_type (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file __attribute ((__unused__));
+     tree node __attribute ((__unused__));
+     int indent __attribute ((__unused__));
 {
 }
 
 void
 print_lang_identifier (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file __attribute ((__unused__));
+     tree node __attribute ((__unused__));
+     int indent __attribute ((__unused__));
 {
 }
 
@@ -400,8 +593,8 @@ print_lang_statistics ()
 
 void
 lang_print_xnode (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file __attribute ((__unused__));
+     tree node __attribute ((__unused__));
+     int indent __attribute ((__unused__));
 {
 }

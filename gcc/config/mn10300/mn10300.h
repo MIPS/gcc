@@ -47,9 +47,9 @@ extern int target_flags;
 /* Generate code to work around mul/mulq bugs on the mn10300.  */
 #define TARGET_MULT_BUG			(target_flags & 0x1)
 #define TARGET_SWITCHES  \
-  {{ "mult-bug",	0x1},	\
-   { "no-mult-bug", 	-0x1},	\
-   { "", TARGET_DEFAULT}}
+  {{ "mult-bug",	0x1,  "Work around hardware multiply bug"},	\
+   { "no-mult-bug", 	-0x1, "Do not work around hardware multiply bug"},\
+   { "", TARGET_DEFAULT, NULL}}
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT 0x1
@@ -986,11 +986,6 @@ do { char dstr[30];					\
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define this if the case instruction drops through after the table
-   when the index is out of range.  Don't define it if the case insn
-   jumps to the default label instead.  */
-#define CASE_DROPS_THROUGH
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "output.h"
 #include "c-pragma.h"
+#include "rtl.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -144,7 +145,7 @@ tree c_global_trees[50];
 int skip_evaluation;
 
 enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
-	    A_NO_INSTRUMENT_FUNCTION,
+	    A_NO_CHECK_MEMORY_USAGE, A_NO_INSTRUMENT_FUNCTION,
 	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
 	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS,
 	    A_INIT_PRIORITY};
@@ -152,13 +153,14 @@ enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
 enum format_type { printf_format_type, scanf_format_type,
 		   strftime_format_type };
 
-static void declare_hidden_char_array	PROTO((char *, char *));
-static void add_attribute		PROTO((enum attrs, char *,
+static void declare_hidden_char_array	PROTO((const char *, const char *));
+static void add_attribute		PROTO((enum attrs, const char *,
 					       int, int, int));
 static void init_attributes		PROTO((void));
 static void record_function_format	PROTO((tree, tree, enum format_type,
 					       int, int));
 static void record_international_format	PROTO((tree, tree, int));
+static tree c_find_base_decl            PROTO((tree));
 
 /* Keep a stack of if statements.  We record the number of compound
    statements seen up to the if keyword, as well as the line number
@@ -169,9 +171,10 @@ typedef struct
 {
   int compstmt_count;
   int line;
-  char *file;
+  const char *file;
   int needs_warning;
 } if_elt;
+static void tfaff			PROTO((void));
 
 static if_elt *if_stack;
 
@@ -250,12 +253,12 @@ c_expand_start_else ()
   expand_start_else ();
 }
 
-/* Make bindings for __FUNCTION__ and __PRETTY_FUNCTION__.  */
+/* Make bindings for __FUNCTION__, __PRETTY_FUNCTION__, and __func__.  */
 
 void
 declare_function_name ()
 {
-  char *name, *printable_name;
+  const char *name, *printable_name;
 
   if (current_function_decl == NULL)
     {
@@ -274,11 +277,14 @@ declare_function_name ()
 
   declare_hidden_char_array ("__FUNCTION__", name);
   declare_hidden_char_array ("__PRETTY_FUNCTION__", printable_name);
+  /* The ISO C people "of course" couldn't use __FUNCTION__ in the
+     ISO C 9x standard; instead a new variable is invented.  */
+  declare_hidden_char_array ("__func__", name);
 }
 
 static void
 declare_hidden_char_array (name, value)
-     char *name, *value;
+     const char *name, *value;
 {
   tree decl, type, init;
   int vlen;
@@ -446,7 +452,7 @@ static int attrtab_idx = 0;
 static void
 add_attribute (id, string, min_len, max_len, decl_req)
      enum attrs id;
-     char *string;
+     const char *string;
      int min_len, max_len;
      int decl_req;
 {
@@ -491,6 +497,7 @@ init_attributes ()
   add_attribute (A_ALIAS, "alias", 1, 1, 1);
   add_attribute (A_INIT_PRIORITY, "init_priority", 0, 1, 0);
   add_attribute (A_NO_INSTRUMENT_FUNCTION, "no_instrument_function", 0, 0, 1);
+  add_attribute (A_NO_CHECK_MEMORY_USAGE, "no_check_memory_usage", 0, 0, 1);
 }
 
 /* Process the attributes listed in ATTRIBUTES and PREFIX_ATTRIBUTES
@@ -612,7 +619,8 @@ decl_attributes (node, attributes, prefix_attributes)
 	    TREE_USED (type) = 1;
 	  else if (TREE_CODE (decl) == PARM_DECL
 		   || TREE_CODE (decl) == VAR_DECL
-		   || TREE_CODE (decl) == FUNCTION_DECL)
+		   || TREE_CODE (decl) == FUNCTION_DECL
+		   || TREE_CODE (decl) == LABEL_DECL)
 	    TREE_USED (decl) = 1;
 	  else
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -676,7 +684,7 @@ decl_attributes (node, attributes, prefix_attributes)
 	  else
 	    {
 	      int j;
-	      char *p = IDENTIFIER_POINTER (TREE_VALUE (args));
+	      const char *p = IDENTIFIER_POINTER (TREE_VALUE (args));
 	      int len = strlen (p);
 	      enum machine_mode mode = VOIDmode;
 	      tree typefm;
@@ -808,7 +816,7 @@ decl_attributes (node, attributes, prefix_attributes)
 	      }
 	    else
 	      {
-		char *p = IDENTIFIER_POINTER (format_type_id);
+		const char *p = IDENTIFIER_POINTER (format_type_id);
 		
 		if (!strcmp (p, "printf") || !strcmp (p, "__printf__"))
 		  format_type = printf_format_type;
@@ -819,7 +827,7 @@ decl_attributes (node, attributes, prefix_attributes)
 		  format_type = strftime_format_type;
 		else
 		  {
-		    error ("`%s' is an unrecognized format function type", p);
+		    warning ("`%s' is an unrecognized format function type", p);
 		    continue;
 		  }
 	      }
@@ -986,6 +994,23 @@ decl_attributes (node, attributes, prefix_attributes)
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
 	  break;
 
+	case A_NO_CHECK_MEMORY_USAGE:
+	  if (TREE_CODE (decl) != FUNCTION_DECL)
+	    {
+	      error_with_decl (decl,
+			       "`%s' attribute applies only to functions",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else if (DECL_INITIAL (decl))
+	    {
+	      error_with_decl (decl,
+			       "can't set `%s' attribute after definition",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else
+	    DECL_NO_CHECK_MEMORY_USAGE (decl) = 1;
+	  break;
+
 	case A_INIT_PRIORITY:
 	  {
 	    tree initp_expr = (args ? TREE_VALUE (args): NULL_TREE);
@@ -1017,24 +1042,18 @@ decl_attributes (node, attributes, prefix_attributes)
 		continue; 
 	      }
 
-	    /* Check for init_priorities that are reserved for
-               implementation. Reserved for language and runtime
-               support implementations.*/
-	    if ((10 <= pri && pri <= 99)
-		/* Reserved for standard library implementations. */
-		|| (500 <= pri && pri <= 999)
-		/* Reserved for objects with no attributes. */
-		|| pri > (MAX_INIT_PRIORITY - 50))
-	      {
-		warning
-		  ("requested init_priority is reserved for internal use");
-		continue;
-	      }
-
 	    if (pri > MAX_INIT_PRIORITY || pri <= 0)
 	      {
 		error ("requested init_priority is out of range");
 		continue;
+	      }
+
+	    /* Check for init_priorities that are reserved for
+               language and runtime support implementations.*/
+	    if (pri <= MAX_RESERVED_INIT_PRIORITY)
+	      {
+		warning 
+		  ("requested init_priority is reserved for internal use");
 	      }
 
 	    static_aggregates_initp
@@ -1177,7 +1196,7 @@ strip_attrs (specs_attrs)
 #define T_ST    &sizetype
 
 typedef struct {
-  char *format_chars;
+  const char *format_chars;
   int pointer_count;
   /* Type of argument if no length modifier is used.  */
   tree *nolen;
@@ -1200,7 +1219,7 @@ typedef struct {
      If NULL, then this modifier is not allowed.  */
   tree *zlen;
   /* List of other modifier characters allowed with these options.  */
-  char *flag_chars;
+  const char *flag_chars;
 } format_char_info;
 
 static format_char_info print_char_table[] = {
@@ -1216,7 +1235,7 @@ static format_char_info print_char_table[] = {
   { "S",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"-wp"		},
   { "p",	1,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"-w"		},
   { "n",	1,	T_I,	NULL,	T_S,	T_L,	T_LL,	NULL,	NULL,	""		},
-  { NULL }
+  { NULL,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL		}
 };
 
 static format_char_info scan_char_table[] = {
@@ -1230,7 +1249,7 @@ static format_char_info scan_char_table[] = {
   { "S",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*a"	},
   { "p",	2,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*"	},
   { "n",	1,	T_I,	T_C,	T_S,	T_L,	T_LL,	NULL,	NULL,	""	},
-  { NULL }
+  { NULL,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	}
 };
 
 /* Handle format characters recognized by glibc's strftime.c.
@@ -1255,7 +1274,7 @@ static format_char_info time_char_table[] = {
   { "p",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "#" },
   { "bh",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "^" },
   { "CY",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "-_0EOw" },
-  { NULL }
+  { NULL,		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 typedef struct function_format_info
@@ -1400,7 +1419,11 @@ record_international_format (name, assembler_name, format_num)
   info->format_num = format_num;
 }
 
-static char	tfaff[] = "too few arguments for format";
+static void
+tfaff ()
+{
+  warning ("too few arguments for format");
+}
 
 /* Check the argument list of a call to printf, scanf, etc.
    NAME is the function identifier.
@@ -1450,7 +1473,7 @@ check_format_info (info, params)
   tree cur_type;
   tree wanted_type;
   tree first_fillin_param;
-  char *format_chars;
+  const char *format_chars;
   format_char_info *fci = NULL;
   char flag_chars[8];
   int has_operand_number = 0;
@@ -1614,7 +1637,7 @@ check_format_info (info, params)
 	     it is an operand number, so set PARAMS to that operand.  */
 	  if (*format_chars >= '0' && *format_chars <= '9')
 	    {
-	      char *p = format_chars;
+	      const char *p = format_chars;
 
 	      while (*p >= '0' && *p++ <= '9')
 		;
@@ -1667,7 +1690,7 @@ check_format_info (info, params)
 	      ++format_chars;
 	      if (params == 0)
 		{
-		  warning (tfaff);
+		  tfaff ();
 		  return;
 		}
 	      if (info->first_arg_num != 0)
@@ -1710,7 +1733,7 @@ check_format_info (info, params)
 		      ++format_chars;
 		      if (params == 0)
 		        {
-			  warning (tfaff);
+			  tfaff ();
 			  return;
 			}
 		      cur_param = TREE_VALUE (params);
@@ -1880,7 +1903,7 @@ check_format_info (info, params)
       if (precise && index (flag_chars, '0') != 0
 	  && (format_char == 'd' || format_char == 'i'
 	      || format_char == 'o' || format_char == 'u'
-	      || format_char == 'x' || format_char == 'x'))
+	      || format_char == 'x' || format_char == 'X'))
 	warning ("`0' flag ignored with precision specifier and `%c' format",
 		 format_char);
       switch (length_char)
@@ -1905,7 +1928,7 @@ check_format_info (info, params)
 	continue;
       if (params == 0)
 	{
-	  warning (tfaff);
+	  tfaff ();
 	  return;
 	}
       cur_param = TREE_VALUE (params);
@@ -1931,9 +1954,9 @@ check_format_info (info, params)
 	      continue;
 	    }
 	  if (TREE_CODE (cur_type) != ERROR_MARK)
-	    warning ("format argument is not a %s (arg %d)",
-		     ((fci->pointer_count + aflag == 1)
-		      ? "pointer" : "pointer to a pointer"),
+	    warning ((fci->pointer_count + aflag == 1
+		      ? "format argument is not a pointer (arg %d)"
+		      : "format argument is not a pointer to a pointer (arg %d)"),
 		     arg_num);
 	  break;
 	}
@@ -1973,8 +1996,8 @@ check_format_info (info, params)
 		&& (TYPE_MAIN_VARIANT (cur_type) == signed_char_type_node
 		    || TYPE_MAIN_VARIANT (cur_type) == unsigned_char_type_node)))
 	{
-	  register char *this;
-	  register char *that;
+	  register const char *this;
+	  register const char *that;
 
 	  this = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (wanted_type)));
 	  that = 0;
@@ -2243,8 +2266,10 @@ type_for_mode (mode, unsignedp)
   if (mode == TYPE_MODE (intDI_type_node))
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
 
+#if HOST_BITS_PER_WIDE_INT >= 64
   if (mode == TYPE_MODE (intTI_type_node))
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif
 
   if (mode == TYPE_MODE (float_type_node))
     return float_type_node;
@@ -2302,7 +2327,7 @@ void
 binary_op_error (code)
      enum tree_code code;
 {
-  register char *opname;
+  register const char *opname;
 
   switch (code)
     {
@@ -2478,6 +2503,12 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 
       type = signed_or_unsigned_type (unsignedp0, TREE_TYPE (primop0));
 
+      /* If TYPE is an enumeration, then we need to get its min/max
+	 values from it's underlying integral type, not the enumerated
+	 type itself.  */
+      if (TREE_CODE (type) == ENUMERAL_TYPE)
+	type = type_for_size (TYPE_PRECISION (type), unsignedp0);
+
       maxval = TYPE_MAX_VALUE (type);
       minval = TYPE_MIN_VALUE (type);
 
@@ -2587,18 +2618,18 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 	  /* This is the case of (char)x >?< 0x80, which people used to use
 	     expecting old C compilers to change the 0x80 into -0x80.  */
 	  if (val == boolean_false_node)
-	    warning ("comparison is always 0 due to limited range of data type");
+	    warning ("comparison is always false due to limited range of data type");
 	  if (val == boolean_true_node)
-	    warning ("comparison is always 1 due to limited range of data type");
+	    warning ("comparison is always true due to limited range of data type");
 	}
 
       if (!min_lt && unsignedp0 && TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  /* This is the case of (unsigned char)x >?< -1 or < 0.  */
 	  if (val == boolean_false_node)
-	    warning ("comparison is always 0 due to limited range of data type");
+	    warning ("comparison is always false due to limited range of data type");
 	  if (val == boolean_true_node)
-	    warning ("comparison is always 1 due to limited range of data type");
+	    warning ("comparison is always true due to limited range of data type");
 	}
 
       if (val != 0)
@@ -2664,7 +2695,7 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 		  && ! (TREE_CODE (primop0) == INTEGER_CST
 			&& ! TREE_OVERFLOW (convert (signed_type (type),
 						     primop0))))
-		warning ("unsigned value >= 0 is always 1");
+		warning ("comparison of unsigned expression >= 0 is always true");
 	      value = boolean_true_node;
 	      break;
 
@@ -2673,7 +2704,7 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 		  && ! (TREE_CODE (primop0) == INTEGER_CST
 			&& ! TREE_OVERFLOW (convert (signed_type (type),
 						     primop0))))
-		warning ("unsigned value < 0 is always 0");
+		warning ("comparison of unsigned expression < 0 is always false");
 	      value = boolean_false_node;
 	      break;
 
@@ -2898,7 +2929,7 @@ truthvalue_conversion (expr)
 unsigned char *yy_cur, *yy_lim;
 
 #define GETC() (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ())
-#define UNGETC(c) ((c), yy_cur--)
+#define UNGETC(c) ((c) == EOF ? 0 : yy_cur--)
 
 int
 yy_get_token ()
@@ -3072,15 +3103,134 @@ get_directive_line (finput)
    down to the element type of an array.  */
 
 tree
-c_build_type_variant (type, constp, volatilep)
+c_build_qualified_type (type, type_quals)
      tree type;
-     int constp, volatilep;
+     int type_quals;
 {
+  /* A restrict-qualified pointer type must be a pointer to object or
+     incomplete type.  Note that the use of POINTER_TYPE_P also allows
+     REFERENCE_TYPEs, which is appropriate for C++.  Unfortunately,
+     the C++ front-end also use POINTER_TYPE for pointer-to-member
+     values, so even though it should be illegal to use `restrict'
+     with such an entity we don't flag that here.  Thus, special case
+     code for that case is required in the C++ front-end.  */
+  if ((type_quals & TYPE_QUAL_RESTRICT)
+      && (!POINTER_TYPE_P (type)
+	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type))))
+    {
+      error ("invalid use of `restrict'");
+      type_quals &= ~TYPE_QUAL_RESTRICT;
+    }
+
   if (TREE_CODE (type) == ARRAY_TYPE)
-    return build_array_type (c_build_type_variant (TREE_TYPE (type),
-						   constp, volatilep),
+    return build_array_type (c_build_qualified_type (TREE_TYPE (type),
+						     type_quals),
 			     TYPE_DOMAIN (type));
-  return build_type_variant (type, constp, volatilep);
+  return build_qualified_type (type, type_quals);
+}
+
+/* Apply the TYPE_QUALS to the new DECL.  */
+
+void
+c_apply_type_quals_to_decl (type_quals, decl)
+     int type_quals;
+     tree decl;
+{
+  if (type_quals & TYPE_QUAL_CONST)
+    TREE_READONLY (decl) = 1;
+  if (type_quals & TYPE_QUAL_VOLATILE)
+    {
+      TREE_SIDE_EFFECTS (decl) = 1;
+      TREE_THIS_VOLATILE (decl) = 1;
+    }
+  if (type_quals & TYPE_QUAL_RESTRICT)
+    {
+      if (!TREE_TYPE (decl)
+	  || !POINTER_TYPE_P (TREE_TYPE (decl))
+	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (TREE_TYPE (decl))))
+	error ("invalid use of `restrict'");
+      else if (flag_strict_aliasing)
+	{
+	  /* No two restricted pointers can point at the same thing.
+	     However, a restricted pointer can point at the same thing
+	     as an unrestricted pointer, if that unrestricted pointer
+	     is based on the restricted pointer.  So, we make the
+	     alias set for the restricted pointer a subset of the
+	     alias set for the type pointed to by the type of the
+	     decl.  */
+
+	  int pointed_to_alias_set 
+	    = get_alias_set (TREE_TYPE (TREE_TYPE (decl)));
+	  
+	  if (!pointed_to_alias_set)
+	    /* It's not legal to make a subset of alias set zero.  */
+	    ;
+	  else
+	    {
+	      DECL_POINTER_ALIAS_SET (decl) = new_alias_set ();
+	      record_alias_subset  (pointed_to_alias_set,
+				    DECL_POINTER_ALIAS_SET (decl));
+	    }
+	}
+    }
+}
+
+/* T is an expression with pointer type.  Find the DECL on which this
+   expression is based.  (For example, in `a[i]' this would be `a'.)
+   If there is no such DECL, or a unique decl cannot be determined,
+   NULL_TREE is retured.  */
+
+static tree
+c_find_base_decl (t)
+     tree t;
+{
+  int i;
+  tree decl;
+
+  if (t == NULL_TREE || t == error_mark_node)
+    return NULL_TREE;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (t)))
+    return NULL_TREE;
+
+  decl = NULL_TREE;
+
+  if (TREE_CODE (t) == FIELD_DECL 
+      || TREE_CODE (t) == PARM_DECL
+      || TREE_CODE (t) == VAR_DECL)
+    /* Aha, we found a pointer-typed declaration.  */
+    return t;
+
+  /* It would be nice to deal with COMPONENT_REFs here.  If we could
+     tell that `a' and `b' were the same, then `a->f' and `b->f' are
+     also the same.  */
+
+  /* Handle general expressions.  */
+  switch (TREE_CODE_CLASS (TREE_CODE (t)))
+    {
+    case '1':
+    case '2':
+    case '3':
+      for (i = tree_code_length [(int) TREE_CODE (t)]; --i >= 0;)
+	{
+	  tree d = c_find_base_decl (TREE_OPERAND (t, i));
+	  if (d)
+	    {
+	      if (!decl)
+		decl = d;
+	      else if (d && d != decl)
+		/* Two different declarations.  That's confusing; let's
+		   just assume we don't know what's going on.  */
+		decl = NULL_TREE;
+	    }
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return decl;
 }
 
 /* Return the typed-based alias set for T, which may be an expression
@@ -3091,6 +3241,7 @@ c_get_alias_set (t)
      tree t;
 {
   tree type;
+  tree u;
 
   if (t == error_mark_node)
     return 0;
@@ -3111,17 +3262,39 @@ c_get_alias_set (t)
        the conservative assumption.  */
     return 0;
 
-  if (TREE_CODE (t) == COMPONENT_REF
-      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
-    /* Permit type-punning when accessing a union, provided the
-       access is directly through the union.  For example, this code does
-       not permit taking the address of a union member and then
-       storing through it.  Even the type-punning allowed here is a
-       GCC extension, albeit a common and useful one; the C standard
-       says that such accesses have implementation-defined behavior.  */ 
-    return 0;
+  /* Permit type-punning when accessing a union, provided the access
+     is directly through the union.  For example, this code does not
+     permit taking the address of a union member and then storing
+     through it.  Even the type-punning allowed here is a GCC
+     extension, albeit a common and useful one; the C standard says
+     that such accesses have implementation-defined behavior.  */
+  for (u = t;
+       TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
+       u = TREE_OPERAND (u, 0))
+    if (TREE_CODE (u) == COMPONENT_REF
+	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
+      return 0;
+
+  if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      /* Check for accesses through restrict-qualified pointers.  */
+      tree decl = c_find_base_decl (TREE_OPERAND (t, 0));
+
+      if (decl && DECL_POINTER_ALIAS_SET_KNOWN_P (decl))
+	/* We use the alias set indicated in the declaration.  */
+	return DECL_POINTER_ALIAS_SET (decl);
+    }
 
   /* From here on, only the type matters.  */
+
+  if (TREE_CODE (t) == COMPONENT_REF
+      && DECL_BIT_FIELD_TYPE (TREE_OPERAND (t, 1)))
+    /* Since build_modify_expr calls get_unwidened for stores to
+       component references, the type of a bit field can be changed
+       from (say) `unsigned int : 16' to `unsigned short' or from 
+       `enum E : 16' to `short'.  We want the real type of the
+       bit-field in this case, not some the integral equivalent.  */
+    type = DECL_BIT_FIELD_TYPE (TREE_OPERAND (t, 1));
 
   if (TYPE_ALIAS_SET_KNOWN_P (type))
     /* If we've already calculated the value, just return it.  */

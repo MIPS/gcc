@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for NEC V850 series
-   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -19,9 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#include "config.h"
 #include <stdio.h>
 #include <ctype.h>
-#include "config.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
@@ -365,9 +365,16 @@ print_operand (file, x, code)
 
   switch (code)
     {
+    case 'c':
+      /* We use 'c' operands with symbols for .vtinherit */
+      if (GET_CODE (x) == SYMBOL_REF)
+        {
+          output_addr_const(file, x);
+          break;
+        }
+      /* fall through */
     case 'b':
     case 'B':
-    case 'c':
     case 'C':
       switch ((code == 'B' || code == 'C')
 	      ? reverse_condition (GET_CODE (x)) : GET_CODE (x))
@@ -937,6 +944,7 @@ ep_memory_operand (op, mode, unsigned_load)
       op1 = XEXP (addr, 1);
       if (GET_CODE (op1) == CONST_INT
 	  && INTVAL (op1) < max_offset
+	  && INTVAL (op1) >= 0
 	  && (INTVAL (op1) & mask) == 0)
 	{
 	  if (GET_CODE (op0) == REG && REGNO (op0) == EP_REGNUM)
@@ -1142,7 +1150,8 @@ Saved %d bytes (%d uses of register %s) in function %s, starting as insn %d, end
 			   && GET_CODE (XEXP (addr, 1)) == CONST_INT
 			   && ((INTVAL (XEXP (addr, 1)))
 			       < ep_memory_offset (GET_MODE (*p_mem),
-						   unsignedp)))
+						   unsignedp))
+			   && ((INTVAL (XEXP (addr, 1))) >= 0))
 		    *p_mem = change_address (*p_mem, VOIDmode,
 					     gen_rtx (PLUS, Pmode,
 						      *p_ep, XEXP (addr, 1)));
@@ -1253,6 +1262,14 @@ void v850_reorg (start_insn)
 	      /* Memory operands are signed by default.  */
 	      int unsignedp = FALSE;
 
+	      /* We might have (SUBREG (MEM)) here, so just get rid of the
+		 subregs to make this code simpler.  It is safe to call
+		 alter_subreg any time after reload.  */
+	      if (GET_CODE (dest) == SUBREG)
+		dest = alter_subreg (dest);
+	      if (GET_CODE (src) == SUBREG)
+		src = alter_subreg (src);
+
 	      if (GET_CODE (dest) == MEM && GET_CODE (src) == MEM)
 		mem = NULL_RTX;
 
@@ -1285,7 +1302,8 @@ void v850_reorg (start_insn)
 			   && GET_CODE (XEXP (addr, 0)) == REG
 			   && GET_CODE (XEXP (addr, 1)) == CONST_INT
 			   && ((INTVAL (XEXP (addr, 1)))
-			       < ep_memory_offset (GET_MODE (mem), unsignedp)))
+			       < ep_memory_offset (GET_MODE (mem), unsignedp))
+			   && ((INTVAL (XEXP (addr, 1))) >= 0))
 		    {
 		      short_p = TRUE;
 		      regno = REGNO (XEXP (addr, 0));
@@ -1305,20 +1323,13 @@ void v850_reorg (start_insn)
 
 	      /* Loading up a register in the basic block zaps any savings
 		 for the register */
-	      if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG)
+	      if (GET_CODE (dest) == REG)
 		{
 		  enum machine_mode mode = GET_MODE (dest);
-		  int word = 0;
 		  int regno;
 		  int endregno;
 
-		  while (GET_CODE (dest) == SUBREG)
-		    {
-		      word = SUBREG_WORD (dest);
-		      dest = SUBREG_REG (dest);
-		    }
-
-		  regno = REGNO (dest) + word;
+		  regno = REGNO (dest);
 		  endregno = regno + HARD_REGNO_NREGS (regno, mode);
 
 		  if (!use_ep)
@@ -1391,12 +1402,12 @@ compute_register_save_size (p_reg_saved)
   int size = 0;
   int i;
   int interrupt_handler = v850_interrupt_function_p (current_function_decl);
-  int call_p = regs_ever_live[31];
+  int call_p = regs_ever_live [LINK_POINTER_REGNUM];
   long reg_saved = 0;
 
   /* Count the return pointer if we need to save it.  */
   if (profile_flag && !call_p)
-    regs_ever_live[31] = call_p = 1;
+    regs_ever_live [LINK_POINTER_REGNUM] = call_p = 1;
  
   /* Count space for the register saves.  */
   if (interrupt_handler)
@@ -1429,15 +1440,63 @@ compute_register_save_size (p_reg_saved)
 	    break;
 	  }
     }
-
   else
-    for (i = 0; i <= 31; i++)
-      if (regs_ever_live[i] && ((! call_used_regs[i]) || i == 31))
-	{
-	  size += 4;
-	  reg_saved |= 1L << i;
-	}
+    {
+      /* Find the first register that needs to be saved.  */
+      for (i = 0; i <= 31; i++)
+	if (regs_ever_live[i] && ((! call_used_regs[i])
+				  || i == LINK_POINTER_REGNUM))
+	  break;
 
+      /* If it is possible that an out-of-line helper function might be
+	 used to generate the prologue for the current function, then we
+	 need to cover the possibility that such a helper function will
+	 be used, despite the fact that there might be gaps in the list of
+	 registers that need to be saved.  To detect this we note that the
+	 helper functions always push at least register r29 if the link
+	 register is not used, and at least registers r27 - r31 if the
+	 link register is used (and provided that the function is not an
+	 interrupt handler).  */
+	 
+      if (TARGET_PROLOG_FUNCTION
+	  && (i == 2 || i >= 20)
+	  && regs_ever_live[LINK_POINTER_REGNUM] ? (i < 28) : (i < 30))
+	{
+	  if (i == 2)
+	    {
+	      size += 4;
+	      reg_saved |= 1L << i;
+
+	      i = 20;
+	    }
+
+	  /* Helper functions save all registers between the starting
+	     register and the last register, regardless of whether they
+	     are actually used by the function or not.  */
+	  for (; i <= 29; i++)
+	    {
+	      size += 4;
+	      reg_saved |= 1L << i;
+	    }
+
+	  if (regs_ever_live [LINK_POINTER_REGNUM])
+	    {
+	      size += 4;
+	      reg_saved |= 1L << LINK_POINTER_REGNUM;
+	    }
+	}
+      else
+	{
+	  for (; i <= 31; i++)
+	    if (regs_ever_live[i] && ((! call_used_regs[i])
+				      || i == LINK_POINTER_REGNUM))
+	      {
+		size += 4;
+		reg_saved |= 1L << i;
+	      }
+	}
+    }
+  
   if (p_reg_saved)
     *p_reg_saved = reg_saved;
 
@@ -1479,8 +1538,10 @@ expand_prologue ()
   if (interrupt_handler)
     {
       emit_insn (gen_save_interrupt ());
+      
       actual_fsize -= INTERRUPT_FIXED_SAVE_SIZE;
-      if (((1L << 31) & reg_saved) != 0)
+      
+      if (((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
 	actual_fsize -= INTERRUPT_ALL_SAVE_SIZE;
     }
 
@@ -1488,7 +1549,9 @@ expand_prologue ()
   else if (current_function_anonymous_args)
     {
       if (TARGET_PROLOG_FUNCTION)
-	emit_insn (gen_save_r6_r9 ());
+	{
+	  emit_insn (gen_save_r6_r9 ());
+	}
       else
 	{
 	  offset = 0;
@@ -1514,9 +1577,9 @@ expand_prologue ()
 
   /* If the return pointer is saved, the helper functions also allocate
      16 bytes of stack for arguments to be saved in.  */
-  if (((1L << 31) & reg_saved) != 0)
+  if (((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
     {
-      save_regs[num_save++] = gen_rtx (REG, Pmode, 31);
+      save_regs[num_save++] = gen_rtx (REG, Pmode, LINK_POINTER_REGNUM);
       default_stack = 16;
     }
 
@@ -1556,14 +1619,14 @@ expand_prologue ()
 
 	  if (TARGET_V850)
 	    {
-	      XVECEXP (save_all, 0, num_save+1)
+	      XVECEXP (save_all, 0, num_save + 1)
 		= gen_rtx (CLOBBER, VOIDmode, gen_rtx (REG, Pmode, 10));
 	    }
 
 	  offset = - default_stack;
 	  for (i = 0; i < num_save; i++)
 	    {
-	      XVECEXP (save_all, 0, i+1)
+	      XVECEXP (save_all, 0, i + 1)
 		= gen_rtx (SET, VOIDmode,
 			   gen_rtx (MEM, Pmode,
 				    plus_constant (stack_pointer_rtx, offset)),
@@ -1577,7 +1640,7 @@ expand_prologue ()
 	      rtx insn = emit_insn (save_all);
 	      INSN_CODE (insn) = code;
 	      actual_fsize -= alloc_stack;
-
+	      
 	      if (TARGET_DEBUG)
 		fprintf (stderr, "\
 Saved %d bytes via prologue function (%d vs. %d) for function %s\n",
@@ -1595,9 +1658,10 @@ Saved %d bytes via prologue function (%d vs. %d) for function %s\n",
   if (!save_all)
     {
       /* Special case interrupt functions that save all registers for a call.  */
-      if (interrupt_handler && ((1L << 31) & reg_saved) != 0)
-	emit_insn (gen_save_all_interrupt ());
-
+      if (interrupt_handler && ((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
+	{
+	  emit_insn (gen_save_all_interrupt ());
+	}
       else
 	{
 	  /* If the stack is too big, allocate it in chunks so we can do the
@@ -1617,7 +1681,7 @@ Saved %d bytes via prologue function (%d vs. %d) for function %s\n",
 				   GEN_INT (-init_stack_alloc)));
 	  
 	  /* Save the return pointer first.  */
-	  if (num_save > 0 && REGNO (save_regs[num_save-1]) == 31)
+	  if (num_save > 0 && REGNO (save_regs[num_save-1]) == LINK_POINTER_REGNUM)
 	    {
 	      emit_move_insn (gen_rtx (MEM, SImode,
 				       plus_constant (stack_pointer_rtx,
@@ -1681,7 +1745,7 @@ expand_epilogue ()
   if (interrupt_handler)
     {
       actual_fsize -= INTERRUPT_FIXED_SAVE_SIZE;
-      if (((1L << 31) & reg_saved) != 0)
+      if (((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
 	actual_fsize -= INTERRUPT_ALL_SAVE_SIZE;
     }
 
@@ -1700,9 +1764,9 @@ expand_epilogue ()
 
   /* If the return pointer is saved, the helper functions also allocate
      16 bytes of stack for arguments to be saved in.  */
-  if (((1L << 31) & reg_saved) != 0)
+  if (((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
     {
-      restore_regs[num_restore++] = gen_rtx (REG, Pmode, 31);
+      restore_regs[num_restore++] = gen_rtx (REG, Pmode, LINK_POINTER_REGNUM);
       default_stack = 16;
     }
 
@@ -1825,15 +1889,18 @@ Saved %d bytes via epilogue function (%d vs. %d) in function %s\n",
 
       /* Special case interrupt functions that save all registers
 	 for a call.  */
-      if (interrupt_handler && ((1L << 31) & reg_saved) != 0)
-	emit_insn (gen_restore_all_interrupt ());
+      if (interrupt_handler && ((1L << LINK_POINTER_REGNUM) & reg_saved) != 0)
+	{
+	  emit_insn (gen_restore_all_interrupt ());
+	}
       else
 	{
 	  /* Restore registers from the beginning of the stack frame */
 	  offset = init_stack_free - 4;
 
 	  /* Restore the return pointer first.  */
-	  if (num_restore > 0 && REGNO (restore_regs[num_restore-1]) == 31)
+	  if (num_restore > 0
+	      && REGNO (restore_regs [num_restore - 1]) == LINK_POINTER_REGNUM)
 	    {
 	      emit_move_insn (restore_regs[--num_restore],
 			      gen_rtx (MEM, SImode,
@@ -2260,17 +2327,18 @@ construct_restore_jr (op)
     abort ();
 
   /* Discover the last register to pop.  */
-  if (mask & (1 << 31))
+  if (mask & (1 << LINK_POINTER_REGNUM))
     {
       if (stack_bytes != 16)
 	abort ();
       
-      last = 31;
+      last = LINK_POINTER_REGNUM;
     }
   else
     {
       if (stack_bytes != 0)
 	abort ();
+      
       if ((mask & (1 << 29)) == 0)
 	abort ();
       
@@ -2282,11 +2350,26 @@ construct_restore_jr (op)
      be popping more registers than is strictly necessary, but
      it does save code space.  */
   
-  if (first == last)
-    sprintf (buff, "jr __return_%s", reg_names [first]);
+  if (TARGET_LONG_CALLS)
+    {
+      char name[40];
+      
+      if (first == last)
+	sprintf (name, "__return_%s", reg_names [first]);
+      else
+	sprintf (name, "__return_%s_%s", reg_names [first], reg_names [last]);
+      
+      sprintf (buff, "movhi hi(%s), r0, r6\n\tmovea lo(%s), r6, r6\n\tjmp r6",
+	       name, name);
+    }
   else
-    sprintf (buff, "jr __return_%s_%s", reg_names [first], reg_names [last]);
-
+    {
+      if (first == last)
+	sprintf (buff, "jr __return_%s", reg_names [first]);
+      else
+	sprintf (buff, "jr __return_%s_%s", reg_names [first], reg_names [last]);
+    }
+  
   return buff;
 }
 
@@ -2446,12 +2529,12 @@ construct_save_jarl (op)
     abort ();
 
   /* Discover the last register to push.  */
-  if (mask & (1 << 31))
+  if (mask & (1 << LINK_POINTER_REGNUM))
     {
       if (stack_bytes != -16)
 	abort ();
       
-      last = 31;
+      last = LINK_POINTER_REGNUM;
     }
   else
     {
@@ -2468,11 +2551,26 @@ construct_save_jarl (op)
      be pushing more registers than is strictly necessary, but
      it does save code space.  */
   
-  if (first == last)
-    sprintf (buff, "jarl __save_%s, r10", reg_names [first]);
+  if (TARGET_LONG_CALLS)
+    {
+      char name[40];
+      
+      if (first == last)
+	sprintf (name, "__save_%s", reg_names [first]);
+      else
+	sprintf (name, "__save_%s_%s", reg_names [first], reg_names [last]);
+      
+      sprintf (buff, "movhi hi(%s), r0, r11\n\tmovea lo(%s), r11, r11\n\tjarl .+4, r10\n\tadd 4, r10\n\tjmp r11",
+	       name, name);
+    }
   else
-    sprintf (buff, "jarl __save_%s_%s, r10", reg_names [first],
-	     reg_names [last]);
+    {
+      if (first == last)
+	sprintf (buff, "jarl __save_%s, r10", reg_names [first]);
+      else
+	sprintf (buff, "jarl __save_%s_%s, r10", reg_names [first],
+		 reg_names [last]);
+    }
 
   return buff;
 }

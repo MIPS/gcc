@@ -1,4 +1,4 @@
-@c Copyright (C) 1988,89,92,93,94,96,97,1998 Free Software Foundation, Inc.
+@c Copyright (C) 1988,89,92,93,94,96,97,98,1999 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -790,15 +790,24 @@ size of an integer.
 
 @findex STACK_BOUNDARY
 @item STACK_BOUNDARY
+Define this macro if there is a guaranteed alignment for the stack
+pointer on this machine.  The definition is a C expression
+for the desired alignment (measured in bits).  This value is used as a
+default if PREFERRED_STACK_BOUNDARY is not defined.
+
+@findex PREFERRED_STACK_BOUNDARY
+@item PREFERRED_STACK_BOUNDARY
 Define this macro if you wish to preserve a certain alignment for
 the stack pointer.  The definition is a C expression
-for the desired alignment (measured in bits).
+for the desired alignment (measured in bits).  If STACK_BOUNDARY is
+also defined, this macro must evaluate to a value equal to or larger
+than STACK_BOUNDARY.
 
-@cindex @code{PUSH_ROUNDING}, interaction with @code{STACK_BOUNDARY}
+@cindex @code{PUSH_ROUNDING}, interaction with @code{PREFERRED_STACK_BOUNDARY}
 If @code{PUSH_ROUNDING} is not defined, the stack will always be aligned
-to the specified boundary.  If @code{PUSH_ROUNDING} is defined and specifies a
-less strict alignment than @code{STACK_BOUNDARY}, the stack may be
-momentarily unaligned while pushing arguments.
+to the specified boundary.  If @code{PUSH_ROUNDING} is defined and specifies
+a less strict alignment than @code{PREFERRED_STACK_BOUNDARY}, the stack may
+be momentarily unaligned while pushing arguments.
 
 @findex FUNCTION_BOUNDARY
 @item FUNCTION_BOUNDARY
@@ -863,6 +872,18 @@ If this macro is not defined, then @var{basic-align} is used.
 The typical use of this macro is to increase alignment for string
 constants to be word aligned so that @code{strcpy} calls that copy
 constants can be done inline.
+
+@findex LOCAL_ALIGNMENT
+@item LOCAL_ALIGNMENT (@var{type}, @var{basic-align})
+If defined, a C expression to compute the alignment for a variables in
+the local store.  @var{type} is the data type, and @var{basic-align} is
+the alignment that the object would ordinarily have.  The value of this
+macro is used instead of that alignment to align the object.
+
+If this macro is not defined, then @var{basic-align} is used.
+
+One use of this macro is to increase alignment of medium-size data to
+make it all fit in fewer cache lines.
 
 @findex EMPTY_FIELD_BOUNDARY
 @item EMPTY_FIELD_BOUNDARY
@@ -957,18 +978,18 @@ Like PCC_BITFIELD_TYPE_MATTERS except that its effect is limited to
 aligning a bitfield within the structure.
 
 @findex ROUND_TYPE_SIZE
-@item ROUND_TYPE_SIZE (@var{struct}, @var{size}, @var{align})
-Define this macro as an expression for the overall size of a structure
-(given by @var{struct} as a tree node) when the size computed from the
-fields is @var{size} and the alignment is @var{align}.
+@item ROUND_TYPE_SIZE (@var{type}, @var{computed}, @var{specified})
+Define this macro as an expression for the overall size of a type
+(given by @var{type} as a tree node) when the size computed in the
+usual way is @var{computed} and the alignment is @var{specified}.
 
-The default is to round @var{size} up to a multiple of @var{align}.
+The default is to round @var{computed} up to a multiple of @var{specified}.
 
 @findex ROUND_TYPE_ALIGN
-@item ROUND_TYPE_ALIGN (@var{struct}, @var{computed}, @var{specified})
-Define this macro as an expression for the alignment of a structure
-(given by @var{struct} as a tree node) if the alignment computed in the
-usual way is @var{computed} and the alignment explicitly specified was
+@item ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
+Define this macro as an expression for the alignment of a type (given
+by @var{type} as a tree node) if the alignment computed in the usual
+way is @var{computed} and the alignment explicitly specified was
 @var{specified}.
 
 The default is to use @var{specified} if it is larger; otherwise, use
@@ -1348,9 +1369,17 @@ preserve the entire contents of a register across a call.
 @findex fixed_regs
 @findex call_used_regs
 @item CONDITIONAL_REGISTER_USAGE
-Zero or more C statements that may conditionally modify two variables
-@code{fixed_regs} and @code{call_used_regs} (both of type @code{char
-[]}) after they have been initialized from the two preceding macros.
+Zero or more C statements that may conditionally modify four variables
+@code{fixed_regs}, @code{call_used_regs}, @code{global_regs}
+(these three are of type @code{char []}) and @code{reg_class_contents}
+(of type @code{HARD_REG_SET}).
+Before the macro is called @code{fixed_regs}, @code{call_used_regs}
+and @code{reg_class_contents} have been initialized from 
+@code{FIXED_REGISTERS}, @code{CALL_USED_REGISTERS} and
+@code{REG_CLASS_CONTENTS}, respectively,
+@code{global_regs} has been cleared, and any @samp{-ffixed-@var{reg}},
+@samp{-fcall-used-@var{reg}} and @samp{-fcall-saved-@var{reg}} command
+options have been applied.
 
 This is necessary in case the fixed or call-clobbered registers depend
 on target flags.
@@ -1684,24 +1713,6 @@ If this macro is not defined, it means that no insn clobbers registers
 mysteriously.  This is the usual situation; all else being equal,
 it is best for the RTL expression to show all the activity.
 
-@cindex death notes
-@findex PRESERVE_DEATH_INFO_REGNO_P
-@item PRESERVE_DEATH_INFO_REGNO_P (@var{regno})
-If defined, this is a C expression whose value is nonzero if correct
-@code{REG_DEAD} notes are needed for hard register number @var{regno}
-after reload.
-
-You would arrange to preserve death info for a register when some of the
-code in the machine description which is executed to write the assembler
-code looks at the death notes.  This is necessary only when the actual
-hardware feature which GNU CC thinks of as a register is not actually a
-register of the usual sort.  (It might, for example, be a hardware
-stack.)
-
-It is also useful for peepholes and linker relaxation.
-
-If this macro is not defined, it means that no death notes need to be
-preserved, and some may even be incorrect.  This is the usual situation.
 @end table
 
 @node Register Classes
@@ -2023,17 +2034,15 @@ is @code{BITS_PER_WORD} bits wide is correct for your machine.
 
 @findex SMALL_REGISTER_CLASSES
 @item SMALL_REGISTER_CLASSES
-Normally the compiler avoids choosing registers that have been
-explicitly mentioned in the rtl as spill registers (these registers are
-normally those used to pass parameters and return values).  However,
-some machines have so few registers of certain classes that there
-would not be enough registers to use as spill registers if this were
-done.
+On some machines, it is risky to let hard registers live across arbitrary
+insns.  Typically, these machines have instructions that require values
+to be in specific registers (like an accumulator), and reload will fail
+if the required hard register is used for another purpose across such an
+insn.
 
 Define @code{SMALL_REGISTER_CLASSES} to be an expression with a non-zero
 value on these machines.  When this macro has a non-zero value, the
-compiler allows registers explicitly used in the rtl to be used as spill
-registers but avoids extending the lifetime of these registers.
+compiler will try to minimize the lifetime of hard registers.
 
 It is always safe to define this macro with a non-zero value, but if you
 unnecessarily define it, you will reduce the amount of optimizations
@@ -2642,7 +2651,8 @@ allocated for arguments even when their values are passed in
 registers.
 
 The value of this macro is the size, in bytes, of the area reserved for
-arguments passed in registers for the function represented by @var{fndecl}.
+arguments passed in registers for the function represented by @var{fndecl},
+which can be zero if GNU CC is calling a library function.
 
 This space can be allocated by the caller, or be a part of the
 machine-dependent stack frame: @code{OUTGOING_REG_PARM_STACK_SPACE} says
@@ -3729,11 +3739,8 @@ that were passed to @code{__builtin_saveregs}.
 If this macro is not defined, the compiler will output an ordinary
 call to the library function @samp{__builtin_saveregs}.
 
-@c !!! a bug in texinfo; how to make the entry on the @item line allow
-@c more than one line of text... help...  --mew 10feb93
 @findex SETUP_INCOMING_VARARGS
-@item SETUP_INCOMING_VARARGS (@var{args_so_far}, @var{mode}, @var{type},
-@var{pretend_args_size}, @var{second_time})
+@item SETUP_INCOMING_VARARGS (@var{args_so_far}, @var{mode}, @var{type}, @var{pretend_args_size}, @var{second_time})
 This macro offers an alternative to using @code{__builtin_saveregs} and
 defining the macro @code{EXPAND_BUILTIN_SAVEREGS}.  Use it to store the
 anonymous register arguments into the stack so that all the arguments
@@ -3779,6 +3786,15 @@ are treated as named.  Otherwise, all named arguments except the last
 are treated as named.
 
 You need not define this macro if it always returns zero.
+
+@findex PRETEND_OUTGOING_VARARGS_NAMED
+@item PRETEND_OUTGOING_VARARGS_NAMED
+If you need to conditionally change ABIs so that one works with
+@code{SETUP_INCOMING_VARARGS}, but the other works like neither
+@code{SETUP_INCOMING_VARARGS} nor @code{STRICT_ARGUMENT_NAMING} was
+defined, then define this macro to return nonzero if
+@code{SETUP_INCOMING_VARARGS} is used, zero otherwise.
+Otherwise, you should not define this macro.
 @end table
 
 @node Trampolines
@@ -4165,7 +4181,7 @@ This is about addressing modes.
 @table @code
 @findex HAVE_POST_INCREMENT
 @item HAVE_POST_INCREMENT
-Define this macro if the machine supports post-increment addressing.
+A C expression that is nonzero the machine supports post-increment addressing.
 
 @findex HAVE_PRE_INCREMENT
 @findex HAVE_POST_DECREMENT
@@ -4392,16 +4408,6 @@ an immediate operand on the target machine.  You can assume that
 @var{x} satisfies @code{CONSTANT_P}, so you need not check this.  In fact,
 @samp{1} is a suitable definition for this macro on machines where
 anything @code{CONSTANT_P} is valid.@refill
-
-@findex DONT_RECORD_EQUIVALENCE
-@item DONT_RECORD_EQUIVALENCE (@var{note})
-A C expression that is nonzero if the @code{REG_EQUAL} note @var{x} should not
-be promoted to a @code{REG_EQUIV} note.
-
-Define this macro if @var{note} refers to a constant that must be accepted
-by @code{LEGITIMATE_CONSTANT_P}, but must not appear as an immediate operand.
-
-Most machine descriptions do not need to define this macro.
 @end table
 
 @node Condition Code
@@ -4766,6 +4772,42 @@ Note that on machines with no memory-to-memory move insns, this macro denotes
 the corresponding number of memory-to-memory @emph{sequences}.
 
 If you don't define this, a reasonable default is used.
+
+@findex MOVE_BY_PIECES_P
+@item MOVE_BY_PIECES_P (@var{size}, @var{alignment})
+A C expression used to determine whether @code{move_by_pieces} will be used to
+copy a chunk of memory, or whether some other block move mechanism
+will be used. Defaults to 1 if @code{move_by_pieces_ninsns} returns less
+than @code{MOVE_RATIO}.
+
+@findex MOVE_MAX_PIECES
+@item MOVE_MAX_PIECES
+A C expression used by @code{move_by_pieces} to determine the largest unit
+a load or store used to copy memory is. Defaults to @code{MOVE_MAX}.
+
+@findex USE_LOAD_POST_INCREMENT
+@item USE_LOAD_POST_INCREMENT (@var{mode})
+A C expression used to determine whether a load postincrement is
+a good thing for @code{move_by_pieces} to use for a given mode. Defaults
+to the value of @code{HAVE_POST_INCREMENT}.
+
+@findex USE_LOAD_PRE_INCREMENT
+@item USE_LOAD_PRE_INCREMENT (@var{mode})
+A C expression used to determine whether a load preincrement is
+a good thing for @code{move_by_pieces} to use for a given mode. Defaults
+to the value of @code{HAVE_PRE_INCREMENT}.
+
+@findex USE_STORE_POST_INCREMENT
+@item USE_STORE_POST_INCREMENT (@var{mode})
+A C expression used to determine whether a store postincrement is
+a good thing for @code{move_by_pieces} to use for a given mode. Defaults
+to the value of @code{HAVE_POST_INCREMENT}.
+
+@findex USE_STORE_PRE_INCREMENT
+@item USE_STORE_PRE_INCREMENT (@var{mode})
+This macro is used to determine whether a store preincrement is
+a good thing for @code{move_by_pieces} to use for a given mode. Defaults
+to the value of @code{HAVE_PRE_INCREMENT}.
 
 @findex NO_FUNCTION_CSE
 @item NO_FUNCTION_CSE
@@ -5940,13 +5982,20 @@ names.
 @findex ASM_OUTPUT_DESTRUCTOR
 This is like @code{ASM_OUTPUT_CONSTRUCTOR} but used for termination
 functions rather than initialization functions.
+
+When @code{ASM_OUTPUT_CONSTRUCTOR} and @code{ASM_OUTPUT_DESTRUCTOR} are
+defined, the initializaiton routine generated for the generated object
+file will have static linkage.
 @end table
 
 If your system uses @code{collect2} as the means of processing
 constructors, then that program normally uses @code{nm} to scan an
-object file for constructor functions to be called.  On certain kinds of
-systems, you can define these macros to make @code{collect2} work faster
-(and, in some cases, make it work at all):
+object file for constructor functions to be called.  On such systems you
+must not define @code{ASM_OUTPUT_CONSTRUCTOR} and @code{ASM_OUTPUT_DESTRUCTOR}
+as the object file's initialization routine must have global scope.
+
+On certain kinds of systems, you can define these macros to make
+@code{collect2} work faster (and, in some cases, make it work at all):
 
 @table @code
 @findex OBJECT_FORMAT_COFF
@@ -6393,6 +6442,14 @@ section.
 A C statement to output to the stdio stream @var{stream} an assembler
 command to advance the location counter to a multiple of 2 to the
 @var{power} bytes.  @var{power} will be a C expression of type @code{int}.
+
+@findex ASM_OUTPUT_MAX_SKIP_ALIGN
+@item ASM_OUTPUT_MAX_SKIP_ALIGN (@var{stream}, @var{power}, @var{max_skip})
+A C statement to output to the stdio stream @var{stream} an assembler
+command to advance the location counter to a multiple of 2 to the
+@var{power} bytes, but only if @var{max_skip} or fewer bytes are needed to
+satisfy the alignment request.  @var{power} and @var{max_skip} will be
+a C expression of type @code{int}.
 @end table
 
 @need 3000
@@ -7551,7 +7608,7 @@ same time if the machine is a superscalar machine.  This is only used by
 the @samp{Haifa} scheduler, and not the traditional scheduler.
 
 @findex MD_SCHED_INIT
-@item MD_SCHED_INIT (@var{file}, @var{verbose}
+@item MD_SCHED_INIT (@var{file}, @var{verbose})
 A C statement which is executed by the @samp{Haifa} scheduler at the
 beginning of each block of instructions that are to be scheduled.
 @var{file} is either a null pointer, or a stdio stream to write any

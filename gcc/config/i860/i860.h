@@ -52,10 +52,10 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES  \
-  { {"xp", 1},			\
-    {"noxp", -1},		\
-    {"xr", -1},			\
-    { "", TARGET_DEFAULT}}
+  { {"xp", 1, "Generate code which uses the FPU"},			\
+    {"noxp", -1, "Do not generate code which uses the FPU"},		\
+    {"xr", -1, "Do not generate code which uses the FPU"},		\
+    { "", TARGET_DEFAULT, NULL}}
 
 #define TARGET_DEFAULT 0
 
@@ -656,11 +656,11 @@ struct cumulative_args { int ints, floats; };
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

@@ -56,6 +56,8 @@ struct weak_syms
 
 /* Declared in varasm.c */
 extern struct weak_syms * weak_decls;
+
+extern int add_weak PROTO((char *, char *));
 #endif /* HANDLE_PRAGMA_WEAK */
 
 
@@ -94,7 +96,7 @@ enum pragma_state
 };
 
 /* Handle a C style pragma */
-extern int handle_pragma_token PROTO((char *, tree));
+extern int handle_pragma_token PROTO((const char *, tree));
 
 #endif /* HANDLE_GENERIC_PRAGMAS */
 #endif /* _C_PRAGMA_H */

@@ -1,5 +1,5 @@
 # Makefile for GNU compiler for the Java(TM) language.
-#   Copyright (C) 1987, 88, 90-4, 1995, 1998 Free Software Foundation, Inc.
+#   Copyright (C) 1987, 88, 90-5, 1998, 1999 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -59,11 +59,9 @@ X_CPPFLAGS =
 T_CPPFLAGS =
 
 CC = @CC@
-BISON = `if [ -f ../../bison/bison ] ; then echo ../../bison/bison -L $(srcdir)/../../bison/ ;  else echo bison ; fi`
+SET_BISON = here=`pwd`; sdir=`cd $(srcdir) && pwd`; if test -f ../../bison; then bison="$$here/../../bison/bison -L $$sdir"; else bison=bison; fi
 BISONFLAGS =
 JAVABISONFLAGS = --name-prefix=java_
-LEX = `if [ -f ../../flex/flex ] ; then echo ../../flex/flex ;  else echo flex ; fi`
-LEXFLAGS =
 AR = ar
 AR_FLAGS = rc
 SHELL = /bin/sh
@@ -94,15 +92,17 @@ GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS)
 program_transform_name =
 objdir = .
 
-+target=@target@
-+xmake_file=@dep_host_xmake_file@
-+tmake_file=@dep_tmake_file@
 #version=`sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/' < $(srcdir)/version.c`
 #mainversion=`sed -e 's/.*\"\([0-9]*\.[0-9]*\).*/\1/' < $(srcdir)/version.c`
 
 # Directory where sources are, from where we are.
 srcdir = @srcdir@
 VPATH = @srcdir@
+
+# Directory holding libgcj.zip.
+prefix = @prefix@
+datadir = @datadir@
+libgcj_zip = $(datadir)/libgcj.zip
 
 # Additional system libraries to link with.
 CLIB=
@@ -133,7 +133,7 @@ all: all.indirect
 ####build overrides
 @build_overrides@
 ####site overrides
-
+#
 # Now figure out from those variables how to compile and link.
 
 all.indirect: Makefile ../jc1$(exeext) ../jcf-dump$(exeext) \
@@ -147,8 +147,6 @@ ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) $(XCFLAGS)
 
 # Likewise.
 ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
-
-# Even if ALLOCA is set, don't use it if compiling with GCC.
 
 SUBDIR_OBSTACK = `if [ x$(OBSTACK) != x ]; then echo ../$(OBSTACK); else true; fi`
 SUBDIR_USE_ALLOCA = `case "${CC}" in "${OLDCC}") if [ x$(ALLOCA) != x ]; then echo ../$(ALLOCA); else true; fi ;; esac`
@@ -168,10 +166,7 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config -I$(srcdir)
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
 
-# This tells GNU make version 3 not to export all the variables
-# defined in this file into the environment.
-.NOEXPORT:
-
+#
 # Lists of files for various purposes.
 
 # Language-specific object files for Gcc/Java:
@@ -180,9 +175,12 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config -I$(srcdir)
 #
 JAVA_OBJS = parse.o class.o decl.o expr.o constants.o lang.o typeck.o \
   except.o verify.o zextract.o jcf-io.o jcf-parse.o mangle.o jcf-write.o \
-  buffer.o memmove.o
+  buffer.o check-init.o jcf-depend.o jcf-path.o xref.o
 
 JAVA_OBJS_LITE = parse-scan.o jv-scan.o
+
+LIBS = ../../libiberty/libiberty.a
+LIBDEPS = $(LIBS)
 
 # Language-independent object files.
 OBJS = `cat ../stamp-objlist`
@@ -192,32 +190,31 @@ compiler: ../jc1$(exeext) ../jv-scan$(exeext)
 ../jc1$(exeext): $(P) $(JAVA_OBJS) $(OBJDEPS) $(LIBDEPS)
 	rm -f ../jc1$(exeext)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(JAVA_OBJS) $(OBJS) $(LIBS)
+	      $(JAVA_OBJS) $(OBJS) $(SUBDIR_OBSTACK) $(LIBS)
 ../jv-scan$(exeext): $(P) $(JAVA_OBJS_LITE) $(OBJDEPS) $(LIBDEPS)
 	rm -f ../jv-scan$(exeext)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(JAVA_OBJS_LITE) $(LIBS)
+	      $(JAVA_OBJS_LITE) $(SUBDIR_OBSTACK) $(LIBS)
 
-../jcf-dump$(exeext): jcf-dump.o jcf-io.o zextract.o memmove.o
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ jcf-dump.o jcf-io.o zextract.o memmove.o
+../jcf-dump$(exeext): jcf-dump.o jcf-io.o jcf-depend.o jcf-path.o \
+		zextract.o
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ jcf-dump.o jcf-io.o \
+	  jcf-depend.o jcf-path.o zextract.o $(LIBS)
 
 # Dependencies here must be kept in sync with dependencies in Make-lang.in.
-../jvgenmain$(exeext):  jvgenmain.o mangle.o
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ jvgenmain.o mangle.o ../obstack.o
+../jvgenmain$(exeext):  jvgenmain.o mangle.o $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ jvgenmain.o mangle.o ../obstack.o $(LIBS)
 
-../gcjh$(exeext): gjavah.o jcf-io.o zextract.o memmove.o
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ gjavah.o jcf-io.o zextract.o memmove.o 
+../gcjh$(exeext): gjavah.o jcf-io.o jcf-depend.o jcf-path.o \
+		zextract.o $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ gjavah.o jcf-io.o \
+	  jcf-depend.o jcf-path.o zextract.o $(LIBS)
 
 Makefile: $(srcdir)/Makefile.in $(srcdir)/../configure
 	cd ..; $(SHELL) config.status
 
-memmove.o: $(srcdir)/../../libiberty/memmove.c
-	rm -f memmove.c
-	$(LN_S) $(srcdir)/../../libiberty/memmove.c memmove.c
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) memmove.c
-
 native: config.status ../jc1$(exeext)
-
+#
 # Compiling object files from source files.
 TREE_H = $(srcdir)/../tree.h $(srcdir)/../real.h $(srcdir)/../tree.def \
         $(srcdir)/../machmode.h $(srcdir)/../machmode.def
@@ -226,22 +223,36 @@ RTL_H = $(srcdir)/../rtl.h $(srcdir)/../rtl.def \
         $(srcdir)/../machmode.h $(srcdir)/../machmode.def
 EXPR_H = $(srcdir)/../expr.h ../insn-codes.h
 
+# Separating PARSE_DIR from PARSE_RELDIR lets us easily change the
+# code to support building parse.c in the build directory, at some
+# expense in readability.
+PARSE_DIR = $(srcdir)
+PARSE_RELDIR = .
+PARSE_C = $(PARSE_DIR)/parse.c
+PARSE_SCAN_C = $(PARSE_DIR)/parse-scan.c
 PARSE_H = $(srcdir)/parse.h
-PARSE_C = $(srcdir)/parse.c
-PARSE_SCAN_C = $(srcdir)/parse-scan.c
 
 $(PARSE_C):  $(srcdir)/parse.y $(srcdir)/lex.c $(PARSE_H) $(srcdir)/lex.h
-	$(BISON) -t -v $(BISONFLAGS) $(JAVABISONFLAGS) -o $(PARSE_C) \
-	  $(srcdir)/parse.y
+	$(SET_BISON); \
+	cd $(PARSE_DIR) && $$bison -t -v $(BISONFLAGS) $(JAVABISONFLAGS) \
+	    -o parse.c $(PARSE_RELDIR)/parse.y
 $(PARSE_SCAN_C):  $(srcdir)/parse-scan.y $(srcdir)/lex.c $(PARSE_H) \
-		$(srcdir)/lex.h
-	$(BISON) -t -v $(BISONFLAGS) -o $(PARSE_SCAN_C) $(srcdir)/parse-scan.y
+	  $(srcdir)/lex.h
+	$(SET_BISON); \
+	cd $(PARSE_DIR) && $$bison -t -v $(BISONFLAGS) -o parse-scan.c \
+	    $(PARSE_RELDIR)/parse-scan.y
 
 lex.c: keyword.h lex.h
+
+lang.o: $(srcdir)/java-tree.def
 
 keyword.h: keyword.gperf
 	gperf -L KR-C -F ', 0' -p -t -j1 -i 1 -g -o -N java_keyword -k1,3,$$ \
 	keyword.gperf > keyword.h
+
+jcf-path.o : jcf-path.c $(CONFIG_H) $(srcdir)/../system.h jcf.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  -DLIBGCJ_ZIP_FILE='"$(libgcj_zip)"' $(srcdir)/jcf-path.c
 
 # These exist for maintenance purposes.
 
@@ -259,17 +270,22 @@ mostlyclean:
 	rm -f *.o
 
 clean:  mostlyclean
-	rm -f parse.c
 
 force:
 
-parse.o: $(PARSE_C) jcf-reader.c
-jcf-dump.o: jcf-reader.c jcf.h javaop.h javaop.def
-gjavah.o: jcf-reader.c jcf.h javaop.h
+parse.o : $(PARSE_C) jcf-reader.c $(CONFIG_H) $(srcdir)/../system.h
+jcf-dump.o : $(CONFIG_H) $(srcdir)/../system.h $(JAVA_TREE_H) jcf-dump.c \
+  jcf-reader.c jcf.h javaop.h javaop.def
+gjavah.o : $(CONFIG_H) $(srcdir)/../system.h gjavah.c \
+  jcf-reader.c jcf.h javaop.h
 buffer.o : buffer.c $(CONFIG_H) buffer.h $(srcdir)/../gansidecl.h \
   $(srcdir)/../system.h $(srcdir)/../toplev.h
-class.o : class.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) jcf.h \
-  $(srcdir)/../gansidecl.h $(srcdir)/../toplev.h $(srcdir)/../system.h
+check-init.o : check-init.c $(CONFIG_H) $(srcdir)/../gansidecl.h \
+  $(srcdir)/../../include/libiberty.h $(JAVA_TREE_H) \
+  $(srcdir)/../system.h $(srcdir)/../toplev.h
+class.o : class.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) jcf.h $(PARSE_H) \
+  $(srcdir)/../gansidecl.h $(srcdir)/../toplev.h $(srcdir)/../system.h \
+  $(srcdir)/../output.h
 constants.o : constants.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h \
   $(srcdir)/../toplev.h $(srcdir)/../system.h
 decl.o : decl.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h \
@@ -281,17 +297,25 @@ expr.o : expr.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(srcdir)/../real.h \
   $(RTL_H) $(EXPR_H) javaop.h java-opcodes.h $(srcdir)/../except.h \
   java-except.h java-except.h parse.h $(srcdir)/../toplev.h \
   $(srcdir)/../system.h
-jcf-io.o: jcf-io.c $(CONFIG_H) $(srcdir)/../system.h
+jcf-depend.o : jcf-depend.c $(CONFIG_H) $(srcdir)/../system.h jcf.h
+jcf-io.o : jcf-io.c $(CONFIG_H) $(srcdir)/../system.h $(JAVA_TREE_H)
 jcf-parse.o : jcf-parse.c $(CONFIG_H) $(JAVA_TREE_H) $(srcdir)/../flags.h \
-  $(srcdir)/../input.h java-except.h $(srcdir)/../system.h
+  $(srcdir)/../input.h java-except.h $(srcdir)/../system.h \
+  $(srcdir)/../toplev.h $(PARSE_H)
 jcf-write.o : jcf-write.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(RTL_H) \
-  java-opcodes.h parse.h buffer.h $(srcdir)/../system.h
+  java-opcodes.h parse.h buffer.h $(srcdir)/../system.h $(srcdir)/../toplev.h
+jv-scan.o : jv-scan.c $(CONFIG_H) $(srcdir)/../system.h
 jvgenmain.o : jvgenmain.c $(CONFIG_H) $(srcdir)/../system.h
 lang.o : lang.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h $(srcdir)/../input.h \
   $(srcdir)/../toplev.h $(srcdir)/../system.h
-mangle.o : mangle.c $(CONFIG_H) jcf.h $(srcdir)/../system.h
+mangle.o : mangle.c $(CONFIG_H) jcf.h $(JAVA_TREE_H) $(srcdir)/../system.h \
+  $(srcdir)/../toplev.h
+parse-scan.o : $(CONFIG_H) $(srcdir)/../system.h $(srcdir)/../toplev.h
 typeck.o : typeck.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h convert.h \
   $(srcdir)/../toplev.h $(srcdir)/../system.h
 verify.o : verify.c $(CONFIG_H) $(JAVA_TREE_H) jcf.h javaop.h java-opcodes.h \
   java-except.h $(srcdir)/../toplev.h $(srcdir)/../system.h
+xref.o : xref.h $(CONFIG_H) $(JAVA_TREE_H) $(srcdir)/../toplev.h \
+  $(srcdir)/../system.h
+zextract.o : zextract.c $(CONFIG_H) $(srcdir)/../system.h zipfile.h
 

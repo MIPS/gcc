@@ -1,5 +1,5 @@
 /* fix-header.c - Make C header file suitable for C++.
-   Copyright (C) 1993, 94-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94-98, 1999 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -72,13 +72,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hconfig.h"
 #include "system.h"
-#include "gansidecl.h"
 #include "obstack.h"
 #include "scan.h"
 #include "cpplib.h"
 #include "cpphash.h"
 
-void fatal PVPROTO ((const char *, ...)) ATTRIBUTE_PRINTF_1;
+static void v_fatal PROTO ((const char *, va_list)) ATTRIBUTE_NORETURN;
+void fatal PVPROTO ((const char *, ...)) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 
 sstring buf;
 
@@ -396,7 +396,7 @@ lookup_std_proto (name, name_length)
       if (hash_tab[i] == 0)
 	return NULL;
       fn = &std_protos[hash_tab[i]];
-      if (strlen (fn->fname) == name_length
+      if ((int) strlen (fn->fname) == name_length
 	  && strncmp (fn->fname, name, name_length) == 0)
 	return fn;
       i = (i+1) % HASH_SIZE;
@@ -632,7 +632,7 @@ read_scan_file (in_fname, argc, argv)
   obstack_init (&scan_file_obstack); 
 
   cpp_reader_init (&scan_in);
-  scan_in.data = &scan_options;
+  scan_in.opts = &scan_options;
   cpp_options_init (&scan_options);
   i = cpp_handle_options (&scan_in, argc, argv);
   if (i < argc && ! CPP_FATAL_ERRORS (&scan_in))
@@ -692,7 +692,7 @@ read_scan_file (in_fname, argc, argv)
 	  /* Append "_filbuf" and/or "_flsbuf" to the required functions.  */
 	  if (need_filbuf + need_flsbuf)
 	    {
-	      char *new_list;
+	      const char *new_list;
 	      if (need_filbuf)
 		SET_REQUIRED (fn);
 	      if (need_flsbuf)
@@ -869,15 +869,6 @@ write_rbrac ()
   if (missing_extern_C_count + required_unseen_count > 0)
     fprintf (outf, "#ifdef __cplusplus\n}\n#endif\n");
 #endif
-}
-
-char *
-xstrdup (str)
-     char *str;
-{
-  char *copy = (char *) xmalloc (strlen (str) + 1);
-  strcpy (copy, str);
-  return copy;
 }
 
 /* Returns 1 iff the file is properly protected from multiple inclusion:
@@ -1320,71 +1311,6 @@ main (argc, argv)
   return 0;
 }
 
-/* Stub error functions.  These replace cpperror.c,
-   because we want to suppress error messages.  */
-
-void
-cpp_file_line_for_message (pfile, filename, line, column)
-     cpp_reader * pfile;
-     char *filename;
-     int line, column;
-{
-  if (!verbose)
-    return;
-  if (column > 0)
-    fprintf (stderr, "%s:%d:%d: ", filename, line, column);
-  else
-    fprintf (stderr, "%s:%d: ", filename, line);
-}
-
-void
-cpp_print_containing_files (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-{
-}
-
-/* IS_ERROR is 2 for fatal error, 1 for error, 0 for warning */
-
-void
-v_cpp_message (pfile, is_error, msg, ap)
-     cpp_reader *pfile;
-     int is_error;
-     const char *msg;
-     va_list ap;
-{
-  if (is_error == 1)
-    pfile->errors++;
-  else if (is_error > 1)
-    pfile->errors = CPP_FATAL_LIMIT;
-  if (!verbose)
-    return;
-  if (!is_error)
-    fprintf (stderr, "warning: ");
-  vfprintf (stderr, msg, ap);
-  fprintf (stderr, "\n");
-}
-
-void
-cpp_message VPROTO ((cpp_reader *pfile, int is_error, const char *msg, ...))
-{
-#ifndef __STDC__
-  cpp_reader *pfile;
-  int is_error;
-  const char *msg;
-#endif
-  va_list ap;
-  
-  VA_START (ap, msg);
-  
-#ifndef __STDC__
-  pfile = va_arg (ap, cpp_reader *);
-  is_error = va_arg (ap, const int);
-  msg = va_arg (ap, const char *);
-#endif
-
-  v_cpp_message(pfile, is_error, msg, ap);
-  va_end(ap);
-}
 
 static void
 v_fatal (str, ap)
@@ -1401,46 +1327,17 @@ v_fatal (str, ap)
 void
 fatal VPROTO ((const char *str, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   const char *str;
 #endif
   va_list ap;
   
   VA_START(ap, str);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   str = va_arg (ap, const char *);
 #endif
 
   v_fatal(str, ap);
   va_end(ap);
-}
-
-void
-cpp_fatal VPROTO ((cpp_reader * pfile, const char *str, ...))
-{
-#ifndef __STDC__
-  cpp_reader * pfile;
-  const char *str;
-#endif
-  va_list ap;
-  
-  VA_START(ap, str);
-
-#ifndef __STDC__
-  pfile = va_arg (ap, cpp_reader *);
-  str = va_arg (ap, const char *);
-#endif
-
-  v_fatal(str, ap);
-  va_end(ap);
-}
-
-void
-cpp_pfatal_with_name (pfile, name)
-     cpp_reader *pfile;
-     const char *name;
-{
-  cpp_perror_with_name (pfile, name);
-  exit (FATAL_EXIT_CODE);
 }

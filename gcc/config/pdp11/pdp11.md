@@ -16,7 +16,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU CC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+;; the Free Software Foundation, 59 Temple Place - Suite 330,
+;; Boston, MA 02111-1307, USA.
 
 
 ;; HI is 16 bit
@@ -778,7 +779,7 @@
 
 (define_insn "extendsfdf2"
   [(set (match_operand:DF 0 "register_operand" "=a,a,a")
-	(float_extend:SF (match_operand:SF 1 "general_operand" "r,R,Q")))]
+	(float_extend:DF (match_operand:SF 1 "general_operand" "r,R,Q")))]
   "TARGET_FPU"
   "@
    mov %1, -(sp)\;ldcfd (sp)+,%0
@@ -1432,7 +1433,7 @@
   [(set (match_operand:HI 0 "general_operand" "=r")
 	(ashift:HI (match_operand:HI 1 "general_operand" "0")
 		   (match_operand:HI 2 "expand_shift_operand" "O")))]
-  "TARGET_TIME"
+  "! optimize_size"
   "*
 {
   register int i;

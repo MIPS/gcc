@@ -1,6 +1,6 @@
 /* Handle verification of bytecoded methods for the GNU compiler for 
    the Java(TM) language.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,6 +33,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "toplev.h"
 
+static void push_pending_label PROTO ((tree));
+static tree merge_types PROTO ((tree, tree));
+
 extern int stack_pointer;
 
 /* During verification, start of the current subroutine (jsr target). */
@@ -45,7 +48,7 @@ tree pending_blocks;
 
 /* Append TARGET_LABEL to the pending_block stack unless already in it. */
 
-void
+static void
 push_pending_label (target_label) 
      tree target_label;
 {
@@ -61,7 +64,7 @@ push_pending_label (target_label)
    Merge the type state etc.
    Return NULL on sucess, or an error message on failure. */
 
-static char *
+static const char *
 check_pending_block (target_label)
      tree target_label;
 {
@@ -102,7 +105,7 @@ check_pending_block (target_label)
    For reference types, return the common super-class.
    Return TYPE_UNKNOWN if the types cannot be merged. */   
 
-tree
+static tree
 merge_types (type1, type2)
      tree type1, type2;
 {
@@ -150,6 +153,32 @@ merge_types (type1, type2)
 	    }
 	  return object_ptr_type_node;
 	}
+
+      if (CLASS_INTERFACE (TYPE_NAME (tt1)))
+	{
+	  if (CLASS_INTERFACE (TYPE_NAME (tt2)))
+	    {
+	      /* This is a kludge, but matches what Sun's verifier does.
+		 It can be tricked, but is safe as long as type errors
+		 (i.e. interface method calls) are caught at run-time. */
+	      return object_ptr_type_node;
+	    }
+	  else
+	    {
+	      if (can_widen_reference_to (tt2, tt1))
+		return type1;
+	      else
+		return TYPE_UNKNOWN;
+	    }
+	}
+      else if (CLASS_INTERFACE (TYPE_NAME (tt2)))
+	{
+	  if (can_widen_reference_to (tt1, tt2))
+	    return type2;
+	  else
+	    return TYPE_UNKNOWN;
+	}
+
       type1 = tt1;
       type2 = tt2;
 
@@ -306,7 +335,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
   int PC;
   int oldpc; /* PC of start of instruction. */
   int prevpc;  /* If >= 0, PC of previous instruction. */
-  char *message;
+  const char *message;
   int i;
   register unsigned char *p;
   struct eh_range *prev_eh_ranges = NULL_EH_RANGE;
@@ -698,7 +727,6 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	    int index = IMMEDIATE_u2;
 	    tree self_type = get_class_constant
 	      (jcf, COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool, index));
-	    tree field_name = COMPONENT_REF_NAME (&current_jcf->cpool, index);
 	    tree field_signature = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, index);
 	    tree field_type = get_type_from_signature (field_signature);
 	    if (is_putting)
@@ -761,7 +789,6 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		break;
 	      /* ... else fall through ... */
 	    default:
-	    bad_ldc:
 	      VERIFICATION_ERROR ("bad constant pool tag in ldc");
 	    }
 	  if (type == int_type_node)
@@ -856,10 +883,12 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	case OPCODE_saload: type = promote_type (short_type_node); goto aload;
         aload:
 	  pop_type (int_type_node);
-	  type = pop_type (ptr_type_node);
-	  if (! is_array_type_p (type))
+	  tmp = pop_type (ptr_type_node);
+	  if (is_array_type_p (tmp))
+	    type = TYPE_ARRAY_ELEMENT (TREE_TYPE (tmp));
+	  else if (tmp != TYPE_NULL)
 	    VERIFICATION_ERROR ("array load from non-array type");
-	  push_type (TYPE_ARRAY_ELEMENT (TREE_TYPE (type)));
+	  push_type (type);
 	  break;
 
 	case OPCODE_anewarray:
@@ -930,14 +959,14 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	case OPCODE_instanceof:
 	  pop_type (ptr_type_node);
 	  get_class_constant (current_jcf, IMMEDIATE_u2);
-	  push_type (integer_type_node);
+	  push_type (int_type_node);
 	  break;
 
 	case OPCODE_tableswitch:
 	  {
-	    jint default_val, low, high;
+	    jint low, high;
 
-	    pop_type (integer_type_node);
+	    pop_type (int_type_node);
 	    while (PC%4)
 	      {
 	        if (byte_ops[PC++])
@@ -952,6 +981,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 
 	    while (low++ <= high)
 	      PUSH_PENDING (lookup_label (oldpc + IMMEDIATE_s4));
+	    INVALIDATE_PC;
 	    break;
 	  }
 
@@ -959,7 +989,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  {
 	    jint npairs, last, not_registered = 1;
 
-	    pop_type (integer_type_node);
+	    pop_type (int_type_node);
 	    while (PC%4)
 	      {
 	        if (byte_ops[PC++])
@@ -983,6 +1013,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		last = match;
 		PUSH_PENDING (lookup_label (oldpc + IMMEDIATE_s4));
 	      }
+	    INVALIDATE_PC;
 	    break;
 	  }
 
@@ -1009,10 +1040,10 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		int nlocals = DECL_MAX_LOCALS (current_function_decl);
 		index = nlocals + DECL_MAX_STACK (current_function_decl);
 		return_type_map = make_tree_vec (index);
-		while (--index >= nlocals)
-		  TREE_VEC_ELT (return_type_map, index) = TYPE_UNKNOWN;
-		while (--index >= 0)
-		  TREE_VEC_ELT (return_type_map, index) = TYPE_UNUSED;
+		while (index > nlocals)
+		  TREE_VEC_ELT (return_type_map, --index) = TYPE_UNKNOWN;
+		while (index > 0)
+		  TREE_VEC_ELT (return_type_map, --index) = TYPE_UNUSED;
 		LABEL_RETURN_LABEL (target)
 		  = build_decl (LABEL_DECL, NULL_TREE, TREE_TYPE (target));
 		LABEL_PC (LABEL_RETURN_LABEL (target)) = -1;

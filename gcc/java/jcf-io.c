@@ -1,5 +1,5 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996  Free Software Foundation, Inc.
+   Copyright (C) 1996, 97-98, 1999  Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,18 +25,14 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 
-#define ENABLE_UNZIP 1
-
 #include "jcf.h"
-#include <sys/stat.h>
-#include <sys/wait.h>
+#include "tree.h"
+#include "java-tree.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
 #define O_BINARY 0 /* MS-DOS brain-damage */
 #endif
-
-char *classpath;
 
 int
 DEFUN(jcf_unexpected_eof, (jcf, count),
@@ -83,66 +79,86 @@ DEFUN(jcf_filbuf_from_stdio, (jcf, count),
   count -= jcf->read_end - jcf->read_ptr;
   if (count <= 0)
     return 0;
-  if (fread (jcf->read_end, 1, count, file) != count)
+  if ((int) fread (jcf->read_end, 1, count, file) != count)
     jcf_unexpected_eof (jcf, count);
   jcf->read_end += count;
   return 0;
 }
 
-#if ENABLE_UNZIP
 #include "zipfile.h"
 
 struct ZipFileCache *SeenZipFiles = NULL;
 
-int
-DEFUN(open_in_zip, (jcf, 
-zipfile, zipmember),
-      JCF *jcf AND const char *zipfile AND const char *zipmember)
+/* Open a zip file with the given name, and cache directory and file
+   descriptor.  If the file is missing, treat it as an empty archive.
+   Return NULL if the .zip file is malformed.
+*/
+
+ZipFile *
+DEFUN(opendir_in_zip, (zipfile, is_system),
+      const char *zipfile AND int is_system)
 {
   struct ZipFileCache* zipf;
+  char magic [4];
+  int fd;
+  for (zipf = SeenZipFiles;  zipf != NULL;  zipf = zipf->next)
+    {
+      if (strcmp (zipf->name, zipfile) == 0)
+	return &zipf->z;
+    }
+
+  zipf = ALLOC (sizeof (struct ZipFileCache) + strlen (zipfile) + 1);
+  zipf->next = SeenZipFiles;
+  zipf->name = (char*)(zipf+1);
+  strcpy (zipf->name, zipfile);
+  SeenZipFiles = zipf;
+  fd = open (zipfile, O_RDONLY | O_BINARY);
+  zipf->z.fd = fd;
+  if (fd < 0)
+    {
+      /* A missing zip file is not considered an error.
+       We may want to re-consider that.  FIXME. */
+      zipf->z.count = 0;
+      zipf->z.dir_size = 0;
+      zipf->z.central_directory = NULL;
+    }
+  else
+    {
+      jcf_dependency_add_file (zipfile, is_system);
+      if (read (fd, magic, 4) != 4 || GET_u4 (magic) != (JCF_u4)ZIPMAGIC)
+	return NULL;
+      lseek (fd, 0L, SEEK_SET);
+      if (read_zip_archive (&zipf->z) != 0)
+	return NULL;
+    }
+  return &zipf->z;
+}
+
+/* Returns:
+   0:  OK - zipmember found.
+   -1: Not found.
+   -2: Malformed archive.
+*/
+
+int
+DEFUN(open_in_zip, (jcf, zipfile, zipmember, is_system),
+      JCF *jcf AND const char *zipfile AND const char *zipmember
+      AND int is_system)
+{
   ZipDirectory *zipd;
   int i, len;
-  for (zipf = SeenZipFiles; ; zipf = zipf->next)
-    {
-      if (zipf == NULL)
-	{
-	  char magic [4];
-	  int fd = open (zipfile, O_RDONLY | O_BINARY);
-	  if (read (fd, magic, 4) != 4 || GET_u4 (magic) != (JCF_u4)ZIPMAGIC)
-	    return -1;
-	  lseek (fd, 0L, SEEK_SET);
-	  zipf = ALLOC (sizeof (struct ZipFileCache) + strlen (zipfile) + 1);
-	  zipf->next = SeenZipFiles;
-	  zipf->name = (char*)(zipf+1);
-	  strcpy (zipf->name, zipfile);
-	  SeenZipFiles = zipf;
-	  zipf->z.fd = fd;
-	  if (fd == -1)
-	    {
-	      /* A missing zip file is not considered an error. */
-	      zipf->z.count = 0;
-	      zipf->z.dir_size = 0;
-	      zipf->z.central_directory = NULL;
-	      return -1;
-	    }
-	  else
-	    {
-	      if (read_zip_archive (&zipf->z) != 0)
-		return -2; /* This however should be an error - FIXME */
-	    }
-	  break;
-	}
-      if (strcmp (zipf->name, zipfile) == 0)
-	break;
-    }
+  ZipFile *zipf = opendir_in_zip (zipfile, is_system);
+
+  if (zipf == NULL)
+    return -2;
 
   if (!zipmember)
     return 0;
 
   len = strlen (zipmember);
   
-  zipd = (struct ZipDirectory*) zipf->z.central_directory;
-  for (i = 0; i < zipf->z.count; i++, zipd = ZIPDIR_NEXT (zipd))
+  zipd = (struct ZipDirectory*) zipf->central_directory;
+  for (i = 0; i < zipf->count; i++, zipd = ZIPDIR_NEXT (zipd))
     {
       if (len == zipd->filename_length &&
 	  strncmp (ZIPDIR_FILENAME (zipd), zipmember, len) == 0)
@@ -156,23 +172,24 @@ zipfile, zipmember),
 	  jcf->filename = strdup (zipfile);
 	  jcf->classname = strdup (zipmember);
 	  jcf->zipd = (void *)zipd;
-	  if (lseek (zipf->z.fd, zipd->filestart, 0) < 0
-	      || read (zipf->z.fd, jcf->buffer, zipd->size) != zipd->size)
+	  if (lseek (zipf->fd, zipd->filestart, 0) < 0
+	      || read (zipf->fd, jcf->buffer, zipd->size) != zipd->size)
 	    return -2;
 	  return 0;
 	}
     }
   return -1;
 }
-#endif /* ENABLE_UNZIP */
 
 #if JCF_USE_STDIO
 char*
-DEFUN(open_class, (filename, jcf, stream),
-      char *filename AND JCF *jcf AND FILE* stream)
+DEFUN(open_class, (filename, jcf, stream, dep_name),
+      char *filename AND JCF *jcf AND FILE* stream AND const char *dep_name)
 {
   if (jcf)
     {
+      if (dep_name != NULL)
+	jcf_dependency_add_file (dep_name, 0);
       JCF_ZERO (jcf);
       jcf->buffer = NULL;
       jcf->buffer_end = NULL;
@@ -187,8 +204,8 @@ DEFUN(open_class, (filename, jcf, stream),
 }
 #else
 char*
-DEFUN(open_class, (filename, jcf, fd),
-      char *filename AND JCF *jcf AND int fd)
+DEFUN(open_class, (filename, jcf, fd, dep_name),
+      char *filename AND JCF *jcf AND int fd AND const char *dep_name)
 {
   if (jcf)
     {
@@ -199,6 +216,8 @@ DEFUN(open_class, (filename, jcf, fd),
 	  perror ("Could not figure length of .class file");
 	  return NULL;
 	}
+      if (dep_name != NULL)
+	jcf_dependency_add_file (dep_name, 0);
       JCF_ZERO (jcf);
       jcf->buffer = ALLOC (stat_buf.st_size);
       jcf->buffer_end = jcf->buffer + stat_buf.st_size;
@@ -222,32 +241,30 @@ DEFUN(open_class, (filename, jcf, fd),
 
 
 char *
-DEFUN(find_classfile, (filename, jcf),
-      char *filename AND JCF *jcf)
+DEFUN(find_classfile, (filename, jcf, dep_name),
+      char *filename AND JCF *jcf AND const char *dep_name)
 {
 #if JCF_USE_STDIO
   FILE *stream = fopen (filename, "rb");
   if (stream == NULL)
     return NULL;
-  return open_class (arg, jcf, stream);
+  return open_class (arg, jcf, stream, dep_name);
 #else
   int fd = open (filename, O_RDONLY | O_BINARY);
   if (fd < 0)
     return NULL;
-  return open_class (filename, jcf, fd);
+  return open_class (filename, jcf, fd, dep_name);
 #endif
 }
 
 /* Returns a freshly malloc'd string with the fully qualified pathname
    of the .class file for the class CLASSNAME.  Returns NULL on
-   failure.  If JCF != NULL, it is suitably initialized.  With
-   DO_CLASS_FILE set to 1, search a .class/.java file named after
-   CLASSNAME, otherwise, search a ZIP directory entry named after
-   CLASSNAME.  */
+   failure.  If JCF != NULL, it is suitably initialized.
+   SOURCE_OK is true if we should also look for .java file. */
 
 char *
-DEFUN(find_class, (classname, classname_length, jcf, do_class_file),
-      const char *classname AND int classname_length AND JCF *jcf AND int do_class_file)
+DEFUN(find_class, (classname, classname_length, jcf, source_ok),
+      const char *classname AND int classname_length AND JCF *jcf AND int source_ok)
 
 {
 #if JCF_USE_STDIO
@@ -255,62 +272,61 @@ DEFUN(find_class, (classname, classname_length, jcf, do_class_file),
 #else
   int fd;
 #endif
-  int i, j, k, java, class;
+  int i, k, java = -1, class = -1;
   struct stat java_buf, class_buf;
+  char *dep_file;
+  void *entry;
+  char *java_buffer;
 
   /* Allocate and zero out the buffer, since we don't explicitly put a
      null pointer when we're copying it below.  */
-  int buflen = strlen (classpath) + classname_length + 10;
+  int buflen = jcf_path_max_len () + classname_length + 10;
   char *buffer = (char *) ALLOC (buflen);
   bzero (buffer, buflen);
 
+  java_buffer = (char *) alloca (buflen);
+
   jcf->java_source = jcf->outofsynch = 0;
-  for (j = 0; classpath[j] != '\0'; )
+
+  for (entry = jcf_path_start (); entry != NULL; entry = jcf_path_next (entry))
     {
-      for (i = 0; classpath[j] != ':' && classpath[j] != '\0'; i++, j++)
-	buffer[i] = classpath[j];
-      if (classpath[j] == ':')
-	j++;
-      if (i > 0)  /* Empty directory is redundant */
+      char *path_name = jcf_path_name (entry);
+      if (class != 0)
 	{
 	  int dir_len;
-	  if (buffer[i-1] != '/')
-	    buffer[i++] = '/';
-	  dir_len = i-1;
+
+	  strcpy (buffer, path_name);
+	  i = strlen (buffer);
+
+	  /* This is right because we know that `.zip' entries will have a
+	     trailing slash.  See jcf-path.c.  */
+	  dir_len = i - 1;
+
 	  for (k = 0; k < classname_length; k++, i++)
 	    {
 	      char ch = classname[k];
 	      buffer[i] = ch == '.' ? '/' : ch;
 	    }
-	  if (do_class_file)
-	    strcpy (buffer+i, ".class");
-#if ENABLE_UNZIP
-	  if (dir_len > 4
-	      && buffer[dir_len-4] == '.' && buffer[dir_len-3] == 'z'
-	      && buffer[dir_len-2] == 'i' && buffer[dir_len-1] == 'p')
+	  strcpy (buffer+i, ".class");
+
+	  if (jcf_path_is_zipfile (entry))
 	    {
 	      int err_code;
 	      JCF _jcf;
-	      if (!do_class_file)
-		strcpy (buffer+i, "/");
 	      buffer[dir_len] = '\0';
-	      if (do_class_file)
-		SOURCE_FRONTEND_DEBUG 
-		  (("Trying [...%s]:%s", 
-		    &buffer[dir_len-(dir_len > 15 ? 15 : dir_len)], 
-		    buffer+dir_len+1));
+	      SOURCE_FRONTEND_DEBUG 
+		(("Trying [...%s]:%s", 
+		  &buffer[dir_len-(dir_len > 15 ? 15 : dir_len)], 
+		  buffer+dir_len+1));
 	      if (jcf == NULL)
 		jcf = &_jcf;
-	      err_code = open_in_zip (jcf, buffer, buffer+dir_len+1);
+	      err_code = open_in_zip (jcf, buffer, buffer+dir_len+1,
+				      jcf_path_is_system (entry));
 	      if (err_code == 0)
 		{
-		  if (!do_class_file)
-		    jcf->seen_in_zip = 1;
-		  else
-		    {
-		      buffer[dir_len] = '(';
-		      strcpy (buffer+i, ".class)");
-		    }
+		  /* Should we check if .zip is out-of-date wrt .java? */
+		  buffer[dir_len] = '(';
+		  strcpy (buffer+i, ".class)");
 		  if (jcf == &_jcf)
 		    JCF_FINISH (jcf);
 		  return buffer;
@@ -318,72 +334,73 @@ DEFUN(find_class, (classname, classname_length, jcf, do_class_file),
 	      else
 		continue;
 	    }
-#endif
-	  /* If we do directories, do them here */
-	  if (!do_class_file)
-	    {
-	      struct stat dir_buff;
-	      int dir;
-	      buffer[i] = '\0';	/* Was previously unterminated here. */
-	      if (!(dir = stat (buffer, &dir_buff)))
-		{
-		  jcf->seen_in_zip = 0;
-		  goto found;
-		}
-	    }
-	  
-	  /* Check for out of synch .class/.java files */
 	  class = stat (buffer, &class_buf);
-	  strcpy (buffer+i, ".java");
-	  java = stat (buffer, &java_buf);
-	  if ((!java && !class) && java_buf.st_mtime >= class_buf.st_mtime)
-	    jcf->outofsynch = 1;
-#if JCF_USE_STDIO
-	  if (!class)
-	    {
-	      strcpy (buffer+i, ".class");
-	      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
-	      stream = fopen (buffer, "rb");
-	      if (stream)
-		goto found;
-	    }
-	  /* Give .java a try, if necessary */
-	  if (!java)
-	    {
-	      strcpy (buffer+i, ".java");
-	      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
-	      stream = fopen (buffer, "r");
-	      if (stream)
-		{
-		  jcf->java_source = 1;
-		  goto found;
-		}
-	    }
-#else
-	  if (!class)
-	    {
-	      strcpy (buffer+i, ".class");
-	      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
-	      fd = open (buffer, O_RDONLY | O_BINARY);
-	      if (fd >= 0)
-		goto found;
-	    }
-	  /* Give .java a try, if necessary */
-	  if (!java)
-	    {
-	      if (do_class_file)
-		strcpy (buffer+i, ".java");
-	      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
-	      fd = open (buffer, O_RDONLY | O_BINARY);
-	      if (fd >= 0)
-		{
-		  jcf->java_source = 1;
-		  goto found;
-		}
-	    }
-#endif
+	}
+
+      if (source_ok)
+	{
+	  /* Compute name of .java file.  */
+	  int l, m;
+	  strcpy (java_buffer, path_name);
+	  l = strlen (java_buffer);
+	  for (m = 0; m < classname_length; ++m)
+	    java_buffer[m + l] = (classname[m] == '.' ? '/' : classname[m]);
+	  strcpy (java_buffer + m + l, ".java");
+	  java = stat (java_buffer, &java_buf);
+	  if (java == 0)
+	    break;
 	}
     }
+
+  if (! java && ! class && java_buf.st_mtime >= class_buf.st_mtime)
+    jcf->outofsynch = 1;
+
+  if (! java)
+    dep_file = java_buffer;
+  else
+    dep_file = buffer;
+#if JCF_USE_STDIO
+  if (!class)
+    {
+      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
+      stream = fopen (buffer, "rb");
+      if (stream)
+	goto found;
+    }
+  /* Give .java a try, if necessary */
+  if (!java)
+    {
+      strcpy (buffer, java_buffer);
+      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
+      stream = fopen (buffer, "r");
+      if (stream)
+	{
+	  jcf->java_source = 1;
+	  goto found;
+	}
+    }
+#else
+  if (!class)
+    {
+      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
+      fd = open (buffer, O_RDONLY | O_BINARY);
+      if (fd >= 0)
+	goto found;
+    }
+  /* Give .java a try, if necessary */
+  if (!java)
+    {
+      strcpy (buffer, java_buffer);
+      SOURCE_FRONTEND_DEBUG (("Trying %s", buffer));
+      fd = open (buffer, O_RDONLY);
+      if (fd >= 0)
+	{
+	  jcf->java_source = 1;
+	  goto found;
+	}
+    }
+#endif
+
   free (buffer);
   return NULL;
  found:
@@ -391,7 +408,7 @@ DEFUN(find_class, (classname, classname_length, jcf, do_class_file),
   if (jcf->java_source)
     return NULL;		/* FIXME */
   else
-    return open_class (buffer, jcf, stream);
+    return open_class (buffer, jcf, stream, dep_file);
 #else
   if (jcf->java_source)
     {
@@ -400,8 +417,8 @@ DEFUN(find_class, (classname, classname_length, jcf, do_class_file),
       jcf->filename = (char *) strdup (buffer);
       close (fd);		/* We use STDIO for source file */
     }
-  else if (do_class_file)
-    buffer = open_class (buffer, jcf, fd);
+  else
+    buffer = open_class (buffer, jcf, fd, dep_file);
   jcf->classname = (char *) ALLOC (classname_length + 1);
   strncpy (jcf->classname, classname, classname_length + 1);
   jcf->classname = (char *) strdup (classname);
@@ -443,9 +460,9 @@ DEFUN(jcf_print_char, (stream, ch),
 
 void
 DEFUN(jcf_print_utf8, (stream, str, length),
-      FILE *stream AND register unsigned char *str AND int length)
+      FILE *stream AND register const unsigned char *str AND int length)
 {
-  unsigned char* limit = str + length;
+  const unsigned char * limit = str + length;
   while (str < limit)
     {
       int ch = UTF8_GET (str, limit);
@@ -462,7 +479,7 @@ DEFUN(jcf_print_utf8, (stream, str, length),
 
 void
 DEFUN(jcf_print_utf8_replace, (stream, str, length, in_char, out_char),
-      FILE *stream AND unsigned char *str AND int length
+      FILE *stream AND const unsigned char *str AND int length
       AND int in_char AND int out_char)
 {
 

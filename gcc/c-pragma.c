@@ -191,30 +191,6 @@ insert_pack_attributes (node, attributes, prefix)
 }
 #endif /* HANDLE_PRAGMA_PACK_PUSH_POP */
 
-#ifdef HANDLE_PRAGMA_WEAK
-static int add_weak PROTO((char *, char *));
-
-static int
-add_weak (name, value)
-     char * name;
-     char * value;
-{
-  struct weak_syms * weak;
-
-  weak = (struct weak_syms *) permalloc (sizeof (struct weak_syms));
-
-  if (weak == NULL)
-    return 0;
-  
-  weak->next  = weak_decls;
-  weak->name  = name;
-  weak->value = value;
-  weak_decls  = weak;
-
-  return 1;
-}
-#endif /* HANDLE_PRAGMA_WEAK */
-
 /* Handle one token of a pragma directive.  TOKEN is the current token, and
    STRING is its printable form.  Some front ends do not support generating
    tokens, and will only pass in a STRING.  Also some front ends will reuse
@@ -230,7 +206,7 @@ add_weak (name, value)
 
 int
 handle_pragma_token (string, token)
-     char * string;
+     const char * string;
      tree token;
 {
   static enum pragma_state state = ps_start;
@@ -383,7 +359,11 @@ handle_pragma_token (string, token)
       break;
 
     case ps_left:
-      align = atoi (string);
+
+      if (token && TREE_CODE(token) == INTEGER_CST) 
+	align = TREE_INT_CST_LOW(token);
+      else
+	align = atoi (string);
       switch (align)
 	{
 	case 1:

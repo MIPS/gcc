@@ -17,8 +17,9 @@ void foo (B*);
 
 int newed, created;
 
-main ()
+int main ()
 {
+  newed = 0; // The libraries might call new before main starts.
   try {
     foo (new B (A ()));
   } catch (...) { }

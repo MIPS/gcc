@@ -1,5 +1,5 @@
 /* CPP main program, using CPP Library.
-   Copyright (C) 1995, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 1999 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -23,7 +23,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef EMACS
 #include "config.h"
 #include "system.h"
-#include "gansidecl.h"
 #else
 #include <stdio.h>
 
@@ -31,6 +30,7 @@ extern char *getenv ();
 #endif /* not EMACS */
 
 #include "cpplib.h"
+#include "intl.h"
 
 char *progname;
 
@@ -69,8 +69,14 @@ main (argc, argv)
   while (p != argv[0] && p[-1] != '/') --p;
   progname = p;
 
+#ifdef HAVE_LC_MESSAGES
+  setlocale (LC_MESSAGES, "");
+#endif
+  (void) bindtextdomain (PACKAGE, localedir);
+  (void) textdomain (PACKAGE);
+
   cpp_reader_init (&parse_in);
-  parse_in.data = opts;
+  parse_in.opts = opts;
 
   cpp_options_init (opts);
   

@@ -1,5 +1,5 @@
 /* Emit RTL for the GNU C-Compiler expander.
-   Copyright (C) 1987, 88, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-97, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -83,19 +83,27 @@ static int no_line_numbers;
    All of these except perhaps the floating-point CONST_DOUBLEs
    are unique; no other rtx-object will be equal to any of these.  */
 
+/* Avoid warnings by initializing the `fld' field.  Since its a union,
+   bypass problems with KNR compilers by only doing so when __GNUC__. */
+#ifdef __GNUC__
+#define FLDI , {{0}}
+#else
+#define FLDI
+#endif
+
 struct _global_rtl global_rtl =
 {
-  {PC, VOIDmode},			/* pc_rtx */
-  {CC0, VOIDmode},			/* cc0_rtx */
-  {REG},				/* stack_pointer_rtx */
-  {REG},				/* frame_pointer_rtx */
-  {REG},				/* hard_frame_pointer_rtx */
-  {REG},				/* arg_pointer_rtx */
-  {REG},				/* virtual_incoming_args_rtx */
-  {REG},				/* virtual_stack_vars_rtx */
-  {REG},				/* virtual_stack_dynamic_rtx */
-  {REG},				/* virtual_outgoing_args_rtx */
-  {REG},				/* virtual_cfa_rtx */
+  {PC, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI },  /* pc_rtx */
+  {CC0, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* cc0_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* stack_pointer_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* frame_pointer_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* hard_frame_pointer_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* arg_pointer_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* virtual_incoming_args_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* virtual_stack_vars_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* virtual_stack_dynamic_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* virtual_outgoing_args_rtx */
+  {REG, VOIDmode, 0, 0, 0, 0, 0, 0, 0, 0 FLDI }, /* virtual_cfa_rtx */
 };
 
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
@@ -277,7 +285,7 @@ gen_rtx_MEM (mode, addr)
 rtx
 gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   enum rtx_code code;
   enum machine_mode mode;
 #endif
@@ -288,7 +296,7 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 
   VA_START (p, mode);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   code = va_arg (p, enum rtx_code);
   mode = va_arg (p, enum machine_mode);
 #endif
@@ -367,7 +375,7 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 rtvec
 gen_rtvec VPROTO((int n, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   int n;
 #endif
   int i;
@@ -376,7 +384,7 @@ gen_rtvec VPROTO((int n, ...))
 
   VA_START (p, n);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   n = va_arg (p, int);
 #endif
 
@@ -439,11 +447,9 @@ gen_reg_rtx (mode)
 {
   register rtx val;
 
-  /* Don't let anything called by or after reload create new registers
-     (actually, registers can't be created after flow, but this is a good
-     approximation).  */
-
-  if (reload_in_progress || reload_completed)
+  /* Don't let anything called after initial flow analysis create new
+     registers.  */
+  if (no_new_pseudos)
     abort ();
 
   if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
@@ -713,9 +719,6 @@ gen_lowpart_common (mode, x)
 
       i = INTVAL (x);
       r = REAL_VALUE_FROM_TARGET_SINGLE (i);
-      /* Avoid changing the bit pattern of a NaN.  */
-      if (REAL_VALUE_ISNAN (r))
-	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else
@@ -754,8 +757,6 @@ gen_lowpart_common (mode, x)
 	i[0] = low, i[1] = high;
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
-      if (REAL_VALUE_ISNAN (r))
-	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else
@@ -879,7 +880,7 @@ subreg_realpart_p (x)
   if (GET_CODE (x) != SUBREG)
     abort ();
 
-  return SUBREG_WORD (x) == 0;
+  return SUBREG_WORD (x) * UNITS_PER_WORD < GET_MODE_UNIT_SIZE (GET_MODE (SUBREG_REG (x)));
 }
 
 /* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a value,
@@ -1073,11 +1074,15 @@ operand_subword (op, i, validate_address, mode)
   if (mode == VOIDmode)
     abort ();
 
-  /* If OP is narrower than a word or if we want a word outside OP, fail.  */
+  /* If OP is narrower than a word, fail. */
   if (mode != BLKmode
-      && (GET_MODE_SIZE (mode) < UNITS_PER_WORD
-	  || (i + 1) * UNITS_PER_WORD > GET_MODE_SIZE (mode)))
+      && (GET_MODE_SIZE (mode) < UNITS_PER_WORD))
     return 0;
+
+  /* If we want a word outside OP, return zero. */
+  if (mode != BLKmode
+      && (i + 1) * UNITS_PER_WORD > GET_MODE_SIZE (mode))
+    return const0_rtx;
 
   /* If OP is already an integer word, return it.  */
   if (GET_MODE_CLASS (mode) == MODE_INT
@@ -1136,8 +1141,7 @@ operand_subword (op, i, validate_address, mode)
 
       new = gen_rtx_MEM (word_mode, addr);
 
-      MEM_VOLATILE_P (new) = MEM_VOLATILE_P (op);
-      MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (op);
+      MEM_COPY_ATTRIBUTES (new, op);
       RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (op);
 
       return new;
@@ -1236,6 +1240,18 @@ operand_subword (op, i, validate_address, mode)
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+
+      /* If 32 bits is an entire word for the target, but not for the host,
+	 then sign-extend on the host so that the number will look the same
+	 way on the host that it would on the target.  See for instance
+	 simplify_unary_operation.  The #if is needed to avoid compiler
+	 warnings.  */
+
+#if HOST_BITS_PER_LONG > 32
+      if (BITS_PER_WORD < HOST_BITS_PER_LONG && BITS_PER_WORD == 32
+	  && (l & ((long) 1 << 31)))
+	l |= ((long) (-1) << 32);
+#endif
 
       if (BITS_PER_WORD == 16)
 	{
@@ -1436,9 +1452,8 @@ change_address (memref, mode, addr)
     return memref;
 
   new = gen_rtx_MEM (mode, addr);
-  MEM_VOLATILE_P (new) = MEM_VOLATILE_P (memref);
   RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (memref);
-  MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (memref);
+  MEM_COPY_ATTRIBUTES (new, memref);
   return new;
 }
 
@@ -2142,7 +2157,8 @@ try_split (pat, trial, last)
 	     Ignore deleted insns, which can be occur if not optimizing.  */
 	  for (tem = NEXT_INSN (before); tem != after;
 	       tem = NEXT_INSN (tem))
-	    if (! INSN_DELETED_P (tem))
+	    if (! INSN_DELETED_P (tem)
+		&& GET_RTX_CLASS (GET_CODE (tem)) == 'i')
 	      tem = try_split (PATTERN (tem), tem, 1);
 	}
       /* Avoid infinite loop if the result matches the original pattern.  */
@@ -2338,6 +2354,64 @@ add_insn_before (insn, before)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
 }
 
+/* Remove an insn from its doubly-linked list.  This function knows how
+   to handle sequences.  */
+void
+remove_insn (insn)
+     rtx insn;
+{
+  rtx next = NEXT_INSN (insn);
+  rtx prev = PREV_INSN (insn);
+  if (prev)
+    {
+      NEXT_INSN (prev) = next;
+      if (GET_CODE (prev) == INSN && GET_CODE (PATTERN (prev)) == SEQUENCE)
+	{
+	  rtx sequence = PATTERN (prev);
+	  NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = next;
+	}
+    }
+  else if (first_insn == insn)
+    first_insn = next;
+  else
+    {
+      struct sequence_stack *stack = sequence_stack;
+      /* Scan all pending sequences too.  */
+      for (; stack; stack = stack->next)
+	if (insn == stack->first)
+	  {
+	    stack->first = next;
+	    break;
+	  }
+
+      if (stack == 0)
+	abort ();
+    }
+
+  if (next)
+    {
+      PREV_INSN (next) = prev;
+      if (GET_CODE (next) == INSN && GET_CODE (PATTERN (next)) == SEQUENCE)
+	PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = prev;
+    }
+  else if (last_insn == insn)
+    last_insn = prev;
+  else
+    {
+      struct sequence_stack *stack = sequence_stack;
+      /* Scan all pending sequences too.  */
+      for (; stack; stack = stack->next)
+	if (insn == stack->last)
+	  {
+	    stack->last = prev;
+	    break;
+	  }
+
+      if (stack == 0)
+	abort ();
+    }
+}
+
 /* Delete all insns made since FROM.
    FROM becomes the new last instruction.  */
 
@@ -2503,7 +2577,7 @@ emit_call_insn_before (pattern, before)
 }
 
 /* Make an insn of code BARRIER
-   and output it before the insn AFTER.  */
+   and output it before the insn BEFORE.  */
 
 rtx
 emit_barrier_before (before)
@@ -2515,6 +2589,23 @@ emit_barrier_before (before)
 
   add_insn_before (insn, before);
   return insn;
+}
+
+/* Emit the label LABEL before the insn BEFORE.  */
+
+rtx
+emit_label_before (label, before)
+     rtx label, before;
+{
+  /* This can be called twice for the same label as a result of the
+     confusion that follows a syntax error!  So make it harmless.  */
+  if (INSN_UID (label) == 0)
+    {
+      INSN_UID (label) = cur_insn_uid++;
+      add_insn_before (label, before);
+    }
+
+  return label;
 }
 
 /* Emit a note of subtype SUBTYPE before the insn BEFORE.  */
@@ -2901,7 +2992,7 @@ emit_note (file, line)
   return note;
 }
 
-/* Emit a NOTE, and don't omit it even if LINE it the previous note.  */
+/* Emit a NOTE, and don't omit it even if LINE is the previous note.  */
 
 rtx
 emit_line_note_force (file, line)
@@ -2919,6 +3010,24 @@ void
 force_next_line_note ()
 {
   last_linenum = -1;
+}
+
+/* Place a note of KIND on insn INSN with DATUM as the datum. If a
+   note of this type already exists, remove it first. */
+
+void 
+set_unique_reg_note (insn, kind, datum)
+     rtx insn;
+     enum reg_note kind;
+     rtx datum;
+{
+  rtx note = find_reg_note (insn, kind, NULL_RTX);
+
+  /* First remove the note if there already is one.  */
+  if (note) 
+    remove_note (insn, note);
+
+  REG_NOTES (insn) = gen_rtx_EXPR_LIST (kind, datum, REG_NOTES (insn));
 }
 
 /* Return an indication of which type of insn should have X as a body.
@@ -3424,6 +3533,14 @@ init_emit_once (line_numbers)
 
 #ifdef PIC_OFFSET_TABLE_REGNUM
   pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
+#endif
+
+#ifdef INIT_EXPANDERS
+  /* This is to initialize save_machine_status and restore_machine_status before
+     the first call to push_function_context_to.  This is needed by the Chill
+     front end which calls push_function_context_to before the first cal to
+     init_function_start.  */
+  INIT_EXPANDERS;
 #endif
 
   ggc_add_rtx_root (&const_tiny_rtx[0][0], sizeof(const_tiny_rtx)/sizeof(rtx));

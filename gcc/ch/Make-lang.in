@@ -1,5 +1,5 @@
 # Top level Makefile fragment for GNU CHILL.
-#   Copyright (C) 1994 Free Software Foundation, Inc.
+#   Copyright (C) 1994, 1998 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -15,7 +15,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GNU CC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+#the Free Software Foundation, 59 Temple Place - Suite 330,
+#Boston, MA 02111-1307, USA.  */
 
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
@@ -64,14 +65,14 @@ CHILL_FLAGS_TO_PASS = \
 	"GNUCHILL_VERSION=$(GNUCHILL_VERSION)"
 #
 # Define the names for selecting languages in LANGUAGES.
-CHILL: chill cc1chill chill-runtime
+CHILL: chill cc1chill$(exeext)
 
 # handle startfile in chill script and build script to install
 chill: $(srcdir)/ch/chill.in Makefile
 	thisdir=`pwd` ; \
 	sed -e "s:startfile=chillrt0:startfile=$${thisdir}/ch/runtime/chillrt0.o:" \
 	    -e "s:libpath=chillrt:libpath=-L$${thisdir}/ch/runtime/:" \
-	    -e "s:whatgcc=gcc:whatgcc=\"$${thisdir}/xgcc -B$${thisdir}/\":" \
+	    -e "s:whatgcc=gcc:whatgcc=\"$${thisdir}/xgcc$(exeext) -B$${thisdir}/\":" \
 	    -e "s:gnuchill_version=unknown:gnuchill_version=$(GNUCHILL_VERSION):" \
 	    -e "s:gnuchill_script_flags=:gnuchill_script_flags=\"$(GNUCHILL_SCRIPT_FLAGS)\":" $(srcdir)/ch/chill.in > chill ; \
 	chmod a+x chill ; \
@@ -87,24 +88,17 @@ chill: $(srcdir)/ch/chill.in Makefile
 	    -e "s:gnuchill_script_flags=:gnuchill_script_flags=\"$(GNUCHILL_SCRIPT_FLAGS)\":" $(srcdir)/ch/chill.in > chill.install ; \
 	chmod a+x chill.install
 
-# Don't depend on cc1chill, because chill-cross is always built for cross,
-# and thus a cc1chill dependence would force cc1chill to always be built.
+# Don't depend on cc1chill$(exeext), because chill-cross is always built for cross,
+# and thus a cc1chill$(exeext) dependence would force cc1chill$(exeext) to always be built.
 # Note that gcc-cross and g++-cross do not have cc1 or cc1plus dependencies.
 chill-cross: $(srcdir)/ch/chill.in
 	touch $@
 
-cc1chill: $(P) $(CHILL_SRCS) $(LIBDEPS) stamp-objlist \
+cc1chill$(exeext): $(P) $(CHILL_SRCS) $(LIBDEPS) stamp-objlist \
 	insn-config.h insn-flags.h insn-attr.h insn-codes.h \
 	c-typeck.o c-aux-info.o c-common.o c-iterate.o
-	cd ch; $(MAKE) $(FLAGS_TO_PASS) $(CHILL_FLAGS_TO_PASS) ../cc1chill
+	cd ch; $(MAKE) $(FLAGS_TO_PASS) $(CHILL_FLAGS_TO_PASS) ../cc1chill$(exeext)
 
-chill-runtime: stmp-headers $(GCC_PASSES)
-	case "$(LANGUAGES)" in \
-	*CHILL*) if [ -f ch/runtime/Makefile -a -z "$(CROSS)" ] ; then \
-		   thisdir1=`pwd`; \
-		   cd ch/runtime; $(MAKE) $(FLAGS_TO_PASS) $(CHILL_FLAGS_TO_PASS) GCC_FOR_TARGET="$${thisdir1}/xgcc -B$${thisdir1}/" all ; \
-		 else true; fi ;; \
-	esac
 #
 # Build hooks:
 
@@ -113,8 +107,10 @@ CHILL.all.cross: chill-cross
 CHILL.start.encap: chill
 CHILL.rest.encap:
 
-CHILL.info: $(srcdir)/ch/chill.texi
-	$(MAKEINFO) -I$(srcdir)/ch $(srcdir)/ch/chill.texi -o chill.info
+CHILL.info: ch/chill.info
+
+ch/chill.info: $(srcdir)/ch/chill.texi
+	$(MAKEINFO) -I$(srcdir)/ch $(srcdir)/ch/chill.texi -o ch/chill.info
 
 chill.dvi: $(srcdir)/ch/chill.texi $(srcdir)/extend.texi $(srcdir)/invoke.texi $(srcdir)/md.texi $(srcdir)/rtl.texi $(srcdir)/tm.texi
 	cd ch ; \
@@ -127,21 +123,11 @@ chill.dvi: $(srcdir)/ch/chill.texi $(srcdir)/extend.texi $(srcdir)/invoke.texi $
 # Install hooks:
 # cc1chill is installed elsewhere as part of $(COMPILERS).
 
-CHILL.install-normal: install-libchill
-
-# Install the CHILL run time library.
-install-libchill: chill-runtime
-	if [ -f ch/runtime/libchill.a ] ; then \
-	  $(INSTALL_DATA) ch/runtime/libchill.a $(libsubdir)/libchill.a; \
-	  if $(RANLIB_TEST) ; then \
-	    (cd $(libsubdir); $(RANLIB) libchill.a); else true; fi; \
-	  chmod a-x $(libsubdir)/libchill.a; \
-	  $(INSTALL_DATA) ch/runtime/chillrt0.o $(libsubdir)/chillrt0.o; \
-	else true; fi
+CHILL.install-normal:
 
 # Install the driver program
 CHILL.install-common:
-	-if [ -f cc1chill ] ; then \
+	-if [ -f cc1chill$(exeext) ] ; then \
 	  if [ -f chill.install ] ; then \
 	    if [ -f gcc-cross$(exeext) ]; then \
 	      rm -f $(bindir)/$(CHILL_CROSS_NAME); \
@@ -155,10 +141,13 @@ CHILL.install-common:
 	  fi ; \
 	fi
 
+# Don't delete $(infodir)/ch.info* unless there's actually new
+# docs to install (in case LANGUAGES didn't contain chill earlier).
 CHILL.install-info:
-	-for i in chill.info*; do \
-	  rm -f $(infodir)/$$i; \
-	  $(INSTALL_DATA) $$i $(infodir)/$$i; \
+	-for i in ch/chill.info*; do \
+	  rm -f $(infodir)/chill.info*; \
+	  realfile=`echo $$i | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
+	  $(INSTALL_DATA) $$i $(infodir)/$$realfile; \
 	done
 
 CHILL.install-man:

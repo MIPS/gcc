@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 /* Note that some other tm.h files may include this one and then override
    many of the definitions that relate to assembler syntax.  */
 
+#define MULTILIB_DEFAULTS { "mnumerics" }
+
 /* Names to predefine in the preprocessor for this target machine.  */
 #define CPP_PREDEFINES "-Di960 -Di80960 -DI960 -DI80960 -Acpu(i960) -Amachine(i960)"
 
@@ -45,7 +47,8 @@ Boston, MA 02111-1307, USA.  */
 	%{mcc:-D__i960CC__ -D__i960_CC__}\
 	%{mcf:-D__i960CF__ -D__i960_CF__}\
 	%{!mka:%{!mkb:%{!msa:%{!msb:%{!mmc:%{!mca:\
-		%{!mcc:%{!mcf:-D__i960_KB -D__i960KB__ %{mic*:-D__i960KB}}}}}}}}}"
+		%{!mcc:%{!mcf:-D__i960_KB -D__i960KB__ %{mic*:-D__i960KB}}}}}}}}}\
+	%{mlong-double-64:-D__LONG_DOUBLE_64__}"
 
 /* -mic* options make characters signed by default.  */
 /* Use #if rather than ?: because MIPS C compiler rejects ?: in
@@ -209,6 +212,11 @@ extern int process_pragma ();
 #define TARGET_FLAG_OLD_ALIGN	0x8000
 #define TARGET_OLD_ALIGN	(target_flags & TARGET_FLAG_OLD_ALIGN)
 
+/* Nonzero if long doubles are to be 64 bits.  Useful for soft-float targets
+   if 80 bit long double support is missing.  */
+#define TARGET_FLAG_LONG_DOUBLE_64	0x10000
+#define TARGET_LONG_DOUBLE_64	(target_flags & TARGET_FLAG_LONG_DOUBLE_64)
+
 extern int target_flags;
 
 /* Macro to define tables used to set the flags.
@@ -221,57 +229,98 @@ extern int target_flags;
    am not sure which are real and which aren't.  */
 
 #define TARGET_SWITCHES  \
-  { {"sa", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"sb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES| \
-			TARGET_FLAG_COMPLEX_ADDR)},\
-/*  {"sc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|\
-			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR)},*/ \
-    {"ka", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"kb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES| \
-			TARGET_FLAG_COMPLEX_ADDR)},\
-/*  {"kc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|\
-			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR)},*/ \
-    {"ja", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"jd", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"jf", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES| \
-			TARGET_FLAG_COMPLEX_ADDR)},\
-    {"rp", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"mc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|\
-			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"ca", (TARGET_FLAG_C_SERIES|TARGET_FLAG_BRANCH_PREDICT|\
-			TARGET_FLAG_CODE_ALIGN|TARGET_FLAG_COMPLEX_ADDR)},\
-/*  {"cb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_C_SERIES|\
-			TARGET_FLAG_BRANCH_PREDICT|TARGET_FLAG_CODE_ALIGN)},\
-    {"cc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|\
+  { {"sa", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR),		\
+       "Generate SA code"},						\
+    {"sb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES|			\
+			TARGET_FLAG_COMPLEX_ADDR),			\
+       "Generate SB code"},						\
+/*  {"sc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|			\
+			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR),	\
+       "Generate SC code"}, */						\
+    {"ka", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR),		\
+       "Generate KA code"},						\
+    {"kb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES|			\
+			TARGET_FLAG_COMPLEX_ADDR),			\
+       "Generate KB code"},						\
+/*  {"kc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|			\
+			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR),	\
+       "Generate KC code"}, */						\
+    {"ja", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR),		\
+       "Generate JA code"},						\
+    {"jd", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR),		\
+       "Generate JD code"},						\
+    {"jf", (TARGET_FLAG_NUMERICS|TARGET_FLAG_K_SERIES|			\
+			TARGET_FLAG_COMPLEX_ADDR),			\
+       "Generate JF code"},						\
+    {"rp", (TARGET_FLAG_K_SERIES|TARGET_FLAG_COMPLEX_ADDR),		\
+       "generate RP code"},						\
+    {"mc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|			\
+			TARGET_FLAG_MC|TARGET_FLAG_COMPLEX_ADDR),	\
+       "Generate MC code"},						\
+    {"ca", (TARGET_FLAG_C_SERIES|TARGET_FLAG_BRANCH_PREDICT|		\
+			TARGET_FLAG_CODE_ALIGN|TARGET_FLAG_COMPLEX_ADDR),\
+       "Generate CA code"},						\
+/*  {"cb", (TARGET_FLAG_NUMERICS|TARGET_FLAG_C_SERIES|			\
+			TARGET_FLAG_BRANCH_PREDICT|TARGET_FLAG_CODE_ALIGN),\
+       "Generate CB code"},						\
+    {"cc", (TARGET_FLAG_NUMERICS|TARGET_FLAG_PROTECTED|			\
 			TARGET_FLAG_C_SERIES|TARGET_FLAG_BRANCH_PREDICT|\
-			TARGET_FLAG_CODE_ALIGN)}, */	\
-    {"cf", (TARGET_FLAG_C_SERIES|TARGET_FLAG_BRANCH_PREDICT|\
-			TARGET_FLAG_CODE_ALIGN|TARGET_FLAG_COMPLEX_ADDR)},\
-    {"numerics", (TARGET_FLAG_NUMERICS)},		\
-    {"soft-float", -(TARGET_FLAG_NUMERICS)},		\
-    {"leaf-procedures", TARGET_FLAG_LEAFPROC},		\
-    {"no-leaf-procedures",-(TARGET_FLAG_LEAFPROC)},	\
-    {"tail-call",TARGET_FLAG_TAILCALL},			\
-    {"no-tail-call",-(TARGET_FLAG_TAILCALL)},		\
-    {"complex-addr",TARGET_FLAG_COMPLEX_ADDR},		\
-    {"no-complex-addr",-(TARGET_FLAG_COMPLEX_ADDR)},	\
-    {"code-align",TARGET_FLAG_CODE_ALIGN},		\
-    {"no-code-align",-(TARGET_FLAG_CODE_ALIGN)},	\
-    {"clean-linkage", (TARGET_FLAG_CLEAN_LINKAGE)},	\
-    {"no-clean-linkage", -(TARGET_FLAG_CLEAN_LINKAGE)},	\
-    {"ic-compat", TARGET_FLAG_IC_COMPAT2_0},		\
-    {"ic2.0-compat", TARGET_FLAG_IC_COMPAT2_0},		\
-    {"ic3.0-compat", TARGET_FLAG_IC_COMPAT3_0},		\
-    {"asm-compat",TARGET_FLAG_ASM_COMPAT},		\
-    {"intel-asm",TARGET_FLAG_ASM_COMPAT},		\
-    {"strict-align", TARGET_FLAG_STRICT_ALIGN},		\
-    {"no-strict-align", -(TARGET_FLAG_STRICT_ALIGN)},	\
-    {"old-align", (TARGET_FLAG_OLD_ALIGN|TARGET_FLAG_STRICT_ALIGN)},	 \
-    {"no-old-align", -(TARGET_FLAG_OLD_ALIGN|TARGET_FLAG_STRICT_ALIGN)}, \
-    {"link-relax", 0},					\
-    {"no-link-relax", 0},				\
+			TARGET_FLAG_CODE_ALIGN),			\
+       "Generate CC code"}, */						\
+    {"cf", (TARGET_FLAG_C_SERIES|TARGET_FLAG_BRANCH_PREDICT|		\
+			TARGET_FLAG_CODE_ALIGN|TARGET_FLAG_COMPLEX_ADDR),\
+       "Generate CF code"},						\
+    {"numerics", (TARGET_FLAG_NUMERICS),				\
+       "Use hardware floating point instructions"},			\
+    {"soft-float", -(TARGET_FLAG_NUMERICS),				\
+       "Use software floating point"},					\
+    {"leaf-procedures", TARGET_FLAG_LEAFPROC,				\
+       "Use alternate leaf function entries"},				\
+    {"no-leaf-procedures", -(TARGET_FLAG_LEAFPROC),			\
+       "Do not use alternate leaf function entries"},			\
+    {"tail-call", TARGET_FLAG_TAILCALL,					\
+       "Perform tail call optimization"},				\
+    {"no-tail-call", -(TARGET_FLAG_TAILCALL),				\
+       "Do not perform tail call optimization"},			\
+    {"complex-addr", TARGET_FLAG_COMPLEX_ADDR, 				\
+       "Use complex addressing modes"},					\
+    {"no-complex-addr", -(TARGET_FLAG_COMPLEX_ADDR),			\
+       "Do not use complex addressing modes"},				\
+    {"code-align", TARGET_FLAG_CODE_ALIGN,				\
+       "Align code to 8 byte boundary"},				\
+    {"no-code-align", -(TARGET_FLAG_CODE_ALIGN),			\
+       "Do not align code to 8 byte boundary"},				\
+/*  {"clean-linkage", (TARGET_FLAG_CLEAN_LINKAGE),			\
+       "Force use of prototypes"},					\
+    {"no-clean-linkage", -(TARGET_FLAG_CLEAN_LINKAGE),			\
+       "Do not force use of prototypes"}, */				\
+    {"ic-compat", TARGET_FLAG_IC_COMPAT2_0,				\
+       "Enable compatibility with iC960 v2.0"},				\
+    {"ic2.0-compat", TARGET_FLAG_IC_COMPAT2_0,				\
+       "Enable compatibility with iC960 v2.0"},				\
+    {"ic3.0-compat", TARGET_FLAG_IC_COMPAT3_0,				\
+       "Enable compatibility with iC960 v3.0"},				\
+    {"asm-compat", TARGET_FLAG_ASM_COMPAT,				\
+       "Enable compatibility with ic960 assembler"},			\
+    {"intel-asm", TARGET_FLAG_ASM_COMPAT,				\
+       "Enable compatibility with ic960 assembler"},			\
+    {"strict-align", TARGET_FLAG_STRICT_ALIGN,				\
+       "Do not permit unaligned accesses"},				\
+    {"no-strict-align", -(TARGET_FLAG_STRICT_ALIGN),			\
+       "Permit unaligned accesses"},					\
+    {"old-align", (TARGET_FLAG_OLD_ALIGN|TARGET_FLAG_STRICT_ALIGN),	\
+       "Layout types like Intel's v1.3 gcc"},				\
+    {"no-old-align", -(TARGET_FLAG_OLD_ALIGN|TARGET_FLAG_STRICT_ALIGN),	\
+       "Do not layout types like Intel's v1.3 gcc"},			\
+    {"long-double-64", TARGET_FLAG_LONG_DOUBLE_64,			\
+       "Use 64 bit long doubles"},					\
+    {"link-relax", 0,							\
+       "Enable linker relaxation"},					\
+    {"no-link-relax", 0,						\
+       "Do not enable linker relaxation"},				\
     SUBTARGET_SWITCHES                                                  \
-    { "", TARGET_DEFAULT}}
+    { "", TARGET_DEFAULT,						\
+	NULL}}
 
 /* This are meant to be redefined in the host dependent files */
 #define SUBTARGET_SWITCHES
@@ -312,6 +361,9 @@ extern int target_flags;
       flag_signed_char = 1;					\
       target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
     }								\
+  /* ??? See the LONG_DOUBLE_TYPE_SIZE definition below.  */	\
+  if (TARGET_LONG_DOUBLE_64)					\
+    warning ("The -mlong-double-64 option does not work yet.", 0);\
   i960_initialize ();						\
 }
 
@@ -356,8 +408,21 @@ extern int target_flags;
 /* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
 #define POINTER_SIZE 32
 
-/* Width in bits of a long double.  Identical to double for now.  */
-#define	LONG_DOUBLE_TYPE_SIZE	64
+/* Width in bits of a long double.  Define to 96, and let
+   ROUND_TYPE_ALIGN adjust the alignment for speed. */
+#define	LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 96)
+
+/* ??? This must be a constant, because real.c and real.h test it with #if.  */
+#undef LONG_DOUBLE_TYPE_SIZE
+#define LONG_DOUBLE_TYPE_SIZE 96
+
+/* Define this to set long double type size to use in libgcc2.c, which can
+   not depend on target_flags.  */
+#if defined(__LONG_DOUBLE_64__)
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#else
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#endif
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 32
@@ -924,11 +989,11 @@ extern struct rtx_def *i960_function_arg ();
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1114,6 +1179,11 @@ extern struct rtx_def *legitimize_address ();
 
 #define SLOW_BYTE_ACCESS 1
 
+/* Force sizeof(bool) == 1 to maintain binary compatibility; otherwise, the
+   change in SLOW_BYTE_ACCESS would have changed it to 4.  */
+
+#define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
+
 /* We assume that the store-condition-codes instructions store 0 for false
    and some other value for true.  This is the value stored for true.  */
 
@@ -1185,10 +1255,14 @@ extern struct rtx_def *gen_compare_reg ();
    that can be non-ldconst operands in rare cases are cost 1.  Other constants
    have higher costs.  */
 
+/* Must check for OUTER_CODE of SET for power2_operand, because
+   reload_cse_move2add calls us with OUTER_CODE of PLUS to decide when
+   to replace set with add.  */
+
 #define CONST_COSTS(RTX, CODE, OUTER_CODE)				\
   case CONST_INT:							\
     if ((INTVAL (RTX) >= 0 && INTVAL (RTX) < 32)			\
-	|| power2_operand (RTX, VOIDmode))				\
+	|| (OUTER_CODE == SET && power2_operand (RTX, VOIDmode)))	\
       return 0; 							\
     else if (INTVAL (RTX) >= -31 && INTVAL (RTX) < 0)			\
       return 1;								\
@@ -1555,7 +1629,9 @@ extern char *i960_output_ldconst ();
 extern char *i960_output_call_insn ();
 extern char *i960_output_ret_insn ();
 extern char *i960_output_move_double ();
+extern char *i960_output_move_double_zero ();
 extern char *i960_output_move_quad ();
+extern char *i960_output_move_quad_zero ();
 
 /* Defined in reload.c, and used in insn-recog.c.  */
 

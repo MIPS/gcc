@@ -55,7 +55,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 extern cpp_reader  parse_in;
 extern cpp_options parse_options;
-static int cpp_initialized;
 #endif
 
 /* This is the default way of generating a method name.  */
@@ -284,7 +283,8 @@ static void dump_interface			PROTO((FILE *, tree));
 
 /* Everything else.  */
 
-static void objc_fatal				PROTO((void));
+static void objc_fatal				PROTO((void))
+  ATTRIBUTE_NORETURN;
 static tree define_decl				PROTO((tree, tree));
 static tree lookup_method_in_protocol_list	PROTO((tree, tree, int));
 static tree lookup_protocol_in_reflist		PROTO((tree, tree));
@@ -591,9 +591,18 @@ generate_struct_by_value_array ()
   exit (0);
 }
 
+#if USE_CPPLIB
+extern char *yy_cur;
+#endif
+
 void
 lang_init_options ()
 {
+#if USE_CPPLIB
+  cpp_reader_init (&parse_in);
+  parse_in.opts = &parse_options;
+  cpp_options_init (&parse_options);
+#endif
 }
 
 void
@@ -604,7 +613,10 @@ lang_init ()
      With luck, we discover the real source file's name from that
      and put it in input_filename.  */
   ungetc (check_newline (), finput);
-#endif
+#else
+  check_newline ();
+  yy_cur--;
+#endif 
 
   /* The line number can be -1 if we had -g3 and the input file
      had a directive specifying line 0.  But we want predefined
@@ -682,15 +694,6 @@ lang_decode_option (argc, argv)
      char **argv;
 {
   char *p = argv[0];
-#if USE_CPPLIB
-  if (! cpp_initialized)
-    {
-      cpp_reader_init (&parse_in);
-      parse_in.data = &parse_options;
-      cpp_options_init (&parse_options);
-      cpp_initialized = 1;
-    }
-#endif
   if (!strcmp (p, "-lang-objc"))
     doing_objc_thang = 1;
   else if (!strcmp (p, "-gen-decls"))
@@ -1317,7 +1320,7 @@ my_build_string (len, str)
 tree
 build_objc_string (len, str)
      int len;
-     char *str;
+     const char *str;
 {
   tree s = build_string (len, str);
 
@@ -4610,6 +4613,7 @@ is_objc_type_qualifier (node)
 	      || node == ridpointers [(int) RID_OUT]
 	      || node == ridpointers [(int) RID_INOUT]
 	      || node == ridpointers [(int) RID_BYCOPY]
+              || node == ridpointers [(int) RID_BYREF]
 	      || node == ridpointers [(int) RID_ONEWAY]));
 }
 
@@ -6495,6 +6499,8 @@ encode_type_qualifiers (declspecs)
 	obstack_1grow (&util_obstack, 'o');
       else if (ridpointers[(int) RID_BYCOPY] == TREE_VALUE (spec))
 	obstack_1grow (&util_obstack, 'O');
+      else if (ridpointers[(int) RID_BYREF] == TREE_VALUE (spec))
+        obstack_1grow (&util_obstack, 'R');
       else if (ridpointers[(int) RID_ONEWAY] == TREE_VALUE (spec))
 	obstack_1grow (&util_obstack, 'V');
     }

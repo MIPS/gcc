@@ -1,5 +1,5 @@
 /* Analyze RTL for C-Compiler
-   Copyright (C) 1987, 88, 92-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -326,6 +326,20 @@ no_labels_between_p (beg, end)
   return 1;
 }
 
+/* Return 1 if in between BEG and END, exclusive of BEG and END, there is
+   no JUMP_INSN insn.  */
+
+int
+no_jumps_between_p (beg, end)
+     rtx beg, end;
+{
+  register rtx p;
+  for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
+    if (GET_CODE (p) == JUMP_INSN)
+      return 0;
+  return 1;
+}
+
 /* Nonzero if register REG is used in an insn between
    FROM_INSN and TO_INSN (exclusive of those two).  */
 
@@ -500,6 +514,52 @@ reg_set_p (reg, insn)
 }
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
+   only if none of them are modified between START and END.  Do not
+   consider non-registers one way or the other.  */
+
+int
+regs_set_between_p (x, start, end)
+     rtx x;
+     rtx start, end;
+{
+  enum rtx_code code = GET_CODE (x);
+  char *fmt;
+  int i, j;
+
+  switch (code)
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST:
+    case SYMBOL_REF:
+    case LABEL_REF:
+    case PC:
+    case CC0:
+      return 0;
+
+    case REG:
+      return reg_set_between_p (x, start, end);
+      
+    default:
+      break;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e' && regs_set_between_p (XEXP (x, i), start, end))
+	return 1;
+
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  if (regs_set_between_p (XVECEXP (x, i, j), start, end))
+	    return 1;
+    }
+
+  return 0;
+}
+
+/* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
    X contains a MEM; this routine does not perform any memory aliasing.  */
 
@@ -644,17 +704,51 @@ single_set (insn)
   
   return 0;
 }
+
+/* Given an INSN, return nonzero if it has more than one SET, else return
+   zero.  */
+
+int
+multiple_sets (insn)
+     rtx insn;
+{
+  int found;
+  int i;
+  
+  /* INSN must be an insn.  */
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    return 0;
+
+  /* Only a PARALLEL can have multiple SETs.  */
+  if (GET_CODE (PATTERN (insn)) == PARALLEL)
+    {
+      for (i = 0, found = 0; i < XVECLEN (PATTERN (insn), 0); i++)
+	if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == SET)
+	  {
+	    /* If we have already found a SET, then return now.  */
+	    if (found)
+	      return 1;
+	    else
+	      found = 1;
+	  }
+    }
+  
+  /* Either zero or one SET.  */
+  return 0;
+}
 
 /* Return the last thing that X was assigned from before *PINSN.  Verify that
    the object is not modified up to VALID_TO.  If it was, if we hit
    a partial assignment to X, or hit a CODE_LABEL first, return X.  If we
-   found an assignment, update *PINSN to point to it.  */
+   found an assignment, update *PINSN to point to it.  
+   ALLOW_HWREG is set to 1 if hardware registers are allowed to be the src.  */
 
 rtx
-find_last_value (x, pinsn, valid_to)
+find_last_value (x, pinsn, valid_to, allow_hwreg)
      rtx x;
      rtx *pinsn;
      rtx valid_to;
+     int allow_hwreg;
 {
   rtx p;
 
@@ -675,8 +769,8 @@ find_last_value (x, pinsn, valid_to)
 	    if (! modified_between_p (src, PREV_INSN (p), valid_to)
 		/* Reject hard registers because we don't usually want
 		   to use them; we'd rather use a pseudo.  */
-		&& ! (GET_CODE (src) == REG
-		      && REGNO (src) < FIRST_PSEUDO_REGISTER))
+		&& (! (GET_CODE (src) == REG
+		      && REGNO (src) < FIRST_PSEUDO_REGISTER) || allow_hwreg))
 	      {
 		*pinsn = p;
 		return src;
@@ -1194,30 +1288,21 @@ dead_or_set_regno_p (insn, test_regno)
   int regno, endregno;
   rtx link;
 
-  /* REG_READ notes are not normally maintained after reload, so we
-     ignore them if the are invalid.  */
-  if (! reload_completed
-#ifdef PRESERVE_DEATH_INFO_REGNO_P
-      || PRESERVE_DEATH_INFO_REGNO_P (test_regno)
-#endif
-      )
+  /* See if there is a death note for something that includes
+     TEST_REGNO.  */
+  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     {
-      /* See if there is a death note for something that includes
-         TEST_REGNO.  */
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	{
-	  if (REG_NOTE_KIND (link) != REG_DEAD
-	      || GET_CODE (XEXP (link, 0)) != REG)
-	    continue;
+      if (REG_NOTE_KIND (link) != REG_DEAD
+	  || GET_CODE (XEXP (link, 0)) != REG)
+	continue;
 
-	  regno = REGNO (XEXP (link, 0));
-	  endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-		      : regno + HARD_REGNO_NREGS (regno,
-						  GET_MODE (XEXP (link, 0))));
+      regno = REGNO (XEXP (link, 0));
+      endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
+		  : regno + HARD_REGNO_NREGS (regno,
+					      GET_MODE (XEXP (link, 0))));
 
-	  if (test_regno >= regno && test_regno < endregno)
-	    return 1;
-	}
+      if (test_regno >= regno && test_regno < endregno)
+	return 1;
     }
 
   if (GET_CODE (insn) == CALL_INSN
@@ -1231,7 +1316,7 @@ dead_or_set_regno_p (insn, test_regno)
       /* A value is totally replaced if it is the destination or the
 	 destination is a SUBREG of REGNO that does not change the number of
 	 words in it.  */
-     if (GET_CODE (dest) == SUBREG
+      if (GET_CODE (dest) == SUBREG
 	  && (((GET_MODE_SIZE (GET_MODE (dest))
 		+ UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 	      == ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest)))
@@ -2058,10 +2143,11 @@ computed_jump_p (insn)
    This routine is very general, and could (should?) be used to
    implement many of the other routines in this file.  */
 
-int for_each_rtx (x, f, data)
-     rtx* x;
+int
+for_each_rtx (x, f, data)
+     rtx *x;
      rtx_function f;
-     void* data;
+     void *data;
 {
   int result;
   int length;
@@ -2115,5 +2201,61 @@ int for_each_rtx (x, f, data)
 
     }
 
+  return 0;
+}
+
+/* Searches X for any reference to REGNO, returning the rtx of the
+   reference found if any.  Otherwise, returns NULL_RTX.  */
+
+rtx
+regno_use_in (regno, x)
+     int regno;
+     rtx x;
+{
+  register char *fmt;
+  int i, j;
+  rtx tem;
+
+  if (GET_CODE (x) == REG && REGNO (x) == regno)
+    return x;
+
+  fmt = GET_RTX_FORMAT (GET_CODE (x));
+  for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if ((tem = regno_use_in (regno, XEXP (x, i))))
+	    return tem;
+	}
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  if ((tem = regno_use_in (regno , XVECEXP (x, i, j))))
+	    return tem;
+    }
+
+  return NULL_RTX;
+}
+
+
+/* Return 1 if X is an autoincrement side effect and the register is
+   not the stack pointer.  */
+int
+auto_inc_p (x)
+     rtx x;
+{
+  switch (GET_CODE (x))
+    {
+    case PRE_INC:
+    case POST_INC:
+    case PRE_DEC:
+    case POST_DEC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      /* There are no REG_INC notes for SP.  */
+      if (XEXP (x, 0) != stack_pointer_rtx)
+	return 1;
+    default:
+      break;
+    }
   return 0;
 }

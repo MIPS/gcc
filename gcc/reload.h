@@ -50,11 +50,10 @@ extern int memory_move_secondary_cost PROTO ((enum machine_mode, enum reg_class,
 /* Maximum number of reloads we can need.  */
 #define MAX_RELOADS (2 * MAX_RECOG_OPERANDS * (MAX_REGS_PER_ADDRESS + 1))
 
-extern enum reg_class reload_address_base_reg_class;
-extern enum reg_class reload_address_index_reg_class;
 extern rtx reload_in[MAX_RELOADS];
 extern rtx reload_out[MAX_RELOADS];
 extern rtx reload_in_reg[MAX_RELOADS];
+extern rtx reload_out_reg[MAX_RELOADS];
 extern enum reg_class reload_reg_class[MAX_RELOADS];
 extern enum machine_mode reload_inmode[MAX_RELOADS];
 extern enum machine_mode reload_outmode[MAX_RELOADS];
@@ -134,6 +133,8 @@ extern char indirect_symref_ok;
 /* Nonzero if an address (plus (reg frame_pointer) (reg ...)) is valid.  */
 extern char double_reg_address_ok;
 
+extern int num_not_at_initial_offset;
+
 #ifdef MAX_INSN_CODE
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a
@@ -202,6 +203,9 @@ struct insn_chain
 
   /* Nonzero if find_reloads said the insn requires reloading.  */
   unsigned int need_reload:1;
+  /* Nonzero if find_reloads needs to be run during reload_as_needed to
+     perform modifications on any operands.  */
+  unsigned int need_operand_change:1;
   /* Nonzero if eliminate_regs_in_insn said it requires eliminations.  */
   unsigned int need_elim:1;
   /* Nonzero if this insn was inserted by perform_caller_saves.  */
@@ -215,6 +219,7 @@ extern struct insn_chain *reload_insn_chain;
 /* Allocate a new insn_chain structure.  */
 extern struct insn_chain *new_insn_chain	PROTO((void));
 
+extern void compute_use_by_pseudos		PROTO((HARD_REG_SET *, regset));
 #endif
 
 /* Functions from reload.c:  */
@@ -232,16 +237,16 @@ extern void clear_secondary_mem PROTO((void));
    reload TO.  */
 extern void transfer_replacements PROTO((int, int));
 
-/* Remove all replacements in reload FROM.  */
-extern void remove_replacements PROTO((int));
+/* IN_RTX is the value loaded by a reload that we now decided to inherit,
+   or a subpart of it.  If we have any replacements registered for IN_RTX,
+   chancel the reloads that were supposed to load them.
+   Return non-zero if we chanceled any reloads.  */
+extern int remove_address_replacements PROTO((rtx in_rtx));
 
 /* Like rtx_equal_p except that it allows a REG and a SUBREG to match
    if they are the same hard reg, and has special hacks for
    autoincrement and autodecrement.  */
 extern int operands_match_p PROTO((rtx, rtx));
-
-/* Return the number of times character C occurs in string S.  */
-extern int n_occurrences PROTO((int, char *));
 
 /* Return 1 if altering OP will not modify the value of CLOBBER. */
 extern int safe_from_earlyclobber PROTO((rtx, rtx));
@@ -249,7 +254,7 @@ extern int safe_from_earlyclobber PROTO((rtx, rtx));
 /* Search the body of INSN for values that need reloading and record them
    with push_reload.  REPLACE nonzero means record also where the values occur
    so that subst_reloads can be used.  */
-extern void find_reloads PROTO((rtx, int, int, int, short *));
+extern int find_reloads PROTO((rtx, int, int, int, short *));
 
 /* Compute the sum of X and Y, making canonicalizations assumed in an
    address, namely: sum constant integers, surround the sum of two
@@ -318,6 +323,9 @@ extern rtx eliminate_regs PROTO((rtx, enum machine_mode, rtx));
    OPNUM with reload type TYPE.  */
 extern rtx gen_reload PROTO((rtx, rtx, int, enum reload_type));
 
+/* Deallocate the reload register used by reload number R.  */
+extern void deallocate_reload_reg PROTO((int r));
+
 /* Functions in caller-save.c:  */
 
 /* Initialize for caller-save.  */
@@ -331,3 +339,6 @@ extern void setup_save_areas PROTO((void));
 
 /* Find the places where hard regs are live across calls and save them.  */
 extern void save_call_clobbered_regs PROTO((void));
+
+/* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
+extern void cleanup_subreg_operands PROTO ((rtx));

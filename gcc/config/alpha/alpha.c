@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998, 1999 Free Software
+   Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -48,7 +49,7 @@ extern int rtx_equal_function_value_matters;
 /* Specify which cpu to schedule for. */
 
 enum processor_type alpha_cpu;
-static char* const alpha_cpu_name[] = 
+static const char * const alpha_cpu_name[] = 
 {
   "ev4", "ev5", "ev6"
 };
@@ -67,11 +68,11 @@ enum alpha_fp_trap_mode alpha_fptm;
 
 /* Strings decoded into the above options.  */
 
-char *alpha_cpu_string;		/* -mcpu= */
-char *alpha_tp_string;		/* -mtrap-precision=[p|s|i] */
-char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
-char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
-char *alpha_mlat_string;	/* -mmemory-latency= */
+const char *alpha_cpu_string;	/* -mcpu= */
+const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
+const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
+const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
+const char *alpha_mlat_string;	/* -mmemory-latency= */
 
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
@@ -256,11 +257,11 @@ override_options ()
     if (!alpha_mlat_string)
       alpha_mlat_string = "L1";
 
-    if (isdigit (alpha_mlat_string[0])
+    if (ISDIGIT ((unsigned char)alpha_mlat_string[0])
 	&& (lat = strtol (alpha_mlat_string, &end, 10), *end == '\0'))
       ;
     else if ((alpha_mlat_string[0] == 'L' || alpha_mlat_string[0] == 'l')
-	     && isdigit (alpha_mlat_string[1])
+	     && ISDIGIT ((unsigned char)alpha_mlat_string[1])
 	     && alpha_mlat_string[2] == '\0')
       {
 	static int const cache_latency[][4] = 
@@ -340,7 +341,6 @@ reg_or_6bit_operand (op, mode)
 {
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 64)
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || register_operand (op, mode));
 }
 
@@ -354,7 +354,6 @@ reg_or_8bit_operand (op, mode)
 {
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100)
-	  || GET_CODE (op) == CONSTANT_P_RTX
 	  || register_operand (op, mode));
 }
 
@@ -366,8 +365,7 @@ cint8_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100)
-	  || GET_CODE (op) == CONSTANT_P_RTX);
+	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100));
 }
 
 /* Return 1 if the operand is a valid second operand to an add insn.  */
@@ -378,11 +376,9 @@ add_operand (op, mode)
      enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
+    /* Constraints I, J, O and P are covered by K.  */
     return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'K')
-	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')
-	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'O'));
-  else if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
+	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 
   return register_operand (op, mode);
 }
@@ -396,10 +392,8 @@ sext_add_operand (op, mode)
      enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
-    return ((unsigned HOST_WIDE_INT) INTVAL (op) < 255
-	    || (unsigned HOST_WIDE_INT) (- INTVAL (op)) < 255);
-  else if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
+    return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
+	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'O'));
 
   return register_operand (op, mode);
 }
@@ -430,8 +424,6 @@ and_operand (op, mode)
     return ((unsigned HOST_WIDE_INT) INTVAL (op) < 0x100
 	    || (unsigned HOST_WIDE_INT) ~ INTVAL (op) < 0x100
 	    || zap_mask (INTVAL (op)));
-  else if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
 
   return register_operand (op, mode);
 }
@@ -446,8 +438,6 @@ or_operand (op, mode)
   if (GET_CODE (op) == CONST_INT)
     return ((unsigned HOST_WIDE_INT) INTVAL (op) < 0x100
 	    || (unsigned HOST_WIDE_INT) ~ INTVAL (op) < 0x100);
-  else if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
 
   return register_operand (op, mode);
 }
@@ -547,7 +537,6 @@ reg_or_cint_operand (op, mode)
     enum machine_mode mode;
 {
      return (GET_CODE (op) == CONST_INT
-	     || GET_CODE (op) == CONSTANT_P_RTX
 	     || register_operand (op, mode));
 }
 
@@ -565,7 +554,7 @@ some_operand (op, mode)
   switch (GET_CODE (op))
     {
     case REG:  case MEM:  case CONST_DOUBLE:  case CONST_INT:  case LABEL_REF:
-    case SYMBOL_REF:  case CONST:  case CONSTANT_P_RTX:
+    case SYMBOL_REF:  case CONST:
       return 1;
 
     case SUBREG:
@@ -614,8 +603,10 @@ input_operand (op, mode)
       return GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode);
 
     case CONST_INT:
-    case CONSTANT_P_RTX:
       return mode == QImode || mode == HImode || add_operand (op, mode);
+
+    case CONSTANT_P_RTX:
+      return 1;
 
     default:
       break;
@@ -825,6 +816,54 @@ any_memory_operand (op, mode)
 	      && REGNO (SUBREG_REG (op)) >= FIRST_PSEUDO_REGISTER));
 }
 
+/* Returns 1 if OP is not an eliminable register.
+
+   This exists to cure a pathological abort in the s8addq (et al) patterns,
+
+	long foo () { long t; bar(); return (long) &t * 26107; }
+
+   which run afoul of a hack in reload to cure a (presumably) similar
+   problem with lea-type instructions on other targets.  But there is
+   one of us and many of them, so work around the problem by selectively
+   preventing combine from making the optimization.  */
+
+int
+reg_not_elim_operand (op, mode)
+      register rtx op;
+      enum machine_mode mode;
+{
+  rtx inner = op;
+  if (GET_CODE (op) == SUBREG)
+    inner = SUBREG_REG (op);
+  if (inner == frame_pointer_rtx || inner == arg_pointer_rtx)
+    return 0;
+
+  return register_operand (op, mode);
+}
+
+/* Return 1 is OP is a memory location that is not an reference (using
+   an AND) to an unaligned location.  Take into account what reload
+   will do.  */
+
+int
+normal_memory_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  if (reload_in_progress && GET_CODE (op) == REG
+      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+    {
+      op = reg_equiv_mem[REGNO (op)];
+
+      /* This may not have been assigned an equivalent address if it will
+	 be eliminated.  In that case, it doesn't matter what we do.  */
+      if (op == 0)
+	return 1;
+    }
+
+  return GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) != AND;
+}
+
 /* Return 1 if this function can directly return via $26.  */
 
 int
@@ -870,8 +909,7 @@ get_aligned_mem (ref, paligned_mem, pbitnum)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
   *paligned_mem = gen_rtx_MEM (SImode, plus_constant (base, offset & ~3));
-  MEM_IN_STRUCT_P (*paligned_mem) = MEM_IN_STRUCT_P (ref);
-  MEM_VOLATILE_P (*paligned_mem) = MEM_VOLATILE_P (ref);
+  MEM_COPY_ATTRIBUTES (*paligned_mem, ref);
   RTX_UNCHANGING_P (*paligned_mem) = RTX_UNCHANGING_P (ref);
 
   /* Sadly, we cannot use alias sets here because we may overlap other
@@ -1145,7 +1183,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
 	for (; bits > 0; bits--)
 	  if ((temp = (alpha_emit_set_const
 		       (subtarget, mode,
-			(unsigned HOST_WIDE_INT) c >> bits, i))) != 0
+			(unsigned HOST_WIDE_INT) (c >> bits), i))) != 0
 	      || ((temp = (alpha_emit_set_const
 			  (subtarget, mode,
 			   ((unsigned HOST_WIDE_INT) c) >> bits, i)))
@@ -1530,6 +1568,8 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
 	  emit_insn (gen_extqh (exth, memh, addr));
 	  mode = DImode;
 	  break;
+	default:
+	  abort();
 	}
 
       addr = expand_binop (mode, ior_optab, gen_lowpart (mode, extl),
@@ -1803,7 +1843,8 @@ alpha_expand_block_move (operands)
 {
   rtx bytes_rtx	= operands[2];
   rtx align_rtx = operands[3];
-  HOST_WIDE_INT bytes = INTVAL (bytes_rtx);
+  HOST_WIDE_INT orig_bytes = INTVAL (bytes_rtx);
+  HOST_WIDE_INT bytes = orig_bytes;
   HOST_WIDE_INT src_align = INTVAL (align_rtx);
   HOST_WIDE_INT dst_align = src_align;
   rtx orig_src	= operands[1];
@@ -1876,7 +1917,7 @@ alpha_expand_block_move (operands)
       enum machine_mode mode;
       tmp = XEXP (XEXP (orig_src, 0), 0);
 
-      mode = mode_for_size (bytes, MODE_INT, 1);
+      mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 1);
       if (mode != BLKmode
 	  && GET_MODE_SIZE (GET_MODE (tmp)) <= bytes)
 	{
@@ -2006,7 +2047,7 @@ alpha_expand_block_move (operands)
       enum machine_mode mode;
       tmp = XEXP (XEXP (orig_dst, 0), 0);
 
-      mode = mode_for_size (bytes, MODE_INT, 1);
+      mode = mode_for_size (orig_bytes * BITS_PER_UNIT, MODE_INT, 1);
       if (GET_MODE (tmp) == mode && nregs == 1)
 	{
 	  emit_move_insn (tmp, data_regs[0]);
@@ -2016,9 +2057,12 @@ alpha_expand_block_move (operands)
 
       /* ??? If nregs > 1, consider reconstructing the word in regs.  */
       /* ??? Optimize mode < dst_mode with strict_low_part.  */
-      /* No appropriate mode; fall back on memory.  */
+
+      /* No appropriate mode; fall back on memory.  We can speed things
+	 up by recognizing extra alignment information.  */
       orig_dst = change_address (orig_dst, GET_MODE (orig_dst),
 				 copy_addr_to_reg (XEXP (orig_dst, 0)));
+      dst_align = GET_MODE_SIZE (GET_MODE (tmp));
     }
 
   /* Write out the data in whatever chunks reading the source allowed.  */
@@ -2954,7 +2998,7 @@ alpha_builtin_saveregs (arglist)
       dest = change_address (block, ptr_mode, XEXP (block, 0));
       emit_move_insn (dest, addr);
 
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
 			   dest, ptr_mode,
 			   GEN_INT (GET_MODE_SIZE (ptr_mode)),
@@ -2968,7 +3012,7 @@ alpha_builtin_saveregs (arglist)
 					    POINTER_SIZE/BITS_PER_UNIT));
       emit_move_insn (dest, argsize);
 
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
 			   dest, ptr_mode,
 			   GEN_INT (GET_MODE_SIZE
@@ -3898,7 +3942,7 @@ static int num_source_filenames = 0;
 
 /* Name of the file containing the current function.  */
 
-static char *current_function_file = "";
+static const char *current_function_file = "";
 
 /* Offsets to alpha virtual arg/local debugging pointers.  */
 

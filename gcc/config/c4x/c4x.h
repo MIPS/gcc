@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1994-98, 1999 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -156,66 +156,109 @@
 /* Run-time compilation parameters selecting different hardware subsets.
 
    Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
+   This is a list in braces of triplets in braces,
+   each pair being { "NAME", VALUE, "DESCRIPTION" }
    where VALUE is the bits to set or minus the bits to clear.
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES \
-{ { "small", SMALL_MEMORY_FLAG }, \
-  { "big", -SMALL_MEMORY_FLAG }, \
-  { "mpyi", MPYI_FLAG}, \
-  { "no-mpyi", -MPYI_FLAG}, \
-  { "fast-fix", FAST_FIX_FLAG}, \
-  { "no-fast-fix", -FAST_FIX_FLAG}, \
-  { "rpts", RPTS_FLAG}, \
-  { "no-rpts", -RPTS_FLAG}, \
-  { "rptb", RPTB_FLAG}, \
-  { "no-rptb", -RPTB_FLAG}, \
-  { "30", C30_FLAG}, \
-  { "31", C31_FLAG}, \
-  { "32", C32_FLAG}, \
-  { "40", C40_FLAG}, \
-  { "44", C44_FLAG}, \
-  { "ti", TI_FLAG}, \
-  { "no-ti", -TI_FLAG}, \
-  { "paranoid", PARANOID_FLAG}, \
-  { "no-paranoid", -PARANOID_FLAG}, \
-  { "isr-dp-reload", PARANOID_FLAG}, \
-  { "no-isr-dp-reload", -PARANOID_FLAG}, \
-  { "memparm", MEMPARM_FLAG}, \
-  { "regparm", -MEMPARM_FLAG}, \
-  { "devel", DEVEL_FLAG}, \
-  { "no-devel", -DEVEL_FLAG}, \
-  { "bk", BK_FLAG}, \
-  { "no-bk", -BK_FLAG}, \
-  { "db", DB_FLAG}, \
-  { "no-db", -DB_FLAG}, \
-  { "debug", DEBUG_FLAG}, \
-  { "no-debug", -DEBUG_FLAG}, \
-  { "hoist", HOIST_FLAG}, \
-  { "no-hoist", -HOIST_FLAG}, \
-  { "no-force", -FORCE_FLAG}, \
-  { "force", FORCE_FLAG}, \
-  { "loop-unsigned", LOOP_UNSIGNED_FLAG}, \
-  { "no-loop-unsigned", -LOOP_UNSIGNED_FLAG}, \
-  { "preserve-float", PRESERVE_FLOAT_FLAG}, \
-  { "no-preserve-float", -PRESERVE_FLOAT_FLAG}, \
-  { "parallel-insns", PARALLEL_PACK_FLAG}, \
-  { "no-parallel-mpy", -PARALLEL_MPY_FLAG}, \
-  { "parallel-mpy", PARALLEL_MPY_FLAG}, \
-  { "no-parallel-insns", -PARALLEL_PACK_FLAG}, \
-  { "aliases", ALIASES_FLAG}, \
-  { "no-aliases", -ALIASES_FLAG}, \
-  { "", TARGET_DEFAULT} }
+{ { "small", SMALL_MEMORY_FLAG, \
+    "Small memory model" }, \
+  { "big", -SMALL_MEMORY_FLAG, \
+    "Big memory model" }, \
+  { "mpyi", MPYI_FLAG, \
+    "Use MPYI instruction for C3x" }, \
+  { "no-mpyi", -MPYI_FLAG, \
+    "Do not use MPYI instruction for C3x" }, \
+  { "fast-fix", FAST_FIX_FLAG, \
+    "Use fast but approximate float to integer conversion" }, \
+  { "no-fast-fix", -FAST_FIX_FLAG, \
+    "Use slow but accurate float to integer conversion" }, \
+  { "rpts", RPTS_FLAG, \
+    "Enable use of RTPS instruction" }, \
+  { "no-rpts", -RPTS_FLAG, \
+    "Disable use of RTPS instruction" }, \
+  { "rptb", RPTB_FLAG, \
+    "Enable use of RTPB instruction" }, \
+  { "no-rptb", -RPTB_FLAG, \
+    "Disable use of RTPB instruction" }, \
+  { "30", C30_FLAG, \
+    "Generate code for C30 CPU"}, \
+  { "31", C31_FLAG, \
+    "Generate code for C31 CPU"}, \
+  { "32", C32_FLAG, \
+    "Generate code for C32 CPU"}, \
+  { "40", C40_FLAG, \
+    "Generate code for C40 CPU"}, \
+  { "44", C44_FLAG, \
+    "Generate code for C44 CPU"}, \
+  { "ti", TI_FLAG, \
+    "Emit code compatible with TI tools"}, \
+  { "no-ti", -TI_FLAG, \
+    "Emit code to use GAS extensions"}, \
+  { "paranoid", PARANOID_FLAG, \
+    "Save DP across ISR in small memory model" }, \
+  { "no-paranoid", -PARANOID_FLAG, \
+    "Don't save DP across ISR in small memory model" }, \
+  { "isr-dp-reload", PARANOID_FLAG, \
+    "Save DP across ISR in small memory model" }, \
+  { "no-isr-dp-reload", -PARANOID_FLAG, \
+    "Don't save DP across ISR in small memory model" }, \
+  { "memparm", MEMPARM_FLAG, \
+    "Pass arguments on the stack" }, \
+  { "regparm", -MEMPARM_FLAG,  \
+    "Pass arguments in registers" }, \
+  { "devel", DEVEL_FLAG, \
+    "Enable new features under development" }, \
+  { "no-devel", -DEVEL_FLAG, \
+    "Disable new features under development" }, \
+  { "bk", BK_FLAG, \
+    "Use the BK register as a general purpose register" }, \
+  { "no-bk", -BK_FLAG, \
+    "Do not allocate BK register" }, \
+  { "db", DB_FLAG, \
+    "Enable use of DB instruction" }, \
+  { "no-db", -DB_FLAG, \
+    "Disable use of DB instruction" }, \
+  { "debug", DEBUG_FLAG, \
+    "Enable debugging" }, \
+  { "no-debug", -DEBUG_FLAG, \
+    "Disable debugging" }, \
+  { "hoist", HOIST_FLAG, \
+    "Force constants into registers to improve hoisting" }, \
+  { "no-hoist", -HOIST_FLAG, \
+    "Don't force constants into registers" }, \
+  { "force", FORCE_FLAG, \
+    "Force RTL generation to emit valid 3 operand insns" }, \
+  { "no-force", -FORCE_FLAG, \
+    "Allow RTL generation to emit invalid 3 operand insns" }, \
+  { "loop-unsigned", LOOP_UNSIGNED_FLAG, \
+    "Allow unsigned interation counts for RPTB/DB" }, \
+  { "no-loop-unsigned", -LOOP_UNSIGNED_FLAG, \
+    "Disallow unsigned iteration counts for RPTB/DB" }, \
+  { "preserve-float", PRESERVE_FLOAT_FLAG, \
+    "Preserve all 40 bits of FP reg across call" }, \
+  { "no-preserve-float", -PRESERVE_FLOAT_FLAG, \
+    "Only preserve 32 bits of FP reg across call" }, \
+  { "parallel-insns", PARALLEL_PACK_FLAG, \
+    "Enable parallel instructions" }, \
+  { "no-parallel-mpy", -PARALLEL_MPY_FLAG, \
+    "Disable parallel instructions" }, \
+  { "parallel-mpy", PARALLEL_MPY_FLAG, \
+    "Enable MPY||ADD and MPY||SUB instructions" }, \
+  { "no-parallel-insns", -PARALLEL_PACK_FLAG, \
+    "Disable MPY||ADD and MPY||SUB instructions" }, \
+  { "aliases", ALIASES_FLAG, \
+    "Assume that pointers may be aliased" }, \
+  { "no-aliases", -ALIASES_FLAG, \
+    "Assume that pointers not aliased" }, \
+  { "", TARGET_DEFAULT, ""} }
 
 /* Default target switches */
 
-/* Play safe, not the fastest code.  Note that setting PARALLEL_MPY
-flag will set SMALL_REGISTER_CLASSES which can be a price to pay,
-especially when MPY||ADD instructions are only generated very
-infrequenctly. */
-#define TARGET_DEFAULT		ALIASES_FLAG | RPTB_FLAG | PARALLEL_PACK_FLAG
+/* Play safe, not the fastest code. */
+#define TARGET_DEFAULT		ALIASES_FLAG | PARALLEL_PACK_FLAG \
+				| PARALLEL_MPY_FLAG | RPTB_FLAG
 
 /* Caveats:
    Max iteration count for RPTB/RPTS is 2^31 + 1.
@@ -227,7 +270,7 @@ extern int target_flags;
 
 #define TARGET_INLINE		1 /* Inline MPYI */
 #define TARGET_PARALLEL	        1 /* Enable parallel insns in MD */
-#define TARGET_SMALL_REG_CLASS	1 
+#define TARGET_SMALL_REG_CLASS	0
 
 #define TARGET_SMALL		(target_flags & SMALL_MEMORY_FLAG)
 #define TARGET_MPYI		(!TARGET_C3X || (target_flags & MPYI_FLAG))
@@ -240,7 +283,7 @@ extern int target_flags;
 #define TARGET_RPTB		(target_flags & RPTB_FLAG \
 				 && optimize >= 2)
 #define TARGET_BK		(target_flags & BK_FLAG)
-#define TARGET_DB		(!TARGET_C3X || (target_flags & DB_FLAG))
+#define TARGET_DB		(! TARGET_C3X || (target_flags & DB_FLAG))
 #define TARGET_DEBUG		(target_flags & DEBUG_FLAG)
 #define TARGET_HOIST		(target_flags & HOIST_FLAG)
 #define TARGET_LOOP_UNSIGNED	(target_flags & LOOP_UNSIGNED_FLAG)
@@ -260,11 +303,15 @@ extern int target_flags;
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
+#define TARGET_LOAD_ADDRESS	(1 || (! TARGET_C3X && ! TARGET_SMALL))
+
 /* -mrpts            allows the use of the RPTS instruction irregardless.
    -mrpts=max-cycles will use RPTS if the number of cycles is constant
    and less than max-cycles. */
 
 #define TARGET_RPTS_CYCLES(CYCLES) (TARGET_RPTS || (CYCLES) < c4x_rpts_cycles)
+
+#define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
 
 /* -mcpu=XX    with XX = target DSP version number */
 
@@ -288,8 +335,10 @@ extern int target_flags;
 extern char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 #define TARGET_OPTIONS		\
-{ {"rpts=", &c4x_rpts_cycles_string},\
-  {"cpu=", &c4x_cpu_version_string} }
+{ {"rpts=", &c4x_rpts_cycles_string, \
+   "Specify maximum number of iterations for RPTS" }, \
+  {"cpu=", &c4x_cpu_version_string, \
+   "Select CPU to generate code for" } }
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -300,6 +349,9 @@ extern char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 extern void c4x_override_options ();
 #define OVERRIDE_OPTIONS c4x_override_options ()
 
+/* Define this to change the optimizations performed by default.  */
+extern void c4x_optimization_options ();
+#define OPTIMIZATION_OPTIONS(LEVEL,SIZE) c4x_optimization_options(LEVEL,SIZE)
 
 /* Run Time Target Specification  */
 
@@ -334,6 +386,11 @@ extern void c4x_override_options ();
 #define STRICT_ALIGNMENT	0
 #define TARGET_FLOAT_FORMAT	C4X_FLOAT_FORMAT
 #define MAX_FIXED_MODE_SIZE	64 /* HImode */
+
+/* Number of bits in the high and low parts of a two stage
+   load of an immediate constant.  */
+#define BITS_PER_HIGH 16
+#define BITS_PER_LO_SUM 16
 
 /* Use the internal floating point stuff in the compiler and not the
    host floating point stuff. */
@@ -417,7 +474,7 @@ extern void c4x_override_options ();
 
 /* Extended precision registers (high set) */
 
-#define IS_EXT_HIGH_REG(r)         (!TARGET_C3X \
+#define IS_EXT_HIGH_REG(r)         (! TARGET_C3X \
 			            && ((r) >= R8_REGNO) && ((r) <= R11_REGNO))
 /* Address registers */
 
@@ -431,6 +488,7 @@ extern void c4x_override_options ();
 /* Misc registers */
 
 #define IS_ST_REG(r)     ((r) == ST_REGNO)
+#define IS_RC_REG(r)     ((r) == RC_REGNO)
 #define IS_REPEAT_REG(r) (((r) >= RS_REGNO) && ((r) <= RC_REGNO))
 
 /* Composite register sets */
@@ -455,6 +513,7 @@ extern void c4x_override_options ();
 #define IS_DP_OR_PSEUDO_REG(r)      (IS_DP_REG(r) || IS_PSEUDO_REG(r))
 #define IS_SP_OR_PSEUDO_REG(r)      (IS_SP_REG(r) || IS_PSEUDO_REG(r))
 #define IS_ST_OR_PSEUDO_REG(r)      (IS_ST_REG(r) || IS_PSEUDO_REG(r))
+#define IS_RC_OR_PSEUDO_REG(r)      (IS_RC_REG(r) || IS_PSEUDO_REG(r))
 
 #define IS_PSEUDO_REGNO(op)          (IS_PSEUDO_REG(REGNO(op)))
 #define IS_ADDR_REGNO(op)            (IS_ADDR_REG(REGNO(op)))
@@ -473,6 +532,7 @@ extern void c4x_override_options ();
 #define IS_DP_OR_PSEUDO_REGNO(op)    (IS_DP_OR_PSEUDO_REG(REGNO(op)))
 #define IS_SP_OR_PSEUDO_REGNO(op)    (IS_SP_OR_PSEUDO_REG(REGNO(op)))
 #define IS_ST_OR_PSEUDO_REGNO(op)    (IS_ST_OR_PSEUDO_REG(REGNO(op)))
+#define IS_RC_OR_PSEUDO_REGNO(op)    (IS_RC_OR_PSEUDO_REG(REGNO(op)))
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator. */
@@ -508,7 +568,7 @@ extern void c4x_override_options ();
 
 #define CONDITIONAL_REGISTER_USAGE			\
   {							\
-    if (!TARGET_BK)					\
+    if (! TARGET_BK)					\
       {							\
 	fixed_regs[BK_REGNO] = 1;			\
         call_used_regs[BK_REGNO] = 1;			\
@@ -527,6 +587,11 @@ extern void c4x_override_options ();
 	     fixed_regs[i] = call_used_regs[i] = 1;	\
 	     c4x_regclass_map[i] = NO_REGS;		\
 	 }						\
+      }							\
+    if (TARGET_PRESERVE_FLOAT)				\
+      {							\
+	c4x_caller_save_map[R6_REGNO] = HFmode;		\
+	c4x_caller_save_map[R7_REGNO] = HFmode;		\
       }							\
    }
 
@@ -573,11 +638,10 @@ extern void c4x_override_options ();
    across a call in mode MODE.  This does not have to include the call used
    registers.  */
 
-#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)		            \
-     (((REGNO) == R6_REGNO || (REGNO) == R7_REGNO)                          \
-      && (MODE) != QFmode                                                   \
-      || ((REGNO) == R4_REGNO || (REGNO) == R5_REGNO || (REGNO == R8_REGNO) \
-	  && ((MODE) != QImode || (MODE) != HImode || (MODE) != Pmode)))
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)		              \
+     ((((REGNO) == R6_REGNO || (REGNO) == R7_REGNO) && ! ((MODE) == QFmode))  \
+      || (((REGNO) == R4_REGNO || (REGNO) == R5_REGNO || (REGNO == R8_REGNO)) \
+	  && ! ((MODE) == QImode || (MODE) == HImode || (MODE) == Pmode)))
 
 /* Specify the modes required to caller save a given hard regno.  */
 
@@ -628,8 +692,10 @@ enum reg_class
     EXT_REGS,			/* 'f' */
     ADDR_REGS,			/* 'a' */
     INDEX_REGS,			/* 'x' */
-    SP_REG,			/* 'b' */
     BK_REG,			/* 'k' */
+    SP_REG,			/* 'b' */
+    RC_REG,			/* 'v' */
+    COUNTER_REGS,		/*  */
     INT_REGS,			/* 'c' */
     GENERAL_REGS,		/* 'r' */
     DP_REG,			/* 'z' */
@@ -649,36 +715,41 @@ enum reg_class
    "EXT_REGS",		\
    "ADDR_REGS",		\
    "INDEX_REGS",	\
-   "SP_REG",		\
    "BK_REG",		\
+   "SP_REG",		\
+   "RC_REG",		\
+   "COUNTER_REGS",	\
    "INT_REGS",		\
    "GENERAL_REGS",	\
    "DP_REG",		\
    "ST_REG",		\
    "ALL_REGS"		\
-};
+}
 
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
-   of length N_REG_CLASSES.  */
-
+   of length N_REG_CLASSES.  RC is not included in GENERAL_REGS
+   since the register allocator will often choose a general register
+   in preference to RC for the decrement_and_branch_on_count pattern.  */
 
 #define REG_CLASS_CONTENTS \
 {						\
- 0x00000000, /*     No registers */		\
- 0x00000003, /* 't' R0-R1	 */		\
- 0x0000000c, /* 'u' R2-R3	 */		\
- 0x000000ff, /* 'q' R0-R7	 */		\
- 0xf00000ff, /* 'f' R0-R11       */		\
- 0x0000ff00, /* 'a' AR0-AR7 */			\
- 0x00060000, /* 'x' IR0-IR1 */			\
- 0x00100000, /* 'b' SP */			\
- 0x00080000, /* 'k' BK */			\
- 0x0e1eff00, /* 'c' AR0-AR7, IR0-IR1, RC, RS, RE, BK, SP */	\
- 0xfe1effff, /* 'r' R0-R11, AR0-AR7, IR0-IR1, RC, RS, RE, BK, SP */\
- 0x00010000, /* 'z' DP */			\
- 0x00200000, /* 'y' ST */			\
- 0xffffffff, /*     All registers */		\
+ {0x00000000}, /*     No registers */		\
+ {0x00000003}, /* 't' R0-R1	 */		\
+ {0x0000000c}, /* 'u' R2-R3	 */		\
+ {0x000000ff}, /* 'q' R0-R7	 */		\
+ {0xf00000ff}, /* 'f' R0-R11       */		\
+ {0x0000ff00}, /* 'a' AR0-AR7 */		\
+ {0x00060000}, /* 'x' IR0-IR1 */		\
+ {0x00080000}, /* 'k' BK */			\
+ {0x00100000}, /* 'b' SP */			\
+ {0x08000000}, /* 'v' RC */			\
+ {0x0800ff00}, /*     RC,AR0-AR7 */		\
+ {0x0e1eff00}, /* 'c' AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC */	\
+ {0xfe1effff}, /* 'r' R0-R11, AR0-AR7, IR0-IR1, BK, SP, RS, RE, RC */\
+ {0x00010000}, /* 'z' DP */			\
+ {0x00200000}, /* 'y' ST */			\
+ {0xffffffff}, /*     All registers */		\
 }
 
 /* The same information, inverted:
@@ -688,22 +759,18 @@ enum reg_class
 
 #define REGNO_REG_CLASS(REGNO) (c4x_regclass_map[REGNO])
 
-/* When SMALL_REGISTER_CLASSES is defined, the compiler allows
-registers explicitly used in the rtl to be used as spill registers but
-prevents the compiler from extending the lifetime of these registers.
-Problems can occur if reload has to spill a register used explicitly
-in the RTL if it has a long lifetime.   This is only likely to be a problem
-with a function having many variables and thus lots of spilling.  
+/* When SMALL_REGISTER_CLASSES is defined, the lifetime of registers
+   explicitly used in the rtl is kept as short as possible.
 
-We only need to define SMALL_REGISTER_CLASSES if TARGET_PARALLEL_MPY
-is defined since the MPY|ADD insns require the classes R0R1_REGS and
-R2R3_REGS which are used by the function return registers (R0,R1) and
-the register arguments (R2,R3), respectively.  I'm reluctant to define
-this macro since it stomps on many potential optimisations.  Ideally
-it should have a register class argument so that not all the register
-classes gets penalised for the sake of a naughty few...  For long
-double arithmetic we need two additional registers that we can use as
-spill registers.  */
+   We only need to define SMALL_REGISTER_CLASSES if TARGET_PARALLEL_MPY
+   is defined since the MPY|ADD insns require the classes R0R1_REGS and
+   R2R3_REGS which are used by the function return registers (R0,R1) and
+   the register arguments (R2,R3), respectively.  I'm reluctant to define
+   this macro since it stomps on many potential optimisations.  Ideally
+   it should have a register class argument so that not all the register
+   classes gets penalised for the sake of a naughty few...  For long
+   double arithmetic we need two additional registers that we can use as
+   spill registers.  */
 
 #define SMALL_REGISTER_CLASSES (TARGET_SMALL_REG_CLASS && TARGET_PARALLEL_MPY)
 
@@ -711,7 +778,7 @@ spill registers.  */
 #define INDEX_REG_CLASS INDEX_REGS
 
 /*
-  Constraints for the C4x
+  Register constraints for the C4x
  
   a - address reg (ar0-ar7)
   b - stack reg (sp)
@@ -723,9 +790,12 @@ spill registers.  */
   q - r0-r7
   t - r0-r1
   u - r2-r3
+  v - repeat count (rc)
   x - index register (ir0-ir1)
   y - status register (st)
   z - dp reg (dp) 
+
+  Memory/constant constraints for the C4x
 
   G - short float 16-bit
   I - signed 16-bit constant (sign extended)
@@ -756,6 +826,7 @@ spill registers.  */
      : ((CC) == 'q') ? EXT_LOW_REGS				\
      : ((CC) == 't') ? R0R1_REGS				\
      : ((CC) == 'u') ? R2R3_REGS				\
+     : ((CC) == 'v') ? RC_REG					\
      : ((CC) == 'x') ? INDEX_REGS				\
      : ((CC) == 'y') ? ST_REG					\
      : ((CC) == 'z') ? DP_REG					\
@@ -801,7 +872,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
 
 #define IS_NOT_UINT16_CONST(VAL) IS_UINT16_CONST(~(VAL))	/* 'N' */
 
-#define IS_HIGH_CONST(VAL) (!TARGET_C3X && (((VAL) & 0xffff) == 0)) /* 'O' */
+#define IS_HIGH_CONST(VAL) (! TARGET_C3X && (((VAL) & 0xffff) == 0)) /* 'O' */
 
 
 #define IS_DISP1_CONST(VAL) (((VAL) <= 1) && ((VAL) >= -1)) /* 'S' */
@@ -816,24 +887,25 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
 
 #define CONST_OK_FOR_LETTER_P(VAL, C)					\
         ( ((C) == 'I') ? (IS_INT16_CONST (VAL))				\
-	: ((C) == 'J') ? (!TARGET_C3X && IS_INT8_CONST (VAL))		\
-	: ((C) == 'K') ? (!TARGET_C3X && IS_INT5_CONST (VAL))		\
+	: ((C) == 'J') ? (! TARGET_C3X && IS_INT8_CONST (VAL))		\
+	: ((C) == 'K') ? (! TARGET_C3X && IS_INT5_CONST (VAL))		\
         : ((C) == 'L') ? (IS_UINT16_CONST (VAL))			\
-	: ((C) == 'M') ? (!TARGET_C3X && IS_UINT8_CONST (VAL))		\
+	: ((C) == 'M') ? (! TARGET_C3X && IS_UINT8_CONST (VAL))		\
 	: ((C) == 'N') ? (IS_NOT_UINT16_CONST (VAL))		        \
 	: ((C) == 'O') ? (IS_HIGH_CONST (VAL))			        \
         : 0 )	
 
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VAL, C) 				\
-        ( ((C) == 'G') ? (fp_zero_operand (VAL))			\
-	: ((C) == 'H') ? (c4x_H_constant (VAL)) 			\
+#define CONST_DOUBLE_OK_FOR_LETTER_P(OP, C) 				\
+        ( ((C) == 'G') ? (fp_zero_operand (OP))				\
+	: ((C) == 'H') ? (c4x_H_constant (OP)) 				\
 	: 0 )
 
-#define EXTRA_CONSTRAINT(VAL, C) \
-        ( ((C) == 'Q') ? (c4x_Q_constraint (VAL))			\
-	: ((C) == 'R') ? (c4x_R_constraint (VAL))			\
-	: ((C) == 'S') ? (c4x_S_constraint (VAL))			\
-	: ((C) == 'T') ? (c4x_T_constraint (VAL))			\
+#define EXTRA_CONSTRAINT(OP, C) \
+        ( ((C) == 'Q') ? (c4x_Q_constraint (OP))			\
+	: ((C) == 'R') ? (c4x_R_constraint (OP))			\
+	: ((C) == 'S') ? (c4x_S_constraint (OP))			\
+	: ((C) == 'T') ? (c4x_T_constraint (OP))			\
+	: ((C) == 'U') ? (c4x_U_constraint (OP))			\
 	: 0 )
 
 #define SMALL_CONST(VAL, insn)						\
@@ -978,7 +1050,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
  int regno;							\
  int offset = 0;						\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && !call_used_regs[regno])	\
+    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
 		&& ((regno == R6_REGNO) || (regno == R7_REGNO)) \
 		? 2 : 1;					\
@@ -990,7 +1062,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
   {{ FRAME_POINTER_REGNUM, FRAME_POINTER_REGNUM }}
 
 #define	CAN_ELIMINATE(FROM, TO)					\
-  (!(((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) \
+  (! (((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) \
   || ((FROM) == FRAME_POINTER_REGNUM && (TO) == FRAME_POINTER_REGNUM)))
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)	 	\
@@ -998,7 +1070,7 @@ c4x_secondary_memory_needed(CLASS1, CLASS2, MODE)
  int regno;							\
  int offset = 0;						\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && !call_used_regs[regno])	\
+    if (regs_ever_live[regno] && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
 		&& ((regno == R6_REGNO) || (regno == R7_REGNO)) \
 		? 2 : 1;					\
@@ -1096,7 +1168,7 @@ extern struct rtx_def *c4x_function_arg();
    MSBs of the address.  This is not supported by the TI assembler.  */
 
 #define FUNCTION_PROFILER(FILE, LABELNO) 			\
-     if (!TARGET_C3X)						\
+     if (! TARGET_C3X)						\
      {								\
 	fprintf (FILE, "\tpush\tar2\n");			\
 	fprintf (FILE, "\tldhi\t^LP%d,ar2\n", (LABELNO));	\
@@ -1146,7 +1218,7 @@ extern struct rtx_def *c4x_function_arg();
 #define FUNCTION_BLOCK_PROFILER(FILE, BLOCKNO) 			\
   if (profile_block_flag == 2)					\
     {								\
-      if (!TARGET_C3X)						\
+      if (! TARGET_C3X)						\
       {								\
 	fprintf (FILE, "\tpush\tst\n");				\
 	fprintf (FILE, "\tpush\tar2\n");			\
@@ -1193,7 +1265,7 @@ extern struct rtx_def *c4x_function_arg();
     }								\
   else								\
     {								\
-      if (!TARGET_C3X)						\
+      if (! TARGET_C3X)						\
       {								\
 	fprintf (FILE, "\tpush\tst\n");				\
 	fprintf (FILE, "\tpush\tar2\n");			\
@@ -1225,7 +1297,7 @@ extern struct rtx_def *c4x_function_arg();
 #define BLOCK_PROFILER(FILE, BLOCKNO) 				\
   if (profile_block_flag == 2)					\
     {								\
-      if (!TARGET_C3X)						\
+      if (! TARGET_C3X)						\
       {								\
 	fprintf (FILE, "\tpush\tst\n");				\
 	fprintf (FILE, "\tpush\tar2\n");			\
@@ -1281,7 +1353,7 @@ extern struct rtx_def *c4x_function_arg();
     }								\
   else								\
     {								\
-      if (!TARGET_C3X)						\
+      if (! TARGET_C3X)						\
       {								\
 	fprintf (FILE, "\tpush\tar2\n");			\
 	fprintf (FILE, "\tpush\tar0\n");			\
@@ -1508,14 +1580,16 @@ extern struct rtx_def *c4x_gen_compare_reg ();
 
 /* Addressing Modes  */
 
-#define HAVE_POST_INCREMENT
-#define HAVE_PRE_INCREMENT
-#define HAVE_POST_DECREMENT
-#define HAVE_PRE_DECREMENT
-#define HAVE_PRE_MODIFY_REG
-#define HAVE_POST_MODIFY_REG
-#define HAVE_PRE_MODIFY_DISP
-#define HAVE_POST_MODIFY_DISP
+#define HAVE_POST_INCREMENT 1
+#define HAVE_PRE_INCREMENT 1
+#define HAVE_POST_DECREMENT 1
+#define HAVE_PRE_DECREMENT 1
+#define HAVE_PRE_MODIFY_REG 1
+#define HAVE_POST_MODIFY_REG 1
+#define HAVE_PRE_MODIFY_DISP 1
+#define HAVE_POST_MODIFY_DISP 1
+
+#define HAVE_MULTIPLE_PACK 2
 
 /* What about LABEL_REF?  */
 #define CONSTANT_ADDRESS_P(X) (GET_CODE (X) == SYMBOL_REF)
@@ -1599,16 +1673,43 @@ extern struct rtx_def *c4x_legitimize_address ();
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE. 
 
-   The C4x can only load 16-bit immediate values, so we only allow
-   a restricted subset of CONST_INT and CONST_DOUBLE and reject
-   LABEL_REF, SYMBOL_REF, CONST, and HIGH codes.  */
+   The C4x can only load 16-bit immediate values, so we only allow a
+   restricted subset of CONST_INT and CONST_DOUBLE.  Disallow
+   LABEL_REF and SYMBOL_REF (except on the C40 with the big memory
+   model) so that the symbols will be forced into the constant pool.
+   On second thoughts, lets do this with the move expanders.
+*/
 
 #define LEGITIMATE_CONSTANT_P(X)				\
-  (GET_CODE (X) == CONST_DOUBLE && c4x_H_constant (X)		\
-  || GET_CODE (X) == CONST_INT && c4x_I_constant (X))
-
+  ((GET_CODE (X) == CONST_DOUBLE && c4x_H_constant (X))		\
+  || (GET_CODE (X) == CONST_INT && c4x_I_constant (X))		\
+  || (GET_CODE (X) == SYMBOL_REF)				\
+  || (GET_CODE (X) == LABEL_REF)				\
+  || (GET_CODE (X) == CONST)					\
+  || (GET_CODE (X) == HIGH && ! TARGET_C3X)			\
+  || (GET_CODE (X) == LO_SUM && ! TARGET_C3X))
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
+
+/* Define this macro if references to a symbol must be treated
+   differently depending on something about the variable or
+   function named by the symbol (such as what section it is in).
+
+   The macro definition, if any, is executed immediately after the
+   rtl for DECL or other node is created.
+   The value of the rtl will be a `mem' whose address is a
+   `symbol_ref'.
+
+   The usual thing for this macro to do is to a flag in the
+   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
+   name string in the `symbol_ref' (if one bit is not enough
+   information).
+
+   On the C4x we use this to indicate if a symbol is in text or
+   data space.  */
+
+extern void c4x_encode_section_info ();
+#define ENCODE_SECTION_INFO(DECL) c4x_encode_section_info (DECL);
 
 /* Descripting Relative Cost of Operations  */
 
@@ -1625,10 +1726,22 @@ extern struct rtx_def *c4x_legitimize_address ();
 
 
 #define RTX_COSTS(RTX, CODE, OUTER_CODE)				\
+    case PLUS:								\
+    case MINUS:								\
+    case AND:								\
+    case IOR:								\
+    case XOR:								\
+    case ASHIFT:							\
+    case ASHIFTRT:							\
+    case LSHIFTRT:							\
+    return COSTS_N_INSNS (1);						\
     case MULT:								\
     return COSTS_N_INSNS (GET_MODE_CLASS (GET_MODE (RTX)) == MODE_FLOAT \
 			  || TARGET_MPYI ? 1 : 14);			\
-    case DIV:  case UDIV: case MOD: case UMOD: 				\
+    case DIV:								\
+    case UDIV:								\
+    case MOD: 								\
+    case UMOD:								\
     return COSTS_N_INSNS (GET_MODE_CLASS (GET_MODE (RTX)) == MODE_FLOAT	\
 			  ? 15 : 50);
 
@@ -1699,11 +1812,10 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 #define EXPENSIVE_CLASS_P(CLASS) (ADDR_CLASS_P(CLASS) \
                           || INDEX_CLASS_P(CLASS) || (CLASS) == SP_REG)
 
-/* Make the Rx register a little easier to use so they are used for
-   calculations and the ARx registers are used for addressing. */
+/* Compute extra cost of moving data between one register class
+   and another.  */
 
-#define REGISTER_MOVE_COST(FROM, TO) \
-(EXPENSIVE_CLASS_P(TO) ? 5 : EXPENSIVE_CLASS_P(FROM) ? 4 : 3)
+#define REGISTER_MOVE_COST(FROM, TO)	2
 
 /* Memory move cost is same as fast register move.  Maybe this should
    be bumped up? */
@@ -1774,7 +1886,7 @@ do {								\
 } while (0)
 
 /* The TI tooling uses atexit. */
-#define	ON_EXIT(FUNC,ARG)	atexit (FUNC)
+#define	HAVE_ATEXIT
 
 #undef EXTRA_SECTIONS
 #define EXTRA_SECTIONS in_const, in_init, in_fini, in_ctors, in_dtors
@@ -1816,7 +1928,7 @@ void									\
 const_section ()							\
 {									\
   extern void text_section();						\
-  if (!USE_CONST_SECTION)						\
+  if (! USE_CONST_SECTION)						\
     text_section();							\
   else if (in_section != in_const)					\
     {									\
@@ -1896,10 +2008,10 @@ dtors_section ()							\
   else if (TREE_CODE (DECL) == VAR_DECL)				\
     {									\
       if ((0 && RELOC)	/* should be (flag_pic && RELOC) */		\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
-	  || !DECL_INITIAL (DECL)					\
+	  || ! TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
+	  || ! DECL_INITIAL (DECL)					\
 	  || (DECL_INITIAL (DECL) != error_mark_node			\
-	      && !TREE_CONSTANT (DECL_INITIAL (DECL))))			\
+	      && ! TREE_CONSTANT (DECL_INITIAL (DECL))))		\
 	data_section ();						\
       else								\
 	const_section ();						\
@@ -1951,7 +2063,7 @@ dtors_section ()							\
    may have quietly changed this register on the sly. */
 
 #define ASM_IDENTIFY_GCC(FILE) \
-    if (!TARGET_TI) fputs ("gcc2_compiled.:\n", FILE);	\
+    if (! TARGET_TI) fputs ("gcc2_compiled.:\n", FILE);	\
       fputs ("\t.data\ndata_sec:\n", FILE);
 
 #define ASM_COMMENT_START	";"
@@ -1965,7 +2077,7 @@ dtors_section ()							\
 {   long l;						\
     char str[30];					\
     REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
-    REAL_VALUE_TO_DECIMAL (VALUE, "%20f", str);		\
+    REAL_VALUE_TO_DECIMAL (VALUE, "%20lf", str);	\
     if (sizeof (int) == sizeof (long))			\
       fprintf (FILE, "\t.word\t0%08xh\t; %s\n", l, str);\
     else						\
@@ -1984,7 +2096,7 @@ dtors_section ()							\
 {   long l[2];						\
     char str[30];					\
     REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);		\
-    REAL_VALUE_TO_DECIMAL (VALUE, "%20f", str);		\
+    REAL_VALUE_TO_DECIMAL (VALUE, "%20lf", str);	\
     l[1] = (l[0] << 8) | ((l[1] >> 24) & 0xff);		\
     if (sizeof (int) == sizeof (long))			\
       fprintf (FILE, "\t.word\t0%08xh\t; %s\n\t.word\t0%08xh\n", \
@@ -2427,8 +2539,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 
 #define MACHINE_DEPENDENT_REORG(INSNS) c4x_process_after_reload(INSNS)
 
-#define MACHINE_DEPENDENT_COMBINE(INSNS) c4x_combine_parallel(INSNS)
-
 #define DBR_OUTPUT_SEQEND(FILE)		\
 if (final_sequence != NULL_RTX)		\
 {					\
@@ -2446,11 +2556,6 @@ if (final_sequence != NULL_RTX)		\
 }
 
 #define NO_FUNCTION_CSE
-
-/* Repeat block stuff (hook into strength_reduce() in loop.c).  */
-
-extern void c4x_rptb_process ();
-#define REPEAT_BLOCK_PROCESS(START, END) c4x_rptb_process(START, END)
 
 /* We don't want a leading tab.  */
 
@@ -2475,7 +2580,8 @@ extern void c4x_rptb_process ();
   {"dp_reg_operand", {REG}},					\
   {"sp_reg_operand", {REG}},					\
   {"st_reg_operand", {REG}},					\
-  {"call_operand", {REG, SYMBOL_REF}},				\
+  {"rc_reg_operand", {REG}},					\
+  {"call_address_operand", {REG, SYMBOL_REF, LABEL_REF, CONST}}, \
   {"src_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
   {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
@@ -2483,7 +2589,8 @@ extern void c4x_rptb_process ();
   {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"par_ind_operand", {MEM}},					\
   {"parallel_operand", {SUBREG, REG, MEM}},			\
-  {"mem_operand", {MEM}},					\
+  {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},	\
+  {"mem_operand", {MEM}},					
 
 
 /* Variables in c4x.c */
@@ -2535,6 +2642,10 @@ extern int stik_const_operand ();
 
 extern int not_const_operand ();
 
+extern int parallel_operand ();
+
+extern int reg_or_const_operand ();
+
 extern int reg_operand ();
 
 extern int reg_imm_operand ();
@@ -2551,6 +2662,8 @@ extern int std_reg_operand ();
 
 extern int src_operand ();
 
+extern int src_hi_operand ();
+
 extern int lsrc_operand ();
 
 extern int tsrc_operand ();
@@ -2563,11 +2676,65 @@ extern int dp_reg_operand ();
 
 extern int sp_reg_operand ();
 
+extern int rc_reg_operand ();
+
 extern int st_reg_operand ();
 
-extern int call_operand ();
+extern int symbolic_address_operand ();
+
+extern int ar0_reg_operand ();
+
+extern int ar0_mem_operand ();
+
+extern int ar1_reg_operand ();
+
+extern int ar1_mem_operand ();
+
+extern int ar2_reg_operand ();
+
+extern int ar2_mem_operand ();
+
+extern int ar3_reg_operand ();
+
+extern int ar3_mem_operand ();
+
+extern int ar4_reg_operand ();
+
+extern int ar4_mem_operand ();
+
+extern int ar5_reg_operand ();
+
+extern int ar5_mem_operand ();
+
+extern int ar6_reg_operand ();
+
+extern int ar6_mem_operand ();
+
+extern int ar7_reg_operand ();
+
+extern int ar7_mem_operand ();
+
+extern int ir0_reg_operand ();
+
+extern int ir0_mem_operand ();
+
+extern int ir1_reg_operand ();
+
+extern int ir1_mem_operand ();
+
+extern int group1_reg_operand ();
+
+extern int group1_mem_operand ();
+
+extern int arx_reg_operand ();
+
+extern int call_address_operand ();
 
 extern int par_ind_operand ();
+
+extern int not_rc_reg ();
+
+extern int not_modify_reg ();
 
 extern int c4x_H_constant ();
 
@@ -2585,21 +2752,21 @@ extern int c4x_S_constraint ();
 
 extern int c4x_T_constraint ();
 
+extern int c4x_U_constraint ();
+
 extern void c4x_emit_libcall ();
 
 extern void c4x_emit_libcall3 ();
 
 extern void c4x_emit_libcall_mulhi ();
 
-extern int c4x_group1_reg_operand ();
-
-extern int c4x_group1_mem_operand ();
-
-extern int c4x_arx_reg_operand ();
+extern int c4x_emit_move_sequence ();
 
 extern int legitimize_operands ();
 
 extern int valid_operands ();
+
+extern int valid_parallel_load_store ();
 
 extern int valid_parallel_operands_4 ();
 

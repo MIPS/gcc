@@ -1,6 +1,6 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
 
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996, 97-98, 1999 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,7 +35,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define PTR             char *
 #define AND             ;
 #define DEFUN(name, arglist, args)      name arglist args;
-#define inline static
 #endif
 #endif /* !DEFUN */
 
@@ -222,11 +221,10 @@ typedef struct JCF {
 #define CONSTANT_Utf8 1
 #define CONSTANT_Unicode 2
 
-extern char *classpath;
 #define DEFAULT_CLASS_PATH "."
 
 extern char *find_class PROTO ((const char *, int, JCF*, int));
-extern char *find_classfile PROTO ((char *, JCF*));
+extern char *find_classfile PROTO ((char *, JCF*, const char *));
 extern int jcf_filbuf_from_stdio PROTO ((JCF *jcf, int count));
 extern void jcf_out_of_synch PROTO((JCF *));
 extern int jcf_unexpected_eof PROTO ((JCF*, int));
@@ -243,18 +241,42 @@ extern int jcf_unexpected_eof PROTO ((JCF*, int));
    ? (((PTR)[-2] & 0x1F) << 6) + ((PTR)[-1] & 0x3F) \
    : (*(PTR) & 0xF0) == 0xE0 && ((PTR) += 3) <= (LIMIT) \
    && ((PTR)[-2] & 0xC0) == 0x80 && ((PTR)[-1] & 0xC0) == 0x80 \
-   ? (((PTR)[-3]&0x1F) << 12) + (((PTR)[-2]&0x3F) << 6) + ((PTR)[-1]&0x3F) \
+   ? (((PTR)[-3]&0x0F) << 12) + (((PTR)[-2]&0x3F) << 6) + ((PTR)[-1]&0x3F) \
    : ((PTR)++, -1))
+
+extern char *jcf_write_base_directory;
 
 /* Debug macros, for the front end */
 
 extern int quiet_flag;
-#ifdef SOURCE_FRONTEND_DEBUG
+#ifdef VERBOSE_SKELETON
 #undef SOURCE_FRONTEND_DEBUG
 #define SOURCE_FRONTEND_DEBUG(X)				\
   {if (!quiet_flag) {printf ("* "); printf X; putchar ('\n');} }
 #else
 #define SOURCE_FRONTEND_DEBUG(X)
 #endif
+
+/* Declarations for dependency code.  */
+extern void jcf_dependency_reset PROTO ((void));
+extern void jcf_dependency_set_target PROTO ((char *));
+extern void jcf_dependency_add_target PROTO ((char *));
+extern void jcf_dependency_set_dep_file PROTO ((const char *));
+extern void jcf_dependency_add_file PROTO ((const char *, int));
+extern void jcf_dependency_write PROTO ((void));
+extern void jcf_dependency_init PROTO ((int));
+
+/* Declarations for path handling code.  */
+extern void jcf_path_init PROTO ((void));
+extern void jcf_path_classpath_arg PROTO ((char *));
+extern void jcf_path_CLASSPATH_arg PROTO ((char *));
+extern void jcf_path_include_arg PROTO ((char *));
+extern void jcf_path_seal PROTO ((void));
+extern void *jcf_path_start PROTO ((void));
+extern void *jcf_path_next PROTO ((void *));
+extern char *jcf_path_name PROTO ((void *));
+extern int jcf_path_is_zipfile PROTO ((void *));
+extern int jcf_path_is_system PROTO ((void *));
+extern int jcf_path_max_len PROTO ((void));
 
 #endif

@@ -119,11 +119,7 @@ proc old-dejagnu-stat { } {
 # Returns 0 if successful, 1 if their were any errors.
 # PROG is the full path name of the file to compile.
 #
-# CFLAGS_VAR is the name of the global variable containing compiler flags.
-# We ignore this now.
-#
-# CFLAGS is the options to always pass to the compiler.
-# This is also ignored.
+# CFLAGSX is the options to always pass to the compiler.
 #
 # DEFAULT_CFLAGS are additional options if the testcase has none.
 #
@@ -137,7 +133,7 @@ proc old-dejagnu-stat { } {
 #
 # Think of "cflags" here as "compiler flags", not "C compiler flags".
 
-proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
+proc old-dejagnu { compiler prog name cflagsx default_cflags libs } {
     global verbose
     global tool
     global subdir		;# eg: g++.old-dejagnu
@@ -196,9 +192,11 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 # is right.  If no such Special Options are found, $default_cflags is used.
 # FIXME: Can there be multiple lines of these?
 #
-# Other keywords: "Build don't link:", "Build don't run:".
+# Other keywords: "Build don't link:", "Build don't run:", "Build then link:",
+#                 "Additional sources: <file>.cc ..."
 
-    set name "[file tail [file dirname $prog]]/[file tail $prog]"
+# $name is now passed in.
+#    set name "[file tail [file dirname $prog]]/[file tail $prog]"
 
     set tmp [grep $prog "FIXME -.*"]
     if ![string match "" $tmp] then {
@@ -225,6 +223,16 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	lappend cflags "additional_flags=$cflagsx"
     }
 
+    set tmp [lindex [grep $prog "Additional sources: .*"] 0]
+    regsub -all "\n\[^\n\]+(\n|$)" $tmp "\n" tmp
+    set tmp [string trim $tmp]
+    if ![string match "" $tmp] then {
+	regsub "^.*Additional.*sources:" $tmp "" tmp
+	regsub -all " " $tmp " [file dirname $prog]/" tmp
+	lappend cflags "additional_flags=$tmp"
+	verbose "Adding sources $tmp"
+    }
+
     lappend cflags "compiler=$compiler"
 
     regsub -all "\[./\]" "$name" "-" output;
@@ -238,6 +246,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set output "$tmpdir/[file tail [file rootname $prog]].o"
 	verbose "Will compile $prog to object" 3
     }
+
+    set tmp [lindex [grep $prog "Build then link:"] 0]
+    if ![string match "" $tmp] then {
+	set compile_type "object"
+	set runflag 2
+	set final_output "$output"
+	set output "$tmpdir/[file tail [file rootname $prog]].o"
+	verbose "Will compile $prog to object, then link it" 3
+    }	
 
     set tmp [lindex [grep $prog "Build don.t run:"] 0]
     if ![string match "" $tmp] then {
@@ -399,6 +416,11 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     # we can't run a.out when the compilation fails.
     remote_file build delete $output
     set comp_output [${tool}_target_compile $prog $output $compile_type $cflags]
+    if { $runflag == 2 && [file exists $output] } then {
+	set runflag 0
+	set comp_output [concat $comp_output [${tool}_target_compile $output $final_output "executable" $cflags]]
+	set output $final_output
+    }
 
     # Delete things like "ld.so: warning" messages.
     set comp_output [prune_warnings $comp_output]
@@ -510,6 +532,7 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     regsub -all "(^|\n)\[^\n\]*: At top level:\[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*file path prefix \[^\n\]* never used" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*linker input file unused since linking not done" $comp_output "" comp_output
+    regsub -all "(^|\n)collect: re(compiling|linking)\[^\n\]*" $comp_output "" comp_output
 
     set unsupported_message [${tool}_check_unsupported_p $comp_output]
     if { $unsupported_message != "" } {

@@ -1,5 +1,5 @@
 /* Type Analyzer for GNU C++.
-   Copyright (C) 1987, 89, 92, 93, 94, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1987, 89, 92-97, 1998 Free Software Foundation, Inc.
    Hacked... nay, bludgeoned... by Mark Eichin (eichin@cygnus.com)
 
 This file is part of GNU CC.
@@ -400,6 +400,11 @@ yylex ()
      expression, except for explicit destructor calls.  */
   if (tmp_token.yychar != '~')
     got_object = NULL_TREE;
+
+  /* Clear looking_for_typename if we got 'enum { ... };'.  */
+  if (tmp_token.yychar == '{' || tmp_token.yychar == ':'
+      || tmp_token.yychar == ';')
+    looking_for_typename = 0;
 
   yylval = tmp_token.yylval;
   yychar = tmp_token.yychar;

@@ -1,5 +1,5 @@
 /* Name-satisfaction for GNU Chill compiler.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -15,7 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -560,7 +561,7 @@ satisfy (exp, chain)
 		      {
 			if (CH_IS_BUFFER_MODE (exp) || CH_IS_EVENT_MODE (exp))
 			  DECL_INITIAL (decl)
-			    = check_queue_size (exp, DECL_INITIAL (decl));
+			    = check_queue_size (DECL_INITIAL (decl));
 			else if (CH_IS_TEXT_MODE (exp) &&
 				 DECL_NAME (decl) == get_identifier ("__textlength"))
 			  DECL_INITIAL (decl)

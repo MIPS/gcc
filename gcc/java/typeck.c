@@ -1,5 +1,5 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996, 97-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -28,6 +28,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "tree.h"
 #include "obstack.h"
+#include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
 #include "convert.h"
@@ -52,9 +53,26 @@ set_local_type (slot, type)
     type_map[++slot] = void_type_node;
 }
 
-extern tree convert_to_integer (tree type, tree expr);
-extern tree convert_to_real (tree type, tree expr);
-extern tree convert_to_pointer (tree type, tree expr);
+/* Convert an IEEE real to an integer type.  The result of such a
+   conversion when the source operand is a NaN isn't defined by
+   IEEE754, but by the Java language standard: it must be zero.  This
+   conversion produces something like:
+   
+   ({ double tmp = expr; (tmp != tmp) ? 0 : (int)tmp; })
+
+   */
+
+static tree
+convert_ieee_real_to_integer (type, expr)
+     tree type, expr;
+{
+  expr = save_expr (expr);
+
+  return build (COND_EXPR, type, 
+		build (NE_EXPR, boolean_type_node, expr, expr),
+		convert (type, integer_zero_node),
+		convert_to_integer (type, expr));
+}  
 
 /* Create an expression whose value is that of EXPR,
    converted to type TYPE.  The TREE_TYPE of the value
@@ -73,10 +91,23 @@ convert (type, expr)
     return expr;
   if (TREE_CODE (TREE_TYPE (expr)) == ERROR_MARK)
     return error_mark_node;
+  if (code == VOID_TYPE)
+    return build1 (CONVERT_EXPR, type, expr);
   if (code == BOOLEAN_TYPE)
     return fold (convert_to_boolean (type, expr));
   if (code == INTEGER_TYPE)
-    return fold (convert_to_integer (type, expr));
+    {
+      if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
+#ifdef TARGET_SOFT_FLOAT
+	  && !TARGET_SOFT_FLOAT
+#endif
+	  && !flag_emit_class_files
+	  && !flag_fast_math
+	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
+	return fold (convert_ieee_real_to_integer (type, expr));
+      else
+	return fold (convert_to_integer (type, expr));
+    }	  
   if (code == REAL_TYPE)
     return fold (convert_to_real (type, expr));
   if (code == CHAR_TYPE)
@@ -86,6 +117,7 @@ convert (type, expr)
   error ("conversion to non-scalar type requested");
   return error_mark_node;
 }
+
 
 tree
 convert_to_char (type, expr)
@@ -107,8 +139,8 @@ convert_to_boolean (type, expr)
 
 void
 incomplete_type_error (value, type)
-     tree value;
-     tree type;
+  tree value ATTRIBUTE_UNUSED;
+  tree type ATTRIBUTE_UNUSED;
 {
   error ("internal error - use of undefined type");
 }
@@ -134,14 +166,6 @@ type_for_mode (mode, unsignedp)
     return float_type_node;
   if (mode == TYPE_MODE (double_type_node))
     return double_type_node;
-
-#if 0
-  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
-    return build_pointer_type (char_type_node);
-
-  if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
-    return build_pointer_type (integer_type_node);
-#endif
 
   return 0;
 }
@@ -331,9 +355,9 @@ build_java_array_type (element_type, length)
 		     buf, 0, 0, "");
   t = IDENTIFIER_SIGNATURE_TYPE (sig);
   if (t != NULL_TREE)
-    return t;
+    return TREE_TYPE (t);
   t = make_class ();
-  IDENTIFIER_SIGNATURE_TYPE (sig) = t;
+  IDENTIFIER_SIGNATURE_TYPE (sig) = build_pointer_type (t);
   TYPE_ARRAY_P (t) = 1;
 
   if (TREE_CODE (el_name) == POINTER_TYPE)
@@ -345,6 +369,8 @@ build_java_array_type (element_type, length)
 
   set_java_signature (t, sig);
   set_super_info (0, t, object_type_node, 0);
+  if (TREE_CODE (element_type) == RECORD_TYPE)
+    element_type = promote_type (element_type);
   TYPE_ARRAY_ELEMENT (t) = element_type;
 
   /* Add length pseudo-field. */
@@ -366,7 +392,12 @@ build_java_array_type (element_type, length)
     TYPE_ALIGN (t) = TYPE_ALIGN (element_type);
   pop_obstacks ();
 
-  layout_class (t);
+  /* We could layout_class, but that loads java.lang.Object prematurely.
+   * This is called by the parser, and it is a bad idea to do load_class
+   * in the middle of parsing, because of possible circularity problems. */
+  push_super_field (t, object_type_node);
+  layout_type (t);
+
   return t;
 }
 
@@ -411,6 +442,7 @@ static tree
 parse_signature_type (ptr, limit)
      const unsigned char **ptr, *limit;
 {
+  tree type;
   if ((*ptr) >= limit)
     fatal ("bad signature string");
   switch (*(*ptr))
@@ -425,13 +457,10 @@ parse_signature_type (ptr, limit)
     case 'Z':  (*ptr)++;  return boolean_type_node;
     case 'V':  (*ptr)++;  return void_type_node;
     case '[':
-      for ((*ptr)++; (*ptr) < limit && isdigit (**ptr); ) (*ptr)++;
-      {
-	tree element_type = parse_signature_type (ptr, limit);
-	if (TREE_CODE (element_type) == RECORD_TYPE)
-	  element_type = promote_type (element_type);
-	return build_java_array_type (element_type, -1);
-      }
+      for ((*ptr)++; (*ptr) < limit && ISDIGIT (**ptr); ) (*ptr)++;
+      type = parse_signature_type (ptr, limit);
+      type = build_java_array_type (type, -1); 
+      break;
     case 'L':
       {
 	const unsigned char *start = ++(*ptr);
@@ -444,11 +473,13 @@ parse_signature_type (ptr, limit)
 	      break;
 	  }
 	*ptr = str+1;
-	return lookup_class (unmangle_classname (start, str - start));
+	type = lookup_class (unmangle_classname (start, str - start));
+	break;
       }
     default:
       fatal ("unrecognized signature string");
     }
+  return promote_type (type);
 }
 
 /* Parse a Java "mangled" signature string, starting at SIG_STRING,
@@ -471,14 +502,14 @@ parse_signature_string (sig_string, sig_length)
       str++;
       while (str < limit && str[0] != ')')
 	{
-	  tree argtype = promote_type (parse_signature_type (&str, limit));
+	  tree argtype = parse_signature_type (&str, limit);
 	  argtype_list = tree_cons (NULL_TREE, argtype, argtype_list);
 	}
       if (str++, str >= limit)
 	fatal ("bad signature string");
-      result_type = promote_type (parse_signature_type (&str, limit));
-      result_type = build_function_type (result_type,
-					 nreverse (argtype_list));
+      result_type = parse_signature_type (&str, limit);
+      argtype_list = chainon (nreverse (argtype_list), end_params_node);
+      result_type = build_function_type (result_type, argtype_list);
     }
   else
     result_type = parse_signature_type (&str, limit);
@@ -523,7 +554,7 @@ build_java_argument_signature (type)
       tree args = TYPE_ARG_TYPES (type);
       if (TREE_CODE (type) == METHOD_TYPE)
 	args = TREE_CHAIN (args);  /* Skip "this" argument. */
-      for (; args != NULL_TREE; args = TREE_CHAIN (args))
+      for (; args != end_params_node; args = TREE_CHAIN (args))
 	{
 	  tree t = build_java_signature (TREE_VALUE (args));
 	  obstack_grow (&temporary_obstack,
@@ -552,7 +583,6 @@ build_java_signature (type)
     {
       TYPE_LANG_SPECIFIC (type) = (struct lang_type *)
 	perm_calloc (1, sizeof (struct lang_type));
-
     }
   sig = TYPE_LANG_SPECIFIC (type)->signature;
   if (sig == NULL_TREE)
@@ -606,7 +636,7 @@ build_java_signature (type)
 	    obstack_grow (&temporary_obstack,
 			  IDENTIFIER_POINTER (sig), IDENTIFIER_LENGTH (sig));
 	    obstack_1grow (&temporary_obstack, ')');
-  
+
 	    t = build_java_signature (TREE_TYPE (type));
 	    obstack_grow0 (&temporary_obstack,
 			   IDENTIFIER_POINTER (t), IDENTIFIER_LENGTH (t));
@@ -668,7 +698,10 @@ lookup_argument_method (clas, method_name, method_signature)
 	   method != NULL_TREE;  method = TREE_CHAIN (method))
 	{
 	  tree method_sig = build_java_argument_signature (TREE_TYPE (method));
-	  if (DECL_NAME (method) == method_name && method_sig == method_signature)
+	  tree name = DECL_NAME (method);
+	  if ((TREE_CODE (name) == EXPR_WITH_FILE_LOCATION ?
+	       EXPR_WFL_NODE (name) : name) == method_name 
+	      && method_sig == method_signature)
 	    return method;
 	}
       clas = CLASSTYPE_SUPER (clas);
@@ -692,38 +725,13 @@ lookup_java_method (clas, method_name, method_signature)
 	   method != NULL_TREE;  method = TREE_CHAIN (method))
 	{
 	  tree method_sig = build_java_signature (TREE_TYPE (method));
-	  if (DECL_NAME (method) == method_name && method_sig == method_signature)
+	  if (DECL_NAME (method) == method_name 
+	      && method_sig == method_signature)
 	    return method;
 	}
       clas = CLASSTYPE_SUPER (clas);
     }
   return NULL_TREE;
-}
-
-/* Search in class CLAS (and its superclasses) for methods matching
-   METHOD_NAME and METHOD_SIGNATURE. Return a list of FUNCTION_DECLs.
-   When called from here, build_java_signature doesn't take the
-   returned type into account. */
-
-tree
-match_java_method (clas, method_name, method_signature)
-     tree clas, method_name, method_signature;
-{
-  tree method;
-  tree list = NULL_TREE;
-  while (clas != NULL_TREE)
-    {
-      for (method = TYPE_METHODS (clas);
-	   method != NULL_TREE;  method = TREE_CHAIN (method))
-	{
-	  tree method_sig = build_java_argument_signature (TREE_TYPE (method));
-	  if (DECL_NAME (method) == method_name 
-	      && method_sig == method_signature)
-	    list = tree_cons (NULL_TREE, method, list);
-	}
-      clas = CLASSTYPE_SUPER (clas);
-    }
-  return list;
 }
 
 /* Search in class CLAS for a constructor matching METHOD_SIGNATURE.

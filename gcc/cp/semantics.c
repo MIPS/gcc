@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -490,12 +490,20 @@ finish_switch_cond (cond)
       r = build_min_nt (SWITCH_STMT, cond, NULL_TREE);
       add_tree (r);
     }
-  else
+  else if (cond != error_mark_node)
     {
       emit_line_note (input_filename, lineno);
       c_expand_start_case (cond);
       r = NULL_TREE;
     }
+  else
+    {
+      /* The code is in error, but we don't want expand_end_case to
+         crash. */
+      c_expand_start_case (boolean_false_node);
+      r = NULL_TREE;
+    }
+
   push_switch ();
 
   /* Don't let the tree nodes for COND be discarded by
@@ -730,19 +738,31 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   else
     {
       emit_line_note (input_filename, lineno);
-
-      if (cv_qualifier != NULL_TREE
-	  && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-	cp_warning ("%s qualifier ignored on asm",
-		    IDENTIFIER_POINTER (cv_qualifier));
+      if (output_operands != NULL_TREE || input_operands != NULL_TREE
+	    || clobbers != NULL_TREE)
+	{
+	  if (cv_qualifier != NULL_TREE
+	      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
+	    cp_warning ("%s qualifier ignored on asm",
+			IDENTIFIER_POINTER (cv_qualifier));
+	  
+	  c_expand_asm_operands (string, output_operands,
+				 input_operands, 
+				 clobbers,
+				 cv_qualifier 
+				 == ridpointers[(int) RID_VOLATILE],
+				 input_filename, lineno);
+	}
+      else
+	{
+	  /* Don't warn about redundant specification of 'volatile' here.  */
+	  if (cv_qualifier != NULL_TREE
+	      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
+	    cp_warning ("%s qualifier ignored on asm",
+			IDENTIFIER_POINTER (cv_qualifier));
+	  expand_asm (string);
+	}
       
-      c_expand_asm_operands (string, output_operands,
-			     input_operands, 
-			     clobbers,
-			     cv_qualifier 
-			     == ridpointers[(int) RID_VOLATILE],
-			     input_filename, lineno);
-
       finish_stmt ();
     }
 }
@@ -797,8 +817,8 @@ finish_stmt_expr (rtl_expr, expr)
     {
       /* Make a BIND_EXPR for the BLOCK already made.  */
       if (processing_template_decl)
-	result = build (BIND_EXPR, NULL_TREE,
-			NULL_TREE, last_tree, expr);
+	result = build_min_nt (BIND_EXPR, NULL_TREE, last_tree,
+			       NULL_TREE);
       else
 	result = build (BIND_EXPR, TREE_TYPE (rtl_expr),
 			NULL_TREE, rtl_expr, expr);
@@ -843,7 +863,8 @@ finish_call_expr (fn, args, koenig)
   result = build_x_function_call (fn, args, current_class_ref);
 
   if (TREE_CODE (result) == CALL_EXPR
-      && TREE_TYPE (result) != void_type_node)
+      && (! TREE_TYPE (result)
+          || TREE_CODE (TREE_TYPE (result)) != VOID_TYPE))
     result = require_complete_type (result);
 
   return result;
@@ -1212,19 +1233,68 @@ begin_class_definition (t)
      implicit typename, a TYPENAME_TYPE with a type.  */
   if (TREE_CODE (t) == TYPENAME_TYPE)
     t = TREE_TYPE (t);
+  
+  /* If we generated a partial instantiation of this type, but now
+     we're seeing a real definition, we're actually looking at a
+     partial specialization.  Consider:
 
-  if (TYPE_SIZE (t))
+       template <class T, class U>
+       struct Y {};
+
+       template <class T>
+       struct X {};
+
+       template <class T, class U>
+       void f()
+       {
+	 typename X<Y<T, U> >::A a;
+       }
+
+       template <class T, class U>
+       struct X<Y<T, U> >
+       {
+       };
+
+     We have to undo the effects of the previous partial
+     instantiation.  */
+  if (PARTIAL_INSTANTIATION_P (t))
+    {
+      if (!pedantic) 
+	{
+	  /* Unfortunately, when we're not in pedantic mode, we
+	     attempt to actually fill in some of the fields of the
+	     partial instantiation, in order to support the implicit
+	     typename extension.  Clear those fields now, in
+	     preparation for the definition here.  The fields cleared
+	     here must match those set in instantiate_class_template.
+	     Look for a comment mentioning begin_class_definition
+	     there.  */
+	  TYPE_BINFO_BASETYPES (t) = NULL_TREE;
+	  TYPE_FIELDS (t) = NULL_TREE;
+	  TYPE_METHODS (t) = NULL_TREE;
+	  CLASSTYPE_TAGS (t) = NULL_TREE;
+	  TYPE_SIZE (t) = NULL_TREE;
+	}
+
+      /* This isn't a partial instantiation any more.  */
+      PARTIAL_INSTANTIATION_P (t) = 0;
+    }
+  /* If this type was already complete, and we see another definition,
+     that's an error.  */
+  else if (TYPE_SIZE (t))
     duplicate_tag_error (t);
-  if (TYPE_SIZE (t) || TYPE_BEING_DEFINED (t))
+
+  if (TYPE_BEING_DEFINED (t))
     {
       t = make_lang_type (TREE_CODE (t));
       pushtag (TYPE_IDENTIFIER (t), t, 0);
     }
-  if (processing_template_decl && TYPE_CONTEXT (t)
-      && TREE_CODE (TYPE_CONTEXT (t)) != NAMESPACE_DECL
+  maybe_process_partial_specialization (t);
+  if (processing_template_decl
+      && ! CLASSTYPE_TEMPLATE_SPECIALIZATION (t)
+      && TYPE_CONTEXT (t) && TYPE_P (TYPE_CONTEXT (t))
       && ! current_class_type)
     push_template_decl (TYPE_STUB_DECL (t));
-  maybe_process_partial_specialization (t);
   pushclass (t, 0);
   TYPE_BEING_DEFINED (t) = 1;
   /* Reset the interface data, at the earliest possible
@@ -1265,6 +1335,9 @@ begin_class_definition (t)
      that we can get it back later.  */
   begin_tree ();
 
+  /* Make a declaration for this class in its own scope.  */
+  build_self_reference ();
+
   return t;
 }
 
@@ -1303,11 +1376,6 @@ finish_member_declaration (decl)
        finish_struct.  Presumably it is already set as the function is
        parsed.  Perhaps DECL_CLASS_CONTEXT is already set, too?  */
     DECL_CLASS_CONTEXT (decl) = current_class_type;
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    /* Historically, DECL_CONTEXT was not set for a TYPE_DECL in
-       finish_struct, so we do not do it here either.  Perhaps we
-       should, though.  */
-      ;
   else
     DECL_CONTEXT (decl) = current_class_type;
 
@@ -1594,3 +1662,24 @@ check_multiple_declarators ()
     cp_error ("multiple declarators in template declaration");
 }
 
+tree
+finish_typeof (expr)
+     tree expr;
+{
+  if (processing_template_decl)
+    {
+      tree t;
+
+      push_obstacks_nochange ();
+      end_temporary_allocation ();
+
+      t = make_lang_type (TYPEOF_TYPE);
+      TYPE_FIELDS (t) = expr;
+
+      pop_obstacks ();
+
+      return t;
+    }
+
+  return TREE_TYPE (expr);
+}

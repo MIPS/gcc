@@ -53,8 +53,6 @@ int maximum_field_alignment;
    May be overridden by front-ends.  */
 int set_alignment = 0;
 
-static enum machine_mode smallest_mode_for_size  PROTO((unsigned int,
-							enum mode_class));
 static tree layout_record	PROTO((tree));
 static void layout_union	PROTO((tree));
 
@@ -144,13 +142,13 @@ mode_for_size (size, class, limit)
 {
   register enum machine_mode mode;
 
-  if (limit && size > MAX_FIXED_MODE_SIZE)
+  if (limit && size > (unsigned int)(MAX_FIXED_MODE_SIZE))
     return BLKmode;
 
   /* Get the first mode which has this size, in the specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) == size)
+    if ((unsigned int)GET_MODE_BITSIZE (mode) == size)
       return mode;
 
   return BLKmode;
@@ -159,7 +157,7 @@ mode_for_size (size, class, limit)
 /* Similar, but never return BLKmode; return the narrowest mode that
    contains at least the requested number of bits.  */
 
-static enum machine_mode
+enum machine_mode
 smallest_mode_for_size (size, class)
      unsigned int size;
      enum mode_class class;
@@ -170,10 +168,41 @@ smallest_mode_for_size (size, class)
      specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) >= size)
+    if ((unsigned int)GET_MODE_BITSIZE (mode) >= size)
       return mode;
 
   abort ();
+}
+
+/* Find an integer mode of the exact same size, or BLKmode on failure.  */
+
+enum machine_mode
+int_mode_for_mode (mode)
+     enum machine_mode mode;
+{
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_INT:
+    case MODE_PARTIAL_INT:
+      break;
+
+    case MODE_COMPLEX_INT:
+    case MODE_COMPLEX_FLOAT:
+    case MODE_FLOAT:
+      mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
+      break;
+
+    case MODE_RANDOM:
+      if (mode == BLKmode)
+        break;
+      /* FALLTHRU */
+
+    case MODE_CC:
+    default:
+      abort();
+    }
+
+  return mode;
 }
 
 /* Return the value of VALUE, rounded up to a multiple of DIVISOR.  */
@@ -252,7 +281,8 @@ layout_decl (decl, known_align)
     {
       DECL_BIT_FIELD_TYPE (decl) = DECL_BIT_FIELD (decl) ? type : 0;
       if (maximum_field_alignment != 0)
-	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
+	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl),
+				 (unsigned)maximum_field_alignment);
       else if (DECL_PACKED (decl))
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
     }
@@ -268,7 +298,7 @@ layout_decl (decl, known_align)
       if (xmode != BLKmode
 	  && known_align % GET_MODE_ALIGNMENT (xmode) == 0)
 	{
-	  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
+	  DECL_ALIGN (decl) = MAX ((unsigned) GET_MODE_ALIGNMENT (xmode),
 				   DECL_ALIGN (decl));
 	  DECL_MODE (decl) = xmode;
 	  DECL_SIZE (decl) = size_int (GET_MODE_BITSIZE (xmode));
@@ -382,7 +412,7 @@ layout_record (rec)
 	     It does, however, affect the alignment of the next field
 	     within the structure.  */
 	  if (! integer_zerop (DECL_SIZE (field)))
-	    record_align = MAX (record_align, desired_align);
+	    record_align = MAX ((int)record_align, desired_align);
 	  else if (! DECL_PACKED (field))
 	    desired_align = TYPE_ALIGN (TREE_TYPE (field));
 	  /* A named bit field of declared type `int'
@@ -395,11 +425,11 @@ layout_record (rec)
 	      else if (DECL_PACKED (field))
 		type_align = MIN (type_align, BITS_PER_UNIT);
 
-	      record_align = MAX (record_align, type_align);
+	      record_align = MAX ((int)record_align, type_align);
 	    }
 	}
       else
-	record_align = MAX (record_align, desired_align);
+	record_align = MAX ((int)record_align, desired_align);
 #endif
 
       /* Does this field automatically have alignment it needs
@@ -882,7 +912,7 @@ layout_type (type)
 			       MODE_INT, 1);
 
 	    if (STRICT_ALIGNMENT && TYPE_ALIGN (type) < BIGGEST_ALIGNMENT
-		&& TYPE_ALIGN (type) < TREE_INT_CST_LOW (TYPE_SIZE (type))
+		&& (int)TYPE_ALIGN (type) < TREE_INT_CST_LOW (TYPE_SIZE (type))
 		&& TYPE_MODE (type) != BLKmode)
 	      {
 		TYPE_NO_FORCE_BLK (type) = 1;
@@ -948,7 +978,7 @@ layout_type (type)
 	     then stick with BLKmode.  */
 	  if (STRICT_ALIGNMENT
 	      && ! (TYPE_ALIGN (type) >= BIGGEST_ALIGNMENT
-		    || (TYPE_ALIGN (type)
+		    || ((int)TYPE_ALIGN (type)
 			>= TREE_INT_CST_LOW (TYPE_SIZE (type)))))
 	    {
 	      if (TYPE_MODE (type) != BLKmode)
@@ -980,7 +1010,7 @@ layout_type (type)
 	     then stick with BLKmode.  */
 	  && (! STRICT_ALIGNMENT
 	      || TYPE_ALIGN (type) >= BIGGEST_ALIGNMENT
-	      || TYPE_ALIGN (type) >= TREE_INT_CST_LOW (TYPE_SIZE (type))))
+	      || (int)TYPE_ALIGN (type) >= TREE_INT_CST_LOW (TYPE_SIZE (type))))
 	{
 	  tree field;
 	  /* A union which has any BLKmode members must itself be BLKmode;
@@ -1052,6 +1082,18 @@ layout_type (type)
 	      && TREE_CODE (type) != QUAL_UNION_TYPE
 	      && TREE_CODE (type) != ARRAY_TYPE)))
     TYPE_ALIGN (type) = GET_MODE_ALIGNMENT (TYPE_MODE (type));
+
+  /* Do machine-dependent extra alignment.  */
+#ifdef ROUND_TYPE_ALIGN
+  TYPE_ALIGN (type)
+    = ROUND_TYPE_ALIGN (type, TYPE_ALIGN (type), BITS_PER_UNIT);
+#endif
+
+#ifdef ROUND_TYPE_SIZE
+  if (TYPE_SIZE (type) != 0)
+    TYPE_SIZE (type)
+      = ROUND_TYPE_SIZE (type, TYPE_SIZE (type), TYPE_ALIGN (type));
+#endif
 
   /* Evaluate nonconstant size only once, either now or as soon as safe.  */
   if (TYPE_SIZE (type) != 0 && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)

@@ -1,6 +1,6 @@
 /* expr.c -- Implementation File (module.c template V1.0)
    Copyright (C) 1995-1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.org).
+   Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
 
@@ -268,7 +268,7 @@ static void ffeexpr_update_impdo_sym_ (ffebld expr, ffesymbol dovar);
 static ffeexprContext ffeexpr_context_outer_ (ffeexprStack_ s);
 static ffeexprExpr_ ffeexpr_expr_new_ (void);
 static void ffeexpr_fulfill_call_ (ffebld *expr, ffelexToken t);
-static bool ffeexpr_isdigits_ (char *p);
+static bool ffeexpr_isdigits_ (const char *p);
 static ffelexHandler ffeexpr_token_first_lhs_ (ffelexToken t);
 static ffelexHandler ffeexpr_token_first_lhs_1_ (ffelexToken t);
 static ffelexHandler ffeexpr_token_first_rhs_ (ffelexToken t);
@@ -633,6 +633,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_integer1_val
 	     (ffebld_cu_val_integer1 (u)), expr);
@@ -821,6 +825,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("INTEGER2 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_integer2_val
@@ -1011,6 +1019,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_integer3_val
 	     (ffebld_cu_val_integer3 (u)), expr);
@@ -1200,6 +1212,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_integer4_val
 	     (ffebld_cu_val_integer4 (u)), expr);
@@ -1317,6 +1333,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_logical1_val
 	     (ffebld_cu_val_logical1 (u)), expr);
@@ -1423,6 +1443,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("LOGICAL2 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_logical2_val
@@ -1531,6 +1555,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_logical3_val
 	     (ffebld_cu_val_logical3 (u)), expr);
@@ -1637,6 +1665,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("LOGICAL4 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_logical4_val
@@ -1796,6 +1828,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_real1_val
 	     (ffebld_cu_val_real1 (u)), expr);
@@ -1943,6 +1979,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("REAL2 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_real2_val
@@ -2092,6 +2132,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_real3_val
 	     (ffebld_cu_val_real3 (u)), expr);
@@ -2239,6 +2283,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("REAL4 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_real4_val
@@ -2398,6 +2446,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_complex1_val
 	     (ffebld_cu_val_complex1 (u)), expr);
@@ -2545,6 +2597,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("COMPLEX2 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_complex2_val
@@ -2694,6 +2750,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      break;
 	    }
 
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
+
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_complex3_val
 	     (ffebld_cu_val_complex3 (u)), expr);
@@ -2841,6 +2901,10 @@ ffeexpr_collapse_convert (ffebld expr, ffelexToken t)
 	      assert ("COMPLEX4 bad type" == NULL);
 	      break;
 	    }
+
+	  /* If conversion operation is not implemented, return original expr.  */
+	  if (error == FFEBAD_NOCANDO)
+	    return expr;
 
 	  expr = ffebld_new_conter_with_orig
 	    (ffebld_constant_new_complex4_val
@@ -8520,7 +8584,7 @@ ffeexpr_context_outer_ (ffeexprStack_ s)
 static ffeexprPercent_
 ffeexpr_percent_ (ffelexToken t)
 {
-  char *p;
+  const char *p;
 
   switch (ffelex_token_length (t))
     {
@@ -9473,7 +9537,7 @@ ffeexpr_fulfill_call_ (ffebld *expr, ffelexToken t)
 /* Check whether rest of string is all decimal digits.  */
 
 static bool
-ffeexpr_isdigits_ (char *p)
+ffeexpr_isdigits_ (const char *p)
 {
   for (; *p != '\0'; ++p)
     if (! ISDIGIT (*p))
@@ -10314,7 +10378,7 @@ ffeexpr_reduced_concatenate_ (ffebld reduced, ffeexprExpr_ l, ffeexprExpr_ op,
       if ((lkd != FFEINFO_kindANY)
 	  && ffebad_start (FFEBAD_CONCAT_ARG_KIND))
 	{
-	  char *what;
+	  const char *what;
 
 	  if (lrk != 0)
 	    what = "an array";
@@ -10330,7 +10394,7 @@ ffeexpr_reduced_concatenate_ (ffebld reduced, ffeexprExpr_ l, ffeexprExpr_ op,
     {
       if (ffebad_start (FFEBAD_CONCAT_ARG_KIND))
 	{
-	  char *what;
+	  const char *what;
 
 	  if (rrk != 0)
 	    what = "an array";
@@ -11602,7 +11666,7 @@ static ffelexHandler
 ffeexpr_nil_real_ (ffelexToken t)
 {
   char d;
-  char *p;
+  const char *p;
 
   if (((ffelex_token_type (t) != FFELEX_typeNAME)
        && (ffelex_token_type (t) != FFELEX_typeNAMES))
@@ -11640,7 +11704,7 @@ static ffelexHandler
 ffeexpr_nil_number_ (ffelexToken t)
 {
   char d;
-  char *p;
+  const char *p;
 
   if (ffeexpr_hollerith_count_ > 0)
     ffelex_set_expecting_hollerith (0, '\0',
@@ -11715,7 +11779,7 @@ ffeexpr_nil_number_period_ (ffelexToken t)
 {
   ffelexHandler nexthandler;
   char d;
-  char *p;
+  const char *p;
 
   switch (ffelex_token_type (t))
     {
@@ -11772,7 +11836,7 @@ static ffelexHandler
 ffeexpr_nil_number_real_ (ffelexToken t)
 {
   char d;
-  char *p;
+  const char *p;
 
   if (((ffelex_token_type (t) != FFELEX_typeNAME)
        && (ffelex_token_type (t) != FFELEX_typeNAMES))
@@ -12853,7 +12917,11 @@ again:				/* :::::::::::::::::::: */
 	      : ffeinfo_basictype (info))
 	{
 	case FFEINFO_basictypeINTEGER:
-	  error = FALSE;
+	  /* Maybe this should be supported someday, but, right now,
+	     g77 can't generate a call to libf2c to write to an
+	     integer other than the default size.  */
+	  error = ((! ffeexpr_stack_->is_rhs)
+		   && ffeinfo_kindtype (info) != FFEINFO_kindtypeINTEGERDEFAULT);
 	  break;
 
 	default:
@@ -13584,7 +13652,7 @@ static ffelexHandler
 ffeexpr_token_real_ (ffelexToken t)
 {
   char d;
-  char *p;
+  const char *p;
 
   if (((ffelex_token_type (t) != FFELEX_typeNAME)
        && (ffelex_token_type (t) != FFELEX_typeNAMES))
@@ -13741,7 +13809,7 @@ ffeexpr_token_number_ (ffelexToken t)
   ffeexprExpr_ e;
   ffeinfo ni;
   char d;
-  char *p;
+  const char *p;
 
   if (ffeexpr_hollerith_count_ > 0)
     ffelex_set_expecting_hollerith (0, '\0',
@@ -13897,7 +13965,7 @@ ffeexpr_token_number_period_ (ffelexToken t)
 {
   ffeexprExpr_ e;
   ffelexHandler nexthandler;
-  char *p;
+  const char *p;
   char d;
 
   switch (ffelex_token_type (t))
@@ -14015,7 +14083,7 @@ static ffelexHandler
 ffeexpr_token_number_real_ (ffelexToken t)
 {
   char d;
-  char *p;
+  const char *p;
 
   if (((ffelex_token_type (t) != FFELEX_typeNAME)
        && (ffelex_token_type (t) != FFELEX_typeNAMES))

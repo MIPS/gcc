@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1994, 95-98, 1999 Free Software Foundation, Inc.
    Contributed by O.M.Kellogg, DASA (oliver.kellogg@space.otn.dasa.de)
 
 This file is part of GNU CC.
@@ -35,8 +35,8 @@ Boston, MA 02111-1307, USA.  */
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
 #define TARGET_SWITCHES  \
-  { {"vaxc-alignment", 2}, \
-    { "", TARGET_DEFAULT}}
+  { {"vaxc-alignment", 2, "Use VAX-C alignment"}, \
+    { "", TARGET_DEFAULT, NULL}}
 
 /* Default target_flags if no switches specified.  */
 
@@ -66,7 +66,7 @@ extern struct jumplabel_array jmplbl[];
 extern int datalbl_ndx, jmplbl_ndx, label_pending, program_counter;
 extern enum section current_section;
 extern char *sectname[4];
-extern char *xstrdup(), *float_label();
+extern char *float_label();
 extern struct rtx_def *function_arg ();
 extern char *movcnt_regno_adjust ();
 extern char *mod_regno_adjust ();
@@ -707,10 +707,10 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 
 /* 1750 doesn't have a lot of auto-incr./decr. - just for the stack ptr. */
 
-/* #define HAVE_POST_INCREMENT  just for R15 (stack pointer) */
-/* #define HAVE_POST_DECREMENT */
-/* #define HAVE_PRE_DECREMENT   just for R15 (stack pointer) */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_POST_INCREMENT 0 just for R15 (stack pointer) */
+/* #define HAVE_POST_DECREMENT 0 */
+/* #define HAVE_PRE_DECREMENT 0  just for R15 (stack pointer) */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -732,7 +732,7 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
   reg_renumber[REGNO] >= 12 && reg_renumber[REGNO] <= 15)
 
 /* Now macros that check whether X is a register and also,
-   strictly, whether it is in a specified class.
+   strictly, whether it is in a specified class.  */
 
 /* 1 if X is an address register  */
 

@@ -1,4 +1,24 @@
-			    AIX 4.3 assembler
+			AIX 4.3 archive libraries
+
+AIX 4.3 utilizes a new "large format" archive to support both 32-bit and
+64-bit object modules.  The routines provided in AIX 4.3.0 and AIX 4.3.1
+to parse archive libraries did not handle the new format correctly.  These
+routines are used by GCC and result in error messages during linking such
+as "not a COFF file".  The version of the routines shipped with AIX 4.3.1
+should work for a 32-bit environment.  The "-g" option of the archive
+command may be used to create archives of 32-bit objects using the
+original "small format".  A correct version of the routines is shipped
+with AIX 4.3.2.
+
+
+			     AIX 4.3.2 binder
+
+The AIX 4.3.2.1 linker (bos.rte.bind_cmds Level 4.3.2.1) will dump core
+with a segmentation fault when invoked by any version of GCC.  A fix for
+APAR IX87327 will be available from IBM Customer Support.
+
+
+			   AIX 4.3.0 assembler
 
 The AIX 4.3.0.0 assembler generates incorrect object files if the ".bs"
 pseudo-op references symbols in certain sections.  If GCC is invoked with

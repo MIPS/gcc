@@ -26,10 +26,18 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
    java.  */
 
 DEFINE_LANG_NAME ("Java")
-     
+
   { "-fbounds-check", "" },
   { "-fno-bounds-check", "Disable automatic array bounds checking" },
   { "-fassume-compiled", "Make is_compiled_class return 1"},
   { "-fno-assume-compiled", "" },
   { "-femit-class-file", "" },
   { "-femit-class-files", "Dump class files to <name>.class" },
+  { "-MD", "Print dependencies to FILE.d" },
+  { "-MMD", "Print dependencies to FILE.d" },
+  { "-M", "Print dependencies to stdout" },
+  { "-MM", "Print dependencies to stdout" },
+  { "-fclasspath", "Set class path and suppress system path" },
+  { "-fCLASSPATH", "Set class path" },
+  { "-I", "Add directory to class path" },
+  { "-foutput-class-dir", "Directory where class files should be written" },

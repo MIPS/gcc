@@ -1,5 +1,5 @@
 /* Machine mode definitions for GNU C-Compiler; included by rtl.h and tree.h.
-   Copyright (C) 1991, 1993, 1994, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1994, 1996, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -21,20 +21,8 @@ Boston, MA 02111-1307, USA.  */
 #ifndef HAVE_MACHINE_MODES
 #define HAVE_MACHINE_MODES
 
-#include "gansidecl.h"
-
 /* Strictly speaking, this isn't the proper place to include these definitions,
-   but this file is included by every GCC file.
-
-   Some systems define these in, e.g., param.h.  We undefine these names
-   here to avoid the warnings.  We prefer to use our definitions since we
-   know they are correct.  */
-
-#undef MIN
-#undef MAX
-
-#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
-#define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+   but this file is included by every GCC file. */
 
 /* Find the largest host integer type and set its size and type.  */
 
@@ -196,7 +184,7 @@ extern int mode_unit_size[];
 /* Get a bitmask containing 1 for all bits in a word
    that fit within mode MODE.  */
 
-extern const unsigned HOST_WIDE_INT mode_mask_array[];
+extern unsigned HOST_WIDE_INT mode_mask_array[];
 
 #define GET_MODE_MASK(MODE) mode_mask_array[(int) (MODE)]
 
@@ -210,6 +198,17 @@ extern unsigned char mode_wider_mode[];
    The value is BLKmode if no other mode is found.  */
 
 extern enum machine_mode mode_for_size PROTO((unsigned int, enum mode_class, int));
+
+/* Similar, but find the smallest mode for a given width.  */
+
+extern enum machine_mode smallest_mode_for_size  PROTO((unsigned int,
+                                                        enum mode_class));
+
+
+/* Return an integer mode of the exact same size as the input mode,
+   or BLKmode on failure.  */
+
+extern enum machine_mode int_mode_for_mode PROTO((enum machine_mode));
 
 /* Find the best mode to use to access a bit field.  */
 

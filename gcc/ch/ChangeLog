@@ -1,3 +1,112 @@
+1999-02-20  Craig Burley  <craig@jcb-sc.com>
+
+	* Make-lang.in (CHILL.info): Depend on intermediate ch/chill.info
+	target instead of the chill.texi file.
+	(ch/chill.info): New target, depends on the chill.texi source file.
+	Its command writes ch/chill.info instead of chill.info.
+	(CHILL.install-info): Install from ch/chill.info instead of
+	chill.info.
+	If any ch/chill.info* files exist, delete *all* chill.info* files
+	in $infodir first, not just the ones corresponding to the
+	files to be installed (just in case the docs get smaller).
+
+Sun Jan 31 20:34:29 1999  Zack Weinberg  <zack@rabi.columbia.edu>
+
+	* decl2.c: Don't define flag_no_ident here.  Don't process
+	-f(no-)ident here.
+	* ch-tree.h: Don't declare flag_no_ident here.
+	* lang-specs.h: Map -Qn to -fno-ident.
+
+Tue Jan 19 23:24:36 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (typeck.o): Depend on insn-codes.h.
+	* actions.c (chill_handle_multi_case_label): Initialize "expr".
+	* decl.c (poplevel): Initialize "block_previously_created".
+	* expr.c (chill_expand_expr): Initialize "size0" and "size1".
+	(fold_set_expr): Initialize "buffer1".
+	* inout.c (process_io_list): Initialize "to_assign".
+	(check_exprlist): Initialize "result".
+	* parse.c (expand_expr): Declare.
+	(parse_multi_dimension_case_action): Initialize "end_case_label".
+	* tasking.c (build_start_process): Initialize "struct_type_node".
+	* typeck.c (apply_chill_field_layout): Initialize "word".
+	(type_for_mode); Unconditionally cast RHS & LHS to ints to shut up	
+	signed/unsigned comparison warning.
+
+Mon Jan 18 11:55:06 1999  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ch-tree.h: Remove conflicting prototypes for pedwarn,
+	warning_with_decl, and make_dcl_rtl.
+
+Sun Jan 17 21:53:23 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in: Do not put ^Ls at the start of a line.
+
+Wed Jan  6 02:53:38 1999  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in: Add some missing $(exeext).  Remove some obsolete
+	runtime stuff.
+	* Make-lang.in: Similarly.
+	
+Tue Nov 24 09:57:34 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (lex.c): Do not depend on hash.h.
+	(lex.o): Depend on hash.h.
+
+Mon Oct 19 12:13:47 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (lex.o): Depend on dwarfout.h.
+
+	* lang-specs.h: Add missing braces in initializer.
+
+	* lex.c: Include dwarfout.h, if DWARF_DEBUGGING_INFO is defined.
+
+Thu Oct 15 09:25:21 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* expr.c (build_chill_card): Use &&, not &, when comparing truth
+	values.
+
+	* parse.c (parse_spec_module): Remove unused variable
+	`module_name', but preserve function call from initialization.
+	(parse_operand6): Mark variable `location' with ATTRIBUTE_UNUSED.
+	
+	* inout.c (init_text_location): Remove unused variable `textlength'.
+
+Wed Oct 14 22:19:48 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* typeck.c (build_chill_cast): Fix typo in assignment statement.
+
+	* tasking.c (build_signal_descriptor): Use IDENTIFIER_POINTER()
+	when printing a `tree'.
+
+Fri Oct  9 13:01:23 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ch-tree.h (build_delay_case_end): Remove unused parameter.
+	(build_receive_case_end): Likewise.
+	(check_queue_size): Likewise.
+
+	* parse.c: Callers changed.
+
+	* satisfy.c: Likewise.
+
+	* tasking.c (build_receive_buffer_case_end): Remove unused
+	parameter `label_cnt'.
+	(build_receive_signal_case_end): Likewise.
+	(build_receive_case_end): Likewise.
+	(build_delay_case_end): Likewise.
+	(check_queue_size): Likewise for parameter `type'.
+	All callers changed.
+
+Thu Oct  8 05:57:41 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* typeck (type_for_mode): Only return TItype nodes when
+	HOST_BITS_PER_WIDE_INT is >= 64 bits.
+	(type_for_size): Similarly.
+	* decl.c (intTI_type_node, unsigned_intTI_type_node): Only declare
+	when HOST_BITS_PER_WIDE_INT is >= 64 bits.
+	(init_decl_processing): Only create TItype nodes when
+	HOST_BITS_PER_WIDE_INT is >= 64 bits.
+
 Wed Oct  7 12:19:21 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Makefile.in (hash.h): Add -L KR-C -F ', 0, 0, 0' flags to gperf.

@@ -1,5 +1,5 @@
-/* Definitions of target machine for GNU compiler, for Acorn RISC Machine.
-   Copyright (C) 1991, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+/* Definitions of target machine for GNU compiler, for ARM.
+   Copyright (C) 1991, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rwe11@cl.cam.ac.uk)
@@ -30,6 +30,9 @@ Boston, MA 02111-1307, USA.  */
    should default to that used by the OS.
 */
 
+#ifndef __ARM_H__
+#define __ARM_H__
+
 #define TARGET_CPU_arm2		0x0000
 #define TARGET_CPU_arm250	0x0000
 #define TARGET_CPU_arm3		0x0000
@@ -50,6 +53,9 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_arm810	0x0020
 #define TARGET_CPU_strongarm	0x0040
 #define TARGET_CPU_strongarm110 0x0040
+#define TARGET_CPU_strongarm1100 0x0040
+#define TARGET_CPU_arm9		0x0080
+#define TARGET_CPU_arm9tdmi	0x0080
 /* Configure didn't specify */
 #define TARGET_CPU_generic	0x8000
 
@@ -92,7 +98,7 @@ extern int frame_pointer_needed;
 #if TARGET_CPU_DEFAULT == TARGET_CPU_arm7m
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_3M__"
 #else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm7tdmi
+#if TARGET_CPU_DEFAULT == TARGET_CPU_arm7tdmi || TARGET_CPU_DEFAULT == TARGET_CPU_arm9
 #define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_4T__"
 #else
 #if TARGET_CPU_DEFAULT == TARGET_CPU_arm8 || TARGET_CPU_DEFAULT == TARGET_CPU_arm810 || TARGET_CPU_DEFAULT == TARGET_CPU_strongarm
@@ -116,9 +122,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Set the architecture define -- if -march= is set, then it overrides
    the -mcpu= setting.  */
 #define CPP_CPU_ARCH_SPEC "\
-%{m2:-D__arm2__ -D__ARM_ARCH_2__} \
-%{m3:-D__arm2__ -D__ARM_ARCH_2__} \
-%{m6:-D__arm6__ -D__ARM_ARCH_3__} \
 %{march=arm2:-D__ARM_ARCH_2__} \
 %{march=arm250:-D__ARM_ARCH_2__} \
 %{march=arm3:-D__ARM_ARCH_2__} \
@@ -137,8 +140,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{march=arm7tdmi:-D__ARM_ARCH_4T__} \
 %{march=arm8:-D__ARM_ARCH_4__} \
 %{march=arm810:-D__ARM_ARCH_4__} \
+%{march=arm9:-D__ARM_ARCH_4T__} \
+%{march=arm9tdmi:-D__ARM_ARCH_4T__} \
 %{march=strongarm:-D__ARM_ARCH_4__} \
 %{march=strongarm110:-D__ARM_ARCH_4__} \
+%{march=strongarm1100:-D__ARM_ARCH_4__} \
 %{march=armv2:-D__ARM_ARCH_2__} \
 %{march=armv2a:-D__ARM_ARCH_2__} \
 %{march=armv3:-D__ARM_ARCH_3__} \
@@ -164,23 +170,25 @@ Unrecognized value in TARGET_CPU_DEFAULT.
  %{mcpu=arm7tdmi:-D__ARM_ARCH_4T__} \
  %{mcpu=arm8:-D__ARM_ARCH_4__} \
  %{mcpu=arm810:-D__ARM_ARCH_4__} \
+ %{mcpu=arm9:-D__ARM_ARCH_4T__} \
+ %{mcpu=arm9tdmi:-D__ARM_ARCH_4T__} \
  %{mcpu=strongarm:-D__ARM_ARCH_4__} \
  %{mcpu=strongarm110:-D__ARM_ARCH_4__} \
- %{!mcpu*:%{!m6:%{!m2:%{!m3:%(cpp_cpu_arch_default)}}}}} \
+ %{mcpu=strongarm1100:-D__ARM_ARCH_4__} \
+ %{!mcpu*:%(cpp_cpu_arch_default)}} \
 "
 
 /* Define __APCS_26__ if the PC also contains the PSR */
-/* This also examines deprecated -m[236] if neither of -mapcs-{26,32} is set,
-   ??? Delete this for 2.9.  */
 #define CPP_APCS_PC_SPEC "\
 %{mapcs-32:%{mapcs-26:%e-mapcs-26 and -mapcs-32 may not be used together} \
  -D__APCS_32__} \
 %{mapcs-26:-D__APCS_26__} \
-%{!mapcs-32: %{!mapcs-26:%{m6:-D__APCS_32__} %{m2:-D__APCS_26__} \
- %{m3:-D__APCS_26__} %{!m6:%{!m3:%{!m2:%(cpp_apcs_pc_default)}}}}} \
+%{!mapcs-32: %{!mapcs-26:%(cpp_apcs_pc_default)}} \
 "
 
+#ifndef CPP_APCS_PC_DEFAULT_SPEC
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_26__"
+#endif
 
 #define CPP_FLOAT_SPEC "\
 %{msoft-float:\
@@ -203,14 +211,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Default is little endian, which doesn't define anything. */
 #define CPP_ENDIAN_DEFAULT_SPEC ""
 
-/* Translate (for now) the old -m[236] option into the appropriate -mcpu=...
-   and -mapcs-xx equivalents. 
-   ??? Remove support for this style in 2.9.*/
-#define CC1_SPEC "\
-%{m2:-mcpu=arm2 -mapcs-26} \
-%{m3:-mcpu=arm3 -mapcs-26} \
-%{m6:-mcpu=arm6 -mapcs-32} \
-"
+#define CC1_SPEC ""
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -247,7 +248,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 extern int target_flags;
 
 /* The floating point instruction architecture, can be 2 or 3 */
-extern char *target_fp_name;
+extern char * target_fp_name;
 
 /* Nonzero if the function prologue (and epilogue) should obey
    the ARM Procedure Call Standard.  */
@@ -264,18 +265,12 @@ extern char *target_fp_name;
    case instruction scheduling becomes very uninteresting.  */
 #define ARM_FLAG_FPE          (0x0004)
 
-/* Nonzero if destined for an ARM6xx.  Takes out bits that assume restoration
-   of condition flags when returning from a branch & link (ie. a function) */
-/* ********* DEPRECATED ******** */
-#define ARM_FLAG_ARM6         (0x0008)
-
-/* ********* DEPRECATED ******** */
-#define ARM_FLAG_ARM3         (0x0010)
-
 /* Nonzero if destined for a processor in 32-bit program mode.  Takes out bit
    that assume restoration of the condition flags when returning from a
    branch and link (ie a function).  */
 #define ARM_FLAG_APCS_32      (0x0020)
+
+/* FLAGS 0x0008 and 0x0010 are now spare (used to be arm3/6 selection).  */
 
 /* Nonzero if stack checking should be performed on entry to each function
    which allocates temporary variables on the stack.  */
@@ -301,27 +296,41 @@ extern char *target_fp_name;
 #define ARM_FLAG_BIG_END      (0x0800)
 
 /* Nonzero if we should compile for Thumb interworking.  */
-#define ARM_FLAG_THUMB                (0x1000)
+#define ARM_FLAG_THUMB          (0x1000)
 
 /* Nonzero if we should have little-endian words even when compiling for
    big-endian (for backwards compatibility with older versions of GCC).  */
 #define ARM_FLAG_LITTLE_WORDS	(0x2000)
 
+/* Nonzero if we need to protect the prolog from scheduling */
+#define ARM_FLAG_NO_SCHED_PRO	(0x4000)
+
+/* Nonzero if a call to abort should be generated if a noreturn 
+function tries to return. */
+#define ARM_FLAG_ABORT_NORETURN (0x8000)
+
 #define TARGET_APCS			(target_flags & ARM_FLAG_APCS_FRAME)
 #define TARGET_POKE_FUNCTION_NAME	(target_flags & ARM_FLAG_POKE)
 #define TARGET_FPE			(target_flags & ARM_FLAG_FPE)
-#define TARGET_6			(target_flags & ARM_FLAG_ARM6)
-#define TARGET_3			(target_flags & ARM_FLAG_ARM3)
 #define TARGET_APCS_32			(target_flags & ARM_FLAG_APCS_32)
 #define TARGET_APCS_STACK		(target_flags & ARM_FLAG_APCS_STACK)
 #define TARGET_APCS_FLOAT		(target_flags & ARM_FLAG_APCS_FLOAT)
 #define TARGET_APCS_REENT		(target_flags & ARM_FLAG_APCS_REENT)
+/* Note: TARGET_SHORT_BY_BYTES is really a misnomer.  What it means is
+   that short values sould not be accessed using word load instructions
+   as there is a possibility that they may not be word aligned and this
+   would generate an MMU fault.  On processors which do not have a 16 bit
+   load instruction therefore, short values must be loaded by individual
+   byte accesses rather than loading a word and then shifting the desired
+   value into place.  */
 #define TARGET_SHORT_BY_BYTES		(target_flags & ARM_FLAG_SHORT_BYTE)
 #define TARGET_SOFT_FLOAT		(target_flags & ARM_FLAG_SOFT_FLOAT)
 #define TARGET_HARD_FLOAT		(! TARGET_SOFT_FLOAT)
 #define TARGET_BIG_END			(target_flags & ARM_FLAG_BIG_END)
 #define TARGET_THUMB_INTERWORK		(target_flags & ARM_FLAG_THUMB)
 #define TARGET_LITTLE_WORDS		(target_flags & ARM_FLAG_LITTLE_WORDS)
+#define TARGET_NO_SCHED_PRO		(target_flags & ARM_FLAG_NO_SCHED_PRO)
+#define TARGET_ABORT_NORETURN           (target_flags & ARM_FLAG_ABORT_NORETURN)
 
 /* SUBTARGET_SWITCHES is used to add flags on a per-config basis.
    Bit 31 is reserved.  See riscix.h.  */
@@ -331,82 +340,79 @@ extern char *target_fp_name;
 
 #define TARGET_SWITCHES  				\
 {                         				\
-  {"apcs",			ARM_FLAG_APCS_FRAME},	\
-  {"apcs-frame",		ARM_FLAG_APCS_FRAME},	\
-  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME},	\
-  {"poke-function-name",	ARM_FLAG_POKE},		\
-  {"fpe",			ARM_FLAG_FPE},		\
-  {"6",				ARM_FLAG_ARM6},		\
-  {"2",				ARM_FLAG_ARM3},		\
-  {"3",				ARM_FLAG_ARM3},		\
-  {"apcs-32",			ARM_FLAG_APCS_32},	\
-  {"apcs-26",		       -ARM_FLAG_APCS_32},	\
-  {"apcs-stack-check",		ARM_FLAG_APCS_STACK},	\
-  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK},	\
-  {"apcs-float",		ARM_FLAG_APCS_FLOAT},	\
-  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT},	\
-  {"apcs-reentrant",		ARM_FLAG_APCS_REENT},	\
-  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT},	\
-  {"short-load-bytes",		ARM_FLAG_SHORT_BYTE},	\
-  {"no-short-load-bytes",      -ARM_FLAG_SHORT_BYTE},	\
-  {"short-load-words",	       -ARM_FLAG_SHORT_BYTE},	\
-  {"no-short-load-words",	ARM_FLAG_SHORT_BYTE},	\
-  {"soft-float",		ARM_FLAG_SOFT_FLOAT},	\
-  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT},	\
-  {"big-endian",		ARM_FLAG_BIG_END},	\
-  {"little-endian",	       -ARM_FLAG_BIG_END},	\
-  {"thumb-interwork",		ARM_FLAG_THUMB},	\
-  {"no-thumb-interwork",       -ARM_FLAG_THUMB},	\
-  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS},	\
+  {"apcs",			ARM_FLAG_APCS_FRAME, "" }, \
+  {"apcs-frame",		ARM_FLAG_APCS_FRAME, 	\
+     "Generate APCS conformant stack frames" },		\
+  {"no-apcs-frame",	       -ARM_FLAG_APCS_FRAME, "" }, \
+  {"poke-function-name",	ARM_FLAG_POKE, 		\
+     "Store function names in object code" },		\
+  {"fpe",			ARM_FLAG_FPE,  "" },	\
+  {"apcs-32",			ARM_FLAG_APCS_32, 	\
+     "Use the 32bit version of the APCS" },		\
+  {"apcs-26",		       -ARM_FLAG_APCS_32, 	\
+     "Use the 26bit version of the APCS" },		\
+  {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" }, \
+  {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" }, \
+  {"apcs-float",		ARM_FLAG_APCS_FLOAT, 	\
+     "Pass FP arguments in FP registers" },		\
+  {"no-apcs-float",	       -ARM_FLAG_APCS_FLOAT, "" }, \
+  {"apcs-reentrant",		ARM_FLAG_APCS_REENT, 	\
+     "Generate re-entrant, PIC code" },			\
+  {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" }, \
+  {"short-load-bytes",		ARM_FLAG_SHORT_BYTE, 	\
+     "Load shorts a byte at a time" },			\
+  {"no-short-load-bytes",      -ARM_FLAG_SHORT_BYTE, "" }, \
+  {"short-load-words",	       -ARM_FLAG_SHORT_BYTE, 	\
+     "Load words a byte at a time" },			\
+  {"no-short-load-words",	ARM_FLAG_SHORT_BYTE, "" }, \
+  {"soft-float",		ARM_FLAG_SOFT_FLOAT, 	\
+     "Use library calls to perform FP operations" },	\
+  {"hard-float",	       -ARM_FLAG_SOFT_FLOAT, 	\
+     "Use hardware floating point instructions" },	\
+  {"big-endian",		ARM_FLAG_BIG_END, 	\
+     "Assume target CPU is configured as big endian" },	\
+  {"little-endian",	       -ARM_FLAG_BIG_END, 	\
+     "Assume target CPU is configured as little endian" }, \
+  {"words-little-endian",       ARM_FLAG_LITTLE_WORDS, 	\
+     "Assume big endian bytes, little endian words" },	\
+  {"thumb-interwork",		ARM_FLAG_THUMB, 	\
+     "Support calls between THUMB and ARM instructions sets" },	\
+  {"no-thumb-interwork",       -ARM_FLAG_THUMB, "" },	\
+  {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,     \
+   "Generate a call to abort if a noreturn function returns"}, \
+  {"no-abort-on-noreturn",      -ARM_FLAG_ABORT_NORETURN, ""}, \
+  {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO, 	\
+     "Do not move instructions into a function's prologue" }, \
+  {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" }, \
   SUBTARGET_SWITCHES					\
   {"",				TARGET_DEFAULT }	\
 }
 
-#define TARGET_OPTIONS			\
-{					\
-  {"cpu=",  &arm_select[1].string},	\
-  {"arch=", &arm_select[2].string},	\
-  {"tune=", &arm_select[3].string},	\
-  {"fp=",   &target_fp_name}		\
+#define TARGET_OPTIONS						\
+{								\
+  {"cpu=",  & arm_select[0].string,				\
+     "Specify the name of the target CPU" },			\
+  {"arch=", & arm_select[1].string,				\
+     "Specify the name of the target architecture" }, 		\
+  {"tune=", & arm_select[2].string, "" }, 			\
+  {"fpe=",  & target_fp_name, "" }, 				\
+  {"fp=",   & target_fp_name,					\
+     "Specify the version of the floating point emulator" },	\
+  { "structure-size-boundary=", & structure_size_string, 	\
+      "Specify the minumum bit alignment of structures" } 	\
 }
 
-/* arm_select[0] is reserved for the default cpu.  */
 struct arm_cpu_select
 {
-  char *string;
-  char *name;
-  int set_tune_p;
-  int set_arch_p;
+  char *              string;
+  char *              name;
+  struct processors * processors;
 };
 
+/* This is a magic array.  If the user specifies a command line switch
+   which matches one of the entries in TARGET_OPTIONS then the corresponding
+   string pointer will be set to the value specified by the user.  */
 extern struct arm_cpu_select arm_select[];
-
-#ifndef PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_ARM2
-#endif
-
-#ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT ((char *) 0)
-#endif
-
-/* Which processor we are running on, for instruction scheduling 
-   purposes.  */
-enum processor_type 
-{
-  PROCESSOR_ARM2,
-  PROCESSOR_ARM3,
-  PROCESSOR_ARM6,
-  PROCESSOR_ARM7,
-  PROCESSOR_ARM8,
-  PROCESSOR_STARM,
-  PROCESSOR_NONE	/* NOTE: This must be last, since it doesn't
-			   appear in the attr_cpu list */
-};
-
-/* Recast the cpu class to be the cpu attribute.  */
-#define arm_cpu_attr ((enum attr_cpu)arm_cpu)
-
-extern enum processor_type arm_cpu;
 
 enum prog_mode_type
 {
@@ -447,6 +453,15 @@ extern int arm_fast_multiply;
 
 /* Nonzero if this chip supports the ARM Architecture 4 extensions */
 extern int arm_arch4;
+
+/* Nonzero if this chip can benefit from load scheduling.  */
+extern int arm_ld_sched;
+
+/* Nonzero if this chip is a StrongARM.  */
+extern int arm_is_strong;
+
+/* Nonzero if this chip is a an ARM6 or an ARM7.  */
+extern int arm_is_6_or_7;
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  0
@@ -565,7 +580,12 @@ extern int arm_arch4;
 /* This is for compatibility with ARMCC.  ARM SDT Reference Manual
    (ARM DUI 0020D) page 2-20 says "Structures are aligned on word
    boundaries".  */
+#ifndef STRUCTURE_SIZE_BOUNDARY
 #define STRUCTURE_SIZE_BOUNDARY 32
+#endif
+
+/* Used when parsing command line option -mstructure_size_boundary.  */
+extern char * structure_size_string;
 
 /* Non-zero if move instructions will actually fail to work
    when given unaligned data.  */
@@ -584,8 +604,8 @@ extern int arm_arch4;
 
 	r4-r8	     S	register variable
 	r9	     S	(rfp) register variable (real frame pointer)
-
-	r10  	   F S	(sl) stack limit (not currently used)
+	
+	r10  	   F S	(sl) stack limit (used by -mapcs-stack-check)
 	r11 	   F S	(fp) argument pointer
 	r12		(ip) temp workspace
 	r13  	   F S	(sp) lower end of current stack frame
@@ -640,7 +660,7 @@ extern int arm_arch4;
 #define FIXED_REGISTERS  \
 {                        \
   0,0,0,0,0,0,0,0,	 \
-  0,0,1,1,0,1,0,1,	 \
+  0,0,0,1,0,1,0,1,	 \
   0,0,0,0,0,0,0,0,	 \
   1,1,1			 \
 }
@@ -656,10 +676,14 @@ extern int arm_arch4;
 #define CALL_USED_REGISTERS  \
 {                            \
   1,1,1,1,0,0,0,0,	     \
-  0,0,1,1,1,1,1,1,	     \
+  0,0,0,1,1,1,1,1,	     \
   1,1,1,1,0,0,0,0,	     \
   1,1,1			     \
 }
+
+#ifndef SUBTARGET_CONDITIONAL_REGISTER_USAGE
+#define SUBTARGET_CONDITIONAL_REGISTER_USAGE
+#endif
 
 /* If doing stupid life analysis, avoid a bug causing a return value r0 to be
    trampled.  This effectively reduces the number of available registers by 1.
@@ -680,6 +704,12 @@ extern int arm_arch4;
       fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 0;	\
     }							\
+  else if (TARGET_APCS_STACK)				\
+    {							\
+      fixed_regs[10]     = 1;				\
+      call_used_regs[10] = 1;				\
+    }							\
+  SUBTARGET_CONDITIONAL_REGISTER_USAGE 		        \
 }
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -733,7 +763,7 @@ extern int arm_arch4;
    via the stack pointer) in functions that seem suitable.  
    If we have to have a frame pointer we might as well make use of it.
    APCS says that the frame pointer does not need to be pushed in leaf
-   functions.  */
+   functions, or simple tail call functions.  */
 #define FRAME_POINTER_REQUIRED		\
   (current_function_has_nonlocal_label || (TARGET_APCS && !leaf_function_p ()))
 
@@ -793,12 +823,12 @@ enum reg_class
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
-#define REG_CLASS_CONTENTS  \
-{				\
-  0x0000000, /* NO_REGS  */	\
-  0x0FF0000, /* FPU_REGS */	\
-  0x200FFFF, /* GENERAL_REGS */	\
-  0x2FFFFFF  /* ALL_REGS */	\
+#define REG_CLASS_CONTENTS  		\
+{					\
+  { 0x0000000 }, /* NO_REGS  */		\
+  { 0x0FF0000 }, /* FPU_REGS */		\
+  { 0x200FFFF }, /* GENERAL_REGS */	\
+  { 0x2FFFFFF }  /* ALL_REGS */		\
 }
 
 /* The same information, inverted:
@@ -994,27 +1024,25 @@ do {									\
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
   (GET_MODE_CLASS (TYPE_MODE (VALTYPE)) == MODE_FLOAT && TARGET_HARD_FLOAT \
-   ? gen_rtx (REG, TYPE_MODE (VALTYPE), 16) \
-   : gen_rtx (REG, TYPE_MODE (VALTYPE), 0))
+   ? gen_rtx_REG (TYPE_MODE (VALTYPE), 16) \
+   : gen_rtx_REG (TYPE_MODE (VALTYPE), 0))
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 #define LIBCALL_VALUE(MODE)  \
   (GET_MODE_CLASS (MODE) == MODE_FLOAT && TARGET_HARD_FLOAT \
-   ? gen_rtx (REG, MODE, 16) \
-   : gen_rtx (REG, MODE, 0))
+   ? gen_rtx_REG (MODE, 16) \
+   : gen_rtx_REG (MODE, 0))
 
 /* 1 if N is a possible register number for a function value.
    On the ARM, only r0 and f0 can return results.  */
 #define FUNCTION_VALUE_REGNO_P(REGNO)  \
-  ((REGNO) == 0 || ((REGNO) == 16) && TARGET_HARD_FLOAT)
+  ((REGNO) == 0 || (((REGNO) == 16) && TARGET_HARD_FLOAT))
 
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values
    in registers, based on the type of value. */
-#define RETURN_IN_MEMORY(TYPE) 						\
-  (TYPE_MODE ((TYPE)) == BLKmode ||					\
-   (AGGREGATE_TYPE_P ((TYPE)) && arm_return_in_memory ((TYPE))))
+#define RETURN_IN_MEMORY(TYPE) arm_return_in_memory (TYPE)
 
 /* Define DEFAULT_PCC_STRUCT_RETURN to 1 if all structure and union return
    values must be in memory.  On the ARM, they need only do so if larger
@@ -1041,7 +1069,7 @@ do {									\
    stack if necessary).  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)  \
   ((NAMED)						\
-   ? ((CUM) >= 16 ? 0 : gen_rtx (REG, MODE, (CUM) / 4))	\
+   ? ((CUM) >= 16 ? 0 : gen_rtx_REG (MODE, (CUM) / 4))	\
    : 0)
 
 /* For an arg passed partly in registers and partly in memory,
@@ -1131,7 +1159,7 @@ do {									\
 
 /* Determine if the epilogue should be output as RTL.
    You should override this if you define FUNCTION_EXTRA_EPILOGUE.  */
-#define USE_RETURN_INSN use_return_insn ()
+#define USE_RETURN_INSN(ISCOND) use_return_insn (ISCOND)
 
 /* Definitions for register eliminations.
 
@@ -1172,7 +1200,7 @@ do {									\
   else if ((FROM) == FRAME_POINTER_REGNUM				\
 	   && (TO) == STACK_POINTER_REGNUM)				\
     (OFFSET) = (current_function_outgoing_args_size			\
-		+ (get_frame_size () + 3 & ~3));			\
+		+ ((get_frame_size () + 3) & ~3));			\
   else									\
     {									\
       int regno;							\
@@ -1198,7 +1226,7 @@ do {									\
 	       && (regs_ever_live[14] || saved_hard_reg)) 		\
 	     offset += 4;						\
 	   offset += current_function_outgoing_args_size;		\
-	   (OFFSET) = (get_frame_size () + 3 & ~3) + offset;		\
+	   (OFFSET) = ((get_frame_size () + 3) & ~3) + offset;		\
          }								\
     }									\
 }
@@ -1234,9 +1262,9 @@ do {									\
    CXT is an RTX for the static chain value for the function.  */
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)  \
 {									\
-  emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 8)),	\
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),	\
 		  (CXT));						\
-  emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 12)),	\
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),	\
 		  (FNADDR));						\
 }
 
@@ -1474,7 +1502,9 @@ do									\
     } */								\
   else if (GET_MODE_CLASS (MODE) != MODE_FLOAT				\
 	   && GET_CODE (X) == SYMBOL_REF				\
-	   && CONSTANT_POOL_ADDRESS_P (X))				\
+	   && CONSTANT_POOL_ADDRESS_P (X)				\
+	   && ! (flag_pic						\
+		 && symbol_mentioned_p (get_pool_constant (X))))	\
     goto LABEL;								\
   else if ((GET_CODE (X) == PRE_INC || GET_CODE (X) == POST_DEC)	\
 	   && (GET_MODE_SIZE (MODE) <= 4)				\
@@ -1534,14 +1564,14 @@ extern struct rtx_def *legitimize_pic_address ();
 	      n -= low_n;						 \
 	    }								 \
 	  base_reg = gen_reg_rtx (SImode);				 \
-	  val = force_operand (gen_rtx (PLUS, SImode, xop0,		 \
-					GEN_INT (n)), NULL_RTX);	 \
+	  val = force_operand (gen_rtx_PLUS (SImode, xop0,		 \
+					     GEN_INT (n)), NULL_RTX);	 \
 	  emit_move_insn (base_reg, val);				 \
 	  (X) = (low_n == 0 ? base_reg					 \
-		 : gen_rtx (PLUS, SImode, base_reg, GEN_INT (low_n)));	 \
+		 : gen_rtx_PLUS (SImode, base_reg, GEN_INT (low_n)));	 \
 	}								 \
       else if (xop0 != XEXP (X, 0) || xop1 != XEXP (x, 1))		 \
-	(X) = gen_rtx (PLUS, SImode, xop0, xop1);			 \
+	(X) = gen_rtx_PLUS (SImode, xop0, xop1);			 \
     }									 \
   else if (GET_CODE (X) == MINUS)					 \
     {									 \
@@ -1553,7 +1583,7 @@ extern struct rtx_def *legitimize_pic_address ();
       if (CONSTANT_P (xop1) && ! symbol_mentioned_p (xop1))		 \
 	xop1 = force_reg (SImode, xop1);				 \
       if (xop0 != XEXP (X, 0) || xop1 != XEXP (X, 1))			 \
-	(X) = gen_rtx (MINUS, SImode, xop0, xop1);			 \
+	(X) = gen_rtx_MINUS (SImode, xop0, xop1);			 \
     }									 \
   if (flag_pic)								 \
     (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);		 \
@@ -1679,7 +1709,7 @@ extern struct rtx_def *legitimize_pic_address ();
    || (X) == arg_pointer_rtx)
 
 #define DEFAULT_RTX_COSTS(X,CODE,OUTER_CODE)		\
-   return arm_rtx_costs (X, CODE, OUTER_CODE);
+   return arm_rtx_costs (X, CODE);
 
 /* Moves to and from memory are quite expensive */
 #define MEMORY_MOVE_COST(MODE,CLASS,IN)  10
@@ -1727,7 +1757,12 @@ extern int arm_pic_register;
 
 #define FINALIZE_PIC arm_finalize_pic ()
 
-#define LEGITIMATE_PIC_OPERAND_P(X) (! symbol_mentioned_p (X))
+/* We can't directly access anything that contains a symbol,
+   nor can we indirect via the constant pool.  */
+#define LEGITIMATE_PIC_OPERAND_P(X)				\
+	(! symbol_mentioned_p (X)				\
+	 && (! CONSTANT_POOL_ADDRESS_P (X)			\
+	     || ! symbol_mentioned_p (get_pool_constant (X))))
  
 
 
@@ -1749,12 +1784,10 @@ extern int arm_pic_register;
   "CC_DNE", "CC_DEQ", "CC_DLE", "CC_DLT", "CC_DGE", "CC_DGT", "CC_DLEU", \
   "CC_DLTU", "CC_DGEU", "CC_DGTU", "CC_C"
 
-enum machine_mode arm_select_cc_mode ();
 #define SELECT_CC_MODE(OP,X,Y)  arm_select_cc_mode ((OP), (X), (Y))
 
 #define REVERSIBLE_CC_MODE(MODE) ((MODE) != CCFPEmode)
 
-enum rtx_code arm_canonicalize_comparison ();
 #define CANONICALIZE_COMPARISON(CODE,OP0,OP1)			\
 do								\
 {								\
@@ -1775,7 +1808,6 @@ do								\
    since it hasn't been defined!  */
 
 extern struct rtx_def *arm_compare_op0, *arm_compare_op1;
-extern int arm_compare_fp;
 
 /* Define the codes that are matched by predicates in arm.c */
 #define PREDICATE_CODES							\
@@ -1818,10 +1850,11 @@ extern int arm_compare_fp;
   goto JUMPTO
 
 /* Output an internal label definition.  */
+#ifndef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM)  	\
   do                                    	      	   	\
     {						      	   	\
-      char *s = (char *) alloca (40 + strlen (PREFIX));	   	\
+      char * s = (char *) alloca (40 + strlen (PREFIX));	\
       extern int arm_target_label, arm_ccfsm_state;	   	\
       extern rtx arm_target_insn;				\
 						           	\
@@ -1834,15 +1867,16 @@ extern int arm_compare_fp;
 	ASM_GENERATE_INTERNAL_LABEL (s, (PREFIX), (NUM));   	\
 	ASM_OUTPUT_LABEL (STREAM, s);		                \
     } while (0)
+#endif
 
 /* Output a push or a pop instruction (only used when profiling).  */
 #define ASM_OUTPUT_REG_PUSH(STREAM,REGNO) \
-  fprintf(STREAM,"\tstmfd\t%ssp!,{%s%s}\n", \
-	  REGISTER_PREFIX, REGISTER_PREFIX, reg_names[REGNO])
+  fprintf (STREAM,"\tstmfd\t%ssp!,{%s%s}\n", \
+	  REGISTER_PREFIX, REGISTER_PREFIX, reg_names [REGNO])
 
 #define ASM_OUTPUT_REG_POP(STREAM,REGNO) \
-  fprintf(STREAM,"\tldmfd\t%ssp!,{%s%s}\n", \
-	  REGISTER_PREFIX, REGISTER_PREFIX, reg_names[REGNO])
+  fprintf (STREAM,"\tldmfd\t%ssp!,{%s%s}\n", \
+	  REGISTER_PREFIX, REGISTER_PREFIX, reg_names [REGNO])
 
 /* Target characters.  */
 #define TARGET_BELL	007
@@ -1857,7 +1891,7 @@ extern int arm_compare_fp;
    we're optimising.  Otherwise it's of no use anyway.  */
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS)  \
   if (optimize)					    \
-    final_prescan_insn (INSN, OPVEC, NOPERANDS)
+    arm_final_prescan_insn (INSN)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
   ((CODE) == '?' || (CODE) == '|' || (CODE) == '@')
@@ -1885,7 +1919,7 @@ extern int arm_compare_fp;
       {									\
 	rtx base = XEXP (X, 0);						\
 	rtx index = XEXP (X, 1);					\
-	char *base_reg_name;						\
+	char * base_reg_name;						\
 	HOST_WIDE_INT offset = 0;					\
 	if (GET_CODE (base) != REG)					\
 	  {								\
@@ -1998,7 +2032,7 @@ do {									\
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)	\
   ((COUNT == 0)				\
-   ? gen_rtx (MEM, Pmode, plus_constant (FRAME, -4)) \
+   ? gen_rtx_MEM (Pmode, plus_constant (FRAME, -4)) \
    : NULL_RTX)
 
 /* Used to mask out junk bits from the return address, such as
@@ -2010,111 +2044,135 @@ do {									\
      when running in 32 bit mode.  */					\
   ((!TARGET_APCS_32) ? (GEN_INT (0x03fffffc)) : (GEN_INT (0xffffffff)))
 
-/* Prototypes for arm.c -- actually, they aren't since the types aren't 
-   fully defined yet.  */
+/* Prototypes for arm.c  */
 
-void arm_override_options (/* void */);
-int use_return_insn (/* void */);
-int const_ok_for_arm (/* HOST_WIDE_INT */);
-int const_ok_for_op (/* HOST_WIDE_INT, enum rtx_code, 
-			enum machine_mode */);
-int arm_split_constant (/* enum rtx_code, enum machine_mode, 
-			   HOST_WIDE_INT, struct rtx_def *,
-			   struct rtx_def *, int */);
-enum rtx_code arm_canonicalize_comparison (/* enum rtx_code, 
-					      struct rtx_def ** */);
-int arm_return_in_memory (/* union tree_node * */);
-int legitimate_pic_operand_p (/* struct rtx_def * */);
-struct rtx_def *legitimize_pic_address (/* struct rtx_def *, 
-					   enum machine_mode,
-					   struct rtx_def * */);
-int is_pic (/* struct rtx_def * */);
-void arm_finalize_pic (/* void */);
-int arm_rtx_costs (/* struct rtx_def *, enum rtx_code, enum rtx_code */);
-int arm_adjust_cost (/* struct rtx_def *, struct rtx_def *, 
-			struct rtx_def *, int */);
-int const_double_rtx_ok_for_fpu (/* struct rtx_def * */);
-int neg_const_double_rtx_ok_for_fpu (/* struct rtx_def * */);
-int s_register_operand (/* struct rtx_def *, enum machine_mode */);
-int f_register_operand (/* struct rtx_def *, enum machine_mode */);
-int reg_or_int_operand (/* struct rtx_def *, enum machine_mode */);
-int reload_memory_operand (/* struct rtx_def *, enum machine_mode */);
-int arm_rhs_operand (/* struct rtx_def *, enum machine_mode */);
-int arm_rhsm_operand (/* struct rtx_def *, enum machine_mode */);
-int arm_add_operand (/* struct rtx_def *, enum machine_mode */);
-int arm_not_operand (/* struct rtx_def *, enum machine_mode */);
-int offsettable_memory_operand (/* struct rtx_def *, enum machine_mode */);
-int alignable_memory_operand (/* struct rtx_def *, enum machine_mode */);
-int bad_signed_byte_operand (/* struct rtx_def *, enum machine_mode */);
-int fpu_rhs_operand (/* struct rtx_def *, enum machine_mode */);
-int fpu_add_operand (/* struct rtx_def *, enum machine_mode */);
-int power_of_two_operand (/* struct rtx_def *, enum machine_mode */);
-int di_operand (/* struct rtx_def *, enum machine_mode */);
-int soft_df_operand (/* struct rtx_def *, enum machine_mode */);
-int index_operand (/* struct rtx_def *, enum machine_mode */);
-int const_shift_operand (/* struct rtx_def *, enum machine_mode */);
-int shiftable_operator (/* struct rtx_def *, enum machine_mode */);
-int shift_operator (/* struct rtx_def *, enum machine_mode */);
-int equality_operator (/* struct rtx_def *, enum machine_mode */);
-int minmax_operator (/* struct rtx_def *, enum machine_mode */);
-int cc_register (/* struct rtx_def *, enum machine_mode */);
-int dominant_cc_register (/* struct rtx_def *, enum machine_mode */);
-int symbol_mentioned_p (/* struct rtx_def * */);
-int label_mentioned_p (/* struct rtx_def * */);
-enum rtx_code minmax_code (/* struct rtx_def * */);
-int adjacent_mem_locations (/* struct rtx_def *, struct rtx_def * */);
-int load_multiple_operation (/* struct rtx_def *, enum machine_mode */);
-int store_multiple_operation (/* struct rtx_def *, enum machine_mode */);
-int load_multiple_sequence (/* struct rtx_def **, int, int *, int *,
-			       HOST_WIDE_INT * */);
-char *emit_ldm_seq (/* struct rtx_def **, int */);
-int store_multiple_sequence (/* struct rtx_def **, int, int *, int *,
-				HOST_WIDE_INT * */);
-char *emit_stm_seq (/* struct rtx_def **, int */);
-int multi_register_push (/* struct rtx_def *, enum machine_mode */);
-int arm_valid_machine_decl_attribute (/* union tree_node *, union tree_node *,
-					 union tree_node *,
-					 union tree_node * */);
-struct rtx_def *arm_gen_load_multiple (/* int, int, struct rtx_def *, 
-					  int, int, int, int */);
-struct rtx_def *arm_gen_store_multiple (/* int, int, struct rtx_def *,
-					   int, int, int, int */);
-int arm_gen_movstrqi (/* struct rtx_def ** */);
-struct rtx_def *gen_rotated_half_load (/* struct rtx_def * */);
-enum machine_mode arm_select_cc_mode (/* enum rtx_code, struct rtx_def *,
-					 struct rtx_def * */);
-struct rtx_def *gen_compare_reg (/* enum rtx_code, struct rtx_def *,
-				    struct rtx_def * */);
-void arm_reload_in_hi (/* struct rtx_def ** */);
-void arm_reload_out_hi (/* struct rtx_def ** */);
-void arm_reorg (/* struct rtx_def * */);
-char *fp_immediate_constant (/* struct rtx_def * */);
-void print_multi_reg (/* FILE *, char *, int, int */);
-char *output_call (/* struct rtx_def ** */);
-char *output_call_mem (/* struct rtx_def ** */);
-char *output_mov_long_double_fpu_from_arm (/* struct rtx_def ** */);
-char *output_mov_long_double_arm_from_fpu (/* struct rtx_def ** */);
-char *output_mov_long_double_arm_from_arm (/* struct rtx_def ** */);
-char *output_mov_double_fpu_from_arm (/* struct rtx_def ** */);
-char *output_mov_double_arm_from_fpu (/* struct rtx_def ** */);
-char *output_move_double (/* struct rtx_def ** */);
-char *output_mov_immediate (/* struct rtx_def ** */);
-char *output_add_immediate (/* struct rtx_def ** */);
-char *arithmetic_instr (/* struct rtx_def *, int */);
-void output_ascii_pseudo_op (/* FILE *, unsigned char *, int */);
-char *output_return_instruction (/* struct rtx_def *, int, int */);
-int arm_volatile_func (/* void */);
-void output_func_prologue (/* FILE *, int */);
-void output_func_epilogue (/* FILE *, int */);
-void arm_expand_prologue (/* void */);
-void arm_print_operand (/* FILE *, struct rtx_def *, int */);
-void final_prescan_insn (/* struct rtx_def *, struct rtx_def **, int */);
-#ifdef AOF_ASSEMBLER
-struct rtx_def *aof_pic_entry (/* struct rtx_def * */);
-void aof_dump_pic_table (/* FILE * */);
-char *aof_text_section (/* void */);
-char *aof_data_section (/* void */);
-void aof_add_import (/* char * */);
-void aof_delete_import (/* char * */);
-void aof_dump_imports (/* FILE * */);
+#ifdef BUFSIZ		/* stdio.h has been included, ok to use FILE * */
+#define STDIO_PROTO(ARGS) PROTO (ARGS)
+#else
+#define STDIO_PROTO(ARGS) ()
 #endif
+
+#ifndef TREE_CODE
+union tree_node;
+#define Tree union tree_node *
+#else
+#define Tree tree
+#endif
+
+#ifndef RTX_CODE
+struct rtx_def;
+#define Rtx struct rtx_def *
+#else
+#define Rtx rtx
+#endif
+
+#ifndef HOST_WIDE_INT
+#include "hwint.h"
+#endif
+#define Hint HOST_WIDE_INT
+
+#ifndef HAVE_MACHINE_MODES
+#include "machmode.h"
+#endif
+#define Mmode enum machine_mode
+
+#ifdef RTX_CODE
+#define RTX_CODE_PROTO(ARGS) PROTO (ARGS)
+#else
+#define RTX_CODE_PROTO(ARGS) ()
+#endif
+#define Rcode enum rtx_code
+
+void   arm_override_options PROTO ((void));
+int    use_return_insn PROTO ((int));
+int    const_ok_for_arm PROTO ((Hint));
+int    arm_split_constant RTX_CODE_PROTO ((Rcode, Mmode, Hint, Rtx, Rtx, int));
+Rcode  arm_canonicalize_comparison RTX_CODE_PROTO ((Rcode,  Rtx *));
+int    arm_return_in_memory PROTO ((Tree));
+int    legitimate_pic_operand_p PROTO ((Rtx));
+Rtx    legitimize_pic_address PROTO ((Rtx, Mmode, Rtx));
+int    is_pic PROTO ((Rtx));
+void   arm_finalize_pic PROTO ((void));
+int    arm_rtx_costs RTX_CODE_PROTO ((Rtx, Rcode));
+int    arm_adjust_cost PROTO ((Rtx, Rtx, Rtx, int));
+int    const_double_rtx_ok_for_fpu PROTO ((Rtx));
+int    neg_const_double_rtx_ok_for_fpu PROTO ((Rtx));
+int    s_register_operand PROTO ((Rtx, Mmode));
+int    f_register_operand PROTO ((Rtx, Mmode));
+int    reg_or_int_operand PROTO ((Rtx, Mmode));
+int    reload_memory_operand PROTO ((Rtx, Mmode));
+int    arm_rhs_operand PROTO ((Rtx, Mmode));
+int    arm_rhsm_operand PROTO ((Rtx, Mmode));
+int    arm_add_operand PROTO ((Rtx, Mmode));
+int    arm_not_operand PROTO ((Rtx, Mmode));
+int    offsettable_memory_operand PROTO ((Rtx, Mmode));
+int    alignable_memory_operand PROTO ((Rtx, Mmode));
+int    bad_signed_byte_operand PROTO ((Rtx, Mmode));
+int    fpu_rhs_operand PROTO ((Rtx, Mmode));
+int    fpu_add_operand PROTO ((Rtx, Mmode));
+int    power_of_two_operand PROTO ((Rtx, Mmode));
+int    di_operand PROTO ((Rtx, Mmode));
+int    soft_df_operand PROTO ((Rtx, Mmode));
+int    index_operand PROTO ((Rtx, Mmode));
+int    const_shift_operand PROTO ((Rtx, Mmode));
+int    shiftable_operator PROTO ((Rtx, Mmode));
+int    shift_operator PROTO ((Rtx, Mmode));
+int    equality_operator PROTO ((Rtx, Mmode));
+int    minmax_operator PROTO ((Rtx, Mmode));
+int    cc_register PROTO ((Rtx, Mmode));
+int    dominant_cc_register PROTO ((Rtx, Mmode));
+int    symbol_mentioned_p PROTO ((Rtx));
+int    label_mentioned_p PROTO ((Rtx));
+Rcode  minmax_code PROTO ((Rtx));
+int    adjacent_mem_locations PROTO ((Rtx, Rtx));
+int    load_multiple_operation PROTO ((Rtx, Mmode));
+int    store_multiple_operation PROTO ((Rtx, Mmode));
+int    load_multiple_sequence PROTO ((Rtx *, int, int *, int *, Hint *));
+char * emit_ldm_seq PROTO ((Rtx *, int));
+int    store_multiple_sequence PROTO ((Rtx *, int, int *, int *, Hint *));
+char * emit_stm_seq PROTO ((Rtx *, int));
+int    arm_valid_machine_decl_attribute PROTO ((Tree, Tree, Tree));
+Rtx    arm_gen_load_multiple PROTO ((int, int, Rtx, int, int, int, int, int));
+Rtx    arm_gen_store_multiple PROTO ((int, int, Rtx, int, int, int, int, int));
+int    arm_gen_movstrqi PROTO ((Rtx *));
+Rtx    gen_rotated_half_load PROTO ((Rtx));
+Mmode  arm_select_cc_mode RTX_CODE_PROTO ((Rcode, Rtx, Rtx));
+Rtx    gen_compare_reg RTX_CODE_PROTO ((Rcode, Rtx, Rtx, int));
+void   arm_reload_in_hi PROTO ((Rtx *));
+void   arm_reload_out_hi PROTO ((Rtx *));
+void   arm_reorg PROTO ((Rtx));
+char * fp_immediate_constant PROTO ((Rtx));
+void   print_multi_reg STDIO_PROTO ((FILE *, char *, int, int));
+char * output_call PROTO ((Rtx *));
+char * output_call_mem PROTO ((Rtx *));
+char * output_mov_long_double_fpu_from_arm PROTO ((Rtx *));
+char * output_mov_long_double_arm_from_fpu PROTO ((Rtx *));
+char * output_mov_long_double_arm_from_arm PROTO ((Rtx *));
+char * output_mov_double_fpu_from_arm PROTO ((Rtx *));
+char * output_mov_double_arm_from_fpu PROTO ((Rtx *));
+char * output_move_double PROTO ((Rtx *));
+char * output_mov_immediate PROTO ((Rtx *));
+char * output_add_immediate PROTO ((Rtx *));
+char * arithmetic_instr PROTO ((Rtx, int));
+void   output_ascii_pseudo_op STDIO_PROTO ((FILE *, unsigned char *, int));
+char * output_return_instruction PROTO ((Rtx, int, int));
+int    arm_volatile_func PROTO ((void));
+void   output_func_prologue STDIO_PROTO ((FILE *, int));
+void   output_func_epilogue STDIO_PROTO ((FILE *, int));
+void   arm_expand_prologue PROTO ((void));
+void   arm_print_operand STDIO_PROTO ((FILE *, Rtx, int));
+void   arm_final_prescan_insn PROTO ((Rtx));
+int    short_branch PROTO ((int, int));
+void   assemble_align PROTO((int)); /* Used in arm.md, but defined in output.c */
+int    multi_register_push PROTO ((Rtx, Mmode));
+#ifdef AOF_ASSEMBLER
+Rtx    aof_pic_entry PROTO ((Rtx));
+void   aof_dump_pic_table STDIO_PROTO ((FILE *));
+char * aof_text_section PROTO ((void));
+char * aof_data_section PROTO ((void));
+void   aof_add_import PROTO ((char *));
+void   aof_delete_import PROTO ((char *));
+void   aof_dump_imports STDIO_PROTO ((FILE *));
+#endif
+
+#endif /* __ARM_H__ */

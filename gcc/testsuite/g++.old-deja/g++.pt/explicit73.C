@@ -7,9 +7,9 @@
 // the template
 
 namespace N {
-  template <class T> class foo;
+  template <class T> class foo;	// ERROR - referenced below
 }
 
 using namespace N;
 
-template <> class foo<void>; // ERROR - invalid specialization - XFAIL *-*-*
+template <> class foo<void>; // ERROR - invalid specialization

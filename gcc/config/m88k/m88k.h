@@ -198,13 +198,13 @@ extern char * reg_names[];
    Redefined in sysv4.h, and luna.h.  */
 #define VERSION_INFO1	"m88k, "
 #ifndef VERSION_INFO2
-#define VERSION_INFO2   "$Revision: 1.9 $"
+#define VERSION_INFO2   "$Revision: 1.12 $"
 #endif
 
 #ifndef VERSION_STRING
 #define VERSION_STRING  version_string
 #ifdef __STDC__
-#define TM_RCS_ID      "@(#)" __FILE__ " $Revision: 1.9 $ " __DATE__
+#define TM_RCS_ID      "@(#)" __FILE__ " $Revision: 1.12 $ " __DATE__
 #else
 #define TM_RCS_ID      "$What: <@(#) m88k.h,v	1.1.1.2.2.2> $"
 #endif  /* __STDC__ */
@@ -648,7 +648,6 @@ extern char * reg_names[];
 /* These interfaces that don't apply to the m88000.  */
 /* OVERLAPPING_REGNO_P(REGNO) 0 */
 /* INSN_CLOBBERS_REGNO_P(INSN, REGNO) 0 */
-/* PRESERVE_DEATH_INFO_REGNO_P(REGNO) 0 */
 
 /* True if register is an extended register.  */
 #define XRF_REGNO_P(N) ((N) < FIRST_PSEUDO_REGISTER && (N) >= FIRST_EXTENDED_REGISTER)
@@ -1260,11 +1259,11 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 
 #define SELECT_CC_MODE(OP,X,Y) CCmode
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Recognize any constant value that is a valid address.
    When PIC, we do not accept an address that would require a scratch reg

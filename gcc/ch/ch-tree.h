@@ -1,5 +1,5 @@
 /* Definitions for CHILL parsing and type checking.
-   Copyright (C) 1992, 93, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -15,7 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #ifndef _CH_TREE_H
 #define _CH_TREE_H
@@ -390,10 +391,6 @@ extern int flag_cond_mismatch;
 /* Nonzero means don't recognize the keyword `asm'.  */
 
 extern int flag_no_asm;
-
-/* Nonzero means ignore `#ident' directives.  */
-
-extern int flag_no_ident;
 
 /* Nonzero means warn about implicit declarations.  */
 
@@ -1038,10 +1035,10 @@ extern tree build_buffer_descriptor             PROTO((tree, tree, tree));
 extern tree build_buffer_type                   PROTO((tree, tree));
 extern void build_delay_action                  PROTO((tree, tree));
 extern tree build_delay_case_start              PROTO((tree, tree));
-extern void build_delay_case_end                PROTO((tree, tree));
+extern void build_delay_case_end                PROTO((tree));
 extern void build_delay_case_label              PROTO((tree, int));
 extern tree build_event_type                    PROTO((tree));
-extern void build_receive_case_end              PROTO((tree, tree, tree));
+extern void build_receive_case_end              PROTO((tree, tree));
 extern int  build_receive_case_if_generated     PROTO((void));
 extern tree build_receive_case_label            PROTO((tree, tree));
 extern tree build_receive_case_start            PROTO((tree));
@@ -1062,7 +1059,7 @@ extern tree build_signal_descriptor             PROTO((tree, tree));
 extern tree build_signal_struct_type            PROTO((tree, tree, tree));
 extern tree build_tasking_struct                PROTO((void));
 extern tree chill_taskingcode_type_node;
-extern tree check_queue_size                    PROTO((tree, tree));
+extern tree check_queue_size                    PROTO((tree));
 extern tree generate_tasking_code_variable      PROTO((tree, tree *, int));
 extern tree get_signal_type_name                PROTO((tree));
 extern tree get_struct_type_name                PROTO((tree));
@@ -1147,12 +1144,9 @@ extern void remember_end_note                   PROTO((tree));
 /* in toplev.c */
 extern void announce_function                   PROTO((tree));
 extern int  floor_log2_wide                     PROTO((unsigned HOST_WIDE_INT));
-extern void pedwarn                             PROTO((char *, ...));
 extern void rest_of_compilation                 PROTO((tree));
-extern void warning_with_decl                   PROTO((tree, char*, ...));
 
 /* in varasm.c */
-extern void make_decl_rtl                       PROTO((tree, char *, int));
 extern void make_function_rtl                   PROTO((tree));
 
 /* in ???? */

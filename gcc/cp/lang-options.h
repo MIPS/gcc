@@ -1,5 +1,5 @@
 /* Definitions for switches for C++.
-   Copyright (C) 1995, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 96-97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -63,8 +63,10 @@ DEFINE_LANG_NAME ("C++")
   { "-fno-huge-objects", "" },
   { "-fimplement-inlines", "" },
   { "-fno-implement-inlines", "Export functions even if they can be inlined" },
-  { "-fimplicit-templates", "Emit implicit template instatiations when used" },
-  { "-fno-implicit-templates", "" },
+  { "-fimplicit-templates", "" },
+  { "-fno-implicit-templates", "Only emit explicit template instatiations" },
+  { "-fimplicit-inline-templates", "" },
+  { "-fno-implicit-inline-templates", "Only emit explicit instatiations of inline templates" },
   { "-finit-priority", "Handle the init_priority attribute" },
   { "-fno-init-priority", "" },
   { "-flabels-ok", "Labels can be used as first class objects" },
@@ -80,6 +82,8 @@ DEFINE_LANG_NAME ("C++")
   { "-fno-operator-names", "" },
   { "-foptional-diags", "" },
   { "-fno-optional-diags", "Disable optional diagnostics" },
+  { "-fpermissive", "Downgrade conformance errors to warnings" },
+  { "-fno-permissive", "" },
   { "-frepo", "Enable automatic template instantiation" },
   { "-fno-repo", "" },
   { "-fsave-memoized", "" },

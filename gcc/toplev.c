@@ -1,5 +1,5 @@
 /* Top level of GNU C compiler
-   Copyright (C) 1987, 88, 89, 92-7, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include <signal.h>
 #include <setjmp.h>
-#include <sys/stat.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -53,6 +52,8 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "expr.h"
+#include "basic-block.h"
+#include "intl.h"
 #include "ggc.h"
 
 #ifdef DWARF_DEBUGGING_INFO
@@ -165,53 +166,68 @@ extern void print_rtl ();
 extern void print_rtl_with_bb ();
 
 void rest_of_decl_compilation ();
-void error_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
-void error_with_decl PVPROTO((tree decl, char *s, ...));
-void error PVPROTO((char *s, ...));
-void fatal PVPROTO((char *s, ...));
-void warning_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
-void warning_with_decl PVPROTO((tree decl, char *s, ...));
-void warning PVPROTO((char *s, ...));
-void pedwarn PVPROTO((char *s, ...));
-void pedwarn_with_decl PVPROTO((tree decl, char *s, ...));
-void pedwarn_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
-void sorry PVPROTO((char *s, ...));
-static void set_target_switch PROTO((char *));
+void error_with_file_and_line PVPROTO((const char *file,
+				       int line, const char *s, ...));
+void error_with_decl PVPROTO((tree decl, const char *s, ...));
+void error_for_asm PVPROTO((rtx insn, const char *s, ...));
+void notice PVPROTO((const char *s, ...));
+void error PVPROTO((const char *s, ...));
+void fatal PVPROTO((const char *s, ...));
+void warning_with_file_and_line PVPROTO((const char *file,
+					 int line, const char *s, ...));
+void warning_with_decl PVPROTO((tree decl, const char *s, ...));
+void warning PVPROTO((const char *s, ...));
+void pedwarn PVPROTO((const char *s, ...));
+void pedwarn_with_decl PVPROTO((tree decl, const char *s, ...));
+void pedwarn_with_file_and_line PVPROTO((const char *file,
+					 int line, const char *s, ...));
+void sorry PVPROTO((const char *s, ...));
+static void set_target_switch PROTO((const char *));
 static char *decl_name PROTO((tree, int));
-static void vmessage PROTO((char *, char *, va_list));
-static void v_message_with_file_and_line PROTO((char *, int, char *,
-						char *, va_list));
-static void v_message_with_decl PROTO((tree, char *, char *, va_list));
+static void vmessage PROTO((const char *, const char *, va_list));
+static void v_message_with_file_and_line PROTO((const char *, int, int,
+						const char *, va_list));
+static void v_message_with_decl PROTO((tree, int, const char *, va_list));
 static void file_and_line_for_asm PROTO((rtx, char **, int *));
-static void v_error_with_file_and_line PROTO((char *, int, char *, va_list));
-static void v_error_with_decl PROTO((tree, char *, va_list));
-static void v_error_for_asm PROTO((rtx, char *, va_list));
-static void verror PROTO((char *, va_list));
-static void vfatal PROTO((char *, va_list)) ATTRIBUTE_NORETURN;
-static void v_warning_with_file_and_line PROTO ((char *, int, char *, va_list));
-static void v_warning_with_decl PROTO((tree, char *, va_list));
-static void v_warning_for_asm PROTO((rtx, char *, va_list));
-static void vwarning PROTO((char *, va_list));
-static void vpedwarn PROTO((char *, va_list));
-static void v_pedwarn_with_decl PROTO((tree, char *, va_list));
-static void v_pedwarn_with_file_and_line PROTO((char *, int, char *, va_list));
-static void vsorry PROTO((char *, va_list));
-static void v_really_sorry PROTO((char *, va_list)) ATTRIBUTE_NORETURN;
-static void float_signal PROTO((int));
-static void pipe_closed PROTO((int));
-static void output_lang_identify PROTO((FILE *));
-static void open_dump_file PROTO((char *, char *));
+static void v_error_with_file_and_line PROTO((const char *, int,
+					      const char *, va_list));
+static void v_error_with_decl PROTO((tree, const char *, va_list));
+static void v_error_for_asm PROTO((rtx, const char *, va_list));
+static void verror PROTO((const char *, va_list));
+static void vfatal PROTO((const char *, va_list)) ATTRIBUTE_NORETURN;
+static void v_warning_with_file_and_line PROTO ((const char *, int,
+						 const char *, va_list));
+static void v_warning_with_decl PROTO((tree, const char *, va_list));
+static void v_warning_for_asm PROTO((rtx, const char *, va_list));
+static void vwarning PROTO((const char *, va_list));
+static void vpedwarn PROTO((const char *, va_list));
+static void v_pedwarn_with_decl PROTO((tree, const char *, va_list));
+static void v_pedwarn_with_file_and_line PROTO((const char *, int,
+						const char *, va_list));
+static void vsorry PROTO((const char *, va_list));
+static void float_signal PROTO((int)) ATTRIBUTE_NORETURN;
+static void pipe_closed PROTO((int)) ATTRIBUTE_NORETURN;
+#ifdef ASM_IDENTIFY_LANGUAGE
+/* This might or might not be used in ASM_IDENTIFY_LANGUAGE. */
+static void output_lang_identify PROTO((FILE *)) ATTRIBUTE_UNUSED;
+#endif
+static void open_dump_file PROTO((const char *, const char *));
 static void close_dump_file PROTO((void (*) (FILE *, rtx), rtx));
-static void dump_rtl PROTO((char *, tree, void (*) (FILE *, rtx), rtx));
-static void clean_dump_file PROTO((char *));
+static void dump_rtl PROTO((const char *, tree, void (*) (FILE *, rtx), rtx));
+static void clean_dump_file PROTO((const char *));
 static void compile_file PROTO((char *));
 static void display_help PROTO ((void));
 
-static void print_version PROTO((FILE *, char *));
-static int print_single_switch PROTO((FILE *, int, int, char *, char *, char *,
-				      char *, char *));
-static void print_switch_values PROTO((FILE *, int, int, char *, char *,
-				       char *));
+static void print_version PROTO((FILE *, const char *));
+static int print_single_switch PROTO((FILE *, int, int, const char *,
+				      const char *, const char *,
+				      const char *, const char *));
+static void print_switch_values PROTO((FILE *, int, int, const char *,
+				       const char *, const char *));
+
+void print_rtl_graph_with_bb PROTO ((const char *, const char *, rtx));
+void clean_graph_dump_file PROTO ((const char *, const char *));
+void finish_graph_dump_file PROTO ((const char *, const char *));
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -238,6 +254,9 @@ char *main_input_filename;
 
 int lineno;
 
+/* Nonzero if it is unsafe to create any new pseudo registers.  */
+int no_new_pseudos;
+
 /* Stack of currently pending input files.  */
 
 struct file_stack *input_file_stack;
@@ -251,7 +270,7 @@ extern tree current_function_decl;
 
 /* Name to use as base of names for dump output files.  */
 
-char *dump_base_name;
+const char *dump_base_name;
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -276,6 +295,7 @@ int regmove_dump = 0;
 int sched_dump = 0;
 int local_reg_dump = 0;
 int global_reg_dump = 0;
+int flow2_dump = 0;
 int sched2_dump = 0;
 int jump2_opt_dump = 0;
 #ifdef DELAY_SLOTS
@@ -288,6 +308,7 @@ int stack_reg_dump = 0;
 #ifdef MACHINE_DEPENDENT_REORG
 int mach_dep_reorg_dump = 0;
 #endif
+enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
 
@@ -356,10 +377,6 @@ lang_expand_expr_t lang_expand_expr = 0;
    end of compilation.  */
 
 void (*incomplete_decl_finalize_hook) PROTO((tree)) = 0;
-
-/* Highest label number used at the end of reload.  */
-
-int max_label_num_after_reload;
 
 /* Nonzero if generating code to do profiling.  */
 
@@ -543,9 +560,13 @@ int flag_fast_math = 0;
 
 int flag_volatile;
 
-/* Nonzero means treat all global and extern variables as global.  */
+/* Nonzero means treat all global and extern variables as volatile.  */
 
 int flag_volatile_global;
+
+/* Nonzero means treat all static variables as volatile.  */
+
+int flag_volatile_static;
 
 /* Nonzero means just do syntax checking; don't output anything.  */
 
@@ -656,12 +677,11 @@ int flag_schedule_interblock = 1;
 int flag_schedule_speculative = 1;
 int flag_schedule_speculative_load = 0;
 int flag_schedule_speculative_load_dangerous = 0;
+#endif  /* HAIFA */
 
 /* flag_on_branch_count_reg means try to replace add-1,compare,branch tupple
    by a cheaper branch, on a count register. */
 int flag_branch_on_count_reg;
-#endif  /* HAIFA */
-
 
 /* -finhibit-size-directive inhibits output of .size for ELF.
    This is used only for compiling crtstuff.c, 
@@ -730,16 +750,21 @@ int flag_strict_aliasing = 0;
 /* Instrument functions with calls at entry and exit, for profiling.  */
 int flag_instrument_function_entry_exit = 0;
 
+/* Nonzero means ignore `#ident' directives.  0 means handle them.
+   On SVR4 targets, it also controls whether or not to emit a
+   string identifying the compiler.  */
+
+int flag_no_ident = 0;
 
 /* Table of supported debugging formats.  */
 static struct
 {
-  char * arg;
+  const char * arg;
   /* Since PREFERRED_DEBUGGING_TYPE isn't necessarily a
      constant expression, we use NO_DEBUG in its place.  */
   enum debug_info_type debug_type;
   int use_extensions_p;
-  char * description;
+  const char * description;
 } *da,
 debug_args[] =
 {
@@ -765,17 +790,28 @@ debug_args[] =
 #ifdef SDB_DEBUGGING_INFO
   { "gcoff", SDB_DEBUG, 0, "Generate COFF format debug output" },
 #endif
-  { 0, 0, 0 }
+  { 0, 0, 0, 0 }
 };
 
 typedef struct
 {
-  char * string;
+  const char * string;
   int *  variable;
   int    on_value;
-  char * description;
+  const char * description;
 }
 lang_independent_options;
+
+/* Add or remove a leading underscore from user symbols.  */
+int flag_leading_underscore = -1;
+
+/* The user symbol prefix after having resolved same.  */
+const char *user_label_prefix;
+
+/* A default for same.  */
+#ifndef USER_LABEL_PREFIX
+#define USER_LABEL_PREFIX ""
+#endif
 
 /* Table of language-independent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
@@ -791,6 +827,8 @@ lang_independent_options f_options[] =
    "Consider all mem refs through pointers as volatile"},
   {"volatile-global", &flag_volatile_global, 1,
    "Consider all mem refs to global data to be volatile" },
+  {"volatile-static", &flag_volatile_static, 1,
+   "Consider all mem refs to static data to be volatile" },
   {"defer-pop", &flag_defer_pop, 1,
    "Defer popping functions args from stack until later" },
   {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
@@ -806,9 +844,9 @@ lang_independent_options f_options[] =
   {"strength-reduce", &flag_strength_reduce, 1,
    "Perform strength reduction optimisations" },
   {"unroll-loops", &flag_unroll_loops, 1,
-   "Perform loop unrolling when interation count is known" },
+   "Perform loop unrolling when iteration count is known" },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
-   "Perofm loop onrolling for all loops" },
+   "Perform loop unrolling for all loops" },
   {"move-all-movables", &flag_move_all_movables, 1,
    "Force all loop invariant computations out of loops" },
   {"reduce-all-givs", &flag_reduce_all_givs, 1,
@@ -864,9 +902,9 @@ lang_independent_options f_options[] =
    "Allow speculative motion of some loads" },
   {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
    "Allow speculative motion of more loads" },
+#endif  /* HAIFA */
   {"branch-count-reg",&flag_branch_on_count_reg, 1,
    "Replace add,compare,branch with branch on count reg"},
-#endif  /* HAIFA */
   {"pic", &flag_pic, 1,
    "Generate position independent code, if possible"},
   {"PIC", &flag_pic, 2, ""},
@@ -883,7 +921,7 @@ lang_independent_options f_options[] =
   {"test-coverage", &flag_test_coverage, 1,
    "Create data files needed by gcov" },
   {"branch-probabilities", &flag_branch_probabilities, 1,
-   "Use profiling information for branch porbabilities" },
+   "Use profiling information for branch probabilities" },
   {"fast-math", &flag_fast_math, 1,
    "Improve FP speed by violating ANSI & IEEE rules" },
   {"common", &flag_no_common, 0,
@@ -899,8 +937,9 @@ lang_independent_options f_options[] =
   {"gnu-linker", &flag_gnu_linker, 1,
    "Output GNU ld formatted global initialisers"},
   {"regmove", &flag_regmove, 1,
-   "Enables a regoster move optimisation"},
-  {"optimize-register-move", &flag_regmove, 1},
+   "Enables a register move optimisation"},
+  {"optimize-register-move", &flag_regmove, 1,
+   "Do the full regmove optimization pass"},
   {"pack-struct", &flag_pack_struct, 1,
    "Pack structure members together without holes" },
   {"stack-check", &flag_stack_check, 1,
@@ -917,9 +956,14 @@ lang_independent_options f_options[] =
    "Generate code to check every memory access" },
   {"prefix-function-name", &flag_prefix_function_name, 1,
    "Add a prefix to all function names" },
-  {"dump-unnumbered", &flag_dump_unnumbered, 1},
+  {"dump-unnumbered", &flag_dump_unnumbered, 1,
+   "Suppress output of instruction numbers and line number notes in debugging dumps"},
   {"instrument-functions", &flag_instrument_function_entry_exit, 1,
    "Instrument function entry/exit with profiling calls"},
+  {"leading-underscore", &flag_leading_underscore, 1,
+   "External symbols have a leading underscore" },
+  {"ident", &flag_no_ident, 0,
+   "Process #ident directives"}
 };
 
 #define NUM_ELEM(a)  (sizeof (a) / sizeof ((a)[0]))
@@ -928,8 +972,8 @@ lang_independent_options f_options[] =
 
 static struct lang_opt
 {
-  char * option;
-  char * description;
+  const char * option;
+  const char * description;
 }
 documented_lang_options[] =
 {
@@ -940,6 +984,7 @@ documented_lang_options[] =
   { "-ansi", "Compile just for ANSI C" },
   { "-fallow-single-precision",
     "Do not promote floats to double if using -traditional" },
+  { "-std= ", "Determine language standard"},
 
   { "-fsigned-bitfields", "" },
   { "-funsigned-bitfields","Make bitfields by unsigned by default" },
@@ -966,10 +1011,8 @@ documented_lang_options[] =
   { "-fno-freestanding", "" },
   { "-fcond-mismatch", "Allow different types as args of ? operator"},
   { "-fno-cond-mismatch", "" },
-  { "-fdollars-in-identifiers", "Allow the use of $ inside indentifiers" },
+  { "-fdollars-in-identifiers", "Allow the use of $ inside identifiers" },
   { "-fno-dollars-in-identifiers", "" },
-  { "-fident", "" },
-  { "-fno-ident", "Ignore #ident directives" },
   { "-fshort-double", "Use the same size for double as for float" },
   { "-fno-short-double", "" },
   { "-fshort-enums", "Use the smallest fitting integer to hold enums"},
@@ -979,14 +1022,17 @@ documented_lang_options[] =
   { "-Wbad-function-cast",
     "Warn about casting functions to incompatible types" },
   { "-Wno-bad-function-cast", "" },
+  { "-Wmissing-noreturn",
+    "Warn about functions which might be candidates for attribute noreturn" },
+  { "-Wno-missing-noreturn", "" },
   { "-Wcast-qual", "Warn about casts which discard qualifiers"},
   { "-Wno-cast-qual", "" },
   { "-Wchar-subscripts", "Warn about subscripts whose type is 'char'"},
   { "-Wno-char-subscripts", "" },
   { "-Wcomment", "Warn if nested comments are detected" },
-  { "-Wno-comment", },
-  { "-Wcomments", },
-  { "-Wno-comments", },
+  { "-Wno-comment", "" },
+  { "-Wcomments", "Warn if nested comments are detected" },
+  { "-Wno-comments", "" },
   { "-Wconversion", "Warn about possibly confusing type conversions" },
   { "-Wno-conversion", "" },
   { "-Wformat", "Warn about printf format anomalies" },
@@ -1046,6 +1092,7 @@ documented_lang_options[] =
   { "-D", "" },
   { "-I", "" },
   { "-U", "" },
+  { "-H", "" },
   { "-idirafter", "" },
   { "-imacros", "" },
   { "-include", "" },
@@ -1069,7 +1116,7 @@ documented_lang_options[] =
   
   { "-lang-objc", "" },
   { "-gen-decls", "Dump decls to a .decl file" },
-  { "-fgnu-runtime", "Generate code for GNU runtime envrionment" },
+  { "-fgnu-runtime", "Generate code for GNU runtime environment" },
   { "-fno-gnu-runtime", "" },
   { "-fnext-runtime", "Generate code for NeXT runtime environment" },
   { "-fno-next-runtime", "" },
@@ -1092,9 +1139,9 @@ documented_lang_options[] =
 
 struct
 {
-  char * name;
+  const char * name;
   int    value;
-  char * description;
+  const char * description;
 }
 target_switches [] = TARGET_SWITCHES;
 
@@ -1103,9 +1150,9 @@ target_switches [] = TARGET_SWITCHES;
 #ifdef TARGET_OPTIONS
 struct
 {
-  char *  prefix;
-  char ** variable;
-  char *  description;
+  const char *  prefix;
+  const char ** variable;
+  const char *  description;
 }
 target_options [] = TARGET_OPTIONS;
 #endif
@@ -1199,6 +1246,38 @@ FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *rtl_dump_file = NULL;
 
+/* Decode the string P as an integral parameter.
+   If the string is indeed an integer return its numeric value else
+   issue an Invalid Option error for the option PNAME and return DEFVAL.
+   If PNAME is zero just return DEFVAL, do not call error.               */
+   
+int
+read_integral_parameter (p, pname, defval)
+     const char *p;
+     const char *pname;
+     const int  defval;
+{
+  const char *endp = p;
+
+  while (*endp)
+    {
+      if (*endp >= '0' && *endp <= '9')
+	endp++;
+      else
+	break;
+    }
+
+  if (*endp != 0)
+    {
+      if (pname != 0)
+	error ("Invalid option `%s'", pname);
+      return defval;
+    }
+
+  return atoi (p);
+}
+
+
 /* Time accumulators, to count the total time spent in various passes.  */
 
 int parse_time;
@@ -1216,6 +1295,7 @@ int regmove_time;
 int sched_time;
 int local_alloc_time;
 int global_alloc_time;
+int flow2_time;
 int sched2_time;
 #ifdef DELAY_SLOTS
 int dbr_sched_time;
@@ -1230,7 +1310,7 @@ int all_time;
 
 /* Return time used so far, in microseconds.  */
 
-int
+long
 get_run_time ()
 {
   if (quiet_flag)
@@ -1239,7 +1319,7 @@ get_run_time ()
 #ifdef __BEOS__
   return 0;
 #else /* not BeOS */
-#if defined (_WIN32) && !defined (__CYGWIN32__)
+#if defined (_WIN32) && !defined (__CYGWIN__)
   if (clock() < 0)
     return 0;
   else
@@ -1302,7 +1382,7 @@ do { int otime = get_run_time (); BODY; VAR += get_run_time () - otime; } while 
 
 void
 print_time (str, total)
-     char *str;
+     const char *str;
      int total;
 {
   fprintf (stderr,
@@ -1328,7 +1408,7 @@ count_error (warningp)
 
       if (warningp && !warning_message)
 	{
-	  fprintf (stderr, "%s: warnings being treated as errors\n", progname);
+	  notice ("%s: warnings being treated as errors\n", progname);
 	  warning_message = 1;
 	}
       errorcount++;
@@ -1342,7 +1422,7 @@ count_error (warningp)
 
 void
 pfatal_with_name (name)
-     char *name;
+  const char *name;
 {
   fprintf (stderr, "%s: ", progname);
   perror (name);
@@ -1351,9 +1431,9 @@ pfatal_with_name (name)
 
 void
 fatal_io_error (name)
-     char *name;
+  const char *name;
 {
-  fprintf (stderr, "%s: %s: I/O error\n", progname, name);
+  notice ("%s: %s: I/O error\n", progname, name);
   exit (FATAL_EXIT_CODE);
 }
 
@@ -1361,11 +1441,11 @@ fatal_io_error (name)
    just calling abort().  */
 
 void
-fatal_insn (message, insn)
-     char *message;
+fatal_insn (msgid, insn)
+     const char *msgid;
      rtx insn;
 {
-  error (message);
+  error (msgid);
   debug_rtx (insn);
   if (asm_out_file)
     fflush (asm_out_file);
@@ -1436,25 +1516,20 @@ announce_function (decl)
 
 void
 default_print_error_function (file)
-     char *file;
+  const char *file;
 {
   if (last_error_function != current_function_decl)
     {
-      char *kind = "function";
-      if (current_function_decl != 0
-	  && TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
-	kind = "method";
-
       if (file)
 	fprintf (stderr, "%s: ", file);
 
       if (current_function_decl == NULL)
-	fprintf (stderr, "At top level:\n");
+	notice ("At top level:\n");
       else
-	{
-	  char *name = (*decl_printable_name) (current_function_decl, 2);
-	  fprintf (stderr, "In %s `%s':\n", kind, name);
-	}
+	notice ((TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE
+		 ? "In method `%s':\n"
+		 : "In function `%s':\n"),
+		(*decl_printable_name) (current_function_decl, 2));
 
       last_error_function = current_function_decl;
     }
@@ -1463,14 +1538,15 @@ default_print_error_function (file)
 /* Called by report_error_function to print out function name.
  * Default may be overridden by language front-ends.  */
 
-void (*print_error_function) PROTO((char *)) = default_print_error_function;
+void (*print_error_function) PROTO((const char *)) =
+  default_print_error_function;
 
 /* Prints out, if necessary, the name of the current function
   that caused an error.  Called from all error and warning functions.  */
 
 void
 report_error_function (file)
-     char *file;
+  const char *file;
 {
   struct file_stack *p;
 
@@ -1486,13 +1562,11 @@ report_error_function (file)
       && input_file_stack_tick != last_error_tick
       && file == input_filename)
     {
-      fprintf (stderr, "In file included");
       for (p = input_file_stack->next; p; p = p->next)
-	{
-	  fprintf (stderr, " from %s:%d", p->name, p->line);
-	  if (p->next)
-	    fprintf (stderr, ",\n                ");
-	}
+	notice ((p == input_file_stack->next
+		 ?    "In file included from %s:%d"
+		 : ",\n                 from %s:%d"),
+		p->name, p->line);
       fprintf (stderr, ":\n");
       last_error_tick = input_file_stack_tick;
     }
@@ -1501,81 +1575,142 @@ report_error_function (file)
 /* Print a message.  */
 
 static void
-vmessage (prefix, s, ap)
-     char *prefix;
-     char *s;
+vnotice (file, msgid, ap)
+     FILE *file;
+     char *msgid;
      va_list ap;
 {
-  if (prefix)
-    fprintf (stderr, "%s: ", prefix);
-
-  vfprintf (stderr, s, ap);
+  vfprintf (file, _(msgid), ap);
 }
 
-/* Print a message relevant to line LINE of file FILE.  */
+void
+notice VPROTO((const char *msgid, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *msgid;
+#endif
+  va_list ap;
+
+  VA_START (ap, msgid);
+
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, char *);
+#endif
+
+  vnotice (stderr, msgid, ap);
+  va_end (ap);
+}
+
+void
+fnotice VPROTO((FILE *file, const char *msgid, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  FILE *file;
+  const char *msgid;
+#endif
+  va_list ap;
+
+  VA_START (ap, msgid);
+
+#ifndef ANSI_PROTOTYPES
+  file = va_arg (ap, FILE *);
+  msgid = va_arg (ap, const char *);
+#endif
+
+  vnotice (file, msgid, ap);
+  va_end (ap);
+}
+
+/* Report FILE and LINE (or program name), and optionally just WARN.  */
 
 static void
-v_message_with_file_and_line (file, line, prefix, s, ap)
+report_file_and_line (file, line, warn)
      char *file;
      int line;
-     char *prefix;
-     char *s;
-     va_list ap;
+     int warn;
 {
   if (file)
     fprintf (stderr, "%s:%d: ", file, line);
   else
     fprintf (stderr, "%s: ", progname);
 
-  vmessage (prefix, s, ap);
+  if (warn)
+    notice ("warning: ");
+}
+
+/* Print a message.  */
+
+static void
+vmessage (prefix, msgid, ap)
+     const char *prefix;
+     const char *msgid;
+     va_list ap;
+{
+  if (prefix)
+    fprintf (stderr, "%s: ", prefix);
+
+  vfprintf (stderr, msgid, ap);
+}
+
+/* Print a message relevant to line LINE of file FILE.  */
+
+static void
+v_message_with_file_and_line (file, line, warn, msgid, ap)
+     const char *file;
+     int line;
+     int warn;
+     const char *msgid;
+     va_list ap;
+{
+  report_file_and_line (file, line, warn);
+  vnotice (stderr, msgid, ap);
   fputc ('\n', stderr);
 }
 
 /* Print a message relevant to the given DECL.  */
 
 static void
-v_message_with_decl (decl, prefix, s, ap)
+v_message_with_decl (decl, warn, msgid, ap)
      tree decl;
-     char *prefix;
-     char *s;
+     int warn;
+     const char *msgid;
      va_list ap;
 {
-  char *p;
+  const char *p;
 
-  fprintf (stderr, "%s:%d: ",
-	   DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
-
-  if (prefix)
-    fprintf (stderr, "%s: ", prefix);
+  report_file_and_line (DECL_SOURCE_FILE (decl),
+			DECL_SOURCE_LINE (decl), warn);
 
   /* Do magic to get around lack of varargs support for insertion
      of arguments into existing list.  We know that the decl is first;
      we ass_u_me that it will be printed with "%s".  */
 
-  for (p = s; *p; ++p)
+  for (p = _(msgid); *p; ++p)
     {
       if (*p == '%')
 	{
 	  if (*(p + 1) == '%')
 	    ++p;
+	  else if (*(p + 1) != 's')
+	    abort ();
 	  else
 	    break;
 	}
     }
 
-  if (p > s)			/* Print the left-hand substring.  */
+  if (p > _(msgid))			/* Print the left-hand substring.  */
     {
       char fmt[sizeof "%.255s"];
-      long width = p - s;
+      long width = p - _(msgid);
              
       if (width > 255L) width = 255L;	/* arbitrary */
       sprintf (fmt, "%%.%lds", width);
-      fprintf (stderr, fmt, s);
+      fprintf (stderr, fmt, _(msgid));
     }
 
   if (*p == '%')		/* Print the name.  */
     {
-      char *n = (DECL_NAME (decl)
+      const char *n = (DECL_NAME (decl)
 		 ? (*decl_printable_name) (decl, 2)
 		 : "((anonymous))");
       fputs (n, stderr);
@@ -1633,71 +1768,72 @@ file_and_line_for_asm (insn, pfile, pline)
 /* Report an error at line LINE of file FILE.  */
 
 static void
-v_error_with_file_and_line (file, line, s, ap)
-     char *file;
+v_error_with_file_and_line (file, line, msgid, ap)
+     const char *file;
      int line;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   count_error (0);
   report_error_function (file);
-  v_message_with_file_and_line (file, line, (char *)NULL, s, ap);
+  v_message_with_file_and_line (file, line, 0, msgid, ap);
 }
 
 void
-error_with_file_and_line VPROTO((char *file, int line, char *s, ...))
+error_with_file_and_line VPROTO((const char *file, int line,
+				 const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *file;
+#ifndef ANSI_PROTOTYPES
+  const char *file;
   int line;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  file = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  file = va_arg (ap, const char *);
   line = va_arg (ap, int);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_with_file_and_line (file, line, s, ap);
+  v_error_with_file_and_line (file, line, msgid, ap);
   va_end (ap);
 }
 
 /* Report an error at the declaration DECL.
-   S is a format string which uses %s to substitute the declaration
+   MSGID is a format string which uses %s to substitute the declaration
    name; subsequent substitutions are a la printf.  */
 
 static void
-v_error_with_decl (decl, s, ap)
+v_error_with_decl (decl, msgid, ap)
      tree decl;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   count_error (0);
   report_error_function (DECL_SOURCE_FILE (decl));
-  v_message_with_decl (decl, (char *)NULL, s, ap);
+  v_message_with_decl (decl, 0, msgid, ap);
 }
 
 void
-error_with_decl VPROTO((tree decl, char *s, ...))
+error_with_decl VPROTO((tree decl, const char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_with_decl (decl, s, ap);
+  v_error_with_decl (decl, msgid, ap);
   va_end (ap);
 }
 
@@ -1706,9 +1842,9 @@ error_with_decl VPROTO((tree decl, char *s, ...))
    and each ASM_OPERANDS records its own source file and line.  */
 
 static void
-v_error_for_asm (insn, s, ap)
+v_error_for_asm (insn, msgid, ap)
      rtx insn;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   char *file;
@@ -1717,158 +1853,159 @@ v_error_for_asm (insn, s, ap)
   count_error (0);
   file_and_line_for_asm (insn, &file, &line);
   report_error_function (file);
-  v_message_with_file_and_line (file, line, (char *)NULL, s, ap);
+  v_message_with_file_and_line (file, line, 0, msgid, ap);
 }
 
 void
-error_for_asm VPROTO((rtx insn, char *s, ...))
+error_for_asm VPROTO((rtx insn, const char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   rtx insn;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   insn = va_arg (ap, rtx);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_for_asm (insn, s, ap);
+  v_error_for_asm (insn, msgid, ap);
   va_end (ap);
 }
 
 /* Report an error at the current line number.  */
 
 static void
-verror (s, ap)
-     char *s;
+verror (msgid, ap)
+     const char *msgid;
      va_list ap;
 {
-  v_error_with_file_and_line (input_filename, lineno, s, ap);
+  v_error_with_file_and_line (input_filename, lineno, msgid, ap);
 }
 
 void
-error VPROTO((char *s, ...))
+error VPROTO((const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *s;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  s = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
 #endif
 
-  verror (s, ap);
+  verror (msgid, ap);
   va_end (ap);
 }
 
 /* Report a fatal error at the current line number.  */
 
 static void
-vfatal (s, ap)
-     char *s;
+vfatal (msgid, ap)
+     const char *msgid;
      va_list ap;
 {
-  verror (s, ap);
+  verror (msgid, ap);
   exit (FATAL_EXIT_CODE);
 }
 
 void
-fatal VPROTO((char *s, ...))
+fatal VPROTO((const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *s;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  s = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
 #endif
 
-  vfatal (s, ap);
+  vfatal (msgid, ap);
   va_end (ap);
 }
 
 /* Report a warning at line LINE of file FILE.  */
 
 static void
-v_warning_with_file_and_line (file, line, s, ap)
-     char *file;
+v_warning_with_file_and_line (file, line, msgid, ap)
+     const char *file;
      int line;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   if (count_error (1))
     {
       report_error_function (file);
-      v_message_with_file_and_line (file, line, "warning", s, ap);
+      v_message_with_file_and_line (file, line, 1, msgid, ap);
     }
 }
 
 void
-warning_with_file_and_line VPROTO((char *file, int line, char *s, ...))
+warning_with_file_and_line VPROTO((const char *file, int line,
+				   const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *file;
+#ifndef ANSI_PROTOTYPES
+  const char *file;
   int line;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  file = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  file = va_arg (ap, const char *);
   line = va_arg (ap, int);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_with_file_and_line (file, line, s, ap);
+  v_warning_with_file_and_line (file, line, msgid, ap);
   va_end (ap);
 }
 
 /* Report a warning at the declaration DECL.
-   S is a format string which uses %s to substitute the declaration
+   MSGID is a format string which uses %s to substitute the declaration
    name; subsequent substitutions are a la printf.  */
 
 static void
-v_warning_with_decl (decl, s, ap)
+v_warning_with_decl (decl, msgid, ap)
      tree decl;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   if (count_error (1))
     {
       report_error_function (DECL_SOURCE_FILE (decl));
-      v_message_with_decl (decl, "warning", s, ap);
+      v_message_with_decl (decl, 1, msgid, ap);
     }
 }
 
 void
-warning_with_decl VPROTO((tree decl, char *s, ...))
+warning_with_decl VPROTO((tree decl, const char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_with_decl (decl, s, ap);
+  v_warning_with_decl (decl, msgid, ap);
   va_end (ap);
 }
 
@@ -1877,9 +2014,9 @@ warning_with_decl VPROTO((tree decl, char *s, ...))
    and each ASM_OPERANDS records its own source file and line.  */
 
 static void
-v_warning_for_asm (insn, s, ap)
+v_warning_for_asm (insn, msgid, ap)
      rtx insn;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   if (count_error (1))
@@ -1889,55 +2026,55 @@ v_warning_for_asm (insn, s, ap)
 
       file_and_line_for_asm (insn, &file, &line);
       report_error_function (file);
-      v_message_with_file_and_line (file, line, "warning", s, ap);
+      v_message_with_file_and_line (file, line, 1, msgid, ap);
     }
 }
 
 void
-warning_for_asm VPROTO((rtx insn, char *s, ...))
+warning_for_asm VPROTO((rtx insn, const char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   rtx insn;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   insn = va_arg (ap, rtx);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_for_asm (insn, s, ap);
+  v_warning_for_asm (insn, msgid, ap);
   va_end (ap);
 }
 
 /* Report a warning at the current line number.  */
 
 static void
-vwarning (s, ap)
-     char *s;
+vwarning (msgid, ap)
+     const char *msgid;
      va_list ap;
 {
-  v_warning_with_file_and_line (input_filename, lineno, s, ap);
+  v_warning_with_file_and_line (input_filename, lineno, msgid, ap);
 }
 
 void
-warning VPROTO((char *s, ...))
+warning VPROTO((const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *s;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  s = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
 #endif
 
-  vwarning (s, ap);
+  vwarning (msgid, ap);
   va_end (ap);
 }
 
@@ -1945,38 +2082,38 @@ warning VPROTO((char *s, ...))
    -pedantic-errors.  */
 
 static void
-vpedwarn (s, ap)
-     char *s;
+vpedwarn (msgid, ap)
+     const char *msgid;
      va_list ap;
 {
   if (flag_pedantic_errors)
-    verror (s, ap);
+    verror (msgid, ap);
   else
-    vwarning (s, ap);
+    vwarning (msgid, ap);
 }
 
 void
-pedwarn VPROTO((char *s, ...))
+pedwarn VPROTO((const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *s;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  s = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
 #endif
 
-  vpedwarn (s, ap);
+  vpedwarn (msgid, ap);
   va_end (ap);
 }
 
 static void
-v_pedwarn_with_decl (decl, s, ap)
+v_pedwarn_with_decl (decl, msgid, ap)
      tree decl;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   /* We don't want -pedantic-errors to cause the compilation to fail from
@@ -1989,72 +2126,73 @@ v_pedwarn_with_decl (decl, s, ap)
   if (! DECL_IN_SYSTEM_HEADER (decl))
     {
       if (flag_pedantic_errors)
-	v_error_with_decl (decl, s, ap);
+	v_error_with_decl (decl, msgid, ap);
       else
-	v_warning_with_decl (decl, s, ap);
+	v_warning_with_decl (decl, msgid, ap);
     }
 }
 
 void
-pedwarn_with_decl VPROTO((tree decl, char *s, ...))
+pedwarn_with_decl VPROTO((tree decl, const char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_pedwarn_with_decl (decl, s, ap);
+  v_pedwarn_with_decl (decl, msgid, ap);
   va_end (ap);
 }
 
 static void
-v_pedwarn_with_file_and_line (file, line, s, ap)
-     char *file;
+v_pedwarn_with_file_and_line (file, line, msgid, ap)
+     const char *file;
      int line;
-     char *s;
+     const char *msgid;
      va_list ap;
 {
   if (flag_pedantic_errors)
-    v_error_with_file_and_line (file, line, s, ap);
+    v_error_with_file_and_line (file, line, msgid, ap);
   else
-    v_warning_with_file_and_line (file, line, s, ap);
+    v_warning_with_file_and_line (file, line, msgid, ap);
 }
 
 void
-pedwarn_with_file_and_line VPROTO((char *file, int line, char *s, ...))
+pedwarn_with_file_and_line VPROTO((const char *file, int line,
+				   const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *file;
+#ifndef ANSI_PROTOTYPES
+  const char *file;
   int line;
-  char *s;
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  file = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  file = va_arg (ap, const char *);
   line = va_arg (ap, int);
-  s = va_arg (ap, char *);
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_pedwarn_with_file_and_line (file, line, s, ap);
+  v_pedwarn_with_file_and_line (file, line, msgid, ap);
   va_end (ap);
 }
 
 /* Apologize for not implementing some feature.  */
 
 static void
-vsorry (s, ap)
-     char *s;
+vsorry (msgid, ap)
+     const char *msgid;
      va_list ap;
 {
   sorrycount++;
@@ -2062,7 +2200,8 @@ vsorry (s, ap)
     fprintf (stderr, "%s:%d: ", input_filename, lineno);
   else
     fprintf (stderr, "%s: ", progname);
-  vmessage ("sorry, not implemented", s, ap);
+  notice ("sorry, not implemented: ");
+  vnotice (stderr, msgid, ap);
   fputc ('\n', stderr);
 }
 
@@ -2101,20 +2240,20 @@ v_really_sorry (s, ap)
 }
 
 void
-really_sorry VPROTO((char *s, ...))
+sorry VPROTO((const char *msgid, ...))
 {
-#ifndef __STDC__
-  char *s;
+#ifndef ANSI_PROTOTYPES
+  const char *msgid;
 #endif
   va_list ap;
 
-  VA_START (ap, s);
+  VA_START (ap, msgid);
 
-#ifndef __STDC__
-  s = va_arg (ap, char *);
+#ifndef ANSI_PROTOTYPES
+  msgid = va_arg (ap, const char *);
 #endif
 
-  v_really_sorry (s, ap);
+  vsorry (msgid, ap);
   va_end (ap);
 }
 
@@ -2146,23 +2285,23 @@ do_abort ()
 
 void
 botch (s)
-  char * s ATTRIBUTE_UNUSED;
+  const char * s ATTRIBUTE_UNUSED;
 {
   abort ();
 }
 
 /* Same as `malloc' but report error if no memory available.  */
 
-char *
+PTR
 xmalloc (size)
-     unsigned size;
+  size_t size;
 {
-  register char *value;
+  register PTR value;
 
   if (size == 0)
     size = 1;
 
-  value = (char *) malloc (size);
+  value = (PTR) malloc (size);
   if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
@@ -2170,16 +2309,16 @@ xmalloc (size)
 
 /* Same as `calloc' but report error if no memory available.  */
 
-char *
+PTR
 xcalloc (size1, size2)
-     unsigned size1, size2;
+  size_t size1, size2;
 {
-  register char *value;
+  register PTR value;
 
   if (size1 == 0 || size2 == 0)
     size1 = size2 = 1;
 
-  value = (char *) calloc (size1, size2);
+  value = (PTR) calloc (size1, size2);
   if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
@@ -2188,19 +2327,17 @@ xcalloc (size1, size2)
 /* Same as `realloc' but report error if no memory available.  
    Also handle null PTR even if the vendor realloc gets it wrong.  */
 
-char *
+PTR
 xrealloc (ptr, size)
-     char *ptr;
-     int size;
+  PTR ptr;
+  size_t size;
 {
-  char *result;
+  register PTR result;
 
   if (size == 0)
     size = 1;
 
-  result = (ptr
-	    ? (char *) realloc (ptr, size)
-	    : (char *) malloc (size));
+  result = (ptr ? (PTR) realloc (ptr, size) : (PTR) malloc (size));
 
   if (!result)
     fatal ("virtual memory exhausted");
@@ -2212,7 +2349,7 @@ xrealloc (ptr, size)
 
 char *
 xstrdup (s)
-     register char *s;
+  register const char *s;
 {
   register char *result = (char *) malloc (strlen (s) + 1);
 
@@ -2295,6 +2432,33 @@ set_float_handler (handler)
     }
 }
 
+/* This is a wrapper function for code which might elicit an
+   arithmetic exception.  That code should be passed in as a function
+   pointer FN, and one argument DATA.  DATA is usually a struct which
+   contains the real input and output for function FN.  This function
+   returns 0 (failure) if longjmp was called (i.e. an exception
+   occured.)  It returns 1 (success) otherwise. */
+
+int
+do_float_handler (fn, data)
+  void (*fn) PROTO ((PTR));
+  PTR data;
+{
+  jmp_buf buf;
+
+  if (setjmp (buf))
+    {
+      /* We got here via longjmp() caused by an exception in function fn() */
+      set_float_handler (NULL);
+      return 0;
+    }
+
+  set_float_handler (buf);
+  (*fn)(data);
+  set_float_handler (NULL);
+  return 1;
+}
+
 /* Specify, in HANDLER, where to longjmp to when a floating arithmetic
    error happens, pushing the previous specification into OLD_HANDLER.
    Return an indication of whether there was a previous handler in effect.  */
@@ -2363,7 +2527,7 @@ strip_off_ending (name, len)
 void
 output_quoted_string (asm_file, string)
      FILE *asm_file;
-     char *string;
+     const char *string;
 {
 #ifdef OUTPUT_QUOTED_STRING
   OUTPUT_QUOTED_STRING (asm_file, string);
@@ -2386,16 +2550,20 @@ output_quoted_string (asm_file, string)
 void
 output_file_directive (asm_file, input_name)
      FILE *asm_file;
-     char *input_name;
+     const char *input_name;
 {
   int len = strlen (input_name);
-  char *na = input_name + len;
+  const char *na = input_name + len;
 
   /* NA gets INPUT_NAME sans directory names.  */
   while (na > input_name)
     {
       if (na[-1] == '/')
 	break;
+#ifdef DIR_SEPARATOR
+      if (na[-1] == DIR_SEPARATOR)
+	break;
+#endif
       na--;
     }
 
@@ -2412,8 +2580,8 @@ output_file_directive (asm_file, input_name)
 #endif
 }
 
+#ifdef ASM_IDENTIFY_LANGUAGE
 /* Routine to build language identifier for object file.  */
-
 static void
 output_lang_identify (asm_out_file)
      FILE *asm_out_file;
@@ -2423,12 +2591,13 @@ output_lang_identify (asm_out_file)
   sprintf (s, "__gnu_compiled_%s", lang_identify ());
   ASM_OUTPUT_LABEL (asm_out_file, s);
 }
+#endif
 
 /* Routine to open a dump file.  */
 static void
 open_dump_file (suffix, function_name)
-     char *suffix;
-     char *function_name;
+     const char *suffix;
+     const char *function_name;
 {
   char *dumpname;
 
@@ -2481,7 +2650,7 @@ close_dump_file (func, insns)
 /* Routine to dump rtl into a file.  */
 static void
 dump_rtl (suffix, decl, func, insns)
-     char *suffix;
+     const char *suffix;
      tree   decl;
      void (*func) PROTO ((FILE *, rtx));
      rtx    insns;
@@ -2493,9 +2662,9 @@ dump_rtl (suffix, decl, func, insns)
 /* Routine to empty a dump file.  */
 static void
 clean_dump_file (suffix)
-     char * suffix;
+  const char *suffix;
 {
-  char * dumpname;
+  char *dumpname;
 
   dumpname = (char *) xmalloc (strlen (dump_base_name) + strlen (suffix) + 1);
 
@@ -2546,6 +2715,7 @@ compile_file (name)
   sched_time = 0;
   local_alloc_time = 0;
   global_alloc_time = 0;
+  flow2_time = 0;
   sched2_time = 0;
 #ifdef DELAY_SLOTS
   dbr_sched_time = 0;
@@ -2594,80 +2764,163 @@ compile_file (name)
 	pfatal_with_name (aux_info_file_name);
     }
 
-  /* Clear the dump files file.  */
+  /* Clear the dump files.  */
   if (rtl_dump)
     clean_dump_file (".rtl");
   if (jump_opt_dump)
-    clean_dump_file (".jump");
+    {
+      clean_dump_file (".jump");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".jump");
+    }
   if (addressof_dump)
-    clean_dump_file (".addressof");
+    {
+      clean_dump_file (".addressof");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".addressof");
+    }
   if (cse_dump)
-    clean_dump_file (".cse");
+    {
+      clean_dump_file (".cse");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".cse");
+    }
   if (loop_dump)
-    clean_dump_file (".loop");
+    {
+      clean_dump_file (".loop");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".loop");
+    }
   if (cse2_dump)
-    clean_dump_file (".cse2");
+    {
+      clean_dump_file (".cse2");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".cse2");
+    }
   if (branch_prob_dump)
-    clean_dump_file (".bp");
+    {
+      clean_dump_file (".bp");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".bp");
+    }
   if (flow_dump)
-    clean_dump_file (".flow");
+    {
+      clean_dump_file (".flow");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".flow");
+    }
   if (combine_dump)
-    clean_dump_file (".combine");
+    {
+      clean_dump_file (".combine");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".combine");
+    }
   if (regmove_dump)
-    clean_dump_file (".regmove");
+    {
+      clean_dump_file (".regmove");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".regmove");
+    }
   if (sched_dump)
-    clean_dump_file (".sched");
+    {
+      clean_dump_file (".sched");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".sched");
+    }
   if (local_reg_dump)
-    clean_dump_file (".lreg");
+    {
+      clean_dump_file (".lreg");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".lreg");
+    }
   if (global_reg_dump)
-    clean_dump_file (".greg");
+    {
+      clean_dump_file (".greg");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".greg");
+    }
+  if (flow2_dump)
+    {
+      clean_dump_file (".flow2");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".flow2");
+    }
   if (sched2_dump)
-    clean_dump_file (".sched2");
+    {
+      clean_dump_file (".sched2");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".sched2");
+    }
   if (jump2_opt_dump)
-    clean_dump_file (".jump2");
+    {
+      clean_dump_file (".jump2");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".jump2");
+    }
 #ifdef DELAY_SLOTS
   if (dbr_sched_dump)
-    clean_dump_file (".dbr");
+    {
+      clean_dump_file (".dbr");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".dbr");
+    }
 #endif
   if (gcse_dump)
-    clean_dump_file (".gcse");
+    {
+      clean_dump_file (".gcse");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".gcse");
+    }
 #ifdef STACK_REGS
   if (stack_reg_dump)
-    clean_dump_file (".stack");
+    {
+      clean_dump_file (".stack");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".stack");
+    }
 #endif
 #ifdef MACHINE_DEPENDENT_REORG
   if (mach_dep_reorg_dump)
-    clean_dump_file (".mach");
+    {
+      clean_dump_file (".mach");
+      if (graph_dump_format != no_graph)
+	clean_graph_dump_file (dump_base_name, ".mach");
+    }
 #endif
 
   /* Open assembler code output file.  */
 
-  if (! name_specified && asm_file_name == 0)
-    asm_out_file = stdout;
+  if (flag_syntax_only)
+    asm_out_file = NULL;
   else
     {
-      int len = strlen (dump_base_name);
-      register char *dumpname = (char *) xmalloc (len + 6);
-      strcpy (dumpname, dump_base_name);
-      strip_off_ending (dumpname, len);
-      strcat (dumpname, ".s");
-      if (asm_file_name == 0)
-	{
-	  asm_file_name = (char *) xmalloc (strlen (dumpname) + 1);
-	  strcpy (asm_file_name, dumpname);
-	}
-      if (!strcmp (asm_file_name, "-"))
+      if (! name_specified && asm_file_name == 0)
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w");
-      if (asm_out_file == 0)
-	pfatal_with_name (asm_file_name);
-    }
+	{
+	  int len = strlen (dump_base_name);
+	  register char *dumpname = (char *) xmalloc (len + 6);
+	  strcpy (dumpname, dump_base_name);
+	  strip_off_ending (dumpname, len);
+	  strcat (dumpname, ".s");
+	  if (asm_file_name == 0)
+	    {
+	      asm_file_name = (char *) xmalloc (strlen (dumpname) + 1);
+	      strcpy (asm_file_name, dumpname);
+	    }
+	  if (!strcmp (asm_file_name, "-"))
+	    asm_out_file = stdout;
+	  else
+	    asm_out_file = fopen (asm_file_name, "w");
+	  if (asm_out_file == 0)
+	    pfatal_with_name (asm_file_name);
+	}
 
 #ifdef IO_BUFFER_SIZE
-  setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
-	   _IOFBF, IO_BUFFER_SIZE);
+      setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
+	       _IOFBF, IO_BUFFER_SIZE);
 #endif
+    }
 
   input_filename = name;
 
@@ -2686,32 +2939,41 @@ compile_file (name)
   if (main_input_filename == 0)
     main_input_filename = name;
 
-  ASM_FILE_START (asm_out_file);
+  if (flag_syntax_only)
+    {
+      write_symbols = NO_DEBUG;
+      profile_flag = 0;
+      profile_block_flag = 0;
+    }
+  else
+    {
+      ASM_FILE_START (asm_out_file);
 
 #ifdef ASM_COMMENT_START
-  if (flag_verbose_asm)
-    {
-      /* Print the list of options in effect.  */
-      print_version (asm_out_file, ASM_COMMENT_START);
-      print_switch_values (asm_out_file, 0, MAX_LINE,
+      if (flag_verbose_asm)
+	{
+	  /* Print the list of options in effect.  */
+	  print_version (asm_out_file, ASM_COMMENT_START);
+	  print_switch_values (asm_out_file, 0, MAX_LINE,
 			       ASM_COMMENT_START, " ", "\n");
-      /* Add a blank line here so it appears in assembler output but not
-	 screen output.  */
-      fprintf (asm_out_file, "\n");
-    }
+	  /* Add a blank line here so it appears in assembler output but not
+	     screen output.  */
+	  fprintf (asm_out_file, "\n");
+	}
 #endif
 
-  /* Output something to inform GDB that this compilation was by GCC.  */
+      /* Output something to inform GDB that this compilation was by GCC.  */
 #ifndef ASM_IDENTIFY_GCC
-  fprintf (asm_out_file, "gcc2_compiled.:\n");
+      fprintf (asm_out_file, "gcc2_compiled.:\n");
 #else
-  ASM_IDENTIFY_GCC (asm_out_file);
+      ASM_IDENTIFY_GCC (asm_out_file);
 #endif
 
   /* Output something to identify which front-end produced this file.  */
 #ifdef ASM_IDENTIFY_LANGUAGE
-  ASM_IDENTIFY_LANGUAGE (asm_out_file);
+      ASM_IDENTIFY_LANGUAGE (asm_out_file);
 #endif
+    } /* ! flag_syntax_only */
 
 #ifndef ASM_OUTPUT_SECTION_NAME
   if (flag_function_sections)
@@ -2733,8 +2995,10 @@ compile_file (name)
       flag_function_sections = 0;
     }
 
+#ifndef OBJECT_FORMAT_ELF
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning ("-ffunction-sections may affect debugging on some targets.");
+#endif
 
   /* ??? Note: There used to be a conditional here
       to call assemble_zeros without fail if DBX_DEBUGGING_INFO is defined.
@@ -2796,15 +3060,13 @@ compile_file (name)
   if (yyparse () != 0)
     {
       if (errorcount == 0)
-	fprintf (stderr, "Errors detected in input file (your bison.simple is out of date)");
+	notice ("Errors detected in input file (your bison.simple is out of date)\n");
 
       /* In case there were missing closebraces,
 	 get us back to the global binding level.  */
       while (! global_bindings_p ())
 	poplevel (0, 0, 0);
     }
-
-  output_func_start_profiler ();
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -2813,6 +3075,9 @@ compile_file (name)
 
   parse_time -= integration_time;
   parse_time -= varconst_time;
+
+  if (flag_syntax_only)
+    goto finish_syntax;
 
   globals = getdecls ();
 
@@ -2908,6 +3173,15 @@ compile_file (name)
 	  }
       }
 
+    /* This must occur after the loop to output deferred functions.  Else
+       the profiler initializer would not be emitted if all the functions
+       in this compilation unit were deferred.
+
+       output_func_start_profiler can not cause any additional functions or
+       data to need to be output, so it need not be in the deferred function
+       loop above.  */
+    output_func_start_profiler ();
+
     /* Now that all possible functions have been output, we can dump
        the exception table.  */
 
@@ -2937,8 +3211,12 @@ compile_file (name)
 	    && ! DECL_ARTIFICIAL (decl)
 	    && ! TREE_PUBLIC (decl))
 	  {
-	    pedwarn_with_decl (decl, 
-			       "`%s' declared `static' but never defined");
+	    if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	      pedwarn_with_decl (decl,
+				 "`%s' used but never defined");
+	    else
+	      warning_with_decl (decl,
+				 "`%s' declared `static' but never defined");
 	    /* This symbol is effectively an "extern" declaration now.  */
 	    TREE_PUBLIC (decl) = 1;
 	    assemble_external (decl);
@@ -3055,8 +3333,9 @@ compile_file (name)
   ASM_FILE_END (asm_out_file);
 #endif
 
-  /* Language-specific end of compilation actions.  */
 
+  /* Language-specific end of compilation actions.  */
+ finish_syntax:
   lang_finish ();
 
   /* Close the dump files.  */
@@ -3081,8 +3360,61 @@ compile_file (name)
 
   finish_parse ();
 
-  if (ferror (asm_out_file) != 0 || fclose (asm_out_file) != 0)
+  if (! flag_syntax_only
+      && (ferror (asm_out_file) != 0 || fclose (asm_out_file) != 0))
     fatal_io_error (asm_file_name);
+
+  /* Do whatever is necessary to finish printing the graphs.  */
+  if (graph_dump_format != no_graph)
+    {
+      if (jump_opt_dump)
+	finish_graph_dump_file (dump_base_name, ".jump");
+      if (addressof_dump)
+	finish_graph_dump_file (dump_base_name, ".addressof");
+      if (cse_dump)
+	finish_graph_dump_file (dump_base_name, ".cse");
+      if (loop_dump)
+	finish_graph_dump_file (dump_base_name, ".loop");
+      if (cse2_dump)
+	finish_graph_dump_file (dump_base_name, ".cse2");
+      if (branch_prob_dump)
+	finish_graph_dump_file (dump_base_name, ".bp");
+      if (flow_dump)
+	finish_graph_dump_file (dump_base_name, ".flow");
+      if (combine_dump)
+	finish_graph_dump_file (dump_base_name, ".combine");
+      if (regmove_dump)
+	finish_graph_dump_file (dump_base_name, ".regmove");
+      if (sched_dump)
+	finish_graph_dump_file (dump_base_name, ".sched");
+      if (local_reg_dump)
+	finish_graph_dump_file (dump_base_name, ".lreg");
+      if (global_reg_dump)
+	finish_graph_dump_file (dump_base_name, ".greg");
+      if (flow_dump)
+	finish_graph_dump_file (dump_base_name, ".flow2");
+      if (sched2_dump)
+	finish_graph_dump_file (dump_base_name, ".sched2");
+      if (jump2_opt_dump)
+	finish_graph_dump_file (dump_base_name, ".jump2");
+#ifdef DELAY_SLOTS
+      if (dbr_sched_dump)
+	finish_graph_dump_file (dump_base_name, ".dbr");
+#endif
+      if (gcse_dump)
+	finish_graph_dump_file (dump_base_name, ".gcse");
+#ifdef STACK_REGS
+      if (stack_reg_dump)
+	finish_graph_dump_file (dump_base_name, ".stack");
+#endif
+#ifdef MACHINE_DEPENDENT_REORG
+      if (mach_dep_reorg_dump)
+	finish_graph_dump_file (dump_base_name, ".mach");
+#endif
+    }
+
+  /* Free up memory for the benefit of leak detectors.  */
+  free_reg_info ();
 
   /* Print the times.  */
 
@@ -3106,6 +3438,7 @@ compile_file (name)
       print_time ("sched", sched_time);
       print_time ("local-alloc", local_alloc_time);
       print_time ("global-alloc", global_alloc_time);
+      print_time ("flow2", flow2_time);
       print_time ("sched2", sched2_time);
 #ifdef DELAY_SLOTS
       print_time ("dbranch", dbr_sched_time);
@@ -3134,7 +3467,7 @@ compile_file (name)
 void
 rest_of_decl_compilation (decl, asmspec, top_level, at_end)
      tree decl;
-     char *asmspec;
+     const char *asmspec;
      int top_level;
      int at_end;
 {
@@ -3244,7 +3577,7 @@ rest_of_compilation (decl)
   if (DECL_SAVED_INSNS (decl) == 0)
     {
       int inlinable = 0;
-      char *lose;
+      const char *lose;
 
       /* If requested, consider whether to make this function inline.  */
       if (DECL_INLINE (decl) || flag_inline_functions)
@@ -3445,9 +3778,13 @@ rest_of_compilation (decl)
 					   !JUMP_AFTER_REGSCAN));
 
       /* Dump rtl code after cse, if we are doing that.  */
-      
+
       if (cse_dump)
-	close_dump_file (print_rtl, insns);
+	{
+	  close_dump_file (print_rtl, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".cse", insns);
+	}
 
       ggc_collect ();
     }
@@ -3456,8 +3793,12 @@ rest_of_compilation (decl)
   reg_scan (insns, max_reg_num (), 1);
 
   if (addressof_dump)
-    dump_rtl (".addressof", decl, print_rtl, insns);
-  
+    {
+      dump_rtl (".addressof", decl, print_rtl, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".addressof", insns);
+    }
+
   ggc_collect ();
 
   /* Perform global cse.  */
@@ -3466,11 +3807,24 @@ rest_of_compilation (decl)
     {
       if (gcse_dump)
 	open_dump_file (".gcse", IDENTIFIER_POINTER (DECL_NAME (decl)));
-      
-      TIMEVAR (gcse_time, gcse_main (insns, rtl_dump_file));
+
+      TIMEVAR (gcse_time, tem = gcse_main (insns, rtl_dump_file));
+
+      /* If gcse altered any jumps, rerun jump optimizations to clean
+	 things up.  */
+      if (tem)
+	{
+	  TIMEVAR (jump_time, jump_optimize (insns, !JUMP_CROSS_JUMP,
+					     !JUMP_NOOP_MOVES,
+					     !JUMP_AFTER_REGSCAN));
+        }
 
       if (gcse_dump)
-	close_dump_file (print_rtl, insns);
+	{
+	  close_dump_file (print_rtl, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".gcse", insns);
+	}
 
       ggc_collect ();
     }
@@ -3503,11 +3857,15 @@ rest_of_compilation (decl)
 	     }
 	   loop_optimize (insns, rtl_dump_file, flag_unroll_loops, 1);
 	 });
-      
+
       /* Dump rtl code after loop opt, if we are doing that.  */
-      
+
       if (loop_dump)
-	close_dump_file (print_rtl, insns);
+	{
+	  close_dump_file (print_rtl, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".loop", insns);
+	}
 
       ggc_collect ();
     }
@@ -3516,7 +3874,7 @@ rest_of_compilation (decl)
     {
       if (cse2_dump)
 	open_dump_file (".cse2", decl_printable_name (decl, 2));
-      
+
       if (flag_rerun_cse_after_loop)
 	{
 	  /* Running another jump optimization pass before the second
@@ -3545,32 +3903,40 @@ rest_of_compilation (decl)
 	  TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
 	  TIMEVAR (jump_time, thread_jumps (insns, max_reg_num (), 0));
 	}
-      
+
       /* Dump rtl code after cse, if we are doing that.  */
-      
+
       if (cse2_dump)
-	close_dump_file (print_rtl, insns);
+	{
+	  close_dump_file (print_rtl, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".cse2", insns);
+	}
 
       ggc_collect ();
     }
-  
+
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       if (branch_prob_dump)
 	open_dump_file (".bp", decl_printable_name (decl, 2));
-    
+
       TIMEVAR
 	(branch_prob_time,
 	 {
 	   branch_prob (insns, rtl_dump_file);
 	 });
-      
+
       if (branch_prob_dump)
-	close_dump_file (print_rtl, insns);
+	{
+	  close_dump_file (print_rtl, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".bp", insns);
+	}
 
       ggc_collect ();
     }
-  
+
   /* We are no longer anticipating cse in this function, at least.  */
 
   cse_not_expected = 1;
@@ -3607,7 +3973,7 @@ rest_of_compilation (decl)
       TIMEVAR
 	(flow_time,
 	 {
-	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file, 1);
+	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	   life_analysis (insns, max_reg_num (), rtl_dump_file);
 	 });
 
@@ -3621,20 +3987,32 @@ rest_of_compilation (decl)
   /* Dump rtl after flow analysis.  */
 
   if (flow_dump)
-    close_dump_file (print_rtl_with_bb, insns);
-  
+    {
+      close_dump_file (print_rtl_with_bb, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".flow", insns);
+    }
+
   ggc_collect ();
+  
+  /* The first life analysis pass has finished.  From now on we can not
+     generate any new pseudos.  */
+  no_new_pseudos = 1;
 
   /* If -opt, try combining insns through substitution.  */
 
   if (optimize > 0)
     {
       TIMEVAR (combine_time, combine_instructions (insns, max_reg_num ()));
-      
+
       /* Dump rtl code after insn combination.  */
-      
+
       if (combine_dump)
-	dump_rtl (".combine", decl, print_rtl_with_bb, insns);
+	{
+	  dump_rtl (".combine", decl, print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".combine", insns);
+	}
 
       ggc_collect ();
     }
@@ -3645,12 +4023,16 @@ rest_of_compilation (decl)
     {
       if (regmove_dump)
 	open_dump_file (".regmove", decl_printable_name (decl, 2));
-      
+
       TIMEVAR (regmove_time, regmove_optimize (insns, max_reg_num (),
 					       rtl_dump_file));
-      
+
       if (regmove_dump)
-	close_dump_file (print_rtl_with_bb, insns);
+	{
+	  close_dump_file (print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".regmove", insns);
+	}
 
       ggc_collect ();
     }
@@ -3662,16 +4044,20 @@ rest_of_compilation (decl)
     {
       if (sched_dump)
 	open_dump_file (".sched", decl_printable_name (decl, 2));
-      
+
       /* Do control and data sched analysis,
 	 and write some of the results to dump file.  */
 
       TIMEVAR (sched_time, schedule_insns (rtl_dump_file));
-      
+
       /* Dump rtl after instruction scheduling.  */
-      
+
       if (sched_dump)
-	close_dump_file (print_rtl_with_bb, insns);
+	{
+	  close_dump_file (print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".sched", insns);
+	}
 
       ggc_collect ();
     }
@@ -3682,7 +4068,7 @@ rest_of_compilation (decl)
   if (!obey_regdecls)
     TIMEVAR (local_alloc_time,
 	     {
-	       recompute_reg_usage (insns);
+	       recompute_reg_usage (insns, ! optimize_size);
 	       regclass (insns, max_reg_num ());
 	       local_alloc ();
 	     });
@@ -3692,21 +4078,19 @@ rest_of_compilation (decl)
   if (local_reg_dump)
     {
       open_dump_file (".lreg", decl_printable_name (decl, 2));
-      
+
       TIMEVAR (dump_time, dump_flow_info (rtl_dump_file));
       TIMEVAR (dump_time, dump_local_alloc (rtl_dump_file));
-      
+
       close_dump_file (print_rtl_with_bb, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".lreg", insns);
     }
 
   ggc_collect ();
 
   if (global_reg_dump)
     open_dump_file (".greg", decl_printable_name (decl, 2));
-
-  /* Save the last label number used so far, so reorg can tell
-     when it's safe to kill spill regs.  */
-  max_label_num_after_reload = max_label_num ();
 
   /* Unless we did stupid register allocation,
      allocate remaining pseudo-regs, then do the reload pass
@@ -3725,11 +4109,64 @@ rest_of_compilation (decl)
     goto exit_rest_of_compilation;
 
   ggc_collect ();
-  reload_completed = 1;
 
   /* Do a very simple CSE pass over just the hard registers.  */
   if (optimize > 0)
     reload_cse_regs (insns);
+
+  /* If optimizing and we are performing instruction scheduling after
+     reload, then go ahead and split insns now since we are about to
+     recompute flow information anyway.
+
+     reload_cse_regs may expose more splitting opportunities, expecially
+     for double-word operations.  */
+  if (optimize > 0 && flag_schedule_insns_after_reload)
+    {
+      rtx insn;
+
+      for (insn = insns; insn; insn = NEXT_INSN (insn))
+	{
+	  rtx last;
+
+	  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+	    continue;
+
+	  last = try_split (PATTERN (insn), insn, 1);
+
+	  if (last != insn)
+	    {
+	      PUT_CODE (insn, NOTE);
+	      NOTE_SOURCE_FILE (insn) = 0;
+	      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	    }
+	}
+    }
+
+  if (global_reg_dump)
+    {
+      TIMEVAR (dump_time, dump_global_regs (rtl_dump_file));
+      close_dump_file (print_rtl_with_bb, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".greg", insns);
+    }
+
+  /* Re-create the death notes which were deleted during reload.  */
+  if (flow2_dump)
+    open_dump_file (".flow2", decl_printable_name (decl, 2));
+  
+  if (optimize)
+    {
+      TIMEVAR
+	(flow2_time,
+	 {
+	   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+	   life_analysis (insns, max_reg_num (), rtl_dump_file);
+	 });
+
+      ggc_collect ();
+    }
+
+  flow2_completed = 1;
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3738,11 +4175,13 @@ rest_of_compilation (decl)
 
   thread_prologue_and_epilogue_insns (insns);
 
-  if (global_reg_dump)
+  if (flow2_dump)
     {
-      TIMEVAR (dump_time, dump_global_regs (rtl_dump_file));
       close_dump_file (print_rtl_with_bb, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".flow2", insns);
     }
+
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
       if (sched2_dump)
@@ -3756,7 +4195,11 @@ rest_of_compilation (decl)
       /* Dump rtl after post-reorder instruction scheduling.  */
 
       if (sched2_dump)
-	close_dump_file (print_rtl_with_bb, insns);
+	{
+	  close_dump_file (print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".sched2", insns);
+	}
 
       ggc_collect ();
     }
@@ -3777,11 +4220,15 @@ rest_of_compilation (decl)
       TIMEVAR (jump_time, jump_optimize (insns, JUMP_CROSS_JUMP,
 					 JUMP_NOOP_MOVES,
 					 !JUMP_AFTER_REGSCAN));
-      
+
       /* Dump rtl code after jump, if we are doing that.  */
 
       if (jump2_opt_dump)
-	dump_rtl (".jump2", decl, print_rtl_with_bb, insns);
+	{
+	  dump_rtl (".jump2", decl, print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".jump2", insns);
+	}
 
       ggc_collect ();
     }
@@ -3791,7 +4238,12 @@ rest_of_compilation (decl)
    MACHINE_DEPENDENT_REORG (insns);
 
    if (mach_dep_reorg_dump)
-     dump_rtl (".mach", decl, print_rtl_with_bb, insns);
+     {
+       dump_rtl (".mach", decl, print_rtl_with_bb, insns);
+       if (graph_dump_format != no_graph)
+	 print_rtl_graph_with_bb (dump_base_name, ".mach", insns);
+     }
+
    ggc_collect ();
 #endif
 
@@ -3802,9 +4254,13 @@ rest_of_compilation (decl)
   if (optimize > 0 && flag_delayed_branch)
     {
       TIMEVAR (dbr_sched_time, dbr_schedule (insns, rtl_dump_file));
-      
+
       if (dbr_sched_dump)
-	dump_rtl (".dbr", decl, print_rtl_with_bb, insns);
+	{
+	  dump_rtl (".dbr", decl, print_rtl_with_bb, insns);
+	  if (graph_dump_format != no_graph)
+	    print_rtl_graph_with_bb (dump_base_name, ".dbr", insns);
+	}
 
       ggc_collect ();
     }
@@ -3823,7 +4279,12 @@ rest_of_compilation (decl)
   TIMEVAR (stack_reg_time, reg_to_stack (insns, rtl_dump_file));
 
   if (stack_reg_dump)
-    dump_rtl (".stack", decl, print_rtl_with_bb, insns);
+    {
+      dump_rtl (".stack", decl, print_rtl_with_bb, insns);
+      if (graph_dump_format != no_graph)
+	print_rtl_graph_with_bb (dump_base_name, ".stack", insns);
+    }
+
   ggc_collect ();
 #endif
 
@@ -3853,6 +4314,9 @@ rest_of_compilation (decl)
 	     assemble_end_function (decl, fnname);
 	     if (! quiet_flag)
 	       fflush (asm_out_file);
+
+	     /* Release all memory allocated by flow.  */
+	     free_basic_block_vars (0);
 
 	     /* Release all memory held by regsets now */
 	     regset_release_memory ();
@@ -3886,6 +4350,8 @@ rest_of_compilation (decl)
 
  exit_rest_of_compilation:
 
+  free_bb_mem ();
+
   /* In case the function was not output,
      don't leave any temporary anonymous types
      queued up for sdb output.  */
@@ -3907,6 +4373,8 @@ rest_of_compilation (decl)
     }
 
   reload_completed = 0;
+  flow2_completed = 0;
+  no_new_pseudos = 0;
 
   TIMEVAR (final_time,
 	   {
@@ -3948,6 +4416,9 @@ rest_of_compilation (decl)
      *except* what is spent in this function.  */
 
   parse_time -= get_run_time () - start_time;
+
+  /* Reset global variables.  */
+  free_basic_block_vars (0);
 }
 
 static void
@@ -3955,7 +4426,7 @@ display_help ()
 {
   int    undoc;
   unsigned long	 i;
-  char * lang;
+  const char * lang;
   
 #ifndef USE_CPPLIB  
   printf ("Usage: %s input [switches]\n", progname);
@@ -3967,7 +4438,7 @@ display_help ()
 
   for (i = NUM_ELEM (f_options); i--;)
     {
-      char * description = f_options[i].description;
+      const char * description = f_options[i].description;
       
       if (description != NULL && * description != 0)
 	printf ("  -f%-21s %s\n",
@@ -3983,7 +4454,7 @@ display_help ()
   
   for (i = NUM_ELEM (W_options); i--;)
     {
-      char * description = W_options[i].description;
+      const char * description = W_options[i].description;
       
       if (description != NULL && * description != 0)
 	printf ("  -W%-21s %s\n",
@@ -4036,11 +4507,16 @@ display_help ()
 
       for (i = 0; i < NUM_ELEM (documented_lang_options); i++)
 	{
-	  char * description = documented_lang_options[i].description;
-	  char * option      = documented_lang_options[i].option;
+	  const char * description = documented_lang_options[i].description;
+	  const char * option      = documented_lang_options[i].option;
 
 	  if (description == NULL)
-	    undoc = 1;
+	    {
+	      undoc = 1;
+
+	      if (extra_warnings)
+		printf ("  %-23.23s [undocumented]\n", option);
+	    }
 	  else if (* description == 0)
 	    continue;
 	  else if (option == NULL)
@@ -4077,29 +4553,39 @@ display_help ()
 
       for (i = NUM_ELEM (target_switches); i--;)
 	{
-	  char * option      = target_switches[i].name;
-	  char * description = target_switches[i].description;
+	  const char * option      = target_switches[i].name;
+	  const char * description = target_switches[i].description;
 
-	  if (option == NULL)
+	  if (option == NULL || * option == 0)
 	    continue;
 	  else if (description == NULL)
-	    undoc = 1;
+	    {
+	      undoc = 1;
+	      
+	      if (extra_warnings)
+		printf ("  -m%-21.21s [undocumented]\n", option);
+	    }
 	  else if (* description != 0)
-	    doc += printf ("  %-23.23s %s\n", option, description);
+	    doc += printf ("  -m%-21.21s %s\n", option, description);
 	}
       
 #ifdef TARGET_OPTIONS      
       for (i = NUM_ELEM (target_options); i--;)
 	{
-	  char * option      = target_options[i].prefix;
-	  char * description = target_options[i].description;
+	  const char * option      = target_options[i].prefix;
+	  const char * description = target_options[i].description;
 
-	  if (option == NULL)
+	  if (option == NULL || * option == 0)
 	    continue;
 	  else if (description == NULL)
-	    undoc = 1;
+	    {
+	      undoc = 1;
+	      
+	      if (extra_warnings)
+		printf ("  -m%-21.21s [undocumented]\n", option);
+	    }
 	  else if (* description != 0)
-	    doc += printf ("  %-23.23s %s\n", option, description);
+	    doc += printf ("  -m%-21.21s %s\n", option, description);
 	}
 #endif
       if (undoc)
@@ -4124,55 +4610,59 @@ check_lang_option (option, lang_option)
   lang_independent_options * indep_options;
   int    len;
   long    k;
-
+  char * space;
+  
   /* Ignore NULL entries.  */
   if (option == NULL || lang_option == NULL)
     return 0;
 
-  len = strlen (lang_option);
-
+  if ((space = strchr (lang_option, ' ')) != NULL)
+    len = space - lang_option;
+  else
+    len = strlen (lang_option);
+  
   /* If they do not match to the first n characters then fail.  */
   if (strncmp (option, lang_option, len) != 0)
     return 0;
-	  
+  
   /* Do not accept a lang option, if it matches a normal -f or -W
      option.  Chill defines a -fpack, but we want to support
      -fpack-struct.  */
-	  
+  
   /* An exact match is OK  */
-  if (strlen (option) == len)
+  if ((int) strlen (option) == len)
     return 1;
-
+  
   /* If it is not an -f or -W option allow the match */
   if (option[0] != '-')
     return 1;
-
+  
   switch (option[1])
     {
     case 'f': indep_options = f_options; break;
     case 'W': indep_options = W_options; break;
     default:  return 1;
     }
-
+  
   /* The option is a -f or -W option.
      Skip past the prefix and search for the remainder in the
      appropriate table of options.  */
   option += 2;
-	  
+  
   if (option[0] == 'n' && option[1] == 'o' && option[2] == '-')
     option += 3;
-
+  
   for (k = NUM_ELEM (indep_options); k--;)
     {
       if (!strcmp (option, indep_options[k].string))
 	{
 	  /* The option matched a language independent option,
 	     do not allow the language specific match.  */
-
+	  
 	  return 0;
 	}
     }
-
+  
   /* The option matches the start of the langauge specific option
      and it is not an exact match for a language independent option.  */
   return 1;
@@ -4218,6 +4708,12 @@ main (argc, argv)
   }
 #endif
 
+#ifdef HAVE_LC_MESSAGES
+  setlocale (LC_MESSAGES, "");
+#endif
+  (void) bindtextdomain (PACKAGE, localedir);
+  (void) textdomain (PACKAGE);
+
   signal (SIGFPE, float_signal);
 
 #ifdef SIGPIPE
@@ -4244,30 +4740,32 @@ main (argc, argv)
       if (!strcmp (argv[i], "-O"))
 	{
 	  optimize = 1;
+	  optimize_size = 0;
 	}
       else if (argv[i][0] == '-' && argv[i][1] == 'O')
 	{
 	  /* Handle -Os, -O2, -O3, -O69, ...  */
 	  char *p = &argv[i][2];
-	  int c;
 	  
 	  if ((p[0] == 's') && (p[1] == 0))
-	    optimize_size = 1;
+	    {
+	      optimize_size = 1;
+	      
+	      /* Optimizing for size forces optimize to be 2. */
+	      optimize = 2;
+	    }
 	  else
 	    {	    
-	      while ((c = *p++))
-		if (! (c >= '0' && c <= '9'))
-		  break;
-	      if (c == 0)
-		optimize = atoi (&argv[i][2]);
+	      const int optimize_val = read_integral_parameter (p, p - 2, -1);
+	      if (optimize_val != -1)
+		{
+		  optimize = optimize_val;
+		  optimize_size = 0;
+		}
 	    }
 	}
     }
 
-  /* Optimizing for size forces optimize to be no less than 2. */
-  if (optimize_size && (optimize < 2))
-    optimize = 2;
-    
   obey_regdecls = (optimize == 0);
 
   if (optimize >= 1)
@@ -4369,6 +4867,7 @@ main (argc, argv)
  		    dbr_sched_dump = 1;
 #endif
  		    flow_dump = 1;
+ 		    flow2_dump = 1;
  		    global_reg_dump = 1;
  		    jump_opt_dump = 1;
  		    addressof_dump = 1;
@@ -4460,11 +4959,20 @@ main (argc, argv)
 		  case 'N':
 		    regmove_dump = 1;
 		    break;
+		  case 'v':
+		    graph_dump_format = vcg;
+		    break;
+		  case 'w':
+		    flow2_dump = 1;
+		    break;
 		  case 'y':
 		    set_yydebug (1);
 		    break;
 		  case 'x':
 		    rtl_dump_and_exit = 1;
+		    break;
+		  case 'D':	/* these are handled by the preprocessor */
+		  case 'I':
 		    break;
 		  default:
 		    warning ("unrecognised gcc debugging option: %c", p[-1]);
@@ -4518,16 +5026,7 @@ main (argc, argv)
 	    }
 	  else if (str[0] == 'O')
 	    {
-	      register char *p = str+1;
-	      if (*p == 's')
-		p++;
-	      else
-		while (*p && *p >= '0' && *p <= '9')
-		  p++;
-	      if (*p == '\0')
-		;
-	      else
-		error ("Invalid option `%s'", argv[i]);
+	      /* Already been treated above. Do nothing.  */
 	    }
 	  else if (!strcmp (str, "pedantic"))
 	    pedantic = 1;
@@ -4580,39 +5079,23 @@ main (argc, argv)
 		;
 	      else if (!strncmp (p, "id-clash-", 9))
 		{
-		  char *endp = p + 9;
-
-		  while (*endp)
+		  const int id_clash_val
+		    = read_integral_parameter (p + 9, p - 2, -1);
+		  if (id_clash_val != -1)
 		    {
-		      if (*endp >= '0' && *endp <= '9')
-			endp++;
-		      else
-			{
-			  error ("Invalid option `%s'", argv[i]);
-			  goto id_clash_lose;
-			}
+		      id_clash_len = id_clash_val;
+		      warn_id_clash = 1;
 		    }
-		  warn_id_clash = 1;
-		  id_clash_len = atoi (str + 10);
-		id_clash_lose: ;
 		}
 	      else if (!strncmp (p, "larger-than-", 12))
 		{
-		  char *endp = p + 12;
-
-		  while (*endp)
+		  const int larger_than_val
+		    = read_integral_parameter (p + 12, p - 2, -1);
+		  if (larger_than_val != -1)
 		    {
-		      if (*endp >= '0' && *endp <= '9')
-			endp++;
-		      else
-			{
-			  error ("Invalid option `%s'", argv[i]);
-			  goto larger_than_lose;
-			}
+		      larger_than_size = larger_than_val;
+		      warn_larger_than = 1;
 		    }
-		  warn_larger_than = 1;
-		  larger_than_size = atoi (str + 13);
-		larger_than_lose: ;
 		}
 	      else
 		error ("Invalid option `%s'", argv[i]);
@@ -4640,7 +5123,6 @@ main (argc, argv)
 	    }
 	  else if (str[0] == 'g')
 	    {
-	      unsigned len;
 	      unsigned level;
 	      /* A lot of code assumes write_symbols == NO_DEBUG if the
 		 debugging level is 0 (thus -gstabs1 -gstabs0 would lose track
@@ -4653,53 +5135,60 @@ main (argc, argv)
 		 -gdwarf -g3 is equivalent to -gdwarf3.  */
 	      static int type_explicitly_set_p = 0;
 	      /* Indexed by enum debug_info_type.  */
-	      static char *debug_type_names[] =
+	      static const char *debug_type_names[] =
 	      {
 		"none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff"
 	      };
 
+	      /* The maximum admissible debug level value.  */
+	      static const unsigned max_debug_level = 3;
+
 	      /* Look up STR in the table.  */
 	      for (da = debug_args; da->arg; da++)
 		{
-		  if (! strncmp (str, da->arg, strlen (da->arg)))
+		  const int da_len = strlen (da->arg);
+
+		  if (! strncmp (str, da->arg, da_len))
 		    {
 		      enum debug_info_type type = da->debug_type;
-		      char *p, *q;
+		      const char *p = str + da_len;
 
-		      p = str + strlen (da->arg);
 		      if (*p && (*p < '0' || *p > '9'))
 			continue;
-		      len = p - str;
-		      q = p;
-		      while (*q && (*q >= '0' && *q <= '9'))
-			q++;
+		      
+		      /* A debug flag without a level defaults to level 2.
+			 Note we do not want to call read_integral_parameter
+			 for that case since it will call atoi which 
+			 will return zero.
+
+			 ??? We may want to generalize the interface to 
+			 read_integral_parameter to better handle this case
+			 if this case shows up often.  */
 		      if (*p)
-			{
-			  level = atoi (p);
-			  if (len > 1 && !strncmp (str, "gdwarf", len))
-			    {
-			      error ("use -gdwarf -g%d for DWARF v1, level %d",
-				       level, level);
-			      if (level == 2)
-				error ("use -gdwarf-2   for DWARF v2");
-			    }
-			}
+			level = read_integral_parameter (p, 0,
+							 max_debug_level + 1);
 		      else
-			level = 2;	/* default debugging info level */
-		      if (*q || level > 3)
+			level = 2;
+
+		      if (da_len > 1 && !strncmp (str, "gdwarf", da_len))
 			{
-			  warning ("invalid debug level specification in option: `-%s'",
-				   str);
-			  /* ??? This error message is incorrect in the case of
-			     -g4 -g.  */
-			  warning ("no debugging information will be generated");
-			  level = 0;
+			  error ("use -gdwarf -g%d for DWARF v1, level %d",
+				 level, level);
+			  if (level == 2)
+			    error ("use -gdwarf-2   for DWARF v2");
+			}
+
+		      if (level > max_debug_level)
+			{
+			  warning ("ignoring option `%s' due to invalid debug level specification",
+				   str - 1);
+			  level = debug_info_level;
 			}
 
 		      if (type == NO_DEBUG)
 			{
 			  type = PREFERRED_DEBUGGING_TYPE;
-			  if (len > 1 && strncmp (str, "ggdb", len) == 0)
+			  if (da_len > 1 && strncmp (str, "ggdb", da_len) == 0)
 			    {
 #if defined (DWARF2_DEBUGGING_INFO) && !defined (LINKER_DOES_NOT_WORK_WITH_DWARF2)
 			      type = DWARF2_DEBUG;
@@ -4753,8 +5242,19 @@ main (argc, argv)
 	    }
 	  else if (str[0] == 'G')
 	    {
-	      g_switch_set = TRUE;
-	      g_switch_value = atoi ((str[1] != '\0') ? str+1 : argv[++i]);
+	      const int g_switch_val = (str[1] != '\0') ?
+	                               read_integral_parameter(str + 1, 0, -1) :
+			               read_integral_parameter(argv[++i], 0, -1);
+	      
+	      if (g_switch_val != -1)
+	        {
+		  g_switch_set = TRUE;
+		  g_switch_value = g_switch_val;
+		}
+	      else
+	        {
+		  error("Invalid option `-%s'",str);
+		}
 	    }
 	  else if (!strncmp (str, "aux-info", 8))
 	    {
@@ -4837,6 +5337,21 @@ main (argc, argv)
     warning ("this target machine does not have delayed branches");
 #endif
 
+  user_label_prefix = USER_LABEL_PREFIX;
+  if (flag_leading_underscore != -1)
+    {
+      /* If the default prefix is more complicated than "" or "_", 
+	 issue a warning and ignore this option.  */
+      if (user_label_prefix[0] == 0 ||
+	  (user_label_prefix[0] == '_' && user_label_prefix[1] == 0))
+	{
+	  user_label_prefix = flag_leading_underscore ? "_" : "";
+	}
+      else
+	warning ("-f%sleading-underscore not supported on this target machine",
+		 flag_leading_underscore ? "" : "no-");
+    }
+
   /* If we are in verbose mode, write out the version and maybe all the
      option flags in use.  */
   if (version_flag)
@@ -4848,12 +5363,12 @@ main (argc, argv)
 
   compile_file (filename);
 
-#if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN32__))
+#if !defined(OS2) && !defined(VMS) && (!defined(_WIN32) || defined (__CYGWIN__)) && !defined(__INTERIX)
   if (flag_print_mem)
     {
       char *lim = (char *) sbrk (0);
 
-      fprintf (stderr, "Data size %ld.\n", (long)(lim - (char *) &environ));
+      notice ("Data size %ld.\n", (long) (lim - (char *) &environ));
       fflush (stderr);
 
 #ifndef __MSDOS__
@@ -4864,7 +5379,7 @@ main (argc, argv)
 #endif /* not USG */
 #endif
     }
-#endif /* ! OS2 && ! VMS && (! _WIN32 || CYGWIN32) */
+#endif /* ! OS2 && ! VMS && (! _WIN32 || CYGWIN) && ! __INTERIX */
 
   if (errorcount)
     exit (FATAL_EXIT_CODE);
@@ -4879,10 +5394,10 @@ main (argc, argv)
 
 static void
 set_target_switch (name)
-     char *name;
+  const char *name;
 {
   register size_t j;
-  int valid = 0;
+  int valid_target_option = 0;
 
   for (j = 0; j < sizeof target_switches / sizeof target_switches[0]; j++)
     if (!strcmp (target_switches[j].name, name))
@@ -4891,23 +5406,23 @@ set_target_switch (name)
 	  target_flags &= ~-target_switches[j].value;
 	else
 	  target_flags |= target_switches[j].value;
-	valid = 1;
+	valid_target_option = 1;
       }
 
 #ifdef TARGET_OPTIONS
-  if (!valid)
+  if (!valid_target_option)
     for (j = 0; j < sizeof target_options / sizeof target_options[0]; j++)
       {
 	int len = strlen (target_options[j].prefix);
 	if (!strncmp (target_options[j].prefix, name, len))
 	  {
 	    *target_options[j].variable = name + len;
-	    valid = 1;
+	    valid_target_option = 1;
 	  }
       }
 #endif
 
-  if (!valid)
+  if (!valid_target_option)
     error ("Invalid option `%s'", name);
 }
 
@@ -4918,19 +5433,19 @@ set_target_switch (name)
 static void
 print_version (file, indent)
      FILE *file;
-     char *indent;
+     const char *indent;
 {
-  fprintf (file, "%s%s%s version %s", indent, *indent != 0 ? " " : "",
-	   language_string, version_string);
-  fprintf (file, " (%s)", TARGET_NAME);
-#ifdef __GNUC__
 #ifndef __VERSION__
-#define __VERSION__ "[unknown]"
+#define __VERSION__ "[?]"
 #endif
-  fprintf (file, " compiled by GNU C version %s.\n", __VERSION__);
+  fnotice (file,
+#ifdef __GNUC__
+	   "%s%s%s version %s (%s) compiled by GNU C version %s.\n"
 #else
-  fprintf (file, " compiled by CC.\n");
+	   "%s%s%s version %s (%s) compiled by CC.\n"
 #endif
+	   , indent, *indent != 0 ? " " : "",
+	   language_string, version_string, TARGET_NAME, __VERSION__);
 }
 
 /* Print an option value and return the adjusted position in the line.
@@ -4941,7 +5456,7 @@ static int
 print_single_switch (file, pos, max, indent, sep, term, type, name)
      FILE *file;
      int pos, max;
-     char *indent, *sep, *term, *type, *name;
+     const char *indent, *sep, *term, *type, *name;
 {
   /* The ultrix fprintf returns 0 on success, so compute the result we want
      here since we need it for the following test.  */
@@ -4972,7 +5487,7 @@ static void
 print_switch_values (file, pos, max, indent, sep, term)
      FILE *file;
      int pos, max;
-     char *indent, *sep, *term;
+     const char *indent, *sep, *term;
 {
   size_t j;
   char **p;
@@ -4980,7 +5495,7 @@ print_switch_values (file, pos, max, indent, sep, term)
   /* Print the options as passed.  */
 
   pos = print_single_switch (file, pos, max, indent, *indent ? " " : "", term,
-			     "options passed: ", "");
+			     _("options passed: "), "");
 
   for (p = &save_argv[1]; *p != NULL; p++)
     if (**p == '-')
@@ -5009,7 +5524,7 @@ print_switch_values (file, pos, max, indent, sep, term)
      should suffice.  */
 
   pos = print_single_switch (file, 0, max, indent, *indent ? " " : "", term,
-			     "options enabled: ", "");
+			     _("options enabled: "), "");
 
   for (j = 0; j < sizeof f_options / sizeof f_options[0]; j++)
     if (*f_options[j].variable == f_options[j].on_value)
@@ -5046,7 +5561,7 @@ print_switch_values (file, pos, max, indent, sep, term)
 
 void
 debug_start_source_file (filename)
-     register char *filename;
+     register char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef DBX_DEBUGGING_INFO
   if (write_symbols == DBX_DEBUG)
@@ -5073,7 +5588,7 @@ debug_start_source_file (filename)
 
 void
 debug_end_source_file (lineno)
-     register unsigned lineno;
+     register unsigned lineno ATTRIBUTE_UNUSED;
 {
 #ifdef DBX_DEBUGGING_INFO
   if (write_symbols == DBX_DEBUG)
@@ -5101,8 +5616,8 @@ debug_end_source_file (lineno)
 
 void
 debug_define (lineno, buffer)
-     register unsigned lineno;
-     register char *buffer;
+     register unsigned lineno ATTRIBUTE_UNUSED;
+     register char *buffer ATTRIBUTE_UNUSED;
 {
 #ifdef DWARF_DEBUGGING_INFO
   if (debug_info_level == DINFO_LEVEL_VERBOSE
@@ -5122,8 +5637,8 @@ debug_define (lineno, buffer)
 
 void
 debug_undef (lineno, buffer)
-     register unsigned lineno;
-     register char *buffer;
+     register unsigned lineno ATTRIBUTE_UNUSED;
+     register char *buffer ATTRIBUTE_UNUSED;
 {
 #ifdef DWARF_DEBUGGING_INFO
   if (debug_info_level == DINFO_LEVEL_VERBOSE

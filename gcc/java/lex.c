@@ -1,5 +1,5 @@
 /* Language lexer for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -36,31 +36,59 @@ Addison Wesley 1996" (http://java.sun.com/docs/books/jls/html/3.doc.html)  */
 
 #include <stdio.h>
 #include <string.h>
-#include <setjmp.h>
+#include <strings.h>
 
 #ifdef JAVA_LEX_DEBUG
 #include <ctype.h>
 #endif
 
-#ifdef inline			/* javaop.h redefines inline as static */
-#undef inline
-#endif
 #include "keyword.h"
 
 #ifndef SEEK_SET
 #include <unistd.h>
 #endif
 
+#ifndef JC1_LITE
+extern struct obstack *expression_obstack;
+#endif
+
+/* Function declaration  */
+static int java_lineterminator PROTO ((unicode_t));
+static char *java_sprint_unicode PROTO ((struct java_line *, int));
+static void java_unicode_2_utf8 PROTO ((unicode_t));
+static void java_lex_error PROTO ((char *, int));
+#ifndef JC1_LITE
+static int java_is_eol PROTO ((FILE *, int));
+static tree build_wfl_node PROTO ((tree));
+#endif
+static void java_store_unicode PROTO ((struct java_line *, unicode_t, int));
+static unicode_t java_parse_escape_sequence PROTO ((void));
+static int java_letter_or_digit_p PROTO ((unicode_t));
+static int java_parse_doc_section PROTO ((unicode_t));
+static void java_parse_end_comment PROTO ((unicode_t));
+static unicode_t java_get_unicode PROTO (());
+static unicode_t java_read_unicode PROTO ((int, int *));
+static void java_store_unicode PROTO ((struct java_line *, unicode_t, int));
+static unicode_t java_read_char PROTO (());
+static void java_allocate_new_line PROTO (());
+static void java_unget_unicode PROTO (());
+static unicode_t java_sneak_unicode PROTO (());
+
 void
 java_init_lex ()
 {
+#ifndef JC1_LITE
   int java_lang_imported = 0;
 
-#ifndef JC1_LITE
+  if (!java_lang_id)
+    java_lang_id = get_identifier ("java.lang");
+  if (!java_lang_cloneable)
+    java_lang_cloneable = get_identifier ("java.lang.Cloneable");
+
   if (!java_lang_imported)
     {
       tree node = build_tree_list 
-	(build_expr_wfl (get_identifier ("java.lang"), NULL, 0, 0), NULL_TREE);
+	(build_expr_wfl (java_lang_id, NULL, 0, 0), NULL_TREE);
       read_import_dir (TREE_PURPOSE (node));
       TREE_CHAIN (node) = ctxp->import_demand_list;
       ctxp->import_demand_list = node;
@@ -71,12 +99,18 @@ java_init_lex ()
     wfl_operator = build_expr_wfl (NULL_TREE, ctxp->filename, 0, 0);
   if (!label_id)
     label_id = get_identifier ("$L");
+  if (!wfl_append) 
+    wfl_append = build_expr_wfl (get_identifier ("append"), NULL, 0, 0);
+  if (!wfl_string_buffer)
+    wfl_string_buffer = 
+      build_expr_wfl (get_identifier ("java.lang.StringBuffer"), NULL, 0, 0);
+  if (!wfl_to_string)
+    wfl_to_string = build_expr_wfl (get_identifier ("toString"), NULL, 0, 0);
 
   ctxp->static_initialized = ctxp->non_static_initialized = 
     ctxp->incomplete_class = NULL_TREE;
   
   bzero (ctxp->modifier_ctx, 11*sizeof (ctxp->modifier_ctx[0]));
-  classpath = NULL;
   bzero (current_jcf, sizeof (JCF));
   ctxp->current_parsed_class = NULL;
   ctxp->package = NULL_TREE;
@@ -114,8 +148,7 @@ java_sneak_unicode ()
 }
 
 static void
-java_unget_unicode (c)
-     unicode_t c;
+java_unget_unicode ()
 {
   if (!ctxp->c_line->current)
     fatal ("can't unget unicode - java_unget_unicode");
@@ -123,10 +156,9 @@ java_unget_unicode (c)
   ctxp->c_line->char_col -= JAVA_COLUMN_DELTA (0);
 }
 
-void
+static void
 java_allocate_new_line ()
 {
-  int i;
   unicode_t ahead = (ctxp->c_line ? ctxp->c_line->ahead[0] : '\0');
   char ahead_escape_p = (ctxp->c_line ? 
 			 ctxp->c_line->unicode_escape_ahead_p : 0);
@@ -145,12 +177,12 @@ java_allocate_new_line ()
 
   if (!ctxp->c_line)
     {
-      ctxp->c_line = (struct java_line *)malloc (sizeof (struct java_line));
+      ctxp->c_line = (struct java_line *)xmalloc (sizeof (struct java_line));
       ctxp->c_line->max = JAVA_LINE_MAX;
-      ctxp->c_line->line = (unicode_t *)malloc 
-	  (sizeof (unicode_t)*ctxp->c_line->max);
+      ctxp->c_line->line = (unicode_t *)xmalloc 
+	(sizeof (unicode_t)*ctxp->c_line->max);
       ctxp->c_line->unicode_escape_p = 
-	  (char *)malloc (sizeof (char)*ctxp->c_line->max);
+	  (char *)xmalloc (sizeof (char)*ctxp->c_line->max);
       ctxp->c_line->white_space_only = 0;
     }
 
@@ -167,6 +199,8 @@ java_allocate_new_line ()
   ctxp->c_line->lineno = ++lineno;
   ctxp->c_line->white_space_only = 1;
 }
+
+#define BAD_UTF8_VALUE 0xFFFE
 
 static unicode_t
 java_read_char ()
@@ -189,24 +223,35 @@ java_read_char ()
     return UEOF;
   else
     {
-      if (c & 0xe0 == 0xc0)
+      if ((c & 0xe0) == 0xc0)
         {
           c1 = GETC ();
-	  if (c1 & 0xc0 == 0x80)
+	  if ((c1 & 0xc0) == 0x80)
 	    return (unicode_t)(((c &0x1f) << 6) + (c1 & 0x3f));
+	  c = c1;
 	}
-      else if (c & 0xf0 == 0xe0)
+      else if ((c & 0xf0) == 0xe0)
         {
           c1 = GETC ();
-	  if (c1 & 0xc0 == 0x80)
+	  if ((c1 & 0xc0) == 0x80)
 	    {
 	      c2 = GETC ();
-	      if (c2 & 0xc0 == 0x80)
+	      if ((c2 & 0xc0) == 0x80)
 	        return (unicode_t)(((c & 0xf) << 12) + 
 				   (( c1 & 0x3f) << 6) + (c2 & 0x3f));
+	      else
+		c = c2;
 	    }
+	  else
+	    c = c1;
 	}
-      java_lex_error ("Bad utf8 encoding", 0);
+      /* We looked for a UTF8 multi-byte sequence (since we saw an initial
+	 byte with the high bit set), but found invalid bytes instead.
+	 If the most recent byte was Ascii (and not EOF), we should
+	 unget it, in case it was a comment terminator or other delimitor. */
+      if ((c & 0x80) == 0)
+	UNGETC (c);
+      return BAD_UTF8_VALUE;
     }
 }
 
@@ -266,7 +311,7 @@ java_read_unicode (term_context, unicode_escape_p)
 	      if (c >= '0' && c <= '9')
 		unicode |= (unicode_t)((c-'0') << shift);
 	      else if ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
-	        unicode |= (unicode_t)(10+(c | 0x20)-'a' << shift);
+	        unicode |= (unicode_t)((10+(c | 0x20)-'a') << shift);
 	      else
 		  java_lex_error 
 		    ("Non hex digit in Unicode escape sequence", 0);
@@ -275,7 +320,7 @@ java_read_unicode (term_context, unicode_escape_p)
 	  return (term_context ? unicode :
 		  (java_lineterminator (c) ? '\n' : unicode));
 	}
-      UNGETC (c);
+      ctxp->unget_utf8_value = c;
     }
   return (unicode_t)'\\';
 }
@@ -333,13 +378,14 @@ java_lineterminator (c)
     return 0;
 }
 
-/* Parse the end of a C style comment */
+/* Parse the end of a C style comment.
+ * C is the first character after the '/*'. */
 static void
-java_parse_end_comment ()
+java_parse_end_comment (c)
+     unicode_t c;
 {
-  unicode_t c;
 
-  for (c = java_get_unicode ();; c = java_get_unicode ())
+  for ( ;; c = java_get_unicode ())
     {
       switch (c)
 	{
@@ -353,10 +399,65 @@ java_parse_end_comment ()
 	    case '/':
 	      return;
 	    case '*':	/* reparse only '*' */
-	      java_unget_unicode (c);
+	      java_unget_unicode ();
 	    }
 	}
     }
+}
+
+/* Parse the documentation section. Keywords must be at the beginning
+   of a documentation comment line (ignoring white space and any `*'
+   character). Parsed keyword(s): @DEPRECATED.  */
+
+static int
+java_parse_doc_section (c)
+     unicode_t c;
+{
+  int valid_tag = 0, seen_star = 0;
+
+  while (JAVA_WHITE_SPACE_P (c) || (c == '*') || c == '\n')
+    {
+      switch (c)
+	{
+	case '*':
+	  seen_star = 1;
+	  break;
+	case '\n': /* ULT */
+	  valid_tag = 1;
+	default:
+	  seen_star = 0;
+	}
+      c = java_get_unicode();
+    }
+  
+  if (c == UEOF)
+    java_lex_error ("Comment not terminated at end of input", 0);
+  
+  if (seen_star && (c == '/'))
+    return 1;			/* Goto step1 in caller */
+
+  /* We're parsing @deprecated */
+  if (valid_tag && (c == '@'))
+    {
+      char tag [10];
+      int  tag_index = 0;
+
+      while (tag_index < 10 && c != UEOF && c != ' ' && c != '\n')
+	{
+	  c = java_get_unicode ();
+	  tag [tag_index++] = c;
+	}
+      
+      if (c == UEOF)
+	java_lex_error ("Comment not terminated at end of input", 0);
+      
+      java_unget_unicode ();
+      tag [tag_index] = '\0';
+
+      if (!strcmp (tag, "deprecated"))
+	ctxp->deprecated = 1;
+    }
+  return 0;
 }
 
 /* This function to be used only by JAVA_ID_CHAR_P (), otherwise it
@@ -402,7 +503,7 @@ java_parse_escape_sequence ()
 	     c = java_get_unicode ())
 	  octal_escape [octal_escape_index++] = c;
 
-	java_unget_unicode (c);
+	java_unget_unicode ();
 
 	if ((octal_escape_index == 3) && (octal_escape [0] > '3'))
 	  {
@@ -437,7 +538,6 @@ java_lex (java_lval)
      YYSTYPE *java_lval;
 {
   unicode_t c, first_unicode;
-  int line_terminator;
   int ascii_index, all_ascii;
   char *string;
 
@@ -460,7 +560,7 @@ java_lex (java_lval)
       if ((c = java_get_unicode ()) == UEOF)
 	return 0;		/* Ok here */
       else
-	java_unget_unicode (c);	/* Caught latter at the end the function */
+	java_unget_unicode ();	/* Caught latter at the end the function */
     }
   /* Handle EOF here */
   if (c == UEOF)	/* Should probably do something here... */
@@ -472,8 +572,9 @@ java_lex (java_lval)
       switch (c = java_get_unicode ())
 	{
 	case '/':
-	  for (c = java_get_unicode ();;c = java_get_unicode ())
+	  for (;;)
 	    {
+	      c = java_get_unicode ();
 	      if (c == UEOF)
 		java_lex_error ("Comment not terminated at end of input", 0);
 	      if (c == '\n')	/* ULT */
@@ -486,77 +587,22 @@ java_lex (java_lval)
 	    {
 	      if ((c = java_get_unicode ()) == '/')
 		goto step1;	/* Empy documentation comment  */
-
-	      else
-		/* Parsing the documentation section. We're looking
-		 for the @depracated pseudo keyword.  the @deprecated
-		 tag must be at the beginning of a doc comment line
-		 (ignoring white space and any * character)  */
-
-		{ 
-		  int valid_tag = 0, seen_star;
-
-		  while (JAVA_WHITE_SPACE_P (c) || (c == '*') || c == '\n')
-		    {
-		      switch (c)
-			{
-			case '*':
-			  seen_star = 1;
-			  break;
-			case '\n': /* ULT */
-			  valid_tag = 1;
-			  break;
-			default:
-			  seen_star = 0;
-			}
-		      c = java_get_unicode();
-		    }
-		  
-		  if (c == UEOF)
-		    java_lex_error 
-		      ("Comment not terminated at end of input", 0);
-
-		  if (seen_star && (c == '/'))
-		    goto step1;	/* End of documentation */
-
-		  if (valid_tag && (c == '@'))
-		    {
-		      char deprecated [10];
-		      int  deprecated_index = 0;
-
-		      for (deprecated_index = 0, c = java_get_unicode (); 
-			   deprecated_index < 10 && c != UEOF;
-			   c = java_get_unicode ())
-			deprecated [deprecated_index++] = c;
-
-		      if (c == UEOF)
-			java_lex_error 
-		          ("Comment not terminated at end of input", 0);
-		      
-		      java_unget_unicode (c);
-		      deprecated [deprecated_index] = '\0';
-		      if (!strcmp (deprecated, "deprecated"))
-			{
-			  /* Set global flag to be checked by class. FIXME  */
-			  warning ("deprecated implementation found");
-			}
-		    }
-		}
+	      else if (java_parse_doc_section (c))
+		goto step1;
 	    }
-	  else
-	    java_unget_unicode (c);
 
-	  java_parse_end_comment ();
+	  java_parse_end_comment (c);
 	  goto step1;
 	  break;
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  c = '/';
 	  break;
 	}
     }
 
   ctxp->elc.line = ctxp->c_line->lineno;
+  ctxp->elc.prev_col = ctxp->elc.col;
   ctxp->elc.col = ctxp->c_line->char_col - JAVA_COLUMN_DELTA (-1);
   if (ctxp->elc.col < 0)
     fatal ("ctxp->elc.col < 0 - java_lex");
@@ -564,7 +610,6 @@ java_lex (java_lval)
   /* Numeric literals */
   if (JAVA_ASCII_DIGIT (c) || (c == '.'))
     {
-      unicode_t peep;
       /* This section of code is borrowed from gcc/c-lex.c  */
 #define TOTAL_PARTS ((HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR) * 2 + 2)
       int parts[TOTAL_PARTS];
@@ -573,7 +618,9 @@ java_lex (java_lval)
       char literal_token [256];
       int  literal_index = 0, radix = 10, long_suffix = 0, overflow = 0, bytes;
       int  i;
+#ifndef JC1_LITE
       int  number_beginning = ctxp->c_line->current;
+#endif
       
       /* We might have a . separator instead of a FP like .[0-9]* */
       if (c == '.')
@@ -603,7 +650,7 @@ java_lex (java_lval)
 	  else if (c == '.')
 	    {
 	      /* Push the '.' back and prepare for a FP parsing... */
-	      java_unget_unicode (c);
+	      java_unget_unicode ();
 	      c = '0';
 	    }
 	  else
@@ -613,19 +660,17 @@ java_lex (java_lval)
               switch (c)
 		{		
 		case 'L': case 'l':
-		  SET_LVAL_NODE_TYPE (integer_zero_node, long_type_node);
+		  SET_LVAL_NODE (long_zero_node);
 		  return (INT_LIT_TK);
 		case 'f': case 'F':
-		  SET_LVAL_NODE_TYPE (build_real (float_type_node, dconst0),
-					float_type_node);
+		  SET_LVAL_NODE (float_zero_node);
 		  return (FP_LIT_TK);
 		case 'd': case 'D':
-		  SET_LVAL_NODE_TYPE (build_real (double_type_node, dconst0),
-					double_type_node);
+		  SET_LVAL_NODE (double_zero_node);
 		  return (FP_LIT_TK);
 		default:
-		  java_unget_unicode (c);
-		  SET_LVAL_NODE_TYPE (integer_zero_node, int_type_node);
+		  java_unget_unicode ();
+		  SET_LVAL_NODE (integer_zero_node);
 		  return (INT_LIT_TK);
 		}
 	    }
@@ -734,7 +779,7 @@ java_lex (java_lval)
 #endif
 
 		  if (stage != 4) /* Don't push back fF/dD */
-		    java_unget_unicode (c);
+		    java_unget_unicode ();
 		  
 		  /* An exponent (if any) must have seen a digit.  */
 		  if (seen_exponent && !seen_digit)
@@ -779,7 +824,7 @@ java_lex (java_lval)
       else if (radix == 16 && !literal_index)
 	java_lex_error ("No digit specified for hexadecimal literal", 0);
       else
-	java_unget_unicode (c);
+	java_unget_unicode ();
 
 #ifdef JAVA_LEX_DEBUG
       literal_token [literal_index] = '\0'; /* So JAVA_LEX_LIT is safe. */
@@ -824,11 +869,13 @@ java_lex (java_lval)
 	  /* 2147483648 is valid if operand of a '-'. Otherwise,
 	     2147483647 is the biggest `int' literal that can be
 	     expressed using a 10 radix. For other radixes, everything
-	     that fits within 32 bits is OK. */
+	     that fits within 32 bits is OK.  As all literals are
+	     signed, we sign extend here. */
 	  int hb = (low >> 31) & 0x1;
 	  if (overflow || high || (hb && low & 0x7fffffff && radix == 10) ||
 	      (hb && !(low & 0x7fffffff) && !ctxp->minus_seen && radix == 10))
 	    JAVA_INTEGRAL_RANGE_ERROR ("Numeric overflow for `int' literal");
+	  high = -hb;
 	}
       ctxp->minus_seen = 0;
       SET_LVAL_NODE_TYPE (build_int_2 (low, high),
@@ -873,8 +920,7 @@ java_lex (java_lval)
 	  if (c == '\\')
 	    c = java_parse_escape_sequence ();
 	  no_error &= (c != JAVA_CHAR_ERROR ? 1 : 0);
-	  if (c)
-	    java_unicode_2_utf8 (c);
+	  java_unicode_2_utf8 (c);
 	}
       if (c == '\n' || c == UEOF) /* ULT */
 	{
@@ -885,27 +931,20 @@ java_lex (java_lval)
 
       obstack_1grow (&temporary_obstack, '\0');
       string = obstack_finish (&temporary_obstack);
-      if (!no_error || (c != '"'))
-	*string = '\0';		/* Silently turns the string to an empty one */
-      
-      JAVA_LEX_STR_LIT (string)
-      
 #ifndef JC1_LITE
-      if (*string)
+      if (!no_error || (c != '"'))
+	java_lval->node = error_mark_node; /* Requires futher testing FIXME */
+      else
 	{
-	  extern struct obstack *expression_obstack;
 	  tree s = make_node (STRING_CST);
 	  TREE_STRING_LENGTH (s) = strlen (string);
 	  TREE_STRING_POINTER (s) = 
-	    obstack_alloc (expression_obstack, strlen (string));
+	    obstack_alloc (expression_obstack, TREE_STRING_LENGTH (s)+1);
 	  strcpy (TREE_STRING_POINTER (s), string);
 	  java_lval->node = s;
 	}
-      else
-	java_lval->node = error_mark_node;
 #endif
       return STRING_LIT_TK;
-      
     }
 
   /* Separator */
@@ -922,7 +961,7 @@ java_lex (java_lval)
       if (ctxp->ccb_indent == 1)
 	ctxp->first_ccb_indent1 = lineno;
       ctxp->ccb_indent++;
-      return OCB_TK;
+      BUILD_OPERATOR (OCB_TK);
     case '}':
       JAVA_LEX_SEP (c);
       ctxp->ccb_indent--;
@@ -961,7 +1000,7 @@ java_lex (java_lval)
 	     variable_declarator: rule, it has to be seen as '=' as opposed
 	     to being seen as an ordinary assignment operator in
 	     assignment_operators: rule.  */
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (ASSIGN_TK);
 	}
       
@@ -980,17 +1019,17 @@ java_lex (java_lval)
 		}
 	      else
 		{
-		  java_unget_unicode (c);
+		  java_unget_unicode ();
 		  BUILD_OPERATOR (ZRS_TK);
 		}
 	    case '=':
 	      BUILD_OPERATOR2 (SRS_ASSIGN_TK);
 	    default:
-	      java_unget_unicode (c);
+	      java_unget_unicode ();
 	      BUILD_OPERATOR (SRS_TK);
 	    }
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (GT_TK);
 	}
 	
@@ -1006,11 +1045,11 @@ java_lex (java_lval)
 	    }
 	  else
 	    {
-	      java_unget_unicode (c);
+	      java_unget_unicode ();
 	      BUILD_OPERATOR (LS_TK);
 	    }
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (LT_TK);
 	}
 
@@ -1022,7 +1061,7 @@ java_lex (java_lval)
 	case '=':
 	  BUILD_OPERATOR2 (AND_ASSIGN_TK);
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (AND_TK);
 	}
 
@@ -1034,7 +1073,7 @@ java_lex (java_lval)
 	case '=':
 	  BUILD_OPERATOR2 (OR_ASSIGN_TK);
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (OR_TK);
 	}
 
@@ -1046,7 +1085,7 @@ java_lex (java_lval)
 	case '=':
 	  BUILD_OPERATOR2 (PLUS_ASSIGN_TK);
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (PLUS_TK);
 	}
 
@@ -1058,7 +1097,7 @@ java_lex (java_lval)
 	case '=':
 	  BUILD_OPERATOR2 (MINUS_ASSIGN_TK);
 	default:
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  ctxp->minus_seen = 1;
 	  BUILD_OPERATOR (MINUS_TK);
 	}
@@ -1070,7 +1109,7 @@ java_lex (java_lval)
 	}
       else
 	{
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (MULT_TK);
 	}
 
@@ -1081,7 +1120,7 @@ java_lex (java_lval)
 	}
       else
 	{
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (DIV_TK);
 	}
 
@@ -1092,7 +1131,7 @@ java_lex (java_lval)
 	}
       else
 	{
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (XOR_TK);
 	}
 
@@ -1103,7 +1142,7 @@ java_lex (java_lval)
 	}
       else
 	{
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (REM_TK);
 	}
 
@@ -1114,7 +1153,7 @@ java_lex (java_lval)
 	}
       else
 	{
-	  java_unget_unicode (c);
+	  java_unget_unicode ();
 	  BUILD_OPERATOR (NEG_TK);
 	}
 	  
@@ -1140,7 +1179,7 @@ java_lex (java_lval)
 
   obstack_1grow (&temporary_obstack, '\0');
   string = obstack_finish (&temporary_obstack);
-  java_unget_unicode (c);
+  java_unget_unicode ();
 
   /* If we have something all ascii, we consider a keyword, a boolean
      literal, a null literal or an all ASCII identifier.  Otherwise,
@@ -1194,12 +1233,19 @@ java_lex (java_lval)
 	      SET_LVAL_NODE (null_pointer_node);
 	      return NULL_TK;
 
-	      /* We build an operator for SUPER, so we can keep its position */
+	      /* Some keyword we want to retain information on the location
+		 they where found */
+	    case CASE_TK:
+	    case DEFAULT_TK:
 	    case SUPER_TK:
 	    case THIS_TK:
 	    case RETURN_TK:
 	    case BREAK_TK:
 	    case CONTINUE_TK:
+	    case TRY_TK:
+	    case CATCH_TK:
+	    case THROW_TK:
+	    case INSTANCEOF_TK:
 	      BUILD_OPERATOR (kw->token);
 
 	    default:
@@ -1246,7 +1292,7 @@ java_unicode_2_utf8 (unicode)
       obstack_1grow (&temporary_obstack,
 		     (unsigned char)(0x80 | (unicode & 0x0fc0) >> 6));
       obstack_1grow (&temporary_obstack,
-		     (unsigned char)(0x80 | (unicode & 0x003f) >> 12));
+		     (unsigned char)(0x80 | (unicode & 0x003f)));
     }
 }
 
@@ -1261,8 +1307,8 @@ build_wfl_node (node)
 
 static void
 java_lex_error (msg, forward)
-     char *msg;
-     int forward;
+     char *msg ATTRIBUTE_UNUSED;
+     int forward ATTRIBUTE_UNUSED;
 {
 #ifndef JC1_LITE
   ctxp->elc.line = ctxp->c_line->lineno;
@@ -1275,6 +1321,7 @@ java_lex_error (msg, forward)
 #endif
 }
 
+#ifndef JC1_LITE
 static int
 java_is_eol (fp, c)
   FILE *fp;
@@ -1283,22 +1330,23 @@ java_is_eol (fp, c)
   int next;
   switch (c)
     {
-    case '\n':
+    case '\r':
       next = getc (fp);
-      if (next != '\r' && next != EOF)
+      if (next != '\n' && next != EOF)
 	ungetc (next, fp);
       return 1;
-    case '\r':
+    case '\n':
       return 1;
     default:
       return 0;
     }  
 }
+#endif
 
 char *
 java_get_line_col (filename, line, col)
-     char *filename;
-     int line, col;
+     char *filename ATTRIBUTE_UNUSED;
+     int line ATTRIBUTE_UNUSED, col ATTRIBUTE_UNUSED;
 {
 #ifdef JC1_LITE
   return 0;
@@ -1306,11 +1354,14 @@ java_get_line_col (filename, line, col)
   /* Dumb implementation. Doesn't try to cache or optimize things. */
   /* First line of the file is line 1, first column is 1 */
 
-  /* COL <= 0 means, at the CR/LF in LINE */
+  /* COL == -1 means, at the CR/LF in LINE */
+  /* COL == -2 means, at the first non space char in LINE */
 
   FILE *fp;
   int c, ccol, cline = 1;
   int current_line_col = 0;
+  int first_non_space = 0;
+  char *base;
 
   if (!(fp = fopen (filename, "r")))
     fatal ("Can't open file - java_display_line_col");
@@ -1334,6 +1385,8 @@ java_get_line_col (filename, line, col)
       c = getc (fp);
       if (c < 0 || java_is_eol (fp, c))
 	break;
+      if (!first_non_space && !JAVA_WHITE_SPACE_P (c))
+	first_non_space = current_line_col;
       obstack_1grow (&temporary_obstack, c);
       current_line_col++;
     }
@@ -1341,12 +1394,25 @@ java_get_line_col (filename, line, col)
 
   obstack_1grow (&temporary_obstack, '\n');
 
-  if (col < 0)
-    col = current_line_col;
+  if (col == -1)
+    {
+      col = current_line_col;
+      first_non_space = 0;
+    }
+  else if (col == -2)
+    col = first_non_space;
+  else
+    first_non_space = 0;
 
   /* Place the '^' a the right position */
+  base = obstack_base (&temporary_obstack);
   for (ccol = 1; ccol <= col; ccol++)
-    obstack_1grow (&temporary_obstack, ' ');
+    {
+      /* Compute \t when reaching first_non_space */
+      char c = (first_non_space ?
+		(base [ccol-1] == '\t' ? '\t' : ' ') : ' ');
+      obstack_1grow (&temporary_obstack, c);
+    }
   obstack_grow0 (&temporary_obstack, "^", 1);
 
   fclose (fp);

@@ -1,5 +1,5 @@
 /* Compilation switch flag definitions for GNU CC.
-   Copyright (C) 1987, 88, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 94-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -276,9 +276,13 @@ extern int flag_no_peephole;
 
 extern int flag_volatile;
 
-/* Nonzero means treat all global and extern variables as global.  */
+/* Nonzero means treat all global and extern variables as volatile.  */
 
 extern int flag_volatile_global;
+
+/* Nonzero means treat all static variables as volatile.  */
+
+extern int flag_volatile_static;
 
 /* Nonzero allows GCC to violate some IEEE or ANSI rules regarding math
    operations in the interest of optimization.  For example it allows
@@ -345,11 +349,11 @@ extern int flag_schedule_interblock;
 extern int flag_schedule_speculative;
 extern int flag_schedule_speculative_load;
 extern int flag_schedule_speculative_load_dangerous;
+#endif  /* HAIFA */
 
 /* flag_on_branch_count_reg means try to replace add-1,compare,branch tupple
    by a cheaper branch, on a count register. */
 extern int flag_branch_on_count_reg;
-#endif  /* HAIFA */
 
 
 /* Nonzero means put things in delayed-branch slots if supported. */
@@ -489,3 +493,20 @@ extern int flag_prefix_function_name;
 /* Value of the -G xx switch, and whether it was passed or not.  */
 extern int g_switch_value;
 extern int g_switch_set;
+
+/* Nonzero if we dump in VCG format, not plain text.  */
+extern int dump_for_graph;
+
+/* Selection of the graph form.  */
+enum graph_dump_types
+{
+  no_graph = 0,
+  vcg
+};
+extern enum graph_dump_types graph_dump_format;
+
+/* Nonzero means ignore `#ident' directives.  0 means handle them.
+   On SVR4 targets, it also controls whether or not to emit a
+   string identifying the compiler.  */
+
+extern int flag_no_ident;

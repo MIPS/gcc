@@ -1,6 +1,6 @@
 /* Implementation of Fortran lexer
    Copyright (C) 1995-1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.org).
+   Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
 
@@ -1243,7 +1243,7 @@ ffelex_hash_ (FILE *finput)
 		  goto skipline;
 		}
 
-	      if (ffe_is_ident ())
+	      if (! flag_no_ident)
 		{
 #ifdef ASM_OUTPUT_IDENT
 		  ASM_OUTPUT_IDENT (asm_out_file,
@@ -1751,10 +1751,10 @@ ffelex_token_new_ ()
   return t;
 }
 
-static char *
+static const char *
 ffelex_type_string_ (ffelexType type)
 {
-  static char *types[] = {
+  static const char *types[] = {
     "FFELEX_typeNONE",
     "FFELEX_typeCOMMENT",
     "FFELEX_typeEOS",
@@ -4347,7 +4347,7 @@ ffelexHandler
 ffelex_splice_tokens (ffelexHandler first, ffelexToken master,
 		      ffeTokenLength start)
 {
-  char *p;
+  unsigned char *p;
   ffeTokenLength i;
   ffelexToken t;
 
@@ -4490,7 +4490,7 @@ ffelex_token_name_from_names (ffelexToken t, ffeTokenLength start,
       assert (len > 0);
       assert ((start + len) <= t->length);
     }
-  assert (ffelex_is_firstnamechar (t->text[start]));
+  assert (ffelex_is_firstnamechar ((unsigned char)(t->text[start])));
 
   nt = ffelex_token_new_ ();
   nt->type = FFELEX_typeNAME;
@@ -4525,7 +4525,7 @@ ffelex_token_names_from_names (ffelexToken t, ffeTokenLength start,
       assert (len > 0);
       assert ((start + len) <= t->length);
     }
-  assert (ffelex_is_firstnamechar (t->text[start]));
+  assert (ffelex_is_firstnamechar ((unsigned char)(t->text[start])));
 
   nt = ffelex_token_new_ ();
   nt->type = FFELEX_typeNAMES;
@@ -4546,7 +4546,7 @@ ffelex_token_names_from_names (ffelexToken t, ffeTokenLength start,
 /* Make a new CHARACTER token.  */
 
 ffelexToken
-ffelex_token_new_character (char *s, ffewhereLine l, ffewhereColumn c)
+ffelex_token_new_character (const char *s, ffewhereLine l, ffewhereColumn c)
 {
   ffelexToken t;
 
@@ -4581,11 +4581,11 @@ ffelex_token_new_eof ()
 /* Make a new NAME token.  */
 
 ffelexToken
-ffelex_token_new_name (char *s, ffewhereLine l, ffewhereColumn c)
+ffelex_token_new_name (const char *s, ffewhereLine l, ffewhereColumn c)
 {
   ffelexToken t;
 
-  assert (ffelex_is_firstnamechar (*s));
+  assert (ffelex_is_firstnamechar ((unsigned char)*s));
 
   t = ffelex_token_new_ ();
   t->type = FFELEX_typeNAME;
@@ -4602,11 +4602,11 @@ ffelex_token_new_name (char *s, ffewhereLine l, ffewhereColumn c)
 /* Make a new NAMES token.  */
 
 ffelexToken
-ffelex_token_new_names (char *s, ffewhereLine l, ffewhereColumn c)
+ffelex_token_new_names (const char *s, ffewhereLine l, ffewhereColumn c)
 {
   ffelexToken t;
 
-  assert (ffelex_is_firstnamechar (*s));
+  assert (ffelex_is_firstnamechar ((unsigned char)*s));
 
   t = ffelex_token_new_ ();
   t->type = FFELEX_typeNAMES;
@@ -4631,7 +4631,7 @@ ffelex_token_new_names (char *s, ffewhereLine l, ffewhereColumn c)
    in the original string.  */
 
 ffelexToken
-ffelex_token_new_number (char *s, ffewhereLine l, ffewhereColumn c)
+ffelex_token_new_number (const char *s, ffewhereLine l, ffewhereColumn c)
 {
   ffelexToken t;
   ffeTokenLength len;

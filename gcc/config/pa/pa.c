@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GNU CC.
@@ -96,33 +96,36 @@ static int max_unscaled_index_insn_codes_uid;
 void
 override_options ()
 {
-  /* Default to 7100 scheduling.  If the 7100LC scheduling ever
-     gets reasonably tuned, it should be the default since that
-     what most PAs sold now are.  */
-  if (pa_cpu_string == NULL
-      || ! strcmp (pa_cpu_string, "7100"))
+  /* Default to 7100LC scheduling.  */
+  if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100"))
     {
       pa_cpu_string = "7100";
       pa_cpu = PROCESSOR_7100;
     }
-  else if (! strcmp (pa_cpu_string, "700"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "700"))
     {
       pa_cpu_string = "700";
       pa_cpu = PROCESSOR_700;
     }
-  else if (! strcmp (pa_cpu_string, "7100LC"))
+  else if (pa_cpu_string == NULL
+         || ! strcmp (pa_cpu_string, "7100LC"))
     {
       pa_cpu_string = "7100LC";
       pa_cpu = PROCESSOR_7100LC;
     }
-  else if (! strcmp (pa_cpu_string, "7200"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7200"))
     {
       pa_cpu_string = "7200";
       pa_cpu = PROCESSOR_7200;
     }
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "8000"))
+    {
+      pa_cpu_string = "8000";
+      pa_cpu = PROCESSOR_8000;
+    }
   else
     {
-      warning ("Unknown -mschedule= option (%s).\nValid options are 700, 7100 and 7100LC and 7200\n", pa_cpu_string);
+      warning ("Unknown -mschedule= option (%s).\nValid options are 700, 7100, 7100LC, 7200, and 8000\n", pa_cpu_string);
     }
 
   if (flag_pic && TARGET_PORTABLE_RUNTIME)
@@ -2834,6 +2837,8 @@ hppa_expand_prologue()
       hp_profile_label_rtx = gen_rtx_SYMBOL_REF (SImode, hp_profile_label_name);
       if (current_function_returns_struct)
 	store_reg (STRUCT_VALUE_REGNUM, - 12 - offsetadj, basereg);
+      if (current_function_needs_context)
+	store_reg (STATIC_CHAIN_REGNUM, - 16 - offsetadj, basereg);
 
       for (i = 26, arg_offset = -36 - offsetadj; i >= 23; i--, arg_offset -= 4)
 	if (regs_ever_live [i])
@@ -2858,6 +2863,8 @@ hppa_expand_prologue()
       if (current_function_returns_struct)
 	load_reg (STRUCT_VALUE_REGNUM, -12 - offsetadj, basereg);
 
+      if (current_function_needs_context)
+	load_reg (STATIC_CHAIN_REGNUM, -16 - offsetadj, basereg);
     }
 
   /* Normal register save.
@@ -4391,7 +4398,7 @@ hppa_builtin_saveregs (arglist)
      last argument register store.  So we emit a blockage insn here.  */
   emit_insn (gen_blockage ());
 
-  if (flag_check_memory_usage)
+  if (current_function_check_memory_usage)
     emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
 		       dest, ptr_mode,
 		       GEN_INT (4 * UNITS_PER_WORD), TYPE_MODE (sizetype),
@@ -4461,11 +4468,11 @@ output_cbranch (operands, nullify, length, negated, insn)
 	else
 	  strcat (buf, "%S3");
 	if (useskip)
-	  strcat (buf, " %2,%1,0");
+	  strcat (buf, " %2,%r1,0");
 	else if (nullify)
-	  strcat (buf, ",n %2,%1,%0");
+	  strcat (buf, ",n %2,%r1,%0");
 	else
-	  strcat (buf, " %2,%1,%0");
+	  strcat (buf, " %2,%r1,%0");
 	break;
 
      /* All long conditionals.  Note an short backward branch with an
@@ -4483,7 +4490,7 @@ output_cbranch (operands, nullify, length, negated, insn)
 	      strcat (buf, "%S3");
 	    else
 	      strcat (buf, "%B3");
-	    strcat (buf, ",n %2,%1,.+12\n\tbl %0,0");
+	    strcat (buf, ",n %2,%r1,.+12\n\tbl %0,0");
 	  }
 	/* Handle short backwards branch with an unfilled delay slot.
 	   Using a comb;nop rather than comiclr;bl saves 1 cycle for both
@@ -4496,9 +4503,9 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  {
 	    strcpy (buf, "com%I2b,");
 	    if (negated)
-	      strcat (buf, "%B3 %2,%1,%0%#");
+	      strcat (buf, "%B3 %2,%r1,%0%#");
 	    else
-	      strcat (buf, "%S3 %2,%1,%0%#");
+	      strcat (buf, "%S3 %2,%r1,%0%#");
 	  }
 	else
 	  {
@@ -4508,9 +4515,9 @@ output_cbranch (operands, nullify, length, negated, insn)
 	    else
 	      strcat (buf, "%B3");
 	    if (nullify)
-	      strcat (buf, " %2,%1,0\n\tbl,n %0,0");
+	      strcat (buf, " %2,%r1,0\n\tbl,n %0,0");
 	    else
-	      strcat (buf, " %2,%1,0\n\tbl %0,0");
+	      strcat (buf, " %2,%r1,0\n\tbl %0,0");
 	  }
 	break;
 
@@ -4523,9 +4530,9 @@ output_cbranch (operands, nullify, length, negated, insn)
 	/* Create a reversed conditional branch which branches around
 	   the following insns.  */
 	if (negated)
-	  strcpy (buf, "com%I2b,%S3,n %2,%1,.+20");
+	  strcpy (buf, "com%I2b,%S3,n %2,%r1,.+20");
 	else
-	  strcpy (buf, "com%I2b,%B3,n %2,%1,.+20");
+	  strcpy (buf, "com%I2b,%B3,n %2,%r1,.+20");
 	output_asm_insn (buf, operands);
 
 	/* Output an insn to save %r1.  */
@@ -4548,9 +4555,9 @@ output_cbranch (operands, nullify, length, negated, insn)
 	/* Create a reversed conditional branch which branches around
 	   the following insns.  */
 	if (negated)
-	  strcpy (buf, "com%I2b,%S3,n %2,%1,.+28");
+	  strcpy (buf, "com%I2b,%S3,n %2,%r1,.+28");
 	else
-	  strcpy (buf, "com%I2b,%B3,n %2,%1,.+28");
+	  strcpy (buf, "com%I2b,%B3,n %2,%r1,.+28");
 	output_asm_insn (buf, operands);
 
 	/* Output an insn to save %r1.  */
@@ -6431,4 +6438,32 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
 
   /* If we get here, then everything is good.  */
   return 1;
+}
+
+/* Return nonzero if sets and references for INSN are delayed.
+
+   Millicode insns are actually function calls with some special
+   constraints on arguments and register usage.
+
+   Millicode calls always expect their arguments in the integer argument
+   registers, and always return their result in %r29 (ret1).  They
+   are expected to clobber their arguments, %r1, %r29, and %r31 and
+   nothing else.
+
+   By considering this effects delayed reorg reorg can put insns
+   which set the argument registers into the delay slot of the millicode
+   call -- thus they act more like traditional CALL_INSNs.
+
+   get_attr_type will try to recognize the given insn, so make sure to
+   filter out things it will not accept -- SEQUENCE, USE and CLOBBER insns
+   in particular.  */
+int
+insn_sets_and_refs_are_delayed (insn)
+     rtx insn;
+{
+  return ((GET_CODE (insn) == INSN 
+	   && GET_CODE (PATTERN (insn)) != SEQUENCE
+	   && GET_CODE (PATTERN (insn)) != USE
+	   && GET_CODE (PATTERN (insn)) != CLOBBER
+	   && get_attr_type (insn) == TYPE_MILLI));
 }

@@ -16,6 +16,6 @@ struct B : public A<U>
 
 
 template <class U>
-A<U>::A_Type B<U>::Func()
+B<U>::A_Type B<U>::Func()
 {
 }

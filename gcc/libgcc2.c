@@ -1,6 +1,6 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989, 92-97, 1998 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 92-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -72,6 +72,10 @@ Boston, MA 02111-1307, USA.  */
 #define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
+#ifndef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
+#endif
+
 /* In the first part of this file, we are interfacing to calls generated
    by the compiler itself.  These calls pass values into these routines
    which have very specific modes (rather than very specific types), and
@@ -90,10 +94,10 @@ typedef unsigned int UDItype	__attribute__ ((mode (DI)));
 typedef 	float SFtype	__attribute__ ((mode (SF)));
 typedef		float DFtype	__attribute__ ((mode (DF)));
 
-#if LONG_DOUBLE_TYPE_SIZE == 96
+#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
 typedef		float XFtype	__attribute__ ((mode (XF)));
 #endif
-#if LONG_DOUBLE_TYPE_SIZE == 128
+#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
 typedef		float TFtype	__attribute__ ((mode (TF)));
 #endif
 
@@ -144,10 +148,10 @@ typedef union
 
 extern DItype __fixunssfdi (SFtype a);
 extern DItype __fixunsdfdi (DFtype a);
-#if LONG_DOUBLE_TYPE_SIZE == 96
+#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
 extern DItype __fixunsxfdi (XFtype a);
 #endif
-#if LONG_DOUBLE_TYPE_SIZE == 128
+#if LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128
 extern DItype __fixunstfdi (TFtype a);
 #endif
 
@@ -768,7 +772,7 @@ __ucmpdi2 (DItype a, DItype b)
 }
 #endif
 
-#if defined(L_fixunstfdi) && (LONG_DOUBLE_TYPE_SIZE == 128)
+#if defined(L_fixunstfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
 
@@ -800,7 +804,7 @@ __fixunstfdi (TFtype a)
 }
 #endif
 
-#if defined(L_fixtfdi) && (LONG_DOUBLE_TYPE_SIZE == 128)
+#if defined(L_fixtfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 DItype
 __fixtfdi (TFtype a)
 {
@@ -810,7 +814,7 @@ __fixtfdi (TFtype a)
 }
 #endif
 
-#if defined(L_fixunsxfdi) && (LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_fixunsxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
 #define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
 
@@ -842,7 +846,7 @@ __fixunsxfdi (XFtype a)
 }
 #endif
 
-#if defined(L_fixxfdi) && (LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
 DItype
 __fixxfdi (XFtype a)
 {
@@ -940,7 +944,7 @@ __fixsfdi (SFtype a)
 }
 #endif
 
-#if defined(L_floatdixf) && (LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_floatdixf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
 #define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
 #define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
@@ -959,7 +963,7 @@ __floatdixf (DItype u)
 }
 #endif
 
-#if defined(L_floatditf) && (LONG_DOUBLE_TYPE_SIZE == 128)
+#if defined(L_floatditf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #define WORD_SIZE (sizeof (SItype) * BITS_PER_UNIT)
 #define HIGH_HALFWORD_COEFF (((UDItype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDItype) 1) << WORD_SIZE)
@@ -1065,7 +1069,7 @@ __floatdisf (DItype u)
 }
 #endif
 
-#if defined(L_fixunsxfsi) && LONG_DOUBLE_TYPE_SIZE == 96
+#if defined(L_fixunsxfsi) && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
 /* Reenable the normal types, in case limits.h needs them.  */
 #undef char
 #undef short
@@ -1403,6 +1407,9 @@ __builtin_saveregs ()
 #undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
 #include <stdio.h>
 /* This is used by the `assert' macro.  */
+extern void __eprintf (const char *, const char *, unsigned int, const char *)
+  __attribute__ ((__noreturn__));
+
 void
 __eprintf (const char *string, const char *expression,
 	   unsigned int line, const char *filename)
@@ -2569,7 +2576,7 @@ __clear_cache (char *beg, char *end)
 
 /* Jump to a trampoline, loading the static chain address.  */
 
-#if defined(WINNT) && ! defined(__CYGWIN32__)
+#if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
 
 long getpagesize()
 {
@@ -2608,7 +2615,7 @@ mprotect (char *addr, int len, int prot)
     return -1;
 }
 
-#endif
+#endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
 
 #ifdef TRANSFER_FROM_TRAMPOLINE 
 TRANSFER_FROM_TRAMPOLINE 
@@ -2807,7 +2814,7 @@ cacheflush (char *beg, int size, int flag)
 #endif /* sony_news */
 #endif /* L_trampoline */
 
-#ifndef __CYGWIN32__
+#ifndef __CYGWIN__
 #ifdef L__main
 
 #include "gbl-ctors.h"
@@ -2889,28 +2896,24 @@ SYMBOL__MAIN ()
 #endif /* no HAS_INIT_SECTION or INVOKE__main */
 
 #endif /* L__main */
-#endif /* __CYGWIN32__ */
+#endif /* __CYGWIN__ */
 
 #ifdef L_ctors
 
 #include "gbl-ctors.h"
 
 /* Provide default definitions for the lists of constructors and
-   destructors, so that we don't get linker errors.  These symbols are
-   intentionally bss symbols, so that gld and/or collect will provide
-   the right values.  */
+   destructors, so that we don't get linker errors.  
+
+   The old code sometimes put these into the data segment and sometimes
+   into the bss segment.  Putting these into the data segment should always
+   work and avoids a little bit of complexity.  */
 
 /* We declare the lists here with two elements each,
    so that they are valid empty lists if no other definition is loaded.  */
 #if !defined(INIT_SECTION_ASM_OP) && !defined(CTOR_LISTS_DEFINED_EXTERNALLY)
-#if defined(__NeXT__) || defined(_AIX)
-/* After 2.3, try this definition on all systems.  */
 func_ptr __CTOR_LIST__[2] = {0, 0};
 func_ptr __DTOR_LIST__[2] = {0, 0};
-#else
-func_ptr __CTOR_LIST__[2];
-func_ptr __DTOR_LIST__[2];
-#endif
 #endif /* no INIT_SECTION_ASM_OP and not CTOR_LISTS_DEFINED_EXTERNALLY */
 #endif /* L_ctors */
 
@@ -3023,6 +3026,8 @@ int atexit (func_ptr func)
 
 /* Shared exception handling support routines.  */
 
+extern void __default_terminate (void) __attribute__ ((__noreturn__));
+
 void
 __default_terminate ()
 {
@@ -3062,10 +3067,6 @@ __empty ()
 #include <stdio.h>
 #endif
 
-/* This is a safeguard for dynamic handler chain. */
-
-static void *top_elt[2];
-
 /* Allocate and return a new EH context structure. */
 
 extern void __throw ();
@@ -3073,15 +3074,26 @@ extern void __throw ();
 static void *
 new_eh_context ()
 {
-  struct eh_context *eh = (struct eh_context *) malloc (sizeof *eh);
-  if (! eh)
+  struct eh_full_context {
+    struct eh_context c;
+    void *top_elt[2];
+  } *ehfc = (struct eh_full_context *) malloc (sizeof *ehfc);
+
+  if (! ehfc)
     __terminate ();
 
-  memset (eh, 0, sizeof *eh);
+  memset (ehfc, 0, sizeof *ehfc);
 
-  eh->dynamic_handler_chain = top_elt;
+  ehfc->c.dynamic_handler_chain = (void **) ehfc->top_elt;
 
-  return eh;
+  /* This should optimize out entirely.  This should always be true,
+     but just in case it ever isn't, don't allow bogus code to be
+     generated.  */
+
+  if ((void*)(&ehfc->c) != (void*)ehfc)
+    __terminate ();
+
+  return &ehfc->c;
 }
 
 #if __GTHREADS
@@ -3173,10 +3185,17 @@ eh_context_initialize ()
 static struct eh_context *
 eh_context_static ()
 {
-  static struct eh_context *eh;
-  if (! eh)
-    eh = new_eh_context ();
-  return eh;
+  static struct eh_context eh;
+  static int initialized;
+  static void *top_elt[2];
+
+  if (! initialized)
+    {
+      initialized = 1;
+      memset (&eh, 0, sizeof eh);
+      eh.dynamic_handler_chain = top_elt;
+    }
+  return &eh;
 }
 
 #if __GTHREADS
@@ -3225,6 +3244,8 @@ __get_dynamic_handler_chain ()
    cleanup actions off the dynamic cleanup stack, and pop the top of the
    dynamic handler chain, and use longjmp to transfer back to the associated
    handler.  */
+
+extern void __sjthrow (void) __attribute__ ((__noreturn__));
 
 void
 __sjthrow ()
@@ -3278,7 +3299,7 @@ __sjthrow ()
   /* We must call terminate if we try and rethrow an exception, when
      there is no exception currently active and when there are no
      handlers left.  */
-  if (! eh->info || (*dhc) == top_elt)
+  if (! eh->info || (*dhc)[0] == 0)
     __terminate ();
     
   /* Find the jmpbuf associated with the top element of the dynamic
@@ -3301,6 +3322,8 @@ __sjthrow ()
    handler, then pop the handler off the dynamic handler stack, and
    then throw.  This is used to skip the first handler, and transfer
    control to the next handler in the dynamic handler stack.  */
+
+extern void __sjpopnthrow (void) __attribute__ ((__noreturn__));
 
 void
 __sjpopnthrow ()
@@ -3445,45 +3468,82 @@ old_find_exception_handler (void *pc, old_exception_table *table)
   return (void *) 0;
 }
 
+/* find_exception_handler finds the correct handler, if there is one, to
+   handle an exception.
+   returns a pointer to the handler which controlled should be transferred
+   to, or NULL if there is nothing left.
+   Parameters:
+   PC - pc where the exception originates. If this is a rethrow, 
+        then this starts out as a pointer to the exception table
+	entry we wish to rethrow out of.
+   TABLE - exception table for the current module.
+   EH_INFO - eh info pointer for this exception.
+   RETHROW - 1 if this is a rethrow. (see incoming value of PC).
+   CLEANUP - returned flag indicating whether this is a cleanup handler.
+*/
 static void *
-find_exception_handler (void *pc, exception_descriptor *table, void *eh_info)
+find_exception_handler (void *pc, exception_descriptor *table, 
+                        __eh_info *eh_info, int rethrow, int *cleanup)
 {
+
+  void *retval = NULL;
+  *cleanup = 1;
   if (table)
     {
+      int pos = 0;
       /* The new model assumed the table is sorted inner-most out so the
          first region we find which matches is the correct one */
 
-      int pos;
-      void *ret;
       exception_table *tab = &(table->table[0]);
 
       /* Subtract 1 from the PC to avoid hitting the next region */
-      pc--;
+      if (rethrow) 
+        {
+          /* pc is actually the region table entry to rethrow out of */
+          pos = ((exception_table *) pc) - tab;
+          pc = ((exception_table *) pc)->end_region - 1;
+
+          /* The label is always on the LAST handler entry for a region, 
+             so we know the next entry is a different region, even if the
+             addresses are the same. Make sure its not end of table tho. */
+          if (tab[pos].start_region != (void *) -1)
+            pos++;
+        }
+      else
+        pc--;
       
       /* We can't do a binary search because the table is in inner-most
          to outermost address ranges within functions */
-      for (pos = 0; tab[pos].start_region != (void *) -1; pos++)
+      for ( ; tab[pos].start_region != (void *) -1; pos++)
         { 
           if (tab[pos].start_region <= pc && tab[pos].end_region > pc)
             {
               if (tab[pos].match_info)
                 {
-                  __eh_matcher matcher = ((__eh_info *)eh_info)->match_function;
+                  __eh_matcher matcher = eh_info->match_function;
                   /* match info but no matcher is NOT a match */
                   if (matcher) 
                     {
-                      ret = (*matcher)(eh_info, tab[pos].match_info, table);
-                      if (ret)
-                        return tab[pos].exception_handler;
+                      void *ret = (*matcher)((void *) eh_info, 
+                                             tab[pos].match_info, table);
+                      if (ret) 
+                        {
+                          if (retval == NULL)
+                            retval = tab[pos].exception_handler;
+                          *cleanup = 0;
+                          break;
+                        }
                     }
                 }
               else
-                return tab[pos].exception_handler;
+                {
+                  if (retval == NULL)
+                    retval = tab[pos].exception_handler;
+                }
             }
         }
     }
-
-  return (void *) 0;
+  return retval;
 }
 #endif /* DWARF2_UNWIND_INFO */
 #endif /* EH_TABLE_LOOKUP */
@@ -3620,52 +3680,47 @@ next_stack_level (void *pc, frame_state *udata, frame_state *caller_udata)
   return caller_udata;
 }
 
-/* We first search for an exception handler, and if we don't find
-   it, we call __terminate on the current stack frame so that we may
-   use the debugger to walk the stack and understand why no handler
-   was found.
-
-   If we find one, then we unwind the frames down to the one that
-   has the handler and transfer control into the handler.  */
-
-void
-__throw ()
+/* Hook to call before __terminate if only cleanup handlers remain. */
+void 
+__unwinding_cleanup ()
 {
-  struct eh_context *eh = (*get_eh_context) ();
-  void *saved_pc, *pc, *handler;
-  frame_state ustruct, ustruct2;
-  frame_state *udata = &ustruct;
-  frame_state *sub_udata = &ustruct2;
-  frame_state my_ustruct, *my_udata = &my_ustruct;
-  long args_size;
-  int new_exception_model;
+}
 
-  /* This is required for C++ semantics.  We must call terminate if we
-     try and rethrow an exception, when there is no exception currently
-     active.  */
-  if (! eh->info)
-    __terminate ();
-    
-  /* Start at our stack frame.  */
-label:
-  udata = __frame_state_for (&&label, udata);
-  if (! udata)
-    __terminate ();
+/* throw_helper performs some of the common grunt work for a throw. This
+   routine is called by throw and rethrows. This is pretty much split 
+   out from the old __throw routine. An addition has been added which allows
+   for a dummy call to a routine __unwinding_cleanup() when there are nothing
+   but cleanups remaining. This allows a debugger to examine the state
+   at which the throw was executed, before any cleanups, rather than
+   at the terminate point after the stack has been unwound. */
 
-  /* We need to get the value from the CFA register. */
-  udata->cfa = __builtin_dwarf_cfa ();
+static void *
+throw_helper (eh, pc, my_udata, udata_p)
+     struct eh_context *eh;
+     void *pc;
+     frame_state *my_udata;
+     frame_state **udata_p;
+{
+  frame_state *udata = *udata_p;
+  frame_state ustruct;
+  frame_state *sub_udata = &ustruct;
+  void *saved_pc = pc;
+  void *handler;
+  void *handler_p;
+  void *pc_p;
+  frame_state saved_ustruct;
+  int new_eh_model;
+  int cleanup = 0;
+  int only_cleanup = 0;
+  int rethrow = 0;
+  int saved_state = 0;
+  __eh_info *eh_info = (__eh_info *)eh->info;
 
-  memcpy (my_udata, udata, sizeof (*udata));
+  /* Do we find a handler based on a re-throw PC? */
+  if (eh->table_index != (void *) 0)
+    rethrow = 1;
 
-  /* Do any necessary initialization to access arbitrary stack frames.
-     On the SPARC, this means flushing the register windows.  */
-  __builtin_unwind_init ();
-
-  /* Now reset pc to the right throw point.  */
-  pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
-  saved_pc = pc;
-
-  handler = 0;
+  handler = (void *) 0;
   for (;;)
     { 
       frame_state *p = udata;
@@ -3677,21 +3732,46 @@ label:
 	break;
 
       if (udata->eh_ptr == NULL)
-        new_exception_model = 0;
+        new_eh_model = 0;
       else
-        new_exception_model = (((exception_descriptor *)(udata->eh_ptr))->
+        new_eh_model = (((exception_descriptor *)(udata->eh_ptr))->
                                           runtime_id_field == NEW_EH_RUNTIME);
 
-      if (new_exception_model)
-        handler = find_exception_handler (pc, udata->eh_ptr, eh->info);
+      if (rethrow) 
+        {
+          rethrow = 0;
+          handler = find_exception_handler (eh->table_index, udata->eh_ptr, 
+                                          eh_info, 1, &cleanup);
+          eh->table_index = (void *)0;
+        }
       else
-        handler = old_find_exception_handler (pc, udata->eh_ptr);
+        if (new_eh_model)
+          handler = find_exception_handler (pc, udata->eh_ptr, eh_info, 
+                                            0, &cleanup);
+        else
+          handler = old_find_exception_handler (pc, udata->eh_ptr);
 
-      /* If we found one, we can stop searching.  */
+      /* If we found one, we can stop searching, if its not a cleanup. 
+         for cleanups, we save the state, and keep looking. This allows
+         us to call a debug hook if there are nothing but cleanups left. */
       if (handler)
 	{
-	  args_size = udata->args_size;
-	  break;
+	  if (cleanup)
+	    {
+	      if (!saved_state)
+		{
+		  saved_ustruct = *udata;
+		  handler_p = handler;
+		  pc_p = pc;
+		  saved_state = 1;
+		  only_cleanup = 1;
+		}
+	    }
+	  else
+	    {
+	      only_cleanup = 0;
+	      break;
+	    }
 	}
 
       /* Otherwise, we continue searching.  We subtract 1 from PC to avoid
@@ -3699,10 +3779,19 @@ label:
       pc = get_return_addr (udata, sub_udata) - 1;
     }
 
+  if (saved_state) 
+    {
+      udata = &saved_ustruct;
+      handler = handler_p;
+      pc = pc_p;
+      if (only_cleanup)
+        __unwinding_cleanup ();
+    }
+
   /* If we haven't found a handler by now, this is an unhandled
      exception.  */
-  if (! handler)
-    __terminate ();
+  if (! handler) 
+    __terminate();
 
   eh->handler_label = handler;
 
@@ -3756,6 +3845,114 @@ label:
 	    copy_reg (i, udata, my_udata);
 	}
     }
+  /* udata now refers to the frame called by the handler frame.  */
+
+  *udata_p = udata;
+  return handler;
+}
+
+
+/* We first search for an exception handler, and if we don't find
+   it, we call __terminate on the current stack frame so that we may
+   use the debugger to walk the stack and understand why no handler
+   was found.
+
+   If we find one, then we unwind the frames down to the one that
+   has the handler and transfer control into the handler.  */
+
+/*extern void __throw(void) __attribute__ ((__noreturn__));*/
+
+void
+__throw ()
+{
+  struct eh_context *eh = (*get_eh_context) ();
+  void *pc, *handler;
+  frame_state ustruct;
+  frame_state *udata = &ustruct;
+  frame_state my_ustruct, *my_udata = &my_ustruct;
+
+  /* This is required for C++ semantics.  We must call terminate if we
+     try and rethrow an exception, when there is no exception currently
+     active.  */
+  if (! eh->info)
+    __terminate ();
+    
+  /* Start at our stack frame.  */
+label:
+  udata = __frame_state_for (&&label, udata);
+  if (! udata)
+    __terminate ();
+
+  /* We need to get the value from the CFA register. */
+  udata->cfa = __builtin_dwarf_cfa ();
+
+  memcpy (my_udata, udata, sizeof (*udata));
+
+  /* Do any necessary initialization to access arbitrary stack frames.
+     On the SPARC, this means flushing the register windows.  */
+  __builtin_unwind_init ();
+
+  /* Now reset pc to the right throw point.  */
+  pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
+
+  handler = throw_helper (eh, pc, my_udata, &udata);
+
+  /* Now go!  */
+
+  __builtin_eh_return ((void *)eh,
+#ifdef STACK_GROWS_DOWNWARD
+		       udata->cfa - my_udata->cfa,
+#else
+		       my_udata->cfa - udata->cfa,
+#endif
+		       handler);
+
+  /* Epilogue:  restore the handler frame's register values and return
+     to the stub.  */
+}
+
+/*extern void __rethrow(void *) __attribute__ ((__noreturn__));*/
+
+void
+__rethrow (index)
+     void *index;
+{
+  struct eh_context *eh = (*get_eh_context) ();
+  void *pc, *handler;
+  frame_state ustruct;
+  frame_state *udata = &ustruct;
+  frame_state my_ustruct, *my_udata = &my_ustruct;
+
+  /* This is required for C++ semantics.  We must call terminate if we
+     try and rethrow an exception, when there is no exception currently
+     active.  */
+  if (! eh->info)
+    __terminate ();
+
+  /* This is the table index we want to rethrow from. The value of
+     the END_REGION label is used for the PC of the throw, and the
+     search begins with the next table entry. */
+  eh->table_index = index;
+    
+  /* Start at our stack frame.  */
+label:
+  udata = __frame_state_for (&&label, udata);
+  if (! udata)
+    __terminate ();
+
+  /* We need to get the value from the CFA register. */
+  udata->cfa = __builtin_dwarf_cfa ();
+
+  memcpy (my_udata, udata, sizeof (*udata));
+
+  /* Do any necessary initialization to access arbitrary stack frames.
+     On the SPARC, this means flushing the register windows.  */
+  __builtin_unwind_init ();
+
+  /* Now reset pc to the right throw point.  */
+  pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
+
+  handler = throw_helper (eh, pc, my_udata, &udata);
 
   /* Now go!  */
 
@@ -3795,6 +3992,6 @@ __pure_virtual ()
 #ifndef inhibit_libc
   write (2, MESSAGE, sizeof (MESSAGE) - 1);
 #endif
-  _exit (-1);
+  __terminate ();
 }
 #endif

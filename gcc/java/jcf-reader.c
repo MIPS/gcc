@@ -72,8 +72,8 @@ DEFUN(get_attribute, (jcf),
   if (name_length == 4 && memcmp (name_data, "Code", 4) == 0)
     {
       uint16 j;
-      uint16 max_stack = JCF_readu2 (jcf);
-      uint16 max_locals = JCF_readu2 (jcf);
+      uint16 max_stack ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
+      uint16 max_locals ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
       uint32 code_length = JCF_readu4 (jcf);
       uint16 exception_table_length, attributes_count;
       if (code_length + 12 > attribute_length)
@@ -83,6 +83,9 @@ DEFUN(get_attribute, (jcf),
       exception_table_length = JCF_readu2 (jcf);
       if (code_length + 8 * exception_table_length + 12 > attribute_length)
 	return -1;
+#ifdef HANDLE_EXCEPTION_TABLE
+      HANDLE_EXCEPTION_TABLE (jcf->read_ptr, exception_table_length);
+#endif
       JCF_SKIP (jcf, 2 * 4 * exception_table_length);
       attributes_count = JCF_readu2 (jcf);
       for (j = 0; j < attributes_count; j++)
@@ -136,8 +139,8 @@ DEFUN(jcf_parse_preamble, (jcf),
       JCF* jcf)
 {
   uint32 magic = (JCF_FILL (jcf, 8), JCF_readu4 (jcf));
-  uint16 minor_version = JCF_readu2 (jcf);
-  uint16 major_version = JCF_readu2 (jcf);
+  uint16 minor_version ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
+  uint16 major_version ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
 #ifdef HANDLE_MAGIC
   HANDLE_MAGIC (magic, minor_version, major_version);
 #endif
@@ -239,7 +242,7 @@ DEFUN(jcf_parse_class, (jcf),
   /* Read interfaces. */
   for (i = 0; i < interfaces_count; i++)
     {
-      uint16 index = JCF_readu2 (jcf);
+      uint16 index ATTRIBUTE_UNUSED = JCF_readu2 (jcf);
 #ifdef HANDLE_CLASS_INTERFACE
       HANDLE_CLASS_INTERFACE (index);
 #endif
@@ -305,6 +308,9 @@ DEFUN(jcf_parse_one_method, (jcf),
       if (code != 0)
 	return code;
     }
+#ifdef HANDLE_END_METHOD
+  HANDLE_END_METHOD ();
+#endif
   return 0;
 }
 

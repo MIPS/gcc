@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 89, 92, 94, 97, 1998 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 89, 92, 94, 97, 1998, 1999 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -305,10 +305,24 @@ Stored in the @code{volatil} field and printed as @samp{/v}.
 @cindex @code{in_struct}, in @code{mem}
 @cindex @samp{/s} in RTL dump
 @item MEM_IN_STRUCT_P (@var{x})
-In @code{mem} expressions, nonzero for reference to an entire
-structure, union or array, or to a component of one.  Zero for
-references to a scalar variable or through a pointer to a scalar.
-Stored in the @code{in_struct} field and printed as @samp{/s}.
+In @code{mem} expressions, nonzero for reference to an entire structure,
+union or array, or to a component of one.  Zero for references to a
+scalar variable or through a pointer to a scalar.  Stored in the
+@code{in_struct} field and printed as @samp{/s}.  If both this flag and
+MEM_SCALAR_P are clear, then we don't know whether this MEM is in a
+structure or not.  Both flags should never be simultaneously set.
+
+@findex MEM_SCALAR_P
+@cindex @code{mem} and @samp{/f}
+@cindex @code{frame_related}, in@code{mem}
+@cindex @samp{/f} in RTL dump
+@item MEM_SCALAR_P (@var{x})
+In @code{mem} expressions, nonzero for reference to a scalar known not
+to be a member of a structure, union, or array.  Zero for such
+references and for indirections through pointers, even pointers pointing
+to scalar types.  If both this flag and MEM_STRUCT_P are clear, then we
+don't know whether this MEM is in a structure or not.  Both flags should
+never be simultaneously set.
 
 @findex MEM_ALIAS_SET
 @item MEM_ALIAS_SET (@var{x})
@@ -390,6 +404,13 @@ other functions or by aliasing.)  Stored in the
 @item RTX_INTEGRATED_P (@var{insn})
 Nonzero in an insn if it resulted from an in-line function call.
 Stored in the @code{integrated} field and printed as @samp{/i}.
+
+@findex RTX_FRAME_RELATED_P
+@item RTX_FRAME_RELATED_P (@var{x})
+Nonzero in an insn or expression which is part of a function
+prologue and sets the stack pointer, sets the frame pointer, or saves a 
+register. This flag is required for exception handling support
+on targets with RTL prologues.
 
 @findex SYMBOL_REF_USED
 @cindex @code{used}, in @code{symbol_ref}
@@ -2036,7 +2057,7 @@ and of @var{min} and @var{max} to @var{base}.  See rtl.def for details.@refill
 @cindex RTL predecrement
 @cindex RTL postdecrement
 
-Four special side-effect expression codes appear as memory addresses.
+Six special side-effect expression codes appear as memory addresses.
 
 @table @code
 @findex pre_dec
@@ -2071,6 +2092,38 @@ being decremented.
 @findex post_inc
 @item (post_inc:@var{m} @var{x})
 Similar, but specifies incrementing @var{x} instead of decrementing it.
+
+@findex post_modify
+@item (post_modify:@var{m} @var{x} @var{y})
+
+Represents the side effect of setting @var{x} to @var{y} and
+represents @var{x} before @var{x} is modified.  @var{x} must be a
+@code{reg} or @code{mem}, but most machines allow only a @code{reg}.
+@var{m} must be the machine mode for pointers on the machine in use.
+The amount @var{x} is decremented by is the length in bytes of the
+machine mode of the containing memory reference of which this expression
+serves as the address.  Note that this is not currently implemented.
+
+The expression @var{y} must be one of three forms:
+@table @code
+@code{(plus:@var{m} @var{x} @var{z})},
+@code{(minus:@var{m} @var{x} @var{z})}, or
+@code{(plus:@var{m} @var{x} @var{i})},
+@end table
+where @var{z} is an index register and @var{i} is a constant.
+
+Here is an example of its use:@refill
+
+@example
+(mem:SF (post_modify:SI (reg:SI 42) (plus (reg:SI 42) (reg:SI 48))))
+@end example
+
+This says to modify pseudo register 42 by adding the contents of pseudo
+register 48 to it, after the use of what ever 42 points to.
+
+@findex post_modify
+@item (pre_modify:@var{m} @var{x} @var{expr})
+Similar except side effects happen before the use.
 @end table
 
 These embedded side effect expressions must be used with care.  Instruction
@@ -2372,9 +2425,7 @@ These codes are printed symbolically when they appear in debugging dumps.
 @cindex @code{HImode}, in @code{insn}
 @cindex @code{QImode}, in @code{insn}
 The machine mode of an insn is normally @code{VOIDmode}, but some
-phases use the mode for various purposes; for example, the reload pass
-sets it to @code{HImode} if the insn needs reloading but not register
-elimination and @code{QImode} if both are required. 
+phases use the mode for various purposes. 
 
 The common subexpression elimination pass sets the mode of an insn to
 @code{QImode} when it is the first insn in a block that has already
@@ -2634,10 +2685,16 @@ delete such sequences whose results are dead.
 A @code{REG_EQUAL} note will also usually be attached to this insn to 
 provide the expression being computed by the sequence.
 
+These notes will be deleted after reload, since they are no longer
+accurate or useful.
+
 @findex REG_LIBCALL
 @item REG_LIBCALL
 This is the inverse of @code{REG_RETVAL}: it is placed on the first
 insn of a multi-insn sequence, and it points to the last one.
+
+These notes are deleted after reload, since they are no longer useful or 
+accurate.
 
 @findex REG_CC_SETTER
 @findex REG_CC_USER

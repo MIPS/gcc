@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for PowerPC running System V.4
-   Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GNU CC.
@@ -107,8 +107,8 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define RS6000_ABI_NAME "sysv"
 
 /* Strings provided by SUBTARGET_OPTIONS */
-extern char *rs6000_abi_name;
-extern char *rs6000_sdata_name;
+extern const char *rs6000_abi_name;
+extern const char *rs6000_sdata_name;
 
 #define SUBTARGET_OPTIONS						\
   { "call-",  &rs6000_abi_name},					\
@@ -393,12 +393,9 @@ do {									\
 
 /* Define this macro to be the value 1 if instructions will fail to
    work if given data not on the nominal alignment.  If instructions
-   will merely go slower in that case, define this macro as 0.
-
-   Note, little endian systems trap on unaligned addresses, so never
-   turn off strict alignment in that case. */
+   will merely go slower in that case, define this macro as 0.  */
 #undef	STRICT_ALIGNMENT
-#define	STRICT_ALIGNMENT (TARGET_STRICT_ALIGN || TARGET_LITTLE_ENDIAN)
+#define	STRICT_ALIGNMENT (TARGET_STRICT_ALIGN)
 
 /* Alignment in bits of the stack boundary.  Note, in order to allow building
    one set of libraries with -mno-eabi instead of eabi libraries and non-eabi
@@ -710,7 +707,7 @@ do {									\
   if (rs6000_sdata != SDATA_NONE && (SIZE) > 0				\
       && (SIZE) <= g_switch_value)					\
     {									\
-      sdata_section ();							\
+      sbss_section ();							\
       ASM_OUTPUT_ALIGN (FILE, exact_log2 (ALIGN / BITS_PER_UNIT));	\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
       ASM_OUTPUT_SKIP (FILE, SIZE);					\
@@ -975,16 +972,36 @@ do {									\
 %{memb} %{!memb: %{msdata: -memb} %{msdata=eabi: -memb}} \
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
-    %{mcall-solaris: -mlittle -msolaris} %{mcall-linux: -mbig} }}}}"
+    %{mcall-solaris: -mlittle -msolaris} \
+    %{mcall-linux: -mbig} }}}}"
+
+#ifndef CC1_ENDIAN_BIG_SPEC
+#define CC1_ENDIAN_BIG_SPEC ""
+#endif
+
+#ifndef CC1_ENDIAN_LITTLE_SPEC
+#define CC1_ENDIAN_LITTLE_SPEC "\
+%{!mstrict-align: %{!mno-strict-align: \
+	-mstrict-align \
+}}"
+#endif
+
+#ifndef CC1_ENDIAN_DEFAULT_SPEC
+#define CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big_spec)"
+#endif
 
 #undef CC1_SPEC
 /* Pass -G xxx to the compiler and set correct endian mode */
 #define CC1_SPEC "%{G*} \
-%{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
-    %{mcall-nt: -mlittle } \
-    %{mcall-aixdesc: -mbig } \
-    %{mcall-solaris: -mlittle } \
-    %{mcall-linux: -mbig} }}}} \
+%{mlittle: %(cc1_endian_little)} %{!mlittle: %{mlittle-endian: %(cc1_endian_little)}} \
+%{mbig: %(cc1_endian_big)} %{!mbig: %{mbig-endian: %(cc1_endian_big)}} \
+    %{mcall-nt: -mlittle %{cc1_endian_little} } \
+    %{mcall-aixdesc: -mbig %{cc1_endian_big} } \
+    %{mcall-solaris: -mlittle %{cc1_endian_little} } \
+    %{mcall-linux: -mbig %{cc1_endian_big} } \
+    %{!mcall-nt: %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-linux: \
+	    %(cc1_endian_default) \
+    }}}} \
 %{mcall-solaris: -mregnames } \
 %{mno-sdata: -msdata=none } \
 %{meabi: %{!mcall-*: -mcall-sysv }} \
@@ -1419,6 +1436,9 @@ do {									\
   { "link_os_linux",		LINK_OS_LINUX_SPEC },			\
   { "link_os_solaris",		LINK_OS_SOLARIS_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
+  { "cc1_endian_big",		CC1_ENDIAN_BIG_SPEC },			\
+  { "cc1_endian_little",	CC1_ENDIAN_LITTLE_SPEC },		\
+  { "cc1_endian_default",	CC1_ENDIAN_DEFAULT_SPEC },		\
   { "cpp_endian_big",		CPP_ENDIAN_BIG_SPEC },			\
   { "cpp_endian_little",	CPP_ENDIAN_LITTLE_SPEC },		\
   { "cpp_endian_solaris",	CPP_ENDIAN_SOLARIS_SPEC },		\

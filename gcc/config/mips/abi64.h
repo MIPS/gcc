@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  64 bit ABI support.
-   Copyright (C) 1994, 1995, 1996, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -22,23 +22,27 @@ Boston, MA 02111-1307, USA.  */
    after mips.h.  */
 
 #undef SUBTARGET_TARGET_OPTIONS
-#define SUBTARGET_TARGET_OPTIONS\
-  { "abi=", &mips_abi_string	},
+#define SUBTARGET_TARGET_OPTIONS \
+  { "abi=", &mips_abi_string,						\
+      "Speciy ABI to use"},
 
 #undef STACK_BOUNDARY
 #define STACK_BOUNDARY \
-  ((mips_abi == ABI_32 || mips_abi == ABI_EABI) ? 64 : 128)
+  ((mips_abi == ABI_32 || mips_abi == ABI_O64 || mips_abi == ABI_EABI) \
+   ? 64 : 128)
 
 #undef MIPS_STACK_ALIGN
-#define MIPS_STACK_ALIGN(LOC)					\
-  ((mips_abi == ABI_32 || mips_abi == ABI_EABI)			\
-   ? ((LOC) + 7) & ~7						\
+#define MIPS_STACK_ALIGN(LOC)						\
+  ((mips_abi == ABI_32 || mips_abi == ABI_O64 || mips_abi == ABI_EABI)	\
+   ? ((LOC) + 7) & ~7							\
    : ((LOC) + 15) & ~15)
 
 #undef GP_ARG_LAST
-#define GP_ARG_LAST  (mips_abi == ABI_32 ? GP_REG_FIRST + 7 : GP_REG_FIRST + 11)
+#define GP_ARG_LAST  ((mips_abi == ABI_32 || mips_abi == ABI_O64)	\
+		      ? GP_REG_FIRST + 7 : GP_REG_FIRST + 11)
 #undef FP_ARG_LAST
-#define FP_ARG_LAST  (mips_abi == ABI_32 ? FP_REG_FIRST + 15 : FP_REG_FIRST + 19)
+#define FP_ARG_LAST  ((mips_abi == ABI_32 || mips_abi == ABI_O64)	\
+		      ? FP_REG_FIRST + 15 : FP_REG_FIRST + 19)
 
 #undef SUBTARGET_CONDITIONAL_REGISTER_USAGE
 #define SUBTARGET_CONDITIONAL_REGISTER_USAGE \
@@ -60,11 +64,12 @@ Boston, MA 02111-1307, USA.  */
 }
 
 #undef MAX_ARGS_IN_REGISTERS
-#define MAX_ARGS_IN_REGISTERS	(mips_abi == ABI_32 ? 4 : 8)
+#define MAX_ARGS_IN_REGISTERS ((mips_abi == ABI_32 || mips_abi == ABI_O64) \
+			       ? 4 : 8)
 
 #undef REG_PARM_STACK_SPACE
 #define REG_PARM_STACK_SPACE(FNDECL) 					 \
-  (mips_abi == ABI_32							 \
+  ((mips_abi == ABI_32 || mips_abi == ABI_O64)				 \
    ? (MAX_ARGS_IN_REGISTERS*UNITS_PER_WORD) - FIRST_PARM_OFFSET (FNDECL) \
    : 0)
 
@@ -75,13 +80,15 @@ Boston, MA 02111-1307, USA.  */
        ? ((TYPE) && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST		\
 	  && int_size_in_bytes (TYPE) < (PARM_BOUNDARY / BITS_PER_UNIT))\
        : (GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY			\
-	  && (mips_abi == ABI_32 || mips_abi == ABI_EABI		\
+	  && (mips_abi == ABI_32					\
+	      || mips_abi == ABI_O64					\
+	      || mips_abi == ABI_EABI					\
 	      || GET_MODE_CLASS (MODE) == MODE_INT)))			\
       ? downward : upward))
 
 #undef RETURN_IN_MEMORY
 #define RETURN_IN_MEMORY(TYPE)						\
-  (mips_abi == ABI_32							\
+  ((mips_abi == ABI_32 || mips_abi == ABI_O64)				\
    ? TYPE_MODE (TYPE) == BLKmode					\
    : (int_size_in_bytes (TYPE)						\
       > (mips_abi == ABI_EABI ? 2 * UNITS_PER_WORD : 16)))
@@ -97,7 +104,7 @@ extern struct rtx_def *mips_function_value ();
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 { int mips_off = (! current_function_varargs) && (! (CUM).last_arg_fp);	\
   int mips_fp_off = (! current_function_varargs) && ((CUM).last_arg_fp); \
-  if ((mips_abi != ABI_32						\
+  if (((mips_abi != ABI_32 && mips_abi != ABI_O64)			\
        && (CUM).arg_words < MAX_ARGS_IN_REGISTERS - mips_off)		\
       || (mips_abi == ABI_EABI						\
 	  && ! TARGET_SOFT_FLOAT					\
@@ -133,7 +140,7 @@ extern struct rtx_def *mips_function_value ();
 		 so that the insn scheduler won't assume that these	\
 		 stores can't possibly overlap with the va_arg loads.  */ \
 	      if (mips_abi != ABI_EABI && BYTES_BIG_ENDIAN)		\
-	        MEM_IN_STRUCT_P (mem) = 1;				\
+	        MEM_SET_IN_STRUCT_P (mem, 1);				\
 	      move_block_from_reg					\
 		((CUM).arg_words + GP_ARG_FIRST + mips_off,		\
 		 mem,							\
@@ -178,7 +185,7 @@ extern struct rtx_def *mips_function_value ();
     }									\
 }
 
-#define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32)
+#define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 
 /* A C expression that indicates when an argument must be passed by
    reference.  If nonzero for an argument, a copy of that argument is
@@ -217,7 +224,7 @@ extern struct rtx_def *mips_function_value ();
 #undef LONG_MAX_SPEC
 #if ((MIPS_ABI_DEFAULT == ABI_64) || ((MIPS_ABI_DEFAULT == ABI_EABI) && ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_64BIT)))
 #define LONG_MAX_SPEC \
-  "%{!mabi=n32:%{!mno-long64:%{!mgp32:%{!mips1:%{!mips2:-D__LONG_MAX__=9223372036854775807L}}}}}"
+  "%{!mabi=32:%{!mabi=n32:%{!mlong32:%{!mgp32:%{!mips1:%{!mips2:-D__LONG_MAX__=9223372036854775807L}}}}}}"
 #else
 #define LONG_MAX_SPEC \
   "%{mabi=64:-D__LONG_MAX__=9223372036854775807L} \

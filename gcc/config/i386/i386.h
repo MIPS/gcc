@@ -410,6 +410,11 @@ extern int ix86_arch;
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 #define STACK_BOUNDARY 32
 
+/* We want to keep the stack aligned to 128 bits when possible, for the
+   benefit of doubles and SSE __m128.  But the compiler can not rely on
+   the stack having this alignment.*/
+#define PREFERRED_STACK_BOUNDARY 128
+
 /* Allocation boundary (in *bits*) for the code of a function.
    For i486, we get better performance by aligning to a cache
    line (i.e. 16 byte) boundary.  */
@@ -475,6 +480,46 @@ extern int ix86_arch;
     ? 256								\
     : TREE_CODE (TYPE) == ARRAY_TYPE					\
     ? ((TYPE_MODE (TREE_TYPE (TYPE)) == DFmode && (ALIGN) < 64)	\
+	? 64								\
+   	: (TYPE_MODE (TREE_TYPE (TYPE)) == XFmode && (ALIGN) < 128)	\
+	? 128								\
+	: (ALIGN))							\
+    : TREE_CODE (TYPE) == COMPLEX_TYPE					\
+    ? ((TYPE_MODE (TYPE) == DCmode && (ALIGN) < 64)			\
+	? 64								\
+   	: (TYPE_MODE (TYPE) == XCmode && (ALIGN) < 128)			\
+	? 128								\
+	: (ALIGN))							\
+    : ((TREE_CODE (TYPE) == RECORD_TYPE					\
+	|| TREE_CODE (TYPE) == UNION_TYPE				\
+	|| TREE_CODE (TYPE) == QUAL_UNION_TYPE)				\
+	&& TYPE_FIELDS (TYPE))						\
+    ? ((DECL_MODE (TYPE_FIELDS (TYPE)) == DFmode && (ALIGN) < 64)	\
+	? 64								\
+	: (DECL_MODE (TYPE_FIELDS (TYPE)) == XFmode && (ALIGN) < 128)	\
+	? 128								\
+	: (ALIGN))							\
+    : TREE_CODE (TYPE) == REAL_TYPE					\
+    ? ((TYPE_MODE (TYPE) == DFmode && (ALIGN) < 64)			\
+	? 64								\
+   	: (TYPE_MODE (TYPE) == XFmode && (ALIGN) < 128)			\
+	? 128								\
+	: (ALIGN))							\
+    : (ALIGN))
+
+/* If defined, a C expression to compute the alignment for a local
+   variable.  TYPE is the data type, and ALIGN is the alignment that
+   the object would ordinarily have.  The value of this macro is used
+   instead of that alignment to align the object.
+
+   If this macro is not defined, then ALIGN is used.
+
+   One use of this macro is to increase alignment of medium-size
+   data to make it all fit in fewer cache lines.  */
+
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)					\
+  (TREE_CODE (TYPE) == ARRAY_TYPE					\
+    ? ((TYPE_MODE (TREE_TYPE (TYPE)) == DFmode && (ALIGN) < 64)		\
 	? 64								\
    	: (TYPE_MODE (TREE_TYPE (TYPE)) == XFmode && (ALIGN) < 128)	\
 	? 128								\
@@ -834,11 +879,6 @@ enum reg_class
 
 #define STACK_TOP_P(xop) (REG_P (xop) && REGNO (xop) == FIRST_STACK_REG)
 
-/* Try to maintain the accuracy of the death notes for regs satisfying the
-   following.  Important for stack like regs, to know when to pop. */
-
-/* #define PRESERVE_DEATH_INFO_REGNO_P(x) FP_REGNO_P(x) */
-
 /* 1 if register REGNO can magically overlap other regs.
    Note that nonzero values work only in very special circumstances. */
 
@@ -896,19 +936,10 @@ enum reg_class
 /* Similar, but for floating constants, and defining letters G and H.
    Here VALUE is the CONST_DOUBLE rtx itself.  We allow constants even if
    TARGET_387 isn't set, because the stack register converter may need to
-   load 0.0 into the function value register.
-
-   We disallow these constants when -fomit-frame-pointer and compiling
-   PIC code since reload might need to force the constant to memory.
-   Forcing the constant to memory changes the elimination offsets after
-   the point where they must stay constant.
-
-   However, we must allow them after reload as completed as reg-stack.c
-   will create insns which use these constants.  */
+   load 0.0 into the function value register.  */
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  \
-  (((reload_completed || !flag_pic || !flag_omit_frame_pointer) && (C) == 'G') \
-   ? standard_80387_constant_p (VALUE) : 0)
+  ((C) == 'G' ? standard_80387_constant_p (VALUE) : 0)
 
 /* Place additional restrictions on the register class to use when it
    is necessary to be able to hold a value of mode MODE in a reload
@@ -1601,30 +1632,33 @@ do {						\
     (OFFSET) = 8;	/* Skip saved PC and previous frame pointer */	\
   else									\
     {									\
-      int regno;							\
-      int offset = 0;							\
+      int nregs;							\
+      int offset;							\
+      int preferred_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT; \
+      HOST_WIDE_INT tsize = ix86_compute_frame_size (get_frame_size (),	\
+						     &nregs);		\
 									\
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)		\
-	if ((regs_ever_live[regno] && ! call_used_regs[regno])		\
-	    || ((current_function_uses_pic_offset_table			\
-		 || current_function_uses_const_pool)			\
-		&& flag_pic && regno == PIC_OFFSET_TABLE_REGNUM))	\
-	  offset += 4;							\
+      (OFFSET) = (tsize + nregs * UNITS_PER_WORD);			\
 									\
-      (OFFSET) = offset + get_frame_size ();				\
+      offset = 4;							\
+      if (frame_pointer_needed)						\
+	offset += UNITS_PER_WORD;					\
 									\
-      if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
-	(OFFSET) += 4;	/* Skip saved PC */				\
+      if ((FROM) == ARG_POINTER_REGNUM)					\
+	(OFFSET) += offset;						\
+      else								\
+	(OFFSET) -= ((offset + preferred_alignment - 1)			\
+		     & -preferred_alignment) - offset;			\
     }									\
 }
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1710,7 +1744,8 @@ do {						\
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) 1
+#define LEGITIMATE_CONSTANT_P(X) \
+  (GET_CODE (X) == CONST_DOUBLE ? standard_80387_constant_p (X) : 1)
 
 #ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
@@ -1763,8 +1798,7 @@ do {						\
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
 #define LEGITIMATE_PIC_OPERAND_P(X) \
-  (! SYMBOLIC_CONST (X)							\
-   || (GET_CODE (X) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (X)))
+  (! SYMBOLIC_CONST (X) || legitimate_pic_address_disp_p (X))
 
 #define SYMBOLIC_CONST(X)	\
 (GET_CODE (X) == SYMBOL_REF						\

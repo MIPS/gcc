@@ -59,7 +59,7 @@ AT&T C compiler.  From the example below I would conclude the following:
    supply usable syms.h include files.  Which syms.h file to use is a
    target parameter so don't use the native one if we're cross compiling.  */
 
-#if defined(USG) && !defined(MIPS) && !defined (hpux) && !defined(_WIN32) && !defined(__linux__) && !defined(CROSS_COMPILE)
+#if defined(USG) && !defined(MIPS) && !defined (hpux) && !defined(_WIN32) && !defined(__linux__) && !defined(__INTERIX) && !defined(CROSS_COMPILE)
 #include <syms.h>
 /* Use T_INT if we don't have T_VOID.  */
 #ifndef T_VOID
@@ -338,7 +338,7 @@ void
 sdbout_init (asm_file, input_file_name, syms)
      FILE *asm_file;
      char *input_file_name;
-     tree syms;
+     tree syms ATTRIBUTE_UNUSED;
 {
 #ifdef MIPS_DEBUGGING_INFO
   current_file = (struct sdb_file *) xmalloc (sizeof *current_file);
@@ -527,6 +527,7 @@ plain_type_1 (type, level)
     {
     case VOID_TYPE:
       return T_VOID;
+    case BOOLEAN_TYPE:
     case INTEGER_TYPE:
       {
 	int size = int_size_in_bytes (type) * BITS_PER_UNIT;
@@ -1560,7 +1561,7 @@ void
 sdbout_end_block (file, line, n)
      FILE *file;
      int line;
-     int n;
+     int n ATTRIBUTE_UNUSED;
 {
   MAKE_LINE_SAFE (line);
 

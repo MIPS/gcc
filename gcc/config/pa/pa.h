@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93-98, 1999 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -39,7 +39,8 @@ enum processor_type
   PROCESSOR_700,
   PROCESSOR_7100,
   PROCESSOR_7100LC,
-  PROCESSOR_7200
+  PROCESSOR_7200,
+  PROCESSOR_8000
 };
 
 /* For -mschedule= option.  */
@@ -49,8 +50,15 @@ extern enum processor_type pa_cpu;
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
 
 /* The 700 can only issue a single insn at a time.
-   The 7XXX processors can issue two insns at a time.  */
-#define ISSUE_RATE (pa_cpu == PROCESSOR_700 ? 1 : 2)
+   The 7XXX processors can issue two insns at a time.
+   The 8000 can issue 4 insns at a time.  */
+#define ISSUE_RATE \
+  (pa_cpu == PROCESSOR_700 ? 1 \
+   : pa_cpu == PROCESSOR_7100 ? 2 \
+   : pa_cpu == PROCESSOR_7100LC ? 2 \
+   : pa_cpu == PROCESSOR_7200 ? 2 \
+   : pa_cpu == PROCESSOR_8000 ? 4 \
+   : 2)
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -62,14 +70,16 @@ extern int target_flags;
 
 /* compile code for HP-PA 1.1 ("Snake") */
 
-#define TARGET_SNAKE (target_flags & 1)
+#define MASK_SNAKE 1
+#define TARGET_SNAKE (target_flags & MASK_SNAKE)
 
 /* Disable all FP registers (they all become fixed).  This may be necessary
    for compiling kernels which perform lazy context switching of FP regs.
    Note if you use this option and try to perform floating point operations
    the compiler will abort!  */
 
-#define TARGET_DISABLE_FPREGS (target_flags & 2)
+#define MASK_DISABLE_FPREGS 2
+#define TARGET_DISABLE_FPREGS (target_flags & MASK_DISABLE_FPREGS)
 
 /* Generate code which assumes that calls through function pointers will
    never cross a space boundary.  Such assumptions are generally safe for
@@ -78,18 +88,21 @@ extern int target_flags;
    or uses nested functions!
 
    This is also used to trigger aggressive unscaled index addressing.  */
-#define TARGET_NO_SPACE_REGS (target_flags & 4)
+#define MASK_NO_SPACE_REGS 4
+#define TARGET_NO_SPACE_REGS (target_flags & MASK_NO_SPACE_REGS)
 
 /* Allow unconditional jumps in the delay slots of call instructions.  */
-#define TARGET_JUMP_IN_DELAY (target_flags & 8)
+#define MASK_JUMP_IN_DELAY 8
+#define TARGET_JUMP_IN_DELAY (target_flags & MASK_JUMP_IN_DELAY)
 
 /* Optimize for space.  Currently this only turns on out of line
    prologues and epilogues.  */
-#define TARGET_SPACE (target_flags & 16)
+#define MASK_SPACE 16
+#define TARGET_SPACE (target_flags & MASK_SPACE)
 
 /* Disable indexed addressing modes.  */
-
-#define TARGET_DISABLE_INDEXING (target_flags & 32)
+#define MASK_DISABLE_INDEXING 32
+#define TARGET_DISABLE_INDEXING (target_flags & MASK_DISABLE_INDEXING)
 
 /* Emit code which follows the new portable runtime calling conventions
    HP wants everyone to use for ELF objects.  If at all possible you want
@@ -97,29 +110,32 @@ extern int target_flags;
 
    Note TARGET_PORTABLE_RUNTIME also forces all calls to use inline
    long-call stubs which is quite expensive.  */
-
-#define TARGET_PORTABLE_RUNTIME (target_flags & 64)
+#define MASK_PORTABLE_RUNTIME 64
+#define TARGET_PORTABLE_RUNTIME (target_flags & MASK_PORTABLE_RUNTIME)
 
 /* Emit directives only understood by GAS.  This allows parameter
    relocations to work for static functions.  There is no way
    to make them work the HP assembler at this time.  */
-
-#define TARGET_GAS (target_flags & 128)
+#define MASK_GAS 128
+#define TARGET_GAS (target_flags & MASK_GAS)
 
 /* Emit code for processors which do not have an FPU.  */
-
-#define TARGET_SOFT_FLOAT (target_flags & 256)
+#define MASK_SOFT_FLOAT 256
+#define TARGET_SOFT_FLOAT (target_flags & MASK_SOFT_FLOAT)
 
 /* Use 3-insn load/store sequences for access to large data segments
    in shared libraries on hpux10.  */
-#define TARGET_LONG_LOAD_STORE (target_flags & 512)
+#define MASK_LONG_LOAD_STORE 512
+#define TARGET_LONG_LOAD_STORE (target_flags & MASK_LONG_LOAD_STORE)
 
 /* Use a faster sequence for indirect calls.  */
-#define TARGET_FAST_INDIRECT_CALLS (target_flags & 1024)
+#define MASK_FAST_INDIRECT_CALLS 1024
+#define TARGET_FAST_INDIRECT_CALLS (target_flags & MASK_FAST_INDIRECT_CALLS)
 
 /* Generate code with big switch statements to avoid out of range branches
    occurring within the switch table.  */
-#define TARGET_BIG_SWITCH (target_flags & 2048)
+#define MASK_BIG_SWITCH 2048
+#define TARGET_BIG_SWITCH (target_flags & MASK_BIG_SWITCH)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -128,37 +144,37 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES \
-  {{"snake", 1},		\
-   {"nosnake", -1},		\
-   {"pa-risc-1-0", -1},		\
-   {"pa-risc-1-1", 1},		\
-   {"disable-fpregs", 2},	\
-   {"no-disable-fpregs", -2},	\
-   {"no-space-regs", 4},	\
-   {"space-regs", -4},		\
-   {"jump-in-delay", 8},	\
-   {"no-jump-in-delay", -8},	\
-   {"space", 16},		\
-   {"no-space", -16},		\
-   {"disable-indexing", 32},	\
-   {"no-disable-indexing", -32},\
-   {"portable-runtime", 64},	\
-   {"no-portable-runtime", -64},\
-   {"gas", 128},		\
-   {"no-gas", -128},		\
-   {"soft-float", 256},		\
-   {"no-soft-float", -256},	\
-   {"long-load-store", 512},	\
-   {"no-long-load-store", -512},\
-   {"fast-indirect-calls", 1024},\
-   {"no-fast-indirect-calls", -1024},\
-   {"big-switch", 2048},	\
-   {"no-big-switch", -2048},	\
-   {"linker-opt", 0},		\
-   { "", TARGET_DEFAULT | TARGET_CPU_DEFAULT}}
+  {{"snake", MASK_SNAKE, "Generate PA1.1 code"},			\
+   {"nosnake", -MASK_SNAKE, "Do not generate PA1.1 code"},		\
+   {"pa-risc-1-0", -MASK_SNAKE, "Do not generate PA1.1 code"},		\
+   {"pa-risc-1-1", MASK_SNAKE, "Generate PA1.1 code"},			\
+   {"disable-fpregs", MASK_DISABLE_FPREGS, "Disable FP regs"},		\
+   {"no-disable-fpregs", -MASK_DISABLE_FPREGS, "Do not disable FP regs"},\
+   {"no-space-regs", MASK_NO_SPACE_REGS, "Disable space regs"},		\
+   {"space-regs", -MASK_NO_SPACE_REGS, "Do not disable space regs"},	\
+   {"jump-in-delay", MASK_JUMP_IN_DELAY, "Put jumps in call delay slots"},\
+   {"no-jump-in-delay", -MASK_JUMP_IN_DELAY, "Do not put jumps in call delay slots"},	\
+   {"space", MASK_SPACE, "Optimize for code space"},			\
+   {"no-space", -MASK_SPACE, "Do not optimize for code space"},		\
+   {"disable-indexing", MASK_DISABLE_INDEXING, "Disable indexed addressing"},\
+   {"no-disable-indexing", -MASK_DISABLE_INDEXING, "Do not disable indexed addressing"},\
+   {"portable-runtime", MASK_PORTABLE_RUNTIME, "Use portable calling conventions"},	\
+   {"no-portable-runtime", -MASK_PORTABLE_RUNTIME, "Do not use portable calling conventions"},\
+   {"gas", MASK_GAS, "Assume code will be assembled by GAS"},		\
+   {"no-gas", -MASK_GAS, "Do not assume code will be assembled by GAS"},		\
+   {"soft-float", MASK_SOFT_FLOAT, "Use software floating point"},		\
+   {"no-soft-float", -MASK_SOFT_FLOAT, "Do not use software floating point"},	\
+   {"long-load-store", MASK_LONG_LOAD_STORE, "Emit long load/store sequences"},	\
+   {"no-long-load-store", -MASK_LONG_LOAD_STORE, "Do not emit long load/store sequences"},\
+   {"fast-indirect-calls", MASK_FAST_INDIRECT_CALLS, "Generate fast indirect calls"},\
+   {"no-fast-indirect-calls", -MASK_FAST_INDIRECT_CALLS, "Do not generate fast indirect calls"},\
+   {"big-switch", MASK_BIG_SWITCH, "Generate code for huge switch statements"},	\
+   {"no-big-switch", -MASK_BIG_SWITCH, "Do not generate code for huge switch statements"},	\
+   {"linker-opt", 0, "Enable linker optimizations"},		\
+   { "", TARGET_DEFAULT | TARGET_CPU_DEFAULT, NULL}}
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 0x88		/* TARGET_GAS + TARGET_JUMP_IN_DELAY */
+#define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -167,7 +183,7 @@ extern int target_flags;
 
 #define TARGET_OPTIONS			\
 {					\
-  { "schedule=",	&pa_cpu_string }\
+  { "schedule=",	&pa_cpu_string, "Specify CPU for scheduling purposes" }\
 }
 
 #define OVERRIDE_OPTIONS override_options ()
@@ -238,7 +254,7 @@ extern int target_flags;
   fprintf (FILE,							\
 	   "\t.stabs \"\",%d,0,0,L$text_end0000\nL$text_end0000:\n", N_SO)
 
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & 1) == 0
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_SNAKE) == 0
 #define CPP_SPEC "%{msnake:-D__hp9000s700 -D_PA_RISC1_1}\
  %{mpa-risc-1-1:-D__hp9000s700 -D_PA_RISC1_1}\
  %{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE}\
@@ -555,23 +571,30 @@ do {								\
    registers will generally not be allocated across a call).
 
    Experimentation has shown slightly better results by allocating
-   FP registers first.  */
+   FP registers first.  
+
+   FP registers are ordered so that all L registers are selected before
+   R registers.  This works around a false dependency interlock on the
+   PA8000 when accessing the high and low parts of an FP register
+   independently.  */
 
 #define REG_ALLOC_ORDER \
  {					\
   /* caller-saved fp regs.  */		\
-  68, 69, 70, 71, 72, 73, 74, 75,	\
-  76, 77, 78, 79, 80, 81, 82, 83,	\
-  84, 85, 86, 87,			\
-  40, 41, 42, 43, 44, 45, 46, 47,	\
-  32, 33, 34, 35, 36, 37, 38, 39,	\
+  68, 70, 72, 74, 76, 78, 80, 82,	\
+  84, 86, 40, 42, 44, 46, 32, 34,	\
+  36, 38,				\
+  69, 71, 73, 75, 77, 79, 81, 83,	\
+  85, 87, 41, 43, 45, 47, 33, 35,	\
+  37, 39,				\
   /* caller-saved general regs.  */	\
   19, 20, 21, 22, 23, 24, 25, 26,	\
   27, 28, 29, 31,  2,			\
   /* callee-saved fp regs.  */		\
-  48, 49, 50, 51, 52, 53, 54, 55,	\
-  56, 57, 58, 59, 60, 61, 62, 63,	\
-  64, 65, 66, 67,			\
+  48, 50, 52, 54, 56, 58, 60, 62,	\
+  64, 66,				\
+  49, 51, 53, 55, 57, 59, 61, 63,	\
+  65, 67,				\
   /* callee-saved general regs.  */	\
    3,  4,  5,  6,  7,  8,  9, 10, 	\
   11, 12, 13, 14, 15, 16, 17, 18,	\
@@ -687,7 +710,7 @@ do {								\
      1.1 fp regs, and the high 1.1 fp regs, to which the operands of
      fmpyadd and fmpysub are restricted.  */
 
-enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FP_REGS, GENERAL_OR_FP_REGS,
+enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS, GENERAL_OR_FP_REGS,
   SHIFT_REGS, ALL_REGS, LIM_REG_CLASSES};
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
@@ -695,7 +718,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FP_REGS, GENERAL_OR_FP_REGS,
 /* Give names of register classes as strings for dump file.   */
 
 #define REG_CLASS_NAMES \
-  {"NO_REGS", "R1_REGS", "GENERAL_REGS", "FP_REGS",			\
+  {"NO_REGS", "R1_REGS", "GENERAL_REGS", "FPUPPER_REGS", "FP_REGS", \
    "GENERAL_OR_FP_REGS", "SHIFT_REGS", "ALL_REGS"}
 
 /* Define which registers fit in which classes.
@@ -707,6 +730,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FP_REGS, GENERAL_OR_FP_REGS,
  {{0x00000000, 0x00000000, 0x00000000},	/* NO_REGS */			\
   {0x00000002, 0x00000000, 0x00000000},	/* R1_REGS */			\
   {0xfffffffe, 0x00000000, 0x00000000},	/* GENERAL_REGS */		\
+  {0x00000000, 0xff000000, 0x00ffffff},	/* FPUPPER_REGS */			\
   {0x00000000, 0xffffffff, 0x00ffffff},	/* FP_REGS */			\
   {0xfffffffe, 0xffffffff, 0x00ffffff},	/* GENERAL_OR_FP_REGS */	\
   {0x00000000, 0x00000000, 0x01000000},	/* SHIFT_REGS */		\
@@ -721,7 +745,8 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FP_REGS, GENERAL_OR_FP_REGS,
   ((REGNO) == 0 ? NO_REGS 						\
    : (REGNO) == 1 ? R1_REGS						\
    : (REGNO) < 32 ? GENERAL_REGS					\
-   : (REGNO) < 88 ? FP_REGS						\
+   : (REGNO) < 56 ? FP_REGS						\
+   : (REGNO) < 88 ? FPUPPER_REGS						\
    : SHIFT_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
@@ -729,12 +754,13 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FP_REGS, GENERAL_OR_FP_REGS,
 #define BASE_REG_CLASS GENERAL_REGS
 
 #define FP_REG_CLASS_P(CLASS) \
-  ((CLASS) == FP_REGS)
+  ((CLASS) == FP_REGS || (CLASS) == FPUPPER_REGS)
 
 /* Get reg_class from a letter such as appears in the machine description.  */
 /* Keep 'x' for backward compatibility with user asm.   */
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'f' ? FP_REGS :					\
+   (C) == 'y' ? FPUPPER_REGS :					\
    (C) == 'x' ? FP_REGS :					\
    (C) == 'q' ? SHIFT_REGS :					\
    (C) == 'a' ? R1_REGS :					\
@@ -808,22 +834,8 @@ int zdepi_cint_p ();
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
-  (!TARGET_SNAKE && (CLASS) == FP_REGS ? 1 :				\
+  (!TARGET_SNAKE && ((CLASS) == FP_REGS || (CLASS) == FPUPPER_REGS) ? 1 :				\
    ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
-
-/* We do not want to record equivalences for expressions which are
-   likely to cause a spill of %r1 if they are used by reload.
-
-   Nor do we want to record an equivalence of a constant expression
-   that the target can not handle appearing in an insn, but which
-   also must be accepted by LEGITIMATE_CONSTANT_P.
-
-   On the PA, these two goals are the same -- don't record any equivalences
-   for symbolic operands that are not read_only_operands.  */
-#define DONT_RECORD_EQUIVALENCE(NOTE) \
-  (symbolic_operand (XEXP (NOTE, 0), VOIDmode) \
-   && !read_only_operand (XEXP (NOTE, 0), VOIDmode))
-
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1368,11 +1380,11 @@ extern struct rtx_def *hppa_builtin_saveregs ();
 
 /* Addressing modes, and classification of registers for them.  */
 
-#define HAVE_POST_INCREMENT
-#define HAVE_POST_DECREMENT
+#define HAVE_POST_INCREMENT 1
+#define HAVE_POST_DECREMENT 1
 
-#define HAVE_PRE_DECREMENT
-#define HAVE_PRE_INCREMENT
+#define HAVE_PRE_DECREMENT 1
+#define HAVE_PRE_INCREMENT 1
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1451,7 +1463,7 @@ extern struct rtx_def *hppa_builtin_saveregs ();
    these things in insns and then not re-recognize the insns, causing
    constrain_operands to fail.
 
-   `R' is unused.
+   `R' is used for scaled indexed addresses.
 
    `S' is unused.
 
@@ -1774,11 +1786,11 @@ while (0)
       && DECL_INITIAL (EXP) \
       && (DECL_INITIAL (EXP) == error_mark_node \
           || TREE_CONSTANT (DECL_INITIAL (EXP))) \
-      && !reloc) \
+      && !RELOC) \
     readonly_data_section (); \
   else if (TREE_CODE_CLASS (TREE_CODE (EXP)) == 'c' \
 	   && !(TREE_CODE (EXP) == STRING_CST && flag_writable_strings) \
-	   && !reloc) \
+	   && !RELOC) \
     readonly_data_section (); \
   else \
     data_section ();
@@ -2013,19 +2025,8 @@ while (0)
    get_attr_type will try to recognize the given insn, so make sure to
    filter out things it will not accept -- SEQUENCE, USE and CLOBBER insns
    in particular.  */
-#define INSN_SETS_ARE_DELAYED(X) \
-  ((GET_CODE (X) == INSN			\
-    && GET_CODE (PATTERN (X)) != SEQUENCE	\
-    && GET_CODE (PATTERN (X)) != USE		\
-    && GET_CODE (PATTERN (X)) != CLOBBER	\
-    && get_attr_type (X) == TYPE_MILLI))
-
-#define INSN_REFERENCES_ARE_DELAYED(X) \
-  ((GET_CODE (X) == INSN			\
-    && GET_CODE (PATTERN (X)) != SEQUENCE	\
-    && GET_CODE (PATTERN (X)) != USE		\
-    && GET_CODE (PATTERN (X)) != CLOBBER	\
-    && get_attr_type (X) == TYPE_MILLI))
+#define INSN_SETS_ARE_DELAYED(X) (insn_sets_and_refs_are_delayed (X))
+#define INSN_REFERENCES_ARE_DELAYED(X) (insn_sets_and_refs_are_delayed (X))
 
 
 /* Control the assembler format that we output.  */
@@ -2537,6 +2538,7 @@ extern int hppa_can_use_return_insn_p ();
 extern int is_function_label_plus_const ();
 extern int jump_in_call_delay ();
 extern enum reg_class secondary_reload_class ();
+extern int insn_sets_and_refs_are_delayed ();
 
 /* Declare functions defined in pa.c and used in templates.  */
 

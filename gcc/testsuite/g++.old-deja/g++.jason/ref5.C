@@ -1,10 +1,3 @@
-// Build don't link:
-// Special g++ Options: -w
-int i;
-int &const j = i;
-int &const f();
-void g ()
-{
-  j = 1;
-  f() = 1;
-}
+
+int &const j = i;		// ERROR - invalid const
+int &const f();			// ERROR - invalid const

@@ -1,5 +1,5 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1994-98, 1999 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -22,11 +22,8 @@
    Boston, MA 02111-1307, USA.  */
 
 /* Some output-actions in c4x.md need these.  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
 #include "config.h"
-#include "gansidecl.h"
+#include "system.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "regs.h"
@@ -45,8 +42,6 @@
 #include "loop.h"
 #include "recog.h"
 #include "c-tree.h"
-
-extern void iteration_info ();	/* in unroll.c */
 
 static int c4x_leaf_function;
 
@@ -87,7 +82,7 @@ enum reg_class c4x_regclass_map[FIRST_PSEUDO_REGISTER] =
   NO_REGS,			/* IIF/IOF                      No  */
   INT_REGS,			/* RS           QI              No  */
   INT_REGS,			/* RE           QI              No  */
-  INT_REGS,			/* RC           QI              No  */
+  RC_REG,			/* RC           QI              No  */
   EXT_REGS,			/* R8           QI, QF, HF      QI  */
   EXT_REGS,			/* R9           QI, QF, HF      No  */
   EXT_REGS,			/* R10          QI, QF, HF      No  */
@@ -124,29 +119,13 @@ enum machine_mode c4x_caller_save_map[FIRST_PSEUDO_REGISTER] =
   VOIDmode,			/* IIF/IOF                      No  */
   QImode,			/* RS           QI              No  */
   QImode,			/* RE           QI              No  */
-  QImode,			/* RC           QI              No  */
+  VOIDmode,			/* RC           QI              No  */
   QFmode,			/* R8           QI, QF, HF      QI  */
   HFmode,			/* R9           QI, QF, HF      No  */
   HFmode,			/* R10          QI, QF, HF      No  */
   HFmode,			/* R11          QI, QF, HF      No  */
 };
 
-
-/* rptb_info has enough information to compute rtx for loop counter.  */
-typedef struct
-{
-  int loop_count;		/* Positive if loop count is constant */
-  /* The rest of fields are meaningless if loop_count is set */
-  rtx start_value;		/* Starting value for biv */
-  rtx end_value;		/* Limit for biv */
-  int swap_p;			/* 1 for count down */
-  int incr;			/* Increment for biv -- must be constant */
-  int shift;			/* log2(incr) */
-  int off_by_one;		/* 1 for "<", 0 for "<=" */
-  int unsigned_p;		/* True if unsigned comparison at loop end */
-  rtx loop_start;
-}
-c4x_rptb_info_t;
 
 /* Test and compare insns in c4x.md store the information needed to
    generate branch and scc insns here.  */
@@ -167,29 +146,6 @@ tree pure_tree = NULL_TREE;
 tree noreturn_tree = NULL_TREE;
 tree interrupt_tree = NULL_TREE;
 
-static void
-c4x_dump (file, s)
-     FILE * file;
-     const char *s;
-     ...
-{
-#ifndef __STDC__
-  char *s;
-#endif
-  va_list ap;
-
-  if (!file)
-    return;
-
-  VA_START (ap, s);
-
-#ifndef __STDC__
-  s = va_arg (ap, char *);
-#endif
-
-  vfprintf (file, s, ap);
-  va_end (ap);
-}
 
 /* Override command line options.
    Called once after all options have been parsed.
@@ -199,9 +155,6 @@ c4x_dump (file, s)
 void
 c4x_override_options ()
 {
-  /* Convert foo / 8.0 into foo * 0.125, etc.  */
-  flag_fast_math = 1;
-
   if (c4x_rpts_cycles_string)
     c4x_rpts_cycles = atoi (c4x_rpts_cycles_string);
   else
@@ -244,8 +197,31 @@ c4x_override_options ()
   else
     target_flags &= ~C3X_FLAG;
 
+  /* Convert foo / 8.0 into foo * 0.125, etc.  */
+  flag_fast_math = 1;
+
+  /* We should phase out the following at some stage.
+     This provides compatibility with the old -mno-aliases option.  */
+  if (! TARGET_ALIASES && ! flag_argument_noalias)
+    flag_argument_noalias = 1;
 }
 
+/* This is called before c4x_override_options.  */
+void
+c4x_optimization_options (level, size)
+     int level;
+     int size ATTRIBUTE_UNUSED;
+{
+  /* Scheduling before register allocation can screw up global
+     register allocation, especially for functions that use MPY||ADD
+     instructions.  The benefit we gain we get by scheduling before
+     register allocation is probably marginal anyhow.  */
+  flag_schedule_insns = 0;
+
+  /* When optimizing, enable use of RPTB instruction.  */
+  if (level >= 1)
+    flag_branch_on_count_reg = 1;
+}
 
 /* Write an ASCII string.  */
 
@@ -305,7 +281,7 @@ c4x_output_ascii (stream, ptr, len)
     }
   if (s)
     {
-      if (!first)
+      if (! first)
 	fputc (',', stream);
 
       sbuf[s] = 0;
@@ -441,12 +417,12 @@ c4x_init_cumulative_args (cum, fntype, libname)
 
 	  /* If the last arg doesn't have void type then we have
 	     variable arguments.  */
-	  if (!next_param)
+	  if (! next_param)
 	    cum->var = 1;
 
 	  if ((mode = TYPE_MODE (type)))
 	    {
-	      if (!MUST_PASS_IN_STACK (mode, type))
+	      if (! MUST_PASS_IN_STACK (mode, type))
 		{
 		  /* Look for float, double, or long double argument.  */
 		  if (mode == QFmode || mode == HFmode)
@@ -483,10 +459,10 @@ c4x_function_arg_advance (cum, mode, type, named)
   if (TARGET_DEBUG)
     fprintf (stderr, "c4x_function_adv(mode=%s, named=%d)\n\n",
 	     GET_MODE_NAME (mode), named);
-  if (!TARGET_MEMPARM 
+  if (! TARGET_MEMPARM 
       && named
       && type
-      && !MUST_PASS_IN_STACK (mode, type))
+      && ! MUST_PASS_IN_STACK (mode, type))
     {
       /* Look for float, double, or long double argument.  */
       if (mode == QFmode || mode == HFmode)
@@ -495,7 +471,7 @@ c4x_function_arg_advance (cum, mode, type, named)
       else if (mode == QImode || mode == Pmode)
 	cum->ints++;
     }
-  else if (!TARGET_MEMPARM && !type)
+  else if (! TARGET_MEMPARM && ! type)
     {
       /* Handle libcall arguments.  */
       if (mode == QFmode || mode == HFmode)
@@ -529,7 +505,7 @@ c4x_function_arg (cum, mode, type, named)
 {
   int reg = 0;			/* default to passing argument on stack */
 
-  if (!cum->init)
+  if (! cum->init)
     {
       /* We can handle at most 2 floats in R2, R3 */
       cum->maxfloats = (cum->floats > 2) ? 2 : cum->floats;
@@ -540,17 +516,17 @@ c4x_function_arg (cum, mode, type, named)
 	6 - cum->maxfloats : cum->ints;
 
       /* If there is no prototype, assume all the arguments are integers. */
-      if (!cum->prototype)
+      if (! cum->prototype)
 	cum->maxints = 6;
 
       cum->ints = cum->floats = 0;
       cum->init = 1;
     }
 
-  if (!TARGET_MEMPARM 
+  if (! TARGET_MEMPARM 
       && named 
       && type
-      && !MUST_PASS_IN_STACK (mode, type))
+      && ! MUST_PASS_IN_STACK (mode, type))
     {
       /* Look for float, double, or long double argument.  */
       if (mode == QFmode || mode == HFmode)
@@ -565,7 +541,7 @@ c4x_function_arg (cum, mode, type, named)
 	    reg = c4x_int_reglist[cum->maxfloats][cum->ints];
 	}
     }
-  else if (!TARGET_MEMPARM && !type)
+  else if (! TARGET_MEMPARM && ! type)
     {
       /* We could use a different argument calling model for libcalls,
          since we're only calling functions in libgcc.  Thus we could
@@ -591,7 +567,7 @@ c4x_function_arg (cum, mode, type, named)
       fprintf (stderr, ")\n");
     }
   if (reg)
-    return gen_rtx (REG, mode, reg);
+    return gen_rtx_REG (mode, reg);
   else
     return NULL_RTX;
 }
@@ -610,7 +586,7 @@ c4x_isr_reg_used_p (regno)
      We'll only save if for the big memory model or if
      we're paranoid. ;-)  */
   if (IS_DP_REG (regno))
-    return !TARGET_SMALL || TARGET_PARANOID;
+    return ! TARGET_SMALL || TARGET_PARANOID;
 
   /* Only save/restore regs in leaf function that are used.  */
   if (c4x_leaf_function)
@@ -797,7 +773,7 @@ c4x_function_prologue (file, size)
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	{
-	  if (regs_ever_live[regno] && !call_used_regs[regno])
+	  if (regs_ever_live[regno] && ! call_used_regs[regno])
 	    {
 	      if ((regno == R6_REGNO) || (regno == R7_REGNO))
 		{
@@ -806,7 +782,7 @@ c4x_function_prologue (file, size)
 		    fprintf (file, "\tpush\t%s\n", reg_names[regno]);
 		  fprintf (file, "\tpushf\t%s\n", float_reg_names[regno]);
 		}
-	      else if ((!dont_push_ar3) || (regno != AR3_REGNO))
+	      else if ((! dont_push_ar3) || (regno != AR3_REGNO))
 		{
 		  fprintf (file, "\tpush\t%s\n", reg_names[regno]);
 		}
@@ -855,7 +831,7 @@ c4x_function_epilogue (file, size)
     {
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; --regno)
 	{
-	  if (!c4x_isr_reg_used_p (regno))
+	  if (! c4x_isr_reg_used_p (regno))
 	    continue;
 	  if (IS_EXT_REG (regno))
 	    fprintf (file, "\tpopf\t%s\n", float_reg_names[regno]);
@@ -910,8 +886,8 @@ c4x_function_epilogue (file, size)
          registers.  */
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
 	{
-	  if ((regs_ever_live[regno] && !call_used_regs[regno])
-	      && ((!dont_pop_ar3) || (regno != AR3_REGNO)))
+	  if ((regs_ever_live[regno] && ! call_used_regs[regno])
+	      && ((! dont_pop_ar3) || (regno != AR3_REGNO)))
 	    {
 	      restore_count++;
 	      if (TARGET_PRESERVE_FLOAT
@@ -944,7 +920,7 @@ c4x_function_epilogue (file, size)
          where required.  */
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
 	{
-	  if (regs_ever_live[regno] && !call_used_regs[regno])
+	  if (regs_ever_live[regno] && ! call_used_regs[regno])
 	    {
 	      if (regno == AR3_REGNO && dont_pop_ar3)
 		continue;
@@ -1011,7 +987,7 @@ c4x_function_epilogue (file, size)
 	  fprintf (file, "\tsubi\t%d,sp\n", size);
 	}
 
-      if (!delayed_jump)
+      if (! delayed_jump)
 	fprintf (file, "\trets\n");
     }
 }
@@ -1022,16 +998,16 @@ c4x_null_epilogue_p ()
   int regno;
 
   if (reload_completed
-      && !c4x_assembler_function_p ()
-      && !c4x_interrupt_function_p ()
-      && !current_function_calls_alloca
-      && !current_function_args_size
-      && !(profile_block_flag == 2)
-      && !(optimize < 2)
-      && !get_frame_size ())
+      && ! c4x_assembler_function_p ()
+      && ! c4x_interrupt_function_p ()
+      && ! current_function_calls_alloca
+      && ! current_function_args_size
+      && ! (profile_block_flag == 2)
+      && ! (optimize < 2)
+      && ! get_frame_size ())
     {
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
-	if (regs_ever_live[regno] && !call_used_regs[regno]
+	if (regs_ever_live[regno] && ! call_used_regs[regno]
 	    && (regno != AR3_REGNO))
 	  return 0;
       return 1;
@@ -1039,10 +1015,95 @@ c4x_null_epilogue_p ()
   return 0;
 }
 
+int
+c4x_emit_move_sequence (operands, mode)
+     rtx *operands;
+     enum machine_mode mode;     
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+
+  if (! reload_in_progress
+      && ! REG_P (op0) 
+      && ! REG_P (op1)
+      && ! (stik_const_operand (op1, mode) && ! push_operand (op0, mode)))
+    op1 = force_reg (mode, op1);
+
+  if (GET_CODE (op1) == LO_SUM
+      && GET_MODE (op1) == Pmode
+      && dp_reg_operand (XEXP (op1, 0), mode))
+    {
+      /* expand_increment will sometimes create a LO_SUM immediate
+	 address.  */
+      op1 = XEXP (op1, 1);
+    }
+  else if (symbolic_address_operand (op1, mode))
+    {
+      if (TARGET_LOAD_ADDRESS)
+	{
+	  /* Alias analysis seems to do a better job if we force
+	     constant addresses to memory after reload.  */
+	  emit_insn (gen_load_immed_address (op0, op1));
+	  return 1;
+	}
+      else
+	{
+	  /* Stick symbol or label address into the constant pool.  */
+	  op1 = force_const_mem (Pmode, op1);
+	}
+    }
+  else if (mode == HFmode && CONSTANT_P (op1) && ! LEGITIMATE_CONSTANT_P (op1))
+    {
+      /* We could be a lot smarter about loading some of these
+	 constants...  */
+      op1 = force_const_mem (mode, op1);
+    }
+  else if (mode == HImode && CONSTANT_P (op1) && ! LEGITIMATE_CONSTANT_P (op1))
+    {
+      /* We could load all sorts of constants in two goes by pulling all
+	 sorts of tricks... The tricky thing is that we cannot clobber CC
+	 so that stifles most of the obvious methods.  */
+      op1 = force_const_mem (mode, op1);
+    }
+
+  /* Convert (MEM (SYMREF)) to a (MEM (LO_SUM (REG) (SYMREF)))
+     and emit associated (HIGH (SYMREF)) if large memory model.  
+     c4x_legitimize_address could be used to do this,
+     perhaps by calling validize_address.  */
+  if (! (reload_in_progress || reload_completed)
+      && GET_CODE (op1) == MEM
+      && symbolic_address_operand (XEXP (op1, 0), Pmode))
+    {
+      rtx dp_reg = gen_rtx_REG (Pmode, DP_REGNO);
+      if (! TARGET_SMALL)
+	emit_insn (gen_set_ldp (dp_reg, XEXP (op1, 0)));
+      op1 = change_address (op1, mode,
+			    gen_rtx_LO_SUM (Pmode, dp_reg, XEXP (op1, 0)));
+    }
+
+  if (! (reload_in_progress || reload_completed)
+      && GET_CODE (op0) == MEM 
+      && symbolic_address_operand (XEXP (op0, 0), Pmode))
+    {
+      rtx dp_reg = gen_rtx_REG (Pmode, DP_REGNO);
+      if (! TARGET_SMALL)
+	emit_insn (gen_set_ldp (dp_reg, XEXP (op0, 0)));
+      op0 = change_address (op0, mode,
+			    gen_rtx_LO_SUM (Pmode, dp_reg, XEXP (op0, 0)));
+    }
+
+  /* Adjust operands in case we have modified them.  */
+  operands[0] = op0;
+  operands[1] = op1;
+
+  /* Emit normal pattern.  */
+  return 0;
+}
+
 
 void
 c4x_emit_libcall (name, code, dmode, smode, noperands, operands)
-     const char *name;
+     char *name;
      enum rtx_code code;
      enum machine_mode dmode;
      enum machine_mode smode;
@@ -1055,7 +1116,7 @@ c4x_emit_libcall (name, code, dmode, smode, noperands, operands)
   rtx equiv;
 
   start_sequence ();
-  libcall = gen_rtx (SYMBOL_REF, Pmode, name);
+  libcall = gen_rtx_SYMBOL_REF (Pmode, name);
   switch (noperands)
     {
     case 2:
@@ -1090,9 +1151,10 @@ c4x_emit_libcall3 (name, code, mode, operands)
   return c4x_emit_libcall (name, code, mode, mode, 3, operands);
 }
 
+
 void
 c4x_emit_libcall_mulhi (name, code, mode, operands)
-     const char *name;
+     char *name;
      enum rtx_code code;
      enum machine_mode mode;
      rtx *operands;
@@ -1103,15 +1165,15 @@ c4x_emit_libcall_mulhi (name, code, mode, operands)
   rtx equiv;
 
   start_sequence ();
-  libcall = gen_rtx (SYMBOL_REF, Pmode, name);
+  libcall = gen_rtx_SYMBOL_REF (Pmode, name);
   ret = emit_library_call_value (libcall, NULL_RTX, 1, mode, 2,
                                  operands[1], mode, operands[2], mode);
-  equiv = gen_rtx (TRUNCATE, mode,
-                   gen_rtx (LSHIFTRT, HImode,
-                            gen_rtx (MULT, HImode,
+  equiv = gen_rtx_TRUNCATE (mode,
+                   gen_rtx_LSHIFTRT (HImode,
+                            gen_rtx_MULT (HImode,
                                      gen_rtx (code, HImode, operands[1]),
                                      gen_rtx (code, HImode, operands[2])),
-                            gen_rtx (CONST_INT, VOIDmode, 32)));
+                                     GEN_INT (32)));
   insns = get_insns ();
   end_sequence ();
   emit_libcall_block (insns, operands[0], ret, equiv);
@@ -1120,31 +1182,16 @@ c4x_emit_libcall_mulhi (name, code, mode, operands)
 
 enum reg_class
 c4x_preferred_reload_class (x, class)
-     rtx x;
+     rtx x ATTRIBUTE_UNUSED;
      enum reg_class class;
 {
-  if (GET_CODE (x) == MEM && class > ADDR_REGS && class != INDEX_REGS)
-    {
-      x = XEXP (x, 0);
-      if (GET_CODE (x) == PLUS)
-        {
-          rtx op0 = XEXP (x, 0);
-          rtx op1 = XEXP (x, 1);
-
-          if (REG_P (op0) 
-	      && IS_ADDR_REGNO (op0)
-	      && GET_CODE (op1) == CONST_INT
-	      && !IS_DISP8_CONST (INTVAL (op1)))
-	    class = ADDR_REGS;
-        }
-    }
   return class;
 }
 
 
 enum reg_class
 c4x_limit_reload_class (mode, class)
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      enum reg_class class;
 {
   return class;
@@ -1153,11 +1200,27 @@ c4x_limit_reload_class (mode, class)
 
 enum reg_class
 c4x_secondary_memory_needed (class1, class2, mode)
-     enum reg_class class1;
-     enum reg_class class2;
-     enum machine_mode mode;
+     enum reg_class class1 ATTRIBUTE_UNUSED;
+     enum reg_class class2 ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+
+/* Set the SYMBOL_REF_FLAG for a function decl.  However, wo do not
+   yet use this info.  */
+void
+c4x_encode_section_info (decl)
+  tree decl;
+{
+#if 0
+  if (TREE_CODE (TREE_TYPE (decl)) == FUNCTION_TYPE)   
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+#else
+  if (TREE_CODE (decl) == FUNCTION_DECL)   
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+#endif
 }
 
 
@@ -1186,7 +1249,7 @@ c4x_check_legit_addr (mode, addr, strict)
     case PRE_INC:
     case POST_INC:
       base = XEXP (addr, 0);
-      if (!REG_P (base))
+      if (! REG_P (base))
 	return 0;
       break;
 
@@ -1199,7 +1262,7 @@ c4x_check_legit_addr (mode, addr, strict)
 	if (mode != QImode && mode != QFmode)
 	  return 0;
 
-	if (!REG_P (op0) 
+	if (! REG_P (op0) 
 	    || (GET_CODE (op1) != PLUS && GET_CODE (op1) != MINUS))
 	  return 0;
 	base = XEXP (op1, 0);
@@ -1226,19 +1289,6 @@ c4x_check_legit_addr (mode, addr, strict)
 
 	switch (code0)
 	  {
-	  case USE:
-	    /* The uses are put in to avoid problems
-	       with referenced things disappearing.  */
-	    return c4x_check_legit_addr (mode, op1, strict);
-
-	  case PLUS:
-	    /* This is another reference to keep things
-	       from disappearing, but it contains a plus
-	       of a use and DP.  */
-	    if (GET_CODE (XEXP (op0, 0)) == USE)
-	      return c4x_check_legit_addr (mode, op1, strict);
-	    return 0;
-
 	  case REG:
 	    if (REG_P (op1))
 	      {
@@ -1263,18 +1313,47 @@ c4x_check_legit_addr (mode, addr, strict)
       }
       break;
 
+      /* Direct addressing with DP register.  */
+    case LO_SUM:
+      {
+	rtx op0 = XEXP (addr, 0);
+	rtx op1 = XEXP (addr, 1);
+
+	/* HImode and HFmode direct memory references aren't truly
+	   offsettable (consider case at end of data page).  We
+	   probably get better code by loading a pointer and using an
+	   indirect memory reference.  */
+	if (mode == HImode || mode == HFmode)
+	  return 0;
+
+	if (!REG_P (op0) || REGNO (op0) != DP_REGNO)
+	  return 0;
+
+	if ((GET_CODE (op1) == SYMBOL_REF || GET_CODE (op1) == LABEL_REF))
+	  return 1;
+
+	if (GET_CODE (op1) == CONST)
+	  {
+	    addr = XEXP (op1, 0);
+	    
+	    if (GET_CODE (addr) == PLUS
+		&& (GET_CODE (XEXP (addr, 0)) == SYMBOL_REF
+		    || GET_CODE (XEXP (addr, 0)) == LABEL_REF)
+		&& GET_CODE (XEXP (addr, 1)) == CONST_INT)
+	      return 1;
+	  }
+	return 0;
+      }
+      break;
+
       /* Direct addressing with some work for the assembler...  */
     case CONST:
-      if (GET_CODE (XEXP (addr, 0)) == PLUS
-	  && (GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
-	      || GET_CODE (XEXP (XEXP (addr, 0), 0)) == LABEL_REF)
-	  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)
-	return 1;
-
       /* Direct addressing.  */
-    case SYMBOL_REF:
     case LABEL_REF:
-      return 1;
+    case SYMBOL_REF:
+      /* These need to be converted to a LO_SUM (...). 
+	 c4x_legitimize_address will fix them up.  */
+      return 0;
 
       /* Do not allow direct memory access to absolute addresses.
          This is more pain than its worth, especially for the
@@ -1306,9 +1385,9 @@ c4x_check_legit_addr (mode, addr, strict)
       /* Handle DP based stuff.  */
       if (REGNO (base) == DP_REGNO)
 	return 1;
-      if (strict && !REGNO_OK_FOR_BASE_P (REGNO (base)))
+      if (strict && ! REGNO_OK_FOR_BASE_P (REGNO (base)))
 	return 0;
-      else if (!strict && !IS_ADDR_OR_PSEUDO_REGNO (base))
+      else if (! strict && ! IS_ADDR_OR_PSEUDO_REGNO (base))
 	return 0;
     }
 
@@ -1317,9 +1396,9 @@ c4x_check_legit_addr (mode, addr, strict)
     {
       if (GET_CODE (indx) != REG)
 	return 0;
-      if (strict && !REGNO_OK_FOR_INDEX_P (REGNO (indx)))
+      if (strict && ! REGNO_OK_FOR_INDEX_P (REGNO (indx)))
 	return 0;
-      else if (!strict && !IS_INDEX_OR_PSEUDO_REGNO (indx))
+      else if (! strict && ! IS_INDEX_OR_PSEUDO_REGNO (indx))
 	return 0;
     }
 
@@ -1331,12 +1410,12 @@ c4x_check_legit_addr (mode, addr, strict)
       if (mode == HImode || mode == HFmode)
 	{
 	  /* The offset displacement must be legitimate.  */
-	  if (!IS_DISP8_OFF_CONST (INTVAL (disp)))
+	  if (! IS_DISP8_OFF_CONST (INTVAL (disp)))
 	    return 0;
 	}
       else
 	{
-	  if (!IS_DISP8_CONST (INTVAL (disp)))
+	  if (! IS_DISP8_CONST (INTVAL (disp)))
 	    return 0;
 	}
       /* Can't add an index with a disp.  */
@@ -1349,9 +1428,30 @@ c4x_check_legit_addr (mode, addr, strict)
 
 rtx
 c4x_legitimize_address (orig, mode)
-     rtx orig;
-     enum machine_mode mode;
+     rtx orig ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
+  if (GET_CODE (orig) == SYMBOL_REF)
+    {
+      if (mode == HImode || mode == HFmode)
+	{
+	  /* We need to force the address into
+	     a register so that it is offsettable.  */
+	  rtx addr_reg = gen_reg_rtx (Pmode);
+	  emit_move_insn (addr_reg, orig);
+	  return addr_reg;
+	}
+      else
+	{
+	  rtx dp_reg = gen_rtx_REG (Pmode, DP_REGNO);
+	  
+	  if (! TARGET_SMALL)
+	    emit_insn (gen_set_ldp (dp_reg, orig));
+	  
+	  return gen_rtx_LO_SUM (Pmode, dp_reg, orig);
+	}
+    }
+
   return NULL_RTX;
 }
 
@@ -1371,32 +1471,46 @@ rtx addr;
     case REG:
       return 1;
 
-    case CONST:
-      {
-	rtx offset = const0_rtx;
-	addr = eliminate_constant_term (addr, &offset);
-	
-	if (GET_CODE (addr) == LABEL_REF)
-	  return 3;
-	
-	if (GET_CODE (addr) != SYMBOL_REF)
-	  return 4;
-
-	if (INTVAL (offset) == 0)
-	  return 3;
-      }
-      
-      /* fall through */
-      
     case POST_INC:
     case POST_DEC:
     case PRE_INC:
     case PRE_DEC:
       return 1;
       
+      /* These shouldn't be directly generated.  */
     case SYMBOL_REF:
     case LABEL_REF:
-      return TARGET_SMALL ? 3 : 4;
+    case CONST:
+      return 10;
+
+    case LO_SUM:
+      {
+	rtx op1 = XEXP (addr, 1);
+
+	if (GET_CODE (op1) == LABEL_REF || GET_CODE (op1) == SYMBOL_REF)
+	  return TARGET_SMALL ? 3 : 4;
+	
+	if (GET_CODE (op1) == CONST)
+	  {
+	    rtx offset = const0_rtx;
+	    
+	    op1 = eliminate_constant_term (op1, &offset);
+	    
+	    /* ??? These costs need rethinking... */
+	    if (GET_CODE (op1) == LABEL_REF)
+	      return 3;
+	    
+	    if (GET_CODE (op1) != SYMBOL_REF)
+	      return 4;
+	    
+	    if (INTVAL (offset) == 0)
+	      return 3;
+
+	    return 4;
+	  }
+	fatal_insn ("c4x_address_cost: Invalid addressing mode", addr);
+      }
+      break;
       
     case PLUS:
       {
@@ -1412,13 +1526,15 @@ rtx addr;
 	    break;
 
 	  case REG:
+	    /* This cost for REG+REG must be greater than the cost
+	       for REG if we want autoincrement addressing modes.  */
 	    return 2;
 
 	  case CONST_INT:
 	    if (IS_DISP1_CONST (INTVAL (op1)))
 	      return 1;
 
-	    if (!TARGET_C3X && IS_UINT5_CONST (INTVAL (op1)))
+	    if (! TARGET_C3X && IS_UINT5_CONST (INTVAL (op1)))
 	      return 2;
 
 	    return 3;
@@ -1443,37 +1559,33 @@ c4x_gen_compare_reg (code, x, y)
       && (code == LE || code == GE || code == LT || code == GT))
     return NULL_RTX;
 
-  cc_reg = gen_rtx (REG, mode, ST_REGNO);
-  emit_insn (gen_rtx (SET, VOIDmode, cc_reg,
-		      gen_rtx (COMPARE, mode, x, y)));
+  cc_reg = gen_rtx_REG (mode, ST_REGNO);
+  emit_insn (gen_rtx_SET (VOIDmode, cc_reg,
+			  gen_rtx_COMPARE (mode, x, y)));
   return cc_reg;
 }
 
 char *
-c4x_output_cbranch (reversed, insn)
-     int reversed;
-     rtx insn;
+c4x_output_cbranch (form, seq)
+     char *form;
+     rtx seq;
 {
   int delayed = 0;
   int annultrue = 0;
   int annulfalse = 0;
   rtx delay;
   char *cp;
-  static char str[20];
+  static char str[100];
   
   if (final_sequence)
     {
       delay = XVECEXP (final_sequence, 0, 1);
-      delayed = !INSN_ANNULLED_BRANCH_P (insn);
-      annultrue = INSN_ANNULLED_BRANCH_P (insn) && !INSN_FROM_TARGET_P (delay);
-      annulfalse = INSN_ANNULLED_BRANCH_P (insn) && INSN_FROM_TARGET_P (delay);
+      delayed = ! INSN_ANNULLED_BRANCH_P (seq);
+      annultrue = INSN_ANNULLED_BRANCH_P (seq) && ! INSN_FROM_TARGET_P (delay);
+      annulfalse = INSN_ANNULLED_BRANCH_P (seq) && INSN_FROM_TARGET_P (delay);
     }
-  cp = str;
-  *cp++ = 'b';
-  *cp++ = '%';
-  if (reversed)
-    *cp++ = 'I';
-  *cp++ = '0';
+  strcpy (str, form);
+  cp = &str [strlen (str)];
   if (delayed)
     {
       *cp++ = '%';
@@ -1496,7 +1608,6 @@ c4x_output_cbranch (reversed, insn)
   *cp = 0;
   return str;
 }
-
 
 void
 c4x_print_operand (file, op, letter)
@@ -1523,18 +1634,9 @@ c4x_print_operand (file, op, letter)
 	asm_fprintf (file, "@");
       break;
 
-    case 'C':			/* call */
-      if (code != MEM)
-	fatal_insn ("c4x_print_operand: %%C inconsistency", op);
-      op1 = XEXP (op, 0);
-      SYMBOL_REF_FLAG (op1) = 1;
-      output_addr_const (file, op1);
-      return;
-
     case 'H':			/* sethi */
-      if (code == SYMBOL_REF)
-	SYMBOL_REF_FLAG (op) = 1;
-      break;
+      output_addr_const (file, op);
+      return;
 
     case 'I':			/* reversed condition */
       code = reverse_condition (code);
@@ -1553,11 +1655,11 @@ c4x_print_operand (file, op, letter)
       return;
 
     case 'K':			/* generate ldp(k) if direct address */
-      if (!TARGET_SMALL
+      if (! TARGET_SMALL
 	  && code == MEM
-	  && GET_CODE (XEXP (op, 0)) == PLUS
-	  && GET_CODE(XEXP (XEXP (op, 0), 0)) == REG
-	  && REGNO(XEXP (XEXP (op, 0), 0)) == DP_REGNO)
+	  && GET_CODE (XEXP (op, 0)) == LO_SUM
+	  && GET_CODE (XEXP (XEXP (op, 0), 0)) == REG
+	  && REGNO (XEXP (XEXP (op, 0), 0)) == DP_REGNO)
 	{
 	  op1 = XEXP (XEXP (op, 0), 1);
           if (GET_CODE(op1) == CONST_INT || GET_CODE(op1) == SYMBOL_REF)
@@ -1570,7 +1672,7 @@ c4x_print_operand (file, op, letter)
       return;
 
     case 'M':			/* generate ldp(k) if direct address */
-      if (!TARGET_SMALL		/* only used in asm statements */
+      if (! TARGET_SMALL		/* only used in asm statements */
 	  && code == MEM
 	  && (GET_CODE (XEXP (op, 0)) == CONST
 	      || GET_CODE (XEXP (op, 0)) == SYMBOL_REF))
@@ -1592,12 +1694,12 @@ c4x_print_operand (file, op, letter)
 	fatal_insn ("c4x_print_operand: %%O inconsistency", op);
       return;
 
-    case 'R':			/* call register */
-      op1 = XEXP (op, 0);
-      if (code != MEM || GET_CODE (op1) != REG)
-	fatal_insn ("c4x_print_operand: %%R inconsistency", op);
-      else
-	fprintf (file, "%s", reg_names[REGNO (op1)]);
+    case 'C':			/* call */
+      break;
+
+    case 'U':			/* call/callu */
+      if (code != SYMBOL_REF)
+	asm_fprintf (file, "u");
       return;
 
     default:
@@ -1765,20 +1867,10 @@ c4x_print_operand_address (file, addr)
       {
 	rtx op0 = XEXP (addr, 0);
 	rtx op1 = XEXP (addr, 1);
-	enum rtx_code code0 = GET_CODE (op0);
 
-	if (code0 == USE || code0 == PLUS)
+	if (REG_P (op0))
 	  {
-	    asm_fprintf (file, "@");
-	    output_addr_const (file, op1);
-	  }
-	else if (REG_P (op0))
-	  {
-	    if (REGNO (op0) == DP_REGNO)
-	      {
-		c4x_print_operand_address (file, op1);
-	      }
-	    else if (REG_P (op1))
+	    if (REG_P (op1))
 	      {
 		if (IS_INDEX_REGNO (op0))
 		  {
@@ -1806,16 +1898,28 @@ c4x_print_operand_address (file, addr)
 			 INTVAL (op1));		/* base + displacement */
 	      }
 	  }
+	else
+          fatal_insn ("c4x_print_operand_address: Bad operand case", addr);
+      }
+      break;
+
+    case LO_SUM:
+      {
+	rtx op0 = XEXP (addr, 0);
+	rtx op1 = XEXP (addr, 1);
+	  
+	if (REG_P (op0) && REGNO (op0) == DP_REGNO)
+	  c4x_print_operand_address (file, op1);
+	else
+          fatal_insn ("c4x_print_operand_address: Bad operand case", addr);
       }
       break;
 
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
-      if (!SYMBOL_REF_FLAG (addr))
-	fprintf (file, "@");
+      fprintf (file, "@");
       output_addr_const (file, addr);
-      SYMBOL_REF_FLAG (addr) = 0;
       break;
 
       /* We shouldn't access CONST_INT addresses.  */
@@ -1827,17 +1931,18 @@ c4x_print_operand_address (file, addr)
     }
 }
 
-
+/* Return nonzero if the floating point operand will fit
+   in the immediate field.  */
 static int
-c4x_immed_float_p (operand)
-     rtx operand;
+c4x_immed_float_p (op)
+     rtx op;
 {
   long convval[2];
   int exponent;
   REAL_VALUE_TYPE r;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, operand);
-  if (GET_MODE (operand) == HFmode)
+  REAL_VALUE_FROM_CONST_DOUBLE (r, op);
+  if (GET_MODE (op) == HFmode)
     REAL_VALUE_TO_TARGET_DOUBLE (r, convval);
   else
     {
@@ -1855,157 +1960,6 @@ c4x_immed_float_p (operand)
     && (exponent >= -7);	/* Negative exp */
 }
 
-
-/* This function checks for an insn operand that requires direct
-   addressing and inserts a load of the DP register prior to the
-   insn if the big memory model is being compiled for.  Immediate
-   operands that do not fit within the opcode field get changed
-   into memory references using direct addressing.  At this point
-   all pseudos have been converted to hard registers.  */
-
-int
-c4x_scan_for_ldp (newop, insn, operand0)
-     rtx *newop;
-     rtx insn;
-     rtx operand0;
-{
-  int i;
-  char *format_ptr;
-  rtx op0, op1, op2, addr;
-  rtx operand = *newop;
-
-  switch (GET_CODE (operand))
-    {
-    case MEM:
-      op0 = XEXP (operand, 0);
-
-      /* We have something we need to emit a load dp insn for.
-         The first operand should hold the rtx for the instruction
-         required.  */
-
-      switch (GET_CODE (op0))
-	{
-	case CONST_INT:
-	  fatal_insn ("c4x_scan_for_ldp: Direct memory access to const_int",
-		     op0);
-	  break;
-
-	case CONST:
-	case SYMBOL_REF:
-	  if (!TARGET_C3X && !TARGET_SMALL
-	      && recog_memoized (insn) == CODE_FOR_movqi_noclobber
-	      && ((addr = find_reg_note (insn, REG_EQUAL, NULL_RTX))
-		  || (addr = find_reg_note (insn, REG_EQUIV, NULL_RTX)))
-	      && (IS_STD_OR_PSEUDO_REGNO (operand0)))
-	    {
-	      addr = XEXP (addr, 0);
-	      if (GET_CODE (addr) == CONST_INT)
-		{
-		  op1 = gen_rtx (CONST_INT, VOIDmode, INTVAL (addr) & ~0xffff);
-		  emit_insn_before (gen_movqi (operand0, op1), insn);
-		  op1 = gen_rtx (CONST_INT, VOIDmode, INTVAL (addr) & 0xffff);
-		  emit_insn_before (gen_iorqi3_noclobber (operand0,
-						      operand0, op1), insn);
-		  delete_insn (insn);
-		  return 1;
-		}
-	      else if (GET_CODE (addr) == SYMBOL_REF)
-		{
-		  emit_insn_before (gen_set_high_use (operand0, addr, addr),
-				    insn);
-		  emit_insn_before (gen_set_ior_lo_use (operand0, addr, addr),
-				    insn);
-		  delete_insn (insn);
-		  return 1;
-		}
-	      else if (GET_CODE (addr) == CONST
-		       && GET_CODE (op1 = XEXP (addr, 0)) == PLUS
-		       && GET_CODE (op2 = XEXP (op1, 0)) == SYMBOL_REF
-		       && GET_CODE (XEXP (op1, 1)) == CONST_INT)
-		{
-		  emit_insn_before (gen_set_high_use (operand0, addr, op2),
-				    insn);
-		  emit_insn_before (gen_set_ior_lo_use (operand0, addr, op2),
-				    insn);
-		  delete_insn (insn);
-		  return 1;
-		}
-	    }
-	  if (!TARGET_SMALL)
-	    emit_insn_before (gen_set_ldp (gen_rtx (REG, Pmode, DP_REGNO),
-					   operand), insn);
-
-	  /* Replace old memory reference with direct reference.  */
-	  *newop = gen_rtx (MEM, GET_MODE (operand),
-			    gen_rtx (PLUS, Pmode,
-				     gen_rtx (REG, Pmode, DP_REGNO), op0));
-
-	  /* Use change_address?  */
-	  MEM_VOLATILE_P (*newop) = MEM_VOLATILE_P (operand);
-	  RTX_UNCHANGING_P (*newop) = RTX_UNCHANGING_P (operand);
-	  MEM_IN_STRUCT_P (*newop) = MEM_IN_STRUCT_P (operand);
-	  break;
-
-	default:
-	  break;
-	}
-
-      return 0;
-
-    case CONST_INT:
-      if (SMALL_CONST (INTVAL (operand), insn))
-	break;
-      fatal_insn ("Immediate integer too large", insn);
-
-    case CONST_DOUBLE:
-      if (c4x_immed_float_p (operand))
-	break;
-
-      /* We'll come here if a CONST_DOUBLE integer has slipped
-         though the net...  */
-      fatal_insn ("Immediate CONST_DOUBLE integer too large", insn);
-
-    case CONST:
-      fatal_insn ("Immediate integer not known", insn);
-
-      /* Symbol and label immediate addresses cannot be stored
-         within a C[34]x instruction, so we store them in memory
-         and use direct addressing instead.  */
-    case LABEL_REF:
-    case SYMBOL_REF:
-      if (GET_CODE (operand0) != REG)
-	break;
-
-      op0 = XEXP (force_const_mem (Pmode, operand), 0);
-      *newop = gen_rtx (MEM, GET_MODE (operand),
-			gen_rtx (PLUS, Pmode,
-				 gen_rtx (PLUS, Pmode,
-					  gen_rtx (USE, VOIDmode, operand),
-					  gen_rtx (REG, Pmode, DP_REGNO)),
-				 op0));
-
-      if (!TARGET_SMALL)
-	emit_insn_before (gen_set_ldp_use (gen_rtx (REG, Pmode, DP_REGNO),
-					   *newop, operand), insn);
-      return 0;
-
-    default:
-      break;
-    }
-
-  format_ptr = GET_RTX_FORMAT (GET_CODE (operand));
-
-  /* Recursively hunt for required loads of DP.  */
-  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (operand)); i++)
-    {
-      if (*format_ptr++ == 'e')	/* rtx expression */
-	if (c4x_scan_for_ldp (&XEXP (operand, i), insn, operand0))
-	  break;
-    }
-  return 0;
-}
-
-
 /* The last instruction in a repeat block cannot be a Bcond, DBcound,
    CALL, CALLCond, TRAPcond, RETIcond, RETScond, IDLE, RPTB or RPTS.
 
@@ -2021,17 +1975,27 @@ c4x_scan_for_ldp (newop, insn, operand0)
 
    Note that we cannot have a call insn, since we don't generate
    repeat loops with calls in them (although I suppose we could, but
-   there's no benefit.)  */
+   there's no benefit.)  
+
+   !!! FIXME.  The rptb_top insn may be sucked into a SEQUENCE.  */
 
 int
 c4x_rptb_nop_p (insn)
      rtx insn;
 {
+  rtx start_label;
   int i;
+
+  /* Extract the start label from the jump pattern (rptb_end).  */
+  start_label = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 1), 0);
 
   /* If there is a label at the end of the loop we must insert
      a NOP.  */
-  insn = prev_nonnote_insn (insn);
+  do {
+    insn = previous_insn (insn);
+  } while (GET_CODE (insn) == NOTE
+	   || GET_CODE (insn) == USE
+	   || GET_CODE (insn) == CLOBBER);
   if (GET_CODE (insn) == CODE_LABEL)
     return 1;
 
@@ -2040,43 +2004,73 @@ c4x_rptb_nop_p (insn)
       /* Search back for prev non-note and non-label insn.  */
       while (GET_CODE (insn) == NOTE || GET_CODE (insn) == CODE_LABEL
 	     || GET_CODE (insn) == USE || GET_CODE (insn) == CLOBBER)
-	insn = PREV_INSN (insn);
+	{
+	  if (insn == start_label)
+	    return i == 0;
 
-      /* I we have a jump instruction we should insert a NOP. If we
+	  insn = previous_insn (insn);
+	};
+
+      /* If we have a jump instruction we should insert a NOP. If we
 	 hit repeat block top we should only insert a NOP if the loop
 	 is empty. */
       if (GET_CODE (insn) == JUMP_INSN)
 	return 1;
-      else if (recog_memoized (insn) == CODE_FOR_rptb_top)
-	return i == 0;
-      insn = PREV_INSN (insn);
+      insn = previous_insn (insn);
     }
   return 0;
 }
 
 
-/* This function is a C4x special. It scans through all the insn
-   operands looking for places where the DP register needs to be
-   reloaded and for large immediate operands that need to be converted
-   to memory references.  The latter should be avoidable with proper
-   definition of patterns in machine description.  We come here right
-   near the end of things, immediately before delayed branch
-   scheduling.  */
+void
+c4x_rptb_insert (insn)
+     rtx insn;
+{
+  rtx end_label;
+  rtx start_label;
+  rtx count_reg;
+
+  /* If the count register has not been allocated to RC, say if
+     there is a movstr pattern in the loop, then do not insert a
+     RPTB instruction.  Instead we emit a decrement and branch
+     at the end of the loop.  */
+  count_reg = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 0), 0);
+  if (REGNO (count_reg) != RC_REGNO)
+    return;
+
+  /* Extract the start label from the jump pattern (rptb_end).  */
+  start_label = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 1), 0);
+  
+  /* We'll have to update the basic blocks.  */
+  end_label = gen_label_rtx ();
+  emit_label_after (end_label, insn);
+
+  for (; insn; insn = PREV_INSN (insn))
+    if (insn == start_label)
+      break;
+  if (! insn)
+    fatal_insn ("c4x_rptb_insert: Cannot find start label", start_label);
+
+  /* We'll have to update the basic blocks.  */
+  emit_insn_before (gen_rptb_top (start_label, end_label), insn);
+}
+
+
+/* This function is a C4x special called immediately before delayed
+   branch scheduling.  We fix up RTPB style loops that didn't get RC
+   allocated as the loop counter.  */
 
 void
 c4x_process_after_reload (first)
      rtx first;
 {
-  rtx operand0;
   rtx insn;
-  int i;
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       /* Look for insn.  */
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 	{
-	  int noperands;
 	  int insn_code_number;
 
 	  insn_code_number = recog_memoized (insn);
@@ -2084,14 +2078,17 @@ c4x_process_after_reload (first)
 	  if (insn_code_number < 0)
 	    continue;
 
-	  /* We split all insns here if they have a # for the output
-	     template if we are using the big memory model since there
-	     is a chance that we might be accessing memory across a
-	     page boundary.  */
+	  /* Insert the RTX for RPTB at the top of the loop
+	     and a label at the end of the loop. */
+	  if (insn_code_number == CODE_FOR_rptb_end)
+	    c4x_rptb_insert(insn);
 
-	  if (!TARGET_SMALL)
+	  /* We split all insns here if they have a # for the output
+	     template.  */
+
+	  if (1)
 	    {
-	      char *template;
+	      const char *template;
 
 	      template = insn_template[insn_code_number];
 	      if (template && template[0] == '#' && template[1] == '\0')
@@ -2105,37 +2102,9 @@ c4x_process_after_reload (first)
 		  PUT_CODE (insn, NOTE);
 		  NOTE_SOURCE_FILE (insn) = 0;
 		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-
-		  /* Do we have to update the basic block info here? 
-		     Maybe reorg wants it sorted out... */
-
-		  /* Continue with the first of the new insns gnerated
-                     by the split. */
 		  insn = new;
-
-		  insn_code_number = recog_memoized (insn);
-		  
-		  if (insn_code_number < 0)
-		    continue;
 		}
 	    }
-
-	  /* Ignore jumps and calls.  */
-	  if (GET_CODE (insn) == CALL_INSN
-	      || GET_CODE (insn) == JUMP_INSN)
-	    {
-	      continue;		/* Hopefully we are not hosed here.  */
-	    }
-
-	  noperands = insn_n_operands[insn_code_number];
-
-	  insn_extract (insn);
-
-	  operand0 = recog_operand[0];
-
-	  for (i = 0; i < noperands; i++)
-	    if (c4x_scan_for_ldp (recog_operand_loc[i], insn, operand0))
-	      break;
 	}
     }
 }
@@ -2158,11 +2127,12 @@ c4x_x_register (op)
 
 
 static int
-c4x_int_constant (op)
+c4x_immed_int_constant (op)
      rtx op;
 {
   if (GET_CODE (op) != CONST_INT)
     return 0;
+
   return GET_MODE (op) == VOIDmode
     || GET_MODE_CLASS (op) == MODE_INT
     || GET_MODE_CLASS (op) == MODE_PARTIAL_INT;
@@ -2170,11 +2140,15 @@ c4x_int_constant (op)
 
 
 static int
-c4x_float_constant (op)
+c4x_immed_float_constant (op)
      rtx op;
 {
   if (GET_CODE (op) != CONST_DOUBLE)
     return 0;
+
+  if (GET_CODE (XEXP (op, 0)) == MEM)
+    return 0;
+
   return GET_MODE (op) == QFmode || GET_MODE (op) == HFmode;
 }
 
@@ -2183,7 +2157,7 @@ int
 c4x_H_constant (op)
      rtx op;
 {
-  return c4x_float_constant (op) && c4x_immed_float_p (op);
+  return c4x_immed_float_constant (op) && c4x_immed_float_p (op);
 }
 
 
@@ -2191,7 +2165,7 @@ int
 c4x_I_constant (op)
      rtx op;
 {
-  return c4x_int_constant (op) && IS_INT16_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_INT16_CONST (INTVAL (op));
 }
 
 
@@ -2201,7 +2175,7 @@ c4x_J_constant (op)
 {
   if (TARGET_C3X)
     return 0;
-  return c4x_int_constant (op) && IS_INT8_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_INT8_CONST (INTVAL (op));
 }
 
 
@@ -2211,7 +2185,7 @@ c4x_K_constant (op)
 {
   if (TARGET_C3X)
     return 0;
-  return c4x_int_constant (op) && IS_INT5_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_INT5_CONST (INTVAL (op));
 }
 
 
@@ -2219,7 +2193,7 @@ int
 c4x_L_constant (op)
      rtx op;
 {
-  return c4x_int_constant (op) && IS_UINT16_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_UINT16_CONST (INTVAL (op));
 }
 
 
@@ -2227,7 +2201,7 @@ static int
 c4x_N_constant (op)
      rtx op;
 {
-  return c4x_int_constant (op) && IS_NOT_UINT16_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_NOT_UINT16_CONST (INTVAL (op));
 }
 
 
@@ -2235,7 +2209,7 @@ static int
 c4x_O_constant (op)
      rtx op;
 {
-  return c4x_int_constant (op) && IS_HIGH_CONST (INTVAL (op));
+  return c4x_immed_int_constant (op) && IS_HIGH_CONST (INTVAL (op));
 }
 
 
@@ -2267,7 +2241,7 @@ c4x_Q_constraint (op)
 	rtx op0 = XEXP (op, 0);
 	rtx op1 = XEXP (op, 1);
 
-	if (!REG_P (op0))
+	if (! REG_P (op0))
 	  return 0;
 
 	if (REG_P (op1))
@@ -2283,6 +2257,7 @@ c4x_Q_constraint (op)
 	return IS_DISP8_CONST (INTVAL (op1));
       }
       break;
+
     default:
       break;
     }
@@ -2314,7 +2289,7 @@ c4x_R_constraint (op)
 	rtx op0 = XEXP (op, 0);
 	rtx op1 = XEXP (op, 1);
 
-	if (!REG_P (op0))
+	if (! REG_P (op0))
 	  return 0;
 
 	if (GET_CODE (op1) != CONST_INT)
@@ -2514,7 +2489,7 @@ c4x_S_indirect (op)
 }
 
 
-/* Symbol ref.  */
+/* Direct memory operand.  */
 
 int
 c4x_T_constraint (op)
@@ -2524,27 +2499,37 @@ c4x_T_constraint (op)
     return 0;
   op = XEXP (op, 0);
 
-  if ((GET_CODE (op) == PLUS)
-      && (GET_CODE (XEXP (op, 0)) == REG)
-      && (REGNO (XEXP (op, 0)) == DP_REGNO))
+  if (GET_CODE (op) != LO_SUM)
     {
-      op = XEXP (op, 1);
-    }
-  else if ((GET_CODE (op) == PLUS)
-	   && (GET_CODE (XEXP (op, 0)) == PLUS)
-	   && (GET_CODE (XEXP (XEXP (op, 0), 0)) == USE))
-    {
-      op = XEXP (op, 1);
-    }
-  else if ((GET_CODE (op) == PLUS) && (GET_CODE (XEXP (op, 0)) == USE))
-    {
-      op = XEXP (op, 1);
+      /* Allow call operands.  */
+      return GET_CODE (op) == SYMBOL_REF
+	&& GET_MODE (op) == Pmode
+	&& SYMBOL_REF_FLAG (op);
     }
 
+  /* HImode and HFmode are not offsettable.  */
+  if (GET_MODE (op) == HImode || GET_CODE (op) == HFmode)
+    return 0;
+
+  if ((GET_CODE (XEXP (op, 0)) == REG)
+      && (REGNO (XEXP (op, 0)) == DP_REGNO))
+    return c4x_U_constraint (XEXP (op, 1));
+  
+  return 0;
+}
+
+
+/* Symbolic operand.  */
+
+int
+c4x_U_constraint (op)
+     rtx op;
+{
   /* Don't allow direct addressing to an arbitrary constant.  */
   if (GET_CODE (op) == CONST
       && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
+      && (GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
+	  || GET_CODE (XEXP (XEXP (op, 0), 0)) == LABEL_REF)
       && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
     return 1;
 
@@ -2555,7 +2540,7 @@ c4x_T_constraint (op)
 int
 c4x_autoinc_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) == MEM)
     {
@@ -2578,8 +2563,8 @@ c4x_autoinc_operand (op, mode)
 
 int
 any_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
+     register rtx op ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return 1;
 }
@@ -2618,6 +2603,9 @@ const_operand (op, mode)
     case Pmode:
 #endif
     case QImode:
+      if (GET_CODE (op) == CONSTANT_P_RTX)
+	return 1;
+
       if (GET_CODE (op) != CONST_INT
 	  || (GET_MODE (op) != VOIDmode && GET_MODE (op) != mode)
 	  || GET_MODE_CLASS (mode) != MODE_INT)
@@ -2637,7 +2625,7 @@ const_operand (op, mode)
 int
 stik_const_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return c4x_K_constant (op);
 }
@@ -2646,7 +2634,7 @@ stik_const_operand (op, mode)
 int
 not_const_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return c4x_N_constant (op);
 }
@@ -2660,20 +2648,22 @@ reg_operand (op, mode)
   return register_operand (op, mode);
 }
 
+
 int
 reg_imm_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (REG_P (op) || CONSTANT_P (op))
     return 1;
   return 0;
 }
 
+
 int
 not_modify_reg (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (REG_P (op) || CONSTANT_P (op))
     return 1;
@@ -2690,12 +2680,22 @@ not_modify_reg (op, mode)
 	rtx op0 = XEXP (op, 0);
 	rtx op1 = XEXP (op, 1);
 
-	if (!REG_P (op0))
+	if (! REG_P (op0))
 	  return 0;
 	
 	if (REG_P (op1) || GET_CODE (op1) == CONST_INT)
 	  return 1;
       }
+
+    case LO_SUM:
+      {
+	rtx op0 = XEXP (op, 0);
+	  
+	if (REG_P (op0) && REGNO (op0) == DP_REGNO)
+	  return 1;
+      }
+      break;
+     
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2706,15 +2706,17 @@ not_modify_reg (op, mode)
   return 0;
 }
 
+
 int
 not_rc_reg (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (REG_P (op) && REGNO (op) == RC_REGNO)
     return 0;
   return 1;
 }
+
 
 /* Extended precision register R0-R1.  */
 
@@ -2723,7 +2725,7 @@ r0r1_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
@@ -2738,7 +2740,7 @@ r2r3_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
@@ -2753,7 +2755,7 @@ ext_low_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
@@ -2768,11 +2770,11 @@ ext_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  if (!REG_P (op))
+  if (! REG_P (op))
     return 0;
   return IS_EXT_OR_PSEUDO_REGNO (op);
 }
@@ -2785,7 +2787,7 @@ std_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
@@ -2800,7 +2802,7 @@ addr_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   return c4x_a_register (op);
 }
@@ -2813,7 +2815,7 @@ index_reg_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (!register_operand (op, mode))
+  if (! register_operand (op, mode))
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
@@ -2826,7 +2828,7 @@ index_reg_operand (op, mode)
 int
 dp_reg_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return REG_P (op) && IS_DP_OR_PSEUDO_REGNO (op);
 }
@@ -2837,7 +2839,7 @@ dp_reg_operand (op, mode)
 int
 sp_reg_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return REG_P (op) && IS_SP_OR_PSEUDO_REGNO (op);
 }
@@ -2848,28 +2850,52 @@ sp_reg_operand (op, mode)
 int
 st_reg_operand (op, mode)
      register rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return REG_P (op) && IS_ST_OR_PSEUDO_REGNO (op);
 }
 
 
+/* RC register.  */
+
 int
-call_operand (op, mode)
-     rtx op;
-     enum machine_mode mode;
+rc_reg_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  if (GET_CODE (op) != MEM)
-    return 0;
-  op = XEXP (op, 0);
+  return REG_P (op) && IS_RC_OR_PSEUDO_REGNO (op);
+}
+
+
+int
+call_address_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (REG_P (op) || symbolic_address_operand (op, mode));
+}
+
+
+/* Symbolic operand.  */
+
+int
+symbolic_address_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
   switch (GET_CODE (op))
     {
     case SYMBOL_REF:
-    case REG:
+    case LABEL_REF:
       return 1;
+    case CONST:
+      op = XEXP (op, 0);
+      return ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+	       || GET_CODE (XEXP (op, 0)) == LABEL_REF)
+	      && GET_CODE (XEXP (op, 1)) == CONST_INT);
     default:
+      return 0;
     }
-  return 0;
 }
 
 
@@ -2886,13 +2912,28 @@ src_operand (op, mode)
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
-  /* We could allow certain CONST_INT values for HImode...  */
   if (GET_CODE (op) == CONST_INT)
-    return (mode == QImode || mode == Pmode) && c4x_I_constant (op);
+    return (mode == QImode || mode == Pmode || mode == HImode)
+      && c4x_I_constant (op);
 
   /* We don't like CONST_DOUBLE integers.  */
   if (GET_CODE (op) == CONST_DOUBLE)
     return c4x_H_constant (op);
+
+  /* Disallow symbolic addresses.  */
+  if (GET_CODE (op) == SYMBOL_REF
+      || GET_CODE (op) == LABEL_REF
+      || GET_CODE (op) == CONST)
+    return 0;
+
+  /* Disallow direct memory access symbolic addresses. 
+     These are usually caught by the movqi expander and
+     converted to a LO_SUM.  */
+  if (GET_CODE (op) == MEM
+      && ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+	   || GET_CODE (XEXP (op, 0)) == LABEL_REF
+	   || GET_CODE (XEXP (op, 0)) == CONST)))
+    return 0;
 
   return general_operand (op, mode);
 }
@@ -2922,13 +2963,10 @@ lsrc_operand (op, mode)
   if (mode != QImode && mode != Pmode)
     fatal_insn ("Mode not QImode", op);
 
-  if (REG_P (op))
-    return reg_operand (op, mode);
-
   if (GET_CODE (op) == CONST_INT)
     return c4x_L_constant (op) || c4x_J_constant (op);
 
-  return general_operand (op, mode);
+  return src_operand (op, mode);
 }
 
 
@@ -2945,13 +2983,10 @@ tsrc_operand (op, mode)
   if (mode != QImode && mode != Pmode)
     fatal_insn ("Mode not QImode", op);
 
-  if (REG_P (op))
-    return reg_operand (op, mode);
-
   if (GET_CODE (op) == CONST_INT)
     return c4x_L_constant (op) || c4x_N_constant (op) || c4x_J_constant (op);
 
-  return general_operand (op, mode);
+  return src_operand (op, mode);
 }
 
 
@@ -3113,6 +3148,9 @@ c4x_address_conflict (op0, op1, store0, store1)
   int disp0;
   int disp1;
   
+  if (MEM_VOLATILE_P (op0) && MEM_VOLATILE_P (op1))
+    return 1;
+
   c4x_S_address_parse (op0, &base0, &incdec0, &index0, &disp0);
   c4x_S_address_parse (op1, &base1, &incdec1, &index1, &disp1);
 
@@ -3127,12 +3165,7 @@ c4x_address_conflict (op0, op1, store0, store1)
 	 have an aliased address if both locations are not marked
 	 volatile, it is probably safer to flag a potential conflict
 	 if either location is volatile.  */
-      if (!TARGET_ALIASES)
-	{
-	  if (MEM_VOLATILE_P (op0) && MEM_VOLATILE_P (op1))
-	    return 1;
-	}
-      else
+      if (! flag_argument_noalias)
 	{
 	  if (MEM_VOLATILE_P (op0) || MEM_VOLATILE_P (op1))
 	    return 1;
@@ -3151,17 +3184,12 @@ c4x_address_conflict (op0, op1, store0, store1)
   /* It might be too confusing for GCC if we have use a base register
      with a side effect and a memory reference using the same register
      in parallel.  */
-  if (!TARGET_DEVEL && base0 == base1 && (incdec0 || incdec1))
+  if (! TARGET_DEVEL && base0 == base1 && (incdec0 || incdec1))
     return 1;
 
-  /* It is not worthwhile having parallel loads from the same address
-     unless we could be sure that both locations were in internal
-     memory.  We allow this for peepholes (after reload has completed
-     since we are going to be executing two insns to the same address
-     anyhow) but steer the combiner away from doing this since it seems
-     to get the wrong idea.  */
-  if (!store0 && !store1 && base0 == base1 && disp0 == disp1
-      && !reload_completed)
+  /* We can not optimize the case where op1 and op2 refer to the same
+     address. */
+  if (base0 == base1 && disp0 == disp1 && index0 == index1)
     return 1;
 
   /* No conflict.  */
@@ -3195,9 +3223,9 @@ c4x_label_conflict (insn, jump, db)
 /* Validate combination of operands for parallel load/store instructions.  */
 
 int
-valid_parallel_operands_4 (operands, mode)
+valid_parallel_load_store (operands, mode)
      rtx *operands;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
@@ -3217,68 +3245,74 @@ valid_parallel_operands_4 (operands, mode)
      par_ind_operand() operands.  Thus of the 4 operands, only 2
      should be REGs and the other 2 should be MEMs.  */
 
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op2 or op3, since
+     this combination will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && ((GET_CODE (op2) == MEM && reg_mentioned_p (op0, XEXP (op2, 0)))
+	  || (GET_CODE (op3) == MEM && reg_mentioned_p (op0, XEXP (op3, 0)))))
+    return 0;
+
   /* LDI||LDI  */
   if (GET_CODE (op0) == REG && GET_CODE (op2) == REG)
     return (REGNO (op0) != REGNO (op2))
       && GET_CODE (op1) == MEM && GET_CODE (op3) == MEM
-      && !c4x_address_conflict (op1, op3, 0, 0);
+      && ! c4x_address_conflict (op1, op3, 0, 0);
 
   /* STI||STI  */
   if (GET_CODE (op1) == REG && GET_CODE (op3) == REG)
     return GET_CODE (op0) == MEM && GET_CODE (op2) == MEM
-      && !c4x_address_conflict (op0, op2, 1, 1);
+      && ! c4x_address_conflict (op0, op2, 1, 1);
 
   /* LDI||STI  */
   if (GET_CODE (op0) == REG && GET_CODE (op3) == REG)
     return GET_CODE (op1) == MEM && GET_CODE (op2) == MEM
-      && !c4x_address_conflict (op1, op2, 0, 1);
+      && ! c4x_address_conflict (op1, op2, 0, 1);
 
   /* STI||LDI  */
   if (GET_CODE (op1) == REG && GET_CODE (op2) == REG)
     return GET_CODE (op0) == MEM && GET_CODE (op3) == MEM
-      && !c4x_address_conflict (op0, op3, 1, 0);
+      && ! c4x_address_conflict (op0, op3, 1, 0);
 
   return 0;
 }
 
-/* We only use this to check operands 1 and 2 since these may be
-   commutative.  It will need extending for the C32 opcodes.  */
+
 int
-valid_parallel_operands_5 (operands, mode)
+valid_parallel_operands_4 (operands, mode)
      rtx *operands;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  int regs = 0;
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
+  rtx op0 = operands[0];
+  rtx op2 = operands[2];
 
   if (GET_CODE (op0) == SUBREG)
     op0 = SUBREG_REG (op0);
-  if (GET_CODE (op1) == SUBREG)
-    op1 = SUBREG_REG (op1);
+  if (GET_CODE (op2) == SUBREG)
+    op2 = SUBREG_REG (op2);
 
-  /* The patterns should only allow ext_low_reg_operand() or
-     par_ind_operand() operands. */
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op2, since this combination
+     will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && GET_CODE (op2) == MEM
+      && reg_mentioned_p (op0, XEXP (op2, 0)))
+    return 0;
 
-  if (GET_CODE (op0) == REG)
-    regs++;
-  if (GET_CODE (op1) == REG)
-    regs++;
-
-  return regs == 1;
+  return 1;
 }
 
 
 int
-valid_parallel_operands_6 (operands, mode)
+valid_parallel_operands_5 (operands, mode)
      rtx *operands;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   int regs = 0;
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
-  rtx op2 = operands[4];
-  rtx op3 = operands[5];
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx op3 = operands[3];
 
   if (GET_CODE (op0) == SUBREG)
     op0 = SUBREG_REG (op0);
@@ -3286,36 +3320,78 @@ valid_parallel_operands_6 (operands, mode)
     op1 = SUBREG_REG (op1);
   if (GET_CODE (op2) == SUBREG)
     op2 = SUBREG_REG (op2);
-  if (GET_CODE (op3) == SUBREG)
-    op3 = SUBREG_REG (op3);
+
+  /* The patterns should only allow ext_low_reg_operand() or
+     par_ind_operand() operands.  Operands 1 and 2 may be commutative
+     but only one of them can be a register.  */
+  if (GET_CODE (op1) == REG)
+    regs++;
+  if (GET_CODE (op2) == REG)
+    regs++;
+
+  if (regs != 1)
+    return 0;
+
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op3, since this combination
+     will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && GET_CODE (op3) == MEM
+      && reg_mentioned_p (op0, XEXP (op3, 0)))
+    return 0;
+
+  return 1;
+}
+
+
+int
+valid_parallel_operands_6 (operands, mode)
+     rtx *operands;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  int regs = 0;
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx op4 = operands[4];
+  rtx op5 = operands[5];
+
+  if (GET_CODE (op1) == SUBREG)
+    op1 = SUBREG_REG (op1);
+  if (GET_CODE (op2) == SUBREG)
+    op2 = SUBREG_REG (op2);
+  if (GET_CODE (op4) == SUBREG)
+    op4 = SUBREG_REG (op4);
+  if (GET_CODE (op5) == SUBREG)
+    op5 = SUBREG_REG (op5);
 
   /* The patterns should only allow ext_low_reg_operand() or
      par_ind_operand() operands.  Thus of the 4 input operands, only 2
      should be REGs and the other 2 should be MEMs.  */
 
-  if (GET_CODE (op0) == REG)
-    regs++;
   if (GET_CODE (op1) == REG)
     regs++;
   if (GET_CODE (op2) == REG)
     regs++;
-  if (GET_CODE (op3) == REG)
+  if (GET_CODE (op4) == REG)
+    regs++;
+  if (GET_CODE (op5) == REG)
     regs++;
 
   /* The new C30/C40 silicon dies allow 3 regs of the 4 input operands. 
      Perhaps we should count the MEMs as well?  */
-  return regs == 2;
-}
+  if (regs != 2)
+    return 0;
 
+  /* This test prevents the multipack pass from using this pattern if
+     op0 is used as an index or base register in op4 or op5, since
+     this combination will require reloading.  */
+  if (GET_CODE (op0) == REG
+      && ((GET_CODE (op4) == MEM && reg_mentioned_p (op0, XEXP (op4, 0)))
+	  || (GET_CODE (op5) == MEM && reg_mentioned_p (op0, XEXP (op5, 0)))))
+    return 0;
 
-int
-legitimize_parallel_operands_6 (operands, mode)
-     rtx *operands;
-     enum machine_mode mode;
-{
-  /* It's gonna be hard to legitimize operands for a parallel
-     instruction... TODO...  */
-  return valid_parallel_operands_6 (operands, mode);
+  return 1;
 }
 
 
@@ -3378,7 +3454,7 @@ c4x_valid_operands (code, operands, mode, force)
 	  break;
 	  
 	case CONST_DOUBLE:
-	  if (!c4x_H_constant (op2))
+	  if (! c4x_H_constant (op2))
 	    return 0;
 	  break;
 
@@ -3392,13 +3468,13 @@ c4x_valid_operands (code, operands, mode, force)
 	  break;
 	  
 	default:
-	  fatal ("c4x_valid_operands: Internal error");
+	  fatal_insn ("c4x_valid_operands: Internal error", op2);
 	  break;
 	}
       
       /* Check that we have a valid destination register for a two operand
 	 instruction.  */
-      return !force || code == COMPARE || REGNO (op1) == REGNO (operands[0]);
+      return ! force || code == COMPARE || REGNO (op1) == REGNO (operands[0]);
     }
 
   /* We assume MINUS is commutative since the subtract patterns
@@ -3418,7 +3494,7 @@ c4x_valid_operands (code, operands, mode, force)
       break;
       
     case CONST_DOUBLE:
-      if (!c4x_H_constant (op1))
+      if (! c4x_H_constant (op1))
 	return 0;
       break;
 
@@ -3438,7 +3514,7 @@ c4x_valid_operands (code, operands, mode, force)
       
   /* Check that we have a valid destination register for a two operand
      instruction.  */
-  return !force || REGNO (op1) == REGNO (operands[0]);
+  return ! force || REGNO (op1) == REGNO (operands[0]);
 }
 
 
@@ -3456,7 +3532,7 @@ int valid_operands (code, operands, mode)
      operands for an insn when not optimizing.  The problem only rarely
      occurs, for example with the C-torture program DFcmp.c  */
 
-  return !optimize || c4x_valid_operands (code, operands, mode, 0);
+  return ! optimize || c4x_valid_operands (code, operands, mode, 0);
 }
 
 
@@ -3483,17 +3559,17 @@ legitimize_operands (code, operands, mode)
 	 the cost mechanism doesn't allow us to look at the other
 	 operand to decide whether the constant is expensive.  */
       
-      if (!reload_in_progress
+      if (! reload_in_progress
 	  && TARGET_HOIST
 	  && optimize > 0
 	  && ((GET_CODE (operands[1]) == CONST_INT 
-	       && !c4x_J_constant (operands[1])
+	       && ! c4x_J_constant (operands[1])
 	       && INTVAL (operands[1]) != 0)
 	      || GET_CODE (operands[1]) == CONST_DOUBLE))
 	operands[1] = force_reg (mode, operands[1]);
       
-      if (!reload_in_progress
-          && !c4x_valid_operands (code, operands, mode, 0))
+      if (! reload_in_progress
+          && ! c4x_valid_operands (code, operands, mode, 0))
 	operands[0] = force_reg (mode, operands[0]);
       return 1;
     }
@@ -3501,11 +3577,11 @@ legitimize_operands (code, operands, mode)
   /* We cannot do this for ADDI/SUBI insns since we will
      defeat the flow pass from finding autoincrement addressing
      opportunities.  */
-  if (!reload_in_progress
-      && !((code == PLUS || code == MINUS) && mode == Pmode)
+  if (! reload_in_progress
+      && ! ((code == PLUS || code == MINUS) && mode == Pmode)
       && (TARGET_HOIST && optimize > 1
        && ((GET_CODE (operands[2]) == CONST_INT 
-	    && !c4x_J_constant (operands[2])
+	    && ! c4x_J_constant (operands[2])
 	    && INTVAL (operands[2]) != 0)
 	   || GET_CODE (operands[2]) == CONST_DOUBLE)))
     operands[2] = force_reg (mode, operands[2]);
@@ -3520,8 +3596,8 @@ legitimize_operands (code, operands, mode)
      Note that expand_binops will not try to load an expensive constant
      into a register if it is used within a loop for a shift insn.  */
   
-  if (!reload_in_progress
-      && !c4x_valid_operands (code, operands, mode, TARGET_FORCE))
+  if (! reload_in_progress
+      && ! c4x_valid_operands (code, operands, mode, TARGET_FORCE))
     {
       /* If the operand combination is invalid, we force operand1 into a
          register, preventing reload from having doing to do this at a
@@ -3535,7 +3611,7 @@ legitimize_operands (code, operands, mode)
       else
 	{
 	  /* Just in case...  */
-	  if (!c4x_valid_operands (code, operands, mode, 0))
+	  if (! c4x_valid_operands (code, operands, mode, 0))
 	    operands[2] = force_reg (mode, operands[2]);
 	}
     }
@@ -3544,7 +3620,7 @@ legitimize_operands (code, operands, mode)
      a positive count, so we emit a NEG.  */
   if ((code == ASHIFTRT || code == LSHIFTRT)
       && (GET_CODE (operands[2]) != CONST_INT))
-    operands[2] = gen_rtx (NEG, mode, negate_rtx (mode, operands[2]));
+    operands[2] = gen_rtx_NEG (mode, negate_rtx (mode, operands[2]));
   
   return 1;
 }
@@ -3873,16 +3949,19 @@ c4x_operand_subword (op, i, validate_address, mode)
     {
       enum rtx_code code = GET_CODE (XEXP (op, 0));
       enum machine_mode mode = GET_MODE (XEXP (op, 0));
+      enum machine_mode submode;
+
+      submode = mode;
+      if (mode == HImode)
+	submode = QImode;
+      else if (mode == HFmode)
+	submode = QFmode;
 
       switch (code)
 	{
 	case POST_INC:
 	case PRE_INC:
-	  if (mode == HImode)
-	    mode = QImode;
-	  else if (mode == HFmode)
-	    mode = QFmode;
-	  return gen_rtx (MEM, mode, XEXP (op, 0));
+	  return gen_rtx_MEM (submode, XEXP (op, 0));
 	  
 	case POST_DEC:
 	case PRE_DEC:
@@ -3892,6 +3971,23 @@ c4x_operand_subword (op, i, validate_address, mode)
 	     e.g., *p-- => *(p-=2); *(p+1).  */
 	  fatal_insn ("c4x_operand_subword: invalid autoincrement", op);
 
+	case SYMBOL_REF:
+	case LABEL_REF:
+	case CONST:
+	case CONST_INT:
+	  fatal_insn ("c4x_operand_subword: invalid address", op);
+
+	  /* Even though offsettable_address_p considers (MEM
+	     (LO_SUM)) to be offsettable, it is not safe if the
+	     address is at the end of the data page since we also have
+	     to fix up the associated high PART.  In this case where
+	     we are trying to split a HImode or HFmode memory
+	     reference, we would have to emit another insn to reload a
+	     new HIGH value.  It's easier to disable LO_SUM memory references
+	     in HImode or HFmode and we probably get better code.  */
+	case LO_SUM:
+	  fatal_insn ("c4x_operand_subword: address not offsettable", op);
+  
 	default:
 	  break;
 	}
@@ -3921,7 +4017,7 @@ c4x_operand_subword (op, i, validate_address, mode)
 int
 c4x_handle_pragma (p_getc, p_ungetc, pname)
      int (*  p_getc) PROTO ((void));
-     void (* p_ungetc) PROTO ((int));
+     void (* p_ungetc) PROTO ((int)) ATTRIBUTE_UNUSED;
      char *pname;
 {
   int i;
@@ -3939,7 +4035,7 @@ c4x_handle_pragma (p_getc, p_ungetc, pname)
 
   c = p_getc ();
   while (c == ' ' || c == '\t') c = p_getc ();
-  if (!(isalpha(c) || c == '_' || c == '$' || c == '@'))
+  if (! (isalpha(c) || c == '_' || c == '$' || c == '@'))
     return 0;
 
   i = 0;
@@ -3987,7 +4083,6 @@ c4x_handle_pragma (p_getc, p_ungetc, pname)
         }
       name[i] = 0;
       sect = build_string (i, name);
-      TREE_TYPE (sect) = char_array_type_node;
       free (name);
       sect = build_tree_list (NULL_TREE, sect);
       
@@ -4043,8 +4138,8 @@ c4x_check_attribute(attrib, list, decl, attributes)
      tree list, decl, *attributes;
 {
   while (list != NULL_TREE
-         && IDENTIFIER_POINTER (TREE_PURPOSE (list)) !=
-	 IDENTIFIER_POINTER (DECL_NAME (decl)))
+         && IDENTIFIER_POINTER (TREE_PURPOSE (list))
+	 != IDENTIFIER_POINTER (DECL_NAME (decl)))
     list = TREE_CHAIN(list);
   if (list)
     *attributes = chainon (*attributes,
@@ -4083,9 +4178,9 @@ c4x_set_default_attributes(decl, attributes)
 int
 c4x_valid_type_attribute_p (type, attributes, identifier, args)
      tree type;
-     tree attributes;
+     tree attributes ATTRIBUTE_UNUSED;
      tree identifier;
-     tree args;
+     tree args ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (type) != FUNCTION_TYPE)
     return 0;
@@ -4103,1266 +4198,7 @@ c4x_valid_type_attribute_p (type, attributes, identifier, args)
 }
 
 
-/* This is a modified version of modified_between_p that doesn't give
-   up if a changing MEM is found.  It checks all insns between START
-   and END to see if any registers mentioned in X are set. */
-static int
-c4x_modified_between_p (x, start, end)
-     rtx x;
-     rtx start, end;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  switch (code)
-    {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST:
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return 0;
-
-    case PC:
-    case CC0:
-      return 1;
-
-    case MEM:
-      break;
-
-    case REG:
-      return reg_set_between_p (x, start, end);
-      
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_modified_between_p (XEXP (x, i), start, end))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_modified_between_p (XVECEXP (x, i, j), start, end))
-	    return 1;
-    }
-
-  return 0;
-}
-
-/* Return 1 if rtx X references memory that is changing.  */
-static int
-c4x_mem_ref_p (x)
-     rtx x;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  if (code == MEM && !RTX_UNCHANGING_P (x))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_mem_ref_p (XEXP (x, i)))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_mem_ref_p (XVECEXP (x, i, j)))
-	    return 1;
-    }
-
-  return 0;
-}
-
-/* Return 1 if rtx X sets or clobbers memory.  */
-static int
-c4x_mem_set_p (x)
-     rtx x;
-{
-  enum rtx_code code = GET_CODE (x);
-  char *fmt;
-  int i, j;
-
-  if ((code == SET || code == CLOBBER)
-      && (GET_CODE (SET_DEST (x)) == MEM))
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e' && c4x_mem_set_p (XEXP (x, i)))
-	return 1;
-
-      if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if (c4x_mem_set_p (XVECEXP (x, i, j)))
-	    return 1;
-    }
-
-  return 0;
-}
-
-
-/* Return 1 if any insns between START and END (exclusive) sets
-   or clobbers memory.  */
-static int
-c4x_mem_modified_between_p (start, end)
-     rtx start, end;
-{
-  rtx insn;
-
-  if (start == end)
-    return 0;
-
-  for (insn = NEXT_INSN (start); insn != end; insn = NEXT_INSN (insn))
-    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
-	&& c4x_mem_set_p (PATTERN (insn)))
-      return 1;
-  return 0;
-}
-
-
-/* Returns 1 if INSN can be moved past all the insns between START and
-   END exclusive.  If TARGET_ALIASES is not set and a memory store is
-   detected, then 0 is returned.  */
-static int
-c4x_insn_moveable_p (insn, start, end)
-     rtx insn;
-     rtx start, end;
-{
-  if (start == end)
-    return 1;
-
-  /* We can't use modified_between_p since this will
-     return 1 if set1 contains a MEM.  */
-  if (c4x_modified_between_p (insn, start, end))
-    return 0;
-
-  return 1;
-}
-
-
-/* See if the insns INSN1 and INSN2 can be packed into a PARALLEL.
-   Return 0 if the insns cannot be packed or the rtx of the packed
-   insn (with clobbers added as necessary).  If DEPEND is non zero,
-   then the destination register of INSN1 must be used by INSN2.  */
-static rtx
-c4x_parallel_pack (insn1, insn2, depend)
-     rtx insn1;
-     rtx insn2;
-     int depend;
-{
-  rtx set1;
-  rtx set2;
-  rtx pack;
-  enum machine_mode mode1;
-  enum machine_mode mode2;
-  int num_clobbers;
-  int insn_code_number;
-
-  /* We could generalise things to not just rely on single sets.  */
-  if (!(set1 = single_set (insn1))
-      || !(set2 = single_set (insn2)))
-    return 0;
-
-  mode1 = GET_MODE (SET_DEST (set1));
-  mode2 = GET_MODE (SET_DEST (set2));
-  if (mode1 != mode2)
-    return 0;
-
-  if (depend)
-    {
-      rtx dst1;
-
-      /* Require insn2 to be dependent upon the result of insn1.  */
-      dst1 = SET_DEST (set1);
-      
-      if (!REG_P (dst1))
-	return 0;
-
-      if (!reg_mentioned_p (dst1, set2))
-	return 0;
-
-      /* The dependent register must die in insn2 since a parallel
-	 insn will generate a new value.  */
-      if (!find_regno_note (insn2, REG_DEAD, REGNO (dst1)))
-	return 0;
-    }
-
-  pack = gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2, set1, set2));
-  num_clobbers = 0;
-  if ((insn_code_number = recog (pack, pack, &num_clobbers)) < 0)
-    return 0;
-
-  if (num_clobbers != 0)
-    {
-      rtx newpack;
-      int i;
-
-      newpack = gen_rtx (PARALLEL, VOIDmode,
-			 gen_rtvec (GET_CODE (pack) == PARALLEL
-				    ? XVECLEN (pack, 0) + num_clobbers
-				    : num_clobbers + 1));
-
-      if (GET_CODE (pack) == PARALLEL)
-	for (i = 0; i < XVECLEN (pack, 0); i++)
-	  XVECEXP (newpack, 0, i) = XVECEXP (pack, 0, i);
-      else
-	XVECEXP (newpack, 0, 0) = pack;
-
-      add_clobbers (newpack, insn_code_number);
-      pack = newpack;
-    }
-
-  return pack;
-}
-
-
-static rtx
-c4x_parallel_find (insn1, loop_end, depend, insn2)
-     rtx insn1;
-     rtx loop_end;
-     int depend;
-     rtx *insn2;
-{
-  rtx insn;
-  rtx pack;
-
-  /* We could use the logical links if depend is non zero?  */
-
-  for (insn = NEXT_INSN (insn1); insn != loop_end; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	default:
-	case JUMP_INSN:
-	case CALL_INSN:
-	case NOTE:
-	  break;
-
-	case INSN:
-	  if (!(pack = c4x_parallel_pack (insn1, insn, depend)))
-	    break;
-
-	  /* What if insn1 or insn2 sets cc and is required by another
-	     insn?  */
-
-#if 0
-	  /* Check that nothing between insn1 and insn will spoil the
-	     show.  */
-	  if (NEXT_INSN (insn1) != insn 
-	      && c4x_modified_between_p (insn, NEXT_INSN (insn1), insn))
-	    return 0;
-#else
-	  /* This will do in the interim.  If the insns between
-	     insn1 and insn are harmless, we can move things around
-	     if we're careful.  */
-	  if (next_nonnote_insn (insn1) != insn)
-	    return 0;
-#endif
-	  
-	  /* Do some checks here... */
-	  *insn2 = insn;
-	  return pack;
-	}
-    }
-  return 0;
-}
-
-
-/* Update the register info for reg REG found in the basic block BB,
-   where SET is 1 if the register is being set.  */
-static void
-c4x_update_info_reg (reg, set, bb)
-     rtx reg;
-     int set;
-     int bb;
-{
-  int regno;
-
-  if (!REG_P (reg))
-    fatal_insn ("Expecting register rtx", reg);
-
-  regno = REGNO (reg);
-
-  /* REGNO_FIRST_UID and REGNO_LAST_UID don't need setting.  */
-
-  SET_REGNO_REG_SET (basic_block_live_at_start[bb], regno);
-  REG_BASIC_BLOCK (regno) = REG_BLOCK_GLOBAL;
-  if (set)
-    REG_N_SETS (regno)++;  
-  else
-    REG_N_REFS (regno)++;  
-}
-
-
-/* Update the register info for all the regs in X found in the basic
-   block BB.  */
-static void
-c4x_update_info_regs(x, bb)
-     rtx x;
-     int bb;
-{
-  enum rtx_code code;
-  char *fmt;
-  int i, j;
-
-  if (!x)
-    return;
-
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case CLOBBER:
-#if 0
-      if (REG_P (SET_DEST (x)))
-	return;
-      break;
-#endif
-
-    case SET:
-      if (REG_P (SET_DEST (x)))
-	c4x_update_info_reg (SET_DEST (x), 1, bb);
-      else
-	c4x_update_info_regs (SET_DEST (x), bb);
-
-      if (code == SET)
-	c4x_update_info_regs (SET_SRC (x), bb);
-      return;
-
-    case REG:
-      c4x_update_info_reg (x, 0, bb);
-      return;
-
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	c4x_update_info_regs (XEXP (x, i), bb);
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  c4x_update_info_regs (XVECEXP (x, i, j), bb);
-    }
-}
-
-
-static void
-c4x_copy_insn_after(insn, prev, bb)
-     rtx insn;
-     rtx prev;
-     int bb;
-{
-  rtx note;
-  rtx new;
-
-  emit_insn_after (copy_rtx (PATTERN (insn)), prev);
-
-  new = NEXT_INSN (prev);
-
-  /* Copy the REG_NOTES from insn to the new insn.  */
-  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-    REG_NOTES (new) = gen_rtx (GET_CODE (note), 
-				 REG_NOTE_KIND (note),
-				 XEXP (note, 0),
-				 REG_NOTES (new));
-
-  /* Handle all the registers within insn and update the reg info.  */
-  c4x_update_info_regs (PATTERN (insn), bb);
-}
-
-
-static void
-c4x_copy_insns_after(start, end, pprev, bb)
-     rtx start;
-     rtx end;
-     rtx *pprev;
-     int bb;
-{
-  rtx insn;
-
-  for (insn = start; insn != NEXT_INSN (end); insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case CALL_INSN:
-	  /* We could allow a libcall with no side effects??? */
-	  fatal_insn("Repeat block loop contains a call", insn);
-	  break;
-	  
-	case INSN:
-	  c4x_copy_insn_after(insn, *pprev, bb - 1);
-	  *pprev = NEXT_INSN (*pprev);
-	  break;
-
-	default:
-	  break;
-	}
-    }
-}
-
-
-/* Merge the notes of insn2 with the notes of insn.  */
-static void
-c4x_merge_notes(insn, insn2)
-     rtx insn;
-     rtx insn2;
-{
-  rtx note;
-	   
-  for (note = REG_NOTES (insn2); note; note = XEXP (note, 1))
-    {
-      rtx link;
-      
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	if (REG_NOTE_KIND (note) == REG_NOTE_KIND (link)
-	    && XEXP (note, 0) == XEXP (link, 0))
-	  remove_note (insn, note);
-    }
-  for (note = REG_NOTES (insn2); note; note = XEXP (note, 1))
-    REG_NOTES (insn) = gen_rtx (GET_CODE (note), 
-				REG_NOTE_KIND (note),
-				XEXP (note, 0),
-				REG_NOTES (insn));
-}
-
-
-/* This pass must update information that subsequent passes expect to be
-   correct.  Namely: reg_n_refs, reg_n_sets, reg_n_deaths,
-   reg_n_calls_crossed, and reg_live_length.  Also, basic_block_head,
-   basic_block_end.   */
-
-static int
-c4x_parallel_process (loop_start, loop_end)
-     rtx loop_start;
-     rtx loop_end;
-{
-  rtx insn;
-  rtx insn2;
-  rtx pack;
-  rtx hoist;
-  rtx sink;
-  rtx loop_count;
-  rtx loop_count_set;
-  rtx end_label;
-  int num_packs;
-  int bb;
-
-  /* The loop must have a calculable number of iterations
-     since we need to reduce the loop count by one.  
-
-     For now, only process repeat block loops, since we can tell that
-     these have a calculable number of iterations. 
-
-     The loop count must be at least 2?  */
-
-  loop_count = NEXT_INSN (loop_start);
-
-  /* Skip past CLOBBER and USE and deleted insn. This is from flow. */
-  for (;;)
-    {
-      if (GET_CODE (loop_count) == INSN)
-	{
-          rtx x = PATTERN (loop_count);
-          if (GET_CODE (x) != USE && GET_CODE (x) != CLOBBER)
-	    break;
-	}
-      else if (GET_CODE (loop_count) == NOTE)
-	{
-	  if (! INSN_DELETED_P (loop_count))
-	    break;
-	}
-      else
-	break;
-      loop_count = NEXT_INSN (loop_count);
-    }
-  
-  if (!(loop_count_set = single_set (loop_count)))
-    return 0;
-  
-  if (!REG_P (SET_DEST (loop_count_set)) 
-      || REGNO (SET_DEST (loop_count_set)) != RC_REGNO)
-    return 0;
-
-  /* Determine places to hoist and sink insns out of the loop.  We
-     won't have to update basic_block_head if we move things after
-     loop_count. */
-  
-  hoist = loop_count;
-  end_label = PREV_INSN (loop_end);
-
-  /* Skip past filler insn if present.  */
-  if (GET_CODE (end_label) != CODE_LABEL)
-    end_label = PREV_INSN (end_label);
-
-  /* Skip past CLOBBER, USE, and deleted insns inserted by the flow pass. */
-  for (;;)
-    {
-      if (GET_CODE (end_label) == INSN)
-	{
-          rtx x = PATTERN (end_label);
-          if (GET_CODE (x) != USE && GET_CODE (x) != CLOBBER)
-	    break;
-	}
-      else if (GET_CODE (end_label) == NOTE)
-	{
-	  if (! INSN_DELETED_P (end_label))
-	    break;
-	}
-      else
-	break;
-      end_label = PREV_INSN (end_label);
-    }
-
-  if (GET_CODE (end_label) != CODE_LABEL)
-    return 0;
-
-  sink = end_label;
-
-  /* There must be an easier way to work out which basic block we are
-     in.  */
-  for (bb = 0; bb < n_basic_blocks; bb++)
-    if (basic_block_head[bb] == sink)
-      break;
-
-  if (bb >= n_basic_blocks)
-    fatal_insn("Cannot find basic block for insn", sink);
-
-  /* Skip to label at top of loop.  */
-  for (; GET_CODE (loop_start) != CODE_LABEL;
-       loop_start = NEXT_INSN(loop_start));
-  
-  num_packs = 0;
-  for (insn = loop_start; insn != loop_end; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	default:
-	case JUMP_INSN:
-	case CALL_INSN:
-	case NOTE:
-	  break;
-
-	case INSN:
-
-	  /* Look for potential insns to combine where the second one
-	     is dependent upon the first.  We could have another pass
-	     that tries combining independent insns but that is not so
-	     important.  We could do this afterwards as a more generic
-	     peepholer.  */
-	     
-	  if ((pack = c4x_parallel_find(insn, loop_end, 1, &insn2)))
-	    {
-	      rtx set1;
-	      rtx set2;
-	      rtx note;
-	      rtx seq_start;
-
-	      set1 = single_set (insn);
-	      set2 = single_set (insn2);
-
-	      /* We need to hoist a copy of insn1 out of the loop and
-		 to sink a copy insn2 out of the loop.  We can avoid
-		 the latter if the destination of insn2 is used
-		 by a following insn within the loop.
-		 
-		 We cannot hoist insn1 out of the loop if any of the
-		 preceeding insns within the loop modifies the destination
-		 of insn1 or modifies any of the operands of insn1.  */
-
-	      /* If the user has flagged that there are potential aliases,
-		 then we can't move the insn if it references memory
-		 past any insns that modify memory.  */
-	      if (TARGET_ALIASES 
-		  && c4x_mem_ref_p (PATTERN (insn))
-		  && c4x_mem_modified_between_p (loop_start, loop_end))
-		break;
-
-	      /* None of the registers used in insn can be modified by
-		 any of the insns from the start of the loop until insn.  */
-	      if (!c4x_insn_moveable_p (set1, loop_start, insn))
-		break;
-
-	      /* None of the registers used in insn can be modified by
-		 any of the insns after insn2 until the end of the
-		 loop, especially the result which needs to be saved
-		 for the next iteration. */
-	      if (!c4x_insn_moveable_p (set1, insn2, loop_end))
-		break;
-
-	      /* We need to hoist all the insns from the loop top
-		 to and including insn.  */
-	      c4x_copy_insns_after(NEXT_INSN (loop_start), insn, &hoist, bb);
-
-	      /* We need to sink all the insns after insn to 
-		 loop_end.  */
-	      c4x_copy_insns_after (NEXT_INSN (insn), PREV_INSN(end_label),
-				    &sink, bb + 1);
-
-	      /* Change insn to the new parallel insn, retaining the notes
-		 of the old insn.  */
-	      if (!validate_change (insn, &PATTERN (insn), pack, 0))
-		fatal_insn("Cannot replace insn with parallel insn", pack);
-
-	      /* Copy the REG_NOTES from insn2 to the new insn
-		 avoiding duplicates.  */
-	      c4x_merge_notes (insn, insn2);
-
-	      delete_insn (insn2);
-	      
-	      /* The destination register of insn1 no longer dies in
-	      this composite insn.  Don't use remove_death since that
-	      alters REG_N_DEATHS.  The REG_DEAD note has just been
-	      moved.  */
-	      note = find_regno_note (insn, REG_DEAD, REGNO (SET_DEST (set1)));
-	      if (note)
-		remove_note (insn, note);
-
-	      /* Do we have to modify the LOG_LINKS?  */
-
-	      /* We need to decrement the loop count.  We probably
-		 should test if RC is negative and branch to end label
-		 if so.  */
-	      if (GET_CODE (SET_SRC (loop_count_set)) == CONST_INT)
-		{
-		  /* The loop count must be more than 1 surely?  */
-		  SET_SRC (loop_count_set) 
-		    = gen_rtx (CONST_INT, VOIDmode,
-			       INTVAL (SET_SRC (loop_count_set)) -1);
-		}
-	      else if (GET_CODE (SET_SRC (loop_count_set)) == PLUS
-		       && GET_CODE (XEXP (SET_SRC (loop_count_set), 1))
-		       == CONST_INT)
-		{
-		  XEXP (SET_SRC (loop_count_set), 1)
-		    = gen_rtx (CONST_INT, VOIDmode,
-			       INTVAL (XEXP (SET_SRC (loop_count_set), 1))
-			       - 1);
-		}
-	      else
-		{
-		  start_sequence ();
-		  expand_binop (QImode, sub_optab,
-				gen_rtx (REG, QImode, RC_REGNO),
-				gen_rtx (CONST_INT, VOIDmode, 1),
-				gen_rtx (REG, QImode, RC_REGNO),
-				1, OPTAB_DIRECT);
-		  seq_start = get_insns ();
-		  end_sequence ();
-		  emit_insns_after (seq_start, loop_count);
-
-		  /* Check this.  What if we emit more than one insn?
-		     Can we emit more than one insn? */
-		  REG_NOTES (seq_start)
-		    = gen_rtx (EXPR_LIST, REG_UNUSED,
-			       gen_rtx (REG, QImode, RC_REGNO),
-			       REG_NOTES (seq_start));
-		}
-
-	      start_sequence ();
-	      emit_cmp_insn (gen_rtx (REG, QImode, RC_REGNO),
-			     const0_rtx, LT, NULL_RTX, QImode, 0, 0);
-	      emit_jump_insn (gen_blt (end_label));
-	      seq_start = get_insns ();
-	      end_sequence ();
-	      emit_insns_after (seq_start, hoist);
-	      
-	      /* This is a bit of a hack... */
-	      REG_NOTES (NEXT_INSN (seq_start))
-		= gen_rtx (EXPR_LIST, REG_DEAD,
-			   gen_rtx (REG, QImode, RC_REGNO),
-			   REG_NOTES (NEXT_INSN (seq_start)));
-
-	      if (TARGET_DEVEL)
-		debug_rtx(insn);
-
-	      num_packs ++;
-	      
-#if 1
-	      /* If we want to pack more than one parallel insn
-		 we will have to tag which insns have been
-		 hoisted/sunk/paired.  We might need a recursive approach. */
-	      
-	      return num_packs;
-#endif
-	    }
-	  break;
-	}
-    }
-  return num_packs;
-}
-
-
-static void
-c4x_combine_parallel_independent (insns)
-     rtx insns;
-{
-  /* Combine independent insns like
-     (set (mem (reg 0)) (reg 1))
-     (set (reg 2) (mem (reg 3)))
-     where (reg 1) != (reg 2) unless there is a REG_DEAD note
-     on the first insn. */
-
-}
-
-static void
-c4x_combine_parallel_dependent (insns)
-     rtx insns;
-{
-  rtx insn;
-  rtx loop_start;
-  rtx loop_end;
-  int num_jumps;
-  int num_insns;
-
-   /* Find the innermost loop and check that it is unjumped.  */
-  loop_start = NULL_RTX;
-  num_jumps = 0;
-  for (insn = insns; insn; insn = NEXT_INSN(insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case INSN:
-	  num_insns++;
-	  break;
-
-	case CALL_INSN:
-	  /* We could allow a libcall with no side effects??? */
-	case JUMP_INSN:
-	  num_jumps++;
-	  break;
-
-	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_LOOP_BEG:
-	      loop_start = insn;
-	      num_jumps = 0;
-	      num_insns = 0;
-	      break;
-
-	    case NOTE_INSN_LOOP_CONT:
-	      if (!loop_start)
-		break;
-	      /* We can't handle a loop with jumps or calls.
-		 If there are too many insns, we are unlikely
-		 to be able to find a suitable case for optimisation.
-		 The maximum number of insns may require tweaking.  */
-	      if (!num_jumps && num_insns < 20)
-		{
-		  /* Skip to end of loop.  */
-		  loop_end = NULL_RTX;
-		  for (; insn; insn = NEXT_INSN(insn))
-		    if (GET_CODE (insn) == NOTE
-			&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-		      break;
-		  loop_end = insn;
-		  if (!loop_end)
-		    fatal_insn("Could not find note at end of loop", 
-			       loop_start);
-		  c4x_parallel_process(loop_start, loop_end);
-		}
-	      loop_start = NULL_RTX;
-	      break;
-
-	    default:
-	      break;
-	    }
-	default:
-	  break;
-	}
-    }
-}
-
-
-void
-c4x_combine_parallel (insns)
-     rtx insns;
-{
- /* Only let people who know how to shoot themselves in the foot do so!  */
-  if (!TARGET_PARALLEL_PACK)
-    return;
-  
-  c4x_combine_parallel_dependent (insns);
-
-  c4x_combine_parallel_independent (insns);
-}
-
-
-/* True if INSN is between START and END.  If END precedes START
-   something has gone awry.  */
-
-static int
-c4x_rptb_in_range (insn, start, end)
-     rtx insn, start, end;
-{
-  rtx this;
-  
-  for (this = start; ; this = NEXT_INSN (this))
-    {
-      if (this == insn)
-	return 1;
-      if (this == end)
-	return 0;
-      if (this == NULL_RTX)
-	fatal_insn ("c4x_rptb_in_range: Repeat block error", start);
-    }
-}
-
-
-/* Returns true if there are no jumps crossing the loop boundary and
-   no calls anywhere.  */  
-
-int
-c4x_rptb_unjumped_loop_p (loop_start, loop_end)
-     rtx loop_start, loop_end;
-{
-  rtx insn;
-  rtx continue_label = NULL_RTX;
-  rtx continue_note = NULL_RTX;	/* Loop continue note if there is one.  */
-
-  /* Scan loop backwards.  */
-  for (insn = PREV_INSN (loop_end); insn && insn != loop_start;
-       insn = PREV_INSN (insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case JUMP_INSN:
-	  {
-	    rtx jump_label = JUMP_LABEL (insn);
-
-	    /* We don't like jumps out of the loop.  We also look
-	       for jumps to the end of loop, say from a continue
-	       statement.  */
-	    if (continue_note
-		&& jump_label == next_nonnote_insn (continue_note))
-	      continue_label = jump_label;
-	    else if (!c4x_rptb_in_range (jump_label, loop_start, 
-					 continue_note ? continue_note :
-					 loop_end))
-	      return 0;
-	  }
-	  /* Fall through  */
-	  
-	case INSN:
-	  if (0 && volatile_refs_p (PATTERN (insn)))
-	    {
-	      c4x_dump (loop_dump_stream, 
-			"Repeat block: Volatile memory ref within loop\n");
-	      return 0;
-	    }
-
-	  /* The C4x movstrqi_large pattern clobbers RC, RE, RS.
-	     This should be generalised to check for insns that use
-	     these registers within the loop.  */
-	  if (recog_memoized (insn) == CODE_FOR_movstrqi_large)
-	    {
-	      c4x_dump (loop_dump_stream, 
-			"Repeat block: Memory copy within loop\n");
-	      return 0;
-	    }
-	  break;
-	  
-	  /* It is not worthwhile preserving the zero overhead loop
-	     context across calls.  */
-	case CALL_INSN:
-	  /* We could allow a libcall with no side effects??? */
-	  c4x_dump (loop_dump_stream, "Repeat block: Call within loop\n");
-	  return 0;
-	  
-	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_LOOP_CONT:
-	      if (continue_note == NULL_RTX)
-		continue_note = insn;
-
-	      /* Check for empty loop which would throw c4x_rptb_nop_p.
-	         GCC doesn't optimise empty loops away since user
-	         may be trying to implement a simple but crude delay.  */
-	      if (GET_CODE (PREV_INSN (insn)) == NOTE 
-		  && NOTE_LINE_NUMBER (PREV_INSN (insn)) == NOTE_INSN_LOOP_BEG)
-		{
-		  c4x_dump (loop_dump_stream, "Repeat block: Empty loop\n");
-		  return 0;
-		}
-	      break;
-
-	      /* If we find a LOOP_END note, then we are not in the
-	         innermost loop.  */
-	    case NOTE_INSN_LOOP_END:
-	      return 0;
-
-	    default:
-	      continue;
-	    }
-	default:
-	  continue;
-	}
-    }
-  if (insn == NULL_RTX)
-    fatal("Repeat block: Inconsistent loop");
-
-  c4x_dump (loop_dump_stream, "Repeat block: Unjumped loop\n");
-  if (continue_label)
-    c4x_dump (loop_dump_stream, "Repeat block: Continue_label %d\n",
-	      INSN_UID (continue_label));
-  return 1;
-}
-
-
-/* Find and record in PCOMP and PJUMP the final comparison and jump
-   insns of the loop specified by LOOP_END.  Return 1 if both have been
-   found, otherwise return 0.  */
-
-static int
-c4x_rptb_find_comp_and_jump (loop_end, pcomp, pjump)
-     rtx loop_end;
-     rtx *pcomp, *pjump;
-{
-  rtx final_comp, comp_pat;
-  rtx final_jump = prev_nonnote_insn (loop_end);
-
-  if (!final_jump)
-    return 0;
-
-  final_comp = PREV_INSN (final_jump);
-  if (!final_comp)
-    return 0;
-
-  if ((GET_CODE (final_comp) != INSN))
-    return 0;
-
-  comp_pat = PATTERN (final_comp);
-
-  if ((GET_CODE (comp_pat) != SET)
-      || GET_CODE (XEXP (comp_pat, 0)) != REG
-      || REGNO (XEXP (comp_pat, 0)) != ST_REGNO)
-    return 0;
-
-  *pcomp = final_comp;
-  *pjump = final_jump;
-  return 1;
-}
-
-
-/* Determine if the loop count is computable for a repeat loop.  */
-
-static int
-c4x_rptb_loop_info_get (loop_start, loop_end, loop_info)
-     rtx loop_start, loop_end;
-     c4x_rptb_info_t *loop_info;
-{
-  rtx iteration_var, initial_value, increment, comparison;
-  enum rtx_code cc;		/* Comparison code */
-  rtx comparison_value;
-
-  loop_info->loop_start = loop_start;
-  loop_info->loop_count = loop_iterations (loop_start, loop_end);
-
-  /* If the number of loop cycles does not need calculating at
-     run-time then things are easy... Note that the repeat count
-     value must be a positive integer for the RPTB instruction.  If
-     loop_count is zero then we don't have a constant count.  */
-  if (loop_info->loop_count > 0)
-    return 1;
-  if (loop_info->loop_count < 0)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Negative loop count %d\n",
-		loop_info->loop_count);
-      return 0;
-    }
-
-  comparison = get_condition_for_loop (prev_nonnote_insn (loop_end));
-  if (comparison == NULL_RTX)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Cannot find comparison\n");
-      return 0;
-    }
-  cc = GET_CODE (comparison);
-
-  /* Only allow a register as the iteration value.  */
-  iteration_var = XEXP (comparison, 0);
-  if (GET_CODE (iteration_var) != REG)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Non reg. iteration value\n");
-      return 0;
-    }
-
-  c4x_dump (loop_dump_stream, "Repeat block: Iteration value regno = %d\n",
-	    REGNO (iteration_var));
-
-  /* The comparison value must not change on the fly.  */
-  comparison_value = XEXP (comparison, 1);
-  if (!invariant_p (comparison_value))
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Comparison value variant\n");
-      return 0;
-    }
-
-  /* This routine in unroll.c does the hard work of finding the
-     initial value and increment for us.  Currently it won't find the
-     intitial value or increment for do {} while; or while() {} do;
-     loops.  This is because the iteration_var we find in the
-     comparison insn is a GIV rather than a BIV and iteration_info does
-     not like GIVs.  We could scan all the BIVs like check_dbra_loop()
-     does...  */
-
-  iteration_info (iteration_var, &initial_value, &increment,
-		  loop_start, loop_end);
-  if (initial_value == NULL_RTX || increment == NULL_RTX)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Cannot determine initial"
-		" value or increment\n");
-      return 0;
-    }
-
-  /* Only allow constant integer increment, not a variable.  */
-  if (GET_CODE (increment) != CONST_INT)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Increment not constant\n");
-      return 0;
-    }
-
-  loop_info->incr = INTVAL (increment);
-
-  /* If the increment is not a power of 2, (i.e, 1, 2, 4, etc.) then
-     we will need to emit a divide instruction rather than a right
-     shift to calculate the loop count.  */
-  if ((loop_info->shift = exact_log2 (abs (loop_info->incr))) < 0)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Increment not power of 2\n");
-      return 0;
-    }
-
-  /* The front end changes GT to NE for unsigned numbers, so we
-     "undo" this here for clarity.  */
-  loop_info->unsigned_p = 0;
-  if (GET_CODE (increment) == CONST_INT
-      && INTVAL (increment) == -1 && cc == NE)
-    {
-      loop_info->unsigned_p = 1;
-      cc = GT;
-    }
-
-  if (!(cc == LT || cc == LE || cc == LTU || cc == LEU
-	|| cc == GT || cc == GE || cc == GTU || cc == GEU))
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Invalid comparison\n");
-      return 0;
-    }
-
-  loop_info->swap_p = (cc == GT || cc == GE || cc == GTU || cc == GEU);
-  if (loop_info->swap_p)
-    {
-      loop_info->start_value = comparison_value;
-      loop_info->end_value = initial_value;
-      loop_info->incr = -loop_info->incr;
-    }
-  else
-    {
-      loop_info->start_value = initial_value;
-      loop_info->end_value = comparison_value;
-    }
-
-  /* Check if loop won't terminate?  */
-  if (loop_info->incr <= 0)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Increment negative\n");
-      return 0;
-    }
-
-  loop_info->off_by_one = (cc == LT || cc == LTU || cc == GT || cc == GTU);
-  loop_info->unsigned_p |= (cc == LTU || cc == LEU || cc == GTU || cc == GEU);
-
-  /* We have a switch to allow an unsigned loop counter.
-     We'll normally disallow this case since the the repeat
-     count for the RPTB instruction must be less than 0x80000000.  */
-  if (loop_info->unsigned_p && !TARGET_LOOP_UNSIGNED)
-    {
-      c4x_dump (loop_dump_stream, "Repeat block: Unsigned comparison\n");
-      return 0;
-    }
-
-  return 1;
-}
-
-
-/* Emit insn(s) to compute loop iteration count.  */
-
-static rtx
-c4x_rptb_emit_init (loop_info)
-     c4x_rptb_info_t *loop_info;
-{
-  rtx result;
-  int adjust;
-  rtx seq_start;
-
-  /* If have a known constant loop count, things are easy...  */
-  if (loop_info->loop_count > 0)
-    return gen_rtx (CONST_INT, VOIDmode, loop_info->loop_count - 1);
-
-  if (loop_info->shift < 0)
-    abort ();
-
-  start_sequence ();
-
-  result = loop_info->end_value;
-  if (loop_info->start_value != const0_rtx)
-    {
-      /* end_value - start_value */
-      result = expand_binop (QImode, sub_optab,
-			     result, loop_info->start_value,
-			     0, loop_info->unsigned_p, OPTAB_DIRECT);
-    }
-
-  adjust = loop_info->incr - loop_info->off_by_one;
-  if (adjust > 0)
-    {
-      /* end_value - start_value + adjust */
-      result = expand_binop (QImode, add_optab,
-			     result, GEN_INT (adjust),
-			     0, loop_info->unsigned_p, OPTAB_DIRECT);
-    }
-
-  if (loop_info->shift > 0)
-    {
-      /* (end_value - start_value + adjust) >> shift */
-      result = expand_binop (QImode, loop_info->unsigned_p ?
-			     lshr_optab : ashr_optab, result,
-			     gen_rtx (CONST_INT, VOIDmode,
-				      loop_info->shift),
-			     0, loop_info->unsigned_p, OPTAB_DIRECT);
-    }
-
-  /* ((end_value - start_value + adjust) >> shift) - 1 */
-  result = expand_binop (QImode, sub_optab,
-			 result, gen_rtx (CONST_INT, VOIDmode, 1),
-			 0, loop_info->unsigned_p, OPTAB_DIRECT);
-
-  seq_start = get_insns ();
-  end_sequence ();
-
-  emit_insns_before (seq_start, loop_info->loop_start);
-  return result;
-}
-
-
-/* This routine checks for suitable loops that can use zero overhead
-   looping and emits insns marking the start and end of the loop
-   as well as an insn for initialising the loop counter.  */
-
-void
-c4x_rptb_process (loop_start, loop_end)
-     rtx loop_start, loop_end;
-{
-  rtx iteration_count;
-  rtx start_label;
-  rtx end_label;
-  rtx comp_insn;
-  rtx jump_insn;
-  c4x_rptb_info_t info;
-
-  if (!TARGET_RPTB)
-    return;
-
-  /* Check that there are no jumps crossing loop boundary or calls.  */
-  if (!c4x_rptb_unjumped_loop_p (loop_start, loop_end))
-    return;
-
-  start_label = next_nonnote_insn (loop_start);
-  if (GET_CODE (start_label) != CODE_LABEL)
-    return;
-
-  /* Find comparison and jump insns.  */
-  if (!c4x_rptb_find_comp_and_jump (loop_end, &comp_insn, &jump_insn))
-    return;
-
-  /* If we don't jump back to start label, then the loop is no good.  */
-  if (start_label != JUMP_LABEL (jump_insn))
-    return;
-
-  /* Check that number of loops is computable.  */
-  if (!c4x_rptb_loop_info_get (loop_start, loop_end, &info))
-    return;
-
-  c4x_dump (loop_dump_stream, "Repeat block: Loop start at %d, end at %d\n",
-	    INSN_UID (loop_start), INSN_UID (loop_end));
-
-  if (info.loop_count > 0)
-    c4x_dump (loop_dump_stream, "Repeat block: Loop count = %d\n",
-	      info.loop_count);
-  else
-    c4x_dump (loop_dump_stream,
-	      "Repeat block: incr %d, shift %d, swap_p %d,"
-	      " off_by_one %d, unsigned_p %d\n",
-	      info.incr, info.shift, info.swap_p,
-	      info.off_by_one, info.unsigned_p);
-
-  /* Emit insns to compute loop iteration count.  */
-  iteration_count = c4x_rptb_emit_init (&info);
-  if (iteration_count == NULL_RTX)
-    abort ();
-
-  /* Add label at end of loop, immediately after jump insn.  */
-  end_label = gen_label_rtx ();
-  emit_label_after (end_label, jump_insn);
-
-  /* Add label to forced label list to prevent jump optimisation
-     coalescing end_label with bypass_label since we need these destinct if
-     we are to sink insns out of the loop. */
-  if (GET_CODE (NEXT_INSN (loop_end)) == CODE_LABEL)
-    {
-      rtx bypass_label;
-
-      bypass_label = NEXT_INSN (loop_end);
-#if 0
-      forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
-			       end_label, forced_labels);
-      forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
-			       bypass_label, forced_labels);
-#endif
-      emit_insn_after (gen_repeat_block_filler (), end_label);
-      
-      c4x_dump (loop_dump_stream,
-		"Repeat block: Start label at %d, end label at %d,"
-		" bypass label at %d\n",
-		INSN_UID (start_label), INSN_UID (end_label),
-		INSN_UID (bypass_label));
-    }
-  else
-    {
-      emit_insn_after (gen_repeat_block_filler (), end_label);
-      c4x_dump (loop_dump_stream,
-		"Repeat block: Start label at %d, end label at %d\n",
-		INSN_UID (start_label), INSN_UID (end_label));
-    }
-  
-  /* Create pattern for repeat_block_top and insert at top of loop.  */
-  emit_insn_before (gen_repeat_block_top (const0_rtx, iteration_count,
-					  start_label, end_label),
-		    start_label);
-  
-  /* Replace the jump instruction with repeat_block_end insn.  */
-  PATTERN (jump_insn) = gen_repeat_block_end (const0_rtx, start_label);
-
-  /* The insn is unrecognizable after the surgery.  */
-  INSN_CODE (jump_insn) = -1;
-  
-  /* Delete the comparison insn.  */
-  delete_insn (comp_insn);
-}
-
-
+/* !!! FIXME to emit RPTS correctly.  */
 int
 c4x_rptb_rpts_p (insn, op)
      rtx insn, op;
@@ -5396,7 +4232,7 @@ c4x_rptb_rpts_p (insn, op)
   if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
     return 0;
 
-  if (recog_memoized (insn) != CODE_FOR_repeat_block_end)
+  if (recog_memoized (insn) != CODE_FOR_rptb_end)
     return 0;
 
   if (TARGET_RPTS)
@@ -5404,48 +4240,6 @@ c4x_rptb_rpts_p (insn, op)
 
   return (GET_CODE (op) == CONST_INT) && TARGET_RPTS_CYCLES (INTVAL (op));
 }
-
-/*
-   Loop structure of `for' loops:
-
-   Check if iterations required
-   If not, jump to BYPASS_LABEL
-
-   NOTE_INSN_LOOP_BEG
-   <<<Repeat block top goes here>>
-   START_LABEL:
-   {NOTE_BLOCK_BEGIN}
-
-   Body of loop
-
-   {NOTE_BLOCK_END}
-   {NOTE_INSN_LOOP_CONT}
-
-   Increment loop counters here
-
-   {NOTE_INSN_LOOP_VTOP}
-   <<<Repeat block nop goes here if nec.>>>
-   Exit test here                       <<<This gets deleted>>>
-   If not exiting jump to START_LABEL   <<<Repeat block end goes here>>>
-   <<<END_LABEL goes here>>
-
-   NOTE_INSN_LOOP_END
-
-   BYPASS_LABEL:
-
-   Note that NOTE_INSN_LOOP_VTOP is only required for loops such as
-   for loops, where it necessary to duplicate the exit test.  This
-   position becomes another virtual start of the loop when considering
-   invariants.
-
-   Note that if there is nothing in the loop body we get:
-
-   NOTE_INSN_LOOP_BEG
-   NOTE_INSN_LOOP_CONT
-   START_LABEL:
-   NOTE_INSN_LOOP_VTOP
-   ...
- */
 
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
@@ -5466,7 +4260,7 @@ c4x_adjust_cost (insn, link, dep_insn, cost)
 {
   /* Don't worry about this until we know what registers have been
      assigned.  */
-  if (!reload_completed)
+  if (! reload_completed)
     return 0;
 
   /* How do we handle dependencies where a read followed by another
@@ -5486,7 +4280,6 @@ c4x_adjust_cost (insn, link, dep_insn, cost)
 
       /* Data dependency; DEP_INSN writes a register that INSN reads some
 	 cycles later.  */
-
       if (TARGET_C3X)
 	{
 	  if (get_attr_setgroup1 (dep_insn) && get_attr_usegroup1 (insn))
@@ -5501,7 +4294,6 @@ c4x_adjust_cost (insn, link, dep_insn, cost)
 	     insn uses ar0-ar7.  We then test if the same register
 	     is used.  The tricky bit is that some operands will
 	     use several registers...  */
-
 	  if (get_attr_setar0 (dep_insn) && get_attr_usear0 (insn))
 	    max = SET_USE_COST > max ? SET_USE_COST : max;
 	  if (get_attr_setlda_ar0 (dep_insn) && get_attr_usear0 (insn))
@@ -5595,3 +4387,4 @@ c4x_adjust_cost (insn, link, dep_insn, cost)
   else
     abort ();
 }
+

@@ -17,7 +17,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hconfig.h"
 #include "system.h"
-#include "gansidecl.h"
 #include "scan.h"
 #include "cpplib.h"
 #include "cpphash.h"
@@ -28,20 +27,6 @@ char *progname;
 #define HASH_SIZE 2503 /* a prime */
 int hash_tab[HASH_SIZE];
 int next_index;
-
-int
-hashf (name, len, hashsize)
-     register const U_CHAR *name;
-     register int len;
-     int hashsize;
-{
-  register int r = 0;
-
-  while (len--)
-    r = HASHSTEP (r, *name++);
-
-  return MAKE_POS (r) % hashsize;
-}
 
 static void
 add_hash (fname)

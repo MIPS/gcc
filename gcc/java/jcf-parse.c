@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -32,6 +32,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "input.h"
 #include "java-tree.h"
+#include "toplev.h"
+#include "parse.h"
 
 /* A CONSTANT_Utf8 element is converted to an IDENTIFIER_NODE at parse time. */
 #define JPOOL_UTF(JCF, INDEX) CPOOL_UTF(&(JCF)->cpool, INDEX)
@@ -55,34 +57,35 @@ extern struct obstack *saveable_obstack;
 extern struct obstack temporary_obstack;
 extern struct obstack permanent_obstack;
 
+/* This is true if the user specified a `.java' file on the command
+   line.  Otherwise it is 0.  FIXME: this is temporary, until our
+   .java parser is fully working.  */
+int saw_java_source = 0;
+
 /* The class we are currently processing. */
 tree current_class = NULL_TREE;
 
 /* The class we started with. */
 tree main_class = NULL_TREE;
 
-/* The FIELD_DECL for the current field. */
+/* List of all class DECL seen so far.  */
+tree all_class_list = NULL_TREE;
+
+/* The FIELD_DECL for the current field.  */
 static tree current_field = NULL_TREE;
 
+/* The METHOD_DECL for the current method.  */
 static tree current_method = NULL_TREE;
 
+/* Declarations of some functions used here.  */
 static tree give_name_to_class PROTO ((JCF *jcf, int index));
-
-void parse_zip_file_entries (void);
-void process_zip_dir();
-
-/* Source file compilation declarations */
-static void parse_source_file ();
-extern int java_error_count;
-#define java_parse_abort_on_error()		\
-  {						\
-     if (java_error_count)			\
-       {					\
-         java_report_errors ();			\
-	 java_pop_parser_context ();		\
-	 return;				\
-       }					\
-   }
+static void parse_zip_file_entries PROTO ((void));
+static void process_zip_dir PROTO ((void));
+static void parse_source_file PROTO ((tree));
+static void jcf_parse_source PROTO ((void));
+static int jcf_figure_file_type PROTO ((JCF *));
+static int find_in_current_zip PROTO ((char *, struct JCF **));
+static void parse_class_file PROTO ((void));
 
 /* Handle "SourceFile" attribute. */
 
@@ -131,7 +134,7 @@ set_source_filename (jcf, index)
 
 #define HANDLE_CONSTANTVALUE(INDEX) \
 { tree constant;  int index = INDEX; \
-  if (JPOOL_TAG (jcf, index) == CONSTANT_String) { \
+  if (! flag_emit_class_files && JPOOL_TAG (jcf, index) == CONSTANT_String) { \
     tree name = get_name_constant (jcf, JPOOL_USHORT1 (jcf, index)); \
     constant = build_utf8_ref (name); \
   } \
@@ -165,6 +168,18 @@ set_source_filename (jcf, index)
 { int n = (COUNT); \
   DECL_LINENUMBERS_OFFSET (current_method) = JCF_TELL (jcf) - 2; \
   JCF_SKIP (jcf, n * 4); }
+
+#define HANDLE_EXCEPTIONS_ATTRIBUTE(COUNT) \
+{ \
+  int n = COUNT; \
+  tree list = DECL_FUNCTION_THROWS (current_method); \
+  while (--n >= 0) \
+    { \
+      tree thrown_class = get_class_constant (jcf, JCF_readu2 (jcf)); \
+      list = tree_cons (NULL_TREE, thrown_class, list); \
+    } \
+  DECL_FUNCTION_THROWS (current_method) = nreverse (list); \
+}
 
 #include "jcf-reader.c"
 
@@ -270,10 +285,12 @@ get_constant (jcf, index)
 #ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_DOUBLE (num);
 #else
-	union { double d;  jint i[2]; } u;
-	u.i[0] = (jint) num[0];
-	u.i[1] = (jint) num[1];
-	d = u.d;
+	{
+	  union { double d;  jint i[2]; } u;
+	  u.i[0] = (jint) num[0];
+	  u.i[1] = (jint) num[1];
+	  d = u.d;
+	}
 #endif
 	value = build_real (double_type_node, d);
 	break;
@@ -302,6 +319,7 @@ get_constant (jcf, index)
 	  }
 
 	value = make_node (STRING_CST);
+	TREE_TYPE (value) = build_pointer_type (string_type_node);
 	TREE_STRING_LENGTH (value) = 2 * str_len;
 	TREE_STRING_POINTER (value)
 	  = obstack_alloc (expression_obstack, 2 * str_len);
@@ -408,7 +426,7 @@ get_class_constant (JCF *jcf , int i)
       char *name = JPOOL_UTF_DATA (jcf, name_index);
       int nlength = JPOOL_UTF_LENGTH (jcf, name_index);
       if (name[0] == '[')  /* Handle array "classes". */
-	  type = parse_signature_string (name, nlength);
+	  type = TREE_TYPE (parse_signature_string (name, nlength));
       else
         { 
           tree cname = unmangle_classname (name, nlength);
@@ -420,22 +438,6 @@ get_class_constant (JCF *jcf , int i)
   else
     type = (tree) jcf->cpool.data[i];
   return type;
-}
-
-void
-fix_classpath ()
-{
-  static char default_path[] = DEFAULT_CLASS_PATH;
-
-  if (classpath == NULL)
-    {
-      classpath = (char *) getenv ("CLASSPATH");
-      if (classpath == NULL)
-	{
-	  warning ("CLASSPATH not set");
-	  classpath = default_path;
-	}
-    }
 }
 
 void
@@ -454,45 +456,37 @@ DEFUN(jcf_out_of_synch, (jcf),
   free (source);
 }
 
-/* Load CLASS_OR_NAME. CLASS_OR_NAME can be a mere identifier if
-   called from the parser, otherwise it's a RECORD_TYPE node. If
-   VERBOSE is 1, print error message on failure to load a class. */
+/* Read a class with the fully qualified-name NAME.
+   Return 1 iff we read the requested file.
+   (It is still possible we failed if the file did not
+   define the class it is supposed to.) */
 
-void
-load_class (class_or_name, verbose)
-     tree class_or_name;
-     int verbose;
+int
+read_class (name)
+     tree name;
 {
   JCF this_jcf, *jcf;
-  tree name = (TREE_CODE (class_or_name) == IDENTIFIER_NODE ?
-	       class_or_name : DECL_NAME (TYPE_NAME (class_or_name)));
   tree save_current_class = current_class;
   char *save_input_filename = input_filename;
   JCF *save_current_jcf = current_jcf;
-  long saved_pos;
+  long saved_pos = 0;
   if (current_jcf->read_state)
     saved_pos = ftell (current_jcf->read_state);
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
 
-  if (!classpath)
-    fix_classpath ();
   /* Search in current zip first.  */
-  if (find_in_current_zip (IDENTIFIER_POINTER (name),
-			   IDENTIFIER_LENGTH (name), &jcf) == 0)
+  if (find_in_current_zip (IDENTIFIER_POINTER (name), &jcf) == 0)
+    /* FIXME: until the `.java' parser is fully working, we only
+       look for a .java file when one was mentioned on the
+       command line.  This lets us test the .java parser fairly
+       easily, without compromising our ability to use the
+       .class parser without fear.  */
     if (find_class (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name),
-		     &this_jcf, 1) == 0)
+		     &this_jcf, saw_java_source) == 0)
       {
-	if (verbose)
-	  {
-	    error ("Cannot find class file class %s.", 
-		   IDENTIFIER_POINTER (name));
-	    TYPE_SIZE (class_or_name) = error_mark_node;
-	    if (!strcmp (classpath, DEFAULT_CLASS_PATH))
-	      fatal ("giving up");
-	    pop_obstacks ();	/* FIXME: one pop_obstack() per function */
-	  }
-	return;
+	pop_obstacks ();	/* FIXME: one pop_obstack() per function */
+	return 0;
       }
     else
       {
@@ -505,17 +499,18 @@ load_class (class_or_name, verbose)
     current_jcf = jcf;
 
   if (current_jcf->java_source)
-    jcf_parse_source (current_jcf);
+    jcf_parse_source ();
   else {
-    int saved_lineno = lineno;
+    java_parser_context_save_global ();
+    java_push_parser_context ();
     input_filename = current_jcf->filename;
     jcf_parse (current_jcf);
-    lineno = saved_lineno;
+    java_pop_parser_context (0);
+    java_parser_context_restore_global ();
   }
 
   if (!current_jcf->seen_in_zip)
     JCF_FINISH (current_jcf);
-/*  DECL_IGNORED_P (TYPE_NAME (class_or_name)) = 1;*/
   pop_obstacks ();
 
   current_class = save_current_class;
@@ -523,33 +518,77 @@ load_class (class_or_name, verbose)
   current_jcf = save_current_jcf;
   if (current_jcf->read_state)
     fseek (current_jcf->read_state, saved_pos, SEEK_SET);
+  return 1;
 }
 
-/* Parse a source file when JCF refers to a source file. This piece
-   needs further work as far as error handling and report. */
+/* Load CLASS_OR_NAME. CLASS_OR_NAME can be a mere identifier if
+   called from the parser, otherwise it's a RECORD_TYPE node. If
+   VERBOSE is 1, print error message on failure to load a class. */
 
-int
-jcf_parse_source (jcf)
-     JCF *jcf;
+/* Replace calls to load_class by having callers call read_class directly
+   - and then perhaps rename read_class to load_class.  FIXME */
+
+void
+load_class (class_or_name, verbose)
+     tree class_or_name;
+     int verbose;
 {
+  tree name;
+
+  /* class_or_name can be the name of the class we want to load */
+  if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
+    name = class_or_name;
+  /* In some cases, it's a dependency that we process earlier that
+     we though */
+  else if (TREE_CODE (class_or_name) == TREE_LIST)
+    name = TYPE_NAME (TREE_PURPOSE (class_or_name));
+  /* Or it's a type in the making */
+  else
+    name = DECL_NAME (TYPE_NAME (class_or_name));
+
+  if (read_class (name) == 0 && verbose)
+    {
+      error ("Cannot find file for class %s.",
+	     IDENTIFIER_POINTER (name));
+      if (TREE_CODE (class_or_name) == RECORD_TYPE)
+	TYPE_SIZE (class_or_name) = error_mark_node;
+#if 0
+      /* FIXME: what to do here?  */
+      if (!strcmp (classpath, DEFAULT_CLASS_PATH))
+	fatal ("giving up");
+#endif
+      return;
+    }
+}
+
+/* Parse a source file when JCF refers to a source file.  */
+
+static void
+jcf_parse_source ()
+{
+  tree file;
+
   java_parser_context_save_global ();
-
+  java_push_parser_context ();
   input_filename = current_jcf->filename;
-  if (!(finput = fopen (input_filename, "r")))
-    fatal ("input file `%s' just disappeared - jcf_parse_source",
-	   input_filename);
-
-  parse_source_file (1);	/* Parse only */
-  if (current_class && TREE_TYPE (current_class))
-    CLASS_FROM_SOURCE_P (TREE_TYPE (current_class)) = 1;
-
-  fclose (finput);
+  file = get_identifier (input_filename);
+  if (!HAS_BEEN_ALREADY_PARSED_P (file))
+    {
+      if (!(finput = fopen (input_filename, "r")))
+	fatal ("input file `%s' just disappeared - jcf_parse_source",
+	       input_filename);
+      parse_source_file (file);
+      if (fclose (finput))
+	fatal ("can't close input file `%s' stream - jcf_parse_source",
+	       input_filename);
+    }
+  java_pop_parser_context (IS_A_COMMAND_LINE_FILENAME_P (file));
   java_parser_context_restore_global ();
 }
 
 /* Parse the .class file JCF. */
 
-int
+void
 jcf_parse (jcf)
      JCF* jcf;
 {
@@ -570,6 +609,8 @@ jcf_parse (jcf)
   if (! quiet_flag && TYPE_NAME (current_class))
     fprintf (stderr, " class %s",
 	     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
+  if (CLASS_LOADED_P (current_class))
+    return;
   CLASS_LOADED_P (current_class) = 1;
 
   for (i = 1; i < JPOOL_SIZE(jcf); i++)
@@ -598,6 +639,11 @@ jcf_parse (jcf)
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
   layout_class (current_class);
+  if (current_class == object_type_node)
+    layout_class_methods (object_type_node);
+  else
+    all_class_list = tree_cons (NULL_TREE, 
+				TYPE_NAME (current_class), all_class_list );
   pop_obstacks ();
 }
 
@@ -617,12 +663,14 @@ init_outgoing_cpool ()
     }
 }
 
-void
+static void
 parse_class_file ()
 {
   tree method;
   char *save_input_filename = input_filename;
   int save_lineno = lineno;
+
+  java_layout_seen_class_methods ();
 
   input_filename = DECL_SOURCE_FILE (TYPE_NAME (current_class));
   lineno = 0;
@@ -679,83 +727,135 @@ parse_class_file ()
 
   if (flag_emit_class_files)
     write_classfile (current_class);
-  make_class_data (current_class);
-  register_class ();
-  rest_of_decl_compilation (TYPE_NAME (current_class), (char*) 0, 1, 0);
+
+  finish_class (current_class);
 
   debug_end_source_file (save_lineno);
   input_filename = save_input_filename;
   lineno = save_lineno;
 }
 
-/* Parse a source file, as pointed by the current JCF. If PARSE_ONLY
-   is non zero, we're not parsing a file found on the command line and
-   we skip things related to code generation. */
+/* Parse a source file, as pointed by the current value of INPUT_FILENAME. */
 
 static void
-parse_source_file (parse_only)
-     int parse_only;
+parse_source_file (file)
+     tree file;
 {
+  int save_error_count = java_error_count;
+  /* Mark the file as parsed */
+  HAS_BEEN_ALREADY_PARSED_P (file) = 1;
+
   lang_init_source (1);		    /* Error msgs have no method prototypes */
-  java_push_parser_context ();
+
   java_init_lex ();		    /* Initialize the parser */
   java_parse_abort_on_error ();
+
   java_parse ();		    /* Parse and build partial tree nodes. */
   java_parse_abort_on_error ();
   java_complete_class ();	    /* Parse unsatisfied class decl. */
   java_parse_abort_on_error ();
   java_check_circular_reference (); /* Check on circular references */
   java_parse_abort_on_error ();
-  java_check_methods ();            /* Check the methods */
-  java_parse_abort_on_error ();
-  java_layout_classes ();
-  java_parse_abort_on_error ();
-  if (!parse_only)
-    {
-      lang_init_source (2);	        /* Error msgs have method prototypes */
-      java_complete_expand_methods ();  /* Complete and expand method bodies */
-      java_parse_abort_on_error ();
-      java_expand_finals ();	        /* Expand and check the finals */
-      java_parse_abort_on_error ();
-      java_check_final ();              /* Check unitialized final  */
-      java_parse_abort_on_error ();
-      if (! flag_emit_class_files)
-	emit_register_class ();
-      java_report_errors ();	        /* Final step for this file */
-    }
-  if (flag_emit_class_files)
-    write_classfile (current_class);
-  java_pop_parser_context ();
 }
 
 int
 yyparse ()
 {
-  /* Everything migh be enclosed within a loop processing each file after
-     the other one.  */
+  int several_files = 0;
+  char *list = strdup (input_filename), *next;
+  tree node, current_file_list = NULL_TREE;
 
-  switch (jcf_figure_file_type (current_jcf))
+  do 
     {
-    case JCF_ZIP:
-      parse_zip_file_entries ();
-      emit_register_class ();
-      break;
-    case JCF_CLASS:
-      jcf_parse (current_jcf);
-      parse_class_file ();
-      emit_register_class ();
-      break;
-    case JCF_SOURCE:
-      parse_source_file (0);	/* Parse and generate */
-      break;
+      next = strchr (list, '&');
+      if (next)
+	{
+	  *next++ = '\0';
+	  several_files = 1;
+	}
+
+      if (list[0]) 
+	{
+	  char *value;
+
+	  int len = strlen (list);
+	  /* FIXME: this test is only needed until our .java parser is
+	     fully capable.  */
+	  if (len > 5 && ! strcmp (&list[len - 5], ".java"))
+	    saw_java_source = 1;
+
+	  if (*list != '/' && several_files)
+	    obstack_grow (&temporary_obstack, "./", 2);
+
+	  obstack_grow0 (&temporary_obstack, list, len);
+	  value = obstack_finish (&temporary_obstack);
+	  node = get_identifier (value);
+	  IS_A_COMMAND_LINE_FILENAME_P (node) = 1;
+	  current_file_list = tree_cons (NULL_TREE, node, current_file_list);
+	}
+      list = next;
     }
+  while (next);
+
+  current_jcf = main_jcf;
+  current_file_list = nreverse (current_file_list);
+  for (node = current_file_list; node; node = TREE_CHAIN (node))
+    {
+      tree name = TREE_VALUE (node);
+
+      /* Skip already parsed files */
+      if (HAS_BEEN_ALREADY_PARSED_P (name))
+	continue;
+      
+      /* Close previous descriptor, if any */
+      if (main_jcf->read_state && fclose (main_jcf->read_state))
+	fatal ("failed to close input file `%s' - yyparse",
+	       (main_jcf->filename ? main_jcf->filename : "<unknown>"));
+      
+      /* Set jcf up and open a new file */
+      JCF_ZERO (main_jcf);
+      main_jcf->read_state = fopen (IDENTIFIER_POINTER (name), "rb");
+      if (main_jcf->read_state == NULL)
+	pfatal_with_name (IDENTIFIER_POINTER (name));
+      
+      /* Set new input_filename and finput */
+      finput = main_jcf->read_state;
+#ifdef IO_BUFFER_SIZE
+      setvbuf (finput, (char *) xmalloc (IO_BUFFER_SIZE),
+	       _IOFBF, IO_BUFFER_SIZE);
+#endif
+      input_filename = IDENTIFIER_POINTER (name);
+      main_jcf->filbuf = jcf_filbuf_from_stdio;
+
+      switch (jcf_figure_file_type (current_jcf))
+	{
+	case JCF_ZIP:
+	  parse_zip_file_entries ();
+	  break;
+	case JCF_CLASS:
+	  jcf_parse (current_jcf);
+	  parse_class_file ();
+	  break;
+	case JCF_SOURCE:
+	  java_push_parser_context ();
+	  java_parser_context_save_global ();
+	  parse_source_file (name);
+	  java_parser_context_restore_global ();
+	  java_pop_parser_context (1);
+	  break;
+	}
+    }
+
+  java_expand_classes ();
+  if (!java_report_errors () && !flag_syntax_only)
+    emit_register_classes ();
   return 0;
 }
 
 static struct ZipFileCache *localToFile;
 
 /* Process all class entries found in the zip file.  */
-void
+static void
 parse_zip_file_entries (void)
 {
   struct ZipDirectory *zdir;
@@ -780,21 +880,23 @@ parse_zip_file_entries (void)
 	  jcf_parse (current_jcf);
 	}
 
-      input_filename = current_jcf->filename;
-
-      parse_class_file ();
-      FREE (current_jcf->buffer); /* No longer necessary */
-      /* Note: there is a way to free this buffer right after a class seen
-	 in a zip file has been parsed. The idea is the set its jcf in such
-	 a way that buffer will be reallocated the time the code for the class
-	 will be generated. FIXME.  */
+      if (TYPE_SIZE (current_class) != error_mark_node)
+	{
+	  input_filename = current_jcf->filename;
+	  parse_class_file ();
+	  FREE (current_jcf->buffer); /* No longer necessary */
+	  /* Note: there is a way to free this buffer right after a
+	     class seen in a zip file has been parsed. The idea is the
+	     set its jcf in such a way that buffer will be reallocated
+	     the time the code for the class will be generated. FIXME. */
+	}
     }
 }
 
 /* Read all the entries of the zip file, creates a class and a JCF. Sets the
    jcf up for further processing and link it to the created class.  */
 
-void process_zip_dir()
+static void process_zip_dir()
 {
   int i;
   ZipDirectory *zdir;
@@ -854,9 +956,9 @@ void process_zip_dir()
 
 /* Lookup class NAME and figure whether is a class already found in the current
    zip file.  */
-int
+static int
 DEFUN(find_in_current_zip, (name, length, jcf),
-      char *name AND int length AND JCF **jcf)
+      char *name AND JCF **jcf)
 {
   JCF *local_jcf;
   tree class_name = maybe_get_identifier (name), class, icv;
@@ -879,7 +981,7 @@ DEFUN(find_in_current_zip, (name, length, jcf),
 }
 
 /* Figure what kind of file we're dealing with */
-int
+static int
 DEFUN(jcf_figure_file_type, (jcf),
       JCF *jcf)
 {
@@ -895,7 +997,9 @@ DEFUN(jcf_figure_file_type, (jcf),
   if (magic == 0xcafebabe)
     return JCF_CLASS;
 
-  if (!open_in_zip (jcf, input_filename, NULL))
+  /* FIXME: is it a system file?  */
+  if (magic ==  (JCF_u4)ZIPMAGIC
+      && !open_in_zip (jcf, input_filename, NULL, 0))
     {
       localToFile = ALLOC (sizeof (struct ZipFileCache));
       bcopy (SeenZipFiles, localToFile, sizeof (struct ZipFileCache));

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 1987, 88, 93-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 93-98, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -471,11 +471,12 @@ extern int target_flags;
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   (((REGNO) < 16					\
-   && !((REGNO) < 8 && (REGNO) + GET_MODE_SIZE ((MODE)) / 4 > 8))	\
-   || ((REGNO) < 24				        \
+    && !((REGNO) < 8 && (REGNO) + GET_MODE_SIZE (MODE) / 4 > 8))	\
+   || ((REGNO) >= 16 && (REGNO) < 24				        \
        && TARGET_68881                                  \
        && (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
-	   || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)))
+	   || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)		\
+       && GET_MODE_UNIT_SIZE (MODE) <= 12))
 
 #else /* defined SUPPORT_SUN_FPA */
 
@@ -486,6 +487,11 @@ extern int target_flags;
    (apparently) hold whatever you feel like putting in them.
    If using the fpa, don't put a double in d7/a0.  */
 
+/* ??? This is confused.  The check to prohibit d7/a0 overlaps should always
+   be enabled regardless of whether TARGET_FPA is specified.  It isn't clear
+   what the other d/a register checks are for.  Every check using REGNO
+   actually needs to use a range, e.g. 24>=X<56 not <56.  There is probably
+   no one using this code anymore.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 (((REGNO) < 16								\
   && !(TARGET_FPA							\
@@ -494,9 +500,11 @@ extern int target_flags;
        && (REGNO) < 8 && (REGNO) + GET_MODE_SIZE ((MODE)) / 4 > 8	\
        && (REGNO) % (GET_MODE_UNIT_SIZE ((MODE)) / 4) != 0))		\
  || ((REGNO) < 24							\
-     ? TARGET_68881 && (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
-			|| GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)	\
-     : ((REGNO) < 56 ? TARGET_FPA : 0)))
+     ? (TARGET_68881							\
+	&& (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
+	    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)		\
+	&& GET_MODE_UNIT_SIZE (MODE) <= 12)				\
+     : ((REGNO) < 56 ? TARGET_FPA && GET_MODE_UNIT_SIZE (MODE) <= 8 : 0)))
 
 #endif /* defined SUPPORT_SUN_FPA */
 
@@ -1273,11 +1281,11 @@ __transfer_from_trampoline ()					\
 
 /* Addressing modes, and classification of registers for them.  */
 
-#define HAVE_POST_INCREMENT
-/* #define HAVE_POST_DECREMENT */
+#define HAVE_POST_INCREMENT 1
+/* #define HAVE_POST_DECREMENT 0 */
 
-#define HAVE_PRE_DECREMENT
-/* #define HAVE_PRE_INCREMENT */
+#define HAVE_PRE_DECREMENT 1
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1418,20 +1426,12 @@ __transfer_from_trampoline ()					\
    || (GET_CODE (X) == PLUS						\
        && LEGITIMATE_BASE_REG_P (XEXP (X, 0))				\
        && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000)		\
+       && (TARGET_68020							\
+	   || ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))	\
    || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
        && flag_pic && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)		\
    || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
        && flag_pic && GET_CODE (XEXP (X, 1)) == LABEL_REF))		\
-
-#if 0
-/* This should replace the last two (non-pic) lines
-   except that Sun's assembler does not seem to handle such operands.  */
-       && (TARGET_68020 ? CONSTANT_ADDRESS_P (XEXP (X, 1))		\
-	   : (GET_CODE (XEXP (X, 1)) == CONST_INT			\
-	      && ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))))
-#endif
-
 
 #define GO_IF_NONINDEXED_ADDRESS(X, ADDR)  \
 { if (INDIRECTABLE_1_ADDRESS_P (X)) goto ADDR; }
@@ -1463,9 +1463,11 @@ __transfer_from_trampoline ()					\
 	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
 	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
 
+/* coldfire/5200 does not allow HImode index registers.  */
 #define LEGITIMATE_INDEX_REG_P(X)   \
   ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (GET_CODE (X) == SIGN_EXTEND			\
+   || (! TARGET_5200					\
+       && GET_CODE (X) == SIGN_EXTEND			\
        && GET_CODE (XEXP (X, 0)) == REG			\
        && GET_MODE (XEXP (X, 0)) == HImode		\
        && REG_OK_FOR_INDEX_P (XEXP (X, 0)))		\
@@ -2107,9 +2109,9 @@ extern int flags_in_68881 ();
 extern int strict_low_part_peephole_ok ();
 
 /* Variables in m68k.c */
-extern char *m68k_align_loops_string;
-extern char *m68k_align_jumps_string;
-extern char *m68k_align_funcs_string;
+extern const char *m68k_align_loops_string;
+extern const char *m68k_align_jumps_string;
+extern const char *m68k_align_funcs_string;
 extern int m68k_align_loops;
 extern int m68k_align_jumps;
 extern int m68k_align_funcs;
@@ -2121,6 +2123,7 @@ extern int const_int_cost ();
 extern int standard_68881_constant_p ();
 extern int standard_sun_fpa_constant_p ();
 extern void output_function_prologue ();
+extern void output_function_epilogue ();
 extern int use_return_insn ();
 extern void print_operand_address ();
 extern void print_operand ();

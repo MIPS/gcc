@@ -1,6 +1,6 @@
 /* Utility macros to handle Java(TM) byte codes.
 
-   Copyright (C) 1996  Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999  Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef JAVAOP_H
 #define JAVAOP_H
 
-typedef	char		int8;
 typedef	unsigned char	uint8;
 #ifndef int16
 #define int16 short
@@ -48,7 +47,11 @@ typedef unsigned int32	uint32;
 #endif
 
 typedef uint16			jchar;
-typedef int8			jbyte;
+#ifdef __STDC__
+typedef	signed char		jbyte;
+#else
+typedef	char			jbyte;
+#endif
 typedef int16                   jshort;
 typedef int32                   jint;
 typedef int64                   jlong;
@@ -79,10 +82,6 @@ union Word {
 #define jword uint32
 #endif
 
-#if !defined(inline) && !defined(__GC__) && !defined(__cplusplus)
-#define inline static
-#endif
-
 #ifndef IMMEDIATE_u1
 #define IMMEDIATE_u1 (PC++, CHECK_PC_IN_RANGE(PC), BCODE[PC-1])
 #endif
@@ -103,14 +102,14 @@ union Word {
          | (BCODE[PC-2] << 8) | (BCODE[PC-1]))))
 #endif
 
-inline jfloat
+static inline jfloat
 WORD_TO_FLOAT(jword w)
 { union Word wu;
   wu.i = w;
   return wu.f;
 } 
 
-inline jlong
+static inline jlong
 WORDS_TO_LONG(jword hi, jword lo)
 {
   return ((jlong) hi << 32) | ((jlong)lo & (((jlong)1 << 32) -1));
@@ -122,7 +121,7 @@ union DWord {
   jword w[2];
 };
 
-inline jdouble
+static inline jdouble
 WORDS_TO_DOUBLE(jword hi, jword lo)
 { union DWord wu;
   wu.l = WORDS_TO_LONG(hi, lo);

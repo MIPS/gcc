@@ -1,3 +1,4 @@
 set dirlen [expr [string length "$srcdir/$subdir"] + 1];
     set tfile [string range $file $dirlen end];
     if ![runtest_file_p $runtests $tfile] then {
+    old-dejagnu $GXX_UNDER_TEST "$file" "$tfile" "" "$DEFAULT_CXXFLAGS" "-lstdc++"

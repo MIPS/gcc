@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for Hitachi H8/300.
-   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998, 1999 Free Software
+   Foundation, Inc. 
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -1413,13 +1414,14 @@ print_operand (file, x, code)
 	  fprintf (file, "@");
 	  output_address (XEXP (x, 0));
 
-	  /* If this is an 'R' operand (reference into the 8-bit area),
-	     then specify a symbolic address as "foo:8".  */
- 	  if (code == 'R'
-	      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	  /* If this is an 'R' operand (reference into the 8-bit
+	     area), then specify a symbolic address as "foo:8",
+	     otherwise if operand is still in eight bit section, use
+	     "foo:16".  */
+ 	  if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 	      && SYMBOL_REF_FLAG (XEXP (x, 0)))
-	    fprintf (file, ":8");
-	  if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	    fprintf (file, (code == 'R' ? ":8" : ":16"));
+	  else if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 	      && TINY_DATA_NAME_P (XSTR (XEXP (x, 0), 0)))
 	    fprintf (file, ":16");
 	  break;
@@ -2792,8 +2794,7 @@ fix_bit_operand (operands, what, type)
 	      mem = gen_rtx (MEM, GET_MODE (operands[0]),
 			   copy_to_mode_reg (Pmode, XEXP (operands[0], 0)));
 	      RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (operands[0]);
-	      MEM_IN_STRUCT_P (mem) = MEM_IN_STRUCT_P (operands[0]);
-	      MEM_VOLATILE_P (mem) = MEM_VOLATILE_P (operands[0]);
+	      MEM_COPY_ATTRIBUTES (mem, operands[0]);
 	      operands[0] = mem;
 	    }
 
@@ -2803,8 +2804,7 @@ fix_bit_operand (operands, what, type)
 	      mem = gen_rtx (MEM, GET_MODE (operands[1]),
 			   copy_to_mode_reg (Pmode, XEXP (operands[1], 0)));
 	      RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (operands[1]);
-	      MEM_IN_STRUCT_P (mem) = MEM_IN_STRUCT_P (operands[1]);
-	      MEM_VOLATILE_P (mem) = MEM_VOLATILE_P (operands[1]);
+	      MEM_COPY_ATTRIBUTES (mem, operands[0]);
 	      operands[1] = mem;
 	    }
 	  return 0;
@@ -3031,7 +3031,12 @@ h8300_adjust_insn_length (insn, length)
      rtx insn;
      int length;
 {
-  rtx pat = PATTERN (insn);
+  rtx pat;
+
+  if (get_attr_adjust_length (insn) == ADJUST_LENGTH_NO)
+    return 0;
+
+  pat = PATTERN (insn);
 
   /* Adjust length for reg->mem and mem->reg copies.  */
   if (GET_CODE (pat) == SET
@@ -3109,34 +3114,37 @@ h8300_adjust_insn_length (insn, length)
     {
       rtx src = SET_SRC (XVECEXP (pat, 0, 0));
       enum machine_mode mode = GET_MODE (src);
+      int shift;
 
       if (GET_CODE (XEXP (src, 1)) != CONST_INT)
 	return 0;
 
+      shift = INTVAL (XEXP (src, 1));
+      /* According to ANSI, negative shift is undefined.  It is
+         considered to be zero in this case (see function
+         emit_a_shift above). */
+      if (shift < 0)
+	shift = 0;
+
       /* QImode shifts by small constants take one insn
 	 per shift.  So the adjustment is 20 (md length) -
 	 # shifts * 2.  */
-      if (mode == QImode && INTVAL (XEXP (src, 1)) <= 4)
-	return -(20 - INTVAL (XEXP (src, 1)) * 2);
+      if (mode == QImode && shift <= 4)
+	return -(20 - shift * 2);
 
       /* Similarly for HImode and SImode shifts by
 	 small constants on the H8/300H and H8/300S.  */
       if ((TARGET_H8300H || TARGET_H8300S)
-	  && (mode == HImode || mode == SImode)
-	  && INTVAL (XEXP (src, 1)) <= 4)
-	return -(20 - INTVAL (XEXP (src, 1)) * 2);
+	  && (mode == HImode || mode == SImode) && shift <= 4)
+	return -(20 - shift * 2);
 
       /* HImode shifts by small constants for the H8/300.  */
-      if (mode == HImode
-	  && INTVAL (XEXP (src, 1)) <= 4)
-	return -(20 - (INTVAL (XEXP (src, 1))
-		       * (GET_CODE (src) == ASHIFT ? 2 : 4)));
+      if (mode == HImode && shift <= 4)
+	return -(20 - (shift * (GET_CODE (src) == ASHIFT ? 2 : 4)));
 
       /* SImode shifts by small constants for the H8/300.  */
-      if (mode == SImode
-	  && INTVAL (XEXP (src, 1)) <= 2)
-	return -(20 - (INTVAL (XEXP (src, 1))
-		       * (GET_CODE (src) == ASHIFT ? 6 : 8)));
+      if (mode == SImode && shift <= 2)
+	return -(20 - (shift * (GET_CODE (src) == ASHIFT ? 6 : 8)));
 
       /* XXX ??? Could check for more shift/rotate cases here.  */
     }

@@ -74,9 +74,9 @@ extern int current_function_outgoing_args_size;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES							\
-{ { "char-instructions", 1},						\
-  { "no-char-instructions", -1},					\
-  { "", TARGET_DEFAULT} }
+{ { "char-instructions", 1, "Generate char instructions"},		\
+  { "no-char-instructions", -1, "Do not generate char instructions"},	\
+  { "", TARGET_DEFAULT, NULL} }
 
 /* To use IBM supplied macro function prologue and epilogue, define the
    following to 1.  Should only be needed if IBM changes the definition
@@ -612,11 +612,11 @@ enum reg_class
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
+/* #define HAVE_POST_INCREMENT 0 */
+/* #define HAVE_POST_DECREMENT 0 */
 
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
+/* #define HAVE_PRE_DECREMENT 0 */
+/* #define HAVE_PRE_INCREMENT 0 */
 
 /* These assume that REGNO is a hard or pseudo reg number.  They give
    nonzero only if REGNO is a hard reg of the suitable class or a pseudo
