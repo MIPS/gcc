@@ -1,3 +1,7 @@
+2003-08-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa.c (build_dominator_tree): Use FOR_EACH_BB.
+
 2003-08-26  Jason Merrill  <jason@redhat.com>
 
 	* tree-simple.c (is_gimple_val): Also disallow memory vars.

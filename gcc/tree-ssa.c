@@ -410,11 +410,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 void
 build_dominator_tree (dominance_info idom)
 {
-  int i;
   basic_block bb;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    clear_dom_children (BASIC_BLOCK (i));
+  FOR_EACH_BB (bb)
+    clear_dom_children (bb);
 
   /* Using the immediate dominators, build a dominator tree.  */
   FOR_EACH_BB (bb)
