@@ -12,9 +12,11 @@ details.  */
 package java.net;
 
 import java.io.*;
+import java.security.Permission;
 
 /**
  * @author Warren Levy <warrenl@cygnus.com>
+ * @since 1.1
  * @date March 29, 1999.
  */
 
@@ -63,7 +65,8 @@ public abstract class HttpURLConnection extends URLConnection
 
   /* HTTP Server Error Response Codes */
   public static final int HTTP_SERVER_ERROR	= 500;
-  public static final int HTTP_INTERNAL_ERROR	= 501;
+  public static final int HTTP_INTERNAL_ERROR	= 500;
+  public static final int HTTP_NOT_IMPLEMENTED	= 501;
   public static final int HTTP_BAD_GATEWAY	= 502;
   public static final int HTTP_UNAVAILABLE	= 503;
   public static final int HTTP_GATEWAY_TIMEOUT	= 504;
@@ -87,6 +90,13 @@ public abstract class HttpURLConnection extends URLConnection
 
   public abstract boolean usingProxy();
 
+  /**
+   * Sets whether HTTP redirects (requests with response code 3xx) should be
+   * automatically followed by this class. True by default
+   *
+   * @exception SecurityException If a security manager exists and its
+   * checkSetFactory method doesn't allow the operation
+   */
   public static void setFollowRedirects(boolean set)
   {
     // Throw an exception if an extant security mgr precludes
@@ -103,6 +113,30 @@ public abstract class HttpURLConnection extends URLConnection
     return followRedirects;
   }
 
+  /**
+   * Returns the value of this HttpURLConnection's instanceFollowRedirects
+   * field
+   */
+  public boolean getInstanceFollowRedirects ()
+  {
+    return instanceFollowRedirects;
+  }
+
+  /**
+   * Sets the value of this HttpURLConnection's instanceFollowRedirects field
+   */
+  public void setInstanceFollowRedirects (boolean follow)
+  {
+    instanceFollowRedirects = follow;
+  }
+
+  /**
+   * Set the method for the URL request, one of:
+   * GET POST HEAD OPTIONS PUT DELETE TRACE are legal
+   *
+   * @exception ProtocolException If the method cannot be reset or if the
+   * requested method isn't valid for HTTP
+   */
   public void setRequestMethod(String method) throws ProtocolException
   {
     if (connected)
@@ -122,6 +156,11 @@ public abstract class HttpURLConnection extends URLConnection
     return method;
   }
 
+  /**
+   * Gets the status code from an HTTP response message
+   *
+   * @exception IOException If an error occurs
+   */
   public int getResponseCode() throws IOException
   {
     if (!gotResponseVals)
@@ -129,6 +168,12 @@ public abstract class HttpURLConnection extends URLConnection
     return responseCode;
   }
 
+  /**
+   * Gets the HTTP response message, if any, returned along with the
+   * response code from a server
+   *
+   * @exception IOException If an error occurs
+   */
   public String getResponseMessage() throws IOException
   {
     if (!gotResponseVals)
@@ -172,11 +217,35 @@ public abstract class HttpURLConnection extends URLConnection
       }
   }
 
-  // TODO12: public Permission getPermission() throws IOException
-  // {
-  // }
+  /**
+   * Returns a permission object representing the permission necessary to make
+   * the connection represented by this object
+   *
+   * @exception IOException If an error occurs
+   */
+  public Permission getPermission() throws IOException
+  {
+    return new SocketPermission (url.getHost (), "connect");
+  }
 
-  // TODO12: public InputStream getErrorStream()
-  // {
-  // }
+  /**
+   * Returns the error stream if the connection failed but the server sent
+   * useful data nonetheless
+   */
+  public InputStream getErrorStream ()
+  {
+    // FIXME: implement this
+    return null;
+  }
+
+  /**
+   * Returns the value of the named field parsed as date
+   */
+  public long getHeaderFieldDate (String key, long value)
+  {
+    // FIXME: implement this correctly
+    // http://www.w3.org/Protocols/HTTP-NG/ng-notes.txt
+    
+    return super.getHeaderFieldDate (key, value);
+  }
 }

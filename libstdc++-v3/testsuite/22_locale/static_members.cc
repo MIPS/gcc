@@ -1,6 +1,6 @@
 // 2000-09-13 Benjamin Kosnik <bkoz@redhat.com>
 
-// Copyright (C) 2000 Free Software Foundation
+// Copyright (C) 2000, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,6 +22,7 @@
 
 #include <cwchar> // for mbstate_t
 #include <locale>
+#include <iostream>
 #include <testsuite_hooks.h>
 
 typedef std::codecvt<char, char, std::mbstate_t> ccodecvt;
@@ -30,14 +31,15 @@ class gnu_codecvt: public ccodecvt { };
 void test01()
 {
   using namespace std;
-
   bool test = true;
+
   string str1, str2;
 
-  // construct a locale object with the C facet
-  const locale& 	loc01 = locale::classic();
-  // construct a locale object with the specialized facet.
-  locale                loc02(locale::classic(), new gnu_codecvt);
+  // Construct a locale object with the C facet.
+  const locale loc01 = locale::classic();
+
+  // Construct a locale object with the specialized facet.
+  locale loc02(locale::classic(), new gnu_codecvt);
   VERIFY ( loc01 != loc02 );
   VERIFY ( !(loc01 == loc02) );
 
@@ -50,15 +52,132 @@ void test01()
   // global
   locale loc03;
   VERIFY ( loc03 == loc01);
-  locale loc04 = locale::global(loc02);
+  locale global_orig = locale::global(loc02);
   locale loc05;
   VERIFY (loc05 != loc03);
   VERIFY (loc05 == loc02);
+
+  // Reset global settings.
+  locale::global(global_orig);
+}
+
+// Sanity check locale::global(loc) and setlocale.
+void test02()
+{
+  using namespace std;
+  bool test = true;
+  
+  const string ph("en_PH");
+  const string mx("es_MX");
+
+  const locale loc_ph(ph.c_str());
+  const locale loc_mx(mx.c_str());
+
+  // Get underlying current locale and environment settings.
+  const locale env_orig("");
+
+  // setlocale to en_PH
+  std::setlocale(LC_ALL, ph.c_str());
+
+  const locale loc_env("");
+  VERIFY( loc_env == env_orig );
+
+  locale global_orig = locale::global(loc_mx);
+  const char* lc_all_mx = std::setlocale(LC_ALL, NULL);
+  if (lc_all_mx)
+    VERIFY( mx == lc_all_mx );
+
+  // Restore global settings.
+  locale::global(global_orig);
+}
+
+// Static counter for use in checking ctors/dtors.
+static std::size_t counter;
+
+class surf : public std::locale::facet
+{
+public:
+  static std::locale::id 	       	id;
+  surf(size_t refs = 0): std::locale::facet(refs) { ++counter; }
+  ~surf() { --counter; }
+};
+
+std::locale::id surf::id;
+
+typedef surf facet_type;
+
+// Verify lifetimes of global objects.
+void test03()
+{
+  using namespace std;
+  bool test = true;
+
+  string name;
+  locale global_orig;
+  // 1: Destroyed when out of scope.
+  {
+    {
+      {
+	VERIFY( counter == 0 );
+	{
+	  locale loc01(locale::classic(), new facet_type);
+	  VERIFY( counter == 1 );
+	  global_orig = locale::global(loc01);
+	  name = loc01.name();
+	}
+	VERIFY( counter == 1 );
+	locale loc02 = locale();
+	// Weak, but it's something...
+	VERIFY( loc02.name() == name );
+      }
+      VERIFY( counter == 1 );
+      // NB: loc03 should be a copy of the previous global locale.
+      locale loc03 = locale::global(global_orig);
+      VERIFY( counter == 1 );
+      VERIFY( loc03.name() == name );
+    }
+    VERIFY( counter == 0 );
+    locale loc04 = locale();
+    VERIFY( loc04 == global_orig );
+  }
+
+  // 2: Not destroyed when out of scope, deliberately leaked.
+  {
+    {
+      {
+	VERIFY( counter == 0 );
+	{
+	  locale loc01(locale::classic(), new facet_type(1));
+	  VERIFY( counter == 1 );
+	  global_orig = locale::global(loc01);
+	  name = loc01.name();
+	}
+	VERIFY( counter == 1 );
+	locale loc02 = locale();
+	// Weak, but it's something...
+	VERIFY( loc02.name() == name );
+      }
+      VERIFY( counter == 1 );
+      // NB: loc03 should be a copy of the previous global locale.
+      locale loc03 = locale::global(global_orig);
+      VERIFY( counter == 1 );
+      VERIFY( loc03.name() == name );
+    }
+    VERIFY( counter == 1 );
+    locale loc04 = locale();
+    VERIFY( loc04 == global_orig );
+  }
+  VERIFY( counter == 1 );
+
+  // Restore global settings.
+  locale::global(global_orig);
 }
 
 int main ()
 {
   test01();
+  test02();
 
+  test03();
   return 0;
 }

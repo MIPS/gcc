@@ -24,13 +24,12 @@ Boston, MA 02111-1307, USA.  */
 extern void optimization_options PARAMS ((int, int));
 extern void override_options PARAMS ((void));
 extern int s390_arg_frame_offset PARAMS ((void));
-extern void s390_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
-extern void s390_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 extern void s390_emit_prologue PARAMS ((void));
 extern void s390_emit_epilogue PARAMS ((void));
 extern void s390_function_profiler PARAMS ((FILE *, int));
 
 #ifdef RTX_CODE
+extern int s390_address_cost PARAMS ((rtx));
 extern int q_constraint PARAMS ((rtx));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int consttable_operand PARAMS ((rtx, enum machine_mode));
@@ -51,7 +50,7 @@ extern enum machine_mode s390_tm_ccmode PARAMS ((rtx, rtx, int));
 extern enum machine_mode s390_select_ccmode PARAMS ((enum rtx_code, rtx, rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 extern int legitimate_la_operand_p PARAMS ((rtx));
-extern rtx legitimize_la_operand PARAMS ((rtx));
+extern int preferred_la_operand_p PARAMS ((rtx, int));
 extern int legitimate_pic_operand_p PARAMS ((rtx));
 extern int legitimate_constant_p PARAMS ((rtx));
 extern int legitimate_reload_constant_p PARAMS ((rtx));
@@ -63,6 +62,10 @@ extern enum reg_class s390_secondary_input_reload_class PARAMS ((enum reg_class,
 extern int s390_plus_operand PARAMS ((rtx, enum machine_mode));
 extern void s390_expand_plus_operand PARAMS ((rtx, rtx, rtx));
 extern void emit_pic_move PARAMS ((rtx *, enum machine_mode));
+extern void s390_load_address PARAMS ((rtx, rtx));
+extern void s390_expand_movstr PARAMS ((rtx, rtx, rtx));
+extern void s390_expand_clrstr PARAMS ((rtx, rtx));
+extern void s390_expand_cmpstr PARAMS ((rtx, rtx, rtx, rtx));
 
 extern void s390_output_symbolic_const PARAMS ((FILE *, rtx));
 extern void print_operand_address PARAMS ((FILE *, rtx));
@@ -72,6 +75,7 @@ extern void s390_trampoline_template PARAMS ((FILE *));
 extern void s390_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx s390_gen_rtx_const_DI PARAMS ((int, int));
 extern rtx s390_simplify_dwarf_addr PARAMS ((rtx));
+extern void s390_machine_dependent_reorg PARAMS ((rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

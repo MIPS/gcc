@@ -111,9 +111,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Generate DBX debugging information.  riscix.h will undefine this because
    the native assembler does not support stabs. */
-#ifndef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO  1
-#endif
+#define DBX_DEBUGGING_INFO 1
 
 /* Acorn dbx moans about continuation chars, so don't use any.  */
 #ifndef DBX_CONTIN_LENGTH
@@ -129,7 +127,7 @@ Boston, MA 02111-1307, USA.  */
       output_quoted_string (STREAM, NAME);				\
       fprintf (STREAM, ",%d,0,315,%s\n", N_SO, &ltext_label_name[1]);	\
       text_section ();							\
-      ASM_OUTPUT_INTERNAL_LABEL (STREAM, "Ltext", 0);			\
+      (*targetm.asm_out.internal_label) (STREAM, "Ltext", 0);			\
     }									\
   while (0)
   
@@ -153,11 +151,6 @@ Boston, MA 02111-1307, USA.  */
   sprintf (STRING, "*%s%s%u", LOCAL_LABEL_PREFIX, PREFIX, (unsigned int)(NUM))
 #endif
      
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)  \
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),  \
-   sprintf (OUTVAR, "%s.%d", NAME, NUMBER))
-
 /* Output an element of a dispatch table.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)  \
   asm_fprintf (STREAM, "\t.word\t%LL%d\n", VALUE)

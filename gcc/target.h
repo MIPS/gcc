@@ -69,6 +69,16 @@ struct gcc_target
        and UNALIGNED_OP are NULL.  */
     bool (* integer) PARAMS ((rtx x, unsigned int size, int aligned_p));
 
+    /* Output code that will globalize a label.  */
+    void (* globalize_label) PARAMS ((FILE *, const char *));
+
+    /* Output an internal label.  */
+    void (* internal_label) PARAMS ((FILE *, const char *, unsigned long));
+
+    /* Emit an assembler directive to set visibility for the symbol
+       associated with the tree decl.  */
+    void (* visibility) PARAMS ((tree, const char *));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -92,7 +102,7 @@ struct gcc_target
     void (* eh_frame_section) PARAMS ((void));
 
     /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant for which TREE_CST_RTL is valid.  RELOC is non-zero if
+       constant for which TREE_CST_RTL is valid.  RELOC is nonzero if
        runtime relocations must be applied; bit 1 will be set if the
        runtime relocations require non-local name resolution.  ALIGN is
        the required alignment of the data.  */
@@ -234,6 +244,11 @@ struct gcc_target
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
 
+  /* True if it is OK to do sibling call optimization for the specified
+     call expression EXP.  DECL will be the called function, or NULL if
+     this is an indirect call.  */
+  bool (*function_ok_for_sibcall) PARAMS ((tree decl, tree exp));
+  
   /* True if EXP should be placed in a "small data" section.  */
   bool (* in_small_data_p) PARAMS ((tree));
 
@@ -248,6 +263,7 @@ struct gcc_target
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) PARAMS ((const char *));
 
+  bool (* valid_pointer_mode) PARAMS ((enum machine_mode mode));
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */
@@ -259,6 +275,12 @@ struct gcc_target
 
   /* True if thread-local storage is supported.  */
   bool have_tls;
+
+  /* True if a small readonly data section is supported.  */
+  bool have_srodata_section;
+
+  /* True if EH frame info sections should be zero-terminated.  */
+  bool terminate_dw2_eh_frame_info;
 };
 
 extern struct gcc_target targetm;

@@ -1,3 +1,59 @@
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* src/java_raw_api.c (ffi_java_raw_to_ptrarray): Interpret
+	raw data as _Jv_word values, not ffi_raw.
+	(ffi_java_ptrarray_to_raw): Likewise.
+	(ffi_java_rvalue_to_raw): New function.
+	(ffi_java_raw_call): Call it.
+	(ffi_java_raw_to_rvalue): New function.
+	(ffi_java_translate_args): Call it.
+	* src/ffitest.c (closure_test_fn): Interpret return value
+	as ffi_arg, not int.
+	* src/s390/ffi.c (ffi_prep_cif_machdep): Add missing
+	FFI_TYPE_POINTER case.
+	(ffi_closure_helper_SYSV): Likewise.  Also, assume return
+	values extended to word size.
+
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+
+	* src/x86/ffi64.c (ffi_prep_cif_machdep): Remove debug output.
+
+2002-10-01  Bo Thorsen  <bo@smetana.suse.de>
+
+	* include/ffi.h.in: Fix i386 win32 compilation.
+
+2002-09-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.in: Add s390x-*-linux-* target.
+	* configure: Regenerate.
+	* include/ffi.h.in: Define S390X for s390x targets.
+	(FFI_CLOSURES): Define for s390/s390x.
+	(FFI_TRAMPOLINE_SIZE): Likewise.
+	(FFI_NATIVE_RAW_API): Likewise.
+	* src/prep_cif.c (ffi_prep_cif): Do not compute stack space for s390.
+	* src/types.c (FFI_TYPE_POINTER): Use 8-byte pointers on s390x.
+	* src/s390/ffi.c: Major rework of existing code.  Add support for 
+	s390x targets.  Add closure support.
+	* src/s390/sysv.S: Likewise.
+
+2002-09-29  Richard Earnshaw  <rearnsha@arm.com>
+
+	* src/arm/sysv.S: Fix typo.
+
+2002-09-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* src/arm/sysv.S: If we don't have machine/asm.h and the pre-processor
+	has defined __USER_LABEL_PREFIX__, then use it in CNAME.
+	(ffi_call_SYSV): Handle soft-float.
+
+2002-09-27  Bo Thorsen  <bo@suse.de>
+
+	* include/ffi.h.in: Fix multilib x86-64 support.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
 2002-07-19  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* configure.in (sh[34]*-*-linux*): Add brackets.

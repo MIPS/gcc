@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OBJECT_FORMAT OBJECT_XCOFF
 
 /* The RS/6000 uses the XCOFF format.  */
-#define XCOFF_DEBUGGING_INFO
+#define XCOFF_DEBUGGING_INFO 1
 
 /* Define if the object format being used is COFF or a superset.  */
 #define OBJECT_FORMAT_COFF
@@ -135,9 +135,7 @@ toc_section ()						\
 
 #define READONLY_DATA_SECTION read_only_data_section
 
-#define TARGET_ASM_SELECT_SECTION  rs6000_xcoff_select_section
-
-/* Return non-zero if this entry is to be written into the constant
+/* Return nonzero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
    or a CONST containing one of them.  If -mfp-in-toc (the default),
    we also do this for floating-point constants.  We actually can only
@@ -161,9 +159,14 @@ toc_section ()						\
 	       || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
+#define TARGET_ASM_GLOBALIZE_LABEL  rs6000_xcoff_asm_globalize_label
+#define TARGET_ASM_NAMED_SECTION  rs6000_xcoff_asm_named_section
+#define TARGET_ASM_SELECT_SECTION  rs6000_xcoff_select_section
 #define TARGET_ASM_SELECT_RTX_SECTION  rs6000_xcoff_select_rtx_section
-#define TARGET_ENCODE_SECTION_INFO rs6000_xcoff_encode_section_info
-#define TARGET_STRIP_NAME_ENCODING rs6000_xcoff_strip_name_encoding
+#define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
+#define TARGET_ENCODE_SECTION_INFO  rs6000_xcoff_encode_section_info
+#define TARGET_STRIP_NAME_ENCODING  rs6000_xcoff_strip_name_encoding
+#define TARGET_SECTION_TYPE_FLAGS  rs6000_xcoff_section_type_flags
 
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"
@@ -196,9 +199,8 @@ toc_section ()						\
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* Output at beginning of assembler file.
 
@@ -264,7 +266,7 @@ toc_section ()						\
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)		\
 { rtx sym_ref = XEXP (DECL_RTL (DECL), 0);			\
-  if (!DECL_WEAK (DECL))					\
+  if ((*targetm.binds_local_p) (DECL))				\
     SYMBOL_REF_FLAG (sym_ref) = 1;				\
   if (TREE_PUBLIC (DECL))					\
     {								\
@@ -319,12 +321,6 @@ toc_section ()						\
     }									\
 }
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s..%u:\n", (PREFIX), (unsigned) (NUM))
-
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
 
@@ -332,11 +328,11 @@ toc_section ()						\
   fprintf (FILE, "%s..", PREFIX)
 
 /* This is how to output a label for a jump table.  Arguments are the same as
-   for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
+   for (*targetm.asm_out.internal_label), except the insn for the jump table is
    passed.  */
 
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-{ ASM_OUTPUT_ALIGN (FILE, 2); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
+{ ASM_OUTPUT_ALIGN (FILE, 2); (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM); }
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -407,18 +403,10 @@ toc_section ()						\
 
 /* Output before instructions.  */
 #define TEXT_SECTION_ASM_OP "\t.csect .text[PR]"
-#define HOT_TEXT_SECTION_NAME ".text[PR]"
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text[PR]"
 
 /* Output before writable data.
    Align entire section to BIGGEST_ALIGNMENT.  */
 #define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
-
-/* Define unique section name -- functions only.  */
-#define TARGET_ASM_UNIQUE_SECTION  rs6000_xcoff_unique_section
-
-/* Switch into a generic section.  */
-#define TARGET_ASM_NAMED_SECTION  xcoff_asm_named_section
 
 /* Define the name of the section to use for the EH language specific
    data areas (.gcc_except_table on most other systems).  */

@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_LIBGCC_SPECIAL 1
 
 #define LINK_SPEC "%{aof} %{bin} %{aif} %{ihf} %{shl,*} %{reent*} %{split} \
-		   %{ov*,*} %{reloc*} -nodebug"
+		   %{ov*} %{reloc*} -nodebug"
 
 #define STARTFILE_SPEC "crtbegin.o%s"
 
@@ -220,14 +220,8 @@ do					\
 
 extern int arm_main_function;
 
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)		\
-do {							\
-  fprintf ((STREAM), "\tEXPORT\t");			\
-  assemble_name ((STREAM), (NAME));			\
-  fputc ('\n', (STREAM));				\
-  if ((NAME)[0] == 'm' && ! strcmp ((NAME), "main"))	\
-    arm_main_function = 1;				\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\tEXPORT\t"
 
 #define ASM_OUTPUT_LABEL(STREAM,NAME)	\
 do {					\
@@ -272,10 +266,6 @@ do {					\
 
 #define ASM_GENERATE_INTERNAL_LABEL(STRING,PREFIX,NUM)	\
   sprintf ((STRING), "*|%s..%ld|", (PREFIX), (long)(NUM))
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
- ((OUTVAR) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
 
 /* How initialization functions are handled */
 

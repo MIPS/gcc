@@ -38,7 +38,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* m68k as needs to know about the processor subtype.  */
 #undef ASM_SPEC
-#define ASM_SPEC "%| %{m68030} %{m68040} %{m68060} %{fpic:-k} %{fPIC:-k -K}"
+#define ASM_SPEC "%{m68030} %{m68040} %{m68060} %{fpic:-k} %{fPIC:-k -K}"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* Layout of source language data types.  */
 
@@ -63,7 +65,7 @@ Boston, MA 02111-1307, USA.  */
 /* Specific options for DBX Output.  */
 
 /* This is BSD, so it wants DBX format.  */
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Do not break .stabs pseudos into continuations.  */
 #define DBX_CONTIN_LENGTH 0

@@ -148,7 +148,7 @@ An online, ``live'' version of this document
 (derived directly from the mainline, development version
 of @command{g77} within @command{gcc})
 is available at
-@uref{http://www.gnu.org/software/gcc/onlinedocs/g77_news.html}.
+@uref{http://gcc.gnu.org/onlinedocs/g77/News.html}.
 @end ifclear
 
 The following information was last updated on @value{last-update-news}:
@@ -2315,7 +2315,7 @@ fix up some of the build procedures.
 
 @item
 Change code generation for list-directed I/O so it allows
-for new versions of @code{libf2c} that might return non-zero
+for new versions of @code{libf2c} that might return nonzero
 status codes for some operations previously assumed to always
 return zero.
 

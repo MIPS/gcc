@@ -1602,7 +1602,7 @@
   [(set_attr "type" "branch")
    (set_attr "branch_type" "fcc")])
 
-;; Sparc V9-specific jump insns.  None of these are guaranteed to be
+;; SPARC V9-specific jump insns.  None of these are guaranteed to be
 ;; in the architecture.
 
 ;; There are no 32 bit brreg insns.
@@ -2048,7 +2048,7 @@
   ;
 })
 
-;; Be careful, fmovd does not exist when !arch64.
+;; Be careful, fmovd does not exist when !v9.
 ;; We match MEM moves directly when we have correct even
 ;; numbered registers, but fall into splits otherwise.
 ;; The constraint ordering here is really important to
@@ -2062,9 +2062,9 @@
 
 (define_insn "*movdi_insn_sp32_v9"
   [(set (match_operand:DI 0 "nonimmediate_operand"
-					"=T,o,T,U,o,r,r,r,?T,?f,?f,?o,?f")
+					"=T,o,T,U,o,r,r,r,?T,?f,?f,?o,?f,?e,?e,?W")
         (match_operand:DI 1 "input_operand"
-					" J,J,U,T,r,o,i,r, f, T, o, f, f"))]
+					" J,J,U,T,r,o,i,r, f, T, o, f, f, e, W, e"))]
   "! TARGET_ARCH64 && TARGET_V9
    && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
   "@
@@ -2080,9 +2080,13 @@
    ldd\t%1, %0
    #
    #
-   #"
-  [(set_attr "type" "store,store,store,load,*,*,*,*,fpstore,fpload,*,*,*")
-   (set_attr "length" "*,2,*,*,2,2,2,2,*,*,2,2,2")])
+   #
+   fmovd\\t%1, %0
+   ldd\\t%1, %0
+   std\\t%1, %0"
+  [(set_attr "type" "store,store,store,load,*,*,*,*,fpstore,fpload,*,*,*,fpmove,fpload,fpstore")
+   (set_attr "length" "*,2,*,*,2,2,2,2,*,*,2,2,2,*,*,*")
+   (set_attr "fptype" "*,*,*,*,*,*,*,*,*,*,*,*,*,double,*,*")])
 
 (define_insn "*movdi_insn_sp32"
   [(set (match_operand:DI 0 "nonimmediate_operand"
@@ -2202,7 +2206,7 @@
   "TARGET_ARCH64 && flag_pic"
   "or\t%1, %%lo(%a3-(%a2-.)), %0")
 
-;; Sparc-v9 code model support insns.  See sparc_emit_set_symbolic_const64
+;; SPARC-v9 code model support insns.  See sparc_emit_set_symbolic_const64
 ;; in sparc.c to see what is going on here... PIC stuff comes first.
 
 (define_insn "movdi_lo_sum_pic"
@@ -2388,7 +2392,14 @@
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
         (match_operand:DI 1 "const_double_operand" ""))]
-  "! TARGET_ARCH64 && reload_completed"
+  "reload_completed
+   && (! TARGET_V9
+       || (! TARGET_ARCH64
+           && ((GET_CODE (operands[0]) == REG
+                && REGNO (operands[0]) < 32)
+               || (GET_CODE (operands[0]) == SUBREG
+                   && GET_CODE (SUBREG_REG (operands[0])) == REG
+                   && REGNO (SUBREG_REG (operands[0])) < 32))))"
   [(clobber (const_int 0))]
 {
   emit_insn (gen_movsi (gen_highpart (SImode, operands[0]),
@@ -3459,10 +3470,10 @@
   DONE;
 })
 
-;; Sparc V9 conditional move instructions.
+;; SPARC V9 conditional move instructions.
 
 ;; We can handle larger constants here for some flavors, but for now we keep
-;; it simple and only allow those constants supported by all flavours.
+;; it simple and only allow those constants supported by all flavors.
 ;; Note that emit_conditional_move canonicalizes operands 2,3 so that operand
 ;; 3 contains the constant if one is present, but we handle either for
 ;; generality (sparc.c puts a constant in operand 2).
@@ -7216,14 +7227,14 @@
   [(set_attr "type" "shift")])
 
 ;; Unconditional and other jump instructions
-;; On the Sparc, by setting the annul bit on an unconditional branch, the
+;; On the SPARC, by setting the annul bit on an unconditional branch, the
 ;; following insn is never executed.  This saves us a nop.  Dbx does not
 ;; handle such branches though, so we only use them when optimizing.
 (define_insn "jump"
   [(set (pc) (label_ref (match_operand 0 "" "")))]
   ""
 {
-  /* TurboSparc is reported to have problems with
+  /* TurboSPARC is reported to have problems with
      with
 	foo: b,a foo
      i.e. an empty loop with the annul bit set.  The workaround is to use 
@@ -7909,7 +7920,7 @@
 ;; ??? This should be a define expand, so that the extra instruction have
 ;; a chance of being optimized away.
 
-;; Disabled because none of the UltraSparcs implement popc.  The HAL R1
+;; Disabled because none of the UltraSPARCs implement popc.  The HAL R1
 ;; does, but no one uses that and we don't have a switch for it.
 ;
 ;(define_insn "ffsdi2"

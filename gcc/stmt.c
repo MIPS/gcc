@@ -166,9 +166,6 @@ struct nesting GTY(())
 	  rtx start_label;
 	  /* Label at the end of the whole construct.  */
 	  rtx end_label;
-	  /* Label before a jump that branches to the end of the whole
-	     construct.  This is where destructors go if any.  */
-	  rtx alt_end_label;
 	  /* Label for `continue' statement to jump to;
 	     this is in front of the stepper of the loop.  */
 	  rtx continue_label;
@@ -398,6 +395,7 @@ static int n_occurrences		PARAMS ((int, const char *));
 static bool parse_input_constraint	PARAMS ((const char **, int, int, int,
 						 int, const char * const *,
 						 bool *, bool *));
+static bool decl_conflicts_with_clobbers_p PARAMS ((tree, const HARD_REG_SET));
 static void expand_goto_internal	PARAMS ((tree, rtx, rtx));
 static int expand_fixup			PARAMS ((tree, rtx, rtx));
 static rtx expand_nl_handler_label	PARAMS ((rtx, rtx));
@@ -458,14 +456,6 @@ init_stmt_for_function ()
   clear_last_expr ();
 }
 
-/* Return nonzero if anything is pushed on the loop, condition, or case
-   stack.  */
-int
-in_control_zone_p ()
-{
-  return cond_stack || loop_stack || case_stack;
-}
-
 /* Record the current file and line.  Called from emit_line_note.  */
 void
 set_file_and_line_for_stmt (file, line)
@@ -1400,6 +1390,42 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
   return true;
 }
 
+/* Check for overlap between registers marked in CLOBBERED_REGS and
+   anything inappropriate in DECL.  Emit error and return TRUE for error,
+   FALSE for ok.  */
+
+static bool
+decl_conflicts_with_clobbers_p (decl, clobbered_regs)
+     tree decl;
+     const HARD_REG_SET clobbered_regs;
+{
+  /* Conflicts between asm-declared register variables and the clobber
+     list are not allowed.  */
+  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+      && DECL_REGISTER (decl)
+      && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
+    {
+      rtx reg = DECL_RTL (decl);
+      unsigned int regno;
+
+      for (regno = REGNO (reg);
+	   regno < (REGNO (reg)
+		    + HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg)));
+	   regno++)
+	if (TEST_HARD_REG_BIT (clobbered_regs, regno))
+	  {
+	    error ("asm-specifier for variable `%s' conflicts with asm clobber list",
+		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+
+	    /* Reset registerness to stop multiple errors emitted for a
+	       single variable.  */
+	    DECL_REGISTER (decl) = 0;
+	    return true;
+	  }
+    }
+  return false;
+}
+
 /* Generate RTL for an asm statement with arguments.
    STRING is the instruction template.
    OUTPUTS is a list of output arguments (lvalues); INPUTS a list of inputs.
@@ -1430,6 +1456,8 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   int noutputs = list_length (outputs);
   int ninout;
   int nclobbers;
+  HARD_REG_SET clobbered_regs;
+  int clobber_conflict_found = 0;
   tree tail;
   int i;
   /* Vector of RTX's of evaluated output operands.  */
@@ -1440,8 +1468,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
     = (enum machine_mode *) alloca (noutputs * sizeof (enum machine_mode));
   const char **constraints
     = (const char **) alloca ((noutputs + ninputs) * sizeof (const char *));
-  /* The insn we have emitted.  */
-  rtx insn;
   int old_generating_concat_p = generating_concat_p;
 
   /* An ASM with no outputs needs to be treated as volatile, for now.  */
@@ -1467,6 +1493,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   /* Count the number of meaningful clobbered registers, ignoring what
      we would ignore later.  */
   nclobbers = 0;
+  CLEAR_HARD_REG_SET (clobbered_regs);
   for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
       const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
@@ -1476,6 +1503,10 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	++nclobbers;
       else if (i == -2)
 	error ("unknown register name `%s' in `asm'", regname);
+
+      /* Mark clobbered registers.  */
+      if (i >= 0)
+	SET_HARD_REG_BIT (clobbered_regs, i);
     }
 
   clear_last_expr ();
@@ -1601,6 +1632,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  inout_mode[ninout] = TYPE_MODE (type);
 	  inout_opnum[ninout++] = i;
 	}
+
+      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+	clobber_conflict_found = 1;
     }
 
   /* Make vectors for the expression-rtx, constraint strings,
@@ -1685,6 +1719,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), constraints[i + noutputs]);
+
+      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+	clobber_conflict_found = 1;
     }
 
   /* Protect all the operands from the queue now that they have all been
@@ -1723,13 +1760,13 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   if (noutputs == 1 && nclobbers == 0)
     {
       ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
-      insn = emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
+      emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
   else if (noutputs == 0 && nclobbers == 0)
     {
       /* No output operands: put in a raw ASM_OPERANDS rtx.  */
-      insn = emit_insn (body);
+      emit_insn (body);
     }
 
   else
@@ -1769,6 +1806,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	{
 	  const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 	  int j = decode_reg_name (regname);
+	  rtx clobbered_reg;
 
 	  if (j < 0)
 	    {
@@ -1790,11 +1828,32 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	    }
 
 	  /* Use QImode since that's guaranteed to clobber just one reg.  */
+	  clobbered_reg = gen_rtx_REG (QImode, j);
+
+	  /* Do sanity check for overlap between clobbers and respectively
+	     input and outputs that hasn't been handled.  Such overlap
+	     should have been detected and reported above.  */
+	  if (!clobber_conflict_found)
+	    {
+	      int opno;
+
+	      /* We test the old body (obody) contents to avoid tripping
+		 over the under-construction body.  */
+	      for (opno = 0; opno < noutputs; opno++)
+		if (reg_overlap_mentioned_p (clobbered_reg, output_rtx[opno]))
+		  internal_error ("asm clobber conflict with output operand");
+
+	      for (opno = 0; opno < ninputs - ninout; opno++)
+		if (reg_overlap_mentioned_p (clobbered_reg,
+					     ASM_OPERANDS_INPUT (obody, opno)))
+		  internal_error ("asm clobber conflict with input operand");
+	    }
+
 	  XVECEXP (body, 0, i++)
-	    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (QImode, j));
+	    = gen_rtx_CLOBBER (VOIDmode, clobbered_reg);
 	}
 
-      insn = emit_insn (body);
+      emit_insn (body);
     }
 
   /* For any outputs that needed reloading into registers, spill them
@@ -2422,7 +2481,6 @@ expand_start_loop (exit_flag)
   thisloop->depth = ++nesting_depth;
   thisloop->data.loop.start_label = gen_label_rtx ();
   thisloop->data.loop.end_label = gen_label_rtx ();
-  thisloop->data.loop.alt_end_label = 0;
   thisloop->data.loop.continue_label = thisloop->data.loop.start_label;
   thisloop->exit_label = exit_flag ? thisloop->data.loop.end_label : 0;
   loop_stack = thisloop;
@@ -2464,7 +2522,6 @@ expand_start_null_loop ()
   thisloop->depth = ++nesting_depth;
   thisloop->data.loop.start_label = emit_note (NULL, NOTE_INSN_DELETED);
   thisloop->data.loop.end_label = gen_label_rtx ();
-  thisloop->data.loop.alt_end_label = NULL_RTX;
   thisloop->data.loop.continue_label = thisloop->data.loop.end_label;
   thisloop->exit_label = thisloop->data.loop.end_label;
   loop_stack = thisloop;
@@ -2495,6 +2552,7 @@ expand_end_loop ()
   rtx start_label = loop_stack->data.loop.start_label;
   rtx etc_note;
   int eh_regions, debug_blocks;
+  bool empty_test;
 
   /* Mark the continue-point at the top of the loop if none elsewhere.  */
   if (start_label == loop_stack->data.loop.continue_label)
@@ -2538,6 +2596,7 @@ expand_end_loop ()
 
   /* Scan insns from the top of the loop looking for the END_TOP_COND note.  */
 
+  empty_test = true;
   eh_regions = debug_blocks = 0;
   for (etc_note = start_label; etc_note ; etc_note = NEXT_INSN (etc_note))
     if (GET_CODE (etc_note) == NOTE)
@@ -2578,9 +2637,12 @@ expand_end_loop ()
 	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_BLOCK_END)
 	  debug_blocks--;
       }
+    else if (INSN_P (etc_note))
+      empty_test = false;
 
   if (etc_note
       && optimize
+      && ! empty_test
       && eh_regions == 0
       && (debug_blocks == 0 || optimize >= 2)
       && NEXT_INSN (etc_note) != NULL_RTX
@@ -2699,22 +2761,32 @@ expand_exit_loop_if_false (whichloop, cond)
      struct nesting *whichloop;
      tree cond;
 {
-  rtx label = gen_label_rtx ();
-  rtx last_insn;
+  rtx label;
   clear_last_expr ();
 
   if (whichloop == 0)
     whichloop = loop_stack;
   if (whichloop == 0)
     return 0;
+
+  if (integer_nonzerop (cond))
+    return 1;
+  if (integer_zerop (cond))
+    return expand_exit_loop (whichloop);
+
+  /* Check if we definitely won't need a fixup.  */
+  if (whichloop == nesting_stack)
+    {
+      jumpifnot (cond, whichloop->data.loop.end_label);
+      return 1;
+    }
+
   /* In order to handle fixups, we actually create a conditional jump
      around an unconditional branch to exit the loop.  If fixups are
      necessary, they go before the unconditional branch.  */
 
-  do_jump (cond, NULL_RTX, label);
-  last_insn = get_last_insn ();
-  if (GET_CODE (last_insn) == CODE_LABEL)
-    whichloop->data.loop.alt_end_label = last_insn;
+  label = gen_label_rtx ();
+  jumpif (cond, label);
   expand_goto_internal (NULL_TREE, whichloop->data.loop.end_label,
 			NULL_RTX);
   emit_label (label);
@@ -2738,18 +2810,7 @@ expand_exit_loop_top_cond (whichloop, cond)
   return 1;
 }
 
-/* Return nonzero if the loop nest is empty.  Else return zero.  */
-
-int
-stmt_loop_nest_empty ()
-{
-  /* cfun->stmt can be NULL if we are building a call to get the
-     EH context for a setjmp/longjmp EH target and the current
-     function was a deferred inline function.  */
-  return (cfun->stmt == NULL || loop_stack == NULL);
-}
-
-/* Return non-zero if we should preserve sub-expressions as separate
+/* Return nonzero if we should preserve sub-expressions as separate
    pseudos.  We never do so if we aren't optimizing.  We always do so
    if -fexpensive-optimizations.
 
@@ -3132,18 +3193,6 @@ expand_return (retval)
       expand_value_return (result_rtl);
     }
 }
-
-/* Return 1 if the end of the generated RTX is not a barrier.
-   This means code already compiled can drop through.  */
-
-int
-drop_through_at_end_p ()
-{
-  rtx insn = get_last_insn ();
-  while (insn && GET_CODE (insn) == NOTE)
-    insn = PREV_INSN (insn);
-  return insn && GET_CODE (insn) != BARRIER;
-}
 
 /* Attempt to optimize a potential tail recursion call into a goto.
    ARGUMENTS are the arguments to a CALL_EXPR; LAST_INSN indicates
@@ -3362,7 +3411,7 @@ expand_end_target_temps ()
   pop_temp_slots ();
 }
 
-/* Given a pointer to a BLOCK node return non-zero if (and only if) the node
+/* Given a pointer to a BLOCK node return nonzero if (and only if) the node
    in question represents the outermost pair of curly braces (i.e. the "body
    block") of a function or method.
 
@@ -3751,7 +3800,6 @@ void
 expand_decl (decl)
      tree decl;
 {
-  struct nesting *thisblock;
   tree type;
 
   type = TREE_TYPE (decl);
@@ -3776,8 +3824,6 @@ expand_decl (decl)
 
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
     return;
-
-  thisblock = block_stack;
 
   /* Create the RTL representation for the variable.  */
 
@@ -4162,7 +4208,7 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
    This is sometimes used to avoid a cleanup associated with
    a value that is being returned out of the scope.
 
-   If IN_FIXUP is non-zero, we are generating this cleanup for a fixup
+   If IN_FIXUP is nonzero, we are generating this cleanup for a fixup
    goto and handle protection regions specially in that case.
 
    If REACHABLE, we emit code, otherwise just inform the exception handling
@@ -4242,24 +4288,6 @@ end_cleanup_deferral ()
      OK to do nothing, because cleanups aren't possible here.  */
   if (block_stack)
     --block_stack->data.block.conditional_code;
-}
-
-/* Move all cleanups from the current block_stack
-   to the containing block_stack, where they are assumed to
-   have been created.  If anything can cause a temporary to
-   be created, but not expanded for more than one level of
-   block_stacks, then this code will have to change.  */
-
-void
-move_cleanups_up ()
-{
-  struct nesting *block = block_stack;
-  struct nesting *outer = block->next;
-
-  outer->data.block.cleanups
-    = chainon (block->data.block.cleanups,
-	       outer->data.block.cleanups);
-  block->data.block.cleanups = 0;
 }
 
 tree
@@ -4370,26 +4398,6 @@ expand_start_case_dummy ()
   case_stack = thiscase;
   nesting_stack = thiscase;
   start_cleanup_deferral ();
-}
-
-/* End a dummy case statement.  */
-
-void
-expand_end_case_dummy ()
-{
-  end_cleanup_deferral ();
-  POPSTACK (case_stack);
-}
-
-/* Return the data type of the index-expression
-   of the innermost case statement, or null if none.  */
-
-tree
-case_index_expr_type ()
-{
-  if (case_stack)
-    return TREE_TYPE (case_stack->data.case_stmt.index_expr);
-  return 0;
 }
 
 static void

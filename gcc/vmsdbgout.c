@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "langhooks.h"
 #include "function.h"
+#include "target.h"
 
 /* Difference in seconds between the VMS Epoch and the Unix Epoch */
 static const long long vms_epoch_offset = 3506716800ll;
@@ -526,7 +527,7 @@ restart:
 
 /* Output the debug header HEADER.  Also output COMMENT if flag_verbose_asm is
    set.  Return the header size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_header (header, comment, dosizeonly)
@@ -558,7 +559,7 @@ write_debug_header (header, comment, dosizeonly)
 
 /* Output the address of SYMBOL.  Also output COMMENT if flag_verbose_asm is
    set.  Return the address size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_addr (symbol, comment, dosizeonly)
@@ -579,7 +580,7 @@ write_debug_addr (symbol, comment, dosizeonly)
 
 /* Output the single byte DATA1.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data1 (data1, comment, dosizeonly)
@@ -600,7 +601,7 @@ write_debug_data1 (data1, comment, dosizeonly)
 
 /* Output the single word DATA2.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data2 (data2, comment, dosizeonly)
@@ -620,7 +621,7 @@ write_debug_data2 (data2, comment, dosizeonly)
 }
 
 /* Output double word DATA4.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data4 (data4, comment, dosizeonly)
@@ -640,7 +641,7 @@ write_debug_data4 (data4, comment, dosizeonly)
 }
 
 /* Output quad word DATA8.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data8 (data8, comment, dosizeonly)
@@ -661,7 +662,7 @@ write_debug_data8 (data8, comment, dosizeonly)
 
 /* Output the difference between LABEL1 and LABEL2.  Also output COMMENT if
    flag_verbose_asm is set.  Return the data size.  Just return the size if
-   DOSIZEONLY is non-zero.  */
+   DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_delta4 (label1, label2, comment, dosizeonly)
@@ -683,7 +684,7 @@ write_debug_delta4 (label1, label2, comment, dosizeonly)
 
 /* Output a character string STRING.  Also write COMMENT if flag_verbose_asm is
    set.  Return the string length.  Just return the length if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_string (string, comment, dosizeonly)
@@ -703,7 +704,7 @@ write_debug_string (string, comment, dosizeonly)
 }
 
 /* Output a module begin header and return the header size.  Just return the
-   size if DOSIZEONLY is non-zero.  */
+   size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modbeg (dosizeonly)
@@ -767,7 +768,7 @@ write_modbeg (dosizeonly)
 }
 
 /* Output a module end trailer and return the trailer size.   Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modend (dosizeonly)
@@ -787,7 +788,7 @@ write_modend (dosizeonly)
 }
 
 /* Output a routine begin header routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnbeg (rtnnum, dosizeonly)
@@ -882,7 +883,7 @@ write_rtnbeg (rtnnum, dosizeonly)
 }
 
 /* Output a routine end trailer for routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnend (rtnnum, dosizeonly)
@@ -926,7 +927,7 @@ write_rtnend (rtnnum, dosizeonly)
   : (I) < 65536 ? DST_K_INCR_LINUM_W : DST_K_INCR_LINUM_L)
 
 /* Output the PC to line number correlations and return the size.  Just return
-   the size if DOSIZEONLY is non-zero */
+   the size if DOSIZEONLY is nonzero */
 
 static int
 write_pclines (dosizeonly)
@@ -1057,7 +1058,7 @@ write_pclines (dosizeonly)
 
 /* Output a source correlation for file FILEID using information saved in
    FILE_INFO_ENTRY and return the size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_srccorr (fileid, file_info_entry, dosizeonly)
@@ -1252,7 +1253,7 @@ write_srccorr (fileid, file_info_entry, dosizeonly)
 }
 
 /* Output all the source correlation entries and return the size.  Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_srccorrs (dosizeonly)
@@ -1361,7 +1362,7 @@ vmsdbgout_begin_block (line, blocknum)
     (*dwarf2_debug_hooks.begin_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
+    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
 }
 
 /* Output a marker (i.e. a label) for the end of the generated code for a
@@ -1376,7 +1377,7 @@ vmsdbgout_end_block (line, blocknum)
     (*dwarf2_debug_hooks.end_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, BLOCK_END_LABEL, blocknum);
+    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_END_LABEL, blocknum);
 }
 
 /* Not implemented in VMS Debug.  */
@@ -1563,7 +1564,7 @@ vmsdbgout_source_line (line, filename)
     {
       dst_line_info_ref line_info;
 
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, LINE_CODE_LABEL,
+      (*targetm.asm_out.internal_label) (asm_out_file, LINE_CODE_LABEL,
 				 line_info_table_in_use);
 
       /* Expand the line info table if necessary.  */
@@ -1735,7 +1736,7 @@ vmsdbgout_finish (input_filename)
 
   /* Output a terminator label for the .text section.  */
   text_section ();
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, TEXT_END_LABEL, 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output debugging information.
      Warning! Do not change the name of the .vmsdebug section without

@@ -84,6 +84,8 @@ enum internal_test {
 struct constant;
 struct mips_arg_info;
 static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
+static void get_float_compare_codes PARAMS ((enum rtx_code, enum rtx_code *,
+					     enum rtx_code *));
 static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
@@ -149,6 +151,7 @@ static void mips_unique_section			PARAMS ((tree, int))
 	ATTRIBUTE_UNUSED;
 static void mips_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
+static int mips_use_dfa_pipeline_interface      PARAMS ((void));
 static void mips_encode_section_info		PARAMS ((tree, int));
 
 /* Structure to be filled in by compute_frame_size with register
@@ -215,7 +218,7 @@ struct mips_arg_info
   unsigned int stack_words;
 
   /* The offset from the start of the stack overflow area of the argument's
-     first stack word.  Only meaningful when STACK_WORDS is non-zero.  */
+     first stack word.  Only meaningful when STACK_WORDS is nonzero.  */
   unsigned int stack_offset;
 };
 
@@ -237,7 +240,7 @@ int sdb_label_count = 0;
 /* Next label # for each statement for Silicon Graphics IRIS systems.  */
 int sym_lineno = 0;
 
-/* Non-zero if inside of a function, because the stupid MIPS asm can't
+/* Nonzero if inside of a function, because the stupid MIPS asm can't
    handle .files inside of functions.  */
 int inside_function = 0;
 
@@ -351,11 +354,6 @@ int mips_split_addresses;
 /* Generating calls to position independent functions?  */
 enum mips_abicalls_type mips_abicalls;
 
-/* High and low marks for floating point values which we will accept
-   as legitimate constants for LEGITIMATE_CONSTANT_P.  These are
-   initialized in override_options.  */
-REAL_VALUE_TYPE dfhigh, dflow, sfhigh, sflow;
-
 /* Mode used for saving/restoring general purpose registers.  */
 static enum machine_mode gpr_mode;
 
@@ -368,6 +366,11 @@ char mips_hard_regno_mode_ok[(int)MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
    we can see if we may have an overflow.  This is reset each time the
    constant pool is output.  */
 int mips_string_length;
+
+/* When generating mips16 code, a list of all strings that are to be
+   output after the current function.  */
+
+static GTY(()) rtx mips16_strings;
 
 /* In mips16 mode, we build a list of all the string constants we see
    in a particular function.  */
@@ -592,6 +595,8 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   /* MIPS III */
   { "r4000", PROCESSOR_R4000, 3 },
   { "vr4100", PROCESSOR_R4100, 3 },
+  { "vr4111", PROCESSOR_R4111, 3 },
+  { "vr4120", PROCESSOR_R4120, 3 },
   { "vr4300", PROCESSOR_R4300, 3 },
   { "r4400", PROCESSOR_R4000, 3 }, /* = r4000 */
   { "r4600", PROCESSOR_R4600, 3 },
@@ -601,6 +606,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   /* MIPS IV */
   { "r8000", PROCESSOR_R8000, 4 },
   { "vr5000", PROCESSOR_R5000, 4 },
+  { "vr5400", PROCESSOR_R5400, 4 },
+  { "vr5500", PROCESSOR_R5500, 4 },
+
 
   /* MIPS 32 */
   { "4kc", PROCESSOR_R4KC, 32 },
@@ -609,6 +617,7 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   /* MIPS 64 */
   { "5kc", PROCESSOR_R5KC, 64 },
   { "20kc", PROCESSOR_R20KC, 64 },
+  { "sr71000", PROCESSOR_SR71000, 64 },
 
   /* Broadcom SB-1 CPU core */
   { "sb1", PROCESSOR_SB1, 64 },
@@ -645,9 +654,14 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE mips_issue_rate
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE mips_use_dfa_pipeline_interface
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
+
+#undef TARGET_VALID_POINTER_MODE
+#define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -803,44 +817,21 @@ mips_const_double_ok (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  REAL_VALUE_TYPE d;
-
   if (GET_CODE (op) != CONST_DOUBLE)
     return 0;
 
   if (mode == VOIDmode)
     return 1;
 
+  /* We've no zero register in mips16 mode.  */
+  if (TARGET_MIPS16)
+    return 0;
+
   if (mode != SFmode && mode != DFmode)
     return 0;
 
   if (op == CONST0_RTX (mode))
     return 1;
-
-  /* ??? li.s does not work right with SGI's Irix 6 assembler.  */
-  if (mips_abi != ABI_32 && mips_abi != ABI_O64 && mips_abi != ABI_EABI)
-    return 0;
-
-  REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-
-  if (REAL_VALUE_ISNAN (d))
-    return FALSE;
-
-  if (REAL_VALUE_NEGATIVE (d))
-    d = REAL_VALUE_NEGATE (d);
-
-  if (mode == DFmode)
-    {
-      if (REAL_VALUES_LESS (d, dfhigh)
-	  && REAL_VALUES_LESS (dflow, d))
-	return 1;
-    }
-  else
-    {
-      if (REAL_VALUES_LESS (d, sfhigh)
-	  && REAL_VALUES_LESS (sflow, d))
-	return 1;
-    }
 
   return 0;
 }
@@ -853,9 +844,6 @@ const_float_1_operand (op, mode)
      enum machine_mode mode;
 {
   REAL_VALUE_TYPE d;
-  static REAL_VALUE_TYPE onedf;
-  static REAL_VALUE_TYPE onesf;
-  static int one_initialized;
 
   if (GET_CODE (op) != CONST_DOUBLE
       || mode != GET_MODE (op)
@@ -864,19 +852,7 @@ const_float_1_operand (op, mode)
 
   REAL_VALUE_FROM_CONST_DOUBLE (d, op);
 
-  /* We only initialize these values if we need them, since we will
-     never get called unless mips_isa >= 4.  */
-  if (! one_initialized)
-    {
-      onedf = REAL_VALUE_ATOF ("1.0", DFmode);
-      onesf = REAL_VALUE_ATOF ("1.0", SFmode);
-      one_initialized = 1;
-    }
-
-  if (mode == DFmode)
-    return REAL_VALUES_EQUAL (d, onedf);
-  else
-    return REAL_VALUES_EQUAL (d, onesf);
+  return REAL_VALUES_EQUAL (d, dconst1);
 }
 
 /* Return true if a memory load or store of REG plus OFFSET in MODE
@@ -1486,7 +1462,7 @@ mips_reg_mode_ok_for_base_p (reg, mode, strict)
 
 /* This function is used to implement GO_IF_LEGITIMATE_ADDRESS.  It
    returns a nonzero value if XINSN is a legitimate address for a
-   memory operand of the indicated MODE.  STRICT is non-zero if this
+   memory operand of the indicated MODE.  STRICT is nonzero if this
    function is called during reload.  */
 
 int
@@ -3134,7 +3110,7 @@ map_test_to_internal_test (test_code)
    ??? This is called with result nonzero by the Scond patterns in
    mips.md.  These patterns are called with a target in the mode of
    the Scond instruction pattern.  Since this must be a constant, we
-   must use SImode.  This means that if RESULT is non-zero, it will
+   must use SImode.  This means that if RESULT is nonzero, it will
    always be an SImode register, even if TARGET_64BIT is true.  We
    cope with this by calling convert_move rather than emit_move_insn.
    This will sometimes lead to an unnecessary extension of the result;
@@ -3344,6 +3320,34 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
   return result;
 }
 
+/* Work out how to check a floating-point condition.  We need a
+   separate comparison instruction (C.cond.fmt), followed by a
+   branch or conditional move.  Given that IN_CODE is the
+   required condition, set *CMP_CODE to the C.cond.fmt code
+   and *action_code to the branch or move code.  */
+
+static void
+get_float_compare_codes (in_code, cmp_code, action_code)
+     enum rtx_code in_code, *cmp_code, *action_code;
+{
+  switch (in_code)
+    {
+    case NE:
+    case UNGE:
+    case UNGT:
+    case LTGT:
+    case ORDERED:
+      *cmp_code = reverse_condition_maybe_unordered (in_code);
+      *action_code = EQ;
+      break;
+
+    default:
+      *cmp_code = in_code;
+      *action_code = NE;
+      break;
+    }
+}
+
 /* Emit the common code for doing conditional branches.
    operand[0] is the label to jump to.
    The comparison operands are saved away by cmp{si,di,sf,df}.  */
@@ -3357,6 +3361,7 @@ gen_conditional_branch (operands, test_code)
   rtx cmp0 = branch_cmp[0];
   rtx cmp1 = branch_cmp[1];
   enum machine_mode mode;
+  enum rtx_code cmp_code;
   rtx reg;
   int invert;
   rtx label1, label2;
@@ -3376,7 +3381,7 @@ gen_conditional_branch (operands, test_code)
 	  test_code = NE;
 	}
       else if (GET_CODE (cmp1) == CONST_INT && INTVAL (cmp1) != 0)
-	/* We don't want to build a comparison against a non-zero
+	/* We don't want to build a comparison against a nonzero
 	   constant.  */
 	cmp1 = force_reg (mode, cmp1);
 
@@ -3389,15 +3394,10 @@ gen_conditional_branch (operands, test_code)
       else
 	reg = gen_reg_rtx (CCmode);
 
-      /* For cmp0 != cmp1, build cmp0 == cmp1, and test for result ==
-         0 in the instruction built below.  The MIPS FPU handles
-         inequality testing by testing for equality and looking for a
-         false result.  */
+      get_float_compare_codes (test_code, &cmp_code, &test_code);
       emit_insn (gen_rtx_SET (VOIDmode, reg,
-			      gen_rtx (test_code == NE ? EQ : test_code,
-				       CCmode, cmp0, cmp1)));
+			      gen_rtx (cmp_code, CCmode, cmp0, cmp1)));
 
-      test_code = test_code == NE ? EQ : NE;
       mode = CCmode;
       cmp0 = reg;
       cmp1 = const0_rtx;
@@ -3491,8 +3491,8 @@ gen_conditional_move (operands)
 	  abort ();
 	}
     }
-  else if (cmp_code == NE)
-    cmp_code = EQ, move_code = EQ;
+  else
+    get_float_compare_codes (cmp_code, &cmp_code, &move_code);
 
   if (mode == SImode || mode == DImode)
     cmp_mode = mode;
@@ -3551,6 +3551,51 @@ mips_gen_conditional_trap (operands)
   emit_insn (gen_rtx_TRAP_IF (VOIDmode,
 			      gen_rtx (cmp_code, GET_MODE (operands[0]), op0, op1),
 			      operands[1]));
+}
+
+/* Return true if operand OP is a condition code register.
+   Only for use during or after reload.  */
+
+int
+fcc_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return ((mode == VOIDmode || mode == GET_MODE (op))
+	  && (reload_in_progress || reload_completed)
+	  && (GET_CODE (op) == REG || GET_CODE (op) == SUBREG)
+	  && ST_REG_P (true_regnum (op)));
+}
+
+/* Emit code to move general operand SRC into condition-code
+   register DEST.  SCRATCH is a scratch TFmode float register.
+   The sequence is:
+
+	FP1 = SRC
+	FP2 = 0.0f
+	DEST = FP2 < FP1
+
+   where FP1 and FP2 are single-precision float registers
+   taken from SCRATCH.  */
+
+void
+mips_emit_fcc_reload (dest, src, scratch)
+     rtx dest, src, scratch;
+{
+  rtx fp1, fp2;
+
+  /* Change the source to SFmode.  */
+  if (GET_CODE (src) == MEM)
+    src = adjust_address (src, SFmode, 0);
+  else if (GET_CODE (src) == REG || GET_CODE (src) == SUBREG)
+    src = gen_rtx_REG (SFmode, true_regnum (src));
+
+  fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
+  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + FP_INC);
+
+  emit_move_insn (copy_rtx (fp1), src);
+  emit_move_insn (copy_rtx (fp2), CONST0_RTX (SFmode));
+  emit_insn (gen_slt_sf (dest, fp2, fp1));
 }
 
 /* Emit code to change the current function's return address to
@@ -3981,7 +4026,9 @@ output_block_move (insn, operands, num_regs, move_type)
 	}
 
       /* ??? Fails because of a MIPS assembler bug?  */
-      else if (TARGET_64BIT && bytes >= 8 && ! TARGET_MIPS16)
+      else if (TARGET_64BIT && bytes >= 8
+	       && ! TARGET_SR71K
+	       && ! TARGET_MIPS16)
 	{
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -4018,7 +4065,9 @@ output_block_move (insn, operands, num_regs, move_type)
 	  bytes -= 4;
 	}
 
-      else if (bytes >= 4 && ! TARGET_MIPS16)
+      else if (bytes >= 4
+	       && ! TARGET_SR71K
+	       && ! TARGET_MIPS16)
 	{
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -5296,14 +5345,6 @@ override_options ()
   else
     mips16 = 0;
 
-  /* Initialize the high and low values for legitimate floating point
-     constants.  Rather than trying to get the accuracy down to the
-     last bit, just use approximate ranges.  */
-  dfhigh = REAL_VALUE_ATOF ("1.0e300", DFmode);
-  dflow = REAL_VALUE_ATOF ("1.0e-300", DFmode);
-  sfhigh = REAL_VALUE_ATOF ("1.0e38", SFmode);
-  sflow = REAL_VALUE_ATOF ("1.0e-38", SFmode);
-
   mips_print_operand_punct['?'] = 1;
   mips_print_operand_punct['#'] = 1;
   mips_print_operand_punct['&'] = 1;
@@ -5397,7 +5438,9 @@ override_options ()
 			/* Allow integer modes that fit into a single
 			   register.  We need to put integers into FPRs
 			   when using instructions like cvt and trunc.  */
-			|| (class == MODE_INT && size <= UNITS_PER_FPREG)));
+			|| (class == MODE_INT && size <= UNITS_PER_FPREG)
+			/* Allow TFmode for CCmode reloads.  */
+			|| (ISA_HAS_8CC && mode == TFmode)));
 
 	  else if (MD_REG_P (regno))
 	    temp = (class == MODE_INT
@@ -5874,7 +5917,7 @@ print_operand (file, op, letter)
       char s[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, op);
-      REAL_VALUE_TO_DECIMAL (d, "%.20e", s);
+      REAL_VALUE_TO_DECIMAL (d, s, -1);
       fprintf (file, s);
     }
 
@@ -6048,7 +6091,7 @@ mips_assemble_integer (x, size, aligned_p)
 
    If we have -G 0, or the extern size is unknown, or the object is in a user
    specified section that is not .sbss/.sdata, don't bother emitting the
-   .externs.  In the case of user specified sections this behaviour is
+   .externs.  In the case of user specified sections this behavior is
    required as otherwise GAS will think the object lives in .sbss/.sdata.  */
 
 int
@@ -6883,7 +6926,6 @@ save_restore_insns (store_p, large_reg, large_offset)
   HOST_WIDE_INT gp_offset;
   HOST_WIDE_INT fp_offset;
   HOST_WIDE_INT end_offset;
-  rtx insn;
 
   if (frame_pointer_needed
       && ! BITSET_P (mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
@@ -6937,11 +6979,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -7046,11 +7086,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -7673,6 +7711,7 @@ mips_output_function_epilogue (file, size)
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   const char *fnname = "";	/* FIXME: Correct initialisation?  */
+  rtx string;
 
 #ifndef FUNCTION_NAME_ALREADY_DECLARED
   /* Get the function name the same way that toplev.c does before calling
@@ -7736,6 +7775,17 @@ mips_output_function_epilogue (file, size)
       free (string_constants);
       string_constants = next;
     }
+
+  /* If any following function uses the same strings as this one, force
+     them to refer those strings indirectly.  Nearby functions could
+     refer them using pc-relative addressing, but it isn't safe in
+     general.  For instance, some functions may be placed in sections
+     other than .text, and we don't know whether they be close enough
+     to this one.  In large files, even other .text functions can be
+     too far away.  */
+  for (string = mips16_strings; string != 0; string = XEXP (string, 1))
+    SYMBOL_REF_FLAG (XEXP (string, 0)) = 0;
+  free_EXPR_LIST_list (&mips16_strings);
 
   /* Restore the output file if optimizing the GP (optimizing the GP causes
      the text to be diverted to a tempfile, so that data decls come before
@@ -7924,7 +7974,7 @@ mips_can_use_return_insn ()
   return compute_frame_size (get_frame_size ()) == 0;
 }
 
-/* Returns non-zero if X contains a SYMBOL_REF.  */
+/* Returns nonzero if X contains a SYMBOL_REF.  */
 
 static int
 symbolic_expression_p (x)
@@ -8078,7 +8128,7 @@ mips_select_section (decl, reloc, align)
    precisely correct.
 
    When not mips16 code nor embedded PIC, if a symbol is in a
-   gp addresable section, SYMBOL_REF_FLAG is set prevent gcc from
+   gp addressable section, SYMBOL_REF_FLAG is set prevent gcc from
    splitting the reference so that gas can generate a gp relative
    reference.
 
@@ -8115,7 +8165,11 @@ mips_encode_section_info (decl, first)
 	  && (! current_function_decl
 	      || ! DECL_ONE_ONLY (current_function_decl)))
 	{
-	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
+	  rtx symref;
+
+	  symref = XEXP (TREE_CST_RTL (decl), 0);
+	  mips16_strings = alloc_EXPR_LIST (0, symref, mips16_strings);
+	  SYMBOL_REF_FLAG (symref) = 1;
 	  mips_string_length += TREE_STRING_LENGTH (decl);
 	}
     }
@@ -8512,6 +8566,14 @@ mips_class_max_nregs (class, mode)
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
+
+bool
+mips_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == SImode || (TARGET_64BIT && mode == DImode));
+}
+
 
 /* For each mips16 function which refers to GP relative symbols, we
    use a pseudo register, initialized at the start of the function, to
@@ -8757,7 +8819,7 @@ mips16_constant (x, mode, addr, addend)
 /* Write out code to move floating point arguments in or out of
    general registers.  Output the instructions to FILE.  FP_CODE is
    the code describing which arguments are present (see the comment at
-   the definition of CUMULATIVE_ARGS in mips.h).  FROM_FP_P is non-zero if
+   the definition of CUMULATIVE_ARGS in mips.h).  FROM_FP_P is nonzero if
    we are copying from the floating point registers.  */
 
 static void
@@ -9954,11 +10016,11 @@ mips_adjust_insn_length (insn, length)
    INSN is the branch instruction.  OPERANDS[0] is the condition.
    OPERANDS[1] is the target of the branch.  OPERANDS[2] is the target
    of the first operand to the condition.  If TWO_OPERANDS_P is
-   non-zero the comparison takes two operands; OPERANDS[3] will be the
+   nonzero the comparison takes two operands; OPERANDS[3] will be the
    second operand.
 
-   If INVERTED_P is non-zero we are to branch if the condition does
-   not hold.  If FLOAT_P is non-zero this is a floating-point comparison.
+   If INVERTED_P is nonzero we are to branch if the condition does
+   not hold.  If FLOAT_P is nonzero this is a floating-point comparison.
 
    LENGTH is the length (in bytes) of the sequence we are to generate.
    That tells us whether to generate a simple conditional branch, or a
@@ -9980,7 +10042,7 @@ mips_output_conditional_branch (insn,
   static char buffer[200];
   /* The kind of comparison we are doing.  */
   enum rtx_code code = GET_CODE (operands[0]);
-  /* Non-zero if the opcode for the comparison needs a `z' indicating
+  /* Nonzero if the opcode for the comparison needs a `z' indicating
      that it is a comparision against zero.  */
   int need_z_p;
   /* A string to use in the assembly output to represent the first
@@ -10007,7 +10069,7 @@ mips_output_conditional_branch (insn,
 	 subtract B from A and then look at the sign bit.  But, if we
 	 are doing an unsigned comparison, and B is zero, we don't
 	 have to do the subtraction.  Instead, we can just check to
-	 see if A is non-zero.  Thus, we change the CODE here to
+	 see if A is nonzero.  Thus, we change the CODE here to
 	 reflect the simpler comparison operation.  */
       switch (code)
 	{
@@ -10116,7 +10178,7 @@ mips_output_conditional_branch (insn,
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	output_asm_insn ("%>%)", 0);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
                                    CODE_LABEL_NUMBER (target));
         return "";
       }
@@ -10455,8 +10517,9 @@ mips_issue_rate ()
 {
   switch (mips_tune)
     {
-    case PROCESSOR_R3000:
-      return 1;
+    case PROCESSOR_R3000: return 1;
+    case PROCESSOR_R5400: return 2;
+    case PROCESSOR_R5500: return 2;
 
     default:
       return 1;
@@ -10465,6 +10528,25 @@ mips_issue_rate ()
   abort ();
 
 }
+
+/* Implements TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE.  Return true for
+   processors that have a DFA pipeline description.  */
+
+static int
+mips_use_dfa_pipeline_interface ()
+{
+  switch (mips_tune)
+    {
+    case PROCESSOR_R5400:
+    case PROCESSOR_R5500:
+    case PROCESSOR_SR71000:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 
 const char *
 mips_emit_prefetch (operands)

@@ -55,28 +55,28 @@ int lang_specific_extra_outfiles = 0;
 int shared_libgcc = 1;
 
 static const char jvgenmain_spec[] =
-  "jvgenmain %{D*} %b %{!pipe:%u.i} |\n\
-   cc1 %{!pipe:%U.i} %1 \
+  "jvgenmain %{D*} %b %m.i |\n\
+   cc1 %m.i %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
 		   %{g*} %{O*} \
 		   %{v:-version} %{pg:-p} %{p}\
-		   %{<fbounds-check} %{<fno-bounds-check}\
-		   %{<fassume-compiled} %{<fno-assume-compiled}\
-                   %{<fcompile-resource*}\
-		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
-		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
-		   %{<findirect-dispatch} \
-		   %{<fno-store-check} %{<foutput-class-dir}\
-		   %{<fclasspath*} %{<fCLASSPATH*} %{<fbootclasspath*}\
-		   %{<fextdirs*}\
-		   %{<fuse-divide-subroutine} %{<fno-use-divide-subroutine}\
-		   %{<fcheck-references} %{<fno-check-references}\
-		   %{<ffilelist-file}\
+		   %<fbounds-check %<fno-bounds-check\
+		   %<fassume-compiled %<fno-assume-compiled\
+		   %<fcompile-resource* %<fassert %<fno-assert \
+		   %<femit-class-file %<femit-class-files %<fencoding*\
+		   %<fuse-boehm-gc %<fhash-synchronization %<fjni\
+		   %<findirect-dispatch \
+		   %<fno-store-check %<foutput-class-dir\
+		   %<fclasspath* %<fCLASSPATH* %<fbootclasspath*\
+		   %<fextdirs*\
+		   %<fuse-divide-subroutine %<fno-use-divide-subroutine\
+		   %<fcheck-references %<fno-check-references\
+		   %<ffilelist-file\
 		   %{f*} -fdollars-in-identifiers\
 		   %{aux-info*}\
 		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
-              %{!S:as %a %Y -o %d%w%u%O %{!pipe:%g.s} %A\n }";
+		   %{S:%W{o*}%{!o*:-o %b.s}}\
+   %(invoke_as)";
 
 /* Return full path name of spec file if it is in DIR, or NULL if
    not.  */
@@ -148,7 +148,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 {
   int i, j;
 
-  /* If non-zero, the user gave us the `-v' flag.  */ 
+  /* If nonzero, the user gave us the `-v' flag.  */
   int saw_verbose_flag = 0;
 
   int saw_save_temps = 0;
@@ -160,9 +160,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* This will be 1 if multiple input files (.class and/or .java)
      should be passed to a single jc1 invocation. */
   int combine_inputs = 0;
-
-  /* Index of last .java or .class argument. */
-  int last_input_index;
 
   /* Number of .java and .class source file arguments seen. */
   int java_files_count = 0;
@@ -188,7 +185,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* The new argument list will be contained in this.  */
   const char **arglist;
 
-  /* Non-zero if we saw a `-xfoo' language specification on the
+  /* Nonzero if we saw a `-xfoo' language specification on the
      command line.  Used to avoid adding our own -xc++ if the user
      already gave a language for the file.  */
   int saw_speclang = 0;
@@ -238,10 +235,10 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* The total number of arguments with the new stuff.  */
   int num_args = 1;
 
-  /* Non-zero if linking is supposed to happen.  */
+  /* Nonzero if linking is supposed to happen.  */
   int will_link = 1;
 
-  /* Non-zero if we want to find the spec file.  */
+  /* Nonzero if we want to find the spec file.  */
   int want_spec_file = 1;
 
   /* The argument we use to specify the spec file.  */
@@ -384,7 +381,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	  if (saw_resource)
 	    {
 	      args[i] |= RESOURCE_FILE_ARG;
-	      last_input_index = i;
 	      added += 2;  /* for -xjava and -xnone */
 	    }
 
@@ -400,13 +396,11 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= JAVA_FILE_ARG;
 	      java_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 6 && strcmp (argv[i] + len - 6, ".class") == 0)
 	    {
 	      args[i] |= CLASS_FILE_ARG;
 	      class_files_count++;
-	      last_input_index = i;
 	    }
 	  if (len > 4
 	      && (strcmp (argv[i] + len - 4, ".zip") == 0
@@ -414,7 +408,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	    {
 	      args[i] |= ZIP_FILE_ARG;
 	      zip_files_count++;
-	      last_input_index = i;
 	    }
 	}
     }

@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
     }						\
   while (0)
 
-/* This defines which switch letters take arguments. */
+/* This defines which switch letters take arguments.  */
 
 #undef SWITCH_TAKES_ARG
 #define SWITCH_TAKES_ARG(CHAR)		\
@@ -39,7 +39,9 @@ Boston, MA 02111-1307, USA.  */
    with the options for generating PIC code.  */
 
 #undef ASM_SPEC
-#define ASM_SPEC " %| %{fpic:-k} %{fPIC:-k -K}"
+#define ASM_SPEC "%{fpic:-k} %{fPIC:-k -K}"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 
 /* Provide a STARTFILE_SPEC appropriate for NetBSD a.out.  Here we
@@ -58,8 +60,8 @@ Boston, MA 02111-1307, USA.  */
 /* Provide a LINK_SPEC appropriate for NetBSD a.out.  Here we provide
    support for the special GCC options -static, -assert, and -nostdlib.  */
 
-#undef LINK_SPEC
-#define LINK_SPEC			\
+#undef NETBSD_LINK_SPEC_AOUT
+#define NETBSD_LINK_SPEC_AOUT		\
   "%{nostdlib:-nostdlib}		\
    %{!shared:				\
      %{!nostdlib:			\
@@ -71,6 +73,9 @@ Boston, MA 02111-1307, USA.  */
    %{R*}				\
    %{assert*}"
 
+/* Default LINK_SPEC.  */
+#undef LINK_SPEC
+#define LINK_SPEC NETBSD_LINK_SPEC_AOUT
 
 /* Some imports from svr4.h in support of shared libraries.  */
 

@@ -157,7 +157,7 @@ static tree cp_expr_size PARAMS ((tree));
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
-/* Tree code classes. */
+/* Tree code classes.  */
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
@@ -298,7 +298,9 @@ cp_expr_size (exp)
 	 of a type with both of these set; all copies of such types must go
 	 through a constructor or assignment op.  */
       if (TYPE_HAS_COMPLEX_INIT_REF (TREE_TYPE (exp))
-	  && TYPE_HAS_COMPLEX_ASSIGN_REF (TREE_TYPE (exp)))
+	  && TYPE_HAS_COMPLEX_ASSIGN_REF (TREE_TYPE (exp))
+	  /* But storing a CONSTRUCTOR isn't a copy.  */
+	  && TREE_CODE (exp) != CONSTRUCTOR)
 	abort ();
       /* This would be wrong for a type with virtual bases, but they are
 	 caught by the abort above.  */

@@ -306,7 +306,7 @@ extern void literals_section	PARAMS ((void));
 
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-{ ASM_OUTPUT_ALIGN (FILE, 3); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
+{ ASM_OUTPUT_ALIGN (FILE, 3); (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM); }
 
 /* This says how to output assembler code to declare an                
    uninitialized external linkage data object.  */ 
@@ -364,8 +364,8 @@ do {									\
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
 
-#define DWARF2_DEBUGGING_INFO
-#define VMS_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
+#define VMS_DEBUGGING_INFO 1
 
 #define DWARF2_UNWIND_INFO 1
 
@@ -448,10 +448,7 @@ do {									\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
 
-#undef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* ??? VMS uses different linkage.  */
 #undef ASM_OUTPUT_MI_THUNK

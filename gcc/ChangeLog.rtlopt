@@ -1,3 +1,7 @@
+Wed Oct 16 17:33:27 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* merge from mainline (rtlopt-merge-20021016)
+
 2002-10-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	* gcse-globals.h: New.
 	* gcse-utils.h: New.

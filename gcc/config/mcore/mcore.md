@@ -2881,7 +2881,7 @@
     }
   else if (CONST_OK_FOR_K ((1 << INTVAL (operands[2])) - 1))
     {
-      /* A narrow bitfield (<=5 bits) means we can do a shift to put
+      /* A narrow bit-field (<=5 bits) means we can do a shift to put
          it in place and then use an andi to extract it.
          This is as good as a shiftleft/shiftright. */
 
@@ -3319,7 +3319,7 @@
   ""
 "*
 {
-  int op0 = REGNO (operands[0]);
+  unsigned int op0 = REGNO (operands[0]);
 
   if (GET_CODE (operands[3]) == REG)
     {

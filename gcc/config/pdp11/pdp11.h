@@ -20,6 +20,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define CONSTANT_POOL_BEFORE_FUNCTION	0
 
 /* check whether load_fpu_reg or not */
 #define LOAD_FPU_REG_P(x) ((x)>=8 && (x)<=11)
@@ -508,7 +509,7 @@ loading is easier into LOAD_FPU_REGS than FPU_REGS! */
 extern int current_first_parm_offset;
 
 /* Offset of first parameter from the argument pointer register value.  
-   For the pdp11, this is non-zero to account for the return address.
+   For the pdp11, this is nonzero to account for the return address.
 	1 - return address
 	2 - frame pointer (always saved, even when not used!!!!)
 		-- chnage some day !!!:q!
@@ -667,10 +668,8 @@ extern int may_call_alloca;
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -702,7 +701,7 @@ extern int may_call_alloca;
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (1)
+#define LEGITIMATE_CONSTANT_P(X) (TARGET_FPU? 1: !(GET_CODE(X) == CONST_DOUBLE))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -773,6 +772,29 @@ extern int may_call_alloca;
 	&& GET_CODE (XEXP (operand, 0)) == REG				\
 	&& REG_OK_FOR_BASE_P (XEXP (operand, 0)))			\
       goto ADDR;							\
+									\
+    /* accept -(SP) -- which uses PRE_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == PRE_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == -2)      	               		\
+      goto ADDR;							\
+									\
+    /* accept (SP)+ -- which uses POST_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == POST_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == 2)      	               		\
+      goto ADDR;							\
+									\
     									\
     /* handle another level of indirection ! */				\
     if (GET_CODE(operand) != MEM)					\
@@ -1036,12 +1058,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s_%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -1083,7 +1099,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.=.+ %o\n", (SIZE))
+  fprintf (FILE, "\t.=.+ %#ho\n", (unsigned short)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1093,7 +1109,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), "\n"),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ": .=.+ %o\n", (ROUNDED))		\
+  fprintf ((FILE), ": .=.+ %#ho\n", (unsigned short)(ROUNDED))		\
 )
 
 /* This says how to output an assembler line
@@ -1101,15 +1117,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ":\t.=.+ %o\n", (ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
+  fprintf ((FILE), ":\t.=.+ %#ho\n", (unsigned short)(ROUNDED)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1128,8 +1136,8 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
     { REAL_VALUE_TYPE r;						\
       char buf[30];							\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20e", buf);				\
-      fprintf (FILE, "#%s", buf); }					\
+      REAL_VALUE_TO_DECIMAL (r, buf, -1);				\
+      fprintf (FILE, "$0F%s", buf); }					\
   else { putc ('$', FILE); output_addr_const_pdp11 (FILE, X); }}
 
 /* Print a memory address as an operand to reference that memory location.  */

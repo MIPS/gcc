@@ -54,3 +54,20 @@ hook_tree_int_void (a, b)
      int b ATTRIBUTE_UNUSED;
 {
 }
+
+/* Generic hook that takes (FILE *, const char *) and does nothing.  */
+void
+hook_FILEptr_constcharptr_void (a, b)
+     FILE *a ATTRIBUTE_UNUSED;
+     const char *b ATTRIBUTE_UNUSED;
+{
+}
+
+/* Hook that takes two trees and returns false.  */
+bool
+hook_tree_tree_bool_false (a, b)
+     tree a ATTRIBUTE_UNUSED;
+     tree b ATTRIBUTE_UNUSED;
+{
+  return false;
+}

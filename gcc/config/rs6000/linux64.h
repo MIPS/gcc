@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler,
-   for 64 bit powerpc linux.
+   for 64 bit PowerPC linux.
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -73,6 +73,7 @@ Boston, MA 02111-1307, USA.  */
 #define USER_LABEL_PREFIX  ""
 
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
+#undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (TYPE_MODE (TREE_CODE (TREE_TYPE (FIELD)) == ARRAY_TYPE \
 	      ? get_inner_array_type (FIELD) \
@@ -285,7 +286,7 @@ do {						\
     }									\
   while (0)
 
-/* Return non-zero if this entry is to be written into the constant
+/* Return nonzero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
    or a CONST containing one of them.  If -mfp-in-toc (the default),
    we also do this for floating-point constants.  We actually can only
@@ -325,7 +326,7 @@ do									\
     assemble_name (FILE,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
     putc ('\n', FILE);							\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);			\
+    (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);		\
     sym_lineno += 1;							\
   }									\
 while (0)
@@ -353,6 +354,25 @@ while (0)
 #define DBX_OUTPUT_LBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_LBRAC)
 #define DBX_OUTPUT_RBRAC(FILE, NAME) DBX_OUTPUT_BRAC (FILE, NAME, N_RBRAC)
 
+/* Another case where we want the dot name.  */
+#define	DBX_OUTPUT_NFUN(FILE, LSCOPE, DECL)				\
+  do									\
+    {									\
+      fprintf (FILE, "%s\"\",%d,0,0,", ASM_STABS_OP, N_FUN);		\
+      assemble_name (FILE, LSCOPE);					\
+      fputs ("-.", FILE);						\
+      assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
+      putc ('\n', FILE);						\
+    }									\
+  while (0)
+
 /* Override sysv4.h as these are ABI_V4 only.  */
 #undef	ASM_OUTPUT_REG_PUSH
 #undef	ASM_OUTPUT_REG_POP
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  */
+#undef	ASM_PREFERRED_EH_DATA_FORMAT
+#define	ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
+  (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_udata8)

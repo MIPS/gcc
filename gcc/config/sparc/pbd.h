@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* We want DBX format for use with gdb under COFF.  */
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Generate calls to memcpy, memcmp and memset.  */
 
@@ -116,17 +116,8 @@ Boston, MA 02111-1307, USA.  */
    This is suitable for output with `assemble_name'.  */
 
 #undef ASM_GENERATE_INTERNAL_LABEL
-
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)                   \
         sprintf (LABEL, "*.%s%ld", PREFIX, (long)(NUM))
-
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)                      \
-        fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
 
 /* This is how to output an element of a case-vector that is relative.  */
 

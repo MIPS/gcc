@@ -1,5 +1,5 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright 1996, 1997, 1998, 2000 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 2000, 2002 Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
 This file is part of GNU CC.
@@ -55,37 +55,10 @@ Boston, MA 02111-1307, USA.  */
    
 #undef  STARTFILE_SPEC
 
-#define STARTFILE_SPEC32 \
-  "%{!shared: \
-     %{pg:/usr/lib/gcrt1.o%s} %{!pg:%{/usr/lib/p:gcrt1.o%s} %{!p:/usr/lib/crt1.o%s}}}\
-   /usr/lib/crti.o%s %{static:crtbeginT.o%s}\
+#define STARTFILE_SPEC \
+  "%{!shared:%{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}}\
+   crti.o%s %{static:crtbeginT.o%s}\
    %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
-
-#define STARTFILE_SPEC64 \
-  "%{!shared: \
-     %{pg:/usr/lib64/gcrt1.o%s} %{!pg:%{p:/usr/lib64/gcrt1.o%s} %{!p:/usr/lib64/crt1.o%s}}}\
-   /usr/lib64/crti.o%s %{static:crtbeginT.o%s}\
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
-
-#ifdef SPARC_BI_ARCH
-
-#if DEFAULT_ARCH32_P
-#define STARTFILE_SPEC "\
-%{m32:" STARTFILE_SPEC32 "} \
-%{m64:" STARTFILE_SPEC64 "} \
-%{!m32:%{!m64:" STARTFILE_SPEC32 "}}"
-#else
-#define STARTFILE_SPEC "\
-%{m32:" STARTFILE_SPEC32 "} \
-%{m64:" STARTFILE_SPEC64 "} \
-%{!m32:%{!m64:" STARTFILE_SPEC64 "}}"
-#endif
-
-#else
-
-#define STARTFILE_SPEC STARTFILE_SPEC64
-
-#endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on
    the GNU/Linux magical crtend.o file (see crtstuff.c) which
@@ -95,36 +68,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ENDFILE_SPEC
 
-#define ENDFILE_SPEC32 \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib/crtn.o%s"
-
-#define ENDFILE_SPEC64 \
-  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib64/crtn.o%s"
-  
-#define ENDFILE_SPEC_COMMON \
-  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
-
-#ifdef SPARC_BI_ARCH
-
-#if DEFAULT_ARCH32_P
-#define ENDFILE_SPEC "\
-%{m32:" ENDFILE_SPEC32 "} \
-%{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC32 "}} " \
-ENDFILE_SPEC_COMMON
-#else
-#define ENDFILE_SPEC "\
-%{m32:" ENDFILE_SPEC32 "} \
-%{m64:" ENDFILE_SPEC64 "} \
-%{!m32:%{!m64:" ENDFILE_SPEC64 "}} " \
-ENDFILE_SPEC_COMMON
-#endif
-
-#else
-
-#define ENDFILE_SPEC ENDFILE_SPEC64 " " ENDFILE_SPEC_COMMON
-
-#endif
+#define ENDFILE_SPEC \
+  "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s\
+   %{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
 
 /* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
@@ -149,7 +95,7 @@ ENDFILE_SPEC_COMMON
 #define WCHAR_TYPE_SIZE 32
 
 /* Define for support of TFmode long double.
-   Sparc ABI says that long double is 4 words.  */
+   SPARC ABI says that long double is 4 words.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
@@ -311,11 +257,9 @@ ENDFILE_SPEC_COMMON
 /* System V Release 4 uses DWARF debugging info.  Buf DWARF1 doesn't do
    64-bit anything, so we use DWARF2.  */
 
-#undef DWARF2_DEBUGGING_INFO
 #undef DWARF_DEBUGGING_INFO
-#undef DBX_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
+#define DBX_DEBUGGING_INFO 1
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
@@ -331,13 +275,6 @@ do {									\
 
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
-
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d:\n", PREFIX, NUM)
 
 /* This is how to output a reference to an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -380,7 +317,7 @@ do {									\
 
 /* Handle multilib correctly.  */
 #if defined(__arch64__)
-/* 64-bit Sparc version */
+/* 64-bit SPARC version */
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
     unsigned int *pc_ = (CONTEXT)->ra;					\
@@ -431,7 +368,7 @@ do {									\
     goto SUCCESS;							\
   } while (0)
 #else
-/* 32-bit Sparc version */
+/* 32-bit SPARC version */
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
     unsigned int *pc_ = (CONTEXT)->ra;					\

@@ -58,7 +58,7 @@ const char *save_chip_name;
 
 rtx dsp16xx_compare_op0;
 rtx dsp16xx_compare_op1;
-rtx (*dsp16xx_compare_gen) PARAMS (());
+bool dsp16xx_compare_gen;
 
 static const char *fp;
 static const char *sp;
@@ -2198,7 +2198,7 @@ asm_output_common(file, name, size, rounded)
      int rounded;
 {
     bss_section ();
-    ASM_GLOBALIZE_LABEL (file, name);
+    (*targetm.asm_out.globalize_label) (file, name);
     assemble_name (file, name);
     fputs (":", file);
     if (rounded > 1)

@@ -22,8 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
-
 #include "rtl.h"
+#include "tree.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -38,41 +38,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 
 /* Simplification and canonicalization of RTL.  */
-
-/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
-   virtual regs here because the simplify_*_operation routines are called
-   by integrate.c, which is called before virtual register instantiation.
-
-   ?!? NONZERO_BASE_PLUS_P needs to move into
-   a header file so that their definitions can be shared with the
-   simplification routines in simplify-rtx.c.  Until then, do not
-   change this macro without also changing the copy in simplify-rtx.c.  */
-
-/* Allows reference to the stack pointer.
-
-   This used to include FIXED_BASE_PLUS_P, however, we can't assume that
-   arg_pointer_rtx by itself is nonzero, because on at least one machine,
-   the i960, the arg pointer is zero when it is unused.  */
-
-#define NONZERO_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || (X) == stack_pointer_rtx					\
-   || (X) == virtual_stack_dynamic_rtx				\
-   || (X) == virtual_outgoing_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == stack_pointer_rtx			\
-	   || XEXP (X, 0) == virtual_stack_dynamic_rtx		\
-	   || XEXP (X, 0) == virtual_outgoing_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
 
 /* Much code operates on (low, high) pairs; the low value is an
    unsigned wide int, the high value a signed wide int.  We
@@ -145,6 +110,9 @@ avoid_constant_pool_reference (x)
   if (GET_CODE (x) != MEM)
     return x;
   addr = XEXP (x, 0);
+
+  if (GET_CODE (addr) == LO_SUM)
+    addr = XEXP (addr, 1);
 
   if (GET_CODE (addr) != SYMBOL_REF
       || ! CONSTANT_POOL_ADDRESS_P (addr))
@@ -599,12 +567,22 @@ simplify_unary_operation (code, mode, op, op_mode)
 	  /* We don't attempt to optimize this.  */
 	  return 0;
 
-	case ABS:	      d = REAL_VALUE_ABS (d);			break;
-	case NEG:	      d = REAL_VALUE_NEGATE (d);		break;
-	case FLOAT_TRUNCATE:  d = real_value_truncate (mode, d);	break;
-	case FLOAT_EXTEND:    /* All this does is change the mode.  */  break;
-	case FIX:	      d = REAL_VALUE_RNDZINT (d);		break;
-	case UNSIGNED_FIX:    d = REAL_VALUE_UNSIGNED_RNDZINT (d);	break;
+	case ABS:
+	  d = REAL_VALUE_ABS (d);
+	  break;
+	case NEG:
+	  d = REAL_VALUE_NEGATE (d);
+	  break;
+	case FLOAT_TRUNCATE:
+	  d = real_value_truncate (mode, d);
+	  break;
+	case FLOAT_EXTEND:
+	  /* All this does is change the mode.  */
+	  break;
+	case FIX:
+	  real_arithmetic (&d, FIX_TRUNC_EXPR, &d, NULL);
+	  break;
+
 	default:
 	  abort ();
 	}
@@ -893,7 +871,7 @@ simplify_binary_operation (code, mode, op0, op1)
 	{
 	case PLUS:
 	  /* Maybe simplify x + 0 to x.  The two expressions are equivalent
-	     when x is NaN, infinite, or finite and non-zero.  They aren't
+	     when x is NaN, infinite, or finite and nonzero.  They aren't
 	     when x is -0 and the rounding mode is not towards -infinity,
 	     since (-0) + 0 is then 0.  */
 	  if (!HONOR_SIGNED_ZEROS (mode) && trueop1 == CONST0_RTX (mode))
@@ -1041,7 +1019,7 @@ simplify_binary_operation (code, mode, op0, op1)
 	    return CONST0_RTX (mode);
 
 	  /* Change subtraction from zero into negation.  (0 - x) is the
-	     same as -x when x is NaN, infinite, or finite and non-zero.
+	     same as -x when x is NaN, infinite, or finite and nonzero.
 	     But if the mode has signed zeros, and does not round towards
 	     -infinity, then 0 - 0 is 0, not -0.  */
 	  if (!HONOR_SIGNED_ZEROS (mode) && trueop0 == CONST0_RTX (mode))
@@ -1318,6 +1296,7 @@ simplify_binary_operation (code, mode, op0, op1)
 
 	case ROTATERT:
 	case ROTATE:
+	case ASHIFTRT:
 	  /* Rotating ~0 always results in ~0.  */
 	  if (GET_CODE (trueop0) == CONST_INT && width <= HOST_BITS_PER_WIDE_INT
 	      && (unsigned HOST_WIDE_INT) INTVAL (trueop0) == GET_MODE_MASK (mode)
@@ -1327,7 +1306,6 @@ simplify_binary_operation (code, mode, op0, op1)
 	  /* ... fall through ...  */
 
 	case ASHIFT:
-	case ASHIFTRT:
 	case LSHIFTRT:
 	  if (trueop1 == const0_rtx)
 	    return op0;
@@ -2012,25 +1990,12 @@ simplify_relational_operation (code, mode, op0, op1)
       switch (code)
 	{
 	case EQ:
-	  /* References to the frame plus a constant or labels cannot
-	     be zero, but a SYMBOL_REF can due to #pragma weak.  */
-	  if (((NONZERO_BASE_PLUS_P (op0) && trueop1 == const0_rtx)
-	       || GET_CODE (trueop0) == LABEL_REF)
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	      /* On some machines, the ap reg can be 0 sometimes.  */
-	      && op0 != arg_pointer_rtx
-#endif
-		)
+	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const0_rtx;
 	  break;
 
 	case NE:
-	  if (((NONZERO_BASE_PLUS_P (op0) && trueop1 == const0_rtx)
-	       || GET_CODE (trueop0) == LABEL_REF)
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	      && op0 != arg_pointer_rtx
-#endif
-	      )
+	  if (trueop1 == const0_rtx && nonzero_address_p (op0))
 	    return const_true_rtx;
 	  break;
 
@@ -2582,7 +2547,7 @@ simplify_subreg (outermode, op, innermode, byte)
 
       /* ??? We do allow it if the current REG is not valid for
 	 its mode.  This is a kludge to work around how float/complex
-	 arguments are passed on 32-bit Sparc and should be fixed.  */
+	 arguments are passed on 32-bit SPARC and should be fixed.  */
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
 	{

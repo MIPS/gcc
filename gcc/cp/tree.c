@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "target.h"
 
 static tree bot_manip PARAMS ((tree *, int *, void *));
 static tree bot_replace PARAMS ((tree *, int *, void *));
@@ -39,7 +40,7 @@ static tree build_cplus_array_type_1 PARAMS ((tree, tree));
 static int list_hash_eq PARAMS ((const void *, const void *));
 static hashval_t list_hash_pieces PARAMS ((tree, tree, tree));
 static hashval_t list_hash PARAMS ((const void *));
-static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int));
+static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int, int));
 static tree no_linkage_helper PARAMS ((tree *, int *, void *));
 static tree build_srcloc PARAMS ((const char *, int));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
@@ -56,12 +57,13 @@ static tree handle_init_priority_attribute PARAMS ((tree *, tree, tree, int, boo
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  If TREAT_CLASS_RVALUES_AS_LVALUES is
-   non-zero, rvalues of class type are considered lvalues.  */
+   nonzero, rvalues of class type are considered lvalues.  */
 
 static cp_lvalue_kind
-lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
+lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
      tree ref;
      int treat_class_rvalues_as_lvalues;
+     int allow_cast_as_lvalue;
 {
   cp_lvalue_kind op1_lvalue_kind = clk_none;
   cp_lvalue_kind op2_lvalue_kind = clk_none;
@@ -84,16 +86,28 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case WITH_CLEANUP_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      /* This shouldn't be here, but there are lots of places in the compiler
-         that are sloppy about tacking on NOP_EXPRs to the same type when
-	 no actual conversion is happening.  */
-    case NOP_EXPR:
       return lvalue_p_1 (TREE_OPERAND (ref, 0),
-			 treat_class_rvalues_as_lvalues);
+			 treat_class_rvalues_as_lvalues,
+			 allow_cast_as_lvalue);
+
+    case NOP_EXPR:
+      /* If expression doesn't change the type, we consider it as an
+	 lvalue even when cast_as_lvalue extension isn't selected.
+	 That's because parts of the compiler are alleged to be sloppy
+	 about sticking in NOP_EXPR node for no good reason.  */
+      if (allow_cast_as_lvalue ||
+	  same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ref)),
+		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (ref, 0)))))
+	return lvalue_p_1 (TREE_OPERAND (ref, 0),
+			   treat_class_rvalues_as_lvalues,
+			   allow_cast_as_lvalue);
+      else
+	return clk_none;
 
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       if (op1_lvalue_kind 
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
 	     situations.  */
@@ -134,16 +148,20 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case MAX_EXPR:
     case MIN_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       break;
 
     case COND_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 2),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       break;
 
     case MODIFY_EXPR:
@@ -151,7 +169,8 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
 
     case COMPOUND_EXPR:
       return lvalue_p_1 (TREE_OPERAND (ref, 1),
-			 treat_class_rvalues_as_lvalues);
+			 treat_class_rvalues_as_lvalues,
+			 allow_cast_as_lvalue);
 
     case TARGET_EXPR:
       return treat_class_rvalues_as_lvalues ? clk_class : clk_none;
@@ -196,7 +215,7 @@ cp_lvalue_kind
 real_lvalue_p (ref)
      tree ref;
 {
-  return lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/0);
+  return lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/ 0, /*cast*/ 1);
 }
 
 /* This differs from real_lvalue_p in that class rvalues are
@@ -207,7 +226,15 @@ lvalue_p (ref)
      tree ref;
 {
   return 
-    (lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/1) != clk_none);
+    (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 1) != clk_none);
+}
+
+int
+non_cast_lvalue_p (ref)
+     tree ref;
+{
+  return 
+    (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 0) != clk_none);
 }
 
 /* Return nonzero if REF is an lvalue valid for this language;
@@ -218,7 +245,20 @@ lvalue_or_else (ref, string)
      tree ref;
      const char *string;
 {
-  int win = lvalue_p (ref);
+  int ret = lvalue_p_1 (ref, /* class rvalue ok */ 1, /* cast ok */ 1);
+  int win = (ret != clk_none);
+  if (! win)
+    error ("non-lvalue in %s", string);
+  return win;
+}
+
+int
+non_cast_lvalue_or_else (ref, string)
+     tree ref;
+     const char *string;
+{
+  int ret = lvalue_p_1 (ref, /* class rvalue ok */ 1, /* cast ok */ 0);
+  int win = (ret != clk_none);
   if (! win)
     error ("non-lvalue in %s", string);
   return win;
@@ -537,6 +577,11 @@ cp_build_qualified_type_real (type, type_quals, complain)
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;
+  /* We keep bad function qualifiers separate, so that we can decide
+     whether to implement DR 295 or not. DR 295 break existing code,
+     unfortunately. Remove this variable to implement the defect
+     report.  */
+  int bad_func_quals = TYPE_UNQUALIFIED;
 
   if (type == error_mark_node)
     return type;
@@ -552,6 +597,8 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+      if (TREE_CODE (type) != REFERENCE_TYPE)
+	bad_func_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
       type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
     }
   
@@ -570,21 +617,23 @@ cp_build_qualified_type_real (type, type_quals, complain)
     /*OK*/;
   else if (!(complain & (tf_error | tf_ignore_bad_quals)))
     return error_mark_node;
+  else if (bad_func_quals && !(complain & tf_error))
+    return error_mark_node;
   else
     {
       if (complain & tf_ignore_bad_quals)
  	/* We're not going to warn about constifying things that can't
  	   be constified.  */
  	bad_quals &= ~TYPE_QUAL_CONST;
+      bad_quals |= bad_func_quals;
       if (bad_quals)
  	{
  	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
  
- 	  if (!(complain & tf_ignore_bad_quals))
+ 	  if (!(complain & tf_ignore_bad_quals)
+	      || bad_func_quals)
  	    error ("`%V' qualifiers cannot be applied to `%T'",
 		   bad_type, type);
- 	  else if (complain & tf_warning)
- 	    warning ("ignoring `%V' qualifiers on `%T'", bad_type, type);
  	}
     }
   
@@ -963,9 +1012,10 @@ really_overloaded_fn (x)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
     x = BASELINK_FUNCTIONS (x);
-  return (TREE_CODE (x) == OVERLOAD 
-	  && (OVL_CHAIN (x)
-	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
+  
+  return ((TREE_CODE (x) == OVERLOAD && OVL_CHAIN (x))
+	  || DECL_FUNCTION_TEMPLATE_P (OVL_CURRENT (x))
+	  || TREE_CODE (x) == TEMPLATE_ID_EXPR);
 }
 
 /* Return the OVERLOAD or FUNCTION_DECL inside FNS.  FNS can be an
@@ -987,7 +1037,7 @@ get_first_fn (from)
      tree from;
 {
   my_friendly_assert (is_overloaded_fn (from), 9);
-  /* A baselink is also considered an overloaded function. */
+  /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
@@ -1004,7 +1054,7 @@ bound_pmf_p (t)
 	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
-/* Return a new OVL node, concatenating it with the old one. */
+/* Return a new OVL node, concatenating it with the old one.  */
 
 tree
 ovl_cons (decl, chain)
@@ -1043,7 +1093,7 @@ is_aggr_type_2 (t1, t2)
   return IS_AGGR_TYPE (t1) && IS_AGGR_TYPE (t2);
 }
 
-/* Returns non-zero if CODE is the code for a statement.  */
+/* Returns nonzero if CODE is the code for a statement.  */
 
 int
 cp_statement_code_p (code)
@@ -1858,7 +1908,7 @@ maybe_dummy_object (type, binfop)
   if (current_class_ref && context == current_class_type
       /* Kludge: Make sure that current_class_type is actually
          correct.  It might not be if we're in the middle of
-         tsubst_default_argument. */
+         tsubst_default_argument.  */
       && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
 		      current_class_type))
     decl = current_class_ref;
@@ -1888,6 +1938,8 @@ pod_type_p (t)
 {
   t = strip_array_types (t);
 
+  if (t == error_mark_node)
+    return 1;
   if (INTEGRAL_TYPE_P (t))
     return 1;  /* integral, character or enumeral type */
   if (FLOAT_TYPE_P (t))
@@ -1906,6 +1958,72 @@ pod_type_p (t)
   return 1;
 }
 
+/* Returns true if T is a variably modified type, in the sense of
+   C99.
+
+   In C99, a struct type is never variably modified because a VLA may
+   not appear as a structure member.  However, in GNU C code like:
+    
+     struct S { int i[f()]; };
+
+   is valid.  Even though GNU C++ does not allow that, this function
+   may sometimes be used in the C front end, so it treats any type
+   with variable size in the same way that C99 treats VLAs.
+
+   In particular, a variably modified type is one that involves a type
+   with variable size.  */
+
+bool
+variably_modified_type_p (tree type)
+{
+  /* If TYPE itself has variable size, it is variably modified.  
+
+     We do not yet have a representation of the C99 '[*]' syntax.
+     When a representation is chosen, this function should be modified
+     to test for that case as well.  */
+  if (TYPE_SIZE (type) 
+      && TYPE_SIZE (type) != error_mark_node
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If TYPE is a pointer or reference, it is variably modified if and
+     only if the type pointed to is variably modified.  */
+  if (TYPE_PTR_P (type)
+      || TREE_CODE (type) == REFERENCE_TYPE)
+    return variably_modified_type_p (TREE_TYPE (type));
+  
+  /* If TYPE is an array, it is variably modified if the array
+     elements are.  (Note that the VLA case has alredy been checked
+     above).  */
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return variably_modified_type_p (TREE_TYPE (type));
+
+  /* If TYPE is a pointer-to-member, it is variably modified if either
+     the class or the member are variably modified.  */
+  if (TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
+	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type)));
+
+  /* If TYPE Is a function type, it is variably modified if any of the
+     parameters or the return type are variably modified.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE
+      || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree parm;
+
+      if (variably_modified_type_p (TREE_TYPE (type)))
+	return true;
+      for (parm = TYPE_ARG_TYPES (type); 
+	   parm && parm != void_list_node; 
+	   parm = TREE_CHAIN (parm))
+	if (variably_modified_type_p (TREE_VALUE (parm)))
+	  return true;
+    }
+
+  /* All other types are not variably modified.  */
+  return false;
+}
+
 /* Returns 1 iff zero initialization of type T means actually storing
    zeros in it.  */
 
@@ -1914,6 +2032,9 @@ zero_init_p (t)
      tree t;
 {
   t = strip_array_types (t);
+
+  if (t == error_mark_node)
+    return 1;
 
   /* NULL pointers to data members are initialized with -1.  */
   if (TYPE_PTRMEM_P (t))
@@ -2030,7 +2151,7 @@ handle_init_priority_attribute (node, name, args, flags, no_add_attrs)
       /* Static objects in functions are initialized the
 	 first time control passes through that
 	 function. This is not precise enough to pin down an
-	 init_priority value, so don't allow it. */
+	 init_priority value, so don't allow it.  */
       || current_function_decl) 
     {
       error ("can only use `%s' attribute on file-scope definitions of objects of class type",
@@ -2180,6 +2301,14 @@ cp_cannot_inline_tree_fn (fnp)
 	return 1;
     }
 
+  /* Don't auto-inline anything that might not be bound within
+     this unit of translation.  */
+  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+    {
+      DECL_UNINLINABLE (fn) = 1;
+      return 1;
+    }
+
   if (varargs_function_p (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
@@ -2305,7 +2434,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
   return var;
 }
 
-/* Record that we're about to start inlining FN, and return non-zero if
+/* Record that we're about to start inlining FN, and return nonzero if
    that's OK.  Used for lang_hooks.tree_inlining.start_inlining.  */
 
 int
@@ -2492,7 +2621,7 @@ name_p (tree node)
 	  || TREE_CODE (node) == SCOPE_REF);
 }
 
-/* Returns non-zero if TYPE is a character type, including wchar_t.  */
+/* Returns nonzero if TYPE is a character type, including wchar_t.  */
 
 int
 char_type_p (type)

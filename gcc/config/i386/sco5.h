@@ -343,22 +343,16 @@ do {									\
 do {									\
   if (TARGET_ELF)							\
     ASM_OUTPUT_ALIGN ((FILE), 2);					\
-  ASM_OUTPUT_INTERNAL_LABEL((FILE),(PREFIX),(NUM));			\
+  (*targetm.asm_out.internal_label)((FILE),(PREFIX),(NUM));			\
 } while (0)
 
 #undef ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
-#undef ASM_GLOBALIZE_LABEL
-
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)				\
-  if (TARGET_ELF) ASM_GLOBALIZE_LABEL (FILE, XSTR (FUN, 0))
-
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
+  if (TARGET_ELF) (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0))
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -415,16 +409,12 @@ do {									\
 #define DBX_REGISTER_NUMBER(n) \
   ((TARGET_ELF) ? svr4_dbx_register_map[n] : dbx_register_map[n])
 
-#undef DWARF2_DEBUGGING_INFO
-#undef DWARF_DEBUGGING_INFO
-#undef SDB_DEBUGGING_INFO
-#undef DBX_DEBUGGING_INFO
-#undef PREFERRED_DEBUGGING_TYPE
-
 #define DWARF2_DEBUGGING_INFO 1
 #define DWARF_DEBUGGING_INFO 1
-#define SDB_DEBUGGING_INFO   1
-#define DBX_DEBUGGING_INFO   1
+#define SDB_DEBUGGING_INFO 1
+#define DBX_DEBUGGING_INFO 1
+
+#undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE					\
   ((TARGET_ELF) ? DWARF2_DEBUG: SDB_DEBUG)
 

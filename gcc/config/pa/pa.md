@@ -628,6 +628,26 @@
   [(set_attr "length" "4")
    (set_attr "type" "fpcc")])
 
+;; The following two patterns are optimization placeholders.  In almost
+;; all cases, the user of the condition code will be simplified and the
+;; original condition code setting insn should be eliminated.
+
+(define_insn "*setccfp0"
+  [(set (reg:CCFP 0)
+	(const_int 0))]
+  "! TARGET_SOFT_FLOAT"
+  "fcmp,dbl,!= %%fr0,%%fr0"
+  [(set_attr "length" "4")
+   (set_attr "type" "fpcc")])
+
+(define_insn "*setccfp1"
+  [(set (reg:CCFP 0)
+	(const_int 1))]
+  "! TARGET_SOFT_FLOAT"
+  "fcmp,dbl,= %%fr0,%%fr0"
+  [(set_attr "length" "4")
+   (set_attr "type" "fpcc")])
+
 ;; scc insns.
 
 (define_expand "seq"
@@ -2438,7 +2458,7 @@
   output_asm_insn (\"{bl|b,l} .+8,%0\", xoperands);
   output_asm_insn (\"{depi|depwi} 0,31,2,%0\", xoperands);
   if (TARGET_SOM || ! TARGET_GAS)
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+    (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			       CODE_LABEL_NUMBER (xoperands[2]));
 
   /* If we're trying to load the address of a label that happens to be
@@ -5806,7 +5826,7 @@
   xoperands[2] = gen_label_rtx ();
   output_asm_insn (\"{bl|b,l} %0,%%r2\;ldo %1-%2(%%r2),%%r25\", xoperands);
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+  (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			     CODE_LABEL_NUMBER (xoperands[2]));
   return \"\";
 }"
@@ -5871,7 +5891,7 @@
 
 	  output_asm_insn (\"{bl|b,l} .+8,%%r1\\n\\taddil L'%l0-%l1,%%r1\",
 			   xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+	  (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				     CODE_LABEL_NUMBER (xoperands[1]));
 	  output_asm_insn (\"ldo R'%l0-%l1(%%r1),%%r1\", xoperands);
 	}
@@ -6111,7 +6131,7 @@
   if (TARGET_SOM || ! TARGET_GAS)
     {
       output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+      (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				 CODE_LABEL_NUMBER (xoperands[1]));
       output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
     }
@@ -6297,7 +6317,7 @@
   if (TARGET_SOM || ! TARGET_GAS)
     {
       output_asm_insn (\"addil L%%$$dyncall-%1,%%r1\", xoperands);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+      (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 				 CODE_LABEL_NUMBER (xoperands[1]));
       output_asm_insn (\"ldo R%%$$dyncall-%1(%%r1),%%r1\", xoperands);
     }
@@ -6601,8 +6621,13 @@
     emit_insn (gen_extzv_64 (operands[0], operands[1],
 			     operands[2], operands[3]));
   else
-    emit_insn (gen_extzv_32 (operands[0], operands[1],
-			     operands[2], operands[3]));
+    {
+      if (! uint5_operand (operands[2], SImode)
+	  || ! uint5_operand (operands[3], SImode))
+	FAIL;
+      emit_insn (gen_extzv_32 (operands[0], operands[1],
+			       operands[2], operands[3]));
+    }
   DONE;
 }")
 
@@ -6721,8 +6746,13 @@
     emit_insn (gen_insv_64 (operands[0], operands[1],
 			    operands[2], operands[3]));
   else
-    emit_insn (gen_insv_32 (operands[0], operands[1],
-			    operands[2], operands[3]));
+    {
+      if (! uint5_operand (operands[2], SImode)
+	  || ! uint5_operand (operands[3], SImode))
+	FAIL;
+      emit_insn (gen_insv_32 (operands[0], operands[1],
+			      operands[2], operands[3]));
+    }
   DONE;
 }")
 
@@ -7435,6 +7465,12 @@
   "flag_pic"
   "
 {
+  /* On the 64-bit port, we need a blockage because there is
+     confusion regarding the dependence of the restore on the
+     frame pointer.  As a result, the frame pointer and pic
+     register restores sometimes are interchanged erroneously.  */
+  if (TARGET_64BIT)
+    emit_insn (gen_blockage ());
   /* Restore the PIC register using hppa_pic_save_rtx ().  The
      PIC register is not saved in the frame in 64-bit ABI.  */
   emit_move_insn (pic_offset_table_rtx, hppa_pic_save_rtx ());
@@ -7446,6 +7482,8 @@
   "flag_pic"
   "
 {
+  if (TARGET_64BIT)
+    emit_insn (gen_blockage ());
   /* Restore the PIC register.  Hopefully, this will always be from
      a stack slot.  The only registers that are valid after a
      builtin_longjmp are the stack and frame pointers.  */

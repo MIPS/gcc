@@ -951,7 +951,7 @@ prune_preferences ()
    of a long enough stretch of hard regs none of which conflicts with ALLOCNO.
    The registers marked in PREFREGS are tried first.
 
-   LOSERS, if non-zero, is a HARD_REG_SET indicating registers that cannot
+   LOSERS, if nonzero, is a HARD_REG_SET indicating registers that cannot
    be used for this allocation.
 
    If ALT_REGS_P is zero, consider only the preferred class of ALLOCNO's reg.
@@ -1365,15 +1365,9 @@ record_conflicts (allocno_vec, len)
      int *allocno_vec;
      int len;
 {
-  int num;
-  int ialloc_prod;
-
   while (--len >= 0)
-    {
-      num = allocno_vec[len];
-      ialloc_prod = num * allocno_row_words;
-      IOR_HARD_REG_SET (allocno[num].hard_reg_conflicts, hard_regs_live);
-    }
+    IOR_HARD_REG_SET (allocno[allocno_vec[len]].hard_reg_conflicts,
+                      hard_regs_live);
 }
 
 /* If CONFLICTP (i, j) is true, make sure CONFLICTP (j, i) is also true.  */

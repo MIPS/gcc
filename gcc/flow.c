@@ -269,7 +269,7 @@ struct propagate_block_info
   /* The length of mem_set_list.  */
   int mem_set_list_len;
 
-  /* Non-zero if the value of CC0 is live.  */
+  /* Nonzero if the value of CC0 is live.  */
   int cc0_live;
 
   /* Flags controling the set of information propagate_block collects.  */
@@ -797,7 +797,7 @@ update_life_info_in_dirty_blocks (extent, prop_flags)
 
 /* Free the variables allocated by find_basic_blocks.
 
-   KEEP_HEAD_END_P is non-zero if basic_block_info is not to be freed.  */
+   KEEP_HEAD_END_P is nonzero if basic_block_info is not to be freed.  */
 
 void
 free_basic_block_vars (keep_head_end_p)
@@ -1085,7 +1085,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   int i;
 
   /* Some passes used to forget clear aux field of basic block causing
-     sick behaviour here.  */
+     sick behavior here.  */
 #ifdef ENABLE_CHECKING
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     if (bb->aux)
@@ -2042,7 +2042,7 @@ free_propagate_block_info (pbi)
    case, the resulting set will be equal to the union of the two sets that
    would otherwise be computed.
 
-   Return non-zero if an INSN is deleted (i.e. by dead code removal).  */
+   Return nonzero if an INSN is deleted (i.e. by dead code removal).  */
 
 int
 propagate_block (bb, live, local_set, cond_local_set, flags)
@@ -2096,7 +2096,7 @@ propagate_block (bb, live, local_set, cond_local_set, flags)
    (SET expressions whose destinations are registers dead after the insn).
    NEEDED is the regset that says which regs are alive after the insn.
 
-   Unless CALL_OK is non-zero, an insn is needed if it contains a CALL.
+   Unless CALL_OK is nonzero, an insn is needed if it contains a CALL.
 
    If X is the entire body of an insn, NOTES contains the reg notes
    pertaining to the insn.  */
@@ -2109,6 +2109,10 @@ insn_dead_p (pbi, x, call_ok, notes)
      rtx notes ATTRIBUTE_UNUSED;
 {
   enum rtx_code code = GET_CODE (x);
+
+  /* Don't eliminate insns that may trap.  */
+  if (flag_non_call_exceptions && may_trap_p (x))
+    return 0;
 
 #ifdef AUTO_INC_DEC
   /* As flow is invoked after combine, we must take existing AUTO_INC

@@ -111,10 +111,10 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr," (intel 80960)");
 
 /* Generate DBX debugging information.  */
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Generate SDB style debugging information.  */
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 #define EXTENDED_SDB_BASIC_TYPES
 
 /* Generate DBX_DEBUGGING_INFO by default.  */
@@ -335,44 +335,7 @@ extern int target_flags;
 /* Override conflicting target switch options.
    Doesn't actually detect if more than one -mARCH option is given, but
    does handle the case of two blatantly conflicting -mARCH options.  */
-#define OVERRIDE_OPTIONS					\
-{								\
-  if (TARGET_K_SERIES && TARGET_C_SERIES)			\
-    {								\
-      warning ("conflicting architectures defined - using C series"); \
-      target_flags &= ~TARGET_FLAG_K_SERIES;			\
-    }								\
-  if (TARGET_K_SERIES && TARGET_MC)				\
-    {								\
-      warning ("conflicting architectures defined - using K series"); \
-      target_flags &= ~TARGET_FLAG_MC;				\
-    }								\
-  if (TARGET_C_SERIES && TARGET_MC)				\
-    {								\
-      warning ("conflicting architectures defined - using C series");\
-      target_flags &= ~TARGET_FLAG_MC;				\
-    }								\
-  if (TARGET_IC_COMPAT3_0)					\
-    {								\
-      flag_short_enums = 1;					\
-      flag_signed_char = 1;					\
-      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
-      if (TARGET_IC_COMPAT2_0)					\
-	{							\
-	  warning ("iC2.0 and iC3.0 are incompatible - using iC3.0"); \
-	  target_flags &= ~TARGET_FLAG_IC_COMPAT2_0;		\
-	}							\
-    }								\
-  if (TARGET_IC_COMPAT2_0)					\
-    {								\
-      flag_signed_char = 1;					\
-      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
-    }								\
-  /* ??? See the LONG_DOUBLE_TYPE_SIZE definition below.  */	\
-  if (TARGET_LONG_DOUBLE_64)					\
-    warning ("the -mlong-double-64 option does not work yet");\
-  i960_initialize ();						\
-}
+#define OVERRIDE_OPTIONS  i960_initialize ()
 
 /* Don't enable anything by default.  The user is expected to supply a -mARCH
    option.  If none is given, then -mka is added by CC1_SPEC.  */
@@ -399,20 +362,16 @@ extern int target_flags;
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
-/* Width in bits of a long double.  Define to 96, and let
-   ROUND_TYPE_ALIGN adjust the alignment for speed.  */
-#define	LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 96)
-
-/* ??? This must be a constant, because real.c and real.h test it with #if.  */
-#undef LONG_DOUBLE_TYPE_SIZE
-#define LONG_DOUBLE_TYPE_SIZE 96
+/* Width in bits of a long double.  */
+#define	LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 128)
+#define MAX_LONG_DOUBLE_TYPE_SIZE 128
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
 #if defined(__LONG_DOUBLE_64__)
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
 #endif
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
@@ -457,33 +416,14 @@ extern int target_flags;
    ? i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP)))	    \
    : (ALIGN))
 
-/* Make XFmode floating point quantities be 128 bit aligned.  */
-#define DATA_ALIGNMENT(TYPE, ALIGN)					\
-  (TREE_CODE (TYPE) == ARRAY_TYPE					\
-   && TYPE_MODE (TREE_TYPE (TYPE)) == XFmode				\
-   && (ALIGN) < 128 ? 128 : (ALIGN))
-
 /* Macros to determine size of aggregates (structures and unions
    in C).  Normally, these may be defined to simply return the maximum
    alignment and simple rounded-up size, but on some machines (like
    the i960), the total size of a structure is based on a non-trivial
    rounding method.  */
 
-#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	   \
-   ? 128  /* Put 80 bit floating point elements on 128 bit boundaries.  */ \
-   : ((!TARGET_OLD_ALIGN && !TYPE_PACKED (TYPE)				   \
-       && TREE_CODE (TYPE) == RECORD_TYPE)				   \
-      ? i960_round_align (MAX ((COMPUTED), (SPECIFIED)), TYPE_SIZE (TYPE)) \
-      : MAX ((COMPUTED), (SPECIFIED))))
-
-#define ROUND_TYPE_SIZE(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	\
-   ? bitsize_int (128) : round_up (COMPUTED, SPECIFIED))
-#define ROUND_TYPE_SIZE_UNIT(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	\
-   ? size_int (16) : round_up (COMPUTED, SPECIFIED))
-
+#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
+  i960_round_align (MAX ((COMPUTED), (SPECIFIED)), TYPE)
 
 /* Standard register usage.  */
 
@@ -566,7 +506,7 @@ extern int target_flags;
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On 80960, the cpu registers can hold any mode but the float registers
-   can only hold SFmode, DFmode, or XFmode.  */
+   can only hold SFmode, DFmode, or TFmode.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -991,12 +931,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Macros to check register numbers against specific register classes.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
@@ -1166,7 +1100,7 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Value changed to 1 after reports of poor bitfield code with g++.
+   Value changed to 1 after reports of poor bit-field code with g++.
    Indications are that code is usually as good, sometimes better.  */   
 
 #define SLOW_BYTE_ACCESS 1
@@ -1319,12 +1253,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -1410,13 +1338,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 
 #define	LABEL_ALIGN_AFTER_BARRIER(LABEL) (TARGET_CODE_ALIGN ? 3 : 0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

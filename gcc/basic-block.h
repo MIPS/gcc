@@ -112,7 +112,11 @@ do {									\
    be done, other than zero the statistics on the first allocation.  */
 #define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P)
 
-/* Type we use to hold basic block counters.  Should be at least 64bit.  */
+/* Type we use to hold basic block counters.  Should be at least
+   64bit.  Although a counter cannot be negative, we use a signed
+   type, because erroneous negative counts can be generated when the
+   flow graph is manipulated by various optimizations.  A signed type
+   makes those easy to detect. */
 typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
@@ -144,7 +148,7 @@ typedef struct edge_def {
 #define EDGE_FAKE		16	/* Not a real edge (profile.c) */
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
-					   flow. */
+					   flow.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -435,7 +439,7 @@ struct loop
   /* Link to the next (sibling) loop.  */
   struct loop *next;
 
-  /* Non-zero if the loop is invalid (e.g., contains setjmp.).  */
+  /* Nonzero if the loop is invalid (e.g., contains setjmp.).  */
   int invalid;
 
   /* Auxiliary info specific to a pass.  */
@@ -444,15 +448,12 @@ struct loop
   /* The following are currently used by loop.c but they are likely to
      disappear as loop.c is converted to use the CFG.  */
 
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
+  /* Nonzero if the loop has a NOTE_INSN_LOOP_VTOP.  */
   rtx vtop;
 
-  /* Non-zero if the loop has a NOTE_INSN_LOOP_CONT.
+  /* Nonzero if the loop has a NOTE_INSN_LOOP_CONT.
      A continue statement will generate a branch to NEXT_INSN (cont).  */
   rtx cont;
-
-  /* The dominator of cont.  */
-  rtx cont_dominator;
 
   /* The NOTE_INSN_LOOP_BEG.  */
   rtx start;
@@ -773,7 +774,7 @@ typedef struct conflict_graph_def *conflict_graph;
 
 /* Callback function when enumerating conflicts.  The arguments are
    the smaller and larger regno in the conflict.  Returns zero if
-   enumeration is to continue, non-zero to halt enumeration.  */
+   enumeration is to continue, nonzero to halt enumeration.  */
 typedef int (*conflict_graph_enum_fn) PARAMS ((int, int, void *));
 
 

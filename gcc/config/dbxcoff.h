@@ -24,10 +24,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* Output DBX (stabs) debugging information if doing -gstabs.  */
 
-#undef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
-/* Generate SDB debugging information by default. */
+/* Generate SDB debugging information by default.  */
 
 #ifndef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
@@ -71,7 +70,7 @@ Boston, MA 02111-1307, USA.  */
     assemble_name (FILE,					\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0)); \
     putc ('\n', FILE);						\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);		\
+    (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);		\
     sym_lineno++;						\
   } }
 

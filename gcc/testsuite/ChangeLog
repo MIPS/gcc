@@ -1,3 +1,509 @@
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* g++.dg/ext/vlm1.C: New test.
+	* g++.dg/ext/vlm2.C: Likewise.
+
+	* g++.dg/init/array1.C: Remove invalid braces.
+	* g++.dg/init/brace1.C: New test.
+	* g++.dg/init/copy2.C: Likewise.
+	* g++.dg/init/copy3.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew.C: Change WARNING to ERROR.
+	* g++.old-deja/g++.mike/p9129.C: Add ERROR on invalid use of
+	braces.
+
+2002-10-11  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/assembler.S: Don't use -ansi.
+
+Fri Oct 11 10:56:49 2002  Richard Shann  <richard.shann@superh.com>
+
+	* gcc.c-torture/compile/simd-5.c: New test.
+
+2002-10-10  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/shiftopt-1.c: New test case.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* gcc.c-torture/execute/20021010-1.c: New test.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* g++.dg/ext/typedef-init.C: New test.
+	* gcc.dg/typedef-init.c: New test.
+
+2002-10-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/paste13.c: New test.
+
+2002-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/20020720-1.x: Take out sparc XFAILs.  For
+	remaining platforms, XFAIL during compile, not execute.  Don't
+	XFAIL at -O0.
+
+2002-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: Tweak expected warning.
+
+2002-10-06  D.Venkatasubramanian <dvenkat@noida.hcltech.com>
+
+	* gcc.dg/20020411-1.c: Disable for 16-bit "int".
+
+2002-10-06  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/cpp/c++98-pedantic.C: Moved to g++.dg/cpp.
+	* gcc.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/cpp/c++98-pedantic.C: Moved from gcc.dg/cpp to here.
+	* g++.dg/cpp/c++98.C: Likewise.
+
+	* g++.dg/README (Subdirectories): Mention cpp directory.
+
+	PR target/7559
+	* gcc.dg/20021006-1.c: New test.
+
+2002-10-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7804
+	* g++.dg/other/warning1.C: New test.
+
+2002-10-04  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x:  XFAIL instead of skipping
+	the test on failing platforms.  Mark sparcv9-*-*, sparc64-*-*
+	and sparc-*-* with -m64 as expected failures.  See PR 8087.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7931
+	* g++.dg/template/ptrmem3.C: New test.
+
+	PR c++/7754
+	* g++.dg/template/union1.C: New test.
+
+2002-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8006
+	* g++.dg/abi/mangle9.C: New test.
+	* g++.dg/abi/mangle10.C: New test.
+	* g++.dg/abi/mangle11.C: New test.
+	* g++.dg/abi/mangle12.C: New test.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7188.
+	* g++.dg/template/meminit1.C: New test.
+	* g++.dg/warn/Wreorder-1.C: Likewise.
+	* g++.old-deja/g++.mike/warn3.C: Tweak.
+	* lib/prune.exp: Ingore "in copy constructor".
+
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/20020919-1.c, gcc.dg/inline-2.c, gcc.dg/980211-1.c,
+	gcc.dg/20020103-1.c, gcc.dg/20000614-2.c,
+	g++.old-deja/g++.pt/asm1.C, g++.old-deja/g++.other/asm3.C: Enable
+	on x86-64.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: Fix typo.
+
+2002-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/alias-1.c: New test.
+
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/empty1.C: New test.
+
+	* g++.dg/tls/init-2.C: Tweak error messages.
+
+2002-10-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20020923-1.c: New test.
+
+2002-09-30  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.c-torture/execute/ffs-1.c: New test.
+	* gcc.c-torture/execute/ffs-2.c: Ditto.
+
+2002-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/overload/member1.C: New test.
+
+2002-09-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty7.C: New test.
+	* g++.dg/init/pm2.C: Likewise.
+
+2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/rtti/crash1.C: New test.
+
+2002-09-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/sibcall-1.c, gcc.dg/sibcall-2.c, gcc.dg/sibcall-3.c,
+	gcc.dg/sibcall-4.c: New tests.
+
+2002-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x: No longer skip test on
+	powerpc and MMIX targets.
+
+2002-09-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/cpp/20020927-1.c: New.
+
+2002-09-26  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/compile/trunctfdf.c: New.
+
+2002-09-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lib/target-supports.exp (check_weak_available): Handle solaris2.
+
+2002-09-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/loop-15.c: New.
+
+2002-09-26  Janis Johnson  <janis187@us.ibm.com>
+
+	* README.QMTEST: Fix typo.
+
+2002-09-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20020926-1.c: New test.
+
+2002-09-25  David S. Miller  <davem@redhat.com>
+
+	PR target/7842
+	* gcc.c-torture/execute/shiftdi.c: New test.
+
+2002-09-26  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lib/gcc.exp (gcc_init): Use a filename for the testglue that is
+	unique to the tool.
+	* lib/g77.exp (g77_init): Likewise.
+	* lib/g++.exp (g++_init): Likewise.
+	* lib/objc.exp (objc_init): Likewise.
+
+2002-09-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/abi/empty5.C: New test.
+	* gcc/testsuite/g++.dg/abi/empty6.C: New test.
+	* gcc/testsuite/g++.dg/abi/vbase12.C: New test.
+
+2002-09-25  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/ieee/20010226-1.c: Early exit for
+	too-small long double.
+
+2002-09-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20020919-1.c: New test.
+
+2002-09-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/bitfield6.C: New test.
+	* g++.dg/abi/bitfield7.C: New test.
+	* g++.dg/abi/bitfield8.C: New test.
+	* g++.dg/abi/vbase11.C: New test.
+
+2002-09-22  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.dg/20020219-1.c: Add "-mdisable-indexing" option for target
+	hppa*-*-hpux*.  Update test comment.
+
+2002-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/struct-1.c: New test.
+
+2002-09-20  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/tr-warn2.c: Update.
+
+2002-09-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip test on ARM-based systems.
+
+2002-09-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/990208-1.x: XFAIL this at -O3 for ARM-based
+	systems.
+
+2002-09-20  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/ieee/mzero3.c: New test.
+
+	* lib/scanasm.exp (scan-assembler-dem, scan-assembler-dem-not):
+	Adjust for c++filt moved to binutils.  Remove spurious duplicate
+	setting of cxxfilt.
+
+2002-09-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/20020312-2.c: Update for darwin.
+
+2002-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/crash32.C: Mark ICE.
+
+Tue Sep 17 13:59:45 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc.dg/comp-types-1.m: New test.
+	* objc.dg/comp-types-2.m: New test.
+	* objc.dg/comp-types-3.m: New test.
+	* objc.dg/comp-types-4.m: New test.
+	* objc.dg/comp-types-5.m: New test.
+	* objc.dg/comp-types-6.m: New test.
+
+2002-09-17  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.c-torture/execute/strct-stdarg-1.x: Remove file.
+
+2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/do1.C: New test.
+
+	* g++.dg/template/subst1.C: New test.
+
+2002-09-16  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/20020312-2.c: Change __parisc__ to __hppa__.
+
+2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/qualttp20.C: Adjust expected errors.
+	* g++.old-deja/g++.jason/report.C: Likewise.
+	* g++.old-deja/g++.other/qual1.C: Likewise.
+
+	* g++.dg/lookup/scoped2.C: New test.
+
+	* g++.dg/ext/asm3.C: New test.
+
+2002-09-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* objc.dg/bitfield-2.m (dg-options): Add -fsigned-char.
+
+2002-09-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: follow spelling conventions.
+	* g++.old-deja/g++.abi/ptrmem.C: Likewise.
+	* g++.old-deja/g++.bugs/900210_05.C: Likewise.
+	* g++.old-deja/g++.bugs/900211_04.C: Likewise.
+	* g++.old-deja/g++.bugs/900321_02.C: Likewise.
+	* g++.old-deja/g++.bugs/900404_02.C: Likewise.
+	* g++.old-deja/g++.bugs/900520_06.C: Likewise.
+	* g++.old-deja/g++.law/global-init1.C: Likewise.
+	* g++.old-deja/g++.other/delete4.C: Likewise.
+	* g++.old-deja/g++.other/inline21.C: Likewise.
+	* g++.old-deja/g++.other/singleton.C: Likewise.
+	* g77.dg/strlen0.f: Likewise.
+	* g77.f-torture/compile/20010519-1.f: Likewise.
+	* g77.f-torture/compile/980310-4.f: Likewise.
+	* gcc.c-torture/compile/20000605-1.c: Likewise.
+	* gcc.c-torture/execute/20020225-1.c: Likewise.
+	* gcc.dg/c90-hexfloat-2.c: Likewise.
+	* gcc.dg/c99-bool-1.c: Likewise.
+	* gcc.dg/c99-hexfloat-2.c: Likewise.
+	* gcc.dg/dll-2.c: Likewise.
+	* gcc.dg/wtr-union-init-1.c: Likewise.
+	* gcc.dg/wtr-union-init-2.c: Likewise.
+	* gcc.dg/wtr-union-init-3.c: Likewise.
+	* gcc.dg/cpp/avoidpaste1.c: Likewise.
+	* gcc.dg/cpp/defined.c: Likewise.
+	* gcc.dg/cpp/macsyntx.c: Likewise.
+	* gcc.dg/cpp/paste2.c: Likewise.
+	* gcc.dg/cpp/trad/defined.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise.
+	* gcc.dg/format/c90-scanf-1.c: Likewise.
+	* gcc.dg/format/c99-printf-1.c: Likewise.
+	* gcc.dg/format/c99-scanf-1.c: Likewise.
+	* gcc.misc-tests/gcov-8.c: Likewise.
+	* lib/profopt.exp: Likewise.
+
+2002-09-15  Krister Walfridsson  <cato@df.lth.se>
+
+	* lib/old-dejagnu.exp (old-dejagnu) Improve test for ICE.
+
+2002-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/using2.C: New test.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* g++.dg/template/friend4.C: Likewise.
+	* g++.old-deja/g++.pt/crash67.C: Likewise.
+	* gcc.c-torture/execute/20000801-4.c: Likewise.
+	* gcc.dg/c90-digraph-1.c: Likewise.
+	* gcc.dg/c94-digraph-1.c: Likewise.
+	* gcc.dg/c99-digraph-1.c: Likewise.
+	* gcc.dg/cpp/line5.c: Likewise.
+	* gcc.dg/cpp/multiline.c: Likewise.
+	* gcc.dg/cpp/trad/literals-1.c: Likewise.
+	* gcc.dg/format/attr-3.c: Likewise.
+	* gcc.dg/format/c90-scanf-3.c: Likewise.
+	* gcc.dg/format/ext-4.c: Likewise.
+
+2002-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/pretty1.C: New test.
+
+2002-09-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/struct-cpy-1.c: New test.
+
+2002-09-13  Matt Austern  <austern@apple.com>
+
+	* testsuite/g++.dg/other/constref[12].C: New, regression tests for
+	passing a cast expression to a function by const reference.
+
+2002-09-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/template/deduce1.C: New test.
+
+2002-09-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/simd-1.c: Force all use of int to
+	32-bit int.
+
+2002-09-10  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.dg/struct-ret-1.c: Add prototype for exit function and correct
+	usage.
+
+2002-09-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/compile/20020910-1.c: New test.
+
+2002-09-10  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c-torture/execute/20010915-1.c: Correct typo in abort call.
+
+2002-09-10  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.dg/20020312-2.c: Adjust for x86-64.
+
+2002-09-08  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.dg/7388.f: New test case for PR 7388.
+
+2002-09-07  Ansgar Esztermann  <ansgar@thphy.uni-duesseldorf.de>
+
+	* gcc.dg/compare2.c: Remove xfail from cases 10 and 12.
+
+2002-09-05  Ziemowit Laski <zlaski@apple.com>
+
+	* objc.dg/proto-lossage-1.m: New test.
+
+2002-09-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma4.c: Fix typo.
+
+Fri Sep  6 16:39:37 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/formal_protocol-6.x: Removed.  This testcase is now
+	expected to pass.
+
+2002-09-06  Stan Shebs  <shebs@apple.com>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/weak: New directory.
+	* gcc.dg/weak-[1-9].c: Move to new directory, remove all
+	target-specific xfail bits.
+	* gcc.dg/typeof-2.c: Move to new directory.
+	* gcc.dg/weak.exp: New expect script.
+
+2002-09-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/extzvsi.c: New test.
+
+2002-09-05  Stan Shebs  <shebs@apple.com>
+
+	* gcc.dg/weak-1.c: xfail on Darwin.
+	* gcc.dg/weak-2.c: Ditto.
+	* gcc.dg/weak-3.c: Ditto.
+	* gcc.dg/weak-4.c: Ditto.
+	* gcc.dg/weak-5.c: Ditto.
+	* gcc.dg/weak-6.c: Ditto.
+	* gcc.dg/weak-7.c: Ditto.
+	* gcc.dg/weak-8.c: Ditto.
+	* gcc.dg/weak-9.c: Ditto.
+
+Thu Sep  5 00:34:33 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/loop-14.c: New test.
+
+2002-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/cxa-atexit1.C: New test.
+
+	* gcc.dg/typeof-2.c: New test.
+
+2002-09-03  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-2.c: New testcase.
+	* gcc.dg/builtins-3.c: New testcase.
+
+2002-09-03  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma4.c: New test.
+
+Tue Sep  3 11:04:26 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/nil_method-1.m: New testcase.
+
+Sun Sep  1 12:47:39 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/class-tests-1.h (test_class_with_superclass): Call
+	[Object class], not [Object initialize].
+
+2002-08-31  Roger Sayle  <roger@eyesopen.com>
+	    Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip test on
+	mmix-knuth-mmixware.  Correct comment.
+
+2002-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/bitfield5.C: New test.
+	* testsuite/g++.dg/abi/vbase10.C: Likewise.
+
+Tue Aug 27 22:23:22 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc.dg/undeclared-selector.m: New test.
+
+2002-08-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/other/offsetof1.C: Avoid cast warning.
+
+2002-08-26  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/super-class-2.m: New test.
+
+2002-08-24  Matt Austern  <austern@apple.com>
+
+	* g++.dg/ext/lvaddr.C: New test.
+	* g++.dg/ext/lvcast.C: New test.
+
+2002-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/inherit/cond1.C: New test.
+
+2002-08-22  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.dg/noncompile/incomplete-1.c: New test.
+
+2002-08-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/typespec-1.c: New test.
+
+2002-08-20  Devang Patel  <dpatel@apple.com>
+	* objc.dg/proto-hier-2.m: New test.
+
 2002-08-19  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc.dg/bitfield-1.m: New test.
@@ -48,7 +554,7 @@
 2002-08-08  Devang Patel  <dpatel@apple.com>
 
 	* objc.dg/selector-1.m : New test
-	
+
 2002-08-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/abi/bitfield4.C: New test.
@@ -62,7 +568,7 @@
 
 	* g++.dg/abi/offsetof.C: Tweak error messages.
 	* g++.old-deja/g++.mike/p10769a.C: Likewise.
-	
+
 2002-08-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/bitfld-3.c: New test.
@@ -82,7 +588,7 @@
 
 2002-08-06  Aldy Hernandez  <aldyh@redhat.com>
 
-        * testsuite/gcc.dg/tls/diag-3.c: New.
+	* testsuite/gcc.dg/tls/diag-3.c: New.
 
 2002-08-07  Gabriel Dos Reis  <gdr@nerim.net>
 
@@ -127,7 +633,7 @@
 
 2002-08-01  Benjamin Kosnik   <bkoz@redhat.com>
 
-        * g++.old-deja/g++.abi/ptrflags.C (expect): Change
+	* g++.old-deja/g++.abi/ptrflags.C (expect): Change
 	__qualifier_flags to __flags.
 
 2002-07-31  Mark Mitchell  <mark@codesourcery.com>
@@ -136,11 +642,11 @@
 	* g++.dg/lookup/disamb1.C: Fix typo in comment.
 	* g++.dg/other/error1.C: Change expected error message.
 	* g++.dg/template/conv4.C: Likewise.
-	
+
 2002-07-26  Neil Booth  <neil@daikokuya.cop.uk>
 
 	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/Wunused.c: Add test
-	for documented behaviour.
+	for documented behavior.
 
 2002-07-25  Roger Sayle  <roger@eyesopen.com>
 
@@ -162,7 +668,7 @@
 2002-07-24  Richard Henderson  <rth@redhat.com>
 
 	* gcc.c-torture/execute/loop-2e.c: Rewrite for 64 bit and no mmap.
-	
+
 2002-07-24  Gabriel Dos Reis  <gdr@nerim.net>
 
 	* g++.dg/ext/alignof1.C (main): Return 0 for success.
@@ -1911,7 +2417,7 @@ Thu Mar  7 10:05:31 2002  Jeffrey A Law  (law@redhat.com)
 	* lib/prune.exp: Remove "In (program|subroutine"block-data)"
 	message from g77
 	* lib/g77-dg.exp: Trim g77 error messages so that they are
-	recognised by dg.exp.
+	recognized by dg.exp.
 
 2002-02-07  David Billinghurst <David.Billinghurst@riotinto.com>
 
@@ -2571,7 +3077,7 @@ Wed Jan  9 14:03:20 2002  Jeffrey A Law  (law@redhat.com)
 
 2001-12-28  Jakub Jelinek  <jakub@redhat.com>
 
-	* gcc.dg/gnu89-init-1.c: Adjust for the new behaviour, add some
+	* gcc.dg/gnu89-init-1.c: Adjust for the new behavior, add some
 	additional tests.
 
 2001-12-27  Roger Sayle <roger@eyesopen.com>
@@ -6517,7 +7023,7 @@ Mon Oct  9 23:32:06 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/execute/divmod-1.c (mod5): New function - perform
 	a signed long modulo operation.
-	(mod6): New funciton - perform an unsigned long modulo operation.
+	(mod6): New function - perform an unsigned long modulo operation.
 	(main): Add tests for modulos of very large numbers by very small
 	dividends.
 

@@ -356,13 +356,15 @@
   "{
   rtx addr0, addr1;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[2]) != CONST_INT)
     FAIL;
   cnt8 = byte_immediate_operand (operands[2], GET_MODE (operands[2]));
-  operands[2] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[2]);
+  mode = cnt8 ? QImode : HImode;
+  operands[2] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[2]), mode));
   operands[4] = operands[2];
-
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
   addr1 = copy_to_mode_reg (Pmode, XEXP (operands[1], 0));
 
@@ -385,7 +387,7 @@
   "ld __tmp_reg__,%a1+
 	st %a0+,__tmp_reg__
 	dec %2
-	brne _PC_-8"
+	brne .-8"
   [(set_attr "length" "4")
    (set_attr "cc" "clobber")])
 
@@ -403,13 +405,13 @@
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (sbiw,%A2,1) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
      else
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (subi,%A2,1) CR_TAB
 	       AS2 (sbci,%B2,0) CR_TAB
-	       AS1 (brne,_PC_-10));
+	       AS1 (brne,.-10));
 }"
   [(set_attr "length" "4,5")
    (set_attr "cc" "clobber,clobber")])
@@ -428,12 +430,15 @@
   "{
   rtx addr0;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   cnt8 = byte_immediate_operand (operands[1], GET_MODE (operands[1]));
-  operands[1] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[1]);
+  mode = cnt8 ? QImode : HImode;
+  operands[1] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[1]), mode));
   operands[3] = operands[1];
 
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
@@ -452,7 +457,7 @@
   ""
   "st %a0+,__zero_reg__
         dec %1
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -468,12 +473,12 @@
      if (which_alternative==0)
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (sbiw,%A1,1) CR_TAB
-	       AS1 (brne,_PC_-6));
+	       AS1 (brne,.-6));
      else
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (subi,%A1,1) CR_TAB
 	       AS2 (sbci,%B1,0) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
 }"
   [(set_attr "length" "3,4")
    (set_attr "cc" "clobber,clobber")])
@@ -507,7 +512,7 @@
   ""
   "ld __tmp_reg__,%a0+
 	tst __tmp_reg__
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -2418,10 +2423,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2453,10 +2458,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2483,10 +2488,10 @@
     case 1:
       return AS1 (brcc,%1);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%1));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%1));
 }")
 

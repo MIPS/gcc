@@ -349,19 +349,13 @@ ssib_section ()			\
 
 #undef ASM_OUTPUT_SOURCE_FILENAME
 
-/* There is no directive for declaring a label as global. Instead, an 
-   additional colon must be appended when the label is defined.  */
-
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)
-
 /* This is how to output a label for a jump table.  Arguments are the same as
-   for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
+   for (*targetm.asm_out.internal_label), except the insn for the jump table is
    passed.  */
 
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM)
 
 /* CAM has some restrictions with respect to string literals. It won't
    accept lines with more that 256 characters which means that we have

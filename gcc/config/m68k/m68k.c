@@ -65,6 +65,9 @@ static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int));
 #ifdef CTOR_LIST_BEGIN
 static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
+#ifdef HPUX_ASM
+static void m68k_hp320_internal_label PARAMS ((FILE *, const char *, unsigned long));
+#endif
 
 
 /* Alignment to use for loops and jumps */
@@ -121,6 +124,10 @@ int m68k_last_compare_had_fp_operands;
 #define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
+#ifdef HPUX_ASM
+#undef TARGET_ASM_INTERNAL_LABEL
+#define  TARGET_ASM_INTERNAL_LABEL m68k_hp320_internal_label
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -174,6 +181,30 @@ override_options ()
       else
 	m68k_align_funcs = i;
     }
+
+  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
+     until the 68020.  */
+  if (! TARGET_68020 && flag_pic == 2)
+    error("-fPIC is not currently supported on the 68000 or 68010\n");
+
+  /* ??? A historic way of turning on pic, or is this intended to
+     be an embedded thing that doesn't have the same name binding
+     significance that it does on hosted ELF systems?  */
+  if (TARGET_PCREL && flag_pic == 0)
+    flag_pic = 1;
+
+  /* Turn off function cse if we are doing PIC.  We always want function call
+     to be done as `bsr foo@PLTPC', so it will force the assembler to create
+     the PLT entry for `foo'. Doing function cse will cause the address of
+     `foo' to be loaded into a register, which is exactly what we want to
+     avoid when we are doing PIC on svr4 m68k.  */
+  if (flag_pic)
+    flag_no_function_cse = 1;
+
+  SUBTARGET_OVERRIDE_OPTIONS;
+
+  /* Tell the compiler which flavor of XFmode we're using.  */
+  real_format_for_mode[XFmode - QFmode] = &ieee_extended_motorola_format;
 }
 
 /* This function generates the assembly code for function entry.
@@ -279,13 +310,15 @@ m68k_output_function_prologue (stream, size)
 	{
 	/* on the 68040, pea + move is faster than link.w 0 */
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\tpea (%s)\n\tmove.l %s,%s\n",
-	       reg_names[FRAME_POINTER_REGNUM], reg_names[STACK_POINTER_REGNUM],
-	       reg_names[FRAME_POINTER_REGNUM]);
+	  fprintf (stream, "\tpea (%s)\n\tmove.l %s,%s\n",
+		   reg_names[FRAME_POINTER_REGNUM],
+		   reg_names[STACK_POINTER_REGNUM],
+		   reg_names[FRAME_POINTER_REGNUM]);
 #else
-	  asm_fprintf (stream, "\tpea %s@\n\tmovel %s,%s\n",
-	       reg_names[FRAME_POINTER_REGNUM], reg_names[STACK_POINTER_REGNUM],
-	       reg_names[FRAME_POINTER_REGNUM]);
+	  fprintf (stream, "\tpea %s@\n\tmovel %s,%s\n",
+		   reg_names[FRAME_POINTER_REGNUM],
+		   reg_names[STACK_POINTER_REGNUM],
+		   reg_names[FRAME_POINTER_REGNUM]);
 #endif
 	}
       else if (fsize < 0x8000)
@@ -778,7 +811,7 @@ m68k_output_function_epilogue (stream, size)
     {
       /* Output just a no-op so that debuggers don't get confused
 	 about which function the pc is in at this address.  */
-      asm_fprintf (stream, "\tnop\n");
+      fprintf (stream, "\tnop\n");
       return;
     }
 
@@ -878,9 +911,9 @@ m68k_output_function_epilogue (stream, size)
 			     reg_names[FRAME_POINTER_REGNUM],
 			     reg_names[i]);
 #else
-		asm_fprintf (stream, "\tmovel %s@(-%d),%s\n",
-			     reg_names[FRAME_POINTER_REGNUM],
-			     offset + fsize, reg_names[i]);
+		fprintf (stream, "\tmovel %s@(-%d),%s\n",
+			 reg_names[FRAME_POINTER_REGNUM],
+			 offset + fsize, reg_names[i]);
 #endif
 	      }
             offset = offset - 4;
@@ -990,14 +1023,14 @@ m68k_output_function_epilogue (stream, size)
 	  else
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tfpmovd -%d(%s), %s\n",
-			   fpoffset + fsize,
-			   reg_names[FRAME_POINTER_REGNUM],
-			   reg_names[regno]);
+	      fprintf (stream, "\tfpmovd -%d(%s), %s\n",
+		       fpoffset + fsize,
+		       reg_names[FRAME_POINTER_REGNUM],
+		       reg_names[regno]);
 #else
-	      asm_fprintf (stream, "\tfpmoved %s@(-%d), %s\n",
-			   reg_names[FRAME_POINTER_REGNUM],
-			   fpoffset + fsize, reg_names[regno]);
+	      fprintf (stream, "\tfpmoved %s@(-%d), %s\n",
+		       reg_names[FRAME_POINTER_REGNUM],
+		       fpoffset + fsize, reg_names[regno]);
 #endif
 	    }
 	  fpoffset -= 8;
@@ -1117,7 +1150,7 @@ valid_dbcc_comparison_p (x, mode)
     }
 }
 
-/* Return non-zero if flags are currently in the 68881 flag register.  */
+/* Return nonzero if flags are currently in the 68881 flag register.  */
 int
 flags_in_68881 ()
 {
@@ -1331,13 +1364,13 @@ output_scc_di(op, operand1, operand2, dest)
   switch (op_code)
     {
       case EQ:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("seq %5", loperands);
         break;
 
       case NE:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sne %5", loperands);
         break;
@@ -1349,15 +1382,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("shi %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sgt %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GTU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("shi %5", loperands);
         break;
@@ -1369,15 +1402,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("scs %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("slt %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LTU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scs %5", loperands);
         break;
@@ -1389,15 +1422,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("scc %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sge %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case GEU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("scc %5", loperands);
         break;
@@ -1409,15 +1442,15 @@ output_scc_di(op, operand1, operand2, dest)
 #else
         output_asm_insn ("sls %5\n\tjra %l6", loperands);
 #endif
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sle %5", loperands);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[6]));
         break;
 
       case LEU:
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				    CODE_LABEL_NUMBER (loperands[4]));
         output_asm_insn ("sls %5", loperands);
         break;
@@ -1832,7 +1865,7 @@ output_move_himode (operands)
 		   CODE_LABEL_NUMBER (XEXP (labelref, 0)));
 #endif /* not SGS */
 #else /* SGS_SWITCH_TABLES or not MOTOROLA */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LI",
+      (*targetm.asm_out.internal_label) (asm_out_file, "LI",
 				 CODE_LABEL_NUMBER (XEXP (labelref, 0)));
 #ifdef SGS_SWITCH_TABLES
       /* Set flag saying we need to define the symbol
@@ -2717,22 +2750,18 @@ floating_exact_log2 (x)
      rtx x;
 {
   REAL_VALUE_TYPE r, r1;
-  int i;
+  int exp;
 
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
 
-  if (REAL_VALUES_LESS (r, dconst0))
+  if (REAL_VALUES_LESS (r, dconst1))
     return 0;
 
-  r1 = dconst1;
-  i = 0;
-  while (REAL_VALUES_LESS (r1, r))
-    {
-      r1 = REAL_VALUE_LDEXP (dconst1, i);
-      if (REAL_VALUES_EQUAL (r1, r))
-        return i;
-      i = i + 1;
-    }
+  exp = real_exponent (&r);
+  real_2expN (&r1, exp);
+  if (REAL_VALUES_EQUAL (r1, r))
+    return exp;
+
   return 0;
 }
 
@@ -2959,7 +2988,7 @@ print_operand (file, op, letter)
   if (letter == '.')
     {
 #if defined (MOTOROLA) && !defined (CRDS)
-      asm_fprintf (file, ".");
+      fprintf (file, ".");
 #endif
     }
   else if (letter == '#')
@@ -3117,7 +3146,7 @@ print_operand (file, op, letter)
    macro.  See m68k/sgs.h for an example; for versions without the bug.
    Some assemblers refuse all the above solutions.  The workaround is to
    emit "K(pc,d0.l*2)" with K being a small constant known to give the
-   right behaviour.
+   right behavior.
 
    They also do not like things like "pea 1.w", so we simple leave off
    the .w on small constants. 
@@ -3811,5 +3840,19 @@ m68k_svr3_asm_out_constructor (symbol, priority)
 
   init_section ();
   output_asm_insn (output_move_simode (xop), xop);
+}
+#endif
+
+#ifdef HPUX_ASM
+static void
+m68k_hp320_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  if (prefix[0] == 'L' && prefix[1] == 'I')
+    fprintf(stream, "\tset %s%ld,.+2\n", prefix, labelno);
+  else
+    fprintf (stream, "%s%ld:\n", prefix, labelno);
 }
 #endif

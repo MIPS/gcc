@@ -340,7 +340,7 @@ static const struct elim_table_1
 #define NUM_ELIMINABLE_REGS ARRAY_SIZE (reg_eliminate_1)
 
 /* Record the number of pending eliminations that have an offset not equal
-   to their initial offset.  If non-zero, we use a new copy of each
+   to their initial offset.  If nonzero, we use a new copy of each
    replacement result in any insns encountered.  */
 int num_not_at_initial_offset;
 
@@ -1180,9 +1180,9 @@ reload (first, global)
 
   /* Make a pass over all the insns and delete all USEs which we inserted
      only to tag a REG_EQUAL note on them.  Remove all REG_DEAD and REG_UNUSED
-     notes.  Delete all CLOBBER insns that don't refer to the return value
-     or to memory (mem:BLK CLOBBERs must be retained to prevent the scheduler
-     from misarranging variable-array code) and simplify (subreg (reg))
+     notes.  Delete all CLOBBER insns, except those that refer to the return
+     value and the special mem:BLK CLOBBERs added to prevent the scheduler
+     from misarranging variable-array code, and simplify (subreg (reg))
      operands.  Also remove all REG_RETVAL and REG_LIBCALL notes since they
      are no longer useful or accurate.  Strip and regenerate REG_INC notes
      that may have been moved around.  */
@@ -1203,7 +1203,10 @@ reload (first, global)
 		 || find_reg_note (insn, REG_EQUAL, NULL_RTX)))
 	    || (GET_CODE (PATTERN (insn)) == CLOBBER
 		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != MEM
-		    || GET_MODE (XEXP (PATTERN (insn), 0)) != BLKmode)
+		    || GET_MODE (XEXP (PATTERN (insn), 0)) != BLKmode
+		    || (GET_CODE (XEXP (XEXP (PATTERN (insn), 0), 0)) != SCRATCH
+			&& XEXP (XEXP (PATTERN (insn), 0), 0) 
+				!= stack_pointer_rtx))
 		&& (GET_CODE (XEXP (PATTERN (insn), 0)) != REG
 		    || ! REG_FUNCTION_VALUE_P (XEXP (PATTERN (insn), 0)))))
 	  {
@@ -2115,7 +2118,7 @@ mark_home_live (regno)
 
    INSN is the insn that it came from, if any.
 
-   INITIAL_P is non-zero if we are to set the offset to be the initial
+   INITIAL_P is nonzero if we are to set the offset to be the initial
    offset and zero if we are setting the offset of the label to be the
    current offset.  */
 
@@ -2270,7 +2273,7 @@ set_label_offsets (x, insn, initial_p)
    to record the fact that a register is referenced outside a MEM.
 
    If INSN is an insn, it is the insn containing X.  If we replace a REG
-   in a SET_DEST with an equivalent MEM and INSN is non-zero, write a
+   in a SET_DEST with an equivalent MEM and INSN is nonzero, write a
    CLOBBER of the pseudo after INSN so find_equiv_regs will know that
    the REG is being modified.
 
@@ -2926,7 +2929,7 @@ eliminate_regs_in_insn (insn, replace)
   rtx old_set = single_set (insn);
   rtx new_body;
   int val = 0;
-  int i, any_changes;
+  int i;
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
   struct elim_table *ep;
@@ -3101,7 +3104,6 @@ eliminate_regs_in_insn (insn, replace)
   /* Eliminate all eliminable registers occurring in operands that
      can be handled by reload.  */
   extract_insn (insn);
-  any_changes = 0;
   for (i = 0; i < recog_data.n_operands; i++)
     {
       orig_operand[i] = recog_data.operand[i];
@@ -3127,7 +3129,7 @@ eliminate_regs_in_insn (insn, replace)
 	  substed_operand[i] = eliminate_regs (recog_data.operand[i], 0,
 					       replace ? insn : NULL_RTX);
 	  if (substed_operand[i] != orig_operand[i])
-	    val = any_changes = 1;
+	    val = 1;
 	  /* Terminate the search in check_eliminable_occurrences at
 	     this point.  */
 	  *recog_data.operand_loc[i] = 0;
@@ -3408,7 +3410,7 @@ set_offsets_for_label (insn)
 }
 
 /* See if anything that happened changes which eliminations are valid.
-   For example, on the Sparc, whether or not the frame pointer can
+   For example, on the SPARC, whether or not the frame pointer can
    be eliminated can depend on what registers have been used.  We need
    not check some conditions again (such as flag_omit_frame_pointer)
    since they can't have changed.  */
@@ -4749,7 +4751,7 @@ char reload_inherited[MAX_RELOADS];
    if we know it.  Otherwise, this is 0.  */
 rtx reload_inheritance_insn[MAX_RELOADS];
 
-/* If non-zero, this is a place to get the value of the reload,
+/* If nonzero, this is a place to get the value of the reload,
    rather than using reload_in.  */
 rtx reload_override_in[MAX_RELOADS];
 
@@ -4990,7 +4992,7 @@ reload_reg_free_for_value_p (start_regno, regno, opnum, type, value, out,
    determine how many hard regs to test.
 
    Other read-only reloads with the same value do not conflict
-   unless OUT is non-zero and these other reloads have to live while
+   unless OUT is nonzero and these other reloads have to live while
    output reloads live.
    If OUT is CONST0_RTX, this is a special case: it means that the
    test should not be for using register REGNO as reload register, but
@@ -5113,7 +5115,7 @@ set_reload_reg (i, r)
 }
 
 /* Find a spill register to use as a reload register for reload R.
-   LAST_RELOAD is non-zero if this is the last reload for the insn being
+   LAST_RELOAD is nonzero if this is the last reload for the insn being
    processed.
 
    Set rld[R].reg_rtx to the register allocated.
@@ -6006,7 +6008,7 @@ deallocate_reload_reg (r)
   reload_spill_index[r] = -1;
 }
 
-/* If SMALL_REGISTER_CLASSES is non-zero, we may not have merged two
+/* If SMALL_REGISTER_CLASSES is nonzero, we may not have merged two
    reloads of the same item for fear that we might not have enough reload
    registers. However, normally they will get the same reload register
    and hence actually need not be loaded twice.
@@ -6855,7 +6857,6 @@ do_input_reload (chain, rl, j)
      struct reload *rl;
      int j;
 {
-  int expect_occurrences = 1;
   rtx insn = chain->insn;
   rtx old = (rl->in && GET_CODE (rl->in) == MEM
 	     ? rl->in_reg : rl->in);
@@ -6876,11 +6877,7 @@ do_input_reload (chain, rl, j)
       && GET_CODE (rl->in_reg) == MEM
       && reload_spill_index[j] >= 0
       && TEST_HARD_REG_BIT (reg_reloaded_valid, reload_spill_index[j]))
-    {
-      expect_occurrences
-	= count_occurrences (PATTERN (insn), rl->in, 0) == 1 ? 0 : -1;
-      rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
-    }
+    rl->in = regno_reg_rtx[reg_reloaded_contents[reload_spill_index[j]]];
 
   /* If we are reloading a register that was recently stored in with an
      output-reload, see if we can prove there was
@@ -7529,10 +7526,12 @@ gen_reload (out, in, opnum, type)
 
 #ifdef SECONDARY_MEMORY_NEEDED
   /* If we need a memory location to do the move, do it that way.  */
-  else if (GET_CODE (in) == REG && REGNO (in) < FIRST_PSEUDO_REGISTER
-	   && GET_CODE (out) == REG && REGNO (out) < FIRST_PSEUDO_REGISTER
-	   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (REGNO (in)),
-				       REGNO_REG_CLASS (REGNO (out)),
+  else if ((GET_CODE (in) == REG || GET_CODE (in) == SUBREG)
+	   && reg_or_subregno (in) < FIRST_PSEUDO_REGISTER
+	   && (GET_CODE (out) == REG || GET_CODE (out) == SUBREG)
+	   && reg_or_subregno (out) < FIRST_PSEUDO_REGISTER
+	   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (reg_or_subregno (in)),
+				       REGNO_REG_CLASS (reg_or_subregno (out)),
 				       GET_MODE (out)))
     {
       /* Get the memory to use and rewrite both registers to its mode.  */
@@ -7919,7 +7918,7 @@ inc_for_reload (reloadreg, in, value, inc_amount)
   rtx real_in = in == value ? XEXP (in, 0) : in;
 
   /* No hard register is equivalent to this register after
-     inc/dec operation.  If REG_LAST_RELOAD_REG were non-zero,
+     inc/dec operation.  If REG_LAST_RELOAD_REG were nonzero,
      we could inc/dec that register as well (maybe even using it for
      the source), but I'm not sure it's worth worrying about.  */
   if (GET_CODE (incloc) == REG)
@@ -9136,7 +9135,7 @@ reload_cse_move2add (first)
 		     use (set (reg) (reg)) instead.
 		     We don't delete this insn, nor do we convert it into a
 		     note, to avoid losing register notes or the return
-		     value flag.  jump2 already knowns how to get rid of
+		     value flag.  jump2 already knows how to get rid of
 		     no-op moves.  */
 		  if (new_src == const0_rtx)
 		    success = validate_change (insn, &SET_SRC (pat), reg, 0);

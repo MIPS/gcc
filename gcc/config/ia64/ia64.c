@@ -171,6 +171,9 @@ static void ia64_aix_unique_section PARAMS ((tree, int))
 static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					         unsigned HOST_WIDE_INT))
      ATTRIBUTE_UNUSED;
+
+static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
+     ATTRIBUTE_UNUSED;
 
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ia64_attribute_table[] =
@@ -1038,6 +1041,10 @@ ia64_expand_load_address (dest, src, scratch)
 	scratch = no_new_pseudos ? temp : gen_reg_rtx (DImode);
 
       insn = emit_insn (gen_load_symptr (temp, src, scratch));
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (temp) != GET_MODE (src))
+	src = convert_memory_address (GET_MODE (temp), src);
+#endif
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
     }
 
@@ -4039,8 +4046,13 @@ ia64_asm_output_external (file, decl, name)
 {
   int save_referenced;
 
-  /* GNU as does not need anything here.  */
-  if (TARGET_GNU_AS)
+  /* GNU as does not need anything here, but the HP linker does need
+     something for external functions.  */
+
+  if (TARGET_GNU_AS
+      && (!TARGET_HPUX_LD
+	  || TREE_CODE (decl) != FUNCTION_DECL
+	  || strstr(name, "__builtin_") == name))
     return;
 
   /* ??? The Intel assembler creates a reference that needs to be satisfied by
@@ -4055,13 +4067,18 @@ ia64_asm_output_external (file, decl, name)
       || ! strcmp (name, "__builtin_args_info"))
     return;
 
-  /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
-     restore it.  */
-  save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
-  ASM_GLOBALIZE_LABEL (file, name);
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
+  if (TARGET_HPUX_LD)
+    ia64_hpux_add_extern_decl (name);
+  else
+    {
+      /* assemble_name will set TREE_SYMBOL_REFERENCED, so we must save and
+         restore it.  */
+      save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl));
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+        ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+      (*targetm.asm_out.globalize_label) (file, name);
+      TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)) = save_referenced;
+    }
 }
 
 /* Parse the -mfixed-range= option string.  */
@@ -4169,6 +4186,10 @@ ia64_override_options ()
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
+
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 static enum attr_itanium_requires_unit0 ia64_safe_itanium_requires_unit0 PARAMS((rtx));
@@ -7121,24 +7142,7 @@ ia64_encode_section_info (decl, first)
   is_local = (*targetm.binds_local_p) (decl);
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      enum tls_model kind;
-      if (!flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      encoding = " GLil"[kind];
-    }
+    encoding = " GLil"[decl_tls_model (decl)];
   /* Determine if DECL will wind up in .sdata/.sbss.  */
   else if (is_local && ia64_in_small_data_p (decl))
     encoding = 's';
@@ -8050,6 +8054,56 @@ ia64_hpux_function_arg_padding (mode, type)
        : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
       ? downward : upward);
 }
+
+/* Linked list of all external functions that are to be emitted by GCC.
+   We output the name if and only if TREE_SYMBOL_REFERENCED is set in
+   order to avoid putting out names that are never really used.  */
+
+struct extern_func_list
+{
+  struct extern_func_list *next; /* next external */
+  char *name;                    /* name of the external */
+} *extern_func_head = 0;
+
+static void
+ia64_hpux_add_extern_decl (name)
+        const char *name;
+{
+  struct extern_func_list *p;
+
+  p = (struct extern_func_list *) xmalloc (sizeof (struct extern_func_list));
+  p->name = xmalloc (strlen (name) + 1);
+  strcpy(p->name, name);
+  p->next = extern_func_head;
+  extern_func_head = p;
+}
+
+/* Print out the list of used global functions.  */
+
+void
+ia64_hpux_asm_file_end (file)
+	FILE *file;
+{
+  while (extern_func_head)
+    {
+      const char *const real_name =
+	(* targetm.strip_name_encoding) (extern_func_head->name);
+      tree decl = get_identifier (real_name);
+
+      if (decl && ! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+        {
+	  TREE_ASM_WRITTEN (decl) = 1;
+	  (*targetm.asm_out.globalize_label) (file, real_name);
+	  fprintf (file, "%s", TYPE_ASM_OP);
+	  assemble_name (file, real_name);
+	  putc (',', file);
+	  fprintf (file, TYPE_OPERAND_FMT, "function");
+	  putc ('\n', file);
+        }
+      extern_func_head = extern_func_head->next;
+    }
+}
+
 
 /* Switch to the section to which we should output X.  The only thing
    special we do here is to honor small data.  */

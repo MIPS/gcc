@@ -1243,7 +1243,7 @@ copy_value (dest, src, vd)
     return;
 
   /* Do not propagate copies to the stack pointer, as that can leave
-     memory accesses with no scheduling dependancy on the stack update.  */
+     memory accesses with no scheduling dependency on the stack update.  */
   if (dr == STACK_POINTER_REGNUM)
     return;
 
@@ -1264,7 +1264,7 @@ copy_value (dest, src, vd)
   if (vd->e[sr].mode == VOIDmode)
     set_value_regno (sr, vd->e[dr].mode, vd);
 
-  /* If we are narrowing the the input to a smaller number of hard regs,
+  /* If we are narrowing the input to a smaller number of hard regs,
      and it is in big endian, we are really extracting a high part.
      Since we generally associate a low part of a value with the value itself,
      we must not do the same for the high part.
@@ -1330,7 +1330,7 @@ mode_change_ok (orig_mode, new_mode, regno)
 static rtx
 maybe_mode_change (orig_mode, copy_mode, new_mode, regno, copy_regno)
      enum machine_mode orig_mode, copy_mode, new_mode;
-     unsigned int regno, copy_regno;
+     unsigned int regno, copy_regno ATTRIBUTE_UNUSED;
 {
   if (orig_mode == new_mode)
     return gen_rtx_raw_REG (new_mode, regno);

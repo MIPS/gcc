@@ -63,14 +63,19 @@ enum processor_type {
   PROCESSOR_R6000,
   PROCESSOR_R4000,
   PROCESSOR_R4100,
+  PROCESSOR_R4111,
+  PROCESSOR_R4120,
   PROCESSOR_R4300,
   PROCESSOR_R4600,
   PROCESSOR_R4650,
   PROCESSOR_R5000,
+  PROCESSOR_R5400,
+  PROCESSOR_R5500,
   PROCESSOR_R8000,
   PROCESSOR_R4KC,
   PROCESSOR_R5KC,
   PROCESSOR_R20KC,
+  PROCESSOR_SR71000,
   PROCESSOR_SB1
 };
 
@@ -117,7 +122,7 @@ enum block_move_type {
   BLOCK_MOVE_LAST			/* generate just the last store */
 };
 
-/* Information about one recognised processor.  Defined here for the
+/* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
 struct mips_cpu_info {
   /* The 'canonical' name of the processor as far as GCC is concerned.
@@ -352,18 +357,25 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
 #define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
+#define TARGET_MIPS4120             (mips_arch == PROCESSOR_R4120)
 #define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
 #define TARGET_MIPS4KC              (mips_arch == PROCESSOR_R4KC)
 #define TARGET_MIPS5KC              (mips_arch == PROCESSOR_R5KC)
+#define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
+#define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
+#define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
 /* Scheduling target defines.  */
 #define TUNE_MIPS3000               (mips_tune == PROCESSOR_R3000)
 #define TUNE_MIPS3900               (mips_tune == PROCESSOR_R3900)
 #define TUNE_MIPS4000               (mips_tune == PROCESSOR_R4000)
 #define TUNE_MIPS5000               (mips_tune == PROCESSOR_R5000)
+#define TUNE_MIPS5400               (mips_tune == PROCESSOR_R5400)
+#define TUNE_MIPS5500               (mips_tune == PROCESSOR_R5500)
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
+#define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
 /* Define preprocessor macros for the -march and -mtune options.
    PREFIX is either _MIPS_ARCH or _MIPS_TUNE, INFO is the selected
@@ -749,10 +761,14 @@ extern void		sbss_section PARAMS ((void));
 /* This is meant to be redefined in the host dependent files.  */
 #define SUBTARGET_TARGET_OPTIONS
 
-#define GENERATE_BRANCHLIKELY   (TARGET_BRANCHLIKELY && !TARGET_MIPS16)
+#define GENERATE_BRANCHLIKELY   (TARGET_BRANCHLIKELY                    \
+				 && !TARGET_SR71K                       \
+				 && !TARGET_MIPS16)
 
 /* Generate three-operand multiply instructions for SImode.  */
 #define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
+                                  || TARGET_MIPS5400                    \
+                                  || TARGET_MIPS5500                    \
                                   || ISA_MIPS32	                        \
                                   || ISA_MIPS64)                        \
                                  && !TARGET_MIPS16)
@@ -784,12 +800,14 @@ extern void		sbss_section PARAMS ((void));
 /* ISA has branch likely instructions (eg. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
-#define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1)
+#define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1                             \
+				 && !TARGET_MIPS5500)
 
 /* ISA has the conditional move instructions introduced in mips4.  */
 #define ISA_HAS_CONDMOVE        ((ISA_MIPS4				\
 				  || ISA_MIPS32	                        \
 				  || ISA_MIPS64)			\
+                                 && !TARGET_MIPS5500                    \
 				 && !TARGET_MIPS16)
 
 /* ISA has just the integer condition move instructions (movn,movz) */
@@ -820,6 +838,7 @@ extern void		sbss_section PARAMS ((void));
 /* ISA has floating-point nmadd and nmsub instructions.  */
 #define ISA_HAS_NMADD_NMSUB	((ISA_MIPS4				\
 				  || ISA_MIPS64)       			\
+                                 && (!TARGET_MIPS5400 || TARGET_MAD)    \
 				 && ! TARGET_MIPS16)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
@@ -831,6 +850,47 @@ extern void		sbss_section PARAMS ((void));
    implemented).  */
 #define ISA_HAS_DCLZ_DCLO       (ISA_MIPS64				\
 				 && !TARGET_MIPS16)
+
+/* ISA has three operand multiply instructions that put
+   the high part in an accumulator: mulhi or mulhiu.  */
+#define ISA_HAS_MULHI           (TARGET_MIPS5400                        \
+                                 || TARGET_MIPS5500                     \
+                                 || TARGET_SR71K                        \
+                                 )
+
+/* ISA has three operand multiply instructions that
+   negates the result and puts the result in an accumulator.  */
+#define ISA_HAS_MULS            (TARGET_MIPS5400                        \
+                                 || TARGET_MIPS5500                     \
+                                 || TARGET_SR71K                        \
+                                 )
+
+/* ISA has three operand multiply instructions that subtracts the
+   result from a 4th operand and puts the result in an accumulator.  */
+#define ISA_HAS_MSAC            (TARGET_MIPS5400                        \
+                                 || TARGET_MIPS5500                     \
+                                 || TARGET_SR71K                        \
+                                 )
+/* ISA has three operand multiply instructions that  the result
+   from a 4th operand and puts the result in an accumulator.  */
+#define ISA_HAS_MACC            (TARGET_MIPS5400                        \
+                                 || TARGET_MIPS5500                     \
+                                 || TARGET_SR71K                        \
+                                 )
+
+/* ISA has 32-bit rotate right instruction.  */
+#define ISA_HAS_ROTR_SI         (TARGET_MIPS5400                        \
+                                 || TARGET_MIPS5500                     \
+                                 || TARGET_SR71K                        \
+                                 )
+
+/* ISA has 32-bit rotate right instruction.  */
+#define ISA_HAS_ROTR_DI         (TARGET_64BIT                           \
+                                 && (TARGET_MIPS5400                    \
+                                     || TARGET_MIPS5500                 \
+                                     || TARGET_SR71K                    \
+                                     ))
+
 
 /* ISA has data prefetch instruction.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
@@ -1157,9 +1217,9 @@ extern int mips_abi;
 #endif
 
 
-#define SDB_DEBUGGING_INFO		/* generate info for mips-tfile */
-#define DBX_DEBUGGING_INFO		/* generate stabs (OSF/rose) */
-#define MIPS_DEBUGGING_INFO		/* MIPS specific debugging info */
+#define SDB_DEBUGGING_INFO 1		/* generate info for mips-tfile */
+#define DBX_DEBUGGING_INFO 1		/* generate stabs (OSF/rose) */
+#define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
 
 #ifndef PREFERRED_DEBUGGING_TYPE	/* assume SDB_DEBUGGING_INFO */
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
@@ -1512,14 +1572,14 @@ do {							\
    handle alignment of bitfields and the structures that contain
    them.
 
-   The behavior is that the type written for a bitfield (`int',
+   The behavior is that the type written for a bit-field (`int',
    `short', or other integer type) imposes an alignment for the
    entire structure, as if the structure really did contain an
-   ordinary field of that type.  In addition, the bitfield is placed
+   ordinary field of that type.  In addition, the bit-field is placed
    within the structure so that it would fit within such a field,
    not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int'
+   Thus, on most machines, a bit-field whose type is written as `int'
    would not cross a four-byte boundary, and would force four-byte
    alignment for the whole structure.  (The alignment used may not
    be four bytes; it is controlled by the other alignment
@@ -2236,7 +2296,7 @@ extern enum reg_class mips_char_to_class[256];
 
 /* Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode MODE in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.
@@ -2408,7 +2468,7 @@ extern enum reg_class mips_char_to_class[256];
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 30},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 17}}
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -2623,10 +2683,6 @@ extern enum reg_class mips_char_to_class[256];
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 	(PRETEND_SIZE) = mips_setup_incoming_varargs (&(CUM), (MODE),	\
 						      (TYPE), (NO_RTL))
-
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 #define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 
@@ -2942,12 +2998,6 @@ typedef struct mips_args {
 }
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* These assume that REGNO is a hard or pseudo reg number.
    They give nonzero only if REGNO is a hard reg of the suitable class
@@ -3517,7 +3567,9 @@ typedef struct mips_args {
 	      || TUNE_MIPS3900						\
 	      || TUNE_MIPS5000)						\
 	    return COSTS_N_INSNS (4);					\
-	  else if (TUNE_MIPS6000)					\
+	  else if (TUNE_MIPS6000                                        \
+		   || TUNE_MIPS5400                                     \
+		   || TUNE_MIPS5500)					\
 	    return COSTS_N_INSNS (5);					\
 	  else								\
 	    return COSTS_N_INSNS (7);					\
@@ -3529,7 +3581,9 @@ typedef struct mips_args {
 	      || TUNE_MIPS3900						\
 	      || TUNE_MIPS5000)						\
 	    return COSTS_N_INSNS (5);					\
-	  else if (TUNE_MIPS6000)					\
+	  else if (TUNE_MIPS6000                                        \
+		   || TUNE_MIPS5400                                     \
+		   || TUNE_MIPS5500)					\
 	    return COSTS_N_INSNS (6);					\
 	  else								\
 	    return COSTS_N_INSNS (8);					\
@@ -3539,6 +3593,8 @@ typedef struct mips_args {
 	return COSTS_N_INSNS (12);					\
       else if (TUNE_MIPS3900)						\
 	return COSTS_N_INSNS (2);					\
+     else if (TUNE_MIPS5400 || TUNE_MIPS5500)                           \
+        return COSTS_N_INSNS ((xmode == DImode) ? 4 : 3);               \
       else if (TUNE_MIPS6000)						\
 	return COSTS_N_INSNS (17);					\
       else if (TUNE_MIPS5000)						\
@@ -3558,6 +3614,8 @@ typedef struct mips_args {
 	    return COSTS_N_INSNS (12);					\
 	  else if (TUNE_MIPS6000)					\
 	    return COSTS_N_INSNS (15);					\
+         else if (TUNE_MIPS5400 || TUNE_MIPS5500)                       \
+            return COSTS_N_INSNS (30);                                  \
 	  else								\
 	    return COSTS_N_INSNS (23);					\
 	}								\
@@ -3567,6 +3625,8 @@ typedef struct mips_args {
 	  if (TUNE_MIPS3000						\
               || TUNE_MIPS3900)						\
 	    return COSTS_N_INSNS (19);					\
+          else if (TUNE_MIPS5400 || TUNE_MIPS5500)                      \
+            return COSTS_N_INSNS (59);                                  \
 	  else if (TUNE_MIPS6000)					\
 	    return COSTS_N_INSNS (16);					\
 	  else								\
@@ -3584,6 +3644,8 @@ typedef struct mips_args {
       return COSTS_N_INSNS (38);					\
     else if (TUNE_MIPS5000)						\
       return COSTS_N_INSNS (36);					\
+    else if (TUNE_MIPS5400 || TUNE_MIPS5500)                            \
+      return COSTS_N_INSNS ((GET_MODE (X) == SImode) ? 42 : 74);        \
     else								\
       return COSTS_N_INSNS (69);					\
 									\
@@ -3753,6 +3815,7 @@ typedef struct mips_args {
 				  REG, SIGN_EXTEND }},			\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
 				  CONST_DOUBLE, CONST }},		\
+  {"fcc_register_operand",	{ REG, SUBREG }},			\
   {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
   {"highpart_shift_operator",   { ASHIFTRT, LSHIFTRT, ROTATERT, ROTATE }},
 
@@ -4260,7 +4323,7 @@ while (0)
 	    || DECL_INITIAL (DECL) == error_mark_node))			\
       {									\
 	if (TREE_PUBLIC (DECL) && DECL_NAME (DECL))			\
-	  ASM_GLOBALIZE_LABEL (STREAM, NAME);				\
+	  (*targetm.asm_out.globalize_label) (STREAM, NAME);		\
 	    								\
 	readonly_data_section ();					\
 	ASM_OUTPUT_ALIGN (STREAM, floor_log2 (ALIGN / BITS_PER_UNIT));	\
@@ -4315,14 +4378,6 @@ do {							\
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)
 
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM,PREFIX,NUM)			\
-  fprintf (STREAM, "%s%s%d:\n", LOCAL_LABEL_PREFIX, PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -4374,7 +4429,7 @@ do {									\
 do {									\
   if (TARGET_EMBEDDED_PIC || TARGET_MIPS16)				\
     function_section (current_function_decl);				\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);			\
 } while (0)
 
 /* This is how to output an assembler line
@@ -4454,14 +4509,6 @@ sdata_section ()							\
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION  mips_select_section
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),			\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 #define ASM_OUTPUT_REG_PUSH(STREAM,REGNO)				\
 do									\
   {									\
@@ -4515,15 +4562,14 @@ while (0)
 #define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
 
 
-/* Default definitions for size_t and ptrdiff_t.  */
+/* Default definitions for size_t and ptrdiff_t.  We must override the
+   definitions from ../svr4.h on mips-*-linux-gnu.  */
 
-#ifndef SIZE_TYPE
+#undef SIZE_TYPE
 #define SIZE_TYPE (Pmode == DImode ? "long unsigned int" : "unsigned int")
-#endif
 
-#ifndef PTRDIFF_TYPE
+#undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (Pmode == DImode ? "long int" : "int")
-#endif
 
 /* See mips_expand_prologue's use of loadgp for when this should be
    true.  */

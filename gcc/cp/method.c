@@ -350,7 +350,7 @@ make_thunk (function, delta, vcall_index)
 }
 
 /* Emit the definition of a C++ multiple inheritance vtable thunk.  If
-   EMIT_P is non-zero, the thunk is emitted immediately.  */
+   EMIT_P is nonzero, the thunk is emitted immediately.  */
 
 void
 use_thunk (thunk_fndecl, emit_p)
@@ -536,7 +536,6 @@ do_build_copy_constructor (fndecl)
       int n_bases = CLASSTYPE_N_BASECLASSES (current_class_type);
       tree binfos = TYPE_BINFO_BASETYPES (current_class_type);
       tree member_init_list = NULL_TREE;
-      tree base_init_list = NULL_TREE;
       int cvquals = cp_type_quals (TREE_TYPE (parm));
       int i;
 
@@ -550,10 +549,12 @@ do_build_copy_constructor (fndecl)
 	{
 	  tree binfo = TREE_VALUE (t);
 	  
-	  base_init_list = tree_cons (binfo,
-				      build_base_path (PLUS_EXPR, parm,
-						       binfo, 1),
-				      base_init_list);
+	  member_init_list 
+	    = tree_cons (binfo,
+			 build_tree_list (NULL_TREE,
+					  build_base_path (PLUS_EXPR, parm,
+							   binfo, 1)),
+			 member_init_list);
 	}
 
       for (i = 0; i < n_bases; ++i)
@@ -562,10 +563,12 @@ do_build_copy_constructor (fndecl)
 	  if (TREE_VIA_VIRTUAL (binfo))
 	    continue; 
 
-	  base_init_list = tree_cons (binfo,
-				      build_base_path (PLUS_EXPR, parm,
-						       binfo, 1),
-				      base_init_list);
+	  member_init_list 
+	    = tree_cons (binfo,
+			 build_tree_list (NULL_TREE,
+					  build_base_path (PLUS_EXPR, parm,
+							   binfo, 1)),
+			 member_init_list);
 	}
 
       for (; fields; fields = TREE_CHAIN (fields))
@@ -609,9 +612,7 @@ do_build_copy_constructor (fndecl)
 	  member_init_list
 	    = tree_cons (field, init, member_init_list);
 	}
-      member_init_list = nreverse (member_init_list);
-      base_init_list = nreverse (base_init_list);
-      emit_base_init (member_init_list, base_init_list);
+      finish_mem_initializers (member_init_list);
     }
 }
 
@@ -668,7 +669,7 @@ do_build_assign_ref (fndecl)
 	  tree comp, init, t;
 	  tree field = fields;
 
-	  if (TREE_CODE (field) != FIELD_DECL)
+	  if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
 	    continue;
 
 	  if (CP_TYPE_CONST_P (TREE_TYPE (field)))
@@ -749,7 +750,7 @@ synthesize_method (fndecl)
      during the generation of the implicit body points at the place
      where the attempt to generate the function occurs, giving the
      user a hint as to why we are attempting to generate the
-     function. */
+     function.  */
   DECL_SOURCE_LINE (fndecl) = lineno;
   DECL_SOURCE_FILE (fndecl) = input_filename;
 
@@ -824,7 +825,7 @@ synthesize_exception_spec (type, extractor, client)
       tree type = TREE_TYPE (fields);
       tree fn;
       
-      if (TREE_CODE (fields) != FIELD_DECL)
+      if (TREE_CODE (fields) != FIELD_DECL || DECL_ARTIFICIAL (fields))
         continue;
       while (TREE_CODE (type) == ARRAY_TYPE)
   	type = TREE_TYPE (type);

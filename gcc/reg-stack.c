@@ -268,7 +268,7 @@ static rtx next_flags_user 		PARAMS ((rtx));
 static void record_label_references	PARAMS ((rtx, rtx));
 static bool compensate_edge		PARAMS ((edge, FILE *));
 
-/* Return non-zero if any stack register is mentioned somewhere within PAT.  */
+/* Return nonzero if any stack register is mentioned somewhere within PAT.  */
 
 static int
 stack_regs_mentioned_p (pat)
@@ -353,7 +353,7 @@ next_flags_user (insn)
   return NULL_RTX;
 }
 
-/* Reorganise the stack into ascending numbers,
+/* Reorganize the stack into ascending numbers,
    after this insn.  */
 
 static void
@@ -564,7 +564,7 @@ get_true_reg (pat)
     switch (GET_CODE (*pat))
       {
       case SUBREG:
-	/* Eliminate FP subregister accesses in favour of the
+	/* Eliminate FP subregister accesses in favor of the
 	   actual FP register in use.  */
 	{
 	  rtx subreg;

@@ -693,7 +693,7 @@ mmix_asm_preferred_eh_data_format (code, global)
   return DW_EH_PE_absptr;
 }
 
-/* Make a note that we've seen the beginning of of the prologue.  This
+/* Make a note that we've seen the beginning of the prologue.  This
    matters to whether we'll translate register numbers as calculated by
    mmix_machine_dependent_reorg.  */
 
@@ -785,13 +785,13 @@ mmix_asm_output_mi_thunk (stream, fndecl, delta, func)
   const char *regname = reg_names[MMIX_FIRST_INCOMING_ARG_REGNUM];
 
   if (delta >= 0 && delta < 65536)
-    asm_fprintf (stream, "\tINCL %s,%d\n", delta, regname);
+    fprintf (stream, "\tINCL %s,%d\n", regname, delta);
   else if (delta < 0 && delta >= -255)
-    asm_fprintf (stream, "\tSUBU %s,%s,%d\n", regname, regname, -delta);
+    fprintf (stream, "\tSUBU %s,%s,%d\n", regname, regname, -delta);
   else
     {
       mmix_output_register_setting (stream, 255, delta, 1);
-      asm_fprintf (stream, "\tADDU %s,%s,$255\n", regname, regname);
+      fprintf (stream, "\tADDU %s,%s,$255\n", regname, regname);
     }
 
   fprintf (stream, "\tJMP ");
@@ -1520,18 +1520,6 @@ mmix_asm_declare_register_global (stream, decl, regno, name)
      here.  */
 }
 
-/* ASM_GLOBALIZE_LABEL.  */
-
-void
-mmix_asm_globalize_label (stream, name)
-     FILE * stream ATTRIBUTE_UNUSED;
-     const char * name ATTRIBUTE_UNUSED;
-{
-  asm_fprintf (stream, "\t.global ");
-  assemble_name (stream, name);
-  putc ('\n', stream);
-}
-
 /* ASM_WEAKEN_LABEL.  */
 
 void
@@ -1539,9 +1527,9 @@ mmix_asm_weaken_label (stream, name)
      FILE * stream ATTRIBUTE_UNUSED;
      const char * name ATTRIBUTE_UNUSED;
 {
-  asm_fprintf (stream, "\t.weak ");
+  fprintf (stream, "\t.weak ");
   assemble_name (stream, name);
-  asm_fprintf (stream, " ! mmixal-incompatible\n");
+  fprintf (stream, " ! mmixal-incompatible\n");
 }
 
 /* MAKE_DECL_ONE_ONLY.  */
@@ -1570,17 +1558,6 @@ mmix_asm_output_labelref (stream, name)
   asm_fprintf (stream, "%s%U%s",
 	       is_extern && TARGET_TOPLEVEL_SYMBOLS ? ":" : "",
 	       name);
-}
-
-/* ASM_OUTPUT_INTERNAL_LABEL.  */
-
-void
-mmix_asm_output_internal_label (stream, name, num)
-     FILE * stream;
-     const char * name;
-     int num;
-{
-  fprintf (stream, "%s:%d\tIS @\n", name, num);
 }
 
 /* ASM_OUTPUT_DEF.  */
@@ -1997,7 +1974,7 @@ mmix_get_hard_reg_initial_val (mode, regno)
   return get_hard_reg_initial_val (mode, regno);
 }
 
-/* Non-zero when the function epilogue is simple enough that a single
+/* Nonzero when the function epilogue is simple enough that a single
    "POP %d,0" should be used even within the function.  */
 
 int

@@ -33,7 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "dbxcoff.h"
 
 #undef  SDB_DEBUGGING_INFO
-#undef  DBX_DEBUGGING_INFO
 #define DBX_DEBUGGING_INFO 1
 
 /* Computed in toplev.c.  */
@@ -126,7 +125,7 @@ drectve_section ()						\
         assemble_name (FILE,						  \
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0)); \
         putc ('\n', FILE);						  \
-        ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);		  \
+        (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);		  \
         sym_lineno ++;							  \
       }									  \
   }

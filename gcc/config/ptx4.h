@@ -93,16 +93,7 @@ Boston, MA 02111-1307, USA.
   "-no_0f_fix -no_eflags_chk %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*}"
 #endif
 
-/* svr4 assemblers need the `-' (indicating input from stdin) to come after
-   the -o option (and its argument) for some reason.  If we try to put it
-   before the -o option, the assembler will try to read the file named as
-   the output file in the -o option as an input file (after it has already
-   written some stuff to it) and the binary stuff contained therein will
-   cause totally confuse the assembler, resulting in many spurious error
-   messages.  */
-
-#undef ASM_FINAL_SPEC
-#define ASM_FINAL_SPEC "%{pipe:-}"
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* Provide a LIB_SPEC appropriate for svr4.  Here we tack on the default
    standard C library (unless we are building a shared library).  */
@@ -180,7 +171,7 @@ Boston, MA 02111-1307, USA.
 			%{!ansi:values-Xa.o%s} \
  			crtbegin.o%s"
 
-/* Don't use bcopy, which doesn't handle overlaps before DYNIX/ptx 4.6. */
+/* Don't use bcopy, which doesn't handle overlaps before DYNIX/ptx 4.6.  */
 
 #undef HAVE_BCOPY
 
@@ -239,7 +230,7 @@ while (0)
 /* This says how to output assembler code to declare an uninitialized
    external linkage data item.  There's a bug in the DYNIX/ptx linker
    (PR 254649) when the alignment for such an object is specified, so
-   ignore the ALIGN parameter. */
+   ignore the ALIGN parameter.  */
 
 #undef ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\

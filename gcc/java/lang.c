@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -68,6 +68,8 @@ static tree java_tree_inlining_walk_subtrees  PARAMS ((tree *,
 						       void *,
 						       void *));
 static int java_unsafe_for_reeval PARAMS ((tree));
+static bool java_can_use_bit_fields_p PARAMS ((void));
+
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -124,62 +126,65 @@ int flag_emit_class_files = 0;
 
 int flag_filelist_file = 0;
 
-/* When non zero, we emit xref strings. Values of the flag for xref
+/* When nonzero, we emit xref strings. Values of the flag for xref
    backends are defined in xref_flag_table, xref.c.  */
 
 int flag_emit_xref = 0;
 
-/* When non zero, -Wall was turned on.  */
+/* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
-/* When non zero, check for redundant modifier uses.  */
+/* When nonzero, check for redundant modifier uses.  */
 int flag_redundant = 0;
 
-/* When non zero, call a library routine to do integer divisions. */
+/* When nonzero, call a library routine to do integer divisions. */
 int flag_use_divide_subroutine = 1;
 
-/* When non zero, generate code for the Boehm GC.  */
+/* When nonzero, generate code for the Boehm GC.  */
 int flag_use_boehm_gc = 0;
 
-/* When non zero, assume the runtime uses a hash table to map an
+/* When nonzero, assume the runtime uses a hash table to map an
    object to its synchronization structure.  */
 int flag_hash_synchronization;
 
-/* When non zero, assume all native functions are implemented with
+/* When nonzero, permit the use of the assert keyword.  */
+int flag_assert = 1;
+
+/* When nonzero, assume all native functions are implemented with
    JNI, not CNI.  */
 int flag_jni = 0;
 
-/* When non zero, warn when source file is newer than matching class
+/* When nonzero, warn when source file is newer than matching class
    file.  */
 int flag_newer = 1;
 
-/* When non zero, generate checks for references to NULL.  */
+/* When nonzero, generate checks for references to NULL.  */
 int flag_check_references = 0;
 
 /* The encoding of the source file.  */
 const char *current_encoding = NULL;
 
-/* When non zero, report the now deprecated empty statements.  */
+/* When nonzero, report the now deprecated empty statements.  */
 int flag_extraneous_semicolon;
 
-/* When non zero, always check for a non gcj generated classes archive.  */
+/* When nonzero, always check for a non gcj generated classes archive.  */
 int flag_force_classes_archive_check;
 
 /* When zero, don't optimize static class initialization. This flag shouldn't
    be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
 int flag_optimize_sci = 1;
 
-/* When non zero, use offset tables for virtual method calls
+/* When nonzero, use offset tables for virtual method calls
    in order to improve binary compatibility. */
 int flag_indirect_dispatch = 0;
 
 /* When zero, don't generate runtime array store checks. */
 int flag_store_check = 1;
 
-/* When non zero, print extra version information.  */
+/* When nonzero, print extra version information.  */
 static int version_flag = 0;
 
-/* Set non-zero if the user specified -finline-functions on the command 
+/* Set nonzero if the user specified -finline-functions on the command
    line.  */
 int flag_really_inline = 0;
 
@@ -203,7 +208,8 @@ lang_f_options[] =
   {"force-classes-archive-check", &flag_force_classes_archive_check, 1},
   {"optimize-static-class-initialization", &flag_optimize_sci, 1 },
   {"indirect-dispatch", &flag_indirect_dispatch, 1},
-  {"store-check", &flag_store_check, 1}
+  {"store-check", &flag_store_check, 1},
+  {"assert", &flag_assert, 1}
 };
 
 static const struct string_option
@@ -259,6 +265,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_DECL_PRINTABLE_NAME lang_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	java_print_error_function
+#undef LANG_HOOKS_CAN_USE_BIT_FIELDS_P
+#define LANG_HOOKS_CAN_USE_BIT_FIELDS_P java_can_use_bit_fields_p
 
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
@@ -307,7 +315,7 @@ process_option_with_no (p, table, table_size)
 
 /*
  * process java-specific compiler command-line options
- * return 0, but do not complain if the option is not recognised.
+ * return 0, but do not complain if the option is not recognized.
  */
 static int
 java_decode_option (argc, argv)
@@ -507,6 +515,13 @@ java_init (filename)
 
   if (flag_inline_functions)
     flag_inline_trees = 1;
+
+  /* Force minimum function alignment if g++ uses the least significant
+     bit of function pointers to store the virtual bit. This is required
+     to keep vtables compatible.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && force_align_functions_log < 1)
+    force_align_functions_log = 1;
 
   /* Open input file.  */
 
@@ -792,6 +807,14 @@ java_init_options ()
 
   /* In Java floating point operations never trap.  */
   flag_trapping_math = 0;
+}
+
+static bool
+java_can_use_bit_fields_p ()
+{
+  /* The bit-field optimizations cause problems when generating class
+     files.  */
+  return flag_emit_class_files ? false : true;
 }
 
 /* Post-switch processing.  */

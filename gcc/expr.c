@@ -132,9 +132,11 @@ static unsigned HOST_WIDE_INT move_by_pieces_ninsns
 					 unsigned int));
 static void move_by_pieces_1	PARAMS ((rtx (*) (rtx, ...), enum machine_mode,
 					 struct move_by_pieces *));
+static bool block_move_libcall_safe_for_call_parm PARAMS ((void));
 static bool emit_block_move_via_movstr PARAMS ((rtx, rtx, rtx, unsigned));
 static rtx emit_block_move_via_libcall PARAMS ((rtx, rtx, rtx));
 static tree emit_block_move_libcall_fn PARAMS ((int));
+static void emit_block_move_via_loop PARAMS ((rtx, rtx, rtx, unsigned));
 static rtx clear_by_pieces_1	PARAMS ((PTR, HOST_WIDE_INT,
 					 enum machine_mode));
 static void clear_by_pieces	PARAMS ((rtx, unsigned HOST_WIDE_INT,
@@ -223,13 +225,20 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
   (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) CLEAR_RATIO)
 #endif
 
+/* This macro is used to determine whether store_by_pieces should be
+   called to "memset" storage with byte values other than zero, or
+   to "memcpy" storage when the source is a constant string.  */
+#ifndef STORE_BY_PIECES_P
+#define STORE_BY_PIECES_P(SIZE, ALIGN)	MOVE_BY_PIECES_P (SIZE, ALIGN)
+#endif
+
 /* This array records the insn_code of insns to perform block moves.  */
 enum insn_code movstr_optab[NUM_MACHINE_MODES];
 
 /* This array records the insn_code of insns to perform block clears.  */
 enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 
-/* SLOW_UNALIGNED_ACCESS is non-zero if unaligned accesses are very slow.  */
+/* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -1677,16 +1686,43 @@ move_by_pieces_1 (genfun, mode, data)
    Both X and Y must be MEM rtx's (perhaps inside VOLATILE) with mode BLKmode.
    SIZE is an rtx that says how long they are.
    ALIGN is the maximum alignment we can assume they have.
+   METHOD describes what kind of copy this is, and what mechanisms may be used.
 
    Return the address of the new block, if memcpy is called and returns it,
    0 otherwise.  */
 
 rtx
-emit_block_move (x, y, size)
+emit_block_move (x, y, size, method)
      rtx x, y, size;
+     enum block_op_methods method;
 {
+  bool may_use_call;
   rtx retval = 0;
-  unsigned int align = MIN (MEM_ALIGN (x), MEM_ALIGN (y));
+  unsigned int align;
+
+  switch (method)
+    {
+    case BLOCK_OP_NORMAL:
+      may_use_call = true;
+      break;
+
+    case BLOCK_OP_CALL_PARM:
+      may_use_call = block_move_libcall_safe_for_call_parm ();
+
+      /* Make inhibit_defer_pop nonzero around the library call
+	 to force it to pop the arguments right away.  */
+      NO_DEFER_POP;
+      break;
+
+    case BLOCK_OP_NO_LIBCALL:
+      may_use_call = false;
+      break;
+
+    default:
+      abort ();
+    }
+
+  align = MIN (MEM_ALIGN (x), MEM_ALIGN (y));
 
   if (GET_MODE (x) != BLKmode)
     abort ();
@@ -1704,14 +1740,88 @@ emit_block_move (x, y, size)
   if (size == 0)
     abort ();
 
+  /* Set MEM_SIZE as appropriate for this block copy.  The main place this
+     can be incorrect is coming from __builtin_memcpy.  */
+  if (GET_CODE (size) == CONST_INT)
+    {
+      x = shallow_copy_rtx (x);
+      y = shallow_copy_rtx (y);
+      set_mem_size (x, size);
+      set_mem_size (y, size);
+    }
+
   if (GET_CODE (size) == CONST_INT && MOVE_BY_PIECES_P (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align);
   else if (emit_block_move_via_movstr (x, y, size, align))
     ;
-  else
+  else if (may_use_call)
     retval = emit_block_move_via_libcall (x, y, size);
+  else
+    emit_block_move_via_loop (x, y, size, align);
+
+  if (method == BLOCK_OP_CALL_PARM)
+    OK_DEFER_POP;
 
   return retval;
+}
+
+/* A subroutine of emit_block_move.  Returns true if calling the 
+   block move libcall will not clobber any parameters which may have
+   already been placed on the stack.  */
+
+static bool
+block_move_libcall_safe_for_call_parm ()
+{
+  if (PUSH_ARGS)
+    return true;
+  else
+    {
+      /* Check to see whether memcpy takes all register arguments.  */
+      static enum {
+	takes_regs_uninit, takes_regs_no, takes_regs_yes
+      } takes_regs = takes_regs_uninit;
+
+      switch (takes_regs)
+	{
+	case takes_regs_uninit:
+	  {
+	    CUMULATIVE_ARGS args_so_far;
+	    tree fn, arg;
+
+	    fn = emit_block_move_libcall_fn (false);
+	    INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0);
+
+	    arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
+	    for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
+	      {
+		enum machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
+		rtx tmp = FUNCTION_ARG (args_so_far, mode, NULL_TREE, 1);
+		if (!tmp || !REG_P (tmp))
+		  goto fail_takes_regs;
+#ifdef FUNCTION_ARG_PARTIAL_NREGS
+		if (FUNCTION_ARG_PARTIAL_NREGS (args_so_far, mode,
+						NULL_TREE, 1))
+		  goto fail_takes_regs;
+#endif
+		FUNCTION_ARG_ADVANCE (args_so_far, mode, NULL_TREE, 1);
+	      }
+	  }
+	  takes_regs = takes_regs_yes;
+	  /* FALLTHRU */
+
+	case takes_regs_yes:
+	  return true;
+
+	fail_takes_regs:
+	  takes_regs = takes_regs_no;
+	  /* FALLTHRU */
+	case takes_regs_no:
+	  return false;
+
+	default:
+	  abort ();
+	}
+    }
 }
 
 /* A subroutine of emit_block_move.  Expand a movstr pattern; 
@@ -1919,6 +2029,59 @@ emit_block_move_libcall_fn (for_call)
 
   return fn;
 }
+
+/* A subroutine of emit_block_move.  Copy the data via an explicit
+   loop.  This is used only when libcalls are forbidden.  */
+/* ??? It'd be nice to copy in hunks larger than QImode.  */
+
+static void
+emit_block_move_via_loop (x, y, size, align)
+     rtx x, y, size;
+     unsigned int align ATTRIBUTE_UNUSED;
+{
+  rtx cmp_label, top_label, iter, x_addr, y_addr, tmp;
+  enum machine_mode iter_mode;
+
+  iter_mode = GET_MODE (size);
+  if (iter_mode == VOIDmode)
+    iter_mode = word_mode;
+
+  top_label = gen_label_rtx ();
+  cmp_label = gen_label_rtx ();
+  iter = gen_reg_rtx (iter_mode);
+
+  emit_move_insn (iter, const0_rtx);
+
+  x_addr = force_operand (XEXP (x, 0), NULL_RTX);
+  y_addr = force_operand (XEXP (y, 0), NULL_RTX);
+  do_pending_stack_adjust ();
+
+  emit_note (NULL, NOTE_INSN_LOOP_BEG);
+
+  emit_jump (cmp_label);
+  emit_label (top_label);
+
+  tmp = convert_modes (Pmode, iter_mode, iter, true);
+  x_addr = gen_rtx_PLUS (Pmode, x_addr, tmp);
+  y_addr = gen_rtx_PLUS (Pmode, y_addr, tmp);
+  x = change_address (x, QImode, x_addr);
+  y = change_address (y, QImode, y_addr);
+
+  emit_move_insn (x, y);
+
+  tmp = expand_simple_binop (iter_mode, PLUS, iter, const1_rtx, iter,
+			     true, OPTAB_LIB_WIDEN);
+  if (tmp != iter)
+    emit_move_insn (iter, tmp);
+
+  emit_note (NULL, NOTE_INSN_LOOP_CONT);
+  emit_label (cmp_label);
+
+  emit_cmp_and_jump_insns (iter, size, LT, NULL_RTX, iter_mode,
+			   true, top_label);
+
+  emit_note (NULL, NOTE_INSN_LOOP_END);
+}
 
 /* Copy all or part of a value X into registers starting at REGNO.
    The number of registers to be filled is NREGS.  */
@@ -2119,21 +2282,26 @@ emit_group_load (dst, orig_src, ssize)
 	}
       else if (GET_CODE (src) == CONCAT)
 	{
-	  if ((bytepos == 0
-	       && bytelen == GET_MODE_SIZE (GET_MODE (XEXP (src, 0))))
-	      || (bytepos == (HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (XEXP (src, 0)))
-		  && bytelen == GET_MODE_SIZE (GET_MODE (XEXP (src, 1)))))
+	  unsigned int slen = GET_MODE_SIZE (GET_MODE (src));
+	  unsigned int slen0 = GET_MODE_SIZE (GET_MODE (XEXP (src, 0)));
+
+	  if ((bytepos == 0 && bytelen == slen0)
+	      || (bytepos != 0 && bytepos + bytelen <= slen))
 	    {
-	      tmps[i] = XEXP (src, bytepos != 0);
+	      /* The following assumes that the concatenated objects all
+		 have the same size.  In this case, a simple calculation
+		 can be used to determine the object and the bit field
+		 to be extracted.  */
+	      tmps[i] = XEXP (src, bytepos / slen0);
 	      if (! CONSTANT_P (tmps[i])
 		  && (GET_CODE (tmps[i]) != REG || GET_MODE (tmps[i]) != mode))
 		tmps[i] = extract_bit_field (tmps[i], bytelen * BITS_PER_UNIT,
-					     0, 1, NULL_RTX, mode, mode, ssize);
+					     (bytepos % slen0) * BITS_PER_UNIT,
+					     1, NULL_RTX, mode, mode, ssize);
 	    }
 	  else if (bytepos == 0)
 	    {
-	      rtx mem = assign_stack_temp (GET_MODE (src),
-					   GET_MODE_SIZE (GET_MODE (src)), 0);
+	      rtx mem = assign_stack_temp (GET_MODE (src), slen, 0);
 	      emit_move_insn (mem, src);
 	      tmps[i] = adjust_address (mem, mode, 0);
 	    }
@@ -2440,7 +2608,7 @@ can_store_by_pieces (len, constfun, constfundata, align)
   int reverse;
   rtx cst;
 
-  if (! MOVE_BY_PIECES_P (len, align))
+  if (! STORE_BY_PIECES_P (len, align))
     return 0;
 
   if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
@@ -2515,7 +2683,7 @@ store_by_pieces (to, len, constfun, constfundata, align)
 {
   struct store_by_pieces data;
 
-  if (! MOVE_BY_PIECES_P (len, align))
+  if (! STORE_BY_PIECES_P (len, align))
     abort ();
   to = protect_from_queue (to, 1);
   data.constfun = constfun;
@@ -3623,16 +3791,12 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 		 of sibling calls.  */
 	      set_mem_alias_set (target, 0);
 	    }
-	  else
-	    set_mem_align (target, align);
 
-	  /* Make inhibit_defer_pop nonzero around the library call
-	     to force it to pop the bcopy-arguments right away.  */
-	  NO_DEFER_POP;
+	  /* ALIGN may well be better aligned than TYPE, e.g. due to
+	     PARM_BOUNDARY.  Assume the caller isn't lying.  */
+	  set_mem_align (target, align);
 
-	  emit_block_move (target, xinner, size);
-
-	  OK_DEFER_POP;
+	  emit_block_move (target, xinner, size, BLOCK_OP_CALL_PARM);
 	}
     }
   else if (partial > 0)
@@ -3699,7 +3863,6 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
   else
     {
       rtx addr;
-      rtx target = NULL_RTX;
       rtx dest;
 
       /* Push padding now if padding above and stack grows down,
@@ -3723,7 +3886,6 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	  else
 	    addr = memory_address (mode, gen_rtx_PLUS (Pmode, args_addr,
 						       args_so_far));
-	  target = addr;
 	  dest = gen_rtx_MEM (mode, addr);
 	  if (type != 0)
 	    {
@@ -3951,7 +4113,7 @@ expand_assignment (to, from, want_value, suggest_reg)
       if (GET_CODE (to_rtx) == PARALLEL)
 	emit_group_load (to_rtx, value, int_size_in_bytes (TREE_TYPE (from)));
       else if (GET_MODE (to_rtx) == BLKmode)
-	emit_block_move (to_rtx, value, expr_size (from));
+	emit_block_move (to_rtx, value, expr_size (from), BLOCK_OP_NORMAL);
       else
 	{
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -4312,7 +4474,7 @@ store_expr (exp, target, want_value)
 
 	  if (GET_CODE (size) == CONST_INT
 	      && INTVAL (size) < TREE_STRING_LENGTH (exp))
-	    emit_block_move (target, temp, size);
+	    emit_block_move (target, temp, size, BLOCK_OP_NORMAL);
 	  else
 	    {
 	      /* Compute the size of the data to copy from the string.  */
@@ -4326,7 +4488,7 @@ store_expr (exp, target, want_value)
 
 	      /* Copy that much.  */
 	      copy_size_rtx = convert_to_mode (ptr_mode, copy_size_rtx, 0);
-	      emit_block_move (target, temp, copy_size_rtx);
+	      emit_block_move (target, temp, copy_size_rtx, BLOCK_OP_NORMAL);
 
 	      /* Figure out how much is left in TARGET that we have to clear.
 		 Do all calculations in ptr_mode.  */
@@ -4367,7 +4529,7 @@ store_expr (exp, target, want_value)
       else if (GET_CODE (target) == PARALLEL)
 	emit_group_load (target, temp, int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
-	emit_block_move (target, temp, expr_size (exp));
+	emit_block_move (target, temp, expr_size (exp), BLOCK_OP_NORMAL);
       else
 	emit_move_insn (target, temp);
     }
@@ -4496,7 +4658,7 @@ store_constructor_field (target, bitsize, bitpos, mode, exp, type, cleared,
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
       && bitpos % BITS_PER_UNIT == 0
-      /* If we have a non-zero bitpos for a register target, then we just
+      /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
       && (bitpos == 0 || GET_CODE (target) == MEM))
@@ -4602,7 +4764,6 @@ store_constructor (exp, target, cleared, size)
 	  enum machine_mode mode;
 	  HOST_WIDE_INT bitsize;
 	  HOST_WIDE_INT bitpos = 0;
-	  int unsignedp;
 	  tree offset;
 	  rtx to_rtx = target;
 
@@ -4620,7 +4781,6 @@ store_constructor (exp, target, cleared, size)
 	  else
 	    bitsize = -1;
 
-	  unsignedp = TREE_UNSIGNED (field);
 	  mode = DECL_MODE (field);
 	  if (DECL_BIT_FIELD (field))
 	    mode = VOIDmode;
@@ -4841,7 +5001,7 @@ store_constructor (exp, target, cleared, size)
 	    {
 	      tree lo_index = TREE_OPERAND (index, 0);
 	      tree hi_index = TREE_OPERAND (index, 1);
-	      rtx index_r, pos_rtx, hi_r, loop_top, loop_end;
+	      rtx index_r, pos_rtx, loop_end;
 	      struct nesting *loop;
 	      HOST_WIDE_INT lo, hi, count;
 	      tree position;
@@ -4880,8 +5040,7 @@ store_constructor (exp, target, cleared, size)
 		}
 	      else
 		{
-		  hi_r = expand_expr (hi_index, NULL_RTX, VOIDmode, 0);
-		  loop_top = gen_label_rtx ();
+		  expand_expr (hi_index, NULL_RTX, VOIDmode, 0);
 		  loop_end = gen_label_rtx ();
 
 		  unsignedp = TREE_UNSIGNED (domain);
@@ -5295,7 +5454,8 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 	  target = adjust_address (target, VOIDmode, bitpos / BITS_PER_UNIT);
 	  emit_block_move (target, temp,
 			   GEN_INT ((bitsize + BITS_PER_UNIT - 1)
-				    / BITS_PER_UNIT));
+				    / BITS_PER_UNIT),
+			   BLOCK_OP_NORMAL);
 
 	  return value_mode == VOIDmode ? const0_rtx : target;
 	}
@@ -6689,9 +6849,6 @@ expand_expr (exp, target, tmode, modifier)
 	return temp;
       }
 
-      /* We can't find the object or there was a missing WITH_RECORD_EXPR.  */
-      abort ();
-
     case WITH_RECORD_EXPR:
       /* Put the object on the placeholder list, expand our first operand,
 	 and pop the list.  */
@@ -6740,7 +6897,6 @@ expand_expr (exp, target, tmode, modifier)
     case BIND_EXPR:
       {
 	tree vars = TREE_OPERAND (exp, 0);
-	int vars_need_expansion = 0;
 
 	/* Need to open a binding contour here because
 	   if there are any cleanups they must be contained here.  */
@@ -6755,10 +6911,7 @@ expand_expr (exp, target, tmode, modifier)
 	while (vars)
 	  {
 	    if (!DECL_RTL_SET_P (vars))
-	      {
-		vars_need_expansion = 1;
-		expand_decl (vars);
-	      }
+	      expand_decl (vars);
 	    expand_decl_init (vars);
 	    vars = TREE_CHAIN (vars);
 	  }
@@ -7218,7 +7371,8 @@ expand_expr (exp, target, tmode, modifier)
 
 		emit_block_move (target, op0,
 				 GEN_INT ((bitsize + BITS_PER_UNIT - 1)
-					  / BITS_PER_UNIT));
+					  / BITS_PER_UNIT),
+				 BLOCK_OP_NORMAL);
 
 		return target;
 	      }
@@ -7634,7 +7788,8 @@ expand_expr (exp, target, tmode, modifier)
 
 	      if (GET_MODE (op0) == BLKmode)
 		emit_block_move (new_with_op0_mode, op0,
-				 GEN_INT (GET_MODE_SIZE (TYPE_MODE (type))));
+				 GEN_INT (GET_MODE_SIZE (TYPE_MODE (type))),
+				 BLOCK_OP_NORMAL);
 	      else
 		emit_move_insn (new_with_op0_mode, op0);
 
@@ -7647,9 +7802,6 @@ expand_expr (exp, target, tmode, modifier)
       return op0;
 
     case PLUS_EXPR:
-      /* We come here from MINUS_EXPR when the second operand is a
-         constant.  */
-    plus_expr:
       this_optab = ! unsignedp && flag_trapv
                    && (GET_MODE_CLASS (mode) == MODE_INT)
                    ? addv_optab : add_optab;
@@ -7745,20 +7897,29 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 	}
 
+      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
+	subtarget = 0;
+
       /* No sense saving up arithmetic to be done
 	 if it's all in the wrong mode to form part of an address.
 	 And force_operand won't know whether to sign-extend or
 	 zero-extend.  */
       if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
 	  || mode != ptr_mode)
-	goto binop;
-
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
+	{
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+	  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	  temp = simplify_binary_operation (PLUS, mode, op0, op1);
+	  if (temp)
+	    return temp;
+	  goto binop2;
+	}
 
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
       op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
 
+      /* We come here from MINUS_EXPR when the second operand is a
+         constant.  */
     both_summands:
       /* Make sure any term that's a sum with a constant comes last.  */
       if (GET_CODE (op0) == PLUS
@@ -7828,27 +7989,33 @@ expand_expr (exp, target, tmode, modifier)
 	  else
 	    return gen_rtx_MINUS (mode, op0, op1);
 	}
-      /* Convert A - const to A + (-const).  */
-      if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
-	{
-	  tree negated = fold (build1 (NEGATE_EXPR, type,
-				       TREE_OPERAND (exp, 1)));
 
-	  if (TREE_UNSIGNED (type) || TREE_OVERFLOW (negated))
-	    /* If we can't negate the constant in TYPE, leave it alone and
-	       expand_binop will negate it for us.  We used to try to do it
-	       here in the signed version of TYPE, but that doesn't work
-	       on POINTER_TYPEs.  */;
-	  else
-	    {
-	      exp = build (PLUS_EXPR, type, TREE_OPERAND (exp, 0), negated);
-	      goto plus_expr;
-	    }
-	}
       this_optab = ! unsignedp && flag_trapv
                    && (GET_MODE_CLASS(mode) == MODE_INT)
                    ? subv_optab : sub_optab;
-      goto binop;
+
+      /* No sense saving up arithmetic to be done
+	 if it's all in the wrong mode to form part of an address.
+	 And force_operand won't know whether to sign-extend or
+	 zero-extend.  */
+      if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
+	  || mode != ptr_mode)
+	goto binop;
+
+      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
+	subtarget = 0;
+
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
+      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
+
+      /* Convert A - const to A + (-const).  */
+      if (GET_CODE (op1) == CONST_INT)
+	{
+	  op1 = negate_rtx (mode, op1);
+	  goto both_summands;
+	}
+
+      goto binop2;
 
     case MULT_EXPR:
       /* If first operand is constant, swap them.
@@ -8856,7 +9023,8 @@ expand_expr (exp, target, tmode, modifier)
 	      if (TYPE_ALIGN_OK (inner_type))
 		abort ();
 
-	      emit_block_move (new, op0, expr_size (TREE_OPERAND (exp, 0)));
+	      emit_block_move (new, op0, expr_size (TREE_OPERAND (exp, 0)),
+			       BLOCK_OP_NORMAL);
 	      op0 = new;
 	    }
 
@@ -9130,7 +9298,7 @@ is_aligning_offset (offset, exp)
 }
 
 /* Return the tree node if an ARG corresponds to a string constant or zero
-   if it doesn't.  If we return non-zero, set *PTR_OFFSET to the offset
+   if it doesn't.  If we return nonzero, set *PTR_OFFSET to the offset
    in bytes within the string that ARG is accessing.  The type of the
    offset will be `sizetype'.  */
 
@@ -9516,7 +9684,7 @@ do_jump (exp, if_false_label, if_true_label)
     case NEGATE_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-      /* These cannot change zero->non-zero or vice versa.  */
+      /* These cannot change zero->nonzero or vice versa.  */
       do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
       break;
 
@@ -9542,7 +9710,7 @@ do_jump (exp, if_false_label, if_true_label)
 #endif
 
     case MINUS_EXPR:
-      /* Non-zero iff operands of minus differ.  */
+      /* Nonzero iff operands of minus differ.  */
       do_compare_and_jump (build (NE_EXPR, TREE_TYPE (exp),
 				  TREE_OPERAND (exp, 0),
 				  TREE_OPERAND (exp, 1)),
@@ -10357,7 +10525,7 @@ do_compare_and_jump (exp, signed_code, unsigned_code, if_false_label,
 
    If TARGET is nonzero, store the result there if convenient.
 
-   If ONLY_CHEAP is non-zero, only do this if it is likely to be very
+   If ONLY_CHEAP is nonzero, only do this if it is likely to be very
    cheap.
 
    Return zero if there is no suitable set-flag instruction

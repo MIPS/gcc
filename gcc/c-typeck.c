@@ -51,7 +51,7 @@ static int missing_braces_mentioned;
 static int undeclared_variable_notice;
 
 static tree qualify_type		PARAMS ((tree, tree));
-static int comp_target_types		PARAMS ((tree, tree));
+static int comp_target_types		PARAMS ((tree, tree, int));
 static int function_types_compatible_p	PARAMS ((tree, tree));
 static int type_lists_compatible_p	PARAMS ((tree, tree));
 static tree decl_constant_value_for_broken_optimization PARAMS ((tree));
@@ -579,16 +579,21 @@ comptypes (type1, type2)
 }
 
 /* Return 1 if TTL and TTR are pointers to types that are equivalent,
-   ignoring their qualifiers.  */
+   ignoring their qualifiers.  REFLEXIVE is only used by ObjC - set it
+   to 1 or 0 depending if the check of the pointer types is meant to
+   be reflexive or not (typically, assignments are not reflexive,
+   while comparisons are reflexive).
+*/
 
 static int
-comp_target_types (ttl, ttr)
+comp_target_types (ttl, ttr, reflexive)
      tree ttl, ttr;
+     int reflexive;
 {
   int val;
 
-  /* Give maybe_objc_comptypes a crack at letting these types through.  */
-  if ((val = objc_comptypes (ttl, ttr, 1)) >= 0)
+  /* Give objc_comptypes a crack at letting these types through.  */
+  if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
     return val;
 
   val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
@@ -1465,7 +1470,7 @@ build_function_call (function, params)
 {
   tree fntype, fundecl = 0;
   tree coerced_params;
-  tree name = NULL_TREE, assembler_name = NULL_TREE, result;
+  tree name = NULL_TREE, result;
 
   /* Strip NON_LVALUE_EXPRs, etc., since we aren't using as an lvalue.  */
   STRIP_TYPE_NOPS (function);
@@ -1474,7 +1479,6 @@ build_function_call (function, params)
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
       name = DECL_NAME (function);
-      assembler_name = DECL_ASSEMBLER_NAME (function);
 
       /* Differs from default_conversion by not setting TREE_ADDRESSABLE
 	 (because calling an inline function does not mean the function
@@ -1958,7 +1962,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
-	  && comp_target_types (type0, type1))
+	  && comp_target_types (type0, type1, 1))
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -2148,7 +2152,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    result_type = common_type (type0, type1);
 	  else if (VOID_TYPE_P (tt0))
 	    {
@@ -2195,7 +2199,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	shorten = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (pedantic 
@@ -2220,7 +2224,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
@@ -2463,7 +2467,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (tree_expr_nonnegative_p (sop))
+		  if (c_tree_expr_nonnegative_p (sop))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it
@@ -2579,6 +2583,27 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   }
 }
 
+
+/* Return true if `t' is known to be non-negative.  */
+
+int
+c_tree_expr_nonnegative_p (t)
+     tree t;
+{
+  if (TREE_CODE (t) == STMT_EXPR)
+    {
+      t=COMPOUND_BODY (STMT_EXPR_STMT (t));
+
+      /* Find the last statement in the chain, ignoring the final
+	     * scope statement */
+      while (TREE_CHAIN (t) != NULL_TREE 
+             && TREE_CODE (TREE_CHAIN (t)) != SCOPE_STMT)
+        t=TREE_CHAIN (t);
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
+    }
+  return tree_expr_nonnegative_p (t);
+}
+
 /* Return a tree for the difference of pointers OP0 and OP1.
    The resulting tree has type int.  */
 
@@ -3406,8 +3431,8 @@ build_conditional_expr (ifexp, op1, op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2 && c_tree_expr_nonnegative_p (op1))
+		       || (unsigned_op1 && c_tree_expr_nonnegative_p (op2)))
 		/* OK */;
 	      else
 		warning ("signed and unsigned type in conditional expression");
@@ -3422,7 +3447,7 @@ build_conditional_expr (ifexp, op1, op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      if (comp_target_types (type1, type2))
+      if (comp_target_types (type1, type2, 1))
 	result_type = common_type (type1, type2);
       else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
 	       && TREE_CODE (orig_op1) != NOP_EXPR)
@@ -3577,7 +3602,12 @@ build_c_cast (type, expr)
   
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
-  type = TYPE_MAIN_VARIANT (type);
+
+  /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
+     only in <protocol> qualifications.  But when constructing cast expressions,
+     the protocols do matter and must be kept around.  */
+  if (!flag_objc || !objc_is_id (type))
+    type = TYPE_MAIN_VARIANT (type);
 
 #if 0
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
@@ -3618,20 +3648,10 @@ build_c_cast (type, expr)
 
       if (field)
 	{
-	  const char *name;
 	  tree t;
 
 	  if (pedantic)
 	    pedwarn ("ISO C forbids casts to union type");
-	  if (TYPE_NAME (type) != 0)
-	    {
-	      if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-		name = IDENTIFIER_POINTER (TYPE_NAME (type));
-	      else
-		name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-	    }
-	  else
-	    name = "";
 	  t = digest_init (type, build (CONSTRUCTOR, type, NULL_TREE,
 					build_tree_list (field, value)), 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
@@ -3728,6 +3748,23 @@ build_c_cast (type, expr)
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
 
+      if (TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (expr) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (expr, 0))
+	  && flag_strict_aliasing && warn_strict_aliasing
+	  && !VOID_TYPE_P (TREE_TYPE (type)))
+	{
+ 	  /* Casting the address of a decl to non void pointer. Warn
+	     if the cast breaks type based aliasing.  */
+	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+	    warning ("type-punning to incomplete type might break strict-aliasing rules");
+	  else if (!alias_sets_conflict_p
+		   (get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0))),
+		    get_alias_set (TREE_TYPE (type))))
+	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	}
+      
       ovalue = value;
       value = convert (type, value);
 
@@ -3984,8 +4021,9 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
     {
       overflow_warning (rhs);
-      /* Check for Objective-C protocols.  This will issue a warning if
-	 there are protocol violations.  No need to use the return value.  */
+      /* Check for Objective-C protocols.  This will automatically
+	 issue a warning if there are protocol violations.  No need to
+	 use the return value.  */
       if (flag_objc)
 	objc_comptypes (type, rhstype, 0);
       return rhs;
@@ -4060,7 +4098,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
 	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		  || comp_target_types (memb_type, rhstype))
+		  || comp_target_types (memb_type, rhstype, 0))
 		{
 		  /* If this type won't generate any warnings, use it.  */
 		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
@@ -4135,7 +4173,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || comp_target_types (type, rhstype)
+	  || comp_target_types (type, rhstype, 0)
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
@@ -4160,7 +4198,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		       || comp_target_types (type, rhstype))
+		       || comp_target_types (type, rhstype, 0))
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (pedantic)
@@ -5523,7 +5561,7 @@ pop_init_level (implicit)
 }
 
 /* Common handling for both array range and field name designators.
-   ARRAY argument is non-zero for array ranges.  Returns zero for success.  */
+   ARRAY argument is nonzero for array ranges.  Returns zero for success.  */
 
 static int
 set_designator (array)

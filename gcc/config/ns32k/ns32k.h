@@ -126,7 +126,7 @@ extern int target_flags;
 
 #define TARGET_HIMEM (target_flags & MASK_HIMEM)
 
-/* Compile using bitfield insns.  */
+/* Compile using bit-field insns.  */
 #define TARGET_BITFIELD ((target_flags & MASK_NO_BITFIELD) == 0)
 
 #define TARGET_IEEE_COMPARE (target_flags & MASK_IEEE_COMPARE)
@@ -276,7 +276,7 @@ while (0)
 
 /* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
-/* Required on the 386 since it doesn't have a full set of bitfield insns.
+/* Required on the 386 since it doesn't have a full set of bit-field insns.
    (There is no signed extv insn.)  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -810,12 +810,6 @@ __transfer_from_trampoline ()		\
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Macros to check register numbers against specific register classes.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
@@ -863,7 +857,7 @@ __transfer_from_trampoline ()		\
 
 /*  Certain machines have the property that some registers cannot be
     copied to some other registers without using memory.  Define this
-    macro on those machines to be a C expression that is non-zero if
+    macro on those machines to be a C expression that is nonzero if
     objects of mode M in registers of CLASS1 can only be copied to
     registers of class CLASS2 by storing a register of CLASS1 into
     memory and loading that memory location into a register of CLASS2.
@@ -1309,29 +1303,11 @@ __transfer_from_trampoline ()		\
 #define ASM_OUTPUT_REG_POP(FILE,REGNO)  \
   fprintf (FILE, "\tmovd tos,%s\n", reg_names[REGNO])
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#ifdef COLLECT
-#define ASM_OUTPUT_LABEL(STREAM,NAME) fprintf ((STREAM), "%s:\n", (NAME))
-#endif
-
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#ifndef COLLECT
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
-#else
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)				\
-  fprintf ((STREAM), "\t.globl\t%s\n", (NAME));
-#endif
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -1382,14 +1358,6 @@ __transfer_from_trampoline ()		\
 ( fputs (".lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%u\n", (ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;

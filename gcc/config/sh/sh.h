@@ -472,6 +472,14 @@ do {									\
      break global alloc, and generates slower code anyway due		\
      to the pressure on R0.  */						\
   flag_schedule_insns = 0;						\
+									\
+  /* Allocation boundary (in *bytes*) for the code of a function.	\
+     SH1: 32 bit alignment is faster, because instructions are always	\
+     fetched as a pair from a longword boundary.			\
+     SH2 .. SH5 : align to cache line start.  */			\
+  if (align_functions == 0)						\
+    align_functions							\
+      = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -532,11 +540,9 @@ do {									\
    The SH2/3 have 16 byte cache lines, and the SH4 has a 32 byte cache line */
 #define CACHE_LOG (TARGET_CACHE32 ? 5 : TARGET_SH2 ? 4 : 2)
 
-/* Allocation boundary (in *bits*) for the code of a function.
-   32 bit alignment is faster, because instructions are always fetched as a
-   pair from a longword boundary.  */
-#define FUNCTION_BOUNDARY  \
-  (TARGET_SMALLCODE ? 16 << TARGET_SHMEDIA : (1 << CACHE_LOG) * 8)
+/* ABI given & required minimum allocation boundary (in *bits*) for the
+   code of a function.  */
+#define FUNCTION_BOUNDARY (16 << TARGET_SHMEDIA)
 
 /* On SH5, the lowest bit is used to indicate SHmedia functions, so
    the vbit must go into the delta field of
@@ -1522,7 +1528,7 @@ enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
 struct sh_args {
     int arg_count[2];
     int force_mem;
-  /* Non-zero if a prototype is available for the function.  */
+  /* Nonzero if a prototype is available for the function.  */
     int prototype_p;
   /* The number of an odd floating-point register, that should be used
      for the next argument of type float.  */
@@ -1700,13 +1706,6 @@ struct sh_args {
     (CUM).outgoing = 0;						\
   } while (0)
  
-/* FIXME: This is overly conservative.  A SHcompact function that
-   receives arguments ``by reference'' will have them stored in its
-   own stack frame, so it must not pass pointers or references to
-   these arguments to other functions by means of sibling calls.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (! TARGET_SHCOMPACT || current_function_args_info.stack_regs == 0)
-
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be
@@ -2018,7 +2017,7 @@ struct sh_args {
    : 0)
 
 #define SH5_WOULD_BE_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  (TARGET_SH5 && (MODE) == BLKmode				\
+  (TARGET_SH5 && ((MODE) == BLKmode || (MODE) == TImode)	\
    && ((CUM).arg_count[(int) SH_ARG_INT]			\
        + (int_size_in_bytes (TYPE) + 7) / 8) > NPARM_REGS (SImode))
 
@@ -2130,8 +2129,6 @@ while (0)
 
 /* Addressing modes, and classification of registers for them.  */
 #define HAVE_POST_INCREMENT  TARGET_SH1
-/*#define HAVE_PRE_INCREMENT   1*/
-/*#define HAVE_POST_DECREMENT  1*/
 #define HAVE_PRE_DECREMENT   TARGET_SH1
 
 #define USE_LOAD_POST_INCREMENT(mode)    ((mode == SImode || mode == DImode) \
@@ -2271,9 +2268,15 @@ while (0)
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
    && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTPLT)
 
+#define UNSPEC_GOTOFF_P(OP) \
+  (GET_CODE (OP) == UNSPEC && XINT ((OP), 1) == UNSPEC_GOTOFF)
+
 #define GOTOFF_P(OP) \
-  (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
-   && XINT (XEXP ((OP), 0), 1) == UNSPEC_GOTOFF)
+  (GET_CODE (OP) == CONST \
+   && (UNSPEC_GOTOFF_P (XEXP ((OP), 0)) \
+       || (GET_CODE (XEXP ((OP), 0)) == PLUS \
+           && UNSPEC_GOTOFF_P (XEXP (XEXP ((OP), 0), 0)) \
+	   && GET_CODE (XEXP (XEXP ((OP), 0), 1)) == CONST_INT)))
 
 #define PIC_ADDR_P(OP) \
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
@@ -2972,7 +2975,7 @@ while (0)
 #define ASM_OUTPUT_LABELREF(FILE, NAME)			\
   do							\
     {							\
-      char * lname;					\
+      const char * lname;				\
 							\
       STRIP_DATALABEL_ENCODING (lname, (NAME));		\
       if (lname[0] == '*')				\
@@ -3007,11 +3010,6 @@ while (0)
 #define GLOBAL_ASM_OP "\t.global\t"
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
-
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),	\
-   sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
 
 /* Output a relative address table.  */
 
@@ -3270,6 +3268,8 @@ extern int rtx_equal_function_value_matters;
 
 #define PROMOTE_FUNCTION_ARGS
 #define PROMOTE_FUNCTION_RETURN
+
+#define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 
 /* ??? Define ACCUMULATE_OUTGOING_ARGS?  This is more efficient than pushing
    and poping arguments.  However, we do have push/pop instructions, and

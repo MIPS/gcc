@@ -261,7 +261,7 @@ extern int target_flags;
 
 
 /* Node: Storage Layout */
-/* I see no bitfield instructions.  Anyway, the common order is from low
+/* I see no bit-field instructions.  Anyway, the common order is from low
    to high, as the power of two, hence little-endian.  */
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 1
@@ -980,8 +980,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_DECLARE_REGISTER_GLOBAL(STREAM, DECL, REGNO, NAME) \
  mmix_asm_declare_register_global (STREAM, DECL, REGNO, NAME)
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME) \
- mmix_asm_globalize_label (STREAM, NAME)
+#define GLOBAL_ASM_OP "\t.global "
 
 #define ASM_WEAKEN_LABEL(STREAM, NAME) \
  mmix_asm_weaken_label (STREAM, NAME)
@@ -992,9 +991,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define ASM_OUTPUT_LABELREF(STREAM, NAME) \
  mmix_asm_output_labelref (STREAM, NAME)
 
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM) \
- mmix_asm_output_internal_label (STREAM, PREFIX, NUM)
-
 /* We insert a ":" to disambiguate against user symbols like L5.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM) \
  sprintf (LABEL, "*%s:%ld", PREFIX, (long)(NUM))
@@ -1003,9 +999,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
    ":" is seen in the object file; we don't really want that mmixal
    feature visible there.  We don't want the default, which uses a dot;
    that'd be incompatible with mmixal.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)		\
- ((OUTPUT) = (char *) alloca (strlen ((NAME)) + 2 + 10),	\
-  sprintf ((OUTPUT), "%s::%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s::%lu"
 
 #define ASM_OUTPUT_DEF(STREAM, NAME, VALUE) \
  mmix_asm_output_def (STREAM, NAME, VALUE)
@@ -1120,7 +1114,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 
 /* Node: SDB and DWARF */
-#define DWARF2_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
 /* Node: Misc */

@@ -236,9 +236,6 @@ char * temporary_firstobj;
 /* Holds the return value of pexecute.  */
 int pexecute_pid;
 
-/* Defined in the automatically-generated underscore.c.  */
-extern int prepends_underscore;
-
 /* Structure to hold all the directories in which to search for files to
    execute.  */
 
@@ -303,7 +300,6 @@ static int is_in_list		PARAMS ((const char *, struct id *));
 #endif
 static void write_aix_file	PARAMS ((FILE *, struct id *));
 static char *resolve_lib_name	PARAMS ((const char *));
-static int ignore_library	PARAMS ((const char *));
 #endif
 static char *extract_string	PARAMS ((const char **));
 
@@ -515,8 +511,8 @@ dump_file (name)
 	  if (*word == '.')
 	    ++word, putc ('.', stderr);
 	  p = word;
-	  if (*p == '_' && prepends_underscore)
-	    ++p;
+	  if (!strncmp (p, USER_LABEL_PREFIX, strlen (USER_LABEL_PREFIX)))
+	    p += strlen (USER_LABEL_PREFIX);
 
 	  if (no_demangle)
 	    result = 0;
@@ -1494,7 +1490,7 @@ main (argc, argv)
 }
 
 
-/* Wait for a process to finish, and exit if a non-zero status is found.  */
+/* Wait for a process to finish, and exit if a nonzero status is found.  */
 
 int
 collect_wait (prog)
@@ -2687,6 +2683,41 @@ scan_libraries (prog_name)
 
 #endif
 
+#ifdef COLLECT_EXPORT_LIST
+/* Array of standard AIX libraries which should not
+   be scanned for ctors/dtors.  */
+static const char *const aix_std_libs[] = {
+  "/unix",
+  "/lib/libc.a",
+  "/lib/libm.a",
+  "/lib/libc_r.a",
+  "/lib/libm_r.a",
+  "/usr/lib/libc.a",
+  "/usr/lib/libm.a",
+  "/usr/lib/libc_r.a",
+  "/usr/lib/libm_r.a",
+  "/usr/lib/threads/libc.a",
+  "/usr/ccs/lib/libc.a",
+  "/usr/ccs/lib/libm.a",
+  "/usr/ccs/lib/libc_r.a",
+  "/usr/ccs/lib/libm_r.a",
+  NULL
+};
+
+/* This function checks the filename and returns 1
+   if this name matches the location of a standard AIX library.  */
+static int ignore_library	PARAMS ((const char *));
+static int
+ignore_library (name)
+     const char *name;
+{
+  const char *const *p = &aix_std_libs[0];
+  while (*p++ != NULL)
+    if (! strcmp (name, *p)) return 1;
+  return 0;
+}
+#endif /* COLLECT_EXPORT_LIST */
+
 extern char *ldgetname ();
 
 /* COFF version to scan the name list of the loaded program for
@@ -2905,38 +2936,6 @@ if (debug) fprintf (stderr, "found: %s\n", lib_buf);
   else
     fatal ("library lib%s not found", name);
   return (NULL);
-}
-
-/* Array of standard AIX libraries which should not
-   be scanned for ctors/dtors.  */
-static const char *const aix_std_libs[] = {
-  "/unix",
-  "/lib/libc.a",
-  "/lib/libm.a",
-  "/lib/libc_r.a",
-  "/lib/libm_r.a",
-  "/usr/lib/libc.a",
-  "/usr/lib/libm.a",
-  "/usr/lib/libc_r.a",
-  "/usr/lib/libm_r.a",
-  "/usr/lib/threads/libc.a",
-  "/usr/ccs/lib/libc.a",
-  "/usr/ccs/lib/libm.a",
-  "/usr/ccs/lib/libc_r.a",
-  "/usr/ccs/lib/libm_r.a",
-  NULL
-};
-
-/* This function checks the filename and returns 1
-   if this name matches the location of a standard AIX library.  */
-static int
-ignore_library (name)
-     const char *name;
-{
-  const char *const *p = &aix_std_libs[0];
-  while (*p++ != NULL)
-    if (! strcmp (name, *p)) return 1;
-  return 0;
 }
 #endif /* COLLECT_EXPORT_LIST */
 

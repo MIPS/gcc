@@ -303,11 +303,6 @@ extern const struct processor_costs *m68hc11_cost;
    this size or smaller can be used for structures and unions with the
    appropriate sizes.  */
 #define MAX_FIXED_MODE_SIZE	64
-
-/* Floats are checked in a generic way.  */
-/* #define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) */
-
-
 
 /* target machine storage layout */
 
@@ -1135,7 +1130,7 @@ typedef struct m68hc11_args
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 #define FUNCTION_PROFILER(FILE, LABELNO)		\
-    asm_fprintf (FILE, "\tldy\t.LP%d\n\tjsr mcount\n", (LABELNO))
+    fprintf (FILE, "\tldy\t.LP%d\n\tjsr mcount\n", (LABELNO))
 /* Length in units of the trampoline for entering a nested function.  */
 #define TRAMPOLINE_SIZE		(TARGET_M6811 ? 11 : 9)
 
@@ -1609,16 +1604,6 @@ do {                                                                    \
   assemble_name (FILE, NAME); \
   fputs ("\n", FILE);}
 
-
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* How to refer to registers in assembler output.  This sequence is indexed
    by compiler's hard-register-number (see above).  */
 #define REGISTER_NAMES						\
@@ -1650,18 +1635,18 @@ do {                                                                    \
 /* This is how to output an element of a case-vector that is relative.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  asm_fprintf (FILE, "\t%s\tL%d-L%d\n", integer_asm_op (2, TRUE), VALUE, REL)
+  fprintf (FILE, "\t%s\tL%d-L%d\n", integer_asm_op (2, TRUE), VALUE, REL)
 
 /* This is how to output an element of a case-vector that is absolute.  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "\t%s\t.L%d\n", integer_asm_op (2, TRUE), VALUE)
+  fprintf (FILE, "\t%s\t.L%d\n", integer_asm_op (2, TRUE), VALUE)
 
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)			\
   do {                                                  \
       if ((LOG) > 1)                                    \
-          asm_fprintf ((FILE), "%s\n", ALIGN_ASM_OP); \
+          fprintf ((FILE), "%s\n", ALIGN_ASM_OP); \
   } while (0)
 
 

@@ -155,16 +155,16 @@ complete_type (type)
   return type;
 }
 
-/* Like complete_type, but issue an error if the TYPE cannot be
-   completed.  VALUE is used for informative diagnostics.  WARN_ONLY
-   will cause a warning message to be printed, instead of an error.
+/* Like complete_type, but issue an error if the TYPE cannot be completed.
+   VALUE is used for informative diagnostics.  DIAG_TYPE indicates the type
+   of diagnostic: 0 for an error, 1 for a warning, 2 for a pedwarn.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_diagnostic (type, value, warn_only)
+complete_type_or_diagnostic (type, value, diag_type)
      tree type;
      tree value;
-     int warn_only;
+     int diag_type;
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -172,7 +172,7 @@ complete_type_or_diagnostic (type, value, warn_only)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      cxx_incomplete_type_diagnostic (value, type, warn_only);
+      cxx_incomplete_type_diagnostic (value, type, diag_type);
       return NULL_TREE;
     }
   else
@@ -491,7 +491,7 @@ composite_pointer_type (t1, t2, arg1, arg2, location)
     return t1;
  
   /* Deal with pointer-to-member functions in the same way as we deal
-     with pointers to functions. */
+     with pointers to functions.  */
   if (TYPE_PTRMEMFUNC_P (t1))
     t1 = TYPE_PTRMEMFUNC_FN_TYPE (t1);
   if (TYPE_PTRMEMFUNC_P (t2))
@@ -800,11 +800,11 @@ comp_except_specs (t1, t2, exact)
   if (t1 == t2)
     return 1;
   
-  if (t1 == NULL_TREE)              /* T1 is ... */
+  if (t1 == NULL_TREE)              /* T1 is ...  */
     return t2 == NULL_TREE || !exact;
   if (!TREE_VALUE (t1)) /* t1 is EMPTY */
     return t2 != NULL_TREE && !TREE_VALUE (t2);
-  if (t2 == NULL_TREE)              /* T2 is ... */
+  if (t2 == NULL_TREE)              /* T2 is ...  */
     return 0;
   if (TREE_VALUE (t1) && !TREE_VALUE (t2)) /* T2 is EMPTY, T1 is not */
     return !exact;
@@ -1811,7 +1811,7 @@ lookup_anon_field (t, type)
     {
       if (TREE_STATIC (field))
 	continue;
-      if (TREE_CODE (field) != FIELD_DECL)
+      if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
 	continue;
 
       /* If we find it directly, return the field.  */
@@ -1858,6 +1858,27 @@ build_class_member_access_expr (tree object, tree member,
 
   my_friendly_assert (DECL_P (member) || BASELINK_P (member),
 		      20020801);
+
+  /* Transform `(a, b).x' into `a, b.x' and `(a ? b : c).x' into 
+     `a ? b.x : c.x'.  These transformations should not really be
+     necessary, but they are.  */
+  if (TREE_CODE (object) == COMPOUND_EXPR)
+    {
+      result = build_class_member_access_expr (TREE_OPERAND (object, 1),
+					       member, access_path, 
+					       preserve_reference);
+      return build (COMPOUND_EXPR, TREE_TYPE (result), 
+		    TREE_OPERAND (object, 0), result);
+    }
+  else if (TREE_CODE (object) == COND_EXPR)
+    return (build_conditional_expr
+	    (TREE_OPERAND (object, 0),
+	     build_class_member_access_expr (TREE_OPERAND (object, 1),
+					     member, access_path,
+					     preserve_reference),
+	     build_class_member_access_expr (TREE_OPERAND (object, 2),
+					     member, access_path,
+					     preserve_reference)));
 
   /* [expr.ref]
 
@@ -2135,7 +2156,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  if (TREE_CODE (scope) == NAMESPACE_DECL)
 	    {
 	      error ("`%D::%D' is not a member of `%T'", 
-		     scope, member, object_type);
+		     scope, name, object_type);
 	      return error_mark_node;
 	    }
 
@@ -2501,7 +2522,7 @@ build_array_ref (array, idx)
    With the final ISO C++ rules, such an optimization is
    incorrect: A pointer to a derived member can be static_cast
    to pointer-to-base-member, as long as the dynamic object
-   later has the right member. */
+   later has the right member.  */
 
 tree
 get_member_function_from_ptrfunc (instance_ptrptr, function)
@@ -2523,7 +2544,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	    {
 	      /* Extracting the function address from a pmf is only
 		 allowed with -Wno-pmf-conversions. It only works for
-		 pmf constants. */
+		 pmf constants.  */
 	      e1 = build_addr_func (PTRMEM_CST_MEMBER (function));
 	      e1 = convert (fntype, e1);
 	      return e1;
@@ -2562,7 +2583,7 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	}
 
       /* Convert down to the right base before using the instance.  First
-         use the type... */
+         use the type...  */
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
       basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
 			      basetype, ba_check, NULL);
@@ -4247,7 +4268,7 @@ build_unary_op (code, xarg, noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && !lvalue_or_else (arg, "unary `&'"))
+	       && !non_cast_lvalue_or_else (arg, "unary `&'"))
 	return error_mark_node;
 
       if (argtype != error_mark_node)
@@ -4271,7 +4292,7 @@ build_unary_op (code, xarg, noconvert)
 		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
 		     == INTEGER_CST))
 	  {
-	    /* offsetof idiom, fold it. */
+	    /* offsetof idiom, fold it.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4562,7 +4583,7 @@ build_x_compound_expr (list)
 
   if (! TREE_SIDE_EFFECTS (TREE_VALUE (list)))
     {
-      /* FIXME: This test should be in the implicit cast to void of the LHS. */
+      /* FIXME: This test should be in the implicit cast to void of the LHS.  */
       /* the left-hand operand of a comma expression is like an expression
          statement: we should warn if it doesn't have any side-effects,
          unless it was explicitly cast to (void).  */
@@ -4673,12 +4694,12 @@ build_static_cast (type, expr)
       ? can_convert_arg (type, intype, expr)
       : can_convert_arg (strip_all_pointer_quals (type),
                          strip_all_pointer_quals (intype), expr))
-    /* This is a standard conversion. */
+    /* This is a standard conversion.  */
     ok = 1;
   else if (TYPE_PTROB_P (type) && TYPE_PTROB_P (intype))
     {
       /* They're pointers to objects. They must be aggregates that
-         are related non-virtually. */
+         are related non-virtually.  */
       base_kind kind;
       
       if (IS_AGGR_TYPE (TREE_TYPE (type)) && IS_AGGR_TYPE (TREE_TYPE (intype))
@@ -4691,7 +4712,7 @@ build_static_cast (type, expr)
     {
       /* They're pointers to members. The pointed to objects must be
 	 the same (ignoring CV qualifiers), and the containing classes
-	 must be related non-virtually. */
+	 must be related non-virtually.  */
       base_kind kind;
       
       if (same_type_p
@@ -5489,7 +5510,7 @@ get_delta_difference (from, to, force)
       
       if (virt_binfo)
         {
-          /* This is a reinterpret cast, we choose to do nothing. */
+          /* This is a reinterpret cast, we choose to do nothing.  */
           warning ("pointer to member cast via virtual base `%T' of `%T'",
 	              BINFO_TYPE (virt_binfo),
 	              BINFO_TYPE (BINFO_INHERITANCE_CHAIN (virt_binfo)));
@@ -5507,7 +5528,7 @@ get_delta_difference (from, to, force)
   virt_binfo = binfo_from_vbase (binfo);
   if (virt_binfo)
     {
-      /* This is a reinterpret cast, we choose to do nothing. */
+      /* This is a reinterpret cast, we choose to do nothing.  */
       if (force)
         warning ("pointer to member cast via virtual base `%T' of `%T'",
                     BINFO_TYPE (virt_binfo),
@@ -5559,7 +5580,7 @@ build_ptrmemfunc1 (type, delta, pfn)
    as a value in expressions.  TYPE is the POINTER to METHOD_TYPE we
    want to be.
 
-   If FORCE is non-zero, then force this conversion, even if
+   If FORCE is nonzero, then force this conversion, even if
    we would rather not do it.  Usually set when using an explicit
    cast.
 
@@ -5874,7 +5895,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
 }
 
 /* Convert RHS to be of type TYPE.
-   If EXP is non-zero, it is the target of the initialization.
+   If EXP is nonzero, it is the target of the initialization.
    ERRTYPE is a string to use in error messages.
 
    Two major differences between the behavior of
@@ -6024,9 +6045,10 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       else
 	{
 	  tree type = TREE_TYPE (o[i]);
-	  if (CP_TYPE_CONST_P (type)
-	      || (IS_AGGR_TYPE_CODE (TREE_CODE (type))
-		  && C_TYPE_FIELDS_READONLY (type)))
+	  if (type != error_mark_node
+	      && (CP_TYPE_CONST_P (type)
+		  || (IS_AGGR_TYPE_CODE (TREE_CODE (type))
+		      && C_TYPE_FIELDS_READONLY (type))))
 	    readonly_error (o[i], "modification by `asm'", 1);
 	}
     }
@@ -6128,7 +6150,7 @@ check_return_expr (retval)
     {
       if (in_function_try_handler)
 	/* If a return statement appears in a handler of the
-	   function-try-block of a constructor, the program is ill-formed. */
+	   function-try-block of a constructor, the program is ill-formed.  */
 	error ("cannot return from a handler of a function-try-block of a constructor");
       else if (retval)
 	/* You can't return a value from a constructor.  */
@@ -6249,7 +6271,7 @@ check_return_expr (retval)
 
       /* First convert the value to the function's return type, then
 	 to the type of return value's location to handle the
-         case that functype is smaller than the valtype. */
+         case that functype is smaller than the valtype.  */
       retval = convert_for_initialization
 	(NULL_TREE, functype, retval, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
 	 "return", NULL_TREE, 0);
@@ -6276,9 +6298,9 @@ check_return_expr (retval)
 }
 
 
-/* Returns non-zero if the pointer-type FROM can be converted to the
+/* Returns nonzero if the pointer-type FROM can be converted to the
    pointer-type TO via a qualification conversion.  If CONSTP is -1,
-   then we return non-zero if the pointers are similar, and the
+   then we return nonzero if the pointers are similar, and the
    cv-qualification signature of FROM is a proper subset of that of TO.
 
    If CONSTP is positive, then all outer pointers have been
@@ -6442,7 +6464,7 @@ cp_type_quals (type)
   return TYPE_QUALS (type);
 }
 
-/* Returns non-zero if the TYPE contains a mutable member */
+/* Returns nonzero if the TYPE contains a mutable member */
 
 int
 cp_has_mutable_p (type)
@@ -6515,7 +6537,7 @@ casts_away_constness_r (t1, t2)
   *t2 = cp_build_qualified_type (*t2, quals2);
 }
 
-/* Returns non-zero if casting from TYPE1 to TYPE2 casts away
+/* Returns nonzero if casting from TYPE1 to TYPE2 casts away
    constness.  */
 
 static int

@@ -52,6 +52,7 @@
 #define CHAIN_FRAMES (frame_pointer_needed || FRAME_POINTER_REQUIRED)
 
 static int ip2k_naked_function_p PARAMS ((tree));
+#ifdef IP2K_MD_REORG_PASS
 static void mdr_resequence_xy_yx PARAMS ((rtx));
 static void mdr_pres_replace_and_recurse PARAMS ((rtx, rtx, rtx));
 static void mdr_propagate_reg_equivs_sequence PARAMS ((rtx, rtx, rtx));
@@ -59,10 +60,7 @@ static void mdr_propagate_reg_equivs PARAMS ((rtx));
 static int track_dp_reload PARAMS ((rtx , rtx *, int , int));
 static void mdr_try_dp_reload_elim PARAMS ((rtx));
 static void mdr_try_move_dp_reload PARAMS ((rtx));
-static int ip2k_check_can_adjust_stack_ref PARAMS ((rtx, int));
-static void ip2k_adjust_stack_ref PARAMS ((rtx *, int));
 static void mdr_try_move_pushes PARAMS ((rtx));
-static int ip2k_xexp_not_uses_reg_for_mem PARAMS ((rtx, unsigned int));
 static void mdr_try_propagate_clr_sequence PARAMS ((rtx, unsigned int));
 static void mdr_try_propagate_clr PARAMS ((rtx));
 static void mdr_try_propagate_move_sequence PARAMS ((rtx, rtx, rtx));
@@ -70,6 +68,10 @@ static void mdr_try_propagate_move PARAMS ((rtx));
 static void mdr_try_remove_redundant_insns PARAMS ((rtx));
 static int track_w_reload PARAMS ((rtx, rtx *, int , int));
 static void mdr_try_wreg_elim PARAMS ((rtx));
+#endif /* IP2K_MD_REORG_PASS */
+static int ip2k_check_can_adjust_stack_ref PARAMS ((rtx, int));
+static void ip2k_adjust_stack_ref PARAMS ((rtx *, int));
+static int ip2k_xexp_not_uses_reg_for_mem PARAMS ((rtx, unsigned int));
 
 
 /* Initialize the GCC target structure.  */
@@ -156,7 +158,7 @@ ip2k_return_pops_args (fundecl, funtype, size)
   return 0;
 }
 
-/* Return non-zero if FUNC is a naked function.  */
+/* Return nonzero if FUNC is a naked function.  */
 
 static int
 ip2k_naked_function_p (func)
@@ -175,7 +177,7 @@ ip2k_naked_function_p (func)
 void
 function_prologue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int leaf_func_p;
   int main_p;
@@ -297,11 +299,13 @@ function_prologue (file, size)
 void
 function_epilogue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int leaf_func_p;
   int reg,savelimit;
   rtx operands[2];		/* Dummy used by OUT_ASn  */
+  int args_locals_size = current_function_args_size;
+  int saved_regs_p = 0;
   int need_ret = 1;
 
   /* Use this opportunity to reset the reorg flags!  */
@@ -323,41 +327,53 @@ function_epilogue (file, size)
   epilogue_size = 0;
   fprintf (file, "/* epilogue: frame size=%d */\n", size);
 
+  savelimit = (CHAIN_FRAMES) ? REG_FP : (REG_FP + 2);
+  for (reg = 0; reg < savelimit; reg++)
+    if (regs_ever_live[reg] && ! call_used_regs[reg])
+      {
+	saved_regs_p = 1;
+	break;
+      }
+
   if (size)
     {
-      operands[0] = GEN_INT (size);
-
-      switch (size & 0xff)
+      if (leaf_func_p && !CHAIN_FRAMES && !saved_regs_p
+	  && current_function_pops_args)
+	args_locals_size = current_function_args_size + size;
+      else
 	{
-	default:
-	  OUT_AS2 (mov, w, %L0);
-	  OUT_AS2 (add, spl, w);
-	  epilogue_size += 4;
-	  /* fall-thru  */
-	case 0:
-	  break;
-	case 1:
-	  OUT_AS1 (inc, spl);
-	  epilogue_size += 2;
-	}
+	  operands[0] = GEN_INT (size);
 
-      switch (size & 0xff00)
-	{
-	default:
-	  if ((size & 0xff) != ((size >> 8) & 0xff))
-	    OUT_AS2 (mov, w, %H0);
-	  OUT_AS2 (add, sph, w);
-	  epilogue_size += 4;
-	  /* fall-thru  */
-	case 0:
-	  break;
-	case 1:
-	  OUT_AS1 (inc, sph);
-	  epilogue_size += 2;
+	  switch (size & 0xff)
+	    {
+	    default:
+	      OUT_AS2 (mov, w, %L0);
+	      OUT_AS2 (add, spl, w);
+	      epilogue_size += 4;
+	      /* fall-thru  */
+	    case 0:
+	      break;
+	    case 1:
+	      OUT_AS1 (inc, spl);
+	      epilogue_size += 2;
+	    }
+
+	  switch (size & 0xff00)
+	    {
+	    default:
+	      if ((size & 0xff) != ((size >> 8) & 0xff))
+		OUT_AS2 (mov, w, %H0);
+	      OUT_AS2 (add, sph, w);
+	      epilogue_size += 4;
+	      /* fall-thru  */
+	    case 0:
+	      break;
+	    case 0x100:
+	      OUT_AS1 (inc, sph);
+	      epilogue_size += 2;
+	    }
 	}
     }
-
-  savelimit = (CHAIN_FRAMES) ? REG_FP : (REG_FP + 2);
 
   for (reg = 0; reg < savelimit; reg++)
     {
@@ -426,10 +442,10 @@ function_epilogue (file, size)
   else
     {
       if (current_function_pops_args
-          && current_function_args_size >= 2
-          && current_function_args_size < 0x100)
+          && args_locals_size >= 2
+          && args_locals_size < 0x100)
         {
-          if (current_function_args_size == 2)
+          if (args_locals_size == 2)
 	    {
 	      if (CHAIN_FRAMES)
 	        {
@@ -441,7 +457,7 @@ function_epilogue (file, size)
 	    }
           else
 	    {
-	      operands[0] = GEN_INT (current_function_args_size);
+	      operands[0] = GEN_INT (args_locals_size);
 	      if (CHAIN_FRAMES)
 	        {
                   OUT_AS2 (mov, w, %L0);
@@ -454,12 +470,11 @@ function_epilogue (file, size)
         }
     }
   
-  if (current_function_pops_args && current_function_args_size
-      && need_ret)
+  if (current_function_pops_args && args_locals_size && need_ret)
     {
-      operands[0] = GEN_INT (current_function_args_size);
+      operands[0] = GEN_INT (args_locals_size);
 
-      switch (current_function_args_size & 0xff)
+      switch (args_locals_size & 0xff)
         {
         default:
 	  OUT_AS2 (mov, w, %L0);
@@ -475,11 +490,10 @@ function_epilogue (file, size)
 	  epilogue_size += 2;
 	}
 
-      switch (current_function_args_size & 0xff00)
+      switch (args_locals_size & 0xff00)
 	{
 	default:
-	  if ((current_function_args_size & 0xff)
-	      != ((current_function_args_size >> 8) & 0xff))
+	  if ((args_locals_size & 0xff) != ((args_locals_size >> 8) & 0xff))
 	    OUT_AS2 (mov, w, %H0);
 	  OUT_AS2 (add, sph, w);
 	  epilogue_size += 4;
@@ -488,7 +502,7 @@ function_epilogue (file, size)
 	case 0:
 	  break;
 
-	case 1:
+	case 0x100:
 	  OUT_AS1 (inc, sph);
 	  epilogue_size += 2;
 	}
@@ -1060,7 +1074,7 @@ print_operand (file, x, code)
 
 	  REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
 	  REAL_VALUE_TO_TARGET_SINGLE (rv, value);
-	  asm_fprintf (file, "0x%x", value);
+	  fprintf (file, "0x%lx", value);
         }
       break;
 
@@ -1075,25 +1089,6 @@ ip2k_set_compare (x, y)
      rtx x;
      rtx y;
 {
-  /* If we're doing a DImode compare then force any CONST_INT second
-     operand to be CONST_DOUBLE.  */
-  if (GET_MODE (x) == DImode && GET_CODE (y) == CONST_INT)
-    {
-      rtx value;
-      size_t i;
-
-      value = rtx_alloc (CONST_DOUBLE);
-      PUT_MODE (value, VOIDmode);
-
-      CONST_DOUBLE_LOW (value) = INTVAL (y);
-      CONST_DOUBLE_HIGH (value) = INTVAL (y) > 0 ? 0 : -1;
-
-      for (i = 2; i < (sizeof CONST_DOUBLE_FORMAT - 1); i++)
-	XWINT (value, i) = 0;
-      
-      y = value;
-    }
-  
   ip2k_compare_operands[0] = x;
   ip2k_compare_operands[1] = y;
   return "";
@@ -1675,6 +1670,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
   int imm_cmp = 0;
   int can_use_skip = 0;
   rtx ninsn;
+  HOST_WIDE_INT const_low;
+  HOST_WIDE_INT const_high;
 
   operands[2] = label;
 
@@ -1743,7 +1740,7 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
           goto zero;
 
         case GTU:			
-          code = NE;			/* Anything non-zero is GTU.  */
+          code = NE;			/* Anything nonzero is GTU.  */
           /* fall-thru  */
 
         case EQ:
@@ -2332,10 +2329,10 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	    {
 	      if (INTVAL (operands[0]) == 0)
 		{
-                  OUT_AS2 (mov, w, %A0);
-                  OUT_AS2 (or, w, %B0);
-                  OUT_AS2 (or, w, %C0);
-                  OUT_AS2 (or, w, %D0);
+                  OUT_AS2 (mov, w, %A1);
+                  OUT_AS2 (or, w, %B1);
+                  OUT_AS2 (or, w, %C1);
+                  OUT_AS2 (or, w, %D1);
 		  OUT_AS1 (snz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
@@ -2377,10 +2374,10 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	    {
 	      if (INTVAL (operands[0]) == 0)
 	        {
-                  OUT_AS2 (mov, w, %A0);
-                  OUT_AS2 (or, w, %B0);
-                  OUT_AS2 (or, w, %C0);
-                  OUT_AS2 (or, w, %D0);
+                  OUT_AS2 (mov, w, %A1);
+                  OUT_AS2 (or, w, %B1);
+                  OUT_AS2 (or, w, %C1);
+                  OUT_AS2 (or, w, %D1);
 		  OUT_AS1 (sz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
@@ -2465,6 +2462,16 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
       break;
 
     case DImode:
+      if (GET_CODE (operands[1]) == CONST_INT)
+	{
+	  const_low = INTVAL (operands[1]);
+	  const_high = (const_low >= 0) - 1;
+	}
+      else if (GET_CODE (operands[1]) == CONST_DOUBLE)
+	{
+	  const_low = CONST_DOUBLE_LOW (operands[1]);
+	  const_high = CONST_DOUBLE_HIGH (operands[1]);
+	}
       switch (code)
         {
 	case EQ:
@@ -2519,14 +2526,14 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	      {
 		if (imm_cmp)
 		  {
-		    s = (CONST_DOUBLE_HIGH (operands[1]) >> 24) & 0xff;
-		    t = (CONST_DOUBLE_HIGH (operands[1]) >> 16) & 0xff;
-		    u = (CONST_DOUBLE_HIGH (operands[1]) >> 8) & 0xff;
-		    v = CONST_DOUBLE_HIGH (operands[1]) & 0xff;
-		    w = (CONST_DOUBLE_LOW (operands[1]) >> 24) & 0xff;
-		    x = (CONST_DOUBLE_LOW (operands[1]) >> 16) & 0xff;
-		    y = (CONST_DOUBLE_LOW (operands[1]) >> 8) & 0xff;
-		    z = CONST_DOUBLE_LOW (operands[1]) & 0xff;
+		    s = (const_high >> 24) & 0xff;
+		    t = (const_high >> 16) & 0xff;
+		    u = (const_high >> 8) & 0xff;
+		    v = const_high & 0xff;
+		    w = (const_low >> 24) & 0xff;
+		    x = (const_low >> 16) & 0xff;
+		    y = (const_low >> 8) & 0xff;
+		    z = const_low & 0xff;
 		  }
 
 		OUT_AS2 (mov, w, %S1);
@@ -2648,14 +2655,14 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	      {
 		if (imm_cmp)
 		  {
-		    s = (CONST_DOUBLE_HIGH (operands[1]) >> 24) & 0xff;
-		    t = (CONST_DOUBLE_HIGH (operands[1]) >> 16) & 0xff;
-		    u = (CONST_DOUBLE_HIGH (operands[1]) >> 8) & 0xff;
-		    v = CONST_DOUBLE_HIGH (operands[1]) & 0xff;
-		    w = (CONST_DOUBLE_LOW (operands[1]) >> 24) & 0xff;
-		    x = (CONST_DOUBLE_LOW (operands[1]) >> 16) & 0xff;
-		    y = (CONST_DOUBLE_LOW (operands[1]) >> 8) & 0xff;
-		    z = CONST_DOUBLE_LOW (operands[1]) & 0xff;
+		    s = (const_high >> 24) & 0xff;
+		    t = (const_high >> 16) & 0xff;
+		    u = (const_high >> 8) & 0xff;
+		    v = const_high & 0xff;
+		    w = (const_low >> 24) & 0xff;
+		    x = (const_low >> 16) & 0xff;
+		    y = (const_low >> 8) & 0xff;
+		    z = const_low & 0xff;
 		  }
 
 		OUT_AS2 (mov, w, %S1);
@@ -2734,13 +2741,11 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	  if (imm_sub)
 	    {
 	      /* > 0xffffffffffffffff never suceeds!  */
-	      if (((CONST_DOUBLE_HIGH (operands[1]) & 0xffffffff)
-		   != 0xffffffff)
-		  || ((CONST_DOUBLE_LOW (operands[1]) & 0xffffffff)
-		      != 0xffffffff))
+	      if (((const_high & 0xffffffff) != 0xffffffff)
+		  || ((const_low & 0xffffffff) != 0xffffffff))
 		{
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[1]) + 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[1])
+	          operands[3] = GEN_INT (const_low + 1);
+		  operands[4] = GEN_INT (const_high
 					 + (INTVAL (operands[3]) ? 0 : 1));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z0);
@@ -2790,27 +2795,38 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case GEU:
 	  if (imm_sub)
 	    {
-	      if ((CONST_DOUBLE_HIGH (operands[0]) == 0)
-		  && (CONST_DOUBLE_LOW (operands[0]) == 0))
+	      HOST_WIDE_INT const_low0;
+	      HOST_WIDE_INT const_high0;
+	      
+	      if (GET_CODE (operands[0]) == CONST_INT)
 		{
-                  OUT_AS2 (mov, w, %S0);
-                  OUT_AS2 (or, w, %T0);
-                  OUT_AS2 (or, w, %U0);
-                  OUT_AS2 (or, w, %V0);
-                  OUT_AS2 (or, w, %W0);
-                  OUT_AS2 (or, w, %X0);
-                  OUT_AS2 (or, w, %Y0);
-                  OUT_AS2 (or, w, %Z0);
+		  const_low0 = INTVAL (operands[0]);
+		  const_high0 = (const_low >= 0) - 1;
+		}
+	      else if (GET_CODE (operands[0]) == CONST_DOUBLE)
+		{
+		  const_low0 = CONST_DOUBLE_LOW (operands[0]);
+		  const_high0 = CONST_DOUBLE_HIGH (operands[0]);
+		}
+	      
+	      if (const_high0 == 0 && const_low0 == 0)
+		{
+                  OUT_AS2 (mov, w, %S1);
+                  OUT_AS2 (or, w, %T1);
+                  OUT_AS2 (or, w, %U1);
+                  OUT_AS2 (or, w, %V1);
+                  OUT_AS2 (or, w, %W1);
+                  OUT_AS2 (or, w, %X1);
+                  OUT_AS2 (or, w, %Y1);
+                  OUT_AS2 (or, w, %Z1);
 		  OUT_AS1 (snz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
 	      else
 	        {
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[0]) - 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[0])
-					 - (CONST_DOUBLE_LOW (operands[0])
-					    ? 1 : 0));
+	          operands[3] = GEN_INT (const_low0 - 1);
+		  operands[4] = GEN_INT (const_high0 - (const_low0 ? 1 : 0));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z1);
 	          OUT_AS2 (mov, w, %C3);
@@ -2859,27 +2875,38 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case LTU:
 	  if (imm_sub)
 	    {
-	      if ((CONST_DOUBLE_HIGH (operands[0]) == 0)
-		  && (CONST_DOUBLE_LOW (operands[0]) == 0))
+	      HOST_WIDE_INT const_low0;
+	      HOST_WIDE_INT const_high0;
+	      
+	      if (GET_CODE (operands[0]) == CONST_INT)
 		{
-                  OUT_AS2 (mov, w, %S0);
-                  OUT_AS2 (or, w, %T0);
-                  OUT_AS2 (or, w, %U0);
-                  OUT_AS2 (or, w, %V0);
-                  OUT_AS2 (or, w, %W0);
-                  OUT_AS2 (or, w, %X0);
-                  OUT_AS2 (or, w, %Y0);
-                  OUT_AS2 (or, w, %Z0);
+		  const_low0 = INTVAL (operands[0]);
+		  const_high0 = (const_low >= 0) - 1;
+		}
+	      else if (GET_CODE (operands[0]) == CONST_DOUBLE)
+		{
+		  const_low0 = CONST_DOUBLE_LOW (operands[0]);
+		  const_high0 = CONST_DOUBLE_HIGH (operands[0]);
+		}
+	      
+	      if (const_high0 == 0 && const_low0 == 0)
+		{
+                  OUT_AS2 (mov, w, %S1);
+                  OUT_AS2 (or, w, %T1);
+                  OUT_AS2 (or, w, %U1);
+                  OUT_AS2 (or, w, %V1);
+                  OUT_AS2 (or, w, %W1);
+                  OUT_AS2 (or, w, %X1);
+                  OUT_AS2 (or, w, %Y1);
+                  OUT_AS2 (or, w, %Z1);
 		  OUT_AS1 (sz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
 	      else
 	        {
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[0]) - 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[0])
-					 - (CONST_DOUBLE_LOW (operands[0])
-					    ? 1 : 0));
+	          operands[3] = GEN_INT (const_low0 - 1);
+		  operands[4] = GEN_INT (const_high0 - (const_low0 ? 1 : 0));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z1);
 	          OUT_AS2 (mov, w, %C3);
@@ -2928,10 +2955,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case LEU:
 	  if (imm_sub)
 	    {
-	      if (((CONST_DOUBLE_HIGH (operands[1]) & 0xffffffff)
-		   == 0xffffffff)
-		  && ((CONST_DOUBLE_LOW (operands[1]) & 0xffffffff)
-		      == 0xffffffff))
+	      if (((const_high & 0xffffffff) == 0xffffffff)
+		  && ((const_low & 0xffffffff) == 0xffffffff))
 	        {
 		  /* <= 0xffffffffffffffff always suceeds.  */
 		  OUT_AS1 (page, %2);
@@ -2939,8 +2964,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 		}
 	      else
 		{
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[1]) + 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[1])
+	          operands[3] = GEN_INT (const_low + 1);
+		  operands[4] = GEN_INT (const_high
 					 + (INTVAL (operands[3]) ? 0 : 1));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z0);
@@ -3047,7 +3072,7 @@ asm_output_float (file, n)
   char dstr[100];
   
   REAL_VALUE_TO_TARGET_SINGLE (n, val);
-  REAL_VALUE_TO_DECIMAL (n, "%g", dstr);
+  REAL_VALUE_TO_DECIMAL (n, dstr, -1);
   fprintf (file, "\t.long 0x%08lx\t/* %s */\n",val, dstr);
 }
 
@@ -3167,8 +3192,9 @@ valid_machine_decl_attribute (decl, attributes, attr, args)
 /* Encode section information about tree DECL.  */
   
 void
-encode_section_info (decl)
+encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   if (! DECL_P (decl))
     return;
@@ -3355,6 +3381,7 @@ ip2k_address_cost (x)
    much cheaper and the move from this to the original source operand will be
    no more expensive than the original move.  */
 
+#ifdef IP2K_MD_REORG_PASS
 static void
 mdr_resequence_xy_yx (first_insn)
      rtx first_insn;
@@ -4100,9 +4127,10 @@ mdr_try_move_dp_reload (first_insn)
 	}
     }
 }
+#endif /* IP2K_MD_REORG_PASS */
 
 /* Look to see if the expression, x, can have any stack references offset by
-   a fixed constant, offset.  If it definitely can then returns non-zero.  */
+   a fixed constant, offset.  If it definitely can then returns nonzero.  */
 
 static int
 ip2k_check_can_adjust_stack_ref (x, offset)
@@ -4193,6 +4221,7 @@ ip2k_adjust_stack_ref (x, offset)
     }
 }
 
+#ifdef IP2K_MD_REORG_PASS
 /* As part of the machine-dependent reorg we look to move push instructions
    to earlier points within the file.  Moving these out of the way allows more
    peepholes to match.  */
@@ -4636,10 +4665,11 @@ mdr_try_propagate_clr (first_insn)
 	}
     }
 }
+#endif /* IP2K_MD_REORG_PASS */
 
 /* Look to see if the expression, x, does not make any memory references
    via the specified register.  This is very conservative and only returns
-   non-zero if we definitely don't have such a memory ref.  */
+   nonzero if we definitely don't have such a memory ref.  */
 
 static int
 ip2k_xexp_not_uses_reg_for_mem (x, regno)
@@ -4693,6 +4723,7 @@ ip2k_xexp_not_uses_reg_for_mem (x, regno)
     }
 }
 
+#ifdef IP2K_MD_REORG_PASS
 /* Assist the following function, mdr_try_propagate_move().  */
 
 static void
@@ -5249,6 +5280,7 @@ mdr_try_wreg_elim (first_insn)
 
   free (ip2k_we_jump_targets);
 }
+#endif /* IP2K_MD_REORG_PASS */
 
 /* We perform a lot of untangling of the RTL within the reorg pass since
    the IP2k requires some really bizarre (and really undesireable) things
@@ -5258,9 +5290,11 @@ mdr_try_wreg_elim (first_insn)
 
 void
 machine_dependent_reorg (first_insn)
-     rtx first_insn;
+     rtx first_insn ATTRIBUTE_UNUSED;
 {
+#ifdef IP2K_MD_REORG_PASS
   rtx insn, set;
+#endif
 
   CC_STATUS_INIT;
 

@@ -1063,7 +1063,7 @@ estimate_loops_at_level (first_loop)
 static void
 counts_to_freqs ()
 {
-  HOST_WIDEST_INT count_max = 1;
+  gcov_type count_max = 1;
   basic_block bb;
 
   FOR_EACH_BB (bb)
@@ -1247,7 +1247,12 @@ static void
 choose_function_section ()
 {
   if (DECL_SECTION_NAME (current_function_decl)
-      || !targetm.have_named_sections)
+      || !targetm.have_named_sections
+      /* Theoretically we can split the gnu.linkonce text section too,
+ 	 but this requires more work as the frequency needs to match
+	 for all generated objects so we need to merge the frequency
+	 of all instances.  For now just never set frequency for these.  */
+      || !DECL_ONE_ONLY (current_function_decl))
     return;
   if (cfun->function_frequency == FUNCTION_FREQUENCY_HOT)
     DECL_SECTION_NAME (current_function_decl) =

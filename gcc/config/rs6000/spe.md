@@ -483,7 +483,7 @@
         (unspec:V2SI [(match_operand:V2SI 1 "gpc_reg_operand" "r")
 		      (match_operand:QI 2 "immediate_operand" "i")] 519))]
   "TARGET_SPE"
-  "evrlwi %0,%1"
+  "evrlwi %0,%1,%2"
   [(set_attr "type" "vecsimple")
    (set_attr  "length" "4")])
 
@@ -2246,6 +2246,22 @@
 (define_insn "*movv2si_internal"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=m,r,r")
 	(match_operand:V2SI 1 "input_operand" "r,m,r"))]
+  "TARGET_SPE"
+  "@
+   evstdd%X0 %1,%y0
+   evldd%X1 %0,%y1
+   evor %0,%1,%1"
+  [(set_attr "type" "vecload")])
+
+(define_expand "movv1di"
+  [(set (match_operand:V1DI 0 "nonimmediate_operand" "")
+	(match_operand:V1DI 1 "any_operand" ""))]
+  "TARGET_SPE"
+  "{ rs6000_emit_move (operands[0], operands[1], V1DImode); DONE; }")
+
+(define_insn "*movv1di_internal"
+  [(set (match_operand:V1DI 0 "nonimmediate_operand" "=m,r,r")
+	(match_operand:V1DI 1 "input_operand" "r,m,r"))]
   "TARGET_SPE"
   "@
    evstdd%X0 %1,%y0

@@ -342,7 +342,7 @@ scope_to_insns_finalize ()
 
       this_block = INSN_SCOPE (insn);
       /* For sequences compute scope resulting from merging all scopes
-         of instructions nested inside. */
+         of instructions nested inside.  */
       if (GET_CODE (PATTERN (insn)) == SEQUENCE)
 	{
 	  int i;
@@ -740,7 +740,6 @@ duplicate_insn_chain (from, to)
      be reordered later.  */
   for (insn = from; insn != NEXT_INSN (to); insn = NEXT_INSN (insn))
     {
-      rtx new;
       switch (GET_CODE (insn))
 	{
 	case INSN:
@@ -752,7 +751,7 @@ duplicate_insn_chain (from, to)
 	  if (GET_CODE (PATTERN (insn)) == ADDR_VEC
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    break;
-	  new = emit_copy_of_insn_after (insn, get_last_insn ());
+	  emit_copy_of_insn_after (insn, get_last_insn ());
 	  break;
 
 	case CODE_LABEL:

@@ -16,8 +16,11 @@ details.  */
 
 #undef __INSIDE_CYGWIN__
 #include <winsock.h>
+#define IP_TOS 3
 #include <gcj/cni.h>
 #include <java/util/Properties.h>
+
+#include <io.h>
 
 extern void _Jv_platform_initialize (void);
 extern void _Jv_platform_initProperties (java::util::Properties*);

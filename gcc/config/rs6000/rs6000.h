@@ -69,6 +69,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=401: -mppc} \
 %{mcpu=403: -m403} \
 %{mcpu=405: -m405} \
+%{mcpu=405f: -m405} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -160,7 +161,7 @@ extern int target_flags;
 /* Disable use of FPRs.  */
 #define MASK_SOFT_FLOAT		0x00000800
 
-/* Enable load/store multiple, even on powerpc */
+/* Enable load/store multiple, even on PowerPC */
 #define	MASK_MULTIPLE		0x00001000
 #define	MASK_MULTIPLE_SET	0x00002000
 
@@ -522,7 +523,11 @@ extern int rs6000_default_long_calls;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (! TARGET_POWERPC64 ? 4 : 8)
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#else
 #define MIN_UNITS_PER_WORD 4
+#endif
 #define UNITS_PER_FP_WORD 8
 #define UNITS_PER_ALTIVEC_WORD 16
 #define UNITS_PER_SPE_WORD 8
@@ -628,7 +633,7 @@ extern int rs6000_default_long_calls;
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
   (TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* Make strings word-aligned so strcpy from constants will be faster.
@@ -647,7 +652,7 @@ extern int rs6000_default_long_calls;
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
 
-/* Non-zero if move instructions will actually fail to work
+/* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 0
 
@@ -656,7 +661,8 @@ extern int rs6000_default_long_calls;
    emulated in a trap handler.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode)	\
+   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
 /* Standard register usage.  */
@@ -872,6 +878,7 @@ extern int rs6000_default_long_calls;
 #define SPE_VECTOR_MODE(MODE)		\
 	((MODE) == V4HImode          	\
          || (MODE) == V2SFmode          \
+         || (MODE) == V1DImode          \
          || (MODE) == V2SImode)
 
 /* Define this macro to be nonzero if the port is prepared to handle
@@ -1221,8 +1228,8 @@ enum reg_class
    Return 1 if VALUE is in the range specified by C.
 
    `I' is a signed 16-bit constant
-   `J' is a constant with only the high-order 16 bits non-zero
-   `K' is a constant with only the low-order 16 bits non-zero
+   `J' is a constant with only the high-order 16 bits nonzero
+   `K' is a constant with only the low-order 16 bits nonzero
    `L' is a signed 16-bit constant shifted left 16 bits
    `M' is a constant that is greater than 31
    `N' is a positive constant that is an exact power of two
@@ -1689,13 +1696,13 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   function_arg_advance (&CUM, MODE, TYPE, NAMED)
 
-/* Non-zero if we can use a floating-point register to pass this arg.  */
+/* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE) \
   (GET_MODE_CLASS (MODE) == MODE_FLOAT  \
    && (CUM).fregno <= FP_ARG_MAX_REG    \
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
-/* Non-zero if we can use an AltiVec register to pass this arg.  */
+/* Nonzero if we can use an AltiVec register to pass this arg.  */
 #define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE)	\
   (ALTIVEC_VECTOR_MODE (MODE)			\
    && (CUM).vregno <= ALTIVEC_ARG_MAX_REG	\
@@ -1798,10 +1805,6 @@ typedef struct rs6000_args
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
 
-/* We do not allow indirect calls to be optimized into sibling calls, nor
-   do we allow calls with vector parameters.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) function_ok_for_sibcall ((DECL))
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1812,7 +1815,7 @@ typedef struct rs6000_args
    the stack pointer does not matter. No definition is equivalent to
    always zero.
 
-   On the RS/6000, this is non-zero because we can restore the stack from
+   On the RS/6000, this is nonzero because we can restore the stack from
    its backpointer, which we maintain.  */
 #define EXIT_IGNORE_STACK	1
 
@@ -1889,7 +1892,7 @@ typedef struct rs6000_args
 {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
  { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
  { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},	\
- { 30, 30} }
+ { RS6000_PIC_OFFSET_TABLE_REGNUM, RS6000_PIC_OFFSET_TABLE_REGNUM } }
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
@@ -1900,10 +1903,11 @@ typedef struct rs6000_args
    We need r30 if -mminimal-toc was specified, and there are constant pool
    references.  */
 
-#define CAN_ELIMINATE(FROM, TO)					\
- ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM	\
-  ? ! frame_pointer_needed					\
-  : (FROM) == 30 ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0 \
+#define CAN_ELIMINATE(FROM, TO)						\
+ ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM		\
+  ? ! frame_pointer_needed						\
+  : (FROM) == RS6000_PIC_OFFSET_TABLE_REGNUM 				\
+  ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0	\
   : 1)
 
 /* Define the offset between two registers, one to be eliminated, and the other
@@ -1918,16 +1922,13 @@ typedef struct rs6000_args
    (OFFSET) = info->total_size;						\
  else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
    (OFFSET) = (info->push_p) ? info->total_size : 0;			\
-  else if ((FROM) == 30)						\
+  else if ((FROM) == RS6000_PIC_OFFSET_TABLE_REGNUM)			\
     (OFFSET) = 0;							\
   else									\
     abort ();								\
 }
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
@@ -2067,7 +2068,7 @@ typedef struct rs6000_args
       || (TARGET_32BIT						\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
 	  : ! (INTVAL (XEXP (X, 1)) & 3)))			\
-  && ((MODE) != TImode						\
+  && (((MODE) != TFmode && (MODE) != TImode)			\
       || (TARGET_32BIT						\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) 	\
 	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) 	\
@@ -2183,7 +2184,7 @@ do {									     \
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 30
 #define PIC_OFFSET_TABLE_REGNUM (flag_pic ? RS6000_PIC_OFFSET_TABLE_REGNUM : INVALID_REGNUM)
 
-#define TOC_REGISTER (TARGET_MINIMAL_TOC ? 30 : 2)
+#define TOC_REGISTER (TARGET_MINIMAL_TOC ? RS6000_PIC_OFFSET_TABLE_REGNUM : 2)
 
 /* Define this macro if the register defined by
    `PIC_OFFSET_TABLE_REGNUM' is clobbered by calls.  Do not define
@@ -2255,7 +2256,7 @@ do {									     \
 #define MAX_MOVE_MAX 8
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Also non-zero if doing byte operations (specifically shifts) in registers
+   Also nonzero if doing byte operations (specifically shifts) in registers
    is undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 
@@ -2793,14 +2794,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven

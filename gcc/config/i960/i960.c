@@ -100,11 +100,47 @@ static int ret_label = 0;
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Initialize variables before compiling any files.  */
+/* Override conflicting target switch options.
+   Doesn't actually detect if more than one -mARCH option is given, but
+   does handle the case of two blatantly conflicting -mARCH options.
+
+   Also initialize variables before compiling any files.  */
 
 void
 i960_initialize ()
 {
+  if (TARGET_K_SERIES && TARGET_C_SERIES)
+    {
+      warning ("conflicting architectures defined - using C series");
+      target_flags &= ~TARGET_FLAG_K_SERIES;
+    }
+  if (TARGET_K_SERIES && TARGET_MC)
+    {
+      warning ("conflicting architectures defined - using K series");
+      target_flags &= ~TARGET_FLAG_MC;
+    }
+  if (TARGET_C_SERIES && TARGET_MC)
+    {
+      warning ("conflicting architectures defined - using C series");
+      target_flags &= ~TARGET_FLAG_MC;
+    }
+  if (TARGET_IC_COMPAT3_0)
+    {
+      flag_short_enums = 1;
+      flag_signed_char = 1;
+      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;
+      if (TARGET_IC_COMPAT2_0)
+	{
+	  warning ("iC2.0 and iC3.0 are incompatible - using iC3.0");
+	  target_flags &= ~TARGET_FLAG_IC_COMPAT2_0;
+	}
+    }
+  if (TARGET_IC_COMPAT2_0)
+    {
+      flag_signed_char = 1;
+      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;
+    }
+
   if (TARGET_IC_COMPAT2_0)
     {
       i960_maxbitalignment = 8;
@@ -115,6 +151,9 @@ i960_initialize ()
       i960_maxbitalignment = 128;
       i960_last_maxbitalignment = 8;
     }
+
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 /* Return true if OP can be used as the source of an fp move insn.  */
@@ -321,8 +360,8 @@ bitpos (val)
   return -1;
 }
 
-/* Return non-zero if OP is a mask, i.e. all one bits are consecutive.
-   The return value indicates how many consecutive non-zero bits exist
+/* Return nonzero if OP is a mask, i.e. all one bits are consecutive.
+   The return value indicates how many consecutive nonzero bits exist
    if this is a mask.  This is the same as the next function, except that
    it does not indicate what the start and stop bit positions are.  */
 
@@ -764,13 +803,13 @@ i960_output_ldconst (dst, src)
       output_asm_insn ("ldconst	%1,%0", operands);
       return "";
     }
-  else if (mode == XFmode)
+  else if (mode == TFmode)
     {
       REAL_VALUE_TYPE d;
       long value_long[3];
       int i;
 
-      if (fp_literal_zero (src, XFmode))
+      if (fp_literal_zero (src, TFmode))
 	return "movt	0,%0";
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, src);
@@ -1761,7 +1800,7 @@ i960_print_operand (file, x, code)
 	}
 
       REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-      REAL_VALUE_TO_DECIMAL (d, "%#g", dstr);
+      REAL_VALUE_TO_DECIMAL (d, dstr, -1);
       fprintf (file, "0f%s", dstr);
       return;
     }
@@ -2169,7 +2208,7 @@ hard_regno_mode_ok (regno, mode)
 	case DImode: case DFmode:
 	  return (regno & 1) == 0;
 
-	case TImode: case XFmode:
+	case TImode: case TFmode:
 	  return (regno & 3) == 0;
 
 	default:
@@ -2180,7 +2219,7 @@ hard_regno_mode_ok (regno, mode)
     {
       switch (mode)
 	{
-	case SFmode: case DFmode: case XFmode:
+	case SFmode: case DFmode: case TFmode:
 	case SCmode: case DCmode:
 	  return 1;
 
@@ -2358,14 +2397,7 @@ i960_arg_size_and_align (mode, type, size_out, align_out)
     size = (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   if (type == 0)
-    {
-      /* ??? This is a hack to properly correct the alignment of XFmode
-	 values without affecting anything else.  */
-      if (size == 3)
-	align = 4;
-      else
-	align = size;
-    }
+    align = size;
   else if (TYPE_ALIGN (type) >= BITS_PER_WORD)
     align = TYPE_ALIGN (type) / BITS_PER_WORD;
   else
@@ -2464,11 +2496,18 @@ i960_object_bytes_bitalign (n)
                      MIN (pragma align, structure size alignment)).  */
 
 int
-i960_round_align (align, tsize)
+i960_round_align (align, type)
      int align;
-     tree tsize;
+     tree type;
 {
   int new_align;
+  tree tsize;
+
+  if (TARGET_OLD_ALIGN || TYPE_PACKED (type))
+    return align;
+  if (TREE_CODE (type) != RECORD_TYPE)
+    return align;
+  tsize = TYPE_SIZE (type);
 
   if (! tsize || TREE_CODE (tsize) != INTEGER_CST)
     return align;
@@ -2513,16 +2552,20 @@ i960_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (cum->ca_nstackparms == 0 && first_reg < NPARM_REGS && !no_rtl)
     {
       rtx label = gen_label_rtx ();
-      rtx regblock;
+      rtx regblock, fake_arg_pointer_rtx;
 
-      /* If arg_pointer_rtx == 0, no arguments were passed on the stack
+      /* Use a different rtx than arg_pointer_rtx so that cse and friends
+	 can go on believing that the argument pointer can never be zero.  */
+      fake_arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
+
+      /* If the argument pointer is 0, no arguments were passed on the stack
 	 and we need to allocate a chunk to save the registers (if any
 	 arguments were passed on the stack the caller would allocate the
 	 48 bytes as well).  We must allocate all 48 bytes (12*4) because
 	 va_start assumes it.  */
-      emit_insn (gen_cmpsi (arg_pointer_rtx, const0_rtx));
+      emit_insn (gen_cmpsi (fake_arg_pointer_rtx, const0_rtx));
       emit_jump_insn (gen_bne (label));
-      emit_insn (gen_rtx_SET (VOIDmode, arg_pointer_rtx,
+      emit_insn (gen_rtx_SET (VOIDmode, fake_arg_pointer_rtx,
 			      stack_pointer_rtx));
       emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
 			      memory_address (SImode,
@@ -2559,6 +2602,7 @@ i960_va_start (valist, nextarg)
      rtx nextarg ATTRIBUTE_UNUSED;
 {
   tree s, t, base, num;
+  rtx fake_arg_pointer_rtx;
 
   /* The array type always decays to a pointer before we get here, so we
      can't use ARRAY_REF.  */
@@ -2567,7 +2611,10 @@ i960_va_start (valist, nextarg)
 		build (PLUS_EXPR, unsigned_type_node, valist,
 		       TYPE_SIZE_UNIT (TREE_TYPE (valist))));
 
-  s = make_tree (unsigned_type_node, arg_pointer_rtx);
+  /* Use a different rtx than arg_pointer_rtx so that cse and friends
+     can go on believing that the argument pointer can never be zero.  */
+  fake_arg_pointer_rtx = gen_raw_REG (Pmode, ARG_POINTER_REGNUM);
+  s = make_tree (unsigned_type_node, fake_arg_pointer_rtx);
   t = build (MODIFY_EXPR, unsigned_type_node, base, s);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);

@@ -823,11 +823,22 @@ version of GCC in use.
 
 You can add to this list with the @option{-I@var{dir}} command line
 option.  All the directories named by @option{-I} are searched, in
-left-to-right order, @emph{before} the default directories.  You can
-also prevent GCC from searching any of the default directories with the
-@option{-nostdinc} option.  This is useful when you are compiling an
+left-to-right order, @emph{before} the default directories.  The only
+exception is when @file{dir} is already searched by default.  In
+this case, the option is ignored and the search order for system
+directories remains unchanged.
+
+Duplicate directories are removed from the quote and bracket search
+chains before the two chains are merged to make the final search chain.
+Thus, it is possible for a directory to occur twice in the final search
+chain if it was specified in both the quote and bracket chains.
+
+You can prevent GCC from searching any of the default directories with
+the @option{-nostdinc} option.  This is useful when you are compiling an
 operating system kernel or some other program that does not use the
 standard C library facilities, or the standard C library itself.
+@option{-I} options are not ignored as described above when
+@option{-nostdinc} is in effect.
 
 GCC looks for headers requested with @code{@w{#include "@var{file}"}}
 first in the directory containing the current file, then in the same
@@ -835,12 +846,6 @@ places it would have looked for a header requested with angle brackets.
 For example, if @file{/usr/include/sys/stat.h} contains
 @code{@w{#include "types.h"}}, GCC looks for @file{types.h} first in
 @file{/usr/include/sys}, then in its usual search path.
-
-If you name a search directory with @option{-I@var{dir}} that is also a
-system include directory, the @option{-I} wins; the directory will be
-searched according to the @option{-I} ordering, and it will not be
-treated as a system include directory. GCC will warn you when a system
-include directory is hidden in this way.
 
 @samp{#line} (@pxref{Line Control}) does not change GCC's idea of the
 directory containing the current file.
@@ -1074,8 +1079,8 @@ found in that directory will be considered system headers.
 All directories named by @option{-isystem} are searched @emph{after} all
 directories named by @option{-I}, no matter what their order was on the
 command line.  If the same directory is named by both @option{-I} and
-@option{-isystem}, @option{-I} wins; it is as if the @option{-isystem} option
-had never been specified at all. GCC warns you when this happens.
+@option{-isystem}, the @option{-I} option is ignored.  GCC provides an
+informative message when this occurs if @option{-v} is used.
 
 @findex #pragma GCC system_header
 There is also a directive, @code{@w{#pragma GCC system_header}}, which
@@ -1817,9 +1822,7 @@ conformance to the C Standard.  CPP follows the host convention when
 processing system header files, but when processing user files
 @code{__STDC__} is always 1.  This has been reported to cause problems;
 for instance, some versions of Solaris provide X Windows headers that
-expect @code{__STDC__} to be either undefined or 1.  You may be able to
-work around this sort of problem by using an @option{-I} option to
-cancel treatment of those headers as system headers.  @xref{Invocation}.
+expect @code{__STDC__} to be either undefined or 1.  @xref{Invocation}.
 
 @item __STDC_VERSION__
 This macro expands to the C Standard's version number, a long integer
@@ -1969,6 +1972,10 @@ unsigned on the target machine.  It exists to cause the standard header
 file @file{limits.h} to work correctly.  You should not use this macro
 yourself; instead, refer to the standard macros defined in @file{limits.h}.
 
+@item __WCHAR_UNSIGNED__
+Like @code{__CHAR_UNSIGNED__}, this macro is defined if and only if the
+data type @code{wchar_t} is unsigned and the front-end is in C++ mode.
+
 @item __REGISTER_PREFIX__
 This macro expands to a single token (not a string constant) which is
 the prefix applied to CPU register names in assembly language for this
@@ -1999,14 +2006,35 @@ typedefs, respectively.  They exist to make the standard header files
 these macros directly; instead, include the appropriate headers and use
 the typedefs.
 
+@item __CHAR_BIT__
+Defined to the number of bits used in the representation of the
+@code{char} data type.  It exists to make the standard header given
+numerical limits work correctly.  You should not use
+this macro directly; instead, include the appropriate headers.
+
+@item __SCHAR_MAX__
+@itemx __WCHAR_MAX__
+@itemx __SHRT_MAX__
+@itemx __INT_MAX__
+@itemx __LONG_MAX__
+@itemx __LONG_LONG_MAX__
+Defined to the maximum value of the @code{signed char}, @code{wchar_t}, 
+@code{signed short},
+@code{signed int}, @code{signed long}, and @code{signed long long} types
+respectively.  They exist to make the standard header given numerical limits
+work correctly.  You should not use these macros directly; instead, include
+the appropriate headers.
+
 @item __USING_SJLJ_EXCEPTIONS__
 This macro is defined, with value 1, if the compiler uses the old
 mechanism based on @code{setjmp} and @code{longjmp} for exception
 handling.
 
 @item __NEXT_RUNTIME__
-This macro is defined, with value 1, when the NeXT runtime
-(as in @option{-fnext-runtime}) is in use for Objective-C.
+This macro is defined, with value 1, if (and only if) the NeXT runtime
+(as in @option{-fnext-runtime}) is in use for Objective-C.  If the GNU
+runtime is used, this macro is not defined, so that you can use this
+macro to determine which runtime (NeXT or GNU) is being used.
 @end table
 
 @node System-specific Predefined Macros
@@ -3578,11 +3606,11 @@ including extensions, with the exception that the effects of
 __STDC__ is not defined.
 
 @item
-If you use digraphs the behaviour is undefined.
+If you use digraphs the behavior is undefined.
 
 @item
 If a line that looks like a directive appears within macro arguments,
-the behaviour is undefined.
+the behavior is undefined.
 
 @end itemize
 

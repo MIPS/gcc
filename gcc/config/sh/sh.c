@@ -199,6 +199,7 @@ static void sh_insert_attributes PARAMS ((tree, tree *));
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sh_use_dfa_interface PARAMS ((void));
 static int sh_issue_rate PARAMS ((void));
+static bool sh_function_ok_for_sibcall PARAMS ((tree, tree));
 
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
@@ -208,6 +209,8 @@ static const char *sh_strip_name_encoding PARAMS ((const char *));
 static void sh_init_builtins PARAMS ((void));
 static void sh_media_init_builtins PARAMS ((void));
 static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
+static int flow_dependent_p PARAMS ((rtx, rtx));
+static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 
 
 /* Initialize the GCC target structure.  */
@@ -256,6 +259,9 @@ static rtx sh_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 #define TARGET_INIT_BUILTINS sh_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN sh_expand_builtin
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL sh_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1010,12 +1016,12 @@ output_far_jump (insn, op)
   if (far && flag_pic && TARGET_SH2)
     {
       braf_base_lab = gen_label_rtx ();
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (braf_base_lab));
     }
   if (far)
     output_asm_insn (".align	2", 0);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
   this.op = op;
   if (far && flag_pic)
     {
@@ -1074,7 +1080,7 @@ output_branch (logic, insn, operands)
     
 	  output_asm_insn ("bra\t%l0", &op0);
 	  fprintf (asm_out_file, "\tnop\n");
-	  ASM_OUTPUT_INTERNAL_LABEL(asm_out_file, "LF", label);
+	  (*targetm.asm_out.internal_label)(asm_out_file, "LF", label);
     
 	  return "";
 	}
@@ -2506,7 +2512,7 @@ dump_table (scan)
   pool_window_last = 0;
 }
 
-/* Return non-zero if constant would be an ok source for a
+/* Return nonzero if constant would be an ok source for a
    mov.w instead of a mov.l.  */
 
 static int
@@ -2518,7 +2524,7 @@ hi_const (src)
 	  && INTVAL (src) <= 32767);
 }
 
-/* Non-zero if the insn is a move instruction which needs to be fixed.  */
+/* Nonzero if the insn is a move instruction which needs to be fixed.  */
 
 /* ??? For a DImode/DFmode moves, we don't need to fix it if each half of the
    CONST_DOUBLE input value is CONST_OK_FOR_I.  For a SFmode move, we don't
@@ -3860,7 +3866,7 @@ machine_dependent_reorg (first)
   split_branches (first);
 
   /* The INSN_REFERENCES_ARE_DELAYED in sh.h is problematic because it
-     also has an effect on the register that holds the addres of the sfunc.
+     also has an effect on the register that holds the address of the sfunc.
      Insert an extra dummy insn in front of each sfunc that pretends to
      use this register.  */
   if (flag_delayed_branch)
@@ -4172,7 +4178,7 @@ final_prescan_insn (insn, opvec, noperands)
 	    asm_fprintf (asm_out_file, "\t.uses %LL%d\n",
 			 CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else if (GET_CODE (pattern) == SET)
-	    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	    (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				       CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else
 	    abort ();
@@ -4195,7 +4201,7 @@ output_jump_label_table ()
 	{
 	  pool_node *p = &pool_vector[i];
 
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				     CODE_LABEL_NUMBER (p->label));
 	  output_asm_insn (".long	%O0", &p->value);
 	}
@@ -4438,7 +4444,7 @@ calc_live_regs (count_ptr, live_regs_mask)
 		  && pr_live))
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
-	     && reg != T_REG && reg != GBR_REG && reg != FPSCR_REG)
+	     && reg != T_REG && reg != GBR_REG)
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     regs_ever_live[reg] && ! call_used_regs[reg]))
 	{
@@ -5675,6 +5681,11 @@ sh_handle_interrupt_handler_attribute (node, name, args, flags, no_add_attrs)
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
+  else if (TARGET_SHCOMPACT)
+    {
+      error ("attribute interrupt_handler is not compatible with -m5-compact");
+      *no_add_attrs = true;
+    }
 
   return NULL_TREE;
 }
@@ -6422,7 +6433,7 @@ branch_dest (branch)
   return INSN_ADDRESSES (dest_uid);
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels.  It may live past calls or jumps though.  */
 int
@@ -6964,7 +6975,7 @@ sh_can_redirect_branch (branch1, branch2)
   return 0;
 }
 
-/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
 int
 sh_hard_regno_rename_ok (old_reg, new_reg)
      unsigned int old_reg ATTRIBUTE_UNUSED;
@@ -6994,7 +7005,7 @@ sh_adjust_cost (insn, link, dep_insn, cost)
      rtx dep_insn;
      int cost;
 {
-  rtx reg;
+  rtx reg, use_pat;
 
   if (TARGET_SHMEDIA)
     {
@@ -7007,47 +7018,117 @@ sh_adjust_cost (insn, link, dep_insn, cost)
           && get_attr_is_mac_media (dep_insn))
         cost = 1;
     }
-  else if (GET_CODE(insn) == CALL_INSN)
+  else if (REG_NOTE_KIND (link) == 0)
     {
+      enum attr_type dep_type, type;
+
+      if (recog_memoized (insn) < 0
+	  || recog_memoized (dep_insn) < 0)
+	return;
+
+      dep_type = get_attr_type (dep_insn);
+      if (dep_type == TYPE_FLOAD || dep_type == TYPE_PCFLOAD)
+	cost--;
+      if ((dep_type == TYPE_LOAD_SI || dep_type == TYPE_PCLOAD_SI)
+	  && (type = get_attr_type (insn)) != TYPE_CALL
+	  && type != TYPE_SFUNC)
+	cost--;
+
       /* The only input for a call that is timing-critical is the
 	 function's address.  */
-      rtx call = PATTERN (insn);
+      if (GET_CODE(insn) == CALL_INSN)
+	{
+	  rtx call = PATTERN (insn);
 
-      if (GET_CODE (call) == PARALLEL)
-	call = XVECEXP (call, 0 ,0);
-      if (GET_CODE (call) == SET)
-	call = SET_SRC (call);
-      if (GET_CODE (call) == CALL && GET_CODE (XEXP (call, 0)) == MEM
-	  && ! reg_set_p (XEXP (XEXP (call, 0), 0), dep_insn))
-	cost = 0;
-    }
-  /* All sfunc calls are parallels with at least four components.
-     Exploit this to avoid unnecessary calls to sfunc_uses_reg.  */
-  else if (GET_CODE (PATTERN (insn)) == PARALLEL
-	   && XVECLEN (PATTERN (insn), 0) >= 4
-	   && (reg = sfunc_uses_reg (insn)))
-    {
+	  if (GET_CODE (call) == PARALLEL)
+	    call = XVECEXP (call, 0 ,0);
+	  if (GET_CODE (call) == SET)
+	    call = SET_SRC (call);
+	  if (GET_CODE (call) == CALL && GET_CODE (XEXP (call, 0)) == MEM
+	      && ! reg_set_p (XEXP (XEXP (call, 0), 0), dep_insn))
+	    cost = 0;
+	}
       /* Likewise, the most timing critical input for an sfuncs call
 	 is the function address.  However, sfuncs typically start
 	 using their arguments pretty quickly.
 	 Assume a four cycle delay before they are needed.  */
-      if (! reg_set_p (reg, dep_insn))
-	cost -= TARGET_SUPERSCALAR ? 40 : 4;
+      /* All sfunc calls are parallels with at least four components.
+	 Exploit this to avoid unnecessary calls to sfunc_uses_reg.  */
+      else if (GET_CODE (PATTERN (insn)) == PARALLEL
+	       && XVECLEN (PATTERN (insn), 0) >= 4
+	       && (reg = sfunc_uses_reg (insn)))
+	{
+	  if (! reg_set_p (reg, dep_insn))
+	    cost -= 4;
+	}
+      /* When the preceding instruction loads the shift amount of
+	 the following SHAD/SHLD, the latency of the load is increased
+	 by 1 cycle.  */
+      else if (TARGET_SH4
+	       && get_attr_type (insn) == TYPE_DYN_SHIFT
+	       && get_attr_any_int_load (dep_insn) == ANY_INT_LOAD_YES
+	       && reg_overlap_mentioned_p (SET_DEST (PATTERN (dep_insn)),
+					   XEXP (SET_SRC (single_set(insn)),
+						 1)))
+	cost++;
+      /* When an LS group instruction with a latency of less than
+	 3 cycles is followed by a double-precision floating-point
+	 instruction, FIPR, or FTRV, the latency of the first
+	 instruction is increased to 3 cycles.  */
+      else if (cost < 3
+	       && get_attr_insn_class (dep_insn) == INSN_CLASS_LS_GROUP
+	       && get_attr_dfp_comp (insn) == DFP_COMP_YES)
+	cost = 3;
+      /* The lsw register of a double-precision computation is ready one
+	 cycle earlier.  */
+      else if (reload_completed
+	       && get_attr_dfp_comp (dep_insn) == DFP_COMP_YES
+	       && (use_pat = single_set (insn))
+	       && ! regno_use_in (REGNO (SET_DEST (single_set (dep_insn))),
+				  SET_SRC (use_pat)))
+	cost -= 1;
+
+      if (get_attr_any_fp_comp (dep_insn) == ANY_FP_COMP_YES
+	  && get_attr_late_fp_use (insn) == LATE_FP_USE_YES)
+	cost -= 1;
     }
-  /* Adjust load_si / pcload_si type insns latency.  Use the known
-     nominal latency and form of the insn to speed up the check.  */
-  else if (cost == 3
-	   && GET_CODE (PATTERN (dep_insn)) == SET
-	   /* Latency for dmpy type insns is also 3, so check the that
-	      it's actually a move insn.  */
-	   && general_movsrc_operand (SET_SRC (PATTERN (dep_insn)), SImode))
+  /* An anti-dependence penalty of two applies if the first insn is a double
+     precision fadd / fsub / fmul.  */
+  else if (REG_NOTE_KIND (link) == REG_DEP_ANTI
+	   && recog_memoized (dep_insn) >= 0
+	   && get_attr_type (dep_insn) == TYPE_DFP_ARITH
+	   /* A lot of alleged anti-flow dependences are fake,
+	      so check this one is real.  */
+	   && flow_dependent_p (dep_insn, insn))
     cost = 2;
-  else if (cost == 30
-	   && GET_CODE (PATTERN (dep_insn)) == SET
-	   && GET_MODE (SET_SRC (PATTERN (dep_insn))) == SImode)
-    cost = 20;
+
 
   return cost;
+}
+
+/* Check if INSN is flow-dependent on DEP_INSN.  Can also be used to check
+   if DEP_INSN is anti-flow dependent on INSN.  */
+static int
+flow_dependent_p (insn, dep_insn)
+     rtx insn, dep_insn;
+{
+  rtx tmp = PATTERN (insn);
+
+  note_stores (PATTERN (dep_insn), flow_dependent_p_1, &tmp);
+  return tmp == NULL_RTX;
+}
+
+/* A helper function for flow_dependent_p called through note_stores.  */
+static void
+flow_dependent_p_1 (x, pat, data)
+     rtx x;
+     rtx pat ATTRIBUTE_UNUSED;
+     void *data;
+{
+  rtx * pinsn = (rtx *) data;
+
+  if (*pinsn && reg_referenced_p (x, *pinsn))
+    *pinsn = NULL_RTX;
 }
 
 /* For use by ALLOCATE_INITIAL_VALUE.  Note that sh.md contains some
@@ -7060,27 +7141,26 @@ sh_pr_n_sets ()
   return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
-/* This Function Returns non zero if DFA based scheduler
-   interface is to be used.At present supported only for
-   SH4.  */
+/* This Function returns nonzero if the DFA based scheduler interface
+   is to be used.  At present this is supported for the SH4 only.  */
 static int
 sh_use_dfa_interface()
 {
-        if (TARGET_SH4)
-                return 1;
-        else
-                return 0;
+  if (TARGET_HARD_SH4)
+    return 1;
+  else
+    return 0;
 }
 
-/* This function returns "2" that signifies dual issue 
-   for SH4 processor.To be used by DFA pipeline description.  */
+/* This function returns "2" to indicate dual issue for the SH4
+   processor.  To be used by the DFA pipeline description.  */
 static int
 sh_issue_rate()
 {
-	if(TARGET_SH4)
-		return 2;
-	else
-		return 1;
+  if (TARGET_SUPERSCALAR)
+    return 2;
+  else
+    return 1;
 }
 
 /* SHmedia requires registers for branches, so we can't generate new
@@ -7225,7 +7305,7 @@ sh_initialize_trampoline (tramp, fnaddr, cxt)
       src = gen_rtx_MEM (BLKmode, tramp_templ);
       set_mem_align (dst, 256);
       set_mem_align (src, 64);
-      emit_block_move (dst, src, GEN_INT (fixed_len));
+      emit_block_move (dst, src, GEN_INT (fixed_len), BLOCK_OP_NORMAL);
 
       emit_move_insn (gen_rtx_MEM (Pmode, plus_constant (tramp,	fixed_len)),
 		      fnaddr);
@@ -7307,6 +7387,19 @@ sh_initialize_trampoline (tramp, fnaddr, cxt)
     }
 }
 
+/* FIXME: This is overly conservative.  A SHcompact function that
+   receives arguments ``by reference'' will have them stored in its
+   own stack frame, so it must not pass pointers or references to
+   these arguments to other functions by means of sibling calls.  */
+static bool
+sh_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return (decl 
+	  && (! TARGET_SHCOMPACT
+	      || current_function_args_info.stack_regs == 0));
+}
 
 /* Machine specific built-in functions.  */
 
@@ -7576,6 +7669,8 @@ sh_expand_builtin (exp, target, subtarget, mode, ignore)
       if (! signature_args[signature][i])
 	break;
       arg = TREE_VALUE (arglist);
+      if (arg == error_mark_node)
+	return const0_rtx;
       arglist = TREE_CHAIN (arglist);
       opmode = insn_data[icode].operand[nop].mode;
       argmode = TYPE_MODE (TREE_TYPE (arg));

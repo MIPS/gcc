@@ -54,21 +54,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 # define CPP_PREDEFINES ""
 #endif
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable or function named NAME.
+/* Store in OUTPUT a string (made with alloca) containing an
+   assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
 
+#ifndef ASM_PN_FORMAT
+# ifndef NO_DOT_IN_LABEL
+#  define ASM_PN_FORMAT "%s.%lu"
+# else
+#  ifndef NO_DOLLAR_IN_LABEL
+#   define ASM_PN_FORMAT "%s$%lu"
+#  else
+#   define ASM_PN_FORMAT "__%s_%lu"
+#  endif
+# endif
+#endif /* ! ASM_PN_FORMAT */
+
 #ifndef ASM_FORMAT_PRIVATE_NAME
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-  do {									\
-    int len = strlen (NAME);						\
-    char *temp = (char *) alloca (len + 3);				\
-    temp[0] = 'L';							\
-    strcpy (&temp[1], (NAME));						\
-    temp[len + 1] = '.';						\
-    temp[len + 2] = 0;							\
-    (OUTPUT) = (char *) alloca (strlen (NAME) + 11);			\
-    ASM_GENERATE_INTERNAL_LABEL (OUTPUT, temp, LABELNO);		\
+# define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
+  do { const char *const name_ = (NAME); \
+       char *const output_ = (OUTPUT) = (char *) alloca (strlen (name_) + 32);\
+       sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
 
@@ -82,7 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
 do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
-     ASM_OUTPUT_INTERNAL_LABEL (FILE, "L", (VALUE));			\
+     (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
 #endif
@@ -154,26 +160,13 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #define ASM_OUTPUT_LABELREF(FILE,NAME)  asm_fprintf ((FILE), "%U%s", (NAME))
 #endif
 
-/* A C statement (sans semicolon) to output to the stdio stream FILE
-   some commands that will make the label NAME global; that is,
-   available for reference from other files.  */
-
-#if !defined(ASM_GLOBALIZE_LABEL) && defined(GLOBAL_ASM_OP)
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)		\
-  do {						\
-      fputs (GLOBAL_ASM_OP, (FILE));		\
-      assemble_name ((FILE), (NAME));		\
-      fputc ('\n', (FILE));			\
-  } while (0)
-#endif
-
 /* Allow target to print debug info labels specially.  This is useful for
    VLIW targets, since debug info labels should go into the middle of
    instruction bundles instead of breaking them.  */
 
 #ifndef ASM_OUTPUT_DEBUG_LABEL
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM)
+  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM)
 #endif
 
 /* This is how we tell the assembler that a symbol is weak.  */
@@ -251,6 +244,11 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #else
 #define SUPPORTS_ONE_ONLY 0
 #endif
+#endif
+
+/* By default, there is no prefix on user-defined symbols.  */
+#ifndef USER_LABEL_PREFIX
+#define USER_LABEL_PREFIX ""
 #endif
 
 /* If the target supports weak symbols, define TARGET_ATTRIBUTE_WEAK to
@@ -438,7 +436,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #endif
 
 /* By default, the C++ compiler will use function addresses in the
-   vtable entries.  Setting this non-zero tells the compiler to use
+   vtable entries.  Setting this nonzero tells the compiler to use
    function descriptors instead.  The value of this macro says how
    many words wide the descriptor is (normally 2).  It is assumed 
    that the address of a function descriptor may be treated as a
@@ -450,7 +448,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 /* By default, the vtable entries are void pointers, the so the alignment
    is the same as pointer alignment.  The value of this macro specifies
    the alignment of the vtable entry in bits.  It should be defined only
-   when special alignment is necessary. */
+   when special alignment is necessary.  */
 #ifndef TARGET_VTABLE_ENTRY_ALIGN
 #define TARGET_VTABLE_ENTRY_ALIGN POINTER_SIZE
 #endif
@@ -531,6 +529,18 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
 #endif
 
+/* Define codes for all the float formats that we know of.  */
+#define UNKNOWN_FLOAT_FORMAT 0
+#define IEEE_FLOAT_FORMAT 1
+#define VAX_FLOAT_FORMAT 2
+#define IBM_FLOAT_FORMAT 3
+#define C4X_FLOAT_FORMAT 4
+
+/* Default to IEEE float if not specified.  Nearly all machines use it.  */
+#ifndef TARGET_FLOAT_FORMAT
+#define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
@@ -572,6 +582,17 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    && !ROUND_TOWARDS_ZERO)
 #endif
 
+/* If FLOAT_WORDS_BIG_ENDIAN and HOST_FLOAT_WORDS_BIG_ENDIAN are not defined
+   in the header files, then this implies the word-endianness is the same as
+   for integers.  */
+#ifndef FLOAT_WORDS_BIG_ENDIAN
+#define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
+#endif
+
+#ifndef TARGET_FLT_EVAL_METHOD
+#define TARGET_FLT_EVAL_METHOD 0
+#endif
+
 #ifndef HOT_TEXT_SECTION_NAME
 #define HOT_TEXT_SECTION_NAME "text.hot"
 #endif
@@ -585,7 +606,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
-   register C++ destructors for local statics and global objects. */
+   register C++ destructors for local statics and global objects.  */
 #ifndef DEFAULT_USE_CXA_ATEXIT
 #define DEFAULT_USE_CXA_ATEXIT 0
 #endif

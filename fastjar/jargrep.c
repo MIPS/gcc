@@ -126,7 +126,7 @@ will test some other platforms later.
 void version(void);
 void help(const char *name);
 
-#define Usage "Usage: %s [-bcinsw] <-e PATTERN | PATTERN> FILE ...\n"
+#define Usage "Usage: %s [-bcinsVw] [--version|--help] <-e PATTERN | PATTERN> FILE ...\n"
 
 /*
 Function name: opt_valid
@@ -373,7 +373,6 @@ returns: TRUE if it is a word, FALSE of it is a substring.
 
 static int chk_wrd(regex_t *exp, const char *str) {
 	int wrd_fnd = FALSE;
-	int regflag;
 	int frnt_ok;
 	int bck_ok;
 	const char *str2;
@@ -381,7 +380,7 @@ static int chk_wrd(regex_t *exp, const char *str) {
 
 	str2 = str;
 	frnt_ok = bck_ok = FALSE;
-	while(!wrd_fnd && !(regflag = regexec(exp, str2, 1, &match, 0))) {
+	while(!wrd_fnd && !regexec(exp, str2, 1, &match, 0)) {
 		if(!match.rm_so && (str2 == str)) frnt_ok = TRUE;
 		else if(!isalnum((unsigned char)str2[match.rm_so - 1])
 			&& str2[match.rm_so - 1] != '_')
@@ -769,7 +768,9 @@ Search files in a jar file for a pattern.\n\
    -n                print line number of each match\n\
    -s                suppress error messages\n\
    -w                force PATTERN to match only whole words\n\
-   -e PATTERN        use PATTERN as regular exprssion\n\
+   -e PATTERN        use PATTERN as regular expression\n\
+   -V|--version      print version number and exit\n\
+   --help            print help\n\
 ");
 
   exit (0);

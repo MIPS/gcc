@@ -140,7 +140,7 @@ doloop_condition_get (pattern)
 
 /* Return an estimate of the maximum number of loop iterations for the
    loop specified by LOOP or zero if the loop is not normal.
-   MODE is the mode of the iteration count and NONNEG is non-zero if
+   MODE is the mode of the iteration count and NONNEG is nonzero if
    the iteration count has been proved to be non-negative.  */
 static unsigned HOST_WIDE_INT
 doloop_iterations_max (loop_info, mode, nonneg)
@@ -249,7 +249,7 @@ doloop_iterations_max (loop_info, mode, nonneg)
 }
 
 
-/* Return non-zero if the loop specified by LOOP is suitable for
+/* Return nonzero if the loop specified by LOOP is suitable for
    the use of special low-overhead looping instructions.  */
 static int
 doloop_valid_p (loop, jump_insn)
@@ -339,6 +339,7 @@ doloop_valid_p (loop, jump_insn)
      condition at run-time and have an additional jump around the loop
      to ensure an infinite loop.  */
   if (loop_info->comparison_code == NE
+      && !loop_info->preconditioned
       && INTVAL (loop_info->increment) != -1
       && INTVAL (loop_info->increment) != 1)
     {
@@ -367,7 +368,7 @@ doloop_valid_p (loop, jump_insn)
 	 If the absolute increment is not 1, the loop can be infinite
 	 even with LTU/GTU, e.g. for (i = 3; i > 0; i -= 2)
 
-	 Note that with LE and GE, the loop behaviour is undefined
+	 Note that with LE and GE, the loop behavior is undefined
 	 (C++ standard section 5 clause 5) if an overflow occurs, say
 	 between INT_MAX and INT_MAX + 1.  We thus don't have to worry
 	 about these two cases.
@@ -375,7 +376,7 @@ doloop_valid_p (loop, jump_insn)
 	 ??? We could compute these conditions at run-time and have a
 	 additional jump around the loop to ensure an infinite loop.
 	 However, it is very unlikely that this is the intended
-	 behaviour of the loop and checking for these rare boundary
+	 behavior of the loop and checking for these rare boundary
 	 conditions would pessimize all other code.
 
 	 If the loop is executed only a few times an extra check to
@@ -399,7 +400,7 @@ doloop_valid_p (loop, jump_insn)
    number of loop iterations, ITERATIONS_MAX is a CONST_INT specifying
    the maximum number of loop iterations, and DOLOOP_INSN is the
    low-overhead looping insn to emit at the end of the loop.  This
-   returns non-zero if it was successful.  */
+   returns nonzero if it was successful.  */
 static int
 doloop_modify (loop, iterations, iterations_max,
 	       doloop_seq, start_label, condition)
@@ -539,7 +540,7 @@ doloop_modify (loop, iterations, iterations_max,
    not present, we emit one.  The loop to modify is described by LOOP.
    ITERATIONS_MAX is a CONST_INT specifying the estimated maximum
    number of loop iterations.  DOLOOP_INSN is the low-overhead looping
-   insn to insert.  Returns non-zero if loop successfully modified.  */
+   insn to insert.  Returns nonzero if loop successfully modified.  */
 static int
 doloop_modify_runtime (loop, iterations_max,
 		       doloop_seq, start_label, mode, condition)
@@ -668,8 +669,8 @@ doloop_modify_runtime (loop, iterations_max,
 	    fprintf (loop_dump_stream,
 	         "Doloop: Basic induction var skips initial incr.\n");
 
-	  diff = expand_simple_binop (mode, PLUS, diff, increment, diff,
-				      unsigned_p, OPTAB_LIB_WIDEN);
+	  diff = expand_simple_binop (mode, PLUS, diff, GEN_INT (abs_inc),
+				      diff, unsigned_p, OPTAB_LIB_WIDEN);
 	}
     }
 
@@ -749,7 +750,7 @@ doloop_modify_runtime (loop, iterations_max,
    suitable.  We distinguish between loops with compile-time bounds
    and those with run-time bounds.  Information from LOOP is used to
    compute the number of iterations and to determine whether the loop
-   is a candidate for this optimization.  Returns non-zero if loop
+   is a candidate for this optimization.  Returns nonzero if loop
    successfully modified.  */
 int
 doloop_optimize (loop)

@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Compile for the floating point unit & 32532 by default;
    Don't assume SB is zero;
-   Don't use bitfield instructions;
+   Don't use bit-field instructions;
    FPU is 32381;
    Use multiply-add instructions */
 
@@ -88,7 +88,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is BSD, so it wants DBX format.  */
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Do not break .stabs pseudos into continuations.  */
 

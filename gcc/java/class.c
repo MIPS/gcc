@@ -75,7 +75,7 @@ typedef struct assume_compiled_node_struct
   /* The class or package name.  */
   const char *ident;
 
-  /* Non-zero if this represents an exclusion.  */
+  /* Nonzero if this represents an exclusion.  */
   int excludep;
 
   /* Pointers to other nodes in the tree.  */
@@ -141,7 +141,7 @@ find_assume_compiled_node (node, ident)
 }
 
 /* Add a new IDENT to the include/exclude tree.  It's an exclusion
-   if EXCLUDEP is non-zero.  */
+   if EXCLUDEP is nonzero.  */
 
 void
 add_assume_compiled (ident, excludep)
@@ -192,7 +192,7 @@ add_assume_compiled (ident, excludep)
   parent->child = node;
 }
 
-/* Returns non-zero if IDENT is the name of a class that the compiler
+/* Returns nonzero if IDENT is the name of a class that the compiler
    should assume has been compiled to FIXME  */
 
 static int
@@ -2269,7 +2269,7 @@ static int java_treetreehash_compare PARAMS ((const void *, const void *));
 
 /* A hash table mapping trees to trees.  Used generally.  */
 
-#define JAVA_TREEHASHHASH_H(t) ((hashval_t) (t))
+#define JAVA_TREEHASHHASH_H(t) (htab_hash_pointer (t))
 
 static hashval_t
 java_treetreehash_hash (k_p)

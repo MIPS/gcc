@@ -540,7 +540,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_REINTCAST */	REINTERPRET_CAST,
   /* RID_STATCAST */	STATIC_CAST,
 
-  /* Objective C */
+  /* Objective-C */
   /* RID_ID */			0,
   /* RID_AT_ENCODE */		0,
   /* RID_AT_END */		0,
@@ -1073,7 +1073,7 @@ do_pending_lang_change ()
     pop_lang_context ();
 }
 
-/* Return true if d is in a global scope. */
+/* Return true if d is in a global scope.  */
 
 static int
 is_global (d)

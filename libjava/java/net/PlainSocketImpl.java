@@ -28,11 +28,17 @@ class PlainSocketImpl extends SocketImpl
   static final int _Jv_TCP_NODELAY_ = SocketOptions.TCP_NODELAY,
                    _Jv_SO_BINDADDR_ = SocketOptions.SO_BINDADDR,
                    _Jv_SO_REUSEADDR_ = SocketOptions.SO_REUSEADDR,
-		   _Jv_IP_MULTICAST_IF_ = SocketOptions.IP_MULTICAST_IF,
+                   _Jv_SO_BROADCAST_ = SocketOptions.SO_BROADCAST,
+                   _Jv_SO_OOBINLINE_ = SocketOptions.SO_OOBINLINE,
+                   _Jv_IP_MULTICAST_IF_ = SocketOptions.IP_MULTICAST_IF,
+                   _Jv_IP_MULTICAST_IF2_ = SocketOptions.IP_MULTICAST_IF2,
+                   _Jv_IP_MULTICAST_LOOP_ = SocketOptions.IP_MULTICAST_LOOP,
+                   _Jv_IP_TOS_ = SocketOptions.IP_TOS,
                    _Jv_SO_LINGER_ = SocketOptions.SO_LINGER,
                    _Jv_SO_TIMEOUT_ = SocketOptions.SO_TIMEOUT,
                    _Jv_SO_SNDBUF_ = SocketOptions.SO_SNDBUF,
-                   _Jv_SO_RCVBUF_ = SocketOptions.SO_RCVBUF;
+                   _Jv_SO_RCVBUF_ = SocketOptions.SO_RCVBUF,
+                   _Jv_SO_KEEPALIVE_ = SocketOptions.SO_KEEPALIVE;
 
   /**
    * The OS file handle representing the socket.
@@ -53,14 +59,23 @@ class PlainSocketImpl extends SocketImpl
 
   public native Object getOption(int optID) throws SocketException;
 
+  public native void shutdownInput () throws IOException;
+
+  public native void shutdownOutput () throws IOException;
+
   protected native void create (boolean stream)  throws IOException;
 
   protected void connect (String host, int port) throws IOException
   {
-    connect(InetAddress.getByName(host), port);
+    connect (new InetSocketAddress (InetAddress.getByName(host), port), 0);
   }
 
-  protected native void connect (InetAddress host, int port)
+  protected void connect (InetAddress host, int port) throws IOException
+  {
+    connect (new InetSocketAddress (host, port), 0);
+  }
+
+  protected native void connect (SocketAddress addr, int timeout)
     throws IOException;
 
   protected native void bind (InetAddress host, int port) throws IOException;
@@ -78,6 +93,8 @@ class PlainSocketImpl extends SocketImpl
 
   protected native void close () throws IOException;
 
+  protected native void sendUrgentData(int data)
+    throws IOException;
 
   // Stream handling.
 

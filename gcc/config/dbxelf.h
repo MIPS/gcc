@@ -27,8 +27,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Output DBX (stabs) debugging information if doing -gstabs.  */
 
-#undef  DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Make LBRAC and RBRAC addresses relative to the start of the
    function.  The native Solaris stabs debugging format works this
@@ -70,7 +69,7 @@ do									\
     assemble_name (FILE,						\
 		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
     putc ('\n', FILE);							\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);			\
+    (*targetm.asm_out.internal_label) (FILE, "LM", sym_lineno);			\
     sym_lineno += 1;							\
   }									\
 while (0)

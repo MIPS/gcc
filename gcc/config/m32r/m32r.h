@@ -185,7 +185,7 @@ Boston, MA 02111-1307, USA.  */
 
 extern int target_flags;
 
-/* If non-zero, tell the linker to do relaxing.
+/* If nonzero, tell the linker to do relaxing.
    We don't do anything with the option, other than recognize it.
    LINK_SPEC handles passing -relax to the linker.
    This can cause incorrect debugging information as line numbers may
@@ -480,7 +480,7 @@ extern enum m32r_sdata m32r_sdata;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -972,7 +972,7 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
  { ARG_POINTER_REGNUM,	 STACK_POINTER_REGNUM },	\
  { ARG_POINTER_REGNUM,   FRAME_POINTER_REGNUM }}
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -1414,7 +1414,7 @@ do {									\
 
 /* Condition code usage.  */
 
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
+/* Return nonzero if SELECT_CC_MODE will never return MODE for a
    floating point inequality comparison.  */
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 
@@ -1694,17 +1694,6 @@ sbss_section ()								\
     }									\
   while (0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-  do							\
-    {							\
-      (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10);\
-      sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO));	\
-    }							\
-  while (0)
-
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 #ifndef SUBTARGET_REGISTER_NAMES
@@ -1852,7 +1841,7 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
   do								\
     {								\
-      ASM_GLOBALIZE_LABEL (FILE, NAME);				\
+      (*targetm.asm_out.globalize_label) (FILE, NAME);		\
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
     }								\
   while (0)
@@ -1860,13 +1849,9 @@ extern char m32r_punct_chars[256];
 /* Debugging information.  */
 
 /* Generate DBX and DWARF debugging information.  */
-#undef	DBX_DEBUGGING_INFO
-#undef	DWARF_DEBUGGING_INFO
-#undef	DWARF2_DEBUGGING_INFO
-
-#define DBX_DEBUGGING_INFO
-#define DWARF_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define DWARF_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef  PREFERRED_DEBUGGING_TYPE

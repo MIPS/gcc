@@ -94,10 +94,6 @@ extern int target_flags;
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1 
 
-/* The current function count for create unique internal labels.  */
-
-extern int s390_function_count;
-
 /* The amount of space used for outgoing arguments.  */
 
 extern int current_function_outgoing_args_size;
@@ -860,12 +856,6 @@ CUMULATIVE_ARGS;
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
-
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
-
 /* These assume that REGNO is a hard or pseudo reg number.  They give
    nonzero only if REGNO is a hard reg of the suitable class or a pseudo
    reg currently allocated to a suitable hard reg.
@@ -1039,10 +1029,23 @@ CUMULATIVE_ARGS;
 
 #define DEFAULT_SIGNED_CHAR 0
 
-/* Max number of bytes we can move from memory to memory in one reasonably
-   fast instruction.  */
+/* The maximum number of bytes that a single instruction can move quickly
+   between memory and registers or between two memory locations. */
 
-#define MOVE_MAX 256
+#define MOVE_MAX (TARGET_64BIT ? 16 : 8)
+#define MAX_MOVE_MAX 16
+
+/* Determine whether to use move_by_pieces or block move insn.  */
+
+#define MOVE_BY_PIECES_P(SIZE, ALIGN)		\
+  ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
+    || (TARGET_64BIT && (SIZE) == 8) )
+
+/* Determine whether to use clear_by_pieces or block clear insn.  */
+
+#define CLEAR_BY_PIECES_P(SIZE, ALIGN)		\
+  ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
+    || (TARGET_64BIT && (SIZE) == 8) )
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 
@@ -1136,17 +1139,17 @@ CUMULATIVE_ARGS;
   case MINUS:                                                           \
   case NEG:                                                             \
   case NOT:                                                             \
-          return 1;                                                     \
+    return COSTS_N_INSNS (1);                                           \
   case MULT:                                                            \
     if (GET_MODE (XEXP (X, 0)) == DImode)                               \
-      return 40;                                                        \
-        else                                                            \
-      return 7;                                                         \
+      return COSTS_N_INSNS (40);                                        \
+    else                                                                \
+      return COSTS_N_INSNS (7);                                         \
   case DIV:                                                             \
   case UDIV:                                                            \
   case MOD:                                                             \
   case UMOD:                                                            \
-          return 33;
+    return COSTS_N_INSNS (33);
 
 
 /* An expression giving the cost of an addressing mode that contains
@@ -1188,13 +1191,9 @@ CUMULATIVE_ARGS;
    of registers on machines with lots of registers.
 
    This macro will normally either not be defined or be defined as a
-   constant.
+   constant.  */
 
-   On s390 symbols are expensive if compiled with fpic
-   lifetimes.  */
-
-#define ADDRESS_COST(RTX) \
-  ((flag_pic && GET_CODE (RTX) == SYMBOL_REF) ? 2 : 1)
+#define ADDRESS_COST(RTX) s390_address_cost ((RTX))
 
 /* On s390, copy between fprs and gprs is expensive.  */
 
@@ -1348,5 +1347,12 @@ extern int s390_pool_overflow;
     }									    \
   goto WIN;								    \
 }
+
+/* In rare cases, correct code generation requires extra machine dependent
+   processing between the second jump optimization pass and delayed branch
+   scheduling.  On those machines, define this macro as a C statement to act on
+   the code starting at INSN.  */
+ 
+#define MACHINE_DEPENDENT_REORG(INSN) s390_machine_dependent_reorg (INSN)
 
 #endif 

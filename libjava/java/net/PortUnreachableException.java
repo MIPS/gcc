@@ -1,4 +1,4 @@
-/* PortUnreachableException.java
+/* PortUnreachableException.java -- received an ICMP port unreachable datagram
    Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -37,18 +37,21 @@ exception statement from your version. */
 
 package java.net;
 
-import java.io.IOException;
-
 /**
- * This exception indicates that a URL passed to an object was not in a
- * valid format.
+ * This exception signals that an ICMP port unreachable datagram has been
+ * received.
  *
- * @author Michael Koch <konqueror@gmx.de>
+ * @author Eric Blake <ebb9@email.byu.edu>
  * @since 1.4
- * @status should be completely JDK 1.4 compatible
+ * @status updated to 1.4
  */
-public class PortUnreachableException extends IOException
+public class PortUnreachableException extends SocketException
 {
+  /**
+   * Compatible with JDK 1.0+.
+   */
+  private static final long serialVersionUID = 8462541992376507323L;
+
   /**
    * Create a new instance without a descriptive error message.
    */
@@ -66,3 +69,4 @@ public class PortUnreachableException extends IOException
     super(message);
   }
 } // class PortUnreachableException
+

@@ -530,7 +530,7 @@ extern int target_flags;
    LEVEL is the optimization level specified; 2 if `-O2' is specified, 1 if
    `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified, 0 otherwise.
+   SIZE is nonzero if `-Os' is specified, 0 otherwise.
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same optimization
@@ -688,13 +688,13 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
 
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int' would not
+   Thus, on most machines, a bit-field whose type is written as `int' would not
    cross a four-byte boundary, and would force four-byte alignment for the
    whole structure.  (The alignment used may not be four bytes; it is
    controlled by the other alignment parameters.)
@@ -711,7 +711,7 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
    `STRUCTURE_SIZE_BOUNDARY' as large as `BIGGEST_ALIGNMENT'.  Then every
    structure can be accessed with fullwords.
 
-   Unless the machine has bitfield instructions or you define
+   Unless the machine has bit-field instructions or you define
    `STRUCTURE_SIZE_BOUNDARY' that way, you must define
    `PCC_BITFIELD_TYPE_MATTERS' to have a nonzero value.
 
@@ -747,29 +747,6 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 
    Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* A code distinguishing the floating point format of the target machine.
-   There are three defined values:
-
-   IEEE_FLOAT_FORMAT'
-        This code indicates IEEE floating point.  It is the default;
-        there is no need to define this macro when the format is IEEE.
-
-   VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
-
-   UNKNOWN_FLOAT_FORMAT'
-        This code indicates any other format.
-
-   The value of this macro is compared with `HOST_FLOAT_FORMAT'
-   to determine whether the target machine has the same format as
-   the host machine.  If any other formats are actually in use on supported
-   machines, new codes should be defined for them.
-
-   The ordering of the component words of floating point values stored in
-   memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
-   `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 /* GNU CC supports two ways of implementing C++ vtables: traditional or with
    so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
@@ -1776,7 +1753,7 @@ struct machine_function GTY(())
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}				\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  This macro need only
    be defined if `ELIMINABLE_REGS' is defined, and will usually be the constant
    1, since most of the cases preventing register elimination are things that
@@ -1832,7 +1809,7 @@ struct machine_function GTY(())
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -1881,7 +1858,7 @@ struct machine_function GTY(())
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -1892,7 +1869,7 @@ struct machine_function GTY(())
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)                    \
@@ -2202,7 +2179,7 @@ frv_asm_output_mi_thunk (FILE, THUNK_FNDECL, (long)DELTA, FUNCTION)
   frv_setup_incoming_varargs (& ARGS_SO_FAR, (int) MODE, TYPE, 	\
 			      & PRETEND_ARGS_SIZE, SECOND_TIME)
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
@@ -2464,7 +2441,7 @@ __asm__("\n"								\
    with suitable punctuation to prevent any ambiguity.  Allocate the new name
    in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
    remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
+   `(* targetm.strip_name_encoding)' to access the original name string.
 
    You can check the information stored here into the `symbol_ref' in the
    definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
@@ -2568,7 +2545,7 @@ __asm__("\n"								\
 
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2594,7 +2571,7 @@ __asm__("\n"								\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2722,17 +2699,6 @@ __asm__("\n"								\
    same word of the structure, but to different bytes.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this macro if zero-extension (of a `char' or `short' to an `int') can
-   be done faster if the destination is a register that is known to be zero.
-
-   If you define this macro, you must have instruction patterns that recognize
-   RTL structures like this:
-
-        (set (strict_low_part (subreg:QI (reg:SI ...) 0)) ...)
-
-   and likewise for `HImode'.  */
-#define SLOW_ZERO_EXTEND 0
-
 /* Define this macro if it is as good or better to call a constant function
    address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE
@@ -2837,59 +2803,9 @@ fixup_section ()							\
     }									\
 }									\
 
-/* A C statement or statements to switch to the appropriate section for output
-   of EXP.  You can assume that EXP is either a `VAR_DECL' node or a constant
-   of some sort.  RELOC indicates whether the initial value of EXP requires
-   link-time relocations.  Select the section by calling `text_section' or one
-   of the alternatives for other sections.
-
-   Do not define this macro if you put all read-only variables and constants in
-   the read-only data section (usually the text section).
-
-   Defined in svr4.h.  */
-#undef	SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC, ALIGN) frv_select_section ((EXP), (RELOC))
-
-/* A C statement or statements to switch to the appropriate section for output
-   of RTX in mode MODE.  You can assume that RTX is some kind of constant in
-   RTL.  The argument MODE is redundant except in the case of a `const_int'
-   rtx.  Select the section by calling `text_section' or one of the
-   alternatives for other sections.
-
-   Do not define this macro if you put all constants in the read-only data
-   section.
-
-   Defined in svr4.h.  */
-#undef	SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) frv_select_rtx_section (MODE, RTX)
-
 #define SDATA_FLAG_CHAR '@'
 
 #define SDATA_NAME_P(NAME) (*(NAME) == SDATA_FLAG_CHAR)
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)	\
-  do						\
-    {						\
-      if (FIRST)				\
-        frv_encode_section_info (DECL);		\
-    }						\
-  while (0)
-
-/* Decode SYM_NAME and store the real name part in VAR, sans
-   the characters that encode section info.  Define this macro if
-   ENCODE_SECTION_INFO alters the symbol's name string.  */
-
-#define STRIP_NAME_ENCODING(VAR, SYMBOL_NAME)			\
-  do								\
-    {								\
-      const char * _name = (SYMBOL_NAME);			\
-								\
-      while (* _name == '*' || * _name == SDATA_FLAG_CHAR)	\
-	_name ++;						\
-      (VAR) = _name;						\
-    }								\
-  while (0)
-
 
 /* Position Independent Code.  */
 
@@ -2997,17 +2913,8 @@ do {									\
   fputs (":\n", STREAM);						\
 } while (0)
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)				\
-do {									\
-  fputs ("\t.globl ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM a
    reference in assembler syntax to a label named NAME.  This should add `_' to
@@ -3026,7 +2933,7 @@ do {									\
    from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should produce the
-   output that `ASM_OUTPUT_INTERNAL_LABEL' would produce with the same PREFIX
+   output that `(*targetm.asm_out.internal_label)' would produce with the same PREFIX
    and NUM.
 
    If the string begins with `*', then `assemble_name' will output the rest of
@@ -3041,27 +2948,6 @@ do {									\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)			\
 do {									\
   sprintf (LABEL, "*.%s%ld", PREFIX, (long)NUM);			\
-} while (0)
-
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  Use `alloca' to get space for the string.
-
-   The string will be used as an argument to `ASM_OUTPUT_LABELREF' to produce
-   an assembler label for an internal static variable whose name is NAME.
-   Therefore, the string must be such as to result in valid assembler code.
-   The argument NUMBER is different each time this macro is executed; it
-   prevents conflicts between similarly-named internal static variables in
-   different scopes.
-
-   Ideally this string should not be a valid C identifier, to prevent any
-   conflict with the user's own symbols.  Most assemblers allow periods or
-   percent signs in assembler symbols; putting at least one of these between
-   the name and the number will suffice.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen ((NAME)) + 12);			\
-  sprintf ((OUTVAR), "%s.%ld", (NAME), (long)(NUMBER));			\
 } while (0)
 
 
@@ -3253,7 +3139,7 @@ do {									\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -3266,14 +3152,14 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 /* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `ASM_OUTPUT_INTERNAL_LABEL';
+   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
    the fourth argument is the jump-table which follows (a `jump_insn'
    containing an `addr_vec' or `addr_diff_vec').
 
@@ -3281,7 +3167,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    table.
 
    If this macro is not defined, these labels are output with
-   `ASM_OUTPUT_INTERNAL_LABEL'.
+   `(*targetm.asm_out.internal_label)'.
 
    Defined in svr4.h.  */
 /* When generating embedded PIC or mips16 code we want to put the jump
@@ -3296,7 +3182,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 do {                                                                    \
   if (flag_pic)                                                         \
     function_section (current_function_decl);                           \
-  ASM_OUTPUT_INTERNAL_LABEL (STREAM, PREFIX, NUM);                      \
+  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);                      \
 } while (0)
 
 /* Define this to determine whether case statement labels are relative to
@@ -3375,12 +3261,6 @@ do {                                                                    \
    Defined in svr4.h.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-/* This version of UNIQUE_SECTION overrides the one in elfos.h.  We
-   need to check whether DECL is destined for the .sdata section.  */
-
-#undef  UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC) frv_unique_section (DECL, RELOC)
 
 /* Miscellaneous Parameters.  */
 
@@ -3503,14 +3383,6 @@ do {                                                                    \
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
 
-/* An alias for a tree code that is the easiest kind of division to compile
-   code for in the general case.  It may be `TRUNC_DIV_EXPR', `FLOOR_DIV_EXPR',
-   `CEIL_DIV_EXPR' or `ROUND_DIV_EXPR'.  These four division operators differ
-   in how they round the result to an integer.  `EASY_DIV_EXPR' is used when it
-   is permissible to use any of those kinds of division and the choice should
-   be made on the basis of efficiency.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* The maximum number of bytes that a single instruction can move quickly from
    memory to memory.  */
 #define MOVE_MAX 8
@@ -3626,12 +3498,12 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
 #define PACKING_FLAG_USED_P() \
 (optimize && flag_schedule_insns_after_reload && ISSUE_RATE > 1)
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, the
    code making resource-constrained software pipelining is on.  */
 #define RCSP_SOFTWARE_PIPELINING 1
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, we
    will try to exchange insns in queue ready to improve the schedule.
    The more macro value, the more tries will be made.  */
@@ -3643,9 +3515,6 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
    macro value is zero or negative there will be no multi-pass
    scheduling.  */
 #define FIRST_CYCLE_MULTIPASS_SCHEDULING_LOOKAHEAD frv_sched_lookahead
-
-/* Return true if a function is ok to be called as a sibcall.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 0
 
 enum frv_builtins
 {
@@ -3734,13 +3603,6 @@ enum frv_builtins
   FRV_BUILTIN_MHDSETS,
   FRV_BUILTIN_MHDSETH
 };
-
-#define MD_INIT_BUILTINS do { \
-    frv_init_builtins (); \
-  } while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    frv_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))
 
 /* Enable prototypes on the call rtl functions.  */
 #define MD_CALL_PROTOTYPES 1

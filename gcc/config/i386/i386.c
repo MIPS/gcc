@@ -84,7 +84,15 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
+  2,					/* cost of FADD and FSUB insns.  */
+  2,					/* cost of FMUL instruction.  */
+  2,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  2,					/* cost of FSQRT instruction.  */
 };
+
 /* Processor costs (relative to an add) */
 static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
@@ -121,6 +129,13 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
+  23,					/* cost of FADD and FSUB insns.  */
+  27,					/* cost of FMUL instruction.  */
+  88,					/* cost of FDIV instruction.  */
+  22,					/* cost of FABS instruction.  */
+  24,					/* cost of FCHS instruction.  */
+  122,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -158,6 +173,13 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
+  8,					/* cost of FADD and FSUB insns.  */
+  16,					/* cost of FMUL instruction.  */
+  73,					/* cost of FDIV instruction.  */
+  3,					/* cost of FABS instruction.  */
+  3,					/* cost of FCHS instruction.  */
+  83,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -195,6 +217,13 @@ struct processor_costs pentium_cost = {
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  3,					/* cost of FADD and FSUB insns.  */
+  3,					/* cost of FMUL instruction.  */
+  39,					/* cost of FDIV instruction.  */
+  1,					/* cost of FABS instruction.  */
+  1,					/* cost of FCHS instruction.  */
+  70,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -232,6 +261,13 @@ struct processor_costs pentiumpro_cost = {
   3,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  3,					/* cost of FADD and FSUB insns.  */
+  5,					/* cost of FMUL instruction.  */
+  56,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  56,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -269,6 +305,13 @@ struct processor_costs k6_cost = {
   6,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
+  1,					/* Branch cost */
+  2,					/* cost of FADD and FSUB insns.  */
+  2,					/* cost of FMUL instruction.  */
+  2,					/* cost of FDIV instruction.  */
+  56,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  56,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -285,27 +328,34 @@ struct processor_costs athlon_cost = {
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
-  {4, 5, 4},				/* cost of loading integer registers
+  {3, 4, 3},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
 					   Relative to reg-reg move (2).  */
-  {2, 3, 2},				/* cost of storing integer registers */
+  {3, 4, 3},				/* cost of storing integer registers */
   4,					/* cost of reg,reg fld/fst */
-  {6, 6, 20},				/* cost of loading fp registers
+  {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 16},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of loading integer registers */
   2,					/* cost of moving MMX register */
-  {2, 2},				/* cost of loading MMX registers
+  {4, 4},				/* cost of loading MMX registers
 					   in SImode and DImode */
-  {2, 2},				/* cost of storing MMX registers
+  {4, 4},				/* cost of storing MMX registers
 					   in SImode and DImode */
   2,					/* cost of moving SSE register */
-  {2, 2, 8},				/* cost of loading SSE registers
+  {4, 4, 6},				/* cost of loading SSE registers
 					   in SImode, DImode and TImode */
-  {2, 2, 8},				/* cost of storing SSE registers
+  {4, 4, 5},				/* cost of storing SSE registers
 					   in SImode, DImode and TImode */
-  6,					/* MMX or SSE register to integer */
+  5,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  4,					/* cost of FADD and FSUB insns.  */
+  4,					/* cost of FMUL instruction.  */
+  24,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  35,					/* cost of FSQRT instruction.  */
 };
 
 static const
@@ -343,6 +393,13 @@ struct processor_costs pentium4_cost = {
   10,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  5,					/* cost of FADD and FSUB insns.  */
+  7,					/* cost of FMUL instruction.  */
+  43,					/* cost of FDIV instruction.  */
+  2,					/* cost of FABS instruction.  */
+  2,					/* cost of FCHS instruction.  */
+  43,					/* cost of FSQRT instruction.  */
 };
 
 const struct processor_costs *ix86_cost = &pentium_cost;
@@ -396,6 +453,13 @@ const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON | m_PENT4;
+const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
+/* Set for machines where the type and dependencies are resolved on SSE register
+   parts insetad of whole registers, so we may maintain just lower part of
+   scalar values in proper format leaving the upper part undefined.  */
+const int x86_sse_partial_regs = m_ATHLON;
+const int x86_sse_typeless_stores = m_ATHLON;
+const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -742,6 +806,7 @@ static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
 const struct attribute_spec ix86_attribute_table[];
+static bool ix86_function_ok_for_sibcall PARAMS ((tree, tree));
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
@@ -843,6 +908,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
 
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL ix86_function_ok_for_sibcall
+
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
@@ -876,17 +944,16 @@ override_options ()
       const int align_jump;
       const int align_jump_max_skip;
       const int align_func;
-      const int branch_cost;
     }
   const processor_target_table[PROCESSOR_max] =
     {
-      {&i386_cost, 0, 0, 4, 3, 4, 3, 4, 1},
-      {&i486_cost, 0, 0, 16, 15, 16, 15, 16, 1},
-      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16, 1},
-      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16, 1},
-      {&k6_cost, 0, 0, 32, 7, 32, 7, 32, 1},
-      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16, 1},
-      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0, 1}
+      {&i386_cost, 0, 0, 4, 3, 4, 3, 4},
+      {&i486_cost, 0, 0, 16, 15, 16, 15, 16},
+      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
+      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
+      {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
+      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16},
+      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -911,6 +978,9 @@ override_options ()
       {"i586", PROCESSOR_PENTIUM, 0},
       {"pentium", PROCESSOR_PENTIUM, 0},
       {"pentium-mmx", PROCESSOR_PENTIUM, PTA_MMX},
+      {"winchip-c6", PROCESSOR_I486, PTA_MMX},
+      {"winchip2", PROCESSOR_I486, PTA_MMX | PTA_3DNOW},
+      {"c3", PROCESSOR_I486, PTA_MMX | PTA_3DNOW},
       {"i686", PROCESSOR_PENTIUMPRO, 0},
       {"pentiumpro", PROCESSOR_PENTIUMPRO, 0},
       {"pentium2", PROCESSOR_PENTIUMPRO, PTA_MMX},
@@ -933,6 +1003,11 @@ override_options ()
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
+
+  /* By default our XFmode is the 80-bit extended format.  If we have
+     use TFmode instead, it's also the 80-bit format, but with padding.  */
+  real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
+  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -993,19 +1068,19 @@ override_options ()
 	/* Default cpu tuning to the architecture.  */
 	ix86_cpu = ix86_arch;
 	if (processor_alias_table[i].flags & PTA_MMX
-	    && !(target_flags & MASK_MMX_SET))
+	    && !(target_flags_explicit & MASK_MMX))
 	  target_flags |= MASK_MMX;
 	if (processor_alias_table[i].flags & PTA_3DNOW
-	    && !(target_flags & MASK_3DNOW_SET))
+	    && !(target_flags_explicit & MASK_3DNOW))
 	  target_flags |= MASK_3DNOW;
 	if (processor_alias_table[i].flags & PTA_3DNOW_A
-	    && !(target_flags & MASK_3DNOW_A_SET))
+	    && !(target_flags_explicit & MASK_3DNOW_A))
 	  target_flags |= MASK_3DNOW_A;
 	if (processor_alias_table[i].flags & PTA_SSE
-	    && !(target_flags & MASK_SSE_SET))
+	    && !(target_flags_explicit & MASK_SSE))
 	  target_flags |= MASK_SSE;
 	if (processor_alias_table[i].flags & PTA_SSE2
-	    && !(target_flags & MASK_SSE2_SET))
+	    && !(target_flags_explicit & MASK_SSE2))
 	  target_flags |= MASK_SSE2;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
@@ -1112,20 +1187,20 @@ override_options ()
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
   ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 64 : 32
+				   ? TARGET_64BIT ? 128 : 32
 				   : 128);
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
-      if (i < (TARGET_64BIT ? 3 : 2) || i > 12)
+      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
 	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 3 : 2);
+	       TARGET_64BIT ? 4 : 2);
       else
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
   /* Validate -mbranch-cost= value, or provide default.  */
-  ix86_branch_cost = processor_target_table[ix86_cpu].branch_cost;
+  ix86_branch_cost = processor_target_table[ix86_cpu].cost->branch_cost;
   if (ix86_branch_cost_string)
     {
       i = atoi (ix86_branch_cost_string);
@@ -1228,7 +1303,7 @@ override_options ()
 	target_flags |= MASK_3DNOW_A;
     }
   if ((x86_accumulate_outgoing_args & CPUMASK)
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS_SET)
+      && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
 
@@ -1283,6 +1358,60 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { NULL,        0, 0, false, false, false, NULL }
 };
+
+/* If PIC, we cannot make sibling calls to global functions
+   because the PLT requires %ebx live.
+   If we are returning floats on the register stack, we cannot make
+   sibling calls to functions that return floats.  (The stack adjust
+   instruction will wind up after the sibcall jump, and not be executed.)  */
+
+static bool
+ix86_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp;
+{
+  /* We don't have 64-bit patterns in place.  */
+  if (TARGET_64BIT)
+    return false;
+
+  /* If we are generating position-independent code, we cannot sibcall
+     optimize any indirect call, or a direct call to a global function,
+     as the PLT requires %ebx be live.  */
+  if (flag_pic && (!decl || !TREE_PUBLIC (decl)))
+    return false;
+
+  /* If we are returning floats on the 80387 register stack, we cannot
+     make a sibcall from a function that doesn't return a float to a
+     function that does; the necessary stack adjustment will not be
+     executed.  */
+  if (TARGET_FLOAT_RETURNS_IN_80387
+      && FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (exp)))
+      && !FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl)))))
+    return false;
+
+  /* If this call is indirect, we'll need to be able to use a call-clobbered
+     register for the address of the target function.  Make sure that all 
+     such registers are not used for passing parameters.  */
+  if (!decl && !TARGET_64BIT)
+    {
+      int regparm = ix86_regparm;
+      tree attr;
+
+      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (TREE_TYPE (exp)));
+      if (attr)
+        regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+
+      if (regparm >= 3)
+	{
+	  /* ??? Need to count the actual number of registers to be used,
+	     not the possible number of registers.  Fix later.  */
+	  return false;
+	}
+    }
+
+  /* Otherwise okay.  That also includes certain types of indirect calls.  */
+  return true;
+}
 
 /* Handle a "cdecl" or "stdcall" attribute;
    arguments as in struct attribute_spec.handler.  */
@@ -1592,7 +1721,11 @@ classify_argument (mode, type, classes, bit_offset)
 {
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
-  int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  int words = (bytes + (bit_offset % 64) / 8 + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+
+  /* Variable sized entities are always passed/returned in memory.  */
+  if (bytes < 0)
+    return 0;
 
   if (type && AGGREGATE_TYPE_P (type))
     {
@@ -2750,6 +2883,43 @@ ix86_va_arg (valist, type)
   return addr_rtx;
 }
 
+/* Return nonzero if OP is either a i387 or SSE fp register.  */
+int
+any_fp_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return ANY_FP_REG_P (op);
+}
+
+/* Return nonzero if OP is an i387 fp register.  */
+int
+fp_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return FP_REG_P (op);
+}
+
+/* Return nonzero if OP is a non-fp register_operand.  */
+int
+register_and_not_any_fp_reg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return register_operand (op, mode) && !ANY_FP_REG_P (op);
+}
+
+/* Return nonzero of OP is a register operand other than an
+   i387 fp register.  */
+int
+register_and_not_fp_reg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return register_operand (op, mode) && !FP_REG_P (op);
+}
+
 /* Return nonzero if OP is general operand representable on x86_64.  */
 
 int
@@ -3073,6 +3243,32 @@ call_insn_operand (op, mode)
   return general_operand (op, Pmode);
 }
 
+/* Test for a valid operand for a call instruction.  Don't allow the
+   arg pointer register or virtual regs since they may decay into
+   reg + const, which the patterns can't handle.  */
+
+int
+sibcall_insn_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  /* Disallow indirect through a virtual register.  This leads to
+     compiler aborts when trying to eliminate them.  */
+  if (GET_CODE (op) == REG
+      && (op == arg_pointer_rtx
+	  || op == frame_pointer_rtx
+	  || (REGNO (op) >= FIRST_PSEUDO_REGISTER
+	      && REGNO (op) <= LAST_VIRTUAL_REGISTER)))
+    return 0;
+
+  /* Explicitly allow SYMBOL_REF even if pic.  */
+  if (GET_CODE (op) == SYMBOL_REF)
+    return 1;
+
+  /* Otherwise we can only allow register operands.  */
+  return register_operand (op, Pmode);
+}
+
 int
 constant_call_address_operand (op, mode)
      rtx op;
@@ -3211,6 +3407,30 @@ nonmemory_no_elim_operand (op, mode)
     return 0;
 
   return GET_CODE (op) == CONST_INT || register_operand (op, mode);
+}
+
+/* Return false if this is any eliminable register or stack register,
+   otherwise work like register_operand.  */
+
+int
+index_register_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  rtx t = op;
+  if (GET_CODE (t) == SUBREG)
+    t = SUBREG_REG (t);
+  if (!REG_P (t))
+    return 0;
+  if (t == arg_pointer_rtx
+      || t == frame_pointer_rtx
+      || t == virtual_incoming_args_rtx
+      || t == virtual_stack_vars_rtx
+      || t == virtual_stack_dynamic_rtx
+      || REGNO (t) == STACK_POINTER_REGNUM)
+    return 0;
+
+  return general_operand (op, mode);
 }
 
 /* Return true if op is a Q_REGS class register.  */
@@ -3931,7 +4151,7 @@ ix86_asm_file_end (file)
 	  (*targetm.asm_out.unique_section) (decl, 0);
 	  named_section (decl, NULL, 0);
 
-	  ASM_GLOBALIZE_LABEL (file, name);
+	  (*targetm.asm_out.globalize_label) (file, name);
 	  fputs ("\t.hidden\t", file);
 	  assemble_name (file, name);
 	  fputc ('\n', file);
@@ -3959,7 +4179,7 @@ output_set_got (dest)
   rtx xops[3];
 
   xops[0] = dest;
-  xops[1] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+  xops[1] = gen_rtx_SYMBOL_REF (Pmode, GOT_SYMBOL_NAME);
 
   if (! TARGET_DEEP_BRANCH_PREDICTION || !flag_pic)
     {
@@ -3975,7 +4195,7 @@ output_set_got (dest)
          is what will be referred to by the Mach-O PIC subsystem.  */
       ASM_OUTPUT_LABEL (asm_out_file, machopic_function_base_name ());
 #endif
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
 
       if (flag_pic)
@@ -5009,18 +5229,14 @@ legitimate_pic_address_disp_p (disp)
     case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_GOTTPOFF:
+    case UNSPEC_GOTNTPOFF:
+    case UNSPEC_INDNTPOFF:
       if (saw_plus)
 	return false;
       return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_NTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_DTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
 
@@ -5196,6 +5412,8 @@ legitimate_address_p (mode, addr, strict)
 	    goto is_legitimate_pic;
 
 	  case UNSPEC_GOTTPOFF:
+	  case UNSPEC_GOTNTPOFF:
+	  case UNSPEC_INDNTPOFF:
 	  case UNSPEC_NTPOFF:
 	  case UNSPEC_DTPOFF:
 	    break;
@@ -5471,23 +5689,7 @@ ix86_encode_section_info (decl, first)
       const char *symbol_str;
       char *newstr;
       size_t len;
-      enum tls_model kind;
-
-      if (!flag_pic)
-	{
-	  if (local_p)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      /* Local dynamic is inefficient when we're not combining the
-	 parts of the address.  */
-      else if (optimize && local_p)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
+      enum tls_model kind = decl_tls_model (decl);
 
       symbol_str = XSTR (symbol, 0);
 
@@ -5602,32 +5804,36 @@ legitimize_address (x, oldx, mode)
 		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	      pic = pic_offset_table_rtx;
 	    }
-	  else
+	  else if (!TARGET_GNU_TLS)
 	    {
 	      pic = gen_reg_rtx (Pmode);
 	      emit_insn (gen_set_got (pic));
 	    }
+	  else
+	    pic = NULL;
 
 	  base = get_thread_pointer ();
 
-	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_GOTTPOFF);
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
+				!TARGET_GNU_TLS
+				? UNSPEC_GOTTPOFF
+				: flag_pic ? UNSPEC_GOTNTPOFF
+					   : UNSPEC_INDNTPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
-	  off = gen_rtx_PLUS (Pmode, pic, off);
+	  if (flag_pic || !TARGET_GNU_TLS)
+	    off = gen_rtx_PLUS (Pmode, pic, off);
 	  off = gen_rtx_MEM (Pmode, off);
 	  RTX_UNCHANGING_P (off) = 1;
 	  set_mem_alias_set (off, ix86_GOT_alias_set ());
-
-	  /* Damn Sun for specifing a set of dynamic relocations without
-	     considering the two-operand nature of the architecture!
-	     We'd be much better off with a "GOTNTPOFF" relocation that
-	     already contained the negated constant.  */
-	  /* ??? Using negl and reg+reg addressing appears to be a lose
-	     size-wise.  The negl is two bytes, just like the extra movl
-	     incurred by the two-operand subl, but reg+reg addressing
-	     uses the two-byte modrm form, unlike plain reg.  */
-
 	  dest = gen_reg_rtx (Pmode);
-	  emit_insn (gen_subsi3 (dest, base, off));
+
+	  if (TARGET_GNU_TLS)
+	    {
+	      emit_move_insn (dest, off);
+	      return gen_rtx_PLUS (Pmode, base, dest);
+	    }
+	  else
+	    emit_insn (gen_subsi3 (dest, base, off));
 	  break;
 
         case TLS_MODEL_LOCAL_EXEC:
@@ -5908,6 +6114,7 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@GOTPCREL(%rip)", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
+	  /* FIXME: This might be @TPOFF in Sun ld too.  */
 	  fputs ("@GOTTPOFF", file);
 	  break;
 	case UNSPEC_TPOFF:
@@ -5918,6 +6125,12 @@ output_pic_addr_const (file, x, code)
 	  break;
 	case UNSPEC_DTPOFF:
 	  fputs ("@DTPOFF", file);
+	  break;
+	case UNSPEC_GOTNTPOFF:
+	  fputs ("@GOTNTPOFF", file);
+	  break;
+	case UNSPEC_INDNTPOFF:
+	  fputs ("@INDNTPOFF", file);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
@@ -5950,6 +6163,33 @@ i386_dwarf_output_addr_const (file, x)
   else
     output_addr_const (file, x);
   fputc ('\n', file);
+}
+
+/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+   We need to emit DTP-relative relocations.  */
+
+void
+i386_output_dwarf_dtprel (file, size, x)
+     FILE *file;
+     int size;
+     rtx x;
+{
+  switch (size)
+    {
+    case 4:
+      fputs (ASM_LONG, file);
+      break;
+    case 8:
+#ifdef ASM_QUAD
+      fputs (ASM_QUAD, file);
+      break;
+#endif
+    default:
+      abort ();
+   }
+  
+  output_addr_const (file, x);
+  fputs ("@DTPOFF", file);
 }
 
 /* In the name of slightly smaller debug output, and to cater to
@@ -6606,7 +6846,7 @@ print_operand (file, x, code)
       char dstr[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);
       fprintf (file, "%s", dstr);
     }
 
@@ -6617,7 +6857,7 @@ print_operand (file, x, code)
       char dstr[30];
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
+      REAL_VALUE_TO_DECIMAL (r, dstr, -1);
       fprintf (file, "%s", dstr);
     }
 
@@ -6702,7 +6942,8 @@ print_operand_address (file, addr)
 	      || GET_CODE (addr) == LABEL_REF
 	      || (GET_CODE (addr) == CONST
 		  && GET_CODE (XEXP (addr, 0)) == PLUS
-		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		  && (GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+		      || GET_CODE (XEXP (XEXP (addr, 0), 0)) == LABEL_REF)
 		  && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)))
 	fputs ("(%rip)", file);
     }
@@ -6801,6 +7042,7 @@ output_addr_const_extra (file, x)
     {
     case UNSPEC_GOTTPOFF:
       output_addr_const (file, op);
+      /* FIXME: This might be @TPOFF in Sun ld.  */
       fputs ("@GOTTPOFF", file);
       break;
     case UNSPEC_TPOFF:
@@ -6814,6 +7056,14 @@ output_addr_const_extra (file, x)
     case UNSPEC_DTPOFF:
       output_addr_const (file, op);
       fputs ("@DTPOFF", file);
+      break;
+    case UNSPEC_GOTNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@GOTNTPOFF", file);
+      break;
+    case UNSPEC_INDNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@INDNTPOFF", file);
       break;
 
     default:
@@ -7331,8 +7581,8 @@ ix86_output_addr_diff_elt (file, value, rel)
 	     machopic_function_base_name () + 1);
 #endif
   else
-    asm_fprintf (file, "%s%U_GLOBAL_OFFSET_TABLE_+[.-%s%d]\n",
-		 ASM_LONG, LPREFIX, value);
+    asm_fprintf (file, "%s%U%s+[.-%s%d]\n",
+		 ASM_LONG, GOT_SYMBOL_NAME, LPREFIX, value);
 }
 
 /* Generate either "mov $0, reg" or "xor reg, reg", as appropriate
@@ -7539,8 +7789,7 @@ ix86_expand_vector_move (mode, operands)
   /* Make operand1 a register if it isn't already.  */
   if ((reload_in_progress | reload_completed) == 0
       && !register_operand (operands[0], mode)
-      && !register_operand (operands[1], mode)
-      && operands[1] != CONST0_RTX (mode))
+      && !register_operand (operands[1], mode))
     {
       rtx temp = force_reg (GET_MODE (operands[1]), operands[1]);
       emit_move_insn (operands[0], temp);
@@ -8990,7 +9239,7 @@ ix86_expand_int_movcc (operands)
 		emit_insn (gen_rtx_SET (VOIDmode, out, tmp));
 	    }
 	  if (out != operands[0])
-	    emit_move_insn (operands[0], out);
+	    emit_move_insn (operands[0], copy_rtx (out));
 
 	  return 1; /* DONE */
 	}
@@ -9009,12 +9258,9 @@ ix86_expand_int_movcc (operands)
        * This is reasonably steep, but branch mispredict costs are
        * high on modern cpus, so consider failing only if optimizing
        * for space.
-       *
-       * %%% Parameterize branch_cost on the tuning architecture, then
-       * use that.  The 80386 couldn't care less about mispredicts.
        */
 
-      if (!optimize_size && !TARGET_CMOVE)
+      if (!TARGET_CMOVE && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -9092,7 +9338,7 @@ ix86_expand_int_movcc (operands)
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (optimize_size)
+      if (BRANCH_COST >= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -11017,13 +11263,6 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	{
-	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
-	    cost += 2;
-	  else
-	    cost += 3;
-        }
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
@@ -11297,7 +11536,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 static int
 ia32_use_dfa_pipeline_interface ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM)
+  if (ix86_cpu == PROCESSOR_PENTIUM || ix86_cpu == PROCESSOR_ATHLON)
     return 1;
   return 0;
 }
@@ -12475,7 +12714,8 @@ safe_vector_operand (x, mode)
 			      : gen_rtx_SUBREG (DImode, x, 0)));
   else
     emit_insn (gen_sse_clrv4sf (mode == V4SFmode ? x
-				: gen_rtx_SUBREG (V4SFmode, x, 0)));
+				: gen_rtx_SUBREG (V4SFmode, x, 0),
+				CONST0_RTX (V4SFmode)));
   return x;
 }
 
@@ -13165,7 +13405,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 
     case IX86_BUILTIN_SSE_ZERO:
       target = gen_reg_rtx (V4SFmode);
-      emit_insn (gen_sse_clrv4sf (target));
+      emit_insn (gen_sse_clrv4sf (target, CONST0_RTX (V4SFmode)));
       return target;
 
     case IX86_BUILTIN_MMX_ZERO:
@@ -13477,17 +13717,33 @@ ix86_register_move_cost (mode, class1, class2)
      enum reg_class class1, class2;
 {
   /* In case we require secondary memory, compute cost of the store followed
-     by load.  In case of copying from general_purpose_register we may emit
-     multiple stores followed by single load causing memory size mismatch
-     stall.  Count this as arbitarily high cost of 20.  */
+     by load.  In order to avoid bad register allocation choices, we need 
+     for this to be *at least* as high as the symmetric MEMORY_MOVE_COST.  */
+
   if (ix86_secondary_memory_needed (class1, class2, mode, 0))
     {
-      int add_cost = 0;
+      int cost = 1;
+
+      cost += MAX (MEMORY_MOVE_COST (mode, class1, 0),
+		   MEMORY_MOVE_COST (mode, class1, 1));
+      cost += MAX (MEMORY_MOVE_COST (mode, class2, 0),
+		   MEMORY_MOVE_COST (mode, class2, 1));
+      
+      /* In case of copying from general_purpose_register we may emit multiple
+         stores followed by single load causing memory size mismatch stall.
+         Count this as arbitarily high cost of 20.  */
       if (CLASS_MAX_NREGS (class1, mode) > CLASS_MAX_NREGS (class2, mode))
-	  add_cost = 20;
-      return (MEMORY_MOVE_COST (mode, class1, 0)
-	      + MEMORY_MOVE_COST (mode, class2, 1) + add_cost);
+	cost += 20;
+
+      /* In the case of FP/MMX moves, the registers actually overlap, and we
+	 have to switch modes in order to treat them differently.  */
+      if ((MMX_CLASS_P (class1) && MAYBE_FLOAT_CLASS_P (class2))
+          || (MMX_CLASS_P (class2) && MAYBE_FLOAT_CLASS_P (class1)))
+	cost += 20;
+
+      return cost;
     }
+
   /* Moves between SSE/MMX and integer unit are expensive.  */
   if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
       || SSE_CLASS_P (class1) != SSE_CLASS_P (class2))
@@ -13796,13 +14052,13 @@ x86_output_mi_thunk (file, delta, function)
 	{
 	  xops[0] = pic_offset_table_rtx;
 	  xops[1] = gen_label_rtx ();
-	  xops[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+	  xops[2] = gen_rtx_SYMBOL_REF (Pmode, GOT_SYMBOL_NAME);
 
 	  if (ix86_regparm > 2)
 	    abort ();
 	  output_asm_insn ("push{l}\t%0", xops);
 	  output_asm_insn ("call\t%P1", xops);
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (xops[1]));
+	  (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (xops[1]));
 	  output_asm_insn ("pop{l}\t%0", xops);
 	  output_asm_insn
 	    ("add{l}\t{%2+[.-%P1], %0|%0, OFFSET FLAT: %2+[.-%P1]}", xops);

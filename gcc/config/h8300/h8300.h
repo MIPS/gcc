@@ -115,10 +115,10 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES  \
-  { {"s",		1,     N_("Generate H8/S code")},		\
-    {"no-s",		-1,    N_("Do not generate H8/S code")},	\
-    {"s2600",		2,     N_("Generate H8/S2600 code")},           \
-    {"no-s2600",	-2,    N_("Do not generate H8/S2600 code")},    \
+  { {"s",		1,     N_("Generate H8S code")},		\
+    {"no-s",		-1,    N_("Do not generate H8S code")},	\
+    {"s2600",		2,     N_("Generate H8S/2600 code")},           \
+    {"no-s2600",	-2,    N_("Do not generate H8S/2600 code")},    \
     {"int32",		8,     N_("Make integers 32 bits wide")},	\
     {"addresses",	64,    NULL},					\
     {"quickcall",	128,						\
@@ -224,11 +224,11 @@ extern int target_flags;
    structure layouts.  */
 #define EMPTY_FIELD_BOUNDARY 16
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS  0
 
 /* No data type wants to be aligned rounder than this.
-   32 bit values are aligned as such on the H8/300H and H8/S for speed.  */
+   32 bit values are aligned as such on the H8/300H and H8S for speed.  */
 #define BIGGEST_ALIGNMENT \
 (((TARGET_H8300H || TARGET_H8300S) && ! TARGET_ALIGN_300) ? 32 : 16)
 
@@ -392,8 +392,8 @@ enum reg_class {
 
 #define REG_CLASS_CONTENTS			\
 {      {0},		/* No regs      */	\
-   {0x6ff},		/* GENERAL_REGS */ 	\
-   {0x100},		/* MAC_REGS */ 	\
+   {0x6ff},		/* GENERAL_REGS */	\
+   {0x100},		/* MAC_REGS */	\
    {0x7ff},		/* ALL_REGS	*/	\
 }
 
@@ -686,14 +686,14 @@ struct cum_arg
 
    H8/300
 	      vvvv context
-   1 0000 7900xxxx 		mov.w	#0x1234,r3
-   2 0004 5A00xxxx 		jmp	@0x1234
+   1 0000 7900xxxx		mov.w	#0x1234,r3
+   2 0004 5A00xxxx		jmp	@0x1234
 	      ^^^^ function
 
    H8/300H
 	      vvvvvvvv context
-   2 0000 7A00xxxxxxxx 		mov.l	#0x12345678,er3
-   3 0006 5Axxxxxx 		jmp	@0x123456
+   2 0000 7A00xxxxxxxx		mov.l	#0x12345678,er3
+   3 0006 5Axxxxxx		jmp	@0x123456
 	    ^^^^^^ function
 */
 
@@ -822,26 +822,36 @@ struct cum_arg
    ? !h8300_shift_needs_scratch_p (INTVAL (OP), SImode)	\
    : 0)
 
-/* Nonzero if X is a constant address suitable as an 8-bit absolute on
-   the H8/300H, which is a special case of the 'R' operand.  */
+/* Nonzero if X is a constant address suitable as an 8-bit absolute,
+   which is a special case of the 'R' operand.  */
 
-#define EIGHTBIT_CONSTANT_ADDRESS_P(X)			\
-  (GET_CODE (X) == CONST_INT && TARGET_H8300H		\
-   && 0xffff00 <= INTVAL (X) && INTVAL (X) <= 0xffffff)
+#define EIGHTBIT_CONSTANT_ADDRESS_P(X)					\
+  ((GET_CODE (X) == CONST_INT)						\
+   && ((TARGET_H8300H && 0xffff00 <= INTVAL (X)				\
+	&& INTVAL (X) <= 0xffffff)					\
+       || (TARGET_H8300S && 0xffffff00 <= INTVAL (X)			\
+	   && INTVAL (X) <= 0xffffffff)					\
+       || (TARGET_H8300 && 0xff00 <= (INTVAL (X) & 0x0000FFFF)		\
+	   && (INTVAL (X) & 0x0000FFFF) <= 0xffff)))
 
 /* Nonzero if X is a constant address suitable as an 16-bit absolute
-   on the H8/300H.  */
+   on H8/300H and H8S.  */
 
-#define TINY_CONSTANT_ADDRESS_P(X)				\
-  (GET_CODE (X) == CONST_INT && TARGET_H8300H			\
-   && ((0xff8000 <= INTVAL (X) && INTVAL (X) <= 0xffffff)	\
-       || (0x000000 <= INTVAL (X) && INTVAL (X) <= 0x007fff)))
+#define TINY_CONSTANT_ADDRESS_P(X)					\
+  ((GET_CODE (X) == CONST_INT)						\
+   && ((TARGET_H8300H							\
+	&& ((0xff8000 <= INTVAL (X) && INTVAL (X) <= 0xffffff)		\
+	    || (0x000000 <= INTVAL (X) && INTVAL (X) <= 0x007fff)))	\
+       || (TARGET_H8300S						\
+	   && ((0xffff8000 <= INTVAL (X) && INTVAL (X) <= 0xffffffff)	\
+	       || (0x00000000 <= INTVAL (X)				\
+		   && INTVAL (X) <= 0x00007fff)))))
 
 /* 'U' if valid for a bset destination;
    i.e. a register, register indirect, or the eightbit memory region
    (a SYMBOL_REF with an SYMBOL_REF_FLAG set).
 
-   On the H8/S 'U' can also be a 16bit or 32bit absolute.  */
+   On the H8S 'U' can also be a 16bit or 32bit absolute.  */
 #define OK_FOR_U(OP)							\
   ((GET_CODE (OP) == REG && REG_OK_FOR_BASE_P (OP))			\
    || (GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG		\
@@ -1098,7 +1108,7 @@ struct cum_arg
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \
   {"er5", 5}, {"er6", 6}, {"er7", 7}, {"r7", 7} }
 
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 #define SDB_DELIM	"\n"
 
 /* Support -gstabs.  */
@@ -1133,20 +1143,13 @@ struct cum_arg
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-
-   N.B.: The h8300.md branch_true and branch_false patterns also know
-   how to generate internal labels.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  */
+   This is suitable for output with `assemble_name'.  
 
+   N.B.: The h8300.md branch_true and branch_false patterns also know
+   how to generate internal labels.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM)
 
@@ -1165,7 +1168,7 @@ struct cum_arg
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "%s.L%d\n", ASM_WORD_OP, VALUE)
+  fprintf (FILE, "%s.L%d\n", ASM_WORD_OP, VALUE)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -1212,13 +1215,7 @@ struct cum_arg
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* Print an instruction operand X on file FILE.
    Look in h8300.c for details.  */

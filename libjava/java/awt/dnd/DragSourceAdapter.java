@@ -108,7 +108,7 @@ public abstract class DragSourceAdapter
    *
    * @param e the event
    */
-  public void dragExit(DragSourceDragEvent e)
+  public void dragExit(DragSourceEvent e)
   {
   }
 
@@ -120,7 +120,7 @@ public abstract class DragSourceAdapter
    *
    * @param e the event
    */
-  public void dragDropEnd(DragSourceDragEvent e)
+  public void dragDropEnd(DragSourceDropEvent e)
   {
   }
 } // class DragSourceAdapter
