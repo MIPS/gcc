@@ -1,3 +1,7 @@
+2004-02-25  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/i386-regparm.c: New.
+
 2004-02-16  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.dg/cpp/inc/foo.h: Add missing file to hammer branch.
@@ -15,7 +19,7 @@
 
 	Backport from mainline.
 	2004-02-11  Hartmut Penner  <hpenner@de.ibm.com>
-        * gcc.dg/ppc64-abi-3.c: New test.
+	* gcc.dg/ppc64-abi-3.c: New test.
 
 2004-02-06  Alan Modra  <amodra@bigpond.net.au>
 
