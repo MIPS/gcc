@@ -1,3 +1,7 @@
+2003-07-25  Jeff law  <law@redhat.com>
+
+	* tree-ssa-dom.c (optimize_block): Use may_propagate_copy.
+
 2003-07-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* opts.c (decode_options): Re-enable must-alias optimizations.

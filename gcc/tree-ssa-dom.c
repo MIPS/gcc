@@ -262,8 +262,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     if (PHI_NUM_ARGS (phi) == 1
 	&& TREE_CODE (PHI_ARG_DEF (phi, 0)) == SSA_NAME
-	&& ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_ARG_DEF (phi, 0))
-	&& ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+	&& may_propagate_copy (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0)))
       set_value_for (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0), const_and_copies);
 
   /* Optimize each statement within the basic block.  */
@@ -292,8 +291,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 		  new = get_value_for (*orig_p, const_and_copies);
 		  if (new
 		      && TREE_CODE (new) == SSA_NAME
-		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new)
-		      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*orig_p))
+		      && may_propagate_copy (new, *orig_p))
 		    *orig_p = new;
 		  break;
 		}
