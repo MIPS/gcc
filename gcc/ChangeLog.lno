@@ -1,3 +1,8 @@
+2004-09-02  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-loop-linear.c (gather_interchange_stats): Gather the
+	sum of the access functions only for the inner loops.
+
 2004-09-02  Olga Golovanevsky <olga@il.ibm.com>
 
 	* tree-vectorizer.c (get_phi_node_for_def): Removed.

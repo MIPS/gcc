@@ -136,6 +136,16 @@ gather_interchange_stats (varray_type dependence_relations,
     {
       unsigned int it;
       struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+      tree stmt = DR_STMT (dr);
+      struct loop *stmt_loop = loop_containing_stmt (stmt);
+      struct loop *inner_loop = current_loops->parray[loop_number + 1];
+
+      if (inner_loop->inner)
+	inner_loop = inner_loop->inner;
+
+      if (!flow_loop_nested_p (inner_loop, stmt_loop)
+	  && inner_loop->num != stmt_loop->num)
+	continue;
 
       for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
 	{
