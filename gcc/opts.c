@@ -965,7 +965,7 @@ common_handle_option (size_t scode, const char *arg,
 	  else
 	    {
 	      int i = integral_argument (arg);
-	      if (i == (unsigned int) -1 || i > 2)
+	      if (i == -1 || i > 2)
 		return 0;
 	      server_mode = i;
 	    }

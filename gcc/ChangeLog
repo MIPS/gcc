@@ -1,5 +1,9 @@
 2003-09-12  Per Bothner  <pbothner@apple.com>
 
+	* toplev.c (do_compile):  Remove unwanted push_srcloc/pop_srcloc.
+
+	* opts.c (common_handle_option):  Remove bogus cast.
+
 	* config/darwin.c (machopic_finish):  Zero out machopic_stubs and
 	machopic_non_lazy_pointers when done.  Needed for compile-server.
 

@@ -4454,8 +4454,8 @@ do_compile (void)
     {
       const char *filename = in_fnames[i];
       main_input_filename = filename;
-
-      push_srcloc (main_input_filename, 1);
+      input_filename = filename;
+      input_line = 1;
 
       if (flag_unit_at_a_time)
 	{
@@ -4477,8 +4477,6 @@ do_compile (void)
 	  cgraph_dump_file = NULL;
 	  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 	}
-
-      pop_srcloc ();
     }
   if (! no_backend)
     compile_file_finish ();
