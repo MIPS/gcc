@@ -1,5 +1,10 @@
 2002-11-07  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-cfg.c (successor_block): Return EXIT_BLOCK_PTR if no
+	successor can be found while walking the nesting chain.
+
+2002-11-07  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-cfg.c: Fix some formatting in code and comments.
 	(set_bb_for_stmt): Move from tree-flow-inline.h
 	* tree-dfa.c: Fix some formatting in code and comments.

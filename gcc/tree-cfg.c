@@ -1547,9 +1547,11 @@ successor_block (bb)
       parent_bb = parent_block (parent_bb);
     }
 
-  /* We reached nesting level 0.  Return the next block in the linked list
-     of blocks.  */
-  return bb->next_bb;
+  /* We reached nesting level 0.  No block in the nesting chain had a
+     successor, this means that there is nothing after the control
+     structure that holds BB.  Therefore, we have reached the end of the
+     flowgraph.  */
+  return EXIT_BLOCK_PTR;
 }
 
 
