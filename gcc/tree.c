@@ -5030,6 +5030,7 @@ resize_phi_node (tree *phi, int len)
 {
   int size;
   tree new_phi;
+  int i, old_len;
 
 #ifdef ENABLE_CHECKING
   if (len < PHI_ARG_CAPACITY (*phi))
@@ -5038,7 +5039,14 @@ resize_phi_node (tree *phi, int len)
 
   size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
   new_phi = ggc_realloc (*phi, size);
+  old_len = PHI_ARG_CAPACITY (new_phi);
   PHI_ARG_CAPACITY (new_phi) = len;
+
+  for (i = old_len; i < len; i++)
+    {
+      PHI_ARG_DEF (new_phi, i) = NULL_TREE;
+      PHI_ARG_EDGE (new_phi, i) = NULL;
+    }
 
   *phi = new_phi;
 }

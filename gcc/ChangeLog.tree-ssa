@@ -1,3 +1,7 @@
+2003-08-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree.c (resize_phi_node): Initialize new entries.
+
 2003-08-17  Jeff Law  <law@redhat.com>
 
 	* tree-pretty-print.c (last_bb): Actually record the basic block,
