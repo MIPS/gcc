@@ -55,13 +55,6 @@ hook_int_void_no_regs (void)
   return NO_REGS;
 }
 
-/* Generic hook that returns 1.  */
-int
-hook_int_void_1 (void)
-{
-  return 1;
-}
-
 /* Generic hook that takes (bool) and returns false.  */
 bool
 hook_bool_bool_false (bool a ATTRIBUTE_UNUSED)
@@ -117,6 +110,12 @@ default_can_output_mi_thunk_no_vcall (tree a ATTRIBUTE_UNUSED,
   return c == 0;
 }
 
+int
+hook_int_tree_0 (tree a ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
 /* ??? Used for comp_type_attributes, which ought to return bool.  */
 int
 hook_int_tree_tree_1 (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
@@ -143,11 +142,6 @@ hook_uint_uint_constcharptrptr_0 (unsigned int a ATTRIBUTE_UNUSED,
 				  const char **b ATTRIBUTE_UNUSED)
 {
   return 0;
-}
-
-void
-hook_void_int (int b ATTRIBUTE_UNUSED)
-{
 }
 
 void
@@ -236,6 +230,12 @@ hook_tree_tree_identity (tree a)
 /* Generic hook that takes a tree and returns a NULL string.  */
 const char *
 hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+tree
+hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

@@ -272,7 +272,7 @@ dump_type (tree t, int flags)
       pp_cxx_tree_identifier (cxx_pp, t);
       break;
 
-    case TREE_VEC:
+    case TREE_BINFO:
       dump_type (BINFO_TYPE (t), flags);
       break;
 
@@ -1350,7 +1350,7 @@ dump_expr (tree t, int flags)
 	if (fn && TREE_CODE (fn) == FUNCTION_DECL)
 	  {
 	    if (DECL_CONSTRUCTOR_P (fn))
-	      pp_cxx_tree_identifier (cxx_pp, TYPE_IDENTIFIER (TREE_TYPE (t)));
+	      dump_type (DECL_CONTEXT (fn), flags);
 	    else
 	      dump_decl (fn, 0);
 	  }
@@ -1470,6 +1470,7 @@ dump_expr (tree t, int flags)
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
+    case RDIV_EXPR:
       dump_binary_op ("/", t, flags);
       break;
 
@@ -2339,9 +2340,14 @@ locate_error (const char *msgid, va_list ap)
       plus = 0;
       if (*f == '%')
 	{
-	  f++;
+          if (*++f == 'q')
+            ++f;                /* ignore quoting flag.  */
+
 	  if (*f == '+')
-	    f++, plus = 1;
+            {
+              ++f;
+              plus = 1;
+            }
 	  if (*f == '#')
 	    f++;
 

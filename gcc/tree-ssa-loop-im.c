@@ -128,7 +128,7 @@ get_stmt_uid (tree stmt)
 bool
 for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 {
-  tree *nxt;
+  tree *nxt, *idx;
 
   for (; ; addr_p = nxt)
     {
@@ -144,11 +144,21 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  return cbck (*addr_p, nxt, data);
 
 	case BIT_FIELD_REF:
-	case COMPONENT_REF:
 	case VIEW_CONVERT_EXPR:
 	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  break;
+
+	case COMPONENT_REF:
+	  /* If the component has varying offset, it behaves like index
+	     as well.  */
+	  idx = &TREE_OPERAND (*addr_p, 2);
+	  if (*idx
+	      && !cbck (*addr_p, idx, data))
+	    return false;
+
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 
@@ -593,8 +603,8 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (bb->succ->dest->loop_father,
-					bb->pred->src->loop_father));
+		      find_common_loop (EDGE_SUCC (bb, 0)->dest->loop_father,
+					EDGE_PRED (bb, 0)->src->loop_father));
     }
 }
 
@@ -972,8 +982,9 @@ single_reachable_address (struct loop *loop, tree stmt,
 
 	case PHI_NODE:
 	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (stmt); i++)
-	    maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
-			     seen, queue, &in_queue);
+	    if (TREE_CODE (PHI_ARG_DEF (stmt, i)) == SSA_NAME)
+	      maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
+		               seen, queue, &in_queue);
 	  break;
 
 	default:
@@ -1103,9 +1114,7 @@ is_call_clobbered_ref (tree ref)
   if (DECL_P (base))
     return is_call_clobbered (base);
 
-  if (TREE_CODE (base) == INDIRECT_REF
-      || TREE_CODE (base) == ALIGN_INDIRECT_REF
-      || TREE_CODE (base) == MISALIGNED_INDIRECT_REF)
+  if (INDIRECT_REF_P (base))
     {
       /* Check whether the alias tags associated with the pointer
 	 are call clobbered.  */
@@ -1306,6 +1315,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 
       for (i = 0; i < loop->num_nodes; i++)
 	{
+	  edge_iterator ei;
 	  bb = bbs[i];
 
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -1314,7 +1324,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (!flow_bb_inside_loop_p (loop, e->dest))
 	      break;
 	  if (e)

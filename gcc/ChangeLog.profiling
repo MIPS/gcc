@@ -1,3 +1,7 @@
+2004-10-17  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline (tree-profiling-merge-20041017)
+
 2004-10-16  Jan Hubicka  <jh@suse.cz>
 
 	* cgraph.c (decide_is_variable_needed): New function.

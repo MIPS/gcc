@@ -1263,6 +1263,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
+#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : 0)
+
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
 #define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
@@ -2180,11 +2182,11 @@ extern enum reg_class mips_char_to_class[256];
    && !fixed_regs[N])
 
 /* This structure has to cope with two different argument allocation
-   schemes.  Most MIPS ABIs view the arguments as a struct, of which the
-   first N words go in registers and the rest go on the stack.  If I < N,
-   the Ith word might go in Ith integer argument register or the
-   Ith floating-point one.  For these ABIs, we only need to remember
-   the number of words passed so far.
+   schemes.  Most MIPS ABIs view the arguments as a structure, of which
+   the first N words go in registers and the rest go on the stack.  If I
+   < N, the Ith word might go in Ith integer argument register or in a
+   floating-point register.  For these ABIs, we only need to remember
+   the offset of the current argument into the structure.
 
    The EABI instead allocates the integer and floating-point arguments
    separately.  The first N words of FP arguments go in FP registers,
@@ -2212,9 +2214,9 @@ typedef struct mips_args {
   /* The number of arguments seen so far.  */
   unsigned int arg_number;
 
-  /* For EABI, the number of integer registers used so far.  For other
-     ABIs, the number of words passed in registers (whether integer
-     or floating-point).  */
+  /* The number of integer registers used so far.  For all ABIs except
+     EABI, this is the number of words that have been added to the
+     argument structure, limited to MAX_ARGS_IN_REGISTERS.  */
   unsigned int num_gprs;
 
   /* For EABI, the number of floating-point registers used so far.  */

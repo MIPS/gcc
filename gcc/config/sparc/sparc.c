@@ -270,7 +270,19 @@ struct machine_function GTY(())
 {
   /* Some local-dynamic TLS symbol name.  */
   const char *some_ld_name;
+
+  /* True if the current function is leaf and uses only leaf regs,
+     so that the SPARC leaf function optimization can be applied.
+     Private version of current_function_uses_only_leaf_regs, see
+     sparc_expand_prologue for the rationale.  */
+  int leaf_function_p;
+
+  /* True if the data calculated by sparc_expand_prologue are valid.  */
+  bool prologue_data_valid_p;
 };
+
+#define sparc_leaf_function_p  cfun->machine->leaf_function_p
+#define sparc_prologue_data_valid_p  cfun->machine->prologue_data_valid_p
 
 /* Register we pretend to think the frame pointer is allocated to.
    Normally, this is %fp, but if we are in a leaf procedure, this
@@ -322,6 +334,8 @@ static bool sparc_function_ok_for_sibcall (tree, tree);
 static void sparc_init_libfuncs (void);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
+static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
+				       HOST_WIDE_INT, tree);
 static struct machine_function * sparc_init_machine_status (void);
 static bool sparc_cannot_force_const_mem (rtx);
 static rtx sparc_tls_get_addr (void);
@@ -413,7 +427,7 @@ enum processor_type sparc_cpu;
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK sparc_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK sparc_can_output_mi_thunk
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS sparc_rtx_costs
@@ -451,9 +465,6 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
-
-#undef TARGET_LATE_RTL_PROLOGUE_EPILOGUE
-#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE true
 
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
@@ -1538,23 +1549,7 @@ input_operand (rtx op, enum machine_mode mode)
 
   /* Check for valid MEM forms.  */
   if (GET_CODE (op) == MEM)
-    {
-      rtx inside = XEXP (op, 0);
-
-      if (GET_CODE (inside) == LO_SUM)
-	{
-	  /* We can't allow these because all of the splits
-	     (eventually as they trickle down into DFmode
-	     splits) require offsettable memory references.  */
-	  if (! TARGET_V9
-	      && GET_MODE (op) == TFmode)
-	    return 0;
-
-	  return (register_operand (XEXP (inside, 0), Pmode)
-		  && CONSTANT_P (XEXP (inside, 1)));
-	}
-      return memory_address_p (mode, inside);
-    }
+    return memory_address_p (mode, XEXP (op, 0));
 
   return 0;
 }
@@ -3154,7 +3149,6 @@ eligible_for_restore_insn (rtx trial, bool return_p)
 int
 eligible_for_return_delay (rtx trial)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
   rtx pat;
 
   if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
@@ -3174,7 +3168,7 @@ eligible_for_return_delay (rtx trial)
     return 0;
 
   /* In the case of a true leaf function, anything can go into the slot.  */
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     return get_attr_in_uncond_branch_delay (trial)
 	   == IN_UNCOND_BRANCH_DELAY_TRUE;
 
@@ -3204,7 +3198,6 @@ eligible_for_return_delay (rtx trial)
 int
 eligible_for_sibcall_delay (rtx trial)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
   rtx pat;
 
   if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
@@ -3215,7 +3208,7 @@ eligible_for_sibcall_delay (rtx trial)
 
   pat = PATTERN (trial);
 
-  if (leaf_function_p)
+  if (sparc_leaf_function_p)
     {
       /* If the tail call is done using the call instruction,
 	 we have to restore %o7 in the delay slot.  */
@@ -3509,15 +3502,14 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       else if ((REG_P (rs1) || GET_CODE (rs1) == SUBREG)
 	       && (REG_P (rs2) || GET_CODE (rs2) == SUBREG))
 	{
-	  /* We prohibit REG + REG for TFmode when there are no instructions
-	     which accept REG+REG instructions.  We do this because REG+REG
-	     is not an offsetable address.  If we get the situation in reload
+	  /* We prohibit REG + REG for TFmode when there are no quad move insns
+	     and we consequently need to split.  We do this because REG+REG
+	     is not an offsettable address.  If we get the situation in reload
 	     where source and destination of a movtf pattern are both MEMs with
 	     REG+REG address, then only one of them gets converted to an
-	     offsetable address.  */
+	     offsettable address.  */
 	  if (mode == TFmode
-	      && !(TARGET_FPU && TARGET_ARCH64 && TARGET_V9
-		   && TARGET_HARD_QUAD))
+	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
 	    return 0;
 
 	  /* We prohibit REG + REG on ARCH32 if not optimizing for
@@ -3550,10 +3542,25 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
       if (! CONSTANT_P (imm1) || tls_symbolic_operand (rs1))
 	return 0;
 
-      /* We can't allow TFmode, because an offset greater than or equal to the
-         alignment (8) may cause the LO_SUM to overflow if !v9.  */
-      if (mode == TFmode && !TARGET_V9)
-	return 0;
+      if (USE_AS_OFFSETABLE_LO10)
+	{
+	  /* We can't allow TFmode, because an offset greater than or equal to
+	     the alignment (8) may cause the LO_SUM to overflow if !v9.  */
+	  if (mode == TFmode && ! TARGET_V9)
+	    return 0;
+	}
+      else
+        {
+	  /* We prohibit LO_SUM for TFmode when there are no quad move insns
+	     and we consequently need to split.  We do this because LO_SUM
+	     is not an offsettable address.  If we get the situation in reload
+	     where source and destination of a movtf pattern are both MEMs with
+	     LO_SUM address, then only one of them gets converted to an
+	     offsettable address.  */
+	  if (mode == TFmode
+	      && ! (TARGET_FPU && TARGET_ARCH64 && TARGET_HARD_QUAD))
+	    return 0;
+	}
     }
   else if (GET_CODE (addr) == CONST_INT && SMALL_INT (addr))
     return 1;
@@ -4469,13 +4476,40 @@ emit_stack_pointer_decrement (rtx decrement)
 void
 sparc_expand_prologue (void)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
+  /* Compute a snapshot of current_function_uses_only_leaf_regs.  Relying
+     on the final value of the flag means deferring the prologue/epilogue
+     expansion until just before the second scheduling pass, which is too
+     late to emit multiple epilogues or return insns.
+
+     Of course we are making the assumption that the value of the flag
+     will not change between now and its final value.  Of the three parts
+     of the formula, only the last one can reasonably vary.  Let's take a
+     closer look, after assuming that the first two ones are set to true
+     (otherwise the last value is effectively silenced).
+
+     If only_leaf_regs_used returns false, the global predicate will also
+     be false so the actual frame size calculated below will be positive.
+     As a consequence, the save_register_window insn will be emitted in
+     the instruction stream; now this insn explicitly references %fp
+     which is not a leaf register so only_leaf_regs_used will always
+     return false subsequently.
+
+     If only_leaf_regs_used returns true, we hope that the subsequent
+     optimization passes won't cause non-leaf registers to pop up.  For
+     example, the regrename pass has special provisions to not rename to
+     non-leaf registers in a leaf function.  */
+  sparc_leaf_function_p
+    = optimize > 0 && leaf_function_p () && only_leaf_regs_used ();
 
   /* Need to use actual_fsize, since we are also allocating
      space for our callee (and our own register save area).  */
-  actual_fsize = sparc_compute_frame_size (get_frame_size(), leaf_function_p);
+  actual_fsize
+    = sparc_compute_frame_size (get_frame_size(), sparc_leaf_function_p);
 
-  if (leaf_function_p)
+  /* Advertise that the data calculated just above are now valid.  */
+  sparc_prologue_data_valid_p = true;
+
+  if (sparc_leaf_function_p)
     {
       frame_base_reg = stack_pointer_rtx;
       frame_base_offset = actual_fsize + SPARC_STACK_BIAS;
@@ -4488,7 +4522,7 @@ sparc_expand_prologue (void)
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
-  else if (leaf_function_p)
+  else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
 	emit_stack_pointer_increment (GEN_INT (- actual_fsize));
@@ -4542,7 +4576,9 @@ sparc_expand_prologue (void)
 static void
 sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
+  /* Check that the assumption we made in sparc_expand_prologue is valid.  */
+  if (sparc_leaf_function_p != current_function_uses_only_leaf_regs)
+    abort();
 
   sparc_output_scratch_registers (file);
 
@@ -4552,12 +4588,12 @@ sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       /* The canonical frame address refers to the top of the frame.  */
       dwarf2out_def_cfa (label,
-			 leaf_function_p
+			 sparc_leaf_function_p
 			 ? STACK_POINTER_REGNUM
 			 : HARD_FRAME_POINTER_REGNUM,
 			 frame_base_offset);
 
-      if (! leaf_function_p)
+      if (! sparc_leaf_function_p)
 	{
 	  /* Note the register window save.  This tells the unwinder that
 	     it needs to restore the window registers from the previous
@@ -4576,14 +4612,12 @@ sparc_asm_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 void
 sparc_expand_epilogue (void)
 {
-  int leaf_function_p = current_function_uses_only_leaf_regs;
-
   if (num_gfregs)
     emit_restore_regs ();
 
   if (actual_fsize == 0)
     /* do nothing.  */ ;
-  else if (leaf_function_p)
+  else if (sparc_leaf_function_p)
     {
       if (actual_fsize <= 4096)
 	emit_stack_pointer_decrement (GEN_INT (- actual_fsize));
@@ -4599,6 +4633,16 @@ sparc_expand_epilogue (void)
 	  emit_stack_pointer_decrement (reg);
 	}
     }
+}
+
+/* Return true if it is appropriate to emit `return' instructions in the
+   body of a function.  */
+
+bool
+sparc_can_use_return_insn_p (void)
+{
+  return sparc_prologue_data_valid_p
+	 && (actual_fsize == 0 || !sparc_leaf_function_p);
 }
   
 /* This function generates the assembly code for function exit.  */
@@ -4677,7 +4721,7 @@ output_restore (rtx pat)
 const char *
 output_return (rtx insn)
 {
-  if (current_function_uses_only_leaf_regs)
+  if (sparc_leaf_function_p)
     {
       /* This is a leaf function so we don't have to bother restoring the
 	 register window, which frees us from dealing with the convoluted
@@ -4766,7 +4810,7 @@ output_sibcall (rtx insn, rtx call_operand)
 
   operands[0] = call_operand;
 
-  if (current_function_uses_only_leaf_regs)
+  if (sparc_leaf_function_p)
     {
       /* This is a leaf function so we don't have to bother restoring the
 	 register window.  We simply output the jump to the function and
@@ -5980,7 +6024,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   bool indirect;
   tree ptrtype = build_pointer_type (type);
 
-  if (pass_by_reference (NULL, TYPE_MODE (type), type, 0))
+  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
       indirect = true;
       size = rsize = UNITS_PER_WORD;
@@ -6000,7 +6044,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	    align = 2 * UNITS_PER_WORD;
 
 	  /* SPARC-V9 ABI states that structures up to 16 bytes in size
-	     are given whole slots as needed.  */
+	     are left-justified in their slots.  */
 	  if (AGGREGATE_TYPE_P (type))
 	    {
 	      if (size == 0)
@@ -6030,7 +6074,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if (indirect)
     {
       addr = fold_convert (build_pointer_type (ptrtype), addr);
-      addr = build_fold_indirect_ref (addr);
+      addr = build_va_arg_indirect_ref (addr);
     }
   /* If the address isn't aligned properly for the type,
      we may need to copy to a temporary.  
@@ -6059,7 +6103,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = build2 (MODIFY_EXPR, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
-  return build_fold_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 /* Return the string to output an unconditional branch to LABEL, which is
@@ -8469,23 +8513,25 @@ emit_and_preserve (rtx seq, rtx reg)
   rtx slot = gen_rtx_MEM (word_mode,
 			  plus_constant (stack_pointer_rtx, SPARC_STACK_BIAS));
 
-  emit_stack_pointer_decrement (GEN_INT (UNITS_PER_WORD));
+  emit_stack_pointer_decrement (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT));
   emit_insn (gen_rtx_SET (VOIDmode, slot, reg));
   emit_insn (seq);
   emit_insn (gen_rtx_SET (VOIDmode, reg, slot));
-  emit_stack_pointer_increment (GEN_INT (UNITS_PER_WORD));
+  emit_stack_pointer_increment (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT));
 }
 
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
+/* Output the assembler code for a thunk function.  THUNK_DECL is the
+   declaration for the thunk function itself, FUNCTION is the decl for
+   the target function.  DELTA is an immediate constant offset to be
+   added to THIS.  If VCALL_OFFSET is nonzero, the word at address
+   (*THIS + VCALL_OFFSET) should be additionally added to THIS.  */
 
 static void
 sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
-		       HOST_WIDE_INT delta,
-		       HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
+		       HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		       tree function)
 {
-  rtx this, insn, funexp, delta_rtx;
+  rtx this, insn, funexp;
   unsigned int int_arg_first;
 
   reload_completed = 1;
@@ -8499,7 +8545,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit a regular sibcall below, so we need to instruct
 	 output_sibcall that we are in a leaf function.  */
-      current_function_uses_only_leaf_regs = 1;
+      sparc_leaf_function_p = current_function_uses_only_leaf_regs = 1;
 
       /* This will cause final.c to invoke leaf_renumber_regs so we
 	 must behave as if we were in a not-yet-leafified function.  */
@@ -8509,7 +8555,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     {
       /* We will emit the sibcall manually below, so we will need to
 	 manually spill non-leaf registers.  */
-      current_function_uses_only_leaf_regs = 0;
+      sparc_leaf_function_p = current_function_uses_only_leaf_regs = 0;
 
       /* We really are in a leaf function.  */
       int_arg_first = SPARC_OUTGOING_INT_ARG_FIRST;
@@ -8524,27 +8570,73 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Add DELTA.  When possible use a plain add, otherwise load it into
      a register first.  */
-  delta_rtx = GEN_INT (delta);
-  if (!SPARC_SIMM13_P (delta))
+  if (delta)
     {
-      rtx scratch = gen_rtx_REG (Pmode, 1);
+      rtx delta_rtx = GEN_INT (delta);
 
-      if (input_operand (delta_rtx, GET_MODE (scratch)))
-	emit_insn (gen_rtx_SET (VOIDmode, scratch, delta_rtx));
-      else
+      if (! SPARC_SIMM13_P (delta))
 	{
-	  if (TARGET_ARCH64)
-	    sparc_emit_set_const64 (scratch, delta_rtx);
-	  else
-	    sparc_emit_set_const32 (scratch, delta_rtx);
+	  rtx scratch = gen_rtx_REG (Pmode, 1);
+	  emit_move_insn (scratch, delta_rtx);
+	  delta_rtx = scratch;
 	}
 
-      delta_rtx = scratch;
+      /* THIS += DELTA.  */
+      emit_insn (gen_add2_insn (this, delta_rtx));
     }
 
-  emit_insn (gen_rtx_SET (VOIDmode,
-			  this,
-			  gen_rtx_PLUS (Pmode, this, delta_rtx)));
+  /* Add the word at address (*THIS + VCALL_OFFSET).  */
+  if (vcall_offset)
+    {
+      rtx vcall_offset_rtx = GEN_INT (vcall_offset);
+      rtx scratch = gen_rtx_REG (Pmode, 1);
+
+      if (vcall_offset >= 0)
+	abort ();
+
+      /* SCRATCH = *THIS.  */
+      emit_move_insn (scratch, gen_rtx_MEM (Pmode, this));
+
+      /* Prepare for adding VCALL_OFFSET.  The difficulty is that we
+	 may not have any available scratch register at this point.  */
+      if (SPARC_SIMM13_P (vcall_offset))
+	;
+      /* This is the case if ARCH64 (unless -ffixed-g5 is passed).  */
+      else if (! fixed_regs[5]
+	       /* The below sequence is made up of at least 2 insns,
+		  while the default method may need only one.  */
+	       && vcall_offset < -8192)
+	{
+	  rtx scratch2 = gen_rtx_REG (Pmode, 5);
+	  emit_move_insn (scratch2, vcall_offset_rtx);
+	  vcall_offset_rtx = scratch2;
+	}
+      else
+	{
+	  rtx increment = GEN_INT (-4096);
+
+	  /* VCALL_OFFSET is a negative number whose typical range can be
+	     estimated as -32768..0 in 32-bit mode.  In almost all cases
+	     it is therefore cheaper to emit multiple add insns than
+	     spilling and loading the constant into a register (at least
+	     6 insns).  */
+	  while (! SPARC_SIMM13_P (vcall_offset))
+	    {
+	      emit_insn (gen_add2_insn (scratch, increment));
+	      vcall_offset += 4096;
+	    }
+	  vcall_offset_rtx = GEN_INT (vcall_offset); /* cannot be 0 */
+	}
+
+      /* SCRATCH = *(*THIS + VCALL_OFFSET).  */
+      emit_move_insn (scratch, gen_rtx_MEM (Pmode,
+					    gen_rtx_PLUS (Pmode,
+							  scratch,
+							  vcall_offset_rtx)));
+
+      /* THIS += *(*THIS + VCALL_OFFSET).  */
+      emit_insn (gen_add2_insn (this, scratch));
+    }
 
   /* Generate a tail call to the target function.  */
   if (! TREE_USED (function))
@@ -8630,6 +8722,19 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   reload_completed = 0;
   epilogue_completed = 0;
   no_new_pseudos = 0;
+}
+
+/* Return true if sparc_output_mi_thunk would be able to output the
+   assembler code for the thunk function specified by the arguments
+   it is passed, and false otherwise.  */
+static bool
+sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
+			   HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
+			   HOST_WIDE_INT vcall_offset,
+			   tree function ATTRIBUTE_UNUSED)
+{
+  /* Bound the loop used in the default method above.  */
+  return (vcall_offset >= -32768 || ! fixed_regs[5]);
 }
 
 /* How to allocate a 'struct machine_function'.  */

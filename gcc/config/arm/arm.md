@@ -4459,7 +4459,9 @@
   "flag_pic"
   "
 {
-  arm_load_pic_register ();
+  /* r3 is clobbered by set/longjmp, so we can use it as a scratch
+     register.  */
+  arm_load_pic_register (3);
   DONE;
 }")
 
@@ -6417,7 +6419,7 @@
 	 (match_operator 3 "comparison_operator"
 	  [(plus:SI
 	    (match_operand:SI 1 "s_register_operand" "%l,l,l,0")
-	    (match_operand:SI 2 "reg_or_int_operand" "J,l,I,L"))
+	    (match_operand:SI 2 "reg_or_int_operand" "J,l,L,IJ"))
 	   (const_int 0)])
 	 (label_ref (match_operand 4 "" ""))
 	 (pc)))
@@ -6438,10 +6440,16 @@
 	 output_asm_insn (\"cmn\t%1, %2\", operands);
 	 break;
        case 2:
-	 output_asm_insn (\"add\t%0, %1, %2\", operands);
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %1, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %1, %2\", operands);
 	 break;
        case 3:
-	 output_asm_insn (\"add\t%0, %0, %2\", operands);
+	 if (INTVAL (operands[2]) < 0)
+	   output_asm_insn (\"sub\t%0, %0, %2\", operands);
+	 else
+	   output_asm_insn (\"add\t%0, %0, %2\", operands);
 	 break;
        }
 
@@ -7427,10 +7435,14 @@
   "TARGET_THUMB && !arm_arch5"
   "*
   {
-    if (TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__interwork_call_via_%0\";
-    else
+    if (!TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__call_via_%0\";
+    else if (operands[1] == const0_rtx)
+      return \"bl\\t%__interwork_call_via_%0\";
+    else if (frame_pointer_needed)
+      return \"bl\\t%__interwork_r7_call_via_%0\";
+    else
+      return \"bl\\t%__interwork_r11_call_via_%0\";
   }"
   [(set_attr "type" "call")]
 )
@@ -7517,10 +7529,14 @@
   "TARGET_THUMB && !arm_arch5"
   "*
   {
-    if (TARGET_CALLER_INTERWORKING)
-      return \"bl\\t%__interwork_call_via_%1\";
-    else
+    if (!TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__call_via_%1\";
+    else if (operands[2] == const0_rtx)
+      return \"bl\\t%__interwork_call_via_%1\";
+    else if (frame_pointer_needed)
+      return \"bl\\t%__interwork_r7_call_via_%1\";
+    else
+      return \"bl\\t%__interwork_r11_call_via_%1\";
   }"
   [(set_attr "type" "call")]
 )

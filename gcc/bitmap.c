@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -779,13 +779,14 @@ bitmap_print (FILE *file, bitmap head, const char *prefix, const char *suffix)
 {
   const char *comma = "";
   int i;
+  bitmap_iterator bi;
 
   fputs (prefix, file);
-  EXECUTE_IF_SET_IN_BITMAP (head, 0, i,
-			    {
-			      fprintf (file, "%s%d", comma, i);
-			      comma = ", ";
-			    });
+  EXECUTE_IF_SET_IN_BITMAP (head, 0, i, bi)
+    {
+      fprintf (file, "%s%d", comma, i);
+      comma = ", ";
+    }
   fputs (suffix, file);
 }
 

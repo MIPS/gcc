@@ -287,8 +287,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   current_function_decl = p->decl;
   reg_renumber = 0;
 
-  restore_emit_status (p);
-
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
@@ -536,7 +534,6 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
-  level++;
 
   if (!used_temp_slots)
     VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
@@ -1347,10 +1344,20 @@ instantiate_decl (rtx x, HOST_WIDE_INT size, int valid_only)
   enum machine_mode mode;
   rtx addr;
 
+  if (x == 0)
+    return;
+
+  /* If this is a CONCAT, recurse for the pieces.  */
+  if (GET_CODE (x) == CONCAT)
+    {
+      instantiate_decl (XEXP (x, 0), size / 2, valid_only);
+      instantiate_decl (XEXP (x, 1), size / 2, valid_only);
+      return;
+    }
+
   /* If this is not a MEM, no need to do anything.  Similarly if the
      address is a constant or a register that is not a virtual register.  */
-
-  if (x == 0 || !MEM_P (x))
+  if (!MEM_P (x))
     return;
 
   addr = XEXP (x, 0);
@@ -2514,8 +2521,12 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
     return true;
 
 #ifdef BLOCK_REG_PADDING
-  if (data->locate.where_pad == (BYTES_BIG_ENDIAN ? upward : downward)
-      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD)
+  /* Only assign_parm_setup_block knows how to deal with register arguments
+     that are padded at the least significant end.  */
+  if (REG_P (data->entry_parm)
+      && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
+      && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
+	  == (BYTES_BIG_ENDIAN ? upward : downward)))
     return true;
 #endif
 
@@ -4958,6 +4969,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
 #endif
+  edge_iterator ei;
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -4977,16 +4989,16 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      gcc_assert (ENTRY_BLOCK_PTR->succ && !ENTRY_BLOCK_PTR->succ->succ_next);
+      gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
 
-      insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+      insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
       inserted = 1;
     }
 #endif
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FAKE) == 0)
       break;
   if (e == NULL)
@@ -5002,10 +5014,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	 emit (conditional) return instructions.  */
 
       basic_block last;
-      edge e_next;
       rtx label;
 
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (e == NULL)
@@ -5023,6 +5034,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
       if (BB_HEAD (last) == label && LABEL_P (label))
 	{
+	  edge_iterator ei2;
 	  rtx epilogue_line_note = NULL_RTX;
 
 	  /* Locate the line number associated with the closing brace,
@@ -5036,18 +5048,23 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  for (e = last->pred; e; e = e_next)
+	  for (ei2 = ei_start (last->preds); (e = ei_safe_edge (ei2)); )
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
-	      e_next = e->pred_next;
 	      if (bb == ENTRY_BLOCK_PTR)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      jump = BB_END (bb);
 	      if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* If we have an unconditional jump, we can replace that
 		 with a simple return instruction.  */
@@ -5062,16 +5079,25 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	      else if (condjump_p (jump))
 		{
 		  if (! redirect_jump (jump, 0, 0))
-		    continue;
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (bb->succ->succ_next == NULL)
-		    continue;
+		  if (EDGE_COUNT (bb->succs) == 1)
+		    {
+		      ei_next (&ei2);
+		      continue;
+		    }
 		}
 	      else
-		continue;
+		{
+		  ei_next (&ei2);
+		  continue;
+		}
 
 	      /* Fix up the CFG for the successful change we just made.  */
 	      redirect_edge_succ (e, EXIT_BLOCK_PTR);
@@ -5083,7 +5109,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  last->succ->flags &= ~EDGE_FALLTHRU;
+	  EDGE_SUCC (last, 0)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5093,7 +5119,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e == NULL)
@@ -5154,7 +5180,7 @@ epilogue_done:
 
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);
@@ -5163,7 +5189,10 @@ epilogue_done:
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn))
-	continue;
+	{
+	  ei_next (&ei);
+	  continue;
+	}
 
       start_sequence ();
       emit_insn (gen_sibcall_epilogue ());
@@ -5178,6 +5207,7 @@ epilogue_done:
 
       i = PREV_INSN (insn);
       newinsn = emit_insn_before (seq, insn);
+      ei_next (&ei);
     }
 #endif
 

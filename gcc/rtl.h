@@ -1432,6 +1432,10 @@ extern void push_to_full_sequence (rtx, rtx);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
 
+/* In loop-iv.c  */
+
+extern rtx lowpart_subreg (enum machine_mode, rtx, enum machine_mode);
+
 /* In varasm.c  */
 extern rtx force_const_mem (enum machine_mode, rtx);
 
@@ -1455,19 +1459,25 @@ extern rtx assign_temp (tree, int, int, int);
 
 /* In emit-rtl.c */
 extern rtx emit_insn_before (rtx, rtx);
+extern rtx emit_insn_before_noloc (rtx, rtx);
 extern rtx emit_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_before (rtx, rtx);
+extern rtx emit_jump_insn_before_noloc (rtx, rtx);
 extern rtx emit_jump_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_before (rtx, rtx);
+extern rtx emit_call_insn_before_noloc (rtx, rtx);
 extern rtx emit_call_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (int, rtx);
 extern rtx emit_insn_after (rtx, rtx);
+extern rtx emit_insn_after_noloc (rtx, rtx);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_after (rtx, rtx);
+extern rtx emit_jump_insn_after_noloc (rtx, rtx);
 extern rtx emit_jump_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_after (rtx, rtx);
+extern rtx emit_call_insn_after_noloc (rtx, rtx);
 extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
@@ -1498,19 +1508,6 @@ extern rtx next_label (rtx);
 extern rtx skip_consecutive_labels (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
-
-#define emit_insn_before_sameloc(INSN, BEFORE) \
-  emit_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
-#define emit_jump_insn_before_sameloc(INSN, BEFORE) \
-  emit_jump_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
-#define emit_call_insn_before_sameloc(INSN, BEFORE) \
-  emit_call_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
-#define emit_insn_after_sameloc(INSN, AFTER) \
-  emit_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
-#define emit_jump_insn_after_sameloc(INSN, AFTER) \
-  emit_jump_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
-#define emit_call_insn_after_sameloc(INSN, AFTER) \
-  emit_call_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
 
 /* In cfglayout.c  */
 extern tree choose_inner_scope (tree, tree);
@@ -1605,22 +1602,18 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
-extern rtx get_jump_table_offset (rtx, rtx *);
 extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
 extern int reg_used_between_p (rtx, rtx, rtx);
-extern int reg_referenced_between_p (rtx, rtx, rtx);
 extern int reg_set_between_p (rtx, rtx, rtx);
 extern int regs_set_between_p (rtx, rtx, rtx);
 extern int commutative_operand_precedence (rtx);
 extern int swap_commutative_operands_p (rtx, rtx);
 extern int modified_between_p (rtx, rtx, rtx);
 extern int no_labels_between_p (rtx, rtx);
-extern int no_jumps_between_p (rtx, rtx);
 extern int modified_in_p (rtx, rtx);
-extern int insn_dependent_p (rtx, rtx);
 extern int reg_set_p (rtx, rtx);
 extern rtx single_set_2 (rtx, rtx);
 extern int multiple_sets (rtx);
@@ -1967,7 +1960,6 @@ extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
 extern void reverse_comparison (rtx);
 extern void set_new_first_and_last_insn (rtx, rtx);
-extern void set_new_last_label_num (int);
 extern void unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx);
 extern void unshare_all_rtl_in_chain (rtx);
@@ -2092,6 +2084,8 @@ extern void regclass (rtx, int, FILE *);
 extern void reg_scan (rtx, unsigned int, int);
 extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
+extern void init_subregs_of_mode (void);
+extern void record_subregs_of_mode (rtx);
 #ifdef HARD_CONST
 extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 					 enum machine_mode, unsigned int);

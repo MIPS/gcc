@@ -1,6 +1,6 @@
 /* Protoize program - Original version by Ron Guilmette (rfg@segfault.us.com).
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -970,7 +970,7 @@ free_def_dec (def_dec_info *p)
   free (p);
 }
 
-/* Unexpand as many macro symbol as we can find.
+/* Unexpand as many macro symbols as we can find.
 
    If the given line must be unexpanded, make a copy of it in the heap and
    return a pointer to the unexpanded copy.  Otherwise return NULL.  */

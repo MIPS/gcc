@@ -606,7 +606,7 @@ build_java_jsr (int target_pc, int return_pc)
   flush_quick_stack ();
   java_add_stmt (build1 (GOTO_EXPR, void_type_node, where));
 
-  /* Do not need to emit the label here.  We noted the existance of the
+  /* Do not need to emit the label here.  We noted the existence of the
      label as a jump target in note_instructions; we'll emit the label
      for real at the beginning of the expand_byte_code loop.  */
 }
@@ -1486,7 +1486,7 @@ lookup_field (tree *typep, tree name)
 		{
 		  tree i1 = DECL_CONTEXT (save_field);
 		  tree i2 = DECL_CONTEXT (field);
-		  error ("reference `%s' is ambiguous: appears in interface `%s' and interface `%s'",
+		  error ("reference %qs is ambiguous: appears in interface %qs and interface %qs",
 			 IDENTIFIER_POINTER (name),
 			 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (i1))),
 			 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (i2))));
@@ -1514,7 +1514,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
   tree field_decl = lookup_field (&base_class, name);
   if (field_decl == NULL_TREE)
     {
-      error ("field `%s' not found", IDENTIFIER_POINTER (name));
+      error ("field %qs not found", IDENTIFIER_POINTER (name));
       return error_mark_node;
     }
   if (self_value == NULL_TREE)
@@ -2428,7 +2428,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  else if (FIELD_STATIC (field_decl))
 	    {
 	      if (!DECL_CLINIT_P (current_function_decl))
-		warning ("%Jassignment to final static field `%D' not in "
+		warning ("%Jassignment to final static field %qD not in "
                          "class initializer",
                          field_decl, field_decl);
 	    }
@@ -2695,7 +2695,12 @@ expand_byte_code (JCF *jcf, tree method)
 	      linenumber_pointer += 4;
 	      if (pc == PC)
 		{
-		  input_location.line = GET_u2 (linenumber_pointer - 2);
+		  int line = GET_u2 (linenumber_pointer - 2);
+#ifdef USE_MAPPED_LOCATION
+		  input_location = linemap_line_start (&line_table, line, 1);
+#else
+		  input_location.line = line;
+#endif
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3178,9 +3183,6 @@ force_evaluation_order (tree node)
     {
       tree arg, cmp;
 
-      if (!TREE_OPERAND (node, 1))
-	return node;
-
       arg = node;
       
       /* Position arg properly, account for wrapped around ctors. */
@@ -3189,7 +3191,11 @@ force_evaluation_order (tree node)
       
       arg = TREE_OPERAND (arg, 1);
       
-      /* Not having a list of argument here is an error. */ 
+      /* An empty argument list is ok, just ignore it.  */
+      if (!arg)
+	return node;
+
+      /* Not having a list of arguments here is an error. */ 
       if (TREE_CODE (arg) != TREE_LIST)
         abort ();
 
@@ -3224,21 +3230,33 @@ force_evaluation_order (tree node)
    recursively more than one file (Java is one of them).  */
 
 tree
-build_expr_wfl (tree node, const char *file, int line, int col)
+build_expr_wfl (tree node,
+#ifdef USE_MAPPED_LOCATION
+		source_location location
+#else
+		const char *file, int line, int col
+#endif
+)
 {
+  tree wfl;
   static const char *last_file = 0;
   static tree last_filenode = NULL_TREE;
-  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
 
-  EXPR_WFL_NODE (wfl) = node;
+#ifdef USE_MAPPED_LOCATION
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  SET_EXPR_LOCATION (wfl, location);
+#else
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+
   EXPR_WFL_SET_LINECOL (wfl, line, col);
   if (file != last_file)
     {
       last_file = file;
       last_filenode = file ? get_identifier (file) : NULL_TREE;
     }
-
   EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
+#endif
+  EXPR_WFL_NODE (wfl) = node;
   if (node)
     {
       if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
@@ -3249,6 +3267,42 @@ build_expr_wfl (tree node, const char *file, int line, int col)
   return wfl;
 }
 
+#ifdef USE_MAPPED_LOCATION
+tree
+expr_add_location (tree node, source_location location, bool statement)
+{
+  tree wfl;
+#if 0
+  /* FIXME. This optimization causes failures in code that expects an
+     EXPR_WITH_FILE_LOCATION.  E.g. in resolve_qualified_expression_name. */
+  if (node && ! (statement && flag_emit_class_files))
+    {
+      source_location node_loc = EXPR_LOCATION (node);
+      if (node_loc == location || location == UNKNOWN_LOCATION)
+	return node;
+      if (node_loc == UNKNOWN_LOCATION
+	  && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+	{
+	  SET_EXPR_LOCATION (node, location);
+	  return node;
+	}
+    }
+#endif
+  wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  SET_EXPR_LOCATION (wfl, location);
+  EXPR_WFL_NODE (wfl) = node;
+  if (statement && debug_info_level != DINFO_LEVEL_NONE)
+    EXPR_WFL_EMIT_LINE_NOTE (wfl) = 1;
+  if (node)
+    {
+      if (IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+	TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
+      TREE_TYPE (wfl) = TREE_TYPE (node);
+    }
+
+  return wfl;
+}
+#endif
 
 /* Build a node to represent empty statements and blocks. */
 

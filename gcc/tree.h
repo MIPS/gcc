@@ -96,6 +96,12 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* Nonzero if CODE represents a INDIRECT_REF.  */
+#define INDIRECT_REF_P(CODE)\
+  (TREE_CODE (CODE) == INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+
 /* Nonzero if CODE represents a reference.  */
 
 #define REFERENCE_CLASS_P(CODE)\
@@ -1054,13 +1060,14 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
+#define TREE_STRING_POINTER(NODE) \
+  ((const char *)(STRING_CST_CHECK (NODE)->string.str))
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char str[1];
+  char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -2117,7 +2124,7 @@ struct tree_binfo GTY (())
 
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
-#define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
+#define DECL_HARD_REGISTER(NODE)  (VAR_DECL_CHECK (NODE)->decl.inline_flag)
 
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
@@ -3251,11 +3258,11 @@ extern int mostly_zeros_p (tree);
 
 extern void add_var_to_bind_expr (tree, tree);
 
-/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0 */
+/* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
 extern int integer_zerop (tree);
 
-/* integer_onep (tree x) is nonzero if X is an integer constant of value 1 */
+/* integer_onep (tree x) is nonzero if X is an integer constant of value 1.  */
 
 extern int integer_onep (tree);
 
@@ -3460,7 +3467,6 @@ extern bool commutative_tree_code (enum tree_code);
 extern void expand_expr_stmt (tree);
 extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
-extern void expand_decl_init (tree);
 extern void expand_label (tree);
 extern void expand_goto (tree);
 extern void expand_asm (tree, int);
@@ -3533,6 +3539,7 @@ extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, 
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
+tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
@@ -3783,10 +3790,14 @@ extern void dwarf2out_return_reg (const char *, unsigned);
 
 /* In tree-inline.c  */
 
+/* The type of a set of already-visited pointers.  Functions for creating
+   and manipulating it are declared in pointer-set.h */
+struct pointer_set_t;
+
 /* The type of a callback function for walking over tree structure.  */
 
 typedef tree (*walk_tree_fn) (tree *, int *, void *);
-extern tree walk_tree (tree*, walk_tree_fn, void*, void*);
+extern tree walk_tree (tree*, walk_tree_fn, void*, struct pointer_set_t*);
 extern tree walk_tree_without_duplicates (tree*, walk_tree_fn, void*);
 
 /* In tree-dump.c */

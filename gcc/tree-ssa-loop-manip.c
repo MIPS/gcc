@@ -123,10 +123,11 @@ add_exit_phis_edge (basic_block exit, tree use)
   basic_block def_bb = bb_for_stmt (def_stmt);
   struct loop *def_loop;
   edge e;
+  edge_iterator ei;
 
   /* Check that some of the edges entering the EXIT block exits a loop in
      that USE is defined.  */
-  for (e = exit->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, exit->preds)
     {
       def_loop = find_common_loop (def_bb->loop_father, e->src->loop_father);
       if (!flow_bb_inside_loop_p (def_loop, e->dest))
@@ -138,7 +139,7 @@ add_exit_phis_edge (basic_block exit, tree use)
 
   phi = create_phi_node (use, exit);
 
-  for (e = exit->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, exit->preds)
     add_phi_arg (&phi, use, e);
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
@@ -153,6 +154,7 @@ add_exit_phis_var (tree var, bitmap livein, bitmap exits)
   bitmap def;
   int index;
   basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+  bitmap_iterator bi;
 
   bitmap_clear_bit (livein, def_bb->index);
 
@@ -161,8 +163,10 @@ add_exit_phis_var (tree var, bitmap livein, bitmap exits)
   compute_global_livein (livein, def);
   BITMAP_XFREE (def);
 
-  EXECUTE_IF_AND_IN_BITMAP (exits, livein, 0, index,
-			    add_exit_phis_edge (BASIC_BLOCK (index), var));
+  EXECUTE_IF_AND_IN_BITMAP (exits, livein, 0, index, bi)
+    {
+      add_exit_phis_edge (BASIC_BLOCK (index), var);
+    }
 }
 
 /* Add exit phis for the names marked in NAMES_TO_RENAME.
@@ -173,11 +177,12 @@ static void
 add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap loop_exits)
 {
   unsigned i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i, bi)
     {
       add_exit_phis_var (ssa_name (i), use_blocks[i], loop_exits);
-    });
+    }
 }
 
 /* Returns a bitmap of all loop exit edge targets.  */
@@ -188,10 +193,11 @@ get_loops_exits (void)
   bitmap exits = BITMAP_XMALLOC ();
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   FOR_EACH_BB (bb)
     {
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->src != ENTRY_BLOCK_PTR
 	    && !flow_bb_inside_loop_p (e->src->loop_father, bb))
 	  {
@@ -400,7 +406,7 @@ split_loop_exit_edge (edge exit)
 
   for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
     {
-      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
 
       name = USE_FROM_PTR (op_p);
 
@@ -464,17 +470,17 @@ ip_normal_pos (struct loop *loop)
   basic_block bb;
   edge exit;
 
-  if (loop->latch->pred->pred_next)
+  if (EDGE_COUNT (loop->latch->preds) > 1)
     return NULL;
 
-  bb = loop->latch->pred->src;
+  bb = EDGE_PRED (loop->latch, 0)->src;
   last = last_stmt (bb);
   if (TREE_CODE (last) != COND_EXPR)
     return NULL;
 
-  exit = bb->succ;
+  exit = EDGE_SUCC (bb, 0);
   if (exit->dest == loop->latch)
-    exit = exit->succ_next;
+    exit = EDGE_SUCC (bb, 1);
 
   if (flow_bb_inside_loop_p (loop, exit->dest))
     return NULL;
@@ -728,7 +734,7 @@ lv_adjust_loop_entry_edge (basic_block first_head,
 
   /* Adjust edges appropriately to connect new head with first head
      as well as second head.  */
-  e0 = new_head->succ;
+  e0 = EDGE_SUCC (new_head, 0);
   e0->flags &= ~EDGE_FALLTHRU;
   e0->flags |= EDGE_FALSE_VALUE;
   e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
@@ -812,10 +818,10 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
   *condition_bb = lv_adjust_loop_entry_edge (first_head, second_head, entry, 
 					    cond_expr); 
 
-  latch_edge = loop->latch->rbi->copy->succ;
+  latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
   nloop = loopify (loops, 
 		   latch_edge,
-		   loop->header->rbi->copy->pred,
+		   EDGE_PRED (loop->header->rbi->copy, 0),
 		   *condition_bb,
 		   false /* Do not redirect all edges.  */);
 
@@ -835,7 +841,7 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
       (*condition_bb)->flags |= BB_IRREDUCIBLE_LOOP;
       loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
       loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      (*condition_bb)->pred->flags |= EDGE_IRREDUCIBLE_LOOP;
+      EDGE_PRED ((*condition_bb), 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   /* At this point condition_bb is loop predheader with two successors, 

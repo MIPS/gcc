@@ -1,57 +1,52 @@
-/*
+/* TREELANG Compiler interface to GCC's middle end (treetree.c)
+   Called by the parser.
 
-    TREELANG Compiler interface to GCC's middle end (treetree.c)
-    Called by the parser.
+   If you want a working example of how to write a front end to GCC,
+   you are in the right place.
 
-    If you want a working example of how to write a front end to GCC,
-    you are in the right place.
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
-    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-    1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   This code is based on toy.c written by Richard Kenner.
 
-    This code is based on toy.c written by Richard Kenner.
+   It was later modified by Jonathan Bartlett whose changes have all
+   been removed (by Tim Josling).
 
-    It was later modified by Jonathan Bartlett whose changes have all
-    been removed (by Tim Josling).
+   Various bits and pieces were cloned from the GCC main tree, as
+   GCC evolved, for COBOLForGCC, by Tim Josling.
 
-    Various bits and pieces were cloned from the GCC main tree, as
-    GCC evolved, for COBOLForGCC, by Tim Josling.
+   It was adapted to TREELANG by Tim Josling 2001.
 
-    It was adapted to TREELANG by Tim Josling 2001.
+   Updated to function-at-a-time by James A. Morrison, 2004.
 
-    Updated to function-at-a-time by James A. Morrison, 2004.
+   -----------------------------------------------------------------------
 
-    ---------------------------------------------------------------------------
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 2, or (at your option) any
+   later version.
 
-    This program is free software; you can redistribute it and/or modify it
-    under the terms of the GNU General Public License as published by the
-    Free Software Foundation; either version 2, or (at your option) any
-    later version.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, 59 Temple Place - Suite 330,
-    Boston, MA 02111-1307, USA.
+   In other words, you are welcome to use, share and improve this program.
+   You are forbidden to forbid anyone else to use, share and improve
+   what you give them.   Help stamp out software-hoarding!
 
-    In other words, you are welcome to use, share and improve this program.
-    You are forbidden to forbid anyone else to use, share and improve
-    what you give them.   Help stamp out software-hoarding!
+   -----------------------------------------------------------------------  */
 
-    ---------------------------------------------------------------------------
-
- */
-
-/*
-  Assumption: garbage collection is never called implicitly.  It will
-  not be called 'at any time' when short of memory.  It will only be
-  called explicitly at the end of each function.  This removes the
-  need for a *lot* of bother to ensure everything is in the mark trees
-  at all times.  */
+/* Assumption: garbage collection is never called implicitly.  It will
+   not be called 'at any time' when short of memory.  It will only be
+   called explicitly at the end of each function.  This removes the
+   need for a *lot* of bother to ensure everything is in the mark trees
+   at all times.  */
 
 /* Note, it is OK to use GCC extensions such as long long in a compiler front
    end.  This is because the GCC front ends are built using GCC.   */
@@ -250,7 +245,7 @@ tree_code_get_type (int type_num)
       return void_type_node;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -263,7 +258,8 @@ tree_code_if_start (tree exp, location_t loc)
 {
   tree cond_exp, cond;
   cond_exp = fold (build2 (NE_EXPR, boolean_type_node, exp,
-                     fold (build1 (CONVERT_EXPR, TREE_TYPE (exp), integer_zero_node))));
+			   fold (build1 (CONVERT_EXPR, TREE_TYPE (exp),
+					 integer_zero_node))));
   SET_EXPR_LOCATION (cond_exp, loc);
   cond = build3 (COND_EXPR, void_type_node, cond_exp, NULL_TREE,
                  NULL_TREE);
@@ -334,8 +330,7 @@ tree_code_create_function_prototype (unsigned char* chars,
   id = get_identifier ((const char*)chars);
   for (parm = parms; parm; parm = parm->tp.par.next)
     {
-      if (parm->category != parameter_category)
-        abort ();
+      gcc_assert (parm->category == parameter_category);
       type_node = tree_code_get_type (parm->type);
       type_list = tree_cons (NULL_TREE, type_node, type_list);
     }
@@ -379,7 +374,7 @@ tree_code_create_function_prototype (unsigned char* chars,
 
     case AUTOMATIC_STORAGE:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* Process declaration of function defined elsewhere.  */
@@ -407,8 +402,7 @@ tree_code_create_function_initial (tree prev_saved,
   struct prod_token_parm_item* parm;
 
   fn_decl = prev_saved;
-  if (!fn_decl)
-    abort ();
+  gcc_assert (fn_decl);
 
   /* Output message if not -quiet.  */
   announce_function (fn_decl);
@@ -441,10 +435,8 @@ tree_code_create_function_initial (tree prev_saved,
 
       /* Some languages have different nominal and real types.  */
       DECL_ARG_TYPE (parm_decl) = TREE_TYPE (parm_decl);
-      if (!DECL_ARG_TYPE (parm_decl))
-        abort ();
-      if (!fn_decl)
-        abort ();
+      gcc_assert (DECL_ARG_TYPE (parm_decl));
+      gcc_assert (fn_decl);
       DECL_CONTEXT (parm_decl) = fn_decl;
       DECL_SOURCE_LOCATION (parm_decl) = loc;
       parm_list = chainon (parm_decl, parm_list);
@@ -462,12 +454,10 @@ tree_code_create_function_initial (tree prev_saved,
        param_decl = TREE_CHAIN (param_decl),
          this_parm = this_parm->tp.par.next)
     {
-      if (!this_parm)
-        abort (); /* Too few.  */
+      gcc_assert (this_parm); /* Too few.  */
       *this_parm->tp.par.where_to_put_var_tree = param_decl;
     }
-  if (this_parm)
-    abort (); /* Too many.  */
+  gcc_assert (!this_parm); /* Too many.  */
 
   /* Create a new level at the start of the function.  */
 
@@ -545,8 +535,7 @@ tree_code_create_variable (unsigned int storage_class,
   var_type = tree_code_get_type (expression_type);
 
   /* 2. Build the name.  */
-  if (chars[length] != 0)
-    abort (); /* Should be null terminated.  */
+  gcc_assert (chars[length] == 0); /* Should be null terminated.  */
 
   var_id = get_identifier ((const char*)chars);
 
@@ -559,8 +548,7 @@ tree_code_create_variable (unsigned int storage_class,
   else
     DECL_INITIAL (var_decl) = NULL_TREE;
 
-  if (TYPE_SIZE (var_type) == 0)
-    abort (); /* Did not calculate size.  */
+  gcc_assert (TYPE_SIZE (var_type) != 0); /* Did not calculate size.  */
 
   DECL_CONTEXT (var_decl) = current_function_decl;
 
@@ -590,7 +578,7 @@ tree_code_create_variable (unsigned int storage_class,
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   /* This should really only be set if the variable is used.  */
@@ -603,7 +591,6 @@ tree_code_create_variable (unsigned int storage_class,
 
   TYPE_NAME (TREE_TYPE (var_decl)) = TYPE_NAME (var_type);
   return pushdecl (copy_node (var_decl));
-
 }
 
 
@@ -616,13 +603,12 @@ tree_code_generate_return (tree type, tree exp)
   tree setret;
   tree param;
 
+#ifdef ENABLE_CHECKING
   for (param = DECL_ARGUMENTS (current_function_decl);
        param;
        param = TREE_CHAIN (param))
-    {
-      if (DECL_CONTEXT (param) != current_function_decl)
-        abort ();
-    }
+    gcc_assert (DECL_CONTEXT (param) == current_function_decl);
+#endif
 
   if (exp && TREE_TYPE (TREE_TYPE (current_function_decl)) != void_type_node)
     {
@@ -697,11 +683,11 @@ tree_code_get_expression (unsigned int exp_type,
   switch (exp_type)
     {
     case EXP_ASSIGN:
-      if (!op1 || !op2)
-        abort ();
+      gcc_assert (op1 && op2);
       operator = MODIFY_EXPR;
       ret1 = fold (build2 (operator, void_type_node, op1,
-                           fold (build1 (CONVERT_EXPR, TREE_TYPE (op1), op2))));
+                           fold (build1 (CONVERT_EXPR, TREE_TYPE (op1),
+					 op2))));
 
       break;
 
@@ -719,8 +705,7 @@ tree_code_get_expression (unsigned int exp_type,
 
     /* Expand a binary expression.  Ensure the operands are the right type.  */
     binary_expression:
-      if (!op1 || !op2)
-        abort ();
+      gcc_assert (op1 && op2);
       ret1  =  fold (build2 (operator, type,
                        fold (build1 (CONVERT_EXPR, type, op1)),
                        fold (build1 (CONVERT_EXPR, type, op2))));
@@ -730,8 +715,7 @@ tree_code_get_expression (unsigned int exp_type,
          decl for the variable.  If the TYPE is different than the
          variable type, convert it.  */
     case EXP_REFERENCE:
-      if (!op1)
-        abort ();
+      gcc_assert (op1);
       if (type == TREE_TYPE (op1))
         ret1 = op1;
       else
@@ -739,19 +723,17 @@ tree_code_get_expression (unsigned int exp_type,
       break;
 
     case EXP_FUNCTION_INVOCATION:
-      if (!op1 || !op2)
-        abort ();
-
+      gcc_assert (op1 && op2);
       {
         tree fun_ptr;
-        fun_ptr = fold (build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (op1)),
-                                op1));
+        fun_ptr = fold (build1 (ADDR_EXPR,
+                                build_pointer_type (TREE_TYPE (op1)), op1));
         ret1 = build3 (CALL_EXPR, type, fun_ptr, nreverse (op2), NULL_TREE);
       }
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return ret1;
@@ -773,8 +755,8 @@ tree_code_add_parameter (tree list, tree proto_exp, tree exp)
 {
   tree new_exp;
   new_exp = tree_cons (NULL_TREE,
-                       fold (build1 (CONVERT_EXPR, TREE_TYPE (proto_exp), exp)),
-                       NULL_TREE);
+                       fold (build1 (CONVERT_EXPR, TREE_TYPE (proto_exp),
+				     exp)), NULL_TREE);
   if (!list)
     return new_exp;
   return chainon (new_exp, list);
@@ -857,24 +839,22 @@ tree_mark_addressable (tree exp)
 	  {
 	    if (TREE_PUBLIC (x))
 	      {
-		error ("global register variable `%s' used in nested function",
-		       IDENTIFIER_POINTER (DECL_NAME (x)));
+		error ("Global register variable %qD used in nested function.",
+		       x);
 		return 0;
 	      }
-	    pedwarn ("register variable `%s' used in nested function",
-		     IDENTIFIER_POINTER (DECL_NAME (x)));
+	    pedwarn ("Register variable %qD used in nested function.", x);
 	  }
 	else if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x))
 	  {
 	    if (TREE_PUBLIC (x))
 	      {
-		error ("address of global register variable `%s' requested",
-		       IDENTIFIER_POINTER (DECL_NAME (x)));
+		error ("Address of global register variable %qD requested.",
+		       x);
 		return 0;
 	      }
 
-	    pedwarn ("address of register variable `%s' requested",
-		     IDENTIFIER_POINTER (DECL_NAME (x)));
+	    pedwarn ("Address of register variable %qD requested.", x);
 	  }
 
 	/* drops in */
@@ -1278,7 +1258,7 @@ static void
 treelang_expand_function (tree fndecl)
 {
   /* We have nothing special to do while expanding functions for treelang.  */
-  tree_rest_of_compilation (fndecl, 0);
+  tree_rest_of_compilation (fndecl);
 }
 
 #include "debug.h" /* for debug_hooks, needed by gt-treelang-treetree.h */

@@ -192,8 +192,12 @@ and again mark them read/write.
   do							\
     {							\
       unsigned int node_;				\
-      EXECUTE_IF_SET_IN_BITMAP (BITMAP, MIN, node_,	\
-      {(BB) = BASIC_BLOCK (node_); CODE;});		\
+      bitmap_iterator bi;				\
+      EXECUTE_IF_SET_IN_BITMAP (BITMAP, MIN, node_, bi)	\
+	{						\
+	  (BB) = BASIC_BLOCK (node_);			\
+	  CODE;						\
+	}						\
     }							\
   while (0)
 
@@ -1829,6 +1833,7 @@ df_bb_reg_info_compute (struct df *df, basic_block bb, bitmap live)
       unsigned int uid = INSN_UID (insn);
       unsigned int regno;
       struct df_link *link;
+      bitmap_iterator bi;
 
       if (! INSN_P (insn))
 	continue;
@@ -1854,10 +1859,10 @@ df_bb_reg_info_compute (struct df *df, basic_block bb, bitmap live)
 	}
 
       /* Increment lifetimes of all live registers.  */
-      EXECUTE_IF_SET_IN_BITMAP (live, 0, regno,
-      {
-	reg_info[regno].lifetime++;
-      });
+      EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
+	{
+	  reg_info[regno].lifetime++;
+	}
     }
 }
 
@@ -2251,10 +2256,12 @@ df_refs_update (struct df *df, bitmap blocks)
     }
   else
     {
-      EXECUTE_IF_AND_IN_BITMAP (df->bbs_modified, blocks, 0, bbno,
+      bitmap_iterator bi;
+
+      EXECUTE_IF_AND_IN_BITMAP (df->bbs_modified, blocks, 0, bbno, bi)
 	{
 	  count += df_bb_refs_update (df, BASIC_BLOCK (bbno));
-	});
+	}
     }
 
   df_refs_process (df);
@@ -3789,18 +3796,19 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
   int changed;
   int i = bb->index;
   edge e;
+  edge_iterator ei;
 
   SET_BIT (visited, bb->index);
   gcc_assert (TEST_BIT (pending, bb->index));
   RESET_BIT (pending, i);
 
-#define HS(E_ANTI, E_ANTI_NEXT, E_ANTI_BB, E_ANTI_START_BB, IN_SET,	\
-	   E, E_NEXT, E_BB, E_START_BB, OUT_SET)			\
+#define HS(E_ANTI, E_ANTI_BB, E_ANTI_START_BB, IN_SET,			\
+	   E, E_BB, E_START_BB, OUT_SET)				\
   do									\
     {									\
       /*  Calculate <conf_op> of predecessor_outs.  */			\
       bitmap_zero (IN_SET[i]);						\
-      for (e = bb->E_ANTI; e; e = e->E_ANTI_NEXT)			\
+      FOR_EACH_EDGE (e, ei, bb->E_ANTI)					\
 	{								\
 	  if (e->E_ANTI_BB == E_ANTI_START_BB)				\
 	    continue;							\
@@ -3820,7 +3828,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
       if (!changed)							\
 	break;								\
 									\
-      for (e = bb->E; e; e = e->E_NEXT)					\
+      FOR_EACH_EDGE (e, ei, bb->E)						\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3831,7 +3839,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	  SET_BIT (pending, e->E_BB->index);				\
       	}								\
 									\
-      for (e = bb->E; e; e = e->E_NEXT)					\
+      FOR_EACH_EDGE (e, ei, bb->E)						\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3845,11 +3853,11 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
     } while (0)
 
   if (dataflow->dir == DF_FORWARD)
-    HS (pred, pred_next, src, ENTRY_BLOCK_PTR, dataflow->in,
-	succ, succ_next, dest, EXIT_BLOCK_PTR, dataflow->out);
+    HS (preds, src, ENTRY_BLOCK_PTR, dataflow->in,
+	succs, dest, EXIT_BLOCK_PTR, dataflow->out);
   else
-    HS (succ, succ_next, dest, EXIT_BLOCK_PTR, dataflow->out,
-	pred, pred_next, src, ENTRY_BLOCK_PTR, dataflow->in);
+    HS (succs, dest, EXIT_BLOCK_PTR, dataflow->out,
+	preds, src, ENTRY_BLOCK_PTR, dataflow->in);
 }
 
 /* This function will perform iterative bitvector dataflow described by

@@ -377,7 +377,7 @@ life_analysis (FILE *file, int flags)
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
   if (flags & PROP_REG_INFO)
-    bitmap_initialize (&subregs_of_mode, 1);
+    init_subregs_of_mode ();
 #endif
 
   if (! optimize)
@@ -1094,6 +1094,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       int rescan, changed;
       basic_block bb;
       edge e;
+      edge_iterator ei;
 
       bb = *qhead++;
       if (qhead == qend)
@@ -1103,8 +1104,8 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       /* Begin by propagating live_at_start from the successor blocks.  */
       CLEAR_REG_SET (new_live_at_end);
 
-      if (bb->succ)
-	for (e = bb->succ; e; e = e->succ_next)
+      if (EDGE_COUNT (bb->succs) > 0)
+	FOR_EACH_EDGE (e, ei, bb->succs)
 	  {
 	    basic_block sb = e->dest;
 
@@ -1260,7 +1261,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       /* Queue all predecessors of BB so that we may re-examine
 	 their live_at_end.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  basic_block pb = e->src;
 	  if (pb->aux == NULL)
@@ -1365,8 +1366,9 @@ initialize_uninitialized_subregs (void)
   edge e;
   int reg, did_something = 0;
   find_regno_partial_param param;
+  edge_iterator ei;
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;
@@ -1830,19 +1832,19 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
       int i;
 
       /* Identify the successor blocks.  */
-      bb_true = bb->succ->dest;
-      if (bb->succ->succ_next != NULL)
+      bb_true = EDGE_SUCC (bb, 0)->dest;
+      if (EDGE_COUNT (bb->succs) > 1)
 	{
-	  bb_false = bb->succ->succ_next->dest;
+	  bb_false = EDGE_SUCC (bb, 1)->dest;
 
-	  if (bb->succ->flags & EDGE_FALLTHRU)
+	  if (EDGE_SUCC (bb, 0)->flags & EDGE_FALLTHRU)
 	    {
 	      basic_block t = bb_false;
 	      bb_false = bb_true;
 	      bb_true = t;
 	    }
 	  else
-	    gcc_assert (bb->succ->succ_next->flags & EDGE_FALLTHRU);
+	    gcc_assert (EDGE_SUCC (bb, 1)->flags & EDGE_FALLTHRU);
 	}
       else
 	{
@@ -1924,9 +1926,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
       && (flags & PROP_SCAN_DEAD_STORES)
-      && (bb->succ == NULL
-	  || (bb->succ->succ_next == NULL
-	      && bb->succ->dest == EXIT_BLOCK_PTR
+      && (EDGE_COUNT (bb->succs) == 0
+	  || (EDGE_COUNT (bb->succs) == 1
+	      && EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR
 	      && ! current_function_calls_eh_return)))
     {
       rtx insn, set;
@@ -3776,12 +3778,8 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 
     case SUBREG:
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      if ((flags & PROP_REG_INFO)
-	  && REG_P (SUBREG_REG (x))
-	  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER)
-	bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (x))
-					  * MAX_MACHINE_MODE
-					  + GET_MODE (x));
+      if (flags & PROP_REG_INFO)
+	record_subregs_of_mode (x);
 #endif
 
       /* While we're here, optimize this case.  */
@@ -3826,13 +3824,8 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 	       || GET_CODE (testreg) == SUBREG)
 	  {
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	    if ((flags & PROP_REG_INFO)
-		&& GET_CODE (testreg) == SUBREG
-		&& REG_P (SUBREG_REG (testreg))
-		&& REGNO (SUBREG_REG (testreg)) >= FIRST_PSEUDO_REGISTER)
-	      bitmap_set_bit (&subregs_of_mode, REGNO (SUBREG_REG (testreg))
-						* MAX_MACHINE_MODE
-						+ GET_MODE (testreg));
+	    if ((flags & PROP_REG_INFO) && GET_CODE (testreg) == SUBREG)
+	      record_subregs_of_mode (testreg);
 #endif
 
 	    /* Modifying a single register in an alternate mode
@@ -4332,12 +4325,12 @@ void
 reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
 {
   int i;
+  bitmap_iterator bi;
 
-  EXECUTE_IF_SET_IN_BITMAP
-    (from, 0, i,
-     {
-       if (i >= FIRST_PSEUDO_REGISTER)
-	 return;
-       SET_HARD_REG_BIT (*to, i);
-     });
+  EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
+    {
+      if (i >= FIRST_PSEUDO_REGISTER)
+	return;
+      SET_HARD_REG_BIT (*to, i);
+    }
 }

@@ -560,6 +560,9 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
    On the Alpha, they trap.  */
 
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
+
+/* Our SIMD is all done on single integer registers.  */
+#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
 
 /* Standard register usage.  */
 
@@ -1180,6 +1183,7 @@ do {						\
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
 #define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (26)
 #define DWARF_ALT_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (64)
+#define DWARF_ZERO_REG 31
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N)	((N) < 4 ? (N) + 16 : INVALID_REGNUM)

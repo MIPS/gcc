@@ -157,7 +157,7 @@ assign_luids (basic_block bb)
 /* Generates a subreg to get the least significant part of EXPR (in mode
    INNER_MODE) to OUTER_MODE.  */
 
-static rtx
+rtx
 lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 		enum machine_mode inner_mode)
 {
@@ -1783,6 +1783,8 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 
   while (1)
     {
+      basic_block tmp_bb;
+
       insn = BB_END (e->src);
       if (any_condjump_p (insn))
 	{
@@ -1814,8 +1816,12 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	}
 
-      e = e->src->pred;
-      if (e->pred_next
+      /* This is a bit subtle.  Store away e->src in tmp_bb, since we
+	 modify `e' and this can invalidate the subsequent count of
+	 e->src's predecessors by looking at the wrong block.  */
+      tmp_bb = e->src;
+      e = EDGE_PRED (tmp_bb, 0);
+      if (EDGE_COUNT (tmp_bb->preds) > 1
 	  || e->src == ENTRY_BLOCK_PTR)
 	break;
     }
@@ -2494,7 +2500,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
 {
   basic_block exit_bb;
   rtx condition, at;
-  edge ei;
+  edge ein;
 
   exit_bb = e->src;
   desc->simple_p = false;
@@ -2511,18 +2517,18 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   if (!any_condjump_p (BB_END (exit_bb)))
     return;
 
-  ei = exit_bb->succ;
-  if (ei == e)
-    ei = ei->succ_next;
+  ein = EDGE_SUCC (exit_bb, 0);
+  if (ein == e)
+    ein = EDGE_SUCC (exit_bb, 1);
 
   desc->out_edge = e;
-  desc->in_edge = ei;
+  desc->in_edge = ein;
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (BB_END (ei->src), &at, false, false)))
+  if (!(condition = get_condition (BB_END (ein->src), &at, false, false)))
     return;
 
-  if (ei->flags & EDGE_FALLTHRU)
+  if (ein->flags & EDGE_FALLTHRU)
     {
       condition = reversed_condition (condition);
       if (!condition)
@@ -2544,13 +2550,14 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
   edge e;
   struct niter_desc act;
   bool any = false;
+  edge_iterator ei;
 
   desc->simple_p = false;
   body = get_loop_body (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      for (e = body[i]->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, body[i]->succs)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    continue;

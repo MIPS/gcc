@@ -343,10 +343,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Number of predecessors for this block.  This is only valid during
-     SSA rewriting.  It is not maintained after conversion into SSA form.  */
-  int num_preds;
-
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
@@ -487,7 +483,6 @@ extern void cfg_remove_useless_stmts (void);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
-extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_edge_inserts (int *);
@@ -611,6 +606,7 @@ extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern bool may_propagate_copy_into_asm (tree);
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
@@ -746,6 +742,8 @@ extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p,
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
 
+/* In tree-ssa-loop-ivopts.c  */
+extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);

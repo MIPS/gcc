@@ -1,5 +1,5 @@
 /* DWARF2 exception handling and frame unwind runtime interface routines.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -124,6 +124,11 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
 {
   int size;
   void *ptr;
+
+#ifdef DWARF_ZERO_REG
+  if (index == DWARF_ZERO_REG)
+    return 0;
+#endif
 
   index = DWARF_REG_TO_UNWIND_COLUMN (index);
   if (index >= (int) sizeof(dwarf_reg_size_table))

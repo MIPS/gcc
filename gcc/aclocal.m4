@@ -1,12 +1,13 @@
-m4_include(../config/accross.m4)
-m4_include(../config/acx.m4)
-m4_include(../config/gettext-sister.m4)
-m4_include(../config/iconv.m4)
-m4_include(../config/lcmessage.m4)
-m4_include(../config/lib-ld.m4)
-m4_include(../config/lib-link.m4)
-m4_include(../config/lib-prefix.m4)
-m4_include(../config/progtest.m4)
+m4_include([../config/accross.m4])
+m4_include([../config/acx.m4])
+m4_include([../config/gettext-sister.m4])
+m4_include([../config/gcc-lib-path.m4])
+m4_include([../config/iconv.m4])
+m4_include([../config/lcmessage.m4])
+m4_include([../config/lib-ld.m4])
+m4_include([../config/lib-link.m4])
+m4_include([../config/lib-prefix.m4])
+m4_include([../config/progtest.m4])
 
 dnl See whether we need a declaration for a function.
 dnl The result is highly dependent on the INCLUDES passed in, so make sure
@@ -125,7 +126,12 @@ else
   then
     gcc_cv_prog_LN_S=ln
   else
-    gcc_cv_prog_LN_S=cp
+    if cp -p conftestdata_f conftestdata_t 2>/dev/null
+    then
+      gcc_cv_prog_LN_S="cp -p"
+    else
+      gcc_cv_prog_LN_S=cp
+    fi
   fi
 fi
 rm -f conftestdata_f conftestdata_t
@@ -137,7 +143,7 @@ else
   if test "$gcc_cv_prog_LN_S" = "ln"; then
     AC_MSG_RESULT([no, using ln])
   else
-    AC_MSG_RESULT([no, and neither does ln, so using cp])
+    AC_MSG_RESULT([no, and neither does ln, so using $gcc_cv_prog_LN_S])
   fi
 fi
 AC_SUBST(LN_S)dnl

@@ -581,13 +581,14 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
   edge e;
   tree phi, var, tmp;
   int x, y;
+  edge_iterator ei;
 
   /* Code cannot be inserted on abnormal edges. Look for all abnormal 
      edges, and coalesce any PHI results with their arguments across 
      that edge.  */
 
   FOR_EACH_BB (bb)
-    for (e = bb->succ; e; e = e->succ_next)
+    FOR_EACH_EDGE (e, ei, bb->succs)
       if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
@@ -1475,11 +1476,6 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   if (version_ref_count (map, def) != 1)
     return false;
 
-  /* Assignments to variables assigned to hard registers are not
-     replaceable.  */
-  if (DECL_HARD_REGISTER (SSA_NAME_VAR (def)))
-    return false;
-
   /* There must be no V_MAY_DEFS.  */
   if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) != 0)
     return false;
@@ -1706,11 +1702,13 @@ find_replaceable_exprs (var_map map)
   table = new_temp_expr_table (map);
   FOR_EACH_BB (bb)
     {
+      bitmap_iterator bi;
+
       find_replaceable_in_bb (table, bb);
-      EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i,
+      EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i, bi)
         {
 	  kill_expr (table, i, false);
-	});
+	}
     }
 
   ret = free_temp_expr_table (table);
@@ -1928,7 +1926,8 @@ rewrite_trees (var_map map, tree *values)
       phi = phi_nodes (bb);
       if (phi)
         {
-	  for (e = bb->pred; e; e = e->pred_next)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    eliminate_phi (e, phi_arg_from_edge (phi, e), g);
 	}
     }

@@ -3427,6 +3427,13 @@ frv_legitimate_address_p (enum machine_mode mode,
   return ret;
 }
 
+rtx
+frv_legitimize_address (rtx x ATTRIBUTE_UNUSED,
+			rtx oldx ATTRIBUTE_UNUSED,
+			enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return NULL_RTX;
+}
 
 /* Test whether a local function descriptor is canonical, i.e.,
    whether we can use FUNCDESC_GOTOFF to compute the address of the
@@ -5342,6 +5349,35 @@ direct_return_p (void)
 }
 
 
+void
+frv_emit_move (enum machine_mode mode, rtx dest, rtx src)
+{
+  switch (mode)
+    {
+    case SImode:
+      if (frv_emit_movsi (dest, src))
+	return;
+      break;
+
+    case QImode:
+    case HImode:
+    case DImode:
+    case SFmode:
+    case DFmode:
+      if (!reload_in_progress
+	  && !reload_completed
+	  && !register_operand (dest, mode)
+	  && !reg_or_0_operand (src, mode))
+	src = copy_to_mode_reg (mode, src);
+      break;
+
+    default:
+      abort ();
+    }
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest, src));
+}
+
 /* Emit code to handle a MOVSI, adding in the small data register or pic
    register if needed to load up addresses.  Return TRUE if the appropriate
    instructions are emitted.  */
@@ -6715,7 +6751,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
       while (multiple_test_bb != test_bb)
 	{
 	  bb[num_bb++] = multiple_test_bb;
-	  multiple_test_bb = multiple_test_bb->pred->src;
+	  multiple_test_bb = EDGE_PRED (multiple_test_bb, 0)->src;
 	}
     }
 

@@ -96,7 +96,14 @@ bitmap *control_dependence_map;
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
 #define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
-  EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, CODE)
+  {									      \
+    bitmap_iterator bi;							      \
+									      \
+    EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, bi)  \
+      {									      \
+	CODE;								      \
+      }									      \
+  }
 
 /* Local function prototypes.  */
 static inline void set_control_dependence_map_bit (basic_block, int);
@@ -419,9 +426,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	  if (is_global_var (lhs))
 	    mark_stmt_necessary (stmt, true);
 	}
-      else if (TREE_CODE (lhs) == INDIRECT_REF
-	       || TREE_CODE (lhs) == ALIGN_INDIRECT_REF
-	       || TREE_CODE (lhs) == MISALIGNED_INDIRECT_REF)
+      else if (INDIRECT_REF_P (lhs))
 	{
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
@@ -498,7 +503,8 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	 and we currently do not have a means to recognize the finite ones.  */
       FOR_EACH_BB (bb)
 	{
-	  for (e = bb->succ; e; e = e->succ_next)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->flags & EDGE_DFS_BACK)
 	      mark_control_dependent_edges_necessary (e->dest, el);
 	}
@@ -725,7 +731,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
-      edge e;
       /* The post dominance info has to be up-to-date.  */
       gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
@@ -740,30 +745,26 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
 
       /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (bb->succ, post_dom_bb);
-      PENDING_STMT (bb->succ) = NULL;
-      bb->succ->probability = REG_BR_PROB_BASE;
-      bb->succ->count = bb->count;
+      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (bb, 0)->count = bb->count;
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
-      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (bb, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
       /* If the edge reaches any block other than the exit, then it is a
 	 fallthru edge; if it reaches the exit, then it is not a fallthru
 	 edge.  */
       if (post_dom_bb != EXIT_BLOCK_PTR)
-	bb->succ->flags |= EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
       else
-	bb->succ->flags &= ~EDGE_FALLTHRU;
+	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      for (e = bb->succ->succ_next; e != NULL;)
-	{
-	  edge tmp = e;
-	  e = e->succ_next;
-	  remove_edge (tmp);
-	}
+      while (EDGE_COUNT (bb->succs) != 1)
+        remove_edge (EDGE_SUCC (bb, 1));
     }
 
   bsi_remove (i);

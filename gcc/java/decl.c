@@ -986,6 +986,7 @@ java_init_decl_processing (void)
     = builtin_function ("_Jv_IsInstanceOf",
 			build_function_type (boolean_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_PURE (soft_instanceof_node) = 1;
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkarraystore_node
@@ -1000,6 +1001,7 @@ java_init_decl_processing (void)
 			build_function_type (ptr_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  DECL_IS_PURE (soft_lookupinterfacemethod_node) = 1;
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
 			    tree_cons (NULL_TREE, ptr_type_node, 
@@ -1194,10 +1196,10 @@ pushdecl (tree x)
 	      && chain_member (oldlocal, current_binding_level->level_chain->names))
 	    {
 	      if (TREE_CODE (oldlocal) == PARM_DECL)
-		pedwarn ("declaration of `%s' shadows a parameter",
+		pedwarn ("declaration of %qs shadows a parameter",
 			 IDENTIFIER_POINTER (name));
 	      else
-		pedwarn ("declaration of `%s' shadows a symbol from the parameter list",
+		pedwarn ("declaration of %qs shadows a symbol from the parameter list",
 			 IDENTIFIER_POINTER (name));
 	    }
 
@@ -1219,12 +1221,12 @@ pushdecl (tree x)
 		   but there is no way to tell it's not a definition.  */
 		;
 	      else if (oldlocal != 0 && TREE_CODE (oldlocal) == PARM_DECL)
-		warnstring = "declaration of `%s' shadows a parameter";
+		warnstring = "declaration of %qs shadows a parameter";
 	      else if (oldlocal != 0)
-		warnstring = "declaration of `%s' shadows previous local";
+		warnstring = "declaration of %qs shadows previous local";
 	      else if (IDENTIFIER_GLOBAL_VALUE (name) != 0
 		       && IDENTIFIER_GLOBAL_VALUE (name) != error_mark_node)
-		warnstring = "declaration of `%s' shadows global declaration";
+		warnstring = "declaration of %qs shadows global declaration";
 
 	      if (warnstring)
 		warning (warnstring, IDENTIFIER_POINTER (name));
@@ -1952,8 +1954,12 @@ finish_method (tree fndecl)
     cfun = DECL_STRUCT_FUNCTION (fndecl);
   else
     allocate_struct_function (fndecl);
+#ifdef USE_MAPPED_LOCATION
+  cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
+#else
   cfun->function_end_locus.file = DECL_SOURCE_FILE (fndecl);
   cfun->function_end_locus.line = DECL_FUNCTION_LAST_LINE (fndecl);
+#endif
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
@@ -1964,7 +1970,7 @@ finish_method (tree fndecl)
 void
 java_expand_body (tree fndecl)
 {
-  tree_rest_of_compilation (fndecl, 0);
+  tree_rest_of_compilation (fndecl);
 }
 
 /* We pessimistically marked all methods and fields external until we
@@ -2021,7 +2027,7 @@ tree
 java_add_stmt (tree stmt)
 {
   if (input_filename)
-    annotate_with_locus (stmt, input_location);
+    SET_EXPR_LOCATION (stmt, input_location);
   
   return current_binding_level->stmts 
     = add_stmt_to_compound (current_binding_level->stmts, 

@@ -355,8 +355,8 @@
 (define_mode_attr store [(SI "sw") (DI "sd")])
 
 ;; Similarly for MIPS IV indexed FPR loads and stores.
-(define_mode_attr loadx [(SF "lwxc1") (DF "ldxc1")])
-(define_mode_attr storex [(SF "swxc1") (DF "sdxc1")])
+(define_mode_attr loadx [(SF "lwxc1") (DF "ldxc1") (V2SF "ldxc1")])
+(define_mode_attr storex [(SF "swxc1") (DF "sdxc1") (V2SF "sdxc1")])
 
 ;; The unextended ranges of the MIPS16 addiu and daddiu instructions
 ;; are different.  Some forms of unextended addiu have an 8-bit immediate
@@ -1418,7 +1418,7 @@
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))
    (clobber (match_scratch:DI 3 "=x"))]
   "!TARGET_64BIT && TARGET_FIX_R4000"
-  "mult\t%1,%2\;mflo\t%L0;mfhi\t%M0"
+  "mult<u>\t%1,%2\;mflo\t%L0;mfhi\t%M0"
   [(set_attr "type" "imul")
    (set_attr "mode" "SI")
    (set_attr "length" "12")])
@@ -2828,8 +2828,7 @@ beq\t%2,%.,1b\;\
   "!TARGET_MIPS16"
   "<load>l\t%0,%2"
   [(set_attr "type" "load")
-   (set_attr "mode" "<MODE>")
-   (set_attr "hazard" "none")])
+   (set_attr "mode" "<MODE>")])
 
 (define_insn "mov_<load>r"
   [(set (match_operand:GPR 0 "register_operand" "=d")

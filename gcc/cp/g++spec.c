@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the C++ front-end.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -173,6 +173,9 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 		library = 1;
 	    }
 	  else if (strncmp (argv[i], "-Wl,", 4) == 0)
+	    library = (library == 0) ? 1 : library;
+	  /* Unrecognized libraries (e.g. -lfoo) may require libstdc++.  */
+	  else if (strncmp (argv[i], "-l", 2) == 0)
 	    library = (library == 0) ? 1 : library;
 	  else if (((argv[i][2] == '\0'
 		     && strchr ("bBVDUoeTuIYmLiA", argv[i][1]) != NULL)

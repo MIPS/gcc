@@ -186,7 +186,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "hashtab.h"
+#include "pointer-set.h"
 #include "toplev.h"
 #include "flags.h"
 #include "ggc.h"
@@ -225,7 +225,7 @@ static int overall_insns;
    walk_tree_without_duplicates doesn't guarantee each node is visited
    once because it gets a new htab upon each recursive call from
    record_calls_1.  */
-static htab_t visited_nodes;
+static struct pointer_set_t *visited_nodes;
 
 static FILE *cgraph_dump_file;
 
@@ -354,18 +354,20 @@ static void
 convert_UIDs_in_bitmap (bitmap in_ann, bitmap in_decl) 
 {
   int index;
-  EXECUTE_IF_SET_IN_BITMAP(in_decl, 0, index,
-      {
-	splay_tree_node n = 
-	  splay_tree_lookup (static_vars_to_consider_by_uid, index);
-	if (n != NULL) 
-	  {
-	    tree t = (tree)n->value;
-	    var_ann_t va = var_ann (t);
-	    if (va) 
-	      bitmap_set_bit(in_ann, va->uid);
-	  }
-      });
+  bitmap_iterator bi;
+
+  EXECUTE_IF_SET_IN_BITMAP(in_decl, 0, index, bi)
+    {
+      splay_tree_node n = 
+	      splay_tree_lookup (static_vars_to_consider_by_uid, index);
+      if (n != NULL) 
+	{
+	  tree t = (tree)n->value;
+	  var_ann_t va = var_ann (t);
+	  if (va) 
+	    bitmap_set_bit(in_ann, va->uid);
+	}
+    }
 }
 
 /* FIXME -- PROFILE-RESTRUCTURE: Delete all stmts initing *_decl_uid
@@ -700,10 +702,9 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 {
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
-  visited_nodes = htab_create (37, htab_hash_pointer,
-				    htab_eq_pointer, NULL);
+  visited_nodes = pointer_set_create ();
   walk_tree (&body, record_call_1, node, visited_nodes);
-  htab_delete (visited_nodes);
+  pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
 
@@ -2339,8 +2340,7 @@ cgraph_characterize_statics_local (struct cgraph_node *fn)
 
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
-  visited_nodes = htab_create (37, htab_hash_pointer,
-			       htab_eq_pointer, NULL);
+  visited_nodes = pointer_set_create ();
   
   /* FIXME -- PROFILE-RESTRUCTURE: Remove creation of _decl_uid vars.  */
   l->statics_read_by_decl_uid = BITMAP_GGC_ALLOC ();
@@ -2350,7 +2350,7 @@ cgraph_characterize_statics_local (struct cgraph_node *fn)
     fprintf (cgraph_dump_file, "\n local analysis of %s", cgraph_node_name (fn));
   
   walk_tree (&DECL_SAVED_TREE (decl), scan_for_static_refs, fn, visited_nodes);
-  htab_delete (visited_nodes);
+  pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
 
@@ -2509,8 +2509,12 @@ cgraph_characterize_statics (void)
      (i.e. have there address taken).  */
   {
     int index;
-    EXECUTE_IF_SET_IN_BITMAP (module_statics_escape,
-			      0, index, clear_static_vars_maps (index));
+    bitmap_iterator bi;
+
+    EXECUTE_IF_SET_IN_BITMAP (module_statics_escape, 0, index, bi)
+      {
+	clear_static_vars_maps (index);
+      }
     bitmap_operation (all_module_statics, all_module_statics,
 		      module_statics_escape, BITMAP_AND_COMPL);
 
@@ -2537,6 +2541,8 @@ cgraph_characterize_statics (void)
 	{
 	  int index;
 	  local_static_vars_info_t l;
+	  bitmap_iterator bi;
+
 	  node = order[i];
 	  l = node->static_vars_info->local;
 	  fprintf (cgraph_dump_file, 
@@ -2544,14 +2550,18 @@ cgraph_characterize_statics (void)
 		   cgraph_node_name (node), node->uid);
 	  fprintf (cgraph_dump_file, "\n  locals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (l->statics_read_by_decl_uid,
-				    0, index,
-				    fprintf (cgraph_dump_file, "%s ",
-					     cgraph_get_static_name_by_uid (index)));
+				    0, index, bi)
+	    {
+	      fprintf (cgraph_dump_file, "%s ",
+		       cgraph_get_static_name_by_uid (index));
+	    }
 	  fprintf (cgraph_dump_file, "\n  locals written: ");
 	  EXECUTE_IF_SET_IN_BITMAP (l->statics_written_by_decl_uid,
-				    0, index,
-				    fprintf(cgraph_dump_file, "%s ",
-					   cgraph_get_static_name_by_uid (index)));
+				    0, index, bi)
+	    {
+	      fprintf(cgraph_dump_file, "%s ",
+		      cgraph_get_static_name_by_uid (index));
+	    }
 	}
     }
 
@@ -2650,6 +2660,8 @@ cgraph_characterize_statics (void)
 	  static_vars_info_t node_info;
 	  global_static_vars_info_t node_g;
 	  int index;
+	  bitmap_iterator bi;
+
 	  node = order[i];
 	  node_info = node->static_vars_info;
 	  node_g = node_info->global;
@@ -2665,14 +2677,18 @@ cgraph_characterize_statics (void)
 	    }
 	  fprintf (cgraph_dump_file, "\n  globals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_g->statics_read_by_decl_uid,
-				    0, index,
-				    fprintf (cgraph_dump_file, "%s ",
-					     cgraph_get_static_name_by_uid (index)));
+				    0, index, bi)
+	    {
+	      fprintf (cgraph_dump_file, "%s ",
+		       cgraph_get_static_name_by_uid (index));
+	    }
 	  fprintf (cgraph_dump_file, "\n  globals written: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_g->statics_written_by_decl_uid,
-				    0, index,
-				    fprintf (cgraph_dump_file, "%s ",
-					     cgraph_get_static_name_by_uid (index)));
+				    0, index, bi)
+	    {
+	      fprintf (cgraph_dump_file, "%s ",
+		       cgraph_get_static_name_by_uid (index));
+	    }
 	}
     }
 
@@ -2965,7 +2981,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
-    tree_rest_of_compilation (decl, false);
+    tree_rest_of_compilation (decl);
   else
     cgraph_finalize_function (decl, 0);
   

@@ -126,10 +126,12 @@ extern int target_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x31
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT)
 #else
-#define TARGET_DEFAULT             0x1
+#define TARGET_DEFAULT             MASK_HARD_FLOAT
 #endif
+
+#define TARGET_DEFAULT_BACKCHAIN ""
 
 #define TARGET_SWITCHES                                                  \
 { { "hard-float",      1, N_("Use hardware fp")},                        \
@@ -542,13 +544,14 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 
 #define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
   s390_extra_constraint_str ((OP), (C), (STR))
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T')
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)					\
+  ((C) == 'Q' || (C) == 'R' || (C) == 'S' || (C) == 'T' || (C) == 'A')
+#define EXTRA_ADDRESS_CONSTRAINT(C, STR)				\
   ((C) == 'U' || (C) == 'W' || (C) == 'Y')
 
-#define CONSTRAINT_LEN(C, STR)                                   \
-  ((C) == 'N' ? 5 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+#define CONSTRAINT_LEN(C, STR)                                  	\
+  ((C) == 'N' ? 5 : 							\
+   (C) == 'A' ? 2 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
 /* Stack layout and calling conventions.  */
 
@@ -652,26 +655,11 @@ extern int current_function_outgoing_args_size;
  { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},     \
  { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
-#define CAN_ELIMINATE(FROM, TO) (1)
+#define CAN_ELIMINATE(FROM, TO) \
+  s390_can_eliminate ((FROM), (TO))
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			  \
-{ if ((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) 	  \
-  { (OFFSET) = 0; }     						  \
-  else  if ((FROM) == FRAME_POINTER_REGNUM                                \
-	    && (TO) == HARD_FRAME_POINTER_REGNUM)                	  \
-  { (OFFSET) = 0; }     						  \
-  else if ((FROM) == ARG_POINTER_REGNUM                                   \
-            && (TO) == HARD_FRAME_POINTER_REGNUM)                         \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)  \
-  { (OFFSET) = s390_arg_frame_offset (); }     				  \
-  else if ((FROM) == RETURN_ADDRESS_POINTER_REGNUM                        \
-            && ((TO) == STACK_POINTER_REGNUM                              \
-                || (TO) == HARD_FRAME_POINTER_REGNUM))                    \
-  { (OFFSET) = s390_return_address_offset (); }     			  \
-  else									  \
-    abort();								  \
-}
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
+  (OFFSET) = s390_initial_elimination_offset ((FROM), (TO))
 
 
 /* Stack arguments.  */
@@ -742,7 +730,7 @@ CUMULATIVE_ARGS;
 
 /* Trampolines for nested functions.  */
 
-#define TRAMPOLINE_SIZE (TARGET_64BIT ? 36 : 20)
+#define TRAMPOLINE_SIZE (TARGET_64BIT ? 32 : 16)
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)                       \
    s390_initialize_trampoline ((ADDR), (FNADDR), (CXT))
@@ -1030,7 +1018,6 @@ do {									\
 /* Define the codes that are matched by predicates in aux-output.c.  */
 #define PREDICATE_CODES							\
   {"s_operand",       { SUBREG, MEM }},					\
-  {"s_imm_operand",   { CONST_INT, CONST_DOUBLE, SUBREG, MEM }},	\
   {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
   {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
   {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\
@@ -1040,6 +1027,9 @@ do {									\
   {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
 			   CONST_INT, CONST_DOUBLE }},			\
   {"s390_plus_operand", { PLUS }},					\
+  {"s390_comparison",     { EQ, NE, LT, GT, LE, GE, LTU, GTU, LEU, GEU,	\
+			    UNEQ, UNLT, UNGT, UNLE, UNGE, LTGT,		\
+			    UNORDERED, ORDERED }},			\
   {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
 			    LTU, GTU, LEU, GEU }},			\
   {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\

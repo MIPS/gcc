@@ -191,6 +191,10 @@ gimple_conditional_context (void)
 static void
 gimple_push_condition (void)
 {
+#ifdef ENABLE_CHECKING
+  if (gimplify_ctxp->conditions == 0)
+    gcc_assert (!gimplify_ctxp->conditional_cleanups);
+#endif
   ++(gimplify_ctxp->conditions);
 }
 
@@ -3215,7 +3219,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       else
 	{
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
+				is_gimple_asm_val, fb_rvalue);
 	  if (tret == GS_ERROR)
 	    ret = tret;
 	}

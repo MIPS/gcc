@@ -80,6 +80,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
+#include "tree-mudflap.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -270,12 +271,6 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
 
 int flag_complex_divide_method = 0;
 
-/* Nonzero means performs web construction pass.  When flag_web ==
-   AUTODETECT_FLAG_VAR_TRACKING it will be set according to optimize
-   and default_debug_hooks in process_options ().  */
-
-int flag_web = 0;
-
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
 
@@ -417,7 +412,7 @@ int warn_return_type;
 FILE *asm_out_file;
 FILE *aux_info_file;
 FILE *dump_file = NULL;
-char *dump_file_name;
+const char *dump_file_name;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -1011,6 +1006,10 @@ compile_file (void)
      Else the coverage initializer would not be emitted if all the
      functions in this compilation unit were deferred.  */
   coverage_finish ();
+
+  /* Likewise for mudflap static object registrations.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
 
   /* Write out any pending weak symbol declarations.  */
 
@@ -1829,7 +1828,7 @@ process_options (void)
 	   debug_type_names[write_symbols]);
 
   /* Now we know which debug output will be used so we can set
-     flag_var_tracking, flag_rename_registers and flag_web if the user has
+     flag_var_tracking, flag_rename_registers if the user has
      not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
@@ -1849,10 +1848,6 @@ process_options (void)
   if (flag_rename_registers == AUTODETECT_FLAG_VAR_TRACKING)
     flag_rename_registers = default_debug_hooks->var_location
 	    		    != do_nothing_debug_hooks.var_location;
-
-  if (flag_web == AUTODETECT_FLAG_VAR_TRACKING)
-    flag_web = optimize >= 2 && (default_debug_hooks->var_location
-	    		         != do_nothing_debug_hooks.var_location);
 
   if (flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING)
     flag_var_tracking = optimize >= 1;

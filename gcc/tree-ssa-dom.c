@@ -266,6 +266,7 @@ static void restore_currdefs_to_original_value (void);
 static void register_definitions_for_stmt (tree);
 static edge single_incoming_edge_ignoring_loop_edges (basic_block);
 static void restore_nonzero_vars_to_original_value (void);
+static inline bool unsafe_associative_fp_binop (tree);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -293,6 +294,8 @@ tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
   unsigned int i;
+
+  memset (&opt_stats, 0, sizeof (opt_stats));
 
   for (i = 0; i < num_referenced_vars; i++)
     var_ann (referenced_var (i))->current_def = NULL;
@@ -591,6 +594,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree cond, cached_lhs;
       edge e1;
+      edge_iterator ei;
 
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
@@ -599,7 +603,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
-	  for (e1 = e->dest->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e1, ei, e->dest->preds)
 	    if (e1->flags & EDGE_DFS_BACK)
 	      break;
 	  if (e1)
@@ -879,24 +883,21 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (bb->succ
-      && ! bb->succ->succ_next
-      && (bb->succ->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, bb->succ->dest) != bb
-	  || phi_nodes (bb->succ->dest)))
+  if (EDGE_COUNT (bb->succs) == 1
+      && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
+      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (bb, 0)->dest) != bb
+	  || phi_nodes (EDGE_SUCC (bb, 0)->dest)))
 	
     {
-      thread_across_edge (walk_data, bb->succ);
+      thread_across_edge (walk_data, EDGE_SUCC (bb, 0));
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
 	   && (COMPARISON_CLASS_P (COND_EXPR_COND (last))
 	       || TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
-	   && bb->succ
-	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
-	   && bb->succ->succ_next
-	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0
-	   && ! bb->succ->succ_next->succ_next)
+	   && EDGE_COUNT (bb->succs) == 2
+	   && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
+	   && (EDGE_SUCC (bb, 1)->flags & EDGE_ABNORMAL) == 0)
     {
       edge true_edge, false_edge;
       tree cond, inverted = NULL;
@@ -978,7 +979,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
   while (VARRAY_ACTIVE_SIZE (vrp_variables_stack) > 0)
     {
       tree var = VARRAY_TOP_TREE (vrp_variables_stack);
-      struct vrp_hash_elt vrp_hash_elt;
+      struct vrp_hash_elt vrp_hash_elt, *vrp_hash_elt_p;
       void **slot;
 
       /* Each variable has a stack of value range records.  We want to
@@ -998,7 +999,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
       slot = htab_find_slot (vrp_data, &vrp_hash_elt, NO_INSERT);
 
-      var_vrp_records = (*(struct vrp_hash_elt **)slot)->records;
+      vrp_hash_elt_p = (struct vrp_hash_elt *) *slot;
+      var_vrp_records = vrp_hash_elt_p->records;
+
       while (VARRAY_ACTIVE_SIZE (var_vrp_records) > 0)
 	{
 	  struct vrp_element *element
@@ -1109,8 +1112,9 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
 {
   edge retval = NULL;
   edge e;
+  edge_iterator ei;
 
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {
       /* A loop back edge can be identified by the destination of
 	 the edge dominating the source of the edge.  */
@@ -1159,7 +1163,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data ATTRIBUT
   /* If we have a single predecessor (ignoring loop backedges), then extract
      EDGE_FLAGS from the single incoming edge.  Otherwise just return as
      there is nothing to do.  */
-  if (bb->pred
+  if (EDGE_COUNT (bb->preds) >= 1
       && parent_block_last_stmt)
     {
       edge e = single_incoming_edge_ignoring_loop_edges (bb);
@@ -1190,7 +1194,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data ATTRIBUT
   /* Similarly when the parent block ended in a SWITCH_EXPR.
      We can only know the value of the switch's condition if the dominator
      parent is also the only predecessor of this block.  */
-  else if (bb->pred->src == parent
+  else if (EDGE_PRED (bb, 0)->src == parent
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
@@ -1546,6 +1550,18 @@ record_equality (tree x, tree y)
   record_const_or_copy_1 (x, y, prev_x);
 }
 
+/* Return true, if it is ok to do folding of an associative expression.
+   EXP is the tree for the associative expression.  */ 
+
+static inline bool
+unsafe_associative_fp_binop (tree exp)
+{
+  enum tree_code code = TREE_CODE (exp);
+  return !(!flag_unsafe_math_optimizations
+           && (code == MULT_EXPR || code == PLUS_EXPR)
+           && FLOAT_TYPE_P (TREE_TYPE (exp)));
+}
+
 /* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
    hash tables.  Try to simplify the RHS using whatever equivalences
    we may have recorded.
@@ -1605,7 +1621,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
 
-	  if (rhs_code == rhs_def_code
+	  if ((rhs_code == rhs_def_code && unsafe_associative_fp_binop (rhs))
 	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
 	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
 	    {
@@ -1894,7 +1910,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	  int lowequal, highequal, swapped, no_overlap, subset, cond_inverted;
 	  varray_type vrp_records;
 	  struct vrp_element *element;
-	  struct vrp_hash_elt vrp_hash_elt;
+	  struct vrp_hash_elt vrp_hash_elt, *vrp_hash_elt_p;
 	  void **slot;
 
 	  /* First see if we have test of an SSA_NAME against a constant
@@ -1944,7 +1960,8 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
           if (slot == NULL)
 	    return NULL;
 
-	  vrp_records = (*(struct vrp_hash_elt **)slot)->records;
+	  vrp_hash_elt_p = (struct vrp_hash_elt *) *slot;
+	  vrp_records = vrp_hash_elt_p->records;
 	  if (vrp_records == NULL)
 	    return NULL;
 
@@ -2182,10 +2199,11 @@ static void
 cprop_into_successor_phis (basic_block bb, bitmap nonzero_vars)
 {
   edge e;
+  edge_iterator ei;
 
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;
       int phi_num_args;
@@ -2432,9 +2450,7 @@ record_equivalences_from_stmt (tree stmt,
 	  t = TREE_OPERAND (t, 0);
 
 	/* Now see if this is a pointer dereference.  */
-	if (TREE_CODE (t) == INDIRECT_REF
-	    || TREE_CODE (t) == ALIGN_INDIRECT_REF
-	    || TREE_CODE (t) == MISALIGNED_INDIRECT_REF)
+	if (INDIRECT_REF_P (t))
           {
 	    tree op = TREE_OPERAND (t, 0);
 
@@ -2531,6 +2547,11 @@ cprop_operand (tree stmt, use_operand_p op_p)
       if (!is_gimple_reg (op)
 	  && (get_virtual_var (val) != get_virtual_var (op)
 	      || TREE_CODE (val) != SSA_NAME))
+	return false;
+
+      /* Do not replace hard register operands in asm statements.  */
+      if (TREE_CODE (stmt) == ASM_EXPR
+	  && !may_propagate_copy_into_asm (op))
 	return false;
 
       /* Get the toplevel type of each operand.  */
@@ -3004,9 +3025,11 @@ record_range (tree cond, basic_block bb)
       slot = htab_find_slot (vrp_data, vrp_hash_elt, INSERT);
 
       if (*slot == NULL)
-	*slot = (void *)vrp_hash_elt;
+	*slot = (void *) vrp_hash_elt;
+      else
+	free (vrp_hash_elt);
 
-      vrp_hash_elt = *(struct vrp_hash_elt **)slot;
+      vrp_hash_elt = (struct vrp_hash_elt *) *slot;
       vrp_records_p = &vrp_hash_elt->records;
 
       element = ggc_alloc (sizeof (struct vrp_element));

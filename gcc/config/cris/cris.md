@@ -4717,9 +4717,12 @@
    && (INTVAL (operands[2])
 	  & ((HOST_WIDE_INT) -1 << (32 - INTVAL (operands[1])))) == 0"
   [(set (match_dup 0) (lshiftrt:SI (match_dup 0) (match_dup 1)))
-   (set (match_dup 3) (and:QI (match_dup 3) (match_dup 2)))]
+   (set (match_dup 3) (and:QI (match_dup 3) (match_dup 4)))]
   ;; FIXME: CC0 is valid except for the M bit.
-  "operands[3] = gen_rtx_REG (QImode, REGNO (operands[0]));")
+{
+  operands[3] = gen_rtx_REG (QImode, REGNO (operands[0]));
+  operands[4] = GEN_INT (trunc_int_for_mode (INTVAL (operands[2]), QImode));
+})
 
 (define_peephole2 ; asrandw (peephole casesi+32)
   [(set (match_operand:SI 0 "register_operand" "")
@@ -4735,9 +4738,12 @@
    && (INTVAL (operands[2])
        & ((HOST_WIDE_INT) -1 << (32 - INTVAL (operands[1])))) == 0"
   [(set (match_dup 0) (lshiftrt:SI (match_dup 0) (match_dup 1)))
-   (set (match_dup 3) (and:HI (match_dup 3) (match_dup 2)))]
+   (set (match_dup 3) (and:HI (match_dup 3) (match_dup 4)))]
   ;; FIXME: CC0 is valid except for the M bit.
-  "operands[3] = gen_rtx_REG (HImode, REGNO (operands[0]));")
+{
+  operands[3] = gen_rtx_REG (HImode, REGNO (operands[0]));
+  operands[4] = GEN_INT (trunc_int_for_mode (INTVAL (operands[2]), HImode));
+})
 
 (define_peephole2 ; lsrandb (peephole casesi+33)
   [(set (match_operand:SI 0 "register_operand" "")
@@ -4749,9 +4755,12 @@
    && INTVAL (operands[2]) < 255
    && INTVAL (operands[1]) > 23"
   [(set (match_dup 0) (lshiftrt:SI (match_dup 0) (match_dup 1)))
-   (set (match_dup 3) (and:QI (match_dup 3) (match_dup 2)))]
+   (set (match_dup 3) (and:QI (match_dup 3) (match_dup 4)))]
   ;; FIXME: CC0 is valid except for the M bit.
-  "operands[3] = gen_rtx_REG (QImode, REGNO (operands[0]));")
+{
+  operands[3] = gen_rtx_REG (QImode, REGNO (operands[0]));
+  operands[4] = GEN_INT (trunc_int_for_mode (INTVAL (operands[2]), QImode));
+})
 
 (define_peephole2 ; lsrandw (peephole casesi+34)
   [(set (match_operand:SI 0 "register_operand" "")
@@ -4763,9 +4772,12 @@
    && INTVAL (operands[2]) != 255
    && INTVAL (operands[1]) > 15"
   [(set (match_dup 0) (lshiftrt:SI (match_dup 0) (match_dup 1)))
-   (set (match_dup 3) (and:HI (match_dup 3) (match_dup 2)))]
+   (set (match_dup 3) (and:HI (match_dup 3) (match_dup 4)))]
   ;; FIXME: CC0 is valid except for the M bit.
-  "operands[3] = gen_rtx_REG (HImode, REGNO (operands[0]));")
+{
+  operands[3] = gen_rtx_REG (HImode, REGNO (operands[0]));
+  operands[4] = GEN_INT (trunc_int_for_mode (INTVAL (operands[2]), HImode));
+})
 
 
 ;; Change
@@ -4901,17 +4913,20 @@
     [(set (match_dup 4) (match_dup 6))
      (set (match_dup 0) (plus:SI (match_dup 7) (match_dup 8)))])]
 {
-  rtx reg
+  rtx otherop
     = rtx_equal_p (operands[2], operands[0]) ? operands[3] : operands[2];
 
-  if (REG_S_P (operands[1]))
+  /* Make sure we have canonical RTX so we match the insn pattern -
+     not a constant in the first operand.  We also require the order
+     (plus reg mem) to match the final pattern.  */
+  if (CONSTANT_P (otherop) || MEM_P (otherop))
     {
       operands[7] = operands[1];
-      operands[8] = reg;
+      operands[8] = otherop;
     }
   else
     {
-      operands[7] = reg;
+      operands[7] = otherop;
       operands[8] = operands[1];
     }
   operands[6]
@@ -4949,17 +4964,20 @@
     [(set (match_dup 6) (match_dup 5))
      (set (match_dup 0) (plus:SI (match_dup 7) (match_dup 8)))])]
 {
-  rtx reg
+  rtx otherop
     = rtx_equal_p (operands[2], operands[0]) ? operands[3] : operands[2];
 
-  if (REG_S_P (operands[1]))
+  /* Make sure we have canonical RTX so we match the insn pattern -
+     not a constant in the first operand.  We also require the order
+     (plus reg mem) to match the final pattern.  */
+  if (CONSTANT_P (otherop) || MEM_P (otherop))
     {
       operands[7] = operands[1];
-      operands[8] = reg;
+      operands[8] = otherop;
     }
   else
     {
-      operands[7] = reg;
+      operands[7] = otherop;
       operands[8] = operands[1];
     }
   operands[6]

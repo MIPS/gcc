@@ -475,6 +475,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
   NEXT_PASS (pass_iv_canon);
+  NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
   NEXT_PASS (pass_linear_transform);
@@ -583,10 +584,14 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (pass->execute)
     pass->execute ();
 
+  /* Stop timevar.  */
+  if (pass->tv_id)
+    timevar_pop (pass->tv_id);
+
   if (dump_file
       && (pass->properties_provided & (PROP_cfg | PROP_rtl))
 	  == (PROP_cfg | PROP_rtl))
-    print_rtl_graph_with_bb (dump_file_name, get_insns ());
+    print_rtl_with_bb (dump_file, get_insns ());
 
   /* Run post-pass cleanup and verification.  */
   todo = pass->todo_flags_finish;
@@ -594,9 +599,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   if (todo)
     execute_todo (pass->properties_provided, todo);
 
-  /* Close down timevar and dump file.  */
-  if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+  /* Flush and close dump file.  */
   if (dump_file_name)
     {
       free ((char *) dump_file_name);
@@ -646,7 +649,7 @@ update_inlined_to_pointers (struct cgraph_node *node,
    compilation for FNDECL.  */
 
 void
-tree_rest_of_compilation (tree fndecl, bool nested_p)
+tree_rest_of_compilation (tree fndecl)
 {
   location_t saved_loc;
   struct cgraph_node *saved_node = NULL, *node;
@@ -690,11 +693,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   if (!vars_to_rename)
     vars_to_rename = BITMAP_XMALLOC ();
-
-  /* If this is a nested function, protect the local variables in the stack
-     above us from being collected while we're compiling this function.  */
-  if (nested_p)
-    ggc_push_context ();
 
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
@@ -751,7 +749,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  if (!nested_p && !flag_inline_trees)
+  if (!flag_inline_trees)
     {
       DECL_SAVED_TREE (fndecl) = NULL;
       if (DECL_STRUCT_FUNCTION (fndecl) == 0
@@ -770,9 +768,5 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   input_location = saved_loc;
 
   ggc_collect ();
-
-  /* Undo the GC context switch.  */
-  if (nested_p)
-    ggc_pop_context ();
   timevar_pop (TV_EXPAND);
 }
