@@ -3066,7 +3066,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
+      loop_optimize (insns, rtl_dump_file, do_unroll | do_prefetch);
 
       /* Loop can create trivially dead instructions.  */
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -3228,7 +3228,11 @@ rest_of_compilation (decl)
   if (optimize > 0
       && (flag_unswitch_loops
 	  || flag_peel_loops
-	  || flag_unroll_loops))
+	  || flag_unroll_loops
+#ifdef HAVE_doloop_end
+	  || (HAVE_doloop_end && flag_branch_on_count_reg)
+#endif
+	  ))
     {
       struct loops *loops;
       timevar_push (TV_LOOP);
@@ -3249,6 +3253,11 @@ rest_of_compilation (decl)
 		(flag_peel_loops ? UAP_PEEL : 0) |
 		(flag_unroll_loops ? UAP_UNROLL : 0) |
 		(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+
+#ifdef HAVE_doloop_end
+	  if (HAVE_doloop_end && flag_branch_on_count_reg)
+	    doloop_optimize_loops (loops);
+#endif
 
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}

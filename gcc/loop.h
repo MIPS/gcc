@@ -26,9 +26,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Flags passed to loop_optimize.  */
 #define LOOP_UNROLL 1
-#define LOOP_BCT 2
-#define LOOP_PREFETCH 4
-#define LOOP_AUTO_UNROLL 8
+#define LOOP_PREFETCH 2
+#define LOOP_AUTO_UNROLL 4
 
 /* Get the loop info pointer of a loop.  */
 #define LOOP_INFO(LOOP) ((struct loop_info *) (LOOP)->aux)
@@ -421,6 +420,3 @@ rtx loop_insn_emit_before PARAMS((const struct loop *, basic_block,
 				  rtx, rtx));
 rtx loop_insn_sink PARAMS((const struct loop *, rtx));
 rtx loop_insn_hoist PARAMS((const struct loop *, rtx));
-
-/* Forward declarations for non-static functions declared in doloop.c.  */
-int doloop_optimize PARAMS ((const struct loop *));

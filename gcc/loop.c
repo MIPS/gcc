@@ -5406,11 +5406,6 @@ strength_reduce (loop, flags)
 	  && unrolled_insn_copies <= insn_count))
     unroll_loop (loop, insn_count, 1);
 
-#ifdef HAVE_doloop_end
-  if (HAVE_doloop_end && (flags & LOOP_BCT) && flag_branch_on_count_reg)
-    doloop_optimize (loop);
-#endif  /* HAVE_doloop_end  */
-
   if (loop_dump_stream)
     fprintf (loop_dump_stream, "\n");
 

@@ -26,12 +26,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "flags.h"
 #include "expr.h"
-#include "loop.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "toplev.h"
 #include "tm_p.h"
 #include "cfgloop.h"
+#include "output.h"
+#include "params.h"
 
 
 /* This module is used to modify loops with a determinable number of
@@ -59,17 +60,37 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef HAVE_doloop_end
 
+static bool doloop_optimize
+  PARAMS ((struct loops *loops, struct loop *loop));
 static rtx doloop_condition_get
   PARAMS ((rtx));
 static unsigned HOST_WIDE_INT doloop_iterations_max
-  PARAMS ((const struct loop_info *, enum machine_mode, int));
-static int doloop_valid_p
-  PARAMS ((const struct loop *, rtx));
-static int doloop_modify
-  PARAMS ((const struct loop *, rtx, rtx, rtx, rtx, rtx));
-static int doloop_modify_runtime
-  PARAMS ((const struct loop *, rtx, rtx, rtx, enum machine_mode, rtx));
+  PARAMS ((const struct loop *));
+static bool doloop_valid_p
+  PARAMS ((struct loops *, struct loop *));
+static bool doloop_modify
+  PARAMS ((const struct loop *, rtx, rtx, rtx, rtx));
+static bool doloop_modify_runtime
+  PARAMS ((struct loop *, rtx, rtx, rtx));
+static int get_loop_level
+  PARAMS ((const struct loop *));
 
+/* Returns the maximum level of nesting of subloops of LOOP.  */
+static int
+get_loop_level (loop)
+     const struct loop *loop;
+{
+  const struct loop *ploop;
+  int mx = -1, l;
+
+  for (ploop = loop->inner; ploop; ploop = ploop->next)
+    {
+      l = get_loop_level (ploop);
+      if (l > mx)
+	mx = l;
+    }
+  return mx + 1;
+}
 
 /* Return the loop termination condition for PATTERN or zero
    if it is not a decrement and branch jump insn.  */
@@ -142,14 +163,10 @@ doloop_condition_get (pattern)
 
 
 /* Return an estimate of the maximum number of loop iterations for the
-   loop specified by LOOP or zero if the loop is not normal.
-   MODE is the mode of the iteration count and NONNEG is nonzero if
-   the iteration count has been proved to be non-negative.  */
+   loop specified by LOOP.  */
 static unsigned HOST_WIDE_INT
-doloop_iterations_max (loop_info, mode, nonneg)
-     const struct loop_info *loop_info;
-     enum machine_mode mode;
-     int nonneg;
+doloop_iterations_max (loop)
+     const struct loop *loop;
 {
   unsigned HOST_WIDE_INT n_iterations_max;
   enum rtx_code code;
@@ -157,9 +174,10 @@ doloop_iterations_max (loop_info, mode, nonneg)
   rtx max_value;
   HOST_WIDE_INT abs_inc;
   int neg_inc;
+  enum machine_mode mode = GET_MODE (loop->desc.var);
 
   neg_inc = 0;
-  abs_inc = INTVAL (loop_info->increment);
+  abs_inc = INTVAL (loop->desc.stride);
   if (abs_inc < 0)
     {
       abs_inc = -abs_inc;
@@ -168,22 +186,22 @@ doloop_iterations_max (loop_info, mode, nonneg)
 
   if (neg_inc)
     {
-      code = swap_condition (loop_info->comparison_code);
-      min_value = loop_info->final_equiv_value;
-      max_value = loop_info->initial_equiv_value;
+      code = swap_condition (loop->desc.cond);
+      min_value = XEXP (loop->desc.lim_alts, 0);
+      max_value = XEXP (loop->desc.var_alts, 0);
     }
   else
     {
-      code = loop_info->comparison_code;
-      min_value = loop_info->initial_equiv_value;
-      max_value = loop_info->final_equiv_value;
+      code = loop->desc.cond;
+      min_value = XEXP (loop->desc.var_alts, 0);
+      max_value = XEXP (loop->desc.lim_alts, 0);
     }
+  if (loop->desc.neg)
+    code = reverse_condition (code);
 
-  /* Since the loop has a VTOP, we know that the initial test will be
-     true and thus the value of max_value should be greater than the
-     value of min_value.  Thus the difference should always be positive
-     and the code must be LT, LE, LTU, LEU, or NE.  Otherwise the loop is
-     not normal, e.g., `for (i = 0; i < 10; i--)'.  */
+  /* The difference should always be positive and the code must be
+     LT, LE, LTU, LEU, or NE.  Otherwise the loop is not normal, e.g.,
+     `for (i = 0; i < 10; i--)', and it would not get here.  */
   switch (code)
     {
     case LTU:
@@ -237,16 +255,10 @@ doloop_iterations_max (loop_info, mode, nonneg)
       break;
 
     default:
-      return 0;
+      abort ();
     }
 
   n_iterations_max /= abs_inc;
-
-  /* If we know that the iteration count is non-negative then adjust
-     n_iterations_max if it is so large that it appears negative.  */
-  if (nonneg
-      && n_iterations_max > ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)))
-    n_iterations_max = ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
 
   return n_iterations_max;
 }
@@ -254,114 +266,69 @@ doloop_iterations_max (loop_info, mode, nonneg)
 
 /* Return nonzero if the loop specified by LOOP is suitable for
    the use of special low-overhead looping instructions.  */
-static int
-doloop_valid_p (loop, jump_insn)
-     const struct loop *loop;
-     rtx jump_insn;
+static bool
+doloop_valid_p (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
 {
-  const struct loop_info *loop_info = LOOP_INFO (loop);
+  basic_block *body = get_loop_body (loop), bb;
+  rtx insn;
+  unsigned i;
+  enum rtx_code cond;
 
-  /* The loop must have a conditional jump at the end.  */
-  if (! any_condjump_p (jump_insn)
-      || ! onlyjump_p (jump_insn))
+  for (i = 0; i < loop->num_nodes; i++)
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Invalid jump at loop end.\n");
-      return 0;
+      bb = body[i];
+
+      for (insn = bb->head;
+	   insn != NEXT_INSN (bb->end);
+	   insn = NEXT_INSN (insn))
+	{
+	  /* A called function may clobber any special registers required for
+	     low-overhead looping.  */
+	  if (GET_CODE (insn) == CALL_INSN)
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file,
+			 "Doloop: Function call in loop.\n");
+	      return false;
+	    }
+
+	  /* Some targets (eg, PPC) use the count register for branch on table
+	     instructions.  ??? This should be a target specific check.  */
+	  if (GET_CODE (insn) == JUMP_INSN
+	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file,
+			 "Doloop: Computed branch in the loop.\n");
+	      return false;
+	    }
+	}
     }
+  free (body);
 
-  /* Give up if a loop has been completely unrolled.  */
-  if (loop_info->n_iterations == loop_info->unroll_number)
+  /* Check whether the loop is simple.  */
+  if (!loop->has_desc)
+    loop->simple = simple_loop_p (loops, loop, &loop->desc);
+  if (!loop->simple)
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Loop completely unrolled.\n");
-      return 0;
-    }
-
-  /* The loop must have a single exit target.  A break or return
-     statement within a loop will generate multiple loop exits.
-     Another example of a loop that currently generates multiple exit
-     targets is for (i = 0; i < (foo ? 8 : 4); i++) { }.  */
-  if (loop_info->has_multiple_exit_targets || loop->exit_count)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Loop has multiple exit targets.\n");
-      return 0;
-    }
-
-  /* An indirect jump may jump out of the loop.  */
-  if (loop_info->has_indirect_jump)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Indirect jump in function.\n");
-      return 0;
-    }
-
-  /* A called function may clobber any special registers required for
-     low-overhead looping.  */
-  if (loop_info->has_call)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Function call in loop.\n");
-      return 0;
-    }
-
-  /* Some targets (eg, PPC) use the count register for branch on table
-     instructions.  ??? This should be a target specific check.  */
-  if (loop_info->has_tablejump)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Computed branch in the loop.\n");
-      return 0;
-    }
-
-  if (! loop_info->increment)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Could not determine iteration info.\n");
-      return 0;
-    }
-
-  if (GET_CODE (loop_info->increment) != CONST_INT)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Increment not an integer constant.\n");
-      return 0;
-    }
-
-  /* There is no guarantee that a NE loop will terminate if the
-     absolute increment is not unity.  ??? We could compute this
-     condition at run-time and have an additional jump around the loop
-     to ensure an infinite loop.  */
-  if (loop_info->comparison_code == NE
-      && !loop_info->preconditioned
-      && INTVAL (loop_info->increment) != -1
-      && INTVAL (loop_info->increment) != 1)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: NE loop with non-unity increment.\n");
-      return 0;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 "Doloop: The loop is not simple.\n");
+      return false;
     }
 
   /* Check for loops that may not terminate under special conditions.  */
-  if (! loop_info->n_iterations
-      && ((loop_info->comparison_code == LEU
-	   && INTVAL (loop_info->increment) > 0)
-	  || (loop_info->comparison_code == GEU
-	      && INTVAL (loop_info->increment) < 0)
-	  || (loop_info->comparison_code == LTU
-	      && INTVAL (loop_info->increment) > 1)
-	  || (loop_info->comparison_code == GTU
-	      && INTVAL (loop_info->increment) < -1)))
+  cond = loop->desc.cond;
+  if (loop->desc.neg)
+    cond = reverse_condition (cond);
+  if (! loop->desc.const_iter
+      && (cond == LEU
+	  || cond == GEU
+	  || (cond == LTU && INTVAL (loop->desc.stride) > 1)
+	  || (cond == GTU && INTVAL (loop->desc.stride) < -1)))
     {
       /* If the comparison is LEU and the comparison value is UINT_MAX
 	 then the loop will not terminate.  Similarly, if the
@@ -389,12 +356,12 @@ doloop_valid_p (loop, jump_insn)
 	 well by the CPU.  We should generate the pessimistic code by
 	 default, and have an option, e.g. -funsafe-loops that would
 	 enable count-register loops in this case.  */
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
 		 "Doloop: Possible infinite iteration case ignored.\n");
     }
 
-  return 1;
+  return true;
 }
 
 
@@ -404,45 +371,39 @@ doloop_valid_p (loop, jump_insn)
    the maximum number of loop iterations, and DOLOOP_INSN is the
    low-overhead looping insn to emit at the end of the loop.  This
    returns nonzero if it was successful.  */
-static int
-doloop_modify (loop, iterations, iterations_max,
-	       doloop_seq, start_label, condition)
+static bool
+doloop_modify (loop, iterations, iterations_max, doloop_seq, condition)
      const struct loop *loop;
      rtx iterations;
      rtx iterations_max;
      rtx doloop_seq;
-     rtx start_label;
      rtx condition;
 {
   rtx counter_reg;
   rtx count;
   rtx sequence;
   rtx jump_insn;
+  rtx jump_label;
   int nonneg = 0;
-  int decrement_count;
+  int increment_count;
+  basic_block loop_end = loop->desc.out_edge->src;
 
-  jump_insn = prev_nonnote_insn (loop->end);
+  jump_insn = loop_end->end;
 
-  if (loop_dump_stream)
+  if (rtl_dump_file)
     {
-      fprintf (loop_dump_stream, "Doloop: Inserting doloop pattern (");
+      fprintf (rtl_dump_file, "Doloop: Inserting doloop pattern (");
       if (GET_CODE (iterations) == CONST_INT)
-	fprintf (loop_dump_stream, HOST_WIDE_INT_PRINT_DEC,
+	fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_DEC,
 		 INTVAL (iterations));
       else
-	fputs ("runtime", loop_dump_stream);
-      fputs (" iterations).", loop_dump_stream);
+	fputs ("runtime", rtl_dump_file);
+      fputs (" iterations).", rtl_dump_file);
     }
-
-  /* Emit the label that will delimit the top of the loop.
-     This has to be done before the delete_insn call below, to prevent
-     delete_insn from deleting too much.  */
-  emit_label_after (start_label, loop->top ? loop->top : loop->start);
-  LABEL_NUSES (start_label)++;
 
   /* Discard original jump to continue loop.  The original compare
      result may still be live, so it cannot be discarded explicitly.  */
-  delete_related_insns (jump_insn);
+  delete_insn (jump_insn);
 
   counter_reg = XEXP (condition, 0);
   if (GET_CODE (counter_reg) == PLUS)
@@ -451,14 +412,14 @@ doloop_modify (loop, iterations, iterations_max,
   start_sequence ();
 
   count = iterations;
-  decrement_count = 0;
+  increment_count = 0;
   switch (GET_CODE (condition))
     {
     case NE:
       /* Currently only NE tests against zero and one are supported.  */
-      if (XEXP (condition, 1) == const0_rtx)
-	decrement_count = 1;
-      else if (XEXP (condition, 1) != const1_rtx)
+      if (XEXP (condition, 1) == const1_rtx)
+	increment_count = 1;
+      else if (XEXP (condition, 1) != const0_rtx)
 	abort ();
       break;
 
@@ -467,8 +428,8 @@ doloop_modify (loop, iterations, iterations_max,
       if (XEXP (condition, 1) != const0_rtx)
 	abort ();
 
-      /* The iteration count needs decrementing for a GE test.  */
-      decrement_count = 1;
+      /* The iteration count does not needs incrementing for a GE test.  */
+      increment_count = 0;
 
       /* Determine if the iteration counter will be non-negative.
 	 Note that the maximum value loaded is iterations_max - 1.  */
@@ -482,13 +443,13 @@ doloop_modify (loop, iterations, iterations_max,
       abort ();
     }
 
-  if (decrement_count)
+  if (increment_count)
     {
       if (GET_CODE (count) == CONST_INT)
-	count = GEN_INT (INTVAL (count) - 1);
+	count = GEN_INT (INTVAL (count) + 1);
       else
-	count = expand_simple_binop (GET_MODE (counter_reg), MINUS,
-				     count, GEN_INT (1),
+	count = expand_simple_binop (GET_MODE (counter_reg), PLUS,
+				     count, const1_rtx,
 				     0, 0, OPTAB_LIB_WIDEN);
     }
 
@@ -496,7 +457,7 @@ doloop_modify (loop, iterations, iterations_max,
   convert_move (counter_reg, count, 1);
   sequence = get_insns ();
   end_sequence ();
-  emit_insn_before (sequence, loop->start);
+  emit_insn_after (sequence, loop_preheader_edge (loop)->src->end);
 
   /* Some targets (eg, C4x) need to initialize special looping
      registers.  */
@@ -507,22 +468,29 @@ doloop_modify (loop, iterations, iterations_max,
     init = gen_doloop_begin (counter_reg,
 			     GET_CODE (iterations) == CONST_INT
 			     ? iterations : const0_rtx, iterations_max,
-			     GEN_INT (loop->level));
+			     GEN_INT (level));
     if (init)
       {
 	start_sequence ();
 	emit_insn (init);
 	sequence = get_insns ();
 	end_sequence ();
-	emit_insn_after (sequence, loop->start);
+	emit_insn_after (sequence, loop_preheader_edge (loop)->src->end);
       }
   }
 #endif
 
   /* Insert the new low-overhead looping insn.  */
-  emit_jump_insn_before (doloop_seq, loop->end);
-  jump_insn = prev_nonnote_insn (loop->end);
-  JUMP_LABEL (jump_insn) = start_label;
+  emit_jump_insn_after (doloop_seq, loop_end->end);
+  jump_insn = loop_end->end;
+  jump_label = block_label (loop->desc.in_edge->dest);
+  JUMP_LABEL (jump_insn) = jump_label;
+  LABEL_NUSES (jump_label)++;
+
+  /* Ensure the right fallthru edge is marked, for case we have reversed
+     the condition.  */
+  loop->desc.in_edge->flags &= ~EDGE_FALLTHRU;
+  loop->desc.out_edge->flags |= EDGE_FALLTHRU;
 
   /* Add a REG_NONNEG note if the actual or estimated maximum number
      of iterations is non-negative.  */
@@ -531,7 +499,7 @@ doloop_modify (loop, iterations, iterations_max,
       REG_NOTES (jump_insn)
 	= gen_rtx_EXPR_LIST (REG_NONNEG, NULL_RTX, REG_NOTES (jump_insn));
     }
-  return 1;
+  return true;
 }
 
 
@@ -542,231 +510,43 @@ doloop_modify (loop, iterations, iterations_max,
    initial_value obeys the loop comparison condition.  If a guard is
    not present, we emit one.  The loop to modify is described by LOOP.
    ITERATIONS_MAX is a CONST_INT specifying the estimated maximum
-   number of loop iterations.  DOLOOP_INSN is the low-overhead looping
+   number of loop iterations.  DOLOOP_SEQ is the low-overhead looping
    insn to insert.  Returns nonzero if loop successfully modified.  */
-static int
-doloop_modify_runtime (loop, iterations_max,
-		       doloop_seq, start_label, mode, condition)
-     const struct loop *loop;
+static bool
+doloop_modify_runtime (loop, iterations_max, doloop_seq, condition)
+     struct loop *loop;
      rtx iterations_max;
      rtx doloop_seq;
-     rtx start_label;
-     enum machine_mode mode;
      rtx condition;
 {
-  const struct loop_info *loop_info = LOOP_INFO (loop);
-  HOST_WIDE_INT abs_inc;
-  HOST_WIDE_INT abs_loop_inc;
-  int neg_inc;
-  rtx diff;
   rtx sequence;
   rtx iterations;
-  rtx initial_value;
-  rtx final_value;
-  rtx increment;
-  int unsigned_p;
-  enum rtx_code comparison_code;
-
-  increment = loop_info->increment;
-  initial_value = loop_info->initial_value;
-  final_value = loop_info->final_value;
-
-  neg_inc = 0;
-  abs_inc = INTVAL (increment);
-  if (abs_inc < 0)
-    {
-      abs_inc = -abs_inc;
-      neg_inc = 1;
-    }
-
-  comparison_code = loop_info->comparison_code;
-  unsigned_p = (comparison_code == LTU
-		|| comparison_code == LEU
-		|| comparison_code == GTU
-		|| comparison_code == GEU
-		|| comparison_code == NE);
-
-  /* The number of iterations (prior to any loop unrolling) is given by:
-
-       n = (abs (final - initial) + abs_inc - 1) / abs_inc.
-
-     However, it is possible for the summation to overflow, and a
-     safer method is:
-
-       n = abs (final - initial) / abs_inc;
-       n += (abs (final - initial) % abs_inc) != 0;
-
-     But when abs_inc is a power of two, the summation won't overflow
-     except in cases where the loop never terminates.  So we don't
-     need to use this more costly calculation.
-
-     If the loop has been unrolled, the full calculation is
-
-       t1 = abs_inc * unroll_number;		        increment per loop
-       n = (abs (final - initial) + abs_inc - 1) / t1;    full loops
-       n += (abs (final - initial) + abs_inc - 1) % t1) >= abs_inc;
-                                                          partial loop
-     which works out to be equivalent to
-
-       n = (abs (final - initial) + t1 - 1) / t1;
-
-     In the case where the loop was preconditioned, a few iterations
-     may have been executed earlier; but 'initial' was adjusted as they
-     were executed, so we don't need anything special for that case here.
-     As above, when t1 is a power of two we don't need to worry about
-     overflow.
-
-     The division and modulo operations can be avoided by requiring
-     that the increment is a power of 2 (precondition_loop_p enforces
-     this requirement).  Nevertheless, the RTX_COSTS should be checked
-     to see if a fast divmod is available.  */
 
   start_sequence ();
-  /* abs (final - initial)  */
-  diff = expand_simple_binop (mode, MINUS,
-			      copy_rtx (neg_inc ? initial_value : final_value),
-			      copy_rtx (neg_inc ? final_value : initial_value),
-			      NULL_RTX, unsigned_p, OPTAB_LIB_WIDEN);
-
-  /* Some code transformations can result in code akin to
-
-	  tmp = i + 1;
-	  ...
-	  goto scan_start;
-	top:
-	  tmp = tmp + 1;
-	scan_start:
-	  i = tmp;
-	  if (i < n) goto top;
-
-     We'll have already detected this form of loop in scan_loop,
-     and set loop->top and loop->scan_start appropriately.
-
-     In this situation, we skip the increment the first time through
-     the loop, which results in an incorrect estimate of the number
-     of iterations.  Adjust the difference to compensate.  */
-  /* ??? Logically, it would seem this belongs in loop_iterations.
-     However, this causes regressions e.g. on x86 execute/20011008-3.c,
-     so I do not believe we've properly characterized the exact nature
-     of the problem.  In the meantime, this fixes execute/20011126-2.c
-     on ia64 and some Ada front end miscompilation on ppc.  */
-
-  if (loop->scan_start)
-    {
-      rtx iteration_var = loop_info->iteration_var;
-      struct loop_ivs *ivs = LOOP_IVS (loop);
-      struct iv_class *bl;
-
-      if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
-	bl = REG_IV_CLASS (ivs, REGNO (iteration_var));
-      else if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == GENERAL_INDUCT)
-	{
-	  struct induction *v = REG_IV_INFO (ivs, REGNO (iteration_var));
-	  bl = REG_IV_CLASS (ivs, REGNO (v->src_reg));
-	}
-      else
-	/* Iteration var must be an induction variable to get here.  */
-	abort ();
-
-      if (INSN_UID (bl->biv->insn) < max_uid_for_loop
-	  && INSN_LUID (bl->biv->insn) < INSN_LUID (loop->scan_start))
-	{
-	  if (loop_dump_stream)
-	    fprintf (loop_dump_stream,
-	         "Doloop: Basic induction var skips initial incr.\n");
-
-	  diff = expand_simple_binop (mode, PLUS, diff, GEN_INT (abs_inc),
-				      diff, unsigned_p, OPTAB_LIB_WIDEN);
-	}
-    }
-
-  abs_loop_inc = abs_inc * loop_info->unroll_number;
-  if (abs_loop_inc != 1)
-    {
-      int shift_count;
-
-      shift_count = exact_log2 (abs_loop_inc);
-      if (shift_count < 0)
-	abort ();
-
-      /* (abs (final - initial) + abs_inc * unroll_number - 1) */
-      diff = expand_simple_binop (GET_MODE (diff), PLUS,
-				  diff, GEN_INT (abs_loop_inc - 1),
-				  diff, 1, OPTAB_LIB_WIDEN);
-
-      /* (abs (final - initial) + abs_inc * unroll_number - 1)
-	 / (abs_inc * unroll_number)  */
-      diff = expand_simple_binop (GET_MODE (diff), LSHIFTRT,
-				  diff, GEN_INT (shift_count),
-				  diff, 1, OPTAB_LIB_WIDEN);
-    }
-  iterations = diff;
-
-  /* If there is a NOTE_INSN_LOOP_VTOP, we have a `for' or `while'
-     style loop, with a loop exit test at the start.  Thus, we can
-     assume that the loop condition was true when the loop was
-     entered.
-
-     `do-while' loops require special treatment since the exit test is
-     not executed before the start of the loop.  We need to determine
-     if the loop will terminate after the first pass and to limit the
-     iteration count to one if necessary.  */
-  if (! loop->vtop)
-    {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream, "Doloop: Do-while loop.\n");
-
-      /* A `do-while' loop must iterate at least once.  For code like
-	 i = initial; do { ... } while (++i < final);
-	 we will calculate a bogus iteration count if initial > final.
-	 So detect this and set the iteration count to 1.
-	 Note that if the loop has been unrolled, then the loop body
-	 is guaranteed to execute at least once.  Also, when the
-	 comparison is NE, our calculated count will be OK.  */
-      if (loop_info->unroll_number == 1 && comparison_code != NE)
-	{
-	  rtx label;
-
-	  /*  Emit insns to test if the loop will immediately
-	      terminate and to set the iteration count to 1 if true.  */
-	  label = gen_label_rtx();
-	  emit_cmp_and_jump_insns (copy_rtx (initial_value),
-				   copy_rtx (loop_info->comparison_value),
-				   comparison_code, NULL_RTX, mode, 0,
-				   label);
-	  JUMP_LABEL (get_last_insn ()) = label;
-	  LABEL_NUSES (label)++;
-	  emit_move_insn (iterations, const1_rtx);
-	  emit_label (label);
-	}
-    }
-
+  iterations = count_loop_iterations (&loop->desc, NULL, NULL);
+  if (!iterations)
+    abort ();
   sequence = get_insns ();
   end_sequence ();
-  emit_insn_before (sequence, loop->start);
+  emit_insn_after (sequence, loop_preheader_edge (loop)->src->end);
 
-  return doloop_modify (loop, iterations, iterations_max, doloop_seq,
-			start_label, condition);
+  return doloop_modify (loop, iterations, iterations_max,
+			doloop_seq, condition);
 }
 
 
-/* This is the main entry point.  Process loop described by LOOP
-   validating that the loop is suitable for conversion to use a low
-   overhead looping instruction, replacing the jump insn where
-   suitable.  We distinguish between loops with compile-time bounds
-   and those with run-time bounds.  Information from LOOP is used to
-   compute the number of iterations and to determine whether the loop
-   is a candidate for this optimization.  Returns nonzero if loop
-   successfully modified.  */
-int
-doloop_optimize (loop)
-     const struct loop *loop;
+/* Process loop described by LOOP validating that the loop is suitable for
+   conversion to use a low overhead looping instruction, replacing the jump
+   insn where suitable.  We distinguish between loops with compile-time bounds
+   and those with run-time bounds.  Information from LOOP is used to compute
+   the number of iterations and to determine whether the loop is a candidate
+   for this optimization.  Information on the whole loop tree is stored in
+   LOOPS.  Returns true if the loop was successfully modified.  */
+static bool
+doloop_optimize (loops, loop)
+     struct loops *loops;
+     struct loop *loop;
 {
-  struct loop_info *loop_info = LOOP_INFO (loop);
-  rtx initial_value;
-  rtx final_value;
-  rtx increment;
-  rtx jump_insn;
   enum machine_mode mode;
   unsigned HOST_WIDE_INT n_iterations;
   unsigned HOST_WIDE_INT n_iterations_max;
@@ -775,94 +555,78 @@ doloop_optimize (loop)
   rtx iterations_max;
   rtx start_label;
   rtx condition;
+  int level;
 
-  if (loop_dump_stream)
-    fprintf (loop_dump_stream,
-	     "Doloop: Processing loop %d, enclosed levels %d.\n",
-	     loop->num, loop->level);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "Doloop: Processing loop %d.\n", loop->num);
 
-  jump_insn = prev_nonnote_insn (loop->end);
-
-  /* Check that loop is a candidate for a low-overhead looping insn.  */
-  if (! doloop_valid_p (loop, jump_insn))
-    return 0;
-
-  /* Determine if the loop can be safely, and profitably,
-     preconditioned.  While we don't precondition the loop in a loop
-     unrolling sense, this test ensures that the loop is well behaved
-     and that the increment is a constant integer.  */
-  if (! precondition_loop_p (loop, &initial_value, &final_value,
-			     &increment, &mode))
+  /* Ignore large loops.  */
+  if (loop->ninsns > (unsigned) PARAM_VALUE (PARAM_MAX_DOLOOP_INSNS))
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Doloop: Cannot precondition loop.\n");
-      return 0;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 "Doloop: The loop is too large.\n");
+      return false;
     }
 
-  /* Determine or estimate the maximum number of loop iterations.  */
-  n_iterations = loop_info->n_iterations;
-  if (n_iterations)
+  /* Check that loop is a candidate for a low-overhead looping insn.  */
+  if (! doloop_valid_p (loops, loop))
     {
-      /* This is the simple case where the initial and final loop
-	 values are constants.  */
-      n_iterations_max = n_iterations;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 "Doloop: The loop is not suitable.\n");
+      return false;
+    }
+  mode = GET_MODE (loop->desc.var);
+
+  /* Determine or estimate the maximum number of loop iterations.  */
+  if (loop->desc.const_iter)
+    {
+      /* This is the simple case where the exact number of iterations may
+	 be determined.  */
+      n_iterations_max = n_iterations = loop->desc.niter;
     }
   else
     {
-      int nonneg = find_reg_note (jump_insn, REG_NONNEG, 0) != 0;
+      n_iterations = 0;
 
       /* This is the harder case where the initial and final loop
 	 values may not be constants.  */
-      n_iterations_max = doloop_iterations_max (loop_info, mode, nonneg);
-
-      if (! n_iterations_max)
-	{
-	  /* We have something like `for (i = 0; i < 10; i--)'.  */
-	  if (loop_dump_stream)
-	    fprintf (loop_dump_stream,
-		     "Doloop: Not normal loop.\n");
-	  return 0;
-	}
+      n_iterations_max = doloop_iterations_max (loop);
     }
-
-  /* Account for loop unrolling in the iteration count.  This will
-     have no effect if loop_iterations could not determine the number
-     of iterations.  */
-  n_iterations /= loop_info->unroll_number;
-  n_iterations_max /= loop_info->unroll_number;
 
   if (n_iterations && n_iterations < 3)
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
 		 "Doloop: Too few iterations (%ld) to be profitable.\n",
 		 (long int) n_iterations);
-      return 0;
+      return false;
     }
 
   iterations = GEN_INT (n_iterations);
   iterations_max = GEN_INT (n_iterations_max);
+  level = get_loop_level (loop);
 
   /* Generate looping insn.  If the pattern FAILs then give up trying
      to modify the loop since there is some aspect the back-end does
      not like.  */
-  start_label = gen_label_rtx ();
+  start_label = block_label (loop->desc.in_edge->dest);
   doloop_reg = gen_reg_rtx (mode);
   doloop_seq = gen_doloop_end (doloop_reg, iterations, iterations_max,
-			       GEN_INT (loop->level), start_label);
+			       GEN_INT (level), start_label);
   if (! doloop_seq && mode != word_mode)
     {
       PUT_MODE (doloop_reg, word_mode);
       doloop_seq = gen_doloop_end (doloop_reg, iterations, iterations_max,
-				   GEN_INT (loop->level), start_label);
+				   GEN_INT (level), start_label);
     }
   if (! doloop_seq)
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
 		 "Doloop: Target unwilling to use doloop pattern!\n");
-      return 0;
+      return false;
     }
 
   /* If multiple instructions were created, the last must be the
@@ -882,21 +646,41 @@ doloop_optimize (loop)
   if (! doloop_pat
       || ! (condition = doloop_condition_get (doloop_pat)))
     {
-      if (loop_dump_stream)
-	fprintf (loop_dump_stream,
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
 		 "Doloop: Unrecognizable doloop pattern!\n");
-      return 0;
+      return false;
     }
 
-  if (n_iterations != 0)
+  if (loop->desc.const_iter)
     /* Handle the simpler case, where we know the iteration count at
        compile time.  */
     return doloop_modify (loop, iterations, iterations_max, doloop_seq,
-			  start_label, condition);
+			  condition);
   else
     /* Handle the harder case, where we must add additional runtime tests.  */
-    return doloop_modify_runtime (loop, iterations_max, doloop_seq,
-				  start_label, mode, condition);
+    return doloop_modify_runtime (loop, iterations_max, doloop_seq, condition);
 }
 
+/* This is the main entry point.  Process all LOOPS using doloop_optimize.  */
+void
+doloop_optimize_loops (loops)
+     struct loops *loops;
+{
+  unsigned i;
+  struct loop *loop;
+
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+
+      doloop_optimize (loops, loop);
+    }
+#ifdef ENABLE_CHECKING
+  verify_dominators (loops->cfg.dom);
+  verify_loop_structure (loops);
+#endif
+}
 #endif /* HAVE_doloop_end */

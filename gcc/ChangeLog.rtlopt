@@ -1,3 +1,20 @@
+2003-03-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (doloop.o): Add output.h and PARAMS_H dependencies,
+	remove LOOP_H dependency.
+	* cfgloop.h (doloop_optimize_loops): Declare.
+	* doloop.c: Do not include loop.h, include output.h and params.h.
+	(get_loop_level, doloop_optimize_loops): New functions.
+	(doloop_valid_p, doloop_modify, doloop_modify_runtime, doloop_optimize,
+	doloop_condition_get, doloop_iterations_max): Modified to use new loop
+	datastructure.
+	* loop.c (strength_reduce): Do not call doloop_optimize.
+	* loop.h (LOOP_BCT): Removed.
+	(doloop_optimize): Declaration removed.
+	* params.def (PARAM_MAX_DOLOOP_INSNS): New parameter.
+	* toplev.c (rest_of_compilation): Call doloop optimizer from loop2
+	instead of loop.
+
 2003-03-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse-pre.c (simple_mem): Handle trapping mems.
