@@ -1819,7 +1819,11 @@ darwin_build_constant_cfstring (tree str)
   if (!desc)
     {
       tree initlist, constructor, field = TYPE_FIELDS (ccfstring_type_node);
+      tree var;
       int length = TREE_STRING_LENGTH (str) - 1;
+      /* FIXME: The CFString functionality should probably reside
+	 in darwin-c.c.  */
+      extern tree pushdecl_top_level (tree);
 
       if (darwin_warn_nonportable_cfstrings)
 	{
@@ -1866,7 +1870,12 @@ darwin_build_constant_cfstring (tree str)
       if (darwin_running_cxx)
 	TREE_LANG_FLAG_4 (constructor) = 1;   /* TREE_HAS_CONSTRUCTOR  */
 
-      desc->constructor = constructor;
+      /* Create an anonymous global variable for this CFString.  */
+      var = build_decl (CONST_DECL, NULL, TREE_TYPE (constructor));
+      DECL_INITIAL (var) = constructor;
+      TREE_STATIC (var) = 1;
+      pushdecl_top_level (var);
+      desc->constructor = var;
     }
 
   addr = build1 (ADDR_EXPR, pccfstring_type_node, desc->constructor);

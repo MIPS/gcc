@@ -1,3 +1,14 @@
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+	    Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3845826 (includes PR objc/17923)
+	* tree.c (staticp): A CONST_DECL has static storage if either
+	TREE_STATIC or DECL_EXTERNAL is set.
+	* config/darwin.c (darwin_build_constant_cfstring): Build a global
+	CONST_DECL to hold each constructed CFString.
+	* c-decl.c (pushdecl_top_level): Accept CONST_DECLs which can
+	have null names.
+
 2004-10-21 Fariborz Jahanian <fjahanian@apple.com>
 
 	* function.c (assign_parms): Iterate over all non-vector args first,
