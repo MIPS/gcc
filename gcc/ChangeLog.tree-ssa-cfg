@@ -1,3 +1,21 @@
+2003-10-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (DFS_stack, DFS_seen): Declare.
+	(DFS_FORWARD, DFS_BACKWARD, DFS): New macros.
+	* cfg.c (DFS_stack, DFS_seen): New.
+	* tree-cfg.c (struct control): New.
+	(determine_structures, make_control_node, try_move_control_node,
+	move_control_node, dump_cs_tree, free_cs_tree, add_bb_cs_nodes,
+	assign_levels, compute_structure_exits, layout_structures,
+	layout_structure, add_to_layout, finish_layout, reconstruct_tree,
+	inside_cs, lift, bsi_real_start): New functions.
+	(dump_cfg_function_to_file): Use reconstruction when instructed to.
+	(split_critical_edges): Moved from tree-ssa-pre.c.
+	* tree-dump.c (dump_options): Add TDF_RECONSTRUCT.
+	* tree.h (TDF_RECONSTRUCT): New.
+	* tree-flow.h (bsi_real_start, split_critical_edges): Declare.
+	* tree-ssa-pre.c (split_critical_edges): Moved to tree-cfg.c.
+
 2003-10-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (struct basic_block_def): Add GTY tags.

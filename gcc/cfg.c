@@ -92,6 +92,10 @@ int n_edges;
 
 varray_type basic_block_info;
 
+/* The variables for DFS macro.  */
+varray_type DFS_stack;
+bitmap DFS_seen;
+
 /* The special entry and exit blocks.  */
 
 struct basic_block_def entry_exit_blocks[2]

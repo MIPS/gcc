@@ -311,6 +311,63 @@ extern GTY(()) varray_type basic_block_info;
 #define FOR_ALL_BB(BB) \
   for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
 
+/* An ugly macro for dfsing over cfg.  Much easier to use than writing
+   callbacks for some function, but this is the only good thing about it.  */
+extern varray_type DFS_stack;
+extern GTY(()) bitmap DFS_seen;
+#define DFS_FORWARD(FROM, BB, E, FOLLOW, ON_ENTRY, ON_FINISH)			\
+  DFS (FROM, BB, E, FOLLOW, ON_ENTRY, ON_FINISH, succ, succ_next, dest, EXIT_BLOCK_PTR)
+#define DFS_BACKWARD(FROM, BB, E, FOLLOW, ON_ENTRY, ON_FINISH)			\
+  DFS (FROM, BB, E, FOLLOW, ON_ENTRY, ON_FINISH, pred, pred_next, src, ENTRY_BLOCK_PTR)
+#define DFS(FROM, BB, E, FOLLOW, ON_ENTRY, ON_FINISH, DIR, DIR_NEXT, EDGE_END, END) \
+do										\
+  {										\
+    basic_block BB;								\
+    edge E;									\
+										\
+    if (!DFS_stack)								\
+      {										\
+	VARRAY_EDGE_INIT (DFS_stack, 100, "DFS_stack");				\
+	DFS_seen = BITMAP_GGC_ALLOC ();						\
+      }										\
+										\
+    BB = (FROM);								\
+    bitmap_zero (DFS_seen);							\
+    bitmap_set_bit (DFS_seen, (BB)->index);					\
+    ON_ENTRY;									\
+    E = BB->DIR;								\
+										\
+    while (1)									\
+      {										\
+    	for (; E; E = E->DIR_NEXT)						\
+	  if (E->EDGE_END != END						\
+	      && ! bitmap_bit_p (DFS_seen, E->EDGE_END->index)			\
+	      && (FOLLOW))							\
+	    break;								\
+										\
+	if (!E)									\
+	  {									\
+	    ON_FINISH;								\
+										\
+	    if (VARRAY_ACTIVE_SIZE (DFS_stack) == 0)				\
+	      break;								\
+										\
+	    E = VARRAY_TOP_EDGE (DFS_stack);					\
+	    VARRAY_POP (DFS_stack);						\
+	  }									\
+	else									\
+	  {									\
+	    VARRAY_PUSH_EDGE (DFS_stack, E);					\
+										\
+	    BB = E->EDGE_END;							\
+	    bitmap_set_bit (DFS_seen, (BB)->index);				\
+	    ON_ENTRY;								\
+	    E = BB->DIR;							\
+	  }									\
+      }										\
+  }										\
+while (0)
+
 /* What registers are live at the setjmp call.  */
 
 extern regset regs_live_at_setjmp;

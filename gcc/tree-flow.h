@@ -331,6 +331,7 @@ typedef struct
 } block_stmt_iterator;
 
 extern block_stmt_iterator bsi_start (basic_block);
+extern block_stmt_iterator bsi_real_start (basic_block);
 extern block_stmt_iterator bsi_last (basic_block);
 static inline bool bsi_end_p (block_stmt_iterator);
 static inline void bsi_next (block_stmt_iterator *);
@@ -435,6 +436,7 @@ extern void bsi_move_after (block_stmt_iterator, block_stmt_iterator);
 extern void bsi_move_to_bb_end (block_stmt_iterator, basic_block);
 extern basic_block label_to_block (tree);
 extern void remove_useless_stmts_and_vars (tree *, bool);
+extern void split_critical_edges (void);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);

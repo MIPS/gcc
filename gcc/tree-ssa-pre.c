@@ -249,7 +249,6 @@ static inline bool injured_real_occ_phi_opnd (struct expr_info *,
 static void compute_du_info (struct expr_info *);
 static void add_ephi_use (tree, tree, int);
 static void insert_one_operand (struct expr_info *, tree, int, tree, edge);
-static void split_critical_edges (void);
 
 /* Bitmap of E-PHI predecessor operands have already been created. 
    We only create one phi-pred per block.  */
@@ -2809,21 +2808,6 @@ pre_expression (struct expr_info *slot, void *data)
   return 0;
 }
 
-static void
-split_critical_edges (void)
-{
-  struct edge_list *el = create_edge_list ();
-  int i;
-  edge e;
-
-  for (i = 0; i < NUM_EDGES (el); i++)
-    {
-      e = INDEX_EDGE (el, i);
-      if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
-	split_edge (e);
-    }
-  free_edge_list (el);
-}
 /* Main entry point to the SSA-PRE pass.
 
    PHASE indicates which dump file from the DUMP_FILES array to use when

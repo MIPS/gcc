@@ -108,6 +108,38 @@ static struct cfg_stats_d cfg_stats;
 static struct obstack block_ann_obstack;
 static void *first_block_ann_obj = 0;
 
+/* Control structure decomposition tree.  */
+struct control
+{
+  enum cs_type
+    {
+      CS_TOP,
+      CS_WHILE_LOOP,
+      CS_DO_WHILE_LOOP,
+      CS_INFINITE_LOOP,
+      CS_IF_THEN_ELSE,
+      CS_IF_THEN,
+      CS_IF_ELSE,
+      CS_BB
+    } type;			/* Type of the structure.  */
+
+  struct control *outer;	/* Outer sutructure.  */
+  struct control *son;		/* The first substructure.  */
+  struct control *next, *prev;	/* The next control structure in a chain.  */
+
+  int level;			/* Nesting level of the structure.  */
+  bool visited;			/* A mark.  */
+  varray_type exits;		/* Exits from the structure.  */
+  struct control *lay_head, *lay_next, *lay_last;
+  struct control *follow_node;	/* The next cs after the structure.  */
+				/* Chain of layout.  */
+  struct control *else_node;
+
+  basic_block header;		/* Entry of the structure.  */
+  basic_block latch;		/* Latch of a loop.  */
+  basic_block follow;		/* The next block after the structure.  */
+};
+
 /* Basic blocks and flowgraphs.  */
 static void make_blocks (tree_cell);
 static inline void append_stmt_to_bb (tree_cell, basic_block);
@@ -149,6 +181,26 @@ static void thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void merge_seq_blocks (void);
 static tree CASE_GOTO (tree_stmt_iterator);
+static struct control *determine_structures (struct control *[]);
+static struct control *make_control_node (enum cs_type, struct control *,
+       					  basic_block, basic_block,
+					  basic_block);
+static void try_move_control_node (struct control *, struct control *,
+				   struct control *);
+static void move_control_node (struct control *, struct control *);
+static void dump_cs_tree (FILE *, int, struct control *, struct control *[]);
+static void free_cs_tree (struct control *);
+static void add_bb_cs_nodes (struct control *[]);
+static void assign_levels (struct control *, int);
+static void compute_structure_exits (struct control *[]);
+static void layout_structures (struct control *, struct control *[]);
+static void layout_structure (struct control *, struct control *,
+			      struct control *[]);
+static void add_to_layout (struct control *);
+static void finish_layout (struct control *);
+static tree reconstruct_tree (struct control *);
+static bool inside_cs (basic_block, struct control *, struct control *[]);
+static struct control *lift (struct control *, int);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -1414,41 +1466,739 @@ dump_cfg_function_to_file (tree fn, FILE *file, int flags)
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);
     }
-  fprintf (file, ")\n{\n");
+  fprintf (file, ")\n");
+
+  if (flags & TDF_RECONSTRUCT)
+    {
+      struct control *cs_tree, **bb_to_cs;
+      bb_to_cs = xmalloc (sizeof (struct control *) * last_basic_block);
+
+      cs_tree = determine_structures (bb_to_cs);
+      dump_cs_tree (file, flags, cs_tree, bb_to_cs); 
+
+      free_cs_tree (cs_tree);
+      free (bb_to_cs);
+    }
+  else
+    {
+      fprintf (file, "{\n");
+      FOR_EACH_BB (bb)
+	{
+	  if (show_bb_headers)
+	    {
+	      fprintf (file, "# BLOCK %d\n ", bb->index);
+	      fprintf (file, "# PRED");
+	      for (e = bb->pred; e; e = e->pred_next)
+		dump_edge_info (file, e, 0);
+	      putc ('\n', file);
+	    }
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    {
+	      fprintf (file, "\t# ");
+	      print_generic_stmt (file, phi, flags);
+	      fprintf (file, "\n");
+	    }
+
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	    {
+	      fprintf (file, "%d\t", get_lineno (bsi_stmt (si)));
+	      print_generic_stmt (file, bsi_stmt (si), flags & ~TDF_VOPS);
+	      fprintf (file, "\n");
+	    }
+
+	  if (show_bb_headers)
+	    {
+	      fprintf (file, "# SUCC");
+	      for (e = bb->succ; e; e = e->succ_next)
+		dump_edge_info (file, e, 1);
+	      fprintf (file, "\n\n");
+	    }
+	}
+      fprintf (file, "}\n\n");
+    }
+}
+
+/* Determine control structures, returning their tree and assignment of
+   blocks to them in BELONGS_TO.  */
+
+static struct control *
+determine_structures (struct control *bb_to_cs[])
+{
+  struct control *root, *nw, *old;
+  int i, *rc_order, *rc_number;
+  basic_block header, follow;
+  edge e, latch;
+  dominance_info dom = calculate_dominance_info (CDI_DOMINATORS);
+
+  root = make_control_node (CS_TOP, NULL, ENTRY_BLOCK_PTR->succ->dest, NULL,
+			    NULL);
+
+  rc_order = xmalloc (n_basic_blocks * sizeof (int));
+  flow_depth_first_order_compute (NULL, rc_order);
+
+  mark_dfs_back_edges ();
+
+  rc_number = xmalloc (last_basic_block * sizeof (int));
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      bb_to_cs[rc_order[i]] = root;
+      rc_number[rc_order[i]] = i;
+    }
+
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      header = BASIC_BLOCK (rc_order[i]);
+
+      latch = NULL;
+      for (e = header->pred; e; e = e->pred_next)
+	{
+	  if (e->flags & EDGE_ABNORMAL)
+	    {
+	      latch = NULL;
+	      break;
+	    }
+
+	  if ((e->flags & EDGE_DFS_BACK)
+	      && dominated_by_p (dom, e->src, header))
+	    {
+	      if (!latch
+		  /* Take the latch with the greatest rc number.  */
+		  || rc_number[e->src->index] > rc_number[latch->src->index])
+	      latch = e;
+	    }
+	}
+
+      if (!latch)
+	continue;
+
+      nw = make_control_node (CS_INFINITE_LOOP, bb_to_cs[header->index],
+			      header, latch->src, NULL);
+
+      /* Mark the nodes belonging to the loop.  */
+      DFS_BACKWARD (latch->src, bb, e,
+		    e->dest != header,
+		    bb_to_cs[bb->index] = nw,);
+
+      /* Determine follow and the type of the loop.  If the header has
+	 a successor outside of loop, it is a while loop and the successor is
+	 the follow.  */
+      follow = NULL;
+      for (e = header->succ; e; e = e->succ_next)
+	if (e->dest == EXIT_BLOCK_PTR
+	    || bb_to_cs[e->dest->index] != nw)
+	  follow = e->dest;
+      if (follow)
+	{
+	  nw->type = CS_WHILE_LOOP;
+	  nw->follow = follow;
+	  continue;
+	}
+
+      /* If latch has a successor outside of loop, it is a do-while loop.  */
+      follow = NULL;
+      for (e = latch->src->succ; e; e = e->succ_next)
+	if (e->dest == EXIT_BLOCK_PTR
+	    || bb_to_cs[e->dest->index] != nw)
+	  follow = e->dest;
+      if (follow)
+	{
+	  nw->type = CS_DO_WHILE_LOOP;
+	  nw->follow = follow;
+	  continue;
+	}
+
+      /* Otherwise it is an endless loop.  Set follow as the successor with the
+	 lowest rc number.  */
+      follow = NULL;
+      DFS_BACKWARD (latch->src, bb, f,
+		    bb_to_cs[f->dest->index] != nw,
+		    if (bb_to_cs[bb->index] != nw
+			&& (!follow
+			    || rc_number[follow->index] > rc_number[bb->index]))
+		      follow = bb,);
+
+      nw->follow = follow;
+    }
+
+  /* Now we have a loop tree.  Add information about if then else
+     structures.  Traverse the basic blocks in the completion order,
+     so that inner structures are identified first.  */
+  for (i = n_basic_blocks - 1; i >= 0; i--)
+    {
+      tree stmt;
+      edge e_then, e_else;
+      enum cs_type type;
+      basic_block l;
+
+      header = BASIC_BLOCK (rc_order[i]);
+      stmt = last_stmt (header);
+
+      if (!stmt || TREE_CODE (stmt) != COND_EXPR)
+	continue;
+
+      e_then = e_else = NULL;
+      for (e = header->succ; e; e = e->succ_next)
+	{
+	  if (e->flags & EDGE_TRUE_VALUE)
+	    e_then = e;
+	  if (e->flags & EDGE_FALSE_VALUE)
+	    e_else = e;
+	}
+      
+      if (!e_then || !e_else || e_then == e_else
+	  || e_then->dest == header
+	  || e_else->dest == header)
+	continue;
+
+      /* Clasify the structure.  */
+
+      old = bb_to_cs[header->index];
+      if (dominated_by_p (dom, e_then->dest, header))
+	{
+	  for (e = e_else->dest->pred; e; e = e->pred_next)
+	    if (dominated_by_p (dom, e->src, e_then->dest))
+	      break;
+
+	  if (e)
+	    {
+	      if (!inside_cs (e->src, old, bb_to_cs))
+		continue;
+	      type = CS_IF_THEN;
+	      follow = e_else->dest;
+	      l = e->src;
+	    }
+	  else if (dominated_by_p (dom, e_else->dest, header))
+	    {
+	      if (!inside_cs (e_then->dest, old, bb_to_cs)
+		  || !inside_cs (e_else->dest, old, bb_to_cs))
+		continue;
+	      type = CS_IF_THEN_ELSE;
+	      follow = NULL;
+	      l = NULL;
+	    }
+	  else
+	    continue;
+	}
+      else if (dominated_by_p (dom, e_else->dest, header))
+	{
+	  for (e = e_then->dest->pred; e; e = e->pred_next)
+	    if (dominated_by_p (dom, e->src, e_else->dest))
+	      break;
+
+	  if (e)
+	    {
+	      if (!inside_cs (e->src, old, bb_to_cs))
+		continue;
+	      type = CS_IF_ELSE;
+	      follow = e_then->dest;
+	      l = e->src;
+	    }
+	  else
+	    continue;
+	}
+      else
+	continue;
+
+      nw = make_control_node (type, bb_to_cs[header->index],
+			      header, l, follow);
+
+      /* Find the basic blocks belonging to the structure.  */
+      bb_to_cs[header->index] = nw;
+      if (type == CS_IF_THEN || type == CS_IF_THEN_ELSE)
+	DFS_FORWARD (e_then->dest, bb, e,
+		     dominated_by_p (dom, e->dest, e_then->dest)
+		     && inside_cs (e->dest, old, bb_to_cs),
+		     if (bb_to_cs[bb->index] == old)
+		       bb_to_cs[bb->index] = nw;
+		     else
+		       try_move_control_node (bb_to_cs[bb->index], old, nw);,);
+      if (type == CS_IF_ELSE || type == CS_IF_THEN_ELSE)
+	DFS_FORWARD (e_else->dest, bb, e,
+		     dominated_by_p (dom, e->dest, e_else->dest)
+		     && inside_cs (e->dest, old, bb_to_cs),
+		     if (bb_to_cs[bb->index] == old)
+		       bb_to_cs[bb->index] = nw;
+		     else
+		       try_move_control_node (bb_to_cs[bb->index], old, nw);,);
+      if (type == CS_IF_THEN_ELSE)
+	{
+	  /* Determine the follow node as the basic block that has predecessors
+	     in both branches.  */
+	  DFS_FORWARD (e_then->dest, bb, f,
+		       dominated_by_p (dom, f->src, e_then->dest)
+		       && inside_cs (f->src, old, bb_to_cs),
+		       if (bb_to_cs[bb->index] != nw)
+			 {
+			   for (e = bb->pred; e; e = e->pred_next)
+			     if (bb_to_cs[e->src->index] == nw
+				 && dominated_by_p (dom, e->src, e_else->dest)
+				 && (!follow
+				     || rc_number[follow->index] > rc_number[bb->index]))
+			       follow = bb;
+			 },);
+	}
+    }
+
+  free (rc_number);
+  free (rc_order);
+
+  free_dominance_info (dom);
+
+  return root;
+}
+
+/* Releases memory occupied by control structures tree CS_TREE.  */
+
+static void
+free_cs_tree (struct control *cs_tree)
+{
+  struct control *son, *next;
+
+  if (cs_tree->son)
+    {
+      son = cs_tree->son;
+      son->prev->next = NULL;
+
+      for (; son; son = next)
+	{
+	  next = son->next;
+	  free_cs_tree (son);
+	}
+    }
+
+  free (cs_tree);
+}
+
+/* Dumps the program to FILE with details described by FLAGS.  Structures are
+   recreated according to CS_TREE.  Blocks are assigned to structures according
+   to BB_TO_CS.  */
+
+static void
+dump_cs_tree (FILE *file, int flags, struct control *cs_tree,
+	      struct control *bb_to_cs[])
+{
+  tree body;
+
+  add_bb_cs_nodes (bb_to_cs);
+  assign_levels (cs_tree, 0);
+  compute_structure_exits (bb_to_cs);
+  layout_structures (cs_tree, bb_to_cs);
+
+  body = reconstruct_tree (cs_tree);
+  print_generic_stmt (file, body, flags);
+}
+
+/* Create a structured program from structrure description and layout
+   in NODE.  */
+
+static tree
+reconstruct_tree (struct control *node)
+{
+  tree b = NULL_TREE, tmp, *stmt, b1;
+  tree_stmt_iterator tsi = tsi_start (&b), atsi;
+  block_stmt_iterator bsi;
+  struct control *s;
+
+  switch (node->type)
+    {
+    case CS_TOP:
+      for (s = node->lay_head; s; s = s->lay_next)
+	{
+	  tmp = reconstruct_tree (s);
+	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
+	}
+      return build (BIND_EXPR, void_type_node,
+		    NULL,
+		    b,
+		    NULL);
+
+    case CS_WHILE_LOOP:
+    case CS_DO_WHILE_LOOP:
+    case CS_INFINITE_LOOP:
+      for (s = node->lay_head; s; s = s->lay_next)
+	{
+	  tmp = reconstruct_tree (s);
+	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
+	}
+      return build (LOOP_EXPR, void_type_node, b);
+
+    case CS_IF_THEN:
+    case CS_IF_ELSE:
+      for (s = node->lay_head->lay_next; s; s = s->lay_next)
+	{
+	  tmp = reconstruct_tree (s);
+	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
+	}
+      tmp = reconstruct_tree (node->lay_head);
+      for (atsi = tsi_start (&tmp); !tsi_one_before_end_p (atsi);
+	   tsi_next (&atsi))
+	continue;
+      stmt = tsi_stmt_ptr (atsi);
+      if (TREE_CODE (*stmt) != COND_EXPR)
+	abort ();
+
+      if (node->type == CS_IF_THEN)
+	{
+	  *stmt = build (COND_EXPR, void_type_node,
+			 COND_EXPR_COND (*stmt), b,
+			 (node->follow
+			  ? build_empty_stmt ()
+			  : COND_EXPR_ELSE (*stmt)));
+	}
+      else
+	{
+	  *stmt = build (COND_EXPR, void_type_node,
+			 COND_EXPR_COND (*stmt),
+			 (node->follow
+			  ? build_empty_stmt ()
+			  : COND_EXPR_THEN (*stmt)),
+			 b);
+	}
+      return tmp;
+
+    case CS_IF_THEN_ELSE:
+      for (s = node->lay_head->lay_next; s != node->else_node; s = s->lay_next)
+	{
+	  tmp = reconstruct_tree (s);
+	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
+	}
+      b1 = b;
+
+      b = NULL_TREE;
+      tsi = tsi_start (&b);
+      for (; s; s = s->lay_next)
+	{
+	  tmp = reconstruct_tree (s);
+	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
+	}
+
+      tmp = reconstruct_tree (node->lay_head);
+      for (atsi = tsi_start (&tmp); !tsi_one_before_end_p (atsi);
+	   tsi_next (&atsi))
+	continue;
+      stmt = tsi_stmt_ptr (atsi);
+      if (TREE_CODE (*stmt) != COND_EXPR)
+	abort ();
+
+      *stmt = build (COND_EXPR, void_type_node,
+		     COND_EXPR_COND (*stmt), b1, b);
+      return tmp;
+
+    case CS_BB:
+      for (bsi = bsi_start (node->header); !bsi_end_p (bsi); bsi_next (&bsi))
+	tsi_link_after (&tsi, bsi_stmt (bsi), TSI_NEW_STMT);
+      if (!b)
+	b = build_empty_stmt ();
+
+      return b;
+
+    default:
+      abort ();
+    }
+}
+
+/* Checks whether BB belongs to NODE according to BB_TO_CS.  */
+
+static bool
+inside_cs (basic_block bb, struct control *node, struct control *bb_to_cs[])
+{
+  struct control *a = bb_to_cs[bb->index];
+
+  while (a != node && a)
+    a = a->outer;
+
+  return a == node;
+}
+
+/* Returns the superstructure of NODE on level L.  */
+
+static struct control *
+lift (struct control *node, int l)
+{
+  while (node->level > l)
+    node = node->outer;
+
+  return node;
+}
+
+/* Add structure nodes for basic blocks, using BB_TO_CS array.  */
+
+static void
+add_bb_cs_nodes (struct control *bb_to_cs[])
+{
+  basic_block bb, follow;
+  struct control *nw;
+  edge e;
 
   FOR_EACH_BB (bb)
     {
-      if (show_bb_headers)
-	{
-	  fprintf (file, "# BLOCK %d\n ", bb->index);
-	  fprintf (file, "# PRED");
-	  for (e = bb->pred; e; e = e->pred_next)
-	    dump_edge_info (file, e, 0);
-	  putc ('\n', file);
-	}
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	{
-	  fprintf (file, "\t# ");
-	  print_generic_stmt (file, phi, flags);
-	  fprintf (file, "\n");
-	}
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
+      if (e && e->dest != EXIT_BLOCK_PTR)
+	follow = e->dest;
+      else
+	follow = NULL;
+      nw = make_control_node (CS_BB, bb_to_cs[bb->index], bb, NULL, follow);
+      bb_to_cs[bb->index] = nw;
+    }
+}
 
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	{
-	  fprintf (file, "%d\t", get_lineno (bsi_stmt (si)));
-	  print_generic_stmt (file, bsi_stmt (si), flags & ~TDF_VOPS);
-	  fprintf (file, "\n");
-	}
+/* Assign level L to NODE and propagate the levels to its subnodes.  */
 
-      if (show_bb_headers)
+static void
+assign_levels (struct control *node, int l)
+{
+  struct control *son;
+
+  node->level = l;
+  son = node->son;
+  if (!son)
+    return;
+
+  do
+    {
+      assign_levels (son, l + 1);
+      son = son->next;
+    }
+  while (son != node->son);
+}
+
+/* Compute exits from the structures using the BB_TO_CS array.  */
+
+static void
+compute_structure_exits (struct control *bb_to_cs[])
+{
+  basic_block bb;
+  edge e;
+  struct control *cs, *ct;
+
+  FOR_EACH_BB (bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
 	{
-	  fprintf (file, "# SUCC");
-	  for (e = bb->succ; e; e = e->succ_next)
-	    dump_edge_info (file, e, 1);
-	  fprintf (file, "\n\n");
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+
+	  cs = bb_to_cs[bb->index];
+	  ct = bb_to_cs[e->dest->index];
+
+	  while (ct->level > cs->level)
+	    ct = ct->outer;
+	  while (cs->level > ct->level)
+	    cs = cs->outer;
+	  while (ct->outer != cs->outer)
+	    {
+	      cs = cs->outer;
+	      ct = ct->outer;
+	    }
+
+	  VARRAY_PUSH_GENERIC_PTR (cs->exits, ct);
 	}
     }
-  fprintf (file, "}\n\n");
+}
+
+/* Layout substructures of NODE in dfs order preferring the follow edges,
+   using the BB_TO_CS array.  */
+
+static void
+layout_structures (struct control *node, struct control *bb_to_cs[])
+{
+  struct control *header_node, *latch_node, *then_node, *else_node, *son;
+  edge e_then, e_else, e;
+
+  if (node->type == CS_BB)
+    return;
+
+  header_node = lift (bb_to_cs[node->header->index], node->level + 1);
+  if (node->latch)
+    latch_node = lift (bb_to_cs[node->latch->index], node->level + 1);
+  else
+    latch_node = NULL;
+
+  switch (node->type)
+    {
+    case CS_TOP:
+    case CS_DO_WHILE_LOOP:
+    case CS_INFINITE_LOOP:
+    case CS_WHILE_LOOP:
+    case CS_IF_THEN:
+    case CS_IF_ELSE:
+      layout_structure (header_node, latch_node, bb_to_cs);
+      if (latch_node && latch_node != header_node)
+	add_to_layout (latch_node);
+      break;
+    case CS_IF_THEN_ELSE:
+      e_then = e_else = NULL;
+      for (e = node->header->succ; e; e = e->succ_next)
+	{
+	  if (e->flags & EDGE_TRUE_VALUE)
+	    e_then = e;
+	  if (e->flags & EDGE_FALSE_VALUE)
+	    e_else = e;
+	}
+      then_node = lift (bb_to_cs[e_then->dest->index], node->level + 1);
+      else_node = lift (bb_to_cs[e_else->dest->index], node->level + 1);
+      node->else_node = else_node;
+
+      add_to_layout (header_node);
+      layout_structure (then_node, NULL, bb_to_cs);
+      layout_structure (else_node, NULL, bb_to_cs);
+      break;
+
+    default:
+      abort ();
+    }
+
+  if (node->type != CS_TOP)
+    finish_layout (node);
+
+  son = node->son;
+  do
+    {
+      layout_structures (son, bb_to_cs);
+      son = son->next;
+    }
+  while (son != node->son);
+}
+
+/* Layout area reachable by dfs from HEADER, excluding the LATCH.  Uses
+   the BB_TO_CS array.  */
+
+static void
+layout_structure (struct control *header, struct control *latch,
+		  struct control *bb_to_cs[])
+{
+  int i;
+  struct control *cs;
+
+  add_to_layout (header);
+
+  if (header->follow
+      && inside_cs (header->follow, header->outer, bb_to_cs))
+    {
+      cs = lift (bb_to_cs[header->follow->index], header->level);
+      header->follow_node = cs;
+      if (cs != latch && !cs->visited)
+	layout_structure (cs, latch, bb_to_cs);
+    }
+
+  for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (header->exits); i++)
+    {
+      cs = VARRAY_GENERIC_PTR (header->exits, i);
+
+      if (cs == latch
+	  || cs->visited)
+	continue;
+
+      layout_structure (cs, latch, bb_to_cs);
+    }
+}
+
+/* Add a NODE at the end of current layout.  */
+
+static void
+add_to_layout (struct control *node)
+{
+  struct control *f = node->outer;
+
+  if (f->lay_last
+      && f->lay_last->follow_node != node)
+    f->lay_last->follow_node = NULL;
+
+  node->lay_next = NULL;
+  if (f->lay_last)
+    f->lay_last->lay_next = node;
+  else
+    f->lay_head = node;
+  f->lay_last = node;
+
+  node->visited = true;
+}
+
+/* Perform actions when NODE's substructures layout is fully determined.  */
+
+static void
+finish_layout (struct control *node)
+{
+  if (node->lay_last)
+    node->lay_last->follow_node = NULL;
+}
+
+/* Creates a new control node of type TYPE with father node OUTER, entry node
+   HEADER, latch node LATCH and follow node FOLLOW.  */
+
+static struct control *
+make_control_node (enum cs_type type, struct control *outer,
+		   basic_block header, basic_block latch, basic_block follow)
+{
+  struct control *nw = xcalloc (1, sizeof (struct control));
+
+  nw->type = type;
+  nw->son = NULL;
+  nw->outer = outer;
+  if (outer)
+    {
+      nw->next = outer->son;
+      if (outer->son)
+	nw->prev = outer->son->prev;
+      else
+	nw->prev = nw;
+
+      nw->prev->next = nw;
+      nw->next->prev = nw;
+      outer->son = nw;
+    }
+  else
+    nw->next = nw->prev = NULL;
+
+  nw->header = header;
+  nw->latch = latch;
+  nw->follow = follow;
+  VARRAY_GENERIC_PTR_INIT (nw->exits, 2, "node_exits");
+
+  return nw;
+}
+
+/* Checks whether NODE is a substructure of OLD but not NW.  If so,
+   move it to NW.  */
+
+static void
+try_move_control_node (struct control *node, struct control *old,
+		       struct control *nw)
+{
+  while (node->outer != old)
+    node = node->outer;
+
+  if (node != nw)
+    move_control_node (node, nw);
+}
+
+/* Makes TO an outer node of NODE.  */
+
+static void
+move_control_node (struct control *node, struct control *to)
+{
+  if (node->outer->son == node)
+    node->outer->son = node->next;
+
+  if (node->outer->son == node)
+    node->outer->son = NULL;
+
+  node->prev->next = node->next;
+  node->next->prev = node->prev;
+
+  node->outer = to;
+  node->next = to->son;
+
+  if (to->son)
+    node->prev = to->son->prev;
+  else
+    node->prev = node;
+
+  node->prev->next = node;
+  node->next->prev = node;
+  to->son = node;
 }
 
 /* Dump CFG statistics on FILE.  */
@@ -1846,6 +2596,21 @@ bsi_start (basic_block bb)
   return i;
 }
 
+/* Returns bsi positioned so that insering before it will insert after the
+   labels in the basic block bb.  */
+
+block_stmt_iterator
+bsi_real_start (basic_block bb)
+{
+  block_stmt_iterator bsi = bsi_start (bb);
+
+  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+    if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
+      break;
+
+  return bsi;
+}
+
 /* This routine will return a block iterator which points to the last stmt in
    a basic block, if there is one.  */
 
@@ -1959,13 +2724,18 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
 
   if (!curr)
     {
-      /* Inserting before start of bb.  Only valid if the bb is empty.  */
-      if (bb->head_tree)
-	abort ();
+      /* Inserting just after end of the basic block.  */
 
-      nw->prev = nw->next = NULL;
-      bb->head_tree = bb->end_tree = nw;
-      *curr_bsi = bsi_start (bb);
+      nw->prev = bb->end_tree;
+      nw->next = NULL;
+      if (!bb->head_tree)
+	bb->head_tree = nw;
+      else
+	nw->prev->next = nw;
+      bb->end_tree = nw;
+
+      if (mode == BSI_NEW_STMT)
+	curr_bsi->curr_stmt = nw;
       return;
     }
 
@@ -3569,4 +4339,22 @@ remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
       remove_useless_stmts_and_vars_1 (first_p, &data);
     }
   while (data.repeat);
+}
+
+/* Splits critical edges in the cfg.  */
+
+void
+split_critical_edges ()
+{
+  struct edge_list *el = create_edge_list ();
+  int i;
+  edge e;
+
+  for (i = 0; i < NUM_EDGES (el); i++)
+    {
+      e = INDEX_EDGE (el, i);
+      if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
+	split_edge (e);
+    }
+  free_edge_list (el);
 }
