@@ -844,7 +844,7 @@ __mffs (void)
  *   int __mfspr(int);
  */
 #define __mfspr(spr)    \
-  ({ long mfsprResult; \
+  __extension__ ({ long mfsprResult; \
      __asm__ volatile ("mfspr %0, %1" : "=r" (mfsprResult) : "n" (spr)); \
      /*return*/ mfsprResult; })
 

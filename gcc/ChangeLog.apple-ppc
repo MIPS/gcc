@@ -1,3 +1,8 @@
+2004-08-29  Andrew Pinski  <apinski@apple.com>
+
+	* timevar.c (ppc_intrinsic_time): Correct definition and
+	make static.  Cast __mftbu to unsigned.
+
 2004-08-28  Andrew Pinski  <apinski@apple.com>
 
 	* config.in: Regenerate.

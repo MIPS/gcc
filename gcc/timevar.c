@@ -88,14 +88,15 @@ struct tms
 # include "../more-hdrs/ppc_intrinsics.h"
 # define HAVE_WALL_TIME
 # define USE_PPC_INTRINSICS
-inline double ppc_intrinsic_time()
+static inline double
+ppc_intrinsic_time (void)
 {
   unsigned long hi, lo;
   do 
     {
       hi = __mftbu();
       lo = __mftb();
-    } while (hi != __mftbu());
+    } while (hi != (unsigned long) __mftbu());
   return (hi * 0x100000000ull + lo) * timeBaseRatio;
 }
 #endif /* __POWERPC__ */

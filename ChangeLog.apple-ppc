@@ -1,3 +1,8 @@
+2004-08-29  Andrew Pinski  <apinski@apple.com>
+
+	* more-hdrs/ppc_intrinsics.h (__mfspr): Put __extension
+	in front of the statement expression.
+
 2004-08-23  Mike Stump  <mrs@apple.com>
 
 	* Merge in changes from mainline, from apple-ppc-mergepoint-20040816
