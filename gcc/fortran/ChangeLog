@@ -1,3 +1,20 @@
+2004-01-04  Paul Brook  <paul@codesourcery.com>
+
+	* error.c (gfc_notify_std): New function.
+	* gfortran.h (gfc_notify_std): Declare.
+	(GFC_STD_*): Define.
+	(gfc_option_t): Add warn_std and allow_std.
+	* intrinsic.c (gfc_init_expr_extensions): Fix logic.
+	(gfc_intrinsic_func_interface): Use gfc_notify_std.
+	* check.c (check_rest): Use gfc_notify_std.
+	* match.c (gfc_match_pause): Ditto.
+	(gfc_match_assign): Ditto.
+	(gfc_match_goto): Ditto.
+	* resolve.c (resolve_branch): Ditto.
+	* lang.opt: Add std=<foo> and w.
+	* options.c (gfc_init_options): Set allow_std and warn_std.
+	(gfc_handle_option): Handle OPT_std_* and OPT_w.
+
 2004-01-01  Paul Brook  <paul@codesourcery.com>
 
 	* array.c (gfc_append_constructor): Take constructor, not expression.

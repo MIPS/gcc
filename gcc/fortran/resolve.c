@@ -2939,8 +2939,9 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 	  break;
 
       if (stack == NULL)
-	gfc_error ("GOTO at %L cannot jump to END of construct at %L",
-		   &found->loc, &code->loc);
+	gfc_notify_std (GFC_STD_F95_DEL,
+			"Obsolete: GOTO at %L jumps to END of construct at %L",
+			&found->loc, &code->loc);
     }
 }
 

@@ -2276,9 +2276,9 @@ gfc_init_expr_extensions (gfc_intrinsic_sym *isym)
 
   for (i = 0; init_expr_extensions[i]; i++)
     if (strcmp (init_expr_extensions[i], isym->name) == 0)
-      return 1;
+      return 0;
 
-  return 0;
+  return 1;
 }
 
 
@@ -2376,15 +2376,21 @@ got_specific:
       return MATCH_ERROR;
     }
 
+  /* TODO: We should probably only allow elemental functions here.  */
   flag |= (expr->ts.type != BT_INTEGER && expr->ts.type != BT_CHARACTER);
 
+  gfc_suppress_error = 0;
   if (pedantic && gfc_init_expr
       && flag && gfc_init_expr_extensions (specific))
-    gfc_warning
-      ("Evaluation of initialization expression at %L is nonstandard",
-       &expr->where);
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Evaluation of "
+	    "nonstandard initialization expression at %L", &expr->where)
+	  == FAILURE)
+	{
+	  return MATCH_ERROR;
+	}
+    }
 
-  gfc_suppress_error = 0;
   return MATCH_YES;
 }
 

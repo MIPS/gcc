@@ -137,4 +137,16 @@ r8
 F95 RejectNegative
 Set the default real kind to double precision
 
+std=f95
+F95 RejectNegative
+Conform to the ISO Fortran 95 standard.
+
+std=f2003
+F95 RejectNegative
+Conform to the ISO Fortran 2003 standard.
+
+std=gnu
+F95 RejectNegative
+Conform nothing in particular.
+
 ; This comment is to ensure we retain the blank line above.

@@ -75,6 +75,11 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   flag_argument_noalias = 2;
 
+  gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+    | GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_F2003 | GFC_STD_GNU;
+  gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+    | GFC_STD_F2003 | GFC_STD_GNU;
+
   return CL_F95;
 }
 
@@ -286,6 +291,25 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_J:
     case OPT_M:
       gfc_handle_module_path_options (arg);
+    
+    case OPT_std_f95:
+      gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS
+	| GFC_STD_F2003_DEL;
+      gfc_option.warn_std = GFC_STD_F95_OBS;
+      break;
+
+    case OPT_std_f2003:
+      gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS
+	| GFC_STD_F2003;
+      gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F2003_OBS;
+      break;
+
+    case OPT_std_gnu:
+      gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+	| GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_F2003 | GFC_STD_GNU;
+      gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
+	| GFC_STD_F2003_OBS | GFC_STD_F2003_DEL | GFC_STD_GNU;
+      break;
     }
 
   return result;

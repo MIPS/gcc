@@ -978,11 +978,12 @@ check_rest (bt type, int kind, gfc_actual_arglist * arg)
       x = arg->expr;
       if (x->ts.type != type || x->ts.kind != kind)
 	{
-          if (x->ts.type == type && !pedantic)
+          if (x->ts.type == type)
             {
-              /* Allow different kinds as an extension.  */
-              gfc_warning ("Different kind types at %L is an extension",
-                           &x->where);
+	      if (gfc_notify_std (GFC_STD_GNU,
+		    "Extension: Different type kinds at %L", &x->where)
+		  == FAILURE)
+		return FAILURE;
             }
           else
             {

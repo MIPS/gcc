@@ -1426,13 +1426,10 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (pedantic)
-	{
-	  gfc_error ("The PAUSE statement at %C is not allowed in Fortran 95");
-	  return MATCH_ERROR;
-	}
-      else
-	gfc_warning ("Use of the PAUSE statement at %C is deprecated");
+      if (gfc_notify_std (GFC_STD_F95_DEL,
+	    "Obsolete: PAUSE statement at %C")
+	  == FAILURE)
+	m = MATCH_ERROR;
     }
   return m;
 }
@@ -1478,6 +1475,11 @@ gfc_match_assign (void)
         return MATCH_ERROR;
       if (gfc_match (" to %v%t", &expr) == MATCH_YES)
         {
+	  if (gfc_notify_std (GFC_STD_F95_DEL,
+		"Obsolete: ASSIGN statement at %C")
+	      == FAILURE)
+	    return MATCH_ERROR;
+
           expr->symtree->n.sym->attr.assign = 1;
 
           new_st.op = EXEC_LABEL_ASSIGN;
@@ -1519,53 +1521,60 @@ gfc_match_goto (void)
 
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
+      if (gfc_notify_std (GFC_STD_F95_DEL,
+			  "Obsolete: Assigned GOTO statement at %C")
+	  == FAILURE)
+	return MATCH_ERROR;
+
       expr->symtree->n.sym->attr.assign = 1;
       new_st.op = EXEC_GOTO;
       new_st.expr = expr;
 
       if (gfc_match_eos () == MATCH_YES)
-        return MATCH_YES;
+	return MATCH_YES;
 
       /* Match label list.  */
       gfc_match_char (',');
       if (gfc_match_char ('(') != MATCH_YES)
-        {
-          gfc_syntax_error (ST_GOTO);
-          return MATCH_ERROR;
-        }
+	{
+	  gfc_syntax_error (ST_GOTO);
+	  return MATCH_ERROR;
+	}
       head = tail = NULL;
 
       do
-        {
-          m = gfc_match_st_label (&label, 0);
-          if (m != MATCH_YES)
-            goto syntax;
+	{
+	  m = gfc_match_st_label (&label, 0);
+	  if (m != MATCH_YES)
+	    goto syntax;
 
-          if (gfc_reference_st_label (label, ST_LABEL_TARGET) == FAILURE)
-            goto cleanup;
+	  if (gfc_reference_st_label (label, ST_LABEL_TARGET) == FAILURE)
+	    goto cleanup;
 
-          if (head == NULL)
-            head = tail = gfc_get_code ();
-          else
+	  if (head == NULL)
+	    head = tail = gfc_get_code ();
+	  else
 	    {
-              tail->block = gfc_get_code ();
-              tail = tail->block;
-            }
+	      tail->block = gfc_get_code ();
+	      tail = tail->block;
+	    }
 
-          tail->label = label;
-          tail->op = EXEC_GOTO;
-        }
+	  tail->label = label;
+	  tail->op = EXEC_GOTO;
+	}
       while (gfc_match_char (',') == MATCH_YES);
 
       if (gfc_match (")%t") != MATCH_YES)
-        goto syntax;
+	goto syntax;
 
       if (head == NULL)
-        {
-           gfc_error ("Statement label list in GOTO at %C cannot be empty");
-           goto syntax;
-        }
+	{
+	   gfc_error (
+	       "Statement label list in GOTO at %C cannot be empty");
+	   goto syntax;
+	}
       new_st.block = head;
+
       return MATCH_YES;
     }
 

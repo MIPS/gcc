@@ -96,6 +96,14 @@ typedef struct
 mstring;
 
 
+/* Flags to specify which standardi/extension contains a feature.  */
+#define GFC_STD_GNU		(1<<5)	/* GNU Fortran extension.  */
+#define GFC_STD_F2003		(1<<4)	/* New in F2003.  */
+#define GFC_STD_F2003_DEL	(1<<3)	/* Deleted in F2003.  */
+#define GFC_STD_F2003_OBS	(1<<2)	/* Obsoleted in F2003.  */
+#define GFC_STD_F95_DEL		(1<<1)	/* Deleted in F95.  */
+#define GFC_STD_F95_OBS		(1<<0)	/* Obsoleted in F95.  */
+
 /*************************** Enums *****************************/
 
 /* The author remains confused to this day about the convention of
@@ -1228,6 +1236,8 @@ typedef struct
   int r8;
   int i8;
   int d8;
+  int warn_std;
+  int allow_std;
 }
 gfc_option_t;
 
@@ -1353,6 +1363,8 @@ void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN;
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN;
 void gfc_clear_error (void);
 int gfc_error_check (void);
+
+try gfc_notify_std (int, const char *, ...);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\
