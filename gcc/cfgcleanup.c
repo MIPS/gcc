@@ -723,6 +723,7 @@ merge_blocks (e, b, c, mode)
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
     {
+      int b_index = b->index, c_index = c->index;
       /* We need to update liveness in case C already has broken liveness
 	 or B ends by conditional jump to next instructions that will be
 	 removed.  */
@@ -734,7 +735,7 @@ merge_blocks (e, b, c, mode)
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Merged %d and %d without moving.\n",
-		 b->index, c->index);
+                 b_index, c_index);
 
       return true;
     }
