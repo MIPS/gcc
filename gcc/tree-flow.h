@@ -420,6 +420,7 @@ extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
 extern void insert_bb_before (basic_block, basic_block);
 extern void cleanup_tree_cfg (void);
+extern bool remove_unreachable_blocks (void);
 extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);

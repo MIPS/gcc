@@ -81,9 +81,13 @@ struct opt_stats_d
 
 static struct opt_stats_d opt_stats;
 
+/* Redirections scheduled by jump threading.   */
+static varray_type edges_to_redirect;
+static varray_type redirection_targets;
+
 /* Local functions.  */
-static void optimize_block (basic_block, tree, int, sbitmap);
-static bool optimize_stmt (block_stmt_iterator, varray_type *);
+static void optimize_block (basic_block, tree, int, sbitmap, bool *);
+static bool optimize_stmt (block_stmt_iterator, varray_type *, bool *);
 static tree get_value_for (tree, htab_t);
 static void set_value_for (tree, tree, htab_t);
 static hashval_t var_value_hash (const void *);
@@ -95,6 +99,7 @@ static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 static void record_cond_is_false (tree, varray_type *, htab_t);
 static void record_cond_is_true (tree, varray_type *, htab_t);
+static void thread_edge (edge, basic_block);
 static void mark_new_vars_to_rename (tree, sbitmap);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
@@ -108,9 +113,8 @@ static void mark_new_vars_to_rename (tree, sbitmap);
 void
 tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
 {
-  bool found_unreachable;
+  bool cfg_altered;
   edge e;
-  bitmap unreachable_bitmap = BITMAP_XMALLOC ();
 
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
 
@@ -141,7 +145,10 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
       build_dominator_tree (idom);
       free_dominance_info (idom);
     }
-    
+
+  VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
+  VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
+
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
      have turned into copies which allows better propagation of
@@ -149,40 +156,48 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
      blocks.  */
   do
     {
-      basic_block bb;
-
       /* Optimize the dominator tree.  */
-      optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename);
+      cfg_altered = false;
+      optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename, &cfg_altered);
 
       /* Wipe the hash tables.  */
       htab_empty (const_and_copies);
       htab_empty (avail_exprs);
 
-      /* We may have made some basic blocks unreachable.  We do not
-	 want to call tree_cleanup_cfg here as it renumbers the blocks
-	 which makes dom_children invalid.
+      /* If some edges were threaded in this iteration, then perform
+	 the required redirections and recompute the dominators.  */
+      if (VARRAY_ACTIVE_SIZE (edges_to_redirect) > 0)
+	{
+	  basic_block tgt;
 
-	 Instead we simplify identify the unreachable blocks and
-	 remove their edges and PHI nodes.  After rewriting we will
-	 complete removal of the unreachable blocks.  */
-      find_unreachable_blocks ();
+	  while (VARRAY_ACTIVE_SIZE (edges_to_redirect) > 0)
+	    {
+	      e = VARRAY_TOP_EDGE (edges_to_redirect);
+	      tgt = VARRAY_TOP_BB (redirection_targets);
+	      VARRAY_POP (edges_to_redirect);
+	      VARRAY_POP (redirection_targets);
 
-      found_unreachable = false;
+	      thread_edge (e, tgt);
+	    }
 
-      FOR_EACH_BB (bb)
-	if (! (bb->flags & BB_REACHABLE))
-	  {
-	    /* If a previous iteration determined this block was
-		unreachable, then just ignore the block.  */
-	    if (bitmap_bit_p (unreachable_bitmap, bb->index))
-	      continue;
+	  cfg_altered = true;
+	}
 
-	    found_unreachable = true;
-	    bitmap_set_bit (unreachable_bitmap, bb->index);
-	    remove_phi_nodes_and_edges_for_unreachable_block (bb);
-	  }
+      /* We may have made some basic blocks unreachable, remove them.  */
+      cfg_altered |= remove_unreachable_blocks ();
+
+      /* If the CFG was altered, then recompute the dominator tree.  This
+	 is not strictly needed if we only removed unreachable blocks, but
+	 may produce better results.  If we threaded jumps, then rebuilding
+	 the dominator tree is strictly necessary.  */
+      if (cfg_altered)
+	{
+	  dominance_info idom = calculate_dominance_info (CDI_DOMINATORS);
+	  build_dominator_tree (idom);
+	  free_dominance_info (idom);
+	}
     }
-  while (found_unreachable);
+  while (cfg_altered);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -195,9 +210,75 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
 
   htab_delete (const_and_copies);
   htab_delete (avail_exprs);
-  BITMAP_XFREE (unreachable_bitmap);
+
+  VARRAY_FREE (edges_to_redirect);
+  VARRAY_FREE (redirection_targets);
 
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
+}
+
+/* Redirects edge E to basic block DEST.  */
+static void
+thread_edge (edge e, basic_block dest)
+{
+  block_stmt_iterator dest_iterator = bsi_start (dest);
+  tree dest_stmt = first_stmt (dest);
+  tree label, goto_stmt, stmt;
+  basic_block bb = e->src, new_bb;
+  int flags = e->flags;
+
+  if (e != bb->succ
+      || bb->succ->succ_next)
+    abort ();
+
+  /* We need a label at our final destination.  If it does not already exist,
+     create it.  */
+  if (!dest_stmt
+      || TREE_CODE (dest_stmt) != LABEL_EXPR)
+    {
+      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (label) = current_function_decl;
+      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
+      bsi_insert_before (&dest_iterator, dest_stmt, BSI_NEW_STMT);
+    }
+  else
+    label = LABEL_EXPR_LABEL (dest_stmt);
+
+  /* If our block does not end with a GOTO, then create one.  Otherwise redirect
+     the existing GOTO_EXPR to LABEL.  */
+  stmt = last_stmt (bb);
+  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
+    {
+      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
+      bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
+    }
+  else
+    {
+      GOTO_DESTINATION (stmt) = label;
+      new_bb = NULL;
+    }
+
+  /* Update/insert PHI nodes as necessary.  */
+
+  /* Now update the edges in the CFG.  */
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
+	       e->src->index, e->dest->index, dest->index);
+      if (new_bb)
+	fprintf (dump_file, "    basic block %d created\n", new_bb->index);
+    }
+
+  if (new_bb)
+    {
+      ssa_remove_edge (new_bb->succ);
+      make_edge (new_bb, dest, 0);
+    }
+  else
+    {
+      ssa_remove_edge (e);
+      make_edge (bb, dest, flags);
+    }
 }
 
 /* Perform a depth-first traversal of the dominator tree looking for
@@ -223,11 +304,13 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
    of a THEN_CLAUSE or an ELSE_CLAUSE.
 
    VARS_TO_RENAME is a bitmap representing variables that will need to be
-   renamed into SSA after dominator optimization.  */
+   renamed into SSA after dominator optimization.
+   
+   CFG_ALTERED is set to true if cfg is altered.  */
 
 static void
 optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
-                sbitmap vars_to_rename)
+                sbitmap vars_to_rename, bool *cfg_altered)
 {
   varray_type block_avail_exprs;
   varray_type stmts_to_rescan;
@@ -265,6 +348,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
      the copy and constant propagator can find more propagation
      opportunities.  */
   if (parent_block_last_stmt
+      && bb->pred->pred_next == NULL
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
@@ -391,7 +475,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	 because that would change the statement's value number.  If the
 	 statement had been added to AVAIL_EXPRS, we would not be able to
 	 find it again.  */
-      if (optimize_stmt (si, &block_avail_exprs))
+      if (optimize_stmt (si, &block_avail_exprs, cfg_altered))
 	VARRAY_PUSH_TREE (stmts_to_rescan, bsi_stmt (si));
     }
 
@@ -446,9 +530,10 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 		     also ensures that the predecessor is BB.  */
 		  if (!dest->pred->pred_next)
 		    optimize_block (dest, last, dest->pred->flags,
-				    vars_to_rename);
+				    vars_to_rename, cfg_altered);
 		  else
-		    optimize_block (dest, NULL_TREE, 0, vars_to_rename);
+		    optimize_block (dest, NULL_TREE, 0, vars_to_rename,
+				    cfg_altered);
 		}
 	    });
 	}
@@ -461,7 +546,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	      /* The destination block may have become unreachable, in
 		 which case there's no point in optimizing it. */
 	      if (dest->pred)
-		optimize_block (dest, NULL_TREE, 0, vars_to_rename);
+		optimize_block (dest, NULL_TREE, 0, vars_to_rename,
+				cfg_altered);
 	    });
 	}
     }
@@ -501,55 +587,8 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 		 bypass the conditional at our original destination.  */
 	      if (dest && ! phi_nodes (dest))
 		{
-		  block_stmt_iterator dest_iterator = bsi_start (dest);
-		  tree dest_stmt = first_stmt (dest);
-		  tree label, goto_stmt;
-
-		  /* We need a label at our final destination.  If it does
-		     not already exist, create it.  */
-		  if (!dest_stmt
-		      || TREE_CODE (dest_stmt) != LABEL_EXPR)
-		    {
-		      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-		      DECL_CONTEXT (label) = current_function_decl;
-		      dest_stmt = build1 (LABEL_EXPR, void_type_node, label);
-		      bsi_insert_before (&dest_iterator,
-					 dest_stmt,
-					 BSI_NEW_STMT);
-		    }
-		  else
-		    label = LABEL_EXPR_LABEL (dest_stmt);
-
-		  
-		  /* If our block does not end with a GOTO, then create
-		     one.  Otherwise redirect the existing GOTO_EXPR to
-		     LABEL.  */
-		  stmt = last_stmt (bb);
-		  if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
-		    {
-		      basic_block tmp_bb;
-
-		      goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
-		      bsi_insert_on_edge_immediate (bb->succ, goto_stmt,
-						    NULL, &tmp_bb);
-
-#ifdef ENABLE_CHECKING
-		      if (tmp_bb)
-			abort ();
-#endif
-		    }
-		  else
-		    GOTO_DESTINATION (stmt) = label;
-
-		  /* Update/insert PHI nodes as necessary.  */
-
-		  /* Now update the edges in the CFG.  */
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    fprintf (dump_file, "  Threaded jump from %d to %d\n",
-			     bb->succ->dest->index, dest->index);
-
-		  ssa_remove_edge (bb->succ);
-		  make_edge (bb, dest, 0);
+		  VARRAY_PUSH_EDGE (edges_to_redirect, bb->succ);
+		  VARRAY_PUSH_BB (redirection_targets, dest);
 		}
 	    }
 	}
@@ -690,7 +729,8 @@ record_cond_is_false (tree cond,
       the variable in the LHS in the CONST_AND_COPIES table.  */
 
 static bool
-optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
+optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
+	       bool *cfg_altered)
 {
   size_t i;
   stmt_ann_t ann;
@@ -1160,7 +1200,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    {
 	      next = e->succ_next;
 	      if (e != taken_edge)
-		ssa_remove_edge (e);
+		{
+		  ssa_remove_edge (e);
+		  *cfg_altered = true;
+		}
 	   }
 	}
     }

@@ -1,3 +1,18 @@
+2003-09-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* tree-flow.h (remove_unreachable_blocks): Declare.
+	* tree-cfg.c (remove_unreachable_blocks): Export. Return true
+	if blocks were removed.
+	* tree-ssa-dom.c (optimize_block, optimize_stmt): Record whether
+	the cfg has changed.  Schedule jump threading.  If a block
+	has more than one pred, then do not record equivalences created
+	by a controlling COND_EXPR.
+	(edges_to_redirect, redirection_targets): New variables.
+	(thread_edge): Split out of optimize_block.
+	(tree_ssa_dominator_optimize); Remove unreachable blocks and
+	recompute dominator tree when the cfg changes.
+
 2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* c-tree.h: Don't declare c_genericize, it's already

@@ -128,7 +128,6 @@ static void tree_loop_optimizer_finalize (struct loops *, FILE *);
 #define REMOVE_NON_CONTROL_STMTS 0x1
 #define REMOVE_CONTROL_STMTS 0x2
 
-static void remove_unreachable_blocks (void);
 static void remove_unreachable_block (basic_block);
 static void remove_bb (basic_block, int);
 static void remove_stmt (tree *, bool);
@@ -1755,12 +1754,14 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
   return repeat;
 }
 
-/* Delete all unreachable basic blocks.   */
+/* Delete all unreachable basic blocks.  Return true if any unreachable
+   blocks were detected and removed.  */
 
-static void
+bool
 remove_unreachable_blocks (void)
 {
   basic_block bb;
+  bool ret = false;
 
   find_unreachable_blocks ();
 
@@ -1774,8 +1775,13 @@ remove_unreachable_blocks (void)
 	continue;
 
       if (!(bb->flags & BB_REACHABLE))
-	remove_unreachable_block (bb);
+	{
+	  remove_unreachable_block (bb);
+	  ret = true;
+	}
     }
+
+  return ret;
 }
 
 
