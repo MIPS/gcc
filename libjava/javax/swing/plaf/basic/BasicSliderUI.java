@@ -871,7 +871,8 @@ public class BasicSliderUI extends SliderUI
     
     // The width should cover all the labels (which are usually the
     // deciding factor of the width)
-    int width = getWidthOfWidestLabel() * slider.getLabelTable().size();
+    int width = getWidthOfWidestLabel() * (slider.getLabelTable() == null ? 
+                                           0 : slider.getLabelTable().size());
     
     // If there are not enough labels.
     // This number is pretty much arbitrary, but it looks nice.
@@ -909,7 +910,8 @@ public class BasicSliderUI extends SliderUI
   {
     Insets insets = slider.getInsets();
     
-    int height = getHeightOfTallestLabel() * slider.getLabelTable().size();
+    int height = getHeightOfTallestLabel() * (slider.getLabelTable() == null ? 
+                                              0 : slider.getLabelTable().size());
     
     if (height < 200)
       height = 200;

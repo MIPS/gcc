@@ -277,14 +277,17 @@ public class JList extends JComponent implements Accessible, Scrollable
     // ListDataListener events
     public void contentsChanged(ListDataEvent event)
     {
+      JList.this.revalidate();
       JList.this.repaint();
     }
     public void intervalAdded(ListDataEvent event)
     {
+      JList.this.revalidate();
       JList.this.repaint();
     }
     public void intervalRemoved(ListDataEvent event)
     {
+      JList.this.revalidate();
       JList.this.repaint();
     }
     // ListSelectionListener events

@@ -613,6 +613,26 @@ public class GdkGraphics2D extends Graphics2D
     else
       transform.concatenate (tx);
     setTransform (transform);
+    if (clip != null)
+      {
+        // FIXME: this should actuall try to transform the shape
+        // rather than degrade to bounds.
+        Rectangle2D r = clip.getBounds2D();
+        double[] coords = new double[] { r.getX(), r.getY(), 
+                                         r.getX() + r.getWidth(),
+                                         r.getY() + r.getHeight() };
+        try 
+          {
+            tx.createInverse().transform(coords, 0, coords, 0, 2);
+            r.setRect(coords[0], coords[1],
+                      coords[2] - coords[0], 
+                      coords[3] - coords[1]);
+            clip = r;
+          }
+        catch (java.awt.geom.NoninvertibleTransformException e)
+          {
+          }
+      }
   }
 
   public void rotate(double theta)
@@ -740,19 +760,29 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setClip (int x, int y, int width, int height)
   {
-      cairoNewPath ();
-      cairoRectangle (x, y, width, height);
-      cairoClosePath ();
-      cairoClip ();
-      clip = new Rectangle2D.Double ((double)x, (double)y, 
-				     (double)width, (double)height);
+    clip = new Rectangle2D.Double ((double)x, (double)y, 
+                                   (double)width, (double)height);
+    setClip(clip);
   }
-
+  
   public void setClip (Shape s)
   {
-    clip (s);
+    if (s != null)
+      {
+        cairoNewPath ();
+        if (s instanceof Rectangle2D)
+          {
+            Rectangle2D r = (Rectangle2D)s;
+            cairoRectangle (r.getX (), r.getY (), 
+                            r.getWidth (), r.getHeight ());
+          }
+        else
+          walkPath (s.getPathIterator (null));
+        cairoClosePath ();
+        cairoClip ();
+      }
   }
-
+  
   public void draw3DRect(int x, int y, int width, 
                          int height, boolean raised)
   {

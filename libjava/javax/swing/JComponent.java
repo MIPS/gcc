@@ -89,22 +89,26 @@ public abstract class JComponent extends Container implements Serializable
 {
   static final long serialVersionUID = -5242478962609715464L;
 
-  protected EventListenerList listenerList = new EventListenerList();
-
-        /**
-         * accessibleContext
-         */
-        protected AccessibleContext accessibleContext;
-
-	Dimension pref,min,max;
-	Border border;
-	JToolTip tooltip;
-	String tool_tip_text;
-	boolean use_double_buffer, opaque;
-	protected ComponentUI ui;
-	private SwingPropertyChangeSupport changeSupport;
-
-	Hashtable prop_hash;
+  EventListenerList listenerList = new EventListenerList();
+  
+  /**
+   * accessibleContext
+   */
+  AccessibleContext accessibleContext;
+  
+  Dimension pref,min,max;
+  Border border;
+  JToolTip tooltip;
+  String tool_tip_text;
+  boolean use_double_buffer, opaque;
+  Image doubleBuffer;
+  int doubleBufferWidth = -1;
+  int doubleBufferHeight = -1;
+  ComponentUI ui;
+  private SwingPropertyChangeSupport changeSupport;
+  
+  Hashtable prop_hash;
+  
 
 	/**
 	 * AccessibleJComponent
@@ -785,14 +789,21 @@ public abstract class JComponent extends Container implements Serializable
 	public void paint(Graphics g)
 	{
 		Graphics g2 = g;
-		Image im = null;
 		Rectangle r = getBounds ();
-		// System.err.println(this + ".paint(...), bounds = " + r);
 		
 		if (use_double_buffer)
 		{
-                  im = createImage (r.width, r.height);
-                  g2 = im.getGraphics ();
+
+                  if (doubleBuffer == null 
+                      || doubleBufferWidth != r.width 
+                      || doubleBufferHeight != r.height)
+                    {
+                      doubleBuffer = createImage(r.width, r.height);
+                      doubleBufferWidth = r.width;
+                      doubleBufferHeight = r.height;
+                    }
+
+                  g2 = doubleBuffer.getGraphics ();
                   if (this.getBackground() != null)
                     {
                       Color save = g2.getColor();
@@ -813,7 +824,7 @@ public abstract class JComponent extends Container implements Serializable
 			// always draw at 0,0, because regardless of your current bounds,
 			// the graphics object you were passed was positioned so the origin
 			// was at the upper left corner of your bounds.
-			g.drawImage (im, 0, 0, (ImageObserver)null);
+			g.drawImage (doubleBuffer, 0, 0, (ImageObserver)null);
 		}
 	}
 
