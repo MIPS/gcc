@@ -4165,9 +4165,13 @@ convert_default_arg (type, arg, fn, parmnum)
      tree fn;
      int parmnum;
 {
+  /* If the ARG is an unparsed default argument expression, the
+     conversion cannot be performed.  */
   if (TREE_CODE (arg) == DEFAULT_ARG)
     {
-      error ("recursive use of default argument");
+      error ("the default argument for parameter %d of `%D' has "
+	     "not yet been parsed",
+	     parmnum, fn);
       return error_mark_node;
     }
 

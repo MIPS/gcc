@@ -3680,6 +3680,7 @@ extern tree lookup_name				PARAMS ((tree, int));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern tree lookup_type_current_level		PARAMS ((tree));
 extern tree lookup_name_namespace_only          PARAMS ((tree));
+extern tree lookup_name_real                    (tree, int, int, int, int);
 extern void begin_only_namespace_names          PARAMS ((void));
 extern void end_only_namespace_names            PARAMS ((void));
 extern tree namespace_ancestor			PARAMS ((tree, tree));

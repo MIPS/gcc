@@ -68,7 +68,6 @@ static int unary_op_p PARAMS ((enum tree_code));
 static tree store_bindings PARAMS ((tree, tree));
 static tree lookup_tag_reverse PARAMS ((tree, tree));
 static tree obscure_complex_init PARAMS ((tree, tree));
-static tree lookup_name_real PARAMS ((tree, int, int, int));
 static void push_local_name PARAMS ((tree));
 static void warn_extern_redeclared_static PARAMS ((tree, tree));
 static tree grok_reference_init PARAMS ((tree, tree, tree));
@@ -2495,7 +2494,7 @@ identifier_type_value (id)
     return REAL_IDENTIFIER_TYPE_VALUE (id);
   /* Have to search for it. It must be on the global level, now.
      Ask lookup_name not to return non-types. */
-  id = lookup_name_real (id, 2, 1, 0);
+  id = lookup_name_real (id, 2, 1, 0, LOOKUP_COMPLAIN);
   if (id)
     return TREE_TYPE (id);
   return NULL_TREE;
@@ -6016,15 +6015,16 @@ check_for_out_of_scope_variable (tree decl)
    If NONCLASS is non-zero, we don't look for the NAME in class scope,
    using IDENTIFIER_CLASS_VALUE.  */
 
-static tree
-lookup_name_real (name, prefer_type, nonclass, namespaces_only)
-     tree name;
-     int prefer_type, nonclass, namespaces_only;
+tree
+lookup_name_real (tree name, 
+		  int prefer_type, 
+		  int nonclass, 
+		  int namespaces_only,
+		  int flags)
 {
   tree t;
   tree val = NULL_TREE;
   int yylex = 0;
-  int flags;
   int val_is_implicit_typename = 0;
 
   /* Conversion operators are handled specially because ordinary
@@ -6060,9 +6060,7 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   if (only_namespace_names)
     namespaces_only = 1;
 
-  flags = lookup_flags (prefer_type, namespaces_only);
-  /* If we're not parsing, we need to complain. */
-  flags |= LOOKUP_COMPLAIN;
+  flags |= lookup_flags (prefer_type, namespaces_only);
 
   /* First, look in non-namespace scopes.  */
 
@@ -6125,7 +6123,7 @@ tree
 lookup_name_nonclass (name)
      tree name;
 {
-  return lookup_name_real (name, 0, 1, 0);
+  return lookup_name_real (name, 0, 1, 0, LOOKUP_COMPLAIN);
 }
 
 tree
@@ -6141,7 +6139,7 @@ lookup_name_namespace_only (name)
      tree name;
 {
   /* type-or-namespace, nonclass, namespace_only */
-  return lookup_name_real (name, 1, 1, 1);
+  return lookup_name_real (name, 1, 1, 1, LOOKUP_COMPLAIN);
 }
 
 tree
@@ -6149,7 +6147,7 @@ lookup_name (name, prefer_type)
      tree name;
      int prefer_type;
 {
-  return lookup_name_real (name, prefer_type, 0, 0);
+  return lookup_name_real (name, prefer_type, 0, 0, LOOKUP_COMPLAIN);
 }
 
 /* Similar to `lookup_name' but look only in the innermost non-class
@@ -6938,9 +6936,9 @@ fixup_anonymous_aggr (t)
 }
 
 /* Make sure that a declaration with no declarator is well-formed, i.e.
-   just defines a tagged type or anonymous union.
+   just declares a tagged type or anonymous union.
 
-   Returns the type defined, if any.  */
+   Returns the type declared; or NULL_TREE if none.  */
 
 tree
 check_tag_decl (declspecs)
@@ -6951,7 +6949,11 @@ check_tag_decl (declspecs)
   int saw_typedef = 0;
   tree ob_modifier = NULL_TREE;
   register tree link;
-  register tree t = NULL_TREE;
+  /* If a class, struct, or enum type is declared by the DECLSPECS
+     (i.e, if a class-specifier, enum-specifier, or non-typename
+     elaborated-type-specifier appears in the DECLSPECS),
+     DECLARED_TYPE is set to the corresponding type.  */
+  tree declared_type = NULL_TREE;
   bool error_p = false;
 
   for (link = declspecs; link; link = TREE_CHAIN (link))
@@ -6974,10 +6976,11 @@ check_tag_decl (declspecs)
 	    }
 
 	  if (TYPE_P (value)
-	      && (IS_AGGR_TYPE (value) || TREE_CODE (value) == ENUMERAL_TYPE))
+	      && ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
+		  || TREE_CODE (value) == ENUMERAL_TYPE))
 	    {
 	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
-	      t = value;
+	      declared_type = value;
 	    }
 	}
       else if (value == ridpointers[(int) RID_TYPEDEF])
@@ -7008,17 +7011,11 @@ check_tag_decl (declspecs)
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  /* If the `friend' keyword was present, but no TYPEs appeared among
-     the decl-specifiers, then either there was no type at all, or it
-     was not named as an elaborated-type-specifier/class-specifier.  */
-  if (saw_friend && !t)
-    error ("a class-key must be used when declaring a friend");
-  else if (t == NULL_TREE && ! saw_friend && !error_p)
+  if (declared_type == NULL_TREE && ! saw_friend && !error_p)
     pedwarn ("declaration does not declare anything");
-
   /* Check for an anonymous union.  */
-  else if (t && IS_AGGR_TYPE_CODE (TREE_CODE (t))
-	   && TYPE_ANONYMOUS_P (t))
+  else if (declared_type && IS_AGGR_TYPE_CODE (TREE_CODE (declared_type))
+	   && TYPE_ANONYMOUS_P (declared_type))
     {
       /* 7/3 In a simple-declaration, the optional init-declarator-list
          can be omitted only when declaring a class (clause 9) or
@@ -7042,9 +7039,10 @@ check_tag_decl (declspecs)
           return NULL_TREE;
         }
       /* Anonymous unions are objects, so they can have specifiers.  */;
-      SET_ANON_AGGR_TYPE_P (t);
+      SET_ANON_AGGR_TYPE_P (declared_type);
 
-      if (TREE_CODE (t) != UNION_TYPE && pedantic && ! in_system_header)
+      if (TREE_CODE (declared_type) != UNION_TYPE && pedantic 
+	  && !in_system_header)
 	pedwarn ("ISO C++ prohibits anonymous structs");
     }
 
@@ -7063,7 +7061,7 @@ check_tag_decl (declspecs)
 		  ob_modifier);
     }
 
-  return t;
+  return declared_type;
 }
 
 /* Called when a declaration is seen that contains no names to declare.
@@ -11239,6 +11237,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       else
 	{
 	  decl = build_decl (TYPE_DECL, declarator, type);
+	  if (in_namespace || ctype)
+	    cp_error_at ("typedef name may not be a nested-name-specifier",
+			 decl);
 	  if (!current_function_decl)
 	    DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 	}
@@ -11279,12 +11280,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	     type with external linkage have external linkage.  */
 	}
 
-      if (TREE_CODE (type) == OFFSET_TYPE || TREE_CODE (type) == METHOD_TYPE)
-	{
-	  cp_error_at ("typedef name may not be class-qualified", decl);
-	  return NULL_TREE;
-	}
-      else if (quals)
+      if (quals)
 	{
 	  if (ctype == NULL_TREE)
 	    {

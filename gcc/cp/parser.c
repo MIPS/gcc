@@ -3128,8 +3128,40 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 
 	   Here, it is not possible to look up `T' in the scope of `T'
 	   itself.  We must look in both the current scope, and the
-	   scope of the containing complete expression.  */
+	   scope of the containing complete expression.  
+
+	   Yet another issue is:
+
+             struct S {
+               int S;
+               ~S();
+             };
+
+             S::~S() {}
+
+           The standard does not seem to say that the `S' in `~S'
+	   should refer to the type `S' and not the data member
+	   `S::S'.  */
+
 	scope = parser->scope;
+	/* Handle the `S::~S' case up front.  */
+	if (scope && TYPE_P (scope))
+	  {
+	    cp_token *second_token;
+
+	    second_token = cp_lexer_peek_nth_token (parser->lexer, 2);
+	    if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+		&& (second_token->type != CPP_SCOPE
+		    && second_token->type != CPP_LESS))
+	      {
+		tree name = cp_lexer_consume_token (parser->lexer)->value;
+		
+		if (!constructor_name_p (name, scope))
+		  error ("destructor name `~%s' does not match type `%T'",
+			 IDENTIFIER_POINTER (name), scope);
+		return build_nt (BIT_NOT_EXPR, scope);
+	      }
+	  }
 	if (scope)
 	  cp_parser_parse_tentatively (parser);
 	type_decl = cp_parser_class_name (parser, 
@@ -3290,6 +3322,10 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
       parser->scope = (TREE_CODE (new_scope) == TYPE_DECL 
 		       ? TREE_TYPE (new_scope)
 		       : new_scope);
+      /* If it is a class scope, try to complete it; we are about to
+	 be looking up names inside the class.  */
+      if (TYPE_P (parser->scope))
+	complete_type (parser->scope);
     }
 
   return success ? parser->scope : NULL_TREE;
@@ -3755,23 +3791,26 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 
 	    if (idk == CP_PARSER_ID_KIND_UNQUALIFIED
 		&& (is_overloaded_fn (postfix_expression)
+		    || DECL_P (postfix_expression)
 		    || TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
 		&& args)
 	      {
 		tree arg;
 		tree identifier;
-		tree functions;
+		tree functions = NULL_TREE;
 
 		/* Find the name of the overloaded function.  */
 		if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
-		  {
-		    identifier = postfix_expression;
-		    functions = NULL_TREE;
-		  }
-		else
+		  identifier = postfix_expression;
+		else if (is_overloaded_fn (postfix_expression))
 		  {
 		    functions = postfix_expression;
 		    identifier = DECL_NAME (get_first_fn (functions));
+		  }
+		else if (DECL_P (postfix_expression))
+		  {
+		    functions = postfix_expression;
+		    identifier = DECL_NAME (postfix_expression);
 		  }
 
 		/* A call to a namespace-scope function using an
@@ -8467,7 +8506,7 @@ cp_parser_elaborated_type_specifier (parser, is_friend, is_declaration)
 	 template will correspond to a class.  */
       else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
 	       && tag_type == typename_type)
-	return make_typename_type (parser->scope, decl,
+	type = make_typename_type (parser->scope, decl,
 				   /*complain=*/1);
       else 
 	type = TREE_TYPE (decl);
@@ -8498,7 +8537,7 @@ cp_parser_elaborated_type_specifier (parser, is_friend, is_declaration)
 					/*is_type=*/true,
 					/*check_dependency=*/true);
 	  decl = (cp_parser_maybe_treat_template_as_class 
-		  (decl, /*class_head_p=*/false));
+		  (decl, /*tag_name_p=*/is_friend));
 
 	  if (TREE_CODE (decl) != TYPE_DECL)
 	    {
@@ -11603,14 +11642,54 @@ cp_parser_member_declaration (parser)
 	  /* If there were decl-specifiers, check to see if there was
 	     a class-declaration.  */
 	  type = check_tag_decl (decl_specifiers);
-	  /* If there was no TYPE, an error message will have been
-	     issued if appropriate.  */
-	  if (!type)
-	    ;
 	  /* Nested classes have already been added to the class, but
 	     a `friend' needs to be explicitly registered.  */
-	  else if (friend_p)
-	    make_friend_class (current_class_type, type);
+	  if (friend_p)
+	    {
+	      /* If the `friend' keyword was present, the friend must
+		 be introduced with a class-key.  */
+	       if (!declares_class_or_enum)
+		 error ("a class-key must be used when declaring a friend");
+	       /* In this case:
+
+		    template <typename T> struct A { 
+                      friend struct A<T>::B; 
+                    };
+ 
+		  A<T>::B will be represented by a TYPENAME_TYPE, and
+		  therefore not recognized by check_tag_decl.  */
+	       if (!type)
+		 {
+		   tree specifier;
+
+		   for (specifier = decl_specifiers; 
+			specifier;
+			specifier = TREE_CHAIN (specifier))
+		     {
+		       tree s = TREE_VALUE (specifier);
+
+		       if (TREE_CODE (s) == IDENTIFIER_NODE
+			   && IDENTIFIER_GLOBAL_VALUE (s))
+			 type = IDENTIFIER_GLOBAL_VALUE (s);
+		       if (TREE_CODE (s) == TYPE_DECL)
+			 s = TREE_TYPE (s);
+		       if (TYPE_P (s))
+			 {
+			   type = s;
+			   break;
+			 }
+		     }
+		 }
+	       if (!type)
+		 error ("friend declaration does not name a class or "
+			"function");
+	       else
+		 make_friend_class (current_class_type, type);
+	    }
+	  /* If there is no TYPE, an error message will already have
+	     been issued.  */
+	  else if (!type)
+	    ;
 	  /* An anonymous aggregate has to be handled specially; such
 	     a declaration really declares a data member (with a
 	     particular type), as opposed to a nested class.  */
@@ -12863,12 +12942,16 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 				     name,
 				     /*protect=*/0, is_type);
       /* Look it up in the enclosing context, too.  */
-      decl = lookup_name (name, is_type);
+      decl = lookup_name_real (name, is_type, /*nonclass=*/0, 
+			       /*namespaces_only=*/0, 
+			       /*flags=*/0);
       if (object_decl)
 	decl = object_decl;
     }
   else
-    decl = lookup_name (name, is_type);
+    decl = lookup_name_real (name, is_type, /*nonclass=*/0, 
+			     /*namespaces_only=*/0, 
+			     /*flags=*/0);
 
   /* If the lookup failed, let our caller know.  */
   if (!decl 
@@ -13000,13 +13083,14 @@ cp_parser_resolve_typename_type (parser, type)
 }
 
 /* If DECL is a TEMPLATE_DECL that can be treated like a TYPE_DECL in
-   the current context, return the TYPE_DECL.  If CLASS_HEAD_P is
-   true, the DECL indicates the class being defined in a class-head.
+   the current context, return the TYPE_DECL.  If TAG_NAME_P is
+   true, the DECL indicates the class being defined in a class-head,
+   or declared in an elaborated-type-specifier.
 
    Otherwise, return DECL.  */
 
 static tree
-cp_parser_maybe_treat_template_as_class (tree decl, bool class_head_p)
+cp_parser_maybe_treat_template_as_class (tree decl, bool tag_name_p)
 {
   /* If the DECL is a TEMPLATE_DECL for a class type, and we are in
      the scope of the class, then treat the TEMPLATE_DECL as a
@@ -13027,9 +13111,17 @@ cp_parser_maybe_treat_template_as_class (tree decl, bool class_head_p)
 
        template <typename T> struct A::B {}; 
    
+     Similarly, in a elaborated-type-specifier:
+
+       namespace N { struct X{}; }
+
+       struct A {
+         template <typename T> friend struct N::X;
+       };
+
      */
   if (DECL_CLASS_TEMPLATE_P (decl)
-      && (class_head_p
+      && (tag_name_p
 	  || (current_class_type
 	      && same_type_p (TREE_TYPE (DECL_TEMPLATE_RESULT (decl)),
 			      current_class_type))))
@@ -13251,30 +13343,29 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 {
   bool constructor_p;
   tree type_decl;
+  bool nested_name_p;
 
   /* Parse tentatively; we are going to roll back all of the tokens
      consumed here.  */
   cp_parser_parse_tentatively (parser);
   /* Assume that we are looking at a constructor declarator.  */
   constructor_p = true;
+  /* Look for the optional `::' operator.  */
+  cp_parser_global_scope_opt (parser,
+			      /*current_scope_valid_p=*/false);
+  /* Look for the nested-name-specifier.  */
+  nested_name_p 
+    = (cp_parser_nested_name_specifier_opt (parser,
+					    /*typename_keyword_p=*/false,
+					    /*check_dependency_p=*/false,
+					    /*type_p=*/false)
+       != NULL_TREE);
   /* Outside of a class-specifier, there must be a
      nested-name-specifier.  */
-  if (!at_class_scope_p () 
-      || !TYPE_BEING_DEFINED (current_class_type)
-      || friend_p)
-    {
-      /* Look for the optional `::' operator.  */
-      cp_parser_global_scope_opt (parser,
-				  /*current_scope_valid_p=*/false);
-      /* Look for the nested-name-specifier.  */
-      cp_parser_nested_name_specifier (parser,
-				       /*typename_keyword_p=*/false,
-				       /*check_dependency_p=*/false,
-				       /*type_p=*/false);
-      /* If there was no nested-name-specifier, this is definitely not
-	 a constructor.  */
-      constructor_p = !cp_parser_error_occurred (parser);
-    }
+  if (!nested_name_p && 
+      (!at_class_scope_p () || !TYPE_BEING_DEFINED (current_class_type)
+       || friend_p))
+    constructor_p = false;
   /* If we still think that this might be a constructor-declarator,
      look for a class-name.  */
   if (constructor_p)
@@ -13408,6 +13499,7 @@ cp_parser_function_definition_from_specifiers_and_declarator
     {
       /* If begin_function_definition didn't like the definition, skip
 	 the entire function.  */
+      error ("invalid function declaration");
       cp_parser_skip_to_end_of_block_or_statement (parser);
       fn = error_mark_node;
     }
@@ -13631,7 +13723,9 @@ cp_parser_single_declaration (parser,
      of something new.  */
   parser->scope = NULL_TREE;
   /* Look for a trailing `;' after the declaration.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "expected `;'");
+  if (!cp_parser_require (parser, CPP_SEMICOLON, "expected `;'")
+      && cp_parser_committed_to_tentative_parse (parser))
+    cp_parser_skip_to_end_of_block_or_statement (parser);
   /* If it worked, set *FRIEND_P based on the DECL_SPECIFIERS.  */
   if (cp_parser_parse_definitely (parser))
     {

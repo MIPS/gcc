@@ -2050,7 +2050,7 @@ build_class_member_access_expr (tree object, tree member,
 	type = unknown_type_node;
       /* Note that we do not convert OBJECT to the BASELINK_BINFO
 	 base.  That will happen when the function is called.  */
-      result = build (COMPONENT_REF, unknown_type_node, object, member);
+      result = build (COMPONENT_REF, type, object, member);
     }
   else if (TREE_CODE (member) == CONST_DECL)
     {
@@ -2929,7 +2929,8 @@ convert_arguments (typelist, values, fndecl, flags)
   if (typetail != 0 && typetail != void_list_node)
     {
       /* See if there are default arguments that can be used */
-      if (TREE_PURPOSE (typetail))
+      if (TREE_PURPOSE (typetail) 
+	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
 	{
 	  for (; typetail != void_list_node; ++i)
 	    {
@@ -4308,6 +4309,10 @@ build_unary_op (code, xarg, noconvert)
 
       {
 	tree addr;
+
+	if (TREE_CODE (arg) == COMPONENT_REF
+	    && TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
+	  arg = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
 
 	if (TREE_CODE (arg) == COMPONENT_REF
 	    && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))

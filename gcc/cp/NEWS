@@ -38,6 +38,23 @@
 
 * The "named return value" extension has been removed.
 
+* The "implicit typename" extension has been removed.
+
+* G++ used to accept code like this:
+
+    struct S {
+      int h();
+      void f(int i = g());
+      int g(int i = h());
+    };
+
+  This behavior is not mandated by the standard. 
+
+  Now G++ issues an error about this code.  To avoid the error, you must
+  move the declaration of `g' before the declaration of `f'.  The 
+  default arguments for `g' must be visible at the point where it is
+  called.
+
 * When -pedantic is used, G++ now issues errors about spurious semicolons;
   for example:
 
