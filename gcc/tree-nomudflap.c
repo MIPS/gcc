@@ -44,29 +44,26 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    language processors that cannot handle tree-mudflap.c directly.
    (e.g. Fortran).  */
 
- 
+
 tree
-mudflap_c_function (t)
-     tree t ATTRIBUTE_UNUSED;
+mudflap_c_function (tree t ATTRIBUTE_UNUSED)
 {
   internal_error ("mudflap: this language is not supported");
   return NULL;
 }
 
 
-void 
-mudflap_enqueue_decl (obj, label)
-     tree obj ATTRIBUTE_UNUSED;
-     const char *label ATTRIBUTE_UNUSED;
+void
+mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED,
+		      const char *label ATTRIBUTE_UNUSED)
 {
   internal_error ("mudflap: this language is not supported");
 }
 
 
-void 
-mudflap_enqueue_constant (obj, label)
-     tree obj ATTRIBUTE_UNUSED;
-     const char *label ATTRIBUTE_UNUSED;
+void
+mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED,
+			  const char *label ATTRIBUTE_UNUSED)
 {
   internal_error ("mudflap: this language is not supported");
 }
@@ -74,9 +71,9 @@ mudflap_enqueue_constant (obj, label)
 
 
 /* Emit file-wide instrumentation.  */
- 
-void 
-mudflap_finish_file ()
+
+void
+mudflap_finish_file (void)
 {
   internal_error ("mudflap: this language is not supported");
 }

@@ -1,5 +1,5 @@
-/* Interface to the double linked statement chain. 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* Interface to the double linked statement chain.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -31,20 +31,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 /* Next functions define the transformation from the simple linked statement
-   chain to the double linked statement chain and an interface that allows 
-   operations on it.  
-   This implementation is based on the fact that 'type' field is not used for 
-   representing statement nodes.  The PREV_STMT pointer is stored in the 'type' 
-   field, the NEXT_STMT is just an alias for TREE_CHAIN.  That makes the 
+   chain to the double linked statement chain and an interface that allows
+   operations on it.
+   This implementation is based on the fact that 'type' field is not used for
+   representing statement nodes.  The PREV_STMT pointer is stored in the 'type'
+   field, the NEXT_STMT is just an alias for TREE_CHAIN.  That makes the
    interface used to walk trees closer to RTL interface.  */
 
 
 
 /* Store information about previous statements in the tree structure.  */
 
-void 
-double_chain_stmts (node)
-     tree node;
+void
+double_chain_stmts (tree node)
 {
   tree prev;
 
@@ -53,7 +52,7 @@ double_chain_stmts (node)
 
   /* The PREV_STMT points to NULL_TREE for the first statement in the chain.  */
   prev = NULL_TREE;
-  
+
   while (node)
     {
       switch (TREE_CODE (node))
@@ -114,9 +113,8 @@ double_chain_stmts (node)
 
 /* Free all information about previous statements from the tree structure.  */
 
-void 
-double_chain_free (node)
-     tree node;
+void
+double_chain_free (tree node)
 {
   while (node)
     {
@@ -126,7 +124,7 @@ double_chain_free (node)
 	  double_chain_stmts (COMPOUND_BODY (node));
 	  PREV_STMT (node) = NULL_TREE;
 	  break;
-	  
+
 	case FOR_STMT:
 	  double_chain_stmts (FOR_INIT_STMT (node));
 	  double_chain_stmts (FOR_BODY (node));
@@ -180,9 +178,8 @@ double_chain_free (node)
    Given a chain <s1; s2;> calling "dchain_insert_stmt_after (s1, insert)"
    will produce the chain <s1; insert; s2;>.  */
 
-void 
-dchain_insert_stmt_after (loc, stmt)
-     tree loc, stmt;
+void
+dchain_insert_stmt_after (tree loc, tree stmt)
 {
   PREV_STMT (NEXT_STMT (loc)) = stmt;
   PREV_STMT (stmt) = loc;
@@ -192,12 +189,11 @@ dchain_insert_stmt_after (loc, stmt)
 
 /* Inserts STMT before LOC.
    Example :
-   Given a chain <s1; s2;> calling "dchain_insert_stmt_after (s2, insert)" 
+   Given a chain <s1; s2;> calling "dchain_insert_stmt_after (s2, insert)"
    will produce the chain <s1; insert; s2;>.  */
 
-void 
-dchain_insert_stmt_before (loc, stmt)
-     tree loc, stmt;
+void
+dchain_insert_stmt_before (tree loc, tree stmt)
 {
   NEXT_STMT (PREV_STMT (loc)) = stmt;
   NEXT_STMT (stmt) = loc;
@@ -206,15 +202,14 @@ dchain_insert_stmt_before (loc, stmt)
 }
 
 /* Delete all statements between BEGIN excluded and END excluded from the double
-   linked chain of statements.  
-   Example : 
+   linked chain of statements.
+   Example :
    Given a chain <s1; stmts_to_delete; s2;> calling dchain_delete_stmts (s1, s2)
    will produce the chain <s1; s2;>.
    If END is not reachable from BEGIN through NEXT_STMT, it is an error.  */
 
-void 
-dchain_delete_stmts (begin, end)
-     tree begin, end;
+void
+dchain_delete_stmts (tree begin, tree end)
 {
 #ifdef ENABLE_TREE_CHECKING
   {
@@ -228,18 +223,17 @@ dchain_delete_stmts (begin, end)
   PREV_STMT (end) = begin;
 }
 
-/* Insert a statement chain <CH_BEGIN included, CH_END included> between BEGIN 
-   and END in the double linked chain of statements.  
+/* Insert a statement chain <CH_BEGIN included, CH_END included> between BEGIN
+   and END in the double linked chain of statements.
    Example :
-   Given two chains <s1; s2;> and <t1; t2; t3;> applying 
+   Given two chains <s1; s2;> and <t1; t2; t3;> applying
    dchain_insert_chain (s1, s2, t1, t3)
    produces the following chain : <s1; t1; t2; t3; s2;>.
-   If END is not reachable from BEGIN through NEXT_STMT, or if CH_END is not 
+   If END is not reachable from BEGIN through NEXT_STMT, or if CH_END is not
    reachable from CH_BEGIN, it is an error.  */
 
-void 
-dchain_insert_chain (begin, end, ch_begin, ch_end)
-     tree begin, end, ch_begin, ch_end;
+void
+dchain_insert_chain (tree begin, tree end, tree ch_begin, tree ch_end)
 {
 #ifdef ENABLE_TREE_CHECKING
   {
@@ -257,21 +251,21 @@ dchain_insert_chain (begin, end, ch_begin, ch_end)
   NEXT_STMT (ch_end) = end;
 }
 
-/* This has the effect of 2 applications of dchain_insert_chain, but is simpler 
-   to use when dealing with it since parameters are evaluated before the 
+/* This has the effect of 2 applications of dchain_insert_chain, but is simpler
+   to use when dealing with it since parameters are evaluated before the
    execution of the function.
-   
+
    This function acts as follows :
-   <b1, e1> and <b2, e2> are two chains in which we will insert respectively 
-   <cb1, ..., ce1> and <cb2, ..., ce2> : at the end of this process we obtain 
+   <b1, e1> and <b2, e2> are two chains in which we will insert respectively
+   <cb1, ..., ce1> and <cb2, ..., ce2> : at the end of this process we obtain
    two chains : <b1, cb1, ..., ce1, e1> and <b2, cb2, ..., ce2, e2>.
-   
-   Note that statements between <b1, ..., e1> and between <b2, ..., e2> are 
+
+   Note that statements between <b1, ..., e1> and between <b2, ..., e2> are
    removed from the chain (if there was one...).  */
 
-void 
-dchain_two_chains (b1, e1, cb1, ce1, b2, e2, cb2, ce2)
-     tree b1, e1, cb1, ce1, b2, e2, cb2, ce2;
+void
+dchain_two_chains (tree b1, tree e1, tree cb1, tree ce1, tree b2, tree e2,
+		   tree cb2, tree ce2)
 {
 #ifdef ENABLE_TREE_CHECKING
   {
@@ -298,13 +292,12 @@ dchain_two_chains (b1, e1, cb1, ce1, b2, e2, cb2, ce2)
 }
 
 
-/* Copy a statement by using copy_node when needed, but ensuring that we copy 
-   enough information in order to have distinct statements.  
+/* Copy a statement by using copy_node when needed, but ensuring that we copy
+   enough information in order to have distinct statements.
    This is the double linked stmt chain version for deep_copy_node.  */
 
 tree
-dchain_deep_copy_node (stmt)
-     tree stmt;
+dchain_deep_copy_node (tree stmt)
 {
   tree res;
   res = deep_copy_node (stmt);
@@ -314,23 +307,21 @@ dchain_deep_copy_node (stmt)
 
 /* Replaces STMT by REPLACEMENT in the double linked chain of statements.
    Example :
-   Given a chain <s1; s2; s3;> calling dchain_replace_stmt (s2, r) 
+   Given a chain <s1; s2; s3;> calling dchain_replace_stmt (s2, r)
    will produce the chain <s1; r; s3;>.  */
 
-void 
-dchain_replace_stmt (stmt, replacement)
-     tree stmt, replacement;
+void
+dchain_replace_stmt (tree stmt, tree replacement)
 {
   dchain_insert_stmt_before (stmt, replacement);
   dchain_delete_stmts (PREV_STMT (stmt), NEXT_STMT (stmt));
 }
 
-/* Construct a scope around STMT_P and verify that the begin and end scopes are 
+/* Construct a scope around STMT_P and verify that the begin and end scopes are
    correctly double chained.  */
 
-void 
-dchain_build_scope (stmt_p)
-     tree *stmt_p;
+void
+dchain_build_scope (tree *stmt_p)
 {
   tree_build_scope (stmt_p);
 
@@ -340,7 +331,7 @@ dchain_build_scope (stmt_p)
     tree close_scope, prev_close_scope;
     open_scope = COMPOUND_BODY (*stmt_p);
     PREV_STMT (NEXT_STMT (open_scope)) = open_scope;
-    
+
     close_scope = open_scope;
     prev_close_scope = open_scope;
 
@@ -354,16 +345,15 @@ dchain_build_scope (stmt_p)
 }
 
 #if 0
-/* Declares all the variables in VARS in SCOPE for the double linked chain. 
+/* Declares all the variables in VARS in SCOPE for the double linked chain.
    Returns the last DECL_STMT emitted.  */
 
-tree 
-dchain_declare_tmp_vars (vars, scope)
-     tree vars, scope;
+tree
+dchain_declare_tmp_vars (tree vars, tree scope)
 {
   tree last, it;
   last = declare_tmp_vars (vars, scope);
-  
+
   /* Back chain declarations.  */
   for (it = scope; it != last; it = NEXT_STMT (it))
     {
@@ -371,16 +361,15 @@ dchain_declare_tmp_vars (vars, scope)
     }
   /* Back chain last declaration with the first statement.  */
   PREV_STMT (NEXT_STMT (it)) = it;
-  
+
   return last;
 }
 #endif
 
 /* Delete all LABEL_STMTs from the statement STMT.  */
 
-void 
-dchain_delete_labels (stmt)
-     tree stmt;
+void
+dchain_delete_labels (tree stmt)
 {
   while (stmt)
     {
@@ -389,33 +378,33 @@ dchain_delete_labels (stmt)
 	case COMPOUND_STMT:
 	  dchain_delete_labels (COMPOUND_BODY (stmt));
 	  break;
-	  
+
 	case FOR_STMT:
 	  dchain_delete_labels (FOR_INIT_STMT (stmt));
 	  dchain_delete_labels (FOR_BODY (stmt));
 	  break;
-	  
+
 	case WHILE_STMT:
 	  dchain_delete_labels (WHILE_BODY (stmt));
 	  break;
-	  
+
 	case DO_STMT:
 	  dchain_delete_labels (DO_BODY (stmt));
 	  break;
-	  
+
 	case IF_STMT:
 	  dchain_delete_labels (THEN_CLAUSE (stmt));
 	  dchain_delete_labels (ELSE_CLAUSE (stmt));
 	  break;
-	  
+
 	case SWITCH_STMT:
 	  dchain_delete_labels (SWITCH_BODY (stmt));
 	  break;
-	  
+
 	case LABEL_STMT:
 	  dchain_delete_stmts (PREV_STMT (stmt), NEXT_STMT (stmt));
 	  break;
-	  
+
 	case EXPR_STMT:
 	case DECL_STMT:
 	case RETURN_STMT:
@@ -432,5 +421,3 @@ dchain_delete_labels (stmt)
       stmt = NEXT_STMT (stmt);
     }
 }
-
-

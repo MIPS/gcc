@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -32,19 +32,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 
 /* Local functions, macros and variables.  */
-static int op_prio			PARAMS ((tree));
-static const char *op_symbol		PARAMS ((tree));
-static void pretty_print_string		PARAMS ((output_buffer *, const char*));
-static void print_call_name		PARAMS ((output_buffer *, tree));
-static void newline_and_indent		PARAMS ((output_buffer *, int));
-static void maybe_init_pretty_print	PARAMS ((void));
-static void print_declaration		PARAMS ((output_buffer *, tree, int,
-      						 int));
-static void print_struct_decl		PARAMS ((output_buffer *, tree, int));
-static void dump_block_info		PARAMS ((output_buffer *, basic_block,
-      						 int));
-static void do_niy			PARAMS ((output_buffer *, tree));
-static void dump_vops			PARAMS ((output_buffer *, tree, int));
+static int op_prio (tree);
+static const char *op_symbol (tree);
+static void pretty_print_string (output_buffer *, const char*);
+static void print_call_name (output_buffer *, tree);
+static void newline_and_indent (output_buffer *, int);
+static void maybe_init_pretty_print (void);
+static void print_declaration (output_buffer *, tree, int, int);
+static void print_struct_decl (output_buffer *, tree, int);
+static void dump_block_info (output_buffer *, basic_block, int);
+static void do_niy (output_buffer *, tree);
+static void dump_vops (output_buffer *, tree, int);
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
@@ -66,9 +64,7 @@ static bool dumping_stmts;
 /* Try to print something for an unknown tree code.  */
 
 static void
-do_niy (buffer, node)
-     output_buffer *buffer;
-     tree node;
+do_niy (output_buffer *buffer, tree node)
 {
   int i, len;
 
@@ -87,18 +83,16 @@ do_niy (buffer, node)
 
   output_add_string (buffer, " >>>\n");
 }
-     
-void 
-debug_generic_expr (t)
-     tree t;
+
+void
+debug_generic_expr (tree t)
 {
   print_generic_expr (stderr, t, TDF_VOPS);
   fprintf (stderr, "\n");
 }
 
-void 
-debug_generic_stmt (t)
-     tree t;
+void
+debug_generic_stmt (tree t)
 {
   print_generic_stmt (stderr, t, TDF_VOPS);
   fprintf (stderr, "\n");
@@ -107,11 +101,8 @@ debug_generic_stmt (t)
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
    to show in the dump.  See TDF_* in tree.h.  */
 
-void 
-print_generic_stmt (file, t, flags)
-     FILE *file;
-     tree t;
-     int flags;
+void
+print_generic_stmt (FILE *file, tree t, int flags)
 {
   maybe_init_pretty_print ();
   dumping_stmts = true;
@@ -124,11 +115,8 @@ print_generic_stmt (file, t, flags)
 /* Print a single expression T on file FILE.  FLAGS specifies details to show
    in the dump.  See TDF_* in tree.h.  */
 
-void 
-print_generic_expr (file, t, flags)
-     FILE *file;
-     tree t;
-     int flags;
+void
+print_generic_expr (FILE *file, tree t, int flags)
 {
   maybe_init_pretty_print ();
   dumping_stmts = false;
@@ -142,11 +130,7 @@ print_generic_expr (file, t, flags)
    FLAGS specifies details to show in the dump (see TDF_* in tree.h).  */
 
 int
-dump_generic_node (buffer, node, spc, flags)
-     output_buffer *buffer;
-     tree node;
-     int spc;
-     int flags;
+dump_generic_node (output_buffer *buffer, tree node, int spc, int flags)
 {
   tree type;
   tree op0, op1;
@@ -269,11 +253,11 @@ dump_generic_node (buffer, node, spc, flags)
 	    output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
 	  else
 	    output_printf (buffer, "<UPFN%x>", MASK_POINTER (node));
-	  
+
 	  output_add_character (buffer, ')');
           output_add_space (buffer);
 	  output_add_character (buffer, '(');
-	  /* Print the argument types.  The last element in the list is a 
+	  /* Print the argument types.  The last element in the list is a
 	     VOID_TYPE.  The following avoid to print the last element.  */
 	  {
 	    tree tmp = TYPE_ARG_TYPES (fnode);
@@ -288,7 +272,7 @@ dump_generic_node (buffer, node, spc, flags)
 		  }
 	      }
 	  }
-	  output_add_character (buffer, ')');	  
+	  output_add_character (buffer, ')');
 	}
       else
         {
@@ -297,7 +281,7 @@ dump_generic_node (buffer, node, spc, flags)
           dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
 	  output_add_space (buffer);
 	  output_add_string (buffer, str);
-	  
+
 	  if (quals & TYPE_QUAL_CONST)
 	    output_add_string (buffer, " const");
 	  else if (quals & TYPE_QUAL_VOLATILE)
@@ -312,7 +296,7 @@ dump_generic_node (buffer, node, spc, flags)
       break;
 
     case METHOD_TYPE:
-      output_add_string (buffer, IDENTIFIER_POINTER 
+      output_add_string (buffer, IDENTIFIER_POINTER
 			 (DECL_NAME (TYPE_NAME (TYPE_METHOD_BASETYPE (node)))));
       output_add_string (buffer, "::");
       break;
@@ -338,7 +322,7 @@ dump_generic_node (buffer, node, spc, flags)
 		tree size = TYPE_SIZE (tmp);
 		if (TREE_CODE (size) == INTEGER_CST)
 		  output_decimal (buffer,
-				  TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+				  TREE_INT_CST_LOW (TYPE_SIZE (tmp)) /
 				  TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
 		else if (TREE_CODE (size) == MULT_EXPR)
 		  dump_generic_node (buffer, TREE_OPERAND (size, 0), spc, flags);
@@ -382,7 +366,7 @@ dump_generic_node (buffer, node, spc, flags)
 	{
 	  /* In the case of a pointer, one may want to divide by the
 	     size of the pointed-to type.  Unfortunately, this not
-	     straightforward.  The C front-end maps expressions 
+	     straightforward.  The C front-end maps expressions
 
 	     (int *) 5
 	     int *p; (p + 5)
@@ -435,7 +419,7 @@ dump_generic_node (buffer, node, spc, flags)
 	REAL_VALUE_TYPE d;
 	if (TREE_OVERFLOW (node))
 	  output_add_string (buffer, " overflow");
-	
+
 #if !defined(REAL_IS_NOT_DOUBLE) || defined(REAL_ARITHMETIC)
 	d = TREE_REAL_CST (node);
 	if (REAL_VALUE_ISINF (d))
@@ -523,7 +507,7 @@ dump_generic_node (buffer, node, spc, flags)
 	{
 	  if (TYPE_METHODS (TREE_TYPE (node)))
 	    {
-	      /* The type is a c++ class: all structures have at least 
+	      /* The type is a c++ class: all structures have at least
 		 4 methods. */
 	      output_add_string (buffer, "class ");
 	      dump_generic_node (buffer, TREE_TYPE (node), spc, flags);
@@ -615,7 +599,7 @@ dump_generic_node (buffer, node, spc, flags)
       {
 	tree lnode;
 	bool is_struct_init = FALSE;
-	output_add_character (buffer, '{');     
+	output_add_character (buffer, '{');
 	lnode = CONSTRUCTOR_ELTS (node);
 	if (TREE_CODE (TREE_TYPE (node)) == RECORD_TYPE
 	    || TREE_CODE (TREE_TYPE (node)) == UNION_TYPE)
@@ -633,7 +617,7 @@ dump_generic_node (buffer, node, spc, flags)
 	    if (val && TREE_CODE (val) == ADDR_EXPR)
 	      if (TREE_CODE (TREE_OPERAND (val, 0)) == FUNCTION_DECL)
 		val = TREE_OPERAND (val, 0);
-	    if (val && TREE_CODE (val) == FUNCTION_DECL)	      
+	    if (val && TREE_CODE (val) == FUNCTION_DECL)
 	      {
 		if (DECL_NAME (val))
 		  output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (val)));
@@ -836,7 +820,7 @@ dump_generic_node (buffer, node, spc, flags)
 	op0 = TREE_OPERAND (node, 0);
 	op1 = TREE_OPERAND (node, 1);
 
-	/* When the operands are expressions with less priority, 
+	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
 	if (op_prio (op0) < op_prio (node))
 	  {
@@ -851,7 +835,7 @@ dump_generic_node (buffer, node, spc, flags)
 	output_add_string (buffer, op);
 	output_add_space (buffer);
 
-	/* When the operands are expressions with less priority, 
+	/* When the operands are expressions with less priority,
 	   keep semantics of the tree representation.  */
 	if (op_prio (op1) < op_prio (node))
 	  {
@@ -925,7 +909,7 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_character (buffer, '>');
       break;
 
-      
+
     case FFS_EXPR:
       NIY;
       break;
@@ -1225,9 +1209,9 @@ dump_generic_node (buffer, node, spc, flags)
 	}
       output_add_string (buffer, ");");
       if (!(flags & TDF_SLIM))
-	output_add_newline (buffer);      
+	output_add_newline (buffer);
       break;
-      
+
     case CASE_LABEL_EXPR:
       if (CASE_LOW (node) && CASE_HIGH (node))
 	{
@@ -1259,7 +1243,7 @@ dump_generic_node (buffer, node, spc, flags)
     case EPHI_NODE:
       {
 	int i;
-	
+
 	output_add_string (buffer, " EPHI (");
 	dump_generic_node (buffer, EREF_NAME (node), spc, flags);
 	output_add_string (buffer, ") ");
@@ -1279,7 +1263,7 @@ dump_generic_node (buffer, node, spc, flags)
 	for (i = 0; i < EPHI_NUM_ARGS (node); i++)
 	  {
 	    newline_and_indent (buffer, spc + 4);
-	    dump_generic_node (buffer, EPHI_ARG_DEF (node, i), 
+	    dump_generic_node (buffer, EPHI_ARG_DEF (node, i),
 			       spc + 4, flags);
 	  }
 	output_add_string (buffer, " >");
@@ -1333,7 +1317,7 @@ dump_generic_node (buffer, node, spc, flags)
 	  newline_and_indent (buffer, spc);
 	}
       output_add_character (buffer, ']');
-      
+
       break;
     case PHI_NODE:
       {
@@ -1365,7 +1349,7 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_string (buffer, " = VDEF <");
       dump_generic_node (buffer, VDEF_OP (node), spc, flags);
       output_add_string (buffer, ">;");
-      output_add_newline (buffer);      
+      output_add_newline (buffer);
       break;
 
     default:
@@ -1378,18 +1362,14 @@ dump_generic_node (buffer, node, spc, flags)
 /* Print the declaration of a variable.  */
 
 static void
-print_declaration (buffer, t, spc, flags)
-     output_buffer *buffer;
-     tree t;
-     int spc;
-     int flags;
+print_declaration (output_buffer *buffer, tree t, int spc, int flags)
 {
   /* Don't print type declarations.  */
   if (TREE_CODE (t) == TYPE_DECL)
     return;
-      
+
   INDENT (spc);
-  
+
   if (DECL_REGISTER (t))
     output_add_string (buffer, "register ");
 
@@ -1402,17 +1382,17 @@ print_declaration (buffer, t, spc, flags)
   if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
     {
       tree tmp;
-      
+
       /* Print array's type.  */
       tmp = TREE_TYPE (t);
       while (TREE_CODE (TREE_TYPE (tmp)) == ARRAY_TYPE)
 	tmp = TREE_TYPE (tmp);
       dump_generic_node (buffer, TREE_TYPE (tmp), spc, 0);
-      
+
       /* Print variable's name.  */
       output_add_space (buffer);
       dump_generic_node (buffer, t, spc, 0);
-      
+
       /* Print the dimensions.  */
       tmp = TREE_TYPE (t);
       while (TREE_CODE (tmp) == ARRAY_TYPE)
@@ -1422,7 +1402,7 @@ print_declaration (buffer, t, spc, flags)
 	    {
 	      if (TREE_CODE (TYPE_SIZE (tmp)) == INTEGER_CST)
 		output_decimal (buffer,
-				TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+				TREE_INT_CST_LOW (TYPE_SIZE (tmp)) /
 				TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
 	      else
 		dump_generic_node (buffer, TYPE_SIZE_UNIT (tmp), spc, 0);
@@ -1435,13 +1415,13 @@ print_declaration (buffer, t, spc, flags)
     {
       /* Print type declaration.  */
       dump_generic_node (buffer, TREE_TYPE (t), spc, 0);
-      
+
       /* Print variable's name.  */
       output_add_space (buffer);
       dump_generic_node (buffer, t, spc, 0);
     }
-  
-  /* The initial value of a function serves to determine wether the function 
+
+  /* The initial value of a function serves to determine wether the function
      is declared or defined.  So the following does not apply to function
      nodes.  */
   if (TREE_CODE (t) != FUNCTION_DECL)
@@ -1455,21 +1435,18 @@ print_declaration (buffer, t, spc, flags)
 	  dump_generic_node (buffer, DECL_INITIAL (t), spc, 0);
 	}
     }
-  
+
   output_add_character (buffer, ';');
   if (!(flags & TDF_SLIM))
     output_add_newline (buffer);
 }
 
 
-/* Prints a structure: name, fields, and methods.  
+/* Prints a structure: name, fields, and methods.
    FIXME: Still incomplete.  */
 
-static void 
-print_struct_decl (buffer, node, spc)
-     output_buffer *buffer;
-     tree node;
-     int spc;
+static void
+print_struct_decl (output_buffer *buffer, tree node, int spc)
 {
   /* Print the name of the structure.  */
   if (TYPE_NAME (node))
@@ -1484,12 +1461,12 @@ print_struct_decl (buffer, node, spc)
       dump_generic_node (buffer, TYPE_NAME (node), spc, 0);
     }
 
-  /* Print the contents of the structure.  */  
+  /* Print the contents of the structure.  */
   output_add_newline (buffer);
   INDENT (spc);
   output_add_character (buffer, '{');
   output_add_newline (buffer);
-  
+
   /* Print the fields of the structure.  */
   {
     tree tmp;
@@ -1497,17 +1474,17 @@ print_struct_decl (buffer, node, spc)
     while (tmp)
       {
 	/* Avoid to print recursively the structure.  */
-	/* FIXME : Not implemented correctly..., 
-	   what about the case when we have a cycle in the contain graph? ...  
+	/* FIXME : Not implemented correctly...,
+	   what about the case when we have a cycle in the contain graph? ...
 	   Maybe this could be solved by looking at the scope in which the structure
 	   was declared.  */
-	if (TREE_TYPE (tmp) != node 
-	    || (TREE_CODE (TREE_TYPE (tmp)) == POINTER_TYPE && 
+	if (TREE_TYPE (tmp) != node
+	    || (TREE_CODE (TREE_TYPE (tmp)) == POINTER_TYPE &&
 		TREE_TYPE (TREE_TYPE (tmp)) != node))
 	  print_declaration (buffer, tmp, spc+2, 0);
 	else
 	  {
-	    
+
 	  }
 	tmp = TREE_CHAIN (tmp);
       }
@@ -1516,33 +1493,32 @@ print_struct_decl (buffer, node, spc)
   output_add_character (buffer, '}');
 }
 
-/* Return the priority of the operator OP.  
+/* Return the priority of the operator OP.
 
    From lowest to highest precedence with either left-to-right (L-R)
    or right-to-left (R-L) associativity]:
 
      1	[L-R] ,
-     2	[R-L] = += -= *= /= %= &= ^= |= <<= >>= 
-     3	[R-L] ?: 
-     4	[L-R] || 
-     5	[L-R] && 
-     6	[L-R] | 
-     7	[L-R] ^ 
-     8	[L-R] & 
-     9	[L-R] == != 
-    10	[L-R] < <= > >= 
-    11	[L-R] << >> 
-    12	[L-R] + - 
-    13	[L-R] * / % 
-    14	[R-L] ! ~ ++ -- + - * & (type) sizeof 
-    15	[L-R] fn() [] -> . 
+     2	[R-L] = += -= *= /= %= &= ^= |= <<= >>=
+     3	[R-L] ?:
+     4	[L-R] ||
+     5	[L-R] &&
+     6	[L-R] |
+     7	[L-R] ^
+     8	[L-R] &
+     9	[L-R] == !=
+    10	[L-R] < <= > >=
+    11	[L-R] << >>
+    12	[L-R] + -
+    13	[L-R] * / %
+    14	[R-L] ! ~ ++ -- + - * & (type) sizeof
+    15	[L-R] fn() [] -> .
 
    unary +, - and * have higher precedence than the corresponding binary
    operators.  */
 
 static int
-op_prio (op)
-     tree op;
+op_prio (tree op)
 {
   if (op == NULL)
     return 9999;
@@ -1578,7 +1554,7 @@ op_prio (op)
 
     case BIT_AND_EXPR:
       return 8;
-	
+
     case EQ_EXPR:
     case NE_EXPR:
       return 9;
@@ -1659,82 +1635,81 @@ op_prio (op)
 /* Return the symbol associated with operator OP.  */
 
 static const char *
-op_symbol (op)
-     tree op;
+op_symbol (tree op)
 {
   if (op == NULL)
     abort ();
-  
+
   switch (TREE_CODE (op))
     {
     case MODIFY_EXPR:
       return "=";
-      
+
     case TRUTH_OR_EXPR:
     case TRUTH_ORIF_EXPR:
       return "||";
-      
+
     case TRUTH_AND_EXPR:
     case TRUTH_ANDIF_EXPR:
       return "&&";
-      
+
     case BIT_IOR_EXPR:
       return "|";
-      
+
     case TRUTH_XOR_EXPR:
     case BIT_XOR_EXPR:
       return "^";
-      
+
     case ADDR_EXPR:
     case BIT_AND_EXPR:
       return "&";
-      
+
     case EQ_EXPR:
     case UNEQ_EXPR:
       return "==";
-      
+
     case NE_EXPR:
       return "!=";
-      
+
     case LT_EXPR:
     case UNLT_EXPR:
       return "<";
-      
+
     case LE_EXPR:
     case UNLE_EXPR:
       return "<=";
-      
+
     case GT_EXPR:
     case UNGT_EXPR:
       return ">";
-      
+
     case GE_EXPR:
     case UNGE_EXPR:
       return ">=";
-      
+
     case LSHIFT_EXPR:
       return "<<";
-      
+
     case RSHIFT_EXPR:
       return ">>";
-      
+
     case PLUS_EXPR:
       return "+";
-      
+
     case NEGATE_EXPR:
     case MINUS_EXPR:
       return "-";
-      
+
     case BIT_NOT_EXPR:
       return "~";
 
     case TRUTH_NOT_EXPR:
       return "!";
-      
+
     case MULT_EXPR:
     case INDIRECT_REF:
       return "*";
-      
+
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1742,28 +1717,28 @@ op_symbol (op)
     case RDIV_EXPR:
     case EXACT_DIV_EXPR:
       return "/";
-      
+
     case TRUNC_MOD_EXPR:
     case CEIL_MOD_EXPR:
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
       return "%";
-      
+
     case PREDECREMENT_EXPR:
       return " --";
-      
+
     case PREINCREMENT_EXPR:
       return " ++";
-      
+
     case POSTDECREMENT_EXPR:
       return "-- ";
-      
+
     case POSTINCREMENT_EXPR:
       return "++ ";
-      
+
     case REFERENCE_EXPR:
       return "";
-      
+
     default:
       return "<<< ??? >>>";
     }
@@ -1771,10 +1746,8 @@ op_symbol (op)
 
 /* Prints the name of a CALL_EXPR.  */
 
-static void 
-print_call_name (buffer, node)
-     output_buffer *buffer;
-     tree node;
+static void
+print_call_name (output_buffer *buffer, tree node)
 {
   tree op0;
 
@@ -1792,18 +1765,18 @@ print_call_name (buffer, node)
     case PARM_DECL:
       PRINT_FUNCTION_NAME (op0);
       break;
-      
+
     case ADDR_EXPR:
     case INDIRECT_REF:
     case NOP_EXPR:
       dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       break;
-    
+
     case COND_EXPR:
       PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 1));
       PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 2));
       break;
-      
+
     case COMPONENT_REF:
       /* The function is a pointer contained in a structure.  */
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
@@ -1812,18 +1785,18 @@ print_call_name (buffer, node)
       else
 	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       /* else
-	 We can have several levels of structures and a function 
+	 We can have several levels of structures and a function
 	 pointer inside.  This is not implemented yet...  */
       /*		  NIY;*/
       break;
-      
+
     case ARRAY_REF:
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       else
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
       break;
-      
+
     default:
       NIY;
     }
@@ -1831,10 +1804,8 @@ print_call_name (buffer, node)
 
 /* Parses the string STR and replaces new-lines by '\n', tabs by '\t', ...  */
 
-static void 
-pretty_print_string (buffer, str) 
-     output_buffer *buffer;
-     const char *str;
+static void
+pretty_print_string (output_buffer *buffer, const char *str)
 {
   if (str == NULL)
     return;
@@ -1846,27 +1817,27 @@ pretty_print_string (buffer, str)
 	case '\b':
 	  output_add_string (buffer, "\\b");
 	  break;
-	  
+
 	case '\f':
 	  output_add_string (buffer, "\\f");
 	  break;
-	  
+
 	case '\n':
 	  output_add_string (buffer, "\\n");
 	  break;
-	  
+
 	case '\r':
 	  output_add_string (buffer, "\\r");
 	  break;
-	  
+
 	case '\t':
 	  output_add_string (buffer, "\\t");
 	  break;
-	  
+
 	case '\v':
 	  output_add_string (buffer, "\\v");
 	  break;
-	  
+
 	case '\\':
 	  output_add_string (buffer, "\\\\");
 	  break;
@@ -1920,7 +1891,7 @@ pretty_print_string (buffer, str)
 }
 
 static void
-maybe_init_pretty_print ()
+maybe_init_pretty_print (void)
 {
   last_bb = -1;
 
@@ -1932,9 +1903,7 @@ maybe_init_pretty_print ()
 }
 
 static void
-newline_and_indent (buffer, spc)
-     output_buffer *buffer;
-     int spc;
+newline_and_indent (output_buffer *buffer, int spc)
 {
   output_add_newline (buffer);
   INDENT (spc);
@@ -1942,10 +1911,7 @@ newline_and_indent (buffer, spc)
 
 
 static void
-dump_block_info (buffer, bb, spc)
-     output_buffer *buffer;
-     basic_block bb;
-     int spc;
+dump_block_info (output_buffer *buffer, basic_block bb, int spc)
 {
   if (bb)
     {
@@ -1992,10 +1958,7 @@ dump_block_info (buffer, bb, spc)
 
 
 static void
-dump_vops (buffer, stmt, spc)
-     output_buffer *buffer;
-     tree stmt;
-     int spc;
+dump_vops (output_buffer *buffer, tree stmt, int spc)
 {
   size_t i;
   basic_block bb;

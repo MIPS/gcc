@@ -38,7 +38,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "errors.h"
 #include "expr.h"
 #include "diagnostic.h"
-#include "tree.h"  
+#include "tree.h"
 #include "c-common.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -52,15 +52,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 /**
    @file tree-alias-common.c
    This file contains the implementation of the common parts of the
-   tree points-to analysis infrastructure. 
+   tree points-to analysis infrastructure.
 */
 #define FIELD_BASED 0
 
 /**
    @brief Array of all created alias_typevars.
-   
+
    @note Should contain all the alias_typevars we wanted marked
-   during GC. 
+   during GC.
 */
 static GTY((param_is (union alias_typevar_def))) varray_type alias_vars = NULL;
 struct tree_alias_ops *current_alias_ops;
@@ -69,29 +69,29 @@ struct tree_alias_ops *current_alias_ops;
 
    @note Should contain all the alias_typevars that are local to
    this function.  We delete these from alias_vars before
-   collection. 
+   collection.
 */
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
-						 
+
 static tree currptadecl;
-static alias_typevar get_alias_var_decl PARAMS ((tree));
-static alias_typevar get_alias_var PARAMS ((tree));
-static tree find_func_aliases PARAMS ((tree *, int *, void *));
+static alias_typevar get_alias_var_decl (tree);
+static alias_typevar get_alias_var (tree);
+static tree find_func_aliases (tree *, int *, void *);
 #if 0
-static tree find_func_decls PARAMS ((tree *, int *, void *));
+static tree find_func_decls (tree *, int *, void *);
 #endif
-static alias_typevar create_fun_alias_var_ptf PARAMS ((tree, tree));
-static alias_typevar create_fun_alias_var PARAMS ((tree, int));
-static alias_typevar create_alias_var PARAMS ((tree));
-static void intra_function_call PARAMS ((varray_type));
-static hashval_t annot_hash PARAMS ((const PTR));
-static int annot_eq PARAMS ((const PTR, const PTR));
-static void get_values_from_constructor PARAMS ((tree, varray_type *));
-static bool call_may_clobber PARAMS ((tree));
+static alias_typevar create_fun_alias_var_ptf (tree, tree);
+static alias_typevar create_fun_alias_var (tree, int);
+static alias_typevar create_alias_var (tree);
+static void intra_function_call (varray_type);
+static hashval_t annot_hash (const PTR);
+static int annot_eq (const PTR, const PTR);
+static void get_values_from_constructor (tree, varray_type *);
+static bool call_may_clobber (tree);
+
 static bool
-call_may_clobber (expr)
-     tree expr;
+call_may_clobber (tree expr)
 {
   tree callee;
   int flags;
@@ -107,7 +107,7 @@ call_may_clobber (expr)
 
 /**
    @brief Alias annotation hash table entry.
-   
+
    Used in the annotation hash table to map trees to their
    alias_typevar's.
 */
@@ -123,14 +123,12 @@ struct alias_annot_entry GTY(())
    @param pdata  Entry we gave the function calling this.
    @return 1 if \a pentry is equal to \a pdata, 0 if not.
 */
-static int 
-annot_eq (pentry, pdata)
-     const PTR pentry;
-     const PTR pdata;
+static int
+annot_eq (const PTR pentry, const PTR pdata)
 {
   struct alias_annot_entry *entry = (struct alias_annot_entry *)pentry;
   struct alias_annot_entry *data = (struct alias_annot_entry *)pdata;
-  
+
   return entry->key == data->key;
 }
 
@@ -140,8 +138,7 @@ annot_eq (pentry, pdata)
    @return Hash value of \a pentry.
 */
 static hashval_t
-annot_hash (pentry)
-     const PTR pentry;
+annot_hash (const PTR pentry)
 {
   struct alias_annot_entry *entry = (struct alias_annot_entry *) pentry;
   return htab_hash_pointer (entry->key);
@@ -149,7 +146,7 @@ annot_hash (pentry)
 
 /**
    @brief Alias annotation hash table.
-   
+
    Maps vars to alias_typevars.
 */
 static GTY ((param_is (struct alias_annot_entry))) htab_t alias_annot;
@@ -163,36 +160,35 @@ static GTY ((param_is (struct alias_annot_entry))) htab_t alias_annot;
    handles FUNCTION_DECL properly.
 */
 static alias_typevar
-get_alias_var_decl (decl)
-     tree decl;
+get_alias_var_decl (tree decl)
 {
   alias_typevar newvar;
-  
+
   if (DECL_P (decl))
     {
       if (DECL_PTA_TYPEVAR (decl))
 	return DECL_PTA_TYPEVAR (decl);
     }
-  /* For debugging, remove this whole if block, and re-enable the 
+  /* For debugging, remove this whole if block, and re-enable the
      find_func_decls call. */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     newvar = create_fun_alias_var  (decl, 0);
   else
     {
-      if ((DECL_CONTEXT (decl) == NULL || TREE_PUBLIC (decl) 
+      if ((DECL_CONTEXT (decl) == NULL || TREE_PUBLIC (decl)
 	   || decl_function_context (decl) == NULL) && decl != global_var)
 	return get_alias_var (global_var);
       else
 	newvar = create_alias_var (decl);
     }
-  
+
   if (!current_alias_ops->ip)
     {
-      if (!current_alias_ops->ip_partial 
-	  || (TREE_CODE (decl) != FUNCTION_DECL 
+      if (!current_alias_ops->ip_partial
+	  || (TREE_CODE (decl) != FUNCTION_DECL
 	      && TREE_CODE (decl)!= PARM_DECL))
 	{
-	  VARRAY_PUSH_INT (local_alias_varnums, 
+	  VARRAY_PUSH_INT (local_alias_varnums,
 			   VARRAY_ACTIVE_SIZE (alias_vars) - 1);
 	  VARRAY_PUSH_TREE (local_alias_vars, decl);
 	}
@@ -202,19 +198,18 @@ get_alias_var_decl (decl)
 
 /**
    @brief Get the alias_typevar for an expression.
-   @param expr Expression we want the alias_typevar of. 
+   @param expr Expression we want the alias_typevar of.
    @return The alias_typevar for \a expr.
 
    @note Expects to only be handed a RHS or LHS, not a MODIFY_EXPR.
 */
 static alias_typevar
-get_alias_var (expr)
-     tree expr;
+get_alias_var (tree expr)
 {
   alias_typevar tvar;
   struct alias_annot_entry entry;
   struct alias_annot_entry *result;
-  
+
   /* If it's a decl, get the alias var of the decl. We farm this off
      to get_alias_var_decl so it can abort if the alias var doesn't
      exist, and in case something else *knows* it has a decl, and
@@ -225,7 +220,7 @@ get_alias_var (expr)
 
   /* Non-DECL's alias vars must be temporary alias vars for an
      expression, since we never create non-temporary ones on anything
-     but DECL's.  
+     but DECL's.
      Since they are temporary, we want to erase it from the annotation
      since they are use once. */
   entry.key = expr;
@@ -291,7 +286,7 @@ get_alias_var (expr)
 	tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	alias_typevar tempvar;
 	tempvar = current_alias_ops->add_var (current_alias_ops,
-					      temp);	
+					      temp);
 	return tempvar;
       }
     }
@@ -299,19 +294,18 @@ get_alias_var (expr)
 
 /**
    @param args Arguments that were passed to the function call.
-   
+
    Handles function calls in intra-procedural mode, by making
    conservative assumptions about what happens to arguments to the
    call.
 */
 static void
-intra_function_call (args)
-     varray_type args;
+intra_function_call (varray_type args)
 {
   size_t l = VARRAY_ACTIVE_SIZE (args);
   size_t i;
   alias_typevar av = get_alias_var (global_var);
-  
+
   /* We assume that an actual parameter can point to any global. */
   for (i = 0; i < l; i++)
     {
@@ -319,8 +313,8 @@ intra_function_call (args)
        if (!POINTER_TYPE_P (TREE_TYPE (ALIAS_TVAR_DECL (argav))))
          continue;
       /* Restricted pointers can't be aliased with other
-	 restricted pointers. */	      
-      if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argav))) 
+	 restricted pointers. */
+      if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argav)))
 	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (av))))
 	{
 	  alias_typevar tempvar;
@@ -334,7 +328,7 @@ intra_function_call (args)
 	}
     }
   /* We assume assignments among the actual parameters. */
-  for (i = 0; i < l; i++) 
+  for (i = 0; i < l; i++)
     {
       alias_typevar argi = VARRAY_GENERIC_PTR (args, i);
       size_t j;
@@ -344,10 +338,10 @@ intra_function_call (args)
 	  if (i == j)
 	    continue;
 	  argj = VARRAY_GENERIC_PTR (args, j);
-	  
+
 	  /* Restricted pointers can't be aliased with other
 	     restricted pointers. */
-	  if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argi))) 
+	  if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argi)))
 	      || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argj))))
 	    current_alias_ops->simple_assign (current_alias_ops, argi, argj);
 	}
@@ -357,9 +351,7 @@ intra_function_call (args)
 /** @brief Put all pointers in a constructor in an array.
  */
 static void
-get_values_from_constructor (constructor, vals)
-  tree constructor;
-  varray_type *vals;
+get_values_from_constructor (tree constructor, varray_type *vals)
 {
 #if FIELD_BASED
  #error "Don't know how to do this at the moment"
@@ -369,12 +361,12 @@ get_values_from_constructor (constructor, vals)
     {
     case CONSTRUCTOR:
       {
-	for (elt_list = CONSTRUCTOR_ELTS (constructor); 
-	     elt_list; 
+	for (elt_list = CONSTRUCTOR_ELTS (constructor);
+	     elt_list;
 	     elt_list = TREE_CHAIN (elt_list))
 	  {
 	    tree value = TREE_VALUE (elt_list);
-	    if (TREE_CODE (value) == TREE_LIST 
+	    if (TREE_CODE (value) == TREE_LIST
 		|| TREE_CODE (value) == CONSTRUCTOR)
 	      {
 		get_values_from_constructor (value, vals);
@@ -390,15 +382,15 @@ get_values_from_constructor (constructor, vals)
       }
       break;
     case TREE_LIST:
-      for (elt_list = constructor; 
-	   elt_list; 
+      for (elt_list = constructor;
+	   elt_list;
 	   elt_list = TREE_CHAIN (elt_list))
 	{
 	  get_values_from_constructor (TREE_VALUE (elt_list), vals);
 	}
       break;
     default:
-      abort();      
+      abort();
     }
 #endif
 }
@@ -410,33 +402,30 @@ get_values_from_constructor (constructor, vals)
    not.
    @param data Not used.
    @return NULL_TREE to keep going, anything else to stop.
-   
+
    This function is the main part of the aliasing infrastructure. It
    walks the trees, calling the approriate alias analyzer functions to process
    various statements.
 */
 static tree
-find_func_aliases (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees;
-     void *data ATTRIBUTE_UNUSED;
+find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree stp = *tp;
-  
+
   if (TREE_CODE (stp) == SCOPE_STMT)
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
 
-  if (is_gimple_modify_expr (stp) 
-      || (TREE_CODE (stp) == VAR_DECL 
+  if (is_gimple_modify_expr (stp)
+      || (TREE_CODE (stp) == VAR_DECL
 	  && DECL_INITIAL (stp) != NULL_TREE ))
     {
       tree op0, op1;
       alias_typevar lhsAV = NULL;
       alias_typevar rhsAV = NULL;
-      
+
       if (TREE_CODE (stp) == VAR_DECL)
 	{
 	  op0 = stp;
@@ -451,7 +440,7 @@ find_func_aliases (tp, walk_subtrees, data)
       lhsAV = get_alias_var (op0);
       /* rhsAV might not have one, c.f. c = 5 */
       rhsAV = get_alias_var (op1);
-      
+
       /* You would think we could test rhsAV at the top, rather than
 	 50 separate times, but we can't, because it can be NULL for
 	 operator assignments, where we'd still collect the individual
@@ -484,17 +473,17 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
-		current_alias_ops->ptr_assign (current_alias_ops, lhsAV, 
+		current_alias_ops->ptr_assign (current_alias_ops, lhsAV,
 					       rhsAV);
 	      *walk_subtrees = 0;
 	    }
 	  /* x = &y = x = &foo.y */
-	  else if ((TREE_CODE (op1) == ADDR_EXPR 
+	  else if ((TREE_CODE (op1) == ADDR_EXPR
 		    || TREE_CODE (op1) == REFERENCE_EXPR)
 		   && is_gimple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
-		current_alias_ops->addr_assign (current_alias_ops, lhsAV, 
+		current_alias_ops->addr_assign (current_alias_ops, lhsAV,
 						rhsAV);
 	      *walk_subtrees = 0;
 	    }
@@ -503,7 +492,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	    {
 	      /* Heap assignment. These are __attribute__ malloc or
 		 something, i'll deal with it later. */
-	      if (0) 
+	      if (0)
 		{}
 	      else
 		{
@@ -511,11 +500,11 @@ find_func_aliases (tp, walk_subtrees, data)
 		  tree arg;
 		  tree callop0, callop1;
 		  VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
-		  
+
 		  callop1 = TREE_OPERAND (op1, 1);
 		  callop0 = TREE_OPERAND (op1, 0);
 		  for (arg = callop1;
-		       arg; 
+		       arg;
 		       arg = TREE_CHAIN (arg))
 		    {
 		      alias_typevar aav = get_alias_var (TREE_VALUE (arg));
@@ -525,7 +514,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		    }
 		  /* NORETURN and CONST functions have no effect on aliasing. */
 		  if (call_may_clobber (op1))
-		    if (current_alias_ops->function_call (current_alias_ops, lhsAV, 
+		    if (current_alias_ops->function_call (current_alias_ops, lhsAV,
 							  get_alias_var (callop0),
 							  args))
 		      if (!current_alias_ops->ip)
@@ -535,7 +524,7 @@ find_func_aliases (tp, walk_subtrees, data)
 
 	    }
 	  /* x = op (...) */
-	  else	  
+	  else
 	    {
 	      if (TREE_CODE (op1) == CONSTRUCTOR)
 	        {
@@ -543,7 +532,7 @@ find_func_aliases (tp, walk_subtrees, data)
 
 		  VARRAY_GENERIC_PTR_INIT (ops, 1, "Operands");
 		  get_values_from_constructor (op1, &ops);
-		  current_alias_ops->op_assign (current_alias_ops, lhsAV, 
+		  current_alias_ops->op_assign (current_alias_ops, lhsAV,
 						ops, op1);
 		  *walk_subtrees = 0;
 		}
@@ -554,7 +543,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		  case 's':  /* an expression with side effects */
 		  case '<':  /* a comparison expression */
 		  case '1':  /* a unary arithmetic expression */
-		  case 'r':  /* a reference */ 
+		  case 'r':  /* a reference */
 		  case '2':  /* a binary arithmetic expression */
 		    {
 		      tree op;
@@ -569,7 +558,7 @@ find_func_aliases (tp, walk_subtrees, data)
 			  if (aav)
 			    VARRAY_PUSH_GENERIC_PTR (ops, aav);
 			}
-		      current_alias_ops->op_assign (current_alias_ops, lhsAV, 
+		      current_alias_ops->op_assign (current_alias_ops, lhsAV,
 						    ops, op1);
 		      *walk_subtrees = 0;
 		    }
@@ -595,26 +584,26 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF)
 	    {
 	      if (rhsAV != NULL)
-		current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+		current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 					       rhsAV);
 	      *walk_subtrees = 0;
 	    }
 	  /* *x = &y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && (TREE_CODE (op1) == ADDR_EXPR 
+		   && (TREE_CODE (op1) == ADDR_EXPR
 		       || TREE_CODE (op1) == REFERENCE_EXPR))
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
 	      tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	      current_alias_ops->addr_assign (current_alias_ops, tempvar, 
+	      current_alias_ops->addr_assign (current_alias_ops, tempvar,
 					      rhsAV);
-	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 					     tempvar);
 	      *walk_subtrees = 0;
 	    }
-	  
+
 	  /* *x = *y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
 		   && TREE_CODE (op1) == INDIRECT_REF)
@@ -624,13 +613,13 @@ find_func_aliases (tp, walk_subtrees, data)
 	      tree temp;
 	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, 
+	      current_alias_ops->ptr_assign (current_alias_ops, tempvar,
 					     rhsAV);
 	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 					     tempvar);
 	      *walk_subtrees = 0;
 	    }
-	  
+
 	  /* *x = (cast) y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
 		   && is_gimple_cast (op1))
@@ -645,7 +634,7 @@ find_func_aliases (tp, walk_subtrees, data)
 							temp);
 		  current_alias_ops->simple_assign (current_alias_ops,
 						    tempvar, rhsAV);
-		  current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+		  current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 						 tempvar);
 		}
 	      *walk_subtrees = 0;
@@ -674,22 +663,20 @@ find_func_aliases (tp, walk_subtrees, data)
 	}
       /* NORETURN and CONST functions have no effect on aliasing.  */
       if (call_may_clobber (stp))
-	if (current_alias_ops->function_call (current_alias_ops, NULL, 
+	if (current_alias_ops->function_call (current_alias_ops, NULL,
 					      get_alias_var (TREE_OPERAND (stp, 0)),
 					      args))
 	  if (!current_alias_ops->ip)
 	    intra_function_call (args);
       *walk_subtrees = 0;
-  } 
+  }
   return NULL_TREE;
 }
 
 #if 0
 static tree
-find_func_decls (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
+find_func_decls (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		 void *data ATTRIBUTE_UNUSED)
 {
   if (TREE_CODE (*tp) == DECL_STMT)
     {
@@ -704,13 +691,13 @@ find_func_decls (tp, walk_subtrees, data)
 
 /**
    @brief Create the alias_typevar for a function definition.
-   
+
    Create the alias_typevar for a function definition, it's
    arguments, and it's return value.
    @param decl FUNCTION_DECL for the function.
    @param force If true, we force creation of the alias_typevar,
    regardless of whether one exists already.
-   
+
    @note This includes creation of alias_typevar's for
    -# The function itself.
    -# The arguments.
@@ -718,17 +705,15 @@ find_func_decls (tp, walk_subtrees, data)
    -# The return value.
 */
 static alias_typevar
-create_fun_alias_var (decl, force)
-     tree decl;
-     int force;
+create_fun_alias_var (tree decl, int force)
 {
   alias_typevar avar, retvar;
   tree rdecl;
   varray_type params = NULL;
-  
+
   if (!force)
     {
-      if (DECL_PTA_TYPEVAR (decl)) 
+      if (DECL_PTA_TYPEVAR (decl))
         return DECL_PTA_TYPEVAR (decl);
     }
 
@@ -740,18 +725,18 @@ create_fun_alias_var (decl, force)
 	{
 	  alias_typevar tvar = get_alias_var (arg);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
-	  /* Incoming pointers can point to global_var, unless 
+	  /* Incoming pointers can point to global_var, unless
 	     either we are interprocedural, or we can do ip on all
 	     statics + this function has been defined + it's not an
 	     external function. */
-	  if (POINTER_TYPE_P (TREE_TYPE (arg)) 
+	  if (POINTER_TYPE_P (TREE_TYPE (arg))
 	      && !current_alias_ops->ip
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
-		  || !TREE_STATIC (decl) 
+		  || !TREE_STATIC (decl)
 		  || TREE_PUBLIC (decl)))
 	    current_alias_ops->addr_assign (current_alias_ops, tvar,
-				  	    get_alias_var (global_var));
+					    get_alias_var (global_var));
 	}
     }
   else if (TYPE_ARG_TYPES (TREE_TYPE (decl)) != NULL)
@@ -765,19 +750,19 @@ create_fun_alias_var (decl, force)
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
 	  alias_typevar tvar;
 	  tvar = get_alias_var (fakedecl);
-	  VARRAY_PUSH_GENERIC_PTR (params, tvar);	  
-	  
-	  /* Incoming pointers can point to global_var, unless 
+	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
+
+	  /* Incoming pointers can point to global_var, unless
 	     either we are interprocedural, or we can do ip on all
 	     statics + this function has been defined + it's not an
 	     external function. */
-	  if (POINTER_TYPE_P (TREE_TYPE (fakedecl)) 
+	  if (POINTER_TYPE_P (TREE_TYPE (fakedecl))
 	      && !current_alias_ops->ip
 	      /* FIXME: need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
 		  || !TREE_STATIC (decl)
 		  || TREE_PUBLIC (decl)))
-	    current_alias_ops->addr_assign (current_alias_ops, tvar, 
+	    current_alias_ops->addr_assign (current_alias_ops, tvar,
 					    get_alias_var (global_var));
 	}
     }
@@ -800,7 +785,7 @@ create_fun_alias_var (decl, force)
     }
   else
     {
-    retvar = current_alias_ops->add_var (current_alias_ops, 
+    retvar = current_alias_ops->add_var (current_alias_ops,
 					 DECL_RESULT (decl));
     }
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
@@ -809,7 +794,7 @@ create_fun_alias_var (decl, force)
 
   current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
   DECL_PTA_TYPEVAR (decl) = avar;
-	  
+
   /* FIXME: Also, if this is a defining declaration then add the annotation
      to all extern definitions of the function. */
   return avar;
@@ -817,7 +802,7 @@ create_fun_alias_var (decl, force)
 
 /**
    @brief Create the alias_typevar for a ptf.
-   
+
    Create a typevar for a pointer-to-member function, it's arguments,
    and it's return value.
    @param decl The PTF FUNCTION_DECL.
@@ -830,14 +815,12 @@ create_fun_alias_var (decl, force)
    -# The return value.
 */
 static alias_typevar
-create_fun_alias_var_ptf (decl, type)
-     tree decl;
-     tree type;
+create_fun_alias_var_ptf (tree decl, tree type)
 {
   alias_typevar avar, retvar;
   tree rdecl;
   varray_type params = NULL;
-  
+
   if (DECL_PTA_TYPEVAR (decl))
     return DECL_PTA_TYPEVAR (decl);
 
@@ -847,7 +830,7 @@ create_fun_alias_var_ptf (decl, type)
     {
       tree arg;
       /* FIXME: Handle varargs */
-      for (arg = TYPE_ARG_TYPES (type); 
+      for (arg = TYPE_ARG_TYPES (type);
 	   arg && TREE_VALUE (arg) != void_type_node;
 	   arg = TREE_CHAIN (arg))
 	{
@@ -872,13 +855,13 @@ create_fun_alias_var_ptf (decl, type)
   rdecl = create_tmp_alias_var (TREE_TYPE (type), "_rv_");
   retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
-  
+
   avar = current_alias_ops->add_var (current_alias_ops, decl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
-  
+
   current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
   DECL_PTA_TYPEVAR (decl) = avar;
-  
+
   return avar;
 }
 
@@ -887,16 +870,15 @@ create_fun_alias_var_ptf (decl, type)
    @param decl Declaration to create alias_typevar for.
    @return The alias_typevar for \a decl.
 
-   Create the alias_typevar for all types of declaration node.   
+   Create the alias_typevar for all types of declaration node.
 
    @note Handles creation of alias_typevar's for PTF variables.
 */
 static alias_typevar
-create_alias_var (decl)
-     tree decl;
+create_alias_var (tree decl)
 {
   struct alias_annot_entry entry, *result, *newentry, **slot;
-  
+
   alias_typevar avar;
   if (DECL_P (decl))
     {
@@ -907,7 +889,7 @@ create_alias_var (decl)
   result = htab_find (alias_annot, &entry);
   if (result != NULL && result->value != NULL)
     return result->value;
-  
+
 
   if (POINTER_TYPE_P (TREE_TYPE (decl))
       && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
@@ -916,7 +898,7 @@ create_alias_var (decl)
     }
   else
     avar = current_alias_ops->add_var (current_alias_ops, decl);
-  
+
   if (DECL_P (decl))
     {
       DECL_PTA_TYPEVAR (decl) = avar;
@@ -926,11 +908,11 @@ create_alias_var (decl)
       newentry = ggc_alloc (sizeof (struct alias_annot_entry));
       newentry->key = decl;
       newentry->value = avar;
-      slot = 
-	(struct alias_annot_entry **)htab_find_slot (alias_annot, newentry, 
+      slot =
+	(struct alias_annot_entry **)htab_find_slot (alias_annot, newentry,
 						     INSERT);
       *slot = newentry;
-    } 
+    }
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
   return avar;
@@ -940,13 +922,12 @@ create_alias_var (decl)
 /**
    @brief Create points-to sets for a function.
    @param fndecl Function we are creating alias variables for.
-   
+
    @note fndecl might not be current_function_decl, if we are in ip
    mode or ip'ing all statics.
 */
 void
-create_alias_vars (fndecl)
-	tree fndecl;
+create_alias_vars (tree fndecl)
 {
 #if 0
   tree currdecl = getdecls ();
@@ -974,7 +955,7 @@ create_alias_vars (fndecl)
      flag_tree_points_to = PTA_NONE;
      return;
 #endif
-  
+
   /* If fndecl is current_function_decl, we are at the top level. */
   if (fndecl  == current_function_decl)
     init_alias_vars ();
@@ -985,7 +966,7 @@ create_alias_vars (fndecl)
     DECL_PTA_TYPEVAR (fndecl) = NULL;
   get_alias_var (fndecl);
 
-  /* For debugging, disable the on-the-fly variable creation, 
+  /* For debugging, disable the on-the-fly variable creation,
      and reenable this. */
   /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
       find_func_decls, NULL);*/
@@ -997,11 +978,11 @@ create_alias_vars (fndecl)
    @brief Delete created points-to sets.
 */
 void
-delete_alias_vars ()
+delete_alias_vars (void)
 {
   size_t i;
   struct alias_annot_entry entry;
-  
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
       entry.key = VARRAY_TREE (local_alias_vars, i);
@@ -1014,7 +995,7 @@ delete_alias_vars ()
 	  DECL_PTA_TYPEVAR (entry.key) = NULL;
 	}
     }
-  
+
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
     VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
   if (!current_alias_ops->ip)
@@ -1031,18 +1012,18 @@ delete_alias_vars ()
    @brief Initialize points-to analysis machinery.
 */
 void
-init_alias_vars ()
+init_alias_vars (void)
 {
   current_alias_ops->init (current_alias_ops);
   VARRAY_TREE_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");
-  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) 
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial)
       || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) 
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial)
       || alias_annot == NULL)
     alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
-  
+
 }
 
 /**
@@ -1053,15 +1034,13 @@ init_alias_vars ()
    @return true if \a ptr may-alias \a var, false otherwise.
 */
 bool
-ptr_may_alias_var (ptr, var)
-     tree ptr;
-     tree var;
+ptr_may_alias_var (tree ptr, tree var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
   tree ptrcontext;
   tree varcontext;
-  
+
 #if !FIELD_BASED
 #else
   if (TREE_CODE (ptr) == COMPONENT_REF)
@@ -1069,7 +1048,7 @@ ptr_may_alias_var (ptr, var)
   if (TREE_CODE (var) == COMPONENT_REF)
     var = TREE_OPERAND (var, 1);
 #endif
-  
+
   ptrcontext = DECL_CONTEXT (ptr);
   varcontext = DECL_CONTEXT (var);
   if (TREE_PUBLIC (ptr))
@@ -1092,7 +1071,7 @@ ptr_may_alias_var (ptr, var)
     }
   if (ptr == var || (ptrcontext == NULL && varcontext == NULL))
     return true;
-  
+
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
@@ -1109,7 +1088,7 @@ ptr_may_alias_var (ptr, var)
 	abort ();
       else if (!result)
 	return false;
-      ptrtv = result->value;  
+      ptrtv = result->value;
     }
   if (DECL_P (var))
     {
@@ -1127,22 +1106,21 @@ ptr_may_alias_var (ptr, var)
 	abort ();
       else if (!result)
 	return false;
-      
+
       vartv = result->value;
     }
 
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
-  
+
 }
 
 #define MASK_POINTER(P)	((unsigned)((unsigned long)(P) & 0xffff))
 
 const char *
-alias_get_name (t)
-     tree t;
+alias_get_name (tree t)
 {
   const char *name;
-  
+
 #if FIELD_BASED
   if (TREE_CODE (t) == FIELD_DECL)
     {
@@ -1155,7 +1133,7 @@ alias_get_name (t)
       smashed = ggc_alloc (neededlen);
       sprintf (smashed, "%s.%s", prefix, fieldname);
       name = smashed;
-      
+
     }
   else if (TYPE_P (t))
     {

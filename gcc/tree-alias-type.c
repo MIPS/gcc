@@ -1,5 +1,5 @@
 /* Tree based linear points-to analysis
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -27,9 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-alias-type.h"
 
 alias_typevar
-alias_tvar_new_with_aterm (decl, term)
-     tree decl;
-     struct aterm_ *term;
+alias_tvar_new_with_aterm (tree decl, struct aterm_ *term)
 {
   alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_aterm));
   ALIAS_TVAR_KIND (ret) = ATERM_ATVAR;
@@ -37,4 +35,3 @@ alias_tvar_new_with_aterm (decl, term)
   ALIAS_TVAR_ATERM (ret) = term;
   return ret;
 }
-

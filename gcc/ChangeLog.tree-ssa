@@ -1,4 +1,15 @@
-2003-07-14  Andreas Jaeger  <aj@suse.de>
+2003-07-15  Andreas Jaeger  <aj@suse.de>
+
+	* tree-alias-ander.c: Convert prototypes to ISO C90.
+	* tree-alias-common.c: Likewise.
+	* tree-alias-type.c: Likewise.
+	* tree-browser.c: Likewise.
+	* tree-dchain.c: Likewise.
+	* tree-mudflap.c: Likewise.
+	* tree-nomudflap.c: Likewise.
+	* tree-optimize.c: Likewise.
+	* tree-pretty-print.c: Likewise.
+	* tree-simple.c: Likewise.
 
 	* tree-alias-common.h: Convert prototypes to ISO C90, remove extra
 	whitespace.

@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -44,15 +44,14 @@ Boston, MA 02111-1307, USA.  */
    FUNCTION_DECL node for the function to optimize.  */
 
 void
-optimize_function_tree (fndecl)
-     tree fndecl;
+optimize_function_tree (tree fndecl)
 {
   tree fnbody;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
-  
+
   fnbody = DECL_SAVED_TREE (fndecl);
 
   /* Build the flowgraph.  */
@@ -89,7 +88,7 @@ optimize_function_tree (fndecl)
 
       if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
-      
+
       if (flag_tree_copyprop)
 	tree_ssa_copyprop (fndecl);
 

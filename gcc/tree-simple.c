@@ -1,5 +1,5 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 
    Inspired by the SIMPLE C grammar at
 
-   	http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
+	http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
 
    function:
      FUNCTION_DECL
@@ -182,8 +182,7 @@ Boston, MA 02111-1307, USA.  */
    eliminated entirely?  */
 
 int
-is_gimple_constructor (t)
-     tree t;
+is_gimple_constructor (tree t)
 {
   tree elt_list;
 
@@ -205,8 +204,7 @@ is_gimple_constructor (t)
 /* Returns nonzero if T is a GIMPLE aggr_init_elt, as above.  */
 
 int
-is_gimple_constructor_elt (t)
-     tree t;
+is_gimple_constructor_elt (tree t)
 {
   return (is_gimple_val (t)
 	  || is_gimple_constructor (t));
@@ -217,8 +215,7 @@ is_gimple_constructor_elt (t)
    MODIFY_EXPR, but here we also allow a CONSTRUCTOR.  */
 
 int
-is_gimple_initializer (t)
-     tree t;
+is_gimple_initializer (tree t)
 {
   return (is_gimple_rhs (t)
 	  || is_gimple_constructor (t));
@@ -245,8 +242,7 @@ is_gimple_initializer (t)
 	      | modify_expr  */
 
 int
-is_gimple_expr (t)
-     tree t;
+is_gimple_expr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -262,8 +258,7 @@ is_gimple_expr (t)
 	      | unary_expr  */
 
 int
-is_gimple_rhs (t)
-     tree t;
+is_gimple_rhs (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -280,8 +275,7 @@ is_gimple_rhs (t)
 	      | '*' ID '=' rhs  */
 
 int
-is_gimple_modify_expr (t)
-     tree t;
+is_gimple_modify_expr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -296,8 +290,7 @@ is_gimple_modify_expr (t)
 /*  Return nonzero if T is a valid LHS for a GIMPLE assignment expression.  */
 
 int
-is_gimple_modify_expr_lhs (t)
-     tree t;
+is_gimple_modify_expr_lhs (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -314,10 +307,9 @@ is_gimple_modify_expr_lhs (t)
 	      : '<'
 	      | '<='
 	      ...  */
-    
+
 bool
-is_gimple_relop (code)
-     enum tree_code code;
+is_gimple_relop (enum tree_code code)
 {
   return (TREE_CODE_CLASS (code) == '<'
 	  || code == TRUTH_AND_EXPR
@@ -332,8 +324,7 @@ is_gimple_relop (code)
 	      : val binop val  */
 
 int
-is_gimple_binary_expr (t)
-     tree t;
+is_gimple_binary_expr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -352,8 +343,7 @@ is_gimple_binary_expr (t)
 	      | val relop val  */
 
 int
-is_gimple_condexpr (t)
-     tree t;
+is_gimple_condexpr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -379,8 +369,7 @@ is_gimple_condexpr (t)
 	      (cast here stands for all valid C typecasts)  */
 
 int
-is_gimple_unary_expr (t)
-     tree t;
+is_gimple_unary_expr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -442,8 +431,7 @@ is_gimple_unary_expr (t)
 	      | val  */
 
 int
-is_gimple_call_expr (t)
-     tree t;
+is_gimple_call_expr (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -475,8 +463,7 @@ is_gimple_call_expr (t)
 	      | val  */
 
 int
-is_gimple_arglist (t)
-     tree t;
+is_gimple_arglist (tree t)
 {
   tree op;
 
@@ -497,8 +484,7 @@ is_gimple_arglist (t)
 	      | ID     */
 
 int
-is_gimple_varname (t)
-     tree t;
+is_gimple_varname (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -515,7 +501,7 @@ is_gimple_varname (t)
 /* Returns nonzero if T is an array or member reference of the form:
 
       compound_lval
-      	      : min_lval '[' val ']'
+	      : min_lval '[' val ']'
 	      | min_lval '.' ID
 	      | compound_lval '[' val ']'
 	      | compound_lval '.' ID
@@ -528,8 +514,7 @@ is_gimple_varname (t)
    were splitting up array and member refs.  */
 
 int
-is_gimple_compound_lval (t)
-     tree t;
+is_gimple_compound_lval (tree t)
 {
   /* Allow arrays of complex types.  */
   if (TREE_CODE (t) == REALPART_EXPR
@@ -569,8 +554,7 @@ is_gimple_compound_lval (t)
     generate 't = (char *)(char[1] *)&foo ();'.  */
 
 int
-is_gimple_addr_expr_arg (t)
-     tree t;
+is_gimple_addr_expr_arg (tree t)
 {
   /* If we're taking the address of a label for the first time, then
      this expression is not in gimple form.  */
@@ -583,8 +567,7 @@ is_gimple_addr_expr_arg (t)
 /*  Return nonzero if T is a constant.  */
 
 int
-is_gimple_const (t)
-     tree t;
+is_gimple_const (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -683,8 +666,7 @@ is_gimple_stmt (tree t)
 /*  Return nonzero if T is a GIMPLE identifier.  */
 
 int
-is_gimple_id (t)
-     tree t;
+is_gimple_id (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -736,8 +718,7 @@ is_gimple_val (tree t)
     repeated in several places.  */
 
 int
-is_gimple_min_lval (t)
-     tree t;
+is_gimple_min_lval (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -753,15 +734,14 @@ is_gimple_min_lval (t)
       arrayref
 	      : ID reflist
 	      | '(' '*' ID ')' reflist  => extension because ARRAY_REF
-	      				   requires an ARRAY_TYPE argument.
+					   requires an ARRAY_TYPE argument.
 
       reflist
 	      : '[' val ']'
 	      | reflist '[' val ']'  */
 
 int
-is_gimple_arrayref (t)
-     tree t;
+is_gimple_arrayref (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -793,8 +773,7 @@ is_gimple_arrayref (t)
 	      | ID  */
 
 int
-is_gimple_compref (t)
-     tree t;
+is_gimple_compref (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -814,8 +793,7 @@ is_gimple_compref (t)
     '(' cast ')' val.  */
 
 int
-is_gimple_cast (t)
-     tree t;
+is_gimple_cast (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -827,8 +805,7 @@ is_gimple_cast (t)
 /*  Return nonzero if T is a typecast operator.  */
 
 int
-is_gimple_cast_op (t)
-     tree t;
+is_gimple_cast_op (tree t)
 {
   if (t == NULL_TREE)
     return 1;
@@ -849,8 +826,7 @@ is_gimple_cast_op (t)
 	      | expr  */
 
 int
-is_gimple_exprseq (t)
-     tree t;
+is_gimple_exprseq (tree t)
 {
   /* Empty expression sequences are allowed.  */
   if (t == NULL_TREE)
@@ -867,8 +843,7 @@ is_gimple_exprseq (t)
    argument list.  */
 
 int
-is_gimplifiable_builtin (expr)
-     tree expr;
+is_gimplifiable_builtin (tree expr)
 {
   tree decl;
 
@@ -893,8 +868,7 @@ is_gimplifiable_builtin (expr)
    node will only change if it is also a matching node.  */
 
 tree
-right_assocify_expr (top)
-     tree top;
+right_assocify_expr (tree top)
 {
   tree *p = &top;
   enum tree_code code = TREE_CODE (*p);
@@ -943,8 +917,7 @@ right_assocify_expr (top)
    with a nop.  */
 
 tree
-rationalize_compound_expr (top)
-     tree top;
+rationalize_compound_expr (tree top)
 {
   if (top == NULL_TREE)
     top = build_empty_stmt ();
@@ -958,8 +931,7 @@ rationalize_compound_expr (top)
    base symbol for the variable.  */
 
 tree
-get_base_symbol (t)
-     tree t;
+get_base_symbol (tree t)
 {
   do
     {
@@ -991,8 +963,7 @@ get_base_symbol (t)
 }
 
 void
-recalculate_side_effects (t)
-     tree t;
+recalculate_side_effects (tree t)
 {
   enum tree_code code = TREE_CODE (t);
   int fro = first_rtl_op (code);
