@@ -1069,6 +1069,7 @@ comptypes (tree t1, tree t2, int strict)
     default:
       break;
     }
+
   return false;
 }
 
