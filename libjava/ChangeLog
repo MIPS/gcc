@@ -1,3 +1,25 @@
+2004-07-05  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JMenu.java:
+	(setSelected): Display popup menu only if this menu 
+	is showing on the screen.
+	* javax/swing/JPopupMenu.java:
+	(processMouseEvent): Added comment.
+	(processKeyEvent): Likewise.
+	* javax/swing/MenuSelectionManager.java:
+	(clearSelectedPath): Only fireStateChanged() after
+	selected path was changed, not before.
+	(setSelectedPath): Likewise.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(paintMenuItem): Corrected position of menu item's
+	icon.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	(installUI): Correct setDefaultLightWeightPopupEnabled call.
+	(popupMenuCanceled): Reimplemented.
+	(popupMenuWillBecomeVisible): Select first menu item by default 
+	when displaying free floating popup menus.
+	(TopWindowListener): Reimplemented.
+
 2004-07-02  Olga Rodimina  <rodimina@redhat.com>
 
 	* java/awt/Window.java: Reverted changes from my 

@@ -558,6 +558,18 @@ public class BasicMenuItemUI extends MenuItemUI
 	  }
       }
 
+    // paint icon
+    // FIXME: should paint different icon at different button state's.
+    // i.e disabled icon when button is disabled.. etc.
+    Icon i = m.getIcon();
+    if (i != null)
+      {
+	i.paintIcon(c, g, vr.x, vr.y);
+
+	// Adjust view rectangle, s.t text would be drawn after menu item's icon.
+	vr.x += i.getIconWidth() + defaultTextIconGap;
+      }
+
     // paint text and user menu icon if it exists	     
     SwingUtilities.layoutCompoundLabel(c, fm, m.getText(), m.getIcon(),
                                        vertAlign, horAlign, vertTextPos,
@@ -565,19 +577,6 @@ public class BasicMenuItemUI extends MenuItemUI
                                        defaultTextIconGap);
 
     paintText(g, m, tr, m.getText());
-
-    // paint icon
-    // FIXME: should paint different icon at different button state's.
-    // i.e disabled icon when button is disabled.. etc.
-
-    
-    Icon i = m.getIcon();
-    if (i != null)
-      {
-         int x = ir.x;
-         int y = ir.y;
-         i.paintIcon(c, g, x, y);
-      }    
 
     // paint accelerator    
     String acceleratorText = "";
@@ -989,8 +988,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void propertyChange(PropertyChangeEvent evt)
     {
-	menuItem.revalidate();
-	menuItem.repaint();
+      menuItem.revalidate();
+      menuItem.repaint();
     }
   }
 }

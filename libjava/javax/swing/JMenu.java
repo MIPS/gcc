@@ -339,23 +339,28 @@ public class JMenu extends JMenuItem implements Accessible, MenuElement
       {
 	super.setArmed(true);
 	super.setSelected(true);
-	fireMenuSelected();
 
-	int x = 0;
-	int y = 0;
-	if (menuLocation == null)
+	if (this.isShowing())
 	  {
-	    // Calculate correct position of the popup. Note that location of the popup 
-	    // passed to show() should be relative to the popup's invoker
-	    if (isTopLevelMenu())
-	      y = this.getHeight();
-	    else
-	      x = this.getWidth();
+	    fireMenuSelected();
 
-	    getPopupMenu().show(this, x, y);
+	    int x = 0;
+	    int y = 0;
+
+	    if (menuLocation == null)
+	      {
+		// Calculate correct position of the popup. Note that location of the popup 
+		// passed to show() should be relative to the popup's invoker
+		if (isTopLevelMenu())
+		  y = this.getHeight();
+		else
+		  x = this.getWidth();
+
+		getPopupMenu().show(this, x, y);
+	      }
+	    else
+	      getPopupMenu().show(this, menuLocation.x, menuLocation.y);
 	  }
-	else
-	  getPopupMenu().show(this, menuLocation.x, menuLocation.y);
       }
 
     else

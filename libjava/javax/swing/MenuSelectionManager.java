@@ -124,11 +124,12 @@ public class MenuSelectionManager
     for (int i = selectedPath.size() - 1; i >= 0; i--)
       ((MenuElement) selectedPath.get(i)).menuSelectionChanged(false);
 
+    // clear selected path
+    selectedPath.clear();
+    
     // notify all listeners that the selected path was changed    
     fireStateChanged();
 
-    // clear selected path
-    selectedPath.clear();
   }
 
   /**
@@ -235,9 +236,7 @@ public class MenuSelectionManager
       {
 	clearSelectedPath();
 	return;
-      }
-
-    fireStateChanged();
+      }    
 
     int i;
     int minSize = path.length; // size of the smaller path. 
@@ -287,6 +286,8 @@ public class MenuSelectionManager
 	path[i].menuSelectionChanged(true);
 	selectedPath.setElementAt(path[i], i);
       }
+      
+    fireStateChanged();  
   }
 
   /**

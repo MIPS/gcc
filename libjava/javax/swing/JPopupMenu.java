@@ -130,7 +130,6 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
 
     lightWeightPopupEnabled = DefaultLightWeightPopupEnabled;
     selectionModel = new DefaultSingleSelectionModel();
-
     super.setVisible(false);
   }
 
@@ -788,6 +787,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   public void processMouseEvent(MouseEvent event, MenuElement[] path,
                                 MenuSelectionManager manager)
   {
+    // Empty Implementation. This method is needed for the implementation
+    // of MenuElement interface
   }
 
   /**
@@ -800,6 +801,8 @@ public class JPopupMenu extends JComponent implements Accessible, MenuElement
   public void processKeyEvent(KeyEvent event, MenuElement[] path,
                               MenuSelectionManager manager)
   {
+    // Empty Implementation. This method is needed for the implementation
+    // of MenuElement interface
   }
 
   /**

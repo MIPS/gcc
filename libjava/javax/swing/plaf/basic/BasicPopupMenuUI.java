@@ -48,6 +48,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Stroke;
@@ -144,7 +145,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
     popupMenu = (JPopupMenu) c;
     popupMenu.setLayout(new GridBagLayout());
     popupMenu.setBorderPainted(true);
-    popupMenu.setDefaultLightWeightPopupEnabled(true);
+    JPopupMenu.setDefaultLightWeightPopupEnabled(true);
 
     installDefaults();
     installListeners();
@@ -284,11 +285,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
     public void popupMenuCanceled(PopupMenuEvent event)
     {
       MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-
-      if (manager.getSelectedPath().length != 0)
-	manager.clearSelectedPath();
-      else
-	popupMenu.setVisible(false);
+      manager.clearSelectedPath();
     }
 
     /**
@@ -301,6 +298,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
       // remove listener that listens to component events fired 
       // by the top - level window that this popup belongs to
       Component invoker = popupMenu.getInvoker();
+
       Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
       rootContainer.removeComponentListener(topWindowListener);
     }
@@ -317,6 +315,22 @@ public class BasicPopupMenuUI extends PopupMenuUI
       Component invoker = popupMenu.getInvoker();
       Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
       rootContainer.addComponentListener(topWindowListener);
+
+      // if this popup menu is a free floating popup menu,
+      // then by default its first element should be always selected when
+      // this popup menu becomes visible. 
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+
+      if (manager.getSelectedPath().length == 0)
+        {
+	  // Set selected path to point to the first item in the popup menu
+	  MenuElement[] path = new MenuElement[2];
+	  path[0] = popupMenu;
+	  Component[] comps = popupMenu.getComponents();
+	  if (comps.length != 0 && comps[0] instanceof MenuElement)
+	    path[1] = (MenuElement) comps[0];
+	  manager.setSelectedPath(path);
+        }
     }
   }
 
@@ -338,7 +352,8 @@ public class BasicPopupMenuUI extends PopupMenuUI
      */
     public void componentResized(ComponentEvent e)
     {
-      popupMenu.firePopupMenuCanceled();
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
     }
 
     /**
@@ -349,7 +364,8 @@ public class BasicPopupMenuUI extends PopupMenuUI
      */
     public void componentMoved(ComponentEvent e)
     {
-      popupMenu.firePopupMenuCanceled();
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
     }
 
     /**
@@ -360,7 +376,8 @@ public class BasicPopupMenuUI extends PopupMenuUI
      */
     public void componentShown(ComponentEvent e)
     {
-      popupMenu.firePopupMenuCanceled();
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
     }
 
     /**
@@ -371,7 +388,8 @@ public class BasicPopupMenuUI extends PopupMenuUI
      */
     public void componentHidden(ComponentEvent e)
     {
-      popupMenu.firePopupMenuCanceled();
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
     }
   }
 
