@@ -2625,7 +2625,13 @@ avail_expr_eq (const void *p1, const void *p2)
       varray_type ops2 = vuse_ops (s2);
 
       if (ops1 == NULL && ops2 == NULL)
-	return true;
+	{
+#ifdef ENABLE_CHECKING
+	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
+	    abort ();
+#endif
+	  return true;
+	}
 
       if (VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
 	{
@@ -2634,6 +2640,10 @@ avail_expr_eq (const void *p1, const void *p2)
 	    if (VARRAY_GENERIC_PTR (ops1, i) != VARRAY_GENERIC_PTR (ops2, i))
 	      return false;
 
+#ifdef ENABLE_CHECKING
+	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
+	    abort ();
+#endif
 	  return true;
 	}
     }

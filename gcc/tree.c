@@ -3575,9 +3575,15 @@ iterative_hash_expr (tree t, hashval_t val)
     {
       val = iterative_hash_object (code, val);
 
-      if (code == NOP_EXPR || code == CONVERT_EXPR
-	  || code == NON_LVALUE_EXPR)
-	val = iterative_hash_object (TREE_TYPE (t), val);
+      /* Don't hash the type, that can lead to having nodes which
+	 compare equal according to operand_equal_p, but which
+	 have different hash codes.  */
+      if (code == NOP_EXPR || code == CONVERT_EXPR || code == NON_LVALUE_EXPR)
+	{
+	  /* Make sure to include signness in the hash computation.  */
+	  val += TREE_UNSIGNED (TREE_TYPE (t));
+	  val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
+	}
 
       if (code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
 	  || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR

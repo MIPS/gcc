@@ -1,5 +1,12 @@
 2003-06-12  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.c (avail_expr_eq): Add some checking code to
+	detect when equal expressions have different hash values.
+ 
+	* tree.c (iterative_hash_expr): Don't hash types associated
+	with conversions.  Instead hash on the signedness of the
+	toplevel object and the operand of the conversion.
+
 	* Makefile.in (gimplify.o): Depend on $(RTL_H).  Ugh.
 	* gimplify.c: Include "rtl.h".
 	(simplify_call_expr): Use call_expr_flags and check for ECF_CONST
