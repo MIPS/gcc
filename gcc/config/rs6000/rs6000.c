@@ -3977,7 +3977,7 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 int
 function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED, 
 				enum machine_mode mode ATTRIBUTE_UNUSED, 
-'				tree type, int named ATTRIBUTE_UNUSED)
+				tree type, int named ATTRIBUTE_UNUSED)
 {
   if (DEFAULT_ABI == ABI_V4
       && ((type && AGGREGATE_TYPE_P (type))
@@ -7446,7 +7446,7 @@ branch_positive_comparison_operator (rtx op, enum machine_mode mode)
 {
   enum rtx_code code;
 
-  if (! branch_comparison_operator (rtx op, enum machine_mode mode))
+  if (! branch_comparison_operator (op, mode))
     return 0;
 
   code = GET_CODE (op);
