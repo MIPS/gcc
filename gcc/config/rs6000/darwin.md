@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
   "TARGET_MACHO && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_64BIT"
   "@
    lfs %0,lo16(%2)(%1)
-   {l|ld} %0,lo16(%2)(%1)"
+   {l|lwz} %0,lo16(%2)(%1)"
   [(set_attr "type" "load")
    (set_attr "length" "4")])
 
