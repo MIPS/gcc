@@ -61,6 +61,10 @@
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
 
+/* APPLE LOCAL pascal strings */
+#include "../../libcpp/internal.h"
+extern struct cpp_reader* parse_in;
+
 /* APPLE LOCAL begin Macintosh alignment */
 #ifndef TARGET_ALIGN_MAC68K
 #define TARGET_ALIGN_MAC68K 0
