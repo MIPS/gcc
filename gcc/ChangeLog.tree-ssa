@@ -1,3 +1,22 @@
+2003-07-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_stmt_operand): Move volatile handling...
+	(find_vars_r): ... here.
+	Mark when the walker is inside an ASM_EXPR.
+	(struct walk_state): Add field 'is_asm_expr'.
+	Change flag fields to bitfields.
+	(add_referenced_var): If the variable is a pointer being stored by
+	an ASM_EXPR, mark it as a global memory pointer.
+	* tree-flow-inline.h (is_optimizable_addr_expr): New function.
+	* tree-flow.h (is_optimizable_addr_expr): Declare it.
+	* tree-ssa.c (rewrite_and_optimize_stmt): Use it.
+	(lookup_avail_expr): Likewise.
+	(get_eq_expr_value): Likewise.
+	(avail_expr_eq): Return 'true' when comparing a statement against
+	itself.
+	* tree-ssa-dce.c (need_to_preserve_store): Move volatile checking...
+	(stmt_useful_p): ...here.
+
 2003-07-15  Andreas Jaeger  <aj@suse.de>
 
 	* c-simplify.c: Convert prototypes to ISO C90.

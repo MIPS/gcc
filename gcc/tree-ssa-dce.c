@@ -193,10 +193,6 @@ need_to_preserve_store (tree var)
   sym = SSA_NAME_VAR (var);
   base_symbol = get_base_symbol (var);
 
-  /* Stores to volatiles must be preserved.  */
-  if (TREE_THIS_VOLATILE (sym))
-    return true;
-
   /* File scope variables must be preserved.  */
   if (decl_function_context (base_symbol) == NULL)
     return true;
@@ -289,6 +285,10 @@ stmt_useful_p (tree stmt)
 	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
 	    return true;
     }
+
+  /* If the statement has volatile operands, it needs to be preserved.  */
+  if (stmt_ann (stmt)->has_volatile_ops)
+    return true;
 
   /* Examine all the stores in this statement.  */
   get_stmt_operands (stmt);

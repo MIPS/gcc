@@ -502,14 +502,19 @@ empty_bsi_stack (bsi_list_p list)
 static inline bool
 is_unchanging_value (tree val)
 {
+  return ((TREE_CONSTANT (val) || really_constant_p (val))
+	  && is_gimple_val (val));
+}
+
+static inline bool
+is_optimizable_addr_expr (tree val)
+{
   /* FIXME: It should be possible to accept type-casted ADDR_EXPRs if we
      made sure that the folded INDIRECT_REF kept the type-cast.  See for
      instance, gcc.c-torture/compile/990203-1.c.  */
-  return ((TREE_CODE (val) == ADDR_EXPR
-	   && (TREE_CODE (TREE_OPERAND (val, 0)) == VAR_DECL
-	       || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL))
-          || ((TREE_CONSTANT (val) || really_constant_p (val))
-	      && is_gimple_val (val)));
+  return (TREE_CODE (val) == ADDR_EXPR
+	  && (TREE_CODE (TREE_OPERAND (val, 0)) == VAR_DECL
+	      || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL));
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

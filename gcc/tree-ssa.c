@@ -2193,7 +2193,8 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       if (val)
 	{
 	  /* Gather statistics.  */
-	  if (is_unchanging_value (val))
+	  if (is_unchanging_value (val)
+	      || is_optimizable_addr_expr (val))
 	    ssa_stats.num_const_prop++;
 	  else
 	    ssa_stats.num_copy_prop++;
@@ -2204,7 +2205,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
 	      fprintf (dump_file, "  Replaced '");
 	      print_generic_expr (dump_file, *op_p, 0);
 	      fprintf (dump_file, "' with %s '",
-		       is_unchanging_value (val) ? "constant" : "variable");
+		       TREE_CODE (val) == SSA_NAME ? "variable" : "constant");
 	      print_generic_expr (dump_file, val, 0);
 	      fprintf (dump_file, "'\n");
 	    }
@@ -2292,7 +2293,9 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       rhs = TREE_OPERAND (stmt, 1);
       if (may_optimize_p)
 	{
-	  if (TREE_CODE (rhs) == SSA_NAME || is_unchanging_value (rhs))
+	  if (TREE_CODE (rhs) == SSA_NAME
+	      || is_unchanging_value (rhs)
+	      || is_optimizable_addr_expr (rhs))
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
     }
@@ -2762,7 +2765,8 @@ lookup_avail_expr (tree stmt,
      in rewrite_and_optimize_stmt.  */
   rhs = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (rhs) == SSA_NAME
-      || is_unchanging_value (rhs))
+      || is_unchanging_value (rhs)
+      || is_optimizable_addr_expr (rhs))
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, INSERT);
@@ -2806,6 +2810,7 @@ get_eq_expr_value (tree if_stmt)
   else if (TREE_CODE (cond) == EQ_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
 	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
+	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))
 	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
     value = build (MODIFY_EXPR, TREE_TYPE (cond),
 		   TREE_OPERAND (cond, 0),
@@ -2860,6 +2865,10 @@ avail_expr_eq (const void *p1, const void *p2)
 
   s2 = (tree) p2;
   rhs2 = TREE_OPERAND (s2, 1);
+
+  /* If they are the same physical statement, return true.  */
+  if (s1 == s2)
+    return true;
 
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */

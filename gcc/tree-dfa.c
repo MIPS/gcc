@@ -89,10 +89,13 @@ struct walk_state
   htab_t vars_found;
 
   /* Nonzero if the variables found under the current tree are written to.  */
-  int is_store;
+  int is_store : 1;
 
   /* Nonzero if the walker is inside an INDIRECT_REF node.  */
-  int is_indirect_ref;
+  int is_indirect_ref : 1;
+
+  /* Nonzero if the walker is inside an ASM_EXPR node.  */
+  int is_asm_expr : 1;
 };
 
 
@@ -608,11 +611,6 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
      variables as virtual.  */
   if (v_ann->is_alias_tag)
     flags |= opf_force_vop;
-
-  /* If the variable is volatile, inform the statement that it makes
-      volatile storage references.  */
-  if (TREE_THIS_VOLATILE (var))
-    s_ann->has_volatile_ops = 1;
 
   aliases = v_ann->may_aliases;
   if (aliases == NULL)
@@ -1682,6 +1680,7 @@ compute_may_aliases (tree fndecl)
   walk_state.vars_found = vars_found;
   walk_state.is_store = 0;
   walk_state.is_indirect_ref = 0;
+  walk_state.is_asm_expr = 0;
 
   /* Find all the variables referenced in the function.  */
   FOR_EACH_BB (bb)
@@ -2163,16 +2162,23 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 	  && may_access_global_mem_p (TREE_OPERAND (t, 1)))
 	set_may_point_to_global_mem (TREE_OPERAND (t, 0));
 
+      /* If either side makes volatile references, mark the statement.  */
+      if (TREE_THIS_VOLATILE (TREE_OPERAND (t, 0))
+	  || TREE_THIS_VOLATILE (TREE_OPERAND (t, 1)))
+	get_stmt_ann (t)->has_volatile_ops = 1;
+
       return t;
     }
   else if (TREE_CODE (t) == ASM_EXPR)
     {
+      walk_state->is_asm_expr = 1;
       walk_state->is_store = 1;
       walk_tree (&ASM_OUTPUTS (t), find_vars_r, data, NULL);
       walk_tree (&ASM_CLOBBERS (t), find_vars_r, data, NULL);
       walk_state->is_store = 0;
       walk_tree (&ASM_INPUTS (t), find_vars_r, data, NULL);
       walk_state->is_store = saved_is_store;
+      walk_state->is_asm_expr = 0;
       return t;
     }
   else if (TREE_CODE (t) == INDIRECT_REF)
@@ -2296,6 +2302,13 @@ add_referenced_var (tree var, struct walk_state *walk_state)
      stores to keep track of.  */
   if (walk_state->is_store)
     v_ann->is_stored = 1;
+
+  /* If the variable is a pointer being clobbered by an ASM_EXPR, the
+     pointer may end up pointing to global memory.  */
+  if (POINTER_TYPE_P (TREE_TYPE (var))
+      && walk_state->is_store
+      && walk_state->is_asm_expr)
+    v_ann->may_point_to_global_mem = 1;
 
   /* If VAR is a pointer referenced in an INDIRECT_REF node, create (or
      re-use) a memory tag to represent the location pointed-to by VAR.  */
