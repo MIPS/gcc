@@ -3200,6 +3200,7 @@ extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl		PARAMS ((tree, rtx));
+extern void set_decl_incoming_rtl	PARAMS ((tree, rtx));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

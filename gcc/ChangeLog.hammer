@@ -1,3 +1,14 @@
+2004-02-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline.
+	2004-02-10  Josef Zlomek  <zlomekj@suse.cz>
+		PR/14058
+		* emit-rtl.c (set_decl_incoming_rtl): New.
+		* tree.h (set_decl_incoming_rtl): New.
+		* function.c (assign_parms): Use set_decl_incoming_rtl for
+		setting DECL_INCOMING_RTL.
+		* ada/misc.c (adjust_decl_rtl): Likewise.
+
 2004-02-10  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/t-linux64bi: New file, copy of old t-linuxbi.

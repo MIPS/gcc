@@ -4688,7 +4688,7 @@ assign_parms (fndecl)
 	entry_parm = stack_parm;
 
       /* Record permanently how this parm was passed.  */
-      DECL_INCOMING_RTL (parm) = entry_parm;
+      set_decl_incoming_rtl (parm, entry_parm);
 
       /* If there is actually space on the stack for this parm,
 	 count it in stack_args_size; otherwise set stack_parm to 0
@@ -4760,7 +4760,7 @@ assign_parms (fndecl)
 		&& INTVAL (XEXP (XVECEXP (entry_parm, 0, i), 1)) == 0)
 	      {
 		entry_parm = XEXP (XVECEXP (entry_parm, 0, i), 0);
-		DECL_INCOMING_RTL (parm) = entry_parm;
+		set_decl_incoming_rtl (parm, entry_parm);
 		break;
 	      }
 	}
@@ -5229,20 +5229,22 @@ assign_parms (fndecl)
 	{
 	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
 	    {
+	      rtx tmp;
+
 	      SET_DECL_RTL (parm,
 			    gen_rtx_CONCAT (DECL_MODE (parm),
 					    DECL_RTL (fnargs),
 					    DECL_RTL (TREE_CHAIN (fnargs))));
-	      DECL_INCOMING_RTL (parm)
-		= gen_rtx_CONCAT (DECL_MODE (parm),
-				  DECL_INCOMING_RTL (fnargs),
-				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      tmp = gen_rtx_CONCAT (DECL_MODE (parm),
+				    DECL_INCOMING_RTL (fnargs),
+				    DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      set_decl_incoming_rtl (parm, tmp);
 	      fnargs = TREE_CHAIN (fnargs);
 	    }
 	  else
 	    {
 	      SET_DECL_RTL (parm, DECL_RTL (fnargs));
-	      DECL_INCOMING_RTL (parm) = DECL_INCOMING_RTL (fnargs);
+	      set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs));
 	    }
 	  fnargs = TREE_CHAIN (fnargs);
 	}
