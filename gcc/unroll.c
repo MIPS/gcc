@@ -987,7 +987,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 				       less_p ? GE : LE, NULL_RTX,
 				       mode, unsigned_p, labels[1]);
 	      predict_insn_def (get_last_insn (), PRED_LOOP_CONDITION,
-				NOT_TAKEN);
+				TAKEN);
 	      JUMP_LABEL (get_last_insn ()) = labels[1];
 	      LABEL_NUSES (labels[1])++;
 	    }
