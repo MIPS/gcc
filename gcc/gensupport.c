@@ -958,16 +958,19 @@ init_md_reader_args (argc, argv)
      char **argv;
 {
   int i;
-  const char *in_fname;
+  const char *in_fname, *mid_fname;
 
   max_include_len = 0;
   in_fname = NULL;
+  mid_fname = NULL;
   for (i = 1; i < argc; i++)
     {
       if (argv[i][0] != '-')
 	{
 	  if (in_fname == NULL)
 	    in_fname = argv[i];
+	  else if (mid_fname == NULL)
+	    mid_fname = argv[i];
 	}
       else
 	{
@@ -1002,14 +1005,14 @@ init_md_reader_args (argc, argv)
 	    }
 	}
     }
-    return init_md_reader (in_fname);
+    return init_md_reader (in_fname, mid_fname);
 }
 
 /* The entry point for initializing the reader.  */
 
 int
-init_md_reader (filename)
-     const char *filename;
+init_md_reader (filename, midfilename)
+     const char *filename, *midfilename;
 {
   FILE *input_file;
   int c;
@@ -1033,6 +1036,10 @@ init_md_reader (filename)
   obstack_init (rtl_obstack);
   errors = 0;
   sequence_num = 0;
+
+  /* Read the midlevel RTL description first.  */
+  if (init_include_reader (fopen (midfilename, "r")) == FATAL_EXIT_CODE)
+    errors = 1;
 
   /* Read the entire file.  */
   while (1)

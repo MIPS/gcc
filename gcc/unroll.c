@@ -930,6 +930,17 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 
 	  start_sequence ();
 
+	  /* Final value may have form of (PLUS val1 const1_rtx).  We need
+	     to convert it into general operand, so compute the real value.  */
+
+	  if (GET_CODE (final_value) == PLUS)
+	    {
+	      final_value = expand_simple_binop (mode, PLUS,
+						 copy_rtx (XEXP (final_value, 0)),
+						 copy_rtx (XEXP (final_value, 1)),
+						 NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	    }
+
 	  /* Calculate the difference between the final and initial values.
 	     Final value may be a (plus (reg x) (const_int 1)) rtx.
 	     Let the following cse pass simplify this if initial value is

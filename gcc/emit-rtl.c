@@ -3003,9 +3003,15 @@ try_split (pat, trial, last)
 		    /* We can preserve the REG_BR_PROB notes only if exactly
 		       one jump is created, otherwise the machine description
 		       is responsible for this step using
-		       split_branch_probability variable.  */
+		       split_branch_probability variable. 
+		    
+		       MIDlevel RTL lowering process create this from time to time.
+		       Lets give up this condition for now.
+		     */
+#if 0
 		    if (njumps != 1)
 		      abort ();
+#endif
 		    REG_NOTES (insn)
 		      = gen_rtx_EXPR_LIST (REG_BR_PROB,
 					   GEN_INT (probability),
@@ -3089,18 +3095,21 @@ try_split (pat, trial, last)
 	     set LAST and continue from the insn after the one returned.
 	     We can't use next_active_insn here since AFTER may be a note.
 	     Ignore deleted insns, which can be occur if not optimizing.  */
-	  for (tem = NEXT_INSN (before); tem != after; tem = NEXT_INSN (tem))
-	    if (! INSN_DELETED_P (tem) && INSN_P (tem))
-	      tem = try_split (PATTERN (tem), tem, 1);
+	  if (cfun->rtl_form != RTL_FORM_MIDLOW)
+	    for (tem = NEXT_INSN (before); tem != after; tem = NEXT_INSN (tem))
+	      if (! INSN_DELETED_P (tem) && INSN_P (tem))
+		tem = try_split (PATTERN (tem), tem, 1);
 	}
       /* Avoid infinite loop if the result matches the original pattern.  */
       else if (rtx_equal_p (seq, pat))
 	return trial;
-      else
+      else 
 	{
 	  PATTERN (trial) = seq;
 	  INSN_CODE (trial) = -1;
-	  try_split (seq, trial, last);
+          /* Avoid recursive splitting during RTL lowering process.  */
+	  if (cfun->rtl_form != RTL_FORM_MIDLOW)
+	    try_split (seq, trial, last);
 	}
 
       /* Return either the first or the last insn, depending on which was

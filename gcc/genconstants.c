@@ -63,7 +63,7 @@ main (argc, argv)
   if (argc <= 1)
     fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader (argv[1], argv[2]) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   /* Scan and discard the entire file.  This has the side effect

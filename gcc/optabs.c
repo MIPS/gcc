@@ -118,6 +118,7 @@ static void emit_cmp_and_jump_insn_1 PARAMS ((rtx, rtx, enum machine_mode,
 					    enum rtx_code, int, rtx));
 static void prepare_float_lib_cmp PARAMS ((rtx *, rtx *, enum rtx_code *,
 					 enum machine_mode *, int *));
+static rtx prepare_generic_operand PARAMS ((rtx, enum machine_mode, int));
 
 /* Add a REG_EQUAL note to the last insn in SEQ.  TARGET is being set to
    the result of operation CODE applied to OP0 (and OP1 if it is a binary
@@ -621,6 +622,44 @@ expand_simple_binop (mode, code, op0, op1, target, unsignedp, methods)
 
   return expand_binop (mode, binop, op0, op1, target, unsignedp, methods);
 }
+
+rtx
+expand_generic_binop (code, op0, op1, target)
+     enum rtx_code code;
+     rtx op0, op1;
+     rtx target;
+{
+  enum machine_mode mode = GET_MODE (target);
+  switch (code)
+    {
+    case MULT:
+      return expand_mult (mode, op0, op1, target, 1);
+      break;
+    case DIV:
+      if (!INTEGRAL_MODE_P (mode))
+	return expand_simple_binop (mode, code, op0, op1, target,
+				    1, OPTAB_LIB_WIDEN);
+      else
+	return expand_divmod (0,
+			      FLOAT_MODE_P (mode)
+			      ? RDIV_EXPR : TRUNC_DIV_EXPR, mode,
+			      op0, op1, target, 0);
+      break;
+    case MOD:
+      return expand_divmod (1, TRUNC_MOD_EXPR, mode, op0, op1, target, 0);
+      break;
+    case UDIV:
+      return expand_divmod (0, TRUNC_DIV_EXPR, mode, op0, op1, target, 1);
+      break;
+    case UMOD:
+      return expand_divmod (1, TRUNC_MOD_EXPR, mode, op0, op1, target, 1);
+      break;
+    default:
+      return expand_simple_binop (mode, code, op0, op1, target,
+				  1, OPTAB_LIB_WIDEN);
+      break;
+    }
+}
 
 /* Generate code to perform an operation specified by BINOPTAB
    on operands OP0 and OP1, with result having machine-mode MODE.
@@ -715,6 +754,22 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	  op1 = op0;
 	  op0 = temp;
 	}
+    }
+
+  if (cfun->rtl_form >= RTL_FORM_MID && binoptab->code != UNKNOWN
+      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode))
+      && binoptab->code != ROTATE && binoptab->code != ROTATERT
+      && binoptab->code != SMIN && binoptab->code != SMAX
+      && binoptab->code != UMIN && binoptab->code != UMAX)
+    {
+      if (!target)
+	target = gen_reg_rtx (mode);
+      op0 = prepare_generic_operand (op0, mode, 1);
+      op1 = prepare_generic_operand (op1, shift_op ? QImode : mode, 1);
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_fmt_ee (binoptab->code, mode,
+					      op0, op1)));
+      return target;
     }
 
   /* If we can do it with a three-operand insn, do so.  */
@@ -2090,6 +2145,18 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
   if (target)
     target = protect_from_queue (target, 1);
 
+  if (cfun->rtl_form >= RTL_FORM_MID && unoptab->code != UNKNOWN
+      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode))
+      && unoptab->code != ABS)
+    {
+      if (!target)
+	target = gen_reg_rtx (mode);
+      op0 = prepare_generic_operand (op0, mode, 1);
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_fmt_e (unoptab->code, mode, op0)));
+      return target;
+    }
+
   if (unoptab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
     {
       int icode = (int) unoptab->handlers[(int) mode].insn_code;
@@ -3243,6 +3310,21 @@ prepare_operand (icode, x, opnum, mode, wider_mode, unsignedp)
   return x;
 }
 
+static rtx
+prepare_generic_operand (x, mode, unsignedp)
+     rtx x;
+     enum machine_mode mode;
+     int unsignedp;
+{
+  x = protect_from_queue (x, 0);
+  x = force_not_mem (x);
+
+  if (GET_MODE (x) != VOIDmode && GET_MODE (x) != mode)
+    x = convert_modes (mode, GET_MODE (x), x, unsignedp);
+
+  return x;
+}
+
 /* Subroutine of emit_cmp_and_jump_insns; this function is called when we know
    we can do the comparison.
    The arguments are the same as for emit_cmp_and_jump_insns; but LABEL may
@@ -3365,6 +3447,22 @@ emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, label)
   emit_queue ();
   if (unsignedp)
     comparison = unsigned_condition (comparison);
+
+  if (cfun->rtl_form >= RTL_FORM_MID && mode != BLKmode && label
+      && !COMPLEX_MODE_P (GET_MODE_CLASS (mode)))
+    {
+      op0 = prepare_generic_operand (op0, mode, unsignedp);
+      op1 = prepare_generic_operand (op1, mode, unsignedp);
+      if (GET_MODE (op0) == VOIDmode && GET_MODE (op1) == VOIDmode)
+	op0 = force_reg (mode, op0);
+      emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+				   gen_rtx_IF_THEN_ELSE (VOIDmode,
+				     gen_rtx_fmt_ee (comparison, VOIDmode,
+						     op0, op1),
+				     gen_rtx_LABEL_REF (VOIDmode, label),
+				     pc_rtx)));
+      return;
+    }
 
   prepare_cmp_insn (&op0, &op1, &comparison, size, &mode, &unsignedp,
 		    ccp_jump);

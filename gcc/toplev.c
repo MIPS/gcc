@@ -3080,6 +3080,22 @@ rest_of_compilation (decl)
      }
 #endif
 
+  /* Lower into lowlevel RTL now.  */
+  cfun->rtl_form = RTL_FORM_MIDLOW;
+  {
+    rtx insn;
+    int old_defer = flag_defer_pop;
+
+    flag_defer_pop = 0;
+    split_all_insns (0);
+    flag_defer_pop = old_defer;
+    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+      if (INSN_P (insn))
+	INSN_CODE (insn) = -1;
+  }
+  reg_scan (insns, max_reg_num (), 0);
+  cfun->rtl_form = RTL_FORM_LOW;
+
   if (optimize > 0)
     {
       timevar_push (TV_CSE2);
@@ -5154,6 +5170,7 @@ lang_independent_init ()
 {
   decl_printable_name = decl_name;
   lang_expand_expr = (lang_expand_expr_t) do_abort;
+
 
   /* Set the language-dependent identifier size.  */
   tree_code_length[(int) IDENTIFIER_NODE]

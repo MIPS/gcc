@@ -3220,3 +3220,212 @@ peephole2_optimize (dump_file)
 #endif
 }
 #endif /* HAVE_peephole2 */
+
+int
+generic_address (op)
+     rtx op;
+{
+#if 0
+  rtx offset = NULL, base = NULL, index = NULL, mult = NULL;
+
+  switch (GET_CODE (op))
+    {
+    case REG:
+      base = op;
+      break;
+    case PLUS:
+      if (CONSTANT_P (XEXP (op, 1)))
+	{
+	  offset = XEXP (op, 1);
+	  op = XEXP (op, 0);
+	  if (GET_CODE (op) == MULT)
+	    goto mult;
+	  base = op;
+	}
+      else
+	{
+	  base = XEXP (op, 1);
+	  op = XEXP (op, 0);
+	  if (REG_P (op))
+	    index = op;
+	  else if (GET_CODE (op) == MULT)
+	    goto mult;
+	  else
+	    return 0;
+	}
+      break;
+    case MULT:
+    mult:
+      index = XEXP (mult, 0);
+      mult = XEXP (mult, 1);
+      break;
+    default:
+      offset = op;
+    }
+  if (offset)
+    switch (GET_CODE (offset))
+      {
+      case CONST:
+      case LABEL_REF:
+      case SYMBOL_REF:
+      case CONST_INT:
+      case CONST_DOUBLE:
+	break;
+      default:
+	return 0;
+      }
+  if (base && (!REG_P (base) || GET_MODE (base) != Pmode))
+    return 0;
+  if (index && (!REG_P (index) || GET_MODE (index) != Pmode))
+    return 0;
+  if (mult && GET_CODE (mult) != CONST_INT)
+    return 0;
+  return 1;
+#endif
+  return address_operand (op, VOIDmode);
+}
+
+int
+generic_src_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  enum machine_mode op_mode = GET_MODE (op);
+  enum rtx_code code = GET_CODE (op);
+
+  if (mode != VOIDmode && op_mode != VOIDmode && mode != op_mode)
+    return 0;
+  if (mode == VOIDmode && op_mode != VOIDmode)
+    switch (GET_MODE_CLASS (op_mode))
+      {
+	case MODE_INT:
+	case MODE_FLOAT:
+      /* Does not work yet due to partial lowering done by codegen.  */
+#if 0
+	case MODE_COMPLEX_INT:
+	case MODE_COMPLEX_FLOAT:
+#endif
+	case MODE_VECTOR_INT:
+	case MODE_VECTOR_FLOAT:
+	  break;
+	default:
+	  return 0;
+      }
+  switch (code)
+    {
+	/* Accept constants.  */
+      case LABEL_REF:
+      case SYMBOL_REF:
+      case CONST_INT:
+      case CONST_DOUBLE:
+      case CONST:
+      case CONSTANT_P_RTX:
+      case VEC_CONST:
+	/* Accept registers.  */
+      case ADDRESSOF:
+      case REG:
+	return 1;
+	/* Accept memory.  */
+      case MEM:
+	return generic_address (XEXP (op, 0));
+	/* Accept subreg of register.  */
+      case SUBREG:
+	return (REG_P (SUBREG_REG (op)));
+      default:
+	return 0;
+    }
+}
+int
+generic_dest_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  enum machine_mode op_mode = GET_MODE (op);
+  enum rtx_code code = GET_CODE (op);
+
+  if (mode != VOIDmode && op_mode != VOIDmode && mode != op_mode)
+    return 0;
+  if (mode == VOIDmode && op_mode != VOIDmode)
+    switch (GET_MODE_CLASS (op_mode))
+      {
+      case MODE_INT:
+      case MODE_FLOAT:
+      /* Does not work yet due to partial lowering done by codegen.  */
+#if 0
+      case MODE_COMPLEX_INT:
+      case MODE_COMPLEX_FLOAT:
+#endif
+      case MODE_VECTOR_INT:
+      case MODE_VECTOR_FLOAT:
+	break;
+      default:
+	return 0;
+      }
+  switch (code)
+    {
+      /* Accept registers.  */
+    case REG:
+      return 1;
+      /* Accept memory.  */
+    case MEM:
+      return generic_address (XEXP (op, 0));
+      /* Accept subreg of register.  */
+    case SUBREG:
+      return (REG_P (SUBREG_REG (op)));
+    default:
+      return 0;
+    }
+}
+
+int
+generic_unary_operator (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  switch (GET_CODE (op))
+    {
+      case NEG:
+      case NOT:
+      case ABS:
+      case SQRT:
+      case FFS:
+	return 1;
+      default:
+	return 0;
+    }
+  return 0;
+}
+
+int
+generic_binary_operator (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  switch (GET_CODE (op))
+    {
+      case SS_PLUS:
+      case SS_MINUS:
+      case US_PLUS:
+      case US_MINUS:
+      case PLUS:
+      case MINUS:
+      case DIV:
+      case MOD:
+      case UDIV:
+      case UMOD:
+      case ASHIFT:
+      case ASHIFTRT:
+      case LSHIFTRT:
+      case MULT:
+      case AND:
+      case IOR:
+      case XOR:
+      case SMIN:
+      case SMAX:
+      case UMIN:
+      case UMAX:
+	return 1;
+      default:
+	return 0;
+    }
+}

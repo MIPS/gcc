@@ -487,6 +487,19 @@ struct function
     FUNCTION_FREQUENCY_HOT,
     FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
   } function_frequency;
+
+  /* Record current form of RTL during at current compilation phase.
+     The order is reverse of how lowering happens, so comparisons works.  */
+  enum rtl_form {
+    /* The lowlevel RTL form - each insn corresponds to pattern in machine
+       description.  */
+    RTL_FORM_LOW,
+    /* Code lowering is in the progress - the generic patterns are being split
+       to lowlevel instructions.  */
+    RTL_FORM_MIDLOW,
+    /* Majority of insns are well formed generic patterns.  */
+    RTL_FORM_MID
+  } rtl_form;
 };
 
 /* The function currently being compiled.  */

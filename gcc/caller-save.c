@@ -115,6 +115,9 @@ init_caller_save ()
   rtx address;
   int i, j;
   enum machine_mode mode;
+  enum rtl_form old = cfun->rtl_form;
+
+  cfun->rtl_form = RTL_FORM_LOW;
 
   /* First find all the registers that we need to deal with and all
      the modes that they can have.  If we can't find a mode to use,
@@ -234,6 +237,7 @@ init_caller_save ()
 	}
 
   end_sequence ();
+  cfun->rtl_form = old;
 }
 
 /* Initialize save areas by showing that we haven't allocated any yet.  */

@@ -96,6 +96,10 @@ extern int reg_fits_class_p		PARAMS ((rtx, enum reg_class, int,
 					       enum machine_mode));
 extern rtx *find_single_use		PARAMS ((rtx, rtx, rtx *));
 
+extern int generic_address		PARAMS ((rtx));
+
+extern int generic_src_operand		PARAMS ((rtx, enum machine_mode));
+extern int generic_dest_operand		PARAMS ((rtx, enum machine_mode));
 extern int general_operand		PARAMS ((rtx, enum machine_mode));
 extern int address_operand		PARAMS ((rtx, enum machine_mode));
 extern int register_operand		PARAMS ((rtx, enum machine_mode));

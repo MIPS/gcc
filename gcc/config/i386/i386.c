@@ -7871,6 +7871,9 @@ ix86_expand_int_movcc (operands)
       ix86_compare_op1 = GEN_INT (INTVAL (ix86_compare_op1) + 1);
     }
 
+  if (GET_MODE (ix86_compare_op0) == DImode && !TARGET_64BIT)
+    return 0;
+
   start_sequence ();
   compare_op = ix86_expand_compare (code, &second_test, &bypass_test);
   compare_seq = gen_sequence ();
@@ -8030,6 +8033,8 @@ ix86_expand_int_movcc (operands)
 
 	  out = emit_store_flag (out, code, ix86_compare_op0,
 				 ix86_compare_op1, VOIDmode, 0, 1);
+	  if (!out)
+	    return 0;
 
 	  nops = 0;
 	  /* On x86_64 the lea instruction operates on Pmode, so we need to get arithmetics
@@ -8119,6 +8124,8 @@ ix86_expand_int_movcc (operands)
 
 	  out = emit_store_flag (out, code, ix86_compare_op0,
 				 ix86_compare_op1, VOIDmode, 0, 1);
+	  if (!out)
+	    return 0;
 
 	  out = expand_simple_binop (mode, PLUS,
 				     out, constm1_rtx,
@@ -8343,6 +8350,10 @@ ix86_expand_fp_movcc (operands)
 				    ix86_compare_op0, ix86_compare_op1));
       return 1;
     }
+
+  /* We can't easilly compare DImode operands.  */
+  if (GET_MODE (ix86_compare_op0) == DImode && !TARGET_64BIT)
+    return 0;
 
   /* The floating point conditional move instructions don't directly
      support conditions resulting from a signed integer comparison.  */
@@ -10662,9 +10673,11 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
   if (!TARGET_64BIT)
     {
       /* Compute offset from the end of the jmp to the target function.  */
-      rtx disp = expand_binop (SImode, sub_optab, fnaddr,
-			       plus_constant (tramp, 10),
+      rtx disp = expand_binop (SImode, add_optab, tramp, GEN_INT (10),
 			       NULL_RTX, 1, OPTAB_DIRECT);
+      disp = expand_binop (SImode, sub_optab, fnaddr,
+			   disp,
+			   NULL_RTX, 1, OPTAB_DIRECT);
       emit_move_insn (gen_rtx_MEM (QImode, tramp),
 		      GEN_INT (trunc_int_for_mode (0xb9, QImode)));
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 1)), cxt);

@@ -22,7 +22,7 @@ struct obstack;
 extern struct obstack *rtl_obstack;
 
 extern int init_md_reader_args	PARAMS ((int, char **));
-extern int init_md_reader	PARAMS ((const char *));
+extern int init_md_reader	PARAMS ((const char *, const char *));
 extern rtx read_md_rtx		PARAMS ((int *, int *));
 
 extern void message_with_line	PARAMS ((int, const char *, ...))

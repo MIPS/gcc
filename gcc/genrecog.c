@@ -186,6 +186,14 @@ static const struct pred_table
   const char *const name;
   const RTX_CODE codes[NUM_RTX_CODE];
 } preds[] = {
+  {"generic_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
+			   VEC_CONST, LABEL_REF, SUBREG, REG, MEM}},
+  {"generic_dest_operand", {SUBREG, REG, MEM}},
+  {"generic_unary_operator", {NEG, NOT, ABS, SQRT, FFS}},
+  {"generic_binary_operator", {SS_PLUS, SS_MINUS, US_PLUS, US_MINUS,
+			      PLUS, MINUS, DIV, MOD, UDIV, UMOD, ASHIFT,
+			      ASHIFTRT, LSHIFTRT, MULT, AND, IOR, XOR,
+			      SMIN, SMAX, UMIN, UMAX}},
   {"general_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
 		       LABEL_REF, SUBREG, REG, MEM}},
 #ifdef PREDICATE_CODES
@@ -220,7 +228,9 @@ static const char *const special_mode_pred_table[] = {
 #ifdef SPECIAL_MODE_PREDICATES
   SPECIAL_MODE_PREDICATES
 #endif
-  "pmode_register_operand"
+  "pmode_register_operand",
+  "generic_src_operand",
+  "generic_dest_operand"
 };
 
 #define NUM_SPECIAL_MODE_PREDS ARRAY_SIZE (special_mode_pred_table)
