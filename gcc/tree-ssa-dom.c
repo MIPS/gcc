@@ -156,6 +156,10 @@ static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static bool cprop_into_stmt (tree);
+static bool eliminate_redundant_computations (tree, varray_type *,
+					      varray_type, stmt_ann_t);
+static void record_equivalences (tree, varray_type *, varray_type,
+				 int, stmt_ann_t);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -1451,6 +1455,250 @@ cprop_into_stmt (tree stmt)
   return may_have_exposed_new_symbols;
 }
 
+/* Search for redundant computations in STMT.  If any are found, then
+   replace them with the variable holding the result of the computation.
+
+   If safe, record this expression into the available expression hash
+   table.  */
+
+static bool
+eliminate_redundant_computations (tree stmt,
+				  varray_type *block_avail_exprs_p,
+				  varray_type const_and_copies,
+				  stmt_ann_t ann)
+{
+  varray_type vdefs = vdef_ops (ann);
+  tree *expr_p, def = NULL_TREE;
+  bool insert = true;
+  tree cached_lhs;
+  bool retval = false;
+
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    def = TREE_OPERAND (stmt, 0);
+
+  /* Certain expressions on the RHS can be optimized away, but can not
+     themselves be entered into the hash tables.   */
+  if (ann->makes_aliased_stores
+      || ! def
+      || TREE_CODE (def) != SSA_NAME
+      || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
+      || vdefs)
+    insert = false;
+
+  /* Check if the expression has been computed before.  */
+  cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p,
+				  const_and_copies, insert);
+
+  /* If this is an assignment and the RHS was not in the hash table,
+     then try to simplify the RHS and lookup the new RHS in the
+     hash table.  */
+  if (! cached_lhs && TREE_CODE (stmt) == MODIFY_EXPR)
+    cached_lhs = simplify_rhs_and_lookup_avail_expr (stmt,
+						     block_avail_exprs_p,
+						     const_and_copies,
+						     ann,
+						     insert);
+  /* Similarly if this is a COND_EXPR and we did not find its
+     expression in the hash table, simplify the condition and
+     try again.  */
+  else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
+    cached_lhs = simplify_cond_and_lookup_avail_expr (stmt,
+						      block_avail_exprs_p,
+						      const_and_copies,
+						      ann,
+						      insert);
+  /* We could do the same with SWITCH_EXPRs in the future.  */
+
+  opt_stats.num_exprs_considered++;
+
+  /* Get a pointer to the expression we are trying to optimize.  */
+  if (TREE_CODE (stmt) == COND_EXPR)
+    expr_p = &COND_EXPR_COND (stmt);
+  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+    expr_p = &SWITCH_COND (stmt);
+  else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
+    expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
+  else
+    expr_p = &TREE_OPERAND (stmt, 1);
+
+  /* It is safe to ignore types here since we have already done
+     type checking in the hashing and equality routines.  In fact
+     type checking here merely gets in the way of constant
+     propagation.  Also, make sure that it is safe to propagate
+     CACHED_LHS into *EXPR_P.  */
+  if (cached_lhs
+      && (TREE_CODE (cached_lhs) != SSA_NAME
+	  || may_propagate_copy (cached_lhs, *expr_p)))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "  Replaced redundant expr '");
+	  print_generic_expr (dump_file, *expr_p, 0);
+	  fprintf (dump_file, "' with '");
+	  print_generic_expr (dump_file, cached_lhs, 0);
+	   fprintf (dump_file, "'\n");
+	}
+
+      opt_stats.num_re++;
+
+#if defined ENABLE_CHECKING
+      if (TREE_CODE (cached_lhs) != SSA_NAME
+	  && !is_gimple_min_invariant (cached_lhs))
+	abort ();
+#endif
+
+      if (TREE_CODE (cached_lhs) == SSA_NAME)
+	fixup_var_scope (cached_lhs, ann->scope);
+      else if (TREE_CODE (cached_lhs) == ADDR_EXPR
+	       || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
+		   && is_gimple_min_invariant (cached_lhs)))
+	retval = true;
+
+      *expr_p = cached_lhs;
+      ann->modified = 1;
+    }
+  return retval;
+}
+
+/* STMT, a MODIFY_EXPR, may create certain equivalences, in either
+   the available expressions table or the const_and_copies table.
+   Detect and record those equivalences.  */
+
+static void
+record_equivalences (tree stmt,
+		     varray_type *block_avail_exprs_p,
+		     varray_type const_and_copies,
+		     int may_optimize_p,
+		     stmt_ann_t ann)
+{
+  tree lhs = TREE_OPERAND (stmt, 0);
+  enum tree_code lhs_code = TREE_CODE (lhs);
+  int i;
+
+  if (lhs_code == SSA_NAME)
+    {
+      tree rhs = TREE_OPERAND (stmt, 1);
+
+      /* Strip away any useless type conversions.  */
+      while (tree_ssa_useless_type_conversion (rhs))
+	rhs = TREE_OPERAND (rhs, 0);
+
+      /* If the RHS of the assignment is a constant or another variable that
+	 may be propagated, register it in the CONST_AND_COPIES table.  */
+      if (may_optimize_p
+	  && (TREE_CODE (rhs) == SSA_NAME
+	      || is_gimple_min_invariant (rhs)))
+	set_value_for (lhs, rhs, const_and_copies);
+
+      /* alloca never returns zero and the address of a non-weak symbol
+	 is never zero.  NOP_EXPRs can be completely stripped as they
+	 do not affect this equivalence.  */
+      while (TREE_CODE (rhs) == NOP_EXPR)
+        rhs = TREE_OPERAND (rhs, 0);
+
+      if (alloca_call_p (rhs)
+          || (TREE_CODE (rhs) == ADDR_EXPR
+	      && DECL_P (TREE_OPERAND (rhs, 0))
+	      && ! DECL_WEAK (TREE_OPERAND (rhs, 0))))
+	{
+	  tree cond;
+
+	  cond = build (EQ_EXPR, boolean_type_node, lhs, null_pointer_node);
+	  record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
+
+	  cond = build (NE_EXPR, boolean_type_node, lhs, null_pointer_node);
+	  record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
+	}
+    }
+
+  /* Look at both sides for pointer dereferences.  If we find one, then
+     the pointer must be nonnull and we can enter that equivalence into
+     the hash tables.  */
+  for (i = 0; i < 2; i++)
+    {
+      tree t = TREE_OPERAND (stmt, i);
+
+      /* Strip away any COMPONENT_REFs.  */
+      while (TREE_CODE (t) == COMPONENT_REF)
+        t = TREE_OPERAND (t, 0);
+
+      /* Now see if this is a pointer dereference.  */
+      if (TREE_CODE (t) == INDIRECT_REF)
+        {
+	  tree op = TREE_OPERAND (t, 0);
+	  tree cond;
+
+	  /* If the pointer is a SSA variable, then enter new
+	     equivalences into the hash table.  */
+	  if (TREE_CODE (op) == SSA_NAME)
+	    {
+	      cond = build (EQ_EXPR, boolean_type_node, op, null_pointer_node);
+	      record_cond_is_false (cond,
+				    block_avail_exprs_p,
+				    const_and_copies);
+
+	      cond = build (NE_EXPR, boolean_type_node, op, null_pointer_node);
+	      record_cond_is_true (cond,
+				   block_avail_exprs_p,
+				   const_and_copies);
+	    }
+	}
+    }
+
+  /* A memory store, even an aliased store, creates a useful
+     equivalence.  By exchanging the LHS and RHS, creating suitable
+     vops and recording the result in the available expression table,
+     we may be able to expose more redundant loads.  */
+  if (!ann->has_volatile_ops
+      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
+	  || is_gimple_min_invariant (TREE_OPERAND (stmt, 1)))
+      && !is_gimple_reg (lhs))
+    {
+      tree rhs = TREE_OPERAND (stmt, 1);
+      tree new;
+      size_t j;
+
+      /* FIXME: If the LHS of the assignment is a bitfield and the RHS
+         is a constant, we need to adjust the constant to fit into the
+         type of the LHS.  This fixes gcc.c-torture/execute/921016-1.c
+	 and should not be necessary if GCC represented bitfields
+	 properly.  */
+      if (TREE_CONSTANT (rhs)
+	  && lhs_code == COMPONENT_REF
+	  && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
+	rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
+
+      if (rhs)
+	{
+	  varray_type vdefs = vdef_ops (ann);
+
+	  /* Build a new statement with the RHS and LHS exchanged.  */
+	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
+
+	  /* Get an annotation and set up the real operands.  */
+	  get_stmt_ann (new);
+	  get_stmt_operands (new);
+
+	  /* Clear out the virtual operands on the new statement, we are
+	     going to set them explicitly below.  */
+	  get_stmt_ann (new)->vops = NULL;
+
+	  /* For each VDEF on the original statement, we want to create a
+	     VUSE of the VDEF result on the new statement.  */
+	  for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
+	    {
+	      tree op = VDEF_RESULT (VARRAY_TREE (vdefs, j));
+	      add_vuse (op, new, NULL);
+	    }
+
+	  /* Finally enter the statement into the available expression
+	     table.  */
+	  lookup_avail_expr (new, block_avail_exprs_p,
+			     const_and_copies, true);
+	}
+    }
+}
+
 /* Optimize the statement pointed by iterator SI into SSA form. 
    
    BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
@@ -1507,7 +1755,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
       /* Try to fold the statement making sure that STMT is kept
 	 up to date.  */
       if (fold_stmt (bsi_stmt_ptr (si)))
-	stmt = bsi_stmt (si);
+	{
+	  stmt = bsi_stmt (si);
+	  ann = stmt_ann (stmt);
+	}
 
       /* Constant/copy propagation above may change the set of 
 	 virtual operands associated with this statement.  Folding
@@ -1531,239 +1782,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 			|| TREE_CODE (stmt) == SWITCH_EXPR));
 
   if (may_optimize_p)
-    {
-      tree *expr_p, def = NULL_TREE;
-      bool insert = true;
-      tree cached_lhs;
+    may_have_exposed_new_symbols
+      |= eliminate_redundant_computations (stmt,
+					   block_avail_exprs_p,
+					   const_and_copies,
+					   ann);
 
-      if (TREE_CODE (stmt) == MODIFY_EXPR)
-	def = TREE_OPERAND (stmt, 0);
-
-      /* Certain expressions on the RHS can be optimized away, but can not
-	 themselves be entered into the hash tables.   */
-      if (ann->makes_aliased_stores
-	  || ! def
-	  || TREE_CODE (def) != SSA_NAME
-	  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-	  || vdefs)
-	insert = false;
-
-      /* Check if the RHS of the assignment has been computed before.  If
-	 so, use the LHS of the previously computed statement as the
-	 reaching definition for the variable defined by this statement.  */
-      cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p,
-				      const_and_copies, insert);
-
-      /* If this is an assignment and the RHS was not in the hash table,
-	 then try to simplify the RHS and lookup the new RHS in the
-	 hash table.  */
-      if (! cached_lhs && TREE_CODE (stmt) == MODIFY_EXPR)
-	cached_lhs
-	  = simplify_rhs_and_lookup_avail_expr (stmt,
-						block_avail_exprs_p,
-						const_and_copies,
-						ann,
-						insert);
-      else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
-	cached_lhs = simplify_cond_and_lookup_avail_expr (stmt,
-							  block_avail_exprs_p,
-							  const_and_copies,
-							  ann,
-							  insert);
-
-      opt_stats.num_exprs_considered++;
-
-      if (TREE_CODE (stmt) == COND_EXPR)
-	expr_p = &COND_EXPR_COND (stmt);
-      else if (TREE_CODE (stmt) == SWITCH_EXPR)
-	expr_p = &SWITCH_COND (stmt);
-      else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
-	expr_p = &TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
-      else
-	expr_p = &TREE_OPERAND (stmt, 1);
-
-      /* It is safe to ignore types here since we have already done
-	 type checking in the hashing and equality routines.  In fact
-	 type checking here merely gets in the way of constant
-	 propagation.  Also, make sure that it is safe to propagate
-	 CACHED_LHS into *EXPR_P.  */
-      if (cached_lhs
-	  && (TREE_CODE (cached_lhs) != SSA_NAME
-	      || may_propagate_copy (cached_lhs, *expr_p)))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "  Replaced redundant expr '");
-	      print_generic_expr (dump_file, *expr_p, 0);
-	      fprintf (dump_file, "' with '");
-	      print_generic_expr (dump_file, cached_lhs, 0);
-	      fprintf (dump_file, "'\n");
-	    }
-
-	  opt_stats.num_re++;
-
-#if defined ENABLE_CHECKING
-	  if (TREE_CODE (cached_lhs) != SSA_NAME
-	      && !is_gimple_min_invariant (cached_lhs))
-	    abort ();
-#endif
-
-	  if (TREE_CODE (cached_lhs) == SSA_NAME)
-	    fixup_var_scope (cached_lhs, ann->scope);
-	  else if (TREE_CODE (cached_lhs) == ADDR_EXPR
-		   || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
-		       && is_gimple_min_invariant (cached_lhs)))
-	    may_have_exposed_new_symbols = true;
-
-	  *expr_p = cached_lhs;
-	  ann->modified = 1;
-	}
-    }
-
-  /* If the RHS of an assignment is a constant or another variable that
-     may be propagated, register it in the CONST_AND_COPIES table.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
-    {
-      tree rhs = TREE_OPERAND (stmt, 1);
-
-      /* Strip away any useless type conversions.  */
-      while (tree_ssa_useless_type_conversion (rhs))
-	rhs = TREE_OPERAND (rhs, 0);
-
-      if (may_optimize_p)
-	{
-	  if (TREE_CODE (rhs) == SSA_NAME
-	      || is_gimple_min_invariant (rhs))
-	    set_value_for (TREE_OPERAND (stmt, 0), rhs, const_and_copies);
-	}
-    }
-
-  /* Now a few special cases which add equivalences to the hash tables.
-     Odds are this code will be further factored out into several subroutines
-     in the near future.  I'm waiting to see what other cases arise first.  */
+  /* Record any additional equivalences created by this statement.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
-    {
-      int i;
-      tree lhs = TREE_OPERAND (stmt, 0);
-      tree rhs = TREE_OPERAND (stmt, 1);
-
-      /* Look at both sides for pointer dereferences.  If we find one, then
-         the pointer must be nonnull and we can enter that equivalence into
-	 the hash tables.  */
-      for (i = 0; i < 2; i++)
-	{
-	  tree t = TREE_OPERAND (stmt, i);
-
-	  /* Strip away any COMPONENT_REFs.  */
-	  while (TREE_CODE (t) == COMPONENT_REF)
-	    t = TREE_OPERAND (t, 0);
-
-	  /* Now see if this is a pointer dereference.  */
-	  if (TREE_CODE (t) == INDIRECT_REF)
-	    {
-	      tree op = TREE_OPERAND (t, 0);
-	      tree cond;
-
-	      /* If the pointer is a SSA variable, then enter new
-		 equivalences into the hash table.  */
-	      if (TREE_CODE (op) == SSA_NAME)
-		{
-		  cond = build (EQ_EXPR, boolean_type_node,
-				op, null_pointer_node);
-		  record_cond_is_false (cond,
-					block_avail_exprs_p,
-					const_and_copies);
-
-		  cond = build (NE_EXPR, boolean_type_node,
-				op, null_pointer_node);
-		  record_cond_is_true (cond,
-				       block_avail_exprs_p,
-				       const_and_copies);
-		}
-	    }
-	}
-
-      /* A memory store, even an aliased store, creates a useful
-	 equivalence.  By exchanging the LHS and RHS, creating suitable
-	 vops and recording the result in the available expression table,
-	 we may be able to expose more redundant loads.  */
-      if (!ann->has_volatile_ops
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
-	      || is_gimple_min_invariant (TREE_OPERAND (stmt, 1)))
-	  && !is_gimple_reg (TREE_OPERAND (stmt, 0)))
-	{
-	  tree new;
-	  size_t j;
-
-	  /* FIXME: If the LHS of the assignment is a bitfield and the RHS
-	     is a constant, we need to adjust the constant to fit into the
-	     type of the LHS.  This fixes gcc.c-torture/execute/921016-1.c
-	     and should not be necessary if GCC represented bitfields
-	     properly.  */
-	  if (TREE_CONSTANT (rhs)
-	      && TREE_CODE (lhs) == COMPONENT_REF
-	      && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-	    rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
-
-	  if (rhs)
-	    {
-	      /* Build a new statement with the RHS and LHS exchanged.  */
-	      new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
-
-	      /* Get an annotation and set up the real operands.  */
-	      get_stmt_ann (new);
-	      get_stmt_operands (new);
-
-	      /* Clear out the virtual operands on the new statement, we are
-		going to set them explicitly below.  */
-	      get_stmt_ann (new)->vops = NULL;
-
-	      /* For each VDEF on the original statement, we want to create a
-		VUSE of the VDEF result on the new statement.  */
-	      for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
-		{
-		  tree op = VDEF_RESULT (VARRAY_TREE (vdefs, j));
-		  add_vuse (op, new, NULL);
-		}
-
-	      /* Finally enter the statement into the available expression
-		table.  */
-	      lookup_avail_expr (new, block_avail_exprs_p,
-				const_and_copies, true);
-	    }
-	}
-
-      /* alloca never returns zero and the address of a non-weak symbol
-	 is never zero.  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
-	{
-	  /* Strip away any NOP_EXPRs since they do not effect this
-	     equivalence.  */
-	  while (TREE_CODE (rhs) == NOP_EXPR)
-	    rhs = TREE_OPERAND (rhs, 0);
-
-	  if (alloca_call_p (rhs)
-	      || (TREE_CODE (rhs) == ADDR_EXPR
-		  && DECL_P (TREE_OPERAND (rhs, 0))
-		  && ! DECL_WEAK (TREE_OPERAND (rhs, 0))))
-	    {
-	      tree cond;
-
-	      cond = build (EQ_EXPR, boolean_type_node,
-			    lhs, null_pointer_node);
-	      record_cond_is_false (cond,
-				    block_avail_exprs_p,
-				    const_and_copies);
-
-	      cond = build (NE_EXPR, boolean_type_node,
-			    lhs, null_pointer_node);
-	      record_cond_is_true (cond,
-				   block_avail_exprs_p,
-				   const_and_copies);
-	    }
-	}
-    }
+    record_equivalences (stmt, block_avail_exprs_p,
+			 const_and_copies, may_optimize_p, ann);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  In which case we can remove some edges, simplify

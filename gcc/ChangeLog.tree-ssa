@@ -36,6 +36,13 @@
 
 2003-10-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (eliminate_redundant_computations): New function
+	extracted from optimize_stmt.
+	(record_equivalences): Similarly.
+	(optimize_stmt): Use eliminate_redundant_computations and
+	record_equivalences.  If fold_stmt changes stmt, then make sure
+	to get a new annotation as well.
+ 
 	* tree-cfg.c (cleanup_control_flow): Pass last statement down to
 	cleanup_cond_expr_graph and cleanup_switch_expr_graph.
 	(cleanup_cond_expr_graph): Accept statement from caller and
