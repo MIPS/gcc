@@ -148,9 +148,12 @@ mudflap_enqueue_decl (obj, label)
   fprintf (stderr, "' label=`%s'\n", label);
   */
 
-  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj)) 
-      && TREE_USED (obj) /* && TREE_ADDRESSABLE (obj) ??? */)
+  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj))) 
     {
+      /* NB: the above condition doesn't require TREE_USED or
+         TREE_ADDRESSABLE.  That's because this object may be a global
+         only used from other compilation units.  XXX: Maybe static
+         objects could require those attributes being set.  */
       mf_enqueue_register_call (label,
 				c_size_in_bytes (TREE_TYPE (obj)),
 				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
@@ -810,6 +813,11 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
        ==> (as if)
        (COMPONENT_REF (INDIRECT_REF (tree), field))
        ... except the size value for the check is offsetof(field)+sizeof(field)-1
+
+   (4) (BIT_FIELD_REF (INDIRECT_REF (tree), bitsize, bitpos))
+       ==> (as if)
+       (BIT_FIELD_REF (INDIRECT_REF (tree), bitsize, bitpos))
+       ... except the size value for the check is to include byte @ bitsize+bitpos
 */
 
 
@@ -948,10 +956,49 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	{
 	  tree *pointer = & TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
 
-	  tree field_offset = byte_position (TREE_OPERAND (*t, 1));
-	  tree field_size = size_in_bytes (TREE_TYPE (TREE_OPERAND (*t, 1)));
+	  tree field = TREE_OPERAND (*t, 1);
+	  tree field_offset = byte_position (field);
+	  tree field_size =
+	    DECL_BIT_FIELD_TYPE (field) ?
+	    size_binop (TRUNC_DIV_EXPR, 
+			size_binop (PLUS_EXPR, 
+				    DECL_SIZE (field), /* bitfield width */
+				    convert (bitsizetype, 
+					     build_int_2 (BITS_PER_UNIT - 1, 0))),
+			convert (bitsizetype, build_int_2 (BITS_PER_UNIT, 0)))
+	    : size_in_bytes (TREE_TYPE (TREE_OPERAND (*t, 1)));
 	  tree check_size = fold (build (PLUS_EXPR, c_size_type_node,
 					 field_offset, field_size));
+
+	  *pointer = 
+	    mf_build_check_statement_for (*pointer,
+					  *pointer,
+					  check_size,
+					  NULL_TREE,
+					  last_filename, last_lineno);
+	  
+	  /* Don't instrument the nested INDIRECT_REF. */ 
+	  mx_flag (TREE_OPERAND (*t, 0));
+	  mx_flag (*t);
+	}
+      break;
+
+
+    case BIT_FIELD_REF:
+      if (TREE_CODE (TREE_OPERAND (*t, 0)) == INDIRECT_REF)
+	{
+	  tree *pointer = & TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
+
+	  tree bitsize = TREE_OPERAND (*t, 1);
+	  tree bitpos = TREE_OPERAND (*t, 2);
+	  tree check_size =
+	    fold (build (TRUNC_DIV_EXPR, c_size_type_node,
+			 fold (build (PLUS_EXPR, c_size_type_node,
+				      bitsize, 
+				      fold (build (PLUS_EXPR, c_size_type_node, 
+						   bitpos,
+						   build_int_2 (BITS_PER_UNIT - 1, 0))))),
+			 build_int_2 (BITS_PER_UNIT, 0)));
 
 	  *pointer = 
 	    mf_build_check_statement_for (*pointer,

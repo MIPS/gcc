@@ -1,3 +1,11 @@
+2002-10-01  Frank Ch. Eigler  <fche@redhat.com>
+
+	* builtins.c (expand_builtin_alloca): Disable if -fmudflap.
+	* tree-mudflap.c (mudflap_enqueue_decl): Tweak logic to include
+	more globals.
+	(mx_xfn_indirect_ref): Handle bitfield COMPONENT_REFs; instrument
+	BIT_FIELD_REF/INDIRECT_REFs.
+
 2002-09-24  Jason Merrill  <jason@redhat.com>
 
 	* c-decl.c (poplevel): Only add undeclared labels to the toplevel
