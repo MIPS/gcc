@@ -1,3 +1,8 @@
+2003-08-19  Jeff Sturm  <jsturm@one-point.com>
+
+	* lib/libjava.exp (libjava_arguments): Add $libjava to the list of
+	libraries.
+
 2003-08-12  Tom Tromey  <tromey@redhat.com>
 
 	* libjava.jacks/jacks.xfail: Updated to account for new passes.
