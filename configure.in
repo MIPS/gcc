@@ -324,6 +324,18 @@ no)
   ;;
 esac
 
+
+# Allow --disable-libmudflap to exclude target-libmudflap
+case $enable_libmudflap in
+yes | "")
+    # By default it's enabled
+    ;;
+no)
+    noconfigdirs="$noconfigdirs target-libmudflap"
+    ;;
+esac
+
+
 case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
