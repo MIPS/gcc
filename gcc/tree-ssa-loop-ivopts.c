@@ -2729,7 +2729,8 @@ force_var_cost (struct ivopts_data *data,
   if (!costs_initialized)
     {
       tree var = create_tmp_var_raw (integer_type_node, "test_var");
-      rtx x = gen_rtx_SYMBOL_REF (Pmode, "test_var");
+      rtx x = gen_rtx_MEM (DECL_MODE (var),
+			   gen_rtx_SYMBOL_REF (Pmode, "test_var"));
       tree addr;
       tree type = build_pointer_type (integer_type_node);
 

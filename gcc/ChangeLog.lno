@@ -1,5 +1,11 @@
 2004-06-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	PR middle-end/15876
+	* tree-ssa-loop-ivopts.c (force_var_cost): Initialize DECL_RTL
+	correctly.
+
+2004-06-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* passes.c (rest_of_handle_loop2): Run loop optimizations always.
 
 2004-06-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
