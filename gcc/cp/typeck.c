@@ -3895,7 +3895,8 @@ build_address (tree t)
 
   if (error_operand_p (t) || !cxx_mark_addressable (t))
     return error_mark_node;
-  mark_used (t);
+  if (DECL_P (t))
+    mark_used (t);
 
   addr = build1 (ADDR_EXPR, 
 		 build_pointer_type (TREE_TYPE (t)),
