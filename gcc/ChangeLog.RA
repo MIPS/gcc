@@ -1,3 +1,9 @@
+2003-10-17  Michael Matz  <matz@suse.de>
+
+	* pre-reload.c (scan_alternative): Use CONSTRAINT_LEN,
+	CONST_OK_FOR_CONSTRAINT_P, REG_CLASS_FROM_CONSTRAINT and friends.
+	(collect_insn_info, ra_check_constraints): Ditto.
+
 2003-10-16  Michael Matz  <matz@suse.de>
 
 	* pre-reload.c (scan_alternative): Don't handle address ops

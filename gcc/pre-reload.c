@@ -2213,6 +2213,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
     {
       struct alternative_info *op_alt = &this_alt[i];
       char *p = constraints[i];
+      char *end;
+      int len;
       int win = 0;
       int did_match = 0;
       /* 0 => this operand can be reloaded somehow for this
@@ -2222,6 +2224,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	 allows regs.  */
       int winreg = 0;
       int c;
+      int m;
       rtx operand = recog_data.operand[i];
       rtx *operand_loc = recog_data.operand_loc[i];
       int offset = 0;
@@ -2351,9 +2354,16 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	 provided the constraint allows some registers.  */
 
       match_seen = 0;
-      while (*p && (c = *p++) != ',')
-	switch (c)
+      do
+        switch ((c = *p, len = CONSTRAINT_LEN (c, p)), c)
 	  {
+	  case '\0':
+	    len = 0;
+	    break;
+	  case ',':
+	    c = '\0';
+	    break;
+
 	  case '=':  case '+':
 	    break;
 		
@@ -2375,12 +2385,17 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    reject = 600;
 	    break;
 
+		break;
 	  case '#':
 	    /* Ignore rest of this alternative as far as
 	       reloading is concerned.  */
 	    if (match_seen)
-	      while (*p && *p != ',')
-		p++;
+	      {
+		do
+		  p++;
+		while (*p && *p != ',');
+		len = 0;
+	      }
 	    break;
 
 	  case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2388,9 +2403,11 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    {
 	      struct alternative_info *mop_alt;
 	      match_seen = 1;
-	      c -= '0';
-	      op_alt->matches = c;
-	      mop_alt = &this_alt[c];
+	      m = strtoul (p, &end, 10);
+	      p = end;
+	      len = 0;
+	      op_alt->matches = m;
+	      mop_alt = &this_alt[m];
 	      /* We are supposed to match a previous operand.
 		 If we do, we win if that one did.
 		 If we do not, count both of the operands as losers.
@@ -2398,7 +2415,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 		 only a single reload insn will be needed to make
 		 the two operands win.  As a result, this alternative
 		 may be rejected when it is actually desirable.)  */
-	      if ((swapped && (c != commutative || i != commutative + 1))
+	      if ((swapped && (m != commutative || i != commutative + 1))
 		  /* If we are matching as if two operands were swapped,
 		     also pretend that operands_match had been computed
 		     with swapped.
@@ -2406,17 +2423,17 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 		     don't exchange them, because operands_match is valid
 		     only on one side of its diagonal.  */
 		  ? (operands_match
-		     [(c == commutative || c == commutative + 1)
-		     ? 2 * commutative + 1 - c : c]
+		     [(m == commutative || m == commutative + 1)
+		     ? 2 * commutative + 1 - m : m]
 		     [(i == commutative || i == commutative + 1)
 		     ? 2 * commutative + 1 - i : i])
-		  : operands_match[c][i])
+		  : operands_match[m][i])
 		{
 		  /* If we are matching a non-offsettable address where an
 		     offsettable address was expected, then we must reject
 		     this combination, because we can't reload it.  */
 		  if (mop_alt->offmemok
-		      && GET_CODE (recog_data.operand[c]) == MEM
+		      && GET_CODE (recog_data.operand[m]) == MEM
 		      && mop_alt->class == (int) NO_REGS
 		      && ! mop_alt->win)
 		    bad = 1;
@@ -2455,7 +2472,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
                                      recog_data.operand[i + 1]))
                 reject++;
 
-	      if (GET_CODE (recog_data.operand[c]) == MEM
+	      if (GET_CODE (recog_data.operand[m]) == MEM
 	          || mop_alt->address_operand)
 		{
 		  op_alt->address_operand = mop_alt->address_operand;
@@ -2595,7 +2612,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	  case 'O':
 	  case 'P':
 	    if (GET_CODE (operand) == CONST_INT
-		&& CONST_OK_FOR_LETTER_P (INTVAL (operand), c))
+		&& CONST_OK_FOR_CONSTRAINT_P (INTVAL (operand), c, p))
 	      win = 1;
 	    break;
 
@@ -2627,7 +2644,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    goto reg;
 
 	  default:
-	    if (REG_CLASS_FROM_LETTER (c) == NO_REGS)
+	    if (REG_CLASS_FROM_CONSTRAINT (c, p) == NO_REGS)
 	      {
 #ifdef EXTRA_CONSTRAINT
 		if (EXTRA_CONSTRAINT (operand, c))
@@ -2640,7 +2657,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    op_alt->class
 	      = (int) (reg_class_subunion
 		       [op_alt->class]
-		       [(int) REG_CLASS_FROM_LETTER (c)]);
+		       [(int) REG_CLASS_FROM_CONSTRAINT (c, p)]);
 	  reg:
 	    if (GET_MODE (operand) == BLKmode)
 	      break;
@@ -2658,6 +2675,7 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	      }
 	    break;
 	  }
+      while ((p += len), c);
 
       constraints[i] = p;
 
@@ -2931,8 +2949,9 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       /* Scan this operand's constraint to see if it is an output operand,
 	 an in-out operand, is commutative, or should match another.  */
 
-      while ((c = *p++))
+      while ((c = *p))
 	{
+	  p += CONSTRAINT_LEN (c, p);
 	  if (c == '=')
 	    modified[i] = RELOAD_WRITE;
 	  else if (c == '+')
@@ -2945,11 +2964,12 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 
 	      commutative = i;
 	    }
-	  else if (c >= '0' && c <= '9')
+	  else if (ISDIGIT (c))
 	    {
-	      rtx op1 = recog_data.operand[c - '0'];
-	      rtx op2 = recog_data.operand[i];
-	      c -= '0';
+	      rtx op1, op2;
+	      c = strtoul (p - 1, &p, 10);
+	      op1 = recog_data.operand[c];
+	      op2 = recog_data.operand[i];
 	      if (GET_MODE (op1) != GET_MODE (op2)
 		  && INTEGRAL_MODE_P (GET_MODE (op1))
 		  && INTEGRAL_MODE_P (GET_MODE (op2)))
@@ -3647,8 +3667,9 @@ ra_check_constraints (insn)
       /* Scan this operand's constraint to see if it is an output operand,
 	 an in-out operand, is commutative, or should match another.  */
 
-      while ((c = *p++))
+      while ((c = *p))
 	{
+	  p += CONSTRAINT_LEN (c, p);
 	  if (c == '=')
 	    modified[i] = RELOAD_WRITE;
 	  else if (c == '+')
@@ -3661,11 +3682,12 @@ ra_check_constraints (insn)
 
 	      commutative = i;
 	    }
-	  else if (c >= '0' && c <= '9')
+	  else if (ISDIGIT (c))
 	    {
-	      rtx op1 = recog_data.operand[c - '0'];
-	      rtx op2 = recog_data.operand[i];
-	      c -= '0';
+	      rtx op1, op2;
+	      c = strtoul (p - 1, &p, 10);
+	      op1 = recog_data.operand[c];
+	      op2 = recog_data.operand[i];
 	      if (GET_MODE (op1) != GET_MODE (op2)
 		  && INTEGRAL_MODE_P (GET_MODE (op1))
 		  && INTEGRAL_MODE_P (GET_MODE (op2)))
