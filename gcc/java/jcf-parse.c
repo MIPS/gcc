@@ -591,7 +591,7 @@ load_class (tree class_or_name, int verbose)
       if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
 	{
 	  tree type_decl = IDENTIFIER_CLASS_VALUE (name);
-	  if (CLASS_PARSED_P (TREE_TYPE (type_decl)))
+	  if ((class_loaded = CLASS_LOADED_P (TREE_TYPE (type_decl))))
 	    break;
 	}
 

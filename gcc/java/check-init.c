@@ -191,6 +191,50 @@ get_variable_decl (tree exp)
 	    return op1;
 	}
     }
+  else if (TREE_CODE (exp) == INDIRECT_REF)
+    {
+      /* For indirect dispatch, look for an expression of the form 
+      (indirect_ref (+ (array_ref otable <N>) this)).  
+      FIXME: it would probably be better to generate a JAVA_FIELD_REF
+      expression that gets converted to OTABLE access at
+      gimplification time.  */
+      exp = TREE_OPERAND (exp, 0);
+      if (TREE_CODE (exp) == PLUS_EXPR)
+	{
+	  tree op0 = TREE_OPERAND (exp, 0);
+	  STRIP_NOPS (op0);
+	  if (TREE_CODE (op0) == ARRAY_REF)
+	    {
+	      tree table = TREE_OPERAND (op0, 0);
+	      if (TREE_CODE (table) == VAR_DECL
+		  && DECL_LANG_SPECIFIC (table)
+		  && DECL_OWNER (table) 
+		  && TYPE_OTABLE_DECL (DECL_OWNER (table)) == table)
+		{
+		  HOST_WIDE_INT index 
+		    = TREE_INT_CST_LOW (TREE_OPERAND (op0, 1));
+		  tree otable_methods 
+		    = TYPE_OTABLE_METHODS (DECL_OWNER (table));
+		  tree element;
+		  for (element = otable_methods; 
+		       element; 
+		       element = TREE_CHAIN (element))
+		    {
+		      if (index == 1)
+			{
+			  tree purpose = TREE_PURPOSE (element);
+			  if (TREE_CODE (purpose) == FIELD_DECL)
+			    return purpose;
+			  else
+			    return NULL_TREE;
+			}
+		      --index;
+		    }
+		}
+	    }
+	}
+    }
+
   return NULL_TREE;
 }
 

@@ -1,3 +1,12 @@
+2004-06-22  Andrew Haley  <aph@redhat.com>
+
+	* class.c (gen_indirect_dispatch_tables): Set the DECL_OWNER of
+	the otable.
+	* check-init.c (get_variable_decl): Teach check-init about
+	FIELD_DECLs addressed via the otable.
+	* jcf-parse.c (load_class): Check CLASS_LOADED_P, not
+	CLASS_PARSED_P.
+
 2004-05-28  Andrew Haley  <aph@redhat.com>
 
 	* jcf-parse.c (load_class): Don't try to read a class that we've

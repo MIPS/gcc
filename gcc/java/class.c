@@ -389,6 +389,8 @@ gen_indirect_dispatch_tables (tree type)
 	TREE_CONSTANT (TYPE_OTABLE_DECL (type)) = 1;
 	DECL_IGNORED_P (TYPE_OTABLE_DECL (type)) = 1;
 	pushdecl (TYPE_OTABLE_DECL (type));  
+	MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (TYPE_OTABLE_DECL (type));
+	DECL_OWNER (TYPE_OTABLE_DECL (type)) = type;
 	sprintf (buf, "_otable_syms_%s", typename);
 	TYPE_OTABLE_SYMS_DECL (type) = 
 	  build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);
