@@ -6142,9 +6142,14 @@ store_parm_decls ()
 	   t = TREE_CHAIN (t))
 	{
 	  /* We will have a nonlocal use of this variable.  */
-	  if (TREE_CODE (TREE_OPERAND (TREE_VALUE (t), 0)) == VAR_DECL
-	      || TREE_CODE (TREE_OPERAND (TREE_VALUE (t), 0)) == PARM_DECL)
-	    DECL_NONLOCAL (TREE_OPERAND (TREE_VALUE (t), 0)) = 1;
+	  tree var = TREE_OPERAND (TREE_VALUE (t), 0);
+
+	  /* Strip away any NOP_EXPRs.  STRIP_NOPS is not sufficient
+	     here since the nodes may have different modes.  */
+	  while (TREE_CODE (var) == NOP_EXPR)
+	    var = TREE_OPERAND (var, 0);
+
+	  DECL_NONLOCAL (var) = 1;
 	  SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
 	}
     }

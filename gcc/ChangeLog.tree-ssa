@@ -1,3 +1,8 @@
+2003-07-03  Jeff Law  <law@redhat.com>
+
+	* c-decl.c (store_parm_decls): Strip away NOP_EXPRs when looking
+	for hidden use variables.
+
 2003-07-02  Frank Ch. Eigler  <fche@redhat.com>
 
 	* varasm.c (build_constant_desc): Propagate mudflap marked-ness
