@@ -900,16 +900,16 @@ int flag_disable_simple = 0;
 int flag_tree_ssa = 0;
 
 /* Enable the SSA-PRE tree optimization.  */
-int flag_tree_ssa_pre = 0;
+int flag_tree_pre = 0;
 
 /* Enable Steensgaard's points-to analysis on trees. */
 int flag_tree_points_to = 0;
 
 /* Enable SSA-CCP on trees.  */
-int flag_tree_ssa_ccp = 0;
+int flag_tree_ccp = 0;
 
 /* Enable SSA-DCE on trees.  */
-int flag_tree_ssa_dce = 0;
+int flag_tree_dce = 0;
 
 /* Enable all SSA-related dumps.  */
 int flag_dump_tree_all_ssa = 0;
@@ -1228,13 +1228,13 @@ static const lang_independent_options f_options[] =
    N_("Do not re-write trees into SIMPLE form") },
   { "tree-ssa", &flag_tree_ssa, 1,
    N_("Enable SSA optimizations on trees") },
-  { "tree-ssa-pre", &flag_tree_ssa_pre, 1,
+  { "tree-ssa-pre", &flag_tree_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
   { "tree-points-to", &flag_tree_points_to, 1,
    N_("Enable Steensgaard's points-to analysis on trees") },
-  { "tree-ssa-ccp", &flag_tree_ssa_ccp, 1,
+  { "tree-ssa-ccp", &flag_tree_ccp, 1,
    N_("Enable SSA-CCP optimization on trees") },
-  { "tree-ssa-dce", &flag_tree_ssa_dce, 1,
+  { "tree-ssa-dce", &flag_tree_dce, 1,
    N_("Enable SSA dead code elimination optimization on trees") },
   { "dump-tree-all-ssa", &flag_dump_tree_all_ssa, 1,
    N_("Enable all SSA-related tree dumps") },
@@ -4846,7 +4846,7 @@ parse_options_and_default_flags (argc, argv)
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_tree_ssa = 1;
-      /*flag_tree_ssa_ccp = 1;*/
+      /*flag_tree_ccp = 1;*/
     }
 
   if (optimize >= 2)

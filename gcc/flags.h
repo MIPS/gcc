@@ -674,16 +674,16 @@ extern int flag_disable_simple;
 extern int flag_tree_ssa;
 
 /* Enable the SSA-PRE on trees.  */
-extern int flag_tree_ssa_pre;
+extern int flag_tree_pre;
 
 /* Enable Steengaard's points-to analysis for trees. */
 extern int flag_tree_points_to;
 
 /* Enable SSA-CCP on trees.  */
-extern int flag_tree_ssa_ccp;
+extern int flag_tree_ccp;
 
 /* Enable SSA-DCE on trees.  */
-extern int flag_tree_ssa_dce;
+extern int flag_tree_dce;
 
 /* Enable all SSA-related tree dumps.  */
 extern int flag_dump_tree_all_ssa;

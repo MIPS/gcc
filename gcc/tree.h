@@ -3082,7 +3082,7 @@ enum tree_dump_index
   TDI_ssa,                      /* dump SSA information for each function.  */
   TDI_ccp,			/* dump SSA CCP information for each
 				   function.  */
-  TDI_ssa_pre,                  /* dump SSA PRE information for each
+  TDI_pre,                      /* dump SSA PRE information for each
 				   function.  */
   TDI_dce,                      /* dump SSA DCE information for each
 				   function.  */

@@ -1,3 +1,18 @@
+2002-09-19  Daniel Berlin <dberlin@dberlin.org>
+
+	* flags.h: flag_tree_ssa_* -> flag_tree_*.
+
+	* toplev.c: Ditto.
+
+	* tree-optimize.c: Ditto.
+
+	* tree-dump.c: dump-tree-ssa-* -> dump-tree-*.
+	TDI_ssa_* -> TDI_*.
+
+	* tree.h: Ditto
+
+	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Fix dump handling.
+
 2002-09-18  Daniel Berlin <dberlin@dberlin.org>
 	
 	* tree-dump.c: Fix order of dump files
