@@ -1,3 +1,7 @@
+2004-11-13  Stan Shebs  <shebs@apple.com>
+
+	* fixincludes/fixinc.in: Revive 64-bit bandaid.
+
 2004-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* fixincludes/inclhack.def (darwin_macosx_deployment_target): New.
