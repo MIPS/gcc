@@ -12,6 +12,7 @@ import java.io.*;
 import java.util.*;
 import java.util.jar.*;
 import java.security.MessageDigest;
+import java.math.BigInteger;
 
 public class jv_dbtool
 {
@@ -34,11 +35,38 @@ public class jv_dbtool
 
     if (s[0].equals("-n"))
       {
-	insist (s.length == 2);
+	insist (s.length >= 2 && s.length <= 3);
+
+	int capacity = 32749;
+
+	if (s.length == 3)
+	  {
+	    // The user has explicitly provided a size for the table.
+	    // We're going to make that size prime.  This isn't
+	    // strictly necessary but it can't hurt.
+
+	    BigInteger size = new BigInteger(s[2], 10);
+	    BigInteger two = BigInteger.ONE.add(BigInteger.ONE);
+
+	    if (size.getLowestSetBit() != 0) // A hard way to say isEven()
+	      size = size.add(BigInteger.ONE);
+
+	    while (! size.isProbablePrime(10))
+	      size = size.add(two);
+
+	    capacity = size.intValue();
+
+	    if (capacity <= 2)
+	      {
+		usage();
+		System.exit(1);
+	      }
+	  }
+	    
 	try
 	  {
 	    PersistentByteMap b 
-	      = PersistentByteMap.emptyPersistentByteMap (s[1], 32749, 2000000);
+	      = PersistentByteMap.emptyPersistentByteMap (s[1], capacity, capacity*64);
 	  }
 	catch (Exception e)
 	  {
@@ -115,6 +143,12 @@ public class jv_dbtool
 	    PersistentByteMap b 
 	      = new PersistentByteMap(new File(s[1]),
 				      PersistentByteMap.AccessMode.READ_ONLY);
+
+	    System.out.println ("Capacity: " + b.capacity());
+	    System.out.println ("Size: " + b.size());
+	    System.out.println ();
+
+	    System.out.println ("Elements: ");
 	    Iterator iterator = b.iterator(PersistentByteMap.ENTRIES);
     
 	    while (iterator.hasNext())
@@ -182,7 +216,7 @@ public class jv_dbtool
       ("jv-dbtool: Manipulate gcj map database files\n"
        + "\n"
        + "  Usage: \n"
-       + "    jv-dbtool -n file.gcjdb            - Create a new gcj map database\n"
+       + "    jv-dbtool -n file.gcjdb [size]     - Create a new gcj map database\n"
        + "    jv-dbtool -a file.gcjdb file.jar file.so\n"
        + "            - Add the contents of file.jar to the database\n"
        + "    jv-dbtool -t file.gcjdb            - Test a gcj map database\n"

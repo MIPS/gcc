@@ -1,3 +1,9 @@
+2004-11-05  Andrew Haley  <aph@redhat.com>
+
+	* jv_dbtool.java (main): Allow the user to specify the size of the
+	database.  Display the capacity and the size.
+	(usage): Show the new option.
+		
 2004-11-04  Tom Tromey  <tromey@redhat.com>
 
 	* include/jvm.h (_Jv_Linker::set_vtable_entries): Updated.
