@@ -14553,10 +14553,9 @@ rs6000_emit_prologue (void)
 
       if (!info->lr_save_p)
 	rs6000_maybe_dead (emit_move_insn (lr, gen_rtx_REG (Pmode, 0)));
-      /* APPLE LOCAL end */
+      /* APPLE LOCAL end volatile pic base reg in leaves */
     }
 #endif
-    /* APPLE LOCAL end Reduce code size / improve performance */
 }
 
 /* Write function prologue.  */
