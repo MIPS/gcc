@@ -3303,9 +3303,19 @@ rest_of_compilation (decl)
       timevar_push (TV_VRP);
       open_dump_file (DFI_vrp, decl);
 
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
-      if (value_range_propagation ())
-	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+      if (flag_tracer && n_basic_blocks > 1000)
+	{
+	  /* Tracer makes complicated flowgraphs which are hard for VRP.  */
+	  if (warn_disabled_optimization)
+	    warning ("VRP disabled: %d > 1000 basic blocks and tracer was enabled",
+		     n_basic_blocks);
+	}
+      else
+	{
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+	  if (value_range_propagation ())
+	    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+	}
 
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);

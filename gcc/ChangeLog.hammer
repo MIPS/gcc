@@ -1,3 +1,8 @@
+2003-11-27  Josef Zlomek  <zlomekj@suse.cz>
+
+	* toplev.c (rest_of_compilation): Disable VRP when tracer was used and
+	flowgraph is large.
+
 2003-11-26  Josef Zlomek  <zlomekj@suse.cz>
 
 	* toplev.c (enum dump_file_index): Move DFI_vrp after DFI_life.
