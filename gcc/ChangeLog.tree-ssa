@@ -1,3 +1,17 @@
+2003-10-08  Diego Novillo  <dnovillo@redhat.com>
+
+	PR/12187
+	* tree-dfa.c (add_stmt_operand): Test against current_function_decl
+	when checking for global variables.
+	(may_access_global_mem_p): Likewise.
+	(add_referenced_var): Likewise.
+	Consider DECL_NONLOCAL variables call clobbered and used.
+	(find_hidden_use_vars): Do not test for DECL_NONLOCAL variables.
+	* tree-optimize.c (tree_rest_of_compilation): Test against
+	current_function_decl when checking for global variables.
+	* tree-ssa-ccp.c (get_default_value): Likewise.
+	* tree-ssa-dce.c (need_to_preserve_store): Likewise.
+
 2003-10-07  Jason Merrill  <jason@redhat.com>
 
 	PR optimization/12525
@@ -38,8 +52,8 @@
 
 2003-10-01  Richard Henderson  <rth@redhat.com>
 
-        * c-decl.c (set_decl_nonlocal): New.
-        (store_parm_decls): Use it via walk_tree.
+	* c-decl.c (set_decl_nonlocal): New.
+	(store_parm_decls): Use it via walk_tree.
 
 2003-10-01  Jeff Law  <law@redhat.com>
 

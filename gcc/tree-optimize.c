@@ -308,7 +308,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      SAVE_EXPRs in the parameter types.  Their context must be set to
      refer to this function; they cannot be expanded in the containing
      function.  */
-  if (decl_function_context (fndecl)
+  if (decl_function_context (fndecl) == current_function_decl
       && variably_modified_type_p (TREE_TYPE (fndecl)))
     walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
 	       NULL);

@@ -1614,7 +1614,8 @@ get_default_value (tree var)
       /* Function arguments and volatile variables are considered VARYING.  */
       val.lattice_val = VARYING;
     }
-  else if (decl_function_context (sym) == NULL_TREE || TREE_STATIC (sym))
+  else if (decl_function_context (sym) != current_function_decl
+           || TREE_STATIC (sym))
     {
       /* Globals and static variables are considered VARYING, unless they
 	 are declared 'const'.  */

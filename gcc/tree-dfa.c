@@ -586,7 +586,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
   /* Globals, call-clobbered, local statics and variables referenced in
      VA_ARG_EXPR are always accessed using virtual operands.  */
-  if (decl_function_context (sym) == 0
+  if (decl_function_context (sym) != current_function_decl
       || TREE_STATIC (sym)
       || v_ann->is_call_clobbered
       || v_ann->is_in_va_arg_expr)
@@ -2291,7 +2291,7 @@ may_access_global_mem_p (tree expr)
   /* Function arguments and global variables may reference global memory.  */
   if (DECL_P (expr)
       && (TREE_CODE (expr) == PARM_DECL
-	  || decl_function_context (expr) == NULL_TREE))
+	  || decl_function_context (expr) != current_function_decl))
     return true;
 
   /* If the expression is a variable that may point to or alias global memory,
@@ -2545,16 +2545,17 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	 the current function.  */
       if (POINTER_TYPE_P (TREE_TYPE (var))
 	  && (TREE_CODE (var) == PARM_DECL
-	      || decl_function_context (var) == NULL_TREE))
+	      || decl_function_context (var) != current_function_decl))
 	v_ann->may_point_to_global_mem = 1;
 
       /* Mark local statics and global variables as global memory aliases
 	 to avoid DCE killing seemingly dead stores to them.  */
-      if (decl_function_context (var) == 0 || TREE_STATIC (var))
+      if (decl_function_context (var) != current_function_decl
+	  || TREE_STATIC (var))
 	v_ann->may_alias_global_mem = 1;
 
       is_addressable = TREE_ADDRESSABLE (var)
-		       || decl_function_context (var) == NULL;
+		       || decl_function_context (var) != current_function_decl;
 
       /* Global variables and addressable locals may be aliased.  Create an
 	 entry in ADDRESSABLE_VARS for VAR.  */
@@ -2572,17 +2573,23 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
 	}
 
-      /* Addressable variables, memory tags and static locals may be used
-	 or clobbered by function calls.  */
+      /* Addressable variables, memory tags, static locals and
+	 DECL_NONLOCALs may be used or clobbered by function calls.  */
       if (is_addressable
 	  || v_ann->is_mem_tag
-	  || (var != global_var && TREE_STATIC (var)))
+	  || (var != global_var && TREE_STATIC (var))
+	  || DECL_NONLOCAL (var))
 	{
 	  add_call_clobbered_var (var);
 	  v_ann->is_call_clobbered = 1;
 	  if (POINTER_TYPE_P (TREE_TYPE (var)))
 	    v_ann->may_point_to_global_mem = 1;
 	}
+
+      /* DECL_NONLOCAL variables should not be removed, as they are needed
+	 to emit nested functions.  */
+      if (DECL_NONLOCAL (var))
+	set_is_used (var);
     }
 
   /* Now, set attributes that depend on WALK_STATE.  */
@@ -2758,13 +2765,6 @@ find_hidden_use_vars (tree block)
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
       int inside_vla = 0;
-
-      /* The front-ends nicely set DECL_NONLOCAL for us to mark 
-	 variables which are referenced inside nested functions.  */
-      if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
-	  &&  DECL_NONLOCAL (decl))
-	set_has_hidden_use (decl);
-
       walk_tree (&decl, find_hidden_use_vars_r, &inside_vla, NULL);
     }
 

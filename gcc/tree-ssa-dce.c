@@ -171,8 +171,8 @@ need_to_preserve_store (tree var)
   sym = SSA_NAME_VAR (var);
   base_symbol = get_base_symbol (var);
 
-  /* File scope variables must be preserved.  */
-  if (decl_function_context (base_symbol) == NULL)
+  /* Store to global variables must be preserved.  */
+  if (decl_function_context (base_symbol) != current_function_decl)
     return true;
   
   /* Static locals must be preserved as well.  */
