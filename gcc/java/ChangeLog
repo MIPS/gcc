@@ -1,3 +1,14 @@
+2000-01-31  Scott Bambrough  <scottb@netwinder.org>
+
+	* gcc/java/javaop.h (WORDS_TO_DOUBLE): Allow WORDS_TO_DOUBLE to 
+	assemble doubles correctly when HOST_FLOAT_WORDS_BIG_ENDIAN is
+	defined to be 1.
+	  
+        * gcc/java/gjavah.c (D_NAN_MASK): Alternate definition required
+	when HOST_FLOAT_WORDS_BIG_ENDIAN is defined to be 1.
+	(java_float_finite): Convert to use union Word from javaop.h.
+        (java_double_finite): Convert to use union DWord from javaop.h.
+
 2000-01-11  Mumit Khan  <khan@xraylith.wisc.edu>
 
 	* jcf-path.c: Delete PATH_SEPARATOR and DIR_SEPARATOR macros.
