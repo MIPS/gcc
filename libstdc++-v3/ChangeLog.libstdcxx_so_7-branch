@@ -1,4 +1,8 @@
 2004-09-24  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20040924.
+
+2004-09-24  Paolo Carlini  <pcarlini@suse.de>
 	    Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/bits/stl_list.h (list::list(size_type, value_type,

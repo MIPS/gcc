@@ -396,8 +396,7 @@ namespace std
 	      // Convert pending sequence to external representation,
 	      // and output.
 	      if (_M_convert_to_external(this->pbase(),
-					 this->pptr() - this->pbase())
-		  && (!__testeof || !_M_file.sync()))
+					 this->pptr() - this->pbase()))
 		{
 		  _M_set_buffer(0);
 		  __ret = traits_type::not_eof(__c);
@@ -528,7 +527,7 @@ namespace std
 	     {
 	       if (__avail == 1)
 		 *__s = *this->gptr();
-	       else if (__avail > 1)
+	       else
 		 traits_type::copy(__s, this->gptr(), __avail);
 	       __s += __avail;
 	       this->gbump(__avail);
@@ -792,7 +791,6 @@ namespace std
     {
       // Make sure that the internal buffer resyncs its idea of
       // the file position with the external file.
-      // NB: _M_file.sync() will be called within.
       int __ret = 0;
       if (this->pbase() < this->pptr())
 	{
