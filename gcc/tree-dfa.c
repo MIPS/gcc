@@ -514,6 +514,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
   /* Unary expressions.  */
   if (class == '1'
+      || code == TRUTH_NOT_EXPR
       || code == BIT_FIELD_REF
       || code == CONSTRUCTOR)
     {

@@ -195,6 +195,7 @@ is_gimple_rhs (tree t)
 
   switch (code)
     {
+    case TRUTH_NOT_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:

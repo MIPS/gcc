@@ -427,9 +427,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case TRUTH_NOT_EXPR:
-	  tmp = gimple_boolify (TREE_OPERAND (*expr_p, 0));
-	  *expr_p = build (EQ_EXPR, TREE_TYPE (*expr_p), tmp,
-			   boolean_false_node);
+	  TREE_OPERAND (*expr_p, 0)
+	    = gimple_boolify (TREE_OPERAND (*expr_p, 0));
+	  gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 is_gimple_val, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
 

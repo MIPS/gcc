@@ -1,3 +1,11 @@
+2003-10-21  Jason Merrill  <jason@redhat.com>
+
+	PR optimization/12661
+	* tree-dfa.c (get_expr_operands): Handle TRUTH_NOT_EXPR.
+	* tree-simple.c (is_gimple_rhs): Allow TRUTH_NOT_EXPR.
+	* gimplify.c (gimplify_expr) <TRUTH_NOT_EXPR>: Don't rewrite to an
+	EQ_EXPR.
+
 2003-10-21  Jan Hubicka  <jh@suse.cz>
 
 	* haifa-sched.c (choose_ready): Initialize index.
