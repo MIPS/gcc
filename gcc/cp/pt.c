@@ -7116,7 +7116,10 @@ tsubst_copy (t, args, complain, in_decl)
       }
 
     case TEMPLATE_DECL:
-      if (is_member_template (t))
+      if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
+	return tsubst (TREE_TYPE (DECL_TEMPLATE_RESULT (t)), 
+		       args, complain, in_decl);
+      else if (is_member_template (t))
 	return tsubst (t, args, complain, in_decl);
       else
 	return t;

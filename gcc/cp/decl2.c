@@ -3353,13 +3353,21 @@ build_expr_from_tree (t)
       {
 	tree object = build_expr_from_tree (TREE_OPERAND (t, 0));
 
-	if (!CLASS_TYPE_P (TREE_TYPE (object))
-	    && TREE_CODE (TREE_OPERAND (t, 1)) == BIT_NOT_EXPR)
-	  return finish_pseudo_destructor_expr (object, NULL_TREE,
-						TREE_TYPE (object));
-	else
-	  return finish_class_member_access_expr (object, 
-						  TREE_OPERAND (t, 1));
+	if (!CLASS_TYPE_P (TREE_TYPE (object)))
+	  {
+	    if (TREE_CODE (TREE_OPERAND (t, 1)) == BIT_NOT_EXPR)
+	      return finish_pseudo_destructor_expr (object, 
+						    NULL_TREE,
+						    TREE_TYPE (object));
+	    else if (TREE_CODE (TREE_OPERAND (t, 1)) == SCOPE_REF
+		     && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (t, 1), 1))
+			 == BIT_NOT_EXPR))
+	      return finish_pseudo_destructor_expr (object, 
+						    TREE_OPERAND (t, 0),
+						    TREE_TYPE (object));
+	  }
+	return finish_class_member_access_expr (object, 
+						TREE_OPERAND (t, 1));
       }
 
     case THROW_EXPR:

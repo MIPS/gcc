@@ -12,11 +12,11 @@ template <class _T, class _M, _M _T::* _V>
 
 template <class _T, int _T::* _V>
 	struct A<_T, int, _V>
-	{
+	{ // { dg-error "involves template parameter" }
 	};
 
 int main()
 {
-	A<B, int, & B::i> a;
+	A<B, int, & B::i> a; // { dg-error "incomplete" }
 }
 

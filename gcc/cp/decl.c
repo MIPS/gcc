@@ -7265,9 +7265,10 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 	    {
 	      if (DECL_CONTEXT (field) != context)
 		{
-		  pedwarn ("ISO C++ does not permit `%T::%D' to be defined as `%T::%D'",
-			      DECL_CONTEXT (field), DECL_NAME (decl),
-			      context, DECL_NAME (decl));
+		  if (!same_type_p (DECL_CONTEXT (field), context))
+		    pedwarn ("ISO C++ does not permit `%T::%D' to be defined as `%T::%D'",
+			     DECL_CONTEXT (field), DECL_NAME (decl),
+			     context, DECL_NAME (decl));
 		  DECL_CONTEXT (decl) = DECL_CONTEXT (field);
 		}
 	      /* Static data member are tricky; an in-class initialization

@@ -2656,8 +2656,8 @@ resolve_args (args)
   return args;
 }
 
-/* Return an expression for a call to FN (a namespace-scope function)
-   with the ARGS.  */
+/* Return an expression for a call to FN (a namespace-scope function,
+   or a static member function) with the ARGS.  */
       
 tree
 build_new_function_call (fn, args)
@@ -2697,19 +2697,24 @@ build_new_function_call (fn, args)
       for (t1 = fn; t1; t1 = OVL_NEXT (t1))
 	{
 	  tree t = OVL_CURRENT (t1);
+	  tree access_path;
+
+	  if (DECL_STATIC_FUNCTION_P (t))
+	    access_path = TYPE_BINFO (DECL_CONTEXT (t));
+	  else
+	    access_path = NULL_TREE;
 
 	  if (TREE_CODE (t) == TEMPLATE_DECL)
 	    {
 	      templates = tree_cons (NULL_TREE, t, templates);
 	      candidates = add_template_candidate
 		(candidates, t, NULL_TREE, explicit_targs, args, 
-		 NULL_TREE,
-		 /*access_path=*/NULL_TREE, /*conversion_path=*/NULL_TREE,
+		 NULL_TREE, access_path, /*conversion_path=*/NULL_TREE,
 		 LOOKUP_NORMAL, DEDUCE_CALL);  
 	    }
 	  else if (! template_only)
 	    candidates = add_function_candidate
-	      (candidates, t, NULL_TREE, args, /*access_path=*/NULL_TREE, 
+	      (candidates, t, NULL_TREE, args, access_path,
 	       /*conversion_path=*/NULL_TREE, LOOKUP_NORMAL);
 	}
 

@@ -59,6 +59,8 @@ static bool dummy() { return false; }
    needed when doing template instantiation.
 
    Bogus extra attributes; search below for "Mark Mitchell".
+
+   have_extern_spec
 */
 
 /* This to deprecate in mainline:
@@ -825,6 +827,10 @@ cp_lexer_purge_token (cp_lexer *lexer)
     }
 
   lexer->last_token = token;
+  /* The token purged may have been the only token remaining; if so,
+     clear NEXT_TOKEN.  */
+  if (lexer->next_token == token)
+    lexer->next_token = NULL;
 }
 
 /* Begin saving tokens.  All tokens consumed after this point will be
@@ -3285,6 +3291,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
 		/*preserve_reference=*/false));
 	}
     }
+
+  /* Remember that there was a reference to this entity.  */
+  if (DECL_P (postfix_expression))
+    mark_used (postfix_expression);
 
   /* Keep looping until the postfix-expression is complete.  */
   while (true)
@@ -6276,6 +6286,7 @@ cp_parser_linkage_specification (parser)
       parser->in_unbraced_linkage_specification_p = true;
       have_extern_spec = true;
       cp_parser_declaration (parser);
+      have_extern_spec = false;
       parser->in_unbraced_linkage_specification_p 
 	= saved_in_unbraced_linkage_specification_p;
     }
@@ -8787,8 +8798,13 @@ cp_parser_init_declarator (parser,
      after processing the initializer.  */
   if (!member_p)
     {
-      have_extern_spec 
-	= parser->in_unbraced_linkage_specification_p;
+      if (parser->in_unbraced_linkage_specification_p)
+	{
+	  decl_specifiers = tree_cons (error_mark_node,
+				       get_identifier ("extern"),
+				       decl_specifiers);
+	  have_extern_spec = false;
+	}
       decl = start_decl (declarator,
 			 decl_specifiers,
 			 is_initialized,

@@ -1,3 +1,7 @@
+*** Changes in GCC 3.4:
+
+* The "named return value" extension has been removed.
+
 *** Changes in GCC 3.1:
 
 * -fhonor-std and -fno-honor-std have been removed. -fno-honor-std was
