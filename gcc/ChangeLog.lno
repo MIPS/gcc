@@ -1,5 +1,10 @@
 2004-08-19  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-data-ref.c (dump_data_dependence_relation): Revert a
+	part of the previous patch.
+
+2004-08-19  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* Makefile.in (tree-ssa-loop-manip.o): Depend on $(SCEV_H)
 	instead of tree-scalar-evolution.h.
 	* tree-data-ref.c (array_base_name_differ_p): Remove useless

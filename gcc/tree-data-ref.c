@@ -308,21 +308,11 @@ void
 dump_data_dependence_relation (FILE *outf, 
 			       struct data_dependence_relation *ddr)
 {
-  unsigned int i;
   struct data_reference *dra, *drb;
-  
+
   dra = DDR_A (ddr);
   drb = DDR_B (ddr);
-  
   fprintf (outf, "(Data Dep: \n");
-  if (dra && drb)
-    {
-      fprintf (outf, "  access_fn_A: ");
-      print_generic_stmt (outf, DR_ACCESS_FN (dra, i), 0);
-      fprintf (outf, "  access_fn_B: ");
-      print_generic_stmt (outf, DR_ACCESS_FN (drb, i), 0);
-    }
-
   if (chrec_contains_undetermined (DDR_ARE_DEPENDENT (ddr)))
     fprintf (outf, "    (don't know)\n");
   
@@ -331,8 +321,15 @@ dump_data_dependence_relation (FILE *outf,
   
   else
     {
+      unsigned int i;
       for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
-	dump_subscript (outf, DDR_SUBSCRIPT (ddr, i));
+	{
+	  fprintf (outf, "  access_fn_A: ");
+	  print_generic_stmt (outf, DR_ACCESS_FN (dra, i), 0);
+	  fprintf (outf, "  access_fn_B: ");
+	  print_generic_stmt (outf, DR_ACCESS_FN (drb, i), 0);
+	  dump_subscript (outf, DDR_SUBSCRIPT (ddr, i));
+	}
     }
 
   fprintf (outf, ")\n");
