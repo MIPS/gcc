@@ -6378,7 +6378,7 @@ lookup_method_static (interface, ident, is_class)
 	  if (CLASS_PROTOCOL_LIST (category))
 	    {
 	      if ((meth = (lookup_method_in_protocol_list
-			   (CLASS_PROTOCOL_LIST (category), ident, is_class))))
+			   (CLASS_PROTOCOL_LIST (category), ident, is_class != NULL_TREE))))
 		return meth;
 	    }
 	}
@@ -6387,7 +6387,7 @@ lookup_method_static (interface, ident, is_class)
       if (CLASS_PROTOCOL_LIST (inter))
 	{
 	  if ((meth = (lookup_method_in_protocol_list
-		       (CLASS_PROTOCOL_LIST (inter), ident, 1))))
+		       (CLASS_PROTOCOL_LIST (inter), ident, is_class != NULL_TREE))))
 	    return meth;
 	}
 
