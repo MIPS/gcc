@@ -9,7 +9,7 @@ details.  */
 /* Written by Tom Tromey <tromey@redhat.com>  */
 
 /* Uncomment this to enable debugging output.  */
-/* #define VERIFY_DEBUG  */
+/* #define VERIFY_DEBUG */
 
 #include "config.h"
 
@@ -975,11 +975,11 @@ merge_types (type *t, type *old_type, bool local_semantics)
 }
 
 #ifdef VERIFY_DEBUG
-void 
-print (void)
+static void 
+type_print (type *t)
 {
   char c = '?';
-  switch (key)
+  switch (t->key)
     {
     case boolean_type: c = 'Z'; break;
     case byte_type: c = 'B'; break;
@@ -1292,13 +1292,13 @@ debug_print_state (state *s, const char *leader, int pc, int max_stack,
   debug_print ("%s [%4d]:   [stack] ", leader, pc);
   int i;
   for (i = 0; i < s->stacktop; ++i)
-    s->stack[i].print ();
+    type_print (&s->stack[i]);
   for (; i < max_stack; ++i)
     debug_print (".");
   debug_print ("    [local] ");
   for (i = 0; i < max_locals; ++i)
-    s->locals[i].print ();
-  debug_print (" | %p\n", this);
+    type_print (&s->locals[i]);
+  debug_print (" | %p\n", s);
 }
 #else
 static void
