@@ -1,0 +1,11 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.host: Correct powerpc64*-linux entry.
+	* configure.in: Set native_cross when ppc32->ppc64 and host can
+	execute ppc64 insns.  Use libltdl when native_cross.
+	* configure: Rebuild.
+
+	Backport from mainline.
+	2003-03-12  Andreas Schwab  <schwab@suse.de>
+	* configure.in: Avoid trailing /. in toolexeclibdir.
+	* configure: Rebuilt.

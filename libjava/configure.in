@@ -23,8 +23,21 @@ LIBGCJ_CONFIGURE(.)
 
 AM_CONFIG_HEADER(include/config.h gcj/libgcj-config.h)
 
+native_cross=no
+case ${with_cross_host},${target} in
+    powerpc*,powerpc64*)
+	AC_TRY_RUN([
+int main()
+{
+   /* stdu r1,-128(r1); addi r1,r1,128 */
+   __asm__ __volatile__ (".long 0xf821ff81,0x38210080");
+   return 0;
+}
+],native_cross=yes,native_cross=no,[AC_MSG_WARN(cross compiling...)]) ;;
+esac
+
 # Only use libltdl for native builds.
-if test -z "${with_cross_host}"; then
+if test -z "${with_cross_host}" || test $native_cross = yes; then
    AC_LIBLTDL_CONVENIENCE
    AC_LIBTOOL_DLOPEN
    DIRLTDL=libltdl
@@ -805,7 +818,11 @@ else
   toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
   toolexecmainlibdir='$(libdir)'
 fi
-toolexeclibdir=$toolexecmainlibdir/`$CC -print-multi-os-directory`
+multi_os_directory=`$CC -print-multi-os-directory`
+case $multi_os_directory in
+  .) toolexeclibdir=$toolexecmainlibdir ;; # Avoid trailing /.
+  *) toolexeclibdir=$toolexecmainlibdir/$multi_os_directory ;;
+esac
 AC_SUBST(toolexecdir)
 AC_SUBST(toolexecmainlibdir)
 AC_SUBST(toolexeclibdir)
