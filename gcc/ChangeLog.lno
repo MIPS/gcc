@@ -1,3 +1,14 @@
+2004-06-11  Olga Golovanevsky  <olga@il.ibm.com>
+            Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c (vect_generate_tmps_on_preheader):
+        (vect_gen_if_guard): New functions.
+        (vect_update_initial_conditions_of_duplicated_loop):
+        Update also phis of bb at the exit of epilog loop.
+        (vect_transform_loop): Remove code that now belongs to
+        vect_generate_tmps_on_preheader () function. Use
+        vect_gen_if_guard function twice.
+
 2004-06-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ch.c: New file.
