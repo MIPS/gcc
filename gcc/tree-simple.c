@@ -943,7 +943,7 @@ recalculate_side_effects (t)
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
     case 'r':  /* a reference */
-      TREE_SIDE_EFFECTS (t) = 0;
+      TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
       for (i = 0; i < fro; ++i)
 	{
 	  tree op = TREE_OPERAND (t, i);

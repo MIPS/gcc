@@ -1,5 +1,7 @@
 2003-06-01  Jason Merrill  <jason@redhat.com>
 
+	* tree-simple.c (recalculate_side_effects): Check TREE_THIS_VOLATILE.
+
 	* gimplify.c (simplify_compound_lval): Call
 	recalculate_side_effects on each of the subexpressions.
 
