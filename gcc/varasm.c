@@ -56,10 +56,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
-#endif
-
 #ifndef ASM_STABS_OP
 #define ASM_STABS_OP "\t.stabs\t"
 #endif
@@ -1727,6 +1723,8 @@ assemble_static_space (unsigned HOST_WIDE_INT size)
    This is done at most once per compilation.
    Returns an RTX for the address of the template.  */
 
+static GTY(()) rtx initial_trampoline;
+
 #ifdef TRAMPOLINE_TEMPLATE
 rtx
 assemble_trampoline_template (void)
@@ -1735,6 +1733,9 @@ assemble_trampoline_template (void)
   const char *name;
   int align;
   rtx symbol;
+
+  if (initial_trampoline)
+    return initial_trampoline;
 
   /* By default, put trampoline templates in read-only data section.  */
 
@@ -1760,7 +1761,10 @@ assemble_trampoline_template (void)
   symbol = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
 
-  return symbol;
+  initial_trampoline = gen_rtx_MEM (BLKmode, symbol);
+  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
+
+  return initial_trampoline;
 }
 #endif
 
@@ -4982,6 +4986,9 @@ default_file_start (void)
    which emits a special section directive used to indicate whether or
    not this object file needs an executable stack.  This is primarily
    a GNU extension to ELF but could be used on other targets.  */
+
+int trampolines_created;
+
 void
 file_end_indicate_exec_stack (void)
 {

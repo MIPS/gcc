@@ -246,6 +246,11 @@ struct stmt_ann_d GTY(())
 
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
+
+  /* Unique identifier for this statement.  These ID's are to be created
+     by each pass on an as-needed basis in any order convenient for the
+     pass which needs statement UIDs.  */
+  unsigned int uid;
 };
 
 
@@ -447,7 +452,6 @@ extern bool stmt_ends_bb_p (tree);
 extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
-extern bool nonlocal_goto_p (tree);
 extern bool simple_goto_p (tree);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
@@ -468,7 +472,6 @@ extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
@@ -516,6 +519,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void discover_nonconstant_array_refs (void);
+extern void redirect_immediate_uses (tree, tree);
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0

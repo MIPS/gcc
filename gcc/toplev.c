@@ -995,8 +995,11 @@ int flag_tree_combine_temps = 0;
 /* Enable SSA->normal pass expression replacement.  */
 int flag_tree_ter = 0;
 
-/* Enable dominator optimizations while re-writing into SSA form.  */
+/* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
+
+/* Enable dead store elimination.  */
+int flag_tree_dse = 0;
 
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
@@ -1200,6 +1203,7 @@ static const lang_independent_options f_options[] =
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
+  { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
   { "tree-loop-optimize", &flag_tree_loop, 1 }
@@ -1687,8 +1691,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	  if (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_INITIAL (decl) != 0
-	      && DECL_SAVED_INSNS (decl) != 0
-	      && DECL_SAVED_INSNS (decl)->saved_for_inline
+	      && DECL_STRUCT_FUNCTION (decl) != 0
+	      && DECL_STRUCT_FUNCTION (decl)->saved_for_inline
 	      && (flag_keep_inline_functions
 		  || (TREE_PUBLIC (decl) && !DECL_COMDAT (decl))
 		  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
@@ -2737,7 +2741,8 @@ rest_of_handle_inlining (tree decl)
 
   if (open_dump_file (DFI_rtl, decl))
     {
-      if (DECL_SAVED_INSNS (decl) && DECL_SAVED_INSNS (decl)->saved_for_inline)
+      if (DECL_STRUCT_FUNCTION (decl)
+	  && DECL_STRUCT_FUNCTION (decl)->saved_for_inline)
 	fprintf (rtl_dump_file, ";; (integrable)\n\n");
       close_dump_file (DFI_rtl, print_rtl, insns);
     }
@@ -2807,7 +2812,7 @@ rest_of_handle_inlining (tree decl)
       timevar_push (TV_INTEGRATION);
       save_for_inline (decl);
       timevar_pop (TV_INTEGRATION);
-      DECL_SAVED_INSNS (decl)->inlinable = inlinable;
+      DECL_STRUCT_FUNCTION (decl)->inlinable = inlinable;
       return true;
     }
 

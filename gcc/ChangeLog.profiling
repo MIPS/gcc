@@ -1,5 +1,9 @@
 2004-02-16  Jan Hubicka  <jh@suse.cz>
 
+	* Merge from tree-ssa branch  (tree-profilng-merge-20040216)
+
+2004-02-16  Jan Hubicka  <jh@suse.cz>
+
 	* cfgbuild.c (find_bb_boundaries): Add extra argument.
 	collect list of labels whose address has been taken
 	(control_flow_insn_p): Recognize noreturn call instructions

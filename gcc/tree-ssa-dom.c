@@ -279,14 +279,18 @@ local_fold (tree t)
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the operand pointed by OP_P.  */
 
-static inline void
+static void
 propagate_value (tree *op_p, tree val)
 {
-  if (TREE_CODE (*op_p) == SSA_NAME
-      && TREE_CODE (val) == SSA_NAME)
-    propagate_copy (op_p, val);
+  if (TREE_CODE (val) == SSA_NAME)
+    {
+      if (TREE_CODE (*op_p) == SSA_NAME)
+	propagate_copy (op_p, val);
+      else
+	*op_p = val;
+    }
   else
-    *op_p = val;
+    *op_p = lhd_unsave_expr_now (val);
 }
 
 /* Return the value associated with variable VAR in TABLE.  */

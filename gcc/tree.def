@@ -482,8 +482,9 @@ DEFTREECODE (LABELED_BLOCK_EXPR, "labeled_block_expr", 'e', 2)
 
 /* Function call.  Operand 0 is the function.
    Operand 1 is the argument list, a list of expressions
-   made out of a chain of TREE_LIST nodes.  */
-DEFTREECODE (CALL_EXPR, "call_expr", 'e', 2)
+   made out of a chain of TREE_LIST nodes.
+   Operand 2 is the static chain argument, or NULL.  */
+DEFTREECODE (CALL_EXPR, "call_expr", 'e', 3)
 
 /* Specify a value to compute along with its corresponding cleanup.
    Operand 0 argument is an expression whose value needs a cleanup.

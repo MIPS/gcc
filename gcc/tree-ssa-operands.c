@@ -1038,6 +1038,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
         get_expr_operands (stmt, &TREE_VALUE (op), opf_none, prev_vops);
 
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, prev_vops);
+
       if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
 	{
 	  if (!(call_flags

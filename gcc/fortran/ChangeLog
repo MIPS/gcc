@@ -1,3 +1,35 @@
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* Make-lang.in (f95-lang.o, trans-decl.o): Depend on cgraph.h.
+	* f95-lang.c (LANG_HOOKS_EXPAND_DECL): Remove.
+	(LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): New.
+	(gfc_expand_function): Rename from expand_function_body, make static,
+	don't do anything except invoke tree_rest_of_compilation.
+	(gfc_be_parse_file): Invoke cgraph.
+	(gfc_expand_decl): Remove.
+	(gfc_init_builtin_functions): Add __builtin_init_trampoline and
+	__builtin_adjust_trampoline.
+	* trans-decl.c (gfc_get_extern_function_decl): Don't set DECL_CONTEXT.
+	(gfc_finalize): New.
+	(gfc_generate_function_code): Use it.  Lower nested functions.
+	* trans-expr.c (gfc_conv_function_call): Add static chain operand
+	to call_expr.
+	* trans.c (gfc_build_function_call): Likewise.
+	* trans.h (expand_function_body): Remove.
+
+2004-02-15  Victor Leikehman  <lei@il.ibm.com>
+
+	PR gfortran/13433
+	* trans-decl.c (gfc_build_function_decl) For functions
+	returning CHARACTER pass an extra length argument,
+	following g77 calling conventions.
+	* trans-types.c (gfc_get_function_type) Ditto.
+	* trans-expr.c (gfc_conv_function_call) Ditto.
+
+2004-02-14  Paul Brook  <paul@codesourcery.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Build chain properly.
+
 2004-02-12  Paul Brook  <paul@nowt.org>
 
 	* BUGS: Remove.

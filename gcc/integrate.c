@@ -416,8 +416,8 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
 }
 
 /* Make the insns and PARM_DECLs of the current function permanent
-   and record other information in DECL_SAVED_INSNS to allow inlining
-   of this function in subsequent calls.
+   and record other information in DECL_STRUCT_FUNCTION to allow
+   inlining of this function in subsequent calls.
 
    This routine need not copy any insns because we are not going
    to immediately compile the insns in the insn chain.  There
@@ -644,7 +644,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 			tree type, rtx structure_value_addr)
 {
   struct function *inlining_previous;
-  struct function *inl_f = DECL_SAVED_INSNS (fndecl);
+  struct function *inl_f = DECL_STRUCT_FUNCTION (fndecl);
   tree formal, actual, block;
   rtx parm_insns = inl_f->emit->x_first_insn;
   rtx insns = (inl_f->inl_last_parm_insn
@@ -888,10 +888,6 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
   if (inl_f->uses_pic_offset_table)
     current_function_uses_pic_offset_table = 1;
 
-  /* If this function needs a context, set it up.  */
-  if (inl_f->needs_context)
-    static_chain_value = lookup_static_chain (fndecl);
-
   /* If the inlined function calls __builtin_constant_p, then we'll
      need to call purge_builtin_constant_p on this function.  */
   if (inl_f->calls_constant_p)
@@ -955,7 +951,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 	     incoming arg rtx values are expanded now so that we can be
 	     sure we have enough slots in the const equiv map since the
 	     store_expr call can easily blow the size estimate.  */
-	  if (DECL_SAVED_INSNS (fndecl)->args_size != 0)
+	  if (DECL_STRUCT_FUNCTION (fndecl)->args_size != 0)
 	    copy_rtx_and_substitute (virtual_incoming_args_rtx, map, 0);
 	}
       else if (GET_CODE (loc) == REG)
@@ -1888,7 +1884,8 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
       regno = REGNO (orig);
       if (regno <= LAST_VIRTUAL_REGISTER
 	  || (map->integrating
-	      && DECL_SAVED_INSNS (map->fndecl)->internal_arg_pointer == orig))
+	      && DECL_STRUCT_FUNCTION (map->fndecl)->internal_arg_pointer
+		 == orig))
 	{
 	  /* Some hard registers are also mapped,
 	     but others are not translated.  */
@@ -1906,10 +1903,11 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	  else if (regno == VIRTUAL_STACK_VARS_REGNUM)
 	    {
 	      rtx loc, seq;
-	      int size = get_func_frame_size (DECL_SAVED_INSNS (map->fndecl));
+	      int size
+		= get_func_frame_size (DECL_STRUCT_FUNCTION (map->fndecl));
 #ifdef FRAME_GROWS_DOWNWARD
 	      int alignment
-		= (DECL_SAVED_INSNS (map->fndecl)->stack_alignment_needed
+		= (DECL_STRUCT_FUNCTION (map->fndecl)->stack_alignment_needed
 		   / BITS_PER_UNIT);
 
 	      /* In this case, virtual_stack_vars_rtx points to one byte
@@ -1944,13 +1942,13 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	    }
 	  else if (regno == VIRTUAL_INCOMING_ARGS_REGNUM
 		   || (map->integrating
-		       && (DECL_SAVED_INSNS (map->fndecl)->internal_arg_pointer
+		       && (DECL_STRUCT_FUNCTION (map->fndecl)->internal_arg_pointer
 			   == orig)))
 	    {
 	      /* Do the same for a block to contain any arguments referenced
 		 in memory.  */
 	      rtx loc, seq;
-	      int size = DECL_SAVED_INSNS (map->fndecl)->args_size;
+	      int size = DECL_STRUCT_FUNCTION (map->fndecl)->args_size;
 
 	      start_sequence ();
 	      loc = assign_stack_temp (BLKmode, size, 1);
@@ -2958,8 +2956,8 @@ set_decl_abstract_flags (tree decl, int setting)
     }
 }
 
-/* Output the assembly language code for the function FNDECL
-   from its DECL_SAVED_INSNS.  Used for inline functions that are output
+/* Output the assembly language code for the function FNDECL from
+   its DECL_STRUCT_FUNCTION.  Used for inline functions that are output
    at end of compilation instead of where they came in the source.  */
 
 static GTY(()) struct function *old_cfun;
@@ -2969,7 +2967,7 @@ output_inline_function (tree fndecl)
 {
   enum debug_info_type old_write_symbols = write_symbols;
   const struct gcc_debug_hooks *const old_debug_hooks = debug_hooks;
-  struct function *f = DECL_SAVED_INSNS (fndecl);
+  struct function *f = DECL_STRUCT_FUNCTION (fndecl);
 
   old_cfun = cfun;
   cfun = f;

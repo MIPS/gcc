@@ -313,9 +313,6 @@ cp_expand_decl (tree decl)
     }
   else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     make_rtl_for_local_static (decl);
-  else if (TREE_CODE (decl) == LABEL_DECL 
-	   && C_DECLARED_LABEL_FLAG (decl))
-    declare_nonlocal_label (decl);
   else
     return 0;
 

@@ -582,8 +582,6 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-extern rtx lookup_static_chain (tree);
-
 /* Convert a stack slot address ADDR valid in function FNDECL
    into an address valid in this function (using a static chain).  */
 extern rtx fix_lexical_addr (rtx, tree);
@@ -595,7 +593,7 @@ extern rtx trampoline_address (tree);
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
-extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
+extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 
 extern rtx expand_call (tree, rtx, int);
 
@@ -764,6 +762,9 @@ extern void emit_stack_save (enum save_level, rtx *, rtx);
 
 /* Restore the stack pointer from a save area of the specified level.  */
 extern void emit_stack_restore (enum save_level, rtx, rtx);
+
+/* Invoke emit_stack_save for the nonlocal_goto_save_area.  */
+extern void update_nonlocal_goto_save_area (void);
 
 /* Allocate some space on the stack dynamically and return its address.  An rtx
    says how many bytes.  */

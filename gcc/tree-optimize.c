@@ -295,6 +295,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_dse);
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
   NEXT_PASS (pass_tail_recursion);
@@ -307,6 +308,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (DUP_PASS (pass_dominator));
   NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_cd_dce);
+  NEXT_PASS (DUP_PASS (pass_dse));
   NEXT_PASS (DUP_PASS (pass_forwprop));
   NEXT_PASS (DUP_PASS (pass_phiopt));
   NEXT_PASS (pass_tail_calls);
@@ -603,7 +605,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   else
     DECL_SAVED_TREE (fndecl) = NULL;
   cfun = 0;
-  DECL_SAVED_INSNS (fndecl) = 0;
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
@@ -632,7 +633,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (!nested_p && !flag_inline_trees)
     {
       DECL_SAVED_TREE (fndecl) = NULL;
-      if (DECL_SAVED_INSNS (fndecl) == 0
+      if (DECL_STRUCT_FUNCTION (fndecl) == 0
 	  && !cgraph_node (fndecl)->origin)
 	{
 	  /* Stop pointing to the local nodes about to be freed.

@@ -267,7 +267,7 @@ build_call (tree function, tree parms)
 				    TREE_VALUE (tmp), t);
 	}
 
-  function = build (CALL_EXPR, result_type, function, parms);
+  function = build (CALL_EXPR, result_type, function, parms, NULL_TREE);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
   TREE_NOTHROW (function) = nothrow;
   
@@ -4323,7 +4323,7 @@ build_over_call (struct z_candidate *cand, int flags)
       tree expr;
       tree return_type;
       return_type = TREE_TYPE (TREE_TYPE (fn));
-      expr = build (CALL_EXPR, return_type, fn, args);
+      expr = build (CALL_EXPR, return_type, fn, args, NULL_TREE);
       if (!VOID_TYPE_P (return_type))
 	require_complete_type (return_type);
       return convert_from_reference (expr);
@@ -5109,7 +5109,7 @@ build_new_method_call (tree instance, tree fns, tree args,
     return build_min_non_dep
       (CALL_EXPR, call,
        build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
-       orig_args);
+       orig_args, NULL_TREE);
   return call;
 }
 

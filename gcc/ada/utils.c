@@ -1929,7 +1929,7 @@ end_subprog_body (void)
        cico_list != 0; cico_list = TREE_CHAIN (cico_list))
     TREE_VALUE (cico_list) = 0;
 
-  if (DECL_SAVED_INSNS (current_function_decl) == 0)
+  if (DECL_STRUCT_FUNCTION (current_function_decl) == 0)
     {
       /* Throw away DECL_RTL in any PARM_DECLs unless this function
 	 was saved for inline, in which case the DECL_RTLs are in
@@ -2213,7 +2213,7 @@ max_size (tree exp, int max_p)
 				max_size (TREE_OPERAND (exp, 2), max_p)));
 	  else if (code == CALL_EXPR && TREE_OPERAND (exp, 1) != 0)
 	    return build (CALL_EXPR, type, TREE_OPERAND (exp, 0),
-			  max_size (TREE_OPERAND (exp, 1), max_p));
+			  max_size (TREE_OPERAND (exp, 1), max_p), NULL);
 	}
     }
 

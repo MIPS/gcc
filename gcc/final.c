@@ -1409,7 +1409,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   int sval = current_function_returns_struct;
   rtx svrtx = targetm.calls.struct_value_rtx (TREE_TYPE (current_function_decl), 1);
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) || defined(STATIC_CHAIN_REGNUM)
-  int cxt = current_function_needs_context;
+  int cxt = cfun->static_chain_decl != NULL;
 #endif
 #endif /* ASM_OUTPUT_REG_PUSH */
 

@@ -867,7 +867,7 @@ OBJS-common = \
  tree-alias-type.o gimplify.o tree-pretty-print.o                          \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
- tree-ssa-phiopt.o tree-ssa-forwprop.o					   \
+ tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
@@ -1553,6 +1553,9 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h langhooks.h \
    cfgloop.h domwalk.h tree-pass.h
+tree-ssa-dse.o : tree-ssa-dse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
+   $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) domwalk.h flags.h
 tree-ssa-forwprop.o : tree-ssa-phiopt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(TM_P_H) $(BASIC_BLOCK_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H)
@@ -1585,6 +1588,9 @@ tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-tailcall.o : tree-tailcall.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) function.h $(TM_H) coretypes.h \
    $(TREE_DUMP_H) diagnostic.h except.h tree-pass.h flags.h
+tree-nested.o: tree-nested.c $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
+   $(RTL_H) $(TM_P_H) function.h tree-dump.h tree-inline.h tree-iterator.h \
+   tree-simple.h cgraph.h $(EXPR_H) langhooks.h $(GGC_H) gt-tree-nested.h
 tree-iterator.o : tree-iterator.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    coretypes.h $(GGC_H) tree-iterator.h tree-simple.h gt-tree-iterator.h
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
@@ -2236,7 +2242,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
-  $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c \
+  $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c $(srcdir)/tree-nested.c \
   $(out_file) \
   @all_gtfiles@
 
@@ -2256,7 +2262,7 @@ gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-tree-alias-common.h gt-tree-mudflap.h \
 gt-tree-ssa.h gt-tree-ssa-ccp.h gt-tree-eh.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
-gt-tree-phinodes.h gt-tree-cfg.h \
+gt-tree-phinodes.h gt-tree-cfg.h gt-tree-nested.h \
 gt-stringpool.h gt-langhooks.h : s-gtype ; @true
 
 gtyp-gen.h: s-gtyp-gen ; @true

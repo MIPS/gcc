@@ -1155,6 +1155,8 @@ gfc_get_function_type (gfc_symbol * sym)
       if (arg->ts.type == BT_DERIVED || arg->attr.dimension)
 	type = build_reference_type (type);
       typelist = gfc_chainon_list (typelist, type);
+      if (arg->ts.type == BT_CHARACTER)
+	typelist = gfc_chainon_list (typelist, gfc_strlen_type_node);
     }
 
   /* Build the argument types for the function */

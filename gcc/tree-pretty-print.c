@@ -866,6 +866,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (op1)
 	dump_generic_node (buffer, op1, spc, flags, false);
       pp_character (buffer, ')');
+
+      op1 = TREE_OPERAND (node, 2);
+      if (op1)
+	{
+	  pp_string (buffer, " [static-chain: ");
+	  dump_generic_node (buffer, op1, spc, flags, false);
+	  pp_character (buffer, ']');
+	}
       break;
 
     case WITH_CLEANUP_EXPR:
@@ -1192,6 +1200,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       dump_generic_node (buffer, op0, spc, flags, false);
       pp_character (buffer, ':');
+      if (DECL_NONLOCAL (op0))
+	pp_string (buffer, " [non-local]");
       break;
 
     case LABELED_BLOCK_EXPR:

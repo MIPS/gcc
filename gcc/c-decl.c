@@ -51,6 +51,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-pragma.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
+#include "tree-simple.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "cgraph.h"
@@ -1445,7 +1446,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	{
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-	  DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
+	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 
@@ -1975,10 +1976,6 @@ lookup_label (tree name)
 /* Make a label named NAME in the current function, shadowing silently
    any that may be inherited from containing functions or containing
    scopes.  This is called for __label__ declarations.  */
-
-/* Note that valid use, if the label being shadowed comes from another
-   scope in the same function, requires calling declare_nonlocal_label
-   right away.  (Is this still true?  -zw 2003-07-17)  */
 
 tree
 declare_label (tree name)
@@ -6147,6 +6144,7 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
+	  lower_nested_functions (fndecl);
           c_finalize (fndecl);
         }
       else
@@ -6158,8 +6156,9 @@ finish_function (void)
         }
     }
 
-  /* We're leaving the context of this function, so zap cfun.  It's still in
-     DECL_SAVED_INSNS, and we'll restore it in tree_rest_of_compilation.  */
+  /* We're leaving the context of this function, so zap cfun.
+     It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
+     tree_rest_of_compilation.  */
   cfun = NULL;
   current_function_decl = NULL;
 }
@@ -6326,7 +6325,7 @@ c_pop_function_context (struct function *f)
 {
   struct language_function *p = f->language;
 
-  if (DECL_SAVED_INSNS (current_function_decl) == 0
+  if (DECL_STRUCT_FUNCTION (current_function_decl) == 0
       && DECL_SAVED_TREE (current_function_decl) == NULL_TREE)
     {
       /* Stop pointing to the local nodes about to be freed.  */
@@ -6449,9 +6448,6 @@ c_expand_decl (tree decl)
 	   && DECL_CONTEXT (decl) == current_function_decl
 	   && DECL_SAVED_TREE (decl))
     c_expand_body_1 (decl, 1);
-  else if (TREE_CODE (decl) == LABEL_DECL 
-	   && C_DECLARED_LABEL_FLAG (decl))
-    declare_nonlocal_label (decl);
   else
     return 0;
 

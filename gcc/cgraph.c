@@ -360,7 +360,7 @@ cgraph_remove_node (struct cgraph_node *node)
 	  if (!dump_enabled_p (TDI_all))
 	    {
               DECL_SAVED_TREE (node->decl) = NULL;
-	      DECL_SAVED_INSNS (node->decl) = NULL;
+	      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 	    }
 	  check_dead = false;
 	}
@@ -388,7 +388,7 @@ cgraph_remove_node (struct cgraph_node *node)
       if (!n && !dump_enabled_p (TDI_all))
 	{
 	  DECL_SAVED_TREE (node->decl) = NULL;
-	  DECL_SAVED_INSNS (node->decl) = NULL;
+	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
 	}
     }
   cgraph_n_nodes--;
@@ -407,16 +407,6 @@ cgraph_mark_reachable_node (struct cgraph_node *node)
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
-
-      /* At the moment frontend automatically emits all nested functions.  */
-      if (node->nested)
-	{
-	  struct cgraph_node *node2;
-
-	  for (node2 = node->nested; node2; node2 = node2->next_nested)
-	    if (!node2->reachable)
-	      cgraph_mark_reachable_node (node2);
-	}
     }
 }
 
@@ -805,10 +795,6 @@ cgraph_clone_node (struct cgraph_node *n)
       new->next_nested = new->origin->nested;
       new->origin->nested = new;
     }
-  /* Cloning of functions with nested functions would require cloning of 
-     the nested functions too.  Just sanity check that we don't do that.  */
-  if (new->nested)
-    abort ();
   new->analyzed = n->analyzed;
   new->local = n->local;
   new->global = n->global;

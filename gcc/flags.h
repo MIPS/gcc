@@ -730,8 +730,11 @@ extern int flag_tree_combine_temps;
 /* Enable SSA->normal pass expression replacement.  */
 extern int flag_tree_ter;
 
-/* Enable dominator optimizations while re-writing into SSA form.  */
+/* Enable dominator optimizations.  */
 extern int flag_tree_dom;
+
+/* Enable dead store and redundant load elimination */
+extern int flag_tree_dse;
 
 /* Enable loop optimization on tree-ssa.  */
 extern int flag_tree_loop;

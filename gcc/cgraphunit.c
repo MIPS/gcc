@@ -282,7 +282,7 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->origin && !n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -372,11 +372,6 @@ cgraph_finalize_function (tree decl, bool nested)
   /* If we've not yet emitted decl, tell the debug info about it.  */
   if (!TREE_ASM_WRITTEN (decl))
     (*debug_hooks->deferred_inline_function) (decl);
-
-  /* We will never really output the function body, clear the SAVED_INSNS array
-     early then.  */
-  if (DECL_EXTERNAL (decl))
-    DECL_SAVED_INSNS (decl) = NULL;
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -755,12 +750,12 @@ cgraph_mark_functions_to_output (void)
 	  && !node->global.inlined_to
 	  && (node->needed
 	      || (e && node->reachable))
-	  && !TREE_ASM_WRITTEN (decl) && !node->origin
+	  && !TREE_ASM_WRITTEN (decl)
 	  && !DECL_EXTERNAL (decl))
 	node->output = 1;
       /* We should've reclaimed all functions that are not needed.  */
       else if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
-	       && !node->origin && !DECL_EXTERNAL (decl))
+	       && !DECL_EXTERNAL (decl))
 	{
 	  dump_cgraph_node (stderr, node);
 	  abort ();
@@ -787,7 +782,8 @@ cgraph_expand_function (struct cgraph_node *node)
   (*lang_hooks.callgraph.expand_function) (decl);
 
   /* Make sure that BE didn't gave up on compiling.  */
-  if (!TREE_ASM_WRITTEN (node->decl))
+  /* ??? Can happen with nested function of extern inline.  */
+  if (0 && !TREE_ASM_WRITTEN (node->decl))
     abort ();
 
   current_function_decl = NULL;
@@ -795,7 +791,7 @@ cgraph_expand_function (struct cgraph_node *node)
       && !cgraph_preserve_function_body_p (node->decl))
     {
       DECL_SAVED_TREE (node->decl) = NULL;
-      DECL_SAVED_INSNS (node->decl) = NULL;
+      DECL_STRUCT_FUNCTION (node->decl) = NULL;
       DECL_ARGUMENTS (node->decl) = NULL;
       DECL_INITIAL (node->decl) = error_mark_node;
     }
@@ -928,7 +924,7 @@ cgraph_remove_unreachable_nodes (void)
 	  int local_insns;
 	  tree decl = node->decl;
 
-	  if (DECL_SAVED_INSNS (decl))
+	  if (DECL_STRUCT_FUNCTION (decl))
 	    local_insns = node->local.self_insns;
 	  else
 	    local_insns = 0;
@@ -954,7 +950,7 @@ cgraph_remove_unreachable_nodes (void)
 		  if (!clone)
 		    {
 		      DECL_SAVED_TREE (node->decl) = NULL;
-		      DECL_SAVED_INSNS (node->decl) = NULL;
+		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
 		      DECL_ARGUMENTS (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
 		    }
@@ -1002,7 +998,7 @@ cgraph_estimate_growth (struct cgraph_node *node)
   /* ??? Wrong for self recursive functions or cases where we decide to not
      inline for different reasons, but it is not big deal as in that case
      we will keep the body around, but we will also avoid some inlining.  */
-  if (!node->needed && !node->origin && !DECL_EXTERNAL (node->decl))
+  if (!node->needed && !DECL_EXTERNAL (node->decl))
     growth -= node->global.insns;
 
   return growth;
@@ -1022,7 +1018,6 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
      case just go ahead and re-use it.  */
   if (!e->callee->callers->next_caller
       && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
-      && !e->callee->origin
       && duplicate
       && flag_unit_at_a_time)
     {
@@ -1773,10 +1768,6 @@ cgraph_optimize (void)
 
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->analyzed
-	    /* ??? We don't handle memory management of nested functions quite
-	       right.  It probably does not worth the effort as these functions
-	       should go away soon.  */
-	    && !node->origin
 	    && (node->global.inlined_to
 	        || DECL_SAVED_TREE (node->decl)))
 	  {

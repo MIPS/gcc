@@ -361,6 +361,51 @@ add_immediate_use (tree stmt, tree use_stmt)
   VARRAY_PUSH_TREE (ann->df->immediate_uses, use_stmt);
 }
 
+/* If the any immediate use of USE points to OLD, then redirect it to NEW.  */
+ 
+static void
+redirect_immediate_use (tree use, tree old, tree new)
+{
+  tree imm_stmt = SSA_NAME_DEF_STMT (use);
+  struct dataflow_d *df = get_stmt_ann (imm_stmt)->df;
+  unsigned int num_uses = num_immediate_uses (df);
+  unsigned int i;
+
+  for (i = 0; i < num_uses; i++)
+    {
+      if (immediate_use (df, i) == old)
+	{
+	  if (i == 0 || i == 1)
+	    df->uses[i] = new;
+	  else
+	    VARRAY_TREE (df->immediate_uses, i - 2) = new;
+	}
+    }
+}
+
+/* Redirect all immediate uses for operands in OLD so that they point
+   to NEW.  This routine should have no knowledge of how immediate
+   uses are stored.  */
+
+void
+redirect_immediate_uses (tree old, tree new)
+{
+  stmt_ann_t ann = get_stmt_ann (old);
+  use_optype uses = USE_OPS (ann);
+  vuse_optype vuses = VUSE_OPS (ann);
+  vdef_optype vdefs = VDEF_OPS (ann);
+  unsigned int i;
+
+  /* Look at USE_OPS or VUSE_OPS according to FLAGS.  */
+  for (i = 0; i < NUM_USES (uses); i++)
+    redirect_immediate_use (USE_OP (uses, i), old, new); 
+
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    redirect_immediate_use (VUSE_OP (vuses, i), old, new);
+
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    redirect_immediate_use (VDEF_OP (vdefs, i), old, new);
+}
 
 /*---------------------------------------------------------------------------
 			    Manage annotations

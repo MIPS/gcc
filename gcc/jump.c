@@ -1167,6 +1167,8 @@ any_uncondjump_p (rtx insn)
     return 0;
   if (GET_CODE (SET_SRC (x)) != LABEL_REF)
     return 0;
+  if (find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
+    return 0;
   return 1;
 }
 

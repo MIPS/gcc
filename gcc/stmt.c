@@ -392,9 +392,7 @@ static int n_occurrences (int, const char *);
 static bool decl_conflicts_with_clobbers_p (tree, const HARD_REG_SET);
 static void expand_goto_internal (tree, rtx, rtx);
 static int expand_fixup (tree, rtx, rtx);
-static rtx expand_nl_handler_label (rtx, rtx);
 static void expand_nl_goto_receiver (void);
-static void expand_nl_goto_receivers (struct nesting *);
 static void fixup_gotos (struct nesting *, rtx, tree, rtx, int);
 static bool check_operand_nalternatives (tree, tree);
 static bool check_unique_operand_names (tree, tree);
@@ -471,7 +469,12 @@ label_rtx (tree label)
     abort ();
 
   if (!DECL_RTL_SET_P (label))
-    SET_DECL_RTL (label, gen_label_rtx ());
+    {
+      rtx r = gen_label_rtx ();
+      SET_DECL_RTL (label, r);
+      if (FORCED_LABEL (label) || DECL_NONLOCAL (label))
+	LABEL_PRESERVE_P (r) = 1;
+    }
 
   return DECL_RTL (label);
 }
@@ -556,11 +559,26 @@ void
 expand_label (tree label)
 {
   struct label_chain *p;
+  rtx label_r = label_rtx (label);
 
   do_pending_stack_adjust ();
-  emit_label (label_rtx (label));
+  emit_label (label_r);
   if (DECL_NAME (label))
     LABEL_NAME (DECL_RTL (label)) = IDENTIFIER_POINTER (DECL_NAME (label));
+
+  if (DECL_NONLOCAL (label))
+    {
+      expand_nl_goto_receiver ();
+      nonlocal_goto_handler_labels
+	= gen_rtx_EXPR_LIST (VOIDmode, label_r,
+			     nonlocal_goto_handler_labels);
+    }
+
+  if (FORCED_LABEL (label))
+    forced_labels = gen_rtx_EXPR_LIST (VOIDmode, label_r, forced_labels);
+      
+  if (DECL_NONLOCAL (label) || FORCED_LABEL (label))
+    maybe_set_first_label_num (label_r);
 
   if (stack_block_stack != 0)
     {
@@ -571,26 +589,6 @@ expand_label (tree label)
     }
 }
 
-/* Declare that LABEL (a LABEL_DECL) may be used for nonlocal gotos
-   from nested functions.  */
-
-void
-declare_nonlocal_label (tree label)
-{
-  rtx slot = assign_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0);
-
-  nonlocal_labels = tree_cons (NULL_TREE, label, nonlocal_labels);
-  LABEL_PRESERVE_P (label_rtx (label)) = 1;
-  if (nonlocal_goto_handler_slots == 0)
-    {
-      emit_stack_save (SAVE_NONLOCAL,
-		       &nonlocal_goto_stack_level,
-		       PREV_INSN (tail_recursion_reentry));
-    }
-  nonlocal_goto_handler_slots
-    = gen_rtx_EXPR_LIST (VOIDmode, slot, nonlocal_goto_handler_slots);
-}
-
 /* Generate RTL code for a `goto' statement with target label LABEL.
    LABEL should be a LABEL_DECL tree node that was or will later be
    defined with `expand_label'.  */
@@ -598,91 +596,15 @@ declare_nonlocal_label (tree label)
 void
 expand_goto (tree label)
 {
-  tree context;
-
-  /* Check for a nonlocal goto to a containing function.  */
-  context = decl_function_context (label);
+#ifdef ENABLE_CHECKING
+  /* Check for a nonlocal goto to a containing function.  Should have
+     gotten translated to __builtin_nonlocal_goto.  */
+  tree context = decl_function_context (label);
   if (context != 0 && context != current_function_decl)
-    {
-      struct function *p = find_function_data (context);
-      rtx label_ref = gen_rtx_LABEL_REF (Pmode, label_rtx (label));
-      rtx handler_slot, static_chain, save_area, insn;
-      tree link;
-
-      /* Find the corresponding handler slot for this label.  */
-      handler_slot = p->x_nonlocal_goto_handler_slots;
-      for (link = p->x_nonlocal_labels; TREE_VALUE (link) != label;
-	   link = TREE_CHAIN (link))
-	handler_slot = XEXP (handler_slot, 1);
-      handler_slot = XEXP (handler_slot, 0);
-
-      p->has_nonlocal_label = 1;
-      current_function_has_nonlocal_goto = 1;
-      LABEL_REF_NONLOCAL_P (label_ref) = 1;
-
-      /* Copy the rtl for the slots so that they won't be shared in
-	 case the virtual stack vars register gets instantiated differently
-	 in the parent than in the child.  */
-
-      static_chain = copy_to_reg (lookup_static_chain (label));
-
-      /* Get addr of containing function's current nonlocal goto handler,
-	 which will do any cleanups and then jump to the label.  */
-      handler_slot = copy_to_reg (replace_rtx (copy_rtx (handler_slot),
-					       virtual_stack_vars_rtx,
-					       static_chain));
-
-      /* Get addr of containing function's nonlocal save area.  */
-      save_area = p->x_nonlocal_goto_stack_level;
-      if (save_area)
-	save_area = replace_rtx (copy_rtx (save_area),
-				 virtual_stack_vars_rtx, static_chain);
-
-#if HAVE_nonlocal_goto
-      if (HAVE_nonlocal_goto)
-	emit_insn (gen_nonlocal_goto (static_chain, handler_slot,
-				      save_area, label_ref));
-      else
+    abort ();
 #endif
-	{
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				      gen_rtx_MEM (BLKmode,
-						   gen_rtx_SCRATCH (VOIDmode))));
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				      gen_rtx_MEM (BLKmode,
-						   hard_frame_pointer_rtx)));
 
-	  /* Restore frame pointer for containing function.
-	     This sets the actual hard register used for the frame pointer
-	     to the location of the function's incoming static chain info.
-	     The non-local goto handler will then adjust it to contain the
-	     proper value and reload the argument pointer, if needed.  */
-	  emit_move_insn (hard_frame_pointer_rtx, static_chain);
-	  emit_stack_restore (SAVE_NONLOCAL, save_area, NULL_RTX);
-
-	  /* USE of hard_frame_pointer_rtx added for consistency;
-	     not clear if really needed.  */
-	  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-	  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
-	  emit_indirect_jump (handler_slot);
-	}
-
-      /* Search backwards to the jump insn and mark it as a
-	 non-local goto.  */
-      for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
-	{
-	  if (GET_CODE (insn) == JUMP_INSN)
-	    {
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO,
-						  const0_rtx, REG_NOTES (insn));
-	      break;
-	    }
-	  else if (GET_CODE (insn) == CALL_INSN)
-	      break;
-	}
-    }
-  else
-    expand_goto_internal (label, label_rtx (label), NULL_RTX);
+  expand_goto_internal (label, label_rtx (label), NULL_RTX);
 }
 
 /* Generate RTL code for a `goto' statement with target label BODY.
@@ -3596,35 +3518,12 @@ current_nesting_level (void)
   return cfun ? block_stack : 0;
 }
 
-/* Emit a handler label for a nonlocal goto handler.
-   Also emit code to store the handler label in SLOT before BEFORE_INSN.  */
-
-static rtx
-expand_nl_handler_label (rtx slot, rtx before_insn)
-{
-  rtx insns;
-  rtx handler_label = gen_label_rtx ();
-
-  /* Don't let cleanup_cfg delete the handler.  */
-  LABEL_PRESERVE_P (handler_label) = 1;
-
-  start_sequence ();
-  emit_move_insn (slot, gen_rtx_LABEL_REF (Pmode, handler_label));
-  insns = get_insns ();
-  end_sequence ();
-  emit_insn_before (insns, before_insn);
-
-  emit_label (handler_label);
-
-  return handler_label;
-}
-
 /* Emit code to restore vital registers at the beginning of a nonlocal goto
    handler.  */
 static void
 expand_nl_goto_receiver (void)
 {
-    /* Clobber the FP when we get here, so we have to make sure it's
+  /* Clobber the FP when we get here, so we have to make sure it's
      marked as used by this function.  */
   emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
 
@@ -3689,82 +3588,6 @@ expand_nl_goto_receiver (void)
   emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 }
 
-/* Make handlers for nonlocal gotos taking place in the function calls in
-   block THISBLOCK.  */
-
-static void
-expand_nl_goto_receivers (struct nesting *thisblock)
-{
-  tree link;
-  rtx afterward = gen_label_rtx ();
-  rtx insns, slot;
-  rtx label_list;
-  int any_invalid;
-
-  /* Record the handler address in the stack slot for that purpose,
-     during this block, saving and restoring the outer value.  */
-  if (thisblock->next != 0)
-    for (slot = nonlocal_goto_handler_slots; slot; slot = XEXP (slot, 1))
-      {
-	rtx save_receiver = gen_reg_rtx (Pmode);
-	emit_move_insn (XEXP (slot, 0), save_receiver);
-
-	start_sequence ();
-	emit_move_insn (save_receiver, XEXP (slot, 0));
-	insns = get_insns ();
-	end_sequence ();
-	emit_insn_before (insns, thisblock->data.block.first_insn);
-      }
-
-  /* Jump around the handlers; they run only when specially invoked.  */
-  emit_jump (afterward);
-
-  /* Make a separate handler for each label.  */
-  link = nonlocal_labels;
-  slot = nonlocal_goto_handler_slots;
-  label_list = NULL_RTX;
-  for (; link; link = TREE_CHAIN (link), slot = XEXP (slot, 1))
-    /* Skip any labels we shouldn't be able to jump to from here,
-       we generate one special handler for all of them below which just calls
-       abort.  */
-    if (! DECL_TOO_LATE (TREE_VALUE (link)))
-      {
-	rtx lab;
-	lab = expand_nl_handler_label (XEXP (slot, 0),
-				       thisblock->data.block.first_insn);
-	label_list = gen_rtx_EXPR_LIST (VOIDmode, lab, label_list);
-
-	expand_nl_goto_receiver ();
-
-	/* Jump to the "real" nonlocal label.  */
-	expand_goto (TREE_VALUE (link));
-      }
-
-  /* A second pass over all nonlocal labels; this time we handle those
-     we should not be able to jump to at this point.  */
-  link = nonlocal_labels;
-  slot = nonlocal_goto_handler_slots;
-  any_invalid = 0;
-  for (; link; link = TREE_CHAIN (link), slot = XEXP (slot, 1))
-    if (DECL_TOO_LATE (TREE_VALUE (link)))
-      {
-	rtx lab;
-	lab = expand_nl_handler_label (XEXP (slot, 0),
-				       thisblock->data.block.first_insn);
-	label_list = gen_rtx_EXPR_LIST (VOIDmode, lab, label_list);
-	any_invalid = 1;
-      }
-
-  if (any_invalid)
-    {
-      expand_nl_goto_receiver ();
-      expand_builtin_trap ();
-    }
-
-  nonlocal_goto_handler_labels = label_list;
-  emit_label (afterward);
-}
-
 /* Warn about any unused VARS (which may contain nodes other than
    VAR_DECLs, but such nodes are ignored).  The nodes are connected
    via the TREE_CHAIN field.  */
@@ -3811,18 +3634,6 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
       do_pending_stack_adjust ();
       emit_label (thisblock->exit_label);
     }
-
-  /* If necessary, make handlers for nonlocal gotos taking
-     place in the function calls in this block.  */
-  if (function_call_count != 0 && nonlocal_labels
-      /* Make handler for outermost block
-	 if there were any nonlocal gotos to this function.  */
-      && (thisblock->next == 0 ? current_function_has_nonlocal_label
-	  /* Make handler for inner block if it has something
-	     special to do when you jump out of it.  */
-	  : (thisblock->data.block.cleanups != 0
-	     || thisblock->data.block.stack_level != 0)))
-    expand_nl_goto_receivers (thisblock);
 
   /* Don't allow jumping into a block that has a stack level.
      Cleanups are allowed, though.  */
@@ -3884,9 +3695,8 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
 	{
 	  emit_stack_restore (thisblock->next ? SAVE_BLOCK : SAVE_FUNCTION,
 			      thisblock->data.block.stack_level, NULL_RTX);
-	  if (nonlocal_goto_handler_slots != 0)
-	    emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level,
-			     NULL_RTX);
+	  if (cfun->nonlocal_goto_save_area)
+	    update_nonlocal_goto_save_area ();
 	}
 
       /* Any gotos out of this block must also do these things.

@@ -6527,20 +6527,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case LABEL_DECL:
       {
 	tree function = decl_function_context (exp);
-	/* Labels in containing functions, or labels used from initializers,
-	   must be forced.  */
-	if (modifier == EXPAND_INITIALIZER
-	    || (function != current_function_decl
-		&& function != inline_function_decl
-		&& function != 0))
-	  temp = force_label_rtx (exp);
-	else
-	  temp = label_rtx (exp);
 
-	temp = gen_rtx_MEM (FUNCTION_MODE, gen_rtx_LABEL_REF (Pmode, temp));
+	temp = label_rtx (exp);
+	temp = gen_rtx_LABEL_REF (Pmode, temp);
+
 	if (function != current_function_decl
-	    && function != inline_function_decl && function != 0)
-	  LABEL_REF_NONLOCAL_P (XEXP (temp, 0)) = 1;
+	    && function != inline_function_decl
+	    && function != 0)
+	  LABEL_REF_NONLOCAL_P (temp) = 1;
+
+	temp = gen_rtx_MEM (FUNCTION_MODE, temp);
 	return temp;
       }
 
@@ -6955,7 +6951,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  {
 	    if (TREE_CODE (vars) == FUNCTION_DECL 
 		&& DECL_CONTEXT (vars) == current_function_decl
-		&& DECL_SAVED_INSNS (vars)
+		&& DECL_STRUCT_FUNCTION (vars)
 		&& !TREE_ASM_WRITTEN (vars)
 		&& TREE_ADDRESSABLE (vars))
 	      {
@@ -8501,15 +8497,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      || containing_blocks_have_cleanups_or_stack_level ())
 	    ;
 	  else if (TREE_CODE (then_) == GOTO_EXPR
-		   && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL
-		   && ! NONLOCAL_LABEL (GOTO_DESTINATION (then_)))
+		   && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL)
 	    {
 	      jumpif (pred, label_rtx (GOTO_DESTINATION (then_)));
 	      return expand_expr (else_, const0_rtx, VOIDmode, 0);
 	    }
 	  else if (TREE_CODE (else_) == GOTO_EXPR
-		   && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL
-		   && ! NONLOCAL_LABEL (GOTO_DESTINATION (else_)))
+		   && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL)
 	    {
 	      jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_)));
 	      return expand_expr (then_, const0_rtx, VOIDmode, 0);
@@ -9025,18 +9019,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case ADDR_EXPR:
       if (modifier == EXPAND_STACK_PARM)
 	target = 0;
-      /* Are we taking the address of a nested function?  */
-      if (TREE_CODE (TREE_OPERAND (exp, 0)) == FUNCTION_DECL
-	  && decl_function_context (TREE_OPERAND (exp, 0)) != 0
-	  && ! DECL_NO_STATIC_CHAIN (TREE_OPERAND (exp, 0))
-	  && ! TREE_STATIC (exp))
-	{
-	  op0 = trampoline_address (TREE_OPERAND (exp, 0));
-	  op0 = force_operand (op0, target);
-	}
       /* If we are taking the address of something erroneous, just
 	 return a zero.  */
-      else if (TREE_CODE (TREE_OPERAND (exp, 0)) == ERROR_MARK)
+      if (TREE_CODE (TREE_OPERAND (exp, 0)) == ERROR_MARK)
 	return const0_rtx;
       /* If we are taking the address of a constant and are at the
 	 top level, we have to use output_constant_def since we can't

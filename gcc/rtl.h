@@ -2056,6 +2056,7 @@ extern void copy_loop_headers (rtx);
 extern int max_reg_num (void);
 extern int max_label_num (void);
 extern int get_first_label_num (void);
+extern void maybe_set_first_label_num (rtx);
 extern void delete_insns_since (rtx);
 extern void mark_reg_pointer (rtx, int);
 extern void mark_user_reg (rtx);

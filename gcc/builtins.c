@@ -777,6 +777,79 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
     }
 }
 
+/* Expand a call to __builtin_nonlocal_goto.  We're passed the target label
+   and the address of the save area.  */
+
+static rtx
+expand_builtin_nonlocal_goto (tree arglist)
+{
+  tree t_label, t_save_area;
+  rtx r_label, r_save_area, r_fp, r_sp, insn;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_label = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_save_area = TREE_VALUE (arglist);
+
+  r_label = expand_expr (t_label, NULL_RTX, VOIDmode, 0);
+  r_save_area = expand_expr (t_save_area, NULL_RTX, VOIDmode, 0);
+  r_fp = gen_rtx_MEM (Pmode, r_save_area);
+  r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
+		      plus_constant (r_save_area, GET_MODE_SIZE (Pmode)));
+
+  current_function_has_nonlocal_goto = 1;
+
+#if HAVE_nonlocal_goto
+  /* ??? We no longer need to pass the static chain value, afaik.  */
+  if (HAVE_nonlocal_goto)
+    emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
+  else
+#endif
+    {
+      r_label = copy_to_reg (r_label);
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       gen_rtx_SCRATCH (VOIDmode))));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       hard_frame_pointer_rtx)));
+ 
+      /* Restore frame pointer for containing function.
+	 This sets the actual hard register used for the frame pointer
+	 to the location of the function's incoming static chain info.
+	 The non-local goto handler will then adjust it to contain the
+	 proper value and reload the argument pointer, if needed.  */
+      emit_move_insn (hard_frame_pointer_rtx, r_fp);
+      emit_stack_restore (SAVE_NONLOCAL, r_sp, NULL_RTX);
+ 
+      /* USE of hard_frame_pointer_rtx added for consistency;
+	 not clear if really needed.  */
+      emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+      emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+      emit_indirect_jump (r_label);
+    }
+ 
+  /* Search backwards to the jump insn and mark it as a
+     non-local goto.  */
+  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) == JUMP_INSN)
+	{
+	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO,
+					      const0_rtx, REG_NOTES (insn));
+	  break;
+	}
+      else if (GET_CODE (insn) == CALL_INSN)
+	break;
+    }
+
+  return const0_rtx;
+}
+
 /* Expand a call to __builtin_prefetch.  For a target that does not support
    data prefetch, evaluate the memory address argument in case it has side
    effects.  */
@@ -1318,7 +1391,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     }
 
   /* All arguments and registers used for the call are set up by now!  */
-  function = prepare_call_address (function, NULL_TREE, &call_fusage, 0, 0);
+  function = prepare_call_address (function, NULL, &call_fusage, 0, 0);
 
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
@@ -4987,6 +5060,85 @@ expand_builtin_profile_func (bool exitp)
   return const0_rtx;
 }
 
+/* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */
+
+static rtx
+round_trampoline_addr (rtx tramp)
+{
+  rtx temp, addend, mask;
+
+  /* If we don't need too much alignment, we'll have been guaranteed
+     proper alignment by get_trampoline_type.  */
+  if (TRAMPOLINE_ALIGNMENT <= STACK_BOUNDARY)
+    return tramp;
+
+  /* Round address up to desired boundary.  */
+  temp = gen_reg_rtx (Pmode);
+  addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
+  mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
+
+  temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
+			       temp, 0, OPTAB_LIB_WIDEN);
+  tramp = expand_simple_binop (Pmode, AND, temp, mask,
+			       temp, 0, OPTAB_LIB_WIDEN);
+
+  return tramp;
+}
+
+static rtx
+expand_builtin_init_trampoline (tree arglist)
+{
+  tree t_tramp, t_func, t_chain;
+  rtx r_tramp, r_func, r_chain;
+#ifdef TRAMPOLINE_TEMPLATE
+  rtx blktramp;
+#endif
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE,
+			 POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_tramp = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_func = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_chain = TREE_VALUE (arglist);
+
+  r_tramp = expand_expr (t_tramp, NULL_RTX, VOIDmode, 0);
+  r_func = expand_expr (t_func, NULL_RTX, VOIDmode, 0);
+  r_chain = expand_expr (t_chain, NULL_RTX, VOIDmode, 0);
+
+  /* Generate insns to initialize the trampoline.  */
+  r_tramp = round_trampoline_addr (r_tramp);
+#ifdef TRAMPOLINE_TEMPLATE
+  blktramp = gen_rtx_MEM (BLKmode, r_tramp);
+  set_mem_align (blktramp, TRAMPOLINE_ALIGNMENT);
+  emit_block_move (blktramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+#endif
+  trampolines_created = 1;
+  INITIALIZE_TRAMPOLINE (r_tramp, r_func, r_chain);
+
+  return const0_rtx;
+}
+
+static rtx
+expand_builtin_adjust_trampoline (tree arglist)
+{
+  rtx tramp;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tramp = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  tramp = round_trampoline_addr (tramp);
+#ifdef TRAMPOLINE_ADJUST_ADDRESS
+  TRAMPOLINE_ADJUST_ADDRESS (tramp);
+#endif
+
+  return tramp;
+}
+
 /* Expand a call to the built-in signbit, signbitf or signbitl function.
    Return NULL_RTX if a normal call should be emitted rather than expanding
    the function in-line.  EXP is the expression that is a call to the builtin
@@ -5534,6 +5686,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 
+    case BUILT_IN_NONLOCAL_GOTO:
+      target = expand_builtin_nonlocal_goto (arglist);
+      if (target)
+	return target;
+      break;
+
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
       return const0_rtx;
@@ -5632,6 +5790,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return expand_builtin_profile_func (false);
     case BUILT_IN_PROFILE_FUNC_EXIT:
       return expand_builtin_profile_func (true);
+
+    case BUILT_IN_INIT_TRAMPOLINE:
+      return expand_builtin_init_trampoline (arglist);
+    case BUILT_IN_ADJUST_TRAMPOLINE:
+      return expand_builtin_adjust_trampoline (arglist);
 
     default:	/* just do library call, if unknown builtin */
       if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))
@@ -7250,7 +7413,7 @@ build_function_call_expr (tree fn, tree arglist)
 
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
-		     call_expr, arglist);
+		     call_expr, arglist, NULL_TREE);
   return fold (call_expr);
 }
 

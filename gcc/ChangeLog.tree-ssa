@@ -1,3 +1,145 @@
+2004-02-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/rs6000.c (output_function_profiler): Check
+	cfun->static_chain_decl instead of current_function_needs_context.
+
+2004-02-16  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-ssa-dse.o
+	(tree-ssa-dse.o): Add dependencies.
+	* common.opt (ftree-dse): New option.
+	* flags.h (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	* opts.c (decode_options): Turn on flag_tree_dse.
+	(common_handle_option): Handle  OPT_ftree_dse.
+	* timevar.def (TV_TREE_PHIOPT): Update text.
+	(TV_TREE_DSE): New timevar.
+	* toplev.c (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	(lang_independent_options): Add -ftree-dse.
+	* tree-dfa.c (redirect_immediate_use): New function.
+	(redirect_immediate_uses): New function.
+	* tree-flow.h (stmt_ann_d): Add UID field.
+	(redirect_immediate_uses): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Link in DSE pass.
+	* tree-pass.h (pass_dse): Declare.
+	* tree-ssa-dse.c: New file implementing DSE.
+	* doc/invoke.texi: Document new option.
+
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* tree-nested.c: New file.
+	* Makefile.in (OBJS-common, GTFILES, tree-nested.o): Add it.
+	* builtin-types.def (BT_FN_VOID_PTR_PTR, BT_FN_VOID_PTR_PTR_PTR): New.
+	* builtins.c (expand_builtin_nonlocal_goto): New.
+	(expand_builtin_apply): Fix prepare_call_address args.
+	(round_trampoline_addr): Move from function.c.
+	(expand_builtin_init_trampoline): New.
+	(expand_builtin_adjust_trampoline): New.
+	(expand_builtin): Invoke them.
+	(build_function_call_expr): Add CALL_EXPR chain operand.
+	* builtins.def (BUILT_IN_INIT_TRAMPOLINE,
+	BUILT_IN_ADJUST_TRAMPOLINE, BUILT_IN_NONLOCAL_GOTO): New.
+	* c-decl.c (finish_function): Call lower_nested_functions.
+	(c_expand_decl): Don't declare_nonlocal_label.
+	* calls.c (prepare_call_address): Replace fndecl arg with a
+	precomputed static chain value.  
+	(expand_call): Precompute the static chain value.  Use
+	update_nonlocal_goto_save_area.
+	* cgraph.c (cgraph_mark_reachable_node): Don't force nested
+	functions to be reachable.
+	(cgraph_clone_node): Don't abort cloning functions containing
+	nested functions.
+	* cgraphunit.c (cgraph_assemble_pending_functions): Don't do
+	anything special for nested functions.
+	(cgraph_mark_functions_to_output): Likewise.
+	(cgraph_estimate_growth, cgraph_clone_inlined_nodes): Likewise.
+	(cgraph_optimize): Likewise.
+	(cgraph_finalize_function): Don't zap DECL_SAVED_INSNS.
+	(cgraph_expand_function): Allow functions to not be emitted.
+	* defaults.h (TRAMPOLINE_ALIGNMENT): Move from function.c.
+	* dwarf2out.c (gen_subprogram_die): Generate DW_AT_static_link.
+	* emit-rtl.c (maybe_set_first_label_num): New.
+	* explow.c (update_nonlocal_goto_save_area): New.
+	(allocate_dynamic_stack_space): Use it.
+	* expr.c (expand_expr_real_1) <LABEL_DECL>: Don't force_label_rtx.
+	<COND_EXPR>: Ignore the possibility of non-local labels.
+	<ADDR_EXPR>: Don't do trampoline_address.
+	* expr.h (lookup_static_chain): Remove.
+	(prepare_call_address): Update 2nd arg.
+	(update_nonlocal_goto_save_area): Declare.
+	* final.c (profile_function): Update static chain test.
+	* function.c (TRAMPOLINE_ALIGNMENT): Move to defaults.h.
+	(trampolines_created): Move to varasm.c.
+	(free_after_compilation): Update for removed fields.
+	(allocate_struct_function): Likewise.
+	(delete_handlers, lookup_static_chain): Remove.
+	(fix_lexical_addr): Don't consider non-local variable refs.
+	(trampoline_address): Remove.
+	(round_trampoline_addr): Move to builtins.c.
+	(adjust_trampoline_addr): Remove.
+	(expand_function_start): Update for changes to static chain
+	and nonlocal goto handling.
+	(initial_trampoline): Move to varasm.c.
+	(expand_function_end): Don't build trampolines or kill
+	unreferenced nonlocal goto labels.
+	* function.h (struct function): Remove x_nonlocal_labels,
+	x_nonlocal_goto_handler_slots, x_nonlocal_goto_stack_level,
+	x_context_display, x_trampoline_list, needs_context.
+	Add static_chain_decl, nonlocal_goto_save_area.
+	* gimple-low.c (record_vars): Don't record functions.
+	* gimplify.c (declare_tmp_vars): Export.
+	(create_artificial_label): Set type.
+	(gimplify_expr): Don't consider nonlocal gotos.
+	* integrate.c (expand_inline_function): Kill lookup_static_chain ref.
+	* jump.c (any_uncondjump_p): Reject nonlocal goto.
+	* rtl.h (maybe_set_first_label_num): Declare.
+	* stmt.c (label_rtx): Set LABEL_PRESERVE_P appropriately.
+	(expand_label): Handle DECL_NONLOCAL and FORCED_LABEL.
+	(declare_nonlocal_label): Remove.
+	(expand_goto): Don't handle nonlocal gotos.
+	(expand_nl_handler_label): Remove.
+	(expand_nl_goto_receivers): Remove.
+	(expand_end_bindings): Don't expand_nl_goto_receivers.  Use
+	update_nonlocal_goto_save_area.
+	* tree-cfg.c (make_edges): Handle abnormal edges out of block
+	falling through to EXIT.
+	(make_ctrl_stmt_edges): Don't check GOTO_EXPR for nonlocal goto.
+	Handle computed goto with no destinations.
+	(tree_can_merge_blocks_p): Don't merge blocks with nonlocal labels.
+	(remove_useless_stmts_label, stmt_starts_bb_p): Likewise.
+	(tree_forwarder_block_p): Likewise.
+	(nonlocal_goto_p): Remove.
+	(tree_verify_flow_info): Update to match.
+	* tree-dump.c (dump_files): Add tree-nested.
+	* tree-flow.h (nonlocal_goto_p): Remove.
+	* tree-inline.c (setup_one_parameter): Split out from ...
+	(initialize_inlined_parameters): ... here.  Handle static chain.
+	(inline_forbidden_p_1): Update nonlocal goto check.
+	(expand_call_inline): Disable mysterious cgraph abort.
+	* tree-optimize.c (tree_rest_of_compilation): Save DECL_SAVED_INSNS.
+	* tree-pretty-print.c (dump_generic_node): Print static chain
+	and nonlocal label.
+	* tree-simple.h (declare_tmp_vars): Declare.
+	(lower_nested_functions): Declare.
+	* tree-ssa-dom.c (propagate_value): Avoid sharing problems.
+	* tree-ssa-operands.c (get_expr_operands): Walk static chain
+	field of call_expr.
+	* tree.def (CALL_EXPR): Add static chain operand.
+	* tree.h (NONLOCAL_LABEL): Remove.
+	(TDI_nested): New.
+	* varasm.c (TRAMPOLINE_ALIGNMENT): Remove.
+	(initial_trampoline): Move from function.c.
+	(assemble_trampoline_template): Set and return it.
+	(trampolines_created): Move from function.c.
+
+2004-02-16  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-flow.h (cleanup_control_expr_graph): Don't declare here.
+	* tree-cfg.c (cleanup_control_expr_graph): Make static.
+	(find_edge_taken_cond_expr): Return an edge if the true and false
+	edges of a branch lead to the same basic block.
+
 2004-02-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-phinodes.c (resize_phi_node): Do not use ggc_realloc to
@@ -721,7 +863,7 @@
 
 2004-01-21  Dale Johannesen  <dalej@apple.com>
 	 
-	* tree-ssa-dfa.c:  Fix comment.
+	* tree-dfa.c: Fix comment.
 
 2004-01-21  Richard Henderson  <rth@redhat.com>
 
