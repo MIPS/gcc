@@ -1142,6 +1142,64 @@ return_prediction (tree val)
   return PRED_NO_PREDICTION;
 }
 
+/* Find the basic block with return expression and look up for possible
+   return value trying to apply RETURN_PREDICTION heuristics.  */
+static void
+apply_return_prediction (int *heads)
+{
+  tree return_stmt;
+  tree return_val;
+  edge e;
+  tree phi;
+  int phi_num_args, i;
+  enum br_predictor pred;
+
+  for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+    {
+      return_stmt = last_stmt (e->src);
+      if (TREE_CODE (return_stmt) == RETURN_EXPR)
+	break;
+    }
+  if (!e)
+    return;
+  return_val = TREE_OPERAND (return_stmt, 0);
+  if (!return_val)
+    return;
+  if (TREE_CODE (return_val) == MODIFY_EXPR)
+    return_val = TREE_OPERAND (return_val, 1);
+  if (TREE_CODE (return_val) != SSA_NAME
+      || !SSA_NAME_DEF_STMT (return_val)
+      || TREE_CODE (SSA_NAME_DEF_STMT (return_val)) != PHI_NODE)
+    return;
+  phi = SSA_NAME_DEF_STMT (return_val);
+  while (phi)
+    {
+      tree next = PHI_CHAIN (phi);
+      if (PHI_RESULT (phi) == return_val)
+	break;
+      phi = next;
+    }
+  if (!phi)
+    return;
+  phi_num_args = PHI_NUM_ARGS (phi);
+  pred = return_prediction (PHI_ARG_DEF (phi, 0));
+
+  /* Avoid the degenerate case where all return values form the function
+     belongs to same category (ie they are all positive constants)
+     so we can hardly say something about them.  */
+  for (i = 1; i < phi_num_args; i++)
+    if (pred != return_prediction (PHI_ARG_DEF (phi, i)))
+      break;
+  if (i != phi_num_args)
+    for (i = 0; i < phi_num_args; i++)
+      {
+	pred = return_prediction (PHI_ARG_DEF (phi, i));
+	if (pred != PRED_NO_PREDICTION)
+	  predict_paths_leading_to (PHI_ARG_EDGE (phi, i)->src, heads, pred,
+				    NOT_TAKEN);
+      }
+}
+
 /* Look for basic block that contains unlikely to happen events
    (such as noreturn calls) and mark all paths leading to execution
    of this basic blocks as unlikely.  */
@@ -1156,12 +1214,11 @@ tree_bb_level_predictions (void)
   memset (heads, -1, sizeof (int) * last_basic_block);
   heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
-  /* Process all prediction notes.  */
+  apply_return_prediction (heads);
 
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi = bsi_last (bb);
-      enum br_predictor pred;
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
@@ -1176,18 +1233,9 @@ tree_bb_level_predictions (void)
 		  }
 		break;
 	      case CALL_EXPR:
+call_expr:;
 		if (call_expr_flags (stmt) & ECF_NORETURN)
 		  predict_paths_leading_to (bb, heads, PRED_NORETURN,
-		      			    NOT_TAKEN);
-call_expr:;
-		break;
-	      case RETURN_EXPR:
-		stmt = TREE_OPERAND (stmt, 0);
-		if (stmt && TREE_CODE (stmt) == MODIFY_EXPR)
-		  stmt = TREE_OPERAND (stmt, 1);
-		pred = return_prediction (stmt);
-		if (pred != PRED_NO_PREDICTION)
-		  predict_paths_leading_to (bb, heads, pred,
 		      			    NOT_TAKEN);
 		break;
 	      default:
@@ -1226,20 +1274,19 @@ tree_estimate_probability (void)
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  /* Predict early returns to be probable, as we've already taken
-	     care for error returns and other are often used for fast paths
-	     trought function.  */
+	     care for error returns and other cases are often used for
+	     fast paths trought function.  */
 	  if (e->dest == EXIT_BLOCK_PTR
-	      && !last_basic_block_p (bb))
+	      && TREE_CODE (last_stmt (bb)) == RETURN_EXPR
+	      && bb->pred && bb->pred->pred_next)
 	    {
 	      edge e1;
 
 	      for (e1 = bb->pred; e1; e1 = e1->pred_next)
-	      	if (predicted_by_p (bb, PRED_NULL_RETURN)
-		    || predicted_by_p (bb, PRED_CONST_RETURN)
-		    || predicted_by_p (bb, PRED_NEGATIVE_RETURN))
-		break;
-	      if (!e1)
-		for (e1 = bb->pred; e1; e1 = e1->pred_next)
+	      	if (!predicted_by_p (e1->src, PRED_NULL_RETURN)
+		    && !predicted_by_p (e1->src, PRED_CONST_RETURN)
+		    && !predicted_by_p (e1->src, PRED_NEGATIVE_RETURN)
+		    && !last_basic_block_p (e1->src))
 		  predict_edge_def (e1, PRED_TREE_EARLY_RETURN, NOT_TAKEN);
 	    }
 

@@ -1,3 +1,10 @@
+2004-08-08  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (apply_return_prediction): New function.
+	(tree_bb_level_predictions): Use apply_return_prediction; kill old
+	return prediction code.
+	(tree_estimate_probability): Fix early return prediction.
+
 2004-08-06  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c: Include tree-scalar-evolution.h and cfgloop.h
