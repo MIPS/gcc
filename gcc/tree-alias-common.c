@@ -1,4 +1,3 @@
-
 /* Tree based points-to analysis
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
@@ -26,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-alias-ecr.h"
 #include "tree-alias-common.h"
 #include "tree-alias-steen.h"
-/* I'll explain in a bit. */
+/* If we have andersen's points-to analysis, include it. */
 #ifdef HAVE_BANSHEE
 #include "tree-alias-ander.h"
 #endif
@@ -50,12 +49,31 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "hashtab.h"
 #include "splay-tree.h"
 
+/**
+   @file tree-alias-common.c
+   This file contains the implementation of the common parts of the
+   tree points-to analysis infrastructure. 
+*/
 #define FIELD_BASED 0
 
-static GTY ((param_is (union alias_typevar_def))) varray_type alias_vars = NULL;
+/**
+   @brief Array of all created alias_typevars.
+   
+   @note Should contain all the alias_typevars we wanted marked
+   during GC. 
+*/
+static GTY((param_is (union alias_typevar_def))) varray_type alias_vars = NULL;
 struct tree_alias_ops *current_alias_ops;
+/**
+   @brief  Array of local alias_typevars.
+
+   @note Should contain all the alias_typevars that are local to
+   this function.  We delete these from alias_vars before
+   collection. 
+*/
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
+
 static alias_typevar get_alias_var_decl PARAMS ((tree));
 static alias_typevar get_alias_var PARAMS ((tree));
 static tree find_func_aliases PARAMS ((tree *, int *, void *));
@@ -69,11 +87,24 @@ static void intra_function_call PARAMS ((varray_type));
 static hashval_t annot_hash PARAMS ((const PTR));
 static int annot_eq PARAMS ((const PTR, const PTR));
 
+/**
+   @brief Alias annotation hash table entry.
+   
+   Used in the annotation hash table to map trees to their
+   alias_typevar's.
+*/
 struct alias_annot_entry GTY(())
 {
   tree key;
   alias_typevar value;
 };
+
+/**
+   @brief Alias annotation equality.
+   @param pentry Entry in the hash table.
+   @param pdata  Entry we gave the function calling this.
+   @return 1 if \a pentry is equal to \a pdata, 0 if not.
+*/
 static int 
 annot_eq (pentry, pdata)
      const PTR pentry;
@@ -85,6 +116,11 @@ annot_eq (pentry, pdata)
   return entry->key == data->key;
 }
 
+/**
+   @brief Alias annotation hash function.
+   @param pentry Entry to hash.
+   @return Hash value of \a pentry.
+*/
 static hashval_t
 annot_hash (pentry)
      const PTR pentry;
@@ -93,8 +129,21 @@ annot_hash (pentry)
   return htab_hash_pointer (entry->key);
 }
 
+/**
+   @brief Alias annotation hash table.
+   
+   Maps vars to alias_typevars.
+*/
 htab_t GTY ((param_is (struct alias_annot_entry))) alias_annot;
 
+/**
+   @brief Get the alias_type for a *_DECL.
+   @param decl *_DECL to get the alias_typevar for.
+   @return The alias_typevar for \a decl.
+
+   @note Creates the alias_typevar if it does not exist already. Also
+   handles FUNCTION_DECL properly.
+*/
 static alias_typevar
 get_alias_var_decl (decl)
      tree decl;
@@ -125,6 +174,13 @@ get_alias_var_decl (decl)
   return newvar;
 }
 
+/**
+   @brief Get the alias_typevar for an expression.
+   @param expr Expression we want the alias_typevar of. 
+   @return The alias_typevar for \a expr.
+
+   @note Expects to only be handed a RHS or LHS, not a MODIFY_EXPR.
+*/
 static alias_typevar
 get_alias_var (expr)
      tree expr;
@@ -216,6 +272,14 @@ get_alias_var (expr)
       }
     }
 }
+
+/**
+   @param args Arguments that were passed to the function call.
+   
+   Handles function calls in intra-procedural mode, by making
+   conservative assumptions about what happens to arguments to the
+   call.
+*/
 static void
 intra_function_call (args)
      varray_type args;
@@ -256,6 +320,20 @@ intra_function_call (args)
 	}
     }
 }
+
+/**
+   @brief Tree walker that is the heart of the aliasing
+   infrastructure.
+   @param tp Pointer to the current tree.
+   @param walk_subtrees Whether to continue traversing subtrees or
+   not.
+   @param data Not used.
+   @return NULL_TREE to keep going, anything else to stop.
+   
+   This function is the main part of the aliasing infrastructure. It
+   walks the trees, calling the approriate alias analyzer functions to process
+   various statements.
+*/
 static tree
 find_func_aliases (tp, walk_subtrees, data)
      tree *tp;
@@ -277,7 +355,6 @@ find_func_aliases (tp, walk_subtrees, data)
       alias_typevar lhsAV = NULL;
       alias_typevar rhsAV = NULL;
 
-/*	*walk_subtrees = 0;*/
       op0 = TREE_OPERAND (stp, 0);
       op1 = TREE_OPERAND (stp, 1);
       STRIP_WFL (op0);
@@ -433,8 +510,10 @@ find_func_aliases (tp, walk_subtrees, data)
 						    create_tmp_alias_var
 						    (void_type_node,
 						     "aliastmp"));   
-	      current_alias_ops->addr_assign (current_alias_ops, tempvar, rhsAV);
-	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->addr_assign (current_alias_ops, tempvar, 
+					      rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+					     tempvar);
 	      *walk_subtrees = 0;
 	    }
 	  
@@ -448,8 +527,10 @@ find_func_aliases (tp, walk_subtrees, data)
 						    create_tmp_alias_var
 						    (void_type_node,
 						     "aliastmp"));   
-	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, rhsAV);
-	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, 
+					     rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
+					     tempvar);
 	      *walk_subtrees = 0;
 	    }
 	  
@@ -464,8 +545,10 @@ find_func_aliases (tp, walk_subtrees, data)
 						    (void_type_node,
 						     "aliastmp"));
 	      
-	      current_alias_ops->simple_assign (current_alias_ops, tempvar, rhsAV);
-	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->simple_assign (current_alias_ops, tempvar, 
+						rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+					     tempvar);
 	      *walk_subtrees = 0;
 	    }
 	  /* *x = <something else */
@@ -520,18 +603,20 @@ find_func_decls (tp, walk_subtrees, data)
 }
 #endif
 
-/* 
-   Create the alias variables for a function definition.
-
-   This includes:
-   1. The function itself.
-   2. The arguments.
-   3. The locals.
-   4. The return value.
+/**
+   @brief Create the alias_typevar for a function definition.
    
-   DECL is the function declaration.
-   FORCE determines whether we force creation of the alias variable,
-   regardless of whether one exists or not. 
+   Create the alias_typevar for a function definition, it's
+   arguments, and it's return value.
+   @param decl FUNCTION_DECL for the function.
+   @param force If true, we force creation of the alias_typevar,
+   regardless of whether one exists already.
+   
+   @note This includes creation of alias_typevar's for
+   -# The function itself.
+   -# The arguments.
+   -# The locals.
+   -# The return value.
 */
 static alias_typevar
 create_fun_alias_var (decl, force)
@@ -613,13 +698,19 @@ create_fun_alias_var (decl, force)
   return avar;
 }
 
-/* 
-   Create the alias variables for a ptf.
+/**
+   @brief Create the alias_typevar for a ptf.
+   
+   Create a typevar for a pointer-to-member function, it's arguments,
+   and it's return value.
+   @param decl The PTF FUNCTION_DECL.
+   @param type the PTF type
+   @return The alias_typevar for the PTF.
 
-   This includes:
-   1. The function itself.
-   2. The arguments.
-   3. The return value.
+   @note This includes creating alias_typevar's for
+   -# The function itself.
+   -# The arguments.
+   -# The return value.
 */
 static alias_typevar
 create_fun_alias_var_ptf (decl, type)
@@ -681,6 +772,15 @@ create_fun_alias_var_ptf (decl, type)
   return avar;
 }
 
+/**
+   @brief Create the alias_typevar for a *_DECL node.
+   @param decl Declaration to create alias_typevar for.
+   @return The alias_typevar for \a decl.
+
+   Create the alias_typevar for all types of declaration node.   
+
+   @note Handles creation of alias_typevar's for PTF variables.
+*/
 static alias_typevar
 create_alias_var (decl)
      tree decl;
@@ -739,6 +839,9 @@ display_points_to_set_helper (tvar)
   fprintf (stderr, " }\n");
 }
 
+/**
+   @brief Create points-to sets for a function.
+*/
 void
 create_alias_vars ()
 {
@@ -773,6 +876,9 @@ create_alias_vars ()
 #endif
 }
 
+/**
+   @brief Delete created points-to sets.
+*/
 void
 delete_alias_vars ()
 {
@@ -796,6 +902,10 @@ delete_alias_vars ()
     }
   current_alias_ops->cleanup (current_alias_ops);
 }
+
+/**
+   @brief Initialize points-to analysis machinery.
+*/
 void
 init_alias_vars ()
 {
@@ -810,6 +920,13 @@ init_alias_vars ()
   
 }
 
+/**
+   @brief Determine whether two variables may-alias.
+
+   @param ptr Pointer.
+   @param var Variable.
+   @return true if \a ptr may-alias \a var, false otherwise.
+*/
 bool
 ptr_may_alias_var (ptr, var)
      tree ptr;

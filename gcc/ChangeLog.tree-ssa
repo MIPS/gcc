@@ -1,5 +1,11 @@
 2002-11-28  Daniel Berlin  <dberlin@dberlin.org>
 
+	* tree-alias-common.h: Start adding doxygen docs.
+	
+	* tree-alias-common.c: Ditto
+	
+2002-11-28  Daniel Berlin  <dberlin@dberlin.org>
+
 	* tree-alias-ander.c: Convert debug defines and ifdefs into
 	dump_file use.
 
