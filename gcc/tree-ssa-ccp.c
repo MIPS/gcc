@@ -1485,33 +1485,162 @@ likely_value (tree stmt)
   return ((found_constant || !uses) ? CONSTANT : VARYING);
 }
 
-/* Subroutine of fold_stmt called via walk_tree.  If *EXPR_P is of the 
-   form *&DECL, it is converted to DECL.  Similarly for offsets, which
-   get converted to array references if possible.  Return non-null if
-   the folding generates/exposes undefined code.  */
+/* A subroutine of fold_stmt_r.  Attempts to fold *(A+O) to A[X].
+   BASE is an array type.  OFFSET is a byte displacement.  ORIG_TYPE
+   is the desired result type.   */
 
 static tree
-fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
-		      void *data)
+maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 {
-  bool *changed_p = data;
-  tree expr = *expr_p;
-  tree offset, base, t;
+  unsigned HOST_WIDE_INT lquo, lrem;
+  HOST_WIDE_INT hquo, hrem;
+  tree elt_size, min_idx, idx;
+  tree array_type, elt_type;
 
-  if (TREE_CODE (expr) == INDIRECT_REF)
-    {
-      base = TREE_OPERAND (expr, 0);
-      offset = integer_zero_node;
-    }
-  else if (TREE_CODE (expr) == ARRAY_REF)
-    {
-      base = TREE_OPERAND (expr, 0);
-      offset = TREE_OPERAND (expr, 1);
-      if (TREE_CODE (offset) != INTEGER_CST)
-	return NULL_TREE;
-    }
-  else
+  /* Ignore stupid user tricks of indexing non-array variables.  */
+  array_type = TREE_TYPE (base);
+  if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
+  elt_type = TREE_TYPE (array_type);
+  if (TYPE_MAIN_VARIANT (orig_type) != TYPE_MAIN_VARIANT (elt_type))
+    return NULL_TREE;
+	
+  /* Whee.  Ignore indexing of variable sized types.  */
+  elt_size = TYPE_SIZE_UNIT (elt_type);
+  if (TREE_CODE (elt_size) != INTEGER_CST)
+    return NULL_TREE;
+
+  /* If the division isn't exact, then don't do anything.  Equally
+     invalid as the above indexing of non-array variables.  */
+  if (div_and_round_double (TRUNC_DIV_EXPR, 1,
+			    TREE_INT_CST_LOW (offset),
+			    TREE_INT_CST_HIGH (offset),
+			    TREE_INT_CST_LOW (elt_size),
+			    TREE_INT_CST_HIGH (elt_size),
+			    &lquo, &hquo, &lrem, &hrem)
+      || lrem || hrem)
+    return NULL_TREE;
+  idx = build_int_2_wide (lquo, hquo);
+
+  /* Re-bias the index by the min index of the array type.  */
+  min_idx = TYPE_DOMAIN (TREE_TYPE (base));
+  if (min_idx)
+    {
+      min_idx = TYPE_MIN_VALUE (min_idx);
+      if (min_idx)
+	{
+	  idx = convert (TREE_TYPE (min_idx), idx);
+	  if (!integer_zerop (min_idx))
+	    idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx),
+			idx, min_idx));
+	}
+    }
+
+  return build (ARRAY_REF, orig_type, base, idx);
+}
+
+/* A subroutine of fold_stmt_r.  Attempts to fold *(S+O) to S.X.
+   BASE is a record type.  OFFSET is a byte displacement.  ORIG_TYPE
+   is the desired result type.  */
+/* ??? This doesn't handle class inheritence.  */
+
+static tree
+maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
+				    tree orig_type, bool base_is_ptr)
+{
+  tree f, t;
+
+  if (TREE_CODE (record_type) != RECORD_TYPE
+      && TREE_CODE (record_type) != UNION_TYPE
+      && TREE_CODE (record_type) != QUAL_UNION_TYPE)
+    return NULL_TREE;
+
+  /* Short-circuit silly cases.  */
+  if (TYPE_MAIN_VARIANT (record_type) == TYPE_MAIN_VARIANT (orig_type))
+    return NULL_TREE;
+
+  for (f = TYPE_FIELDS (record_type); f ; f = TREE_CHAIN (f))
+    {
+      tree field_type = TREE_TYPE (f);
+      int cmp;
+
+      if (TREE_CODE (f) != FIELD_DECL)
+	continue;
+      if (DECL_BIT_FIELD (f))
+	continue;
+      if (TREE_CODE (DECL_FIELD_OFFSET (f)) != INTEGER_CST)
+	continue;
+
+      /* ??? Java creates "interesting" fields for representing base classes.
+	 They have no name, and have no context.  With no context, we get into
+	 trouble with nonoverlapping_component_refs_p.  Skip them.  */
+      if (!DECL_FIELD_CONTEXT (f))
+	continue;
+
+      /* Check to see if this offset overlaps with the field.  */
+      cmp = tree_int_cst_compare (DECL_FIELD_OFFSET (f), offset);
+      if (cmp > 0)
+	continue;
+      if (cmp < 0)
+	{
+	  /* Don't care about offsets into the middle of scalars.  */
+	  if (!AGGREGATE_TYPE_P (field_type))
+	    continue;
+
+	  /* Check the end of the field against the offset.  */
+	  /* ??? Check for array at the end of the struct.  This is often
+	     used as for flexible array members.  We should be able to turn
+	     this into an array access anyway.  */
+	  if (!DECL_SIZE_UNIT (f)
+	      || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
+	    continue;
+	  t = fold (build (MINUS_EXPR, TREE_TYPE (offset),
+			   offset, DECL_FIELD_OFFSET (f)));
+	  if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
+	    continue;
+
+	  /* If we matched, then set offset to the displacement into
+	     this field.  */
+	  offset = t;
+	}
+
+      /* Here we exactly match the offset being checked.  If the types match,
+	 then we can return that field.  */
+      else if (TYPE_MAIN_VARIANT (orig_type) == TYPE_MAIN_VARIANT (field_type))
+	{
+	  if (base_is_ptr)
+	    base = build1 (INDIRECT_REF, record_type, base);
+	  t = build (COMPONENT_REF, field_type, base, f);
+	  return t;
+	}
+
+      /* Don't care about type-punning of scalars.  */
+      else if (!AGGREGATE_TYPE_P (field_type))
+	return NULL_TREE;
+
+      /* If we get here, we've got an aggregate field, and a possibly 
+	 non-zero offset into them.  Recurse and hope for a valid match.  */
+      if (base_is_ptr)
+	base = build1 (INDIRECT_REF, record_type, base);
+      base = build (COMPONENT_REF, field_type, base, f);
+
+      t = maybe_fold_offset_to_array_ref (base, offset, orig_type);
+      if (t)
+	return t;
+      return maybe_fold_offset_to_component_ref (field_type, base, offset,
+					         orig_type, false);
+    }
+
+  return NULL_TREE;
+}
+
+/* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
+   Return the simplified expression, or NULL if nothing could be done.  */
+
+static tree
+maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
+{
+  tree t;
 
   /* We may well have constructed a double-nested PLUS_EXPR via multiple
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
@@ -1523,11 +1652,7 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
   /* One possibility is that the address reduces to a string constant.  */
   t = fold_read_from_constant_string (expr);
   if (t)
-    {
-      *expr_p = t;
-      *changed_p = true;
-      return NULL_TREE;
-    }
+    return t;
 
   /* Add in any offset from a PLUS_EXPR.  */
   if (TREE_CODE (base) == PLUS_EXPR)
@@ -1542,7 +1667,27 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
       offset = fold (build (PLUS_EXPR, TREE_TYPE (offset), offset, offset2));
     }
 
-  if (TREE_CODE (base) != ADDR_EXPR)
+  if (TREE_CODE (base) == ADDR_EXPR)
+    {
+      /* Strip the ADDR_EXPR.  */
+      base = TREE_OPERAND (base, 0);
+
+      /* Try folding *(&B+O) to B[X].  */
+      t = maybe_fold_offset_to_array_ref (base, offset, TREE_TYPE (expr));
+      if (t)
+	return t;
+
+      /* Try folding *(&B+O) to B.X.  */
+      t = maybe_fold_offset_to_component_ref (TREE_TYPE (base), base, offset,
+					      TREE_TYPE (expr), false);
+      if (t)
+	return t;
+
+      /* Fold *&B to B.  */
+      if (integer_zerop (offset))
+	return base;
+    }
+  else
     {
       /* We can get here for out-of-range string constant accesses, 
 	 such as "_"[3].  Bail out of the entire substitution search
@@ -1550,9 +1695,11 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
 	 call to __builtin_trap.  In all likelyhood this will all be
 	 constant-folded away, but in the meantime we can't leave with
 	 something that get_expr_operands can't understand.  */
-      STRIP_NOPS (base);
-      if (TREE_CODE (base) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (base, 0)) == STRING_CST)
+
+      t = base;
+      STRIP_NOPS (t);
+      if (TREE_CODE (t) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST)
 	{
 	  /* FIXME: Except that this causes problems elsewhere with dead
 	     code not being deleted, and we abort in the rtl expanders 
@@ -1561,84 +1708,133 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  /* FIXME2: This condition should be signaled by
 	     fold_read_from_constant_string directly, rather than 
 	     re-checking for it here.  */
-#if 0
-	  return base;
-#else
-	  *expr_p = integer_zero_node;
-#endif
+	  return integer_zero_node;
 	}
 
+      /* Try folding *(B+O) to B->X.  Still an improvement.  */
+      if (POINTER_TYPE_P (TREE_TYPE (base)))
+	{
+          t = maybe_fold_offset_to_component_ref (TREE_TYPE (TREE_TYPE (base)),
+						  base, offset,
+						  TREE_TYPE (expr), true);
+	  if (t)
+	    return t;
+	}
+    }
+
+  /* Otherwise we had an offset that we could not simplify.  */
+  return NULL_TREE;
+}
+
+/* A subroutine of fold_stmt_r.  EXPR is a PLUS_EXPR.
+
+   A quaint feature extant in our address arithmetic is that there
+   can be hidden type changes here.  The type of the result need
+   not be the same as the type of the input pointer.
+
+   What we're after here is an expression of the form
+	(T *)(&array + const)
+   where the cast doesn't actually exist, but is implicit in the
+   type of the PLUS_EXPR.  We'd like to turn this into
+	&array[x]
+   which may be able to propagate further.  */
+
+static tree
+maybe_fold_stmt_plus (tree expr)
+{
+  tree op0 = TREE_OPERAND (expr, 0);
+  tree op1 = TREE_OPERAND (expr, 1);
+  tree ptr_type = TREE_TYPE (expr);
+  tree ptd_type;
+  tree t;
+
+  /* We're only interested in pointer arithmetic.  */
+  if (!POINTER_TYPE_P (ptr_type))
+    return NULL_TREE;
+  /* Canonicalize the integral operand to op1.  */
+  if (INTEGRAL_TYPE_P (TREE_TYPE (op0)))
+    t = op0, op0 = op1, op1 = t;
+  /* It had better be a constant.  */
+  if (TREE_CODE (op1) != INTEGER_CST)
+    return NULL_TREE;
+  /* The first operand should be an ADDR_EXPR.  */
+  if (TREE_CODE (op0) != ADDR_EXPR)
+    return NULL_TREE;
+
+  op0 = TREE_OPERAND (op0, 0);
+  ptd_type = TREE_TYPE (ptr_type);
+
+  /* At which point we can try some of the same things as for indirects.  */
+  t = maybe_fold_offset_to_array_ref (op0, op1, ptd_type);
+  if (!t)
+    t = maybe_fold_offset_to_component_ref (TREE_TYPE (op0), op0, op1,
+					    ptd_type, false);
+  if (t)
+    t = build1 (ADDR_EXPR, ptr_type, t);
+
+  return t;
+}
+
+/* Subroutine of fold_stmt called via walk_tree.  We perform several
+   simplifications of EXPR_P, mostly having to do with pointer arithmetic.  */
+
+static tree
+fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
+{
+  bool *changed_p = data;
+  tree expr = *expr_p, t;
+
+  /* ??? It'd be nice if walk_tree had a pre-order option.  */
+  switch (TREE_CODE (expr))
+    {
+    case INDIRECT_REF:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      *walk_subtrees = 0;
+
+      t = maybe_fold_stmt_indirect (expr, TREE_OPERAND (expr, 0),
+				    integer_zero_node);
+      break;
+
+    /* ??? Could handle ARRAY_REF here, as a variant of INDIRECT_REF.
+       We'd only want to bother decomposing an existing ARRAY_REF if
+       the base array is found to have another offset contained within.
+       Otherwise we'd be wasting time.  */
+
+    case ADDR_EXPR:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      *walk_subtrees = 0;
+
+      /* Set TREE_INVARIANT properly so that the value is properly
+	 considered constant, and so gets propagated as expected.  */
+      if (*changed_p)
+        recompute_tree_invarant_for_addr_expr (expr);
+      return NULL_TREE;
+
+    case PLUS_EXPR:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      t = walk_tree (&TREE_OPERAND (expr, 1), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      *walk_subtrees = 0;
+
+      t = maybe_fold_stmt_plus (expr);
+      break;
+
+    default:
       return NULL_TREE;
     }
-  base = TREE_OPERAND (base, 0);
 
-  if (integer_zerop (offset))
+  if (t)
     {
-      /* If the variable is of ARRAY_TYPE, and we're actually dereferencing
-	 an element of the array, we need to build an array reference rather
-	 than re-use the existing INDIRECT_REF.  */
-      if (TREE_CODE (TREE_TYPE (base)) == ARRAY_TYPE
-	  && (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (base)))))
-	{
-	  t = TYPE_DOMAIN (TREE_TYPE (base));
-	  if (t)
-	    t = TYPE_MIN_VALUE (t);
-	  if (!t)
-	    t = offset;
-	  t = build (ARRAY_REF, TREE_TYPE (expr), base, t);
-	}
-      else
-	t = base;
+      *expr_p = t;
+      *changed_p = true;
     }
-  else
-    {
-      unsigned HOST_WIDE_INT lquo, lrem;
-      HOST_WIDE_INT hquo, hrem;
-      tree elt_size, min_idx, idx;
-
-      /* Ignore stupid user tricks of indexing non-array variables.  */
-      if (TREE_CODE (TREE_TYPE (base)) != ARRAY_TYPE
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
-	      != TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (base)))))
-	return NULL_TREE;
-	
-      /* Whee.  Ignore indexing of variable sized types.  */
-      elt_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (base)));
-      if (TREE_CODE (elt_size) != INTEGER_CST)
-	return NULL_TREE;
-
-      /* If the division isn't exact, then don't do anything.  Equally
-	 invalid as the above indexing of non-array variables.  */
-      if (div_and_round_double (TRUNC_DIV_EXPR, 1,
-				TREE_INT_CST_LOW (offset),
-				TREE_INT_CST_HIGH (offset),
-				TREE_INT_CST_LOW (elt_size),
-				TREE_INT_CST_HIGH (elt_size),
-				&lquo, &hquo, &lrem, &hrem)
-	  || lrem || hrem)
-	return NULL_TREE;
-      idx = build_int_2_wide (lquo, hquo);
-
-      /* Re-bias the index by the min index of the array type.  */
-      min_idx = TYPE_DOMAIN (TREE_TYPE (base));
-      if (min_idx)
-	{
-          min_idx = TYPE_MIN_VALUE (min_idx);
-	  if (min_idx)
-	    {
-	      idx = convert (TREE_TYPE (min_idx), idx);
-	      if (!integer_zerop (min_idx))
-	        idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx),
-			    idx, min_idx));
-	    }
-	}
-
-      t = build (ARRAY_REF, TREE_TYPE (expr), base, idx);
-    }
-
-  *expr_p = t;
-  *changed_p = true;
 
   return NULL_TREE;
 }
@@ -1657,7 +1853,7 @@ fold_stmt (tree *stmt_p)
 
   /* If we replaced constants and the statement makes pointer dereferences,
      then we may need to fold instances of *&VAR into VAR, etc.  */
-  if (walk_tree (stmt_p, fold_indirect_refs_r, &changed, NULL))
+  if (walk_tree (stmt_p, fold_stmt_r, &changed, NULL))
     {
       *stmt_p
 	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
@@ -1681,11 +1877,16 @@ fold_stmt (tree *stmt_p)
   if (result == NULL_TREE)
     result = fold (rhs);
 
-  /* Strip away useless type conversions.  */
+  /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR that
+     may have been added by fold, and "useless" type conversions that might
+     now be apparent due to propagation.  */
+  STRIP_MAIN_TYPE_NOPS (result);
+  while (tree_ssa_useless_type_conversion (result))
+    result = TREE_OPERAND (result, 0);
+
   if (result != rhs)
     {
       changed = true;
-      STRIP_MAIN_TYPE_NOPS (result);
       set_rhs (stmt_p, result);
     }
 

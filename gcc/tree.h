@@ -3315,6 +3315,8 @@ extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
+extern void recompute_tree_invarant_for_addr_expr (tree);
+
 
 extern int real_onep (tree);
 extern int real_twop (tree);

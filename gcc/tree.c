@@ -2377,6 +2377,43 @@ build (enum tree_code code, tree tt, ...)
   return t;
 }
 
+/* A helper function for build1 and constant folders.
+   Set TREE_CONSTANT and TREE_INVARIANT for an ADDR_EXPR.  */
+
+void
+recompute_tree_invarant_for_addr_expr (tree t)
+{
+  tree node = TREE_OPERAND (t, 0);
+  bool tc = false, ti = false;
+
+  /* Addresses of constants and static variables are constant;
+     all other decl addresses are invariant.  */
+  if (staticp (node))
+    tc = ti = true;
+  else
+    {
+      /* Step past constant offsets.  */
+      while (1)
+	{
+	  if (TREE_CODE (node) == COMPONENT_REF
+	      && TREE_CODE (TREE_OPERAND (node, 1)) == FIELD_DECL
+	      && ! DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
+	    ;
+	  else if (TREE_CODE (node) == ARRAY_REF
+	           && TREE_CONSTANT (TREE_OPERAND (node, 1)))
+	    ;
+	  else
+	    break;
+	  node = TREE_OPERAND (node, 0);
+	}
+      if (DECL_P (node))
+        ti = true;
+    }
+
+  TREE_CONSTANT (t) = tc;
+  TREE_INVARIANT (t) = ti;
+}
+
 /* Same as above, but only builds for unary operators.
    Saves lions share of calls to `build'; cuts down use
    of varargs, which is expensive for RISC machines.  */
@@ -2460,29 +2497,7 @@ build1 (enum tree_code code, tree type, tree node)
     case ADDR_EXPR:
       if (node)
 	{
-	  /* Addresses of constants and static variables are constant;
-	     all other decl addresses are invariant.  */
-	  if (staticp (node))
-	    TREE_CONSTANT (t) = TREE_INVARIANT (t) = 1;
-	  else
-	    {
-	      /* Step past constant offsets.  */
-	      while (1)
-		{
-		  if (TREE_CODE (node) == COMPONENT_REF
-		      && TREE_CODE (TREE_OPERAND (node, 1)) == FIELD_DECL
-		      && ! DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
-		    ;
-		  else if (TREE_CODE (node) == ARRAY_REF
-		           && TREE_CONSTANT (TREE_OPERAND (node, 1)))
-		    ;
-		  else
-		    break;
-		  node = TREE_OPERAND (node, 0);
-		}
-	      if (DECL_P (node))
-	        TREE_INVARIANT (t) = 1;
-	    }
+	  recompute_tree_invarant_for_addr_expr (t);
 
 	  /* The address of a volatile decl or reference does not have
 	     side-effects.  But be careful not to ignore side-effects from

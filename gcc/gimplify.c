@@ -2427,6 +2427,9 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  /* ??? Could split out the decision code from build1 to verify.  */
 	  TREE_SIDE_EFFECTS (expr) = 0;
 
+	  /* Make sure TREE_INVARIANT/TREE_CONSTANT is set properly.  */
+	  recompute_tree_invarant_for_addr_expr (expr);
+
 	  /* Mark the RHS addressable.  */
 	  (*lang_hooks.mark_addressable) (TREE_OPERAND (expr, 0));
 	}

@@ -1,5 +1,19 @@
 2003-11-18  Richard Henderson  <rth@redhat.com>
 
+	* tree.c (recompute_tree_invarant_for_addr_expr): Split out from ...
+	(build1): ... here.
+	* tree.h: Declare it.
+	* gimplify.c (gimplify_addr_expr): Use it.
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): Split out
+	from fold_indirect_refs_r.
+	(maybe_fold_stmt_indirect): Likewise.
+	(maybe_fold_offset_to_component_ref): New.
+	(maybe_fold_stmt_plus): New.
+	(fold_stmt_r): Rename from fold_indirect_refs_r.
+	(fold_stmt): Strip more useless type conversions.
+
+2003-11-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-cfg.c (dump_function_to_file): Mind when cfun is null.
 
 2003-11-18  Diego Novillo  <dnovillo@redhat.com>
