@@ -13,11 +13,11 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:0:0
+libtool_VERSION=6:2:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
-GLIBCXX_TOPREL_CONFIGURE
+AM_ENABLE_MULTILIB(, ..)
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
@@ -58,7 +58,7 @@ fi
 #  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is now required.
-AM_INIT_AUTOMAKE([1.7.6 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AM_INIT_AUTOMAKE([1.8.5 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
@@ -267,13 +267,13 @@ GLIBCXX_ENABLE_SYMVERS([yes])
 GLIBCXX_CONFIGURE_TESTSUITE
 
 # Propagate the target-specific source directories through the build chain.
-# (Nothing currently uses cpu_include_dir directly; only atomicity_include_dir 
-# uses it, and it only gets used in this file.)
 ATOMICITY_SRCDIR=config/${atomicity_dir}
 ATOMIC_WORD_SRCDIR=config/${atomic_word_dir}
 OS_INC_SRCDIR=config/${os_include_dir}
+ABI_TWEAKS_SRCDIR=config/${abi_tweaks_dir}
 AC_SUBST(ATOMICITY_SRCDIR)
 AC_SUBST(ATOMIC_WORD_SRCDIR)
+AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 
 # Determine cross-compile flags and AM_CONDITIONALs.

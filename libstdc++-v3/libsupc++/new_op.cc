@@ -33,7 +33,13 @@
 
 using std::new_handler;
 using std::bad_alloc;
+#if _GLIBCXX_HOSTED
 using std::malloc;
+#else
+// A freestanding C runtime may not provide "malloc" -- but there is no
+// other reasonable way to implement "operator new".
+extern "C" void *malloc (std::size_t);
+#endif
 
 extern new_handler __new_handler;
 

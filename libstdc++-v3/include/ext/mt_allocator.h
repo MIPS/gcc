@@ -118,12 +118,18 @@ namespace __gnu_cxx
       // assigned and explained in detail below.
       struct _Tune
       {
+	// Alignment needed.
+	// NB: In any case must be >= sizeof(_Block_record), that
+	// is 4 on 32 bit machines and 8 on 64 bit machines.
+	size_t  _M_align;
+
 	// Allocation requests (after round-up to power of 2) below
 	// this value will be handled by the allocator. A raw new/
 	// call will be used for requests larger than this value.
 	size_t	_M_max_bytes; 
 
-	// Size in bytes of the smallest bin (must be a power of 2).
+	// Size in bytes of the smallest bin.
+	// NB: Must be a power of 2 and >= _M_align.
 	size_t  _M_min_bin;
 
 	// In order to avoid fragmenting and minimize the number of
@@ -133,8 +139,12 @@ namespace __gnu_cxx
 	// See http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
 	size_t 	_M_chunk_size;
 
-	// The maximum number of supported threads. Our Linux 2.4.18
-	// reports 4070 in /proc/sys/kernel/threads-max
+	// The maximum number of supported threads. For
+	// single-threaded operation, use one. Maximum values will
+	// vary depending on details of the underlying system. (For
+	// instance, Linux 2.4.18 reports 4070 in
+	// /proc/sys/kernel/threads-max, while Linux 2.6.6 reports
+	// 65534)
 	size_t 	_M_max_threads;
 
 	// Each time a deallocation occurs in a threaded application
@@ -148,20 +158,34 @@ namespace __gnu_cxx
 	// Set to true forces all allocations to use new().
 	bool 	_M_force_new; 
      
-	explicit _Tune()
-	: _M_max_bytes(128), _M_min_bin(8),
+	explicit
+	_Tune()
+	: _M_align(8), _M_max_bytes(128), _M_min_bin(8),
 	  _M_chunk_size(4096 - 4 * sizeof(void*)), 
 	  _M_max_threads(4096), _M_freelist_headroom(10), 
-	  _M_force_new(getenv("GLIBCXX_FORCE_NEW") ? true : false) 
-	{ }      
+	  _M_force_new(getenv("GLIBCXX_FORCE_NEW") ? true : false)
+	{ }
 
-	explicit _Tune(size_t __maxb, size_t __minbin, size_t __chunk,
-		       size_t __maxthreads, size_t __headroom, bool __force) 
-	: _M_max_bytes(__maxb), _M_min_bin(__minbin), _M_chunk_size(__chunk), 
-	  _M_max_threads(__maxthreads), _M_freelist_headroom(__headroom), 
-	  _M_force_new(__force)
-	{ }      
+	explicit
+	_Tune(size_t __align, size_t __maxb, size_t __minbin,
+	      size_t __chunk, size_t __maxthreads, size_t __headroom,
+	      bool __force) 
+	: _M_align(__align), _M_max_bytes(__maxb), _M_min_bin(__minbin),
+	  _M_chunk_size(__chunk), _M_max_threads(__maxthreads),
+	  _M_freelist_headroom(__headroom), _M_force_new(__force)
+	{ }
       };
+
+      static const _Tune
+      _S_get_options()
+      { return _S_options; }
+
+      static void
+      _S_set_options(_Tune __t)
+      { 
+	if (!_S_init)
+	  _S_options = __t;
+      }
 
     private:
       // We need to create the initial lists and set up some variables
@@ -176,17 +200,6 @@ namespace __gnu_cxx
 
       // Configuration options.
       static _Tune 	       		_S_options;
-
-      static const _Tune
-      _S_get_options()
-      { return _S_options; }
-
-      static void
-      _S_set_options(_Tune __t)
-      { 
-	if (!_S_init)
-	  _S_options = __t;
-      }
 
       // Using short int as type for the binmap implies we are never
       // caching blocks larger than 65535 with this allocator
@@ -304,8 +317,10 @@ namespace __gnu_cxx
       _Block_record* __block = NULL;
       if (__bin._M_first[__thread_id] == NULL)
 	{
+	  // NB: For alignment reasons, we can't use the first _M_align
+	  // bytes, even when sizeof(_Block_record) < _M_align.
 	  const size_t __bin_size = ((_S_options._M_min_bin << __which)
-				     + sizeof(_Block_record));
+				     + _S_options._M_align);
 	  size_t __block_count = _S_options._M_chunk_size / __bin_size;	  
 
 	  // Are we using threads?
@@ -330,32 +345,40 @@ namespace __gnu_cxx
 		  
 		  void* __v = ::operator new(_S_options._M_chunk_size);
 		  __bin._M_first[__thread_id] = static_cast<_Block_record*>(__v);
-		  __bin._M_free[__thread_id] = __block_count;		  
+		  __bin._M_free[__thread_id] = __block_count;
 
 		  --__block_count;
 		  __block = __bin._M_first[__thread_id];
-		  while (__block_count > 0)
+		  while (__block_count-- > 0)
 		    {
 		      char* __c = reinterpret_cast<char*>(__block) + __bin_size;
 		      __block->_M_next = reinterpret_cast<_Block_record*>(__c);
 		      __block = __block->_M_next;
-		      --__block_count;
 		    }
 		  __block->_M_next = NULL;
 		}
 	      else
 		{
-		  while (__bin._M_first[0] != NULL && __block_count > 0)
+		  // Is the number of required blocks greater than or
+		  // equal to the number that can be provided by the
+		  // global free list?
+		  __bin._M_first[__thread_id] = __bin._M_first[0];
+		  if (__block_count >= __bin._M_free[0])
 		    {
-		      _Block_record* __tmp = __bin._M_first[0]->_M_next;
-		      __block = __bin._M_first[0];
-
-		      __block->_M_next = __bin._M_first[__thread_id];
-		      __bin._M_first[__thread_id] = __block;		      
-		      
-		      ++__bin._M_free[__thread_id];
-		      __bin._M_first[0] = __tmp;
+		      __bin._M_free[__thread_id] = __bin._M_free[0];
+		      __bin._M_free[0] = 0;
+		      __bin._M_first[0] = NULL;
+		    }
+		  else
+		    {
+		      __bin._M_free[__thread_id] = __block_count;
+		      __bin._M_free[0] -= __block_count;
 		      --__block_count;
+		      __block = __bin._M_first[0];
+		      while (__block_count-- > 0)
+			__block = __block->_M_next;
+		      __bin._M_first[0] = __block->_M_next;
+		      __block->_M_next = NULL;
 		    }
 		  __gthread_mutex_unlock(__bin._M_mutex);
 		}
@@ -368,12 +391,11 @@ namespace __gnu_cxx
 	      
 	      --__block_count;
 	      __block = __bin._M_first[0];
-	      while (__block_count > 0)
+	      while (__block_count-- > 0)
 		{
 		  char* __c = reinterpret_cast<char*>(__block) + __bin_size;
 		  __block->_M_next = reinterpret_cast<_Block_record*>(__c);
 		  __block = __block->_M_next;
-		  --__block_count;
 		}
 	      __block->_M_next = NULL;
 	    }
@@ -390,7 +412,7 @@ namespace __gnu_cxx
 	}
 #endif
 
-      char* __c = reinterpret_cast<char*>(__block) + sizeof(_Block_record);
+      char* __c = reinterpret_cast<char*>(__block) + _S_options._M_align;
       return static_cast<_Tp*>(static_cast<void*>(__c));
     }
   
@@ -412,7 +434,7 @@ namespace __gnu_cxx
       const size_t __which = _S_binmap[__bytes];
       const _Bin_record& __bin = _S_bin[__which];
 
-      char* __c = reinterpret_cast<char*>(__p) - sizeof(_Block_record);
+      char* __c = reinterpret_cast<char*>(__p) - _S_options._M_align;
       _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
       
 #ifdef __GTHREADS
@@ -434,7 +456,8 @@ namespace __gnu_cxx
 	      _Block_record* __first = __tmp;
 	      __remove /= _S_options._M_freelist_headroom;
 	      const long __removed = __remove;
-	      while (__remove-- > 1)
+	      --__remove;
+	      while (__remove-- > 0)
 		__tmp = __tmp->_M_next;
 	      __bin._M_first[__thread_id] = __tmp->_M_next;
 	      __bin._M_free[__thread_id] -= __removed;
@@ -442,6 +465,7 @@ namespace __gnu_cxx
 	      __gthread_mutex_lock(__bin._M_mutex);
 	      __tmp->_M_next = __bin._M_first[0];
 	      __bin._M_first[0] = __first;
+	      __bin._M_free[0] += __removed;
 	      __gthread_mutex_unlock(__bin._M_mutex);
 	    }
 	  
@@ -468,8 +492,25 @@ namespace __gnu_cxx
     __mt_alloc<_Tp>::
     _S_initialize()
     {
-      if (_S_options._M_force_new)
-	return;
+      // This method is called on the first allocation (when _S_init is still
+      // false) to create the bins.
+      
+      // Ensure that the static initialization of _S_options has
+      // happened.  This depends on (a) _M_align == 0 being an invalid
+      // value that is only present at startup, and (b) the real
+      // static initialization that happens later not actually
+      // changing anything.
+      if (_S_options._M_align == 0) 
+        new (&_S_options) _Tune;
+  
+      // _M_force_new must not change after the first allocate(),
+      // which in turn calls this method, so if it's false, it's false
+      // forever and we don't need to return here ever again.
+      if (_S_options._M_force_new) 
+	{
+	  _S_init = true;
+	  return;
+	}
 
       // Calculate the number of bins required based on _M_max_bytes.
       // _S_bin_size is statically-initialized to one.

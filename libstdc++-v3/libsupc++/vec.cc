@@ -1,6 +1,6 @@
 // New abi Support -*- C++ -*-
 
-// Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 //  
 // This file is part of GCC.
 //
@@ -42,13 +42,19 @@ namespace __cxxabiv1
   {
     struct uncatch_exception 
     {
-      uncatch_exception ();
+      uncatch_exception();
       ~uncatch_exception () { __cxa_begin_catch (&p->unwindHeader); }
       
-      __cxa_exception *p;
+      __cxa_exception* p;
+
+    private:
+      uncatch_exception&
+      operator=(const uncatch_exception&);
+
+      uncatch_exception(const uncatch_exception&);
     };
 
-    uncatch_exception::uncatch_exception ()
+    uncatch_exception::uncatch_exception() : p(0)
     {
       __cxa_eh_globals *globals = __cxa_get_globals_fast ();
 
@@ -90,6 +96,9 @@ namespace __cxxabiv1
       {
 	base += padding_size;
 	reinterpret_cast <std::size_t *> (base)[-1] = element_count;
+#ifdef _GLIBCXX_ELTSIZE_IN_COOKIE
+	reinterpret_cast <std::size_t *> (base)[-2] = element_size;
+#endif
       }
     try
       {
@@ -125,6 +134,9 @@ namespace __cxxabiv1
       {
 	base += padding_size;
 	reinterpret_cast<std::size_t *>(base)[-1] = element_count;
+#ifdef _GLIBCXX_ELTSIZE_IN_COOKIE
+	reinterpret_cast <std::size_t *> (base)[-2] = element_size;
+#endif
       }
     try
       {
@@ -143,7 +155,7 @@ namespace __cxxabiv1
   }
   
   // Construct array.
-  extern "C" void
+  extern "C" __cxa_vec_ctor_return_type
   __cxa_vec_ctor(void *array_address,
 		 std::size_t element_count,
 		 std::size_t element_size,
@@ -167,10 +179,11 @@ namespace __cxxabiv1
 	}
 	__throw_exception_again;
       }
+    _GLIBCXX_CXA_VEC_CTOR_RETURN (array_address);
   }
   
   // Construct an array by copying.
-  extern "C" void
+  extern "C" __cxa_vec_ctor_return_type
   __cxa_vec_cctor(void *dest_array,
 		  void *src_array,
 		  std::size_t element_count,
@@ -197,6 +210,7 @@ namespace __cxxabiv1
 	}
 	__throw_exception_again;
       }
+    _GLIBCXX_CXA_VEC_CTOR_RETURN (dest_array);
   }
   
   // Destruct array.
