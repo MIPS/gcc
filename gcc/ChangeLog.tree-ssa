@@ -1,6 +1,6 @@
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
-	* c-parse.y: Fix botched merge.
+	* c-parse.in: Fix botched merge.
 
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
