@@ -1218,8 +1218,18 @@ assemble_start_function (tree decl, const char *fnname)
 
   if (flag_reorder_blocks_and_partition)
     {
+      /* APPLE LOCAL begin hot/cold partitioning */
+      /* We don't want to print out the label for the cold section here,
+	 just fix the alignment.  Therefore play games with 
+	 unlikely_section_label_printed to get this behavior.  */
+      
+      unlikely_section_label_printed = true;
+      /* APPLE LOCAL end hot/cold partitioning */
       unlikely_text_section ();
       assemble_align (FUNCTION_BOUNDARY);
+      /* APPLE LOCAL begin hot/cold partitioning */
+      unlikely_section_label_printed = false;
+      /* APPLE LOCAL end hot/cold partitioning */
     }
 
   resolve_unique_section (decl, 0, flag_function_sections);

@@ -1,3 +1,8 @@
+2004-11-16  Caroline Tice  <ctice@apple.com>
+
+        * varasm.c (assemble_start_function):  Don't print out section label
+        when aligning cold section.
+
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
 	* calls.c (expand_call):  Fix ICE building crafty.
