@@ -1475,9 +1475,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     {
       struct cgraph_node *dest = cgraph_node (fn);
 
-      /* FN must have address taken so it can be passed as argument.  */
-      /* ??? WTF is this.  */
-      if (0 && !dest->needed)
+      /* We have missing edge in the callgraph.  This can happen in one case
+         where previous inlining turned indirect call into direct call by
+         constant propagating arguments.  In all other cases we hit a bug
+         (incorrect node sharing is most common reason for missing edges.  */
+      if (!dest->needed)
 	abort ();
       cgraph_create_edge (id->node, dest, t)->inline_failed
 	= N_("originally indirect function call not considered for inlining");
