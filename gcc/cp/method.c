@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "cgraph.h"
+#include "tree-pass.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -488,8 +489,9 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 
       thunk_fndecl = finish_function (0);
 
-      cgraph_build_cfg (thunk_fndecl);
-
+      /* ??? We really ought to find way not hooking into backend directly.  */
+      tree_lowering_passes (thunk_fndecl);
+      tree_early_local_passes (thunk_fndecl);
       expand_body (thunk_fndecl);
     }
 

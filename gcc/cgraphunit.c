@@ -190,10 +190,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "function.h"
-#include "tree-flow.h"
-#include "value-prof.h"
-#include "coverage.h"
-#include "except.h"
 #include "ipa_prop.h"
 #include "tree-gimple.h"
 #include "output.h"
@@ -303,29 +299,6 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
     return true;
 
   return false;
-}
-
-/* If the compilation has progressed this far for function FN,
-   it's time to build the CFG for it.
-   FIXME: this function causes a lot of includes to be needed.
-   Is there a better place for it?  */
-
-void 
-cgraph_build_cfg (tree fn)
-{
-  if (!DECL_STRUCT_FUNCTION (fn)->cfg->x_entry_block_ptr)
-    {
-      tree saved_current_function_decl = current_function_decl;
-      current_function_decl = fn;
-      push_cfun (DECL_STRUCT_FUNCTION (fn));
-      lower_function_body ();
-      lower_eh_constructs ();
-      build_tree_cfg (&DECL_SAVED_TREE (fn));
-      current_function_decl = saved_current_function_decl;
-      pop_cfun ();
-    }
-  else
-    gcc_unreachable ();
 }
 
 /* When not doing unit-at-a-time, output all functions enqueued.
@@ -443,6 +416,7 @@ cgraph_finalize_function (tree decl, bool nested)
   notice_global_symbol (decl);
   node->decl = decl;
   node->local.finalized = true;
+  node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg->x_entry_block_ptr != NULL;
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);
@@ -480,6 +454,15 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Possibly warn about unused parameters.  */
   if (warn_unused_parameter)
     do_warn_unused_parameter (decl);
+}
+
+void
+cgraph_lower_function (struct cgraph_node *node)
+{
+  if (node->lowered)
+    return;
+  tree_lowering_passes (node->decl);
+  node->lowered = true;
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -849,7 +832,9 @@ cgraph_analyze_function (struct cgraph_node *node)
   push_cfun (DECL_STRUCT_FUNCTION (decl));
   current_function_decl = decl;
 
-  tree_early_local_passes (decl);
+  cgraph_lower_function (node);
+  if (flag_unit_at_a_time)
+    tree_early_local_passes (decl);
 
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, decl);
@@ -1038,6 +1023,8 @@ cgraph_expand_function (struct cgraph_node *node)
   /* Must have a CFG here at this point.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl)));
 
+  if (!flag_unit_at_a_time)
+    tree_early_local_passes (decl);
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
 
@@ -1765,6 +1752,8 @@ cgraph_decide_inlining_of_small_functions (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
+      if (node->analyzed && !DECL_STRUCT_FUNCTION (node->decl))
+	abort ();
       if (!node->local.inlinable || !node->callers
 	  || node->local.disregard_inline_limits)
 	continue;
@@ -2370,6 +2359,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
     {
+      tree_lowering_passes (decl);
       tree_early_local_passes (decl);
       tree_rest_of_compilation (decl);
     }

@@ -1,3 +1,24 @@
+2004-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_node): Add "lowered" flag.
+	(cgraph_build_cfg): Kill.
+	(cgraph_lower_function): New.
+	* cgraphunit.c: Kill bunch of includes introduced by cfg inliner patch.
+	(cgraph_build_cfg): Kill.
+	(cgraph_finalize_function): Set lowered flag.
+	(cgraph_lower_function): New function.
+	(cgraph_analyze_function): Lower the function; do early local passes iff
+	unit-at-a-time
+	(cgraph_expand_function): Do early passes iff !unit_at_a_time
+	(cgraph_build_static_cdtor): Lower the function.
+	* tree-optimize.c (all_lowering_passes): New static variable.
+	(init_tree_optimization_passes): Split up lowering and optimization.
+	(tree_early_local_passes): Do not lower function body.
+	(tree_lowering_pass): New.
+	* tree-pass.h (tree_lowering_passes): Declare.
+	* cp/method.c: Include tree-pass.h
+	(use_thunk): lower the body by hand.
+
 2004-11-28  Jan Hubicka  <jh@suse.cz>
 
 	* Changelog.profiling:  Fix up entries

@@ -55,7 +55,7 @@ bitmap vars_to_rename;
 bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
-static struct tree_opt_pass *all_passes, *all_early_local_passes, *all_ipa_passes;
+static struct tree_opt_pass *all_passes, *all_lowering_passes, *all_early_local_passes, *all_ipa_passes;
 
 /* Pass: dump the gimplified, inlined, functions.  */
 
@@ -370,7 +370,11 @@ init_tree_optimization_passes (void)
   struct tree_opt_pass **p;
 
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
-  p = &all_early_local_passes;
+
+  /* All passes needed to lower the function into shape optimizers can operate
+     on.  We need these to be separate from local optimization because C++ needs
+     to go into lowered form earlier to perfrom template instantiation.  */
+  p = &all_lowering_passes;
   NEXT_PASS (pass_gimple); 
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
@@ -378,9 +382,21 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_eh); 
   NEXT_PASS (pass_build_cfg); 
   NEXT_PASS (pass_pre_expand);
+  *p = NULL;
+
+  /* Optimizations passes run before the intraprocedural passes are done.  */
+  p = &all_early_local_passes;
   NEXT_PASS (pass_tree_profile); 
   NEXT_PASS (pass_cleanup_cfg);
+  *p = NULL;
 
+  /* Intraprocedural optimization passes.  */
+  p = &all_ipa_passes;
+  NEXT_PASS (pass_ipa_inline);
+  NEXT_PASS (pass_ipa_static);
+  *p = NULL;
+
+  /* Passes done after the intraprocedural passes.  */
   p = &all_passes;
   NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_init_datastructures);
@@ -451,16 +467,13 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_done);
   *p = NULL;
 
-  p = &all_ipa_passes;
-  NEXT_PASS (pass_ipa_inline);
-  NEXT_PASS (pass_ipa_static);
-  *p = NULL;
-
 #undef NEXT_PASS
 
-  /* Register the passes with the tree dump code.  */
-  /* HACK, PROP_* should go away.  */
-  register_dump_files (all_early_local_passes, false, 0);
+  register_dump_files (all_lowering_passes, false, 0);
+  register_dump_files (all_early_local_passes, false, PROP_gimple_any
+					  | PROP_gimple_lcf
+					  | PROP_gimple_leh
+					  | PROP_cfg);
   register_dump_files (all_passes, false, PROP_gimple_any
 					  | PROP_gimple_lcf
 					  | PROP_gimple_leh
@@ -651,13 +664,27 @@ execute_pass_list (struct tree_opt_pass *pass, enum execute_pass_hook hook,
 }
 
 void
+tree_lowering_passes (tree fn)
+{
+  tree saved_current_function_decl = current_function_decl;
+
+  current_function_decl = fn;
+  push_cfun (DECL_STRUCT_FUNCTION (fn));
+  tree_register_cfg_hooks ();
+  execute_pass_list (all_lowering_passes, EXECUTE_HOOK, NULL, NULL);
+  current_function_decl = saved_current_function_decl;
+  compact_blocks ();
+  pop_cfun ();
+}
+
+void
 tree_early_local_passes (tree fn)
 {
   tree saved_current_function_decl = current_function_decl;
 
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
-  lower_function_body ();
+  tree_register_cfg_hooks ();
   execute_pass_list (all_early_local_passes, EXECUTE_HOOK, NULL, NULL);
   current_function_decl = saved_current_function_decl;
   compact_blocks ();
