@@ -81,7 +81,7 @@ do {								\
 
 #undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
+  fprintf (FILE, "%s"HOST_WIDE_INT_PRINT_UNSIGNED"\n", SKIP_ASM_OP, (SIZE))
 
 /* Output the label which precedes a jumptable.  Note that for all svr4
    systems where we actually generate jumptables (which is to say every
@@ -127,7 +127,8 @@ do {								\
 do {									\
   fprintf ((FILE), "%s", COMMON_ASM_OP);				\
   assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE),	\
+	   (ALIGN) / BITS_PER_UNIT);					\
 } while (0)
 
 /* This says how to output assembler code to declare an

@@ -659,7 +659,7 @@ extern int rs6000_pic_labelno;
 #define	ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
   if (rs6000_sdata != SDATA_NONE && (SIZE) > 0				\
-      && (SIZE) <= g_switch_value)					\
+      && (SIZE) <= (unsigned HOST_WIDE_INT)g_switch_value)		\
     {									\
       sbss_section ();							\
       ASM_OUTPUT_ALIGN (FILE, exact_log2 (ALIGN / BITS_PER_UNIT));	\
@@ -672,7 +672,7 @@ do {									\
     {									\
       fprintf (FILE, "%s", LCOMM_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
     }									\
   ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
 } while (0)

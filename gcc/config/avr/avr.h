@@ -1876,7 +1876,7 @@ progmem_section ()							      \
 do {									   \
      fputs ("\t.comm ", (STREAM));					   \
      assemble_name ((STREAM), (NAME));					   \
-     fprintf ((STREAM), ",%d,1\n", (SIZE));				   \
+     fprintf ((STREAM), ",%d,1\n", (int)(SIZE));			   \
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM the assembler definition of a common-label named NAME whose
@@ -1901,7 +1901,7 @@ do {									   \
 do {									\
      fputs ("\t.lcomm ", (STREAM));					\
      assemble_name ((STREAM), (NAME));					\
-     fprintf ((STREAM), ",%d\n", (SIZE));				\
+     fprintf ((STREAM), ",%d\n", (int)(SIZE));				\
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM the assembler definition of a local-common-label named NAME
@@ -2337,7 +2337,7 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    of the jump-table.  */
 
 #define ASM_OUTPUT_SKIP(STREAM, N)		\
-fprintf (STREAM, "\t.skip %d,0\n", N)
+fprintf (STREAM, "\t.skip %d,0\n", (int)(N))
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to advance the location counter by NBYTES bytes.
    Those bytes should be zero when loaded.  NBYTES will be a C

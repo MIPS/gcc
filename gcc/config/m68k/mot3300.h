@@ -315,7 +315,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (SIZE))
+  fprintf (FILE, "%s%u\n", SKIP_ASM_OP, (int)(SIZE))
 
 /* Can't use ASM_OUTPUT_SKIP in text section.  */
 
@@ -530,12 +530,12 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\tcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 #else /* USE_GAS */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 #endif /* USE_GAS */
 
 /* This says how to output an assembler line
@@ -546,12 +546,12 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\tlcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 #else /* USE_GAS */
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 #endif /* USE_GAS */
 
 #ifndef USE_GAS

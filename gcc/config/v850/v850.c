@@ -2785,7 +2785,7 @@ v850_output_aligned_bss (file, decl, name, size, align)
   /* Standard thing is just output label for the object.  */
   ASM_OUTPUT_LABEL (file, name);
 #endif /* ASM_DECLARE_OBJECT_NAME */
-  ASM_OUTPUT_SKIP (file, size ? size : 1);
+  ASM_OUTPUT_SKIP (file, size ? (unsigned HOST_WIDE_INT) size : 1);
 }
 
 /* Called via the macro ASM_OUTPUT_DECL_COMMON */
@@ -2840,7 +2840,7 @@ v850_output_local (file, decl, name, size, align)
   assemble_name (file, name);
   fprintf (file, "\n");
   
-  ASM_OUTPUT_ALIGNED_DECL_COMMON (file, decl, name, size, align);
+  ASM_OUTPUT_ALIGNED_DECL_COMMON (file, decl, name, (unsigned HOST_WIDE_INT) size, align);
 }
 
 /* Add data area to the given declaration if a ghs data area pragma is

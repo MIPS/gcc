@@ -953,7 +953,7 @@ extern int flag_pic;
 
 /* Advance the location counter by SIZE bytes.  */
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf ((FILE), "\t.set\t.,.+%u\n", (SIZE))
+  fprintf ((FILE), "\t.set\t.,.+"HOST_WIDE_INT_PRINT_UNSIGNED"\n", (SIZE))
 
 /* Output a reference to a user-level label named NAME.  */
 #define ASM_OUTPUT_LABELREF(FILE, NAME) \
@@ -1066,7 +1066,7 @@ extern int s390_nr_constants;
 	{								    \
 	  assemble_integer (EXP, GET_MODE_SIZE (MODE), ALIGN, 1);	    \
 	  if (GET_MODE_SIZE (MODE) == 1)				    \
-	    ASM_OUTPUT_SKIP ((FILE), 1);				    \
+	    ASM_OUTPUT_SKIP ((FILE), (unsigned HOST_WIDE_INT) 1);	    \
 	}								    \
       break;								    \
 									    \

@@ -239,7 +239,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\tcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -247,7 +247,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\tlcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%u,2\n", (ROUNDED)))
+  fprintf ((FILE), ",%u,2\n", (int)(ROUNDED)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -279,7 +279,7 @@ do {					\
 } while (0)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\tspace %u\n", (SIZE))
+  fprintf (FILE, "\tspace %u\n", (int)(SIZE))
 
 #define ASM_OUTPUT_SOURCE_FILENAME(FILE, FILENAME)
 #define ASM_OUTPUT_SOURCE_LINE(FILE, LINENO)

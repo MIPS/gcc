@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
    that says to advance the location counter by SIZE bytes.  */
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
-  fprintf ((FILE), "\t.space %d\n", (SIZE))
+  fprintf ((FILE), "\t.space %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -66,7 +66,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.comm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -74,7 +74,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
 #define TARGET_OBJFMT_CPP_BUILTINS()
 

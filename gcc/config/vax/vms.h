@@ -172,7 +172,7 @@ Boston, MA 02111-1307, USA.  */
    ? (const_section (), 0) : (data_section (), 0)),		\
   fputs (".comm ", (FILE)),					\
   assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ",%u\n", (SIZE)))
+  fprintf ((FILE), ",%u\n", (int)(SIZE)))
 
 /* We define this to prevent the name mangler from putting dollar signs into
    function names.  This isn't really needed, but it has been here for
