@@ -2618,7 +2618,6 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      if (e == tmp)
 		{
 		  found = true;
-		  /* FIXME: Don't access iterator directly. */
 		  ix = ei.index;
 		  break;
 		}
