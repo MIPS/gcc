@@ -24,6 +24,4 @@ JDBC2.0
 !java.beans.Statement
 !java.text.CollationElementIterator
 !javax.print.DocFlavor
-!javax.swing
-!java.beans.XMLDecoder
-!javax.imageio
+!javax.swing.text.PlainDocument

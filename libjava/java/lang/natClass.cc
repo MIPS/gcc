@@ -1202,8 +1202,8 @@ _Jv_CheckAssignment (java::lang::ClassLoader *loader,
 // and the index in INDEX.
 bool
 _Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
-			const _Jv_Utf8Const *utf_name,  
-			const _Jv_Utf8Const *utf_sig)
+		    const _Jv_Utf8Const *utf_name,  
+		    const _Jv_Utf8Const *utf_sig)
 {
    for (jclass klass = search_class; klass; klass = klass->getSuperclass())
     {
