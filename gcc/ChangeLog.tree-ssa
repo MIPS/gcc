@@ -1,3 +1,7 @@
+2003-08-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-dom.c (optimize_stmt): Call get_stmt_operands.
+
 2003-08-12  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Record equivalences created

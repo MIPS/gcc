@@ -510,6 +510,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   if (IS_EMPTY_STMT (stmt))
     return;
 
+  get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
 
