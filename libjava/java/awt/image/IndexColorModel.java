@@ -211,7 +211,7 @@ public class IndexColorModel extends ColorModel
    * @param trans the index of the transparent color
    * @param transferType DataBuffer.TYPE_BYTE or DataBuffer.TYPE_USHORT
    */
-  public IndexColorModel (int bits, int size, byte[] cmap, int start, 
+  public IndexColorModel (int bits, int size, int[] cmap, int start, 
                           boolean hasAlpha, int trans, int transferType)
   {
     super(bits * 4, // total bits, sRGB, four channels
