@@ -239,7 +239,7 @@ modify_target[] = MODIFY_TARGET_NAME;
 #endif
 
 /* The number of errors that have occurred; the link phase will not be
-   run if this is non-zero.  */
+   run if this is nonzero.  */
 static int error_count = 0;
 
 /* Greatest exit code of sub-processes that has been encountered up to
@@ -291,14 +291,24 @@ static void delete_failure_queue PARAMS ((void));
 static void clear_failure_queue PARAMS ((void));
 static int check_live_switch	PARAMS ((int, int));
 static const char *handle_braces PARAMS ((const char *));
+static inline bool input_suffix_matches PARAMS ((const char *,
+						 const char *));
+static inline bool switch_matches PARAMS ((const char *,
+					   const char *, int));
+static inline void mark_matching_switches PARAMS ((const char *,
+						   const char *, int));
+static inline void process_marked_switches PARAMS ((void));
+static const char *process_brace_body PARAMS ((const char *, const char *,
+					       const char *, int, int));
 static char *save_string	PARAMS ((const char *, int));
 static void set_collect_gcc_options PARAMS ((void));
 static int do_spec_1		PARAMS ((const char *, int, const char *));
 static int do_spec_2		PARAMS ((const char *));
 static const char *find_file	PARAMS ((const char *));
 static int is_directory		PARAMS ((const char *, const char *, int));
-static void validate_switches	PARAMS ((const char *));
+static const char *validate_switches	PARAMS ((const char *));
 static void validate_all_switches PARAMS ((void));
+static inline void validate_switches_from_spec PARAMS ((const char *));
 static void give_switch		PARAMS ((int, int));
 static int used_arg		PARAMS ((const char *, int));
 static int default_arg		PARAMS ((const char *, int));
@@ -471,22 +481,36 @@ or with constant text in a single argument.
  	of S and T in the spec is not significant).  Can be any number
  	of ampersand-separated variables; for each the wild card is
  	optional.  Useful for CPP as %{D*&U*&A*}.
- %{S*:X} substitutes X if one or more switches whose names start with -S are
-	specified to CC.  Note that the tail part of the -S option
-	(i.e. the part matched by the `*') will be substituted for each
-	occurrence of %* within X.
- %{S:X} substitutes X, but only if the -S switch was given to CC.
- %{!S:X} substitutes X, but only if the -S switch was NOT given to CC.
- %{.S:X} substitutes X, but only if processing a file with suffix S.
- %{!.S:X} substitutes X, but only if NOT processing a file with suffix S.
- %{S|P:X} substitutes X if either -S or -P was given to CC.  This may be
-	  combined with ! and . as above binding stronger than the OR.
+
+ %{S:X}   substitutes X, if the -S switch was given to CC.
+ %{!S:X}  substitutes X, if the -S switch was NOT given to CC.
+ %{S*:X}  substitutes X if one or more switches whose names start
+          with -S was given to CC.  Normally X is substituted only
+          once, no matter how many such switches appeared.  However,
+          if %* appears somewhere in X, then X will be substituted
+          once for each matching switch, with the %* replaced by the
+          part of that switch that matched the '*'.
+ %{.S:X}  substitutes X, if processing a file with suffix S.
+ %{!.S:X} substitutes X, if NOT processing a file with suffix S.
+
+ %{S|T:X} substitutes X if either -S or -T was given to CC.  This may be
+	  combined with !, ., and * as above binding stronger than the OR.
+	  If %* appears in X, all of the alternatives must be starred, and
+	  only the first matching alternative is substituted.
+ %{S:X;   if S was given to CC, substitutes X;
+   T:Y;   else if T was given to CC, substitutes Y;
+    :D}   else substitutes D.  There can be as many clauses as you need.
+          This may be combined with ., !, |, and * as above.
+
  %(Spec) processes a specification defined in a specs file as *Spec:
  %[Spec] as above, but put __ around -D arguments
 
-The conditional text X in a %{S:X} or %{!S:X} construct may contain
+The conditional text X in a %{S:X} or similar construct may contain
 other nested % constructs or spaces, or even newlines.  They are
-processed as usual, as described above.
+processed as usual, as described above.  Trailing white space in X is
+ignored.  White space may also appear anywhere on the left side of the
+colon in these constructs, except between . or * and the corresponding
+word.
 
 The -O, -f, -m, and -W switches are handled specifically in these
 constructs.  If another value of -O or the negated form of a -f, -m, or
@@ -2173,7 +2197,7 @@ clear_failure_queue ()
 
 /* Build a list of search directories from PATHS.
    PREFIX is a string to prepend to the list.
-   If CHECK_DIR_P is non-zero we ensure the directory exists.
+   If CHECK_DIR_P is nonzero we ensure the directory exists.
    This is used mostly by putenv_from_prefixes so we use `collect_obstack'.
    It is also used by the --print-search-dirs flag.  */
 
@@ -5292,219 +5316,303 @@ do_spec_1 (spec, inswitch, soft_matched_part)
   return 0;
 }
 
-/* Return 0 if we call do_spec_1 and that returns -1.  */
+/* Inline subroutine of handle_braces.  Returns true if the current
+   input suffix matches the atom bracketed by ATOM and END_ATOM.  */
+static inline bool
+input_suffix_matches (atom, end_atom)
+     const char *atom;
+     const char *end_atom;
+{
+  return (input_suffix
+	  && !strncmp (input_suffix, atom, end_atom - atom)
+	  && input_suffix[end_atom - atom] == '\0');
+}
+
+/* Inline subroutine of handle_braces.  Returns true if a switch
+   matching the atom bracketed by ATOM and END_ATOM appeared on the
+   command line.  */
+static inline bool
+switch_matches (atom, end_atom, starred)
+     const char *atom;
+     const char *end_atom;
+     int starred;
+{
+  int i;
+  int len = end_atom - atom;
+  int plen = starred ? len : -1;
+
+  for (i = 0; i < n_switches; i++)
+    if (!strncmp (switches[i].part1, atom, len)
+	&& (starred || switches[i].part1[len] == '\0')
+	&& check_live_switch (i, plen))
+      return true;
+
+  return false;
+}
+
+/* Inline subroutine of handle_braces.  Mark all of the switches which
+   match ATOM (extends to END_ATOM; STARRED indicates whether there
+   was a star after the atom) for later processing.  */
+static inline void
+mark_matching_switches (atom, end_atom, starred)
+     const char *atom;
+     const char *end_atom;
+     int starred;
+{
+  int i;
+  int len = end_atom - atom;
+  int plen = starred ? len : -1;
+
+  for (i = 0; i < n_switches; i++)
+    if (!strncmp (switches[i].part1, atom, len)
+	&& (starred || switches[i].part1[len] == '\0')
+	&& check_live_switch (i, plen))
+      switches[i].ordering = 1;
+}
+
+/* Inline subroutine of handle_braces.  Process all the currently
+   marked switches through give_switch, and clear the marks.  */
+static inline void
+process_marked_switches ()
+{
+  int i;
+
+  for (i = 0; i < n_switches; i++)
+    if (switches[i].ordering == 1)
+      {
+	switches[i].ordering = 0;
+	give_switch (i, 0);
+      }
+}
+
+/* Handle a %{ ... } construct.  P points just inside the leading {.
+   Returns a pointer one past the end of the brace block, or 0
+   if we call do_spec_1 and that returns -1.  */
 
 static const char *
 handle_braces (p)
      const char *p;
 {
-  const char *filter, *body = NULL, *endbody = NULL;
-  int true_once = 0;	/* If, in %{a|b:d}, at least one of a,b was seen.  */
-  int negate;
-  int suffix;
-  int ordered = 0;
+  const char *atom, *end_atom;
+  const char *d_atom = NULL, *d_end_atom = NULL;
 
-next_member:
-  negate = suffix = 0;
+  bool a_is_suffix;
+  bool a_is_starred;
+  bool a_is_negated;
+  bool a_matched;
 
-  if (*p == '!')
-    /* A `!' after the open-brace negates the condition:
-       succeed if the specified switch is not present.  */
-    negate = 1, ++p;
+  bool a_must_be_last = false;
+  bool ordered_set    = false;
+  bool disjunct_set   = false;
+  bool disj_matched   = false;
+  bool disj_starred   = true;
+  bool n_way_choice   = false;
+  bool n_way_matched  = false;
 
-  if (*p == '.')
-    /* A `.' after the open-brace means test against the current suffix.  */
+#define SKIP_WHITE() do { while (*p == ' ' || *p == '\t') p++; } while (0)
+
+  do
     {
-      suffix = 1;
-      ++p;
-    }
-
- next_ampersand:
-  filter = p;
-  while (*p != ':' && *p != '}' && *p != '|' && *p != '&')
-    p++;
-
-  if (*p == '|' && ordered)
-    abort ();
-
-  if (!body)
-    {
-      if (*p != '}' && *p != '&')
-	{
-	  int count = 1;
-	  const char *q = p;
-
-	  while (*q++ != ':')
-	    continue;
-	  body = q;
-
-	  while (count > 0)
-	    {
-	      if (*q == '{')
-		count++;
-	      else if (*q == '}')
-		count--;
-	      else if (*q == 0)
-		fatal ("mismatched braces in specs");
-	      q++;
-	    }
-	  endbody = q;
-	}
-      else
-	body = p, endbody = p + 1;
-    }
-
-  if (suffix)
-    {
-      int found = (input_suffix != 0
-		   && (long) strlen (input_suffix) == (long) (p - filter)
-		   && strncmp (input_suffix, filter, p - filter) == 0);
-
-      if (body[0] == '}')
+      if (a_must_be_last)
 	abort ();
 
-      if (negate != found
-	  && do_spec_1 (save_string (body, endbody-body-1), 0, NULL) < 0)
-	return 0;
-    }
-  else if (p[-1] == '*' && (p[0] == '}' || p[0] == '&'))
-    {
-      /* Substitute all matching switches as separate args.  */
-      int i;
+      /* Scan one "atom" (S in the description above of %{}, possibly
+	 with !, ., or * modifiers).  */
+      a_matched = a_is_suffix = a_is_starred = a_is_negated = false;
 
-      for (i = 0; i < n_switches; i++)
-	if (!strncmp (switches[i].part1, filter, p - 1 - filter)
-	    && check_live_switch (i, p - 1 - filter))
-	  {
-	    ordered = 1;
-	    switches[i].ordering = 1;
-	  }
-    }
-  else
-    {
-      /* Test for presence of the specified switch.  */
-      int i;
-      int present = 0;
+      SKIP_WHITE();
+      if (*p == '!')
+	p++, a_is_negated = true;
 
-      /* If name specified ends in *, as in {x*:...},
-	 check for %* and handle that case.  */
-      if (p[-1] == '*' && !negate)
+      SKIP_WHITE();
+      if (*p == '.')
+	p++, a_is_suffix = true;
+
+      atom = p;
+      while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
+	     || *p == ',' || *p == '.')
+	p++;
+      end_atom = p;
+
+      if (*p == '*')
+	p++, a_is_starred = 1;
+
+      SKIP_WHITE();
+      if (*p == '&' || *p == '}')
 	{
-	  int substitution;
-	  const char *r = body;
+	  /* Substitute the switch(es) indicated by the current atom.  */
+	  ordered_set = true;
+	  if (disjunct_set || n_way_choice || a_is_negated || a_is_suffix
+	      || atom == end_atom)
+	    abort ();
 
-	  /* First see whether we have %*.  */
-	  substitution = 0;
-	  while (r < endbody)
-	    {
-	      if (*r == '%' && r[1] == '*')
-		substitution = 1;
-	      r++;
-	    }
-	  /* If we do, handle that case.  */
-	  if (substitution)
-	    {
-	      /* Substitute all matching switches as separate args.
-		 But do this by substituting for %*
-		 in the text that follows the colon.  */
+	  mark_matching_switches (atom, end_atom, a_is_starred);
 
-	      unsigned hard_match_len = p - filter - 1;
-	      char *string = save_string (body, endbody - body - 1);
-
-	      for (i = 0; i < n_switches; i++)
-		if (!strncmp (switches[i].part1, filter, hard_match_len)
-		    && check_live_switch (i, -1))
-		  {
-		    do_spec_1 (string, 0, &switches[i].part1[hard_match_len]);
-		    /* Pass any arguments this switch has.  */
-		    give_switch (i, 1);
-		    suffix_subst = NULL;
-		  }
-
-	      /* We didn't match.  Try again.  */
-	      if (*p++ == '|')
-		goto next_member;
-	      return endbody;
-	    }
+	  if (*p == '}')
+	    process_marked_switches ();
 	}
-
-      /* If name specified ends in *, as in {x*:...},
-	 check for presence of any switch name starting with x.  */
-      if (p[-1] == '*')
+      else if (*p == '|' || *p == ':')
 	{
-	  for (i = 0; i < n_switches; i++)
-	    {
-	      unsigned hard_match_len = p - filter - 1;
+	  /* Substitute some text if the current atom appears as a switch
+	     or suffix.  */
+	  disjunct_set = true;
+	  if (ordered_set)
+	    abort ();
 
-	      if (!strncmp (switches[i].part1, filter, hard_match_len)
-		  && check_live_switch (i, hard_match_len))
+	  if (atom == end_atom)
+	    {
+	      if (!n_way_choice || disj_matched || *p == '|'
+		  || a_is_negated || a_is_suffix || a_is_starred)
+		abort ();
+
+	      /* An empty term may appear as the last choice of an
+		 N-way choice set; it means "otherwise".  */
+	      a_must_be_last = true;
+	      disj_matched = !n_way_matched;
+	      disj_starred = false;
+	    }
+	  else
+	    {
+	       if (a_is_suffix && a_is_starred)
+		 abort ();
+
+	       if (!a_is_starred)
+		 disj_starred = false;
+
+	       /* Don't bother testing this atom if we already have a
+                  match.  */
+	       if (!disj_matched && !n_way_matched)
+		 {
+		   if (a_is_suffix)
+		     a_matched = input_suffix_matches (atom, end_atom);
+		   else
+		     a_matched = switch_matches (atom, end_atom, a_is_starred);
+
+		   if (a_matched != a_is_negated)
+		     {
+		       disj_matched = true;
+		       d_atom = atom;
+		       d_end_atom = end_atom;
+		     }
+		 }
+	    }
+
+	  if (*p == ':')
+	    {
+	      /* Found the body, that is, the text to substitute if the
+		 current disjunction matches.  */
+	      p = process_brace_body (p + 1, d_atom, d_end_atom, disj_starred,
+				      disj_matched && !n_way_matched);
+	      if (p == 0)
+		return 0;
+
+	      /* If we have an N-way choice, reset state for the next
+		 disjunction.  */
+	      if (*p == ';')
 		{
-		  present = 1;
-		  break;
+		  n_way_choice = true;
+		  n_way_matched |= disj_matched;
+		  disj_matched = false;
+		  disj_starred = true;
+		  d_atom = d_end_atom = NULL;
 		}
 	    }
 	}
-      /* Otherwise, check for presence of exact name specified.  */
+      else
+	abort ();
+    }
+  while (*p++ != '}');
+
+  return p;
+
+#undef SKIP_WHITE
+}
+
+/* Subroutine of handle_braces.  Scan and process a brace substitution body
+   (X in the description of %{} syntax).  P points one past the colon;
+   ATOM and END_ATOM bracket the first atom which was found to be true
+   (present) in the current disjunction; STARRED indicates whether all
+   the atoms in the current disjunction were starred (for syntax validation);
+   MATCHED indicates whether the disjunction matched or not, and therefore
+   whether or not the body is to be processed through do_spec_1 or just
+   skipped.  Returns a pointer to the closing } or ;, or 0 if do_spec_1
+   returns -1.  */
+
+static const char *
+process_brace_body (p, atom, end_atom, starred, matched)
+     const char *p;
+     const char *atom;
+     const char *end_atom;
+     int starred;
+     int matched;
+{
+  const char *body, *end_body;
+  unsigned int nesting_level;
+  bool have_subst     = false;
+
+  /* Locate the closing } or ;, honoring nested braces.
+     Trim trailing whitespace.  */
+  body = p;
+  nesting_level = 1;
+  for (;;)
+    {
+      if (*p == '{')
+	nesting_level++;
+      else if (*p == '}')
+	{
+	  if (!--nesting_level)
+	    break;
+	}
+      else if (*p == ';' && nesting_level == 1)
+	break;
+      else if (*p == '%' && p[1] == '*' && nesting_level == 1)
+	have_subst = true;
+      else if (*p == '\0')
+	abort ();
+      p++;
+    }
+  
+  end_body = p;
+  while (end_body[-1] == ' ' || end_body[-1] == '\t')
+    end_body--;
+
+  if (have_subst && !starred)
+    abort ();
+
+  if (matched)
+    {
+      /* Copy the substitution body to permanent storage and execute it.
+	 If have_subst is false, this is a simple matter of running the
+	 body through do_spec_1...  */
+      char *string = save_string (body, end_body - body);
+      if (!have_subst)
+	{
+	  if (do_spec_1 (string, 0, NULL) < 0)
+	    return 0;
+	}
       else
 	{
+	  /* ... but if have_subst is true, we have to process the
+	     body once for each matching switch, with %* set to the
+	     variant part of the switch.  */
+	  unsigned int hard_match_len = end_atom - atom;
+	  int i;
+
 	  for (i = 0; i < n_switches; i++)
-	    {
-	      if (!strncmp (switches[i].part1, filter, p - filter)
-		  && switches[i].part1[p - filter] == 0
-		  && check_live_switch (i, -1))
-		{
-		  present = 1;
-		  break;
-		}
-	    }
-	}
-
-      /* If it is as desired (present for %{s...}, absent for %{!s...})
-	 then substitute either the switch or the specified
-	 conditional text.  */
-      if (present != negate)
-	{
-	  if (ordered || *p == '&')
-	    ordered = 1, switches[i].ordering = 1;
-	  else if (*p == '}')
-	    give_switch (i, 0);
-	  else
-	    /* Even if many alternatives are matched, only output once.  */
-	    true_once = 1;
+	    if (!strncmp (switches[i].part1, atom, hard_match_len)
+		&& check_live_switch (i, hard_match_len))
+	      {
+		if (do_spec_1 (string, 0,
+			       &switches[i].part1[hard_match_len]) < 0)
+		  return 0;
+		/* Pass any arguments this switch has.  */
+		give_switch (i, 1);
+		suffix_subst = NULL;
+	      }
 	}
     }
 
-  /* We didn't match; try again.  */
-  if (*p++ == '|')
-    goto next_member;
-
-  if (p[-1] == '&')
-    {
-      body = 0;
-      goto next_ampersand;
-    }
-
-  if (ordered)
-    {
-      int i;
-      /* Doing this set of switches later preserves their command-line
-	 ordering.  This is needed for e.g. -U, -D and -A.  */
-      for (i = 0; i < n_switches; i++)
-	if (switches[i].ordering == 1)
-	  {
-	    switches[i].ordering = 0;
-	    give_switch (i, 0);
-	  }
-    }
-  /* Process the spec just once, regardless of match count.  */
-  else if (true_once)
-    {
-      if (do_spec_1 (save_string (body, endbody - body - 1),
-		     0, NULL) < 0)
-	return 0;
-    }
-
-  return endbody;
+  return p;
 }
 
 /* Return 0 iff switch number SWITCHNUM is obsoleted by a later switch
@@ -6421,89 +6529,106 @@ notice VPARAMS ((const char *msgid, ...))
   VA_CLOSE (ap);
 }
 
+static inline void
+validate_switches_from_spec (spec)
+     const char *spec;
+{
+  const char *p = spec;
+  char c;
+  while ((c = *p++))
+    if (c == '%' && (*p == '{' || *p == '<' || (*p == 'W' && *++p == '{')))
+      /* We have a switch spec.  */
+      p = validate_switches (p + 1);
+}
+
 static void
 validate_all_switches ()
 {
   struct compiler *comp;
-  const char *p;
-  char c;
   struct spec_list *spec;
 
   for (comp = compilers; comp->spec; comp++)
-    {
-      p = comp->spec;
-      while ((c = *p++))
-	if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-	  /* We have a switch spec.  */
-	  validate_switches (p + 1);
-    }
+    validate_switches_from_spec (comp->spec);
 
   /* Look through the linked list of specs read from the specs file.  */
   for (spec = specs; spec; spec = spec->next)
-    {
-      p = *(spec->ptr_spec);
-      while ((c = *p++))
-	if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-	  /* We have a switch spec.  */
-	  validate_switches (p + 1);
-    }
+    validate_switches_from_spec (*spec->ptr_spec);
 
-  p = link_command_spec;
-  while ((c = *p++))
-    if (c == '%' && (*p == '{' || (*p == 'W' && *++p == '{')))
-      /* We have a switch spec.  */
-      validate_switches (p + 1);
+  validate_switches_from_spec (link_command_spec);
 }
 
 /* Look at the switch-name that comes after START
    and mark as valid all supplied switches that match it.  */
 
-static void
+static const char *
 validate_switches (start)
      const char *start;
 {
   const char *p = start;
-  const char *filter;
+  const char *atom;
+  size_t len;
   int i;
-  int suffix;
-
-  if (*p == '|')
-    ++p;
-
+  bool suffix = false;
+  bool starred = false;
+  
+#define SKIP_WHITE() do { while (*p == ' ' || *p == '\t') p++; } while (0)
+  
 next_member:
+  SKIP_WHITE ();
+
   if (*p == '!')
-    ++p;
-
-  suffix = 0;
-  if (*p == '.')
-    suffix = 1, ++p;
-
-  filter = p;
-  while (*p != ':' && *p != '}' && *p != '|' && *p != '&')
     p++;
 
-  if (suffix)
-    ;
-  else if (p[-1] == '*')
+  SKIP_WHITE ();
+  if (*p == '.')
+    suffix = true, p++;
+
+  atom = p;
+  while (ISIDNUM (*p) || *p == '-' || *p == '+' || *p == '='
+	 || *p == ',' || *p == '.')
+    p++;
+  len = p - atom;
+
+  if (*p == '*')
+    starred = true, p++;
+
+  SKIP_WHITE ();
+
+  if (!suffix)
     {
       /* Mark all matching switches as valid.  */
       for (i = 0; i < n_switches; i++)
-	if (!strncmp (switches[i].part1, filter, p - filter - 1))
+	if (!strncmp (switches[i].part1, atom, len)
+	    && (starred || switches[i].part1[len] == 0))
 	  switches[i].validated = 1;
     }
-  else
+
+  p++;
+  if (p[-1] == '|' || p[-1] == '&')
+    goto next_member;
+
+  if (p[-1] == ':')
     {
-      /* Mark an exact matching switch as valid.  */
-      for (i = 0; i < n_switches; i++)
+      while (*p && *p != ';' && *p != '}')
 	{
-	  if (!strncmp (switches[i].part1, filter, p - filter)
-	      && switches[i].part1[p - filter] == 0)
-	    switches[i].validated = 1;
+	  if (*p == '%')
+	    {
+	      p++;
+	      if (*p == '{' || *p == '<')
+		p = validate_switches (p+1);
+	      else if (p[0] == 'W' && p[1] == '{')
+		p = validate_switches (p+2);
+	    }
+	  p++;
 	}
+
+      p++;
+      if (p[-1] == ';')
+	goto next_member;
     }
 
-  if (*p++ == '|' || p[-1] == '&')
-    goto next_member;
+  return p;
+#undef SKIP_WHITE
 }
 
 /* Check whether a particular argument was used.  The first time we

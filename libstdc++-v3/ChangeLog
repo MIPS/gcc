@@ -1,3 +1,161 @@
+2002-09-27  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_facets.tcc (num_put::_M_widen_int):
+	Deal correctly with grouped, showbased (oct or hex) zero.
+	* testsuite/22_locale/num_put_members_char.cc: Add test05.
+	* testsuite/22_locale/num_put_members_wchar_t.cc: Ditto.
+
+2002-09-27  Richard Henderson  <rth@redhat.com>
+
+	* config/os/hpux/cpu_limits.h: Remove.
+
+	* include/std/std_limits.h (numeric_limits<T>::is_iec559): False
+	if denormals are not supported.
+
+2002-09-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (target_headers): Remove cpu_limits.h.
+	* include/Makefile.in: Regenerate.
+	* configure.in (CPU_LIMITS_INC_SRCDIR): Remove
+	* configure: Regenerate.
+	* configure.target (CPULIMITS): Remove.
+
+	* include/std/std_limits.h: Remove cpu_limits.h include.
+
+	* config/os/solaris/solaris2.7/os_defines.h (__glibcpp_long_bits):
+	Remove.
+	* config/os/irix/irix6.5/os_defines.h
+	(__glibcpp_long_double_bits): Remove.
+	(__glibcpp_wchar_t_bits): Remove.
+	(__glibcpp_long_bits): Remove.
+	* config/os/irix/irix5.2/os_defines.h
+	(__glibcpp_long_double_bits): Remove.
+	(__glibcpp_long_bits): Remove.
+	* config/os/hpux/os_defines.h (__glibcpp_wchar_t_is_signed): Remove.
+	* config/os/bsd/freebsd/os_defines.h: 
+	(__glibcpp_long_double_bits): Remove.
+	* config/os/aix/os_defines.h (__glibcpp_wchar_t_bits): Remove.
+	(__glibcpp_wchar_t_is_signed): Remove.
+	(__glibcpp_long_bits): Remove.
+	* config/os/gnu-linux/os_defines.h (__glibcpp_long_bits): Remove.
+	(__glibcpp_long_double_bits): Remove.
+
+	* config/os/osf/osf5.0/cpu_limits.h: Remove.
+	* config/cpu/alpha/cpu_limits.h: Remove.
+	* config/cpu/arm/cpu_limits.h: Remove.
+	* config/cpu/cris/cpu_limits.h: Remove.
+	* config/cpu/generic/cpu_limits.h: Remove.
+	* config/cpu/generic/limits.h: Remove.		
+	* config/cpu/ia64/cpu_limits.h: Remove.
+	* config/cpu/m68k/cpu_limits.h: Remove.	
+	* config/cpu/mmix/cpu_limits.h: Remove.		
+	* config/cpu/powerpc/cpu_limits.h: Remove.			
+	* config/cpu/S390/cpu_limits.h: Remove.
+	
+2002-09-25  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* testsuite/18_support/numeric_limits.cc: Check the maximum and
+	minimum values of the wchar_t type.
+
+2002-09-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* include/std/std_limits.h (numeric_limits<unsigned char>::digits): 
+	Fix typo.
+	
+2002-09-23  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_plain_char_is_signed,
+	__glibcpp_wchar_t_is_signed, __glibcpp_s8_max, __glibcpp_s8_min,
+	__glibcpp_s8_digits, __glibcpp_s8_digits10, __glibcpp_u8_min,
+	__glibcpp_u8_max, __glibcpp_u8_digits, __glibcpp_u8_digits10,
+	__glibcpp_s16_max, __glibcpp_s16_min, __glibcpp_s16_digits,
+	__glibcpp_s16_digits10, __glibcpp_u16_min, __glibcpp_u16_max,
+	__glibcpp_u16_digits, __glibcpp_u16_digits10, __glibcpp_s32_max,
+	__glibcpp_s32_min, __glibcpp_s32_digits, __glibcpp_s32_digits10,
+	__glibcpp_u32_min, __glibcpp_u32_max, __glibcpp_u32_digits,
+	__glibcpp_u32_digits10, __glibcpp_s64_max, __glibcpp_s64_min,
+	__glibcpp_s64_digits, __glibcpp_s64_digits10, __glibcpp_u64_min,
+	__glibcpp_u64_max, __glibcpp_u64_digits, __glibcpp_u64_digits10,
+	__glibcpp_bool_digits, __glibcpp_signed_char_min,
+	__glibcpp_signed_char_max, __glibcpp_signed_char_digits,
+	__glibcpp_signed_char_digits10, __glibcpp_unsigned_char_min,
+	__glibcpp_unsigned_char_max, __glibcpp_unsigned_char_digits,
+	__glibcpp_unsigned_char_digits10, __glibcpp_char_min,
+	__glibcpp_char_max, __glibcpp_char_digits, __glibcpp_char_digits10,
+	__glibcpp_signed_short_min, __glibcpp_signed_short_max,
+	__glibcpp_signed_short_digits, __glibcpp_signed_short_digits10,
+	__glibcpp_unsigned_short_min, __glibcpp_unsigned_short_max,
+	__glibcpp_unsigned_short_digits, __glibcpp_unsigned_short_digits10,
+	__glibcpp_signed_int_min, __glibcpp_signed_int_max,
+	__glibcpp_signed_int_digits, __glibcpp_signed_int_digits10,
+	__glibcpp_unsigned_int_min, __glibcpp_unsigned_int_max,
+	__glibcpp_unsigned_int_digits, __glibcpp_unsigned_int_digits10,
+	__glibcpp_signed_long_min, __glibcpp_signed_long_max,
+	__glibcpp_unsigned_long_digits, __glibcpp_unsigned_long_digits10,
+	__glibcpp_signed_long_long_min, __glibcpp_signed_long_long_max,
+	__glibcpp_signed_long_long_digits, __glibcpp_signed_long_long_digits10,
+	__glibcpp_wchar_t_min, __glibcpp_wchar_t_max, __glibcpp_wchar_t_digits,
+	__glibcpp_wchar_t_digits10): Remove.
+	(__glibcpp_byte, __glibcpp_word_bits, __glibcpp_word): Remove.
+	(__float_storage, __double_storage, __long_double_storage): Remove.
+	(__glibcpp_signed, __glibcpp_min, __glibcpp_max): New.
+	(__glibcpp_digits, __glibcpp_digits10): New.
+	(numeric_limits<T>::min): Use __glibcpp_min or limits.h builtins.
+	(numeric_limits<T>::max): Use __glibcpp_max or limits.h builtins.
+	(numeric_limits<T>::is_signed, T=char,wchar_t): Use __glibcpp_signed.
+	(numeric_limits<T>::digits): Use __glibcpp_digits.
+	(numeric_limits<T>::digits10): Use __glibcpp_digits10.
+	* testsuite/18_support/numeric_limits.cc (test03): Don't use
+	__glibcpp_s8_digits10 et al; check vs the installed versions
+	of digits10 for particular sizes.
+
+        * include/std/std_limits.h (__glibcpp_float_is_modulo,
+        __glibcpp_double_is_modulo, __glibcpp_long_double_is_modulo): Kill.
+        (numeric_limits<T>::is_modulo, T floating): Use false.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-09-22  Richard Henderson  <rth@redhat.com>
+
+	* include/std/std_limits.h (__glibcpp_f32_round_error,
+	__glibcpp_f64_round_error, __glibcpp_f80_round_error,
+	__glibcpp_f96_round_error, __glibcpp_f128_round_error,
+	__glibcpp_float_round_error, __glibcpp_double_round_error,
+	__glibcpp_long_double_round_error, __glibcpp_float_round_style,
+	__glibcpp_double_round_style, __glibcpp_long_double_round_style): Kill.
+	(numeric_limits<char>::epsilon, round_error): Use constant 0.
+	(numeric_limits<float>::round_error): Use constant 0.5.
+	(numeric_limits<float>::round_style): Use round_to_nearest.
+	(numeric_limits<double>, numeric_limits<long double>): Similarly.
+
+	* include/std/std_limits.h (__glibcpp_f32_is_iec559,
+	__glibcpp_f64_is_iec559, __glibcpp_f80_is_iec559,
+	__glibcpp_f96_is_iec559, __glibcpp_f128_is_iec559,
+	__glibcpp_float_is_iec559, __glibcpp_double_is_iec559,
+	__glibcpp_long_double_is_iec559): Remove.
+	(numeric_limits<float>::is_iec559): Use has_infinity & has_quiet_NaN.
+	(numeric_limits<double>, numeric_limits<long double>): Similarly.
+
+	* include/std/std_limits.h (__glibcpp_integral_traps): New.
+	(__glibcpp_char_traps, __glibcpp_short_traps, __glibcpp_int_traps,
+	__glibcpp_long_traps, __glibcpp_wchar_t_traps,
+	__glibcpp_long_long_traps, __glibcpp_plain_char_traps,
+	__glibcpp_signed_char_traps, __glibcpp_unsigned_char_traps,
+	__glibcpp_signed_short_traps, __glibcpp_unsigned_short_traps,
+	__glibcpp_signed_int_traps, __glibcpp_unsigned_int_traps,
+	__glibcpp_signed_long_traps, __glibcpp_unsigned_long_traps,
+	__glibcpp_signed_long_long_traps, __glibcpp_unsigned_long_long_traps,
+	__glibcpp_char_is_modulo, __glibcpp_signed_char_is_modulo,
+	__glibcpp_signed_short_is_modulo, __glibcpp_signed_int_is_modulo,
+	__glibcpp_signed_long_is_modulo, __glibcpp_signed_long_long_is_modulo,
+	__glibcpp_wchar_t_is_modulo, __glibcpp_float_is_bounded,
+	__glibcpp_double_is_bounded, __glibcpp_long_double_is_bounded): Kill.
+	(numeric_limits<T>::traps, T integral): Use __glibcpp_integral_traps.
+	(numeric_limits<T>::is_modulo, T integral): Use true.
+	(numeric_limits<T>::is_bounded, T floating): Use true.
+
 2002-09-18  Loren J. Rittle  <ljrittle@acm.org>
 
 	* testsuite/18_support/numeric_limits.cc (test_epsilon): New.
@@ -8,14 +166,14 @@
 
 2002-09-16  Benjamin Kosnik  <bkoz@redhat.com>
 
-        * include/c_shadow: Remove.
-        * include/bits/generic_shadow.h: Remove.
-        * include/Makefile.am: Remove generic_shadow.h.
-        * acinclude.m4: Remove c_shadow references.
-        * aclocal.m4: Regenerate.
-        * configure: Regenerate.
-        * mkcshadow: Remove.
-        * mkinclosure: Remove.
+	* include/c_shadow: Remove.
+	* include/bits/generic_shadow.h: Remove.
+	* include/Makefile.am: Remove generic_shadow.h.
+	* acinclude.m4: Remove c_shadow references.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* mkcshadow: Remove.
+	* mkinclosure: Remove.
 
 2002-09-16  Loren J. Rittle  <ljrittle@acm.org>
 
@@ -116,8 +274,8 @@
 
 2002-09-11  Paolo Carlini  <pcarlini@unitus.it>
 
-        * include/bits/locale_facets.tcc (__convert_from_v):
-        Use __uselocale instead of setlocale for glibc 2.3+.
+	* include/bits/locale_facets.tcc (__convert_from_v):
+	Use __uselocale instead of setlocale for glibc 2.3+.
 
 2002-09-10  Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -227,7 +385,7 @@
 	switch to "C" locale and initialize using __ctype_{b,tolower,toupper}.
 
 2002-09-05  Paolo Carlini  <pcarlini@unitus.it>
-            Roland McGrath  <roland@redhat.com>
+	    Roland McGrath  <roland@redhat.com>
 
 	PR libstdc++/7811
 	* src/locale.cc (locale::locale(__s)): Use getenv instead
@@ -576,7 +734,7 @@
 	punctuation.
 
 2002-08-13  Jonathan Wakely  <jw@kayari.org>
-            Phil Edwards  <pme@gcc.gnu.org>
+	    Phil Edwards  <pme@gcc.gnu.org>
 
 	* docs/html/documentation.html:  Use HTML entities for punctuation.
 
@@ -591,7 +749,7 @@
 	re-wrap comment lines as necessary.
 
 2002-08-08  Danny Smith  <dannysmith@users.sourceforge.net>
-            Benjamin Kosnik  <bkoz@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
 	
 	* include/bits/istream.tcc (basic_istream::ignore): Use sbumpc,
 	not snextc.
@@ -705,7 +863,7 @@
 	GLIBCPP_3.1 to GLIBCPP_3.2.
 
 2002-07-31  Benjamin Kosnik  <bkoz@redhat.com>
-            Mark Mitchell  <mark@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
 
 	PR libstdc++/7442
 	* libsupc++/cxxabi.h (class __base_class_type_info::hwm_bit):
@@ -755,7 +913,7 @@
 	* docs/html/abi.txt: Update.
 
 2002-07-30  Benjamin Kosnik  <bkoz@redhat.com>
-            Gabriel Dos Reis  <gdr@nerim.net>
+	    Gabriel Dos Reis  <gdr@nerim.net>
 
 	* include/bits/char_traits.h: Remove generic definitions.
 	* include/bits/streambuf_iterator.h (istreambuf_iterator): Use
@@ -998,7 +1156,7 @@
 	* testsuite/23_containers/deque_operators.cc: Add test02.
 
 2002-07-04  Benjamin Kosnik  <bkoz@redhat.com>
-            Jack Reeves  <jackw_reeves@hotmail.com>
+	    Jack Reeves  <jackw_reeves@hotmail.com>
 
 	* include/std/std_streambuf.h (basic_streambuf::_M_buf): Change to
 	size_t, from int_type.
@@ -1034,8 +1192,8 @@
 	* testsuite/ext/hash_map.cc: New.
 
 2002-07-03  Jack Reeves  <jackw_reeves@hotmail.com>
-            Kenny Simpson  <theonetruekenny@yahoo.com>
-            Phil Edwards  <pme@gcc.gnu.org>
+	    Kenny Simpson  <theonetruekenny@yahoo.com>
+	    Phil Edwards  <pme@gcc.gnu.org>
 
 	PR libstdc++/3946
 	* testsuite/20_util/auto_ptr.cc (test08):  New test.
@@ -1348,7 +1506,7 @@
 	* Makefile.in: Regenerated.
 
 2002-06-11  J.T. Conklin  <jtc@acorntoolworks.com>
-            Benjamin Kosnik  <bkoz@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
 
 	* configure.target: Set os_include_dir to config/os/qnx/qnx6.1
 	under *-qnx6.[12]*.
@@ -1428,7 +1586,7 @@
 	Search correct multilib testsuite dir for libv3test.
 
 2002-06-04  Paolo Carlini  <pcarlini@unitus.it>
-            Gaby Dos Reis  <gdr@codesourcery.com>
+	    Gaby Dos Reis  <gdr@codesourcery.com>
 
 	* include/bits/basic_string.tcc
 	(basic_string::_S_construct(forward_iterator_tag):
@@ -1544,7 +1702,7 @@
 	* testsuite/22_locale/ctype_widen_wchar_t.cc: Same.
 
 2002-05-26  Carlo Wood  <carlo@alinoe.com>
-            Paolo Carlini  <pcarlini@unitus.it>
+	    Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/6811
 	* config/locale/ieee_1003.1-2001/codecvt_specializations.h
@@ -1713,7 +1871,7 @@
 	* testsuite/22_locale/ctype_scan_char.cc: New file.
 
 2002-05-13  Paolo Carlini  <pcarlini@unitus.it>
-            Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/22_locale/money_get_members_char.cc
 	(test01, test02, test04): Use the de_DE@euro named locale
@@ -1729,7 +1887,7 @@
 2002-05-13  Paolo Carlini  <pcarlini@unitus.it>
 
 	* testsuite/22_locale/codecvt_members_char_char.cc
-        (test03): Robustify wrt localedata.
+	(test03): Robustify wrt localedata.
 	* testsuite/22_locale/codecvt_members_wchar_t_char.cc (test03): Likewise.
 	* testsuite/22_locale/collate_members_char.cc (test04): Likewise.
 	* testsuite/22_locale/collate_members_wchar_t.cc (test04): Likewise.
@@ -1984,7 +2142,7 @@
 	* include/ext/stl_hashtable.h: Import __iterator_category
 
 2002-04-28  Paolo Carlini  <pcarlini@unitus.it>
-            Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+	    Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
 	* testsuite/ext/hash_set.cc: New testfile.
 
@@ -2327,10 +2485,10 @@
 
 2002-04-03  Benjamin Kosnik  <bkoz@redhat.com>
 
-        As per DR 184, libstdc++/3139
-        * include/std/std_limits.h (__glibcpp_bool_digits): Change to 1.
-        (numeric_limits<bool>::is_iec559): False.
-        (numeric_limits<bool>::is_modulo): False.
+	As per DR 184, libstdc++/3139
+	* include/std/std_limits.h (__glibcpp_bool_digits): Change to 1.
+	(numeric_limits<bool>::is_iec559): False.
+	(numeric_limits<bool>::is_modulo): False.
 
 	* testsuite/27_io/ios_init.cc: Add instantiations.
 
@@ -2354,8 +2512,8 @@
 	* include/Makefile.in:  Regenerate.
 
 2002-04-02  Paolo Carlini  <pcarlini@unitus.it>
-            Nathan Myers  <ncm@cantrip.org>
-            Philip Martin  <philip@codematters.co.uk>
+	    Nathan Myers  <ncm@cantrip.org>
+	    Philip Martin  <philip@codematters.co.uk>
 
 	* include/bits/basic_string.h
 	(replace(i1, i2, _CharT* k1, _CharT* k2),
@@ -2456,7 +2614,7 @@
 	(test02): New tests.
 
 2002-03-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
-            Paolo Carlini  <pcarlini@unitus.it>
+	    Paolo Carlini  <pcarlini@unitus.it>
 
 	* testsuite/22_locale/codecvt_members_unicode_wchar_t.cc
 	(test01): Protect the test with _GLIBCPP_USE_WCHAR_T;
@@ -2507,7 +2665,7 @@
 	* include/Makefile.in: Regerate.
 
 2002-03-25  Paolo Carlini <pcarlini@unitus.it>
-            Richard Henderson  <rth@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
 
 	* testsuite/22_locale/codecvt_members_unicode_char.cc
 	(test01, test02): make sure that the i_lit_base array
@@ -2515,8 +2673,8 @@
 
 2002-03-25  Benjamin Kosnik  <bkoz@redhat.com>
 
-        * config/os/newlib/bits/ctype_noninline.h (ctype::classic): Set to
-        _ctype_.
+	* config/os/newlib/bits/ctype_noninline.h (ctype::classic): Set to
+	_ctype_.
 
 2002-03-25  Paolo Carlini  <pcarlini@unitus.it>
 
@@ -2528,14 +2686,14 @@
 	test against +-1.
 
 2002-03-25  Benjamin Kosnik  <bkoz@redhat.com>
-            Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	* config/locale/gnu/messages_members.h: Correct conditional.
 	* config/locale/gnu/messages_members.cc: Same.
 	* config/locale/gnu/time_members.cc: Same.
 
 2002-03-25  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
-            Paolo Carlini  <pcarlini@unitus.it>
+	    Paolo Carlini  <pcarlini@unitus.it>
 
 	* testsuite/22_locale/codecvt_members_unicode_char.cc
 	(test01, test02): Fix i_lit_base arrays, making them
@@ -2577,7 +2735,7 @@
 	* configure: Likewise.
 
 2002-03-19  Paolo Carlini  <pcarlini@unitus.it>
-            Ulrich Drepper  <drepper@redhat.com>
+	    Ulrich Drepper  <drepper@redhat.com>
 
 	* src/locale-inst.cc (__convert_from_v): Add an additional
 	__size parameter in the declarations.
@@ -2679,7 +2837,7 @@
 	* testsuite/thread/pthread4.cc: Lower nominal iteration counter.
 
 2002-03-12  Benjamin Kosnik  <bkoz@redhat.com>
-            Per Liboriussen  <liborius@stofanet.dk>
+	    Per Liboriussen  <liborius@stofanet.dk>
 
 	* config/os/gnu-linux/bits/ctype_noninline.h: Cast to
 	unsigned char.
@@ -2751,7 +2909,7 @@
 	Remove redundant variable.
 
 2002-03-10  Ulrich Drepper  <drepper@redhat.com>
-            Paolo Carlini  <pcarlini@unitus.it>
+	    Paolo Carlini  <pcarlini@unitus.it>
 
 	* config/locale/generic/collate_members.cc
 	(collate<char,wchar_t>::_M_compare_helper): normalize

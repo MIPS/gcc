@@ -1041,6 +1041,10 @@ ia64_expand_load_address (dest, src, scratch)
 	scratch = no_new_pseudos ? temp : gen_reg_rtx (DImode);
 
       insn = emit_insn (gen_load_symptr (temp, src, scratch));
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (temp) != GET_MODE (src))
+	src = convert_memory_address (GET_MODE (temp), src);
+#endif
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, src, REG_NOTES (insn));
     }
 
@@ -4182,6 +4186,10 @@ ia64_override_options ()
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
+
+  /* Tell the compiler which flavor of TFmode we're using.  */
+  if (INTEL_EXTENDED_IEEE_FORMAT)
+    real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 }
 
 static enum attr_itanium_requires_unit0 ia64_safe_itanium_requires_unit0 PARAMS((rtx));
@@ -7134,24 +7142,7 @@ ia64_encode_section_info (decl, first)
   is_local = (*targetm.binds_local_p) (decl);
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      enum tls_model kind;
-      if (!flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      encoding = " GLil"[kind];
-    }
+    encoding = " GLil"[decl_tls_model (decl)];
   /* Determine if DECL will wind up in .sdata/.sbss.  */
   else if (is_local && ia64_in_small_data_p (decl))
     encoding = 's';
@@ -8095,11 +8086,10 @@ ia64_hpux_asm_file_end (file)
 {
   while (extern_func_head)
     {
-      char *real_name;
-      tree decl;
+      const char *const real_name =
+	(* targetm.strip_name_encoding) (extern_func_head->name);
+      tree decl = get_identifier (real_name);
 
-      real_name = (* targetm.strip_name_encoding) (extern_func_head->name);
-      decl = get_identifier (real_name);
       if (decl && ! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
         {
 	  TREE_ASM_WRITTEN (decl) = 1;

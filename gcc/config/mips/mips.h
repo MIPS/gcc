@@ -357,7 +357,7 @@ extern void		sbss_section PARAMS ((void));
 /* Architecture target defines.  */
 #define TARGET_MIPS3900             (mips_arch == PROCESSOR_R3900)
 #define TARGET_MIPS4000             (mips_arch == PROCESSOR_R4000)
-#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100
+#define TARGET_MIPS4100             (mips_arch == PROCESSOR_R4100)
 #define TARGET_MIPS4121             (mips_arch == PROCESSOR_R4121)
 #define TARGET_MIPS4300             (mips_arch == PROCESSOR_R4300)
 #define TARGET_MIPS4320             (mips_arch == PROCESSOR_R4320)
@@ -1575,14 +1575,14 @@ do {							\
    handle alignment of bitfields and the structures that contain
    them.
 
-   The behavior is that the type written for a bitfield (`int',
+   The behavior is that the type written for a bit-field (`int',
    `short', or other integer type) imposes an alignment for the
    entire structure, as if the structure really did contain an
-   ordinary field of that type.  In addition, the bitfield is placed
+   ordinary field of that type.  In addition, the bit-field is placed
    within the structure so that it would fit within such a field,
    not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int'
+   Thus, on most machines, a bit-field whose type is written as `int'
    would not cross a four-byte boundary, and would force four-byte
    alignment for the whole structure.  (The alignment used may not
    be four bytes; it is controlled by the other alignment
@@ -2299,7 +2299,7 @@ extern enum reg_class mips_char_to_class[256];
 
 /* Certain machines have the property that some registers cannot be
    copied to some other registers without using memory.  Define this
-   macro on those machines to be a C expression that is non-zero if
+   macro on those machines to be a C expression that is nonzero if
    objects of mode MODE in registers of CLASS1 can only be copied to
    registers of class CLASS2 by storing a register of CLASS1 into
    memory and loading that memory location into a register of CLASS2.
@@ -2471,7 +2471,7 @@ extern enum reg_class mips_char_to_class[256];
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 30},				\
  { FRAME_POINTER_REGNUM, GP_REG_FIRST + 17}}
 
-/* A C expression that returns non-zero if the compiler is allowed to
+/* A C expression that returns nonzero if the compiler is allowed to
    try to replace register number FROM-REG with register number
    TO-REG.  This macro need only be defined if `ELIMINABLE_REGS' is
    defined, and will usually be the constant 1, since most of the
@@ -2686,10 +2686,6 @@ extern enum reg_class mips_char_to_class[256];
 #define SETUP_INCOMING_VARARGS(CUM,MODE,TYPE,PRETEND_SIZE,NO_RTL)	\
 	(PRETEND_SIZE) = mips_setup_incoming_varargs (&(CUM), (MODE),	\
 						      (TYPE), (NO_RTL))
-
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 #define STRICT_ARGUMENT_NAMING (mips_abi != ABI_32 && mips_abi != ABI_O64)
 

@@ -118,6 +118,8 @@ int alpha_this_literal_sequence_number;
 int alpha_this_gpdisp_sequence_number;
 
 /* Declarations of static functions.  */
+static bool alpha_function_ok_for_sibcall
+  PARAMS ((tree, tree));
 static int tls_symbolic_operand_1
   PARAMS ((rtx, enum machine_mode, int, int));
 static enum tls_model tls_symbolic_operand_type
@@ -291,6 +293,9 @@ static void unicosmk_unique_section PARAMS ((tree, int));
 #define TARGET_INIT_BUILTINS alpha_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN alpha_expand_builtin
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL alpha_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -567,6 +572,14 @@ override_options ()
 
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
+
+  /* Tell the compiler when we're using VAX floating point.  */
+  if (TARGET_FLOAT_VAX)
+    {
+      real_format_for_mode[SFmode - QFmode] = &vax_f_format;
+      real_format_for_mode[DFmode - QFmode] = &vax_g_format;
+      real_format_for_mode[TFmode - QFmode] = NULL;
+    }
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -1872,22 +1885,7 @@ alpha_encode_section_info (decl, first)
   /* Care for TLS variables.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     {
-      enum tls_model kind;
-      if (!flag_pic)
-	{
-	  if (is_local)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      else if (is_local)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
-
-      switch (kind)
+      switch (decl_tls_model (decl))
 	{
 	case TLS_MODEL_GLOBAL_DYNAMIC:
 	  encoding = 'G';
@@ -2267,6 +2265,19 @@ alpha_legitimize_address (x, scratch, mode)
 
     return plus_constant (x, low);
   }
+}
+
+/* We do not allow indirect calls to be optimized into sibling calls, nor
+   can we allow a call to a function in a different compilation unit to
+   be optimized into a sibcall.  */
+static bool
+alpha_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return (decl
+	  && (! TREE_PUBLIC (decl)
+	      || (TREE_ASM_WRITTEN (decl) && (*targetm.binds_local_p) (decl))));
 }
 
 /* For TARGET_EXPLICIT_RELOCS, we don't obfuscate a SYMBOL_REF to a

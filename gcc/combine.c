@@ -215,7 +215,7 @@ static sbitmap refresh_blocks;
 				register was assigned
    reg_last_set_table_tick	records the value of label_tick when a
 				value using the register is assigned
-   reg_last_set_invalid		set to non-zero when it is not valid
+   reg_last_set_invalid		set to nonzero when it is not valid
 				to use the value of this register in some
 				register's value
 
@@ -224,7 +224,7 @@ static sbitmap refresh_blocks;
    and the register being validly contained in some other expression in the
    table.
 
-   Entry I in reg_last_set_value is valid if it is non-zero, and either
+   Entry I in reg_last_set_value is valid if it is nonzero, and either
    reg_n_sets[i] is 1 or reg_last_set_label[i] == label_tick.
 
    Register I may validly appear in any expression returned for the value
@@ -236,7 +236,7 @@ static sbitmap refresh_blocks;
    not validly appear in an expression, the register is replaced by
    something that won't match, (clobber (const_int 0)).
 
-   reg_last_set_invalid[i] is set non-zero when register I is being assigned
+   reg_last_set_invalid[i] is set nonzero when register I is being assigned
    to and reg_last_set_table_tick[i] == label_tick.  */
 
 /* Record last value assigned to (hard or pseudo) register n.  */
@@ -253,7 +253,7 @@ static int *reg_last_set_label;
 
 static int *reg_last_set_table_tick;
 
-/* Set non-zero if references to register n in expressions should not be
+/* Set nonzero if references to register n in expressions should not be
    used.  */
 
 static char *reg_last_set_invalid;
@@ -491,7 +491,7 @@ do_SUBST_INT (into, newval)
 /* Main entry point for combiner.  F is the first insn of the function.
    NREGS is the first unused pseudo-reg number.
 
-   Return non-zero if the combiner has turned an indirect jump
+   Return nonzero if the combiner has turned an indirect jump
    instruction into a direct jump.  */
 int
 combine_instructions (f, nregs)
@@ -1274,13 +1274,13 @@ sets_function_arg_p (pat)
    case, we would be getting the wrong value of I2DEST into I3, so we
    must reject the combination.  This case occurs when I2 and I1 both
    feed into I3, rather than when I1 feeds into I2, which feeds into I3.
-   If I1_NOT_IN_SRC is non-zero, it means that finding I1 in the source
+   If I1_NOT_IN_SRC is nonzero, it means that finding I1 in the source
    of a SET must prevent combination from occurring.
 
    Before doing the above check, we first try to expand a field assignment
    into a set of logical operations.
 
-   If PI3_DEST_KILLED is non-zero, it is a pointer to a location in which
+   If PI3_DEST_KILLED is nonzero, it is a pointer to a location in which
    we place a register that is both set and used within I3.  If more than one
    such register is detected, we fail.
 
@@ -1486,7 +1486,7 @@ cant_combine_insn_p (insn)
    If we did the combination, return the insn at which combine should
    resume scanning.
 
-   Set NEW_DIRECT_JUMP_P to a non-zero value if try_combine creates a
+   Set NEW_DIRECT_JUMP_P to a nonzero value if try_combine creates a
    new direct jump instruction.  */
 
 static rtx
@@ -2304,6 +2304,10 @@ try_combine (i3, i2, i1, new_direct_jump_p)
      copy.  This saves at least one insn, more if register allocation can
      eliminate the copy.
 
+     We cannot do this if the destination of the first assignment is a
+     condition code register or cc0.  We eliminate this case by making sure
+     the SET_DEST and SET_SRC have the same mode.
+
      We cannot do this if the destination of the second assignment is
      a register that we have already assumed is zero-extended.  Similarly
      for a SUBREG of such a register.  */
@@ -2313,6 +2317,8 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	   && XVECLEN (newpat, 0) == 2
 	   && GET_CODE (XVECEXP (newpat, 0, 0)) == SET
 	   && GET_CODE (SET_SRC (XVECEXP (newpat, 0, 0))) == SIGN_EXTEND
+	   && (GET_MODE (SET_DEST (XVECEXP (newpat, 0, 0)))
+	       == GET_MODE (SET_SRC (XVECEXP (newpat, 0, 0))))
 	   && GET_CODE (XVECEXP (newpat, 0, 1)) == SET
 	   && rtx_equal_p (SET_SRC (XVECEXP (newpat, 0, 1)),
 			   XEXP (SET_SRC (XVECEXP (newpat, 0, 0)), 0))
@@ -3081,7 +3087,7 @@ find_split_point (loc, insn)
 	case AND:
 	  /* If we are AND'ing with a large constant that is only a single
 	     bit and the result is only being used in a context where we
-	     need to know if it is zero or non-zero, replace it with a bit
+	     need to know if it is zero or nonzero, replace it with a bit
 	     extraction.  This will avoid the large constant, which might
 	     have taken more than one insn to make.  If the constant were
 	     not a valid argument to the AND but took only one insn to make,
@@ -3309,10 +3315,10 @@ find_split_point (loc, insn)
 
    `n_occurrences' is incremented each time FROM is replaced.
 
-   IN_DEST is non-zero if we are processing the SET_DEST of a SET.
+   IN_DEST is nonzero if we are processing the SET_DEST of a SET.
 
-   UNIQUE_COPY is non-zero if each substitution must be unique.  We do this
-   by copying if `n_occurrences' is non-zero.  */
+   UNIQUE_COPY is nonzero if each substitution must be unique.  We do this
+   by copying if `n_occurrences' is nonzero.  */
 
 static rtx
 subst (x, from, to, in_dest, unique_copy)
@@ -4985,7 +4991,8 @@ simplify_set (x)
      simplify the expression for the object knowing that we only need the
      low-order bits.  */
 
-  if (GET_MODE_CLASS (mode) == MODE_INT)
+  if (GET_MODE_CLASS (mode) == MODE_INT
+      && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
       src = force_to_mode (src, mode, ~(HOST_WIDE_INT) 0, NULL_RTX, 0);
       SUBST (SET_SRC (x), src);
@@ -5209,7 +5216,7 @@ simplify_set (x)
       if (GET_MODE_BITSIZE (inner_mode) <= HOST_BITS_PER_WIDE_INT
 	  && (nonzero_bits (inner, inner_mode)
 	      < ((unsigned HOST_WIDE_INT) 1
-		 << (GET_MODE_BITSIZE (inner_mode) - 1))))
+		 << (GET_MODE_BITSIZE (GET_MODE (src)) - 1))))
 	{
 	  SUBST (SET_SRC (x), inner);
 	  src = SET_SRC (x);
@@ -5954,15 +5961,15 @@ expand_field_assignment (x)
    code that understands the USE is this routine.  If it is not removed,
    it will cause the resulting insn not to match.
 
-   UNSIGNEDP is non-zero for an unsigned reference and zero for a
+   UNSIGNEDP is nonzero for an unsigned reference and zero for a
    signed reference.
 
-   IN_DEST is non-zero if this is a reference in the destination of a
-   SET.  This is used when a ZERO_ or SIGN_EXTRACT isn't needed.  If non-zero,
+   IN_DEST is nonzero if this is a reference in the destination of a
+   SET.  This is used when a ZERO_ or SIGN_EXTRACT isn't needed.  If nonzero,
    a STRICT_LOW_PART will be used, if zero, ZERO_EXTEND or SIGN_EXTEND will
    be used.
 
-   IN_COMPARE is non-zero if we are in a COMPARE.  This means that a
+   IN_COMPARE is nonzero if we are in a COMPARE.  This means that a
    ZERO_EXTRACT should be built even for bits starting at bit 0.
 
    MODE is the desired mode of the result (if IN_DEST == 0).
@@ -6103,6 +6110,11 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 		  GET_MODE_SIZE (inner_mode) > GET_MODE_SIZE (tmode))
 		final_word += (GET_MODE_SIZE (inner_mode)
 			       - GET_MODE_SIZE (tmode)) % UNITS_PER_WORD;
+
+	      /* Avoid creating invalid subregs, for example when
+		 simplifying (x>>32)&255.  */
+	      if (final_word >= GET_MODE_SIZE (inner_mode))
+		return NULL_RTX;
 
 	      new = gen_rtx_SUBREG (tmode, inner, final_word);
 	    }
@@ -6445,7 +6457,7 @@ make_compound_operation (x, in_code)
 	       : in_code == COMPARE ? SET : in_code);
 
   /* Process depending on the code of this operation.  If NEW is set
-     non-zero, it will be returned.  */
+     nonzero, it will be returned.  */
 
   switch (code)
     {
@@ -6722,7 +6734,7 @@ get_pos_from_mask (m, plen)
    Return a possibly simplified expression, but always convert X to
    MODE.  If X is a CONST_INT, AND the CONST_INT with MASK.
 
-   Also, if REG is non-zero and X is a register equal in value to REG,
+   Also, if REG is nonzero and X is a register equal in value to REG,
    replace X with REG.
 
    If JUST_SELECT is nonzero, don't optimize by noticing that bits in MASK
@@ -6785,12 +6797,20 @@ force_to_mode (x, mode, mask, reg, just_select)
 
   /* If none of the bits in X are needed, return a zero.  */
   if (! just_select && (nonzero & mask) == 0)
-    return const0_rtx;
+    x = const0_rtx;
 
   /* If X is a CONST_INT, return a new one.  Do this here since the
      test below will fail.  */
   if (GET_CODE (x) == CONST_INT)
-    return gen_int_mode (INTVAL (x) & mask, mode);
+    {
+      if (SCALAR_INT_MODE_P (mode))
+        return gen_int_mode (INTVAL (x) & mask, mode);
+      else
+	{
+	  x = GEN_INT (INTVAL (x) & mask);
+	  return gen_lowpart_common (mode, x);
+	}
+    }
 
   /* If X is narrower than MODE and we want all the bits in X's mode, just
      get X in the proper mode.  */
@@ -7332,7 +7352,7 @@ if_then_else_cond (x, ptrue, pfalse)
 	}
 
       /* See if we have PLUS, IOR, XOR, MINUS or UMAX, where one of the
-	 operands is zero when the other is non-zero, and vice-versa,
+	 operands is zero when the other is nonzero, and vice-versa,
 	 and STORE_FLAG_VALUE is 1 or -1.  */
 
       if ((STORE_FLAG_VALUE == 1 || STORE_FLAG_VALUE == -1)
@@ -8036,7 +8056,7 @@ simplify_and_const_int (x, mode, varop, constop)
    this.  This macro avoids accidental uses of num_sign_bit_copies.  */
 #define num_sign_bit_copies()
 
-/* Given an expression, X, compute which bits in X can be non-zero.
+/* Given an expression, X, compute which bits in X can be nonzero.
    We don't care about bits outside of those defined in MODE.
 
    For most X this is simply GET_MODE_MASK (GET_MODE (MODE)), but if X is
@@ -8252,7 +8272,7 @@ nonzero_bits (x, mode)
     case SIGN_EXTEND:
       /* If the sign bit is known clear, this is the same as ZERO_EXTEND.
 	 Otherwise, show all the bits in the outer mode but not the inner
-	 may be non-zero.  */
+	 may be nonzero.  */
       inner_nz = nonzero_bits (XEXP (x, 0), mode);
       if (GET_MODE (XEXP (x, 0)) != VOIDmode)
 	{
@@ -8290,7 +8310,7 @@ nonzero_bits (x, mode)
     case MOD:   case UMOD:
       /* We can apply the rules of arithmetic to compute the number of
 	 high- and low-order zero bits of these operations.  We start by
-	 computing the width (position of the highest-order non-zero bit)
+	 computing the width (position of the highest-order nonzero bit)
 	 and the number of low-order zero bits for each value.  */
       {
 	unsigned HOST_WIDE_INT nz0 = nonzero_bits (XEXP (x, 0), mode);
@@ -9000,7 +9020,7 @@ merge_outer_ops (pop0, pconst0, op1, const1, mode, pcomp_p)
 }
 
 /* Simplify a shift of VAROP by COUNT bits.  CODE says what kind of shift.
-   The result of the shift is RESULT_MODE.  X, if non-zero, is an expression
+   The result of the shift is RESULT_MODE.  X, if nonzero, is an expression
    that we started with.
 
    The shift is normally computed in the widest mode we find in VAROP, as
@@ -10750,7 +10770,7 @@ simplify_comparison (code, pop0, pop1)
 	  break;
 
 	case IOR:
-	  /* The sign bit of (ior (plus X (const_int -1)) X) is non-zero
+	  /* The sign bit of (ior (plus X (const_int -1)) X) is nonzero
 	     iff X <= 0.  */
 	  if (sign_bit_comparison_p && GET_CODE (XEXP (op0, 0)) == PLUS
 	      && XEXP (XEXP (op0, 0), 1) == constm1_rtx
@@ -11551,7 +11571,7 @@ check_promoted_subreg (insn, x)
    mentioned in *LOC are valid when *LOC was part of a value set when
    label_tick == TICK.  Return 0 if some are not.
 
-   If REPLACE is non-zero, replace the invalid reference with
+   If REPLACE is nonzero, replace the invalid reference with
    (clobber (const_int 0)) and return 1.  This replacement is useful because
    we often can get useful information about the form of a value (e.g., if
    it was produced by a shift that always produces -1 or 0) even though
@@ -11764,7 +11784,7 @@ reg_dead_at_p_1 (dest, x, data)
     reg_dead_flag = (GET_CODE (x) == CLOBBER) ? 1 : -1;
 }
 
-/* Return non-zero if REG is known to be dead at INSN.
+/* Return nonzero if REG is known to be dead at INSN.
 
    We scan backwards from INSN.  If we hit a REG_DEAD note or a CLOBBER
    referencing REG, it is dead.  If we hit a SET referencing REG, it is
@@ -12438,7 +12458,7 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 
 	case REG_DEAD:
 	  /* If the register is used as an input in I3, it dies there.
-	     Similarly for I2, if it is non-zero and adjacent to I3.
+	     Similarly for I2, if it is nonzero and adjacent to I3.
 
 	     If the register is not used as an input in either I3 or I2
 	     and it is not one of the registers we were supposed to eliminate,

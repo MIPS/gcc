@@ -199,6 +199,7 @@ static void sh_insert_attributes PARAMS ((tree, tree *));
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sh_use_dfa_interface PARAMS ((void));
 static int sh_issue_rate PARAMS ((void));
+static bool sh_function_ok_for_sibcall PARAMS ((tree, tree));
 
 static bool sh_cannot_modify_jumps_p PARAMS ((void));
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
@@ -258,6 +259,9 @@ static void flow_dependent_p_1 PARAMS ((rtx, rtx, void *));
 #define TARGET_INIT_BUILTINS sh_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN sh_expand_builtin
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL sh_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -7383,6 +7387,19 @@ sh_initialize_trampoline (tramp, fnaddr, cxt)
     }
 }
 
+/* FIXME: This is overly conservative.  A SHcompact function that
+   receives arguments ``by reference'' will have them stored in its
+   own stack frame, so it must not pass pointers or references to
+   these arguments to other functions by means of sibling calls.  */
+static bool
+sh_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return (decl 
+	  && (! TARGET_SHCOMPACT
+	      || current_function_args_info.stack_regs == 0));
+}
 
 /* Machine specific built-in functions.  */
 

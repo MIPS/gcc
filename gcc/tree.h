@@ -53,7 +53,7 @@ enum tree_code {
 extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
-/* Returns non-zero iff CLASS is the tree-code class of an
+/* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS) \
@@ -726,10 +726,10 @@ struct tree_int_cst GTY(())
 
 #define TREE_CST_RTL(NODE) (CST_OR_CONSTRUCTOR_CHECK (NODE)->real_cst.rtl)
 
-/* In a REAL_CST node.  struct realvaluetype is an opaque entity, with
+/* In a REAL_CST node.  struct real_value is an opaque entity, with
    manipulators defined in real.h.  We don't want tree.h depending on
    real.h and transitively on tm.h.  */
-struct realvaluetype;
+struct real_value;
 
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
@@ -738,7 +738,7 @@ struct tree_real_cst GTY(())
 {
   struct tree_common common;
   rtx rtl;	/* acts as link to register transfer language (rtl) info */
-  struct realvaluetype * real_cst_ptr;
+  struct real_value * real_cst_ptr;
 };
 
 /* In a STRING_CST */
@@ -1375,7 +1375,7 @@ struct tree_type GTY(())
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
-/* Returns non-zero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
+/* Returns nonzero if the DECL_ASSEMBLER_NAME for NODE has been set.  If zero,
    the NODE might still have a DECL_ASSEMBLER_NAME -- it just hasn't been set
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
@@ -1495,7 +1495,7 @@ struct tree_type GTY(())
    : (make_decl_rtl (NODE, NULL), (NODE)->decl.rtl))
 /* Set the DECL_RTL for NODE to RTL.  */
 #define SET_DECL_RTL(NODE, RTL) (DECL_CHECK (NODE)->decl.rtl = (RTL))
-/* Returns non-zero if the DECL_RTL for NODE has already been set.  */
+/* Returns nonzero if the DECL_RTL for NODE has already been set.  */
 #define DECL_RTL_SET_P(NODE)  (DECL_CHECK (NODE)->decl.rtl != NULL)
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
    NODE1, it will not be set for NODE2; this is a lazy copy.  */
@@ -1608,7 +1608,7 @@ struct tree_type GTY(())
 /* In a FIELD_DECL, indicates this field should be bit-packed.  */
 #define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->decl.regdecl_flag)
 
-/* In a FUNCTION_DECL with a non-zero DECL_CONTEXT, indicates that a
+/* In a FUNCTION_DECL with a nonzero DECL_CONTEXT, indicates that a
    static chain is not needed.  */
 #define DECL_NO_STATIC_CHAIN(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.regdecl_flag)
@@ -1826,7 +1826,7 @@ struct tree_decl GTY(())
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
        DECL_FUNCTION_CODE.  */
     enum built_in_function f;
-    /* In a FUNCITON_DECL for which DECL_BUILT_IN does not hold, this
+    /* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this
        is used by language-dependent code.  */
     HOST_WIDE_INT i;
     /* DECL_ALIGN and DECL_OFFSET_ALIGN.  (These are not used for
@@ -2102,7 +2102,17 @@ extern GTY(()) tree integer_types[itk_none];
 #define long_unsigned_type_node		integer_types[itk_unsigned_long]
 #define long_long_integer_type_node	integer_types[itk_long_long]
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
+
+/* Set to the default thread-local storage (tls) model to use.  */
 
+enum tls_model {
+  TLS_MODEL_GLOBAL_DYNAMIC = 1,
+  TLS_MODEL_LOCAL_DYNAMIC,
+  TLS_MODEL_INITIAL_EXEC,
+  TLS_MODEL_LOCAL_EXEC
+};
+
+extern enum tls_model flag_tls_default;
 
 #define NULL_TREE (tree) NULL
 
@@ -2315,7 +2325,7 @@ extern tree strip_attrs			PARAMS ((tree));
 
 extern int valid_machine_attribute	PARAMS ((tree, tree, tree, tree));
 
-/* Given a tree node and a string, return non-zero if the tree node is
+/* Given a tree node and a string, return nonzero if the tree node is
    a valid attribute name for the string.  */
 
 extern int is_attribute_p		PARAMS ((const char *, tree));
@@ -2426,7 +2436,7 @@ extern tree rli_size_so_far		PARAMS ((record_layout_info));
 extern void normalize_rli		PARAMS ((record_layout_info));
 extern void place_field			PARAMS ((record_layout_info, tree));
 extern void compute_record_mode		PARAMS ((tree));
-extern void finish_record_layout	PARAMS ((record_layout_info));
+extern void finish_record_layout	PARAMS ((record_layout_info, int));
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
@@ -2518,7 +2528,7 @@ extern void put_pending_sizes		PARAMS ((tree));
 /* If nonzero, an upper limit on alignment of structure fields, in bits.  */
 extern unsigned int maximum_field_alignment;
 
-/* If non-zero, the alignment of a bitstring or (power-)set value, in bits.  */
+/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.  */
 extern unsigned int set_alignment;
 
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
@@ -2991,6 +3001,7 @@ extern void make_decl_rtl		PARAMS ((tree, const char *));
 extern void make_decl_one_only		PARAMS ((tree));
 extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
+enum tls_model decl_tls_model		PARAMS ((tree));
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,

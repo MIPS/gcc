@@ -2319,11 +2319,7 @@ canon_hash (x, mode)
 	 the integers representing the constant.  */
       hash += (unsigned) code + (unsigned) GET_MODE (x);
       if (GET_MODE (x) != VOIDmode)
-	for (i = 2; i < GET_RTX_LENGTH (CONST_DOUBLE); i++)
-	  {
-	    unsigned HOST_WIDE_INT tem = XWINT (x, i);
-	    hash += tem;
-	  }
+	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
       else
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
@@ -2771,9 +2767,9 @@ cse_rtx_varies_p (x, from_alias)
    replace each register reference inside it
    with the "oldest" equivalent register.
 
-   If INSN is non-zero and we are replacing a pseudo with a hard register
+   If INSN is nonzero and we are replacing a pseudo with a hard register
    or vice versa, validate_change is used to ensure that INSN remains valid
-   after we make our substitution.  The calls are made with IN_GROUP non-zero
+   after we make our substitution.  The calls are made with IN_GROUP nonzero
    so apply_change_group must be called upon the outermost return from this
    function (unless INSN is zero).  The result of apply_change_group can
    generally be discarded since the changes we are making are optional.  */
@@ -3128,7 +3124,7 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 
   while (arg2 == CONST0_RTX (GET_MODE (arg1)))
     {
-      /* Set non-zero when we find something of interest.  */
+      /* Set nonzero when we find something of interest.  */
       rtx x = 0;
       int reverse_code = 0;
       struct table_elt *p = 0;
@@ -3735,6 +3731,7 @@ fold_rtx (x, insn)
 	rtx cheap_arg, expensive_arg;
 	rtx replacements[2];
 	int j;
+	int old_cost = COST_IN (XEXP (x, i), code);
 
 	/* Most arguments are cheap, so handle them specially.  */
 	switch (GET_CODE (arg))
@@ -3825,7 +3822,6 @@ fold_rtx (x, insn)
 
 	for (j = 0; j < 2 && replacements[j]; j++)
 	  {
-	    int old_cost = COST_IN (XEXP (x, i), code);
 	    int new_cost = COST_IN (replacements[j], code);
 
 	    /* Stop if what existed before was cheaper.  Prefer constants
@@ -5007,7 +5003,7 @@ cse_insn (insn, libcall_insn)
       int src_folded_regcost = MAX_COST;
       int src_related_regcost = MAX_COST;
       int src_elt_regcost = MAX_COST;
-      /* Set non-zero if we need to call force_const_mem on with the
+      /* Set nonzero if we need to call force_const_mem on with the
 	 contents of src_folded before using it.  */
       int src_folded_force_flag = 0;
 
@@ -5347,9 +5343,9 @@ cse_insn (insn, libcall_insn)
       if (src == src_folded)
 	src_folded = 0;
 
-      /* At this point, ELT, if non-zero, points to a class of expressions
+      /* At this point, ELT, if nonzero, points to a class of expressions
          equivalent to the source of this SET and SRC, SRC_EQV, SRC_FOLDED,
-	 and SRC_RELATED, if non-zero, each contain additional equivalent
+	 and SRC_RELATED, if nonzero, each contain additional equivalent
 	 expressions.  Prune these latter expressions by deleting expressions
 	 already in the equivalence class.
 
@@ -6833,10 +6829,10 @@ cse_set_around_loop (x, insn, loop_start)
    the total number of SETs in all the insns of the block, the last insn of the
    block, and the branch path.
 
-   The branch path indicates which branches should be followed.  If a non-zero
+   The branch path indicates which branches should be followed.  If a nonzero
    path size is specified, the block should be rescanned and a different set
    of branches will be taken.  The branch path is only used if
-   FLAG_CSE_FOLLOW_JUMPS or FLAG_CSE_SKIP_BLOCKS is non-zero.
+   FLAG_CSE_FOLLOW_JUMPS or FLAG_CSE_SKIP_BLOCKS is nonzero.
 
    DATA is a pointer to a struct cse_basic_block_data, defined below, that is
    used to describe the block.  It is filled in with the information about
@@ -6862,7 +6858,7 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
   /* Update the previous branch path, if any.  If the last branch was
      previously TAKEN, mark it NOT_TAKEN.  If it was previously NOT_TAKEN,
      shorten the path by one and look at the previous branch.  We know that
-     at least one branch must have been taken if PATH_SIZE is non-zero.  */
+     at least one branch must have been taken if PATH_SIZE is nonzero.  */
   while (path_size > 0)
     {
       if (data->path[path_size - 1].status != NOT_TAKEN)
@@ -7207,7 +7203,7 @@ cse_main (f, nregs, after_loop, file)
    block.  NEXT_BRANCH points to the branch path when following jumps or
    a null path when not following jumps.
 
-   AROUND_LOOP is non-zero if we are to try to cse around to the start of a
+   AROUND_LOOP is nonzero if we are to try to cse around to the start of a
    loop.  This is true when we are being called for the last time on a
    block and this CSE pass is before loop.c.  */
 

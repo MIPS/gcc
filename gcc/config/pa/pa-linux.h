@@ -56,8 +56,22 @@ Boston, MA 02111-1307, USA.  */
       }									\
     } while (0)
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -D__hppa__ -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=hppa -Amachine=hppa -Amachine=bigendian"
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_define_std ("linux");		\
+	builtin_define_std ("unix");		\
+	builtin_assert ("machine=bigendian");	\
+	builtin_assert ("system=posix");	\
+	builtin_assert ("system=unix");		\
+    }						\
+  while (0)
+
+#undef CPP_SPEC
+#define CPP_SPEC "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 
 #undef	LIB_SPEC
 #define LIB_SPEC \
@@ -80,10 +94,6 @@ Boston, MA 02111-1307, USA.  */
       %{rdynamic:-export-dynamic} \
       %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
       %{static:-static}}"
-
-/* Sibcalls, stubs, and elf sections don't play well.  */
-#undef FUNCTION_OK_FOR_SIBCALL
-#define FUNCTION_OK_FOR_SIBCALL(x) 0
 
 /* glibc's profiling functions don't need gcc to allocate counters.  */
 #define NO_PROFILE_COUNTERS 1
@@ -172,6 +182,11 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_ASM_GLOBALIZE_LABEL
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP ".globl "
+
+/* This definition is used inside pa.c to disable all
+   sibcall optimization, because sibcalls, stubs and
+   elf sections don't play well.  */
+#define TARGET_HAS_STUBS_AND_ELF_SECTIONS 1
 
 /* FIXME: Hacked from the <elfos.h> one so that we avoid multiple
    labels in a function declaration (since pa.c seems determined to do

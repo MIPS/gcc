@@ -773,7 +773,7 @@ if (TARGET_ARCH64				\
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -1933,27 +1933,6 @@ do {									\
    For the v9 we want NAMED to mean what it says it means.  */
 
 #define STRICT_ARGUMENT_NAMING TARGET_V9
-
-/* We do not allow sibling calls if -mflat, nor
-   we do not allow indirect calls to be optimized into sibling calls.
-
-   Also, on sparc 32-bit we cannot emit a sibling call when the
-   current function returns a structure.  This is because the "unimp
-   after call" convention would cause the callee to return to the
-   wrong place.  The generic code already disallows cases where the
-   function being called returns a structure.
-
-   It may seem strange how this last case could occur.  Usually there
-   is code after the call which jumps to epilogue code which dumps the
-   return value into the struct return area.  That ought to invalidate
-   the sibling call right?  Well, in the c++ case we can end up passing
-   the pointer to the struct return area to a constructor (which returns
-   void) and then nothing else happens.  Such a sibling call would look
-   valid without the added check here.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-	(DECL \
-	 && ! TARGET_FLAT \
-	 && (TARGET_ARCH64 || ! current_function_returns_struct))
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */

@@ -25,6 +25,7 @@
 #include <limits>
 #include <limits.h>
 #include <float.h>
+#include <cwchar>
 #include <testsuite_hooks.h>
 
 template<typename T>
@@ -47,6 +48,10 @@ DEFINE_EXTREMA(int, INT_MIN, INT_MAX);
 DEFINE_EXTREMA(unsigned, 0U, UINT_MAX);
 DEFINE_EXTREMA(long, LONG_MIN, LONG_MAX);
 DEFINE_EXTREMA(unsigned long, 0UL, ULONG_MAX);
+
+#if _GLIBCPP_USE_WCHAR_T
+DEFINE_EXTREMA(wchar_t, WCHAR_MIN, WCHAR_MAX);
+#endif //_GLIBCPP_USE_WCHAR_T
 
 DEFINE_EXTREMA(float, FLT_MIN, FLT_MAX);
 DEFINE_EXTREMA(double, DBL_MIN, DBL_MAX);
@@ -284,14 +289,26 @@ bool test03()
   bool test = true;
 
   VERIFY( std::numeric_limits<bool>::digits10 == 0 );
-  VERIFY( __glibcpp_s8_digits10 == 2 );
-  VERIFY( __glibcpp_u8_digits10 == 2 );
-  VERIFY( __glibcpp_s16_digits10 == 4 );
-  VERIFY( __glibcpp_u16_digits10 == 4 );
-  VERIFY( __glibcpp_s32_digits10 == 9 );
-  VERIFY( __glibcpp_u32_digits10 == 9 );
-  VERIFY( __glibcpp_s64_digits10 == 18 );
-  VERIFY( __glibcpp_u64_digits10 == 19 );
+  if (__CHAR_BIT__ == 8)
+    {
+      VERIFY( std::numeric_limits<signed char>::digits10 == 2 );
+      VERIFY( std::numeric_limits<unsigned char>::digits10 == 2 );
+    }
+  if (__CHAR_BIT__ * sizeof(short) == 16)
+    {
+      VERIFY( std::numeric_limits<signed short>::digits10 == 4 );
+      VERIFY( std::numeric_limits<unsigned short>::digits10 == 4 );
+    }
+  if (__CHAR_BIT__ * sizeof(int) == 32)
+    {
+      VERIFY( std::numeric_limits<signed int>::digits10 == 9 );
+      VERIFY( std::numeric_limits<unsigned int>::digits10 == 9 );
+    }
+  if (__CHAR_BIT__ * sizeof(long long) == 64)
+    {
+      VERIFY( std::numeric_limits<signed long long>::digits10 == 18 );
+      VERIFY( std::numeric_limits<unsigned long long>::digits10 == 19 );
+    }
 
 #ifdef DEBUG_ASSERT
   assert(test);

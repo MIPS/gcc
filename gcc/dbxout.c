@@ -155,7 +155,7 @@ static int source_label_number = 1;
 #endif
 
 #ifdef DEBUG_SYMS_TEXT
-#define FORCE_TEXT text_section ();
+#define FORCE_TEXT function_section (current_function_decl);
 #else
 #define FORCE_TEXT
 #endif
@@ -2460,7 +2460,7 @@ dbxout_finish_symbol (sym)
 #endif
 }
 
-/* Output definitions of all the decls in a chain. Return non-zero if
+/* Output definitions of all the decls in a chain. Return nonzero if
    anything was output */
 
 int
@@ -2681,6 +2681,7 @@ dbxout_parms (parms)
 	      current_sym_value
 	        = INTVAL (XEXP (XEXP (XEXP (DECL_RTL (parms), 0), 0), 1));
 	    current_sym_addr = 0;
+	    current_sym_code = N_PSYM;
 
 	    FORCE_TEXT;
 	    fprintf (asmfile, "%s\"%s:v", ASM_STABS_OP, decl_name);

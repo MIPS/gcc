@@ -90,7 +90,7 @@ flow_loops_cfg_dump (loops, file)
     }
 }
 
-/* Return non-zero if the nodes of LOOP are a subset of OUTER.  */
+/* Return nonzero if the nodes of LOOP are a subset of OUTER.  */
 
 bool
 flow_loop_nested_p (outer, loop)
@@ -947,7 +947,7 @@ flow_loops_update (loops, flags)
   return flow_loops_find (loops, flags);
 }
 
-/* Return non-zero if basic block BB belongs to LOOP.  */
+/* Return nonzero if basic block BB belongs to LOOP.  */
 bool
 flow_bb_inside_loop_p (loop, bb)
      const struct loop *loop;
@@ -962,7 +962,7 @@ flow_bb_inside_loop_p (loop, bb)
   return loop == source_loop || flow_loop_nested_p (loop, source_loop);
 }
 
-/* Return non-zero if edge E enters header of LOOP from outside of LOOP.  */
+/* Return nonzero if edge E enters header of LOOP from outside of LOOP.  */
 
 bool
 flow_loop_outside_edge_p (loop, e)

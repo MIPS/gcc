@@ -24,26 +24,47 @@
 
 #include "machmode.h"
 
-/* REAL_VALUE_TYPE is an array of the minimum number of HOST_WIDE_INTs
-   required to hold a 128-bit floating point type.  This is true even
-   if the maximum precision floating point type on the target is smaller.
+/* An expanded form of the represented number.  */
 
-   The extra 32 bits are for storing the mode of the float.  Ideally
-   we'd keep this elsewhere, but that's too drastic a change all at once.  */
+/* Enumerate the special cases of numbers that we encounter.  */
+enum real_value_class {
+  rvc_zero,
+  rvc_normal,
+  rvc_inf,
+  rvc_nan
+};
 
-#define REAL_VALUE_TYPE_SIZE (128 + 32)
+#define SIGNIFICAND_BITS	128
+#define EXP_BITS		(32 - 3)
+#define MAX_EXP			((1 << (EXP_BITS - 1)) - 1)
+#define SIGSZ			(SIGNIFICAND_BITS / HOST_BITS_PER_LONG)
+#define SIG_MSB			((unsigned long)1 << (HOST_BITS_PER_LONG - 1))
+
+struct real_value GTY(())
+{
+  enum real_value_class class : 2;
+  unsigned int sign : 1;
+  signed int exp : EXP_BITS;
+  unsigned long sig[SIGSZ];
+};
+
+/* Various headers condition prototypes on #ifdef REAL_VALUE_TYPE, so it
+   needs to be a macro.  We do need to continue to have a structure tag
+   so that other headers can forward declare it.  */
+#define REAL_VALUE_TYPE struct real_value
+
+/* We store a REAL_VALUE_TYPE into an rtx, and we do this by putting it in
+   consecutive "w" slots.  Moreover, we've got to compute the number of "w"
+   slots at preprocessor time, which means we can't use sizeof.  Guess.  */
+
+#define REAL_VALUE_TYPE_SIZE (SIGNIFICAND_BITS + 32)
 #define REAL_WIDTH \
   (REAL_VALUE_TYPE_SIZE/HOST_BITS_PER_WIDE_INT \
    + (REAL_VALUE_TYPE_SIZE%HOST_BITS_PER_WIDE_INT ? 1 : 0)) /* round up */
 
-struct realvaluetype GTY(()) {
-  HOST_WIDE_INT r[REAL_WIDTH];
-};
-
-/* Various headers condition prototypes on #ifdef REAL_VALUE_TYPE, so it needs
-   to be a macro.  realvaluetype cannot be a typedef as this interferes with
-   other headers declaring opaque pointers to it.  */
-#define REAL_VALUE_TYPE struct realvaluetype
+/* Verify the guess.  */
+extern char test_real_width
+  [sizeof(REAL_VALUE_TYPE) <= REAL_WIDTH*sizeof(HOST_WIDE_INT) ? 1 : -1];
 
 /* Calculate the format for CONST_DOUBLE.  We need as many slots as
    are necessary to overlay a REAL_VALUE_TYPE on them.  This could be
@@ -74,10 +95,44 @@ struct realvaluetype GTY(()) {
 # endif
 #endif
 
-/* Declare functions in real.c.  */
 
-/* Initialize the emulator.  */
-extern void init_real_once	PARAMS ((void));
+/* Describes the properties of the specific target format in use.  */
+struct real_format
+{
+  /* Move to and from the target bytes.  */
+  void (*encode) (const struct real_format *, long *, const REAL_VALUE_TYPE *);
+  void (*decode) (const struct real_format *, REAL_VALUE_TYPE *, const long *);
+
+  /* The radix of the exponent and digits of the significand.  */
+  int b;
+
+  /* log2(b).  */
+  int log2_b;
+
+  /* Size of the significand in digits of radix B.  */
+  int p;
+
+  /* The minimum negative integer, x, such that b**(x-1) is normalized.  */
+  int emin;
+
+  /* The maximum integer, x, such that b**(x-1) is representable.  */
+  int emax;
+
+  /* Properties of the format.  */
+  bool has_nans;
+  bool has_inf;
+  bool has_denorm;
+  bool has_signed_zero;
+  bool qnan_msb_set;
+};
+
+
+/* The target format used for each floating floating point mode.
+   Indexed by MODE - QFmode.  */
+extern const struct real_format *real_format_for_mode[TFmode - QFmode + 1];
+
+
+/* Declare functions in real.c.  */
 
 /* Binary or unary arithmetic on tree_code.  */
 extern void real_arithmetic	PARAMS ((REAL_VALUE_TYPE *, int,
@@ -135,9 +190,13 @@ extern void real_from_integer	PARAMS ((REAL_VALUE_TYPE *,
 					 unsigned HOST_WIDE_INT,
 					 HOST_WIDE_INT, int));
 
+extern long real_to_target_fmt	PARAMS ((long *, const REAL_VALUE_TYPE *,
+					 const struct real_format *));
 extern long real_to_target	PARAMS ((long *, const REAL_VALUE_TYPE *,
 					 enum machine_mode));
 
+extern void real_from_target_fmt PARAMS ((REAL_VALUE_TYPE *, const long *,
+					  const struct real_format *));
 extern void real_from_target	PARAMS ((REAL_VALUE_TYPE *, const long *,
 					 enum machine_mode));
 
@@ -148,21 +207,28 @@ extern bool real_nan		PARAMS ((REAL_VALUE_TYPE *, const char *,
 
 extern void real_2expN		PARAMS ((REAL_VALUE_TYPE *, int));
 
+extern unsigned int real_hash	PARAMS ((const REAL_VALUE_TYPE *));
+
+
+/* Target formats defined in real.c.  */
+extern const struct real_format ieee_single_format;
+extern const struct real_format ieee_double_format;
+extern const struct real_format ieee_extended_motorola_format;
+extern const struct real_format ieee_extended_intel_96_format;
+extern const struct real_format ieee_extended_intel_128_format;
+extern const struct real_format ibm_extended_format;
+extern const struct real_format ieee_quad_format;
+extern const struct real_format vax_f_format;
+extern const struct real_format vax_d_format;
+extern const struct real_format vax_g_format;
+extern const struct real_format i370_single_format;
+extern const struct real_format i370_double_format;
+extern const struct real_format c4x_single_format;
+extern const struct real_format c4x_extended_format;
+
+
 /* ====================================================================== */
 /* Crap.  */
-
-/* Define codes for all the float formats that we know of.  */
-#define UNKNOWN_FLOAT_FORMAT 0
-#define IEEE_FLOAT_FORMAT 1
-#define VAX_FLOAT_FORMAT 2
-#define IBM_FLOAT_FORMAT 3
-#define C4X_FLOAT_FORMAT 4
-
-/* Default to IEEE float if not specified.  Nearly all machines use it.  */
-
-#ifndef TARGET_FLOAT_FORMAT
-#define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
-#endif
 
 #define REAL_ARITHMETIC(value, code, d1, d2) \
   real_arithmetic (&(value), code, &(d1), &(d2))

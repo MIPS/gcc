@@ -688,13 +688,13 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 /* Define this if you wish to imitate the way many other C compilers handle
    alignment of bitfields and the structures that contain them.
 
-   The behavior is that the type written for a bitfield (`int', `short', or
+   The behavior is that the type written for a bit-field (`int', `short', or
    other integer type) imposes an alignment for the entire structure, as if the
    structure really did contain an ordinary field of that type.  In addition,
-   the bitfield is placed within the structure so that it would fit within such
+   the bit-field is placed within the structure so that it would fit within such
    a field, not crossing a boundary for it.
 
-   Thus, on most machines, a bitfield whose type is written as `int' would not
+   Thus, on most machines, a bit-field whose type is written as `int' would not
    cross a four-byte boundary, and would force four-byte alignment for the
    whole structure.  (The alignment used may not be four bytes; it is
    controlled by the other alignment parameters.)
@@ -711,7 +711,7 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
    `STRUCTURE_SIZE_BOUNDARY' as large as `BIGGEST_ALIGNMENT'.  Then every
    structure can be accessed with fullwords.
 
-   Unless the machine has bitfield instructions or you define
+   Unless the machine has bit-field instructions or you define
    `STRUCTURE_SIZE_BOUNDARY' that way, you must define
    `PCC_BITFIELD_TYPE_MATTERS' to have a nonzero value.
 
@@ -747,29 +747,6 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
 
    Defined in svr4.h.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* A code distinguishing the floating point format of the target machine.
-   There are three defined values:
-
-   IEEE_FLOAT_FORMAT'
-        This code indicates IEEE floating point.  It is the default;
-        there is no need to define this macro when the format is IEEE.
-
-   VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the VAX.
-
-   UNKNOWN_FLOAT_FORMAT'
-        This code indicates any other format.
-
-   The value of this macro is compared with `HOST_FLOAT_FORMAT'
-   to determine whether the target machine has the same format as
-   the host machine.  If any other formats are actually in use on supported
-   machines, new codes should be defined for them.
-
-   The ordering of the component words of floating point values stored in
-   memory is controlled by `FLOAT_WORDS_BIG_ENDIAN' for the target machine and
-   `HOST_FLOAT_WORDS_BIG_ENDIAN' for the host.  */
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 /* GNU CC supports two ways of implementing C++ vtables: traditional or with
    so-called "thunks".  The flag `-fvtable-thunk' chooses between them.  Define
@@ -3538,9 +3515,6 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
    macro value is zero or negative there will be no multi-pass
    scheduling.  */
 #define FIRST_CYCLE_MULTIPASS_SCHEDULING_LOOKAHEAD frv_sched_lookahead
-
-/* Return true if a function is ok to be called as a sibcall.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) 0
 
 enum frv_builtins
 {

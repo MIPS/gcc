@@ -628,7 +628,9 @@ or @code{clk_objective_c}.  Note that if we are preprocessing
 assembler, this variable will be @code{clk_c} but the function-like
 macro @code{preprocessing_asm_p()} will return true, so you might want
 to check for that first.  If you need to check for strict ANSI, the
-variable @code{flag_iso} can be used.
+variable @code{flag_iso} can be used.  The function-like macro
+@code{preprocessing_trad_p()} can be used to check for traditional
+preprocessing.
 
 With @code{TARGET_OS_CPP_BUILTINS} this macro obsoletes the
 @code{CPP_PREDEFINES} target macro.
@@ -1440,7 +1442,7 @@ alignment of the underlying types of itself and of the previous
 bit-field; (ii) a zero-sized bit-field will affect the alignment of
 the whole enclosing structure, even if it is unnamed; except that
 (iii) a zero-sized bit-field will be disregarded unless it follows
-another bit-field of non-zero size.  If this hook returns @code{true},
+another bit-field of nonzero size.  If this hook returns @code{true},
 other macros that control bit-field layout are ignored.
 
 When a bit-field is inserted into a packed record, the whole size
@@ -1542,13 +1544,6 @@ target machine.  If this is undefined, the default is
 @code{LONG_DOUBLE_TYPE_SIZE}.  Otherwise, it is the constant value that is
 the largest value that @code{LONG_DOUBLE_TYPE_SIZE} can have at run-time.
 This is used in @code{cpp}.
-
-@findex INTEL_EXTENDED_IEEE_FORMAT
-@item INTEL_EXTENDED_IEEE_FORMAT
-Define this macro to be 1 if the target machine uses 80-bit floating-point
-values with 128-bit size and alignment.  This is used in @file{real.c}.
-This also distinguishes the Intel 80-bit floating-point format from the
-Motorola 96-bit floating-point format.
 
 @findex TARGET_FLT_EVAL_METHOD
 @item TARGET_FLT_EVAL_METHOD

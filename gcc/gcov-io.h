@@ -33,17 +33,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Numbers are recorded in big endian unsigned binary form.  Either in
    32 or 64 bits.  Strings are stored with a length count and NUL
    terminator, and 0 to 3 bytes of zero padding up to the next 4 byte
-   boundary. Zero length and NULL strings are simply stored as a
+   boundary.  Zero length and NULL strings are simply stored as a
    length of zero (they have no trailing NUL or padding).
-   
+
    	int32:  byte3 byte2 byte1 byte0
 	int64:  byte7 byte6 byte5 byte4 byte3 byte2 byte1 byte0
 	string: int32:0 | int32:length char* char:0 padding
 	padding: | char:0 | char:0 char:0 | char:0 char:0 char:0
 	item: int32 | int64 | string
-   
+
    The basic format of the files is
-   
+
    	file : int32:magic int32:version record*
 
    The magic ident is different for the bbg and the counter files.
@@ -54,27 +54,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    number, a two character minor version number (leading zero for
    versions less than 10), and a single character indicating the
    status of the release.  That will be 'e' experimental, 'p'
-   prerelease and 'r' for release. Because, by good fortune, these are
+   prerelease and 'r' for release.  Because, by good fortune, these are
    in alphabetical order, string collating can be used to compare
    version strings, and because numbers are stored big endian, numeric
-   comparison can be used when it is read as a 32 bit value. Be aware
+   comparison can be used when it is read as a 32 bit value.  Be aware
    that the 'e' designation will (naturally) be unstable and might be
    incompatible with itself.  For gcc 3.4 experimental, it would be
-   '304e' (0x33303465). When the major version reaches 10, the letters
-   A-Z will be used. Assuming minor increments releases every 6
-   months, we have to make a major increment every 50 years. Assuming
+   '304e' (0x33303465).  When the major version reaches 10, the letters
+   A-Z will be used.  Assuming minor increments releases every 6
+   months, we have to make a major increment every 50 years.  Assuming
    major increments releases every 5 years, we're ok for the next 155
    years -- good enough for me.
 
    A record has a tag, length and variable amount of data.
-   
+
    	record: header data
 	header: int32:tag int32:length
 	data: item*
 
    Records are not nested, but there is a record hierarchy.  Tag
    numbers reflect this hierarchy.  Tags are unique across bbg and da
-   files.  Some record types have a varying amount of data. The LENGTH
+   files.  Some record types have a varying amount of data.  The LENGTH
    is usually used to determine how much data.  The tag value is split
    into 4 8-bit fields, one for each of four possible levels.  The
    most significant is allocated first.  Unused levels are zero.
@@ -96,7 +96,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
         lines: header int32:block_no line*
                int32:0 string:NULL
 	line:  int32:line_no | int32:0 string:filename
-	
+
    The BASIC_BLOCK record holds per-bb flags.  The number of blocks
    can be inferred from its data length.  There is one ARCS record per
    basic block.  The number of arcs from a bb is implicit from the
@@ -109,7 +109,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    to the next.  The end of a block is indicated by an empty filename
    - this does not reset the current source file.  Note there is no
    ordering of the ARCS and LINES records: they may be in any order,
-   interleaved in any manner. The current filename follows the order
+   interleaved in any manner.  The current filename follows the order
    the LINES records are stored in the file, *not* the ordering of the
    blocks they are for.
 
@@ -124,23 +124,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    The ANNOUNCE_FUNCTION record is the same as that in the BBG file.
    The ARC_COUNTS gives the counter values for those arcs that are
    instrumented.  The SUMMARY records give information about the whole
-   object file and about the whole program. The checksum is used for
+   object file and about the whole program.  The checksum is used for
    whole program summaries, and disambiguates different programs which
-   include the same instrumented object file. There may be several
-   program summaries, each with a unique checksum. The object
+   include the same instrumented object file.  There may be several
+   program summaries, each with a unique checksum.  The object
    summary's checkum is zero.  Note that the da file might contain
    information from several runs concatenated, or the data might be
    merged.
 
    This file is included by both the compiler, gcov tools and the
-   library. The IN_LIBGCC2 define distinguishes these cases.  When
-   IN_LIBGCC2 is non-zero, we're building libgcc2 for the target and
+   library.  The IN_LIBGCC2 define distinguishes these cases.  When
+   IN_LIBGCC2 is nonzero, we're building libgcc2 for the target and
    know the compiler is (the just built) gcc.  Otherwise we're
    generating code for the host, and the compiler may or may not be
-   gcc. In this latter case, you must ensure that 'gcov_type' is
+   gcc.  In this latter case, you must ensure that 'gcov_type' is
    typedefed to something suitable (unsigned HOST_WIDEST_INT is
    usually what you want).  */
-   
+
 #ifndef GCC_GCOV_IO_H
 #define GCC_GCOV_IO_H
 
@@ -152,11 +152,11 @@ typedef long long gcov_type;
 #endif
 #endif /* IN_LIBGCC2 */
 
-/* File suffixes */
+/* File suffixes.  */
 #define GCOV_DATA_SUFFIX ".da"
 #define GCOV_GRAPH_SUFFIX ".bbg"
 
-/* File magic */
+/* File magic.  */
 #define GCOV_DATA_MAGIC  0x67636f76 /* "gcov" */
 #define GCOV_GRAPH_MAGIC 0x67626267 /* "gbbg" */
 
@@ -166,8 +166,8 @@ typedef long long gcov_type;
 */
 #include "gcov-iov.h"
 
-/* The record tags. Values [1..3f] are for tags which may be in either
-   file. Values [41..9f] for those in the bbg file and [a1..ff] for
+/* The record tags.  Values [1..3f] are for tags which may be in either
+   file.  Values [41..9f] for those in the bbg file and [a1..ff] for
    the data file.  */
 
 #define GCOV_TAG_FUNCTION	 ((unsigned)0x01000000)
@@ -185,19 +185,19 @@ typedef long long gcov_type;
    levels.  */
 #define GCOV_TAG_MASK(TAG) (((TAG) - 1) ^ (TAG))
 
-/* Return non-zero if SUB is an immediate subtag of TAG */
+/* Return nonzero if SUB is an immediate subtag of TAG.  */
 #define GCOV_TAG_IS_SUBTAG(TAG,SUB)				\
 	(GCOV_TAG_MASK (TAG) >> 8 == GCOV_TAG_MASK (SUB) 	\
 	 && !(((SUB) ^ (TAG)) & ~GCOV_TAG_MASK(TAG)))
 
-/* Return non-zero, if SUB is at a sublevel to TAG */
+/* Return nonzero if SUB is at a sublevel to TAG.  */
 #define GCOV_TAG_IS_SUBLEVEL(TAG,SUB)				\
      	(GCOV_TAG_MASK (TAG) > GCOV_TAG_MASK (SUB))
-     
+
 /* Basic block flags.  */
 #define GCOV_BLOCK_UNEXPECTED	(1 << 0)
 
-/* Arc flags. */
+/* Arc flags.  */
 #define GCOV_ARC_ON_TREE 	(1 << 0)
 #define GCOV_ARC_FAKE		(1 << 1)
 #define GCOV_ARC_FALLTHROUGH	(1 << 2)
@@ -207,7 +207,7 @@ typedef long long gcov_type;
 /* Object & program summary record.  */
 struct gcov_summary
 {
-  unsigned checksum;	  /* checksum of program. */
+  unsigned checksum;	  /* checksum of program */
   unsigned runs;	  /* number of program runs */
   unsigned arcs;	  /* number of instrumented arcs */
   gcov_type arc_sum;      /* sum of all arc counters */
@@ -218,33 +218,33 @@ struct gcov_summary
 
 #if IN_LIBGCC2
 /* Structures embedded in coveraged program.  The structures generated
-   by write_profile must match these. */
+   by write_profile must match these.  */
 
 /* Information about a single function.  */
 struct function_info
 {
-  const char *name;	        /* (mangled) name of function. */
+  const char *name;	        /* (mangled) name of function */
   unsigned checksum;		/* function checksum */
-  unsigned n_arc_counts;	/* number of instrumented arcs. */
+  unsigned n_arc_counts;	/* number of instrumented arcs */
 };
 
 /* Information about a single object file.  */
 struct gcov_info
 {
-  unsigned version;	        /* expected version number. */
+  unsigned version;	        /* expected version number */
   struct gcov_info *next;	/* link to next, used by libgcc */
-  
-  const char *filename;		/* output file name. */
-  long wkspc;	  	        /* libgcc workspace. */
-  
-  const struct function_info *functions; /* table of functions. */
-  unsigned n_functions;             /* number of functions.  */
 
-  gcov_type *arc_counts;	/* table of arc counts. */
-  unsigned n_arc_counts;	/* number of arc counts. */
+  const char *filename;		/* output file name */
+  long wkspc;	  	        /* libgcc workspace */
+
+  const struct function_info *functions; /* table of functions */
+  unsigned n_functions;             /* number of functions */
+
+  gcov_type *arc_counts;	/* table of arc counts */
+  unsigned n_arc_counts;	/* number of arc counts */
 };
 
-/* Register a new object file module. */
+/* Register a new object file module.  */
 extern void __gcov_init (struct gcov_info *);
 
 /* Called before fork, to avoid double counting.  */
@@ -288,8 +288,8 @@ static int gcov_write_length PARAMS((FILE *, long))
 	fseek (STREAM, (LENGTH) + 4 - ((LENGTH) & 3), SEEK_CUR)
 
 
-/* Write VALUE to coverage file FILE.  Return non-zero if failed due to
-   file i/o error, or value error. */
+/* Write VALUE to coverage file FILE.  Return nonzero if failed due to
+   file i/o error, or value error.  */
 
 static int
 gcov_write_unsigned (file, value)
@@ -298,7 +298,7 @@ gcov_write_unsigned (file, value)
 {
   char buffer[4];
   unsigned ix;
-  
+
   for (ix = sizeof (buffer); ix--; )
     {
       buffer[ix] = value;
@@ -308,9 +308,9 @@ gcov_write_unsigned (file, value)
 	  || fwrite (buffer, sizeof (buffer), 1, file) != 1);
 }
 
-/* Write VALUE to coverage file FILE.  Return non-zero if failed due to
-   file i/o error, or value error. Negative values are not checked
-   here -- they are checked in gcov_read_counter. */
+/* Write VALUE to coverage file FILE.  Return nonzero if failed due to
+   file i/o error, or value error.  Negative values are not checked
+   here -- they are checked in gcov_read_counter.  */
 
 static int
 gcov_write_counter (file, value)
@@ -319,7 +319,7 @@ gcov_write_counter (file, value)
 {
   char buffer[8];
   unsigned ix;
-  
+
   for (ix = sizeof (buffer); ix--; )
     {
       buffer[ix] = value;
@@ -329,8 +329,8 @@ gcov_write_counter (file, value)
 	  || fwrite (buffer, sizeof (buffer), 1, file) != 1);
 }
 
-/* Write VALUE to coverage file FILE.  Return non-zero if failed due to
-   file i/o error, or value error. */
+/* Write VALUE to coverage file FILE.  Return nonzero if failed due to
+   file i/o error, or value error.  */
 
 static int
 gcov_write_string (file, string, length)
@@ -348,8 +348,8 @@ gcov_write_string (file, string, length)
     return gcov_write_unsigned (file, 0);
 }
 
-/* Read *VALUE_P from coverage file FILE.  Return non-zero if failed
-   due to file i/o error, or range error. */
+/* Read *VALUE_P from coverage file FILE.  Return nonzero if failed
+   due to file i/o error, or range error.  */
 
 static int
 gcov_read_unsigned (file, value_p)
@@ -374,8 +374,8 @@ gcov_read_unsigned (file, value_p)
   return 0;
 }
 
-/* Read *VALUE_P from coverage file FILE.  Return non-zero if failed
-   due to file i/o error, or range error. */
+/* Read *VALUE_P from coverage file FILE.  Return nonzero if failed
+   due to file i/o error, or range error.  */
 
 static int
 gcov_read_counter (file, value_p)
@@ -396,7 +396,7 @@ gcov_read_counter (file, value_p)
       value <<= 8;
       value |= buffer[ix];
     }
-  
+
   *value_p = value;
   return value < 0;
 }
@@ -405,8 +405,8 @@ gcov_read_counter (file, value_p)
 
 /* Read string from coverage file FILE.  Length is stored in *LENGTH_P
    (if non-null), a buffer is allocated and returned in *STRING_P.
-   Return non-zero if failed due to file i/o error, or range
-   error. Uses xmalloc to allocate the string buffer. */
+   Return nonzero if failed due to file i/o error, or range
+   error.  Uses xmalloc to allocate the string buffer.  */
 
 static int
 gcov_read_string (file, string_p, length_p)
@@ -415,30 +415,30 @@ gcov_read_string (file, string_p, length_p)
      unsigned *length_p;
 {
   unsigned length;
-  
+
   if (gcov_read_unsigned (file, &length))
     return 1;
-  
+
   if (length_p)
     *length_p = length;
   free (*string_p);
-  
+
   *string_p = NULL;
   if (!length)
     return 0;
-  
+
   length += 4 - (length & 3);
   *string_p = (char *) xmalloc (length);
-  
+
   return fread (*string_p, length, 1, file) != 1;
-      
+
 }
 
 #endif /* !IN_LIBGCC2 */
 
-/* Write a record length at PLACE. The current file position is the
-   end of the record, and is restored before returning. Returns
-   non-zero on failure.  */
+/* Write a record length at PLACE.  The current file position is the
+   end of the record, and is restored before returning.  Returns
+   nonzero on failure.  */
 
 static int
 gcov_write_length (file, place)
@@ -475,7 +475,7 @@ gcov_write_summary (da_file, tag, summary)
      const struct gcov_summary *summary;
 {
   long base;
-  
+
   return (gcov_write_unsigned (da_file, tag)
 	  || !(base = gcov_reserve_length (da_file))
 	  || gcov_write_unsigned (da_file, summary->checksum)

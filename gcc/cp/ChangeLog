@@ -1,3 +1,139 @@
+2002-09-30  Steve Ellcey  <sje@cup.hp.com>
+
+	* class.c (build_vtbl_initializer): Add cast.
+	(add_vcall_offset_vtbl_entries_1):
+	Use TARGET_VTABLE_DATA_ENTRY_DISTANCE for offset.
+
+2002-09-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (walk_subobject_offsets): Correct the calculation of
+	offsets for virtual bases.  Correct the counting of array
+	elements.
+	(layout_nonempty_base_or_field): Simplify.  Correct the
+	calculation of offsets to be propagated through the binfo
+	hierarchy.
+	(build_base_field): Avoid creating a FIELD_DECL for empty bases.
+	Add the FIELD_DECL to TYPE_FIELDS.
+	(build_base_fields): Adjust accordingly.
+	(layout_virtual_bases): Use build_base_field.
+	(end_of_class): Return a tree, not an integer.
+	(warn_about_ambiguous_direct_bases): Rename to ...
+	(warn_about_ambiguous_bases): ... this.
+	(include_empty_classes): New function.
+	(layout_class_type): Create an alternative version of the type to
+	be used when as a base class type.  Do not call
+	finish_record_layout until we are done laying out the class.
+	* cp-tree.h (lang_type_class): Remove size, size_unit.  Add
+	as_base.
+	(CLASSTYPE_SIZE): Reimplement.
+	(CLASSTYPE_SIZE_UNIT): Likewise.
+	(CLASSTYPE_ALIGN): Likweise.
+	(CLASSTYPE_USER_ALIGN): Likewise.
+	(CLASSTYPE_AS_BASE): New macro.
+	(DECL_INITIALIZED_P): Likewise.
+	(extract_init): Remove prototype.
+	(build_forced_zero_init): Rename to ...
+	(build_zero_init): ... this.
+	(force_store_init_value): Remove.
+	* decl.c (obscure_complex_init): Remove.
+	(duplicate_decls): Copy DECL_INITIALIZED_P.
+	(check_initializer): Do not leave junk in DECL_INITIAL.
+	(cp_finish_decl): Handle zero-initialization of entities with
+	static storage duration.
+	* expr.c (extract_init): Remove.
+	* init.c (build_forced_zero_init): Remove.
+	(build_zero_init): New function.
+	(build_default_init): Use it.
+	(build_field_list): Skip FIELD_DECLs for base subobjects.
+	(push_base_cleanups): Likewise.
+	* method.c (do_build_assign_ref): Likewise.
+	(synthesize_exception_spec): Likewise.
+	* pt.c (tsubst_decl): Clear DECL_INITIALIZED_P.
+	(regenerate_decl_from_template): To not set DECL_INITIAL for a
+	static data member whose initialization took place in its class.
+	(instantiate_decl): Do not pass an initializer to cp_finish_decl
+	in that situation.
+	* search.c (dfs_push_decls): Skip FIELD_DECLs for base subobjects.
+	(dfs_unuse_fields): Likewise.
+	* tree.c (pod_type_p): Handle error_mark_node.
+	(zero_init_p): Likewise.
+	* typeck.c (lookup_anon_field): Skip FIELD_DECLs for base 
+	subobjects.
+	* typeck2.c (store_init_value): Remove #if 0'd code.
+	(force_store_init_value): Remove.
+	(process_init_constructor): Use build_zero_init.
+	
+2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7788
+	* rtti.c (unemitted_tinfo_decl_p): Check it has a field.
+
+2002-09-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h: Fix comment typos.
+	* decl.c: Likewise.
+	* pt.c: Likewise.
+
+2002-09-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp/class.c (contains_empty_class_p): New method.
+	(walk_subobject_offsets): Correct computation of field offset.
+	(layout_empty_base): Correct placement of emtpy base classes.
+	(layout_class_type): Warn about ABI changes.
+
+2002-09-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp/class.c (layout_virtual_bases): Do not round the size of the
+	type to a multiple of the alignment before laying out virtual bases.
+	(layout_class_type): Correct handling of bit-fields that are wider
+	than their type inside unions.  Round the size of the type to a
+	even number of bytes when computing the size without virtual
+	bases.
+	* cp/cp-tree.h (abi_version_at_least): New macro.
+	
+2002-09-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* ChangeLog.2: Likewise.
+	* call.c: Likewise.
+	* class.c: Likewise.
+	* cp-tree.h: Likewise.
+	* cvt.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* except.c: Likewise.
+	* friend.c: Likewise.
+	* g++spec.c: Likewise.
+	* init.c: Likewise.
+	* lex.c: Likewise.
+	* mangle.c: Likewise.
+	* method.c: Likewise.
+	* operators.def: Likewise.
+	* optimize.c: Likewise.
+	* pt.c: Likewise.
+	* rtti.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* spew.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+
+2002-09-18  Devang Patel  <dpatel@apple.com>
+
+	* cp/cp-tree.h: New prototype for walk_vtabls().
+	* cp/decl.c (walk_vtables_r): New function.
+	(struct cp_binding_level): Add new members, namespaces,
+	names_size and vtables.
+	(add_decl_to_level): Add decl in namespaces or vtables
+	chain, if conditions match.
+	(walk_vtables): New function.
+	(walk_namespaces_r): Travers separate namespace chain
+	for namespace decls.
+	(wrapup_globals_for_namespace): Use names_size instead
+	of list_length().
+	* cp/decl2.c (finish_file): Use walk_vtables() instead of
+	walk_globals() to walk vtable decls.
+
 2002-09-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* decl.c (grokdeclarator): Use assert, not internal_error. Don't
@@ -4269,7 +4405,7 @@ Fri Sep 21 08:16:19 2001  J"orn Rennecke <amylaar@redhat.com>
 
 	PR c++/3621
 	* spew.c (yylex): Only copy the token's lineno, if it is
-	non-zero.
+	nonzero.
 
 2001-07-26  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -4407,7 +4543,7 @@ Fri Sep 21 08:16:19 2001  J"orn Rennecke <amylaar@redhat.com>
 2001-07-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	Remove old-abi remnants. Remove comments about old abi
-	behaviour. Remove references to 'new-abi' in comments.
+	behavior. Remove references to 'new-abi' in comments.
 	* cp-tree.h: Adjust comments.
 	(vbase_offsets_in_vtable_p): Delete.
 	(vcall_offsets_in_vtable_p): Delete.
@@ -5609,7 +5745,7 @@ Thu Apr  5 16:54:29 2001  J"orn Rennecke <amylaar@redhat.com>
 	(maybe_commonize_var): Allow inlining functions even if they have
 	static local variables, use comdat_linkage for them if flag_weak.
 	(check_initializer): Call obscure_complex_init if
-	grok_reference_init returned non-zero.
+	grok_reference_init returned nonzero.
 	(save_function_data): Clear x_local_names.
 	(pop_cp_function_context): Free x_local_names.
 	(mark_inlined_fns): Remove.
@@ -12756,7 +12892,7 @@ Sun Feb 27 16:40:33 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(add_method): Used functions are hidden by local functions.
 	(check_bases_and_members): Handle using-decls before finalizing
 	CLASSTYPE_METHOD_VEC.
-	* call.c (add_function_candidate): Add ctype parm; if non-zero,
+	* call.c (add_function_candidate): Add ctype parm; if nonzero,
 	override the type of 'this' accordingly.
 	(add_template_candidate, add_template_candidate_real): Add ctype parm.
 	(convert_class_to_reference, build_user_type_conversion_1,

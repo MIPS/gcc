@@ -111,7 +111,7 @@ extern int target_flags;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
@@ -1079,7 +1079,7 @@ struct rt_cargs {int gregs, fregs; };
 #define MOVE_MAX 4
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Also non-zero if doing byte operations (specifically shifts) in registers
+   Also nonzero if doing byte operations (specifically shifts) in registers
    is undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 

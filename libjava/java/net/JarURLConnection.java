@@ -34,7 +34,7 @@ public abstract class JarURLConnection extends URLConnection
    *  either case this describes just the jar file itself. */
   protected URLConnection jarFileURLConnection;
 
-  // If this is a connection to a jar file element this is set, otherwose null.
+  // If this is a connection to a jar file element this is set, otherwise null.
   private final String element;
 
   // Cached JarURLConnection's 
@@ -50,7 +50,14 @@ public abstract class JarURLConnection extends URLConnection
     return element;
   }
 
-  public JarURLConnection(URL url)
+  /**
+   * Creates a new JarURLConnection
+   *
+   * @exception MalformedURLException If url is invalid
+   *
+   * @specnote This constructor is protected since JDK 1.4
+   */
+  protected JarURLConnection(URL url)
     throws MalformedURLException
   {
     super(url);
@@ -153,7 +160,12 @@ public abstract class JarURLConnection extends URLConnection
     return null;
   }
 
-  public JarEntry getJarEntry () throws java.io.IOException
+  /**
+   * Return the JAR entry object for this connection, if any
+   *
+   * @exception IOException If an error occurs
+   */
+  public JarEntry getJarEntry () throws IOException
   {
     JarFile jarfile = null;
 
@@ -167,7 +179,7 @@ public abstract class JarURLConnection extends URLConnection
       {
 	jarfile = getJarFile ();
       }
-    catch (java.io.IOException x)
+    catch (IOException x)
       {
 	/* ignore */
       }
@@ -197,7 +209,12 @@ public abstract class JarURLConnection extends URLConnection
     return null;
   }
 
-  public abstract JarFile getJarFile() throws java.io.IOException;
+  /**
+   * Return the JAR file for this connection
+   *
+   * @exception IOException If an error occurs
+   */
+  public abstract JarFile getJarFile() throws IOException;
 
 
   // Steal and borrow from protocol/file/Connection.java
@@ -331,5 +348,40 @@ public abstract class JarURLConnection extends URLConnection
   public Certificate[] getCertificates() throws IOException
   {
     return getJarEntry().getCertificates();
+  }
+
+  /**
+   * Returns the main Attributes for the JAR file for this connection
+   *
+   * @exception IOException If an error occurs
+   */
+  public Attributes getMainAttributes () throws IOException
+  {
+    return getManifest ().getMainAttributes ();
+  }
+
+  /**
+   * Return the Attributes object for this connection if the URL for it points
+   * to a JAR file entry, null otherwise
+   *
+   * @exception IOException If an error occurs
+   */
+  public Attributes getAttributes () throws IOException
+  {
+    // FIXME: implement this
+    return null;
+  }
+
+  /**
+   * Returns the Manifest for this connection, or null if none
+   *
+   * @exception IOException If an error occurs
+   */
+  public Manifest getManifest () throws IOException
+  {
+    JarFile file = getJarFile ();
+
+    // FIXME: implement this
+    return null;
   }
 }

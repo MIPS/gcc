@@ -1,3 +1,115 @@
+2002-09-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty7.C: New test.
+	* g++.dg/init/pm2.C: Likewise.
+	
+2002-09-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/rtti/crash1.C: New test.
+
+2002-09-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/sibcall-1.c, gcc.dg/sibcall-2.c, gcc.dg/sibcall-3.c,
+	gcc.dg/sibcall-4.c: New tests.
+
+2002-09-28  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x: No longer skip test on
+	powerpc and MMIX targets.
+
+2002-09-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/cpp/20020927-1.c: New.
+
+2002-09-26  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/compile/trunctfdf.c: New.
+
+2002-09-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lib/target-supports.exp (check_weak_available): Handle solaris2.
+
+2002-09-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/loop-15.c: New.
+
+2002-09-26  Janis Johnson  <janis187@us.ibm.com>
+
+	* README.QMTEST: Fix typo.
+
+2002-09-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20020926-1.c: New test.
+
+2002-09-25  David S. Miller  <davem@redhat.com>
+
+	PR target/7842
+	* gcc.c-torture/execute/shiftdi.c: New test.
+
+2002-09-26  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lib/gcc.exp (gcc_init): Use a filename for the testglue that is
+	unique to the tool.
+	* lib/g77.exp (g77_init): Likewise.
+	* lib/g++.exp (g++_init): Likewise.
+	* lib/objc.exp (objc_init): Likewise.
+
+2002-09-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/abi/empty5.C: New test.
+	* gcc/testsuite/g++.dg/abi/empty6.C: New test.
+	* gcc/testsuite/g++.dg/abi/vbase12.C: New test.
+
+2002-09-25  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/ieee/20010226-1.c: Early exit for
+	too-small long double.
+
+2002-09-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/20020919-1.c: New test.
+
+2002-09-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/bitfield6.C: New test.
+	* g++.dg/abi/bitfield7.C: New test.
+	* g++.dg/abi/bitfield8.C: New test.
+	* g++.dg/abi/vbase11.C: New test.
+
+2002-09-22  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.dg/20020219-1.c: Add "-mdisable-indexing" option for target
+	hppa*-*-hpux*.  Update test comment.
+
+2002-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tls/struct-1.c: New test.
+
+2002-09-20  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/tr-warn2.c: Update.
+
+2002-09-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip test on ARM-based systems.
+
+2002-09-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.c-torture/execute/990208-1.x: XFAIL this at -O3 for ARM-based
+	systems.
+
+2002-09-20  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/ieee/mzero3.c: New test.
+
+	* lib/scanasm.exp (scan-assembler-dem, scan-assembler-dem-not):
+	Adjust for c++filt moved to binutils.  Remove spurious duplicate
+	setting of cxxfilt.
+
+2002-09-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/20020312-2.c: Update for darwin.
+
 2002-09-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.old-deja/g++.other/crash32.C: Mark ICE.
@@ -9,7 +121,7 @@ Tue Sep 17 13:59:45 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* objc.dg/comp-types-3.m: New test.
 	* objc.dg/comp-types-4.m: New test.
 	* objc.dg/comp-types-5.m: New test.
-	* objc.dg/comp-types-6.m: New test.	
+	* objc.dg/comp-types-6.m: New test.
 
 2002-09-17  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
@@ -18,9 +130,9 @@ Tue Sep 17 13:59:45 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.dg/other/do1.C: New test.
-	
+
 	* g++.dg/template/subst1.C: New test.
-	
+
 2002-09-16  Steve Ellcey  <sje@cup.hp.com>
 
 	* gcc.dg/20020312-2.c: Change __parisc__ to __hppa__.
