@@ -1098,29 +1098,34 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
      If that's wrong, the solution is to test for it and set TARGET to 0
      if needed.  */
 
-  mode1  = (VECTOR_MODE_P (tmode)
-	    ? mode
-	    : mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0));
+  /* Only scalar integer modes can be converted via subregs.  There is an
+     additional problem for FP modes here in that they can have a precision
+     which is different from the size.  mode_for_size uses precision, but
+     we want a mode based on the size, so we must avoid calling it for FP
+     modes.  */
+  mode1  = (SCALAR_INT_MODE_P (tmode)
+	    ? mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0)
+	    : mode);
 
-  if (((GET_CODE (op0) != MEM
-	&& TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
-				  GET_MODE_BITSIZE (GET_MODE (op0)))
-	&& GET_MODE_SIZE (mode1) != 0
-	&& byte_offset % GET_MODE_SIZE (mode1) == 0)
-       || (GET_CODE (op0) == MEM
-	   && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (op0))
-	       || (offset * BITS_PER_UNIT % bitsize == 0
-		   && MEM_ALIGN (op0) % bitsize == 0))))
-      && ((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
-	   && bitpos % BITS_PER_WORD == 0)
-	  || (mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0) != BLKmode
-	      /* ??? The big endian test here is wrong.  This is correct
-		 if the value is in a register, and if mode_for_size is not
-		 the same mode as op0.  This causes us to get unnecessarily
-		 inefficient code from the Thumb port when -mbig-endian.  */
-	      && (BYTES_BIG_ENDIAN
-		  ? bitpos + bitsize == BITS_PER_WORD
-		  : bitpos == 0))))
+  if (((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
+	&& bitpos % BITS_PER_WORD == 0)
+       || (mode1 != BLKmode
+	   /* ??? The big endian test here is wrong.  This is correct
+	      if the value is in a register, and if mode_for_size is not
+	      the same mode as op0.  This causes us to get unnecessarily
+	      inefficient code from the Thumb port when -mbig-endian.  */
+	   && (BYTES_BIG_ENDIAN
+	       ? bitpos + bitsize == BITS_PER_WORD
+	       : bitpos == 0)))
+      && ((GET_CODE (op0) != MEM
+	   && TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+				     GET_MODE_BITSIZE (GET_MODE (op0)))
+	   && GET_MODE_SIZE (mode1) != 0
+	   && byte_offset % GET_MODE_SIZE (mode1) == 0)
+	  || (GET_CODE (op0) == MEM
+	      && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (op0))
+		  || (offset * BITS_PER_UNIT % bitsize == 0
+		      && MEM_ALIGN (op0) % bitsize == 0)))))
     {
       if (mode1 != GET_MODE (op0))
 	{
@@ -1696,7 +1701,9 @@ mask_rtx (mode, bitpos, bitsize, complement)
 {
   HOST_WIDE_INT masklow, maskhigh;
 
-  if (bitpos < HOST_BITS_PER_WIDE_INT)
+  if (bitsize == 0)
+    masklow = 0;
+  else if (bitpos < HOST_BITS_PER_WIDE_INT)
     masklow = (HOST_WIDE_INT) -1 << bitpos;
   else
     masklow = 0;
@@ -1710,7 +1717,9 @@ mask_rtx (mode, bitpos, bitsize, complement)
   else
     maskhigh = (HOST_WIDE_INT) -1 << (bitpos - HOST_BITS_PER_WIDE_INT);
 
-  if (bitpos + bitsize > HOST_BITS_PER_WIDE_INT)
+  if (bitsize == 0)
+    maskhigh = 0;
+  else if (bitpos + bitsize > HOST_BITS_PER_WIDE_INT)
     maskhigh &= ((unsigned HOST_WIDE_INT) -1
 		 >> (2 * HOST_BITS_PER_WIDE_INT - bitpos - bitsize));
   else
