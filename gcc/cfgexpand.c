@@ -338,9 +338,10 @@ construct_exit_block (void)
   FOR_EACH_PRED_EDGE (e, EXIT_BLOCK_PTR, ix)
     {
       if (!(e->flags & EDGE_ABNORMAL))
-        redirect_edge_succ (e, exit_block);
-      else
-	ix--;
+	{
+          redirect_edge_succ (e, exit_block);
+	  ix--;
+	}
     }
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
