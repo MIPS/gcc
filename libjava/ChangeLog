@@ -1,5 +1,12 @@
 2004-10-22  Michael Koch  <konqueror@gmx.de>
 
+	* java/awt/Container.java,
+	java/awt/Font.java,
+	java/awt/font/TextLayout.java:
+	Imports cleaned up.
+
+2004-10-22  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java
 	(getLabel): Added @deprecated tag.
 	(setLabel): Likewise.
