@@ -1,5 +1,30 @@
 2004-12-22  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JApplet.java
+	(HIDE_ON_CLOSE): Removed.
+	(EXIT_ON_CLOSE): Likewise.
+	(DISPOSE_ON_CLOSE): Likewise.
+	(DO_NOTHING_ON_CLOSE): Likewise.
+	(close_action): Likewise.
+	(getDefaultCloseOperation): Likewise.
+	(setDefaultCloseOperation): Likewise.
+	(processWindowEvent): Likewise.
+	(getPreferredSize): Simplified.
+	* javax/swing/JInternalFrame.java
+	(setDefaultCloseOperation): Fixed throwing exception on wrong argument
+	value.
+	* javax/swing/JWindow.java
+	(HIDE_ON_CLOSE): Removed.
+	(EXIT_ON_CLOSE): Likewise.
+	(DISPOSE_ON_CLOSE): Likewise.
+	(DO_NOTHING_ON_CLOSE): Likewise.
+	(close_action): Likewise.
+	(processKeyEvent): Likewise.
+	(setDefaultCloseOperation): Likewise.
+	(getPreferredSize): Simplified.
+
+2004-12-22  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTextField.java
 	(getPreferredSize): Re-implemented.
 
