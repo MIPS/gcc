@@ -2031,6 +2031,18 @@ initial_push_namespace_scope (tree ns)
   NAMESPACE_LEVEL (ns) = scope;
 }
 
+bool
+cxx_post_options (const char **filename)
+{
+  /* Reinitialize for a new translation unit.  */
+  anonymous_namespace_name = 0;
+
+  main_timestamp = ++c_timestamp;
+  activate_output_fragment ();
+
+  return c_common_post_options (filename);
+}
+
 /* Push into the scope of the NAME namespace.  If NAME is NULL_TREE, then we
    select a name that is unique to this compilation unit.  */
 
@@ -3123,6 +3135,8 @@ duplicate_decls (tree newdecl, tree olddecl)
       const char *errmsg = redeclaration_error_message (newdecl, olddecl);
       if (errmsg)
 	{
+	  if (in_other_unit (olddecl))
+ 	    return 0;
 	  error (errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
 	    cp_error_at ((DECL_INITIAL (olddecl)
@@ -3738,7 +3752,8 @@ pushdecl (tree x)
 	  t = NULL_TREE;
 	  cp_error_at ("`%#D' used prior to declaration", x);
 	}
-      else if (t != NULL_TREE)
+      else if (t != NULL_TREE
+	       && ! in_other_unit (t))
 	{
 	  if (different_binding_level)
 	    {
@@ -5230,6 +5245,16 @@ lookup_tag (enum tree_code form, tree name,
             else
               old = NULL_TREE;
 
+#if 0
+	    /* We need some way of noticing types */
+	    /* While this causes some things to work, it basically
+	       kills Finder_FE really hard.  */
+	    if (old && TREE_CODE (old) == RECORD_TYPE
+		&& TREE_CODE (TYPE_NAME (old)) == TYPE_DECL
+		&& !decl_active (TYPE_NAME (old)))
+	      old = 0;
+#endif
+
 	    if (old)
 	      {
 		/* We've found something at this binding level.  If it is
@@ -5736,8 +5761,8 @@ unqualified_namespace_lookup (tree name, int flags, tree* spacesp)
       for (level = current_binding_level;
 	   !level->namespace_p;
 	   level = level->level_chain)
-	if (!lookup_using_namespace (name, &binding, level->using_directives,
-                                     scope, flags, spacesp))
+	if (!lookup_using_namespace_one (name, &binding, level->using_directives,
+					 scope, flags, spacesp))
 	  /* Give up because of error.  */
 	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 
@@ -6219,8 +6244,6 @@ initialize_predefined_identifiers (void)
     }
 }
 
-static int c_init_decl_done;
-
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *)0).
    Initialize the global binding level.
@@ -6421,23 +6444,15 @@ init_cxx_decl_processing_once (void)
 
 void setup_globals ()
 {
-  current_function_decl = NULL;
-  /*  named_labels = NULL;*/
-  current_binding_level = NULL_BINDING_LEVEL;
+  /* We use a conditional symbol table, so there isn't anything
+     special we need to do here.  */
 }
 
 void
 init_cxx_decl_processing_eachsrc (void)
 {
-  /* FIXME - combine with init_c_decl_processing_eachsrc. */
-  main_timestamp = ++c_timestamp;
-
-  if (c_init_decl_done++ != 0 && server_mode != 1)
-    {
-      initial_push_namespace_scope (global_namespace);
-
-      reset_cpp_hashnodes ();
-  }
+  /* We use a conditional symbol table, so there isn't anything
+     special we need to do here.  */
 }
 
 /* Generate an initializer for a function naming variable from
@@ -14594,73 +14609,8 @@ cp_missing_noreturn_ok_p (tree decl)
 }
 
 void
-restore_fragment_bindings (tree bindings)
+restore_fragment_bindings (tree bindings ATTRIBUTE_UNUSED)
 {
-  int i;
-  int len;
-  struct cp_binding_level *b = current_binding_level;
-  if (bindings == NULL_TREE)
-    return;
-  len = TREE_VEC_LENGTH (bindings);
-  for (i = 0;  i < len;  )
-    {
-      tree x = TREE_VEC_ELT (bindings, i);
-
-      if (TREE_CODE (x) == INTEGER_CST)
-	{
-	  /* kludge, to avoid call to note_fragment_binding call here. FIXME */
-	  int save_server_mode = server_mode;
-	  server_mode = -1;
-	  push_overloaded_decl (TREE_VEC_ELT (bindings, i + 1),
-				TREE_INT_CST_LOW  (x));
-	  server_mode = save_server_mode;
-	  i += 2;
-	}
-      else if (TREE_CODE_CLASS (TREE_CODE (x)) == 'd')
-	{
-	  tree name = DECL_NAME (x);
-	  if (name != NULL_TREE)
-	    SET_IDENTIFIER_NAMESPACE_VALUE (name, x);
-	  add_decl_to_level (x, NAMESPACE_LEVEL (CP_DECL_CONTEXT (x)));
-	  i++;
-	}
-#if 0
-      else if (TREE_CODE (x) == TREE_LIST) /* pushtag */
-	{
-	  tree type = TREE_VALUE (x);
-	  tree name = TREE_PURPOSE (x);
-	  TREE_CHAIN (x) = b->tags;
-	  TYPE_SIZE (type) = NULL_TREE;
-	  TYPE_FIELDS (type) = NULL_TREE;
-	  b->tags = x;
-	  if (name)
-	    set_identifier_type_value_with_scope (name, type, b);
-	  i++;
-	}
-#endif
-      else if (TREE_CODE_CLASS (TREE_CODE (x)) == 't')
-	{ /* lookup_tag/pushtag/finish_struct */
-	  tree type = x;
-	  tree name = TYPE_NAME (type);
-	  if (name != NULL_TREE)
-	    {
-	      if (b->type_decls == NULL)
-		b->type_decls = binding_table_new (SCOPE_DEFAULT_HT_SIZE);
-	      if (binding_table_find (b->type_decls, name) == NULL)
-		{
-		  binding_table_insert (b->type_decls, name, type);
-		  TYPE_SIZE (type) = NULL_TREE;
-		  TYPE_FIELDS (type) = NULL_TREE;
-		}
-	    }
-	  if (TYPE_SIZE (type) == NULL_TREE)
-	    {
-	      TYPE_FIELDS (type) = TREE_VEC_ELT (bindings, i + 1);
-	      TYPE_SIZE (type) = TREE_VEC_ELT (bindings, i + 2);
-	    }
-	  i += 3;
-	}
-    }
 }
 
 

@@ -50,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
      %{!E:%{!M:%{!MM:\
        %{save-temps|no-integrated-cpp:cc1plus -E\
 		%(cpp_options) %2 -o %{save-temps:%b.ii} %{!save-temps:%g.ii} \n}\
-      %{!server:cc1plus} %{server:@.cc1plus-server -fserver}\
+      %{!server:cc1plus} %{server:@.cc1plus -fserver}\
       %{save-temps|no-integrated-cpp:-fpreprocessed %{save-temps:%b.ii} %{!save-temps:%g.ii}}\
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\

@@ -67,7 +67,7 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_MISSING_ARGUMENT
 #define LANG_HOOKS_MISSING_ARGUMENT c_common_missing_argument
 #undef LANG_HOOKS_POST_OPTIONS
-#define LANG_HOOKS_POST_OPTIONS c_common_post_options
+#define LANG_HOOKS_POST_OPTIONS cxx_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET cxx_get_alias_set
 #undef LANG_HOOKS_EXPAND_CONSTANT
@@ -109,7 +109,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
-/* This probably need to be changed - compare the C version.  FIXME. */
 #define LANG_HOOKS_WRITE_GLOBALS finish_file
 
 #undef LANG_HOOKS_FUNCTION_INIT
@@ -181,6 +180,14 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_USES_CONDITIONAL_SYMTAB
+#define LANG_HOOKS_USES_CONDITIONAL_SYMTAB true
+#undef LANG_HOOKS_INIT_OUTPUT_FRAGMENT
+#define LANG_HOOKS_INIT_OUTPUT_FRAGMENT init_output_fragment
+#undef LANG_HOOKS_CREATE_OUTPUT_FRAGMENT
+#define LANG_HOOKS_CREATE_OUTPUT_FRAGMENT create_output_fragment
+#undef LANG_HOOKS_END_OUTPUT_FRAGMENT
+#define LANG_HOOKS_END_OUTPUT_FRAGMENT end_output_fragment
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -354,7 +361,7 @@ cp_tree_size (enum tree_code code)
     case OVERLOAD:		return sizeof (struct tree_overload);
     case WRAPPER:		return sizeof (struct tree_wrapper);
     default:
-      abort ();
+      return c_tree_size (code);
     }
   /* NOTREACHED */
 }

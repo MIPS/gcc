@@ -62,6 +62,7 @@ static void cp_expand_stmt (tree);
 static void genrtl_start_function (tree);
 static void genrtl_finish_function (tree);
 static tree clear_decl_rtl (tree *, int *, void *);
+static bool is_type_again (tree t);
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
 
@@ -1976,6 +1977,18 @@ finish_parmlist (tree parms, int ellipsis)
   return parms;
 }
 
+/* Indicate if this type has been seen twice from two headers in two
+   translation units from the same source file.  */
+
+static bool
+is_type_again (tree t)
+{
+  if (DECL_SOURCE_LINE (TYPE_NAME (t)) == input_line
+      && strcmp (DECL_SOURCE_FILE (TYPE_NAME (t)), input_filename) == 0)
+    return 1;
+  return 0;
+}
+
 /* Begin a class definition, as indicated by T.  */
 
 tree
@@ -2011,6 +2024,11 @@ begin_class_definition (tree t)
      that's an error.  */
   if (COMPLETE_TYPE_P (t))
     {
+      if (is_type_again (t))
+	{
+	  /* This case is hard to recover from, punt for now.  */
+	  error ("please add include guards to this file");
+	}
       error ("redefinition of `%#T'", t);
       cp_error_at ("previous definition of `%#T'", t);
       return error_mark_node;

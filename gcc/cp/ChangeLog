@@ -1,3 +1,55 @@
+2003-09-29  Mike Stump  <mrs@apple.com>
+
+	* call.c (add_function_candidate): Don't let functions from inactive fragments
+	be included.
+
+	* semantics.c (is_type_again): Add.
+	(begin_class_definition): Give a better error message for now when
+	a type is defined twice from the same source file, in a header
+	that lacks inclusion guards.
+
+	* ptree.c (cxx_print_decl): Delegate to c_print_decl for extra
+	stuff like fragments..
+
+	* decl2.c (finish_file): Clear out ssdf_decl as well for another
+	translation unit.
+	(find_using_fragment): Add.
+	(direct_using_p): Add.
+	(lookup_using_namespace_one): Add.
+	(ambiguous_decl): Handle multiple translation units better.
+	(add_using_namespace): Handle using for multiple translation units.
+	(lookup_using_namespace): Likewise.
+	(qualified_lookup_using_namespace): Likewise.
+	* decl.c (cxx_post_options): Add.
+	(duplicate_decls): Handle multiple translation units better.
+	(pushdecl): Likewise.
+	(lookup_tag): Likewise.
+	(unqualified_namespace_lookup): Handle using for conditional
+	fragments.
+	(init_cxx_decl_processing_eachsrc): Move main_timestamp setting
+	earlier, to cxx_post_options.
+	(setup_globals): Don't need to do anything anymore.
+	(init_cxx_decl_processing_eachsrc): Likewise.
+	(restore_fragment_bindings): Likewise.
+	(c_init_decl_done): Remove.
+	* cp-tree.h (AS_FRAGMENT): Add.
+	(NS_ITER_TO_SCOPE): Add.
+	(NS_ITER_TO_FRAGMENT): Add.
+	(fragment_active): Add.
+	(decl_active): Add.
+	(in_other_unit): Add.
+	(lookup_using_namespace_one): Add.
+	(cxx_post_options): Add.
+	* cp-lang.c (LANG_HOOKS_USES_CONDITIONAL_SYMTAB): Add.
+	(LANG_HOOKS_INIT_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_CREATE_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_END_OUTPUT_FRAGMENT): Add.
+	(LANG_HOOKS_POST_OPTIONS): Redirect to our own cxx_post_options.
+	(cp_tree_size): Delegate to C for sizes of unknown things.
+	* call.c (rejoust): Add.
+	(tourney): Hack to prefer later overloads.
+	* lang-specs.h: Don't include -server in name.
+
 2003-08-21  Mike Stump  <mrs@apple.com>
 
 	* lex.c (init_cxx_once): Move pop_srcloc to here...

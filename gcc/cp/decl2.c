@@ -2057,7 +2057,8 @@ static GTY(()) tree priority_decl;
 static GTY(()) tree ssdf_decl;
 
 /* All the static storage duration functions created in this
-   translation unit.  */
+   output file (translation unit, if we aren't combining several
+   translation units into one output file).  */
 static GTY(()) varray_type ssdf_decls;
 
 /* A map from priority levels to information about that priority
@@ -2901,6 +2902,7 @@ finish_file ()
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
   ssdf_decls = NULL;
+  ssdf_decl = NULL;
   priority_info_map = NULL;
 
   /* We're done with static constructors, so we can go back to "C++"
@@ -3052,13 +3054,46 @@ namespace_ancestor (tree ns1, tree ns2)
                           namespace_ancestor (CP_DECL_CONTEXT (ns1), ns2));
 }
 
+/* We puruse all instances of the using directives from all
+   translation units, and if there is one active for our translation
+   unit, return it, otherwise return NULL_TREE.  */
+
+static inline tree
+find_using_fragment (tree t)
+{
+  while (t)
+    {
+      if (fragment_active (NS_ITER_TO_FRAGMENT (t)))
+	return TREE_VALUE (t);
+      t = TREE_CHAIN (t);
+    }
+
+  return t;
+}
+
+static bool
+direct_using_p (tree t)
+{
+  while (t)
+    {
+      /* An active fragment with with a direct using wins, if we have multiple
+	 fragments active.  */
+      if (fragment_active (NS_ITER_TO_FRAGMENT (t)))
+	if (! TREE_INDIRECT_USING (TREE_VALUE (t)))
+	  return true;
+      t = TREE_CHAIN (t);
+    }
+
+  return false;
+}
+
 /* Insert USED into the using list of USER. Set INDIRECT_flag if this
    directive is not directly from the source. Also find the common
    ancestor and let our users know about the new namespace */
 static void 
 add_using_namespace (tree user, tree used, bool indirect)
 {
-  tree t;
+  tree t, t1, t2, t3, frag;
   timevar_push (TV_NAME_LOOKUP);
   /* Using oneself is a no-op.  */
   if (user == used)
@@ -3069,8 +3104,9 @@ add_using_namespace (tree user, tree used, bool indirect)
   my_friendly_assert (TREE_CODE (user) == NAMESPACE_DECL, 380);
   my_friendly_assert (TREE_CODE (used) == NAMESPACE_DECL, 380);
   /* Check if we already have this.  */
-  t = purpose_member (used, DECL_NAMESPACE_USING (user));
-  if (t != NULL_TREE)
+  t1 = purpose_member (used, DECL_NAMESPACE_USING (user));
+  t = find_using_fragment (t1);
+  if (t)
     {
       if (!indirect)
 	/* Promote to direct usage.  */
@@ -3079,12 +3115,23 @@ add_using_namespace (tree user, tree used, bool indirect)
       return;
     }
 
-  /* Add used to the user's using list.  */
-  DECL_NAMESPACE_USING (user) 
-    = tree_cons (used, namespace_ancestor (user, used), 
-		 DECL_NAMESPACE_USING (user));
+  /* The declaration fragment of this using directive, is the current fragment.  */
+  frag = (tree)current_c_fragment;
 
-  TREE_INDIRECT_USING (DECL_NAMESPACE_USING (user)) = indirect;
+  if (t1)
+    t3 = TREE_VALUE (t1);
+  else
+    t3 = 0;
+
+  t2 = tree_cons (frag, namespace_ancestor (user, used), t3);
+  TREE_INDIRECT_USING (t2) = indirect;
+
+  if (t1 == 0)
+    /* Add used to the user's using list.  */
+    DECL_NAMESPACE_USING (user) = tree_cons (used, t2,
+					     DECL_NAMESPACE_USING (user));
+  else
+    TREE_VALUE (t1) = t2;
 
   /* Add user to the used's users list.  */
   DECL_NAMESPACE_USERS (used)
@@ -3180,7 +3227,11 @@ ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
           val = NULL_TREE;
       }
         
-  if (!BINDING_VALUE (old))
+  if (!BINDING_VALUE (old)
+      || (! is_overloaded_fn (BINDING_VALUE (old))
+	  && in_other_unit (BINDING_VALUE (old))
+	  && val != 0 
+	  && ! is_overloaded_fn (val)))
     BINDING_VALUE (old) = val;
   else if (val && val != BINDING_VALUE (old))
     {
@@ -3233,8 +3284,8 @@ ambiguous_decl (tree name, cxx_binding *old, cxx_binding *new, int flags)
    Returns false on errors.  */
 
 bool
-lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
-                        int flags, tree *spacesp)
+lookup_using_namespace_one (tree name, cxx_binding *val, tree usings, tree scope,
+			    int flags, tree *spacesp)
 {
   tree iter;
   timevar_push (TV_NAME_LOOKUP);
@@ -3256,6 +3307,41 @@ lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
                           BINDING_VALUE (val) != error_mark_node);
 }
 
+/* Subroutine of unualified_namespace_lookup:
+   Add the bindings of NAME in used namespaces to VAL.
+   We are currently looking for names in namespace SCOPE, so we
+   look through USINGS for using-directives of namespaces
+   which have SCOPE as a common ancestor with the current scope.
+   Returns false on errors.  */
+
+bool
+lookup_using_namespace (tree name, cxx_binding *val, tree usings, tree scope,
+                        int flags, tree *spacesp)
+{
+  tree iter, t;
+  timevar_push (TV_NAME_LOOKUP);
+  /* Iterate over all used namespaces in current, searching for using
+     directives of scope.  */
+  for (iter = usings; iter; iter = TREE_CHAIN (iter))
+    for (t = TREE_VALUE (iter); t; t = TREE_CHAIN (t))
+      {
+	if (TREE_VALUE (t) == scope
+	    && fragment_active (AS_FRAGMENT (TREE_PURPOSE (t))))
+	  {
+	    tree used = ORIGINAL_NAMESPACE (TREE_PURPOSE (iter));
+	    cxx_binding *val1 =
+	      cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (used), name);
+	    if (spacesp)
+	      *spacesp = tree_cons (used, NULL_TREE, *spacesp);
+	    /* Resolve ambiguities.  */
+	    if (val1)
+	      val = ambiguous_decl (name, val, val1, flags);
+	  }
+      }
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP,
+                          BINDING_VALUE (val) != error_mark_node);
+}
+
 /* [namespace.qual]
    Accepts the NAME to lookup and its qualifying SCOPE.
    Returns the name/type pair found into the cxx_binding *RESULT,
@@ -3270,6 +3356,7 @@ qualified_lookup_using_namespace (tree name, tree scope, cxx_binding *result,
   /* ... and a list of namespace yet to see.  */
   tree todo = NULL_TREE;
   tree usings;
+
   timevar_push (TV_NAME_LOOKUP);
   /* Look through namespace aliases.  */
   scope = ORIGINAL_NAMESPACE (scope);
@@ -3284,8 +3371,9 @@ qualified_lookup_using_namespace (tree name, tree scope, cxx_binding *result,
 	/* Consider using directives.  */
 	for (usings = DECL_NAMESPACE_USING (scope); usings;
 	     usings = TREE_CHAIN (usings))
+   
 	  /* If this was a real directive, and we have not seen it.  */
-	  if (!TREE_INDIRECT_USING (usings)
+	  if (direct_using_p (usings)
 	      && !purpose_member (TREE_PURPOSE (usings), seen))
 	    todo = tree_cons (TREE_PURPOSE (usings), NULL_TREE, todo);
       if (todo)

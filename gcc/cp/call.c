@@ -109,6 +109,7 @@ static tree prep_operand (tree);
 static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
 static tree merge_conversion_sequences (tree, tree);
+static int rejoust (struct z_candidate *cand1, struct z_candidate *cand2);
 
 tree
 build_vfield_ref (tree datum, tree type)
@@ -1276,6 +1277,16 @@ add_function_candidate (struct z_candidate **candidates,
   if (DECL_ANTICIPATED (fn))
     return NULL;
 
+#if 0
+  /* Eventually we have to do this, but for now, we don't mark things
+     that should be active as active, so we can't disclude them
+     yet.  */
+  if (! decl_active (fn))
+    {
+      return NULL;
+    }
+#endif
+
   /* The `this', `in_chrg' and VTT arguments to constructors are not
      considered in overload resolution.  */
   if (DECL_CONSTRUCTOR_P (fn))
@@ -2142,6 +2153,14 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   struct z_candidate *cand;
   int i;
   tree fn;
+
+#if 0
+  /* Eventually we have to do this, but for now, we don't mark things
+     that should be active as active, so we can't disclude them
+     yet.  */
+  if (! decl_active (tmpl))
+    return NULL;
+#endif
 
   /* We don't do deduction on the in-charge parameter, the VTT
      parameter or 'this'.  */
@@ -5548,6 +5567,15 @@ add_warning (struct z_candidate *winner, struct z_candidate *loser)
 				winner->warnings);
 }
 
+static int
+rejoust (struct z_candidate *cand1, struct z_candidate *cand2)
+{
+  if (cand1 == cand2)
+    return -1;
+  /* FIX this  */
+  return -1;
+}
+
 /* Compare two candidates for overloading as described in
    [over.match.best].  Return values:
 
@@ -5560,6 +5588,18 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 {
   int winner = 0;
   int i, off1 = 0, off2 = 0, len;
+
+#if 0
+  /* Eventually we have to do this, but for now, we don't mark things
+     that should be active as active, so we can't disclude them
+     yet.  */
+  if ((DECL_P (cand1->fn) && ! decl_active (cand1->fn))
+      || (DECL_P (cand2->fn) && ! decl_active (cand2->fn)))
+    {
+      warning ("This is impossible joust?");
+      sleep (40000);
+    }
+#endif
 
   /* Candidates that involve bad conversions are always worse than those
      that don't.  */
@@ -5857,6 +5897,18 @@ tourney (struct z_candidate *candidates)
 	{
 	  if (fate == 0)
 	    {
+	      fate = rejoust (champ, challenger);
+	      if (fate == 1)
+		{
+		  challenger = challenger->next;
+		  continue;
+		}
+	      else if (fate == -1)
+		{
+		  champ = challenger;
+		  champ_compared_to_predecessor = 1;
+		  continue;
+		}
 	      champ = challenger->next;
 	      if (champ == 0)
 		return 0;

@@ -31,6 +31,8 @@ Boston, MA 02111-1307, USA.  */
 void
 cxx_print_decl (FILE *file, tree node, int indent)
 {
+  c_print_decl (file, node, indent);
+
   if (TREE_CODE (node) == FIELD_DECL)
     {
       if (DECL_MUTABLE_P (node))

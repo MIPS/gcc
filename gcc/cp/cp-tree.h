@@ -2108,6 +2108,11 @@ struct lang_decl GTY(())
    && CP_DECL_CONTEXT (NODE) == global_namespace	\
    && DECL_NAME (NODE) == std_identifier)
 
+#define AS_FRAGMENT(A) ((struct c_include_fragment *)(A))
+
+#define NS_ITER_TO_SCOPE(ITER) (TREE_VALUE (TREE_VALUE (ITER)))
+#define NS_ITER_TO_FRAGMENT(ITER) (AS_FRAGMENT (TREE_PURPOSE (TREE_VALUE (ITER))))
+
 /* In a non-local VAR_DECL with static storage duration, this is the
    initialization priority.  If this value is zero, the NODE will be
    initialized at the DEFAULT_INIT_PRIORITY.  */
@@ -3486,6 +3491,40 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    ? TYPE_TI_TEMPLATE (NODE)				\
    : TYPE_NAME (NODE))
 
+static bool in_other_unit (tree);
+
+static inline bool
+fragment_active (struct c_include_fragment *f)
+{
+  /* A 0 indicates a fragment that is always active.  */
+  if (f == 0)
+    return true;
+
+  if (f->include_timestamp >= main_timestamp)
+    return true;
+
+  return false;
+}
+
+static inline bool decl_active (tree d);
+
+static inline bool
+decl_active (tree d)
+{
+  return fragment_active (DECL_FRAGMENT (d));
+}
+
+static inline bool
+in_other_unit (tree d)
+{
+  if (d == error_mark_node)
+    return 0;
+
+  if (! decl_active (d))
+    return 1;
+  return 0;
+}
+
 /* in lex.c  */
 
 extern void init_reswords (void);
@@ -3690,6 +3729,7 @@ extern tree namespace_ancestor			(tree, tree);
 extern bool is_ancestor                         (tree, tree);
 extern tree unqualified_namespace_lookup	(tree, int, tree *);
 extern tree check_for_out_of_scope_variable     (tree);
+extern bool lookup_using_namespace_one (tree, cxx_binding *, tree, tree, int, tree *);
 extern bool lookup_using_namespace (tree, cxx_binding *, tree, tree, int, tree *);
 extern bool qualified_lookup_using_namespace (tree, tree, cxx_binding *, int);
 extern tree build_library_fn			(tree, tree);
@@ -3914,6 +3954,7 @@ extern int cp_type_qual_from_rid                (tree);
 extern void init_cxx_once			(void);
 extern bool init_cxx_eachsrc			(void);
 extern void cxx_finish (void);
+extern bool cxx_post_options (const char **);
 
 /* in method.c */
 extern void init_method	(void);
