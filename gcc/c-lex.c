@@ -369,6 +369,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     {
       cw_asm_at_bol = 0;
       --c_lex_depth;
+      timevar_pop (TV_CPP);
       return CPP_BOL;
     }
   /* If there's a token we saved while returning the special BOL
@@ -387,7 +388,8 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   /* APPLE LOCAL begin CW asm blocks */
   /* This test should be as efficient as possible, because it affects
        all lexing with or without CW asm enabled.  */
-  if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1)
+  if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1
+      && type != CPP_PADDING)
     {
       /* "}" switches us out of our special mode.  */
       if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
@@ -396,6 +398,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	  cw_asm_saved_token = tok;
 	  cw_asm_at_bol = 0;
 	  --c_lex_depth;
+	  timevar_pop (TV_CPP);
 	  return CPP_EOL;
 	}
 
@@ -437,6 +440,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	  cw_asm_at_bol = !cw_asm_at_bol;
 	  --c_lex_depth;
 	  /* In between lines, return first the EOL.  */
+	  timevar_pop (TV_CPP);
 	  return (cw_asm_at_bol ? CPP_EOL : CPP_BOL);
 	}
     }
@@ -527,24 +531,39 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 	    default:
 	      /* APPLE LOCAL begin CW asm blocks C++ */
 	      if (flag_cw_asm_blocks_local)
-		{
-		  /* This is necessary for C++, as we don't have the tight
-		     integration between the lexer and the parser... */
-		  cw_asm_saved_token = tok;
-		  /* Return the @-sign verbatim.  */
-		  *value = NULL;
-		  tok = lasttok;
-		  break;
-		}
+                {
+                  /* This is necessary for C++, as we don't have the tight
+                     integration between the lexer and the parser... */
+                  cw_asm_saved_token = tok;
+                  /* Return the @-sign verbatim.  */
+                  *value = NULL;
+                  tok = lasttok;
+                  break;
+                }
 	      /* APPLE LOCAL end CW asm blocks C++ */
-	      
+
 	      /* ... or not.  */
 	      error ("%Hstray %<@%> in program", &atloc);
 	      goto retry_after_at;
 	    }
 	  break;
 	}
-
+	/* APPLE LOCAL begin CW asm blocks C++ */
+	if (flag_cw_asm_blocks_local)
+	  {
+	    do 
+	      tok = cpp_get_token (parse_in);
+	    while (tok->type == CPP_PADDING);
+	    /* This is necessary for C++, as we don't have the tight
+	       integration between the lexer and the parser... */
+	       cw_asm_saved_token = tok;
+	    /* Return the @-sign verbatim.  */
+	    *value = NULL;
+	    tok = lasttok;
+	    break;
+	  }
+       /* APPLE LOCAL end CW asm blocks C++ */
+	      
       /* FALLTHROUGH */
     case CPP_HASH:
     case CPP_PASTE:
