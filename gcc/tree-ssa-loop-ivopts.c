@@ -461,27 +461,13 @@ name_info (struct ivopts_data *data, tree name)
 
 /* Checks whether ARG is either NULL_TREE or constant zero.  */
 
-static bool
+bool
 zero_p (tree arg)
 {
   if (arg == NULL_TREE)
     return true;
 
   return integer_zerop (arg);
-}
-
-/* Checks that X is integer constant that fits in unsigned HOST_WIDE_INT.
-   Similar to host_integerp (x, 1), but does not fail if the value is
-   negative.  */
-
-static bool
-cst_and_fits_in_hwi (tree x)
-{
-  if (TREE_CODE (x) != INTEGER_CST)
-    return false;
-
-  return (TREE_INT_CST_HIGH (x) == 0
-	  || TREE_INT_CST_HIGH (x) == -1);
 }
 
 /* Checks whether there exists number X such that X * B = A, counting modulo
@@ -838,6 +824,31 @@ ip_normal_pos (struct loop *loop)
     return NULL;
 
   return bb;
+}
+
+/* Returns the standard position for induction variable increment in LOOP
+   (ip_normal_pos if it is available and latch is empty, ip_end_pos
+   otherwise) in BSI.  INSERT_AFTER is set to true if the increment should
+   be inserted after *BSI.  */
+
+void
+standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
+				bool *insert_after)
+{
+  basic_block bb = ip_normal_pos (loop), latch = ip_end_pos (loop);
+  tree last = last_stmt (latch);
+
+  if (!bb
+      || (last && TREE_CODE (last) != LABEL_EXPR))
+    {
+      *bsi = bsi_last (latch);
+      *insert_after = true;
+    }
+  else
+    {
+      *bsi = bsi_last (bb);
+      *insert_after = false;
+    }
 }
 
 /* Returns true if STMT is after the place where the IP_NORMAL ivs will be

@@ -1,3 +1,27 @@
+2004-06-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-prefetch.c: New file.
+	* Makefile.in (tree-ssa-loop-prefetch.o): Add.
+	* timevar.def (TV_TREE_PREFETCH): New.
+	* tree-flow.h (tree_ssa_prefetch_arrays,
+	standard_iv_increment_position): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_loop_prefetch.
+	* tree-pass.h (pass_loop_prefetch): Declare.
+	* tree-ssa-loop-ivcanon.c (estimate_loop_size): Force the size to be
+	nonzero.
+	* tree-ssa-loop-ivopts.c (cst_and_fits_in_hwi): Moved to tree.c.
+	(standard_iv_increment_position): New function.
+	(zero_p): Export.
+	* tree-ssa-loop-niter.c (zero_p): Remove duplicate function.
+	* tree-ssa-loop.c (tree_ssa_loop_prefetch,
+	gate_tree_ssa_loop_prefetch): New functions.
+	(pass_loop_prefetch): New pass structure.
+	* tree-ssa-operands.c (function_ignores_memory_p): New function.
+	(get_expr_operands): Use it.
+	* tree.c (cst_and_fits_in_hwi): Moved from tree-ssa-loop-ivopts.c.
+	* tree.h (zero_p, cst_and_fits_in_hwi): Declare.
+
 2004-06-28  Daniel Berlin  <dberlin@dberlin.org>
 
 	* lambda-code.c (print_linear_expression): Rename a few variables,

@@ -5609,6 +5609,20 @@ needs_to_live_in_memory (tree t)
 	  || decl_function_context (t) != current_function_decl);
 }
 
+/* Checks that X is integer constant that fits in unsigned HOST_WIDE_INT.
+   Similar to host_integerp (x, 1), but does not fail if the value is
+   negative.  */
+
+bool
+cst_and_fits_in_hwi (tree x)
+{
+  if (TREE_CODE (x) != INTEGER_CST)
+    return false;
+
+  return (TREE_INT_CST_HIGH (x) == 0
+	  || TREE_INT_CST_HIGH (x) == -1);
+}
+
 /* Return value of a constant X.  */
 
 HOST_WIDE_INT

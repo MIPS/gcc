@@ -98,7 +98,7 @@ estimate_loop_size (struct loop *loop)
 {
   basic_block *body = get_loop_body (loop);
   block_stmt_iterator bsi;
-  unsigned size = 0, i;
+  unsigned size = 1, i;
 
   for (i = 0; i < loop->num_nodes; i++)
     for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))

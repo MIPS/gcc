@@ -3218,6 +3218,10 @@ extern int integer_pow2p (tree);
 
 extern int integer_nonzerop (tree);
 
+/* Checks whether the argument is either NULL_TREE or constant zero.  */
+
+extern bool zero_p (tree);
+
 /* staticp (tree x) is nonzero if X is a reference to data allocated
    at a fixed address in memory.  */
 
@@ -3582,6 +3586,7 @@ extern void init_ttree (void);
 extern void build_common_tree_nodes (int);
 extern void build_common_tree_nodes_2 (int);
 extern tree build_range_type (tree, tree, tree);
+extern bool cst_and_fits_in_hwi (tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree build_int_cst (tree, unsigned HOST_WIDE_INT);
 

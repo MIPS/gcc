@@ -438,6 +438,39 @@ struct tree_opt_pass pass_linear_transform =
   TODO_dump_func                	/* todo_flags_finish */
 };
 
+/* Prefetching.  */
+
+static void
+tree_ssa_loop_prefetch (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_prefetch_arrays (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_prefetch (void)
+{
+  return flag_prefetch_loop_arrays != 0;
+}
+
+struct tree_opt_pass pass_loop_prefetch =
+{
+  "prefetch",				/* name */
+  gate_tree_ssa_loop_prefetch,		/* gate */
+  tree_ssa_loop_prefetch,	       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PREFETCH,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                	/* todo_flags_finish */
+};
+
 /* Induction variable optimizations.  */
 
 static void

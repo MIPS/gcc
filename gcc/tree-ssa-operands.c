@@ -880,6 +880,29 @@ get_stmt_operands (tree stmt)
 }
 
 
+/* Returns true if the function call EXPR does not access memory.  */
+
+static bool
+function_ignores_memory_p (tree expr)
+{
+  tree fndecl = get_callee_fndecl (expr);
+  enum built_in_function fcode;
+  
+  if (!fndecl || !DECL_BUILT_IN (fndecl))
+    return false;
+  
+  fcode = DECL_FUNCTION_CODE (fndecl);
+
+  switch (fcode)
+    {
+      case BUILT_IN_PREFETCH:
+	return true;
+
+      default:
+	return false;
+    }
+}
+
 /* Recursively scan the expression pointed by EXPR_P in statement STMT.
    FLAGS is one of the OPF_* constants modifying how to interpret the
    operands found.  PREV_VOPS is as in append_v_may_def and append_vuse.  */
@@ -1114,7 +1137,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	  /* A 'pure' or a 'const' functions never call clobber anything. 
 	     A 'noreturn' function might, but since we don't return anyway 
 	     there is no point in recording that.  */ 
-	  if (!(call_flags
+	  if (function_ignores_memory_p (expr))
+	    ;
+	  else if (!(call_flags
 		& (ECF_PURE | ECF_CONST | ECF_NORETURN)))
 	    add_call_clobber_ops (stmt, prev_vops);
 	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))

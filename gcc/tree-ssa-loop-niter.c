@@ -52,17 +52,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 */
 
-/* Checks whether ARG is either NULL_TREE or constant zero.  */
-
-static bool
-zero_p (tree arg)
-{
-  if (!arg)
-    return true;
-
-  return integer_zerop (arg);
-}
-
 /* Computes inverse of X modulo 2^s, where MASK = 2^s-1.  */
 
 static tree
