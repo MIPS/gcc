@@ -147,7 +147,6 @@ ggc_realloc (void *x, size_t size)
     return ggc_alloc (size);
 
   old_size = ggc_get_size (x);
-
   if (size <= old_size)
     {
       /* Mark the unwanted memory as unaccessible.  We also need to make
@@ -177,7 +176,7 @@ ggc_realloc (void *x, size_t size)
   memcpy (r, x, old_size);
 
   /* The old object is not supposed to be used anymore.  */
-  ggc_free (x);
+  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (x, old_size));
 
   return r;
 }
