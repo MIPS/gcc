@@ -2011,6 +2011,9 @@ cp_parser_new ()
   /* We are not procesing an `extern "C"' declaration.  */
   parser->in_unbraced_linkage_specification_p = false;
 
+  /* There are no default args to process.  */
+  parser->default_arg_types = NULL;
+
   /* There are no functions in the unparsed function queue.  */
   parser->unparsed_functions_queue = NULL_TREE;
 
@@ -13546,11 +13549,11 @@ int
 cp_parse_translation_unit ()
 {
   int error_ocurred;
-  cp_parser *parser;
 
-  parser = cp_parser_new ();
-  error_ocurred = !cp_parser_translation_unit (parser);
-  cp_parser_delete (parser);
+  the_parser = cp_parser_new ();
+  error_ocurred = !cp_parser_translation_unit (the_parser);
+  cp_parser_delete (the_parser);
+  the_parser = NULL;
 
   return error_ocurred;
 }
