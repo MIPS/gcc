@@ -1,9 +1,14 @@
+2003-09-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Fix PR optimization/12268
+	* tree-dfa.c (add_referenced_var): Call-clobbered pointers may
+	point to global memory.
+
 2003-09-13  Jason Merrill  <jason@redhat.com>
 
-	* c-common.c (c_build_qualified_type): Unset TREE_READONLY for
+	* c-common.c (c_apply_type_quals_to_decl): Unset TREE_READONLY for
 	types with constructors.
-	(c_apply_type_quals_to_decl): Remove superfluous references to
-	TREE_TYPE (decl).
+	Remove superfluous references to TREE_TYPE (decl).
 
 2003-09-13  Diego Novillo  <dnovillo@redhat.com>
 

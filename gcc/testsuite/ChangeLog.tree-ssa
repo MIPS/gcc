@@ -2,6 +2,10 @@
 
 	* gfortran.fortran-torture/der_init.f90: Also test arrays.
 
+2003-09-13  Paul Brook  <paul@nowt.org>
+
+	* gcc.c-torture/execute/20030913-1.c: New test.
+
 2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
 
 	* gfortran.fortran-torture/intrinsic_fraction_exponent.f90: New test.

@@ -2551,6 +2551,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	{
 	  add_call_clobbered_var (var);
 	  v_ann->is_call_clobbered = 1;
+	  if (POINTER_TYPE_P (TREE_TYPE (var)))
+	    v_ann->may_point_to_global_mem = 1;
 	}
     }
 
