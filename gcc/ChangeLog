@@ -1,5 +1,11 @@
 2003-02-03  Jakub Jelinek  <jakub@redhat.com>
 
+	* dwarf2out.c (dwarf2out_finish): Add AT_comp_dir
+	attribute even if input file name is absolute, but one of the
+	includes is relative.
+
+2003-02-03  Jakub Jelinek  <jakub@redhat.com>
+
 	* config/alpha/elf.h (DO_SELECT_SECTION): Handle __thread variables.
 	(SELECT_SECTION, UNIQUE_SECTION): Likewise.
 
