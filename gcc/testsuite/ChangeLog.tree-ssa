@@ -1,5 +1,7 @@
 2003-08-11  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030807-1.c: New test.
+	* gcc.dg/tree-ssa/20030807-2.c: New test.
 	* gcc.dg/tree-ssa/20030807-3.c: New test.
 	* gcc.dg/tree-ssa/20030807-5.c: New test.
 
