@@ -31,7 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "graph.h"
 
-static const char *graph_ext[] =
+static const char *const graph_ext[] =
 {
   /* no_graph */ "",
   /* vcg */      ".vcg",
@@ -236,7 +236,7 @@ print_rtl_graph_with_bb (base, suffix, rtx_first)
      const char *suffix;
      rtx rtx_first;
 {
-  register rtx tmp_rtx;
+  rtx tmp_rtx;
   size_t namelen = strlen (base);
   size_t suffixlen = strlen (suffix);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;

@@ -502,28 +502,34 @@ cpp_create_reader (table, lang)
      be needed.  */
   pfile->deps = deps_init ();
 
-  /* Initialise the line map.  */
+  /* Initialise the line map.  Start at logical line 1, so we can use
+     a line number of zero for special states.  */
   init_line_maps (&pfile->line_maps);
+  pfile->line = 1;
 
   /* Initialize lexer state.  */
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
 
-  /* Indicate date and time not yet calculated.  */
+  /* Set up static tokens.  */
   pfile->date.type = CPP_EOF;
+  pfile->avoid_paste.type = CPP_PADDING;
+  pfile->avoid_paste.val.source = NULL;
+  pfile->eof.type = CPP_EOF;
+  pfile->eof.flags = 0;
+
+  /* Create a token buffer for the lexer.  */
+  _cpp_init_tokenrun (&pfile->base_run, 250);
+  pfile->cur_run = &pfile->base_run;
+  pfile->cur_token = pfile->base_run.base;
 
   /* Initialise the base context.  */
   pfile->context = &pfile->base_context;
   pfile->base_context.macro = 0;
   pfile->base_context.prev = pfile->base_context.next = 0;
 
-  /* Identifier pool initially 8K.  Unaligned, permanent pool.  */
-  _cpp_init_pool (&pfile->ident_pool, 8 * 1024, 1, 0);
-
-  /* Argument pool initially 8K.  Aligned, temporary pool.  */
-  _cpp_init_pool (&pfile->argument_pool, 8 * 1024, 0, 1);
-
-  /* Macro pool initially 8K.  Aligned, permanent pool.  */
-  _cpp_init_pool (&pfile->macro_pool, 8 * 1024, 0, 0);
+  /* Aligned and unaligned storage.  */
+  pfile->a_buff = _cpp_get_buff (pfile, 0);
+  pfile->u_buff = _cpp_get_buff (pfile, 0);
 
   /* Initialise the buffer obstack.  */
   gcc_obstack_init (&pfile->buffer_ob);
@@ -541,7 +547,6 @@ cpp_create_reader (table, lang)
   s->n_defined		= cpp_lookup (pfile, DSC("defined"));
   s->n_true		= cpp_lookup (pfile, DSC("true"));
   s->n_false		= cpp_lookup (pfile, DSC("false"));
-  s->n__Pragma		= cpp_lookup (pfile, DSC("_Pragma"));
   s->n__STRICT_ANSI__   = cpp_lookup (pfile, DSC("__STRICT_ANSI__"));
   s->n__CHAR_UNSIGNED__ = cpp_lookup (pfile, DSC("__CHAR_UNSIGNED__"));
   s->n__VA_ARGS__       = cpp_lookup (pfile, DSC("__VA_ARGS__"));
@@ -559,6 +564,7 @@ cpp_destroy (pfile)
   int result;
   struct search_path *dir, *dirn;
   cpp_context *context, *contextn;
+  tokenrun *run, *runn;
 
   while (CPP_BUFFER (pfile) != NULL)
     _cpp_pop_buffer (pfile);
@@ -575,11 +581,18 @@ cpp_destroy (pfile)
 
   _cpp_destroy_hashtable (pfile);
   _cpp_cleanup_includes (pfile);
-  _cpp_free_lookaheads (pfile);
 
-  _cpp_free_pool (&pfile->ident_pool);
-  _cpp_free_pool (&pfile->macro_pool);
-  _cpp_free_pool (&pfile->argument_pool);
+  _cpp_free_buff (pfile->a_buff);
+  _cpp_free_buff (pfile->u_buff);
+  _cpp_free_buff (pfile->free_buffs);
+
+  for (run = &pfile->base_run; run; run = runn)
+    {
+      runn = run->next;
+      free (run->base);
+      if (run != &pfile->base_run)
+	free (run);
+    }
 
   for (dir = CPP_OPTION (pfile, quote_include); dir; dir = dirn)
     {
@@ -644,6 +657,7 @@ static const struct builtin builtin_array[] =
   B("__BASE_FILE__",	 BT_BASE_FILE),
   B("__LINE__",		 BT_SPECLINE),
   B("__INCLUDE_LEVEL__", BT_INCLUDE_LEVEL),
+  B("_Pragma",		 BT_PRAGMA),
 
   X("__VERSION__",		VERS),
   X("__USER_LABEL_PREFIX__",	ULP),
@@ -882,7 +896,7 @@ push_include (pfile, p)
   header.val.str.text = (const unsigned char *) p->arg;
   header.val.str.len = strlen (p->arg);
   /* Make the command line directive take up a line.  */
-  pfile->lexer_pos.line = pfile->lexer_pos.output_line = ++pfile->line;
+  pfile->line++;
 
   return _cpp_execute_include (pfile, &header, IT_CMDLINE);
 }
@@ -958,18 +972,19 @@ cpp_start_read (pfile, fname)
 
       /* Scan -imacros files after command line defines, but before
 	 files given with -include.  */
-      for (p = CPP_OPTION (pfile, pending)->imacros_head; p; p = p->next)
+      while ((p = CPP_OPTION (pfile, pending)->imacros_head) != NULL)
 	{
 	  if (push_include (pfile, p))
 	    {
 	      pfile->buffer->return_at_eof = true;
 	      cpp_scan_nooutput (pfile);
 	    }
+	  CPP_OPTION (pfile, pending)->imacros_head = p->next;
+	  free (p);
 	}
     }
 
   free_chain (CPP_OPTION (pfile, pending)->directive_head);
-  free_chain (CPP_OPTION (pfile, pending)->imacros_head);
   _cpp_push_next_buffer (pfile);
 
   return 1;
@@ -984,7 +999,12 @@ _cpp_push_next_buffer (pfile)
 {
   bool pushed = false;
 
-  if (CPP_OPTION (pfile, pending))
+  /* This is't pretty; we'd rather not be relying on this as a boolean
+     for reverting the line map.  Further, we only free the chains in
+     this conditional, so an early call to cpp_finish / cpp_destroy
+     will leak that memory.  */
+  if (CPP_OPTION (pfile, pending)
+      && CPP_OPTION (pfile, pending)->imacros_head == NULL)
     {
       while (!pushed)
 	{
@@ -1020,7 +1040,8 @@ output_deps (pfile)
 {
   /* Stream on which to print the dependency information.  */
   FILE *deps_stream = 0;
-  const char *deps_mode = CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
+  const char *const deps_mode =
+    CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
 
   if (CPP_OPTION (pfile, deps_file) == 0)
     deps_stream = stdout;

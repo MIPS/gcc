@@ -4,7 +4,7 @@
  *                                                                          *
  *                                 G M E M                                  *
  *                                                                          *
- *                             $Revision$
+ *                             $Revision: 1.2 $
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
@@ -112,7 +112,7 @@ __gnat_gmem_initialize (dumpname)
       fclose (gmemfile);
       return 0;
     }
-
+  
   return 1;
 }
 
@@ -140,17 +140,16 @@ __gnat_gmem_read_next (buf)
 {
   void *addr;
   int size;
-  int j;
+  char c;
 
-  j = fgetc (gmemfile);
-  if (j == EOF)
+  if ((c = fgetc (gmemfile)) == EOF)
     {
       fclose (gmemfile);
       sprintf (buf, "Program exited.");
     }
   else
     {
-      switch (j)
+      switch (c)
         {
           case 'A' :
             fread (&addr, sizeof (char *), 1, gmemfile);

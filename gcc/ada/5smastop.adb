@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --            (Version using the GCC stack unwinding mechanism)             --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --           Copyright (C) 1999-2001 Ada Core Technologies, Inc.            --
 --                                                                          --

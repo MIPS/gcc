@@ -34,6 +34,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include "jcf.h"
 #include "toplev.h"
+#include "langhooks.h"
 #include "flags.h"
 #include "xref.h"
 #include "ggc.h"
@@ -67,7 +68,7 @@ static int process_option_with_no PARAMS ((char *,
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-char java_tree_code_type[] = {
+static const char java_tree_code_type[] = {
   'x',
 #include "java-tree.def"
 };
@@ -79,7 +80,7 @@ char java_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-int java_tree_code_length[] = {
+static const int java_tree_code_length[] = {
   0,
 #include "java-tree.def"
 };
@@ -89,7 +90,7 @@ int java_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-const char *java_tree_code_name[] = {
+static const char *const java_tree_code_name[] = {
   "@@dummy",
 #include "java-tree.def"
 };
@@ -98,6 +99,8 @@ const char *java_tree_code_name[] = {
 int compiling_from_source;
 
 const char * const language_string = "GNU Java";
+
+char * resource_name;
 
 int flag_emit_class_files = 0;
 
@@ -193,12 +196,15 @@ static int dependency_tracking = 0;
 #define DEPEND_TARGET_SET 4
 #define DEPEND_FILE_ALREADY_SET 8
 
+#undef LANG_HOOKS_INIT
+#define LANG_HOOKS_INIT java_init
+#undef LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS java_init_options
+#undef LANG_HOOKS_DECODE_OPTION
+#define LANG_HOOKS_DECODE_OPTION java_decode_option
+
 /* Each front end provides its own.  */
-struct lang_hooks lang_hooks = {java_init,
-				NULL, /* java_finish */
-				java_init_options,
-				java_decode_option,
-				NULL /* post_options */};
+struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
 /* Process an option that can accept a `no-' form.
    Return 1 if option found, 0 otherwise.  */
@@ -246,6 +252,13 @@ java_decode_option (argc, argv)
       return 0;
     }
 
+#define CLARG "-fcompile-resource="
+  if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
+    {
+      resource_name = p + sizeof (CLARG) - 1;
+      return 1;
+    }
+#undef CLARG
 #define CLARG "-fassume-compiled="
   if (strncmp (p, CLARG, sizeof (CLARG) - 1) == 0)
     {
@@ -522,32 +535,36 @@ put_decl_node (node)
   if (TREE_CODE_CLASS (TREE_CODE (node)) == 'd'
       && DECL_NAME (node) != NULL_TREE)
     {
-      /* We want to print the type the DECL belongs to. We don't do
-	 that when we handle constructors. */
-      if (TREE_CODE (node) == FUNCTION_DECL
-	  && ! DECL_CONSTRUCTOR_P (node)
-	  && ! DECL_ARTIFICIAL (node) && DECL_CONTEXT (node))
+      if (TREE_CODE (node) == FUNCTION_DECL)
 	{
-	  put_decl_node (TYPE_NAME (DECL_CONTEXT (node)));
-	  put_decl_string (".", 1);
-	}
-      if (! DECL_CONSTRUCTOR_P (node))
-	put_decl_node (DECL_NAME (node));
-      if (TREE_CODE (node) == FUNCTION_DECL && TREE_TYPE (node) != NULL_TREE)
-	{
-	  int i = 0;
-	  tree args = TYPE_ARG_TYPES (TREE_TYPE (node));
-	  if (TREE_CODE (TREE_TYPE (node)) == METHOD_TYPE)
-	    args = TREE_CHAIN (args);
-	  put_decl_string ("(", 1);
-	  for ( ; args != end_params_node;  args = TREE_CHAIN (args), i++)
+	  /* We want to print the type the DECL belongs to. We don't do
+	     that when we handle constructors. */
+	  if (! DECL_CONSTRUCTOR_P (node)
+	      && ! DECL_ARTIFICIAL (node) && DECL_CONTEXT (node))
 	    {
-	      if (i > 0)
-		put_decl_string (",", 1);
-	      put_decl_node (TREE_VALUE (args));
+	      put_decl_node (TYPE_NAME (DECL_CONTEXT (node)));
+	      put_decl_string (".", 1);
 	    }
-	  put_decl_string (")", 1);
+	  if (! DECL_CONSTRUCTOR_P (node))
+	    put_decl_node (DECL_NAME (node));
+	  if (TREE_TYPE (node) != NULL_TREE)
+	    {
+	      int i = 0;
+	      tree args = TYPE_ARG_TYPES (TREE_TYPE (node));
+	      if (TREE_CODE (TREE_TYPE (node)) == METHOD_TYPE)
+		args = TREE_CHAIN (args);
+	      put_decl_string ("(", 1);
+	      for ( ; args != end_params_node;  args = TREE_CHAIN (args), i++)
+		{
+		  if (i > 0)
+		    put_decl_string (",", 1);
+		  put_decl_node (TREE_VALUE (args));
+		}
+	      put_decl_string (")", 1);
+	    }
 	}
+      else
+	put_decl_node (DECL_NAME (node));
     }
   else if (TREE_CODE_CLASS (TREE_CODE (node)) == 't'
       && TYPE_NAME (node) != NULL_TREE)
@@ -648,7 +665,10 @@ lang_print_error (context, file)
       else
 	{
 	  const char *name = lang_printable_name (current_function_decl, 2);
-	  fprintf (stderr, "In method `%s':\n", name);
+	  fprintf (stderr, "In %s `%s':\n",
+		   (DECL_CONSTRUCTOR_P (current_function_decl) ? "constructor" 
+		    : "method"),
+		   name);
 	}
 
       last_error_function = current_function_decl;

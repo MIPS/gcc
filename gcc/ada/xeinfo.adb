@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -249,7 +249,7 @@ procedure XEinfo is
 begin
    Anchored_Mode := True;
 
-   Match ("$Revision$", "$Rev" & "ision: " & Break (' ') * XEinforev);
+   Match ("$Revision: 1.2 $", "$Rev" & "ision: " & Break (' ') * XEinforev);
 
    if Argument_Count > 0 then
       Create (Ofile, Out_File, Argument (1));

@@ -256,7 +256,7 @@ calls_function_1 (exp, which)
      tree exp;
      int which;
 {
-  register int i;
+  int i;
   enum tree_code code = TREE_CODE (exp);
   int class = TREE_CODE_CLASS (code);
   int length = first_rtl_op (code);
@@ -308,8 +308,8 @@ calls_function_1 (exp, which)
 
     case BLOCK:
       {
-	register tree local;
-	register tree subblock;
+	tree local;
+	tree subblock;
 
 	for (local = BLOCK_VARS (exp); local; local = TREE_CHAIN (local))
 	  if (DECL_INITIAL (local) != 0
@@ -437,7 +437,7 @@ prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen, sibcallp)
    We restore `inhibit_defer_pop' to that value.
 
    CALL_FUSAGE is either empty or an EXPR_LIST of USE expressions that
-   denote registers used by the called function.   */
+   denote registers used by the called function.  */
 
 static void
 emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
@@ -613,8 +613,11 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 					       REG_NOTES (call_insn));
 
   if (ecf_flags & ECF_RETURNS_TWICE)
-    REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_SETJMP, const0_rtx,
-					       REG_NOTES (call_insn));
+    {
+      REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_SETJMP, const0_rtx,
+					         REG_NOTES (call_insn));
+      current_function_calls_setjmp = 1;
+    }
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
 
@@ -2153,8 +2156,8 @@ expand_call (exp, target, ignore)
   int old_inhibit_defer_pop = inhibit_defer_pop;
   int old_stack_allocated;
   rtx call_fusage;
-  register tree p = TREE_OPERAND (exp, 0);
-  register int i;
+  tree p = TREE_OPERAND (exp, 0);
+  int i;
   /* The alignment of the stack, in bits.  */
   HOST_WIDE_INT preferred_stack_boundary;
   /* The alignment of the stack, in bytes.  */
@@ -2384,7 +2387,7 @@ expand_call (exp, target, ignore)
       /* If this function requires a variable-sized argument list, don't
 	 try to make a cse'able block for this call.  We may be able to
 	 do this eventually, but it is too complicated to keep track of
-	 what insns go in the cse'able block and which don't.   */
+	 what insns go in the cse'able block and which don't.  */
 
       flags &= ~(ECF_CONST | ECF_PURE);
       must_preallocate = 1;
@@ -3458,7 +3461,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   struct args_size args_size;
   /* Size of arguments before any adjustments (such as rounding).  */
   struct args_size original_args_size;
-  register int argnum;
+  int argnum;
   rtx fun;
   int inc;
   int count;
@@ -3530,6 +3533,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
       break;
     case LCT_ALWAYS_RETURN:
       flags = ECF_ALWAYS_RETURN;
+      break;
+    case LCT_RETURNS_TWICE:
+      flags = ECF_RETURNS_TWICE;
       break;
     }
   fun = orgfun;
@@ -3906,8 +3912,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      are to be pushed.  */
   for (count = 0; count < nargs; count++, argnum += inc)
     {
-      register enum machine_mode mode = argvec[argnum].mode;
-      register rtx val = argvec[argnum].value;
+      enum machine_mode mode = argvec[argnum].mode;
+      rtx val = argvec[argnum].value;
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
       int lower_bound = 0, upper_bound = 0, i;
@@ -3989,7 +3995,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      are to be pushed.  */
   for (count = 0; count < nargs; count++, argnum += inc)
     {
-      register rtx val = argvec[argnum].value;
+      rtx val = argvec[argnum].value;
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
 
@@ -4194,9 +4200,9 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
    and machine_modes to convert them to.
    The rtx values should have been passed through protect_from_queue already.
 
-   FN_TYPE will is zero for `normal' calls, one for `const' calls, wich
-   which will be enclosed in REG_LIBCALL/REG_RETVAL notes and two for `pure'
-   calls, that are handled like `const' calls with extra
+   FN_TYPE will be zero for `normal' calls, one for `const' calls,
+   which will be enclosed in REG_LIBCALL/REG_RETVAL notes, and two for
+   `pure' calls, that are handled like `const' calls with extra
    (use (memory (scratch)).  */
 
 void
@@ -4227,6 +4233,8 @@ emit_library_call_value VPARAMS((rtx orgfun, rtx value,
 				 enum libcall_type fn_type,
 				 enum machine_mode outmode, int nargs, ...))
 {
+  rtx result;
+  
   VA_OPEN (p, nargs);
   VA_FIXEDARG (p, rtx, orgfun);
   VA_FIXEDARG (p, rtx, value);
@@ -4234,11 +4242,12 @@ emit_library_call_value VPARAMS((rtx orgfun, rtx value,
   VA_FIXEDARG (p, enum machine_mode, outmode);
   VA_FIXEDARG (p, int, nargs);
 
-  value = emit_library_call_value_1 (1, orgfun, value, fn_type, outmode, nargs, p);
+  result = emit_library_call_value_1 (1, orgfun, value, fn_type, outmode,
+				      nargs, p);
 
   VA_CLOSE (p);
 
-  return value;
+  return result;
 }
 
 #if 0
@@ -4306,7 +4315,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
      int variable_size ATTRIBUTE_UNUSED;
      int reg_parm_stack_space;
 {
-  register tree pval = arg->tree_value;
+  tree pval = arg->tree_value;
   rtx reg = 0;
   int partial = 0;
   int used = 0;
@@ -4396,7 +4405,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 
   if (reg != 0 && partial == 0)
     /* Being passed entirely in a register.  We shouldn't be called in
-       this case.   */
+       this case.  */
     abort ();
 
   /* If this arg needs special alignment, don't load the registers
@@ -4466,7 +4475,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
     }
   else if (arg->mode != BLKmode)
     {
-      register int size;
+      int size;
 
       /* Argument is a scalar, not entirely passed in registers.
 	 (If part is passed in registers, arg->partial says how much
@@ -4505,7 +4514,7 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
     {
       /* BLKmode, at least partly to be pushed.  */
 
-      register int excess;
+      int excess;
       rtx size_rtx;
 
       /* Pushing a nonscalar.
@@ -4562,9 +4571,19 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	    }
 	}
 
-      /*  If parm is passed both in stack and in register and offset is 
-	  greater than reg_parm_stack_space, split the offset.  */
+      /* Special handling is required if part of the parameter lies in the
+	 register parameter area.  The argument may be copied into the stack
+	 slot using memcpy(), but the original contents of the register
+	 parameter area will be restored after the memcpy() call.
+
+	 To ensure that the part that lies in the register parameter area
+	 is copied correctly, we emit a separate push for that part.  This
+	 push should be small enough to avoid a call to memcpy().  */
+#ifndef STACK_PARMS_IN_REG_PARM_AREA
       if (arg->reg && arg->pass_on_stack)
+#else
+      if (1)
+#endif
 	{
 	  if (arg->offset.constant < reg_parm_stack_space && arg->offset.var)
 	    error ("variable offset is passed paritially in stack and in reg");
@@ -4580,8 +4599,6 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 			    excess, argblock, ARGS_SIZE_RTX (arg->offset),
 			    reg_parm_stack_space,
 		            ARGS_SIZE_RTX (arg->alignment_pad));
-
-	    size_rtx = GEN_INT (INTVAL(size_rtx) - reg_parm_stack_space);
 	  }
 	}
 	

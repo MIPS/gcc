@@ -99,8 +99,8 @@ static tree parse_jdk1_1_error PARAMS ((const char *));
 static void complete_class_report_errors PARAMS ((jdep *));
 static int process_imports PARAMS ((void));
 static void read_import_dir PARAMS ((tree));
-static int find_in_imports_on_demand PARAMS ((tree));
-static void find_in_imports PARAMS ((tree));
+static int find_in_imports_on_demand PARAMS ((tree, tree));
+static void find_in_imports PARAMS ((tree, tree));
 static void check_static_final_variable_assignment_flag PARAMS ((tree));
 static void reset_static_final_variable_assignment_flag PARAMS ((tree));
 static void check_final_variable_local_assignment_flag PARAMS ((tree, tree));
@@ -179,6 +179,7 @@ static int valid_method_invocation_conversion_p PARAMS ((tree, tree));
 static tree try_builtin_assignconv PARAMS ((tree, tree, tree));
 static tree try_reference_assignconv PARAMS ((tree, tree));
 static tree build_unresolved_array_type PARAMS ((tree));
+static int build_type_name_from_array_name PARAMS ((tree, tree *));
 static tree build_array_from_name PARAMS ((tree, tree, tree, tree *));
 static tree build_array_ref PARAMS ((int, tree, tree));
 static tree patch_array_ref PARAMS ((tree));
@@ -2121,7 +2122,8 @@ array_creation_expression:
 		  char *sig;
 		  int osb = pop_current_osb (ctxp);
 		  while (osb--)
-		    obstack_1grow (&temporary_obstack, '[');
+		    obstack_grow (&temporary_obstack, "[]", 2);
+		  obstack_1grow (&temporary_obstack, '\0');
 		  sig = obstack_finish (&temporary_obstack);
 		  $$ = build (NEW_ANONYMOUS_ARRAY_EXPR, NULL_TREE,
 			      $2, get_identifier (sig), $4);
@@ -2366,11 +2368,12 @@ cast_expression:		/* Error handling here is potentially weak */
 		{ 
 		  const char *ptr;
 		  int osb = pop_current_osb (ctxp); 
+		  obstack_grow (&temporary_obstack, 
+				IDENTIFIER_POINTER (EXPR_WFL_NODE ($2)),
+				IDENTIFIER_LENGTH (EXPR_WFL_NODE ($2)));
 		  while (osb--)
-		    obstack_1grow (&temporary_obstack, '[');
-		  obstack_grow0 (&temporary_obstack, 
-				 IDENTIFIER_POINTER (EXPR_WFL_NODE ($2)),
-				 IDENTIFIER_LENGTH (EXPR_WFL_NODE ($2)));
+		    obstack_grow (&temporary_obstack, "[]", 2);
+		  obstack_1grow (&temporary_obstack, '\0');
 		  ptr = obstack_finish (&temporary_obstack);
 		  EXPR_WFL_NODE ($2) = get_identifier (ptr);
 		  $$ = build_cast ($1.location, $2, $5);
@@ -2774,7 +2777,7 @@ static void
 java_parser_context_suspend ()
 {
   /* This makes debugging through java_debug_context easier */
-  static const char *name = "<inner buffer context>";
+  static const char *const name = "<inner buffer context>";
 
   /* Duplicate the previous context, use it to save the globals we're
      interested in */
@@ -3085,19 +3088,11 @@ issue_warning_error_from_context (cl, msg, ap)
 void
 parse_error_context VPARAMS ((tree cl, const char *msg, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  tree cl;
-  const char *msg;
-#endif
-  va_list ap;
-
-  VA_START (ap, msg);
-#ifndef ANSI_PROTOTYPES
-  cl = va_arg (ap, tree);
-  msg = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msg);
+  VA_FIXEDARG (ap, tree, cl);
+  VA_FIXEDARG (ap, const char *, msg);
   issue_warning_error_from_context (cl, msg, ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Issue a warning at a current source line CL */
@@ -3105,22 +3100,14 @@ parse_error_context VPARAMS ((tree cl, const char *msg, ...))
 static void
 parse_warning_context VPARAMS ((tree cl, const char *msg, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  tree cl;
-  const char *msg;
-#endif
-  va_list ap;
-
-  VA_START (ap, msg);
-#ifndef ANSI_PROTOTYPES
-  cl = va_arg (ap, tree);
-  msg = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msg);
+  VA_FIXEDARG (ap, tree, cl);
+  VA_FIXEDARG (ap, const char *, msg);
 
   force_error = do_warning = 1;
   issue_warning_error_from_context (cl, msg, ap);
   do_warning = force_error = 0;
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 static tree
@@ -3270,24 +3257,41 @@ variable_redefinition_error (context, name, type, line)
 		       type_name, IDENTIFIER_POINTER (name), line);
 }
 
+/* If ANAME is terminated with `[]', it indicates an array. This
+   function returns the number of `[]' found and if this number is
+   greater than zero, it extracts the array type name and places it in
+   the node pointed to by TRIMMED unless TRIMMED is null.  */
+
+static int
+build_type_name_from_array_name (aname, trimmed)
+     tree aname;
+     tree *trimmed;
+{
+  const char *name = IDENTIFIER_POINTER (aname);
+  int len = IDENTIFIER_LENGTH (aname);
+  int array_dims;
+
+  STRING_STRIP_BRACKETS (name, len, array_dims);
+
+  if (array_dims && trimmed)
+    *trimmed = get_identifier_with_length (name, len);
+
+  return array_dims;
+}
+
 static tree
 build_array_from_name (type, type_wfl, name, ret_name)
      tree type, type_wfl, name, *ret_name;
 {
   int more_dims = 0;
-  const char *string;
 
   /* Eventually get more dims */
-  string = IDENTIFIER_POINTER (name);
-  while (string [more_dims] == '[')
-    more_dims++;
+  more_dims = build_type_name_from_array_name (name, &name);
   
   /* If we have, then craft a new type for this variable */
   if (more_dims)
     {
       tree save = type;
-
-      name = get_identifier (&string [more_dims]);
 
       /* If we have a pointer, use its type */
       if (TREE_CODE (type) == POINTER_TYPE)
@@ -3305,12 +3309,9 @@ build_array_from_name (type, type_wfl, name, ret_name)
          on adding dimensions) */
       else if (type_wfl)
 	{
-	  int i = 0;
 	  type = type_wfl;
-	  string = IDENTIFIER_POINTER (TYPE_NAME (save));
-	  while (string[i]  == '[')
-	    ++i;
-	  more_dims += i;
+	  more_dims += build_type_name_from_array_name (TYPE_NAME (save),
+							NULL);
 	}
 
       /* Add all the dimensions */
@@ -3343,10 +3344,10 @@ build_unresolved_array_type (type_or_wfl)
   if (TREE_CODE (type_or_wfl) == RECORD_TYPE)
     return build_java_array_type (type_or_wfl, -1);
 
-  obstack_1grow (&temporary_obstack, '[');
-  obstack_grow0 (&temporary_obstack,
+  obstack_grow (&temporary_obstack,
 		 IDENTIFIER_POINTER (EXPR_WFL_NODE (type_or_wfl)),
 		 IDENTIFIER_LENGTH (EXPR_WFL_NODE (type_or_wfl)));
+  obstack_grow0 (&temporary_obstack, "[]", 2);
   ptr = obstack_finish (&temporary_obstack);
   wfl = build_expr_wfl (get_identifier (ptr),
 			EXPR_WFL_FILENAME (type_or_wfl),
@@ -3635,18 +3636,7 @@ find_as_inner_class (enclosing, name, cl)
 	  acc = merge_qualified_name (acc, 
 				      EXPR_WFL_NODE (TREE_PURPOSE (qual)));
 	  BUILD_PTR_FROM_NAME (ptr, acc);
-
-	  /* Don't try to resolve ACC as a class name if it follows
-	     the current package name. We don't want to pick something
-	     that's accidentally there: for example `a.b.c' in package
-	     `a.b' shouldn't trigger loading `a' if it's there by
-	     itself. */
-	  if (ctxp->package
-	      && strstr (IDENTIFIER_POINTER (ctxp->package),
-			 IDENTIFIER_POINTER (acc)))
-	    decl = NULL;
-	  else
-	    decl = do_resolve_class (NULL_TREE, ptr, NULL_TREE, cl);
+	  decl = do_resolve_class (NULL_TREE, ptr, NULL_TREE, cl);
 	}
 
       /* A NULL qual and a decl means that the search ended
@@ -4407,7 +4397,7 @@ register_fields (flags, type, variable_list)
 /* Generate finit$, using the list of initialized fields to populate
    its body. finit$'s parameter(s) list is adjusted to include the
    one(s) used to initialized the field(s) caching outer context
-   local(s). */
+   local(s).  */
 
 static tree
 generate_finit (class_type)
@@ -5210,10 +5200,12 @@ register_incomplete_type (kind, wfl, decl, ptr)
   JDEP_MISC (new) = NULL_TREE;
   /* For some dependencies, set the enclosing class of the current
      class to be the enclosing context */
-  if ((kind == JDEP_SUPER || kind == JDEP_INTERFACE 
-       || kind == JDEP_ANONYMOUS)
+  if ((kind == JDEP_INTERFACE  || kind == JDEP_ANONYMOUS)
       && GET_ENCLOSING_CPC ())
     JDEP_ENCLOSING (new) = TREE_VALUE (GET_ENCLOSING_CPC ());
+  else if (kind == JDEP_SUPER)
+    JDEP_ENCLOSING (new) = (GET_ENCLOSING_CPC () ? 
+			    TREE_VALUE (GET_ENCLOSING_CPC ()) : NULL_TREE);
   else
     JDEP_ENCLOSING (new) = GET_CPC ();
   JDEP_GET_PATCH (new) = (tree *)NULL;
@@ -5564,6 +5556,13 @@ java_complete_class ()
        cclass = TREE_CHAIN (cclass), cclassd = CLASSD_CHAIN (cclassd))
     {
       jdep *dep;
+
+      /* We keep the compilation unit imports in the class so that
+	 they can be used later to resolve type dependencies that
+	 aren't necessary to solve now. */
+      TYPE_IMPORT_LIST (TREE_TYPE (cclass)) = ctxp->import_list;
+      TYPE_IMPORT_DEMAND_LIST (TREE_TYPE (cclass)) = ctxp->import_demand_list;
+
       for (dep = CLASSD_FIRST (cclassd); dep; dep = JDEP_CHAIN (dep))
 	{
 	  tree decl;
@@ -5689,9 +5688,9 @@ static tree
 resolve_class (enclosing, class_type, decl, cl)
      tree enclosing, class_type, decl, cl;
 {
-  const char *name = IDENTIFIER_POINTER (TYPE_NAME (class_type));
-  const char *base = name;
+  tree tname = TYPE_NAME (class_type);
   tree resolved_type = TREE_TYPE (class_type);
+  int array_dims = 0;
   tree resolved_type_decl;
   
   if (resolved_type != NULL_TREE)
@@ -5709,13 +5708,9 @@ resolve_class (enclosing, class_type, decl, cl)
 
   /* 1- Check to see if we have an array. If true, find what we really
      want to resolve  */
-  while (name[0] == '[')
-    name++;
-  if (base != name)
-    {
-      TYPE_NAME (class_type) = get_identifier (name);
-      WFL_STRIP_BRACKET (cl, cl);
-    }
+  if ((array_dims = build_type_name_from_array_name (tname,
+						     &TYPE_NAME (class_type))))
+    WFL_STRIP_BRACKET (cl, cl);
 
   /* 2- Resolve the bare type */
   if (!(resolved_type_decl = do_resolve_class (enclosing, class_type, 
@@ -5724,15 +5719,10 @@ resolve_class (enclosing, class_type, decl, cl)
   resolved_type = TREE_TYPE (resolved_type_decl);
 
   /* 3- If we have and array, reconstruct the array down to its nesting */
-  if (base != name)
+  if (array_dims)
     {
-      while (base != name)
-	{
-	  resolved_type = build_java_array_type (resolved_type, -1);
-	  name--;
-	}
-      /* A TYPE_NAME that is a TYPE_DECL was set in
-         build_java_array_type, return it. */
+      for (; array_dims; array_dims--)
+	resolved_type = build_java_array_type (resolved_type, -1);
       resolved_type_decl = TYPE_NAME (resolved_type);
     }
   TREE_TYPE (class_type) = resolved_type;
@@ -5750,6 +5740,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
      tree enclosing, class_type, decl, cl;
 {
   tree new_class_decl = NULL_TREE, super = NULL_TREE;
+  tree saved_enclosing_type = enclosing ? TREE_TYPE (enclosing) : NULL_TREE;
   struct hash_table _ht, *circularity_hash = &_ht;
 
   /* This hash table is used to register the classes we're going
@@ -5786,7 +5777,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
 
   /* 1- Check for the type in single imports. This will change
      TYPE_NAME() if something relevant is found */
-  find_in_imports (class_type);
+  find_in_imports (saved_enclosing_type, class_type);
 
   /* 2- And check for the type in the current compilation unit */
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
@@ -5808,7 +5799,7 @@ do_resolve_class (enclosing, class_type, decl, cl)
   /* 4- Check the import on demands. Don't allow bar.baz to be
      imported from foo.* */
   if (!QUALIFIED_P (TYPE_NAME (class_type)))
-    if (find_in_imports_on_demand (class_type))
+    if (find_in_imports_on_demand (saved_enclosing_type, class_type))
       return NULL_TREE;
 
   /* If found in find_in_imports_on_demant, the type has already been
@@ -5951,15 +5942,24 @@ resolve_no_layout (name, cl)
   return decl;
 }
 
-/* Called when reporting errors. Skip leader '[' in a complex array
-   type description that failed to be resolved.  */
+/* Called when reporting errors. Skip the '[]'s in a complex array
+   type description that failed to be resolved. purify_type_name can't
+   use an identifier tree.  */
 
 static const char *
 purify_type_name (name)
      const char *name;
 {
-  while (*name && *name == '[')
-    name++;
+  int len = strlen (name);
+  int bracket_found;
+
+  STRING_STRIP_BRACKETS (name, len, bracket_found);
+  if (bracket_found)
+    {
+      char *stripped_name = xmemdup (name, len, len+1);
+      stripped_name [len] = '\0';
+      return stripped_name;
+    }
   return name;
 }
 
@@ -6710,17 +6710,22 @@ process_imports ()
    statement.  */
 
 static void
-find_in_imports (class_type)
+find_in_imports (enclosing_type, class_type)
+     tree enclosing_type;
      tree class_type;
 {
-  tree import;
-
-  for (import = ctxp->import_list; import; import = TREE_CHAIN (import))
-    if (TREE_VALUE (import) == TYPE_NAME (class_type))
-      {
-	TYPE_NAME (class_type) = EXPR_WFL_NODE (TREE_PURPOSE (import));
-	QUALIFIED_P (TYPE_NAME (class_type)) = 1;
-      }
+  tree import = (enclosing_type ? TYPE_IMPORT_LIST (enclosing_type) : 
+		 ctxp->import_list);
+  while (import)
+    {
+      if (TREE_VALUE (import) == TYPE_NAME (class_type))
+	{
+	  TYPE_NAME (class_type) = EXPR_WFL_NODE (TREE_PURPOSE (import));
+	  QUALIFIED_P (TYPE_NAME (class_type)) = 1;
+	  return;
+	}
+      import = TREE_CHAIN (import);
+    }
 }
 
 static int
@@ -6869,14 +6874,17 @@ read_import_dir (wfl)
    entire list, to detected potential double definitions.  */
 		 
 static int
-find_in_imports_on_demand (class_type)
+find_in_imports_on_demand (enclosing_type, class_type)
+     tree enclosing_type;
      tree class_type;
 {
-  tree node, import, node_to_use = NULL_TREE;
+  tree import = (enclosing_type ? TYPE_IMPORT_DEMAND_LIST (enclosing_type) :
+		  ctxp->import_demand_list);
+  tree node_to_use = NULL_TREE, cl = NULL_TREE;
+  tree node;
   int seen_once = -1;
-  tree cl = NULL_TREE;
 
-  for (import = ctxp->import_demand_list; import; import = TREE_CHAIN (import))
+  while (import)
     {
       const char *id_name;
       obstack_grow (&temporary_obstack, 
@@ -6907,6 +6915,7 @@ find_in_imports_on_demand (class_type)
 		 IDENTIFIER_POINTER (EXPR_WFL_NODE (TREE_PURPOSE (import))));
 	    }
 	}
+      import = TREE_CHAIN (import);
     }
 
   if (seen_once == 1)
@@ -7813,6 +7822,11 @@ analyze_clinit_body (bbody)
 	break;
 	
       case MODIFY_EXPR:
+	/* If we're generating to class file and we're dealing with an
+	   array initialization, we return 1 to keep <clinit> */
+	if (TREE_CODE (TREE_OPERAND (bbody, 1)) == NEW_ARRAY_INIT
+	    && flag_emit_class_files)
+	  return 1;
 	/* Return 0 if the operand is constant, 1 otherwise.  */
 	return ! TREE_CONSTANT (TREE_OPERAND (bbody, 1));
 
@@ -7862,6 +7876,12 @@ maybe_yank_clinit (mdecl)
       if (!FIELD_STATIC (current))
 	continue;
 
+      /* nor in fields with initializers. */
+      f_init = DECL_INITIAL (current);
+
+      if (f_init == NULL_TREE)
+	continue;
+
       /* Anything that isn't String or a basic type is ruled out -- or
 	 if we know how to deal with it (when doing things natively) we
 	 should generated an empty <clinit> so that SUID are computed
@@ -7869,18 +7889,8 @@ maybe_yank_clinit (mdecl)
       if (! JSTRING_TYPE_P (TREE_TYPE (current))
 	  && ! JNUMERIC_TYPE_P (TREE_TYPE (current)))
 	break;
-	  
-      f_init = DECL_INITIAL (current);
-      /* If we're emitting native code, we want static final fields to
-	 have constant initializers. If we don't meet these
-	 conditions, we keep <clinit> */
-      if (!flag_emit_class_files
-	  && !(FIELD_FINAL (current) && f_init && TREE_CONSTANT (f_init)))
-	break;
-      /* If we're emitting bytecode, we want static fields to have
-	 constant initializers or no initializer. If we don't meet
-	 these conditions, we keep <clinit> */
-      if (flag_emit_class_files && f_init && !TREE_CONSTANT (f_init))
+
+      if (! FIELD_FINAL (current) || ! TREE_CONSTANT (f_init))
 	break;
     }
 
@@ -9418,7 +9428,8 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	     forcoming function's argument. */
 	  if (previous_call_static && is_static)
 	    {
-	      decl = build (COMPOUND_EXPR, type, decl, *where_found);
+	      decl = build (COMPOUND_EXPR, TREE_TYPE (*where_found),
+			    decl, *where_found);
 	      TREE_SIDE_EFFECTS (decl) = 1;
 	    }
 	  else
@@ -10076,6 +10087,12 @@ patch_method_invocation (patch, primary, where, from_super,
       qualify_ambiguous_name (wfl);
       resolved = resolve_field_access (wfl, NULL, NULL);
 
+      if (TREE_CODE (resolved) == VAR_DECL && FIELD_STATIC (resolved)
+         && FIELD_FINAL (resolved) 
+         && !inherits_from_p (DECL_CONTEXT (resolved), current_class)
+         && !flag_emit_class_files && !flag_emit_xref)
+       resolved = build_class_init (DECL_CONTEXT (resolved), resolved);
+
       if (resolved == error_mark_node)
 	PATCH_METHOD_RETURN_ERROR ();
 
@@ -10240,7 +10257,8 @@ patch_method_invocation (patch, primary, where, from_super,
       /* Check for inner classes creation from illegal contexts */
       if (lc && (INNER_CLASS_TYPE_P (class_to_search)
 		 && !CLASS_STATIC (TYPE_NAME (class_to_search)))
-	  && INNER_ENCLOSING_SCOPE_CHECK (class_to_search))
+	  && INNER_ENCLOSING_SCOPE_CHECK (class_to_search)
+	  && !DECL_INIT_P (current_function_decl))
 	{
 	  parse_error_context 
 	    (wfl, "No enclosing instance for inner class `%s' is in scope%s",
@@ -10306,15 +10324,15 @@ patch_method_invocation (patch, primary, where, from_super,
       /* Calls to clone() on array types are permitted as a special-case. */
       && !is_array_clone_call)
     {
-      const char *fct_name = IDENTIFIER_POINTER (DECL_NAME (list));
-      const char *access =
+      const char *const fct_name = IDENTIFIER_POINTER (DECL_NAME (list));
+      const char *const access =
 	java_accstring_lookup (get_access_flags_from_decl (list));
-      const char *klass =
+      const char *const klass =
 	IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (DECL_CONTEXT (list))));
-      const char *refklass =
+      const char *const refklass =
 	IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class)));
-      const char *what = (DECL_CONSTRUCTOR_P (list)
-			  ? "constructor" : "method");
+      const char *const what = (DECL_CONSTRUCTOR_P (list)
+				? "constructor" : "method");
       /* FIXME: WFL yields the wrong message here but I don't know
 	 what else to use.  */
       parse_error_context (wfl,
@@ -11400,7 +11418,8 @@ java_complete_tree (node)
 	  /* fold_constant_for_init sometimes widen the original type
              of the constant (i.e. byte to int.) It's not desirable,
              especially if NODE is a function argument. */
-	  if (TREE_CODE (value) == INTEGER_CST
+	  if ((TREE_CODE (value) == INTEGER_CST
+	       || TREE_CODE (value) == REAL_CST)
 	      && TREE_TYPE (node) != TREE_TYPE (value))
 	    return convert (TREE_TYPE (node), value);
 	  else
@@ -11563,21 +11582,6 @@ java_complete_lhs (node)
       TREE_TYPE (node) = TREE_TYPE (TREE_OPERAND (node, 0));
       return node;
 
-    case CLEANUP_POINT_EXPR:
-      COMPLETE_CHECK_OP_0 (node);
-      TREE_TYPE (node) = void_type_node;
-      CAN_COMPLETE_NORMALLY (node) = 
-	CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 0));
-      return node;
-
-    case WITH_CLEANUP_EXPR:
-      COMPLETE_CHECK_OP_0 (node);
-      COMPLETE_CHECK_OP_1 (node);
-      CAN_COMPLETE_NORMALLY (node) = 
-	CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 0));
-      TREE_TYPE (node) = void_type_node;
-      return node;
-
     case LABELED_BLOCK_EXPR:
       PUSH_LABELED_BLOCK (node);
       if (LABELED_BLOCK_BODY (node))
@@ -11615,6 +11619,9 @@ java_complete_lhs (node)
 	  cn = fold_constant_for_init (DECL_INITIAL (TREE_OPERAND (cn, 1)),
 				       TREE_OPERAND (cn, 1));
 	}
+      /* Accept final locals too. */
+      else if (TREE_CODE (cn) == VAR_DECL && LOCAL_FINAL (cn))
+	cn = fold_constant_for_init (DECL_INITIAL (cn), cn);
 
       if (!TREE_CONSTANT (cn) && !flag_emit_xref)
 	{
@@ -11897,12 +11904,31 @@ java_complete_lhs (node)
 	  
 	  value = fold_constant_for_init (nn, nn);
 
-	  if (value != NULL_TREE)
+	  /* When we have a primitype type, or a string and we're not
+             emitting a class file, we actually don't want to generate
+             anything for the assignment. */
+	  if (value != NULL_TREE &&
+	      (JPRIMITIVE_TYPE_P (TREE_TYPE (value)) || 
+	       (TREE_TYPE (value) == string_ptr_type_node &&
+		! flag_emit_class_files)))
 	    {
-	      tree type = TREE_TYPE (value);
-	      if (JPRIMITIVE_TYPE_P (type) || 
-		  (type == string_ptr_type_node && ! flag_emit_class_files))
-		return empty_stmt_node;
+	      /* Prepare node for patch_assignment */
+	      TREE_OPERAND (node, 1) = value;
+	      /* Call patch assignment to verify the assignment */
+	      if (patch_assignment (node, wfl_op1, value) == error_mark_node)
+		return error_mark_node;
+	      /* Set DECL_INITIAL properly (a conversion might have
+                 been decided by patch_assignment) and return the
+                 empty statement. */
+	      else
+		{
+		  tree patched = patch_string (TREE_OPERAND (node, 1));
+		  if (patched)
+		    DECL_INITIAL (nn) = patched;
+		  else
+		    DECL_INITIAL (nn) = TREE_OPERAND (node, 1);
+		  return empty_stmt_node;
+		}
 	    }
 	  if (! flag_emit_class_files)
 	    DECL_INITIAL (nn) = NULL_TREE;
@@ -11985,13 +12011,27 @@ java_complete_lhs (node)
 	}
       else
 	{
+	  /* Can't assign to a (blank) final. */
+	  if (check_final_assignment (TREE_OPERAND (node, 0), wfl_op1))
+	    return error_mark_node;
 	  node = patch_assignment (node, wfl_op1, wfl_op2);
 	  /* Reorganize the tree if necessary. */
 	  if (flag && (!JREFERENCE_TYPE_P (TREE_TYPE (node)) 
 		       || JSTRING_P (TREE_TYPE (node))))
 	    node = java_refold (node);
 	}
-      
+
+      /* Seek to set DECL_INITIAL to a proper value, since it might have
+	 undergone a conversion in patch_assignment. We do that only when
+	 it's necessary to have DECL_INITIAL properly set. */
+      nn = TREE_OPERAND (node, 0);
+      if (TREE_CODE (nn) == VAR_DECL 
+	  && DECL_INITIAL (nn) && CONSTANT_VALUE_P (DECL_INITIAL (nn))
+	  && FIELD_STATIC (nn) && FIELD_FINAL (nn) 
+	  && (JPRIMITIVE_TYPE_P (TREE_TYPE (nn))
+	      || TREE_TYPE (nn) == string_ptr_type_node))
+	DECL_INITIAL (nn) = TREE_OPERAND (node, 1);
+
       CAN_COMPLETE_NORMALLY (node) = 1;
       return node;
 
@@ -12575,7 +12615,7 @@ check_final_variable_indirect_assignment (stmt)
       return check_final_variable_indirect_assignment (EXPR_WFL_NODE (stmt));
     case COMPOUND_EXPR:
       res = check_final_variable_indirect_assignment (TREE_OPERAND (stmt, 0));
-      if (res)
+      if (res > 0)
 	return res;
       return check_final_variable_indirect_assignment (TREE_OPERAND (stmt, 1));
     case SAVE_EXPR:
@@ -12616,6 +12656,7 @@ check_final_variable_global_assignment_flag (class)
 {
   tree field, mdecl;
   int nnctor = 0;
+  int error_found = 0;
 
   /* We go through all natural ctors and see whether they're
      initializing all their final variables or not. */
@@ -12637,9 +12678,12 @@ check_final_variable_global_assignment_flag (class)
 		nnctor++;
 	      }
 	    else
-	      parse_error_context
-		(lookup_cl (mdecl),
-		 "Final variable initialization error in this constructor");
+	      {
+		parse_error_context
+		  (lookup_cl (mdecl),
+		   "Final variable initialization error in this constructor");
+		error_found = 1;
+	      }
 	  }
 	else
 	  nnctor++;
@@ -12650,9 +12694,9 @@ check_final_variable_global_assignment_flag (class)
     if (FINAL_VARIABLE_P (field)
 	/* If the field wasn't initialized upon declaration */
 	&& !DECL_FIELD_FINAL_IUD (field)
-	/* There wasn't natural ctor in which the field could have been
-	   initialized */
-	&& !nnctor
+	/* There wasn't a natural ctor in which the field could have been
+	   initialized or we found an error looking for one. */
+	&& (error_found || !nnctor)
 	/* If we never reported a problem with this field */
 	&& !DECL_FIELD_FINAL_IERR (field))
       {
@@ -12662,7 +12706,6 @@ check_final_variable_global_assignment_flag (class)
 	   "Final variable `%s' hasn't been initialized upon its declaration",
 	   IDENTIFIER_POINTER (DECL_NAME (field)));
       }
-
 }
 
 /* Return 1 if an assignment to a FINAL is attempted in a non suitable
@@ -12760,10 +12803,6 @@ patch_assignment (node, wfl_op1, wfl_op2)
   tree lhs_type = NULL_TREE, rhs_type, new_rhs = NULL_TREE;
   int error_found = 0;
   int lvalue_from_array = 0;
-
-  /* Can't assign to a (blank) final. */
-  if (check_final_assignment (lvalue, wfl_op1))
-    error_found = 1;
 
   EXPR_WFL_LINECOL (wfl_operator) = EXPR_WFL_LINECOL (node);
 
@@ -12940,10 +12979,11 @@ patch_assignment (node, wfl_op1, wfl_op2)
             build (COMPOUND_EXPR, void_type_node, bound_check, check);
 
           /* Re-assemble the augmented array access. */
-          lvalue = build (COMPOUND_EXPR, lhs_type, new_compound, lvalue);
+          lvalue = build (COMPOUND_EXPR, TREE_TYPE (lvalue),
+			  new_compound, lvalue);
         }
       else
-        lvalue = build (COMPOUND_EXPR, lhs_type, check, lvalue);
+        lvalue = build (COMPOUND_EXPR, TREE_TYPE (lvalue), check, lvalue);
     }
 
   /* Final locals can be used as case values in switch
@@ -12966,9 +13006,8 @@ patch_assignment (node, wfl_op1, wfl_op2)
 }
 
 /* Check that type SOURCE can be cast into type DEST. If the cast
-   can't occur at all, return 0 otherwise 1. This function is used to
-   produce accurate error messages on the reasons why an assignment
-   failed. */
+   can't occur at all, return NULL; otherwise, return a possibly
+   modified rhs.  */
 
 static tree
 try_reference_assignconv (lhs_type, rhs)
@@ -13490,8 +13529,8 @@ patch_binop (node, wfl_op1, wfl_op2)
 	      (TREE_CODE (op2) == INTEGER_CST &&
 	       ! TREE_INT_CST_LOW (op2)  && ! TREE_INT_CST_HIGH (op2))))
 	{
-	  parse_error_context (wfl_operator, "Arithmetic exception");
-	  error_found = 1;
+	  parse_warning_context (wfl_operator, "Evaluating this expression will result in an arithmetic exception being thrown.");
+	  TREE_CONSTANT (node) = 0;
 	}
 	  
       /* Change the division operator if necessary */
@@ -13499,9 +13538,11 @@ patch_binop (node, wfl_op1, wfl_op2)
 	TREE_SET_CODE (node, TRUNC_DIV_EXPR);
 
       /* Before divisions as is disapear, try to simplify and bail if
-         applicable, otherwise we won't perform even simple simplifications
-	 like (1-1)/3. */
-      if (code == RDIV_EXPR && TREE_CONSTANT (op1) && TREE_CONSTANT (op2))
+         applicable, otherwise we won't perform even simple
+         simplifications like (1-1)/3. We can't do that with floating
+         point number, folds can't handle them at this stage. */
+      if (code == RDIV_EXPR && TREE_CONSTANT (op1) && TREE_CONSTANT (op2)
+	  && JINTEGRAL_TYPE_P (op1) && JINTEGRAL_TYPE_P (op2))
 	{
 	  TREE_TYPE (node) = prom_type;
 	  node = fold (node);
@@ -13865,9 +13906,9 @@ merge_string_cste (op1, op2, after)
   /* Reasonable integer constant can be treated right away */
   if (TREE_CODE (op2) == INTEGER_CST && !TREE_CONSTANT_OVERFLOW (op2))
     {
-      static const char *boolean_true = "true";
-      static const char *boolean_false = "false";
-      static const char *null_pointer = "null";
+      static const char *const boolean_true = "true";
+      static const char *const boolean_false = "false";
+      static const char *const null_pointer = "null";
       char ch[3];
       const char *string;
       
@@ -14083,7 +14124,7 @@ build_incdec (op_token, op_location, op1, is_post_p)
      tree op1;
      int is_post_p;
 {
-  static enum tree_code lookup [2][2] = 
+  static const enum tree_code lookup [2][2] = 
     {
       { PREDECREMENT_EXPR, PREINCREMENT_EXPR, },
       { POSTDECREMENT_EXPR, POSTINCREMENT_EXPR, },
@@ -14384,9 +14425,14 @@ patch_cast (node, wfl_op)
      tree wfl_op;
 {
   tree op = TREE_OPERAND (node, 0);
-  tree op_type = TREE_TYPE (op);
   tree cast_type = TREE_TYPE (node);
+  tree patched, op_type;
   char *t1;
+
+  /* Some string patching might be necessary at this stage */
+  if ((patched = patch_string (op)))
+    TREE_OPERAND (node, 0) = op = patched;
+  op_type = TREE_TYPE (op);
 
   /* First resolve OP_TYPE if unresolved */
   if (!(cast_type = resolve_type_during_patch (cast_type)))
@@ -14791,7 +14837,7 @@ array_constructor_check_entry (type, entry)
   /* Check and report errors */
   if (!new_value)
     {
-      const char *msg = (!valid_cast_to_p (type_value, type) ?
+      const char *const msg = (!valid_cast_to_p (type_value, type) ?
 		   "Can't" : "Explicit cast needed to");
       if (!array_type_string)
 	array_type_string = xstrdup (lang_printable_name (type, 1));
@@ -14955,6 +15001,9 @@ patch_if_else_statement (node)
      tree node;
 {
   tree expression = TREE_OPERAND (node, 0);
+  int can_complete_normally
+    = (CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 1))
+       | CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 2)));
 
   TREE_TYPE (node) = error_mark_node;
   EXPR_WFL_LINECOL (wfl_operator) = EXPR_WFL_LINECOL (node);
@@ -14970,11 +15019,22 @@ patch_if_else_statement (node)
       return error_mark_node;
     }
   
+  if (TREE_CODE (expression) == INTEGER_CST)
+    {
+      if (integer_zerop (expression))
+	node = TREE_OPERAND (node, 2);
+      else
+	node = TREE_OPERAND (node, 1);
+      if (CAN_COMPLETE_NORMALLY (node) != can_complete_normally)
+	{
+	  node = build (COMPOUND_EXPR, void_type_node, node, empty_stmt_node);
+	  CAN_COMPLETE_NORMALLY (node) = can_complete_normally;
+	}
+      return node;
+    }
   TREE_TYPE (node) = void_type_node;
   TREE_SIDE_EFFECTS (node) = 1;
-  CAN_COMPLETE_NORMALLY (node)
-    = CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 1))
-    | CAN_COMPLETE_NORMALLY (TREE_OPERAND (node, 2));
+  CAN_COMPLETE_NORMALLY (node) = can_complete_normally;
   return node;
 }
 
@@ -15615,13 +15675,9 @@ patch_synchronized_statement (node, wfl_op1)
   CAN_COMPLETE_NORMALLY (exit) = 1;
   assignment = build (MODIFY_EXPR, NULL_TREE, expr_decl, expr);
   TREE_SIDE_EFFECTS (assignment) = 1;
-  node = build1 (CLEANUP_POINT_EXPR, NULL_TREE,
-		 build (COMPOUND_EXPR, NULL_TREE,
-			build (WITH_CLEANUP_EXPR, NULL_TREE,
-			       build (COMPOUND_EXPR, NULL_TREE,
-				      assignment, enter),
-			       exit, NULL_TREE),
-			block));
+  node = build (COMPOUND_EXPR, NULL_TREE,
+		build (COMPOUND_EXPR, NULL_TREE, assignment, enter),
+		build (TRY_FINALLY_EXPR, NULL_TREE, block, exit));
   node = build_expr_block (node, expr_decl);
 
   return java_complete_tree (node);
@@ -16092,8 +16148,14 @@ fold_constant_for_init (node, context)
 	    }
 	  else
 	    {
+	      /* Install the proper context for the field resolution.
+		 The prior context is restored once the name is
+		 properly qualified. */
+	      tree saved_current_class = current_class;
 	      /* Wait until the USE_COMPONENT_REF re-write.  FIXME. */
+	      current_class = DECL_CONTEXT (context);
 	      qualify_ambiguous_name (node);
+	      current_class = saved_current_class;
 	      if (resolve_field_access (node, &decl, NULL)
 		  && decl != NULL_TREE)
 		return fold_constant_for_init (decl, decl);

@@ -117,14 +117,14 @@ package System.Tasking.Debug is
    --  Suspend all the tasks except the one whose associated thread is
    --  Thread_Self by traversing All_Tasks_Lists and calling
    --  System.Task_Primitives.Operations.Suspend_Task
-   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
+   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
    --  Warning: for efficiency purposes, there is no locking.
 
    procedure Resume_All_Tasks (Thread_Self : OS_Interface.Thread_Id);
    --  Resume all the tasks except the one whose associated thread is
    --  Thread_Self by traversing All_Tasks_Lists and calling
    --  System.Task_Primitives.Operations.Continue_Task
-   --  Such functionality is needed by gdb on some targets (e.g VxWorks)
+   --  Such functionnality is needed by gdb on some targets (e.g VxWorks)
    --  Warning: for efficiency purposes, there is no locking.
 
 end System.Tasking.Debug;

@@ -127,7 +127,8 @@ static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 static void rs6000_free_machine_status PARAMS ((struct function *));
 static void rs6000_init_machine_status PARAMS ((struct function *));
 static int rs6000_ra_ever_killed PARAMS ((void));
-static int rs6000_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+static tree rs6000_handle_longcall_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void rs6000_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static rtx rs6000_emit_set_long_const PARAMS ((rtx,
@@ -163,7 +164,7 @@ char rs6000_reg_names[][8] =
 };
 
 #ifdef TARGET_REGNAMES
-static char alt_reg_names[][8] =
+static const char alt_reg_names[][8] =
 {
    "%r0",   "%r1",  "%r2",  "%r3",  "%r4",  "%r5",  "%r6",  "%r7",
    "%r8",   "%r9", "%r10", "%r11", "%r12", "%r13", "%r14", "%r15",
@@ -184,8 +185,8 @@ static char alt_reg_names[][8] =
 #endif
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE rs6000_valid_type_attribute_p
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE rs6000_attribute_table
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE rs6000_output_function_prologue
@@ -226,11 +227,11 @@ rs6000_override_options (default_cpu)
 
   static struct ptt
     {
-      const char *name;		/* Canonical processor name.  */
-      enum processor_type processor; /* Processor type enum value.  */
-      int target_enable;	/* Target flags to enable.  */
-      int target_disable;	/* Target flags to disable.  */
-    } processor_target_table[]
+      const char *const name;		/* Canonical processor name.  */
+      const enum processor_type processor; /* Processor type enum value.  */
+      const int target_enable;	/* Target flags to enable.  */
+      const int target_disable;	/* Target flags to disable.  */
+    } const processor_target_table[]
       = {{"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_MASKS},
 	 {"power", PROCESSOR_POWER,
@@ -308,6 +309,12 @@ rs6000_override_options (default_cpu)
 	 {"750", PROCESSOR_PPC750,
  	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
  	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
+       {"7400", PROCESSOR_PPC7400,
+          MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+          POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
+       {"7450", PROCESSOR_PPC7450,
+          MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+          POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
 	 {"801", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -545,7 +552,7 @@ direct_return ()
 
 int
 any_operand (op, mode)
-     register rtx op ATTRIBUTE_UNUSED;
+     rtx op ATTRIBUTE_UNUSED;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return 1;
@@ -554,7 +561,7 @@ any_operand (op, mode)
 /* Returns 1 if op is the count register */
 int
 count_register_operand(op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) != REG)
@@ -571,7 +578,7 @@ count_register_operand(op, mode)
 
 int
 xer_operand(op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) != REG)
@@ -587,7 +594,7 @@ xer_operand(op, mode)
 
 int
 short_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
@@ -598,7 +605,7 @@ short_cint_operand (op, mode)
 
 int
 u_short_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
@@ -609,7 +616,7 @@ u_short_cint_operand (op, mode)
 
 int
 non_short_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
@@ -621,7 +628,7 @@ non_short_cint_operand (op, mode)
 
 int
 exact_log2_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
@@ -634,7 +641,7 @@ exact_log2_cint_operand (op, mode)
 
 int
 gpc_reg_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return (register_operand (op, mode)
@@ -649,7 +656,7 @@ gpc_reg_operand (op, mode)
 
 int
 cc_reg_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return (register_operand (op, mode)
@@ -663,7 +670,7 @@ cc_reg_operand (op, mode)
 
 int
 cc_reg_not_cr0_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return (register_operand (op, mode)
@@ -678,7 +685,7 @@ cc_reg_not_cr0_operand (op, mode)
 
 int
 reg_or_short_operand (op, mode)
-      register rtx op;
+      rtx op;
       enum machine_mode mode;
 {
   return short_cint_operand (op, mode) || gpc_reg_operand (op, mode);
@@ -689,7 +696,7 @@ reg_or_short_operand (op, mode)
 
 int
 reg_or_neg_short_operand (op, mode)
-      register rtx op;
+      rtx op;
       enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
@@ -703,7 +710,7 @@ reg_or_neg_short_operand (op, mode)
 
 int
 reg_or_u_short_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return u_short_cint_operand (op, mode) || gpc_reg_operand (op, mode);
@@ -714,7 +721,7 @@ reg_or_u_short_operand (op, mode)
 
 int
 reg_or_cint_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
      return (GET_CODE (op) == CONST_INT || gpc_reg_operand (op, mode));
@@ -725,7 +732,7 @@ reg_or_cint_operand (op, mode)
 
 int
 reg_or_arith_cint_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
      return (gpc_reg_operand (op, mode)
@@ -742,7 +749,7 @@ reg_or_arith_cint_operand (op, mode)
 
 int
 reg_or_add_cint64_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
      return (gpc_reg_operand (op, mode)
@@ -760,7 +767,7 @@ reg_or_add_cint64_operand (op, mode)
 
 int
 reg_or_sub_cint64_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
      return (gpc_reg_operand (op, mode)
@@ -778,7 +785,7 @@ reg_or_sub_cint64_operand (op, mode)
 
 int
 reg_or_logical_cint_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
@@ -807,11 +814,11 @@ reg_or_logical_cint_operand (op, mode)
     return gpc_reg_operand (op, mode);
 }
 
-/* Return 1 if the operand is an operand that can be loaded via the GOT */
+/* Return 1 if the operand is an operand that can be loaded via the GOT.  */
 
 int
 got_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == SYMBOL_REF
@@ -824,7 +831,7 @@ got_operand (op, mode)
 
 int
 got_no_const_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == LABEL_REF);
@@ -880,7 +887,8 @@ num_insns_constant (op, mode)
   if (GET_CODE (op) == CONST_INT)
     {
 #if HOST_BITS_PER_WIDE_INT == 64
-      if (mask64_operand (op, mode))
+      if ((INTVAL (op) >> 31) != 0 && (INTVAL (op) >> 31) != -1
+	  && mask64_operand (op, mode))
 	    return 2;
       else
 #endif
@@ -952,8 +960,8 @@ num_insns_constant (op, mode)
 
 int
 easy_fp_constant (op, mode)
-     register rtx op;
-     register enum machine_mode mode;
+     rtx op;
+     enum machine_mode mode;
 {
   if (GET_CODE (op) != CONST_DOUBLE
       || GET_MODE (op) != mode
@@ -1011,8 +1019,8 @@ easy_fp_constant (op, mode)
 /* Return 1 if the operand is 0.0.  */
 int
 zero_fp_constant (op, mode)
-     register rtx op;
-     register enum machine_mode mode;
+     rtx op;
+     enum machine_mode mode;
 {
   return GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode);
 }
@@ -1024,7 +1032,7 @@ zero_fp_constant (op, mode)
 
 int
 volatile_mem_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   if (GET_CODE (op) != MEM)
@@ -1049,7 +1057,7 @@ volatile_mem_operand (op, mode)
 
 int
 offsettable_mem_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return ((GET_CODE (op) == MEM)
@@ -1062,7 +1070,7 @@ offsettable_mem_operand (op, mode)
 
 int
 mem_or_easy_const_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return memory_operand (op, mode) || easy_fp_constant (op, mode);
@@ -1073,7 +1081,7 @@ mem_or_easy_const_operand (op, mode)
 
 int
 add_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
@@ -1087,7 +1095,7 @@ add_operand (op, mode)
 
 int
 non_add_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
@@ -1100,39 +1108,38 @@ non_add_cint_operand (op, mode)
 
 int
 logical_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
-  /* an unsigned representation of 'op'.  */
-  unsigned HOST_WIDE_INT opl, oph;
+  HOST_WIDE_INT opl, oph;
 
   if (gpc_reg_operand (op, mode))
     return 1;
 
   if (GET_CODE (op) == CONST_INT)
-    opl = INTVAL (op);
+    {
+      opl = INTVAL (op) & GET_MODE_MASK (mode);
+
+#if HOST_BITS_PER_WIDE_INT <= 32
+      if (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT && opl < 0)
+	return 0;
+#endif
+    }
   else if (GET_CODE (op) == CONST_DOUBLE)
     {
       if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	abort();
+	abort ();
 
       opl = CONST_DOUBLE_LOW (op);
       oph = CONST_DOUBLE_HIGH (op);
-
-      if (oph != ((unsigned HOST_WIDE_INT)0
-		  - ((opl & ((unsigned HOST_WIDE_INT)1
-			     << (HOST_BITS_PER_WIDE_INT - 1))) != 0)))
+      if (oph != 0)
 	return 0;
     }
   else
     return 0;
 
-  /* This must really be SImode, not MODE.  */
-  if (opl != (unsigned HOST_WIDE_INT) trunc_int_for_mode (opl, SImode))
-    return 0;
-
-  return ((opl & 0xffff) == 0
-	  || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0);
+  return ((opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0
+	  || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000) == 0);
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -1140,7 +1147,7 @@ logical_operand (op, mode)
 
 int
 non_logical_cint_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   return ((GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_DOUBLE)
@@ -1155,10 +1162,10 @@ non_logical_cint_operand (op, mode)
 
 int
 mask_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  unsigned HOST_WIDE_INT c, lsb;
+  HOST_WIDE_INT c, lsb;
 
   if (GET_CODE (op) != CONST_INT)
     return 0;
@@ -1197,12 +1204,12 @@ mask_operand (op, mode)
 
 int
 mask64_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT c, lsb;
+      HOST_WIDE_INT c, lsb;
 
       /* We don't change the number of transitions by inverting,
 	 so make sure we start with the LS bit zero.  */
@@ -1221,7 +1228,7 @@ mask64_operand (op, mode)
   else if (GET_CODE (op) == CONST_DOUBLE
 	   && (mode == VOIDmode || mode == DImode))
     {
-      unsigned HOST_WIDE_INT low, high, lsb;
+      HOST_WIDE_INT low, high, lsb;
 
       if (HOST_BITS_PER_WIDE_INT < 64)
 	high = CONST_DOUBLE_HIGH (op);
@@ -1255,7 +1262,7 @@ mask64_operand (op, mode)
 
 int
 and64_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
   if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis. */
@@ -1269,7 +1276,7 @@ and64_operand (op, mode)
 
 int
 and_operand (op, mode)
-    register rtx op;
+    rtx op;
     enum machine_mode mode;
 {
   if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis. */
@@ -1282,8 +1289,8 @@ and_operand (op, mode)
 
 int
 reg_or_mem_operand (op, mode)
-     register rtx op;
-     register enum machine_mode mode;
+     rtx op;
+     enum machine_mode mode;
 {
   return (gpc_reg_operand (op, mode)
 	  || memory_operand (op, mode)
@@ -1296,8 +1303,8 @@ reg_or_mem_operand (op, mode)
 
 int
 lwa_operand (op, mode)
-     register rtx op;
-     register enum machine_mode mode;
+     rtx op;
+     enum machine_mode mode;
 {
   rtx inner = op;
 
@@ -1307,7 +1314,10 @@ lwa_operand (op, mode)
   return gpc_reg_operand (inner, mode)
     || (memory_operand (inner, mode)
 	&& GET_CODE (XEXP (inner, 0)) != PRE_INC
-	&& GET_CODE (XEXP (inner, 0)) != PRE_DEC);
+	&& GET_CODE (XEXP (inner, 0)) != PRE_DEC
+	&& (GET_CODE (XEXP (inner, 0)) != PLUS
+	    || GET_CODE (XEXP (XEXP (inner, 0), 1)) != CONST_INT
+	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
 }
 
 /* Return 1 if the operand, used inside a MEM, is a valid first argument
@@ -1316,7 +1326,7 @@ lwa_operand (op, mode)
 
 int
 call_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   if (mode != VOIDmode && GET_MODE (op) != mode)
@@ -1332,7 +1342,7 @@ call_operand (op, mode)
 
 int
 current_file_function_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == SYMBOL_REF
@@ -1346,7 +1356,7 @@ current_file_function_operand (op, mode)
 
 int
 input_operand (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   /* Memory is always valid.  */
@@ -1739,10 +1749,10 @@ rs6000_emit_set_long_const (dest, c1, c2)
 #endif
 
       /* Construct the high word */
-      if (d4)
+      if (d4 != 0)
 	{
 	  emit_move_insn (dest, GEN_INT (d4));
-	  if (d3)
+	  if (d3 != 0)
 	    emit_move_insn (dest,
 			    gen_rtx_PLUS (DImode, dest, GEN_INT (d3)));
 	}
@@ -1750,12 +1760,13 @@ rs6000_emit_set_long_const (dest, c1, c2)
 	emit_move_insn (dest, GEN_INT (d3));
 
       /* Shift it into place */
-      emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (32)));
+      if (d3 != 0 || d4 != 0)
+	emit_move_insn (dest, gen_rtx_ASHIFT (DImode, dest, GEN_INT (32)));
 
       /* Add in the low bits.  */
-      if (d2)
+      if (d2 != 0)
 	emit_move_insn (dest, gen_rtx_PLUS (DImode, dest, GEN_INT (d2)));
-      if (d1)
+      if (d1 != 0)
 	emit_move_insn (dest, gen_rtx_PLUS (DImode, dest, GEN_INT (d1)));
     }
 
@@ -3495,7 +3506,7 @@ validate_condition_mode (code, mode)
 
 int
 branch_comparison_operator (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   enum rtx_code code = GET_CODE (op);
@@ -3519,7 +3530,7 @@ branch_comparison_operator (op, mode)
 
 int
 branch_positive_comparison_operator (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   enum rtx_code code;
@@ -3540,7 +3551,7 @@ branch_positive_comparison_operator (op, mode)
 
 int
 scc_comparison_operator (op, mode)
-     register rtx op;
+     rtx op;
      enum machine_mode mode;
 {
   enum rtx_code code = GET_CODE (op);
@@ -3607,8 +3618,8 @@ min_max_operator (op, mode)
 
 int
 includes_lshift_p (shiftop, andop)
-     register rtx shiftop;
-     register rtx andop;
+     rtx shiftop;
+     rtx andop;
 {
   unsigned HOST_WIDE_INT shift_mask = ~(unsigned HOST_WIDE_INT) 0;
 
@@ -3621,8 +3632,8 @@ includes_lshift_p (shiftop, andop)
 
 int
 includes_rshift_p (shiftop, andop)
-     register rtx shiftop;
-     register rtx andop;
+     rtx shiftop;
+     rtx andop;
 {
   unsigned HOST_WIDE_INT shift_mask = ~(unsigned HOST_WIDE_INT) 0;
 
@@ -3637,18 +3648,18 @@ includes_rshift_p (shiftop, andop)
 
 int
 includes_rldic_lshift_p (shiftop, andop)
-     register rtx shiftop;
-     register rtx andop;
+     rtx shiftop;
+     rtx andop;
 {
   if (GET_CODE (andop) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT c, lsb, shift_mask;
+      HOST_WIDE_INT c, lsb, shift_mask;
 
       c = INTVAL (andop);
-      if (c == 0 || c == ~(unsigned HOST_WIDE_INT) 0)
+      if (c == 0 || c == ~0)
 	return 0;
 
-      shift_mask = ~(unsigned HOST_WIDE_INT) 0;
+      shift_mask = ~0;
       shift_mask <<= INTVAL (shiftop);
 
       /* Find the least signifigant one bit.  */
@@ -3671,22 +3682,20 @@ includes_rldic_lshift_p (shiftop, andop)
   else if (GET_CODE (andop) == CONST_DOUBLE
 	   && (GET_MODE (andop) == VOIDmode || GET_MODE (andop) == DImode))
     {
-      unsigned HOST_WIDE_INT low, high, lsb;
-      unsigned HOST_WIDE_INT shift_mask_low, shift_mask_high;
+      HOST_WIDE_INT low, high, lsb;
+      HOST_WIDE_INT shift_mask_low, shift_mask_high;
 
       low = CONST_DOUBLE_LOW (andop);
       if (HOST_BITS_PER_WIDE_INT < 64)
 	high = CONST_DOUBLE_HIGH (andop);
 
       if ((low == 0 && (HOST_BITS_PER_WIDE_INT >= 64 || high == 0))
-	  || (low == ~(unsigned HOST_WIDE_INT) 0
-	      && (HOST_BITS_PER_WIDE_INT >= 64
-		  || high == ~(unsigned HOST_WIDE_INT) 0)))
+	  || (low == ~0 && (HOST_BITS_PER_WIDE_INT >= 64 || high == ~0)))
 	return 0;
 
       if (HOST_BITS_PER_WIDE_INT < 64 && low == 0)
 	{
-	  shift_mask_high = ~(unsigned HOST_WIDE_INT) 0;
+	  shift_mask_high = ~0;
 	  if (INTVAL (shiftop) > 32)
 	    shift_mask_high <<= INTVAL (shiftop) - 32;
 
@@ -3702,7 +3711,7 @@ includes_rldic_lshift_p (shiftop, andop)
 	  return high == -lsb;
 	}
 
-      shift_mask_low = ~(unsigned HOST_WIDE_INT) 0;
+      shift_mask_low = ~0;
       shift_mask_low <<= INTVAL (shiftop);
 
       lsb = low & -low;
@@ -3734,15 +3743,14 @@ includes_rldic_lshift_p (shiftop, andop)
 
 int
 includes_rldicr_lshift_p (shiftop, andop)
-     register rtx shiftop;
-     register rtx andop;
+     rtx shiftop;
+     rtx andop;
 {
   if (GET_CODE (andop) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT c, lsb;
-      unsigned HOST_WIDE_INT shift_mask;
+      HOST_WIDE_INT c, lsb, shift_mask;
 
-      shift_mask = ~(unsigned HOST_WIDE_INT) 0;
+      shift_mask = ~0;
       shift_mask <<= INTVAL (shiftop);
       c = INTVAL (andop);
 
@@ -3760,19 +3768,19 @@ includes_rldicr_lshift_p (shiftop, andop)
   else if (GET_CODE (andop) == CONST_DOUBLE
 	   && (GET_MODE (andop) == VOIDmode || GET_MODE (andop) == DImode))
     {
-      unsigned HOST_WIDE_INT low, lsb, shift_mask_low;
+      HOST_WIDE_INT low, lsb, shift_mask_low;
 
       low = CONST_DOUBLE_LOW (andop);
 
       if (HOST_BITS_PER_WIDE_INT < 64)
 	{
-	  unsigned HOST_WIDE_INT high, shift_mask_high;
+	  HOST_WIDE_INT high, shift_mask_high;
 
 	  high = CONST_DOUBLE_HIGH (andop);
 
 	  if (low == 0)
 	    {
-	      shift_mask_high = ~(unsigned HOST_WIDE_INT) 0;
+	      shift_mask_high = ~0;
 	      if (INTVAL (shiftop) > 32)
 		shift_mask_high <<= INTVAL (shiftop) - 32;
 
@@ -3787,7 +3795,7 @@ includes_rldicr_lshift_p (shiftop, andop)
 	    return 0;
 	}
 
-      shift_mask_low = ~(unsigned HOST_WIDE_INT) 0;
+      shift_mask_low = ~0;
       shift_mask_low <<= INTVAL (shiftop);
 
       lsb = low & -low;
@@ -3823,8 +3831,8 @@ registers_ok_for_quad_peep (reg1, reg2)
 
 int
 addrs_ok_for_quad_peep (addr1, addr2)
-     register rtx addr1;
-     register rtx addr2;
+     rtx addr1;
+     rtx addr2;
 {
   unsigned int reg1;
   int offset1;
@@ -3951,7 +3959,7 @@ secondary_reload_class (class, mode, in)
 
 int
 ccr_bit (op, scc_p)
-     register rtx op;
+     rtx op;
      int scc_p;
 {
   enum rtx_code code = GET_CODE (op);
@@ -4736,7 +4744,7 @@ print_operand (file, x, code)
 void
 print_operand_address (file, x)
      FILE *file;
-     register rtx x;
+     rtx x;
 {
   if (GET_CODE (x) == REG)
     fprintf (file, "0(%s)", reg_names[ REGNO (x) ]);
@@ -5314,7 +5322,7 @@ first_fp_reg_to_save ()
    complicated by having two separate calling sequences, the AIX calling
    sequence and the V.4 calling sequence.
 
-   AIX (and Darwin/Mac OS) stack frames look like:
+   AIX (and Darwin/Mac OS X) stack frames look like:
 							  32-bit  64-bit
 	SP---->	+---------------------------------------+
 		| back chain to caller			| 0	  0
@@ -5426,7 +5434,7 @@ rs6000_stack_info ()
   info_ptr->first_fp_reg_save = first_fp_reg_to_save ();
   info_ptr->fp_size = 8 * (64 - info_ptr->first_fp_reg_save);
 
-  /* Does this function call anything? */
+  /* Does this function call anything?  */
   info_ptr->calls_p = (! current_function_is_leaf
 		       || cfun->machine->ra_needs_full_frame);
 
@@ -5470,7 +5478,7 @@ rs6000_stack_info ()
   else
     ehrd_size = 0;
 
-  /* Determine various sizes */
+  /* Determine various sizes.  */
   info_ptr->reg_size     = reg_size;
   info_ptr->fixed_size   = RS6000_SAVE_AREA;
   info_ptr->varargs_size = RS6000_VARARGS_AREA;
@@ -5485,7 +5493,7 @@ rs6000_stack_info ()
   if (DEFAULT_ABI == ABI_DARWIN)
     info_ptr->save_size = RS6000_ALIGN (info_ptr->save_size, 16);
 
-  /* Calculate the offsets */
+  /* Calculate the offsets.  */
   switch (abi)
     {
     case ABI_NONE:
@@ -5652,7 +5660,7 @@ debug_stack_info (info)
     fprintf (stderr, "\tfp_size             = %5d\n", info->fp_size);
 
  if (info->lr_size)
-    fprintf (stderr, "\tlr_size             = %5d\n", info->cr_size);
+    fprintf (stderr, "\tlr_size             = %5d\n", info->lr_size);
 
   if (info->cr_size)
     fprintf (stderr, "\tcr_size             = %5d\n", info->cr_size);
@@ -5787,7 +5795,7 @@ rs6000_emit_load_toc_table (fromprolog)
 	      rtx tocsym;
 	      static int reload_toc_labelno = 0;
 
-	      tocsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (toc_label_name));
+	      tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
 
 	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
 	      symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -5864,7 +5872,7 @@ create_TOC_reference(symbol)
 	   gen_rtx_REG (Pmode, TOC_REGISTER),
 	     gen_rtx_CONST (Pmode, 
 	       gen_rtx_MINUS (Pmode, symbol, 
-		 gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (toc_label_name)))));
+		 gen_rtx_SYMBOL_REF (Pmode, toc_label_name))));
 }
 
 #if TARGET_AIX
@@ -6404,9 +6412,10 @@ rs6000_emit_prologue ()
 	 to understand '(unspec:SI [(reg:CC 68) ...] 19)'.  But that's
 	 OK.  All we have to do is specify that _one_ condition code
 	 register is saved in this stack slot.  The thrower's epilogue
-	 will then restore all the call-saved registers.  */
+	 will then restore all the call-saved registers.
+	 We use CR2_REGNO (70) to be compatible with gcc-2.95 on Linux.  */
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-			    cr_save_rtx, gen_rtx_REG (SImode, CR0_REGNO));
+			    cr_save_rtx, gen_rtx_REG (SImode, CR2_REGNO));
     }
 
   /* Update stack and set back pointer unless this is V.4, 
@@ -7835,7 +7844,7 @@ output_profile_hook (labelno)
   if (DEFAULT_ABI == ABI_AIX)
     {
       char buf[30];
-      char *label_name;
+      const char *label_name;
       rtx fun;
 
       labelno += 1;
@@ -7961,16 +7970,33 @@ rs6000_adjust_cost (insn, link, dep_insn, cost)
 
   if (REG_NOTE_KIND (link) == 0)
     {
-      /* Data dependency; DEP_INSN writes a register that INSN reads some
-	 cycles later.  */
-
-      /* Tell the first scheduling pass about the latency between a mtctr
-	 and bctr (and mtlr and br/blr).  The first scheduling pass will not
-	 know about this latency since the mtctr instruction, which has the
-	 latency associated to it, will be generated by reload.  */
-      if (get_attr_type (insn) == TYPE_JMPREG)
-	return TARGET_POWER ? 5 : 4;
-
+      /* Data dependency; DEP_INSN writes a register that INSN reads
+	 some cycles later.  */
+      switch (get_attr_type (insn))
+	{
+	case TYPE_JMPREG:
+          /* Tell the first scheduling pass about the latency between
+	     a mtctr and bctr (and mtlr and br/blr).  The first
+	     scheduling pass will not know about this latency since
+	     the mtctr instruction, which has the latency associated
+	     to it, will be generated by reload.  */
+          return TARGET_POWER ? 5 : 4;
+	case TYPE_BRANCH:
+	  /* Leave some extra cycles between a compare and its
+	     dependent branch, to inhibit expensive mispredicts.  */
+	  if ((rs6000_cpu_attr == CPU_PPC750
+               || rs6000_cpu_attr == CPU_PPC7400
+               || rs6000_cpu_attr == CPU_PPC7450)
+	      && recog_memoized (dep_insn)
+	      && (INSN_CODE (dep_insn) >= 0)
+	      && (get_attr_type (dep_insn) == TYPE_COMPARE
+		  || get_attr_type (dep_insn) == TYPE_DELAYED_COMPARE
+		  || get_attr_type (dep_insn) == TYPE_FPCOMPARE
+		  || get_attr_type (dep_insn) == TYPE_CR_LOGICAL))
+	    return cost + 2;
+	default:
+	  break;
+	}
       /* Fall out to return default cost.  */
     }
 
@@ -7987,10 +8013,10 @@ rs6000_adjust_priority (insn, priority)
      rtx insn ATTRIBUTE_UNUSED;
      int priority;
 {
-  /* On machines (like the 750) which have asymetric integer units, where one
+  /* On machines (like the 750) which have asymmetric integer units, where one
      integer unit can do multiply and divides and the other can't, reduce the
      priority of multiply/divide so it is scheduled before other integer
-     operationss.  */
+     operations.  */
 
 #if 0
   if (! INSN_P (insn))
@@ -8028,9 +8054,11 @@ rs6000_issue_rate ()
   case CPU_RIOS1:  /* ? */
   case CPU_RS64A:
   case CPU_PPC601: /* ? */
+  case CPU_PPC7450:
     return 3;
   case CPU_PPC603:
   case CPU_PPC750:
+  case CPU_PPC7400:
     return 2; 
   case CPU_RIOS2:
   case CPU_PPC604:
@@ -8124,28 +8152,34 @@ rs6000_initialize_trampoline (addr, fnaddr, cxt)
 }
 
 
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-static int
-rs6000_valid_type_attribute_p (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args;
+/* Table of valid machine attributes.  */
+const struct attribute_spec rs6000_attribute_table[] =
 {
-  if (TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != FIELD_DECL
-      && TREE_CODE (type) != TYPE_DECL)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "longcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+  { NULL,       0, 0, false, false, false, NULL }
+};
 
-  /* Longcall attribute says that the function is not within 2**26 bytes
-     of the current function, and to do an indirect call.  */
-  if (is_attribute_p ("longcall", identifier))
-    return (args == NULL_TREE);
+/* Handle a "longcall" attribute;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+rs6000_handle_longcall_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE
+      && TREE_CODE (*node) != FIELD_DECL
+      && TREE_CODE (*node) != TYPE_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
 
-  return 0;
+  return NULL_TREE;
 }
 
 /* Return a reference suitable for calling a function with the
@@ -8453,7 +8487,7 @@ rs6000_add_gc_roots ()
 
 int
 symbolic_operand (op)
-     register rtx op;
+     rtx op;
 {
   switch (GET_CODE (op))
     {
@@ -8617,7 +8651,7 @@ output_call (insn, call_dest, operand_number)
 
 #define GEN_LOCAL_LABEL_FOR_SYMBOL(BUF,SYMBOL,LENGTH,N)		\
   do {								\
-    const char *symbol_ = (SYMBOL);				\
+    const char *const symbol_ = (SYMBOL);			\
     char *buffer_ = (BUF);					\
     if (symbol_[0] == '"')					\
       {								\

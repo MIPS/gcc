@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -74,6 +74,10 @@ with Urealp;   use Urealp;
 with GNAT.HTable;
 
 package body Sem_Ch12 is
+
+   use Atree.Unchecked_Access;
+   --  This package performs untyped traversals of the tree, therefore it
+   --  needs direct access to the fields of a node.
 
    ----------------------------------------------------------
    -- Implementation of Generic Analysis and Instantiation --
@@ -522,24 +526,21 @@ package body Sem_Ch12 is
    --  Add the context clause of the unit containing a generic unit to
    --  an instantiation that is a compilation unit.
 
-   function Get_Associated_Node (N : Node_Id) return Node_Id;
+   function Associated_Node (N : Node_Id) return Node_Id;
    --  In order to propagate semantic information back from the analyzed
    --  copy to the original generic, we maintain links between selected nodes
    --  in the generic and their corresponding copies. At the end of generic
    --  analysis, the routine Save_Global_References traverses the generic
    --  tree, examines the semantic information, and preserves the links to
    --  those nodes that contain global information. At instantiation, the
-   --  information from the associated node is placed on the new copy, so
-   --  that name resolution is not repeated.
+   --  information from the associated node is placed on the new copy, so that
+   --  name resolution is not repeated.
+   --  Two kinds of nodes have associated nodes:
 
-   --  Three kinds of nodes have associated nodes:
+   --  a) those that contain entities, that is to say identifiers, expanded_
+   --    names, and operators.
 
-   --    a) those that contain entities, that is to say identifiers,
-   --       expanded_names, and operators (N_Has_Entity)
-
-   --    b) aggregates (N_Aggregate and N_Extension_Aggregate)
-
-   --    c) selected components (N_Selected_Component)
+   --  b) aggregates.
 
    --  For the first class, the associated node preserves the entity if it is
    --  global. If the generic contains nested instantiations, the associated_
@@ -553,13 +554,8 @@ package body Sem_Ch12 is
    --  some of the ancestor types, if their view is private at the point of
    --  instantiation.
 
-   --  Query??? why selected components. What about N_Freeze_Nodes, I assume
-   --  that the answer is no, which means that the comment above for a) is
-   --  confusing ???
-
-   --  The associated node is stored in the Associated_Node field. Note that
-   --  this field overlaps Entity, which is fine, because the whole point is
-   --  that we don't need or want the normal Entity field in this situation.
+   --  The associated node is stored in Node4, using this field as a free
+   --  union in a fashion that should clearly be under control of sinfo ???
 
    procedure Move_Freeze_Nodes
      (Out_Of : Entity_Id;
@@ -576,6 +572,12 @@ package body Sem_Ch12 is
    --  later, when the expected types are known, but names have to be captured
    --  before installing parents of generics, that are not visible for the
    --  actuals themselves.
+
+   procedure Set_Associated_Node
+     (Gen_Node  : Node_Id;
+      Copy_Node : Node_Id);
+   --  Establish the link between an identifier in the generic unit, and the
+   --  corresponding node in the semantic copy.
 
    procedure Valid_Default_Attribute (Nam : Entity_Id; Def : Node_Id);
    --  Verify that an attribute that appears as the default for a formal
@@ -3236,12 +3238,13 @@ package body Sem_Ch12 is
 
    end Analyze_Subprogram_Instantiation;
 
-   -------------------------
-   -- Get_Associated_Node --
-   -------------------------
+   ---------------------
+   -- Associated_Node --
+   ---------------------
 
-   function Get_Associated_Node (N : Node_Id) return Node_Id is
-      Assoc : Node_Id := Associated_Node (N);
+   function Associated_Node (N : Node_Id) return Node_Id is
+      Assoc : Node_Id := Node4 (N);
+      --  ??? what is Node4 being used for here?
 
    begin
       if Nkind (Assoc) /= Nkind (N) then
@@ -3253,37 +3256,33 @@ package body Sem_Ch12 is
          return Assoc;
       else
          --  If the node is part of an inner generic, it may itself have been
-         --  remapped into a further generic copy. Associated_Node is otherwise
-         --  used for the entity of the node, and will be of a different node
-         --  kind, or else N has been rewritten as a literal or function call.
+         --  remapped into a further generic copy. Node4 is otherwise used for
+         --  the entity of the node, and will be of a different node kind, or
+         --  else N has been rewritten as a literal or function call.
 
-         while Present (Associated_Node (Assoc))
-           and then Nkind (Associated_Node (Assoc)) = Nkind (Assoc)
+         while Present (Node4 (Assoc))
+           and then Nkind (Node4 (Assoc)) = Nkind (Assoc)
          loop
-            Assoc := Associated_Node (Assoc);
+            Assoc := Node4 (Assoc);
          end loop;
 
          --  Follow and additional link in case the final node was rewritten.
          --  This can only happen with nested generic units.
 
          if (Nkind (Assoc) = N_Identifier or else Nkind (Assoc) in N_Op)
-           and then Present (Associated_Node (Assoc))
-           and then (Nkind (Associated_Node (Assoc)) = N_Function_Call
-                       or else
-                     Nkind (Associated_Node (Assoc)) = N_Explicit_Dereference
-                       or else
-                     Nkind (Associated_Node (Assoc)) = N_Integer_Literal
-                       or else
-                     Nkind (Associated_Node (Assoc)) = N_Real_Literal
-                       or else
-                     Nkind (Associated_Node (Assoc)) = N_String_Literal)
+           and then Present (Node4 (Assoc))
+           and then (Nkind (Node4 (Assoc)) = N_Function_Call
+                       or else Nkind (Node4 (Assoc)) = N_Explicit_Dereference
+                       or else Nkind (Node4 (Assoc)) = N_Integer_Literal
+                       or else Nkind (Node4 (Assoc)) = N_Real_Literal
+                       or else Nkind (Node4 (Assoc)) = N_String_Literal)
          then
-            Assoc := Associated_Node (Assoc);
+            Assoc := Node4 (Assoc);
          end if;
 
          return Assoc;
       end if;
-   end Get_Associated_Node;
+   end Associated_Node;
 
    -------------------------------------------
    -- Build_Instance_Compilation_Unit_Nodes --
@@ -4042,7 +4041,7 @@ package body Sem_Ch12 is
          elsif Has_Private_View (N)
            and then not Is_Private_Type (T)
            and then not Has_Been_Exchanged (T)
-           and then Etype (Get_Associated_Node (N)) /= T
+           and then Etype (Associated_Node (N)) /= T
          then
             --  Only the private declaration was visible in the generic. If
             --  the type appears in a subtype declaration, the subtype in the
@@ -4061,7 +4060,7 @@ package body Sem_Ch12 is
               or else not In_Private_Part (Scope (Base_Type (T)))
             then
                Append_Elmt (T, Exchanged_Views);
-               Exchange_Declarations (Etype (Get_Associated_Node (N)));
+               Exchange_Declarations (Etype (Associated_Node (N)));
             end if;
 
          --  For composite types with inconsistent representation
@@ -4198,9 +4197,6 @@ package body Sem_Ch12 is
       --  field may hold a Node_Id, a List_Id, or an Elist_Id, or a plain
       --  value (Sloc, Uint, Char) in which case it need not be copied.
 
-      procedure Copy_Descendants;
-      --  Common utility for various nodes.
-
       function Copy_Generic_Elist (E : Elist_Id) return Elist_Id;
       --  Make copy of element list.
 
@@ -4209,24 +4205,6 @@ package body Sem_Ch12 is
          Parent_Id : Node_Id)
          return      List_Id;
       --  Apply Copy_Node recursively to the members of a node list.
-
-      -----------------------
-      --  Copy_Descendants --
-      -----------------------
-
-      procedure Copy_Descendants is
-
-         use Atree.Unchecked_Access;
-         --  This code section is part of the implementation of an untyped
-         --  tree traversal, so it needs direct access to node fields.
-
-      begin
-         Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
-         Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
-         Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
-         Set_Field4 (New_N, Copy_Generic_Descendant (Field4 (N)));
-         Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
-      end Copy_Descendants;
 
       -----------------------------
       -- Copy_Generic_Descendant --
@@ -4401,13 +4379,13 @@ package body Sem_Ch12 is
             --  If the associated node is still defined, the entity in
             --  it is global, and must be copied to the instance.
 
-            if Present (Get_Associated_Node (N)) then
-               if Nkind (Get_Associated_Node (N)) = Nkind (N) then
-                  Set_Entity (New_N, Entity (Get_Associated_Node (N)));
+            if Present (Associated_Node (N)) then
+               if Nkind (Associated_Node (N)) = Nkind (N) then
+                  Set_Entity (New_N, Entity (Associated_Node (N)));
                   Check_Private_View (N);
 
-               elsif Nkind (Get_Associated_Node (N)) = N_Function_Call then
-                  Set_Entity (New_N, Entity (Name (Get_Associated_Node (N))));
+               elsif Nkind (Associated_Node (N)) = N_Function_Call then
+                  Set_Entity (New_N, Entity (Name (Associated_Node (N))));
 
                else
                   Set_Entity (New_N, Empty);
@@ -4505,10 +4483,9 @@ package body Sem_Ch12 is
                     Empty, Instantiating => False);
 
                --  Now place the original proper body in the original
-               --  generic unit. This is a body, not a compilation unit.
+               --  generic unit.
 
                Rewrite (N, Proper_Body (Unit (Subunit)));
-               Set_Is_Compilation_Unit (Defining_Entity (N), False);
                Set_Was_Originally_Stub (N);
 
                --  Finally replace the body of the subunit with its copy,
@@ -4590,8 +4567,8 @@ package body Sem_Ch12 is
             Set_Associated_Node (N, New_N);
 
          else
-            if Present (Get_Associated_Node (N))
-              and then Nkind (Get_Associated_Node (N)) = Nkind (N)
+            if Present (Associated_Node (N))
+              and then Nkind (Associated_Node (N)) = Nkind (N)
             then
                --  In the generic the aggregate has some composite type.
                --  If at the point of instantiation the type has a private
@@ -4599,7 +4576,7 @@ package body Sem_Ch12 is
                --  if any).
 
                declare
-                  T   : Entity_Id := (Etype (Get_Associated_Node (New_N)));
+                  T   : Entity_Id := (Etype (Associated_Node (New_N)));
                   Rt  : Entity_Id;
 
                begin
@@ -4629,47 +4606,10 @@ package body Sem_Ch12 is
             end if;
          end if;
 
-         --  Do not copy the associated node, which points to
-         --  the generic copy of the aggregate.
-
-         declare
-            use Atree.Unchecked_Access;
-            --  This code section is part of the implementation of an untyped
-            --  tree traversal, so it needs direct access to node fields.
-
-         begin
-            Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
-            Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
-            Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
-            Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
-         end;
-
-      --  Allocators do not have an identifier denoting the access type,
-      --  so we must locate it through the expression to check whether
-      --  the views are consistent.
-
-      elsif Nkind (N) = N_Allocator
-        and then Nkind (Expression (N)) = N_Qualified_Expression
-        and then Instantiating
-      then
-         declare
-            T : Node_Id := Get_Associated_Node (Subtype_Mark (Expression (N)));
-            Acc_T       : Entity_Id;
-
-         begin
-            if Present (T) then
-               --  Retrieve the allocator node in the generic copy.
-
-               Acc_T := Etype (Parent (Parent (T)));
-               if Present (Acc_T)
-                 and then Is_Private_Type (Acc_T)
-               then
-                  Switch_View (Acc_T);
-               end if;
-            end if;
-
-            Copy_Descendants;
-         end;
+         Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
+         Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
+         Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
+         Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
 
       --  For a proper body, we must catch the case of a proper body that
       --  replaces a stub. This represents the point at which a separate
@@ -4692,7 +4632,11 @@ package body Sem_Ch12 is
             --  Now copy the fields of the proper body, using the new
             --  adjustment factor if one was needed as per test above.
 
-            Copy_Descendants;
+            Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
+            Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
+            Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
+            Set_Field4 (New_N, Copy_Generic_Descendant (Field4 (N)));
+            Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
 
             --  Restore the original adjustment factor in case changed
 
@@ -4715,14 +4659,22 @@ package body Sem_Ch12 is
                New_N := Make_Null_Statement (Sloc (N));
 
             else
-               Copy_Descendants;
+               Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
+               Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
+               Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
+               Set_Field4 (New_N, Copy_Generic_Descendant (Field4 (N)));
+               Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
             end if;
          end;
 
       --  For the remaining nodes, copy recursively their descendants.
 
       else
-         Copy_Descendants;
+         Set_Field1 (New_N, Copy_Generic_Descendant (Field1 (N)));
+         Set_Field2 (New_N, Copy_Generic_Descendant (Field2 (N)));
+         Set_Field3 (New_N, Copy_Generic_Descendant (Field3 (N)));
+         Set_Field4 (New_N, Copy_Generic_Descendant (Field4 (N)));
+         Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
 
          if Instantiating
            and then Nkind (N) = N_Subprogram_Body
@@ -8191,12 +8143,6 @@ package body Sem_Ch12 is
       --  context of the parent, we must preserve the identifier of the parent
       --  so that it can be properly resolved in a subsequent instantiation.
 
-      procedure Save_Global_Operand_Descendants (N : Node_Id);
-      --  Apply Save_Global_Descendant to the possible operand fields
-      --  of the node N (Field2 = Left_Opnd, Field3 = Right_Opnd).
-      --
-      --  It is uncomfortable for Sem_Ch12 to have this knowledge ???
-
       procedure Save_Global_Descendant (D : Union_Id);
       --  Apply Save_Global_References recursively to the descendents of
       --  current node.
@@ -8266,10 +8212,6 @@ package body Sem_Ch12 is
          --  The type of N2 is global to the generic unit. Save the
          --  type in the generic node.
 
-         ---------------------
-         -- Set_Global_Type --
-         ---------------------
-
          procedure Set_Global_Type (N : Node_Id; N2 : Node_Id) is
             Typ : constant Entity_Id := Etype (N2);
 
@@ -8317,7 +8259,7 @@ package body Sem_Ch12 is
       --  Start of processing for Reset_Entity
 
       begin
-         N2 := Get_Associated_Node (N);
+         N2 := Associated_Node (N);
          E := Entity (N2);
 
          if Present (E) then
@@ -8357,7 +8299,9 @@ package body Sem_Ch12 is
                Change_Selected_Component_To_Expanded_Name (Parent (N));
                Set_Associated_Node (Parent (N), Parent (N2));
                Set_Global_Type (Parent (N), Parent (N2));
-               Save_Global_Operand_Descendants (N);
+
+               Save_Global_Descendant (Field2 (N));
+               Save_Global_Descendant (Field3 (N));
 
                --  If this is a reference to the current generic entity,
                --  replace it with a simple name. This is to avoid anomalies
@@ -8396,7 +8340,7 @@ package body Sem_Ch12 is
               New_Copy (Parent (N2)));
             Set_Analyzed (Parent (N), False);
 
-         --  A selected component may be transformed into a parameterless
+         --  a selected component may be transformed into a parameterless
          --  function call. If the called entity is global, rewrite the
          --  node appropriately, i.e. as an extended name for the global
          --  entity.
@@ -8408,7 +8352,9 @@ package body Sem_Ch12 is
             Change_Selected_Component_To_Expanded_Name (Parent (N));
             Set_Associated_Node (Parent (N), Name (Parent (N2)));
             Set_Global_Type (Parent (N), Name (Parent (N2)));
-            Save_Global_Operand_Descendants (N);
+
+            Save_Global_Descendant (Field2 (N));
+            Save_Global_Descendant (Field3 (N));
 
          else
             --  Entity is local. Reset in generic unit, so that node
@@ -8587,21 +8533,6 @@ package body Sem_Ch12 is
          end if;
       end Save_Global_Descendant;
 
-      -------------------------------------
-      -- Save_Global_Operand_Descendants --
-      -------------------------------------
-
-      procedure Save_Global_Operand_Descendants (N : Node_Id) is
-
-         use Atree.Unchecked_Access;
-         --  This code section is part of the implementation of an untyped
-         --  tree traversal, so it needs direct access to node fields.
-
-      begin
-         Save_Global_Descendant (Field2 (N));
-         Save_Global_Descendant (Field3 (N));
-      end Save_Global_Operand_Descendants;
-
       ---------------------
       -- Save_References --
       ---------------------
@@ -8622,32 +8553,32 @@ package body Sem_Ch12 is
          elsif (Nkind (N) = N_Character_Literal
                  or else Nkind (N) = N_Operator_Symbol)
          then
-            if Nkind (N) = Nkind (Get_Associated_Node (N)) then
+            if Nkind (N) = Nkind (Associated_Node (N)) then
                Reset_Entity (N);
 
             elsif Nkind (N) = N_Operator_Symbol
-              and then Nkind (Get_Associated_Node (N)) = N_String_Literal
+              and then Nkind (Associated_Node (N)) = N_String_Literal
             then
                Change_Operator_Symbol_To_String_Literal (N);
             end if;
 
          elsif Nkind (N) in N_Op then
 
-            if Nkind (N) = Nkind (Get_Associated_Node (N)) then
+            if Nkind (N) = Nkind (Associated_Node (N)) then
 
                if Nkind (N) = N_Op_Concat then
                   Set_Is_Component_Left_Opnd (N,
-                    Is_Component_Left_Opnd (Get_Associated_Node (N)));
+                    Is_Component_Left_Opnd (Associated_Node (N)));
 
                   Set_Is_Component_Right_Opnd (N,
-                    Is_Component_Right_Opnd (Get_Associated_Node (N)));
+                    Is_Component_Right_Opnd (Associated_Node (N)));
                end if;
 
                Reset_Entity (N);
             else
                --  Node may be transformed into call to a user-defined operator
 
-               N2 := Get_Associated_Node (N);
+               N2 := Associated_Node (N);
 
                if Nkind (N2) = N_Function_Call then
                   E := Entity (Name (N2));
@@ -8690,23 +8621,24 @@ package body Sem_Ch12 is
                end if;
             end if;
 
-            --  Complete the check on operands
+            --  Complete the check on operands.
 
-            Save_Global_Operand_Descendants (N);
+            Save_Global_Descendant (Field2 (N));
+            Save_Global_Descendant (Field3 (N));
 
          elsif Nkind (N) = N_Identifier then
-            if Nkind (N) = Nkind (Get_Associated_Node (N)) then
+            if Nkind (N) = Nkind (Associated_Node (N)) then
 
                --  If this is a discriminant reference, always save it.
                --  It is used in the instance to find the corresponding
                --  discriminant positionally rather than  by name.
 
                Set_Original_Discriminant
-                 (N, Original_Discriminant (Get_Associated_Node (N)));
+                 (N, Original_Discriminant (Associated_Node (N)));
                Reset_Entity (N);
 
             else
-               N2 := Get_Associated_Node (N);
+               N2 := Associated_Node (N);
 
                if Nkind (N2) = N_Function_Call then
                   E := Entity (Name (N2));
@@ -8790,41 +8722,29 @@ package body Sem_Ch12 is
          elsif Nkind (N) in N_Entity then
             null;
 
+         elsif Nkind (N) = N_Aggregate
+                 or else Nkind (N) = N_Extension_Aggregate
+         then
+            N2 := Associated_Node (N);
+            if No (N2)
+              or else No (Etype (N2))
+              or else not Is_Global (Etype (N2))
+            then
+               Set_Associated_Node (N, Empty);
+            end if;
+
+            Save_Global_Descendant (Field1 (N));
+            Save_Global_Descendant (Field2 (N));
+            Save_Global_Descendant (Field3 (N));
+            Save_Global_Descendant (Field5 (N));
+
          else
-            declare
-               use Atree.Unchecked_Access;
-               --  This code section is part of implementing an untyped tree
-               --  traversal, so it needs direct access to node fields.
+            Save_Global_Descendant (Field1 (N));
+            Save_Global_Descendant (Field2 (N));
+            Save_Global_Descendant (Field3 (N));
+            Save_Global_Descendant (Field4 (N));
+            Save_Global_Descendant (Field5 (N));
 
-            begin
-               if Nkind (N) = N_Aggregate
-                    or else
-                  Nkind (N) = N_Extension_Aggregate
-               then
-                  N2 := Get_Associated_Node (N);
-
-                  if No (N2)
-                    or else No (Etype (N2))
-                    or else not Is_Global (Etype (N2))
-                  then
-                     Set_Associated_Node (N, Empty);
-                  end if;
-
-                  Save_Global_Descendant (Field1 (N));
-                  Save_Global_Descendant (Field2 (N));
-                  Save_Global_Descendant (Field3 (N));
-                  Save_Global_Descendant (Field5 (N));
-
-               --  All other cases than aggregates
-
-               else
-                  Save_Global_Descendant (Field1 (N));
-                  Save_Global_Descendant (Field2 (N));
-                  Save_Global_Descendant (Field3 (N));
-                  Save_Global_Descendant (Field4 (N));
-                  Save_Global_Descendant (Field5 (N));
-               end if;
-            end;
          end if;
       end Save_References;
 
@@ -8845,6 +8765,20 @@ package body Sem_Ch12 is
 
       Save_References (N);
    end Save_Global_References;
+
+   -------------------------
+   -- Set_Associated_Node --
+   -------------------------
+
+   --  Note from RBKD: the uncommented use of Set_Node4 below is ugly ???
+
+   procedure Set_Associated_Node
+     (Gen_Node  : Node_Id;
+      Copy_Node : Node_Id)
+   is
+   begin
+      Set_Node4 (Gen_Node, Copy_Node);
+   end Set_Associated_Node;
 
    ---------------------
    -- Set_Copied_Sloc --

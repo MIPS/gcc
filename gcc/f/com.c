@@ -448,7 +448,7 @@ static tree ffecom_gfrt_[FFECOM_gfrt]
 
 /* Holds the external names of the functions.  */
 
-static const char *ffecom_gfrt_name_[FFECOM_gfrt]
+static const char *const ffecom_gfrt_name_[FFECOM_gfrt]
 =
 {
 #define DEFGFRT(CODE,NAME,TYPE,ARGS,VOLATILE,COMPLEX,CONST) NAME,
@@ -499,7 +499,7 @@ static ffecomRttype_ ffecom_gfrt_type_[FFECOM_gfrt]
 
 /* String of codes for the function's arguments.  */
 
-static const char *ffecom_gfrt_argstring_[FFECOM_gfrt]
+static const char *const ffecom_gfrt_argstring_[FFECOM_gfrt]
 =
 {
 #define DEFGFRT(CODE,NAME,TYPE,ARGS,VOLATILE,COMPLEX,CONST) ARGS,
@@ -671,16 +671,46 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
     }
 
   element = ffecom_save_tree (element);
-  cond = ffecom_2 (LE_EXPR, integer_type_node,
-		   low,
-		   element);
-  if (high)
+  if (total_dims == 0)
     {
-      cond = ffecom_2 (TRUTH_ANDIF_EXPR, integer_type_node,
-		       cond,
-		       ffecom_2 (LE_EXPR, integer_type_node,
-				 element,
-				 high));
+      /* Special handling for substring range checks.  Fortran allows the
+         end subscript < begin subscript, which means that expressions like
+       string(1:0) are valid (and yield a null string).  In view of this,
+       enforce two simpler conditions:
+          1) element<=high for end-substring;
+          2) element>=low for start-substring.
+       Run-time character movement will enforce remaining conditions.
+
+       More complicated checks would be better, but present structure only
+       provides one index element at a time, so it is not possible to
+       enforce a check of both i and j in string(i:j).  If it were, the
+       complete set of rules would read,
+         if ( ((j<i) && ((low<=i<=high) || (low<=j<=high))) ||
+              ((low<=i<=high) && (low<=j<=high)) )
+           ok ;
+         else
+           range error ;
+      */
+      if (dim)
+        cond = ffecom_2 (LE_EXPR, integer_type_node, element, high);
+      else
+        cond = ffecom_2 (LE_EXPR, integer_type_node, low, element);
+    }
+  else
+    {
+      /* Array reference substring range checking.  */
+        
+      cond = ffecom_2 (LE_EXPR, integer_type_node,
+                     low,
+                     element);
+      if (high)
+        {
+          cond = ffecom_2 (TRUTH_ANDIF_EXPR, integer_type_node,
+                         cond,
+                         ffecom_2 (LE_EXPR, integer_type_node,
+                                   element,
+                                   high));
+        }
     }
 
   {
@@ -11356,16 +11386,16 @@ ffecom_init_0 ()
 
   if (ffe_is_do_internal_checks ())
     {
-      static char names[][12]
+      static const char names[][12]
 	=
       {"bar", "bletch", "foo", "foobar"};
-      char *name;
+      const char *name;
       unsigned long ul;
       double fl;
 
       name = bsearch ("foo", &names[0], ARRAY_SIZE (names), sizeof (names[0]),
 		      (int (*)(const void *, const void *)) strcmp);
-      if (name != (char *) &names[2])
+      if (name != &names[0][2])
 	{
 	  assert ("bsearch doesn't work, #define FFEPROJ_BSEARCH 0 in proj.h"
 		  == NULL);
@@ -14657,6 +14687,7 @@ ffe_init_options ()
   flag_move_all_movables = 1;
   flag_reduce_all_givs = 1;
   flag_argument_noalias = 2;
+  flag_merge_constants = 2;
   flag_errno_math = 0;
   flag_complex_divide_method = 1;
 }

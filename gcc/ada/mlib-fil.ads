@@ -34,10 +34,10 @@ package MLib.Fil is
      (Filename : String;
       New_Ext  : String := "")
       return     String;
-   --  Return Filename with the extension change to New_Ext.
+   --  Return Filename with the extention change to New_Ext.
 
    function Get_Ext (Filename : in String) return String;
-   --  Return extension of filename.
+   --  Return extention of filename.
 
    function Is_Archive (Filename : String) return Boolean;
    --  Test if filename is an archive

@@ -38,7 +38,13 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "function.h"
 #include "ggc.h"
+#include "stdio.h"
 #include "target.h"
+
+/* DOS brain-damage */
+#ifndef O_BINARY
+#define O_BINARY 0 /* MS-DOS brain-damage */
+#endif
 
 static tree make_method_value PARAMS ((tree));
 static tree build_java_method_type PARAMS ((tree, tree, int));
@@ -53,6 +59,7 @@ static struct hash_entry *init_test_hash_newfunc PARAMS ((struct hash_entry *,
 							  struct hash_table *,
 							  hash_table_key));
 static rtx registerClass_libfunc;
+static rtx registerResource_libfunc;
 
 extern struct obstack permanent_obstack;
 struct obstack temporary_obstack;
@@ -777,6 +784,14 @@ set_constant_value (field, constant)
   else
     {
       DECL_INITIAL (field) = constant;
+      if (TREE_TYPE (constant) != TREE_TYPE (field)
+	  && ! (TREE_TYPE (constant) == int_type_node
+		&& INTEGRAL_TYPE_P (TREE_TYPE (field))
+		&& TYPE_PRECISION (TREE_TYPE (field)) <= 32)
+	  && ! (TREE_TYPE (constant) == utf8const_ptr_type
+		&& TREE_TYPE (field) == string_ptr_type_node))
+	error ("ConstantValue attribute of field '%s' has wrong type",
+	       IDENTIFIER_POINTER (DECL_NAME (field)));
       if (FIELD_FINAL (field))
 	DECL_FIELD_FINAL_IUD (field) = 1;
     }
@@ -822,6 +837,109 @@ hashUtf8String (str, len)
       hash = (31 * hash) + ch;
     }
   return hash;
+}
+
+/* Generate a byte array representing the contents of FILENAME.  The
+   array is assigned a unique local symbol.  The array represents a
+   compiled Java resource, which is accessed by the runtime using
+   NAME.  */
+void
+compile_resource_file (name, filename)
+     char *name;
+     char *filename;
+{
+  struct stat stat_buf;
+  int fd;
+  char *buffer;
+  char buf[60];
+  tree rtype, field = NULL_TREE, data_type, rinit, data, decl;
+  static int Jr_count = 0;
+
+  fd = open (filename, O_RDONLY | O_BINARY);
+  if (fd < 0)
+    {
+      perror ("Failed to read resource file");
+      return;
+    }
+  if (fstat (fd, &stat_buf) != 0
+      || ! S_ISREG (stat_buf.st_mode))
+    {
+      perror ("Could not figure length of resource file");
+      return;
+    }
+  buffer = xmalloc (strlen (name) + stat_buf.st_size);
+  strcpy (buffer, name);
+  read (fd, buffer + strlen (name), stat_buf.st_size);
+  close (fd);
+  data_type = build_prim_array_type (unsigned_byte_type_node,
+				     strlen (name) + stat_buf.st_size);
+  rtype = make_node (RECORD_TYPE);
+  PUSH_FIELD (rtype, field, "name_length", unsigned_int_type_node);
+  PUSH_FIELD (rtype, field, "resource_length", unsigned_int_type_node);
+  PUSH_FIELD (rtype, field, "data", data_type);
+  FINISH_RECORD (rtype);
+  START_RECORD_CONSTRUCTOR (rinit, rtype);
+  PUSH_FIELD_VALUE (rinit, "name_length", 
+		    build_int_2 (strlen (name), 0));
+  PUSH_FIELD_VALUE (rinit, "resource_length", 
+		    build_int_2 (stat_buf.st_size, 0));
+  data = build_string (strlen(name) + stat_buf.st_size, buffer);
+  TREE_TYPE (data) = data_type;
+  PUSH_FIELD_VALUE (rinit, "data", data);
+  FINISH_RECORD_CONSTRUCTOR (rinit);
+  TREE_CONSTANT (rinit) = 1;
+
+  /* Generate a unique-enough identifier.  */
+  sprintf(buf, "_Jr%d", ++Jr_count);
+
+  decl = build_decl (VAR_DECL, get_identifier (buf), rtype);
+  TREE_STATIC (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  TREE_READONLY (decl) = 1;
+  TREE_THIS_VOLATILE (decl) = 0;
+  DECL_INITIAL (decl) = rinit;
+  layout_decl (decl, 0);
+  pushdecl (decl);
+  rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
+  make_decl_rtl (decl, (char*) 0);
+  assemble_variable (decl, 1, 0, 0);
+
+  {
+    tree init_name = get_file_function_name ('I');
+    tree init_type = build_function_type (void_type_node, end_params_node);
+    tree init_decl;
+    
+    init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
+    SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
+    TREE_STATIC (init_decl) = 1;
+    current_function_decl = init_decl;
+    DECL_RESULT (init_decl) = build_decl (RESULT_DECL, 
+					  NULL_TREE, void_type_node);
+    /*  DECL_EXTERNAL (init_decl) = 1;*/
+    TREE_PUBLIC (init_decl) = 1;
+    pushlevel (0);
+    make_decl_rtl (init_decl, NULL);
+    init_function_start (init_decl, input_filename, 0);
+    expand_function_start (init_decl, 0);
+    
+    emit_library_call (registerResource_libfunc, 0, VOIDmode, 1,
+		       gen_rtx (SYMBOL_REF, Pmode, buf), 
+		       Pmode);
+    
+    expand_function_end (input_filename, 0, 0);
+    poplevel (1, 0, 1);
+    { 
+      /* Force generation, even with -O3 or deeper. Gross hack. FIXME */
+      int saved_flag = flag_inline_functions;
+      flag_inline_functions = 0;	
+      rest_of_compilation (init_decl);
+      flag_inline_functions = saved_flag;
+    }
+    current_function_decl = NULL_TREE;
+    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
+				     DEFAULT_INIT_PRIORITY);
+  }     
 }
 
 tree utf8_decl_list = NULL_TREE;
@@ -908,13 +1026,13 @@ build_class_ref (type)
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_IGNORED_P (decl) = 1;
 	      DECL_ARTIFICIAL (decl) = 1;
+	      if (is_compiled == 1)
+		DECL_EXTERNAL (decl) = 1;
 	      SET_DECL_ASSEMBLER_NAME (decl, 
 				       java_mangle_class_field
 				       (&temporary_obstack, type));
 	      make_decl_rtl (decl, NULL);
 	      pushdecl_top_level (decl);
-	      if (is_compiled == 1)
-		DECL_EXTERNAL (decl) = 1;
 	    }
 	}
       else
@@ -1254,9 +1372,11 @@ get_dispatch_table (type, this_class_addr)
 {
   int abstract_p = CLASS_ABSTRACT (TYPE_NAME (type));
   tree vtable = get_dispatch_vector (type);
-  int i;
+  int i, j;
   tree list = NULL_TREE;
   int nvirtuals = TREE_VEC_LENGTH (vtable);
+  int arraysize;
+
   for (i = nvirtuals;  --i >= 0; )
     {
       tree method = TREE_VEC_ELT (vtable, i);
@@ -1265,27 +1385,52 @@ get_dispatch_table (type, this_class_addr)
 	  if (! abstract_p)
 	    warning_with_decl (method,
 			       "abstract method in non-abstract class");
-	  method = null_pointer_node;
+
+	  if (TARGET_VTABLE_USES_DESCRIPTORS)
+	    for (j = 0; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
+	      list = tree_cons (NULL_TREE, null_pointer_node, list);
+	  else
+	    list = tree_cons (NULL_TREE, null_pointer_node, list);
 	}
       else
 	{
 	  if (!DECL_RTL_SET_P (method))
 	    make_decl_rtl (method, NULL);
-	  method = build1 (ADDR_EXPR, nativecode_ptr_type_node, method);
+
+	  if (TARGET_VTABLE_USES_DESCRIPTORS)
+	    for (j = 0; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
+	      {
+		tree fdesc = build (FDESC_EXPR, nativecode_ptr_type_node, 
+				    method, build_int_2 (j, 0));
+		TREE_CONSTANT (fdesc) = 1;
+	        list = tree_cons (NULL_TREE, fdesc, list);
+	      }
+	  else
+	    list = tree_cons (NULL_TREE,
+			      build1 (ADDR_EXPR, nativecode_ptr_type_node,
+				      method),
+			      list);
 	}
-      list = tree_cons (NULL_TREE /*DECL_VINDEX (method) + 2*/,
-			method, list);
     }
+
   /* Dummy entry for compatibility with G++ -fvtable-thunks.  When
      using the Boehm GC we sometimes stash a GC type descriptor
      there. We set the PURPOSE to NULL_TREE not to interfere (reset)
      the emitted byte count during the output to the assembly file. */
-  list = tree_cons (NULL_TREE, get_boehm_type_descriptor (type),
-		    list);
+  for (j = 1; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
+    list = tree_cons (NULL_TREE, null_pointer_node, list);
+  list = tree_cons (NULL_TREE, get_boehm_type_descriptor (type), list);
+
+  for (j = 1; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
+    list = tree_cons (NULL_TREE, null_pointer_node, list);
   list = tree_cons (integer_zero_node, this_class_addr, list);
-  return build (CONSTRUCTOR, build_prim_array_type (nativecode_ptr_type_node,
-						    nvirtuals + 2),
-		 NULL_TREE, list);
+
+  arraysize = nvirtuals + 2;
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    arraysize *= TARGET_VTABLE_USES_DESCRIPTORS;
+  return build (CONSTRUCTOR,
+		build_prim_array_type (nativecode_ptr_type_node, arraysize),
+		NULL_TREE, list);
 }
 
 void
@@ -1615,13 +1760,37 @@ build_dtable_decl (type)
      TYPE. */
   if (current_class == type)
     {
-      tree dummy = NULL_TREE, aomt, n;
+      tree dummy = NULL_TREE;
+      int n;
 
       dtype = make_node (RECORD_TYPE);
+
       PUSH_FIELD (dtype, dummy, "class", class_ptr_type);
-      n = build_int_2 (TREE_VEC_LENGTH (get_dispatch_vector (type)), 0);
-      aomt = build_array_type (ptr_type_node, build_index_type (n));
-      PUSH_FIELD (dtype, dummy, "methods", aomt);
+      for (n = 1; n < TARGET_VTABLE_USES_DESCRIPTORS; ++n)
+	{
+	  tree tmp_field = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+	  TREE_CHAIN (dummy) = tmp_field;
+	  DECL_CONTEXT (tmp_field) = dtype;
+	  DECL_ARTIFICIAL (tmp_field) = 1;
+	  dummy = tmp_field;
+	}
+
+      PUSH_FIELD (dtype, dummy, "gc_descr", ptr_type_node);
+      for (n = 1; n < TARGET_VTABLE_USES_DESCRIPTORS; ++n)
+	{
+	  tree tmp_field = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
+	  TREE_CHAIN (dummy) = tmp_field;
+	  DECL_CONTEXT (tmp_field) = dtype;
+	  DECL_ARTIFICIAL (tmp_field) = 1;
+	  dummy = tmp_field;
+	}
+
+      n = TREE_VEC_LENGTH (get_dispatch_vector (type));
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	n *= TARGET_VTABLE_USES_DESCRIPTORS;
+
+      PUSH_FIELD (dtype, dummy, "methods",
+		  build_prim_array_type (nativecode_ptr_type_node, n));
       layout_type (dtype);
     }
   else
@@ -1987,6 +2156,8 @@ void
 init_class_processing ()
 {
   registerClass_libfunc = gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterClass");
+  registerResource_libfunc = 
+    gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterResource");
   ggc_add_tree_root (class_roots, sizeof (class_roots) / sizeof (tree));
   fields_ident = get_identifier ("fields");
   info_ident = get_identifier ("info");

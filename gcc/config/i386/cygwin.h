@@ -66,24 +66,24 @@ Boston, MA 02111-1307, USA. */
 #define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
 
 #ifdef CROSS_COMPILE
-#define CYGWIN_INCLUDES "-idirafter " CYGWIN_CROSS_DIR "/include"
-#define W32API_INC "-idirafter " CYGWIN_CROSS_DIR "/include/w32api"
+#define CYGWIN_INCLUDES "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include}"
+#define W32API_INC "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include/w32api}"
 #define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/"
 #define CYGWIN_LIB CYGWIN_CROSS_DIR "/lib"
 #define MINGW_LIBS "-L" CYGWIN_CROSS_DIR "/lib/mingw"
-#define MINGW_INCLUDES "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
+#define MINGW_INCLUDES "%{!nostdinc:-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
 		       "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++ "\
-		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw"
+		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw}"
 #else
-#define CYGWIN_INCLUDES "-isystem /usr/local/include -idirafter /usr/include"
-#define W32API_INC "-idirafter /usr/include/w32api"
+#define CYGWIN_INCLUDES "%{!nostdinc:-isystem /usr/local/include -idirafter /usr/include}"
+#define W32API_INC "%{!nostdinc:-idirafter /usr/include/w32api}"
 #define W32API_LIB "-L/usr/lib/w32api/"
 #define CYGWIN_LIB "/usr/lib"
 #define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
-#define MINGW_INCLUDES "-isystem /usr/include/mingw/g++-3 "\
+#define MINGW_INCLUDES "%{!nostdinc:-isystem /usr/include/mingw/g++-3 "\
 		       "-isystem /usr/include/mingw/g++ "\
-		       "-isystem /usr/local/include/mingw" \
-		       "-idirafter /usr/include/mingw"
+		       "-isystem /usr/local/include/mingw " \
+		       "-idirafter /usr/include/mingw}"
 #endif
 
 /* Get tree.c to declare a target-specific specialization of
@@ -109,9 +109,9 @@ Boston, MA 02111-1307, USA. */
   %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{mthreads:-D_MT} "\
     MINGW_INCLUDES "} \
-  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ -Dunix -D__unix__ -D__unix "\
+  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix "\
     CYGWIN_INCLUDES "}\
-  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ -DWINNT}\
+  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}}\
   %{!mno-win32:" W32API_INC "}\
 "
 
@@ -191,7 +191,7 @@ union tree_node;
    It's also used to handle dllimport override semantics.  */
 #if 0
 #define REDO_SECTION_INFO_P(DECL) \
-  ((DECL_MACHINE_ATTRIBUTES (DECL) != NULL_TREE) \
+  ((DECL_ATTRIBUTES (DECL) != NULL_TREE) \
    || (TREE_CODE (DECL) == VAR_DECL && DECL_VIRTUAL_P (DECL)))
 #else
 #define REDO_SECTION_INFO_P(DECL) 1
@@ -461,6 +461,9 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #define SET_ASM_OP "\t.set\t"
 #endif
 
+/* Override GCC's relative pathname lookup (ie., relocatability) unless
+   otherwise told by other subtargets.  */
+#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
 #undef MD_STARTFILE_PREFIX
 #define MD_STARTFILE_PREFIX     "/usr/lib/"
 
@@ -473,7 +476,8 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #undef SYSTEM_INCLUDE_DIR
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR 0
-#endif
+#endif /* not CROSS_COMPILE */
+#endif /* not WIN32_NO_ABSOLUTE_INST_DIRS */
 
 #undef TREE
 

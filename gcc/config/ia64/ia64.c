@@ -138,7 +138,7 @@ static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode, int,
 static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
-static int ia64_valid_type_attribute PARAMS((tree, tree, tree, tree));
+const struct attribute_spec ia64_attribute_table[];
 static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_end_prologue PARAMS ((FILE *));
@@ -156,8 +156,8 @@ static rtx ia64_cycle_display PARAMS ((int, rtx));
 
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE ia64_valid_type_attribute
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE ia64_attribute_table
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS ia64_init_builtins
@@ -5079,7 +5079,7 @@ static struct ia64_packet packets[NR_PACKETS];
 
 /* Map attr_type to a string with the name.  */
 
-static const char *type_names[] =
+static const char *const type_names[] =
 {
   "UNKNOWN", "A", "I", "M", "F", "B", "L", "X", "S"
 };
@@ -5153,9 +5153,13 @@ itanium_split_issue (p, begin)
       enum attr_type t = (t0 == TYPE_L ? TYPE_F
 			  : t0 == TYPE_X ? TYPE_I
 			  : t0);
-      int max = (t == TYPE_B ? 3 : t == TYPE_F ? 1 : 2);
+
+      /* Itanium can execute up to 3 branches, 2 floating point, 2 memory, and
+	 2 integer per cycle.  */
+      int max = (t == TYPE_B ? 3 : 2);
       if (type_count[t] == max)
 	return i;
+
       type_count[t]++;
     }
   return split;
@@ -5347,7 +5351,9 @@ insn_matches_slot (p, itype, slot, insn)
 	{
 	  int i;
 	  for (i = sched_data.first_slot; i < slot; i++)
-	    if (p->t[i] == stype)
+	    if (p->t[i] == stype
+		|| (stype == TYPE_F && p->t[i] == TYPE_L)
+		|| (stype == TYPE_I && p->t[i] == TYPE_X))
 	      return 0;
 	}
       if (GET_CODE (insn) == CALL_INSN)
@@ -5487,6 +5493,12 @@ cycle_end_fill_slots (dump)
 	  sched_data.types[slot] = packet->t[slot];
 	  sched_data.insns[slot] = 0;
 	  sched_data.stopbit[slot] = 0;
+
+	  /* ??? TYPE_L instructions always fill up two slots, but we don't
+	     support TYPE_L nops.  */
+	  if (packet->t[slot] == TYPE_L)
+	    abort ();
+
 	  slot++;
 	}
       /* Do _not_ use T here.  If T == TYPE_A, then we'd risk changing the
@@ -5495,6 +5507,9 @@ cycle_end_fill_slots (dump)
       sched_data.insns[slot] = tmp_insns[i];
       sched_data.stopbit[slot] = 0;
       slot++;
+      /* TYPE_L instructions always fill up two slots.  */
+      if (t == TYPE_L)
+	slot++;
     }
 
   /* This isn't right - there's no need to pad out until the forced split;
@@ -6740,29 +6755,13 @@ ia64_epilogue_uses (regno)
     }
 }
 
-/* Return true if IDENTIFIER is a valid attribute for TYPE.  */
-
-static int
-ia64_valid_type_attribute (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args;
+/* Table of valid machine attributes.  */
+const struct attribute_spec ia64_attribute_table[] =
 {
-  /* We only support an attribute for function calls.  */
-
-  if (TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != METHOD_TYPE)
-    return 0;
-
-  /* The "syscall_linkage" attribute says the callee is a system call entry
-     point.  This affects ia64_epilogue_uses.  */
-
-  if (is_attribute_p ("syscall_linkage", identifier))
-    return args == NULL_TREE;
-
-  return 0;
-}
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "syscall_linkage", 0, 0, false, true,  true,  NULL },
+  { NULL,              0, 0, false, false, false, NULL }
+};
 
 /* For ia64, SYMBOL_REF_FLAG set means that it is a function.
 

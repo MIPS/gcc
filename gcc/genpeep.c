@@ -119,7 +119,7 @@ gen_peephole (peep)
   printf ("  if (want_jump && GET_CODE (ins1) != JUMP_INSN)\n");
   printf ("    {\n");
   printf ("      rtx insn2 = emit_jump_insn_before (PATTERN (ins1), ins1);\n");
-  printf ("      delete_insn (ins1);\n");
+  printf ("      delete_related_insns (ins1);\n");
   printf ("      ins1 = ins2;\n");
   printf ("    }\n");
 #endif
@@ -146,10 +146,10 @@ match_rtx (x, path, fail_label)
      struct link *path;
      int fail_label;
 {
-  register RTX_CODE code;
-  register int i;
-  register int len;
-  register const char *fmt;
+  RTX_CODE code;
+  int i;
+  int len;
+  const char *fmt;
   struct link link;
 
   if (x == 0)
@@ -364,7 +364,7 @@ static void
 print_code (code)
      RTX_CODE code;
 {
-  register const char *p1;
+  const char *p1;
   for (p1 = GET_RTX_NAME (code); *p1; p1++)
     putchar (TOUPPER(*p1));
 }

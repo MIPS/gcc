@@ -61,13 +61,13 @@ bool ffebad_is_inhibited_ = FALSE;
 
 struct _ffebad_message_
   {
-    ffebadSeverity severity;
-    const char *message;
+    const ffebadSeverity severity;
+    const char *const message;
   };
 
 /* Static objects accessed by functions in this module.	 */
 
-static struct _ffebad_message_ ffebad_messages_[]
+static const struct _ffebad_message_ ffebad_messages_[]
 =
 {
 #define FFEBAD_MSGS1(KWD,SEV,MSG) { SEV, MSG },
@@ -349,7 +349,7 @@ void
 ffebad_finish ()
 {
 #define MAX_SPACES 132
-  static const char *spaces
+  static const char *const spaces
   = "...>\
 \040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\
 \040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\040\

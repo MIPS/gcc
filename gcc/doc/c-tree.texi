@@ -110,7 +110,7 @@ int i = (TEST_P (t) != 0);
 @noindent
 are legal.  Macros that return @code{int} values now may be changed to
 return @code{tree} values, or other pointers in the future.  Even those
-that continue to return @code{int} may return multiple non-zero codes
+that continue to return @code{int} may return multiple nonzero codes
 where previously they returned only zero and one.  Therefore, you should
 not write code like
 @example
@@ -500,7 +500,7 @@ arguments.
 
 Note that in C (but not in C++) a function declared like @code{void f()}
 is an unprototyped function taking a variable number of arguments; the
-@code{TYPE_ARG_TYPES} of such a function will be NULL@.
+@code{TYPE_ARG_TYPES} of such a function will be @code{NULL}.
 
 @item METHOD_TYPE
 Used to represent the type of a non-static member function.  Like a
@@ -757,8 +757,6 @@ these macros takes a @code{BINFO} and is true if and only if the
 indicated kind of inheritance was used.  If @code{TREE_VIA_VIRTUAL}
 holds of a binfo, then its @code{BINFO_TYPE} was inherited from
 virtually.
-
-FIXME: Talk about @code{TYPE_NONCOPIED_PARTS}.
 
 The following macros can be used on a tree node representing a class-type.
 
@@ -1185,7 +1183,7 @@ returning to the thunk.  The first parameter to the thunk is always the
 value.  (The @code{THUNK_DELTA} is an @code{int}, not an
 @code{INTEGER_CST}.)
 
-Then, if @code{THUNK_VCALL_OFFSET} (an @code{INTEGER_CST}) is non-zero
+Then, if @code{THUNK_VCALL_OFFSET} (an @code{INTEGER_CST}) is nonzero
 the adjusted @code{this} pointer must be adjusted again.  The complete
 calculation is given by the following pseudo-code:
 
@@ -1310,7 +1308,7 @@ This predicate holds if the function an overloaded
 @findex WHILE_COND
 
 A function that has a definition in the current translation unit will
-have a non-NULL @code{DECL_INITIAL}.  However, back ends should not make
+have a non-@code{NULL} @code{DECL_INITIAL}.  However, back ends should not make
 use of the particular value given by @code{DECL_INITIAL}.
 
 The @code{DECL_SAVED_TREE} macro will give the complete body of the
@@ -1425,8 +1423,8 @@ fields.
 @item CASE_LABEL
 
 Use to represent a @code{case} label, range of @code{case} labels, or a
-@code{default} label.  If @code{CASE_LOW} is NULL_TREE, then this is a a
-@code{default} label.  Otherwise, if @code{CASE_HIGH} is NULL_TREE, then
+@code{default} label.  If @code{CASE_LOW} is @code{NULL_TREE}, then this is a
+@code{default} label.  Otherwise, if @code{CASE_HIGH} is @code{NULL_TREE}, then
 this is an ordinary @code{case} label.  In this case, @code{CASE_LOW} is
 an expression giving the value of the label.  Both @code{CASE_LOW} and
 @code{CASE_HIGH} are @code{INTEGER_CST} nodes.  These values will have
@@ -1660,14 +1658,11 @@ to the same declaration or type, or @code{NULL_TREE} if there are no
 further attributes in the list.
 
 Attributes may be attached to declarations and to types; these
-attributes may be accessed with the following macros.  At present only
-machine-dependent attributes are stored in this way (other attributes
-cause changes to the declaration or type or to other internal compiler
-data structures, but are not themselves stored along with the
-declaration or type), but in future all attributes may be stored like
-this.
+attributes may be accessed with the following macros.  All attributes
+are stored in this way, and many also cause other changes to the
+declaration or type or to other internal compiler data structures.
 
-@deftypefn {Tree Macro} tree DECL_MACHINE_ATTRIBUTES (tree @var{decl})
+@deftypefn {Tree Macro} tree DECL_ATTRIBUTES (tree @var{decl})
 This macro returns the attributes on the declaration @var{decl}.
 @end deftypefn
 
@@ -1746,6 +1741,7 @@ This macro returns the attributes on the type @var{type}.
 @tindex EXIT_EXPR
 @tindex CLEANUP_POINT_EXPR
 @tindex ARRAY_REF
+@tindex VTABLE_REF
 
 The internal representation for expressions is for the most part quite
 straightforward.  However, there are a few facts that one must bear in
@@ -1805,7 +1801,7 @@ as a signed or unsigned quantity depending on the type of the constant.
 In general, the expression given above will overflow, so it should not
 be used to calculate the value of the constant.
 
-The variable @code{integer_zero_node} is a integer constant with value
+The variable @code{integer_zero_node} is an integer constant with value
 zero.  Similarly, @code{integer_one_node} is an integer constant with
 value one.  The @code{size_zero_node} and @code{size_one_node} variables
 are analogous, but have type @code{size_t} rather than @code{int}.
@@ -2092,7 +2088,7 @@ the value of the second operand.
 
 @item COND_EXPR
 These nodes represent @code{?:} expressions.  The first operand
-is of boolean or integral type.  If it evaluates to a non-zero value,
+is of boolean or integral type.  If it evaluates to a nonzero value,
 the second operand should be evaluated, and returned as the value of the
 expression.  Otherwise, the third operand is evaluated, and returned as
 the value of the expression.  As a GNU extension, the middle operand of
@@ -2170,7 +2166,7 @@ an @code{EXIT_EXPR} is encountered.
 @item EXIT_EXPR
 These nodes represent conditional exits from the nearest enclosing
 @code{LOOP_EXPR}.  The single operand is the condition; if it is
-non-zero, then the loop should be exited.  An @code{EXIT_EXPR} will only
+nonzero, then the loop should be exited.  An @code{EXIT_EXPR} will only
 appear within a @code{LOOP_EXPR}.
 
 @item CLEANUP_POINT_EXPR
@@ -2257,5 +2253,16 @@ is taken, and this value replaces the first argument in the argument
 list.  In this case, the value of the expression is the @code{VAR_DECL}
 given by the third operand to the @code{AGGR_INIT_EXPR}; constructors do
 not return a value.
+
+@item VTABLE_REF
+A @code{VTABLE_REF} indicates that the interior expression computes
+a value that is a vtable entry.  It is used with @option{-fvtable-gc}
+to track the reference through to front end to the middle end, at
+which point we transform this to a @code{REG_VTABLE_REF} note, which
+survives the balance of code generation.
+
+The first operand is the expression that computes the vtable reference.
+The second operand is the @code{VAR_DECL} of the vtable.  The third
+operand is an @code{INTEGER_CST} of the byte offset into the vtable.
 
 @end table

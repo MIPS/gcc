@@ -45,6 +45,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 
 static rtx emit_addhi3_postreload PARAMS ((rtx, rtx, rtx));
+static void stormy16_asm_out_constructor PARAMS ((rtx, int));
+static void stormy16_asm_out_destructor PARAMS ((rtx, int));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -906,12 +908,13 @@ emit_addhi3_postreload (dest, src0, src1)
   return insn;
 }
 
-/* Called after register allocation to add any instructions needed for the
-   prologue.  Using a prologue insn is favored compared to putting all of the
-   instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
-   to intermix instructions with the saves of the caller saved registers.  In
-   some cases, it might be necessary to emit a barrier instruction as the last
-   insn to prevent such scheduling.
+/* Called after register allocation to add any instructions needed for
+   the prologue.  Using a prologue insn is favored compared to putting
+   all of the instructions in the TARGET_ASM_FUNCTION_PROLOGUE macro,
+   since it allows the scheduler to intermix instructions with the
+   saves of the caller saved registers.  In some cases, it might be
+   necessary to emit a barrier instruction as the last insn to prevent
+   such scheduling.
 
    Also any insns generated here should have RTX_FRAME_RELATED_P(insn) = 1
    so that the debug info generation code can handle them properly.  */
@@ -1001,12 +1004,13 @@ direct_return ()
 	  && stormy16_compute_stack_layout ().frame_size == 0);
 }
 
-/* Called after register allocation to add any instructions needed for the
-   epilogue.  Using a epilogue insn is favored compared to putting all of the
-   instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
-   to intermix instructions with the saves of the caller saved registers.  In
-   some cases, it might be necessary to emit a barrier instruction as the last
-   insn to prevent such scheduling.  */
+/* Called after register allocation to add any instructions needed for
+   the epilogue.  Using a epilogue insn is favored compared to putting
+   all of the instructions in the TARGET_ASM_FUNCTION_PROLOGUE macro,
+   since it allows the scheduler to intermix instructions with the
+   saves of the caller saved registers.  In some cases, it might be
+   necessary to emit a barrier instruction as the last insn to prevent
+   such scheduling.  */
 
 void
 stormy16_expand_epilogue ()
@@ -1023,8 +1027,13 @@ stormy16_expand_epilogue ()
 
   /* Pop the stack for the locals.  */
   if (layout.locals_size)
-    emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
-			    GEN_INT (- layout.locals_size));
+    {
+      if (frame_pointer_needed && layout.sp_minus_fp == layout.locals_size)
+	emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
+      else
+	emit_addhi3_postreload (stack_pointer_rtx, stack_pointer_rtx,
+				GEN_INT (- layout.locals_size));
+    }
 
   /* Restore any call-saved registers.  */
   for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
@@ -1262,18 +1271,21 @@ stormy16_initialize_trampoline (addr, fnaddr, static_chain)
   rtx reg_fnaddr = gen_reg_rtx (HImode);
   rtx reg_addr_mem;
 
-  reg_addr_mem = gen_rtx_MEM (HImode, gen_rtx_POST_INC (Pmode, reg_addr));
+  reg_addr_mem = gen_rtx_MEM (HImode, reg_addr);
     
   emit_move_insn (reg_addr, addr);
   emit_move_insn (temp, GEN_INT (0x3130 | STATIC_CHAIN_REGNUM));
   emit_move_insn (reg_addr_mem, temp);
+  emit_insn (gen_addhi3 (reg_addr, reg_addr, const2_rtx));
   emit_move_insn (temp, static_chain);
   emit_move_insn (reg_addr_mem, temp);
+  emit_insn (gen_addhi3 (reg_addr, reg_addr, const2_rtx));
   emit_move_insn (reg_fnaddr, fnaddr);
   emit_move_insn (temp, reg_fnaddr);
   emit_insn (gen_andhi3 (temp, temp, GEN_INT (0xFF)));
   emit_insn (gen_iorhi3 (temp, temp, GEN_INT (0x0200)));
   emit_move_insn (reg_addr_mem, temp);
+  emit_insn (gen_addhi3 (reg_addr, reg_addr, const2_rtx));
   emit_insn (gen_lshrhi3 (reg_fnaddr, reg_fnaddr, GEN_INT (8)));
   emit_move_insn (reg_addr_mem, reg_fnaddr);
 }
@@ -1315,6 +1327,61 @@ stormy16_encode_section_info (decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* Output constructors and destructors.  Just like 
+   default_named_section_asm_out_* but don't set the sections writable.  */
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR stormy16_asm_out_constructor
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR stormy16_asm_out_destructor
+
+static void
+stormy16_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  const char *section = ".dtors";
+  char buf[16];
+
+  /* ??? This only works reliably with the GNU linker.   */
+  if (priority != DEFAULT_INIT_PRIORITY)
+    {
+      sprintf (buf, ".dtors.%.5u",
+	       /* Invert the numbering so the linker puts us in the proper
+		  order; constructors are run from right to left, and the
+		  linker sorts in increasing order.  */
+	       MAX_INIT_PRIORITY - priority);
+      section = buf;
+    }
+
+  named_section_flags (section, 0);
+  assemble_align (POINTER_SIZE);
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+}
+
+static void
+stormy16_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority;
+{
+  const char *section = ".ctors";
+  char buf[16];
+
+  /* ??? This only works reliably with the GNU linker.   */
+  if (priority != DEFAULT_INIT_PRIORITY)
+    {
+      sprintf (buf, ".ctors.%.5u",
+	       /* Invert the numbering so the linker puts us in the proper
+		  order; constructors are run from right to left, and the
+		  linker sorts in increasing order.  */
+	       MAX_INIT_PRIORITY - priority);
+      section = buf;
+    }
+
+  named_section_flags (section, 0);
+  assemble_align (POINTER_SIZE);
+  assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }
 
 /* Print a memory address as an operand to reference that memory location.  */
@@ -1844,30 +1911,34 @@ stormy16_interrupt_function_p ()
   return lookup_attribute ("interrupt", attributes) != NULL_TREE;
 }
 
-/* If defined, a C function which returns nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE stormy16_valid_type_attribute
-static int stormy16_valid_type_attribute PARAMS ((tree TYPE,
-						  tree ATTRIBUTES,
-						  tree IDENTIFIER,
-						  tree ARGS));
-
-static int
-stormy16_valid_type_attribute (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args ATTRIBUTE_UNUSED;
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE stormy16_attribute_table
+static tree stormy16_handle_interrupt_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static const struct attribute_spec stormy16_attribute_table[] =
 {
-  if (TREE_CODE (type) != FUNCTION_TYPE)
-    return 0;
-  
-  if (is_attribute_p ("interrupt", identifier))
-    return 1;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt", 0, 0, false, true,  true,  stormy16_handle_interrupt_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
 
-  return 0;
+/* Handle an "interrupt" attribute;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+stormy16_handle_interrupt_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

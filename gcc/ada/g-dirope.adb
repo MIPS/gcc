@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.2 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --            Copyright (C) 1998-2001 Ada Core Technologies, Inc.           --
 --                                                                          --
@@ -122,10 +122,7 @@ package body GNAT.Directory_Operations is
          end if;
 
          Check_For_Standard_Dirs : declare
-            Offset : constant Integer := Path'First - Base_Name.Path'First;
-            BN     : constant String  :=
-                       Base_Name.Path (Cut_Start - Offset .. Cut_End - Offset);
-            --  Here we use Base_Name.Path to keep the original casing
+            BN : constant String := Base_Name.Path (Cut_Start .. Cut_End);
 
          begin
             if BN = "." or else BN = ".." then
@@ -228,7 +225,7 @@ package body GNAT.Directory_Operations is
 
       procedure Var (K : in out Positive);
       --  Translate variable name starting at position K with the associated
-      --  environment value.
+      --  environement value.
 
       procedure Free is
          new Unchecked_Deallocation (String, OS_Lib.String_Access);
@@ -304,7 +301,7 @@ package body GNAT.Directory_Operations is
 
             if Path (E) = '}' then
 
-               --  OK found, translate with environment value
+               --  OK found, translate with environement value
 
                declare
                   Env : OS_Lib.String_Access :=

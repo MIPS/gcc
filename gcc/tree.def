@@ -51,11 +51,6 @@ DEFTREECODE (ERROR_MARK, "error_mark", 'x', 0)
    Use `get_identifier' to get it (or create it, the first time).  */
 DEFTREECODE (IDENTIFIER_NODE, "identifier_node", 'x', -1)
 
-/* Used to hold information to identify an operator (or combination
-   of two operators) considered as a `noun' rather than a `verb'.
-   The first operand is encoded in the TREE_TYPE field.  */
-DEFTREECODE (OP_IDENTIFIER, "op_identifier", 'x', 2)
-
 /* Has the TREE_VALUE and TREE_PURPOSE fields.  */
 /* These nodes are made into lists by chaining through the
    TREE_CHAIN field.  The elements of the list live in the
@@ -378,6 +373,13 @@ DEFTREECODE (ARRAY_REF, "array_ref", 'r', 2)
    starting index of the resulting array is taken from operand 1 and the size
    of the range is taken from the type of the expression.  */
 DEFTREECODE (ARRAY_RANGE_REF, "array_range_ref", 'r', 2)
+
+/* Vtable indexing.  Carries data useful for emitting information
+   for vtable garbage collection.
+   Operand 0: an array_ref (or equivalent expression)
+   Operand 1: the vtable base (must be a var_decl)
+   Operand 2: index into vtable (must be an integer_cst).  */
+DEFTREECODE (VTABLE_REF, "vtable_ref", 'r', 3)
 
 /* Constructor: return an aggregate value made from specified components.
    In C, this is used only for structure and array initializers.
@@ -721,8 +723,12 @@ DEFTREECODE (ADDR_EXPR, "addr_expr", 'e', 1)
 DEFTREECODE (REFERENCE_EXPR, "reference_expr", 'e', 1)
 
 /* Operand is a function constant; result is a function variable value
-   of typeEPmode.  Used only for languages that need static chains.  */
+   of type EPmode.  Used only for languages that need static chains.  */
 DEFTREECODE (ENTRY_VALUE_EXPR, "entry_value_expr", 'e', 1)
+
+/* Operand0 is a function constant; result is part N of a function 
+   descriptor of type ptr_mode.  */
+DEFTREECODE (FDESC_EXPR, "fdesc_expr", 'e', 2)
 
 /* Given two real or integer operands of the same type,
    returns a complex value of the corresponding complex type.  */

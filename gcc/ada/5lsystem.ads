@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                          (GNU/Linux/x86 Version)                         --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

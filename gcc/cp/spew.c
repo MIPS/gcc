@@ -113,7 +113,6 @@ static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE void end_input PARAMS ((void));
 static SPEW_INLINE void snarf_block PARAMS ((const char *, int));
 static tree snarf_defarg PARAMS ((void));
 static int frob_id PARAMS ((int, int, tree *));
@@ -358,7 +357,7 @@ read_token (t)
   return t->yychar;
 }
 
-static SPEW_INLINE void
+static void
 feed_input (input)
      struct unparsed_text *input;
 {
@@ -397,7 +396,7 @@ feed_input (input)
   feed = f;
 }
 
-static SPEW_INLINE void
+void
 end_input ()
 {
   struct feed *f = feed;
@@ -1482,7 +1481,7 @@ yyerror (msgid)
   else if (last_token == CPP_CHAR || last_token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (yylval.ttype);
-      const char *ell = (last_token == CPP_CHAR) ? "" : "L";
+      const char *const ell = (last_token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
 	error ("%s before %s'%c'", string, ell, val);
       else

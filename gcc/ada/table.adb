@@ -306,7 +306,7 @@ package body Table is
       -- Tree_Read --
       ---------------
 
-      --  Note: we allocate only the space required to accommodate the data
+      --  Note: we allocate only the space required to accomodate the data
       --  actually written, which means that a Tree_Write/Tree_Read sequence
       --  does an implicit Release.
 

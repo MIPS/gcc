@@ -144,7 +144,7 @@ extern void allocate_for_life_analysis	PARAMS ((void));
 extern int regno_uninitialized		PARAMS ((int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
-extern void cleanup_cfg			PARAMS ((int));
+extern bool cleanup_cfg			PARAMS ((int));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -163,7 +163,7 @@ extern void force_data_section		PARAMS ((void));
    the text section.  */
 extern void readonly_data_section	PARAMS ((void));
 
-/* Determine if we're in the text section. */
+/* Determine if we're in the text section.  */
 extern int in_text_section		PARAMS ((void));
 
 #ifdef CTORS_SECTION_ASM_OP
@@ -206,6 +206,15 @@ extern void function_section		PARAMS ((tree));
 
 /* Tell assembler to switch to the section for the exception table.  */
 extern void exception_section		PARAMS ((void));
+
+/* Tell assembler to switch to the section for string merging.  */
+extern void mergeable_string_section	PARAMS ((tree, unsigned HOST_WIDE_INT,
+						 unsigned int));
+
+/* Tell assembler to switch to the section for constant merging.  */
+extern void mergeable_constant_section	PARAMS ((enum machine_mode,
+						 unsigned HOST_WIDE_INT,
+						 unsigned int));
 
 /* Declare DECL to be a weak symbol.  */
 extern void declare_weak		PARAMS ((tree));
@@ -385,7 +394,7 @@ extern const char *weak_global_object_name;
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
-   compiler passes. */
+   compiler passes.  */
 
 extern int current_function_is_leaf;
 
@@ -396,7 +405,7 @@ extern int current_function_nothrow;
 
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
-   life_analysis has run. */
+   life_analysis has run.  */
 
 extern int current_function_sp_is_unchanging;
 
@@ -450,18 +459,23 @@ extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 extern void no_asm_to_stream PARAMS ((FILE *));
 
 /* Flags controling properties of a section.  */
-#define SECTION_CODE	    1	/* contains code */
-#define SECTION_WRITE	    2	/* data is writable */
-#define SECTION_DEBUG	    4	/* contains debug data */
-#define SECTION_LINKONCE    8	/* is linkonce */
-#define SECTION_SMALL	   16	/* contains "small data" */
-#define SECTION_BSS	   32	/* contains zeros only */
-#define SECTION_FORGET	   64	/* forget that we've entered the section */
-#define SECTION_MACH_DEP  128	/* subsequent bits reserved for target */
+#define SECTION_ENTSIZE	 0x000ff	/* entity size in section */
+#define SECTION_CODE	 0x00100	/* contains code */
+#define SECTION_WRITE	 0x00200	/* data is writable */
+#define SECTION_DEBUG	 0x00400	/* contains debug data */
+#define SECTION_LINKONCE 0x00800	/* is linkonce */
+#define SECTION_SMALL	 0x01000	/* contains "small data" */
+#define SECTION_BSS	 0x02000	/* contains zeros only */
+#define SECTION_FORGET	 0x04000	/* forget that we've entered the section */
+#define SECTION_MERGE	 0x08000	/* contains mergeable data */
+#define SECTION_STRINGS  0x10000	/* contains zero terminated strings without
+					   embedded zeros */
+#define SECTION_MACH_DEP 0x20000	/* subsequent bits reserved for target */
 
 extern unsigned int get_named_section_flags PARAMS ((const char *));
 extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));
 extern void named_section_flags		PARAMS ((const char *, unsigned int));
+extern bool named_section_first_declaration PARAMS((const char *));
 
 union tree_node;
 extern unsigned int default_section_type_flags PARAMS ((union tree_node *,
@@ -483,3 +497,8 @@ extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							       int));
 extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							      int));
+
+/* Emit data for vtable gc for GNU binutils.  */
+extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));
+extern void assemble_vtable_inherit PARAMS ((struct rtx_def *,
+					     struct rtx_def *));

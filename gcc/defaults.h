@@ -91,7 +91,7 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 									      \
       for (i = 0; i < thissize; i++)					      \
 	{								      \
-	  register int c = p[i];					      \
+	  int c = p[i];			   				      \
 	  if (c == '\"' || c == '\\')					      \
 	    putc ('\\', asm_out_file);					      \
 	  if (ISPRINT(c))						      \
@@ -356,6 +356,16 @@ do {								\
    STACK_BOUNDARY is required.  */
 #ifndef PREFERRED_STACK_BOUNDARY
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
+#endif
+
+/* By default, the C++ compiler will use function addresses in the
+   vtable entries.  Setting this non-zero tells the compiler to use
+   function descriptors instead.  The value of this macro says how
+   many words wide the descriptor is (normally 2).  It is assumed 
+   that the address of a function descriptor may be treated as a
+   pointer to a function.  */
+#ifndef TARGET_VTABLE_USES_DESCRIPTORS
+#define TARGET_VTABLE_USES_DESCRIPTORS 0
 #endif
 
 /* Select a format to encode pointers in exception handling data.  We

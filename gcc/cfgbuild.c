@@ -55,8 +55,6 @@ static void make_edges			PARAMS ((rtx, int, int, int));
 static void make_label_edge		PARAMS ((sbitmap *, basic_block,
 						 rtx, int));
 static void make_eh_edge		PARAMS ((sbitmap *, basic_block, rtx));
-static void find_bb_boundaries		PARAMS ((basic_block));
-static void compute_outgoing_frequencies PARAMS ((basic_block));
 
 /* Count the basic blocks of the function.  */
 
@@ -248,8 +246,7 @@ make_edges (label_value_list, min, max, update_p)
     }
 
   /* By nature of the way these get numbered, block 0 is always the entry.  */
-  if (min == 0)
-    cached_make_edge (edge_cache, ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  cached_make_edge (edge_cache, ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
 
   for (i = min; i <= max; ++i)
     {
@@ -666,27 +663,18 @@ find_basic_blocks (f, nregs, file)
   timevar_pop (TV_CFG);
 }
 
-/* State of basic block as seen by find_sub_basic_blocks.  */
-enum state
-  {
-    BLOCK_NEW = 0,
-    BLOCK_ORIGINAL,
-    BLOCK_TO_SPLIT
-  };
-#define STATE(bb) (enum state)(size_t)(bb)->aux
-#define SET_STATE(bb, state) (bb)->aux = (void *)(state)
-
-/* Scan basic block BB for possible BB boundaries inside the block
-   and create new basic blocks in the progress.  */
-
-static void
-find_bb_boundaries (bb)
+/* Assume that someone emitted code with control flow instructions to the
+   basic block.  Update the data structure.  */
+void
+find_sub_basic_blocks (bb)
      basic_block bb;
 {
   rtx insn = bb->head;
   rtx end = bb->end;
   rtx flow_transfer_insn = NULL_RTX;
   edge fallthru = NULL;
+  basic_block first_bb = bb;
+  int i;
 
   if (insn == bb->end)
     return;
@@ -706,7 +694,7 @@ find_bb_boundaries (bb)
 	    abort ();
 	  break;
 
-	  /* On code label, split current basic block.  */
+	/* On code label, split current basic block.  */
 	case CODE_LABEL:
 	  fallthru = split_block (bb, PREV_INSN (insn));
 	  if (flow_transfer_insn)
@@ -737,7 +725,7 @@ find_bb_boundaries (bb)
 	    {
 	      if (GET_CODE (PATTERN (insn)) == ADDR_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
-		abort ();
+		abort();
 	      flow_transfer_insn = insn;
 	    }
 	  else if (code == CALL_INSN)
@@ -776,87 +764,18 @@ find_bb_boundaries (bb)
      followed by cleanup at fallthru edge, so the outgoing edges may
      be dead.  */
   purge_dead_edges (bb);
-}
-
-/*  Assume that frequency of basic block B is known.  Compute frequencies
-    and probabilities of outgoing edges.  */
-
-static void
-compute_outgoing_frequencies (b)
-     basic_block b;
-{
-  edge e, f;
-  if (b->succ && b->succ->succ_next && !b->succ->succ_next->succ_next)
-    {
-      rtx note = find_reg_note (b->end, REG_BR_PROB, NULL);
-      int probability;
-
-      if (!note)
-	return;
-      probability = INTVAL (XEXP (find_reg_note (b->end,
-						 REG_BR_PROB, NULL), 0));
-      e = BRANCH_EDGE (b);
-      e->probability = probability;
-      e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
-		  / REG_BR_PROB_BASE);
-      f = FALLTHRU_EDGE (b);
-      f->probability = REG_BR_PROB_BASE - probability;
-      f->count = b->count - e->count;
-    }
-  if (b->succ && !b->succ->succ_next)
-    {
-      e = b->succ;
-      e->probability = REG_BR_PROB_BASE;
-      e->count = b->count;
-    }
-}
-
-/* Assume that someone emitted code with control flow instructions to the
-   basic block.  Update the data structure.  */
-
-void
-find_many_sub_basic_blocks (blocks)
-     sbitmap blocks;
-{
-  int i;
-  int min, max;
-
-  for (i = 0; i < n_basic_blocks; i++)
-    {
-      SET_STATE (BASIC_BLOCK (i),
-		 TEST_BIT (blocks, i)
-		 ? BLOCK_TO_SPLIT : BLOCK_ORIGINAL);
-    }
-
-  for (i = 0; i < n_basic_blocks; i++)
-    {
-      basic_block bb = BASIC_BLOCK (i);
-      if (STATE (bb) == BLOCK_TO_SPLIT)
-	find_bb_boundaries (bb);
-    }
-
-  for (i = 0; i < n_basic_blocks; i++)
-    if (STATE (BASIC_BLOCK (i)) != BLOCK_ORIGINAL)
-      break;
-  min = max = i;
-  for (; i < n_basic_blocks; i++)
-    if (STATE (BASIC_BLOCK (i)) != BLOCK_ORIGINAL)
-      max = i;
 
   /* Now re-scan and wire in all edges.  This expect simple (conditional)
      jumps at the end of each new basic blocks.  */
-  make_edges (NULL, min, max, 1);
+  make_edges (NULL, first_bb->index, bb->index, 1);
 
   /* Update branch probabilities.  Expect only (un)conditional jumps
      to be created with only the forward edges.  */
-  for (i = min; i <= max; i++)
+  for (i = first_bb->index; i <= bb->index; i++)
     {
-      edge e;
+      edge e,f;
       basic_block b = BASIC_BLOCK (i);
-
-      if (STATE (b) == BLOCK_ORIGINAL)
-	continue;
-      if (STATE (b) == BLOCK_NEW)
+      if (b != first_bb)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
@@ -866,48 +785,29 @@ find_many_sub_basic_blocks (blocks)
 	      b->frequency += EDGE_FREQUENCY (e);
 	    }
 	}
-      compute_outgoing_frequencies (b);
-    }
-  for (i = 0; i < n_basic_blocks; i++)
-    SET_STATE (BASIC_BLOCK (i), 0);
-}
-
-/* Like above but for single basic block only.  */
-
-void
-find_sub_basic_blocks (bb)
-    basic_block bb;
-{
-  int i;
-  int min, max;
-  basic_block next = (bb->index == n_basic_blocks - 1
-		      ? NULL : BASIC_BLOCK (bb->index + 1));
-
-  min = bb->index;
-  find_bb_boundaries (bb);
-  max = (next ? next->index : n_basic_blocks) - 1;
-
-  /* Now re-scan and wire in all edges.  This expect simple (conditional)
-     jumps at the end of each new basic blocks.  */
-  make_edges (NULL, min, max, 1);
-
-  /* Update branch probabilities.  Expect only (un)conditional jumps
-     to be created with only the forward edges.  */
-  for (i = min; i <= max; i++)
-    {
-      edge e;
-      basic_block b = BASIC_BLOCK (i);
-
-      if (i != min)
+      if (b->succ && b->succ->succ_next && !b->succ->succ_next->succ_next)
 	{
-	  b->count = 0;
-	  b->frequency = 0;
-	  for (e = b->pred; e; e=e->pred_next)
-	    {
-	      b->count += e->count;
-	      b->frequency += EDGE_FREQUENCY (e);
-	    }
+	  rtx note = find_reg_note (b->end, REG_BR_PROB, NULL);
+	  int probability;
+
+	  if (!note)
+	    continue;
+	  probability = INTVAL (XEXP (find_reg_note (b->end,
+						     REG_BR_PROB,
+						     NULL), 0));
+	  e = BRANCH_EDGE (b);
+	  e->probability = probability;
+	  e->count = ((b->count * probability + REG_BR_PROB_BASE / 2)
+		      / REG_BR_PROB_BASE);
+	  f = FALLTHRU_EDGE (b);
+	  f->probability = REG_BR_PROB_BASE - probability;
+	  f->count = b->count - e->count;
 	}
-      compute_outgoing_frequencies (b);
+      if (b->succ && !b->succ->succ_next)
+	{
+	  e = b->succ;
+	  e->probability = REG_BR_PROB_BASE;
+	  e->count = b->count;
+	}
     }
 }

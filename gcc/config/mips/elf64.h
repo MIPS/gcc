@@ -153,7 +153,10 @@ do {									 \
 	 size_directive_output = 1;					 \
 	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
 	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n", int_size_in_bytes (TREE_TYPE (DECL)));  \
+	 fprintf (FILE, ",");						 \
+	 fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			 \
+		  int_size_in_bytes (TREE_TYPE (DECL)));		 \
+	 fprintf (FILE, "\n");						 \
        }								 \
    } while (0)
 
@@ -194,8 +197,9 @@ do {									 \
 #define UNIQUE_SECTION(DECL,RELOC)					   \
 do {									   \
   int len, size, sec;							   \
-  char *name, *string, *prefix;						   \
-  static char *prefixes[4][2] = {					   \
+  const char *name, *prefix;						   \
+  char *string;								   \
+  static const char *const prefixes[4][2] = {				   \
     { ".text.", ".gnu.linkonce.t." },					   \
     { ".rodata.", ".gnu.linkonce.r." },					   \
     { ".data.", ".gnu.linkonce.d." },					   \

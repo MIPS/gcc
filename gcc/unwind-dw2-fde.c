@@ -243,18 +243,20 @@ get_cie_encoding (struct dwarf_cie *cie)
 {
   const unsigned char *aug, *p;
   _Unwind_Ptr dummy;
+  _Unwind_Word utmp;
+  _Unwind_Sword stmp;
 
   aug = cie->augmentation;
   if (aug[0] != 'z')
     return DW_EH_PE_absptr;
 
   p = aug + strlen (aug) + 1;		/* Skip the augmentation string.  */
-  p = read_uleb128 (p, &dummy);		/* Skip code alignment.  */
-  p = read_sleb128 (p, &dummy);		/* Skip data alignment.  */
+  p = read_uleb128 (p, &utmp);		/* Skip code alignment.  */
+  p = read_sleb128 (p, &stmp);		/* Skip data alignment.  */
   p++;					/* Skip return address column.  */
 
   aug++;				/* Skip 'z' */
-  p = read_uleb128 (p, &dummy);		/* Skip augmentation length.  */
+  p = read_uleb128 (p, &utmp);		/* Skip augmentation length.  */
   while (1)
     {
       /* This is what we're looking for.  */
@@ -291,14 +293,18 @@ get_fde_encoding (struct dwarf_fde *f)
 
 /* Comparison routines.  Three variants of increasing complexity.  */
 
-static saddr
+static int
 fde_unencoded_compare (struct object *ob __attribute__((unused)),
 		       fde *x, fde *y)
 {
-  return *(saddr *)x->pc_begin - *(saddr *)y->pc_begin;
+  if (x->pc_begin > y->pc_begin)
+    return 1;
+  if (x->pc_begin < y->pc_begin)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   _Unwind_Ptr base, x_ptr, y_ptr;
@@ -307,10 +313,14 @@ fde_single_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (ob->s.b.encoding, base, x->pc_begin, &x_ptr);
   read_encoded_value_with_base (ob->s.b.encoding, base, y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-static saddr
+static int
 fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
 {
   int x_encoding, y_encoding;
@@ -324,10 +334,14 @@ fde_mixed_encoding_compare (struct object *ob, fde *x, fde *y)
   read_encoded_value_with_base (y_encoding, base_from_object (y_encoding, ob),
 				y->pc_begin, &y_ptr);
 
-  return x_ptr - y_ptr;
+  if (x_ptr > y_ptr)
+    return 1;
+  if (x_ptr < y_ptr)
+    return -1;
+  return 0;
 }
 
-typedef saddr (*fde_compare_t) (struct object *, fde *, fde *);
+typedef int (*fde_compare_t) (struct object *, fde *, fde *);
 
 
 /* This is a special mix of insertion sort and heap sort, optimized for
@@ -940,7 +954,7 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
   __gthread_mutex_lock (&object_mutex);
 
   /* Linear search through the classified objects, to find the one
-     containing the pc.  Note that pc_begin is sorted decending, and
+     containing the pc.  Note that pc_begin is sorted descending, and
      we expect objects to be non-overlapping.  */
   for (ob = seen_objects; ob; ob = ob->next)
     if (pc >= ob->pc_begin)

@@ -478,12 +478,12 @@ combine_instructions (f, nregs)
      rtx f;
      unsigned int nregs;
 {
-  register rtx insn, next;
+  rtx insn, next;
 #ifdef HAVE_cc0
-  register rtx prev;
+  rtx prev;
 #endif
-  register int i;
-  register rtx links, nextlinks;
+  int i;
+  rtx links, nextlinks;
 
   int new_direct_jump_p = 0;
 
@@ -717,7 +717,6 @@ combine_instructions (f, nregs)
 
   if (need_refresh)
     {
-      compute_bb_for_insn (get_max_uid ());
       update_life_info (refresh_blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
 			PROP_DEATH_NOTES);
     }
@@ -1474,8 +1473,8 @@ cant_combine_insn_p (insn)
 
 static rtx
 try_combine (i3, i2, i1, new_direct_jump_p)
-     register rtx i3, i2, i1;
-     register int *new_direct_jump_p;
+     rtx i3, i2, i1;
+     int *new_direct_jump_p;
 {
   /* New patterns for I3 and I2, respectively.  */
   rtx newpat, newi2pat = 0;
@@ -1507,7 +1506,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 
   int maxreg;
   rtx temp;
-  register rtx link;
+  rtx link;
   int i;
 
   /* Exit early if one of the insns involved can't be used for
@@ -2132,6 +2131,12 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 				     i3);
 	    }
 	}
+
+      /* If we've split a jump pattern, we'll wind up with a sequence even
+	 with one instruction.  We can handle that below, so extract it.  */
+      if (m_split && GET_CODE (m_split) == SEQUENCE
+	  && XVECLEN (m_split, 0) == 1)
+	m_split = PATTERN (XVECEXP (m_split, 0, 0));
 
       if (m_split && GET_CODE (m_split) != SEQUENCE)
 	{
@@ -3262,14 +3267,14 @@ find_split_point (loc, insn)
 
 static rtx
 subst (x, from, to, in_dest, unique_copy)
-     register rtx x, from, to;
+     rtx x, from, to;
      int in_dest;
      int unique_copy;
 {
-  register enum rtx_code code = GET_CODE (x);
+  enum rtx_code code = GET_CODE (x);
   enum machine_mode op0_mode = VOIDmode;
-  register const char *fmt;
-  register int len, i;
+  const char *fmt;
+  int len, i;
   rtx new;
 
 /* Two expressions are equal if they are identical copies of a shared
@@ -3377,7 +3382,7 @@ subst (x, from, to, in_dest, unique_copy)
 	{
 	  if (fmt[i] == 'E')
 	    {
-	      register int j;
+	      int j;
 	      for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 		{
 		  if (COMBINE_RTX_EQUAL_P (XVECEXP (x, i, j), from))
@@ -6840,7 +6845,7 @@ force_to_mode (x, mode, mask, reg, just_select)
 
     binop:
       /* For most binary operations, just propagate into the operation and
-	 change the mode if we have an operation of that mode.   */
+	 change the mode if we have an operation of that mode.  */
 
       op0 = gen_lowpart_for_combine (op_mode,
 				     force_to_mode (XEXP (x, 0), mode, mask,
@@ -8825,7 +8830,7 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
   /* If we were given an invalid count, don't do anything except exactly
      what was requested.  */
 
-  if (input_count < 0 || input_count > (int) GET_MODE_BITSIZE (mode))
+  if (input_count < 0 || input_count >= (int) GET_MODE_BITSIZE (mode))
     {
       if (x)
 	return x;
@@ -9551,7 +9556,7 @@ recog_for_combine (pnewpat, insn, pnotes)
      rtx insn;
      rtx *pnotes;
 {
-  register rtx pat = *pnewpat;
+  rtx pat = *pnewpat;
   int insn_code_number;
   int num_clobbers_to_add = 0;
   int i;
@@ -9655,7 +9660,7 @@ recog_for_combine (pnewpat, insn, pnotes)
 static rtx
 gen_lowpart_for_combine (mode, x)
      enum machine_mode mode;
-     register rtx x;
+     rtx x;
 {
   rtx result;
 
@@ -9698,7 +9703,7 @@ gen_lowpart_for_combine (mode, x)
 
   if (GET_CODE (x) == MEM)
     {
-      register int offset = 0;
+      int offset = 0;
 
       /* Refuse to work on a volatile memory ref or one with a mode-dependent
 	 address.  */
@@ -10965,9 +10970,9 @@ static void
 update_table_tick (x)
      rtx x;
 {
-  register enum rtx_code code = GET_CODE (x);
-  register const char *fmt = GET_RTX_FORMAT (code);
-  register int i;
+  enum rtx_code code = GET_CODE (x);
+  const char *fmt = GET_RTX_FORMAT (code);
+  int i;
 
   if (code == REG)
     {
@@ -11149,7 +11154,7 @@ static void
 record_dead_and_set_regs (insn)
      rtx insn;
 {
-  register rtx link;
+  rtx link;
   unsigned int i;
 
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -11410,12 +11415,12 @@ get_last_value (x)
 
 static int
 use_crosses_set_p (x, from_cuid)
-     register rtx x;
+     rtx x;
      int from_cuid;
 {
-  register const char *fmt;
-  register int i;
-  register enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int i;
+  enum rtx_code code = GET_CODE (x);
 
   if (code == REG)
     {
@@ -11445,7 +11450,7 @@ use_crosses_set_p (x, from_cuid)
     {
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (use_crosses_set_p (XVECEXP (x, i, j), from_cuid))
 	      return 1;
@@ -11618,7 +11623,7 @@ mark_used_regs_combine (x)
       {
 	/* If setting a MEM, or a SUBREG of a MEM, then note any hard regs in
 	   the address.  */
-	register rtx testreg = SET_DEST (x);
+	rtx testreg = SET_DEST (x);
 
 	while (GET_CODE (testreg) == SUBREG
 	       || GET_CODE (testreg) == ZERO_EXTRACT
@@ -11640,7 +11645,7 @@ mark_used_regs_combine (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
+    const char *fmt = GET_RTX_FORMAT (code);
 
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -11648,7 +11653,7 @@ mark_used_regs_combine (x)
 	  mark_used_regs_combine (XEXP (x, i));
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      mark_used_regs_combine (XVECEXP (x, i, j));
@@ -11666,7 +11671,7 @@ remove_death (regno, insn)
      unsigned int regno;
      rtx insn;
 {
-  register rtx note = find_regno_note (insn, REG_DEAD, regno);
+  rtx note = find_regno_note (insn, REG_DEAD, regno);
 
   if (note)
     {
@@ -11695,15 +11700,15 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
      rtx to_insn;
      rtx *pnotes;
 {
-  register const char *fmt;
-  register int len, i;
-  register enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int len, i;
+  enum rtx_code code = GET_CODE (x);
 
   if (code == REG)
     {
       unsigned int regno = REGNO (x);
-      register rtx where_dead = reg_last_death[regno];
-      register rtx before_dead, after_dead;
+      rtx where_dead = reg_last_death[regno];
+      rtx before_dead, after_dead;
 
       /* Don't move the register if it gets killed in between from and to */
       if (maybe_kill_insn && reg_set_p (x, maybe_kill_insn)
@@ -11847,7 +11852,7 @@ move_deaths (x, maybe_kill_insn, from_cuid, to_insn, pnotes)
     {
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    move_deaths (XVECEXP (x, i, j), maybe_kill_insn, from_cuid,
 			 to_insn, pnotes);
@@ -11944,6 +11949,12 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 	  /* Doesn't matter much where we put this, as long as it's somewhere.
 	     It is preferable to keep these notes on branches, which is most
 	     likely to be i3.  */
+	  place = i3;
+	  break;
+
+	case REG_VTABLE_REF:
+	  /* ??? Should remain with *a particular* memory load.  Given the
+	     nature of vtable data, the last insn seems relatively safe.  */
 	  place = i3;
 	  break;
 

@@ -36,7 +36,7 @@ static HOST_WIDEST_INT right_shift PARAMS ((cpp_reader *, HOST_WIDEST_INT,
 					    unsigned HOST_WIDEST_INT));
 static struct op parse_number PARAMS ((cpp_reader *, const cpp_token *));
 static struct op parse_defined PARAMS ((cpp_reader *));
-static struct op lex PARAMS ((cpp_reader *, int, cpp_token *));
+static struct op lex PARAMS ((cpp_reader *, int));
 static const unsigned char *op_as_text PARAMS ((cpp_reader *, enum cpp_ttype));
 
 struct op
@@ -63,23 +63,23 @@ struct op
 
 struct suffix
 {
-  unsigned char s[4];
-  unsigned char u;
-  unsigned char l;
+  const unsigned char s[4];
+  const unsigned char u;
+  const unsigned char l;
 };
 
-const struct suffix vsuf_1[] = {
+static const struct suffix vsuf_1[] = {
   { "u", 1, 0 }, { "U", 1, 0 },
   { "l", 0, 1 }, { "L", 0, 1 }
 };
 
-const struct suffix vsuf_2[] = {
+static const struct suffix vsuf_2[] = {
   { "ul", 1, 1 }, { "UL", 1, 1 }, { "uL", 1, 1 }, { "Ul", 1, 1 },
   { "lu", 1, 1 }, { "LU", 1, 1 }, { "Lu", 1, 1 }, { "lU", 1, 1 },
   { "ll", 0, 2 }, { "LL", 0, 2 }
 };
 
-const struct suffix vsuf_3[] = {
+static const struct suffix vsuf_3[] = {
   { "ull", 1, 2 }, { "ULL", 1, 2 }, { "uLL", 1, 2 }, { "Ull", 1, 2 },
   { "llu", 1, 2 }, { "LLU", 1, 2 }, { "LLu", 1, 2 }, { "llU", 1, 2 }
 };
@@ -217,44 +217,40 @@ parse_defined (pfile)
 {
   int paren = 0;
   cpp_hashnode *node = 0;
-  cpp_token token;
+  const cpp_token *token;
   struct op op;
 
   /* Don't expand macros.  */
   pfile->state.prevent_expansion++;
 
-  cpp_get_token (pfile, &token);
-  if (token.type == CPP_OPEN_PAREN)
+  token = cpp_get_token (pfile);
+  if (token->type == CPP_OPEN_PAREN)
     {
       paren = 1;
-      cpp_get_token (pfile, &token);
+      token = cpp_get_token (pfile);
     }
 
-  if (token.type == CPP_NAME)
+  if (token->type == CPP_NAME)
     {
-      node = token.val.node;
-      if (paren)
+      node = token->val.node;
+      if (paren && cpp_get_token (pfile)->type != CPP_CLOSE_PAREN)
 	{
-	  cpp_get_token (pfile, &token);
-	  if (token.type != CPP_CLOSE_PAREN)
-	    {
-	      cpp_error (pfile, "missing ')' after \"defined\"");
-	      node = 0;
-	    }
+	  cpp_error (pfile, "missing ')' after \"defined\"");
+	  node = 0;
 	}
     }
   else
     {
       cpp_error (pfile, "operator \"defined\" requires an identifier");
-      if (token.flags & NAMED_OP)
+      if (token->flags & NAMED_OP)
 	{
 	  cpp_token op;
 
 	  op.flags = 0;
-	  op.type = token.type;
+	  op.type = token->type;
 	  cpp_error (pfile,
 		     "(\"%s\" is an alternative token for \"%s\" in C++)",
-		     cpp_token_as_text (pfile, &token),
+		     cpp_token_as_text (pfile, token),
 		     cpp_token_as_text (pfile, &op));
 	}
     }
@@ -282,14 +278,12 @@ parse_defined (pfile)
    CPP_EOF, or the type of an operator token.  */
 
 static struct op
-lex (pfile, skip_evaluation, token)
+lex (pfile, skip_evaluation)
      cpp_reader *pfile;
      int skip_evaluation;
-     cpp_token *token;
 {
   struct op op;
-
-  cpp_get_token (pfile, token);
+  const cpp_token *token = cpp_get_token (pfile);
 
   switch (token->type)
     {
@@ -578,8 +572,7 @@ _cpp_parse_expr (pfile)
   struct op init_stack[INIT_STACK_SIZE];
   struct op *stack = init_stack;
   struct op *limit = stack + INIT_STACK_SIZE;
-  cpp_token token;
-  register struct op *top = stack + 1;
+  struct op *top = stack + 1;
   int skip_evaluation = 0;
   int result;
   unsigned int lex_count, saw_leading_not;
@@ -603,7 +596,7 @@ _cpp_parse_expr (pfile)
       struct op op;
 
       /* Read a token */
-      op = lex (pfile, skip_evaluation, &token);
+      op = lex (pfile, skip_evaluation);
       lex_count++;
 
       /* If the token is an operand, push its value and get next
@@ -826,13 +819,13 @@ _cpp_parse_expr (pfile)
 	{
 	  if (top->flags & HAVE_VALUE)
 	    SYNTAX_ERROR2 ("missing binary operator before '%s'",
-			   op_as_text (pfile, top->op));
+			   op_as_text (pfile, op.op));
 	}
       else
 	{
 	  if (!(top->flags & HAVE_VALUE))
 	    SYNTAX_ERROR2 ("operator '%s' has no left operand",
-			   op_as_text (pfile, top->op));
+			   op_as_text (pfile, op.op));
 	}
 
       /* Check for and handle stack overflow.  */

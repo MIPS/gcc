@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *                             $Revision: 1.5 $
+ *                             $Revision: 1.4 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -52,7 +52,6 @@
 #include "output.h"
 #include "except.h"
 #include "tm_p.h"
-#include "langhooks.h"
 
 #include "ada.h"
 #include "types.h"
@@ -108,25 +107,10 @@ const char *gnat_tree_code_name[] = {
 };
 #undef DEFTREECODE
 
-static void gnat_init			PARAMS ((void));
-static void gnat_init_options		PARAMS ((void));
-static int gnat_decode_option		PARAMS ((int, char **));
-static HOST_WIDE_INT gnat_get_alias_set	PARAMS ((tree));
-
 /* Structure giving our language-specific hooks.  */
-
-#undef  LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT			gnat_init
-#undef  LANG_HOOKS_INIT_OPTIONS
-#define LANG_HOOKS_INIT_OPTIONS		gnat_init_options
-#undef  LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
-#undef LANG_HOOKS_HONOR_READONLY
-#define LANG_HOOKS_HONOR_READONLY	1
-#undef LANG_HOOKS_GET_ALIAS_SET
-#define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
-
-struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+struct lang_hooks lang_hooks = {gnat_init, 0, gnat_init_options,
+				gnat_decode_option, 0,
+			        {0, 0, 0, 0, 0, 0, 0, 0}};
 
 /* gnat standard argc argv */
 
@@ -650,12 +634,9 @@ gnat_expand_expr (exp, target, tmode, modifier)
       /* We aren't going to be doing anything with this memory, but allocate
 	 it anyway.  If it's variable size, make a bogus address.  */
       if (! host_integerp (TYPE_SIZE_UNIT (type), 1))
-	result = gen_rtx_MEM (BLKmode, virtual_stack_vars_rtx);
+	return gen_rtx_MEM (BLKmode, virtual_stack_vars_rtx);
       else
-	result = assign_temp (type, 0, TREE_ADDRESSABLE (exp), 1);
-
-      set_mem_attributes (result, exp, 1);
-      return result;
+	return assign_temp (type, 0, TREE_ADDRESSABLE (exp), 1);
 
     case ALLOCATE_EXPR:
       return
@@ -947,8 +928,8 @@ get_type_alignment (gnat_type)
 
 /* Get the alias set corresponding to a type or expression.  */
 
-static HOST_WIDE_INT
-gnat_get_alias_set (type)
+HOST_WIDE_INT
+lang_get_alias_set (type)
      tree type;
 {
   /* If this is a padding type, use the type of the first field.  */

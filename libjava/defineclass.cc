@@ -41,12 +41,9 @@ details.  */
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 
-// we don't verify method names that match these.
-static _Jv_Utf8Const *clinit_name = _Jv_makeUtf8Const ("<clinit>", 8);
-static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
+using namespace gcj;
 
-
-// these go in some seperate functions, to avoid having _Jv_InitClass
+// these go in some separate functions, to avoid having _Jv_InitClass
 // inserted all over the place.
 static void throw_internal_error (char *msg)
 	__attribute__ ((__noreturn__));
@@ -934,7 +931,11 @@ _Jv_ClassReader::handleClassBegin
   // to include references to this class.
 
   def->state = JV_STATE_PRELOADING;
-  _Jv_RegisterClass (def);
+
+  {
+    JvSynchronize sync (&java::lang::Class::class$);
+    _Jv_RegisterClass (def);
+  }
 
   if (super_class != 0)
     {

@@ -1186,7 +1186,7 @@ df_uses_record (df, loc, ref_type, bb, insn)
 
   /* Recursively scan the operands of this expression.  */
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
+    const char *fmt = GET_RTX_FORMAT (code);
     int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -2593,13 +2593,9 @@ df_insn_delete (df, bb, insn)
   /* We should not be deleting the NOTE_INSN_BASIC_BLOCK or label.  */
   if (insn == bb->head)
     abort ();
-  if (insn == bb->end)
-    bb->end = PREV_INSN (insn);  
 
   /* Delete the insn.  */
-  PUT_CODE (insn, NOTE);
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-  NOTE_SOURCE_FILE (insn) = 0;
+  delete_insn (insn);
 
   df_insn_modify (df, bb, insn);
 
@@ -2959,9 +2955,6 @@ df_pattern_emit_after (df, pattern, bb, insn)
   if (ret_insn == insn)
     return ret_insn;
 
-  if (bb->end == insn)
-    bb->end = ret_insn;
-
   df_insns_modify (df, bb, NEXT_INSN (insn), ret_insn);
   return ret_insn;
 }
@@ -2980,9 +2973,6 @@ df_jump_pattern_emit_after (df, pattern, bb, insn)
   ret_insn = emit_jump_insn_after (pattern, insn);
   if (ret_insn == insn)
     return ret_insn;
-
-  if (bb->end == insn)
-    bb->end = ret_insn;
 
   df_insns_modify (df, bb, NEXT_INSN (insn), ret_insn);
   return ret_insn;
@@ -3023,7 +3013,7 @@ df_insn_move_before (df, bb, insn, before_bb, before_insn)
   /* ???? Perhaps all the insns moved should be stored on a list
      which df_analyse removes when it recalculates data flow.  */
 
-  return emit_block_insn_before (insn, before_insn, before_bb);
+  return emit_insn_before (insn, before_insn);
 }
 
 /* Functions to query dataflow information.  */

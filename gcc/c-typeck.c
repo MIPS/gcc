@@ -191,8 +191,8 @@ tree
 common_type (t1, t2)
      tree t1, t2;
 {
-  register enum tree_code code1;
-  register enum tree_code code2;
+  enum tree_code code1;
+  enum tree_code code2;
   tree attributes;
 
   /* Save time if the two types are the same.  */
@@ -436,8 +436,8 @@ int
 comptypes (type1, type2)
      tree type1, type2;
 {
-  register tree t1 = type1;
-  register tree t2 = type2;
+  tree t1 = type1;
+  tree t2 = type2;
   int attrval, val;
 
   /* Suppress errors caused by previously reported errors.  */
@@ -505,6 +505,8 @@ comptypes (type1, type2)
       {
 	tree d1 = TYPE_DOMAIN (t1);
 	tree d2 = TYPE_DOMAIN (t2);
+	bool d1_variable, d2_variable;
+	bool d1_zero, d2_zero;
 	val = 1;
 
 	/* Target types must match incl. qualifiers.  */
@@ -513,14 +515,25 @@ comptypes (type1, type2)
 	  return 0;
 
 	/* Sizes must match unless one is missing or variable.  */
-	if (d1 == 0 || d2 == 0 || d1 == d2
-	    || TREE_CODE (TYPE_MIN_VALUE (d1)) != INTEGER_CST
-	    || TREE_CODE (TYPE_MIN_VALUE (d2)) != INTEGER_CST
-	    || TREE_CODE (TYPE_MAX_VALUE (d1)) != INTEGER_CST
-	    || TREE_CODE (TYPE_MAX_VALUE (d2)) != INTEGER_CST)
+	if (d1 == 0 || d2 == 0 || d1 == d2)
 	  break;
 
-	if (! tree_int_cst_equal (TYPE_MIN_VALUE (d1), TYPE_MIN_VALUE (d2))
+	d1_zero = ! TYPE_MAX_VALUE (d1);
+	d2_zero = ! TYPE_MAX_VALUE (d2);
+
+	d1_variable = (! d1_zero
+		       && (TREE_CODE (TYPE_MIN_VALUE (d1)) != INTEGER_CST
+			   || TREE_CODE (TYPE_MAX_VALUE (d1)) != INTEGER_CST));
+	d2_variable = (! d2_zero
+		       && (TREE_CODE (TYPE_MIN_VALUE (d2)) != INTEGER_CST
+			   || TREE_CODE (TYPE_MAX_VALUE (d2)) != INTEGER_CST));
+
+	if (d1_variable || d2_variable)
+	  break;
+	if (d1_zero && d2_zero)
+	  break;
+	if (d1_zero || d2_zero
+	    || ! tree_int_cst_equal (TYPE_MIN_VALUE (d1), TYPE_MIN_VALUE (d2))
 	    || ! tree_int_cst_equal (TYPE_MAX_VALUE (d1), TYPE_MAX_VALUE (d2)))
 	  val = 0;
 
@@ -834,8 +847,8 @@ tree
 default_conversion (exp)
      tree exp;
 {
-  register tree type = TREE_TYPE (exp);
-  register enum tree_code code = TREE_CODE (type);
+  tree type = TREE_TYPE (exp);
+  enum tree_code code = TREE_CODE (type);
 
   /* Constants can be used directly unless they're not loadable.  */
   if (TREE_CODE (exp) == CONST_DECL)
@@ -911,7 +924,7 @@ default_conversion (exp)
     }
   if (code == ARRAY_TYPE)
     {
-      register tree adr;
+      tree adr;
       tree restype = TREE_TYPE (type);
       tree ptrtype;
       int constp = 0;
@@ -1078,10 +1091,10 @@ tree
 build_component_ref (datum, component)
      tree datum, component;
 {
-  register tree type = TREE_TYPE (datum);
-  register enum tree_code code = TREE_CODE (type);
-  register tree field = NULL;
-  register tree ref;
+  tree type = TREE_TYPE (datum);
+  enum tree_code code = TREE_CODE (type);
+  tree field = NULL;
+  tree ref;
 
   /* If DATUM is a COMPOUND_EXPR or COND_EXPR, move our reference inside it
      unless we are not to support things not strictly ANSI.  */
@@ -1165,8 +1178,8 @@ build_indirect_ref (ptr, errorstring)
      tree ptr;
      const char *errorstring;
 {
-  register tree pointer = default_conversion (ptr);
-  register tree type = TREE_TYPE (pointer);
+  tree pointer = default_conversion (ptr);
+  tree type = TREE_TYPE (pointer);
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
@@ -1178,8 +1191,7 @@ build_indirect_ref (ptr, errorstring)
       else
 	{
 	  tree t = TREE_TYPE (type);
-	  register tree ref = build1 (INDIRECT_REF,
-				      TYPE_MAIN_VARIANT (t), pointer);
+	  tree ref = build1 (INDIRECT_REF, TYPE_MAIN_VARIANT (t), pointer);
 
 	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
@@ -1449,8 +1461,8 @@ tree
 build_function_call (function, params)
      tree function, params;
 {
-  register tree fntype, fundecl = 0;
-  register tree coerced_params;
+  tree fntype, fundecl = 0;
+  tree coerced_params;
   tree name = NULL_TREE, assembler_name = NULL_TREE, result;
 
   /* Strip NON_LVALUE_EXPRs, etc., since we aren't using as an lvalue.  */
@@ -1497,8 +1509,8 @@ build_function_call (function, params)
 
   /* Check for errors in format strings.  */
 
-  if (warn_format && (name || assembler_name))
-    check_function_format (NULL, name, assembler_name, coerced_params);
+  if (warn_format)
+    check_function_format (NULL, TYPE_ATTRIBUTES (fntype), coerced_params);
 
   /* Recognize certain built-in functions so we can make tree-codes
      other than CALL_EXPR.  We do this when it enables fold-const.c
@@ -1546,8 +1558,8 @@ static tree
 convert_arguments (typelist, values, name, fundecl)
      tree typelist, values, name, fundecl;
 {
-  register tree typetail, valtail;
-  register tree result = NULL;
+  tree typetail, valtail;
+  tree result = NULL;
   int parmnum;
 
   /* Scan the given expressions and types, producing individual
@@ -1557,8 +1569,8 @@ convert_arguments (typelist, values, name, fundecl)
        valtail;
        valtail = TREE_CHAIN (valtail), parmnum++)
     {
-      register tree type = typetail ? TREE_VALUE (typetail) : 0;
-      register tree val = TREE_VALUE (valtail);
+      tree type = typetail ? TREE_VALUE (typetail) : 0;
+      tree val = TREE_VALUE (valtail);
 
       if (type == void_type_node)
 	{
@@ -1853,17 +1865,17 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
      int convert_p;
 {
   tree type0, type1;
-  register enum tree_code code0, code1;
+  enum tree_code code0, code1;
   tree op0, op1;
 
   /* Expression code to give to the expression when it is built.
      Normally this is CODE, which is what the caller asked for,
      but in some special cases we change it.  */
-  register enum tree_code resultcode = code;
+  enum tree_code resultcode = code;
 
   /* Data type in which the computation is to be performed.
      In the simplest cases this is the common type of the arguments.  */
-  register tree result_type = NULL;
+  tree result_type = NULL;
 
   /* Nonzero means operands have already been type-converted
      in whatever way is necessary.
@@ -2151,8 +2163,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  register tree tt0 = TREE_TYPE (type0);
-	  register tree tt1 = TREE_TYPE (type1);
+	  tree tt0 = TREE_TYPE (type0);
+	  tree tt1 = TREE_TYPE (type1);
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
@@ -2572,8 +2584,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     build_type = result_type;
 
   {
-    register tree result = build (resultcode, build_type, op0, op1);
-    register tree folded;
+    tree result = build (resultcode, build_type, op0, op1);
+    tree folded;
 
     folded = fold (result);
     if (folded == result)
@@ -2590,16 +2602,16 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 static tree
 pointer_int_sum (resultcode, ptrop, intop)
      enum tree_code resultcode;
-     register tree ptrop, intop;
+     tree ptrop, intop;
 {
   tree size_exp;
 
-  register tree result;
-  register tree folded;
+  tree result;
+  tree folded;
 
   /* The result is a pointer of the same type that is being added.  */
 
-  register tree result_type = TREE_TYPE (ptrop);
+  tree result_type = TREE_TYPE (ptrop);
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
@@ -2678,9 +2690,9 @@ pointer_int_sum (resultcode, ptrop, intop)
 
 static tree
 pointer_diff (op0, op1)
-     register tree op0, op1;
+     tree op0, op1;
 {
-  register tree result, folded;
+  tree result, folded;
   tree restype = ptrdiff_type_node;
 
   tree target_type = TREE_TYPE (TREE_TYPE (op0));
@@ -2765,9 +2777,9 @@ build_unary_op (code, xarg, noconvert)
      int noconvert;
 {
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
-  register tree arg = xarg;
-  register tree argtype = 0;
-  register enum tree_code typecode = TREE_CODE (TREE_TYPE (arg));
+  tree arg = xarg;
+  tree argtype = 0;
+  enum tree_code typecode = TREE_CODE (TREE_TYPE (arg));
   tree val;
 
   if (typecode == ERROR_MARK)
@@ -2914,7 +2926,7 @@ build_unary_op (code, xarg, noconvert)
 	}
 
       {
-	register tree inc;
+	tree inc;
 	tree result_type = TREE_TYPE (arg);
 
 	arg = get_unwidened (arg, 0);
@@ -3175,7 +3187,7 @@ int
 lvalue_p (ref)
      tree ref;
 {
-  register enum tree_code code = TREE_CODE (ref);
+  enum tree_code code = TREE_CODE (ref);
 
   switch (code)
     {
@@ -3314,7 +3326,7 @@ int
 mark_addressable (exp)
      tree exp;
 {
-  register tree x = exp;
+  tree x = exp;
   while (1)
     switch (TREE_CODE (x))
       {
@@ -3399,11 +3411,11 @@ tree
 build_conditional_expr (ifexp, op1, op2)
      tree ifexp, op1, op2;
 {
-  register tree type1;
-  register tree type2;
-  register enum tree_code code1;
-  register enum tree_code code2;
-  register tree result_type = NULL;
+  tree type1;
+  tree type2;
+  enum tree_code code1;
+  enum tree_code code2;
+  tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
 
   ifexp = truthvalue_conversion (default_conversion (ifexp));
@@ -3587,7 +3599,7 @@ internal_build_compound_expr (list, first_p)
      tree list;
      int first_p;
 {
-  register tree rest;
+  tree rest;
 
   if (TREE_CHAIN (list) == 0)
     {
@@ -3641,10 +3653,10 @@ internal_build_compound_expr (list, first_p)
 
 tree
 build_c_cast (type, expr)
-     register tree type;
+     tree type;
      tree expr;
 {
-  register tree value = expr;
+  tree value = expr;
   
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
@@ -3843,7 +3855,7 @@ build_modify_expr (lhs, modifycode, rhs)
      tree lhs, rhs;
      enum tree_code modifycode;
 {
-  register tree result;
+  tree result;
   tree newrhs;
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
@@ -4024,9 +4036,9 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
      tree fundecl, funname;
      int parmnum;
 {
-  register enum tree_code codel = TREE_CODE (type);
-  register tree rhstype;
-  register enum tree_code coder;
+  enum tree_code codel = TREE_CODE (type);
+  tree rhstype;
+  enum tree_code coder;
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   /* Do not use STRIP_NOPS here.  We do not want an enumerator
@@ -4111,8 +4123,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 
 	  if (coder == POINTER_TYPE)
 	    {
-	      register tree ttl = TREE_TYPE (memb_type);
-	      register tree ttr = TREE_TYPE (rhstype);
+	      tree ttl = TREE_TYPE (memb_type);
+	      tree ttr = TREE_TYPE (rhstype);
 
 	      /* Any non-function converts to a [const][volatile] void *
 		 and vice versa; otherwise, targets must be the same.
@@ -4153,8 +4165,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	    {
 	      /* We have only a marginally acceptable member type;
 		 it needs a warning.  */
-	      register tree ttl = TREE_TYPE (marginal_memb_type);
-	      register tree ttr = TREE_TYPE (rhstype);
+	      tree ttl = TREE_TYPE (marginal_memb_type);
+	      tree ttr = TREE_TYPE (rhstype);
 
 	      /* Const and volatile mean something different for function
 		 types, so the usual warnings are not appropriate.  */
@@ -4187,8 +4199,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
   else if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
 	   && (coder == POINTER_TYPE || coder == REFERENCE_TYPE))
     {
-      register tree ttl = TREE_TYPE (type);
-      register tree ttr = TREE_TYPE (rhstype);
+      tree ttl = TREE_TYPE (type);
+      tree ttr = TREE_TYPE (rhstype);
 
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
@@ -4319,7 +4331,7 @@ warn_for_assignment (msgid, opname, function, argnum)
       if (function)
 	{
 	  /* Function name is known; supply it.  */
-	  const char *argstring = _("passing arg %d of `%s'");
+	  const char *const argstring = _("passing arg %d of `%s'");
 	  new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
 					+ strlen (argstring) + 1 + 25
 					/*%d*/ + 1);
@@ -4329,7 +4341,7 @@ warn_for_assignment (msgid, opname, function, argnum)
       else
 	{
 	  /* Function name unknown (call through ptr); just give arg number.*/
-	  const char *argnofun = _("passing arg %d of pointer to function");
+	  const char *const argnofun = _("passing arg %d of pointer to function");
 	  new_opname = (char *) alloca (strlen (argnofun) + 1 + 25 /*%d*/ + 1);
 	  sprintf (new_opname, argnofun, argnum);
 	}
@@ -4373,7 +4385,7 @@ void
 store_init_value (decl, init)
      tree decl, init;
 {
-  register tree value, type;
+  tree value, type;
 
   /* If variable's type was invalidly declared, just ignore it.  */
 
@@ -4507,7 +4519,7 @@ push_member_name (decl)
      tree decl;
      
 {
-  const char *string
+  const char *const string
     = DECL_NAME (decl) ? IDENTIFIER_POINTER (DECL_NAME (decl)) : "<anonymous>";
   PUSH_SPELLING (SPELLING_MEMBER, string, u.s);
 }
@@ -4526,8 +4538,8 @@ push_array_bounds (bounds)
 static int
 spelling_length ()
 {
-  register int size = 0;
-  register struct spelling *p;
+  int size = 0;
+  struct spelling *p;
 
   for (p = spelling_base; p < spelling; p++)
     {
@@ -4544,10 +4556,10 @@ spelling_length ()
 
 static char *
 print_spelling (buffer)
-     register char *buffer;
+     char *buffer;
 {
-  register char *d = buffer;
-  register struct spelling *p;
+  char *d = buffer;
+  struct spelling *p;
 
   for (p = spelling_base; p < spelling; p++)
     if (p->kind == SPELLING_BOUNDS)
@@ -4557,7 +4569,7 @@ print_spelling (buffer)
       }
     else
       {
-	register const char *s;
+	const char *s;
 	if (p->kind == SPELLING_MEMBER)
 	  *d++ = '.';
 	for (s = p->u.s; (*d = *s++); d++)
@@ -4677,6 +4689,7 @@ digest_init (type, init, require_constant, constructor_constant)
 
 	  TREE_TYPE (inside_init) = type;
 	  if (TYPE_DOMAIN (type) != 0
+	      && TYPE_SIZE (type) != 0
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
 	      /* Subtract 1 (or sizeof (wchar_t))
 		 because it's ok to ignore the terminating null char
@@ -5177,7 +5190,8 @@ really_start_incremental_init (type)
 	    = TYPE_MAX_VALUE (TYPE_DOMAIN (constructor_type));
 
 	  /* Detect non-empty initializations of zero-length arrays.  */
-	  if (constructor_max_index == NULL_TREE)
+	  if (constructor_max_index == NULL_TREE
+	      && TYPE_SIZE (constructor_type))
 	    constructor_max_index = build_int_2 (-1, -1);
 
 	  constructor_index
@@ -5339,14 +5353,15 @@ push_init_level (implicit)
 	{
 	  constructor_max_index
 	    = TYPE_MAX_VALUE (TYPE_DOMAIN (constructor_type));
+
+	  /* Detect non-empty initializations of zero-length arrays.  */
+	  if (constructor_max_index == NULL_TREE
+	      && TYPE_SIZE (constructor_type))
+	    constructor_max_index = build_int_2 (-1, -1);
+
 	  constructor_index
 	    = convert (bitsizetype, 
 		       TYPE_MIN_VALUE (TYPE_DOMAIN (constructor_type)));
-
-	  /* ??? For GCC 3.1, remove special case initialization of
-	     zero-length array members from pop_init_level and set
-	     constructor_max_index such that we get the normal
-	     "excess elements" warning.  */
 	}
       else
 	constructor_index = bitsize_zero_node;
@@ -5425,19 +5440,9 @@ pop_init_level (implicit)
 	    constructor_type = NULL_TREE;
 	}
       else
-	{
-	  warning_init ("deprecated initialization of zero-length array");
-
-	  /* We must be initializing the last member of a top-level struct.  */
-	  if (TREE_CHAIN (constructor_fields) != NULL_TREE)
-	    {
-	      error_init ("initialization of zero-length array before end of structure");
-	      /* Discard the initializer so that we do not abort later.  */
-	      constructor_type = NULL_TREE;
-	    }
-	  else if (constructor_depth > 2)
-	    error_init ("initialization of zero-length array inside a nested context");
-	}
+	/* Zero-length arrays are no longer special, so we should no longer
+	   get here.  */
+	abort();
     }
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
@@ -6848,10 +6853,10 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
      int line;
 {
   int noutputs = list_length (outputs);
-  register int i;
+  int i;
   /* o[I] is the place that output number I should be written.  */
-  register tree *o = (tree *) alloca (noutputs * sizeof (tree));
-  register tree tail;
+  tree *o = (tree *) alloca (noutputs * sizeof (tree));
+  tree tail;
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
@@ -7016,7 +7021,7 @@ tree
 c_start_case (exp)
      tree exp;
 {
-  register enum tree_code code;
+  enum tree_code code;
   tree type;
   struct c_switch *cs;
 

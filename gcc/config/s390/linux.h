@@ -23,14 +23,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _LINUX_H
 #define _LINUX_H
 
-#define IEEE_FLOAT 1
-#define TARGET_IBM_FLOAT           0
-#define TARGET_IEEE_FLOAT          1
-
-#include <s390/s390.h>              /* Base s390 target machine definitions*/
-
-#include <linux.h>
-
 #undef SIZE_TYPE                       /* use default                      */
 
 #undef TARGET_VERSION
@@ -295,7 +287,7 @@ do {                                                                    \
  */
 
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, X)
+#define SELECT_RTX_SECTION(MODE, X, ALIGN)
 
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.

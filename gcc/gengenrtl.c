@@ -95,12 +95,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct rtx_definition 
 {
-  const char *enumname, *name, *format;
+  const char *const enumname, *const name, *const format;
 };
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGX(ENUM), NAME, FORMAT },
 
-struct rtx_definition defs[] = 
+const struct rtx_definition defs[] = 
 {  
 #include "rtl.def"		/* rtl expressions are documented here */
 };
@@ -395,7 +395,7 @@ PTR
 xmalloc (nbytes)
   size_t nbytes;
 {
-  register PTR tmp = (PTR) really_call_malloc (nbytes);
+  PTR tmp = (PTR) really_call_malloc (nbytes);
 
   if (!tmp)
     {

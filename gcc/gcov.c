@@ -79,7 +79,7 @@ typedef HOST_WIDEST_INT gcov_type;
 /* The functions in this file for creating and solution program flow graphs
    are very similar to functions in the gcc source file profile.c.  */
 
-char gcov_version_string[] = "GNU gcov version 1.5\n";
+static const char gcov_version_string[] = "GNU gcov version 1.5\n";
 
 /* This is the size of the buffer used to read in source file lines.  */
 
@@ -477,7 +477,7 @@ init_arc (arcptr, source, target, bb_graph)
 }
 
 
-/* Reverse the arcs on a arc list.  */
+/* Reverse the arcs on an arc list.  */
 
 static struct adj_list *
 reverse_arcs (arcptr)

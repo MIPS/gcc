@@ -1063,6 +1063,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMESSAGES_CC=config/locale/messages_members_generic.cc
       CMONEY_CC=config/locale/moneypunct_members_generic.cc
       CNUMERIC_CC=config/locale/numpunct_members_generic.cc
+      CTIME_CC=config/locale/time_members_generic.cc
       ;;
     xgnu)
       AC_MSG_RESULT(gnu)
@@ -1091,6 +1092,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMESSAGES_CC=config/locale/messages_members_gnu.cc
       CMONEY_CC=config/locale/moneypunct_members_gnu.cc
       CNUMERIC_CC=config/locale/numpunct_members_gnu.cc
+      CTIME_CC=config/locale/time_members_gnu.cc
       ;;
     xieee_1003.1)
       AC_MSG_RESULT(generic)
@@ -1106,6 +1108,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMESSAGES_CC=config/locale/messages_members_ieee_1003.1-200x.cc
       CMONEY_CC=config/locale/moneypunct_members_generic.cc
       CNUMERIC_CC=config/locale/numpunct_members_generic.cc
+      CTIME_CC=config/locale/time_members_generic.cc
       ;;
     *)
       echo "$enable_clocale is an unknown locale package" 1>&2
@@ -1127,6 +1130,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   AC_LINK_FILES($CMESSAGES_CC, src/messages.cc)
   AC_LINK_FILES($CMONEY_CC, src/moneypunct.cc)
   AC_LINK_FILES($CNUMERIC_CC, src/numpunct.cc)
+  AC_LINK_FILES($CTIME_CC, src/time.cc)
 ])
 
 

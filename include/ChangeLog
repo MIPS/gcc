@@ -1,3 +1,29 @@
+2001-10-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* demangle.h (demangler_engine): Const-ify.
+	* libiberty.h (buildargv): Likewise.
+
+2001-09-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (reconcat): New function.
+
+2001-09-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (concat, concat_length, concat_copy, concat_copy2,
+	ACONCAT): Improve comments.
+
+2001-09-18  Alan Modra  <amodra@bigpond.net.au>
+
+	* objalloc.h (OBJALLOC_ALIGN): Define using offsetof.
+
+2001-09-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (concat_length, concat_copy, concat_copy2,
+	libiberty_concat_ptr, ACONCAT): New.
+
+	* libiberty.h (ASTRDUP): New macro.
+	libiberty_optr, libiberty_nptr, libiberty_len): Declare.
+
 2001-08-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* ansidecl.h: Update comments reflecting previous change.

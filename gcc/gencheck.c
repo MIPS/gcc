@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define DEFTREECODE(SYM, NAME, TYPE, LEN)   STRINGX(SYM),
 
-const char *tree_codes[] = {
+static const char *const tree_codes[] = {
 #include "tree.def"
 #include "c-common.def"
 #include "gencheck.h"
@@ -77,9 +77,9 @@ main (argc, argv)
    we link against libiberty.a. (ghazi@caip.rutgers.edu 6/3/98) */
 PTR
 xmalloc (nbytes)
-  size_t nbytes;
+     size_t nbytes;
 {
-  register PTR tmp = (PTR) really_call_malloc (nbytes);
+  PTR tmp = (PTR) really_call_malloc (nbytes);
 
   if (!tmp)
     {

@@ -122,7 +122,7 @@ extern int getrusage PARAMS ((int, struct rusage *));
 #endif /* DIR_UP */
 #endif /* VMS */
 
-static char dir_separator_str[] = { DIR_SEPARATOR, 0 };
+static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -226,11 +226,11 @@ static const char *cross_compile = "0";
    switch.  The only case we support now is simply appending or deleting a
    string to or from the end of the first part of the configuration name.  */
 
-struct modify_target
+const struct modify_target
 {
-  const char *sw;
-  enum add_del {ADD, DELETE} add_del;
-  const char *str;
+  const char *const sw;
+  const enum add_del {ADD, DELETE} add_del;
+  const char *const str;
 }
 modify_target[] = MODIFY_TARGET_NAME;
 #endif
@@ -781,7 +781,7 @@ static struct compiler default_compilers[] =
   {".cc", "#C++", 0}, {".cxx", "#C++", 0}, {".cpp", "#C++", 0},
   {".cp", "#C++", 0}, {".c++", "#C++", 0}, {".C", "#C++", 0},
   {".ii", "#C++", 0},
-  {".ads", "#Ada", 0}, {".adb", "#Ada", 0}, {".ada", "#Ada", 0},
+  {".ads", "#Ada", 0}, {".adb", "#Ada", 0},
   {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
   {".r", "#Ratfor", 0},
@@ -857,21 +857,21 @@ static char **preprocessor_options;
 struct option_map
 {
   /* The long option's name.  */
-  const char *name;
+  const char *const name;
   /* The equivalent short option.  */
-  const char *equivalent;
+  const char *const equivalent;
   /* Argument info.  A string of flag chars; NULL equals no options.
      a => argument required.
      o => argument optional.
      j => join argument to equivalent, making one word.
      * => require other text after NAME as an argument.  */
-  const char *arg_info;
+  const char *const arg_info;
 };
 
 /* This is the table of mappings.  Mappings are tried sequentially
    for each option encountered; the first one that matches, wins.  */
 
-struct option_map option_map[] =
+static const struct option_map option_map[] =
  {
    {"--all-warnings", "-Wall", 0},
    {"--ansi", "-ansi", 0},
@@ -954,9 +954,9 @@ struct option_map option_map[] =
 
 
 #ifdef TARGET_OPTION_TRANSLATE_TABLE
-static struct {
-  const char *option_found;
-  const char *replacements;
+static const struct {
+  const char *const option_found;
+  const char *const replacements;
 } target_option_translations[] =
 {
   TARGET_OPTION_TRANSLATE_TABLE,
@@ -1011,8 +1011,7 @@ translate_options (argcp, argvp)
 	      newv = (const char **) xrealloc (newv, newvsize);
 
 	      sp = target_option_translations[tott_idx].replacements;
-	      np = (char *) xmalloc (strlen (sp) + 1);
-	      strcpy (np, sp);
+	      np = xstrdup (sp);
 
 	      while (1)
 		{
@@ -1280,20 +1279,20 @@ static const char *gcc_exec_prefix;
 #define STANDARD_BINDIR_PREFIX "/usr/local/bin"
 #endif
 
-static const char *standard_exec_prefix = STANDARD_EXEC_PREFIX;
-static const char *standard_exec_prefix_1 = "/usr/lib/gcc/";
+static const char *const standard_exec_prefix = STANDARD_EXEC_PREFIX;
+static const char *const standard_exec_prefix_1 = "/usr/lib/gcc/";
 static const char *md_exec_prefix = MD_EXEC_PREFIX;
 
 static const char *md_startfile_prefix = MD_STARTFILE_PREFIX;
 static const char *md_startfile_prefix_1 = MD_STARTFILE_PREFIX_1;
-static const char *standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
-static const char *standard_startfile_prefix_1 = "/lib/";
-static const char *standard_startfile_prefix_2 = "/usr/lib/";
+static const char *const standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
+static const char *const standard_startfile_prefix_1 = "/lib/";
+static const char *const standard_startfile_prefix_2 = "/usr/lib/";
 
-static const char *tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
+static const char *const tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
 static const char *tooldir_prefix;
 
-static const char *standard_bindir_prefix = STANDARD_BINDIR_PREFIX;
+static const char *const standard_bindir_prefix = STANDARD_BINDIR_PREFIX;
 
 /* Subdirectory to use for locating libraries.  Set by
    set_multilib_dir based on the compilation options.  */
@@ -1362,11 +1361,11 @@ static struct spec_list static_specs[] =
    That is all that the EXTRA_SPECS macro gives us.  */
 struct spec_list_1
 {
-  const char *name;
-  const char *ptr;
+  const char *const name;
+  const char *const ptr;
 };
 
-static struct spec_list_1 extra_specs_1[] = { EXTRA_SPECS };
+static const struct spec_list_1 extra_specs_1[] = { EXTRA_SPECS };
 static struct spec_list *extra_specs = (struct spec_list *) 0;
 #endif
 
@@ -1520,7 +1519,7 @@ init_spec ()
 #ifdef USE_AS_TRADITIONAL_FORMAT
   /* Prepend "--traditional-format" to whatever asm_spec we had before.  */
   {
-    static char tf[] = "--traditional-format ";
+    static const char tf[] = "--traditional-format ";
     obstack_grow (&obstack, tf, sizeof(tf) - 1);
     obstack_grow0 (&obstack, asm_spec, strlen (asm_spec));
     asm_spec = obstack_finish (&obstack);
@@ -1738,7 +1737,7 @@ read_specs (filename, main_p)
      int main_p;
 {
   char *buffer;
-  register char *p;
+  char *p;
 
   buffer = load_specs (filename);
 
@@ -2004,11 +2003,11 @@ record_temp_file (filename, always_delete, fail_delete)
      int always_delete;
      int fail_delete;
 {
-  register char *const name = xstrdup (filename);
+  char *const name = xstrdup (filename);
 
   if (always_delete)
     {
-      register struct temp_file *temp;
+      struct temp_file *temp;
       for (temp = always_delete_queue; temp; temp = temp->next)
 	if (! strcmp (name, temp->name))
 	  goto already1;
@@ -2023,7 +2022,7 @@ record_temp_file (filename, always_delete, fail_delete)
 
   if (fail_delete)
     {
-      register struct temp_file *temp;
+      struct temp_file *temp;
       for (temp = failure_delete_queue; temp; temp = temp->next)
 	if (! strcmp (name, temp->name))
 	  goto already2;
@@ -2065,7 +2064,7 @@ delete_if_ordinary (name)
 static void
 delete_temp_files ()
 {
-  register struct temp_file *temp;
+  struct temp_file *temp;
 
   for (temp = always_delete_queue; temp; temp = temp->next)
     delete_if_ordinary (temp->name);
@@ -2077,7 +2076,7 @@ delete_temp_files ()
 static void
 delete_failure_queue ()
 {
-  register struct temp_file *temp;
+  struct temp_file *temp;
 
   for (temp = failure_delete_queue; temp; temp = temp->next)
     delete_if_ordinary (temp->name);
@@ -2436,7 +2435,8 @@ find_a_file (pprefix, name, mode)
      int mode;
 {
   char *temp;
-  const char *file_suffix = ((mode & X_OK) != 0 ? HOST_EXECUTABLE_SUFFIX : "");
+  const char *const file_suffix =
+    ((mode & X_OK) != 0 ? HOST_EXECUTABLE_SUFFIX : "");
   struct prefix_list *pl;
   int len = pprefix->max_len + strlen (name) + strlen (file_suffix) + 1;
 
@@ -3065,7 +3065,7 @@ process_command (argc, argv)
      int argc;
      const char *const *argv;
 {
-  register int i;
+  int i;
   const char *temp;
   char *temp1;
   const char *spec_lang = 0;
@@ -3413,8 +3413,8 @@ process_command (argc, argv)
 	report_times = 1;
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
-	  register const char *p = &argv[i][1];
-	  register int c = *p;
+	  const char *p = &argv[i][1];
+	  int c = *p;
 
 	  switch (c)
 	    {
@@ -3445,7 +3445,7 @@ process_command (argc, argv)
 		len = strlen (value);
 
 		/* Catch the case where the user has forgotten to append a
-		   directory seperator to the path.  Note, they may be using
+		   directory separator to the path.  Note, they may be using
 		   -B to add an executable name prefix, eg "i386-elf-", in
 		   order to distinguish between multiple installations of
 		   GCC in the same directory.  Hence we must check to see
@@ -3577,9 +3577,9 @@ process_command (argc, argv)
 			      have_c = 1;
 			      break;
 			    }
-			  else if (skip = SWITCH_TAKES_ARG (argv[j][1]))
+			  else if ((skip = SWITCH_TAKES_ARG (argv[j][1])))
 			    j += skip - (argv[j][2] != 0);
-			  else if (skip = WORD_SWITCH_TAKES_ARG (argv[j] + 1))
+			  else if ((skip = WORD_SWITCH_TAKES_ARG (argv[j] + 1)))
 			    j += skip;
 			}
 		      j++;
@@ -3909,15 +3909,13 @@ process_command (argc, argv)
 	      /* On some systems, ld cannot handle some options without
 		 a space.  So split the option from its argument.  */
 	      char *part1 = (char *) xmalloc (2);
-	      char *tmp;
 	      part1[0] = c;
 	      part1[1] = '\0';
 
 	      switches[n_switches].part1 = part1;
 	      switches[n_switches].args
 		= (const char **) xmalloc (2 * sizeof (const char *));
-	      switches[n_switches].args[0] = tmp = xmalloc (strlen (p));
-	      strcpy (tmp, &p[1]);
+	      switches[n_switches].args[0] = xstrdup (p+1);
 	      switches[n_switches].args[1] = 0;
 	    }
 	  else
@@ -4062,8 +4060,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
      int inswitch;
      const char *soft_matched_part;
 {
-  register const char *p = spec;
-  register int c;
+  const char *p = spec;
+  int c;
   int i;
   const char *string;
   int value;
@@ -4579,7 +4577,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 	  case 'C':
 	    {
-	      const char* spec 
+	      const char *const spec
 		= (input_file_compiler->cpp_spec 
 		   ? input_file_compiler->cpp_spec 
 		   : cpp_spec);
@@ -5006,7 +5004,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 static const char *
 handle_braces (p)
-     register const char *p;
+     const char *p;
 {
   const char *filter, *body = NULL, *endbody = NULL;
   int pipe_p = 0;
@@ -5078,8 +5076,8 @@ next_member:
     {
       if (*p != '}' && *p != '&')
 	{
-	  register int count = 1;
-	  register const char *q = p;
+	  int count = 1;
+	  const char *q = p;
 
 	  while (*q++ != ':')
 	    continue;
@@ -5092,7 +5090,7 @@ next_member:
 	      else if (*q == '}')
 		count--;
 	      else if (*q == 0)
-		abort ();
+		fatal ("Mismatched braces in specs");
 	      q++;
 	    }
 	  endbody = q;
@@ -5117,7 +5115,7 @@ next_member:
   else if (p[-1] == '*' && (p[0] == '}' || p[0] == '&'))
     {
       /* Substitute all matching switches as separate args.  */
-      register int i;
+      int i;
 
       for (i = 0; i < n_switches; i++)
 	if (!strncmp (switches[i].part1, filter, p - 1 - filter)
@@ -5135,7 +5133,7 @@ next_member:
   else
     {
       /* Test for presence of the specified switch.  */
-      register int i;
+      int i;
       int present = 0;
 
       /* If name specified ends in *, as in {x*:...},
@@ -5421,12 +5419,7 @@ find_file (name)
   /* Try multilib_dir if it is defined.  */
   if (multilib_dir != NULL)
     {
-      char *try;
-
-      try = (char *) alloca (strlen (multilib_dir) + strlen (name) + 2);
-      strcpy (try, multilib_dir);
-      strcat (try, dir_separator_str);
-      strcat (try, name);
+      const char *const try = ACONCAT ((multilib_dir, dir_separator_str, name, NULL));
 
       newname = find_a_file (&startfile_prefixes, try, R_OK);
 
@@ -5494,7 +5487,7 @@ static void
 set_input (filename)
      const char *filename;
 {
-  register const char *p;
+  const char *p;
 
   input_filename = filename;
   input_filename_length = strlen (input_filename);
@@ -5811,17 +5804,8 @@ main (argc, argv)
 
   /* If we have a GCC_EXEC_PREFIX envvar, modify it for cpp's sake.  */
   if (gcc_exec_prefix)
-    {
-      char *temp = (char *) xmalloc (strlen (gcc_exec_prefix)
-				     + strlen (spec_version)
-				     + strlen (spec_machine) + 3);
-      strcpy (temp, gcc_exec_prefix);
-      strcat (temp, spec_machine);
-      strcat (temp, dir_separator_str);
-      strcat (temp, spec_version);
-      strcat (temp, dir_separator_str);
-      gcc_exec_prefix = temp;
-    }
+    gcc_exec_prefix = concat (gcc_exec_prefix, spec_machine, dir_separator_str,
+			      spec_version, dir_separator_str, NULL);
 
   /* Now we have the specs.
      Set the `valid' bits for switches that match anything in any spec.  */
@@ -5900,7 +5884,7 @@ main (argc, argv)
 
       /* We do not exit here.  Instead we have created a fake input file
 	 called 'help-dummy' which needs to be compiled, and we pass this
-	 on the the various sub-processes, along with the --help switch.  */
+	 on the various sub-processes, along with the --help switch.  */
     }
 
   if (verbose_flag)
@@ -5980,11 +5964,17 @@ main (argc, argv)
 	  /* Ok, we found an applicable compiler.  Run its spec.  */
 
 	  if (input_file_compiler->spec[0] == '#')
-	    error ("%s: %s compiler not installed on this system",
-		   input_filename, &input_file_compiler->spec[1]);
-	  value = do_spec (input_file_compiler->spec);
-	  if (value < 0)
-	    this_file_error = 1;
+	    {
+	      error ("%s: %s compiler not installed on this system",
+		     input_filename, &input_file_compiler->spec[1]);
+	      this_file_error = 1;
+	    }
+	  else
+	    {
+	      value = do_spec (input_file_compiler->spec);
+	      if (value < 0)
+		this_file_error = 1;
+	    }
 	}
 
       /* If this file's name does not contain a recognized suffix,
@@ -6148,7 +6138,7 @@ save_string (s, len)
      const char *s;
      int len;
 {
-  register char *result = xmalloc (len + 1);
+  char *result = xmalloc (len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;
@@ -6242,8 +6232,8 @@ static void
 validate_all_switches ()
 {
   struct compiler *comp;
-  register const char *p;
-  register char c;
+  const char *p;
+  char c;
   struct spec_list *spec;
 
   for (comp = compilers; comp->spec; comp++)
@@ -6279,9 +6269,9 @@ static void
 validate_switches (start)
      const char *start;
 {
-  register const char *p = start;
+  const char *p = start;
   const char *filter;
-  register int i;
+  int i;
   int suffix;
 
   if (*p == '|')

@@ -36,6 +36,9 @@ extern void ix86_expand_epilogue PARAMS ((int));
 extern void ix86_output_function_block_profiler PARAMS ((FILE *, int));
 extern void ix86_output_block_profiler PARAMS ((FILE *, int));
 
+extern void ix86_output_addr_vec_elt PARAMS ((FILE *, int));
+extern void ix86_output_addr_diff_elt PARAMS ((FILE *, int, int));
+
 #ifdef RTX_CODE
 extern int ix86_aligned_p PARAMS ((rtx));
 
@@ -94,6 +97,7 @@ extern void print_operand PARAMS ((FILE*, rtx, int));
 extern void print_operand_address PARAMS ((FILE*, rtx));
 
 extern void split_di PARAMS ((rtx[], int, rtx[], rtx[]));
+extern void split_ti PARAMS ((rtx[], int, rtx[], rtx[]));
 
 extern const char *output_387_binary_op PARAMS ((rtx, rtx*));
 extern const char *output_fix_trunc PARAMS ((rtx, rtx*));
@@ -135,6 +139,16 @@ extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
 extern int x86_64_sign_extended_value PARAMS ((rtx));
 extern int x86_64_zero_extended_value PARAMS ((rtx));
+extern rtx ix86_libcall_value PARAMS ((enum machine_mode));
+extern bool ix86_function_value_regno_p PARAMS ((int));
+extern bool ix86_function_arg_regno_p PARAMS ((int));
+extern int ix86_function_arg_boundary PARAMS ((enum machine_mode, tree));
+extern int ix86_return_in_memory PARAMS ((tree));
+extern void ix86_va_start PARAMS ((int, tree, rtx));
+extern rtx ix86_va_arg PARAMS ((tree, tree));
+extern void ix86_setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
+						 enum machine_mode,
+						 tree, int *, int));
 
 extern rtx ix86_force_to_memory PARAMS ((enum machine_mode, rtx));
 extern void ix86_free_from_memory PARAMS ((enum machine_mode));
@@ -160,6 +174,7 @@ extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int));
+extern rtx ix86_function_value PARAMS ((tree));
 extern void ix86_init_builtins PARAMS ((void));
 extern void ix86_init_mmx_sse_builtins PARAMS ((void));
 extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
@@ -169,13 +184,14 @@ extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int))
 
 #ifdef TREE_CODE
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));
+extern tree ix86_build_va_list PARAMS ((void));
 
 extern int ix86_data_alignment PARAMS ((tree, int));
 extern int ix86_local_alignment PARAMS ((tree, int));
 extern int ix86_constant_alignment PARAMS ((tree, int));
-extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int i386_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int i386_pe_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern tree ix86_handle_dll_attribute PARAMS ((tree *, tree, tree, int, bool *));
+extern tree ix86_handle_shared_attribute PARAMS ((tree *, tree, tree, int, bool *));
+
 extern unsigned int i386_pe_section_type_flags PARAMS ((tree, const char *,
 							int));
 extern void i386_pe_asm_named_section PARAMS ((const char *, unsigned int));

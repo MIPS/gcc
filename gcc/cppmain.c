@@ -32,6 +32,8 @@ struct printer
 {
   FILE *outf;			/* Stream to write to.  */
   const struct line_map *map;	/* Logical to physical line mappings.  */
+  const cpp_token *prev;	/* Previous token.  */
+  const cpp_token *source;	/* Source token for spacing.  */
   unsigned int line;		/* Line currently being written.  */
   unsigned char printed;	/* Nonzero if something output at line.  */
 };
@@ -43,7 +45,7 @@ static void setup_callbacks PARAMS ((void));
 
 /* General output routines.  */
 static void scan_translation_unit PARAMS ((cpp_reader *));
-static void check_multiline_token PARAMS ((cpp_string *));
+static void check_multiline_token PARAMS ((const cpp_string *));
 static int dump_macro PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 
 static void print_line PARAMS ((const struct line_map *, unsigned int,
@@ -52,6 +54,7 @@ static void maybe_print_line PARAMS ((const struct line_map *, unsigned int));
 
 /* Callback routines for the parser.   Most of these are active only
    in specific modes.  */
+static void cb_line_change PARAMS ((cpp_reader *, const cpp_token *, int));
 static void cb_define	PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
 static void cb_undef	PARAMS ((cpp_reader *, unsigned int, cpp_hashnode *));
 static void cb_include	PARAMS ((cpp_reader *, unsigned int,
@@ -143,6 +146,7 @@ do_preprocessing (argc, argv)
      cause a linemarker to be output by maybe_print_line.  */
   print.line = (unsigned int) -1;
   print.printed = 0;
+  print.prev = 0;
   print.map = 0;
   
   /* Open the output now.  We must do so even if no_output is on,
@@ -194,6 +198,7 @@ setup_callbacks ()
 
   if (! options->no_output)
     {
+      cb->line_change = cb_line_change;
       cb->ident      = cb_ident;
       cb->def_pragma = cb_def_pragma;
       if (! options->no_line_commands)
@@ -211,55 +216,50 @@ setup_callbacks ()
     }
 }
 
-/* Writes out the preprocessed file.  Alternates between two tokens,
-   so that we can avoid accidental token pasting.  */
+/* Writes out the preprocessed file, handling spacing and paste
+   avoidance issues.  */
 static void
 scan_translation_unit (pfile)
      cpp_reader *pfile;
 {
-  unsigned int index, line;
-  cpp_token tokens[2], *token;
+  bool avoid_paste = false;
 
-  for (index = 0;; index = 1 - index)
+  print.source = NULL;
+  for (;;)
     {
-      token = &tokens[index];
-      cpp_get_token (pfile, token);
+      const cpp_token *token = cpp_get_token (pfile);
+
+      if (token->type == CPP_PADDING)
+	{
+	  avoid_paste = true;
+	  if (print.source == NULL
+	      || (!(print.source->flags & PREV_WHITE)
+		  && token->val.source == NULL))
+	    print.source = token->val.source;
+	  continue;
+	}
 
       if (token->type == CPP_EOF)
 	break;
 
-      line = cpp_get_line (pfile)->output_line;
-      if (print.line != line)
+      /* Subtle logic to output a space if and only if necessary.  */
+      if (avoid_paste)
 	{
-	  unsigned int col = cpp_get_line (pfile)->col;
-
-	  /* Supply enough whitespace to put this token in its original
-	     column.  Don't bother trying to reconstruct tabs; we can't
-	     get it right in general, and nothing ought to care.  (Yes,
-	     some things do care; the fault lies with them.)  */
-	  maybe_print_line (print.map, line);
-	  if (col > 1)
-	    {
-	      if (token->flags & PREV_WHITE)
-		col--;
-	      while (--col)
-		putc (' ', print.outf);
-	    }
+	  if (print.source == NULL)
+	    print.source = token;
+	  if (print.source->flags & PREV_WHITE
+	      || (print.prev && cpp_avoid_paste (pfile, print.prev, token))
+	      || (print.prev == NULL && token->type == CPP_HASH))
+	    putc (' ', print.outf);
 	}
-      else if ((token->flags & (PREV_WHITE | AVOID_LPASTE))
-	       == AVOID_LPASTE
-	       && cpp_avoid_paste (pfile, &tokens[1 - index], token))
-	token->flags |= PREV_WHITE;
-      /* Special case '# <directive name>': insert a space between
-	 the # and the token.  This will prevent it from being
-	 treated as a directive when this code is re-preprocessed.
-	 XXX Should do this only at the beginning of a line, but how?  */
-      else if (token->type == CPP_NAME && token->val.node->directive_index
-	       && tokens[1 - index].type == CPP_HASH)
-	token->flags |= PREV_WHITE;
+      else if (token->flags & PREV_WHITE)
+	putc (' ', print.outf);
 
+      avoid_paste = false;
+      print.source = NULL;
+      print.prev = token;
       cpp_output_token (token, print.outf);
-      print.printed = 1;
+
       if (token->type == CPP_STRING || token->type == CPP_WSTRING
 	  || token->type == CPP_COMMENT)
 	check_multiline_token (&token->val.str);
@@ -269,7 +269,7 @@ scan_translation_unit (pfile)
 /* Adjust print.line for newlines embedded in tokens.  */
 static void
 check_multiline_token (str)
-     cpp_string *str;
+     const cpp_string *str;
 {
   unsigned int i;
 
@@ -335,7 +335,36 @@ print_line (map, line, special_flags)
     }
 }
 
-/* Callbacks.  */
+/* Called when a line of output is started.  TOKEN is the first token
+   of the line, and may be CPP_EOF.  */
+
+static void
+cb_line_change (pfile, token, parsing_args)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const cpp_token *token;
+     int parsing_args;
+{
+  if (token->type == CPP_EOF || parsing_args)
+    return;
+
+  maybe_print_line (print.map, token->line);
+  print.printed = 1;
+  print.prev = 0;
+  print.source = 0;
+
+  /* Supply enough spaces to put this token in its original column,
+     one space per column greater than 2, since scan_translation_unit
+     will provide a space if PREV_WHITE.  Don't bother trying to
+     reconstruct tabs; we can't get it right in general, and nothing
+     ought to care.  Some things do care; the fault lies with them.  */
+  if (token->col > 2)
+    {
+      unsigned int spaces = token->col - 2;
+
+      while (spaces--)
+	putc (' ', print.outf);
+    }
+}
 
 static void
 cb_ident (pfile, line, str)

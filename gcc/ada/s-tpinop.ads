@@ -2,13 +2,14 @@
 --                                                                          --
 --                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
 --                                                                          --
---                SYSTEM.TASK_PRIMITIVES.INTERRUPT_OPERATIONS               --
+--                S Y S T E M . T A S K _ P R I M I T I V E S .             --
+--                   I N T E R R U P T _ O P E R A T I O N S                --
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision$
+--                             $Revision: 1.1 $                             --
 --                                                                          --
---           Copyright (C) 1998-2001 Free Software Foundation, Inc.         --
+--              Copyright (C) 1998 Free Software Foundation, Inc.           --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --

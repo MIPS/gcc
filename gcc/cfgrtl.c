@@ -603,7 +603,6 @@ merge_blocks_nomove (a, b)
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->pred = b->succ = NULL;
-  a->global_live_at_end = b->global_live_at_end;
 
   expunge_block (b);
 
@@ -1133,7 +1132,7 @@ split_edge (edge_in)
 
   /* Create the basic block note.
 
-     Where we place the note can have a noticeable impact on the generated
+     Where we place the note can have a noticable impact on the generated
      code.  Consider this cfg:
 
 		        E
@@ -1504,7 +1503,7 @@ print_rtl_with_bb (outf, rtx_first)
    - overlapping of basic blocks
    - edge list correctness
    - headers of basic blocks (the NOTE_INSN_BASIC_BLOCK note)
-   - tails of basic blocks (ensure that boundary is necessary)
+   - tails of basic blocks (ensure that boundary is necesary)
    - scans body of the basic block for JUMP_INSN, CODE_LABEL
      and NOTE_INSN_BASIC_BLOCK
    - check that all insns are in the basic blocks

@@ -1845,9 +1845,18 @@ build_invokevirtual (dtable, method)
   method_index = size_binop (PLUS_EXPR, method_index, size_int (2));
   method_index = size_binop (MULT_EXPR, method_index,
 			     TYPE_SIZE_UNIT (nativecode_ptr_ptr_type_node));
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    method_index = size_binop (MULT_EXPR, method_index,
+			       size_int (TARGET_VTABLE_USES_DESCRIPTORS));
+
   func = fold (build (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
 		      convert (nativecode_ptr_ptr_type_node, method_index)));
-  func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
+
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
+  else
+    func = build1 (INDIRECT_REF, nativecode_ptr_type_node, func);
 
   return func;
 }
@@ -1916,7 +1925,7 @@ expand_invoke (opcode, method_ref_index, nargs)
   tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool, method_ref_index);
   tree self_type = get_class_constant
     (current_jcf, COMPONENT_REF_CLASS_INDEX(&current_jcf->cpool, method_ref_index));
-  const char *self_name
+  const char *const self_name
     = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree call, func, method, arg_list, method_type;
   tree check = NULL_TREE;

@@ -178,9 +178,6 @@ struct expr_status
 
 struct function
 {
-  struct function *next_global;
-  struct function *next;
-
   struct eh_status *eh;
   struct stmt_status *stmt;
   struct expr_status *expr;
@@ -192,8 +189,11 @@ struct function
   /* Name of this function.  */
   const char *name;
 
-  /* Points to the FUNCTION_DECL of this function. */
+  /* Points to the FUNCTION_DECL of this function.  */
   tree decl;
+
+  /* Function containing this function, if any.  */
+  struct function *outer;
 
   /* Number of bytes of args popped by function being compiled on its return.
      Zero if no bytes are to be popped.
@@ -236,7 +236,7 @@ struct function
   const char *cannot_inline;
 
   /* Opaque pointer used by get_hard_reg_initial_val and
-     has_hard_reg_initial_val (see integrate.[hc]). */
+     has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
 
   /* Number of function calls seen so far in current function.  */
@@ -329,7 +329,7 @@ struct function
   rtx x_last_parm_insn;
 
   /* 1 + last pseudo register number possibly used for loading a copy
-     of a parameter of this function. */
+     of a parameter of this function.  */
   unsigned int x_max_parm_reg;
 
   /* Vector indexed by REGNO, containing location on stack in which
@@ -477,13 +477,13 @@ struct function
 
   /* Nonzero if the current function needs an lsda for exception handling.  */
   unsigned int uses_eh_lsda : 1;
+
+  /* Nonzero if code to initialize arg_pointer_save_area has been emited.  */
+  unsigned int arg_pointer_save_area_init : 1;
 };
 
 /* The function currently being compiled.  */
 extern struct function *cfun;
-
-/* A list of all functions we have compiled so far.  */
-extern struct function *all_functions;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
@@ -553,9 +553,6 @@ extern tree inline_function_decl;
    return the `struct function' for it.  */
 struct function *find_function_data PARAMS ((tree));
 
-/* Pointer to chain of `struct function' for containing functions.  */
-extern struct function *outer_function_chain;
-
 /* Set NOTE_BLOCK for each block note in the current function.  */
 extern void identify_blocks PARAMS ((void));
 
@@ -595,6 +592,7 @@ extern void free_after_parsing		PARAMS ((struct function *));
 extern void free_after_compilation	PARAMS ((struct function *));
 
 extern void init_varasm_status		PARAMS ((struct function *));
+extern void restore_varasm_status	PARAMS ((struct function *));
 extern void free_varasm_status		PARAMS ((struct function *));
 extern void free_emit_status		PARAMS ((struct function *));
 extern void free_stmt_status            PARAMS ((struct function *));

@@ -1072,12 +1072,12 @@ package body Exp_Util is
    --    Val : T := Expr;
    --
    --  <elsif Expr is an entity_name>
-   --    Val : T (constraints taken from Expr) := Expr;
+   --    Val : T (contraints taken from Expr) := Expr;
    --
    --  <else>
    --    type Axxx is access all T;
    --    Rval : Axxx := Expr'ref;
-   --    Val  : T (constraints taken from Rval) := Rval.all;
+   --    Val  : T (contraints taken from Rval) := Rval.all;
 
    --    ??? note: when the Expression is allocated in the secondary stack
    --              we could use it directly instead of copying it by declaring

@@ -29,10 +29,10 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "obstack.h"
-
 #include "tree.h"
 #include "flags.h"
 #include "cp-tree.h"
+#include "tree-inline.h"
 #include "decl.h"
 #include "parse.h"
 #include "lex.h"
@@ -84,6 +84,7 @@ static htab_t local_specializations;
 #define UNIFY_ALLOW_OUTER_LEVEL 16
 #define UNIFY_ALLOW_OUTER_MORE_CV_QUAL 32
 #define UNIFY_ALLOW_OUTER_LESS_CV_QUAL 64
+#define UNIFY_ALLOW_MAX_CORRECTION 128
 
 #define GTB_VIA_VIRTUAL 1 /* The base class we are examining is
 			     virtual, or a base class of a virtual
@@ -1040,6 +1041,12 @@ determine_specialization (template_id, decl, targs_out,
 	     Here, S<int>::f is a non-template, but S<int> is a
 	     template class.  If FN has the same type as DECL, we
 	     might be in business.  */
+
+	  if (!DECL_TEMPLATE_INFO (fn))
+	    /* Its enclosing class is an explicit specialization
+	       of a template class.  This is not a candidate.  */
+	    continue;
+
 	  if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			    TREE_TYPE (TREE_TYPE (fn))))
 	    /* The return types differ.  */
@@ -1929,7 +1936,7 @@ process_template_parm (list, next)
       my_friendly_assert (TREE_CODE (TREE_PURPOSE (parm)) == TREE_LIST, 260);
       /* is a const-param */
       parm = grokdeclarator (TREE_VALUE (parm), TREE_PURPOSE (parm),
-			     PARM, 0, NULL_TREE);
+			     PARM, 0, NULL);
 
       /* [temp.param]
 
@@ -3906,6 +3913,19 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
       tree arglist2;
 
       parmlist = DECL_INNERMOST_TEMPLATE_PARMS (template);
+
+      /* Consider an example where a template template parameter declared as
+
+	   template <class T, class U = std::allocator<T> > class TT
+
+	 The template parameter level of T and U are one level larger than 
+	 of TT.  To proper process the default argument of U, say when an 
+	 instantiation `TT<int>' is seen, we need to build the full
+	 arguments containing {int} as the innermost level.  Outer levels
+	 can be obtained from `current_template_args ()'.  */
+
+      if (processing_template_decl)
+	arglist = add_to_template_args (current_template_args (), arglist);
 
       arglist2 = coerce_template_parms (parmlist, arglist, template,
                                         complain, /*require_all_args=*/1);
@@ -5992,7 +6012,7 @@ tsubst_decl (t, args, type)
 	/* For __PRETTY_FUNCTION__ we have to adjust the initializer.  */
 	if (DECL_PRETTY_FUNCTION_P (r))
 	  {
-	    const char *name = (*decl_printable_name)
+	    const char *const name = (*decl_printable_name)
 	      			(current_function_decl, 2);
 	    DECL_INITIAL (r) = cp_fname_init (name);
 	    TREE_TYPE (r) = TREE_TYPE (DECL_INITIAL (r));
@@ -6251,7 +6271,6 @@ tsubst (t, args, complain, in_decl)
 
     case ERROR_MARK:
     case IDENTIFIER_NODE:
-    case OP_IDENTIFIER:
     case VOID_TYPE:
     case REAL_TYPE:
     case COMPLEX_TYPE:
@@ -6424,7 +6443,7 @@ tsubst (t, args, complain, in_decl)
 	      }
 	    else
 	      {
-		r = copy_node (t);
+		r = copy_type (t);
 		TEMPLATE_TYPE_PARM_INDEX (r)
 		  = reduce_template_parm_level (TEMPLATE_TYPE_PARM_INDEX (t),
 						r, levels);
@@ -8455,7 +8474,14 @@ check_cv_quals_for_unify (strict, arg, parm)
        qualified at this point.
      UNIFY_ALLOW_OUTER_LESS_CV_QUAL:
        This is the outermost level of a deduction, and PARM can be less CV
-       qualified at this point.  */
+       qualified at this point.
+     UNIFY_ALLOW_MAX_CORRECTION:
+       This is an INTEGER_TYPE's maximum value.  Used if the range may
+       have been derived from a size specification, such as an array size.
+       If the size was given by a nontype template parameter N, the maximum
+       value will have the form N-1.  The flag says that we can (and indeed
+       must) unify N with (ARG + 1), an exception to the normal rules on
+       folding PARM.  */
 
 static int
 unify (tparms, targs, parm, arg, strict)
@@ -8511,6 +8537,7 @@ unify (tparms, targs, parm, arg, strict)
   strict &= ~UNIFY_ALLOW_DERIVED;
   strict &= ~UNIFY_ALLOW_OUTER_MORE_CV_QUAL;
   strict &= ~UNIFY_ALLOW_OUTER_LESS_CV_QUAL;
+  strict &= ~UNIFY_ALLOW_MAX_CORRECTION;
   
   switch (TREE_CODE (parm))
     {
@@ -8766,7 +8793,8 @@ unify (tparms, targs, parm, arg, strict)
 	    return 1;
 	  if (TYPE_MAX_VALUE (parm) && TYPE_MAX_VALUE (arg)
 	      && unify (tparms, targs, TYPE_MAX_VALUE (parm),
-			TYPE_MAX_VALUE (arg), UNIFY_ALLOW_INTEGER))
+			TYPE_MAX_VALUE (arg),
+			UNIFY_ALLOW_INTEGER | UNIFY_ALLOW_MAX_CORRECTION))
 	    return 1;
 	}
       /* We have already checked cv-qualification at the top of the
@@ -8896,7 +8924,8 @@ unify (tparms, targs, parm, arg, strict)
       return 1;
 
     case MINUS_EXPR:
-      if (TREE_CODE (TREE_OPERAND (parm, 1)) == INTEGER_CST)
+      if (tree_int_cst_equal (TREE_OPERAND (parm, 1), integer_one_node)
+	  && (strict_in & UNIFY_ALLOW_MAX_CORRECTION))
 	{
 	  /* We handle this case specially, since it comes up with
 	     arrays.  In particular, something like:
@@ -9357,7 +9386,7 @@ void
 do_decl_instantiation (declspecs, declarator, storage)
      tree declspecs, declarator, storage;
 {
-  tree decl = grokdeclarator (declarator, declspecs, NORMAL, 0, NULL_TREE);
+  tree decl = grokdeclarator (declarator, declspecs, NORMAL, 0, NULL);
   tree result = NULL_TREE;
   int extern_p = 0;
 
@@ -9881,7 +9910,8 @@ instantiate_decl (d, defer_ok)
   /* Reject all external templates except inline functions.  */
   else if (DECL_INTERFACE_KNOWN (d)
 	   && ! DECL_NOT_REALLY_EXTERN (d)
-	   && ! (TREE_CODE (d) == FUNCTION_DECL && DECL_INLINE (d)))
+	   && ! (TREE_CODE (d) == FUNCTION_DECL 
+		 && DECL_INLINE (d)))
     goto out;
   /* Defer all other templates, unless we have been explicitly
      forbidden from doing so.  We restore the source position here

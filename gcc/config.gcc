@@ -92,10 +92,10 @@
 #
 #  c_target_objs	List of extra target-dependant objects that be
 #			linked into the C compiler only.
-#  
+#
 #  cxx_target_objs	List of extra target-dependant objects that be
 #			linked into the C++ compiler only.
-#  
+#
 #  build_xm_defines	List of macros to define when compiling for the
 #			build machine.
 #
@@ -222,6 +222,9 @@ c*-convex-*)
 i[34567]86-*-*)
 	cpu_type=i386
 	;;
+x86_64-*-*)
+	cpu_type=i386
+	;;
 hppa*-*-* | parisc*-*-*)
 	cpu_type=pa
 	;;
@@ -252,7 +255,7 @@ case $machine in
 *-*-*aout*)
 	use_collect2=yes
 	;;
-esac	
+esac
 
 # Common parts for GNU/Linux, GNU/Hurd, OpenBSD and FreeBSD systems.
 case $machine in
@@ -278,9 +281,6 @@ case $machine in
 	case $machine in
 	i[34567]86-*-*)
 		tm_file="${cpu_type}/${cpu_type}.h i386/att.h linux.h i386/linux.h gnu.h ${tm_file}"
-		;;
-	mips*-*-*)
-		tm_file="svr4.h ${cpu_type}/${cpu_type}.h ${tm_file}"
 		;;
 	esac
 	;;
@@ -398,6 +398,14 @@ a29k-wrs-vxworks*)
 a29k-*-*)			# Default a29k environment.
 	use_collect2=yes
 	;;
+alpha*-*-unicosmk*)
+	use_collect2=yes
+	tm_file="${tm_file} alpha/unicosmk.h"
+
+	# Don't include t-ieee for now because we don't support that yet
+	# tmake_file="alpha/t-ieee"
+	tmake_file="alpha/t-unicosmk"
+	;;
 alpha-*-interix)
 	tm_file="${tm_file} alpha/alpha32.h interix.h alpha/alpha-interix.h"
 
@@ -463,7 +471,7 @@ alpha*-*-openbsd*)
 	target_cpu_default="MASK_GAS"
 	tmake_file="alpha/t-alpha alpha/t-ieee"
 	;;
-	
+
 alpha*-dec-osf*)
 	xm_defines=POSIX
 	if test x$stabs = xyes
@@ -523,7 +531,7 @@ arc-*-elf*)
 	extra_parts="crtinit.o crtfini.o"
 	;;
 arm*-*-rtems*)
-	tm_file=arm/rtems-elf.h
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h arm/rtems-elf.h rtems.h"
 	tmake_file="arm/t-arm-elf t-rtems"
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
@@ -568,7 +576,7 @@ arm*-*-netbsd*)
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
 	xmake_file=x-linux
-	tm_file="arm/linux-elf.h"
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/linux-elf.h"
 	tmake_file="t-slibgcc-elf-ver t-linux arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -579,7 +587,7 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	esac
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
-	tm_file=arm/uclinux-elf.h
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/linux-elf.h arm/uclinux-elf.h"
 	tmake_file=arm/t-arm-elf
 	;;
 arm*-*-aout)
@@ -587,19 +595,19 @@ arm*-*-aout)
 	tmake_file=arm/t-arm-aout
 	;;
 arm*-*-ecos-elf)
-	tm_file=arm/ecos-elf.h
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h arm/ecos-elf.h"
 	tmake_file=arm/t-arm-elf
-	;; 
+	;;
 arm*-*-elf)
-	tm_file=arm/unknown-elf.h
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h"
 	tmake_file=arm/t-arm-elf
 	;;
 arm*-*-conix*)
-	tm_file=arm/conix-elf.h
+	tm_file="elfos.h arm/unknown-elf.h arm/elf.h arm/conix-elf.h"
 	tmake_file=arm/t-arm-elf
 	;;
 arm*-*-oabi)
-	tm_file=arm/unknown-elf-oabi.h
+	tm_file="arm/unknown-elf-oabi.h elfos.h arm/unknown-elf.h arm/elf.h"
 	tmake_file=arm/t-arm-elf
 	;;
 arm-*-pe*)
@@ -626,7 +634,7 @@ c34-convex-*)
 	use_collect2=yes
 	;;
 c38-convex-*)
-	target_cpu_default=16		
+	target_cpu_default=16
 	use_collect2=yes
 	;;
 c4x-*-rtems*)
@@ -648,6 +656,27 @@ clipper-intergraph-clix*)
 	extra_headers=va-clipper.h
 	extra_parts="crtbegin.o crtend.o"
 	install_headers_dir=install-headers-cpio
+	;;
+cris-*-aout)
+	tm_file="dbxelf.h cris/cris.h cris/aout.h"
+	gas=yes
+	tmake_file="cris/t-cris cris/t-aout"
+	;;
+cris-*-elf | cris-*-none)
+	tm_file="elfos.h cris/cris.h"
+	tmake_file="cris/t-cris cris/t-elfmulti"
+	gas=yes
+	;;
+cris-*-linux*)
+	tm_file="linux.h cris/cris.h cris/linux.h"
+	tmake_file="cris/t-cris t-slibgcc-elf-ver cris/t-linux"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	case x${enable_threads} in
+	x | xyes | xpthreads | xposix)
+		thread_file=posix
+		;;
+	esac
+	gas=yes
 	;;
 d30v-*)
 	float_format=i64
@@ -903,12 +932,12 @@ hppa*-*-lites*)
 	;;
 hppa*-*-mpeix*)
 	tm_file="${tm_file} pa/pa32-regs.h pa/long_double.h pa/som.h pa/pa-mpeix.h"
-	xmake_file=pa/x-pa-mpeix 
-	echo "You must use gas. Assuming it is already installed." 
+	xmake_file=pa/x-pa-mpeix
+	echo "You must use gas. Assuming it is already installed."
 	gas=yes
 	install_headers_dir=install-headers-tar
-	use_collect2=yes 
-	;; 
+	use_collect2=yes
+	;;
 i370-*-opened*)			 # IBM 360/370/390 Architecture
 	xm_defines='POSIX FATAL_EXIT_CODE=12'
 	tm_file=i370/oe.h
@@ -1109,7 +1138,7 @@ i[34567]86-*-linux*aout*)	# Intel 80386's running GNU/Linux
 i[34567]86-*-linux*libc1)	# Intel 80386's running GNU/Linux
 				# with ELF format using the
 				# GNU/Linux C library 5
-	xmake_file=x-linux	
+	xmake_file=x-linux
 	tm_file="i386/i386.h i386/att.h linux.h i386/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 i386/t-crtstuff"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
@@ -1124,6 +1153,18 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 			# aka GNU/Linux C library 6
 	xmake_file=x-linux
 	tm_file="i386/i386.h i386/att.h linux.h i386/linux.h"
+	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	gnu_ld=yes
+	float_format=i386
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+	;;
+x86_64-*-linux*)
+	xmake_file=x-linux
+	tm_file="i386/biarch64.h i386/i386.h i386/att.h linux.h i386/x86-64.h \
+		 i386/linux64.h"
 	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -1361,10 +1402,10 @@ i[34567]86-*-mingw32*)
 	fi
 	exeext=.exe
 	case $machine in
-		*mingw32msv*)
-			;;
-		*minwg32crt* | *mingw32*)
+		*mingw32crt*)
 			tm_file="${tm_file} i386/crtdll.h"
+			;;
+		*minwg32msv* | *mingw32*)
 			;;
 	esac
 	;;
@@ -2205,9 +2246,17 @@ mipsel-*-netbsd* | mips-dec-netbsd*)    # Decstation running NetBSD
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
 	xmake_file=x-linux
-	tm_file="linux.h mips/linux.h"
 	case $machine in
-	       mips*el-*)  tm_file="mips/little.h $tm_file" ;;
+		mipsisa32el-*)
+			tm_file="elfos.h mips/elfl.h mips/linux.h mips/isa32-linux.h"
+			target_cpu_default="MASK_SOFT_FLOAT"
+			;;
+                mipsisa32-*)
+			tm_file="elfos.h mips/elf.h mips/linux.h mips/isa32-linux.h"
+			target_cpu_default="MASK_SOFT_FLOAT"
+			;;
+	       	mips*el-*)  tm_file="elfos.h mips/elfl.h mips/linux.h" ;;
+		*) tm_file="elfos.h mips/elf.h mips/linux.h"
 	esac
 	tmake_file="t-slibgcc-elf-ver t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
@@ -2410,8 +2459,6 @@ mips-*-riscos[56789]*)		# Default MIPS RISC-OS 5.0.
 		use_collect2=yes
 	fi
 	;;
-mips-*-gnu*)
-	;;
 mipsel-*-ecoff*)
 	tm_file=mips/ecoffl.h
 	if test x$stabs = xyes; then
@@ -2425,6 +2472,11 @@ mips-*-ecoff*)
 		tm_file="${tm_file} dbx.h"
 	fi
 	tmake_file=mips/t-ecoff
+	;;
+mipsisa32-*-elf*)
+	tm_file="mips/isa3264.h mips/abi64.h"
+	tmake_file=mips/t-isa3264
+	target_cpu_default="MASK_SOFT_FLOAT"
 	;;
 mipsel-*-elf*)
 	tm_file="mips/elfl.h"
@@ -2467,6 +2519,7 @@ mips*-*-rtems*)
 mipstx39el-*-elf*)
 	tm_file="mips/r3900.h mips/elfl.h mips/abi64.h"
 	tmake_file=mips/t-r3900
+	target_cpu_default="MASK_SOFT_FLOAT"
 	;;
 mipstx39-*-elf*)
 	tm_file="mips/r3900.h mips/elf.h mips/abi64.h"
@@ -2781,18 +2834,21 @@ rs6000-*-lynxos*)
 	tmake_file=rs6000/t-rs6000
 	use_collect2=yes
 	;;
-s390-*-linux*)	
+s390-*-linux*)
 	xmake_file=x-linux
-	tm_file=s390/linux.h
+	tm_file="s390/s390.h linux.h s390/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
 	;;
-s390x-*-linux*)	
+s390x-*-linux*)
 	xmake_file=x-linux
-	tm_file=s390/linux64.h
+	tm_file="s390/s390.h linux.h s390/linux.h s390/linux64.h"
+	tm_p_file=s390/s390-protos.h
+	md_file=s390/s390.md
+	out_file=s390/s390.c
 	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	if test x$enable_threads = xyes; then
@@ -2934,7 +2990,7 @@ sparc-*-rtems*|sparc-*-rtemself*)
 	  thread_file='rtems'
 	fi
 	;;
-sparcv9-*-solaris2*)
+sparcv9-*-solaris2* | sparc64-*-solaris2*)
 	if test x$gnu_ld = xyes
 	then
 		tm_file=sparc/sol2-64.h
@@ -3081,7 +3137,7 @@ sparc86x-*-aout*)
 	tm_file="sparc/sp86x-aout.h aoutos.h libgloss.h"
 	tmake_file=sparc/t-sp86x
 	;;
-sparc86x-*-elf*)	
+sparc86x-*-elf*)
 	tm_file="sparc/sol2.h sparc./elf.h sparc/sp86x-elf.h"
 	tmake_file=sparc/t-sp86x
         extra_parts="crtbegin.o crtend.o"
@@ -3109,7 +3165,7 @@ stormy16-*-elf)
 	extra_parts="crtbegin.o crtend.o"
 	;;
 strongarm-*-elf*)
-	tm_file=arm/strongarm-elf.h
+	tm_file="arm/strongarm-elf.h elfos.h arm/unknown-elf.h arm/elf.h"
 	tmake_file=arm/t-strongarm-elf
 	out_file=arm/arm.c
 	md_file=arm/arm.md
@@ -3195,7 +3251,7 @@ we32k-att-sysv*)
 	use_collect2=yes
 	;;
 xscale-*-elf)
-	tm_file=arm/xscale-elf.h
+	tm_file="arm/xscale-elf.h elfos.h arm/unknown-elf.h arm/elf.h"
 	tmake_file=arm/t-xscale-elf
 	out_file=arm/arm.c
 	md_file=arm/arm.md
@@ -3264,7 +3320,7 @@ alpha*-*-*)
 			target_cpu_default2="MASK_CPU_EV5"
 			;;
 	esac
-			
+
 	if test x$gas = xyes
 	then
 		if test "$target_cpu_default2" = ""

@@ -324,14 +324,22 @@ machopic_stub_name (name)
      const char *name;
 {
   tree temp, ident = get_identifier (name);
-  
+  const char *tname;
+
   for (temp = machopic_stubs;
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
       if (ident == TREE_VALUE (temp))
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
-      if (strcmp (name, IDENTIFIER_POINTER (TREE_VALUE (temp))) == 0)
+      tname = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      if (strcmp (name, tname) == 0)
+	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      /* A library call name might not be section-encoded yet, so try
+	 it against a stripped name.  */
+      if (name[0] != '!'
+	  && tname[0] == '!'
+	  && strcmp (name, tname + 4) == 0)
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
     }
 
@@ -1006,7 +1014,8 @@ darwin_encode_section_info (decl)
       && !DECL_EXTERNAL (decl)
       && ((TREE_STATIC (decl)
 	   && (!DECL_COMMON (decl) || !TREE_PUBLIC (decl)))
-	  || DECL_INITIAL (decl)))
+	  || (DECL_INITIAL (decl)
+	      && DECL_INITIAL (decl) != error_mark_node)))
     defined = 1;
 
   if (TREE_CODE (decl) == FUNCTION_DECL)

@@ -51,6 +51,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "hashtab.h"
 
 static void encode		PARAMS ((HOST_WIDE_INT *,
 					 unsigned HOST_WIDE_INT,
@@ -65,9 +66,11 @@ static tree negate_expr		PARAMS ((tree));
 static tree split_tree		PARAMS ((tree, enum tree_code, tree *, tree *,
 					 int));
 static tree associate_trees	PARAMS ((tree, tree, enum tree_code, tree));
-static tree int_const_binop	PARAMS ((enum tree_code, tree, tree, int, int));
+static tree int_const_binop	PARAMS ((enum tree_code, tree, tree, int));
 static void const_binop_1	PARAMS ((PTR));
 static tree const_binop		PARAMS ((enum tree_code, tree, tree, int));
+static hashval_t size_htab_hash	PARAMS ((const void *));
+static int size_htab_eq		PARAMS ((const void *, const void *));
 static void fold_convert_1	PARAMS ((PTR));
 static tree fold_convert	PARAMS ((tree, tree));
 static enum tree_code invert_tree_comparison PARAMS ((enum tree_code));
@@ -321,8 +324,8 @@ mul_double (l1, h1, l2, h2, lv, hv)
   HOST_WIDE_INT arg1[4];
   HOST_WIDE_INT arg2[4];
   HOST_WIDE_INT prod[4 * 2];
-  register unsigned HOST_WIDE_INT carry;
-  register int i, j, k;
+  unsigned HOST_WIDE_INT carry;
+  int i, j, k;
   unsigned HOST_WIDE_INT toplow, neglow;
   HOST_WIDE_INT tophigh, neghigh;
 
@@ -514,7 +517,7 @@ rrotate_double (l1, h1, count, prec, lv, hv)
    CODE is a tree code for a kind of division, one of
    TRUNC_DIV_EXPR, FLOOR_DIV_EXPR, CEIL_DIV_EXPR, ROUND_DIV_EXPR
    or EXACT_DIV_EXPR
-   It controls how the quotient is rounded to a integer.
+   It controls how the quotient is rounded to an integer.
    Return nonzero if the operation overflows.
    UNS nonzero says do unsigned division.  */
 
@@ -534,7 +537,7 @@ div_and_round_double (code, uns,
   int quo_neg = 0;
   HOST_WIDE_INT num[4 + 1];	/* extra element for scaling.  */
   HOST_WIDE_INT den[4], quo[4];
-  register int i, j;
+  int i, j;
   unsigned HOST_WIDE_INT work;
   unsigned HOST_WIDE_INT carry = 0;
   unsigned HOST_WIDE_INT lnum = lnum_orig;
@@ -657,7 +660,7 @@ div_and_round_double (code, uns,
 	  else
 	    quo_est = BASE - 1;
 
-	  /* Refine quo_est so it's usually correct, and at most one high.   */
+	  /* Refine quo_est so it's usually correct, and at most one high.  */
 	  tmp = work - quo_est * den[den_hi_sig];
 	  if (tmp < BASE
 	      && (den[den_hi_sig - 1] * quo_est
@@ -821,10 +824,10 @@ target_isinf (x)
       unsigned sign      :  1;
       unsigned exponent  : 11;
       unsigned mantissa1 : 20;
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
     } little_endian;
     struct {
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
       unsigned mantissa1 : 20;
       unsigned exponent  : 11;
       unsigned sign      :  1;
@@ -861,10 +864,10 @@ target_isnan (x)
       unsigned sign      :  1;
       unsigned exponent  : 11;
       unsigned mantissa1 : 20;
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
     } little_endian;
     struct {
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
       unsigned mantissa1 : 20;
       unsigned exponent  : 11;
       unsigned sign      :  1;
@@ -901,10 +904,10 @@ target_negative (x)
       unsigned sign      :  1;
       unsigned exponent  : 11;
       unsigned mantissa1 : 20;
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
     } little_endian;
     struct {
-      unsigned mantissa2;
+      unsigned mantissa2 : 32;
       unsigned mantissa1 : 20;
       unsigned exponent  : 11;
       unsigned sign      :  1;
@@ -1478,14 +1481,13 @@ associate_trees (t1, t2, code, type)
 /* Combine two integer constants ARG1 and ARG2 under operation CODE
    to produce a new constant.
 
-   If NOTRUNC is nonzero, do not truncate the result to fit the data type.
-   If FORSIZE is nonzero, compute overflow for unsigned types.  */
+   If NOTRUNC is nonzero, do not truncate the result to fit the data type.  */
 
 static tree
-int_const_binop (code, arg1, arg2, notrunc, forsize)
+int_const_binop (code, arg1, arg2, notrunc)
      enum tree_code code;
-     register tree arg1, arg2;
-     int notrunc, forsize;
+     tree arg1, arg2;
+     int notrunc;
 {
   unsigned HOST_WIDE_INT int1l, int2l;
   HOST_WIDE_INT int1h, int2h;
@@ -1493,8 +1495,11 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
   HOST_WIDE_INT hi;
   unsigned HOST_WIDE_INT garbagel;
   HOST_WIDE_INT garbageh;
-  register tree t;
-  int uns = TREE_UNSIGNED (TREE_TYPE (arg1));
+  tree t;
+  tree type = TREE_TYPE (arg1);
+  int uns = TREE_UNSIGNED (type);
+  int is_sizetype
+    = (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type));
   int overflow = 0;
   int no_overflow = 0;
 
@@ -1527,7 +1532,7 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
       /* It's unclear from the C standard whether shifts can overflow.
 	 The following code ignores overflow; perhaps a C standard
 	 interpretation ruling is needed.  */
-      lshift_double (int1l, int1h, int2l, TYPE_PRECISION (TREE_TYPE (arg1)),
+      lshift_double (int1l, int1h, int2l, TYPE_PRECISION (type),
 		     &low, &hi, !uns);
       no_overflow = 1;
       break;
@@ -1535,7 +1540,7 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
     case RROTATE_EXPR:
       int2l = - int2l;
     case LROTATE_EXPR:
-      lrotate_double (int1l, int1h, int2l, TYPE_PRECISION (TREE_TYPE (arg1)),
+      lrotate_double (int1l, int1h, int2l, TYPE_PRECISION (type),
 		      &low, &hi);
       break;
 
@@ -1583,8 +1588,7 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
 	  low = 1, hi = 0;
 	  break;
 	}
-      overflow = div_and_round_double (code, uns,
-				       int1l, int1h, int2l, int2h,
+      overflow = div_and_round_double (code, uns, int1l, int1h, int2l, int2h,
 				       &low, &hi, &garbagel, &garbageh);
       break;
 
@@ -1632,9 +1636,14 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
       abort ();
     }
 
-  if (forsize && hi == 0 && low < 10000
+  /* If this is for a sizetype, can be represented as one (signed)
+     HOST_WIDE_INT word, and doesn't overflow, use size_int since it caches
+     constants.  */
+  if (is_sizetype
+      && ((hi == 0 && (HOST_WIDE_INT) low >= 0)
+	  || (hi == -1 && (HOST_WIDE_INT) low < 0))
       && overflow == 0 && ! TREE_OVERFLOW (arg1) && ! TREE_OVERFLOW (arg2))
-    return size_int_type_wide (low, TREE_TYPE (arg1));
+    return size_int_type_wide (low, type);
   else
     {
       t = build_int_2 (low, hi);
@@ -1642,14 +1651,16 @@ int_const_binop (code, arg1, arg2, notrunc, forsize)
     }
 
   TREE_OVERFLOW (t)
-    = ((notrunc ? (!uns || forsize) && overflow
-	: force_fit_type (t, (!uns || forsize) && overflow) && ! no_overflow)
+    = ((notrunc
+	? (!uns || is_sizetype) && overflow
+	: (force_fit_type (t, (!uns || is_sizetype) && overflow)
+	   && ! no_overflow))
        | TREE_OVERFLOW (arg1)
        | TREE_OVERFLOW (arg2));
 
   /* If we're doing a size calculation, unsigned arithmetic does overflow.
      So check if force_fit_type truncated the value.  */
-  if (forsize
+  if (is_sizetype
       && ! TREE_OVERFLOW (t)
       && (TREE_INT_CST_HIGH (t) != hi
 	  || TREE_INT_CST_LOW (t) != low))
@@ -1733,14 +1744,14 @@ const_binop_1 (data)
 static tree
 const_binop (code, arg1, arg2, notrunc)
      enum tree_code code;
-     register tree arg1, arg2;
+     tree arg1, arg2;
      int notrunc;
 {
   STRIP_NOPS (arg1);
   STRIP_NOPS (arg2);
 
   if (TREE_CODE (arg1) == INTEGER_CST)
-    return int_const_binop (code, arg1, arg2, notrunc, 0);
+    return int_const_binop (code, arg1, arg2, notrunc);
 
 #if ! defined (REAL_IS_NOT_DOUBLE) || defined (REAL_ARITHMETIC)
   if (TREE_CODE (arg1) == REAL_CST)
@@ -1789,12 +1800,12 @@ const_binop (code, arg1, arg2, notrunc)
 #endif /* not REAL_IS_NOT_DOUBLE, or REAL_ARITHMETIC */
   if (TREE_CODE (arg1) == COMPLEX_CST)
     {
-      register tree type = TREE_TYPE (arg1);
-      register tree r1 = TREE_REALPART (arg1);
-      register tree i1 = TREE_IMAGPART (arg1);
-      register tree r2 = TREE_REALPART (arg2);
-      register tree i2 = TREE_IMAGPART (arg2);
-      register tree t;
+      tree type = TREE_TYPE (arg1);
+      tree r1 = TREE_REALPART (arg1);
+      tree i1 = TREE_IMAGPART (arg1);
+      tree r2 = TREE_REALPART (arg2);
+      tree i2 = TREE_IMAGPART (arg2);
+      tree t;
 
       switch (code)
 	{
@@ -1828,7 +1839,7 @@ const_binop (code, arg1, arg2, notrunc)
 
 	case RDIV_EXPR:
 	  {
-	    register tree magsquared
+	    tree magsquared
 	      = const_binop (PLUS_EXPR,
 			     const_binop (MULT_EXPR, r2, r2, notrunc),
 			     const_binop (MULT_EXPR, i2, i2, notrunc),
@@ -1865,6 +1876,39 @@ const_binop (code, arg1, arg2, notrunc)
     }
   return 0;
 }
+
+/* These are the hash table functions for the hash table of INTEGER_CST
+   nodes of a sizetype.  */
+
+/* Return the hash code code X, an INTEGER_CST.  */
+
+static hashval_t
+size_htab_hash (x)
+     const void *x;
+{
+  tree t = (tree) x;
+
+  return (TREE_INT_CST_HIGH (t) ^ TREE_INT_CST_LOW (t)
+	  ^ (hashval_t) ((long) TREE_TYPE (t) >> 3)
+	  ^ (TREE_OVERFLOW (t) << 20));
+}
+
+/* Return non-zero if the value represented by *X (an INTEGER_CST tree node)
+   is the same as that given by *Y, which is the same.  */
+
+static int
+size_htab_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  tree xt = (tree) x;
+  tree yt = (tree) y;
+
+  return (TREE_INT_CST_HIGH (xt) == TREE_INT_CST_HIGH (yt)
+	  && TREE_INT_CST_LOW (xt) == TREE_INT_CST_LOW (yt)
+	  && TREE_TYPE (xt) == TREE_TYPE (yt)
+	  && TREE_OVERFLOW (xt) == TREE_OVERFLOW (yt));
+}
 
 /* Return an INTEGER_CST with value whose low-order HOST_BITS_PER_WIDE_INT
    bits are given by NUMBER and of the sizetype represented by KIND.  */
@@ -1884,40 +1928,38 @@ size_int_type_wide (number, type)
      HOST_WIDE_INT number;
      tree type;
 {
-  /* Type-size nodes already made for small sizes.  */
-  static tree size_table[2048 + 1];
-  static int init_p = 0;
-  tree t;
+  static htab_t size_htab = 0;
+  static tree new_const = 0;
+  PTR *slot;
 
-  if (! init_p)
+  if (size_htab == 0)
     {
-      ggc_add_tree_root ((tree *) size_table,
-			 sizeof size_table / sizeof (tree));
-      init_p = 1;
+      size_htab = htab_create (1024, size_htab_hash, size_htab_eq, NULL);
+      ggc_add_deletable_htab (size_htab, NULL, NULL);
+      new_const = make_node (INTEGER_CST);
+      ggc_add_tree_root (&new_const, 1);
     }
 
-  /* If this is a positive number that fits in the table we use to hold
-     cached entries, see if it is already in the table and put it there
-     if not.  */
-  if (number >= 0 && number < (int) ARRAY_SIZE (size_table))
+  /* Adjust NEW_CONST to be the constant we want.  If it's already in the
+     hash table, we return the value from the hash table.  Otherwise, we
+     place that in the hash table and make a new node for the next time.  */
+  TREE_INT_CST_LOW (new_const) = number;
+  TREE_INT_CST_HIGH (new_const) = number < 0 ? -1 : 0;
+  TREE_TYPE (new_const) = type;
+  TREE_OVERFLOW (new_const) = TREE_CONSTANT_OVERFLOW (new_const)
+    = force_fit_type (new_const, 0);
+
+  slot = htab_find_slot (size_htab, new_const, INSERT);
+  if (*slot == 0)
     {
-      if (size_table[number] != 0)
-	for (t = size_table[number]; t != 0; t = TREE_CHAIN (t))
-	  if (TREE_TYPE (t) == type)
-	    return t;
+      tree t = new_const;
 
-      t = build_int_2 (number, 0);
-      TREE_TYPE (t) = type;
-      TREE_CHAIN (t) = size_table[number];
-      size_table[number] = t;
-
+      *slot = (PTR) new_const;
+      new_const = make_node (INTEGER_CST);
       return t;
     }
-
-  t = build_int_2 (number, number < 0 ? -1 : 0);
-  TREE_TYPE (t) = type;
-  TREE_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (t) = force_fit_type (t, 0);
-  return t;
+  else
+    return (tree) *slot;
 }
 
 /* Combine operands OP1 and OP2 with arithmetic operation CODE.  CODE
@@ -1949,7 +1991,7 @@ size_binop (code, arg0, arg1)
 	return arg1;
 
       /* Handle general case of two integer constants.  */
-      return int_const_binop (code, arg0, arg1, 0, 1);
+      return int_const_binop (code, arg0, arg1, 0);
     }
 
   if (arg0 == error_mark_node || arg1 == error_mark_node)
@@ -2027,10 +2069,10 @@ fold_convert_1 (data)
 
 static tree
 fold_convert (t, arg1)
-     register tree t;
-     register tree arg1;
+     tree t;
+     tree arg1;
 {
-  register tree type = TREE_TYPE (t);
+  tree type = TREE_TYPE (t);
   int overflow = 0;
 
   if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type))
@@ -2962,7 +3004,7 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
  if (!const_p)
    {
      /* If this is not a constant, we can only do something if bit positions,
-	sizes, and signedness are the same.   */
+	sizes, and signedness are the same.  */
      rinner = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
 				   &runsignedp, &rvolatilep, &alignment);
 
@@ -4538,13 +4580,10 @@ extract_muldiv (t, c, code, wide_type)
 	{
 	  if (code == CEIL_DIV_EXPR)
 	    code = FLOOR_DIV_EXPR;
-	  else if (code == CEIL_MOD_EXPR)
-	    code = FLOOR_MOD_EXPR;
 	  else if (code == FLOOR_DIV_EXPR)
 	    code = CEIL_DIV_EXPR;
-	  else if (code == FLOOR_MOD_EXPR)
-	    code = CEIL_MOD_EXPR;
-	  else if (code != MULT_EXPR)
+	  else if (code != MULT_EXPR
+		   && code != CEIL_MOD_EXPR && code != FLOOR_MOD_EXPR)
 	    break;
 	}
 
@@ -4874,13 +4913,13 @@ tree
 fold (expr)
      tree expr;
 {
-  register tree t = expr;
+  tree t = expr;
   tree t1 = NULL_TREE;
   tree tem;
   tree type = TREE_TYPE (expr);
-  register tree arg0 = NULL_TREE, arg1 = NULL_TREE;
-  register enum tree_code code = TREE_CODE (t);
-  register int kind = TREE_CODE_CLASS (code);
+  tree arg0 = NULL_TREE, arg1 = NULL_TREE;
+  enum tree_code code = TREE_CODE (t);
+  int kind = TREE_CODE_CLASS (code);
   int invert;
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
@@ -4927,8 +4966,8 @@ fold (expr)
     }
   else if (IS_EXPR_CODE_CLASS (kind) || kind == 'r')
     {
-      register int len = first_rtl_op (code);
-      register int i;
+      int len = first_rtl_op (code);
+      int i;
       for (i = 0; i < len; i++)
 	{
 	  tree op = TREE_OPERAND (t, i);
@@ -5505,7 +5544,7 @@ fold (expr)
       /* (A << B) + (A >> (Z - B)) if A is unsigned and Z is the size of A
 	 is a rotate of A by B bits.  */
       {
-	register enum tree_code code0, code1;
+	enum tree_code code0, code1;
 	code0 = TREE_CODE (arg0);
 	code1 = TREE_CODE (arg1);
 	if (((code0 == RSHIFT_EXPR && code1 == LSHIFT_EXPR)
@@ -5514,8 +5553,8 @@ fold (expr)
 			        TREE_OPERAND (arg1, 0), 0)
 	    && TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (arg0, 0))))
 	  {
-	    register tree tree01, tree11;
-	    register enum tree_code code01, code11;
+	    tree tree01, tree11;
+	    enum tree_code code01, code11;
 
 	    tree01 = TREE_OPERAND (arg0, 1);
 	    tree11 = TREE_OPERAND (arg1, 1);

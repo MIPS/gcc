@@ -1,8 +1,372 @@
+2001-10-16  H.J. Lu <hjl@gnu.org>
+
+	* cp-tree.h (BOUND_TEMPLATE_TEMPLATE_PARM_TYPE_CHECK): Defined
+	for tree checking disabled.
+
+2001-10-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	* cp-tree.h (VFIELD_NAME_FORMAT) [NO_DOLLAR_IN_LABEL &&
+	NO_DOT_IN_LABEL]: Adjust to match VFIELD_NAME.
+
+2001-10-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* pt.c (UNIFY_ALLOW_MAX_CORRECTION): Define.
+	(unify): Only handle MINUS_EXPR specially if the above flag is set
+	and the subtracted constant is 1.  Clear the flag on recursive calls.
+	Set it when unifying the maximum value in an INTEGER_TYPE's range.
+
+2001-10-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* decl.c (bad_specifiers): Don't allow exception specifications
+	on any typedefs.
+
+2001-10-14  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp/lex.c (init_cp_pragma): Similarly.
+
+2001-10-13  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (lookup_template_class): Build complete template arguments
+	for BOUND_TEMPLATE_TEMPLATE_PARM.
+
+2001-10-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (TYPE_BINFO): Update comment.
+	(BOUND_TEMPLATE_TEMPLATE_PARM_TYPE_CHECK): New macro.
+	(TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO): Use template_info.
+	(TYPENAME_TYPE_FULLNAME): Use TYPE_FIELDS.
+	(copy_type): Prototype new function.
+	* lex.c (copy_lang_decl): Gather tree node statistics.
+	(copy_lang_type): New function.
+	(copy_type): Likewise.
+	(cp_make_lang_type): Create lang_type for
+	BOUND_TEMPLATE_TEMPLATE_PARM.  Set TYPE_BINFO for TYPENAME_TYPE
+	and BOUND_TEMPLATE_TEMPLATE_PARM.
+	* pt.c (tsubst): Use copy_type instead of copy_node.
+	* search.c (lookup_field_1): Ignore TYPENAME_TYPE.
+
+2001-10-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (determine_specialization): Ignore functions without
+	DECL_TEMPLATE_INFO.
+
+2001-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR g++/4476
+	* typeck2.c (abstract_virtuals_error): Ignore incomplete classes.
+
+2001-10-11  Jason Merrill  <jason_merrill@redhat.com>
+
+	* typeck2.c (store_init_value): Don't re-digest a bracketed
+	initializer.
+
+	* class.c (finish_struct_anon): Use TYPE_ANONYMOUS_P instead of
+	ANON_AGGR_TYPE_P.
+
+2001-10-11  Richard Henderson  <rth@redhat.com>
+
+	* class.c (build_vtable_entry_ref): Create a VTABLE_REF instead
+	of an asm statement.
+	(build_vtbl_ref_1): Split out from build_vtbl_ref.
+	(build_vfn_ref): Use it to handle vtable descriptors before
+	calling build_vtable_entry_ref.
+	* decl2.c (output_vtable_inherit): Use assemble_vtable_inherit.
+
+2001-10-10  Richard Henderson  <rth@redhat.com>
+
+        * parse.y (asm_operand): Allow named operands.
+	* semantics.c (finish_asm_stmt): Tweek for changed location
+	of the operand constrant.
+
+2001-10-09  Jason Merrill  <jason_merrill@redhat.com>
+
+	* call.c (standard_conversion): Add bad conversion between
+	integers and pointers.
+	(convert_like_real): Don't use convert_for_initialization for bad
+	conversions; complain here and use cp_convert.
+	(build_over_call): Don't handle bad conversions specially.
+	(perform_implicit_conversion): Allow bad conversions.
+	(can_convert_arg_bad): New fn.
+	* cp-tree.h: Declare it.
+	* typeck.c (convert_for_assignment): Use it.
+	(ptr_reasonably_similar): Any target type is similar to void.
+
+2001-10-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Make-lang.in (CXX_OBJS): Added cp-lang.o.
+	(cp/cp-lang.o): New rule.
+	* cp-tree.h: Declare hooks.
+	* tree.c: Make hooks non-static.
+	(init_tree): Don't initialize hooks here.
+	* lex.c: Likewise.  Move definition of lang_hooks to...
+	* cp-lang.c: ... new file.
+
+2001-10-08  Richard Henderson  <rth@redhat.com>
+
+	* cp-tree.h (struct lang_decl_flags): Remove declared_inline.
+	(DECL_DECLARED_INLINE_P): Use the bit in struct c_lang_decl.
+
+2001-10-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (build_vtable_entry_ref): Const-ify.
+	* decl.c (predefined_identifier,
+	initialize_predefined_identifiers): Likewise. 
+	* init.c (build_new_1): Likewise.
+	* lex.c (cplus_tree_code_type, cplus_tree_code_length, resword):
+	Likewise.
+
+2001-10-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* optimize.c (struct inline_data): Moved to ../tree-inline.c.
+	(INSNS_PER_STMT): Likewise.
+	(remap_decl, remap_block, copy_scopy_stmt, copy_body_r): Likewise.
+	(copy_body, initialize_inlined_parameters): Likewise.
+	(declare_return_variable, inlinable_function_p): Likewise.
+	(expand_call_inline, expand_calls_inline): Likewise.
+	(optimize_inline_calls, clone_body): Likewise.
+	* tree.c (walk_tree): Moved to ../tree-inline.c.
+	(walk_tree_without_duplicates): Likewise.
+	(copy_tree_r, remap_save_expr): Likewise.
+
+2001-10-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Make-lang.in (cp/decl.o, cp/tree.o): Depend on tree-inline.h.
+	(cp/pt.o, cp/semantics.o, cp/optimize.o): Likewise.
+	* cp-tree.h (lang_decl): Moved inlined_fns to tree_decl.
+	(TREE_READONLY_DECL_P, DECL_INLINED_FNS): Moved to ../tree.h.
+	(flag_inline_trees): Moved declaration to ../tree-inline.h.
+	(walk_tree): Moved declaration to ../tree-inline.h.
+	(walk_tree_without_duplicates, copy_tree_r): Likewise.
+	(remap_save_expr): Likewise.
+	* decl.c: Include tree-inline.h.
+	(lang_mark_tree): Don't mark inlined_fns.
+	* decl2.c (flag_inline_trees): Moved defn to ../tree-inline.c.
+	* optimize.c: Include tree-inline.h.
+	(optimize_inline_calls): Move declaration to ../tree.h, as
+	non-static.
+	(remap_decl): Use language-independent constructs and hooks.
+	(remap_block, copy_body_r, declare_return_variable): Likewise.
+	(inlinable_function_p): Likewise.  Don't test for
+	DECL_LANG_SPECIFIC before DECL_INLINED_FNS as inlined_fns is
+	no longer language-specific.
+	(optimize_inline_calls): Likewise.  Make it non-static.  Moved
+	call of dump_function to...
+	(optimize_function): Here...
+	(clone_body): New function, extracted from...
+	(maybe_clone_body): ... here.  Build decl_map locally and pass
+	it on to clone_body.
+	* pt.c, semantics.c: Include tree-inline.h.
+	* tree.c: Likewise.
+	(cp_walk_subtrees): New language-specific hook for tree inlining.
+	(cp_cannot_inline_tree_fn, cp_add_pending_fn_decls,
+	cp_is_overload_p, cp_auto_var_in_fn_p,
+	cp_copy_res_decl_for_inlining): Likewise.
+	(walk_tree): Move language-specific constructs into...
+	(cp_walk_subtrees): this new function.
+	(copy_tree_r): Use language-independent constructs and hooks.
+	(init_tree): Initialize tree inlining hooks.
+	(remap_save_expr): Adjust prototype so that the declaration
+	does not require the definition of splay_tree.
+
+2001-10-03  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* rtti.c (get_tinfo_decl): Call typeinfo_in_lib_p with the type used
+	to build the declaration instead of the declaration itself.
+
+2001-10-02  Jason Merrill  <jason_merrill@redhat.com>
+
+	* decl2.c (cxx_decode_option): Add 'else'.
+
+	* spew.c (end_input): No longer static.
+	* cp-tree.h: Declare it.
+	* parse.y (datadef): Add "error END_OF_SAVED_INPUT" expansion.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* call.c (build_over_call), typeck.c (build_function_call_real):
+	Pass type attributes to check_function_format rather than name or
+	assembler name.  Don't require there to be a name or assembler
+	name to check formats.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl.c (init_decl_processing): Don't call
+	init_function_format_info.  Initialize lang_attribute_table
+	earlier.
+	(builtin_function): Call decl_attributes.
+	(insert_default_attributes): New.
+
+2001-10-01  Jason Merrill  <jason_merrill@redhat.com>
+
+	* decl.c (grokdeclarator): Copy array typedef handling from C
+	frontend.
+
+	* decl.c (grokdeclarator): Copy too-large array handling from C
+	frontend.
+
+2001-09-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config-lang.in (target_libs): Added target-gperf, so that we
+	don't try to build it if C++ is disabled.
+
+2001-09-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in (CXX_OBJS): Take out cp/errfn.o.
+	(cp/errfn.o): Delete rule.
+	(cp/error.o): Depend on flags.h.
+	* errfn.c: Delete file.
+	* cp-tree.h: Declare warn_deprecated.  Remove definitions of
+	TFF_NAMESPACE_SCOPE, TFF_CLASS_SCOPE, TFF_CHASE_NAMESPACE_ALIAS,
+	and TFF_TEMPLATE_DEFAULT_ARGUMENTS. #define cp_error, cp_warning,
+	cp_pedwarn, and cp_compiler_error to error, warning, pedwarn, and
+	internal_error respectively.  Make cp_deprecated into a macro.
+	Don't define cp_printer typedef or declare cp_printers.
+	* error.c: Include flags.h.
+	Delete: struct tree_formatting_info, print_function_argument_list,
+	print_declaration, print_expression, print_function_declaration,
+	print_function_parameter, print_type_id, print_cv_qualifier_seq,
+	print_type_specifier_seq, print_simple_type_specifier,
+	print_elaborated_type_specifier, print_rest_of_abstract_declarator,
+	print_parameter_declaration_clause, print_exception_specification,
+	print_nested_name_specifier, and definition of cp_printers.
+	(locate_error): New function.
+	(cp_error_at, cp_warning_at, cp_pedwarn_at): Moved here and
+	rewritten in terms of locate_error and diagnostic.c.
+	(cp_tree_printer): Rename cp_printer; wire up to *_to_string
+	instead of deleted print_* routines.  Handle %C, %L, %O, %Q also.
+	(init_error): Adjust to match.
+
+Sat Sep 22 09:15:31 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* Make-lang.in (CXX_C_OBJS): Add attribs.o.
+
+2001-09-21  Richard Henderson  <rth@redhat.com>
+
+	* class.c (set_vindex): Mind TARGET_VTABLE_USES_DESCRIPTORS.
+	(build_vtbl_initializer): Likewise.
+	(build_vfn_ref): New.
+	* cp-tree.h: Declare it.
+	* call.c (build_over_call): Use it.
+	* decl2.c (mark_vtable_entries): Mark FDESC_EXPR.
+	* typeck.c (get_member_function_from_ptrfunc): Mind descriptors.
+
+Fri Sep 21 08:16:19 2001  J"orn Rennecke <amylaar@redhat.com>
+
+	* decl.c (grokdeclarator): Use C syntax for attr_flags declaration.
+
+2001-09-21  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	Table-driven attributes.
+	* decl.c: Rename DECL_MACHINE_ATTRIBUTES to DECL_ATTRIBUTES.
+	* decl2.c (cplus_decl_attributes): Only take one attributes
+	parameter.
+	* cp-tree.c (cplus_decl_attributes): Update prototype.
+	* class.c (finish_struct), decl.c (start_decl, start_function),
+	decl2.c (grokfield), friend.c (do_friend), parse.y
+	(parse_bitfield): Update calls to cplus_decl_attributes.
+	* decl.c (grokdeclarator): Take a pointer to a single ordinary
+	attribute list.
+	* decl.h (grokdeclarator): Update prototype.
+	* decl2.c (grokfield): Take a single ordinary attribute list.
+	* friend.c (do_friend): Likewise.
+	* decl.c (shadow_tag, groktypename, start_decl,
+	start_handler_parms, grokdeclarator, grokparms, start_function,
+	start_method), decl2.c (grokfield, grokbitfield, grokoptypename),
+	parse.y (parse_field, parse_bitfield, component_decl_1), pt.c
+	(process_template_parm, do_decl_instantiation): Pass single
+	ordinary attribute lists around.
+	* decl.c (grokdeclarator): Correct handling of nested attributes.
+	Revert the patch
+	1998-10-18  Jason Merrill  <jason@yorick.cygnus.com>
+		* decl.c (grokdeclarator): Embedded attrs bind to the right,
+		not the left.
+	.
+	* cp-tree.h (cp_valid_lang_attribute): Remove declaration
+	(cp_attribute_table): Declare.
+	* decl.c (valid_lang_attribute): Don't define.
+	(lang_attribute_table): Define.
+	(init_decl_processing): Initialize lang_attribute_table instead of
+	valid_lang_attribute.
+	* tree.c (cp_valid_lang_attribute): Remove.
+	(handle_java_interface_attribute, handle_com_interface_attribute,
+	handle_init_priority_attribute): New functions.
+	(cp_attribute_table): New array.
+	* decl2.c (import_export_class): Don't use
+	targetm.valid_type_attribute.
+
+2001-09-15  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+		* Make-lang.in (cp/error.o): Depend on real.h
+		* error.c: #include "real.h"
+
+2001-09-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* mangle.c (mangle_conv_op_name_for_type): Use concat in lieu of
+	xmalloc/strcpy/strcat.
+
+2001-09-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl.c (warn_extern_redeclared_static, cp_make_fname_decl):
+	Const-ification.
+	* pt.c (tsubst_decl): Likewise.
+
+2001-09-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl2.c (lang_f_options): Const-ification.
+	* lex.c (cplus_tree_code_name): Likewise.
+	* spew.c (yyerror): Likewise.
+
+2001-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3986
+	* class.c (force_canonical_binfo_r): Check & move an indirect
+	primary base first.
+	(force_canonical_binfo): Check that it's not already
+	canonical.
+	(mark_primary_virtual_base): Remove BINFO parameter.
+	(mark_primary_bases): Adjust, set BINFO_LOST_PRIMARY_P here.
+
+2001-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Remove TYPE_NONCOPIED_PARTS.
+	* cp-tree.h (CLASSTYPE_INLINE_FRIENDS): Map onto
+	CLASSTYPE_PURE_VIRTUALS.
+	(TYPE_RAISES_EXCEPTIONS): Map onto TYPE_BINFO.
+	* class.c (duplicate_tag_error): Remove TYPE_NONCOPIED_PARTS.
+	(layout_class_type): Don't call fixup_inline_methods here ...
+	(finish_struct_1): ... call it here.
+
+2001-09-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (duplicate_decls): Remove code deadling with
+	DECL_SAVED_INSNS.
+	* decl2.c (finish_file): Likewise.
+	* pt.c (instantiate_decl): Likewise.
+	* semantics.c (expand_body): Don't defer local functions if
+	they wouldn't be deferred for some other reason.  Don't
+	generate RTL for functions that will not be emitted.
+	(genrtl_start_function): Remove code deadling with
+	DECL_SAVED_INSNS.
+	(genrtl_finish_function): Likewise.
+
+2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/4203
+	* call.c (build_over_call): Do not optimize any empty base
+	construction.
+
+2001-08-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* error.c (dump_template_decl): Output template parameters
+	together with their specifiers.
+	Output `class' prefix for template template parameter.
+	(dump_decl): Fix formatting.
+
 2001-08-30  Kurt Garloff  <garloff@suse.de>
- 
+
 	* optimize.c (inlinable_function_p): Allow only smaller single
 	functions. Halve inline limit after reaching recursive limit.
- 
+
 2001-08-30  Joern Rennecke <amylaar@redhat.com>
 	    Jason Merrill  <jason_merrill@redhat.com>
 
@@ -209,7 +573,7 @@
 
 2001-07-30  Andreas Jaeger  <aj@suse.de>
 
-        * decl2.c: Remove unused var global_temp_name_counter.
+	* decl2.c: Remove unused var global_temp_name_counter.
 
 2001-07-28  Richard Henderson  <rth@redhat.com>
 
@@ -259,7 +623,7 @@
 	declaring a function, and create last_function_parms correctly.
 
 2001-07-25  Jason Merrill  <jason_merrill@redhat.com>
-	
+
 	* call.c (joust): Only prefer a non-builtin candidate to a builtin
 	one if they have the same signature.
 
@@ -447,7 +811,7 @@
 	* NEWS: Document ABI changes from GCC 3.0.
 
 2001-07-18  Xavier Delacour <xavier@fmaudio.net>,
-            Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	    Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* NEWS (Changes in GCC 3.0): Fix typo.
 
@@ -967,7 +1331,7 @@
 2001-05-14  Nick Clifton  <nickc@cambridge.redhat.com>
 
 	* decl.c (duplicate_decls): Suppress warning about duplicate
-        decls if the first decl is a friend.
+	decls if the first decl is a friend.
 
 2001-05-12  Zack Weinberg  <zackw@stanford.edu>
 
@@ -1092,7 +1456,7 @@
 
 2001-04-30  Richard Henderson  <rth@redhat.com>
 
-        * cvt.c: Downcase C_PROMOTING_INTEGER_TYPE_P invocations.
+	* cvt.c: Downcase C_PROMOTING_INTEGER_TYPE_P invocations.
 	* decl.c: Likewise.
 
 2001-04-30  Mark Mitchell  <mark@codesourcery.com>

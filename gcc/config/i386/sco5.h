@@ -59,6 +59,9 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_LONG
 #define ASM_LONG			"\t.long\t"
 
+#undef ASM_QUAD
+#define ASM_QUAD "\t.quad\t"  /* Should not be used for 32bit compilation.  */
+
 #undef TYPE_ASM_OP
 #define TYPE_ASM_OP			"\t.type\t"
 
@@ -234,15 +237,6 @@ do {									\
     sprintf (LABEL, ".%s%d", (PREFIX), (NUM));				\
 } while (0)
 
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-do {									\
-  if (TARGET_ELF)							\
-    fprintf (FILE, "%s_GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", ASM_LONG, LPREFIX, VALUE); \
-  else									\
-    fprintf (FILE, "%s%s%d-%s%d\n", ASM_LONG, LPREFIX,VALUE,LPREFIX,REL); \
-} while (0)
-
 #undef ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
 do {									\
@@ -371,7 +365,7 @@ do {									\
 
 /* Must use data section for relocatable constants when pic.  */
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX)					\
+#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)				\
 {									\
   if (TARGET_ELF) {							\
     if (flag_pic && symbolic_operand (RTX, VOIDmode))			\
@@ -530,9 +524,6 @@ init_section ()								\
   ((TARGET_ELF) ? 0 : 							\
    (current_function_calls_setjmp || current_function_calls_longjmp))
 
-#undef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ELF && flag_pic)
-
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX						\
  ((TARGET_ELF) ? "" : ".")
@@ -565,7 +556,7 @@ init_section ()								\
    : 0))
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TARGET_ELF && flag_pic && RELOC)					\
      data_section ();							\

@@ -29,7 +29,7 @@ package java.security.cert;
 import java.util.Set;
 
 /**
-	Public abstract interface for the X.509 Extension.
+	Public interface for the X.509 Extension.
 
 	This is used for X.509 v3 Certificates and CRL v2 (Certificate
 	Revocation Lists) for managing attributes assoicated with
@@ -61,7 +61,7 @@ import java.util.Set;
 
 	@since JDK 1.2
 */
-public abstract interface X509Extension
+public interface X509Extension
 {
 
   /**
@@ -95,7 +95,7 @@ public abstract interface X509Extension
   /**
      Returns the DER encoded OCTET string for the specified
      extension value identified by a OID. The OID is a string
-     of number seperated by periods. Ex: 12.23.45.67
+     of number separated by periods. Ex: 12.23.45.67
   */
   public byte[] getExtensionValue(String oid);
 

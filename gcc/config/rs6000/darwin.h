@@ -39,11 +39,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define CC1_SPEC "%{!static:-fPIC}"
 
+/* Make both r2 and r3 available for allocation.  */
+#define FIXED_R2 0
 #define FIXED_R13 0
-
-#undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
-  | MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC)
 
 /* Base register for access to local variables of the function.  */
 
@@ -130,6 +128,11 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.space %d\n", SIZE)
 
+/* Override the standard rs6000 definition.  */
+
+#undef ASM_COMMENT_START
+#define ASM_COMMENT_START ";"
+
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"
 #define SAVE_FP_SUFFIX ""
@@ -143,6 +146,19 @@ Boston, MA 02111-1307, USA.  */
 /* Function name to call to do profiling.  */
 
 #define RS6000_MCOUNT "*mcount"
+
+/* Default processor: a G4.  */
+
+#undef PROCESSOR_DEFAULT
+#define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
+
+/* Default target flag settings.  Despite the fact that STMW/LMW
+   serializes, it's still a big codesize win to use them.  Use FSEL by
+   default as well.  */
+
+#undef  TARGET_DEFAULT
+#define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
+                      | MASK_PPC_GFXOPT)
 
 /* Since Darwin doesn't do TOCs, stub this out.  */
 

@@ -146,7 +146,7 @@ Boston, MA 02111-1307, USA.  */
 
    Defined in svr4.h.  */
 #undef LIB_SPEC
-#define LIB_SPEC "-( -lc %{msim:-lsim}%{!msim:-lnosys} -)"
+#define LIB_SPEC "-( -lc %{msim:-lsim} -)"
 
 /* Another C string constant that tells the GNU CC driver program how and when
    to place a reference to `libgcc.a' into the linker command line.  This
@@ -1043,7 +1043,7 @@ do {									\
    only sequences of consecutive registers.  On such machines, define
    `REG_ALLOC_ORDER' to be an initializer that lists the highest numbered
    allocatable register first.  */
-#define REG_ALLOC_ORDER { 9, 7, 6, 5, 4, 3, 8, 2, 1, 0, 10, 11, 12, 13, 14, 15, 16 }
+#define REG_ALLOC_ORDER { 7, 6, 5, 4, 3, 2, 1, 0, 9, 8, 10, 11, 12, 13, 14, 15, 16 }
 
 /* A C statement (sans semicolon) to choose the order in which to allocate hard
    registers for pseudo-registers local to a basic block.
@@ -1204,6 +1204,7 @@ enum reg_class
   R2_REGS,
   EIGHT_REGS,
   R8_REGS,
+  ICALL_REGS,
   GENERAL_REGS,
   CARRY_REGS,
   ALL_REGS,
@@ -1226,6 +1227,7 @@ enum reg_class
   "R2_REGS",					\
   "EIGHT_REGS",					\
   "R8_REGS",					\
+  "ICALL_REGS",					\
   "GENERAL_REGS",				\
   "CARRY_REGS",					\
   "ALL_REGS"					\
@@ -1250,6 +1252,7 @@ enum reg_class
   0x00004,					\
   0x000FF,					\
   0x00100,					\
+  0x00300,					\
   0x6FFFF,					\
   0x10000,					\
   (1 << FIRST_PSEUDO_REGISTER) - 1		\
@@ -1299,9 +1302,11 @@ enum reg_class
  (  (CHAR) == 'a' ? R0_REGS			\
   : (CHAR) == 'b' ? R1_REGS			\
   : (CHAR) == 'c' ? R2_REGS			\
-  : (CHAR) == 't' ? TWO_REGS			\
+  : (CHAR) == 'd' ? R8_REGS			\
   : (CHAR) == 'e' ? EIGHT_REGS			\
+  : (CHAR) == 't' ? TWO_REGS			\
   : (CHAR) == 'y' ? CARRY_REGS			\
+  : (CHAR) == 'z' ? ICALL_REGS			\
   : NO_REGS)
 
 /* A C expression which is nonzero if register number NUM is suitable for use
@@ -1785,7 +1790,7 @@ enum reg_class
 
    If the static chain is passed in memory, these macros should not be defined;
    instead, the next two macros should be defined.  */
-#define STATIC_CHAIN_REGNUM 12
+#define STATIC_CHAIN_REGNUM 1
 /* #define STATIC_CHAIN_INCOMING_REGNUM */
 
 /* If the static chain is passed in memory, these macros provide rtx giving
@@ -1975,7 +1980,7 @@ enum reg_class
    FUNDECL is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_DECL' that
    describes the declaration of the function.  From this it is possible to
-   obtain the DECL_MACHINE_ATTRIBUTES of the function.
+   obtain the DECL_ATTRIBUTES of the function.
 
    FUNTYPE is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_TYPE' that
@@ -2006,7 +2011,7 @@ enum reg_class
 
 /* Function Arguments in Registers */
 
-#define NUM_ARGUMENT_REGISTERS 8
+#define NUM_ARGUMENT_REGISTERS 6
 #define FIRST_ARGUMENT_REGISTER 2
 
 #define STORMY16_WORD_SIZE(TYPE, MODE)				\
@@ -2292,7 +2297,7 @@ typedef int CUMULATIVE_ARGS;
    return values are decided by the `RETURN_IN_MEMORY' macro.
 
    If not defined, this defaults to the value 1.  */
-/* #define DEFAULT_PCC_STRUCT_RETURN */
+/* #define DEFAULT_PCC_STRUCT_RETURN 0 */
 
 /* If the structure value address is passed in a register, then
    `STRUCT_VALUE_REGNUM' should be the number of that register.  */
@@ -2416,10 +2421,11 @@ typedef int CUMULATIVE_ARGS;
    the return address.  Hence returning from FUNCTION will return to whoever
    called the current `thunk'.
 
-   The effect must be as if FUNCTION had been called directly with the adjusted
-   first argument.  This macro is responsible for emitting all of the code for
-   a thunk function; `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' are not
-   invoked.
+   The effect must be as if @var{function} had been called directly
+   with the adjusted first argument.  This macro is responsible for
+   emitting all of the code for a thunk function;
+   TARGET_ASM_FUNCTION_PROLOGUE and TARGET_ASM_FUNCTION_EPILOGUE are
+   not invoked.
 
    The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
    extracted from it.)  It might possibly be useful on some targets, but
@@ -2559,10 +2565,11 @@ typedef int CUMULATIVE_ARGS;
    code to call function `__bb_trace_ret'.  The assembler code should
    only be output if the global compile flag `profile_block_flag' ==
    2.  This macro has to be used at every place where code for
-   returning from a function is generated (e.g. `FUNCTION_EPILOGUE').
-   Although you have to write the definition of `FUNCTION_EPILOGUE'
-   as well, you have to define this macro to tell the compiler, that
-   the proper call to `__bb_trace_ret' is produced.  */
+   returning from a function is generated
+   (e.g. `TARGET_ASM_FUNCTION_EPILOGUE').  Although you have to write
+   the definition of `TARGET_ASM_FUNCTION_EPILOGUE' as well, you have
+   to define this macro to tell the compiler, that the proper call to
+   `__bb_trace_ret' is produced.  */
 /* #define FUNCTION_BLOCK_PROFILER_EXIT(FILE) */
 
 /* A C statement or compound statement to save all registers, which may be
@@ -2571,17 +2578,19 @@ typedef int CUMULATIVE_ARGS;
    the assembler code can be concatenated with the string ID, to obtain a
    unique lable name.
 
-   Registers or condition codes clobbered by `FUNCTION_PROLOGUE' or
-   `FUNCTION_EPILOGUE' must be saved in the macros `FUNCTION_BLOCK_PROFILER',
+   Registers or condition codes clobbered by
+   `TARGET_ASM_FUNCTION_PROLOGUE' or `TARGET_ASM_FUNCTION_EPILOGUE'
+   must be saved in the macros `FUNCTION_BLOCK_PROFILER',
    `FUNCTION_BLOCK_PROFILER_EXIT' and `BLOCK_PROFILER' prior calling
-   `__bb_init_trace_func', `__bb_trace_ret' and `__bb_trace_func' respectively.  */
+   `__bb_init_trace_func', `__bb_trace_ret' and `__bb_trace_func'
+   respectively.  */
 /* #define MACHINE_STATE_SAVE(ID) */
 
 /* A C statement or compound statement to restore all registers, including
    condition codes, saved by `MACHINE_STATE_SAVE'.
 
-   Registers or condition codes clobbered by `FUNCTION_PROLOGUE' or
-   `FUNCTION_EPILOGUE' must be restored in the macros
+   Registers or condition codes clobbered by `TARGET_ASM_FUNCTION_PROLOGUE' or
+   `TARGET_ASM_FUNCTION_EPILOGUE' must be restored in the macros
    `FUNCTION_BLOCK_PROFILER', `FUNCTION_BLOCK_PROFILER_EXIT' and
    `BLOCK_PROFILER' after calling `__bb_init_trace_func', `__bb_trace_ret' and
    `__bb_trace_func' respectively.  */
@@ -2715,7 +2724,8 @@ typedef int CUMULATIVE_ARGS;
    stack slot.  This default is right for most machines.  The exceptions are
    machines where it is impossible to execute instructions in the stack area.
    On such machines, you may have to implement a separate stack, using this
-   macro in conjunction with `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE'.
+   macro in conjunction with `TARGET_ASM_FUNCTION_PROLOGUE' and
+   `TARGET_ASM_FUNCTION_EPILOGUE'.
 
    FP points to a data structure, a `struct function', which describes the
    compilation status of the immediate containing function of the function
@@ -3470,7 +3480,7 @@ do {							\
    the read-only data section (usually the text section).
 
    Defined in svr4.h.  */
-/* #define SELECT_SECTION(EXP, RELOC) */
+/* #define SELECT_SECTION(EXP, RELOC, ALIGN) */
 
 /* A C statement or statements to switch to the appropriate section for output
    of RTX in mode MODE.  You can assume that RTX is some kind of constant in
@@ -3482,7 +3492,7 @@ do {							\
    section.
 
    Defined in svr4.h.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  Otherwise, the
@@ -4534,8 +4544,12 @@ do {									\
 
    If this macro is defined to anything, the DWARF 2 unwinder will be used
    instead of inline unwinders and __unwind_function in the non-setjmp case.  */
-/* #define DWARF2_UNWIND_INFO */
+#define DWARF2_UNWIND_INFO 0
 
+/* Don't use __builtin_setjmp for unwinding, since it's tricky to get
+   at the high 16 bits of an address.  */
+#define DONT_USE_BUILTIN_SETJMP
+#define JMP_BUF_SIZE  8
 
 /* Assembler Commands for Alignment.  */
 
@@ -4866,8 +4880,8 @@ do {									\
    To support optional call frame debugging information, you must also define
    `INCOMING_RETURN_ADDR_RTX' and either set `RTX_FRAME_RELATED_P' on the
    prologue insns if you use RTL for the prologue, or call `dwarf2out_def_cfa'
-   and `dwarf2out_reg_save' as appropriate from `FUNCTION_PROLOGUE' if you
-   don't.
+   and `dwarf2out_reg_save' as appropriate from `TARGET_ASM_FUNCTION_PROLOGUE'
+   if you don't.
 
    Defined in svr4.h.  */
 /* #define DWARF2_DEBUGGING_INFO */
@@ -5201,25 +5215,6 @@ do {									\
    #pragma pack(push,<n>) and #pragma pack(pop). */
 /* HANDLE_PRAGMA_PACK_PUSH_POP 1 */
    
-/* If defined, a C expression whose value is nonzero if IDENTIFIER with
-   arguments ARGS is a valid machine specific attribute for DECL.  The
-   attributes in ATTRIBUTES have previously been assigned to DECL.  */
-/* #define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) */
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER with
-   arguments ARGS is a valid machine specific attribute for TYPE.  The
-   attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-/* #define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) */
-
-/* If defined, a C expression whose value is zero if the attributes on TYPE1
-   and TYPE2 are incompatible, one if they are compatible, and two if they are
-   nearly compatible (which causes a warning to be generated).  */
-/* #define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) */
-
-/* If defined, a C statement that assigns default attributes to newly defined
-   TYPE.  */
-/* #define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) */
-
 /* Define this macro to control use of the character `$' in identifier names.
    The value should be 0, 1, or 2.  0 means `$' is not allowed by default; 1
    means it is allowed by default if `-traditional' is used; 2 means it is
@@ -5352,4 +5347,4 @@ do {									\
 
 extern struct rtx_def *stormy16_compare_op0, *stormy16_compare_op1;
 
-/* End of generic.h */
+/* End of stormy16.h */

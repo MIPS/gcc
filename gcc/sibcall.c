@@ -159,8 +159,9 @@ skip_copy_to_return_value (orig_insn)
 
   if (return_value_pseudo)
     {
-      if (SET_DEST (set) == return_value_pseudo)
-        return insn;
+      if (SET_DEST (set) == return_value_pseudo
+	  && SET_SRC (set) == softret)
+	return insn;
       return orig_insn;
     }
 
@@ -554,9 +555,7 @@ replace_call_placeholder (insn, use)
     LABEL_PRESERVE_P (XEXP (PATTERN (insn), 3)) = 0;
   
   /* "Delete" the placeholder insn.  */
-  PUT_CODE (insn, NOTE);
-  NOTE_SOURCE_FILE (insn) = 0;
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  remove_insn (insn);
 }
 
 /* Given a (possibly empty) set of potential sibling or tail recursion call
@@ -747,12 +746,7 @@ optimize_sibling_and_tail_recursive_calls ()
 	 we actually write into.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
-	  if (GET_CODE (insn) == NOTE)
-	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-		break;
-	    }
-	  else if (INSN_P (insn))
+	  if (INSN_P (insn))
 	    purge_mem_unchanging_flag (PATTERN (insn));
 	}
     }

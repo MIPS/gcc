@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -1676,10 +1676,10 @@ package body Osint is
    ------------------------------
 
    function Read_Default_Search_Dirs
-     (Search_Dir_Prefix       : String_Access;
-      Search_File             : String_Access;
+     (Search_Dir_Prefix : String_Access;
+      Search_File : String_Access;
       Search_Dir_Default_Name : String_Access)
-      return                  String_Access
+     return String_Access
    is
       Prefix_Len : constant Integer := Search_Dir_Prefix.all'Length;
       Buffer     : String (1 .. Prefix_Len + Search_File.all'Length + 1);
@@ -1693,23 +1693,8 @@ package body Osint is
       Prev_Was_Separator : Boolean;
       Nb_Relative_Dir    : Integer;
 
-      function Is_Relative (S : String; K : Positive) return Boolean;
-      pragma Inline (Is_Relative);
-      --  Returns True if a relative directory specification is found
-      --  in S at position K, False otherwise.
-
-      -----------------
-      -- Is_Relative --
-      -----------------
-
-      function Is_Relative (S : String; K : Positive) return Boolean is
-      begin
-         return not Is_Absolute_Path (S (K .. S'Last));
-      end Is_Relative;
-
-   --  Start of processing for Read_Default_Search_Dirs
-
    begin
+
       --  Construct a C compatible character string buffer.
 
       Buffer (1 .. Search_Dir_Prefix.all'Length)
@@ -1752,13 +1737,12 @@ package body Osint is
             S (J) := Path_Separator;
          end if;
 
-         if S (J) = Path_Separator then
+         if  S (J) = Path_Separator then
             Prev_Was_Separator := True;
          else
-            if Prev_Was_Separator and then Is_Relative (S.all, J) then
+            if Prev_Was_Separator and S (J) /= Directory_Separator then
                Nb_Relative_Dir := Nb_Relative_Dir + 1;
             end if;
-
             Prev_Was_Separator := False;
          end if;
       end loop;
@@ -1773,11 +1757,11 @@ package body Osint is
       J1 := 1;
       Prev_Was_Separator := True;
       for J in 1 .. Len + 1 loop
-         if S (J) = Path_Separator then
+         if  S (J) = Path_Separator then
             Prev_Was_Separator := True;
 
          else
-            if Prev_Was_Separator and then Is_Relative (S.all, J) then
+            if Prev_Was_Separator and S (J) /= Directory_Separator then
                S1 (J1 .. J1 + Prefix_Len) := Search_Dir_Prefix.all;
                J1 := J1 + Prefix_Len;
             end if;

@@ -468,7 +468,6 @@ static void
 delete_insn_bb (insn)
      rtx insn;
 {
-  basic_block bb;
   if (!insn)
     abort ();
 
@@ -480,20 +479,6 @@ delete_insn_bb (insn)
   if (! INSN_P (insn))
     return;
 
-  bb = BLOCK_FOR_INSN (insn);
-  if (!bb)
-    abort ();
-  if (bb->head == bb->end)
-    {
-      /* Delete the insn by converting it to a note.  */
-      PUT_CODE (insn, NOTE);
-      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-      return;
-    }
-  else if (insn == bb->head)
-    bb->head = NEXT_INSN (insn);
-  else if (insn == bb->end)
-    bb->end = PREV_INSN (insn);
   delete_insn (insn);
 }
 
@@ -707,7 +692,7 @@ ssa_eliminate_dead_code ()
 
 	/* Create an edge from this block to the post dominator.  
 	   What about the PHI nodes at the target?  */
-	make_edge (NULL, bb, pdom_bb, 0);
+	make_edge (bb, pdom_bb, 0);
 
 	/* Third, transform this insn into an unconditional
 	   jump to the label for the immediate postdominator.  */

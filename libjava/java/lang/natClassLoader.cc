@@ -33,6 +33,7 @@ details.  */
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/VirtualMachineError.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/Runtime.h>
 #include <java/lang/StringBuffer.h>
@@ -173,7 +174,6 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
   klass->state = JV_STATE_ERROR;
   klass->notifyAll ();
 }
-
 
 // This is the findClass() implementation for the System classloader. It is 
 // the only native method in VMClassLoader, so we define it here.
@@ -418,30 +418,18 @@ _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 }
 
 // This function is called many times during startup, before main() is
-// run.  We do our runtime initialization here the very first time we
-// are called.  At that point in time we know for certain we are
-// running single-threaded, so we don't need to lock when modifying
-// `init'.  CLASSES is NULL-terminated.
+// run.  At that point in time we know for certain we are running 
+// single-threaded, so we don't need to lock when adding classes to the 
+// class chain.  At all other times, the caller should synchronize on
+// Class::class$.
 void
 _Jv_RegisterClasses (jclass *classes)
 {
-  static bool init = false;
-
-  if (! init)
-    {
-      init = true;
-      _Jv_InitThreads ();
-      _Jv_InitGC ();
-      _Jv_InitializeSyncMutex ();
-    }
-
-  JvSynchronize sync (&ClassClass);
   for (; *classes; ++classes)
     {
       jclass klass = *classes;
-      jint hash = HASH_UTF (klass->name);
-      klass->next = loaded_classes[hash];
-      loaded_classes[hash] = klass;
+
+      (*_Jv_RegisterClassHook) (klass);
 
       // registering a compiled class causes
       // it to be immediately "prepared".  
@@ -449,6 +437,37 @@ _Jv_RegisterClasses (jclass *classes)
 	klass->state = JV_STATE_COMPILED;
     }
 }
+
+void
+_Jv_RegisterClassHookDefault (jclass klass)
+{
+  jint hash = HASH_UTF (klass->name);
+
+  jclass check_class = loaded_classes[hash];
+
+  // If the class is already registered, don't re-register it.
+  while (check_class != NULL)
+    {
+      if (check_class == klass)
+	{
+	  // If you get this, it means you have the same class in two
+	  // different libraries.
+	  throw new java::lang::VirtualMachineError (JvNewStringLatin1 ("class registered twice"));
+	}
+
+      check_class = check_class->next;
+    }
+
+  klass->next = loaded_classes[hash];
+  loaded_classes[hash] = klass;
+}
+
+// A pointer to a function that actually registers a class.
+// Normally _Jv_RegisterClassHookDefault, but could be some other function
+// that registers the class in e.g. a ClassLoader-local table.
+// Should synchronize on Class:class$ while setting/restore this variable.
+
+void (*_Jv_RegisterClassHook) (jclass cl) = _Jv_RegisterClassHookDefault;
 
 void
 _Jv_RegisterClass (jclass klass)
@@ -481,12 +500,8 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	}
       else 
 	{
-	  java::lang::ClassLoader *sys = java::lang::ClassLoader::system;
-	  if (sys == NULL)
-	    {
-	      _Jv_InitClass (&ClassLoaderClass);
-	      sys = java::lang::ClassLoader::getSystemClassLoader ();
-	    }
+	  java::lang::ClassLoader *sys
+	    = java::lang::ClassLoader::getSystemClassLoader ();
 
 	  // Load using the bootstrap loader jvmspec 5.3.1.
 	  klass = sys->loadClass (sname, false); 
@@ -599,20 +614,17 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   JvAssert (ObjectClass.vtable_method_count == NUM_OBJECT_METHODS);
   int dm_count = ObjectClass.vtable_method_count;
 
-  // Create a new vtable by copying Object's vtable (except the
-  // class pointer, of course).  Note that we allocate this as
-  // unscanned memory -- the vtables are handled specially by the
-  // GC.
-  int size = (sizeof (_Jv_VTable) + ((dm_count - 1) * sizeof (void *)));
+  // Create a new vtable by copying Object's vtable.
   _Jv_VTable *vtable;
   if (array_vtable)
     vtable = array_vtable;
   else
-    vtable = (_Jv_VTable *) _Jv_AllocBytes (size);
+    vtable = _Jv_VTable::new_vtable (dm_count);
   vtable->clas = array_class;
-  memcpy (vtable->method, ObjectClass.vtable->method,
-	  dm_count * sizeof (void *));
   vtable->gc_descr = ObjectClass.vtable->gc_descr;
+  for (int i = 0; i < dm_count; ++i)
+    vtable->set_method (i, ObjectClass.vtable->get_method (i));
+
   array_class->vtable = vtable;
   array_class->vtable_method_count = ObjectClass.vtable_method_count;
 

@@ -719,6 +719,9 @@ case "${target}" in
   arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld target-libgloss ${libgcj}"
     ;;
+  cris-*-*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
   d10v-*-*)
     noconfigdirs="$noconfigdirs target-librx ${libstdcxx_version} target-libgloss ${libgcj}"
     ;;
@@ -771,6 +774,7 @@ case "${target}" in
     fi
     ;;
   *-*-linux*)
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
     # linux has rx in libc
     skipdirs="$skipdirs target-librx"
     ;;
@@ -1295,7 +1299,7 @@ rm -f conftest*
 case "${host}" in
   sparc-sun-solaris2*)
       CCBASE="`echo ${CC-cc} | sed 's/ .*$//'`"
-      if [ "`/usr/bin/which $CCBASE`" = "/usr/ucb/cc" ] ; then
+      if [ "`type $CCBASE | sed 's/^[^/]*//'`" = "/usr/ucb/cc" ] ; then
           could_use=
           [ -d /opt/SUNWspro/bin ] && could_use="/opt/SUNWspro/bin"
           if [ -d /opt/cygnus/bin ] ; then

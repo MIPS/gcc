@@ -1948,7 +1948,7 @@ final (first, file, optimize, prescan)
      int optimize;
      int prescan;
 {
-  register rtx insn;
+  rtx insn;
   int max_line = 0;
   int max_uid = 0;
 
@@ -1972,8 +1972,7 @@ final (first, file, optimize, prescan)
 		     && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
 		     && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)))
 	      {
-		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		NOTE_SOURCE_FILE (insn) = 0;
+		delete_insn (insn);	/* Use delete_note.  */
 		continue;
 	      }
 	    last = insn;
@@ -2206,7 +2205,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	  /* This note is a line-number.  */
 	  {
-	    register rtx note;
+	    rtx note;
 	    int note_after = 0;
 
 	    /* If there is anything real after this note, output it.
@@ -2373,12 +2372,10 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
     default:
       {
-	register rtx body = PATTERN (insn);
+	rtx body = PATTERN (insn);
 	int insn_code_number;
 	const char *template;
-#ifdef HAVE_cc0
 	rtx note;
-#endif
 
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
@@ -2407,7 +2404,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
 	  {
 #if !(defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC))
-	    register int vlen, idx;
+	    int vlen, idx;
 #endif
 
 	    if (prescan > 0)
@@ -2542,7 +2539,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	if (GET_CODE (body) == SEQUENCE)
 	  {
 	    /* A delayed-branch sequence */
-	    register int i;
+	    int i;
 	    rtx next;
 
 	    if (prescan > 0)
@@ -2706,7 +2703,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	       It may also return 1 meaning condition now always true
 	       or -1 meaning condition now always false
 	       or 2 meaning condition nontrivial but altered.  */
-	    register int result = alter_cond (XEXP (SET_SRC (body), 0));
+	    int result = alter_cond (XEXP (SET_SRC (body), 0));
 	    /* If condition now has fixed value, replace the IF_THEN_ELSE
 	       with its then-operand or its else-operand.  */
 	    if (result == 1)
@@ -2719,9 +2716,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	       (It would not be recognized.)  */
 	    if (SET_SRC (body) == pc_rtx)
 	      {
-		PUT_CODE (insn, NOTE);
-		NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		NOTE_SOURCE_FILE (insn) = 0;
+	        delete_insn (insn);
 		break;
 	      }
 	    else if (GET_CODE (SET_SRC (body)) == RETURN)
@@ -2769,7 +2764,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      case EQ:
 	      case NE:
 		{
-		  register int result;
+		  int result;
 		  if (XEXP (cond_rtx, 0) != cc0_rtx)
 		    break;
 		  result = alter_cond (cond_rtx);
@@ -2780,11 +2775,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		  else if (result == 2)
 		    INSN_CODE (insn) = -1;
 		  if (SET_DEST (set) == SET_SRC (set))
-		    {
-		      PUT_CODE (insn, NOTE);
-		      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		      NOTE_SOURCE_FILE (insn) = 0;
-		    }
+		    delete_insn (insn);
 		}
 		break;
 
@@ -2806,7 +2797,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    if (next != 0 && next != NEXT_INSN (insn))
 	      {
 		rtx prev = PREV_INSN (insn);
-		rtx note;
 
 		for (note = NEXT_INSN (insn); note != next;
 		     note = NEXT_INSN (note))
@@ -2902,10 +2892,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		 prev = PREV_INSN (prev))
 	      {
 		if (GET_CODE (prev) == NOTE)
-		  {
-		    NOTE_LINE_NUMBER (prev) = NOTE_INSN_DELETED;
-		    NOTE_SOURCE_FILE (prev) = 0;
-		  }
+		  delete_insn (prev);	/* Use delete_note.  */
 	      }
 
 	    return prev;
@@ -2963,6 +2950,12 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	INSN_DELETED_P (insn) = 1;
 #endif
 
+	/* Emit information for vtable gc.  */
+	note = find_reg_note (insn, REG_VTABLE_REF, NULL_RTX);
+	if (note)
+	  assemble_vtable_entry (XEXP (XEXP (note, 0), 0),
+				 INTVAL (XEXP (XEXP (note, 0), 1)));
+
 	current_output_insn = debug_insn = 0;
       }
     }
@@ -2976,7 +2969,7 @@ static void
 notice_source_line (insn)
      rtx insn;
 {
-  register const char *filename = NOTE_SOURCE_FILE (insn);
+  const char *filename = NOTE_SOURCE_FILE (insn);
 
   /* Remember filename for basic block profiling.
      Filenames are allocated on the permanent obstack
@@ -3027,9 +3020,9 @@ cleanup_subreg_operands (insn)
 
 rtx
 alter_subreg (x)
-     register rtx x;
+     rtx x;
 {
-  register rtx y = SUBREG_REG (x);
+  rtx y = SUBREG_REG (x);
 
   if (GET_CODE (y) == SUBREG)
     y = alter_subreg (y);
@@ -3107,7 +3100,7 @@ walk_alter_subreg (x)
 
 static int
 alter_cond (cond)
-     register rtx cond;
+     rtx cond;
 {
   int value = 0;
 
@@ -3296,7 +3289,7 @@ output_asm_name ()
 	 alternative used.  */
       if (debug_insn)
 	{
-	  register int num = INSN_CODE (debug_insn);
+	  int num = INSN_CODE (debug_insn);
 	  fprintf (asm_out_file, "\t%s %d\t%s",
 		   ASM_COMMENT_START, INSN_UID (debug_insn),
 		   insn_data[num].name);
@@ -3318,8 +3311,11 @@ output_asm_insn (template, operands)
      const char *template;
      rtx *operands;
 {
-  register const char *p;
-  register int c;
+  const char *p;
+  int c;
+#ifdef ASSEMBLER_DIALECT
+  int dialect = 0;
+#endif
 
   /* An insn may return a null string template
      in a case where no assembler code is needed.  */
@@ -3352,7 +3348,12 @@ output_asm_insn (template, operands)
 #ifdef ASSEMBLER_DIALECT
       case '{':
 	{
-	  register int i;
+	  int i;
+
+	  if (dialect)
+	    output_operand_lossage ("nested assembly dialect alternatives");
+	  else
+	    dialect = 1;
 
 	  /* If we want the first dialect, do nothing.  Otherwise, skip
 	     DIALECT_NUMBER of strings ending with '|'.  */
@@ -3365,16 +3366,35 @@ output_asm_insn (template, operands)
 	      if (*p == '|')
 		p++;
 	    }
+
+	  if (*p == '\0')
+	    output_operand_lossage ("unterminated assembly dialect alternative");
 	}
 	break;
 
       case '|':
-	/* Skip to close brace.  */
-	while (*p && *p++ != '}')
-	  ;
+	if (dialect)
+	  {
+	    /* Skip to close brace.  */
+	    do
+	      {
+		if (*p == '\0')
+		  {
+		    output_operand_lossage ("unterminated assembly dialect alternative");
+		    break;
+		  }
+	      }	  
+	    while (*p++ != '}');
+	    dialect = 0;
+	  }
+	else
+	  putc (c, asm_out_file);
 	break;
 
       case '}':
+	if (! dialect)
+	  putc (c, asm_out_file);
+	dialect = 0;
 	break;
 #endif
 
@@ -4106,10 +4126,10 @@ leaf_renumber_regs (first)
 
 void
 leaf_renumber_regs_insn (in_rtx)
-     register rtx in_rtx;
+     rtx in_rtx;
 {
-  register int i, j;
-  register const char *format_ptr;
+  int i, j;
+  const char *format_ptr;
 
   if (in_rtx == 0)
     return;

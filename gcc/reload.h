@@ -183,7 +183,7 @@ extern int reload_first_uid;
 
 /* Nonzero if indirect addressing is supported when the innermost MEM is
    of the form (MEM (SYMBOL_REF sym)).  It is assumed that the level to
-   which these are valid is the same as spill_indirect_levels, above.   */
+   which these are valid is the same as spill_indirect_levels, above.  */
 
 extern char indirect_symref_ok;
 
@@ -278,7 +278,7 @@ extern int remove_address_replacements PARAMS ((rtx in_rtx));
    autoincrement and autodecrement.  */
 extern int operands_match_p PARAMS ((rtx, rtx));
 
-/* Return 1 if altering OP will not modify the value of CLOBBER. */
+/* Return 1 if altering OP will not modify the value of CLOBBER.  */
 extern int safe_from_earlyclobber PARAMS ((rtx, rtx));
 
 /* Search the body of INSN for values that need reloading and record them
@@ -331,7 +331,12 @@ extern int regno_clobbered_p PARAMS ((unsigned int, rtx, enum machine_mode,
 				      int));
 
 /* Return 1 if X is an operand of an insn that is being earlyclobbered.  */
-int earlyclobber_operand_p PARAMS ((rtx));
+extern int earlyclobber_operand_p PARAMS ((rtx));
+
+/* Record one reload that needs to be performed.  */
+extern int push_reload PARAMS ((rtx, rtx, rtx *, rtx *, enum reg_class,
+				enum machine_mode, enum machine_mode,
+				int, int, int, enum reload_type));
 
 /* Functions in reload1.c:  */
 

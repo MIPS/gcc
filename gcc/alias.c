@@ -59,7 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    To see whether two alias sets can point to the same memory, we must
    see if either alias set is a subset of the other. We need not trace
-   past immediate decendents, however, since we propagate all
+   past immediate descendents, however, since we propagate all
    grandchildren up one level.
 
    Alias set zero is implicitly a superset of all other alias sets.
@@ -72,7 +72,7 @@ typedef struct alias_set_entry
   HOST_WIDE_INT alias_set;
 
   /* The children of the alias set.  These are not just the immediate
-     children, but, in fact, all decendents.  So, if we have:
+     children, but, in fact, all descendents.  So, if we have:
 
        struct T { struct S s; float f; } 
 
@@ -276,24 +276,6 @@ alias_sets_conflict_p (set1, set2)
   return 0;
 }
 
-/* Set the alias set of MEM to SET.  */
-
-void
-set_mem_alias_set (mem, set)
-     rtx mem;
-     HOST_WIDE_INT set;
-{
-  /* We would like to do this test but can't yet since when converting a
-     REG to a MEM, the alias set field is undefined.  */
-#if 0
-  /* If the new and old alias sets don't conflict, something is wrong.  */
-  if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
-    abort ();
-#endif
-
-  MEM_ALIAS_SET (mem) = set;
-}
-
 /* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
    has any readonly fields.  If any of the fields have types that
    contain readonly fields, return true as well.  */
@@ -488,16 +470,32 @@ get_alias_set (t)
     return 0;
 
   /* We can be passed either an expression or a type.  This and the
-     language-specific routine may make mutually-recursive calls to
-     each other to figure out what to do.  At each juncture, we see if
-     this is a tree that the language may need to handle specially.
-     First handle things that aren't types and start by removing nops
-     since we care only about the actual object.  */
+     language-specific routine may make mutually-recursive calls to each other
+     to figure out what to do.  At each juncture, we see if this is a tree
+     that the language may need to handle specially.  First handle things that
+     aren't types and start by removing nops since we care only about the
+     actual object.  Also replace PLACEHOLDER_EXPRs and pick up the outermost
+     object that we could have a pointer to.  */
   if (! TYPE_P (t))
     {
-      while (TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR
-	     || TREE_CODE (t) == NON_LVALUE_EXPR)
-	t = TREE_OPERAND (t, 0);
+      /* Remove any NOPs and see what any PLACEHOLD_EXPRs will expand to.  */
+      while (((TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR)
+	      && (TYPE_MODE (TREE_TYPE (t))
+		  == TYPE_MODE (TREE_TYPE (TREE_OPERAND (t, 0)))))
+	     || TREE_CODE (t) == NON_LVALUE_EXPR
+	     || TREE_CODE (t) == PLACEHOLDER_EXPR
+	     || (handled_component_p (t) && ! can_address_p (t)))
+	{
+	  /* Give the language a chance to do something with this tree
+	     before we go inside it.  */
+	  if ((set = lang_get_alias_set (t)) != -1)
+	    return set;
+
+	  if (TREE_CODE (t) == PLACEHOLDER_EXPR)
+	    t = find_placeholder (t, 0);
+	  else
+	    t = TREE_OPERAND (t, 0);
+	}
 
       /* Now give the language a chance to do something but record what we
 	 gave it this time.  */
@@ -505,15 +503,9 @@ get_alias_set (t)
       if ((set = lang_get_alias_set (t)) != -1)
 	return set;
 
-      /* Now loop the same way as get_inner_reference and get the alias
-	 set to use.  Pick up the outermost object that we could have
-	 a pointer to.  */
-      while (handled_component_p (t) && ! can_address_p (t))
-	t = TREE_OPERAND (t, 0);
-
+      /* Check for accesses through restrict-qualified pointers.  */
       if (TREE_CODE (t) == INDIRECT_REF)
 	{
-	  /* Check for accesses through restrict-qualified pointers.  */
 	  tree decl = find_base_decl (TREE_OPERAND (t, 0));
 
 	  if (decl && DECL_POINTER_ALIAS_SET_KNOWN_P (decl))
@@ -604,6 +596,11 @@ record_alias_subset (superset, subset)
 {
   alias_set_entry superset_entry;
   alias_set_entry subset_entry;
+
+  /* It is possible in complex type situations for both sets to be the same,
+     in which case we can ignore this operation.  */
+  if (superset == subset)
+    return;
 
   if (superset == 0)
     abort ();
@@ -717,7 +714,7 @@ get_frame_alias_set ()
 
 static rtx
 find_base_value (src)
-     register rtx src;
+     rtx src;
 {
   unsigned int regno;
   switch (GET_CODE (src))
@@ -849,7 +846,7 @@ record_set (dest, set, data)
      rtx dest, set;
      void *data ATTRIBUTE_UNUSED;
 {
-  register unsigned regno;
+  unsigned regno;
   rtx src;
 
   if (GET_CODE (dest) != REG)
@@ -960,6 +957,21 @@ record_base_value (regno, val, invariant)
   reg_base_value[regno] = find_base_value (val);
 }
 
+/* Clear alias info for a register.  This is used if an RTL transformation
+   changes the value of a register.  This is used in flow by AUTO_INC_DEC
+   optimizations.  We don't need to clear reg_base_value, since flow only
+   changes the offset.  */
+
+void
+clear_reg_alias_info (reg)
+     rtx reg;
+{
+  unsigned int regno = REGNO (reg);
+
+  if (regno < reg_known_value_size && regno >= FIRST_PSEUDO_REGISTER)
+    reg_known_value[regno] = reg;
+}
+
 /* Returns a canonical version of X, from the point of view alias
    analysis.  (For example, if X is a MEM whose address is a register,
    and the register has a known value (say a SYMBOL_REF), then a MEM
@@ -1008,10 +1020,10 @@ static int
 rtx_equal_for_memref_p (x, y)
      rtx x, y;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   if (x == 0 && y == 0)
     return 1;
@@ -1137,9 +1149,9 @@ static rtx
 find_symbolic_term (x)
      rtx x;
 {
-  register int i;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  enum rtx_code code;
+  const char *fmt;
 
   code = GET_CODE (x);
   if (code == SYMBOL_REF || code == LABEL_REF)
@@ -1166,7 +1178,7 @@ find_symbolic_term (x)
 
 static rtx
 find_base_term (x)
-     register rtx x;
+     rtx x;
 {
   cselib_val *val;
   struct elt_loc_list *l;
@@ -1440,7 +1452,7 @@ addr_side_effect_eval (addr, size, n_refs)
 
 static int
 memrefs_conflict_p (xsize, x, ysize, y, c)
-     register rtx x, y;
+     rtx x, y;
      int xsize, ysize;
      HOST_WIDE_INT c;
 {
@@ -1725,7 +1737,7 @@ true_dependence (mem, mem_mode, x, varies)
      rtx x;
      int (*varies) PARAMS ((rtx, int));
 {
-  register rtx x_addr, mem_addr;
+  rtx x_addr, mem_addr;
   rtx base;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
@@ -1798,7 +1810,7 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
      enum machine_mode mem_mode;
      int (*varies) PARAMS ((rtx, int));
 {
-  register rtx x_addr;
+  rtx x_addr;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -1917,8 +1929,8 @@ anti_dependence (mem, x)
 
 int
 output_dependence (mem, x)
-     register rtx mem;
-     register rtx x;
+     rtx mem;
+     rtx x;
 {
   return write_dependence_p (mem, x, /*writep=*/1);
 }
@@ -1931,7 +1943,7 @@ nonlocal_mentioned_p (x)
      rtx x;
 {
   rtx base;
-  register RTX_CODE code;
+  RTX_CODE code;
   int regno;
 
   code = GET_CODE (x);
@@ -2035,8 +2047,8 @@ nonlocal_mentioned_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -2047,7 +2059,7 @@ nonlocal_mentioned_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (nonlocal_mentioned_p (XVECEXP (x, i, j)))
 		return 1;
@@ -2104,7 +2116,7 @@ static HARD_REG_SET argument_registers;
 void
 init_alias_once ()
 {
-  register int i;
+  int i;
 
 #ifndef OUTGOING_REGNO
 #define OUTGOING_REGNO(N) N
@@ -2128,9 +2140,9 @@ init_alias_analysis ()
 {
   int maxreg = max_reg_num ();
   int changed, pass;
-  register int i;
-  register unsigned int ui;
-  register rtx insn;
+  int i;
+  unsigned int ui;
+  rtx insn;
 
   reg_known_value_size = maxreg;
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.2 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -1840,8 +1840,8 @@ package body Exp_Ch4 is
                           and then Is_Entity_Name (Prefix (Nam))
                         then
                            Decls :=
-                             Build_Task_Image_Decls
-                               (Loc, Nam, Etype (Prefix (Nam)));
+                             Build_Task_Image_Decls (
+                             Loc, Nam, Etype (Prefix (Nam)));
                         else
                            Decls := Build_Task_Image_Decls (Loc, T, T);
                         end if;

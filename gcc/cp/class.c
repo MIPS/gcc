@@ -134,7 +134,8 @@ static tree add_implicitly_declared_members PARAMS ((tree, int, int, int));
 static tree fixed_type_or_null PARAMS ((tree, int *, int *));
 static tree resolve_address_of_overloaded_function PARAMS ((tree, tree, int,
 							  int, int, tree));
-static void build_vtable_entry_ref PARAMS ((tree, tree));
+static tree build_vtable_entry_ref PARAMS ((tree, tree, tree));
+static tree build_vtbl_ref_1 PARAMS ((tree, tree));
 static tree build_vtbl_initializer PARAMS ((tree, tree, tree, tree, int *));
 static int count_fields PARAMS ((tree));
 static int add_fields_to_vec PARAMS ((tree, tree, int));
@@ -191,7 +192,7 @@ static void force_canonical_binfo_r PARAMS ((tree, tree, tree, tree));
 static void force_canonical_binfo PARAMS ((tree, tree, tree, tree));
 static tree dfs_unshared_virtual_bases PARAMS ((tree, void *));
 static void mark_primary_bases PARAMS ((tree));
-static tree mark_primary_virtual_base PARAMS ((tree, tree, tree));
+static tree mark_primary_virtual_base PARAMS ((tree, tree));
 static void clone_constructors_and_destructors PARAMS ((tree));
 static tree build_clone PARAMS ((tree, tree));
 static void update_vtable_entry_for_fn PARAMS ((tree, tree, tree, tree *));
@@ -424,47 +425,40 @@ build_vbase_path (code, type, expr, path, nonnull)
 
 /* Virtual function things.  */
 
-/* We want to give the assembler the vtable identifier as well as
-   the offset to the function pointer.  So we generate
-
-   __asm__ __volatile__ (".vtable_entry %c0, %c1"
-      : : "s"(&class_vtable),
-          "i"((long)&vtbl[idx].pfn - (long)&vtbl[0])); */
-
-static void
-build_vtable_entry_ref (basetype, idx)
-     tree basetype, idx;
+static tree
+build_vtable_entry_ref (array_ref, instance, idx)
+     tree array_ref, instance, idx;
 {
-  static char asm_stmt[] = ".vtable_entry %c0, %c1";
-  tree s, i, i2;
-  tree vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
-  tree first_fn = TYPE_BINFO_VTABLE (basetype);
+  tree i, i2, vtable, first_fn, basetype;
 
-  s = build_unary_op (ADDR_EXPR, vtable, 0);
-  s = build_tree_list (build_string (1, "s"), s);
+  basetype = TREE_TYPE (instance);
+  if (TREE_CODE (basetype) == REFERENCE_TYPE)
+    basetype = TREE_TYPE (basetype);
 
-  i = build_array_ref (first_fn, idx);
-  /* We must not convert to ptrdiff_type node here, since this could widen
-     from a partial to an integral node, which would create a
-     convert_expression that would be in the way of any simplifications.  */
-  i = build_c_cast (string_type_node, build_unary_op (ADDR_EXPR, i, 0));
-  i2 = build_array_ref (vtable, build_int_2 (0,0));
-  i2 = build_c_cast (string_type_node, build_unary_op (ADDR_EXPR, i2, 0));
-  i = cp_build_binary_op (MINUS_EXPR, i, i2);
-  i = build_tree_list (build_string (1, "i"), i);
+  vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
+  first_fn = TYPE_BINFO_VTABLE (basetype);
 
-  finish_asm_stmt (ridpointers[RID_VOLATILE],
-		   build_string (sizeof(asm_stmt)-1, asm_stmt),
-		   NULL_TREE, chainon (s, i), NULL_TREE);
+  i = fold (build_array_ref (first_fn, idx));
+  i = fold (build_c_cast (ptrdiff_type_node,
+			  build_unary_op (ADDR_EXPR, i, 0)));
+  i2 = fold (build_array_ref (vtable, build_int_2 (0,0)));
+  i2 = fold (build_c_cast (ptrdiff_type_node,
+			   build_unary_op (ADDR_EXPR, i2, 0)));
+  i = fold (cp_build_binary_op (MINUS_EXPR, i, i2));
+
+  if (TREE_CODE (i) != INTEGER_CST)
+    abort ();
+
+  return build (VTABLE_REF, TREE_TYPE (array_ref), array_ref, vtable, i);
 }
 
 /* Given an object INSTANCE, return an expression which yields the
-   virtual function vtable element corresponding to INDEX.  There are
-   many special cases for INSTANCE which we take care of here, mainly
-   to avoid creating extra tree nodes when we don't have to.  */
+   vtable element corresponding to INDEX.  There are many special
+   cases for INSTANCE which we take care of here, mainly to avoid
+   creating extra tree nodes when we don't have to.  */
 
-tree
-build_vtbl_ref (instance, idx)
+static tree
+build_vtbl_ref_1 (instance, idx)
      tree instance, idx;
 {
   tree vtbl, aref;
@@ -535,10 +529,40 @@ build_vtbl_ref (instance, idx)
 
   assemble_external (vtbl);
 
-  if (flag_vtable_gc)
-    build_vtable_entry_ref (basetype, idx);
-
   aref = build_array_ref (vtbl, idx);
+
+  return aref;
+}
+
+tree
+build_vtbl_ref (instance, idx)
+     tree instance, idx;
+{
+  tree aref = build_vtbl_ref_1 (instance, idx);
+
+  if (flag_vtable_gc)
+    aref = build_vtable_entry_ref (aref, instance, idx);
+
+  return aref;
+}
+
+/* Given an object INSTANCE, return an expression which yields a
+   function pointer corresponding to vtable element INDEX.  */
+
+tree
+build_vfn_ref (instance, idx)
+     tree instance, idx;
+{
+  tree aref = build_vtbl_ref_1 (instance, idx);
+
+  /* When using function descriptors, the address of the
+     vtable entry is treated as a function pointer.  */
+  if (TARGET_VTABLE_USES_DESCRIPTORS)
+    aref = build1 (NOP_EXPR, TREE_TYPE (aref),
+		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
+
+  if (flag_vtable_gc)
+    aref = build_vtable_entry_ref (aref, instance, idx);
 
   return aref;
 }
@@ -823,7 +847,9 @@ set_vindex (decl, vfuns_p)
 {
   int vindex;
 
-  vindex = (*vfuns_p)++;
+  vindex = *vfuns_p;
+  *vfuns_p += (TARGET_VTABLE_USES_DESCRIPTORS
+	       ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
   DECL_VINDEX (decl) = build_shared_int_cst (vindex);
 }
 
@@ -1437,7 +1463,8 @@ force_canonical_binfo_r (to, from, type, mappings)
      tree mappings;
 {
   int i, n_baseclasses = BINFO_N_BASETYPES (from);
-  
+
+  my_friendly_assert (to != from, 20010905);
   BINFO_INDIRECT_PRIMARY_P (to)
           = BINFO_INDIRECT_PRIMARY_P (from);
   BINFO_INDIRECT_PRIMARY_P (from) = 0;
@@ -1461,11 +1488,22 @@ force_canonical_binfo_r (to, from, type, mappings)
   my_friendly_assert (same_type_p (BINFO_TYPE (to), BINFO_TYPE (from)),
 		      20010104);
   mappings = tree_cons (from, to, mappings);
+
+  if (CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (from))
+      && TREE_VIA_VIRTUAL (CLASSTYPE_PRIMARY_BINFO (BINFO_TYPE (from))))
+    {
+      tree from_primary = get_primary_binfo (from);
+      
+      if (BINFO_PRIMARY_BASE_OF (from_primary) == from)
+	force_canonical_binfo (get_primary_binfo (to), from_primary,
+			       type, mappings);
+    }
+  
   for (i = 0; i != n_baseclasses; i++)
     {
       tree from_binfo = BINFO_BASETYPE (from, i);
       tree to_binfo = BINFO_BASETYPE (to, i);
-      
+
       if (TREE_VIA_VIRTUAL (from_binfo))
         {
 	  if (BINFO_PRIMARY_P (from_binfo) &&
@@ -1498,17 +1536,19 @@ force_canonical_binfo (to, from, type, mappings)
 {
   tree assoc = purpose_member (BINFO_TYPE (to),
 		               CLASSTYPE_VBASECLASSES (type));
-  TREE_VALUE (assoc) = to;
-  force_canonical_binfo_r (to, from, type, mappings);
+  if (TREE_VALUE (assoc) != to)
+    {
+      TREE_VALUE (assoc) = to;
+      force_canonical_binfo_r (to, from, type, mappings);
+    }
 }
 
-/* Make BASE_BINFO the primary virtual base of BINFO within the hierarchy
-   dominated by TYPE. Returns BASE_BINFO, if it can be made so, NULL
+/* Make BASE_BINFO the a primary virtual base within the hierarchy
+   dominated by TYPE. Returns BASE_BINFO, if it is not already one, NULL
    otherwise (because something else has already made it primary).  */
 
 static tree
-mark_primary_virtual_base (binfo, base_binfo, type)
-     tree binfo;
+mark_primary_virtual_base (base_binfo, type)
      tree base_binfo;
      tree type;
 {
@@ -1519,8 +1559,6 @@ mark_primary_virtual_base (binfo, base_binfo, type)
       /* It's already allocated in the hierarchy. BINFO won't have a
          primary base in this hierachy, even though the complete object
          BINFO is for, would do.  */
-      BINFO_LOST_PRIMARY_P (binfo) = 1;
-      
       return NULL_TREE;
     }
      
@@ -1608,10 +1646,12 @@ mark_primary_bases (type)
       base_binfo = get_primary_binfo (binfo);
 
       if (TREE_VIA_VIRTUAL (base_binfo))
-        base_binfo = mark_primary_virtual_base (binfo, base_binfo, type);
+        base_binfo = mark_primary_virtual_base (base_binfo, type);
 
       if (base_binfo)
         BINFO_PRIMARY_BASE_OF (base_binfo) = binfo;
+      else
+	BINFO_LOST_PRIMARY_P (binfo) = 1;
       
       BINFO_UNSHARED_MARKED (binfo) = 1;
     }
@@ -2189,7 +2229,6 @@ duplicate_tag_error (t)
   TYPE_METHODS (t) = NULL_TREE;
   TYPE_VFIELD (t) = NULL_TREE;
   TYPE_CONTEXT (t) = NULL_TREE;
-  TYPE_NONCOPIED_PARTS (t) = NULL_TREE;
   
   /* Clear TYPE_LANG_FLAGS -- those in TYPE_LANG_SPECIFIC are cleared above.  */
   TYPE_LANG_FLAG_0 (t) = 0;
@@ -2893,10 +2932,12 @@ finish_struct_anon (t)
 		 declared, but we also find nested classes by noticing
 		 the TYPE_DECL that we create implicitly.  You're
 		 allowed to put one anonymous union inside another,
-		 though, so we explicitly tolerate that.  */
+		 though, so we explicitly tolerate that.  We use
+		 TYPE_ANONYMOUS_P rather than ANON_AGGR_TYPE_P so that
+		 we also allow unnamed types used for defining fields.  */
 	      if (DECL_ARTIFICIAL (elt) 
 		  && (!DECL_IMPLICIT_TYPEDEF_P (elt)
-		      || ANON_AGGR_TYPE_P (TREE_TYPE (elt))))
+		      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
 		continue;
 
 	      if (DECL_NAME (elt) == constructor_name (t))
@@ -4866,10 +4907,6 @@ layout_class_type (t, empty_p, vfuns_p,
   if (build_base_fields (rli, empty_p, empty_base_offsets, t))
     CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
   
-  /* CLASSTYPE_INLINE_FRIENDS is really TYPE_NONCOPIED_PARTS.  Thus,
-     we have to save this before we zap TYPE_NONCOPIED_PARTS.  */
-  fixup_inline_methods (t);
-
   /* Layout the non-static data members.  */
   for (field = non_static_data_members; field; field = TREE_CHAIN (field))
     {
@@ -5077,6 +5114,8 @@ finish_struct_1 (t)
   vfuns = 0;
   CLASSTYPE_RTTI (t) = NULL_TREE;
 
+  fixup_inline_methods (t);
+  
   /* Do end-of-class semantic processing: checking the validity of the
      bases and members and add implicitly generated methods.  */
   check_bases_and_members (t, &empty);
@@ -5282,7 +5321,7 @@ finish_struct (t, attributes)
      as necessary.  */
   unreverse_member_declarations (t);
 
-  cplus_decl_attributes (&t, attributes, NULL_TREE, 0);
+  cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
@@ -7576,7 +7615,25 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
 	  }
 
       /* And add it to the chain of initializers.  */
-      vfun_inits = tree_cons (NULL_TREE, init, vfun_inits);
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	{
+	  int i;
+	  if (init == size_zero_node)
+	    for (i = 0; i < TARGET_VTABLE_USES_DESCRIPTORS; ++i)
+	      vfun_inits = tree_cons (NULL_TREE, init, vfun_inits);
+	  else
+	    for (i = 0; i < TARGET_VTABLE_USES_DESCRIPTORS; ++i)
+	      {
+		tree fdesc = build (FDESC_EXPR, vfunc_ptr_type_node,
+				    TREE_OPERAND (init, 0),
+				    build_int_2 (i, 0));
+		TREE_CONSTANT (fdesc) = 1;
+
+		vfun_inits = tree_cons (NULL_TREE, fdesc, vfun_inits);
+	      }
+	}
+      else
+        vfun_inits = tree_cons (NULL_TREE, init, vfun_inits);
     }
 
   /* The initializers for virtual functions were built up in reverse

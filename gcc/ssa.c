@@ -1498,8 +1498,7 @@ make_regs_equivalent_over_bad_edges (bb, reg_partition)
 
       /* Scan incoming abnormal critical edges.  */
       for (e = b->pred; e; e = e->pred_next)
-	if ((e->flags & (EDGE_ABNORMAL | EDGE_CRITICAL)) 
-		== (EDGE_ABNORMAL | EDGE_CRITICAL))
+	if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
 	  {
 	    rtx *alt = phi_alternative (set, e->src->index);
 	    int alt_regno;
@@ -2122,7 +2121,7 @@ rename_equivalent_regs (reg_partition)
 
 		  PATTERN (insn) = XVECEXP (s, 0, slen-1);
 		  for (i = 0; i < slen - 1; i++)
-		    emit_block_insn_before (XVECEXP (s, 0, i), insn, b);
+		    emit_insn_before (XVECEXP (s, 0, i), insn);
 		}
 	    }
 

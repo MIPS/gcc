@@ -469,7 +469,7 @@ gcc_AC_C_COMPILE_ENDIAN
 gcc_AC_C_FLOAT_FORMAT
 
 # See if GNAT has been installed
-AC_CHECK_PROG(have_gnat, gnatbind, yes, no)
+gcc_AC_PROG_GNAT
 
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
@@ -578,7 +578,8 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(strtoul bsearch popen times clock \
 	strchr strrchr kill getrlimit setrlimit atoll atoq \
 	sysconf isascii gettimeofday strsignal putc_unlocked fputc_unlocked \
-	fputs_unlocked getrusage nl_langinfo lstat)
+	fputs_unlocked fwrite_unlocked fprintf_unlocked getrusage nl_langinfo \
+	lstat)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -623,7 +624,8 @@ AM_ICONV
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd \
-	strsignal putc_unlocked fputs_unlocked strstr environ errno \
+	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
+        fprintf_unlocked strstr environ errno \
 	malloc realloc calloc free basename getopt clock, , ,[
 #include "ansidecl.h"
 #include "system.h"])
@@ -920,15 +922,6 @@ if test "${build}" != "${host}" && test "x$enable_nls" = "xyes"; then
   enable_nls=no
 fi
 
-# if NLS is enabled, also enable check in po subdir
-if test $enable_nls = yes; then
-  CHECK_PO=check-po
-else
-  CHECK_PO=""
-fi
-
-AC_SUBST(CHECK_PO)
-
 AM_GNU_GETTEXT
 XGETTEXT="AWK='$AWK' \$(SHELL) \$(top_srcdir)/exgettext $XGETTEXT"
 
@@ -1156,6 +1149,7 @@ gcc_cv_as=
 gcc_cv_gas_major_version=
 gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
+gcc_cv_as_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
 elif test -x "$AS"; then
@@ -1165,7 +1159,7 @@ elif test -x as$host_exeext; then
 	gcc_cv_as=./as$host_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in -a -f ../gas/Makefile; then
 	# Single tree build which includes gas.
-	for f in $gcc_cv_as_gas_srcdir/configure $gcc_cv_as_gas_srcdir/configure.in $gcc_cv_as_gas_srcdir/Makefile.in
+	for f in $gcc_cv_as_bfd_srcdir/configure $gcc_cv_as_gas_srcdir/configure $gcc_cv_as_gas_srcdir/configure.in $gcc_cv_as_gas_srcdir/Makefile.in
 	do
 changequote(,)dnl
 		gcc_cv_gas_version=`grep '^VERSION=[0-9]*\.[0-9]*' $f`
@@ -1484,6 +1478,26 @@ EOF
 fi
 AC_MSG_RESULT($gcc_cv_as_eh_frame)
 
+AC_MSG_CHECKING(assembler section merging support)
+gcc_cv_as_shf_merge=no
+if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
+  if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 12 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
+    gcc_cv_as_shf_merge=yes
+  fi
+elif test x$gcc_cv_as != x; then
+	# Check if we support SHF_MERGE sections
+	echo '.section .rodata.str, "aMS", @progbits, 1' > conftest.s
+	if $gcc_cv_as --fatal-warnings -o conftest.o conftest.s > /dev/null 2>&1; then
+		gcc_cv_as_shf_merge=yes
+	fi
+	rm -f conftest.s conftest.o
+fi
+if test x"$gcc_cv_as_shf_merge" = xyes; then
+	AC_DEFINE(HAVE_GAS_SHF_MERGE, 1,
+[Define if your assembler supports marking sections with SHF_MERGE flag.])
+fi
+AC_MSG_RESULT($gcc_cv_as_shf_merge)
+
 case "$target" in 
   sparc*-*-*)
     AC_CACHE_CHECK([assembler .register pseudo-op support],
@@ -1617,6 +1631,32 @@ changequote([,])dnl
 	AC_DEFINE_UNQUOTED(HAVE_GAS_`echo "$gcc_cv_as_instructions" | sed -e 's/ $//' | tr '[a-z ]' '[A-Z_]'`)
     fi
     AC_MSG_RESULT($gcc_cv_as_instructions)
+
+    AC_MSG_CHECKING(assembler GOTOFF in data directives)
+    gcc_cv_as_gotoff_in_data=no
+    if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x
+    then
+      if test "$gcc_cv_gas_major_version" -eq 2 \
+	 -a "$gcc_cv_gas_minor_version" -ge 11 \
+	 -o "$gcc_cv_gas_major_version" -gt 2; then
+	gcc_cv_as_gotoff_in_data=yes
+      fi
+    elif test x$gcc_cv_as != x; then
+	cat > conftest.s <<EOF
+	.text
+.L0:
+	nop
+	.data
+	.long .L0@GOTOFF
+EOF
+	if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+	  gcc_cv_as_gotoff_in_data=yes
+	fi
+    fi
+    AC_DEFINE_UNQUOTED(HAVE_AS_GOTOFF_IN_DATA,
+      [`if test $gcc_cv_as_gotoff_in_data = yes; then echo 1; else echo 0; fi`],
+      [Define true if the assembler supports '.long foo@GOTOFF'.])
+    AC_MSG_RESULT($gcc_cv_as_gotoff_in_data)
     ;;
 esac
 
@@ -1673,6 +1713,10 @@ if test x"$gcc_cv_as_dwarf2_debug_line" = xyes; then
    and preserves file table indicies exactly as given.])
 fi
 AC_MSG_RESULT($gcc_cv_as_dwarf2_debug_line)
+
+if test "$prefix" != "/usr" && test "$prefix" != "/usr/local" ; then
+  AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include")
+fi
 
 # Figure out what language subdirectories are present.
 # Look if the user specified --enable-languages="..."; if not, use

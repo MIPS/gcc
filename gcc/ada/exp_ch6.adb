@@ -887,7 +887,7 @@ package body Exp_Ch6 is
             --  Deal with access types where the actual subtpe and the
             --  formal subtype are not the same, requiring a check.
 
-            --  It is necessary to exclude tagged types because of "downward
+            --  It is neccessary to exclude tagged types because of "downward
             --  conversion" errors and a strange assertion error in namet
             --  from gnatf in bug 1215-001 ???
 

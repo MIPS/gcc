@@ -617,7 +617,7 @@ read_scan_file (in_fname, argc, argv)
   cpp_options *options;
   struct fn_decl *fn;
   int i;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   obstack_init (&scan_file_obstack); 
 
@@ -661,12 +661,11 @@ read_scan_file (in_fname, argc, argv)
 		       /* from_stage3 */ true, 1);
       for (;;)
 	{
-	  cpp_token t;
+	  const cpp_token *t = cpp_get_token (scan_in);
 
-	  cpp_get_token (scan_in, &t);
-	  if (t.type == CPP_EOF)
+	  if (t->type == CPP_EOF)
 	    break;
-	  else if (cpp_ideq (&t, "_filbuf"))
+	  else if (cpp_ideq (t, "_filbuf"))
 	    seen_filbuf++;
 	}
 
@@ -731,7 +730,7 @@ write_rbrac ()
 {
   struct fn_decl *fn;
   const char *cptr;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (required_unseen_count)
     {
@@ -930,7 +929,7 @@ inf_read_upto (str, delim)
 
 static int
 inf_scan_ident (s, c)
-     register sstring *s;
+     sstring *s;
      int c;
 {
   s->ptr = s->base;
@@ -1075,11 +1074,11 @@ main (argc, argv)
   int endif_line;
   long to_read;
   long int inf_size;
-  register struct symbol_list *cur_symbols;
+  struct symbol_list *cur_symbols;
 
   if (argv[0] && argv[0][0])
     {
-      register char *p;
+      char *p;
 
       progname = 0;
       for (p = argv[0]; *p; p++)

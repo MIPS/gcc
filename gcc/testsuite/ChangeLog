@@ -1,3 +1,276 @@
+2001-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/template/unify2.C: New test.
+
+2001-10-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/other/exception-specification.C: New test
+
+2001-10-13  Tom Rix  <trix@redhat.com>
+
+	* gcc.c-torture/execute/990826-0.x: AIX XFAIL -msoft-float.
+	* gcc.c-torture/execute/980709-1.x: AIX XFAIL -msoft-float.
+
+2001-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/gcc.dg/20011009-1.c: New test.
+
+2001-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR g++/4476
+	* g++.dg/other/friend1.C: New test.
+
+2001-10-11  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.other/crash18.C: Add -S to options.
+
+2001-10-10  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/compile/20011010-1.c: New.
+
+2001-10-09  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* consistency.vlad/vlad.exp, g++.old-deja/g++.mike/p784.C,
+	g++.old-deja/old-deja.exp, g77.f-torture/compile/compile.exp,
+	g77.f-torture/execute/execute.exp,
+	g77.f-torture/noncompile/noncompile.exp,
+	gcc.c-torture/compile/compile.exp,
+	gcc.c-torture/execute/execute.exp,
+	gcc.c-torture/execute/ieee/ieee.exp,
+	gcc.c-torture/execute/memcheck/memcheck.exp,
+	gcc.c-torture/unsorted/unsorted.exp, gcc.misc-tests/linkage.exp,
+	objc/execute/execute.exp: Update FSF address.
+
+2001-10-09  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/cmdlne-C.c: Update.
+	* gcc.dg/cpp/cmdlne-C2.c: New.
+
+2001-10-08  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* gcc.c-torture/execute/20011008-3.c: New.
+
+2001-10-08  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/20011008-1.c: New.
+	* gcc.dg/20011008-2.c: New.
+
+2001-10-08  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/spacing1.c: Update test.
+
+2001-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/unsorted/unsorted.exp, lib/file-format.exp: Fix
+	spelling errors of "separate" as "seperate".
+
+2001-10-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/20010122-1.c: Don't assume alloca() is
+	enough to avoid inlining.
+
+2001-10-04  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* lib/g77.exp: set libg2c_dir correctly.
+
+2001-10-02  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/macro11.c: New test.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g++.dg/warn/format2.C, gcc.dg/format/attr-7.c,
+	gcc.dg/format/multattr-1.c, gcc.dg/format/multattr-2.c,
+	gcc.dg/format/multattr-3.c: New tests.
+	* gcc.dg/format/attr-3.c: Update expected error texts.  Remove
+	tests for format attributes on function pointers being rejected.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format/attr-5.c, gcc.dg/format/attr-6.c: New tests.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g++.dg/warn/format1.C: New test.
+
+2001-10-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* mi6.c, mi6a.h, mi6b.h, mi6c.h, mi6d.h, mi6e.h: Correct tests.
+
+2001-09-30  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* mi6.c, mi6a.h, mi6b.h, mi6c.h, mi6d.h, mi6e.h: New test.
+
+2001-09-30  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/redef2.c: Add test.
+
+2001-09-27  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.c-torture/execute/loop-2e.x: This is a manifestation of a
+	long-standing bug on i686, apparently.  
+	* gcc.c-torture/execute/loop-2c.x: New file.
+	* gcc.c-torture/execute/loop-2d.x: New file.
+	* gcc.c-torture/execute/loop-3c.x: New file.
+
+2001-09-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/20000625-2.c: Correct line number.
+
+2001-09-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/macro10.c: New test.
+	* gcc.dg/cpp/strify3.c: New test.
+	* gcc.dg/cpp/spacing1.c: Add tests.
+	* gcc.dg/cpp/19990703-1.c: Remove bogus test.
+	* gcc.dg/cpp/20000625-2.c: Fudge to pass.
+
+2001-09-24  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/20010924-1.c: New test.
+	
+2001-09-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* testsuite/objc/execute/paste.m: Remove.
+
+2001-09-22  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format/builtin-1.c, gcc.dg/format/ext-6.c: New tests.
+
+2001-09-22  George Helffrich  <george@geo.titech.ac.jp>
+
+	* g77.dg/strlen0.f: New test.
+
+2001-09-21  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.abi/ptrmem.C: Update for ia64 c++ abi.
+	* g++.old-deja/g++.abi/vtable2.C: Likewise.
+
+2001-09-21  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	Table-driven attributes.
+	* g++.dg/ext/attrib1.C: New test.
+
+2001-09-20  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/20000926-1.c: Update expected warning messages.
+	* gcc.dg/array-2.c: Likewise, and test for warnings too.
+	* gcc.dg/array-4.c: Likewise, and don't verify the zero-length
+	array.
+
+2001-09-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/eh/registers1.C: New test case.
+
+2001-09-17  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/array-5.c: Fix VLA decomposition test.
+
+2001-09-16  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/line5.c: New testcase.
+
+2001-09-15  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/macro9.c: New test.
+
+2001-09-15  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.c-torture/execute/980223.c: Change type of addr from long 
+	to char *.
+
+2001-09-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.c-torture/execute/20010915-1.c: New test.
+
+2001-09-14  Janis Johnson  <janis187@us.ibm.com>
+
+	* g77.dg/bprob: New directory.
+	* g77.dg/bprob/bprob.exp: New file.
+	* g77.dg/bprob/bprob-1.f: New test.
+	* g77.dg/gcov: New directory.
+	* g77.dg/gcov/gcov.exp: New file.
+	* g77.dg/gcov/gcov-1.f: New test.
+	* g77.dg/gcov/gcov-1.x: New file.
+
+2001-09-13  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/directiv.c: Update.
+	* gcc.dg/cpp/undef1.c: Update.
+
+2001-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20010912-1.c: New test.
+
+2001-09-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/gcov.exp: Move almost everything to a new,
+	language-independent file in lib.
+	* lib/gcov.exp: New file.
+
+2001-09-11  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.c-torture/compile/20010911-1.c: New test.
+
+2001-09-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/profopt.exp: New, to support profile-directed optimizations.
+	* gcc.misc-tests/bprob.exp: New, to support branch profiling in C.
+	* gcc.misc-tests/bprob-1.c: New test.
+	* gcc.misc-tests/bprob-2.c: New test.
+
+2001-09-07  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/gcov.exp: Add support for a .x file to control
+	XFAIL and which kinds of gcov output to verify.
+	* gcc.misc-tests/gcov-4b.x: New file.
+	* gcc.misc-tests/gcov-5b.x: New file.
+	* gcc.misc-tests/gcov-6.x: New file.
+	* gcc.misc-tests/gcov-7.c: New test.
+	* gcc.misc-tests/gcov-7.x: New file.
+
+2001-09-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/gcov.exp: Add support for call return percentages.
+	* gcc.misc-tests/gcov-6.c: New test.
+
+2001-09-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3986
+	* g++.dg/abi/vbase1.C: New test.
+
+2001-09-05  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/method-2.m: New.
+	
+2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/4203
+	* g++.old-deja/g++.other/empty1.C: XFAIL. See PR c++/4222
+	* g++.dg/init/empty1.C: New test.
+
+2001-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20010903-1.c: New test.
+
+2001-08-31  Roman Zippel  <zippel@linux-m68k.org>
+
+	* testsuite/gcc.c-torture/execute/ieee/ieee.exp: Add -ffloat-store
+	for m68k.
+
+2001-08-31  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/abi/empty4.C: Allow for 16-bit ints.
+
+	* g++.dg/special/initp1.C (X): Allow for 16-bit ints.
+
+	* gcc.c-torture/unsorted/bcopy.c (BYTES): Honor STACK_SIZE.
+
+2001-08-30  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gcc.c-torture/execute/longlong.c (alpha_ep_extbl_i_eq_0): Allow
+	for 16-bit 'unsigned int'.
+
 2001-08-29  Kazu Hirata  <kazu@hxi.com>
 
 	* gcc.c-torture/compile/981006-1.x: Do not use -fpic on h8300.

@@ -596,7 +596,7 @@ procedure Gnatchop is
 
       --  Call Gnat on the source filename argument with special options
       --  to generate offset information. If this special compilation completes
-      --  successfully then we can do the actual gnatchop operation.
+      --  succesfully then we can do the actual gnatchop operation.
 
       Spawn (Gnat_Cmd.all, Gnat_Args.all & Chop_Name, Success);
 

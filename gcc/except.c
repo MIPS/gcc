@@ -1850,7 +1850,7 @@ connect_post_landing_pads ()
       seq = get_insns ();
       end_sequence ();
       emit_insns_before (seq, region->resume);
-      flow_delete_insn (region->resume);
+      delete_insn (region->resume);
     }
 }
 
@@ -1865,6 +1865,7 @@ dw2_build_landing_pads ()
     {
       struct eh_region *region = cfun->eh->region_array[i];
       rtx seq;
+      bool clobbers_hard_regs = false;
 
       /* Mind we don't process a region more than once.  */
       if (!region || region->region_number != i)
@@ -1901,7 +1902,19 @@ dw2_build_landing_pads ()
 	  if (r == INVALID_REGNUM)
 	    break;
 	  if (! call_used_regs[r])
-	    emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
+	    {
+	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
+	      clobbers_hard_regs = true;
+	    }
+	}
+
+      if (clobbers_hard_regs)
+	{
+	  /* @@@ This is a kludge.  Not all machine descriptions define a
+	     blockage insn, but we must not allow the code we just generated
+	     to be reordered by scheduling.  So emit an ASM_INPUT to act as
+	     blockage insn.  */
+	  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 	}
 
       emit_move_insn (cfun->eh->exc_ptr,
@@ -2042,9 +2055,6 @@ sjlj_mark_call_sites (lp_info)
   int last_call_site = -2;
   rtx insn, mem;
 
-  mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
-			sjlj_fc_call_site_ofs);
-
   for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
     {
       struct eh_region *region;
@@ -2090,6 +2100,8 @@ sjlj_mark_call_sites (lp_info)
          before = find_first_parameter_load (insn, NULL_RTX);
 
       start_sequence ();
+      mem = adjust_address (cfun->eh->sjlj_fc, TYPE_MODE (integer_type_node),
+			    sjlj_fc_call_site_ofs);
       emit_move_insn (mem, GEN_INT (this_call_site));
       p = get_insns ();
       end_sequence ();
@@ -2131,7 +2143,7 @@ sjlj_emit_function_enter (dispatch_label)
 #ifdef DONT_USE_BUILTIN_SETJMP
   {
     rtx x, note;
-    x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_NORMAL,
+    x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
 				 TYPE_MODE (integer_type_node), 1,
 				 plus_constant (XEXP (fc, 0),
 						sjlj_fc_jbuf_ofs), Pmode);
@@ -3409,7 +3421,7 @@ sjlj_size_of_call_site_table ()
 static void
 dw2_output_call_site_table ()
 {
-  const char *function_start_lab
+  const char *const function_start_lab
     = IDENTIFIER_POINTER (current_function_func_begin_label);
   int n = cfun->eh->call_site_data_used;
   int i;

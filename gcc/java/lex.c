@@ -991,6 +991,7 @@ java_lex (java_lval)
       /* End borrowed section  */
       char literal_token [256];
       int  literal_index = 0, radix = 10, long_suffix = 0, overflow = 0, bytes;
+      int  found_hex_digits = 0;
       int  i;
 #ifndef JC1_LITE
       int  number_beginning = ctxp->c_line->current;
@@ -1059,6 +1060,10 @@ java_lex (java_lval)
 	     PARTS if we have to process a integer literal.  */
 	  int numeric = (RANGE (c, '0', '9') ? c-'0' : 10 +(c|0x20)-'a');
 	  int count;
+
+	  /* Remember when we find a valid hexadecimal digit */
+	  if (radix == 16)
+	    found_hex_digits = 1;
 
 	  literal_token [literal_index++] = c;
 	  /* This section of code if borrowed from gcc/c-lex.c  */
@@ -1178,6 +1183,10 @@ java_lex (java_lval)
 		}
 	    }
 	} /* JAVA_ASCCI_FPCHAR (c) */
+
+      if (radix == 16 && ! found_hex_digits)
+	java_lex_error
+	  ("0x must be followed by at least one hexadecimal digit", 0);
 
       /* Here we get back to converting the integral literal.  */
       if (c == 'L' || c == 'l')
@@ -1742,7 +1751,7 @@ java_get_line_col (filename, line, col)
       c = getc (fp);
       if (c == EOF)
 	{
-	  static char msg[] = "<<file too short - unexpected EOF>>";
+	  static const char msg[] = "<<file too short - unexpected EOF>>";
 	  obstack_grow (&temporary_obstack, msg, sizeof(msg)-1);
 	  goto have_line;
 	}
@@ -1813,7 +1822,7 @@ utf8_cmp (str, length, name)
 
 /* A sorted list of all C++ keywords.  */
 
-static const char *cxx_keywords[] =
+static const char *const cxx_keywords[] =
 {
   "_Complex",
   "__alignof",

@@ -281,7 +281,8 @@ const char * const reg_note_name[] =
   "REG_EXEC_COUNT", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN"
+  "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
+  "REG_VTABLE_REF"
 };
 
 
@@ -330,12 +331,12 @@ rtx_alloc (code)
 
 rtx
 copy_rtx (orig)
-     register rtx orig;
+     rtx orig;
 {
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
 
   code = GET_CODE (orig);
 
@@ -435,13 +436,13 @@ copy_rtx (orig)
 
 rtx
 copy_most_rtx (orig, may_share)
-     register rtx orig;
-     register rtx may_share;
+     rtx orig;
+     rtx may_share;
 {
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
 
   if (orig == may_share)
     return orig;
@@ -534,9 +535,9 @@ rtx
 shallow_copy_rtx (orig)
      rtx orig;
 {
-  register int i;
-  register RTX_CODE code = GET_CODE (orig);
-  register rtx copy = rtx_alloc (code);
+  int i;
+  RTX_CODE code = GET_CODE (orig);
+  rtx copy = rtx_alloc (code);
 
   PUT_MODE (copy, GET_MODE (orig));
   copy->in_struct = orig->in_struct;
@@ -564,10 +565,10 @@ int
 rtx_equal_p (x, y)
      rtx x, y;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   if (x == y)
     return 1;
@@ -589,10 +590,11 @@ rtx_equal_p (x, y)
   switch (code)
     {
     case REG:
-      /* Until rtl generation is complete, don't consider a reference to the
-	 return register of the current function the same as the return from a
-	 called function.  This eases the job of function integration.  Once the
-	 distinction is no longer needed, they can be considered equivalent.  */
+      /* Until rtl generation is complete, don't consider a reference
+	 to the return register of the current function the same as
+	 the return from a called function.  This eases the job of
+	 function integration.  Once the distinction is no longer
+	 needed, they can be considered equivalent.  */
       return (REGNO (x) == REGNO (y)
 	      && (! rtx_equal_function_value_matters
 		  || REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));

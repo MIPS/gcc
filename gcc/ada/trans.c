@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision$
+ *                            $Revision: 1.2 $
  *                                                                          *
  *          Copyright (C) 1992-2001, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -155,9 +155,6 @@ gigi (gnat_root, max_gnat_node, number_name,
 
      Int gigi_operating_mode;
 {
-  tree gnu_standard_long_long_float;
-  tree gnu_standard_exception_type;
-
   max_gnat_nodes = max_gnat_node;
   number_names = number_name;
   Nodes_Ptr = nodes_ptr - First_Node_Id;
@@ -202,12 +199,10 @@ gigi (gnat_root, max_gnat_node, number_name,
   dconstp5 = REAL_VALUE_ATOF ("0.5", DFmode);
   dconstmp5 = REAL_VALUE_ATOF ("-0.5", DFmode);
 
-  gnu_standard_long_long_float
-    = gnat_to_gnu_entity (Base_Type (standard_long_long_float), NULL_TREE, 0);
-  gnu_standard_exception_type
-    = gnat_to_gnu_entity (Base_Type (standard_exception_type),  NULL_TREE, 0);
-
-  init_gigi_decls (gnu_standard_long_long_float, gnu_standard_exception_type);
+  init_gigi_decls (gnat_to_gnu_entity (Base_Type (standard_long_long_float),
+				       NULL_TREE, 0),
+		   gnat_to_gnu_entity (Base_Type (standard_exception_type),
+				       NULL_TREE, 0));
 
   /* Emit global symbols containing context list info for the SGI Workshop
      debugger */
@@ -4053,8 +4048,7 @@ process_freeze_entity (gnat_node)
   if (gnu_old != 0)
     {
       DECL_NAME (gnu_new) = DECL_NAME (gnu_old);
-      update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_old)),
-			 TREE_TYPE (gnu_new));
+      update_pointer_to (TREE_TYPE (gnu_old), TREE_TYPE (gnu_new));
     }
 }
 
@@ -4731,8 +4725,7 @@ process_type (gnat_entity)
   /* If we have an old type and we've made pointers to this type,
      update those pointers.  */
   if (gnu_old != 0)
-    update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_old)),
-		       TREE_TYPE (gnu_new));
+    update_pointer_to (TREE_TYPE (gnu_old), TREE_TYPE (gnu_new));
 
   /* If this is a record type corresponding to a task or protected type 
      that is a completion of an incomplete type, perform a similar update
@@ -4751,8 +4744,7 @@ process_type (gnat_entity)
       save_gnu_tree (Corresponding_Concurrent_Type (gnat_entity),
 		     gnu_new, 0);
 
-      update_pointer_to (TYPE_MAIN_VARIANT (TREE_TYPE (gnu_task_old)),
-			 TREE_TYPE (gnu_new));
+      update_pointer_to (TREE_TYPE (gnu_task_old), TREE_TYPE (gnu_new));
     }
 }
 

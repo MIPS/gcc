@@ -53,7 +53,10 @@ static unsigned int compute_saved_regs PARAMS ((void));
 static void push PARAMS ((FILE *, int));
 static void pop PARAMS ((FILE *, int));
 static const char *cond_string PARAMS ((enum rtx_code));
-static int h8300_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+const struct attribute_spec h8300_attribute_table[];
+static tree h8300_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree h8300_handle_tiny_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_asm_named_section PARAMS ((const char *, unsigned int));
@@ -98,8 +101,8 @@ static const char *const h8_mov_ops[2] = { "mov.w", "mov.l" };
 const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#define TARGET_VALID_DECL_ATTRIBUTE h8300_valid_decl_attribute
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE h8300_attribute_table
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE h8300_output_function_prologue
@@ -538,7 +541,7 @@ general_operand_src (op, mode)
 }
 
 /* Return true if OP is a valid destination operand for an integer move
-   instruction, excluding those involving pre_modify.  */
+   instruction.  */
 
 int
 general_operand_dst (op, mode)
@@ -548,20 +551,6 @@ general_operand_dst (op, mode)
   if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == PRE_DEC)
     return 1;
   return general_operand (op, mode);
-}
-
-/* Return true if OP is a valid destination operand for an integer move
-   instruction, including those involving pre_modify.  */
-
-int
-general_operand_dst_push (op, mode)
-     rtx op;
-     enum machine_mode mode;
-{
-  if (push_operand (op, mode))
-    return 1;
-
-  return general_operand_dst (op, mode);
 }
 
 /* Return true if OP is a const valid for a bit clear instruction.  */
@@ -1516,6 +1505,8 @@ initial_offset (from, to)
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     offset = UNITS_PER_WORD + frame_pointer_needed * UNITS_PER_WORD;
+  else if (from == RETURN_ADDRESS_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
+    offset = frame_pointer_needed * UNITS_PER_WORD;
   else
     {
       int regno;
@@ -1534,6 +1525,26 @@ initial_offset (from, to)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */
     }
   return offset;
+}
+
+rtx
+h8300_return_addr_rtx (count, frame)
+     int count;
+     rtx frame;
+{
+  rtx ret;
+
+  if (count == 0)
+    ret = gen_rtx_MEM (Pmode,
+		       gen_rtx_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM));
+  else if (flag_omit_frame_pointer)
+    return (rtx) 0;
+  else
+    ret = gen_rtx_MEM (Pmode,
+		       memory_address (Pmode,
+				       plus_constant (frame, UNITS_PER_WORD)));
+  set_mem_alias_set (ret, get_frame_alias_set ());
+  return ret;
 }
 
 /* Update the condition code from the insn.  */
@@ -1995,8 +2006,8 @@ enum shift_mode
 
 struct shift_insn
 {
-  const char *assembler;
-  int cc_valid;
+  const char *const assembler;
+  const int cc_valid;
 };
 
 /* Assembler instruction shift table.
@@ -3094,7 +3105,7 @@ h8300_interrupt_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt_handler", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("interrupt_handler", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -3110,7 +3121,7 @@ h8300_os_task_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("OS_Task", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("OS_Task", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -3126,7 +3137,7 @@ h8300_monitor_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("monitor", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("monitor", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -3142,7 +3153,7 @@ h8300_funcvec_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("function_vector", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("function_vector", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -3158,7 +3169,7 @@ h8300_eightbit_data_p (decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("eightbit_data", DECL_MACHINE_ATTRIBUTES (decl));
+  a = lookup_attribute ("eightbit_data", DECL_ATTRIBUTES (decl));
   return a != NULL_TREE;
 }
 
@@ -3174,15 +3185,11 @@ h8300_tiny_data_p (decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return 0;
 
-  a = lookup_attribute ("tiny_data", DECL_MACHINE_ATTRIBUTES (decl));
+  a = lookup_attribute ("tiny_data", DECL_ATTRIBUTES (decl));
   return a != NULL_TREE;
 }
 
-/* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.
-
-   Supported attributes:
+/* Supported attributes:
 
    interrupt_handler: output a prologue and epilogue suitable for an
    interrupt handler.
@@ -3196,47 +3203,99 @@ h8300_tiny_data_p (decl)
    tiny_data: This variable lives in the tiny data area and can be
    referenced with 16-bit absolute memory references.  */
 
-static int
-h8300_valid_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args;
+const struct attribute_spec h8300_attribute_table[] =
 {
-  if (args != NULL_TREE)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt_handler", 0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "OS_Task",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "monitor",           0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "function_vector",   0, 0, true,  false, false, h8300_handle_fndecl_attribute },
+  { "eightbit_data",     0, 0, true,  false, false, h8300_handle_eightbit_data_attribute },
+  { "tiny_data",         0, 0, true,  false, false, h8300_handle_tiny_data_attribute },
+  { NULL,                0, 0, false, false, false, NULL }
+};
 
-  if (is_attribute_p ("interrupt_handler", attr)
-      || is_attribute_p ("OS_Task", attr)
-      || is_attribute_p ("monitor", attr)
-      || is_attribute_p ("function_vector", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
 
-  if (is_attribute_p ("eightbit_data", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "eightbit_data" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_eightbit_data_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
     {
       if (DECL_INITIAL (decl) == NULL_TREE)
 	{
 	  warning ("Only initialized variables can be placed into the 8-bit area.");
-	  return 0;
+	  *no_add_attrs = true;
 	}
-      DECL_SECTION_NAME (decl) = build_string (7, ".eight");
-      return 1;
+      else
+	DECL_SECTION_NAME (decl) = build_string (7, ".eight");
+    }
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  if (is_attribute_p ("tiny_data", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+  return NULL_TREE;
+}
+
+/* Handle an "tiny_data" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+h8300_handle_tiny_data_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
     {
       if (DECL_INITIAL (decl) == NULL_TREE)
 	{
 	  warning ("Only initialized variables can be placed into the 8-bit area.");
-	  return 0;
+	  *no_add_attrs = true;
 	}
-      DECL_SECTION_NAME (decl) = build_string (6, ".tiny");
-      return 1;
+      else
+	DECL_SECTION_NAME (decl) = build_string (6, ".tiny");
+    }
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  return 0;
+  return NULL_TREE;
 }
 
 void

@@ -165,7 +165,6 @@ typedef struct reorder_block_def
   rtx eff_end;
   scope scope;
   basic_block next;
-  int index;
   int visited;
 } *reorder_block_def;
 
@@ -181,13 +180,12 @@ static void record_effective_endpoints	PARAMS ((void));
 static void make_reorder_chain		PARAMS ((void));
 static basic_block make_reorder_chain_1	PARAMS ((basic_block, basic_block));
 static rtx label_for_bb			PARAMS ((basic_block));
-static rtx emit_jump_to_block_after	PARAMS ((basic_block, rtx));
 static void fixup_reorder_chain		PARAMS ((void));
 static void relate_bbs_with_scopes	PARAMS ((scope));
 static scope make_new_scope		PARAMS ((int, rtx));
 static void build_scope_forest		PARAMS ((scope_forest_info *));
 static void remove_scope_notes		PARAMS ((void));
-static void insert_intra_1		PARAMS ((scope, rtx *));
+static void insert_intra_1		PARAMS ((scope, rtx *, basic_block));
 static void insert_intra_bb_scope_notes PARAMS ((basic_block));
 static void insert_inter_bb_scope_notes PARAMS ((basic_block, basic_block));
 static void rebuild_scope_notes		PARAMS ((scope_forest_info *));
@@ -323,6 +321,7 @@ make_reorder_chain ()
   basic_block last_block = NULL;
   basic_block prev = NULL;
   int nbb_m1 = n_basic_blocks - 1;
+  basic_block next;
 
   /* If we've not got epilogue in RTL, we must fallthru to the exit.
      Force the last block to be at the end.  */
@@ -339,7 +338,8 @@ make_reorder_chain ()
   do
     {
       int i;
-      basic_block next = NULL;
+
+      next = NULL;
 
       /* Find the next unplaced block.  */
       /* ??? Get rid of this loop, and track which blocks are not yet
@@ -348,27 +348,21 @@ make_reorder_chain ()
 	 remove from the list as we place.  The head of that list is
 	 what we're looking for here.  */
 
-      for (i = 0; i <= nbb_m1; ++i)
+      for (i = 0; i <= nbb_m1 && !next; ++i)
 	{
 	  basic_block bb = BASIC_BLOCK (i);
 	  if (! RBI (bb)->visited)
-	    {
-	      next = bb;
-	      break;
-	    }
+	    next = bb;
 	}
-      if (! next)
-	abort ();
-
-      prev = make_reorder_chain_1 (next, prev);
+      if (next)
+        prev = make_reorder_chain_1 (next, prev);
     }
-  while (RBI (prev)->index < nbb_m1);
+  while (next);
 
   /* Terminate the chain.  */
   if (! HAVE_epilogue)
     {
       RBI (prev)->next = last_block;
-      RBI (last_block)->index = RBI (prev)->index + 1;
       prev = last_block;
     }
   RBI (prev)->next = NULL;
@@ -397,19 +391,18 @@ make_reorder_chain_1 (bb, prev)
   /* Mark this block visited.  */
   if (prev)
     {
-      int new_index;
-
  restart:
       RBI (prev)->next = bb;
-      new_index = RBI (prev)->index + 1;
-      RBI (bb)->index = new_index;
 
       if (rtl_dump_file && prev->index + 1 != bb->index)
-	fprintf (rtl_dump_file, "Reordering block %d (%d) after %d (%d)\n",
-		 bb->index, RBI (bb)->index, prev->index, RBI (prev)->index);
+	fprintf (rtl_dump_file, "Reordering block %d after %d\n",
+		 bb->index, prev->index);
     }
   else
-    RBI (bb)->index = 0;
+    {
+      if (bb->index != 0)
+	abort ();
+    }
   RBI (bb)->visited = 1;
   prev = bb;
 
@@ -508,56 +501,15 @@ label_for_bb (bb)
   if (GET_CODE (label) != CODE_LABEL)
     {
       if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Emitting label for block %d (%d)\n",
-		 bb->index, RBI (bb)->index);
+	fprintf (rtl_dump_file, "Emitting label for block %d\n",
+		 bb->index);
 
-      label = emit_label_before (gen_label_rtx (), label);
-      if (bb->head == RBI (bb)->eff_head)
+      label = block_label (bb);
+      if (bb->head == PREV_INSN (RBI (bb)->eff_head))
 	RBI (bb)->eff_head = label;
-      bb->head = label;
     }
 
   return label;
-}
-
-
-/* Emit a jump to BB after insn AFTER.  */
-
-static rtx
-emit_jump_to_block_after (bb, after)
-     basic_block bb;
-     rtx after;
-{
-  rtx jump;
-
-  if (bb != EXIT_BLOCK_PTR)
-    {
-      rtx label = label_for_bb (bb);
-      jump = emit_jump_insn_after (gen_jump (label), after);
-      JUMP_LABEL (jump) = label;
-      LABEL_NUSES (label) += 1;
-      if (basic_block_for_insn)
-	set_block_for_new_insns (jump, bb);
-
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Emitting jump to block %d (%d)\n",
-		 bb->index, RBI (bb)->index);
-    }
-  else
-    {
-#ifdef HAVE_return
-      if (! HAVE_return)
-	abort ();
-      jump = emit_jump_insn_after (gen_return (), after);
-
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Emitting return\n");
-#else
-      abort ();
-#endif
-    }
-
-  return jump;
 }
 
 
@@ -567,12 +519,16 @@ static void
 fixup_reorder_chain ()
 {
   basic_block bb, last_bb;
+  int index;
+  rtx insn;
+  int old_n_basic_blocks = n_basic_blocks;
 
   /* First do the bulk reordering -- rechain the blocks without regard to
      the needed changes to jumps and labels.  */
 
   last_bb = BASIC_BLOCK (0);
   bb = RBI (last_bb)->next;
+  index = 1;
   while (bb)
     {
       rtx last_e = RBI (last_bb)->eff_end;
@@ -583,19 +539,24 @@ fixup_reorder_chain ()
 
       last_bb = bb;
       bb = RBI (bb)->next;
+      index++;
     }
 
-  {
-    rtx insn = RBI (last_bb)->eff_end;
+  if (index != n_basic_blocks)
+    abort ();
 
-    NEXT_INSN (insn) = function_tail_eff_head;
-    if (function_tail_eff_head)
-      PREV_INSN (function_tail_eff_head) = insn;
+  insn = RBI (last_bb)->eff_end;
 
-    while (NEXT_INSN (insn))
-      insn = NEXT_INSN (insn);
-    set_last_insn (insn);
-  }
+  NEXT_INSN (insn) = function_tail_eff_head;
+  if (function_tail_eff_head)
+    PREV_INSN (function_tail_eff_head) = insn;
+
+  while (NEXT_INSN (insn))
+    insn = NEXT_INSN (insn);
+  set_last_insn (insn);
+#ifdef ENABLE_CHECKING
+  verify_insn_chain ();
+#endif
 
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
@@ -603,7 +564,7 @@ fixup_reorder_chain ()
   for (bb = BASIC_BLOCK (0); bb ; bb = RBI (bb)->next)
     {
       edge e_fall, e_taken, e;
-      rtx jump_insn, barrier_insn, bb_end_insn;
+      rtx bb_end_insn;
       basic_block nb;
 
       if (bb->succ == NULL)
@@ -621,27 +582,11 @@ fixup_reorder_chain ()
       bb_end_insn = bb->end;
       if (GET_CODE (bb_end_insn) == JUMP_INSN)
 	{
-	  if (any_uncondjump_p (bb_end_insn))
-	    {
-	      /* If the destination is still not next, nothing to do.  */
-	      if (RBI (bb)->index + 1 != RBI (e_taken->dest)->index)
-		continue;
-
-	      /* Otherwise, we can remove the jump and cleanup the edge.  */
-	      tidy_fallthru_edge (e_taken, bb, e_taken->dest);
-	      RBI (bb)->eff_end = skip_insns_after_block (bb);
-	      RBI (e_taken->dest)->eff_head = NEXT_INSN (RBI (bb)->eff_end);
-
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "Removing jump in block %d (%d)\n",
-			 bb->index, RBI (bb)->index);
-	      continue;
-	    }
-	  else if (any_condjump_p (bb_end_insn))
+	  if (any_condjump_p (bb_end_insn))
 	    {
 	      /* If the old fallthru is still next, nothing to do.  */
-	      if (RBI (bb)->index + 1 == RBI (e_fall->dest)->index
-	          || (RBI (bb)->index == n_basic_blocks - 1
+	      if (RBI (bb)->next == e_fall->dest
+	          || (!RBI (bb)->next
 		      && e_fall->dest == EXIT_BLOCK_PTR))
 		continue;
 
@@ -649,7 +594,7 @@ fixup_reorder_chain ()
 		 such as happens at the very end of a function, then we'll
 		 need to add a new unconditional jump.  Choose the taken
 		 edge based on known or assumed probability.  */
-	      if (RBI (bb)->index + 1 != RBI (e_taken->dest)->index)
+	      if (RBI (bb)->next != e_taken->dest)
 		{
 		  rtx note = find_reg_note (bb_end_insn, REG_BR_PROB, 0);
 		  if (note
@@ -684,7 +629,7 @@ fixup_reorder_chain ()
 #ifdef CASE_DROPS_THROUGH
 	      /* Except for VAX.  Since we didn't have predication for the
 		 tablejump, the fallthru block should not have moved.  */
-	      if (RBI (bb)->index + 1 == RBI (e_fall->dest)->index)
+	      if (RBI (bb)->next == e_fall->dest)
 		continue;
 	      bb_end_insn = skip_insns_after_block (bb);
 #else
@@ -701,72 +646,50 @@ fixup_reorder_chain ()
 	    continue;
 
 	  /* If the fallthru block is still next, nothing to do.  */
-	  if (RBI (bb)->index + 1 == RBI (e_fall->dest)->index
-	      || (RBI (bb)->index == n_basic_blocks - 1
-		  && e_fall->dest == EXIT_BLOCK_PTR))
+	  if (RBI (bb)->next == e_fall->dest)
 	    continue;
 
-	  /* We need a new jump insn.  If the block has only one outgoing
-	     edge, then we can stuff the new jump insn in directly.  */
-	  if (bb->succ->succ_next == NULL)
-	    {
-	      e_fall->flags &= ~EDGE_FALLTHRU;
-
-	      jump_insn = emit_jump_to_block_after (e_fall->dest, bb_end_insn);
-	      bb->end = jump_insn;
-	      barrier_insn = emit_barrier_after (jump_insn);
-	      RBI (bb)->eff_end = barrier_insn;
-	      continue;
-	    }
+	  /* An fallthru to exit block.  */
+	  if (!RBI (bb)->next && e_fall->dest == EXIT_BLOCK_PTR)
+	    continue;
 	}
 
-      /* We got here if we need to add a new jump insn in a new block
-	 across the edge e_fall.  */
+      /* We got here if we need to add a new jump insn.  */
 
-      jump_insn = emit_jump_to_block_after (e_fall->dest, bb_end_insn);
-      barrier_insn = emit_barrier_after (jump_insn);
+      nb = force_nonfallthru (e_fall);
 
-      VARRAY_GROW (basic_block_info, ++n_basic_blocks);
-      create_basic_block (n_basic_blocks - 1, jump_insn, jump_insn, NULL);
-
-      nb = BASIC_BLOCK (n_basic_blocks - 1);
-      nb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      nb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      nb->local_set = 0;
-      nb->count = e_fall->count;
-      nb->frequency = EDGE_FREQUENCY (e_fall);
-
-      COPY_REG_SET (nb->global_live_at_start, bb->global_live_at_start);
-      COPY_REG_SET (nb->global_live_at_end, bb->global_live_at_start);
-
-      nb->aux = xmalloc (sizeof (struct reorder_block_def));
-      RBI (nb)->eff_head = nb->head;
-      RBI (nb)->eff_end = barrier_insn;
-      RBI (nb)->scope = RBI (bb)->scope;
-      RBI (nb)->index = RBI (bb)->index + 1;
-      RBI (nb)->visited = 1;
-      RBI (nb)->next = RBI (bb)->next;
-      RBI (bb)->next = nb;
-
-      /* Link to new block.  */
-      make_edge (NULL, nb, e_fall->dest, 0);
-      redirect_edge_succ (e_fall, nb);
-      nb->succ->count = e_fall->count;
-      nb->succ->probability = REG_BR_PROB_BASE;
-
-      /* Don't process this new block.  */
-      bb = nb;
-
-      /* Fix subsequent reorder block indices to reflect new block.  */
-      while ((nb = RBI (nb)->next) != NULL)
-	RBI (nb)->index += 1;
+      if (nb)
+	{
+	  alloc_aux_for_block (nb, sizeof (struct reorder_block_def));
+	  RBI (nb)->eff_head = nb->head;
+	  RBI (nb)->eff_end = NEXT_INSN (nb->end);
+	  RBI (nb)->scope = RBI (bb)->scope;
+	  RBI (nb)->visited = 1;
+	  RBI (nb)->next = RBI (bb)->next;
+	  RBI (bb)->next = nb;
+	  /* Don't process this new block.  */
+	  bb = nb;
+	}
     }
 
   /* Put basic_block_info in the new order.  */
-  for (bb = BASIC_BLOCK (0); bb ; bb = RBI (bb)->next)
+  bb = BASIC_BLOCK (0);
+  index = 0;
+
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "Reordered sequence:\n");
+  while (bb)
     {
-      bb->index = RBI (bb)->index;
-      BASIC_BLOCK (bb->index) = bb;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, " %i %sbb %i freq %i\n", index,
+		 bb->index >= old_n_basic_blocks ? "compensation " : "",
+		 bb->index,
+	   	 bb->frequency);
+      bb->index = index;
+      BASIC_BLOCK (index) = bb;
+
+      bb = RBI (bb)->next;
+      index++;
     }
 }
 
@@ -1142,9 +1065,10 @@ remove_scope_notes ()
 /* Insert scope note pairs for a contained scope tree S after insn IP.  */
 
 static void
-insert_intra_1 (s, ip)
+insert_intra_1 (s, ip, bb)
      scope s;
      rtx *ip;
+     basic_block bb;
 {
   scope p;
 
@@ -1155,7 +1079,7 @@ insert_intra_1 (s, ip)
     } 
 
   for (p = s->inner; p; p = p->next)
-    insert_intra_1 (p, ip);
+    insert_intra_1 (p, ip, bb);
 
   if (NOTE_BLOCK (s->note_beg))
     {  
@@ -1186,7 +1110,7 @@ insert_intra_bb_scope_notes (bb)
   for (p = s->inner; p; p = p->next)
     {
       if (p->bb_beg != NULL && p->bb_beg == p->bb_end && p->bb_beg == bb)
-	insert_intra_1 (p, &ip);
+	insert_intra_1 (p, &ip, bb);
     }
 }
 
@@ -1246,6 +1170,8 @@ insert_inter_bb_scope_notes (bb1, bb2)
   /* Close scopes.  */
   if (bb1)
     {
+      rtx end = bb1->end;
+
       scope s = RBI (bb1)->scope;
       ip = RBI (bb1)->eff_end;
       while (s != com)
@@ -1257,6 +1183,8 @@ insert_inter_bb_scope_notes (bb1, bb2)
 	    }
 	  s = s->outer;
 	}
+      /* Emitting note may move the end of basic block to unwanted place.  */
+      bb1->end = end;
     }
 
   /* Open scopes.  */
@@ -1399,21 +1327,21 @@ void
 reorder_basic_blocks ()
 {
   scope_forest_info forest;
-  int i;
 
   if (n_basic_blocks <= 1)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->aux = xcalloc (1, sizeof (struct reorder_block_def));
-
-  EXIT_BLOCK_PTR->aux = xcalloc (1, sizeof (struct reorder_block_def));
+  alloc_aux_for_blocks (sizeof (struct reorder_block_def));
 
   build_scope_forest (&forest);
   remove_scope_notes ();
 
   record_effective_endpoints ();
   make_reorder_chain ();
+
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
+
   fixup_reorder_chain ();
 
 #ifdef ENABLE_CHECKING
@@ -1424,10 +1352,7 @@ reorder_basic_blocks ()
   free_scope_forest (&forest);
   reorder_blocks ();
 
-  for (i = 0; i < n_basic_blocks; i++)
-    free (BASIC_BLOCK (i)->aux);
-
-  free (EXIT_BLOCK_PTR->aux);
+  free_aux_for_blocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

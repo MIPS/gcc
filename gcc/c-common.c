@@ -216,18 +216,12 @@ void (*back_end_hook) PARAMS ((tree));
    This is a count, since unevaluated expressions can nest.  */
 int skip_evaluation;
 
-enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
-	    A_NO_CHECK_MEMORY_USAGE, A_NO_INSTRUMENT_FUNCTION,
-	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
-	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS, A_MALLOC,
-	    A_NO_LIMIT_STACK, A_PURE};
-
 /* Information about how a function name is generated.  */
 struct fname_var_t
 {
-  tree *decl;	/* pointer to the VAR_DECL.  */
-  unsigned rid;	/* RID number for the identifier.  */
-  int pretty;	/* How pretty is it? */
+  tree *const decl;	/* pointer to the VAR_DECL.  */
+  const unsigned rid;	/* RID number for the identifier.  */
+  const int pretty;	/* How pretty is it? */
 };
 
 /* The three ways of getting then name of the current function.  */
@@ -243,10 +237,6 @@ const struct fname_var_t fname_vars[] =
   {NULL, 0, 0},
 };
 
-static void add_attribute		PARAMS ((enum attrs, const char *,
-						 int, int, int));
-static void init_attributes		PARAMS ((void));
-static int default_valid_lang_attribute PARAMS ((tree, tree, tree, tree));
 static int constant_fits_type_p		PARAMS ((tree, tree));
 
 /* Keep a stack of if statements.  We record the number of compound
@@ -520,8 +510,8 @@ tree
 combine_strings (strings)
      tree strings;
 {
-  register tree value, t;
-  register int length = 1;
+  tree value, t;
+  int length = 1;
   int wide_length = 0;
   int wide_flag = 0;
   int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
@@ -531,7 +521,7 @@ combine_strings (strings)
   if (TREE_CHAIN (strings))
     {
       /* More than one in the chain, so concatenate.  */
-      register char *p, *q;
+      char *p, *q;
 
       /* Don't include the \0 at the end of each substring,
 	 except for the last one.
@@ -638,620 +628,6 @@ combine_strings (strings)
   TREE_READONLY (value) = ! flag_writable_strings;
   TREE_STATIC (value) = 1;
   return value;
-}
-
-/* To speed up processing of attributes, we maintain an array of
-   IDENTIFIER_NODES and the corresponding attribute types.  */
-
-/* Array to hold attribute information.  */
-
-static struct {enum attrs id; tree name; int min, max, decl_req;} attrtab[50];
-
-static int attrtab_idx = 0;
-
-/* Add an entry to the attribute table above.  */
-
-static void
-add_attribute (id, string, min_len, max_len, decl_req)
-     enum attrs id;
-     const char *string;
-     int min_len, max_len;
-     int decl_req;
-{
-  char buf[100];
-
-  attrtab[attrtab_idx].id = id;
-  attrtab[attrtab_idx].name = get_identifier (string);
-  attrtab[attrtab_idx].min = min_len;
-  attrtab[attrtab_idx].max = max_len;
-  attrtab[attrtab_idx++].decl_req = decl_req;
-
-  sprintf (buf, "__%s__", string);
-
-  attrtab[attrtab_idx].id = id;
-  attrtab[attrtab_idx].name = get_identifier (buf);
-  attrtab[attrtab_idx].min = min_len;
-  attrtab[attrtab_idx].max = max_len;
-  attrtab[attrtab_idx++].decl_req = decl_req;
-}
-
-/* Initialize attribute table.  */
-
-static void
-init_attributes ()
-{
-  add_attribute (A_PACKED, "packed", 0, 0, 0);
-  add_attribute (A_NOCOMMON, "nocommon", 0, 0, 1);
-  add_attribute (A_COMMON, "common", 0, 0, 1);
-  add_attribute (A_NORETURN, "noreturn", 0, 0, 1);
-  add_attribute (A_NORETURN, "volatile", 0, 0, 1);
-  add_attribute (A_UNUSED, "unused", 0, 0, 0);
-  add_attribute (A_CONST, "const", 0, 0, 1);
-  add_attribute (A_T_UNION, "transparent_union", 0, 0, 0);
-  add_attribute (A_CONSTRUCTOR, "constructor", 0, 0, 1);
-  add_attribute (A_DESTRUCTOR, "destructor", 0, 0, 1);
-  add_attribute (A_MODE, "mode", 1, 1, 1);
-  add_attribute (A_SECTION, "section", 1, 1, 1);
-  add_attribute (A_ALIGNED, "aligned", 0, 1, 0);
-  add_attribute (A_FORMAT, "format", 3, 3, 1);
-  add_attribute (A_FORMAT_ARG, "format_arg", 1, 1, 1);
-  add_attribute (A_WEAK, "weak", 0, 0, 1);
-  add_attribute (A_ALIAS, "alias", 1, 1, 1);
-  add_attribute (A_NO_INSTRUMENT_FUNCTION, "no_instrument_function", 0, 0, 1);
-  add_attribute (A_NO_CHECK_MEMORY_USAGE, "no_check_memory_usage", 0, 0, 1);
-  add_attribute (A_MALLOC, "malloc", 0, 0, 1);
-  add_attribute (A_NO_LIMIT_STACK, "no_stack_limit", 0, 0, 1);
-  add_attribute (A_PURE, "pure", 0, 0, 1);
-}
-
-/* Default implementation of valid_lang_attribute, below.  By default, there
-   are no language-specific attributes.  */
-
-static int
-default_valid_lang_attribute (attr_name, attr_args, decl, type)
-  tree attr_name ATTRIBUTE_UNUSED;
-  tree attr_args ATTRIBUTE_UNUSED;
-  tree decl ATTRIBUTE_UNUSED;
-  tree type ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
-/* Return a 1 if ATTR_NAME and ATTR_ARGS denote a valid language-specific
-   attribute for either declaration DECL or type TYPE and 0 otherwise.  */
-
-int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree))
-     = default_valid_lang_attribute;
-
-/* Process the attributes listed in ATTRIBUTES and install them in *NODE,
-   which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
-   it should be modified in place; if a TYPE, a copy should be created.
-   FLAGS gives further information, in the form of a bitwise OR of flags
-   in enum attribute_flags from c-common.h.  Depending on these flags,
-   some attributes may be returned to be applied at a later stage (for
-   example, to apply a decl attribute to the declaration rather than to
-   its type).  */
-
-tree
-decl_attributes (node, attributes, flags)
-     tree *node, attributes;
-     int flags ATTRIBUTE_UNUSED;
-{
-  tree decl = 0, type = 0;
-  int is_type = 0;
-  tree a;
-
-  if (attrtab_idx == 0)
-    init_attributes ();
-
-  if (DECL_P (*node))
-    {
-      decl = *node;
-      type = TREE_TYPE (decl);
-      is_type = TREE_CODE (*node) == TYPE_DECL;
-    }
-  else if (TYPE_P (*node))
-    type = *node, is_type = 1;
-
-  (*targetm.insert_attributes) (*node, &attributes);
-
-  for (a = attributes; a; a = TREE_CHAIN (a))
-    {
-      tree name = TREE_PURPOSE (a);
-      tree args = TREE_VALUE (a);
-      int i;
-      enum attrs id;
-
-      for (i = 0; i < attrtab_idx; i++)
-	if (attrtab[i].name == name)
-	  break;
-
-      if (i == attrtab_idx)
-	{
-	  if (! valid_machine_attribute (name, args, decl, type)
-	      && ! (* valid_lang_attribute) (name, args, decl, type))
-	    warning ("`%s' attribute directive ignored",
-		     IDENTIFIER_POINTER (name));
-	  else if (decl != 0)
-	    type = TREE_TYPE (decl);
-	  continue;
-	}
-      else if (attrtab[i].decl_req && decl == 0)
-	{
-	  warning ("`%s' attribute does not apply to types",
-		   IDENTIFIER_POINTER (name));
-	  continue;
-	}
-      else if (list_length (args) < attrtab[i].min
-	       || list_length (args) > attrtab[i].max)
-	{
-	  error ("wrong number of arguments specified for `%s' attribute",
-		 IDENTIFIER_POINTER (name));
-	  continue;
-	}
-
-      id = attrtab[i].id;
-      switch (id)
-	{
-	case A_PACKED:
-	  if (is_type)
-	    TYPE_PACKED (type) = 1;
-	  else if (TREE_CODE (decl) == FIELD_DECL)
-	    DECL_PACKED (decl) = 1;
-	  /* We can't set DECL_PACKED for a VAR_DECL, because the bit is
-	     used for DECL_REGISTER.  It wouldn't mean anything anyway.  */
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_NOCOMMON:
-	  if (TREE_CODE (decl) == VAR_DECL)
-	    DECL_COMMON (decl) = 0;
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_COMMON:
-	  if (TREE_CODE (decl) == VAR_DECL)
-	    DECL_COMMON (decl) = 1;
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_NORETURN:
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    TREE_THIS_VOLATILE (decl) = 1;
-	  else if (TREE_CODE (type) == POINTER_TYPE
-		   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	    TREE_TYPE (decl) = type
-	      = build_pointer_type
-		(build_type_variant (TREE_TYPE (type),
-				     TREE_READONLY (TREE_TYPE (type)), 1));
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_MALLOC:
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    DECL_IS_MALLOC (decl) = 1;
-	  /* ??? TODO: Support types.  */
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_UNUSED:
-	  if (is_type)
-	    if (decl)
-	      TREE_USED (decl) = 1;
-	    else
-	      TREE_USED (type) = 1;
-	  else if (TREE_CODE (decl) == PARM_DECL
-		   || TREE_CODE (decl) == VAR_DECL
-		   || TREE_CODE (decl) == FUNCTION_DECL
-		   || TREE_CODE (decl) == LABEL_DECL)
-	    TREE_USED (decl) = 1;
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_CONST:
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    TREE_READONLY (decl) = 1;
-	  else if (TREE_CODE (type) == POINTER_TYPE
-		   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
-	    TREE_TYPE (decl) = type
-	      = build_pointer_type
-		(build_type_variant (TREE_TYPE (type), 1,
-				     TREE_THIS_VOLATILE (TREE_TYPE (type))));
-	  else
-	    warning ( "`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_PURE:
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    DECL_IS_PURE (decl) = 1;
-	  /* ??? TODO: Support types.  */
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-
-	case A_T_UNION:
-	  if (is_type
-	      && TREE_CODE (type) == UNION_TYPE
-	      && (decl == 0
-		  || (TYPE_FIELDS (type) != 0
-		      && TYPE_MODE (type) == DECL_MODE (TYPE_FIELDS (type)))))
-	    TYPE_TRANSPARENT_UNION (type) = 1;
-	  else if (decl != 0 && TREE_CODE (decl) == PARM_DECL
-		   && TREE_CODE (type) == UNION_TYPE
-		   && TYPE_MODE (type) == DECL_MODE (TYPE_FIELDS (type)))
-	    DECL_TRANSPARENT_UNION (decl) = 1;
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_CONSTRUCTOR:
-	  if (TREE_CODE (decl) == FUNCTION_DECL
-	      && TREE_CODE (type) == FUNCTION_TYPE
-	      && decl_function_context (decl) == 0)
-	    {
-	      DECL_STATIC_CONSTRUCTOR (decl) = 1;
-	      TREE_USED (decl) = 1;
-	    }
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_DESTRUCTOR:
-	  if (TREE_CODE (decl) == FUNCTION_DECL
-	      && TREE_CODE (type) == FUNCTION_TYPE
-	      && decl_function_context (decl) == 0)
-	    {
-	      DECL_STATIC_DESTRUCTOR (decl) = 1;
-	      TREE_USED (decl) = 1;
-	    }
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_MODE:
-	  if (TREE_CODE (TREE_VALUE (args)) != IDENTIFIER_NODE)
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  else
-	    {
-	      int j;
-	      const char *p = IDENTIFIER_POINTER (TREE_VALUE (args));
-	      int len = strlen (p);
-	      enum machine_mode mode = VOIDmode;
-	      tree typefm;
-
-	      if (len > 4 && p[0] == '_' && p[1] == '_'
-		  && p[len - 1] == '_' && p[len - 2] == '_')
-		{
-		  char *newp = (char *) alloca (len - 1);
-
-		  strcpy (newp, &p[2]);
-		  newp[len - 4] = '\0';
-		  p = newp;
-		}
-
-	      /* Give this decl a type with the specified mode.
-		 First check for the special modes.  */
-	      if (! strcmp (p, "byte"))
-		mode = byte_mode;
-	      else if (!strcmp (p, "word"))
-		mode = word_mode;
-	      else if (! strcmp (p, "pointer"))
-		mode = ptr_mode;
-	      else
-		for (j = 0; j < NUM_MACHINE_MODES; j++)
-		  if (!strcmp (p, GET_MODE_NAME (j)))
-		    mode = (enum machine_mode) j;
-
-	      if (mode == VOIDmode)
-		error ("unknown machine mode `%s'", p);
-	      else if (0 == (typefm = type_for_mode (mode,
-						     TREE_UNSIGNED (type))))
-		error ("no data type for mode `%s'", p);
-	      else
-		{
-		  if (TYPE_PRECISION (typefm) > (TREE_UNSIGNED (type)
-						 ? TYPE_PRECISION(uintmax_type_node)
-						 : TYPE_PRECISION(intmax_type_node))
-		      && pedantic)
-		    pedwarn ("type with more precision than %s",
-			     TREE_UNSIGNED (type) ? "uintmax_t" : "intmax_t");
-		  TREE_TYPE (decl) = type = typefm;
-		  DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
-		  if (TREE_CODE (decl) != FIELD_DECL)
-		    layout_decl (decl, 0);
-		}
-	    }
-	  break;
-
-	case A_SECTION:
-	  if (targetm.have_named_sections)
-	    {
-	      if ((TREE_CODE (decl) == FUNCTION_DECL
-		   || TREE_CODE (decl) == VAR_DECL)
-		  && TREE_CODE (TREE_VALUE (args)) == STRING_CST)
-		{
-		  if (TREE_CODE (decl) == VAR_DECL
-		      && current_function_decl != NULL_TREE
-		      && ! TREE_STATIC (decl))
-		    error_with_decl (decl,
-				     "section attribute cannot be specified for local variables");
-		  /* The decl may have already been given a section attribute
-		     from a previous declaration.  Ensure they match.  */
-		  else if (DECL_SECTION_NAME (decl) != NULL_TREE
-			   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-				      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
-		    error_with_decl (*node,
-				     "section of `%s' conflicts with previous declaration");
-		  else
-		    DECL_SECTION_NAME (decl) = TREE_VALUE (args);
-		}
-	      else
-		error_with_decl (*node,
-				 "section attribute not allowed for `%s'");
-	    }
-	  else
-	    error_with_decl (*node,
-			     "section attributes are not supported for this target");
-	  break;
-
-	case A_ALIGNED:
-	  {
-	    tree align_expr
-	      = (args ? TREE_VALUE (args)
-		 : size_int (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
-	    int i;
-
-	    /* Strip any NOPs of any kind.  */
-	    while (TREE_CODE (align_expr) == NOP_EXPR
-		   || TREE_CODE (align_expr) == CONVERT_EXPR
-		   || TREE_CODE (align_expr) == NON_LVALUE_EXPR)
-	      align_expr = TREE_OPERAND (align_expr, 0);
-
-	    if (TREE_CODE (align_expr) != INTEGER_CST)
-	      {
-		error ("requested alignment is not a constant");
-		continue;
-	      }
-
-	    if ((i = tree_log2 (align_expr)) == -1)
-	      error ("requested alignment is not a power of 2");
-	    else if (i > HOST_BITS_PER_INT - 2)
-	      error ("requested alignment is too large");
-	    else if (is_type)
-	      {
-		/* If we have a TYPE_DECL, then copy the type, so that we
-		   don't accidentally modify a builtin type.  See pushdecl.  */
-		if (decl && TREE_TYPE (decl) != error_mark_node
-		    && DECL_ORIGINAL_TYPE (decl) == NULL_TREE)
-		  {
-		    tree tt = TREE_TYPE (decl);
-		    DECL_ORIGINAL_TYPE (decl) = tt;
-		    tt = build_type_copy (tt);
-		    TYPE_NAME (tt) = decl;
-		    TREE_USED (tt) = TREE_USED (decl);
-		    TREE_TYPE (decl) = tt;
-		    type = tt;
-		  }
-
-		TYPE_ALIGN (type) = (1 << i) * BITS_PER_UNIT;
-		TYPE_USER_ALIGN (type) = 1;
-	      }
-	    else if (TREE_CODE (decl) != VAR_DECL
-		     && TREE_CODE (decl) != FIELD_DECL)
-	      error_with_decl (decl,
-			       "alignment may not be specified for `%s'");
-	    else
-	      {
-		DECL_ALIGN (decl) = (1 << i) * BITS_PER_UNIT;
-		DECL_USER_ALIGN (decl) = 1;
-	      }
-	  }
-	  break;
-
-	case A_FORMAT:
-	  decl_handle_format_attribute (decl, args);
-	  break;
-
-	case A_FORMAT_ARG:
-	  decl_handle_format_arg_attribute (decl, args);
-	  break;
-
-	case A_WEAK:
-	  declare_weak (decl);
-	  break;
-
-	case A_ALIAS:
-	  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
-	      || (TREE_CODE (decl) != FUNCTION_DECL && ! DECL_EXTERNAL (decl)))
-	    error_with_decl (decl,
-			     "`%s' defined both normally and as an alias");
-	  else if (decl_function_context (decl) == 0)
-	    {
-	      tree id;
-
-	      id = TREE_VALUE (args);
-	      if (TREE_CODE (id) != STRING_CST)
-		{
-		  error ("alias arg not a string");
-		  break;
-		}
-	      id = get_identifier (TREE_STRING_POINTER (id));
-	      /* This counts as a use of the object pointed to.  */
-	      TREE_USED (id) = 1;
-
-	      if (TREE_CODE (decl) == FUNCTION_DECL)
-		DECL_INITIAL (decl) = error_mark_node;
-	      else
-		DECL_EXTERNAL (decl) = 0;
-	      assemble_alias (decl, id);
-	    }
-	  else
-	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  break;
-
-	case A_NO_CHECK_MEMORY_USAGE:
-	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    {
-	      error_with_decl (decl,
-			       "`%s' attribute applies only to functions",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else if (DECL_INITIAL (decl))
-	    {
-	      error_with_decl (decl,
-			       "can't set `%s' attribute after definition",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else
-	    DECL_NO_CHECK_MEMORY_USAGE (decl) = 1;
-	  break;
-
-	case A_NO_INSTRUMENT_FUNCTION:
-	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    {
-	      error_with_decl (decl,
-			       "`%s' attribute applies only to functions",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else if (DECL_INITIAL (decl))
-	    {
-	      error_with_decl (decl,
-			       "can't set `%s' attribute after definition",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else
-	    DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
-	  break;
-
-        case A_NO_LIMIT_STACK:
-	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    {
-	      error_with_decl (decl,
-			       "`%s' attribute applies only to functions",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else if (DECL_INITIAL (decl))
-	    {
-	      error_with_decl (decl,
-			       "can't set `%s' attribute after definition",
-			       IDENTIFIER_POINTER (name));
-	    }
-	  else
-	    DECL_NO_LIMIT_STACK (decl) = 1;
-	  break;
-	}
-    }
-  return NULL_TREE;
-}
-
-/* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two
-   lists.  SPECS_ATTRS may also be just a typespec (eg: RECORD_TYPE).
-
-   The head of the declspec list is stored in DECLSPECS.
-   The head of the attribute list is stored in PREFIX_ATTRIBUTES.
-
-   Note that attributes in SPECS_ATTRS are stored in the TREE_PURPOSE of
-   the list elements.  We drop the containing TREE_LIST nodes and link the
-   resulting attributes together the way decl_attributes expects them.  */
-
-void
-split_specs_attrs (specs_attrs, declspecs, prefix_attributes)
-     tree specs_attrs;
-     tree *declspecs, *prefix_attributes;
-{
-  tree t, s, a, next, specs, attrs;
-
-  /* This can happen after an __extension__ in pedantic mode.  */
-  if (specs_attrs != NULL_TREE 
-      && TREE_CODE (specs_attrs) == INTEGER_CST)
-    {
-      *declspecs = NULL_TREE;
-      *prefix_attributes = NULL_TREE;
-      return;
-    }
-
-  /* This can happen in c++ (eg: decl: typespec initdecls ';').  */
-  if (specs_attrs != NULL_TREE
-      && TREE_CODE (specs_attrs) != TREE_LIST)
-    {
-      *declspecs = specs_attrs;
-      *prefix_attributes = NULL_TREE;
-      return;
-    }
-
-  /* Remember to keep the lists in the same order, element-wise.  */
-
-  specs = s = NULL_TREE;
-  attrs = a = NULL_TREE;
-  for (t = specs_attrs; t; t = next)
-    {
-      next = TREE_CHAIN (t);
-      /* Declspecs have a non-NULL TREE_VALUE.  */
-      if (TREE_VALUE (t) != NULL_TREE)
-	{
-	  if (specs == NULL_TREE)
-	    specs = s = t;
-	  else
-	    {
-	      TREE_CHAIN (s) = t;
-	      s = t;
-	    }
-	}
-      else
-	{
-	  if (attrs == NULL_TREE)
-	    attrs = a = TREE_PURPOSE (t);
-	  else
-	    {
-	      TREE_CHAIN (a) = TREE_PURPOSE (t);
-	      a = TREE_PURPOSE (t);
-	    }
-	  /* More attrs can be linked here, move A to the end.  */
-	  while (TREE_CHAIN (a) != NULL_TREE)
-	    a = TREE_CHAIN (a);
-	}
-    }
-
-  /* Terminate the lists.  */
-  if (s != NULL_TREE)
-    TREE_CHAIN (s) = NULL_TREE;
-  if (a != NULL_TREE)
-    TREE_CHAIN (a) = NULL_TREE;
-
-  /* All done.  */
-  *declspecs = specs;
-  *prefix_attributes = attrs;
-}
-
-/* Strip attributes from SPECS_ATTRS, a list of declspecs and attributes.
-   This function is used by the parser when a rule will accept attributes
-   in a particular position, but we don't want to support that just yet.
-
-   A warning is issued for every ignored attribute.  */
-
-tree
-strip_attrs (specs_attrs)
-     tree specs_attrs;
-{
-  tree specs, attrs;
-
-  split_specs_attrs (specs_attrs, &specs, &attrs);
-
-  while (attrs)
-    {
-      warning ("`%s' attribute ignored",
-	       IDENTIFIER_POINTER (TREE_PURPOSE (attrs)));
-      attrs = TREE_CHAIN (attrs);
-    }
-
-  return specs;
 }
 
 static int is_valid_printf_arglist PARAMS ((tree));
@@ -1971,6 +1347,8 @@ type_for_mode (mode, unsignedp)
     return V4HI_type_node;
   if (mode == TYPE_MODE (V8QI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
     return V8QI_type_node;
+  if (mode == TYPE_MODE (V2SF_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
+    return V2SF_type_node;
 #endif
 
   return 0;
@@ -2071,6 +1449,20 @@ signed_or_unsigned_type (unsignedp, type)
   if (TYPE_PRECISION (type) == TYPE_PRECISION (widest_integer_literal_type_node))
     return (unsignedp ? widest_unsigned_literal_type_node
 	    : widest_integer_literal_type_node);
+
+#if HOST_BITS_PER_WIDE_INT >= 64
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (intTI_type_node))
+    return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
+#endif
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (intDI_type_node))
+    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (intSI_type_node))
+    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (intHI_type_node))
+    return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
+  if (TYPE_PRECISION (type) == TYPE_PRECISION (intQI_type_node))
+    return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
   return type;
 }
 
@@ -2110,7 +1502,7 @@ void
 binary_op_error (code)
      enum tree_code code;
 {
-  register const char *opname;
+  const char *opname;
 
   switch (code)
     {
@@ -2189,7 +1581,7 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
      tree *restype_ptr;
      enum tree_code *rescode_ptr;
 {
-  register tree type;
+  tree type;
   tree op0 = *op0_ptr;
   tree op1 = *op1_ptr;
   int unsignedp0, unsignedp1;
@@ -2222,8 +1614,8 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
   if (TREE_CONSTANT (primop0)
       && ! integer_zerop (primop1) && ! real_zerop (primop1))
     {
-      register tree tem = primop0;
-      register int temi = unsignedp0;
+      tree tem = primop0;
+      int temi = unsignedp0;
       primop0 = primop1;
       primop1 = tem;
       tem = op0;
@@ -2577,7 +1969,7 @@ truthvalue_conversion (expr)
       return real_zerop (expr) ? boolean_false_node : boolean_true_node;
 
     case ADDR_EXPR:
-      /* If we are taking the address of a external decl, it might be zero
+      /* If we are taking the address of an external decl, it might be zero
 	 if it is weak, so we cannot optimize.  */
       if (DECL_P (TREE_OPERAND (expr, 0))
 	  && DECL_EXTERNAL (TREE_OPERAND (expr, 0)))
@@ -2932,6 +2324,19 @@ c_alignof_expr (expr)
   return fold (build1 (NOP_EXPR, c_size_type_node, t));
 }
 
+/* Give the specifications for the format attributes, used by C and all
+   descendents.  */
+
+static const struct attribute_spec c_format_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "format",                 3, 3, false, true,  true,
+			      handle_format_attribute },
+  { "format_arg",             1, 1, false, true,  true,
+			      handle_format_arg_attribute },
+  { NULL,                     0, 0, false, false, false, NULL }
+};
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -2976,6 +2381,10 @@ c_common_nodes_and_builtins ()
   tree traditional_len_type_node;
   tree va_list_ref_type_node;
   tree va_list_arg_type_node;
+
+  /* We must initialize this before any builtin functions (which might have
+     attributes) are declared.  (c_common_lang_init is too late.)  */
+  format_attribute_table = c_format_attribute_table;
 
   /* Define `int' and `char' first so that dbx will output them first.  */
   record_builtin_type (RID_INT, NULL, integer_type_node);
@@ -3375,7 +2784,8 @@ c_promoting_integer_type_p (t)
 	      || TYPE_MAIN_VARIANT (t) == signed_char_type_node
 	      || TYPE_MAIN_VARIANT (t) == unsigned_char_type_node
 	      || TYPE_MAIN_VARIANT (t) == short_integer_type_node
-	      || TYPE_MAIN_VARIANT (t) == short_unsigned_type_node);
+	      || TYPE_MAIN_VARIANT (t) == short_unsigned_type_node
+	      || TYPE_PRECISION (t) < TYPE_PRECISION (integer_type_node));
 
     case ENUMERAL_TYPE:
       /* ??? Technically all enumerations not larger than an int
@@ -3426,10 +2836,10 @@ int
 self_promoting_args_p (parms)
      tree parms;
 {
-  register tree t;
+  tree t;
   for (t = parms; t; t = TREE_CHAIN (t))
     {
-      register tree type = TREE_VALUE (t);
+      tree type = TREE_VALUE (t);
 
       if (TREE_CHAIN (t) == 0 && type != void_type_node)
 	return 0;
@@ -3919,9 +3329,8 @@ mark_stmt_tree (p)
 
 void
 c_mark_lang_decl (c)
-     struct c_lang_decl *c;
+     struct c_lang_decl *c ATTRIBUTE_UNUSED;
 {
-  ggc_mark_tree (c->saved_tree);
 }
 
 /* Mark F for GC.  */
@@ -4036,7 +3445,7 @@ c_unsafe_for_reeval (exp)
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-static char c_tree_code_type[] = {
+static const char c_tree_code_type[] = {
   'x',
 #include "c-common.def"
 };
@@ -4048,7 +3457,7 @@ static char c_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-static int c_tree_code_length[] = {
+static const int c_tree_code_length[] = {
   0,
 #include "c-common.def"
 };
@@ -4058,7 +3467,7 @@ static int c_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-static const char *c_tree_code_name[] = {
+static const char *const c_tree_code_name[] = {
   "@@dummy",
 #include "c-common.def"
 };
@@ -4142,14 +3551,22 @@ is_valid_printf_arglist (arglist)
   /* Save this value so we can restore it later.  */
   const int SAVE_pedantic = pedantic;
   int diagnostic_occurred = 0;
+  tree attrs;
 
   /* Set this to a known value so the user setting won't affect code
      generation.  */
   pedantic = 1;
   /* Check to make sure there are no format specifier errors.  */
-  check_function_format (&diagnostic_occurred,
-			 maybe_get_identifier("printf"),
-			 NULL_TREE, arglist);
+  attrs = tree_cons (get_identifier ("format"),
+		     tree_cons (NULL_TREE,
+				get_identifier ("printf"),
+				tree_cons (NULL_TREE,
+					   integer_one_node,
+					   tree_cons (NULL_TREE,
+						      build_int_2 (2, 0),
+						      NULL_TREE))),
+		     NULL_TREE);
+  check_function_format (&diagnostic_occurred, attrs, arglist);
 
   /* Restore the value of `pedantic'.  */
   pedantic = SAVE_pedantic;
@@ -4381,6 +3798,29 @@ boolean_increment (code, arg)
   return val;
 }
 
+/* Handle C and C++ default attributes.  */
+
+enum built_in_attribute
+{
+#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
+#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
+#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No entry needed in enum.  */
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+  ATTR_LAST
+};
+
+static tree built_in_attributes[(int) ATTR_LAST];
+
+static bool c_attrs_initialized = false;
+
+static void c_init_attributes PARAMS ((void));
 
 /* Do the parts of lang_init common to C and C++.  */
 void
@@ -4402,4 +3842,60 @@ c_common_lang_init ()
     warning ("-Wformat-security ignored without -Wformat");
   if (warn_missing_format_attribute && !warn_format)
     warning ("-Wmissing-format-attribute ignored without -Wformat");
+
+  if (!c_attrs_initialized)
+    c_init_attributes ();
+}
+
+static void
+c_init_attributes ()
+{
+  /* Fill in the built_in_attributes array.  */
+#define DEF_ATTR_NULL_TREE(ENUM)		\
+  built_in_attributes[(int) ENUM] = NULL_TREE;
+#define DEF_ATTR_INT(ENUM, VALUE)					     \
+  built_in_attributes[(int) ENUM] = build_int_2 (VALUE, VALUE < 0 ? -1 : 0);
+#define DEF_ATTR_IDENT(ENUM, STRING)				\
+  built_in_attributes[(int) ENUM] = get_identifier (STRING);
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
+  built_in_attributes[(int) ENUM]			\
+    = tree_cons (built_in_attributes[(int) PURPOSE],	\
+		 built_in_attributes[(int) VALUE],	\
+		 built_in_attributes[(int) CHAIN]);
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No initialization needed.  */
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+  ggc_add_tree_root (built_in_attributes, (int) ATTR_LAST);
+  c_attrs_initialized = true;
+}
+
+/* Depending on the name of DECL, apply default attributes to it.  */
+
+void
+c_common_insert_default_attributes (decl)
+     tree decl;
+{
+  tree name = DECL_NAME (decl);
+
+  if (!c_attrs_initialized)
+    c_init_attributes ();
+
+#define DEF_ATTR_NULL_TREE(ENUM) /* Nothing needed after initialization.  */
+#define DEF_ATTR_INT(ENUM, VALUE)
+#define DEF_ATTR_IDENT(ENUM, STRING)
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE)			\
+  if ((PREDICATE) && name == built_in_attributes[(int) NAME])	\
+    decl_attributes (&decl, built_in_attributes[(int) ATTRS],	\
+		     ATTR_FLAG_BUILT_IN);
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
 }

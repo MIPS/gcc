@@ -22,7 +22,7 @@ Boston, MA 02111-1307, USA.  */
 extern rtx check_attr_test	PARAMS ((rtx, int, int));
 extern rtx make_numeric_value	PARAMS ((int));
 extern void make_internal_attr	PARAMS ((const char *, rtx, int));
-extern char *attr_printf	PARAMS ((int, const char *, ...))
+extern char *attr_printf	PARAMS ((unsigned int, const char *, ...))
   ATTRIBUTE_PRINTF_2;
 
 extern int num_dfa_decls;

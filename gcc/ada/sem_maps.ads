@@ -98,7 +98,7 @@ private
    --  maps have a fixed size and never need to be reallocated. Furthermore,
    --  the headers of the hash table of a dynamically allocated map can be
    --  chosen according to the total number of entries in the map, to
-   --  accommodate efficiently generic units of different sizes (Unchecked_
+   --  accomodate efficiently generic units of different sizes (Unchecked_
    --  Conversion vs. Generic_Elementary_Functions, for example). So in
    --  fact both components of a map have fixed size, and can be allocated
    --  using the standard table mechanism. A Maps_Table holds records that

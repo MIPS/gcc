@@ -314,9 +314,9 @@ do {									\
 #undef	PROCESSOR_DEFAULT
 #define	PROCESSOR_DEFAULT PROCESSOR_PPC750
 
+#define FIXED_R2 1
 /* System V.4 uses register 13 as a pointer to the small data area,
    so it is not available to the normal user.  */
-
 #define FIXED_R13 1
 
 /* Size of the V.4 varargs area if needed.  */
@@ -566,7 +566,7 @@ fini_section ()								\
 
 /* Override elfos.h definition.  */
 #undef	SELECT_RTX_SECTION
-#define	SELECT_RTX_SECTION(MODE, X) rs6000_select_rtx_section (MODE, X)
+#define	SELECT_RTX_SECTION(MODE, X, ALIGN) rs6000_select_rtx_section (MODE, X)
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -575,7 +575,7 @@ fini_section ()								\
 
 /* Override elfos.h definition.  */
 #undef	SELECT_SECTION
-#define	SELECT_SECTION(DECL, RELOC) rs6000_select_section (DECL, RELOC)
+#define	SELECT_SECTION(DECL, RELOC, ALIGN) rs6000_select_section (DECL, RELOC)
 
 /* A C statement to build up a unique section name, expressed as a
    STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
@@ -630,7 +630,7 @@ extern int rs6000_pic_labelno;
 #undef	ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
-    const char *init_ptr = (TARGET_64BIT) ? ".quad" : ".long";		\
+    const char *const init_ptr = (TARGET_64BIT) ? ".quad" : ".long";	\
 									\
     if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag)	\
 	&& uses_TOC())							\

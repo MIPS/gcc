@@ -31,8 +31,8 @@ struct function;
 #undef ABS /* Likewise.  */
 #undef PC /* Likewise.  */
 
-/* Value used by some passes to "recognize" noop moves as valid instructions.
- */
+/* Value used by some passes to "recognize" noop moves as valid
+ instructions.  */
 #define NOOP_MOVE_INSN_CODE	INT_MAX
 
 /* Register Transfer Language EXPRESSIONS CODES */
@@ -71,15 +71,32 @@ typedef struct
   unsigned min_align: 8;
   /* Flags: */
   unsigned base_after_vec: 1; /* BASE is after the ADDR_DIFF_VEC.  */
-  unsigned min_after_vec: 1;  /* minimum address target label is after the ADDR_DIFF_VEC.  */
-  unsigned max_after_vec: 1;  /* maximum address target label is after the ADDR_DIFF_VEC.  */
-  unsigned min_after_base: 1; /* minimum address target label is after BASE.  */
-  unsigned max_after_base: 1; /* maximum address target label is after BASE.  */
+  unsigned min_after_vec: 1;  /* minimum address target label is
+				 after the ADDR_DIFF_VEC.  */
+  unsigned max_after_vec: 1;  /* maximum address target label is
+				 after the ADDR_DIFF_VEC.  */
+  unsigned min_after_base: 1; /* minimum address target label is
+				 after BASE.  */
+  unsigned max_after_base: 1; /* maximum address target label is
+				 after BASE.  */
   /* Set by the actual branch shortening process - ONLY WHEN OPTIMIZING - : */
   unsigned offset_unsigned: 1; /* offsets have to be treated as unsigned.  */
   unsigned : 2;
   unsigned scale : 8;
 } addr_diff_vec_flags;
+
+/* Structure used to describe the attributes of a MEM.  These are hashed
+   so MEMs that the same attributes share a data structure.  This means
+   they cannot be modified in place.  If any element is nonzero, it means
+   the value of the corresponding attribute is unknown.  */
+typedef struct
+{
+  HOST_WIDE_INT alias;		/* Memory alias set.  */
+  tree decl;			/* decl corresponding to MEM.  */
+  rtx offset;			/* Offset from start of DECL, as CONST_INT.  */
+  rtx size;			/* Size in bytes, as a CONST_INT.  */
+  unsigned int align;		/* Alignment of MEM in bytes.  */
+} mem_attrs;
 
 /* Common union for an element of an rtx.  */
 
@@ -97,6 +114,7 @@ typedef union rtunion_def
   struct bitmap_head_def *rtbit;
   tree rttree;
   struct basic_block_def *bb;
+  mem_attrs *rtmem;
 } rtunion;
 
 /* RTL expression ("rtx").  */
@@ -149,7 +167,7 @@ struct rtx_def
      from the target of a branch.  Valid from reorg until end of compilation;
      cleared before used.
      1 in an INSN if this insn is dead code.  Valid only during
-     dead-code elimination phase; cleared before use. */
+     dead-code elimination phase; cleared before use.  */
   unsigned int in_struct : 1;
   /* 1 if this rtx is used.  This is used for copying shared structure.
      See `unshare_all_rtl'.
@@ -338,6 +356,7 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 #define X0BBDEF(RTX, N)	   (RTL_CHECK1(RTX, N, '0').bb)
 #define X0ADVFLAGS(RTX, N) (RTL_CHECK1(RTX, N, '0').rt_addr_diff_vec_flags)
 #define X0CSELIB(RTX, N)   (RTL_CHECK1(RTX, N, '0').rt_cselib)
+#define X0MEMATTR(RTX, N)  (RTL_CHECK1(RTX, N, '0').rtmem)
 
 #define XCWINT(RTX, N, C)     (RTL_CHECKC1(RTX, N, C).rtwint)
 #define XCINT(RTX, N, C)      (RTL_CHECKC1(RTX, N, C).rtint)
@@ -394,10 +413,10 @@ extern void rtvec_check_failed_bounds PARAMS ((rtvec, int,
 #define SIBLING_CALL_P(INSN) ((INSN)->jump)
 
 /* 1 if insn is a branch that should not unconditionally execute its
-   delay slots, i.e., it is an annulled branch.   */
+   delay slots, i.e., it is an annulled branch.  */
 #define INSN_ANNULLED_BRANCH_P(INSN) ((INSN)->unchanging)
 
-/* 1 if insn is a dead code.  Valid only for dead-code elimination phase. */
+/* 1 if insn is a dead code.  Valid only for dead-code elimination phase.  */
 #define INSN_DEAD_CODE_P(INSN) ((INSN)->in_struct)
 
 /* 1 if insn is in a delay slot and is from the target of the branch.  If
@@ -558,7 +577,11 @@ enum reg_note
   REG_SETJMP,
 
   /* Indicate calls that always returns.  */
-  REG_ALWAYS_RETURN
+  REG_ALWAYS_RETURN,
+
+  /* Indicate that the memory load references a vtable.  The expression
+     is of the form (plus (symbol_ref vtable_sym) (const_int offset)).  */
+  REG_VTABLE_REF
 };
 
 /* The base value for branch probability notes.  */
@@ -594,7 +617,7 @@ extern const char * const reg_note_name[];
    NOTE_INSN_BLOCK_BEG and NOTE_INSN_BLOCK_END notes.  (We avoid lots of casts
    between ints and pointers if we use a different macro for the block number.)
    The NOTE_INSN_RANGE_{START,END} and NOTE_INSN_LIVE notes record their
-   information as a rtx in the field.  */
+   information as an rtx in the field.  */
 
 #define NOTE_SOURCE_FILE(INSN) 	XCSTR(INSN, 3, NOTE)
 #define NOTE_BLOCK(INSN)	XCTREE(INSN, 3, NOTE)
@@ -677,7 +700,7 @@ enum insn_note
 
   /* Generated whenever a duplicate line number note is output.  For example,
      one is output after the end of an inline function, in order to prevent
-     the line containing the inline call from being counted twice in gcov. */
+     the line containing the inline call from being counted twice in gcov.  */
   NOTE_INSN_REPEATED_LINE_NUMBER,
 
   /* Start/end of a live range region, where pseudos allocated on the stack
@@ -688,7 +711,7 @@ enum insn_note
   /* Record which registers are currently live.  Uses NOTE_LIVE_INFO.  */
   NOTE_INSN_LIVE,
 
-  /* Record the struct for the following basic block.  Uses NOTE_BASIC_BLOCK. */
+  /* Record the struct for the following basic block.  Uses NOTE_BASIC_BLOCK.  */
   NOTE_INSN_BASIC_BLOCK,
 
   /* Record the expected value of a register at a location.  Uses
@@ -860,6 +883,10 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
     }						\
 } while (0)
 
+/* The memory attribute block.  We provide access macros for each value
+   in the block and provide defaults if none specified.  */
+#define MEM_ATTRS(RTX) X0MEMATTR (RTX, 1)
+
 /* For a MEM rtx, the alias set.  If 0, this MEM is not in any alias
    set, and may alias anything.  Otherwise, the MEM can only alias
    MEMs in the same alias set.  This value is set in a
@@ -869,15 +896,30 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
    some front-ends, these numbers may correspond in some way to types,
    or other language-level entities, but they need not, and the
    back-end makes no such assumptions.  */
-#define MEM_ALIAS_SET(RTX) XCWINT(RTX, 1, MEM)
+#define MEM_ALIAS_SET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->alias)
+
+/* For a MEM rtx, the decl it is known to refer to, if it is known to
+   refer to part of a DECL.  */
+#define MEM_DECL(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->decl)
+
+/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
+   RTX that is always a CONST_INT.  */
+#define MEM_OFFSET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->offset)
+
+/* For a MEM rtx, the size in bytes of the MEM, if known, as an RTX that
+   is always a CONST_INT.  */
+#define MEM_SIZE(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->size)
+
+/* For a MEM rtx, the alignment in bytes.  */
+#define MEM_ALIGN(RTX) (MEM_ATTRS (RTX) == 0 ? 1 : MEM_ATTRS (RTX)->align)
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
 #define MEM_COPY_ATTRIBUTES(LHS, RHS)			\
   (MEM_VOLATILE_P (LHS) = MEM_VOLATILE_P (RHS),		\
    MEM_IN_STRUCT_P (LHS) = MEM_IN_STRUCT_P (RHS),	\
    MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS),		\
-   MEM_ALIAS_SET (LHS) = MEM_ALIAS_SET (RHS),		\
-   RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS))
+   RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS),	\
+   MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* For a LABEL_REF, 1 means that this reference is to a label outside the
    loop containing the reference.  */
@@ -932,7 +974,10 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* Don't continue this line--convex cc version 4.1 would lose.  */
 #if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT))
-#define FIND_REG_INC_NOTE(insn, reg) (find_reg_note ((insn), REG_INC, (reg)))
+#define FIND_REG_INC_NOTE(insn, reg)				\
+  (reg != NULL_RTX && REG_P ((rtx) (reg))			\
+   ? find_regno_note ((insn), REG_INC, REGNO ((rtx) (reg)))	\
+   : find_reg_note ((insn), REG_INC, (reg)))
 #else
 #define FIND_REG_INC_NOTE(insn, reg) 0
 #endif
@@ -1037,10 +1082,10 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 /* For RANGE_{START,END} notes, a unique # to identify this range.  */
 #define RANGE_INFO_UNIQUE(INSN) XCINT (INSN, 5, RANGE_INFO)
 
-/* For RANGE_{START,END} notes, the basic block # the range starts with. */
+/* For RANGE_{START,END} notes, the basic block # the range starts with.  */
 #define RANGE_INFO_BB_START(INSN) XCINT (INSN, 6, RANGE_INFO)
 
-/* For RANGE_{START,END} notes, the basic block # the range ends with. */
+/* For RANGE_{START,END} notes, the basic block # the range ends with.  */
 #define RANGE_INFO_BB_END(INSN) XCINT (INSN, 7, RANGE_INFO)
 
 /* For RANGE_{START,END} notes, the loop depth the range is in.  */
@@ -1076,7 +1121,7 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 #define RANGE_REG_DEATHS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 4)
 
 /* Whether the original value is needed to be copied into the range register at
-   the start of the range. */
+   the start of the range.  */
 #define RANGE_REG_COPY_FLAGS(INSN,N) XINT (XCVECEXP (INSN, 2, N, RANGE_INFO), 5)
 
 /* # of insns the register copy is live over.  */
@@ -1273,7 +1318,7 @@ extern void cleanup_barriers		PARAMS ((void));
 
 /* In jump.c */
 extern void squeeze_notes		PARAMS ((rtx *, rtx *));
-extern rtx delete_insn			PARAMS ((rtx));
+extern rtx delete_related_insns			PARAMS ((rtx));
 extern void delete_jump			PARAMS ((rtx));
 extern void delete_barrier		PARAMS ((rtx));
 extern rtx get_label_before		PARAMS ((rtx));
@@ -1362,6 +1407,7 @@ extern int reg_used_between_p		PARAMS ((rtx, rtx, rtx));
 extern int reg_referenced_between_p	PARAMS ((rtx, rtx, rtx));
 extern int reg_set_between_p		PARAMS ((rtx, rtx, rtx));
 extern int regs_set_between_p		PARAMS ((rtx, rtx, rtx));
+extern int commutative_operand_precedence PARAMS ((rtx));
 extern int swap_commutative_operands_p	PARAMS ((rtx, rtx));
 extern int modified_between_p		PARAMS ((rtx, rtx, rtx));
 extern int no_labels_between_p		PARAMS ((rtx, rtx));
@@ -1476,7 +1522,7 @@ extern rtx const_tiny_rtx[3][(int) MAX_MACHINE_MODE];
    hard frame pointer and the automatic variables are separated by an amount
    that cannot be determined until after register allocation.  We can assume
    that in this case ELIMINABLE_REGS will be defined, one action of which
-   will be to eliminate FRAME_POINTER_REGNUM into HARD_FRAME_POINTER_REGNUM. */
+   will be to eliminate FRAME_POINTER_REGNUM into HARD_FRAME_POINTER_REGNUM.  */
 #ifndef HARD_FRAME_POINTER_REGNUM
 #define HARD_FRAME_POINTER_REGNUM FRAME_POINTER_REGNUM
 #endif
@@ -1708,7 +1754,6 @@ extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));
 extern void thread_jumps		PARAMS ((rtx, int, int));
 extern int rtx_equal_for_thread_p	PARAMS ((rtx, rtx, rtx));
-extern int can_reverse_comparison_p	PARAMS ((rtx, rtx));
 extern enum rtx_code reversed_comparison_code PARAMS ((rtx, rtx));
 extern enum rtx_code reversed_comparison_code_parts PARAMS ((enum rtx_code,
 							     rtx, rtx, rtx));
@@ -1718,7 +1763,7 @@ extern void never_reached_warning	PARAMS ((rtx));
 extern void purge_line_number_notes	PARAMS ((rtx));
 extern void copy_loop_headers		PARAMS ((rtx));
 
-/* In emit-rtl.c. */
+/* In emit-rtl.c.  */
 extern int max_reg_num				PARAMS ((void));
 extern int max_label_num			PARAMS ((void));
 extern int get_first_label_num			PARAMS ((void));
@@ -1727,6 +1772,7 @@ extern void mark_reg_pointer			PARAMS ((rtx, int));
 extern void mark_user_reg			PARAMS ((rtx));
 extern void reset_used_flags			PARAMS ((rtx));
 extern void reorder_insns			PARAMS ((rtx, rtx, rtx));
+extern void reorder_insns_nobb			PARAMS ((rtx, rtx, rtx));
 extern int get_max_uid				PARAMS ((void));
 extern int in_sequence_p			PARAMS ((void));
 extern void force_next_line_note		PARAMS ((void));
@@ -1758,6 +1804,8 @@ int force_line_numbers PARAMS ((void));
 void restore_line_number_status PARAMS ((int old_value));
 extern void renumber_insns                      PARAMS ((FILE *));
 extern void remove_unnecessary_notes             PARAMS ((void));
+extern rtx delete_insn			PARAMS ((rtx));
+extern void delete_insn_chain		PARAMS ((rtx, rtx));
 
 /* In combine.c */
 extern int combine_instructions		PARAMS ((rtx, unsigned int));
@@ -1768,7 +1816,7 @@ extern void dump_combine_stats		PARAMS ((FILE *));
 extern void dump_combine_total_stats	PARAMS ((FILE *));
 #endif
 
-/* In sched.c. */
+/* In sched.c.  */
 #ifdef BUFSIZ
 extern void schedule_insns		PARAMS ((FILE *));
 extern void schedule_ebbs		PARAMS ((FILE *));
@@ -1933,7 +1981,8 @@ enum libcall_type
   LCT_PURE_MAKE_BLOCK = 4,
   LCT_NORETURN = 5,
   LCT_THROW = 6,
-  LCT_ALWAYS_RETURN = 7
+  LCT_ALWAYS_RETURN = 7,
+  LCT_RETURNS_TWICE = 8
 };
 
 extern void emit_library_call		PARAMS ((rtx, enum libcall_type,
@@ -1975,6 +2024,7 @@ extern void fancy_abort PARAMS ((const char *, int, const char *))
 #define abort() fancy_abort (__FILE__, __LINE__, __FUNCTION__)
 
 /* In alias.c */
+extern void clear_reg_alias_info	PARAMS ((rtx));
 extern rtx canon_rtx                    PARAMS ((rtx));
 extern int true_dependence		PARAMS ((rtx, enum machine_mode, rtx,
 						int (*)(rtx, int)));
@@ -1989,7 +2039,6 @@ extern void init_alias_once		PARAMS ((void));
 extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));
-extern void set_mem_alias_set		PARAMS ((rtx, HOST_WIDE_INT));
 
 /* In sibcall.c */
 typedef enum {

@@ -154,15 +154,18 @@ static int calc_live_regs PARAMS ((int *, int *));
 static void mark_use PARAMS ((rtx, rtx *));
 static HOST_WIDE_INT rounded_frame_size PARAMS ((int));
 static rtx mark_constant_pool_use PARAMS ((rtx));
-static int sh_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+const struct attribute_spec sh_attribute_table[];
+static tree sh_handle_interrupt_handler_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree sh_handle_sp_switch_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree sh_handle_trap_exit_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void sh_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void sh_insert_attributes PARAMS ((tree, tree *));
 static void sh_asm_named_section PARAMS ((const char *, unsigned int));
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#define TARGET_VALID_DECL_ATTRIBUTE sh_valid_decl_attribute
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE sh_attribute_table
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE sh_output_function_epilogue
@@ -269,7 +272,7 @@ print_operand (stream, x, code)
 
 	if ((lookup_attribute
 	     ("interrupt_handler",
-	      DECL_MACHINE_ATTRIBUTES (current_function_decl)))
+	      DECL_ATTRIBUTES (current_function_decl)))
 	    != NULL_TREE)
 	  interrupt_handler = 1;
 	else
@@ -1019,6 +1022,16 @@ shiftcosts (x)
 {
   int value;
 
+  if (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD)
+    {
+      if (GET_MODE (x) == DImode
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && INTVAL (XEXP (x, 1)) == 1)
+	return 2;
+
+      /* Everything else is invalid, because there is no pattern for it.  */
+      return 10000;
+    }
   /* If shift by a non constant, then this will be expensive.  */
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return SH_DYNAMIC_SHIFT_COST;
@@ -2965,14 +2978,14 @@ barrier_align (barrier_or_label)
 	  && JUMP_LABEL (prev))
 	{
 	  rtx x;
-	  if (jump_to_next 
+	  if (jump_to_next
 	      || next_real_insn (JUMP_LABEL (prev)) == next
 	      /* If relax_delay_slots() decides NEXT was redundant
 		 with some previous instruction, it will have
 		 redirected PREV's jump to the following insn.  */
 	      || JUMP_LABEL (prev) == next_nonnote_insn (next)
-	      /* There is no upper bound on redundant instructions that
-		 might have been skipped, but we must not put an
+	      /* There is no upper bound on redundant instructions
+		 that might have been skipped, but we must not put an
 		 alignment where none had been before.  */
 	      || (x = (NEXT_INSN (NEXT_INSN (PREV_INSN (prev)))),	    
 		  (INSN_P (x) 
@@ -2981,11 +2994,11 @@ barrier_align (barrier_or_label)
 	    {
 	      rtx pat = PATTERN (prev);
 	      if (GET_CODE (pat) == PARALLEL)
-	      pat = XVECEXP (pat, 0, 0);
+		pat = XVECEXP (pat, 0, 0);
 	      if (credit - slot >= (GET_CODE (SET_SRC (pat)) == PC ? 2 : 0))
 		return 0;
 	    }
-	}     
+	}
     }
   
   return CACHE_LOG;
@@ -3238,9 +3251,9 @@ machine_dependent_reorg (first)
              or pseudo-op.  */
 
 	  label = gen_label_rtx ();
-	  REG_NOTES (link) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+	  REG_NOTES (link) = gen_rtx_INSN_LIST (REG_LABEL, label,
 						REG_NOTES (link));
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, label,
 						REG_NOTES (insn));
 	  if (rescan)
 	    {
@@ -3256,7 +3269,7 @@ machine_dependent_reorg (first)
 			  || ((reg2 = sfunc_uses_reg (scan))
 			      && REGNO (reg2) == REGNO (reg))))
 		    REG_NOTES (scan)
-		      = gen_rtx_EXPR_LIST (REG_LABEL, label, REG_NOTES (scan));
+		      = gen_rtx_INSN_LIST (REG_LABEL, label, REG_NOTES (scan));
 		}
 	      while (scan != dies);
 	    }
@@ -3949,10 +3962,12 @@ calc_live_regs (count_ptr, live_regs_mask2)
   int live_regs_mask = 0;
   int count;
   int interrupt_handler;
+  rtx pr_initial;
+  int pr_live;
 
   if ((lookup_attribute
        ("interrupt_handler",
-	DECL_MACHINE_ATTRIBUTES (current_function_decl)))
+	DECL_ATTRIBUTES (current_function_decl)))
       != NULL_TREE)
     interrupt_handler = 1;
   else
@@ -3969,14 +3984,20 @@ calc_live_regs (count_ptr, live_regs_mask2)
 	  target_flags &= ~FPU_SINGLE_BIT;
 	  break;
 	}
+  pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
+  pr_live = (pr_initial
+	     ? REGNO (pr_initial) != PR_REG
+	     : regs_ever_live[PR_REG]);
   for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
     {
-      if ((interrupt_handler && ! pragma_trapa)
+      if (reg == PR_REG
+	  ? pr_live
+	  : (interrupt_handler && ! pragma_trapa)
 	  ? (/* Need to save all the regs ever live.  */
 	     (regs_ever_live[reg]
 	      || (call_used_regs[reg]
 		  && (! fixed_regs[reg] || reg == MACH_REG || reg == MACL_REG)
-		  && regs_ever_live[PR_REG]))
+		  && pr_live))
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
 	     && reg != T_REG && reg != GBR_REG && reg != FPSCR_REG)
@@ -4040,7 +4061,7 @@ sh_expand_prologue ()
 
   current_function_interrupt
     = lookup_attribute ("interrupt_handler",
-			DECL_MACHINE_ATTRIBUTES (current_function_decl))
+			DECL_ATTRIBUTES (current_function_decl))
     != NULL_TREE;
 
   /* We have pretend args if we had an object sent partially in registers
@@ -4588,7 +4609,7 @@ initial_elimination_offset (from, to)
 
   if (from == RETURN_ADDRESS_POINTER_REGNUM
       && (to == FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
-    return UNITS_PER_WORD + total_auto_space;
+    return total_auto_space;
 
   abort ();
 }
@@ -4638,11 +4659,7 @@ sh_insert_attributes (node, attributes)
   return;
 }
 
-/* Return nonzero if ATTR is a valid attribute for DECL.
-   ATTRIBUTES are any existing attributes and ARGS are the arguments
-   supplied with ATTR.
-
-   Supported attributes:
+/* Supported attributes:
 
    interrupt_handler -- specifies this function is an interrupt handler.
 
@@ -4652,59 +4669,110 @@ sh_insert_attributes (node, attributes)
    trap_exit -- use a trapa to exit an interrupt function instead of
    an rte instruction.  */
 
-static int
-sh_valid_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args;
+const struct attribute_spec sh_attribute_table[] =
 {
-  if (TREE_CODE (decl) != FUNCTION_DECL)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt_handler", 0, 0, true,  false, false, sh_handle_interrupt_handler_attribute },
+  { "sp_switch",         1, 1, true,  false, false, sh_handle_sp_switch_attribute },
+  { "trap_exit",         1, 1, true,  false, false, sh_handle_trap_exit_attribute },
+  { NULL,                0, 0, false, false, false, NULL }
+};
 
-  if (is_attribute_p ("interrupt_handler", attr))
+/* Handle an "interrupt_handler" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+sh_handle_interrupt_handler_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      return 1;
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  if (is_attribute_p ("sp_switch", attr))
+  return NULL_TREE;
+}
+
+/* Handle an "sp_switch" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+sh_handle_sp_switch_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (!pragma_interrupt)
     {
       /* The sp_switch attribute only has meaning for interrupt functions.  */
-      if (!pragma_interrupt)
-	return 0;
-
-      /* sp_switch must have an argument.  */
-      if (!args || TREE_CODE (args) != TREE_LIST)
-	return 0;
-
+      warning ("`%s' attribute only applies to interrupt functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+    {
       /* The argument must be a constant string.  */
-      if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
-	return 0;
-
+      warning ("`%s' attribute argument not a string constant",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
       sp_switch = gen_rtx_SYMBOL_REF (VOIDmode,
 				      TREE_STRING_POINTER (TREE_VALUE (args)));
-      return 1;
     }
 
-  if (is_attribute_p ("trap_exit", attr))
+  return NULL_TREE;
+}
+
+/* Handle an "trap_exit" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+sh_handle_trap_exit_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (!pragma_interrupt)
     {
       /* The trap_exit attribute only has meaning for interrupt functions.  */
-      if (!pragma_interrupt)
-	return 0;
-
-      /* trap_exit must have an argument.  */
-      if (!args || TREE_CODE (args) != TREE_LIST)
-	return 0;
-
+      warning ("`%s' attribute only applies to interrupt functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
+    {
       /* The argument must be a constant integer.  */
-      if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
-	return 0;
-
+      warning ("`%s' attribute argument not an integer constant",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
       trap_exit = TREE_INT_CST_LOW (TREE_VALUE (args));
-      return 1;
     }
 
-  return 0;
+  return NULL_TREE;
 }
 
 
@@ -5627,4 +5695,14 @@ sh_adjust_cost (insn, link, dep_insn, cost)
     cost = 20;
 
   return cost;
+}
+
+/* For use by ALLOCATE_INITIAL_VALUE.  Note that sh.md contains some
+   'special function' patterns (type sfunc) that clobber pr, but that
+   do not look like function calls to leaf_function_p.  Hence we must
+   do this extra check.  */
+int
+sh_pr_n_sets ()
+{
+  return REG_N_SETS (PR_REG);
 }

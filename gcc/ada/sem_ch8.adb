@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision$
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -545,10 +545,6 @@ package body Sem_Ch8 is
       Inst  : Boolean   := False; -- prevent junk warning
 
    begin
-      if Name (N) = Error then
-         return;
-      end if;
-
       Generate_Definition (New_P);
 
       if Current_Scope /= Standard_Standard then
@@ -609,10 +605,6 @@ package body Sem_Ch8 is
       T2  : Entity_Id;
 
    begin
-      if Nam = Error then
-         return;
-      end if;
-
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
       Enter_Name (Id);
 
@@ -724,10 +716,6 @@ package body Sem_Ch8 is
       Spec  : Node_Id;
 
    begin
-      if Name (N) = Error then
-         return;
-      end if;
-
       --  Apply Text_IO kludge here, since we may be renaming one of
       --  the children of Text_IO
 

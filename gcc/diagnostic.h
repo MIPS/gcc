@@ -55,13 +55,13 @@ typedef enum
 
 /* The type of front-end specific hook that formats trees into an
    output_buffer.  A language specific printer returns a truth value if
-   everything goes well. */
+   everything goes well.  */
 typedef int (*printer_fn) PARAMS ((output_buffer *));
 
 /* This data structure encapsulates an output_buffer's state.  */
 typedef struct
 {
-  /* The prefix for each new line.   */
+  /* The prefix for each new line.  */
   const char *prefix;
 
   /* The real upper bound of number of characters per line, taking into
@@ -69,7 +69,7 @@ typedef struct
   int maximum_length;
 
   /* The ideal upper bound of number of characters per line, as suggested
-     by front-end. */  
+     by front-end.  */  
   int ideal_maximum_length;
 
   /* Indentation count.  */
@@ -191,7 +191,7 @@ struct diagnostic_context
   */
   void (*begin_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
 
-  /* This function is called after the diagnostic message is printed.   */
+  /* This function is called after the diagnostic message is printed.  */
   void (*end_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
 
   /* Hook for front-end extensions.  */
@@ -234,7 +234,7 @@ struct diagnostic_context
    ((output_buffer *)(DC))->state.prefixing_rule
 
 /* Maximum characters per line in automatic line wrapping mode.
-   Zero means don't wrap lines. */
+   Zero means don't wrap lines.  */
 #define diagnostic_line_cutoff(DC) \
    ((output_buffer *)(DC))->state.ideal_maximum_length
 

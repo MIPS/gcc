@@ -65,7 +65,7 @@ rtx floatunshihf2_libfunc;
 
 static int c4x_leaf_function;
 
-static const char *float_reg_names[] = FLOAT_REGISTER_NAMES;
+static const char *const float_reg_names[] = FLOAT_REGISTER_NAMES;
 
 /* Array of the smallest class containing reg number REGNO, indexed by
    REGNO.  Used by REGNO_REG_CLASS in c4x.h.  We assume that all these
@@ -191,14 +191,15 @@ static int c4x_parse_pragma PARAMS ((const char *, tree *, tree *));
 static int c4x_r11_set_p PARAMS ((rtx));
 static int c4x_rptb_valid_p PARAMS ((rtx, rtx));
 static int c4x_label_ref_used_p PARAMS ((rtx, rtx));
-static int c4x_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+static tree c4x_handle_fntype_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec c4x_attribute_table[];
 static void c4x_insert_attributes PARAMS ((tree, tree *));
 static void c4x_asm_named_section PARAMS ((const char *, unsigned int));
 static int c4x_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE c4x_valid_type_attribute_p
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE c4x_attribute_table
 
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES c4x_insert_attributes
@@ -502,7 +503,7 @@ c4x_hard_regno_rename_ok (regno1, regno2)
    Don't use R0 to pass arguments in, we use 0 to indicate a stack
    argument.  */
 
-static int c4x_int_reglist[3][6] =
+static const int c4x_int_reglist[3][6] =
 {
   {AR2_REGNO, R2_REGNO, R3_REGNO, RC_REGNO, RS_REGNO, RE_REGNO},
   {AR2_REGNO, R3_REGNO, RC_REGNO, RS_REGNO, RE_REGNO, 0},
@@ -4761,31 +4762,36 @@ c4x_insert_attributes (decl, attributes)
     }
 }
 
-
-/* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine
-   specific attribute for TYPE.  The attributes in ATTRIBUTES have
-   previously been assigned to TYPE.  */
-
-static int
-c4x_valid_type_attribute_p (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args ATTRIBUTE_UNUSED;
+/* Table of valid machine attributes.  */
+const struct attribute_spec c4x_attribute_table[] =
 {
-  if (TREE_CODE (type) != FUNCTION_TYPE)
-    return 0;
-  
-  if (is_attribute_p ("interrupt", identifier))
-    return 1;
-  
-  if (is_attribute_p ("assembler", identifier))
-    return 1;
-  
-  if (is_attribute_p ("leaf_pretend", identifier))
-    return 1;
-  
-  return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt",    0, 0, false, true,  true,  c4x_handle_fntype_attribute },
+  /* FIXME: code elsewhere in this file treats "naked" as a synonym of
+     "interrupt"; should it be accepted here?  */
+  { "assembler",    0, 0, false, true,  true,  c4x_handle_fntype_attribute },
+  { "leaf_pretend", 0, 0, false, true,  true,  c4x_handle_fntype_attribute },
+  { NULL,           0, 0, false, false, false, NULL }
+};
+
+/* Handle an attribute requiring a FUNCTION_TYPE;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+c4x_handle_fntype_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 

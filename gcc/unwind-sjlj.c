@@ -26,7 +26,12 @@
 #if USING_SJLJ_EXCEPTIONS
 
 #ifdef DONT_USE_BUILTIN_SETJMP
+#ifndef inhibit_libc
 #include <setjmp.h>
+#else
+typedef void *jmp_buf[JMP_BUF_SIZE];
+extern void longjmp(jmp_buf, int) __attribute__((noreturn));
+#endif
 #else
 #define setjmp __builtin_setjmp
 #define longjmp __builtin_longjmp
@@ -197,20 +202,20 @@ _Unwind_GetLanguageSpecificData (struct _Unwind_Context *context)
 }
 
 _Unwind_Ptr
-_Unwind_GetRegionStart (struct _Unwind_Context *context)
+_Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) )
 {
   return 0;
 }
 
 #ifndef __ia64__
 _Unwind_Ptr
-_Unwind_GetDataRelBase (struct _Unwind_Context *context)
+_Unwind_GetDataRelBase (struct _Unwind_Context *context __attribute__((unused)) )
 {
   return 0;
 }
 
 _Unwind_Ptr
-_Unwind_GetTextRelBase (struct _Unwind_Context *context)
+_Unwind_GetTextRelBase (struct _Unwind_Context *context __attribute__((unused)) )
 {
   return 0;
 }

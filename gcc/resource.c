@@ -196,14 +196,14 @@ next_insn_no_annul (insn)
 
 void
 mark_referenced_resources (x, res, include_delayed_effects)
-     register rtx x;
-     register struct resources *res;
-     register int include_delayed_effects;
+     rtx x;
+     struct resources *res;
+     int include_delayed_effects;
 {
   enum rtx_code code = GET_CODE (x);
   int i, j;
   unsigned int r;
-  register const char *format_ptr;
+  const char *format_ptr;
 
   /* Handle leaf items for which we set resource flags.  Also, special-case
      CALL, SET and CLOBBER operators.  */
@@ -619,12 +619,12 @@ find_dead_or_set_registers (target, res, jump_target, jump_count, set, needed)
    SETs CC0 even though this is not totally correct.  The reason for this is
    that we require a SET of CC0 to immediately precede the reference to CC0.
    So if some other insn sets CC0 as a side-effect, we know it cannot affect
-   our computation and thus may be placed in a delay slot.   */
+   our computation and thus may be placed in a delay slot.  */
 
 void
 mark_set_resources (x, res, in_dest, mark_type)
-     register rtx x;
-     register struct resources *res;
+     rtx x;
+     struct resources *res;
      int in_dest;
      enum mark_resource_type mark_type;
 {
@@ -891,7 +891,7 @@ mark_target_live_regs (insns, target, res)
      struct resources *res;
 {
   int b = -1;
-  int i;
+  unsigned int i;
   struct target_info *tinfo = NULL;
   rtx insn;
   rtx jump_insn = 0;
@@ -949,7 +949,8 @@ mark_target_live_regs (insns, target, res)
 	  tinfo = (struct target_info *) xmalloc (sizeof (struct target_info));
 	  tinfo->uid = INSN_UID (target);
 	  tinfo->block = b;
-	  tinfo->next = target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME];
+	  tinfo->next
+	    = target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME];
 	  target_hash_table[INSN_UID (target) % TARGET_HASH_PRIME] = tinfo;
 	}
     }
@@ -1061,8 +1062,8 @@ mark_target_live_regs (insns, target, res)
 		    && GET_CODE (XEXP (link, 0)) == REG
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
 		  {
-		    int first_regno = REGNO (XEXP (link, 0));
-		    int last_regno
+		    unsigned int first_regno = REGNO (XEXP (link, 0));
+		    unsigned int last_regno
 		      = (first_regno
 			 + HARD_REGNO_NREGS (first_regno,
 					     GET_MODE (XEXP (link, 0))));
@@ -1080,8 +1081,8 @@ mark_target_live_regs (insns, target, res)
 		    && GET_CODE (XEXP (link, 0)) == REG
 		    && REGNO (XEXP (link, 0)) < FIRST_PSEUDO_REGISTER)
 		  {
-		    int first_regno = REGNO (XEXP (link, 0));
-		    int last_regno
+		    unsigned int first_regno = REGNO (XEXP (link, 0));
+		    unsigned int last_regno
 		      = (first_regno
 			 + HARD_REGNO_NREGS (first_regno,
 					     GET_MODE (XEXP (link, 0))));

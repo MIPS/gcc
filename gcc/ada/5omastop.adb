@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                            (Version for x86)                             --
 --                                                                          --
---                            $Revision: 1.7 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --           Copyright (C) 1999-2001 Ada Core Technologies, Inc.            --
 --                                                                          --

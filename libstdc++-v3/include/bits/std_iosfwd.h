@@ -93,7 +93,7 @@ namespace std
     class ostreambuf_iterator;
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-  // Not included.
+  // Not included.   (??? Apparently no LWG number?)
   class ios_base; 
 #endif
 
@@ -128,9 +128,4 @@ namespace std
 #endif
 } // namespace std
 
-#endif	// _CPP_IOSFWD
-
-
-
-
-
+#endif

@@ -76,7 +76,7 @@ public final class URL implements Serializable
       this.handler = setURLStreamHandler(protocol);
 
     if (this.handler == null)
-      throw new MalformedURLException("Handler for protocol not found");
+      throw new MalformedURLException("Protocol handler not found: " + protocol);
 
     this.host = host;
 
@@ -175,7 +175,7 @@ public final class URL implements Serializable
       this.handler = setURLStreamHandler(protocol);
 
     if (this.handler == null)
-      throw new MalformedURLException("Handler for protocol not found");
+      throw new MalformedURLException("Protocol handler not found: " + protocol);
 
     // JDK 1.2 doc for parseURL specifically states that any '#' ref
     // is to be excluded by passing the 'limit' as the indexOf the '#'
@@ -339,6 +339,10 @@ public final class URL implements Serializable
     // If a non-default factory has been set, use it to find the protocol.
     if (factory != null)
       handler = factory.createURLStreamHandler(protocol);
+    else if (protocol.equals ("core"))
+      {
+ 	handler = new gnu.gcj.protocol.core.Handler ();
+      }
     else if (protocol.equals ("file"))
       {
 	// This is an interesting case.  It's tempting to think that we

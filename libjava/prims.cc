@@ -53,7 +53,6 @@ details.  */
 #include <java/lang/String.h>
 #include <java/lang/Thread.h>
 #include <java/lang/ThreadGroup.h>
-#include <gnu/gcj/runtime/FirstThread.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/ArithmeticException.h>
 #include <java/lang/ClassFormatError.h>
@@ -64,6 +63,10 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
 #include <java/lang/UnsatisfiedLinkError.h>
+#include <java/lang/VirtualMachineError.h>
+#include <gnu/gcj/runtime/VMClassLoader.h>
+#include <gnu/gcj/runtime/FinalizerThread.h>
+#include <gnu/gcj/runtime/FirstThread.h>
 
 #ifdef USE_LTDL
 #include <ltdl.h>
@@ -515,8 +518,10 @@ _Jv_NewArray (jint type, jint size)
   return NULL;			// Placate compiler.
 }
 
-jobject
-_Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
+// Allocate a possibly multi-dimensional array but don't check that
+// any array length is <0.
+static jobject
+_Jv_NewMultiArrayUnchecked (jclass type, jint dimensions, jint *sizes)
 {
   JvAssert (type->isArray());
   jclass element_type = type->getComponentType();
@@ -532,11 +537,21 @@ _Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
       JvAssert (element_type->isArray());
       jobject *contents = elements ((jobjectArray) result);
       for (int i = 0; i < sizes[0]; ++i)
-	contents[i] = _Jv_NewMultiArray (element_type, dimensions - 1,
-					 sizes + 1);
+	contents[i] = _Jv_NewMultiArrayUnchecked (element_type, dimensions - 1,
+						  sizes + 1);
     }
 
   return result;
+}
+
+jobject
+_Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
+{
+  for (int i = 0; i < dimensions; ++i)
+    if (sizes[i] < 0)
+      throw new java::lang::NegativeArraySizeException;
+
+  return _Jv_NewMultiArrayUnchecked (type, dimensions, sizes);
 }
 
 jobject
@@ -548,30 +563,50 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
   for (int i = 0; i < dimensions; ++i)
     {
       jint size = va_arg (args, jint);
+      if (size < 0)
+	throw new java::lang::NegativeArraySizeException;
       sizes[i] = size;
     }
   va_end (args);
 
-  return _Jv_NewMultiArray (array_type, dimensions, sizes);
+  return _Jv_NewMultiArrayUnchecked (array_type, dimensions, sizes);
 }
 
 
 
-#define DECLARE_PRIM_TYPE(NAME, SIG, LEN)				\
-  _Jv_ArrayVTable _Jv_##NAME##VTable;					\
-  java::lang::Class _Jv_##NAME##Class ((jobject) #NAME,			\
-				       (jbyte) SIG, (jint) LEN,		\
-				       (jobject) &_Jv_##NAME##VTable);
+#define DECLARE_PRIM_TYPE(NAME)			\
+  _Jv_ArrayVTable _Jv_##NAME##VTable;		\
+  java::lang::Class _Jv_##NAME##Class;
 
-DECLARE_PRIM_TYPE(byte, 'B', 1);
-DECLARE_PRIM_TYPE(short, 'S', 2);
-DECLARE_PRIM_TYPE(int, 'I', 4);
-DECLARE_PRIM_TYPE(long, 'J', 8);
-DECLARE_PRIM_TYPE(boolean, 'Z', 1);
-DECLARE_PRIM_TYPE(char, 'C', 2);
-DECLARE_PRIM_TYPE(float, 'F', 4);
-DECLARE_PRIM_TYPE(double, 'D', 8);
-DECLARE_PRIM_TYPE(void, 'V', 0);
+DECLARE_PRIM_TYPE(byte);
+DECLARE_PRIM_TYPE(short);
+DECLARE_PRIM_TYPE(int);
+DECLARE_PRIM_TYPE(long);
+DECLARE_PRIM_TYPE(boolean);
+DECLARE_PRIM_TYPE(char);
+DECLARE_PRIM_TYPE(float);
+DECLARE_PRIM_TYPE(double);
+DECLARE_PRIM_TYPE(void);
+
+void
+_Jv_InitPrimClass (jclass cl, char *cname, char sig, int len, 
+                   _Jv_ArrayVTable *array_vtable)
+{    
+  using namespace java::lang::reflect;
+
+  // We must initialize every field of the class.  We do this in the
+  // same order they are declared in Class.h, except for fields that
+  // are initialized to NULL.
+  cl->name = _Jv_makeUtf8Const ((char *) cname, -1);
+  cl->accflags = Modifier::PUBLIC | Modifier::FINAL | Modifier::ABSTRACT;
+  cl->method_count = sig;
+  cl->size_in_bytes = len;
+  cl->vtable = JV_PRIMITIVE_VTABLE;
+  cl->state = JV_STATE_DONE;
+  cl->depth = -1;
+  if (sig != 'V')
+    _Jv_NewArrayClass (cl, NULL, (_Jv_VTable *) array_vtable);
+}
 
 jclass
 _Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader)
@@ -831,10 +866,48 @@ process_gcj_properties ()
 }
 #endif // DISABLE_GETENV_PROPERTIES
 
+namespace gcj
+{
+  _Jv_Utf8Const *void_signature;
+  _Jv_Utf8Const *clinit_name;
+  _Jv_Utf8Const *init_name;
+  _Jv_Utf8Const *finit_name;
+}
+
 jint
 _Jv_CreateJavaVM (void* /*vm_args*/)
 {
+  using namespace gcj;
+  
+  static bool init = false;
+
+  if (init)
+    return -1;
+
+  init = true;
+
   PROCESS_GCJ_PROPERTIES;
+
+  _Jv_InitThreads ();
+  _Jv_InitGC ();
+  _Jv_InitializeSyncMutex ();
+
+  /* Initialize Utf8 constants declared in jvm.h. */
+  void_signature = _Jv_makeUtf8Const ("()V", 3);
+  clinit_name = _Jv_makeUtf8Const ("<clinit>", 8);
+  init_name = _Jv_makeUtf8Const ("<init>", 6);
+  finit_name = _Jv_makeUtf8Const ("finit$", 6);
+
+  /* Initialize built-in classes to represent primitive TYPEs. */
+  _Jv_InitPrimClass (&_Jv_byteClass,    "byte",    'B', 1, &_Jv_byteVTable);
+  _Jv_InitPrimClass (&_Jv_shortClass,   "short",   'S', 2, &_Jv_shortVTable);
+  _Jv_InitPrimClass (&_Jv_intClass,     "int",     'I', 4, &_Jv_intVTable);
+  _Jv_InitPrimClass (&_Jv_longClass,    "long",    'J', 8, &_Jv_longVTable);
+  _Jv_InitPrimClass (&_Jv_booleanClass, "boolean", 'Z', 1, &_Jv_booleanVTable);
+  _Jv_InitPrimClass (&_Jv_charClass,    "char",    'C', 2, &_Jv_charVTable);
+  _Jv_InitPrimClass (&_Jv_floatClass,   "float",   'F', 4, &_Jv_floatVTable);
+  _Jv_InitPrimClass (&_Jv_doubleClass,  "double",  'D', 8, &_Jv_doubleVTable);
+  _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0, &_Jv_voidVTable);
 
   // Turn stack trace generation off while creating exception objects.
   _Jv_InitClass (&java::lang::Throwable::class$);
@@ -879,6 +952,21 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
 
   _Jv_JNI_Init ();
 
+  _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
+
+  // Start the GC finalizer thread.  A VirtualMachineError can be
+  // thrown by the runtime if, say, threads aren't available.  In this
+  // case finalizers simply won't run.
+  try
+    {
+      using namespace gnu::gcj::runtime;
+      FinalizerThread *ft = new FinalizerThread ();
+      ft->start ();
+    }
+  catch (java::lang::VirtualMachineError *ignore)
+    {
+    }
+
   return 0;
 }
 
@@ -921,7 +1009,7 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 	  // jar file only.  The easiest way to do this is to lose our
 	  // reference to the previous classloader.
 	  _Jv_Jar_Class_Path = strdup (name);
-	  java::lang::ClassLoader::system = NULL;
+	  gnu::gcj::runtime::VMClassLoader::instance = NULL;
 	}
     }
   catch (java::lang::Throwable *t)

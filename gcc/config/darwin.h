@@ -35,14 +35,11 @@ Boston, MA 02111-1307, USA.  */
    leave it undefined and expect system builders to set configure args
    correctly.  */
 
-/* Name of the command that invokes the compiler - used in g++.c.  */
+/* Suppress g++ attempt to link in the math library automatically.
+   (Some Darwin versions have a libm, but they seem to cause problems
+   for C++ executables.)  */
 
-#undef  GCC_NAME
-#define GCC_NAME "cc"
-
-/* Never try linking with -lm - used in g++.c.  */
-
-#define NO_MATH_LIBRARY
+#define MATH_LIBRARY ""
 
 /* We have atexit.  */
 
@@ -125,6 +122,12 @@ Boston, MA 02111-1307, USA.  */
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO
+
+/* Also enable Dwarf 2 as an option.  */
+
+#define DWARF2_DEBUGGING_INFO
+
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 /* When generating stabs debugging, use N_BINCL entries.  */
 
@@ -212,6 +215,22 @@ do { text_section ();							\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
       ENCODE_SECTION_INFO (DECL);  \
+    ASM_OUTPUT_LABEL (FILE, xname);                                     \
+  } while (0)
+
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)                     \
+  do {									\
+    char *xname = NAME;                                                 \
+    if (GET_CODE (XEXP (DECL_RTL (DECL), 0)) != SYMBOL_REF)             \
+      xname = IDENTIFIER_POINTER (DECL_NAME (DECL));                    \
+    if ((TREE_STATIC (DECL)                                             \
+	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
+        || DECL_INITIAL (DECL))                                         \
+      machopic_define_name (xname);                                     \
+    if ((TREE_STATIC (DECL)                                             \
+	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
+        || DECL_INITIAL (DECL))                                         \
+      ENCODE_SECTION_INFO (DECL);					\
     ASM_OUTPUT_LABEL (FILE, xname);                                     \
   } while (0)
 
@@ -333,6 +352,7 @@ do { if (!strcmp (alias_name, name))					\
   in_machopic_lazy_symbol_ptr,				\
   in_machopic_symbol_stub,				\
   in_machopic_picsymbol_stub,				\
+  in_darwin_exception, \
   num_sections
 
 #undef	EXTRA_SECTION_FUNCTIONS
@@ -437,6 +457,9 @@ SECTION_FUNCTION (machopic_symbol_stub_section,		\
 SECTION_FUNCTION (machopic_picsymbol_stub_section,	\
 		in_machopic_picsymbol_stub,		\
 		".picsymbol_stub", 0)      		\
+SECTION_FUNCTION (darwin_exception_section,		\
+		in_darwin_exception,			\
+		".section __TEXT,__gcc_except_tab", 0)	\
 							\
 void						\
 objc_section_init ()				\
@@ -493,7 +516,7 @@ void alias_section (name, alias)			\
 #define READONLY_DATA_SECTION const_section
 
 #undef	SELECT_SECTION
-#define SELECT_SECTION(exp,reloc)				\
+#define SELECT_SECTION(exp,reloc,align)				\
   do								\
     {								\
       if (TREE_CODE (exp) == STRING_CST)			\
@@ -617,7 +640,7 @@ void alias_section (name, alias)			\
   while (0)
 
 #undef	SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(mode, rtx)					\
+#define SELECT_RTX_SECTION(mode, rtx, align)				\
   do									\
     {									\
       if (GET_MODE_SIZE (mode) == 8)					\
@@ -653,7 +676,7 @@ void alias_section (name, alias)			\
 
 #undef ASM_GLOBALIZE_LABEL
 #define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
- do { const char* _x = (NAME); if (!!strncmp (_x, "_OBJC_", 6)) { \
+ do { const char *const _x = (NAME); if (!!strncmp (_x, "_OBJC_", 6)) { \
   (fputs (".globl ", FILE), assemble_name (FILE, _x), fputs ("\n", FILE)); \
  }} while (0)
 
@@ -703,7 +726,7 @@ enum machopic_addr_class {
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
-    const char *stub_ = (STUB);					\
+    const char *const stub_ = (STUB);				\
     char *buffer_ = (BUF);					\
     strcpy (buffer_, stub_);					\
     if (stub_[0] == '"')					\
@@ -718,7 +741,7 @@ enum machopic_addr_class {
 
 #define GEN_SYMBOL_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH)	\
   do {								\
-    const char *symbol_ = (SYMBOL);				\
+    const char *const symbol_ = (SYMBOL);			\
     char *buffer_ = (BUF);					\
     if (name_needs_quotes (symbol_) && symbol_[0] != '"')	\
       {								\
@@ -757,6 +780,11 @@ enum machopic_addr_class {
 	strcpy (buffer_ + (SYMBOL_LENGTH) + 1, "$lazy_ptr");	\
       }								\
   } while (0)
+
+#define EXCEPTION_SECTION() darwin_exception_section ()
+
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
+  (((CODE) == 1 || (GLOBAL) == 0) ? DW_EH_PE_pcrel : DW_EH_PE_absptr)
 
 #define REGISTER_TARGET_PRAGMAS(PFILE)                          \
   do {                                                          \

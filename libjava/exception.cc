@@ -20,8 +20,6 @@ details.  */
 
 #include "unwind.h"
 
-#include <gc.h>
-
 
 struct alignment_test_struct
 {
@@ -73,9 +71,8 @@ get_exception_header_from_ue (_Unwind_Exception *exc)
 extern "C" void
 _Jv_Throw (jthrowable value)
 {
-  /* FIXME: Use the proper API to the collector.  */
   java_exception_header *xh
-    = static_cast<java_exception_header *>(GC_malloc (sizeof (*xh)));
+    = static_cast<java_exception_header *>(_Jv_AllocRawObj (sizeof (*xh)));
 
   if (value == NULL)
     value = new java::lang::NullPointerException ();
@@ -120,7 +117,7 @@ static const unsigned char *
 parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
 		   lsda_header_info *info)
 {
-  _Unwind_Ptr tmp;
+  _Unwind_Word tmp;
   unsigned char lpstart_encoding;
 
   info->Start = (context ? _Unwind_GetRegionStart (context) : 0);
@@ -236,7 +233,7 @@ PERSONALITY_FUNCTION (int version,
     return _URC_CONTINUE_UNWIND;
   else
     {
-      _Unwind_Ptr cs_lp, cs_action;
+      _Unwind_Word cs_lp, cs_action;
       do
 	{
 	  p = read_uleb128 (p, &cs_lp);
@@ -255,7 +252,8 @@ PERSONALITY_FUNCTION (int version,
   // Search the call-site table for the action associated with this IP.
   while (p < info.action_table)
     {
-      _Unwind_Ptr cs_start, cs_len, cs_lp, cs_action;
+      _Unwind_Ptr cs_start, cs_len, cs_lp;
+      _Unwind_Word cs_action;
 
       // Note that all call-site encodings are "absolute" displacements.
       p = read_encoded_value (0, info.call_site_encoding, p, &cs_start);
@@ -301,15 +299,13 @@ PERSONALITY_FUNCTION (int version,
   else
     {
       // Otherwise we have a catch handler.
-      signed long ar_filter, ar_disp;
+      _Unwind_Sword ar_filter, ar_disp;
 
       while (1)
 	{
-	  _Unwind_Ptr tmp;
-
 	  p = action_record;
-	  p = read_sleb128 (p, &tmp); ar_filter = tmp;
-	  read_sleb128 (p, &tmp); ar_disp = tmp;
+	  p = read_sleb128 (p, &ar_filter);
+	  read_sleb128 (p, &ar_disp);
 
 	  if (ar_filter == 0)
 	    {

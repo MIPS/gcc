@@ -62,10 +62,6 @@ static void handle_pragma_unit PARAMS ((cpp_reader *));
 static void handle_pragma_interface PARAMS ((cpp_reader *));
 static void handle_pragma_implementation PARAMS ((cpp_reader *));
 static void handle_pragma_java_exceptions PARAMS ((cpp_reader *));
-static void cxx_init PARAMS ((void));
-static void cxx_finish PARAMS ((void));
-static void cxx_init_options PARAMS ((void));
-static void cxx_post_options PARAMS ((void));
 
 #ifdef GATHER_STATISTICS
 #ifdef REDUCE_LENGTH
@@ -213,7 +209,7 @@ int interface_unknown;		/* whether or not we know this class
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
 
-static char cplus_tree_code_type[] = {
+static const char cplus_tree_code_type[] = {
   'x',
 #include "cp-tree.def"
 };
@@ -225,7 +221,7 @@ static char cplus_tree_code_type[] = {
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
 
-static int cplus_tree_code_length[] = {
+static const int cplus_tree_code_length[] = {
   0,
 #include "cp-tree.def"
 };
@@ -235,27 +231,20 @@ static int cplus_tree_code_length[] = {
    Used for printing out the tree and error messages.  */
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
 
-static const char *cplus_tree_code_name[] = {
+static const char *const cplus_tree_code_name[] = {
   "@@dummy",
 #include "cp-tree.def"
 };
 #undef DEFTREECODE
 
-/* Each front end provides its own hooks, for toplev.c.  */
-struct lang_hooks lang_hooks = {cxx_init,
-				cxx_finish,
-				cxx_init_options,
-				cxx_decode_option,
-				cxx_post_options};
-
 /* Post-switch processing.  */
-static void
+void
 cxx_post_options ()
 {
   cpp_post_options (parse_in);
 }
 
-static void
+void
 cxx_init_options ()
 {
   /* Make identifier nodes long enough for the language-specific slots.  */
@@ -275,7 +264,7 @@ cxx_init_options ()
   diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 }
 
-static void
+void
 cxx_init ()
 {
   c_common_lang_init ();
@@ -284,10 +273,11 @@ cxx_init ()
   init_repo (input_filename);
 }
 
-static void
+void
 cxx_finish ()
 {
-  if (flag_gnu_xref) GNU_xref_end (errorcount+sorrycount);
+  if (flag_gnu_xref)
+    GNU_xref_end (errorcount+sorrycount);
 }
 
 const char *
@@ -390,9 +380,9 @@ init_operators ()
 /* The reserved keyword table.  */
 struct resword
 {
-  const char *word;
-  ENUM_BITFIELD(rid) rid : 16;
-  unsigned int disable   : 16;
+  const char *const word;
+  const ENUM_BITFIELD(rid) rid : 16;
+  const unsigned int disable   : 16;
 };
 
 /* Disable mask.  Keywords are disabled if (reswords[i].disable & mask) is
@@ -687,7 +677,6 @@ init_cp_pragma ()
   cpp_register_pragma (parse_in, 0, "implementation",
 		       handle_pragma_implementation);
 
-  cpp_register_pragma_space (parse_in, "GCC");
   cpp_register_pragma (parse_in, "GCC", "interface", handle_pragma_interface);
   cpp_register_pragma (parse_in, "GCC", "implementation",
 		       handle_pragma_implementation);
@@ -1562,6 +1551,11 @@ copy_lang_decl (node)
   ld = (struct lang_decl *) ggc_alloc (size);
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int)lang_decl] += 1;
+  tree_node_sizes[(int)lang_decl] += size;
+#endif
 }
 
 /* Copy DECL, including any language-specific parts.  */
@@ -1577,14 +1571,51 @@ copy_decl (decl)
   return copy;
 }
 
+/* Replace the shared language-specific parts of NODE with a new copy.  */
+
+void
+copy_lang_type (node)
+     tree node;
+{
+  int size;
+  struct lang_type *lt;
+
+  if (! TYPE_LANG_SPECIFIC (node))
+    return;
+
+  size = sizeof (struct lang_type);
+  lt = (struct lang_type *) ggc_alloc (size);
+  memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
+  TYPE_LANG_SPECIFIC (node) = lt;
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int)lang_type] += 1;
+  tree_node_sizes[(int)lang_type] += size;
+#endif
+}
+
+/* Copy TYPE, including any language-specific parts.  */
+
+tree
+copy_type (type)
+     tree type;
+{
+  tree copy;
+
+  copy = copy_node (type);
+  copy_lang_type (copy);
+  return copy;
+}
+
 tree
 cp_make_lang_type (code)
      enum tree_code code;
 {
   register tree t = make_node (code);
 
-  /* Set up some flags that give proper default behavior.  */
-  if (IS_AGGR_TYPE_CODE (code))
+  /* Create lang_type structure.  */
+  if (IS_AGGR_TYPE_CODE (code)
+      || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     {
       struct lang_type *pi;
 
@@ -1592,6 +1623,16 @@ cp_make_lang_type (code)
 	    ggc_alloc_cleared (sizeof (struct lang_type)));
 
       TYPE_LANG_SPECIFIC (t) = pi;
+
+#ifdef GATHER_STATISTICS
+      tree_node_counts[(int)lang_type] += 1;
+      tree_node_sizes[(int)lang_type] += sizeof (struct lang_type);
+#endif
+    }
+
+  /* Set up some flags that give proper default behavior.  */
+  if (IS_AGGR_TYPE_CODE (code))
+    {
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
 
@@ -1599,11 +1640,6 @@ cp_make_lang_type (code)
 	 presence of parse errors, the normal was of assuring this
 	 might not ever get executed, so we lay it out *immediately*.  */
       build_pointer_type (t);
-
-#ifdef GATHER_STATISTICS
-      tree_node_counts[(int)lang_type] += 1;
-      tree_node_sizes[(int)lang_type] += sizeof (struct lang_type);
-#endif
     }
   else
     /* We use TYPE_ALIAS_SET for the CLASSTYPE_MARKED bits.  But,
@@ -1615,7 +1651,9 @@ cp_make_lang_type (code)
      since they can be virtual base types, and we then need a
      canonical binfo for them.  Ideally, this would be done lazily for
      all types.  */
-  if (IS_AGGR_TYPE_CODE (code) || code == TEMPLATE_TYPE_PARM)
+  if (IS_AGGR_TYPE_CODE (code) || code == TEMPLATE_TYPE_PARM
+      || code == BOUND_TEMPLATE_TEMPLATE_PARM
+      || code == TYPENAME_TYPE)
     TYPE_BINFO (t) = make_binfo (size_zero_node, t, NULL_TREE, NULL_TREE);
 
   return t;

@@ -1110,7 +1110,7 @@ enum reg_class {
    FUNDECL is a C variable whose value is a tree node that describes
    the function in question.  Normally it is a node of type
    `FUNCTION_DECL' that describes the declaration of the function.
-   From this you can obtain the DECL_MACHINE_ATTRIBUTES of the
+   From this you can obtain the DECL_ATTRIBUTES of the
    function.
 
    FUNTYPE is a C variable whose value is a tree node that describes
@@ -1890,7 +1890,7 @@ progmem_section (void)							      \
    If these items should be placed in the text section, this macro
    should not be defined.  */
 
-/* `SELECT_SECTION (EXP, RELOC)'
+/* `SELECT_SECTION (EXP, RELOC, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of EXP.  You can assume that EXP is either a `VAR_DECL'
    node or a constant of some sort.  RELOC indicates whether the
@@ -1901,7 +1901,7 @@ progmem_section (void)							      \
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 
-/* `SELECT_RTX_SECTION (MODE, RTX)'
+/* `SELECT_RTX_SECTION (MODE, RTX, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in

@@ -1798,9 +1798,9 @@ static int
 expr_equiv_p (x, y)
      rtx x, y;
 {
-  register int i, j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i, j;
+  enum rtx_code code;
+  const char *fmt;
 
   if (x == y)
     return 1;
@@ -2948,7 +2948,7 @@ compute_kill_rd ()
 	 Look at the linked list starting at reg_set_table[regx]
 	 For each setting of regx in the linked list, which is not in
 	     this block
-	   Set the bit in `kill' corresponding to that insn.   */
+	   Set the bit in `kill' corresponding to that insn.  */
   for (bb = 0; bb < n_basic_blocks; bb++)
     for (cuid = 0; cuid < max_cuid; cuid++)
       if (TEST_BIT (rd_gen[bb], cuid))
@@ -3507,9 +3507,6 @@ handle_avail_expr (insn, expr)
 	= emit_insn_after (gen_rtx_SET (VOIDmode, to,
 					SET_DEST (expr_set)),
 			   insn_computes_expr);
-
-      /* Keep block number table up to date.  */
-      set_block_for_new_insns (new_insn, BLOCK_FOR_INSN (insn_computes_expr));
 
       /* Keep register set table up to date.  */
       record_one_set (REGNO (to), new_insn);
@@ -4105,9 +4102,7 @@ cprop_cc0_jump (bb, insn, reg_used, src)
     return 0;
 
   /* If we succeeded, delete the cc0 setter.  */
-  PUT_CODE (insn, NOTE);
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-  NOTE_SOURCE_FILE (insn) = 0;
+  delete_insn (insn);
 
   return 1;
  }
@@ -4636,7 +4631,7 @@ insert_insn_end_bb (expr, bb, pre)
 	}
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
-      new_insn = emit_block_insn_before (pat, insn, bb);
+      new_insn = emit_insn_before (pat, insn);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
@@ -4674,13 +4669,10 @@ insert_insn_end_bb (expr, bb, pre)
 	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
-      new_insn = emit_block_insn_before (pat, insn, bb);
+      new_insn = emit_insn_before (pat, insn);
     }
   else
-    {
-      new_insn = emit_insn_after (pat, insn);
-      bb->end = new_insn;
-    }
+    new_insn = emit_insn_after (pat, insn);
 
   /* Keep block number table up to date.
      Note, PAT could be a multiple insn sequence, we have to make
@@ -4690,8 +4682,6 @@ insert_insn_end_bb (expr, bb, pre)
       for (i = 0; i < XVECLEN (pat, 0); i++)
 	{
 	  rtx insn = XVECEXP (pat, 0, i);
-
-	  set_block_for_insn (insn, bb);
 	  if (INSN_P (insn))
 	    add_label_notes (PATTERN (insn), new_insn);
 
@@ -4701,7 +4691,6 @@ insert_insn_end_bb (expr, bb, pre)
   else
     {
       add_label_notes (SET_SRC (pat), new_insn);
-      set_block_for_new_insns (new_insn, bb);
 
       /* Keep register set table up to date.  */
       record_one_set (regno, new_insn);
@@ -4815,20 +4804,14 @@ pre_insert_copy_insn (expr, insn)
   int indx = expr->bitmap_index;
   rtx set = single_set (insn);
   rtx new_insn;
-  basic_block bb = BLOCK_FOR_INSN (insn);
 
   if (!set)
     abort ();
 
   new_insn = emit_insn_after (gen_move_insn (reg, SET_DEST (set)), insn);
 
-  /* Keep block number table up to date.  */
-  set_block_for_new_insns (new_insn, bb);
-
   /* Keep register set table up to date.  */
   record_one_set (regno, new_insn);
-  if (insn == bb->end)
-    bb->end = new_insn;
 
   gcse_create_count++;
 
@@ -4948,7 +4931,7 @@ pre_delete ()
 		   However, on the x86 some of the movXX patterns actually
 		   contain clobbers of scratch regs.  This may cause the
 		   insn created by validate_change to not match any pattern
-		   and thus cause validate_change to fail.   */
+		   and thus cause validate_change to fail.  */
 		if (validate_change (insn, &SET_SRC (set),
 				     expr->reaching_reg, 0))
 		  {
@@ -5113,7 +5096,7 @@ add_label_notes (x, insn)
 	 We no longer ignore such label references (see LABEL_REF handling in
 	 mark_jump_label for additional information).  */
 
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LABEL, XEXP (x, 0),
+      REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, XEXP (x, 0),
 					    REG_NOTES (insn));
       if (LABEL_P (XEXP (x, 0)))
         LABEL_NUSES (XEXP (x, 0))++;
@@ -5441,7 +5424,7 @@ delete_null_pointer_checks (f)
       /* LAST_INSN is a conditional jump.  Get its condition.  */
       condition = get_condition (last_insn, &earliest);
 
-      /* If we were unable to get the condition, or it is not a equality
+      /* If we were unable to get the condition, or it is not an equality
 	 comparison against zero then there's nothing we can do.  */
       if (!condition
 	  || (GET_CODE (condition) != NE && GET_CODE (condition) != EQ)
@@ -5471,7 +5454,7 @@ delete_null_pointer_checks (f)
   if (delete_list)
     {
       for (i = 0; i < VARRAY_ACTIVE_SIZE (delete_list); i++)
-	delete_insn (VARRAY_RTX (delete_list, i));
+	delete_related_insns (VARRAY_RTX (delete_list, i));
       VARRAY_FREE (delete_list);
     }
 
@@ -6254,7 +6237,6 @@ update_ld_motion_stores (expr)
 	  copy = gen_move_insn ( reg, SET_SRC (pat));
 	  new = emit_insn_before (copy, insn);
 	  record_one_set (REGNO (reg), new);
-	  set_block_for_new_insns (new, BLOCK_FOR_INSN (insn));
 	  SET_SRC (pat) = reg;
 
 	  /* un-recognize this pattern since it's probably different now.  */
@@ -6753,11 +6735,6 @@ insert_insn_start_bb (insn, bb)
 
   insn = emit_insn_after (insn, prev);
 
-  if (prev == bb->end)
-    bb->end = insn;
-
-  set_block_for_new_insns (insn, bb);
-
   if (gcse_file)
     {
       fprintf (gcse_file, "STORE_MOTION  insert store at start of BB %d:\n",
@@ -6846,7 +6823,6 @@ replace_store_insn (reg, del, bb)
   
   insn = gen_move_insn (reg, SET_SRC (PATTERN (del)));
   insn = emit_insn_after (insn, del);
-  set_block_for_new_insns (insn, bb);
   
   if (gcse_file)
     {
@@ -6857,12 +6833,6 @@ replace_store_insn (reg, del, bb)
       print_inline_rtx (gcse_file, insn, 6);
       fprintf(gcse_file, "\n");
     }
-  
-  if (bb->end == del)
-    bb->end = insn;
-  
-  if (bb->head == del)
-    bb->head = insn;
   
   delete_insn (del);
 }

@@ -17,8 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free the
-Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Instruction scheduling pass.  This file, along with sched-deps.c,
@@ -405,7 +405,7 @@ HAIFA_INLINE int
 insn_unit (insn)
      rtx insn;
 {
-  register int unit = INSN_UNIT (insn);
+  int unit = INSN_UNIT (insn);
 
   if (unit == 0)
     {
@@ -718,7 +718,7 @@ HAIFA_INLINE int
 insn_cost (insn, link, used)
      rtx insn, link, used;
 {
-  register int cost = INSN_COST (insn);
+  int cost = INSN_COST (insn);
 
   if (cost < 0)
     {
@@ -1628,7 +1628,7 @@ queue_to_ready (ready)
      of the pending insns at that point to the ready list.  */
   if (ready->n_ready == 0)
     {
-      register int stalls;
+      int stalls;
 
       for (stalls = 1; stalls <= MAX_INSN_QUEUE_INDEX; stalls++)
 	{
@@ -2415,7 +2415,11 @@ sched_init (dump_file)
 	  && GET_CODE (insn) != CODE_LABEL
 	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
 	  && GET_CODE (NEXT_INSN (insn)) != BARRIER))
-    emit_note_after (NOTE_INSN_DELETED, BLOCK_END (n_basic_blocks - 1));
+    {
+      emit_note_after (NOTE_INSN_DELETED, BLOCK_END (n_basic_blocks - 1));
+      /* Make insn to appear outside BB.  */
+      BLOCK_END (n_basic_blocks - 1) = PREV_INSN (BLOCK_END (n_basic_blocks - 1));
+    }
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before
      removing death notes.  */

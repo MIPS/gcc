@@ -355,7 +355,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 
       rtx ujump = ujump_to_loop_cont (loop->start, loop->cont);
       if (ujump)
-	delete_insn (ujump);
+	delete_related_insns (ujump);
 
       /* If number of iterations is exactly 1, then eliminate the compare and
 	 branch at the end of the loop since they will never be taken.
@@ -367,31 +367,31 @@ unroll_loop (loop, insn_count, strength_reduce_p)
       if (GET_CODE (last_loop_insn) == BARRIER)
 	{
 	  /* Delete the jump insn.  This will delete the barrier also.  */
-	  delete_insn (PREV_INSN (last_loop_insn));
+	  delete_related_insns (PREV_INSN (last_loop_insn));
 	}
       else if (GET_CODE (last_loop_insn) == JUMP_INSN)
 	{
 #ifdef HAVE_cc0
 	  rtx prev = PREV_INSN (last_loop_insn);
 #endif
-	  delete_insn (last_loop_insn);
+	  delete_related_insns (last_loop_insn);
 #ifdef HAVE_cc0
 	  /* The immediately preceding insn may be a compare which must be
 	     deleted.  */
 	  if (only_sets_cc0_p (prev))
-	    delete_insn (prev);
+	    delete_related_insns (prev);
 #endif
 	}
 
       /* Remove the loop notes since this is no longer a loop.  */
       if (loop->vtop)
-	delete_insn (loop->vtop);
+	delete_related_insns (loop->vtop);
       if (loop->cont)
-	delete_insn (loop->cont);
+	delete_related_insns (loop->cont);
       if (loop_start)
-	delete_insn (loop_start);
+	delete_related_insns (loop_start);
       if (loop_end)
-	delete_insn (loop_end);
+	delete_related_insns (loop_end);
 
       return;
     }
@@ -898,7 +898,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 			       &initial_value, &final_value, &increment,
 			       &mode))
 	{
-	  register rtx diff;
+	  rtx diff;
 	  rtx *labels;
 	  int abs_inc, neg_inc;
 
@@ -1291,16 +1291,16 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 	  && ! (GET_CODE (insn) == CODE_LABEL && LABEL_NAME (insn))
 	  && ! (GET_CODE (insn) == NOTE
 		&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL))
-	insn = delete_insn (insn);
+	insn = delete_related_insns (insn);
       else
 	insn = NEXT_INSN (insn);
     }
 
   /* Can now delete the 'safety' label emitted to protect us from runaway
-     delete_insn calls.  */
+     delete_related_insns calls.  */
   if (INSN_DELETED_P (safety_label))
     abort ();
-  delete_insn (safety_label);
+  delete_related_insns (safety_label);
 
   /* If exit_label exists, emit it after the loop.  Doing the emit here
      forces it to have a higher INSN_UID than any insn in the unrolled loop.
@@ -1315,13 +1315,13 @@ unroll_loop (loop, insn_count, strength_reduce_p)
     {
       /* Remove the loop notes since this is no longer a loop.  */
       if (loop->vtop)
-	delete_insn (loop->vtop);
+	delete_related_insns (loop->vtop);
       if (loop->cont)
-	delete_insn (loop->cont);
+	delete_related_insns (loop->cont);
       if (loop_start)
-	delete_insn (loop_start);
+	delete_related_insns (loop_start);
       if (loop_end)
-	delete_insn (loop_end);
+	delete_related_insns (loop_end);
     }
 
   if (map->const_equiv_varray)
@@ -1562,7 +1562,7 @@ calculate_giv_inc (pattern, src_insn, regno)
 
       /* The last insn emitted is not needed, so delete it to avoid confusing
 	 the second cse pass.  This insn sets the giv unnecessarily.  */
-      delete_insn (get_last_insn ());
+      delete_related_insns (get_last_insn ());
     }
 
   /* Verify that we have a constant as the second operand of the plus.  */
@@ -1601,7 +1601,7 @@ calculate_giv_inc (pattern, src_insn, regno)
 	  src_insn = PREV_INSN (src_insn);
 	  increment = SET_SRC (PATTERN (src_insn));
 	  /* Don't need the last insn anymore.  */
-	  delete_insn (get_last_insn ());
+	  delete_related_insns (get_last_insn ());
 
 	  if (GET_CODE (second_part) != CONST_INT
 	      || GET_CODE (increment) != CONST_INT)
@@ -1620,7 +1620,7 @@ calculate_giv_inc (pattern, src_insn, regno)
 
       /* The insn loading the constant into a register is no longer needed,
 	 so delete it.  */
-      delete_insn (get_last_insn ());
+      delete_related_insns (get_last_insn ());
     }
 
   if (increment_total)
@@ -1644,7 +1644,7 @@ calculate_giv_inc (pattern, src_insn, regno)
 	  src_insn = PREV_INSN (src_insn);
 	  pattern = PATTERN (src_insn);
 
-	  delete_insn (get_last_insn ());
+	  delete_related_insns (get_last_insn ());
 
 	  goto retry;
 	}
@@ -2148,20 +2148,13 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 #ifdef HAVE_cc0
 	      /* If the previous insn set cc0 for us, delete it.  */
 	      if (only_sets_cc0_p (PREV_INSN (copy)))
-		delete_insn (PREV_INSN (copy));
+		delete_related_insns (PREV_INSN (copy));
 #endif
 
 	      /* If this is now a no-op, delete it.  */
 	      if (map->last_pc_value == pc_rtx)
 		{
-		  /* Don't let delete_insn delete the label referenced here,
-		     because we might possibly need it later for some other
-		     instruction in the loop.  */
-		  if (JUMP_LABEL (copy))
-		    LABEL_NUSES (JUMP_LABEL (copy))++;
 		  delete_insn (copy);
-		  if (JUMP_LABEL (copy))
-		    LABEL_NUSES (JUMP_LABEL (copy))--;
 		  copy = 0;
 		}
 	      else
@@ -2954,7 +2947,7 @@ find_splittable_givs (loop, bl, unroll_type, increment, unroll_number)
 		      /* We can't use bl->initial_value to compute the initial
 			 value, because the loop may have been preconditioned.
 			 We must calculate it from NEW_REG.  */
-		      delete_insn (PREV_INSN (loop->start));
+		      delete_related_insns (PREV_INSN (loop->start));
 
 		      start_sequence ();
 		      ret = force_operand (v->new_reg, tem);
@@ -3352,7 +3345,7 @@ final_giv_value (loop, v)
   return 0;
 }
 
-/* Look back before LOOP->START for then insn that sets REG and return
+/* Look back before LOOP->START for the insn that sets REG and return
    the equivalent constant if there is a REG_EQUAL note otherwise just
    the SET_SRC of REG.  */
 
@@ -3524,6 +3517,31 @@ loop_iterations (loop)
 	fprintf (loop_dump_stream,
 		 "Loop iterations: Loop has multiple back edges.\n");
       return 0;
+    }
+
+  /* If there are multiple conditionalized loop exit tests, they may jump
+     back to differing CODE_LABELs.  */
+  if (loop->top && loop->cont)
+    {
+      rtx temp = PREV_INSN (last_loop_insn);
+
+      do
+	{
+	  if (GET_CODE (temp) == JUMP_INSN
+	      /* Previous unrolling may have generated new insns not covered
+		 by the uid_luid array.  */
+	      && INSN_UID (JUMP_LABEL (temp)) < max_uid_for_loop
+	      /* Check if we jump back into the loop body.  */
+	      && INSN_LUID (JUMP_LABEL (temp)) > INSN_LUID (loop->top)
+	      && INSN_LUID (JUMP_LABEL (temp)) < INSN_LUID (loop->cont))
+	    {
+	      if (loop_dump_stream)
+		fprintf (loop_dump_stream,
+			 "Loop iterations: Loop has multiple back edges.\n");
+	      return 0;
+	    }
+	}
+      while ((temp = PREV_INSN (temp)) != loop->cont);
     }
 
   /* Find the iteration variable.  If the last insn is a conditional
@@ -4024,9 +4042,9 @@ remap_split_bivs (loop, x)
      rtx x;
 {
   struct loop_ivs *ivs = LOOP_IVS (loop);
-  register enum rtx_code code;
-  register int i;
-  register const char *fmt;
+  enum rtx_code code;
+  int i;
+  const char *fmt;
 
   if (x == 0)
     return x;
@@ -4065,7 +4083,7 @@ remap_split_bivs (loop, x)
 	XEXP (x, i) = remap_split_bivs (loop, XEXP (x, i));
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    XVECEXP (x, i, j) = remap_split_bivs (loop, XVECEXP (x, i, j));
 	}

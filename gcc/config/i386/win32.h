@@ -145,7 +145,7 @@ while (0)
 #define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
   const char *_p;							\
-  const char *_name = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'));	\
+  const char *const _name = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'));\
   for (_p = _name; *_p && *_p != '@'; ++_p)				\
     ;									\
   if (*_p == '@')							\
@@ -200,9 +200,6 @@ extern void i386_pe_unique_section ();
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
-
-/* DWARF2 Unwinding doesn't work with exception handling yet. */
-#define DWARF2_UNWIND_INFO 0
 
 /* Don't assume anything about the header files. */
 #define NO_IMPLICIT_EXTERN_C

@@ -33,54 +33,59 @@ void test01()
   typedef money_base::pattern pattern;
 
   bool test = true;
-  string str;
 
   // basic construction
   locale loc_c = locale::classic();
-  str = loc_c.name();
-
   locale loc_us("en_US");
-  str = loc_us.name();
-  VERIFY( loc_c != loc_us );
-
   locale loc_fr("fr_FR");
-  str = loc_fr.name();
-  VERIFY( loc_c != loc_fr );
-
   locale loc_de("de_DE");
-  str = loc_de.name();
   VERIFY( loc_c != loc_de );
-
   VERIFY( loc_us != loc_fr );
   VERIFY( loc_us != loc_de );
   VERIFY( loc_de != loc_fr );
 
   // cache the moneypunct facets
-  const moneypunct<char>& monp_c = use_facet<moneypunct<char> >(loc_c); 
-  const moneypunct<char>& monp_us = use_facet<moneypunct<char> >(loc_us); 
-  const moneypunct<char>& monp_fr = use_facet<moneypunct<char> >(loc_fr); 
-  const moneypunct<char>& monp_de = use_facet<moneypunct<char> >(loc_de); 
+  typedef moneypunct<char, true> __money_true;
+  typedef moneypunct<char, false> __money_false;
+  const __money_true& monp_c_t = use_facet<__money_true>(loc_c); 
+  const __money_true& monp_us_t = use_facet<__money_true>(loc_us); 
+  const __money_true& monp_fr_t = use_facet<__money_true>(loc_fr); 
+  const __money_true& monp_de_t = use_facet<__money_true>(loc_de); 
+  const __money_false& monp_c_f = use_facet<__money_false>(loc_c); 
+  const __money_false& monp_us_f = use_facet<__money_false>(loc_us); 
+  const __money_false& monp_fr_f = use_facet<__money_false>(loc_fr); 
+  const __money_false& monp_de_f = use_facet<__money_false>(loc_de); 
+
+  // quick sanity check for data.
+  char q1 = monp_c_t.decimal_point();
+  char q2 = monp_c_t.thousands_sep();
+  char q3 = monp_c_f.decimal_point();
+  char q4 = monp_c_f.thousands_sep();
+  VERIFY( q1 != char() );
+  VERIFY( q2 != char() );
+  VERIFY( q3 != char() );
+  VERIFY( q4 != char() );
 
   // sanity check the data is correct.
-  char dp1 = monp_c.decimal_point();
-  char th1 = monp_c.thousands_sep();
-  string g1 = monp_c.grouping();
-  string cs1 = monp_c.curr_symbol();
-  string ps1 = monp_c.positive_sign();
-  string ns1 = monp_c.negative_sign();
-  int fd1 = monp_c.frac_digits();
-  pattern pos1 = monp_c.pos_format();
-  pattern neg1 = monp_c.neg_format();
+  char dp1 = monp_c_t.decimal_point();
+  char th1 = monp_c_t.thousands_sep();
+  string g1 = monp_c_t.grouping();
+  string cs1 = monp_c_t.curr_symbol();
+  string ps1 = monp_c_t.positive_sign();
+  string ns1 = monp_c_t.negative_sign();
+  int fd1 = monp_c_t.frac_digits();
+  pattern pos1 = monp_c_t.pos_format();
+  pattern neg1 = monp_c_t.neg_format();
 
-  char dp2 = monp_de.decimal_point();
-  char th2 = monp_de.thousands_sep();
-  string g2 = monp_de.grouping();
-  string cs2 = monp_de.curr_symbol();
-  string ps2 = monp_de.positive_sign();
-  string ns2 = monp_de.negative_sign();
-  int fd2 = monp_de.frac_digits();
-  pattern pos2 = monp_de.pos_format();
-  pattern neg2 = monp_de.neg_format();
+  char dp2 = monp_de_t.decimal_point();
+  char th2 = monp_de_t.thousands_sep();
+  string g2 = monp_de_t.grouping();
+  string cs2 = monp_de_t.curr_symbol();
+  string ps2 = monp_de_t.positive_sign();
+  string ns2 = monp_de_t.negative_sign();
+  int fd2 = monp_de_t.frac_digits();
+  pattern pos2 = monp_de_t.pos_format();
+  pattern neg2 = monp_de_t.neg_format();
 
   VERIFY( dp1 != dp2 );
   VERIFY( th1 != th2 );

@@ -898,6 +898,11 @@ int flag_bounded_pointers = 0;
    For CHILL: defaults to off.  */
 int flag_bounds_check = 0;
 
+/* This will attempt to merge constant section constants, if 1 only
+   string constants and constants from constant pool, if 2 also constant
+   variables.  */
+int flag_merge_constants = 1;
+
 /* If one, renumber instruction UIDs to reduce the number of
    unused UIDs if there are a lot of instructions.  If greater than
    one, unconditionally renumber instruction UIDs.  */
@@ -918,14 +923,14 @@ int align_functions;
 int align_functions_log;
 
 /* Table of supported debugging formats.  */
-static struct
+static const struct
 {
-  const char *arg;
+  const char *const arg;
   /* Since PREFERRED_DEBUGGING_TYPE isn't necessarily a
      constant expression, we use NO_DEBUG in its place.  */
-  enum debug_info_type debug_type;
-  int use_extensions_p;
-  const char *description;
+  const enum debug_info_type debug_type;
+  const int use_extensions_p;
+  const char *const description;
 } *da,
 debug_args[] =
 {
@@ -1139,6 +1144,10 @@ lang_independent_options f_options[] =
    N_("Align all labels") },
   {"align-functions", &align_functions, 0,
    N_("Align the start of functions") },
+  {"merge-constants", &flag_merge_constants, 1,
+   N_("Attempt to merge identical constants accross compilation units") },
+  {"merge-all-constants", &flag_merge_constants, 2,
+   N_("Attempt to merge identical constants and constant variables") },
   {"check-memory-usage", &flag_check_memory_usage, 1,
    N_("Generate code to check every memory access") },
   {"prefix-function-name", &flag_prefix_function_name, 1,
@@ -1183,10 +1192,10 @@ lang_independent_options f_options[] =
 
 /* Table of language-specific options.  */
 
-static struct lang_opt
+static const struct lang_opt
 {
-  const char *option;
-  const char *description;
+  const char *const option;
+  const char *const description;
 }
 documented_lang_options[] =
 {
@@ -1369,22 +1378,22 @@ documented_lang_options[] =
    If VALUE is negative, -VALUE is bits to clear.
    (The sign bit is not used so there is no confusion.)  */
 
-struct
+static const struct
 {
-  const char *name;
-  int value;
-  const char *description;
+  const char *const name;
+  const int value;
+  const char *const description;
 }
 target_switches [] = TARGET_SWITCHES;
 
 /* This table is similar, but allows the switch to have a value.  */
 
 #ifdef TARGET_OPTIONS
-struct
+static const struct
 {
-  const char *prefix;
-  const char **variable;
-  const char *description;
+  const char *const prefix;
+  const char **const variable;
+  const char *const description;
 }
 target_options [] = TARGET_OPTIONS;
 #endif
@@ -1440,7 +1449,7 @@ int warn_notreached;
 
 int warn_uninitialized;
 
-/* Nonzero means warn about all declarations which shadow others.   */
+/* Nonzero means warn about all declarations which shadow others.  */
 
 int warn_shadow;
 
@@ -1629,9 +1638,9 @@ botch (s)
 
 int
 exact_log2_wide (x)
-     register unsigned HOST_WIDE_INT x;
+     unsigned HOST_WIDE_INT x;
 {
-  register int log = 0;
+  int log = 0;
   /* Test for 0 or a power of 2.  */
   if (x == 0 || x != (x & -x))
     return -1;
@@ -1647,9 +1656,9 @@ exact_log2_wide (x)
 
 int
 floor_log2_wide (x)
-     register unsigned HOST_WIDE_INT x;
+     unsigned HOST_WIDE_INT x;
 {
-  register int log = -1;
+  int log = -1;
   while (x != 0)
     log++,
     x >>= 1;
@@ -2109,8 +2118,9 @@ pop_srcloc ()
   lineno = input_file_stack->line;
 }
 
-/* Compile an entire file of output from cpp, named NAME.
-   Write a file of assembly output and various debugging dumps.  */
+/* Compile an entire translation unit, whose primary source file is
+   named NAME.  Write a file of assembly output and various debugging
+   dumps.  */
 
 static void
 compile_file (name)
@@ -2131,7 +2141,7 @@ compile_file (name)
   init_timevar ();
   timevar_start (TV_TOTAL);
 
-  /* Open assembler code output file.  Do this even if -fsyntax-only is on,
+  /* Open assembly code output file.  Do this even if -fsyntax-only is on,
      because then the driver will have provided the name of a temporary
      file or bit bucket for us.  */
 
@@ -2315,17 +2325,12 @@ compile_file (name)
 
   /* Call the parser, which parses the entire file
      (calling rest_of_compilation for each function).  */
+  yyparse ();
 
-  if (yyparse () != 0)
-    {
-      if (errorcount == 0)
-	fnotice (stderr, "Errors detected in input file (your bison.simple is out of date)\n");
-
-      /* In case there were missing closebraces,
-	 get us back to the global binding level.  */
-      while (! global_bindings_p ())
-	poplevel (0, 0, 0);
-    }
+  /* In case there were missing block closers,
+     get us back to the global binding level.  */
+  while (! global_bindings_p ())
+    poplevel (0, 0, 0);
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
@@ -2604,7 +2609,7 @@ void
 rest_of_compilation (decl)
      tree decl;
 {
-  register rtx insns;
+  rtx insns;
   int tem;
   int failure = 0;
   int rebuild_label_notes_after_reload;
@@ -2719,7 +2724,7 @@ rest_of_compilation (decl)
 	DECL_DEFER_OUTPUT (decl) = 1;
 
       if (DECL_INLINE (decl))
-	/* DWARF wants seperate debugging info for abstract and
+	/* DWARF wants separate debugging info for abstract and
 	   concrete instances of all inline functions, including those
 	   declared inline but not inlined, and those inlined even
 	   though they weren't declared inline.  Conveniently, that's
@@ -2742,6 +2747,9 @@ rest_of_compilation (decl)
 	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	      cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 	      optimize = saved_optimize;
+
+	      /* CFG is no longer maitained up-to-date.  */
+	      free_bb_for_insn ();
 	    }
 
 	  current_function_nothrow = nothrow_function_p ();
@@ -2827,7 +2835,7 @@ rest_of_compilation (decl)
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virutal register instantiation.  */
+  /* This must be performed before virtual register instantiation.  */
   if (current_function_calls_alloca)
     optimize_save_area_alloca (insns);
 #endif
@@ -2850,6 +2858,9 @@ rest_of_compilation (decl)
   rebuild_jump_labels (insns);
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP);
+
+  /* CFG is no longer maitained up-to-date.  */
+  free_bb_for_insn ();
   copy_loop_headers (insns);
   purge_line_number_notes (insns);
 
@@ -2931,6 +2942,8 @@ rest_of_compilation (decl)
       timevar_pop (TV_FROM_SSA);
 
       ggc_collect ();
+      /* CFG is no longer maitained up-to-date.  */
+      free_bb_for_insn ();
     }
 
   timevar_push (TV_JUMP);
@@ -2948,6 +2961,8 @@ rest_of_compilation (decl)
       if_convert (0);
       timevar_pop (TV_IFCVT);
 
+      /* CFG is no longer maitained up-to-date.  */
+      free_bb_for_insn ();
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
 	delete_null_pointer_checks (insns);
@@ -2997,6 +3012,8 @@ rest_of_compilation (decl)
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
+	  /* CFG is no longer maitained up-to-date.  */
+	  free_bb_for_insn ();
 	}
 
       /* Run this after jump optmizations remove all the unreachable code
@@ -3012,6 +3029,8 @@ rest_of_compilation (decl)
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  delete_null_pointer_checks (insns);
+	  /* CFG is no longer maitained up-to-date.  */
+	  free_bb_for_insn ();
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -3050,6 +3069,8 @@ rest_of_compilation (decl)
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
+      /* CFG is no longer maitained up-to-date.  */
+      free_bb_for_insn ();
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
       if (flag_expensive_optimizations)
@@ -3071,6 +3092,8 @@ rest_of_compilation (decl)
 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	  /* CFG is no longer maitained up-to-date.  */
+	  free_bb_for_insn ();
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3096,6 +3119,7 @@ rest_of_compilation (decl)
     {
       timevar_push (TV_LOOP);
       open_dump_file (DFI_loop, decl);
+      free_bb_for_insn ();
 
       if (flag_rerun_loop_opt)
 	{
@@ -3157,6 +3181,8 @@ rest_of_compilation (decl)
 
 	  timevar_pop (TV_JUMP);
 
+	  /* CFG is no longer maitained up-to-date.  */
+	  free_bb_for_insn ();
 	  reg_scan (insns, max_reg_num (), 0);
 	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
 
@@ -3166,6 +3192,8 @@ rest_of_compilation (decl)
 	      rebuild_jump_labels (insns);
 	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	      cleanup_cfg (CLEANUP_EXPENSIVE);
+	      /* CFG is no longer maitained up-to-date.  */
+	      free_bb_for_insn ();
 	      timevar_pop (TV_JUMP);
 	    }
 	}
@@ -3398,6 +3426,15 @@ rest_of_compilation (decl)
 
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
+
+  /* Allocate the reg_renumber array.  */
+  allocate_reg_info (max_regno, FALSE, TRUE);
+
+  /* And the reg_equiv_memory_loc array.  */
+  reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
+
+  allocate_initial_values (reg_equiv_memory_loc);
+
   regclass (insns, max_reg_num (), rtl_dump_file);
   rebuild_label_notes_after_reload = local_alloc ();
 
@@ -3478,8 +3515,6 @@ rest_of_compilation (decl)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
-  compute_bb_for_insn (get_max_uid ());
 
   /* If optimizing, then go ahead and split insns now.  */
   if (optimize > 0)
@@ -3585,7 +3620,7 @@ rest_of_compilation (decl)
 
   reg_to_stack (insns, rtl_dump_file);
 
-  close_dump_file (DFI_stack, print_rtl, insns);
+  close_dump_file (DFI_stack, print_rtl_with_bb, insns);
   timevar_pop (TV_REG_STACK);
 
   ggc_collect ();
@@ -3610,6 +3645,9 @@ rest_of_compilation (decl)
     }
   compute_alignments ();
 
+  /* CFG is no longer maitained up-to-date.  */
+  free_bb_for_insn ();
+
   /* If a machine dependent reorganization is needed, call it.  */
 #ifdef MACHINE_DEPENDENT_REORG
   timevar_push (TV_MACH_DEP);
@@ -3622,8 +3660,6 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 #endif
-
-  /* CFG no longer kept up to date.  */
 
   purge_line_number_notes (insns);
   cleanup_barriers ();
@@ -3773,7 +3809,13 @@ rest_of_compilation (decl)
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
   if (! DECL_DEFER_OUTPUT (decl))
-    free_after_compilation (cfun);
+    {
+      free_after_compilation (cfun);
+
+      /* Clear integrate.c's pointer to the cfun structure we just
+	 destroyed.  */
+      DECL_SAVED_INSNS (decl) = 0;
+    }
   cfun = 0;
 
   ggc_collect ();
@@ -4207,7 +4249,7 @@ decode_g_option (arg)
      -gdwarf -g3 is equivalent to -gdwarf3.  */
   static int type_explicitly_set_p = 0;
   /* Indexed by enum debug_info_type.  */
-  static const char *debug_type_names[] =
+  static const char *const debug_type_names[] =
   {
     "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff"
   };
@@ -4566,7 +4608,7 @@ toplev_main (argc, argv)
      int argc;
      char **argv;
 {
-  register int i;
+  int i;
   char *p;
 
   /* save in case md file wants to emit args as a comment.  */
@@ -4672,6 +4714,11 @@ toplev_main (argc, argv)
 		}
 	    }
 	}
+    }
+
+  if (!optimize)
+    {
+      flag_merge_constants = 0;
     }
 
   if (optimize >= 1)
@@ -4935,7 +4982,7 @@ static void
 set_target_switch (name)
      const char *name;
 {
-  register size_t j;
+  size_t j;
   int valid_target_option = 0;
 
   for (j = 0; j < ARRAY_SIZE (target_switches); j++)

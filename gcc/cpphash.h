@@ -42,35 +42,27 @@ struct directive;		/* Deliberately incomplete.  */
    efficiency, and partly to limit runaway recursion.  */
 #define CPP_STACK_MAX 200
 
-/* Memory pools.  */
-#define POOL_ALIGN(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
-#define POOL_FRONT(p) ((p)->cur->front)
-#define POOL_LIMIT(p) ((p)->cur->limit)
-#define POOL_BASE(p)  ((p)->cur->base)
-#define POOL_SIZE(p)  ((p)->cur->limit - (p)->cur->base)
-#define POOL_ROOM(p)  ((p)->cur->limit - (p)->cur->front)
-#define POOL_USED(p)  ((p)->cur->front - (p)->cur->base)
-#define POOL_COMMIT(p, len) do {\
-  ((p)->cur->front += POOL_ALIGN (len, (p)->align));\
-  if ((p)->cur->front > (p)->cur->limit) abort ();} while (0)
+/* A generic memory buffer, and operations on it.  */
 
-typedef struct cpp_chunk cpp_chunk;
-struct cpp_chunk
+typedef struct _cpp_buff _cpp_buff;
+struct _cpp_buff
 {
-  cpp_chunk *next;
-  unsigned char *front;
-  unsigned char *limit;
-  unsigned char *base;
+  struct _cpp_buff *next;
+  unsigned char *base, *cur, *limit;
 };
 
-typedef struct cpp_pool cpp_pool;
-struct cpp_pool
-{
-  struct cpp_chunk *cur, *locked, *first;
-  unsigned char *pos;		/* Current position.  */
-  unsigned int align;
-  unsigned int locks;
-};
+extern _cpp_buff *_cpp_get_buff PARAMS ((cpp_reader *, size_t));
+extern void _cpp_release_buff PARAMS ((cpp_reader *, _cpp_buff *));
+extern void _cpp_extend_buff PARAMS ((cpp_reader *, _cpp_buff **, size_t));
+extern _cpp_buff *_cpp_append_extend_buff PARAMS ((cpp_reader *, _cpp_buff *,
+						   size_t));
+extern void _cpp_free_buff PARAMS ((_cpp_buff *));
+extern unsigned char *_cpp_aligned_alloc PARAMS ((cpp_reader *, size_t));
+extern unsigned char *_cpp_unaligned_alloc PARAMS ((cpp_reader *, size_t));
+
+#define BUFF_ROOM(BUFF) (size_t) ((BUFF)->limit - (BUFF)->cur)
+#define BUFF_FRONT(BUFF) ((BUFF)->cur)
+#define BUFF_LIMIT(BUFF) ((BUFF)->limit)
 
 /* List of directories to look for include files in.  */
 struct search_path
@@ -95,11 +87,17 @@ struct search_path
 /* #include types.  */
 enum include_type {IT_INCLUDE, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
-typedef struct toklist toklist;
-struct toklist
+union utoken
 {
-  cpp_token *first;
-  cpp_token *limit;
+  const cpp_token *token;
+  const cpp_token **ptoken;
+};
+
+typedef struct tokenrun tokenrun;
+struct tokenrun
+{
+  tokenrun *next, *prev;
+  cpp_token *base, *limit;
 };
 
 typedef struct cpp_context cpp_context;
@@ -110,10 +108,18 @@ struct cpp_context
 
   /* Contexts other than the base context are contiguous tokens.
      e.g. macro expansions, expanded argument tokens.  */
-  struct toklist list;
+  union utoken first;
+  union utoken last;
 
-  /* For a macro context, these are the macro and its arguments.  */
-  cpp_macro *macro;
+  /* If non-NULL, a buffer used for storage related to this context.
+     When the context is popped, the buffer is released.  */
+  _cpp_buff *buff;
+
+  /* For a macro context, the macro node, otherwise NULL.  */
+  cpp_hashnode *macro;
+
+  /* True if utoken element is token, else ptoken.  */
+  bool direct_p;
 };
 
 struct lexer_state
@@ -157,7 +163,6 @@ struct spec_nodes
   cpp_hashnode *n_defined;		/* defined operator */
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
-  cpp_hashnode *n__Pragma;		/* _Pragma operator */
   cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
   cpp_hashnode *n__CHAR_UNSIGNED__;	/* plain char is unsigned */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
@@ -173,7 +178,7 @@ struct cpp_buffer
 
   struct cpp_buffer *prev;
 
-  const unsigned char *buf;	 /* Entire buffer.  */
+  const unsigned char *buf;	 /* Entire character buffer.  */
 
   /* Pointer into the include table; non-NULL if this is a file
      buffer.  Used for include_next and to record control macros.  */
@@ -235,16 +240,13 @@ struct cpp_reader
   const struct line_map *map;
   unsigned int line;
 
-  /* The position of the last lexed token and last lexed directive.  */
-  cpp_lexer_pos lexer_pos;
-  cpp_lexer_pos directive_pos;
+  /* The line of the '#' of the current directive.  */
   unsigned int directive_line;
 
-  /* Memory pools.  */
-  cpp_pool ident_pool;		/* For all identifiers, and permanent
-				   numbers and strings.  */
-  cpp_pool macro_pool;		/* For macro definitions.  Permanent.  */
-  cpp_pool argument_pool;	/* For macro arguments.  Temporary.   */
+  /* Memory buffers.  */
+  _cpp_buff *a_buff;		/* Aligned permanent storage.  */
+  _cpp_buff *u_buff;		/* Unaligned permanent storage.  */
+  _cpp_buff *free_buffs;	/* Free buffer chain.  */
 
   /* Context stack.  */
   struct cpp_context base_context;
@@ -258,18 +260,21 @@ struct cpp_reader
   const cpp_hashnode *mi_ind_cmacro;
   bool mi_valid;
 
-  /* Token lookahead.  */
-  struct cpp_lookahead *la_read;	/* Read from this lookahead.  */
-  struct cpp_lookahead *la_write;	/* Write to this lookahead.  */
-  struct cpp_lookahead *la_unused;	/* Free store.  */
-  struct cpp_lookahead *la_saved;	/* Backup when entering directive.  */
+  /* Lexing.  */
+  cpp_token *cur_token;
+  tokenrun base_run, *cur_run;
+  unsigned int lookaheads;
+
+  /* Non-zero prevents the lexer from re-using the token runs.  */
+  unsigned int keep_tokens;
 
   /* Error counter for exit code.  */
   unsigned int errors;
 
   /* Line and column where a newline was first seen in a string
      constant (multi-line strings).  */
-  cpp_lexer_pos mlstring_pos;
+  unsigned int mls_line;
+  unsigned int mls_col;
 
   /* Buffer to hold macro definition string.  */
   unsigned char *macro_buffer;
@@ -285,6 +290,10 @@ struct cpp_reader
   /* Date and time tokens.  Calculated together if either is requested.  */
   cpp_token date;
   cpp_token time;
+
+  /* EOF token, and a token forcing paste avoidance.  */
+  cpp_token avoid_paste;
+  cpp_token eof;
 
   /* Opaque handle to the dependencies of mkdeps.c.  Used by -M etc.  */
   struct deps *deps;
@@ -359,16 +368,12 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 /* In cpperror.c  */
 enum error_type { WARNING = 0, WARNING_SYSHDR, PEDWARN, ERROR, FATAL, ICE };
 extern int _cpp_begin_message PARAMS ((cpp_reader *, enum error_type,
-				       const cpp_lexer_pos *));
+				       unsigned int, unsigned int));
 
 /* In cppmacro.c */
 extern void _cpp_free_definition	PARAMS ((cpp_hashnode *));
 extern int _cpp_create_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_pop_context		PARAMS ((cpp_reader *));
-extern void _cpp_free_lookaheads	PARAMS ((cpp_reader *));
-extern void _cpp_release_lookahead	PARAMS ((cpp_reader *));
-extern void _cpp_push_token		PARAMS ((cpp_reader *, const cpp_token *,
-						 const cpp_lexer_pos *));
 
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
@@ -394,18 +399,12 @@ extern void _cpp_pop_file_buffer	PARAMS ((cpp_reader *,
 extern int _cpp_parse_expr		PARAMS ((cpp_reader *));
 
 /* In cpplex.c */
-extern void _cpp_lex_token		PARAMS ((cpp_reader *, cpp_token *));
+extern cpp_token *_cpp_temp_token	PARAMS ((cpp_reader *));
+extern const cpp_token *_cpp_lex_token	PARAMS ((cpp_reader *));
+extern cpp_token *_cpp_lex_direct	PARAMS ((cpp_reader *));
 extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 						 const cpp_token *));
-extern void _cpp_init_pool		PARAMS ((cpp_pool *, unsigned int,
-						  unsigned int, unsigned int));
-extern void _cpp_free_pool		PARAMS ((cpp_pool *));
-extern unsigned char *_cpp_pool_reserve PARAMS ((cpp_pool *, unsigned int));
-extern unsigned char *_cpp_pool_alloc	PARAMS ((cpp_pool *, unsigned int));
-extern unsigned char *_cpp_next_chunk	PARAMS ((cpp_pool *, unsigned int,
-						 unsigned char **));
-extern void _cpp_lock_pool		PARAMS ((cpp_pool *));
-extern void _cpp_unlock_pool		PARAMS ((cpp_pool *));
+extern void _cpp_init_tokenrun		PARAMS ((tokenrun *, unsigned int));
 
 /* In cppinit.c.  */
 extern bool _cpp_push_next_buffer	PARAMS ((cpp_reader *));

@@ -378,13 +378,6 @@ int flag_weak = 1;
 
 int flag_use_cxa_atexit;
 
-/* 0 if we should not perform inlining.
-   1 if we should expand functions calls inline at the tree level.  
-   2 if we should consider *all* functions to be inline 
-   candidates.  */
-
-int flag_inline_trees = 0;
-
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
    infinite template instantiations.  */
@@ -417,7 +410,7 @@ c_language_kind c_language = clk_cplusplus;
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-static struct { const char *string; int *variable; int on_value;}
+static struct { const char *const string; int *variable; int on_value;}
 lang_f_options[] =
 {
   /* C/C++ options.  */
@@ -590,14 +583,14 @@ cxx_decode_option (argc, argv)
 		     but breaks the VAX pcc.  */
 		  found = 1;
 		}
-	      if (p[0] == 'n' && p[1] == 'o' && p[2] == '-'
-		  && ! strcmp (p+3, lang_f_options[j].string))
+	      else if (p[0] == 'n' && p[1] == 'o' && p[2] == '-'
+		       && ! strcmp (p+3, lang_f_options[j].string))
 		{
 		  *lang_f_options[j].variable = ! lang_f_options[j].on_value;
 		  found = 1;
 		}
 	    }
-	      
+
 	  return found;
 	}
     }
@@ -1531,7 +1524,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       && TREE_CHAIN (init) == NULL_TREE)
     init = NULL_TREE;
 
-  value = grokdeclarator (declarator, declspecs, FIELD, init != 0, attrlist);
+  value = grokdeclarator (declarator, declspecs, FIELD, init != 0, &attrlist);
   if (! value || value == error_mark_node)
     /* friend or constructor went bad.  */
     return value;
@@ -1628,8 +1621,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
     value = push_template_decl (value);
 
   if (attrlist)
-    cplus_decl_attributes (&value, TREE_PURPOSE (attrlist),
-			   TREE_VALUE (attrlist), 0);
+    cplus_decl_attributes (&value, attrlist, 0);
 
   if (TREE_CODE (value) == VAR_DECL)
     {
@@ -1679,7 +1671,7 @@ grokbitfield (declarator, declspecs, width)
      tree declarator, declspecs, width;
 {
   register tree value = grokdeclarator (declarator, declspecs, BITFIELD,
-					0, NULL_TREE);
+					0, NULL);
 
   if (! value) return NULL_TREE; /* friends went bad.  */
 
@@ -1735,7 +1727,7 @@ tree
 grokoptypename (declspecs, declarator)
      tree declspecs, declarator;
 {
-  tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL_TREE);
+  tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL);
   return mangle_conv_op_name_for_type (t);
 }
 
@@ -1824,8 +1816,8 @@ grok_function_init (decl, init)
 }
 
 void
-cplus_decl_attributes (decl, attributes, prefix_attributes, flags)
-     tree *decl, attributes, prefix_attributes;
+cplus_decl_attributes (decl, attributes, flags)
+     tree *decl, attributes;
      int flags;
 {
   if (*decl == NULL_TREE || *decl == void_type_node)
@@ -1834,7 +1826,7 @@ cplus_decl_attributes (decl, attributes, prefix_attributes, flags)
   if (TREE_CODE (*decl) == TEMPLATE_DECL)
     decl = &DECL_TEMPLATE_RESULT (*decl);
 
-  decl_attributes (decl, chainon (attributes, prefix_attributes), flags);
+  decl_attributes (decl, attributes, flags);
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
@@ -2169,7 +2161,8 @@ mark_vtable_entries (decl)
       tree fnaddr = TREE_VALUE (entries);
       tree fn;
       
-      if (TREE_CODE (fnaddr) != ADDR_EXPR)
+      if (TREE_CODE (fnaddr) != ADDR_EXPR
+	  && TREE_CODE (fnaddr) != FDESC_EXPR)
 	/* This entry is an offset: a virtual base class offset, a
 	   virtual call offset, an RTTI offset, etc.  */
 	continue;
@@ -2371,17 +2364,9 @@ import_export_class (ctype)
   if (CLASSTYPE_INTERFACE_ONLY (ctype))
     return;
 
-  if ((*targetm.valid_type_attribute) (ctype,
-				       TYPE_ATTRIBUTES (ctype),
-				       get_identifier ("dllimport"),
-				       NULL_TREE)
-      && lookup_attribute ("dllimport", TYPE_ATTRIBUTES (ctype)))
+  if (lookup_attribute ("dllimport", TYPE_ATTRIBUTES (ctype)))
     import_export = -1;
-  else if ((*targetm.valid_type_attribute) (ctype,
-					    TYPE_ATTRIBUTES (ctype),
-					    get_identifier ("dllexport"),
-					    NULL_TREE)
-	   && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (ctype)))
+  else if (lookup_attribute ("dllexport", TYPE_ATTRIBUTES (ctype)))
     import_export = 1;
 
   /* If we got -fno-implicit-templates, we import template classes that
@@ -2421,23 +2406,23 @@ output_vtable_inherit (vars)
      tree vars;
 {
   tree parent;
-  rtx op[2];
+  rtx child_rtx, parent_rtx;
 
-  op[0] = XEXP (DECL_RTL (vars), 0);	  /* strip the mem ref  */
+  child_rtx = XEXP (DECL_RTL (vars), 0);	  /* strip the mem ref  */
 
   parent = binfo_for_vtable (vars);
 
   if (parent == TYPE_BINFO (DECL_CONTEXT (vars)))
-    op[1] = const0_rtx;
+    parent_rtx = const0_rtx;
   else if (parent)
     {
       parent = get_vtbl_decl_for_binfo (TYPE_BINFO (BINFO_TYPE (parent)));
-      op[1] = XEXP (DECL_RTL (parent), 0);  /* strip the mem ref  */
+      parent_rtx = XEXP (DECL_RTL (parent), 0);  /* strip the mem ref  */
     }
   else
     my_friendly_abort (980826);
 
-  output_asm_insn (".vtable_inherit %c0, %c1", op);
+  assemble_vtable_inherit (child_rtx, parent_rtx);
 }
 
 static int
@@ -3517,7 +3502,6 @@ finish_file ()
 	  if (!DECL_EXTERNAL (decl)
 	      && DECL_NEEDED_P (decl)
 	      && DECL_SAVED_TREE (decl)
-	      && !DECL_SAVED_INSNS (decl)
 	      && !TREE_ASM_WRITTEN (decl))
 	    {
 	      int saved_not_really_extern;

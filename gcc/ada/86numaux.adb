@@ -49,7 +49,7 @@ package body Ada.Numerics.Aux is
    for FPU_Stack_Pointer'Size use 3;
 
    type FPU_Status_Word is record
-      B   : Boolean; -- FPU Busy (for 8087 compatibility only)
+      B   : Boolean; -- FPU Busy (for 8087 compatability only)
       ES  : Boolean; -- Error Summary Status
       SF  : Boolean; -- Stack Fault
 

@@ -245,7 +245,6 @@ static void replace_reg			PARAMS ((rtx *, int));
 static void remove_regno_note		PARAMS ((rtx, enum reg_note,
 						 unsigned int));
 static int get_hard_regnum		PARAMS ((stack, rtx));
-static void delete_insn_for_stacker	PARAMS ((rtx));
 static rtx emit_pop_insn		PARAMS ((rtx, stack, rtx,
 					       enum emit_where));
 static void emit_swap_insn		PARAMS ((rtx, stack, rtx));
@@ -274,8 +273,8 @@ static int
 stack_regs_mentioned_p (pat)
      rtx pat;
 {
-  register const char *fmt;
-  register int i;
+  const char *fmt;
+  int i;
 
   if (STACK_REG_P (pat))
     return 1;
@@ -285,7 +284,7 @@ stack_regs_mentioned_p (pat)
     {
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 
 	  for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
 	    if (stack_regs_mentioned_p (XVECEXP (pat, i, j)))
@@ -421,7 +420,6 @@ reg_to_stack (first, file)
 {
   int i;
   int max_uid;
-  block_info bi;
 
   /* Clean up previous run.  */
   if (stack_regs_mentioned_data)
@@ -450,18 +448,16 @@ reg_to_stack (first, file)
   mark_dfs_back_edges ();
 
   /* Set up block info for each basic block.  */
-  bi = (block_info) xcalloc ((n_basic_blocks + 1), sizeof (*bi));
+  alloc_aux_for_blocks (sizeof (struct block_info_def));
   for (i = n_basic_blocks - 1; i >= 0; --i)
     {
       edge e;
       basic_block bb = BASIC_BLOCK (i);
-      bb->aux = bi + i;
       for (e = bb->pred; e; e=e->pred_next)
 	if (!(e->flags & EDGE_DFS_BACK)
 	    && e->src != ENTRY_BLOCK_PTR)
 	  BLOCK_INFO (bb)->predecesors++;
     }
-  EXIT_BLOCK_PTR->aux = bi + n_basic_blocks;
 
   /* Create the replacement registers up front.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
@@ -501,7 +497,7 @@ reg_to_stack (first, file)
 
   convert_regs (file);
 
-  free (bi);
+  free_aux_for_blocks ();
 }
 
 /* Check PAT, which is in INSN, for LABEL_REFs.  Add INSN to the
@@ -512,14 +508,14 @@ static void
 record_label_references (insn, pat)
      rtx insn, pat;
 {
-  register enum rtx_code code = GET_CODE (pat);
-  register int i;
-  register const char *fmt;
+  enum rtx_code code = GET_CODE (pat);
+  int i;
+  const char *fmt;
 
   if (code == LABEL_REF)
     {
-      register rtx label = XEXP (pat, 0);
-      register rtx ref;
+      rtx label = XEXP (pat, 0);
+      rtx ref;
 
       if (GET_CODE (label) != CODE_LABEL)
 	abort ();
@@ -551,7 +547,7 @@ record_label_references (insn, pat)
 	record_label_references (insn, XEXP (pat, i));
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (pat, i); j++)
 	    record_label_references (insn, XVECEXP (pat, i, j));
 	}
@@ -871,7 +867,7 @@ remove_regno_note (insn, note, regno)
      enum reg_note note;
      unsigned int regno;
 {
-  register rtx *note_link, this;
+  rtx *note_link, this;
 
   note_link = &REG_NOTES(insn);
   for (this = *note_link; this; this = XEXP (this, 1))
@@ -906,19 +902,6 @@ get_hard_regnum (regstack, reg)
       break;
 
   return i >= 0 ? (FIRST_STACK_REG + regstack->top - i) : -1;
-}
-
-/* Delete INSN from the RTL.  Mark the insn, but don't remove it from
-   the chain of insns.  Doing so could confuse block_begin and block_end
-   if this were the only insn in the block.  */
-
-static void
-delete_insn_for_stacker (insn)
-     rtx insn;
-{
-  PUT_CODE (insn, NOTE);
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-  NOTE_SOURCE_FILE (insn) = 0;
 }
 
 /* Emit an insn to pop virtual register REG before or after INSN.
@@ -964,9 +947,9 @@ emit_pop_insn (insn, regstack, reg, where)
 			 FP_MODE_REG (FIRST_STACK_REG, DFmode));
 
   if (where == EMIT_AFTER)
-    pop_insn = emit_block_insn_after (pop_rtx, insn, current_block);
+    pop_insn = emit_insn_after (pop_rtx, insn);
   else
-    pop_insn = emit_block_insn_before (pop_rtx, insn, current_block);
+    pop_insn = emit_insn_before (pop_rtx, insn);
 
   REG_NOTES (pop_insn)
     = gen_rtx_EXPR_LIST (REG_DEAD, FP_MODE_REG (FIRST_STACK_REG, DFmode),
@@ -1062,9 +1045,9 @@ emit_swap_insn (insn, regstack, reg)
 			 FP_MODE_REG (FIRST_STACK_REG, XFmode));
 
   if (i1)
-    emit_block_insn_after (swap_rtx, i1, current_block);
+    emit_insn_after (swap_rtx, i1);
   else if (current_block)
-    emit_block_insn_before (swap_rtx, current_block->head, current_block);
+    emit_insn_before (swap_rtx, current_block->head);
   else
     emit_insn_before (swap_rtx, insn);
 }
@@ -1114,7 +1097,7 @@ move_for_stack_reg (insn, regstack, pat)
 	    {
 	      emit_pop_insn (insn, regstack, src, EMIT_AFTER);
 
-	      delete_insn_for_stacker (insn);
+	      delete_insn (insn);
 	      return;
 	    }
 
@@ -1123,7 +1106,7 @@ move_for_stack_reg (insn, regstack, pat)
 	  SET_HARD_REG_BIT (regstack->reg_set, REGNO (dest));
 	  CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (src));
 
-	  delete_insn_for_stacker (insn);
+	  delete_insn (insn);
 
 	  return;
 	}
@@ -1140,7 +1123,7 @@ move_for_stack_reg (insn, regstack, pat)
 	  if (find_regno_note (insn, REG_UNUSED, REGNO (dest)))
 	    emit_pop_insn (insn, regstack, dest, EMIT_AFTER);
 
-	  delete_insn_for_stacker (insn);
+	  delete_insn (insn);
 	  return;
 	}
 
@@ -1223,8 +1206,8 @@ static int
 swap_rtx_condition_1 (pat)
      rtx pat;
 {
-  register const char *fmt;
-  register int i, r = 0;
+  const char *fmt;
+  int i, r = 0;
 
   if (GET_RTX_CLASS (GET_CODE (pat)) == '<')
     {
@@ -1238,7 +1221,7 @@ swap_rtx_condition_1 (pat)
 	{
 	  if (fmt[i] == 'E')
 	    {
-	      register int j;
+	      int j;
 
 	      for (j = XVECLEN (pat, i) - 1; j >= 0; j--)
 		r |= swap_rtx_condition_1 (XVECEXP (pat, i, j));
@@ -1775,6 +1758,12 @@ subst_stack_regs_pat (insn, regstack, pat)
 	  case IF_THEN_ELSE:
 	    /* This insn requires the top of stack to be the destination.  */
 
+	    src1 = get_true_reg (&XEXP (pat_src, 1));
+	    src2 = get_true_reg (&XEXP (pat_src, 2));
+
+	    src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+	    src2_note = find_regno_note (insn, REG_DEAD, REGNO (*src2));
+
 	    /* If the comparison operator is an FP comparison operator,
 	       it is handled correctly by compare_for_stack_reg () who
 	       will move the destination to the top of stack. But if the
@@ -1782,13 +1771,33 @@ subst_stack_regs_pat (insn, regstack, pat)
 	       have to handle it here.  */
 	    if (get_hard_regnum (regstack, *dest) >= FIRST_STACK_REG
 		&& REGNO (*dest) != regstack->reg[regstack->top])
-	      emit_swap_insn (insn, regstack, *dest);	
+	      {
+		/* In case one of operands is the top of stack and the operands
+		   dies, it is safe to make it the destination operand by reversing
+		   the direction of cmove and avoid fxch.  */
+		if ((REGNO (*src1) == regstack->reg[regstack->top]
+		     && src1_note)
+		    || (REGNO (*src2) == regstack->reg[regstack->top]
+			&& src2_note))
+		  {
+		    int idx1 = (get_hard_regnum (regstack, *src1)
+				- FIRST_STACK_REG);
+		    int idx2 = (get_hard_regnum (regstack, *src2)
+				- FIRST_STACK_REG);
 
-	    src1 = get_true_reg (&XEXP (pat_src, 1));
-	    src2 = get_true_reg (&XEXP (pat_src, 2));
+		    /* Make reg-stack believe that the operands are already
+		       swapped on the stack */
+		    regstack->reg[regstack->top - idx1] = REGNO (*src2);
+		    regstack->reg[regstack->top - idx2] = REGNO (*src1);
 
-	    src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
-	    src2_note = find_regno_note (insn, REG_DEAD, REGNO (*src2));
+		    /* Reverse condition to compensate the operand swap.
+		       i386 do have comparison always reversible.  */
+		    PUT_CODE (XEXP (pat_src, 0),
+			      reversed_comparison_code (XEXP (pat_src, 0), insn));
+		  }
+		else
+	          emit_swap_insn (insn, regstack, *dest);	
+	      }
 
 	    {
 	      rtx src_note [3];
@@ -1817,11 +1826,9 @@ subst_stack_regs_pat (insn, regstack, pat)
 				       EMIT_AFTER);
 		      }
 		    else
-		      {
-			CLEAR_HARD_REG_BIT (regstack->reg_set, regno);
-			replace_reg (&XEXP (src_note[i], 0), FIRST_STACK_REG);
-			regstack->top--;
-		      }
+		      /* Top of stack never dies, as it is the
+			 destination.  */
+		      abort ();
 		  }
 	    }
 
@@ -2148,8 +2155,8 @@ subst_stack_regs (insn, regstack)
      rtx insn;
      stack regstack;
 {
-  register rtx *note_link, note;
-  register int i;
+  rtx *note_link, note;
+  int i;
 
   if (GET_CODE (insn) == CALL_INSN)
     {
@@ -2636,9 +2643,10 @@ convert_regs_1 (file, block)
 	beste = e;
       else if (beste->count > e->count)
 	;
-      else if ((e->flags & EDGE_CRITICAL) != (beste->flags & EDGE_CRITICAL))
+      else if ((EDGE_CRITICAL_P (e) != 0)
+	       != (EDGE_CRITICAL_P (beste) != 0))
 	{
-	  if (e->flags & EDGE_CRITICAL)
+	  if (EDGE_CRITICAL_P (e))
 	    beste = e;
 	}
       else if (e->src->index < beste->src->index)
@@ -2723,7 +2731,7 @@ convert_regs_1 (file, block)
 
 	  set = gen_rtx_SET (VOIDmode, FP_MODE_REG (reg, SFmode),
 			     nan);
-	  insn = emit_block_insn_after (set, insn, block);
+	  insn = emit_insn_after (set, insn);
 	  subst_stack_regs (insn, &regstack);
 	}
     }

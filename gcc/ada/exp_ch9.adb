@@ -8534,7 +8534,7 @@ package body Exp_Ch9 is
 
       procedure Traverse is new Traverse_Proc;
 
-   --  Start of processing for Update_Prival_Subtypes
+   --  Start of processsing for Update_Prival_Subtypes
 
    begin
       Traverse (N);

@@ -591,7 +591,7 @@ package Sem_Util is
    --  Determines if T1 and T2 represent exactly the same type. Two types
    --  are the same if they are identical, or if one is an unconstrained
    --  subtype of the other, or they are both common subtypes of the same
-   --  type with identical constraints. The result returned is conservative.
+   --  type with identical contraints. The result returned is conservative.
    --  It is True if the types are known to be the same, but a result of
    --  False is indecisive (e.g. the compiler may not be able to tell that
    --  two constraints are identical).

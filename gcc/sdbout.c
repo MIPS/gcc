@@ -94,10 +94,10 @@ extern tree current_function_decl;
 
 static void sdbout_init			PARAMS ((const char *));
 static void sdbout_finish		PARAMS ((const char *));
-static void sdbout_start_source_file	PARAMS ((unsigned, const char *));
-static void sdbout_end_source_file	PARAMS ((unsigned));
-static void sdbout_begin_block		PARAMS ((unsigned, unsigned));
-static void sdbout_end_block		PARAMS ((unsigned, unsigned));
+static void sdbout_start_source_file	PARAMS ((unsigned int, const char *));
+static void sdbout_end_source_file	PARAMS ((unsigned int));
+static void sdbout_begin_block		PARAMS ((unsigned int, unsigned int));
+static void sdbout_end_block		PARAMS ((unsigned int, unsigned int));
 static void sdbout_source_line		PARAMS ((unsigned int, const char *));
 static void sdbout_end_epilogue		PARAMS ((void));
 static void sdbout_global_decl		PARAMS ((tree));
@@ -244,7 +244,7 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 #endif
 
 /* Return the sdb tag identifier string for TYPE
-   if TYPE has already been defined; otherwise return a null pointer.   */
+   if TYPE has already been defined; otherwise return a null pointer.  */
 
 #define KNOWN_TYPE_TAG(type)  TYPE_SYMTAB_POINTER (type)
 
@@ -263,7 +263,8 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 
 /* Ensure we don't output a negative line number.  */
 #define MAKE_LINE_SAFE(line)  \
-  if (line <= sdb_begin_function_line) line = sdb_begin_function_line + 1
+  if ((int) line <= sdb_begin_function_line) \
+    line = sdb_begin_function_line + 1
 
 /* Perform linker optimization of merging header file definitions together
    for targets with MIPS_DEBUGGING_INFO defined.  This won't work without a
@@ -428,7 +429,7 @@ static int
 template_name_p (name)
      tree name;
 {
-  register const char *ptr = IDENTIFIER_POINTER (name);
+  const char *ptr = IDENTIFIER_POINTER (name);
   while (*ptr && *ptr != '<')
     ptr++;
 
@@ -439,7 +440,7 @@ static void
 sdbout_record_type_name (type)
      tree type;
 {
-  const char *name = 0;
+  char *name = 0;
   int no_name;
 
   if (KNOWN_TYPE_TAG (type))
@@ -515,7 +516,7 @@ plain_type_1 (type, level)
 	    && DECL_NAME (TYPE_NAME (type)) != 0
 	    && TREE_CODE (DECL_NAME (TYPE_NAME (type))) == IDENTIFIER_NODE)
 	  {
-	    const char *name
+	    const char *const name
 	      = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
 
 	    if (!strcmp (name, "char"))
@@ -660,7 +661,7 @@ static int do_block = 0;
 
 static void
 sdbout_block (block)
-     register tree block;
+     tree block;
 {
   while (block)
     {
@@ -998,7 +999,7 @@ sdbout_queue_anonymous_type (type)
 static void
 sdbout_dequeue_anonymous_types ()
 {
-  register tree types, link;
+  tree types, link;
 
   while (anonymous_types)
     {
@@ -1007,7 +1008,7 @@ sdbout_dequeue_anonymous_types ()
 
       for (link = types; link; link = TREE_CHAIN (link))
 	{
-	  register tree type = TREE_VALUE (link);
+	  tree type = TREE_VALUE (link);
 
 	  if (type && ! TREE_ASM_WRITTEN (type))
 	    sdbout_one_type (type);
@@ -1022,9 +1023,9 @@ sdbout_dequeue_anonymous_types ()
 
 void
 sdbout_types (types)
-     register tree types;
+     tree types;
 {
-  register tree link;
+  tree link;
 
   for (link = types; link; link = TREE_CHAIN (link))
     sdbout_one_type (link);
@@ -1606,7 +1607,7 @@ sdbout_source_line (line, filename)
      const char *filename ATTRIBUTE_UNUSED;
 {
   /* COFF relative line numbers must be positive.  */
-  if (line > sdb_begin_function_line)
+  if ((int) line > sdb_begin_function_line)
     {
 #ifdef ASM_OUTPUT_SOURCE_LINE
       ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
@@ -1678,7 +1679,7 @@ sdbout_end_function (line)
 static void
 sdbout_end_epilogue ()
 {
-  const char *name
+  const char *const name
     = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
 
 #ifdef PUT_SDB_EPILOGUE_END
@@ -1696,7 +1697,7 @@ sdbout_end_epilogue ()
 
 static void
 sdbout_label (insn)
-     register rtx insn;
+     rtx insn;
 {
   PUT_SDB_DEF (LABEL_NAME (insn));
   PUT_SDB_VAL (insn);

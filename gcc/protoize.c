@@ -167,8 +167,8 @@ static char * syscalls_absolute_filename;
 /* Type of the structure that holds information about macro unexpansions.  */
 
 struct unexpansion_struct {
-  const char *expanded;
-  const char *contracted;
+  const char *const expanded;
+  const char *const contracted;
 };
 typedef struct unexpansion_struct unexpansion;
 
@@ -205,8 +205,8 @@ static const int hash_mask = (HASH_TABLE_SIZE - 1);
 #define LOCAL_INCLUDE_DIR "/usr/local/include"
 #endif
 
-struct default_include { const char *fname; 
-			 const char *component;
+static const struct default_include { const char *const fname; 
+			 const char *const component;
 			 int x1, x2; } include_defaults[]
 #ifdef INCLUDE_DEFAULTS
   = INCLUDE_DEFAULTS;
@@ -743,7 +743,7 @@ static int
 in_system_include_dir (path)
      const char *path;
 {
-  struct default_include *p;
+  const struct default_include *p;
 
   if (! is_abspath (path))
     abort ();		/* Must be an absolutized filename.  */
@@ -1135,7 +1135,7 @@ unexpand_if_needed (aux_info_line)
               strcpy (copy_p, unexp_p->contracted);
               copy_p += size;
 
-              /* Assume the there will not be another replacement required
+              /* Assume that there will not be another replacement required
                  within the text just replaced.  */
 
               s += len;
@@ -1195,7 +1195,7 @@ abspath (cwd, rel_filename)
      const char *rel_filename;
 {
   /* Setup the current working directory as needed.  */
-  const char *cwd2 = (cwd) ? cwd : cwd_buffer;
+  const char *const cwd2 = (cwd) ? cwd : cwd_buffer;
   char *const abs_buffer
     = (char *) alloca (strlen (cwd2) + strlen (rel_filename) + 2);
   char *endp = abs_buffer;
@@ -2538,7 +2538,7 @@ find_extern_def (head, user)
      code being converted contains its own definition of a function which
      could have been supplied by libc.a.  In such cases, we should avoid
      issuing the normal warning, and defer to the definition given in the
-     user's own code.   */
+     user's own code.  */
 
   for (dd_p = head; dd_p; dd_p = dd_p->next_for_func)
     if (dd_p->is_func_def && !dd_p->is_static)
@@ -3645,7 +3645,7 @@ add_global_decls (file_p, clean_text_p)
   /* Now write out full prototypes for all of the things that had been
      implicitly declared in this file (but only those for which we were
      actually able to find unique matching definitions).  Avoid duplicates
-     by marking things that we write out as we go.   */
+     by marking things that we write out as we go.  */
 
   {
     int some_decls_added = 0;

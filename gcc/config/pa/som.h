@@ -51,6 +51,15 @@ Boston, MA 02111-1307, USA.  */
   fprintf (FILE,							\
 	   "\t.stabs \"\",%d,0,0,L$text_end0000\nL$text_end0000:\n", N_SO)
 
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  Because
+   the HP assembler does auto alignment, it is necessary to use
+   DW_EH_PE_aligned instead of the default DW_EH_PE_absptr.  */
+
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
+  (TARGET_GAS ? DW_EH_PE_absptr : DW_EH_PE_aligned)
+
 /* HPUX has a program 'chatr' to list the dependencies of dynamically
    linked executables and shared libraries.  */
 #define LDD_SUFFIX "chatr"
@@ -303,8 +312,8 @@ readonly_data ()							\
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
   do { int save_referenced;					\
        save_referenced = TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)); \
-       fputs ("\t.IMPORT ", FILE);					\
-	 assemble_name (FILE, NAME);				\
+       fputs ("\t.IMPORT ", FILE);				\
+       assemble_name (FILE, NAME);				\
        if (FUNCTION_NAME_P (NAME))     				\
 	 fputs (",CODE\n", FILE);				\
        else							\
@@ -318,14 +327,25 @@ readonly_data ()							\
 
    Also note not all libcall names are passed to ENCODE_SECTION_INFO
    (__main for example).  To make sure all libcall names have section
-   info recorded in them, we do it here.  */
+   info recorded in them, we do it here.  We must also ensure that
+   we don't import a libcall that has been previously exported since
+   the HP assembler may change an ENTRY symbol to a CODE symbol.  */
 
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, RTL) \
-  do { fputs ("\t.IMPORT ", FILE);					\
+  do { const char *name;						\
+       tree id;								\
+									\
        if (!function_label_operand (RTL, VOIDmode))			\
 	 hppa_encode_label (RTL);					\
-       assemble_name (FILE, XSTR ((RTL), 0));		       		\
-       fputs (",CODE\n", FILE);						\
+									\
+       STRIP_NAME_ENCODING (name, XSTR ((RTL), 0));			\
+       id = maybe_get_identifier (name);				\
+       if (! id || ! TREE_SYMBOL_REFERENCED (id))			\
+	 {								\
+	   fputs ("\t.IMPORT ", FILE);					\
+	   assemble_name (FILE, XSTR ((RTL), 0));		       	\
+	   fputs (",CODE\n", FILE);					\
+	 }								\
      } while (0)
 
 #define ASM_FILE_END(FILE) output_deferred_plabels (FILE)

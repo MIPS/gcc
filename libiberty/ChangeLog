@@ -1,3 +1,128 @@
+2001-10-15  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.in (TEXIFILES): Add fnmatch.txh.
+	(maint-undoc): New.
+	maint-tool: Add "undoc" tool.
+	* alloca.c, argv.c, asprintf.c, choose-temp.c, concat.c,
+	fdmatch.c, ffs.c, getruntime.c, insque.c, lbasename.c,
+	make-temp-file.c, mkstemps.c, pexecute.c, random.c, spaces.c,
+	strerror.s, strsignal.c, strtol.c, vasprintf.c: Add or update
+	documentation.
+	* fnmatch.txh: New.
+	* functions.texi: Regenerate.
+	
+2001-10-10  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* bcmp.c, setenv.c: Use "nonzero" instead of "non-zero".
+	* strtod.c: Use "ISO C" instead of "ANSI C".
+	* functions.texi: Regenerate.
+
+2001-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* alloca.c, clock.c, getcwd.c, getpagesize.c, getpwd.c, index.c,
+	libiberty.texi, memchr.c, putenv.c, rindex.c, strchr.c, strdup.c,
+	strerror.c, strrchr.c, strstr.c, strtod.c, tmpnam.c, vfork.c,
+	xatexit.c, xmalloc.c, xstrerror.c: Improve manual formatting.  Fix
+	spelling.  Give names to function arguments in documentation.  Use
+	(void) prototypes in documentation.
+	* functions.texi: Regenerate.
+
+2001-10-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* argv.c (buildargv, tests, main): Const-ify.
+	* cp-demangle.c (operator_code): Likewise.
+	* cplus-dem.c (optable, libiberty_demanglers,
+	cplus_demangle_set_style, cplus_demangle_name_to_style,
+	print_demangler_list): Likewise.
+	* hashtab.c (higher_prime_number): Likewise.
+	* strcasecmp.c (charmap): Likewise.
+	* strerror.c (error_info, strerror, main): Likewise.
+	* strncasecmp.c (charmap): Likewise.
+	* strsignal.c (signal_info): Likewise.
+
+2001-09-29  DJ Delorie  <dj@redhat.com>
+
+	* configure: Regenerate.
+
+2001-09-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* concat.c: Include stdlib.h.
+
+2001-09-27  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* libiberty.texi: (Top level): Add syncodeindex pg.  Add
+	@dircategory and @direntry directives.  Add @finalout.
+	(many nodes): Lose the next,prev,up pointers on the @nide line.
+	(Using, Supplemental Functions, Replacement Functions): Fix
+	markup.
+	(Functions): Move around, to allow makeinfo to build the manual
+	without next,prev,up pointers in thye node lines.
+	(Licenses): Fix typos.
+
+	* index.c, rindex.c, strchr.c, strerror.c, strrchr.c, strstr.c,
+	strtol.c, xatexit.c, xexit.c, xmalloc.c: Fix spelling and markup.
+	* functions.texi: Regenerate.
+
+	* copying-lib.texi: Lose the next,prev,up pointers on the @node
+	line.
+
+2001-09-27  DJ Delorie  <dj@redhat.com>
+
+	* configure.in: Don't use in-tree texinfo, because libiberty must
+	be built before it.  Check for makeinfo version 4 or higher.
+	* functions.texi: Regenerate.
+	
+2001-09-20  DJ Delorie  <dj@redhat.com>
+	    Phil Edwards  <pedwards@disaster.jaj.com>
+	
+	* configure.in (MAKEINFO, PERL): Detect these.
+	(--enable-maintainer-mode): Add.
+	* configure: Regenerate.
+	* Makefile.in (MAKEINFO, PERL): Define.
+	(libiberty.info, libiberty.dvi, libiberty.html): New.
+	(CFILES): Add bsearch.c.
+	(CONFIGURED_OFILES): New, list of objects configure might add.
+	(maint-missing, maint-buildall): New, for maintainers only.
+	(clean, mostlyclean): Add info/dvi/html files.
+	* libiberty.texi, copying-lib.texi, obstacks.texi, functions.texi: New.
+	* gather-docs: New, for maintainers.
+	* maint-tool: New, for maintainers.
+	* alloca.c, atexit.c, basename.c, bcmp.c, bcopy.c, bsearch.c,
+	bzero.c, calloc.c, clock.c, configure.in, configure, getcwd.c,
+	getpagesize.c, getpwd.c, index.c, memchr.c, memcmp.c, memcpy.c,
+	memmove.c, memset.c, putenv.c, rename.c, rindex.c, setenv.c,
+	sigsetmask.c, strcasecmp.c, strchr.c, strdup.c, strerror.c,
+	strncasecmp.c, strncmp.c, strrchr.c, strstr.c, strtod.c, strtol.c,
+	tmpnam.c, vfork.c, vprintf.c, waitpid.c, xatexit.c, xexit.c,
+	xmalloc.c, xmemdup.c, xstrdup.c, xstrerror.c: Add or update
+	documentation.
+	
+2001-09-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* concat.c (reconcat): Fix for traditional C.
+
+2001-09-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* concat.c (reconcat): New function.
+
+2001-09-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* concat.c (vconcat_length, vconcat_copy, concat_length,
+	concat_copy, concat_copy2): New functions.
+	(concat): Use vconcat_length/vconcat_copy.
+
+	* alloca.c (libiberty_optr, libiberty_nptr, libiberty_len):
+	Define.
+
+2001-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* asprintf.c: Don't define USE_STDARG.  Use VPARAMS, VA_OPEN,
+	VA_FIXEDARG & VA_CLOSE.
+	
+	* vasprintf.c: Check HAVE_STRING_H when including string.h.
+	(checkit): Delete redundant prototype.  Add ATTRIBUTE_PRINTF_1.
+	Use VA_OPEN, VA_FIXEDARG & VA_CLOSE.  Free allocated string.
+
 2001-08-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* concat.c (concat): Use VPARAMS, VA_OPEN, VA_FIXEDARG & VA_CLOSE.

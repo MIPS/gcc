@@ -40,11 +40,24 @@ struct answer
 struct if_stack
 {
   struct if_stack *next;
-  cpp_lexer_pos pos;		/* line and column where condition started */
+  unsigned int line;		/* Line where condition started.  */
   const cpp_hashnode *mi_cmacro;/* macro name for #ifndef around entire file */
   bool skip_elses;		/* Can future #else / #elif be skipped?  */
   bool was_skipping;		/* If were skipping on entry.  */
   int type;			/* Most recent conditional, for diagnostics.  */
+};
+
+/* Contains a registered pragma or pragma namespace.  */
+typedef void (*pragma_cb) PARAMS ((cpp_reader *));
+struct pragma_entry
+{
+  struct pragma_entry *next;
+  const cpp_hashnode *pragma;	/* Name and length.  */
+  int is_nspace;
+  union {
+    pragma_cb handler;
+    struct pragma_entry *space;
+  } u;
 };
 
 /* Values for the origin field of struct directive.  KANDR directives
@@ -82,10 +95,12 @@ static void skip_rest_of_line	PARAMS ((cpp_reader *));
 static void check_eol		PARAMS ((cpp_reader *));
 static void start_directive	PARAMS ((cpp_reader *));
 static void end_directive	PARAMS ((cpp_reader *, int));
+static void directive_diagnostics
+	PARAMS ((cpp_reader *, const directive *, int));
 static void run_directive	PARAMS ((cpp_reader *, int,
 					 const char *, size_t));
-static int glue_header_name	PARAMS ((cpp_reader *, cpp_token *));
-static int  parse_include	PARAMS ((cpp_reader *, cpp_token *));
+static const cpp_token *glue_header_name PARAMS ((cpp_reader *));
+static const cpp_token *parse_include PARAMS ((cpp_reader *));
 static void push_conditional	PARAMS ((cpp_reader *, int, int,
 					 const cpp_hashnode *));
 static unsigned int read_flag	PARAMS ((cpp_reader *, unsigned int));
@@ -94,11 +109,17 @@ static int  strtoul_for_line	PARAMS ((const U_CHAR *, unsigned int,
 static void do_diagnostic	PARAMS ((cpp_reader *, enum error_type, int));
 static cpp_hashnode *lex_macro_node	PARAMS ((cpp_reader *));
 static void do_include_common	PARAMS ((cpp_reader *, enum include_type));
+static struct pragma_entry *lookup_pragma_entry
+  PARAMS ((struct pragma_entry *, const cpp_hashnode *pragma));
+static struct pragma_entry *insert_pragma_entry
+  PARAMS ((cpp_reader *, struct pragma_entry **, const cpp_hashnode *,
+	   pragma_cb));
 static void do_pragma_once	PARAMS ((cpp_reader *));
 static void do_pragma_poison	PARAMS ((cpp_reader *));
 static void do_pragma_system_header	PARAMS ((cpp_reader *));
 static void do_pragma_dependency	PARAMS ((cpp_reader *));
-static int get__Pragma_string	PARAMS ((cpp_reader *, cpp_token *));
+static const cpp_token *get_token_no_padding PARAMS ((cpp_reader *));
+static const cpp_token *get__Pragma_string PARAMS ((cpp_reader *));
 static unsigned char *destringize	PARAMS ((const cpp_string *,
 						 unsigned int *));
 static int parse_answer PARAMS ((cpp_reader *, struct answer **, int));
@@ -176,26 +197,21 @@ DIRECTIVE_TABLE
 #undef D
 #undef DIRECTIVE_TABLE
 
-#define SEEN_EOL() (pfile->lexer_pos.output_line > pfile->line)
+#define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
 
 /* Skip any remaining tokens in a directive.  */
 static void
 skip_rest_of_line (pfile)
      cpp_reader *pfile;
 {
-  cpp_token token;
-
-  /* Discard all input lookaheads.  */
-  while (pfile->la_read)
-    _cpp_release_lookahead (pfile);
-
   /* Discard all stacked contexts.  */
   while (pfile->context != &pfile->base_context)
     _cpp_pop_context (pfile);
 
   /* Sweep up all tokens remaining on the line.  */
-  while (! SEEN_EOL ())
-    _cpp_lex_token (pfile, &token);
+  if (! SEEN_EOL ())
+    while (_cpp_lex_token (pfile)->type != CPP_EOF)
+      ;
 }
 
 /* Ensure there are no stray tokens at the end of a directive.  */
@@ -203,15 +219,9 @@ static void
 check_eol (pfile)
      cpp_reader *pfile;
 {
-  if (! SEEN_EOL ())
-    {
-      cpp_token token;
-
-      _cpp_lex_token (pfile, &token);
-      if (token.type != CPP_EOF)
-	cpp_pedwarn (pfile, "extra tokens at end of #%s directive",
-		     pfile->directive->name);
-    }
+  if (! SEEN_EOL () && _cpp_lex_token (pfile)->type != CPP_EOF)
+    cpp_pedwarn (pfile, "extra tokens at end of #%s directive",
+		 pfile->directive->name);
 }
 
 /* Called when entering a directive, _Pragma or command-line directive.  */
@@ -224,13 +234,7 @@ start_directive (pfile)
   pfile->state.save_comments = 0;
 
   /* Some handlers need the position of the # for diagnostics.  */
-  pfile->directive_pos = pfile->lexer_pos;
-  pfile->directive_pos.line = pfile->line;
   pfile->directive_line = pfile->line;
-
-  /* Don't save directive tokens for external clients.  */
-  pfile->la_saved = pfile->la_write;
-  pfile->la_write = 0;
 }
 
 /* Called when leaving a directive, _Pragma or command-line directive.  */
@@ -243,12 +247,14 @@ end_directive (pfile, skip_line)
   if (skip_line)
     {
       skip_rest_of_line (pfile);
-      /*  "Accept" the newline now.  */
-      pfile->line++;
+      if (!pfile->keep_tokens)
+	{
+	  pfile->cur_run = &pfile->base_run;
+	  pfile->cur_token = pfile->base_run.base;
+	}
     }
 
   /* Restore state.  */
-  pfile->la_write = pfile->la_saved;
   pfile->state.save_comments = ! CPP_OPTION (pfile, discard_comments);
   pfile->state.in_directive = 0;
   pfile->state.angled_headers = 0;
@@ -256,137 +262,141 @@ end_directive (pfile, skip_line)
   pfile->directive = 0;
 }
 
-/* Check if a token's name matches that of a known directive.  Put in
-   this file to save exporting dtable and other unneeded information.  */
+/* Output diagnostics for a directive DIR.  INDENTED is non-zero if
+   the '#' was indented.  */
+
+static void
+directive_diagnostics (pfile, dir, indented)
+     cpp_reader *pfile;
+     const directive *dir;
+     int indented;
+{
+  if (pfile->state.line_extension)
+    {
+      if (CPP_PEDANTIC (pfile)
+	  && ! pfile->state.skipping)
+	cpp_pedwarn (pfile, "style of line directive is a GCC extension");
+    }
+  else
+    {
+      /* Issue -pedantic warnings for extensions.  */
+      if (CPP_PEDANTIC (pfile)
+	  && ! pfile->state.skipping
+	  && dir->origin == EXTENSION)
+	cpp_pedwarn (pfile, "#%s is a GCC extension", dir->name);
+
+      /* Traditionally, a directive is ignored unless its # is in
+	 column 1.  Therefore in code intended to work with K+R
+	 compilers, directives added by C89 must have their #
+	 indented, and directives present in traditional C must not.
+	 This is true even of directives in skipped conditional
+	 blocks.  */
+      if (CPP_WTRADITIONAL (pfile))
+	{
+	  if (dir == &dtable[T_ELIF])
+	    cpp_warning (pfile, "suggest not using #elif in traditional C");
+	  else if (indented && dir->origin == KANDR)
+	    cpp_warning (pfile,
+			 "traditional C ignores #%s with the # indented",
+			 dir->name);
+	  else if (!indented && dir->origin != KANDR)
+	    cpp_warning (pfile,
+		 "suggest hiding #%s from traditional C with an indented #",
+			 dir->name);
+	}
+    }
+}
+
+/* Check if we have a known directive.  INDENTED is non-zero if the
+   '#' of the directive was indented.  This function is in this file
+   to save unnecessarily exporting dtable etc. to cpplex.c.  Returns
+   non-zero if the line of tokens has been handled, zero if we should
+   continue processing the line.  */
+
 int
 _cpp_handle_directive (pfile, indented)
      cpp_reader *pfile;
      int indented;
 {
   const directive *dir = 0;
-  cpp_token dname;
+  const cpp_token *dname;
   int skip = 1;
 
   start_directive (pfile);
+  dname = _cpp_lex_token (pfile);
 
-  /* Lex the directive name directly.  */
-  _cpp_lex_token (pfile, &dname);
-
-  if (dname.type == CPP_NAME)
+  if (dname->type == CPP_NAME)
     {
-      unsigned int index = dname.val.node->directive_index;
-      if (index)
-	dir = &dtable[index - 1];
+      if (dname->val.node->directive_index)
+	dir = &dtable[dname->val.node->directive_index - 1];
     }
-  else if (dname.type == CPP_NUMBER)
+  /* We do not recognise the # followed by a number extension in
+     assembler code.  */
+  else if (dname->type == CPP_NUMBER && CPP_OPTION (pfile, lang) != CLK_ASM)
     {
-      /* # followed by a number is equivalent to #line.  Do not
-	 recognize this form in assembly language source files or
-	 skipped conditional groups.  Complain about this form if
-	 we're being pedantic, but not if this is regurgitated input
-	 (preprocessed or fed back in by the C++ frontend).  */
-      if (! pfile->state.skipping && CPP_OPTION (pfile, lang) != CLK_ASM)
-	{
-	  dir = &dtable[T_LINE];
-	  pfile->state.line_extension = 1;
-	  _cpp_push_token (pfile, &dname, &pfile->directive_pos);
-	  if (CPP_PEDANTIC (pfile) && ! CPP_OPTION (pfile, preprocessed))
-	    cpp_pedwarn (pfile, "# followed by integer");
-	}
+      dir = &dtable[T_LINE];
+      pfile->state.line_extension = 1;
     }
 
-  pfile->directive = dir;
   if (dir)
     {
-      /* Make sure we lex headers correctly, whether skipping or not.  */
-      pfile->state.angled_headers = dir->flags & INCL;
+      /* If we have a directive that is not an opening conditional,
+	 invalidate any control macro.  */
+      if (! (dir->flags & IF_COND))
+	pfile->mi_valid = false;
 
-      /* If we are rescanning preprocessed input, only directives tagged
-	 with IN_I are honored, and the warnings below are suppressed.  */
-      if (CPP_OPTION (pfile, preprocessed))
+      /* Kluge alert.  In order to be sure that code like this
+
+	 #define HASH #
+	 HASH define foo bar
+
+	 does not cause '#define foo bar' to get executed when
+	 compiled with -save-temps, we recognize directives in
+	 -fpreprocessed mode only if the # is in column 1.  cppmacro.c
+	 puts a space in fron of any '#' at the start of a macro.  */
+      if (CPP_OPTION (pfile, preprocessed)
+	  && (indented || !(dir->flags & IN_I)))
 	{
-	  /* Kluge alert.  In order to be sure that code like this
-	     #define HASH #
-	     HASH define foo bar
-	     does not cause '#define foo bar' to get executed when
-	     compiled with -save-temps, we recognize directives in
-	     -fpreprocessed mode only if the # is in column 1 and the
-	     directive name starts in column 2.  This output can only
-	     be generated by the directive callbacks in cppmain.c (see
-	     also the special case in scan_buffer).  */
-	  if (dir->flags & IN_I && !indented && !(dname.flags & PREV_WHITE))
-	    (*dir->handler) (pfile);
-	  /* That check misses '# 123' linemarkers.  Let them through too.  */
-	  else if (dname.type == CPP_NUMBER)
-	    (*dir->handler) (pfile);
-	  else
-	    {
-	      /* We don't want to process this directive.  Put back the
-		 tokens so caller will see them (and issue an error,
-		 probably).  */
-	      _cpp_push_token (pfile, &dname, &pfile->directive_pos);
-	      skip = 0;
-	    }
+	  skip = 0;
+	  dir = 0;
 	}
       else
 	{
-	  /* Traditionally, a directive is ignored unless its # is in
-	     column 1.  Therefore in code intended to work with K+R
-	     compilers, directives added by C89 must have their #
-	     indented, and directives present in traditional C must
-	     not.  This is true even of directives in skipped
-	     conditional blocks.  */
-	  if (CPP_WTRADITIONAL (pfile))
-	    {
-	      if (dir == &dtable[T_ELIF])
-		cpp_warning (pfile,
-			     "suggest not using #elif in traditional C");
-	      else if (indented && dir->origin == KANDR)
-		cpp_warning (pfile,
-			     "traditional C ignores #%s with the # indented",
-			     dir->name);
-	      else if (!indented && dir->origin != KANDR)
-		cpp_warning (pfile,
-	     "suggest hiding #%s from traditional C with an indented #",
-			     dir->name);
-	    }
-
-	  /* If we are skipping a failed conditional group, all
-	     non-conditional directives are ignored.  */
-	  if (! pfile->state.skipping || (dir->flags & COND))
-	    {
-	      /* Issue -pedantic warnings for extensions.   */
-	      if (CPP_PEDANTIC (pfile) && dir->origin == EXTENSION)
-		cpp_pedwarn (pfile, "#%s is a GCC extension", dir->name);
-
-	      /* If we have a directive that is not an opening
-		 conditional, invalidate any control macro.  */
-	      if (! (dir->flags & IF_COND))
-		pfile->mi_valid = false;
-
-	      (*dir->handler) (pfile);
-	    }
+	  /* In failed conditional groups, all non-conditional
+	     directives are ignored.  Before doing that, whether
+	     skipping or not, we should lex angle-bracketed headers
+	     correctly, and maybe output some diagnostics.  */
+	  pfile->state.angled_headers = dir->flags & INCL;
+	  if (! CPP_OPTION (pfile, preprocessed))
+	    directive_diagnostics (pfile, dir, indented);
+	  if (pfile->state.skipping && !(dir->flags & COND))
+	    dir = 0;
 	}
     }
-  else if (dname.type != CPP_EOF && ! pfile->state.skipping)
+  else if (dname->type == CPP_EOF)
+    ;	/* CPP_EOF is the "null directive".  */
+  else
     {
       /* An unknown directive.  Don't complain about it in assembly
 	 source: we don't know where the comments are, and # may
 	 introduce assembler pseudo-ops.  Don't complain about invalid
 	 directives in skipped conditional groups (6.10 p4).  */
       if (CPP_OPTION (pfile, lang) == CLK_ASM)
-	{
-	  /* Output the # and lookahead token for the assembler.  */
-	  _cpp_push_token (pfile, &dname, &pfile->directive_pos);
-	  skip = 0;
-	}
-      else
+	skip = 0;
+      else if (!pfile->state.skipping)
 	cpp_error (pfile, "invalid preprocessing directive #%s",
-		   cpp_token_as_text (pfile, &dname));
+		   cpp_token_as_text (pfile, dname));
     }
 
-  if (pfile->state.in_directive)
-    end_directive (pfile, skip);
+  if (dir)
+    {
+      pfile->directive = dir;
+      (*pfile->directive->handler) (pfile);
+    }
+  else if (skip == 0)
+    _cpp_backup_tokens (pfile, 1);
+
+  end_directive (pfile, skip);
   return skip;
 }
 
@@ -402,11 +412,10 @@ run_directive (pfile, dir_no, buf, count)
   cpp_push_buffer (pfile, (const U_CHAR *) buf, count,
 		   /* from_stage3 */ true, 1);
   start_directive (pfile);
-  pfile->state.prevent_expansion++;
+  /* We don't want a leading # to be interpreted as a directive.  */
+  pfile->buffer->saved_flags = 0;
   pfile->directive = &dtable[dir_no];
   (void) (*pfile->directive->handler) (pfile);
-  pfile->state.prevent_expansion--;
-  check_eol (pfile);
   end_directive (pfile, 1);
   _cpp_pop_buffer (pfile);
 }
@@ -417,11 +426,8 @@ static cpp_hashnode *
 lex_macro_node (pfile)
      cpp_reader *pfile;
 {
-  cpp_token token;
   cpp_hashnode *node;
-
-  /* Lex the macro name directly.  */
-  _cpp_lex_token (pfile, &token);
+  const cpp_token *token = _cpp_lex_token (pfile);
 
   /* The token immediately after #define must be an identifier.  That
      identifier may not be "defined", per C99 6.10.8p4.
@@ -430,22 +436,22 @@ lex_macro_node (pfile)
      Finally, the identifier may not have been poisoned.  (In that case
      the lexer has issued the error message for us.)  */
 
-  if (token.type != CPP_NAME)
+  if (token->type != CPP_NAME)
     {
-      if (token.type == CPP_EOF)
+      if (token->type == CPP_EOF)
 	cpp_error (pfile, "no macro name given in #%s directive",
 		   pfile->directive->name);
-      else if (token.flags & NAMED_OP)
+      else if (token->flags & NAMED_OP)
 	cpp_error (pfile,
 	   "\"%s\" cannot be used as a macro name as it is an operator in C++",
-		   NODE_NAME (token.val.node));
+		   NODE_NAME (token->val.node));
       else
 	cpp_error (pfile, "macro names must be identifiers");
 
       return 0;
     }
 
-  node = token.val.node;
+  node = token->val.node;
   if (node->flags & NODE_POISONED)
     return 0;
 
@@ -498,66 +504,66 @@ do_undef (pfile)
 
 /* Helper routine used by parse_include.  Reinterpret the current line
    as an h-char-sequence (< ... >); we are looking at the first token
-   after the <.  Returns zero on success.  */
-static int
-glue_header_name (pfile, header)
+   after the <.  Returns the header as a token, or NULL on failure.  */
+static const cpp_token *
+glue_header_name (pfile)
      cpp_reader *pfile;
-     cpp_token *header;
 {
-  cpp_token token;
-  unsigned char *buffer, *token_mem;
-  size_t len, total_len = 0, capacity = 1024;
+  cpp_token *header = NULL;
+  const cpp_token *token;
+  unsigned char *dest;
+  size_t len;
 
   /* To avoid lexed tokens overwriting our glued name, we can only
      allocate from the string pool once we've lexed everything.  */
 
-  buffer = (unsigned char *) xmalloc (capacity);
+  dest = BUFF_FRONT (pfile->u_buff);
   for (;;)
     {
-      cpp_get_token (pfile, &token);
+      token = cpp_get_token (pfile);
 
-      if (token.type == CPP_GREATER || token.type == CPP_EOF)
+      if (token->type == CPP_GREATER || token->type == CPP_EOF)
 	break;
 
-      len = cpp_token_len (&token);
-      if (total_len + len > capacity)
+      /* + 1 for terminating NUL.  */
+      len = cpp_token_len (token) + 1;
+      if ((size_t) (BUFF_LIMIT (pfile->u_buff) - dest) < len)
 	{
-	  capacity = (capacity + len) * 2;
-	  buffer = (unsigned char *) xrealloc (buffer, capacity);
+	  size_t len_so_far = dest - BUFF_FRONT (pfile->u_buff);
+	  _cpp_extend_buff (pfile, &pfile->u_buff, len);
+	  dest = BUFF_FRONT (pfile->u_buff) + len_so_far;
 	}
 
-      if (token.flags & PREV_WHITE)
-	buffer[total_len++] = ' ';
+      if (token->flags & PREV_WHITE)
+	*dest++ = ' ';
 
-      total_len = cpp_spell_token (pfile, &token, &buffer[total_len]) - buffer;
+      dest = cpp_spell_token (pfile, token, dest);
     }
 
-  if (token.type == CPP_EOF)
+  if (token->type == CPP_EOF)
     cpp_error (pfile, "missing terminating > character");
   else
     {
-      token_mem = _cpp_pool_alloc (&pfile->ident_pool, total_len + 1);
-      memcpy (token_mem, buffer, total_len);
-      token_mem[total_len] = '\0';
-
+      header = _cpp_temp_token (pfile);
       header->type = CPP_HEADER_NAME;
-      header->flags &= ~PREV_WHITE;
-      header->val.str.len = total_len;
-      header->val.str.text = token_mem;
+      header->flags = 0;
+      header->val.str.len = dest - BUFF_FRONT (pfile->u_buff);
+      header->val.str.text = BUFF_FRONT (pfile->u_buff);
+      *dest++ = '\0';
+      BUFF_FRONT (pfile->u_buff) = dest;
     }
 
-  free ((PTR) buffer);
-  return token.type == CPP_EOF;
+  return header;
 }
 
-/* Parse the header name of #include, #include_next, #import and
-   #pragma dependency.  Returns zero on success.  */
-static int
-parse_include (pfile, header)
+/* Returns the header string of #include, #include_next, #import and
+   #pragma dependency.  Returns NULL on error.  */
+static const cpp_token *
+parse_include (pfile)
      cpp_reader *pfile;
-     cpp_token *header;
 {
   const unsigned char *dir;
+  const cpp_token *header;
 
   if (pfile->directive == &dtable[T_PRAGMA])
     dir = U"pragma dependency";
@@ -565,25 +571,27 @@ parse_include (pfile, header)
     dir = pfile->directive->name;
 
   /* Allow macro expansion.  */
-  cpp_get_token (pfile, header);
+  header = cpp_get_token (pfile);
   if (header->type != CPP_STRING && header->type != CPP_HEADER_NAME)
     {
       if (header->type != CPP_LESS)
 	{
 	  cpp_error (pfile, "#%s expects \"FILENAME\" or <FILENAME>", dir);
-	  return 1;
+	  return NULL;
 	}
-      if (glue_header_name (pfile, header))
-	return 1;
+
+      header = glue_header_name (pfile);
+      if (header == NULL)
+	return header;
     }
 
   if (header->val.str.len == 0)
     {
       cpp_error (pfile, "empty file name in #%s", dir);
-      return 1;
+      return NULL;
     }
 
-  return 0;
+  return header;
 }
 
 /* Handle #include, #include_next and #import.  */
@@ -592,7 +600,7 @@ do_include_common (pfile, type)
      cpp_reader *pfile;
      enum include_type type;
 {
-  cpp_token header;
+  const cpp_token *header;
 
   /* For #include_next, if this is the primary source file, warn and
      use the normal search logic.  */
@@ -608,7 +616,8 @@ do_include_common (pfile, type)
 	   "#import is obsolete, use an #ifndef wrapper in the header file");
     }
 
-  if (!parse_include (pfile, &header))
+  header = parse_include (pfile);
+  if (header)
     {
       /* Prevent #include recursion.  */
       if (pfile->line_maps.depth >= CPP_STACK_MAX)
@@ -617,12 +626,12 @@ do_include_common (pfile, type)
 	{
 	  check_eol (pfile);
 	  /* Get out of macro context, if we are.  */
-	  end_directive (pfile, 1);
+	  skip_rest_of_line (pfile);
 	  if (pfile->cb.include)
 	    (*pfile->cb.include) (pfile, pfile->directive_line,
-				  pfile->directive->name, &header);
+				  pfile->directive->name, header);
 
-	  _cpp_execute_include (pfile, &header, type);
+	  _cpp_execute_include (pfile, header, type);
 	}
     }
 }
@@ -657,12 +666,11 @@ read_flag (pfile, last)
      cpp_reader *pfile;
      unsigned int last;
 {
-  cpp_token token;
+  const cpp_token *token = _cpp_lex_token (pfile);
 
-  _cpp_lex_token (pfile, &token);
-  if (token.type == CPP_NUMBER && token.val.str.len == 1)
+  if (token->type == CPP_NUMBER && token->val.str.len == 1)
     {
-      unsigned int flag = token.val.str.text[0] - '0';
+      unsigned int flag = token->val.str.text[0] - '0';
 
       if (flag > last && flag <= 4
 	  && (flag != 4 || last == 3)
@@ -670,9 +678,9 @@ read_flag (pfile, last)
 	return flag;
     }
 
-  if (token.type != CPP_EOF)
+  if (token->type != CPP_EOF)
     cpp_error (pfile, "invalid flag \"%s\" in line directive",
-	       cpp_token_as_text (pfile, &token));
+	       cpp_token_as_text (pfile, token));
   return 0;
 }
 
@@ -707,7 +715,7 @@ static void
 do_line (pfile)
      cpp_reader *pfile;
 {
-  cpp_token token;
+  const cpp_token *token;
   const char *new_file = pfile->map->to_file;
   unsigned long new_lineno;
   unsigned int cap, new_sysp = pfile->map->sysp;
@@ -716,13 +724,19 @@ do_line (pfile)
   /* C99 raised the minimum limit on #line numbers.  */
   cap = CPP_OPTION (pfile, c99) ? 2147483647 : 32767;
 
+  /* Putting this in _cpp_handle_directive risks two calls to
+     _cpp_backup_tokens in some circumstances, which can segfault.  */
+  if (pfile->state.line_extension)
+    _cpp_backup_tokens (pfile, 1);
+
   /* #line commands expand macros.  */
-  cpp_get_token (pfile, &token);
-  if (token.type != CPP_NUMBER
-      || strtoul_for_line (token.val.str.text, token.val.str.len, &new_lineno))
+  token = cpp_get_token (pfile);
+  if (token->type != CPP_NUMBER
+      || strtoul_for_line (token->val.str.text, token->val.str.len,
+			   &new_lineno))
     {
       cpp_error (pfile, "\"%s\" after #line is not a positive integer",
-		 cpp_token_as_text (pfile, &token));
+		 cpp_token_as_text (pfile, token));
       return;
     }      
 
@@ -730,10 +744,10 @@ do_line (pfile)
       && (new_lineno == 0 || new_lineno > cap))
     cpp_pedwarn (pfile, "line number out of range");
 
-  cpp_get_token (pfile, &token);
-  if (token.type == CPP_STRING)
+  token = cpp_get_token (pfile);
+  if (token->type == CPP_STRING)
     {
-      new_file = (const char *) token.val.str.text;
+      new_file = (const char *) token->val.str.text;
 
       /* Only accept flags for the # 55 form.  */
       if (pfile->state.line_extension)
@@ -764,14 +778,14 @@ do_line (pfile)
 	}
       check_eol (pfile);
     }
-  else if (token.type != CPP_EOF)
+  else if (token->type != CPP_EOF)
     {
       cpp_error (pfile, "\"%s\" is not a valid filename",
-		 cpp_token_as_text (pfile, &token));
+		 cpp_token_as_text (pfile, token));
       return;
     }
 
-  end_directive (pfile, 1);
+  skip_rest_of_line (pfile);
   _cpp_do_file_change (pfile, reason, new_file, new_lineno, new_sysp);
 }
 
@@ -805,7 +819,7 @@ do_diagnostic (pfile, code, print_dir)
      enum error_type code;
      int print_dir;
 {
-  if (_cpp_begin_message (pfile, code, 0))
+  if (_cpp_begin_message (pfile, code, 0, 0))
     {
       if (print_dir)
 	fprintf (stderr, "#%s ", pfile->directive->name);
@@ -836,38 +850,64 @@ static void
 do_ident (pfile)
      cpp_reader *pfile;
 {
-  cpp_token str;
+  const cpp_token *str = cpp_get_token (pfile);
 
-  cpp_get_token (pfile, &str);
-  if (str.type != CPP_STRING)
-    cpp_error (pfile, "invalid #ident");
+  if (str->type != CPP_STRING)
+    cpp_error (pfile, "invalid #ident directive");
   else if (pfile->cb.ident)
-    (*pfile->cb.ident) (pfile, pfile->directive_line, &str.val.str);
+    (*pfile->cb.ident) (pfile, pfile->directive_line, &str->val.str);
 
   check_eol (pfile);
 }
 
-/* Pragmata handling.  We handle some of these, and pass the rest on
-   to the front end.  C99 defines three pragmas and says that no macro
-   expansion is to be performed on them; whether or not macro
-   expansion happens for other pragmas is implementation defined.
-   This implementation never macro-expands the text after #pragma.  */
-
-/* Sub-handlers for the pragmas needing treatment here.
-   They return 1 if the token buffer is to be popped, 0 if not.  */
-typedef void (*pragma_cb) PARAMS ((cpp_reader *));
-struct pragma_entry
+/* Lookup a PRAGMA name in a singly-linked CHAIN.  Returns the
+   matching entry, or NULL if none is found.  The returned entry could
+   be the start of a namespace chain, or a pragma.  */
+static struct pragma_entry *
+lookup_pragma_entry (chain, pragma)
+     struct pragma_entry *chain;
+     const cpp_hashnode *pragma;
 {
-  struct pragma_entry *next;
-  const char *name;
-  size_t len;
-  int isnspace;
-  union {
-    pragma_cb handler;
-    struct pragma_entry *space;
-  } u;
-};
+  while (chain && chain->pragma != pragma)
+    chain = chain->next;
 
+  return chain;
+}
+
+/* Create and insert a pragma entry for NAME at the beginning of a
+   singly-linked CHAIN.  If handler is NULL, it is a namespace,
+   otherwise it is a pragma and its handler.  */
+static struct pragma_entry *
+insert_pragma_entry (pfile, chain, pragma, handler)
+     cpp_reader *pfile;
+     struct pragma_entry **chain;
+     const cpp_hashnode *pragma;
+     pragma_cb handler;
+{
+  struct pragma_entry *new;
+
+  new = (struct pragma_entry *)
+    _cpp_aligned_alloc (pfile, sizeof (struct pragma_entry));
+  new->pragma = pragma;
+  if (handler)
+    {
+      new->is_nspace = 0;
+      new->u.handler = handler;
+    }
+  else
+    {
+      new->is_nspace = 1;
+      new->u.space = NULL;
+    }
+
+  new->next = *chain;
+  *chain = new;
+  return new;
+}
+
+/* Register a pragma NAME in namespace SPACE.  If SPACE is null, it
+   goes in the global namespace.  HANDLER is the handler it will call,
+   which must be non-NULL.  */
 void
 cpp_register_pragma (pfile, space, name, handler)
      cpp_reader *pfile;
@@ -875,130 +915,105 @@ cpp_register_pragma (pfile, space, name, handler)
      const char *name;
      pragma_cb handler;
 {
-  struct pragma_entry **x, *new;
-  size_t len;
+  struct pragma_entry **chain = &pfile->pragmas;
+  struct pragma_entry *entry;
+  const cpp_hashnode *node;
 
-  x = &pfile->pragmas;
+  if (!handler)
+    abort ();
+
   if (space)
     {
-      struct pragma_entry *p = pfile->pragmas;
-      len = strlen (space);
-      while (p)
-	{
-	  if (p->isnspace && p->len == len && !memcmp (p->name, space, len))
-	    {
-	      x = &p->u.space;
-	      goto found;
-	    }
-	  p = p->next;
-	}
-      cpp_ice (pfile, "unknown #pragma namespace %s", space);
-      return;
+      node = cpp_lookup (pfile, U space, strlen (space));
+      entry = lookup_pragma_entry (*chain, node);
+      if (!entry)
+	entry = insert_pragma_entry (pfile, chain, node, NULL);
+      else if (!entry->is_nspace)
+	goto clash;
+      chain = &entry->u.space;
     }
 
- found:
-  new = (struct pragma_entry *)
-    _cpp_pool_alloc (&pfile->macro_pool, sizeof (struct pragma_entry));
-  new->name = name;
-  new->len = strlen (name);
-  new->isnspace = 0;
-  new->u.handler = handler;
-
-  new->next = *x;
-  *x = new;
-}
-
-void
-cpp_register_pragma_space (pfile, space)
-     cpp_reader *pfile;
-     const char *space;
-{
-  struct pragma_entry *new;
-  const struct pragma_entry *p = pfile->pragmas;
-  size_t len = strlen (space);
-
-  while (p)
+  /* Check for duplicates.  */
+  node = cpp_lookup (pfile, U name, strlen (name));
+  entry = lookup_pragma_entry (*chain, node);
+  if (entry)
     {
-      if (p->isnspace && p->len == len && !memcmp (p->name, space, len))
-	/* Multiple different callers are allowed to register the same
-	   namespace.  */
-	return;
-      p = p->next;
+      if (entry->is_nspace)
+	clash:
+	cpp_ice (pfile,
+		 "registering \"%s\" as both a pragma and a pragma namespace",
+		 NODE_NAME (node));
+      else if (space)
+	cpp_ice (pfile, "#pragma %s %s is already registered", space, name);
+      else
+	cpp_ice (pfile, "#pragma %s is already registered", name);
     }
-
-  new = (struct pragma_entry *)
-    _cpp_pool_alloc (&pfile->macro_pool, sizeof (struct pragma_entry));
-  new->name = space;
-  new->len = len;
-  new->isnspace = 1;
-  new->u.space = 0;
-
-  new->next = pfile->pragmas;
-  pfile->pragmas = new;
+  else
+    insert_pragma_entry (pfile, chain, node, handler);
 }
-  
+
+/* Register the pragmas the preprocessor itself handles.  */
 void
 _cpp_init_internal_pragmas (pfile)
      cpp_reader *pfile;
 {
-  /* top level */
+  /* Pragmas in the global namespace.  */
   cpp_register_pragma (pfile, 0, "poison", do_pragma_poison);
   cpp_register_pragma (pfile, 0, "once", do_pragma_once);
 
-  /* GCC namespace */
-  cpp_register_pragma_space (pfile, "GCC");
-
+  /* New GCC-specific pragmas should be put in the GCC namespace.  */
   cpp_register_pragma (pfile, "GCC", "poison", do_pragma_poison);
   cpp_register_pragma (pfile, "GCC", "system_header", do_pragma_system_header);
   cpp_register_pragma (pfile, "GCC", "dependency", do_pragma_dependency);
 }
 
+/* Pragmata handling.  We handle some, and pass the rest on to the
+   front end.  C99 defines three pragmas and says that no macro
+   expansion is to be performed on them; whether or not macro
+   expansion happens for other pragmas is implementation defined.
+   This implementation never macro-expands the text after #pragma.  */
 static void
 do_pragma (pfile)
      cpp_reader *pfile;
 {
-  pragma_cb handler = NULL;
-  const struct pragma_entry *p;
-  cpp_token tok;
+  const struct pragma_entry *p = NULL;
+  const cpp_token *token;
+  unsigned int count = 1;
 
-  p = pfile->pragmas;
   pfile->state.prevent_expansion++;
-  cpp_start_lookahead (pfile);
 
- new_space:
-  cpp_get_token (pfile, &tok);
-  if (tok.type == CPP_NAME)
+  token = cpp_get_token (pfile);
+  if (token->type == CPP_NAME)
     {
-      const cpp_hashnode *node = tok.val.node;
-      size_t len = NODE_LEN (node);
-
-      while (p)
+      p = lookup_pragma_entry (pfile->pragmas, token->val.node);
+      if (p && p->is_nspace)
 	{
-	  if (strlen (p->name) == len
-	      && !memcmp (p->name, NODE_NAME (node), len))
-	    {
-	      if (p->isnspace)
-		{
-		  p = p->u.space;
-		  goto new_space;
-		}
-	      else
-		{
-		  handler = p->u.handler;
-		  break;
-		}
-	    }
-	  p = p->next;
+	  count = 2;
+	  token = cpp_get_token (pfile);
+	  if (token->type == CPP_NAME)
+	    p = lookup_pragma_entry (p->u.space, token->val.node);
+	  else
+	    p = NULL;
 	}
     }
 
-  cpp_stop_lookahead (pfile, handler != NULL);
-  pfile->state.prevent_expansion--;
+  /* FIXME.  This is an awful kludge to get the front ends to update
+     their notion of line number for diagnostic purposes.  The line
+     number should be passed to the handler and they should do it
+     themselves.  Stand-alone CPP must ignore us, otherwise it will
+     prefix the directive with spaces, hence the 1.  Ugh.  */
+  if (pfile->cb.line_change)
+    (*pfile->cb.line_change)(pfile, token, 1);
 
-  if (handler)
-    (*handler) (pfile);
+  if (p)
+    (*p->u.handler) (pfile);
   else if (pfile->cb.def_pragma)
-    (*pfile->cb.def_pragma) (pfile, pfile->directive_line);
+    {
+      _cpp_backup_tokens (pfile, count);
+      (*pfile->cb.def_pragma) (pfile, pfile->directive_line);
+    }
+
+  pfile->state.prevent_expansion--;
 }
 
 static void
@@ -1021,22 +1036,22 @@ do_pragma_poison (pfile)
 {
   /* Poison these symbols so that all subsequent usage produces an
      error message.  */
-  cpp_token tok;
+  const cpp_token *tok;
   cpp_hashnode *hp;
 
   pfile->state.poisoned_ok = 1;
   for (;;)
     {
-      _cpp_lex_token (pfile, &tok);
-      if (tok.type == CPP_EOF)
+      tok = _cpp_lex_token (pfile);
+      if (tok->type == CPP_EOF)
 	break;
-      if (tok.type != CPP_NAME)
+      if (tok->type != CPP_NAME)
 	{
 	  cpp_error (pfile, "invalid #pragma GCC poison directive");
 	  break;
 	}
 
-      hp = tok.val.node;
+      hp = tok->val.node;
       if (hp->flags & NODE_POISONED)
 	continue;
 
@@ -1065,7 +1080,7 @@ do_pragma_system_header (pfile)
   else
     {
       check_eol (pfile);
-      end_directive (pfile, 1);
+      skip_rest_of_line (pfile);
       cpp_make_system_header (pfile, 1, 0);
     }
 }
@@ -1077,46 +1092,61 @@ static void
 do_pragma_dependency (pfile)
      cpp_reader *pfile;
 {
-  cpp_token header, msg;
+  const cpp_token *header;
   int ordering;
  
-  if (parse_include (pfile, &header))
+  header = parse_include (pfile);
+  if (!header)
     return;
 
-  ordering = _cpp_compare_file_date (pfile, &header);
+  ordering = _cpp_compare_file_date (pfile, header);
   if (ordering < 0)
     cpp_warning (pfile, "cannot find source %s",
-		 cpp_token_as_text (pfile, &header));
+		 cpp_token_as_text (pfile, header));
   else if (ordering > 0)
     {
       cpp_warning (pfile, "current file is older than %s",
-		   cpp_token_as_text (pfile, &header));
-      cpp_start_lookahead (pfile);
-      cpp_get_token (pfile, &msg);
-      cpp_stop_lookahead (pfile, msg.type == CPP_EOF);
-      if (msg.type != CPP_EOF)
-	do_diagnostic (pfile, WARNING, 0);
+		   cpp_token_as_text (pfile, header));
+      if (cpp_get_token (pfile)->type != CPP_EOF)
+	{
+	  _cpp_backup_tokens (pfile, 1);
+	  do_diagnostic (pfile, WARNING, 0);
+	}
     }
 }
 
-/* Check syntax is "(string-literal)".  Returns 0 on success.  */
-static int
-get__Pragma_string (pfile, string)
+/* Get a token but skip padding.  */
+static const cpp_token *
+get_token_no_padding (pfile)
      cpp_reader *pfile;
-     cpp_token *string;
 {
-  cpp_token paren;
+  for (;;)
+    {
+      const cpp_token *result = cpp_get_token (pfile);
+      if (result->type != CPP_PADDING)
+	return result;
+    }
+}
 
-  cpp_get_token (pfile, &paren);
-  if (paren.type != CPP_OPEN_PAREN)
-    return 1;
+/* Check syntax is "(string-literal)".  Returns the string on success,
+   or NULL on failure.  */
+static const cpp_token *
+get__Pragma_string (pfile)
+     cpp_reader *pfile;
+{
+  const cpp_token *string;
 
-  cpp_get_token (pfile, string);
+  if (get_token_no_padding (pfile)->type != CPP_OPEN_PAREN)
+    return NULL;
+
+  string = get_token_no_padding (pfile);
   if (string->type != CPP_STRING && string->type != CPP_WSTRING)
-    return 1;
+    return NULL;
 
-  cpp_get_token (pfile, &paren);
-  return paren.type != CPP_CLOSE_PAREN;
+  if (get_token_no_padding (pfile)->type != CPP_CLOSE_PAREN)
+    return NULL;
+
+  return string;
 }
 
 /* Returns a malloced buffer containing a destringized cpp_string by
@@ -1146,21 +1176,30 @@ void
 _cpp_do__Pragma (pfile)
      cpp_reader *pfile;
 {
-  cpp_token string;
+  const cpp_token *string = get__Pragma_string (pfile);
   unsigned char *buffer;
   unsigned int len;
-  cpp_lexer_pos orig_pos;
 
-  orig_pos = pfile->lexer_pos;
-  if (get__Pragma_string (pfile, &string))
+  if (!string)
     cpp_error (pfile, "_Pragma takes a parenthesized string literal");
   else
     {
-      buffer = destringize (&string.val.str, &len);
+      /* Ideally, we'd like
+			token1 _Pragma ("foo") token2
+	 to be output as
+			token1
+			# 7 "file.c"
+			#pragma foo
+			# 7 "file.c"
+					       token2
+	 Getting these correct line markers is a little tricky.  */
+
+      unsigned int orig_line = pfile->line;
+      buffer = destringize (&string->val.str, &len);
       run_directive (pfile, T_PRAGMA, (char *) buffer, len);
       free ((PTR) buffer);
-      pfile->lexer_pos = orig_pos;
-      pfile->line = pfile->lexer_pos.line;
+      pfile->line = orig_line;
+      pfile->buffer->saved_flags = BOL;
     }
 }
 
@@ -1249,7 +1288,7 @@ do_else (pfile)
       if (ifs->type == T_ELSE)
 	{
 	  cpp_error (pfile, "#else after #else");
-	  cpp_error_with_line (pfile, ifs->pos.line, ifs->pos.col,
+	  cpp_error_with_line (pfile, ifs->line, 0,
 			       "the conditional began here");
 	}
       ifs->type = T_ELSE;
@@ -1284,7 +1323,7 @@ do_elif (pfile)
       if (ifs->type == T_ELSE)
 	{
 	  cpp_error (pfile, "#elif after #else");
-	  cpp_error_with_line (pfile, ifs->pos.line, ifs->pos.col,
+	  cpp_error_with_line (pfile, ifs->line, 0,
 			       "the conditional began here");
 	}
       ifs->type = T_ELIF;
@@ -1350,7 +1389,7 @@ push_conditional (pfile, skip, type, cmacro)
   cpp_buffer *buffer = pfile->buffer;
 
   ifs = xobnew (&pfile->buffer_ob, struct if_stack);
-  ifs->pos = pfile->directive_pos;
+  ifs->line = pfile->directive_line;
   ifs->next = buffer->if_stack;
   ifs->skip_elses = pfile->state.skipping || !skip;
   ifs->was_skipping = pfile->state.skipping;
@@ -1375,51 +1414,39 @@ parse_answer (pfile, answerp, type)
      struct answer **answerp;
      int type;
 {
-  cpp_token paren, *token;
+  const cpp_token *paren;
   struct answer *answer;
-
-  if (POOL_FRONT (&pfile->macro_pool) + sizeof (struct answer) >
-      POOL_LIMIT (&pfile->macro_pool))
-    _cpp_next_chunk (&pfile->macro_pool, sizeof (struct answer), 0);
-  answer = (struct answer *) POOL_FRONT (&pfile->macro_pool);
-  answer->count = 0;
+  unsigned int acount;
 
   /* In a conditional, it is legal to not have an open paren.  We
      should save the following token in this case.  */
-  if (type == T_IF)
-    cpp_start_lookahead (pfile);
-  cpp_get_token (pfile, &paren);
-  if (type == T_IF)
-    cpp_stop_lookahead (pfile, paren.type == CPP_OPEN_PAREN);
+  paren = cpp_get_token (pfile);
 
   /* If not a paren, see if we're OK.  */
-  if (paren.type != CPP_OPEN_PAREN)
+  if (paren->type != CPP_OPEN_PAREN)
     {
       /* In a conditional no answer is a test for any answer.  It
          could be followed by any token.  */
       if (type == T_IF)
-	return 0;
+	{
+	  _cpp_backup_tokens (pfile, 1);
+	  return 0;
+	}
 
       /* #unassert with no answer is valid - it removes all answers.  */
-      if (type == T_UNASSERT && paren.type == CPP_EOF)
+      if (type == T_UNASSERT && paren->type == CPP_EOF)
 	return 0;
 
       cpp_error (pfile, "missing '(' after predicate");
       return 1;
     }
 
-  for (;;)
+  for (acount = 0;; acount++)
     {
-      token = &answer->first[answer->count];
-      /* Check we have room for the token.  */
-      if ((unsigned char *) (token + 1) >= POOL_LIMIT (&pfile->macro_pool))
-	{
-	  _cpp_next_chunk (&pfile->macro_pool, sizeof (cpp_token),
-			   (unsigned char **) &answer);
-	  token = &answer->first[answer->count];
-	}
+      size_t room_needed;
+      const cpp_token *token = cpp_get_token (pfile);
+      cpp_token *dest;
 
-      cpp_get_token (pfile, token);
       if (token->type == CPP_CLOSE_PAREN)
 	break;
 
@@ -1428,21 +1455,32 @@ parse_answer (pfile, answerp, type)
 	  cpp_error (pfile, "missing ')' to complete answer");
 	  return 1;
 	}
-      answer->count++;
+
+      /* struct answer includes the space for one token.  */
+      room_needed = (sizeof (struct answer) + acount * sizeof (cpp_token));
+
+      if (BUFF_ROOM (pfile->a_buff) < room_needed)
+	_cpp_extend_buff (pfile, &pfile->a_buff, sizeof (struct answer));
+
+      dest = &((struct answer *) BUFF_FRONT (pfile->a_buff))->first[acount];
+      *dest = *token;
+
+      /* Drop whitespace at start, for answer equivalence purposes.  */
+      if (acount == 0)
+	dest->flags &= ~PREV_WHITE;
     }
 
-  if (answer->count == 0)
+  if (acount == 0)
     {
       cpp_error (pfile, "predicate's answer is empty");
       return 1;
     }
 
-  /* Drop whitespace at start.  */
-  answer->first->flags &= ~PREV_WHITE;
+  answer = (struct answer *) BUFF_FRONT (pfile->a_buff);
+  answer->count = acount;
+  answer->next = NULL;
   *answerp = answer;
 
-  if (type == T_ASSERT || type == T_UNASSERT)
-    check_eol (pfile);
   return 0;
 }
 
@@ -1456,25 +1494,25 @@ parse_assertion (pfile, answerp, type)
      int type;
 {
   cpp_hashnode *result = 0;
-  cpp_token predicate;
+  const cpp_token *predicate;
 
   /* We don't expand predicates or answers.  */
   pfile->state.prevent_expansion++;
 
   *answerp = 0;
-  cpp_get_token (pfile, &predicate);
-  if (predicate.type == CPP_EOF)
+  predicate = cpp_get_token (pfile);
+  if (predicate->type == CPP_EOF)
     cpp_error (pfile, "assertion without predicate");
-  else if (predicate.type != CPP_NAME)
+  else if (predicate->type != CPP_NAME)
     cpp_error (pfile, "predicate must be an identifier");
   else if (parse_answer (pfile, answerp, type) == 0)
     {
-      unsigned int len = NODE_LEN (predicate.val.node);
+      unsigned int len = NODE_LEN (predicate->val.node);
       unsigned char *sym = alloca (len + 1);
 
       /* Prefix '#' to get it out of macro namespace.  */
       sym[0] = '#';
-      memcpy (sym + 1, NODE_NAME (predicate.val.node), len);
+      memcpy (sym + 1, NODE_NAME (predicate->val.node), len);
       result = cpp_lookup (pfile, sym, len + 1);
     }
 
@@ -1552,11 +1590,13 @@ do_assert (pfile)
 	    }
 	  new_answer->next = node->value.answers;
 	}
+
       node->type = NT_ASSERTION;
       node->value.answers = new_answer;
-      POOL_COMMIT (&pfile->macro_pool, (sizeof (struct answer)
-					+ (new_answer->count - 1)
-					* sizeof (cpp_token)));
+      BUFF_FRONT (pfile->a_buff) += (sizeof (struct answer)
+				     + (new_answer->count - 1)
+				     * sizeof (cpp_token));
+      check_eol (pfile);
     }
 }
 
@@ -1583,6 +1623,8 @@ do_unassert (pfile)
 	  /* Did we free the last answer?  */
 	  if (node->value.answers == 0)
 	    node->type = NT_VOID;
+
+	  check_eol (pfile);
 	}
       else
 	_cpp_free_definition (node);
@@ -1754,6 +1796,7 @@ cpp_push_buffer (pfile, buffer, len, from_stage3, return_at_eof)
   new->from_stage3 = from_stage3;
   new->prev = pfile->buffer;
   new->return_at_eof = return_at_eof;
+  new->saved_flags = BOL;
 
   pfile->buffer = new;
 
@@ -1773,14 +1816,10 @@ _cpp_pop_buffer (pfile)
   /* Walk back up the conditional stack till we reach its level at
      entry to this file, issuing error messages.  */
   for (ifs = buffer->if_stack; ifs; ifs = ifs->next)
-    cpp_error_with_line (pfile, ifs->pos.line, ifs->pos.col,
+    cpp_error_with_line (pfile, ifs->line, 0,
 			 "unterminated #%s", dtable[ifs->type].name);
 
-  /* The output line can fall out of sync if we missed the final
-     newline from the previous buffer, for example because of an
-     unterminated comment.  Similarly, skipping needs to be cleared in
-     case of a missing #endif.  */
-  pfile->lexer_pos.output_line = pfile->line;
+  /* In case of a missing #endif.  */
   pfile->state.skipping = 0;
 
   /* Update the reader's buffer before _cpp_do_file_change.  */

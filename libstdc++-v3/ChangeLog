@@ -1,3 +1,492 @@
+2001-10-12  Loren J. Rittle  <ljrittle@acm.org>
+
+	* docs/html/faq/index.html (Is libstdc++-v3 thread-safe?): Update
+	based on Nathan's review.  Use Nathan's words.
+
+2001-10-11  Matt Kraai  <kraai@alumni.carnegiemellon.edu>
+
+	* docs/html/configopts.html: Quote StyleSheet attribute values.
+	* docs/html/documentation.html: Likewise.
+	* docs/html/explanations.html: Likewise.
+	* docs/html/install.html: Likewise.
+	* docs/html/17_intro/howto.html: Likewise.
+	* docs/html/17_intro/license.html: Likewise.
+	* docs/html/18_support/howto.html: Likewise.
+	* docs/html/19_diagnostics/howto.html: Likewise.
+	* docs/html/20_util/howto.html: Likewise.
+	* docs/html/21_strings/howto.html: Likewise.
+	* docs/html/22_locale/howto.html: Likewise.
+	* docs/html/23_containers/howto.html: Likewise.
+	* docs/html/24_iterators/howto.html: Likewise.
+	* docs/html/25_algorithms/howto.html: Likewise.
+	* docs/html/26_numerics/howto.html: Likewise.
+	* docs/html/27_io/howto.html: Likewise.
+	* docs/html/ext/howto.html: Likewise.
+	* docs/html/ext/sgiexts.html: Likewise.
+	* docs/html/faq/index.html: Likewise.
+
+2001-10-11  Loren J. Rittle  <ljrittle@acm.org>
+
+	* docs/html/faq/index.html (Is libstdc++-v3 thread-safe?): Rewrite.
+	* docs/html/23_containers/howto.html (Containers and multithreading):
+	Update.
+
+2001-10-09  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/17_intro/howto.html:  Tweak markup and value type.
+	* docs/html/27_io/howto.html:  Tweak markup, describe setbuf() for
+	nonzero arguments, add new note on threading.
+	* docs/html/faq/index.html:  Update.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2001-10-09  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/configopts.html:  More HTML->XHTML and lowercasing of tags.
+	* docs/html/documentation.html:  Likewise.
+	* docs/html/explanations.html:  Likewise.
+	* docs/html/install.html:  Likewise.
+	* docs/html/17_intro/howto.html:  Likewise.
+	* docs/html/17_intro/license.html:  Likewise.  Tighten up language.
+	* docs/html/18_support/howto.html:  Likewise.
+	* docs/html/19_diagnostics/howto.html:  Likewise.
+	* docs/html/20_util/howto.html:  Likewise.
+	* docs/html/21_strings/howto.html:  Likewise.
+	* docs/html/22_locale/howto.html:  Likewise.
+	* docs/html/23_containers/howto.html:  Likewise.
+	* docs/html/24_iterators/howto.html:  Likewise.
+	* docs/html/25_algorithms/howto.html:  Likewise.
+	* docs/html/26_numerics/howto.html:  Likewise.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise.
+	* docs/html/ext/sgiexts.html:  Likewise.
+	* docs/html/faq/index.html:  Likewise.  Not so many absolute links.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2001-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* docs/html/22_locale/locale.html, docs/html/faq/index.html: Fix
+	spelling errors of "separate" as "seperate", and corresponding
+	spelling errors of related words.
+	* docs/html/faq/index.txt: Regenerate.
+
+2001-10-05  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config/cpu/alpha/bits/atomicity.h (__compare_and_swap):  Remove
+	unused function.
+	* config/cpu/arm/bits/atomicity.h:  Likewise.
+	* config/cpu/generic/bits/atomicity.h:  Likewise.
+	* config/cpu/i486/bits/atomicity.h:  Likewise.
+	* config/cpu/ia64/bits/atomicity.h:  Likewise.
+	* config/cpu/mips/bits/atomicity.h:  Likewise.
+	* config/cpu/powerpc/bits/atomicity.h:  Likewise.
+	* config/cpu/sparc/sparc32/bits/atomicity.h:  Likewise.
+	* config/cpu/sparc/sparc64/bits/atomicity.h:  Likewise.
+
+2001-10-04  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Describe DR #22, and a workaround.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2001-10-04  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/17_intro/COPYING.DOC:  New file, GFDL v1.1 from the FSF.
+	* docs/html/17_intro/license.html:  New file.  Explain the licenses
+	in use.
+
+	* docs/html/configopts.html:  Link to license.html.
+	* docs/html/documentation.html:  Likewise.
+	* docs/html/explanations.html:  Likewise.
+	* docs/html/install.html:  Likewise.
+	* docs/html/17_intro/howto.html:  Likewise.
+	* docs/html/18_support/howto.html:  Likewise.
+	* docs/html/19_diagnostics/howto.html:  Likewise.
+	* docs/html/20_util/howto.html:  Likewise.
+	* docs/html/21_strings/howto.html:  Likewise.
+	* docs/html/22_locale/howto.html:  Likewise.
+	* docs/html/23_containers/howto.html:  Likewise.
+	* docs/html/24_iterators/howto.html:  Likewise.
+	* docs/html/25_algorithms/howto.html:  Likewise.
+	* docs/html/26_numerics/howto.html:  Likewise.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise.
+	* docs/html/ext/sgiexts.html:  Likewise.
+	* docs/html/faq/index.html:  Likewise.  New question, linking to
+	the new license.html.
+
+2001-10-04  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/17_intro/howto.html:  Fix mis-sed in header from 20010917.
+	* docs/html/18_support/howto.html:  Likewise.
+	* docs/html/19_diagnostics/howto.html:  Likewise.
+	* docs/html/20_util/howto.html:  Likewise.
+	* docs/html/21_strings/howto.html:  Likewise.
+	* docs/html/22_locale/howto.html:  Likewise.
+	* docs/html/23_containers/howto.html:  Likewise.
+	* docs/html/24_iterators/howto.html:  Likewise.
+	* docs/html/25_algorithms/howto.html:  Likewise.
+	* docs/html/26_numerics/howto.html:  Likewise.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise.
+	* docs/html/faq/index.html:  Likewise.  Spacing fix.
+
+2001-10-03  Dimitris Vyzovitis  <vyzo@media.mit.edu>
+
+	* include/bits/stl_threads.h (_Atomic_swap): New function.
+	(_Swap_lock_struct<__dummy>::_S_swap_lock): New data.
+	* testsuite/ext/rope.cc: New file.
+
+2001-10-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/locale/time_members_gnu.h: Remove.
+	* config/locale/time_members_generic.h: Remove.	
+	* config/locale/time_members_gnu.cc (__timepunct::_M_put_helper): Add.
+	* config/locale/time_members_generic.cc: Same.
+	* include/bits/locale_facets.h: Add data members.
+	(__timepunct::_M_put_helper): Change signature.
+	(__timepunct::_M_date_formats): Same.
+	(__timepunct::_M_time_formats): Same.	
+	(__timepunct::_M_ampm): Add.
+	(__timepunct::_M_date_time_formats): Add.
+	(time_get::_M_extract_via_format): Add.
+	(time_get::_M_extract_time): Change to...
+	(time_get::_M_extract_num): ... this, modify signature.
+	* include/bits/locale_facets.tcc (time_get::do_get_year): Fix.
+	(time_get::do_get_time): Fix.
+	(time_get::do_get_date): Fix.	
+	
+	* acinclude.m4: Remove CTIME_H.
+	* aclocal.m4: Regenerate.
+	* include/Makefile.am: Same.
+	* include/Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+	* testsuite/22_locale/time_get_members_char.cc: Fix.
+	* testsuite/22_locale/time_get_members_wchar_t.cc: Add.
+	* testsuite/22_locale/time_put_members_wchar_t.cc: Add.	
+	
+2001-10-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cpu/cris/bits/atomicity.h: Correct file header.
+
+2001-09-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure.target (LIMITSH): Set for cris.
+	(cpu_include_dir): Set for cris-*-*.
+	* config/cpu/cris/bits/atomicity.h: New file.
+	* config/cpu/cris/bits/limits.h: New file.
+
+2001-09-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/locale/time_members_gnu.h (__timepunct::_M_get_helper): Add.
+	(__timepunct::_M_put_helper): Add.
+	* config/locale/time_members_generic.h: Same.
+	* include/bits/locale_facets.h (__match_parallel): Remove. Format.
+	(__timepunct): Add data members.
+	(__timepunct::_M_days): Add.
+	(__timepunct::_M_days_abbreviated): Add.
+	(__timepunct::_M_months): Add.
+	(__timepunct::_M_months_abbreviated): Add.
+	(__timepunct::_M_initialize_timepunct): Add.
+	* include/bits/locale_facets.tcc: Same. 
+	* src/locale-inst.cc: Remove instantiations for __match_parallel.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Add CTIME_CC.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* testsuite/22_locale/time_put_members_char.cc: Mark XFAIL.
+	* testsuite/22_locale/time_put_members_char.cc (test01): New file.
+	* testsuite/22_locale/time_get.cc: New file.
+
+2001-09-28  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Use
+	correct multilib builddir.
+	Properly locate libgcc_s.
+
+2001-09-27  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/*:  Add Doxygen hooks.
+	* docs/doxygen/Intro.3:  New file, general intro to the man pages.
+	* docs/doxygen/mainpage.doxy:  Formatting tweaks.  List our own links
+	rather than using a generated index.
+	* docs/doxygen/user.cfg.in:  Disable the index, enable man pages.
+	* docs/doxygen/run_doxygen:  Massage the generated man pages, using...
+	* docs/doxygen/stdheader.cc:  ...this new file.
+
+2001-09-26  Stan Shebs  <shebs@apple.com>
+
+	* include/Makefile.am: Remove RCS Id strings.
+	* src/Makefile.am: Ditto.
+	* docs/doxygen/run_doxygen: Ditto.
+	* docs/html/configopts.html: Ditto.
+	* docs/html/documentation.html: Ditto.
+	* docs/html/explanations.html: Ditto.
+	* docs/html/install.html: Ditto.
+	* docs/html/17_intro/howto.html: Ditto.
+	* docs/html/18_support/howto.html: Ditto.
+	* docs/html/19_diagnostics/howto.html: Ditto.
+	* docs/html/20_util/howto.html: Ditto.
+	* docs/html/21_strings/howto.html: Ditto.
+	* docs/html/22_locale/howto.html: Ditto.
+	* docs/html/23_containers/howto.html: Ditto.
+	* docs/html/24_iterators/howto.html: Ditto.
+	* docs/html/25_algorithms/howto.html: Ditto.
+	* docs/html/26_numerics/howto.html: Ditto.
+	* docs/html/27_io/howto.html: Ditto.
+	* docs/html/ext/howto.html: Ditto.
+	* docs/html/ext/sgiexts.html: Ditto.
+	* docs/html/faq/index.html: Ditto.
+	* docs/html/faq/index.txt: Ditto.
+	
+2001-09-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/21_strings/c_strings.cc (test01, test02):  Increase
+	`carray' size.
+
+2001-09-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/20_util/howto.html:  Add anchor name.
+	* docs/html/23_containers/howto.html:  Line wrapping, another link.
+	* docs/html/25_algorithms/howto.html:  Another note.
+
+	* docs/html/ext/howto.html:  Link to SGI extensions.  List DRs and
+	link to them...
+	* docs/html/ext/lwg-active.html:  ...in this new file (from R19),
+	* docs/html/ext/lwg-defects.html:  and this new file (from R19).
+	* docs/html/ext/sgiexts.html:  New file.  Mention SGI extensions
+	carried over to libstdc++-v3.
+	* docs/html/faq/index.html:  Link to SGI extensions.  Mention the
+	"missing .." pseudobug.
+	* docs/html/faq/index.txt:  Regenerate.
+
+	* include/bits/ios_base.h:  DR-related comment cleanup.
+	* include/bits/istream.tcc:  Likewise.
+	* include/bits/locale_facets.h:  Likewise.
+	* include/bits/locale_facets.tcc:  Likewise.
+	* include/bits/ostream.tcc:  Likewise.
+	* include/bits/std_bitset.h:  Likewise.
+	* include/bits/std_iosfwd.h:  Likewise.
+	* include/bits/std_istream.h:  Likewise.
+	* include/bits/std_ostream.h:  Likewise.
+	* include/bits/std_streambuf.h:  Likewise.
+	* include/bits/stl_pair.h:  Likewise.
+	* include/bits/streambuf_iterator.h:  Likewise.
+
+	* include/bits/std_map.h:  Remove unused header inclusion guard
+	_CPP_BITS_STL_TREE_H from around bits/stl_tree.h.
+	* include/bits/std_set.h:  Likewise.
+
+	* include/bits/stl_function.h:  Doxygen markup.
+	* docs/doxygen/doxygroups.cc:  New file, specifying module grouping.
+	* libsupc++/typeinfo:  Doxygen markup tweak.
+
+2001-09-20  Scott Johnston <scott@accom.com>
+	    Peter Schmid <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* include/backward/alloc.h: Conditionally define malloc_alloc 
+	* testsuite/backward/header_deque_h.cc: New file.
+
+2001-09-20  Sylvain Pion <Sylvain.Pion@sophia.inria.fr>
+
+	* libstdc++-v3/include/bits/locale_facets.tcc (money_put::do_put): 
+	change variable name so that it works with -fno-for-scope.
+
+2001-09-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/numpunct_members_char.cc (test01): Remove
+	redundant sanity checks.
+	* testsuite/22_locale/money_put_members_wchar_t.cc (test01): Same.
+	(test02): Same.
+	* testsuite/22_locale/money_put_members_char.cc (test01): Same.
+	(test02): Same.
+	* testsuite/22_locale/moneypunct_members_wchar_t.cc (test01): Same.
+	* testsuite/22_locale/moneypunct_members_char.cc (test01): Same.
+	* testsuite/22_locale/money_get_members_wchar_t.cc (test01): Same.
+	(test02): Same.
+	* testsuite/22_locale/money_get_members_char.cc (test01): Same.
+	(test02): Same.
+
+2001-09-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Implement std::time_put.
+	* include/bits/locale_facets.h: Include time_members.h.
+	(__timepunct): New.
+	(time_put): Implement.
+	* include/bits/locale_facets.tcc (do_put): Put generic versions here.
+	* include/bits/localefwd.h: Bump number of facets.
+	* config/locale/time_members_generic.h: New file.
+	* config/locale/time_members_gnu.h: New file.
+	* config/locale/c_locale_generic.h: Include clocale.
+	* src/locale-inst.cc: Add use_facet instantiations for __timepunct.
+	* src/locale.cc: Add __timepunct initializations.
+	* src/localename.cc (locale::_Impl::_Impl(string, size_t)): Same.
+	* include/Makefile.am (stamp-target): Add time_members.h.
+	* include/Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_ENABLE_CLOCALE): Add CTIME_H.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* testsuite/22_locale/time_put.cc: New file.
+	* testsuite/22_locale/time_put_members_char.cc: New file.
+
+	* docs/html/22_locale/locale.html: Add note.
+
+2001-09-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/configopts.html:  HTML to XHTML change.  Lowercase tags.
+	* docs/html/documentation.html:  Likewise.
+	* docs/html/explanations.html:  Likewise.
+	* docs/html/install.html:  Likewise.
+	* docs/html/17_intro/howto.html:  Likewise.
+	* docs/html/18_support/howto.html:  Likewise.
+	* docs/html/19_diagnostics/howto.html:  Likewise.
+	* docs/html/20_util/howto.html:  Likewise.
+	* docs/html/21_strings/howto.html:  Likewise.
+	* docs/html/22_locale/codecvt.html:  Likewise.
+	* docs/html/22_locale/ctype.html:  Likewise.
+	* docs/html/22_locale/howto.html:  Likewise.
+	* docs/html/22_locale/locale.html:  Likewise.
+	* docs/html/22_locale/messages.html:  Likewise.
+	* docs/html/23_containers/howto.html:  Likewise.
+	* docs/html/24_iterators/howto.html:  Likewise.
+	* docs/html/25_algorithms/howto.html:  Likewise.
+	* docs/html/26_numerics/howto.html:  Likewise.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise.
+	* docs/html/faq/index.html:  Likewise.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2001-09-14  Phil Edwards  <pme@sources.redhat.com>
+
+	* docs/html/17_intro/headers_cc.txt:  "Sync"/copy real file over.
+	* docs/html/17_intro/howto.html:  Spacing and HTML markup fixes.
+	* docs/html/18_support/howto.html:  It won't compile; it's not code.
+	* docs/html/19_diagnostics/howto.html:  Point diagram seekers to
+	doxygen'd pages.
+	* docs/html/22_locale/howto.html:  Comment for future work.
+	* docs/html/23_containers/howto.html:  More comments.
+	* docs/html/25_algorithms/howto.html:  It's a comment, not a
+	blunt command to the reader.  (English grammar.)
+
+2001-09-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/locale/moneypunct_members_gnu.cc: Fix initialization of
+	wchar_t members.
+	* testsuite/22_locale/money_get_members_wchar_t.cc (test02): New file.
+	* testsuite/22_locale/money_put_members_wchar_t.cc (test02): Fix.
+
+2001-09-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc: Conditionalize use of strtold.
+
+2001-09-13  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* testsuite/22_locale/money_get_members_char.cc: Fixed typo in comment.
+	* testsuite/22_locale/money_put_members_char.cc: Likewise.
+	* testsuite/22_locale/money_put_members_wchar_t.cc: Likewise.
+
+2001-09-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Implement std::money_get.
+	* include/bits/locale_facets.tcc (money_get::do_get): Implement.
+	* include/bits/locale_facets.h (money_get): Correct signatures.
+	* testsuite/22_locale/money_get.cc: New file.
+	* testsuite/22_locale/money_get_members_char.cc: New file.
+
+	* include/bits/locale_facets.tcc (__verify_grouping): New
+	function. Consolidate num_get and money_get group checking into
+	one function.
+	(money_get): Use it.
+	* src/locale.cc (num_get::_M_extract): Use it.
+	* src/locale-inst.cc: Add instantiation.
+	
+2001-09-12  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/std_limits.h (numeric_limits<float>::radix,
+	numeric_limits<float>::epsilon:  Fix thinko.
+
+2001-09-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in: Fix cross compiling math routines. Correct
+	comments for cross compiling and limits. Add floating point math
+	routines found in newlib.
+	* configure: Regenerate.
+	* acconfig.h: Add macros.
+	* config.h.in: Regenerate.
+	
+2001-09-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/locale/moneypunct_members_generic.cc
+	(money_base::_S_construct_pattern): Remove unused parameters.
+
+2001-09-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (stamp-target): Remove link to self.
+	* inclulde/Makefile.in: Regenerate.
+	
+2001-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Implement std::money_put.
+	* include/bits/locale_facets.h
+	(moneypunct::_M_initialize_moneypunct): Split up specializations
+	to account for _Intl.  More grody hacking to get around the
+	ill-considered use of const bool as a template parameter.
+	* config/locale/moneypunct_members_gnu.cc: And here.
+	* config/locale/moneypunct_members_generic.cc: And here.	
+	* testsuite/22_locale/moneypunct_members_char.cc: Add tests.
+	* testsuite/22_locale/moneypunct.cc: Add tests.
+	* testsuite/22_locale/money_put_members_wchar_t.cc: New file.
+	* testsuite/22_locale/moneypunct_members_wchar_t.cc: New file.
+	
+	* src/locale.cc (money_base::_S_construct_pattern): Move into
+	gnu-specific file.
+	* config/locale/moneypunct_members_gnu.cc: Add here.
+	* config/locale/moneypunct_members_generic.cc: Add generic version
+	here.
+
+	* include/bits/locale_facets.tcc (money_put::do_put): Move member
+	function definitions here.
+	* include/bits/locale_facets.h (money_put): Implement.
+	* src/locale-inst.cc: Add use_facet instantiations for moneypunct.
+	Correct money_get, money_put instantiations.
+	* src/locale.cc (money_base::_S_construct_pattern): Handle case
+	where __posn == 0.
+	* testsuite/22_locale/money_put_members_char.cc: Add tests.
+	
+2001-09-05  Phil Edwards  <pme@sources.redhat.com>
+
+	* testsuite_flags.in:  No longer need to search testsuite builddir.
+	* src/stl-inst.cc (__sink_unused_warning):  Unused, remove.
+	* Makefile.am:  The testsuite directory never needs to be made here.
+	* Makefile.in:  Regenerate.
+	* include/Makefile.in:  Regenerate.
+	* libio/Makefile.in:  Regenerate.
+	* libmath/Makefile.in:  Regenerate.
+	* libsupc++/Makefile.in:  Regenerate.
+	* po/Makefile.in:  Regenerate.
+	* src/Makefile.in:  Regenerate.
+	* testsuite/Makefile.in:  Regenerate.
+
+2001-09-04  Scott Johnston  <scott@accom.com>
+	    Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* include/backward/iterator.h: Include <bits/std_iterator.h>,
+	remove reverse_bidirectional_iterator. 
+	* testsuite/backward: New directory.
+	* testsuite/backward/header_iterator_h.cc: New file.
+	
+2001-09-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/bits/std_c*.h: Don't use include_next.
+
+2001-09-03  Richard Sandiford  <rsandifo@redhat.com>
+
+	* libsupc++/eh_personality.cc (parse_lsda_header): Change type of
+	tmp from _Unwind_Ptr to _Unwind_Word.
+
+2001-08-31  Jason Merrill  <jason_merrill@redhat.com>
+
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Simplify
+	leb128 handling.
+
 2001-08-28  Loren J. Rittle  <ljrittle@acm.org>
 
 	* include/Makefile.am: Use toplevel_srcdir to refer to src files
@@ -594,7 +1083,7 @@
 
 2001-07-19  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
-        * include/bits/stl_algo.h : Fix typos.
+	* include/bits/stl_algo.h : Fix typos.
 	* testsuite/25_algorithms/unique.cc: New file.
 	
 2001-07-19  Phil Edwards  <pme@sources.redhat.com>
@@ -613,7 +1102,7 @@
 	* src/locale.cc:  Likewise.
 
 2001-07-19  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
-	    Bert De Knuydt <Bert.Deknuydt@esat.kuleuven.ac.be>
+            Bert De Knuydt <Bert.Deknuydt@esat.kuleuven.ac.be>
 
 	* src/gen-num-limits.cc (set_signals_handler): New function.
 	Factor out signals setting.  Set signal handler for SIGILL.
@@ -627,9 +1116,9 @@
 2001-07-18  Stephen M. Webb  <stephen@bregmasoft..com>
             Roman Sulzhyk  <roman_sulzhyk@yahoo.com>
 
-        libstdc++/3599
-        * include/bits/ostream.tcc (ostream::put): Fixed error condition check.
-        * testsuite/27_io/streambuf.cc (test07): Added new regression test.
+	libstdc++/3599
+	* include/bits/ostream.tcc (ostream::put): Fixed error condition check.
+	* testsuite/27_io/streambuf.cc (test07): Added new regression test.
 
 2001-07-17  Stephen M. Webb   <stephen@bregmasoft.com>r
 
@@ -796,21 +1285,21 @@
 
 2001-07-06  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
 
-        * libmath/Makefile.am (EXTRA_DIST): Remove atan2f.c and expf.c
-        * libmath/Makefile.in: Regenerate.
-        * libmath/expf.c: Remove.
-        * libmath/atan2f.c: Likewise.
+	* libmath/Makefile.am (EXTRA_DIST): Remove atan2f.c and expf.c
+	* libmath/Makefile.in: Regenerate.
+	* libmath/expf.c: Remove.
+	* libmath/atan2f.c: Likewise.
 
 2001-07-06  Daniel Jacobowitz  <drow@mvista.com>
 
-        * configure.in: Remove NATIVE, NULL_TARGET.
-        Set CANADIAN only for Canadian crosses.  Set xcompiling
-        for both Canadian crosses and host-x-host crosses.
-        * configure: Regenerated.
+	* configure.in: Remove NATIVE, NULL_TARGET.
+	Set CANADIAN only for Canadian crosses.  Set xcompiling
+	for both Canadian crosses and host-x-host crosses.
+	* configure: Regenerated.
 
 2001-07-06  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
-        * include/bits/stl_vector.h (vector::_M_initialize_aux): Fix typo.
+	* include/bits/stl_vector.h (vector::_M_initialize_aux): Fix typo.
 
 2001-07-05  Jason Merrill  <jason_merrill@redhat.com>
 
@@ -888,11 +1377,11 @@
 2001-07-01  Stephen M. Webb <stephen@bregmasoft.com>
 
 	* include/bits/stl_construct.h (construct): Remove.
-      	(destroy): Remove.
-      	(__destroy): Replaced by use of iterator_traits.
+	(destroy): Remove.
+	(__destroy): Replaced by use of iterator_traits.
 	* include/bits/stl_deque.h: replaced HP iterator functions with
 	iterator_traits.
-        (construct): changed to _Construct.
+	(construct): changed to _Construct.
 	(destroy): changed to _Destroy.
 	* include/bits/stl_tempbuf.h: Same.
 	* include/bits/stl_tree.h: Same.
@@ -1057,8 +1546,8 @@
 2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
             Alexandre Petit-Bianco  <apbianco@redhat.com>
 
-        * testsuite/21_strings/element_access.cc (test01): Chill Out Cafe
-        is on 41st, not 14th.
+	* testsuite/21_strings/element_access.cc (test01): Chill Out Cafe
+	is on 41st, not 14th.
 
 2001-06-26  Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -1245,9 +1734,9 @@
 	* include/bits/stl_raw_storage_iter.h: Format. Correct derivation.
 	* testsuite/20_util/raw_storage_iterator.cc: Same.
 	
-        * include/bits/stl_alloc.h (_S_chunk_alloc): Change malloc to
-        operator new.
-        (__mem_interface): New typedef for switching between malloc and new.
+	* include/bits/stl_alloc.h (_S_chunk_alloc): Change malloc to
+	operator new.
+	(__mem_interface): New typedef for switching between malloc and new.
 	* testsuite/20_util/allocator_members.cc: New file.	
 
 	* testsuite/20_util/comparisons.cc: New file.
@@ -1535,7 +2024,7 @@
 	* include/bits/c++config: Cleanup threading configuration macros.
 	In particular, define __STL_GTHREADS macro which controls...
 	* include/bits/stl_threads.h: ...a brand new gthr.h-based
-        configuration here.
+	configuration here.
 
 	* config/c_io_stdio.h: Include staged gthr.h instead of local
 	thread configuration file.  Always use __gthread_mutex_t
@@ -1718,8 +2207,8 @@
 
 2001-05-30  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
-        * testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Use
-        get_multilibs to find gcc.
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Use
+	get_multilibs to find gcc.
 	
 2001-05-30  Phil Edwards  <pme@sources.redhat.com>
 
@@ -1729,14 +2218,14 @@
 
 2001-05-29  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
  
-       * include/c_std/bits/std_cstdlib.h:: Move C99 thingies to __gnu_cxx::. 
-       * include/c_std/bits/std_cwchar.h (__gnu_cxx): Likewise.
+	* include/c_std/bits/std_cstdlib.h:: Move C99 thingies to __gnu_cxx::. 
+	* include/c_std/bits/std_cwchar.h (__gnu_cxx): Likewise.
  
 2001-05-27  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
 
-       * include/c_std/bits/std_cmath.h: Move C99 functions in __gnu_cxx::.
-       * include/c_std/bits/std_cstdlib.h: Same.
-       * include/c_std/bits/std_cwchar.h: Same.
+	* include/c_std/bits/std_cmath.h: Move C99 functions in __gnu_cxx::.
+	* include/c_std/bits/std_cstdlib.h: Same.
+	* include/c_std/bits/std_cwchar.h: Same.
 
 2001-05-30  Loren J. Rittle  <ljrittle@acm.org>
 
@@ -1760,10 +2249,10 @@
 	
 2001-05-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
             Phil Edwards  <pme@sources.redhat.com>
-	    Alexandre Oliva  <aoliva@redhat.com>
+            Alexandre Oliva  <aoliva@redhat.com>
 
-        * acinclude.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Set glibcpp_srcdir
-        in an amd-safe manner. Revert glibcpp_prefixdir.
+	* acinclude.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Set glibcpp_srcdir
+	in an amd-safe manner. Revert glibcpp_prefixdir.
 
 2001-05-25  Gabriel Dos Reis  <gdr@codesourcery.com>
 
@@ -1891,9 +2380,9 @@
 
 2001-05-18  Angela Marie Thomas <angela@cygnus.com>
 
-        * testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Set flags
-        appropriately for remote testing and testing installed files without
-        a build dir.
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Set flags
+	appropriately for remote testing and testing installed files without
+	a build dir.
 
 2001-05-18  Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -1905,9 +2394,9 @@
 
 2001-05-18  Gabriel Dos Reis  <gdr@codesourcery.com>
 
-        * include/bits/std_valarray.h (valarray<>::operator[] const):
-        Return a const reference. 
-        * testsuite/26_numerics/valarray_const_bracket.cc: New test.
+	* include/bits/std_valarray.h (valarray<>::operator[] const):
+	Return a const reference. 
+	* testsuite/26_numerics/valarray_const_bracket.cc: New test.
 
 2001-05-18  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -1916,13 +2405,13 @@
 
 2001-05-18  Angela Marie Thomas <angela@cygnus.com>
 
-        * testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-dg-test):  Set
-        output_file based on the name of the testcase.
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-dg-test):  Set
+	output_file based on the name of the testcase.
 
 2001-05-18  Angela Marie Thomas <angela@cygnus.com>
 
-        * testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init):  Build
-        gluefile and use it if needs_status_wrapper is set.
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init):  Build
+	gluefile and use it if needs_status_wrapper is set.
 
 2001-05-18  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -1950,11 +2439,11 @@
 
 2001-05-15  Zack Weinberg  <zackw@stanford.edu>
 	
-        * testsuite/21_strings/inserters_extractors.cc,
-        testsuite/27_io/istream_unformatted.cc,
-        testsuite/27_io/stringstream.cc:
-        Replace multi-line string constants with C89-style
-        concatenated string constants.
+	* testsuite/21_strings/inserters_extractors.cc,
+	testsuite/27_io/istream_unformatted.cc,
+	testsuite/27_io/stringstream.cc:
+	Replace multi-line string constants with C89-style
+	concatenated string constants.
 	
 2001-05-14  Richard Henderson  <rth@redhat.com>
 
@@ -2146,7 +2635,7 @@
 	
 2001-04-24  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
-        * include/ext/slist: Include required header files. 
+	* include/ext/slist: Include required header files. 
 
 2001-04-23  Loren J. Rittle  <ljrittle@acm.org>
 
@@ -2316,8 +2805,8 @@
 
 2001-04-06  Joe Buck  <jbuck@welsh-buck.org>
 
-        * stl_algobase.h (std::equal): avoid use of possibly-undefined
-        operator != (one line patch).
+	* stl_algobase.h (std::equal): avoid use of possibly-undefined
+	operator != (one line patch).
 
 2001-04-06   Benjamin Kosnik  <bkoz@redhat.com>
 
@@ -2330,8 +2819,8 @@
 
 2001-04-06  Gabriel Dos Reis  <gdr@codesourcery.com>
 
-        * include/c_std/bits/std_cmath.h: Get rid of C99 math macros.
-        * testsuite/26_numerics/c99_macros.cc: Add test.
+	* include/c_std/bits/std_cmath.h: Get rid of C99 math macros.
+	* testsuite/26_numerics/c99_macros.cc: Add test.
 
 2001-04-06  Phil Edwards  <pme@sources.redhat.com>
 
@@ -2409,7 +2898,7 @@
 2001-04-04  Phil Edwards  <pme@sources.redhat.com>
 
 	* docs/doxygen/user.cfg.in:  Extract all non-private members;
-	  reduce confusing documentation output.
+	reduce confusing documentation output.
 
 2001-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
@@ -2431,8 +2920,8 @@
 
 2001-04-03  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
-        * include/backward/fstream.h:  Expose streampos to global
-          namespace.
+	* include/backward/fstream.h:  Expose streampos to global
+	namespace.
 	
 2001-04-03  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
 
@@ -2705,7 +3194,7 @@
 
 2001-03-21  Theodore Papadopoulo  <Theodore.Papadopoulo@sophia.inria.fr>
 
-    	* intclude/bits/basic_file.h: Fix typos in comments.
+	* intclude/bits/basic_file.h: Fix typos in comments.
 
 2001-03-20  Richard Henderson  <rth@redhat.com>
 
@@ -2878,7 +3367,7 @@
 	* testsuite/27_io/istream_manip.cc (test01): Fix.
 
 2001-03-06  Nathan Myers  <ncm@cantrip.org>
-	    Benjamin Kosnik  <bkoz@redhat.com>
+            Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/c_std/bits/std_cerrno.h: Don't define errno in std::.
 	* testsuite/17_intro/header_cerrno.cc (test01): New file.
@@ -3285,7 +3774,7 @@
 
 2001-02-19  Andreas Jaeger  <aj@suse.de>
 
-     	* config/cpu/sparc/sparc64/bits/atomicity.h (__compare_and_swap):
+	* config/cpu/sparc/sparc64/bits/atomicity.h (__compare_and_swap):
 	Fix typo.
 
 2001-02-16  Greg Bumgardner <bumgard@roguewave.com>
@@ -3472,7 +3961,7 @@
 	dejagnu/dg.exp.
 
 2001-02-13  Dirk Mueller <dmuell@gmx.net>
-	    Phil Edwards  <pme@sources.redhat.com>
+            Phil Edwards  <pme@sources.redhat.com>
 
 	* include/backward/function.h:  Do not use rel_ops for older
 	  headers either.
@@ -3606,7 +4095,7 @@
 	(_S_copy_streambufs): Likewise.
 
 2001-02-06  Hyman Rosen  <Hyman.Rosen@kbcfp.com>
-	    Phil Edwards  <pme@sources.redhat.com>
+            Phil Edwards  <pme@sources.redhat.com>
 
 	* include/bits/std_istream.h (op>> signed,unsigned char):  Must
 	  use reinterpret_cast, not static_cast.

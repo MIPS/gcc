@@ -48,6 +48,7 @@ through the macros defined in the @file{.h} file.
 * Debugging Info::      Defining the format of debugging output.
 * Cross-compilation::   Handling floating point for cross-compilers.
 * Mode Switching::      Insertion of mode-switching instructions.
+* Target Attributes::   Defining target-specific uses of @code{__attribute__}.
 * Misc::                Everything else.
 @end menu
 
@@ -70,8 +71,8 @@ macros for which the default definition is inappropriate.  For example:
 
 /* @r{Initialize the GCC target structure.}  */
 
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE @var{machine}_valid_type_attribute_p
+#undef TARGET_COMP_TYPE_ATTRIBUTES
+#define TARGET_COMP_TYPE_ATTRIBUTES @var{machine}_comp_type_attributes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 @end smallexample
@@ -123,7 +124,7 @@ additional options.
 @item SWITCH_CURTAILS_COMPILATION (@var{char})
 A C expression which determines whether the option @option{-@var{char}}
 stops compilation before the generation of an executable.  The value is
-boolean, non-zero if the option does stop an executable from being
+boolean, nonzero if the option does stop an executable from being
 generated, zero otherwise.
 
 By default, this macro is defined as
@@ -778,7 +779,7 @@ used as the default values for the other command line options.
 @var{level} is the optimization level specified; 2 if @option{-O2} is
 specified, 1 if @option{-O} is specified, and 0 if neither is specified.
 
-@var{size} is non-zero if @option{-Os} is specified and zero otherwise.
+@var{size} is nonzero if @option{-Os} is specified and zero otherwise.
 
 You should not use this macro to change options that are not
 machine-specific.  These should uniformly selected by the same
@@ -848,7 +849,7 @@ function pointers below.
 @findex init_machine_status
 @item   init_machine_status
 This is a @code{void (*)(struct function *)} function pointer.  If this
-pointer is non-NULL it will be called once per function, before function
+pointer is non-@code{NULL} it will be called once per function, before function
 compilation starts, in order to allow the target to perform any target
 specific initialisation of the @code{struct function} structure.  It is
 intended that this would be used to initialise the @code{machine} of
@@ -857,14 +858,14 @@ that structure.
 @findex free_machine_status
 @item   free_machine_status
 This is a @code{void (*)(struct function *)} function pointer.  If this
-pointer is non-NULL it will be called once per function, after the
+pointer is non-@code{NULL} it will be called once per function, after the
 function has been compiled, in order to allow any memory allocated
 during the @code{init_machine_status} function call to be freed.
 
 @findex mark_machine_status
 @item   mark_machine_status
 This is a @code{void (*)(struct function *)} function pointer.  If this
-pointer is non-NULL it will be called once per function in order to mark
+pointer is non-@code{NULL} it will be called once per function in order to mark
 any data items in the @code{struct machine_function} structure which
 need garbage collection.
 
@@ -1596,6 +1597,18 @@ In general, you should not have to define this macro.  On architectures
 in which function addresses are always even, according to
 @code{FUNCTION_BOUNDARY}, GCC will automatically define this macro to
 @code{ptrmemfunc_vbit_in_pfn}.
+
+@findex TARGET_VTABLE_USES_DESCRIPTORS
+@item TARGET_VTABLE_USES_DESCRIPTORS
+Normally, the C++ compiler uses function pointers in vtables.  This
+macro allows the target to change to use ``function descriptors'' 
+instead.  Function descriptors are found on targets for whom a
+function pointer is actually a small data structure.  Normally the
+data structure consists of the actual code address plus a data 
+pointer to which the function's data is relative.
+
+If vtables are used, the value of this macro should be the number
+of words that the function descriptor occupies.
 @end table
 
 @node Escape Sequences
@@ -1724,7 +1737,7 @@ of @code{CALL_USED_REGISTERS}.
 @cindex call-used register
 @cindex call-clobbered register
 @cindex call-saved register
-A C expression that is non-zero if it is not permissible to store a
+A C expression that is nonzero if it is not permissible to store a
 value of mode @var{mode} in hard register number @var{regno} across a
 call without some part of it being clobbered.  For most machines this
 macro need not be defined.  It is only required for machines that do not
@@ -2344,7 +2357,7 @@ general registers.
 @item SECONDARY_MEMORY_NEEDED (@var{class1}, @var{class2}, @var{m})
 Certain machines have the property that some registers cannot be copied
 to some other registers without using memory.  Define this macro on
-those machines to be a C expression that is non-zero if objects of mode
+those machines to be a C expression that is nonzero if objects of mode
 @var{m} in registers of @var{class1} can only be copied to registers of
 class @var{class2} by storing a register of @var{class1} into memory
 and loading that memory location into a register of @var{class2}.
@@ -2393,14 +2406,14 @@ to be in specific registers (like an accumulator), and reload will fail
 if the required hard register is used for another purpose across such an
 insn.
 
-Define @code{SMALL_REGISTER_CLASSES} to be an expression with a non-zero
-value on these machines.  When this macro has a non-zero value, the
+Define @code{SMALL_REGISTER_CLASSES} to be an expression with a nonzero
+value on these machines.  When this macro has a nonzero value, the
 compiler will try to minimize the lifetime of hard registers.
 
-It is always safe to define this macro with a non-zero value, but if you
+It is always safe to define this macro with a nonzero value, but if you
 unnecessarily define it, you will reduce the amount of optimizations
 that can be performed in some cases.  If you do not define this macro
-with a non-zero value when it is required, the compiler will run out of
+with a nonzero value when it is required, the compiler will run out of
 spill registers and print a fatal error message.  For most machines, you
 should not define this macro at all.
 
@@ -2528,7 +2541,7 @@ This describes the stack layout and calling conventions.
 * Caller Saves::
 * Function Entry::
 * Profiling::
-* Inlining and Tail Calls::
+* Tail Calls::
 @end menu
 
 @node Frame Layout
@@ -3064,7 +3077,7 @@ specified first since that is the preferred elimination.
 
 @findex CAN_ELIMINATE
 @item CAN_ELIMINATE (@var{from-reg}, @var{to-reg})
-A C expression that returns non-zero if the compiler is allowed to try
+A C expression that returns nonzero if the compiler is allowed to try
 to replace register number @var{from-reg} with register number
 @var{to-reg}.  This macro need only be defined if @code{ELIMINABLE_REGS}
 is defined, and will usually be the constant 1, since most of the cases
@@ -3222,7 +3235,7 @@ after the function returns.
 @var{fundecl} is a C variable whose value is a tree node that describes
 the function in question.  Normally it is a node of type
 @code{FUNCTION_DECL} that describes the declaration of the function.
-From this you can obtain the @code{DECL_MACHINE_ATTRIBUTES} of the function.
+From this you can obtain the @code{DECL_ATTRIBUTES} of the function.
 
 @var{funtype} is a C variable whose value is a tree node that
 describes the function in question.  Normally it is a node of type
@@ -3312,7 +3325,7 @@ by making @code{FUNCTION_ARG} return 0 whenever @var{named} is 0.
 You may use the macro @code{MUST_PASS_IN_STACK (@var{mode}, @var{type})}
 in the definition of this macro to determine if this argument is of a
 type that must be passed in the stack.  If @code{REG_PARM_STACK_SPACE}
-is not defined and @code{FUNCTION_ARG} returns non-zero for such an
+is not defined and @code{FUNCTION_ARG} returns nonzero for such an
 argument, the compiler will abort.  If @code{REG_PARM_STACK_SPACE} is
 defined, the argument will be computed in the stack and then loaded into
 a register.
@@ -4204,18 +4217,11 @@ profiling when the frame pointer is omitted.
 
 @end table
 
-@node Inlining and Tail Calls
-@subsection Permitting inlining and tail calls
-@cindex inlining
+@node Tail Calls
+@subsection Permitting tail calls
+@cindex tail calls
 
 @table @code
-@findex FUNCTION_ATTRIBUTE_INLINABLE_P
-@item FUNCTION_ATTRIBUTE_INLINABLE_P (@var{decl})
-A C expression that evaluates to true if it is ok to inline @var{decl}
-into the current function, despite its having target-specific
-attributes.  By default, if a function has a target specific attribute
-attached to it, it will not be inlined.
-
 @findex FUNCTION_OK_FOR_SIBCALL
 @item FUNCTION_OK_FOR_SIBCALL (@var{decl})
 A C expression that evaluates to true if it is ok to perform a sibling
@@ -4724,14 +4730,14 @@ This is about addressing modes.
 @itemx HAVE_PRE_DECREMENT
 @itemx HAVE_POST_INCREMENT
 @itemx HAVE_POST_DECREMENT
-A C expression that is non-zero if the machine supports pre-increment,
+A C expression that is nonzero if the machine supports pre-increment,
 pre-decrement, post-increment, or post-decrement addressing respectively.
 
 @findex HAVE_POST_MODIFY_DISP
 @findex HAVE_PRE_MODIFY_DISP
 @item HAVE_PRE_MODIFY_DISP
 @itemx HAVE_POST_MODIFY_DISP
-A C expression that is non-zero if the machine supports pre- or
+A C expression that is nonzero if the machine supports pre- or
 post-address side-effect generation involving constants other than
 the size of the memory operand.
 
@@ -4739,7 +4745,7 @@ the size of the memory operand.
 @findex HAVE_PRE_MODIFY_REG
 @item HAVE_PRE_MODIFY_REG
 @itemx HAVE_POST_MODIFY_REG
-A C expression that is non-zero if the machine supports pre- or
+A C expression that is nonzero if the machine supports pre- or
 post-address side-effect generation involving a register displacement.
 
 @findex CONSTANT_ADDRESS_P
@@ -5267,7 +5273,7 @@ if the @samp{mov@var{m}} pattern's constraints do not allow such copying.
 @item MEMORY_MOVE_COST (@var{mode}, @var{class}, @var{in})
 A C expression for the cost of moving data of mode @var{mode} between a
 register of class @var{class} and memory; @var{in} is zero if the value
-is to be written to memory, non-zero if it is to be read in.  This cost
+is to be written to memory, nonzero if it is to be read in.  This cost
 is relative to those in @code{REGISTER_MOVE_COST}.  If moving between
 registers and memory is more expensive than between two registers, you
 should define this macro to express the relative cost.
@@ -5336,15 +5342,15 @@ Define this macro to be the value 1 if memory accesses described by the
 than aligned accesses, for example if they are emulated in a trap
 handler.
 
-When this macro is non-zero, the compiler will act as if
-@code{STRICT_ALIGNMENT} were non-zero when generating code for block
+When this macro is nonzero, the compiler will act as if
+@code{STRICT_ALIGNMENT} were nonzero when generating code for block
 moves.  This can cause significantly more instructions to be produced.
-Therefore, do not set this macro non-zero if unaligned accesses only add a
+Therefore, do not set this macro nonzero if unaligned accesses only add a
 cycle or two to the time for a memory access.
 
 If the value of this macro is always zero, it need not be defined.  If
-this macro is defined, it should produce a non-zero value when
-@code{STRICT_ALIGNMENT} is non-zero.
+this macro is defined, it should produce a nonzero value when
+@code{STRICT_ALIGNMENT} is nonzero.
 
 @findex DONT_REDUCE_ADDR
 @item DONT_REDUCE_ADDR
@@ -5797,32 +5803,33 @@ If these items should be placed in the text section, this macro should
 not be defined.
 
 @findex SELECT_SECTION
-@item SELECT_SECTION (@var{exp}, @var{reloc})
+@item SELECT_SECTION (@var{exp}, @var{reloc}, @var{align})
 A C statement or statements to switch to the appropriate section for
 output of @var{exp}.  You can assume that @var{exp} is either a
 @code{VAR_DECL} node or a constant of some sort.  @var{reloc}
 indicates whether the initial value of @var{exp} requires link-time
 relocations.  Select the section by calling @code{text_section} or one
-of the alternatives for other sections.
+of the alternatives for other sections.  @var{align} is the constant
+alignment in bits.
 
 Do not define this macro if you put all read-only variables and
 constants in the read-only data section (usually the text section).
 
 @findex SELECT_RTX_SECTION
-@item SELECT_RTX_SECTION (@var{mode}, @var{rtx})
+@item SELECT_RTX_SECTION (@var{mode}, @var{rtx}, @var{align})
 A C statement or statements to switch to the appropriate section for
 output of @var{rtx} in mode @var{mode}.  You can assume that @var{rtx}
 is some kind of constant in RTL@.  The argument @var{mode} is redundant
 except in the case of a @code{const_int} rtx.  Select the section by
 calling @code{text_section} or one of the alternatives for other
-sections.
+sections.  @var{align} is the constant alignment in bits.
 
 Do not define this macro if you put all constants in the read-only
 data section.
 
 @findex JUMP_TABLES_IN_TEXT_SECTION
 @item JUMP_TABLES_IN_TEXT_SECTION
-Define this macro to be an expression with a non-zero value if jump
+Define this macro to be an expression with a nonzero value if jump
 tables (for @code{tablejump} insns) should be output in the text
 section, along with the assembler instructions.  Otherwise, the
 readonly data section is used.
@@ -6048,7 +6055,7 @@ statement is executed only when compiling an Objective-C program.
 Output assembly directives to switch to section @var{name}.  The section
 should have attributes as specified by @var{flags}, which is a bit mask
 of the @code{SECTION_*} flags defined in @file{output.h}.  If @var{align}
-is non-zero, it contains an alignment in bytes to be used for the section,
+is nonzero, it contains an alignment in bytes to be used for the section,
 otherwise some target default should be used.  Only targets that must 
 specify an alignment within the section directive need pay attention to
 @var{align} -- we will still use @code{ASM_OUTPUT_ALIGN}.
@@ -6164,10 +6171,16 @@ If the assembler has a @code{.ascii} pseudo-op as found in the
 Berkeley Unix assembler, do not define the macro
 @code{ASM_OUTPUT_ASCII}.
 
+@findex ASM_OUTPUT_FDESC
+@item ASM_OUTPUT_FDESC (@var{stream}, @var{decl}, @var{n})
+A C statement to output word @var{n} of a function descriptor for
+@var{decl}.  This must be defined if @code{TARGET_VTABLE_USES_DESCRIPTORS}
+is defined, and is otherwise unused.
+
 @findex CONSTANT_POOL_BEFORE_FUNCTION
 @item CONSTANT_POOL_BEFORE_FUNCTION
 You may define this macro as a C expression.  You should define the
-expression to have a non-zero value if GCC should output the constant
+expression to have a nonzero value if GCC should output the constant
 pool for a function before the code for the function, or a zero value if
 GCC should output the constant pool after the function.  If you do
 not define this macro, the usual case, GCC will output the constant
@@ -6709,7 +6722,7 @@ buffer in which to store the name; its length is as long as
 
 The argument @var{is_inst} specifies whether the method is an instance
 method or a class method; @var{class_name} is the name of the class;
-@var{cat_name} is the name of the category (or NULL if the method is not
+@var{cat_name} is the name of the category (or @code{NULL} if the method is not
 in a category); and @var{sel_name} is the name of the selector.
 
 On systems where the assembler can handle quoted names, you can use this
@@ -8128,7 +8141,7 @@ or @code{MACHINE_DEPENDENT_REORG}.
 
 You can have multiple entities that are mode-switched, and select at run time
 which entities actually need it.  @code{OPTIMIZE_MODE_SWITCHING} should
-return non-zero for any @var{entity} that that needs mode-switching.
+return nonzero for any @var{entity} that that needs mode-switching.
 If you define this macro, you also have to define
 @code{NUM_MODES_FOR_MODE_SWITCHING}, @code{MODE_NEEDED},
 @code{MODE_PRIORITY_TO_MODE} and @code{EMIT_MODE_SET}.
@@ -8176,6 +8189,85 @@ Generate one or more insns to set @var{entity} to @var{mode}.
 @var{hard_reg_live} is the set of hard registers live at the point where
 the insn(s) are to be inserted.
 @end table
+
+@node Target Attributes
+@section Defining target-specific uses of @code{__attribute__}
+@cindex target attributes
+@cindex machine attributes
+@cindex attributes, target-specific
+
+Target-specific attributes may be defined for functions, data and types.
+These are described using the following target hooks; they also need to
+be documented in @file{extend.texi}.
+
+@deftypevr {Target Hook} {const struct attribute_spec *} TARGET_ATTRIBUTE_TABLE
+If defined, this target hook points to an array of @samp{struct
+attribute_spec} (defined in @file{tree.h}) specifying the machine
+specific attributes for this target and some of the restrictions on the
+entities to which these attributes are applied and the arguments they
+take.
+@end deftypevr
+
+@deftypefn {Target Hook} int TARGET_COMP_TYPE_ATTRIBUTES (tree @var{type1}, tree @var{type2})
+If defined, this target hook is a function which returns zero if the attributes on
+@var{type1} and @var{type2} are incompatible, one if they are compatible,
+and two if they are nearly compatible (which causes a warning to be
+generated).  If this is not defined, machine-specific attributes are
+supposed always to be compatible.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SET_DEFAULT_TYPE_ATTRIBUTES (tree @var{type})
+If defined, this target hook is a function which assigns default attributes to
+newly defined @var{type}.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_MERGE_TYPE_ATTRIBUTES (tree @var{type1}, tree @var{type2})
+Define this target hook if the merging of type attributes needs special
+handling.  If defined, the result is a list of the combined
+@code{TYPE_ATTRIBUTES} of @var{type1} and @var{type2}.  It is assumed
+that @code{comptypes} has already been called and returned 1.  This
+function may call @code{merge_attributes} to handle machine-independent
+merging.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_MERGE_DECL_ATTRIBUTES (tree @var{olddecl}, tree @var{newdecl})
+Define this target hook if the merging of decl attributes needs special
+handling.  If defined, the result is a list of the combined
+@code{DECL_ATTRIBUTES} of @var{olddecl} and @var{newdecl}.
+@var{newdecl} is a duplicate declaration of @var{olddecl}.  Examples of
+when this is needed are when one attribute overrides another, or when an
+attribute is nullified by a subsequent definition.  This function may
+call @code{merge_attributes} to handle machine-independent merging.
+
+@findex TARGET_DLLIMPORT_DECL_ATTRIBUTES
+If the only target-specific handling you require is @samp{dllimport} for
+Windows targets, you should define the macro
+@code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  This links in a function
+called @code{merge_dllimport_decl_attributes} which can then be defined
+as the expansion of @code{TARGET_MERGE_DECL_ATTRIBUTES}.  This is done
+in @file{i386/cygwin.h} and @file{i386/i386.c}, for example.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_INSERT_ATTRIBUTES (tree @var{node}, tree *@var{attr_ptr})
+Define this target hook if you want to be able to add attributes to a decl
+when it is being created.  This is normally useful for back ends which
+wish to implement a pragma by using the attributes which correspond to
+the pragma's effect.  The @var{node} argument is the decl which is being
+created.  The @var{attr_ptr} argument is a pointer to the attribute list
+for this decl.  The list itself should not be modified, since it may be
+shared with other decls, but attributes may be chained on the head of
+the list and @code{*@var{attr_ptr}} modified to point to the new
+attributes, or a copy of the list may be made if further changes are
+needed.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P (tree @var{fndecl})
+@cindex inlining
+This target hook returns @code{true} if it is ok to inline @var{fndecl}
+into the current function, despite its having target-specific
+attributes, @code{false} otherwise.  By default, if a function has a
+target specific attribute attached to it, it will not be inlined.
+@end deftypefn
 
 @node Misc
 @section Miscellaneous Parameters
@@ -8330,7 +8422,7 @@ at run-time.
 A C expression that is nonzero if on this machine the number of bits
 actually used for the count of a shift operation is equal to the number
 of bits needed to represent the size of the object being shifted.  When
-this macro is non-zero, the compiler will assume that it is safe to omit
+this macro is nonzero, the compiler will assume that it is safe to omit
 a sign-extend, zero-extend, and certain bitwise `and' instructions that
 truncates the count of a shift operation.  On machines that have
 instructions that act on bit-fields at variable positions, which may
@@ -8471,7 +8563,7 @@ instructions.
 
 @findex FLOAT_STORE_FLAG_VALUE
 @item FLOAT_STORE_FLAG_VALUE (@var{mode})
-A C expression that gives a non-zero @code{REAL_VALUE_TYPE} value that is
+A C expression that gives a nonzero @code{REAL_VALUE_TYPE} value that is
 returned when comparison operators with floating-point results are true.
 Define this macro on machine that have comparison operations that return
 floating-point values.  If there are no such operations, do not define
@@ -8540,17 +8632,17 @@ This macro is no longer supported.  You must use
 @findex pragma
 @item REGISTER_TARGET_PRAGMAS (@var{pfile})
 Define this macro if you want to implement any target-specific pragmas.
-If defined, it is a C expression which makes a series of calls to the
-@code{cpp_register_pragma} and/or @code{cpp_register_pragma_space}
-functions.  The @var{pfile} argument is the first argument to supply to
-these functions.  The macro may also do setup required for the pragmas.
+If defined, it is a C expression which makes a series of calls to
+@code{cpp_register_pragma} for each pragma, with @var{pfile} passed as
+the first argument to to these functions.  The macro may also do any
+setup required for the pragmas.
 
 The primary reason to define this macro is to provide compatibility with
 other compilers for the same target.  In general, we discourage
 definition of target-specific pragmas for GCC@.
 
 If the pragma can be implemented by attributes then you should consider
-defining @samp{INSERT_ATTRIBUTES} as well.
+defining the target hook @samp{TARGET_INSERT_ATTRIBUTES} as well.
 
 Preprocessor macros that appear on pragma lines are not expanded.  All
 @samp{#pragma} directives that do not match any registered pragma are
@@ -8573,7 +8665,12 @@ not use it for anything (this may change in the future).  It may read
 any text after the @var{name} by making calls to @code{c_lex}.  Text
 which is not read by the callback will be silently ignored.
 
-Note that both @var{space} and @var{name} are case sensitive.
+@var{space} is the case-sensitive namespace of the pragma, or
+@code{NULL} to put the pragma in the global namespace.  The callback
+routine receives @var{pfile} as its first argument, which can be passed
+on to cpplib's functions if necessary.  It may read any text after the
+@var{name} by making calls to @code{c_lex}.  Text which is not read by
+the callback will be silently ignored.
 
 For an example use of this routine, see @file{c4x.h} and the callback
 routines defined in @file{c4x.c}.
@@ -8589,15 +8686,6 @@ the target-specific, language-specific object file which contains the
 code that uses @code{c_lex}.  Note it will also be necessary to add a
 rule to the makefile fragment pointed to by @code{tmake_file} that shows
 how to build this object file.
-@end deftypefun
-
-@deftypefun void cpp_register_pragma_space (cpp_reader *@var{pfile}, const char *@var{space})
-This routine establishes a namespace for pragmas, which will be
-registered by subsequent calls to @code{cpp_register_pragma}.  For
-example, pragmas defined by the C standard are in the @samp{STDC}
-namespace, and pragmas specific to GCC are in the @samp{GCC} namespace.
-
-For an example use of this routine in a target header, see @file{v850.h}.
 @end deftypefun
 
 @findex HANDLE_SYSV_PRAGMA
@@ -8630,74 +8718,7 @@ pack value of zero resets the behaviour to the default.  Successive
 invocations of this pragma cause the previous values to be stacked, so
 that invocations of @samp{#pragma pack(pop)} will return to the previous
 value.
-@end table
 
-@deftypefn {Target Hook} int TARGET_VALID_DECL_ATTRIBUTE (tree @var{decl}, tree @var{attributes}, tree @var{identifier}, tree @var{args})
-If defined, this target hook is a function which returns nonzero if @var{identifier} with
-arguments @var{args} is a valid machine specific attribute for @var{decl}.
-The attributes in @var{attributes} have previously been assigned to @var{decl}.
-@end deftypefn
-
-@deftypefn {Target Hook} int TARGET_VALID_TYPE_ATTRIBUTE (tree @var{type}, tree @var{attributes}, tree @var{identifier}, tree @var{args})
-If defined, this target hook is a function which returns nonzero if @var{identifier} with
-arguments @var{args} is a valid machine specific attribute for @var{type}.
-The attributes in @var{attributes} have previously been assigned to @var{type}.
-@end deftypefn
-
-@deftypefn {Target Hook} int TARGET_COMP_TYPE_ATTRIBUTES (tree @var{type1}, tree @var{type2})
-If defined, this target hook is a function which returns zero if the attributes on
-@var{type1} and @var{type2} are incompatible, one if they are compatible,
-and two if they are nearly compatible (which causes a warning to be
-generated).  If this is not defined, machine-specific attributes are
-supposed always to be compatible.
-@end deftypefn
-
-@deftypefn {Target Hook} void TARGET_SET_DEFAULT_TYPE_ATTRIBUTES (tree @var{type})
-If defined, this target hook is a function which assigns default attributes to
-newly defined @var{type}.
-@end deftypefn
-
-@deftypefn {Target Hook} tree TARGET_MERGE_TYPE_ATTRIBUTES (tree @var{type1}, tree @var{type2})
-Define this target hook if the merging of type attributes needs special
-handling.  If defined, the result is a list of the combined
-@code{TYPE_ATTRIBUTES} of @var{type1} and @var{type2}.  It is assumed
-that @code{comptypes} has already been called and returned 1.  This
-function may call @code{merge_attributes} to handle machine-independent
-merging.
-@end deftypefn
-
-@deftypefn {Target Hook} tree TARGET_MERGE_DECL_ATTRIBUTES (tree @var{olddecl}, tree @var{newdecl})
-Define this target hook if the merging of decl attributes needs special
-handling.  If defined, the result is a list of the combined
-@code{DECL_MACHINE_ATTRIBUTES} of @var{olddecl} and @var{newdecl}.
-@var{newdecl} is a duplicate declaration of @var{olddecl}.  Examples of
-when this is needed are when one attribute overrides another, or when an
-attribute is nullified by a subsequent definition.  This function may
-call @code{merge_attributes} to handle machine-independent merging.
-
-@findex TARGET_DLLIMPORT_DECL_ATTRIBUTES
-If the only target-specific handling you require is @samp{dllimport} for
-Windows targets, you should define the macro
-@code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  This links in a function
-called @code{merge_dllimport_decl_attributes} which can then be defined
-as the expansion of @code{TARGET_MERGE_DECL_ATTRIBUTES}.  This is done
-in @file{i386/cygwin.h} and @file{i386/i386.c}, for example.
-@end deftypefn
-
-@deftypefn {Target Hook} void TARGET_INSERT_ATTRIBUTES (tree @var{node}, tree *@var{attr_ptr})
-Define this target hook if you want to be able to add attributes to a decl
-when it is being created.  This is normally useful for back ends which
-wish to implement a pragma by using the attributes which correspond to
-the pragma's effect.  The @var{node} argument is the decl which is being
-created.  The @var{attr_ptr} argument is a pointer to the attribute list
-for this decl.  The list itself should not be modified, since it may be
-shared with other decls, but attributes may be chained on the head of
-the list and @code{*@var{attr_ptr}} modified to point to the new
-attributes, or a copy of the list may be made if further changes are
-needed.
-@end deftypefn
-
-@table @code
 @findex DOLLARS_IN_IDENTIFIERS
 @item DOLLARS_IN_IDENTIFIERS
 Define this macro to control use of the character @samp{$} in identifier
@@ -8898,12 +8919,32 @@ built-in function.
 @findex MD_CAN_REDIRECT_BRANCH
 @item MD_CAN_REDIRECT_BRANCH(@var{branch1}, @var{branch2})
 
-Take a branch insn in @var{branch1} and a another in @var{branch2}.
+Take a branch insn in @var{branch1} and another in @var{branch2}.
 Return true if redirecting @var{branch1} to the destination of
 @var{branch2} is possible.
 
 On some targets, branches may have a limited range.  Optimizing the
 filling of delay slots can result in branches being redirected, and this
 may in turn cause a branch offset to overflow.
+
+@findex ALLOCATE_INITIAL_VALUE
+@item ALLOCATE_INITIAL_VALUE(@var{hard_reg})
+
+When the initial value of a hard register has been copied in a pseudo
+register, it is often not necessary to actually allocate another register
+to this pseudo register, because the original hard register or a stack slot
+it has been saved into can be used.  @code{ALLOCATE_INITIAL_VALUE}, if
+defined, is called at the start of register allocation once for each
+hard register that had its initial value copied by using
+@code{get_func_hard_reg_initial_val} or @code{get_hard_reg_initial_val}.
+Possible values are @code{NULL_RTX}, if you don't want
+to do any special allocation, a @code{REG} rtx---that would typically be
+the hard register itself, if it is known not to be clobbered---or a
+@code{MEM}.
+If you are returning a @code{MEM}, this is only a hint for the allocator;
+it might decide to use another register anyways.
+You may use @code{current_function_leaf_function} in the definition of the
+macro, functions that use @code{REG_N_SETS}, to determine if the hard
+register in question will not be clobbered.
 
 @end table

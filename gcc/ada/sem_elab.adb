@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.3 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -521,7 +521,6 @@ package body Sem_Elab is
 
          if Unit_Caller /= No_Unit
            and then Unit_Callee /= Unit_Caller
-           and then Unit_Callee /= No_Unit
            and then not Dynamic_Elaboration_Checks
          then
             E_Scope := Spec_Entity (Cunit_Entity (Unit_Caller));
@@ -550,26 +549,18 @@ package body Sem_Elab is
             --  Loop to carefully follow renamings and derivations
             --  one step outside the current unit, but not further.
 
-            if not Inst_Case
-              and then Present (Alias (Ent))
-            then
-               E_Scope := Alias (Ent);
-            else
-               E_Scope := Ent;
-            end if;
-
             loop
+               E_Scope := Ent;
                while not Is_Compilation_Unit (E_Scope) loop
                   E_Scope := Scope (E_Scope);
                end loop;
 
                --  If E_Scope is the same as C_Scope, it means that there
-               --  definitely was a local renaming or derivation, and we
-               --  are not yet out of the current unit.
+               --  definitely was a renaming or derivation, and we are
+               --  not yet out of the current unit.
 
                exit when E_Scope /= C_Scope;
                Ent := Alias (Ent);
-               E_Scope := Ent;
             end loop;
          end if;
 
@@ -1035,7 +1026,7 @@ package body Sem_Elab is
 
       --  If none of those cases holds, but Dynamic_Elaboration_Checks mode
       --  is set, then we will do the check, but only in the inter-unit case
-      --  (this is to accommodate unguarded elaboration calls from other units
+      --  (this is to accomodate unguarded elaboration calls from other units
       --  in which this same mode is set). We don't want warnings in this case,
       --  it would generate warnings having nothing to do with elaboration.
 
@@ -1164,7 +1155,7 @@ package body Sem_Elab is
 
       --  If none of those cases holds, but Dynamic_Elaboration_Checks mode
       --  is set, then we will do the check, but only in the inter-unit case
-      --  (this is to accommodate unguarded elaboration calls from other units
+      --  (this is to accomodate unguarded elaboration calls from other units
       --  in which this same mode is set). We inhibit warnings in this case,
       --  since this instantiation is not occurring in elaboration code.
 

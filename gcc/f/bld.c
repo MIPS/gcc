@@ -46,7 +46,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Externals defined here.  */
 
-ffebldArity ffebld_arity_op_[]
+const ffebldArity ffebld_arity_op_[]
 =
 {
 #define FFEBLD_OP(KWD,NAME,ARITY) ARITY,
@@ -203,7 +203,7 @@ static ffebldConstant ffebld_constant_hollerith_;
 static ffebldConstant ffebld_constant_typeless_[FFEBLD_constTYPELESS_LAST
 					  - FFEBLD_constTYPELESS_FIRST + 1];
 
-static const char *ffebld_op_string_[]
+static const char *const ffebld_op_string_[]
 =
 {
 #define FFEBLD_OP(KWD,NAME,ARITY) NAME,

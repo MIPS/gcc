@@ -379,11 +379,11 @@
 ;; Unsigned division giving both quotient and remainder
 (define_insn "udivmodhi4"
   [(set (match_operand:HI 0 "register_operand" "=a")
-	(div:HI (match_operand:HI 1 "register_operand" "a")
-		(match_operand:HI 2 "register_operand" "c")))
+	(udiv:HI (match_operand:HI 1 "register_operand" "a")
+		 (match_operand:HI 2 "register_operand" "c")))
    (set (match_operand:HI 3 "register_operand" "=b")
-	(mod:HI (match_dup 1)
-		(match_dup 2)))]
+	(umod:HI (match_dup 1)
+		 (match_dup 2)))]
   ""
   "div"
   [(set_attr "psw_operand" "nop")])
@@ -822,7 +822,7 @@
 (define_insn "*call_internal"
   [(call (mem:HI (match_operand:HI 0 "nonmemory_operand" "i,r"))
 	 (match_operand 1 "" ""))
-   (use (match_operand:HI 2 "nonmemory_operand" "X,t"))]
+   (use (match_operand:HI 2 "nonmemory_operand" "X,z"))]
   ""
   "@
    callf %C0
@@ -834,7 +834,7 @@
   [(set (match_operand 3 "register_operand" "=r,r")
         (call (mem:HI (match_operand:HI 0 "nonmemory_operand" "i,r"))
 	      (match_operand 1 "" "")))
-   (use (match_operand:HI 2 "nonmemory_operand" "X,t"))]
+   (use (match_operand:HI 2 "nonmemory_operand" "X,z"))]
   ""
   "@
    callf %C0
@@ -882,7 +882,7 @@
 
 (define_insn ""
   [(set (pc) (match_operand:HI 0 "register_operand" "r"))
-   (use (match_operand:HI 1 "register_operand" "t"))]
+   (use (match_operand:HI 1 "register_operand" "z"))]
   ""
   "jmp %1,%0"
   [(set_attr "length" "4")
@@ -917,12 +917,13 @@
 ;; ::
 ;; ::::::::::::::::::::
 
-;; Called after register allocation to add any instructions needed for the
-;; prologue.  Using a prologue insn is favored compared to putting all of the
-;; instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
-;; to intermix instructions with the saves of the caller saved registers.  In
-;; some cases, it might be necessary to emit a barrier instruction as the last
-;; insn to prevent such scheduling.
+;; Called after register allocation to add any instructions needed for
+;; the prologue.  Using a prologue insn is favored compared to putting
+;; all of the instructions in the TARGET_ASM_FUNCTION_PROLOGUE macro,
+;; since it allows the scheduler to intermix instructions with the
+;; saves of the caller saved registers.  In some cases, it might be
+;; necessary to emit a barrier instruction as the last insn to prevent
+;; such scheduling.
 (define_expand "prologue"
   [(const_int 1)]
   ""
@@ -932,12 +933,13 @@
   DONE;
 }")
 
-;; Called after register allocation to add any instructions needed for the
-;; epilogue.  Using a epilogue insn is favored compared to putting all of the
-;; instructions in the FUNCTION_EPILOGUE macro, since it allows the scheduler
-;; to intermix instructions with the restires of the caller saved registers.
-;; In some cases, it might be necessary to emit a barrier instruction as the
-;; first insn to prevent such scheduling.
+;; Called after register allocation to add any instructions needed for
+;; the epilogue.  Using a epilogue insn is favored compared to putting
+;; all of the instructions in the TARGET_ASM_FUNCTION_EPILOGUE macro,
+;; since it allows the scheduler to intermix instructions with the
+;; restires of the caller saved registers.  In some cases, it might be
+;; necessary to emit a barrier instruction as the first insn to
+;; prevent such scheduling.
 (define_expand "epilogue"
   [(const_int 2)]
   ""

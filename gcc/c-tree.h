@@ -98,8 +98,13 @@ struct lang_decl
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
-
 #define C_IS_RESERVED_WORD(id) TREE_LANG_FLAG_0 (id)
+
+/* This function was declared inline.  This flag controls the linkage
+   semantics of 'inline'; whether or not the function is inlined is
+   controlled by DECL_INLINE.  */
+#define DECL_DECLARED_INLINE_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->base.declared_inline)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type
@@ -135,7 +140,7 @@ struct lang_type
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
-#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_NONCOPIED_PARTS (NODE)
+#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
 
 
 /* in c-lang.c and objc-act.c */
@@ -272,7 +277,7 @@ extern int skip_evaluation;
 extern int dollars_in_ident;
 
 /* Nonzero means allow type mismatches in conditional expressions;
-   just make their values `void'.   */
+   just make their values `void'.  */
 
 extern int flag_cond_mismatch;
 
@@ -320,12 +325,12 @@ extern int warn_traditional;
 
 extern int warn_char_subscripts;
 
-/* Warn if main is suspicious. */
+/* Warn if main is suspicious.  */
 
 extern int warn_main;
 
 /* Nonzero means to allow single precision math even if we're generally
-   being traditional. */
+   being traditional.  */
 extern int flag_allow_single_precision;
 
 /* Warn if initializer is not completely bracketed.  */
@@ -336,7 +341,7 @@ extern int warn_missing_braces;
 
 extern int warn_sign_compare;
 
-/* Warn about testing equality of floating point numbers. */
+/* Warn about testing equality of floating point numbers.  */
 
 extern int warn_float_equal;
 

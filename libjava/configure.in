@@ -170,7 +170,7 @@ LIBFFIINCS=
 if test "$with_libffi" != no; then
    AC_DEFINE(USE_LIBFFI)
    LIBFFI=../libffi/libfficonvenience.la
-   LIBFFIINCS="-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include"
+   LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include'
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
@@ -540,6 +540,8 @@ else
       AC_MSG_ERROR([memcpy is required])
    fi
 
+   AC_CHECK_LIB(dl, dlopen, [AC_DEFINE(HAVE_DLOPEN)])
+
    # Some library-finding code we stole from Tcl.
    #--------------------------------------------------------------------
    #	Check for the existence of the -lsocket and -lnsl libraries.
@@ -823,6 +825,11 @@ for peer in $peerlibs ; do
       ;;
     gtk)
       # Nothing, yet...
+      ;;
+    no)
+      use_xlib_awt=
+      use_gtk_awt=
+      break
       ;;
     *)
       echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2

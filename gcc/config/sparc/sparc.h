@@ -400,7 +400,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
       {									\
 	if (flag_pic)							\
 	  {								\
-	    const char *pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
+	    const char *const pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
 	    warning ("%s and profiling conflict: disabling %s",		\
 		     pic_string, pic_string);				\
 	    flag_pic = 0;						\
@@ -721,9 +721,9 @@ extern enum processor_type sparc_cpu;
 struct sparc_cpu_select
 {
   const char *string;
-  const char *name;
-  int set_tune_p;
-  int set_arch_p;
+  const char *const name;
+  const int set_tune_p;
+  const int set_arch_p;
 };
 
 extern struct sparc_cpu_select sparc_select[];
@@ -912,7 +912,7 @@ if (TARGET_ARCH64				\
 #endif
 
 /* This is defined differently for v9 in a cover file.  */
-#define SELECT_SECTION(T,RELOC)						\
+#define SELECT_SECTION(T,RELOC,ALIGN)					\
 {									\
   if (TREE_CODE (T) == VAR_DECL)					\
     {									\
@@ -945,7 +945,7 @@ if (TARGET_ARCH64				\
 /* Use text section for a constant
    unless we need more alignment than that offers.  */
 /* This is defined differently for v9 in a cover file.  */
-#define SELECT_RTX_SECTION(MODE, X)		\
+#define SELECT_RTX_SECTION(MODE, X, ALIGN)	\
 {						\
   if (GET_MODE_BITSIZE (MODE) <= MAX_TEXT_ALIGN \
       && ! (flag_pic && (symbolic_operand ((X), (MODE)) || SUNOS4_SHARED_LIBRARIES)))  \
@@ -1433,7 +1433,7 @@ extern enum reg_class sparc_regno_reg_class[];
 extern char sparc_leaf_regs[];
 #define LEAF_REGISTERS sparc_leaf_regs
 
-extern char leaf_reg_remap[];
+extern const char leaf_reg_remap[];
 #define LEAF_REG_REMAP(REGNO) (leaf_reg_remap[REGNO])
 
 /* The class value for index registers, and the one for base regs.  */

@@ -1,5 +1,5 @@
 /* Front-end tree definitions for GNU compiler.
-   Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -85,7 +85,7 @@ enum built_in_function
 {
 #include "builtins.def"
 
-  /* Upper bound on non-language-specific builtins. */
+  /* Upper bound on non-language-specific builtins.  */
   END_BUILTINS
 };
 #undef DEF_BUILTIN
@@ -116,7 +116,7 @@ extern tree built_in_decls[(int) END_BUILTINS];
    so all nodes have these fields.
 
    See the accessor macros, defined below, for documentation of the
-   fields.   */
+   fields.  */
 
 struct tree_common
 {
@@ -393,7 +393,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    || (TREE_CODE (TYPE) == COMPLEX_TYPE \
        && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE))
 
-/* Nonzero if TYPE represents an aggregate (multi-component) type. */
+/* Nonzero if TYPE represents an aggregate (multi-component) type.  */
 
 #define AGGREGATE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == ARRAY_TYPE || TREE_CODE (TYPE) == RECORD_TYPE \
@@ -559,6 +559,10 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    (but the macro TYPE_READONLY should be used instead of this macro
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
+
+/* Non-zero if NODE is a _DECL with TREE_READONLY set.  */
+#define TREE_READONLY_DECL_P(NODE) \
+  (TREE_READONLY (NODE) && DECL_P (NODE))
 
 /* Value of expression is constant.
    Always appears in all ..._CST nodes.
@@ -918,7 +922,6 @@ struct tree_block
 #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->type.name)
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->type.next_variant)
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type.main_variant)
-#define TYPE_NONCOPIED_PARTS(NODE) (TYPE_CHECK (NODE)->type.noncopied_parts)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type.context)
 #define TYPE_LANG_SPECIFIC(NODE) (TYPE_CHECK (NODE)->type.lang_specific)
 
@@ -986,7 +989,7 @@ struct tree_block
    type node.  You then set the TYPE_STUB_DECL field of the type node
    to point back at the TYPE_DECL node.  This allows the debug routines
    to know that the two nodes represent the same type, so that we only
-   get one debug info record for them. */
+   get one debug info record for them.  */
 #define TYPE_STUB_DECL(NODE) (TREE_CHAIN (NODE))
 
 /* In a RECORD_TYPE, UNION_TYPE or QUAL_UNION_TYPE, it means the type
@@ -1064,11 +1067,11 @@ struct tree_block
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
-   If set in a SET_TYPE, indicates a bitstring type. */
+   If set in a SET_TYPE, indicates a bitstring type.  */
 #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->type.string_flag)
 
-/* If non-NULL, this is a upper bound of the size (in bytes) of an
-   object of the given ARRAY_TYPE.  This allows temporaries to be allocated. */
+/* If non-NULL, this is an upper bound of the size (in bytes) of an
+   object of the given ARRAY_TYPE.  This allows temporaries to be allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) TYPE_MAX_VALUE (ARRAY_TYPE)
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
@@ -1191,7 +1194,6 @@ struct tree_type
   tree next_variant;
   tree main_variant;
   tree binfo;
-  tree noncopied_parts;
   tree context;
   HOST_WIDE_INT alias_set;
   /* Points to a structure whose details depend on the language in use.  */
@@ -1339,9 +1341,8 @@ struct tree_type
     type, or NULL_TREE if the given decl has "file scope".  */
 #define DECL_CONTEXT(NODE) (DECL_CHECK (NODE)->decl.context)
 #define DECL_FIELD_CONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.context)
-/* In a DECL this is the field where configuration dependent machine
-   attributes are store */
-#define DECL_MACHINE_ATTRIBUTES(NODE) (DECL_CHECK (NODE)->decl.machine_attributes)
+/* In a DECL this is the field where attributes are stored.  */
+#define DECL_ATTRIBUTES(NODE) (DECL_CHECK (NODE)->decl.attributes)
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
    byte containing the bit closest to the beginning of the structure.  */
 #define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->decl.arguments)
@@ -1476,7 +1477,7 @@ struct tree_type
 /* Nonzero for any sort of ..._DECL node means this decl node represents an
    inline instance of some original (abstract) decl from an inline function;
    suppress any warnings about shadowing some other variable.  FUNCTION_DECL
-   nodes can also have their abstract origin set to themselves. */
+   nodes can also have their abstract origin set to themselves.  */
 #define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != (tree) 0 \
 				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
@@ -1510,7 +1511,7 @@ struct tree_type
 #define DECL_EXTERNAL(NODE) (DECL_CHECK (NODE)->decl.external_flag)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
-   initializatons. */
+   initializatons.  */
 #define DEFAULT_INIT_PRIORITY 65535
 #define MAX_INIT_PRIORITY 65535
 #define MAX_RESERVED_INIT_PRIORITY 100
@@ -1518,7 +1519,7 @@ struct tree_type
 /* In a TYPE_DECL
    nonzero means the detail info about this type is not dumped into stabs.
    Instead it will generate cross reference ('x') of names. 
-   This uses the same flag as DECL_EXTERNAL. */
+   This uses the same flag as DECL_EXTERNAL.  */
 #define TYPE_DECL_SUPPRESS_DEBUG(NODE) \
 (TYPE_DECL_CHECK (NODE)->decl.external_flag)
 
@@ -1549,6 +1550,14 @@ struct tree_type
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
+
+/* In a FUNCTION_DECL, the saved representation of the body of the
+   entire function.  Usually a COMPOUND_STMT, but in C++ this may also
+   be a RETURN_INIT, CTOR_INITIALIZER, or TRY_BLOCK.  */
+#define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.saved_tree)
+
+/* List of FUNCION_DECLs inlined into this function's body.  */
+#define DECL_INLINED_FNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inlined_fns)
 
 /* Nonzero in a FUNCTION_DECL means this is a built-in function
    that is not specified by ansi C and that users are supposed to be allowed
@@ -1682,6 +1691,8 @@ struct tree_type
    argument's depth.  */
 #define DECL_POINTER_DEPTH(DECL) (DECL_CHECK (DECL)->decl.pointer_depth)
 
+struct function;
+
 struct tree_decl
 {
   struct tree_common common;
@@ -1754,7 +1765,7 @@ struct tree_decl
   tree abstract_origin;
   tree assembler_name;
   tree section_name;
-  tree machine_attributes;
+  tree attributes;
   rtx rtl;	/* RTL representation for object.  */
   rtx live_range_rtl;
 
@@ -1769,6 +1780,13 @@ struct tree_decl
     tree t;
     int i;
   } u2;
+
+  /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.  */
+  tree saved_tree;
+
+  /* In a FUNCTION_DECL, these are function data which is to be kept
+     as long as FUNCTION_DECL is kept.  */
+  tree inlined_fns;
 
   tree vindex;
   HOST_WIDE_INT pointer_alias_set;
@@ -1847,6 +1865,7 @@ enum tree_index
   TI_V8QI_TYPE,
   TI_V4HI_TYPE,
   TI_V2SI_TYPE,
+  TI_V2SF_TYPE,
 
   TI_MAIN_IDENTIFIER,
 
@@ -1912,6 +1931,7 @@ extern tree global_trees[TI_MAX];
 #define V8QI_type_node			global_trees[TI_V8QI_TYPE]
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
+#define V2SF_type_node			global_trees[TI_V2SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones.  */
@@ -1991,6 +2011,11 @@ extern tree make_tree_vec		PARAMS ((int));
 
 extern tree get_identifier		PARAMS ((const char *));
 
+/* Identical to get_identifier, except that the length is assumed
+   known.  */
+
+extern tree get_identifier_with_length  PARAMS ((const char *, unsigned int));
+
 /* If an identifier with the name TEXT (a null-terminated string) has
    previously been referred to, return that node; otherwise return
    NULL_TREE.  */
@@ -2064,19 +2089,91 @@ extern tree make_tree			PARAMS ((tree, rtx));
    is ATTRIBUTE.
 
    Such modified types already made are recorded so that duplicates
-   are not made. */
+   are not made.  */
 
 extern tree build_type_attribute_variant PARAMS ((tree, tree));
 extern tree build_decl_attribute_variant PARAMS ((tree, tree));
+
+/* Structure describing an attribute and a function to handle it.  */
+struct attribute_spec
+{
+  /* The name of the attribute (without any leading or trailing __),
+     or NULL to mark the end of a table of attributes.  */
+  const char *const name;
+  /* The minimum length of the list of arguments of the attribute.  */
+  const int min_length;
+  /* The maximum length of the list of arguments of the attribute
+     (-1 for no maximum).  */
+  const int max_length;
+  /* Whether this attribute requires a DECL.  If it does, it will be passed
+     from types of DECLs, function return types and array element types to
+     the DECLs, function types and array types respectively; but when
+     applied to a type in any other circumstances, it will be ignored with
+     a warning.  (If greater control is desired for a given attribute,
+     this should be false, and the flags argument to the handler may be
+     used to gain greater control in that case.)  */
+  const bool decl_required;
+  /* Whether this attribute requires a type.  If it does, it will be passed
+     from a DECL to the type of that DECL.  */
+  const bool type_required;
+  /* Whether this attribute requires a function (or method) type.  If it does,
+     it will be passed from a function pointer type to the target type,
+     and from a function return type (which is not itself a function
+     pointer type) to the function type.  */
+  const bool function_type_required;
+  /* Function to handle this attribute.  NODE points to the node to which
+     the attribute is to be applied.  If a DECL, it should be modified in
+     place; if a TYPE, a copy should be created.  NAME is the name of the
+     attribute (possibly with leading or trailing __).  ARGS is the TREE_LIST
+     of the arguments (which may be NULL).  FLAGS gives further information
+     about the context of the attribute.  Afterwards, the attributes will
+     be added to the DECL_ATTRIBUTES or TYPE_ATTRIBUTES, as appropriate,
+     unless *NO_ADD_ATTRS is set to true (which should be done on error,
+     as well as in any other cases when the attributes should not be added
+     to the DECL or TYPE).  Depending on FLAGS, any attributes to be
+     applied to another type or DECL later may be returned;
+     otherwise the return value should be NULL_TREE.  This pointer may be
+     NULL if no special handling is required beyond the checks implied
+     by the rest of this structure.  */
+  tree (*const handler) PARAMS ((tree *node, tree name, tree args,
+				 int flags, bool *no_add_attrs));
+};
+
+extern const struct attribute_spec default_target_attribute_table[];
+
+/* Flags that may be passed in the third argument of decl_attributes, and
+   to handler functions for attributes.  */
+enum attribute_flags
+{
+  /* The type passed in is the type of a DECL, and any attributes that
+     should be passed in again to be applied to the DECL rather than the
+     type should be returned.  */
+  ATTR_FLAG_DECL_NEXT = 1,
+  /* The type passed in is a function return type, and any attributes that
+     should be passed in again to be applied to the function type rather
+     than the return type should be returned.  */
+  ATTR_FLAG_FUNCTION_NEXT = 2,
+  /* The type passed in is an array element type, and any attributes that
+     should be passed in again to be applied to the array type rather
+     than the element type should be returned.  */
+  ATTR_FLAG_ARRAY_NEXT = 4,
+  /* The type passed in is a structure, union or enumeration type being
+     created, and should be modified in place.  */
+  ATTR_FLAG_TYPE_IN_PLACE = 8,
+  /* The attributes are being applied by default to a library function whose
+     name indicates known behavior, and should be silently ignored if they
+     are not in fact compatible with the function type.  */
+  ATTR_FLAG_BUILT_IN = 16
+};
 
 /* Default versions of target-overridable functions.  */
 
 extern tree merge_decl_attributes PARAMS ((tree, tree));
 extern tree merge_type_attributes PARAMS ((tree, tree));
-extern int default_valid_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int default_comp_type_attributes PARAMS ((tree, tree));
 extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
+extern bool default_function_attribute_inlinable_p PARAMS ((tree));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2234,8 +2331,8 @@ extern HOST_WIDE_INT int_byte_position	PARAMS ((tree));
 
 enum size_type_kind
 {
-  SIZETYPE,		/* Normal representation of sizes in bytes. */
-  SSIZETYPE,		/* Signed representation of sizes in bytes. */
+  SIZETYPE,		/* Normal representation of sizes in bytes.  */
+  SSIZETYPE,		/* Signed representation of sizes in bytes.  */
   USIZETYPE,		/* Unsigned representation of sizes in bytes.  */
   BITSIZETYPE,		/* Normal representation of sizes in bits.  */
   SBITSIZETYPE,		/* Signed representation of sizes in bits.  */
@@ -2277,10 +2374,10 @@ extern void put_pending_sizes		PARAMS ((tree));
    + (BITS_PER_UNIT > 8) + (BITS_PER_UNIT > 16) + (BITS_PER_UNIT > 32) \
    + (BITS_PER_UNIT > 64) + (BITS_PER_UNIT > 128) + (BITS_PER_UNIT > 256))
 
-/* If nonzero, an upper limit on alignment of structure fields, in bits. */
+/* If nonzero, an upper limit on alignment of structure fields, in bits.  */
 extern unsigned int maximum_field_alignment;
 
-/* If non-zero, the alignment of a bitstring or (power-)set value, in bits. */
+/* If non-zero, the alignment of a bitstring or (power-)set value, in bits.  */
 extern unsigned int set_alignment;
 
 /* Concatenate two lists (chains of TREE_LIST nodes) X and Y
@@ -2520,7 +2617,7 @@ extern int pedantic_lvalues;
 
 extern int immediate_size_expand;
 
-/* Points to the FUNCTION_DECL of the function whose body we are reading. */
+/* Points to the FUNCTION_DECL of the function whose body we are reading.  */
 
 extern tree current_function_decl;
 
@@ -2681,7 +2778,7 @@ extern void init_lex				PARAMS ((void));
 /* Function of no arguments for initializing the symbol table.  */
 extern void init_decl_processing		PARAMS ((void));
 
-/* Function to identify which front-end produced the output file. */
+/* Function to identify which front-end produced the output file.  */
 extern const char *lang_identify			PARAMS ((void));
 
 /* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
@@ -2803,6 +2900,7 @@ extern void push_function_context	PARAMS ((void));
 extern void pop_function_context	PARAMS ((void));
 extern void push_function_context_to	PARAMS ((tree));
 extern void pop_function_context_from	PARAMS ((tree));
+extern void ggc_mark_struct_function	PARAMS ((struct function *));
 
 /* In print-rtl.c */
 #ifdef BUFSIZ
@@ -2832,6 +2930,34 @@ extern rtx emit_line_note		PARAMS ((const char *, int));
 /* In calls.c */
 
 extern int setjmp_call_p		PARAMS ((tree));
+
+/* In attribs.c.  */
+
+/* Process the attributes listed in ATTRIBUTES and install them in *NODE,
+   which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
+   it should be modified in place; if a TYPE, a copy should be created
+   unless ATTR_FLAG_TYPE_IN_PLACE is set in FLAGS.  FLAGS gives further
+   information, in the form of a bitwise OR of flags in enum attribute_flags
+   from tree.h.  Depending on these flags, some attributes may be
+   returned to be applied at a later stage (for example, to apply
+   a decl attribute to the declaration rather than to its type).  */
+extern tree decl_attributes		PARAMS ((tree *, tree, int));
+
+/* The following function must be provided by front ends
+   using attribs.c.  */
+
+/* Possibly apply default attributes to a function (represented by
+   a FUNCTION_DECL).  */
+extern void insert_default_attributes PARAMS ((tree));
+
+/* Table of machine-independent attributes for checking formats, if used.  */
+extern const struct attribute_spec *format_attribute_table;
+
+/* Table of machine-independent attributes for a particular language.  */
+extern const struct attribute_spec *lang_attribute_table;
+
+/* Flag saying whether common language attributes are to be supported.  */
+extern int lang_attribute_common;
 
 /* In front end.  */
 
@@ -2942,6 +3068,10 @@ extern void dwarf2out_return_save	PARAMS ((const char *, long));
 /* Entry point for saving the return address in a register.  */
 
 extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
+
+/* The type of a function that walks over tree structure.  */
+
+typedef tree (*walk_tree_fn)		PARAMS ((tree *, int *, void *));
 
 
 /* Redefine abort to report an internal error w/o coredump, and

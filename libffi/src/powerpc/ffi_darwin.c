@@ -5,7 +5,7 @@
 
    Darwin ABI support (c) 2001 John Hornkvist
 
-   $Id: ffi.c,v 1.1.1.1 1998/11/29 16:48:16 green Exp $
+   $Id: ffi_darwin.c,v 1.1 2001/10/09 05:32:15 bryce Exp $
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the

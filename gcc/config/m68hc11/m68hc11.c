@@ -66,8 +66,8 @@ static rtx m68hc11_expand_compare PARAMS((enum rtx_code, rtx, rtx));
 static int must_parenthesize PARAMS ((rtx));
 static int m68hc11_shift_cost PARAMS ((enum machine_mode, rtx, int));
 static int m68hc11_auto_inc_p PARAMS ((rtx));
-static int m68hc11_valid_type_attribute_p PARAMS((tree, tree,
-						  tree, tree));
+static tree m68hc11_handle_fntype_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec m68hc11_attribute_table[];
 
 void create_regs_rtx PARAMS ((void));
 static void m68hc11_add_gc_roots PARAMS ((void));
@@ -128,10 +128,10 @@ rtx m68hc11_compare_op0;
 rtx m68hc11_compare_op1;
 
 
-struct processor_costs *m68hc11_cost;
+const struct processor_costs *m68hc11_cost;
 
 /* Costs for a 68HC11.  */
-struct processor_costs m6811_cost = {
+static const struct processor_costs m6811_cost = {
   /* add */
   COSTS_N_INSNS (2),
   /* logical */
@@ -166,7 +166,7 @@ struct processor_costs m6811_cost = {
 };
 
 /* Costs for a 68HC12.  */
-struct processor_costs m6812_cost = {
+static const struct processor_costs m6812_cost = {
   /* add */
   COSTS_N_INSNS (1),
   /* logical */
@@ -209,8 +209,8 @@ const char *m68hc11_soft_reg_count;
 static int nb_soft_regs;
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE m68hc11_valid_type_attribute_p
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE m68hc11_attribute_table
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68hc11_output_function_epilogue
@@ -301,7 +301,7 @@ m68hc11_conditional_register_usage ()
 
 /* Reload and register operations. */
 
-static const char *reg_class_names[] = REG_CLASS_NAMES;
+static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
 
 void
@@ -1130,30 +1130,34 @@ m68hc11_initialize_trampoline (tramp, fnaddr, cxt)
 
 /* Declaration of types.  */
 
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-static int
-m68hc11_valid_type_attribute_p (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args;
+const struct attribute_spec m68hc11_attribute_table[] =
 {
-  if (TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != FIELD_DECL && TREE_CODE (type) != TYPE_DECL)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "interrupt", 0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { "trap",      0, 0, false, true,  true,  m68hc11_handle_fntype_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
 
-  if (TREE_CODE (type) == FUNCTION_TYPE)
+/* Handle an attribute requiring a FUNCTION_TYPE, FIELD_DECL or TYPE_DECL;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+m68hc11_handle_fntype_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE
+      && TREE_CODE (*node) != FIELD_DECL
+      && TREE_CODE (*node) != TYPE_DECL)
     {
-      if (is_attribute_p ("interrupt", identifier))
-	return (args == NULL_TREE);
-      if (is_attribute_p ("trap", identifier))
-	return (args == NULL_TREE);
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  return 0;
+  return NULL_TREE;
 }
 
 /* Define this macro if references to a symbol must be treated
@@ -3295,7 +3299,17 @@ m68hc11_gen_movhi (insn, operands)
       if (ix_reg == 0)
 	create_regs_rtx ();
 
-      if (reg_mentioned_p (ix_reg, operands[0]))
+      if (REG_P (operands[0]) && REGNO (operands[0]) == SOFT_TMP_REGNUM)
+        {
+          output_asm_insn ("pshx", operands);
+          output_asm_insn ("tsx", operands);
+          output_asm_insn ("inx", operands);
+          output_asm_insn ("inx", operands);
+          output_asm_insn ("stx\t%0", operands);
+          output_asm_insn ("pulx", operands);
+        }
+          
+      else if (reg_mentioned_p (ix_reg, operands[0]))
 	{
 	  output_asm_insn ("sty\t%t0", operands);
 	  output_asm_insn ("tsy", operands);

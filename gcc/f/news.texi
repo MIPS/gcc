@@ -9,7 +9,7 @@
 @c in the standalone derivations of this file (e.g. NEWS).
 @set copyrights-news 1995,1996,1997,1998,1999,2000,2001
 
-@set last-update-news 2001-06-03
+@set last-update-news 2001-10-05
 
 @include root.texi
 
@@ -156,7 +156,32 @@ The following information was last updated on @value{last-update-news}:
 @itemize @bullet
 @ifclear USERVISONLY
 @item
-[ Nothing yet ]
+Based on work done by Juergen Pfeifer (@email{juergen.pfeifer@@gmx.net})
+libf2c is now a shared library.  One can still link in all objects with
+the program by specifying the @code{-static} option.
+
+@item
+Robert Anderson (@email{rwa@@alumni.princeton.edu}) thought up a two
+line change that enables g77 to compile such code as:
+@smallexample
+SUBROUTINE SUB(A, N)
+DIMENSION N(2)
+DIMENSION A(N(1),N(2))
+A(1,1) = 1.
+END
+@end smallexample
+Note the use of array elements in the bounds of the adjustable array A.
+
+@item
+George Helffrich (@email{george@@geo.titech.ac.jp}) implemented a change
+in substring index checking (when specifying @code{-fbounds-check})
+that permits the use of zero length substrings of the form
+@code{string(1:0)}.
+
+@item
+Based on code developed by Pedro Vazquez (@email{vazquez@@penelope.iqm.unicamp.br}),
+the @code{libf2c} library is now able to read and write files larger than
+2 Gbyte on 32-bit target machines, if the operating system supports this.
 @end ifclear
 @end itemize
 

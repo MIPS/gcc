@@ -502,7 +502,7 @@ attr_hash_add_rtx (hashcode, rtl)
      int hashcode;
      rtx rtl;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
 
   h = (struct attr_hash *) obstack_alloc (hash_obstack,
 					  sizeof (struct attr_hash));
@@ -519,7 +519,7 @@ attr_hash_add_string (hashcode, str)
      int hashcode;
      char *str;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
 
   h = (struct attr_hash *) obstack_alloc (hash_obstack,
 					  sizeof (struct attr_hash));
@@ -546,11 +546,11 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
   enum rtx_code code;
 #endif
   va_list p;
-  register int i;		/* Array indices...			*/
-  register const char *fmt;	/* Current rtx's format...		*/
-  register rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
+  int i;		/* Array indices...			*/
+  const char *fmt;	/* Current rtx's format...		*/
+  rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
   int hashcode;
-  register struct attr_hash *h;
+  struct attr_hash *h;
   struct obstack *old_obstack = rtl_obstack;
 
   VA_START (p, code);
@@ -742,15 +742,15 @@ attr_rtx VPARAMS ((enum rtx_code code, ...))
    rtx attr_printf (len, format, [arg1, ..., argn])  */
 
 char *
-attr_printf VPARAMS ((register int len, const char *fmt, ...))
+attr_printf VPARAMS ((unsigned int len, const char *fmt, ...))
 {
   char str[256];
 
   VA_OPEN (p, fmt);
-  VA_FIXEDARG (p, int, len);
+  VA_FIXEDARG (p, unsigned int, len);
   VA_FIXEDARG (p, const char *, fmt);
   
-  if (len > (sizeof(str) - 1)) /* leave room for \0 */
+  if (len > sizeof str - 1) /* Leave room for \0.  */
     abort ();
 
   vsprintf (str, fmt, p);
@@ -782,10 +782,10 @@ attr_string (str, len)
      const char *str;
      int len;
 {
-  register struct attr_hash *h;
+  struct attr_hash *h;
   int hashcode;
   int i;
-  register char *new_str;
+  char *new_str;
 
   /* Compute the hash code.  */
   hashcode = (len + 1) * 613 + (unsigned) str[0];
@@ -827,12 +827,12 @@ attr_equal_p (x, y)
 
 static rtx
 attr_copy_rtx (orig)
-     register rtx orig;
+     rtx orig;
 {
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
 
   /* No need to copy a permanent object.  */
   if (RTX_INTEGRATED_P (orig))
@@ -919,7 +919,7 @@ attr_copy_rtx (orig)
    in the attribute (or `alternative_name') to speed up subsequent
    `find_attr' calls and eliminate most `strcmp' calls.
 
-   Return the new expression, if any.   */
+   Return the new expression, if any.  */
 
 rtx
 check_attr_test (exp, is_const, lineno)
@@ -1636,9 +1636,8 @@ expand_delays ()
 	  newexp = attr_rtx (IF_THEN_ELSE, condexp,
 			     make_numeric_value (1), make_numeric_value (0));
 
-	  p = attr_printf (sizeof ("*delay__") + MAX_DIGITS * 2,
-			   "*delay_%d_%d",
-			   delay->num, i / 3);
+	  p = attr_printf (sizeof "*delay__" + MAX_DIGITS * 2,
+			   "*delay_%d_%d", delay->num, i / 3);
 	  make_internal_attr (p, newexp, 1);
 
 	  if (have_annul_true)
@@ -1648,7 +1647,7 @@ expand_delays ()
 	      newexp = attr_rtx (IF_THEN_ELSE, condexp,
 				 make_numeric_value (1),
 				 make_numeric_value (0));
-	      p = attr_printf (sizeof ("*annul_true__") + MAX_DIGITS * 2,
+	      p = attr_printf (sizeof "*annul_true__" + MAX_DIGITS * 2,
 			       "*annul_true_%d_%d", delay->num, i / 3);
 	      make_internal_attr (p, newexp, 1);
 	    }
@@ -1660,7 +1659,7 @@ expand_delays ()
 	      newexp = attr_rtx (IF_THEN_ELSE, condexp,
 				 make_numeric_value (1),
 				 make_numeric_value (0));
-	      p = attr_printf (sizeof ("*annul_false__") + MAX_DIGITS * 2,
+	      p = attr_printf (sizeof "*annul_false__" + MAX_DIGITS * 2,
 			       "*annul_false_%d_%d", delay->num, i / 3);
 	      make_internal_attr (p, newexp, 1);
 	    }
@@ -1913,7 +1912,8 @@ expand_units ()
 					   != unit->issue_delay.max);
 	  if (unit->needs_conflict_function)
 	    {
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_cost_") + MAX_DIGITS,
+	      str = attr_printf ((strlen (unit->name) + sizeof "*_cost_"
+				  + MAX_DIGITS),
 				 "*%s_cost_%d", unit->name, op->num);
 	      make_internal_attr (str, issue_exp, 1);
 	    }
@@ -2142,7 +2142,8 @@ expand_units ()
 		}
 
 	      /* Make an attribute for use in the blockage function.  */
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_block_") + MAX_DIGITS,
+	      str = attr_printf ((strlen (unit->name) + sizeof "*_block_"
+				  + MAX_DIGITS),
 				 "*%s_block_%d", unit->name, op->num);
 	      make_internal_attr (str, blockage, 1);
 	    }
@@ -2175,12 +2176,13 @@ expand_units ()
 	      newexp = operate_exp (RANGE_OP, min_blockage, max_blockage);
 	      newexp = simplify_knowing (newexp, unit->condexp);
 
-	      str = attr_printf (strlen (unit->name) + sizeof ("*_unit_blockage_range"),
+	      str = attr_printf ((strlen (unit->name)
+				  + sizeof "*_unit_blockage_range"),
 				 "*%s_unit_blockage_range", unit->name);
 	      make_internal_attr (str, newexp, 20);
 	    }
 
-	  str = attr_printf (strlen (unit->name) + sizeof ("*_unit_ready_cost"),
+	  str = attr_printf (strlen (unit->name) + sizeof "*_unit_ready_cost",
 			     "*%s_unit_ready_cost", unit->name);
 	}
       else
@@ -2222,7 +2224,7 @@ expand_units ()
 	}
 
       /* Simplifying caseexp with simplify_by_exploding doesn't win.  */
-      str = attr_printf (strlen (unit->name) + sizeof ("*_cases"),
+      str = attr_printf (strlen (unit->name) + sizeof "*_cases",
 			 "*%s_cases", unit->name);
       make_internal_attr (str, caseexp, 1);
     }
@@ -2257,10 +2259,10 @@ static rtx
 encode_units_mask (x)
      rtx x;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   code = GET_CODE (x);
 
@@ -2442,11 +2444,11 @@ substitute_address (exp, no_address_fn, address_fn)
 static void
 make_length_attrs ()
 {
-  static const char *new_names[] = {"*insn_default_length",
+  static const char *const new_names[] = {"*insn_default_length",
 				      "*insn_variable_length_p",
 				      "*insn_current_length"};
-  static rtx (*no_address_fn[]) PARAMS ((rtx)) = {identity_fn, zero_fn, zero_fn};
-  static rtx (*address_fn[]) PARAMS ((rtx)) = {max_fn, one_fn, identity_fn};
+  static rtx (*const no_address_fn[]) PARAMS ((rtx)) = {identity_fn, zero_fn, zero_fn};
+  static rtx (*const address_fn[]) PARAMS ((rtx)) = {max_fn, one_fn, identity_fn};
   size_t i;
   struct attr_desc *length_attr, *new_attr;
   struct attr_value *av, *new_av;
@@ -3471,7 +3473,7 @@ simplify_test_exp (exp, insn_code, insn_index)
 
       /* Look at the value for this insn code in the specified attribute.
 	 We normally can replace this comparison with the condition that
-	 would give this insn the values being tested for.   */
+	 would give this insn the values being tested for.  */
       if (XSTR (exp, 0) != alternative_name
 	  && (attr = find_attr (XSTR (exp, 0), 0)) != NULL)
 	for (av = attr->first_value; av; av = av->next)
@@ -4021,7 +4023,7 @@ static rtx
 simplify_with_current_value_aux (exp)
      rtx exp;
 {
-  register int i;
+  int i;
   rtx cond;
 
   switch (GET_CODE (exp))
@@ -4100,10 +4102,10 @@ static void
 clear_struct_flag (x)
      rtx x;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   MEM_IN_STRUCT_P (x) = 0;
   if (RTX_UNCHANGING_P (x))
@@ -4158,10 +4160,10 @@ count_sub_rtxs (x, max)
      rtx x;
      int max;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
   int total = 0;
 
   code = GET_CODE (x);
@@ -4904,8 +4906,8 @@ static void
 walk_attr_value (exp)
      rtx exp;
 {
-  register int i, j;
-  register const char *fmt;
+  int i, j;
+  const char *fmt;
   RTX_CODE code;
 
   if (exp == NULL)
@@ -5273,11 +5275,11 @@ write_expr_attr_cache (p, attr)
 	return 0;
 
       if (!attr->is_numeric)
-	printf ("  register enum attr_%s ", attr->name);
+	printf ("  enum attr_%s ", attr->name);
       else if (attr->unsigned_p)
-	printf ("  register unsigned int ");
+	printf ("  unsigned int ");
       else
-	printf ("  register int ");
+	printf ("  int ");
 
       printf ("attr_%s = get_attr_%s (insn);\n", attr->name, attr->name);
       return 1;
@@ -5322,7 +5324,7 @@ write_toplevel_expr (p)
       if (!attr->is_const)
 	write_expr_attr_cache (p, attr);
 
-  printf ("  register unsigned long accum = 0;\n\n");
+  printf ("  unsigned long accum = 0;\n\n");
 
   while (GET_CODE (p) == IOR)
     {
@@ -5654,7 +5656,7 @@ write_function_unit_info ()
      the function units.   The name is included for documentation purposes
      only.  */
 
-  printf ("struct function_unit_desc function_units[] = {\n");
+  printf ("const struct function_unit_desc function_units[] = {\n");
 
   /* Write out the descriptions in numeric order, but don't force that order
      on the list.  Doing so increases the runtime of genattrtab.c.  */
@@ -5980,11 +5982,11 @@ extend_range (range, min, max)
 
 static rtx
 copy_rtx_unchanging (orig)
-     register rtx orig;
+     rtx orig;
 {
 #if 0
-  register rtx copy;
-  register RTX_CODE code;
+  rtx copy;
+  RTX_CODE code;
 #endif
 
   if (RTX_UNCHANGING_P (orig) || MEM_IN_STRUCT_P (orig))

@@ -163,6 +163,9 @@ extern int flag_emit_xref;
 /* When doing xrefs, tell when not to fold.   */
 extern int do_not_fold;
 
+/* Resource name.  */
+extern char * resource_name;
+
 /* Turned to 1 if -Wall was encountered. See lang.c for their meanings.  */
 extern int flag_wall;
 extern int flag_redundant;
@@ -947,6 +950,8 @@ struct lang_decl_var
    for non primitive types when compiling to bytecode. */
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC(T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC(T)->package_list)
+#define TYPE_IMPORT_LIST(T)      (TYPE_LANG_SPECIFIC(T)->import_list)
+#define TYPE_IMPORT_DEMAND_LIST(T) (TYPE_LANG_SPECIFIC(T)->import_demand_list)
 #define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->pic)
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->poic)
 #define TYPE_HAS_FINAL_VARIABLE(T) (TYPE_LANG_SPECIFIC(T)->hfv)
@@ -965,6 +970,8 @@ struct lang_type
 				   compiling to bytecode to implement
 				   <non_primitive_type>.class */
   tree package_list;		/* List of package names, progressive */
+  tree import_list;		/* Imported types, in the CU of this class */
+  tree import_demand_list;	/* Imported types, in the CU of this class */
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
   unsigned hfv:1;		/* Has final variables */
@@ -1017,6 +1024,7 @@ extern tree build_dtable_decl PARAMS ((tree));
 extern tree build_internal_class_name PARAMS ((tree));
 extern tree build_constants_constructor PARAMS ((void));
 extern tree build_ref_from_constant_pool PARAMS ((int));
+void compile_resource_file PARAMS ((char *, char *));
 extern tree build_utf8_ref PARAMS ((tree));
 extern tree ident_subst PARAMS ((const char*, int,
 				const char*, int, int, const char*));

@@ -2910,6 +2910,12 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
       vtbl = build_indirect_ref (vtbl, NULL);
       e2 = build_array_ref (vtbl, idx);
 
+      /* When using function descriptors, the address of the
+	 vtable entry is treated as a function pointer.  */
+      if (TARGET_VTABLE_USES_DESCRIPTORS)
+	e2 = build1 (NOP_EXPR, TREE_TYPE (e2),
+		     build_unary_op (ADDR_EXPR, e2, /*noconvert=*/1));
+
       TREE_TYPE (e2) = TREE_TYPE (e3);
       e1 = build_conditional_expr (e1, e2, e3);
       
@@ -3029,8 +3035,8 @@ build_function_call_real (function, params, require_complete, flags)
 
   /* Check for errors in format strings.  */
 
-  if (warn_format && (name || assembler_name))
-    check_function_format (NULL, name, assembler_name, coerced_params);
+  if (warn_format)
+    check_function_format (NULL, TYPE_ATTRIBUTES (fntype), coerced_params);
 
   /* Recognize certain built-in functions so we can make tree-codes
      other than CALL_EXPR.  We do this when it enables fold-const.c
@@ -6289,8 +6295,12 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   /* [expr.ass]
 
      The expression is implicitly converted (clause _conv_) to the
-     cv-unqualified type of the left operand.  */
-  if (!can_convert_arg (type, rhstype, rhs))
+     cv-unqualified type of the left operand.
+
+     We allow bad conversions here because by the time we get to this point
+     we are committed to doing the conversion.  If we end up doing a bad
+     conversion, convert_like will complain.  */
+  if (!can_convert_arg_bad (type, rhstype, rhs))
     {
       /* When -Wno-pmf-conversions is use, we just silently allow
 	 conversions from pointers-to-members to plain pointers.  If
@@ -6299,7 +6309,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
 	  && TYPE_PTR_P (type) 
 	  && TYPE_PTRMEMFUNC_P (rhstype))
 	rhs = cp_convert (strip_top_quals (type), rhs);
-      else 
+      else
 	{
 	  /* If the right-hand side has unknown type, then it is an
 	     overloaded function.  Call instantiate_type to get error
@@ -6792,6 +6802,11 @@ ptr_reasonably_similar (to, from)
 {
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
     {
+      /* Any target type is similar enough to void.  */
+      if (TREE_CODE (to) == VOID_TYPE
+	  || TREE_CODE (from) == VOID_TYPE)
+	return 1;
+
       if (TREE_CODE (to) != TREE_CODE (from))
 	return 0;
 

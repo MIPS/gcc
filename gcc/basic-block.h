@@ -83,19 +83,19 @@ do {									\
 } while (0)
 
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
-   register number and executing CODE for all registers that are set. */
+   register number and executing CODE for all registers that are set.  */
 #define EXECUTE_IF_SET_IN_REG_SET(REGSET, MIN, REGNUM, CODE)		\
   EXECUTE_IF_SET_IN_BITMAP (REGSET, MIN, REGNUM, CODE)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
-   set in the first regset and not set in the second. */
+   set in the first regset and not set in the second.  */
 #define EXECUTE_IF_AND_COMPL_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
   EXECUTE_IF_AND_COMPL_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, CODE)
 
 /* Loop over all registers in REGSET1 and REGSET2, starting with MIN, setting
    REGNUM to the register number and executing CODE for all registers that are
-   set in both regsets. */
+   set in both regsets.  */
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
   EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, CODE)
 
@@ -140,12 +140,11 @@ typedef struct edge_def {
 } *edge;
 
 #define EDGE_FALLTHRU		1
-#define EDGE_CRITICAL		2
-#define EDGE_ABNORMAL		4
-#define EDGE_ABNORMAL_CALL	8
-#define EDGE_EH			16
-#define EDGE_FAKE		32
-#define EDGE_DFS_BACK		64
+#define EDGE_ABNORMAL		2
+#define EDGE_ABNORMAL_CALL	4
+#define EDGE_EH			8
+#define EDGE_FAKE		16
+#define EDGE_DFS_BACK		32
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -246,6 +245,12 @@ extern varray_type basic_block_info;
 
 extern regset regs_live_at_setjmp;
 
+/* Special labels found during CFG build.  */
+
+extern rtx label_value_list, tail_recursion_label_list;
+
+extern struct obstack flow_obstack;
+
 /* Indexed by n, gives number of basic block that  (REG n) is used in.
    If the value is REG_BLOCK_GLOBAL (-2),
    it means (REG n) is used in more than one basic block.
@@ -270,7 +275,7 @@ extern regset regs_live_at_setjmp;
 #define ENTRY_BLOCK (-1)
 #define EXIT_BLOCK (-2)
 
-/* Special block number not valid for any block. */
+/* Special block number not valid for any block.  */
 #define INVALID_BLOCK (-3)
 
 /* Similarly, block pointers for the edge list.  */
@@ -283,9 +288,9 @@ extern varray_type basic_block_for_insn;
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 
 extern void compute_bb_for_insn		PARAMS ((int));
+extern void free_bb_for_insn		PARAMS ((void));
 extern void update_bb_for_insn		PARAMS ((basic_block));
 extern void set_block_for_insn		PARAMS ((rtx, basic_block));
-extern void set_block_for_new_insns	PARAMS ((rtx, basic_block));
 
 extern void free_basic_block_vars	PARAMS ((int));
 
@@ -297,19 +302,23 @@ extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
 extern void connect_infinite_loops_to_exit	PARAMS ((void));
 extern int flow_call_edges_add		PARAMS ((sbitmap));
-extern rtx flow_delete_insn		PARAMS ((rtx));
-extern void flow_delete_insn_chain	PARAMS ((rtx, rtx));
-extern void make_edge			PARAMS ((sbitmap *, basic_block,
+extern edge cached_make_edge		PARAMS ((sbitmap *, basic_block,
+						 basic_block, int));
+extern edge make_edge			PARAMS ((basic_block,
+						 basic_block, int));
+extern edge make_single_succ_edge	PARAMS ((basic_block,
 						 basic_block, int));
 extern void remove_edge			PARAMS ((edge));
 extern void redirect_edge_succ		PARAMS ((edge, basic_block));
 extern edge redirect_edge_succ_nodup	PARAMS ((edge, basic_block));
 extern void redirect_edge_pred		PARAMS ((edge, basic_block));
-extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
+extern basic_block create_basic_block_structure PARAMS ((int, rtx, rtx, rtx));
+extern basic_block create_basic_block	PARAMS ((int, rtx, rtx));
 extern int flow_delete_block		PARAMS ((basic_block));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
+extern void tidy_fallthru_edges		PARAMS ((void));
 extern void flow_reverse_top_sort_order_compute	PARAMS ((int *));
 extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
 extern void dump_edge_info		PARAMS ((FILE *, edge, int));
@@ -525,6 +534,10 @@ struct edge_list
 					  + REG_BR_PROB_BASE / 2) \
 					 / REG_BR_PROB_BASE)
 
+/* Return nonzero if edge is critical.  */
+#define EDGE_CRITICAL_P(e)		((e)->src->succ->succ_next \
+					 && (e)->dest->pred->pred_next)
+
 struct edge_list * create_edge_list	PARAMS ((void));
 void free_edge_list			PARAMS ((struct edge_list *));
 void print_edge_list			PARAMS ((FILE *, struct edge_list *));
@@ -615,22 +628,33 @@ extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));
 extern void allocate_bb_life_data	PARAMS ((void));
-extern void find_unreachable_blocks	PARAMS ((void));
 extern void expunge_block		PARAMS ((basic_block));
+extern basic_block alloc_block		PARAMS ((void));
+extern void find_unreachable_blocks	PARAMS ((void));
 extern void delete_noop_moves		PARAMS ((rtx));
-extern rtx last_loop_beg_note		PARAMS ((rtx));
 extern basic_block redirect_edge_and_branch_force PARAMS ((edge, basic_block));
+extern basic_block force_nonfallthru	PARAMS ((edge));
 extern bool redirect_edge_and_branch	PARAMS ((edge, basic_block));
 extern rtx block_label			PARAMS ((basic_block));
 extern bool forwarder_block_p		PARAMS ((basic_block));
 extern bool purge_all_dead_edges	PARAMS ((void));
 extern bool purge_dead_edges		PARAMS ((basic_block));
 extern void find_sub_basic_blocks	PARAMS ((basic_block));
-
+extern bool can_fallthru		PARAMS ((basic_block, basic_block));
+extern void flow_nodes_print		PARAMS ((const char *, const sbitmap,
+						 FILE *));
+extern void flow_edge_list_print	PARAMS ((const char *, const edge *,
+						 int, FILE *));
+extern void alloc_aux_for_block		PARAMS ((basic_block, int));
+extern void alloc_aux_for_blocks	PARAMS ((int));
+extern void free_aux_for_blocks		PARAMS ((void));
+extern void alloc_aux_for_edge		PARAMS ((edge, int));
+extern void alloc_aux_for_edges		PARAMS ((int));
+extern void free_aux_for_edges		PARAMS ((void));
 
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about
-   it being unused. */
+   it being unused.  */
 extern void verify_flow_info		PARAMS ((void));
 extern int flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
 

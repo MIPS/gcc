@@ -1,5 +1,82 @@
-2001-08-25  Geoffrey Keating  <geoffk@redhat.com>
+Thu Oct 11 21:50:15 2001  J"orn Rennecke <amylaar@onetel.net.uk>
 
+	* MAINTAINERS: Update my email address.
+
+2001-10-11  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure.in (noconfigdirs) [cris-*-*]: Disable libgcj.
+	* MAINTAINERS: Add self as maintainer of CRIS port.
+
+2001-10-10  Geert Bosch  <bosch@gnat.com>
+
+	* MAINTAINERS (Various maintainers: Ada front end): 
+	Added Robert Dewar.
+
+2001-10-03  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* MAINTAINERS (Write After Approval): Added self
+
+2001-10-02  Geert Bosch  <bosch@gnat.com>
+
+	* MAINTAINERS (Various maintainers: Ada front end): Added myself.
+
+2001-10-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* configure: Handle temporary files securely using mkdir.
+
+2001-09-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (configure-target-gperf): Depend on $(ALL_GCC_CXX).
+
+2001-09-26  Will Cohen <wcohen@redhat.com>
+
+	* configure.in (*-*-linux*): Disable configuration of target-newlib
+	and target-libgloss.
+	
+2001-09-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (EXTRA_TARGET_FLAGS): Pass RANLIB_FOR_TARGET for
+	RANLIB.
+
+2001-09-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (AS_FOR_TARGET, LD_FOR_TARGET,
+	DLLTOOL_FOR_TARGET, WINDRES_FOR_TARGET, AR_FOR_TARGET,
+	RANLIB_FOR_TARGET, NM_FOR_TARGET): Don't use double quotes to
+	avoid quotes nesting problems.
+	(NATIVE_CHECK_MODULES): Ditto, just for consistency.
+	(DO_X): Export only variables that are set.
+
+2001-09-19  Ben Elliston  <bje@redhat.com>
+
+	* configure.in (sparc-sun-solaris2*): Don't use /usr/bin/which on
+	Solaris when testing for the /usr/ucb/cc compiler; it has incorrect
+	semantics.  Use the shell built-in "type" command instead.
+
+2001-08-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged from gcc-3_0-branch:
+	2001-07-30  Jeff Sturm  <jsturm@one-pont.com>
+	* ltcf-c.sh: Use $objext, not $ac_objext.
+	2001-07-27  Mark Kettenis  <kettenis@gnu.org>
+	* ltcf-cxx.sh: Add support for GNU.
+	2001-07-22  Timothy Wall  <twall@redhat.com>
+	* ltcf-c.sh: Don't disable shared libraries for AIX5/IA64.  Preserve
+	default settings if using GNU tools with that configuration.
+	* ltcf-cxx.sh: Ditto.
+	* ltcf-gcj.sh: Ditto.
+	2001-07-21  Michael Chastain  <chastain@redhat.com>
+	* ltconfig: Set max_cmd_len to a maximum of 512Kb, as it seems some
+	HPUX 11.0 systems have trouble with 1MB.  Mark as gcc-local.
+	* ltmain.sh: Mark as gcc-local.
+
+2001-08-30  Eric Christopher  <echristo@redhat.com>
+	    Jason Eckhardt  <jle@redhat.com>
+
+	* config.guess: Merge from master sources.
+	* config.sub: Merge from master sources, add support for mipsisa32.
+
+2001-08-25  Geoffrey Keating  <geoffk@redhat.com>
 	* config.sub: Merge from master sources, rev 1.219.
 	* MAINTAINERS: Add self as contact for stormy16 port.
 

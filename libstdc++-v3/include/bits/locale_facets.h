@@ -168,7 +168,7 @@ namespace std
       explicit 
       ctype(size_t __refs = 0) : __ctype_abstract_base<_CharT>(__refs) { }
 
-      static locale::id id;
+      static locale::id 		id;
 
    protected:
       virtual 
@@ -569,7 +569,7 @@ namespace std
       typedef _InIter  			iter_type;
       typedef char_traits<_CharT> 	__traits_type;
 
-      static locale::id id;
+      static locale::id 		id;
 
       explicit 
       num_get(size_t __refs = 0) : locale::facet(__refs) { }
@@ -580,6 +580,7 @@ namespace std
       { return do_get(__in, __end, __io, __err, __v); }
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+      //XXX.  What number?
       iter_type 
       get(iter_type __in, iter_type __end, ios_base& __io,
 	  ios_base::iostate& __err, short& __v) const
@@ -661,6 +662,7 @@ namespace std
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
 
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+      //XXX.  What number?
       virtual iter_type 
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, short&) const;
       virtual iter_type 
@@ -740,7 +742,7 @@ namespace std
       typedef _CharT       char_type;
       typedef _OutIter     iter_type;
 
-      static locale::id id;
+      static locale::id		id;
 
       explicit 
       num_put(size_t __refs = 0) : locale::facet(__refs) { }
@@ -828,14 +830,14 @@ namespace std
       typedef _CharT          		char_type;
       typedef basic_string<_CharT> 	string_type;
 
-      static locale::id id;
+      static locale::id 		id;
 
     private:
-      char_type 	_M_decimal_point;
-      char_type 	_M_thousands_sep;
-      string 		_M_grouping;
-      string_type 	_M_truename;
-      string_type 	_M_falsename;
+      char_type 			_M_decimal_point;
+      char_type 			_M_thousands_sep;
+      string 				_M_grouping;
+      string_type 			_M_truename;
+      string_type 			_M_falsename;
 
     public:
       explicit 
@@ -898,12 +900,11 @@ namespace std
   template<typename _CharT>
     locale::id numpunct<_CharT>::id;
 
+  // NB: Cannot be made generic. 
   template<typename _CharT>
     void
-    numpunct<_CharT>::_M_initialize_numpunct(__c_locale /*__cloc*/)
-    { 
-      // NB: Cannot be made generic. 
-    }
+    numpunct<_CharT>::_M_initialize_numpunct(__c_locale)
+    { }
 
   template<> 
     void
@@ -955,7 +956,7 @@ namespace std
       __c_locale			_M_c_locale_collate;
  
     public:
-      static locale::id id;
+      static locale::id 		id;
 
       explicit 
       collate(size_t __refs = 0)
@@ -1037,7 +1038,6 @@ namespace std
     class collate_byname : public collate<_CharT>
     {
     public:
-      // Types:
       typedef _CharT               char_type;
       typedef basic_string<_CharT> string_type;
 
@@ -1058,86 +1058,323 @@ namespace std
     enum dateorder { no_order, dmy, mdy, ymd, ydm };
   };
 
+  template<typename _CharT>
+    class __timepunct : public locale::facet
+    {
+    public:
+      // Types:
+      typedef _CharT          		__char_type;
+      typedef basic_string<_CharT> 	__string_type;
+
+      static locale::id 		id;
+
+      // List of all known timezones, with GMT first.
+      static const _CharT* 		_S_timezones[14];
+
+    protected:
+      __c_locale			_M_c_locale_timepunct;
+      const char*			_M_name_timepunct;
+      const _CharT* 			_M_date_format;
+      const _CharT* 			_M_date_era_format;
+      const _CharT* 			_M_time_format;
+      const _CharT* 			_M_time_era_format;
+      const _CharT*			_M_date_time_format;
+      const _CharT*			_M_date_time_era_format;
+      const _CharT* 			_M_am;
+      const _CharT* 			_M_pm;
+      const _CharT*			_M_am_pm_format;
+
+      // Day names, starting with "C"'s Sunday.
+      const _CharT*  			_M_day1;
+      const _CharT*  			_M_day2;
+      const _CharT*  			_M_day3;
+      const _CharT*  			_M_day4;
+      const _CharT*  			_M_day5;
+      const _CharT*  			_M_day6;
+      const _CharT*  			_M_day7;
+
+      // Abbreviated day names, starting with "C"'s Sun.
+      const _CharT*  			_M_day_a1;
+      const _CharT*  			_M_day_a2;
+      const _CharT*  			_M_day_a3;
+      const _CharT*  			_M_day_a4;
+      const _CharT*  			_M_day_a5;
+      const _CharT*  			_M_day_a6;
+      const _CharT*  			_M_day_a7;
+
+      // Month names, starting with "C"'s January.
+      const _CharT*  			_M_month01;
+      const _CharT*  			_M_month02;
+      const _CharT*  			_M_month03;
+      const _CharT*  			_M_month04;
+      const _CharT*  			_M_month05;
+      const _CharT*  			_M_month06;
+      const _CharT*  			_M_month07;
+      const _CharT*  			_M_month08;
+      const _CharT*  			_M_month09;
+      const _CharT*  			_M_month10;
+      const _CharT*  			_M_month11;
+      const _CharT*  			_M_month12;
+
+      // Abbreviated month names, starting with "C"'s Jan.
+      const _CharT*  			_M_month_a01;
+      const _CharT*  			_M_month_a02;
+      const _CharT*  			_M_month_a03;
+      const _CharT*  			_M_month_a04;
+      const _CharT*  			_M_month_a05;
+      const _CharT*  			_M_month_a06;
+      const _CharT*  			_M_month_a07;
+      const _CharT*  			_M_month_a08;
+      const _CharT*  			_M_month_a09;
+      const _CharT*  			_M_month_a10;
+      const _CharT*  			_M_month_a11;
+      const _CharT*  			_M_month_a12;
+
+    public:
+      explicit 
+      __timepunct(size_t __refs = 0) 
+      : locale::facet(__refs), _M_name_timepunct("C")
+      { _M_initialize_timepunct(); }
+
+      explicit 
+      __timepunct(__c_locale __cloc, const char* __s, size_t __refs = 0) 
+      : locale::facet(__refs), _M_name_timepunct(__s)
+      { _M_initialize_timepunct(__cloc); }
+
+      void
+      _M_put_helper(_CharT* __s, size_t __maxlen, const _CharT* __format, 
+		    const tm* __tm) const;
+
+      void
+      _M_date_formats(const _CharT** __date) const
+      {
+	// Always have default first.
+	__date[0] = _M_date_format;
+	__date[1] = _M_date_era_format;	
+      }
+
+      void
+      _M_time_formats(const _CharT** __time) const
+      {
+	// Always have default first.
+	__time[0] = _M_time_format;
+	__time[1] = _M_time_era_format;	
+      }
+
+      void
+      _M_ampm(const _CharT** __ampm) const
+      { 
+	__ampm[0] = _M_am;
+	__ampm[1] = _M_pm;
+      }      
+
+      void
+      _M_date_time_formats(const _CharT** __dt) const
+      {
+	// Always have default first.
+	__dt[0] = _M_date_time_format;
+	__dt[1] = _M_date_time_era_format;	
+      }
+
+      void
+      _M_days(const _CharT** __days) const
+      { 
+	__days[0] = _M_day1;
+	__days[1] = _M_day2;
+	__days[2] = _M_day3;
+	__days[3] = _M_day4;
+	__days[4] = _M_day5;
+	__days[5] = _M_day6;
+	__days[6] = _M_day7;
+      }
+
+      void
+      _M_days_abbreviated(const _CharT** __days) const
+      { 
+	__days[0] = _M_day_a1;
+	__days[1] = _M_day_a2;
+	__days[2] = _M_day_a3;
+	__days[3] = _M_day_a4;
+	__days[4] = _M_day_a5;
+	__days[5] = _M_day_a6;
+	__days[6] = _M_day_a7;
+      }
+
+      void
+      _M_months(const _CharT** __months) const
+      { 
+	__months[0] = _M_month01;
+	__months[1] = _M_month02;
+	__months[2] = _M_month03;
+	__months[3] = _M_month04;
+	__months[4] = _M_month05;
+	__months[5] = _M_month06;
+	__months[6] = _M_month07;
+	__months[7] = _M_month08;
+	__months[8] = _M_month09;
+	__months[9] = _M_month10;
+	__months[10] = _M_month11;
+	__months[11] = _M_month12;
+      }
+
+      void
+      _M_months_abbreviated(const _CharT** __months) const
+      { 
+	__months[0] = _M_month_a01;
+	__months[1] = _M_month_a02;
+	__months[2] = _M_month_a03;
+	__months[3] = _M_month_a04;
+	__months[4] = _M_month_a05;
+	__months[5] = _M_month_a06;
+	__months[6] = _M_month_a07;
+	__months[7] = _M_month_a08;
+	__months[8] = _M_month_a09;
+	__months[9] = _M_month_a10;
+	__months[10] = _M_month_a11;
+	__months[11] = _M_month_a12;
+      }
+
+    protected:
+      virtual 
+      ~__timepunct()
+      {
+	if (_M_c_locale_timepunct)
+	  _S_destroy_c_locale(_M_c_locale_timepunct); 
+      }
+
+      // For use at construction time only.
+      void 
+      _M_initialize_timepunct(__c_locale __cloc = NULL);
+    };
+
+  template<typename _CharT>
+    locale::id __timepunct<_CharT>::id;
+
+  template<> 
+    const char*
+    __timepunct<char>::_S_timezones[14];
+
+  // Generic.
+  template<typename _CharT>
+    const _CharT* __timepunct<_CharT>::_S_timezones[14];
+
+  // NB: Cannot be made generic. 
+  template<typename _CharT>
+    void
+    __timepunct<_CharT>::_M_initialize_timepunct(__c_locale)
+    { }
+
+  // NB: Cannot be made generic.
+  template<typename _CharT>
+    void
+    __timepunct<_CharT>::_M_put_helper(_CharT*, size_t, const _CharT*, 
+				       const tm*) const
+    { }
+
+  template<> 
+    void
+    __timepunct<char>::_M_initialize_timepunct(__c_locale __cloc);
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template<> 
+    const wchar_t*
+    __timepunct<wchar_t>::_S_timezones[14];
+
+  template<> 
+    void
+    __timepunct<wchar_t>::_M_initialize_timepunct(__c_locale __cloc);
+#endif
+
   template<typename _CharT, typename _InIter>
     class time_get : public locale::facet, public time_base
     {
     public:
       // Types:
-      typedef _CharT     char_type;
-      typedef _InIter    iter_type;
+      typedef _CharT     		char_type;
+      typedef _InIter    		iter_type;
+      typedef basic_string<_CharT> 	__string_type;
 
-      static locale::id id;
+      static locale::id 		id;
 
       explicit 
       time_get(size_t __refs = 0) 
-      : locale::facet (__refs), _M_daynames(0), _M_monthnames(0) { }
+      : locale::facet (__refs) { }
 
       dateorder 
       date_order()  const
-      { return do_date_order(); }
+      { return this->do_date_order(); }
 
       iter_type 
-      get_time(iter_type __s, iter_type __end, ios_base& __f, 
-	       ios_base::iostate& __err, tm* __t)  const
-      { return do_get_time(__s, __end, __f, __err, __t); }
+      get_time(iter_type __beg, iter_type __end, ios_base& __io, 
+	       ios_base::iostate& __err, tm* __tm)  const
+      { return this->do_get_time(__beg, __end, __io, __err, __tm); }
 
       iter_type 
-      get_date(iter_type __s, iter_type __end, ios_base& __f,
-	       ios_base::iostate& __err, tm* __t)  const
-      { return do_get_date(__s, __end, __f, __err, __t); }
+      get_date(iter_type __beg, iter_type __end, ios_base& __io,
+	       ios_base::iostate& __err, tm* __tm)  const
+      { return this->do_get_date(__beg, __end, __io, __err, __tm); }
 
       iter_type 
-      get_weekday(iter_type __s, iter_type __end, ios_base& __f,
-		  ios_base::iostate& __err, tm* __t) const
-      { return do_get_weekday(__s,__end,__f,__err,__t); }
+      get_weekday(iter_type __beg, iter_type __end, ios_base& __io,
+		  ios_base::iostate& __err, tm* __tm) const
+      { return this->do_get_weekday(__beg, __end, __io, __err, __tm); }
 
       iter_type 
-      get_monthname(iter_type __s, iter_type __end, ios_base& __f, 
-		    ios_base::iostate& __err, tm* __t) const
-      { return do_get_monthname(__s,__end,__f,__err,__t); }
+      get_monthname(iter_type __beg, iter_type __end, ios_base& __io, 
+		    ios_base::iostate& __err, tm* __tm) const
+      { return this->do_get_monthname(__beg, __end, __io, __err, __tm); }
 
       iter_type 
-      get_year(iter_type __s, iter_type __end, ios_base& __f,
-	       ios_base::iostate& __err, tm* __t) const
-      { return do_get_year(__s,__end,__f,__err,__t); }
+      get_year(iter_type __beg, iter_type __end, ios_base& __io,
+	       ios_base::iostate& __err, tm* __tm) const
+      { return this->do_get_year(__beg, __end, __io, __err, __tm); }
 
     protected:
       virtual 
-      ~time_get() 
-      {      
-	delete [] _M_monthnames; 
-	delete [] _M_daynames; 
-      }
+      ~time_get() { }
 
       virtual dateorder 
-      do_date_order()  const
-      { return time_base::ymd; }
+      do_date_order() const;
 
       virtual iter_type 
-      do_get_time(iter_type __s, iter_type /*__end*/, ios_base&,
-		  ios_base::iostate& /*__err*/, tm* /*__t*/) const
-      { return __s; }
+      do_get_time(iter_type __beg, iter_type __end, ios_base& __io,
+		  ios_base::iostate& __err, tm* __tm) const;
 
       virtual iter_type 
-      do_get_date(iter_type __s, iter_type /*__end*/, ios_base&,
-		  ios_base::iostate& /*__err*/, tm* /*__t*/) const
-      { return __s; }
+      do_get_date(iter_type __beg, iter_type __end, ios_base& __io,
+		  ios_base::iostate& __err, tm* __tm) const;
 
       virtual iter_type 
-      do_get_weekday(iter_type __s, iter_type __end, ios_base&,
-		     ios_base::iostate& __err, tm* __t) const;
+      do_get_weekday(iter_type __beg, iter_type __end, ios_base&,
+		     ios_base::iostate& __err, tm* __tm) const;
 
       virtual iter_type 
-      do_get_monthname(iter_type __s, iter_type __end, ios_base&, 
-		       ios_base::iostate& __err, tm* __t) const;
+      do_get_monthname(iter_type __beg, iter_type __end, ios_base&, 
+		       ios_base::iostate& __err, tm* __tm) const;
 
       virtual iter_type 
-      do_get_year(iter_type __s, iter_type /*__end*/, ios_base&,
-		   ios_base::iostate& /*__err*/, tm* /*__t*/) const
-      { return __s; }
+      do_get_year(iter_type __beg, iter_type __end, ios_base& __io,
+		  ios_base::iostate& __err, tm* __tm) const;
 
-      mutable basic_string<_CharT>* _M_daynames;
-      mutable basic_string<_CharT>* _M_monthnames;
+      // Extract numeric component of length __len.
+      void
+      _M_extract_num(iter_type& __beg, iter_type& __end, int& __member,
+		     int __min, int __max, size_t __len,
+		     const ctype<_CharT>& __ctype, 
+		     ios_base::iostate& __err) const;
+      
+      // Extract day or month name, or any unique array of string
+      // literals in a const _CharT* array.
+      void
+      _M_extract_name(iter_type& __beg, iter_type& __end, int& __member,
+		      const _CharT** __names, size_t __indexlen, 
+		      ios_base::iostate& __err) const;
+
+      // Extract on a component-by-component basis, via __format argument.
+      void
+      _M_extract_via_format(iter_type& __beg, iter_type& __end, ios_base& __io,
+			    ios_base::iostate& __err, tm* __tm, 
+			    const _CharT* __format) const;
     };
 
   template<typename _CharT, typename _InIter>
@@ -1147,12 +1384,14 @@ namespace std
     class time_get_byname : public time_get<_CharT, _InIter>
     {
     public:
-      typedef _CharT     char_type;
-      typedef _InIter    iter_type;
+      // Types:
+      typedef _CharT     		char_type;
+      typedef _InIter    		iter_type;
 
       explicit 
       time_get_byname(const char*, size_t __refs = 0) 
       : time_get<_CharT, _InIter>(__refs) { }
+
     protected:
       virtual 
       ~time_get_byname() { }
@@ -1162,34 +1401,33 @@ namespace std
     class time_put : public locale::facet, public time_base
     {
     public:
-      typedef _CharT     char_type;
-      typedef _OutIter   iter_type;
+      // Types:
+      typedef _CharT     		char_type;
+      typedef _OutIter   		iter_type;
 
-      static locale::id id;
+      static locale::id 	     	id;
 
       explicit 
-      time_put(size_t __refs = 0) : locale::facet (__refs) { }
-
-      // NB: this is a nonvirtual, calls do_put in a loop.
-      iter_type 
-      put(iter_type __s, ios_base& /*__f*/, char_type /*__fill*/,
-          const tm* /*__tmb*/, const _CharT* /*__pattern*/,
-          const _CharT* /*__pat_end*/) const
-      { return __s; }
+      time_put(size_t __refs = 0) 
+      : locale::facet(__refs) { }
 
       iter_type 
-      put(iter_type __s, ios_base& __f, char_type __fill,
-	  const tm* __tmb, char __format, char __modifier = 0) const
-      { return do_put(__s, __f, __fill, __tmb, __format, __modifier); }
+      put(iter_type __s, ios_base& __io, char_type __fill, const tm* __tm, 
+	  const _CharT* __beg, const _CharT* __end) const;
+
+      iter_type 
+      put(iter_type __s, ios_base& __io, char_type __fill,
+	  const tm* __tm, char __format, char __mod = 0) const
+      { return this->do_put(__s, __io, __fill, __tm, __format, __mod); }
 
     protected:
       virtual 
-      ~time_put() { }
+      ~time_put()
+      { }
 
       virtual iter_type 
-      do_put(iter_type __s, ios_base&, char_type, const tm* /*__t*/, 
-	     char /*__format*/, char /*__mod*/) const
-      { return __s; }
+      do_put(iter_type __s, ios_base& __io, char_type __fill, const tm* __tm, 
+	     char __format, char __mod) const;
     };
 
   template<typename _CharT, typename _OutIter>
@@ -1199,102 +1437,20 @@ namespace std
     class time_put_byname : public time_put<_CharT, _OutIter>
     {
     public:
-      typedef _CharT     char_type;
-      typedef _OutIter   iter_type;
+      // Types:
+      typedef _CharT     		char_type;
+      typedef _OutIter   		iter_type;
 
       explicit 
-      time_put_byname(const char*, size_t __refs = 0) 
-      : time_put<_CharT, _OutIter> (__refs) { }
+      time_put_byname(const char* /*__s*/, size_t __refs = 0) 
+      : time_put<_CharT, _OutIter>(__refs) 
+      { };
 
     protected:
       virtual 
       ~time_put_byname() { }
     };
 
-
-  template<typename _CharT, typename _InIter>
-    class money_get : public locale::facet
-    {
-    public:
-      typedef _CharT        char_type;
-      typedef _InIter       iter_type;
-      typedef basic_string<_CharT> string_type;
-
-      static locale::id id;
-
-      explicit 
-      money_get(size_t __refs = 0) : locale::facet(__refs) { }
-
-      iter_type 
-      get(iter_type __s, iter_type __end, bool __intl,
-	  ios_base& __f, ios_base::iostate& __err, long double& __units) const
-      { return do_get(__s, __end, __intl, __f, __err, __units); }
-
-      iter_type 
-      get(iter_type __s, iter_type __end, bool __intl, ios_base& __f, 
-	   ios_base::iostate& __err, string_type& __digits) const
-      { return do_get(__s, __end, __intl, __f, __err, __digits); }
-
-    protected:
-      virtual 
-      ~money_get() { }
-
-      virtual iter_type 
-      do_get(iter_type __s, iter_type /*__end*/, bool /*__intl*/,
-             ios_base& /*__io*/, ios_base::iostate& /*__err*/,
-             long double& /*__units*/) const
-      { return __s; }
-
-      virtual iter_type 
-      do_get(iter_type __s, iter_type /*__end*/, bool /*__intl*/,
-             ios_base& /*__io*/, ios_base::iostate& /*__err*/,
-             string_type& /*__digits*/) const
-      { return __s; }
-    };
-
-  template<typename _CharT, typename _InIter>
-    locale::id money_get<_CharT, _InIter>::id;
-
-  template<typename _CharT, typename _OutIter>
-    class money_put : public locale::facet
-    {
-    public:
-      typedef _CharT              char_type;
-      typedef _OutIter            iter_type;
-      typedef basic_string<_CharT> string_type;
-
-      static locale::id id;
-
-      explicit 
-      money_put(size_t __refs = 0) : locale::facet(__refs) { }
-
-      iter_type 
-      put(iter_type __s, bool __intl, ios_base& __f,
-	  char_type __fill, long double __units) const
-      { return do_put(__s, __intl, __f, __fill, __units); }
-
-      iter_type 
-      put(iter_type __s, bool __intl, ios_base& __f,
-	  char_type __fill, const string_type& __digits) const
-      { return do_put(__s, __intl, __f, __fill, __digits); }
-
-    protected:
-      virtual 
-      ~money_put() { }
-
-      virtual iter_type
-      do_put(iter_type __s, bool, ios_base& /*__io*/, char_type /*__fill*/,
-	     long double /*__units*/) const
-      { return __s; }
-
-      virtual iter_type
-      do_put(iter_type __s, bool, ios_base& /*__io*/, char_type /*__fill*/,
-	     const string_type& /*__digits*/) const
-      { return __s; }
-    };
-
-  template<typename _CharT, typename _OutIter>
-    locale::id money_put<_CharT, _OutIter>::id;
 
   struct money_base
   {
@@ -1417,8 +1573,8 @@ namespace std
       { return _M_neg_format; }
 
       // For use at construction time only.
-      void 
-      _M_initialize_moneypunct(__c_locale __cloc = NULL);
+       void 
+       _M_initialize_moneypunct(__c_locale __cloc = NULL);
     };
 
   template<typename _CharT, bool _Intl>
@@ -1427,21 +1583,28 @@ namespace std
   template<typename _CharT, bool _Intl>
     const bool moneypunct<_CharT, _Intl>::intl;
 
+  // NB: Cannot be made generic. 
   template<typename _CharT, bool _Intl>
     void
-    moneypunct<_CharT, _Intl>::_M_initialize_moneypunct(__c_locale /*__cloc*/)
-    { 
-      // NB: Cannot be made generic. 
-    }
+    moneypunct<_CharT, _Intl>::_M_initialize_moneypunct(__c_locale)
+    { }
 
   template<> 
     void
-    moneypunct<char>::_M_initialize_moneypunct(__c_locale __cloc);
+    moneypunct<char, true>::_M_initialize_moneypunct(__c_locale __cloc);
+
+  template<> 
+    void
+    moneypunct<char, false>::_M_initialize_moneypunct(__c_locale __cloc);
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<> 
     void
-    moneypunct<wchar_t>::_M_initialize_moneypunct(__c_locale __cloc);
+    moneypunct<wchar_t, true>::_M_initialize_moneypunct(__c_locale __cloc);
+
+  template<> 
+    void
+    moneypunct<wchar_t, false>::_M_initialize_moneypunct(__c_locale __cloc);
 #endif
 
   template<typename _CharT, bool _Intl>
@@ -1472,6 +1635,85 @@ namespace std
   template<typename _CharT, bool _Intl>
     const bool moneypunct_byname<_CharT, _Intl>::intl;
 
+  template<typename _CharT, typename _InIter>
+    class money_get : public locale::facet
+    {
+    public:
+      // Types:
+      typedef _CharT        		char_type;
+      typedef _InIter       		iter_type;
+      typedef basic_string<_CharT> 	string_type;
+
+      static locale::id 		id;
+
+      explicit 
+      money_get(size_t __refs = 0) : locale::facet(__refs) { }
+
+      iter_type 
+      get(iter_type __s, iter_type __end, bool __intl, ios_base& __io, 
+	  ios_base::iostate& __err, long double& __units) const
+      { return this->do_get(__s, __end, __intl, __io, __err, __units); }
+
+      iter_type 
+      get(iter_type __s, iter_type __end, bool __intl, ios_base& __io, 
+	  ios_base::iostate& __err, string_type& __digits) const
+      { return this->do_get(__s, __end, __intl, __io, __err, __digits); }
+
+    protected:
+      virtual 
+      ~money_get() { }
+
+      virtual iter_type 
+      do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io, 
+	     ios_base::iostate& __err, long double& __units) const;
+
+      virtual iter_type 
+      do_get(iter_type __s, iter_type __end, bool __intl, ios_base& __io, 
+	     ios_base::iostate& __err, string_type& __digits) const;
+    };
+
+  template<typename _CharT, typename _InIter>
+    locale::id money_get<_CharT, _InIter>::id;
+
+  template<typename _CharT, typename _OutIter>
+    class money_put : public locale::facet
+    {
+    public:
+      typedef _CharT              	char_type;
+      typedef _OutIter            	iter_type;
+      typedef basic_string<_CharT>	string_type;
+
+      static locale::id 		id;
+
+      explicit 
+      money_put(size_t __refs = 0) : locale::facet(__refs) { }
+
+      iter_type 
+      put(iter_type __s, bool __intl, ios_base& __io,
+	  char_type __fill, long double __units) const
+      { return this->do_put(__s, __intl, __io, __fill, __units); }
+
+      iter_type 
+      put(iter_type __s, bool __intl, ios_base& __io,
+	  char_type __fill, const string_type& __digits) const
+      { return this->do_put(__s, __intl, __io, __fill, __digits); }
+
+    protected:
+      virtual 
+      ~money_put() { }
+
+      virtual iter_type
+      do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	     long double __units) const;
+
+      virtual iter_type
+      do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	     const string_type& __digits) const;
+    };
+
+  template<typename _CharT, typename _OutIter>
+    locale::id money_put<_CharT, _OutIter>::id;
+
 
   struct messages_base
   {
@@ -1490,13 +1732,13 @@ namespace std
       // Underlying "C" library locale information saved from
       // initialization, needed by messages_byname as well.
       __c_locale			_M_c_locale_messages;
-      #if 1
+#if 1
       // Only needed if glibc < 2.3
       const char*			_M_name_messages;
-      #endif
+#endif
 
     public:
-      static locale::id id;
+      static locale::id 		id;
 
       explicit 
       messages(size_t __refs = 0) 
@@ -1625,10 +1867,10 @@ namespace std
     };
 
 
-  // Subclause convenience interfaces, inlines 
-  // NB: these are inline
-  // because, when used in a loop, some compilers can hoist the body
-  // out of the loop; then it's just as fast as the C is*() function.
+  // Subclause convenience interfaces, inlines.
+  // NB: These are inline because, when used in a loop, some compilers
+  // can hoist the body out of the loop; then it's just as fast as the
+  // C is*() function.
   template<typename _CharT>
     inline bool 
     isspace(_CharT __c, const locale& __loc)
@@ -1694,8 +1936,4 @@ namespace std
     { return use_facet<ctype<_CharT> >(__loc).tolower(__c); }
 } // namespace std
 
-#endif	/* _CPP_BITS_LOCFACETS_H */
-
-// Local Variables:
-// mode:c++
-// End:
+#endif

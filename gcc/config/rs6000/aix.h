@@ -146,8 +146,13 @@ Boston, MA 02111-1307, USA.  */
 /* Define cutoff for using external functions to save floating point.  */
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
 
-/* Optabs entries for the int->float routines, using the standard
-   AIX names.  */
+/* Optabs entries for the int->float routines and quad FP operations
+   using the standard AIX names.  */
+#define ADDTF3_LIBCALL "_xlqadd"
+#define DIVTF3_LIBCALL "_xlqdiv"
+#define MULTF3_LIBCALL "_xlqmul"
+#define SUBTF3_LIBCALL "_xlqsub"
+
 #define INIT_TARGET_OPTABS						\
   do {									\
     if (! TARGET_POWER2 && ! TARGET_POWERPC && TARGET_HARD_FLOAT)	\
@@ -155,12 +160,24 @@ Boston, MA 02111-1307, USA.  */
 	fixdfsi_libfunc = init_one_libfunc (RS6000_ITRUNC);		\
 	fixunsdfsi_libfunc = init_one_libfunc (RS6000_UITRUNC);		\
       }									\
+    if (TARGET_HARD_FLOAT)						\
+      {									\
+	add_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (ADDTF3_LIBCALL);				\
+	sub_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (SUBTF3_LIBCALL);				\
+	smul_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (MULTF3_LIBCALL);				\
+	sdiv_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (DIVTF3_LIBCALL);				\
+      }									\
   } while (0)
 
 /* AIX always has a TOC.  */
 #define TARGET_NO_TOC		0
 #define	TARGET_TOC		1
 
+#define FIXED_R2 1
 /* AIX allows r13 to be used.  */
 #define FIXED_R13 0
 

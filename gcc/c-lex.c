@@ -60,6 +60,9 @@ static const char *cpp_filename;
 /* The current line map.  */
 static const struct line_map *map;
 
+/* The line used to refresh the lineno global variable after each token.  */
+static unsigned int src_lineno;
+
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
@@ -89,6 +92,7 @@ static tree lex_string		PARAMS ((const char *, unsigned int, int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
+static void cb_line_change     PARAMS ((cpp_reader *, const cpp_token *, int));
 static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
 					 const cpp_string *));
 static void cb_file_change    PARAMS ((cpp_reader *, const struct line_map *));
@@ -125,6 +129,7 @@ init_c_lex (filename)
 
   cb = cpp_get_callbacks (parse_in);
 
+  cb->line_change = cb_line_change;
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
@@ -243,6 +248,17 @@ cb_ident (pfile, line, str)
 #endif
 }
 
+/* Called at the start of every non-empty line.  TOKEN is the first
+   lexed token on the line.  Used for diagnostic line numbers.  */
+static void
+cb_line_change (pfile, token, parsing_args)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const cpp_token *token;
+     int parsing_args ATTRIBUTE_UNUSED;
+{
+  src_lineno = SOURCE_LINE (map, token->line);
+}
+
 static void
 cb_file_change (pfile, new_map)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
@@ -319,13 +335,13 @@ cb_def_pragma (pfile, line)
   if (warn_unknown_pragmas > in_system_header)
     {
       const unsigned char *space, *name = 0;
-      cpp_token s;
+      const cpp_token *s;
 
-      cpp_get_token (pfile, &s);
-      space = cpp_token_as_text (pfile, &s);
-      cpp_get_token (pfile, &s);
-      if (s.type == CPP_NAME)
-	name = cpp_token_as_text (pfile, &s);
+      s = cpp_get_token (pfile);
+      space = cpp_token_as_text (pfile, s);
+      s = cpp_get_token (pfile);
+      if (s->type == CPP_NAME)
+	name = cpp_token_as_text (pfile, s);
 
       lineno = SOURCE_LINE (map, line);
       if (name)
@@ -669,10 +685,10 @@ utf8_extend_token (c)
 #if 0
 struct try_type
 {
-  tree *node_var;
-  char unsigned_flag;
-  char long_flag;
-  char long_long_flag;
+  tree *const node_var;
+  const char unsigned_flag;
+  const char long_flag;
+  const char long_long_flag;
 };
 
 struct try_type type_sequence[] =
@@ -751,51 +767,51 @@ int
 c_lex (value)
      tree *value;
 {
-  cpp_token tok;
-  enum cpp_ttype type;
+  const cpp_token *tok;
 
   retry:
   timevar_push (TV_CPP);
-  cpp_get_token (parse_in, &tok);
+  do
+    tok = cpp_get_token (parse_in);
+  while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
 
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
      every time we return a token.  */
-  lineno = SOURCE_LINE (map, cpp_get_line (parse_in)->line);
+  lineno = src_lineno;
 
   *value = NULL_TREE;
-  type = tok.type;
-  switch (type)
+  switch (tok->type)
     {
     case CPP_OPEN_BRACE:  indent_level++;  break;
     case CPP_CLOSE_BRACE: indent_level--;  break;
 
-    /* Issue this error here, where we can get at tok.val.c.  */
+    /* Issue this error here, where we can get at tok->val.c.  */
     case CPP_OTHER:
-      if (ISGRAPH (tok.val.c))
-	error ("stray '%c' in program", tok.val.c);
+      if (ISGRAPH (tok->val.c))
+	error ("stray '%c' in program", tok->val.c);
       else
-	error ("stray '\\%o' in program", tok.val.c);
+	error ("stray '\\%o' in program", tok->val.c);
       goto retry;
       
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok.val.node));
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
       break;
 
     case CPP_NUMBER:
-      *value = lex_number ((const char *)tok.val.str.text, tok.val.str.len);
+      *value = lex_number ((const char *)tok->val.str.text, tok->val.str.len);
       break;
 
     case CPP_CHAR:
     case CPP_WCHAR:
-      *value = lex_charconst (&tok);
+      *value = lex_charconst (tok);
       break;
 
     case CPP_STRING:
     case CPP_WSTRING:
-      *value = lex_string ((const char *)tok.val.str.text,
-			   tok.val.str.len, tok.type == CPP_WSTRING);
+      *value = lex_string ((const char *)tok->val.str.text,
+			   tok->val.str.len, tok->type == CPP_WSTRING);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -807,7 +823,7 @@ c_lex (value)
     default: break;
     }
 
-  return type;
+  return tok->type;
 }
 
 #define ERROR(msgid) do { error(msgid); goto syntax_error; } while(0)

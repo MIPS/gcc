@@ -123,8 +123,7 @@ extern int errno;
 #ifdef _LIBC
 /* Rename the non ANSI C functions.  This is required by the standard
    because some ANSI C functions will require linking with this object
-   file and the name space must not be polluted.
-   GCC LOCAL: Don't use #elif.  */
+   file and the name space must not be polluted.  */
 # define getcwd __getcwd
 # ifndef stpcpy
 #  define stpcpy __stpcpy
@@ -134,10 +133,8 @@ extern int errno;
 # if !defined HAVE_GETCWD
 char *getwd ();
 #  define getcwd(buf, max) getwd (buf)
-# else
-#  if !defined HAVE_DECL_GETCWD
+# elif !defined HAVE_DECL_GETCWD
 char *getcwd ();
-#  endif
 # endif
 # ifndef HAVE_STPCPY
 static char *stpcpy PARAMS ((char *dest, const char *src));

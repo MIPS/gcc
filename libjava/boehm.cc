@@ -375,6 +375,14 @@ _Jv_AllocArray (jsize size, jclass klass)
   return obj;
 }
 
+/* Allocate space for a new non-Java object, which does not have the usual 
+   Java object header but may contain pointers to other GC'ed objects. */
+void *
+_Jv_AllocRawObj (jsize size)
+{
+  return (void *) GC_MALLOC (size);
+}
+
 static void
 call_finalizer (GC_PTR obj, GC_PTR client_data)
 {
@@ -523,7 +531,7 @@ static _Jv_VTable trace_one_vtable = {
     (void *)(2 * sizeof(void *)),
 			// descriptor; scan 2 words incl. vtable ptr.
 			// Least significant bits must be zero to
-			// identify this as a lenght descriptor
+			// identify this as a length descriptor
     {0}			// First method
 };
 
@@ -533,7 +541,45 @@ _Jv_AllocTraceOne (jsize size /* includes vtable slot */)
   return GC_GCJ_MALLOC (size, &trace_one_vtable);
 }
 
+// Ditto for two words.
+// the first field (beyond the fake vtable pointer) to be traced.
+// Eventually this should probably be generalized.
+
+static _Jv_VTable trace_two_vtable =
+{
+  0, 			// class pointer
+  (void *)(3 * sizeof(void *)),
+			// descriptor; scan 3 words incl. vtable ptr.
+  {0}			// First method
+};
+
+void *
+_Jv_AllocTraceTwo (jsize size /* includes vtable slot */) 
+{
+  return GC_GCJ_MALLOC (size, &trace_two_vtable);
+}
+
 #endif /* JV_HASH_SYNCHRONIZATION */
+
+void
+_Jv_GCInitializeFinalizers (void (*notifier) (void))
+{
+  GC_finalize_on_demand = 1;
+  GC_finalizer_notifier = notifier;
+}
+
+void
+_Jv_GCRegisterDisappearingLink (jobject *objp)
+{
+  GC_general_register_disappearing_link ((GC_PTR *) objp, (GC_PTR) *objp);
+}
+
+jboolean
+_Jv_GCCanReclaimSoftReference (jobject obj)
+{
+  // For now, always reclaim soft references.  FIXME.
+  return true;
+}
 
 #if 0
 void

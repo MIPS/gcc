@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.27 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1996-2001, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -39,7 +39,7 @@ with Gnatvsn;
 procedure GNATprep is
    pragma Ident (Gnatvsn.Gnat_Version_String);
 
-   Version_String : constant String := "$Revision: 1.27 $";
+   Version_String : constant String := "$Revision: 1.1 $";
 
    type Strptr is access String;
 

@@ -93,14 +93,15 @@ $(DEMANGLER_PROG): cxxmain.o underscore.o $(LIBDEPS)
 
 # The compiler itself.
 # Shared with C front end:
-CXX_C_OBJS = c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o c-dump.o $(CXX_TARGET_OBJS)
+CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
+ c-dump.o $(CXX_TARGET_OBJS)
 
 # Language-specific object files.
-CXX_OBJS = cp/call.o cp/decl.o cp/errfn.o cp/expr.o cp/pt.o cp/typeck2.o \
+CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parse.o cp/ptree.o cp/rtti.o \
  cp/spew.o cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
  cp/search.o cp/semantics.o cp/tree.o cp/xref.o cp/repo.o cp/dump.o \
- cp/optimize.o cp/mangle.o
+ cp/optimize.o cp/mangle.o cp/cp-lang.o
 
 # Use loose warnings for this front end.
 cp-warn =
@@ -240,9 +241,10 @@ cp/spew.o: cp/spew.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h toplev.h
 cp/lex.o: cp/lex.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h c-pragma.h \
   toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def \
   $(TM_P_H)
+cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
   output.h $(EXPR_H) except.h toplev.h hash.h $(GGC_H) $(RTL_H) \
-  cp/operators.def $(TM_P_H)
+  cp/operators.def $(TM_P_H) tree-inline.h
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h $(EXPR_H) \
   output.h except.h toplev.h $(GGC_H) $(RTL_H)
 cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h $(TM_P_H) \
@@ -260,7 +262,7 @@ cp/method.o: cp/method.c $(CXX_TREE_H) toplev.h $(GGC_H) $(RTL_H) $(EXPR_H) \
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) stack.h flags.h toplev.h $(RTL_H)
 cp/tree.o: cp/tree.c $(CXX_TREE_H) flags.h toplev.h $(GGC_H) $(RTL_H) \
-  insn-config.h integrate.h
+  insn-config.h integrate.h tree-inline.h
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(SYSTEM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) flags.h toplev.h
 cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
@@ -269,15 +271,15 @@ cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
 cp/xref.o: cp/xref.c $(CXX_TREE_H) input.h toplev.h
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
-  $(GGC_H) $(RTL_H) except.h
-cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h
-cp/errfn.o: cp/errfn.c $(CXX_TREE_H) toplev.h
+  $(GGC_H) $(RTL_H) except.h tree-inline.h
+cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h
 cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H) diagnostic.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
-  flags.h $(GGC_H) debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H)
+  flags.h $(GGC_H) debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H) \
+  tree-inline.h
 cp/dump.o: cp/dump.c $(CXX_TREE_H) c-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
-  input.h $(PARAMS_H) debug.h
+  input.h $(PARAMS_H) debug.h tree-inline.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h
 
 cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \

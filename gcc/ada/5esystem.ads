@@ -7,7 +7,7 @@
 --                                 S p e c                                  --
 --                          (X86 Solaris Version)                           --
 --                                                                          --
---                            $Revision: 1.10 $
+--                            $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --

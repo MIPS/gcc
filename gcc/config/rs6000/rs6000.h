@@ -358,7 +358,9 @@ enum processor_type
    PROCESSOR_PPC604e,
    PROCESSOR_PPC620,
    PROCESSOR_PPC630,
-   PROCESSOR_PPC750
+   PROCESSOR_PPC750,
+   PROCESSOR_PPC7400,
+   PROCESSOR_PPC7450
 };
 
 extern enum processor_type rs6000_cpu;
@@ -641,14 +643,15 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
 
-   On RS/6000, r1 is used for the stack and r2 is used as the TOC pointer.
+   On RS/6000, r1 is used for the stack.  On Darwin, r2 is available
+   as a local register; for all other OS's r2 is the TOC pointer.
 
    cr5 is not supposed to be used.
 
    On System V implementations, r13 is fixed and not available for use.  */
 
 #define FIXED_REGISTERS  \
-  {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FIXED_R13, 0, 0, \
+  {0, 1, FIXED_R2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FIXED_R13, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -1291,14 +1294,16 @@ typedef struct rs6000_stack {
 		&& TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
 	       || POINTER_TYPE_P (VALTYPE)			\
 	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_HARD_FLOAT ? 33 : 3)
+	       TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_HARD_FLOAT \
+               ? FP_ARG_RETURN : GP_ARG_RETURN)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-#define LIBCALL_VALUE(MODE)		\
-  gen_rtx_REG (MODE, (GET_MODE_CLASS (MODE) == MODE_FLOAT	 \
-		      && TARGET_HARD_FLOAT ? 33 : 3))
+#define LIBCALL_VALUE(MODE)					\
+  gen_rtx_REG (MODE, (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+		      && TARGET_HARD_FLOAT			\
+		      ? FP_ARG_RETURN : GP_ARG_RETURN))
 
 /* The definition of this macro implies that there are cases where
    a scalar value cannot be returned in registers.
@@ -2113,6 +2118,8 @@ do {									     \
         return COSTS_N_INSNS (2);					\
       case PROCESSOR_PPC601:						\
         return COSTS_N_INSNS (5);					\
+      case PROCESSOR_PPC7400:                                         \
+      case PROCESSOR_PPC7450:                                         \
       case PROCESSOR_PPC603:						\
       case PROCESSOR_PPC750:						\
         return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
@@ -2165,7 +2172,10 @@ do {									     \
 		? COSTS_N_INSNS (21)					\
 		: COSTS_N_INSNS (37));					\
       case PROCESSOR_PPC750:						\
+      case PROCESSOR_PPC7400:						\
         return COSTS_N_INSNS (19);					\
+      case PROCESSOR_PPC7450:						\
+        return COSTS_N_INSNS (23);					\
       }									\
   case FFS:								\
     return COSTS_N_INSNS (4);						\

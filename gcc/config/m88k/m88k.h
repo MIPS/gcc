@@ -690,8 +690,8 @@ extern int flag_pic;				/* -fpic */
    write-over scoreboard delays between caller and callee.  */
 #define ORDER_REGS_FOR_LOCAL_ALLOC				\
 {								\
-  static int leaf[] = REG_LEAF_ALLOC_ORDER;			\
-  static int nonleaf[] = REG_ALLOC_ORDER;			\
+  static const int leaf[] = REG_LEAF_ALLOC_ORDER;		\
+  static const int nonleaf[] = REG_ALLOC_ORDER;			\
 								\
   memcpy (reg_alloc_order, regs_ever_live[1] ? nonleaf : leaf,	\
 	  FIRST_PSEUDO_REGISTER * sizeof (int));		\
@@ -2480,7 +2480,7 @@ sdata_section ()							\
 
    For strings, the section is selected before the segment info is encoded.  */
 #undef	SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\

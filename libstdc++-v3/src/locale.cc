@@ -114,9 +114,11 @@ namespace std
   const locale::id* const
   locale::_Impl::_S_id_time[] =
   {
+    &__timepunct<char>::id, 
     &time_get<char>::id, 
     &time_put<char>::id, 
 #ifdef _GLIBCPP_USE_WCHAR_T
+    &__timepunct<wchar_t>::id, 
     &time_get<wchar_t>::id,
     &time_put<wchar_t>::id,
 #endif
@@ -161,182 +163,6 @@ namespace std
     locale::_Impl::_S_id_messages,
     0
   };
-
-  // Construct and return valid pattern consisting of some combination of:
-  // space none symbol sign value
-  money_base::pattern
-  money_base::_S_construct_pattern(char __preceeds, char __space, char __posn)
-  { 
-    pattern __ret;
-
-    // This insanely complicated routine attempts to construct a valid
-    // pattern for use with monyepunct. A couple of invariants:
-
-    // if (__preceeds) symbol -> value
-    // else value -> symbol
-    
-    // if (__space) space
-    // else none
-
-    // none == never first
-    // space never first or last
-
-    // Any elegant implementations of this are welcome.
-    switch (__posn)
-      {
-      case 1:
-	// 1 The sign precedes the value and symbol.
-	if (__space)
-	  {
-	    // Pattern starts with sign.
-	    if (__preceeds)
-	      {
-		__ret.field[1] = symbol;
-		__ret.field[2] = space;
-		__ret.field[3] = value;
-	      }
-	    else
-	      {
-		__ret.field[1] = value;
-		__ret.field[2] = space;
-		__ret.field[3] = symbol;
-	      }
-	    __ret.field[0] = sign;
-	  }
-	else
-	  {
-	    // Pattern starts with sign and ends with none.
-	    if (__preceeds)
-	      {
-		__ret.field[1] = symbol;
-		__ret.field[2] = value;
-	      }
-	    else
-	      {
-		__ret.field[1] = value;
-		__ret.field[2] = symbol;
-	      }
-	    __ret.field[0] = sign;
-	    __ret.field[3] = none;
-	  }
-	break;
-      case 2:
-	// 2 The sign follows the value and symbol.
-	if (__space)
-	  {
-	    // Pattern either ends with sign.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = symbol;
-		__ret.field[1] = space;
-		__ret.field[2] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = space;
-		__ret.field[2] = symbol;
-	      }
-	    __ret.field[3] = sign;
-	  }
-	else
-	  {
-	    // Pattern ends with sign then none.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = symbol;
-		__ret.field[1] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = symbol;
-	      }
-	    __ret.field[2] = sign;
-	    __ret.field[3] = none;
-	  }
-	break;
-      case 3:
-	// 3 The sign immediately precedes the symbol.
-	if (__space)
-	  {
-	    // Have space.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = sign;
-		__ret.field[1] = symbol;
-		__ret.field[2] = space;
-		__ret.field[3] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = space;
-		__ret.field[2] = sign;
-		__ret.field[3] = symbol;
-	      }
-	  }
-	else
-	  {
-	    // Have none.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = sign;
-		__ret.field[1] = symbol;
-		__ret.field[2] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = sign;
-		__ret.field[2] = symbol;
-	      }
-	    __ret.field[3] = none;
-	  }
-	break;
-      case 4:
-	// 4 The sign immediately follows the symbol. 
-	if (__space)
-	  {
-	    // Have space.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = symbol;
-		__ret.field[1] = sign;
-		__ret.field[2] = space;
-		__ret.field[3] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = space;
-		__ret.field[2] = symbol;
-		__ret.field[3] = sign;
-	      }
-	  }
-	else
-	  {
-	    // Have none.
-	    if (__preceeds)
-	      {
-		__ret.field[0] = symbol;
-		__ret.field[1] = sign;
-		__ret.field[2] = value;
-	      }
-	    else
-	      {
-		__ret.field[0] = value;
-		__ret.field[1] = symbol;
-		__ret.field[2] = sign;
-	      }
-	    __ret.field[3] = none;
-	  }
-	break;
-      default:
-	;
-      }
-    return __ret;
-  }
 
   locale::~locale() throw()
   { _M_impl->_M_remove_reference(); }
@@ -608,6 +434,25 @@ namespace std
   : ctype<char>(new mask[table_size], true, __refs)
   { }
 
+  // Definitions for static const data members of time_base
+  template<> 
+    const char*
+    __timepunct<char>::_S_timezones[14] =
+    { 
+      "GMT", "HST", "AKST", "PST", "MST", "CST", "EST", "AST", "NST", "CET", 
+      "IST", "EET", "CST", "JST"  
+    };
+ 
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template<> 
+    const wchar_t*
+    __timepunct<wchar_t>::_S_timezones[14] =
+    { 
+      L"GMT", L"HST", L"AKST", L"PST", L"MST", L"CST", L"EST", L"AST", 
+      L"NST", L"CET", L"IST", L"EET", L"CST", L"JST"  
+    };
+#endif
+
   // Definitions for static const data members of money_base
   const money_base::pattern 
   money_base::_S_default_pattern =  {{symbol, sign, none, value}};
@@ -822,28 +667,7 @@ namespace std
           // Add the ending grouping
           __grp += static_cast<char>(__sep_pos);
 
-          // __grp is parsed L to R
-          // 1,222,444 == __grp of "/1/3/3"
-          // __fmt->_M_grouping is parsed R to L
-          // 1,222,444 == __fmt->_M_grouping of "/3" == "/3/3/3"
-          int __i = 0;
-          int __j = 0;
-          const int __len = __fmt->_M_grouping.size();
-          int __n = __grp.size();
-          bool __test = true;
-
-          // Parsed number groupings have to match the
-          // numpunct::grouping string exactly, starting at the
-          // right-most point of the parsed sequence of elements ...
-          while (__test && __i < __n - 1)
-            for (__j = 0; __test && __j < __len && __i < __n - 1; ++__j,++__i)
-              __test &= __fmt->_M_grouping[__j] == __grp[__n - __i - 1];
-          // ... but the last parsed grouping can be <= numpunct
-          // grouping.
-          __j == __len ? __j = 0 : __j;
-          __test &= __fmt->_M_grouping[__j] >= __grp[__n - __i - 1];
-
-          if (!__test)
+          if (!__verify_grouping(__fmt->_M_grouping, __grp))
             {
               __err |= ios_base::failbit;
               __xtrc[__pos] = '\0';

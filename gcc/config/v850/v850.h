@@ -1164,7 +1164,7 @@ zbss_section ()								\
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 #undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC)					\
+#define SELECT_SECTION(EXP, RELOC, ALIGN)				\
 do {									\
   if (TREE_CODE (EXP) == VAR_DECL)					\
     {									\
@@ -1227,7 +1227,7 @@ do {									\
 
    Do not define this macro if you put all constants in the read-only
    data section.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Output at beginning/end of assembler file.  */
 #undef ASM_FILE_START
@@ -1247,6 +1247,18 @@ do {									\
 
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
+
+/* When ASM_OUTPUT_SHORT is used to emit the offsets for a switch
+   table it can encounter (TRUNCATE:HI (MINUS:SI (LABEL_REF:SI) (LABEL_REF:SI))).
+   output_addr_const will normally barf at this, but it is OK to omit
+   the truncate and just emit the difference of the two labels.  The
+   .hword directive will automatically handle the truncation for us.  */
+
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+  if (GET_CODE (x) == TRUNCATE)				\
+    return output_addr_const (FILE, XEXP (X, 0));	\
+  else							\
+    goto FAIL;
 
 /* This is how to output an assembler line defining a `double' constant.
    It is .double or .float, depending.  */
@@ -1491,7 +1503,6 @@ do { char dstr[30];					\
 
 /* Tell compiler we want to support GHS pragmas */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {				  \
-  cpp_register_pragma_space (PFILE, "ghs");				  \
   cpp_register_pragma (PFILE, "ghs", "interrupt", ghs_pragma_interrupt);  \
   cpp_register_pragma (PFILE, "ghs", "section",   ghs_pragma_section);    \
   cpp_register_pragma (PFILE, "ghs", "starttda",  ghs_pragma_starttda);   \

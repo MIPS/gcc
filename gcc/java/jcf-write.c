@@ -57,7 +57,7 @@ char *jcf_write_base_directory = NULL;
 /* Add a 1-byte instruction/operand I to bytecode.data,
    assuming space has already been RESERVE'd. */
 
-#define OP1(I) (state->last_bc = *state->bytecode.ptr++ = (I), CHECK_OP(state))
+#define OP1(I) (*state->bytecode.ptr++ = (I), CHECK_OP(state))
 
 /* Like OP1, but I is a 2-byte big endian integer. */
 
@@ -275,8 +275,6 @@ struct jcf_partial
 
   /* Information about the current switch statement. */
   struct jcf_switch_state *sw_state;
-
-  enum java_opcode last_bc;	/* The last emitted bytecode */
 };
 
 static void generate_bytecode_insns PARAMS ((tree, int, struct jcf_partial *));
@@ -1483,7 +1481,7 @@ generate_bytecode_insns (exp, target, state)
 	    }
 	}
       break;
-      case COMPOUND_EXPR:	
+    case COMPOUND_EXPR:	
       generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
       generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
       break;
@@ -1701,7 +1699,9 @@ generate_bytecode_insns (exp, target, state)
 	sw_state.default_label = NULL;
 	generate_bytecode_insns (TREE_OPERAND (exp, 0), STACK_TARGET, state);
 	expression_last = state->last_block;
-	body_block = get_jcf_label_here (state);  /* Force a new block here. */
+	/* Force a new block here.  */
+	body_block = gen_jcf_label (state);
+	define_jcf_label (body_block, state);
 	generate_bytecode_insns (TREE_OPERAND (exp, 1), IGNORE_TARGET, state);
 	body_last = state->last_block;
 
@@ -1720,6 +1720,7 @@ generate_bytecode_insns (exp, target, state)
 	    else
 	      {
 		push_int_const (sw_state.cases->offset, state);
+		NOTE_PUSH (1);
 		emit_if (sw_state.cases->label,
 			 OPCODE_if_icmpeq, OPCODE_if_icmpne, state);
 	      }
@@ -2164,16 +2165,7 @@ generate_bytecode_insns (exp, target, state)
 	tree src = TREE_OPERAND (exp, 0);
 	tree src_type = TREE_TYPE (src);
 	tree dst_type = TREE_TYPE (exp);
-	/* Detect the situation of compiling an empty synchronized
-	   block.  A nop should be emitted in order to produce
-	   verifiable bytecode. */
-	if (exp == empty_stmt_node
-	    && state->last_bc == OPCODE_monitorenter
-	    && state->labeled_blocks
-	    && state->labeled_blocks->pc == PENDING_CLEANUP_PC)
-	  OP1 (OPCODE_nop);
-	else
-	  generate_bytecode_insns (TREE_OPERAND (exp, 0), target, state);
+	generate_bytecode_insns (TREE_OPERAND (exp, 0), target, state);
 	if (target == IGNORE_TARGET || src_type == dst_type)
 	  break;
 	if (TREE_CODE (dst_type) == POINTER_TYPE)
@@ -2884,7 +2876,10 @@ generate_classfile (clas, state)
 			      build_java_signature (TREE_TYPE (part)));
       PUT2(i);
       have_value = DECL_INITIAL (part) != NULL_TREE 
-	&& FIELD_STATIC (part) && CONSTANT_VALUE_P (DECL_INITIAL (part));
+	&& FIELD_STATIC (part) && CONSTANT_VALUE_P (DECL_INITIAL (part))
+	&& FIELD_FINAL (part)
+	&& (JPRIMITIVE_TYPE_P (TREE_TYPE (part))
+	    || TREE_TYPE (part) == string_ptr_type_node);
       if (have_value)
 	attr_count++;
 
@@ -2896,6 +2891,8 @@ generate_classfile (clas, state)
 	{
 	  tree init = DECL_INITIAL (part);
 	  static tree ConstantValue_node = NULL_TREE;
+	  if (TREE_TYPE (part) != TREE_TYPE (init))
+	    fatal_error ("field initializer type mismatch.");
 	  ptr = append_chunk (NULL, 8, state);
 	  if (ConstantValue_node == NULL_TREE)
 	    ConstantValue_node = get_identifier ("ConstantValue");

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                             $Revision: 1.5 $
+--                             $Revision: 1.1 $
 --                                                                          --
 --          Copyright (C) 1992-1999, Free Software Foundation, Inc.         --
 --                                                                          --

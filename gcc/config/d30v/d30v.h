@@ -2272,7 +2272,7 @@ typedef struct d30v_stack {
    FUNDECL is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_DECL' that
    describes the declaration of the function.  From this it is possible to
-   obtain the DECL_MACHINE_ATTRIBUTES of the function.
+   obtain the DECL_ATTRIBUTES of the function.
 
    FUNTYPE is a C variable whose value is a tree node that describes the
    function in question.  Normally it is a node of type `FUNCTION_TYPE' that
@@ -3698,7 +3698,7 @@ extern const char *d30v_branch_cost_string;
    the read-only data section (usually the text section).
 
    Defined in svr4.h.  */
-/* #define SELECT_SECTION(EXP, RELOC) */
+/* #define SELECT_SECTION(EXP, RELOC, ALIGN) */
 
 /* A C statement or statements to switch to the appropriate section for output
    of RTX in mode MODE.  You can assume that RTX is some kind of constant in
@@ -3710,7 +3710,7 @@ extern const char *d30v_branch_cost_string;
    section.
 
    Defined in svr4.h.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Define this macro if jump tables (for `tablejump' insns) should be output in
    the text section, along with the assembler instructions.  Otherwise, the

@@ -36,7 +36,7 @@ struct inline_remap
 {
   /* True if we are doing function integration, false otherwise.
      Used to control whether RTX_UNCHANGING bits are copied by
-     copy_rtx_and_substitute. */
+     copy_rtx_and_substitute.  */
   int integrating;
   /* Definition of function be inlined.  */
   union tree_node *fndecl;
@@ -144,12 +144,18 @@ extern rtx has_hard_reg_initial_val		PARAMS ((enum machine_mode, int));
 extern void mark_hard_reg_initial_vals		PARAMS ((struct function *));
 /* Called from rest_of_compilation.  */
 extern void emit_initial_value_sets		PARAMS ((void));
+extern void allocate_initial_values		PARAMS ((rtx *));
 
 /* Copy a declaration when one function is substituted inline into
    another.  */
 extern union tree_node *copy_decl_for_inlining PARAMS ((union tree_node *,
 						      union tree_node *,
 						      union tree_node *));
+
+/* Check whether there's any attribute in a function declaration that
+   makes the function uninlinable.  Returns false if it finds any,
+   true otherwise.  */
+extern bool function_attribute_inlinable_p PARAMS ((union tree_node *));
 
 extern void try_constants PARAMS ((rtx, struct inline_remap *));
 

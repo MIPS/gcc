@@ -58,8 +58,9 @@ static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
 static int    io_address_p         PARAMS ((rtx x, int size));
 void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
-static int    avr_valid_type_attribute PARAMS ((tree, tree, tree, tree));
-static int    avr_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec avr_attribute_table[];
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -77,7 +78,7 @@ rtx zero_reg_rtx;
 rtx ldi_reg_rtx;
 
 /* AVR register names {"r0", "r1", ..., "r31"} */
-const char * avr_regnames[] = REGISTER_NAMES;
+static const char *const avr_regnames[] = REGISTER_NAMES;
 
 /* This holds the last insn address.  */
 static int last_insn_address = 0;
@@ -119,8 +120,8 @@ enum avr_arch {
 };
 
 struct mcu_type_s {
-  const char *name;
-  enum avr_arch arch;
+  const char *const name;
+  const enum avr_arch arch;
 };
 
 /* List of all known AVR MCU types - if updated, it has to be kept
@@ -177,11 +178,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_PROLOGUE avr_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#define TARGET_VALID_DECL_ATTRIBUTE avr_valid_decl_attribute
-
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE avr_valid_type_attribute
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE avr_attribute_table
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -244,7 +242,7 @@ avr_init_once ()
 
 /*  return register class from register number */
 
-static int reg_class_tab[]={
+static const int reg_class_tab[]={
   GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,
   GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,
   GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,GENERAL_REGS,
@@ -310,7 +308,7 @@ avr_naked_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     abort ();
   
-  a = lookup_attribute ("naked", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -326,7 +324,7 @@ interrupt_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("interrupt", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("interrupt", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -342,7 +340,7 @@ signal_function_p (func)
   if (TREE_CODE (func) != FUNCTION_DECL)
     return 0;
 
-  a = lookup_attribute ("signal", DECL_MACHINE_ATTRIBUTES (func));
+  a = lookup_attribute ("signal", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
 }
 
@@ -2363,7 +2361,7 @@ output_movsisf(insn, operands, l)
 	  
 	  if (GET_CODE (src) == CONST_INT)
 	    {
-	      const char *clr_op0 =
+	      const char *const clr_op0 =
 		AVR_ENHANCED ? (AS1 (clr,%A0) CR_TAB
 				AS1 (clr,%B0) CR_TAB
 				AS2 (movw,%C0,%A0))
@@ -4665,54 +4663,76 @@ class_likely_spilled_p (c)
   return (c != ALL_REGS && c != ADDW_REGS);
 }
 
-/* Only `progmem' attribute valid for type.  */
-
-static int
-avr_valid_type_attribute (type, attributes, identifier, args)
-     tree type ATTRIBUTE_UNUSED;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args ATTRIBUTE_UNUSED;
-{
-  return is_attribute_p ("progmem", identifier);
-}
-
-/* If IDENTIFIER with arguments ARGS is a valid machine specific
-   attribute for DECL return 1.
-   Valid attributes:
+/* Valid attributes:
    progmem - put data to program memory;
    signal - make a function to be hardware interrupt. After function
    prologue interrupts are disabled;
    interrupt - make a function to be hardware interrupt. After function
    prologue interrupts are enabled;
-   naked     - don't generate function prologue/epilogue and `ret' command.  */
+   naked     - don't generate function prologue/epilogue and `ret' command.
 
-static int
-avr_valid_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args ATTRIBUTE_UNUSED;
+   Only `progmem' attribute valid for type.  */
+
+const struct attribute_spec avr_attribute_table[] =
 {
-  if (is_attribute_p ("interrupt", attr)
-      || is_attribute_p ("signal", attr)
-      || is_attribute_p ("naked", attr))
-    return TREE_CODE (decl) == FUNCTION_DECL;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "progmem",   0, 0, false, false, false,  avr_handle_progmem_attribute },
+  { "signal",    0, 0, true,  false, false,  avr_handle_fndecl_attribute },
+  { "interrupt", 0, 0, true,  false, false,  avr_handle_fndecl_attribute },
+  { "naked",     0, 0, true,  false, false,  avr_handle_fndecl_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
 
-  if (is_attribute_p ("progmem", attr)
-      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+/* Handle a "progmem" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+avr_handle_progmem_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (DECL_P (*node))
     {
-      if (DECL_INITIAL (decl) == NULL_TREE && !DECL_EXTERNAL (decl))
+      if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
 	{
-	  warning ("Only initialized variables can be placed into "
-		   "program memory area.");
-	  return 0;
+	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
+	    {
+	      warning ("Only initialized variables can be placed into "
+		       "program memory area.");
+	      *no_add_attrs = true;
+	    }
 	}
-      return 1;
+      else
+	{
+	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  *no_add_attrs = true;
+	}
     }
-  return 0;
+
+  return NULL_TREE;
 }
 
+/* Handle an attribute requiring a FUNCTION_DECL; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+avr_handle_fndecl_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 /* Look for attribute `progmem' in DECL
    if found return 1, otherwise 0.  */
@@ -4727,7 +4747,7 @@ avr_progmem_p (decl)
     return 0;
 
   if (NULL_TREE
-      != lookup_attribute ("progmem", DECL_MACHINE_ATTRIBUTES (decl)))
+      != lookup_attribute ("progmem", DECL_ATTRIBUTES (decl)))
     return 1;
 
   a=decl;
@@ -4756,7 +4776,7 @@ encode_section_info (decl)
 	   && TREE_CODE (decl) == VAR_DECL
 	   && avr_progmem_p (decl))
     {
-      const char *dsec = ".progmem.data";
+      static const char *const dsec = ".progmem.data";
       DECL_SECTION_NAME (decl) = build_string (strlen (dsec), dsec);
       TREE_READONLY (decl) = 1;
     }
@@ -4811,7 +4831,7 @@ void
 order_regs_for_local_alloc ()
 {
   unsigned int i;
-  int order_0[] = {
+  static const int order_0[] = {
     24,25,
     18,19,
     20,21,
@@ -4823,7 +4843,7 @@ order_regs_for_local_alloc ()
     0,1,
     32,33,34,35
   };
-  int order_1[] = {
+  static const int order_1[] = {
     18,19,
     20,21,
     22,23,
@@ -4835,7 +4855,7 @@ order_regs_for_local_alloc ()
     0,1,
     32,33,34,35
   };
-  int order_2[] = {
+  static const int order_2[] = {
     25,24,
     23,22,
     21,20,
@@ -4849,9 +4869,9 @@ order_regs_for_local_alloc ()
     32,33,34,35
   };
   
-  int *order = (TARGET_ORDER_1 ? order_1 :
-		TARGET_ORDER_2 ? order_2 :
-		order_0);
+  const int *order = (TARGET_ORDER_1 ? order_1 :
+		      TARGET_ORDER_2 ? order_2 :
+		      order_0);
   for (i=0; i < ARRAY_SIZE (order_0); ++i)
       reg_alloc_order[i] = order[i];
 }

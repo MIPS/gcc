@@ -1,3 +1,44 @@
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/gc_pthread_redirects.h: Generalize test to use GC_PTHREADS.
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Conditionalized on
+	GC_FREEBSD_THREADS, handle strange interaction between system
+	pthread implementation and boehm-gc signal-handler architecture.
+	* tests/test.c (main): Conditionalized on GC_FREEBSD_THREADS,
+	set stack.
+	* include/private/gcconfig.h (configuration keyed off FREEBSD):
+	Define SIG_SUSPEND, SIG_THR_RESTART.  Do not define
+	MPROTECT_VDB when GC_FREEBSD_THREADS is defined.
+
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* Makefile.am (test.o): Find tests/test.c in $(srcdir).
+	* Makefile.in: Rebuilt.
+
+2001-10-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am, acinclude.m4, configure.in: Imported GC 6.1 Alpha 1 and
+	merged local changes.
+
+2001-09-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* solaris_threads.c (MAX_ORIG_STACK_SIZE) [I386]: Provide special
+	Solaris 2/Intel definition.
+	
+	* configure.in (i?86-*-solaris2.[89]*): Define
+	SOLARIS25_PROC_VDB_BUG_FIXED.
+	* include/private/gcconfig.h [I386 && SUNOS5]: Use it.
+	* configure: Regenerate.
+
+	* include/private/gcconfig.h [I386 && SUNOS5] (DATASTART): Use _etext.
+	(DATAEND): Define using _end.
+
+2001-09-11  Per Bothner  <per@bothner.com>
+
+	* include/Makefile.am:  New file.  It defines include_HEADERS.
+	* Makefile.am (SUBDIRS):  New macro, set to include.
+	* configure.in (AC_OUTPUT):  Add include/Makefile.
+
 2001-08-20  Tom Tromey  <tromey@redhat.com>
 
 	* configure: Rebuilt.

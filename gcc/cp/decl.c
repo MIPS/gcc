@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "flags.h"
 #include "cp-tree.h"
+#include "tree-inline.h"
 #include "decl.h"
 #include "lex.h"
 #include "output.h"
@@ -45,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 
-extern int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree));
+extern const struct attribute_spec *lang_attribute_table;
 
 #ifndef BOOL_TYPE_SIZE
 /* `bool' has size and alignment `1', on all platforms.  */
@@ -3028,9 +3029,9 @@ static void
 warn_extern_redeclared_static (newdecl, olddecl)
      tree newdecl, olddecl;
 {
-  static const char *explicit_extern_static_warning
+  static const char *const explicit_extern_static_warning
     = "`%D' was declared `extern' and later `static'";
-  static const char *implicit_extern_static_warning
+  static const char *const implicit_extern_static_warning
     = "`%D' was declared implicitly `extern' and later `static'";
 
   tree name;
@@ -3438,7 +3439,7 @@ duplicate_decls (newdecl, olddecl)
 
   /* Copy all the DECL_... slots specified in the new decl
      except for any that we copy here from the old type.  */
-  DECL_MACHINE_ATTRIBUTES (newdecl)
+  DECL_ATTRIBUTES (newdecl)
     = (*targetm.merge_decl_attributes) (olddecl, newdecl);
 
   if (TREE_CODE (newdecl) == TEMPLATE_DECL)
@@ -3676,10 +3677,6 @@ duplicate_decls (newdecl, olddecl)
 	    DECL_NUM_STMTS (newdecl) = DECL_NUM_STMTS (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
-	  if ((DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl)))
-	    /* Previously saved insns go together with
-	       the function's previous definition.  */
-	    DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  /* Don't clear out the arguments if we're redefining a function.  */
 	  if (DECL_ARGUMENTS (olddecl))
 	    DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
@@ -3750,7 +3747,7 @@ duplicate_decls (newdecl, olddecl)
 
   /* NEWDECL contains the merged attribute lists.
      Update OLDDECL to be the same.  */
-  DECL_MACHINE_ATTRIBUTES (olddecl) = DECL_MACHINE_ATTRIBUTES (newdecl);
+  DECL_ATTRIBUTES (olddecl) = DECL_ATTRIBUTES (newdecl);
 
   return 1;
 }
@@ -6230,11 +6227,11 @@ record_unknown_type (type, name)
 typedef struct predefined_identifier
 {
   /* The name of the identifier.  */
-  const char *name;
+  const char *const name;
   /* The place where the IDENTIFIER_NODE should be stored.  */
-  tree *node;
+  tree *const node;
   /* Non-zero if this is the name of a constructor or destructor.  */
-  int ctor_or_dtor_p;
+  const int ctor_or_dtor_p;
 } predefined_identifier;
 
 /* Create all the predefined identifiers.  */
@@ -6242,10 +6239,10 @@ typedef struct predefined_identifier
 static void
 initialize_predefined_identifiers ()
 {
-  struct predefined_identifier *pid;
+  const predefined_identifier *pid;
 
   /* A table of identifiers to create at startup.  */
-  static predefined_identifier predefined_identifiers[] = {
+  static const predefined_identifier predefined_identifiers[] = {
     { "C++", &lang_name_cplusplus, 0 },
     { "C", &lang_name_c, 0 },
     { "Java", &lang_name_java, 0 },
@@ -6353,6 +6350,8 @@ init_decl_processing ()
   push_namespace (std_identifier);
   std_node = current_namespace;
   pop_namespace ();
+
+  lang_attribute_table = cp_attribute_table;
 
   c_common_nodes_and_builtins ();
 
@@ -6491,13 +6490,8 @@ init_decl_processing ()
   make_fname_decl = cp_make_fname_decl;
   start_fname_decls ();
 
-  /* Prepare to check format strings against argument lists.  */
-  init_function_format_info ();
-
   /* Show we use EH for cleanups.  */
   using_eh_for_cleanups ();
-
-  valid_lang_attribute = cp_valid_lang_attribute;
 
   /* Maintain consistency.  Perhaps we should just complain if they
      say -fwritable-strings?  */
@@ -6578,7 +6572,7 @@ cp_make_fname_decl (id, type_dep)
      tree id;
      int type_dep;
 {
-  const char *name = (type_dep && processing_template_decl
+  const char *const name = (type_dep && processing_template_decl
 		      ? NULL : fname_as_string (type_dep));
   tree init = cp_fname_init (name);
   tree decl = build_decl (VAR_DECL, id, TREE_TYPE (init));
@@ -6646,6 +6640,9 @@ builtin_function (name, type, code, class, libname)
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
     DECL_ANTICIPATED (decl) = 1;
+
+  /* Possibly apply some default attributes to this built-in function.  */
+  decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -6768,6 +6765,20 @@ push_throw_library_fn (name, type)
   TREE_THIS_VOLATILE (fn) = 1;
   TREE_NOTHROW (fn) = 0;
   return fn;
+}
+
+/* Apply default attributes to a function, if a system function with default
+   attributes.  */
+
+void
+insert_default_attributes (decl)
+     tree decl;
+{
+  if (!DECL_EXTERN_C_FUNCTION_P (decl))
+    return;
+  if (!TREE_PUBLIC (decl))
+    return;
+  c_common_insert_default_attributes (decl);
 }
 
 /* When we call finish_struct for an anonymous union, we create
@@ -6990,7 +7001,7 @@ shadow_tag (declspecs)
       if (TYPE_FIELDS (t))
 	{
 	  tree decl = grokdeclarator (NULL_TREE, declspecs, NORMAL, 0,
-				      NULL_TREE);
+				      NULL);
 	  finish_anon_union (decl);
 	}
     }
@@ -7006,7 +7017,7 @@ groktypename (typename)
     return typename;
   return grokdeclarator (TREE_VALUE (typename),
 			 TREE_PURPOSE (typename),
-			 TYPENAME, 0, NULL_TREE);
+			 TYPENAME, 0, NULL);
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -7035,7 +7046,6 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   tree context;
   extern int have_extern_spec;
   extern int used_extern_spec;
-  tree attrlist;
 
 #if 0
   /* See code below that used this.  */
@@ -7050,13 +7060,10 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
       used_extern_spec = 1;
     }
 
-  if (attributes || prefix_attributes)
-    attrlist = build_tree_list (attributes, prefix_attributes);
-  else
-    attrlist = NULL_TREE;
+  attributes = chainon (attributes, prefix_attributes);
 
   decl = grokdeclarator (declarator, declspecs, NORMAL, initialized,
-			 attrlist);
+			 &attributes);
 
   if (decl == NULL_TREE || TREE_CODE (decl) == VOID_TYPE)
     return NULL_TREE;
@@ -7123,7 +7130,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     }
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  cplus_decl_attributes (&decl, attributes, prefix_attributes, 0);
+  cplus_decl_attributes (&decl, attributes, 0);
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -8486,7 +8493,7 @@ start_handler_parms (declspecs, declarator)
   if (declspecs)
     {
       decl = grokdeclarator (declarator, declspecs, CATCHPARM,
-			     1, NULL_TREE);
+			     1, NULL);
       if (decl == NULL_TREE)
 	error ("invalid catch parameter");
     }
@@ -8636,8 +8643,10 @@ bad_specifiers (object, type, virtualp, quals, inlinep, friendp, raises)
 	      object, type);
   if (friendp)
     cp_error_at ("`%D' declared as a friend", object);
-  if (raises && !TYPE_PTRFN_P (TREE_TYPE (object))
-      && !TYPE_PTRMEMFUNC_P (TREE_TYPE (object)))
+  if (raises
+      && (TREE_CODE (object) == TYPE_DECL
+	  || (!TYPE_PTRFN_P (TREE_TYPE (object))
+	      && !TYPE_PTRMEMFUNC_P (TREE_TYPE (object)))))
     cp_error_at ("`%D' declared with an exception specification", object);
 }
 
@@ -9429,8 +9438,9 @@ check_special_function_return_type (sfk, type, optype)
      BITFIELD for a field with specified width.
    INITIALIZED is 1 if the decl has an initializer.
 
-   ATTRLIST is a TREE_LIST node with prefix attributes in TREE_VALUE and
-   normal attributes in TREE_PURPOSE, or NULL_TREE.
+   ATTRLIST is a pointer to the list of attributes, which may be NULL
+   if there are none; *ATTRLIST may be modified if attributes from inside
+   the declarator should be applied to the declaration.
 
    In the TYPENAME case, DECLARATOR is really an abstract declarator.
    It may also be so in the PARM case, for a prototype where the
@@ -9468,7 +9478,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
      tree declarator;
      enum decl_context decl_context;
      int initialized;
-     tree attrlist;
+     tree *attrlist;
 {
   RID_BIT_TYPE specbits;
   int nclasses = 0;
@@ -9491,7 +9501,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   int bitfield = 0;
 #if 0
   /* See the code below that used this.  */
-  tree decl_machine_attr = NULL_TREE;
+  tree decl_attr = NULL_TREE;
 #endif
   /* Set this to error_mark_node for FIELD_DECLs we could not handle properly.
      All FIELD_DECLs we build here have `init' put into their DECL_INITIAL.  */
@@ -9510,8 +9520,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   tree raises = NULL_TREE;
   int template_count = 0;
   tree in_namespace = NULL_TREE;
-  tree inner_attrs;
-  int ignore_attrs;
+  tree returned_attrs = NULL_TREE;
 
   RIDBIT_RESET_ALL (specbits);
   if (decl_context == FUNCDEF)
@@ -9602,24 +9611,22 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		   cp_finish_decl so we can get the variable
 		   initialized...  */
 
-		tree attributes, prefix_attributes;
+		tree attributes;
 
 		*next = TREE_OPERAND (decl, 0);
 		init = CALL_DECLARATOR_PARMS (decl);
 
 		if (attrlist)
 		  {
-		    attributes = TREE_PURPOSE (attrlist);
-		    prefix_attributes = TREE_VALUE (attrlist);
+		    attributes = *attrlist;
 		  }
 		else
 		  {
 		    attributes = NULL_TREE;
-		    prefix_attributes = NULL_TREE;
 		  }
 
 		decl = start_decl (declarator, declspecs, 1,
-				   attributes, prefix_attributes);
+				   attributes, NULL_TREE);
 		decl_type_access_control (decl);
 		if (decl)
 		  {
@@ -9957,7 +9964,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      type = TREE_TYPE (t);
 #if 0
 	      /* See the code below that used this.  */
-	      decl_machine_attr = DECL_MACHINE_ATTRIBUTES (id);
+	      decl_attr = DECL_ATTRIBUTES (id);
 #endif
 	      typedef_decl = t;
 	    }
@@ -10316,9 +10323,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
      Descend through it, creating more complex types, until we reach
      the declared identifier (or NULL_TREE, in an absolute declarator).  */
 
-  inner_attrs = NULL_TREE;
-  ignore_attrs = 0;
-
   while (declarator && TREE_CODE (declarator) != IDENTIFIER_NODE
 	 && TREE_CODE (declarator) != TEMPLATE_ID_EXPR)
     {
@@ -10367,28 +10371,32 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    }
 	}
 
-      /* See the comment for the TREE_LIST case, below.  */
-      if (ignore_attrs)
-	ignore_attrs = 0;
-      else if (inner_attrs)
-	{
-	  decl_attributes (&type, inner_attrs, 0);
-	  inner_attrs = NULL_TREE;
-	}
-
       switch (TREE_CODE (declarator))
 	{
 	case TREE_LIST:
 	  {
 	    /* We encode a declarator with embedded attributes using
-	       a TREE_LIST.  The attributes apply to the declarator
-	       directly inside them, so we have to skip an iteration
-	       before applying them to the type.  If the declarator just
-	       inside is the declarator-id, we apply the attrs to the
-	       decl itself.  */
-	    inner_attrs = TREE_PURPOSE (declarator);
-	    ignore_attrs = 1;
+	       a TREE_LIST.  */
+	    tree attrs = TREE_PURPOSE (declarator);
+	    tree inner_decl;
+	    int attr_flags;
+
 	    declarator = TREE_VALUE (declarator);
+	    inner_decl = declarator;
+	    while (inner_decl != NULL_TREE
+		   && TREE_CODE (inner_decl) == TREE_LIST)
+	      inner_decl = TREE_VALUE (inner_decl);
+	    attr_flags = 0;
+	    if (inner_decl == NULL_TREE
+		|| TREE_CODE (inner_decl) == IDENTIFIER_NODE)
+	      attr_flags |= (int) ATTR_FLAG_DECL_NEXT;
+	    if (TREE_CODE (inner_decl) == CALL_EXPR)
+	      attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
+	    if (TREE_CODE (inner_decl) == ARRAY_REF)
+	      attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
+	    returned_attrs = decl_attributes (&type,
+					      chainon (returned_attrs, attrs),
+					      attr_flags);
 	  }
 	  break;
 
@@ -10887,18 +10895,27 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	}
     }
 
-  /* See the comment for the TREE_LIST case, above.  */
-  if (inner_attrs)
+  if (returned_attrs)
     {
-      if (! ignore_attrs)
-	decl_attributes (&type, inner_attrs, 0);
-      else if (attrlist)
-	TREE_VALUE (attrlist) = chainon (inner_attrs, TREE_VALUE (attrlist));
+      if (attrlist)
+	*attrlist = chainon (returned_attrs, *attrlist);
       else
-	attrlist = build_tree_list (NULL_TREE, inner_attrs);
+	attrlist = &returned_attrs;
     }
 
   /* Now TYPE has the actual type.  */
+
+  /* Did array size calculations overflow?  */
+
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && COMPLETE_TYPE_P (type)
+      && TREE_OVERFLOW (TYPE_SIZE (type)))
+    {
+      error ("size of array `%s' is too large", name);
+      /* If we proceed with the array type as it is, we'll eventully
+	 crash in tree_low_cst().  */
+      type = error_mark_node;
+    }
 
   if (explicitp == 1 || (explicitp && friendp))
     {
@@ -11049,8 +11066,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
      a distinct type, so that each identifier's size can be
      controlled separately by its own initializer.  */
 
-  if (type == typedef_type && TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_DOMAIN (type) == NULL_TREE)
+  if (type != 0 && typedef_type != 0
+      && TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == 0
+      && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (typedef_type))
     {
       type = build_cplus_array_type (TREE_TYPE (type), TYPE_DOMAIN (type));
     }
@@ -11306,8 +11324,8 @@ friend declaration requires class-key, i.e. `friend %#T'",
 	      return decl;
 #if 0
 	    /* This clobbers the attrs stored in `decl' from `attrlist'.  */
-	    /* The decl and setting of decl_machine_attr is also turned off.  */
-	    decl = build_decl_attribute_variant (decl, decl_machine_attr);
+	    /* The decl and setting of decl_attr is also turned off.  */
+	    decl = build_decl_attribute_variant (decl, decl_attr);
 #endif
 
 	    /* [class.conv.ctor]
@@ -11405,7 +11423,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
                   }
               
                 t = do_friend (ctype, declarator, decl,
-              		       last_function_parms, attrlist, flags, quals,
+              		       last_function_parms, *attrlist, flags, quals,
               		       funcdef_flag);
               }
             if (t && funcdef_flag)
@@ -11842,7 +11860,7 @@ grokparms (first_parm)
         break;
 
       decl = grokdeclarator (TREE_VALUE (decl), TREE_PURPOSE (decl),
-		     PARM, init != NULL_TREE, NULL_TREE);
+		     PARM, init != NULL_TREE, NULL);
       if (! decl || TREE_TYPE (decl) == error_mark_node)
         continue;
 
@@ -13273,7 +13291,7 @@ start_function (declspecs, declarator, attrs, flags)
     }
   else
     {
-      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL_TREE);
+      decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
       /* If the declarator is not suitable for a function definition,
 	 cause a syntax error.  */
       if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL) return 0;
@@ -13558,7 +13576,7 @@ start_function (declspecs, declarator, attrs, flags)
   pushlevel (0);
   current_binding_level->parm_flag = 1;
 
-  cplus_decl_attributes (&decl1, NULL_TREE, attrs, 0);
+  cplus_decl_attributes (&decl1, attrs, 0);
 
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
@@ -14060,7 +14078,7 @@ start_method (declspecs, declarator, attrlist)
      tree declarator, declspecs, attrlist;
 {
   tree fndecl = grokdeclarator (declarator, declspecs, MEMFUNCDEF, 0,
-				attrlist);
+				&attrlist);
 
   /* Something too ugly to handle.  */
   if (fndecl == NULL_TREE)
@@ -14464,7 +14482,6 @@ lang_mark_tree (t)
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->context);
 	      ggc_mark_tree (ld->cloned_function);
-	      ggc_mark_tree (ld->inlined_fns);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL

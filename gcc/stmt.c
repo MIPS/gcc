@@ -404,6 +404,11 @@ static void expand_nl_goto_receiver	PARAMS ((void));
 static void expand_nl_goto_receivers	PARAMS ((struct nesting *));
 static void fixup_gotos			PARAMS ((struct nesting *, rtx, tree,
 					       rtx, int));
+static bool check_operand_nalternatives	PARAMS ((tree, tree));
+static bool check_unique_operand_names	PARAMS ((tree, tree));
+static tree resolve_operand_names	PARAMS ((tree, tree, tree,
+						 const char **));
+static char *resolve_operand_name_1	PARAMS ((char *, tree, tree));
 static void expand_null_return_1	PARAMS ((rtx));
 static void expand_value_return		PARAMS ((rtx));
 static int tail_recursion_args		PARAMS ((tree, tree));
@@ -1040,7 +1045,7 @@ expand_fixup (tree_label, rtl_label, last_insn)
 	 as a placeholder.  */
 
       {
-        register rtx original_before_jump
+        rtx original_before_jump
           = last_insn ? last_insn : get_last_insn ();
 	rtx start;
 	rtx end;
@@ -1118,7 +1123,7 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
      rtx first_insn;
      int dont_jump_in;
 {
-  register struct goto_fixup *f, *prev;
+  struct goto_fixup *f, *prev;
 
   /* F is the fixup we are considering; PREV is the previous one.  */
   /* We run this loop in two passes so that cleanups of exited blocks
@@ -1138,7 +1143,7 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	 If so, we can finalize it.  */
       else if (PREV_INSN (f->target_rtl) != 0)
 	{
-	  register rtx cleanup_insns;
+	  rtx cleanup_insns;
 
 	  /* If this fixup jumped into this contour from before the beginning
 	     of this contour, report an error.   This code used to use
@@ -1229,7 +1234,7 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 	/* Label has still not appeared.  If we are exiting a block with
 	   a stack level to restore, that started before the fixup,
 	   mark this stack level as needing restoration
-	   when the fixup is later finalized.   */
+	   when the fixup is later finalized.  */
 	&& thisblock != 0
 	/* Note: if THISBLOCK == 0 and we have a label that hasn't appeared, it
 	   means the label is undefined.  That's erroneous, but possible.  */
@@ -1355,14 +1360,6 @@ parse_output_constraint (constraint_p,
      from and written to.  */
   *is_inout = (*p == '+');
 
-  /* Make sure we can specify the matching operand.  */
-  if (*is_inout && operand_num > 9)
-    {
-      error ("output operand constraint %d contains `+'", 
-	     operand_num);
-      return false;
-    }
-
   /* Canonicalize the output constraint so that it begins with `='.  */
   if (p != constraint || is_inout)
     {
@@ -1416,6 +1413,7 @@ parse_output_constraint (constraint_p,
 
       case '0':  case '1':  case '2':  case '3':  case '4':
       case '5':  case '6':  case '7':  case '8':  case '9':
+      case '[':
 	error ("matching constraint not valid in output operand");
 	return false;
 
@@ -1460,7 +1458,9 @@ parse_output_constraint (constraint_p,
    STRING is the instruction template.
    OUTPUTS is a list of output arguments (lvalues); INPUTS a list of inputs.
    Each output or input has an expression in the TREE_VALUE and
-   a constraint-string in the TREE_PURPOSE.
+   and a tree list in TREE_PURPOSE which in turn contains a constraint
+   name in TREE_VALUE (or NULL_TREE) and a constraint string 
+   in TREE_PURPOSE.
    CLOBBERS is a list of STRING_CST nodes each naming a hard register
    that is clobbered by this insn.
 
@@ -1478,22 +1478,22 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
      const char *filename;
      int line;
 {
-  rtvec argvec, constraints;
+  rtvec argvec, constraintvec;
   rtx body;
   int ninputs = list_length (inputs);
   int noutputs = list_length (outputs);
   int ninout = 0;
   int nclobbers;
   tree tail;
-  register int i;
+  int i;
   /* Vector of RTX's of evaluated output operands.  */
   rtx *output_rtx = (rtx *) alloca (noutputs * sizeof (rtx));
   int *inout_opnum = (int *) alloca (noutputs * sizeof (int));
   rtx *real_output_rtx = (rtx *) alloca (noutputs * sizeof (rtx));
   enum machine_mode *inout_mode
     = (enum machine_mode *) alloca (noutputs * sizeof (enum machine_mode));
-  const char **output_constraints
-    = alloca (noutputs * sizeof (const char *));
+  const char **constraints
+    = (const char **) alloca ((noutputs + ninputs) * sizeof (const char *));
   /* The insn we have emitted.  */
   rtx insn;
   int old_generating_concat_p = generating_concat_p;
@@ -1504,9 +1504,17 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   if (current_function_check_memory_usage)
     {
-      error ("`asm' cannot be used with `-fcheck-memory-usage'");
+      error ("`asm' cannot be used in function where memory usage is checked");
       return;
     }
+
+  if (! check_operand_nalternatives (outputs, inputs))
+    return;
+
+  if (! check_unique_operand_names (outputs, inputs))
+    return;
+
+  string = resolve_operand_names (string, outputs, inputs, constraints);
 
 #ifdef MD_ASM_CLOBBERS
   /* Sometimes we wish to automatically clobber registers across an asm.
@@ -1515,12 +1523,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
      the flags register.  */
   MD_ASM_CLOBBERS (clobbers);
 #endif
-
-  if (current_function_check_memory_usage)
-    {
-      error ("`asm' cannot be used in function where memory usage is checked");
-      return;
-    }
 
   /* Count the number of meaningful clobbered registers, ignoring what
      we would ignore later.  */
@@ -1538,43 +1540,10 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   last_expr_type = 0;
 
-  /* Check that the number of alternatives is constant across all
-     operands.  */
-  if (outputs || inputs)
-    {
-      tree tmp = TREE_PURPOSE (outputs ? outputs : inputs);
-      int nalternatives = n_occurrences (',', TREE_STRING_POINTER (tmp));
-      tree next = inputs;
-
-      if (nalternatives + 1 > MAX_RECOG_ALTERNATIVES)
-	{
-	  error ("too many alternatives in `asm'");
-	  return;
-	}
-
-      tmp = outputs;
-      while (tmp)
-	{
-	  const char *constraint = TREE_STRING_POINTER (TREE_PURPOSE (tmp));
-
-	  if (n_occurrences (',', constraint) != nalternatives)
-	    {
-	      error ("operand constraints for `asm' differ in number of alternatives");
-	      return;
-	    }
-
-	  if (TREE_CHAIN (tmp))
-	    tmp = TREE_CHAIN (tmp);
-	  else
-	    tmp = next, next = 0;
-	}
-    }
-
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
     {
       tree val = TREE_VALUE (tail);
       tree type = TREE_TYPE (val);
-      const char *constraint;
       bool is_inout;
       bool allows_reg;
       bool allows_mem;
@@ -1588,12 +1557,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	 the worst that happens if we get it wrong is we issue an error
 	 message.  */
 
-      constraint = TREE_STRING_POINTER (TREE_PURPOSE (tail));
-      output_constraints[i] = constraint;
-
       /* Try to parse the output constraint.  If that fails, there's
 	 no point in going further.  */
-      if (!parse_output_constraint (&output_constraints[i],
+      if (!parse_output_constraint (&constraints[i],
 				    i,
 				    ninputs,
 				    noutputs,
@@ -1659,15 +1625,16 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       return;
     }
 
-  /* Make vectors for the expression-rtx and constraint strings.  */
+  /* Make vectors for the expression-rtx, constraint strings,
+     and named operands.  */
 
   argvec = rtvec_alloc (ninputs);
-  constraints = rtvec_alloc (ninputs);
+  constraintvec = rtvec_alloc (ninputs);
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
 			       TREE_STRING_POINTER (string), 
-			       empty_string, 0, argvec, constraints,
+			       empty_string, 0, argvec, constraintvec,
 			       filename, line);
 
   MEM_VOLATILE_P (body) = vol;
@@ -1675,8 +1642,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   /* Eval the inputs and put them into ARGVEC.
      Put their constraints into ASM_INPUTs and store in CONSTRAINTS.  */
 
-  i = 0;
-  for (tail = inputs; tail; tail = TREE_CHAIN (tail))
+  for (i = 0, tail = inputs; tail; tail = TREE_CHAIN (tail), ++i)
     {
       int j;
       int allows_reg = 0, allows_mem = 0;
@@ -1698,9 +1664,8 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  return;
 	}
 
-      constraint = TREE_STRING_POINTER (TREE_PURPOSE (tail));
+      orig_constraint = constraint = constraints[i + noutputs];
       c_len = strlen (constraint);
-      orig_constraint = constraint;
 
       /* Make sure constraint has neither `=', `+', nor '&'.  */
 
@@ -1744,28 +1709,30 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	       operands to memory.  */
 	  case '0':  case '1':  case '2':  case '3':  case '4':
 	  case '5':  case '6':  case '7':  case '8':  case '9':
-	    if (constraint[j] >= '0' + noutputs)
-	      {
-		error
-		  ("matching constraint references invalid operand number");
-		return;
-	      }
+	    {
+	      char *end;
+	      unsigned long match;
 
-	    /* Try and find the real constraint for this dup.  */
-	    if ((j == 0 && c_len == 1)
-		|| (j == 1 && c_len == 2 && constraint[0] == '%'))
-	      {
-		tree o = outputs;
+	      match = strtoul (constraint + j, &end, 10);
+	      if (match >= (unsigned long) noutputs)
+		{
+		  error ("matching constraint references invalid operand number");
+		  return;
+		}
 
-		for (j = constraint[j] - '0'; j > 0; --j)
-		  o = TREE_CHAIN (o);
-
-		constraint = TREE_STRING_POINTER (TREE_PURPOSE (o));
-		c_len = strlen (constraint);
-		j = 0;
-		break;
-	      }
-
+	      /* Try and find the real constraint for this dup.  Only do
+	         this if the matching constraint is the only alternative.  */
+	      if (*end == '\0'
+		  && (j == 0 || (j == 1 && constraint[0] == '%')))
+		{
+		  constraint = constraints[match];
+		  c_len = strlen (constraint);
+		  j = 0;
+	          break;
+		}
+	      else
+		j = end - constraint;
+	    }
 	    /* Fall through.  */
 
 	  case 'p':  case 'r':
@@ -1814,7 +1781,8 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  if (allows_reg)
 	    op = force_reg (TYPE_MODE (TREE_TYPE (TREE_VALUE (tail))), op);
 	  else if (!allows_mem)
-	    warning ("asm operand %d probably doesn't match constraints", i);
+	    warning ("asm operand %d probably doesn't match constraints",
+		     i + noutputs);
 	  else if (CONSTANT_P (op))
 	    op = force_const_mem (TYPE_MODE (TREE_TYPE (TREE_VALUE (tail))),
 				  op);
@@ -1843,7 +1811,8 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	    /* ??? Leave this only until we have experience with what
 	       happens in combine and elsewhere when constraints are
 	       not satisfied.  */
-	    warning ("asm operand %d probably doesn't match constraints", i);
+	    warning ("asm operand %d probably doesn't match constraints",
+		     i + noutputs);
 	}
       generating_concat_p = old_generating_concat_p;
       ASM_OPERANDS_INPUT (body, i) = op;
@@ -1851,7 +1820,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
 	= gen_rtx_ASM_INPUT (TYPE_MODE (TREE_TYPE (TREE_VALUE (tail))),
 			     orig_constraint);
-      i++;
     }
 
   /* Protect all the operands from the queue now that they have all been
@@ -1870,24 +1838,26 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   for (i = 0; i < ninout; i++)
     {
       int j = inout_opnum[i];
+      char buffer[16];
 
       ASM_OPERANDS_INPUT (body, ninputs - ninout + i)
 	= output_rtx[j];
+
+      sprintf (buffer, "%d", j);
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, ninputs - ninout + i)
-	= gen_rtx_ASM_INPUT (inout_mode[i], digit_string (j));
+	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_alloc_string (buffer, -1));
     }
 
   generating_concat_p = old_generating_concat_p;
 
   /* Now, for each output, construct an rtx
-     (set OUTPUT (asm_operands INSN OUTPUTNUMBER OUTPUTCONSTRAINT
-			       ARGVEC CONSTRAINTS))
+     (set OUTPUT (asm_operands INSN OUTPUTCONSTRAINT OUTPUTNUMBER
+			       ARGVEC CONSTRAINTS OPNAMES))
      If there is more than one, put them inside a PARALLEL.  */
 
   if (noutputs == 1 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body)
-	= output_constraints[0];
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
       insn = emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
@@ -1916,8 +1886,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 			   gen_rtx_ASM_OPERANDS
 			   (GET_MODE (output_rtx[i]),
 			    TREE_STRING_POINTER (string),
-			    output_constraints[i],
-			    i, argvec, constraints,
+			    constraints[i], i, argvec, constraintvec,
 			    filename, line));
 
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
@@ -1970,6 +1939,206 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       emit_move_insn (real_output_rtx[i], output_rtx[i]);
 
   free_temp_slots ();
+}
+
+/* A subroutine of expand_asm_operands.  Check that all operands have
+   the same number of alternatives.  Return true if so.  */
+
+static bool
+check_operand_nalternatives (outputs, inputs)
+     tree outputs, inputs;
+{
+  if (outputs || inputs)
+    {
+      tree tmp = TREE_PURPOSE (outputs ? outputs : inputs);
+      int nalternatives
+	= n_occurrences (',', TREE_STRING_POINTER (TREE_VALUE (tmp)));
+      tree next = inputs;
+
+      if (nalternatives + 1 > MAX_RECOG_ALTERNATIVES)
+	{
+	  error ("too many alternatives in `asm'");
+	  return false;
+	}
+
+      tmp = outputs;
+      while (tmp)
+	{
+	  const char *constraint
+	    = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tmp)));
+
+	  if (n_occurrences (',', constraint) != nalternatives)
+	    {
+	      error ("operand constraints for `asm' differ in number of alternatives");
+	      return false;
+	    }
+
+	  if (TREE_CHAIN (tmp))
+	    tmp = TREE_CHAIN (tmp);
+	  else
+	    tmp = next, next = 0;
+	}
+    }
+
+  return true;
+}
+
+/* A subroutine of expand_asm_operands.  Check that all operand names
+   are unique.  Return true if so.  We rely on the fact that these names
+   are identifiers, and so have been canonicalized by get_identifier,
+   so all we need are pointer comparisons.  */
+
+static bool
+check_unique_operand_names (outputs, inputs)
+     tree outputs, inputs;
+{
+  tree i, j;
+
+  for (i = outputs; i ; i = TREE_CHAIN (i))
+    {
+      tree i_name = TREE_PURPOSE (TREE_PURPOSE (i));
+      if (! i_name)
+	continue;
+
+      for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
+	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	  goto failure;
+    }
+
+  for (i = inputs; i ; i = TREE_CHAIN (i))
+    {
+      tree i_name = TREE_PURPOSE (TREE_PURPOSE (i));
+      if (! i_name)
+	continue;
+
+      for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
+	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	  goto failure;
+      for (j = outputs; j ; j = TREE_CHAIN (j))
+	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	  goto failure;
+    }
+
+  return true;
+
+ failure:
+  error ("duplicate asm operand name '%s'",
+	 IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
+  return false;
+}
+
+/* A subroutine of expand_asm_operands.  Resolve the names of the operands
+   in *POUTPUTS and *PINPUTS to numbers, and replace the name expansions in
+   STRING and in the constraints to those numbers.  */
+
+static tree
+resolve_operand_names (string, outputs, inputs, pconstraints)
+     tree string;
+     tree outputs, inputs;
+     const char **pconstraints;
+{
+  char *buffer = xstrdup (TREE_STRING_POINTER (string));
+  char *p;
+  tree t;
+
+  /* Assume that we will not need extra space to perform the substitution.
+     This because we get to remove '[' and ']', which means we cannot have
+     a problem until we have more than 999 operands.  */
+
+  p = buffer;
+  while ((p = strchr (p, '%')) != NULL)
+    {
+      if (*++p != '[')
+	continue;
+      p = resolve_operand_name_1 (p, outputs, inputs);
+    }
+
+  string = build_string (strlen (buffer), buffer);
+  free (buffer);
+
+  /* Collect output constraints here because it's convenient.
+     There should be no named operands here; this is verified
+     in expand_asm_operand.  */
+  for (t = outputs; t ; t = TREE_CHAIN (t), pconstraints++)
+    *pconstraints = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+
+  /* Substitute [<name>] in input constraint strings.  */
+  for (t = inputs; t ; t = TREE_CHAIN (t), pconstraints++)
+    {
+      const char *c = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
+      if (strchr (c, '[') == NULL)
+	*pconstraints = c;
+      else
+	{
+	  p = buffer = xstrdup (c);
+	  while ((p = strchr (p, '[')) != NULL)
+	    p = resolve_operand_name_1 (p, outputs, inputs);
+
+	  *pconstraints = ggc_alloc_string (buffer, -1);
+	  free (buffer);
+	}
+    }
+
+  return string;
+}
+
+/* A subroutine of resolve_operand_names.  P points to the '[' for a
+   potential named operand of the form [<name>].  In place, replace
+   the name and brackets with a number.  Return a pointer to the 
+   balance of the string after substitution.  */
+
+static char *
+resolve_operand_name_1 (p, outputs, inputs)
+     char *p;
+     tree outputs, inputs;
+{
+  char *q;
+  int op;
+  tree t;
+  size_t len;
+
+  /* Collect the operand name.  */
+  q = strchr (p, ']');
+  if (!q)
+    {
+      error ("missing close brace for named operand");
+      return strchr (p, '\0');
+    }
+  len = q - p - 1;
+
+  /* Resolve the name to a number.  */
+  for (op = 0, t = outputs; t ; t = TREE_CHAIN (t), op++)
+    {
+      const char *c = IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (t)));
+      if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
+	goto found;
+    }
+  for (t = inputs; t ; t = TREE_CHAIN (t), op++)
+    {
+      const char *c = IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (t)));
+      if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
+	goto found;
+    }
+
+  *q = '\0';
+  error ("undefined named operand '%s'", p + 1);
+  op = 0;
+ found:
+
+  /* Replace the name with the number.  Unfortunately, not all libraries
+     get the return value of sprintf correct, so search for the end of the
+     generated string by hand.  */
+  sprintf (p, "%d", op);
+  p = strchr (p, '\0');
+
+  /* Verify the no extra buffer space assumption.  */
+  if (p > q)
+    abort ();
+
+  /* Shift the rest of the buffer down to fill the gap.  */
+  memmove (p, q + 1, strlen (q + 1) + 1);
+
+  return p;
 }
 
 /* Generate RTL to evaluate the expression EXP
@@ -2333,7 +2502,7 @@ struct nesting *
 expand_start_loop (exit_flag)
      int exit_flag;
 {
-  register struct nesting *thisloop = ALLOC_NESTING ();
+  struct nesting *thisloop = ALLOC_NESTING ();
 
   /* Make an entry on loop_stack for the loop we are entering.  */
 
@@ -2374,7 +2543,7 @@ expand_start_loop_continue_elsewhere (exit_flag)
 struct nesting *
 expand_start_null_loop ()
 {
-  register struct nesting *thisloop = ALLOC_NESTING ();
+  struct nesting *thisloop = ALLOC_NESTING ();
 
   /* Make an entry on loop_stack for the loop we are entering.  */
 
@@ -2655,8 +2824,8 @@ expand_end_loop ()
 	  /* We found one.  Move everything from there up
 	     to the end of the loop, and add a jump into the loop
 	     to jump to there.  */
-	  register rtx newstart_label = gen_label_rtx ();
-	  register rtx start_move = start_label;
+	  rtx newstart_label = gen_label_rtx ();
+	  rtx start_move = start_label;
 	  rtx next_insn;
 
 	  /* If the start label is preceded by a NOTE_INSN_LOOP_CONT note,
@@ -2784,7 +2953,7 @@ expand_exit_loop_if_false (whichloop, cond)
   if (whichloop == 0)
     return 0;
   /* In order to handle fixups, we actually create a conditional jump
-     around a unconditional branch to exit the loop.  If fixups are
+     around an unconditional branch to exit the loop.  If fixups are
      necessary, they go before the unconditional branch.  */
 
   do_jump (cond, NULL_RTX, label);
@@ -2945,7 +3114,7 @@ expand_return (retval)
      computation of the return value.  */
   rtx last_insn = 0;
   rtx result_rtl;
-  register rtx val = 0;
+  rtx val = 0;
   tree retval_rhs;
 
   /* If function wants no value, give it none.  */
@@ -3089,7 +3258,7 @@ expand_return (retval)
 
       /* Find the smallest integer mode large enough to hold the
 	 entire structure and use that mode instead of BLKmode
-	 on the USE insn for the return register.   */
+	 on the USE insn for the return register.  */
       for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 	   tmpmode != VOIDmode;
 	   tmpmode = GET_MODE_WIDER_MODE (tmpmode))
@@ -3197,9 +3366,9 @@ static int
 tail_recursion_args (actuals, formals)
      tree actuals, formals;
 {
-  register tree a = actuals, f = formals;
-  register int i;
-  register rtx *argvec;
+  tree a = actuals, f = formals;
+  int i;
+  rtx *argvec;
 
   /* Check that number and types of actuals are compatible
      with the formals.  This is not always true in valid C code.
@@ -3232,7 +3401,7 @@ tail_recursion_args (actuals, formals)
   for (a = actuals, i = 0; a; a = TREE_CHAIN (a), i++)
     {
       int copy = 0;
-      register int j;
+      int j;
       for (f = formals, j = 0; j < i; f = TREE_CHAIN (f), j++)
 	if (reg_mentioned_p (DECL_RTL (f), argvec[i]))
 	  {
@@ -3387,7 +3556,7 @@ expand_end_target_temps ()
 
 int
 is_body_block (stmt)
-     register tree stmt;
+     tree stmt;
 {
   if (TREE_CODE (stmt) == BLOCK)
     {
@@ -3478,7 +3647,7 @@ expand_nl_goto_receiver ()
 	 that if such an elimination is present, it can always be used.
 	 This is the case on all known machines; if we don't make this
 	 assumption, we do unnecessary saving on many machines.  */
-      static struct elims {int from, to;} elim_regs[] = ELIMINABLE_REGS;
+      static const struct elims {const int from, to;} elim_regs[] = ELIMINABLE_REGS;
       size_t i;
 
       for (i = 0; i < ARRAY_SIZE (elim_regs); i++)
@@ -3619,7 +3788,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
      int mark_ends;
      int dont_jump_in;
 {
-  register struct nesting *thisblock = block_stack;
+  struct nesting *thisblock = block_stack;
 
   /* If any of the variables in this scope were not used, warn the
      user.  */
@@ -3764,7 +3933,7 @@ save_stack_pointer ()
 
 void
 expand_decl (decl)
-     register tree decl;
+     tree decl;
 {
   struct nesting *thisblock;
   tree type;
@@ -3983,7 +4152,7 @@ expand_decl_init (decl)
    leave the current scope.
 
    If CLEANUP is nonzero and DECL is zero, we record a cleanup
-   that is not associated with any particular variable.   */
+   that is not associated with any particular variable.  */
 
 int
 expand_decl_cleanup (decl, cleanup)
@@ -4311,7 +4480,7 @@ expand_start_case (exit_flag, expr, type, printname)
      tree type;
      const char *printname;
 {
-  register struct nesting *thiscase = ALLOC_NESTING ();
+  struct nesting *thiscase = ALLOC_NESTING ();
 
   /* Make an entry on case_stack for the case we are entering.  */
 
@@ -4348,7 +4517,7 @@ expand_start_case (exit_flag, expr, type, printname)
 void
 expand_start_case_dummy ()
 {
-  register struct nesting *thiscase = ALLOC_NESTING ();
+  struct nesting *thiscase = ALLOC_NESTING ();
 
   /* Make an entry on case_stack for the dummy.  */
 
@@ -4439,9 +4608,9 @@ check_seenlabel ()
 
 int
 pushcase (value, converter, label, duplicate)
-     register tree value;
+     tree value;
      tree (*converter) PARAMS ((tree, tree));
-     register tree label;
+     tree label;
      tree *duplicate;
 {
   tree index_type;
@@ -4489,9 +4658,9 @@ pushcase (value, converter, label, duplicate)
 
 int
 pushcase_range (value1, value2, converter, label, duplicate)
-     register tree value1, value2;
+     tree value1, value2;
      tree (*converter) PARAMS ((tree, tree));
-     register tree label;
+     tree label;
      tree *duplicate;
 {
   tree index_type;
@@ -4882,7 +5051,7 @@ mark_seen_cases (type, cases_seen, count, sparseness)
   tree next_node_to_try = NULL_TREE;
   HOST_WIDE_INT next_node_offset = 0;
 
-  register struct case_node *n, *root = case_stack->data.case_stmt.case_list;
+  struct case_node *n, *root = case_stack->data.case_stmt.case_list;
   tree val = make_node (INTEGER_CST);
 
   TREE_TYPE (val) = type;
@@ -5011,8 +5180,8 @@ void
 check_for_full_enumeration_handling (type)
      tree type;
 {
-  register struct case_node *n;
-  register tree chain;
+  struct case_node *n;
+  tree chain;
 
   /* True iff the selector type is a numbered set mode.  */
   int sparseness = 0;
@@ -5138,15 +5307,15 @@ expand_end_case (orig_index)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE, orig_minval;
   rtx default_label = 0;
-  register struct case_node *n;
+  struct case_node *n;
   unsigned int count;
   rtx index;
   rtx table_label;
   int ncases;
   rtx *labelvec;
-  register int i;
+  int i;
   rtx before_case, end;
-  register struct nesting *thiscase = case_stack;
+  struct nesting *thiscase = case_stack;
   tree index_expr, index_type;
   int unsignedp;
 
@@ -5308,7 +5477,7 @@ expand_end_case (orig_index)
 		}
 
 	      /* For constant index expressions we need only
-		 issue a unconditional branch to the appropriate
+		 issue an unconditional branch to the appropriate
 		 target code.  The job of removing any unreachable
 		 code is left to the optimisation phase if the
 		 "-O" option is specified.  */
@@ -5366,7 +5535,7 @@ expand_end_case (orig_index)
 
 	  for (n = thiscase->data.case_stmt.case_list; n; n = n->right)
 	    {
-	      register HOST_WIDE_INT i
+	      HOST_WIDE_INT i
 		= TREE_INT_CST_LOW (n->low) - TREE_INT_CST_LOW (orig_minval);
 
 	      while (1)
@@ -5614,7 +5783,7 @@ balance_case_nodes (head, parent)
      case_node_ptr *head;
      case_node_ptr parent;
 {
-  register case_node_ptr np;
+  case_node_ptr np;
 
   np = *head;
   if (np)
@@ -5622,7 +5791,7 @@ balance_case_nodes (head, parent)
       int cost = 0;
       int i = 0;
       int ranges = 0;
-      register case_node_ptr *npp;
+      case_node_ptr *npp;
       case_node_ptr left;
 
       /* Count the number of entries on branch.  Also count the ranges.  */

@@ -284,7 +284,7 @@ extern rtx expand_simple_unop PARAMS ((enum machine_mode, enum rtx_code,
    perform the operation described by CODE and MODE.  */
 extern int have_insn_for PARAMS ((enum rtx_code, enum machine_mode));
 
-/* Emit code to make a call to a constant function or a library call. */
+/* Emit code to make a call to a constant function or a library call.  */
 extern void emit_libcall_block PARAMS ((rtx, rtx, rtx, rtx));
 
 /* Create but don't emit one rtl instruction to perform certain operations.
@@ -429,7 +429,7 @@ extern void emit_group_load PARAMS ((rtx, rtx, int, unsigned int));
 extern void emit_group_store PARAMS ((rtx, rtx, int, unsigned int));
 
 #ifdef TREE_CODE
-/* Copy BLKmode object from a set of registers. */
+/* Copy BLKmode object from a set of registers.  */
 extern rtx copy_blkmode_from_reg PARAMS ((rtx,rtx,tree));
 #endif
 
@@ -483,7 +483,7 @@ extern void emit_push_insn PARAMS ((rtx, enum machine_mode, tree, rtx,
 				    unsigned int, int, rtx, int, rtx, rtx,
 				    int, rtx));
 
-/* Expand an assignment that stores the value of FROM into TO. */
+/* Expand an assignment that stores the value of FROM into TO.  */
 extern rtx expand_assignment PARAMS ((tree, tree, int, int));
 
 /* Generate code for computing expression EXP,
@@ -498,13 +498,19 @@ extern rtx store_expr PARAMS ((tree, rtx, int));
    Useful after calling expand_expr with 1 as sum_ok.  */
 extern rtx force_operand PARAMS ((rtx, rtx));
 
-#ifdef TREE_CODE
+/* Return an object on the placeholder list that matches EXP, a
+   PLACEHOLDER_EXPR.  An object "matches" if it is of the type of the
+   PLACEHOLDER_EXPR or a pointer type to it.  For further information,
+   see tree.def.  If no such object is found, abort.  If PLIST is nonzero,
+   it is a location into which a pointer into the placeholder list at
+   which the object is found is placed.  */
+extern tree find_placeholder PARAMS ((tree, tree *));
+
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
 extern rtx expand_expr PARAMS ((tree, rtx, enum machine_mode,
 				enum expand_modifier));
-#endif
 
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
@@ -601,6 +607,9 @@ extern rtx memory_address PARAMS ((enum machine_mode, rtx));
 
 /* Like `memory_address' but pretent `flag_force_addr' is 0.  */
 extern rtx memory_address_noforce PARAMS ((enum machine_mode, rtx));
+
+/* Set the alias set of MEM to SET.  */
+extern void set_mem_alias_set PARAMS ((rtx, HOST_WIDE_INT));
 
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.

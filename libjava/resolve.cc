@@ -32,6 +32,8 @@ details.  */
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 
+using namespace gcj;
+
 void
 _Jv_ResolveField (_Jv_Field *field, java::lang::ClassLoader *loader)
 {
@@ -64,9 +66,6 @@ _Jv_BuildResolvedMethod (_Jv_Method*,
 			 jboolean,
 			 jint);
 
-
-// We need to know the name of a constructor.
-static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
 
 static void throw_incompatible_class_change_error (jstring msg)
 {
@@ -696,9 +695,7 @@ _Jv_PrepareClass(jclass klass)
   clz->vtable_method_count = vtable_count;
 
   /* allocate vtable structure */
-  _Jv_VTable *vtable = (_Jv_VTable*) 
-    _Jv_AllocBytes (sizeof (_Jv_VTable) 
-			   + (sizeof (void*) * (vtable_count)));
+  _Jv_VTable *vtable = _Jv_VTable::new_vtable (vtable_count);
   vtable->clas = clz;
   vtable->gc_descr = _Jv_BuildGCDescr(clz);
 
@@ -712,9 +709,8 @@ _Jv_PrepareClass(jclass klass)
 
     /* copy super class' vtable entries. */
     if (effective_superclass && effective_superclass->vtable)
-      memcpy ((void*)&vtable->method[0],
-	      (void*)&effective_superclass->vtable->method[0],
-	      sizeof (void*) * effective_superclass->vtable_method_count);
+      for (int i = 0; i < effective_superclass->vtable_method_count; ++i)
+	vtable->set_method (i, effective_superclass->vtable->get_method (i));
   }
 
   /* now, install our own vtable entries, reprise... */
@@ -735,9 +731,9 @@ _Jv_PrepareClass(jclass klass)
 	    throw_internal_error ("vtable problem...");
 
 	  if (clz->interpreted_methods[i] == 0)
-	    vtable->method[index] = (void*)&_Jv_abstractMethodError;
+	    vtable->set_method(index, (void*)&_Jv_abstractMethodError);
 	  else
-	    vtable->method[index] = this_meth->ncode;
+	    vtable->set_method(index, this_meth->ncode);
 	}
     }
 

@@ -212,21 +212,21 @@ extern const char *m68hc11_soft_reg_count;
 
 /* Define cost parameters for a given processor variant.  */
 struct processor_costs {
-  int add;		/* cost of an add instruction */
-  int logical;          /* cost of a logical instruction */
-  int shift_var;
-  int shiftQI_const[8];
-  int shiftHI_const[16];
-  int multQI;
-  int multHI;
-  int multSI;
-  int divQI;
-  int divHI;
-  int divSI;
+  const int add;		/* cost of an add instruction */
+  const int logical;          /* cost of a logical instruction */
+  const int shift_var;
+  const int shiftQI_const[8];
+  const int shiftHI_const[16];
+  const int multQI;
+  const int multHI;
+  const int multSI;
+  const int divQI;
+  const int divHI;
+  const int divSI;
 };
 
 /* Costs for the current processor.  */
-extern struct processor_costs *m68hc11_cost;
+extern const struct processor_costs *m68hc11_cost;
 
 
 /* target machine storage layout */
@@ -880,16 +880,6 @@ extern enum reg_class m68hc11_tmp_regs_class;
 /* Offset of first parameter from the argument pointer register value.  */
 
 #define FIRST_PARM_OFFSET(FNDECL)	2
-
-/* A C expression whose value is RTL representing the location of the
-   incoming return address at the beginning of any function, before the
-   prologue.  This RTL is either a REG, indicating that the return
-   value is saved in REG, or a MEM representing a location in
-   the stack.
-  
-   Before the prologue, RA is at 0(sp). */
-#define INCOMING_RETURN_ADDR_RTX \
-    gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
 
 /* After the prologue, RA is at 0(AP) in the current frame.  */
 #define RETURN_ADDR_RTX(COUNT, FRAME)					\
