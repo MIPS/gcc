@@ -1,5 +1,13 @@
 2002-11-12  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.def: Add list of recursive targets to autogenerate.
+	Add build_modules.
+	* Makefile.tpl: Autogenerate do-* targets.  Autogenerate *-target-* 
+	targets.  Autogenerate *-build-* targets.
+	* Makefile.in: Regenerate.
+
+2002-11-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
 	* configure: More autoconf-style substitutions.
 	* Makefile.tpl: More autoconf-style substitutions.
 	* Makefile.in: Regenerate.
