@@ -49,14 +49,17 @@ ${AWK} '
 	result = "0"
 	for (j = 0; j < n_langs; j++) {
 	    regex = " " langs[j] " "
-	    gsub ( "+", "\\+", regex )
+	    gsub ( "\\+", "\\+", regex )
 	    if (flags ~ regex)
 		result = result " | " macros[j]
 	}
         if (flags ~ " Common ") result = result " | CL_COMMON"
         if (flags ~ " Joined ") result = result " | CL_JOINED"
+        if (flags ~ " JoinedOrMissing ") \
+		result = result " | CL_JOINED | CL_MISSING_OK"
         if (flags ~ " Separate ") result = result " | CL_SEPARATE"
         if (flags ~ " RejectNegative ") result = result " | CL_REJECT_NEGATIVE"
+        if (flags ~ " UInteger ") result = result " | CL_UINTEGER"
 	sub( "^0 \\| ", "", result )
 	return result
     }

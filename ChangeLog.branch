@@ -1,5 +1,9 @@
 2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	Grab working version of gcc/opts.sh from mainline.
+
+2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
+
 	Merge from mainline.
 
 2003-06-12  Nathanael Nerode  <neroden@gcc.gnu.org>
