@@ -1,3 +1,8 @@
+2004-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (lambda-mat.o, lambda-trans.o, lambda-code.o): Add TM_H
+	dependency.
+
 2004-03-09  Olga Golovonevsky <olga@il.ibm.com>
             Dorit Naishlos <dorit@il.ibm.com>
 
