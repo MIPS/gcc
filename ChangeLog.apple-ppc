@@ -1,3 +1,8 @@
+2004-06-17  Jon Ziegler  <jonz@apple.com>
+
+	Radar 3693664
+	* Update pointers to source code in documentation to reflect new location.
+
 2004-06-16  Jon Ziegler  <jonz@apple.com>
 
 	Radar 3619941
