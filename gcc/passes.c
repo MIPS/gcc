@@ -1191,10 +1191,6 @@ rest_of_handle_gcse (tree decl, rtx insns)
   save_cfj = flag_cse_follow_jumps;
   flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
-  /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
-  if (current_function_calls_constant_p)
-    purge_builtin_constant_p ();
-
   /* If -fexpensive-optimizations, re-run CSE to clean up things done
      by gcse.  */
   if (flag_expensive_optimizations)

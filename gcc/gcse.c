@@ -1284,7 +1284,6 @@ want_to_gcse_p (rtx x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CALL:
-    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -2130,9 +2129,6 @@ gcse_constant_p (rtx x)
       && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 0)))
       && ! FLOAT_MODE_P (GET_MODE (XEXP (x, 1))))
     return true;
-
-  if (GET_CODE (x) == CONSTANT_P_RTX)
-    return false;
 
   return CONSTANT_P (x);
 }

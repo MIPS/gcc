@@ -2299,10 +2299,6 @@ input_operand (rtx op, enum machine_mode mode)
   if (memory_operand (op, mode))
     return 1;
 
-  /* Only a tiny bit of handling for CONSTANT_P_RTX is necessary.  */
-  if (GET_CODE (op) == CONSTANT_P_RTX)
-    return 1;
-
   /* For floating-point, easy constants are valid.  */
   if (GET_MODE_CLASS (mode) == MODE_FLOAT
       && CONSTANT_P (op)
@@ -3515,10 +3511,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   if (reload_in_progress && mode == Pmode
       && (! general_operand (operands[1], mode)
 	  || ! nonimmediate_operand (operands[0], mode)))
-    goto emit_set;
-
-  /* Handle the case of CONSTANT_P_RTX.  */
-  if (GET_CODE (operands[1]) == CONSTANT_P_RTX)
     goto emit_set;
 
   /* 128-bit constant floating-point values on Darwin should really be

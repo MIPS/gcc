@@ -4156,17 +4156,6 @@ fold_rtx (rtx x, rtx insn)
 					const_arg2 ? const_arg2 : XEXP (x, 2));
       break;
 
-    case RTX_EXTRA:
-      /* Eliminate CONSTANT_P_RTX if its constant.  */
-      if (code == CONSTANT_P_RTX)
-	{
-	  if (const_arg0)
-	    return const1_rtx;
-	  if (optimize == 0 || !flag_gcse)
-	    return const0_rtx;
-	}
-      break;
-
     default:
       break;
     }

@@ -1,3 +1,45 @@
+2004-03-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	* builtins.c (expand_builtin_constant_p,
+	purge_builtin_constant_p): Remove.
+	(expand_builtin): Expand __builtin_constant_p to zero.
+	* function.c (struct function): Remove calls_constant_p.
+	(current_function_calls_constant_p): Remove.
+	* passes.c (rest_of_handle_gcse): Do not run
+	purge_builtin_constant_p.
+	* rtl.def (CONSTANT_P_RTX): Die die die.
+
+	* cse.c (fold_rtx): Do not handle CONSTANT_P_RTX.
+	* expr.c (emit_move_insn): Likewise.
+	* gcse.c (want_to_gcse_p, gcse_constant_p): Likewise.
+	* genrecog.c (validate_pattern): Likewise.
+	* recog.c (immediate_operand): Likewise.
+	* rtl.h (CONSTANT_P): Likewise.
+	* simplify-rtx.c (simplify_rtx): Likewise.
+	* config/alpha/alpha.c (input_operand): Likewise.
+	* config/arm/arm.c (THUMB_LEGITIMATE_CONSTANT_P): Likewise.
+	* config/c4x/c4x.c (const_operand): Likewise.
+	* config/cris/cris.c (cris_gotless_symbol,
+	cris_got_symbol): Likewise.
+	* config/frv/frv.h (LEGITIMATE_PIC_OPERAND_P): Likewise.
+	* config/ia64/ia64.c (gr_reg_or_5bit_operand,
+	gr_reg_or_6bit_operand, gr_reg_or_8bit_operand,
+	gr_reg_or_8bit_adjusted_operand,
+	gr_reg_or_8bit_and_adjusted_operand,
+	gr_reg_or_14bit_operand, gr_reg_or_22bit_operand,
+	shift_count_operand, shift_32bit_count_operand): Likewise.
+	* config/m32r/m32r.c (move_src_operand): Likewise.
+	* config/mips/mips.c (mips_const_insns): Likewise.
+	* config/mmix/mmix.c (mmix_constant_address_p): Likewise.
+	* config/pa/pa.c (move_src_operand): Likewise.
+	* config/rs6000/rs6000.c (input_operand): Likewise.
+	* config/sparc/sparc.c (input_operand): Likewise.
+	* config/v850/v850.c (movsi_source_operand): Likewise.
+	* config/xtensa/xtensa.c (move_operand,
+	xtensa_emit_move_sequence): Likewise.
+	* config/ia64/ia64.h (PREDICATE_CODES): Do not mention CONSTANT_P_RTX.
+	* config/pa/pa.h (PREDICATE_CODES): Likewise.
+
 2004-03-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dump.c (struct dump_option_value_info): Add TDF_UID.

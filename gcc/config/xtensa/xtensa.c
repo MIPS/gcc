@@ -625,11 +625,6 @@ move_operand (rtx op, enum machine_mode mode)
 
     case HImode:
     case QImode:
-      /* Accept CONSTANT_P_RTX, since it will be gone by CSE1 and
-	 result in 0/1.  */
-      if (GET_CODE (op) == CONSTANT_P_RTX)
-	return TRUE;
-
       if (GET_CODE (op) == CONST_INT && xtensa_simm12b (INTVAL (op)))
 	return TRUE;
       break;
@@ -1250,7 +1245,6 @@ int
 xtensa_emit_move_sequence (rtx *operands, enum machine_mode mode)
 {
   if (CONSTANT_P (operands[1])
-      && GET_CODE (operands[1]) != CONSTANT_P_RTX
       && (GET_CODE (operands[1]) != CONST_INT
 	  || !xtensa_simm12b (INTVAL (operands[1]))))
     {

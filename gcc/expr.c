@@ -2778,10 +2778,7 @@ emit_move_insn (rtx x, rtx y)
   if (mode == BLKmode || (GET_MODE (y) != mode && GET_MODE (y) != VOIDmode))
     abort ();
 
-  /* Never force constant_p_rtx to memory.  */
-  if (GET_CODE (y) == CONSTANT_P_RTX)
-    ;
-  else if (CONSTANT_P (y))
+  if (CONSTANT_P (y))
     {
       if (optimize
 	  && SCALAR_FLOAT_MODE_P (GET_MODE (x))
