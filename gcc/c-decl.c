@@ -3087,6 +3087,7 @@ finish_decl (decl, init, asmspec_tree)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	{
 	  tree builtin = built_in_decls [DECL_FUNCTION_CODE (decl)];
+	  tree *libfunc = NULL;
 	  SET_DECL_RTL (builtin, NULL_RTX);
 	  SET_DECL_ASSEMBLER_NAME (builtin, get_identifier (asmspec));
 #ifdef TARGET_MEM_FUNCTIONS
@@ -3100,6 +3101,18 @@ finish_decl (decl, init, asmspec_tree)
 	  else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_BZERO)
 	    init_block_clear_fn (asmspec);
 #endif
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_MEMCPY: libfunc = &memcpy_libfunc; break;
+	    case BUILT_IN_MEMMOVE: libfunc = &memmove_libfunc; break;
+	    case BUILT_IN_BCOPY: libfunc = &bcopy_libfunc; break;
+	    case BUILT_IN_MEMCMP: libfunc = &memcmp_libfunc; break;
+	    case BUILT_IN_MEMSET: libfunc = &memset_libfunc; break;
+	    case BUILT_IN_BZERO: libfunc = &bzero_libfunc; break;
+	    default: break;
+	    }
+	  if (libfunc)
+	    *libfunc = XEXP (DECL_RTL (builtin), 0);
 	}
       SET_DECL_RTL (decl, NULL_RTX);
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));

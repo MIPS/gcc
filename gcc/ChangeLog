@@ -1,3 +1,8 @@
+2003-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (finish_decl): Change _libfunc SYMBOL_REFs created in
+	optabs.c when redirecting a builtin.
+
 2003-06-18  Richard Henderson  <rth@redhat.com>
 
 	* config/ia64/unwind-ia64.c (_Unwind_GetCFA): New.
