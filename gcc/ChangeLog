@@ -1,3 +1,8 @@
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* unroll.c (reg_dead_after_loop): Check for reg in REG_EQUAL and
+	REG_EQUIV notes as well.
+
 2003-06-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-decl.c (finish_decl): Change _libfunc SYMBOL_REFs created in
