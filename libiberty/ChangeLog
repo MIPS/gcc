@@ -1,3 +1,29 @@
+2000-09-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/demangle-expected: Add two tests for anonymous
+	namespaces.
+	* cplus-dem.c (gnu_special): Handle anonymous namespaces.
+
+2000-09-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.c (splay_tree_predecessor): New function.
+	(splay_tree_successor): Likewise.
+
+2000-09-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/demangle-expected: Add four tests for type_info
+	mangling.
+	* cplus-dem.c (gnu_special): Use do_type, not demangle_fund_type,
+	for a non-template non-qualified type_info function or node.
+
+2000-09-08  Alex Samuel  <samuel@codesourcery.com>
+
+	* cp-demangle.c: Fix copyright banner.
+
+2000-09-07  Michael Sokolov  <msokolov@ivan.Harhan.ORG>
+
+	* md5.c: #include "ansidecl.h".
+
 2000-09-06  Alex Samuel  <samuel@codesourcery.com>
 
 	* cp-demangle.c (status_allocation_failed): Rearrange whitespace.

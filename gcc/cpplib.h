@@ -28,7 +28,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 extern "C" {
 #endif
 
+/* For complex reasons, cpp_reader is also typedefed in c-pragma.h.  */
+#ifndef _C_PRAGMA_H
 typedef struct cpp_reader cpp_reader;
+#endif
 typedef struct cpp_buffer cpp_buffer;
 typedef struct cpp_options cpp_options;
 typedef struct cpp_printer cpp_printer;
@@ -243,9 +246,6 @@ struct cpp_buffer
      or for -Wtraditional, and only once per file (otherwise it would
      be far too noisy).  */
   char warned_cplusplus_comments;
-
-  /* True if this buffer's data is mmapped.  */
-  char mapped;
 };
 
 struct file_name_map_list;
@@ -297,6 +297,9 @@ struct cpp_options
      in the standard include file directories.  */
   const char *include_prefix;
   unsigned int include_prefix_len;
+
+  /* -fleading_underscore sets this to "_".  */
+  const char *user_label_prefix;
 
   /* Non-0 means -v, so print the full set of include dirs.  */
   unsigned char verbose;

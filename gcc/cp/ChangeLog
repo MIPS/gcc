@@ -1,3 +1,137 @@
+2000-09-13  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* init.c (begin_init_stmts): Don't use // comments.
+
+2000-09-12  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (maybe_deduce_size_from_array_init): Set do_default for
+	all non-extern arrays.
+
+	* decl.c (grokdeclarator): Complain about 'friend T' for implicit
+	typenames, too.  Downgrade complaint to pedwarn.
+	(xref_tag): Warn about surprising behavior of 'friend struct T'.
+	* decl2.c (handle_class_head): Generate a TYPENAME_TYPE for
+	'class This::Inherited'.
+
+2000-09-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (finish_case_label): Given the LABEL_DECL a
+	DECL_CONTEXT.
+
+2000-09-12  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* error.c (TFF_PLAIN_IDENTIFIER, TFF_NAMESPACE_SCOPE,
+	TFF_CLASS_SCOPE, TFF_CHASE_NAMESPACE_ALIAS, TFF_CHASE_TYPDEF,
+	TFF_DECL_SPECIFIERS, TFF_CLASS_KEY_OR_ENUM, TFF_RETURN_TYPE,
+	TFF_FUNCTION_DEFAULT_ARGUMENTS, TFF_EXCEPTION_SPECIFICATION,
+	TFF_TEMPLATE_HEADER, TFF_TEMPLATE_DEFAULT_ARGUMENTS, TFF_SCOPE):
+	New macros.
+	(sorry_for_unsupported_tree, print_scope_operator,
+	print_left_paren, print_right_paren, print_left_bracket,
+	print_right_bracket, print_whitespace): Likewise.
+	(aggr_variety): Rename to class_key_or_enum.
+	(print_type): Rename to print_type_id.
+	(print_type_specifier_seq, print_simple_type_specifier,
+	print_elaborated_type_specifier,
+	print_rest_of_abstract_declarator,
+	print_parameter_declaration_clause, print_exception_specification,
+	print_nested_name_specifier, print_template_id,
+	typedef_original_name,  print_template_argument_list_start,
+	print_template_argument_list_end): New functions.
+
+2000-09-11  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+        * ir.texi: Add more documentation.
+
+2000-09-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (struct saved_scope): Remove x_function_parms.
+	(current_function_parms): Don't define.
+	(struct cp_language_function): Remove parms_stored.
+	(current_function_just_assigned_this): Don't define.
+	(current_function_parms_stored): Likewise.
+	(static_ctors): Declare.
+	(static_dtors): Likewise.
+	(SF_EXPAND): Don't define.
+	(expand_start_early_try_stmts): Remove declaration.
+	(store_parm_decls): Likewise.
+	* decl.c (static_ctors): Don't declare.
+	(static_dtors): Likewise.
+	(struct binding_level): Remove this_block.
+	(poplevel): Remove dead code.
+	(set_block): Likewise.
+	(mark_binding_level): Don't mark this_block.
+	(mark_saved_scope): Don't mark x_function_parms.
+	(init_decl_processing): Don't add current_function_parms as a GC
+	root.
+	(check_function_type): Change prototype.
+	(start_function): Remove RTL-generation code.
+	(expand_start_early_try_stmts): Remove.
+	(store_parm_decls): Give it internal linkage.  Remove
+	RTL-generation code.
+	(finish_function): Remove RTL-generation code.
+	* decl2.c (static_ctors): Fix formatting.
+	(static_dtors): Likewise.
+	* method.c (use_thunk): Don't call store_parm_decls.
+	(synthesize_method): Likewise.
+	* optimize.c (maybe_clone_body): Likewise.
+	* parse.y (fn.def2): Likewise.
+	(.set_base_init): Likewise.
+	(nodecls): Likewise.
+	* pt.c (instantiate_decl): Likewise.
+	* rtti.c (synthesize_tinfo_fn): Likewise.
+	* semantics.c (genrtl_try_block): Simplify.
+	(expand_body): Use genrtl_start_function and
+	genrtl_finish_function.
+	(genrtl_start_function): New function.
+	(genrtl_finish_function): Likewise.
+
+2000-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* error.c (cp_tree_printer, case 'P'): Append break.
+
+2000-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (frob_opname): Declare.
+	* parse.y (saved_scopes): New static variable.
+	(cp_parse_init): Adjust.
+	(do_id): If lastiddecl is NULL, do do_identifier.
+	(operator): Save scope information.
+	(unoperator): new reduction. Restore scope information.
+	(operator_name): Append unoperator. Call frob_opname.
+	* spew.c (frob_opname): Define.
+
+2000-09-10  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* decl.c, rtti.c: Include defaults.h if not already included.
+	Don't define the *_TYPE_SIZE macros.
+
+2000-09-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (push_switch): Change prototype.
+	(check_cp_case_value): Remove declaration.
+	(decl_constant_value): Likewise.
+	* decl.c (struct cp_switch): Add switch_stmt and cases.
+	(case_compare): New function.
+	(push_switch): Set switch_stmt.  Initialize cases.
+	(pop_switch): Clean up cases.
+	(define_case_label): Rename to ...
+	(finish_case_label): ... this.  Do semantic analysis for case
+	labels here.
+	(start_function): Correct comment.
+	* decl2.c (check_cp_case_value): Remove.
+	* expr.c (do_case): Remove.
+	* pt.c (tsubst_expr): Adjust call to finish_case_label.
+	* semantics.c (genrtl_do_poplevel): Remove declaration.
+	(RECHAIN_STMTS): Remove.
+	(finish_break_stmt): Use build_break_stmt.
+	(finish_continue_stmt): Use build_continue_stmt.
+	(finish_switch_cond): Adjust condition here, rater than in
+	c_expand_start_case.
+	(finish_case_label): Remove.
+	* typeck.c (c_expand_return): Remove.
+	(c_expand_start_case): Likewise.
+	
 2000-09-07  Gabriel Dos Reis  <gdr@codesourcery.com>
 
 	* ir.texi: Document type nodes.

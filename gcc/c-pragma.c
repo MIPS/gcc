@@ -24,14 +24,13 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "function.h"
 #include "defaults.h"
+#include "cpplib.h"
 #include "c-pragma.h"
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "c-lex.h"
-#include "cpplib.h"
-
-#ifdef HANDLE_GENERIC_PRAGMAS
+#include "tm_p.h"
 
 #if USE_CPPLIB
 extern cpp_reader parse_in;
@@ -189,59 +188,57 @@ handle_pragma_pack (dummy)
   tree x, id = 0;
   int align;
   enum cpp_ttype token;
-  enum { set, reset, push, pop } action;
+  enum { set, push, pop } action;
 
   if (c_lex (&x) != CPP_OPEN_PAREN)
     BAD ("missing '(' after '#pragma pack' - ignored");
 
   token = c_lex (&x);
   if (token == CPP_CLOSE_PAREN)
-    action = reset;
+    {
+      action = set;
+      align = 0;
+    }
   else if (token == CPP_NUMBER)
     {
       align = TREE_INT_CST_LOW (x);
       action = set;
+      if (c_lex (&x) != CPP_CLOSE_PAREN)
+	BAD ("malformed '#pragma pack' - ignored");
     }
   else if (token == CPP_NAME)
     {
-      if (!strcmp (IDENTIFIER_POINTER (x), "push"))
+      const char *op = IDENTIFIER_POINTER (x);
+      if (!strcmp (op, "push"))
 	action = push;
-      else if (!strcmp (IDENTIFIER_POINTER (x), "pop"))
+      else if (!strcmp (op, "pop"))
 	action = pop;
       else
-	BAD2 ("unknown action '%s' for '#pragma pack' - ignored",
-	      IDENTIFIER_POINTER (x));
-    }
-  else
-    BAD ("malformed '#pragma pack' - ignored");
+	BAD2 ("unknown action '%s' for '#pragma pack' - ignored", op);
 
-  token = c_lex (&x);
-  if ((action == set || action == reset) && token != CPP_CLOSE_PAREN)
-    BAD ("malformed '#pragma pack' - ignored");
-  if ((action == push || action == pop) && token != CPP_COMMA)
-    BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored",
-	  action == push ? "push" : "pop");
+      if (c_lex (&x) != CPP_COMMA)
+	BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored", op);
 
-  if (action == push || action == pop)
-    {
       token = c_lex (&x);
       if (token == CPP_NAME)
 	{
 	  id = x;
 	  if (c_lex (&x) != CPP_COMMA)
-	    BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored",
-		  action == push ? "push" : "pop");
+	    BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored", op);
 	  token = c_lex (&x);
 	}
+
       if (token == CPP_NUMBER)
 	align = TREE_INT_CST_LOW (x);
       else
-	BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored",
-	      action == push ? "push" : "pop");
+	BAD2 ("malformed '#pragma pack(%s[, id], <n>)' - ignored", op);
 
       if (c_lex (&x) != CPP_CLOSE_PAREN)
 	BAD ("malformed '#pragma pack' - ignored");
     }
+  else
+    BAD ("malformed '#pragma pack' - ignored");
+
   if (c_lex (&x) != CPP_EOF)
     warning ("junk at end of '#pragma pack'");
 
@@ -262,7 +259,6 @@ handle_pragma_pack (dummy)
   switch (action)
     {
     case set:   SET_GLOBAL_ALIGNMENT (align);  break;
-    case reset: SET_GLOBAL_ALIGNMENT (0);      break;
     case push:  push_alignment (align, id);    break;
     case pop:   pop_alignment (id);            break;
     }
@@ -383,7 +379,7 @@ dispatch_pragma ()
   enum cpp_ttype t;
   tree x;
   const struct pragma_entry *p;
-  const char *name;
+  const char *name, *space = 0;
   size_t len;
 
   p = pragmas;
@@ -407,6 +403,7 @@ dispatch_pragma ()
 	{
 	  if (p->isnspace)
 	    {
+	      space = p->name;
 	      p = p->u.space;
 	      goto new_space;
 	    }
@@ -420,10 +417,15 @@ dispatch_pragma ()
     }
 
   /* Issue a warning message if we have been asked to do so.  Ignore
-     unknown pragmas in system header file unless an explcit
+     unknown pragmas in system headers unless an explicit
      -Wunknown-pragmas has been given. */
   if (warn_unknown_pragmas > in_system_header)
-    warning ("ignoring pragma %s", name);
+    {
+      if (space)
+	warning ("ignoring #pragma %s %s", space, name);
+      else
+	warning ("ignoring #pragma %s", name);
+    }
 }
 
 #endif
@@ -431,10 +433,11 @@ dispatch_pragma ()
 void
 init_pragma ()
 {
+  cpp_reader *pfile ATTRIBUTE_UNUSED;
 #if !USE_CPPLIB
-  cpp_reader *pfile = 0;
+  pfile = 0;
 #else
-  cpp_reader *pfile = &parse_in;
+  pfile = &parse_in;
 #endif
 
 #ifdef HANDLE_PRAGMA_PACK
@@ -443,11 +446,12 @@ init_pragma ()
 #ifdef HANDLE_PRAGMA_WEAK
   cpp_register_pragma (pfile, 0, "weak", handle_pragma_weak);
 #endif
+#ifdef REGISTER_TARGET_PRAGMAS
+  REGISTER_TARGET_PRAGMAS (pfile);
+#endif
 
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
   ggc_add_root (&alignment_stack, 1, sizeof(alignment_stack),
 		mark_align_stack);
 #endif
 }
-
-#endif /* HANDLE_GENERIC_PRAGMAS */

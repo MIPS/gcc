@@ -867,9 +867,15 @@ make_decl_rtl (decl, asmspec, top_level)
       new_name = label;
     }
 
-  /* ASMSPEC is given, and not the name of a register.  */
   else if (reg_number == -2)
-    new_name = asmspec;
+    {
+      /* ASMSPEC is given, and not the name of a register.  Mark the
+	 name with a star so assemble_name won't munge it.  */
+      char *starred = alloca (strlen (asmspec) + 2);
+      starred[0] = '*';
+      strcpy (starred + 1, asmspec);
+      new_name = starred;
+    }
 
   /* When -fprefix-function-name is used, the functions
      names are prefixed.  Only nested function names are not

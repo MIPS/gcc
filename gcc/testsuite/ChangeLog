@@ -1,3 +1,46 @@
+2000-09-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.other/inline13.C: New test.
+ 
+2000-09-12  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/widechar-2.c: New test for wchar_t
+	constant by Ulrich Drepper <drepper@redhat.com>.
+
+Tue Sep 12 18:32:07 2000  J"orn Rennecke <amylaar@redhat.co.uk>
+
+	* gcc.c-torture/compile/981006-1.x: No -fpic for sh-coff / sh-hms.
+
+2000-09-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/wtr-union-init-2.c, gcc.dg/wtr-union-init-3.c: New tests.
+
+2000-09-11  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/backslash.c: New test.
+
+2000-09-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/execute/20000910-1.c: New test.
+	* gcc.c-torture/execute/20000910-2.c: Likewise.
+
+2000-09-11  Robert Lipe  <robertl@sco.com>
+	
+	* gcc.dg/pragma-align.c: New test.
+
+2000-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/explicit82.C: New test.
+	* g++.old-deja/g++.pt/explicit83.C: New test.
+
+2000-09-10  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/asm-names.c: New test.
+
+2000-09-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/cpp/tr-warn6.c: New test
+
 2000-09-07  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* gcc.dg/format-ext-3.c: Test %#b and %#h as formats that should

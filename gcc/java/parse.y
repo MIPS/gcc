@@ -387,6 +387,9 @@ static tree inst_id = NULL_TREE;
 /* The "java.lang.Cloneable" qualified name.  */
 static tree java_lang_cloneable = NULL_TREE;
 
+/* The "java.io.Serializable" qualified name.  */
+static tree java_io_serializable = NULL_TREE; 
+
 /* Context and flag for static blocks */
 static tree current_static_block = NULL_TREE;
 
@@ -2615,9 +2618,12 @@ java_pop_parser_context (generate)
       next->incomplete_class = ctxp->incomplete_class;
       next->gclass_list = ctxp->gclass_list;
       lineno = ctxp->lineno;
-      finput = ctxp->finput;
       current_class = ctxp->current_class;
     }
+
+  /* If the old and new lexers differ, then free the old one.  */
+  if (ctxp->lexer && next && ctxp->lexer != next->lexer)
+    java_destroy_lexer (ctxp->lexer);
 
   /* Set the single import class file flag to 0 for the current list
      of imported things */
@@ -2658,7 +2664,6 @@ java_parser_context_save_global ()
   else if (ctxp->saved_data)
     create_new_parser_context (1);
 
-  ctxp->finput = finput;
   ctxp->lineno = lineno;
   ctxp->current_class = current_class;
   ctxp->filename = input_filename;
@@ -2672,7 +2677,6 @@ java_parser_context_save_global ()
 void
 java_parser_context_restore_global ()
 {
-  finput = ctxp->finput;
   lineno = ctxp->lineno;
   current_class = ctxp->current_class;
   input_filename = ctxp->filename;
@@ -12304,18 +12308,24 @@ valid_ref_assignconv_cast_p (source, dest, cast)
 	  else
 	    return source == dest || interface_of_p (dest, source);
 	}
-      else			/* Array */
-	return (cast ? 
-		(DECL_NAME (TYPE_NAME (source)) == java_lang_cloneable) : 0);
+      else
+	{
+	  /* Array */
+	  return (cast
+		  && (DECL_NAME (TYPE_NAME (source)) == java_lang_cloneable
+		      || (DECL_NAME (TYPE_NAME (source))
+			  == java_io_serializable)));
+	}
     }
   if (TYPE_ARRAY_P (source))
     {
       if (TYPE_CLASS_P (dest))
 	return dest == object_type_node;
       /* Can't cast an array to an interface unless the interface is
-	 java.lang.Cloneable */
+	 java.lang.Cloneable or java.io.Serializable.  */
       if (TYPE_INTERFACE_P (dest))
-	return (DECL_NAME (TYPE_NAME (dest)) == java_lang_cloneable ? 1 : 0);
+	return (DECL_NAME (TYPE_NAME (dest)) == java_lang_cloneable
+		|| DECL_NAME (TYPE_NAME (dest)) == java_io_serializable);
       else			/* Arrays */
 	{
 	  tree source_element_type = TYPE_ARRAY_ELEMENT (source);

@@ -55,6 +55,11 @@ static int indent;
 
 static void print_rtx		PARAMS ((rtx));
 
+/* String printed at beginning of each RTL when it is dumped.
+   This string is set to ASM_COMMENT_START when the RTL is dumped in
+   the assembly output file.  */
+char *print_rtx_head = "";
+
 /* Nonzero means suppress output of instruction numbers and line number
    notes in debugging dumps.
    This must be defined here so that programs like gencodes can be linked.  */
@@ -62,6 +67,9 @@ int flag_dump_unnumbered = 0;
 
 /* Nonzero if we are dumping graphical description.  */
 int dump_for_graph;
+
+/* Nonzero to dump all call_placeholder alternatives.  */
+static int debug_call_placeholder_verbose;
 
 /* Print IN_RTX onto OUTFILE.  This is the recursive part of printing.  */
 
@@ -77,8 +85,9 @@ print_rtx (in_rtx)
 
   if (sawclose)
     {
-      fprintf (outfile, "\n%s",
-	       (xspaces + (sizeof xspaces - 1 - indent * 2)));
+      fprintf (outfile, "\n%s%s",
+               print_rtx_head,
+ 	       (xspaces + (sizeof xspaces - 1 - indent * 2)));
       sawclose = 0;
     }
 
@@ -253,7 +262,8 @@ print_rtx (in_rtx)
 	indent += 2;
 	if (sawclose)
 	  {
-	    fprintf (outfile, "\n%s",
+	    fprintf (outfile, "\n%s%s",
+                     print_rtx_head,
 		     (xspaces + (sizeof xspaces - 1 - indent * 2)));
 	    sawclose = 0;
 	  }
@@ -270,7 +280,8 @@ print_rtx (in_rtx)
 	    indent -= 2;
 	  }
 	if (sawclose)
-	  fprintf (outfile, "\n%s",
+	  fprintf (outfile, "\n%s%s",
+                   print_rtx_head,
 		   (xspaces + (sizeof xspaces - 1 - indent * 2)));
 
 	fputs ("] ", outfile);
@@ -421,6 +432,37 @@ print_rtx (in_rtx)
       break;
 
     case CALL_PLACEHOLDER:
+      if (debug_call_placeholder_verbose)
+	{
+	  fputs (" (cond [\n  (const_string \"normal\") (sequence [", outfile);
+	  for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
+	    {
+	      fputs ("\n    ", outfile);
+	      print_inline_rtx (outfile, tem, 4);
+	    }
+
+	  tem = XEXP (in_rtx, 1);
+	  if (tem)
+	    fputs ("\n    ])\n  (const_string \"tail_call\") (sequence [", outfile);
+	  for (; tem != 0; tem = NEXT_INSN (tem))
+	    {
+	      fputs ("\n    ", outfile);
+	      print_inline_rtx (outfile, tem, 4);
+	    }
+
+	  tem = XEXP (in_rtx, 2);
+	  if (tem)
+	    fputs ("\n    ])\n  (const_string \"tail_recursion\") (sequence [", outfile);
+	  for (; tem != 0; tem = NEXT_INSN (tem))
+	    {
+	      fputs ("\n    ", outfile);
+	      print_inline_rtx (outfile, tem, 4);
+	    }
+
+	  fputs ("\n    ])\n  ])", outfile);
+	  break;
+	}
+
       for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
 	if (GET_CODE (tem) == CALL_INSN)
 	  {
@@ -566,7 +608,10 @@ print_rtl (outf, rtx_first)
   sawclose = 0;
 
   if (rtx_first == 0)
-    fputs ("(nil)\n", outf);
+    {
+      fputs (print_rtx_head, outf);
+      fputs ("(nil)\n", outf);
+    }
   else
     switch (GET_CODE (rtx_first))
       {
@@ -580,12 +625,14 @@ print_rtl (outf, rtx_first)
 	  if (! flag_dump_unnumbered
 	      || GET_CODE (tmp_rtx) != NOTE || NOTE_LINE_NUMBER (tmp_rtx) < 0)
 	    {
+              fputs (print_rtx_head, outfile);
 	      print_rtx (tmp_rtx);
 	      fprintf (outfile, "\n");
 	    }
 	break;
 
       default:
+        fputs (print_rtx_head, outfile);
 	print_rtx (rtx_first);
       }
 }
@@ -603,6 +650,7 @@ print_rtl_single (outf, x)
   if (! flag_dump_unnumbered
       || GET_CODE (x) != NOTE || NOTE_LINE_NUMBER (x) < 0)
     {
+      fputs (print_rtx_head, outfile);
       print_rtx (x);
       putc ('\n', outf);
       return 1;

@@ -19,7 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-
 /* This is the final pass of the compiler.
    It looks at the rtl code for a function and outputs assembler code.
 
@@ -109,14 +108,6 @@ Boston, MA 02111-1307, USA.  */
 /* .stabs code for included file name.  */
 #ifndef N_SOL
 #define	N_SOL 0x84
-#endif
-
-#ifndef INT_TYPE_SIZE
-#define INT_TYPE_SIZE BITS_PER_WORD
-#endif
-
-#ifndef LONG_TYPE_SIZE
-#define LONG_TYPE_SIZE BITS_PER_WORD
 #endif
 
 /* If we aren't using cc0, CC_STATUS_INIT shouldn't exist.  So define a
@@ -249,7 +240,8 @@ rtx current_insn_predicate;
 
 /* Linked list to hold line numbers for each basic block.  */
 
-struct bb_list {
+struct bb_list
+{
   struct bb_list *next;		/* pointer to next basic block */
   int line_num;			/* line number */
   int file_label_num;		/* LPBC<n> label # for stored filename */
@@ -263,7 +255,8 @@ static int bb_func_label_num	= -1;		/* Current label # for func */
 
 /* Linked list to hold the strings for each file and function name output.  */
 
-struct bb_str {
+struct bb_str
+{
   struct bb_str *next;		/* pointer to next string */
   const char *string;		/* string */
   int label_num;		/* label number */
@@ -317,7 +310,7 @@ init_final (filename)
 
 void
 end_final (filename)
-  const char *filename;
+     const char *filename;
 {
   int i;
 
@@ -461,8 +454,8 @@ end_final (filename)
 	  else
 #endif
 #ifdef ASM_OUTPUT_ALIGNED_DECL_LOCAL
-	    ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, NULL_TREE, name, size,
-					      BIGGEST_ALIGNMENT);
+	    ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, NULL_TREE, name,
+					   size, BIGGEST_ALIGNMENT);
 #else
 #ifdef ASM_OUTPUT_ALIGNED_LOCAL
 	    ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size,
@@ -520,7 +513,7 @@ end_final (filename)
 		assemble_integer (const0_rtx, pointer_bytes, 1);
 	    }
 
-	  for ( ; i < count_basic_blocks; i++)
+	  for (; i < count_basic_blocks; i++)
 	    assemble_integer (const0_rtx, pointer_bytes, 1);
 	}
 
@@ -531,7 +524,7 @@ end_final (filename)
 	  for ((ptr = bb_head), (i = 0); ptr != 0; (ptr = ptr->next), i++)
 	    assemble_integer (GEN_INT (ptr->line_num), long_bytes, 1);
 
-	  for ( ; i < count_basic_blocks; i++)
+	  for (; i < count_basic_blocks; i++)
 	    assemble_integer (const0_rtx, long_bytes, 1);
 
 	  /* Output the table of file names.  */
@@ -549,7 +542,7 @@ end_final (filename)
 		assemble_integer (const0_rtx, pointer_bytes, 1);
 	    }
 
-	  for ( ; i < count_basic_blocks; i++)
+	  for (; i < count_basic_blocks; i++)
 	    assemble_integer (const0_rtx, pointer_bytes, 1);
 	}
 
@@ -590,7 +583,7 @@ app_disable ()
     }
 }
 
-/* Return the number of slots filled in the current 
+/* Return the number of slots filled in the current
    delayed branch sequence (we don't count the insn needing the
    delay slot).   Zero if not in a delayed branch sequence.  */
 
@@ -638,7 +631,8 @@ int insn_current_align;
    for each insn we'll call the alignment chain of this insn in the following
    comments.  */
 
-struct label_alignment {
+struct label_alignment
+{
   short alignment;
   short max_skip;
 };
@@ -749,34 +743,34 @@ get_attr_length (insn)
 
    Call a sequence of instructions beginning with alignment point X
    and continuing until the next alignment point `block X'.  When `X'
-   is used in an expression, it means the alignment value of the 
+   is used in an expression, it means the alignment value of the
    alignment point.
-   
+
    Call the distance between the start of the first insn of block X, and
    the end of the last insn of block X `IX', for the `inner size of X'.
    This is clearly the sum of the instruction lengths.
-   
+
    Likewise with the next alignment-delimited block following X, which we
    shall call block Y.
-   
+
    Call the distance between the start of the first insn of block X, and
    the start of the first insn of block Y `OX', for the `outer size of X'.
-   
+
    The estimated padding is then OX - IX.
-   
+
    OX can be safely estimated as
-   
+
            if (X >= Y)
                    OX = round_up(IX, Y)
            else
                    OX = round_up(IX, X) + Y - X
-   
+
    Clearly est(IX) >= real(IX), because that only depends on the
    instruction lengths, and those being overestimated is a given.
-   
+
    Clearly round_up(foo, Z) >= round_up(bar, Z) if foo >= bar, so
    we needn't worry about that when thinking about OX.
-   
+
    When X >= Y, the alignment provided by Y adds no uncertainty factor
    for branch ranges starting before X, so we can just round what we have.
    But when X < Y, we don't know anything about the, so to speak,
@@ -819,6 +813,7 @@ final_addr_vec_align (addr_vec)
   return align;
 
 }
+
 #define ADDR_VEC_ALIGN(ADDR_VEC) final_addr_vec_align (ADDR_VEC)
 #endif
 
@@ -837,6 +832,7 @@ static int min_labelno, max_labelno;
   (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno].max_skip)
 
 /* For the benefit of port specific code do this also as a function.  */
+
 int
 label_to_alignment (label)
      rtx label;
@@ -865,7 +861,6 @@ label_to_alignment (label)
    For this purpose, align_fuzz with a growth argument of 0 comuptes the
    appropriate adjustment.  */
 
-
 /* Compute the maximum delta by which the difference of the addresses of
    START and END might grow / shrink due to a different address for start
    which changes the size of alignment insns between START and END.
@@ -873,6 +868,7 @@ label_to_alignment (label)
    GROWTH should be ~0 if the objective is to compute potential code size
    increase, and 0 if the objective is to compute potential shrink.
    The return value is undefined for any other value of GROWTH.  */
+
 static int
 align_fuzz (start, end, known_align_log, growth)
      rtx start, end;
@@ -914,6 +910,7 @@ align_fuzz (start, end, known_align_log, growth)
    to account for possible size increase due to alignment.
    NB.: Therefore, the maximum offset allowed for backward branches needs
    to exclude the branch size.  */
+
 int
 insn_current_reference_address (branch)
      rtx branch;
@@ -938,13 +935,13 @@ insn_current_reference_address (branch)
   /* BRANCH has no proper alignment chain set, so use SEQ.  */
   if (INSN_SHUID (branch) < INSN_SHUID (dest))
     {
-      /* Forward branch. */
+      /* Forward branch.  */
       return (insn_last_address + insn_lengths[seq_uid]
 	      - align_fuzz (seq, dest, length_unit_log, ~0));
     }
   else
     {
-      /* Backward branch. */
+      /* Backward branch.  */
       return (insn_current_address
 	      + align_fuzz (dest, seq, length_unit_log, ~0));
     }
@@ -1000,11 +997,11 @@ shorten_branches (first)
 	   with only the 'deleted' bit set.  Transform it into a note
 	   to avoid confusion of subsequent processing.  */
 	if (INSN_DELETED_P (old))
-          {
-            PUT_CODE (old , NOTE);
-            NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-            NOTE_SOURCE_FILE (old) = 0;
-          }
+	  {
+	    PUT_CODE (old, NOTE);
+	    NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
+	    NOTE_SOURCE_FILE (old) = 0;
+	  }
       }
 #endif
 
@@ -1028,7 +1025,7 @@ shorten_branches (first)
   /* We use max_log here to keep track of the maximum alignment we want to
      impose on the next CODE_LABEL (or the current one if we are processing
      the CODE_LABEL itself).  */
-     
+
   max_log = 0;
   max_skip = 0;
 
@@ -1153,7 +1150,7 @@ shorten_branches (first)
      alignment of n.  */
   uid_align = (rtx *) xcalloc (max_uid, sizeof *uid_align);
 
-  for (i = MAX_CODE_ALIGN; --i >= 0; )
+  for (i = MAX_CODE_ALIGN; --i >= 0;)
     align_tab[i] = NULL_RTX;
   seq = get_last_insn ();
   for (; seq; seq = PREV_INSN (seq))
@@ -1227,7 +1224,6 @@ shorten_branches (first)
     }
 #endif /* CASE_VECTOR_SHORTEN_MODE */
 
-
   /* Compute initial lengths, addresses, and varying flags for each insn.  */
   for (insn_current_address = FIRST_INSN_ADDRESS, insn = first;
        insn != 0;
@@ -1250,7 +1246,7 @@ shorten_branches (first)
 	}
 
       INSN_ADDRESSES (uid) = insn_current_address;
-      
+
       if (GET_CODE (insn) == NOTE || GET_CODE (insn) == BARRIER
 	  || GET_CODE (insn) == CODE_LABEL)
 	continue;
@@ -1298,7 +1294,7 @@ shorten_branches (first)
 				* insn_default_length (inner_insn));
 	      else
 		inner_length = insn_default_length (inner_insn);
-	      
+
 	      insn_lengths[inner_uid] = inner_length;
 	      if (const_delay_slots)
 		{
@@ -1489,7 +1485,7 @@ shorten_branches (first)
 	  if (GET_CODE (insn) == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    {
 	      int i;
-	      
+
 	      body = PATTERN (insn);
 	      new_length = 0;
 	      for (i = 0; i < XVECLEN (body, 0); i++)
@@ -1563,8 +1559,8 @@ asm_insn_count (body)
     template = decode_asm_operands (body, NULL_PTR, NULL_PTR,
 				    NULL_PTR, NULL_PTR);
 
-  for ( ; *template; template++)
-    if (IS_ASM_LOGICAL_LINE_SEPARATOR(*template) || *template == '\n')
+  for (; *template; template++)
+    if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
       count++;
 
   return count;
@@ -1603,7 +1599,7 @@ final_start_function (first, file, optimize)
 	  regs_ever_live[i] = 1;
     }
 #endif
-  
+
   /* Initial line number is supposed to be output
      before the function's prologue and label
      so that the function's address will not appear to be
@@ -1633,7 +1629,7 @@ final_start_function (first, file, optimize)
     if (write_symbols == XCOFF_DEBUG)
       xcoffout_begin_function (file, last_linenum);
     else
-#endif	  
+#endif
       /* But only output line number for other debug info types if -g2
 	 or better.  */
       if (NOTE_LINE_NUMBER (first) != NOTE_INSN_DELETED)
@@ -1686,8 +1682,9 @@ final_start_function (first, file, optimize)
      of the function name.  */
   if (profile_block_flag)
     {
-      bb_func_label_num
-	= add_bb_string ((*decl_printable_name) (current_function_decl, 2), FALSE);
+      bb_func_label_num =
+	add_bb_string ((*decl_printable_name) (current_function_decl, 2),
+		       FALSE);
     }
 }
 
@@ -1855,7 +1852,8 @@ static void
 add_bb (file)
      FILE *file;
 {
-  struct bb_list *ptr = (struct bb_list *) permalloc (sizeof (struct bb_list));
+  struct bb_list *ptr =
+    (struct bb_list *) permalloc (sizeof (struct bb_list));
 
   /* Add basic block to linked list.  */
   ptr->next = 0;
@@ -1928,7 +1926,6 @@ add_bb_string (string, perm_p)
 
   return ptr->label_num;
 }
-
 
 /* Output assembler code for some insns: all or part of a function.
    For description of args, see `final_start_function', above.
@@ -1996,9 +1993,9 @@ final (first, file, optimize, prescan)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
       if (INSN_UID (insn) > max_uid)       /* find largest UID */
-        max_uid = INSN_UID (insn);
+	max_uid = INSN_UID (insn);
       if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
-        line_note_exists[NOTE_LINE_NUMBER (insn)] = 1;
+	line_note_exists[NOTE_LINE_NUMBER (insn)] = 1;
 #ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
@@ -2013,8 +2010,8 @@ final (first, file, optimize, prescan)
 #endif
     }
 
-  /* Initialize insn_eh_region table if eh is being used. */
-  
+  /* Initialize insn_eh_region table if eh is being used.  */
+
   init_insn_eh_region (first, max_uid);
 
   init_recog ();
@@ -2066,16 +2063,17 @@ get_insn_template (code, insn)
     case INSN_OUTPUT_FORMAT_SINGLE:
       return (const char *) output;
     case INSN_OUTPUT_FORMAT_MULTI:
-      return ((const char * const *) output)[which_alternative];
+      return ((const char *const *) output)[which_alternative];
     case INSN_OUTPUT_FORMAT_FUNCTION:
       if (insn == NULL)
 	abort ();
-      return (* (insn_output_fn) output) (recog_data.operand, insn);
+      return (*(insn_output_fn) output) (recog_data.operand, insn);
 
     default:
       abort ();
     }
 }
+
 /* The final scan for one insn, INSN.
    Args are same as in `final', except that INSN
    is the insn being scanned.
@@ -2278,11 +2276,11 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      || debug_info_level == DINFO_LEVEL_VERBOSE)
 	    {
 #ifdef DWARF_DEBUGGING_INFO
-              if (write_symbols == DWARF_DEBUG)
+	      if (write_symbols == DWARF_DEBUG)
 		dwarfout_label (insn);
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
-              if (write_symbols == DWARF2_DEBUG)
+	      if (write_symbols == DWARF2_DEBUG)
 		dwarf2out_label (insn);
 #endif
 	    }
@@ -2300,7 +2298,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    register rtx note;
 	    int note_after = 0;
 
-	    /* If there is anything real after this note, output it. 
+	    /* If there is anything real after this note, output it.
 	       If another line note follows, omit this one.  */
 	    for (note = NEXT_INSN (insn); note; note = NEXT_INSN (note))
 	      {
@@ -2336,7 +2334,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    if (!note_after)
 	      output_source_line (file, insn);
 	  }
-          break;
+	  break;
 	}
       break;
 
@@ -2451,19 +2449,19 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-              if (LABEL_ALTERNATE_NAME (insn))
-                ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
-              else
-	        ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	      if (LABEL_ALTERNATE_NAME (insn))
+		ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+	      else
+		ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
 	    }
 	}
       if (LABEL_ALTERNATE_NAME (insn))
-        ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+	ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
       else
-        ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
       break;
 
     default:
@@ -2520,7 +2518,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 #ifdef ASM_OUTPUT_ADDR_VEC
 		ASM_OUTPUT_ADDR_VEC (PREV_INSN (insn), body);
 #else
-		abort();
+		abort ();
 #endif
 	      }
 	    else
@@ -2528,7 +2526,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 #ifdef ASM_OUTPUT_ADDR_DIFF_VEC
 		ASM_OUTPUT_ADDR_DIFF_VEC (PREV_INSN (insn), body);
 #else
-		abort();
+		abort ();
 #endif
 	      }
 #else
@@ -2696,7 +2694,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	body = PATTERN (insn);
 
 #ifdef HAVE_cc0
-	set = single_set(insn);
+	set = single_set (insn);
 
 	/* Check for redundant test and compare instructions
 	   (when the condition codes are already set up as desired).
@@ -2709,7 +2707,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	if (optimize)
 	  {
 #if 0
-	    rtx set = single_set(insn);
+	    rtx set = single_set (insn);
 #endif
 
 	    if (set
@@ -2828,7 +2826,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    && set != 0)
 	  {
 	    rtx cond_rtx, then_rtx, else_rtx;
-	    
+
 	    if (GET_CODE (insn) != JUMP_INSN
 		&& GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
 	      {
@@ -2842,7 +2840,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		then_rtx = const_true_rtx;
 		else_rtx = const0_rtx;
 	      }
-	    
+
 	    switch (GET_CODE (cond_rtx))
 	      {
 	      case GTU:
@@ -2924,6 +2922,14 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	extract_insn (insn);
 	cleanup_subreg_operands (insn);
 
+       /* Dump the insn in the assembly for debugging.  */
+       if (flag_dump_rtl_in_asm)
+         {
+           print_rtx_head = ASM_COMMENT_START;
+           print_rtl_single (asm_out_file, insn);
+           print_rtx_head = "";
+         }
+       
 	if (! constrain_operands (1))
 	  fatal_insn_not_found (insn);
 
@@ -3002,7 +3008,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    /* If we didn't split the insn, go away.  */
 	    if (new == insn && PATTERN (new) == body)
 	      fatal_insn ("Could not split insn", insn);
-	      
+
 #ifdef HAVE_ATTR_length
 	    /* This instruction should have been split in shorten_branches,
 	       to ensure that we would have valid length info for the
@@ -3013,7 +3019,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    new_block = 0;
 	    return new;
 	  }
-	
+
 	if (prescan > 0)
 	  break;
 
@@ -3124,9 +3130,9 @@ output_source_line (file, insn)
     }
 }
 
-
 /* For each operand in INSN, simplify (subreg (reg)) so that it refers
    directly to the desired hard register.  */
+
 void
 cleanup_subreg_operands (insn)
      rtx insn;
@@ -3137,19 +3143,19 @@ cleanup_subreg_operands (insn)
   for (i = 0; i < recog_data.n_operands; i++)
     {
       if (GET_CODE (recog_data.operand[i]) == SUBREG)
-        recog_data.operand[i] = alter_subreg (recog_data.operand[i]);
+	recog_data.operand[i] = alter_subreg (recog_data.operand[i]);
       else if (GET_CODE (recog_data.operand[i]) == PLUS
-               || GET_CODE (recog_data.operand[i]) == MULT)
-       recog_data.operand[i] = walk_alter_subreg (recog_data.operand[i]);
+	       || GET_CODE (recog_data.operand[i]) == MULT)
+	recog_data.operand[i] = walk_alter_subreg (recog_data.operand[i]);
     }
 
   for (i = 0; i < recog_data.n_dups; i++)
     {
       if (GET_CODE (*recog_data.dup_loc[i]) == SUBREG)
-        *recog_data.dup_loc[i] = alter_subreg (*recog_data.dup_loc[i]);
+	*recog_data.dup_loc[i] = alter_subreg (*recog_data.dup_loc[i]);
       else if (GET_CODE (*recog_data.dup_loc[i]) == PLUS
-               || GET_CODE (*recog_data.dup_loc[i]) == MULT)
-        *recog_data.dup_loc[i] = walk_alter_subreg (*recog_data.dup_loc[i]);
+	       || GET_CODE (*recog_data.dup_loc[i]) == MULT)
+	*recog_data.dup_loc[i] = walk_alter_subreg (*recog_data.dup_loc[i]);
     }
 }
 
@@ -3181,8 +3187,8 @@ alter_subreg (x)
 	 gen_lowpart and friends.  */
 
 #ifdef ALTER_HARD_SUBREG
-      regno = ALTER_HARD_SUBREG(GET_MODE (x), SUBREG_WORD (x),
-				GET_MODE (y), REGNO (y));
+      regno = ALTER_HARD_SUBREG (GET_MODE (x), SUBREG_WORD (x),
+				 GET_MODE (y), REGNO (y));
 #else
       regno = REGNO (y) + SUBREG_WORD (x);
 #endif
@@ -3227,7 +3233,7 @@ walk_alter_subreg (x)
 
     case SUBREG:
       return alter_subreg (x);
-      
+
     default:
       break;
     }
@@ -3288,7 +3294,7 @@ alter_cond (cond)
 	PUT_CODE (cond, NE);
 	value = 2;
 	break;
-	
+
       default:
 	break;
       }
@@ -3317,7 +3323,7 @@ alter_cond (cond)
 	PUT_CODE (cond, NE);
 	value = 2;
 	break;
-	
+
       default:
 	break;
       }
@@ -3342,7 +3348,7 @@ alter_cond (cond)
       case LTU:
 	/* Jump becomes no-op.  */
 	return -1;
-	
+
       default:
 	break;
       }
@@ -3441,7 +3447,7 @@ output_asm_name ()
       if (debug_insn)
 	{
 	  register int num = INSN_CODE (debug_insn);
-	  fprintf (asm_out_file, "\t%s %d\t%s", 
+	  fprintf (asm_out_file, "\t%s %d\t%s",
 		   ASM_COMMENT_START, INSN_UID (debug_insn),
 		   insn_data[num].name);
 	  if (insn_data[num].n_alternatives > 1)
@@ -3497,7 +3503,7 @@ output_asm_insn (template, operands)
       case '{':
 	{
 	  register int i;
-	  
+
 	  /* If we want the first dialect, do nothing.  Otherwise, skip
 	     DIALECT_NUMBER of strings ending with '|'.  */
 	  for (i = 0; i < dialect_number; i++)
@@ -3542,7 +3548,7 @@ output_asm_insn (template, operands)
 	   Letters `acln' are implemented directly.
 	   Other letters are passed to `output_operand' so that
 	   the PRINT_OPERAND macro can define them.  */
-	else if (ISLOWER(*p) || ISUPPER(*p))
+	else if (ISLOWER (*p) || ISUPPER (*p))
 	  {
 	    int letter = *p++;
 	    c = atoi (p);
@@ -3575,24 +3581,27 @@ output_asm_insn (template, operands)
 	      }
 	    else
 	      output_operand (operands[c], letter);
-	    
-	    while ((c = *p) >= '0' && c <= '9') p++;
+
+	    while ((c = *p) >= '0' && c <= '9')
+	      p++;
 	  }
 	/* % followed by a digit outputs an operand the default way.  */
 	else if (*p >= '0' && *p <= '9')
 	  {
 	    c = atoi (p);
-	    if (this_is_asm_operands && (c < 0 || (unsigned int) c >= insn_noperands))
+	    if (this_is_asm_operands
+		&& (c < 0 || (unsigned int) c >= insn_noperands))
 	      output_operand_lossage ("operand number out of range");
 	    else
 	      output_operand (operands[c], 0);
-	    while ((c = *p) >= '0' && c <= '9') p++;
+	    while ((c = *p) >= '0' && c <= '9')
+	      p++;
 	  }
 	/* % followed by punctuation: output something for that
 	   punctuation character alone, with no operand.
 	   The PRINT_OPERAND macro decides what is actually done.  */
 #ifdef PRINT_OPERAND_PUNCT_VALID_P
-	else if (PRINT_OPERAND_PUNCT_VALID_P ((unsigned char)*p))
+	else if (PRINT_OPERAND_PUNCT_VALID_P ((unsigned char) *p))
 	  output_operand (NULL_RTX, *p++);
 #endif
 	else
@@ -3719,7 +3728,7 @@ output_addr_const (file, x)
 	  if (CONST_DOUBLE_HIGH (x))
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 		     CONST_DOUBLE_HIGH (x), CONST_DOUBLE_LOW (x));
-	  else if  (CONST_DOUBLE_LOW (x) < 0)
+	  else if (CONST_DOUBLE_LOW (x) < 0)
 	    fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_DOUBLE_LOW (x));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_DOUBLE_LOW (x));
@@ -3825,7 +3834,7 @@ asm_fprintf VPARAMS ((FILE *file, const char *p, ...))
 
 	      if (*p == '|')
 		p++;
-	  }
+	    }
 	}
 	break;
 
@@ -3941,7 +3950,7 @@ asm_fprintf VPARAMS ((FILE *file, const char *p, ...))
 	  case 'M': case 'N': case 'P': case 'Q': case 'S':
 	  case 'T': case 'V': case 'W': case 'Y': case 'Z':
 	    break;
-	    
+
 	  ASM_FPRINTF_EXTENSIONS (file, argptr, p)
 #endif
 	  default:
@@ -3990,7 +3999,7 @@ split_double (value, first, second)
 
 	  /* Set sign_extend as any remaining bits.  */
 	  sign_extend = ~mask;
-	  
+
 	  /* Pick the lower word and sign-extend it.  */
 	  low = INTVAL (value);
 	  low &= mask;
@@ -4069,7 +4078,8 @@ split_double (value, first, second)
   else
     {
 #ifdef REAL_ARITHMETIC
-      REAL_VALUE_TYPE r; long l[2];
+      REAL_VALUE_TYPE r;
+      long l[2];
       REAL_VALUE_FROM_CONST_DOUBLE (r, value);
 
       /* Note, this converts the REAL_VALUE_TYPE to the target's
@@ -4144,7 +4154,9 @@ leaf_function_p ()
 	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
-  for (insn = current_function_epilogue_delay_list; insn; insn = XEXP (insn, 1))
+  for (insn = current_function_epilogue_delay_list;
+       insn;
+       insn = XEXP (insn, 1))
     {
       if (GET_CODE (XEXP (insn, 0)) == CALL_INSN
 	  && ! SIBLING_CALL_P (insn))
@@ -4208,7 +4220,9 @@ leaf_renumber_regs (first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       leaf_renumber_regs_insn (PATTERN (insn));
-  for (insn = current_function_epilogue_delay_list; insn; insn = XEXP (insn, 1))
+  for (insn = current_function_epilogue_delay_list;
+       insn;
+       insn = XEXP (insn, 1))
     if (INSN_P (XEXP (insn, 0)))
       leaf_renumber_regs_insn (PATTERN (XEXP (insn, 0)));
 }

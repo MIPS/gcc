@@ -78,87 +78,6 @@ static int max_luid;
 
 static int max_loop_num;
 
-/* Indexed by register number, contains the number of times the reg
-   is set during the loop being scanned.
-   During code motion, a negative value indicates a reg that has been
-   made a candidate; in particular -2 means that it is an candidate that
-   we know is equal to a constant and -1 means that it is an candidate
-   not known equal to a constant.
-   After code motion, regs moved have 0 (which is accurate now)
-   while the failed candidates have the original number of times set.
-
-   Therefore, at all times, == 0 indicates an invariant register;
-   < 0 a conditionally invariant one.  */
-
-static varray_type set_in_loop;
-
-/* Original value of set_in_loop; same except that this value
-   is not set negative for a reg whose sets have been made candidates
-   and not set to 0 for a reg that is moved.  */
-
-static varray_type n_times_set;
-
-/* Index by register number, 1 indicates that the register
-   cannot be moved or strength reduced.  */
-
-static varray_type may_not_optimize;
-
-/* Contains the insn in which a register was used if it was used
-   exactly once; contains const0_rtx if it was used more than once.  */
-
-static varray_type reg_single_usage;
-
-/* Nonzero means reg N has already been moved out of one loop.
-   This reduces the desire to move it out of another.  */
-
-static char *moved_once;
-
-/* List of MEMs that are stored in this loop.  */
-
-static rtx loop_store_mems;
-
-/* The insn where the first of these was found.  */
-static rtx first_loop_store_insn;
-
-typedef struct loop_mem_info {
-  rtx mem;      /* The MEM itself.  */
-  rtx reg;      /* Corresponding pseudo, if any.  */
-  int optimize; /* Nonzero if we can optimize access to this MEM.  */
-} loop_mem_info;
-
-/* Array of MEMs that are used (read or written) in this loop, but
-   cannot be aliased by anything in this loop, except perhaps
-   themselves.  In other words, if loop_mems[i] is altered during the
-   loop, it is altered by an expression that is rtx_equal_p to it.  */
-
-static loop_mem_info *loop_mems;
-
-/* The index of the next available slot in LOOP_MEMS.  */
-
-static int loop_mems_idx;
-
-/* The number of elements allocated in LOOP_MEMs.  */
-
-static int loop_mems_allocated;
-
-/* Nonzero if we don't know what MEMs were changed in the current
-   loop.  This happens if the loop contains a call (in which case
-   `loop_info->has_call' will also be set) or if we store into more
-   than NUM_STORES MEMs.  */
-
-static int unknown_address_altered;
-
-/* The above doesn't count any readonly memory locations that are stored.
-   This does.  */
-
-static int unknown_constant_address_altered;
-
-/* Count of movable (i.e. invariant) instructions discovered in the loop.  */
-static int num_movables;
-
-/* Count of memory write instructions discovered in the loop.  */
-static int num_mem_sets;
-
 /* Bound on pseudo register number before loop optimization.
    A pseudo has valid regscan info if its number is < max_reg_before_loop.  */
 unsigned int max_reg_before_loop;
@@ -224,7 +143,17 @@ struct movable
   struct movable *next;
 };
 
-static struct movable *the_movables;
+struct movables
+{
+  /* Head of movable chain.  */
+  struct movable *head;
+  /* Last movable in chain.  */
+  struct movable *last;
+  /* Number of movables in the loop.  */
+  int num;
+};
+
+static struct movables the_movables;
 
 FILE *loop_dump_stream;
 
@@ -238,7 +167,8 @@ static int reg_in_basic_block_p PARAMS ((rtx, rtx));
 static int consec_sets_invariant_p PARAMS ((const struct loop *,
 					    rtx, int, rtx));
 static int labels_in_range_p PARAMS ((rtx, int));
-static void count_one_set PARAMS ((rtx, rtx, varray_type, rtx *));
+static void count_one_set PARAMS ((struct loop_regs *, rtx, rtx,
+				   varray_type, rtx *));
 
 static void count_loop_regs_set PARAMS ((const struct loop*,
 					 varray_type, varray_type,
@@ -252,41 +182,47 @@ static void replace_call_address PARAMS ((rtx, rtx, rtx));
 #endif
 static rtx skip_consec_insns PARAMS ((rtx, int));
 static int libcall_benefit PARAMS ((rtx));
-static void ignore_some_movables PARAMS ((struct movable *));
-static void force_movables PARAMS ((struct movable *));
-static void combine_movables PARAMS ((struct movable *, int));
-static int regs_match_p PARAMS ((rtx, rtx, struct movable *));
-static int rtx_equal_for_loop_p PARAMS ((rtx, rtx, struct movable *));
+static void ignore_some_movables PARAMS ((struct movables *));
+static void force_movables PARAMS ((struct movables *));
+static void combine_movables PARAMS ((struct movables *, struct loop_regs *));
+static int regs_match_p PARAMS ((rtx, rtx, struct movables *));
+static int rtx_equal_for_loop_p PARAMS ((rtx, rtx, struct movables *,
+					 struct loop_regs *));
 static void add_label_notes PARAMS ((rtx, rtx));
-static void move_movables PARAMS ((struct loop *loop, struct movable *,
-				   int, int, int));
+static void move_movables PARAMS ((struct loop *loop, struct movables *,
+				   int, int));
 static int count_nonfixed_reads PARAMS ((const struct loop *, rtx));
 static void strength_reduce PARAMS ((struct loop *, int, int));
 static void find_single_use_in_loop PARAMS ((rtx, rtx, varray_type));
 static int valid_initial_value_p PARAMS ((rtx, rtx, int, rtx));
 static void find_mem_givs PARAMS ((const struct loop *, rtx, rtx, int, int));
-static void record_biv PARAMS ((struct induction *, rtx, rtx, rtx, rtx, rtx *,
+static void record_biv PARAMS ((struct loop *, struct induction *,
+				rtx, rtx, rtx, rtx, rtx *,
 				int, int));
 static void check_final_value PARAMS ((const struct loop *,
 				       struct induction *));
 static void record_giv PARAMS ((const struct loop *, struct induction *,
-				rtx, rtx, rtx, rtx, rtx, int, enum g_types,
-				int, int, rtx *));
+				rtx, rtx, rtx, rtx, rtx, rtx, int,
+				enum g_types, int, int, rtx *));
 static void update_giv_derive PARAMS ((const struct loop *, rtx));
+static void check_ext_dependant_givs PARAMS ((struct iv_class *,
+					      struct loop_info *));
 static int basic_induction_var PARAMS ((const struct loop *, rtx,
 					enum machine_mode, rtx, rtx,
 					rtx *, rtx *, rtx **));
-static rtx simplify_giv_expr PARAMS ((const struct loop *, rtx, int *));
+static rtx simplify_giv_expr PARAMS ((const struct loop *, rtx, rtx *, int *));
 static int general_induction_var PARAMS ((const struct loop *loop, rtx, rtx *,
-					  rtx *, rtx *, int, int *, enum machine_mode));
+					  rtx *, rtx *, rtx *, int, int *,
+					  enum machine_mode));
 static int consec_sets_giv PARAMS ((const struct loop *, int, rtx,
-				    rtx, rtx, rtx *, rtx *, rtx *));
+				    rtx, rtx, rtx *, rtx *, rtx *, rtx *));
 static int check_dbra_loop PARAMS ((struct loop *, int));
 static rtx express_from_1 PARAMS ((rtx, rtx, rtx));
 static rtx combine_givs_p PARAMS ((struct induction *, struct induction *));
-static void combine_givs PARAMS ((struct iv_class *));
+static void combine_givs PARAMS ((struct loop_regs *, struct iv_class *));
 struct recombine_givs_stats;
-static int find_life_end PARAMS ((rtx, struct recombine_givs_stats *,
+static int find_life_end PARAMS ((const struct loop *, rtx,
+				  struct recombine_givs_stats *,
 				  rtx, rtx));
 static void recombine_givs PARAMS ((const struct loop *, struct iv_class *,
 				    int));
@@ -304,7 +240,9 @@ static void load_mems_and_recount_loop_regs_set PARAMS ((const struct loop*,
 static void load_mems PARAMS ((const struct loop *));
 static int insert_loop_mem PARAMS ((rtx *, void *));
 static int replace_loop_mem PARAMS ((rtx *, void *));
+static void replace_loop_mems PARAMS ((rtx, rtx, rtx));
 static int replace_loop_reg PARAMS ((rtx *, void *));
+static void replace_loop_regs PARAMS ((rtx insn, rtx, rtx));
 static void note_reg_stored PARAMS ((rtx, rtx, void *));
 static void try_copy_prop PARAMS ((const struct loop *, rtx, unsigned int));
 static void try_swap_copy_prop PARAMS ((const struct loop *, rtx,
@@ -317,15 +255,18 @@ static int iv_add_mult_cost PARAMS ((rtx, rtx, rtx, rtx));
 static void loop_dump_aux PARAMS ((const struct loop *, FILE *, int));
 void debug_loop PARAMS ((const struct loop *));
 
-typedef struct rtx_and_int {
-  rtx r;
-  int i;
-} rtx_and_int;
-
-typedef struct rtx_pair {
+typedef struct rtx_pair
+{
   rtx r1;
   rtx r2;
 } rtx_pair;
+
+typedef struct loop_replace_args
+{
+  rtx match;
+  rtx replacement;
+  rtx insn;
+} loop_replace_args;
 
 /* Nonzero iff INSN is between START and END, inclusive.  */
 #define INSN_IN_RANGE_P(INSN, START, END) 	\
@@ -340,7 +281,8 @@ static int indirect_jump_in_function_p PARAMS ((rtx));
 static int compute_luids PARAMS ((rtx, rtx, int));
 
 static int biv_elimination_giv_has_0_offset PARAMS ((struct induction *,
-						   struct induction *, rtx));
+						     struct induction *,
+						     rtx));
 
 /* Benefit penalty, if a giv is not replaceable, i.e. must emit an insn to
    copy the value of the strength reduced giv to its original register.  */
@@ -357,7 +299,7 @@ init_loop ()
 
   reg_address_cost = address_cost (reg, SImode);
 
-  copy_cost = 2;
+  copy_cost = COSTS_N_INSNS (1);
 
   /* Free the objects we just allocated.  */
   obfree (free_point);
@@ -412,6 +354,7 @@ loop_optimize (f, dumpfile, flags)
   struct loops loops_data;
   struct loops *loops = &loops_data;
   struct loop_info *loops_info;
+  static char *moved_once;
 
   loop_dump_stream = dumpfile;
 
@@ -509,6 +452,9 @@ loop_optimize (f, dumpfile, flags)
   for (i = max_loop_num - 1; i >= 0; i--)
     {
       struct loop *loop = &loops->array[i];
+      struct loop_regs *regs = LOOP_REGS (loop);
+
+      regs->moved_once = moved_once;
 
       if (! loop->invalid && loop->end)
 	scan_loop (loop, flags);
@@ -574,13 +520,11 @@ scan_loop (loop, flags)
      struct loop *loop;
      int flags;
 {
+  struct loop_info *loop_info = LOOP_INFO (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
   register int i;
   rtx loop_start = loop->start;
   rtx loop_end = loop->end;
-  /* Additional information about the current loop being processed
-     that is used to compute the number of loop iterations for loop
-     unrolling and doloop optimization.  */
-  struct loop_info *loop_info = LOOP_INFO (loop);
   rtx p;
   /* 1 if we are scanning insns that could be executed zero times.  */
   int maybe_never = 0;
@@ -596,9 +540,7 @@ scan_loop (loop, flags)
   /* The SET from an insn, if it is the only SET in the insn.  */
   rtx set, set1;
   /* Chain describing insns movable in current loop.  */
-  struct movable *movables = 0;
-  /* Last element in `movables' -- so we can add elements at the end.  */
-  struct movable *last_movable = 0;
+  struct movables *movables = &the_movables;
   /* Ratio of extra register life span we can justify
      for saving an instruction.  More if loop doesn't call subroutines
      since in that case saving an insn makes more difference
@@ -609,6 +551,10 @@ scan_loop (loop, flags)
   int nregs;
 
   loop->top = 0;
+
+  movables->head = 0;
+  movables->last = 0;
+  movables->num = 0;
 
   /* Determine whether this loop starts with a jump down to a test at
      the end.  This will occur for a small number of loops with a test
@@ -683,28 +629,31 @@ scan_loop (loop, flags)
       return;
     }
 
-  /* Count number of times each reg is set during this loop.
-     Set VARRAY_CHAR (may_not_optimize, I) if it is not safe to move out
-     the setting of register I.  Set VARRAY_RTX (reg_single_usage, I).  */
+  /* Count number of times each reg is set during this loop.  Set
+     VARRAY_CHAR (regs->may_not_optimize, I) if it is not safe to move
+     out the setting of register I.  Set VARRAY_RTX
+     (regs->single_usage, I).  */
 
   /* Allocate extra space for REGS that might be created by
      load_mems.  We allocate a little extra slop as well, in the hopes
      that even after the moving of movables creates some new registers
      we won't have to reallocate these arrays.  However, we do grow
      the arrays, if necessary, in load_mems_recount_loop_regs_set.  */
-  nregs = max_reg_num () + loop_mems_idx + 16;
-  VARRAY_INT_INIT (set_in_loop, nregs, "set_in_loop");
-  VARRAY_INT_INIT (n_times_set, nregs, "n_times_set");
-  VARRAY_CHAR_INIT (may_not_optimize, nregs, "may_not_optimize");
-  VARRAY_RTX_INIT (reg_single_usage, nregs, "reg_single_usage");
+  nregs = max_reg_num () + loop_info->mems_idx + 16;
+  VARRAY_INT_INIT (regs->set_in_loop, nregs, "set_in_loop");
+  VARRAY_INT_INIT (regs->n_times_set, nregs, "n_times_set");
+  VARRAY_CHAR_INIT (regs->may_not_optimize, nregs, "may_not_optimize");
+  VARRAY_RTX_INIT (regs->single_usage, nregs, "single_usage");
 
-  count_loop_regs_set (loop, may_not_optimize, reg_single_usage, 
+  regs->num = nregs;
+
+  count_loop_regs_set (loop, regs->may_not_optimize, regs->single_usage,
 		       &insn_count, nregs);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
-      VARRAY_CHAR (may_not_optimize, i) = 1;
-      VARRAY_INT (set_in_loop, i) = 1;
+      VARRAY_CHAR (regs->may_not_optimize, i) = 1;
+      VARRAY_INT (regs->set_in_loop, i) = 1;
     }
 
 #ifdef AVOID_CCMODE_COPIES
@@ -712,11 +661,11 @@ scan_loop (loop, flags)
      create CCmode register copies.  */
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     if (GET_MODE_CLASS (GET_MODE (regno_reg_rtx[i])) == MODE_CC)
-      VARRAY_CHAR (may_not_optimize, i) = 1;
+      VARRAY_CHAR (regs->may_not_optimize, i) = 1;
 #endif
 
-  bcopy ((char *) &set_in_loop->data,
-	 (char *) &n_times_set->data, nregs * sizeof (int));
+  bcopy ((char *) &regs->set_in_loop->data,
+	 (char *) &regs->n_times_set->data, nregs * sizeof (int));
 
   if (loop_dump_stream)
     {
@@ -728,7 +677,7 @@ scan_loop (loop, flags)
     }
 
   /* Scan through the loop finding insns that are safe to move.
-     Set set_in_loop negative for the reg being set, so that
+     Set regs->set_in_loop negative for the reg being set, so that
      this reg will be considered invariant for subsequent insns.
      We consider whether subsequent insns use the reg
      in deciding whether it is worth actually moving.
@@ -747,7 +696,7 @@ scan_loop (loop, flags)
       if (GET_CODE (p) == INSN
 	  && (set = single_set (p))
 	  && GET_CODE (SET_DEST (set)) == REG
-	  && ! VARRAY_CHAR (may_not_optimize, REGNO (SET_DEST (set))))
+	  && ! VARRAY_CHAR (regs->may_not_optimize, REGNO (SET_DEST (set))))
 	{
 	  int tem1 = 0;
 	  int tem2 = 0;
@@ -811,12 +760,13 @@ scan_loop (loop, flags)
 	  else if ((tem = loop_invariant_p (loop, src))
 		   && (dependencies == 0
 		       || (tem2 = loop_invariant_p (loop, dependencies)) != 0)
-		   && (VARRAY_INT (set_in_loop,
+		   && (VARRAY_INT (regs->set_in_loop,
 				   REGNO (SET_DEST (set))) == 1
 		       || (tem1
 			   = consec_sets_invariant_p
 			   (loop, SET_DEST (set),
-			    VARRAY_INT (set_in_loop, REGNO (SET_DEST (set))),
+			    VARRAY_INT (regs->set_in_loop,
+					REGNO (SET_DEST (set))),
 			    p)))
 		   /* If the insn can cause a trap (such as divide by zero),
 		      can't move it unless it's guaranteed to be executed
@@ -844,12 +794,12 @@ scan_loop (loop, flags)
 		 SMALL_REGISTER_CLASSES and SET_SRC is a hard register.  */
 
 	      if (loop_info->has_call
-		  && VARRAY_RTX (reg_single_usage, regno) != 0
-		  && VARRAY_RTX (reg_single_usage, regno) != const0_rtx
+		  && VARRAY_RTX (regs->single_usage, regno) != 0
+		  && VARRAY_RTX (regs->single_usage, regno) != const0_rtx
 		  && REGNO_FIRST_UID (regno) == INSN_UID (p)
 		  && (REGNO_LAST_UID (regno)
-		      == INSN_UID (VARRAY_RTX (reg_single_usage, regno)))
-		  && VARRAY_INT (set_in_loop, regno) == 1
+		      == INSN_UID (VARRAY_RTX (regs->single_usage, regno)))
+		  && VARRAY_INT (regs->set_in_loop, regno) == 1
 		  && ! side_effects_p (SET_SRC (set))
 		  && ! find_reg_note (p, REG_RETVAL, NULL_RTX)
 		  && (! SMALL_REGISTER_CLASSES
@@ -860,24 +810,25 @@ scan_loop (loop, flags)
 		     might span a call.  */
 		  && ! modified_between_p (SET_SRC (set), p,
 					   VARRAY_RTX
-					   (reg_single_usage, regno))
-		  && no_labels_between_p (p, VARRAY_RTX (reg_single_usage, regno))
+					   (regs->single_usage, regno))
+		  && no_labels_between_p (p, VARRAY_RTX (regs->single_usage,
+							 regno))
 		  && validate_replace_rtx (SET_DEST (set), SET_SRC (set),
 					   VARRAY_RTX
-					   (reg_single_usage, regno)))
+					   (regs->single_usage, regno)))
 		{
 		  /* Replace any usage in a REG_EQUAL note.  Must copy the
 		     new source, so that we don't get rtx sharing between the
 		     SET_SOURCE and REG_NOTES of insn p.  */
-		  REG_NOTES (VARRAY_RTX (reg_single_usage, regno))
+		  REG_NOTES (VARRAY_RTX (regs->single_usage, regno))
 		    = replace_rtx (REG_NOTES (VARRAY_RTX
-					      (reg_single_usage, regno)),
+					      (regs->single_usage, regno)),
 				   SET_DEST (set), copy_rtx (SET_SRC (set)));
 
 		  PUT_CODE (p, NOTE);
 		  NOTE_LINE_NUMBER (p) = NOTE_INSN_DELETED;
 		  NOTE_SOURCE_FILE (p) = 0;
-		  VARRAY_INT (set_in_loop, regno) = 0;
+		  VARRAY_INT (regs->set_in_loop, regno) = 0;
 		  continue;
 		}
 
@@ -888,7 +839,7 @@ scan_loop (loop, flags)
 	      m->dependencies = dependencies;
 	      m->set_dest = SET_DEST (set);
 	      m->force = 0;
-	      m->consec = VARRAY_INT (set_in_loop,
+	      m->consec = VARRAY_INT (regs->set_in_loop,
 				      REGNO (SET_DEST (set))) - 1;
 	      m->done = 0;
 	      m->forces = 0;
@@ -908,16 +859,16 @@ scan_loop (loop, flags)
 	      m->match = 0;
 	      m->lifetime = (uid_luid[REGNO_LAST_UID (regno)]
 			     - uid_luid[REGNO_FIRST_UID (regno)]);
-	      m->savings = VARRAY_INT (n_times_set, regno);
+	      m->savings = VARRAY_INT (regs->n_times_set, regno);
 	      if (find_reg_note (p, REG_RETVAL, NULL_RTX))
 		m->savings += libcall_benefit (p);
-	      VARRAY_INT (set_in_loop, regno) = move_insn ? -2 : -1;
+	      VARRAY_INT (regs->set_in_loop, regno) = move_insn ? -2 : -1;
 	      /* Add M to the end of the chain MOVABLES.  */
-	      if (movables == 0)
-		movables = m;
+	      if (movables->head == 0)
+		movables->head = m;
 	      else
-		last_movable->next = m;
-	      last_movable = m;
+		movables->last->next = m;
+	      movables->last = m;
 
 	      if (m->consec > 0)
 		{
@@ -970,7 +921,7 @@ scan_loop (loop, flags)
 		   && !reg_mentioned_p (SET_DEST (set), SET_SRC (set1)))
 	    {
 	      register int regno = REGNO (SET_DEST (set));
-	      if (VARRAY_INT (set_in_loop, regno) == 2)
+	      if (VARRAY_INT (regs->set_in_loop, regno) == 2)
 		{
 		  register struct movable *m;
 		  m = (struct movable *) alloca (sizeof (struct movable));
@@ -1020,13 +971,13 @@ scan_loop (loop, flags)
 		  m->lifetime = (uid_luid[REGNO_LAST_UID (regno)]
 				 - uid_luid[REGNO_FIRST_UID (regno)]);
 		  m->savings = 1;
-		  VARRAY_INT (set_in_loop, regno) = -1;
+		  VARRAY_INT (regs->set_in_loop, regno) = -1;
 		  /* Add M to the end of the chain MOVABLES.  */
-		  if (movables == 0)
-		    movables = m;
+		  if (movables->head == 0)
+		    movables->head = m;
 		  else
-		    last_movable->next = m;
-		  last_movable = m;
+		    movables->last->next = m;
+		  movables->last = m;
 		}
 	    }
 	}
@@ -1081,22 +1032,23 @@ scan_loop (loop, flags)
      through the `match' field, and add the priorities of them
      all together as the priority of the first.  */
 
-  combine_movables (movables, nregs);
+  combine_movables (movables, regs);
 
   /* Now consider each movable insn to decide whether it is worth moving.
-     Store 0 in set_in_loop for each reg that is moved.
+     Store 0 in regs->set_in_loop for each reg that is moved.
 
      Generally this increases code size, so do not move moveables when
      optimizing for code size.  */
 
   if (! optimize_size)
-    move_movables (loop, movables, threshold, insn_count, nregs);
+    move_movables (loop, movables, threshold, insn_count);
 
   /* Now candidates that still are negative are those not moved.
-     Change set_in_loop to indicate that those are not actually invariant.  */
+     Change regs->set_in_loop to indicate that those are not actually
+     invariant.  */
   for (i = 0; i < nregs; i++)
-    if (VARRAY_INT (set_in_loop, i) < 0)
-      VARRAY_INT (set_in_loop, i) = VARRAY_INT (n_times_set, i);
+    if (VARRAY_INT (regs->set_in_loop, i) < 0)
+      VARRAY_INT (regs->set_in_loop, i) = VARRAY_INT (regs->n_times_set, i);
 
   /* Now that we've moved some things out of the loop, we might be able to
      hoist even more memory references.  */
@@ -1118,7 +1070,6 @@ scan_loop (loop, flags)
 	/* Ensure our label doesn't go away.  */
 	LABEL_NUSES (update_end)++;
 
-      the_movables = movables;
       strength_reduce (loop, insn_count, flags);
 
       reg_scan_update (update_start, update_end, loop_max_reg);
@@ -1129,10 +1080,10 @@ scan_loop (loop, flags)
 	delete_insn (update_end);
     }
 
-  VARRAY_FREE (reg_single_usage);
-  VARRAY_FREE (set_in_loop);
-  VARRAY_FREE (n_times_set);
-  VARRAY_FREE (may_not_optimize);
+  VARRAY_FREE (regs->single_usage);
+  VARRAY_FREE (regs->set_in_loop);
+  VARRAY_FREE (regs->n_times_set);
+  VARRAY_FREE (regs->may_not_optimize);
 }
 
 /* Add elements to *OUTPUT to record all the pseudo-regs
@@ -1328,11 +1279,11 @@ skip_consec_insns (insn, count)
 
 static void
 ignore_some_movables (movables)
-     struct movable *movables;
+     struct movables *movables;
 {
   register struct movable *m, *m1;
 
-  for (m = movables; m; m = m->next)
+  for (m = movables->head; m; m = m->next)
     {
       /* Is this a movable for the value of a libcall?  */
       rtx note = find_reg_note (m->insn, REG_RETVAL, NULL_RTX);
@@ -1346,7 +1297,7 @@ ignore_some_movables (movables)
 	     explicitly check each insn in the libcall (since invariant
 	     libcalls aren't that common).  */
 	  for (insn = XEXP (note, 0); insn != m->insn; insn = NEXT_INSN (insn))
-	    for (m1 = movables; m1 != m; m1 = m1->next)
+	    for (m1 = movables->head; m1 != m; m1 = m1->next)
 	      if (m1->insn == insn)
 		m1->done = 1;
 	}
@@ -1360,10 +1311,10 @@ ignore_some_movables (movables)
 
 static void
 force_movables (movables)
-     struct movable *movables;
+     struct movables *movables;
 {
   register struct movable *m, *m1;
-  for (m1 = movables; m1; m1 = m1->next)
+  for (m1 = movables->head; m1; m1 = m1->next)
     /* Omit this if moving just the (SET (REG) 0) of a zero-extend.  */
     if (!m1->partial && !m1->done)
       {
@@ -1398,32 +1349,33 @@ force_movables (movables)
    one register.  */
 
 static void
-combine_movables (movables, nregs)
-     struct movable *movables;
-     int nregs;
+combine_movables (movables, regs)
+     struct movables *movables;
+     struct loop_regs *regs;
 {
   register struct movable *m;
-  char *matched_regs = (char *) xmalloc (nregs);
+  char *matched_regs = (char *) xmalloc (regs->num);
   enum machine_mode mode;
 
   /* Regs that are set more than once are not allowed to match
      or be matched.  I'm no longer sure why not.  */
   /* Perhaps testing m->consec_sets would be more appropriate here?  */
 
-  for (m = movables; m; m = m->next)
-    if (m->match == 0 && VARRAY_INT (n_times_set, m->regno) == 1
+  for (m = movables->head; m; m = m->next)
+    if (m->match == 0 && VARRAY_INT (regs->n_times_set, m->regno) == 1
 	&& !m->partial)
       {
 	register struct movable *m1;
 	int regno = m->regno;
 
-	bzero (matched_regs, nregs);
+	bzero (matched_regs, regs->num);
 	matched_regs[regno] = 1;
 
 	/* We want later insns to match the first one.  Don't make the first
 	   one match any later ones.  So start this loop at m->next.  */
 	for (m1 = m->next; m1; m1 = m1->next)
-	  if (m != m1 && m1->match == 0 && VARRAY_INT (n_times_set, m1->regno) == 1
+	  if (m != m1 && m1->match == 0 && VARRAY_INT (regs->n_times_set,
+						       m1->regno) == 1
 	      /* A reg used outside the loop mustn't be eliminated.  */
 	      && !m1->global
 	      /* A reg used for zero-extending mustn't be eliminated.  */
@@ -1447,7 +1399,7 @@ combine_movables (movables, nregs)
 		   && ((GET_CODE (m1->set_src) == REG
 			&& matched_regs[REGNO (m1->set_src)])
 		       || rtx_equal_for_loop_p (m->set_src, m1->set_src,
-						movables))))
+						movables, regs))))
 	      && ((m->dependencies == m1->dependencies)
 		  || rtx_equal_p (m->dependencies, m1->dependencies)))
 	    {
@@ -1470,7 +1422,7 @@ combine_movables (movables, nregs)
 
       /* Combine all the registers for extension from mode MODE.
 	 Don't combine any that are used outside this loop.  */
-      for (m = movables; m; m = m->next)
+      for (m = movables->head; m; m = m->next)
 	if (m->partial && ! m->global
 	    && mode == GET_MODE (SET_SRC (PATTERN (NEXT_INSN (m->insn)))))
 	  {
@@ -1492,7 +1444,7 @@ combine_movables (movables, nregs)
 
 	    /* We already have one: check for overlap with those
 	       already combined together.  */
-	    for (m1 = movables; m1 != m; m1 = m1->next)
+	    for (m1 = movables->head; m1 != m; m1 = m1->next)
 	      if (m1 == m0 || (m1->partial && m1->match == m0))
 		if (! (uid_luid[REGNO_FIRST_UID (m1->regno)] > last
 		       || uid_luid[REGNO_LAST_UID (m1->regno)] < first))
@@ -1518,17 +1470,17 @@ combine_movables (movables, nregs)
 static int
 regs_match_p (x, y, movables)
      rtx x, y;
-     struct movable *movables;
+     struct movables *movables;
 {
   unsigned int xn = REGNO (x);
   unsigned int yn = REGNO (y);
   struct movable *mx, *my;
 
-  for (mx = movables; mx; mx = mx->next)
+  for (mx = movables->head; mx; mx = mx->next)
     if (mx->regno == xn)
       break;
 
-  for (my = movables; my; my = my->next)
+  for (my = movables->head; my; my = my->next)
     if (my->regno == yn)
       break;
 
@@ -1545,9 +1497,10 @@ regs_match_p (x, y, movables)
    equivalent constant, consider them equal.  */
 
 static int
-rtx_equal_for_loop_p (x, y, movables)
+rtx_equal_for_loop_p (x, y, movables, regs)
      rtx x, y;
-     struct movable *movables;
+     struct movables *movables;
+     struct loop_regs *regs;
 {
   register int i;
   register int j;
@@ -1564,18 +1517,19 @@ rtx_equal_for_loop_p (x, y, movables)
 
   /* If we have a register and a constant, they may sometimes be
      equal.  */
-  if (GET_CODE (x) == REG && VARRAY_INT (set_in_loop, REGNO (x)) == -2
+  if (GET_CODE (x) == REG && VARRAY_INT (regs->set_in_loop, REGNO (x)) == -2
       && CONSTANT_P (y))
     {
-      for (m = movables; m; m = m->next)
+      for (m = movables->head; m; m = m->next)
 	if (m->move_insn && m->regno == REGNO (x)
 	    && rtx_equal_p (m->set_src, y))
 	  return 1;
     }
-  else if (GET_CODE (y) == REG && VARRAY_INT (set_in_loop, REGNO (y)) == -2
+  else if (GET_CODE (y) == REG && VARRAY_INT (regs->set_in_loop,
+					      REGNO (y)) == -2
 	   && CONSTANT_P (x))
     {
-      for (m = movables; m; m = m->next)
+      for (m = movables->head; m; m = m->next)
 	if (m->move_insn && m->regno == REGNO (y)
 	    && rtx_equal_p (m->set_src, x))
 	  return 1;
@@ -1625,12 +1579,14 @@ rtx_equal_for_loop_p (x, y, movables)
 
 	  /* And the corresponding elements must match.  */
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (rtx_equal_for_loop_p (XVECEXP (x, i, j), XVECEXP (y, i, j), movables) == 0)
+	    if (rtx_equal_for_loop_p (XVECEXP (x, i, j), XVECEXP (y, i, j),
+				      movables, regs) == 0)
 	      return 0;
 	  break;
 
 	case 'e':
-	  if (rtx_equal_for_loop_p (XEXP (x, i), XEXP (y, i), movables) == 0)
+	  if (rtx_equal_for_loop_p (XEXP (x, i), XEXP (y, i), movables, regs)
+	      == 0)
 	    return 0;
 	  break;
 
@@ -1698,13 +1654,14 @@ add_label_notes (x, insns)
    other throughout.  */
 
 static void
-move_movables (loop, movables, threshold, insn_count, nregs)
+move_movables (loop, movables, threshold, insn_count)
      struct loop *loop;
-     struct movable *movables;
+     struct movables *movables;
      int threshold;
      int insn_count;
-     int nregs;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
+  int nregs = regs->num;
   rtx new_start = 0;
   register struct movable *m;
   register rtx p;
@@ -1716,9 +1673,9 @@ move_movables (loop, movables, threshold, insn_count, nregs)
   rtx *reg_map = (rtx *) xcalloc (nregs, sizeof (rtx));
   char *already_moved = (char *) xcalloc (nregs, sizeof (char));
 
-  num_movables = 0;
+  movables->num = 0;
 
-  for (m = movables; m; m = m->next)
+  for (m = movables->head; m; m = m->next)
     {
       /* Describe this movable insn.  */
 
@@ -1747,7 +1704,7 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 	}
 
       /* Count movables.  Value used in heuristics in strength_reduce.  */
-      num_movables++;
+      movables->num++;
 
       /* Ignore the insn if it's already done (it matched something else).
 	 Otherwise, see if it is now safe to move.  */
@@ -1776,7 +1733,7 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "savings %d ", savings);
 
-	  if (moved_once[regno] && loop_dump_stream)
+	  if (regs->moved_once[regno] && loop_dump_stream)
 	    fprintf (loop_dump_stream, "halved since already moved ");
 
 	  /* An insn MUST be moved if we already moved something else
@@ -1795,9 +1752,9 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 	  if (already_moved[regno]
 	      || flag_move_all_movables
 	      || (threshold * savings * m->lifetime) >=
-		 (moved_once[regno] ? insn_count * 2 : insn_count)
+		 (regs->moved_once[regno] ? insn_count * 2 : insn_count)
 	      || (m->forces && m->forces->done
-		  && VARRAY_INT (n_times_set, m->forces->regno) == 1))
+		  && VARRAY_INT (regs->n_times_set, m->forces->regno) == 1))
 	    {
 	      int count;
 	      register struct movable *m1;
@@ -2103,11 +2060,11 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 	      already_moved[regno] = 1;
 
 	      /* This reg has been moved out of one loop.  */
-	      moved_once[regno] = 1;
+	      regs->moved_once[regno] = 1;
 
 	      /* The reg set here is now invariant.  */
 	      if (! m->partial)
-		VARRAY_INT (set_in_loop, regno) = 0;
+		VARRAY_INT (regs->set_in_loop, regno) = 0;
 
 	      m->done = 1;
 
@@ -2126,7 +2083,7 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 	      /* Combine with this moved insn any other matching movables.  */
 
 	      if (! m->partial)
-		for (m1 = movables; m1; m1 = m1->next)
+		for (m1 = movables->head; m1; m1 = m1->next)
 		  if (m1->match == m)
 		    {
 		      rtx temp;
@@ -2171,7 +2128,7 @@ move_movables (loop, movables, threshold, insn_count, nregs)
 		      /* The reg merged here is now invariant,
 			 if the reg it matches is invariant.  */
 		      if (! m->partial)
-			VARRAY_INT (set_in_loop, m1->regno) = 0;
+			VARRAY_INT (regs->set_in_loop, m1->regno) = 0;
 		    }
 	    }
 	  else if (loop_dump_stream)
@@ -2321,10 +2278,10 @@ count_nonfixed_reads (loop, x)
 }
 
 /* Scan a loop setting the elements `cont', `vtop', `loops_enclosed',
-   `has_call', `has_volatile', and `has_tablejump' within LOOP.
-   Set the global variables `unknown_address_altered',
-   `unknown_constant_address_altered', and `num_mem_sets'.  Also, fill
-   in the array `loop_mems' and the list `loop_store_mems'.  */
+   `has_call', `has_volatile', `has_tablejump',
+   `unknown_address_altered', `unknown_constant_address_altered', and
+   `num_mem_sets' in LOOP.  Also, fill in the array `mems' and the
+   list `store_mems' in LOOP.  */
 
 static void
 prescan_loop (loop)
@@ -2348,12 +2305,12 @@ prescan_loop (loop)
   loop_info->has_multiple_exit_targets = 0;
   loop->level = 1;
 
-  unknown_address_altered = 0;
-  unknown_constant_address_altered = 0;
-  loop_store_mems = NULL_RTX;
-  first_loop_store_insn = NULL_RTX;
-  loop_mems_idx = 0;
-  num_mem_sets = 0;
+  loop_info->unknown_address_altered = 0;
+  loop_info->unknown_constant_address_altered = 0;
+  loop_info->store_mems = NULL_RTX;
+  loop_info->first_loop_store_insn = NULL_RTX;
+  loop_info->mems_idx = 0;
+  loop_info->num_mem_sets = 0;
 
   for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
        insn = NEXT_INSN (insn))
@@ -2374,7 +2331,7 @@ prescan_loop (loop)
       else if (GET_CODE (insn) == CALL_INSN)
 	{
 	  if (! CONST_CALL_P (insn))
-	    unknown_address_altered = 1;
+	    loop_info->unknown_address_altered = 1;
 	  loop_info->has_call = 1;
 	}
       else if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
@@ -2390,9 +2347,9 @@ prescan_loop (loop)
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
 	    loop_info->has_tablejump = 1;
 
-	  note_stores (PATTERN (insn), note_addr_stored, NULL);
-	  if (! first_loop_store_insn && loop_store_mems)
-	    first_loop_store_insn = insn;
+	  note_stores (PATTERN (insn), note_addr_stored, loop_info);
+	  if (! loop_info->first_loop_store_insn && loop_info->store_mems)
+	    loop_info->first_loop_store_insn = insn;
 
 	  if (! loop_info->has_multiple_exit_targets
 	      && GET_CODE (insn) == JUMP_INSN
@@ -2452,23 +2409,25 @@ prescan_loop (loop)
       && ! loop_info->has_multiple_exit_targets)
     for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
 	 insn = NEXT_INSN (insn))
-      for_each_rtx (&insn, insert_loop_mem, 0);
+      for_each_rtx (&insn, insert_loop_mem, loop_info);
 
   /* BLKmode MEMs are added to LOOP_STORE_MEM as necessary so
      that loop_invariant_p and load_mems can use true_dependence
      to determine what is really clobbered.  */
-  if (unknown_address_altered)
+  if (loop_info->unknown_address_altered)
     {
       rtx mem = gen_rtx_MEM (BLKmode, const0_rtx);
 
-      loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, mem, loop_store_mems);
+      loop_info->store_mems
+	= gen_rtx_EXPR_LIST (VOIDmode, mem, loop_info->store_mems);
     }
-  if (unknown_constant_address_altered)
+  if (loop_info->unknown_constant_address_altered)
     {
       rtx mem = gen_rtx_MEM (BLKmode, const0_rtx);
 
       RTX_UNCHANGING_P (mem) = 1;
-      loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, mem, loop_store_mems);
+      loop_info->store_mems
+	= gen_rtx_EXPR_LIST (VOIDmode, mem, loop_info->store_mems);
     }
 }
 
@@ -2627,8 +2586,7 @@ find_and_verify_loops (f, loops)
 		       cont.  */
 		    if ((INSN_LUID (label)
 			 < INSN_LUID (loop->cont))
-			&& (INSN_LUID (label)
-			    > INSN_LUID (loop->start))
+			&& (INSN_LUID (label) > INSN_LUID (loop->start))
 			/* And if there is no later destination already
 			   recorded.  */
 			&& (! loop->cont_dominator
@@ -2852,9 +2810,9 @@ find_and_verify_loops (f, loops)
 			   off LABEL_OUTSIDE_LOOP_P bit.  */
 			if (JUMP_LABEL (insn))
 			  {
-			    for (q = 0,
-				   r = this_loop->exit_labels;
-				 r; q = r, r = LABEL_NEXTREF (r))
+			    for (q = 0, r = this_loop->exit_labels;
+				 r;
+				 q = r, r = LABEL_NEXTREF (r))
 			      if (XEXP (r, 0) == JUMP_LABEL (insn))
 				{
 				  LABEL_OUTSIDE_LOOP_P (r) = 0;
@@ -3082,32 +3040,34 @@ note_addr_stored (x, y, data)
      rtx y ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
+  struct loop_info *loop_info = data;
+
   if (x == 0 || GET_CODE (x) != MEM)
     return;
 
   /* Count number of memory writes.
      This affects heuristics in strength_reduce.  */
-  num_mem_sets++;
+  loop_info->num_mem_sets++;
 
   /* BLKmode MEM means all memory is clobbered.  */
-    if (GET_MODE (x) == BLKmode)
+  if (GET_MODE (x) == BLKmode)
     {
       if (RTX_UNCHANGING_P (x))
-	unknown_constant_address_altered = 1;
+	loop_info->unknown_constant_address_altered = 1;
       else
-	unknown_address_altered = 1;
+	loop_info->unknown_address_altered = 1;
 
       return;
     }
 
-  loop_store_mems = gen_rtx_EXPR_LIST (VOIDmode, x, loop_store_mems);
+  loop_info->store_mems = gen_rtx_EXPR_LIST (VOIDmode, x,
+					     loop_info->store_mems);
 }
 
 /* X is a value modified by an INSN that references a biv inside a loop
    exit test (ie, X is somehow related to the value of the biv).  If X
    is a pseudo that is used more than once, then the biv is (effectively)
-   used more than once.  DATA is really an `int *', and is set if the
-   biv is used more than once.  */
+   used more than once.  DATA is a pointer to a loop_regs structure.  */
 
 static void
 note_set_pseudo_multiple_uses (x, y, data)
@@ -3115,6 +3075,8 @@ note_set_pseudo_multiple_uses (x, y, data)
      rtx y ATTRIBUTE_UNUSED;
      void *data;
 {
+  struct loop_regs *regs = (struct loop_regs *) data;
+
   if (x == 0)
     return;
 
@@ -3130,9 +3092,9 @@ note_set_pseudo_multiple_uses (x, y, data)
   /* If we do not have usage information, or if we know the register
      is used more than once, note that fact for check_dbra_loop.  */
   if (REGNO (x) >= max_reg_before_loop
-      || ! VARRAY_RTX (reg_single_usage, REGNO (x))
-      || VARRAY_RTX (reg_single_usage, REGNO (x)) == const0_rtx)
-    *((int *) data) = 1;
+      || ! VARRAY_RTX (regs->single_usage, REGNO (x))
+      || VARRAY_RTX (regs->single_usage, REGNO (x)) == const0_rtx)
+    regs->multiple_uses = 1;
 }
 
 /* Return nonzero if the rtx X is invariant over the current loop.
@@ -3140,13 +3102,15 @@ note_set_pseudo_multiple_uses (x, y, data)
    The value is 2 if we refer to something only conditionally invariant.
 
    A memory ref is invariant if it is not volatile and does not conflict
-   with anything stored in `loop_store_mems'.  */
+   with anything stored in `loop_info->store_mems'.  */
 
 int
 loop_invariant_p (loop, x)
      const struct loop *loop;
      register rtx x;
 {
+  struct loop_info *loop_info = LOOP_INFO (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
   register int i;
   register enum rtx_code code;
   register const char *fmt;
@@ -3197,10 +3161,10 @@ loop_invariant_p (loop, x)
 	  && REGNO (x) < FIRST_PSEUDO_REGISTER && call_used_regs[REGNO (x)])
 	return 0;
 
-      if (VARRAY_INT (set_in_loop, REGNO (x)) < 0)
+      if (VARRAY_INT (regs->set_in_loop, REGNO (x)) < 0)
 	return 2;
 
-      return VARRAY_INT (set_in_loop, REGNO (x)) == 0;
+      return VARRAY_INT (regs->set_in_loop, REGNO (x)) == 0;
 
     case MEM:
       /* Volatile memory references must be rejected.  Do this before
@@ -3210,7 +3174,7 @@ loop_invariant_p (loop, x)
 	return 0;
 
       /* See if there is any dependence between a store and this load.  */
-      mem_list_entry = loop_store_mems;
+      mem_list_entry = loop_info->store_mems;
       while (mem_list_entry)
 	{
 	  if (true_dependence (XEXP (mem_list_entry, 0), VOIDmode,
@@ -3279,12 +3243,13 @@ consec_sets_invariant_p (loop, reg, n_sets, insn)
      int n_sets;
      rtx reg, insn;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
   rtx p = insn;
   unsigned int regno = REGNO (reg);
   rtx temp;
   /* Number of sets we have to insist on finding after INSN.  */
   int count = n_sets - 1;
-  int old = VARRAY_INT (set_in_loop, regno);
+  int old = VARRAY_INT (regs->set_in_loop, regno);
   int value = 0;
   int this;
 
@@ -3292,7 +3257,7 @@ consec_sets_invariant_p (loop, reg, n_sets, insn)
   if (n_sets == 127)
     return 0;
 
-  VARRAY_INT (set_in_loop, regno) = 0;
+  VARRAY_INT (regs->set_in_loop, regno) = 0;
 
   while (count > 0)
     {
@@ -3331,12 +3296,12 @@ consec_sets_invariant_p (loop, reg, n_sets, insn)
 	count--;
       else if (code != NOTE)
 	{
-	  VARRAY_INT (set_in_loop, regno) = old;
+	  VARRAY_INT (regs->set_in_loop, regno) = old;
 	  return 0;
 	}
     }
 
-  VARRAY_INT (set_in_loop, regno) = old;
+  VARRAY_INT (regs->set_in_loop, regno) = old;
   /* If loop_invariant_p ever returned 2, we return 2.  */
   return 1 + (value & 2);
 }
@@ -3419,7 +3384,8 @@ find_single_use_in_loop (insn, x, usage)
    MAY_NOT_MOVE and LAST_SET for any register set in X.  */
 
 static void
-count_one_set (insn, x, may_not_move, last_set)
+count_one_set (regs, insn, x, may_not_move, last_set)
+     struct loop_regs *regs;
      rtx insn, x;
      varray_type may_not_move;
      rtx *last_set;
@@ -3444,7 +3410,7 @@ count_one_set (insn, x, may_not_move, last_set)
 	     in current basic block, and it was set before,
 	     it must be set in two basic blocks, so it cannot
 	     be moved out of the loop.  */
-	  if (VARRAY_INT (set_in_loop, regno) > 0
+	  if (VARRAY_INT (regs->set_in_loop, regno) > 0
 	      && last_set[regno] == 0)
 	    VARRAY_CHAR (may_not_move, regno) = 1;
 	  /* If this is not first setting in current basic block,
@@ -3453,16 +3419,16 @@ count_one_set (insn, x, may_not_move, last_set)
 	  if (last_set[regno] != 0
 	      && reg_used_between_p (dest, last_set[regno], insn))
 	    VARRAY_CHAR (may_not_move, regno) = 1;
-	  if (VARRAY_INT (set_in_loop, regno) < 127)
-	    ++VARRAY_INT (set_in_loop, regno);
+	  if (VARRAY_INT (regs->set_in_loop, regno) < 127)
+	    ++VARRAY_INT (regs->set_in_loop, regno);
 	  last_set[regno] = insn;
 	}
     }
 }
 
-/* Increment SET_IN_LOOP at the index of each register
+/* Increment REGS->SET_IN_LOOP at the index of each register
    that is modified by an insn between FROM and TO.
-   If the value of an element of SET_IN_LOOP becomes 127 or more,
+   If the value of an element of REGS->SET_IN_LOOP becomes 127 or more,
    stop incrementing it, to avoid overflow.
 
    Store in SINGLE_USAGE[I] the single insn in which register I is
@@ -3484,6 +3450,7 @@ count_loop_regs_set (loop, may_not_move, single_usage, count_ptr, nregs)
      int *count_ptr;
      int nregs;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
   register rtx *last_set = (rtx *) xcalloc (nregs, sizeof (rtx));
   register rtx insn;
   register int count = 0;
@@ -3504,12 +3471,12 @@ count_loop_regs_set (loop, may_not_move, single_usage, count_ptr, nregs)
 
 	  if (GET_CODE (PATTERN (insn)) == SET
 	      || GET_CODE (PATTERN (insn)) == CLOBBER)
-	    count_one_set (insn, PATTERN (insn), may_not_move, last_set);
+	    count_one_set (regs, insn, PATTERN (insn), may_not_move, last_set);
 	  else if (GET_CODE (PATTERN (insn)) == PARALLEL)
 	    {
 	      register int i;
 	      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
-		count_one_set (insn, XVECEXP (PATTERN (insn), 0, i),
+		count_one_set (regs, insn, XVECEXP (PATTERN (insn), 0, i),
 			       may_not_move, last_set);
 	    }
 	}
@@ -3561,34 +3528,6 @@ loop_reg_used_before_p (loop, set, insn)
 
 /* Bivs are recognized by `basic_induction_var';
    Givs by `general_induction_var'.  */
-
-/* Indexed by register number, indicates whether or not register is an
-   induction variable, and if so what type.  */
-
-varray_type reg_iv_type;
-
-/* Indexed by register number, contains pointer to `struct induction'
-   if register is an induction variable.  This holds general info for
-   all induction variables.  */
-
-varray_type reg_iv_info;
-
-/* Indexed by register number, contains pointer to `struct iv_class'
-   if register is a basic induction variable.  This holds info describing
-   the class (a related group) of induction variables that the biv belongs
-   to.  */
-
-struct iv_class **reg_biv_class;
-
-/* The head of a list which links together (via the next field)
-   every iv class for the current loop.  */
-
-struct iv_class *loop_iv_list;
-
-/* Givs made from biv increments are always splittable for loop unrolling.
-   Since there is no regscan info for them, we have to keep track of them
-   separately.  */
-unsigned int first_increment_giv, last_increment_giv;
 
 /* Communication with routines called via `note_stores'.  */
 
@@ -3780,11 +3719,12 @@ for_each_insn_in_loop (loop, fncall)
 
 /* Perform strength reduction and induction variable elimination.
 
-   Pseudo registers created during this function will be beyond the last
-   valid index in several tables including n_times_set and regno_last_uid.
-   This does not cause a problem here, because the added registers cannot be
-   givs outside of their loop, and hence will never be reconsidered.
-   But scan_loop must check regnos to make sure they are in bounds.   */
+   Pseudo registers created during this function will be beyond the
+   last valid index in several tables including regs->n_times_set and
+   regno_last_uid.  This does not cause a problem here, because the
+   added registers cannot be givs outside of their loop, and hence
+   will never be reconsidered.  But scan_loop must check regnos to
+   make sure they are in bounds.  */
 
 static void
 strength_reduce (loop, insn_count, flags)
@@ -3792,10 +3732,12 @@ strength_reduce (loop, insn_count, flags)
      int insn_count;
      int flags;
 {
-  rtx p;
-  /* Temporary list pointers for traversing loop_iv_list.  */
-  struct iv_class *bl, **backbl;
   struct loop_info *loop_info = LOOP_INFO (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
+  struct loop_ivs *ivs = LOOP_IVS (loop);
+  rtx p;
+  /* Temporary list pointers for traversing ivs->loop_iv_list.  */
+  struct iv_class *bl, **backbl;
   /* Ratio of extra register life span we can justify
      for saving an instruction.  More if loop doesn't call subroutines
      since in that case saving an insn makes more difference
@@ -3815,12 +3757,12 @@ strength_reduce (loop, insn_count, flags)
   rtx loop_scan_start = loop->scan_start;
   rtx test_reg = gen_rtx_REG (word_mode, LAST_VIRTUAL_REGISTER + 1);
 
-  VARRAY_INT_INIT (reg_iv_type, max_reg_before_loop, "reg_iv_type");
-  VARRAY_GENERIC_PTR_INIT (reg_iv_info, max_reg_before_loop, "reg_iv_info");
-  reg_biv_class = (struct iv_class **)
+  VARRAY_INT_INIT (ivs->reg_iv_type, max_reg_before_loop, "reg_iv_type");
+  VARRAY_GENERIC_PTR_INIT (ivs->reg_iv_info, max_reg_before_loop, "reg_iv_info");
+  ivs->reg_biv_class = (struct iv_class **)
     xcalloc (max_reg_before_loop, sizeof (struct iv_class *));
 
-  loop_iv_list = 0;
+  ivs->loop_iv_list = 0;
   addr_placeholder = gen_reg_rtx (Pmode);
 
   /* Save insn immediately after the loop_end.  Insns inserted after loop_end
@@ -3837,14 +3779,14 @@ strength_reduce (loop, insn_count, flags)
 
   for_each_insn_in_loop (loop, check_insn_for_bivs);
 
-  /* Scan loop_iv_list to remove all regs that proved not to be bivs.
-     Make a sanity check against n_times_set.  */
-  for (backbl = &loop_iv_list, bl = *backbl; bl; bl = bl->next)
+  /* Scan ivs->loop_iv_list to remove all regs that proved not to be bivs.
+     Make a sanity check against regs->n_times_set.  */
+  for (backbl = &ivs->loop_iv_list, bl = *backbl; bl; bl = bl->next)
     {
-      if (REG_IV_TYPE (bl->regno) != BASIC_INDUCT
+      if (REG_IV_TYPE (ivs, bl->regno) != BASIC_INDUCT
 	  /* Above happens if register modified by subreg, etc.  */
 	  /* Make sure it is not recognized as a basic induction var: */
-	  || VARRAY_INT (n_times_set, bl->regno) != bl->biv_count
+	  || VARRAY_INT (regs->n_times_set, bl->regno) != bl->biv_count
 	  /* If never incremented, it is invariant that we decided not to
 	     move.  So leave it alone.  */
 	  || ! bl->incremented)
@@ -3852,12 +3794,12 @@ strength_reduce (loop, insn_count, flags)
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv discarded, %s\n",
 		     bl->regno,
-		     (REG_IV_TYPE (bl->regno) != BASIC_INDUCT
+		     (REG_IV_TYPE (ivs, bl->regno) != BASIC_INDUCT
 		      ? "not induction variable"
 		      : (! bl->incremented ? "never incremented"
 			 : "count error")));
 
-	  REG_IV_TYPE (bl->regno) = NOT_BASIC_INDUCT;
+	  REG_IV_TYPE (ivs, bl->regno) = NOT_BASIC_INDUCT;
 	  *backbl = bl->next;
 	}
       else
@@ -3870,7 +3812,7 @@ strength_reduce (loop, insn_count, flags)
     }
 
   /* Exit if there are no bivs.  */
-  if (! loop_iv_list)
+  if (! ivs->loop_iv_list)
     {
       /* Can still unroll the loop anyways, but indicate that there is no
 	 strength reduction info available.  */
@@ -3892,7 +3834,7 @@ strength_reduce (loop, insn_count, flags)
 	call_seen = 1;
 
       if (INSN_P (p))
-	note_stores (PATTERN (p), record_initial, NULL);
+	note_stores (PATTERN (p), record_initial, ivs);
 
       /* Record any test of a biv that branches around the loop if no store
 	 between it and the start of loop.  We only care about tests with
@@ -3903,7 +3845,7 @@ strength_reduce (loop, insn_count, flags)
 	  && (test = get_condition_for_loop (loop, p)) != 0
 	  && GET_CODE (XEXP (test, 0)) == REG
 	  && REGNO (XEXP (test, 0)) < max_reg_before_loop
-	  && (bl = reg_biv_class[REGNO (XEXP (test, 0))]) != 0
+	  && (bl = ivs->reg_biv_class[REGNO (XEXP (test, 0))]) != 0
 	  && valid_initial_value_p (XEXP (test, 1), p, call_seen, loop_start)
 	  && bl->init_insn == 0)
 	{
@@ -3922,7 +3864,7 @@ strength_reduce (loop, insn_count, flags)
   /* Look at the each biv and see if we can say anything better about its
      initial value from any initializing insns set up above.  (This is done
      in two passes to avoid missing SETs in a PARALLEL.)  */
-  for (backbl = &loop_iv_list; (bl = *backbl); backbl = &bl->next)
+  for (backbl = &ivs->loop_iv_list; (bl = *backbl); backbl = &bl->next)
     {
       rtx src;
       rtx note;
@@ -3985,7 +3927,7 @@ strength_reduce (loop, insn_count, flags)
 	    {
 	      unsigned int regno = REGNO (XEXP (src, 0));
 
-	      for (bl2 = loop_iv_list; bl2; bl2 = bl2->next)
+	      for (bl2 = ivs->loop_iv_list; bl2; bl2 = bl2->next)
 		if (bl2->regno == regno)
 		  break;
 	    }
@@ -4021,8 +3963,8 @@ strength_reduce (loop, insn_count, flags)
 	      if (loop_dump_stream)
 		fprintf (loop_dump_stream, "is giv of biv %d\n", bl2->regno);
 	      /* Let this giv be discovered by the generic code.  */
-	      REG_IV_TYPE (bl->regno) = UNKNOWN_INDUCT;
-	      reg_biv_class[bl->regno] = (struct iv_class *) NULL_PTR;
+	      REG_IV_TYPE (ivs, bl->regno) = UNKNOWN_INDUCT;
+	      ivs->reg_biv_class[bl->regno] = (struct iv_class *) NULL_PTR;
 	      /* We can get better optimization if we can move the giv setting
 		 before the first giv use.  */
 	      if (dominator
@@ -4086,8 +4028,8 @@ strength_reduce (loop, insn_count, flags)
 
   /* Get an upper bound for the number of registers
      we might have after all bivs have been processed.  */
-  first_increment_giv = max_reg_num ();
-  for (n_extra_increment = 0, bl = loop_iv_list; bl; bl = bl->next)
+  ivs->first_increment_giv = max_reg_num ();
+  for (n_extra_increment = 0, bl = ivs->loop_iv_list; bl; bl = bl->next)
     n_extra_increment += bl->biv_count - 1;
 
   /* If the loop contains volatile memory references do not allow any
@@ -4095,13 +4037,13 @@ strength_reduce (loop, insn_count, flags)
      markers.  */
   if (n_extra_increment  && ! loop_info->has_volatile)
     {
-      unsigned int nregs = first_increment_giv + n_extra_increment;
+      unsigned int nregs = ivs->first_increment_giv + n_extra_increment;
 
-      /* Reallocate reg_iv_type and reg_iv_info.  */
-      VARRAY_GROW (reg_iv_type, nregs);
-      VARRAY_GROW (reg_iv_info, nregs);
+      /* Reallocate ivs->reg_iv_type and ivs->reg_iv_info.  */
+      VARRAY_GROW (ivs->reg_iv_type, nregs);
+      VARRAY_GROW (ivs->reg_iv_info, nregs);
 
-      for (bl = loop_iv_list; bl; bl = bl->next)
+      for (bl = ivs->loop_iv_list; bl; bl = bl->next)
 	{
 	  struct induction **vp, *v, *next;
 	  int biv_dead_after_loop = 0;
@@ -4167,17 +4109,18 @@ strength_reduce (loop, insn_count, flags)
 	      old_reg = v->dest_reg;
 	      dest_reg = gen_reg_rtx (v->mode);
 
-	      /* Unlike reg_iv_type / reg_iv_info, the other three arrays
-		 have been allocated with some slop space, so we may not
-		 actually need to reallocate them.  If we do, the following
-		 if statement will be executed just once in this loop.  */
-	      if ((unsigned) max_reg_num () > n_times_set->num_elements)
+	      /* Unlike ivs->reg_iv_type / ivs->reg_iv_info, the other
+		 three arrays have been allocated with some slop
+		 space, so we may not actually need to reallocate
+		 them.  If we do, the following if statement will be
+		 executed just once in this loop.  */
+	      if ((unsigned) max_reg_num () > regs->n_times_set->num_elements)
 		{
 		  /* Grow all the remaining arrays.  */
-		  VARRAY_GROW (set_in_loop, nregs);
-		  VARRAY_GROW (n_times_set, nregs);
-		  VARRAY_GROW (may_not_optimize, nregs);
-		  VARRAY_GROW (reg_single_usage, nregs);
+		  VARRAY_GROW (regs->set_in_loop, nregs);
+		  VARRAY_GROW (regs->n_times_set, nregs);
+		  VARRAY_GROW (regs->may_not_optimize, nregs);
+		  VARRAY_GROW (regs->single_usage, nregs);
 		}
 
 	      /* Some bivs are incremented with a multi-insn sequence.
@@ -4253,14 +4196,14 @@ strength_reduce (loop, insn_count, flags)
 
 	      old_regno = REGNO (old_reg);
 	      new_regno = REGNO (dest_reg);
-	      VARRAY_INT (set_in_loop, old_regno)--;
-	      VARRAY_INT (set_in_loop, new_regno) = 1;
-	      VARRAY_INT (n_times_set, old_regno)--;
-	      VARRAY_INT (n_times_set, new_regno) = 1;
-	      VARRAY_CHAR (may_not_optimize, new_regno) = 0;
+	      VARRAY_INT (regs->set_in_loop, old_regno)--;
+	      VARRAY_INT (regs->set_in_loop, new_regno) = 1;
+	      VARRAY_INT (regs->n_times_set, old_regno)--;
+	      VARRAY_INT (regs->n_times_set, new_regno) = 1;
+	      VARRAY_CHAR (regs->may_not_optimize, new_regno) = 0;
 
-	      REG_IV_TYPE (new_regno) = GENERAL_INDUCT;
-	      REG_IV_INFO (new_regno) = v;
+	      REG_IV_TYPE (ivs, new_regno) = GENERAL_INDUCT;
+	      REG_IV_INFO (ivs, new_regno) = v;
 
 	      /* If next_insn has a REG_EQUAL note that mentiones OLD_REG,
 		 it must be replaced.  */
@@ -4318,7 +4261,7 @@ strength_reduce (loop, insn_count, flags)
 	    }
 	}
     }
-  last_increment_giv = max_reg_num () - 1;
+  ivs->last_increment_giv = max_reg_num () - 1;
 
   /* Search the loop for general induction variables.  */
 
@@ -4336,7 +4279,7 @@ strength_reduce (loop, insn_count, flags)
      can be calculated.  This must be done after loop_iterations is called,
      so that final_giv_value will work correctly.  */
 
-  for (bl = loop_iv_list; bl; bl = bl->next)
+  for (bl = ivs->loop_iv_list; bl; bl = bl->next)
     {
       struct induction *v;
 
@@ -4352,14 +4295,14 @@ strength_reduce (loop, insn_count, flags)
 
   /* Create reg_map to hold substitutions for replaceable giv regs.
      Some givs might have been made from biv increments, so look at
-     reg_iv_type for a suitable size.  */
-  reg_map_size = reg_iv_type->num_elements;
+     ivs->reg_iv_type for a suitable size.  */
+  reg_map_size = ivs->reg_iv_type->num_elements;
   reg_map = (rtx *) xcalloc (reg_map_size, sizeof (rtx));
 
   /* Examine each iv class for feasibility of strength reduction/induction
      variable elimination.  */
 
-  for (bl = loop_iv_list; bl; bl = bl->next)
+  for (bl = ivs->loop_iv_list; bl; bl = bl->next)
     {
       struct induction *v;
       int benefit;
@@ -4412,8 +4355,12 @@ strength_reduce (loop, insn_count, flags)
 	    }
 	}
 
+      /* Check each extension dependant giv in this class to see if its
+	 root biv is safe from wrapping in the interior mode.  */
+      check_ext_dependant_givs (bl, loop_info);
+
       /* Combine all giv's for this iv_class.  */
-      combine_givs (bl);
+      combine_givs (regs, bl);
 
       /* This will be true at the end, if all givs which depend on this
 	 biv have been strength reduced.
@@ -4549,7 +4496,7 @@ strength_reduce (loop, insn_count, flags)
 		  v->maybe_dead = 1;
 	    }
 	  else if (v->giv_type == DEST_REG
-	      && REGNO_FIRST_UID (REGNO (v->dest_reg)) == INSN_UID (v->insn))
+		   && REGNO_FIRST_UID (REGNO (v->dest_reg)) == INSN_UID (v->insn))
 	    {
 	      struct induction *v1;
 
@@ -4561,20 +4508,20 @@ strength_reduce (loop, insn_count, flags)
 
       /* Now that we know which givs will be reduced, try to rearrange the
          combinations to reduce register pressure.
-         recombine_givs calls find_life_end, which needs reg_iv_type and
-	 reg_iv_info to be valid for all pseudos.  We do the necessary
+         recombine_givs calls find_life_end, which needs ivs->reg_iv_type and
+	 ivs->reg_iv_info to be valid for all pseudos.  We do the necessary
 	 reallocation here since it allows to check if there are still
 	 more bivs to process.  */
       nregs = max_reg_num ();
-      if (nregs > reg_iv_type->num_elements)
+      if (nregs > ivs->reg_iv_type->num_elements)
 	{
 	  /* If there are still more bivs to process, allocate some slack
 	     space so that we're not constantly reallocating these arrays.  */
 	  if (bl->next)
 	    nregs += nregs / 4;
-	  /* Reallocate reg_iv_type and reg_iv_info.  */
-	  VARRAY_GROW (reg_iv_type, nregs);
-	  VARRAY_GROW (reg_iv_info, nregs);
+	  /* Reallocate ivs->reg_iv_type and ivs->reg_iv_info.  */
+	  VARRAY_GROW (ivs->reg_iv_type, nregs);
+	  VARRAY_GROW (ivs->reg_iv_info, nregs);
 	}
       recombine_givs (loop, bl, flags & LOOP_UNROLL);
 
@@ -4733,8 +4680,9 @@ strength_reduce (loop, insn_count, flags)
 
 	      /* Add code at loop start to initialize giv's reduced reg.  */
 
-	      emit_iv_add_mult (bl->initial_value, v->mult_val,
-				v->add_val, v->new_reg, loop_start);
+	      emit_iv_add_mult (extend_value_for_giv (v, bl->initial_value),
+				v->mult_val, v->add_val, v->new_reg,
+				loop_start);
 	    }
 	}
 
@@ -4799,8 +4747,9 @@ strength_reduce (loop, insn_count, flags)
 	     not replaceable.  The correct final value is the same as the
 	     value that the giv starts the reversed loop with.  */
 	  if (bl->reversed && ! v->replaceable)
-	    emit_iv_add_mult (bl->initial_value, v->mult_val,
-			      v->add_val, v->dest_reg, end_insert_before);
+	    emit_iv_add_mult (extend_value_for_giv (v, bl->initial_value),
+			      v->mult_val, v->add_val, v->dest_reg,
+			      end_insert_before);
 	  else if (v->final_value)
 	    {
 	      rtx insert_before;
@@ -4984,9 +4933,9 @@ strength_reduce (loop, insn_count, flags)
     fprintf (loop_dump_stream, "\n");
 
 egress:
-  VARRAY_FREE (reg_iv_type);
-  VARRAY_FREE (reg_iv_info);
-  free (reg_biv_class);
+  VARRAY_FREE (ivs->reg_iv_type);
+  VARRAY_FREE (ivs->reg_iv_info);
+  free (ivs->reg_biv_class);
   if (reg_map)
     free (reg_map);
 }
@@ -4999,6 +4948,7 @@ check_insn_for_bivs (loop, p, not_every_iteration, maybe_multiple)
      int not_every_iteration;
      int maybe_multiple;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   rtx set;
   rtx dest_reg;
   rtx inc_val;
@@ -5012,7 +4962,7 @@ check_insn_for_bivs (loop, p, not_every_iteration, maybe_multiple)
       dest_reg = SET_DEST (set);
       if (REGNO (dest_reg) < max_reg_before_loop
 	  && REGNO (dest_reg) >= FIRST_PSEUDO_REGISTER
-	  && REG_IV_TYPE (REGNO (dest_reg)) != NOT_BASIC_INDUCT)
+	  && REG_IV_TYPE (ivs, REGNO (dest_reg)) != NOT_BASIC_INDUCT)
 	{
 	  if (basic_induction_var (loop, SET_SRC (set),
 				   GET_MODE (SET_SRC (set)),
@@ -5025,12 +4975,12 @@ check_insn_for_bivs (loop, p, not_every_iteration, maybe_multiple)
 	      struct induction *v
 		= (struct induction *) oballoc (sizeof (struct induction));
 
-	      record_biv (v, p, dest_reg, inc_val, mult_val, location,
+	      record_biv (loop, v, p, dest_reg, inc_val, mult_val, location,
 			  not_every_iteration, maybe_multiple);
-	      REG_IV_TYPE (REGNO (dest_reg)) = BASIC_INDUCT;
+	      REG_IV_TYPE (ivs, REGNO (dest_reg)) = BASIC_INDUCT;
 	    }
 	  else if (REGNO (dest_reg) < max_reg_before_loop)
-	    REG_IV_TYPE (REGNO (dest_reg)) = NOT_BASIC_INDUCT;
+	    REG_IV_TYPE (ivs, REGNO (dest_reg)) = NOT_BASIC_INDUCT;
 	}
     }
   return p;
@@ -5046,17 +4996,20 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
      int not_every_iteration;
      int maybe_multiple;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
+
   rtx set;
   /* Look for a general induction variable in a register.  */
   if (GET_CODE (p) == INSN
       && (set = single_set (p))
       && GET_CODE (SET_DEST (set)) == REG
-      && ! VARRAY_CHAR (may_not_optimize, REGNO (SET_DEST (set))))
+      && ! VARRAY_CHAR (regs->may_not_optimize, REGNO (SET_DEST (set))))
     {
       rtx src_reg;
       rtx dest_reg;
       rtx add_val;
       rtx mult_val;
+      rtx ext_val;
       int benefit;
       rtx regnote = 0;
       rtx last_consec_insn;
@@ -5067,11 +5020,11 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 
       if (/* SET_SRC is a giv.  */
 	  (general_induction_var (loop, SET_SRC (set), &src_reg, &add_val,
-				  &mult_val, 0, &benefit, VOIDmode)
+				  &mult_val, &ext_val, 0, &benefit, VOIDmode)
 	   /* Equivalent expression is a giv.  */
 	   || ((regnote = find_reg_note (p, REG_EQUAL, NULL_RTX))
 	       && general_induction_var (loop, XEXP (regnote, 0), &src_reg,
-					 &add_val, &mult_val, 0,
+					 &add_val, &mult_val, &ext_val, 0,
 					 &benefit, VOIDmode)))
 	  /* Don't try to handle any regs made by loop optimization.
 	     We have nothing on them in regno_first_uid, etc.  */
@@ -5079,11 +5032,11 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 	  /* Don't recognize a BASIC_INDUCT_VAR here.  */
 	  && dest_reg != src_reg
 	  /* This must be the only place where the register is set.  */
-	  && (VARRAY_INT (n_times_set, REGNO (dest_reg)) == 1
+	  && (VARRAY_INT (regs->n_times_set, REGNO (dest_reg)) == 1
 	      /* or all sets must be consecutive and make a giv.  */
 	      || (benefit = consec_sets_giv (loop, benefit, p,
 					     src_reg, dest_reg,
-					     &add_val, &mult_val,
+					     &add_val, &mult_val, &ext_val,
 					     &last_consec_insn))))
 	{
 	  struct induction *v
@@ -5094,11 +5047,11 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 	    benefit += libcall_benefit (p);
 
 	  /* Skip the consecutive insns, if there are any.  */
-	  if (VARRAY_INT (n_times_set, REGNO (dest_reg)) != 1)
+	  if (VARRAY_INT (regs->n_times_set, REGNO (dest_reg)) != 1)
 	    p = last_consec_insn;
 
 	  record_giv (loop, v, p, src_reg, dest_reg, mult_val, add_val,
-		      benefit, DEST_REG, not_every_iteration,
+		      ext_val, benefit, DEST_REG, not_every_iteration,
 		      maybe_multiple, NULL_PTR);
 
 	}
@@ -5202,6 +5155,7 @@ find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
 	rtx src_reg;
 	rtx add_val;
 	rtx mult_val;
+	rtx ext_val;
 	int benefit;
 
 	/* This code used to disable creating GIVs with mult_val == 1 and
@@ -5210,15 +5164,16 @@ find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
 	   this one would not be seen.   */
 
 	if (general_induction_var (loop, XEXP (x, 0), &src_reg, &add_val,
-				   &mult_val, 1, &benefit, GET_MODE (x)))
+				   &mult_val, &ext_val, 1, &benefit,
+				   GET_MODE (x)))
 	  {
 	    /* Found one; record it.  */
 	    struct induction *v
 	      = (struct induction *) oballoc (sizeof (struct induction));
 
 	    record_giv (loop, v, insn, src_reg, addr_placeholder, mult_val,
-			add_val, benefit, DEST_ADDR, not_every_iteration,
-			maybe_multiple, &XEXP (x, 0));
+			add_val, ext_val, benefit, DEST_ADDR,
+			not_every_iteration, maybe_multiple, &XEXP (x, 0));
 
 	    v->mem_mode = GET_MODE (x);
 	  }
@@ -5259,8 +5214,9 @@ find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
    executed exactly once per iteration.  */
 
 static void
-record_biv (v, insn, dest_reg, inc_val, mult_val, location,
+record_biv (loop, v, insn, dest_reg, inc_val, mult_val, location,
 	    not_every_iteration, maybe_multiple)
+     struct loop *loop;
      struct induction *v;
      rtx insn;
      rtx dest_reg;
@@ -5270,6 +5226,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
      int not_every_iteration;
      int maybe_multiple;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
 
   v->insn = insn;
@@ -5277,6 +5234,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
   v->dest_reg = dest_reg;
   v->mult_val = mult_val;
   v->add_val = inc_val;
+  v->ext_dependant = NULL_RTX;
   v->location = location;
   v->mode = GET_MODE (dest_reg);
   v->always_computable = ! not_every_iteration;
@@ -5286,7 +5244,7 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
   /* Add this to the reg's iv_class, creating a class
      if this is the first incrementation of the reg.  */
 
-  bl = reg_biv_class[REGNO (dest_reg)];
+  bl = ivs->reg_biv_class[REGNO (dest_reg)];
   if (bl == 0)
     {
       /* Create and initialize new iv_class.  */
@@ -5311,12 +5269,12 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
       bl->reversed = 0;
       bl->total_benefit = 0;
 
-      /* Add this class to loop_iv_list.  */
-      bl->next = loop_iv_list;
-      loop_iv_list = bl;
+      /* Add this class to ivs->loop_iv_list.  */
+      bl->next = ivs->loop_iv_list;
+      ivs->loop_iv_list = bl;
 
       /* Put it in the array of biv register classes.  */
-      reg_biv_class[REGNO (dest_reg)] = bl;
+      ivs->reg_biv_class[REGNO (dest_reg)] = bl;
     }
 
   /* Update IV_CLASS entry for this biv.  */
@@ -5360,19 +5318,20 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
    LOCATION points to the place where this giv's value appears in INSN.  */
 
 static void
-record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
-	    type, not_every_iteration, maybe_multiple, location)
+record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
+	    benefit, type, not_every_iteration, maybe_multiple, location)
      const struct loop *loop;
      struct induction *v;
      rtx insn;
      rtx src_reg;
      rtx dest_reg;
-     rtx mult_val, add_val;
+     rtx mult_val, add_val, ext_val;
      int benefit;
      enum g_types type;
      int not_every_iteration, maybe_multiple;
      rtx *location;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   struct induction *b;
   struct iv_class *bl;
   rtx set = single_set (insn);
@@ -5389,6 +5348,7 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
   v->dest_reg = dest_reg;
   v->mult_val = mult_val;
   v->add_val = add_val;
+  v->ext_dependant = ext_val;
   v->benefit = benefit;
   v->location = location;
   v->cant_derive = 0;
@@ -5440,13 +5400,13 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
       if (v->lifetime == 0)
 	v->ignore = 1;
 
-      REG_IV_TYPE (REGNO (dest_reg)) = GENERAL_INDUCT;
-      REG_IV_INFO (REGNO (dest_reg)) = v;
+      REG_IV_TYPE (ivs, REGNO (dest_reg)) = GENERAL_INDUCT;
+      REG_IV_INFO (ivs, REGNO (dest_reg)) = v;
     }
 
   /* Add the giv to the class of givs computed from one biv.  */
 
-  bl = reg_biv_class[REGNO (src_reg)];
+  bl = ivs->reg_biv_class[REGNO (src_reg)];
   if (bl)
     {
       v->next_iv = bl->giv;
@@ -5577,6 +5537,24 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
       if (v->no_const_addval)
 	fprintf (loop_dump_stream, " ncav");
 
+      if (v->ext_dependant)
+	{
+	  switch (GET_CODE (v->ext_dependant))
+	    {
+	    case SIGN_EXTEND:
+	      fprintf (loop_dump_stream, " ext se");
+	      break;
+	    case ZERO_EXTEND:
+	      fprintf (loop_dump_stream, " ext ze");
+	      break;
+	    case TRUNCATE:
+	      fprintf (loop_dump_stream, " ext tr");
+	      break;
+	    default:
+	      abort ();
+	    }
+	}
+
       if (GET_CODE (mult_val) == CONST_INT)
 	{
 	  fprintf (loop_dump_stream, " mult ");
@@ -5616,10 +5594,11 @@ check_final_value (loop, v)
      const struct loop *loop;
      struct induction *v;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx final_value = 0;
 
-  bl = reg_biv_class[REGNO (v->src_reg)];
+  bl = ivs->reg_biv_class[REGNO (v->src_reg)];
 
   /* DEST_ADDR givs will never reach here, because they are always marked
      replaceable above in record_giv.  */
@@ -5689,7 +5668,7 @@ check_final_value (loop, v)
 	      if (! biv_increment_seen
 		  && reg_set_p (v->src_reg, PATTERN (p)))
 		biv_increment_seen = 1;
-		
+
 	      if (reg_mentioned_p (v->dest_reg, PATTERN (p)))
 		{
 		  if (biv_increment_seen)
@@ -5763,6 +5742,7 @@ update_giv_derive (loop, p)
      const struct loop *loop;
      rtx p;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   struct induction *biv, *giv;
   rtx tem;
@@ -5795,7 +5775,7 @@ update_giv_derive (loop, p)
      subsequent biv update was performed.  If this adjustment cannot be done,
      the giv cannot derive further givs.  */
 
-  for (bl = loop_iv_list; bl; bl = bl->next)
+  for (bl = ivs->loop_iv_list; bl; bl = bl->next)
     for (biv = bl->biv; biv; biv = biv->next_iv)
       if (GET_CODE (p) == CODE_LABEL || GET_CODE (p) == JUMP_INSN
 	  || biv->insn == p)
@@ -5825,20 +5805,21 @@ update_giv_derive (loop, p)
 		 be able to compute a compensation.  */
 	      else if (biv->insn == p)
 		{
-		  tem = 0;
+		  rtx ext_val_dummy;
 
+		  tem = 0;
 		  if (biv->mult_val == const1_rtx)
 		    tem = simplify_giv_expr (loop,
 					     gen_rtx_MULT (giv->mode,
 							   biv->add_val,
 							   giv->mult_val),
-					     &dummy);
+					     &ext_val_dummy, &dummy);
 
 		  if (tem && giv->derive_adjustment)
 		    tem = simplify_giv_expr
 		      (loop,
 		       gen_rtx_PLUS (giv->mode, tem, giv->derive_adjustment),
-		       &dummy);
+		       &ext_val_dummy, &dummy);
 
 		  if (tem)
 		    giv->derive_adjustment = tem;
@@ -5984,7 +5965,7 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
 				      inc_val, mult_val, location))
 	    return 1;
 	}
-      /* ... fall through ...  */
+      /* Fall through.  */
 
       /* Can accept constant setting of biv only when inside inner most loop.
   	 Otherwise, a biv of an inner loop may be incorrectly recognized
@@ -6002,7 +5983,7 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
       if (loop->level == 1
 	  && GET_MODE_CLASS (mode) != MODE_CC
 	  && GET_MODE_CLASS (GET_MODE (dest_reg)) != MODE_CC)
- 	{
+	{
 	  /* Possible bug here?  Perhaps we don't know the mode of X.  */
 	  *inc_val = convert_modes (GET_MODE (dest_reg), mode, x, 0);
 	  *mult_val = const0_rtx;
@@ -6058,17 +6039,19 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
      such that the value of X is biv * mult + add;  */
 
 static int
-general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr,
-		       pbenefit, addr_mode)
+general_induction_var (loop, x, src_reg, add_val, mult_val, ext_val,
+		       is_addr, pbenefit, addr_mode)
      const struct loop *loop;
      rtx x;
      rtx *src_reg;
      rtx *add_val;
      rtx *mult_val;
+     rtx *ext_val;
      int is_addr;
      int *pbenefit;
      enum machine_mode addr_mode;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   rtx orig_x = x;
   char *storage;
 
@@ -6080,7 +6063,8 @@ general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr,
      Mark our place on the obstack in case we don't find a giv.  */
   storage = (char *) oballoc (0);
   *pbenefit = 0;
-  x = simplify_giv_expr (loop, x, pbenefit);
+  *ext_val = NULL_RTX;
+  x = simplify_giv_expr (loop, x, ext_val, pbenefit);
   if (x == 0)
     {
       obfree (storage);
@@ -6094,7 +6078,7 @@ general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr,
       /* Since this is now an invariant and wasn't before, it must be a giv
 	 with MULT_VAL == 0.  It doesn't matter which BIV we associate this
 	 with.  */
-      *src_reg = loop_iv_list->biv->dest_reg;
+      *src_reg = ivs->loop_iv_list->biv->dest_reg;
       *mult_val = const0_rtx;
       *add_val = x;
       break;
@@ -6177,11 +6161,14 @@ static int cmp_combine_givs_stats PARAMS ((const PTR, const PTR));
 static int cmp_recombine_givs_stats PARAMS ((const PTR, const PTR));
 
 static rtx
-simplify_giv_expr (loop, x, benefit)
+simplify_giv_expr (loop, x, ext_val, benefit)
      const struct loop *loop;
      rtx x;
+     rtx *ext_val;
      int *benefit;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
   enum machine_mode mode = GET_MODE (x);
   rtx arg0, arg1;
   rtx tem;
@@ -6196,8 +6183,8 @@ simplify_giv_expr (loop, x, benefit)
   switch (GET_CODE (x))
     {
     case PLUS:
-      arg0 = simplify_giv_expr (loop, XEXP (x, 0), benefit);
-      arg1 = simplify_giv_expr (loop, XEXP (x, 1), benefit);
+      arg0 = simplify_giv_expr (loop, XEXP (x, 0), ext_val, benefit);
+      arg1 = simplify_giv_expr (loop, XEXP (x, 1), ext_val, benefit);
       if (arg0 == 0 || arg1 == 0)
 	return NULL_RTX;
 
@@ -6249,7 +6236,7 @@ simplify_giv_expr (loop, x, benefit)
 					       gen_rtx_PLUS (mode,
 							     XEXP (arg0, 1),
 							     arg1)),
-				 benefit);
+				 ext_val, benefit);
 
 	  default:
 	    abort ();
@@ -6275,7 +6262,7 @@ simplify_giv_expr (loop, x, benefit)
 					     gen_rtx_PLUS (mode, arg0,
 							   XEXP (arg1, 0)),
 					     XEXP (arg1, 1)),
-			       benefit);
+			       ext_val, benefit);
 
       /* Now must have MULT + MULT.  Distribute if same biv, else not giv.  */
       if (GET_CODE (arg0) != MULT || GET_CODE (arg1) != MULT)
@@ -6290,7 +6277,7 @@ simplify_giv_expr (loop, x, benefit)
 					      gen_rtx_PLUS (mode,
 							    XEXP (arg0, 1),
 							    XEXP (arg1, 1))),
-				benefit);
+				ext_val, benefit);
 
     case MINUS:
       /* Handle "a - b" as "a + b * (-1)".  */
@@ -6300,11 +6287,11 @@ simplify_giv_expr (loop, x, benefit)
 					      gen_rtx_MULT (mode,
 							    XEXP (x, 1),
 							    constm1_rtx)),
-				benefit);
+				ext_val, benefit);
 
     case MULT:
-      arg0 = simplify_giv_expr (loop, XEXP (x, 0), benefit);
-      arg1 = simplify_giv_expr (loop, XEXP (x, 1), benefit);
+      arg0 = simplify_giv_expr (loop, XEXP (x, 0), ext_val, benefit);
+      arg1 = simplify_giv_expr (loop, XEXP (x, 1), ext_val, benefit);
       if (arg0 == 0 || arg1 == 0)
 	return NULL_RTX;
 
@@ -6350,7 +6337,7 @@ simplify_giv_expr (loop, x, benefit)
 								    XEXP (arg0,
 									  1),
 								    arg1)),
-					benefit);
+					ext_val, benefit);
 	    }
 	  /* Porpagate the MULT expressions to the intermost nodes.  */
 	  else if (GET_CODE (arg0) == PLUS)
@@ -6366,7 +6353,7 @@ simplify_giv_expr (loop, x, benefit)
 								    XEXP (arg0,
 									  1),
 								    arg1)),
-					benefit);
+					ext_val, benefit);
 	    }
 	  return gen_rtx_USE (mode, gen_rtx_MULT (mode, arg0, arg1));
 
@@ -6378,7 +6365,7 @@ simplify_giv_expr (loop, x, benefit)
 						  gen_rtx_MULT (mode,
 								XEXP (arg0, 1),
 								arg1)),
-				    benefit);
+				    ext_val, benefit);
 
 	case PLUS:
 	  /* (a + invar_1) * invar_2.  Distribute.  */
@@ -6390,7 +6377,7 @@ simplify_giv_expr (loop, x, benefit)
 						  gen_rtx_MULT (mode,
 								XEXP (arg0, 1),
 								arg1)),
-				    benefit);
+				    ext_val, benefit);
 
 	default:
 	  abort ();
@@ -6407,13 +6394,13 @@ simplify_giv_expr (loop, x, benefit)
 					 XEXP (x, 0),
 					 GEN_INT ((HOST_WIDE_INT) 1
 						  << INTVAL (XEXP (x, 1)))),
-			   benefit);
+			   ext_val, benefit);
 
     case NEG:
       /* "-a" is "a * (-1)" */
       return simplify_giv_expr (loop,
 				gen_rtx_MULT (mode, XEXP (x, 0), constm1_rtx),
-				benefit);
+				ext_val, benefit);
 
     case NOT:
       /* "~a" is "-a - 1". Silly, but easy.  */
@@ -6421,11 +6408,28 @@ simplify_giv_expr (loop, x, benefit)
 				gen_rtx_MINUS (mode,
 					       gen_rtx_NEG (mode, XEXP (x, 0)),
 					       const1_rtx),
-				benefit);
+				ext_val, benefit);
 
     case USE:
       /* Already in proper form for invariant.  */
       return x;
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+    case TRUNCATE:
+      /* Conditionally recognize extensions of simple IVs.  After we've
+	 computed loop traversal counts and verified the range of the
+	 source IV, we'll reevaluate this as a GIV.  */
+      if (*ext_val == NULL_RTX)
+	{
+	  arg0 = simplify_giv_expr (loop, XEXP (x, 0), ext_val, benefit);
+	  if (arg0 && *ext_val == NULL_RTX && GET_CODE (arg0) == REG)
+	    {
+	      *ext_val = gen_rtx_fmt_e (GET_CODE (x), mode, arg0);
+	      return arg0;
+	    }
+	}
+      goto do_default;
 
     case REG:
       /* If this is a new register, we can't deal with it.  */
@@ -6433,13 +6437,13 @@ simplify_giv_expr (loop, x, benefit)
 	return 0;
 
       /* Check for biv or giv.  */
-      switch (REG_IV_TYPE (REGNO (x)))
+      switch (REG_IV_TYPE (ivs, REGNO (x)))
 	{
 	case BASIC_INDUCT:
 	  return x;
 	case GENERAL_INDUCT:
 	  {
-	    struct induction *v = REG_IV_INFO (REGNO (x));
+	    struct induction *v = REG_IV_INFO (ivs, REGNO (x));
 
 	    /* Form expression from giv and add benefit.  Ensure this giv
 	       can derive another and subtract any needed adjustment if so.  */
@@ -6452,7 +6456,7 @@ simplify_giv_expr (loop, x, benefit)
 	       less harmful than reducing many givs that are not really
 	       beneficial.  */
 	    {
-	      rtx single_use = VARRAY_RTX (reg_single_usage, REGNO (x));
+	      rtx single_use = VARRAY_RTX (regs->single_usage, REGNO (x));
 	      if (single_use && single_use != const0_rtx)
 		*benefit += v->benefit;
 	    }
@@ -6466,10 +6470,22 @@ simplify_giv_expr (loop, x, benefit)
 
 	    if (v->derive_adjustment)
 	      tem = gen_rtx_MINUS (mode, tem, v->derive_adjustment);
-	    return simplify_giv_expr (loop, tem, benefit);
+	    arg0 = simplify_giv_expr (loop, tem, ext_val, benefit);
+	    if (*ext_val)
+	      {
+		if (!v->ext_dependant)
+		  return arg0;
+	      }
+	    else
+	      {
+		*ext_val = v->ext_dependant;
+		return arg0;
+	      }
+	    return 0;
 	  }
 
 	default:
+	do_default:
 	  /* If it isn't an induction variable, and it is invariant, we
 	     may be able to simplify things further by looking through
 	     the bits we just moved outside the loop.  */
@@ -6477,7 +6493,7 @@ simplify_giv_expr (loop, x, benefit)
 	    {
 	      struct movable *m;
 
-	      for (m = the_movables; m; m = m->next)
+	      for (m = the_movables.head; m; m = m->next)
 		if (rtx_equal_p (x, m->set_dest))
 		  {
 		    /* Ok, we found a match.  Substitute and simplify.  */
@@ -6486,7 +6502,7 @@ simplify_giv_expr (loop, x, benefit)
 		       this one is going away.  */
 		    if (m->match)
 		      return simplify_giv_expr (loop, m->match->set_dest,
-						benefit);
+						ext_val, benefit);
 
 		    /* If consec is non-zero, this is a member of a group of
 		       instructions that were moved together.  We handle this
@@ -6496,7 +6512,11 @@ simplify_giv_expr (loop, x, benefit)
 		      {
 			int i = m->consec;
 			tem = m->insn;
-			do { tem = NEXT_INSN (tem); } while (--i > 0);
+			do
+			  {
+			    tem = NEXT_INSN (tem);
+			  }
+			while (--i > 0);
 
 			tem = find_reg_note (tem, REG_EQUAL, NULL_RTX);
 			if (tem)
@@ -6520,17 +6540,18 @@ simplify_giv_expr (loop, x, benefit)
 			    || GET_CODE (tem) == CONST_INT
 			    || GET_CODE (tem) == SYMBOL_REF)
 			  {
-			    tem = simplify_giv_expr (loop, tem, benefit);
+			    tem = simplify_giv_expr (loop, tem, ext_val,
+						     benefit);
 			    if (tem)
 			      return tem;
 			  }
 			else if (GET_CODE (tem) == CONST
-			    && GET_CODE (XEXP (tem, 0)) == PLUS
-			    && GET_CODE (XEXP (XEXP (tem, 0), 0)) == SYMBOL_REF
-			    && GET_CODE (XEXP (XEXP (tem, 0), 1)) == CONST_INT)
+				 && GET_CODE (XEXP (tem, 0)) == PLUS
+				 && GET_CODE (XEXP (XEXP (tem, 0), 0)) == SYMBOL_REF
+				 && GET_CODE (XEXP (XEXP (tem, 0), 1)) == CONST_INT)
 			  {
 			    tem = simplify_giv_expr (loop, XEXP (tem, 0),
-						     benefit);
+						     ext_val, benefit);
 			    if (tem)
 			      return tem;
 			  }
@@ -6635,7 +6656,7 @@ sge_plus (mode, x, y)
 
 static int
 consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
-		 add_val, mult_val, last_consec_insn)
+		 add_val, mult_val, ext_val, last_consec_insn)
      const struct loop *loop;
      int first_benefit;
      rtx p;
@@ -6643,8 +6664,11 @@ consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
      rtx dest_reg;
      rtx *add_val;
      rtx *mult_val;
+     rtx *ext_val;
      rtx *last_consec_insn;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
   int count;
   enum rtx_code code;
   int benefit;
@@ -6666,11 +6690,12 @@ consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
   v->benefit = first_benefit;
   v->cant_derive = 0;
   v->derive_adjustment = 0;
+  v->ext_dependant = NULL_RTX;
 
-  REG_IV_TYPE (REGNO (dest_reg)) = GENERAL_INDUCT;
-  REG_IV_INFO (REGNO (dest_reg)) = v;
+  REG_IV_TYPE (ivs, REGNO (dest_reg)) = GENERAL_INDUCT;
+  REG_IV_INFO (ivs, REGNO (dest_reg)) = v;
 
-  count = VARRAY_INT (n_times_set, REGNO (dest_reg)) - 1;
+  count = VARRAY_INT (regs->n_times_set, REGNO (dest_reg)) - 1;
 
   while (count > 0)
     {
@@ -6686,12 +6711,13 @@ consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
 	  && GET_CODE (SET_DEST (set)) == REG
 	  && SET_DEST (set) == dest_reg
 	  && (general_induction_var (loop, SET_SRC (set), &src_reg,
-				     add_val, mult_val, 0, &benefit, VOIDmode)
+				     add_val, mult_val, ext_val, 0,
+				     &benefit, VOIDmode)
 	      /* Giv created by equivalent expression.  */
 	      || ((temp = find_reg_note (p, REG_EQUAL, NULL_RTX))
 		  && general_induction_var (loop, XEXP (temp, 0), &src_reg,
-					    add_val, mult_val, 0, &benefit,
-					    VOIDmode)))
+					    add_val, mult_val, ext_val, 0,
+					    &benefit, VOIDmode)))
 	  && src_reg == v->src_reg)
 	{
 	  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
@@ -6713,7 +6739,7 @@ consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
 	      && CONSTANT_P (SET_SRC (set)))
 	    continue;
 
-	  REG_IV_TYPE (REGNO (dest_reg)) = UNKNOWN_INDUCT;
+	  REG_IV_TYPE (ivs, REGNO (dest_reg)) = UNKNOWN_INDUCT;
 	  return 0;
 	}
     }
@@ -6785,7 +6811,7 @@ express_from_1 (a, b, mult)
 	a = ra, b = ob;
       else
 	{
-          /* Indicates an extra register in B.  Strip one level from B and
+	  /* Indicates an extra register in B.  Strip one level from B and
 	     recurse, hoping B was the higher order expression.  */
 	  ob = express_from_1 (a, ob, mult);
 	  if (ob == NULL_RTX)
@@ -6921,25 +6947,36 @@ static rtx
 combine_givs_p (g1, g2)
      struct induction *g1, *g2;
 {
-  rtx tem = express_from (g1, g2);
+  rtx comb, ret;
+
+  /* With the introduction of ext dependant givs, we must care for modes.
+     G2 must not use a wider mode than G1.  */
+  if (GET_MODE_SIZE (g1->mode) < GET_MODE_SIZE (g2->mode))
+    return NULL_RTX;
+
+  ret = comb = express_from (g1, g2);
+  if (comb == NULL_RTX)
+    return NULL_RTX;
+  if (g1->mode != g2->mode)
+    ret = gen_lowpart (g2->mode, comb);
 
   /* If these givs are identical, they can be combined.  We use the results
      of express_from because the addends are not in a canonical form, so
      rtx_equal_p is a weaker test.  */
   /* But don't combine a DEST_REG giv with a DEST_ADDR giv; we want the
      combination to be the other way round.  */
-  if (tem == g1->dest_reg
+  if (comb == g1->dest_reg
       && (g1->giv_type == DEST_REG || g2->giv_type == DEST_ADDR))
     {
-      return g1->dest_reg;
+      return ret;
     }
 
   /* If G2 can be expressed as a function of G1 and that function is valid
      as an address and no more expensive than using a register for G2,
      the expression of G2 in terms of G1 can be used.  */
-  if (tem != NULL_RTX
+  if (ret != NULL_RTX
       && g2->giv_type == DEST_ADDR
-      && memory_address_p (g2->mem_mode, tem)
+      && memory_address_p (g2->mem_mode, ret)
       /* ??? Looses, especially with -fforce-addr, where *g2->location
 	 will always be a register, and so anything more complicated
 	 gets discarded.  */
@@ -6952,10 +6989,195 @@ combine_givs_p (g1, g2)
 #endif
       )
     {
-      return tem;
+      return ret;
     }
 
   return NULL_RTX;
+}
+
+/* Check each extension dependant giv in this class to see if its
+   root biv is safe from wrapping in the interior mode, which would
+   make the giv illegal.  */
+
+static void
+check_ext_dependant_givs (bl, loop_info)
+     struct iv_class *bl;
+     struct loop_info *loop_info;
+{
+  int ze_ok = 0, se_ok = 0, info_ok = 0;
+  enum machine_mode biv_mode = GET_MODE (bl->biv->src_reg);
+  HOST_WIDE_INT start_val;
+  unsigned HOST_WIDE_INT u_end_val, u_start_val;
+  rtx incr = pc_rtx;
+  struct induction *v;
+
+  /* Make sure the iteration data is available.  We must have
+     constants in order to be certain of no overflow.  */
+  /* ??? An unknown iteration count with an increment of +-1
+     combined with friendly exit tests of against an invariant
+     value is also ameanable to optimization.  Not implemented.  */
+  if (loop_info->n_iterations > 0
+      && bl->initial_value
+      && GET_CODE (bl->initial_value) == CONST_INT
+      && (incr = biv_total_increment (bl))
+      && GET_CODE (incr) == CONST_INT
+      /* Make sure the host can represent the arithmetic.  */
+      && HOST_BITS_PER_WIDE_INT >= GET_MODE_BITSIZE (biv_mode))
+    {
+      unsigned HOST_WIDE_INT abs_incr, total_incr;
+      HOST_WIDE_INT s_end_val;
+      int neg_incr;
+
+      info_ok = 1;
+      start_val = INTVAL (bl->initial_value);
+      u_start_val = start_val;
+
+      neg_incr = 0, abs_incr = INTVAL (incr);
+      if (INTVAL (incr) < 0)
+	neg_incr = 1, abs_incr = -abs_incr;
+      total_incr = abs_incr * loop_info->n_iterations;
+
+      /* Check for host arithmatic overflow.  */
+      if (total_incr / loop_info->n_iterations == abs_incr)
+	{
+	  unsigned HOST_WIDE_INT u_max;
+	  HOST_WIDE_INT s_max;
+
+	  u_end_val = start_val + (neg_incr ? -total_incr : total_incr);
+	  s_end_val = u_end_val;
+	  u_max = GET_MODE_MASK (biv_mode);
+	  s_max = u_max >> 1;
+
+	  /* Check zero extension of biv ok.  */
+	  if (start_val >= 0
+	      /* Check for host arithmatic overflow.  */
+	      && (neg_incr
+		  ? u_end_val < u_start_val
+		  : u_end_val > u_start_val)
+	      /* Check for target arithmetic overflow.  */
+	      && (neg_incr
+		  ? 1 /* taken care of with host overflow */
+		  : u_end_val <= u_max))
+	    {
+	      ze_ok = 1;
+	    }
+
+	  /* Check sign extension of biv ok.  */
+	  /* ??? While it is true that overflow with signed and pointer
+	     arithmetic is undefined, I fear too many programmers don't
+	     keep this fact in mind -- myself included on occasion.
+	     So leave alone with the signed overflow optimizations.  */
+	  if (start_val >= -s_max - 1
+	      /* Check for host arithmatic overflow.  */
+	      && (neg_incr
+		  ? s_end_val < start_val
+		  : s_end_val > start_val)
+	      /* Check for target arithmetic overflow.  */
+	      && (neg_incr
+		  ? s_end_val >= -s_max - 1
+		  : s_end_val <= s_max))
+	    {
+	      se_ok = 1;
+	    }
+	}
+    }
+
+  /* Invalidate givs that fail the tests.  */
+  for (v = bl->giv; v; v = v->next_iv)
+    if (v->ext_dependant)
+      {
+	enum rtx_code code = GET_CODE (v->ext_dependant);
+	int ok = 0;
+
+	switch (code)
+	  {
+	  case SIGN_EXTEND:
+	    ok = se_ok;
+	    break;
+	  case ZERO_EXTEND:
+	    ok = ze_ok;
+	    break;
+
+	  case TRUNCATE:
+	    /* We don't know whether this value is being used as either
+	       signed or unsigned, so to safely truncate we must satisfy
+	       both.  The initial check here verifies the BIV itself;
+	       once that is successful we may check its range wrt the
+	       derived GIV.  */
+	    if (se_ok && ze_ok)
+	      {
+		enum machine_mode outer_mode = GET_MODE (v->ext_dependant);
+		unsigned HOST_WIDE_INT max = GET_MODE_MASK (outer_mode) >> 1;
+
+		/* We know from the above that both endpoints are nonnegative,
+		   and that there is no wrapping.  Verify that both endpoints
+		   are within the (signed) range of the outer mode.  */
+		if (u_start_val <= max && u_end_val <= max)
+		  ok = 1;
+	      }
+	    break;
+
+	  default:
+	    abort ();
+	  }
+
+	if (ok)
+	  {
+	    if (loop_dump_stream)
+	      {
+		fprintf (loop_dump_stream,
+			 "Verified ext dependant giv at %d of reg %d\n",
+			 INSN_UID (v->insn), bl->regno);
+	      }
+	  }
+	else
+	  {
+	    if (loop_dump_stream)
+	      {
+		const char *why;
+
+		if (info_ok)
+		  why = "biv iteration values overflowed";
+		else
+		  {
+		    if (incr == pc_rtx)
+		      incr = biv_total_increment (bl);
+		    if (incr == const1_rtx)
+		      why = "biv iteration info incomplete; incr by 1";
+		    else
+		      why = "biv iteration info incomplete";
+		  }
+
+		fprintf (loop_dump_stream,
+			 "Failed ext dependant giv at %d, %s\n",
+			 INSN_UID (v->insn), why);
+	      }
+	    v->ignore = 1;
+	  }
+      }
+}
+
+/* Generate a version of VALUE in a mode appropriate for initializing V.  */
+
+rtx
+extend_value_for_giv (v, value)
+     struct induction *v;
+     rtx value;
+{
+  rtx ext_dep = v->ext_dependant;
+
+  if (! ext_dep)
+    return value;
+
+  /* Recall that check_ext_dependant_givs verified that the known bounds
+     of a biv did not overflow or wrap with respect to the extension for
+     the giv.  Therefore, constants need no additional adjustment.  */
+  if (CONSTANT_P (value) && GET_MODE (value) == VOIDmode)
+    return value;
+
+  /* Otherwise, we must adjust the value to compensate for the
+     differing modes of the biv and the giv.  */
+  return gen_rtx_fmt_e (GET_CODE (ext_dep), GET_MODE (ext_dep), value);
 }
 
 struct combine_givs_stats
@@ -6987,7 +7209,8 @@ cmp_combine_givs_stats (xp, yp)
    giv.  Also, update BENEFIT and related fields for cost/benefit analysis.  */
 
 static void
-combine_givs (bl)
+combine_givs (regs, bl)
+     struct loop_regs *regs;
      struct iv_class *bl;
 {
   /* Additional benefit to add for being combined multiple times.  */
@@ -7029,7 +7252,8 @@ combine_givs (bl)
 	 DEST_ADDR targets on hosts with reg+reg addressing, though it can
 	 be seen elsewhere as well.  */
       if (g1->giv_type == DEST_REG
-	  && (single_use = VARRAY_RTX (reg_single_usage, REGNO (g1->dest_reg)))
+	  && (single_use = VARRAY_RTX (regs->single_usage,
+				       REGNO (g1->dest_reg)))
 	  && single_use != const0_rtx)
 	continue;
 
@@ -7181,10 +7405,12 @@ cmp_recombine_givs_stats (xp, yp)
    Only consider givs that belong to BIV.
    Return the total number of lifetime ends that have been found.  */
 static int
-find_life_end (x, stats, insn, biv)
+find_life_end (loop, x, stats, insn, biv)
+     const struct loop *loop;
      rtx x, insn, biv;
      struct recombine_givs_stats *stats;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   enum rtx_code code;
   const char *fmt;
   int i, j;
@@ -7199,9 +7425,9 @@ find_life_end (x, stats, insn, biv)
 	if (GET_CODE (reg) == REG)
 	  {
 	    int regno = REGNO (reg);
-	    struct induction *v = REG_IV_INFO (regno);
+	    struct induction *v = REG_IV_INFO (ivs, regno);
 
-	    if (REG_IV_TYPE (regno) == GENERAL_INDUCT
+	    if (REG_IV_TYPE (ivs, regno) == GENERAL_INDUCT
 		&& ! v->ignore
 		&& v->src_reg == biv
 		&& stats[v->ix].end_luid <= 0)
@@ -7214,21 +7440,22 @@ find_life_end (x, stats, insn, biv)
 		if (stats[v->ix].end_luid == 0)
 		  {
 		    stats[v->ix].end_luid = stats[v->ix].start_luid;
-		    return 1 + find_life_end (SET_SRC (x), stats, insn, biv);
+		    return 1 + find_life_end (loop, SET_SRC (x), stats,
+					      insn, biv);
 		  }
 		else if (stats[v->ix].start_luid == INSN_LUID (insn))
 		  stats[v->ix].end_luid = 0;
 	      }
-	    return find_life_end (SET_SRC (x), stats, insn, biv);
+	    return find_life_end (loop, SET_SRC (x), stats, insn, biv);
 	  }
 	break;
       }
     case REG:
       {
 	int regno = REGNO (x);
-	struct induction *v = REG_IV_INFO (regno);
+	struct induction *v = REG_IV_INFO (ivs, regno);
 
-	if (REG_IV_TYPE (regno) == GENERAL_INDUCT
+	if (REG_IV_TYPE (ivs, regno) == GENERAL_INDUCT
 	    && ! v->ignore
 	    && v->src_reg == biv
 	    && stats[v->ix].end_luid == 0)
@@ -7253,11 +7480,11 @@ find_life_end (x, stats, insn, biv)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	retval += find_life_end (XEXP (x, i), stats, insn, biv);
+	retval += find_life_end (loop, XEXP (x, i), stats, insn, biv);
 
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  retval += find_life_end (XVECEXP (x, i, j), stats, insn, biv);
+	  retval += find_life_end (loop, XVECEXP (x, i, j), stats, insn, biv);
     }
   return retval;
 }
@@ -7272,6 +7499,7 @@ recombine_givs (loop, bl, unroll_p)
      struct iv_class *bl;
      int unroll_p;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
   struct induction *v, **giv_array, *last_giv;
   struct recombine_givs_stats *stats;
   int giv_count;
@@ -7399,7 +7627,7 @@ recombine_givs (loop, bl, unroll_p)
 	  else
 	    {
 	      int regno = REGNO (v->dest_reg);
-	      int count = VARRAY_INT (n_times_set, regno) - 1;
+	      int count = VARRAY_INT (regs->n_times_set, regno) - 1;
 	      rtx p = v->insn;
 
 	      /* Find the first insn that sets the giv, so that we can verify
@@ -7446,7 +7674,8 @@ recombine_givs (loop, bl, unroll_p)
 	  p = PREV_INSN (p);
 	  if (! INSN_P (p))
 	    continue;
-	  ends_need_computing -= find_life_end (PATTERN (p), stats, p, biv);
+	  ends_need_computing -= find_life_end (loop, PATTERN (p),
+						stats, p, biv);
 	}
       while (ends_need_computing);
     }
@@ -7755,6 +7984,9 @@ check_dbra_loop (loop, insn_count)
      struct loop *loop;
      int insn_count;
 {
+  struct loop_info *loop_info = LOOP_INFO (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
   rtx jump_label;
@@ -7769,7 +8001,6 @@ check_dbra_loop (loop, insn_count)
   int compare_and_branch;
   rtx loop_start = loop->start;
   rtx loop_end = loop->end;
-  struct loop_info *loop_info = LOOP_INFO (loop);
 
   /* If last insn is a conditional branch, and the insn before tests a
      register value, try to optimize it.  Otherwise, we can't do anything.  */
@@ -7802,7 +8033,7 @@ check_dbra_loop (loop, insn_count)
     rtx jump1;
     if ((jump1 = prev_nonnote_insn (first_compare)) != loop->cont)
       if (GET_CODE (jump1) == JUMP_INSN)
-        return 0;
+	return 0;
   }
 
   /* Check all of the bivs to see if the compare uses one of them.
@@ -7810,7 +8041,7 @@ check_dbra_loop (loop, insn_count)
      it will be zero on the last iteration.  Also skip if the biv is
      used between its update and the test insn.  */
 
-  for (bl = loop_iv_list; bl; bl = bl->next)
+  for (bl = ivs->loop_iv_list; bl; bl = bl->next)
     {
       if (bl->biv_count == 1
 	  && ! bl->biv->maybe_multiple
@@ -7927,10 +8158,9 @@ check_dbra_loop (loop, insn_count)
 		       that has more than one usage, then the biv has uses
 		       other than counting since it's used to derive a value
 		       that is used more than one time.  */
-		    int note_set_pseudo_multiple_uses_retval = 0;
 		    note_stores (PATTERN (p), note_set_pseudo_multiple_uses,
-				 &note_set_pseudo_multiple_uses_retval);
-		    if (note_set_pseudo_multiple_uses_retval)
+				 regs);
+		    if (regs->multiple_uses)
 		      {
 			no_use_except_counting = 0;
 			break;
@@ -7947,7 +8177,7 @@ check_dbra_loop (loop, insn_count)
       if (no_use_except_counting)
 	/* No need to worry about MEMs.  */
 	;
-      else if (num_mem_sets <= 1)
+      else if (loop_info->num_mem_sets <= 1)
 	{
 	  for (p = loop_start; p != loop_end; p = NEXT_INSN (p))
 	    if (INSN_P (p))
@@ -7959,15 +8189,15 @@ check_dbra_loop (loop, insn_count)
 	     This would work if the source was invariant also, however, in that
 	     case, the insn should have been moved out of the loop.  */
 
-	  if (num_mem_sets == 1)
+	  if (loop_info->num_mem_sets == 1)
 	    {
 	      struct induction *v;
 
 	      reversible_mem_store
-		= (! unknown_address_altered
-		   && ! unknown_constant_address_altered
+		= (! loop_info->unknown_address_altered
+		   && ! loop_info->unknown_constant_address_altered
 		   && ! loop_invariant_p (loop,
-					  XEXP (XEXP (loop_store_mems, 0),
+					  XEXP (XEXP (loop_info->store_mems, 0),
 						0)));
 
 	      /* If the store depends on a register that is set after the
@@ -7977,8 +8207,9 @@ check_dbra_loop (loop, insn_count)
 		{
 		  if (v->giv_type == DEST_REG
 		      && reg_mentioned_p (v->dest_reg,
-					  PATTERN (first_loop_store_insn))
-		      && loop_insn_first_p (first_loop_store_insn, v->insn))
+					  PATTERN (loop_info->first_loop_store_insn))
+		      && loop_insn_first_p (loop_info->first_loop_store_insn,
+					    v->insn))
 		    reversible_mem_store = 0;
 		}
 	    }
@@ -7998,9 +8229,9 @@ check_dbra_loop (loop, insn_count)
 	   && ! loop_info->has_call
 	   && ! loop_info->has_volatile
 	   && reversible_mem_store
-	   && (bl->giv_count + bl->biv_count + num_mem_sets
-	      + num_movables + compare_and_branch == insn_count)
-	   && (bl == loop_iv_list && bl->next == 0))
+	   && (bl->giv_count + bl->biv_count + loop_info->num_mem_sets
+	       + the_movables.num + compare_and_branch == insn_count)
+	   && (bl == ivs->loop_iv_list && bl->next == 0))
 	  || no_use_except_counting)
 	{
 	  rtx tem;
@@ -8150,7 +8381,7 @@ check_dbra_loop (loop, insn_count)
 	      jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 1);
 	      if (jump_label == pc_rtx)
 		jump_label = XEXP (SET_SRC (PATTERN (PREV_INSN (loop_end))), 2);
-	      new_add_val = GEN_INT (- INTVAL (bl->biv->add_val));
+	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
 	      /* Set start_value; if this is not a CONST_INT, we need
 		 to generate a SUB.
@@ -8234,7 +8465,7 @@ check_dbra_loop (loop, insn_count)
 
 	      /* Inc LABEL_NUSES so that delete_insn will
 		 not delete the label.  */
-	      LABEL_NUSES (XEXP (jump_label, 0)) ++;
+	      LABEL_NUSES (XEXP (jump_label, 0))++;
 
 	      /* Emit an insn after the end of the loop to set the biv's
 		 proper exit value if it is used anywhere outside the loop.  */
@@ -8299,9 +8530,9 @@ check_dbra_loop (loop, insn_count)
 		       REG_EQUAL notes should still be correct.  */
 		    if (! set
 			|| GET_CODE (SET_DEST (set)) != REG
-			|| (size_t) REGNO (SET_DEST (set)) >= reg_iv_type->num_elements
-			|| REG_IV_TYPE (REGNO (SET_DEST (set))) != GENERAL_INDUCT
-			|| REG_IV_INFO (REGNO (SET_DEST (set)))->src_reg != bl->biv->src_reg)
+			|| (size_t) REGNO (SET_DEST (set)) >= ivs->reg_iv_type->num_elements
+			|| REG_IV_TYPE (ivs, REGNO (SET_DEST (set))) != GENERAL_INDUCT
+			|| REG_IV_INFO (ivs, REGNO (SET_DEST (set)))->src_reg != bl->biv->src_reg)
 		      for (pnote = &REG_NOTES (p); *pnote;)
 			{
 			  if (REG_NOTE_KIND (*pnote) == REG_EQUAL
@@ -8352,6 +8583,7 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
      int eliminate_p;
      int threshold, insn_count;
 {
+  struct loop_ivs *ivs = LOOP_IVS (loop);
   rtx reg = bl->biv->dest_reg;
   rtx loop_start = loop->start;
   rtx loop_end = loop->end;
@@ -8380,8 +8612,8 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
 		  unsigned int regno = REGNO (SET_DEST (set));
 
 		  if (regno < max_reg_before_loop
-		      && REG_IV_TYPE (regno) == GENERAL_INDUCT
-		      && REG_IV_INFO (regno)->src_reg == bl->biv->src_reg)
+		      && REG_IV_TYPE (ivs, regno) == GENERAL_INDUCT
+		      && REG_IV_INFO (ivs, regno)->src_reg == bl->biv->src_reg)
 		    p = last;
 		}
 	    }
@@ -8767,7 +8999,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 #if 0
 	  /* Otherwise the reg compared with had better be a biv.  */
 	  if (GET_CODE (arg) != REG
-	      || REG_IV_TYPE (REGNO (arg)) != BASIC_INDUCT)
+	      || REG_IV_TYPE (ivs, REGNO (arg)) != BASIC_INDUCT)
 	    return 0;
 
 	  /* Look for a pair of givs, one for each biv,
@@ -8779,7 +9011,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 	      if (v->ignore || v->maybe_dead || v->mode != mode)
 		continue;
 
-	      for (tv = reg_biv_class[REGNO (arg)]->giv; tv; tv = tv->next_iv)
+	      for (tv = ivs->reg_biv_class[REGNO (arg)]->giv; tv; tv = tv->next_iv)
 		if (! tv->ignore && ! tv->maybe_dead
 		    && rtx_equal_p (tv->mult_val, v->mult_val)
 		    && rtx_equal_p (tv->add_val, v->add_val)
@@ -8869,14 +9101,15 @@ record_initial (dest, set, data)
      rtx set;
      void *data ATTRIBUTE_UNUSED;
 {
+  struct loop_ivs *ivs = (struct loop_ivs *) data;
   struct iv_class *bl;
 
   if (GET_CODE (dest) != REG
       || REGNO (dest) >= max_reg_before_loop
-      || REG_IV_TYPE (REGNO (dest)) != BASIC_INDUCT)
+      || REG_IV_TYPE (ivs, REGNO (dest)) != BASIC_INDUCT)
     return;
 
-  bl = reg_biv_class[REGNO (dest)];
+  bl = ivs->reg_biv_class[REGNO (dest)];
 
   /* If this is the first set found, record it.  */
   if (bl->init_insn == 0)
@@ -8979,7 +9212,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
      in cse.c  */
 
   while (GET_RTX_CLASS (code) == '<'
-         && op1 == CONST0_RTX (GET_MODE (op0))
+	 && op1 == CONST0_RTX (GET_MODE (op0))
 	 && op0 != want_reg)
     {
       /* Set non-zero when we find something of interest.  */
@@ -9271,6 +9504,7 @@ insert_loop_mem (mem, data)
      rtx *mem;
      void *data ATTRIBUTE_UNUSED;
 {
+  struct loop_info *loop_info = data;
   int i;
   rtx m = *mem;
 
@@ -9301,46 +9535,46 @@ insert_loop_mem (mem, data)
     }
 
   /* See if we've already seen this MEM.  */
-  for (i = 0; i < loop_mems_idx; ++i)
-    if (rtx_equal_p (m, loop_mems[i].mem))
+  for (i = 0; i < loop_info->mems_idx; ++i)
+    if (rtx_equal_p (m, loop_info->mems[i].mem))
       {
-	if (GET_MODE (m) != GET_MODE (loop_mems[i].mem))
+	if (GET_MODE (m) != GET_MODE (loop_info->mems[i].mem))
 	  /* The modes of the two memory accesses are different.  If
 	     this happens, something tricky is going on, and we just
 	     don't optimize accesses to this MEM.  */
-	  loop_mems[i].optimize = 0;
+	  loop_info->mems[i].optimize = 0;
 
 	return 0;
       }
 
   /* Resize the array, if necessary.  */
-  if (loop_mems_idx == loop_mems_allocated)
+  if (loop_info->mems_idx == loop_info->mems_allocated)
     {
-      if (loop_mems_allocated != 0)
-	loop_mems_allocated *= 2;
+      if (loop_info->mems_allocated != 0)
+	loop_info->mems_allocated *= 2;
       else
-	loop_mems_allocated = 32;
+	loop_info->mems_allocated = 32;
 
-      loop_mems = (loop_mem_info*)
-	xrealloc (loop_mems,
-		  loop_mems_allocated * sizeof (loop_mem_info));
+      loop_info->mems = (loop_mem_info *)
+	xrealloc (loop_info->mems,
+		  loop_info->mems_allocated * sizeof (loop_mem_info));
     }
 
   /* Actually insert the MEM.  */
-  loop_mems[loop_mems_idx].mem = m;
+  loop_info->mems[loop_info->mems_idx].mem = m;
   /* We can't hoist this MEM out of the loop if it's a BLKmode MEM
      because we can't put it in a register.  We still store it in the
      table, though, so that if we see the same address later, but in a
      non-BLK mode, we'll not think we can optimize it at that point.  */
-  loop_mems[loop_mems_idx].optimize = (GET_MODE (m) != BLKmode);
-  loop_mems[loop_mems_idx].reg = NULL_RTX;
-  ++loop_mems_idx;
+  loop_info->mems[loop_info->mems_idx].optimize = (GET_MODE (m) != BLKmode);
+  loop_info->mems[loop_info->mems_idx].reg = NULL_RTX;
+  ++loop_info->mems_idx;
 
   return 0;
 }
 
-/* Like load_mems, but also ensures that SET_IN_LOOP,
-   MAY_NOT_OPTIMIZE, REG_SINGLE_USAGE, and INSN_COUNT have the correct
+/* Like load_mems, but also ensures that REGS->SET_IN_LOOP,
+   REGS->MAY_NOT_OPTIMIZE, REGS->SINGLE_USAGE, and INSN_COUNT have the correct
    values after load_mems.  */
 
 static void
@@ -9348,11 +9582,12 @@ load_mems_and_recount_loop_regs_set (loop, insn_count)
      const struct loop *loop;
      int *insn_count;
 {
+  struct loop_regs *regs = LOOP_REGS (loop);
   int nregs = max_reg_num ();
 
   load_mems (loop);
 
-  /* Recalculate set_in_loop and friends since load_mems may have
+  /* Recalculate regs->set_in_loop and friends since load_mems may have
      created new registers.  */
   if (max_reg_num () > nregs)
     {
@@ -9362,26 +9597,26 @@ load_mems_and_recount_loop_regs_set (loop, insn_count)
       old_nregs = nregs;
       nregs = max_reg_num ();
 
-      if ((unsigned) nregs > set_in_loop->num_elements)
+      if ((unsigned) nregs > regs->set_in_loop->num_elements)
 	{
 	  /* Grow all the arrays.  */
-	  VARRAY_GROW (set_in_loop, nregs);
-	  VARRAY_GROW (n_times_set, nregs);
-	  VARRAY_GROW (may_not_optimize, nregs);
-	  VARRAY_GROW (reg_single_usage, nregs);
+	  VARRAY_GROW (regs->set_in_loop, nregs);
+	  VARRAY_GROW (regs->n_times_set, nregs);
+	  VARRAY_GROW (regs->may_not_optimize, nregs);
+	  VARRAY_GROW (regs->single_usage, nregs);
 	}
       /* Clear the arrays */
-      bzero ((char *) &set_in_loop->data, nregs * sizeof (int));
-      bzero ((char *) &may_not_optimize->data, nregs * sizeof (char));
-      bzero ((char *) &reg_single_usage->data, nregs * sizeof (rtx));
+      bzero ((char *) &regs->set_in_loop->data, nregs * sizeof (int));
+      bzero ((char *) &regs->may_not_optimize->data, nregs * sizeof (char));
+      bzero ((char *) &regs->single_usage->data, nregs * sizeof (rtx));
 
-      count_loop_regs_set (loop, may_not_optimize, reg_single_usage,
+      count_loop_regs_set (loop, regs->may_not_optimize, regs->single_usage,
 			   insn_count, nregs);
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
-	  VARRAY_CHAR (may_not_optimize, i) = 1;
-	  VARRAY_INT (set_in_loop, i) = 1;
+	  VARRAY_CHAR (regs->may_not_optimize, i) = 1;
+	  VARRAY_INT (regs->set_in_loop, i) = 1;
 	}
 
 #ifdef AVOID_CCMODE_COPIES
@@ -9389,12 +9624,12 @@ load_mems_and_recount_loop_regs_set (loop, insn_count)
 	 create CCmode register copies.  */
       for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
 	if (GET_MODE_CLASS (GET_MODE (regno_reg_rtx[i])) == MODE_CC)
-	  VARRAY_CHAR (may_not_optimize, i) = 1;
+	  VARRAY_CHAR (regs->may_not_optimize, i) = 1;
 #endif
 
-      /* Set n_times_set for the new registers.  */
-      bcopy ((char *) (&set_in_loop->data.i[0] + old_nregs),
-	     (char *) (&n_times_set->data.i[0] + old_nregs),
+      /* Set regs->n_times_set for the new registers.  */
+      bcopy ((char *) (&regs->set_in_loop->data.i[0] + old_nregs),
+	     (char *) (&regs->n_times_set->data.i[0] + old_nregs),
 	     (nregs - old_nregs) * sizeof (int));
     }
 }
@@ -9405,6 +9640,8 @@ static void
 load_mems (loop)
      const struct loop *loop;
 {
+  struct loop_info *loop_info = LOOP_INFO (loop);
+  struct loop_regs *regs = LOOP_REGS (loop);
   int maybe_never = 0;
   int i;
   rtx p;
@@ -9414,7 +9651,7 @@ load_mems (loop)
   int next_maybe_never = 0;
   int last_max_reg = max_reg_num ();
 
-  if (loop_mems_idx == 0)
+  if (loop_info->mems_idx == 0)
     return;
 
   /* Find start of the extended basic block that enters the loop.  */
@@ -9463,23 +9700,23 @@ load_mems (loop)
     }
 
   /* Actually move the MEMs.  */
-  for (i = 0; i < loop_mems_idx; ++i)
+  for (i = 0; i < loop_info->mems_idx; ++i)
     {
       regset_head load_copies;
       regset_head store_copies;
       int written = 0;
       rtx reg;
-      rtx mem = loop_mems[i].mem;
+      rtx mem = loop_info->mems[i].mem;
       rtx mem_list_entry;
 
       if (MEM_VOLATILE_P (mem)
 	  || loop_invariant_p (loop, XEXP (mem, 0)) != 1)
 	/* There's no telling whether or not MEM is modified.  */
-	loop_mems[i].optimize = 0;
+	loop_info->mems[i].optimize = 0;
 
       /* Go through the MEMs written to in the loop to see if this
 	 one is aliased by one of them.  */
-      mem_list_entry = loop_store_mems;
+      mem_list_entry = loop_info->store_mems;
       while (mem_list_entry)
 	{
 	  if (rtx_equal_p (mem, XEXP (mem_list_entry, 0)))
@@ -9488,7 +9725,7 @@ load_mems (loop)
 				    mem, rtx_varies_p))
 	    {
 	      /* MEM is indeed aliased by this store.  */
-	      loop_mems[i].optimize = 0;
+	      loop_info->mems[i].optimize = 0;
 	      break;
 	    }
 	  mem_list_entry = XEXP (mem_list_entry, 1);
@@ -9496,27 +9733,27 @@ load_mems (loop)
 
       if (flag_float_store && written
 	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
-	loop_mems[i].optimize = 0;
+	loop_info->mems[i].optimize = 0;
 
       /* If this MEM is written to, we must be sure that there
 	 are no reads from another MEM that aliases this one.  */
-      if (loop_mems[i].optimize && written)
+      if (loop_info->mems[i].optimize && written)
 	{
 	  int j;
 
-	  for (j = 0; j < loop_mems_idx; ++j)
+	  for (j = 0; j < loop_info->mems_idx; ++j)
 	    {
 	      if (j == i)
 		continue;
 	      else if (true_dependence (mem,
 					VOIDmode,
-					loop_mems[j].mem,
+					loop_info->mems[j].mem,
 					rtx_varies_p))
 		{
-		  /* It's not safe to hoist loop_mems[i] out of
+		  /* It's not safe to hoist loop_info->mems[i] out of
 		     the loop because writes to it might not be
-		     seen by reads from loop_mems[j].  */
-		  loop_mems[i].optimize = 0;
+		     seen by reads from loop_info->mems[j].  */
+		  loop_info->mems[i].optimize = 0;
 		  break;
 		}
 	    }
@@ -9525,9 +9762,9 @@ load_mems (loop)
       if (maybe_never && may_trap_p (mem))
 	/* We can't access the MEM outside the loop; it might
 	   cause a trap that wouldn't have happened otherwise.  */
-	loop_mems[i].optimize = 0;
+	loop_info->mems[i].optimize = 0;
 
-      if (!loop_mems[i].optimize)
+      if (!loop_info->mems[i].optimize)
 	/* We thought we were going to lift this MEM out of the
 	   loop, but later discovered that we could not.  */
 	continue;
@@ -9541,7 +9778,7 @@ load_mems (loop)
 	 user-variable nor used in the loop test.  */
       reg = gen_reg_rtx (GET_MODE (mem));
       REG_USERVAR_P (reg) = 1;
-      loop_mems[i].reg = reg;
+      loop_info->mems[i].reg = reg;
 
       /* Now, replace all references to the MEM with the
 	 corresponding pesudos.  */
@@ -9550,8 +9787,6 @@ load_mems (loop)
 	   p != NULL_RTX;
 	   p = next_insn_in_loop (loop, p))
 	{
-	  rtx_and_int ri;
-
 	  if (INSN_P (p))
 	    {
 	      rtx set;
@@ -9567,28 +9802,28 @@ load_mems (loop)
 		  && GET_CODE (SET_DEST (set)) == REG
 		  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
 		  && REGNO (SET_DEST (set)) < last_max_reg
-		  && VARRAY_INT (n_times_set, REGNO (SET_DEST (set))) == 1
+		  && VARRAY_INT (regs->n_times_set,
+				 REGNO (SET_DEST (set))) == 1
 		  && rtx_equal_p (SET_SRC (set), mem))
 		SET_REGNO_REG_SET (&load_copies, REGNO (SET_DEST (set)));
 
- 	      /* See if this copies the mem from a register that isn't
+	      /* See if this copies the mem from a register that isn't
 		 modified afterwards.  We'll try to remove the
 		 redundant copy later on by doing a little register
 		 renaming and copy propagation.   This will help
 		 to untangle things for the BIV detection code.  */
- 	      if (set
- 		  && ! maybe_never
- 		  && GET_CODE (SET_SRC (set)) == REG
- 		  && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER
- 		  && REGNO (SET_SRC (set)) < last_max_reg
- 		  && VARRAY_INT (n_times_set, REGNO (SET_SRC (set))) == 1
- 		  && rtx_equal_p (SET_DEST (set), mem))
- 		SET_REGNO_REG_SET (&store_copies, REGNO (SET_SRC (set)));
- 	      
- 	      /* Replace the memory reference with the shadow register.  */
-	      ri.r = p;
-	      ri.i = i;
-	      for_each_rtx (&p, replace_loop_mem, &ri);
+	      if (set
+		  && ! maybe_never
+		  && GET_CODE (SET_SRC (set)) == REG
+		  && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER
+		  && REGNO (SET_SRC (set)) < last_max_reg
+		  && VARRAY_INT (regs->n_times_set, REGNO (SET_SRC (set))) == 1
+		  && rtx_equal_p (SET_DEST (set), mem))
+		SET_REGNO_REG_SET (&store_copies, REGNO (SET_SRC (set)));
+
+	      /* Replace the memory reference with the shadow register.  */
+	      replace_loop_mems (p, loop_info->mems[i].mem,
+				 loop_info->mems[i].reg);
 	    }
 
 	  if (GET_CODE (p) == CODE_LABEL
@@ -9598,7 +9833,7 @@ load_mems (loop)
 
       if (! apply_change_group ())
 	/* We couldn't replace all occurrences of the MEM.  */
-	loop_mems[i].optimize = 0;
+	loop_info->mems[i].optimize = 0;
       else
 	{
 	  /* Load the memory immediately before LOOP->START, which is
@@ -9792,12 +10027,8 @@ try_copy_prop (loop, replacement, regno)
       if (init_insn && insn != init_insn)
 	{
 	  struct note_reg_stored_arg arg;
-	  rtx array[3];
-	  array[0] = reg_rtx;
-	  array[1] = replacement;
-	  array[2] = insn;
 
-	  for_each_rtx (&insn, replace_loop_reg, array);
+	  replace_loop_regs (insn, reg_rtx, replacement);
 	  if (REGNO_LAST_UID (regno) == INSN_UID (insn))
 	    replaced_last = 1;
 
@@ -9827,7 +10058,6 @@ try_copy_prop (loop, replacement, regno)
 	fprintf (loop_dump_stream, ".\n");
     }
 }
-
 
 /* Try to replace occurrences of pseudo REGNO with REPLACEMENT within
    loop LOOP if the order of the sets of these registers can be
@@ -9864,13 +10094,13 @@ try_swap_copy_prop (loop, replacement, regno)
     {
       rtx prev_insn;
       rtx prev_set;
-      
+
       /* Some DEF-USE info would come in handy here to make this
 	 function more general.  For now, just check the previous insn
 	 which is the most likely candidate for setting REGNO.  */
-      
+
       prev_insn = PREV_INSN (insn);
-      
+
       if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
 	  && (prev_set = single_set (prev_insn))
 	  && GET_CODE (SET_DEST (prev_set)) == REG
@@ -9879,7 +10109,7 @@ try_swap_copy_prop (loop, replacement, regno)
 	  /* We have:
 	     (set (reg regno) (expr))
 	     (set (reg new_regno) (reg regno))
-	     
+
 	     so try converting this to:
 	     (set (reg new_regno) (expr))
 	     (set (reg regno) (reg new_regno))
@@ -9899,9 +10129,9 @@ try_swap_copy_prop (loop, replacement, regno)
 	  if (apply_change_group ())
 	    {
 	      if (loop_dump_stream)
-		fprintf (loop_dump_stream, 
-			 "  Swapped set of reg %d at %d with reg %d at %d.\n", 
-			 regno, INSN_UID (insn), 
+		fprintf (loop_dump_stream,
+			 "  Swapped set of reg %d at %d with reg %d at %d.\n",
+			 regno, INSN_UID (insn),
 			 new_regno, INSN_UID (prev_insn));
 
 	      /* Update first use of REGNO.  */
@@ -9916,10 +10146,9 @@ try_swap_copy_prop (loop, replacement, regno)
     }
 }
 
-
 /* Replace MEM with its associated pseudo register.  This function is
-   called from load_mems via for_each_rtx.  DATA is actually an
-   rtx_and_int * describing the instruction currently being scanned
+   called from load_mems via for_each_rtx.  DATA is actually a pointer
+   to a structure describing the instruction currently being scanned
    and the MEM we are currently replacing.  */
 
 static int
@@ -9927,9 +10156,7 @@ replace_loop_mem (mem, data)
      rtx *mem;
      void *data;
 {
-  rtx_and_int *ri;
-  rtx insn;
-  int i;
+  loop_replace_args *args = (loop_replace_args *) data;
   rtx m = *mem;
 
   if (m == NULL_RTX)
@@ -9950,25 +10177,34 @@ replace_loop_mem (mem, data)
       return 0;
     }
 
-  ri = (rtx_and_int *) data;
-  i = ri->i;
-
-  if (!rtx_equal_p (loop_mems[i].mem, m))
+  if (!rtx_equal_p (args->match, m))
     /* This is not the MEM we are currently replacing.  */
     return 0;
 
-  insn = ri->r;
-
   /* Actually replace the MEM.  */
-  validate_change (insn, mem, loop_mems[i].reg, 1);
+  validate_change (args->insn, mem, args->replacement, 1);
 
   return 0;
 }
 
+static void
+replace_loop_mems (insn, mem, reg)
+     rtx insn;
+     rtx mem;
+     rtx reg;
+{
+  loop_replace_args args;
+
+  args.insn = insn;
+  args.match = mem;
+  args.replacement = reg;
+
+  for_each_rtx (&insn, replace_loop_mem, &args);
+}
+
 /* Replace one register with another.  Called through for_each_rtx; PX points
-   to the rtx being scanned.  DATA is actually an array of three rtx's; the
-   first one is the one to be replaced, and the second one the replacement.
-   The third one is the current insn.  */
+   to the rtx being scanned.  DATA is actually a pointer to
+   a structure of arguments.  */
 
 static int
 replace_loop_reg (px, data)
@@ -9976,15 +10212,30 @@ replace_loop_reg (px, data)
      void *data;
 {
   rtx x = *px;
-  rtx *array = (rtx *) data;
+  loop_replace_args *args = (loop_replace_args *) data;
 
   if (x == NULL_RTX)
     return 0;
 
-  if (x == array[0])
-    validate_change (array[2], px, array[1], 1);
+  if (x == args->match)
+    validate_change (args->insn, px, args->replacement, 1);
 
   return 0;
+}
+
+static void
+replace_loop_regs (insn, reg, replacement)
+     rtx insn;
+     rtx reg;
+     rtx replacement;
+{
+  loop_replace_args args;
+
+  args.insn = insn;
+  args.match = reg;
+  args.replacement = replacement;
+
+  for_each_rtx (&insn, replace_loop_reg, &args);
 }
 
 /* Replace occurrences of the old exit label for the loop with the new
@@ -10028,7 +10279,8 @@ replace_label (x, data)
 
 #define LOOP_INSN_UID(INSN) ((INSN) ? INSN_UID (INSN) : -1)
 
-static void loop_dump_aux (loop, file, verbose)
+static void
+loop_dump_aux (loop, file, verbose)
      const struct loop *loop;
      FILE *file;
      int verbose;
@@ -10044,7 +10296,7 @@ static void loop_dump_aux (loop, file, verbose)
       || GET_CODE (PREV_INSN (loop->first->head)) != NOTE
       || NOTE_LINE_NUMBER (PREV_INSN (loop->first->head))
       != NOTE_INSN_LOOP_BEG)
-    fprintf (file, ";;  No NOTE_INSN_LOOP_BEG at %d\n", 
+    fprintf (file, ";;  No NOTE_INSN_LOOP_BEG at %d\n",
 	     INSN_UID (PREV_INSN (loop->first->head)));
   if (! NEXT_INSN (loop->last->end)
       || GET_CODE (NEXT_INSN (loop->last->end)) != NOTE
@@ -10069,7 +10321,7 @@ static void loop_dump_aux (loop, file, verbose)
 	       LOOP_INSN_UID (loop->end));
       fprintf (file, ";;  top %d (%d), scan start %d (%d)\n",
 	       LOOP_BLOCK_NUM (loop->top),
-	       LOOP_INSN_UID (loop->top) ,
+	       LOOP_INSN_UID (loop->top),
 	       LOOP_BLOCK_NUM (loop->scan_start),
 	       LOOP_INSN_UID (loop->scan_start));
       fprintf (file, ";;  exit_count %d", loop->exit_count);
@@ -10083,7 +10335,7 @@ static void loop_dump_aux (loop, file, verbose)
 	    }
 	}
       fputs ("\n", file);
-      
+
       /* This can happen when a marked loop appears as two nested loops,
 	 say from while (a || b) {}.  The inner loop won't match
 	 the loop markers but the outer one will.  */
@@ -10091,7 +10343,6 @@ static void loop_dump_aux (loop, file, verbose)
 	fprintf (file, ";;  NOTE_INSN_LOOP_CONT not in loop latch\n");
     }
 }
-  
 
 /* Call this function from the debugger to dump LOOP.  */
 

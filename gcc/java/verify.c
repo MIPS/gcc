@@ -131,6 +131,20 @@ merge_types (type1, type2)
       tt1 = HANDLE_TO_CLASS_TYPE (TREE_TYPE (type1));
       tt2 = HANDLE_TO_CLASS_TYPE (TREE_TYPE (type2));
 
+      /* If tt{1,2} haven't been properly loaded, now is a good time
+         to do it. */
+      if (!TYPE_SIZE (tt1))
+	{
+	  load_class (tt1, 1);
+	  safe_layout_class (tt1);
+	}
+
+      if (!TYPE_SIZE (tt2))
+	{
+	  load_class (tt2, 1);
+	  safe_layout_class (tt2);
+	}
+
       if (TYPE_ARRAY_P (tt1) || TYPE_ARRAY_P (tt2))
 	{
 	  if (TYPE_ARRAY_P (tt1) == TYPE_ARRAY_P (tt2))
@@ -159,6 +173,8 @@ merge_types (type1, type2)
 
       if (CLASS_INTERFACE (TYPE_NAME (tt1)))
 	{
+	  /* FIXME: should see if two interfaces have a common
+	     superinterface.  */
 	  if (CLASS_INTERFACE (TYPE_NAME (tt2)))
 	    {
 	      /* This is a kludge, but matches what Sun's verifier does.
@@ -171,7 +187,7 @@ merge_types (type1, type2)
 	      if (can_widen_reference_to (tt2, tt1))
 		return type1;
 	      else
-		return TYPE_UNKNOWN;
+		return object_ptr_type_node;
 	    }
 	}
       else if (CLASS_INTERFACE (TYPE_NAME (tt2)))
@@ -179,7 +195,7 @@ merge_types (type1, type2)
 	  if (can_widen_reference_to (tt1, tt2))
 	    return type2;
 	  else
-	    return TYPE_UNKNOWN;
+	    return object_ptr_type_node;
 	}
 
       type1 = tt1;

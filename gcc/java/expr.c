@@ -320,9 +320,8 @@ pop_type_0 (type)
       /* This is a kludge, but matches what Sun's verifier does.
 	 It can be tricked, but is safe as long as type errors
 	 (i.e. interface method calls) are caught at run-time. */
-      else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type)))
-	       && t == object_ptr_type_node)
-	return t;
+      /* FIXME: this is worse than a kludge, probably.  */
+      return object_ptr_type_node;
     }
   return NULL_TREE;
 }
@@ -983,10 +982,6 @@ expand_java_pushc (ival, type)
     fatal ("internal error in expand_java_pushc");
   push_value (value);
 }
-
-#ifndef INT_TYPE_SIZE
-#define INT_TYPE_SIZE BITS_PER_WORD
-#endif
 
 static void
 expand_java_return (type)

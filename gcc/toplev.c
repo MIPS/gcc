@@ -795,6 +795,10 @@ int flag_verbose_asm = 0;
 
 int flag_debug_asm = 0;
 
+/* -dP causes the rtl to be emitted as a comment in assembly.  */
+
+int flag_dump_rtl_in_asm = 0;
+
 /* -fgnu-linker specifies use of the GNU linker for initializations.
    (Or, more generally, a linker that handles initializations.)
    -fno-gnu-linker says that collect2 will be used.  */
@@ -3218,7 +3222,7 @@ rest_of_compilation (decl)
 
       /* Discover and record the loop depth at the head of each basic
 	 block.  The loop infrastructure does the real job for us.  */
-      flow_loops_find (&loops);
+      flow_loops_find (&loops, LOOP_TREE);
 
       /* Estimate using heuristics if no profiling info is available.  */
       estimate_probability (&loops);
@@ -3977,6 +3981,10 @@ decode_d_option (arg)
       case 'p':
 	flag_print_asm_name = 1;
 	break;
+      case 'P':
+        flag_dump_rtl_in_asm = 1;
+        flag_print_asm_name = 1;
+        break;
       case 'v':
 	graph_dump_format = vcg;
 	break;

@@ -730,7 +730,7 @@ approx_reg_cost_1 (xp, data)
 /* Return an estimate of the cost of the registers used in an rtx.
    This is mostly the number of different REG expressions in the rtx;
    however for some excecptions like fixed registers we use a cost of
-   0.  */
+   0.  If any other hard register reference occurs, return MAX_COST.  */
 
 static int
 approx_reg_cost (x)
@@ -739,6 +739,7 @@ approx_reg_cost (x)
   regset_head set;
   int i;
   int cost = 0;
+  int hardregs = 0;
 
   INIT_REG_SET (&set);
   for_each_rtx (&x, approx_reg_cost_1, (void *)&set);
@@ -747,11 +748,16 @@ approx_reg_cost (x)
     (&set, 0, i,
      {
        if (! CHEAP_REGNO (i))
-	 cost++;
+	 {
+	   if (i < FIRST_PSEUDO_REGISTER)
+	     hardregs++;
+
+	   cost += i < FIRST_PSEUDO_REGISTER ? 2 : 1;
+	 }
      });
 
   CLEAR_REG_SET (&set);
-  return cost;
+  return hardregs && SMALL_REGISTER_CLASSES ? MAX_COST : cost;
 }
 
 /* Return a negative value if an rtx A, whose costs are given by COST_A
@@ -762,8 +768,29 @@ static int
 preferrable (cost_a, regcost_a, cost_b, regcost_b)
      int cost_a, regcost_a, cost_b, regcost_b;
 {
+  /* First, get rid of a cases involving expressions that are entirely
+     unwanted.  */
+  if (cost_a != cost_b)
+    {
+      if (cost_a == MAX_COST)
+	return 1;
+      if (cost_b == MAX_COST)
+	return -1;
+    }
+
+  /* Avoid extending lifetimes of hardregs.  */
+  if (regcost_a != regcost_b)
+    {
+      if (regcost_a == MAX_COST)
+	return 1;
+      if (regcost_b == MAX_COST)
+	return -1;
+    }
+
+  /* Normal operation costs take precedence.  */
   if (cost_a != cost_b)
     return cost_a - cost_b;
+  /* Only if these are identical consider effects on register pressure.  */
   if (regcost_a != regcost_b)
     return regcost_a - regcost_b;
   return 0;
@@ -788,12 +815,6 @@ notreg_cost (x)
 	  ? 0
 	  : rtx_cost (x, SET) * 2);
 }
-
-/* Return the right cost to give to an operation
-   to make the cost of the corresponding register-to-register instruction
-   N times that of a fast register-to-register instruction.  */
-
-#define COSTS_N_INSNS(N) ((N) * 2)
 
 /* Return an estimate of the cost of computing rtx X.
    One use is in cse, to decide which expression to keep in the hash table.
@@ -2331,6 +2352,28 @@ canon_hash (x, mode)
       x = XEXP (x, 0);
       goto repeat;
 
+    case USE:
+      /* A USE that mentions non-volatile memory needs special
+	 handling since the MEM may be BLKmode which normally
+	 prevents an entry from being made.  Pure calls are
+	 marked by a USE which mentions BLKmode memory.  */
+      if (GET_CODE (XEXP (x, 0)) == MEM
+	  && ! MEM_VOLATILE_P (XEXP (x, 0)))
+	{
+	  hash += (unsigned)USE;
+	  x = XEXP (x, 0);
+
+	  if (! RTX_UNCHANGING_P (x) || FIXED_BASE_PLUS_P (XEXP (x, 0)))
+	    hash_arg_in_memory = 1;
+
+	  /* Now that we have already found this special case,
+	     might as well speed it up as much as possible.  */
+	  hash += (unsigned) MEM;
+	  x = XEXP (x, 0);
+	  goto repeat;
+	}
+      break;
+
     case PRE_DEC:
     case PRE_INC:
     case POST_DEC:
@@ -3611,6 +3654,13 @@ fold_rtx (x, insn)
 	return x;
       }
 
+#ifdef NO_FUNCTION_CSE
+    case CALL:
+      if (CONSTANT_P (XEXP (XEXP (x, 0), 0)))
+	return x;
+      break;
+#endif
+
     case ASM_OPERANDS:
       for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
 	validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
@@ -4874,8 +4924,8 @@ cse_insn (insn, libcall_insn)
       rtx src_const = 0;
       rtx src_related = 0;
       struct table_elt *src_const_elt = 0;
-      int src_cost = 10000, src_eqv_cost = 10000, src_folded_cost = 10000;
-      int src_related_cost = 10000, src_elt_cost = 10000;
+      int src_cost = MAX_COST, src_eqv_cost = MAX_COST, src_folded_cost = MAX_COST;
+      int src_related_cost = MAX_COST, src_elt_cost = MAX_COST;
       int src_regcost, src_eqv_regcost, src_folded_regcost;
       int src_related_regcost, src_elt_regcost;
       /* Set non-zero if we need to call force_const_mem on with the
@@ -5284,7 +5334,7 @@ cse_insn (insn, libcall_insn)
       if (src)
 	{
 	  if (rtx_equal_p (src, dest))
-	    src_cost = -1;
+	    src_cost = src_regcost = -1;
 	  else
 	    {
 	      src_cost = COST (src);
@@ -5295,7 +5345,7 @@ cse_insn (insn, libcall_insn)
       if (src_eqv_here)
 	{
 	  if (rtx_equal_p (src_eqv_here, dest))
-	    src_eqv_cost = -1;
+	    src_eqv_cost = src_eqv_regcost = -1;
 	  else
 	    {
 	      src_eqv_cost = COST (src_eqv_here);
@@ -5306,7 +5356,7 @@ cse_insn (insn, libcall_insn)
       if (src_folded)
 	{
 	  if (rtx_equal_p (src_folded, dest))
-	    src_folded_cost = -1;
+	    src_folded_cost = src_folded_regcost = -1;
 	  else
 	    {
 	      src_folded_cost = COST (src_folded);
@@ -5317,7 +5367,7 @@ cse_insn (insn, libcall_insn)
       if (src_related)
 	{
 	  if (rtx_equal_p (src_related, dest))
-	    src_related_cost = -1;
+	    src_related_cost = src_related_regcost = -1;
 	  else
 	    {
 	      src_related_cost = COST (src_related);
@@ -5328,7 +5378,7 @@ cse_insn (insn, libcall_insn)
       /* If this was an indirect jump insn, a known label will really be
 	 cheaper even though it looks more expensive.  */
       if (dest == pc_rtx && src_const && GET_CODE (src_const) == LABEL_REF)
-	src_folded = src_const, src_folded_cost = -1;
+	src_folded = src_const, src_folded_cost = src_folded_regcost -1;
 
       /* Terminate loop when replacement made.  This must terminate since
          the current contents will be tested and will always be valid.  */
@@ -5378,7 +5428,7 @@ cse_insn (insn, libcall_insn)
 	      && preferrable (src_folded_cost, src_folded_regcost,
 			      src_elt_cost, src_elt_regcost) <= 0)
 	    {
-	      trial = src_folded, src_folded_cost = 10000;
+	      trial = src_folded, src_folded_cost = MAX_COST;
 	      if (src_folded_force_flag)
 		trial = force_const_mem (mode, trial);
 	    }
@@ -5388,20 +5438,20 @@ cse_insn (insn, libcall_insn)
 				   src_related_cost, src_related_regcost) <= 0
 		   && preferrable (src_cost, src_regcost,
 				   src_elt_cost, src_elt_regcost) <= 0)
-	    trial = src, src_cost = 10000;
+	    trial = src, src_cost = MAX_COST;
 	  else if (preferrable (src_eqv_cost, src_eqv_regcost,
 				src_related_cost, src_related_regcost) <= 0
 		   && preferrable (src_eqv_cost, src_eqv_regcost,
 				   src_elt_cost, src_elt_regcost) <= 0)
-	    trial = copy_rtx (src_eqv_here), src_eqv_cost = 10000;
+	    trial = copy_rtx (src_eqv_here), src_eqv_cost = MAX_COST;
 	  else if (preferrable (src_related_cost, src_related_regcost,
 				src_elt_cost, src_elt_regcost) <= 0)
-  	    trial = copy_rtx (src_related), src_related_cost = 10000;
+  	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
 	  else
 	    {
 	      trial = copy_rtx (elt->exp);
 	      elt = elt->next_same_value;
-	      src_elt_cost = 10000;
+	      src_elt_cost = MAX_COST;
 	    }
 
 	  /* We don't normally have an insn matching (set (pc) (pc)), so
@@ -5732,9 +5782,15 @@ cse_insn (insn, libcall_insn)
 
       else if (do_not_record)
 	{
-	  if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG
-	      || GET_CODE (dest) == MEM)
+	  if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG)
 	    invalidate (dest, VOIDmode);
+	  else if (GET_CODE (dest) == MEM)
+	    {
+	      /* Outgoing arguments for a libcall don't
+		 affect any recorded expressions.  */
+	      if (! libcall_insn || insn == libcall_insn)
+		invalidate (dest, VOIDmode);
+	    }
 	  else if (GET_CODE (dest) == STRICT_LOW_PART
 		   || GET_CODE (dest) == ZERO_EXTRACT)
 	    invalidate (XEXP (dest, 0), GET_MODE (dest));
@@ -5891,9 +5947,15 @@ cse_insn (insn, libcall_insn)
 	   previous quantity's chain.
 	   Needed for memory if this is a nonvarying address, unless
 	   we have just done an invalidate_memory that covers even those.  */
-	if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG
-	    || GET_CODE (dest) == MEM)
+	if (GET_CODE (dest) == REG || GET_CODE (dest) == SUBREG)
 	  invalidate (dest, VOIDmode);
+	else if (GET_CODE (dest) == MEM)
+	  {
+	    /* Outgoing arguments for a libcall don't
+	       affect any recorded expressions.  */
+	    if (! libcall_insn || insn == libcall_insn)
+	      invalidate (dest, VOIDmode);
+	  }
 	else if (GET_CODE (dest) == STRICT_LOW_PART
 		 || GET_CODE (dest) == ZERO_EXTRACT)
 	  invalidate (XEXP (dest, 0), GET_MODE (dest));

@@ -558,30 +558,6 @@
 	cmp/eq	%1,%0
 	cmp/eq	%1,%0")
 
-(define_insn "cmpeqsi_ior_t"
-  [(set (reg:SI 18)
-	(ior:SI (reg:SI 18)
-		(eq:SI (match_operand:SI 0 "arith_reg_operand" "r,z,r")
-		       (match_operand:SI 1 "arith_operand" "N,rI,r"))))]
-  ""
-  "@
-	bt .+4\;tst	%0,%0
-	bt .+4\;cmp/eq	%1,%0
-	bt .+4\;cmp/eq	%1,%0"
-  [(set_attr "length" "4")])
-
-(define_insn "cmpeqsi_and_t"
-  [(set (reg:SI 18)
-	(and:SI (reg:SI 18)
-		(eq:SI (match_operand:SI 0 "arith_reg_operand" "r,z,r")
-		       (match_operand:SI 1 "arith_operand" "N,rI,r"))))]
-  ""
-  "@
-	bf .+4\;tst	%0,%0
-	bf .+4\;cmp/eq	%1,%0
-	bf .+4\;cmp/eq	%1,%0"
-  [(set_attr "length" "4")])
-
 (define_insn "cmpgtsi_t"
   [(set (reg:SI 18) (gt:SI (match_operand:SI 0 "arith_reg_operand" "r,r")
 			   (match_operand:SI 1 "arith_reg_or_0_operand" "r,N")))]
@@ -651,18 +627,25 @@
   [(set (reg:SI 18) (eq:SI (match_operand:DI 0 "arith_reg_operand" "r,r")
 			   (match_operand:DI 1 "arith_reg_or_0_operand" "N,r")))]
   ""
-  "#"
+  "@
+	tst	%S0,%S0\;bf	%,Ldi%=\;tst	%R0,%R0\\n%,Ldi%=:
+	cmp/eq	%S1,%S0\;bf	%,Ldi%=\;cmp/eq	%R1,%R0\\n%,Ldi%=:"
   [(set_attr "length" "6")
    (set_attr "type" "arith3b")])
 
 (define_split
   [(set (reg:SI 18) (eq:SI (match_operand:DI 0 "arith_reg_operand" "r,r")
 			   (match_operand:DI 1 "arith_reg_or_0_operand" "N,r")))]
-  "reload_completed"
+;; If we applied this split when not optimizing, it would only be
+;; applied during the machine-dependent reorg, when no new basic blocks
+;; may be created.
+  "reload_completed && optimize"
   [(set (reg:SI 18) (eq:SI (match_dup 2) (match_dup 3)))
-   (set (reg:SI 18)
-	(and:SI (reg:SI 18)
-		(eq:SI (match_dup 4) (match_dup 5))))]
+   (set (pc) (if_then_else (eq (reg:SI 18) (const_int 0))
+			   (label_ref (match_dup 6))
+			   (pc)))
+   (set (reg:SI 18) (eq:SI (match_dup 4) (match_dup 5)))
+   (match_dup 6)]
   "
 {
   operands[2]
@@ -676,6 +659,7 @@
 		      + (TARGET_LITTLE_ENDIAN ? 1 : 0)));
   operands[4] = gen_lowpart (SImode, operands[0]);
   operands[5] = gen_lowpart (SImode, operands[1]);
+  operands[6] = gen_label_rtx ();
 }")
 
 (define_insn "cmpgtdi_t"
@@ -2367,7 +2351,7 @@
    (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,0")])
 
 (define_insn "movsi_i_lowpart"
-  [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,r,m,r"))
+  [(set (strict_low_part (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,m,r"))
 	(match_operand:SI 1 "general_movsrc_operand" "Q,rI,mr,xl,t,r,i"))]
    "register_operand (operands[0], SImode)
     || register_operand (operands[1], SImode)"
@@ -3532,7 +3516,7 @@ else
 			 (unspec [(match_operand:SI 1 "" "")] 9))
 		(const (plus:SI (label_ref (match_operand:SI 2 "" ""))
 				(const_int 2))))))
-   (use (match_dup 2))]
+   (use (match_dup 3))]
   ;; Even though the PIC register is not really used by the call
   ;; sequence in which this is expanded, the PLT code assumes the PIC
   ;; register is set, so we must not skip its initialization.  Since
@@ -3546,7 +3530,7 @@ else
   ;; shared libraries.
   "" "
 {
-  operands[2] = pic_offset_table_rtx;
+  operands[3] = pic_offset_table_rtx;
   current_function_uses_pic_offset_table = 1;
 }")
 

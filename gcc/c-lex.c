@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "flags.h"
 #include "timevar.h"
+#include "cpplib.h"
 #include "c-pragma.h"
 #include "toplev.h"
 #include "intl.h"
@@ -51,8 +52,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GET_ENVIRONMENT
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
-
-#include "cpplib.h"
 
 #if USE_CPPLIB
 extern cpp_reader  parse_in;
@@ -162,6 +161,7 @@ static void cb_ident		PARAMS ((cpp_reader *, const unsigned char *,
 static void cb_enter_file	PARAMS ((cpp_reader *));
 static void cb_leave_file	PARAMS ((cpp_reader *));
 static void cb_rename_file	PARAMS ((cpp_reader *));
+static void cb_def_pragma	PARAMS ((cpp_reader *));
 #endif
 
 
@@ -210,6 +210,7 @@ init_c_lex (filename)
   parse_in.cb.enter_file = cb_enter_file;
   parse_in.cb.leave_file = cb_leave_file;
   parse_in.cb.rename_file = cb_rename_file;
+  parse_in.cb.def_pragma = cb_def_pragma;
 
   /* Make sure parse_in.digraphs matches flag_digraphs.  */
   CPP_OPTION (&parse_in, digraphs) = flag_digraphs;
@@ -437,7 +438,7 @@ process_directive ()
   int action_number, l;
   char *new_file;
 #ifndef NO_IMPLICIT_EXTERN_C
-  int entering_c_header;
+  int entering_c_header = 0;
 #endif
   
   /* Don't read beyond this line.  */
@@ -458,17 +459,6 @@ process_directive ()
 	{
 	  dispatch_pragma ();
 	  goto skipline;
-
-#if 0
-#ifdef HANDLE_PRAGMA
-	  /* We invoke HANDLE_PRAGMA before HANDLE_GENERIC_PRAGMAS
-	     (if both are defined), in order to give the back
-	     end a chance to override the interpretation of
-	     SYSV style pragmas.  */
-	  if (HANDLE_PRAGMA (getch, put_back, IDENTIFIER_POINTER (value)))
-	    goto skipline;
-#endif /* HANDLE_PRAGMA */
-#endif
 	}
       else if (!strcmp (name, "define"))
 	{
@@ -776,6 +766,27 @@ cb_rename_file (pfile)
   update_header_times (ip->nominal_fname);
   /* Hook for C++.  */
   extract_interface_info ();
+}
+
+static void
+cb_def_pragma (pfile)
+     cpp_reader *pfile;
+{
+  /* Issue a warning message if we have been asked to do so.  Ignore
+     unknown pragmas in system headers unless an explicit
+     -Wunknown-pragmas has been given. */
+  if (warn_unknown_pragmas > in_system_header)
+    {
+      const unsigned char *space, *name;
+      const cpp_token *t = pfile->first_directive_token + 2;
+
+      space = t[0].val.node->name;
+      name  = t[1].type == CPP_NAME ? t[1].val.node->name : 0;
+      if (name)
+	warning ("ignoring #pragma %s %s", space, name);
+      else
+	warning ("ignoring #pragma %s", space);
+    }
 }
 #endif /* USE_CPPLIB */
 
@@ -2370,7 +2381,7 @@ lex_string (str, len, wide)
       if (wide)
 	{
 	  unsigned charwidth = TYPE_PRECISION (char_type_node);
-	  unsigned bytemask = (1 << width) - 1;
+	  unsigned bytemask = (1 << charwidth) - 1;
 	  int byte;
 
 	  for (byte = 0; byte < WCHAR_BYTES; ++byte)

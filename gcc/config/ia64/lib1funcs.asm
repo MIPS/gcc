@@ -96,8 +96,11 @@ __divdf3:
 	.global __divsf3
 	.proc __divsf3
 __divsf3:
+	cmp.eq p7, p0 = r0, r0
 	frcpa.s0 f10, p6 = farg0, farg1
 	;;
+(p6)	cmp.ne p7, p0 = r0, r0
+	.pred.rel.mutex p6, p7
 (p6)	fmpy.s1 f8 = farg0, f10
 (p6)	fnma.s1 f9 = farg1, f10, f1
 	;;
@@ -109,7 +112,8 @@ __divsf3:
 	;;
 (p6)	fma.d.s1 f10 = f9, f8, f8
 	;;
-	fnorm.s.s0 fret0 = f10
+(p6)	fnorm.s.s0 fret0 = f10
+(p7)	mov fret0 = f10
 	br.ret.sptk rp
 	;;
 	.endp __divsf3
@@ -349,7 +353,7 @@ __divsi3:
 	fcvt.xf f9 = f9
 	;;
 	setf.exp f11 = r2
-	frcpa f10, p6 = f8, f9
+	frcpa.s1 f10, p6 = f8, f9
 	;;
 (p6)	fmpy.s1 f8 = f8, f10
 (p6)	fnma.s1 f9 = f9, f10, f1
@@ -393,7 +397,7 @@ __modsi3:
 	fcvt.xf f9 = f9
 	;;
 	setf.exp f11 = r2
-	frcpa f10, p6 = f8, f9
+	frcpa.s1 f10, p6 = f8, f9
 	;;
 (p6)	fmpy.s1 f12 = f8, f10
 (p6)	fnma.s1 f10 = f9, f10, f1
@@ -435,8 +439,11 @@ __udivsi3:
 	setf.sig f8 = in0
 	setf.sig f9 = in1
 	;;
+	fcvt.xf f8 = f8
+	fcvt.xf f9 = f9
+	;;
 	setf.exp f11 = r2
-	frcpa f10, p6 = f8, f9
+	frcpa.s1 f10, p6 = f8, f9
 	;;
 (p6)	fmpy.s1 f8 = f8, f10
 (p6)	fnma.s1 f9 = f9, f10, f1
@@ -480,7 +487,7 @@ __umodsi3:
 	fcvt.xf f9 = f9
 	;;
 	setf.exp f11 = r2
-	frcpa f10, p6 = f8, f9
+	frcpa.s1 f10, p6 = f8, f9
 	;;
 (p6)	fmpy.s1 f12 = f8, f10
 (p6)	fnma.s1 f10 = f9, f10, f1

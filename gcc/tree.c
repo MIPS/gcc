@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "hashtab.h"
 #include "output.h"
+#include "defaults.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -4424,6 +4425,21 @@ tree_int_cst_lt (t1, t2)
   return INT_CST_LT_UNSIGNED (t1, t2);
 }
 
+/* Returns -1 if T1 < T2, 0 if T1 == T2, and 1 if T1 > T2.  */
+
+int
+tree_int_cst_compare (t1, t2)
+     tree t1;
+     tree t2;
+{
+  if (tree_int_cst_lt (t1, t2))
+    return -1;
+  else if (tree_int_cst_lt (t2, t1))
+    return 1;
+  else 
+    return 0;
+}
+
 /* Return 1 if T is an INTEGER_CST that can be represented in a single
    HOST_WIDE_INT value.  If POS is nonzero, the result must be positive.  */
 
@@ -5886,38 +5902,6 @@ finish_vector_type (t)
     TYPE_UID (rt) = TYPE_UID (t);
   }
 }
-
-#ifndef CHAR_TYPE_SIZE
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
-#endif
-
-#ifndef SHORT_TYPE_SIZE
-#define SHORT_TYPE_SIZE (BITS_PER_UNIT * MIN ((UNITS_PER_WORD + 1) / 2, 2))
-#endif
-
-#ifndef INT_TYPE_SIZE
-#define INT_TYPE_SIZE BITS_PER_WORD
-#endif
-
-#ifndef LONG_TYPE_SIZE
-#define LONG_TYPE_SIZE BITS_PER_WORD
-#endif
-
-#ifndef LONG_LONG_TYPE_SIZE
-#define LONG_LONG_TYPE_SIZE (BITS_PER_WORD * 2)
-#endif
-
-#ifndef FLOAT_TYPE_SIZE
-#define FLOAT_TYPE_SIZE BITS_PER_WORD
-#endif
-
-#ifndef DOUBLE_TYPE_SIZE
-#define DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
-#endif
-
-#ifndef LONG_DOUBLE_TYPE_SIZE
-#define LONG_DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
-#endif
 
 /* Create nodes for all integer types (and error_mark_node) using the sizes
    of C datatypes.  The caller should call set_sizetype soon after calling

@@ -1423,8 +1423,9 @@ typedef struct rs6000_args
 #define RS6000_ARG_SIZE(MODE, TYPE, NAMED)				\
 (! (NAMED) ? 0								\
  : (MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD 	\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+ ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD	\
+ : ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) 			\
+    + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -2301,17 +2302,6 @@ do {									     \
 
 extern struct rtx_def *rs6000_compare_op0, *rs6000_compare_op1;
 extern int rs6000_compare_fp_p;
-
-/* Set to non-zero by "fix" operation to indicate that itrunc and
-   uitrunc must be defined.  */
-
-extern int rs6000_trunc_used;
-
-/* Function names to call to do floating point truncation.  */
-
-#define RS6000_ITRUNC "__itrunc"
-#define RS6000_UITRUNC "__uitrunc"
-
 
 /* Control the assembler format that we output.  */
 

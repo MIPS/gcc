@@ -128,7 +128,8 @@ int at_eof;
 
 /* Functions called along with real static constructors and destructors.  */
 
-tree static_ctors, static_dtors;
+tree static_ctors;
+tree static_dtors;
 
 /* The :: namespace. */
 
@@ -4329,35 +4330,6 @@ finish_decl_parsing (decl)
     }
 }
 
-tree
-check_cp_case_value (value)
-     tree value;
-{
-  if (value == NULL_TREE)
-    return value;
-
-  /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-  STRIP_TYPE_NOPS (value);
-  value = decl_constant_value (value);
-  STRIP_TYPE_NOPS (value);
-  value = fold (value);
-
-  if (TREE_CODE (value) != INTEGER_CST
-      && value != error_mark_node)
-    {
-      cp_error ("case label `%E' does not reduce to an integer constant",
-		value);
-      value = error_mark_node;
-    }
-  else
-    /* Promote char or short to int.  */
-    value = default_conversion (value);
-
-  constant_expression_warning (value);
-
-  return value;
-}
-
 /* Return 1 if root encloses child. */
 
 static int
@@ -5465,7 +5437,7 @@ tree
 handle_class_head (aggr, scope, id)
      tree aggr, scope, id;
 {
-  tree decl;
+  tree decl = NULL_TREE;
 
   if (TREE_CODE (id) == TYPE_DECL)
     /* We must bash typedefs back to the main decl of the type. Otherwise
@@ -5475,7 +5447,7 @@ handle_class_head (aggr, scope, id)
     decl = DECL_TEMPLATE_RESULT (id);
   else 
     {
-      tree current = current_scope();
+      tree current = current_scope ();
   
       if (current == NULL_TREE)
         current = current_namespace;
@@ -5483,7 +5455,17 @@ handle_class_head (aggr, scope, id)
         scope = global_namespace;
       if (scope == NULL_TREE)
         scope = global_namespace;
-      if (scope == current)
+
+      if (TYPE_P (scope))
+	{
+	  /* According to the suggested resolution of core issue 180,
+	     'typename' is assumed after a class-key.  */
+	  decl = make_typename_type (scope, id, 1);
+	  if (decl == error_mark_node)
+	    return error_mark_node;
+	  decl = TYPE_MAIN_DECL (decl);
+	}
+      else if (scope == current)
         {
           /* We've been given AGGR SCOPE::ID, when we're already inside SCOPE.
              Be nice about it.  */
@@ -5497,7 +5479,8 @@ handle_class_head (aggr, scope, id)
 	cp_error ("no file-scope type named `%D'", id);
       
       /* Inject it at the current scope.  */
-      decl = TYPE_MAIN_DECL (xref_tag (aggr, id, 1));
+      if (!decl)
+	decl = TYPE_MAIN_DECL (xref_tag (aggr, id, 1));
     }
  
   /* Enter the SCOPE.  If this turns out not to be a definition, the

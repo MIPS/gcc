@@ -7269,7 +7269,8 @@ tsubst_expr (t, args, complain, in_decl)
     case CASE_LABEL:
       prep_stmt (t);
       finish_case_label (tsubst_expr (CASE_LOW (t), args, complain, in_decl),
-			 tsubst_expr (CASE_HIGH (t), args, complain, in_decl));
+			 tsubst_expr (CASE_HIGH (t), args, complain,
+				      in_decl));
       break;
 
     case LABEL_STMT:
@@ -9685,7 +9686,6 @@ instantiate_decl (d, defer_ok)
 
       /* Set up context.  */
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
-      store_parm_decls ();
 
       /* We already set up __FUNCTION__, etc., so we don't want to do
 	 it again now.  */
