@@ -2061,6 +2061,15 @@ prepare_def_sites (bitmap blocks, bool insert_phi_p)
   unsigned i;
   bitmap_iterator bi;
 
+  /* If a name N from NEW_SSA_NAMES is also marked to be released,
+     remove it from NEW_SSA_NAMES so that we don't try to visit its
+     defining basic block (which most likely doesn't exist).  Notice
+     that we cannot do the same with names in OLD_SSA_NAMES because we
+     want to replace existing instances.  */
+  if (names_to_release)
+    EXECUTE_IF_SET_IN_BITMAP (names_to_release, 0, i, bi)
+      RESET_BIT (new_ssa_names, i);
+
   EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i,
     prepare_def_site_for (i, blocks, insert_phi_p));
 

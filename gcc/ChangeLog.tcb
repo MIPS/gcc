@@ -1,3 +1,8 @@
+2005-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (prepare_def_sites): If a new name has been
+	marked to be released, remove it from NEW_SSA_NAMES.
+
 2005-03-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* domwalk.c (walk_dominator_tree): Fix typo.
