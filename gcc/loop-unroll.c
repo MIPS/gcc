@@ -230,7 +230,8 @@ decide_unrolling_and_peeling (loops, flags)
 	{
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, ";; Not considering loop, is not innermost\n");
-	  return;
+	  loop = next;
+	  continue;
 	}
 
       loop->ninsns = num_loop_insns (loop);

@@ -1,4 +1,8 @@
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-unroll.c (decide_unrolling_and_peeling): Fix.
+
+2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	
 	* profile.c (gen_loop_profiler): Fix.
 
