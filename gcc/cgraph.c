@@ -84,6 +84,7 @@ The varpool data structure:
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
 #include "toplev.h"
@@ -163,6 +164,7 @@ cgraph_create_node (void)
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
   node->previous = NULL;
+  node->static_vars_info = NULL;
   cgraph_nodes = node;
   cgraph_n_nodes++;
   return node;
@@ -184,7 +186,12 @@ cgraph_node (tree decl)
   slot = (struct cgraph_node **) htab_find_slot (cgraph_hash, &key, INSERT);
 
   if (*slot)
-    return *slot;
+    {
+      node = *slot;
+      if (!node->master_clone)
+	node->master_clone = node;
+      return node;
+    }
 
   node = cgraph_create_node ();
   node->decl = decl;
@@ -194,6 +201,7 @@ cgraph_node (tree decl)
       node->origin = cgraph_node (DECL_CONTEXT (decl));
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
+      node->master_clone = node;
     }
   return node;
 }
@@ -316,13 +324,24 @@ cgraph_remove_node (struct cgraph_node *node)
     node->previous->next = node->next;
   else
     cgraph_nodes = node->next;
+
   if (node->next)
     node->next->previous = node->previous;
   slot = htab_find_slot (cgraph_hash, node, NO_INSERT);
   if (*slot == node)
     {
       if (node->next_clone)
-	*slot = node->next_clone;
+	{
+	  struct cgraph_node *new_node = node->next_clone;
+	  struct cgraph_node *n;
+	  *slot = new_node;
+	  
+	  /* Make the next clone be the master clone */
+	  for (n = new_node; n; n = n->next_clone) 
+	    n->master_clone = new_node;
+	
+	  new_node->master_clone = new_node;
+	}
       else
 	{
           htab_clear_slot (cgraph_hash, slot);
@@ -461,18 +480,33 @@ cgraph_varpool_node_name (struct cgraph_varpool_node *node)
 static const char * const availability_names[] = 
   {"not_available", "overwrittable", "available", "local"};
 
+/* Return name of the node used in debug output.  */
+static const char *
+cgraph_varpool_node_name (struct cgraph_varpool_node *node)
+{
+  return lang_hooks.decl_printable_name (node->decl, 2);
+}
+
+/* Names used to print out the availability enum.  */
+static const char * const availability_names[] = 
+  {"not_available", "overwrittable", "available", "local"};
+
 /* Dump given cgraph node.  */
 void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
+  struct cgraph_node *n;
   struct cgraph_edge *edge;
 
   fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
+  if (node->master_clone && node->master_clone->uid != node->uid)
+    fprintf (f, "(%i)", node->master_clone->uid);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
 	     node->global.inlined_to->uid);
-  fprintf (f, " availability:%s", availability_names [cgraph_function_body_availability (node)]);
+  fprintf (f, " availability:%s", 
+	   availability_names [cgraph_function_body_availability (node)]);
   if (node->local.self_insns)
     fprintf (f, " %i insns", node->local.self_insns);
   if (node->local.self_insns)
@@ -491,10 +525,20 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " output");
   if (node->local.local)
     fprintf (f, " local");
+  if (node->local.externally_visible)
+    fprintf (f, " externally_visible");
+  if (node->local.finalized)
+    fprintf (f, " finalized");
+  if (node->local.calls_read_all)
+    fprintf (f, " calls_read_all");
+  if (node->local.calls_write_all)
+    fprintf (f, " calls_write_all");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)
     fprintf (f, " inlinable");
+  if (node->local.redefined_extern_inline)
+    fprintf (f, " redefined_extern_inline");
   if (TREE_ASM_WRITTEN (node->decl))
     fprintf (f, " asm_written");
 
@@ -515,6 +559,10 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
     }
+  fprintf (f, "\n  cycle: ");
+  n = node->next_cycle;
+  while (n)
+    fprintf (f, "%s/%i ", cgraph_node_name (n), n->uid);
   fprintf (f, "\n");
 }
 /* Dump the callgraph.  */
@@ -758,9 +806,11 @@ cgraph_clone_node (struct cgraph_node *n)
       new->origin->nested = new;
     }
   new->analyzed = n->analyzed;
+  new->static_vars_info = n->static_vars_info;
   new->local = n->local;
   new->global = n->global;
   new->rtl = n->rtl;
+  new->master_clone = n->master_clone;
 
   for (e = n->callees;e; e=e->next_callee)
     cgraph_clone_edge (e, new, e->call_expr);
@@ -769,6 +819,67 @@ cgraph_clone_node (struct cgraph_node *n)
   n->next_clone = new;
 
   return new;
+}
+
+/* Return true if N is an master_clone, (see cgraph_master_clone).  */
+
+bool
+cgraph_is_master_clone (struct cgraph_node *n)
+{
+  return (n == cgraph_master_clone (n));
+}
+
+/* Return true if N is an immortal_master_clone, (see
+   cgraph_immortal_master_clone).  */
+
+bool
+cgraph_is_immortal_master_clone (struct cgraph_node *n)
+{
+  return (n == cgraph_immortal_master_clone (n));
+}
+
+/* Return pointer to the callgraph node presenting master clone of N.
+   For functions defined outside the compilation unit, NULL is
+   returned.  For inline functions that have no out of line clone to
+   be output this the choice of which is the master is random and this
+   node will not exist after inlining has happened.  For inline
+   functions that do have an out of line clone to be output, the
+   master clone is a cgraph node that will not be released before any
+   of the clones.  */
+
+struct cgraph_node *
+cgraph_master_clone (struct cgraph_node *n)
+{
+  enum availability avail = cgraph_function_body_availability (n);
+   
+  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITTABLE)
+    return NULL;
+
+  if (!n->master_clone) 
+    n->master_clone = cgraph_node (n->decl);
+  
+  return n->master_clone;
+}
+
+/* Return pointer to the callgraph node presenting immortal master
+   clone of N, if one exists, NULL otherwise.  The immortal master
+   clone is a cgraph node that will not be released before any of the
+   clones and thus it is usefull for holding information about
+   function body that is the same for all clones.  Inline functions
+   that have no out of line clone to be output have a master node that
+   is not immortal.  For functions defined outside the compilation
+   unit, NULL is returned.  */
+
+struct cgraph_node *
+cgraph_immortal_master_clone (struct cgraph_node *n)
+{
+  struct cgraph_node *master = cgraph_master_clone (n);
+  if (!master) 
+    return NULL;
+
+  if (master->global.inlined_to)
+    return NULL;
+  return master;
 }
 
 /* NODE is no longer nested function; update cgraph accordingly.  */
@@ -789,29 +900,41 @@ cgraph_unnest_node (struct cgraph_node *node)
 enum availability
 cgraph_function_body_availability (struct cgraph_node *node)
 {
-  if (!node->local.finalized)
-    return AVAIL_NOT_AVAILABLE;
-  if (node->local.local)
-    return AVAIL_LOCAL;
-  if (!node->local.externally_visible)
-    return AVAIL_AVAILABLE;
-  /* If the function can be overwritted, return OVERWRITTABLE.  Take care
-     at least of two notable extensions - the COMDAT functions used to share
-     template instantiations in C++ (this is symmetric to code
-     cp_cannot_inline_tree_fn and probably shall be shared and the inlinability
-     hooks completelly elliminated).
-     ??? Does C++ one definition rule allow us to always return AVAIL_AVAILABLE
-     here?  That would be good reason to preserve this hook
-     Similarly deal with extern inline functions - this is aggain neccesary to
-     get C++ shared functions having keyed templates right and in the C
-     extension documentation we probably should document the requirement of
-     both versions of function (extern inline and offline) having same side
-     effect characteristics as good optimization is what this optimization
-     is about.  */
-  if (!(*targetm.binds_local_p) (node->decl)
-      && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
-    return AVAIL_OVERWRITTABLE;
-  return AVAIL_AVAILABLE;
+  enum availability avail = node->local.avail;
+
+  if (avail != AVAIL_UNSET)
+    return avail;
+  else if (!node->local.finalized)
+    avail = AVAIL_NOT_AVAILABLE;
+  else if (node->local.local)
+    avail = AVAIL_LOCAL;
+  else if (!node->local.externally_visible)
+    avail = AVAIL_AVAILABLE;
+
+  /* If the function can be overwritten, return OVERWRITTABLE.  Take
+     care at least of two notable extensions - the COMDAT functions
+     used to share template instantiations in C++ (this is symmetric
+     to code cp_cannot_inline_tree_fn and probably shall be shared and
+     the inlinability hooks completelly elliminated).
+
+     ??? Does the C++ one definition rule allow us to always return
+     AVAIL_AVAILABLE here?  That would be good reason to preserve this
+     hook Similarly deal with extern inline functions - this is again
+     neccesary to get C++ shared functions having keyed templates
+     right and in the C extension documentation we probably should
+     document the requirement of both versions of function (extern
+     inline and offline) having same side effect characteristics as
+     good optimization is what this optimization is about.  */
+  
+  else if (!(*targetm.binds_local_p) (node->decl)
+	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
+    if (tree_inlinable_function_p (node->decl))
+      avail = AVAIL_OVERWRITTABLE_BUT_INLINABLE;
+    else 
+      avail = AVAIL_OVERWRITTABLE;
+  else avail = AVAIL_AVAILABLE;
+  node->local.avail = avail;
+  return avail;
 }
 
 /* Return variable availability.  See cgraph.h for description of individual
@@ -823,9 +946,9 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
     return AVAIL_AVAILABLE;
-  /* If the variable can be overwritted, return OVERWRITTABLE.  Take care
-     at least of two notable extensions - the COMDAT variables used to share
-     template instantiations in C++.  */
+  /* If the variable can be overwritted, return OVERWRITTABLE.  Takes
+     care of at least two notable extensions - the COMDAT variables
+     used to share template instantiations in C++.  */
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
     return AVAIL_OVERWRITTABLE;
   return AVAIL_AVAILABLE;

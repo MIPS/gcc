@@ -21,13 +21,39 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
-#include "tree.h"
+#include "ipa-static.h"
+
+enum availability
+{
+  /* Not yet set by cgraph_function_body_availability.  */
+  AVAIL_UNSET,
+  /* Function body/variable initializer is unknown.  */
+  AVAIL_NOT_AVAILABLE,
+  /* Function body/variable initializer is known but might be replaced
+     by a different one from other compilation unit and thus can be
+     dealt with only as a hint.  */
+  AVAIL_OVERWRITTABLE,
+  /* Same as AVAIL_OVERWRITTABLE except the front end has said that
+     this instance is stable enough to analyze or even inline.  */
+  AVAIL_OVERWRITTABLE_BUT_INLINABLE,
+  /* Function body/variable initializer is known and will be used in final
+     program.  */
+  AVAIL_AVAILABLE,
+  /* Function body/variable initializer is known and all it's uses are explicitly
+     visible within current unit (ie it's address is never taken and it is not
+     exported to other units).
+     Currently used only for functions.  */
+  AVAIL_LOCAL
+};
 
 /* Information about the function collected locally.
    Available after function is analyzed.  */
 
 struct cgraph_local_info GTY(())
 {
+  /* Cached version of cgraph_function_body_availability.  */
+  enum availability avail;
+
   /* Size of the function before inlining.  */
   int self_insns;
 
@@ -37,6 +63,14 @@ struct cgraph_local_info GTY(())
 
   /* Set when function is visible by other units.  */
   bool externally_visible;
+
+  /* Set when this function calls another function external to the
+     compilation unit or if the function has a asm clobber of memory.
+     In general, such calls are modeled as reading and writing all
+     variables (both bits on) but sometime there are attributes on the
+     called function so we can do better.  */
+  bool calls_read_all;
+  bool calls_write_all;
 
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
@@ -50,10 +84,6 @@ struct cgraph_local_info GTY(())
   /* True when the function has been originally extern inline, but it is
      redefined now.  */
   bool redefined_extern_inline;
-
-  /* True if statics_read_for_function and
-     statics_written_for_function contain valid data.  */
-  bool for_functions_valid;
 };
 
 /* Information about the function that needs to be computed globally
@@ -101,12 +131,22 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
+  /* Pointer to next node in a recursive call graph cycle; */
+  struct cgraph_node *next_cycle;
+  /* Pointer to a single unique cgraph node for this function.  If the
+     function is to be output, this is the copy that will survive.  */
+  struct cgraph_node *master_clone;
+
   PTR GTY ((skip)) aux;
 
   struct cgraph_local_info local;
   struct cgraph_global_info global;
   struct cgraph_rtl_info rtl;
   
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  */
+  ipa_static_vars_info_t GTY ((skip)) static_vars_info;
+
   /* Unique id of the node.  */
   int uid;
   /* Set when function must be output - it is externally visible
@@ -216,6 +256,10 @@ bool cgraph_function_possibly_inlined_p (tree);
 void cgraph_unnest_node (struct cgraph_node *);
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
+bool cgraph_is_master_clone (struct cgraph_node *);
+bool cgraph_is_immortal_master_clone (struct cgraph_node *);
+struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
+struct cgraph_node *cgraph_immortal_master_clone (struct cgraph_node *);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);

@@ -2588,7 +2588,7 @@ reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 void
 regset_release_memory (void)
 {
-  bitmap_release_memory ();
+  /*  bitmap_release_memory (); */
 }
 
 #ifdef CANNOT_CHANGE_MODE_CLASS

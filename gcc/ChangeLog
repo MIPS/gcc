@@ -1,3 +1,38 @@
+2004-11-08  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
+	* Makefile.in (cgraph.h, ipa-static.h, ipa-static-vars-anal.c): 
+	Add dependencies.
+	* (ipa-static.h, ipa-static-vars-anal.c) : New files to implement
+	the analysis if compilation wide static variables.
+	* cgraph.c (cgraph_create_node, cgraph_remove_node
+	dump_cgraph_node): Now handles master_clone_nodes and ipa_static info.
+	(cgraph_is_master_clone, cgraph_master_clone,
+	cgraph_immortal_master_clone): Added.
+	(cgraph_function_body_availability): Handles inlinable and
+	overwrittable functions. 
+	* cgraph.h (availablilty):Handles inlinable and
+	overwrittable functions. 
+	(cgraph_node) Has static vars analyis info.
+	* cgraph_unit (cgraph_function_and_variable_visibility): Fixed
+	comments and removed external bit.
+	* regclass.c (regset_release_memory): removed call to
+	bitmap_release_memory which does not work with ipa reorganization.
+	* tree-dfa.c: (find_referenced_vars) Add initialization code for 
+	static vars analysis.
+	* tree-flow.h: (static_vars_info): Added.
+	* tree-gimple.c (get_base_var) Added.
+	* tree.h (get_base_var) Added.
+	* tree-pass.h (pass_ipa_static) Added.
+	* tree-sra.c (sra_insert_before, sra_insert_after) Made public.
+	(sra_type_can_be_decomposed_p) renamed from
+	type_can_be_decomposed_p and made public. 
+	(sra_init_cache): new.
+	(tree_sra) Added call to sra_init_cache. 
+	* tree-ssa-operands.c: (get_call_expr_operands,
+	add_call_clobber_ops, add_call_read_ops) changed to clobber fewer
+	static variables.
+	
+ 	
 2004-10-22  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* dwarf.h, gthr-dce.h, gthr-single.h, gthr-solaris.h, gthr.h,

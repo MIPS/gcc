@@ -447,8 +447,11 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
+  *p = NULL;
+
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_inline);
+  NEXT_PASS (pass_ipa_static);
   *p = NULL;
 
 #undef NEXT_PASS

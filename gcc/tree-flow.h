@@ -29,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
-#include "cgraph.h"
+#include "ipa-static.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -201,6 +201,11 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_static_vars_info_t GTY ((skip)) static_vars_info;
 };
 
 
@@ -447,6 +452,12 @@ extern void bsi_insert_after (block_stmt_iterator *, tree,
 			      enum bsi_iterator_update);
 
 extern void bsi_replace (const block_stmt_iterator *, tree, bool);
+
+/* In tree-sra.c  */
+void sra_insert_before (block_stmt_iterator *, tree);
+void sra_insert_after (block_stmt_iterator *, tree);
+void sra_init_cache (void);
+bool sra_type_can_be_decomposed_p (tree);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes

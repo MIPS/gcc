@@ -1860,16 +1860,13 @@ cgraph_expand_all_functions (void)
   free (order);
 }
 
-/* Mark all local and external functions.
+/* Mark visibility of all functions.
    
    A local function is one whose calls can occur only in the current
    compilation unit and all its calls are explicit, so we can change
    its calling convention.  We simply mark all static functions whose
    address is not taken as local.
 
-   An external function is one whose body is outside the current
-   compilation unit.  
-   
    We also change the TREE_PUBLIC flag of all declarations that are public
    in language point of view but we want to overwrite this default
    via -fwhole-program for the backend point of view.  */
@@ -1910,17 +1907,24 @@ cgraph_function_and_variable_visibility (void)
 	}
     }
 
-  /* Because we have to be conservative on the boundaries of source level units,
-     it is possible that we marked some functions in reachable just because they
-     might be used later via external linkage, but after making them local they
-     are really unreachable now.  */
+  /* Because we have to be conservative on the boundaries of source
+     level units, it is possible that we marked some functions in
+     reachable just because they might be used later via external
+     linkage, but after making them local they are really unreachable
+     now.  */
   if (flag_whole_program)
     cgraph_remove_unreachable_nodes (true);
+
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nMarking local functions:");
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->local.local)
+	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
+      fprintf (cgraph_dump_file, "\n\n");
+      fprintf (cgraph_dump_file, "\nMarking externally visible functions:");
+      for (node = cgraph_nodes; node; node = node->next)
+	if (node->local.externally_visible)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\n");
     }

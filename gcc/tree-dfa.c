@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
-#include "cgraph.h"
+#include "ipa-static.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -108,6 +108,8 @@ find_referenced_vars (void)
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
+
+  ipa_static_reset_maps ();
 
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));

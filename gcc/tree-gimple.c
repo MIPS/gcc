@@ -429,6 +429,26 @@ get_call_expr_in (tree t)
   return NULL_TREE;
 }
 
+/* Given a memory reference T, will return the variable at the bottom
+   of the access.  Unlike get_base_address below, this will recurse
+   thru INDIRECT_REFS.  */
+
+tree
+get_base_var (tree t)
+{
+  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
+    return t;
+
+  while (!SSA_VAR_P (t) 
+	 && (!CONSTANT_CLASS_P (t))
+	 && TREE_CODE (t) != LABEL_DECL
+	 && TREE_CODE (t) != FUNCTION_DECL)
+    {
+      t = TREE_OPERAND (t, 0);
+    }
+  return t;
+} 
+
 /* Given a memory reference expression, return the base address.  Note that,
    in contrast with get_base_var, this will not recurse inside INDIRECT_REF
    expressions.  Therefore, given the reference PTR->FIELD, this function

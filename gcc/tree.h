@@ -3938,6 +3938,7 @@ tree upper_bound_in_type (tree, tree);
 extern bool thread_through_all_blocks (void);
 
 /* In tree-gimple.c.  */
+extern tree get_base_var (tree t);
 extern tree get_base_address (tree t);
 
 #endif  /* GCC_TREE_H  */
