@@ -1,3 +1,8 @@
+Tue Feb 11 19:07:08 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* combine.c (combine_simplify_rtx): Fix folding of
+	nested float_truncates.
+
 Tue Feb 11 10:04:33 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (choose_function_section): Choose sections correctly.
