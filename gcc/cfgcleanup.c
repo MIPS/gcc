@@ -540,6 +540,8 @@ try_forward_edges (mode, b)
 		    prob = edge_frequency * REG_BR_PROB_BASE / first->frequency;
 		  else
 		    prob = 0;
+		  if (prob > t->probability)
+		    prob = t->probability;
 		  t->probability -= prob;
 		  prob = REG_BR_PROB_BASE - prob;
 		  if (prob <= 0)
