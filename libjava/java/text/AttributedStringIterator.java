@@ -1,5 +1,5 @@
 /* AttributedStringIterator.java -- Class to iterate over AttributedString
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,11 @@ exception statement from your version. */
 
 package java.text;
 
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
   * This class implements the AttributedCharacterIterator interface.  It
@@ -179,11 +179,11 @@ getAllAttributeKeys()
   if (attribs == null)
     return(s);
 
-  for (int i = 0; i < attribs.length; i++)
+    for (int i = 0; i < attribs.length; i++)
     {
       if (attribs[i].begin_index > getEndIndex()
-         || attribs[i].end_index <= getBeginIndex())
-       continue;
+	  || attribs[i].end_index <= getBeginIndex())
+	continue;
 
       Set key_set = attribs[i].attribs.keySet();
       Iterator iter = key_set.iterator();

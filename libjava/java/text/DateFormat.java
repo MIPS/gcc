@@ -196,9 +196,9 @@ public abstract class DateFormat extends Format implements Cloneable
    * object:
    * <P>
    * <ul>
-   * <li>Is not <code>null</code>.
-   * <li>Is an instance of <code>DateFormat</code>.
-   * <li>Has the same numberFormat field value as this object.
+   * <li>Is not <code>null</code>.</li>
+   * <li>Is an instance of <code>DateFormat</code>.</li>
+   * <li>Has the same numberFormat field value as this object.</li>
    * </ul>
    *
    * @param obj The object to test for equality against.
@@ -325,7 +325,7 @@ public abstract class DateFormat extends Format implements Cloneable
     try
       {
 	res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
-				       loc);
+				       loc, DateFormat.class.getClassLoader());
       }
     catch (MissingResourceException x)
       {

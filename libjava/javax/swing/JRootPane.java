@@ -47,7 +47,6 @@ import java.io.Serializable;
 import javax.accessibility.AccessibleRole;
 import javax.swing.plaf.RootPaneUI;
 
-
 /**
  * This class is where JComponents are added to.
  * Unlike awt where you could just say frame.add(),
@@ -223,8 +222,6 @@ public class JRootPane extends JComponent
     }
   }
 
-  private static final long serialVersionUID = 8690748000348575668L;
-  
   protected Component glassPane;
   protected JLayeredPane layeredPane;
   protected JMenuBar menuBar;

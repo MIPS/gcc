@@ -38,23 +38,19 @@ exception statement from your version. */
 
 package java.io;
 
+import gnu.classpath.Configuration;
+import gnu.java.io.ObjectIdentityWrapper;
+
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
-import java.security.PrivilegedAction;
-import java.security.AccessController;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
 
-
-import gnu.java.io.ObjectIdentityWrapper;
-import gnu.java.lang.reflect.TypeSignature;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-
-import gnu.classpath.Configuration;
 
 public class ObjectInputStream extends InputStream
   implements ObjectInput, ObjectStreamConstants
@@ -412,6 +408,65 @@ public class ObjectInputStream extends InputStream
   }
 
   /**
+   * This method makes a partial check of types for the fields
+   * contained given in arguments. It checks primitive types of
+   * fields1 against non primitive types of fields2. This method 
+   * assumes the two lists has already been sorted according to 
+   * the Java specification.
+   *
+   * @param name Name of the class owning the given fields.
+   * @param fields1 First list to check.
+   * @param fields2 Second list to check.
+   * @throws InvalidClassException if a field in fields1, which has a primitive type, is a present
+   * in the non primitive part in fields2.
+   */
+  private void checkTypeConsistency(String name, ObjectStreamField[] fields1, ObjectStreamField[] fields2)
+    throws InvalidClassException
+  {
+    int nonPrimitive = 0;
+    
+    for (nonPrimitive = 0; 
+	 nonPrimitive < fields1.length
+	   && fields1[nonPrimitive].isPrimitive(); nonPrimitive++)
+      {
+      }
+
+    if (nonPrimitive == fields1.length)
+      return;
+    
+    int i = 0;
+    ObjectStreamField f1;
+    ObjectStreamField f2;
+    
+    while (i < fields2.length
+	   && nonPrimitive < fields1.length)
+      {
+	f1 = fields1[nonPrimitive];
+	f2 = fields2[i];
+	
+	if (!f2.isPrimitive())
+	  break;
+
+	int compVal = f1.getName().compareTo (f2.getName());
+
+	if (compVal < 0)
+	  {
+	    nonPrimitive++;
+	  }
+	else if (compVal > 0)
+	  {
+	    i++;
+	  }
+	else
+	  {
+	    throw new InvalidClassException
+	      ("invalid field type for " + f2.getName() +
+	       " in class " + name);
+	  }
+      }
+  }
+
+  /**
    * This method reads a class descriptor from the real input stream
    * and use these data to create a new instance of ObjectStreamClass.
    * Fields are sorted and ordered for the real read which occurs for
@@ -491,12 +546,20 @@ public class ObjectInputStream extends InputStream
     ObjectStreamField[] stream_fields = osc.fields;
     ObjectStreamField[] real_fields = ObjectStreamClass.lookup(clazz).fields;
     ObjectStreamField[] fieldmapping = new ObjectStreamField[2 * Math.max(stream_fields.length, real_fields.length)];
-    osc.fieldMapping = fieldmapping;
 
     int stream_idx = 0;
     int real_idx = 0;
     int map_idx = 0;
 
+    /*
+     * Check that there is no type inconsistencies between the lists.
+     * A special checking must be done for the two groups: primitive types and
+     * not primitive types. 
+     */
+    checkTypeConsistency(name, real_fields, stream_fields);
+    checkTypeConsistency(name, stream_fields, real_fields);
+
+    
     while (stream_idx < stream_fields.length
 	   || real_idx < real_fields.length)
       {
@@ -514,7 +577,7 @@ public class ObjectInputStream extends InputStream
 	else
 	  {
 	    int comp_val =
-		real_fields[real_idx].compareTo (stream_fields[stream_idx]);
+	      real_fields[real_idx].compareTo (stream_fields[stream_idx]);
 
 	    if (comp_val < 0)
 	      {
@@ -528,24 +591,28 @@ public class ObjectInputStream extends InputStream
 	      {
 		stream_field = stream_fields[stream_idx++];
 		real_field = real_fields[real_idx++];
-		if(stream_field.getType() != real_field.getType())
-		    throw new InvalidClassException
-			("invalid field type for " + real_field.getName() +
-			" in class " + name);
+		if (stream_field.getType() != real_field.getType())
+		  throw new InvalidClassException
+		    ("invalid field type for " + real_field.getName() +
+		     " in class " + name);
 	      }
 	  }
-	if (stream_field != null)
+
+	/* If some of stream_fields does not correspond to any of real_fields,
+	 * or the opposite, then fieldmapping will go short.
+	 */
+	if (map_idx == fieldmapping.length)
 	  {
-	    if (stream_field.getOffset() < 0)
-		stream_field = null;
-	    else if (!stream_field.isToSet())
-		real_field = null;
+	    ObjectStreamField[] newfieldmapping =
+	      new ObjectStreamField[fieldmapping.length + 2];
+	    System.arraycopy(fieldmapping, 0,
+			     newfieldmapping, 0, fieldmapping.length);
+	    fieldmapping = newfieldmapping;
 	  }
-	if (real_field != null && !real_field.isToSet())
-	    real_field = null;
 	fieldmapping[map_idx++] = stream_field;
 	fieldmapping[map_idx++] = real_field;
       }
+    osc.fieldMapping = fieldmapping;
 
     return osc;
   }
@@ -1565,121 +1632,119 @@ public class ObjectInputStream extends InputStream
       {
 	ObjectStreamField stream_field = fields[i];
 	ObjectStreamField real_field = fields[i + 1];
-	if(stream_field != null || real_field != null)
-	  {
-	    boolean read_value = stream_field != null;
-	    boolean set_value = real_field != null;
-	    String field_name;
-	    char type;
-	    if (stream_field != null)
-	      {
-		field_name = stream_field.getName();
-		type = stream_field.getTypeCode();
-	      }
-	    else
-	      {
-		field_name = real_field.getName();
-		type = real_field.getTypeCode();
-	      }
+	boolean read_value = (stream_field != null && stream_field.getOffset() >= 0 && stream_field.isToSet());
+	boolean set_value = (real_field != null && real_field.isToSet());
+	String field_name;
+	char type;
 
-	    switch(type)
-	      {
-		case 'Z':
-		  {
-		    boolean value =
-			read_value ? this.realInputStream.readBoolean() : false;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setBooleanField(obj, value);
-		    break;
-		  }
-		case 'B':
-		  {
-		    byte value =
-			read_value ? this.realInputStream.readByte() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setByteField(obj, value);
-		    break;
-		  }
-		case 'C':
-		  {
-		    char value =
-			read_value ? this.realInputStream.readChar(): 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setCharField(obj, value);
-		    break;
-		  }
-		case 'D':
-		  {
-		    double value =
-			read_value ? this.realInputStream.readDouble() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setDoubleField(obj, value);
-		    break;
-		  }
-		case 'F':
-		  {
-		    float value =
-			read_value ? this.realInputStream.readFloat() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setFloatField(obj, value);
-		    break;
-		  }
-		case 'I':
-		  {
-		    int value =
-			read_value ? this.realInputStream.readInt() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setIntField(obj, value);
-		    break;
-		  }
-		case 'J':
-		  {
-		    long value =
-			read_value ? this.realInputStream.readLong() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setLongField(obj, value);
-		    break;
-		  }
-		case 'S':
-		  {
-		    short value =
-			read_value ? this.realInputStream.readShort() : 0;
-		    if (dump && read_value && set_value)
-		    dumpElementln("  " + field_name + ": " + value);
-		    if (set_value)
-			real_field.setShortField(obj, value);
-		    break;
-		  }
-		case 'L':
-		case '[':
-		  {
-		    Object value =
-			read_value ? readObject() : null;
-		    if (set_value)
-			real_field.setObjectField(obj, value);
-		    break;
-		  }
-		default:
-		    throw new InternalError("Invalid type code: " + type);
-	      }
+	if (stream_field != null)
+	  {
+	    field_name = stream_field.getName();
+	    type = stream_field.getTypeCode();
+	  }
+	else
+	  {
+	    field_name = real_field.getName();
+	    type = real_field.getTypeCode();
+	  }
+	
+	switch(type)
+	  {
+	  case 'Z':
+	    {
+	      boolean value =
+		read_value ? this.realInputStream.readBoolean() : false;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setBooleanField(obj, value);
+	      break;
+	    }
+	  case 'B':
+	    {
+	      byte value =
+		read_value ? this.realInputStream.readByte() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setByteField(obj, value);
+	      break;
+	    }
+	  case 'C':
+	    {
+	      char value =
+		read_value ? this.realInputStream.readChar(): 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setCharField(obj, value);
+	      break;
+	    }
+	  case 'D':
+	    {
+	      double value =
+		read_value ? this.realInputStream.readDouble() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setDoubleField(obj, value);
+	      break;
+	    }
+	  case 'F':
+	    {
+	      float value =
+		read_value ? this.realInputStream.readFloat() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setFloatField(obj, value);
+	      break;
+	    }
+	  case 'I':
+	    {
+	      int value =
+		read_value ? this.realInputStream.readInt() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setIntField(obj, value);
+	      break;
+	    }
+	  case 'J':
+	    {
+	      long value =
+		read_value ? this.realInputStream.readLong() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setLongField(obj, value);
+	      break;
+	    }
+	  case 'S':
+	    {
+	      short value =
+		read_value ? this.realInputStream.readShort() : 0;
+	      if (dump && read_value && set_value)
+		dumpElementln("  " + field_name + ": " + value);
+	      if (set_value)
+		real_field.setShortField(obj, value);
+	      break;
+	    }
+	  case 'L':
+	  case '[':
+	    {
+	      Object value =
+		read_value ? readObject() : null;
+	      if (set_value)
+		real_field.setObjectField(obj, value);
+	      break;
+	    }
+	  default:
+	    throw new InternalError("Invalid type code: " + type);
 	  }
       }
   }
-
+  
   // Toggles writing primitive data to block-data buffer.
   private boolean setBlockDataMode (boolean on)
   {

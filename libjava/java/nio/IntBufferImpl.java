@@ -52,7 +52,9 @@ final class IntBufferImpl extends IntBuffer
   
   IntBufferImpl (int[] buffer, int offset, int capacity, int limit, int position, int mark, boolean readOnly)
   {
-    super (buffer, offset, capacity, limit, position, mark);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
     this.readOnly = readOnly;
   }
   
@@ -98,7 +100,7 @@ final class IntBufferImpl extends IntBuffer
   /**
    * Relative get method. Reads the next <code>int</code> from the buffer.
    */
-  final public int get ()
+  public int get ()
   {
     int result = backing_buffer [position ()];
     position (position () + 1);
@@ -111,7 +113,7 @@ final class IntBufferImpl extends IntBuffer
    * 
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public IntBuffer put (int value)
+  public IntBuffer put (int value)
   {
     if (readOnly)
       throw new ReadOnlyBufferException ();
@@ -128,7 +130,7 @@ final class IntBufferImpl extends IntBuffer
    * @exception IndexOutOfBoundsException If index is negative or not smaller
    * than the buffer's limit.
    */
-  final public int get (int index)
+  public int get (int index)
   {
     return backing_buffer [index];
   }
@@ -141,7 +143,7 @@ final class IntBufferImpl extends IntBuffer
    * than the buffer's limit.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public IntBuffer put (int index, int value)
+  public IntBuffer put (int index, int value)
   {
     if (readOnly)
       throw new ReadOnlyBufferException ();
@@ -150,7 +152,7 @@ final class IntBufferImpl extends IntBuffer
     return this;
   }
   
-  final public ByteOrder order ()
+  public ByteOrder order ()
   {
     return ByteOrder.nativeOrder ();
   }

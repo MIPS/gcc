@@ -57,608 +57,608 @@ import javax.swing.undo.UndoableEdit;
 public abstract class AbstractDocument
   implements Document, Serializable
 {
-  public abstract class AbstractElement
-    implements Element, TreeNode, Serializable
-  {
-    private static final long serialVersionUID = 1265312733007397733L;
+    public abstract class AbstractElement
+	implements Element, TreeNode, Serializable
+    {
+	private static final long serialVersionUID = 1265312733007397733L;
     
-    int count;
-    int offset;
-    AttributeSet attr;
-    Vector elts = new Vector();
-    String name;
-    Element parent;
-    Vector kids = new Vector();
-    TreeNode tree_parent;
+	int count;
+	int offset;
+	AttributeSet attr;
+	Vector elts = new Vector();
+	String name;
+	Element parent;
+	Vector kids = new Vector();
+	TreeNode tree_parent;
 
-    public AbstractElement(Element p, AttributeSet s)
-    {
-      parent = p;
-      attr = s;
-    }
-
-    public Enumeration children()
-    {
-      return kids.elements();
-    }
-
-    public boolean getAllowsChildren()
-    {
-      return true;
-    }
-
-    public TreeNode getChildAt(int index)
-    {
-      return (TreeNode) kids.elementAt(index);
-    }
-
-    public int getChildCount()
-    {
-      return kids.size();
-    }
-
-    public int getIndex(TreeNode node)
-    {
-      return kids.indexOf(node);
-    }
-
-    public TreeNode getParent()
-    {
-      return tree_parent;
-    }
-
-    public AttributeSet getAttributes()
-    {
-      return attr;
-    }
-
-    public Document getDocument()
-    {
-      return AbstractDocument.this;
-    }
-
-    public Element getElement(int index)
-    {
-      return (Element) elts.elementAt(index);
-    }
-
-    public String getName()
-    {
-      return name;
-    }
-
-    public Element getParentElement()
-    {
-      return parent;
-    }
-
-    public abstract boolean isLeaf();
-
-    public abstract int getEndOffset();
-
-    public abstract int getElementCount();
-
-    public abstract int getElementIndex(int offset);
-
-    public abstract int getStartOffset();
-  }
-
-  public interface AttributeContext
-  {
-    AttributeSet addAttribute(AttributeSet old, Object name, Object value);
-    AttributeSet addAttributes(AttributeSet old, AttributeSet attributes);
-    AttributeSet getEmptySet();
-    void reclaim(AttributeSet attributes);
-    AttributeSet removeAttribute(AttributeSet old, Object name);
-    AttributeSet removeAttributes(AttributeSet old, AttributeSet attributes);
-    AttributeSet removeAttributes(AttributeSet old, Enumeration names);
-  }
-
-  public class BranchElement extends AbstractElement
-  {
-    private static final long serialVersionUID = -8595176318868717313L;
-
-    private int start;
-    private int end;
-    private Vector children = new Vector();
-    
-    public BranchElement(Element parent, AttributeSet attributes,
-			 int start, int end)
-    {
-      super(parent, attributes);
-      this.start = start;
-      this.end = end;
-    }
-
-    public Enumeration children()
-    {
-      return children.elements();
-    }
-
-    public boolean getAllowsChildren()
-    {
-      return true;
-    }
-
-    public Element getElement(int index)
-    {
-      return (Element) children.get(index);
-    }
-
-    public int getElementCount()
-    {
-      return children.size();
-    }
-
-    public int getElementIndex(int offset)
-    {
-      return children.indexOf(positionToElement(offset));
-    }
-
-    public int getEndOffset()
-    {
-      return end;
-    }
-
-    public String getName()
-    {
-      return "AbstractDocument.BranchElement";
-    }
-
-    public int getStartOffset()
-    {
-      return start;
-    }
-
-    public boolean isLeaf()
-    {
-      return false;
-    }
-
-    public Element positionToElement(int position)
-    {
-      // XXX: There is surely a better algorithm
-      // as beginning from first element each time.
-      
-      for (int index = 0; index < children.size(); ++index)
+	public AbstractElement(Element p, AttributeSet s)
 	{
-	  Element elem = (Element) children.get(index);
-	  
-	  if (elem.getStartOffset() <= position
-	      && position < elem.getEndOffset())
-	    return elem;
+	    parent = p;
+	    attr = s;
 	}
-      
-      return null;
+
+	public Enumeration children()
+	{
+	    return kids.elements();
+	}
+
+	public boolean getAllowsChildren()
+	{
+	    return true;
+	}
+
+	public TreeNode getChildAt(int index)
+	{
+	    return (TreeNode) kids.elementAt(index);
+	}
+
+	public int getChildCount()
+	{
+	    return kids.size();
+	}
+
+	public int getIndex(TreeNode node)
+	{
+	    return kids.indexOf(node);
+	}
+
+	public TreeNode getParent()
+	{
+	    return tree_parent;
+	}
+
+	public AttributeSet getAttributes()
+	{
+	    return attr;
+	}
+
+	public Document getDocument()
+	{
+	    return AbstractDocument.this;
+	}
+
+	public Element getElement(int index)
+	{
+	    return (Element) elts.elementAt(index);
+	}
+
+	public String getName()
+	{
+	    return name;
+	}
+
+	public Element getParentElement()
+	{
+	    return parent;
+	}
+
+	public abstract boolean isLeaf();
+
+	public abstract int getEndOffset();
+
+	public abstract int getElementCount();
+
+	public abstract int getElementIndex(int offset);
+
+	public abstract int getStartOffset();
     }
 
-    public void replace(int offset, int length, Element[] elems)
+    public interface AttributeContext
     {
-      for (int index = 0 ; index < length; ++index)
-	children.removeElementAt(offset);
-
-      for (int index = 0 ; index < elems.length; ++index)
-	children.add(offset + index, elems[index]);
+	AttributeSet addAttribute(AttributeSet old, Object name, Object value);
+	AttributeSet addAttributes(AttributeSet old, AttributeSet attributes);
+	AttributeSet getEmptySet();
+	void reclaim(AttributeSet attributes);
+	AttributeSet removeAttribute(AttributeSet old, Object name);
+	AttributeSet removeAttributes(AttributeSet old, AttributeSet attributes);
+	AttributeSet removeAttributes(AttributeSet old, Enumeration names);
     }
 
-    public String toString()
+    public class BranchElement extends AbstractElement
     {
-      return getName() + ": " + "content";
-    }
-  }
+	private static final long serialVersionUID = -8595176318868717313L;
 
-  public interface Content
-  {
-    Position createPosition(int offset) throws BadLocationException;
-
-    int length();
-
-    UndoableEdit insertString(int where, String str)
-      throws BadLocationException;
-
-    UndoableEdit remove(int where, int nitems) throws BadLocationException;
-
-    String getString(int where, int len) throws BadLocationException;
-
-    void getChars(int where, int len, Segment txt) throws BadLocationException;
-  }
-
-  public class DefaultDocumentEvent extends CompoundEdit
-    implements DocumentEvent
-  {
-    private static final long serialVersionUID = -7406103236022413522L;
+	private int start;
+	private int end;
+	private Vector children = new Vector();
     
-    public int len;
-    public int off;
+	public BranchElement(Element parent, AttributeSet attributes,
+			     int start, int end)
+	{
+	    super(parent, attributes);
+	    this.start = start;
+	    this.end = end;
+	}
 
-    public Document getDocument()
+	public Enumeration children()
+	{
+	    return children.elements();
+	}
+
+	public boolean getAllowsChildren()
+	{
+	    return true;
+	}
+
+	public Element getElement(int index)
+	{
+	    return (Element) children.get(index);
+	}
+
+	public int getElementCount()
+	{
+	    return children.size();
+	}
+
+	public int getElementIndex(int offset)
+	{
+	    return children.indexOf(positionToElement(offset));
+	}
+
+	public int getEndOffset()
+	{
+	    return end;
+	}
+
+	public String getName()
+	{
+	    return "AbstractDocument.BranchElement";
+	}
+
+	public int getStartOffset()
+	{
+	    return start;
+	}
+
+	public boolean isLeaf()
+	{
+	    return false;
+	}
+
+	public Element positionToElement(int position)
+	{
+	    // XXX: There is surely a better algorithm
+	    // as beginning from first element each time.
+      
+	    for (int index = 0; index < children.size(); ++index)
+		{
+		    Element elem = (Element) children.get(index);
+	  
+		    if (elem.getStartOffset() <= position
+			&& position < elem.getEndOffset())
+			return elem;
+		}
+      
+	    return null;
+	}
+
+	public void replace(int offset, int length, Element[] elems)
+	{
+	    for (int index = 0 ; index < length; ++index)
+		children.removeElementAt(offset);
+
+	    for (int index = 0 ; index < elems.length; ++index)
+		children.add(offset + index, elems[index]);
+	}
+
+	public String toString()
+	{
+	    return getName() + ": " + "content";
+	}
+    }
+
+    public interface Content
     {
-      return AbstractDocument.this;
+	Position createPosition(int offset) throws BadLocationException;
+
+	int length();
+
+	UndoableEdit insertString(int where, String str)
+	    throws BadLocationException;
+
+	UndoableEdit remove(int where, int nitems) throws BadLocationException;
+
+	String getString(int where, int len) throws BadLocationException;
+
+	void getChars(int where, int len, Segment txt) throws BadLocationException;
+    }
+
+    public class DefaultDocumentEvent extends CompoundEdit
+	implements DocumentEvent
+    {
+	private static final long serialVersionUID = -7406103236022413522L;
+    
+	public int len;
+	public int off;
+
+	public Document getDocument()
+	{
+	    return AbstractDocument.this;
+	}
+
+	public int getLength()
+	{
+	    return len;
+	}
+
+	public int getOffset()
+	{
+	    return off;
+	}
+
+	public DocumentEvent.EventType getType()
+	{
+	    return null;
+	}
+
+	public DocumentEvent.ElementChange getChange(Element elem)
+	{
+	    return null;
+	}
+    }
+
+    public static class ElementEdit extends AbstractUndoableEdit
+    {
+	private static final long serialVersionUID = -1216620962142928304L;
+    }
+
+    public class LeafElement extends AbstractElement
+    {
+	private static final long serialVersionUID = 5115368706941283802L;
+    
+	private int start;
+	private int end;
+
+	public LeafElement(Element parent, AttributeSet attributes,
+			   int start, int end)
+	{
+	    super(parent, attributes);
+	    this.start = start;
+	    this.end = end;
+	}
+
+	public Enumeration children()
+	{
+	    return null;
+	}
+
+	public boolean getAllowsChildren()
+	{
+	    return false;
+	}
+
+	public Element getElement()
+	{
+	    return null;
+	}
+    
+	public int getElementCount()
+	{
+	    return 0;
+	}
+
+	public int getElementIndex(int offset)
+	{
+	    return -1;
+	}
+
+	public int getEndOffset()
+	{
+	    return end;
+	}
+
+	public String getName()
+	{
+	    return "AbstractDocument.LeafElement";
+	}
+
+	public int getStartOffset()
+	{
+	    return start;
+	}
+
+	public boolean isLeaf()
+	{
+	    return true;
+	}
+
+	public String toString()
+	{
+	    return getName() + ": " + "content";
+	}
+    }
+
+    private static final long serialVersionUID = -116069779446114664L;
+
+    protected static final String BAD_LOCATION = "document location failure";
+
+    public static final String BidiElementName = "bidi level";
+    public static final String ContentElementName = "content";
+    public static final String ParagraphElementName = "paragraph";
+    public static final String SectionElementName = "section";
+    public static final String ElementNameAttribute = "$ename";
+  
+    Content content;
+
+    protected AbstractDocument(Content doc)
+    {
+	this(doc, null);
+    }
+
+    protected AbstractDocument(Content doc, AttributeContext context)
+    {
+	content = doc;
+    }
+
+    protected EventListenerList listenerList = new EventListenerList();
+
+    // these still need to be implemented by a derived class:
+    public abstract Element getParagraphElement(int pos);
+
+    public abstract Element getDefaultRootElement();
+
+    protected Element createBranchElement(Element parent, AttributeSet a)
+    {
+	return new BranchElement(parent, a, 0, 0);
+    }
+
+    protected Element createLeafElement(Element parent, AttributeSet a, int p0,
+					int p1)
+    {
+	return new LeafElement(parent, a, p0, p1 - p0);
+    }
+
+    public Position createPosition(int offs)
+    {
+	final int a = offs;
+	return new Position()
+	    {
+		public int getOffset()
+		{
+		    return a;
+		}
+	    };
+    }
+
+    protected void fireChangedUpdate(DocumentEvent event)
+    {
+	DocumentListener[] listeners = getDocumentListeners();
+
+	for (int index = 0; index < listeners.length; ++index)
+	    listeners[index].changedUpdate(event);
+    }
+
+    protected void fireInsertUpdate(DocumentEvent event)
+    {
+	DocumentListener[] listeners = getDocumentListeners();
+
+	for (int index = 0; index < listeners.length; ++index)
+	    listeners[index].insertUpdate(event);
+    }
+
+    protected void fireRemoveUpdate(DocumentEvent event)
+    {
+	DocumentListener[] listeners = getDocumentListeners();
+
+	for (int index = 0; index < listeners.length; ++index)
+	    listeners[index].removeUpdate(event);
+    }
+
+    protected void fireUndoableEditUpdate(UndoableEditEvent event)
+    {
+	UndoableEditListener[] listeners = getUndoableEditListeners();
+    
+	for (int index = 0; index < listeners.length; ++index)
+	    listeners[index].undoableEditHappened(event);
+    }
+
+    public int getAsynchronousLoadPriority()
+    {
+	return 0;
+    }
+
+    protected AttributeContext getAttributeContext()
+    {
+	return null;
+    }
+
+    public Element getBidiRootElement()
+    {
+	return null;
+    }
+
+    protected Content getContent()
+    {
+	return content;
+    }
+
+    protected Thread getCurrentWriter()
+    {
+	return null;
+    }
+
+    public Dictionary getDocumentProperties()
+    {
+	return null;
+    }
+
+    public Position getEndPosition()
+    {
+	return null;
     }
 
     public int getLength()
     {
-      return len;
+	return content.length();
     }
 
-    public int getOffset()
+    public EventListener[] getListeners(Class listenerType)
     {
-      return off;
+	return listenerList.getListeners(listenerType);
     }
 
-    public DocumentEvent.EventType getType()
+    public Object getProperty(Object key)
     {
-      return null;
-    }
-
-    public DocumentEvent.ElementChange getChange(Element elem)
-    {
-      return null;
-    }
-  }
-
-  public static class ElementEdit extends AbstractUndoableEdit
-  {
-    private static final long serialVersionUID = -1216620962142928304L;
-  }
-
-  public class LeafElement extends AbstractElement
-  {
-    private static final long serialVersionUID = 5115368706941283802L;
-    
-    private int start;
-    private int end;
-
-    public LeafElement(Element parent, AttributeSet attributes,
-		       int start, int end)
-    {
-      super(parent, attributes);
-      this.start = start;
-      this.end = end;
-    }
-
-    public Enumeration children()
-    {
-      return null;
-    }
-
-    public boolean getAllowsChildren()
-    {
-      return false;
-    }
-
-    public Element getElement()
-    {
-      return null;
-    }
-    
-    public int getElementCount()
-    {
-      return 0;
-    }
-
-    public int getElementIndex(int offset)
-    {
-      return -1;
-    }
-
-    public int getEndOffset()
-    {
-      return end;
-    }
-
-    public String getName()
-    {
-      return "AbstractDocument.LeafElement";
-    }
-
-    public int getStartOffset()
-    {
-      return start;
-    }
-
-    public boolean isLeaf()
-    {
-      return true;
-    }
-
-    public String toString()
-    {
-      return getName() + ": " + "content";
-    }
-  }
-
-  private static final long serialVersionUID = -116069779446114664L;
-
-  protected static final String BAD_LOCATION = "document location failure";
-
-  public static final String BidiElementName = "bidi level";
-  public static final String ContentElementName = "content";
-  public static final String ParagraphElementName = "paragraph";
-  public static final String SectionElementName = "section";
-  public static final String ElementNameAttribute = "$ename";
-  
-  Content content;
-
-  protected AbstractDocument(Content doc)
-  {
-    this(doc, null);
-  }
-
-  protected AbstractDocument(Content doc, AttributeContext context)
-  {
-    content = doc;
-  }
-
-  protected EventListenerList listenerList = new EventListenerList();
-
-  // these still need to be implemented by a derived class:
-  public abstract Element getParagraphElement(int pos);
-
-  public abstract Element getDefaultRootElement();
-
-  protected Element createBranchElement(Element parent, AttributeSet a)
-  {
-    return new BranchElement(parent, a, 0, 0);
-  }
-
-  protected Element createLeafElement(Element parent, AttributeSet a, int p0,
-                                      int p1)
-  {
-    return new LeafElement(parent, a, p0, p1 - p0);
-  }
-
-  public Position createPosition(int offs)
-  {
-    final int a = offs;
-    return new Position()
-      {
-	public int getOffset()
-	{
-	  return a;
-	}
-      };
-  }
-
-  protected void fireChangedUpdate(DocumentEvent event)
-  {
-    DocumentListener[] listeners = getDocumentListeners();
-
-    for (int index = 0; index < listeners.length; ++index)
-      listeners[index].changedUpdate(event);
-  }
-
-  protected void fireInsertUpdate(DocumentEvent event)
-  {
-    DocumentListener[] listeners = getDocumentListeners();
-
-    for (int index = 0; index < listeners.length; ++index)
-      listeners[index].insertUpdate(event);
-  }
-
-  protected void fireRemoveUpdate(DocumentEvent event)
-  {
-    DocumentListener[] listeners = getDocumentListeners();
-
-    for (int index = 0; index < listeners.length; ++index)
-      listeners[index].removeUpdate(event);
-  }
-
-  protected void fireUndoableEditUpdate(UndoableEditEvent event)
-  {
-    UndoableEditListener[] listeners = getUndoableEditListeners();
-    
-    for (int index = 0; index < listeners.length; ++index)
-      listeners[index].undoableEditHappened(event);
-  }
-
-  public int getAsynchronousLoadPriority()
-  {
-    return 0;
-  }
-
-  protected AttributeContext getAttributeContext()
-  {
-    return null;
-  }
-
-  public Element getBidiRootElement()
-  {
-    return null;
-  }
-
-  protected Content getContent()
-  {
-    return content;
-  }
-
-  protected Thread getCurrentWriter()
-  {
-    return null;
-  }
-
-  public Dictionary getDocumentProperties()
-  {
-    return null;
-  }
-
-  public Position getEndPosition()
-  {
-    return null;
-  }
-
-  public int getLength()
-  {
-    return content.length();
-  }
-
-  public EventListener[] getListeners(Class listenerType)
-  {
-    return listenerList.getListeners(listenerType);
-  }
-
-  public Object getProperty(Object key)
-  {
-    return null;
-  }
-
-  public Element[] getRootElements()
-  {
-    return null;
-  }
-
-  public Position getStartPosition()
-  {
-    return null;
-  }
-
-  public String getText(int offset, int length)
-  {
-    try
-      {
-	return content.getString(offset, length);
-      }
-    catch (Exception e)
-      {
-	System.out.println("Hmmm, fail to getText: " + offset + " -> "
-	                   + length);
 	return null;
-      }
-  }
+    }
 
-  public void getText(int offset, int length, Segment txt)
-  {
-    String a = getText(offset, length);
+    public Element[] getRootElements()
+    {
+	return null;
+    }
 
-    if (a == null)
-      {
-	txt.offset = 0;
-	txt.count = 0;
-	txt.array = new char[0];
-	return;
-      }
+    public Position getStartPosition()
+    {
+	return null;
+    }
 
-    txt.offset = offset;
-    txt.count = length;
+    public String getText(int offset, int length)
+    {
+	try
+	    {
+		return content.getString(offset, length);
+	    }
+	catch (Exception e)
+	    {
+		System.out.println("Hmmm, fail to getText: " + offset + " -> "
+				   + length);
+		return null;
+	    }
+    }
 
-    char[] chars = new char[a.length()];
+    public void getText(int offset, int length, Segment txt)
+    {
+	String a = getText(offset, length);
 
-    a.getChars(0, a.length(), chars, 0);
+	if (a == null)
+	    {
+		txt.offset = 0;
+		txt.count = 0;
+		txt.array = new char[0];
+		return;
+	    }
 
-    txt.array = chars;
-  }
+	txt.offset = offset;
+	txt.count = length;
 
-  public void insertString(int offs, String str, AttributeSet a)
-    throws BadLocationException
-  {
-    content.insertString(offs, str);
-  }
+	char[] chars = new char[a.length()];
 
-  protected void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr)
-  {
-  }
+	a.getChars(0, a.length(), chars, 0);
 
-  protected void postRemoveUpdate(DefaultDocumentEvent chng)
-  {
-  }
+	txt.array = chars;
+    }
 
-  public void putProperty(Object key, Object value)
-  {
-  }
+    public void insertString(int offs, String str, AttributeSet a)
+	throws BadLocationException
+    {
+	content.insertString(offs, str);
+    }
 
-  public void readLock()
-  {
-  }
+    protected void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr)
+    {
+    }
 
-  public void readUnlock()
-  {
-  }
+    protected void postRemoveUpdate(DefaultDocumentEvent chng)
+    {
+    }
 
-  public void remove(int offs, int len)
-  {
-  }
+    public void putProperty(Object key, Object value)
+    {
+    }
 
-  /**
-   * Adds a <code>DocumentListener</code> object to this document.
-   *
-   * @param listener the listener to add
-   */
-  public void addDocumentListener(DocumentListener listener)
-  {
-    listenerList.add(DocumentListener.class, listener);
-  }
+    public void readLock()
+    {
+    }
 
-  /**
-   * Removes a <code>DocumentListener</code> object from this document.
-   *
-   * @param listener the listener to remove
-   */
-  public void removeDocumentListener(DocumentListener listener)
-  {
-    listenerList.remove(DocumentListener.class, listener);
-  }
+    public void readUnlock()
+    {
+    }
 
-  /**
-   * Returns add added <code>DocumentListener</code> objects.
-   *
-   * @return an array of listeners
-   */
-  public DocumentListener[] getDocumentListeners()
-  {
-    return (DocumentListener[]) getListeners(DocumentListener.class);
-  }
+    public void remove(int offs, int len)
+    {
+    }
 
-  /**
-   * Adds a <code>UndoableEditListener</code> object to this document.
-   *
-   * @param listener the listener to add
-   */
-  public void addUndoableEditListener(UndoableEditListener listener)
-  {
-    listenerList.add(UndoableEditListener.class, listener);
-  }
+    /**
+     * Adds a <code>DocumentListener</code> object to this document.
+     *
+     * @param listener the listener to add
+     */
+    public void addDocumentListener(DocumentListener listener)
+    {
+	listenerList.add(DocumentListener.class, listener);
+    }
 
-  /**
-   * Removes a <code>UndoableEditListener</code> object from this document.
-   *
-   * @param listener the listener to remove
-   */
-  public void removeUndoableEditListener(UndoableEditListener listener)
-  {
-    listenerList.remove(UndoableEditListener.class, listener);
-  }
+    /**
+     * Removes a <code>DocumentListener</code> object from this document.
+     *
+     * @param listener the listener to remove
+     */
+    public void removeDocumentListener(DocumentListener listener)
+    {
+	listenerList.remove(DocumentListener.class, listener);
+    }
 
-  /**
-   * Returns add added <code>UndoableEditListener</code> objects.
-   *
-   * @return an array of listeners
-   */
-  public UndoableEditListener[] getUndoableEditListeners()
-  {
-    return (UndoableEditListener[]) getListeners(UndoableEditListener.class);
-  }
+    /**
+     * Returns add added <code>DocumentListener</code> objects.
+     *
+     * @return an array of listeners
+     */
+    public DocumentListener[] getDocumentListeners()
+    {
+	return (DocumentListener[]) getListeners(DocumentListener.class);
+    }
 
-  protected void removeUpdate(DefaultDocumentEvent chng)
-  {
-  }
+    /**
+     * Adds a <code>UndoableEditListener</code> object to this document.
+     *
+     * @param listener the listener to add
+     */
+    public void addUndoableEditListener(UndoableEditListener listener)
+    {
+	listenerList.add(UndoableEditListener.class, listener);
+    }
 
-  public void render(Runnable r)
-  {
-  }
+    /**
+     * Removes a <code>UndoableEditListener</code> object from this document.
+     *
+     * @param listener the listener to remove
+     */
+    public void removeUndoableEditListener(UndoableEditListener listener)
+    {
+	listenerList.remove(UndoableEditListener.class, listener);
+    }
 
-  public void setAsynchronousLoadPriority(int p)
-  {
-  }
+    /**
+     * Returns add added <code>UndoableEditListener</code> objects.
+     *
+     * @return an array of listeners
+     */
+    public UndoableEditListener[] getUndoableEditListeners()
+    {
+	return (UndoableEditListener[]) getListeners(UndoableEditListener.class);
+    }
 
-  public void setDocumentProperties(Dictionary x)
-  {
-  }
+    protected void removeUpdate(DefaultDocumentEvent chng)
+    {
+    }
 
-  protected void writeLock()
-  {
-  }
+    public void render(Runnable r)
+    {
+    }
 
-  protected void writeUnlock()
-  {
-  }
+    public void setAsynchronousLoadPriority(int p)
+    {
+    }
+
+    public void setDocumentProperties(Dictionary x)
+    {
+    }
+
+    protected void writeLock()
+    {
+    }
+
+    protected void writeUnlock()
+    {
+    }
 }

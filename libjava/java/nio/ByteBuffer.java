@@ -44,7 +44,7 @@ package java.nio;
 public abstract class ByteBuffer extends Buffer
   implements Comparable
 {
-  private ByteOrder endian = ByteOrder.BIG_ENDIAN;
+  ByteOrder endian = ByteOrder.BIG_ENDIAN;
 
   int array_offset;
   byte[] backing_buffer;
@@ -52,16 +52,8 @@ public abstract class ByteBuffer extends Buffer
   ByteBuffer (int capacity, int limit, int position, int mark)
   {
     super (capacity, limit, position, mark);
-    array_offset = 0;
   }
 
-  ByteBuffer (byte[] buffer, int offset, int capacity, int limit, int position, int mark)
-  {
-    super (capacity, limit, position, mark);
-    this.backing_buffer = buffer;
-    this.array_offset = offset;
-  }
-  
   /**
    * Allocates a new direct byte buffer.
    */ 
@@ -75,7 +67,7 @@ public abstract class ByteBuffer extends Buffer
    */
   public static ByteBuffer allocate (int capacity)
   {
-    return new ByteBufferImpl (capacity);
+    return wrap(new byte[capacity], 0, capacity);
   }
 
   /**
@@ -87,6 +79,14 @@ public abstract class ByteBuffer extends Buffer
    */
   final public static ByteBuffer wrap (byte[] array, int offset, int length)
   {
+    // FIXME: In GCJ and other implementations where arrays may not
+    // move we might consider, at least when offset==0:
+    // return new DirectByteBufferImpl(array,
+    //                                 address_of_data(array) + offset,
+    //                                 length, length, 0, false);
+    // This may be more efficient, mainly because we can then use the
+    // same logic for all ByteBuffers.
+
     return new ByteBufferImpl (array, 0, array.length, offset + length, offset, -1, false);
   }
 
@@ -116,11 +116,10 @@ public abstract class ByteBuffer extends Buffer
    */
   public ByteBuffer get (byte[] dst, int offset, int length)
   {
-    if ((offset < 0)
-        || (offset > dst.length)
-        || (length < 0)
-        || (length > (dst.length - offset)))
+    if (offset < 0 || length < 0 || offset + length > dst.length)
       throw new IndexOutOfBoundsException ();
+    if (length > remaining())
+      throw new BufferUnderflowException();
 
     for (int i = offset; i < offset + length; i++)
       {
@@ -294,32 +293,27 @@ public abstract class ByteBuffer extends Buffer
    */
   public int compareTo (Object obj)
   {
-    ByteBuffer a = (ByteBuffer) obj;
+    ByteBuffer other = (ByteBuffer) obj;
 
-    if (a.remaining () != remaining ())
-      return 1;
-
-    if (! hasArray () ||
-        ! a.hasArray ())
+    int num = Math.min(remaining(), other.remaining());
+    int pos_this = position();
+    int pos_other = other.position();
+    
+    for (int count = 0; count < num; count++)
       {
-        return 1;
+        byte a = get(pos_this++);
+	byte b = other.get(pos_other++);
+      	 
+	if (a == b)
+	  continue;
+      	   
+	if (a < b)
+	  return -1;
+      	   
+	return 1;
       }
-
-    int r = remaining ();
-    int i1 = position ();
-    int i2 = a.position ();
-
-    for (int i = 0; i < r; i++)
-      {
-        int t = (int) (get (i1) - a.get (i2));
-
-        if (t != 0)
-          {
-            return (int) t;
-          }
-      }
-
-    return 0;
+      
+    return remaining() - other.remaining();
   }
 
   /**

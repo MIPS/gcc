@@ -104,16 +104,16 @@ public class ObjectStreamClass implements Serializable
       }
   }
 
-
   /**
    * Returns the name of the class that this
    * <code>ObjectStreamClass</code> represents.
+   *
+   * @return the name of the class.
    */
   public String getName()
   {
     return name;
   }
-
 
   /**
    * Returns the class that this <code>ObjectStreamClass</code>
@@ -129,31 +129,33 @@ public class ObjectStreamClass implements Serializable
     return clazz;
   }
 
-
   /**
    * Returns the serial version stream-unique identifier for the class
    * represented by this <code>ObjectStreamClass</code>.  This SUID is
    * either defined by the class as <code>static final long
    * serialVersionUID</code> or is calculated as specified in
    * Javasoft's "Object Serialization Specification" XXX: add reference
+   *
+   * @return the serial version UID.
    */
   public long getSerialVersionUID()
   {
     return uid;
   }
 
-
-  // Returns the serializable (non-static and non-transient) Fields
-  // of the class represented by this ObjectStreamClass.  The Fields
-  // are sorted by name.
-  // XXX doc
+  /**
+   * Returns the serializable (non-static and non-transient) Fields
+   * of the class represented by this ObjectStreamClass.  The Fields
+   * are sorted by name.
+   *
+   * @return the fields.
+   */
   public ObjectStreamField[] getFields()
   {
     ObjectStreamField[] copy = new ObjectStreamField[ fields.length ];
     System.arraycopy(fields, 0, copy, 0, fields.length);
     return copy;
   }
-
 
   // XXX doc
   // Can't do binary search since fields is sorted by name and
@@ -165,7 +167,6 @@ public class ObjectStreamClass implements Serializable
 	return fields[i];
     return null;
   }
-
 
   /**
    * Returns a textual representation of this
@@ -180,7 +181,6 @@ public class ObjectStreamClass implements Serializable
   {
     return "java.io.ObjectStreamClass< " + name + ", " + uid + " >";
   }
-
 
   // Returns true iff the class that this ObjectStreamClass represents
   // has the following method:
@@ -327,7 +327,7 @@ public class ObjectStreamClass implements Serializable
 	i = 0; j = 0; k = 0;
 	while (i < fields.length && j < exportedFields.length)
 	  {
-	    int comp = fields[i].getName().compareTo(exportedFields[j].getName());
+	    int comp = fields[i].compareTo(exportedFields[j]);
 
 	    if (comp < 0)
 	      {
@@ -344,10 +344,27 @@ public class ObjectStreamClass implements Serializable
 		newFieldList[k] = exportedFields[j];
 		newFieldList[k].setPersistent(true);
 		newFieldList[k].setToSet(false);
+		try
+		  {
+		    newFieldList[k].lookupField(clazz);
+		    newFieldList[k].checkFieldType();
+		  }
+		catch (NoSuchFieldException _)
+		  {
+		  }
 		j++;
 	      }
 	    else
 	      {
+		try
+		  {
+		    exportedFields[j].lookupField(clazz);
+		    exportedFields[j].checkFieldType();
+		  }
+		catch (NoSuchFieldException _)
+		  {
+		  }
+
 		if (!fields[i].getType().equals(exportedFields[j].getType()))
 		  throw new InvalidClassException
 		    ("serialPersistentFields must be compatible with" +
@@ -554,6 +571,19 @@ outer:
 	    if (fields != null)
 	      {
 		Arrays.sort (fields);
+		// Retrieve field reference.
+		for (int i=0; i < fields.length; i++)
+		  {
+		    try
+		      {
+			fields[i].lookupField(cl);
+		      }
+		    catch (NoSuchFieldException _)
+		      {
+			fields[i].setToSet(false);
+		      }
+		  }
+		
 		calculateOffsets();
 		return;
 	      }
@@ -798,7 +828,7 @@ outer:
 
     fieldsArray = new ObjectStreamField[ o.length ];
     System.arraycopy(o, 0, fieldsArray, 0, o.length);
-    
+
     return fieldsArray;
   }
 

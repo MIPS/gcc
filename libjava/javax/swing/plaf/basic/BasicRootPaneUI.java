@@ -39,7 +39,6 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import javax.swing.JComponent;
-import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.RootPaneUI;
 
@@ -54,7 +53,7 @@ public class BasicRootPaneUI extends RootPaneUI
     public void installUI(JComponent c)
     {
       c.setOpaque(true);
-      c.setBackground(UIManager.getColor("control"));
+      c.setBackground(javax.swing.UIManager.getColor("control"));
       super.installUI(c);
     }
 }

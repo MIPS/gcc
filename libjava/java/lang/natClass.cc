@@ -691,7 +691,7 @@ java::lang::Class::newInstance (void)
   if (! meth)
     throw new java::lang::InstantiationException (getName());
 
-  jobject r = JvAllocObject (this);
+  jobject r = _Jv_AllocObject (this);
   ((void (*) (jobject)) meth->ncode) (r);
   return r;
 }
@@ -1787,6 +1787,20 @@ _Jv_abstractMethodError (void)
   throw new java::lang::AbstractMethodError();
 }
 
+// Set itable method indexes for members of interface IFACE.
+void
+_Jv_LayoutInterfaceMethods (jclass iface)
+{
+  if (! iface->isInterface())
+    return;
+  
+  // itable indexes start at 1. 
+  // FIXME: Static initalizers currently get a NULL placeholder entry in the
+  // itable so they are also assigned an index here.
+  for (int i = 0; i < iface->method_count; i++)
+    iface->methods[i].index = i + 1;
+}
+
 // Prepare virtual method declarations in KLASS, and any superclasses as 
 // required, by determining their vtable index, setting method->index, and
 // finally setting the class's vtable_method_count. Must be called with the
@@ -1901,7 +1915,7 @@ _Jv_MakeVTable (jclass klass)
       || (klass->accflags & Modifier::ABSTRACT))
     return;
 
-  //  out before we can create a vtable. 
+  // Class must be laid out before we can create a vtable. 
   if (klass->vtable_method_count == -1)
     _Jv_LayoutVTableMethods (klass);
 

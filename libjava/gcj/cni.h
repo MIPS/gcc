@@ -20,25 +20,20 @@ details.  */
 
 #include <string.h>
 
-extern inline jobject
-JvAllocObject (jclass cls)
-{
-  return _Jv_AllocObject (cls, cls->size());
-}
-
-extern inline jobject
-JvAllocObject (jclass cls, jsize sz)
-{
-  return _Jv_AllocObject (cls, sz);
-}
-
 extern "C" jstring _Jv_NewStringUTF (const char *bytes);
 extern "C" void _Jv_InitClass (jclass);
+extern "C" void *_Jv_AllocBytes (jsize size) __attribute__((__malloc__));
 
 extern inline void
 JvInitClass (jclass cls)
 {
   return _Jv_InitClass (cls);
+}
+
+extern inline void *
+JvAllocBytes (jsize sz)
+{
+  return _Jv_AllocBytes (sz);
 }
 
 extern inline jstring

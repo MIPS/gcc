@@ -52,7 +52,9 @@ final class ShortBufferImpl extends ShortBuffer
   
   ShortBufferImpl (short[] buffer, int offset, int capacity, int limit, int position, int mark, boolean readOnly)
   {
-    super (buffer, offset, capacity, limit, position, mark);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
     this.readOnly = readOnly;
   }
   
@@ -98,7 +100,7 @@ final class ShortBufferImpl extends ShortBuffer
   /**
    * Relative get method. Reads the next <code>short</code> from the buffer.
    */
-  final public short get ()
+  public short get ()
   {
     short result = backing_buffer [position ()];
     position (position () + 1);
@@ -111,7 +113,7 @@ final class ShortBufferImpl extends ShortBuffer
    * 
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public ShortBuffer put (short value)
+  public ShortBuffer put (short value)
   {
     if (readOnly)
       throw new ReadOnlyBufferException ();
@@ -128,7 +130,7 @@ final class ShortBufferImpl extends ShortBuffer
    * @exception IndexOutOfBoundsException If index is negative or not smaller
    * than the buffer's limit.
    */
-  final public short get (int index)
+  public short get (int index)
   {
     return backing_buffer [index];
   }
@@ -141,7 +143,7 @@ final class ShortBufferImpl extends ShortBuffer
    * than the buffer's limit.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public ShortBuffer put (int index, short value)
+  public ShortBuffer put (int index, short value)
   {
     if (readOnly)
       throw new ReadOnlyBufferException ();
@@ -150,7 +152,7 @@ final class ShortBufferImpl extends ShortBuffer
     return this;
   }
   
-  final public ByteOrder order ()
+  public ByteOrder order ()
   {
     return ByteOrder.nativeOrder ();
   }
