@@ -1,0 +1,3 @@
+2005-03-18  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* Makefile.in (gtfiles): Add reload1.c.
