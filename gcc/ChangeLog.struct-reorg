@@ -1,3 +1,8 @@
+2005-01-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	Merged with tree-profiling branch, as of 2005-01-22.  Tag on
+	the tree-profiling branch is "tree-profiling-merge-20050122".
+
 2005-01-21  Caroline Tice  <ctice@apple.com>
 
 	Remove attribute "global_export".

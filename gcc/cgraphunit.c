@@ -167,6 +167,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-gimple.h"
 #include "output.h"
 #include "tree-pass.h"
+#include "cfgloop.h"
 
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
@@ -407,6 +408,9 @@ cgraph_lower_function (struct cgraph_node *node)
   node->lowered = true;
 }
 
+/* Used only while constructing the callgraph.  */
+static basic_block current_basic_block;
+
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
 record_call_1 (tree *tp, int *walk_subtrees, void *data)
@@ -444,7 +448,9 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	tree decl = get_callee_fndecl (*tp);
 	if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	  {
-	    cgraph_create_edge (data, cgraph_node (decl), *tp);
+	    cgraph_create_edge (data, cgraph_node (decl), *tp,
+			        current_basic_block->count,
+				current_basic_block->loop_depth);
 
 	    /* When we see a function call, we don't want to look at the
 	       function reference in the ADDR_EXPR that is hanging from
@@ -545,6 +551,8 @@ static void
 cgraph_create_edges (struct cgraph_node *node, tree body)
 {
   visited_nodes = pointer_set_create ();
+  current_basic_block = NULL;
+
   if (TREE_CODE (body) == FUNCTION_DECL)
     {
       struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
@@ -555,10 +563,10 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 	 enclosing basic-blocks in the call edges.  */
       FOR_EACH_BB_FN (this_block, this_cfun)
 	{
-	  node->current_basic_block = this_block;
+	  current_basic_block = this_block;
 	  walk_tree (&this_block->stmt_list, record_call_1, node, visited_nodes);
 	}
-      node->current_basic_block = (basic_block)0;
+      current_basic_block = NULL;
 
       /* Walk over any private statics that may take addresses of functions.  */
       if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
@@ -820,6 +828,7 @@ static void
 cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
+  struct loops loops;
 
   timevar_push (TV_IPA_ANALYSIS);
   push_cfun (DECL_STRUCT_FUNCTION (decl));
@@ -831,8 +840,12 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   node->count = ENTRY_BLOCK_PTR->count;
 
-  /* First kill forward declaration so reverse inlining works properly.  */
+  if (optimize)
+    flow_loops_find (&loops, LOOP_TREE);
   cgraph_create_edges (node, decl);
+  if (optimize)
+    flow_loops_free (&loops);
+  free_dominance_info (CDI_DOMINATORS);
 
   /* Only optimization we do in non-unit-at-a-time mode is inlining.  We don't
      use the passmanager then and instead call it directly.  Since we probably
@@ -1220,7 +1233,8 @@ cgraph_optimize (void)
     if (node->analyzed)
       ipa_analyze_function (node);
   for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
-    ipa_analyze_variable (vnode);
+    if (!vnode->non_ipa)
+      ipa_analyze_variable (vnode);
 
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
@@ -1231,14 +1245,16 @@ cgraph_optimize (void)
       dump_varpool (cgraph_dump_file);
     }
 
-
   if (flag_peel_structs)
     peel_structs ();
 
   if (flag_matrix_flattening)
     matrix_reorg ();
 
+  bitmap_obstack_initialize (NULL);
+
   ipa_passes ();
+  bitmap_obstack_release (NULL);
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */
   cgraph_remove_unreachable_nodes (false, dump_file);  
@@ -1259,7 +1275,6 @@ cgraph_optimize (void)
 #endif
 
   cgraph_mark_functions_to_output ();
-  
   cgraph_expand_all_functions ();
 
   cgraph_varpool_assemble_pending_decls ();

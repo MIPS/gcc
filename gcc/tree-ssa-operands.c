@@ -141,6 +141,7 @@ static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
+static void get_mem_ref_operands (tree, tree *, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
@@ -912,7 +913,9 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	if (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
 	  lhs = TREE_OPERAND (lhs, 0);
 
-	if (TREE_CODE (lhs) != ARRAY_REF && TREE_CODE (lhs) != ARRAY_RANGE_REF
+	if (TREE_CODE (lhs) != ARRAY_REF 
+	    && TREE_CODE (lhs) != MEM_REF
+	    && TREE_CODE (lhs) != ARRAY_RANGE_REF
 	    && TREE_CODE (lhs) != COMPONENT_REF
 	    && TREE_CODE (lhs) != BIT_FIELD_REF
 	    && TREE_CODE (lhs) != REALPART_EXPR
@@ -1092,6 +1095,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_indirect_ref_operands (stmt, expr, flags);
       return;
 
+    case MEM_REF:
+      get_mem_ref_operands (stmt, expr_p, flags);
+      return;
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       /* Treat array references as references to the virtual variable
@@ -1167,6 +1174,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
 	  op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == ARRAY_REF
+	    || TREE_CODE (op) == MEM_REF
 	    || TREE_CODE (op) == ARRAY_RANGE_REF
 	    || TREE_CODE (op) == COMPONENT_REF
 	    || TREE_CODE (op) == REALPART_EXPR
@@ -1374,7 +1382,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Stores into INDIRECT_REF operands are never killing definitions.  */
   flags &= ~opf_kill_def;
-
+  
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1451,6 +1459,65 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   /* Add a USE operand for the base pointer.  */
   get_expr_operands (stmt, pptr, opf_none);
+}
+
+/* A subroutine of get_expr_operands to handle MEM_REF.  */
+
+static void
+get_mem_ref_operands (tree stmt, tree *expr_p, int flags)
+{
+  stmt_ann_t s_ann  = stmt_ann (stmt);
+  tree expr = *expr_p;
+  tree ptr;
+
+  /* First record the real operands.  */
+  get_expr_operands (stmt, &MEM_REF_INDEX (expr), opf_none);
+
+  ptr = MEM_REF_SYMBOL (expr);
+
+  if (SSA_VAR_P (ptr))
+    {
+      struct ptr_info_def *pi = NULL;
+
+      /* If PTR has flow-sensitive points-to information, use it.  */
+      if (TREE_CODE (ptr) == SSA_NAME
+	  && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
+	  && pi->name_mem_tag)
+	{
+	  /* PTR has its own memory tag.  Use it.  */
+	  add_stmt_operand (&pi->name_mem_tag, s_ann, flags);
+	}
+      else
+	{
+	  /* If PTR is not an SSA_NAME or it doesn't have a name
+	     tag, use its type memory tag.  */
+	  var_ann_t v_ann;
+
+	  /* If we are emitting debugging dumps, display a warning if
+	     PTR is an SSA_NAME with no flow-sensitive alias
+	     information.  That means that we may need to compute
+	     aliasing again.  */
+	  if (dump_file
+	      && TREE_CODE (ptr) == SSA_NAME
+	      && pi == NULL)
+	    {
+	      fprintf (dump_file,
+		  "NOTE: no flow-sensitive alias info for ");
+	      print_generic_expr (dump_file, ptr, dump_flags);
+	      fprintf (dump_file, " in ");
+	      print_generic_stmt (dump_file, stmt, dump_flags);
+	    }
+
+	  if (TREE_CODE (ptr) == SSA_NAME)
+	    ptr = SSA_NAME_VAR (ptr);
+	  v_ann = var_ann (ptr);
+	  if (v_ann->type_mem_tag)
+	    add_stmt_operand (&v_ann->type_mem_tag, s_ann, flags);
+	}
+    }
+  /* Add a use operand for the base pointer */
+  get_expr_operands (stmt, &MEM_REF_SYMBOL (expr), opf_none);
+
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */

@@ -444,6 +444,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       NIY;
       break;
 
+    case MEM_REF:
+      {
+	dump_generic_node (buffer, MEM_REF_SYMBOL (node), spc, flags, false);
+	pp_string (buffer, "[");
+	dump_generic_node (buffer, MEM_REF_INDEX (node), spc, flags, false);
+	pp_string (buffer, "]");
+      }
+      break;
+
     case ARRAY_TYPE:
       {
 	tree tmp;

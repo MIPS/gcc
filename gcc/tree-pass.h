@@ -193,8 +193,9 @@ extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_eliminate_useless_stores;
 extern struct tree_opt_pass pass_maybe_create_global_var;
-
+extern struct tree_opt_pass pass_lower_memref;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_static;
 

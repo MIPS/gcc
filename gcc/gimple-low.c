@@ -41,7 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "tree-pass.h"
-
+#include "pointer-set.h"
 struct lower_data
 {
   /* Block the current statement belongs to.  */
@@ -606,3 +606,88 @@ struct tree_opt_pass pass_mark_used_blocks =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
+
+/* Lower a MEM_REF tree to it's equivalent INDIRECT_REF form.  TP is a
+   pointer to the tree we are currently walking, and DATA is a pointer
+   to it's block_stmt_iterator, used for inserting whatever
+   expressions are necessary to create GIMPLE from it.  */ 
+
+static tree
+lower_memref (tree *tp,
+	      int *walk_subtrees ATTRIBUTE_UNUSED,
+	      void *data)
+{
+  block_stmt_iterator *bsip = (block_stmt_iterator *)data;
+  if (TREE_CODE (*tp) == MEM_REF)
+    {
+      tree indirect;
+      tree stmts;
+      tree with;
+      with = build2 (MULT_EXPR, TREE_TYPE (MEM_REF_INDEX (*tp)),
+		     MEM_REF_INDEX (*tp),
+		     size_in_bytes (TREE_TYPE (TREE_TYPE (MEM_REF_SYMBOL (*tp)))));
+      with = fold_convert (TREE_TYPE (MEM_REF_SYMBOL (*tp)), with);      
+      with = build2 (PLUS_EXPR, TREE_TYPE (MEM_REF_SYMBOL (*tp)),
+		     MEM_REF_SYMBOL (*tp), with);
+      
+
+      with = force_gimple_operand (with, &stmts, false, NULL_TREE);
+      if (stmts)
+	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
+      
+      indirect = build1 (INDIRECT_REF, TREE_TYPE (*tp), with);
+      TREE_READONLY (indirect) = TREE_READONLY (*tp);
+      TREE_SIDE_EFFECTS (indirect) = TREE_SIDE_EFFECTS (*tp);
+      TREE_THIS_VOLATILE (indirect) = TREE_THIS_VOLATILE (*tp);
+      
+      indirect = force_gimple_operand (indirect, &stmts, false, NULL_TREE);
+      if (stmts)
+	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
+      *tp = indirect;
+    }
+  return NULL_TREE;
+}
+      
+/* Convert MEM_REF trees into their equivalent INDIRECT_REF form
+   across the entire function.  MEM_REF (symbol, index) = INDIRECT_REF
+   (symbol + (index * size in bytes of the type symbol points to))  */
+
+static void
+lower_memrefs (void)
+{
+  struct pointer_set_t *visited_nodes;
+  basic_block bb;
+  FOR_ALL_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb);
+	   !bsi_end_p (bsi);
+	   bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	visited_nodes = pointer_set_create ();
+	walk_tree (&stmt,  lower_memref, (void *)&bsi, visited_nodes);
+	pointer_set_destroy (visited_nodes);
+		   
+      }
+    }
+}
+struct tree_opt_pass pass_lower_memref = 
+{
+  "memrefs",				/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  lower_memrefs,			/* execute */
+  NULL, NULL,				/* IPA analysis */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+

@@ -69,6 +69,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "flags.h"
 #include "timevar.h"
+#include "diagnostic.h"
+#include "langhooks.h"
 
 /* FIXME -- PROFILE-RESTRUCTURE: change comment from DECL_UID to var-ann. */    
 /* This splay tree contains all of the static variables that are
@@ -94,6 +96,65 @@ static bitmap module_statics_written;
    indexed by DECL_UID.  This is ored into the local info when asm
    code is found that clobbers all memory. */
 static bitmap all_module_statics;
+
+/* This bitmap contains the set of local vars that are the lhs of
+   calls to mallocs.  These variables, when seen on the rhs as part of
+   a cast, the cast are not marked as doing bad things to the type
+   even though they are generally of the form 
+   "foo = (type_of_foo)void_temp". */
+static bitmap results_of_malloc;
+
+/* Scratch bitmap for avoiding work. */
+static bitmap been_there_done_that;
+
+/* There are two levels of escape that types can undergo.
+
+   EXPOSED_PARAMETER - some instance of the variable is
+   passed by value into an externally visible function or some
+   instance of the variable is passed out of an externally visible
+   function as a return value.  In this case any of the fields of the
+   variable that are pointer types end up having their types marked as
+   FULL_ESCAPE.
+
+   FULL_ESCAPE - when bad things happen to good types. One of the
+   following things happens to the type: (a) either an instance of the
+   variable has it's address passed to an externally visible function,
+   (b) the address is taken and some bad cast happens to the address
+   or (c) explicit arithmetic is done to the address.
+*/
+
+enum escape_t
+{
+  EXPOSED_PARAMETER,
+  FULL_ESCAPE
+};
+
+/* The following two bit vectors global_types_* correspond to
+   previous cases above.  During the analysis phase, a bit is set in
+   one of these vectors if an operation of the offending class is
+   discovered to happen on the associated type.  */
+ 
+static bitmap global_types_exposed_parameter;
+static bitmap global_types_full_escape;
+
+/* All of the types seen in this compilation unit. */
+static bitmap global_types_seen;
+static splay_tree uid_to_type;
+
+/* Map the several instances of a type into a single instance.  These
+   can arise in several ways, nono of which can be justified except by
+   laziness and stupidity.  */
+static splay_tree uid_to_unique_type;
+static splay_tree all_unique_types;
+
+/* A splay tree of bitmaps.  An element X in the splay tree has a bit
+   set in its bitmap at TYPE_UID (TYPE_MAIN_VARIANT (Y) if there was
+   an operation in the program of the form "&X.Y".  */
+static splay_tree uid_to_addressof_map;
+
+/* Tree to hold the subtype maps used to mark subtypes of escaped
+   types.  */
+static splay_tree uid_to_subtype_map;
 
 /* Records tree nodes seen in cgraph_create_edges.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -134,6 +195,36 @@ print_order (FILE* out,
   fflush(out);
 }
 
+/* All of the "unique_type" code is a hack to get around the sleezy
+   implementation used to compile more than file.  If the same type is
+   declared in several files, multiple types will appear that are the
+   same.  The code in this unit chooses one "unique" instance of that
+   type as the representative and has all of the others point to
+   it.  */
+
+/* Find the unique representative for a type with UID.  */  
+static int
+unique_type_id_for (int uid)
+{
+  splay_tree_node result = 
+    splay_tree_lookup(uid_to_unique_type, (splay_tree_key) uid);
+
+  if (result)
+    return TYPE_UID((tree) result->value);
+  else 
+    {
+      abort();
+      return uid;
+    }
+}
+
+/* Return true if the type with UID is the unique representative.  */
+static bool 
+unique_type_id_p (int uid)
+{
+  return uid == unique_type_id_for (uid);
+}
+
 /* FIXME -- PROFILE-RESTRUCTURE: Remove this function, it becomes a nop. */    
 /* Convert IN_DECL bitmap which is indexed by DECL_UID to IN_ANN, a
    bitmap indexed by var_ann (VAR_DECL)->uid.  */
@@ -153,7 +244,7 @@ convert_UIDs_in_bitmap (bitmap in_ann, bitmap in_decl)
 	  tree t = (tree)n->value;
 	  var_ann_t va = var_ann (t);
 	  if (va) 
-	    bitmap_set_bit(in_ann, va->uid);
+	    bitmap_set_bit (in_ann, va->uid);
 	}
     }
 }
@@ -354,6 +445,125 @@ ipa_get_statics_not_written_global (tree fn)
     return NULL;
 }
 
+/* Return 0 if TYPE is a record or union type.  Return a positive
+   number if TYPE is a pointer to a record or union.  The number is
+   the number of pointer types stripped to get to the record or union
+   type.  Return -1 if TYPE is none of the above.  */
+ 
+int
+ipa_static_star_count_of_interesting_type (tree type) 
+{
+  int count = 0;
+  /* Strip the *'s off.  */
+  while (POINTER_TYPE_P (type))
+    {
+      type = TREE_TYPE (type);
+      count++;
+    }
+
+  /* We are interested in records, and unions only.  */
+  if (TREE_CODE (type) == RECORD_TYPE 
+      || TREE_CODE (type) == QUAL_UNION_TYPE 
+      || TREE_CODE (type) == UNION_TYPE)
+    return count;
+  else 
+    return -1;
+} 
+
+
+/* Return 0 if TYPE is a record or union type.  Return a positive
+   number if TYPE is a pointer to a record or union.  The number is
+   the number of pointer types stripped to get to the record or union
+   type.  Return -1 if TYPE is none of the above.  */
+ 
+int
+ipa_static_star_count_of_interesting_or_array_type (tree type) 
+{
+  int count = 0;
+  /* Strip the *'s off.  */
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    {
+      type = TREE_TYPE (type);
+      count++;
+    }
+
+  /* We are interested in records, and unions only.  */
+  if (TREE_CODE (type) == RECORD_TYPE 
+      || TREE_CODE (type) == QUAL_UNION_TYPE 
+      || TREE_CODE (type) == UNION_TYPE)
+    return count;
+  else 
+    return -1;
+} 
+ 
+ 
+/* Return true if the record, or union TYPE passed in escapes this
+   compilation unit.  */
+
+bool
+ipa_static_type_contained_p (tree type)
+{
+  int uid;
+
+  if (initialization_status == UNINITIALIZED)
+    return false;
+
+  while (POINTER_TYPE_P (type))
+    type = TREE_TYPE (type);
+
+  type = TYPE_MAIN_VARIANT (type);
+  uid = unique_type_id_for (TYPE_UID (type));
+  return bitmap_bit_p (global_types_full_escape, uid);
+}
+
+/* Return true if no fields with type FIELD_TYPE within a record of
+   RECORD_TYPE has its address taken.  */
+
+bool 
+ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
+{ 
+  splay_tree_node result;
+  int uid;
+  
+  if (initialization_status == UNINITIALIZED)
+    return false;
+
+  /* Strip off all of the pointer tos on the record type.  Strip the
+     same number of pointer tos from the field type.  If the field
+     type has fewer, it could not have been aliased. */
+  while (POINTER_TYPE_P (record_type))
+    {
+      record_type = TREE_TYPE (record_type);
+      if (POINTER_TYPE_P (field_type)) 
+	field_type = TREE_TYPE (field_type);
+      else 
+	return true;
+    }
+  
+  /* The record type must be contained.  The field type may
+     escape.  */
+  if (!ipa_static_type_contained_p (record_type))
+    return false;
+
+  record_type = TYPE_MAIN_VARIANT (record_type);
+  uid = unique_type_id_for (TYPE_UID (record_type));
+  result = splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
+  
+  if (result) 
+    {
+      bitmap field_type_map = (bitmap) result->value;
+      field_type = TYPE_MAIN_VARIANT (field_type);
+      uid = unique_type_id_for (TYPE_UID (field_type));
+      /* If the bit is there, the address was taken. If not, it
+	 wasn't.  */
+      return !bitmap_bit_p (field_type_map, uid);
+    }
+  else
+    /* No bitmap means no addresses were taken.  */
+    return true;
+}
+
+
 struct searchc_env {
   struct cgraph_node **stack;
   int stack_size;
@@ -478,7 +688,8 @@ reduced_inorder (struct cgraph_node **order, bool reduce)
 	node->next_cycle = NULL;
 	
 	splay_tree_insert (env.nodes_marked_new,
-			   node->uid, (splay_tree_value)node);
+			   (splay_tree_key)node->uid, 
+			   (splay_tree_value)node);
       } 
     else 
       node->aux = NULL;
@@ -500,21 +711,340 @@ reduced_inorder (struct cgraph_node **order, bool reduce)
       }
   return env.order_pos;
 }
+
+
+
+/* Mark a TYPE as being seen.  This is only called from two places:
+   mark_type_seen which only calls it with record and union types and
+   mark_interesting_addressof which can mark any field type.  */ 
+
+static bool
+mark_any_type_seen (tree type)
+{
+  int uid;
+  
+  type = TYPE_MAIN_VARIANT (type);
+  uid = TYPE_UID (type);
+  if (bitmap_bit_p (global_types_seen, uid))
+    return false;
+  else
+    {
+      splay_tree_insert (uid_to_type, 
+			 (splay_tree_key) uid,
+			 (splay_tree_value) type);	  
+      bitmap_set_bit (global_types_seen, uid);
+    }
+  return true;
+}
+
+/* Mark the underlying record or union type of TYPE as being seen.
+   Pointer tos and array ofs are stripped from the type and non record
+   or unions are not considered.  */
+
+static bool
+mark_type_seen (tree type)
+{
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  /* We are interested in records, and unions only.  */
+  if (TREE_CODE (type) == RECORD_TYPE 
+	  || TREE_CODE (type) == QUAL_UNION_TYPE 
+	  || TREE_CODE (type) == UNION_TYPE)
+    return mark_any_type_seen (type);
+  else 
+    return false;
+}
+
+/* Add TYPE to the suspect type set. Return true if the bit needed to
+   be marked.  */
+
+static bool
+mark_type (tree type, enum escape_t escape_status)
+{
+  bitmap map = NULL;
+  int uid;
+
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+  
+  switch (escape_status) 
+    {
+    case EXPOSED_PARAMETER:
+      map = global_types_exposed_parameter;
+      break;
+    case FULL_ESCAPE:
+      map = global_types_full_escape;
+      break;
+    }
+
+  uid = TYPE_UID (TYPE_MAIN_VARIANT (type));
+  if (bitmap_bit_p (map, uid))
+    return false;
+  else
+    {
+      bitmap_set_bit (map, uid);
+      mark_type_seen (type);
+
+      if (escape_status == FULL_ESCAPE)
+	{
+	  /* Effeciency hack. When things are bad, do not mess around
+	     with this type anymore.  */
+	  bitmap_set_bit (global_types_exposed_parameter, uid);
+	}      
+    }
+  return true;
+}
+
+/* Add interesting TYPE to the suspect type set. If the set is
+   EXPOSED_PARAMETER and the TYPE is a pointer type, the set is
+   changed to FULL_ESCAPE.  */
+
+static void 
+mark_interesting_type (tree type, enum escape_t escape_status)
+{
+  if (ipa_static_star_count_of_interesting_type (type) >= 0)
+    {
+      if ((escape_status == EXPOSED_PARAMETER)
+	  && POINTER_TYPE_P (type))
+	/* EXPOSED_PARAMETERs are only structs or unions are passed by
+	   value.  Anything passed by reference to an external
+	   function fully exposes the type.  */
+	mark_type (type, FULL_ESCAPE);
+      else
+	mark_type (type, escape_status);
+    }
+}
+
+/* Return true if PARENT is supertype of CHILD.  Both types must be
+   known to be structures or unions. */
+ 
+static bool
+parent_type_p (tree parent, tree child)
+{
+  int i;
+  tree binfo, base_binfo;
+  if (TYPE_BINFO (parent)) 
+    for (binfo = TYPE_BINFO (parent), i = 0;
+	 BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+      {
+	tree binfotype = BINFO_TYPE (base_binfo);
+	if (binfotype == child) 
+	  return true;
+	else if (parent_type_p (binfotype, child))
+	  return true;
+      }
+  if (TREE_CODE (parent) == UNION_TYPE
+      || TREE_CODE (parent) == QUAL_UNION_TYPE) 
+    {
+      tree field;
+      /* Search all of the variants in the union to see if one of them
+	 is the child.  */
+      for (field = TYPE_FIELDS (parent);
+	   field;
+	   field = TREE_CHAIN (field))
+	{
+	  tree field_type;
+	  if (TREE_CODE (field) != FIELD_DECL)
+	    continue;
+	  
+	  field_type = TREE_TYPE (field);
+	  if (field_type == child) 
+	    return true;
+	}
+
+      /* If we did not find it, recursively ask the variants if one of
+	 their children is the child type.  */
+      for (field = TYPE_FIELDS (parent);
+	   field;
+	   field = TREE_CHAIN (field))
+	{
+	  tree field_type;
+	  if (TREE_CODE (field) != FIELD_DECL)
+	    continue;
+	  
+	  field_type = TREE_TYPE (field);
+	  if (TREE_CODE (field_type) == RECORD_TYPE 
+	      || TREE_CODE (field_type) == QUAL_UNION_TYPE 
+	      || TREE_CODE (field_type) == UNION_TYPE)
+	    if (parent_type_p (field_type, child)) 
+	      return true;
+	}
+    }
+  
+  if (TREE_CODE (parent) == RECORD_TYPE)
+    {
+      tree field;
+      for (field = TYPE_FIELDS (parent);
+	   field;
+	   field = TREE_CHAIN (field))
+	{
+	  tree field_type;
+	  if (TREE_CODE (field) != FIELD_DECL)
+	    continue;
+	  
+	  field_type = TREE_TYPE (field);
+	  if (field_type == child) 
+	    return true;
+	  /* You can only cast to the first field so if it does not
+	     match, quit.  */
+	  if (TREE_CODE (field_type) == RECORD_TYPE 
+	      || TREE_CODE (field_type) == QUAL_UNION_TYPE 
+	      || TREE_CODE (field_type) == UNION_TYPE)
+	    {
+	      if (parent_type_p (field_type, child)) 
+		return true;
+	      else 
+		break;
+	    }
+	}
+    }
+  return false;
+}
+
+/* Return the number of pointer tos for TYPE and return TYPE with all
+   of these stripped off.  */
+
+static int 
+count_stars (tree* type_ptr)
+{
+  tree type = *type_ptr;
+  int i = 0;
+  while (POINTER_TYPE_P (type))
+    {
+      type = TREE_TYPE (type);
+      i++;
+    }
+
+  *type_ptr = type;
+  return i;
+}
+
+enum cast_type {
+  CT_UP,
+  CT_DOWN,
+  CT_SIDEWAYS,
+  CT_USELESS
+};
+
+/* Check the cast FROM_TYPE to TO_TYPE.  This function requires that
+   the two types have already passed the
+   ipa_static_star_count_of_interesting_type test.  */
+
+static enum cast_type
+check_cast_type (tree to_type, tree from_type)
+{
+  int to_stars = count_stars (&to_type);
+  int from_stars = count_stars (&from_type);
+  if (to_stars != from_stars) 
+    return CT_SIDEWAYS;
+
+  if (to_type == from_type)
+    return CT_USELESS;
+
+  if (parent_type_p (to_type, from_type)) return CT_UP;
+  if (parent_type_p (from_type, to_type)) return CT_DOWN;
+  return CT_SIDEWAYS;
+}     
+
+/* Check a cast FROM this variable, TO_TYPE.  Mark the escaping types
+   if appropriate.  */ 
+static void
+check_cast (tree to_type, tree from) 
+{
+  tree from_type = TYPE_MAIN_VARIANT (TREE_TYPE (from));
+  bool to_interesting_type, from_interesting_type;
+
+  to_type = TYPE_MAIN_VARIANT (to_type);
+  if (from_type == to_type)
+    {
+      mark_type_seen (to_type);
+      return;
+    }
+
+  to_interesting_type = 
+    ipa_static_star_count_of_interesting_type (to_type) >= 0;
+  from_interesting_type = 
+    ipa_static_star_count_of_interesting_type (from_type) >= 0;
+
+  if (to_interesting_type) 
+    if (from_interesting_type)
+      {
+	/* Both types are interesting. This can be one of four types
+	   of cast: useless, up, down, or sideways.  We do not care
+	   about up or useless.  Sideways casts are always bad and
+	   both sides get marked as escaping.  Downcasts are not
+	   interesting here because if type is marked as escaping, all
+	   of it's subtypes escape.  */
+	switch (check_cast_type (to_type, from_type)) 
+	  {
+	  case CT_UP:
+	  case CT_USELESS:
+	  case CT_DOWN:
+	    mark_type_seen (to_type);
+	    mark_type_seen (from_type);
+	    break;
+
+	  case CT_SIDEWAYS:
+	    mark_type (to_type, FULL_ESCAPE);
+	    mark_type (from_type, FULL_ESCAPE);
+	    break;
+	  }
+      }
+    else
+      {
+	/* If this is a cast from the local that is a result from a
+	   call to malloc, do not mark the cast as bad.  */
+	if (DECL_P (from) && !bitmap_bit_p (results_of_malloc, DECL_UID (from)))
+	  mark_type (to_type, FULL_ESCAPE);
+	else
+	  mark_type_seen (to_type);
+      }
+  else if (from_interesting_type)
+    mark_type (from_type, FULL_ESCAPE);
+}
+
+/* Register the parameter and return types of function FN as
+   escaping.  */
+static void 
+check_function_parameter_and_return_types (tree fn, bool escapes) 
+{
+  tree arg;
+
+  for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
+       arg && TREE_VALUE (arg) != void_type_node;
+       arg = TREE_CHAIN (arg))
+    {
+      if (escapes)
+	mark_interesting_type (TREE_VALUE (arg), EXPOSED_PARAMETER);
+      else
+	mark_type_seen (TREE_VALUE (arg));
+    }
+  
+  if (escapes)
+    mark_interesting_type (TREE_TYPE (TREE_TYPE (fn)), EXPOSED_PARAMETER); 
+  else 
+    mark_type_seen (TREE_TYPE (TREE_TYPE (fn)));
+}
 
 /* Add VAR to all_module_statics and the two static_vars_to_consider*
    sets.  */
 
-static inline
-void add_static_var (tree var) 
+static inline void 
+add_static_var (tree var) 
 {
-  /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
-     DECL_UID to get the uid from the var_ann field. */    
-  splay_tree_insert (static_vars_to_consider_by_uid,
-		     DECL_UID (var), (splay_tree_value)var);
-  
-  /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
-     DECL_UID to get the uid from the var_ann field. */    
-  bitmap_set_bit (all_module_statics, DECL_UID (var));
+  int uid = DECL_UID (var);
+  if (!bitmap_bit_p (all_module_statics, uid))
+    {
+      /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
+	 DECL_UID to get the uid from the var_ann field. */    
+      splay_tree_insert (static_vars_to_consider_by_uid,
+			 uid, (splay_tree_value)var);
+      
+      /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
+	 DECL_UID to get the uid from the var_ann field. */    
+      bitmap_set_bit (all_module_statics, uid);
+    }
 }
 
 /* FIXME this needs to be enhanced.  If we are compiling a single
@@ -584,23 +1114,30 @@ check_operand (ipa_local_static_vars_info_t local,
 {
   if (!t) return;
 
+  /* This is an assignment from a function, register the types as
+     escaping.  */
+  if (TREE_CODE (t) == FUNCTION_DECL)
+    check_function_parameter_and_return_types (t, true);
+
   /* FIXME -- PROFILE-RESTRUCTURE: Change the call from DECL_UID to
      get the uid from the var_ann field. */    
-  if ((TREE_CODE (t) == VAR_DECL) 
-      && has_proper_scope_for_analysis (local, t, checking_write)) 
+  else if (TREE_CODE (t) == VAR_DECL)
     {
-      if (checking_write)
+      mark_type_seen (TREE_TYPE (t));
+      if (has_proper_scope_for_analysis (local, t, checking_write)) 
 	{
-	  if (local)
-	    bitmap_set_bit (local->statics_written_by_decl_uid, DECL_UID (t));
-	  /* Mark the write so we can tell which statics are
-	     readonly.  */
-	  bitmap_set_bit (module_statics_written, DECL_UID (t));
+	  if (checking_write)
+	    {
+	      if (local)
+		bitmap_set_bit (local->statics_written_by_decl_uid, DECL_UID (t));
+	      /* Mark the write so we can tell which statics are
+		 readonly.  */
+	      bitmap_set_bit (module_statics_written, DECL_UID (t));
+	    }
+	  else if (local)
+	    bitmap_set_bit (local->statics_read_by_decl_uid, DECL_UID (t));
 	}
-      else if (local)
-	bitmap_set_bit (local->statics_read_by_decl_uid, DECL_UID (t));
     }
-  else return;
 }
 
 /* Examine tree T for references to static variables. All internal
@@ -626,7 +1163,7 @@ check_tree (ipa_local_static_vars_info_t local, tree t, bool checking_write)
   /* The bottom of an indirect reference can only be read, not
      written.  So just recurse and whatever we find, check it against
      the read bitmaps.  */
-  if (INDIRECT_REF_P (t))
+  if (INDIRECT_REF_P (t) || TREE_CODE (t) == MEM_REF)
     {
       check_tree (local, TREE_OPERAND (t, 0), false);
       
@@ -644,9 +1181,67 @@ check_tree (ipa_local_static_vars_info_t local, tree t, bool checking_write)
 	}
     }
 
-  if (SSA_VAR_P (t))
+  if (SSA_VAR_P (t) || (TREE_CODE (t) == FUNCTION_DECL))
     check_operand (local, t, checking_write);
 }
+
+/* Given a memory reference T, will return the variable at the bottom
+   of the access.  Unlike get_base_address, this will recurse thru
+   INDIRECT_REFS.  */
+
+static tree
+get_base_var (tree t)
+{
+  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
+    return t;
+
+  while (!SSA_VAR_P (t) 
+	 && (!CONSTANT_CLASS_P (t))
+	 && TREE_CODE (t) != LABEL_DECL
+	 && TREE_CODE (t) != FUNCTION_DECL
+	 && TREE_CODE (t) != CONST_DECL)
+    {
+      t = TREE_OPERAND (t, 0);
+    }
+  return t;
+} 
+
+/* Create an address_of edge FROM_TYPE.TO_TYPE.  */
+static void
+mark_interesting_addressof (tree to_type, tree from_type)
+{
+  from_type = TYPE_MAIN_VARIANT (from_type);
+  to_type = TYPE_MAIN_VARIANT (to_type);
+  if (ipa_static_star_count_of_interesting_type (from_type) == 0)
+    {
+      int uid = TYPE_UID (from_type);
+      bitmap from_type_map;
+      splay_tree_node result = 
+	splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
+ 
+      if (result) 
+	from_type_map = (bitmap) result->value;  
+      else 
+	{
+	  from_type_map = BITMAP_ALLOC (&ipa_obstack);
+	  splay_tree_insert (uid_to_addressof_map,
+			     uid, 
+			     (splay_tree_value)from_type_map);
+	}
+      bitmap_set_bit (from_type_map, TYPE_UID (to_type));
+      mark_type_seen (from_type);
+      mark_any_type_seen (to_type);
+    }
+  else 
+    {
+      fprintf(stderr, "trying to mark the address of pointer type ");
+      print_generic_expr (stderr, from_type, 0);
+      fprintf(stderr, "\n");
+      abort ();
+    }
+}
+
+
 
 /* Scan tree T to see if there are any addresses taken in within T.  */
 
@@ -656,6 +1251,25 @@ look_for_address_of (ipa_local_static_vars_info_t local, tree t)
   if (TREE_CODE (t) == ADDR_EXPR)
     {
       tree x = get_base_var (t);
+      tree cref = TREE_OPERAND (t, 0);
+
+      /* If we have an expression of the form "&a.b.c.d", mark a.b,
+	 b.c and c.d. as having it's address taken.  */ 
+      tree fielddecl = NULL_TREE;
+      while (cref!= x)
+	{
+	  if (TREE_CODE (cref) == COMPONENT_REF)
+	    {
+	      fielddecl =  TREE_OPERAND (cref, 1);
+	      mark_interesting_addressof (TREE_TYPE (fielddecl), 
+					  DECL_FIELD_CONTEXT (fielddecl));
+	    }
+	  else if (TREE_CODE (cref) == ARRAY_REF)
+	    mark_type_seen (TREE_TYPE (cref));
+
+	  cref = TREE_OPERAND (cref, 0);
+	}
+
       if (TREE_CODE (x) == VAR_DECL) 
 	{
 	  if (has_proper_scope_for_analysis (local, x, false))
@@ -672,6 +1286,39 @@ look_for_address_of (ipa_local_static_vars_info_t local, tree t)
     }
 }
 
+
+/* Scan tree T to see if there are any casts within it.
+   LHS Is the LHS of the expression involving the cast.  */
+
+static void 
+look_for_casts (tree lhs __attribute__((unused)), tree t)
+{
+  if (is_gimple_cast (t) || TREE_CODE (t) == VIEW_CONVERT_EXPR)
+    {
+      tree castfromvar = TREE_OPERAND (t, 0);
+      check_cast (TREE_TYPE (t), castfromvar);
+    }
+  else if (TREE_CODE (t) == COMPONENT_REF
+	   || TREE_CODE (t) == INDIRECT_REF
+	   || TREE_CODE (t) == BIT_FIELD_REF)
+    {
+      tree base = get_base_address (t);
+      while (t != base)
+	{
+	  t = TREE_OPERAND (t, 0);
+	  if (TREE_CODE (t) == VIEW_CONVERT_EXPR)
+	    {
+	      /* This may be some part of a component ref.
+		 IE it may be a.b.VIEW_CONVERT_EXPR<weird_type>(c).d, AFAIK.
+		 castfromref will give you a.b.c, not a. */
+	      tree castfromref = TREE_OPERAND (t, 0);
+	      check_cast (TREE_TYPE (t), castfromref);
+	    }
+	  else if (TREE_CODE (t) == COMPONENT_REF)
+	    mark_type_seen (TREE_TYPE (TREE_OPERAND (t, 1)));
+	}
+    } 
+} 
 
 /* Check to see if T is a read or address of operation on a static var
    we are interested in analyzing.  LOCAL is passed in to get access to
@@ -774,13 +1421,15 @@ get_asm_expr_operands (ipa_local_static_vars_info_t local, tree stmt)
    parameter is the tree node for the caller and the second operand is
    the tree node for the entire call expression.  */
 
-static void
-process_call_for_static_vars(ipa_local_static_vars_info_t local, tree call_expr) 
+static bool
+check_call (ipa_local_static_vars_info_t local, 
+	      tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
   tree operandList = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
+  tree argument;
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
@@ -806,8 +1455,40 @@ process_call_for_static_vars(ipa_local_static_vars_info_t local, tree call_expr)
 
   if (callee_t)
     {
+      tree arg_type;
+      tree last_arg_type;
       callee = cgraph_node(callee_t);
       avail = cgraph_function_body_availability (callee);
+
+      /* If the function is POINTER_NO_ESCAPE or a wrapper it is
+	 allowed to make an implicit cast to void* without causing the
+	 type to escape.  */
+      if (!flags & ECF_POINTER_NO_ESCAPE) 
+	{
+	  /* Check that there are no implicit casts in the passing of
+	     parameters.  */
+	  operand = operandList;
+	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+	       arg_type && TREE_VALUE (arg_type) != void_type_node;
+	       arg_type = TREE_CHAIN (arg_type))
+	    {
+	      operand = TREE_CHAIN (operand);
+	      argument = TREE_VALUE (operand);
+	      check_cast (arg_type, argument);
+	      last_arg_type = arg_type;
+	    }
+	  
+	  /* In the case where we have a var_args function, we need to
+	     check the remaining parameters against the last argument.  */
+	  arg_type = last_arg_type;
+	  for (;
+	       operand != NULL_TREE;
+	       operand = TREE_CHAIN (operand))
+	    {
+	      argument = TREE_VALUE (operand);
+	      check_cast (arg_type, argument);
+	    }
+	}
 
       /* When bad things happen to bad functions, they cannot be const
 	 or pure.  */
@@ -827,43 +1508,53 @@ process_call_for_static_vars(ipa_local_static_vars_info_t local, tree call_expr)
 	  }
     }
 
-  /* If the callee has already been marked as ECF_CONST, we need look
-     no further since it cannot look at any memory except
-     constants. However, if the callee is only ECF_PURE we need to
-     look because if there is also code, we need to mark the variables
-     it is reading from. */
-  if (flags & ECF_CONST) 
-    return;
-
-  if (!local) return;
-
   /* The callee is either unknown (indirect call) or there is just no
-     scanable code for it (external call) .  We look to see if there
+     scannable code for it (external call) .  We look to see if there
      are any bits available for the callee (such as by declaration or
      because it is builtin) and process solely on the basis of those
      bits. */
 
   if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
     {
-      if (flags & ECF_PURE) 
+      if (!flags & ECF_POINTER_NO_ESCAPE) 
 	{
-	  local->calls_read_all = true;
-	  if (local->pure_const_not_set_in_source
-	      && local->pure_const_state == IPA_CONST)
-	    local->pure_const_state = IPA_PURE;
+	  /* If this is a direct call to an external function, mark all of
+	     the parameter and return types.  */
+	  for (operand = operandList;
+	       operand != NULL_TREE;
+	       operand = TREE_CHAIN (operand))
+	    {
+	      mark_interesting_type (TREE_TYPE (TREE_VALUE (operand)), 
+				     EXPOSED_PARAMETER);
+	    }
+	  
+	  if (callee_t) 
+	    mark_interesting_type (TREE_TYPE (TREE_TYPE (callee_t)), 
+				   EXPOSED_PARAMETER);
 	}
-      else 
+
+      if (local) 
 	{
-	  local->calls_read_all = true;
-	  local->calls_write_all = true;
-	  if (local->pure_const_not_set_in_source)
-	    local->pure_const_state = IPA_NEITHER;
+	  if (flags & ECF_PURE) 
+	    {
+	      local->calls_read_all = true;
+	      if (local->pure_const_not_set_in_source
+		  && local->pure_const_state == IPA_CONST)
+		local->pure_const_state = IPA_PURE;
+	    }
+	  else 
+	    {
+	      local->calls_read_all = true;
+	      local->calls_write_all = true;
+	      if (local->pure_const_not_set_in_source)
+		local->pure_const_state = IPA_NEITHER;
+	    }
 	}
     }
   else
     {
       /* We have the code and we will scan it for the effects. */
-      if (flags & ECF_PURE) 
+      if (local && (flags & ECF_PURE)) 
 	{
 	  /* Since we have the code for the function, we do not need to
 	     set calls_read_all, we can determine the precise reads
@@ -873,6 +1564,33 @@ process_call_for_static_vars(ipa_local_static_vars_info_t local, tree call_expr)
 	    local->pure_const_state = IPA_PURE;
 	}
     }
+
+  return (flags & ECF_MALLOC);
+}
+
+/* OP0 is the one we *know* is a pointer type.
+   OP1 may be a pointer type.  */
+static bool 
+okay_pointer_operation (enum tree_code code,  tree op0, tree op1)
+{
+  tree op0type = TREE_TYPE (op0);
+  tree op1type = TREE_TYPE (op1);
+  if (POINTER_TYPE_P (op1type))
+    return false;
+  switch (code)
+    {
+    case MULT_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      /* TODO: Handle multiples of op0 size as well */
+      if (operand_equal_p (size_in_bytes (op0type), op1, 0))
+	return true;
+      /* fallthrough */
+
+    default:
+      return false;
+    }
+  return false;
 }
 
 /* FIXME -- PROFILE-RESTRUCTURE: Change to walk by explicitly walking
@@ -897,7 +1615,7 @@ scan_for_static_refs (tree *tp,
   ipa_local_static_vars_info_t local = NULL;
   if (fn)
     local = fn->static_vars_info->local;
-  
+
   switch (TREE_CODE (t))  
     {
     case VAR_DECL:
@@ -909,20 +1627,66 @@ scan_for_static_refs (tree *tp,
     case MODIFY_EXPR:
       {
 	/* First look on the lhs and see what variable is stored to */
+	tree lhs = TREE_OPERAND (t, 0);
 	tree rhs = TREE_OPERAND (t, 1);
-	check_lhs_var (local, TREE_OPERAND (t, 0));
+
+	check_lhs_var (local, lhs);
+ 	check_cast (TREE_TYPE (lhs), rhs);
+
+	/* For the purposes of figuring out what the cast affects */
 
 	/* Next check the operands on the rhs to see if they are ok. */
 	switch (TREE_CODE_CLASS (TREE_CODE (rhs))) 
 	  {
-	  case tcc_binary:
-	    check_rhs_var (local, TREE_OPERAND (rhs, 0));
-	    check_rhs_var (local, TREE_OPERAND (rhs, 1));
+	  case tcc_binary:	    
+ 	    {
+ 	      tree op0 = TREE_OPERAND (rhs, 0);
+ 	      tree op1 = TREE_OPERAND (rhs, 1);
+ 
+ 	      /* If this is pointer arithmetic of any bad sort, then
+ 		 we need to mark the types as bad.  For binary
+ 		 operations, no binary operator we currently support
+ 		 is always "safe" in regard to what it would do to
+ 		 pointers for purposes of determining which types
+ 		 escape, except operations of the size of the type.
+ 		 It is possible that min and max under the right set
+ 		 of circumstances and if the moon is in the correct
+ 		 place could be safe, but it is hard to see how this
+ 		 is worth the effort.  */
+ 
+ 	      if (POINTER_TYPE_P (TREE_TYPE (op0))
+		  && !okay_pointer_operation (TREE_CODE (rhs), op0, op1))
+ 		mark_interesting_type (TREE_TYPE (op0), FULL_ESCAPE);
+ 	      if (POINTER_TYPE_P (TREE_TYPE (op1))
+		  && !okay_pointer_operation (TREE_CODE (rhs), op1, op0))
+ 		mark_interesting_type (TREE_TYPE (op1), FULL_ESCAPE);
+ 	      
+	      look_for_casts (lhs, op0);
+	      look_for_casts (lhs, op1);
+ 	      check_rhs_var (local, op0);
+ 	      check_rhs_var (local, op1);
+	    }
 	    break;
 	  case tcc_unary:
-	    check_rhs_var (local, TREE_OPERAND (rhs, 0));
+ 	    {
+ 	      tree op0 = TREE_OPERAND (rhs, 0);
+	      /* For unary operations, if the operation is NEGATE or
+		 ABS on a pointer, this is also considered pointer
+		 arithmetic and thus, bad for business.  */
+ 	      if ((TREE_CODE (op0) == NEGATE_EXPR
+ 		   || TREE_CODE (op0) == ABS_EXPR)
+ 		  && POINTER_TYPE_P (TREE_TYPE (op0)))
+ 		{
+ 		  mark_interesting_type (TREE_TYPE (op0), FULL_ESCAPE);
+ 		}
+ 	      check_rhs_var (local, op0);
+	      look_for_casts (lhs, op0);
+	      look_for_casts (lhs, rhs);
+ 	    }
+
 	    break;
 	  case tcc_reference:
+	    look_for_casts (lhs, rhs);
 	    check_rhs_var (local, rhs);
 	    break;
 	  case tcc_declaration:
@@ -932,10 +1696,15 @@ scan_for_static_refs (tree *tp,
 	    switch (TREE_CODE (rhs)) 
 	      {
 	      case ADDR_EXPR:
+		look_for_casts (lhs, TREE_OPERAND (rhs, 0));
 		check_rhs_var (local, rhs);
 		break;
 	      case CALL_EXPR: 
-		process_call_for_static_vars (local, rhs);
+		/* If this is a call to malloc, squirrel away the
+		   result so we do mark the resulting cast as being
+		   bad.  */
+		if (check_call (local, rhs))
+		  bitmap_set_bit (results_of_malloc, DECL_UID (lhs));
 		break;
 	      default:
 		break;
@@ -967,7 +1736,7 @@ scan_for_static_refs (tree *tp,
       break;
 
     case CALL_EXPR: 
-      process_call_for_static_vars (local, t);
+      check_call (local, t);
       *walk_subtrees = 0;
       break;
       
@@ -981,6 +1750,7 @@ scan_for_static_refs (tree *tp,
     }
   return NULL;
 }
+
 
 /* Lookup the tree node for the static variable that has UID.  */
 static tree
@@ -1047,7 +1817,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_read_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE(x_global->statics_read_by_decl_uid);
+		      BITMAP_XFREE (x_global->statics_read_by_decl_uid);
 		      x_global->statics_read_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -1064,7 +1834,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_written_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE(x_global->statics_written_by_decl_uid);
+		      BITMAP_XFREE (x_global->statics_written_by_decl_uid);
 		      x_global->statics_written_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -1145,7 +1915,7 @@ merge_callee_local_info (struct cgraph_node *target,
 
 /* The init routine for analyzing global static variable usage.  See
    comments at top for description.  */
-
+int cant_touch = 0;
 static void 
 ipa_init (void) 
 {
@@ -1160,6 +1930,14 @@ ipa_init (void)
   module_statics_escape = BITMAP_ALLOC (&ipa_obstack);
   module_statics_written = BITMAP_ALLOC (&ipa_obstack);
   all_module_statics = BITMAP_ALLOC (&ipa_obstack);
+  global_types_seen = BITMAP_ALLOC (&ipa_obstack);
+  global_types_exposed_parameter = BITMAP_ALLOC (&ipa_obstack);
+  global_types_full_escape = BITMAP_ALLOC (&ipa_obstack);
+  results_of_malloc = BITMAP_ALLOC (&ipa_obstack);
+  cant_touch = 1;
+  uid_to_type = splay_tree_new (splay_tree_compare_ints, 0, 0);
+  uid_to_subtype_map = splay_tree_new (splay_tree_compare_ints, 0, 0);
+  uid_to_addressof_map = splay_tree_new (splay_tree_compare_ints, 0, 0);
 
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
@@ -1188,12 +1966,19 @@ analyze_variable (struct cgraph_varpool_node *vnode)
       break;
 
     case FINISHED:
-/*       fprintf(stderr,  */
-/* 	      "AV analyze_variable called after execute for variable %s\n" , */
-/* 	      lang_hooks.decl_printable_name (global, 2)); */
-      /*abort ();*/
+      fprintf(stderr,  
+	      "AV analyze_variable called after execute for variable %s\n" , 
+	      lang_hooks.decl_printable_name (global, 2)); 
+      abort ();
       break;
     }
+
+  /* If this variable has exposure beyond the compilation unit, add
+     it's type to the global types.  */
+  if (vnode->externally_visible)
+    mark_interesting_type (TREE_TYPE (global), FULL_ESCAPE);
+  else 
+    mark_type_seen (TREE_TYPE (global));
 
   if (TREE_CODE (global) == VAR_DECL)
     {
@@ -1237,6 +2022,11 @@ analyze_function (struct cgraph_node *fn)
 /* 			  DECL_STRUCT_FUNCTION (fn->decl)); */
 /* 		  fprintf(stderr, "cfg=%x\n", */
 /* 			  DECL_STRUCT_FUNCTION (fn->decl) -> cfg); */
+
+  /* If this function can be called from the outside, register the
+     types as escaping.  */
+  check_function_parameter_and_return_types (decl, fn->local.externally_visible);
+    
 
   /* Add the info to the tree's annotation.  */
   fn->static_vars_info = info;
@@ -1311,9 +2101,13 @@ analyze_function (struct cgraph_node *fn)
       for (step = BLOCK_VARS (DECL_INITIAL (decl));
 	   step;
 	   step = TREE_CHAIN (step))
-	if (DECL_INITIAL (step))
-	  walk_tree (&DECL_INITIAL (step), scan_for_static_refs, 
-		     fn, visited_nodes);
+	{
+	  if (DECL_INITIAL (step))
+	    walk_tree (&DECL_INITIAL (step), scan_for_static_refs, 
+		       fn, visited_nodes);
+	  mark_type_seen (TREE_TYPE (step));
+	}
+
     }
   
   /* Also look here for private statics.  */
@@ -1328,14 +2122,512 @@ analyze_function (struct cgraph_node *fn)
 	  if (DECL_INITIAL (var) && TREE_STATIC (var))
 	    walk_tree (&DECL_INITIAL (var), scan_for_static_refs, 
 		       fn, visited_nodes);
+	  mark_type_seen (TREE_TYPE (var));
 	}
     }
 }
 
+
+
+/* Convert a type_UID into a type.  */
+static tree
+type_for_uid (int uid)
+{
+  splay_tree_node result = 
+    splay_tree_lookup (uid_to_type, (splay_tree_key) uid);
+  
+  if (result)
+    return (tree) result->value;  
+  else return NULL;
+}
+
+/* Return the a bitmap with the subtypes of the type for UID.  If it
+   does not exist, return either NULL or a new bitmap depending on the
+   value of CREATE.  */ 
+
+static bitmap
+subtype_map_for_uid (int uid, bool create)
+{
+  splay_tree_node result = 
+    splay_tree_lookup (uid_to_subtype_map, (splay_tree_key) uid);
+  
+  if (result) 
+    return (bitmap) result->value;  
+  else if (create)
+    {
+      bitmap subtype_map = BITMAP_ALLOC (&ipa_obstack);
+      splay_tree_insert (uid_to_subtype_map,
+			 uid, 
+			 (splay_tree_value)subtype_map);
+      return subtype_map;
+    }
+  else return NULL;
+}
+
+/* Mark all of the supertypes and field types of TYPE as being seen.
+   Also accumulate the subtypes for each type so that
+   close_types_full_escape can mark a subtype as escaping if the
+   supertype escapes.  */
+
+static void
+close_type_seen (tree type)
+{
+  tree field;
+  int i, uid;
+  tree binfo, base_binfo;
+
+  /* See thru all pointer tos and array ofs. */
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+  
+  type = TYPE_MAIN_VARIANT (type);
+  uid = TYPE_UID (type);
+
+  if (bitmap_bit_p (been_there_done_that, uid))
+    return;
+  bitmap_set_bit (been_there_done_that, uid);
+
+  /* If we are doing a language with a type heirarchy, mark all of
+     the superclasses.  */
+  if (TYPE_BINFO (type)) 
+    for (binfo = TYPE_BINFO (type), i = 0;
+	 BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+      {
+	tree binfo_type = BINFO_TYPE (base_binfo);
+	bitmap subtype_map = subtype_map_for_uid 
+	  (TYPE_UID (TYPE_MAIN_VARIANT (binfo_type)), true);
+	bitmap_set_bit (subtype_map, uid);
+	if (mark_type_seen (binfo_type))
+	  close_type_seen (binfo_type);
+      }
+      
+  /* If the field is a struct or union type, mark all of the
+     subfields.  */
+  for (field = TYPE_FIELDS (type);
+       field;
+       field = TREE_CHAIN (field))
+    {
+      tree field_type;
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+
+      field_type = TREE_TYPE (field);
+      if (ipa_static_star_count_of_interesting_or_array_type (field_type) >= 0)
+	if (mark_type_seen (field_type))
+	  close_type_seen (field_type);
+    }
+}
+
+struct type_brand_s 
+{
+  char* name;
+  int seq;
+};
+
+/* Splay tree comparison function on type_brand_s structures.  */
+
+static int 
+compare_type_brand (splay_tree_key sk1, splay_tree_key sk2)
+{
+  struct type_brand_s * k1 = (struct type_brand_s *) sk1;
+  struct type_brand_s * k2 = (struct type_brand_s *) sk2;
+
+  int value = strcmp(k1->name, k2->name);
+  if (value == 0)
+    return k2->seq - k1->seq;
+  else 
+    return value;
+}
+
+/* Get the name of TYPE or return the string "<UNNAMED>".  */
+static char*
+get_name_of_type (tree type)
+{
+  tree name = TYPE_NAME (type);
+  
+  if (!name)
+    /* Unnamed type, do what you like here.  */
+    return (char*)"<UNNAMED>";
+  
+  /* It will be a TYPE_DECL in the case of a typedef, otherwise, an
+     identifier_node */
+  if (TREE_CODE (name) == TYPE_DECL)
+    {
+      /*  Each DECL has a DECL_NAME field which contains an
+	  IDENTIFIER_NODE.  (Some decls, most often labels, may have
+	  zero as the DECL_NAME).  */
+      if (DECL_NAME (name))
+	return (char*)IDENTIFIER_POINTER (DECL_NAME (name));
+      else
+	/* Unnamed type, do what you like here.  */
+	return (char*)"<UNNAMED>";
+    }
+  else if (TREE_CODE (name) == IDENTIFIER_NODE)
+    return (char*)IDENTIFIER_POINTER (name);
+  else 
+    return (char*)"<UNNAMED>";
+}
+
+
+/* Use a completely lame algorithm for removing duplicate types.  This
+   code should not be here except for a bad implementation of whole
+   program compilation.  */
+/* Return either TYPE if this is first time TYPE has been seen an
+   compatible TYPE that has already been processed.  */ 
+
+static tree
+discover_unique_type (tree type)
+{
+  struct type_brand_s * brand = xmalloc(sizeof(struct type_brand_s));
+  int i = 0;
+  splay_tree_node result;
+  
+  while (1)
+  {
+    brand->name = get_name_of_type (type);
+    brand->seq = i;
+    result = splay_tree_lookup (all_unique_types, (splay_tree_key) brand);
+    if (result)
+      {
+	tree other_type = (tree) result->value;
+	if (lang_hooks.types_compatible_p (type, other_type) == 1)
+	  {
+	    free (brand);
+	    return other_type;
+	  }
+	/* Not compatible, look for next instance with same name.  */
+      }
+    else 
+      {
+	/* No more instances, create new one.  */
+	brand->seq = i++;
+	splay_tree_insert (all_unique_types, 
+			   (splay_tree_key) brand,
+			   (splay_tree_value) type);	  
+	
+	return type;
+      }
+    i++;
+  } 
+}
+
+/* Take a TYPE that has been passed by value to an external function
+   and mark all of the fields that have pointer types as escaping. For
+   any of the non pointer types that are structures or unions,
+   recurse.  TYPE is never a pointer type.  */ 
+
+static void
+close_type_exposed_parameter (tree type)
+{
+  tree field;
+  int uid = TYPE_UID (TYPE_MAIN_VARIANT (type));
+
+  if (bitmap_bit_p (been_there_done_that, uid))
+    return;
+  bitmap_set_bit (been_there_done_that, uid);
+
+  /* If the field is a struct or union type, mark all of the
+     subfields.  */
+  for (field = TYPE_FIELDS (type);
+       field;
+       field = TREE_CHAIN (field))
+    {
+      tree field_type;
+
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+
+      field_type = TREE_TYPE (field);
+      mark_interesting_type (field_type, EXPOSED_PARAMETER);
+
+      if (ipa_static_star_count_of_interesting_type (field_type) == 0) 
+	close_type_exposed_parameter (field_type);
+    }
+}
+
+/* The next function handles the case where a type fully escapes.
+   This means that not only does the type itself escape, 
+
+   a) the type of every field recursively escapes
+   b) the type of every subtype escapes as well as the super as well
+   as all of the pointer to types for each field.
+
+   Note that pointer to types are not marked as escaping.  If the
+   pointed to type escapes, the pointer to type also escapes.
+
+   Take a TYPE that has had the address taken for an instance of it
+   and mark all of the types for its fields as having their addresses
+   taken. */ 
+
+static void
+close_type_full_escape (tree type)
+{
+  tree field;
+  unsigned int i;
+  int uid;
+  tree binfo, base_binfo;
+  bitmap_iterator bi;
+  bitmap subtype_map;
+
+  /* Strip off any pointer or array types.  */
+  while (POINTER_TYPE_P (type) || TREE_CODE(type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  type = TYPE_MAIN_VARIANT (type);
+  uid = TYPE_UID (type);
+
+  if (bitmap_bit_p (been_there_done_that, uid))
+    return;
+  bitmap_set_bit (been_there_done_that, uid);
+
+  subtype_map = subtype_map_for_uid (uid, false);
+
+  /* If we are doing a language with a type heirarchy, mark all of
+     the superclasses.  */
+  if (TYPE_BINFO (type)) 
+    for (binfo = TYPE_BINFO (type), i = 0;
+	 BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+      {
+	tree binfotype = BINFO_TYPE (base_binfo);
+	if (mark_type (binfotype, FULL_ESCAPE))
+	  close_type_full_escape (binfotype);
+      }
+      
+  /* Mark as escaped any types that have been down casted to
+     this type. */
+  if (subtype_map)
+    EXECUTE_IF_SET_IN_BITMAP (subtype_map, 0, i, bi)
+      {
+	tree subtype = type_for_uid (i); 
+	if (mark_type (subtype, FULL_ESCAPE))
+	  close_type_full_escape (subtype);
+      }
+
+  /* If the field is a struct or union type, mark all of the
+     subfields.  */
+  for (field = TYPE_FIELDS (type);
+       field;
+       field = TREE_CHAIN (field))
+    {
+      tree field_type;
+      if (TREE_CODE (field) != FIELD_DECL)
+	continue;
+
+      field_type = TREE_TYPE (field);
+      if (ipa_static_star_count_of_interesting_or_array_type (field_type) >= 0)
+	if (mark_type (field_type, FULL_ESCAPE))
+	  close_type_full_escape (field_type);
+    }
+}
+
+/* It is not necessary to carry around the addressof map for any
+   escaping TYPE.  */
+ 
+static void 
+delete_addressof_map (tree from_type) 
+{
+  int uid = TYPE_UID (TYPE_MAIN_VARIANT (from_type));
+  splay_tree_node result = 
+    splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
+  
+  if (result) 
+    {
+      bitmap map = (bitmap) result->value;
+      BITMAP_XFREE (map);
+      splay_tree_remove (uid_to_addressof_map, (splay_tree_key) uid);
+    }
+}
+
+/* Transitively close the addressof bitmap for the type with UID.
+   This means that if we had a.b and b.c, a would have both b an c in
+   it's maps.  */ 
+
+static bitmap
+close_addressof (int uid) 
+{
+  bitmap_iterator bi;
+  splay_tree_node result = 
+    splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
+  bitmap map = NULL;
+  bitmap new_map;
+  unsigned int i;
+  
+  if (result) 
+    map = (bitmap) result->value;
+  else 
+    return NULL;
+
+  if (bitmap_bit_p (been_there_done_that, uid))
+    return map;
+  bitmap_set_bit (been_there_done_that, uid);
+
+  /* The new_map will have all of the bits for the enclosed fields and
+     will have the unique id version of the old map.  */
+  new_map = BITMAP_ALLOC (&ipa_obstack);
+
+  EXECUTE_IF_SET_IN_BITMAP (map, 0, i, bi)
+    {
+      int new_uid = unique_type_id_for (i);
+      bitmap submap = close_addressof (new_uid);
+      bitmap_set_bit (new_map, new_uid);
+      if (submap) 
+	bitmap_ior_into (new_map, submap);
+    }      
+  result->value = (splay_tree_value) new_map;
+
+  BITMAP_FREE (map);
+  return new_map;
+}
+
+/* Do all of the closures to discover which types escape the
+   compilation unit.  */
+
+static void
+do_type_analysis (void)
+{ 
+  unsigned int i;
+  bitmap_iterator bi;
+  splay_tree_node result;
+
+  been_there_done_that = BITMAP_ALLOC (&ipa_obstack);
+
+  /* Examine the types that we have directly seen in scanning the code
+     and add to that any contained types or superclasses.  */
+
+  EXECUTE_IF_SET_IN_BITMAP (global_types_seen, 0, i, bi)
+    {
+      tree type = type_for_uid (i);
+      /* Only look at records and unions with no pointer tos.  */
+      if (ipa_static_star_count_of_interesting_or_array_type (type) == 0)
+	close_type_seen (type);
+    }
+  bitmap_clear (been_there_done_that);
+
+  /* Map the duplicate types to a single unique type.  This is a hack
+     it is not a general algorithm.  */
+  uid_to_unique_type = splay_tree_new (splay_tree_compare_ints, 0, 0);
+  all_unique_types = splay_tree_new (compare_type_brand, 0, 0);
+  
+  EXECUTE_IF_SET_IN_BITMAP (global_types_seen, 0, i, bi)
+    {
+      tree unique_type = discover_unique_type (type_for_uid (i));
+      splay_tree_insert (uid_to_unique_type, 
+			 (splay_tree_key) i, 
+			 (splay_tree_value) unique_type);
+      if (0)
+	fprintf(stderr, "dta i=%d,%d j=%d,%s\n", i, 
+		TYPE_UID(type_for_uid(i)),
+		TYPE_UID(unique_type), get_name_of_type(unique_type));
+    }
+
+  /* Get rid of the temporary data structures used to find the unique
+     type.  */
+  result = splay_tree_min (all_unique_types);
+  while (result)
+    {
+      struct type_brand_s * b = (struct type_brand_s *) result->key;
+      splay_tree_remove (all_unique_types, result->key);
+      free (b);
+      result = splay_tree_min (all_unique_types);
+    }
+  splay_tree_delete (all_unique_types);
+  all_unique_types = NULL;
+
+  /* Examine all of the types passed by value and mark any enclosed
+     pointer types as escaping.  */
+
+  EXECUTE_IF_SET_IN_BITMAP (global_types_exposed_parameter, 0, i, bi)
+    {
+      close_type_exposed_parameter (type_for_uid (i));
+    }
+  bitmap_clear (been_there_done_that);
+
+  /* Close the types for escape.  If something escapes, then any
+     enclosed types escape as well as any subtypes.  */
+
+  EXECUTE_IF_SET_IN_BITMAP (global_types_full_escape, 0, i, bi)
+    {
+      tree type = type_for_uid (i);
+      close_type_full_escape (type);
+    }
+  bitmap_clear (been_there_done_that);
+
+  result = splay_tree_min (uid_to_addressof_map);
+  while (result)
+    {
+      int uid = result->key;
+      tree type = type_for_uid (uid);
+      if (bitmap_bit_p (global_types_full_escape, uid))
+	/* If the type escaped, we will never use the map, so get rid
+	   of it.  */ 
+	delete_addressof_map (type);
+      else  
+	{
+	  if (unique_type_id_p (uid))
+	    /* Close the addressof map, i.e. copy all of the
+	       transitive substructures up to this level.  */
+	    close_addressof (uid);
+	  else
+	    /* This type is not the unique designate, so get rid of
+	       it.  */
+	    delete_addressof_map (type);
+	}
+      result = splay_tree_successor (uid_to_addressof_map, uid);
+    }
+  
+  /* If a type is set in global_types_full_escape, make sure that the
+     unique type is also set in that map.  */
+  EXECUTE_IF_SET_IN_BITMAP (global_types_full_escape, 0, i, bi)
+    {
+      unsigned int j = unique_type_id_for (i);
+      if (i != j)
+	{
+	  bitmap_set_bit(global_types_full_escape, j);
+	  bitmap_clear_bit(global_types_full_escape, i);
+	}
+    }
+
+  if (0)
+    { 
+      EXECUTE_IF_SET_IN_BITMAP (global_types_seen, 0, i, bi)
+	{
+	  /* The pointer types are in the global_types_full_escape bitmap
+	     but not in the backwards map.  */
+	  tree type = type_for_uid (i);
+	  fprintf(stderr, "type %d ", i);
+	  print_generic_expr (stderr, type, 0);
+	  if (bitmap_bit_p (global_types_full_escape, i))
+	    fprintf(stderr, " escaped\n");
+	  else if (unique_type_id_p (i))
+	    fprintf(stderr, " contained\n");
+	  else
+	    fprintf(stderr, " replaced\n");
+	}
+    }
+
+  /* Get rid of the subtype map.  */
+  result = splay_tree_min (uid_to_subtype_map);
+  while (result)
+    {
+      bitmap b = (bitmap)result->value;
+      BITMAP_XFREE(b);
+      splay_tree_remove (uid_to_subtype_map, result->key);
+      result = splay_tree_min (uid_to_subtype_map);
+    }
+  splay_tree_delete (uid_to_subtype_map);
+  uid_to_subtype_map = NULL;
+
+  BITMAP_XFREE (global_types_exposed_parameter);
+  BITMAP_XFREE (been_there_done_that);
+  BITMAP_XFREE (results_of_malloc);
+
+  cant_touch = 0;
+}
+
+
 /* Produce the global information by preforming a transitive closure
    on the local information that was produced by ipa_analyze_function
    and ipa_analyze_variable.  */
-
 
 static void
 static_execute (void)
@@ -1527,16 +2819,6 @@ static_execute (void)
 	      break;
 	    }
 
-/* 	if (l->pure_const_state == IPA_PURE) */
-/* 	  { */
-/* 	    fprintf (stderr, " before %s(%d)=%d\n", cgraph_node_name (node),  */
-/* 		     node->uid, l->pure_const_state); */
-/* 	  l->pure_const_state = IPA_NEITHER; */
-
-
-/* 	  } */
-
-	
 	/* Any variables that are not in all_module_statics are
 	   removed from the local maps.  This will include all of the
 	   variables that were found to escape in the function
@@ -1751,6 +3033,8 @@ static_execute (void)
 	}
     }
 
+  do_type_analysis ();
+
   /* Cleanup. */
   for (i = 0; i < order_pos; i++ )
     {
@@ -1767,12 +3051,6 @@ static_execute (void)
       node_g->statics_not_read_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
       node_g->statics_not_written_by_decl_uid = BITMAP_ALLOC (&ipa_obstack);
 
-      /* FIXME -- PROFILE-RESTRUCTURE: Delete next 4 assignments.  */
-      node_g->statics_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
-      node_g->statics_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
-      node_g->statics_not_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
-      node_g->statics_not_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
-
       if (node_g->statics_read_by_decl_uid != all_module_statics) 
 	{
 	  bitmap_and_compl (node_g->statics_not_read_by_decl_uid, 
@@ -1784,6 +3062,12 @@ static_execute (void)
 	bitmap_and_compl (node_g->statics_not_written_by_decl_uid, 
 			  all_module_statics,
 			  node_g->statics_written_by_decl_uid);
+
+      /* FIXME -- PROFILE-RESTRUCTURE: Delete next 4 assignments.  */
+      node_g->statics_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_not_read_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
+      node_g->statics_not_written_by_ann_uid = BITMAP_ALLOC (&ipa_obstack);
 
       w = node;
       while (w)

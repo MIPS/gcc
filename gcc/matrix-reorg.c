@@ -1348,7 +1348,7 @@ flatten_allocation_site (struct matrix_info *mi)
   call_exp = copy_node (mi->allocation_info->call_exp);
   if (edge)
     cgraph_clone_edge (edge, cgraph_node (current_function_decl), 
-                       call_exp, REG_BR_PROB_BASE);
+                       call_exp, REG_BR_PROB_BASE, /* FKZ HACK */ 0);
   
   TREE_OPERAND (call_exp, 1) = copy_node (TREE_OPERAND (call_exp, 1));
   TREE_VALUE (TREE_OPERAND (call_exp, 1)) = new_var;

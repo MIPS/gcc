@@ -434,7 +434,7 @@ cgraph_indirect_assign_edge (struct cgraph_node *caller,
 
 struct cgraph_edge *
 cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
-		    tree call_expr)
+		    tree call_expr, gcov_type count, int nest)
 {
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
 #ifdef ENABLE_CHECKING
@@ -468,8 +468,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   NEXT_INDIRECT_CALL (edge) = NULL;
   caller->callees = edge;
   callee->callers = edge;
-  edge->count = caller->current_basic_block
-    ? caller->current_basic_block->count : 0;
+  edge->count = count;
+  edge->loop_nest = nest;
   return edge;
 }
 
@@ -767,6 +767,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
 		 (HOST_WIDEST_INT)edge->count);
+      if (edge->loop_nest)
+	fprintf (f, "(nested in %i loops) ", edge->loop_nest);
     }
 
   fprintf (f, "\n  calls: ");
@@ -779,6 +781,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
 		 (HOST_WIDEST_INT)edge->count);
+      if (edge->loop_nest)
+	fprintf (f, "(nested in %i loops) ", edge->loop_nest);
     }
   fprintf (f, "\n  cycle: ");
   n = node->next_cycle;
@@ -1027,12 +1031,15 @@ cgraph_function_possibly_inlined_p (tree decl)
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
-		   tree call_expr, int count_scale)
+		   tree call_expr, int count_scale, int loop_nest)
 {
-  struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
+  struct cgraph_edge *new;
+
+  new = cgraph_create_edge (n, e->callee, call_expr,
+                            e->count * count_scale / REG_BR_PROB_BASE,
+		            e->loop_nest + loop_nest);
 
   new->inline_failed = e->inline_failed;
-  new->count = e->count * count_scale / REG_BR_PROB_BASE;
   e->count -= new->count;
   return new;
 }
@@ -1040,7 +1047,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 /* Create node representing clone of N executed COUNT times.  Decrease
    the execution counts from original node too.  */
 struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n, gcov_type count)
+cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest)
 {
   struct cgraph_node *new = cgraph_create_node ();
   struct cgraph_edge *e;
@@ -1067,7 +1074,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count)
   n->count -= count;
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_expr, count_scale);
+    cgraph_clone_edge (e, new, e->call_expr, count_scale, loop_nest);
 
   new->next_clone = n->next_clone;
   n->next_clone = new;

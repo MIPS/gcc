@@ -45,6 +45,54 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "varray.h"
 
+/* The aliasing API provided here solves related but different problems:
+
+   Say there exists (in c) 
+
+   struct X {
+     struct Y y1;
+     struct Z z2;
+   } x1, *px1,  *px2;
+
+   struct Y y2, *py;
+   struct Z z2, *pz;
+
+
+   py = &px1.y1;
+   px2 = &x1;
+
+   Consider the four questions:
+
+   Can a store to x1 interfere with px2->y2?
+   Can a store to x1 interfere with px2->z2?
+   (*px2).z2
+   Can a store to x1 change the value pointed to by with py?
+   Can a store to x1 change the value pointed to by with pz?
+
+   The answer to these questions can be yes, yes, yes, and no.
+
+   The first two questions can be answered with a simple examination
+   of the type system.  If structure X contains a field of type Y then
+   a store thru a pointer to an X can overwrite any field that is
+   contained (recursively) in an X (unless we know that px1 != px2).
+
+   The last two of the questions can be solved in the same way as the
+   first two questions but this is too conservative.  The observation
+   is that if the address of a field is not explicitly taken and the
+   type is completely local to the compilation unit, then it is
+   impossible that a pointer to an instance of the field type overlaps
+   with an enclosing structure.
+
+   Historically in GCC, these two problems were combined and a single
+   data structure was used to represent the solution to these
+   problems.  We now have two similar but different data structures,
+   The data structure to solve the last two question is similar to the
+   first, but does not contain have the fields in it whose address are
+   never taken.  For types that do escape the compilation unit, the
+   data structures will have identical information.
+
+*/
+
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
    different alias sets cannot alias each other, with one important
@@ -2006,22 +2054,34 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   /* Unless both have exprs, we can't tell anything.  */
   if (exprx == 0 || expry == 0)
     return 0;
-
+  
   /* If both are field references, we may be able to determine something.  */
   if (TREE_CODE (exprx) == COMPONENT_REF
       && TREE_CODE (expry) == COMPONENT_REF
       && nonoverlapping_component_refs_p (exprx, expry))
     return 1;
 
+  
   /* If the field reference test failed, look at the DECLs involved.  */
   moffsetx = MEM_OFFSET (x);
   if (TREE_CODE (exprx) == COMPONENT_REF)
     {
-      tree t = decl_for_component_ref (exprx);
-      if (! t)
-	return 0;
-      moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
-      exprx = t;
+      if (TREE_CODE (expry) == VAR_DECL
+	  && POINTER_TYPE_P (TREE_TYPE (expry)))
+	{
+	 tree field = TREE_OPERAND (exprx, 1);
+	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
+	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+						    TREE_TYPE (field)))
+	   return 1;	 
+	}
+      {
+	tree t = decl_for_component_ref (exprx);
+	if (! t)
+	  return 0;
+	moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
+	exprx = t;
+      }
     }
   else if (INDIRECT_REF_P (exprx))
     {
@@ -2034,11 +2094,22 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
-      tree t = decl_for_component_ref (expry);
-      if (! t)
-	return 0;
-      moffsety = adjust_offset_for_component_ref (expry, moffsety);
-      expry = t;
+      if (TREE_CODE (exprx) == VAR_DECL
+	  && POINTER_TYPE_P (TREE_TYPE (exprx)))
+	{
+	 tree field = TREE_OPERAND (expry, 1);
+	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
+	 if (ipa_static_address_not_taken_of_field (fieldcontext,
+						    TREE_TYPE (field)))
+	   return 1;	 
+	}
+      {
+	tree t = decl_for_component_ref (expry);
+	if (! t)
+	  return 0;
+	moffsety = adjust_offset_for_component_ref (expry, moffsety);
+	expry = t;
+      }
     }
   else if (INDIRECT_REF_P (expry))
     {

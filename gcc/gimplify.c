@@ -3765,7 +3765,18 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 			       is_gimple_val, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
 	  break;
-
+	case MEM_REF:
+	  {
+ 	    enum gimplify_status r0, r1;
+	    
+	    r0 = gimplify_expr (&MEM_REF_SYMBOL (*expr_p), pre_p, post_p,
+				is_gimple_reg, fb_rvalue);
+	    r1 = gimplify_expr (&MEM_REF_INDEX (*expr_p), pre_p, post_p,
+				is_gimple_reg, fb_rvalue);
+	    recalculate_side_effects (*expr_p);	 
+	    ret = MIN (r0, r1);
+	  }
+	  break;
 	case ALIGN_INDIRECT_REF:
 	case MISALIGNED_INDIRECT_REF:
 	case INDIRECT_REF:
@@ -3826,7 +3837,6 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
 				 NULL, is_gimple_val, fb_rvalue);
 	  break;
-
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
@@ -4347,6 +4357,7 @@ check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   switch (TREE_CODE (t))
     {
     case INDIRECT_REF:
+    case MEM_REF:
     case ARRAY_REF:
       otype = TREE_TYPE (t);
       ptype = TREE_TYPE (TREE_OPERAND (t, 0));

@@ -2199,7 +2199,7 @@ add_field_mallocs (tree cur_lhs,
 
 	  c_node = cgraph_node (cur_malloc->context);
 	  c_node2 = cgraph_node (malloc_fn_decl);
-	  cgraph_create_edge (c_node, c_node2, call_expr);
+	  cgraph_create_edge (c_node, c_node2, call_expr, /*FKZ HACK*/0, 0);
 
 	  add_field_mallocs (tmp_var3, field_type, struct_data, new_mallocs_list,
 			     cur_malloc, malloc_fn_decl);
@@ -2271,7 +2271,7 @@ create_cascading_mallocs (struct malloc_struct *cur_malloc,
 
   c_node = cgraph_node (cur_malloc->context);
   c_node2 = cgraph_node (malloc_fn_decl);
-  cgraph_create_edge (c_node, c_node2, call_expr);
+  cgraph_create_edge (c_node, c_node2, call_expr, /*FKZ HACK*/ 0, 0);
 
   add_field_mallocs (cur_var->new_vars->data, new_struct_type, struct_data,
 		     new_mallocs_list, cur_malloc, malloc_fn_decl);
@@ -2468,7 +2468,7 @@ create_new_mallocs (struct struct_list *data_struct_list,
 				c_node = cgraph_node (cur_malloc->context);
 				c_node_2 = cgraph_node (malloc_fn_decl);
 				cgraph_create_edge (c_node, c_node_2, 
-						    call_expr);
+						    call_expr/*FKZ HACK*/, 0, 0);
 			      }
 			    else
 			      {

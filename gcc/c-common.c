@@ -550,6 +550,7 @@ static tree handle_tls_model_attribute (tree *, tree, tree, int,
 static tree handle_no_instrument_function_attribute (tree *, tree,
 						     tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
+static tree handle_pointer_no_escape_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 					     bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
@@ -618,6 +619,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_alias_attribute },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute },
+  { "pointer_no_escape",      0, 0, true,  false, false,
+			      handle_pointer_no_escape_attribute },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute },
   { "no_stack_limit",         0, 0, true,  false, false,
@@ -4744,6 +4747,25 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     DECL_IS_MALLOC (*node) = 1;
+  /* ??? TODO: Support types.  */
+  else
+    {
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "pointer_no_escape" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_pointer_no_escape_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			 int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    DECL_IS_POINTER_NO_ESCAPE (*node) = 1;
   /* ??? TODO: Support types.  */
   else
     {

@@ -705,6 +705,7 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int *, int);
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
+void set_ref_original (tree, tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
