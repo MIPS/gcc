@@ -52,3 +52,6 @@
 /* Use the default LIBGCC_SPEC, not the version in linux-elf.h, as we
    do not use -lfloat.  */
 #undef LIBGCC_SPEC
+
+/* Do not use short enums for the GNU/Linux platform.  */
+#define DEFAULT_SHORT_ENUMS 0

@@ -1,3 +1,7 @@
+2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* libstdc++-v3/config/linker-map.gnu: Add ARM EABI symbols.
+
 2004-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* libstdc++-v3/config/abi/arm-linux-gnu/baseline_symbols.txt,

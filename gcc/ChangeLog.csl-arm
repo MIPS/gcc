@@ -1,3 +1,9 @@
+2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/arm.h (DEFAULT_SHORT_ENUMS): Wrap in #ifndef.
+	* config/arm/linux-eabi.h (DEFAULT_SHORT_ENUMS): Define to 0.
+	* config/arm/t-linux-eabi (TARGET_LIBGCC2_CFLAGS): Set to -fPIC.
+
 2004-12-08  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/unwind-arm.c (selfrel_offset): remove.
