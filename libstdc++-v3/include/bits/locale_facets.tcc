@@ -1849,8 +1849,13 @@ namespace std
 						__tm, __wcs);
 		  break;
 		case 'S':
-		  // Seconds.
-		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 59, 2,
+		  // Seconds. [tm_sec]
+		  // [00, 60] in C99 (one leap-second), [00, 61] in C89.
+#ifdef _GLIBCXX_USE_C99
+		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 60, 2,
+#else
+		  __beg = _M_extract_num(__beg, __end, __tm->tm_sec, 0, 61, 2,
+#endif
 					 __io, __err);
 		  break;
 		case 't':
@@ -2246,7 +2251,7 @@ namespace std
 
       // NB: This size is arbitrary. Should this be a data member,
       // initialized at construction?
-      const size_t __maxlen = 64;
+      const size_t __maxlen = 128;
       char_type* __res = 
        static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
 
